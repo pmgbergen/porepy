@@ -52,7 +52,6 @@ except:
 from porepy.utils.common_constants import *
 from porepy.utils.porepy_types import *
 
-from porepy.utils.tangential_normal_projection import TangentialNormalProjection
 
 from porepy.utils import permutations
 from porepy.utils.interpolation_tables import (
@@ -86,8 +85,6 @@ from porepy.params.data import (
     Parameters,
     initialize_data,
     initialize_default_data,
-    set_state,
-    set_iterate,
 )
 from porepy.params.rock import UnitRock, Shale, SandStone, Granite
 from porepy.params.fluid import Water, UnitFluid
@@ -96,6 +93,7 @@ from porepy.params.fluid import Water, UnitFluid
 from porepy.grids.grid import Grid
 from porepy.grids.mortar_grid import MortarGrid
 from porepy.grids.md_grid import MixedDimensionalGrid
+from porepy.grids.mdg_generation import create_mdg
 from porepy.grids.structured import CartGrid, TensorGrid
 from porepy.grids.simplex import TriangleGrid, TetrahedralGrid
 from porepy.grids.simplex import StructuredTriangleGrid, StructuredTetrahedralGrid
@@ -106,13 +104,16 @@ from porepy.grids.standard_grids import md_grids_2d, md_grids_3d
 from porepy.grids import grid_extrusion
 from porepy.utils import grid_utils
 from porepy.utils import adtree
+from porepy.utils.tangential_normal_projection import (
+    TangentialNormalProjection,
+    set_local_coordinate_projections,
+)
 
 # Fractures
 from porepy.fracs.plane_fracture import PlaneFracture, create_elliptic_fracture
 from porepy.fracs.line_fracture import LineFracture
-from porepy.fracs.fracture_network_3d import FractureNetwork3d
-from porepy.fracs.fracture_network_2d import FractureNetwork2d
 from porepy.fracs.fracture_network import create_fracture_network
+
 
 # Wells
 from porepy.fracs.wells_3d import (
@@ -170,17 +171,7 @@ from porepy.numerics.fv.mass_matrix import MassMatrix
 from porepy.numerics.fv.mass_matrix import InvMassMatrix
 
 # Contact mechanics
-from porepy.numerics.interface_laws.contact_mechanics_interface_laws import (
-    PrimalContactCoupling,
-    DivUCoupling,
-    MatrixScalarToForceBalance,
-    FractureScalarToForceBalance,
-)
-from porepy.numerics.fracture_deformation.contact_conditions import (
-    ColoumbContact,
-    ContactTraction,
-)
-from porepy.numerics.fracture_deformation import contact_conditions, propagate_fracture
+from porepy.numerics.fracture_deformation import propagate_fracture
 from porepy.numerics.fracture_deformation.conforming_propagation import (
     ConformingFracturePropagation,
 )
@@ -197,6 +188,7 @@ from porepy.models.run_models import (
 from porepy.numerics import ad
 from porepy.numerics.ad.operators import wrap_as_ad_array, wrap_as_ad_matrix
 from porepy.numerics.ad.equation_system import EquationSystem
+from porepy.numerics.ad.equation_system import set_solution_values
 
 # Time stepping control
 from porepy.numerics.time_step_control import TimeManager
@@ -216,6 +208,7 @@ from porepy.models.material_constants import (
 
 
 from porepy.viz.data_saving_model_mixin import DataSavingMixin
+from porepy.viz.diagnostics_mixin import DiagnosticsMixin
 from porepy.models.solution_strategy import SolutionStrategy
 from porepy.models import constitutive_laws
 

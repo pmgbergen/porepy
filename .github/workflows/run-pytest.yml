@@ -4,6 +4,8 @@ name: Pytest
 # Controls when the action will run. Triggers the workflow on push or pull request
 # events for the main and develop branches
 on:
+  workflow_dispatch:
+    # run jobs manually
   push:
     branches:
       - develop

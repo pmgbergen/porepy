@@ -251,9 +251,9 @@ class BasicsTest(unittest.TestCase):
         self.assertTrue(np.allclose(M, M_known, rtol, atol))
 
     def test_dual_hybrid_vem_2d_ani_simplex(self):
+
         g = pp.StructuredTriangleGrid([1, 1], [1, 1])
         g.compute_geometry()
-
         kxx = np.square(g.cell_centers[1, :]) + 1
         kyy = np.square(g.cell_centers[0, :]) + 1
         kxy = -np.multiply(g.cell_centers[0, :], g.cell_centers[1, :])

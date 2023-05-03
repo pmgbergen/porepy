@@ -1,38 +1,102 @@
+"""The module contains the data class for forward mode automatic differentiation.
+"""
+from __future__ import annotations
+
+from typing import Union
+
 import numpy as np
 import scipy.sparse as sps
 
-__all__ = ["initAdArrays", "Ad_array"]
+import porepy as pp
+
+AdType = Union[float, np.ndarray, sps.spmatrix, "AdArray"]
+
+__all__ = ["initAdArrays", "AdArray"]
 
 
-def initAdArrays(variables):
-    if not isinstance(variables, list):
-        try:
-            num_val = variables.size
-        except AttributeError:
-            num_val = 1
-        return Ad_array(variables, sps.diags(np.ones(num_val)).tocsc())
-    num_val = [v.size for v in variables]
-    ad_arrays = []
+def initAdArrays(variables: list[np.ndarray]) -> list[AdArray]:
+    """Initialize a set of AdArrays.
+
+    The variables' gradients will be taken with respect to all variables jointly.
+
+    Parameters:
+        variables: A list of numpy arrays, each of which will be represented by an
+            AdArray.
+
+    Returns:
+        A list of AdArrays, each of which represents one of the variables in the
+        ``variables`` list.
+
+    """
+
+    num_values_per_variable = [v.size for v in variables]
+    ad_arrays: list[AdArray] = []
+
     for i, val in enumerate(variables):
         # initiate zero jacobian
-        n = num_val[i]
-        jac = [sps.csc_matrix((n, m)) for m in num_val]
-        # set jacobian of variable i to I
-        jac[i] = sps.diags(np.ones(num_val[i])).tocsc()
-        # initiate Ad_array
+        n = num_values_per_variable[i]
+        jac = [sps.csc_matrix((n, m)) for m in num_values_per_variable]
+        # Set jacobian of variable i to I
+        jac[i] = sps.diags(np.ones(num_values_per_variable[i])).tocsr()
+        # initiate AdArray
         jac = sps.bmat([jac])
-        ad_arrays.append(Ad_array(val, jac))
+        ad_arrays.append(AdArray(val, jac))
+
     return ad_arrays
 
 
-class Ad_array:
-    def __init__(self, val=1.0, jac=0.0):
-        self.val = val
-        self.jac = jac
+class AdArray:
+    """A class for representing differentiable quantities in a forward Ad mode.
+
+    The class implements methods for arithmetic operations with floats, numpy arrays,
+    scipy sparse matrices, and other ``AdArrays``. For these operations, the following
+    general rules apply:
+      * Scalars can be used for any arithmetic operation. As a convenience measure to
+        limit the number of cases that mest be handled and maintained, the scalar must
+        be a float.
+      * Numpy arrays are assumed to be 1d and have the same size as the ``AdArray``.
+        Numpy arrays can be used for any operation except matrix multiplication (the @
+        operator). *When adding, subtracting or multiplying a numpy array and an
+        AdArray, the AdArray should be placed first, so, DO: AdArray + numpy.array,
+        DO NOT: numpy.array + AdArray. The latter will give erratic behavior, see
+        https://stackoverflow.com/a/6129099. Similarly, do not try to take
+      * Scipy matrices can only be used for matrix-vector products (the @ operator), and
+        then only for left multiplication. While right multiplication could technically
+        work, depending on the size of the matrix, this is not the way the Ad framework
+        is intended to be used, and so this operation is not supported.
+      * Other AdArrays can be used with all arithmetic operations except the @
+        operator.
+
+    A violation of these rules will result in a ``ValueError``.
+
+    Attributes:
+        val: The value of the AdArray, stored as a 1d numpy array.
+        jac: The Jacobian matrix of the AdArray, stored as a sparse matrix.
+
+    """
+
+    def __init__(self, val: np.ndarray, jac: sps.spmatrix) -> None:
+        # Consistency checks, to limit the possibilities for errors when combining this
+        # array with other objects.
+        if val.ndim != 1:
+            raise ValueError("The Ad array value should be one dimensional")
+        if jac.shape[0] != val.size:
+            raise ValueError(
+                "The Jacobian matrix should have one row per array degree of freedom"
+            )
+
+        # Enforce float format of all data to limit the number of cases we need to
+        # handle and test.
+        self.val: np.ndarray = val.astype(float)
+        """The value of the AdArray, stored as a 1d numpy array."""
+
+        self.jac: sps.spmatrix = jac.astype(float)
+        """The Jacobian matrix of the AdArray, stored as a sparse matrix."""
 
     def __repr__(self) -> str:
         s = f"Ad array of size {self.val.size}\n"
-        s += f"Jacobian is of size {self.jac.shape} and has {self.jac.data.size} elements"
+        s += f"Jacobian is of size {self.jac.shape} and has {self.jac.data.size}"
+        s += " elements"
         return s
 
     def __getitem__(self, key):
@@ -40,155 +104,454 @@ class Ad_array:
             key_val = key[0]
         else:
             key_val = key
-        return Ad_array(self.val[key_val], self.jac[key])
+        return AdArray(self.val[key_val], self.jac[key])
     
     def __setitem__(self, key, val):
         if isinstance(key, tuple):
             key_val = key[0]
         else:
             key_val = key
-        if isinstance(val, Ad_array):
+        if isinstance(val, AdArray):
             self.val[key_val] = val.val
             self.jac[key] = val.jac
         else:
             self.val[key_val] = val
 
-    def __add__(self, other):
-        b = _cast(other)
-        c = Ad_array()
-        c.val = self.val + b.val
-        c.jac = self.jac + b.jac
-        return c
+    def __add__(self, other: AdType) -> AdArray:
+        """Add the AdArray to another object.
 
-    def __radd__(self, other):
+        Parameters:
+            other: An object to be added to this object. See class documentation for
+                restrictions on admissible types for this function.
+
+        Raises:
+            ValueError: If this represents an impermissible operation.
+
+        Returns:
+            An AdArray which combines ``self`` and ``other``.
+
+        """
+        # Use if-else with isinstance (would have preferred match-case, but that is
+        # only available in python 3.10)
+        if isinstance(other, (int, float)):
+            # Strictly speaking, we require scalars to be floats, but add casting of
+            # ints to floats for convenience.
+            return AdArray(self.val + float(other), self.jac)
+
+        elif isinstance(other, np.ndarray):
+            if other.ndim != 1:
+                raise ValueError("Only 1d numpy arrays can be added to AdArrays")
+            return AdArray(self.val + other, self.jac)
+
+        elif isinstance(other, sps.spmatrix):
+            raise ValueError("Sparse matrices cannot be added to AdArrays")
+
+        elif isinstance(other, pp.ad.AdArray):
+            if self.val.size != other.val.size or self.jac.shape != other.jac.shape:
+                raise ValueError("Incompatible sizes for AdArray addition")
+            return AdArray(self.val + other.val, self.jac + other.jac)
+
+        else:
+            raise ValueError(f"Unknown type {type(other)} for AdArray addition")
+
+    def __radd__(self, other: AdType) -> AdArray:
+        """Add the AdArray to another object.
+
+        Parameters:
+            other: An object to be added to this object. See class documentation for
+                restrictions on admissible types for this function.
+
+        Raises:
+            ValueError: If this represents an impermissible operation.
+
+        Returns:
+            An AdArray which combines ``self`` and ``other``.
+
+        """
         return self.__add__(other)
 
-    def __sub__(self, other):
-        b = _cast(other).copy()
-        b.val = -b.val
-        b.jac = -b.jac
-        return self + b
+    def __sub__(self, other: AdType) -> AdArray:
+        """Subtract right hand operand (this AdArray) from left hand operand (other).
 
-    def __rsub__(self, other):
+        Parameters:
+            other: An object to be subtracted from this object. See class
+            documentation for restrictions on admissible types for this function.
+
+        Raises:
+            ValueError: If this represents an impermissible operation.
+
+        Returns:
+            An AdArray which combines ``self`` and ``other``.
+
+        """
+        return self.__add__(-other)
+
+    def __rsub__(self, other: AdType) -> AdArray:
+        """Subtract right hand operand (other) from left hand operand (this AdArray).
+
+        Parameters:
+            other: An object to be subtracted from this object. See class
+            documentation for restrictions on admissible types for this function.
+
+        Raises:
+            ValueError: If this represents an impermissible operation.
+
+        Returns:
+            An AdArray which subtracts ``self`` from ``other``.
+
+        """
+        # Calculate self - other and negative the answer (note the minus sign in front).
         return -self.__sub__(other)
 
-    def __lt__(self, other):
-        return self.val < _cast(other).val
+    def __mul__(self, other: AdType) -> AdArray:
+        """Elementwise product (Hadamard or Schur product) between two objects.
 
-    def __le__(self, other):
-        return self.val <= _cast(other).val
+        Parameters:
+            other: An object to be multiplied with this object. See class documentation
+                for restrictions on admissible types for this function.
 
-    def __gt__(self, other):
-        return self.val > _cast(other).val
+        Raises:
+            ValueError: If this represents an impermissible operation.
 
-    def __ge__(self, other):
-        return self.val >= _cast(other).val
+        Returns:
+            An AdArray which multiplies ``self`` and ``other`` elementwise.
 
-    def __eq__(self, other):
-        return self.val == _cast(other).val
+        """
+        # Use if-else with isinstance to identify the other operator.
+        if isinstance(other, (int, float)):
+            # Strictly speaking, we require scalars to be floats, but add casting of
+            # ints to floats for convenience.
+            return AdArray(self.val * other, self.jac * other)
 
-    def __mul__(self, other):
-        if not isinstance(other, Ad_array):  # other is scalar
-            val = self.val * other
-            if isinstance(other, np.ndarray):
-                jac = self.diagvec_mul_jac(other)
-            else:
-                jac = self._jac_mul_other(other)
-        else:
-            val = self.val * other.val
-            jac = self.diagvec_mul_jac(other.val) + other.diagvec_mul_jac(self.val)
-        return Ad_array(val, jac)
-
-    def __rmul__(self, other):
-        if isinstance(other, Ad_array):
-            # other is Ad_var, so should have called __mul__
-            raise RuntimeError("Something went horrible wrong")
-        val = other * self.val
-        jac = self._other_mul_jac(other)
-        return Ad_array(val, jac)
-
-    def __pow__(self, other):
-        if not isinstance(other, Ad_array):
-            if isinstance(other, int) or isinstance(other, np.integer):
-                # Standard ints and numpy scalars of integer format can be converted to
-                # float in a standard way
-                val = self.val ** float(other)
-                jac = self.diagvec_mul_jac(other * self.val ** float(other - 1))
-            elif isinstance(other, np.ndarray) and np.issubdtype(
-                other.dtype, np.integer
-            ):
-                # Numpy arrays of integer format are converted using np.astype
-                val = self.val ** other.astype(float)
-                jac = self.diagvec_mul_jac(
-                    other * self.val ** (other.astype(float) - 1)
+        elif isinstance(other, np.ndarray):
+            if other.ndim != 1:
+                raise ValueError(
+                    "Only 1d numpy arrays can be multiplied elementwise with AdArrays."
                 )
-            else:
-                # Other should be a float, or have float data type; raising to the power
-                # of other should anyhow be fine. If there are more special cases not
-                # yet hit upon, an error message will be given here.
-                val = self.val**other
-                jac = self.diagvec_mul_jac(other * self.val ** (other - 1))
+            # The below line will invoke numpy's __mul__ method on the values.
+            new_val = self.val * other
+            # The Jacobian will have its columns scaled with the values in other.
+            # Achieve this by left-multiplying with other, represented as a diagonal
+            # matrix.
+            new_jac = self._diagvec_mul_jac(other)
+            return AdArray(new_val, new_jac)
 
-        else:
-            if isinstance(other.val, np.ndarray):
-                # We know that other.val is a numpy array, so conversion can be done
-                # using np.astype. We do this independent of the format of other; this
-                # may add a slight cost, but the code becomes less complex.
-                val = self.val ** other.val.astype(float)
-                jac = self.diagvec_mul_jac(
-                    other.val * self.val ** (other.val.astype(float) - 1)
-                ) + other.diagvec_mul_jac(
-                    self.val ** other.val.astype(float) * np.log(self.val)
-                )
-            else:
-                # Other.val is presumably a float or an int, but who knows what else
-                # numpy can throw at us. Make an assertion to make the code safe.
-                assert isinstance(other.val, (float, int))
-                val = self.val ** float(other.val)
-                jac = self.diagvec_mul_jac(
-                    other.val * self.val ** (float(other.val) - 1)
-                ) + other.diagvec_mul_jac(
-                    self.val ** float(other.val) * np.log(self.val)
-                )
-
-        return Ad_array(val, jac)
-
-    def __rpow__(self, other):
-        if isinstance(other, Ad_array):
+        elif isinstance(other, sps.spmatrix):
             raise ValueError(
-                "Something went horrible wrong, should have called __pow__"
+                """Sparse matrices cannot be multiplied with  AdArrays elementwise.
+                Did you mean to use the @ operator?
+                """
             )
 
-        # Convert self.val to float to avoid errors if self.val contains negative integers
-        if isinstance(self.val, np.ndarray):
-            val = other ** (self.val.astype(float))
-            jac = self.diagvec_mul_jac(
-                other ** (self.val.astype(float)) * np.log(other)
-            )
-        elif isinstance(self.val, int):
-            val = other ** float(self.val)
-            jac = self.diagvec_mul_jac(other ** float(self.val) * np.log(other))
-        else:
-            val = other**self
-            jac = self.diagvec_mul_jac(other**self.val * np.log(other))
-        return Ad_array(val, jac)
+        elif isinstance(other, pp.ad.AdArray):
+            if self.val.size != other.val.size or self.jac.shape != other.jac.shape:
+                raise ValueError(
+                    "Incompatible sizes for AdArray elementwise multiplication."
+                )
 
-    def __truediv__(self, other):
-        # A bit of work is needed here: Python (or numpy?) does not allow for negative
-        # powers of integers, but it is allowed for floats. This leads to some special
-        # cases that are treated below.
-        if isinstance(other, int) or isinstance(other, np.integer):
-            # Standard ints and numpy scalars of integer format can be converted to
-            # float in a standard way
-            return self * float(other) ** -1
-        elif isinstance(other, np.ndarray) and np.issubdtype(other.dtype, np.integer):
-            # Numpy arrays of integer format are converted using np.astype
-            return self * other.astype(float) ** -1
+            # For the values, use elementwise multiplication, as implemented by
+            # numpy's __mul__ method
+            new_val = self.val * other.val
+            # Compute the derivative of the product using the product rule. Since
+            # the gradients in jac is stored row-wise, the columns in self.jac
+            # should be scaled with the values of other and vice versa.
+            new_jac = self._diagvec_mul_jac(other.val) + other._diagvec_mul_jac(
+                self.val
+            )
+            return AdArray(new_val, new_jac)
+
         else:
-            # Other should be a float, or have float data type; raising to the power of
-            # other should anyhow be fine. If there are more special cases not yet hit
-            # upon, an error message will be given here.
-            return self * (other**-1)
+            raise ValueError(
+                f"Unknown type {type(other)} for AdArray elementwise multiplication."
+            )
+
+    def __rmul__(self, other: AdType) -> AdArray:
+        """Elementwise product (Hadamard or Schur product) between two objects.
+
+        Parameters:
+            other: An object to be multiplied with this object. See class documentation
+                for restrictions on admissible types for this function.
+
+        Returns:
+            An AdArray which multiplies ``self`` and ``other`` elementwise.
+
+        Raises:
+            ValueError: If this represents an impermissible operation.
+
+        """
+
+        if isinstance(other, (float, sps.spmatrix, np.ndarray, int)):
+            # In these cases, there is no difference between left and right
+            # multiplication, so we simply invoke the standard __mul__ function.
+            return self.__mul__(other)
+
+        elif isinstance(other, pp.ad.AdArray):
+            # The only way we can end up here is if other.__mul__(self) returns
+            # NotImplemented, which makes no sense. Raise an error; if we ever end
+            # up here, something is really wrong.
+            raise RuntimeError(
+                "Something went wrong when multiplying two AdArrays elementwise."
+            )
+        else:
+            raise ValueError(
+                f"Unknown type {type(other)} for AdArray elementwise multiplication."
+            )
+
+    def __pow__(self, other: AdType) -> AdArray:
+        """Raise this AdArray to the power of another object.
+
+        Parameters:
+            other: An object with exponent to which this AdArray is raised. The power
+                is implemented elementwise. See class documentation for restrictions on
+                admissible types for this function.
+
+        Returns:
+            An AdArray which represents ``other`` ** ``self`` elementwise.
+
+        """
+
+        if isinstance(other, (int, float)):
+            # This is a polynomial, use standard rules for differentiation.
+            new_val = self.val**other
+            # Left-multiply jac with a diagonal-matrix version of the differentiated
+            # polynomial, this will give the desired column-wise scaling of the
+            # gradients.
+            new_jac = self._diagvec_mul_jac(float(other) * self.val ** float(other - 1))
+            return AdArray(new_val, new_jac)
+
+        elif isinstance(other, np.ndarray):
+            if other.ndim != 1:
+                raise ValueError(
+                    "AdArrays can only be raised to powers of 1d numpy arrays."
+                )
+            # This is a polynomial, but with different coefficients for each element
+            # in self.val. Numpy can be picky on raising arrays to negative powers,
+            # without EK ever understanding why, so we convert to a float
+            # beforehand, just to be sure.
+            new_val = self.val ** other.astype(float)
+            # The Jacobian will have its columns scaled with the values in other,
+            # again in array-form. Achieve this by left-multiplying with other,
+            # represented as a diagonal matrix.
+            new_jac = self._diagvec_mul_jac(other * (self.val ** (other - 1)))
+            return AdArray(new_val, new_jac)
+
+        elif isinstance(other, sps.spmatrix):
+            raise ValueError("Cannot raise AdArrays to power of sparse matrices.")
+
+        elif isinstance(other, pp.ad.AdArray):
+            if self.val.size != other.val.size or self.jac.shape != other.jac.shape:
+                raise ValueError("Incompatible sizes for AdArray power.")
+
+            # This is an expression of the type f = x^y, with derivative
+            #
+            #   df = (y * x ** (y-1)) * dx + x^y * log(x) * dy
+            #
+            # Compute the value using numpy's power method. Convert to float to
+            # avoid spurious behavior form numpy, just to be sure.
+            new_val = self.val ** other.val.astype(float)
+            # The derivative, computed by the chain rule.
+            new_jac = self._diagvec_mul_jac(
+                other.val * self.val ** (other.val.astype(float) - 1.0)
+            ) + other._diagvec_mul_jac(
+                self.val ** other.val.astype(float) * np.log(self.val)
+            )
+
+            return AdArray(new_val, new_jac)
+
+        else:
+            raise ValueError(f"Unknown type {type(other)} for AdArray power.")
+
+    def __rpow__(self, other: AdType) -> AdArray:
+        """Raise another object to the power of this AdArray.
+
+        Parameters:
+            other: An object which should be raised to the power of this AdArray.
+                The power is implemented elementwise. See class documentation for
+                restrictions on admissible types for this function.
+
+        Returns:
+            An AdArray which represents ``other`` ** ``self`` elementwise.
+
+        """
+        if isinstance(other, (int, float)):
+            # This is an exponent of type number ** x
+            new_val = float(other) ** self.val
+            # Left-multiply jac with a diagonal-matrix version of the differentiated
+            # polynomial, this will give the desired column-wise scaling of the
+            # gradients.
+            new_jac = self._diagvec_mul_jac(
+                (float(other) ** self.val) * np.log(float(other))
+            )
+            return AdArray(new_val, new_jac)
+
+        elif isinstance(other, np.ndarray):
+            if other.ndim != 1:
+                raise ValueError(
+                    "Only 1d numpy arrays can be raised to the power of an AdArray."
+                )
+            # This is an exponent with different coefficients for each element
+            # in self.val. Numpy appears to be using dtype instead of values to determine
+            # the output type. Consequently, the multiplicative inverse / negative integer
+            # powers of a numpy's integer array lead to a float array raising a value
+            # error. As an example compare 1/np.array([1,2,3]) and np.array([1,2,3])**-1.
+            # As a workaround, we convert it to a float.
+            new_val = other.astype(float) ** self.val
+            # The Jacobian will have its columns scaled with the values in other,
+            # again in array-form. Achieve this by left-multiplying with other,
+            # represented as a diagonal matrix.
+            new_jac = self._diagvec_mul_jac((other**self.val) * np.log(other))
+            return AdArray(new_val, new_jac)
+
+        elif isinstance(other, sps.spmatrix):
+            raise ValueError("Cannot raise sparse matrices to the power of Ad arrays.")
+
+        elif isinstance(other, pp.ad.AdArray):
+            if self.val.size != other.val.size or self.jac.shape != other.jac.shape:
+                raise ValueError("Incompatible sizes for AdArray power.")
+
+            return other.__pow__(self)
+
+        else:
+            raise ValueError(f"Unknown type {type(other)} for AdArray power.")
+
+    def __truediv__(self, other: AdType) -> AdArray:
+        """Divide this AdArray by another object.
+
+        Parameters:
+            other: An object which should divide this AdArray. The division is
+                implemented elementwise. See class documentation for restrictions on
+                admissible types for this function.
+
+        Returns:
+            An AdArray which represents ``self`` / ``other`` elementwise.
+
+        """
+
+        if isinstance(other, (int, float)):
+            # Division by float, or int cast to float is straightforward, elementwise.
+            new_val = self.val / float(other)
+            new_jac = self.jac / float(other)
+            return AdArray(new_val, new_jac)
+
+        elif isinstance(other, np.ndarray):
+            if other.ndim != 1:
+                raise ValueError("AdArrays can only be divided by 1d numpy arrays.")
+
+            new_val = self.val * other.astype(float) ** (-1.0)
+            # The Jacobian will have its columns scaled with the values in other,
+            # again in array-form. Achieve this by left-multiplying with other,
+            # represented as a diagonal matrix.
+            new_jac = self._diagvec_mul_jac(other.astype(float) ** (-1.0))
+            return AdArray(new_val, new_jac)
+
+        elif isinstance(other, sps.spmatrix):
+            raise ValueError("AdArrays cannot be divided by sparse matrices.")
+
+        elif isinstance(other, pp.ad.AdArray):
+            if self.val.size != other.val.size or self.jac.shape != other.jac.shape:
+                raise ValueError("Incompatible sizes for AdArray division.")
+
+            return self.__mul__(other.__pow__(-1.0))
+
+        else:
+            raise ValueError(f"Unknown type {type(other)} for AdArray division.")
+
+    def __rtruediv__(self, other: AdType) -> AdArray:
+        """Divide another object by this AdArray.
+
+        Parameters:
+            other: An object which should be divided by this AdArray. The division is
+                implemented elementwise. See class documentation for restrictions on
+                admissible types for this function.
+
+        Returns:
+            An AdArray which represents ``other`` / ``self`` elementwise.
+
+        """
+
+        if isinstance(other, (float, int, np.ndarray, sps.spmatrix)):
+            # Divide a float or a numpy array by self is the same as raising self to
+            # the power of -1 and multiplying by the float. The multiplication will
+            # end upcalling self.__mul__, which will do the right checks for numpy
+            # arrays and sparse matrices.
+            return self.__pow__(-1.0) * other
+
+        elif isinstance(other, pp.ad.AdArray):
+            if self.val.size != other.val.size or self.jac.shape != other.jac.shape:
+                raise ValueError("Incompatible sizes for AdArray division.")
+
+            return other.__mul__(self.__pow__(-1.0))
+
+        else:
+            raise ValueError(f"Unknown type {type(other)} for AdArray division.")
+
+    def __matmul__(self, other: AdType) -> AdArray:
+        """Do a matrix multiplication between this AdArray and another object.
+
+        Parameters:
+            other: An object which should be right multiplied with this AdArray. See
+                class documentation for restrictions on admissible types for this
+                function.
+
+        Returns:
+            An AdArray which represents ``self`` @ ``other`` elementwise.
+
+        """
+
+        if isinstance(other, (int, float)):
+            return self.__mul__(float(other))
+
+        elif isinstance(other, (np.ndarray, pp.ad.AdArray)):
+            raise ValueError(
+                """Cannot perform matrix multiplication between an AdArray and a"""
+                f""" {type(other)}."""
+            )
+
+        elif isinstance(other, sps.spmatrix):
+            # This goes against the way equations should be formulated in the AD
+            # framework, variables should not be right-multiplied by anything. Raise
+            # a value error to make sure this is not done.
+            raise ValueError(
+                """AdArrays should only be left-multiplied by sparse matrices."""
+            )
+
+        else:
+            raise ValueError(f"Unknown type {type(other)} for AdArray multiplication.")
+
+    def __rmatmul__(self, other):
+        """Do a matrix multiplication between another object and this AdArray.
+
+        Parameters:
+            other: An object which should be left multiplied with this AdArray. See
+                class documentation for restrictions on admissible types for this
+                function.
+
+        Returns:
+            An AdArray which represents ``other`` @ ``self`` elementwise.
+
+        """
+        if isinstance(other, (int, float)):
+            return self.__mul__(float(other))
+
+        if isinstance(other, (np.ndarray, AdArray)):
+            raise ValueError(
+                """Cannot perform matrix multiplication between an AdArray and a"""
+                f""" {type(other)}."""
+            )
+
+        elif isinstance(other, sps.spmatrix):
+            # This is the standard matrix-vector multiplication
+            if self.jac.shape[0] != other.shape[1]:
+                raise ValueError(
+                    """Dimension mismatch between sparse matrix and AdArray during
+                    matrix multiplication."""
+                )
+            new_val = other @ self.val
+            new_jac = other @ self.jac
+            return AdArray(new_val, new_jac)
+
+        else:
+            raise ValueError(f"Unknown type {type(other)} for AdArray multiplication.")
 
     def __neg__(self):
         b = self.copy()
@@ -196,62 +559,22 @@ class Ad_array:
         b.jac = -b.jac
         return b
 
-    def __len__(self):
-        return len(self.val)
+    def copy(self) -> AdArray:
+        """Return a copy of this AdArray.
 
-    def copy(self):
-        b = Ad_array()
-        try:
-            b.val = self.val.copy()
-        except AttributeError:
-            b.val = self.val
-        try:
-            b.jac = self.jac.copy()
-        except AttributeError:
-            b.jac = self.jac
+        Returns:
+            A deep copy of this AdArray.
+
+        """
+        b = AdArray(self.val.copy(), self.jac.copy())
         return b
 
-    def diagvec_mul_jac(self, a):
-        try:
-            A = sps.diags(a)
-        except TypeError:
-            A = a
-        if isinstance(self.jac, np.ndarray):
-            return np.array([A * J for J in self.jac])
-        else:
-            return A * self.jac
+    def _diagvec_mul_jac(self, a: np.ndarray) -> sps.spmatrix:
+        A = sps.diags(a)
 
-    def jac_mul_diagvec(self, a):
-        try:
-            A = sps.diags(a)
-        except TypeError:
-            A = a
-        if isinstance(self.jac, np.ndarray):
-            return np.array([J * A for J in self.jac])
-        else:
-            return self.jac * A
+        return A * self.jac
 
-    def full_jac(self):
-        return self.jac
+    def _jac_mul_diagvec(self, a: np.ndarray) -> sps.spmatrix:
+        A = sps.diags(a)
 
-    def _other_mul_jac(self, other):
-        return other * self.jac
-
-    def _jac_mul_other(self, other):
-        return self.jac * other
-
-
-def _cast(variables):
-    if isinstance(variables, list):
-        out_var = []
-        for var in variables:
-            if isinstance(var, Ad_array):
-                out_var.append(var)
-            else:
-                out_var.append(Ad_array(var))
-    else:
-        if isinstance(variables, Ad_array):
-            out_var = variables
-        else:
-            out_var = Ad_array(variables)
-    return out_var
+        return self.jac * A

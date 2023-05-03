@@ -39,8 +39,6 @@ __all__ = [
     "GradPAd",
     "DivUAd",
     "BiotStabilizationAd",
-    "ColoumbContactAd",
-    "ContactTractionAd",
     "MpfaAd",
     "TpfaAd",
     "MassMatrixAd",
@@ -198,89 +196,6 @@ class BiotStabilizationAd(Discretization):
         self.stabilization: MergedOperator
 
         wrap_discretization(self, self._discretization, subdomains=subdomains)
-
-
-class ColoumbContactAd(Discretization):
-    def __init__(self, keyword: str, interfaces: list[pp.MortarGrid]) -> None:
-        self.interfaces = interfaces
-
-        # Special treatment is needed to cover the case when the edge list happens to
-        # be empty.
-        if len(interfaces) > 0:
-            dim = list(set([intf.dim for intf in interfaces]))
-            # FIXME: No access to subdomains
-            low_dim_subdomains: list[pp.Grid] = []
-            if not len(dim) == 1:
-                raise ValueError(
-                    "Expected unique dimension of subdomains with contact problems"
-                )
-        else:
-            # The assigned dimension value should never be used for anything, so we
-            # set a negative value to indicate this (not sure how the parameter is used)
-            # in the real contact discretization.
-            dim = [-1]
-            low_dim_subdomains = []
-
-        self._discretization = pp.ColoumbContact(
-            keyword, ambient_dimension=dim[0], discr_h=pp.Mpsa(keyword)
-        )
-        self._name = "Coloumb contact"
-        self.keyword = keyword
-
-        self.traction: MergedOperator
-        self.displacement: MergedOperator
-        self.rhs: MergedOperator
-        wrap_discretization(
-            self,
-            self._discretization,
-            interfaces=interfaces,
-            mat_dict_grids=low_dim_subdomains,
-        )
-
-
-class ContactTractionAd(Discretization):
-    def __init__(
-        self,
-        keyword: str,
-        interfaces: list[pp.MortarGrid],
-        low_dim_subdomains: list[pp.Grid],
-    ) -> None:
-        """Contact traction discretization.
-
-        Parameters:
-            keyword: Parameter key.
-            interfaces: Fracture-matrix interfaces.
-            low_dim_subdomains: Fracture subdomains.
-
-        """
-        self.interfaces = interfaces
-
-        # Special treatment is needed to cover the case when the edge list happens to
-        # be empty.
-        if len(interfaces) > 0:
-            dim = list(set([intf.dim for intf in interfaces]))
-        else:
-            # The assigned dimension value should never be used for anything, so we
-            # set a negative value to indicate this (not sure how the parameter is used)
-            # in the real contact discretization.
-            dim = [-1]
-
-        self._discretization = pp.ContactTraction(
-            keyword, ambient_dimension=dim[0], discr_h=pp.Mpsa(keyword)
-        )
-        self._name = "Simple ad contact"
-        self.keyword = keyword
-
-        self.normal: MergedOperator
-        self.tangential: MergedOperator
-        self.traction_scaling: MergedOperator
-
-        wrap_discretization(
-            self,
-            self._discretization,
-            interfaces=interfaces,
-            mat_dict_grids=low_dim_subdomains,
-        )
 
 
 ## Flow related
@@ -454,7 +369,7 @@ class DifferentiableFVAd:
         self._subdomain_projections = pp.ad.SubdomainProjections(self.subdomains)
         """Subdomain projections used between full set of subdomains and individual ones."""
         self._perm_function = permeability_function
-        """Function returning permeability as an Ad_array given the perm_argument."""
+        """Function returning permeability as an ad.DenseArray given the perm_argument."""
         self._perm_argument: pp.ad.Variable = permeability_argument
         """pp.ad.Variable representing the variable upon which perm_function depends."""
         self._potential: pp.ad.Variable = potential
@@ -491,27 +406,27 @@ class DifferentiableFVAd:
 
     def _flux_function(
         self,
-        potential: pp.ad.Ad_array,
-    ) -> pp.ad.Ad_array:
+        potential: pp.ad.AdArray,
+    ) -> pp.ad.AdArray:
         """Flux from potential, BCs and vector sources.
 
         Parameters:
             perm_function: pp.ad.Function returning permeability given a list of
                 subdomains.
-            perm_argument: Ad_array representing the variable upon which perm_function
+            perm_argument: ad.DenseArray representing the variable upon which perm_function
                 depends.
             potential: Potential for the flux law
                 :math:`flux=-K\nabla(potential - vector_source)`.
 
         Returns:
-            Ad_array representing the flux.
+            ad.DenseArray representing the flux.
 
         """
         # Implementation note:
         # When this function is called, potential should be an Ad operator (say, a
         # MixedDimensionalVariable representation of the pressure). During evaluation,
         # because of the way operator trees are evaluated, potential will be an
-        # Ad_array (it is closer to being an atomic variable, thus it will be
+        # ad.DenseArray (it is closer to being an atomic variable, thus it will be
         # evaluated before this function).
 
         # The product rule applied to q = T(k(u)) * p gives
@@ -614,13 +529,13 @@ class DifferentiableFVAd:
         # The value of the flux is the standard mpfa/tpfa expression.
         block_val = base_flux * potential.val
 
-        flux = pp.ad.Ad_array(block_val, flux_jac)
+        flux = pp.ad.AdArray(block_val, flux_jac)
         return flux
 
     def _bound_pressure_face_function(
         self,
-        perm_argument: pp.ad.Ad_array,
-    ) -> pp.ad.Ad_array:
+        perm_argument: pp.ad.AdArray,
+    ) -> pp.ad.AdArray:
         """The actual implementation of the bound_pressure_face function.
 
         Returns:
@@ -631,7 +546,7 @@ class DifferentiableFVAd:
         # Note on parameters: When this function is called, potential should be an Ad
         # operator (say, a MixedDimensionalVariable representation of the pressure).
         # During evaluation, because of the way operator trees are evaluated, potential
-        # will be an Ad_array (it is closer to being an atomic variable, thus it will be
+        # will be an ad.DenseArray (it is closer to being an atomic variable, thus it will be
         # evaluated before this function).
 
         # The product rule applied to q = T(k(u)) * p gives
@@ -682,7 +597,7 @@ class DifferentiableFVAd:
             )
             bound_pressure_face_jac += face_prolongation * jac_bound_pressure_face
 
-        bound_pressure = pp.ad.Ad_array(
+        bound_pressure = pp.ad.AdArray(
             base_bound_pressure_face, bound_pressure_face_jac
         )
         return bound_pressure
@@ -708,7 +623,7 @@ class DifferentiableFVAd:
         return fi, ci, sgn, fc_cc
 
     def _transmissibility(
-        self, g: pp.Grid, global_permeability: pp.ad.Ad_array
+        self, g: pp.Grid, global_permeability: pp.ad.AdArray
     ) -> Union[sps.csr_matrix, np.ndarray]:
         """Compute Jacobian of a variable transmissibility.
 
@@ -766,7 +681,7 @@ class DifferentiableFVAd:
 
         # Evaluate the permeability as a function of the current potential
         # The evaluation means we go from an Ad operator formulation to the forward
-        # mode, working with Ad_arrays. We map the computed permeability to the
+        # mode, working with ad.DenseArrays. We map the computed permeability to the
         # faces (distinguishing between the left and right sides of the face).
         cell_2_one_sided_face = sps.coo_matrix(
             (np.ones(sz), (np.arange(sz), ci)),
@@ -777,7 +692,7 @@ class DifferentiableFVAd:
         #  specific to the grid, the restriction should be applied to the potential
         # rather than the permeability).
         # The evaluation means we go from an Ad operator formulation to the forward
-        # mode, working with Ad_arrays.
+        # mode, working with ad.DenseArrays.
         # Then, map the computed permeability to the faces (distinguishing between
         # the left and right sides of the face).
         cells_of_grid = self._subdomain_projections.cell_restriction([g]).evaluate(
@@ -786,7 +701,7 @@ class DifferentiableFVAd:
         k_one_sided = cell_2_one_sided_face * cells_of_grid * global_permeability
 
         # Multiply the permeability (and its derivatives with respect to potential,
-        # since k_one_sided is an Ad_array) with area weighted normal vectors
+        # since k_one_sided is an ad.DenseArray) with area weighted normal vectors
         # divided by distance
         normals_over_distance = np.divide(n_dist.sum(axis=0), dist_face_cell)
         t_one_sided = (

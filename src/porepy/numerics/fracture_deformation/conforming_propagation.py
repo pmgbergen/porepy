@@ -76,7 +76,7 @@ class ConformingFracturePropagation(FracturePropagation):
 
         # Declear variable for keeping track of whether a propagating fracture has_
         # been found. In practice, this is modified by self.evaluate_propagation()
-        self.propagated_fracture: bool = False
+        self.propagated_fracture: bool = False  # type: ignore
 
     def has_propagated(self) -> bool:
         if not hasattr(self, "propagated_fracture"):
@@ -198,9 +198,9 @@ class ConformingFracturePropagation(FracturePropagation):
         parameters_primary: dict[str, Any] = data_primary[pp.PARAMETERS][
             self.mechanics_parameter_key  # type: ignore
         ]
-        u_j: np.ndarray = data_intf[pp.STATE][pp.ITERATE][
+        u_j: np.ndarray = data_intf[pp.ITERATE_SOLUTIONS][
             self.mortar_displacement_variable  # type: ignore
-        ]
+        ][0]
 
         # Only operate on tips
         tip_faces = sd_secondary.tags["tip_faces"].nonzero()[0]
@@ -565,7 +565,9 @@ class ConformingFracturePropagation(FracturePropagation):
         vals = np.zeros(sd_primary.num_cells)
         cells = np.unique(sd_primary.cell_faces[faces_primary].nonzero()[1])
         vals[cells] = 1
-        data_primary[pp.STATE]["neighbor_cells"] = vals
+        pp.set_solution_values(
+            name="neighbor_cells", values=vals, data=data_primary, time_step_index=0
+        )
 
     def _tip_bases(
         self,

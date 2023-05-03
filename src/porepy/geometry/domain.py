@@ -70,7 +70,6 @@ class Domain:
         bounding_box: Optional[dict[str, pp.number]] = None,
         polytope: Optional[list[np.ndarray]] = None,
     ) -> None:
-
         # Sanity check
         if bounding_box is not None and polytope is not None:
             raise ValueError("Too many arguments. Expected box OR polytope.")
@@ -115,7 +114,6 @@ class Domain:
         return s
 
     def __str__(self) -> str:
-
         if self.is_boxed:
             if self.dim == 2:
                 s = f"Rectangle with bounding box: {self.bounding_box}."
@@ -136,7 +134,6 @@ class Domain:
         return s
 
     def __eq__(self, other: object) -> bool:
-
         # Two domains are equal if they have the same polytope. Note that this assumes
         # that the arrays of the polytope list are stored in the exact same order.
         # TODO: The condition for equality is too strict, we might want to consider
@@ -150,6 +147,30 @@ class Domain:
                 check.append(np.all(item_self == item_other))
             return all(check)
 
+    def __contains__(self, other: object) -> bool:
+        if not isinstance(other, np.ndarray):
+            return NotImplemented
+        else:
+            if other.ndim == 1:
+                other = other.reshape(-1, 1)
+            if other.shape[0] != self.dim:
+                return False
+            else:
+                if (
+                    other[0] < self.bounding_box["xmin"]
+                    or other[0] > self.bounding_box["xmax"]
+                    or other[1] < self.bounding_box["ymin"]
+                    or other[1] > self.bounding_box["ymax"]
+                ):
+                    return False
+                if self.dim == 3:
+                    if (
+                        other[2] < self.bounding_box["zmin"]
+                        or other[2] > self.bounding_box["zmax"]
+                    ):
+                        return False
+                return True
+
     def bounding_box_from_polytope(self) -> dict[str, pp.number]:
         """Obtain the bounding box of a polytope.
 
@@ -158,7 +179,6 @@ class Domain:
 
         """
         if self.dim == 2:
-
             # For a polygon, is easier to convert the polytope into an array
             polygon = np.empty(shape=(len(self.polytope), 4))
             for idx, side in enumerate(self.polytope):

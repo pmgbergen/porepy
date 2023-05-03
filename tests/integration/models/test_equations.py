@@ -36,7 +36,13 @@ from . import setup_utils
 # fracture, since it seems unlikely this will uncover any errors that will not be found
 # with the simpler setups. Activate more fractures if needed in debugging.
 @pytest.mark.parametrize(
-    "num_fracs", [0, 1, pytest.param([2, 3], marks=pytest.mark.skip)]
+    "num_fracs",
+    [  # Number of fractures
+        0,
+        1,
+        pytest.param(2, marks=pytest.mark.skipped),
+        pytest.param(3, marks=pytest.mark.skipped),
+    ]
 )
 @pytest.mark.parametrize("domain_dim", [2, 3])
 def test_parse_equations(
@@ -51,10 +57,9 @@ def test_parse_equations(
     Parameters:
         model_type: Type of model to test. Currently supported are "mass_balance" and
             "momentum_balance". To add a new model, add a new class in setup_utils.py.
-        equation_name (str): Name of the method to test.
-        domain_inds (list of int): Indices of the domains for which the method
-            should be called. Some methods are only defined for a subset of
-            domains.
+        equation_name: Name of the method to test.
+        domain_inds: Indices of the domains for which the method should be called.
+            Some methods are only defined for a subset of domains.
 
     """
     if only_codimension is not None:

@@ -4,12 +4,14 @@
 from __future__ import annotations
 
 import copy
-from typing import Optional, Sequence, Union
+from typing import Literal, Optional, Sequence, Union
 
 import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
+from porepy.applications.md_grids.domains import nd_cube_domain
+from porepy.fracs.fracture_network_3d import FractureNetwork3d
 
 
 class ModelGeometry:
@@ -17,78 +19,136 @@ class ModelGeometry:
     model."""
 
     # Define attributes to be assigned later
-    fracture_network: Union[pp.FractureNetwork2d, pp.FractureNetwork3d]
+    fracture_network: pp.fracture_network
     """Representation of fracture network including intersections."""
     well_network: pp.WellNetwork3d
     """Well network."""
     mdg: pp.MixedDimensionalGrid
     """Mixed-dimensional grid. Set by the method :meth:`set_md_grid`."""
-    domain: pp.Domain
-    """Box-shaped domain. Set by the method :meth:`set_md_grid`."""
     nd: int
     """Ambient dimension of the problem. Set by the method :meth:`set_geometry`"""
     units: pp.Units
     """Unit system."""
+    params: dict
+    """Parameters for the model."""
 
     def set_geometry(self) -> None:
-        """Define geometry and create a mixed-dimensional grid."""
-        # Create fracture network and mixed-dimensional grid
-        self.set_fracture_network()
-        self.set_md_grid()
+        """Define geometry and create a mixed-dimensional grid.
+
+        The default values provided in set_domain, set_fractures, grid_type and
+        meshing_arguments produce a 2d unit square domain with no fractures and a four
+        Cartesian cells.
+
+        """
+        # Create the geometry through domain amd fracture set.
+        self.set_domain()
+        self.set_fractures()
+        # Create a fracture network.
+        self.fracture_network = pp.create_fracture_network(self.fractures, self.domain)
+        # Create a mixed-dimensional grid.
+        self.mdg = pp.create_mdg(
+            self.grid_type(),
+            self.meshing_arguments(),
+            self.fracture_network,
+            **self.meshing_kwargs(),
+        )
         self.nd: int = self.mdg.dim_max()
-        # If fractures are present, it is advised to call
-        pp.contact_conditions.set_projections(self.mdg)
 
-    def set_fracture_network(self) -> None:
-        """Assign fracture network class."""
-        self.fracture_network = pp.FractureNetwork2d()
+        # Create projections between local and global coordinates for fracture grids.
+        pp.set_local_coordinate_projections(self.mdg)
 
-    def mesh_arguments(self) -> dict:
-        """Mesh arguments for md-grid creation.
+        self.set_well_network()
+        if len(self.well_network.wells) > 0:
+            # Compute intersections
+            assert isinstance(self.fracture_network, FractureNetwork3d)
+            pp.compute_well_fracture_intersections(
+                self.well_network, self.fracture_network
+            )
+            # Mesh wells and add fracture + intersection grids to mixed-dimensional
+            # grid along with these grids' new interfaces to fractures.
+            self.well_network.mesh(self.mdg)
+
+    @property
+    def domain(self) -> pp.Domain:
+        """Domain of the problem."""
+        return self._domain
+
+    def set_domain(self) -> None:
+        """Set domain of the problem.
+
+        Defaults to a 2d unit square domain.
+        Override this method to define a geometry with a different domain.
+
+        """
+        size = 1 / self.units.m
+        self._domain = nd_cube_domain(2, size)
+
+    @property
+    def fractures(self) -> Union[list[pp.LineFracture], list[pp.PlaneFracture]]:
+        """List of fractures in the fracture network."""
+        return self._fractures
+
+    def set_fractures(self) -> None:
+        """Set fractures in the fracture network.
+
+        Override this method to define a geometry with fractures.
+
+        """
+        self._fractures: list = []
+
+    def set_well_network(self) -> None:
+        """Assign well network class."""
+        self.well_network = pp.WellNetwork3d(domain=self._domain)
+
+    def is_well(self, grid: pp.Grid | pp.MortarGrid) -> bool:
+        """Check if a subdomain is a well.
+
+        Parameters:
+            sd: Subdomain to check.
 
         Returns:
-            mesh_args: Dictionary of meshing arguments compatible with
-                FractureNetwork.mesh() method.
+            True if the subdomain is a well, False otherwise.
 
         """
-        mesh_args: dict[str, float] = {}
-        return mesh_args
-
-    def set_md_grid(self) -> None:
-        """Create the mixed-dimensional grid.
-
-        A unit square grid with no fractures is assigned by default if
-        self.fracture_network contains no fractures. Otherwise, the network's mesh
-        method is used.
-
-        The method assigns the following attributes to self:
-            mdg (pp.MixedDimensionalGrid): The produced grid bucket.
-            box (dict): The bounding box of the domain, defined through minimum and
-                maximum values in each dimension.
-
-        """
-
-        if self.fracture_network.num_frac() == 0:
-            # Length scale:
-            ls = 1 / self.units.m
-            # Mono-dimensional grid by default
-            phys_dims = np.array([1, 1]) * ls
-            n_cells = np.array([2, 2])
-            bounding_box = {
-                "xmin": 0,
-                "xmax": phys_dims[0] * ls,
-                "ymin": 0,
-                "ymax": phys_dims[1] * ls,
-            }
-            self.domain = pp.Domain(bounding_box)
-            g: pp.Grid = pp.CartGrid(n_cells, phys_dims)
-            g.compute_geometry()
-            self.mdg = pp.meshing.subdomains_to_mdg([[g]])
+        if isinstance(grid, pp.Grid):
+            return getattr(grid, "well_num", -1) >= 0
+        elif isinstance(grid, pp.MortarGrid):
+            return False
         else:
-            self.mdg = self.fracture_network.mesh(self.mesh_arguments())
-            domain = self.fracture_network.domain
-            if domain is not None and domain.is_boxed:
-                self.domain = domain
+            raise ValueError("Unknown grid type.")
+
+    def grid_type(self) -> Literal["simplex", "cartesian", "tensor_grid"]:
+        """Grid type for the mixed-dimensional grid.
+
+        Returns:
+            Grid type for the mixed-dimensional grid.
+
+        """
+        return self.params.get("grid_type", "cartesian")
+
+    def meshing_arguments(self) -> dict[str, float]:
+        """Meshing arguments for mixed-dimensional grid generation.
+
+        Returns:
+            Meshing arguments compatible with
+            :meth:`~porepy.grids.mdg_generation.create_mdg`.
+
+        """
+        # Default value of 1/2, scaled by the length unit.
+        default_meshing_args: dict[str, float] = {"cell_size": 0.5 / self.units.m}
+        return self.params.get("meshing_arguments", default_meshing_args)
+
+    def meshing_kwargs(self) -> dict:
+        """Keyword arguments for md-grid creation.
+
+        Returns:
+            Keyword arguments compatible with pp.create_mdg() method.
+
+        """
+        meshing_kwargs = self.params.get("meshing_kwargs", None)
+        if meshing_kwargs is None:
+            meshing_kwargs = {}
+        return meshing_kwargs
 
     def subdomains_to_interfaces(
         self, subdomains: list[pp.Grid], codims: list[int]
@@ -141,8 +201,7 @@ class ModelGeometry:
         attr: str,
         *,
         dim: int,
-        inverse: bool = False,
-    ) -> pp.ad.Matrix:
+    ) -> pp.ad.DenseArray:
         """Wrap a grid attribute as an ad matrix.
 
         Parameters:
@@ -153,13 +212,13 @@ class ModelGeometry:
                 limit the number of dimensions for a vector attribute, e.g. to exclude
                 the z-component of a vector attribute in 2d, to acieve compatibility
                 with code which is explicitly 2d (e.g. fv discretizations).
-            inverse: If True, the inverse of the attribute will be wrapped. This is a
-                hack around the fact that the Ad framework does not support division.
-                FIXME: Remove when ad supports division.
 
         Returns:
-            The property wrapped as an ad matrix, with the wrapped attribute on the
-            diagonal.
+            class:`porepy.numerics.ad.DenseArray`: ``(shape=(dim * num_cells_in_grids,))``
+
+                The property wrapped as a single ad vector. The values are arranged
+                according to the order of the grids in the list, optionally flattened if
+                the attribute is a vector.
 
         Raises:
             ValueError: If one of the grids does not have the attribute.
@@ -180,7 +239,7 @@ class ModelGeometry:
         # this made mypy happy, it is not vald syntax. The only viable solution (save
         # from using typing protocols, which we really do not want to do, there are
         # enough classes and inheritance in the mixin combination as it is) seems to be
-        # to add a # type: ignore[call-args] comment where the method is called. By only
+        # to add a # type: ignore[call-arg] comment where the method is called. By only
         # ignoring call-args problems, we limit the risk of silencing other errors that
         # mypy might find.
 
@@ -209,18 +268,15 @@ class ModelGeometry:
                 vals = np.hstack(
                     [np.atleast_2d(getattr(g, attr))[:dim].ravel("F") for g in grids]
                 )
-            if inverse:
-                vals = 1 / vals
-            mat = sps.diags(vals)
         else:
             # For an empty list of grids, return an empty matrix
-            mat = sps.csr_matrix((0, 0))
+            vals = np.zeros(0)
 
-        ad_matrix = pp.ad.Matrix(mat)
-        ad_matrix.set_name(f"Matrix wrapping attribute {attr} on {len(grids)} grids")
-        return ad_matrix
+        array = pp.ad.DenseArray(vals)
+        array.set_name(f"Array wrapping attribute {attr} on {len(grids)} grids.")
+        return array
 
-    def basis(self, grids: Sequence[pp.GridLike], dim: int) -> list[pp.ad.Matrix]:
+    def basis(self, grids: Sequence[pp.GridLike], dim: int) -> list[pp.ad.SparseArray]:
         """Return a cell-wise basis for all subdomains.
 
         The basis is represented as a list of matrices, each of which represents a
@@ -245,7 +301,7 @@ class ModelGeometry:
             dim: Dimension of the basis.
 
         Returns:
-            List of pp.ad.Matrix, each of which represents a basis function.
+            List of pp.ad.SparseArrayArray, each of which represents a basis function.
 
         """
         # NOTE: See self.wrap_grid_attribute for comments on typing when this method
@@ -254,13 +310,15 @@ class ModelGeometry:
 
         assert dim <= self.nd, "Basis functions of higher dimension than the md grid"
         # Collect the basis functions for each dimension
-        basis: list[pp.ad.Matrix] = []
+        basis: list[pp.ad.SparseArray] = []
         for i in range(dim):
             basis.append(self.e_i(grids, i=i, dim=dim))
         # Stack the basis functions horizontally
         return basis
 
-    def e_i(self, grids: Sequence[pp.GridLike], *, i: int, dim: int) -> pp.ad.Matrix:
+    def e_i(
+        self, grids: Sequence[pp.GridLike], *, i: int, dim: int
+    ) -> pp.ad.SparseArray:
         """Return a cell-wise basis function in a specified dimension.
 
         It is assumed that the grids are embedded in a space of dimension dim and
@@ -287,8 +345,8 @@ class ModelGeometry:
             i: Index of the basis function. Note: Counts from 0.
 
         Returns:
-            pp.ad.Matrix: Ad representation of a matrix with the basis functions as
-                columns.
+            pp.ad.SparseArray: Ad representation of a matrix with the basis functions as
+            columns.
 
         Raises:
             ValueError: If dim is smaller than the dimension of the mixed-dimensional.
@@ -320,7 +378,7 @@ class ModelGeometry:
         num_cells = sum([g.num_cells for g in grids])
         # Expand to a matrix.
         mat = sps.kron(sps.eye(num_cells), e_i)
-        return pp.ad.Matrix(mat)
+        return pp.ad.SparseArray(mat)
 
     # Local basis related methods
     def tangential_component(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
@@ -343,18 +401,18 @@ class ModelGeometry:
         # component of the cell-wise vector v to be transformed. Then we want to express
         # it in the tangential basis. The two operations are combined in a single
         # operator composed right to left: v will be hit by first e_i.T (row vector) and
-        # secondly t_i (column vector).
-        op: pp.ad.Operator = sum(
+        # secondly t_i (column vector). Ignore mypy keyword argument error.
+        op: pp.ad.Operator = pp.ad.sum_operator_list(
             [
-                self.e_i(subdomains, i=i, dim=self.nd - 1)
-                * self.e_i(subdomains, i=i, dim=self.nd).T
+                self.e_i(subdomains, i=i, dim=self.nd - 1)  # type: ignore[arg-type]
+                @ self.e_i(subdomains, i=i, dim=self.nd).T
                 for i in range(self.nd - 1)
             ]
         )
         op.set_name("tangential_component")
         return op
 
-    def normal_component(self, subdomains: list[pp.Grid]) -> pp.ad.Matrix:
+    def normal_component(self, subdomains: list[pp.Grid]) -> pp.ad.SparseArray:
         """Compute the normal component of a vector field.
 
         The normal space is defined according to the local coordinates of the
@@ -382,14 +440,14 @@ class ModelGeometry:
         e_n.set_name("normal_component")
         return e_n.T
 
-    def local_coordinates(self, subdomains: list[pp.Grid]) -> pp.ad.Matrix:
+    def local_coordinates(self, subdomains: list[pp.Grid]) -> pp.ad.SparseArray:
         """Ad wrapper around tangential_normal_projections for fractures.
 
         Parameters:
             subdomains: List of subdomains for which to compute the local coordinates.
 
         Returns:
-            Local coordinates as a pp.ad.Matrix.
+            Local coordinates as a pp.ad.SparseArray.
 
         """
         # TODO: If we ever implement a mapping to reference space for all subdomains,
@@ -411,7 +469,7 @@ class ModelGeometry:
         else:
             # Also treat no subdomains
             local_coord_proj = sps.csr_matrix((0, 0))
-        return pp.ad.Matrix(local_coord_proj)
+        return pp.ad.SparseArray(local_coord_proj)
 
     def subdomain_projections(self, dim: int) -> pp.ad.SubdomainProjections:
         """Return the projection operators for all subdomains in md-grid.
@@ -530,7 +588,7 @@ class ModelGeometry:
         """
         if len(subdomains) == 0:
             # Special case if no interfaces.
-            sign_flipper = pp.ad.Matrix(sps.csr_matrix((0, 0)))
+            sign_flipper = pp.ad.SparseArray(sps.csr_matrix((0, 0)))
         else:
             # There is already a method to construct a switcher matrix in grid_utils,
             # so we use that. Loop over all subdomains, construct a local switcher
@@ -550,7 +608,7 @@ class ModelGeometry:
                 matrices.append(switcher_int)
 
             # Construct the block diagonal matrix.
-            sign_flipper = pp.ad.Matrix(sps.block_diag(matrices).tocsr())
+            sign_flipper = pp.ad.SparseArray(sps.block_diag(matrices).tocsr())
         sign_flipper.set_name("Flip_normal_vectors")
         return sign_flipper
 
@@ -567,8 +625,9 @@ class ModelGeometry:
             unitary: If True, return unit vectors, i.e. normalize by face area.
 
         Returns:
-            Operator computing outward normal vectors on internal boundaries. Evaluated
-            shape `(num_intf_cells * dim, num_intf_cells * dim)`.
+            Operator computing outward normal vectors on internal boundaries; in effect,
+            this is a matrix. Evaluated shape `(num_intf_cells * dim,
+            num_intf_cells * dim)`.
 
         """
         # NOTE: See self.wrap_grid_attribute for comments on typing when this method
@@ -577,8 +636,7 @@ class ModelGeometry:
 
         if len(interfaces) == 0:
             # Special case if no interfaces.
-            mat = sps.csr_matrix((0, 0))
-            return pp.ad.Matrix(mat)
+            return pp.ad.DenseArray(np.zeros(0))
 
         # Main ingredients: Normal vectors for primary subdomains for each interface,
         # and a switcher matrix to flip the sign if the normal vector points inwards.
@@ -599,8 +657,8 @@ class ModelGeometry:
             self.mdg, primary_subdomains, interfaces, dim=self.nd
         )
         # Ignore mypy complaint about unexpected keyword arguments.
-        primary_face_normals = self.wrap_grid_attribute(  # type: ignore[call-arg]
-            primary_subdomains, "face_normals", dim=self.nd, inverse=False
+        primary_face_normals = self.wrap_grid_attribute(
+            primary_subdomains, "face_normals", dim=self.nd  # type: ignore[call-arg]
         )
         # Account for sign of boundary face normals. This will give a matrix with a
         # shape equal to the total number of faces in all primary subdomains.
@@ -611,32 +669,24 @@ class ModelGeometry:
         # Flip the normal vectors. Unravelled from the right: Restrict from faces on all
         # subdomains to the primary ones, multiply with the face normals, flip the
         # signs, and project back up to all subdomains.
-        flipped_normals = flip * primary_face_normals
+        flipped_normals = flip @ primary_face_normals
         # Project to mortar grid, as a mapping from mortar to the subdomains and back
         # again.
-        outwards_normals = (
-            mortar_projection.primary_to_mortar_avg
-            * flipped_normals
-            * mortar_projection.mortar_to_primary_avg
-        )
+        outwards_normals = mortar_projection.primary_to_mortar_avg @ flipped_normals
         outwards_normals.set_name("outwards_internal_boundary_normals")
 
         # Normalize by face area if requested.
         if unitary:
             # 1 over cell volumes on the interfaces
             # Ignore mypy complaint about unexpected keyword arguments.
-            cell_volumes_inv = self.wrap_grid_attribute(  # type: ignore[call-arg]
-                interfaces, "cell_volumes", dim=self.nd, inverse=True
+            cell_volumes_inv = pp.ad.Scalar(1) / self.wrap_grid_attribute(
+                interfaces, "cell_volumes", dim=self.nd  # type: ignore[call-arg]
             )
 
-            # Expand cell volumes to nd by (from the right) mapping from nd to 1 (e.T),
-            # multiplying with the cell volumes, mapping back to nd (e), and summing
+            # Expand cell volumes to nd by multiplying from left by e_i and summing
             # over all dimensions.
-            # EK: It should be possible to do this in a better, less opaque, way. A
-            # Kronecker product comes to mind, but this will require an extension of the
-            # Ad matrix.
-            cell_volumes_inv_nd = sum(
-                [e * cell_volumes_inv * e.T for e in self.basis(interfaces, self.nd)]
+            cell_volumes_inv_nd = pp.ad.sum_operator_list(
+                [e @ cell_volumes_inv for e in self.basis(interfaces, self.nd)]
             )
             # Scale normals.
             outwards_normals = cell_volumes_inv_nd * outwards_normals

@@ -18,7 +18,7 @@ Notes:
 from __future__ import annotations
 
 import logging
-from typing import Callable, Optional
+from typing import Callable, Optional, Union
 
 import numpy as np
 
@@ -31,9 +31,8 @@ class MassBalanceEquations(pp.BalanceEquation):
     """Mixed-dimensional mass balance equation.
 
     Balance equation for all subdomains and Darcy-type flux relation on all interfaces
-    of codimension one.
-
-    FIXME: Well equations? Low priority.
+    of codimension one and Peaceman flux relation on interfaces of codimension two
+    (well-fracture intersections).
 
     """
 
@@ -79,7 +78,7 @@ class MassBalanceEquations(pp.BalanceEquation):
     by a mixin instance of :class:`~porepy.models.constitutive_laws.FluidMobility`.
 
     """
-    bc_values_mobrho: Callable[[list[pp.Grid]], pp.ad.Array]
+    bc_values_mobrho: Callable[[list[pp.Grid]], pp.ad.DenseArray]
     """Mobility times density boundary conditions. Normally defined in a mixin instance
     of :class:`~porepy.models.fluid_mass_balance.BoundaryConditionsSinglePhaseFlow`.
 
@@ -121,19 +120,38 @@ class MassBalanceEquations(pp.BalanceEquation):
     instance of :class:`~porepy.models.geometry.ModelGeometry`.
 
     """
+    well_flux_equation: Callable[[list[pp.MortarGrid]], pp.ad.Operator]
+    """Well flux equation. Provided e.g. by a mixin instance of
+    :class:`~porepy.models.constitutive_laws.PiecmannWellFlux`.
+
+    """
+    well_advective_flux: Callable[
+        [list[pp.MortarGrid], pp.ad.Operator, pp.ad.UpwindCouplingAd], pp.ad.Operator
+    ]
+    """Ad operator representing the advective flux on well interfaces. Normally
+    provided by a mixin instance of
+    :class:`~porepy.models.constitutive_laws.AdvectiveFlux`.
+
+    """
 
     def set_equations(self):
         """Set the equations for the mass balance problem.
 
         A mass balance equation is set for all subdomains and a Darcy-type flux relation
         is set for all interfaces of codimension one.
+
         """
         subdomains = self.mdg.subdomains()
-        interfaces = self.mdg.interfaces()
+        codim_1_interfaces = self.mdg.interfaces(codim=1)
+        # TODO: If wells are integrated for nd=2 models, consider refactoring sorting of
+        # interfaces into method returning either "normal" or well interfaces.
+        codim_2_interfaces = self.mdg.interfaces(codim=2)
         sd_eq = self.mass_balance_equation(subdomains)
-        intf_eq = self.interface_darcy_flux_equation(interfaces)
+        intf_eq = self.interface_darcy_flux_equation(codim_1_interfaces)
+        well_eq = self.well_flux_equation(codim_2_interfaces)
         self.equation_system.set_equation(sd_eq, subdomains, {"cells": 1})
-        self.equation_system.set_equation(intf_eq, interfaces, {"cells": 1})
+        self.equation_system.set_equation(intf_eq, codim_1_interfaces, {"cells": 1})
+        self.equation_system.set_equation(well_eq, codim_2_interfaces, {"cells": 1})
 
     def mass_balance_equation(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Mass balance equation for subdomains.
@@ -145,12 +163,12 @@ class MassBalanceEquations(pp.BalanceEquation):
             Operator representing the mass balance equation.
 
         """
-        # Assemble the terms of the mass balance equation, and then feed them into the
-        # general balance equation method.
+        # Assemble the terms of the mass balance equation.
         accumulation = self.fluid_mass(subdomains)
         flux = self.fluid_flux(subdomains)
         source = self.fluid_source(subdomains)
 
+        # Feed the terms to the general balance equation method.
         eq = self.balance_equation(subdomains, accumulation, flux, source, dim=1)
         eq.set_name("mass_balance_equation")
         return eq
@@ -233,11 +251,32 @@ class MassBalanceEquations(pp.BalanceEquation):
         flux.set_name("interface_fluid_flux")
         return flux
 
+    def well_fluid_flux(self, interfaces: list[pp.MortarGrid]) -> pp.ad.Operator:
+        """Interface fluid flux.
+
+        Parameters:
+            interfaces: List of interface grids.
+
+        Returns:
+            Operator representing the interface fluid flux.
+
+        """
+        subdomains = self.interfaces_to_subdomains(interfaces)
+        discr = self.interface_mobility_discretization(interfaces)
+        mob_rho = self.mobility(subdomains) * self.fluid_density(subdomains)
+        # Call to constitutive law for advective fluxes.
+        flux: pp.ad.Operator = self.well_advective_flux(interfaces, mob_rho, discr)
+        flux.set_name("well_fluid_flux")
+        return flux
+
     def fluid_source(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Fluid source term.
 
-        Includes both external sources *and* inflow from neighboring subdomains of
-        higher dimension (via interfaces).
+        Includes
+
+            - external sources
+            - interface flow from neighboring subdomains of higher dimension.
+            - well flow from neighboring subdomains of lower and higher dimension.
 
         .. note::
             When overriding this method to assign internal fluid sources, one is advised
@@ -254,16 +293,32 @@ class MassBalanceEquations(pp.BalanceEquation):
         # Interdimensional fluxes manifest as source terms in lower-dimensional
         # subdomains.
         interfaces = self.subdomains_to_interfaces(subdomains, [1])
+        well_interfaces = self.subdomains_to_interfaces(subdomains, [2])
+        well_subdomains = self.interfaces_to_subdomains(well_interfaces)
         projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces)
-        source = projection.mortar_to_secondary_int * self.interface_fluid_flux(
+        well_projection = pp.ad.MortarProjections(
+            self.mdg, well_subdomains, well_interfaces
+        )
+        subdomain_projection = pp.ad.SubdomainProjections(self.mdg.subdomains())
+        source = projection.mortar_to_secondary_int @ self.interface_fluid_flux(
             interfaces
         )
         source.set_name("interface_fluid_flux_source")
+        well_fluxes = well_projection.mortar_to_secondary_int @ self.well_fluid_flux(
+            well_interfaces
+        ) - well_projection.mortar_to_primary_int @ self.well_fluid_flux(
+            well_interfaces
+        )
+        well_fluxes.set_name("well_fluid_flux_source")
+        source += subdomain_projection.cell_restriction(subdomains) @ (
+            subdomain_projection.cell_prolongation(well_subdomains) @ well_fluxes
+        )
         return source
 
 
 class ConstitutiveLawsSinglePhaseFlow(
     pp.constitutive_laws.DarcysLaw,
+    pp.constitutive_laws.PeacemanWellFlux,
     pp.constitutive_laws.DimensionReduction,
     pp.constitutive_laws.AdvectiveFlux,
     pp.constitutive_laws.ConstantPorosity,
@@ -287,6 +342,8 @@ class ConstitutiveLawsSinglePhaseFlow(
         compressibility
 
     """
+
+    pass
 
 
 class BoundaryConditionsSinglePhaseFlow:
@@ -337,7 +394,7 @@ class BoundaryConditionsSinglePhaseFlow:
         # Define boundary condition on all boundary faces.
         return pp.BoundaryCondition(sd, boundary_faces, "dir")
 
-    def bc_values_darcy(self, subdomains: list[pp.Grid]) -> pp.ad.Array:
+    def bc_values_darcy(self, subdomains: list[pp.Grid]) -> pp.ad.DenseArray:
         """Boundary condition values for the Darcy flux.
 
         Parameters:
@@ -352,7 +409,7 @@ class BoundaryConditionsSinglePhaseFlow:
         # Array.
         return pp.wrap_as_ad_array(0, num_faces, "bc_values_darcy")
 
-    def bc_values_mobrho(self, subdomains: list[pp.Grid]) -> pp.ad.Array:
+    def bc_values_mobrho(self, subdomains: list[pp.Grid]) -> pp.ad.DenseArray:
         """Boundary condition values for the mobility times density.
 
         Units for Dirichlet: kg * m^-3 * Pa^-1 * s^-1
@@ -387,10 +444,10 @@ class BoundaryConditionsSinglePhaseFlow:
             vals[boundary_faces] = self.fluid.density() / self.fluid.viscosity()
             bc_values.append(vals)
 
-        # Concatenate to single array and wrap as ad.Array
-        # We have forced the type of bc_values_array to be an ad.Array, but mypy does
+        # Concatenate to single array and wrap as ad.DenseArray
+        # We have forced the type of bc_values_array to be an ad.DenseArray, but mypy does
         # not recognize this. We therefore ignore the typing error.
-        bc_values_array: pp.ad.Array = pp.wrap_as_ad_array(  # type: ignore
+        bc_values_array: pp.ad.DenseArray = pp.wrap_as_ad_array(  # type: ignore
             np.hstack(bc_values), name="bc_values_mobility"
         )
         return bc_values_array
@@ -441,6 +498,17 @@ class VariablesSinglePhaseFlow(pp.VariableMixin):
     :class:`~porepy.models.fluid_mass_balance.SolutionStrategySinglePhaseFlow`.
 
     """
+    well_flux_variable: str
+    """Name of the primary variable representing the flux across a well interface.
+    Normally defined in a mixin of instance
+    :class:`~porepy.models.fluid_mass_balance.SolutionStrategySinglePhaseFlow`.
+
+    """
+    nd: int
+    """Number of spatial dimensions. Normally defined in a mixin of instance
+    :class:`~porepy.models.geometry.ModelGeometry`.
+
+    """
 
     def create_variables(self) -> None:
         """Assign primary variables to subdomains and interfaces of the
@@ -450,10 +518,22 @@ class VariablesSinglePhaseFlow(pp.VariableMixin):
         self.equation_system.create_variables(
             self.pressure_variable,
             subdomains=self.mdg.subdomains(),
+            tags={"si_units": "Pa"},
         )
+        # Note that `interface_darcy_flux_variable` is not multiplied by rho * mu^-1.
+        # However, after multiplication, whe know that the resulting flux should be a
+        # mass flux with units  `kg * s^-1`. The units of `interface_darcy_flux` can
+        # then be inferred by solving the below equation for `int_flux_units`:
+        # kg * s^-1 = [kg * (m^nd)^-1] * [Pa * s]^-1 * intf_flux_units
         self.equation_system.create_variables(
             self.interface_darcy_flux_variable,
-            interfaces=self.mdg.interfaces(),
+            interfaces=self.mdg.interfaces(codim=1),
+            tags={"si_units": f"m^{self.nd} * Pa"},
+        )
+        self.equation_system.create_variables(
+            self.well_flux_variable,
+            interfaces=self.mdg.interfaces(codim=2),
+            tags={"si_units": f"m^{self.nd} * Pa"},
         )
 
     def pressure(self, subdomains: list[pp.Grid]) -> pp.ad.MixedDimensionalVariable:
@@ -475,6 +555,21 @@ class VariablesSinglePhaseFlow(pp.VariableMixin):
         flux = self.equation_system.md_variable(
             self.interface_darcy_flux_variable, interfaces
         )
+        return flux
+
+    def well_flux(
+        self, interfaces: list[pp.MortarGrid]
+    ) -> pp.ad.MixedDimensionalVariable:
+        """Well flux.
+
+        Parameters:
+            interfaces: List of interface grids.
+
+        Returns:
+            Variable representing the well flux.
+
+        """
+        flux = self.equation_system.md_variable(self.well_flux_variable, interfaces)
         return flux
 
     def reference_pressure(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
@@ -511,11 +606,17 @@ class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
 
     """
 
-    specific_volume: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Function that returns the specific volume of a subdomain. Normally provided by a
-    mixin of instance :class:`~porepy.models.constitutive_laws.DimensionReduction`.
+    specific_volume: Callable[
+        [Union[list[pp.Grid], list[pp.MortarGrid]]], pp.ad.Operator
+    ]
+
+    """Function that returns the specific volume of a subdomain or interface.
+
+    Normally provided by a mixin of instance
+    :class:`~porepy.models.constitutive_laws.DimensionReduction`.
 
     """
+
     permeability: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Function that returns the permeability of a subdomain. Normally provided by a
     mixin class with a suitable permeability definition.
@@ -538,17 +639,35 @@ class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
     :class:`~porepy.models.fluid_mass_balance.BoundaryConditionsSinglePhaseFlow`.
 
     """
+    mobility_discretization: Callable[[list[pp.Grid]], pp.ad.UpwindAd]
+    """Discretization of the fluid mobility. Normally provided by a mixin instance of
+    :class:`~porepy.models.constitutive_laws.FluidMobility`.
+
+    """
+    interface_mobility_discretization: Callable[
+        [list[pp.MortarGrid]], pp.ad.UpwindCouplingAd
+    ]
+    """Discretization of the fluid mobility on internal boundaries. Normally provided
+    by a mixin instance of :class:`~porepy.models.constitutive_laws.FluidMobility`.
+
+    """
 
     def __init__(self, params: Optional[dict] = None) -> None:
         super().__init__(params)
+
         # Variables
         self.pressure_variable: str = "pressure"
         """Name of the pressure variable."""
 
         self.interface_darcy_flux_variable: str = "interface_darcy_flux"
-        """Name of the primary variable representing the Darcy flux on the interface."""
+        """Name of the primary variable representing the Darcy flux on interfaces of
+        codimension one."""
 
-        # Discrretization
+        self.well_flux_variable: str = "well_flux"
+        """Name of the primary variable representing the well flux on interfaces of
+        codimension two."""
+
+        # Discretization
         self.darcy_keyword: str = "flow"
         """Keyword for Darcy flux term.
 
@@ -616,7 +735,7 @@ class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
             )
 
         # Assign diffusivity in the normal direction of the fractures.
-        for intf, intf_data in self.mdg.interfaces(return_data=True):
+        for intf, intf_data in self.mdg.interfaces(return_data=True, codim=1):
             pp.initialize_data(
                 intf,
                 intf_data,
@@ -646,9 +765,9 @@ class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
             # fall back on reference value
             volume = self.specific_volume([sd]).evaluate(self.equation_system)
             permeability = self.solid.permeability() * np.ones(sd.num_cells) * volume
-        # The result may be an Ad_array, in which case we need to extract the
+        # The result may be an AdArray, in which case we need to extract the
         # underlying array.
-        if isinstance(permeability, pp.ad.Ad_array):
+        if isinstance(permeability, pp.ad.AdArray):
             permeability = permeability.val
         # TODO: Safeguard against negative permeability?
         return pp.SecondOrderTensor(permeability)
@@ -659,15 +778,29 @@ class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
         dictionary for use in upstream weighting.
 
         """
+        # Update parameters *before* the discretization matrices are re-computed.
         for sd, data in self.mdg.subdomains(return_data=True):
             vals = self.darcy_flux([sd]).evaluate(self.equation_system).val
             data[pp.PARAMETERS][self.mobility_keyword].update({"darcy_flux": vals})
 
-        for intf, data in self.mdg.interfaces(return_data=True):
+        for intf, data in self.mdg.interfaces(return_data=True, codim=1):
             vals = self.interface_darcy_flux([intf]).evaluate(self.equation_system).val
             data[pp.PARAMETERS][self.mobility_keyword].update({"darcy_flux": vals})
-        # FIXME: Targeted rediscretization of upwind.
-        self.discretize()
+        for intf, data in self.mdg.interfaces(return_data=True, codim=2):
+            vals = self.well_flux([intf]).evaluate(self.equation_system).val
+            data[pp.PARAMETERS][self.mobility_keyword].update({"darcy_flux": vals})
+
+        super().before_nonlinear_iteration()
+
+    def set_nonlinear_discretizations(self) -> None:
+        """Collect discretizations for nonlinear terms."""
+        super().set_nonlinear_discretizations()
+        self.add_nonlinear_discretization(
+            self.mobility_discretization(self.mdg.subdomains()).upwind,
+        )
+        self.add_nonlinear_discretization(
+            self.interface_mobility_discretization(self.mdg.interfaces()).flux,
+        )
 
 
 # Note that we ignore a mypy error here. There are some inconsistencies in the method

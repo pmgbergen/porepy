@@ -17,9 +17,6 @@ from .operators import MixedDimensionalVariable, Operator, Variable
 
 __all__ = ["EquationSystem"]
 
-GridLike = Union[pp.Grid, pp.MortarGrid]
-"""A union type representing a domain either by a grid or mortar grid.
-FIXME: Rename to Domain? Or GridLikeList/GridList below?"""
 
 # For Python3.8, a direct definition of type aliases with list is apparently not posible
 # (DomainList = Union[list[pp.Grid], list[pp.MortarGrid]]]), the same applies to dict
@@ -126,7 +123,6 @@ class EquationSystem:
     """
 
     def __init__(self, mdg: pp.MixedDimensionalGrid) -> None:
-
         ### PUBLIC
         self.mdg: pp.MixedDimensionalGrid = mdg
         """Mixed-dimensional domain passed at instantiation."""
@@ -149,7 +145,7 @@ class EquationSystem:
         """
 
         self._equation_image_space_composition: dict[
-            str, dict[GridLike, np.ndarray]
+            str, dict[pp.GridLike, np.ndarray]
         ] = dict()
         """Definition of image space for all equations.
 
@@ -361,7 +357,7 @@ class EquationSystem:
         """Creates new variables according to specifications.
 
         This method does not assign any values to the variable. This has to be done in a
-        subsequent step (e.g. using :meth:`set_var_values`).
+        subsequent step (e.g. using :meth:`set_variable_values`).
 
         Examples:
             An example on how to define a pressure variable with cell-wise one DOF
@@ -430,11 +426,19 @@ class EquationSystem:
                     assert isinstance(grid, pp.MortarGrid)  # mypy
                     data = self.mdg.interface_data(grid)
 
-                # Prepare data dictionary if this was not done already.
-                if pp.STATE not in data:
-                    data[pp.STATE] = dict()
-                if pp.ITERATE not in data[pp.STATE]:
-                    data[pp.STATE][pp.ITERATE] = dict()
+                # Prepare storage structure for values in data dictionary if not
+                # already prepared.
+                if pp.TIME_STEP_SOLUTIONS not in data:
+                    data[pp.TIME_STEP_SOLUTIONS] = {}
+
+                if name not in data[pp.TIME_STEP_SOLUTIONS]:
+                    data[pp.TIME_STEP_SOLUTIONS][name] = {}
+
+                if pp.ITERATE_SOLUTIONS not in data:
+                    data[pp.ITERATE_SOLUTIONS] = {}
+
+                if name not in data[pp.ITERATE_SOLUTIONS]:
+                    data[pp.ITERATE_SOLUTIONS][name] = {}
 
                 # Create grid variable.
                 new_variable = Variable(name, dof_info, domain=grid, tags=tags)
@@ -447,7 +451,7 @@ class EquationSystem:
                 self._variable_dof_type[new_variable] = dof_info
                 self._append_dofs(new_variable)
 
-        # Create an md variable that wrapps all the individual variables created on
+        # Create an md variable that wraps all the individual variables created on
         # individual grids.
         merged_variable = MixedDimensionalVariable(variables)
 
@@ -534,29 +538,52 @@ class EquationSystem:
         return filtered_variables
 
     def get_variable_values(
-        self, variables: Optional[VariableList] = None, from_iterate: bool = False
+        self,
+        variables: Optional[VariableList] = None,
+        time_step_index: Optional[int] = None,
+        iterate_index: Optional[int] = None,
     ) -> np.ndarray:
         """Assembles an array containing values for the passed variable-like argument.
 
-        The global order is preserved and independent of the order of the argument.
-
+        The gathered values will be the variable values corresponding to the storage
+        index specified by the user. The global order is preserved and independent of
+        the order of the argument.
 
         Parameters:
             variables (optional): VariableType input for which the values are
                 requested. If None (default), the global vector of unknowns is returned.
-            from_iterate (optional): flag to return values stored as ITERATE,
-                instead of STATE (default).
+            time_step_index: Specified by user if they want to gather variable values
+                from a specific time-step. Value 0 provides the most recent time-step. A
+                value of 1 will give the values of one time-step back in time.
+            iterate_index: Specified by user if they want to gather a specific set of
+                iterate values. Similar to ``time_step_index``, value 0 is the
+                default value and gives the most recent iterate.
 
         Returns:
             The respective (sub) vector in numerical format, size anywhere between 0 and
                 :meth:`num_dofs`.
 
-
         Raises:
+            ValueError: If neither of ``time_step_index`` or ``iterate_index`` have been
+            assigned a non-None value.
+            ValueError: If both ``time_step_index`` and ``iterate_index`` have been
+            assigned a value.
             KeyError: If no values are stored for the VariableType input.
             ValueError: If unknown VariableType arguments are passed.
 
         """
+        if time_step_index is None and iterate_index is None:
+            raise ValueError(
+                "Either time_step_index or iterate_index needs to be different from"
+                " None"
+            )
+
+        if time_step_index is not None and iterate_index is not None:
+            raise ValueError(
+                "Only one of time_step_index or iterate_index should be assigned a"
+                " value."
+            )
+
         variables = self._parse_variable_type(variables)
         # Storage for atomic blocks of the sub vector (identified by name-grid pairs).
         values = []
@@ -573,15 +600,19 @@ class EquationSystem:
                     data = self.mdg.interface_data(grid)
                 # Extract a copy of requested values.
                 try:
-                    if from_iterate:
-                        values.append(data[pp.STATE][pp.ITERATE][name].copy())
-                    else:
-                        values.append(data[pp.STATE][name].copy())
+                    if iterate_index is not None:
+                        values.append(
+                            data[pp.ITERATE_SOLUTIONS][name][iterate_index].copy()
+                        )
+
+                    elif time_step_index is not None:
+                        values.append(
+                            data[pp.TIME_STEP_SOLUTIONS][name][time_step_index].copy()
+                        )
+
                 except KeyError:
                     raise KeyError(
-                        f"No values stored for variable {name}, "
-                        f"from_iterate={from_iterate}"
-                        f"\non grid {grid}."
+                        f"No values stored for variable {name} on grid {grid}."
                     )
 
         # If there are matching blocks, concatenate and return.
@@ -595,8 +626,8 @@ class EquationSystem:
         self,
         values: np.ndarray,
         variables: Optional[VariableList] = None,
-        to_state: bool = False,
-        to_iterate: bool = False,
+        time_step_index: Optional[int] = None,
+        iterate_index: Optional[int] = None,
         additive: bool = False,
     ) -> None:
         """Sets values for a (sub) vector of the global vector of unknowns.
@@ -613,18 +644,31 @@ class EquationSystem:
             values: Vector of size corresponding to number of DOFs of the specified
                 variables.
             variables (optional): VariableType input for which the values are
-                 requested. If None (default), the global vector of unknowns will be
-                 set.
-            to_state (optional): Flag to write values to ``pp.STATE``.
-            to_iterate (optional): Flag to write values to ``pp.ITERATE``.
-
+                requested. If None (default), the global vector of unknowns will be
+                set.
+            time_step_index: Several solutions might be stored in the data dictionary.
+                This parameter determines which one of these is to be overwritten/added
+                to (depends on ``additive``). If ``None``, the values will not be
+                stored to ``pp.TIME_STEP_SOLUTIONS``.
+            iterate_index: Several iterates might be stored in the data dictionary. This
+                parameter determines which one of these is to be overwritten/added to
+                (depends on ``additive``). If ``None``, the values will not be stored
+                to ``pp.ITERATE_SOLUTIONS``.
             additive (optional): Flag to write values additively. To be used in
                 iterative procedures.
 
         Raises:
+            ValueError: If neither of ``time_step_index`` or ``iterate_index`` have been
+            assigned a value.
             ValueError: If unknown VariableType arguments are passed.
 
         """
+        if time_step_index is None and iterate_index is None:
+            raise ValueError(
+                "At least one of time_step_index and iterate_index needs to be"
+                "different from None."
+            )
+
         # Start of dissection.
         dof_start = 0
         dof_end = 0
@@ -633,35 +677,38 @@ class EquationSystem:
             if variable in variables:
                 name = variable.name
                 grid = variable.domain
+
+                data = self._get_data(grid=grid)
+
                 num_dofs = int(self._variable_num_dofs[variable_number])
                 dof_end = dof_start + num_dofs
                 # Extract local vector.
                 # This will raise errors if indexation is out of range.
                 local_vec = values[dof_start:dof_end]
-                # Fetch the storage from the relevant dicitonary in the
-                # MixedDimensionalGrid.
-                if isinstance(grid, pp.Grid):
-                    data = self.mdg.subdomain_data(grid)
-                elif isinstance(grid, pp.MortarGrid):
-                    data = self.mdg.interface_data(grid)
 
-                # Data dict will have pp.STATE and pp.ITERATE entries already created
-                # during create_variables. If an error is returned here, a variable has
-                # been created in a non-standard way.
-                # Store new values as requested.
+                # The data dictionary will have ``pp.TIME_STEP_SOLUTIONS`` and
+                # ``pp.ITERATE_SOLUTIONS`` entries already created during
+                # create_variables. If an error is returned here, a variable has been
+                # created in a non-standard way. Store new values as requested.
                 if additive:
-                    if to_iterate:
-                        # No need for a copy here, since we are adding to an existing
-                        # array.
-                        data[pp.STATE][pp.ITERATE][name] += local_vec
-                    if to_state:
-                        data[pp.STATE][name] += local_vec
+                    if iterate_index is not None:
+                        data[pp.ITERATE_SOLUTIONS][name][iterate_index] += local_vec
+
+                    if time_step_index is not None:
+                        data[pp.TIME_STEP_SOLUTIONS][name][time_step_index] += local_vec
+
                 else:
-                    if to_iterate:
+                    if iterate_index is not None:
                         # The copy is critcial here.
-                        data[pp.STATE][pp.ITERATE][name] = local_vec.copy()
-                    if to_state:
-                        data[pp.STATE][name] = local_vec.copy()
+                        data[pp.ITERATE_SOLUTIONS][name][
+                            iterate_index
+                        ] = local_vec.copy()
+
+                    if time_step_index is not None:
+                        # The copy is critcial here.
+                        data[pp.TIME_STEP_SOLUTIONS][name][
+                            time_step_index
+                        ] = local_vec.copy()
 
                 # Move dissection forward.
                 dof_start = dof_end
@@ -670,6 +717,98 @@ class EquationSystem:
         # This imposes a theoretically unnecessary restriction on the input argument
         # since we only require a vector of at least this size.
         # assert dof_end == values.size
+
+    def shift_time_step_values(
+        self,
+        variables: Optional[VariableList] = None,
+    ) -> None:
+        """Method for shifting stored time step values in data sub-dictionary.
+
+        For details of the value shifting see the method :meth:`_shift_variable_values`.
+
+        Parameters:
+            variables (optional): VariableType input for which the values are
+                requested. If None (default), the global vector of unknowns will
+                be shifted.
+
+        """
+        self._shift_variable_values(
+            location=pp.TIME_STEP_SOLUTIONS, variables=variables
+        )
+
+    def shift_iterate_values(
+        self,
+        variables: Optional[VariableList] = None,
+    ) -> None:
+        """Method for shifting stored iterate values in data sub-dictionary.
+
+        For details of the value shifting see the method :meth:`_shift_variable_values`.
+
+        Parameters:
+            variables (optional): VariableType input for which the values are
+                requested. If None (default), the global vector of unknowns will
+                be shifted.
+
+        """
+        self._shift_variable_values(location=pp.ITERATE_SOLUTIONS, variables=variables)
+
+    def _shift_variable_values(
+        self,
+        location: str,
+        variables: Optional[VariableList] = None,
+    ) -> None:
+        """Method for shifting values in data dictionary.
+
+        Time step and iterate values are stored with storage indices as keys in
+        the data dictionary for the subdomain or interface in question. For each
+        time-step/iteration, these values are shifted such that the most recent
+        variable value later can be placed at index 0. The previous
+        time-step/iterate values have their index incremented by one. Values
+        of key 0 is moved to key 1, values of key 1 is moved to key 2, and so
+        on. The value at the highest key is discarded.
+
+        Parameters:
+            location: Should be ``pp.TIME_STEP_SOLUTIONS`` or ``pp.ITERATE_SOLUTIONS``
+                depending on which one of solutions/iterates that are to be shifted.
+            variables (optional): VariableType input for which the values are
+                requested. If None (default), the global vector of unknowns will
+                be shifted.
+
+        Raises:
+            ValueError: If unknown VariableType arguments are passed.
+
+        """
+        # Looping through the variables and shifting the values
+        variables = self._parse_variable_type(variables)
+        for variable, _ in self._variable_numbers.items():
+            if variable in variables:
+                name = variable.name
+                grid = variable.domain
+                data = self._get_data(grid=grid)
+
+                # Shift old values as requested.
+                num_stored = len(data[location][name])
+                for i in range(num_stored - 1, 0, -1):
+                    data[location][name][i] = data[location][name][i - 1].copy()
+
+    def _get_data(
+        self,
+        grid: pp.GridLike,
+    ) -> dict:
+        """Method for gathering data dictionary for a given grid.
+
+        Parameters:
+            grid: Subdomain/interface whose data dictionary the user is interested in.
+
+        Returns:
+            Data dictionary corresponding to ``grid``.
+
+        """
+        if isinstance(grid, pp.Grid):
+            data = self.mdg.subdomain_data(sd=grid)
+        elif isinstance(grid, pp.MortarGrid):
+            data = self.mdg.interface_data(intf=grid)
+        return data
 
     ### DOF management -----------------------------------------------------------------
 
@@ -990,7 +1129,7 @@ class EquationSystem:
         # The function loops over all grids the operator is defined on and calculate the
         # number of equations per grid quantity (cell, face, node). This information
         # is then stored together with the equation itself.
-        image_info: dict[GridLike, np.ndarray] = dict()
+        image_info: dict[pp.GridLike, np.ndarray] = dict()
         total_num_equ = 0
 
         # The domain of this equation is the set of grids on which it is defined
@@ -1221,7 +1360,6 @@ class EquationSystem:
         # Equations represented by dict with restriction to grids: get target row
         # indices.
         elif isinstance(equation, dict):
-
             block: dict[str, None | np.ndarray] = dict()
             for equ, grids in equation.items():
                 # equ is an identifier of the equation (either a string or an operator)
@@ -1267,16 +1405,13 @@ class EquationSystem:
                 for grid in img_info:
                     if grid in grids:
                         block_idx.append(img_info[grid])
-                # If indices not empty, concatenate and return
-                if block_idx:
+
+                if len(block_idx) > 0:
+                    # If indices not empty, concatenate and return.
                     block.update({name: np.concatenate(block_idx, dtype=int)})
-                # indices should by logic always be found, if not alert the user.
                 else:
-                    # TODO: Should this not be permissible, say, due to a filtering of
-                    # the grids? However, it may lead to errors downstream.
-                    raise TypeError(
-                        f"Equation-like item ({type(equ)}, {type(grids)}) yielded no rows."
-                    )
+                    # If indices empty, return empty array.
+                    block.update({name: np.array([], dtype=int)})
             return block
         else:
             # Getting an error here means the user has passed a type that is not
@@ -1414,8 +1549,9 @@ class EquationSystem:
 
             variables (optional): VariableType input specifying the subspace in
                 column-sense. If not provided (None), all variables will be included.
-            state (optional): State vector to assemble from. By default, the stored
-                ``pp.ITERATE`` or ``pp.STATE`` are used, in that order.
+            state (optional): State vector to assemble from. By default, the
+                ``pp.ITERATE_SOLUTIONS`` or ``pp.TIME_STEP_SOLUTIONS`` are used, in that
+                order.
 
         Returns:
             Tuple with two elements
@@ -1568,7 +1704,7 @@ class EquationSystem:
 
         """
         if inverter is None:
-            inverter = lambda A: sps.csr_matrix(sps.linalg.inv(A.A))
+            inverter = lambda A: sps.csr_matrix(np.linalg.inv(A.A))
 
         # Find the rows of the primary block. This can include both equations defined
         # on their full image, and equations specified on a subset of grids.
@@ -1803,3 +1939,65 @@ class EquationSystem:
             s += "\n\t".join(eq_names) + "\n"
 
         return s
+
+
+# Utility functions
+
+
+def set_solution_values(
+    name: str,
+    values: np.ndarray,
+    data: dict,
+    time_step_index: Optional[int] = None,
+    iterate_index: Optional[int] = None,
+    additive: bool = False,
+) -> None:
+    """Utility function for setting values to ``pp.TIME_STEP_SOLUTIONS`` and/or
+    ``pp.ITERATE_SOLUTIONS`` in data dictionary.
+
+    Parameters:
+        name: Name of the quantity that is to be assigned values.
+        values: The values that are set in the data dictionary.
+        data: Data dictionary corresponding to the subdomain or interface in question.
+        time_step_index (optional): Determines the key of where ``values`` are to be
+            stored in ``data[pp.TIME_STEP_SOLUTIONS][name]``. 0 means it is the most
+            recent set of values, 1 means the one time step back in time, 2 is two time
+            steps back, and so on.
+        iterate_index (optional): Determines the key of where ``values`` are to be
+            stored in ``data[pp.ITERATE_SOLUTIONS][name]``. 0 means it is the most
+            recent set of values, 1 means the values one iteration back in time, 2 is
+            two iterations back, and so on.
+        additive: Flag to decide whether the values already stored in the data
+            dictionary should be added to or overwritten.
+
+    Raises:
+        ValueError: If neither of ``time_step_index`` or ``iterate_index`` have been
+        assigned a non-None value.
+
+    """
+    if time_step_index is None and iterate_index is None:
+        raise ValueError(
+            "At least one of time_step_index and iterate_index needs to be different"
+            " from None"
+        )
+
+    if not additive:
+        if time_step_index is not None:
+            if pp.TIME_STEP_SOLUTIONS not in data:
+                data[pp.TIME_STEP_SOLUTIONS] = {}
+            if name not in data[pp.TIME_STEP_SOLUTIONS]:
+                data[pp.TIME_STEP_SOLUTIONS][name] = {}
+            data[pp.TIME_STEP_SOLUTIONS][name][time_step_index] = values.copy()
+
+        if iterate_index is not None:
+            if pp.ITERATE_SOLUTIONS not in data:
+                data[pp.ITERATE_SOLUTIONS] = {}
+            if name not in data[pp.ITERATE_SOLUTIONS]:
+                data[pp.ITERATE_SOLUTIONS][name] = {}
+            data[pp.ITERATE_SOLUTIONS][name][iterate_index] = values.copy()
+    else:
+        if time_step_index is not None:
+            data[pp.TIME_STEP_SOLUTIONS][name][time_step_index] += values
+
+        if iterate_index is not None:
+            data[pp.ITERATE_SOLUTIONS][name][iterate_index] += values
