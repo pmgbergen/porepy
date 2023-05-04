@@ -73,7 +73,7 @@ class MpsaBoundTest(unittest.TestCase):
         right = g.face_centers[0] > 1 - 1e-10
 
         is_dir = left + top
-        is_neu = np.zeros(left.size, dtype=np.bool)
+        is_neu = np.zeros(left.size, dtype=bool)
         is_rob = right + bot
 
         bnd = pp.BoundaryConditionVectorial(g)
@@ -194,8 +194,8 @@ class MpsaBoundTest(unittest.TestCase):
         right = g.face_centers[0] > 1 - 1e-10
 
         is_dir = left + top + right + bot
-        is_neu = np.zeros(left.size, dtype=np.bool)
-        is_rob = np.zeros(left.size, dtype=np.bool)
+        is_neu = np.zeros(left.size, dtype=bool)
+        is_rob = np.zeros(left.size, dtype=bool)
 
         bnd = pp.BoundaryConditionVectorial(g)
         bnd.is_neu[:] = False
@@ -245,8 +245,8 @@ class MpsaBoundTest(unittest.TestCase):
         left = g.face_centers[0] < 1e-10
         right = g.face_centers[0] > 1 - 1e-10
 
-        is_dir = np.zeros(left.size, dtype=np.bool)
-        is_neu = np.zeros(left.size, dtype=np.bool)
+        is_dir = np.zeros(left.size, dtype=bool)
+        is_neu = np.zeros(left.size, dtype=bool)
         is_rob = left + top + right + bot
 
         bnd = pp.BoundaryConditionVectorial(g)
@@ -298,9 +298,9 @@ class MpsaBoundTest(unittest.TestCase):
         left = g.face_centers[0] < 1e-10
         right = g.face_centers[0] > 1 - 1e-10
 
-        is_dir = np.zeros(left.size, dtype=np.bool)
+        is_dir = np.zeros(left.size, dtype=bool)
         is_neu = left + top + right + bot
-        is_rob = np.zeros(left.size, dtype=np.bool)
+        is_rob = np.zeros(left.size, dtype=bool)
 
         bnd = pp.BoundaryConditionVectorial(g)
         bnd.is_neu[:] = False

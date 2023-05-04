@@ -289,7 +289,6 @@ def sort_triangle_edges(t: np.ndarray) -> np.ndarray:
     is_ordered[0] = 1
 
     while len(queue) > 0:
-
         # Pick an edge to be processed
         q = queue.pop(0)
 

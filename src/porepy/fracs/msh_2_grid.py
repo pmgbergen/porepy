@@ -117,7 +117,6 @@ def create_2d_grids(
 
         # Loop over all gmsh tags associated with triangle grids
         for pn_ind in np.unique(tri_tags):
-
             # Split the physical name into a category and a number - which will
             # become the fracture number
             pn = phys_names[pn_ind]

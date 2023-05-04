@@ -34,7 +34,6 @@ def multinary_permutations(base, length):
     # There are in total base ** length numbers to be covered, these need to be
     # rewritten into the base number system
     for iter1 in range(base**length):
-
         # Array to store the multi-d index of the current index
         bit_val = [0] * length
         # Number to be decomposed

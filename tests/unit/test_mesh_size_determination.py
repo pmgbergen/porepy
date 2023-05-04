@@ -119,7 +119,7 @@ class TestMeshSize(unittest.TestCase):
 
         # Many of the points should have mesh size of 2, adjust the exceptions below
         mesh_size_known = np.full(
-            decomp["points"].shape[1], mesh_size_bound, dtype=np.float
+            decomp["points"].shape[1], mesh_size_bound, dtype=float
         )
 
         # Find the points on the fracture

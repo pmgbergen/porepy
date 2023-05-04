@@ -82,7 +82,6 @@ def propagate_fractures(
     # propagated.
 
     for sd_secondary in mdg.subdomains(dim=dim_primary - 1):
-
         # The propagation of a fracture consists of the following major steps:
         #   1. Find which faces in sd_primary should be split for this sd_secondary.
         #   2. Add nodes to sd_secondary where the fracture will propagate.
@@ -272,7 +271,6 @@ def propagate_fractures(
 
     # When all faces have been split, we can update the mortar grids
     for intf_old in mdg.subdomain_to_interfaces(sd_primary):
-
         data_edge = mdg.interface_data(intf_old)
         _, sd_secondary = mdg.interface_to_subdomain_pair(intf_old)
         data_secondary = mdg.subdomain_data(sd_secondary)
@@ -306,7 +304,6 @@ def _update_mortar_grid(
     new_cells,
     new_faces_h,
 ):
-
     # Face-cell map. This has been updated during splitting, thus it has
     # the shapes of the new grids
     face_cells = d_e["face_cells"]
@@ -539,7 +536,6 @@ def _update_connectivity_fracture_grid(
 
     # Loop over all new cells to be created
     for i, c in enumerate(new_cells_l):
-
         # Find the nodes of the corresponding higher-dimensional face
         face_h = faces_h[i]
         local_nodes_h = sd_primary.face_nodes[:, face_h].nonzero()[0]

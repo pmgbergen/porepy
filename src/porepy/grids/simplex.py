@@ -166,7 +166,6 @@ class StructuredTriangleGrid(TriangleGrid):
         physdims: Optional[np.ndarray] = None,
         name: Optional[str] = None,
     ) -> None:
-
         nx = np.asarray(nx)
         assert nx.size == 2
 
@@ -237,7 +236,6 @@ class TetrahedralGrid(Grid):
         tet: Optional[np.ndarray] = None,
         name: Optional[str] = None,
     ) -> None:
-
         self.dim = 3
 
         # Transform points to column vector if necessary (scipy.Delaunay requires this
@@ -381,7 +379,6 @@ class StructuredTetrahedralGrid(TetrahedralGrid):
         physdims: Optional[np.ndarray] = None,
         name: Optional[str] = None,
     ) -> None:
-
         if name is None:
             name = "StructuredTetrahedralGrid"
 

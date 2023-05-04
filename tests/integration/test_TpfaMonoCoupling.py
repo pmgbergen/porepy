@@ -96,7 +96,7 @@ class TestTpfaCouplingDiffGrids(unittest.TestCase):
 
         left_faces = np.argwhere(left_grid.face_centers[0] > split - tol).ravel()
         right_faces = np.argwhere(right_grid.face_centers[0] < split + tol).ravel()
-        val = np.ones(left_faces.size, dtype=np.bool)
+        val = np.ones(left_faces.size, dtype=bool)
         shape = [right_grid.num_faces, left_grid.num_faces]
 
         face_faces = sps.coo_matrix((val, (right_faces, left_faces)), shape=shape)
@@ -252,7 +252,6 @@ class TestTpfaCouplingPeriodicBc(unittest.TestCase):
         self.solve(mdg, analytic_p)
 
     def solve(self, mdg, analytic_p):
-
         # Parameter-discretization keyword:
         kw = "flow"
         # Terms
@@ -337,7 +336,7 @@ class TestTpfaCouplingPeriodicBc(unittest.TestCase):
         tol = 1e-6
         left_faces = np.argwhere(g1.face_centers[1] > ymax - tol).ravel()
         right_faces = np.argwhere(g1.face_centers[1] < 0 + tol).ravel()
-        val = np.ones(left_faces.size, dtype=np.bool)
+        val = np.ones(left_faces.size, dtype=bool)
         shape = [g1.num_faces, g1.num_faces]
 
         face_faces = sps.coo_matrix((val, (right_faces, left_faces)), shape=shape)

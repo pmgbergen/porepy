@@ -130,6 +130,7 @@ class ListFilter(AssemblerFilter):
             term_list: List of terms to pass the filter.
 
         """
+
         # Helper functions, needed for no-pass and all-pass behavior
         def return_false(s):
             return False
@@ -225,7 +226,6 @@ class ListFilter(AssemblerFilter):
         return subdomains, interfaces, couplings
 
     def _make_grid_filter(self, grid_list):
-
         subdomains, interfaces, couplings = self._parse_grid_list(grid_list)
         self._subdomains: List[Grid] = subdomains  # type: ignore
         self._interfaces: List[Tuple[Grid, Grid]] = interfaces  # type: ignore

@@ -106,7 +106,7 @@ class TestMeshMerging(unittest.TestCase):
         new_face_ind = non_conforming.update_face_nodes(g, delete_faces, 1, 2)
         self.assertTrue(new_face_ind.size == 1)
         self.assertTrue(new_face_ind[0] == 1)
-        fn_known = np.array([[0, 0], [0, 0], [1, 1], [1, 1]], dtype=np.bool)
+        fn_known = np.array([[0, 0], [0, 0], [1, 1], [1, 1]], dtype=bool)
 
         self.assertTrue(np.allclose(fn_known, g.face_nodes.A))
 
@@ -121,7 +121,7 @@ class TestMeshMerging(unittest.TestCase):
         new_face_ind = non_conforming.update_face_nodes(g, delete_faces, 1, 0)
         self.assertTrue(new_face_ind.size == 1)
         self.assertTrue(new_face_ind[0] == 1)
-        fn_known = np.array([[0, 1], [1, 1], [1, 1], [1, 0]], dtype=np.bool)
+        fn_known = np.array([[0, 1], [1, 1], [1, 1], [1, 0]], dtype=bool)
 
         self.assertTrue(np.allclose(fn_known, g.face_nodes.A))
 
@@ -138,7 +138,7 @@ class TestMeshMerging(unittest.TestCase):
             g, delete_faces, num_new_faces=0, new_node_offset=2
         )
         self.assertTrue(new_face_ind.size == 0)
-        fn_known = np.array([[0], [0], [1], [1]], dtype=np.bool)
+        fn_known = np.array([[0], [0], [1], [1]], dtype=bool)
 
         self.assertTrue(np.allclose(fn_known, g.face_nodes.A))
 
@@ -154,7 +154,7 @@ class TestMeshMerging(unittest.TestCase):
         new_face_ind = non_conforming.update_face_nodes(g, delete_faces, 1, 2)
         self.assertTrue(new_face_ind.size == 1)
         self.assertTrue(new_face_ind[0] == 0)
-        fn_known = np.array([[0], [0], [1], [1]], dtype=np.bool)
+        fn_known = np.array([[0], [0], [1], [1]], dtype=bool)
 
         self.assertTrue(np.allclose(fn_known, g.face_nodes.A))
 
@@ -273,7 +273,7 @@ class TestMeshMerging(unittest.TestCase):
             g, delete_faces, new_faces, in_combined, fn_orig, nodes_orig
         )
 
-        cf_expected = np.array([[1, 1, 0, 1, 1], [0, 0, 1, 1, 1]], dtype=np.bool).T
+        cf_expected = np.array([[1, 1, 0, 1, 1], [0, 0, 1, 1, 1]], dtype=bool).T
         self.assertTrue(np.allclose(np.abs(g.cell_faces.toarray()), cf_expected))
 
     def test_update_cell_faces_delete_shared_reversed(self):
@@ -302,7 +302,7 @@ class TestMeshMerging(unittest.TestCase):
             g, delete_faces, new_faces, in_combined, fn_orig, nodes_orig
         )
 
-        cf_expected = np.array([[1, 1, 0, 1, 1], [0, 0, 1, 1, 1]], dtype=np.bool).T
+        cf_expected = np.array([[1, 1, 0, 1, 1], [0, 0, 1, 1, 1]], dtype=bool).T
         self.assertTrue(np.allclose(np.abs(g.cell_faces.toarray()), cf_expected))
 
     def test_update_cell_faces_change_all(self):
@@ -330,7 +330,7 @@ class TestMeshMerging(unittest.TestCase):
             g, delete_faces, new_faces, in_combined, fn_orig, nodes_orig
         )
 
-        cf_expected = np.array([[1, 1, 0, 0, 0], [0, 0, 1, 1, 1]], dtype=np.bool).T
+        cf_expected = np.array([[1, 1, 0, 0, 0], [0, 0, 1, 1, 1]], dtype=bool).T
         self.assertTrue(np.allclose(np.abs(g.cell_faces.toarray()), cf_expected))
 
     def test_update_tag_simple(self):
@@ -1048,7 +1048,6 @@ class MockGrid:
         cell_faces=None,
         num_cells=None,
     ):
-
         self.dim = dim
         self.face_nodes = face_nodes.tocsc()
         self.num_faces = num_faces
