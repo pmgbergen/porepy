@@ -89,4 +89,4 @@ jobs:
 
     - name: Check tutorials
       if: ${{always()}}
-      run: pytest tests/regression/test_tutorials.py
+      run: pytest tests/regression
