@@ -322,7 +322,6 @@ class GmshWriter:
     """
 
     def __init__(self, data: GmshData2d | GmshData3d) -> None:
-
         self._dim: int = data.dim
         """The ambient dimension of the mesh."""
         self._data: Union[GmshData2d, GmshData3d] = data
@@ -529,7 +528,6 @@ class GmshWriter:
         """
         point_tags = []
         for pi, sz in enumerate(self._data.mesh_size):
-
             if self._dim == 2:
                 x, y = self._data.pts[:, pi]
                 z = 0
@@ -642,7 +640,7 @@ class GmshWriter:
         gmsh.model.geo.synchronize()
 
         # Add the surfaces as physical tags if so specified.
-        for (pi, phys_name, tag) in to_phys_tags:
+        for pi, phys_name, tag in to_phys_tags:
             ps = gmsh.model.addPhysicalGroup(surf_dim, tag)
             gmsh.model.setPhysicalName(surf_dim, ps, phys_name)
 
@@ -720,7 +718,7 @@ class GmshWriter:
 
         # Assign physical name to the line if specified. This will make gmsh
         # represent the line as a separate physical object in the .msh file
-        for (i, physical_name, loc_tags) in to_physical_group:
+        for i, physical_name, loc_tags in to_physical_group:
             phys_group = gmsh.model.addPhysicalGroup(line_dim, loc_tags)
             gmsh.model.setPhysicalName(line_dim, phys_group, f"{physical_name}{i}")
 

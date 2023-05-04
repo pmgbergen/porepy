@@ -64,7 +64,6 @@ class FractureNetwork2d:
         domain: Optional[pp.Domain] = None,
         tol: float = 1e-8,
     ) -> None:
-
         self._pts: np.ndarray
         """Start and endpoints of the fractures. Points can be shared by fractures."""
 

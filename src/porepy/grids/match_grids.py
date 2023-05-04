@@ -432,7 +432,6 @@ def match_grids_along_1d_mortar(
     matrix = sps.coo_matrix((g_old.num_faces, g_new.num_faces))
 
     for so, sn in zip(both_sides_old, both_sides_new):
-
         if len(sn) == 0 or len(so) == 0:
             # EK: Not sure how this would happen
             continue
@@ -665,7 +664,6 @@ def structured_refinement(
 
     # 4. Step: Loop through every coarse cell
     for st, nd in nodes_of_cell_ptr:
-
         nodes_idx = cell_nodes.indices[st:nd]
         num_nodes = nodes_idx.size
 

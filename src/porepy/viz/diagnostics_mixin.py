@@ -323,7 +323,6 @@ class DiagnosticsMixin:
             for block_of_grids in grouping:
                 block_dofs = []
                 for grid, grid_dof_indices in equation_image_space.items():
-
                     if grid not in block_of_grids:
                         continue
                     block_dofs.extend(grid_dof_indices.tolist())

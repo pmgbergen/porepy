@@ -60,7 +60,6 @@ class InterpolationTable:
         function: Callable[[np.ndarray], np.ndarray],
         dim: int = 1,
     ) -> None:
-
         self.dim = dim
         # Dimension of the function to interpolate
 
@@ -346,7 +345,6 @@ class AdaptiveInterpolationTable(InterpolationTable):
         function: Optional[Callable[[np.ndarray], np.ndarray]] = None,
         dim: int = 1,
     ) -> None:
-
         self.dim: int = dim
         # Dimension of the field to interpolate
 
@@ -575,7 +573,6 @@ class AdaptiveInterpolationTable(InterpolationTable):
 
         # Compute and store values
         if indices_to_compute.size > 0:
-
             new_values = np.array(
                 [self._function(*coord[:, i]) for i in indices_to_compute]
             ).T
