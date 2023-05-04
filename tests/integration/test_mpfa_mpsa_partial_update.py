@@ -155,7 +155,7 @@ class TestPartialMPFA(unittest.TestCase):
         flux = sps.csr_matrix((g.num_faces, g.num_cells))
         bound_flux = sps.csr_matrix((g.num_faces, g.num_faces))
         vc = sps.csr_matrix((g.num_faces, g.num_cells * g.dim))
-        faces_covered = np.zeros(g.num_faces, np.bool)
+        faces_covered = np.zeros(g.num_faces, bool)
 
         bnd = pp.BoundaryCondition(g)
 
@@ -364,7 +364,7 @@ class TestPartialMPSA(unittest.TestCase):
 
         stress = sps.csr_matrix((g.num_faces * g.dim, g.num_cells * g.dim))
         bound_stress = sps.csr_matrix((g.num_faces * g.dim, g.num_faces * g.dim))
-        faces_covered = np.zeros(g.num_faces, np.bool)
+        faces_covered = np.zeros(g.num_faces, bool)
 
         bnd = pp.BoundaryConditionVectorial(g)
         specified_data = {
@@ -653,8 +653,8 @@ class PartialBiotMpsa(TestPartialMPSA):
         stab = sps.csr_matrix((nc, nc))
         bound_displacement_pressure = sps.csr_matrix((nf * nd, nc))
 
-        faces_covered = np.zeros(g.num_faces, np.bool)
-        cells_covered = np.zeros(g.num_cells, np.bool)
+        faces_covered = np.zeros(g.num_faces, bool)
+        cells_covered = np.zeros(g.num_cells, bool)
 
         bnd = pp.BoundaryConditionVectorial(g)
         specified_data = {
@@ -814,7 +814,6 @@ class UpdateDiscretizations(unittest.TestCase):
     def _update_and_compare(
         self, data_small, data_partial, data_full, g_larger, keywords, discr
     ):
-
         for keyword in keywords:
             # Transfer discretized matrices from the small problem
             for key, val in data_small[pp.DISCRETIZATION_MATRICES][keyword].items():

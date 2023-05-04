@@ -36,7 +36,6 @@ class testBoundaryConditionsVectorial(unittest.TestCase):
         self.assertTrue(np.allclose(bc.basis, basis_known))
 
     def test_2d(self):
-
         """
         The domain consists of a 3x3 mesh.
         Bottom faces are dirichlet
@@ -88,7 +87,7 @@ class testBoundaryConditionsVectorial(unittest.TestCase):
         is_neu_nd = (
             bound_exclusion.exclude_robin_dirichlet(bound.is_neu.ravel("C"))
             .ravel("F")
-            .astype(np.bool)
+            .astype(bool)
         )
 
         neu_ind = np.argsort(subfno_neu)
@@ -130,7 +129,7 @@ class testBoundaryConditionsVectorial(unittest.TestCase):
         is_dir_nd = (
             bound_exclusion.exclude_neumann_robin(bound.is_dir.ravel("C"))
             .ravel("F")
-            .astype(np.bool)
+            .astype(bool)
         )
 
         dir_ind = np.argsort(subfno_dir)

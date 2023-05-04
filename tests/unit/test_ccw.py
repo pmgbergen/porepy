@@ -87,7 +87,7 @@ class TestCCW(unittest.TestCase):
         p1, p2, _ = self.setup()
 
         p_test = np.array([[0.5, 0.5], [1, -1]])
-        known = np.array([1, 0], dtype=np.bool)
+        known = np.array([1, 0], dtype=bool)
         self.assertTrue(
             np.allclose(
                 known,
