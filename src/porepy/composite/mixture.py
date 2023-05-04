@@ -279,6 +279,7 @@ class ThermodynamicState:
             rho = vec.copy()
             z = [vec.copy() for _ in range(num_comp)]
             y = [vec.copy() for _ in range(num_phases)]
+            s = [vec.copy() for _ in range(num_phases)]
             X = [[vec.copy() for _ in range(num_comp)] for _ in range(num_phases)]
 
         # update state with derivatives if requested
@@ -300,6 +301,7 @@ class ThermodynamicState:
             for i in range(num_comp):
                 jac_x_0i = jac_glob_d.copy()
                 jac_x_0i[:, n_p + i * num_vals : n_p + (i + 1) * num_vals] = id_block
+                X_jacs[-1].append(jac_x_0i)
             # update the column number based on reference phase composition vals
             n_p += num_comp * num_vals
             for j in range(indp):
@@ -308,11 +310,11 @@ class ThermodynamicState:
                 y_jacs.append(jac_y_j)
                 X_jacs.append(list())
                 for i in range(num_comp):
-                    jac_x_ij = jac_glob_d.copy()
-                    jac_x_ij[
+                    jac_x_ji = jac_glob_d.copy()
+                    jac_x_ji[
                         :, n_p + i * num_vals : n_p + (i + 1) * num_vals
                     ] = id_block
-                    X_jacs[-1].append(jac_x_ij)
+                    X_jacs[-1].append(jac_x_ji)
 
             # reference phase fraction is dependent by unity
             if len(y_jacs) > 0:
@@ -762,7 +764,7 @@ class BasicMixture:
         """
         var = ad_system.create_variables(name=name, subdomains=subdomains)
         ad_system.set_variable_values(
-            np.zeros(self.dofs), variables=[name], to_iterate=True, to_state=True
+            np.zeros(self.dofs), variables=[name], iterate_index=0, time_step_index=0
         )
         return var
 
@@ -869,7 +871,7 @@ class BasicMixture:
 
         Returns:
             A list of domains on which the mixture is defined.
-            
+
             If the default domain is created, it returns the created instance.
 
             If a domain is defined using ``ad_system``, the mixture will be defined on
@@ -1600,7 +1602,7 @@ class NonReactiveMixture(BasicMixture):
                 Sub-quantities of ``phi``, if entity ``j`` where saturated (``y_j=1``).
 
         Returns:
-            ``phi - sum(y_j*phi_j)``, with ``*`` being a scalar product.
+            ``sum(y_j*phi_j) - phi``, with ``*`` being a scalar product.
 
         """
-        return phi - BasicMixture.evaluate_weighed_sum(phi_j, y_j)
+        return BasicMixture.evaluate_weighed_sum(phi_j, y_j) - phi
