@@ -52,7 +52,6 @@ class Well:
         index: Optional[int] = None,
         tags: Optional[dict] = None,
     ) -> None:
-
         self.pts: np.ndarray = np.asarray(points, dtype=float)
         """``shape = (3, num_points)``
 
@@ -258,7 +257,6 @@ class WellNetwork3d:
         tol: float = 1e-8,
         parameters: Optional[dict] = None,
     ) -> None:
-
         self.domain: pp.Domain = domain
         """Domain specification."""
 

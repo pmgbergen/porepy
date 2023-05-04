@@ -20,7 +20,6 @@ class FVElliptic(pp.EllipticDiscretization):
     """
 
     def __init__(self, keyword):
-
         # Identify which parameters to use:
         self.keyword = keyword
 

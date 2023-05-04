@@ -488,7 +488,6 @@ def create_partition(
     not_found = np.logical_not(is_coarse)
     # Process the strongest connection globally
     while np.any(not_found):
-
         np.argmax(vals.data)
         vals.argmax(axis=0)
         mcind = np.atleast_1d(np.squeeze(np.asarray(vals.argmax(axis=0))))
@@ -674,7 +673,6 @@ def _generate_coarse_grid_mdg(
         subdiv = {g: subdiv}  # type: ignore
 
     for g, (_, partition) in subdiv.items():
-
         # Construct the coarse grids
         face_map = _generate_coarse_grid_single(g, partition, True)
         assert face_map is not None  # make mypy happy
