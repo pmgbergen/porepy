@@ -8,6 +8,10 @@ import porepy as pp
 def unit_domain(dimension: int) -> pp.Domain:
     """Return a domain of unitary size extending from 0 to 1 in all dimensions.
 
+    .. deprecated::
+        This function is deprecated and will be moved or removed at an unspecified
+        point in the future.
+
     Parameters:
         dimension: the dimension of the domain.
 
@@ -29,6 +33,10 @@ def set_mesh_sizes(mesh_args: dict):
     Checks whether mesh_size_min and mesh_size_bound are present in the mesh_args dictionary.
     If not, they are set to 1/5 and 2 of the mesh_size_frac value, respectively.
 
+    .. deprecated::
+        This function is deprecated and will be moved or removed at an unspecified
+        point in the future.
+
     """
     if "mesh_size_frac" not in mesh_args:
         raise ValueError("Mesh size parameters should be specified via mesh_size_frac")
@@ -42,6 +50,10 @@ def make_mdg_2d_simplex(
     mesh_args: dict, points: np.ndarray, fractures: np.ndarray, domain: pp.Domain
 ):
     """Construct a mixed-dimensional simplex grid in the 2d domain.
+
+    .. deprecated::
+        This function is deprecated and will be moved or removed at an unspecified
+        point in the future.
 
     Parameters:
         mesh_args: Contains at least "mesh_size_frac". If the optional values of
@@ -69,6 +81,10 @@ def make_mdg_2d_cartesian(
 ):
     """
     Construct a Cartesian mixed-dimensional grid in the 2d domain.
+
+    .. deprecated::
+        This function is deprecated and will be moved or removed at an unspecified
+        point in the future.
 
     Parameters:
         n_cells: Contains number of cells in x and y direction.

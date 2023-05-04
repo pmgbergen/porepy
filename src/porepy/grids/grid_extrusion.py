@@ -79,7 +79,6 @@ def extrude_grid_bucket(
     # Loop over all interfaces in the old grid, create corresponding edges in the new
     # mdg. Also define mortar_grids.
     for intf, intf_data in mdg.interfaces(return_data=True):
-
         # grids of the old edge, extruded version of each grid
         sd_primary, sd_secondary = mdg.interface_to_subdomain_pair(intf)
         sd_primary_new = g_map[sd_primary].grid

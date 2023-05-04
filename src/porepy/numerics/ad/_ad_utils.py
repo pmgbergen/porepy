@@ -263,7 +263,6 @@ class MergedOperator(operators.Operator):
         # Loop over all grid-discretization combinations, get hold of the discretization
         # matrix for this grid quantity
         for g in self.mat_dict_grids:
-
             # Get data dictionary for either grid or interface
             if isinstance(g, pp.MortarGrid):
                 data = mdg.interface_data(g)

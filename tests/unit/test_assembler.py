@@ -942,7 +942,6 @@ class TestAssembler(unittest.TestCase):
         key_2 = "var_2"
         term = "op"
         for sd, data in mdg.subdomains(return_data=True):
-
             if sd.grid_num == 1:
                 data[pp.PRIMARY_VARIABLES] = {key_1: {"cells": 1}, key_2: {"cells": 1}}
                 data[pp.DISCRETIZATION] = {
@@ -1031,7 +1030,6 @@ class TestAssembler(unittest.TestCase):
         term = "op"
         term2 = "term2"
         for sd, data in mdg.subdomains(return_data=True):
-
             if sd.grid_num == 1:
                 data[pp.PRIMARY_VARIABLES] = {key_1: {"cells": 1}, key_2: {"cells": 1}}
                 data[pp.DISCRETIZATION] = {
@@ -1125,7 +1123,6 @@ class TestAssembler(unittest.TestCase):
         term = "op"
         term2 = "term2"
         for sd, data in mdg.subdomains(return_data=True):
-
             if sd.grid_num == 1:
                 data[pp.PRIMARY_VARIABLES] = {key_1: {"cells": 1}, key_2: {"cells": 1}}
                 data[pp.DISCRETIZATION] = {
@@ -1197,7 +1194,6 @@ class TestAssembler(unittest.TestCase):
 
         # Next, define both variables to be active. Should be equivalent to
         # runing without the variables argument
-        new_assembler = pp.Assembler(mdg, dof_manager)
         A_2, b_2 = general_assembler.assemble_matrix_rhs()
         A_2_permuted, _ = permute_matrix_vector(
             A_2, b_2, dof_manager.block_dof, dof_manager.full_dof, grids, variables
@@ -1590,13 +1586,13 @@ class TestAssembler(unittest.TestCase):
                 self.assertTrue(variable_name_2 in line)
             elif "in dimension 1" in line:
                 self.assertTrue(variable_name_1 in line)
-                self.assertTrue(not variable_name_2 in line)
+                self.assertTrue(variable_name_2 not in line)
 
         self.assertTrue("dimensions 2 and 1" in rep)
         for line in rep.split("\n"):
             if "in dimensions 2 and 1" in line:
                 self.assertTrue(variable_name_1 in line)
-                self.assertTrue(not variable_name_2 in line)
+                self.assertTrue(variable_name_2 not in line)
 
     def test_repr_three_nodes_three_edges_different_variables(self):
         # Assembler.__str__ will be the same as in the above two-node test. Focus on
@@ -1698,7 +1694,6 @@ class MockEdgeDiscretization(
         data_edge,
         local_matrix,
     ):
-
         dof = [local_matrix[0, i].shape[1] for i in range(local_matrix.shape[1])]
         cc = np.array([sps.coo_matrix((i, j)) for i in dof for j in dof])
         cc = cc.reshape((3, 3))
@@ -1736,7 +1731,6 @@ class MockEdgeDiscretizationModifiesNode(
         data_edge,
         local_matrix,
     ):
-
         dof = [local_matrix[0, i].shape[1] for i in range(local_matrix.shape[1])]
         cc = np.array([sps.coo_matrix((i, j)) for i in dof for j in dof])
         cc = cc.reshape((3, 3))
@@ -1773,7 +1767,6 @@ class MockEdgeDiscretizationOneSided(
         self.off_diag_val = off_diag_val
 
     def assemble_matrix_rhs(self, g_primary, data_primary, data_edge, local_matrix):
-
         dof = [local_matrix[0, i].shape[1] for i in range(local_matrix.shape[1])]
         cc = np.array([sps.coo_matrix((i, j)) for i in dof for j in dof])
         cc = cc.reshape((2, 2))
@@ -1800,7 +1793,6 @@ class MockEdgeDiscretizationOneSidedModifiesNode(
         self.off_diag_val = off_diag_val
 
     def assemble_matrix_rhs(self, g_primary, data_primary, data_edge, local_matrix):
-
         dof = [local_matrix[0, i].shape[1] for i in range(local_matrix.shape[1])]
         cc = np.array([sps.coo_matrix((i, j)) for i in dof for j in dof])
         cc = cc.reshape((2, 2))
@@ -1844,7 +1836,6 @@ class MockEdgeDiscretizationEdgeCouplings(
         data_edge,
         local_matrix,
     ):
-
         dof = [local_matrix[0, i].shape[1] for i in range(local_matrix.shape[1])]
         cc = np.array([sps.coo_matrix((i, j)) for i in dof for j in dof])
         cc = cc.reshape((3, 3))

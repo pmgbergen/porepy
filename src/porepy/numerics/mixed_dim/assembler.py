@@ -281,7 +281,6 @@ class Assembler:
         # implemented as an additional filtering step.
 
         if filt is None or isinstance(filt, pp.assembler_filters.AllPassFilter):
-
             # If no filter is provided, make a ListFilter that effectively is AllPass.
             # The grid list must be constructed explicitly, we may remove items below.
             grid_list_type = Union[
@@ -797,7 +796,6 @@ class Assembler:
                 if operation in ("discretize", "update_discretization"):
                     intf_discr.discretize(sd_primary, data_primary, data_intf)
                 elif operation == "assemble":
-
                     loc_mat, _ = self._assign_matrix_vector(
                         self._dof_manager.full_dof[[primary_idx, intf_idx]], sps_matrix
                     )
@@ -844,7 +842,6 @@ class Assembler:
                 if operation in ("discretize", "update_discretization"):
                     intf_discr.discretize(sd_secondary, data_secondary, data_intf)
                 elif operation == "assemble":
-
                     loc_mat, _ = self._assign_matrix_vector(
                         self._dof_manager.full_dof[[secondary_idx, intf_idx]],
                         sps_matrix,
@@ -899,7 +896,6 @@ class Assembler:
             # general coupling between different interfaces will not be implemented.
             if operation == "assemble" and intf_discr.intf_coupling_via_high_dim:
                 for other_intf in self.mdg.subdomain_to_interfaces(sd_primary):
-
                     # Skip the case where the primary and secondary interface is the same
                     if other_intf == intf:
                         continue
@@ -985,7 +981,6 @@ class Assembler:
 
             if operation == "assemble" and intf_discr.intf_coupling_via_low_dim:
                 for other_intf in self.mdg.subdomain_to_interfaces(sd_secondary):
-
                     # Skip the case where the primary and secondary interface is the same
                     if other_intf == intf:
                         continue
@@ -1086,7 +1081,6 @@ class Assembler:
         # Loop over all subdomains in the grid bucket, identify its local and active
         # variables.
         for g, d in self.mdg.subdomains(return_data=True):
-
             # If for some reason there are no primary variables defined for this grid,
             # skip it.
             if pp.PRIMARY_VARIABLES not in d:
@@ -1095,7 +1089,6 @@ class Assembler:
             # Loop over variables, count dofs and identify variable-term
             # combinations internal to the subdomain
             for local_var in d[pp.PRIMARY_VARIABLES]:
-
                 # Identify all defined discretization terms for this variable.
                 # Do a second loop over the variables of the grid, the combination
                 # of the two variables gives us all coupling terms (e.g. an off-diagonal
@@ -1137,14 +1130,12 @@ class Assembler:
         # Most steps are identical to the operations on the subdomains, we comment
         # only on interface-specific aspects; see above loop for more information
         for intf, d in self.mdg.interfaces(return_data=True):
-
             # If for some reason there are no primary variables defined for this interface,
             # skip it.
             if pp.PRIMARY_VARIABLES not in d:
                 continue
 
             for local_var in d[pp.PRIMARY_VARIABLES]:
-
                 # Identify all discretization terms for this variable
                 for other_local_var in d[pp.PRIMARY_VARIABLES]:
                     merged_vars = self._discretization_key(local_var, other_local_var)
@@ -1298,7 +1289,6 @@ class Assembler:
         # Uniquify list of variable combinations. Then iterate over all variable
         # combinations and initialize matrices of the right size
         for var in list(set(self.variable_combinations)):
-
             # Generate a block matrix
             matrix_dict[var] = np.empty((num_blocks, num_blocks), dtype=object)
             rhs_dict[var] = np.empty(num_blocks, dtype=object)
