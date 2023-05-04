@@ -749,12 +749,12 @@ class PengRobinsonEoS(AbstractEoS):
     @staticmethod
     def _A(a: NumericType, p: NumericType, T: NumericType) -> NumericType:
         """Auxiliary method implementing formula for non-dimensional cohesion."""
-        return (a * p) / (R_IDEAL**2 * T * T)
+        return a * p / (R_IDEAL**2 * T * T)
 
     @staticmethod
     def _B(b: NumericType, p: NumericType, T: NumericType) -> NumericType:
         """Auxiliary method implementing formula for non-dimensional covolume."""
-        return (b * p) / (R_IDEAL * T)
+        return b * p / (R_IDEAL * T)
 
     # TODO
     def _kappa(self, p: NumericType, T: NumericType, Z: NumericType) -> NumericType:
@@ -787,12 +787,12 @@ class PengRobinsonEoS(AbstractEoS):
     @staticmethod
     def _rho(p: NumericType, T: NumericType, Z: NumericType) -> NumericType:
         """Auxiliary function implementing the formula for density."""
-        return p / (R_IDEAL * T * Z) * MPa_kJ_SCALE
+        return Z ** (-1) / T * p * MPa_kJ_SCALE / R_IDEAL
 
     @staticmethod
     def _v(p: NumericType, T: NumericType, Z: NumericType) -> NumericType:
         """Auxiliary function implementing the formula for volume."""
-        return (R_IDEAL * T * Z) / (p * MPa_kJ_SCALE)
+        return Z * T * R_IDEAL / (p * MPa_kJ_SCALE)
 
     @staticmethod
     def _h_dep(
@@ -804,12 +804,17 @@ class PengRobinsonEoS(AbstractEoS):
         B: NumericType,
     ) -> NumericType:
         """Auxiliary function for computing the enthalpy departure function."""
-        return 1 / np.sqrt(8) * (T * dT_a - a) / b * pp.ad.log(
-            (Z + (1 + np.sqrt(2)) * B) / (Z + (1 - np.sqrt(2)) * B)
-        ) + R_IDEAL * T * (Z - 1)
+        return (
+            1
+            / np.sqrt(8)
+            * (dT_a * T - a)
+            / b
+            * pp.ad.log((Z + (1 + np.sqrt(2)) * B) / (Z + (1 - np.sqrt(2)) * B))
+            + (Z - 1) * T * R_IDEAL
+        )
 
     @staticmethod
-    def _g_dep(A: NumericType, B: NumericType, Z:NumericType):
+    def _g_dep(A: NumericType, B: NumericType, Z: NumericType):
         """Auxiliary function for computing the Gibbs departure function."""
         return pp.ad.log(Z - B) - pp.ad.log(
             (Z + (1 + np.sqrt(2)) * B) / (Z + (1 - np.sqrt(2)) * B)
@@ -818,7 +823,7 @@ class PengRobinsonEoS(AbstractEoS):
     @staticmethod
     def _g_ideal(T: NumericType, X: list[NumericType]) -> NumericType:
         """Auxiliary function to compute the ideal part of the Gibbs energy."""
-        return R_IDEAL * T * safe_sum([x * pp.ad.log(x) for x in X])
+        return safe_sum([x * pp.ad.log(x) for x in X]) * T * R_IDEAL
 
     @staticmethod
     def _phi_i(
@@ -830,11 +835,11 @@ class PengRobinsonEoS(AbstractEoS):
     ) -> NumericType:
         """Auxiliary method implementing the formula for the fugacity coefficient."""
         log_phi_i = (
-            B_i / B * (Z - 1)
+            (Z - 1) / B * B_i
             - pp.ad.log(Z - B)
             - A
             / (B * np.sqrt(8))
-            * (A_i / A - B_i / B)
+            * (A_i / A - B ** (-1) * B_i)
             * pp.ad.log((Z + (1 + np.sqrt(2)) * B) / (Z + (1 - np.sqrt(2)) * B))
         )
         return pp.ad.exp(log_phi_i)

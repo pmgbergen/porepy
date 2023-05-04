@@ -24,11 +24,11 @@ pressure = 0.1
 co2_fraction = 0.01
 h2o_fraction = 0.99
 
-for nc in cells:
-    print(f"Calculating for nc={nc}", flush=True)
-    M = pp.composite.NonReactiveMixture(nc=nc)
+for num_vals in cells:
+    print(f"Calculating for nc={num_vals}", flush=True)
+    M = pp.composite.NonReactiveMixture(nc=num_vals)
     ads = M.AD.system
-    vec = np.ones(nc)
+    vec = np.ones(num_vals)
 
     h2o = pp.composite.H2O(ads)
     co2 = pp.composite.CO2(ads)

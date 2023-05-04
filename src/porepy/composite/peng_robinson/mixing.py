@@ -78,8 +78,8 @@ class VanDerWaals:
                     a_ij = a[i]
                     dT_a_ij = dT_a[i]
 
-                a_parts.append(a_ij * x_ij)
-                dT_a_parts.append(dT_a_ij * x_ij)
+                a_parts.append(x_ij * a_ij)
+                dT_a_parts.append(x_ij * dT_a_ij)
 
         return safe_sum(a_parts), safe_sum(dT_a_parts)
 

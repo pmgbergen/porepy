@@ -170,7 +170,7 @@ class FlashSystemNR(ThermodynamicState):
 
             # assembling slack variable
             jac_nu = sps.lil_matrix((self._num_vals, self._num_vals * self._num_vars))
-            jac_nu[:, -self._num_vals :] = sps.identity(3, format="lil")
+            jac_nu[:, -self._num_vals :] = sps.identity(self._num_vals, format="lil")
 
             val_nu: NumericType = safe_sum(
                 [y_ * (1 - safe_sum(self.X[j])) for j, y_ in enumerate(self.y)]
@@ -185,7 +185,7 @@ class FlashSystemNR(ThermodynamicState):
                 for i in range(self._num_comp):
                     self.X[j][i].jac = sps.hstack(
                         [self.X[j][i].jac, empty_block], format="csr"
-                    ).tocsr()
+                    )
 
             if self._T_unknown:
                 self.T.jac = sps.hstack([self.T.jac, empty_block], format="csr")
@@ -222,65 +222,73 @@ class FlashSystemNR(ThermodynamicState):
 
         """
         if vec is None:
-            vec = self.state
+            p = self.p
+            T = self.T
+            y = self.y
+            s = self.s
+            X = self.X
+            nu = self._nu
+        else:
 
-        idx = 0  # index counter from top to bottom
-        p: NumericType = 0.0
-        T: NumericType = 0.0
-        z: list[NumericType] = [0.0] * self._num_comp
-        y: list[NumericType] = [0.0] * self._num_phases
-        s: list[NumericType] = [0.0] * self._num_phases
-        X: list[list[NumericType]] = [[0.0] * self._num_comp] * self._num_phases
-        nu: NumericType = 0.0
+            idx = 0  # index counter from top to bottom
+            p: NumericType = 0.0
+            T: NumericType = 0.0
+            y: list[NumericType] = []
+            s: list[NumericType] = []
+            X: list[list[NumericType]] = []
+            nu: NumericType = 0.0
 
-        if self._p_unknown:
-            p = vec[idx : idx + self._num_vals]
-            idx += self._num_vals
-            if self._T_unknown:
-                T = vec[idx : idx + self._num_vals]
+            if self._p_unknown:
+                p = vec[idx : idx + self._num_vals]
                 idx += self._num_vals
-            else:
-                T = self.T
+                if self._T_unknown:
+                    T = vec[idx : idx + self._num_vals]
+                    idx += self._num_vals
+                else:
+                    T = self.T
                 s_0 = 0.0
                 for j in range(1, self._num_phases):
-                    s[j] = vec[idx : idx + self._num_vals]
+                    s.append(vec[idx : idx + self._num_vals])
                     s_0 += vec[idx : idx + self._num_vals]
                     idx += self._num_vals
-                s[0] = 1 - s_0  # reference phase saturation by unity
-        else:
-            p = self.p
-            if self._T_unknown:
-                T = vec[idx : idx + self._num_vals]
+                s = [1 - s_0] + s  # reference phase saturation by unity
             else:
-                T = self.T
+                p = self.p
+                if self._T_unknown:
+                    T = vec[idx : idx + self._num_vals]
+                else:
+                    T = self.T
 
-        y_0 = 0.0
-        for j in range(1, self._num_phases):
-            y[j] = vec[idx : idx + self._num_vals]
-            y_0 += vec[idx : idx + self._num_vals]
-            idx += self._num_vals
-        y[0] = 1 - y_0  # reference phase fraction by unity
-
-        for j in range(self._num_phases):
-            for i in range(self._num_comp):
-                X[j][i] = vec[idx : idx + self._num_vals]
+            y_0 = 0.0
+            for j in range(1, self._num_phases):
+                y.append(vec[idx : idx + self._num_vals])
+                y_0 += vec[idx : idx + self._num_vals]
                 idx += self._num_vals
+            y = [1 - y_0] + y  # reference phase fraction by unity
 
-        if self._nu:
-            nu = vec[idx : idx + self._num_vals]
-
-        # if the the linearized system is to be assembled, get the stored Jacobians.
-        if with_derivatives:
-            if self._p_unknown:
-                p = pp.ad.AdArray(p, self.p.jac)
-                for j in range(self._num_phases):
-                    s[j] = pp.ad.AdArray(s[j], self.s[j].jac)
-            if self._T_unknown:
-                T = pp.ad.AdArray(T, self.T.jac)
             for j in range(self._num_phases):
-                y[j] = pp.ad.AdArray(y[j], self.y[j].jac)
+                X.append([])
                 for i in range(self._num_comp):
-                    X[j][i] = pp.ad.AdArray(X[j][i], self.X[j][i].jac)
+                    X[-1].append(vec[idx : idx + self._num_vals])
+                    idx += self._num_vals
+
+            if self._nu:
+                nu = vec[idx : idx + self._num_vals]
+
+            # if the the linearized system is to be assembled, get the stored Jacobians.
+            if with_derivatives:
+                if self._p_unknown:
+                    p = pp.ad.AdArray(p, self.p.jac)
+                    for j in range(self._num_phases):
+                        s[j] = pp.ad.AdArray(s[j], self.s[j].jac)
+                if self._T_unknown:
+                    T = pp.ad.AdArray(T, self.T.jac)
+                for j in range(self._num_phases):
+                    y[j] = pp.ad.AdArray(y[j], self.y[j].jac)
+                    for i in range(self._num_comp):
+                        X[j][i] = pp.ad.AdArray(X[j][i], self.X[j][i].jac)
+                if self._nu:
+                    nu = pp.ad.AdArray(nu, self._nu.jac)
 
         # computing properties necessary to assemble the system
         phase_props: list[PhaseProperties] = self.mixture.compute_properties(
@@ -296,16 +304,15 @@ class FlashSystemNR(ThermodynamicState):
         # First, evaluate mass balance for components except reference component
         for i in range(1, self._num_comp):
             x_i = [X[j][i] for j in range(self._num_phases)]
-            equ = self.mixture.evaluate_homogenous_constraint(z[i], y, x_i)
+            equ = self.mixture.evaluate_homogenous_constraint(self.z[i], y, x_i)
             equations.append(equ)
-        
+
         # Second, evaluate equilibrium equations for each component
         # between independent phases and reference phase
         for i in range(self._num_comp):
             for j in range(1, self._num_phases):
                 equ = (
-                    phase_props[j].phis[i] * X[j][i]
-                    - phase_props[0].phis[i] * X[0][i]
+                    phase_props[j].phis[i] * X[j][i] - phase_props[0].phis[i] * X[0][i]
                 )
                 equations.append(equ)
 
@@ -325,18 +332,18 @@ class FlashSystemNR(ThermodynamicState):
                 equations.append(equ)
 
         # Fourth, complementary conditions or NPIPM equations
-        if nu:
+        if self._nu:
             # NPIPM coupling
             composition_unities: list[NumericType] = []
             # Storage of regularization terms according to Vu et al.
-            regularization = []
+            regularization: list[NumericType] = []
 
             for j in range(self._num_phases):
                 unity_j: NumericType = self.mixture.evaluate_unity(X[j])  # type: ignore
                 composition_unities.append(unity_j)
                 equ = y[j] * unity_j - nu
                 regularization.append(
-                    (y[j].val * unity_j.val * self._u / self._num_phases**2)
+                    (y[j] * unity_j * self._u / self._num_phases**2)
                 )
                 equations.append(equ)
 
@@ -344,11 +351,16 @@ class FlashSystemNR(ThermodynamicState):
             equ = self.evaluate_npipm_slack(y, composition_unities, nu)
 
             # Regularizing the slack equation: Gauss-elimination steps using the
-            # coupling equations and some factor 
-            for j, reg in enumerate(regularization):
-                equ_j = equations[-(j + 1)]
-                equ.jac = equ.jac - sps.diags(reg) * equ_j.jac
-                equ.val = equ.val - reg * equ_j.val
+            # coupling equations and some factor
+            if with_derivatives:
+                for j, reg in enumerate(regularization):
+                    equ_j = equations[-(j + 1)]
+                    equ.jac = equ.jac - sps.diags(reg.val) * equ_j.jac
+                    equ.val = equ.val - reg.val * equ_j.val
+            else:
+                for j, reg in enumerate(regularization):
+                    equ_j = equations[-(j + 1)]
+                    equ = equ - reg * equ_j
             equations.append(equ)
         else:
             # Semi-Smooth Newton
@@ -366,7 +378,7 @@ class FlashSystemNR(ThermodynamicState):
             for equ in equations:
                 vals.append(equ.val)
                 jacs.append(equ.jac)
-            return pp.ad.AdArray(np.hstack(vals), sps.vstack(jacs, format='csr'))
+            return pp.ad.AdArray(np.hstack(vals), sps.vstack(jacs, format="csr"))
         else:
             return np.hstack(equations)
 
@@ -384,23 +396,21 @@ class FlashSystemNR(ThermodynamicState):
         positivity_penalty = list()
         # regularization = list()
 
-        negativity_penalty = 0.
+        negativity_penalty = 0.0
 
         for j in range(self._num_phases):
             v = V[j]
             w = W[j]
             positivity_penalty.append(v * w)
-            negativity_penalty += _neg(v) * _neg(v) + _neg(w) * _neg(w)
+            negativity_penalty += _neg(v) ** 2 + _neg(w) ** 2
 
-        dot_part = pp.ad.power(
-            _pos(safe_sum(positivity_penalty)), 2
-        ) * self._u / self._num_phases**2
-
-        f = (
-            self._eta * nu
-            + nu * nu
-            + (negativity_penalty + dot_part) / 2
+        dot_part = (
+            pp.ad.power(_pos(safe_sum(positivity_penalty)), 2)
+            * self._u
+            / self._num_phases**2
         )
+
+        f = self._eta * nu + nu * nu + (negativity_penalty + dot_part) / 2
         return f
 
     @property
@@ -431,15 +441,17 @@ class FlashSystemNR(ThermodynamicState):
             for j in range(self._num_phases)
             for i in range(self._num_comp)
         ]
-        y = [self.y[j] for j in range(1, self._num_phases)]
+        y = [self.y[j].val for j in range(1, self._num_phases)]
         if self._p_unknown:
             p = [self.p.val]
-            s = [self.s[j] for j in range(1, self._num_phases)]
+            s = [self.s[j].val for j in range(1, self._num_phases)]
         else:
             p = []
             s = []
         if self._T_unknown:
             T = [self.T.val]
+        else:
+            T = []
 
         return np.hstack(p + T + s + y + x + nu)
 
@@ -516,7 +528,7 @@ class FlashSystemNR(ThermodynamicState):
                 # 2-phase saturation evaluation can be done analytically
                 rho_1, rho_2 = densities
                 y_1, y_2 = self.y
-                
+
                 s_1 = pp.ad.AdArray(
                     np.zeros(y_1.val.shape), sps.lil_matrix(y_1.jac.shape)
                 )
@@ -524,12 +536,8 @@ class FlashSystemNR(ThermodynamicState):
                     np.zeros(y_2.val.shape), sps.lil_matrix(y_2.jac.shape)
                 )
 
-                phase_1_saturated = np.logical_and(
-                    y_1 > 1 - eps, y_1 < 1 + eps
-                )
-                phase_2_saturated = np.logical_and(
-                    y_2 > 1 - eps, y_2 < 1 + eps
-                )
+                phase_1_saturated = np.logical_and(y_1 > 1 - eps, y_1 < 1 + eps)
+                phase_2_saturated = np.logical_and(y_2 > 1 - eps, y_2 < 1 + eps)
                 idx = np.logical_not(phase_2_saturated)
                 y2_idx = y_2[idx]
                 rho1_idx = rho_1[idx]
@@ -603,17 +611,19 @@ class FlashSystemNR(ThermodynamicState):
                             denominator[denominator == 0.0] = 1.0
                             d = (
                                 1.0
-                                + densities[j2].val / densities[j].val
-                                * self.y[j].val / denominator
+                                + densities[j2].val
+                                / densities[j].val
+                                * self.y[j].val
+                                / denominator
                             )
                             mats_row.append(sps.diags([d]))
 
                     # row-block per phase fraction relation
-                    mats.append(sps.hstack(mats_row, format='csr'))
+                    mats.append(sps.hstack(mats_row, format="csr"))
 
                 # Stack matrices per equation on each other
                 # This matrix corresponds to the vector of stacked saturations per phase
-                mat = sps.vstack(mats, format='csr')
+                mat = sps.vstack(mats, format="csr")
                 # TODO Matrix has large band width
 
                 # projection matrix to DOFs in multiphase region
@@ -645,7 +655,7 @@ class FlashSystemNR(ThermodynamicState):
 
     def validate_fractions(self, tol: float = 1e-8, raise_error: bool = False) -> None:
         """A method to validate fractions and trim numerical artifacts.
-        
+
         For numerical reasons, fractions can lie outside the bound ``[0, 1]``.
         Use ``tol`` to determine how much is allowed.
 
@@ -661,14 +671,18 @@ class FlashSystemNR(ThermodynamicState):
             raise_error: ``default=False``
 
         """
+
         def _trim(vec: np.ndarray):
-            vec[vec < 0] = 0.
-            vec[vec > 1] = 1.
+            vec[vec < 0] = 0.0
+            vec[vec > 1] = 1.0
 
         if raise_error:
+
             def action(msg):
                 raise AssertionError(msg)
+
         else:
+
             def action(msg):
                 logger.warn(msg)
 
@@ -798,7 +812,8 @@ class FlashNR:
         eos_kwargs: dict = dict(),
         method: Literal["newton-min", "npipm"] = "npipm",
         guess_from_state: bool = False,
-        to_state: bool = False,
+        feed: Optional[list[pp.ad.Operator | NumericType]] = None,
+        store_to_iterate: Optional[int] = None,
         verbosity: bool = 0,
     ) -> tuple[bool, ThermodynamicState]:
         """Performs a flash procedure based on the arguments.
@@ -853,11 +868,17 @@ class FlashNR:
 
                 If ``False``, an initial guess for fractional values (and for pressure
                 and temperature if required) is computed internally.
+            feed: ``num_comp - 1 <= len(feed) <=  num_comp, default=None``
 
-            to_state: ``default=False``
+                Feed fractions per component. The feed fraction for the reference
+                component (first component) can be omitted.
 
-                **If** the flash is successful, writes the results to ``'STATE'``
-                for each variable in the AD framework.
+                If ``guess_from_state=False``, the feed must be provided.
+
+            store_to_iterate: ``default=False``
+
+                **If** the flash is successful, writes the results to the given
+                iterative index for each variable in the AD framework.
             verbosity: ``default=0``
 
                 Verbosity for logging. Per default, only warnings and logs of higher
@@ -899,13 +920,20 @@ class FlashNR:
             self.mixture.reference_phase_eliminated
         ), "Reference phase fractions must be eliminated."
 
-        # parsing state arguments
-        flash_type, state_args = self._parse_flash_input_state(state)
-
-        num_vals = len(state_args[0])  # number of values per state function
         num_comp = self.mixture.num_components
         num_phases = self.mixture.num_phases
         success = False  # success flag
+
+        # parsing state arguments
+        if not guess_from_state:
+            assert feed, f"Must provide feed fractions if 'guess_from_state=False'."
+            feed = self._parse_input_feed(feed)
+            if len(feed) == num_comp - 1:
+                feed = [1 - safe_sum(feed)] + feed
+
+        flash_type, state_args = self._parse_flash_input_state(state)
+
+        num_vals = len(state_args[0])  # number of values per state function
 
         # declaring state structures
         state_from_ad: Optional[ThermodynamicState] = None
@@ -940,7 +968,10 @@ class FlashNR:
                 )
                 thd_state.p = p
                 thd_state.T = T
-                thd_state = self._guess_fractions(thd_state, guess_K_values=True)
+                thd_state.z = feed
+                thd_state = self._guess_fractions(
+                    thd_state, num_vals, guess_K_values=True
+                )
 
         elif flash_type == "p-h":
 
@@ -965,12 +996,14 @@ class FlashNR:
                 thd_state.h = h
                 # initial temperature guess using pseudo-critical temperature
                 thd_state = self._guess_temperature(thd_state, True)
-                thd_state = self._guess_fractions(thd_state, guess_K_values=True)
+                thd_state = self._guess_fractions(
+                    thd_state, num_vals, guess_K_values=True
+                )
 
             # Alternating guess for fractions and temperature
             # successive-substitution-like
             for _ in range(3):
-                thd_state = self._guess_fractions(thd_state, False)
+                thd_state = self._guess_fractions(thd_state, num_vals, False)
                 thd_state = self._guess_temperature(thd_state, False, 3)
             # final temperature guess
             thd_state = self._guess_temperature(thd_state, False, 3)
@@ -1001,11 +1034,12 @@ class FlashNR:
         )
 
         flash_system.state = solution
-        # TODO calculate saturations if not variables
+        if "p" not in flash_type:
+            flash_system.evaluate_saturations()
 
         # storing the state in the AD framework if successful and requested
-        if to_state and success:
-            self._store_state_in_ad(thd_state)
+        if store_to_iterate is not None and success:
+            self._store_state_in_ad(thd_state, store_to_iterate)
 
         logger.info(
             f"\n{flash_type} flash done.\n"
@@ -1023,6 +1057,35 @@ class FlashNR:
         return success, flash_system.export_state()
 
     ### misc methods -------------------------------------------------------------------
+
+    def _parse_input_feed(
+        self, feed: list[pp.ad.Operator | NumericType]
+    ) -> list[np.ndarray]:
+        """Auxiliary function to convert feed fraction input into numerical format.
+
+        Return only arrays since feed fraction constant in non-reactive flash.
+
+        """
+        nc = self.mixture.num_components
+        nf = len(feed)
+        assert nf in [nc, nc - 1], (
+            f"Inconsistent number of feed fractions passed {nf}."
+            + f"\nNeed {nf} ({nf - 1})."
+        )
+        parsed_feed: list[np.ndarray] = list()
+        for f in feed:
+            if isinstance(f, pp.ad.Operator):
+                parsed_feed.append(f.evaluate(self.mixture.system)).val
+            elif isinstance(f, pp.ad.AdArray):
+                parsed_feed.append(f.val)
+            elif isinstance(f, numbers.Real):
+                parsed_feed.append(np.array([f]))
+            elif isinstance(f, np.ndarray):
+                parsed_feed.append(f)
+            else:
+                raise TypeError(f"Could not covert type {type(f)} to numeric format.")
+
+        return parsed_feed
 
     def _parse_flash_input_state(
         self,
@@ -1084,7 +1147,9 @@ class FlashNR:
                 ad_args
             ), "If any state argument is an AD operator, all must be."
 
-            parsed_state = [var.evaluate(self.mixture.system) for var in parsed_state]
+            parsed_state = [
+                var.evaluate(self.mixture.system).val for var in parsed_state
+            ]
 
         # if any state is an AdArray, take only val
         parsed_state = [
@@ -1105,7 +1170,7 @@ class FlashNR:
 
         return flash_type, (state_1, state_2)
 
-    def _store_state_in_ad(self, state: ThermodynamicState) -> None:
+    def _store_state_in_ad(self, state: ThermodynamicState, iterate_index: int) -> None:
         """Auxiliary function to store fractional values after a successful flash
         in the AD framework."""
         ads = self.mixture.system
@@ -1113,11 +1178,16 @@ class FlashNR:
         for j, phase in enumerate(self.mixture.phases):
             # storing phase fractions of independent phases
             if phase != self.mixture.reference_phase:
-                ads.set_variable_values(state.y[j], [phase.fraction.name], True, True)
+                ads.set_variable_values(
+                    state.y[j].val, [phase.fraction.name], iterate_index=iterate_index
+                )
+                ads.set_variable_values(
+                    state.s[j].val, [phase.saturation.name], iterate_index=iterate_index
+                )
             # storing phase compositions
             for i, comp in enumerate(self.mixture.components):
                 ads.set_variable_values(
-                    state.X[j][i], [phase.fraction_of[comp].name], True, True
+                    state.X[j][i].val, [phase.fraction_of[comp].name], iterate_index=-1
                 )
 
     def _history_entry(
@@ -1169,6 +1239,7 @@ class FlashNR:
     def _guess_fractions(
         self,
         state: ThermodynamicState,
+        num_vals: int,
         guess_K_values: bool = True,
     ) -> ThermodynamicState:
         """Computes a guess for phase fractions and compositions, based on
@@ -1179,6 +1250,7 @@ class FlashNR:
 
         Parameters:
             state: A thermodynamic state data structure.
+            num_vals: Number of values per state function.
             guess_K_values: ``default=True``
 
                 If True, computes first K-value guesses using the Wilson correlation.
@@ -1190,14 +1262,10 @@ class FlashNR:
         """
 
         # declaration of returned objects
-        nc = len(state.p)  # number of cells/ flashes
         nph = self.mixture.num_phases
         ncp = self.mixture.num_components
         # K-values per independent phase (nph - 1)
         K: list[list[NumericType]]
-        # assert data structure for phase compositions is of correct length
-        # First sub-list is always the composition of the reference phase
-        state.X = [[0 for _ in range(ncp)] for _ in range(nph)]
 
         if guess_K_values:
             # TODO can we use Wilson for all independent phases if more than 2 phases?
@@ -1214,33 +1282,44 @@ class FlashNR:
                 for j, phase in enumerate(self.mixture.phases)
             ]
             K = [
-                [phase_props[0].phis[i] / phase_props[j].phis[i] for i in range(ncp)]
+                [
+                    phase_props[0].phis[i].val / phase_props[j].phis[i].val
+                    for i in range(ncp)
+                ]
                 for j in range(1, nph)
             ]
 
-        independent_phases: list[Phase] = list(self.mixture.phases[1:])  # type: ignore
+        independent_phases: list[Phase] = list(self.mixture.phases)[1:]
+
+        phase_vanished: list[np.ndarray] = [np.zeros(num_vals) for _ in range(nph)]
 
         for i in range(3):
             # Computing phase fraction estimates,
             # depending on number of independent phases
             if nph == 2:
                 y = rachford_rice_vle_inversion(state.z, K[0])
-                negative_flash = np.logical_or(0.0 > y, y > 1.0)
+                negative_flash = np.logical_or(y < 0.0, 1.0 < y)
 
-                feasible_reg = rachford_rice_feasible_region(state.z, [y], K)
-                rr_pot = rachford_rice_potential(state.z, [np.ones(nc)], K)
+                feasible_reg = rachford_rice_feasible_region(
+                    state.z, [np.ones(num_vals)], K
+                )
+                rr_pot = rachford_rice_potential(state.z, [np.ones(num_vals)], K)
 
-                y = np.where((rr_pot > 0.0) & negative_flash, np.zeros(nc), y)
+                y = np.where((rr_pot > 0.0) & negative_flash, np.zeros(num_vals), y)
                 y = np.where(
-                    feasible_reg & (rr_pot < 0.0) & negative_flash,
-                    np.ones(nc),
+                    (rr_pot < 0.0) & negative_flash & feasible_reg,
+                    np.ones(num_vals),
                     y,
                 )
 
                 assert not np.any(
                     np.logical_or(0.0 > y, y > 1.0)
                 ), "y fraction estimate outside bound [0, 1]."
-                state.y = [1 - y, y]
+                state.y[1].val = y
+                state.y[0].val = 1 - y
+                phase_vanished[0] = (state.y[0].val <= 1e-5).astype(int)
+                phase_vanished[1] = (state.y[1].val <= 1e-5).astype(int)
+
             else:
                 raise NotImplementedError(
                     f"p-T-based guess for {nph} phase fractions not available."
@@ -1250,16 +1329,15 @@ class FlashNR:
                 t_i = _rr_pole(i, state.y[1:], K)
                 # compute composition of independent phases
                 for j in range(nph - 1):
-                    x_ce = state.z[i] * K[j][i] / t_i
-                    state.X[j + 1][i] = x_ce
+                    state.X[j + 1][i].val = (t_i ** (-1) * state.z[i] * K[j][i]).val
                 # compute composition of reference phase
-                state.X[0][i] = state.z[i] / t_i
+                state.X[0][i].val = (t_i ** (-1) * state.z[i]).val
 
             # Re-normalizing compositions
             for j in range(nph):
                 total_j = safe_sum(state.X[j])
                 for i in range(ncp):
-                    state.X[j][i] = state.X[j][i] / total_j
+                    state.X[j][i].val = state.X[j][i].val / total_j.val
 
             # update K values from EoS
             props_r: PhaseProperties = self.mixture.reference_phase.compute_properties(
@@ -1270,21 +1348,22 @@ class FlashNR:
                     state.p, state.T, state.X[j], store=False
                 )
                 for i in range(ncp):
-                    K[j][i] = props_r.phis[i] / props.phis[i] + 1e-12
+                    K[j][i] = props_r.phis[i].val / props.phis[i].val + 1e-12
 
         # Re-compute phase compositions with updated K-values, after above iterations
         for i in range(ncp):
             t_i = _rr_pole(i, state.y[1:], K)
             # compute composition of independent phases
             for j in range(nph - 1):
-                state.X[j + 1][i] = state.z[i] * K[j][i] / t_i
+                state.X[j + 1][i].val = (t_i ** (-1) * state.z[i] * K[j][i]).val
             # compute composition of reference phase
-            state.X[0][i] = state.z[i] / t_i
+            state.X[0][i].val = (t_i ** (-1) * state.z[i]).val
         # Re-normalizing compositions
         for j in range(nph):
-            total_j = safe_sum(state.X[j])
+            # force a little duality gap where phase vanished
+            total_j = safe_sum(state.X[j]) * (1 + 0.15 * phase_vanished[j])
             for i in range(ncp):
-                state.X[j][i] = state.X[j][i] / total_j
+                state.X[j][i].val = state.X[j][i].val / total_j.val
 
         return state
 
@@ -1383,22 +1462,22 @@ class FlashNR:
                 # compute system state at preliminary step-size
                 try:
                     b_j = F(X_k + rho_j * DX)
-                except AssertionError:
-                    logger.warn(f"Armijo line search j={j}: evaluation failed")
+                except:
+                    logger.warn(f"\rArmijo line search j={j}: evaluation failed")
                     continue
 
                 pot_j = self._l2_potential(b_j)
 
-                logger.info(f"Armijo line search j={j}: potential = {pot_j}")
+                logger.info(f"\rArmijo line search j={j}: potential = {pot_j}")
 
                 # check potential and return if reduced.
                 if pot_j <= (1 - 2 * kappa * rho_j) * b_k_pot:
-                    logger.info(f"Armijo line search j={j}: success\n")
+                    logger.info(f"\rArmijo line search j={j}: success\n")
                     return rho_j
 
             # if for-loop did not yield any results, raise error if requested
             if return_max:
-                logger.info(f"Armijo line search: reached max iter\n")
+                logger.info(f"\rArmijo line search: reached max iter\n")
                 return rho_j
             else:
                 raise RuntimeError(
@@ -1416,17 +1495,17 @@ class FlashNR:
                 rho_j *= rho
                 try:
                     b_j = F(X_k + rho_j * DX)
-                except AssertionError:
-                    logger.warn(f"Armijo line search j={j}: evaluation failed")
+                except:
+                    logger.warn(f"\rArmijo line search j={j}: evaluation failed")
                     j += 1
                     continue
                 j += 1
                 pot_j = self._l2_potential(b_j)
 
-                logger.info(f"Armijo line search j={j}: potential = {pot_j}")
+                logger.info(f"\rArmijo line search j={j}: potential = {pot_j}")
             # if potential decreases, return step-size
             else:
-                logger.info(f"Armijo line search j={j}: success\n")
+                logger.info(f"\rArmijo line search j={j}: success\n")
                 return rho_j
 
     def _newton_iterations(
@@ -1465,7 +1544,7 @@ class FlashNR:
             success = True
         else:
             for i in range(1, self.max_iter + 1):
-                logger.info(f"Newton iteration {i}: residual norm = {res_norm}")
+                logger.info(f"\rNewton iteration {i}: residual norm = {res_norm}")
 
                 DX = pypardiso.spsolve(F_k.jac, -F_k.val) * self.newton_update_chop
 

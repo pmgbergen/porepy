@@ -296,7 +296,7 @@ def parallel_pT_flash(ipT):
             flash_type="pT",
             method="npipm",
             initial_guess="rachford_rice",
-            to_state=True,  # don't overwrite the state, store as iterate
+            store_to_iterate=True,  # don't overwrite the state, store as iterate
             verbosity=False,
         )
     except Exception as err:  # if Flasher fails, flag as failed
@@ -440,7 +440,7 @@ def parallel_ph_flash(iph):
             flash_type="ph",
             method="npipm",
             initial_guess="rachford_rice",
-            to_state=True,  # don't overwrite the state, store as iterate
+            store_to_iterate=True,  # don't overwrite the state, store as iterate
             verbosity=False,
         )
     except Exception as err:  # if Flasher fails, flag as failed
@@ -554,7 +554,7 @@ def pointwise_pT_flash(p_points: list[float], T_points: list[float]) -> dict[str
                 flash_type="pT",
                 method="npipm",
                 initial_guess="rachford_rice",
-                to_state=False,  # don't overwrite the state, store as iterate
+                store_to_iterate=False,  # don't overwrite the state, store as iterate
                 verbosity=False,
             )
         except Exception as err:  # if Flasher fails, flag as failed

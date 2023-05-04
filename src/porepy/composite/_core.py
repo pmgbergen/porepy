@@ -167,9 +167,9 @@ def _rr_pole(i: int, y: list[NumericType], K: list[list[NumericType]]) -> Numeri
         The expression for the denominator.
 
     """
-    t = [(1 - K[j][i]) * y[j] for j in range(len(y))]
+    t = [y[j] * (K[j][i] - 1) for j in range(len(y))]
 
-    return 1 - safe_sum(t)
+    return 1 + safe_sum(t)
 
 
 def rachford_rice_equation(
@@ -205,7 +205,7 @@ def rachford_rice_equation(
     assert len(y) >= 1, "No phase fractions given."
     assert len(z) >= 1, "No overall component fractions given."
 
-    f = [(1 - K[j][i]) * z[i] / _rr_pole(i, y, K) for i in range(len(z))]
+    f = [_rr_pole(i, y, K) ** (-1) * (K[j][i] - 1) * z[i] for i in range(len(z))]
 
     return safe_sum(f)
 
@@ -241,7 +241,7 @@ def rachford_rice_potential(
         The value of the potential based on above formula.
 
     """
-    F = [-z[i] * pp.ad.log(pp.ad.abs(_rr_pole(i, y, K))) for i in range(len(z))]
+    F = [-pp.ad.log(pp.ad.abs(_rr_pole(i, y, K))) * z[i] for i in range(len(z))]
     return safe_sum(F)
 
 
@@ -281,7 +281,7 @@ def rachford_rice_vle_inversion(
     # denominator
     d = safe_sum(
         [
-            (1 - K[i]) * z[i] * safe_sum([K[j] for j in range(nc) if j != i])
+            z[i] * (K[i] - 1) * safe_sum([(K[j] - 1) for j in range(nc) if j != i])
             for i in range(nc)
         ]
     )
@@ -325,11 +325,11 @@ def rachford_rice_feasible_region(
     all_conditions = list()
 
     for i in range(nc):
-        t = 1 - safe_sum([(1 - K[j][i]) * y[j] for j in range(nph)])
-        cond_1 = t - z[i] >= 0
+        t_i = _rr_pole(i, y, K)
+        cond_1 = t_i - z[i] >= 0
         cond_2 = list()
         for j in range(nph):
-            cond_2.append(t - K[j][i] >= 0)
+            cond_2.append(t_i - K[j][i] * z[i] >= 0)
         cond_2 = np.all(np.array(cond_2), axis=0)
         all_conditions.append(np.logical_and(cond_1, cond_2))
 
