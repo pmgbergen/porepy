@@ -25,7 +25,7 @@ For the more experienced user, some more specific tutorials are also available:
 
 8. [Exporter](./exporter.ipynb) documents how to export data from PorePy for external visualization (e.g. ParaView). Several examples of exporting is demonstrated.
 9. [Exporting in models](./exporting_models.ipynb) shows how one can export data for visualization in PorePy model-based simulations.
-10. [Diagnostics](./diagnostics.ipynb) provides a description of how to use the diagnostics mixin in PorePy. The mixin allows for visualizing properties of the discretized system of equations in PorePy.
+10. [Diagnostics](./diagnostics.ipynb) provides a description of how to use the diagnostics tool in PorePy. The tool allows for visualizing properties of the discretized system of equations in PorePy.
 11. [Equations](./equations.ipynb) briefly covers some general basics about automatic differentiation (AD). It mainly covers how AD is extensively used in PorePy equations, which means that it is most useful for the users that want to define their own equations.
 12. [Mandels problem](./mandels_problem.ipynb) shows how to set up and run the Mandel's consolidation problem based on the Biot equations of poroelasticity. 
 13. [Flux discretizations](./flux_discretizations.ipynb) shows different discretization methods available for diffusive fluxes. These are used for Darcy's law for fluid fluxes in a mass balance equation. 
