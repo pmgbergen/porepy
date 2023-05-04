@@ -65,8 +65,6 @@ class UpwindCoupling(AbstractInterfaceLaw):
         lam_flux: np.ndarray = np.sign(
             data_intf[pp.PARAMETERS][self.keyword][self._flux_array_key]
         )
-
-        #mg: pp.MortarGrid = data_edge["mortar_grid"]
         
         # Number of components
         num_comp = data_intf[pp.PARAMETERS][self.keyword].get("num_components", 1)
@@ -79,12 +77,12 @@ class UpwindCoupling(AbstractInterfaceLaw):
         # the mortar grid, however, we wil hit it with mortar projections, thus kill
         # those elements
         inv_trace_h = np.abs(pp.fvutils.scalar_divergence(sd_primary))
-        # We also need a trace-like projection from cells to faces
+        # # We also need a trace-like projection from cells to faces
         trace_h = inv_trace_h.T
-
+        
         matrix_dictionary[self.inv_trace_primary_matrix_key] = inv_trace_h
         matrix_dictionary[self.trace_primary_matrix_key] = trace_h
-
+        
         # Find upwind weighting. if flag is True we use the upper weights
         # if flag is False we use the lower weighs
         flag = (lam_flux > 0).astype(float)
@@ -96,6 +94,7 @@ class UpwindCoupling(AbstractInterfaceLaw):
         upwind_from_secondary = sps.diags(not_flag)
 
         flux = sps.diags(lam_flux)
+
         # Expand all matrices, so they take several components into account
         
         matrix_dictionary[self.upwind_primary_matrix_key] = sps.kron(
