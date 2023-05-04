@@ -337,7 +337,6 @@ def determine_coarse_dimensions(target: int, fine_size: np.ndarray) -> np.ndarra
 
     # Loop until all dimensions have been assigned a number of cells.
     while not np.all(found) and it_counter <= nd:
-
         it_counter += 1
 
         # Remaining cells to deal with

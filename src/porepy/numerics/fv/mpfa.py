@@ -186,7 +186,6 @@ class Mpfa(pp.FVElliptic):
         for reg_i, (sub_sd, faces_in_subgrid, _, l2g_cells, l2g_faces) in enumerate(
             pp.fvutils.subproblems(active_grid, max_memory, peak_memory_estimate)
         ):
-
             # Copy stiffness tensor, and restrict to local cells
             loc_c: pp.SecondOrderTensor = self._constit_for_subgrid(
                 active_constit, l2g_cells

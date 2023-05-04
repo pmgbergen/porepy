@@ -50,7 +50,6 @@ class TensorGrid(Grid):
         z: Optional[np.ndarray] = None,
         name: Optional[str] = None,
     ) -> None:
-
         if name is None:
             name = "TensorGrid"
 
@@ -366,7 +365,6 @@ class CartGrid(TensorGrid):
         nx: np.ndarray,
         physdims: Optional[Union[np.ndarray, dict[str, float]]] = None,
     ) -> None:
-
         dims = np.asarray(nx).shape
         xmin, ymin, zmin = 0.0, 0.0, 0.0
 

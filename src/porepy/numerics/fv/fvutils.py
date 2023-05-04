@@ -355,7 +355,6 @@ def subproblems(
 ) -> Generator[
     tuple[pp.Grid, np.ndarray, np.ndarray, np.ndarray, np.ndarray], None, None
 ]:
-
     if sd.dim == 0:
         # nothing realy to do here
         loc_faces = np.ones(sd.num_faces, dtype=bool)
@@ -460,7 +459,6 @@ def expand_indices_nd(ind: np.ndarray, nd: int, direction="F") -> np.ndarray:
 
 
 def expand_indices_incr(ind, dim, increment):
-
     # Convenience method for duplicating a list, with a certain increment
 
     # Duplicate rows
@@ -506,7 +504,6 @@ def map_hf_2_f(fno=None, subfno=None, nd=None, sd=None):
 
 
 def cell_vector_to_subcell(nd, sub_cell_index, cell_index):
-
     """
     Create mapping from sub-cells to cells for scalar problems.
     For example, discretization of div_g-term in mpfa with gravity,
@@ -535,7 +532,6 @@ def cell_vector_to_subcell(nd, sub_cell_index, cell_index):
 
 
 def cell_scalar_to_subcell_vector(nd, sub_cell_index, cell_index):
-
     """
     Create mapping from sub-cells to cells for vector problems.
     For example, discretization of grad_p-term in Biot,
