@@ -19,7 +19,6 @@ warnings.simplefilter("ignore", sps.SparseEfficiencyWarning)
 
 
 class AdFunctionTest(unittest.TestCase):
-
     # Function: exp
     def test_exp_scalar(self):
         a = AdArray(np.array([1]), sps.csr_matrix(np.array([0])))
@@ -572,14 +571,15 @@ class AdFunctionTest(unittest.TestCase):
     def test_arcsinh_scalar(self):
         a = AdArray(np.array([0.5]), sps.csr_matrix(np.array([0])))
         b = af.arcsinh(a)
-        self.assertTrue(b.val == np.arcsinh(0.5) and b.jac == 0)
-        self.assertTrue(a.val == 0.5 and a.jac == 0)
+        self.assertTrue(np.isclose(b.val, np.arcsinh(0.5)) and b.jac == 0)
+        self.assertTrue(np.isclose(a.val, 0.5) and a.jac == 0)
 
     def test_arcsinh_advar(self):
         a = AdArray(np.array([0.2]), sps.csr_matrix(np.array([0.3])))
         b = af.arcsinh(a)
         self.assertTrue(
-            b.val == np.arcsinh(0.2) and b.jac == (1 + 0.2**2) ** (-0.5) * 0.3
+            np.isclose(b.val, np.arcsinh(0.2))
+            and np.isclose(b.jac.A, (1 + 0.2**2) ** (-0.5) * 0.3)
         )
         self.assertTrue(a.val == 0.2 and a.jac == 0.3)
 
@@ -590,7 +590,9 @@ class AdFunctionTest(unittest.TestCase):
         b = af.arcsinh(a)
         jac = np.dot(np.diag((1 + val**2) ** (-0.5)), J)
 
-        self.assertTrue(np.all(b.val == np.arcsinh(val)) and np.all(b.jac == jac))
+        self.assertTrue(
+            np.allclose(b.val, np.arcsinh(val)) and np.allclose(b.jac.A, jac)
+        )
         self.assertTrue(
             np.all(J == np.array([[0.3, 0.2, 0.1], [0.5, 0.6, 0.1], [0.2, 0.3, 0.5]]))
         )
@@ -603,7 +605,9 @@ class AdFunctionTest(unittest.TestCase):
         a = AdArray(val, J)
         b = af.arcsinh(a)
         jac = np.dot(np.diag((1 + val**2) ** (-0.5)), J.A)
-        self.assertTrue(np.all(b.val == np.arcsinh(val)) and np.all(b.jac == jac))
+        self.assertTrue(
+            np.allclose(b.val, np.arcsinh(val)) and np.allclose(b.jac.A, jac)
+        )
 
     def test_arcsinh_scalar_times_ad_var(self):
         val = np.array([0.1, 0.2, 0.3])
@@ -622,14 +626,14 @@ class AdFunctionTest(unittest.TestCase):
     def test_arccosh_scalar(self):
         a = AdArray(np.array([2]), sps.csr_matrix(np.array([0])))
         b = af.arccosh(a)
-        self.assertTrue(b.val == np.arccosh(2) and b.jac == 0)
+        self.assertTrue(np.isclose(b.val, np.arccosh(2)) and b.jac == 0)
         self.assertTrue(a.val == 2 and a.jac == 0)
 
     def test_arccosh_advar(self):
         a = AdArray(np.array([2]), sps.csr_matrix(np.array([3])))
         b = af.arccosh(a)
         self.assertTrue(
-            b.val == np.arccosh(2)
+            np.isclose(b.val, np.arccosh(2))
             and b.jac == (2 - 1) ** (-0.5) * (2 + 1) ** (-0.5) * 3
         )
         self.assertTrue(a.val == 2 and a.jac == 3)
@@ -641,7 +645,9 @@ class AdFunctionTest(unittest.TestCase):
         b = af.arccosh(a)
         jac = np.dot(np.diag((val - 1) ** (-0.5) * (val + 1) ** (-0.5)), J)
 
-        self.assertTrue(np.all(b.val == np.arccosh(val)) and np.all(b.jac == jac))
+        self.assertTrue(
+            np.allclose(b.val, np.arccosh(val)) and np.allclose(b.jac.A, jac)
+        )
         self.assertTrue(np.all(J == np.array([[3, 2, 1], [5, 6, 1], [2, 3, 5]])))
 
     def test_arccosh_sparse_jac(self):
@@ -650,7 +656,9 @@ class AdFunctionTest(unittest.TestCase):
         a = AdArray(val, J)
         b = af.arccosh(a)
         jac = np.dot(np.diag((val - 1) ** (-0.5) * (val + 1) ** (-0.5)), J.A)
-        self.assertTrue(np.all(b.val == np.arccosh(val)) and np.all(b.jac == jac))
+        self.assertTrue(
+            np.allclose(b.val, np.arccosh(val)) and np.allclose(b.jac.A, jac)
+        )
 
     def test_arccosh_scalar_times_ad_var(self):
         val = np.array([1, 2, 3])
@@ -669,14 +677,15 @@ class AdFunctionTest(unittest.TestCase):
     def test_arctanh_scalar(self):
         a = AdArray(np.array([0.5]), sps.csr_matrix(np.array([0])))
         b = af.arctanh(a)
-        self.assertTrue(b.val == np.arctanh(0.5) and b.jac == 0)
+        self.assertTrue(np.isclose(b.val, np.arctanh(0.5)) and b.jac == 0)
         self.assertTrue(a.val == 0.5 and a.jac == 0)
 
     def test_arctanh_advar(self):
         a = AdArray(np.array([0.2]), sps.csr_matrix(np.array([0.3])))
         b = af.arctanh(a)
         self.assertTrue(
-            b.val == np.arctanh(0.2) and b.jac == (1 - 0.2**2) ** (-1) * 0.3
+            np.isclose(b.val, np.arctanh(0.2))
+            and np.isclose(b.jac.A, (1 - 0.2**2) ** (-1) * 0.3)
         )
         self.assertTrue(a.val == 0.2 and a.jac == 0.3)
 
@@ -687,7 +696,9 @@ class AdFunctionTest(unittest.TestCase):
         b = af.arctanh(a)
         jac = np.dot(np.diag((1 - val**2) ** (-1)), J)
 
-        self.assertTrue(np.all(b.val == np.arctanh(val)) and np.all(b.jac == jac))
+        self.assertTrue(
+            np.allclose(b.val, np.arctanh(val)) and np.allclose(b.jac.A, jac)
+        )
         self.assertTrue(
             np.all(J == np.array([[0.3, 0.2, 0.1], [0.5, 0.6, 0.1], [0.2, 0.3, 0.5]]))
         )
@@ -700,7 +711,9 @@ class AdFunctionTest(unittest.TestCase):
         a = AdArray(val, J)
         b = af.arctanh(a)
         jac = np.dot(np.diag((1 - val**2) ** (-1)), J.A)
-        self.assertTrue(np.all(b.val == np.arctanh(val)) and np.all(b.jac == jac))
+        self.assertTrue(
+            np.allclose(b.val, np.arctanh(val)) and np.allclose(b.jac.A, jac)
+        )
 
     def test_arctanh_scalar_times_ad_var(self):
         val = np.array([0.1, 0.2, 0.3])
