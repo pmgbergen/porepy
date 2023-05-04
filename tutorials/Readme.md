@@ -10,7 +10,7 @@ The second section includes more specific tutorials and is recommended to those 
 
 # Overview
 The PorePy tutorials are designed as stand-alone documentation of different components and capabilities. 
-Below we provide a general suggestion of in which order to read the tutorials.
+Below we suggest an order in which to read the tutorials.
 It should however be noted that the appropriate order of reading may depend on the reader's background and ambitions.
 
 1. [Introduction](./introduction.ipynb) describes the overarching conceptual framework and its high-level implementation. It also lists some problems which may be solved using PorePy.
