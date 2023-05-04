@@ -1,6 +1,6 @@
 # Tutorials
 This folder contains tutorials to demonstrate how PorePy can be utilized.
-To follow the tutorials you can run them as Jupyter Notebooks, which is done either by downloading the individual files or by cloning the repository.
+To follow the tutorials, you can clone the repository and run the files as Jupyter notebooks.
 
 The tutorials are divided into two sections, where the first section is oriented towards usage of PorePy as it is. 
 In practice, this means running the existing simulation models and making only minor adjustments, such as modifying boundary conditions, sources, initial conditions, material parameters, etc. 
@@ -16,7 +16,7 @@ It should however be noted that the appropriate order of reading may depend on t
 1. [Introduction](./introduction.ipynb) describes the overarching conceptual framework and its high-level implementation. It also lists some problems which may be solved using PorePy.
 2. [Grids](./grids.ipynb) describes the structure of individual grids and demonstrates construction of different types of grids. It also shows how to access and manipulate grid quantities.
 3. [Grid topology](./grid_topology.ipynb) covers how to access various topological properties of grids in PorePy. This includes the relation between cells, faces and nodes, as well as the direction of the face normal vectors.
-4. [Meshing of fractures](./meshing_of_fractures.ipynb) describes the construction of mixed-dimensional grids. These grids represent a fracture network and the surrounding porous medium.
+4. [Mixed-dimensional grids](./mixed_dimensional_grids.ipynb) describes the construction of mixed-dimensional grids. These grids represent a fracture network and the surrounding porous medium.
 5. [Conventions](./conventions.ipynb) defines some conventions used in PorePy. Specifically this is related to signs, boundary conditions etc.
 6. [Single phase flow](./single_phase_flow.ipynb) is where we introduce PorePy model classes and show how to run a simulation. It also covers how to do minor adjustments in a model.
 7. [Poromechanics](./poromechanics.ipynb) covers the concept of setting up a multiphysics simulation by reusing single-physics model classes.
