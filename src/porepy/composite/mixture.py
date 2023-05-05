@@ -136,6 +136,29 @@ class ThermodynamicState:
     X: list[list[NumericType]] = field(default_factory=lambda: [[]])
     """Phase compositions per phase (outer list) per component in phase (inner list)."""
 
+    def __str__(self) -> str:
+        """Returns a string representation of the stored state values."""
+        vals = self.values()
+        nc = len(self.z)
+        np = len(self.y)
+
+        msg = f"Thermodynamic state with {nc} components and {np} phases:\n"
+        msg += f"\nIntensive state:\n\tPressure: {vals.p}\n\tTemperature: {vals.T}"
+        for i, z in enumerate(vals.z):
+            msg += f"\n\tFeed fraction {i}: {z}"
+        for j, y in enumerate(vals.y):
+            msg += f"\n\tPhase fraction {j}: {y}"
+        for j in range(np):
+            msg += f"\n\tComposition phase {j}:"
+            for i in range(nc):
+                msg += f"\n\t\t Component {i}: {vals.X[j][i]}"
+        msg += (
+            f"\nExtensive state:\n\tSpec. Enthalpy: {vals.h}"
+            + f"\n\tMol. Density: {vals.rho}\n\tMol. Volume: {vals.v}"
+        )
+
+        return msg
+
     def values(self) -> ThermodynamicState:
         """Returns a derivative-free state in case any state function is stored as
         an :class:`~porepy.numerics.ad.forward_mode.AdArray`."""
@@ -163,7 +186,7 @@ class ThermodynamicState:
         num_vals: int = 1,
         as_ad: bool = False,
         is_independent: Optional[
-            list[Literal["p", "T", "h", "v", "z_r", "z_i", "s_r", "s_i", "y_r"]]
+            list[Literal["p", "T", "z_r", "z_i", "s_r", "s_i", "y_r"]]
         ] = None,
         values_from: Optional[ThermodynamicState] = None,
     ) -> ThermodynamicState:
@@ -175,12 +198,10 @@ class ThermodynamicState:
 
         1. (optional) pressure
         2. (optional) temperature
-        3. (optional) specific molar enthalpy
-        4. (optional) molar volume
-        5. (optional) feed fractions as ordered in :attr:`z`
-        6. (optional) phase saturations as ordered in :attr:`vf`
-        7. phase fractions as ordered in :attr:`y`
-        8. phase compositions as ordered in :attr:`X`
+        3. (optional) feed fractions as ordered in :attr:`z`
+        4. (optional) phase saturations as ordered in :attr:`vf`
+        5. phase fractions as ordered in :attr:`y`
+        6. phase compositions as ordered in :attr:`X`
 
            .. math::
 
@@ -225,8 +246,6 @@ class ThermodynamicState:
 
                 - ``'p'``: pressure
                 - ``'T'``: temperature
-                - ``'h'``: specific molar enthalpy
-                - ``'v'``: molar volume
                 - ``'z_r'``: reference component (feed) fraction
                 - ``'z_i'``: feed fractions of other components
                 - ``'s_r'``: reference phase saturation
@@ -339,7 +358,7 @@ class ThermodynamicState:
                     elif i == "s_i":
                         N += num_phases - 1
                     # adding other blocks per independent state
-                    elif i in ["p", "T", "h", "v", "y_r", "z_r", "s_r"]:
+                    elif i in ["p", "T", "y_r", "z_r", "s_r"]:
                         N += 1
                     else:
                         raise ValueError(f"Independent state {i} not supported.")
@@ -411,7 +430,7 @@ class ThermodynamicState:
                 # construct derivatives for states which are not given as list
                 # in reverse order, right to left
                 modified_quantities: list[NumericType] = list()
-                for key, quantity in zip(["v", "h", "T", "p"], [v, h, T, p]):
+                for key, quantity in zip(["T", "p"], [T, p]):
                     # modify quantity if requested
                     if key in is_independent:
                         jac_q = jac_glob.copy()
@@ -419,7 +438,7 @@ class ThermodynamicState:
                         quantity = pp.ad.AdArray(quantity, jac_q)
                         occupied += num_vals
                     modified_quantities.append(quantity)
-                v, h, T, p = modified_quantities
+                T, p = modified_quantities
 
         return cls(p=p, T=T, h=h, v=v, rho=rho, z=z, y=y, s=s, X=X)
 
