@@ -397,9 +397,7 @@ class TestTimeControl:
         """A warning should be raised if iterations is given and time step is constant"""
         time_manager = pp.TimeManager([0, 1], 0.1, iter_max=10, constant_dt=True)
         iterations = 1
-        msg = (
-            f"iterations '{iterations}' has no effect if time step is constant."
-        )
+        msg = f"iterations '{iterations}' has no effect if time step is constant."
         with pytest.warns() as record:
             time_manager.compute_time_step(iterations=iterations)
         assert str(record[0].message) == msg
@@ -653,10 +651,11 @@ class TestTimeControl:
         latter are cut-off accordingly.
 
         """
+        pth = Path("times.json")
         # Imitate a time manager iterating through some consecutive time steps.
         time_manager = pp.TimeManager(schedule=[0, 1], dt_init=0.1, constant_dt=True)
         for i in range(10):
-            time_manager.write_time_information("times.json")
+            time_manager.write_time_information(pth)
             time_manager.increase_time_index()
             time_manager.increase_time()
 
@@ -668,7 +667,7 @@ class TestTimeControl:
         new_time_manager = pp.TimeManager(
             schedule=[0, 1], dt_init=0.1, constant_dt=True
         )
-        new_time_manager.load_time_information("times.json")
+        new_time_manager.load_time_information(pth)
         assert np.all(
             np.isclose(new_time_manager.time_history, np.linspace(0, 0.9, 10))
         )
@@ -693,4 +692,4 @@ class TestTimeControl:
             )
         )
         # Remove temporary file.
-        Path("times.json").unlink()
+        pth.unlink()
