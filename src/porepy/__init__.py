@@ -23,6 +23,7 @@ from pathlib import Path
 import configparser
 import warnings
 
+
 __version__ = "1.7.0"
 
 # Try to read the config file from the directory where python process was launched
