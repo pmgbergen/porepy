@@ -1,9 +1,9 @@
 import unittest
-from tests import test_utils
 
 import numpy as np
 
 import porepy as pp
+from tests import test_utils
 
 
 def setup_2d_1d(nx, simplex_grid=False):
@@ -50,7 +50,7 @@ def check_pressures(mdg):
     the tpfa half transmissibilities are computed.
     """
     for sd, data in mdg.subdomains(return_data=True):
-        pressure = data[pp.STATE]["pressure"]
+        pressure = data[pp.TIME_STEP_SOLUTIONS]["pressure"][0]
         pressure_analytic = sd.cell_centers[1]
         p_diff = pressure - pressure_analytic
         if np.max(np.abs(p_diff)) >= 2e-2:

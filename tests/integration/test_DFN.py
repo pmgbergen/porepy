@@ -364,7 +364,9 @@ class TestDFN(unittest.TestCase):
         assembler.distribute_variable(x)
         for sd, data in mdg.subdomains(return_data=True):
             discr = data["discretization"]["flow"]["flux"]
-            data["pressure"] = discr.extract_pressure(sd, data[pp.STATE]["flow"], data)
+            data["pressure"] = discr.extract_pressure(
+                sd, data[pp.TIME_STEP_SOLUTIONS]["flow"][0], data
+            )
 
         for sd, data in mdg.subdomains(return_data=True):
 
@@ -457,14 +459,14 @@ class TestDFN(unittest.TestCase):
                 else:
                     raise ValueError
 
-            self.assertTrue(np.allclose(d[pp.STATE]["flow"], known))
+            self.assertTrue(np.allclose(d[pp.TIME_STEP_SOLUTIONS]["flow"][0], known))
 
 
 # ------------------------- HELP FUNCTIONS --------------------------------#
 
 
 def setup_data(mdg, key="flow"):
-    """Setup the data"""
+    """Setup the data."""
     for sd, data in mdg.subdomains(return_data=True):
         param = {}
         kxx = np.ones(sd.num_cells)
@@ -544,19 +546,12 @@ def setup_discr_tpfa(mdg, key="flow"):
 
 
 def create_dfn(mdg, dim):
-    """given a MixedDimensionalGrid remove the higher dimensional node and
-    fix the internal mapping."""
-    # remove the +1 and -2 dimensional grids with respect to the
-    # considered dfn, and re-write the node number
+    """Remove the higher-dimensional subdomain and fix the internal mapping."""
+    # Remove the +1 and -2 dimensional grids with respect to the
+    # considered dfn, and re-write the node number.
     subdomains = [sd for sd in mdg.subdomains(dim=dim + 1)] + [
         sd for sd in mdg.subdomains(dim=dim - 2)
     ]
 
     for sd in subdomains:
-        node_number = mdg.node_number(sd)
         mdg.remove_subdomain(sd)
-        mdg.update_subdomain_ordering(node_number)
-
-
-if __name__ == "__main__":
-    unittest.main()

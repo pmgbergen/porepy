@@ -854,7 +854,7 @@ class BasicsTest(unittest.TestCase):
                 self.assertTrue(np.array_equal(computed, known))
                 known = [10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
                 computed = np.where(sd.tags["fracture_nodes"])[0]
-                
+
                 self.assertTrue(np.array_equal(computed, known))
                 self.assertTrue(
                     np.array_equal(sd.tags["tip_faces"], [False] * sd.num_faces)

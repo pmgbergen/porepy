@@ -5,13 +5,14 @@ import unittest
 import numpy as np
 
 import porepy as pp
+from porepy.grids.standard_grids.utils import unit_domain
 
 
 class TestSimpleMeshing(unittest.TestCase):
     def test_nested_simple(self):
         # Simple test of the nested generation. Both 2d and 3d domains.
         # Main check: The refinement is indeed by splitting
-        mesh_args = {"mesh_size_frac": 1, "mesh_size_bound": 1}
+        mesh_args = {"mesh_size_frac": 1, "mesh_size_bound": 1, "mesh_size_min": 0.1}
 
         num_ref = 3
 
@@ -21,12 +22,9 @@ class TestSimpleMeshing(unittest.TestCase):
             "mesh_param": mesh_args,
         }
 
-        network_2d = pp.FractureNetwork2d(
-            domain={"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1}
-        )
-        network_3d = pp.FractureNetwork2d(
-            domain={"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1, "zmin": 0, "zmax": 1}
-        )
+        network_2d = pp.create_fracture_network(domain=unit_domain(2))
+        network_3d = pp.create_fracture_network(domain=unit_domain(3))
+
         for network in [network_2d, network_3d]:
             factory = pp.refinement.GridSequenceFactory(network, params)
 
@@ -55,10 +53,8 @@ class TestSimpleMeshing(unittest.TestCase):
         }
 
         # Add a single fracture to the network
-        pts = np.array([[0.3, 0.7], [0.5, 0.5]])
-        edges = np.array([[0], [1]])
-        domain = {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1}
-        network = pp.FractureNetwork2d(pts, edges, domain)
+        fracture = pp.LineFracture(np.array([[0.3, 0.7], [0.5, 0.5]]))
+        network = pp.create_fracture_network([fracture], unit_domain(2))
 
         factory = pp.refinement.GridSequenceFactory(network, params)
 
@@ -72,10 +68,8 @@ class TestSimpleMeshing(unittest.TestCase):
         num_ref = 2
 
         # Add a single fracture to the network
-        pts = np.array([[0.3, 0.7], [0.5, 0.5]])
-        edges = np.array([[0], [1]])
-        domain = {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1}
-        network = pp.FractureNetwork2d(pts, edges, domain)
+        fracture = pp.LineFracture(np.array([[0.3, 0.7], [0.5, 0.5]]))
+        network = pp.create_fracture_network([fracture], unit_domain(2))
 
         params = {
             "mode": "nested",

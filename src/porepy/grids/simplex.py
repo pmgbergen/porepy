@@ -1,16 +1,17 @@
-""" Module containing classes for simplex grids.
+"""Module containing classes for simplex grids.
 
-Acknowledgements:
-    The implementation of simplex grids is to a large degree a translation
-    of the corresponding functions found in the Matlab Reservoir Simulation
-    Toolbox (MRST) developed by SINTEF ICT, see www.sintef.no/projectweb/mrst/
+.. rubric:: Acknowledgement
+
+The implementation of structured grids is in practice a translation of the corresponding
+functions found in the `Matlab Reservoir Simulation Toolbox (MRST)
+<www.sintef.no/projectweb/mrst/>`_ developed by SINTEF ICT.
 
 """
 from typing import Optional
 
 import numpy as np
 import scipy.sparse as sps
-import scipy.spatial
+import scipy.spatial.qhull
 
 from porepy.grids.grid import Grid
 from porepy.utils import accumarray, setmembership
@@ -19,8 +20,28 @@ from porepy.utils import accumarray, setmembership
 class TriangleGrid(Grid):
     """Class representation of a general triangular grid.
 
-    For information on attributes and methods, see the documentation of the
-    parent Grid class.
+    If no triangulation is provided, Delaunay will be applied.
+
+    Note:
+        Triangular grids are by definition 2D.
+
+    Example:
+
+        >>> p = np.random.rand(2, 10)
+        >>> tri = scipy.spatial.Delaunay(p.transpose()).simplices
+        >>> g = TriangleGrid(p, tri.transpose())
+
+    Parameters:
+        p: ``shape=(2, num_nodes)``
+
+            Cloud of point coordinates.
+        tri: ``shape=(3, num_cells), default=None``
+
+            Cell-node connections. If None, a Delaunay triangulation will be applied.
+            The ordering of nodes in each cell is assumed to be counter-clockwise.
+        name: ``default=None``
+
+            Name of the grid. If None, ``'TriangleGrid'`` will be assigned.
 
     """
 
@@ -30,28 +51,10 @@ class TriangleGrid(Grid):
         tri: Optional[np.ndarray] = None,
         name: Optional[str] = None,
     ) -> None:
-        """Create triangular grid from point cloud.
-
-        If no triangulation is provided, Delaunay will be applied.
-
-        Args:
-            p (np.ndarray, 2 x num_nodes): Point coordinates.
-            tri (np.ndarray, 3 x num_cells): Cell-node connections. If not
-                provided, a Delaunay triangulation will be applied.
-            name (str, optional): Name of grid type. Defaults to None, in which
-                case  'TriangleGrid' will be assigned.
-
-        Examples:
-        >>> p = np.random.rand(2, 10)
-        >>> tri = scipy.spatial.Delaunay(p.transpose()).simplices
-        >>> g = TriangleGrid(p, tri.transpose())
-
-        """
-
         self.dim = 2
 
         if tri is None:
-            triangulation = scipy.spatial.Delaunay(p.transpose())
+            triangulation = scipy.spatial.qhull.Delaunay(p.transpose())
             tri = triangulation.simplices
             tri = tri.transpose()
 
@@ -68,8 +71,15 @@ class TriangleGrid(Grid):
 
         assert num_nodes > 2  # Check of transposes of point array
 
-        # Face node relations
+        # Tabulate the nodes in [first, second, third] faces of each triangle in
+        # counterclockwise order
         face_nodes = np.hstack((tri[[0, 1]], tri[[1, 2]], tri[[2, 0]])).transpose()
+
+        # The cell-face orientation is positive if it coincides with the face
+        # orientation from low to high node index
+        cf_data = np.sign(face_nodes[:, 1] - face_nodes[:, 0])
+
+        # Face node relations. Each face is oriented from low to high node index.
         face_nodes.sort(axis=1)
         face_nodes, _, cell_faces = setmembership.unique_rows(face_nodes)
 
@@ -92,23 +102,28 @@ class TriangleGrid(Grid):
         # Cell face relation
         num_faces_per_cell = 3
         cell_faces = cell_faces.reshape(num_faces_per_cell, num_cells).ravel("F")
+        cf_data = cf_data.reshape(num_faces_per_cell, num_cells).ravel("F")
+
         indptr = np.hstack(
             (
                 np.arange(0, num_faces_per_cell * num_cells, num_faces_per_cell),
                 num_faces_per_cell * num_cells,
             )
         )
-        data = -np.ones(cell_faces.shape)
-        _, sgns = np.unique(cell_faces, return_index=True)
-        data[sgns] = 1
         cell_faces = sps.csc_matrix(
-            (data, cell_faces, indptr), shape=(num_faces, num_cells)
+            (cf_data, cell_faces, indptr),
+            shape=(num_faces, num_cells),
+            dtype=float,
         )
 
         super().__init__(2, nodes, face_nodes, cell_faces, name)
 
     def cell_node_matrix(self) -> np.ndarray:
-        """Get cell-node relations in a Nc x 3 matrix."""
+        """
+        Returns:
+            An array with ``shape=(num_cells, 3)``, representing the cell-to-node map.
+
+        """
 
         # Absolute value needed since cellFaces can be negative
         cn = self.face_nodes * np.abs(self.cell_faces) * sps.eye(self.num_cells)
@@ -125,29 +140,37 @@ class StructuredTriangleGrid(TriangleGrid):
     """Class for a structured triangular grids, composed of squares divided
     into two.
 
-    For information on attributes and methods, see the documentation of the
-    parent Grid class.
+    Example:
+        Grid on the unit cube.
 
-    """
-
-    def __init__(self, nx: np.ndarray, physdims: Optional[np.ndarray] = None) -> None:
-        """Construct a triangular grid by splitting Cartesian cells in two.
-
-        Args:
-            nx (np.ndarray, size 2): number of cells in each direction of the
-                underlying Cartesian grid.
-            physdims (np.ndarray, size 2): domain size. Defaults to nx,
-                thus Cartesian cells are unit squares.
-
-        Examples:
-        Grid on the unit cube
         >>> nx = np.array([2, 3])
         >>> physdims = np.ones(2)
         >>> g = simplex.StructuredTriangleGrid(nx, physdims)
 
-        """
+    Parameters:
+        nx: ``shape=(2,)``
+
+            Number of cells in each direction of the underlying Cartesian grid.
+        physdims: ``shape=(2,), default=None``
+
+            Domain size. If None, ``nx`` is used, thus Cartesian cells are unit squares.
+        name: ``default=None``
+
+            Name of the grid. If None, ``'StructuredTriangleGrid'`` will be assigned.
+
+    """
+
+    def __init__(
+        self,
+        nx: np.ndarray,
+        physdims: Optional[np.ndarray] = None,
+        name: Optional[str] = None,
+    ) -> None:
         nx = np.asarray(nx)
         assert nx.size == 2
+
+        if name is None:
+            name = "StructuredTriangleGrid"
 
         if physdims is None:
             physdims = nx
@@ -166,18 +189,18 @@ class StructuredTriangleGrid(TriangleGrid):
         tmp_ind = np.arange(0, nx[0])
         ind_1 = tmp_ind  # Lower left node in quad
         ind_2 = tmp_ind + 1  # Lower right node
-        ind_3 = nx[0] + 2 + tmp_ind  # Upper left node
-        ind_4 = nx[0] + 1 + tmp_ind  # Upper right node
+        ind_3 = nx[0] + 2 + tmp_ind  # Upper right node
+        ind_4 = nx[0] + 1 + tmp_ind  # Upper left node
 
-        # The first triangle is defined by (i1, i2, i3), the next by
-        # (i1, i3, i4). Stack these vertically, and reshape so that the
-        # first quad is split into cells 0 and 1 and so on
+        # The first triangle is defined by (i1, i2, i3), the next by (i1, i3, i4). Stack
+        # these vertically, and reshape so that the first quad is split into cells 0 and
+        # 1 and so on
         tri_base = np.vstack((ind_1, ind_2, ind_3, ind_1, ind_3, ind_4)).reshape(
             (3, -1), order="F"
         )
-        # Initialize array of triangles. For the moment, we will append the
-        # cells here, but we do know how many cells there are in advance,
-        # so pre-allocation is possible if this turns out to be a bottleneck
+        # Initialize array of triangles. For the moment, we will append the cells here,
+        # but we do know how many cells there are in advance, so pre-allocation is
+        # possible if this turns out to be a bottleneck
         tri = tri_base
 
         # Loop over all remaining rows in the y-direction.
@@ -185,14 +208,25 @@ class StructuredTriangleGrid(TriangleGrid):
             # The node numbers are increased by nx[0] + 1 for each row
             tri = np.hstack((tri, tri_base + (iter1 + 1) * (nx[0] + 1)))
 
-        super().__init__(p, tri, name="StructuredTriangleGrid")
+        super().__init__(p, tri, name=name)
 
 
 class TetrahedralGrid(Grid):
     """Class for Tetrahedral grids.
 
-    For information on attributes and methods, see the documentation of the
-    parent Grid class.
+    If the cells are not provided, a Delaunay tesselation will be
+    constructed.
+
+    Parameters:
+        p: ``shape=(3, num_points)``
+
+            Coordinates of vertices.
+        tet: ``shape=(4, num_tet), default=None``
+
+            Cell vertices. If None, a Delaunay triangulation will be performed.
+        name: ``default=None``
+
+            Name of grid type. If None, ``'TetrahedralGrid'`` will be assigned.
 
     """
 
@@ -202,26 +236,12 @@ class TetrahedralGrid(Grid):
         tet: Optional[np.ndarray] = None,
         name: Optional[str] = None,
     ) -> None:
-        """
-        Create a tetrahedral grid from a set of point and cells.
-
-        If the cells are not provided a Delaunay tesselation will be
-        constructed.
-
-        Args:
-            p (np.array, 3xn_pt): Coordinates of vertices
-            tet (np.array, 4xn_tet, optional): Cell vertices. If none is
-                provided, a Delaunay triangulation will be performed.
-
-        """
-        # The method below is to a large degree translated from MRST.
-
         self.dim = 3
 
-        # Transform points to column vector if necessary (scipy.Delaunay
-        # requires this format)
+        # Transform points to column vector if necessary (scipy.Delaunay requires this
+        # format)
         if tet is None:
-            tesselation = scipy.spatial.Delaunay(p.transpose())
+            tesselation = scipy.spatial.qhull.Delaunay(p.transpose())
             tet = tesselation.simplices.transpose()
 
         if name is None:
@@ -237,13 +257,12 @@ class TetrahedralGrid(Grid):
         # This is apparently needed to appease mypy
         assert tet is not None
 
-        # Define face-nodes so that the first column contains fn of cell 0,
-        # etc.
+        # Define face-nodes so that the first column contains fn of cell 0, etc.
         face_nodes = np.vstack(
             (tet[[1, 0, 2]], tet[[0, 1, 3]], tet[[2, 0, 3]], tet[[1, 2, 3]])
         )
-        # Reshape face-nodes into a 3x 4*num_cells-matrix, with the four first
-        # columns belonging to cell 0.
+        # Reshape face-nodes into a 3x 4*num_cells-matrix, with the four first columns
+        # belonging to cell 0.
         face_nodes = face_nodes.reshape((3, 4 * num_cells), order="F")
         sort_ind = np.squeeze(np.argsort(face_nodes, axis=0))
         face_nodes_sorted = np.sort(face_nodes, axis=0)
@@ -279,9 +298,13 @@ class TetrahedralGrid(Grid):
             (data, cell_faces, indptr), shape=(num_faces, num_cells)
         )
 
-        super().__init__(3, nodes, face_nodes, cell_faces, "TetrahedralGrid")
+        super().__init__(3, nodes, face_nodes, cell_faces, name)
 
     def _permute_nodes(self, p: np.ndarray, t: np.ndarray) -> np.ndarray:
+        """Auxiliary function to permute the points in ``p`` according to the tetrahedra
+        they belong to, given by ``t``.
+
+        """
         v = self._triple_product(p, t)
         permute = np.where(v > 0)[0]
         if t.ndim == 1:
@@ -292,6 +315,21 @@ class TetrahedralGrid(Grid):
         return t
 
     def _triple_product(self, p: np.ndarray, t: np.ndarray) -> np.ndarray:
+        """Auxiliary function to perform the triple product between the first column
+        in ``p`` and the remaining columns``.
+
+        Parameters:
+            p: ``shape=(3, num_points)``
+
+                Point cloud, where each column represents a point in 3D.
+            t: An index array to slice ``p`` column-wise before computing the triple
+                product
+
+        Returns:
+            An array with ``shape=(3, n)``, where ``n`` is determined by the length of
+            ``t`` -1.
+
+        """
         px = p[0]
         py = p[1]
         pz = p[2]
@@ -312,29 +350,38 @@ class TetrahedralGrid(Grid):
 
 
 class StructuredTetrahedralGrid(TetrahedralGrid):
-    """Class for a structured triangular grids, composed of squares divided
+    """Class for a structured tetrahedral grids, composed of Cartesian cells divided
     into two.
 
-    For information on attributes and methods, see the documentation of the
-    parent Grid class.
+    Example:
+        Grid on the unit cube.
 
-    """
-
-    def __init__(self, nx: np.ndarray, physdims: Optional[np.ndarray] = None) -> None:
-        """Construct a triangular grid by splitting Cartesian cells in two.
-
-        Examples:
-        Grid on the unit cube
         >>> nx = np.array([2, 3])
         >>> physdims = np.ones(2)
         >>> g = simplex.StructuredTriangleGrid(nx, physdims)
 
-        Args:
-            nx (np.ndarray, size 2): number of cells in each direction of the
-                underlying Cartesian grid.
-            physdims (np.ndarray, size 2): domain size. Defaults to nx,
-                thus Cartesian cells are unit squares.
-        """
+    Parameters:
+        nx: ``shape=(2,)``
+
+            Number of cells in each direction of the underlying Cartesian grid.
+        physdims: ``shape=(2,), default=None``
+
+            Domain size. If None, ``nx`` is used, thus Cartesian cells are unit cubes.
+        name: ``default=None``
+
+            Name of the grid. If None, ``'StructuredTetrahedralGrid'`` will be assigned.
+
+    """
+
+    def __init__(
+        self,
+        nx: np.ndarray,
+        physdims: Optional[np.ndarray] = None,
+        name: Optional[str] = None,
+    ) -> None:
+        if name is None:
+            name = "StructuredTetrahedralGrid"
+
         nx = np.asarray(nx).astype(int)
         assert nx.size == 3
 
@@ -399,9 +446,9 @@ class StructuredTetrahedralGrid(TetrahedralGrid):
                 ind_8,
             )
         ).reshape((4, -1), order="F")
-        # Initialize array of triangles. For the moment, we will append the
-        # cells here, but we do know how many cells there are in advance,
-        # so pre-allocation is possible if this turns out to be a bottleneck
+        # Initialize array of triangles. For the moment, we will append the cells here,
+        # but we do know how many cells there are in advance, so pre-allocation is
+        # possible if this turns out to be a bottleneck.
 
         # Loop over all remaining rows in the y-direction.
         for iter2 in range(nx[2].astype(int)):
@@ -412,4 +459,4 @@ class StructuredTetrahedralGrid(TetrahedralGrid):
                 else:
                     tet = np.hstack((tet, tet_base + increment))
 
-        super().__init__(p, tet=tet, name="StructuredTetrahedralGrid")
+        super().__init__(p, tet=tet, name=name)

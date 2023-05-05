@@ -183,7 +183,6 @@ class HybridDualVEM:
 
         # Apply the boundary conditions
         if bc is not None:
-
             if np.any(bc.is_dir):
                 norm = sps.linalg.norm(H, np.inf)
                 is_dir = np.where(bc.is_dir)[0]

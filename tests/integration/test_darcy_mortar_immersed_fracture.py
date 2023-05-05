@@ -6,19 +6,18 @@ The non-immersed case is kind of tested in the module
 
 """
 import unittest
-from tests import test_grids, test_utils
 
 import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
+from tests import test_grids, test_utils
 
 
 class TestImmersedFracture(unittest.TestCase):
     def create_grid(
         self, num_1d=3, pert_node=False, flip_normals=False, rotate_fracture=False
     ):
-
         generator = test_grids.SimplexGrid2dDomainOneImmersedFracture()
 
         mdg = generator.generate_grid(
@@ -31,7 +30,6 @@ class TestImmersedFracture(unittest.TestCase):
         return mdg
 
     def set_params(self, mdg, kn, kf):
-
         kw = "flow"
 
         for sd, data in mdg.subdomains(return_data=True):
@@ -82,7 +80,7 @@ class TestImmersedFracture(unittest.TestCase):
         # tolerance. The current value turned out to be sufficient for all
         # tests considered herein.
         for g, d in mdg.nodes():
-            p = d[pp.STATE]["pressure"]
+            p = d[pp.TIME_STEP_SOLUTIONS]["pressure"][0]
             self.assertTrue(np.allclose(p, g.cell_centers[1], rtol=tol, atol=tol))
 
     def _solve(self, mdg, method, key):
@@ -102,16 +100,44 @@ class TestImmersedFracture(unittest.TestCase):
         method = pp.MVEM(key)
         self._solve(mdg, method, key)
         for sd, data in mdg.subdomains(return_data=True):
-            data[pp.STATE]["darcy_flux"] = data[pp.STATE]["pressure"][: sd.num_faces]
-            data[pp.STATE]["pressure"] = data[pp.STATE]["pressure"][sd.num_faces :]
+            darcy_flux_values = data[pp.TIME_STEP_SOLUTIONS]["pressure"][0][
+                : sd.num_faces
+            ]
+            pp.set_solution_values(
+                name="darcy_flux",
+                values=darcy_flux_values,
+                data=data,
+                time_step_index=0,
+            )
+
+            pressure_values = data[pp.TIME_STEP_SOLUTIONS]["pressure"][0][
+                sd.num_faces :
+            ]
+            pp.set_solution_values(
+                name="pressure", values=pressure_values, data=data, time_step_index=0
+            )
 
     def run_RT0(self, mdg):
         key = "flow"
         method = pp.RT0(key)
         self._solve(mdg, method, key)
         for sd, data in mdg.subdomains(return_data=True):
-            data[pp.STATE]["darcy_flux"] = data[pp.STATE]["pressure"][: sd.num_faces]
-            data[pp.STATE]["pressure"] = data[pp.STATE]["pressure"][sd.num_faces :]
+            darcy_flux_values = data[pp.TIME_STEP_SOLUTIONS]["pressure"][0][
+                : sd.num_faces
+            ]
+            pp.set_solution_values(
+                name="darcy_flux",
+                values=darcy_flux_values,
+                data=data,
+                time_step_index=0,
+            )
+
+            pressure_values = data[pp.TIME_STEP_SOLUTIONS]["pressure"][0][
+                sd.num_faces :
+            ]
+            pp.set_solution_values(
+                name="pressure", values=pressure_values, data=data, time_step_index=0
+            )
 
     def test_mpfa_blocking_fracture(self):
         # blocking fracture, essentially uniform flow in a 2d domain
@@ -121,7 +147,7 @@ class TestImmersedFracture(unittest.TestCase):
         self.run_mpfa(mdg)
         sd_2d = mdg.subdomains(dim=2)[0]
         data = mdg.subdomain_data(sd_2d)
-        p = data[pp.STATE]["pressure"]
+        p = data[pp.TIME_STEP_SOLUTIONS]["pressure"][0]
         self.assertTrue(np.allclose(p, sd_2d.cell_centers[1], rtol=1e-5))
 
     def test_mvem_blocking_fracture(self):
@@ -132,7 +158,7 @@ class TestImmersedFracture(unittest.TestCase):
         self.run_vem(mdg)
         sd_2d = mdg.subdomains(dim=2)[0]
         data = mdg.subdomain_data(sd_2d)
-        p = data[pp.STATE]["pressure"]
+        p = data[pp.TIME_STEP_SOLUTIONS]["pressure"][0]
         self.assertTrue(np.allclose(p, sd_2d.cell_centers[1], rtol=1e-5))
 
     def test_rt0_blocking_fracture(self):
@@ -143,7 +169,7 @@ class TestImmersedFracture(unittest.TestCase):
         self.run_RT0(mdg)
         sd_2d = mdg.subdomains(dim=2)[0]
         data = mdg.subdomain_data(sd_2d)
-        p = data[pp.STATE]["pressure"]
+        p = data[pp.TIME_STEP_SOLUTIONS]["pressure"][0]
         self.assertTrue(np.allclose(p, sd_2d.cell_centers[1], rtol=1e-5))
 
     def test_mpfa_flip_normal(self):
@@ -154,14 +180,14 @@ class TestImmersedFracture(unittest.TestCase):
         self.run_mpfa(mdg)
         sd_2d = mdg.subdomains(dim=2)[0]
         data = mdg.subdomain_data(sd_2d)
-        p = data[pp.STATE]["pressure"]
+        p = data[pp.TIME_STEP_SOLUTIONS]["pressure"][0]
         mdg = self.create_grid()
         self.set_params(mdg, kn=1e4, kf=1e3)
 
         self.run_mpfa(mdg)
         sd_2d = mdg.subdomains(dim=2)[0]
         data = mdg.subdomain_data(sd_2d)
-        p_flipped = data[pp.STATE]["pressure"]
+        p_flipped = data[pp.TIME_STEP_SOLUTIONS]["pressure"][0]
 
         self.assertTrue(np.allclose(p, p_flipped, rtol=1e-10))
 
@@ -173,7 +199,7 @@ class TestImmersedFracture(unittest.TestCase):
         self.run_vem(mdg)
         sd_2d = mdg.subdomains(dim=2)[0]
         data = mdg.subdomain_data(sd_2d)
-        p = data[pp.STATE]["pressure"]
+        p = data[pp.TIME_STEP_SOLUTIONS]["pressure"][0]
 
         mdg = self.create_grid()
         self.set_params(mdg, kn=1e4, kf=1e3)
@@ -181,7 +207,7 @@ class TestImmersedFracture(unittest.TestCase):
         self.run_vem(mdg)
         sd_2d = mdg.subdomains(dim=2)[0]
         data = mdg.subdomain_data(sd_2d)
-        p_flipped = data[pp.STATE]["pressure"]
+        p_flipped = data[pp.TIME_STEP_SOLUTIONS]["pressure"][0]
 
         self.assertTrue(np.allclose(p, p_flipped, rtol=1e-10))
 
@@ -193,7 +219,7 @@ class TestImmersedFracture(unittest.TestCase):
         self.run_RT0(mdg)
         sd_2d = mdg.subdomains(dim=2)[0]
         data = mdg.subdomain_data(sd_2d)
-        p = data[pp.STATE]["pressure"]
+        p = data[pp.TIME_STEP_SOLUTIONS]["pressure"][0]
 
         mdg = self.create_grid()
         self.set_params(mdg, kn=1e4, kf=1e3)
@@ -201,7 +227,7 @@ class TestImmersedFracture(unittest.TestCase):
         self.run_RT0(mdg)
         sd_2d = mdg.subdomains(dim=2)[0]
         data = mdg.subdomain_data(sd_2d)
-        p_flipped = data[pp.STATE]["pressure"]
+        p_flipped = data[pp.TIME_STEP_SOLUTIONS]["pressure"][0]
 
         self.assertTrue(np.allclose(p, p_flipped, rtol=1e-10))
 

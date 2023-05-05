@@ -2,6 +2,7 @@ import unittest
 
 import numpy as np
 import scipy.sparse as sps
+
 import porepy as pp
 
 
@@ -153,7 +154,7 @@ def test_duplicate_nodes():
     fn_rows = np.hstack((fn_0_9, fn_10_19, fn_20_29, fn_30_39, fn_40_49, fn_50_58))
 
     fn_cols = np.tile(np.arange(nf), (2, 1)).ravel("f")
-    fn_data = np.ones(nf * 2, dtype=np.bool)
+    fn_data = np.ones(nf * 2, dtype=bool)
     face_nodes = sps.coo_matrix((fn_data, (fn_rows, fn_cols)), shape=(nn, nf)).tocsc()
 
     cf_0_6 = np.array(

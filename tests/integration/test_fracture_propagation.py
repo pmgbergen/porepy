@@ -16,14 +16,14 @@ The tests follow in part the unittest framework, in part pytest.
 
 """
 import unittest
-import pytest
 
 import numpy as np
-import porepy as pp
+import pytest
 import scipy.sparse as sps
 
-from tests.integration.fracture_propagation_utils import check_equivalent_md_grids
+import porepy as pp
 from tests.integration import setup_mixed_dimensional_grids as setup_mdg
+from tests.integration.fracture_propagation_utils import check_equivalent_md_grids
 from tests.test_utils import compare_arrays
 
 
@@ -125,12 +125,12 @@ def test_pick_propagation_face_conforming_propagation(generate):
 
     # Get problem geometry and description
     mdg, targets, angles = generate()
-    pp.contact_conditions.set_projections(mdg)
+    pp.set_local_coordinate_projections(mdg)
 
     # Bookkeeping
     sd_primary = mdg.subdomains(dim=mdg.dim_max())[0]
     data_primary = mdg.subdomain_data(sd_primary)
-    data_primary[pp.STATE] = {}
+    data_primary[pp.TIME_STEP_SOLUTIONS] = {}
 
     # Propagation model; assign this some necessary fields.
     model = pp.ConformingFracturePropagation({})
@@ -139,7 +139,6 @@ def test_pick_propagation_face_conforming_propagation(generate):
 
     # Loop over all propagation steps
     for step_target, step_angle in zip(targets, angles):
-
         # Map for faces to be split for all fracture grids
         propagation_map = {}
 
@@ -147,7 +146,6 @@ def test_pick_propagation_face_conforming_propagation(generate):
         for sd_frac, data_frac in mdg.subdomains(
             dim=mdg.dim_max() - 1, return_data=True
         ):
-
             # Data dictionaries
             intf = mdg.subdomain_pair_to_interface((sd_primary, sd_frac))
             intf_data = mdg.interface_data(intf)
@@ -156,7 +154,7 @@ def test_pick_propagation_face_conforming_propagation(generate):
             tip_faces = np.where(sd_frac.tags["tip_faces"])[0]
 
             # Data structure to tag tip faces to propagate from, and angles
-            prop_face = np.zeros(sd_frac.num_faces, dtype=np.bool)
+            prop_face = np.zeros(sd_frac.num_faces, dtype=bool)
             prop_angle = np.zeros(sd_frac.num_faces)
 
             # Loop over all targets for this grid, tag faces to propagate
@@ -482,7 +480,7 @@ class FaceSplittingHostGrid(unittest.TestCase):
 
         mdg.compute_geometry()
 
-        pp.contact_conditions.set_projections(mdg)
+        pp.set_local_coordinate_projections(mdg)
 
         return mdg
 
@@ -558,7 +556,12 @@ class PropagationCriteria(unittest.TestCase):
         d_j = self.mdg.interface_data(intf)
         trace = np.abs(pp.fvutils.vector_divergence(self.sd_primary)).T
         u_j = intf.primary_to_mortar_avg(nd=self.nd) * trace * u_h
-        pp.set_iterate(d_j, {self.model.mortar_displacement_variable: u_j})
+        pp.set_solution_values(
+            name=self.model.mortar_displacement_variable,
+            values=u_j,
+            data=d_j,
+            iterate_index=0,
+        )
 
         # Parameters used by the propagation class
         for g, d in self.mdg.subdomains(return_data=True):
@@ -674,7 +677,7 @@ class PropagationCriteria(unittest.TestCase):
             mdg = setup_mdg.grid_2d_1d([4, 2], 0.25, 0.75)
         mdg.compute_geometry()
 
-        pp.contact_conditions.set_projections(mdg)
+        pp.set_local_coordinate_projections(mdg)
 
         # Model needs to know dimension
         self.model.nd = dim
@@ -778,30 +781,43 @@ class VariableMappingInitializationUnderPropagation(unittest.TestCase):
         cell_val_mortar = {g: np.random.rand(var_sz_mortar * 2) for g in g_1d}
 
         # Define variables on all grids.
-        # Initialize the state by the known variable, and the iterate as twice that value
-        # (mostly a why not)
+        # Initialize the state by the known variable, and the iterate as twice that
+        # value (mostly a why not)
         d = mdg.subdomain_data(g_2d)
         d[pp.PRIMARY_VARIABLES] = {self.cv2: {"cells": 1}}
-        d[pp.STATE] = {
-            self.cv2: cell_val_2d,
-            pp.ITERATE: {self.cv2: np.array(2 * cell_val_2d)},
-        }
+
+        val_sol = cell_val_2d
+        val_it = 2 * cell_val_2d
+
+        pp.set_solution_values(name=self.cv2, values=val_sol, data=d, time_step_index=0)
+        pp.set_solution_values(name=self.cv2, values=val_it, data=d, iterate_index=0)
 
         for g in g_1d:
             d = mdg.subdomain_data(g)
             d[pp.PRIMARY_VARIABLES] = {self.cv1: {"cells": var_sz_1d}}
-            d[pp.STATE] = {
-                self.cv1: cell_val_1d[g],
-                pp.ITERATE: {self.cv1: np.array(2 * cell_val_1d[g])},
-            }
+
+            val_sol = cell_val_1d[g]
+            val_it = 2 * cell_val_1d[g]
+
+            pp.set_solution_values(
+                name=self.cv1, values=val_sol, data=d, time_step_index=0
+            )
+            pp.set_solution_values(
+                name=self.cv1, values=val_it, data=d, iterate_index=0
+            )
+
             intf = mdg.subdomain_pair_to_interface((g_2d, g))
 
             d = mdg.interface_data(intf)
             d[pp.PRIMARY_VARIABLES] = {self.mv: {"cells": var_sz_mortar}}
-            d[pp.STATE] = {
-                self.mv: cell_val_mortar[g],
-                pp.ITERATE: {self.mv: np.array(2 * cell_val_mortar[g])},
-            }
+
+            val_sol = cell_val_mortar[g]
+            val_it = 2 * cell_val_mortar[g]
+
+            pp.set_solution_values(
+                name=self.mv, values=val_sol, data=d, time_step_index=0
+            )
+            pp.set_solution_values(name=self.mv, values=val_it, data=d, iterate_index=0)
 
         # Define assembler, thereby a dof ordering
         dof_manager = pp.DofManager(mdg)
@@ -825,7 +841,6 @@ class VariableMappingInitializationUnderPropagation(unittest.TestCase):
 
         # Loop over all propagation steps
         for i, split in enumerate(split_faces):
-
             # Propagate the fracture. This will also generate mappings from old to new
             # cells
             pp.propagate_fracture.propagate_fractures(mdg, split)
@@ -840,11 +855,14 @@ class VariableMappingInitializationUnderPropagation(unittest.TestCase):
                     == cell_val_2d
                 )
             )
-            # Also check that pp.STATE and ITERATE has been correctly updated
+            # Also check that pp.TIME_STEP_SOLUTIONS and ITERATES has been correctly
+            # updated
             d = mdg.subdomain_data(g_2d)
-            self.assertTrue(np.all(d[pp.STATE][self.cv2] == cell_val_2d))
             self.assertTrue(
-                np.all(d[pp.STATE][pp.ITERATE][self.cv2] == 2 * cell_val_2d)
+                np.all(d[pp.TIME_STEP_SOLUTIONS][self.cv2][0] == cell_val_2d)
+            )
+            self.assertTrue(
+                np.all(d[pp.ITERATE_SOLUTIONS][self.cv2][0] == 2 * cell_val_2d)
             )
 
             # Loop over all 1d grids, check both grid and the associated mortar grid
@@ -854,7 +872,8 @@ class VariableMappingInitializationUnderPropagation(unittest.TestCase):
                 # mapped variable
                 x_1d = x_new[dof_manager.grid_and_variable_to_dofs(g, self.cv1)]
 
-                # Extension of the 1d grid. All values should be 42 (see propagation class)
+                # Extension of the 1d grid. All values should be 42 (see propagation
+                # class)
                 extended_1d = np.full(var_sz_1d * num_new_cells, 42)
 
                 # True values for 1d (both grid and iterate)
@@ -862,28 +881,38 @@ class VariableMappingInitializationUnderPropagation(unittest.TestCase):
                 truth_iterate = np.r_[val_1d_iterate_prev[g], extended_1d]
                 self.assertTrue(np.allclose(x_1d, truth_1d))
 
-                # Also check that pp.STATE and ITERATE has been correctly updated
+                # Also check that pp.TIME_STEP_SOLUTIONS and ITERATE has been correctly
+                # updated
                 d = mdg.subdomain_data(g)
-                self.assertTrue(np.all(d[pp.STATE][self.cv1] == truth_1d))
                 self.assertTrue(
-                    np.all(d[pp.STATE][pp.ITERATE][self.cv1] == truth_iterate)
+                    np.all(d[pp.TIME_STEP_SOLUTIONS][self.cv1][0] == truth_1d)
+                )
+                self.assertTrue(
+                    np.all(d[pp.ITERATE_SOLUTIONS][self.cv1][0] == truth_iterate)
                 )
 
-                # The propagation model will assign the value 42 to new cells also in the
-                # next step. To be sure values from the first propagation are mapped
+                # The propagation model will assign the value 42 to new cells also in
+                # the next step. To be sure values from the first propagation are mapped
                 # correctly, we alter the true value (add 1), and update this both in
-                # the solution vector, state and previous iterate
+                # the solution vector, time step solutions and previous iterate
+                # solutions
                 x_new[dof_manager.grid_and_variable_to_dofs(g, self.cv1)] = np.r_[
                     val_1d_prev[g], extended_1d + 1
                 ]
                 val_1d_prev[g] = x_new[
                     dof_manager.grid_and_variable_to_dofs(g, self.cv1)
                 ]
-                d[pp.STATE][self.cv1] = x_new[
-                    dof_manager.grid_and_variable_to_dofs(g, self.cv1)
-                ]
                 val_1d_iterate_prev[g] = np.r_[val_1d_iterate_prev[g], extended_1d + 1]
-                d[pp.STATE][pp.ITERATE][self.cv1] = val_1d_iterate_prev[g]
+
+                pp.set_solution_values(
+                    name=self.cv1, values=val_1d_prev[g], data=d, time_step_index=0
+                )
+                pp.set_solution_values(
+                    name=self.cv1,
+                    values=val_1d_iterate_prev[g],
+                    data=d,
+                    iterate_index=0,
+                )
 
                 ## Check mortar grid - see 1d case above for comments
                 intf = mdg.subdomain_pair_to_interface((g_2d, g))
@@ -908,9 +937,11 @@ class VariableMappingInitializationUnderPropagation(unittest.TestCase):
                 d = mdg.interface_data(intf)
 
                 self.assertTrue(np.all(x_mortar == truth_mortar))
-                self.assertTrue(np.all(d[pp.STATE][self.mv] == truth_mortar))
                 self.assertTrue(
-                    np.all(d[pp.STATE][pp.ITERATE][self.mv] == truth_iterate)
+                    np.all(d[pp.TIME_STEP_SOLUTIONS][self.mv][0] == truth_mortar)
+                )
+                self.assertTrue(
+                    np.all(d[pp.ITERATE_SOLUTIONS][self.mv][0] == truth_iterate)
                 )
                 x_new[dof_manager.grid_and_variable_to_dofs(intf, self.mv)] = np.r_[
                     val_mortar_prev[g][:sz],
@@ -927,8 +958,8 @@ class VariableMappingInitializationUnderPropagation(unittest.TestCase):
                     val_mortar_iterate_prev[g][sz : 2 * sz],
                     np.full(var_sz_mortar * num_new_cells, 43),
                 ]
-                d[pp.STATE][self.mv] = val_mortar_prev[g]
-                d[pp.STATE][pp.ITERATE][self.mv] = val_mortar_iterate_prev[g]
+                d[pp.TIME_STEP_SOLUTIONS][self.mv][0] = val_mortar_prev[g]
+                d[pp.ITERATE_SOLUTIONS][self.mv][0] = val_mortar_iterate_prev[g]
 
                 x = x_new
 

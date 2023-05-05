@@ -1,13 +1,13 @@
 """ Tests for md flow with gravity. Only finite volumes for now.
-    
+
 Much of the code is copied and slightly modified from unit/test_darcy_mortar.py
-    
+
 Logic in all tests:
     1) Set up a grid, with the methods set_grids and (submethod) simplex_mdg
     2) Set parameters.
     3) Run test cases.
     4) Check solution for pressure and mortar flux.
-    
+
 Rudimentary testing in 3d. The tests are direct analogues of the 2d ones.
 Could be expanded.
 """
@@ -18,6 +18,7 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
+from porepy.grids.standard_grids.utils import unit_domain
 from tests import test_utils
 
 
@@ -229,7 +230,6 @@ class TestMixedDimGravity(unittest.TestCase):
         }
         intf.update_mortar(new_side_grids, tol=1e-4)
 
-        mdg.assign_subdomain_ordering()
         self.mdg = mdg
 
     def set_grids_2d(
@@ -247,13 +247,11 @@ class TestMixedDimGravity(unittest.TestCase):
 
         mdg = pp.meshing.cart_grid([f1], N, **{"physdims": physdims})
         mdg.compute_geometry()
-        mdg.assign_subdomain_ordering()
         if num_nodes_mortar is None:
             self.mdg = mdg
             return
 
         for intf in mdg.interfaces():
-
             new_side_grids = {
                 s: pp.refinement.remesh_1d(g, num_nodes=num_nodes_mortar)
                 for s, g in intf.side_grids.items()
@@ -288,13 +286,13 @@ class TestMixedDimGravity(unittest.TestCase):
     def verify_pressure(self, p_known: float = 0):
         """Verify that the pressure of all subdomains equals p_known."""
         for _, data in self.mdg.subdomains(return_data=True):
-            p = data[pp.STATE]["pressure"]
+            p = data[pp.TIME_STEP_SOLUTIONS]["pressure"][0]
             self.assertTrue(np.allclose(p, p_known, rtol=1e-3, atol=1e-3))
 
     def verify_mortar_flux(self, u_known: float):
         """Verify that the mortar flux of all interfaces equals u_known."""
         for _, data in self.mdg.interfaces(return_data=True):
-            u = np.abs(data[pp.STATE]["mortar_flux"])
+            u = np.abs(data[pp.TIME_STEP_SOLUTIONS]["mortar_flux"][0])
             self.assertTrue(np.allclose(u, u_known, rtol=1e-3, atol=1e-3))
 
     def verify_hydrostatic(self, angle=0, a=1e-1):
@@ -307,21 +305,25 @@ class TestMixedDimGravity(unittest.TestCase):
         """
         mdg = self.mdg
         sd_primary = mdg.subdomains(dim=mdg.dim_max())[0]
-        p_primary = mdg.subdomain_data(sd_primary)[pp.STATE]["pressure"]
+        p_primary = mdg.subdomain_data(sd_primary)[pp.TIME_STEP_SOLUTIONS]["pressure"][
+            0
+        ]
         # The cells above the fracture
         h = sd_primary.cell_centers[1]
         ind = h > 0.5
         p_known = -(a * ind + h) * np.cos(angle)
         self.assertTrue(np.allclose(p_primary, p_known, rtol=1e-3, atol=1e-3))
         sd_secondary = mdg.subdomains(dim=mdg.dim_max() - 1)[0]
-        p_secondary = mdg.subdomain_data(sd_secondary)[pp.STATE]["pressure"]
+        p_secondary = mdg.subdomain_data(sd_secondary)[pp.TIME_STEP_SOLUTIONS][
+            "pressure"
+        ][0]
         # Half the additional jump is added to the fracture pressure
         h = sd_secondary.cell_centers[1]
         p_known = -(a / 2 + h) * np.cos(angle)
 
         self.assertTrue(np.allclose(p_secondary, p_known, rtol=1e-3, atol=1e-3))
         for _, data in self.mdg.interfaces(return_data=True):
-            lmbda = data[pp.STATE]["mortar_flux"]
+            lmbda = data[pp.TIME_STEP_SOLUTIONS]["mortar_flux"][0]
             self.assertTrue(np.allclose(lmbda, 0, rtol=1e-3, atol=1e-3))
 
     def test_no_flow_neumann(self):
@@ -339,9 +341,10 @@ class TestMixedDimGravity(unittest.TestCase):
                         if simplex and (
                             num_nodes_mortar != num_nodes_1d or method == "tpfa"
                         ):
-                            # Different number of mortar and 1d cells not implemented for simplex
-                            # Also, tpfa cannot be expected to produce pressure profiles
-                            # with sufficient accuracy for the test to make sense.
+                            # Different number of mortar and 1d cells not implemented
+                            # for simplex grids. Also, tpfa cannot be expected to
+                            # produce pressure profiles with sufficient accuracy for the
+                            # test to make sense.
                             continue
                         self.set_grids(
                             2,
@@ -410,7 +413,8 @@ class TestMixedDimGravity(unittest.TestCase):
                         if simplex and (
                             num_nodes_mortar != num_nodes_1d or method == "tpfa"
                         ):
-                            # Different number of mortar and 1d cells not implemented for simplex
+                            # Different number of mortar and 1d cells not implemented
+                            # for simplex grids.
                             continue
                         self.set_grids(
                             2,
@@ -438,7 +442,8 @@ class TestMixedDimGravity(unittest.TestCase):
                         if simplex and (
                             num_nodes_mortar != num_nodes_1d or method == "tpfa"
                         ):
-                            # Different number of mortar and 1d cells not implemented for simplex
+                            # Different number of mortar and 1d cells not implemented
+                            # for simplex
                             continue
                         self.set_grids(
                             2,
@@ -469,7 +474,8 @@ class TestMixedDimGravity(unittest.TestCase):
                         if simplex and (
                             num_nodes_mortar != num_nodes_1d or method == "tpfa"
                         ):
-                            # Different number of mortar and 1d cells not implemented for simplex
+                            # Different number of mortar and 1d cells not implemented
+                            # for simplex
                             continue
                         self.set_grids(
                             2,
@@ -496,44 +502,30 @@ class TestMixedDimGravity(unittest.TestCase):
 
     def set_grids_3d(self, num_fracs=1):
 
-        domain = {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1, "zmin": 0, "zmax": 1}
+        f1 = pp.PlaneFracture(
+            np.array([[0, 1, 1, 0], [0.5, 0.5, 0.5, 0.5], [0, 0, 1, 1]])
+        )
+        f2 = pp.PlaneFracture(
+            np.array([[0.5, 0.5, 0.5, 0.5], [0, 1, 1, 0], [0, 0, 1, 1]])
+        )
+        f3 = pp.PlaneFracture(
+            np.array([[0, 1, 1, 0], [0, 0, 1, 1], [0.5, 0.5, 0.5, 0.5]])
+        )
 
         if num_fracs == 0:
-            fl = []
-
+            fractures = []
         elif num_fracs == 1:
-            fl = [
-                pp.PlaneFracture(
-                    np.array([[0, 1, 1, 0], [0.5, 0.5, 0.5, 0.5], [0, 0, 1, 1]])
-                )
-            ]
+            fractures = [f1]
         elif num_fracs == 2:
-            fl = [
-                pp.PlaneFracture(
-                    np.array([[0, 1, 1, 0], [0.5, 0.5, 0.5, 0.5], [0, 0, 1, 1]])
-                ),
-                pp.PlaneFracture(
-                    np.array([[0.5, 0.5, 0.5, 0.5], [0, 1, 1, 0], [0, 0, 1, 1]])
-                ),
-            ]
-
+            fractures = [f1, f2]
         elif num_fracs == 3:
-            fl = [
-                pp.PlaneFracture(
-                    np.array([[0, 1, 1, 0], [0.5, 0.5, 0.5, 0.5], [0, 0, 1, 1]])
-                ),
-                pp.PlaneFracture(
-                    np.array([[0.5, 0.5, 0.5, 0.5], [0, 1, 1, 0], [0, 0, 1, 1]])
-                ),
-                pp.PlaneFracture(
-                    np.array([[0, 1, 1, 0], [0, 0, 1, 1], [0.5, 0.5, 0.5, 0.5]])
-                ),
-            ]
+            fractures = [f1, f2, f3]
+        else:
+            raise NotImplementedError()
 
-        network = pp.FractureNetwork3d(fl, domain)
+        network = pp.create_fracture_network(fractures, unit_domain(3))
         mesh_args = {"mesh_size_frac": 0.5, "mesh_size_min": 0.5}
         mdg = network.mesh(mesh_args)
-
         self.mdg = mdg
 
     def test_one_fracture_no_flow_neumann(self):
