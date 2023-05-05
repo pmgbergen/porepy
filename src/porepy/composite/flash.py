@@ -108,8 +108,6 @@ class FlashSystemNR(ThermodynamicState):
     """
 
     # TODO should NPIPM slack equation be part of potential in Armijo line search?
-    # TODO composition guess must not be regularized, if one phase is missing
-    # otherwise nu in npipm will be instantiated with zero (1-sum x = 0)
 
     def __init__(
         self,
@@ -495,12 +493,12 @@ class FlashSystemNR(ThermodynamicState):
         """Returns the values of the currently stored, thermodynamic state."""
         return ThermodynamicState(**asdict(self)).values()
 
-    def evaluate_saturations(self, eps: float = 1e-10) -> None:
-        """Function to evaluate the saturations based on molar fractions and
-        saturations.
+    def evaluate_dependent_states(self, eps: float = 1e-10) -> None:
+        """Method to evaluate the dependent, thermodynamic state functions based on
+        the stored state.
 
-        The densities will be computed using currently stored values for compositions,
-        pressure and temperature.
+        Phase properties will be computed using currently stored values for
+        compositions, pressure and temperature (without derivatives).
 
         Parameters:
             eps: ``default=1e-8``
@@ -508,150 +506,157 @@ class FlashSystemNR(ThermodynamicState):
                 Tolerance for detection of saturated phases.
 
         """
-        if self._num_phases == 1:
-            self.s[0] = np.ones(self._num_vals)
-        else:
-            p = self.p.val if isinstance(self.p, pp.ad.AdArray) else self.p
-            T = self.T.val if isinstance(self.T, pp.ad.AdArray) else self.T
-            X = [
-                [self.X[j][i].val for i in range(self._num_comp)]
-                for j in range(self._num_phases)
-            ]
 
-            phase_pros: list[PhaseProperties] = self.mixture.compute_properties(
-                p, T, X, store=False
-            )
+        p = self.p.val if isinstance(self.p, pp.ad.AdArray) else self.p
+        T = self.T.val if isinstance(self.p, pp.ad.AdArray) else self.T
+        y = [y.val for y in self.y]
+        X = [
+            [self.X[j][i].val for i in range(self._num_comp)]
+            for j in range(self._num_phases)
+        ]
 
-            densities: list[NumericType] = [props.rho for props in phase_pros]
+        phase_props: list[PhaseProperties] = self.mixture.compute_properties(
+            p, T, X, store=False
+        )
 
-            if self._num_phases == 2:
-                # 2-phase saturation evaluation can be done analytically
-                rho_1, rho_2 = densities
-                y_1, y_2 = self.y
-
-                s_1 = pp.ad.AdArray(
-                    np.zeros(y_1.val.shape), sps.lil_matrix(y_1.jac.shape)
-                )
-                s_2 = pp.ad.AdArray(
-                    np.zeros(y_2.val.shape), sps.lil_matrix(y_2.jac.shape)
-                )
-
-                phase_1_saturated = np.logical_and(y_1 > 1 - eps, y_1 < 1 + eps)
-                phase_2_saturated = np.logical_and(y_2 > 1 - eps, y_2 < 1 + eps)
-                idx = np.logical_not(phase_2_saturated)
-                y2_idx = y_2[idx]
-                rho1_idx = rho_1[idx]
-                rho2_idx = rho_2[idx]
-                s_1[idx] = 1.0 / (1.0 + y2_idx / (1.0 - y2_idx) * rho1_idx / rho2_idx)
-                s_1[phase_1_saturated] = 1.0
-                s_1[phase_2_saturated] = 0.0
-
-                idx = np.logical_not(phase_1_saturated)
-                y1_idx = y_1[idx]
-                rho1_idx = rho_1[idx]
-                rho2_idx = rho_2[idx]
-                s_2[idx] = 1.0 / (1.0 + y1_idx / (1.0 - y1_idx) * rho2_idx / rho1_idx)
-                s_2[phase_1_saturated] = 0.0
-                s_2[phase_2_saturated] = 1.0
-
-                self.s = [s_1, s_2]
+        # If flash was not isochoric, evaluate saturations, density and volume
+        if not self._assemble_v_constraint:
+            if self._num_phases == 1:
+                self.s[0] = np.ones(self._num_vals)
             else:
-                # More than 2 phases requires the inversion of the matrix given by
-                # phase fraction relations
-                mats = list()
 
-                # list of indicators per phase, where the phase is fully saturated
-                saturated = list()
-                # where one phase is saturated, the other vanish
-                vanished = [
-                    np.zeros(self._num_vals, dtype=bool)
-                    for _ in range(self._num_phases)
-                ]
+                densities: list[NumericType] = [props.rho for props in phase_props]
 
-                for j2 in range(self._num_phases):
-                    # get the DOFS where one phase is fully saturated
-                    # TODO check sensitivity of this
-                    saturated_j = np.logical_and(
-                        self.y[j2] > 1 - eps, self.y[j2] < 1 + eps
+                if self._num_phases == 2:
+                    # 2-phase saturation evaluation can be done analytically
+                    rho_1, rho_2 = densities
+                    y_1, y_2 = y
+
+                    s_1 = np.zeros(y_1.shape)
+                    s_2 = np.zeros(y_2.shape)
+
+                    phase_1_saturated = np.logical_and(y_1 > 1 - eps, y_1 < 1 + eps)
+                    phase_2_saturated = np.logical_and(y_2 > 1 - eps, y_2 < 1 + eps)
+                    idx = np.logical_not(phase_2_saturated)
+                    y2_idx = y_2[idx]
+                    rho1_idx = rho_1[idx]
+                    rho2_idx = rho_2[idx]
+                    s_1[idx] = 1.0 / (
+                        1.0 + y2_idx / (1.0 - y2_idx) * rho1_idx / rho2_idx
                     )
-                    saturated.append(saturated_j)
-                    # store information that other phases vanish at these DOFs
+                    s_1[phase_1_saturated] = 1.0
+                    s_1[phase_2_saturated] = 0.0
+
+                    idx = np.logical_not(phase_1_saturated)
+                    y1_idx = y_1[idx]
+                    rho1_idx = rho_1[idx]
+                    rho2_idx = rho_2[idx]
+                    s_2[idx] = 1.0 / (
+                        1.0 + y1_idx / (1.0 - y1_idx) * rho2_idx / rho1_idx
+                    )
+                    s_2[phase_1_saturated] = 0.0
+                    s_2[phase_2_saturated] = 1.0
+
+                    self.s = [s_1, s_2]
+                else:
+                    # More than 2 phases requires the inversion of the matrix given by
+                    # phase fraction relations
+                    mats = list()
+
+                    # list of indicators per phase, where the phase is fully saturated
+                    saturated = list()
+                    # where one phase is saturated, the other vanish
+                    vanished = [
+                        np.zeros(self._num_vals, dtype=bool)
+                        for _ in range(self._num_phases)
+                    ]
+
                     for j2 in range(self._num_phases):
-                        if j2 != j2:
-                            # where phase j is saturated, phase j2 vanishes
-                            # logical OR acts cumulatively
-                            vanished[j2] = np.logical_or(vanished[j2], saturated_j)
+                        # get the DOFS where one phase is fully saturated
+                        # TODO check sensitivity of this
+                        saturated_j = np.logical_and(y[j2] > 1 - eps, y[j2] < 1 + eps)
+                        saturated.append(saturated_j)
+                        # store information that other phases vanish at these DOFs
+                        for j2 in range(self._num_phases):
+                            if j2 != j2:
+                                # where phase j is saturated, phase j2 vanishes
+                                # logical OR acts cumulatively
+                                vanished[j2] = np.logical_or(vanished[j2], saturated_j)
 
-                # stacked indicator which DOFs
-                saturated = np.hstack(saturated)
-                # staacked indicator which DOFs vanish
-                vanished = np.hstack(vanished)
-                # all other DOFs are in multiphase regions
-                multiphase = np.logical_not(np.logical_or(saturated, vanished))
+                    # stacked indicator which DOFs
+                    saturated = np.hstack(saturated)
+                    # staacked indicator which DOFs vanish
+                    vanished = np.hstack(vanished)
+                    # all other DOFs are in multiphase regions
+                    multiphase = np.logical_not(np.logical_or(saturated, vanished))
 
-                # construct the matrix for saturation flash
-                # first loop, per block row (equation per phase)
-                for j in range(self._num_phases):
-                    mats_row = list()
-                    # second loop, per block column (block per phase per equation)
-                    for j2 in range(self._num_phases):
-                        # diagonal values are zero
-                        # This matrix is just a placeholder
-                        if j == j2:
-                            mats.append(sps.diags([np.zeros(self._num_vals)]))
-                        # diagonals of blocks which are not on the main diagonal,
-                        # are non-zero
-                        else:
-                            denominator = 1 - self.y[j].val
-                            # to avoid a division by zero error, we set it to one
-                            # this is arbitrary, but respective matrix entries are
-                            # sliced out since they correspond to cells where one phase
-                            # is saturated,
-                            # i.e. the respective saturation is 1., the other 0.
-                            denominator[denominator == 0.0] = 1.0
-                            d = (
-                                1.0
-                                + densities[j2].val
-                                / densities[j].val
-                                * self.y[j].val
-                                / denominator
-                            )
-                            mats_row.append(sps.diags([d]))
+                    # construct the matrix for saturation flash
+                    # first loop, per block row (equation per phase)
+                    for j in range(self._num_phases):
+                        mats_row = list()
+                        # second loop, per block column (block per phase per equation)
+                        for j2 in range(self._num_phases):
+                            # diagonal values are zero
+                            # This matrix is just a placeholder
+                            if j == j2:
+                                mats.append(sps.diags([np.zeros(self._num_vals)]))
+                            # diagonals of blocks which are not on the main diagonal,
+                            # are non-zero
+                            else:
+                                d = 1 - y[j]
+                                # to avoid a division by zero error, we set it to one
+                                # this is arbitrary, but respective matrix entries are
+                                # sliced out since they correspond to cells where one phase
+                                # is saturated,
+                                # i.e. the respective saturation is 1., the other 0.
+                                d[d == 0.0] = 1.0
+                                diag = 1.0 + densities[j2] / densities[j] * y[j] / d
+                                mats_row.append(sps.diags([diag]))
 
-                    # row-block per phase fraction relation
-                    mats.append(sps.hstack(mats_row, format="csr"))
+                        # row-block per phase fraction relation
+                        mats.append(sps.hstack(mats_row, format="csr"))
 
-                # Stack matrices per equation on each other
-                # This matrix corresponds to the vector of stacked saturations per phase
-                mat = sps.vstack(mats, format="csr")
-                # TODO Matrix has large band width
+                    # Stack matrices per equation on each other
+                    # This matrix corresponds to the vector of stacked saturations per phase
+                    mat = sps.vstack(mats, format="csr")
+                    # TODO Matrix has large band width
 
-                # projection matrix to DOFs in multiphase region
-                # start with identity in CSR format
-                projection: sps.spmatrix = sps.diags([np.ones(len(multiphase))]).tocsr()
-                # slice image of canonical projection out of identity
-                projection = projection[multiphase]
-                projection_transposed = projection.transpose()
+                    # projection matrix to DOFs in multiphase region
+                    # start with identity in CSR format
+                    projection: sps.spmatrix = sps.diags(
+                        [np.ones(len(multiphase))]
+                    ).tocsr()
+                    # slice image of canonical projection out of identity
+                    projection = projection[multiphase]
+                    projection_transposed = projection.transpose()
 
-                # get sliced system
-                rhs = projection * np.ones(self._num_vals * self._num_phases)
-                mat = projection * mat * projection_transposed
+                    # get sliced system
+                    rhs = projection * np.ones(self._num_vals * self._num_phases)
+                    mat = projection * mat * projection_transposed
 
-                s = pypardiso.spsolve(mat, rhs)
+                    s = pypardiso.spsolve(mat, rhs)
 
-                # prolongate the values from the multiphase region to global DOFs
-                saturations = projection_transposed * s
-                # set values where phases are saturated or have vanished
-                saturations[saturated] = 1.0
-                saturations[vanished] = 0.0
+                    # prolongate the values from the multiphase region to global DOFs
+                    saturations = projection_transposed * s
+                    # set values where phases are saturated or have vanished
+                    saturations[saturated] = 1.0
+                    saturations[vanished] = 0.0
 
-                # distribute results to the saturation variables
-                for j in range(self._num_phases):
-                    vals = saturations[j * self._num_vals : (j + 1) * self._num_vals]
-                    if isinstance(self.s[j], pp.ad.AdArray):
-                        self.s[j] = vals
-                    else:
-                        self.s[j] = vals
+                    # distribute results to the saturation variables
+                    for j in range(self._num_phases):
+                        self.s[j] = saturations[
+                            j * self._num_vals : (j + 1) * self._num_vals
+                        ]
+
+            self.rho = safe_sum([s * prop.rho for s, prop in zip(self.s, phase_props)])
+            self.v = self.rho ** (-1)
+
+        else:  # If it was isochoric, evaluate density based on given volume
+            self.rho = self.v ** (-1)
+
+        # If temperature was not unknown (not isenthalpic), evaluate enthalpy
+        if not self._assemble_h_constraint:
+            self.h = safe_sum([y_ * prop.h for y_, prop in zip(y, phase_props)])
 
     def validate_fractions(self, tol: float = 1e-8, raise_error: bool = False) -> None:
         """A method to validate fractions and trim numerical artifacts.
@@ -879,6 +884,9 @@ class FlashNR:
 
                 **If** the flash is successful, writes the results to the given
                 iterative index for each variable in the AD framework.
+
+                Stores only phase fractions, phase saturations and compositions!
+                I.e. variables which are inherent to the composite framework.
             verbosity: ``default=0``
 
                 Verbosity for logging. Per default, only warnings and logs of higher
@@ -1034,12 +1042,11 @@ class FlashNR:
         )
 
         flash_system.state = solution
-        if "p" not in flash_type:
-            flash_system.evaluate_saturations()
+        flash_system.evaluate_dependent_states()
 
         # storing the state in the AD framework if successful and requested
         if store_to_iterate is not None and success:
-            self._store_state_in_ad(thd_state, store_to_iterate)
+            self._store_state_in_ad(flash_system, store_to_iterate)
 
         logger.info(
             f"\n{flash_type} flash done.\n"
