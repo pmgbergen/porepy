@@ -5,9 +5,11 @@ setup object has its own system to assemble and solve the system; this
 is just a wrapper around that, mostly for compliance with the nonlinear
 case, see numerics.nonlinear.nonlinear_solvers.
 """
-from typing import Dict, Tuple
+from __future__ import annotations
 
-from porepy.models.abstract_model import AbstractModel
+from typing import Optional
+
+from porepy.models.solution_strategy import SolutionStrategy
 
 
 class LinearSolver:
@@ -15,7 +17,7 @@ class LinearSolver:
     model class before and after solving the problem.
     """
 
-    def __init__(self, params: Dict = None) -> None:
+    def __init__(self, params: Optional[dict] = None) -> None:
         """Define linear solver.
 
         Parameters:
@@ -26,14 +28,13 @@ class LinearSolver:
         """
         if params is None:
             params = {}
-        # default_options.update(params)
-        self.params = params  # default_options
+        self.params = params
 
-    def solve(self, setup: AbstractModel) -> Tuple[float, bool]:
+    def solve(self, setup: SolutionStrategy) -> tuple[float, bool]:
         """Solve a linear problem defined by the current state of the model.
 
         Parameters:
-            setup (subclass of pp.AbstractModel): Model to be solved.
+            setup (subclass of pp.SolutionStrategy): Model to be solved.
 
         Returns:
             float: Norm of the error.
@@ -41,14 +42,16 @@ class LinearSolver:
 
         """
 
-        setup.before_newton_loop()
-        prev_sol = setup.dof_manager.assemble_variable(from_iterate=False)
+        setup.before_nonlinear_loop()
+        prev_sol = setup.equation_system.get_variable_values(time_step_index=0)
 
         # For linear problems, the tolerance is irrelevant
         # FIXME: This assumes a direct solver is applied, but it may also be that parameters
         # for linear solvers should be a property of the model, not the solver. This
         # needs clarification at some point.
-        sol = setup.assemble_and_solve_linear_system(tol=0)
+        setup.assemble_linear_system()
+        sol = setup.solve_linear_system()
+
         error_norm, is_converged, _ = setup.check_convergence(
             sol, prev_sol, prev_sol, self.params
         )
@@ -56,15 +59,15 @@ class LinearSolver:
         if is_converged:
             # IMPLEMENTATION NOTE: The following is a bit awkward, and really shows there is
             # something wrong with how the linear and non-linear solvers interact with the
-            # models (and it illustrates that the model convention for the before_newton_*
-            # and after_newton_* methods is not ideal).
-            # Since the setup's after_newton_convergence may expect that the converged
+            # models (and it illustrates that the model convention for the before_nonlinear_*
+            # and after_nonlinear_* methods is not ideal).
+            # Since the setup's after_nonlinear_convergence may expect that the converged
             # solution is already stored as an iterate (this may happen if a model is
             # implemented to be valid for both linear and non-linear problems, as is
-            # the case for ContactMechanics and possibly others). Thus we first call
-            # after_newton_iteration(), and then after_newton_convergence()
-            setup.after_newton_iteration(sol)
-            setup.after_newton_convergence(sol, error_norm, iteration_counter=1)
+            # the case for ContactMechanics and possibly others). Thus, we first call
+            # after_nonlinear_iteration(), and then after_nonlinear_convergence()
+            setup.after_nonlinear_iteration(sol)
+            setup.after_nonlinear_convergence(sol, error_norm, iteration_counter=1)
         else:
-            setup.after_newton_failure(sol, error_norm, iteration_counter=1)
+            setup.after_nonlinear_failure(sol, error_norm, iteration_counter=1)
         return error_norm, is_converged

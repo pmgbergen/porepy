@@ -41,7 +41,7 @@ def project_flux(
     for sd, data in mdg.subdomains(return_data=True):
         # we need to recover the flux from the mortar variable before
         # the projection, only lower dimensional edges need to be considered.
-        edge_flux = np.zeros(data[pp.STATE][flux].size)
+        edge_flux = np.zeros(data[pp.TIME_STEP_SOLUTIONS][flux][0].size)
         faces = sd.tags["fracture_faces"]
         if np.any(faces):
             # recover the sign of the flux, since the mortar is assumed
@@ -58,15 +58,16 @@ def project_flux(
                 data_intf = mdg.interface_data(intf)
                 # project the mortar variable back to the higher dimensional
                 # problem
-                # edge_flux += sign * g_m.mortar_to_primary_int() * d_e[pp.STATE][mortar_key]
+                # edge_flux += sign * g_m.mortar_to_primary_int() *
+                # d_e[pp.TIME_STEP_SOLUTIONS][mortar_key][0]
                 edge_flux += (
                     sign
                     * intf.primary_to_mortar_avg().T
-                    * data_intf[pp.STATE][mortar_key]
+                    * data_intf[pp.TIME_STEP_SOLUTIONS][mortar_key][0]
                 )
 
-        data[pp.STATE][P0_flux] = discr.project_flux(
-            sd, edge_flux + data[pp.STATE][flux], data
+        data[pp.TIME_STEP_SOLUTIONS][P0_flux][0] = discr.project_flux(
+            sd, edge_flux + data[pp.TIME_STEP_SOLUTIONS][flux][0], data
         )
 
 
@@ -80,7 +81,6 @@ class DualElliptic(EllipticDiscretization):
     """
 
     def __init__(self, keyword: str, name: str) -> None:
-
         # Identify which parameters to use:
         self.keyword = keyword
         self.name = name
@@ -322,7 +322,7 @@ class DualElliptic(EllipticDiscretization):
         data: dict,
         M: sps.csr_matrix,
         mass: sps.csr_matrix,
-        bc_weight: float = None,
+        bc_weight: Optional[float] = None,
     ) -> tuple[sps.csr_matrix, np.ndarray]:
         """Impose Neumann boundary discretization on an already assembled
         system matrix.

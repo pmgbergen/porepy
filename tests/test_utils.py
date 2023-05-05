@@ -3,9 +3,10 @@
 Access: from test import test_utils.
 """
 
+import os
+
 import numpy as np
 import scipy.sparse as sps
-import os
 
 import porepy as pp
 
@@ -26,9 +27,9 @@ def permute_matrix_vector(A, rhs, block_dof, full_dof, grids, variables):
         np.ndarray(b.size): Permuted rhs vector.
     """
     sz = len(block_dof)
-    mat = np.empty((sz, sz), dtype=np.object)
-    b = np.empty(sz, dtype=np.object)
-    dof = np.empty(sz, dtype=np.object)
+    mat = np.empty((sz, sz), dtype=object)
+    b = np.empty(sz, dtype=object)
+    dof = np.empty(sz, dtype=object)
     # Initialize dof vector
     dof[0] = np.arange(full_dof[0])
     for i in range(1, sz):

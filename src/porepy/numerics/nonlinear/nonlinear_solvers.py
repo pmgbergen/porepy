@@ -1,9 +1,7 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
-Created on Fri Sep  6 11:21:54 2019
-
-@author: eke001
+Nonlinear solvers to be used with model classes.
+Implemented classes
+    NewtonSolver
 """
 import logging
 
@@ -27,13 +25,13 @@ class NewtonSolver:
         self.params = default_options
 
     def solve(self, model):
-        model.before_newton_loop()
+        model.before_nonlinear_loop()
 
         iteration_counter = 0
 
         is_converged = False
+        prev_sol = model.equation_system.get_variable_values(time_step_index=0)
 
-        prev_sol = model.dof_manager.assemble_variable(from_iterate=False)
         init_sol = prev_sol
         errors = []
         error_norm = 1
@@ -46,12 +44,11 @@ class NewtonSolver:
             )
 
             # Re-discretize the nonlinear term
-            model.before_newton_iteration()
+            model.before_nonlinear_iteration()
 
-            lin_tol = np.minimum(1e-4, error_norm)
-            sol = self.iteration(model, lin_tol)
+            sol = self.iteration(model)
 
-            model.after_newton_iteration(sol)
+            model.after_nonlinear_iteration(sol)
 
             error_norm, is_converged, is_diverged = model.check_convergence(
                 sol, prev_sol, init_sol, self.params
@@ -60,25 +57,26 @@ class NewtonSolver:
             errors.append(error_norm)
 
             if is_diverged:
-                model.after_newton_failure(sol, errors, iteration_counter)
+                model.after_nonlinear_failure(sol, errors, iteration_counter)
             elif is_converged:
-                model.after_newton_convergence(sol, errors, iteration_counter)
+                model.after_nonlinear_convergence(sol, errors, iteration_counter)
 
             iteration_counter += 1
 
         if not is_converged:
-            model.after_newton_failure(sol, errors, iteration_counter)
+            model.after_nonlinear_failure(sol, errors, iteration_counter)
 
         return error_norm, is_converged, iteration_counter
 
-    def iteration(self, model, lin_tol):
-        """A single Newton iteration.
+    def iteration(self, model) -> np.ndarray:
+        """A single nonlinear iteration.
 
         Right now, this is a single line, however, we keep it as a separate function
         to prepare for possible future introduction of more advanced schemes.
         """
 
         # Assemble and solve
-        sol = model.assemble_and_solve_linear_system(lin_tol)
+        model.assemble_linear_system()
+        sol = model.solve_linear_system()
 
         return sol

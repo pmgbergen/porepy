@@ -2,8 +2,6 @@
 Utility functions for the AD package.
 
 Functions:
-    concatenate - EK, please document.
-
     wrap_discretization: Convert a discretization to its ad equivalent.
 
     uniquify_discretization_list: Define a unique list of discretization-keyword
@@ -17,7 +15,10 @@ Classes:
         discretization or a set of AD discretizations.
 
 """
-from typing import Dict, List, Optional, Union
+from __future__ import annotations
+
+from abc import ABCMeta
+from typing import Optional
 
 import numpy as np
 import scipy.sparse as sps
@@ -25,38 +26,29 @@ import scipy.sparse as sps
 import porepy as pp
 
 from . import operators
-from .forward_mode import Ad_array
-
-SubdomainList = List[pp.Grid]
-InterfaceList = List[pp.MortarGrid]
+from .forward_mode import AdArray
 
 
-def concatenate(variables, axis=0):
-    # NOTE: This function is related to an outdated approach to equation assembly
-    # based on forward Ad. For now, it is kept for legacy reasons, however,
-    # the newer approach based on Operators and the EquationManager is
-    # highly recommended.
-    vals = [var.val for var in variables]
-    jacs = np.array([var.jac for var in variables])
+def concatenate_ad_arrays(ad_arrays: list[AdArray], axis=0):
+    """Concatenates a sequence of AD arrays into a single AD Array along a specified axis."""
+    vals = [var.val for var in ad_arrays]
+    jacs = np.array([var.jac for var in ad_arrays])
 
     vals_stacked = np.concatenate(vals, axis=axis)
     jacs_stacked = sps.vstack(jacs)
 
-    return Ad_array(vals_stacked, jacs_stacked)
+    return AdArray(vals_stacked, jacs_stacked)
 
 
 def wrap_discretization(
     obj,
     discr,
-    subdomains: Optional[SubdomainList] = None,
-    interfaces: Optional[InterfaceList] = None,
+    subdomains: Optional[list[pp.Grid]] = None,
+    interfaces: Optional[list[pp.MortarGrid]] = None,
     mat_dict_key: Optional[str] = None,
     mat_dict_grids=None,
 ):
-    """
-    Please add documentation, @EK.
-    It is assumed that subdomains or edges is None
-    """
+    """Convert a discretization to its AD equivalent."""
     if subdomains is None:
         assert isinstance(interfaces, list)
     else:
@@ -92,7 +84,9 @@ def wrap_discretization(
         setattr(obj, key, op)
 
 
-def uniquify_discretization_list(all_discr):
+def uniquify_discretization_list(
+    all_discr: list[MergedOperator],
+) -> dict[pp.discretization_type, list[pp.GridLike]]:
     """From a list of Ad discretizations (in an Operator), define a unique list
     of discretization-keyword combinations.
 
@@ -108,12 +102,11 @@ def uniquify_discretization_list(all_discr):
     discretization is already registered.
 
     """
-    discr_type = Union["pp.Discretization", "pp.AbstractInterfaceLaw"]
-    unique_discr_grids: Dict[discr_type, Union[SubdomainList, InterfaceList]] = {}
+    unique_discr_grids: dict[pp.discretization_type, list[pp.GridLike]] = dict()
 
     # Mapping from discretization classes to the discretization.
     # We needed this for some reason.
-    cls_obj_map = {}
+    cls_obj_map: dict[ABCMeta, pp.discretization_type] = {}
     # List of all combinations of discretizations and parameter keywords covered.
     cls_key_covered = []
     for discr in all_discr:
@@ -154,7 +147,7 @@ def uniquify_discretization_list(all_discr):
 
 
 def discretize_from_list(
-    discretizations: Dict,
+    discretizations: dict,
     mdg: pp.MixedDimensionalGrid,
 ) -> None:
     """For a list of (ideally uniquified) discretizations, perform the actual
@@ -195,36 +188,46 @@ class MergedOperator(operators.Operator):
 
     def __init__(
         self,
-        discr: "pp.ad.Discretization",
+        discr: pp.discretization_type,
         key: str,
         mat_dict_key: str,
         mat_dict_grids,
-        subdomains: Optional[SubdomainList] = None,
-        interfaces: Optional[InterfaceList] = None,
+        subdomains: Optional[list[pp.Grid]] = None,
+        interfaces: Optional[list[pp.MortarGrid]] = None,
     ) -> None:
         """Initiate a merged discretization.
 
         Parameters:
-            discr (dict): Mapping between subdomains, or interfaces, where the
+            discr: Mapping between subdomains, or interfaces, where the
                 discretization is applied, and the actual Discretization objects.
-            key (str): Keyword that identifies this discretization matrix, e.g.
+            key: Keyword that identifies this discretization matrix, e.g.
                 for a class with an attribute foo_matrix_key, the key will be foo.
-            mat_dict_key (str): Keyword used to access discretization matrices, if this
+            mat_dict_key: Keyword used to access discretization matrices, if this
                 is not the same as the keyword of the discretization. The only known
                 case where this is necessary is for Mpfa applied to Biot's equations.
             mat_dict_grids: EK, could this be a list of grid-likes?
 
         """
-        self._name = discr.__class__.__name__
-        self._set_subdomains_or_interfaces(subdomains, interfaces)
+        name = discr.__class__.__name__
+        super().__init__(name=name)
+
         self.key = key
         self.discr = discr
+        if subdomains is None:
+            assert isinstance(interfaces, list)
+            self.subdomains = []
+            self.interfaces = list(interfaces)
+        else:
+            assert isinstance(subdomains, list)
+            assert interfaces is None
+            self.subdomains = list(subdomains)
+            self.interfaces = []
 
         # Special field to access matrix dictionary for Biot
         self.mat_dict_key = mat_dict_key
         self.mat_dict_grids = mat_dict_grids
 
-        self._set_tree(None)
+        self.keyword: Optional[str] = None
 
     def __repr__(self) -> str:
         if len(self.interfaces) == 0:
@@ -260,16 +263,15 @@ class MergedOperator(operators.Operator):
         # Loop over all grid-discretization combinations, get hold of the discretization
         # matrix for this grid quantity
         for g in self.mat_dict_grids:
-
             # Get data dictionary for either grid or interface
             if isinstance(g, pp.MortarGrid):
                 data = mdg.interface_data(g)
             else:
                 data = mdg.subdomain_data(g)
 
-            mat_dict: Dict[str, sps.spmatrix] = data[pp.DISCRETIZATION_MATRICES][
-                self.mat_dict_key
-            ]
+            mat_dict: dict[str, sps.spmatrix] = data[  # type: ignore
+                pp.DISCRETIZATION_MATRICES
+            ][self.mat_dict_key]
 
             # Get the submatrix for the right discretization
             key = self.key

@@ -6,7 +6,9 @@ for MPxA discertizations, however, due to the somewhat intricate inheritance rel
 between these methods, the current structure with multiple auxiliary methods emerged.
 
 """
-from typing import Any, Callable, Dict, Generator, List, Optional, Tuple
+from __future__ import annotations
+
+from typing import Any, Callable, Generator, Optional
 
 import numpy as np
 import scipy.sparse as sps
@@ -299,8 +301,8 @@ def determine_eta(sd: pp.Grid) -> float:
 
 
 def find_active_indices(
-    parameter_dictionary: Dict[str, Any], sd: pp.Grid
-) -> Tuple[np.ndarray, np.ndarray]:
+    parameter_dictionary: dict[str, Any], sd: pp.Grid
+) -> tuple[np.ndarray, np.ndarray]:
     """Process information in parameter dictionary on whether the discretization
     should consider a subgrid. Look for fields in the parameter dictionary called
     specified_cells, specified_faces or specified_nodes. These are then processed by
@@ -312,7 +314,7 @@ def find_active_indices(
     Args:
         parameter_dictionary (dict): Parameters, potentially containing fields
             "specified_cells", "specified_faces", "specified_nodes".
-        g (pp.Grid): Grid to be discretized.
+        sd (pp.Grid): Grid to be discretized.
 
     Returns:
         np.ndarray: Cells to be included in the active grid.
@@ -351,9 +353,8 @@ def find_active_indices(
 def subproblems(
     sd: pp.Grid, max_memory: int, peak_memory_estimate: int
 ) -> Generator[
-    Tuple[pp.Grid, np.ndarray, np.ndarray, np.ndarray, np.ndarray], None, None
+    tuple[pp.Grid, np.ndarray, np.ndarray, np.ndarray, np.ndarray], None, None
 ]:
-
     if sd.dim == 0:
         # nothing realy to do here
         loc_faces = np.ones(sd.num_faces, dtype=bool)
@@ -430,16 +431,16 @@ def remove_nonlocal_contribution(
         pp.matrix_operations.zero_rows(mat, eliminate_ind)
 
 
-def expand_indices_nd(ind, nd, direction="F"):
+def expand_indices_nd(ind: np.ndarray, nd: int, direction="F") -> np.ndarray:
     """
     Expand indices from scalar to vector form.
 
     Examples:
     >>> i = np.array([0, 1, 3])
-    >>> __expand_indices_nd(i, 2)
+    >>> expand_indices_nd(i, 2)
     (array([0, 1, 2, 3, 6, 7]))
 
-    >>> __expand_indices_nd(i, 3, "C")
+    >>> expand_indices_nd(i, 3, "C")
     (array([0, 3, 9, 1, 4, 10, 2, 5, 11])
 
     Args:
@@ -458,7 +459,6 @@ def expand_indices_nd(ind, nd, direction="F"):
 
 
 def expand_indices_incr(ind, dim, increment):
-
     # Convenience method for duplicating a list, with a certain increment
 
     # Duplicate rows
@@ -504,7 +504,6 @@ def map_hf_2_f(fno=None, subfno=None, nd=None, sd=None):
 
 
 def cell_vector_to_subcell(nd, sub_cell_index, cell_index):
-
     """
     Create mapping from sub-cells to cells for scalar problems.
     For example, discretization of div_g-term in mpfa with gravity,
@@ -533,7 +532,6 @@ def cell_vector_to_subcell(nd, sub_cell_index, cell_index):
 
 
 def cell_scalar_to_subcell_vector(nd, sub_cell_index, cell_index):
-
     """
     Create mapping from sub-cells to cells for vector problems.
     For example, discretization of grad_p-term in Biot,
@@ -614,7 +612,7 @@ def vector_divergence(sd: pp.Grid) -> sps.csr_matrix:
 
 def scalar_tensor_vector_prod(
     sd: pp.Grid, k: pp.SecondOrderTensor, subcell_topology: SubcellTopology
-) -> Tuple[sps.csr_matrix, np.ndarray, np.ndarray]:
+) -> tuple[sps.csr_matrix, np.ndarray, np.ndarray]:
     """
     Compute product of normal vectors and tensors on a sub-cell level.
     This is essentially defining Darcy's law for each sub-face in terms of
@@ -1002,18 +1000,18 @@ class ExcludeBoundaries:
 
 def partial_update_discretization(
     sd: pp.Grid,  # Grid
-    data: Dict,  # full data dictionary for this grid
+    data: dict,  # full data dictionary for this grid
     keyword: str,  # keyword for the target discretization
     discretize: Callable,  # Discretization operation
     dim: Optional[int] = None,  # dimension. Used to expand vector quantities
-    scalar_cell_right: Optional[List[str]] = None,  # See method documentation
-    vector_cell_right: Optional[List[str]] = None,
-    scalar_face_right: Optional[List[str]] = None,
-    vector_face_right: Optional[List[str]] = None,
-    scalar_cell_left: Optional[List[str]] = None,
-    vector_cell_left: Optional[List[str]] = None,
-    scalar_face_left: Optional[List[str]] = None,
-    vector_face_left: Optional[List[str]] = None,
+    scalar_cell_right: Optional[list[str]] = None,  # See method documentation
+    vector_cell_right: Optional[list[str]] = None,
+    scalar_face_right: Optional[list[str]] = None,
+    vector_face_right: Optional[list[str]] = None,
+    scalar_cell_left: Optional[list[str]] = None,
+    vector_cell_left: Optional[list[str]] = None,
+    scalar_face_left: Optional[list[str]] = None,
+    vector_face_left: Optional[list[str]] = None,
     second_keyword: Optional[str] = None,  # Used for biot discertization
 ) -> None:
     """Do partial update of discretization scheme.
@@ -1191,10 +1189,10 @@ def partial_update_discretization(
 
 def cell_ind_for_partial_update(
     sd: pp.Grid,
-    cells: np.ndarray = None,
-    faces: np.ndarray = None,
-    nodes: np.ndarray = None,
-) -> Tuple[np.ndarray, np.ndarray]:
+    cells: Optional[np.ndarray] = None,
+    faces: Optional[np.ndarray] = None,
+    nodes: Optional[np.ndarray] = None,
+) -> tuple[np.ndarray, np.ndarray]:
     """Obtain indices of cells and faces needed for a partial update of the
     discretization stencil.
 
@@ -1400,7 +1398,7 @@ def map_subgrid_to_grid(
     loc_cells: np.ndarray,
     is_vector: bool,
     nd: Optional[int] = None,
-) -> Tuple[np.ndarray, np.ndarray]:
+) -> tuple[np.ndarray, np.ndarray]:
     """Obtain mappings from the cells and faces of a subgrid back to a larger grid.
 
     Args:
@@ -1454,6 +1452,35 @@ def map_subgrid_to_grid(
     return face_map, cell_map
 
 
+def diagonal_scaling_matrix(mat: sps.spmatrix) -> sps.spmatrix:
+    """Helper function to form a diagonal matrix that scales the rows of a matrix.
+
+    Parameters:
+        mat: Matrix to be scaled.
+
+    Returns:
+        Diagonal matrix with the diagonal elements equal to the row-wise sum of the
+        absolute values of the input matrix.
+
+    """
+
+    # Take the row-wise sum of all non-zero elements in the matrix. Work on a copy,
+    # since we want to manipulate the matrix elements.
+    tmp = mat.copy()
+    # Use an absolute value here. For some of the matrices the row sum will be zero
+    # on interior faces.
+    tmp.data = np.abs(tmp.data)
+    # Take a sum here. Intuitively, an average would be better, but calling tmp.mean()
+    # would take the average over all elements, most of which are zero (this turned out
+    # not to be optimal). We could also find the number of non-zero elements and divide
+    # the sum by this, but a sum seems to be good enough.
+    scalings = tmp.sum(axis=1).A.ravel()
+    # Diagonal scaling matrix
+    full_scaling = sps.dia_matrix((1.0 / scalings, 0), shape=mat.shape)
+
+    return full_scaling
+
+
 def compute_darcy_flux(
     mdg,
     keyword="flow",
@@ -1497,16 +1524,16 @@ def compute_darcy_flux(
         fluxes between grids will be added only at the mdg edge, not at the node
         fields. The signs of the darcy_flux correspond to the directions of the
         normals, in the edge/coupling case those of the higher grid. For edges
-        beteween grids of equal dimension, there is an implicit assumption
+        between grids of equal dimension, there is an implicit assumption
         that all normals point from the second to the first of the sorted grids
         (mdg.sorted_nodes_of_edge(e)).
     """
 
     def extract_variable(d, var):
         if from_iterate:
-            return d[pp.STATE][pp.ITERATE][var]
+            return d[pp.ITERATE_SOLUTIONS][var][0]
         else:
-            return d[pp.STATE][var]
+            return d[pp.TIME_STEP_SOLUTIONS][var][0]
 
     def calculate_flux(param_dict, mat_dict, d):
         # Calculate the flux. First contributions from pressure and boundary conditions

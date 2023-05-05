@@ -1,11 +1,11 @@
 import unittest
-from tests import test_utils
 
 import numpy as np
 import scipy.sparse as sps
 from scipy.spatial.distance import cdist
 
 import porepy as pp
+from tests import test_utils
 
 
 class TestTpfaCouplingDiffGrids(unittest.TestCase):
@@ -51,7 +51,10 @@ class TestTpfaCouplingDiffGrids(unittest.TestCase):
         # test pressure
         for sd, data in mdg.subdomains(return_data=True):
             self.assertTrue(
-                np.allclose(data[pp.STATE]["pressure"], xmax - sd.cell_centers[0])
+                np.allclose(
+                    data[pp.TIME_STEP_SOLUTIONS]["pressure"][0],
+                    xmax - sd.cell_centers[0],
+                )
             )
 
         # test mortar solution
@@ -64,10 +67,14 @@ class TestTpfaCouplingDiffGrids(unittest.TestCase):
             secondary_area = secondary_to_m * g_secondary.face_areas
 
             self.assertTrue(
-                np.allclose(data[pp.STATE]["mortar_flux"] / primary_area, 1)
+                np.allclose(
+                    data[pp.TIME_STEP_SOLUTIONS]["mortar_flux"][0] / primary_area, 1
+                )
             )
             self.assertTrue(
-                np.allclose(data[pp.STATE]["mortar_flux"] / secondary_area, 1)
+                np.allclose(
+                    data[pp.TIME_STEP_SOLUTIONS]["mortar_flux"][0] / secondary_area, 1
+                )
             )
 
     def generate_grids(self, n, xmax, ymax, split):
@@ -77,26 +84,19 @@ class TestTpfaCouplingDiffGrids(unittest.TestCase):
 
         g1.compute_geometry()
         g2.compute_geometry()
-        grids = [g2, g1]
+        grids = [g1, g2]
 
         mdg = pp.MixedDimensionalGrid()
 
-        [mdg.add_subdomains(g) for g in grids]
-        [g2, g1] = mdg.subdomains(dim=2)
+        mdg.add_subdomains(grids)
 
         tol = 1e-6
-        if np.any(g2.cell_centers[0] > split):
-            right_grid = g2
-            left_grid = g1
-        else:
-            right_grid = g1
-            left_grid = g2
+        right_grid = g2
+        left_grid = g1
 
-        mdg.subdomain_data(left_grid)["node_number"] = 0
-        mdg.subdomain_data(right_grid)["node_number"] = 1
         left_faces = np.argwhere(left_grid.face_centers[0] > split - tol).ravel()
         right_faces = np.argwhere(right_grid.face_centers[0] < split + tol).ravel()
-        val = np.ones(left_faces.size, dtype=np.bool)
+        val = np.ones(left_faces.size, dtype=bool)
         shape = [right_grid.num_faces, left_grid.num_faces]
 
         face_faces = sps.coo_matrix((val, (right_faces, left_faces)), shape=shape)
@@ -252,7 +252,6 @@ class TestTpfaCouplingPeriodicBc(unittest.TestCase):
         self.solve(mdg, analytic_p)
 
     def solve(self, mdg, analytic_p):
-
         # Parameter-discretization keyword:
         kw = "flow"
         # Terms
@@ -293,7 +292,9 @@ class TestTpfaCouplingPeriodicBc(unittest.TestCase):
         # test pressure
         for sd, data in mdg.subdomains(return_data=True):
             ap, _, _ = analytic_p(sd.cell_centers)
-            self.assertTrue(np.max(np.abs(data[pp.STATE][key_p] - ap)) < 5e-2)
+            self.assertTrue(
+                np.max(np.abs(data[pp.TIME_STEP_SOLUTIONS][key_p][0] - ap)) < 5e-2
+            )
 
         # test mortar solution
         for intf, data in mdg.interfaces(return_data=True):
@@ -317,8 +318,14 @@ class TestTpfaCouplingPeriodicBc(unittest.TestCase):
             right_flux = -right_to_m * (
                 d2[pp.DISCRETIZATION_MATRICES][kw]["bound_flux"] * right_flux
             )
-            self.assertTrue(np.max(np.abs(data[pp.STATE][key_m] - left_flux)) < 5e-2)
-            self.assertTrue(np.max(np.abs(data[pp.STATE][key_m] - right_flux)) < 5e-2)
+            self.assertTrue(
+                np.max(np.abs(data[pp.TIME_STEP_SOLUTIONS][key_m][0] - left_flux))
+                < 5e-2
+            )
+            self.assertTrue(
+                np.max(np.abs(data[pp.TIME_STEP_SOLUTIONS][key_m][0] - right_flux))
+                < 5e-2
+            )
 
     def generate_2d_grid(self, n, xmax, ymax):
         g1 = pp.CartGrid([xmax * n, ymax * n], physdims=[xmax, ymax])
@@ -329,7 +336,7 @@ class TestTpfaCouplingPeriodicBc(unittest.TestCase):
         tol = 1e-6
         left_faces = np.argwhere(g1.face_centers[1] > ymax - tol).ravel()
         right_faces = np.argwhere(g1.face_centers[1] < 0 + tol).ravel()
-        val = np.ones(left_faces.size, dtype=np.bool)
+        val = np.ones(left_faces.size, dtype=bool)
         shape = [g1.num_faces, g1.num_faces]
 
         face_faces = sps.coo_matrix((val, (right_faces, left_faces)), shape=shape)
@@ -342,8 +349,6 @@ class TestTpfaCouplingPeriodicBc(unittest.TestCase):
         intf.compute_geometry()
 
         mdg.add_interface(intf, (g1, g1), face_faces)
-
-        mdg.assign_subdomain_ordering()
         return mdg
 
     def generate_grid_with_fractures(self, n, xmax, ymax):
@@ -379,10 +384,7 @@ class TestTpfaCouplingPeriodicBc(unittest.TestCase):
                     if np.sum(face_faces) == 0:
                         continue
 
-                    di = mdg.subdomain_data(gi)
-                    dj = mdg.subdomain_data(gj)
-
-                    if di["node_number"] < dj["node_number"]:
+                    if gi.id < gj.id:
                         # gj is left
                         g_m, _, _ = pp.partition.extract_subgrid(
                             gj, gj.right, faces=True
@@ -421,5 +423,4 @@ class TestTpfaCouplingPeriodicBc(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    TestTpfaCouplingPeriodicBc().test_periodic_bc_with_fractues()
     unittest.main()

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import abc
-from typing import Generator, Optional, Tuple, Union
+from typing import Generator, Optional, Union
 
 import numpy as np
 from numpy.typing import ArrayLike
@@ -14,68 +14,53 @@ from porepy.utils import setmembership
 class Fracture(abc.ABC):
     """Abstract base class for representing a single fracture.
 
-    This base class provides general functionalities agnostic to the dimension of
-    the fracture and the ambient dimension. It contains various utility methods,
+    This base class provides general functionalities agnostic to the dimension of the
+    fracture and the ambient dimension. It contains various utility methods,
     mainly intended for the use together with the FractureNetwork class.
 
-    A fracture is defined by its `npt` vertices, stored in an `nd x npt` numpy-array,
-    where `nd` is the assumed ambient dimension. The order/sorting of vertices has to be
-    implemented explicitly.
+    A fracture is defined by its ``num_points`` vertices, stored in an ``nd x
+    num_points`` numpy-array, where ``nd`` is the ambient dimension. The
+    order/sorting of vertices has to be implemented explicitly.
 
     Dimension-dependent routines are implemented as abstract methods.
 
-    PorePy currently only supports planar and convex fractures fully. As a work-around,
-    the fracture can be split into convex parts.
+    PorePy currently only provides full support for planar, convex fractures. As a
+    work-around, the fracture can be split into convex parts.
 
-    Attributes:
-        points (ArrayLike): Fracture vertices, stored in the implemented order.
-            Shape is (nd, npt).
-        orig_pts (np.ndarray): Original fracture vertices.
-            Shape is (nd, npt)
-            The original points are kept in case the fracture geometry is modified.
-        center (np.ndarray): Fracture centroid.
-            Shape is (nd, ).
-        normal (np.ndarray): Normal vector.
-            Shape is (nd, ).
-        index (int): Index of fracture.
-            Intended use in FractureNetwork. Exact use is not clear (several fractures can
-            be given same index), use it with care.
+    Parameters:
+        points: ``shape=(nd, num_points)``
+
+            Array containing the start- and end point/the corner points for
+            line/plane fractures.
+        tags: ``shape=(num_tags, ), dtype=np.int8, default=None``
+
+            All the tags of the fracture. A tag value of ``-1`` equals to the tag not
+            existing at all.
+        index: ``default=None``
+
+            Identify the fracture with an index. Two fractures with the same index
+            are assumed to be identical.
+        sort_points: ``default=True``
+
+            Sort the points internally. Concrete implementation depends on the
+            subclass.
 
     """
 
     def __init__(
         self,
         points: ArrayLike,
+        tags: Optional[ArrayLike] = None,
         index: Optional[int] = None,
         sort_points: bool = True,
     ):
-        """Instatiation of the abstract fracture class.
+        self.pts: np.ndarray = np.asarray(points, dtype=float)
+        """Fracture vertices ``shape=(nd, num_points)``.
 
-        The constructor sets the vertices of the fracture and computes the centroid and
-        normals. Optionally, checks for planarity and convexity are performed.
-
-        Args:
-            points (ArrayLike): Vertices of new fracture.
-                Shape is (nd, npt).
-                How many vertices are necessary depends on the dimension. Note that `points`
-                can be an np.ndarray or any suitable object that can be converted into an
-                np.ndarray via np.asarray(`points`).
-            index (int, optional): Index of fracture. Default is None.
-            sort_points (bool , optional): If True, sorts the points according to the
-                implemented order. Default is True.
-                Convexity may play a role, thus if a fracture is known to be non-convex,
-                the parameter should be False.
-
-        Raises:
-            AssertionError: Asserts the fracture is planar (PorePy currently only fully
-                supports planar fractures).
-            AssertionError: (Optionally) Asserts the fracture is convex (PorePy currently
-                only fully supports convex fractures).
+        The points are stored in the implemented order. Note that the ``points``
+        passed at instantiation will be permuted.
 
         """
-        self.pts = np.asarray(
-            points, dtype=np.float64
-        )  # note that `points` will mutate
         self._check_pts()
 
         # Ensure that the points are sorted
@@ -83,9 +68,48 @@ class Fracture(abc.ABC):
             self.sort_points()
 
         self.normal: np.ndarray = self.compute_normal()
+        """Normal vector ``shape=(nd,)``."""
+
         self.center: np.ndarray = self.compute_centroid()
+        """Centroid of the fracture ``shape=(nd,)``."""
+
         self.orig_pts: np.ndarray = self.pts.copy()
-        self.index = index
+        """Original fracture vertices ``shape=(nd, num_points)``.
+
+        The original points are kept in case the fracture geometry is modified.
+
+        """
+
+        self.index: Optional[int] = index
+        """Index of fracture.
+
+        Intended use in :class:`~porepy.fracs.fracture_network_2d.FractureNetwork2d`
+        and :class:`~porepy.fracs.fracture_network_3d.FractureNetwork3d`. Exact use
+        is not clear (several fractures can be given same index). We thus recommend
+        using it with care.
+
+        """
+
+        self.tags: np.ndarray
+        """Tags of the fracture.
+
+        In the standard form, the first tag identifies the type of the fracture,
+        referring to the numbering system in
+        :class:`~porepy.fracs.gmsh_interface.Tags`. The second tag keeps track of the
+        numbering of the fracture (referring to the original order of the fractures)
+        in geometry processing, like intersection removal. Additional tags can be
+        assigned by the user.
+
+        A tag value of ``-1`` means that the fracture does not have the specified
+        tag. This enables e.g., the functionality for a fracture to have the second
+        tag, but not the first one. In a more extreme case, ``fracture.tags==[-1, -1,
+        -1, -1, -1]`` is equal to the fracture not having any tags at all.
+
+        """
+        if tags is None:
+            self.tags = np.full((0,), -1, dtype=np.int8)
+        else:
+            self.tags = np.asarray(tags, dtype=np.int8)
 
     def __repr__(self) -> str:
         """Representation is same as str-representation."""
@@ -99,35 +123,37 @@ class Fracture(abc.ABC):
         s += "Normal: \n" + str(self.normal)
         return s
 
-    def __eq__(self, other) -> bool:
+    def __eq__(self, other: object) -> bool:
         """Equality is defined as two fractures having the same index.
 
-        Args:
+        Parameters:
             other: Fracture to be compared to self.
+
+        Returns:
+            True if the fractures have the same index, False otherwise.
 
         Note:
             There are issues with this, behavior may change in the future.
 
         """
+        if not isinstance(other, Fracture):
+            return NotImplemented
         return self.index == other.index
 
-    def set_index(self, i: int):
-        """Set index of this fracture.
+    def set_index(self, index: int) -> None:
+        """Set the index of this fracture.
 
-        TODO: this is obsolete since the attribute `index` can be accessed directly
-
-        Args:
-            i (int): Index.
+        Parameters:
+            index: Index.
 
         """
-        self.index = i
+        self.index = index
 
     def points(self) -> Generator[np.ndarray, None, None]:
         """Generator over the vertices of the fracture.
 
         Yields:
-            np.ndarray: Fracture vertex.
-                Shape is (nd, ).
+            Fracture vertex with ``shape=(nd, 1)``.
 
         """
         for i in range(self.pts.shape[1]):
@@ -137,31 +163,39 @@ class Fracture(abc.ABC):
         """Generator over the segments according to the currently applied order.
 
         Yields:
-            np.ndarray: Fracture segment.
-                Shape is (nd, 2).
+            Fracture segment with ``shape=(nd, 2)``.
 
         """
         sz = self.pts.shape[1]
         for i in range(sz):
             yield self.pts[:, np.array([i, i + 1]) % sz]
 
-    def is_vertex(self, p, tol: float = 1e-4) -> Tuple[bool, Union[int, None]]:
+    def is_vertex(
+        self, p: np.ndarray, tol: float = 1e-4
+    ) -> tuple[bool, Union[int, None]]:
         """Check whether a given point is a vertex of the fracture.
 
-        Args:
-            p (np.ndarray): Point to be checked.
-                Shape is (nd, ).
-            tol (float): Tolerance of point accuracy. Default is 1e-4.
+        Parameters:
+            p: ``shape=(nd,)``
+
+                Point to be checked.
+            tol: ``default=1e-4``
+
+                Tolerance of point accuracy.
 
         Returns:
-            Tuple[bool, Union[int, None]]: The bool is True, if `p` is a vertex of this
-                fracture, false otherwise. If `p` is a vertex of this fracture, `idx` is an
-                integer, representing the of the identical vertex. Otherwise, `idx` is None.
+            A tuple with two elements
+
+            :obj:`bool`:
+                Indicates whether the point is a vertex.
+
+            :obj:`int`:
+                The index of ``p`` in :attr:`pts` if the point is a vertex.
+                Returns ``None`` if ``p`` is not a vertex.
 
         """
         p = p.reshape((-1, 1))
         ap = np.hstack((p, self.pts))
-        # TODO check if sqrt(3) is too much for other fractures than planes
         up, _, ind = setmembership.unique_columns_tol(ap, tol=tol * np.sqrt(3))
 
         # If the unique-operation did not remove any points, it is not a vertex.
@@ -175,11 +209,11 @@ class Fracture(abc.ABC):
         """Return a copy of the fracture with the current vertices.
 
         Note:
-            The original `points` (as given when the fracture was initialized) will NOT be
-            preserved.
+            The original ``points`` (as given when the fracture was initialized) will
+            *not* be preserved.
 
         Returns:
-            Fracture: Fracture with the same points.
+            Fracture with the same points.
 
         """
         return type(self)(self.pts.copy(), index=self.index)
@@ -190,7 +224,7 @@ class Fracture(abc.ABC):
         """Abstract method to sort the vertices as needed for geometric algorithms.
 
         Returns:
-            np.ndarray: Array of integeres containing the indices corresponding to the sorting.
+            Array of integer indices corresponding to the sorting.
 
         """
         pass
@@ -199,14 +233,13 @@ class Fracture(abc.ABC):
     def local_coordinates(self) -> np.ndarray:
         """Abstract method for computing the local coordinates.
 
-        The compuation is performed on the vertex coordinates in a local system and its
-        local dimension `d`.
-
-        For now, `d` is expected to be `nd` - 1, i.e. the fracture to be of co-dimension 1.
+        The computation is performed on the vertex coordinates in a local system and
+        its local dimension :math:`d` is assumed to be :math:`d = nd - 1`, i.e.,
+        the fracture has co-dimension 1.
 
         Returns:
-            np.ndarray: Coordinates of the vertices in local dimensions.
-                Shape is ((nd - 1), npt).
+            Coordinates of the vertices in local dimensions with
+            ``shape=(d, num_points)``.
 
         """
         pass
@@ -227,10 +260,11 @@ class Fracture(abc.ABC):
 
     @abc.abstractmethod
     def _check_pts(self) -> None:
-        """Abstract method for checking consistency of `self.pts`.
+        """Abstract method for checking consistency of :attr:`pts`.
 
         Raises:
-            ValueError if self.pts violates some assumptions (e.g. shape).
+            ValueError:
+                If :attr:`pts` violates some assumptions (e.g. shape).
 
         """
         pass

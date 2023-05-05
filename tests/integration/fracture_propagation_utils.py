@@ -12,10 +12,11 @@ dimensions only.
 
 
 import numpy as np
+
 import porepy as pp
-from porepy.utils import tags
-from porepy.utils import setmembership as sm
 from porepy.numerics.fv import fvutils
+from porepy.utils import setmembership as sm
+from porepy.utils import tags
 
 
 def propagate_and_update(mdg, faces, discr, update_bc, update_apertures):

@@ -4,6 +4,7 @@ import numpy as np
 import scipy.sparse.linalg as spl
 
 import porepy as pp
+from porepy.grids.standard_grids.utils import unit_domain
 
 
 class MpfaReconstructPressure(unittest.TestCase):
@@ -19,14 +20,14 @@ class MpfaReconstructPressure(unittest.TestCase):
 
         D_g_known = np.array(
             [
-                [-1, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-                [0.0, 0.0, 0.0, 0.0, -1, 0.0, 0.0, 0.0],
-                [0.0, 0.0, 1, 0.0, 0.0, 0.0, 0.0, 0.0],
-                [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1, 0.0],
-                [0.0, -1, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-                [0.0, 0.0, 0.0, -1, 0.0, 0.0, 0.0, 0.0],
-                [0.0, 0.0, 0.0, 0.0, 0.0, 1, 0.0, 0.0],
+                [-1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                [0.0, 0.0, 0.0, 0.0, -1.0, 0.0, 0.0, 0.0],
+                [0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0],
+                [0.0, 0.0, 0.0, -1.0, 0.0, 0.0, 0.0, 0.0],
+                [0.0, -1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
                 [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0],
+                [0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0],
             ]
         )
 
@@ -1255,18 +1256,16 @@ class TestMpfaBoundaryPressure(unittest.TestCase):
 
 
 class TestMpfaSimplexGrid(unittest.TestCase):
-    def grid(self):
-        domain = {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1}
 
+    def grid(self):
         mesh_size = {"mesh_size_frac": 0.3, "mesh_size_bound": 0.3}
-        network = pp.FractureNetwork2d(domain=domain)
+        network = pp.create_fracture_network(None, unit_domain(2))
         mdg = network.mesh(mesh_size)
         return mdg.subdomains(dim=2)[0]
 
     def test_linear_flow(self):
         g = self.grid()
         g.compute_geometry()
-        bc_val = np.zeros(g.num_faces)
         # Flow from right to left
         bf = np.where(g.tags["domain_boundary_faces"].ravel())[0]
         bc_type = np.asarray(bf.size * ["neu"])

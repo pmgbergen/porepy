@@ -20,6 +20,7 @@ The module contains the following groups of tests:
 """
 import pickle
 import unittest
+from itertools import count
 
 import numpy as np
 import pytest
@@ -531,7 +532,10 @@ class MockGrid:
     while still having full control of the underlying data.
     """
 
+    _counter = count(0)
+
     def __init__(self, nodes, fn, cf, cc, n, cv, dim, frac_face=None, glob_pi=None):
+        self.id = next(self._counter)
         self.nodes = nodes
         self.face_nodes = fn
         self.cell_faces = cf

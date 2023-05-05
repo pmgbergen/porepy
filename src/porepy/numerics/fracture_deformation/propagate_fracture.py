@@ -82,7 +82,6 @@ def propagate_fractures(
     # propagated.
 
     for sd_secondary in mdg.subdomains(dim=dim_primary - 1):
-
         # The propagation of a fracture consists of the following major steps:
         #   1. Find which faces in sd_primary should be split for this sd_secondary.
         #   2. Add nodes to sd_secondary where the fracture will propagate.
@@ -272,7 +271,6 @@ def propagate_fractures(
 
     # When all faces have been split, we can update the mortar grids
     for intf_old in mdg.subdomain_to_interfaces(sd_primary):
-
         data_edge = mdg.interface_data(intf_old)
         _, sd_secondary = mdg.interface_to_subdomain_pair(intf_old)
         data_secondary = mdg.subdomain_data(sd_secondary)
@@ -295,7 +293,7 @@ def propagate_fractures(
         data_edge["cell_index_map"] = cell_map
 
         # Also update projection operators
-        pp.contact_conditions.set_projections(mdg, [intf_old])
+        pp.set_local_coordinate_projections(mdg, [intf_old])
 
 
 def _update_mortar_grid(
@@ -306,7 +304,6 @@ def _update_mortar_grid(
     new_cells,
     new_faces_h,
 ):
-
     # Face-cell map. This has been updated during splitting, thus it has
     # the shapes of the new grids
     face_cells = d_e["face_cells"]
@@ -539,7 +536,6 @@ def _update_connectivity_fracture_grid(
 
     # Loop over all new cells to be created
     for i, c in enumerate(new_cells_l):
-
         # Find the nodes of the corresponding higher-dimensional face
         face_h = faces_h[i]
         local_nodes_h = sd_primary.face_nodes[:, face_h].nonzero()[0]
@@ -600,7 +596,9 @@ def _update_connectivity_fracture_grid(
         sd_secondary.tags["tip_faces"][existing_faces_l] = False
 
         # Number of genuinely new local faces in sd_secondary created for this cell
-        n_new_local_faces_l = np.sum(~exist)
+        n_new_local_faces_l = int(
+            np.sum(~exist)
+        )  # mypy complains if int() is not added
 
         # Index of the new faces, they will be appended to the face array
         new_face_indices_l = np.arange(
@@ -897,8 +895,7 @@ def _split_fracture_extension(
         intf_list.append(intf)
 
     # We split all the faces that are connected to faces_h
-    # The new faces will share the same nodes and properties (normals,
-    # etc.)
+    # The new faces will share the same nodes and properties (normals, etc.)
     face_cell_list = pp.fracs.split_grid.split_specific_faces(
         sd_primary, face_cell_list, faces_h, cells_l, sd_secondary_ind, non_planar
     )
