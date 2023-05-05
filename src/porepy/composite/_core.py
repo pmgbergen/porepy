@@ -167,7 +167,13 @@ def _rr_pole(i: int, y: list[NumericType], K: list[list[NumericType]]) -> Numeri
         The expression for the denominator.
 
     """
-    t = [y[j] * (K[j][i] - 1) for j in range(len(y))]
+    # multiplication is sensitive between numpy arrays and AdArrays...
+    t = [
+        y[j] * (K[j][i] - 1)
+        if isinstance(y[j], pp.ad.AdArray)
+        else (K[j][i] - 1) * y[j]
+        for j in range(len(y))
+    ]
 
     return 1 + safe_sum(t)
 
@@ -281,7 +287,7 @@ def rachford_rice_vle_inversion(
     # denominator
     d = safe_sum(
         [
-            z[i] * (K[i] - 1) * safe_sum([(K[j] - 1) for j in range(nc) if j != i])
+            (K[i] - 1) * safe_sum([(K[j] - 1) for j in range(nc) if j != i]) * z[i]
             for i in range(nc)
         ]
     )

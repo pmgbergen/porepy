@@ -254,6 +254,7 @@ class FlashSystemNR(ThermodynamicState):
                 p = self.p
                 if self._T_unknown:
                     T = vec[idx : idx + self._num_vals]
+                    idx += self._num_vals
                 else:
                     T = self.T
 
@@ -318,12 +319,13 @@ class FlashSystemNR(ThermodynamicState):
         if self._T_unknown and self._assemble_h_constraint:
             h_j = [phase_props[j].h for j in range(self._num_phases)]
             equ = self.mixture.evaluate_homogenous_constraint(self.h, y, h_j)
+            equations.append(equ)
 
         # Third, volume constraint if pressure is unknown
         if self._p_unknown and self._assemble_v_constraint:
             rho_j = [phase_props[j].rho for j in range(self._num_phases)]
             rho = self.mixture.evaluate_weighed_sum(rho_j, s)
-            equ = self.v - rho**-1
+            equ = self.v - rho ** (-1)
             equations.append(equ)
             for j in range(1, self._num_phases):
                 equ = y[j] * rho - s[j] * rho_j[j]
@@ -508,7 +510,7 @@ class FlashSystemNR(ThermodynamicState):
         """
 
         p = self.p.val if isinstance(self.p, pp.ad.AdArray) else self.p
-        T = self.T.val if isinstance(self.p, pp.ad.AdArray) else self.T
+        T = self.T.val if isinstance(self.T, pp.ad.AdArray) else self.T
         y = [y.val for y in self.y]
         X = [
             [self.X[j][i].val for i in range(self._num_comp)]
@@ -746,6 +748,9 @@ class FlashNR:
 
         ### PUBLIC
 
+        # currently only 2-phase flash is supported
+        assert mixture.num_phases == 2, "Currently supports only 2-phase mixtures."
+
         self.mixture: NonReactiveMixture = mixture
         """The mixture class passed at instantiation."""
 
@@ -896,7 +901,6 @@ class FlashNR:
             NotImplementedError: If flash-type is not supported (determined by passed
                 ``state``).
             AssertionError: If ``method`` is not among supported ones.
-            AssertionError: If the reference phase fractions were not eliminated.
             AssertionError: If the number of DOFs of passed state function values is
                 inconsistent with the number of DOFs the mixture was modelled with.
 
@@ -918,15 +922,8 @@ class FlashNR:
         else:
             logger.setLevel(logging.WARNING)
 
-        # currently only 2-phase flash is supported
-        assert (
-            self.mixture.num_phases == 2
-        ), "Currently only 2-phase flashes are supported."
         # check requested method
         assert method in ["netwon-min", "npipm"], f"Unsupported method '{method}'."
-        assert (
-            self.mixture.reference_phase_eliminated
-        ), "Reference phase fractions must be eliminated."
 
         num_comp = self.mixture.num_components
         num_phases = self.mixture.num_phases
@@ -1002,19 +999,30 @@ class FlashNR:
                 )
                 thd_state.p = p
                 thd_state.h = h
+                thd_state.z = feed
                 # initial temperature guess using pseudo-critical temperature
-                thd_state = self._guess_temperature(thd_state, True)
+                thd_state, _ = self._guess_temperature(thd_state, num_vals, True)
                 thd_state = self._guess_fractions(
                     thd_state, num_vals, guess_K_values=True
                 )
 
             # Alternating guess for fractions and temperature
             # successive-substitution-like
+            res_is_zeros = False
             for _ in range(3):
+                # iterate over the enthalpy constraint some times to update T
+                thd_state, res_is_zeros = self._guess_temperature(
+                    thd_state, False, 3, num_vals
+                )
+                # Update fractions using the updated T
                 thd_state = self._guess_fractions(thd_state, num_vals, False)
-                thd_state = self._guess_temperature(thd_state, False, 3)
-            # final temperature guess
-            thd_state = self._guess_temperature(thd_state, False, 3)
+                # Do so multiple times in a loop, break if res for h constraint reached
+                if res_is_zeros:
+                    break
+
+            # final temperature guess from last fraction guess, if res is not zero
+            if not res_is_zeros:
+                thd_state, _ = self._guess_temperature(thd_state, False, 3, num_vals)
 
         elif flash_type == "v-h":
             NotImplementedError("Initial guess for v-h flash not implemented.")
@@ -1276,9 +1284,11 @@ class FlashNR:
 
         if guess_K_values:
             # TODO can we use Wilson for all independent phases if more than 2 phases?
+            p = state.p.val if isinstance(state.p, pp.ad.AdArray) else state.p
+            T = state.T.val if isinstance(state.T, pp.ad.AdArray) else state.T
             K = [
                 [
-                    K_val_Wilson(state.p, comp.p_crit, state.T, comp.T_crit, comp.omega)
+                    K_val_Wilson(p, comp.p_crit, T, comp.T_crit, comp.omega)
                     for comp in self.mixture.components
                 ]
                 for _ in range(1, nph)
@@ -1375,8 +1385,12 @@ class FlashNR:
         return state
 
     def _guess_temperature(
-        self, state: ThermodynamicState, use_pseudocritical: bool = False, iter: int = 1
-    ) -> ThermodynamicState:
+        self,
+        state: ThermodynamicState,
+        use_pseudocritical: bool = False,
+        iter_max: int = 1,
+        num_vals: int = 1,
+    ) -> tuple[ThermodynamicState, bool]:
         """Computes a temperature guess for a mixture.
 
         Parameters:
@@ -1386,14 +1400,19 @@ class FlashNR:
                 If True, the pseudo-critical temperature is computed, a sum of critical
                 temperatures of components weighed with feed fractions.
                 If False, the enthalpy constraint is solved using newton iterations.
-            iter: ``default=1``
+            iter_max: ``default=1``
 
-                Number of iterations for when solving the enthalpy constraint.
+                Maximal number of iterations for when solving the enthalpy constraint.
+            num_vals: ``default=1``
+
+                If iterating, pass the number of unknown values per state function.
 
         Returns:
-            Argument ``state`` with updated fractions.
+            Argument ``state`` with updated fractions and an indicator if the residual
+            during iterations reached zero
 
         """
+        res_is_zero = False
         if use_pseudocritical:
             T_pc = safe_sum(
                 [
@@ -1401,9 +1420,24 @@ class FlashNR:
                     for i, comp in enumerate(self.mixture.components)
                 ]
             )
-            state.T = T_pc  # type: ignore
+            state.T.val = T_pc  # type: ignore
         else:
-            pass
+            for _ in range(iter_max):
+                phase_props = self.mixture.compute_properties(
+                    state.p, state.T, state.X, store=False
+                )
+                h_mix = safe_sum([y * prop.h for y, prop in zip(state.y, phase_props)])
+
+                res = h_mix.val - state.h
+                if np.linalg.norm(res) <= self.tolerance:
+                    res_is_zero = True
+                else:
+                    # get only the derivative w.r.t to temperature and solve
+                    h_mix.jac = h_mix.jac[:, :num_vals].tocsr()
+                    dT = pypardiso.spsolve(h_mix.jac, -res)
+                    state.T.val = state.T.val + dT
+
+        return state, res_is_zero
 
     ### Numerical methods --------------------------------------------------------------
 

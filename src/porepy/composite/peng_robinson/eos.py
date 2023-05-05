@@ -495,7 +495,7 @@ class PengRobinsonEoS(AbstractEoS):
         # fugacity per present component
         phis: list[NumericType] = list()
         for i in range(len(self.components)):
-            B_i = self._b_vals[i] * p / (R_IDEAL * T)
+            B_i = T ** (-1) * self._b_vals[i] * p / R_IDEAL
             A_i = self._dXi_a(X, a_comps, bip, i) * p / (R_IDEAL**2 * T * T)
             phis.append(self._phi_i(Z, A_i, A, B_i, B))
 
@@ -749,12 +749,18 @@ class PengRobinsonEoS(AbstractEoS):
     @staticmethod
     def _A(a: NumericType, p: NumericType, T: NumericType) -> NumericType:
         """Auxiliary method implementing formula for non-dimensional cohesion."""
-        return a * p / (R_IDEAL**2 * T * T)
+        if isinstance(T, pp.ad.AdArray):
+            return T ** (-2) * a * p / R_IDEAL**2
+        else:
+            return a * p / (R_IDEAL**2 * T**2)
 
     @staticmethod
     def _B(b: NumericType, p: NumericType, T: NumericType) -> NumericType:
         """Auxiliary method implementing formula for non-dimensional covolume."""
-        return b * p / (R_IDEAL * T)
+        if isinstance(T, pp.ad.AdArray):
+            return T ** (-1) * b * p / R_IDEAL
+        else:
+            return b * p / (R_IDEAL * T)
 
     # TODO
     def _kappa(self, p: NumericType, T: NumericType, Z: NumericType) -> NumericType:

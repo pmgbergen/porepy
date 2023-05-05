@@ -31,6 +31,6 @@ def K_val_Wilson(
         The K-value estimation.
 
     """
-    K = p_c / p * pp.ad.exp(5.37 * (1 + acentric_factor) * (1 - T_c / T)) + 1.0e-12
+    K = pp.ad.exp(5.37 * (1 + acentric_factor) * (1 - T_c / T)) * p_c / p + 1.0e-12
     # K = pp.ad.power(K, 1./3.)
     return K

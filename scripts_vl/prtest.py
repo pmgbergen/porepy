@@ -4,8 +4,8 @@ import porepy as pp
 chems = ["H2O", "CO2"]
 
 z = [np.array([0.01])]  # only co2 fraction is enough
-p = np.array([10])
-T = np.array([600])
+p = np.array([10.])
+T = np.array([600.])
 
 species = pp.composite.load_fluid_species(chems)
 
@@ -39,10 +39,24 @@ flash.newton_update_chop = 1.0
 flash.tolerance = 1e-8
 flash.max_iter = 140
 
-success, results = flash.flash(
+# p-T flash
+success, results_pT = flash.flash(
     state={'p': p, 'T': T}, eos_kwargs={'apply_smoother': True},
     feed = z,
     verbosity=1,
 )
+print("Results p-T:")
+print(str(results_pT))
+
+# p-h flash
+success, results_ph = flash.flash(
+    state={'p': p, 'h': results_pT.h}, eos_kwargs={'apply_smoother': True},
+    feed = z,
+    verbosity=1,
+)
+print("Results p-h:")
+print(str(results_pT))
+
+print(f"T-diff between p-T and p-h: {np.linalg.norm(results_pT.T - results_ph.T)}")
 
 print("Done")
