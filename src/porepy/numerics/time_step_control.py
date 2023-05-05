@@ -695,10 +695,12 @@ class TimeManager:
         )
 
         # Storing as json
-        default_path = Path("visualization") / Path("times.json")
-        out_file = open(path if path is not None else default_path, "w")
-        json.dump({"time": self.time_history, "dt": self.dt_history}, out_file)
-        out_file.close()
+        if path is None:
+            path = Path("visualization") / Path("times.json")
+
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with open(path, "w") as out_file:
+            json.dump({"time": self.time_history, "dt": self.dt_history}, out_file)
 
     def load_time_information(self, path: Optional[Path] = None) -> None:
         """Keep track of history of time and time step size and store.
@@ -711,11 +713,10 @@ class TimeManager:
 
         """
         default_path = Path("visualization") / Path("times.json")
-        in_file = open(path if path is not None else default_path)
-        data = json.load(in_file)
-        self.time_history = data["time"]
-        self.dt_history = data["dt"]
-        in_file.close()
+        with open(path if path is not None else default_path) as in_file:
+            data = json.load(in_file)
+            self.time_history = data["time"]
+            self.dt_history = data["dt"]
 
     def set_from_history(self, time_index: int = -1) -> None:
         """Load previous visited history for resuming, and cut-off afterward
