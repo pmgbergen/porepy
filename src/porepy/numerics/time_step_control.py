@@ -666,7 +666,7 @@ class TimeManager:
         return schedule.size == np.sum(in1d)
 
     # I/O
-    def write_time_information(self, path: Optional[Path | str] = None) -> None:
+    def write_time_information(self, path: Optional[Path] = None) -> None:
         """Keep track of history of time and time step size and store as json file
         storing lists the evolution of both as lists.
 
@@ -695,8 +695,9 @@ class TimeManager:
         )
 
         # Storing as json
-        default_path = Path("visualization") / Path("times.json")
-        path = Path(path) if path is not None else default_path
+        if path is None:
+            path = Path("visualization") / Path("times.json")
+
         path.parent.mkdir(parents=True, exist_ok=True)
         with open(path, "w") as out_file:
             json.dump({"time": self.time_history, "dt": self.dt_history}, out_file)
