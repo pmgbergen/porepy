@@ -59,12 +59,13 @@ from . import setup_utils
             setup_utils.Thermoporomechanics,
             "matrix_porosity",
             # phi_0 + (alpha - phi_ref) * (1 - alpha) / bulk * p
-            # - (alpha - phi_0) * thermal expansion * T
+            # - (alpha - phi_0) * 2 * thermal expansion * T
+            # The 2 is to convert from linear to (2d) volumetric thermal expansion.
             #  Only pressure and temperature, not div(u), is included in this test.
             (
                 7e-3
                 + (0.8 - 7e-3) * (1 - 0.8) / (11.11 * pp.GIGA) * 2
-                - (0.8 - 7e-3) * 1e-5 * 3
+                - (0.8 - 7e-3) * 2 * 1e-5 * 3
             ),
             2,  # Matrix porosity is only defined in Nd
         ),

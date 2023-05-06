@@ -554,8 +554,7 @@ class FluidDensityFromTemperature:
         # Reference variables are defined in a variables class which is assumed
         # to be available by mixin.
         dtemp = self.perturbation_from_reference("temperature", subdomains)
-        volumetric_thermal_expansion = Scalar(self.nd * self.fluid.thermal_expansion())
-        return exp(Scalar(-1) * volumetric_thermal_expansion * dtemp)
+        return exp(Scalar(-1) * Scalar(self.fluid.thermal_expansion()) * dtemp)
 
 
 class FluidDensityFromPressureAndTemperature(
@@ -1271,9 +1270,11 @@ class ThermalExpansion:
     :class:`~porepy.models.solution_strategy.SolutionStrategy`.
 
     """
+    nd: int
+    """Number of spatial dimensions."""
 
     def fluid_thermal_expansion(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Thermal expansion of the fluid [1/K].
+        """Thermal expansion of the fluid [1*K^-1].
 
         Parameters:
             subdomains: List of subdomains where the thermal expansion is defined.
@@ -1286,8 +1287,10 @@ class ThermalExpansion:
         val = self.fluid.thermal_expansion()
         return Scalar(val, "fluid_thermal_expansion")
 
-    def solid_thermal_expansion(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Thermal expansion of the solid [1/K].
+    def solid_linear_thermal_expansion(
+        self, subdomains: list[pp.Grid]
+    ) -> pp.ad.Operator:
+        """Linear thermal expansion of the solid [m*m^-1*K^-1].
 
         Parameters:
             subdomains: List of subdomains where the thermal expansion is defined.
@@ -1298,7 +1301,23 @@ class ThermalExpansion:
 
         """
         val = self.solid.thermal_expansion()
-        return Scalar(val, "solid_thermal_expansion")
+        return Scalar(val, "solid_linear_thermal_expansion")
+
+    def solid_volumetric_thermal_expansion(
+        self, subdomains: list[pp.Grid]
+    ) -> pp.ad.Operator:
+        """Volumetric thermal expansion of the solid [m^nd*m^-nd*K^-1].
+
+        Parameters:
+            subdomains: List of subdomains where the thermal expansion is defined.
+
+        Returns:
+            Thermal expansion of the fluid, represented as an Ad operator. The value is
+            constant for all subdomains.
+
+        """
+        val = self.nd * self.solid.thermal_expansion()
+        return Scalar(val, "solid_volumetric_thermal_expansion")
 
 
 class ThermalConductivityLTE:
@@ -2317,8 +2336,8 @@ class ThermoPressureStress(PressureStress):
     :class:`~porepy.models.constitutive_laws.LinearElasticSolid`.
 
     """
-    solid_thermal_expansion: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Thermal expansion coefficient. Normally defined in a mixin instance of
+    solid_linear_thermal_expansion: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Linear thermal expansion coefficient. Normally defined in a mixin instance of
     :class:`~porepy.models.constitutive_laws.ThermalExpansion`.
 
     """
@@ -2354,7 +2373,7 @@ class ThermoPressureStress(PressureStress):
 
         discr = pp.ad.BiotAd(self.stress_keyword, subdomains)
         alpha = self.biot_coefficient(subdomains)
-        beta = self.solid_thermal_expansion(subdomains)
+        beta = self.solid_linear_thermal_expansion(subdomains)
         k = self.bulk_modulus(subdomains)
 
         # Check that both are scalar. Else, the scaling may not be correct.
@@ -3249,7 +3268,7 @@ class ThermoPoroMechanicsPorosity(PoroMechanicsPorosity):
     provided by a mixin of instance :class:`~porepy.models.VariableMixin`.
 
     """
-    solid_thermal_expansion: Callable[[list[pp.Grid]], pp.ad.Operator]
+    solid_volumetric_thermal_expansion: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Thermal expansion coefficient. Normally defined in a mixin instance of
     :class:`~porepy.models.constitutive_laws.ThermalExpansion`.
     """
@@ -3301,7 +3320,7 @@ class ThermoPoroMechanicsPorosity(PoroMechanicsPorosity):
             raise ValueError("Subdomains must be of dimension nd.")
         dtemperature = self.perturbation_from_reference("temperature", subdomains)
         phi_ref = self.reference_porosity(subdomains)
-        beta = self.solid_thermal_expansion(subdomains)
+        beta = self.solid_volumetric_thermal_expansion(subdomains)
         alpha = self.biot_coefficient(subdomains)
         # TODO: Figure out why * is needed here, but not in
         # porosity_change_from_pressure.
