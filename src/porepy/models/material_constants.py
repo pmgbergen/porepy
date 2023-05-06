@@ -139,24 +139,12 @@ class FluidConstants(MaterialConstants):
     """
     Class giving scaled values of fluid parameters.
 
-    Each constant (class attribute) typically corresponds to exactly one method which
-    scales the value and broadcasts to relevant size, typically number of cells in the
-    specified subdomains or interfaces.
+    Each constant (class attribute) corresponds to exactly one method which
+    scales the value to the correct units. Non-default values should be set by
+    passing a dictionary to the constructor. The dictionary should contain
+    the name of the constant as key, and the value as value. The value should
+    be given in SI units.
 
-    Note:
-        Return types are discussed in fluid_density and fluid_thermal_expansion.
-
-        Prefix fluid must be included if we decide for inheritance and not composition
-        for the material classes.
-
-    Parameters:
-        constants (dict): Dictionary of constants. Only keys corresponding to a constant
-            in the class will be used. The permissible keys are:
-                - ``thermal_expansion``: Thermal expansion coefficient [1/K].
-                - ``density``: Density [kg/m^3].
-                - ``viscosity``: Viscosity [Pa s].
-                - ``compressibility``: Compressibility [1/Pa].
-            If not specified, default values are used.
 
     """
 
@@ -254,7 +242,7 @@ class FluidConstants(MaterialConstants):
         )
 
     def thermal_expansion(self) -> number:
-        """Thermal expansion coefficient [1/K].
+        """Linear thermal expansion coefficient [m*m^-1*K].
 
         Returns:
             Thermal expansion coefficient in converted temperature units.
@@ -333,7 +321,7 @@ class SolidConstants(MaterialConstants):
         return self.convert_units(self.constants["density"], "kg * m^-3")
 
     def thermal_expansion(self) -> number:
-        """Thermal expansion coefficient [1/K].
+        """Linear thermal expansion coefficient [m*m^-1*K^-1].
 
         Returns:
             Thermal expansion coefficient in converted temperature units.

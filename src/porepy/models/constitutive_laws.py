@@ -554,7 +554,8 @@ class FluidDensityFromTemperature:
         # Reference variables are defined in a variables class which is assumed
         # to be available by mixin.
         dtemp = self.perturbation_from_reference("temperature", subdomains)
-        return exp(Scalar(-1) * Scalar(self.fluid.thermal_expansion()) * dtemp)
+        volumetric_thermal_expansion = Scalar(self.nd * self.fluid.thermal_expansion())
+        return exp(Scalar(-1) * volumetric_thermal_expansion * dtemp)
 
 
 class FluidDensityFromPressureAndTemperature(
