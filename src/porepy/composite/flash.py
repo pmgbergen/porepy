@@ -14,6 +14,8 @@ import porepy as pp
 from porepy.numerics.ad.operator_functions import NumericType
 
 from ._core import (
+    R_IDEAL,
+    Pa_SCALE,
     _rr_pole,
     rachford_rice_feasible_region,
     rachford_rice_potential,
@@ -156,7 +158,8 @@ class FlashSystemNR(ThermodynamicState):
                 raise NotImplementedError("FlashState undefined. T and h missing.")
         if "p" not in flash_type:  # If pressure is unknown
             self._p_unknown = True
-            self._num_vars += 1
+            # pressure and independent saturations are unknown
+            self._num_vars += 1 + (self._num_phases - 1)
             self._assemble_v_constraint = True
 
         # Finally, check if NPIPM slack var should be introduced
@@ -319,16 +322,24 @@ class FlashSystemNR(ThermodynamicState):
         if self._T_unknown and self._assemble_h_constraint:
             h_j = [phase_props[j].h for j in range(self._num_phases)]
             equ = self.mixture.evaluate_homogenous_constraint(self.h, y, h_j)
+            # normalizing enthalpy constraint, without blowing it up
+            h_norm = self.h.copy()
+            h_norm[np.abs(h_norm) <= 1] = 1.0
+            equ = T ** (-1) * equ / h_norm / R_IDEAL
             equations.append(equ)
 
         # Third, volume constraint if pressure is unknown
         if self._p_unknown and self._assemble_v_constraint:
             rho_j = [phase_props[j].rho for j in range(self._num_phases)]
             rho = self.mixture.evaluate_weighed_sum(rho_j, s)
-            equ = self.v - rho ** (-1)
+            equ = rho ** (-1) - self.v
+            # normalizing volume constraint, without blowing it up
+            v_norm = self.v.copy()
+            v_norm[np.abs(v_norm) <= 1] = 1.0
+            equ = T ** (-1) * equ / v_norm
             equations.append(equ)
             for j in range(1, self._num_phases):
-                equ = y[j] * rho - s[j] * rho_j[j]
+                equ = y[j] - s[j] * rho_j[j] / rho
                 equations.append(equ)
 
         # Fourth, complementary conditions or NPIPM equations
@@ -475,6 +486,7 @@ class FlashSystemNR(ThermodynamicState):
         else:
             if self._T_unknown:
                 self.T.val = vec[idx : idx + self._num_vals]
+                idx += self._num_vals
 
         y_0 = 0.0
         for j in range(1, self._num_phases):
@@ -523,133 +535,8 @@ class FlashSystemNR(ThermodynamicState):
 
         # If flash was not isochoric, evaluate saturations, density and volume
         if not self._assemble_v_constraint:
-            if self._num_phases == 1:
-                self.s[0] = np.ones(self._num_vals)
-            else:
-
-                densities: list[NumericType] = [props.rho for props in phase_props]
-
-                if self._num_phases == 2:
-                    # 2-phase saturation evaluation can be done analytically
-                    rho_1, rho_2 = densities
-                    y_1, y_2 = y
-
-                    s_1 = np.zeros(y_1.shape)
-                    s_2 = np.zeros(y_2.shape)
-
-                    phase_1_saturated = np.logical_and(y_1 > 1 - eps, y_1 < 1 + eps)
-                    phase_2_saturated = np.logical_and(y_2 > 1 - eps, y_2 < 1 + eps)
-                    idx = np.logical_not(phase_2_saturated)
-                    y2_idx = y_2[idx]
-                    rho1_idx = rho_1[idx]
-                    rho2_idx = rho_2[idx]
-                    s_1[idx] = 1.0 / (
-                        1.0 + y2_idx / (1.0 - y2_idx) * rho1_idx / rho2_idx
-                    )
-                    s_1[phase_1_saturated] = 1.0
-                    s_1[phase_2_saturated] = 0.0
-
-                    idx = np.logical_not(phase_1_saturated)
-                    y1_idx = y_1[idx]
-                    rho1_idx = rho_1[idx]
-                    rho2_idx = rho_2[idx]
-                    s_2[idx] = 1.0 / (
-                        1.0 + y1_idx / (1.0 - y1_idx) * rho2_idx / rho1_idx
-                    )
-                    s_2[phase_1_saturated] = 0.0
-                    s_2[phase_2_saturated] = 1.0
-
-                    self.s = [s_1, s_2]
-                else:
-                    # More than 2 phases requires the inversion of the matrix given by
-                    # phase fraction relations
-                    mats = list()
-
-                    # list of indicators per phase, where the phase is fully saturated
-                    saturated = list()
-                    # where one phase is saturated, the other vanish
-                    vanished = [
-                        np.zeros(self._num_vals, dtype=bool)
-                        for _ in range(self._num_phases)
-                    ]
-
-                    for j2 in range(self._num_phases):
-                        # get the DOFS where one phase is fully saturated
-                        # TODO check sensitivity of this
-                        saturated_j = np.logical_and(y[j2] > 1 - eps, y[j2] < 1 + eps)
-                        saturated.append(saturated_j)
-                        # store information that other phases vanish at these DOFs
-                        for j2 in range(self._num_phases):
-                            if j2 != j2:
-                                # where phase j is saturated, phase j2 vanishes
-                                # logical OR acts cumulatively
-                                vanished[j2] = np.logical_or(vanished[j2], saturated_j)
-
-                    # stacked indicator which DOFs
-                    saturated = np.hstack(saturated)
-                    # staacked indicator which DOFs vanish
-                    vanished = np.hstack(vanished)
-                    # all other DOFs are in multiphase regions
-                    multiphase = np.logical_not(np.logical_or(saturated, vanished))
-
-                    # construct the matrix for saturation flash
-                    # first loop, per block row (equation per phase)
-                    for j in range(self._num_phases):
-                        mats_row = list()
-                        # second loop, per block column (block per phase per equation)
-                        for j2 in range(self._num_phases):
-                            # diagonal values are zero
-                            # This matrix is just a placeholder
-                            if j == j2:
-                                mats.append(sps.diags([np.zeros(self._num_vals)]))
-                            # diagonals of blocks which are not on the main diagonal,
-                            # are non-zero
-                            else:
-                                d = 1 - y[j]
-                                # to avoid a division by zero error, we set it to one
-                                # this is arbitrary, but respective matrix entries are
-                                # sliced out since they correspond to cells where one phase
-                                # is saturated,
-                                # i.e. the respective saturation is 1., the other 0.
-                                d[d == 0.0] = 1.0
-                                diag = 1.0 + densities[j2] / densities[j] * y[j] / d
-                                mats_row.append(sps.diags([diag]))
-
-                        # row-block per phase fraction relation
-                        mats.append(sps.hstack(mats_row, format="csr"))
-
-                    # Stack matrices per equation on each other
-                    # This matrix corresponds to the vector of stacked saturations per phase
-                    mat = sps.vstack(mats, format="csr")
-                    # TODO Matrix has large band width
-
-                    # projection matrix to DOFs in multiphase region
-                    # start with identity in CSR format
-                    projection: sps.spmatrix = sps.diags(
-                        [np.ones(len(multiphase))]
-                    ).tocsr()
-                    # slice image of canonical projection out of identity
-                    projection = projection[multiphase]
-                    projection_transposed = projection.transpose()
-
-                    # get sliced system
-                    rhs = projection * np.ones(self._num_vals * self._num_phases)
-                    mat = projection * mat * projection_transposed
-
-                    s = pypardiso.spsolve(mat, rhs)
-
-                    # prolongate the values from the multiphase region to global DOFs
-                    saturations = projection_transposed * s
-                    # set values where phases are saturated or have vanished
-                    saturations[saturated] = 1.0
-                    saturations[vanished] = 0.0
-
-                    # distribute results to the saturation variables
-                    for j in range(self._num_phases):
-                        self.s[j] = saturations[
-                            j * self._num_vals : (j + 1) * self._num_vals
-                        ]
-
+            densities = [prop.rho for prop in phase_props]
+            self.s = self.evaluate_saturations(y, densities, eps=eps)
             self.rho = safe_sum([s * prop.rho for s, prop in zip(self.s, phase_props)])
             self.v = self.rho ** (-1)
 
@@ -716,6 +603,154 @@ class FlashSystemNR(ThermodynamicState):
             msg = f"\nDetected fractions outside bound [-{tol}, 1 + {tol}]:"
             msg += safe_sum(msg)
             action(msg)
+
+    @staticmethod
+    def evaluate_saturations(
+        y: list[np.ndarray], densities: list[np.ndarray], eps: float = 1e-10
+    ) -> list[np.ndarray]:
+        """Calculates phase saturations based on given phase molar fractions and
+        densities.
+
+        Parameters:
+            y: A list of phase molar fractions.
+            densities: A list of phase molar densities. Must be of same length as ``y``.
+            eps: ``default=1e-10``
+
+                Tolerance to detect saturated phases.
+
+        Raises:
+            AssertionError: If ``y`` and ``densities`` are not of same length.
+
+        Returns:
+            A list of saturations corresponding to the order given by ``y`` and
+            ``densities``.
+
+        """
+
+        num_phases = len(y)
+        assert num_phases == len(
+            densities
+        ), "Need equal amount of densities and fractions"
+
+        num_vals = len(y[0])
+
+        s: list[np.ndarray] = [np.zeros(num_phases) for _ in range(num_phases)]
+
+        if num_phases == 1:
+            s[0] = np.ones(num_vals)
+        else:
+            if num_phases == 2:
+                # 2-phase saturation evaluation can be done analytically
+                rho_1, rho_2 = densities
+                y_1, y_2 = y
+
+                s_1 = np.zeros(y_1.shape)
+                s_2 = np.zeros(y_2.shape)
+
+                phase_1_saturated = np.logical_and(y_1 > 1 - eps, y_1 < 1 + eps)
+                phase_2_saturated = np.logical_and(y_2 > 1 - eps, y_2 < 1 + eps)
+                idx = np.logical_not(phase_2_saturated)
+                y2_idx = y_2[idx]
+                rho1_idx = rho_1[idx]
+                rho2_idx = rho_2[idx]
+                s_1[idx] = 1.0 / (1.0 + y2_idx / (1.0 - y2_idx) * rho1_idx / rho2_idx)
+                s_1[phase_1_saturated] = 1.0
+                s_1[phase_2_saturated] = 0.0
+
+                idx = np.logical_not(phase_1_saturated)
+                y1_idx = y_1[idx]
+                rho1_idx = rho_1[idx]
+                rho2_idx = rho_2[idx]
+                s_2[idx] = 1.0 / (1.0 + y1_idx / (1.0 - y1_idx) * rho2_idx / rho1_idx)
+                s_2[phase_1_saturated] = 0.0
+                s_2[phase_2_saturated] = 1.0
+
+                s[0] = s_1
+                s[1] = s_2
+            else:
+                # More than 2 phases requires the inversion of the matrix given by
+                # phase fraction relations
+                mats = list()
+
+                # list of indicators per phase, where the phase is fully saturated
+                saturated = list()
+                # where one phase is saturated, the other vanish
+                vanished = [np.zeros(num_vals, dtype=bool) for _ in range(num_phases)]
+
+                for j2 in range(num_phases):
+                    # get the DOFS where one phase is fully saturated
+                    # TODO check sensitivity of this
+                    saturated_j = np.logical_and(y[j2] > 1 - eps, y[j2] < 1 + eps)
+                    saturated.append(saturated_j)
+                    # store information that other phases vanish at these DOFs
+                    for j2 in range(num_phases):
+                        if j2 != j2:
+                            # where phase j is saturated, phase j2 vanishes
+                            # logical OR acts cumulatively
+                            vanished[j2] = np.logical_or(vanished[j2], saturated_j)
+
+                # stacked indicator which DOFs
+                saturated = np.hstack(saturated)
+                # staacked indicator which DOFs vanish
+                vanished = np.hstack(vanished)
+                # all other DOFs are in multiphase regions
+                multiphase = np.logical_not(np.logical_or(saturated, vanished))
+
+                # construct the matrix for saturation flash
+                # first loop, per block row (equation per phase)
+                for j in range(num_phases):
+                    mats_row = list()
+                    # second loop, per block column (block per phase per equation)
+                    for j2 in range(num_phases):
+                        # diagonal values are zero
+                        # This matrix is just a placeholder
+                        if j == j2:
+                            mats.append(sps.diags([np.zeros(num_vals)]))
+                        # diagonals of blocks which are not on the main diagonal,
+                        # are non-zero
+                        else:
+                            d = 1 - y[j]
+                            # to avoid a division by zero error, we set it to one
+                            # this is arbitrary, but respective matrix entries are
+                            # sliced out since they correspond to cells where one phase
+                            # is saturated,
+                            # i.e. the respective saturation is 1., the other 0.
+                            d[d == 0.0] = 1.0
+                            diag = 1.0 + densities[j2] / densities[j] * y[j] / d
+                            mats_row.append(sps.diags([diag]))
+
+                    # row-block per phase fraction relation
+                    mats.append(sps.hstack(mats_row, format="csr"))
+
+                # Stack matrices per equation on each other
+                # This matrix corresponds to the vector of stacked saturations per phase
+                mat = sps.vstack(mats, format="csr")
+                # TODO Matrix has large band width
+
+                # projection matrix to DOFs in multiphase region
+                # start with identity in CSR format
+                projection: sps.spmatrix = sps.diags([np.ones(len(multiphase))]).tocsr()
+                # slice image of canonical projection out of identity
+                projection = projection[multiphase]
+                projection_transposed = projection.transpose()
+
+                # get sliced system
+                rhs = projection * np.ones(num_vals * num_phases)
+                mat = projection * mat * projection_transposed
+
+                s = pypardiso.spsolve(mat, rhs)
+
+                # prolongate the values from the multiphase region to global DOFs
+                saturations = projection_transposed * s
+                # set values where phases are saturated or have vanished
+                saturations[saturated] = 1.0
+                saturations[vanished] = 0.0
+
+                # distribute results to the saturation variables
+                for j in range(num_phases):
+                    s[j] = saturations[j * num_vals : (j + 1) * num_vals]
+
+        return s
 
 
 class FlashNR:
@@ -955,6 +990,11 @@ class FlashNR:
             )
 
         logger.info(f"\nInitiating state..\n")
+        # getting gas-phase index
+        gas_phase_index: Optional[int] = None
+        for j, phase in enumerate(self.mixture.phases):
+            if phase.gaslike:  # there is only one gas-like phase
+                gas_phase_index = j
         # Computation of initial guess values
         if flash_type == "p-T":
 
@@ -965,18 +1005,15 @@ class FlashNR:
                 thd_state = ThermodynamicState.initialize(
                     num_comp, num_phases, num_vals, True, values_from=state_from_ad
                 )
-                thd_state.p = p
-                thd_state.T = T
             else:
                 thd_state = ThermodynamicState.initialize(
                     num_comp, num_phases, num_vals, True
                 )
-                thd_state.p = p
-                thd_state.T = T
                 thd_state.z = feed
-                thd_state = self._guess_fractions(
-                    thd_state, num_vals, guess_K_values=True
-                )
+
+            thd_state.p = p
+            thd_state.T = T
+            thd_state = self._guess_fractions(thd_state, num_vals, guess_K_values=True)
 
         elif flash_type == "p-h":
 
@@ -991,28 +1028,24 @@ class FlashNR:
                     ["T"],
                     values_from=state_from_ad,
                 )
-                thd_state.p = p
-                thd_state.h = h
             else:
                 thd_state = ThermodynamicState.initialize(
                     num_comp, num_phases, num_vals, True, ["T"]
                 )
-                thd_state.p = p
-                thd_state.h = h
                 thd_state.z = feed
-                # initial temperature guess using pseudo-critical temperature
-                thd_state, _ = self._guess_temperature(thd_state, num_vals, True)
-                thd_state = self._guess_fractions(
-                    thd_state, num_vals, guess_K_values=True
-                )
 
+            thd_state.p = p
+            thd_state.h = h
+            # initial temperature guess using pseudo-critical temperature
+            thd_state, _ = self._guess_temperature(thd_state, num_vals, True)
+            thd_state = self._guess_fractions(thd_state, num_vals, guess_K_values=True)
             # Alternating guess for fractions and temperature
             # successive-substitution-like
             res_is_zeros = False
-            for _ in range(3):
+            for _ in range(10):
                 # iterate over the enthalpy constraint some times to update T
                 thd_state, res_is_zeros = self._guess_temperature(
-                    thd_state, False, 3, num_vals
+                    thd_state, False, 10, num_vals
                 )
                 # Update fractions using the updated T
                 thd_state = self._guess_fractions(thd_state, num_vals, False)
@@ -1020,12 +1053,37 @@ class FlashNR:
                 if res_is_zeros:
                     break
 
-            # final temperature guess from last fraction guess, if res is not zero
-            if not res_is_zeros:
-                thd_state, _ = self._guess_temperature(thd_state, False, 3, num_vals)
+        elif flash_type == "h-v":
 
-        elif flash_type == "v-h":
-            NotImplementedError("Initial guess for v-h flash not implemented.")
+            h, v = state_args
+
+            if state_from_ad:
+                thd_state = ThermodynamicState.initialize(
+                    num_comp,
+                    num_phases,
+                    num_vals,
+                    True,
+                    ["T", "p", "s_i"],
+                    values_from=state_from_ad,
+                )
+            else:
+                thd_state = ThermodynamicState.initialize(
+                    num_comp, num_phases, num_vals, True, ["T", "p", "s_i"]
+                )
+                thd_state.z = feed
+
+            thd_state.v = v
+            thd_state.h = h
+            # initial p-T guess using pseudo-critical values
+            thd_state, _ = self._guess_temperature(thd_state, num_vals, True)
+            thd_state, res_is_zeros = self._guess_pT_from_volume(
+                thd_state, gas_phase_index, num_vals
+            )
+            # final fractions update using K-values from p-T guess
+            # thd_state = self._guess_fractions(thd_state, num_vals, False)
+
+        else:
+            NotImplementedError(f"Failed to recognize flash type {flash_type}.")
 
         logger.info(
             f"\nStarting {flash_type} flash\n"
@@ -1140,7 +1198,7 @@ class FlashNR:
         elif parsed_state[2] is not None and parsed_state[4] is not None:
             flash_type = "h-v"
             state_1 = parsed_state[4]  # mind the order!
-            state_2 = parsed_state[0]
+            state_2 = parsed_state[2]
         else:
             flash_type = "-".join(
                 [
@@ -1399,7 +1457,7 @@ class FlashNR:
 
                 If True, the pseudo-critical temperature is computed, a sum of critical
                 temperatures of components weighed with feed fractions.
-                If False, the enthalpy constraint is solved using newton iterations.
+                If False, the enthalpy constraint is solved using Newton iterations.
             iter_max: ``default=1``
 
                 Maximal number of iterations for when solving the enthalpy constraint.
@@ -1408,8 +1466,8 @@ class FlashNR:
                 If iterating, pass the number of unknown values per state function.
 
         Returns:
-            Argument ``state`` with updated fractions and an indicator if the residual
-            during iterations reached zero
+            Argument ``state`` with updated temperature and an indicator if the residual
+            during iterations reached zero.
 
         """
         res_is_zero = False
@@ -1422,20 +1480,149 @@ class FlashNR:
             )
             state.T.val = T_pc  # type: ignore
         else:
+            h_norm = state.h.copy()
+            h_norm[np.abs(h_norm) <= 1] = 1.0
             for _ in range(iter_max):
                 phase_props = self.mixture.compute_properties(
                     state.p, state.T, state.X, store=False
                 )
                 h_mix = safe_sum([y * prop.h for y, prop in zip(state.y, phase_props)])
 
-                res = h_mix.val - state.h
-                if np.linalg.norm(res) <= self.tolerance:
+                H = state.T ** (-1) * (h_mix - state.h) / h_norm / R_IDEAL
+                if np.linalg.norm(H.val) <= self.tolerance:
                     res_is_zero = True
+                    break
                 else:
                     # get only the derivative w.r.t to temperature and solve
-                    h_mix.jac = h_mix.jac[:, :num_vals].tocsr()
-                    dT = pypardiso.spsolve(h_mix.jac, -res)
-                    state.T.val = state.T.val + dT
+                    # derivative w.r.t temperature is diagonal since it is local
+                    dT = -H.val / H.jac[:, :num_vals].diagonal()
+                    state.T.val = state.T.val + (1 - np.abs(dT) / state.T.val) * dT
+
+        return state, res_is_zero
+
+    def _guess_pT_from_volume(
+        self,
+        state: ThermodynamicState,
+        gas_phase_index: int | None,
+        num_vals: int = 1,
+    ) -> ThermodynamicState:
+        """Computes a pressure guess for a mixture, and a temperature update based
+        on the pseudo-critical temperature.
+
+        References:
+            Based on initialization from
+            `Saha and Carrol (1997) <https://doi.org/10.1016/S0378-3812(97)00151-9>`_ .
+
+        Parameters:
+            state: A thermodynamic state data structure.
+            gas_phase_index: Index under which the gas phase fraction is stored in
+                ``state.y``. If none, the first independent fraction is used.
+            num_vals: ``default=1``
+
+                The number of unknown values per state function.
+
+        Returns:
+            Argument ``state`` with updated pressure and temperature values
+
+        """
+        v_pc = 0.0
+        for i, comp_i in enumerate(self.mixture.components):
+            v_pc += comp_i.V_crit * state.z[i] ** 2
+            for j, comp_j in enumerate(self.mixture.components):
+                if j != i:
+                    v_pc += (
+                        state.z[i]
+                        * state.z[j]
+                        / 8
+                        * (np.cbrt(comp_i.V_crit) + np.cbrt(comp_j.V_crit)) ** 3
+                    )
+
+        R = v_pc / state.v
+
+        liquid_like = R > 1
+        Z = 0.7 * np.ones(num_vals)
+        Z[liquid_like] = 0.2
+
+        T_guess = state.T.val * (1 + R**2)
+        T_liq = state.T.val / np.sqrt(R)
+        T_guess[liquid_like] = T_liq[liquid_like]
+
+        p_guess = Z * T_guess * R_IDEAL / v_pc * Pa_SCALE
+
+        state.p.val = p_guess
+        state.T.val = T_guess
+
+        # make a guess for fractions and improve p, T guess based on gas fraction
+        state = self._guess_fractions(state, num_vals, guess_K_values=True)
+
+        # correction based on gas phase index (or alternatively first independent phase)
+        if gas_phase_index:
+            y = state.y[gas_phase_index].val
+        else:
+            y = state.y[1].val
+        correction = y < 1e-3
+        if np.any(correction):
+            p_guess[correction] = p_guess[correction] * 0.7
+            T_guess[correction] = T_guess[correction] * 1.1
+
+        # Storing guess based on pseudo-critical values
+        state.p.val = p_guess
+        state.T.val = T_guess
+
+        y = [y.val for y in state.y]
+        res_is_zero: bool = False
+
+        # Corrective measures for pseudo-critical guess
+        h_norm = state.h.copy()
+        h_norm[np.abs(h_norm) <= 1] = 1.0
+        for _ in range(1):
+            phase_props = self.mixture.compute_properties(
+                state.p, state.T, state.X, store=False
+            )
+            h_mix = safe_sum([y * prop.h for y, prop in zip(state.y, phase_props)])
+
+            densities = [prop.rho.val for prop in phase_props]
+            saturations = FlashSystemNR.evaluate_saturations(y, densities)
+            for j, s in enumerate(saturations):
+                state.s[j].val = s
+
+            H = state.T ** (-2) * (h_mix - state.h) / h_norm
+            res = H.val
+            if np.linalg.norm(res) <= self.tolerance:
+                res_is_zero = True
+                break
+            else:
+                # get only the derivative w.r.t to temperature and solve
+                # matrix is diagonal since it is local
+                A = H.jac[:, num_vals : 2 * num_vals].diagonal()
+                dT = -res / A
+
+                factor = 1 - np.abs(dT) / state.T.val
+
+                # multiply update with -1 to such that dT= (h_target - h_mix)/dT_h_mix
+                T_guess = state.T.val - factor * dT
+                p_guess = state.p.val * (2 - factor)
+
+                correction = state.y[gas_phase_index].val > 1e-3
+                if np.any(correction):
+                    gas_saturated = np.isclose(
+                        state.y[gas_phase_index].val, 1, 0.0, self.tolerance
+                    )
+                    factor[gas_saturated] = 1.0
+
+                    T_guess[correction] = (state.T.val - factor * dT)[correction]
+
+                    v = safe_sum(
+                        [prop.rho * s for s, prop in zip(saturations, phase_props)]
+                    ) ** (-1)
+                    dvdp = v.jac[:, :num_vals].diagonal()
+                    dvdT = v.jac[:, num_vals : 2 * num_vals].diagonal()
+
+                    dv = dvdT / np.abs(dvdp)
+                    p_guess[correction] = (state.p.val - factor * dT * dv)[correction]
+
+                state.T.val = T_guess
+                state.p.val = p_guess
 
         return state, res_is_zero
 

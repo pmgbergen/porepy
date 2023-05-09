@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import chemicals
 
+from ._core import Pa_SCALE, g_SCALE
 from .chem_species import FluidSpeciesData
 
 __all__ = ["load_fluid_species"]
@@ -60,8 +61,8 @@ def load_fluid_species(
             cas = str(chemicals.CAS_from_any(name))
 
             # extracting data
-            mw = float(chemicals.MW(cas)) * 1e-3  # molas mass in kg / mol
-            pc = float(chemicals.Pc(cas)) * 1e-6  # critical pressure in MPa
+            mw = float(chemicals.MW(cas)) / g_SCALE  # molas mass in kg / mol
+            pc = float(chemicals.Pc(cas)) / Pa_SCALE  # critical pressure in MPa
             Tc = float(chemicals.Tc(cas))  # critical temperature in K
             vc = float(chemicals.Vc(cas))  # critical volume in m^3 / mol
             omega = float(chemicals.acentric.omega(cas))  # acentric factor
