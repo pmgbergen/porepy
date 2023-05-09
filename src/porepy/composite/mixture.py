@@ -119,8 +119,6 @@ class ThermodynamicState:
 
     """
 
-    a = lambda: {}
-
     z: list[NumericType] = field(default_factory=lambda: [])
     """Feed fractions per component. The first fraction is always the feed fraction of
     the reference component."""
@@ -148,6 +146,8 @@ class ThermodynamicState:
             msg += f"\n\tFeed fraction {i}: {z}"
         for j, y in enumerate(vals.y):
             msg += f"\n\tPhase fraction {j}: {y}"
+        for j, s in enumerate(vals.s):
+            msg += f"\n\tPhase saturation {j}: {s}"
         for j in range(np):
             msg += f"\n\tComposition phase {j}:"
             for i in range(nc):
@@ -216,7 +216,7 @@ class ThermodynamicState:
             num_comp: ``default=1``
 
                 Number of components. Must be at least 1.
-            num_phases: ``default=2``
+            num_phases: ``default=1``
 
                 Number of phases. Must be at least 1.
 
@@ -401,7 +401,7 @@ class ThermodynamicState:
                         jac_s_i = jac_glob.copy()
                         jac_s_i[:, -(occupied + num_vals) : -occupied] = id_block
                         jac_s_0_dep = jac_s_0_dep - jac_s_i
-                        s[num_phases - j] = pp.ad.AdArray(s[num_phases - j], jac_s_i)
+                        s[indp - j] = pp.ad.AdArray(s[indp - j], jac_s_i)
                         occupied += num_vals  # update occupied
                 if "s_r" in is_independent and not indp:
                     jac_s_0 = jac_glob.copy()
@@ -409,15 +409,17 @@ class ThermodynamicState:
                     s[0] = pp.ad.AdArray(s[0], jac_s_i)
                     occupied += num_vals  # update occupied
                 # eliminate reference saturation by unity
-                elif jac_s_0_dep:
-                    s[0] = pp.ad.AdArray(s[0], -1 * safe_sum([s_.jac for s_ in s[1:]]))
+                elif jac_s_0_dep is not None:
+                    s[0] = pp.ad.AdArray(s[0], jac_s_0_dep)
 
                 # construct derivatives w.r.t. feed fractions
                 if "z_i" in is_independent:
                     for i in range(num_comp - 1):
                         jac_z_i = jac_glob.copy()
                         jac_z_i[:, -(occupied + num_vals) : -occupied] = id_block
-                        z[num_comp - i] = pp.ad.AdArray(z[num_comp - i], jac_z_i)
+                        z[num_comp - 1 - i] = pp.ad.AdArray(
+                            z[num_comp - 1 - i], jac_z_i
+                        )
                         occupied += num_vals
 
                 # construct derivative w.r.t. reference feed fraction

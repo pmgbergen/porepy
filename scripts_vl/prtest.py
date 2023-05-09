@@ -4,8 +4,8 @@ import porepy as pp
 chems = ["H2O", "CO2"]
 
 z = [np.array([0.01])]  # only co2 fraction is enough
-p = np.array([10.])
-T = np.array([600.])
+p = np.array([1.]) * 1e6
+T = np.array([350.])
 
 species = pp.composite.load_fluid_species(chems)
 
@@ -55,8 +55,24 @@ success, results_ph = flash.flash(
     verbosity=1,
 )
 print("Results p-h:")
-print(str(results_pT))
+print(str(results_ph))
 
+print(f"p-diff between p-T and p-h: {np.linalg.norm(results_pT.p - results_ph.p)}")
 print(f"T-diff between p-T and p-h: {np.linalg.norm(results_pT.T - results_ph.T)}")
+print(f"h-diff between p-T and p-h: {np.linalg.norm(results_pT.h - results_ph.h)}")
+
+# h-v- flash
+success, results_hv = flash.flash(
+    state={'h': results_ph.h, 'v': results_ph.v}, eos_kwargs={'apply_smoother': True},
+    feed = z,
+    verbosity=1,
+)
+print("Results h-v:")
+print(str(results_hv))
+
+print(f"p-diff between p-T and h-v: {np.linalg.norm(results_pT.p - results_hv.p)}")
+print(f"T-diff between p-T and h-v: {np.linalg.norm(results_pT.T - results_hv.T)}")
+print(f"h-diff between p-T and h-v: {np.linalg.norm(results_pT.h - results_hv.h)}")
+print(f"v-diff between p-T and h-v: {np.linalg.norm(results_pT.v - results_hv.v)}")
 
 print("Done")

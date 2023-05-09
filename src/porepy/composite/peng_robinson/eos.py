@@ -13,7 +13,7 @@ import scipy.sparse as sps
 import porepy as pp
 from porepy.numerics.ad.operator_functions import NumericType
 
-from .._core import R_IDEAL, MPa_kJ_SCALE, safe_sum
+from .._core import J_SCALE, R_IDEAL, Pa_SCALE, safe_sum
 from ..phase import AbstractEoS, PhaseProperties
 from .mixing import VanDerWaals
 from .pr_bip import load_bip
@@ -495,7 +495,7 @@ class PengRobinsonEoS(AbstractEoS):
         # fugacity per present component
         phis: list[NumericType] = list()
         for i in range(len(self.components)):
-            B_i = T ** (-1) * self._b_vals[i] * p / R_IDEAL
+            B_i = self._B(self._b_vals[i], p, T)
             A_i = self._dXi_a(X, a_comps, bip, i) * p / (R_IDEAL**2 * T * T)
             phis.append(self._phi_i(Z, A_i, A, B_i, B))
 
@@ -793,12 +793,12 @@ class PengRobinsonEoS(AbstractEoS):
     @staticmethod
     def _rho(p: NumericType, T: NumericType, Z: NumericType) -> NumericType:
         """Auxiliary function implementing the formula for density."""
-        return Z ** (-1) / T * p * MPa_kJ_SCALE / R_IDEAL
+        return Z ** (-1) * (p) / (T * R_IDEAL) * Pa_SCALE / J_SCALE
 
     @staticmethod
     def _v(p: NumericType, T: NumericType, Z: NumericType) -> NumericType:
         """Auxiliary function implementing the formula for volume."""
-        return Z * T * R_IDEAL / (p * MPa_kJ_SCALE)
+        return Z * (T * R_IDEAL) / (p) * J_SCALE / Pa_SCALE
 
     @staticmethod
     def _h_dep(

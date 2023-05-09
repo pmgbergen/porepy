@@ -13,9 +13,28 @@ from porepy.numerics.ad.operator_functions import NumericType
 
 from .composite_utils import safe_sum
 
-MPa_kJ_SCALE = 1e3
+Pa_SCALE: float = 1.0
+"""Scaling factor for pressure unit (relative to Pascal).
 
-R_IDEAL: float = 8.31446261815324 * 1e-3
+If pressure is given in Mega-Pascal, set this to ``1e6``.
+
+"""
+
+J_SCALE: float = 1.0
+"""Scaling factor for energy unit (starting from Joule).
+
+If energy is given in kilo-Joule, set this to ``1e3``.
+
+"""
+
+g_SCALE: float = 1.0
+"""Scaling factor for mass unit (starting from gram).
+
+If mass is given in kilo-gram, set this to ``1e3``.
+
+"""
+
+R_IDEAL: float = 8.31446261815324 / J_SCALE
 """Universal molar gas constant.
 
 | Math. Dimension:        scalar
@@ -23,7 +42,7 @@ R_IDEAL: float = 8.31446261815324 * 1e-3
 
 """
 
-P_REF: float = 0.000611657
+P_REF: float = 611.657 / Pa_SCALE
 """The reference pressure for the composite module is set to the triple point pressure
 of pure water.
 
@@ -67,7 +86,7 @@ reference temperature, reference volume and universal gas constant.
 
 """
 
-U_REF: float = 0.0
+U_REF: float = 0.0 / J_SCALE
 """The reference value for the specific internal energy.
 
 The composite submodule assumes the specific internal energy of the ideal gas at given
@@ -78,7 +97,7 @@ reference pressure and temperature to be zero.
 
 """
 
-H_REF: float = U_REF + P_REF / RHO_REF
+H_REF: float = (U_REF + P_REF / RHO_REF) / J_SCALE
 """The reference value for the specific enthalpy.
 
 based on other reference values it holds:
