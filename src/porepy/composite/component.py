@@ -33,7 +33,7 @@ from scipy import sparse as sps
 import porepy as pp
 from porepy.numerics.ad.operator_functions import NumericType
 
-from ._core import COMPOSITIONAL_VARIABLE_SYMBOLS
+from ._core import COMPOSITIONAL_VARIABLE_SYMBOLS, R_IDEAL
 from .chem_species import ChemicalSpeciesData, FluidSpeciesData
 
 __all__ = [
@@ -112,7 +112,7 @@ class Component(abc.ABC, FluidSpeciesData):
         This function depends on experimental data and heuristic laws.
 
         - Math. Dimension:        scalar
-        - Phys. Dimension:        [-]
+        - Phys. Dimension:        [J / mol]
 
         Parameters:
             p: The pressure of the mixture.
@@ -123,6 +123,23 @@ class Component(abc.ABC, FluidSpeciesData):
 
         """
         pass
+
+    def u_ideal(self, p: NumericType, T: NumericType) -> NumericType:
+        """
+        - Math. Dimension:        scalar
+        - Phys. Dimension:        [J / mol]
+
+        Parameters:
+            p: The pressure of the mixture.
+            T: The temperature of the mixture.
+
+        Returns:
+            Ideal specific internal energy based on the relation
+
+            :math:`u_{id}(T) = h_{id}(T) - TR`.
+
+        """
+        return self.h_ideal(p, T) - T * R_IDEAL
 
 
 class Compound(Component):  # TODO fix molality to make it an ad.Function call

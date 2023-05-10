@@ -15,7 +15,7 @@ from porepy.numerics.ad.operator_functions import NumericType
 
 from ._core import (
     R_IDEAL,
-    Pa_SCALE,
+    PRESSURE_SCALE,
     _rr_pole,
     rachford_rice_feasible_region,
     rachford_rice_potential,
@@ -849,6 +849,11 @@ class FlashNR:
 
         Values can be set directly by modifying the values of this dictionary.
 
+        Note:
+            ``'j_max'`` can be set to ``None``. In this case, a while loop is performed.
+            Keep in mind that it might not finish in feasible time if the system is
+            difficult in this case.
+
         """
 
     def flash(
@@ -1547,7 +1552,7 @@ class FlashNR:
         T_liq = state.T.val / np.sqrt(R)
         T_guess[liquid_like] = T_liq[liquid_like]
 
-        p_guess = Z * T_guess * R_IDEAL / v_pc * Pa_SCALE
+        p_guess = Z * T_guess * R_IDEAL / v_pc * PRESSURE_SCALE
 
         state.p.val = p_guess
         state.T.val = T_guess
@@ -1619,6 +1624,8 @@ class FlashNR:
                     dvdT = v.jac[:, num_vals : 2 * num_vals].diagonal()
 
                     dv = dvdT / np.abs(dvdp)
+                    # TODO this linearization is too rough and gives bad initial
+                    # estimates for the h-v flash.
                     p_guess[correction] = (state.p.val - factor * dT * dv)[correction]
 
                 state.T.val = T_guess
@@ -1712,8 +1719,6 @@ class FlashNR:
                     f"Armijo line-search did not yield results after {j_max} steps."
                 )
         # if no j_max is defined, use while loop
-        # NOTE: If system is bad in some sense,
-        # this might not finish in feasible time.
         else:
             # prepare for while loop
             j = 1

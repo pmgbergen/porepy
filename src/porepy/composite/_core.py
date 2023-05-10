@@ -13,36 +13,43 @@ from porepy.numerics.ad.operator_functions import NumericType
 
 from .composite_utils import safe_sum
 
-Pa_SCALE: float = 1.0
+PRESSURE_SCALE: float = 1.0
 """Scaling factor for pressure unit (relative to Pascal).
 
 If pressure is given in Mega-Pascal, set this to ``1e6``.
 
 """
 
-J_SCALE: float = 1.0
+ENERGY_SCALE: float = 1.0
 """Scaling factor for energy unit (starting from Joule).
 
 If energy is given in kilo-Joule, set this to ``1e3``.
 
 """
 
-g_SCALE: float = 1.0
+MASS_SCALE: float = 1.0
 """Scaling factor for mass unit (starting from gram).
 
 If mass is given in kilo-gram, set this to ``1e3``.
 
 """
 
-R_IDEAL: float = 8.31446261815324 / J_SCALE
-"""Universal molar gas constant.
+VOLUME_SCALE: float = 1.0
+"""Scaling factor for volume unit (starting from cubic meter).
 
-| Math. Dimension:        scalar
-| Phys. Dimension:        [kJ / K mol]
+If volume is given in cubic centimeter, set this to ``1e4``.
 
 """
 
-P_REF: float = 611.657 / Pa_SCALE
+R_IDEAL: float = 8.31446261815324 / ENERGY_SCALE
+"""Universal molar gas constant.
+
+| Math. Dimension:        scalar
+| Phys. Dimension:        [J / K mol]
+
+"""
+
+P_REF: float = 611.657 / PRESSURE_SCALE
 """The reference pressure for the composite module is set to the triple point pressure
 of pure water.
 
@@ -50,7 +57,7 @@ This value must be used to calculate the reference state when dealing with therm
 properties.
 
 | Math. Dimension:      scalar
-| Phys. Dimension:      [MPa]
+| Phys. Dimension:      [Pa]
 
 """
 
@@ -86,18 +93,18 @@ reference temperature, reference volume and universal gas constant.
 
 """
 
-U_REF: float = 0.0 / J_SCALE
+U_REF: float = 0.0 / ENERGY_SCALE
 """The reference value for the specific internal energy.
 
 The composite submodule assumes the specific internal energy of the ideal gas at given
 reference pressure and temperature to be zero.
 
 | Math. Dimension:      scalar
-| Phys. Dimension:      [kJ / mol]
+| Phys. Dimension:      [J / mol]
 
 """
 
-H_REF: float = (U_REF + P_REF / RHO_REF) / J_SCALE
+H_REF: float = (U_REF + P_REF / RHO_REF) / ENERGY_SCALE
 """The reference value for the specific enthalpy.
 
 based on other reference values it holds:
@@ -105,7 +112,7 @@ based on other reference values it holds:
 H_REF = U_REF + P_REF / RHO_REF
 
 | Math. Dimension:      scalar
-| Phys. Dimension:      [kJ / mol]
+| Phys. Dimension:      [J / mol]
 
 """
 
@@ -123,7 +130,7 @@ where g (heat capacity ratio) is set to 8/6 for triatomic molecules.
 (`see here <https://en.wikipedia.org/wiki/Heat_capacity_ratio>`_)
 
 | Math. Dimension:      scalar
-| Phys. Dimension:      [kJ / K mol]
+| Phys. Dimension:      [J / K mol]
 
 """
 
@@ -138,7 +145,7 @@ where g (heat capacity ratio) is set to 8/6 for triatomic molecules.
 (`see here <https://en.wikipedia.org/wiki/Heat_capacity_ratio>`_)
 
 | Math. Dimension:      scalar
-| Phys. Dimension:      [kJ / K mol]
+| Phys. Dimension:      [J / K mol]
 
 """
 
