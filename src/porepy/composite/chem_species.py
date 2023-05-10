@@ -36,7 +36,7 @@ class FluidSpeciesData(ChemicalSpeciesData):
     """
 
     p_crit: float
-    """Critical pressure in ``[MPa]``."""
+    """Critical pressure in ``[Pa]``."""
 
     T_crit: float
     """Critical temperature in ``[K]``."""

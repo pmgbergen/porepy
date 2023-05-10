@@ -13,7 +13,7 @@ import scipy.sparse as sps
 import porepy as pp
 from porepy.numerics.ad.operator_functions import NumericType
 
-from .._core import J_SCALE, R_IDEAL, Pa_SCALE, safe_sum
+from .._core import ENERGY_SCALE, PRESSURE_SCALE, R_IDEAL, safe_sum
 from ..phase import AbstractEoS, PhaseProperties
 from .mixing import VanDerWaals
 from .pr_bip import load_bip
@@ -793,12 +793,12 @@ class PengRobinsonEoS(AbstractEoS):
     @staticmethod
     def _rho(p: NumericType, T: NumericType, Z: NumericType) -> NumericType:
         """Auxiliary function implementing the formula for density."""
-        return Z ** (-1) * (p) / (T * R_IDEAL) * Pa_SCALE / J_SCALE
+        return Z ** (-1) * (p) / (T * R_IDEAL) * PRESSURE_SCALE / ENERGY_SCALE
 
     @staticmethod
     def _v(p: NumericType, T: NumericType, Z: NumericType) -> NumericType:
         """Auxiliary function implementing the formula for volume."""
-        return Z * (T * R_IDEAL) / (p) * J_SCALE / Pa_SCALE
+        return Z * (T * R_IDEAL) / (p) * ENERGY_SCALE / PRESSURE_SCALE
 
     @staticmethod
     def _h_dep(

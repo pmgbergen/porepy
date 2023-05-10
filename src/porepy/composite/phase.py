@@ -40,14 +40,14 @@ class PhaseProperties:
     """Molar volume ``[m^3 / mol]``."""
 
     h_ideal: NumericType
-    """Specific ideal enthalpy ``[kJ / mol / K]``, which is a sum of ideal enthalpies of
+    """Specific ideal enthalpy ``[J / mol / K]``, which is a sum of ideal enthalpies of
     components weighed with their fraction. """
 
     h_dep: NumericType
-    """Specific departure enthalpy ``[kJ / mol / K]``."""
+    """Specific departure enthalpy ``[J / mol / K]``."""
 
     h: NumericType
-    """Specific enthalpy ``[kJ / mol / K]``, a sum of :attr:`h_ideal` and :attr:`h_dep`.
+    """Specific enthalpy ``[J / mol / K]``, a sum of :attr:`h_ideal` and :attr:`h_dep`.
     """
 
     phis: list[NumericType]
@@ -322,7 +322,7 @@ class Phase:
         """Specific molar enthalpy of this phase.
 
         - Math. Dimension:        scalar
-        - Phys.Dimension:         [kJ / mol / K]
+        - Phys.Dimension:         [J / mol / K]
 
         This is an AD-compatible representation, whose value is computed using
         :meth:`compute_properties`.

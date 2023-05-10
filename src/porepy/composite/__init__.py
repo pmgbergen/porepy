@@ -10,10 +10,10 @@ The subsystems can naturally be extended by the respective flow model.
 
 The composite module works (for now) with the following units as base units:
 
-- Pressure:     [MPa] (Mega Pascal)
+- Pressure:     [Pa] (Pascal)
 - Temperature:  [K] (Kelvin)
 - Mass:         [mol] (mol)
-- Energy:       [kJ] (Kilo Joule)
+- Energy:       [J] (Joule)
 - Volume:       [m^3] (Cubic Meter)
 
 For the reference state, an ideal tri-atomic gas (like water),

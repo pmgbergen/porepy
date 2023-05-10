@@ -17,7 +17,7 @@ from typing import Callable
 import porepy as pp
 from porepy.numerics.ad.operator_functions import NumericType
 
-from .._core import R_IDEAL, T_REF
+from .._core import ENERGY_SCALE, R_IDEAL, T_REF
 from ..chem_interface import load_fluid_species
 from ..component import Component, Compound
 
@@ -112,12 +112,12 @@ class Component_PR(Component):
 class H2O(Component_PR):
     """Component representing water as a fluid for the Peng-Robinson EoS."""
 
-    cp1: float = 0.0322
+    cp1: float = 32.2 / ENERGY_SCALE
     """``ci`` are heat capacity coefficients at constant pressure
-    (see :meth:`h_ideal`) given in [kJ / mol K^i]."""
-    cp2: float = 1.904e-6
-    cp3: float = 1.055e-8
-    cp4: float = -3.596e-12
+    (see :meth:`h_ideal`) given in ``[J / mol K^i]``."""
+    cp2: float = 1.907e-3 / ENERGY_SCALE
+    cp3: float = 1.055e-5 / ENERGY_SCALE
+    cp4: float = -3.596e-9 / ENERGY_SCALE
 
     def h_ideal(self, p: NumericType, T: NumericType) -> NumericType:
         """The specific molar enthalpy of is constructed using
@@ -137,12 +137,12 @@ class H2O(Component_PR):
 class CO2(Component_PR):
     """Component representing carbon dioxide as a fluid for the Peng-Robinson EoS."""
 
-    cp1: float = 0.019795
+    cp1: float = 19.795 / ENERGY_SCALE
     """``ci`` are heat capacity coefficients at constant pressure
-    (see :meth:`h_ideal`) given in [kJ / mol K^i]."""
-    cp2: float = 7.343e-5
-    cp3: float = -5.602e-8
-    cp4: float = 1.715e-11
+    (see :meth:`h_ideal`) given in ``[J / mol K^i]``."""
+    cp2: float = 7.343e-2 / ENERGY_SCALE
+    cp3: float = -5.602e-5 / ENERGY_SCALE
+    cp4: float = 1.715e-8 / ENERGY_SCALE
 
     def h_ideal(self, p: NumericType, T: NumericType) -> NumericType:
         """The specific molar enthalpy of is constructed using
@@ -161,11 +161,11 @@ class CO2(Component_PR):
 class H2S(Component_PR):
     """Component representing hydrogen sulfide as a fluid for the Peng-Robinson EoS."""
 
-    cp1: float = 3.931
+    cp1: float = 3.931 / ENERGY_SCALE
     """``ci`` are heat capacity coefficients at constant pressure
-    (see :meth:`h_ideal`) given in [kJ / mol K^i]."""
-    cp2: float = 1.49 - 3
-    cp3: float = -0.232e5
+    (see :meth:`h_ideal`) given in ``[J / mol K^i]``."""
+    cp2: float = 1.49e-3 / ENERGY_SCALE
+    cp3: float = -0.232e5 / ENERGY_SCALE
 
     def h_ideal(self, p: NumericType, T: NumericType) -> NumericType:
         """The specific molar enthalpy of is constructed using
@@ -190,11 +190,11 @@ class N2(Component_PR):
 
     """
 
-    cp1: float = 3.280
+    cp1: float = 3.280 / ENERGY_SCALE
     """``ci`` are heat capacity coefficients at constant pressure
-    (see :meth:`h_ideal`) given in [kJ / mol K^i]."""
-    cp2: float = 0.593e-3
-    cp3: float = 0.04e5
+    (see :meth:`h_ideal`) given in ``[J / mol K^i]``."""
+    cp2: float = 0.593e-3 / ENERGY_SCALE
+    cp3: float = 0.04e5 / ENERGY_SCALE
 
     def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
