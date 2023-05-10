@@ -829,6 +829,8 @@ class FractureNetwork2d:
             domain: ``default=None``
 
                 Domain specification. If not provided, :attr:`domain` will be used.
+                When the domain is given as a set of lines create the grid respecting
+                the lines.
             add_domain_edges: ``default=True``
 
                 Whether to include the boundary edges and points in the list of edges.
@@ -889,8 +891,8 @@ class FractureNetwork2d:
             dom_lines = np.array([[0, 1], [1, 2], [2, 3], [3, 0]]).T
 
         elif not domain.is_boxed:
-            # Create the domain lines from the polytope
-            # We suppose that the lines are ordered counter-clockwise
+            # Create the domain lines from the its polytopal representation
+            # We suppose that the lines are ordered clockwise or counter-clockwise
             dom_p = np.hstack(domain.polytope)[:, ::2]
             idx = np.arange(dom_p.shape[1])
             dom_lines = np.vstack((idx, np.roll(idx, -1)))
