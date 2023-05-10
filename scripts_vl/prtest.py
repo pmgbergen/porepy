@@ -3,7 +3,7 @@ import porepy as pp
 
 chems = ["H2O", "CO2"]
 
-z = [np.array([0.01])]  # only co2 fraction is enough
+z = [np.array([0.1])]  # only co2 fraction is enough
 p = np.array([1.]) * 1e6
 T = np.array([350.])
 
@@ -33,7 +33,7 @@ yr = mix.reference_phase.fraction.evaluate(mix.system)
 flash = pp.composite.FlashNR(mix)
 flash.use_armijo = True
 flash.armijo_parameters["rho"] = 0.99
-flash.armijo_parameters["j_max"] = 50
+flash.armijo_parameters["j_max"] = 80
 flash.armijo_parameters["return_max"] = True
 flash.newton_update_chop = 1.0
 flash.tolerance = 1e-8
@@ -54,12 +54,9 @@ success, results_ph = flash.flash(
     feed = z,
     verbosity=1,
 )
-print("Results p-h:")
-print(str(results_ph))
 
-print(f"p-diff between p-T and p-h: {np.linalg.norm(results_pT.p - results_ph.p)}")
-print(f"T-diff between p-T and p-h: {np.linalg.norm(results_pT.T - results_ph.T)}")
-print(f"h-diff between p-T and p-h: {np.linalg.norm(results_pT.h - results_ph.h)}")
+print("Difference between p-T and p-h:")
+print(str(results_pT.diff(results_ph)))
 
 # h-v- flash
 success, results_hv = flash.flash(
@@ -67,12 +64,7 @@ success, results_hv = flash.flash(
     feed = z,
     verbosity=1,
 )
-print("Results h-v:")
-print(str(results_hv))
-
-print(f"p-diff between p-T and h-v: {np.linalg.norm(results_pT.p - results_hv.p)}")
-print(f"T-diff between p-T and h-v: {np.linalg.norm(results_pT.T - results_hv.T)}")
-print(f"h-diff between p-T and h-v: {np.linalg.norm(results_pT.h - results_hv.h)}")
-print(f"v-diff between p-T and h-v: {np.linalg.norm(results_pT.v - results_hv.v)}")
+print("Difference between p-T and h-v:")
+print(str(results_pT.diff(results_hv)))
 
 print("Done")
