@@ -159,6 +159,35 @@ class ThermodynamicState:
 
         return msg
 
+    def diff(self, other: ThermodynamicState) -> ThermodynamicState:
+        """Returns a state containing the absolute difference between this instance
+        and another state.
+
+        The difference is calculated per state function and fraction and uses only
+        values (no derivatives, if any is given as an AD-array).
+
+        Parameters:
+            other: The other thermodynamic state.
+
+        Returns:
+            A new data class instance containing absolute difference values.
+
+        """
+        sv = self.values()
+        ov = other.values()
+
+        p = np.abs(sv.p - ov.p)
+        T = np.abs(sv.T - ov.T)
+        h = np.abs(sv.h - ov.h)
+        v = np.abs(sv.v - ov.v)
+        rho = np.abs(sv.rho - ov.rho)
+        z = [np.abs(sz - oz) for sz, oz in zip(sv.z, ov.z)]
+        y = [np.abs(sy - oy) for sy, oy in zip(sv.y, ov.y)]
+        s = [np.abs(ss - os) for ss, os in zip(sv.s, ov.s)]
+        X = [[np.abs(sx - ox) for sx, ox in zip(Xs, Xo)] for Xs, Xo in zip(sv.X, ov.X)]
+
+        return ThermodynamicState(p=p, T=T, h=h, v=v, rho=rho, z=z, y=y, s=s, X=X)
+
     def values(self) -> ThermodynamicState:
         """Returns a derivative-free state in case any state function is stored as
         an :class:`~porepy.numerics.ad.forward_mode.AdArray`."""
@@ -1075,6 +1104,7 @@ class BasicMixture:
         T: NumericType,
         X: list[list[NumericType]],
         store: Literal[True] = True,
+        normalize: bool = False,
         **kwargs,
     ) -> None:
         # Typing overload for default return value: None, properties are stored
@@ -1087,6 +1117,7 @@ class BasicMixture:
         T: NumericType,
         X: list[list[NumericType]],
         store: Literal[False] = False,
+        normalize: bool = False,
         **kwargs,
     ) -> list[PhaseProperties]:
         # Typing overload for default return value: Properties are returned
@@ -1098,6 +1129,7 @@ class BasicMixture:
         T: NumericType,
         X: list[list[NumericType]],
         store: bool = True,
+        normalize: bool = False,
         **kwargs,
     ) -> None | list[PhaseProperties]:
         """This is a wrapper to compute the properties of each phase.
@@ -1113,6 +1145,9 @@ class BasicMixture:
             store: ``default=True``
 
                 Flag to store or return the results
+            normalize: ``default=False``
+
+                Normalizes phase compositions if True.
             X: ``len=n_p``
 
                 A nested list containing for each phase a sub-list of (normalized)
@@ -1122,7 +1157,18 @@ class BasicMixture:
         """
         results: list[PhaseProperties] = list()
         for j, phase in enumerate(self.phases):
-            props = phase.compute_properties(p, T, X[j], store=store, **kwargs)
+            if normalize:
+                s_j = safe_sum(X[j])
+                s_j = s_j.val if isinstance(s_j, pp.ad.AdArray) else s_j
+                X_j = [
+                    pp.ad.AdArray(x.val / s_j, x.jac)
+                    if isinstance(x, pp.ad.AdArray)
+                    else x / s_j
+                    for x in X[j]
+                ]
+            else:
+                X_j = X[j]
+            props = phase.compute_properties(p, T, X_j, store=store, **kwargs)
             results.append(props)
         if not store:
             return results

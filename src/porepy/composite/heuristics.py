@@ -17,9 +17,6 @@ def K_val_Wilson(
     """Calculates an estimation of the K-value for a component defined by its
     critical properties and acentric factor.
 
-    The estimation is based on the Wilson correlation, including an addition of
-    ``1e-12`` to keep the value positive.
-
     Parameters:
         p: Pressure.
         p_c: Critical pressure of a component.
@@ -31,6 +28,6 @@ def K_val_Wilson(
         The K-value estimation.
 
     """
-    K = pp.ad.exp(5.37 * (1 + acentric_factor) * (1 - T_c / T)) * p_c / p + 1.0e-12
+    K = pp.ad.exp(5.37 * (1 + acentric_factor) * (1 - T_c / T)) * p_c / p
     # K = pp.ad.power(K, 1./3.)
     return K
