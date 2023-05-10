@@ -868,16 +868,26 @@ class FractureNetwork2d:
             x_max = np.max(np.asarray(x_pts)) + 10 * self.tol
             y_min = np.min(np.asarray(y_pts)) - 10 * self.tol
             y_max = np.max(np.asarray(y_pts)) + 10 * self.tol
-        else:
+        elif domain.is_boxed:
             # If the domain is given, we know the min/max points
             x_min = domain.bounding_box["xmin"]
             x_max = domain.bounding_box["xmax"]
             y_min = domain.bounding_box["ymin"]
             y_max = domain.bounding_box["ymax"]
 
-        # Create the domain lines
-        dom_p = np.array([[x_min, x_max, x_max, x_min], [y_min, y_min, y_max, y_max]])
-        dom_lines = np.array([[0, 1], [1, 2], [2, 3], [3, 0]]).T
+            # Create the domain lines
+            dom_p = np.array(
+                [[x_min, x_max, x_max, x_min], [y_min, y_min, y_max, y_max]]
+            )
+            dom_lines = np.array([[0, 1], [1, 2], [2, 3], [3, 0]]).T
+        elif not domain.is_boxed:
+            # Create the domain lines from the polytope
+            # We suppose that the lines are ordered counter-clockwise
+            dom_p = np.hstack(domain.polytope)[:, ::2]
+            idx = np.arange(dom_p.shape[1])
+            dom_lines = np.vstack((idx, np.roll(idx, -1)))
+        else:
+            raise ValueError
 
         # Constrain the edges to the domain
         p, e, edges_kept = pp.constrain_geometry.lines_by_polygon(
