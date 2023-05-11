@@ -33,6 +33,7 @@ References:
 __all__ = []
 
 from . import (
+    _core,
     chem_interface,
     chem_species,
     component,
@@ -42,6 +43,7 @@ from . import (
     peng_robinson,
     phase,
 )
+from ._core import *
 from .chem_interface import *
 from .chem_species import *
 from .component import *
@@ -50,6 +52,7 @@ from .flash import *
 from .mixture import *
 from .phase import *
 
+__all__.extend(_core.__all__)
 __all__.extend(chem_interface.__all__)
 __all__.extend(chem_species.__all__)
 __all__.extend(component.__all__)

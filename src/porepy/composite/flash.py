@@ -14,9 +14,11 @@ import porepy as pp
 from porepy.numerics.ad.operator_functions import NumericType
 
 from ._core import (
+    ENERGY_SCALE,
     PRESSURE_SCALE,
     R_IDEAL,
     T_REF,
+    VOLUME_SCALE,
     _rr_pole,
     rachford_rice_feasible_region,
     rachford_rice_potential,
@@ -327,6 +329,7 @@ class FlashSystemNR(ThermodynamicState):
             h_norm = self.h.copy()
             h_norm[np.abs(h_norm) <= 1] = 1.0
             equ = T ** (-2) * equ / h_norm
+            # equ = equ / h_norm
             equations.append(equ)
 
         # Third, volume constraint if pressure is unknown
@@ -351,7 +354,7 @@ class FlashSystemNR(ThermodynamicState):
             regularization: list[NumericType] = []
 
             for j in range(self._num_phases):
-                unity_j: NumericType = self.mixture.evaluate_unity(X[j])  # type: ignore
+                unity_j = self.mixture.evaluate_unity(X[j])  # type: ignore
                 composition_unities.append(unity_j)
                 equ = y[j] * unity_j - nu
                 regularization.append(
@@ -366,12 +369,12 @@ class FlashSystemNR(ThermodynamicState):
             # coupling equations and some factor
             if with_derivatives:
                 for j, reg in enumerate(regularization):
-                    equ_j = equations[-(j + 1)]
+                    equ_j = equations[-(1 + j)]
                     equ.jac = equ.jac - sps.diags(reg.val) * equ_j.jac
                     equ.val = equ.val - reg.val * equ_j.val
             else:
                 for j, reg in enumerate(regularization):
-                    equ_j = equations[-(j + 1)]
+                    equ_j = equations[-(1 + j)]
                     equ = equ - reg * equ_j
             equations.append(equ)
         else:
@@ -1081,12 +1084,29 @@ class FlashNR:
             thd_state.v = v
             thd_state.h = h
             # initial p-T guess using pseudo-critical values
-            thd_state, _ = self._guess_temperature(thd_state, num_vals, True)
             thd_state, res_is_zeros = self._guess_pT_from_volume(
-                thd_state, gas_phase_index, num_vals
+                thd_state, True, gas_phase_index, num_vals=num_vals
             )
-            # final fractions update using K-values from p-T guess
-            # thd_state = self._guess_fractions(thd_state, num_vals, False)
+            # fractions update using K-values from p-T guess
+            thd_state = self._guess_fractions(thd_state, num_vals, True)
+            for _ in range(1):
+                thd_state, res_is_zeros = self._guess_pT_from_volume(
+                    thd_state, False, gas_phase_index, 3, num_vals
+                )
+                # Do so multiple times in a loop, break if res for h constraint reached
+                if res_is_zeros:
+                    # update fractions using new p and T
+                    thd_state = self._guess_fractions(thd_state, num_vals, False)
+                    break
+            # final saturation update
+            phase_props = self.mixture.compute_properties(
+                thd_state.p, thd_state.T, thd_state.X, store=False, normalize=True
+            )
+            densities = [prop.rho.val for prop in phase_props]
+            y = [y.val for y in thd_state.y]
+            saturations = FlashSystemNR.evaluate_saturations(y, densities)
+            for j, s in enumerate(saturations):
+                thd_state.s[j].val = s
 
         else:
             NotImplementedError(f"Failed to recognize flash type {flash_type}.")
@@ -1513,9 +1533,8 @@ class FlashNR:
                     for i, comp in enumerate(self.mixture.components)
                 ]
             )
-            T_estimate = (T_pc - T_REF) / 2
-            T_estimate[T_estimate < 0] += T_REF
-            state.T.val = T_pc  # type: ignore
+            T_estimate = (T_pc - T_REF) / 2 + T_REF
+            state.T.val = T_estimate
         else:
             h_norm = state.h.copy()
             h_norm[np.abs(h_norm) <= 1] = 1.0
@@ -1547,130 +1566,230 @@ class FlashNR:
     def _guess_pT_from_volume(
         self,
         state: ThermodynamicState,
+        use_pseudocritical: bool,
         gas_phase_index: int | None,
+        iter_max: int = 1,
         num_vals: int = 1,
-    ) -> ThermodynamicState:
-        """Computes a pressure guess for a mixture, and a temperature update based
-        on the pseudo-critical temperature.
+    ) -> tuple[ThermodynamicState, bool]:
+        """Computes a pressure and temperature guess for a mixture, and an
+        initialization based on the pseudo-critical values.
 
         References:
-            Based on initialization from
+            Motivated by initialization from
             `Saha and Carrol (1997) <https://doi.org/10.1016/S0378-3812(97)00151-9>`_ .
 
         Parameters:
             state: A thermodynamic state data structure.
+            use_pseudocritical: A flag to use pseudo-critical values to initialize
+                pressure. Otherwise iterations on constraints are used.
             gas_phase_index: Index under which the gas phase fraction is stored in
                 ``state.y``. If none, the first independent fraction is used.
+            iter_max: ``default=1``
+
+                Maximal number of iterations for when solving the constraints.
             num_vals: ``default=1``
 
                 The number of unknown values per state function.
 
         Returns:
-            Argument ``state`` with updated pressure and temperature values
+            Argument ``state`` with updated pressure and temperature values,
+            and a bool indicating if the constraint residuals reached zero during
+            iterations.
 
         """
-        v_pc = 0.0
-        components = list(self.mixture.components)
-        nc = len(components)
-        for i in range(nc):
-            v_pc += components[i].V_crit * state.z[i] ** 2
-            for j in range(i + 1, nc):
-                v_pc += (
-                    state.z[i]
-                    * state.z[j]
-                    / 4
-                    * (np.cbrt(components[i].V_crit) + np.cbrt(components[j].V_crit))
-                    ** 3
+        # res_h_is_zero: bool = False
+        # res_p_is_zero: bool = False
+        res_is_zero: bool = False
+        nph = self.mixture.num_phases
+        ncp = self.mixture.num_components
+
+        if use_pseudocritical:
+            v_pc = 0.0
+            T_pc = 0.0
+            components = list(self.mixture.components)
+
+            for i in range(ncp):
+                v_pc += components[i].V_crit * state.z[i] ** 2
+                T_pc += state.z[i] * components[i].T_crit
+                for j in range(i + 1, ncp):
+                    v_pc += (
+                        state.z[i]
+                        * state.z[j]
+                        / 4
+                        * (
+                            np.cbrt(components[i].V_crit)
+                            + np.cbrt(components[j].V_crit)
+                        )
+                        ** 3
+                    )
+
+            R = v_pc / state.v
+
+            liquid_like = R > 1
+            Z = 0.7 * np.ones(num_vals)
+            Z[liquid_like] = 0.2
+
+            # T_estimate = (T_pc - T_REF) / 2 + T_REF
+            T_guess = T_pc * (1 + R**2)
+            T_liq = T_pc / np.sqrt(R)
+            T_guess[liquid_like] = T_liq[liquid_like]
+
+            p_guess = (
+                Z
+                * T_guess
+                * R_IDEAL
+                / state.v
+                * ENERGY_SCALE
+                / PRESSURE_SCALE
+                * VOLUME_SCALE
+            )
+
+            state.p.val = p_guess
+            state.T.val = T_guess
+
+            # make a guess for fractions and improve p, T guess based on gas fraction
+            state = self._guess_fractions(state, num_vals, guess_K_values=True)
+
+            # correction based on gas phase index (or alternatively first independent phase)
+            if gas_phase_index:
+                y = state.y[gas_phase_index].val
+            else:
+                y = state.y[1].val
+            correction = y < 1e-3
+            # Assuming liquid-like state, increase pressure, drop temperature
+            if np.any(correction):
+                p_guess[correction] = p_guess[correction] * 1.3
+                T_guess[correction] = T_guess[correction] * 0.9
+            correction = y > 1 - 1e-3
+            # Assuming gas-like state, increase temperature, drop pressure
+            if np.any(correction):
+                p_guess[correction] = p_guess[correction] * 0.7
+                T_guess[correction] = T_guess[correction] * 1.1
+            state.p.val = p_guess
+            state.T.val = T_guess
+        else:
+            chop = 1e-1
+
+            # Corrective measures for pseudo-critical guess
+            h_norm = state.h.copy()
+            h_norm[np.abs(h_norm) < 1] = 1.0
+            v_norm = state.v.copy()
+            v_norm[np.abs(v_norm) < 1] = 1.0
+            for _ in range(iter_max):
+                phase_props = self.mixture.compute_properties(
+                    state.p, state.T, state.X, store=False, normalize=True
+                )
+                y = [y.val for y in state.y]
+                densities = [prop.rho.val for prop in phase_props]
+
+                # mixture properties
+                h_mix = safe_sum([y * prop.h for y, prop in zip(state.y, phase_props)])
+                saturations = FlashSystemNR.evaluate_saturations(y, densities)
+                for j, s in enumerate(saturations):
+                    state.s[j].val = s
+                rho_mix = safe_sum(
+                    [prop.rho * s for s, prop in zip(state.s, phase_props)]
+                )
+                v_mix = rho_mix ** (-1)
+
+                # Assembling enthalpy, volume and saturation constraints
+                H = state.T ** (-2) * (h_mix - state.h) / h_norm
+                V = state.T ** (-1) * (v_mix - state.v) / h_norm
+                S = list()
+                for j in range(1, nph):
+                    S.append(state.y[j] - phase_props[j].rho / rho_mix * state.s[j])
+                equations = pp.ad.AdArray(
+                    np.hstack([H.val, V.val] + [s.val for s in S]),
+                    sps.vstack([H.jac, V.jac] + [s.jac for s in S]),
                 )
 
-        R = v_pc / state.v
-
-        liquid_like = R > 1
-        Z = 0.7 * np.ones(num_vals)
-        Z[liquid_like] = 0.2
-
-        T_guess = state.T.val * (1 + R**2)
-        T_liq = state.T.val / np.sqrt(R)
-        T_guess[liquid_like] = T_liq[liquid_like]
-
-        p_guess = Z * T_guess * R_IDEAL / v_pc * PRESSURE_SCALE
-
-        state.p.val = p_guess
-        state.T.val = T_guess
-
-        # make a guess for fractions and improve p, T guess based on gas fraction
-        state = self._guess_fractions(state, num_vals, guess_K_values=True)
-
-        # correction based on gas phase index (or alternatively first independent phase)
-        if gas_phase_index:
-            y = state.y[gas_phase_index].val
-        else:
-            y = state.y[1].val
-        correction = y < 1e-3
-        if np.any(correction):
-            p_guess[correction] = p_guess[correction] * 0.7
-            T_guess[correction] = T_guess[correction] * 1.1
-
-        # Storing guess based on pseudo-critical values
-        state.p.val = p_guess
-        state.T.val = T_guess
-
-        y = [y.val for y in state.y]
-        res_is_zero: bool = False
-
-        # Corrective measures for pseudo-critical guess
-        h_norm = state.h.copy()
-        h_norm[np.abs(h_norm) <= 1] = 1.0
-        for _ in range(1):
-            phase_props = self.mixture.compute_properties(
-                state.p, state.T, state.X, store=False, normalize=True
-            )
-            h_mix = safe_sum([y * prop.h for y, prop in zip(state.y, phase_props)])
-
-            densities = [prop.rho.val for prop in phase_props]
-            saturations = FlashSystemNR.evaluate_saturations(y, densities)
-            for j, s in enumerate(saturations):
-                state.s[j].val = s
-
-            H = state.T ** (-2) * (h_mix - state.h) / h_norm
-            res = H.val
-            if np.linalg.norm(res) <= self.tolerance:
-                res_is_zero = True
-                break
-            else:
-                # get only the derivative w.r.t to temperature and solve
-                # matrix is diagonal since it is local
-                A = H.jac[:, num_vals : 2 * num_vals].diagonal()
-                dT = -res / A
-
-                factor = 1 - np.abs(dT) / state.T.val
-
-                # multiply update with -1 to such that dT= (h_target - h_mix)/dT_h_mix
-                T_guess = state.T.val - factor * dT
-                p_guess = state.p.val * (2 - factor)
-
-                correction = state.y[gas_phase_index].val > 1e-3
-                if np.any(correction):
-                    gas_saturated = np.isclose(
-                        state.y[gas_phase_index].val, 1, 0.0, self.tolerance
+                # check if residual zero, otherwise make local updates.
+                if np.linalg.norm(equations.val) <= self.tolerance:
+                    res_is_zero = True
+                    break
+                else:
+                    dX = pypardiso.spsolve(
+                        equations.jac[:, : (1 + nph) * num_vals], -equations.val
                     )
-                    factor[gas_saturated] = 1.0
+                    dp = chop * dX[:num_vals]
+                    dT = dX[num_vals : 2 * num_vals]
 
-                    T_guess[correction] = (state.T.val - factor * dT)[correction]
+                    corrector = np.logical_or(
+                        np.logical_and(h_mix.val > state.h, dT > 0),
+                        np.logical_and(h_mix.val < state.h, dT < 0),
+                    )
+                    dT[corrector] *= -1
+                    factor = 1 - np.abs(dT) / state.T.val
 
-                    v = safe_sum(
-                        [prop.rho * s for s, prop in zip(saturations, phase_props)]
-                    ) ** (-1)
-                    dvdp = v.jac[:, :num_vals].diagonal()
-                    dvdT = v.jac[:, num_vals : 2 * num_vals].diagonal()
+                    corrector = np.logical_or(
+                        np.logical_and(h_mix.val > state.h, dp > 0),
+                        np.logical_and(h_mix.val < state.h, dp < 0),
+                    )
+                    dp[corrector] *= -1
 
+                    dvdp = v_mix.jac[:, :num_vals].diagonal()
+                    dvdT = v_mix.jac[:, num_vals : 2 * num_vals].diagonal()
                     dv = dvdT / np.abs(dvdp)
-                    # TODO this linearization is too rough and gives bad initial
-                    # estimates for the h-v flash.
-                    p_guess[correction] = (state.p.val - factor * dT * dv)[correction]
+                    dp2 = dT * dv * factor
 
-                state.T.val = T_guess
-                state.p.val = p_guess
+                    state.p.val += (dp + dp2) / 2
+                    state.T.val += dT * factor
+                    for j in range(nph - 1):
+                        state.s[j + 1].val += (
+                            chop * dX[(2 + j) * num_vals : (3 + j) * num_vals]
+                        )
+                    state.s[0].val = 1 - safe_sum([s.val for s in state.s[1:]])
+                    state = self._guess_fractions(state, num_vals, guess_K_values=True)
+
+                # if np.linalg.norm(H.val) <= self.tolerance:
+                #     res_h_is_zero = True
+                #     p_update = np.zeros(num_vals)
+                # else:
+                #     # get only the derivative w.r.t to temperature and solve
+                #     # matrix is diagonal since it is local
+                #     dT = - H.val / H.jac[:, num_vals : 2 * num_vals].diagonal()
+
+                #     corrector = np.logical_or(
+                #         np.logical_and(h_mix.val > state.h, dT > 0),
+                #         np.logical_and(h_mix.val < state.h, dT < 0),
+                #     )
+                #     dT[corrector] *= -1
+
+                #     factor = 1 - np.abs(dT) / state.T.val
+
+                #     T_guess = state.T.val + factor * dT
+                #     p_update = state.p.val * (1 - factor)
+
+                #     correction = state.y[gas_phase_index].val > 1e-3
+                #     if np.any(correction):
+
+                #         dvdp = v_mix.jac[:, :num_vals].diagonal()
+                #         dvdT = v_mix.jac[:, num_vals : 2 * num_vals].diagonal()
+                #         dv = dvdT / np.abs(dvdp)
+                #         factor_p = v_mix.val / state.v
+                #         p_update[correction] = (factor_p * dT * dv)[correction]
+
+                #         gas_saturated = np.isclose(
+                #             state.y[gas_phase_index].val, 1, 0.0, self.tolerance
+                #         )
+                #         factor[gas_saturated] = 1.0
+
+                #         T_guess[correction] = (state.T.val + factor * dT)[correction]
+
+                #     state.T.val = T_guess
+
+                # V = state.T ** (-1) * (v_mix - state.v) / v_norm
+                # if np.linalg.norm(V.val) <= self.tolerance:
+                #     res_p_is_zero = True
+                # else:
+                #     dp = -V.val / V.jac[:, :num_vals].diagonal()
+                #     # average using update from H constraint and this update
+                #     state.p.val = (dp + p_update) / 2
+
+                # if res_h_is_zero and res_p_is_zero:
+                #     break
+                # else:
+                #     state = self._guess_fractions(state, num_vals, guess_K_values=True)
 
         return state, res_is_zero
 
@@ -1695,6 +1814,7 @@ class FlashNR:
         b_k: np.ndarray,
         DX: np.ndarray,
         F: Callable[[np.ndarray], np.ndarray],
+        newton_iter: int,
     ) -> float:
         """Performs the Armijo line-search for a given function ``F(X)``
         and a preliminary update ``DX`` starting from ``X_k``,
@@ -1727,7 +1847,9 @@ class FlashNR:
         pot_j = b_k_pot
         rho_j = rho
 
-        logger.info(f"\nArmijo line search potential: {b_k_pot}")
+        msg = f"\rNewton iteration {newton_iter}: residual norm = {np.sqrt(b_k_pot)}"
+
+        logger.info(f"{msg} ; Armijo line search potential: {b_k_pot}")
 
         # if maximal line-search interval defined, use for-loop
         if j_max:
@@ -1739,21 +1861,21 @@ class FlashNR:
                 try:
                     b_j = F(X_k + rho_j * DX)
                 except:
-                    logger.warn(f"\rArmijo line search j={j}: evaluation failed")
+                    logger.warn(f"{msg} ; Armijo line search j={j}: evaluation failed")
                     continue
 
                 pot_j = self._l2_potential(b_j)
 
-                logger.info(f"\rArmijo line search j={j}: potential = {pot_j}")
+                logger.info(f"{msg} ; Armijo line search j={j}: potential = {pot_j}")
 
                 # check potential and return if reduced.
                 if pot_j <= (1 - 2 * kappa * rho_j) * b_k_pot:
-                    logger.info(f"\rArmijo line search j={j}: success\n")
+                    logger.info(f"{msg} ; Armijo line search j={j}: success\n")
                     return rho_j
 
             # if for-loop did not yield any results, raise error if requested
             if return_max:
-                logger.info(f"\rArmijo line search: reached max iter\n")
+                logger.info(f"{msg} ; Armijo line search: reached max iter\n")
                 return rho_j
             else:
                 raise RuntimeError(
@@ -1770,16 +1892,16 @@ class FlashNR:
                 try:
                     b_j = F(X_k + rho_j * DX)
                 except:
-                    logger.warn(f"\rArmijo line search j={j}: evaluation failed")
+                    logger.warn(f"{msg} ; Armijo line search j={j}: evaluation failed")
                     j += 1
                     continue
                 j += 1
                 pot_j = self._l2_potential(b_j)
 
-                logger.info(f"\rArmijo line search j={j}: potential = {pot_j}")
+                logger.info(f"{msg} ; Armijo line search j={j}: potential = {pot_j}")
             # if potential decreases, return step-size
             else:
-                logger.info(f"\rArmijo line search j={j}: success\n")
+                logger.info(f"{msg} ; Armijo line search j={j}: success\n")
                 return rho_j
 
     def _newton_iterations(
@@ -1811,6 +1933,9 @@ class FlashNR:
         F_k = F(X_0, True)
         X_k = X_0
 
+        # DX_prev = None
+        # X_prev = []
+
         res_norm = np.linalg.norm(F_k.val)
         # if residual is already small enough
         if res_norm <= self.tolerance:
@@ -1824,10 +1949,21 @@ class FlashNR:
 
                 if self.use_armijo:
                     # get step size using Armijo line search
-                    step_size = self._Armijo_line_search(X_k, -F_k.val, DX, F)
+                    step_size = self._Armijo_line_search(X_k, -F_k.val, DX, F, i)
                     DX = step_size * DX
 
+                # if len(X_prev) == 2:
+                #     diff = DX - D_prev
+                #     g = np.dot(diff, DX) / np.dot(diff, diff)
+                #     D_prev = DX
+                #     X_k = X_prev[1] + DX - g * (X_prev[1] - X_prev[0] + DX - D_prev)
+                #     X_prev[0] = X_prev[1]
+                #     X_prev[1] = X_k
+                # else:
+                #     X_prev.append(X_k)
+                #     D_prev = DX
                 X_k = X_k + DX
+
                 F_k = F(X_k, True)
                 res_norm = np.linalg.norm(F_k.val)
 

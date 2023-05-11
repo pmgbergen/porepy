@@ -13,14 +13,24 @@ from porepy.numerics.ad.operator_functions import NumericType
 
 from .composite_utils import safe_sum
 
-PRESSURE_SCALE: float = 1.0
+__all__ = [
+    "PRESSURE_SCALE",
+    "ENERGY_SCALE",
+    "MASS_SCALE",
+    "VOLUME_SCALE",
+    "R_IDEAL",
+    "P_REF",
+    "T_REF",
+]
+
+PRESSURE_SCALE: float = 1e6
 """Scaling factor for pressure unit (relative to Pascal).
 
 If pressure is given in Mega-Pascal, set this to ``1e6``.
 
 """
 
-ENERGY_SCALE: float = 1.0
+ENERGY_SCALE: float = 1e3
 """Scaling factor for energy unit (starting from Joule).
 
 If energy is given in kilo-Joule, set this to ``1e3``.
