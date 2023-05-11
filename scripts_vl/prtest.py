@@ -4,7 +4,7 @@ import porepy as pp
 chems = ["H2O", "CO2"]
 
 z = [np.array([0.1])]  # only co2 fraction is enough
-p = np.array([1.]) * 1e6
+p = np.array([1.])
 T = np.array([350.])
 
 species = pp.composite.load_fluid_species(chems)
@@ -31,13 +31,13 @@ mix.set_up()
 yr = mix.reference_phase.fraction.evaluate(mix.system)
 
 flash = pp.composite.FlashNR(mix)
-flash.use_armijo = True
+flash.use_armijo = False
 flash.armijo_parameters["rho"] = 0.99
-flash.armijo_parameters["j_max"] = 80
+flash.armijo_parameters["j_max"] = 25
 flash.armijo_parameters["return_max"] = True
 flash.newton_update_chop = 1.0
 flash.tolerance = 1e-8
-flash.max_iter = 140
+flash.max_iter = 80
 
 # p-T flash
 success, results_pT = flash.flash(
@@ -59,8 +59,12 @@ print("Difference between p-T and p-h:")
 print(str(results_pT.diff(results_ph)))
 
 # h-v- flash
+flash.armijo_parameters["j_max"] = 100
+flash.armijo_parameters["rho"] = 0.99
+flash.use_armijo = True
+flash.max_iter = 150
 success, results_hv = flash.flash(
-    state={'h': results_ph.h, 'v': results_ph.v}, eos_kwargs={'apply_smoother': True},
+    state={'h': results_pT.h, 'v': results_pT.v}, eos_kwargs={'apply_smoother': True},
     feed = z,
     verbosity=1,
 )
