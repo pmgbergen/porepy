@@ -1008,7 +1008,13 @@ class FlashNR:
                 + f"\nMixture is set up with {self.mixture.dofs} per state function."
             )
 
-        logger.info(f"\nInitiating state..\n")
+        logger.info(
+            f"\nStarting {flash_type} flash\n"
+            + f"Method: {method}\n"
+            + f"Using Armijo line search: {self.use_armijo}\n"
+            + f"Initial guess from state: {guess_from_state}\n"
+            + f"\nInitializing state ...\n"
+        )
         # getting gas-phase index
         gas_phase_index: Optional[int] = None
         for j, phase in enumerate(self.mixture.phases):
@@ -1121,13 +1127,6 @@ class FlashNR:
         else:
             NotImplementedError(f"Failed to recognize flash type {flash_type}.")
 
-        logger.info(
-            f"\nStarting {flash_type} flash\n"
-            + f"Method: {method}\n"
-            + f"Using Armijo line search: {self.use_armijo}\n"
-            + f"Initial guess from state: {guess_from_state}\n\n"
-        )
-
         flash_system = FlashSystemNR(
             mixture=self.mixture,
             num_vals=num_vals,
@@ -1138,11 +1137,12 @@ class FlashNR:
         )
 
         # Perform Newton iterations with above F(x)
+        logger.info("Starting iterations ...\n\n")
         success, iter_final, solution = self._newton_iterations(
             X_0=flash_system.state,
             F=flash_system,
         )
-
+        logger.info("\nPost-processing ...\n")
         flash_system.state = solution
         flash_system.evaluate_dependent_states()
 
@@ -1151,7 +1151,7 @@ class FlashNR:
             self._store_state_in_ad(flash_system, store_to_iterate)
 
         logger.info(
-            f"\n{flash_type} flash done.\n"
+            f"{flash_type} flash done.\n"
             + f"SUCCESS: {not bool(success)}\n"
             + f"Iterations: {iter_final}\n\n"
         )
@@ -1887,12 +1887,12 @@ class FlashNR:
 
                 # check potential and return if reduced.
                 if pot_j <= (1 - 2 * kappa * rho_j) * b_k_pot:
-                    logger.info(f"{msg} ; Armijo search j={j}: success\n")
+                    logger.info(f"{msg} ; Armijo search j={j}: success")
                     return rho_j
 
             # if for-loop did not yield any results, raise error if requested
             if return_max:
-                logger.info(f"{msg} ; Armijo search: reached max iter\n")
+                logger.info(f"{msg} ; Armijo search: reached max iter")
                 return rho_j
             else:
                 raise RuntimeError(
@@ -1918,7 +1918,7 @@ class FlashNR:
                 logger.info(f"{msg} ; Armijo search j={j}: pot = {pot_j}")
             # if potential decreases, return step-size
             else:
-                logger.info(f"{msg} ; Armijo search j={j}: success\n")
+                logger.info(f"{msg} ; Armijo search j={j}: success")
                 return rho_j
 
     def _newton_iterations(
@@ -2001,7 +2001,7 @@ class FlashNR:
                 # in case of convergence
                 if res_norm <= self.tolerance:
                     # counting necessary number of iterations
-                    iter_final = i + 1  # shift since range() starts with zero
+                    iter_final = i
                     logger.info(f"\nFlash iteration {iter_final}: success\n")
                     success = 0
                     break

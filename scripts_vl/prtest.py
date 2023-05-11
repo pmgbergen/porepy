@@ -6,6 +6,7 @@ chems = ["H2O", "CO2"]
 z = [np.array([0.1])]  # only co2 fraction is enough
 p = np.array([1.])
 T = np.array([600.])
+verbosity = 1
 
 species = pp.composite.load_fluid_species(chems)
 
@@ -43,10 +44,10 @@ flash.max_iter = 80
 success, results_pT = flash.flash(
     state={'p': p, 'T': T}, eos_kwargs={'apply_smoother': True},
     feed = z,
-    verbosity=1,
+    verbosity=verbosity,
 )
 print(
-    "Results p-T:" +
+    "Results p-T:\n" +
     "------------"
 )
 print(str(results_pT))
@@ -56,7 +57,7 @@ print("------------")
 success, results_ph = flash.flash(
     state={'p': p, 'h': results_pT.h}, eos_kwargs={'apply_smoother': True},
     feed = z,
-    verbosity=1,
+    verbosity=verbosity,
 )
 
 print(
@@ -74,7 +75,7 @@ flash.max_iter = 150
 success, results_hv = flash.flash(
     state={'h': results_pT.h, 'v': results_pT.v}, eos_kwargs={'apply_smoother': True},
     feed = z,
-    verbosity=1,
+    verbosity=verbosity,
 )
 print(
     "Difference between p-T and h-v:\n" +
