@@ -36,6 +36,8 @@ log_handler = logging.StreamHandler()
 log_handler.terminator = ""
 logger.addHandler(log_handler)
 
+_del_log = "\r" + " " * 150 + "\r"
+
 
 def _pos(var: NumericType) -> NumericType:
     """Returns a numeric value where the negative parts have been set to zero."""
@@ -869,7 +871,7 @@ class FlashNR:
         feed: Optional[list[pp.ad.Operator | NumericType]] = None,
         store_to_iterate: Optional[int] = None,
         verbosity: bool = 0,
-    ) -> tuple[bool, ThermodynamicState]:
+    ) -> tuple[int, ThermodynamicState]:
         """Performs a flash procedure based on the arguments.
 
         Note:
@@ -951,12 +953,20 @@ class FlashNR:
         Returns:
             A 2-tuple containing
 
-            - A bool indicating if flash was successful or not.
+            - A success indicator:
+
+              - 0 - success,
+              - 1 - did not converge after max iter,
+              - 2 - divergence (``Nan`` or ``infty`` detected in update).
+
             - A data structure containing the resulting thermodynamic state.
               The returned state contains the passed values from ``state``, as well as
               resulting fractional values, and optionally other resulting states.
               E.g., a p-h flash returns a state structure with resulting temperature
               values.
+
+              If the solver did not converge after max iter or divergence was detected,
+              the last iterate is returned.
 
         """
 
@@ -1137,12 +1147,12 @@ class FlashNR:
         flash_system.evaluate_dependent_states()
 
         # storing the state in the AD framework if successful and requested
-        if store_to_iterate is not None and success:
+        if store_to_iterate is not None and success == 0:
             self._store_state_in_ad(flash_system, store_to_iterate)
 
         logger.info(
             f"\n{flash_type} flash done.\n"
-            + f"SUCCESS: {success}\n"
+            + f"SUCCESS: {not bool(success)}\n"
             + f"Iterations: {iter_final}\n\n"
         )
         # append history entry
@@ -1534,7 +1544,7 @@ class FlashNR:
                 ]
             )
             T_estimate = (T_pc - T_REF) / 2 + T_REF
-            state.T.val = T_estimate
+            state.T.val = T_pc
         else:
             h_norm = state.h.copy()
             h_norm[np.abs(h_norm) <= 1] = 1.0
@@ -1847,9 +1857,9 @@ class FlashNR:
         pot_j = b_k_pot
         rho_j = rho
 
-        msg = f"\rNewton iteration {newton_iter}: residual norm = {np.sqrt(b_k_pot)}"
+        msg = f"{_del_log}Flash iteration {newton_iter}: res = {np.sqrt(b_k_pot)}"
 
-        logger.info(f"{msg} ; Armijo line search potential: {b_k_pot}")
+        logger.info(f"{msg} ; Armijo search potential: {b_k_pot}")
 
         # if maximal line-search interval defined, use for-loop
         if j_max:
@@ -1861,21 +1871,21 @@ class FlashNR:
                 try:
                     b_j = F(X_k + rho_j * DX)
                 except:
-                    logger.warn(f"{msg} ; Armijo line search j={j}: evaluation failed")
+                    logger.warn(f"{msg} ; Armijo search j={j}: evaluation failed")
                     continue
 
                 pot_j = self._l2_potential(b_j)
 
-                logger.info(f"{msg} ; Armijo line search j={j}: potential = {pot_j}")
+                logger.info(f"{msg} ; Armijo search j={j}: pot = {pot_j}")
 
                 # check potential and return if reduced.
                 if pot_j <= (1 - 2 * kappa * rho_j) * b_k_pot:
-                    logger.info(f"{msg} ; Armijo line search j={j}: success\n")
+                    logger.info(f"{msg} ; Armijo search j={j}: success\n")
                     return rho_j
 
             # if for-loop did not yield any results, raise error if requested
             if return_max:
-                logger.info(f"{msg} ; Armijo line search: reached max iter\n")
+                logger.info(f"{msg} ; Armijo search: reached max iter\n")
                 return rho_j
             else:
                 raise RuntimeError(
@@ -1892,23 +1902,23 @@ class FlashNR:
                 try:
                     b_j = F(X_k + rho_j * DX)
                 except:
-                    logger.warn(f"{msg} ; Armijo line search j={j}: evaluation failed")
+                    logger.warn(f"{msg} ; Armijo search j={j}: evaluation failed")
                     j += 1
                     continue
                 j += 1
                 pot_j = self._l2_potential(b_j)
 
-                logger.info(f"{msg} ; Armijo line search j={j}: potential = {pot_j}")
+                logger.info(f"{msg} ; Armijo search j={j}: pot = {pot_j}")
             # if potential decreases, return step-size
             else:
-                logger.info(f"{msg} ; Armijo line search j={j}: success\n")
+                logger.info(f"{msg} ; Armijo search j={j}: success\n")
                 return rho_j
 
     def _newton_iterations(
         self,
         X_0: np.ndarray,
         F: Callable[[NumericType, Optional[bool]], NumericType],
-    ) -> tuple[bool, int, np.ndarray]:
+    ) -> tuple[int, int, np.ndarray]:
         """Performs standard Newton iterations using the matrix and rhs-vector returned
         by ``F``, until (possibly) the L2-norm of the rhs-vector reaches the convergence
         criterion.
@@ -1921,13 +1931,18 @@ class FlashNR:
         Returns:
             A 3-tuple containing
 
-            1. a bool representing the success-indicator,
+            1. a success indicator:
+
+               - 0 - success,
+               - 1 - did not converge after max iter,
+               - 2 - divergence (``Nan`` or ``infty`` detected in update).
+
             2. an integer representing the the number of iteration performed,
             3. The found root (Or the last iterate if max iter reached).
 
         """
 
-        success: bool = False
+        success: bool = 1
         iter_final: int = 0
 
         F_k = F(X_0, True)
@@ -1939,13 +1954,22 @@ class FlashNR:
         res_norm = np.linalg.norm(F_k.val)
         # if residual is already small enough
         if res_norm <= self.tolerance:
-            logger.info("Newton iteration 0: success\n")
-            success = True
+            logger.info("Flash iteration 0: success\n")
+            success = 0
         else:
             for i in range(1, self.max_iter + 1):
-                logger.info(f"\rNewton iteration {i}: residual norm = {res_norm}")
+                logger.info(f"{_del_log}Flash iteration {i}: res = {res_norm}")
 
                 DX = pypardiso.spsolve(F_k.jac, -F_k.val) * self.newton_update_chop
+
+                check = np.sum(DX)
+                if np.isnan(check) or np.isinf(check):
+                    iter_final = i
+                    success = 2
+                    logger.warn(
+                        f"\nFlash iteration {iter_final}: divergence detected\n"
+                    )
+                    break
 
                 if self.use_armijo:
                     # get step size using Armijo line search
@@ -1971,8 +1995,8 @@ class FlashNR:
                 if res_norm <= self.tolerance:
                     # counting necessary number of iterations
                     iter_final = i + 1  # shift since range() starts with zero
-                    logger.info(f"\nNewton iteration {iter_final}: success\n")
-                    success = True
+                    logger.info(f"\nFlash iteration {iter_final}: success\n")
+                    success = 0
                     break
 
         return success, iter_final, X_k
