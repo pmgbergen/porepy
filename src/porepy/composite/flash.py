@@ -356,10 +356,9 @@ class FlashSystemNR(ThermodynamicState):
             for j in range(self._num_phases):
                 unity_j = self.mixture.evaluate_unity(X[j])  # type: ignore
                 composition_unities.append(unity_j)
-                equ = y[j] * unity_j - nu
-                regularization.append(
-                    (y[j] * unity_j * self._u / self._num_phases**2)
-                )
+                vw = y[j] * unity_j
+                equ = vw - nu
+                regularization.append(vw)
                 equations.append(equ)
 
             # NPIPM slack equation
@@ -367,13 +366,15 @@ class FlashSystemNR(ThermodynamicState):
 
             # Regularizing the slack equation: Gauss-elimination steps using the
             # coupling equations and some factor
+            reg = _pos(safe_sum(regularization)) * self._u / self._num_phases**2
+            reg = reg.val if isinstance(reg, pp.ad.AdArray) else reg
             if with_derivatives:
-                for j, reg in enumerate(regularization):
+                for j in range(self._num_phases):
                     equ_j = equations[-(1 + j)]
-                    equ.jac = equ.jac - sps.diags(reg.val) * equ_j.jac
-                    equ.val = equ.val - reg.val * equ_j.val
+                    equ.jac = equ.jac - sps.diags(reg) * equ_j.jac
+                    equ.val = equ.val - reg * equ_j.val
             else:
-                for j, reg in enumerate(regularization):
+                for j in range(self._num_phases):
                     equ_j = equations[-(1 + j)]
                     equ = equ - reg * equ_j
             equations.append(equ)
@@ -480,13 +481,12 @@ class FlashSystemNR(ThermodynamicState):
             if self._T_unknown:
                 self.T.val = vec[idx : idx + self._num_vals]
                 idx += self._num_vals
-            else:
-                s_0 = 0.0
-                for j in range(1, self._num_phases):
-                    self.s[j].val = vec[idx : idx + self._num_vals]
-                    s_0 += vec[idx : idx + self._num_vals]
-                    idx += self._num_vals
-                self.s[0].val = 1 - s_0  # reference phase saturation by unity
+            s_0 = 0.0
+            for j in range(1, self._num_phases):
+                self.s[j].val = vec[idx : idx + self._num_vals]
+                s_0 += vec[idx : idx + self._num_vals]
+                idx += self._num_vals
+            self.s[0].val = 1 - s_0  # reference phase saturation by unity
         else:
             if self._T_unknown:
                 self.T.val = vec[idx : idx + self._num_vals]
