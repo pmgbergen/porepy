@@ -5,7 +5,7 @@ chems = ["H2O", "CO2"]
 
 z = [np.array([0.1])]  # only co2 fraction is enough
 p = np.array([1.])
-T = np.array([350.])
+T = np.array([600.])
 
 species = pp.composite.load_fluid_species(chems)
 
@@ -31,7 +31,7 @@ mix.set_up()
 yr = mix.reference_phase.fraction.evaluate(mix.system)
 
 flash = pp.composite.FlashNR(mix)
-flash.use_armijo = False
+flash.use_armijo = True
 flash.armijo_parameters["rho"] = 0.99
 flash.armijo_parameters["j_max"] = 25
 flash.armijo_parameters["return_max"] = True
@@ -45,8 +45,12 @@ success, results_pT = flash.flash(
     feed = z,
     verbosity=1,
 )
-print("Results p-T:")
+print(
+    "Results p-T:" +
+    "------------"
+)
 print(str(results_pT))
+print("------------")
 
 # p-h flash
 success, results_ph = flash.flash(
@@ -55,8 +59,12 @@ success, results_ph = flash.flash(
     verbosity=1,
 )
 
-print("Difference between p-T and p-h:")
+print(
+    "Difference between p-T and p-h:\n" +
+    "-------------------------------"
+)
 print(str(results_pT.diff(results_ph)))
+print("-------------------------------")
 
 # h-v- flash
 flash.armijo_parameters["j_max"] = 100
@@ -68,7 +76,10 @@ success, results_hv = flash.flash(
     feed = z,
     verbosity=1,
 )
-print("Difference between p-T and h-v:")
+print(
+    "Difference between p-T and h-v:\n" +
+    "-------------------------------"
+)
 print(str(results_pT.diff(results_hv)))
-
-print("Done")
+print("-------------------------------")
+print("")

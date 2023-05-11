@@ -1384,7 +1384,13 @@ class FlashNR:
                 # avoid division by zero, setting ref phase fraction to tiny value
                 is_zero = np.isclose(t_i, 0, 0, self.tolerance)
                 t_i[is_zero] = state.z[i][is_zero] / self.tolerance
-                x_i_0_[nsj] = state.z[i][nsj] / t_i[nsj]
+
+                # ensuring a duality gap
+                idx = np.logical_and(np.logical_not(nsj), t_i >= state.z[i])
+                idx = np.logical_or(idx, nsj)
+                x_i_0_[idx] = state.z[i][idx] / t_i[idx]
+                # special case TODO
+                # idx = np.logical_and(np.logical_not(nsj), t_i < state.z[i])
                 x_i_0.append(x_i_0_)
             # compute composition of reference phase by averaging
             x_i_0 = safe_sum(x_i_0) / len(x_i_0)
@@ -1569,7 +1575,8 @@ class FlashNR:
                         np.logical_and(h_mix.val < state.h, dT < 0),
                     )
                     dT[corrector] *= -1
-                    state.T.val = state.T.val + (1 - np.abs(dT) / state.T.val) * dT
+                    dT *= (1 - np.abs(dT) / state.T.val) * 4e-1  # chop update
+                    state.T.val = state.T.val + dT
 
         return state, res_is_zero
 
@@ -1967,7 +1974,7 @@ class FlashNR:
                     iter_final = i
                     success = 2
                     logger.warn(
-                        f"\nFlash iteration {iter_final}: divergence detected\n"
+                        f"\nFlash iteration {iter_final}: divergence detected!\n"
                     )
                     break
 
