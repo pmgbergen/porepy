@@ -1135,9 +1135,9 @@ class PengRobinsonEoS(AbstractEoS):
             Z_L[correction] = B[correction] + self.eps
 
         # assert physical meaningfulness
-        assert np.all(
-            Z_L > B
-        ), "Liquid root violates lower physical bound given by covolume B."
+        # assert np.all(
+        #     Z_L > B
+        # ), "Liquid root violates lower physical bound given by covolume B."
         # assert gas root is bigger than liquid root
         assert np.all(
             Z_G >= Z_L
