@@ -7,6 +7,8 @@ from __future__ import annotations
 import abc
 from typing import Any
 
+import numpy as np
+
 import porepy as pp
 from porepy.numerics.ad.operator_functions import NumericType
 
@@ -22,8 +24,11 @@ def safe_sum(x: tuple[Any]) -> Any:
     a first addition with 0 (important for AD operators to avoid overhead)."""
     if len(x) >= 1:
         sum_ = x[0]
+        # need to deep copy to avoid change by reference
+        if isinstance(sum_, (np.ndarray, pp.ad.AdArray)):
+            sum_ = sum_.copy()
         for i in range(1, len(x)):
-            sum_ += x[i]
+            sum_ = sum_ + x[i]
         return sum_
     else:
         return 0
