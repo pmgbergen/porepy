@@ -535,7 +535,7 @@ class AdArray:
         else:
             raise ValueError(f"Unknown type {type(other)} for AdArray multiplication.")
 
-    def __neg__(self):
+    def __neg__(self) -> AdArray:
         b = self.copy()
         b.val = -b.val
         b.jac = -b.jac
