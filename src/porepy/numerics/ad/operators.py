@@ -1167,7 +1167,7 @@ class SparseArray(Operator):
             s += self._name
         return s
     
-    def __neg__(self) -> Operator:
+    def __neg__(self) -> SparseArray:
         """We override :meth:`Operator.__neg__` to prevent constructing a composite
         operator from just a sparse array.
 
@@ -1176,7 +1176,7 @@ class SparseArray(Operator):
 
         """
         new_name = None if self.name is None else f"minus {self.name}"
-        return SparseArray(value=-self._mat, name=new_name)
+        return SparseArray(mat=-self._mat, name=new_name)
 
     def parse(self, mdg: pp.MixedDimensionalGrid) -> sps.spmatrix:
         """See :meth:`Operator.parse`.
@@ -1237,7 +1237,7 @@ class DenseArray(Operator):
             s += f"({self._name})"
         return s
     
-    def __neg__(self) -> Operator:
+    def __neg__(self) -> DenseArray:
         """We override :meth:`Operator.__neg__` to prevent constructing a composite
         operator from just an array.
 
@@ -1246,7 +1246,7 @@ class DenseArray(Operator):
 
         """
         new_name = None if self.name is None else f"minus {self.name}"
-        return DenseArray(value=-self._values, name=new_name)
+        return DenseArray(values=-self._values, name=new_name)
 
     @property
     def size(self) -> int:
@@ -1439,7 +1439,7 @@ class Scalar(Operator):
             s += f"({self._name})"
         return s
     
-    def __neg__(self) -> Operator:
+    def __neg__(self) -> Scalar:
         """We override :meth:`Operator.__neg__` to prevent constructing a composite
         operator from just a scalar.
 
