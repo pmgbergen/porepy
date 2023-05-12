@@ -150,7 +150,6 @@ class TestFractureNetwork2d(unittest.TestCase):
         self.small_domain = pp.Domain({"xmin": -1, "xmax": 1.5, "ymin": -1, "ymax": 5})
 
     def test_snap_fractures(self):
-
         p = np.array([[0, 2, 1, 1], [0, 0, 1e-3, 1]])
         e = np.array([[0, 2], [1, 3]])
         fracs = pts_edges_to_linefractures(p, e)
@@ -314,6 +313,79 @@ class TestFractureNetwork2d(unittest.TestCase):
         known_tags = np.array([tag1, tag1, tag2, tag2])
         self.assertTrue(np.all(together._edges[2] == known_tags))
 
+    def test_triangle_domain_no_fracs(self):
+        line_1 = np.array([[0, 1], [0, 0]])
+        line_2 = np.array([[1, 0], [0, 1]])
+        line_3 = np.array([[0, 0], [1, 0]])
+        lines = [line_1, line_2, line_3]
+        domain = pp.Domain(polytope=lines)
+
+        mesh_size = 0.5
+        mesh_kwargs = {"mesh_size_frac": mesh_size}
+        mdg = pp.create_fracture_network(domain=domain).mesh(mesh_kwargs)
+        sd = mdg.subdomains(dim=2)[0]
+
+        self.assertTrue(np.isclose(sd.num_cells, 7))
+        self.assertTrue(np.isclose(sd.num_faces, 14))
+        self.assertTrue(np.isclose(sd.num_nodes, 8))
+
+    def test_triangle_domain_with_fracs(self):
+        line_1 = np.array([[0, 1], [0, 0]])
+        line_2 = np.array([[1, 0], [0, 1]])
+        line_3 = np.array([[0, 0], [1, 0]])
+        lines = [line_1, line_2, line_3]
+        domain = pp.Domain(polytope=lines)
+
+        pts = np.array([[0, 1], [0, 1]])
+        edges = np.array([[0], [1]])
+        fracs = pts_edges_to_linefractures(pts, edges)
+
+        mesh_size = 0.5
+        mesh_kwargs = {"mesh_size_frac": mesh_size}
+        mdg = pp.create_fracture_network(fracs, domain=domain).mesh(mesh_kwargs)
+
+        sd_2d = mdg.subdomains(dim=2)[0]
+        self.assertTrue(np.isclose(sd_2d.num_cells, 12))
+        self.assertTrue(np.isclose(sd_2d.num_faces, 24))
+        self.assertTrue(np.isclose(sd_2d.num_nodes, 14))
+
+        sd_1d = mdg.subdomains(dim=1)[0]
+        self.assertTrue(np.isclose(sd_1d.num_cells, 2))
+        self.assertTrue(np.isclose(sd_1d.num_faces, 3))
+        self.assertTrue(np.isclose(sd_1d.num_nodes, 3))
+
+    def test_pentagon_domain_with_fracs(self):
+        line_1 = np.array([[0, 1], [0, 0]])
+        line_2 = np.array([[1, 1], [0, 1]])
+        line_3 = np.array([[1, 0.5], [1, 0.5]])
+        line_4 = np.array([[0.5, 0], [0.5, 1]])
+        line_5 = np.array([[0, 0], [1, 0]])
+        lines = [line_1, line_2, line_3, line_4, line_5]
+        domain = pp.Domain(polytope=lines)
+
+        pts = np.array([[0.2, 0.8], [0.6, 0.6]])
+        edges = np.array([[0], [1]])
+        fracs = pts_edges_to_linefractures(pts, edges)
+
+        mesh_size = 0.5
+        mesh_kwargs = {"mesh_size_frac": mesh_size}
+        mdg = pp.create_fracture_network(fracs, domain=domain).mesh(mesh_kwargs)
+
+        sd_2d = mdg.subdomains(dim=2)[0]
+        self.assertTrue(np.isclose(sd_2d.num_cells, 72))
+        self.assertTrue(np.isclose(sd_2d.num_faces, 123))
+        self.assertTrue(np.isclose(sd_2d.num_nodes, 52))
+
+        sd_1d = mdg.subdomains(dim=1)[0]
+        self.assertTrue(np.isclose(sd_1d.num_cells, 2))
+        self.assertTrue(np.isclose(sd_1d.num_faces, 3))
+        self.assertTrue(np.isclose(sd_1d.num_nodes, 3))
+
+        sd_1d = mdg.subdomains(dim=1)[1]
+        self.assertTrue(np.isclose(sd_1d.num_cells, 2))
+        self.assertTrue(np.isclose(sd_1d.num_faces, 3))
+        self.assertTrue(np.isclose(sd_1d.num_nodes, 3))
+
     def test_copy(self):
         network_1 = pp.create_fracture_network(self.fracs)
 
@@ -404,8 +476,7 @@ class TestFractureNetwork3dBoundingBox(unittest.TestCase):
         # Test of method FractureNetwork.bounding_box() to inquire about
         # network extent
         f1 = pp.PlaneFracture(
-            np.array([[0, 2, 2, 0], [0, 0, 1, 1], [0, 0, 1, 1]]),
-            check_convexity=False
+            np.array([[0, 2, 2, 0], [0, 0, 1, 1], [0, 0, 1, 1]]), check_convexity=False
         )
         f2 = pp.PlaneFracture(
             np.array([[0, 1, 1, 0], [0, 0, 1, 1], [-1, -1, 1, 1]]),
@@ -426,8 +497,7 @@ class TestFractureNetwork3dBoundingBox(unittest.TestCase):
         # Test of method FractureNetwork.bounding_box() when an external
         # boundary is added. Thus double as test of this adding.
         fracture_1 = pp.PlaneFracture(
-            np.array([[0, 1, 1, 0], [0, 0, 1, 1], [0, 0, 1, 1]]),
-            check_convexity=False
+            np.array([[0, 1, 1, 0], [0, 0, 1, 1], [0, 0, 1, 1]]), check_convexity=False
         )
 
         network = pp.create_fracture_network([fracture_1])
@@ -503,4 +573,5 @@ class TestDomain(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    unittest.main()
+    TestFractureNetwork2d().test_pentagon_domain_with_fracs()
+    # unittest.main()
