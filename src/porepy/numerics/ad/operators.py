@@ -900,7 +900,7 @@ class Operator:
         return s
 
     def __neg__(self) -> Operator:
-        """ Unary minus operation.
+        """Unary minus operation.
 
         Returns:
             Operator: The negative of the operator.
@@ -1166,7 +1166,7 @@ class SparseArray(Operator):
         if self._name is not None:
             s += self._name
         return s
-    
+
     def __neg__(self) -> SparseArray:
         """We override :meth:`Operator.__neg__` to prevent constructing a composite
         operator from just a sparse array.
@@ -1236,7 +1236,7 @@ class DenseArray(Operator):
         if self._name is not None:
             s += f"({self._name})"
         return s
-    
+
     def __neg__(self) -> DenseArray:
         """We override :meth:`Operator.__neg__` to prevent constructing a composite
         operator from just an array.
@@ -1438,7 +1438,7 @@ class Scalar(Operator):
         if self._name is not None:
             s += f"({self._name})"
         return s
-    
+
     def __neg__(self) -> Scalar:
         """We override :meth:`Operator.__neg__` to prevent constructing a composite
         operator from just a scalar.
