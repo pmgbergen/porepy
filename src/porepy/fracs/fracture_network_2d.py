@@ -829,9 +829,8 @@ class FractureNetwork2d:
             domain: ``default=None``
 
                 Domain specification. If not provided, :attr:`domain` will be used.
-                If the domain is not a box, we assume the set of lines defining
-                the polygon to be ordered either clockwise or counter-clockwise.
-                the lines.
+                When the domain is given as a set of lines create the grid respecting
+                the lines, we assume that these lines are ordered.
             add_domain_edges: ``default=True``
 
                 Whether to include the boundary edges and points in the list of edges.
