@@ -4,7 +4,8 @@ from __future__ import annotations
 import logging
 from typing import Union
 
-from tqdm.autonotebook import trange
+# Avoid some mpy trouble.
+from tqdm.autonotebook import trange  # type: ignore
 
 import porepy as pp
 from porepy.utils.ui_and_logging import (
@@ -72,11 +73,11 @@ def run_time_dependent_model(model, params: dict) -> None:
         # progressbars.
         with logging_redirect_tqdm([logging.root]):
             # Time loop
-            # Create a time bar. The length is estimated as the timesteps predetermined by
-            # the schedule and initial time step size.
-            # Note: If e.g., some manual time stepping results in more time steps, the time
-            # bar will increase with partial steps corresponding to the ratio of the
-            # modified time step size to the initial time step size.
+            # Create a time bar. The length is estimated as the timesteps predetermined
+            # by the schedule and initial time step size.
+            # NOTE: If e.g., some manual time stepping results in more time steps, the
+            # time bar will increase with partial steps corresponding to the ratio of
+            # the modified time step size to the initial time step size.
             expected_timesteps: int = int(
                 (model.time_manager.schedule[-1] - model.time_manager.schedule[0])
                 / model.time_manager.dt
@@ -103,8 +104,8 @@ def run_time_dependent_model(model, params: dict) -> None:
                 )
                 solver.solve(model)
                 model.time_manager.compute_time_step()
-                # Update time progressbar by the time step size divided by the initial time
-                # step size.
+                # Update time progressbar by the time step size divided by the initial
+                # time step size.
                 time_progressbar.update(n=model.time_manager.dt / initial_time_step)
 
     # Progressbars turned off:
@@ -114,7 +115,8 @@ def run_time_dependent_model(model, params: dict) -> None:
             model.time_manager.increase_time_index()
             logger.debug(
                 f"\nTime step {model.time_manager.time_index} at time"
-                + f" {model.time_manager.time:.1e} of {model.time_manager.time_final:.1e}"
+                + f" {model.time_manager.time:.1e}"
+                + f" of {model.time_manager.time_final:.1e}"
                 + f" with time step {model.time_manager.dt:.1e}"
             )
             solver.solve(model)
@@ -126,8 +128,8 @@ def run_time_dependent_model(model, params: dict) -> None:
 def _run_iterative_model(model, params: dict) -> None:
     """Run an iterative model.
 
-    The intended use is for multi-step models with iterative couplings. Only known instance
-    so far is the combination of fracture deformation and propagation.
+    The intended use is for multi-step models with iterative couplings. Only known
+    instance so far is the combination of fracture deformation and propagation.
 
     Parameters:
         model: Model class containing all information on parameters, variables,

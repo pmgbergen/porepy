@@ -6,7 +6,9 @@ Implemented classes
 import logging
 
 import numpy as np
-from tqdm.autonotebook import trange
+
+# Avoid some mpy trouble.
+from tqdm.autonotebook import trange  # type: ignore
 
 from porepy.utils.ui_and_logging import (
     logging_redirect_tqdm_with_level as logging_redirect_tqdm,
@@ -93,8 +95,8 @@ class NewtonSolver:
                     solver_progressbar.set_postfix_str(f"Error {error_norm}")
 
                     if is_diverged:
-                        # If the process finishes early, the tqdm bar needs to be manually
-                        # closed. See https://stackoverflow.com/a/73175351.
+                        # If the process finishes early, the tqdm bar needs to be
+                        # manually closed. See https://stackoverflow.com/a/73175351.
                         solver_progressbar.close()
                         model.after_nonlinear_failure(sol, errors, iteration_counter)
                         break
