@@ -19,7 +19,6 @@ import scipy.sparse as sps
 
 import porepy as pp
 
-
 _operations = pp.ad.operators.Operator.Operations
 
 operators = [
