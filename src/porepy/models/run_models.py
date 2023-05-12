@@ -4,7 +4,7 @@ from __future__ import annotations
 import logging
 from typing import Union
 
-# Avoid some mpy trouble.
+# Avoid some mypy trouble.
 from tqdm.autonotebook import trange  # type: ignore
 
 import porepy as pp
@@ -55,8 +55,12 @@ def run_time_dependent_model(model, params: dict) -> None:
     if params.get("prepare_simulation", True):
         model.prepare_simulation()
 
-    # Change the position of the solver progress bar to 1, as the time progress bar
-    # will occupy position 0.
+    # When multiple nested ``tqdm`` bars are used, their position needs to be specified
+    # such that they are displayed in the correct order. The orders are increasing, i.e.
+    # 0 specifies the lowest level, 1 the next-lowest etc.
+    # When the ``NewtonSolver`` is called inside ``run_time_dependent_model``, the
+    # ``progress_bar_position`` parameter with the updated position of the progress bar
+    # for the ``NewtonSolver`` is passed.
     params.update({"progress_bar_position": 1})
 
     # Assign a solver
@@ -67,17 +71,36 @@ def run_time_dependent_model(model, params: dict) -> None:
     else:
         solver = pp.LinearSolver(params)
 
+    # Define a function that does all the work during one time step, except
+    # for everything ``tqdm`` related.
+    def time_step() -> None:
+        model.time_manager.increase_time()
+        model.time_manager.increase_time_index()
+        logger.debug(
+            f"\nTime step {model.time_manager.time_index} at time"
+            + f" {model.time_manager.time:.1e}"
+            + f" of {model.time_manager.time_final:.1e}"
+            + f" with time step {model.time_manager.dt:.1e}"
+        )
+        solver.solve(model)
+        model.time_manager.compute_time_step()
+
+    # Progressbars turned off:
+    if not params.get("progressbars", False):
+        while model.time_manager.time < model.time_manager.time_final:
+            time_step()
+
     # Progressbars turned on:
-    if params.get("progressbars", True):
+    else:
         # Redirect the root logger, s.t. no logger interferes with with the
         # progressbars.
         with logging_redirect_tqdm([logging.root]):
             # Time loop
             # Create a time bar. The length is estimated as the timesteps predetermined
             # by the schedule and initial time step size.
-            # NOTE: If e.g., some manual time stepping results in more time steps, the
-            # time bar will increase with partial steps corresponding to the ratio of
-            # the modified time step size to the initial time step size.
+            # NOTE: If e.g., adaptive time stepping results in more time steps, the time
+            # bar will increase with partial steps corresponding to the ratio of the
+            # modified time step size to the initial time step size.
             expected_timesteps: int = int(
                 (model.time_manager.schedule[-1] - model.time_manager.schedule[0])
                 / model.time_manager.dt
@@ -90,37 +113,13 @@ def run_time_dependent_model(model, params: dict) -> None:
             )
 
             while model.time_manager.time < model.time_manager.time_final:
-                model.time_manager.increase_time()
-                model.time_manager.increase_time_index()
                 time_progressbar.set_description_str(
-                    f"Time step {model.time_manager.time_index}"
-                    + f" at time {model.time_manager.time:.1e}"
+                    f"Time step {model.time_manager.time_index} + 1"
                 )
-                logger.debug(
-                    f"\nTime step {model.time_manager.time_index} at time"
-                    + f" {model.time_manager.time:.1e}"
-                    + f" of {model.time_manager.time_final:.1e}"
-                    + f" with time step {model.time_manager.dt:.1e}"
-                )
-                solver.solve(model)
-                model.time_manager.compute_time_step()
-                # Update time progressbar by the time step size divided by the initial
-                # time step size.
+                time_step()
+                # Update time progressbar length by the time step size divided by the
+                # initial time step size.
                 time_progressbar.update(n=model.time_manager.dt / initial_time_step)
-
-    # Progressbars turned off:
-    else:
-        while model.time_manager.time < model.time_manager.time_final:
-            model.time_manager.increase_time()
-            model.time_manager.increase_time_index()
-            logger.debug(
-                f"\nTime step {model.time_manager.time_index} at time"
-                + f" {model.time_manager.time:.1e}"
-                + f" of {model.time_manager.time_final:.1e}"
-                + f" with time step {model.time_manager.dt:.1e}"
-            )
-            solver.solve(model)
-            model.time_manager.compute_time_step()
 
     model.after_simulation()
 
@@ -158,8 +157,30 @@ def _run_iterative_model(model, params: dict) -> None:
     else:
         solver = pp.LinearSolver(params)
 
+    # Define a function that does all the work during one time step, except
+    # for everything ``tqdm`` related.
+    def time_step() -> None:
+        model.propagation_index = 0
+        model.time_manager.increase_time()
+        model.time_manager.increase_time_index()
+        logger.debug(
+            f"\nTime step {model.time_manager.time_index} at time"
+            + f" {model.time_manager.time:.1e} of"
+            + f" {model.time_manager.time_final:.1e}"
+            + f" with time step {model.time_manager.dt:.1e}"
+        )
+        model.before_propagation_loop()
+        while model.keep_propagating():
+            model.propagation_index += 1
+            solver.solve(model)
+        model.after_propagation_loop()
+
+    # Progressbars turned off:
+    if not params.get("progressbars", False):
+        while model.time_manager.time < model.time_manager.time_final:
+            time_step()
     # Progressbars turned on:
-    if params.get("progressbars", True):
+    else:
         # Redirect the root logger, s.t. no logger interferes with with the
         # progressbars.
         with logging_redirect_tqdm([logging.root]):
@@ -184,45 +205,12 @@ def _run_iterative_model(model, params: dict) -> None:
             )
 
             while model.time_manager.time < model.time_manager.time_final:
-                model.propagation_index = 0
-                model.time_manager.increase_time()
-                model.time_manager.increase_time_index()
                 time_progressbar.set_description_str(
                     f"Time step {model.time_manager.time_index}"
-                    + f" at time {model.time_manager.time:.1e}"
                 )
-                logger.debug(
-                    f"\nTime step {model.time_manager.time_index} at time"
-                    + f" {model.time_manager.time:.1e} of"
-                    + f" {model.time_manager.time_final:.1e}"
-                    + f" with time step {model.time_manager.dt:.1e}"
-                )
-
-                model.before_propagation_loop()
-                while model.keep_propagating():
-                    model.propagation_index += 1
-                    solver.solve(model)
-                model.after_propagation_loop()
+                time_step()
                 # Update time progressbar by the time step size divided by the initial
                 # time step size.
                 time_progressbar.update(n=model._time_step / initial_time_step)
-
-    # Progressbars turned off:
-    else:
-        while model.time_manager.time < model.time_manager.time_final:
-            model.propagation_index = 0
-            model.time_manager.increase_time()
-            model.time_manager.increase_time_index()
-            logger.debug(
-                f"\nTime step {model.time_manager.time_index} at time"
-                + f" {model.time_manager.time:.1e} of"
-                + f" {model.time_manager.time_final:.1e}"
-                + f" with time step {model.time_manager.dt:.1e}"
-            )
-            model.before_propagation_loop()
-            while model.keep_propagating():
-                model.propagation_index += 1
-                solver.solve(model)
-            model.after_propagation_loop()
 
     model.after_simulation()

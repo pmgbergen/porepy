@@ -7,7 +7,7 @@ import logging
 
 import numpy as np
 
-# Avoid some mpy trouble.
+# Avoid some mypy trouble.
 from tqdm.autonotebook import trange  # type: ignore
 
 from porepy.utils.ui_and_logging import (
@@ -43,15 +43,60 @@ class NewtonSolver:
         iteration_counter = 0
 
         is_converged = False
+        is_diverged = False
         prev_sol = model.equation_system.get_variable_values(time_step_index=0)
 
         init_sol = prev_sol
+        sol = init_sol
         errors = []
         error_norm = 1
 
+        # Define a function that does all the work during one Newton iteration, except
+        # for everything ``tqdm`` related.
+        def newton_step() -> None:
+            # Bind to variables in the outer function
+            nonlocal prev_sol
+            nonlocal sol
+            nonlocal error_norm
+            nonlocal is_converged
+            nonlocal is_diverged
+
+            # Logging.
+            logger.info(
+                f"Newton iteration number {iteration_counter}"
+                + f" of {self.params['max_iterations']}"
+            )
+
+            # Re-discretize the nonlinear term
+            model.before_nonlinear_iteration()
+
+            sol = self.iteration(model)
+
+            model.after_nonlinear_iteration(sol)
+
+            error_norm, is_converged, is_diverged = model.check_convergence(
+                sol, prev_sol, init_sol, self.params
+            )
+            prev_sol = sol
+            errors.append(error_norm)
+
+        # Progressbars turned off:
+        if not self.progress_bar:
+            while (
+                iteration_counter <= self.params["max_iterations"] and not is_converged
+            ):
+                newton_step()
+
+                if is_diverged:
+                    model.after_nonlinear_failure(sol, errors, iteration_counter)
+                elif is_converged:
+                    model.after_nonlinear_convergence(sol, errors, iteration_counter)
+
+                iteration_counter += 1
+
         # Progressbars turned on:
-        if self.progress_bar:
-            # Redirect the root logger, s.t. no logger interferes with with the
+        else:
+            # Redirect the root logger, s.t. no logger interferes with the
             # progressbars.
             with logging_redirect_tqdm([logging.root]):
                 # Initialize a progress bar. Length is the number of maximal Newton
@@ -67,31 +112,12 @@ class NewtonSolver:
                     iteration_counter <= self.params["max_iterations"]
                     and not is_converged
                 ):
-                    # Logging.
-                    logger.info(
-                        f"Newton iteration number {iteration_counter}"
-                        + f" of {self.params['max_iterations']}"
-                    )
-
-                    # Re-discretize the nonlinear term
-                    model.before_nonlinear_iteration()
-
-                    sol = self.iteration(model)
-
-                    model.after_nonlinear_iteration(sol)
-
-                    error_norm, is_converged, is_diverged = model.check_convergence(
-                        sol, prev_sol, init_sol, self.params
-                    )
-                    prev_sol = sol
-                    errors.append(error_norm)
-
-                    # Update progressbar.
-                    solver_progressbar.update(n=1)
                     solver_progressbar.set_description_str(
-                        f"Newton iteration number {iteration_counter} of \
+                        f"Newton iteration number {iteration_counter + 1} of \
                             {self.params['max_iterations']}"
                     )
+                    newton_step()
+                    solver_progressbar.update(n=1)
                     solver_progressbar.set_postfix_str(f"Error {error_norm}")
 
                     if is_diverged:
@@ -108,37 +134,6 @@ class NewtonSolver:
                         break
 
                     iteration_counter += 1
-
-        # Progressbars turned off:
-        else:
-            while (
-                iteration_counter <= self.params["max_iterations"] and not is_converged
-            ):
-                # Logging.
-                logger.info(
-                    f"Newton iteration number {iteration_counter}"
-                    + f" of {self.params['max_iterations']}"
-                )
-
-                # Re-discretize the nonlinear term
-                model.before_nonlinear_iteration()
-
-                sol = self.iteration(model)
-
-                model.after_nonlinear_iteration(sol)
-
-                error_norm, is_converged, is_diverged = model.check_convergence(
-                    sol, prev_sol, init_sol, self.params
-                )
-                prev_sol = sol
-                errors.append(error_norm)
-
-                if is_diverged:
-                    model.after_nonlinear_failure(sol, errors, iteration_counter)
-                elif is_converged:
-                    model.after_nonlinear_convergence(sol, errors, iteration_counter)
-
-                iteration_counter += 1
 
         if not is_converged:
             model.after_nonlinear_failure(sol, errors, iteration_counter)
