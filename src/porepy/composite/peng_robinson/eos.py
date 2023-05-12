@@ -482,7 +482,7 @@ class PengRobinsonEoS(AbstractEoS):
         A = self._A(a, p, T)
         B = self._B(b, p, T)
         # root
-        Z = self._Z(A, B, apply_smoother)
+        Z, Z_other = self._Z(A, B, apply_smoother)
         # density
         rho = self._rho(p, T, Z)
         rho_mass = self.get_rho_mass(rho, X)
@@ -492,12 +492,43 @@ class PengRobinsonEoS(AbstractEoS):
         h_dep = self._h_dep(T, Z, a, dT_a, b, B)
         h_ideal = self.get_h_ideal(p, T, X)
         h = h_ideal + h_dep
+
+        # Fugacity extensions as per Ben Gharbia 2021
+        dxi_a = list()
+        # if np.any(self.is_extended):
+        #     extend_phi: bool = True
+        #     rho_ext = self._rho(p, T, Z_other)
+        #     G = self._Z_polynom(Z, A, B)
+        #     Gamma_ext = Z * G / ((Z - B) * (Z**2 + 2 * Z * B - B**2))
+        #     dxi_Z_other = list()
+        #     for i in range(len(self.components)):
+        #         dxi_a_ = self._dXi_a(X, a_comps, bip, i)
+        #         dxi_a.append(dxi_a_)
+        #         dxi_Z_other_ = self._dxi_Z(T, rho_ext, a, b, self._b_vals[i], dxi_a[i])
+        #         dxi_Z_other.append(dxi_Z_other_)
+        #     dZ_other = safe_sum([x * dz for x, dz in zip(X, dxi_Z_other)])
+        # else:
+        #     extend_phi: bool = False
+        for i in range(len(self.components)):
+            dxi_a_ = self._dXi_a(X, a_comps, bip, i)
+            dxi_a.append(dxi_a_)
         # fugacity per present component
         phis: list[NumericType] = list()
         for i in range(len(self.components)):
-            B_i = self._B(self._b_vals[i], p, T)
-            A_i = self._dXi_a(X, a_comps, bip, i) * p / (R_IDEAL**2 * T * T)
-            phis.append(self._phi_i(Z, A_i, A, B_i, B))
+            b_i = self._b_vals[i]
+            B_i = self._B(b_i, p, T)
+            A_i = dxi_a[i] * p / (T * R_IDEAL) ** 2
+            phi_i = self._phi_i(Z, A_i, A, B_i, B)
+
+            # if extend_phi:
+            #     w1 = (B - B_i + dZ_other - dxi_Z_other[i]) / Z / 2
+            #     w2 = (B - B_i) / B
+            #     ext_i = Gamma_ext * (w1 + w2)
+
+            #     ext_i = ext_i[self.is_extended]
+            #     phi_i[self.is_extended] = phi_i[self.is_extended] + ext_i
+
+            phis.append(phi_i)
 
         # these two are open TODO
         kappa = self._kappa(p, T, Z)
@@ -850,9 +881,36 @@ class PengRobinsonEoS(AbstractEoS):
         )
         return pp.ad.exp(log_phi_i)
 
+    @staticmethod
+    def _dxi_Z(
+        T: NumericType,
+        rho: NumericType,
+        a: NumericType,
+        b: NumericType,
+        b_i: NumericType,
+        dxi_a: NumericType,
+    ) -> NumericType:
+        """Auxiliary function implementing the derivative of the compressibility factor
+        w.r.t. molar fraction ``x_i``."""
+        d = 1 + 2 * rho * b - (rho * b) ** 2
+        return rho * b_i / (1 - rho * b) ** 2 + (
+            rho * a * (2 * rho * b_i + 2 * rho**2 * b * b_i) / (d**2 * T * R_IDEAL)
+            - rho * dxi_a / (d * T * R_IDEAL)
+        )
+
+    @staticmethod
+    def _Z_polynom(Z: NumericType, A: NumericType, B: NumericType) -> NumericType:
+        """Auxiliary method implementing the compressibility polynomial."""
+        return (
+            Z**3
+            + Z**2 * (B - 1)
+            + Z * (A - 2 * B - 3 * B**2)
+            - (A * B - B**3 - B**2)
+        )
+
     def _Z(
         self, A: NumericType, B: NumericType, apply_smoother: bool = False
-    ) -> NumericType:
+    ) -> tuple[NumericType, NumericType]:
         """Auxiliary method to compute the compressibility factor based on Cardano
         formulas.
 
@@ -864,28 +922,10 @@ class PengRobinsonEoS(AbstractEoS):
                 Flag to apply smoothing procedure.
 
         Returns:
-            The root ``Z`` corresponding to the assigned phase label :attr:`gaslike`.
+            Returns two roots. The first one corresponds to the assigned phase label
+            :attr:`gaslike`. The second root is the other root.
 
         """
-        # NOTE A and B must in theory be strictly positive
-        # Numerically they can be NAN or non-positive.
-        # this must be checked.
-        # Non-positivity can happen due to numerical imprecision
-        # (e.g. slightly negative fractions)
-        # For now we try to work with it.
-
-        # # Positivity check
-        # assert np.all(A > 0.), "Cohesion A must be strictly positive"
-        # assert np.all(B > 0.), "Covolume B must be strictly positive"
-
-        # NAN check
-        # A_nan_vals = np.any(np.isnan(A.val))
-        # B_nan_vals = np.any(np.isnan(B.val))
-        # if A_nan_vals or B_nan_vals:
-        #     raise ValueError(
-        #         f"Discovered NANs in A ({A_nan_vals}) or B ({B_nan_vals})."
-        #     )
-
         shape = None  # will remain None if input is not ad
         # to determine the number of values
         n_a = None
@@ -1150,6 +1190,6 @@ class PengRobinsonEoS(AbstractEoS):
             Z_G.jac = Z_G.jac.tocsr()
 
         if self.gaslike:
-            return Z_G
+            return Z_G, Z_L
         else:
-            return Z_L
+            return Z_L, Z_G

@@ -369,7 +369,7 @@ class CompositionalFlowModel:
                 [
                     phase.density
                     * phase.saturation
-                    * phase.normalized_fraction_of[component]
+                    * phase.normalized_fraction_of[component]  # TODO This operator has a buggy JAC because normalization should be done only with values!!!
                     for phase in C.phases
                 ]
             ).evaluate(adsys).val[0]

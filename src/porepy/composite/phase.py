@@ -192,7 +192,7 @@ class AbstractEoS(abc.ABC):
             T: Temperature.
             X: ``len=num_components``
 
-                Fraction per component to be used in the computation,
+                (Normalized) Fraction per component to be used in the computation,
                 ordered as in :attr:`components`.
 
         Returns:
@@ -208,7 +208,7 @@ class AbstractEoS(abc.ABC):
             rho_mol: Molar density resulting from :meth:`compute`.
             X: ``len=num_components``
 
-                Fraction per component to be used in the computation,
+                (Normalized) Fraction per component to be used in the computation,
                 ordered as in :attr:`components`.
 
         Returns:

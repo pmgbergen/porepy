@@ -13,7 +13,7 @@ sys.path.append(str(pathlib.Path(__file__).parent.resolve()))
 
 from calculate_roots import A_CRIT, B_CRIT, REGION_ENCODING, path, read_root_results, EPS
 
-RESULTFILE: str = "roots_nosmooth_mod.csv"
+RESULTFILE: str = "roots.csv"
 FIGUREPATH: str = 'figs'
 FIGWIDTH: int = 15  # in inches, 1080 / 1920 ratio applied to height
 DPI: int = 400
@@ -60,7 +60,7 @@ def _plot_B_violation(
     violated = val_mesh <= B_mesh
     if np.any(violated):
         img = axis.plot(
-            A_mesh[violated], B_mesh[violated], 'v', markersize=0.1, color="magenta"
+            A_mesh[violated], B_mesh[violated], 'v', markersize=0.1, color="red"
         )
         return [img[0]], [f"{val_name} < B"]
     else:
@@ -97,7 +97,7 @@ def _plot_iszero(
 ):
     zero = np.isclose(val_mesh, 0., rtol=0, atol=EPS)
     if np.any(zero):
-        img = axis.plot(A_mesh[zero], B_mesh[zero], '*', markersize=4, color='indigo')
+        img = axis.plot(A_mesh[zero], B_mesh[zero], '*', markersize=1.5, color='indigo')
         return [img[0]], [f"{val_name} = 0 (eps = {EPS})"]
     else:
         return [], []
@@ -121,7 +121,7 @@ def plot_root_regions(
     cax = divider.append_axes("right", size="5%", pad=0.1)
     cb_rr = fig.colorbar(img_rr, cax=cax, orientation="vertical")
     cb_rr.set_ticks(REGION_ENCODING)
-    cb_rr.set_ticklabels(["1-real-root", "triple-root", "2-real-roots", "3-real-roots"])
+    cb_rr.set_ticklabels(["triple-root", "1-real-root", "2-real-roots", "3-real-roots"])
 
 
 def plot_extension_markers(
@@ -239,11 +239,9 @@ if __name__ == '__main__':
 
     GAS_RES = np.zeros(A_mesh.shape)
     LIQ_RES = np.zeros(A_mesh.shape)
-    INT_RES = np.zeros(A_mesh.shape)
     
     GAS_ROOT = np.zeros(A_mesh.shape)
     LIQ_ROOT = np.zeros(A_mesh.shape)
-    INT_ROOT = np.zeros(A_mesh.shape)
 
     GAS_EXTENDED = np.zeros(A_mesh.shape, dtype=bool)
     LIQ_EXTENDED = np.zeros(A_mesh.shape, dtype=bool)
@@ -258,45 +256,35 @@ if __name__ == '__main__':
             A_ = A_mesh[i, j]
             B_ = B_mesh[i, j]
 
-            reg, Z_L, Z_I, Z_G, is_extended = ab_map[(A_, B_)]
+            reg, Z_L, Z_G, is_extended = ab_map[(A_, B_)]
 
             # TODO delete this once the infinity issue is solved.
-            if Z_L in ignore or Z_I in ignore or Z_G in ignore:
+            if Z_L in ignore or Z_G in ignore:
                 continue
 
             REG[i, j] = reg
             GAS_ROOT[i, j] = Z_G
             LIQ_ROOT[i, j] = Z_L
-            INT_ROOT[i, j] = Z_I
 
             # data in the 1-real-root region
-            if reg == REGION_ENCODING[0]:
-                if is_extended == 2:
+            if reg == REGION_ENCODING[1]:
+                if is_extended == 0:
                     GAS_EXTENDED[i, j] = True
                     LIQ_RES[i, j] = res_compressibility(Z_L, A_, B_)
-                elif is_extended == 0:
+                elif is_extended == 1:
                     LIQ_EXTENDED[i, j] = True
                     GAS_RES[i, j] = res_compressibility(Z_G, A_, B_)
-            # data in the triple-root region
-            elif reg == REGION_ENCODING[1]:
-                LIQ_RES[i, j] = res_compressibility(Z_L, A_, B_)
-                GAS_RES[i, j] = res_compressibility(Z_G, A_, B_)
-            # data in the double-root region
-            elif reg == REGION_ENCODING[2]:
-                LIQ_RES[i, j] = res_compressibility(Z_L, A_, B_)
-                GAS_RES[i, j] = res_compressibility(Z_G, A_, B_)
-            # data in the 3-real-root region
-            elif reg == REGION_ENCODING[3]:
-                LIQ_RES[i, j] = res_compressibility(Z_L, A_, B_)
-                INT_RES[i, j] = res_compressibility(Z_I, A_, B_)
+            else:
+                if not B_ > B_CRIT / A_CRIT * A_:  # exclude because of correction
+                    LIQ_RES[i, j] = res_compressibility(Z_L, A_, B_)
                 GAS_RES[i, j] = res_compressibility(Z_G, A_, B_)
             
             print(f"\rCalculating Plot data: {counter}/{nm}", end='', flush=True)
             counter += 1
     print("\nCalculating Plot data: Done", flush=True)
 
-    NUM_ONEROOT_CASES = np.sum(REG == REGION_ENCODING[0])
-    NUM_TRIPPLEROOT_CASES = np.sum(REG == REGION_ENCODING[1])
+    NUM_TRIPPLEROOT_CASES = np.sum(REG == REGION_ENCODING[0])
+    NUM_ONEROOT_CASES = np.sum(REG == REGION_ENCODING[1])
     NUM_DOUBLEROOT_CASES = np.sum(REG == REGION_ENCODING[2])
     NUM_THREEROOT_CASES = np.sum(REG == REGION_ENCODING[3])
     print(f"Cases with a double root: {NUM_DOUBLEROOT_CASES} ({NUM_DOUBLEROOT_CASES / nm * 100} %)")
@@ -408,10 +396,11 @@ if __name__ == '__main__':
 
     plot_values(
         axis, A_mesh, B_mesh, diff, 'diff(Z_L, B)',
-        cmap='coolwarm_r', norm=norm,
+        cmap='coolwarm',
+        norm=norm,
         plot_B_violation=False,
         plot_neg=True,
-        plot_zero=True
+        # plot_zero=True
     )
 
     axis = fig.add_subplot(gs[0, 1])
@@ -437,7 +426,8 @@ if __name__ == '__main__':
     norm = mpl.colors.TwoSlopeNorm(vcenter=vcenter, vmin=vmin, vmax=vmax)
     plot_values(
         axis, A_mesh, B_mesh, diff, 'diff(Z_G, B)',
-        cmap='coolwarm_r', norm=norm,
+        cmap='coolwarm',
+        # norm=norm,
         plot_B_violation=False,
         plot_neg=True,
         plot_zero=True,
@@ -480,7 +470,8 @@ if __name__ == '__main__':
     norm = mpl.colors.TwoSlopeNorm(vcenter=vcenter, vmin=vmin, vmax=vmax)
     plot_values(
         axis, A_mesh, B_mesh, diff, 'diff(Z_G, Z_L)',
-        cmap='coolwarm_r', norm=norm,
+        cmap='coolwarm',
+        # norm=norm,
         plot_B_violation=False,
         plot_neg=True,
         plot_zero=True
@@ -495,26 +486,26 @@ if __name__ == '__main__':
     # endregion
 
     # region Plot 6: Intermediate root
-    print("\rPlotting: Intermediate root", end='', flush=True)
-    fig = plt.figure(figsize=(FIGWIDTH, 1080 / 1920 * FIGWIDTH))
-    gs = fig.add_gridspec(1, 2)
-    fig.suptitle(f"Intermediate root")
+    # print("\rPlotting: Intermediate root", end='', flush=True)
+    # fig = plt.figure(figsize=(FIGWIDTH, 1080 / 1920 * FIGWIDTH))
+    # gs = fig.add_gridspec(1, 2)
+    # fig.suptitle(f"Intermediate root")
 
-    axis = fig.add_subplot(gs[0, 0])
-    plot_values(
-        axis, A_mesh, B_mesh, INT_ROOT, 'Z_i',
-        plot_B_violation=False, plot_zero=False, plot_neg=True
-    )
+    # axis = fig.add_subplot(gs[0, 0])
+    # plot_values(
+    #     axis, A_mesh, B_mesh, INT_ROOT, 'Z_i',
+    #     plot_B_violation=False, plot_zero=False, plot_neg=True
+    # )
 
-    axis = fig.add_subplot(gs[0, 1])
-    plot_values(axis, A_mesh, B_mesh, INT_RES, 'Z_i residuals')
+    # axis = fig.add_subplot(gs[0, 1])
+    # plot_values(axis, A_mesh, B_mesh, INT_RES, 'Z_i residuals')
 
-    fig.tight_layout()
-    fig.savefig(
-        f"{str(path())}/{FIGUREPATH}/6_Z_i__{fname}.png",
-        format="png",
-        dpi=DPI,
-    )
+    # fig.tight_layout()
+    # fig.savefig(
+    #     f"{str(path())}/{FIGUREPATH}/6_Z_i__{fname}.png",
+    #     format="png",
+    #     dpi=DPI,
+    # )
     # endregion
 
     print('\nPlotting: done', flush=True)

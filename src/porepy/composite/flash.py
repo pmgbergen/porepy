@@ -27,7 +27,7 @@ from ._core import (
 from .composite_utils import safe_sum
 from .heuristics import K_val_Wilson
 from .mixture import NonReactiveMixture, ThermodynamicState
-from .phase import Phase, PhaseProperties
+from .phase import PhaseProperties
 
 __all__ = ["FlashSystemNR", "FlashNR"]
 
@@ -36,7 +36,7 @@ log_handler = logging.StreamHandler()
 log_handler.terminator = ""
 logger.addHandler(log_handler)
 
-_del_log = "\r" + " " * 150 + "\r"
+_del_log = "\r" + " " * 100 + "\r"
 
 
 def _pos(var: NumericType) -> NumericType:
@@ -298,7 +298,7 @@ class FlashSystemNR(ThermodynamicState):
                     nu = pp.ad.AdArray(nu, self._nu.jac)
 
         # computing properties necessary to assemble the system
-        phase_props: list[PhaseProperties] = self.mixture.compute_properties(
+        props: list[PhaseProperties] = self.mixture.compute_properties(
             p, T, X, store=False, normalize=True, **self.eos_kwargs
         )
 
@@ -318,14 +318,12 @@ class FlashSystemNR(ThermodynamicState):
         # between independent phases and reference phase
         for i in range(self._num_comp):
             for j in range(1, self._num_phases):
-                equ = (
-                    phase_props[j].phis[i] * X[j][i] - phase_props[0].phis[i] * X[0][i]
-                )
+                equ = X[j][i] * props[j].phis[i] - X[0][i] * props[0].phis[i]
                 equations.append(equ)
 
         # Third, enthalpy constraint if temperature unknown
         if self._T_unknown and self._assemble_h_constraint:
-            h_j = [phase_props[j].h for j in range(self._num_phases)]
+            h_j = [props[j].h for j in range(self._num_phases)]
             equ = self.mixture.evaluate_homogenous_constraint(self.h, y, h_j)
             # normalizing enthalpy constraint, without blowing it up
             h_norm = self.h.copy()
@@ -336,7 +334,7 @@ class FlashSystemNR(ThermodynamicState):
 
         # Third, volume constraint if pressure is unknown
         if self._p_unknown and self._assemble_v_constraint:
-            rho_j = [phase_props[j].rho for j in range(self._num_phases)]
+            rho_j = [props[j].rho for j in range(self._num_phases)]
             rho = self.mixture.evaluate_weighed_sum(rho_j, s)
             equ = rho ** (-1) - self.v
             # normalizing volume constraint, without blowing it up
@@ -361,6 +359,7 @@ class FlashSystemNR(ThermodynamicState):
                 vw = y[j] * unity_j
                 equ = vw - nu
                 regularization.append(vw)
+                # regularization.append(vw * self._u / self._num_phases**2)
                 equations.append(equ)
 
             # NPIPM slack equation
@@ -369,12 +368,12 @@ class FlashSystemNR(ThermodynamicState):
             # Regularizing the slack equation: Gauss-elimination steps using the
             # coupling equations and some factor
             reg = _pos(safe_sum(regularization)) * self._u / self._num_phases**2
-            reg = reg.val if isinstance(reg, pp.ad.AdArray) else reg
+            # reg = reg.val if isinstance(reg, pp.ad.AdArray) else reg
             if with_derivatives:
                 for j in range(self._num_phases):
                     equ_j = equations[-(1 + j)]
-                    equ.jac = equ.jac - sps.diags(reg) * equ_j.jac
-                    equ.val = equ.val - reg * equ_j.val
+                    equ.jac = equ.jac - sps.diags(reg.val) * equ_j.jac
+                    equ.val = equ.val - reg.val * equ_j.val
             else:
                 for j in range(self._num_phases):
                     equ_j = equations[-(1 + j)]
@@ -1345,17 +1344,6 @@ class FlashNR:
 
     ### Initial guess strategies -------------------------------------------------------
 
-    @staticmethod
-    def _normalize_fractions(X: list[NumericType]) -> list[NumericType]:
-        """Auxiliary function to re-normalize a family of fractions."""
-        s = safe_sum(X)
-        s = s.val if isinstance(s, pp.ad.AdArray) else s
-        X_n = [
-            pp.ad.AdArray(x.val / s, x.jac) if isinstance(x, pp.ad.AdArray) else x / s
-            for x in X
-        ]
-        return X_n
-
     def _solve_for_compositions(
         self, state: ThermodynamicState, K: list[list[NumericType]]
     ) -> ThermodynamicState:
@@ -1384,13 +1372,7 @@ class FlashNR:
                 # avoid division by zero, setting ref phase fraction to tiny value
                 is_zero = np.isclose(t_i, 0, 0, self.tolerance)
                 t_i[is_zero] = state.z[i][is_zero] / self.tolerance
-
-                # ensuring a duality gap
-                idx = np.logical_and(np.logical_not(nsj), t_i >= state.z[i])
-                idx = np.logical_or(idx, nsj)
-                x_i_0_[idx] = state.z[i][idx] / t_i[idx]
-                # special case TODO
-                # idx = np.logical_and(np.logical_not(nsj), t_i < state.z[i])
+                x_i_0_[nsj] = state.z[i][nsj] / t_i[nsj]
                 x_i_0.append(x_i_0_)
             # compute composition of reference phase by averaging
             x_i_0 = safe_sum(x_i_0) / len(x_i_0)
@@ -1429,7 +1411,7 @@ class FlashNR:
         # K-values per independent phase (nph - 1)
         K: list[list[NumericType]]
         # tolerance to bind K-values away from zero
-        K_tol: float = self.tolerance * 1e-2
+        K_tol: float = 1e-10
 
         if guess_K_values:
             # TODO can we use Wilson for all independent phases if more than 2 phases?
@@ -1443,41 +1425,88 @@ class FlashNR:
                 for _ in range(1, nph)
             ]
         else:
-            phase_props: list[PhaseProperties] = [
-                phase.compute_properties(state.p, state.T, state.X[j], store=False)
-                for j, phase in enumerate(self.mixture.phases)
-            ]
+            phase_props: list[PhaseProperties] = self.mixture.compute_properties(
+                state.p, state.T, state.X, store=False, normalize=True
+            )
             K = [
                 [
-                    phase_props[0].phis[i].val / phase_props[j].phis[i].val
+                    phase_props[0].phis[i].val / phase_props[j].phis[i].val + K_tol
                     for i in range(ncp)
                 ]
                 for j in range(1, nph)
             ]
 
-        independent_phases: list[Phase] = list(self.mixture.phases)[1:]
-
-        for i in range(3):
+        for _ in range(3):
             # Computing phase fraction estimates,
             # depending on number of independent phases
             if nph == 2:
                 y = rachford_rice_vle_inversion(state.z, K[0])
-                negative_flash = np.logical_or(y < 0.0, 1.0 < y)
+                negative = y < 0.0
+                exceeds = y > 1.0
+                invalid = np.logical_or(negative, exceeds)
 
                 feasible_reg = rachford_rice_feasible_region(
                     state.z, [np.ones(num_vals)], K
                 )
                 rr_pot = rachford_rice_potential(state.z, [np.ones(num_vals)], K)
 
-                y = np.where((rr_pot > 0.0) & negative_flash, np.zeros(num_vals), y)
+                y = np.where((rr_pot > 0.0) & invalid, np.zeros(num_vals), y)
                 y = np.where(
-                    (rr_pot < 0.0) & negative_flash & feasible_reg,
+                    (rr_pot < 0.0) & invalid & feasible_reg,
                     np.ones(num_vals),
                     y,
                 )
 
+                if np.any(invalid) and False:
+                    # Corrections based on the negative flash.
+                    # As long as the gas fraction is within the two inner-most poles,
+                    # it is a feasible solution.
+                    K_ = np.array(K[0])
+                    K_min = np.min(K_, axis=0)
+                    K_max = np.max(K_, axis=0)
+                    y_min_ = 1 / (1 - K_max)
+                    y_max_ = 1 / (1 - K_min)
+                    # for some unknown reasons, above formula does not always hold
+                    y_min = np.where(y_min_ < y_max_, y_min_, y_max_)
+                    y_max = np.where(y_min_ < y_max_, y_max_, y_min_)
+                    y_feasible = np.logical_and(y_min < y, y < y_max)
+                    corr_neg = np.logical_and(y_feasible, negative)
+                    y[corr_neg] = 0.0
+                    corr_pos = np.logical_and(y_feasible, exceeds)
+                    y[corr_pos] = 1.0
+                    corrected = np.logical_or(corr_neg, corr_pos)
+                    # If all K-values are smaller than 1 and gas fraction is negative,
+                    # the liquid phase is clearly saturated
+                    # Vice versa, if fraction above 1 and K-values greater than 1.
+                    # the gas phase is clearly saturated
+                    corr_neg = np.logical_and(negative, np.all(K_ < 1.0, axis=0))
+                    corrected = np.logical_or(corrected, corr_neg)
+                    corr_pos = np.logical_and(exceeds, np.all(K_ > 1.0, axis=0))
+                    corrected = np.logical_or(corrected, corr_pos)
+                    y[corr_neg] = 0.0
+                    y[corr_pos] = 1.0
+
+                    # Check if there are any invalid values which are not covered.
+                    # If there are, use special procedure from Okuno.
+                    need_correction = np.logical_and(np.logical_not(corrected), invalid)
+                    if np.any(need_correction):
+                        feasible_reg = rachford_rice_feasible_region(
+                            state.z, [np.ones(num_vals)], K
+                        )
+                        rr_pot = rachford_rice_potential(
+                            state.z, [np.ones(num_vals)], K
+                        )
+
+                        y_ = np.where((rr_pot > 0.0) & invalid, np.zeros(num_vals), y)
+                        y_ = np.where(
+                            (rr_pot < 0.0) & invalid & feasible_reg,
+                            np.ones(num_vals),
+                            y,
+                        )
+                        y[need_correction] = y_[need_correction]
+
                 assert not np.any(
-                    np.logical_or(0.0 > y, y > 1.0)
+                    np.logical_or(y < 0.0, 1.0 < y)
                 ), "y fraction estimate outside bound [0, 1]."
                 state.y[1].val = y
                 state.y[0].val = 1 - y
@@ -1489,24 +1518,17 @@ class FlashNR:
 
             state = self._solve_for_compositions(state, K)
 
-            # Re-normalizing compositions
-            # for j in range(nph):
-            #     state.X[j] = self._normalize_fractions(state.X[j])
-
             # update K values from EoS
-            x_0_sum = safe_sum([x.val for x in state.X[0]])
-            X = [x / x_0_sum for x in state.X[0]]
-            props_r: PhaseProperties = self.mixture.reference_phase.compute_properties(
-                state.p, state.T, X, store=False
+            phase_props: list[PhaseProperties] = self.mixture.compute_properties(
+                state.p, state.T, state.X, store=False, normalize=True
             )
-            for j, phase in enumerate(independent_phases):
-                x_j_sum = safe_sum([x.val for x in state.X[j + 1]])
-                X = [x / x_j_sum for x in state.X[j + 1]]
-                props: PhaseProperties = phase.compute_properties(
-                    state.p, state.T, X, store=False
-                )
-                for i in range(ncp):
-                    K[j][i] = props_r.phis[i].val / props.phis[i].val + K_tol
+            K = [
+                [
+                    phase_props[0].phis[i].val / phase_props[j].phis[i].val + K_tol
+                    for i in range(ncp)
+                ]
+                for j in range(1, nph)
+            ]
 
         # check if any phase saturated, and solve other fractions directly
         state = self._solve_for_compositions(state, K)
@@ -1549,8 +1571,7 @@ class FlashNR:
                     for i, comp in enumerate(self.mixture.components)
                 ]
             )
-            T_estimate = (T_pc - T_REF) / 2 + T_REF
-            state.T.val = T_pc
+            state.T.val = T_pc  # (T_pc - T_REF) / 2 + T_REF
         else:
             h_norm = state.h.copy()
             h_norm[np.abs(h_norm) <= 1] = 1.0
@@ -1567,7 +1588,7 @@ class FlashNR:
                 else:
                     # get only the derivative w.r.t to temperature and solve
                     # derivative w.r.t temperature is diagonal since it is local
-                    dT = -H.val / H.jac[:, :num_vals].diagonal()
+                    dT = -H.val / H.jac[:, :num_vals].diagonal() * 2e-1
                     # Correct descend direction assuming T has to increase if current
                     # enthalpy is below target (and vice versa)
                     corrector = np.logical_or(
@@ -1575,8 +1596,7 @@ class FlashNR:
                         np.logical_and(h_mix.val < state.h, dT < 0),
                     )
                     dT[corrector] *= -1
-                    dT *= (1 - np.abs(dT) / state.T.val) * 4e-1  # chop update
-                    state.T.val = state.T.val + dT
+                    state.T.val = state.T.val + dT * (1 - np.abs(dT) / state.T.val)
 
         return state, res_is_zero
 
@@ -1955,9 +1975,6 @@ class FlashNR:
         F_k = F(X_0, True)
         X_k = X_0
 
-        # DX_prev = None
-        # X_prev = []
-
         res_norm = np.linalg.norm(F_k.val)
         # if residual is already small enough
         if res_norm <= self.tolerance:
@@ -1983,16 +2000,6 @@ class FlashNR:
                     step_size = self._Armijo_line_search(X_k, -F_k.val, DX, F, i)
                     DX = step_size * DX
 
-                # if len(X_prev) == 2:
-                #     diff = DX - D_prev
-                #     g = np.dot(diff, DX) / np.dot(diff, diff)
-                #     D_prev = DX
-                #     X_k = X_prev[1] + DX - g * (X_prev[1] - X_prev[0] + DX - D_prev)
-                #     X_prev[0] = X_prev[1]
-                #     X_prev[1] = X_k
-                # else:
-                #     X_prev.append(X_k)
-                #     D_prev = DX
                 X_k = X_k + DX
 
                 F_k = F(X_k, True)

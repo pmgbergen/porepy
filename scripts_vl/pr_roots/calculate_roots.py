@@ -8,11 +8,11 @@ import numpy as np
 
 import porepy as pp
 
-RESULTFILE: str = "roots_nosmooth_mod.csv"
+RESULTFILE: str = "roots.csv"
 DELIMITER: str = ","
 
-B_CRIT: float = pp.composite.B_CRIT
-A_CRIT: float = pp.composite.A_CRIT
+B_CRIT: float = pp.composite.peng_robinson.PengRobinsonEoS.B_CRIT
+A_CRIT: float = pp.composite.peng_robinson.PengRobinsonEoS.A_CRIT
 EPS: float = 1e-14
 SMOOTHING_FACTOR: float = 5e-1
 
@@ -21,24 +21,26 @@ APPLY_SMOOTHING: bool = False
 # define the upper limit for A and B by UPPER_LIM_FACTOR * A_CRIT (B_CRIT)
 UPPER_LIM_FACTOR: float = 3
 # Refinement between upper and lower limits
-REFINEMENT: int = 200
+REFINEMENT: int = 300
 # A flag to include A,B = 0
 INCLUDE_ZERO: bool = True
 
-A_LIMIT: list[float] = [-A_CRIT, UPPER_LIM_FACTOR * A_CRIT]
+A_LIMIT: list[float] = [-0, UPPER_LIM_FACTOR * A_CRIT]
+# A_LIMIT: list[float] = [-A_CRIT, 3]
 # A_LIMIT: list[float] = [-25, 25]
-B_LIMIT: list[float] = [-B_CRIT, UPPER_LIM_FACTOR * B_CRIT]
+B_LIMIT: list[float] = [-0, UPPER_LIM_FACTOR * B_CRIT]
+# B_LIMIT: list[float] = [-B_CRIT, 1]
 # B_LIMIT: list[float] = [-25, 25]
 
 
 REGION_ENCODING: list[int] = [
-    0,  # 1-real-root region
-    1,  # triple-root-region
+    0,  # triple-root-region
+    1,  # 1-real-root region
     2,  # 2-root-region with multiplicity
     3,  # 3-root-region
 ]
 
-HEADERS: list[str] = ["A", "B", "root case", "Z_L", "Z_I", "Z_G", "extended"]
+HEADERS: list[str] = ["A", "B", "root case", "Z_L", "Z_G", "extended"]
 
 
 def path():
@@ -73,18 +75,18 @@ def read_root_results(
             B_ = float(row[1])
             reg = int(row[2])
             Z_L = float(row[3])
-            Z_I = float(row[4])
-            Z_G = float(row[5])
+            # Z_I = float(row[4])
+            Z_G = float(row[4])
 
-            if row[6] == "None" or row[6] is None:
+            if row[5] == "None" or row[5] is None:
                 is_extended = None
             else:
-                is_extended = int(row[6])
+                is_extended = int(row[5])
 
             A.append(A_)
             B.append(B_)
 
-            ab_map.update({(A_, B_): [reg, Z_L, Z_I, Z_G, is_extended]})
+            ab_map.update({(A_, B_): [reg, Z_L, Z_G, is_extended]})
     print(f"Reading root results: done", flush=True)
 
     A_vec = np.array(A)
@@ -816,6 +818,11 @@ if __name__ == "__main__":
 
     print("Calculating roots: ...", end="", flush=True)
     counter: int = 1
+    eos = pp.composite.peng_robinson.PengRobinsonEoS(
+        False, smoothing_factor=SMOOTHING_FACTOR, eps=EPS
+    )
+    func = eos._Z
+    # func = calc_Z_mod
     for i in range(n):
         for j in range(m):
             A_ = A_mesh[i, j]
@@ -824,12 +831,15 @@ if __name__ == "__main__":
             A_ij = np.array([A_])
             B_ij = np.array([B_])
 
-            reg, roots, is_extended = calc_Z_mod(A_ij, B_ij, apply_smoother=APPLY_SMOOTHING)
-            Z_L = roots[0][0]
-            Z_I = roots[1][0]
-            Z_G = roots[2][0]
+            Z_L, Z_G, reg = func(A_ij, B_ij, apply_smoother=APPLY_SMOOTHING)
+            is_extended = int(eos.is_extended[0])
+            Z_L = float(Z_L[0])
+            Z_G = float(Z_G[0])
+            # Z_L = roots[0][0]
+            # Z_I = roots[1][0]
+            # Z_G = roots[2][0]
 
-            rows.append([A_, B_, reg, Z_L, Z_I, Z_G, str(is_extended)])
+            rows.append([A_, B_, reg, Z_L, Z_G, is_extended])
 
             print(f"\rCalculating roots: {counter}/{nm}", end="", flush=True)
             counter += 1
@@ -849,9 +859,7 @@ if __name__ == "__main__":
         r = ab_map[(a, b)]
         assert isinstance(r[0], int), f"Root region not readable as int: row {row}"
         assert isinstance(r[1], float), f"Liquid root not readable as float: row {row}"
-        assert isinstance(r[2], float), f"Intermediate not readable as float: row {row}"
-        assert isinstance(r[3], float), f"Gas root not readable as float: row {row}"
-        assert (
-            isinstance(r[4], int) or r[4] is None
-        ), f"Extension flag not readable as int or None: row {row}"
+        # assert isinstance(r[2], float), f"Intermediate not readable as float: row {row}"
+        assert isinstance(r[2], float), f"Gas root not readable as float: row {row}"
+        assert isinstance(r[3], int), f"Extension flag not readable as int or None: row {row}"
     print("Done", flush=True)
