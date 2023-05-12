@@ -54,7 +54,7 @@ from porepy.numerics.ad.operator_functions import NumericType
 
 from ._core import COMPOSITIONAL_VARIABLE_SYMBOLS
 from .component import Component
-from .composite_utils import safe_sum
+from .composite_utils import normalize_fractions, safe_sum
 from .phase import Phase, PhaseProperties
 
 __all__ = ["ThermodynamicState", "BasicMixture", "NonReactiveMixture"]
@@ -1104,7 +1104,7 @@ class BasicMixture:
         T: NumericType,
         X: list[list[NumericType]],
         store: Literal[True] = True,
-        normalize: bool = False,
+        normalize: bool = True,
         **kwargs,
     ) -> None:
         # Typing overload for default return value: None, properties are stored
@@ -1117,7 +1117,7 @@ class BasicMixture:
         T: NumericType,
         X: list[list[NumericType]],
         store: Literal[False] = False,
-        normalize: bool = False,
+        normalize: bool = True,
         **kwargs,
     ) -> list[PhaseProperties]:
         # Typing overload for default return value: Properties are returned
@@ -1129,7 +1129,7 @@ class BasicMixture:
         T: NumericType,
         X: list[list[NumericType]],
         store: bool = True,
-        normalize: bool = False,
+        normalize: bool = True,
         **kwargs,
     ) -> None | list[PhaseProperties]:
         """This is a wrapper to compute the properties of each phase.
@@ -1145,9 +1145,9 @@ class BasicMixture:
             store: ``default=True``
 
                 Flag to store or return the results
-            normalize: ``default=False``
+            normalize: ``default=True``
 
-                Normalizes phase compositions if True.
+                Normalizes phase compositions if True, otherwise takes as is.
             X: ``len=n_p``
 
                 A nested list containing for each phase a sub-list of (normalized)
@@ -1160,12 +1160,7 @@ class BasicMixture:
             if normalize:
                 s_j = safe_sum(X[j])
                 s_j = s_j.val if isinstance(s_j, pp.ad.AdArray) else s_j
-                X_j = [
-                    pp.ad.AdArray(x.val / s_j, x.jac)
-                    if isinstance(x, pp.ad.AdArray)
-                    else x / s_j
-                    for x in X[j]
-                ]
+                X_j = normalize_fractions(X[j])
             else:
                 X_j = X[j]
             props = phase.compute_properties(p, T, X_j, store=store, **kwargs)
@@ -1296,7 +1291,9 @@ class BasicMixture:
         temperature: pp.ad.Operator,
         state: Optional[np.ndarray] = None,
         as_ad: bool = True,
-        derivatives: Optional[list[str]] = None,
+        derivatives: Optional[
+            list[str]
+        ] = None,  # TODO include normalization! (mind the JAC)
         **kwargs,
     ) -> None:
         """This is a wrapper function for :meth:`compute_properties`,

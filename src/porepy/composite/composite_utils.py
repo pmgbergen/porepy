@@ -14,6 +14,7 @@ from porepy.numerics.ad.operator_functions import NumericType
 
 __all__ = [
     "safe_sum",
+    "normalize_fractions",
     "CompositionalSingleton",
     "AdProperty",
 ]
@@ -32,6 +33,29 @@ def safe_sum(x: tuple[Any]) -> Any:
         return sum_
     else:
         return 0
+
+
+def normalize_fractions(X: list[NumericType]) -> list[NumericType]:
+    """AD-sensitive normalization of a family of fractions.
+
+    If the derivative is present, this normalization ensures that only the values
+    are normalized.
+
+    Parameters:
+        X: A family of quantities, such that ``sum(X) == 1`` should be True.
+
+    Returns:
+        Same quantities, but normalized. If the quantities are AD-Arrays, their
+        derivative is not affected.
+
+    """
+    s = safe_sum(X)
+    s = s.val if isinstance(s, pp.ad.AdArray) else s
+    X_n = [
+        pp.ad.AdArray(x.val / s, x.jac) if isinstance(x, pp.ad.AdArray) else x / s
+        for x in X
+    ]
+    return X_n
 
 
 class CompositionalSingleton(abc.ABCMeta):
