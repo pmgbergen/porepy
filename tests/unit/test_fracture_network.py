@@ -573,5 +573,4 @@ class TestDomain(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    TestFractureNetwork2d().test_pentagon_domain_with_fracs()
-    # unittest.main()
+    unittest.main()
