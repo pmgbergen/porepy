@@ -10,4 +10,5 @@ scipy
 shapely
 six
 sympy
+tqdm
 typing_extensions
