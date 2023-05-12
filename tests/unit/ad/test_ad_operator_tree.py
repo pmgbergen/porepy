@@ -216,7 +216,7 @@ def test_ad_arrays_unary_minus_parsing(field):
 
 
 def test_ad_operator_unary_minus_parsing():
-    """Check that __neg__ works as intended for a pp.ad.Operator object.
+    """Check that __neg__ works as intended for a non-trivial pp.ad.Operator object.
 
     This is done by summing two SparseArray objects to form an Operator object.
 
