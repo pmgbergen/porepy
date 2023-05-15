@@ -1417,6 +1417,18 @@ class Scalar(Operator):
         """
         return self._value
 
+    def set_value(self, value: float) -> None:
+        """Set the value of this scalar.
+
+        Usage includes changing the value of the scalar, as needed when using dynamic
+        time stepping.
+
+        Parameters:
+            value: The new value.
+
+        """
+        self._value = value
+
 
 class Variable(Operator):
     """AD operator representing a variable defined on a single grid or mortar grid.
