@@ -13,11 +13,11 @@ params = {
 
 t = 0.0
 T = 2.2
-dt = 0.1  # T / 1e2
+dt = 0.001  # T / 1e2
 max_iter = 70
 tol = 5e-7
 
-model = pp.CompositionalFlowModel(params=params)
+model = pp.CompositionalFlowModel(params=params, verbosity=1)
 
 model.dt.value = dt
 model.prepare_simulation()
@@ -26,7 +26,7 @@ model.prepare_simulation()
 
 while t < T:
     logger.info(f".. Timestep t={t} ; dt={dt}\n")
-    model.before_newton_loop(dt)
+    model.before_newton_loop()
 
     # A, b = model.ad_system.assemble_subsystem(
     #     equations=model._system_equations, variables=model._system_vars
