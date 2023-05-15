@@ -117,7 +117,7 @@ class CompositionalFlowModel:
         ## Boundary conditions
         self.outflow_boundary_pressure: float = self.initial_pressure
         """Dirichlet boundary pressure for the outflow in MPA for the advective flux."""
-        self.inflow_boundary_pressure: float = self.initial_pressure * 1.
+        self.inflow_boundary_pressure: float = self.initial_pressure * 2.
         """Dirichlet boundary pressure for the inflow in MPa for the advective flux."""
         self.inflow_boundary_temperature: float = self.initial_temperature
         """Temperature at the inflow boundary for the advective flux."""
@@ -129,7 +129,7 @@ class CompositionalFlowModel:
         effects.
 
         """
-        self.heated_boundary_temperature = self.initial_temperature
+        self.heated_boundary_temperature = self.initial_temperature + 50
         """Dirichlet boundary temperature in Kelvin for the conductive flux,
         bottom boundary."""
         self.injection_feed: list[float] = [0.0, 0.0]
@@ -223,8 +223,8 @@ class CompositionalFlowModel:
         """Assigns a cartesian grid as computational domain.
         Overwrites/sets the instance variables 'mdg'.
         """
-        refinement = 1
-        phys_dims = [2, 2]
+        refinement = 2
+        phys_dims = [3, 2]
         # n_cells = [4, 2]
         n_cells = [i * refinement for i in phys_dims]
         bounding_box_points = np.array([[0, phys_dims[0]], [0, phys_dims[1]]])
@@ -311,7 +311,7 @@ class CompositionalFlowModel:
         self.flash.armijo_parameters["j_max"] = 50
         self.flash.armijo_parameters["return_max"] = True
         self.flash.newton_update_chop = 1.0
-        self.flash.tolerance = 5e-8
+        self.flash.tolerance = 1e-8
         self.flash.max_iter = 140
         _, initial_state = self.flash.flash(
             state={
@@ -816,6 +816,7 @@ class CompositionalFlowModel:
         T = self.ad_system.get_variable_values([self.T.name], iterate_index=0)
         iterate_state = self.fluid.get_fractional_state_from_vector()
         iterate_state.T = T
+        self.flash.tolerance = 1e-5
         success, state = self.flash.flash(
             state={"p": p, "h": h},
             eos_kwargs={"apply_smoother": True},
