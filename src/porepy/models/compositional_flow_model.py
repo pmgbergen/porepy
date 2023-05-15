@@ -117,7 +117,7 @@ class CompositionalFlowModel:
         ## Boundary conditions
         self.outflow_boundary_pressure: float = self.initial_pressure
         """Dirichlet boundary pressure for the outflow in MPA for the advective flux."""
-        self.inflow_boundary_pressure: float = self.initial_pressure * 2
+        self.inflow_boundary_pressure: float = self.initial_pressure * 1.
         """Dirichlet boundary pressure for the inflow in MPa for the advective flux."""
         self.inflow_boundary_temperature: float = self.initial_temperature
         """Temperature at the inflow boundary for the advective flux."""
@@ -129,7 +129,7 @@ class CompositionalFlowModel:
         effects.
 
         """
-        self.heated_boundary_temperature = self.initial_temperature + 50
+        self.heated_boundary_temperature = self.initial_temperature
         """Dirichlet boundary temperature in Kelvin for the conductive flux,
         bottom boundary."""
         self.injection_feed: list[float] = [0.0, 0.0]
@@ -421,6 +421,12 @@ class CompositionalFlowModel:
                 self.ad_system.set_variable_values(
                     initial_state.y[j],
                     variables=[phase.fraction.name],
+                    iterate_index=0,
+                    time_step_index=0,
+                )
+                self.ad_system.set_variable_values(
+                    initial_state.s[j],
+                    variables=[phase.saturation.name],
                     iterate_index=0,
                     time_step_index=0,
                 )
@@ -758,9 +764,9 @@ class CompositionalFlowModel:
         _, _, idx_west, idx_north, idx_south, *_ = self._domain_boundary_sides(sd)
 
         vals = np.zeros(sd.num_faces)
-        vals[idx_south] = 10.0
-        vals[idx_north] = 10.0
-        vals[idx_west] = 10.0
+        vals[idx_south] = 5.0
+        vals[idx_north] = 5.0
+        vals[idx_west] = 5.0  # TODO this needs proper computation
 
         return vals
 
