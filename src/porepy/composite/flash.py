@@ -36,7 +36,7 @@ log_handler = logging.StreamHandler()
 log_handler.terminator = ""
 logger.addHandler(log_handler)
 
-_del_log = "\r" + " " * 100 + "\r"
+del_log = "\r" + " " * 100 + "\r"
 
 
 def _pos(var: NumericType) -> NumericType:
@@ -864,11 +864,10 @@ class FlashNR:
     def flash(
         self,
         state: dict[Literal["p", "T", "v", "u", "h"], pp.ad.Operator | NumericType],
-        eos_kwargs: dict = dict(),
-        method: Literal["newton-min", "npipm"] = "npipm",
-        guess_from_state: bool = False,
+        guess_from_state: Optional[ThermodynamicState] = None,
         feed: Optional[list[pp.ad.Operator | NumericType]] = None,
-        store_to_iterate: Optional[int] = None,
+        method: Literal["newton-min", "npipm"] = "npipm",
+        eos_kwargs: dict = dict(),
         verbosity: bool = 0,
     ) -> tuple[int, ThermodynamicState]:
         """Performs a flash procedure based on the arguments.
@@ -901,10 +900,22 @@ class FlashNR:
                 The state can be passed using PorePy's AD operators, or numerical
                 values. In either way, it the size must be compatible with the
                 system used to model the mixture.
-            eos_kwargs: ``default={}``
+            guess_from_state: ``default=None``
 
-                Keyword-arguments to be passed to
-                :meth:`~porepy.composite.mixture.BasicMixture.compute_properties`.
+                If given, the flash will take the values stored here as the initial
+                guess for unknown variables (values **only**).
+
+                The values passed in ``state`` must be compatible
+                with the number of DOFs.
+
+                If not given, an initial guess for fractional values (and for pressure
+                and temperature if required) is computed internally.
+            feed: ``num_comp - 1 <= len(feed) <=  num_comp, default=None``
+
+                Feed fractions per component. The feed fraction for the reference
+                component (first component) can be omitted.
+
+                If ``guess_from_state=False``, the feed must be provided.
             method: ``default='npipm'``
 
                 A string indicating the chosen algorithm:
@@ -914,29 +925,10 @@ class FlashNR:
                   min function [1].
                 - ``'npipm'``: A Non-Parametric Interior Point Method [2].
 
-            guess_from_state: ``default=False``
+            eos_kwargs: ``default={}``
 
-                If ``True``, the flash will take the values currently stored in the AD
-                framework (``ITERATE`` or ``STATE``) as the initial guess for fractional
-                values (**only**). The values passed in ``state`` must be compatible
-                with what the AD framework returns in this case.
-
-                If ``False``, an initial guess for fractional values (and for pressure
-                and temperature if required) is computed internally.
-            feed: ``num_comp - 1 <= len(feed) <=  num_comp, default=None``
-
-                Feed fractions per component. The feed fraction for the reference
-                component (first component) can be omitted.
-
-                If ``guess_from_state=False``, the feed must be provided.
-
-            store_to_iterate: ``default=False``
-
-                **If** the flash is successful, writes the results to the given
-                iterative index for each variable in the AD framework.
-
-                Stores only phase fractions, phase saturations and compositions!
-                I.e. variables which are inherent to the composite framework.
+                Keyword-arguments to be passed to
+                :meth:`~porepy.composite.mixture.BasicMixture.compute_properties`.
             verbosity: ``default=0``
 
                 Verbosity for logging. Per default, only warnings and logs of higher
@@ -976,15 +968,15 @@ class FlashNR:
             logger.setLevel(logging.WARNING)
 
         # check requested method
-        assert method in ["netwon-min", "npipm"], f"Unsupported method '{method}'."
+        assert method in ["newton-min", "npipm"], f"Unsupported method '{method}'."
 
         num_comp = self.mixture.num_components
         num_phases = self.mixture.num_phases
         success = False  # success flag
 
         # parsing state arguments
-        if not guess_from_state:
-            assert feed, f"Must provide feed fractions if 'guess_from_state=False'."
+        if guess_from_state is None:
+            assert feed, f"Must provide feed fractions if 'guess_from_state=None'."
             feed = self._parse_input_feed(feed)
             if len(feed) == num_comp - 1:
                 feed = [1 - safe_sum(feed)] + feed
@@ -993,25 +985,11 @@ class FlashNR:
 
         num_vals = len(state_args[0])  # number of values per state function
 
-        # declaring state structures
-        state_from_ad: Optional[ThermodynamicState] = None
-        thd_state: ThermodynamicState
-
-        if guess_from_state:
-            state_from_ad = self.mixture.get_fractional_state_from_vector()
-            # assert consistency
-            # TODO this functionality can be extended with a projection
-            assert num_vals == self.mixture.dofs, (
-                f"Inconsistent number of state values passed ({num_vals})"
-                + " for initial guess from stored state."
-                + f"\nMixture is set up with {self.mixture.dofs} per state function."
-            )
-
         logger.info(
             f"\nStarting {flash_type} flash\n"
             + f"Method: {method}\n"
             + f"Using Armijo line search: {self.use_armijo}\n"
-            + f"Initial guess from state: {guess_from_state}\n"
+            + f"Computing initial guess: {not bool(guess_from_state)}\n"
             + f"\nInitializing state ...\n"
         )
         # getting gas-phase index
@@ -1019,99 +997,100 @@ class FlashNR:
         for j, phase in enumerate(self.mixture.phases):
             if phase.gaslike:  # there is only one gas-like phase
                 gas_phase_index = j
+
+        thd_state: ThermodynamicState
         # Computation of initial guess values
         if flash_type == "p-T":
 
-            p, T = state_args
-            # initialize local AD system
+            thd_state = ThermodynamicState.initialize(
+                num_comp, num_phases, num_vals, True, values_from=guess_from_state
+            )
 
-            if state_from_ad:
-                thd_state = ThermodynamicState.initialize(
-                    num_comp, num_phases, num_vals, True, values_from=state_from_ad
-                )
-            else:
-                thd_state = ThermodynamicState.initialize(
-                    num_comp, num_phases, num_vals, True
-                )
+            if guess_from_state is None:
                 thd_state.z = feed
+            thd_state.p = state_args[0]
+            thd_state.T = state_args[1]
 
-            thd_state.p = p
-            thd_state.T = T
-            thd_state = self._guess_fractions(thd_state, num_vals, guess_K_values=True)
+            thd_state = self._guess_fractions(
+                thd_state, num_vals, num_iter=3, guess_K_values=True
+            )
 
         elif flash_type == "p-h":
 
-            p, h = state_args
+            thd_state = ThermodynamicState.initialize(
+                num_comp,
+                num_phases,
+                num_vals,
+                True,
+                ["T"],
+                values_from=guess_from_state,
+            )
 
-            if state_from_ad:
-                thd_state = ThermodynamicState.initialize(
-                    num_comp,
-                    num_phases,
-                    num_vals,
-                    True,
-                    ["T"],
-                    values_from=state_from_ad,
-                )
-            else:
-                thd_state = ThermodynamicState.initialize(
-                    num_comp, num_phases, num_vals, True, ["T"]
-                )
+            if guess_from_state is None:
                 thd_state.z = feed
+            thd_state.p = state_args[0]
+            thd_state.h = state_args[1]
 
-            thd_state.p = p
-            thd_state.h = h
             # initial temperature guess using pseudo-critical temperature
-            thd_state, _ = self._guess_temperature(thd_state, num_vals, True)
-            thd_state = self._guess_fractions(thd_state, num_vals, guess_K_values=True)
+            thd_state, _ = self._guess_temperature(
+                thd_state, num_vals, use_pseudocritical=True
+            )
+            thd_state = self._guess_fractions(
+                thd_state, num_vals, num_iter=3, guess_K_values=True
+            )
             # Alternating guess for fractions and temperature
             # successive-substitution-like
             res_is_zeros = False
             for _ in range(10):
                 # iterate over the enthalpy constraint some times to update T
                 thd_state, res_is_zeros = self._guess_temperature(
-                    thd_state, False, 5, num_vals
+                    thd_state, num_vals, 5, use_pseudocritical=False
                 )
                 # Update fractions using the updated T
-                thd_state = self._guess_fractions(thd_state, num_vals, False)
+                thd_state = self._guess_fractions(
+                    thd_state, num_vals, num_iter=3, guess_K_values=True
+                )
                 # Do so multiple times in a loop, break if res for h constraint reached
                 if res_is_zeros:
                     break
 
         elif flash_type == "h-v":
 
-            h, v = state_args
+            thd_state = ThermodynamicState.initialize(
+                num_comp,
+                num_phases,
+                num_vals,
+                True,
+                ["T", "p", "s_i"],
+                values_from=guess_from_state,
+            )
 
-            if state_from_ad:
-                thd_state = ThermodynamicState.initialize(
-                    num_comp,
-                    num_phases,
-                    num_vals,
-                    True,
-                    ["T", "p", "s_i"],
-                    values_from=state_from_ad,
-                )
-            else:
-                thd_state = ThermodynamicState.initialize(
-                    num_comp, num_phases, num_vals, True, ["T", "p", "s_i"]
-                )
+            if guess_from_state is None:
                 thd_state.z = feed
+            thd_state.h = state_args[0]
+            thd_state.v = state_args[1]
 
-            thd_state.v = v
-            thd_state.h = h
             # initial p-T guess using pseudo-critical values
             thd_state, res_is_zeros = self._guess_pT_from_volume(
-                thd_state, True, gas_phase_index, num_vals=num_vals
+                thd_state, gas_phase_index, num_vals, use_pseudocritical=True
             )
             # fractions update using K-values from p-T guess
-            thd_state = self._guess_fractions(thd_state, num_vals, True)
+            thd_state = self._guess_fractions(
+                thd_state, num_vals, num_iter=3, guess_K_values=True
+            )
             for _ in range(1):
                 thd_state, res_is_zeros = self._guess_pT_from_volume(
-                    thd_state, False, gas_phase_index, 3, num_vals
+                    thd_state,
+                    gas_phase_index,
+                    num_vals,
+                    num_iter=3,
                 )
                 # Do so multiple times in a loop, break if res for h constraint reached
                 if res_is_zeros:
-                    # update fractions using new p and T
-                    thd_state = self._guess_fractions(thd_state, num_vals, False)
+                    # update fractions using latest p and T
+                    thd_state = self._guess_fractions(
+                        thd_state, num_vals, num_iter=3, guess_K_values=True
+                    )
                     break
             # final saturation update
             phase_props = self.mixture.compute_properties(
@@ -1144,10 +1123,6 @@ class FlashNR:
         logger.info("\nPost-processing ...\n")
         flash_system.state = solution
         flash_system.evaluate_dependent_states()
-
-        # storing the state in the AD framework if successful and requested
-        if store_to_iterate is not None and success == 0:
-            self._store_state_in_ad(flash_system, store_to_iterate)
 
         logger.info(
             f"{flash_type} flash done.\n"
@@ -1183,7 +1158,7 @@ class FlashNR:
         parsed_feed: list[np.ndarray] = list()
         for f in feed:
             if isinstance(f, pp.ad.Operator):
-                parsed_feed.append(f.evaluate(self.mixture.system)).val
+                parsed_feed.append(f.evaluate(self.mixture.system).val)
             elif isinstance(f, pp.ad.AdArray):
                 parsed_feed.append(f.val)
             elif isinstance(f, numbers.Real):
@@ -1278,26 +1253,6 @@ class FlashNR:
 
         return flash_type, (state_1, state_2)
 
-    def _store_state_in_ad(self, state: ThermodynamicState, iterate_index: int) -> None:
-        """Auxiliary function to store fractional values after a successful flash
-        in the AD framework."""
-        ads = self.mixture.system
-
-        for j, phase in enumerate(self.mixture.phases):
-            # storing phase fractions of independent phases
-            if phase != self.mixture.reference_phase:
-                ads.set_variable_values(
-                    state.y[j].val, [phase.fraction.name], iterate_index=iterate_index
-                )
-                ads.set_variable_values(
-                    state.s[j].val, [phase.saturation.name], iterate_index=iterate_index
-                )
-            # storing phase compositions
-            for i, comp in enumerate(self.mixture.components):
-                ads.set_variable_values(
-                    state.X[j][i].val, [phase.fraction_of[comp].name], iterate_index=-1
-                )
-
     def _history_entry(
         self,
         flash: str = "p-T",
@@ -1345,38 +1300,68 @@ class FlashNR:
     ### Initial guess strategies -------------------------------------------------------
 
     def _solve_for_compositions(
-        self, state: ThermodynamicState, K: list[list[NumericType]]
+        self, state: ThermodynamicState, K: list[list[NumericType]], num_vals: int
     ) -> ThermodynamicState:
         """Auxiliary function to check if any phase is saturated and solve the
-        isofugacity constraints directly in that case."""
+        isofugacity constraints directly in that case.
+
+        Use Rachford-Rice formula in regions where no phase is saturated.
+
+        Todo:
+            This procedure needs more work for more than 2 phases. TODO
+
+        """
         nph = len(state.y)
         ncp = len(state.z)
-        for i in range(ncp):
-            t_i = _rr_pole(i, state.y[1:], K).val
-            # compute composition of independent phases
-            x_i_0 = list()
+
+        # indices where any phase is saturated
+        saturated = np.zeros(num_vals, dtype=bool)
+
+        # Check if the reference phase is saturated. Where it is, solve isofugacity
+        # constraints to obtain the other phase fractions.
+        r_saturated = state.y[0].val >= 1.0 - self.eps
+        if np.any(r_saturated):
+            saturated = np.logical_or(saturated, r_saturated)
+            p = state.p[r_saturated]
+            T = state.T[r_saturated]
+            p = p.val if isinstance(p, pp.ad.AdArray) else p
+            T = T.val if isinstance(T, pp.ad.AdArray) else T
+            for i in range(ncp):
+                state.X[0][i].val[r_saturated] = state.z[i][r_saturated]
             for j in range(1, nph):
-                # phase not saturated
-                nsj = state.y[j].val <= 1 - self.tolerance
+                pass
 
-                k_i_j = K[j - 1][i]
+        # Do the same for other phases
+        for j in range(1, nph):
+            j_saturated = state.y[j].val >= 1.0 - self.eps
+            if np.any(j_saturated):
+                saturated = np.logical_or(saturated, j_saturated)
+                p = state.p[j_saturated]
+                T = state.T[j_saturated]
+                p = p.val if isinstance(p, pp.ad.AdArray) else p
+                T = T.val if isinstance(T, pp.ad.AdArray) else T
+                for i in range(ncp):
+                    state.X[j][i].val[j_saturated] = state.z[i][j_saturated]
 
-                x_i_j = state.z[i].copy()
-                # perform indexing on individual quantities to avoid div by zero
-                # if a phase is saturated, this can happen
-                x_i_j[nsj] = state.z[i][nsj] * k_i_j[nsj] / t_i[nsj]
+        # Where no phase is saturated, we use the RR formula
+        ns = np.logical_not(saturated)
+        if np.any(ns):
+            for i in range(ncp):
+                t_i = _rr_pole(i, state.y[1:], K).val
+                # compute composition of independent phases
+                # store r-phase composition and average
+                x_i_0 = list()
+                for j in range(1, nph):
 
-                state.X[j][i].val = x_i_j
+                    x_i_j = state.z[i] * K[j - 1][i] / t_i
+                    state.X[j][i].val[ns] = x_i_j[ns]
 
-                x_i_0_ = state.z[i].copy()
-                # avoid division by zero, setting ref phase fraction to tiny value
-                is_zero = np.isclose(t_i, 0, 0, self.tolerance)
-                t_i[is_zero] = state.z[i][is_zero] / self.tolerance
-                x_i_0_[nsj] = state.z[i][nsj] / t_i[nsj]
-                x_i_0.append(x_i_0_)
-            # compute composition of reference phase by averaging
-            x_i_0 = safe_sum(x_i_0) / len(x_i_0)
-            state.X[0][i].val = x_i_0
+                    x_i_0_ = (state.z[i] / t_i)[ns]
+                    x_i_0.append(x_i_0_)
+
+                # compute composition of reference phase by averaging
+                x_i_0 = safe_sum(x_i_0) / len(x_i_0)
+                state.X[0][i].val[ns] = x_i_0
 
         return state
 
@@ -1384,6 +1369,7 @@ class FlashNR:
         self,
         state: ThermodynamicState,
         num_vals: int,
+        num_iter: int = 3,
         guess_K_values: bool = True,
     ) -> ThermodynamicState:
         """Computes a guess for phase fractions and compositions, based on
@@ -1395,6 +1381,9 @@ class FlashNR:
         Parameters:
             state: A thermodynamic state data structure.
             num_vals: Number of values per state function.
+            num_iter: ``default=3``
+
+                Number of iterations for constant-k-value RR-solution.
             guess_K_values: ``default=True``
 
                 If True, computes first K-value guesses using the Wilson correlation.
@@ -1436,7 +1425,7 @@ class FlashNR:
                 for j in range(1, nph)
             ]
 
-        for _ in range(3):
+        for _ in range(num_iter):
             # Computing phase fraction estimates,
             # depending on number of independent phases
             if nph == 2:
@@ -1516,7 +1505,7 @@ class FlashNR:
                     f"p-T-based guess for {nph} phase fractions not available."
                 )
 
-            state = self._solve_for_compositions(state, K)
+            state = self._solve_for_compositions(state, K, num_vals)
 
             # update K values from EoS
             phase_props: list[PhaseProperties] = self.mixture.compute_properties(
@@ -1530,33 +1519,31 @@ class FlashNR:
                 for j in range(1, nph)
             ]
 
-        # check if any phase saturated, and solve other fractions directly
-        state = self._solve_for_compositions(state, K)
+        # Final fractions update based on last K-values
+        state = self._solve_for_compositions(state, K, num_vals)
 
         return state
 
     def _guess_temperature(
         self,
         state: ThermodynamicState,
+        num_vals: int,
+        num_iter: int = 1,
         use_pseudocritical: bool = False,
-        iter_max: int = 1,
-        num_vals: int = 1,
     ) -> tuple[ThermodynamicState, bool]:
         """Computes a temperature guess for a mixture.
 
         Parameters:
             state: A thermodynamic state data structure.
+            num_vals: Number of values per state function.
+            num_iter: ``default=1``
+
+                Number of iterations for when solving the enthalpy constraint.
             use_pseudocritical: ``default=False``
 
                 If True, the pseudo-critical temperature is computed, a sum of critical
                 temperatures of components weighed with feed fractions.
                 If False, the enthalpy constraint is solved using Newton iterations.
-            iter_max: ``default=1``
-
-                Maximal number of iterations for when solving the enthalpy constraint.
-            num_vals: ``default=1``
-
-                If iterating, pass the number of unknown values per state function.
 
         Returns:
             Argument ``state`` with updated temperature and an indicator if the residual
@@ -1575,7 +1562,7 @@ class FlashNR:
         else:
             h_norm = state.h.copy()
             h_norm[np.abs(h_norm) <= 1] = 1.0
-            for _ in range(iter_max):
+            for _ in range(num_iter):
                 phase_props = self.mixture.compute_properties(
                     state.p, state.T, state.X, store=False, normalize=True
                 )
@@ -1603,10 +1590,10 @@ class FlashNR:
     def _guess_pT_from_volume(
         self,
         state: ThermodynamicState,
-        use_pseudocritical: bool,
         gas_phase_index: int | None,
-        iter_max: int = 1,
-        num_vals: int = 1,
+        num_vals: int,
+        num_iter: int = 1,
+        use_pseudocritical: bool = False,
     ) -> tuple[ThermodynamicState, bool]:
         """Computes a pressure and temperature guess for a mixture, and an
         initialization based on the pseudo-critical values.
@@ -1617,16 +1604,18 @@ class FlashNR:
 
         Parameters:
             state: A thermodynamic state data structure.
-            use_pseudocritical: A flag to use pseudo-critical values to initialize
-                pressure. Otherwise iterations on constraints are used.
             gas_phase_index: Index under which the gas phase fraction is stored in
                 ``state.y``. If none, the first independent fraction is used.
+            num_vals: The number of unknown values per state function.
             iter_max: ``default=1``
 
-                Maximal number of iterations for when solving the constraints.
-            num_vals: ``default=1``
+                Number of iterations for when solving the constraints.
+            use_pseudocritical: ``dfault=False``
 
-                The number of unknown values per state function.
+                A flag to use pseudo-critical values to initialize pressure and
+                temperature. Otherwise iterations on constraints are used.
+
+
 
         Returns:
             Argument ``state`` with updated pressure and temperature values,
@@ -1685,7 +1674,9 @@ class FlashNR:
             state.T.val = T_guess
 
             # make a guess for fractions and improve p, T guess based on gas fraction
-            state = self._guess_fractions(state, num_vals, guess_K_values=True)
+            state = self._guess_fractions(
+                state, num_vals, num_iter=3, guess_K_values=True
+            )
 
             # correction based on gas phase index (or alternatively first independent phase)
             if gas_phase_index:
@@ -1712,7 +1703,7 @@ class FlashNR:
             h_norm[np.abs(h_norm) < 1] = 1.0
             v_norm = state.v.copy()
             v_norm[np.abs(v_norm) < 1] = 1.0
-            for _ in range(iter_max):
+            for _ in range(num_iter):
                 phase_props = self.mixture.compute_properties(
                     state.p, state.T, state.X, store=False, normalize=True
                 )
@@ -1776,7 +1767,9 @@ class FlashNR:
                             chop * dX[(2 + j) * num_vals : (3 + j) * num_vals]
                         )
                     state.s[0].val = 1 - safe_sum([s.val for s in state.s[1:]])
-                    state = self._guess_fractions(state, num_vals, guess_K_values=True)
+                    state = self._guess_fractions(
+                        state, num_vals, num_iter=3, guess_K_values=True
+                    )
 
                 # if np.linalg.norm(H.val) <= self.tolerance:
                 #     res_h_is_zero = True
@@ -1884,7 +1877,7 @@ class FlashNR:
         pot_j = b_k_pot
         rho_j = rho
 
-        msg = f"{_del_log}Flash iteration {newton_iter}: res = {np.sqrt(b_k_pot)}"
+        msg = f"{del_log}Flash iteration {newton_iter}: res = {np.sqrt(b_k_pot)}"
 
         logger.info(f"{msg} ; Armijo search potential: {b_k_pot}")
 
@@ -1982,7 +1975,7 @@ class FlashNR:
             success = 0
         else:
             for i in range(1, self.max_iter + 1):
-                logger.info(f"{_del_log}Flash iteration {i}: res = {res_norm}")
+                logger.info(f"{del_log}Flash iteration {i}: res = {res_norm}")
 
                 DX = pypardiso.spsolve(F_k.jac, -F_k.val) * self.newton_update_chop
 
