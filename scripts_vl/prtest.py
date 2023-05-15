@@ -29,8 +29,6 @@ mix.set_up()
     for val, comp in zip(z, comps)
 ]
 
-yr = mix.reference_phase.fraction.evaluate(mix.system)
-
 flash = pp.composite.FlashNR(mix)
 flash.use_armijo = True
 flash.armijo_parameters["rho"] = 0.99
@@ -68,7 +66,7 @@ print(str(results_pT.diff(results_ph)))
 print("-------------------------------")
 
 # h-v- flash
-flash.armijo_parameters["j_max"] = 200
+flash.armijo_parameters["j_max"] = 80
 flash.armijo_parameters["rho"] = 0.99
 flash.use_armijo = True
 flash.max_iter = 150

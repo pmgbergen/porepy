@@ -1090,7 +1090,7 @@ class BasicMixture:
         self.phase_fraction_relation: dict[Phase, pp.ad.Operator] = dict()
         for phase in self.phases:
             relation: pp.ad.Operator = (
-                phase.fraction * self.density - phase.saturation * phase.density
+                phase.fraction - phase.saturation * phase.density / self.density
             )
             relation.set_name(f"phase-fraction-relation-{phase.name}")
             self.phase_fraction_relation.update({phase: relation})
@@ -1291,9 +1291,7 @@ class BasicMixture:
         temperature: pp.ad.Operator,
         state: Optional[np.ndarray] = None,
         as_ad: bool = True,
-        derivatives: Optional[
-            list[str]
-        ] = None,  # TODO include normalization! (mind the JAC)
+        derivatives: Optional[list[str]] = None,
         **kwargs,
     ) -> None:
         """This is a wrapper function for :meth:`compute_properties`,
@@ -1329,13 +1327,6 @@ class BasicMixture:
 
         frac_state = self.get_fractional_state_from_vector(state, as_ad, derivatives)
 
-        X_normalized: list[list[NumericType]] = list()
-        for X_j in frac_state.X:
-            sum_j = safe_sum(X_j)
-            X_normalized.append([])
-            for x in X_j:
-                X_normalized[-1].append(x / sum_j)
-
         p: NumericType = _process(
             pressure.evaluate(self.system, state=state), as_ad, projection
         )
@@ -1343,7 +1334,7 @@ class BasicMixture:
             temperature.evaluate(self.system, state=state), as_ad, projection
         )
 
-        self.compute_properties(p, T, X_normalized, **kwargs)
+        self.compute_properties(p, T, frac_state.X, **kwargs)
 
     @staticmethod
     def evaluate_unity(x: list[Any]) -> Any:
