@@ -13,7 +13,7 @@ params = {
 
 t = 0.0
 T = 2.2
-dt = 0.001  # T / 1e2
+dt = 0.1  # T / 1e2
 max_iter = 70
 tol = 5e-7
 
@@ -25,7 +25,7 @@ model.prepare_simulation()
 # cond_end = list()
 
 while t < T:
-    logger.info(f".. Timestep t={t} ; dt={dt}\n")
+    logger.info(f"\n.. Timestep t={t} ; dt={dt}\n")
     model.before_newton_loop()
 
     # A, b = model.ad_system.assemble_subsystem(
