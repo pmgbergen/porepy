@@ -86,7 +86,7 @@ class AbstractFunction(Operator):
         """Indicator whether the callable can process arrays."""
 
         ### PRIVATE
-        self._operation: Operator.Operations = Operator.Operations.approximate
+        self._operation: Operator.Operations = Operator.Operations.evaluate
 
         self._name: str = name if name is not None else ""
 
@@ -473,6 +473,8 @@ class SemiSmoothMin(AbstractFunction):
             return x if x < y else y
 
         super().__init__(func, name, False, False)
+
+        self.ad_compatible = False
 
     def get_values(self, *args: AdArray) -> np.ndarray:
         # this will throw an error if more than two arguments were passed

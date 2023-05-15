@@ -71,10 +71,12 @@ FlashSystemDict = dict[
 """
 
 
-def _process(q: pp.ad.AdArray, as_ad: bool, projection: sps.spmatrix) -> NumericType:
+def _process(
+    q: pp.ad.AdArray, as_ad: bool, projection: Optional[sps.spmatrix] = None
+) -> NumericType:
     """Auxiliary function to process Ad-arrays."""
     if as_ad:
-        if projection:
+        if projection is not None:
             q.jac = q.jac * projection
         return q
     else:
@@ -965,7 +967,7 @@ class BasicMixture:
         z_R: pp.ad.Operator = self.evaluate_unity(
             [c.fraction for c in self.components if c != self.reference_component]
         )  # type: ignore
-        z_R.set_name("ref-phase-sat-by-unity")
+        z_R.set_name("ref-component-fraction-by-unity")
         if eliminate_ref_feed_fraction:
             self.reference_component.fraction = z_R
         else:
@@ -993,7 +995,7 @@ class BasicMixture:
         s_R: pp.ad.Operator = self.evaluate_unity(
             [p.saturation for p in self.phases if p != self.reference_phase]
         )  # type: ignore
-        s_R.set_name("ref-phase-sat-by-unity")
+        s_R.set_name("ref-phase-saturation-by-unity")
         self.s_R = s_R
         if self.reference_phase_eliminated:
             self.reference_phase.saturation = s_R
@@ -1022,7 +1024,7 @@ class BasicMixture:
         y_R: pp.ad.Operator = self.evaluate_unity(
             [p.fraction for p in self.phases if p != self.reference_phase]
         )  # type: ignore
-        y_R.set_name("ref-phase-sat-by-unity")
+        y_R.set_name("ref-phase-fraction-by-unity")
         self.y_R = y_R
         if self.reference_phase_eliminated:
             self.reference_phase.fraction = y_R

@@ -11,8 +11,8 @@ from thermo.interaction_parameters import IPDB
 COMPONENTS = ['H2O', 'CO2']
 MAX_LIQ_PHASES = 1
 z_co2 = 0.01
-p = 1e6
-T = 350
+p = 2e6
+T = 400
 
 constants, properties = ChemicalConstantsPackage.from_IDs(COMPONENTS)
 kijs = IPDB.get_ip_asymmetric_matrix("ChemSep PR", constants.CASs, "kij")

@@ -3,8 +3,8 @@ import porepy as pp
 
 chems = ["H2O", "CO2"]
 
-z = [np.array([0.1])]  # only co2 fraction is enough
-p = np.array([1.])
+z = [np.array([0.01])]  # only co2 fraction is enough
+p = np.array([2.])
 T = np.array([350.])
 verbosity = 1
 

@@ -985,13 +985,14 @@ class FlashNR:
 
         num_vals = len(state_args[0])  # number of values per state function
 
-        logger.info(
-            f"\nStarting {flash_type} flash\n"
-            + f"Method: {method}\n"
-            + f"Using Armijo line search: {self.use_armijo}\n"
-            + f"Computing initial guess: {not bool(guess_from_state)}\n"
-            + f"\nInitializing state ...\n"
-        )
+        if verbosity >= 2:
+            logger.info(
+                f"\nStarting {flash_type} flash\n"
+                + f"Method: {method}\n"
+                + f"Using Armijo line search: {self.use_armijo}\n"
+                + f"Computing initial guess: {not bool(guess_from_state)}\n"
+                + f"\nInitializing state ...\n"
+            )
         # getting gas-phase index
         gas_phase_index: Optional[int] = None
         for j, phase in enumerate(self.mixture.phases):
@@ -1006,14 +1007,14 @@ class FlashNR:
                 num_comp, num_phases, num_vals, True, values_from=guess_from_state
             )
 
-            if guess_from_state is None:
-                thd_state.z = feed
             thd_state.p = state_args[0]
             thd_state.T = state_args[1]
 
-            thd_state = self._guess_fractions(
-                thd_state, num_vals, num_iter=3, guess_K_values=True
-            )
+            if guess_from_state is None:
+                thd_state.z = feed
+                thd_state = self._guess_fractions(
+                    thd_state, num_vals, num_iter=3, guess_K_values=True
+                )
 
         elif flash_type == "p-h":
 
@@ -1026,33 +1027,34 @@ class FlashNR:
                 values_from=guess_from_state,
             )
 
-            if guess_from_state is None:
-                thd_state.z = feed
             thd_state.p = state_args[0]
             thd_state.h = state_args[1]
 
-            # initial temperature guess using pseudo-critical temperature
-            thd_state, _ = self._guess_temperature(
-                thd_state, num_vals, use_pseudocritical=True
-            )
-            thd_state = self._guess_fractions(
-                thd_state, num_vals, num_iter=3, guess_K_values=True
-            )
-            # Alternating guess for fractions and temperature
-            # successive-substitution-like
-            res_is_zeros = False
-            for _ in range(10):
-                # iterate over the enthalpy constraint some times to update T
-                thd_state, res_is_zeros = self._guess_temperature(
-                    thd_state, num_vals, 5, use_pseudocritical=False
+            if guess_from_state is None:
+                thd_state.z = feed
+
+                # initial temperature guess using pseudo-critical temperature
+                thd_state, _ = self._guess_temperature(
+                    thd_state, num_vals, use_pseudocritical=True
                 )
-                # Update fractions using the updated T
                 thd_state = self._guess_fractions(
                     thd_state, num_vals, num_iter=3, guess_K_values=True
                 )
-                # Do so multiple times in a loop, break if res for h constraint reached
-                if res_is_zeros:
-                    break
+                # Alternating guess for fractions and temperature
+                # successive-substitution-like
+                res_is_zeros = False
+                for _ in range(10):
+                    # iterate over the enthalpy constraint some times to update T
+                    thd_state, res_is_zeros = self._guess_temperature(
+                        thd_state, num_vals, 5, use_pseudocritical=False
+                    )
+                    # Update fractions using the updated T
+                    thd_state = self._guess_fractions(
+                        thd_state, num_vals, num_iter=3, guess_K_values=True
+                    )
+                    # Do so multiple times in a loop, break if res for h constraint reached
+                    if res_is_zeros:
+                        break
 
         elif flash_type == "h-v":
 
@@ -1065,42 +1067,43 @@ class FlashNR:
                 values_from=guess_from_state,
             )
 
-            if guess_from_state is None:
-                thd_state.z = feed
             thd_state.h = state_args[0]
             thd_state.v = state_args[1]
 
-            # initial p-T guess using pseudo-critical values
-            thd_state, res_is_zeros = self._guess_pT_from_volume(
-                thd_state, gas_phase_index, num_vals, use_pseudocritical=True
-            )
-            # fractions update using K-values from p-T guess
-            thd_state = self._guess_fractions(
-                thd_state, num_vals, num_iter=3, guess_K_values=True
-            )
-            for _ in range(1):
+            if guess_from_state is None:
+                thd_state.z = feed
+
+                # initial p-T guess using pseudo-critical values
                 thd_state, res_is_zeros = self._guess_pT_from_volume(
-                    thd_state,
-                    gas_phase_index,
-                    num_vals,
-                    num_iter=3,
+                    thd_state, gas_phase_index, num_vals, use_pseudocritical=True
                 )
-                # Do so multiple times in a loop, break if res for h constraint reached
-                if res_is_zeros:
-                    # update fractions using latest p and T
-                    thd_state = self._guess_fractions(
-                        thd_state, num_vals, num_iter=3, guess_K_values=True
+                # fractions update using K-values from p-T guess
+                thd_state = self._guess_fractions(
+                    thd_state, num_vals, num_iter=3, guess_K_values=True
+                )
+                for _ in range(1):
+                    thd_state, res_is_zeros = self._guess_pT_from_volume(
+                        thd_state,
+                        gas_phase_index,
+                        num_vals,
+                        num_iter=3,
                     )
-                    break
-            # final saturation update
-            phase_props = self.mixture.compute_properties(
-                thd_state.p, thd_state.T, thd_state.X, store=False, normalize=True
-            )
-            densities = [prop.rho.val for prop in phase_props]
-            y = [y.val for y in thd_state.y]
-            saturations = FlashSystemNR.evaluate_saturations(y, densities)
-            for j, s in enumerate(saturations):
-                thd_state.s[j].val = s
+                    # Do so multiple times in a loop, break if res for h constraint reached
+                    if res_is_zeros:
+                        # update fractions using latest p and T
+                        thd_state = self._guess_fractions(
+                            thd_state, num_vals, num_iter=3, guess_K_values=True
+                        )
+                        break
+                # final saturation update
+                phase_props = self.mixture.compute_properties(
+                    thd_state.p, thd_state.T, thd_state.X, store=False, normalize=True
+                )
+                densities = [prop.rho.val for prop in phase_props]
+                y = [y.val for y in thd_state.y]
+                saturations = FlashSystemNR.evaluate_saturations(y, densities)
+                for j, s in enumerate(saturations):
+                    thd_state.s[j].val = s
 
         else:
             NotImplementedError(f"Failed to recognize flash type {flash_type}.")
@@ -1115,20 +1118,22 @@ class FlashNR:
         )
 
         # Perform Newton iterations with above F(x)
-        logger.info("Starting iterations ...\n\n")
+        logger.info("Starting iterations ...\n")
         success, iter_final, solution = self._newton_iterations(
             X_0=flash_system.state,
             F=flash_system,
         )
-        logger.info("\nPost-processing ...\n")
+        if verbosity >= 2:
+            logger.info("\nPost-processing ...\n")
         flash_system.state = solution
         flash_system.evaluate_dependent_states()
 
-        logger.info(
-            f"{flash_type} flash done.\n"
-            + f"SUCCESS: {not bool(success)}\n"
-            + f"Iterations: {iter_final}\n\n"
-        )
+        if verbosity >= 2:
+            logger.info(
+                f"{flash_type} flash done.\n"
+                + f"SUCCESS: {not bool(success)}\n"
+                + f"Iterations: {iter_final}\n\n"
+            )
         # append history entry
         self._history_entry(
             flash=flash_type,
@@ -1315,53 +1320,70 @@ class FlashNR:
         ncp = len(state.z)
 
         # indices where any phase is saturated
-        saturated = np.zeros(num_vals, dtype=bool)
+        # saturated = np.zeros(num_vals, dtype=bool)
 
-        # Check if the reference phase is saturated. Where it is, solve isofugacity
-        # constraints to obtain the other phase fractions.
-        r_saturated = state.y[0].val >= 1.0 - self.eps
-        if np.any(r_saturated):
-            saturated = np.logical_or(saturated, r_saturated)
-            p = state.p[r_saturated]
-            T = state.T[r_saturated]
-            p = p.val if isinstance(p, pp.ad.AdArray) else p
-            T = T.val if isinstance(T, pp.ad.AdArray) else T
-            for i in range(ncp):
-                state.X[0][i].val[r_saturated] = state.z[i][r_saturated]
+        # # Check if the reference phase is saturated. Where it is, solve isofugacity
+        # # constraints to obtain the other phase fractions.
+        # r_saturated = state.y[0].val >= 1.0 - self.eps
+        # if np.any(r_saturated):
+        #     saturated = np.logical_or(saturated, r_saturated)
+        #     p = state.p[r_saturated]
+        #     T = state.T[r_saturated]
+        #     p = p.val if isinstance(p, pp.ad.AdArray) else p
+        #     T = T.val if isinstance(T, pp.ad.AdArray) else T
+        #     for i in range(ncp):
+        #         state.X[0][i].val[r_saturated] = state.z[i][r_saturated]
+        #     for j in range(1, nph):
+        #         pass
+
+        # # Do the same for other phases
+        # for j in range(1, nph):
+        #     j_saturated = state.y[j].val >= 1.0 - self.eps
+        #     if np.any(j_saturated):
+        #         saturated = np.logical_or(saturated, j_saturated)
+        #         p = state.p[j_saturated]
+        #         T = state.T[j_saturated]
+        #         p = p.val if isinstance(p, pp.ad.AdArray) else p
+        #         T = T.val if isinstance(T, pp.ad.AdArray) else T
+        #         for i in range(ncp):
+        #             state.X[j][i].val[j_saturated] = state.z[i][j_saturated]
+
+        # # Where no phase is saturated, we use the RR formula
+        # ns = np.logical_not(saturated)
+        # if np.any(ns):
+        #     for i in range(ncp):
+        #         t_i = _rr_pole(i, state.y[1:], K).val
+        #         # compute composition of independent phases
+        #         # store r-phase composition and average
+        #         x_i_0 = list()
+        #         for j in range(1, nph):
+
+        #             x_i_j = state.z[i] * K[j - 1][i] / t_i
+        #             state.X[j][i].val[ns] = x_i_j[ns]
+
+        #             x_i_0_ = (state.z[i] / t_i)[ns]
+        #             x_i_0.append(x_i_0_)
+
+        #         # compute composition of reference phase by averaging
+        #         x_i_0 = safe_sum(x_i_0) / len(x_i_0)
+        #         state.X[0][i].val[ns] = x_i_0
+
+        for i in range(ncp):
+            t_i = _rr_pole(i, state.y[1:], K).val
+            # compute composition of independent phases
+            # store r-phase composition and average
+            x_i_0 = list()
             for j in range(1, nph):
-                pass
 
-        # Do the same for other phases
-        for j in range(1, nph):
-            j_saturated = state.y[j].val >= 1.0 - self.eps
-            if np.any(j_saturated):
-                saturated = np.logical_or(saturated, j_saturated)
-                p = state.p[j_saturated]
-                T = state.T[j_saturated]
-                p = p.val if isinstance(p, pp.ad.AdArray) else p
-                T = T.val if isinstance(T, pp.ad.AdArray) else T
-                for i in range(ncp):
-                    state.X[j][i].val[j_saturated] = state.z[i][j_saturated]
+                x_i_j = state.z[i] * K[j - 1][i] / t_i
+                state.X[j][i].val = x_i_j
 
-        # Where no phase is saturated, we use the RR formula
-        ns = np.logical_not(saturated)
-        if np.any(ns):
-            for i in range(ncp):
-                t_i = _rr_pole(i, state.y[1:], K).val
-                # compute composition of independent phases
-                # store r-phase composition and average
-                x_i_0 = list()
-                for j in range(1, nph):
+                x_i_0_ = state.z[i] / t_i
+                x_i_0.append(x_i_0_)
 
-                    x_i_j = state.z[i] * K[j - 1][i] / t_i
-                    state.X[j][i].val[ns] = x_i_j[ns]
-
-                    x_i_0_ = (state.z[i] / t_i)[ns]
-                    x_i_0.append(x_i_0_)
-
-                # compute composition of reference phase by averaging
-                x_i_0 = safe_sum(x_i_0) / len(x_i_0)
-                state.X[0][i].val[ns] = x_i_0
+            # compute composition of reference phase by averaging
+            x_i_0 = safe_sum(x_i_0) / len(x_i_0)
+            state.X[0][i].val = x_i_0
 
         return state
 
