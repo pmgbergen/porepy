@@ -59,7 +59,7 @@ while t < T:
         # cond_end.append(np.linalg.cond(A.todense()))
 
     if t >= T:
-        logger.info(f"Reached simulation end time t={t}")
+        logger.info(f"\bReached simulation end time t={t}")
 # cond_start = np.array(cond_start)
 # cond_end = np.array(cond_end)
 # print("CONDITION NUMBERS: ")

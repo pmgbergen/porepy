@@ -944,7 +944,7 @@ class CompositionalFlowModel:
         )
         logger.info(
             f"{del_log}.. Newton iteration {self._nonlinear_iteration}:"
-            + " exporting state"
+            + " exporting state\n"
         )
         self._export()
 
@@ -963,7 +963,7 @@ class CompositionalFlowModel:
 
     def after_simulation(self) -> None:
         """Writes PVD file."""
-        logger.info(f"{del_log}Stopping simulation. Writing PVD")
+        logger.info(f"{del_log}Stopping simulation. Writing PVD\n")
         self._exporter.write_pvd()
 
     def assemble_and_solve_linear_system(self, tol: float) -> np.ndarray:
