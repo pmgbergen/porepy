@@ -153,21 +153,21 @@ class TestFractureNetwork2d(unittest.TestCase):
             nodes = sd.tags["domain_boundary_nodes"]
             bn = sd.nodes[:, nodes]
 
-            face_is_true = False
-            node_is_true = False
+            face_on_boundary = np.zeros(faces.sum(), dtype=bool)
+            node_on_boundary = np.zeros(nodes.sum(), dtype=bool)
             for l in domain.polytope:
                 dist, _ = pp.geometry.distances.points_segments(
                     bf[:2, :], l[:, 0], l[:, 1]
                 )
-                face_is_true = np.logical_or(face_is_true, np.any(np.isclose(dist, 0)))
+                face_on_boundary[np.isclose(dist, 0).ravel()] = True
 
                 dist, _ = pp.geometry.distances.points_segments(
                     bn[:2, :], l[:, 0], l[:, 1]
                 )
-                node_is_true = np.logical_or(node_is_true, np.any(np.isclose(dist, 0)))
+                node_on_boundary[np.isclose(dist, 0).ravel()] = True
 
-            self.assertTrue(face_is_true)
-            self.assertTrue(node_is_true)
+            self.assertTrue(np.all(face_on_boundary))
+            self.assertTrue(np.all(node_on_boundary))
 
     def compare_dictionaries(self, a: dict[str, pp.number], b: dict[str, pp.number]):
         ka = list(a.keys())
