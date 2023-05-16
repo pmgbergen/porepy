@@ -17,7 +17,6 @@ from ._core import (
     ENERGY_SCALE,
     PRESSURE_SCALE,
     R_IDEAL,
-    T_REF,
     VOLUME_SCALE,
     _rr_pole,
     rachford_rice_feasible_region,
@@ -146,7 +145,6 @@ class FlashSystemNR(ThermodynamicState):
         # NPIPM parameters
         self._eta: float = 0.0
         self._u: float = 0.0
-        self._kappa: float = 0.0
 
         # flags for which constraints to assemble
         self._assemble_h_constraint: bool = False
@@ -172,7 +170,6 @@ class FlashSystemNR(ThermodynamicState):
             self._num_vars += 1  # slack variable is independent
             self._eta = npipm.get("eta", 0.5)
             self._u = npipm.get("u", 1.0)
-            self._kappa = npipm.get("kappa", 1.0)
 
             # assembling slack variable
             jac_nu = sps.lil_matrix((self._num_vals, self._num_vals * self._num_vars))
@@ -411,7 +408,7 @@ class FlashSystemNR(ThermodynamicState):
 
         """
         positivity_penalty = list()
-        # regularization = list()
+        reg = list()
 
         negativity_penalty = 0.0
 
@@ -420,14 +417,17 @@ class FlashSystemNR(ThermodynamicState):
             w = W[j]
             positivity_penalty.append(v * w)
             negativity_penalty += _neg(v) ** 2 + _neg(w) ** 2
+            reg.append(_pos(v - 1) ** 2)
+            reg.append(_pos(w - 1) ** 2)
 
         dot_part = (
             pp.ad.power(_pos(safe_sum(positivity_penalty)), 2)
             * self._u
             / self._num_phases**2
         )
+        reg = safe_sum(reg) * 4
 
-        f = self._eta * nu + nu * nu + (negativity_penalty + dot_part) / 2
+        f = self._eta * nu + nu * nu + (negativity_penalty + dot_part + reg) / 2
         return f
 
     @property
@@ -821,14 +821,12 @@ class FlashNR:
         self.npipm_parameters: dict[str, float] = {
             "eta": 0.5,
             "u": 1,
-            "kappa": 1.0,
         }
         """A dictionary containing per parameter name (str, key) the respective
         parameter for the NPIPM:
 
         - ``'eta': 0.5``
         - ``'u': 1.``
-        - ``'kappa': 1.``
 
         Values can be set directly by modifying the values of this dictionary.
 
@@ -1013,7 +1011,7 @@ class FlashNR:
             if guess_from_state is None:
                 thd_state.z = feed
                 thd_state = self._guess_fractions(
-                    thd_state, num_vals, num_iter=3, guess_K_values=True
+                    thd_state, num_vals, num_iter=2, guess_K_values=True
                 )
 
         elif flash_type == "p-h":
@@ -1038,19 +1036,19 @@ class FlashNR:
                     thd_state, num_vals, use_pseudocritical=True
                 )
                 thd_state = self._guess_fractions(
-                    thd_state, num_vals, num_iter=3, guess_K_values=True
+                    thd_state, num_vals, num_iter=2, guess_K_values=True
                 )
                 # Alternating guess for fractions and temperature
                 # successive-substitution-like
                 res_is_zeros = False
-                for _ in range(10):
+                for _ in range(5):
                     # iterate over the enthalpy constraint some times to update T
                     thd_state, res_is_zeros = self._guess_temperature(
                         thd_state, num_vals, 5, use_pseudocritical=False
                     )
                     # Update fractions using the updated T
                     thd_state = self._guess_fractions(
-                        thd_state, num_vals, num_iter=3, guess_K_values=True
+                        thd_state, num_vals, num_iter=2, guess_K_values=True
                     )
                     # Do so multiple times in a loop, break if res for h constraint reached
                     if res_is_zeros:
@@ -1079,7 +1077,7 @@ class FlashNR:
                 )
                 # fractions update using K-values from p-T guess
                 thd_state = self._guess_fractions(
-                    thd_state, num_vals, num_iter=3, guess_K_values=True
+                    thd_state, num_vals, num_iter=2, guess_K_values=True
                 )
                 for _ in range(1):
                     thd_state, res_is_zeros = self._guess_pT_from_volume(
@@ -1090,10 +1088,6 @@ class FlashNR:
                     )
                     # Do so multiple times in a loop, break if res for h constraint reached
                     if res_is_zeros:
-                        # update fractions using latest p and T
-                        thd_state = self._guess_fractions(
-                            thd_state, num_vals, num_iter=3, guess_K_values=True
-                        )
                         break
                 # final saturation update
                 phase_props = self.mixture.compute_properties(
@@ -1461,14 +1455,16 @@ class FlashNR:
                 )
                 rr_pot = rachford_rice_potential(state.z, [np.ones(num_vals)], K)
 
-                y = np.where((rr_pot > 0.0) & invalid, np.zeros(num_vals), y)
-                y = np.where(
-                    (rr_pot < 0.0) & invalid & feasible_reg,
-                    np.ones(num_vals),
-                    y,
-                )
+                correction_1 = (rr_pot > 0.0) & invalid
+                y = np.where(correction_1, np.zeros(num_vals), y)
+                correction_2 = (rr_pot < 0.0) & invalid & feasible_reg
+                y = np.where(correction_2, np.ones(num_vals), y)
 
-                if np.any(invalid) and False:
+                corrected = correction_1 | correction_2
+
+                need_correction = invalid & (~corrected)
+
+                if np.any(need_correction):
                     # Corrections based on the negative flash.
                     # As long as the gas fraction is within the two inner-most poles,
                     # it is a feasible solution.
@@ -1481,40 +1477,21 @@ class FlashNR:
                     y_min = np.where(y_min_ < y_max_, y_min_, y_max_)
                     y_max = np.where(y_min_ < y_max_, y_max_, y_min_)
                     y_feasible = np.logical_and(y_min < y, y < y_max)
-                    corr_neg = np.logical_and(y_feasible, negative)
+                    # corr_neg = np.logical_and(y_feasible, negative)
+                    corr_neg = y_feasible & negative & need_correction
                     y[corr_neg] = 0.0
-                    corr_pos = np.logical_and(y_feasible, exceeds)
+                    # corr_pos = np.logical_and(y_feasible, exceeds)
+                    corr_pos = y_feasible & exceeds & need_correction
                     y[corr_pos] = 1.0
-                    corrected = np.logical_or(corr_neg, corr_pos)
+
                     # If all K-values are smaller than 1 and gas fraction is negative,
                     # the liquid phase is clearly saturated
                     # Vice versa, if fraction above 1 and K-values greater than 1.
                     # the gas phase is clearly saturated
-                    corr_neg = np.logical_and(negative, np.all(K_ < 1.0, axis=0))
-                    corrected = np.logical_or(corrected, corr_neg)
-                    corr_pos = np.logical_and(exceeds, np.all(K_ > 1.0, axis=0))
-                    corrected = np.logical_or(corrected, corr_pos)
+                    corr_neg = negative & np.all(K_ < 1.0, axis=0) & need_correction
+                    corr_pos = exceeds & np.all(K_ > 1.0, axis=0) & need_correction
                     y[corr_neg] = 0.0
                     y[corr_pos] = 1.0
-
-                    # Check if there are any invalid values which are not covered.
-                    # If there are, use special procedure from Okuno.
-                    need_correction = np.logical_and(np.logical_not(corrected), invalid)
-                    if np.any(need_correction):
-                        feasible_reg = rachford_rice_feasible_region(
-                            state.z, [np.ones(num_vals)], K
-                        )
-                        rr_pot = rachford_rice_potential(
-                            state.z, [np.ones(num_vals)], K
-                        )
-
-                        y_ = np.where((rr_pot > 0.0) & invalid, np.zeros(num_vals), y)
-                        y_ = np.where(
-                            (rr_pot < 0.0) & invalid & feasible_reg,
-                            np.ones(num_vals),
-                            y,
-                        )
-                        y[need_correction] = y_[need_correction]
 
                 assert not np.any(
                     np.logical_or(y < 0.0, 1.0 < y)
@@ -1542,7 +1519,7 @@ class FlashNR:
             ]
 
         # Final fractions update based on last K-values
-        state = self._solve_for_compositions(state, K, num_vals)
+        # state = self._solve_for_compositions(state, K, num_vals)
 
         return state
 
@@ -1790,7 +1767,7 @@ class FlashNR:
                         )
                     state.s[0].val = 1 - safe_sum([s.val for s in state.s[1:]])
                     state = self._guess_fractions(
-                        state, num_vals, num_iter=3, guess_K_values=True
+                        state, num_vals, num_iter=2, guess_K_values=True
                     )
 
                 # if np.linalg.norm(H.val) <= self.tolerance:

@@ -56,6 +56,7 @@ def normalize_fractions(X: list[NumericType]) -> list[NumericType]:
         for x in X
     ]
     return X_n
+    # return [x_ / s for x_ in X]
 
 
 class CompositionalSingleton(abc.ABCMeta):

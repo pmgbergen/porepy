@@ -1160,8 +1160,6 @@ class BasicMixture:
         results: list[PhaseProperties] = list()
         for j, phase in enumerate(self.phases):
             if normalize:
-                s_j = safe_sum(X[j])
-                s_j = s_j.val if isinstance(s_j, pp.ad.AdArray) else s_j
                 X_j = normalize_fractions(X[j])
             else:
                 X_j = X[j]

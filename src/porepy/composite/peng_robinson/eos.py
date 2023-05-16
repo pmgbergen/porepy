@@ -495,23 +495,23 @@ class PengRobinsonEoS(AbstractEoS):
 
         # Fugacity extensions as per Ben Gharbia 2021
         dxi_a = list()
-        # if np.any(self.is_extended):
-        #     extend_phi: bool = True
-        #     rho_ext = self._rho(p, T, Z_other)
-        #     G = self._Z_polynom(Z, A, B)
-        #     Gamma_ext = Z * G / ((Z - B) * (Z**2 + 2 * Z * B - B**2))
-        #     dxi_Z_other = list()
-        #     for i in range(len(self.components)):
-        #         dxi_a_ = self._dXi_a(X, a_comps, bip, i)
-        #         dxi_a.append(dxi_a_)
-        #         dxi_Z_other_ = self._dxi_Z(T, rho_ext, a, b, self._b_vals[i], dxi_a[i])
-        #         dxi_Z_other.append(dxi_Z_other_)
-        #     dZ_other = safe_sum([x * dz for x, dz in zip(X, dxi_Z_other)])
-        # else:
-        #     extend_phi: bool = False
-        for i in range(len(self.components)):
-            dxi_a_ = self._dXi_a(X, a_comps, bip, i)
-            dxi_a.append(dxi_a_)
+        if np.any(self.is_extended):
+            extend_phi: bool = True
+            rho_ext = self._rho(p, T, Z_other)
+            G = self._Z_polynom(Z, A, B)
+            Gamma_ext = Z * G / ((Z - B) * (Z**2 + 2 * Z * B - B**2))
+            dxi_Z_other = list()
+            for i in range(len(self.components)):
+                dxi_a_ = self._dXi_a(X, a_comps, bip, i)
+                dxi_a.append(dxi_a_)
+                dxi_Z_other_ = self._dxi_Z(T, rho_ext, a, b, self._b_vals[i], dxi_a[i])
+                dxi_Z_other.append(dxi_Z_other_)
+            dZ_other = safe_sum([x * dz for x, dz in zip(X, dxi_Z_other)])
+        else:
+            extend_phi: bool = False
+            for i in range(len(self.components)):
+                dxi_a_ = self._dXi_a(X, a_comps, bip, i)
+                dxi_a.append(dxi_a_)
         # fugacity per present component
         phis: list[NumericType] = list()
         for i in range(len(self.components)):
@@ -520,13 +520,13 @@ class PengRobinsonEoS(AbstractEoS):
             A_i = dxi_a[i] * p / (T * R_IDEAL) ** 2
             phi_i = self._phi_i(Z, A_i, A, B_i, B)
 
-            # if extend_phi:
-            #     w1 = (B - B_i + dZ_other - dxi_Z_other[i]) / Z / 2
-            #     w2 = (B - B_i) / B
-            #     ext_i = Gamma_ext * (w1 + w2)
+            if extend_phi:
+                w1 = (B - B_i + dZ_other - dxi_Z_other[i]) / Z / 2
+                w2 = (B - B_i) / B
+                ext_i = Gamma_ext * (w1 + w2)
 
-            #     ext_i = ext_i[self.is_extended]
-            #     phi_i[self.is_extended] = phi_i[self.is_extended] + ext_i
+                ext_i = ext_i[self.is_extended]
+                phi_i[self.is_extended] = phi_i[self.is_extended] + ext_i
 
             phis.append(phi_i)
 
@@ -1070,6 +1070,10 @@ class PengRobinsonEoS(AbstractEoS):
 
             extension_is_bigger = z_1 < w
 
+            correction = ~(acbc_rect[one_root_region])
+            w[correction] = z_1[correction]
+            extension_is_bigger[correction] = False
+
             # slice indices such that w is the smaller root
             z_1_small = z_1[extension_is_bigger]
             z_1[extension_is_bigger] = w[extension_is_bigger]
@@ -1082,7 +1086,7 @@ class PengRobinsonEoS(AbstractEoS):
             if self.gaslike:
                 self.is_extended[one_root_region] = extension_is_bigger
             else:
-                self.is_extended[one_root_region] = np.logical_not(extension_is_bigger)
+                self.is_extended[one_root_region] = ~extension_is_bigger
 
         ### COMPUTATIONS IN THE THREE-ROOT-REGION
         # compute all three roots, label them (smallest=liquid, biggest=gas)
