@@ -825,7 +825,7 @@ class BasicMixture:
         *args,
         ad_system: Optional[pp.ad.EquationSystem] = None,
         subdomains: list[pp.Grid] = None,
-        nc: int = 1,
+        num_vals: int = 1,
         eliminate_ref_phase: bool = True,
         eliminate_ref_feed_fraction: bool = True,
         **kwargs,
@@ -878,9 +878,10 @@ class BasicMixture:
                     All components and phases are present in each subdomain-cell.
                     Their fractions are introduced as cell-wise, scalar unknowns.
 
-            nc: ``default=1``
+            num_vals: ``default=1``
 
-                Number of cells for the default AD system (and its grid).
+                Number of values per state function for the default AD system
+                (and its grid).
 
                 Use this to vectorize the flash procedure, such that multiple different
                 thermodynamic states are passed in vector form and the flash system
@@ -896,6 +897,7 @@ class BasicMixture:
                     inherently high. Over-iterations necessary for problematic
                     vector-components can cause convergence issues for other,
                     already converged vector-components.
+
             eliminate_reference_phase: ``default=True``
 
                 An optional flag to eliminate reference phase variables from the
@@ -935,7 +937,7 @@ class BasicMixture:
         """
         domains: list[pp.Grid]
         if ad_system is None:
-            sg = pp.CartGrid([nc, 1], [1, 1])
+            sg = pp.CartGrid([num_vals, 1], [1, 1])
             mdg = pp.MixedDimensionalGrid()
             mdg.add_subdomains(sg)
             mdg.compute_geometry()
@@ -1526,7 +1528,7 @@ class NonReactiveMixture(BasicMixture):
             *args,
             ad_system=ad_system,
             subdomains=subdomains,
-            nc=nc,
+            num_vals=nc,
             eliminate_ref_phase=eliminate_ref_phase,
             eliminate_ref_feed_fraction=eliminate_ref_feed_fraction,
             **kwargs,
