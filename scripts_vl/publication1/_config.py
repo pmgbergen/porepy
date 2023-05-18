@@ -2,55 +2,56 @@
 and plotting data."""
 from __future__ import annotations
 
+import csv
+import logging
 import pathlib
 import sys
 import time
-import logging
-import csv
-import psutil
-
-import numpy as np
-import porepy as pp
-
 from ctypes import c_double, c_uint8
 from multiprocessing import Array, Pool, Process, Queue
 from multiprocessing.pool import AsyncResult
 from typing import Any
 
-from thermo import (
-    PR78MIX,
-    CEOSGas,
-    CEOSLiquid,
-    ChemicalConstantsPackage,
-    FlashVLN,
-)
+import matplotlib as mpl
+import matplotlib.pyplot as plt
+import numpy as np
+import psutil
+from matplotlib import figure
+from mpl_toolkits.axes_grid1 import make_axes_locatable
+from thermo import PR78MIX, CEOSGas, CEOSLiquid, ChemicalConstantsPackage, FlashVLN
 from thermo.interaction_parameters import IPDB
+
+import porepy as pp
 
 sys.path.append(str(pathlib.Path(__file__).parent.resolve()))
 
+# figure configurations
+FIGURE_WIDTH: int = 15  # in inches, 1080 / 1920 ratio applied to height
+DPI: int = 400  # Dots per Inch (level of detail per figure)
+
 # fluid mixture configuration
-SPECIES: list[str] = ['H2O', 'CO2']
+SPECIES: list[str] = ["H2O", "CO2"]
 FEED: list[float] = [0.99, 0.01]
 
 # pressure and temperature limits for calculations
 P_LIMITS: list[float] = [1e6, 50e6]  # [Pa]
-T_LIMITS: list[float] = [300., 600.]  # [K]
+T_LIMITS: list[float] = [300.0, 600.0]  # [K]
 # temperature values for isotherms (isenthalpic flash calculations)
-ISOTHERMS: list[float] = [300., 400., 600.]
+ISOTHERMS: list[float] = [300.0, 400.0, 600.0]
 # resolution of p-T limits
 RESOLUTION: int = 5
 
 # Calculation modus for PorePy flash
-# 1 - point-wise (robust),
+# 1 - point-wise (robust, but possibly very slow),
 # 2 - vectorized (not recommended),
 # 3 - parallelized (use with care)
-CALCULATION_MODE: int = 3
+CALCULATION_MODE: int = 1
 
 # paths to where results should be stored
-THERMO_DATA_PATH: str = 'data/thermodata.csv'  # storing results from therm
-PT_FLASH_DATA_PATH: str = 'data/flash_pT.csv'  # storing p-T results from porepy
-PH_FLASH_DATA_PATH: str = 'data/flash_ph.csv'  # storing p-h results from porepy
-FIG_PATH: str = 'figs/'  # path to folder containing plots
+THERMO_DATA_PATH: str = "data/thermodata.csv"  # storing results from therm
+PT_FLASH_DATA_PATH: str = "data/flash_pT.csv"  # storing p-T results from porepy
+PH_FLASH_DATA_PATH: str = "data/flash_ph.csv"  # storing p-h results from porepy
+FIG_PATH: str = "figs/"  # path to folder containing plots
 
 NUM_COMP: int = len(SPECIES)  # number of components
 DELIMITER: str = ","  # delimiter in result files
@@ -60,6 +61,7 @@ NAN_ENTRY: np.nan = np.nan
 PHASES: list[str] = ["G"] + [f"L{i}" for i in range(1, NUM_COMP + 1)]
 # headers in result files
 success_HEADER: str = "success"
+num_iter_HEADER: str = "num-iter"
 phases_HEADER: str = "phase-split"
 p_HEADER: str = "p [Pa]"
 T_HEADER: str = "T [K]"
@@ -160,6 +162,17 @@ def read_px_data(
     return p_points, x_points
 
 
+def create_index_map(x: list[float], y: list[float]) -> dict[tuple[float, float], int]:
+    """Creates a index map to associate a tuple of data found in x and y with their
+    index.
+
+    Use this in combination with ``read_px_data`` to access specific values in a results
+    data structure created by ``read_results``.
+
+    """
+    return dict([((xy[0], xy[1]), i) for i, xy in enumerate(zip(x, y))])
+
+
 def read_results(file_name: str, headers: list[str] | None = None) -> dict[str, list]:
     """Reads data previously written with ``write_results``.
 
@@ -242,6 +255,7 @@ def _init_empty_results() -> dict[str, list]:
     comparison."""
     results: dict[str, list] = {
         success_HEADER: list(),
+        num_iter_HEADER: list(),
         p_HEADER: list(),
         T_HEADER: list(),
         h_HEADER: list(),
@@ -499,9 +513,7 @@ def _access_shared_objects(
     #     np.frombuffer(vec.get_obj(), dtype=dtype) for vec, dtype in shared_arrays
     # ]
     # # access locally as Array from multiprocessing
-    arrays_loc = [
-        vec for vec, _ in shared_arrays
-    ]
+    arrays_loc = [vec for vec, _ in shared_arrays]
 
 
 def _create_shared_arrays(size: int) -> list[tuple[Array, Any]]:
@@ -611,10 +623,10 @@ def create_mixture(
 
     phases = [
         pp.composite.Phase(
-            pp.composite.peng_robinson.PengRobinsonEoS(gaslike=False), name='L'
+            pp.composite.peng_robinson.PengRobinsonEoS(gaslike=False), name="L"
         ),
         pp.composite.Phase(
-            pp.composite.peng_robinson.PengRobinsonEoS(gaslike=True), name='G'
+            pp.composite.peng_robinson.PengRobinsonEoS(gaslike=True), name="G"
         ),
     ]
 
@@ -638,25 +650,34 @@ def create_mixture(
 def _porepy_parse_state(state: pp.composite.ThermodynamicState) -> dict:
     """Function to parse the resulting state after a porepy flash into a structure
     ready for writing to csv.
-    
+
     Only meant for states with 1 value per state function.
+
+    Parses only molar fractional variables and phase split.
 
     """
     out = _init_empty_results()
     for k in out.keys():
         out[k] = NAN_ENTRY
 
-
-    y = state.y[1].val[0]
+    y = state.y[1][0]
     if y >= 1:
-        out[phases_HEADER] = 'G'
+        out[phases_HEADER] = "G"
     elif y <= 0:
-        out[phases_HEADER] = 'L'
+        out[phases_HEADER] = "L"
     else:
-        out[phases_HEADER] = 'GL'
+        out[phases_HEADER] = "GL"
     out[gas_frac_HEADER] = y
-    out[liq_frac_HEADER[0]] = state.y[0].val[0]
+    out[liq_frac_HEADER[0]] = 1 - y
 
+    # liquid phase composition
+    for i, s in enumerate(SPECIES):
+        x_ij = state.X[0][i][0]
+        out[composition_HEADER[s][PHASES[1]]] = x_ij
+    # gas phase composition
+    for i, s in enumerate(SPECIES):
+        x_ij = state.X[1][i][0]
+        out[composition_HEADER[s][PHASES[0]]] = x_ij
 
     return out
 
@@ -681,18 +702,47 @@ def calculate_porepy_pT_data(p_points: list[float], T_points: list[float]) -> di
 
             try:
                 success, state = flash.flash(
-                    state={'p': p_, 'T': T_}, feed=feed, eos_kwargs={'apply_smoother': True}
+                    state={"p": p_, "T": T_},
+                    feed=feed,
+                    eos_kwargs={"apply_smoother": True},
                 )
             except:
                 logger.warn(f"\nPorePy p-T-flash crashed for p,T = ({p}, {T})\n")
                 res = _failed_entry()
             else:
+                res = _porepy_parse_state(state)
+
+                res[num_iter_HEADER] = int(flash.history[-1]["iterations"])
                 if success != 0:
                     logger.warn(
                         f"\nPorePy p-T-flash failed to converge for p,T = ({p}, {T})\n"
                     )
+                    res[success_HEADER] = 0
                 else:
                     logger.info(f"{del_log}PorePy p-T-flash: {f+1} / {nf} ..")
+                    res[success_HEADER] = 1
+
+                    props = mix.compute_properties(
+                        state.p, state.T, state.X, store=False
+                    )
+
+                    res[h_HEADER] = (
+                        mix.evaluate_weighed_sum([prop.h for prop in props], state.y)[0]
+                        * pp.composite.ENERGY_SCALE
+                    )
+
+                    res[compressibility_HEADER[PHASES[1]]] = props[0].Z[0]
+                    for i, s in enumerate(SPECIES):
+                        res[fugacity_HEADER[s][PHASES[1]]] = props[0].phis[i][0]
+                    res[compressibility_HEADER[PHASES[0]]] = props[1].Z[0]
+                    for i, s in enumerate(SPECIES):
+                        res[fugacity_HEADER[s][PHASES[0]]] = props[1].phis[i][0]
+
+            res[p_HEADER] = p
+            res[T_HEADER] = T
+
+            for key, val in res.items():
+                results[key].append(val)
 
     elif CALCULATION_MODE == 2:
         pass
@@ -700,3 +750,64 @@ def calculate_porepy_pT_data(p_points: list[float], T_points: list[float]) -> di
         pass
     else:
         raise ValueError(f"Unknown flash calculation mode {CALCULATION_MODE}.")
+
+    return results
+
+
+def plot_crit_point_pT(axis: plt.Axes):
+    """Plot critical pressure and temperature in p-T plot for components H2O and CO2."""
+
+    S = pp.composite.load_fluid_species(SPECIES)
+
+    img = [axis.plot(s.T_crit, s.p_crit, "*", markersize=7, color="gold")[0] for s in S]
+
+    return img, [f"Crit. point {s.name}" for s in S]
+
+
+def plot_phase_split_pT(
+    axis: plt.Axes,
+    p: np.ndarray,
+    T: np.ndarray,
+    split: np.ndarray,
+) -> figure.Figure:
+    """Plots a phase split figure across a range of pressure and temperature values."""
+
+    # scaling to MPa
+    p_ = p / pp.composite.PRESSURE_SCALE
+
+    cmap = mpl.colors.ListedColormap(
+        ["firebrick", "royalblue", "mediumturquoise", "forestgreen"]
+    )
+    img = axis.pcolormesh(
+        T,
+        p_,
+        split,
+        cmap=cmap,
+        vmin=0,
+        vmax=3,
+        shading="gouraud",  # gouraud
+    )
+    # axis.set_xlabel('T [K]')
+    # axis.set_ylabel('p [MPa]')
+    return img
+
+
+def plot_abs_error_pT(
+    axis: plt.Axes,
+    p: np.ndarray,
+    T: np.ndarray,
+    error: np.ndarray,
+    norm=None,
+) -> figure.Figure:
+    """Plots the absolute error in grey scales."""
+    # scaling to MPa
+    p_ = p / pp.composite.PRESSURE_SCALE
+
+    if norm:
+        kwargs = {"norm": norm}
+    else:
+        kwargs = {"vmin": error.min(), "vmax": error.max()}
+
+    img = axis.pcolormesh(T, p_, error, cmap="Greys", shading="gouraud", **kwargs)
+
+    return img
