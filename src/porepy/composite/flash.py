@@ -1257,7 +1257,7 @@ class FlashNR:
         flash: str = "p-T",
         method: str = "standard",
         iterations: int = 0,
-        success: bool = False,
+        success: int = 1,
         **kwargs,
     ) -> None:
         """Makes an entry in the flash history."""
@@ -1271,8 +1271,8 @@ class FlashNR:
             {
                 "flash": str(flash),
                 "method": str(method),
-                "iterations": str(iterations),
-                "success": str(success),
+                "iterations": int(iterations),
+                "success": int(success),
                 "other": other,
             }
         )
@@ -1518,8 +1518,8 @@ class FlashNR:
                 for j in range(1, nph)
             ]
 
-        # Final fractions update based on last K-values
-        # state = self._solve_for_compositions(state, K, num_vals)
+        # TODO implement a better guess for extended fraction in missing phases
+        # using isofugacity constraints?
 
         return state
 

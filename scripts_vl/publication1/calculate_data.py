@@ -6,6 +6,7 @@ Warning:
 
 """
 from __future__ import annotations
+
 import pathlib
 import sys
 import time
@@ -14,14 +15,15 @@ import time
 sys.path.append(str(pathlib.Path(__file__).parent.resolve()))
 
 from _config import (
+    PH_FLASH_DATA_PATH,
+    PT_FLASH_DATA_PATH,
+    THERMO_DATA_PATH,
+    calculate_porepy_pT_data,
     calculate_thermo_pT_data,
-    write_results,
+    logger,
     read_px_data,
     read_results,
-    THERMO_DATA_PATH,
-    PT_FLASH_DATA_PATH,
-    PH_FLASH_DATA_PATH,
-    logger
+    write_results,
 )
 
 if __name__ == "__main__":
@@ -36,14 +38,14 @@ if __name__ == "__main__":
     write_results(THERMO_DATA_PATH, results_thermo)
 
     logger.info("Reading p-T data for PorePy flash ..\n")
-    p_points, T_points = read_px_data(THERMO_DATA_PATH, 'T')
+    p_points, T_points = read_px_data(THERMO_DATA_PATH, "T")
 
-    # logger.info("Starting PorePy p-T-calculations ..\n")
-    # start_time = time.time()
-
-    # end_time = time.time()
-    # logger.info(f"Finished PorePy p-T-calculations ({end_time - start_time} seconds).")
-    # write_results(PT_FLASH_DATA_PATH, results_pT)
+    logger.info("Starting PorePy p-T-calculations ..\n")
+    start_time = time.time()
+    results_pT = calculate_porepy_pT_data(p_points, T_points)
+    end_time = time.time()
+    logger.info(f"Finished PorePy p-T-calculations ({end_time - start_time} seconds).")
+    write_results(PT_FLASH_DATA_PATH, results_pT)
 
     r = read_results(THERMO_DATA_PATH)
 
