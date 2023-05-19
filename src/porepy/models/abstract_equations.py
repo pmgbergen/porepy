@@ -53,6 +53,11 @@ class BalanceEquation:
     :class:`porepy.models.solution_strategy.SolutionStrategy`.
 
     """
+    ad_time_step: pp.ad.Scalar
+    """Time step as an automatic differentiation scalar. Normally set in
+    :class:`porepy.models.solution_strategy.SolutionStrategy`.
+
+    """
 
     def balance_equation(
         self,
@@ -84,7 +89,7 @@ class BalanceEquation:
         """
 
         dt_operator = pp.ad.time_derivatives.dt
-        dt = pp.ad.Scalar(self.time_manager.dt)
+        dt = self.ad_time_step
         div = pp.ad.Divergence(subdomains, dim=dim)
         return dt_operator(accumulation, dt) + div @ surface_term - source
 
