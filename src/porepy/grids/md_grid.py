@@ -586,9 +586,6 @@ class MixedDimensionalGrid:
         """Compute geometric quantities for each contained grid."""
         for sd in self.subdomains():
             sd.compute_geometry()
-            if sd.dim > 0:
-                # Generate a boundary grid for this grid
-                self._subdomain_boundary_grids[sd] = pp.BoundaryGrid(g=sd)
 
         for intf in self.interfaces():
             intf.compute_geometry()
