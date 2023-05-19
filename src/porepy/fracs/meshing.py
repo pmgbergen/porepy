@@ -82,9 +82,9 @@ def subdomains_to_mdg(
     # we are ready to create mortar grids on the interface between subdomains. These
     # will be added to the mixed-dimensional grid.
     create_interfaces(mdg, node_pairs)
-
-    # We can also add boundary grids to the MixedDimensionalGrid after having split
-    # the fracture faces.
+    # Add boundary grids to the MixedDimensionalGrid (this must be done after having
+    # split the fracture faces, or else the projection to the boundary grids will have
+    # the wrong dimension).
     _add_boundary_grids(mdg)
 
     if time_tot is not None:
