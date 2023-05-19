@@ -50,13 +50,13 @@ def normalize_fractions(X: list[NumericType]) -> list[NumericType]:
 
     """
     s = safe_sum(X)
-    s = s.val if isinstance(s, pp.ad.AdArray) else s
-    X_n = [
-        pp.ad.AdArray(x.val / s, x.jac) if isinstance(x, pp.ad.AdArray) else x / s
-        for x in X
-    ]
-    return X_n
-    # return [x_ / s for x_ in X]
+    # s = s.val if isinstance(s, pp.ad.AdArray) else s
+    # X_n = [
+    #     pp.ad.AdArray(x.val / s, x.jac) if isinstance(x, pp.ad.AdArray) else x / s
+    #     for x in X
+    # ]
+    # return X_n
+    return [x_ / s for x_ in X]
 
 
 class CompositionalSingleton(abc.ABCMeta):
