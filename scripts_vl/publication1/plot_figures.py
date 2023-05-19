@@ -49,6 +49,39 @@ from _config import (
     success_HEADER,
 )
 
+
+def _fmt(x, pos):
+    a, b = "{:.1e}".format(x).split("e")
+    b = int(b)
+    return r"${}e{{{}}}$".format(a, b)
+
+
+def _error_cb(axis_, img_, fig_, err_):
+    divider = make_axes_locatable(axis_)
+    cax = divider.append_axes("right", size="5%", pad=0.1)
+    cb = fig_.colorbar(
+        img_,
+        cax=cax,
+        orientation="vertical",
+        format=ticker.FuncFormatter(_fmt),
+        # format=ticker.LogFormatterMathtext(),
+    )
+    cb.set_label(
+        "Max. abs. error: "
+        + "{:.0e}".format(float(err_.max()))
+        + "\nL2-error: "
+        + "{:.0e}".format(float(np.sqrt(np.sum(np.square(err_)))))
+    )
+    return cb
+
+
+def _error_norm(err_):
+    # return mpl.colors.LogNorm(vmin=err_.min(), vmax=err_.max())
+    return mpl.colors.SymLogNorm(
+        linthresh=1e-3, linscale=0.5, vmin=err_.min(), vmax=err_.max()
+    )
+
+
 if __name__ == "__main__":
 
     nan = str(NAN_ENTRY)
@@ -99,13 +132,24 @@ if __name__ == "__main__":
 
             # porepy split
             if success_pp:
-                split = res_pp[phases_HEADER][idx]
-                if split == "L":
-                    split_pp[i, j] = 1
-                elif split == "GL":
-                    split_pp[i, j] = 2
-                elif split == "G":
-                    split_pp[i, j] = 3
+                # if phase split is not available, use gas fraction
+                if phases_HEADER in res_pp:
+                    split = res_pp[phases_HEADER][idx]
+                    if split == "L":
+                        split_pp[i, j] = 1
+                    elif split == "GL":
+                        split_pp[i, j] = 2
+                    elif split == "G":
+                        split_pp[i, j] = 3
+                else:
+                    y_pp = float(res_pp[gas_frac_HEADER][idx])
+                    if y_pp <= 0.:
+                        split_pp[i, j] = 1
+                    elif 0 < y_pp < 1.:
+                        split_pp[i, j] = 2
+                    elif y_pp >= 1.:
+                        split_pp[i, j] = 3
+
 
             # skip remainder if both failed
             if not (success_pp and success_thermo):
@@ -161,8 +205,11 @@ if __name__ == "__main__":
     axis = fig.add_subplot(gs[0, 1])
     axis.set_title("thermo")
     axis.set_xlabel("T [K]")
+    axis.set(yticklabels=[])
+    axis.set(ylabel=None)
+    axis.tick_params(left=False)
     img = plot_phase_split_pT(axis, p, T, split_thermo)
-    img_, leg_ = plot_crit_point_pT(axis)
+    img_, leg_ = ([], [])
     idx = ll_split == 1  # plotting LL split in thermo plot
     if np.any(idx):
         img_ += [
@@ -170,16 +217,15 @@ if __name__ == "__main__":
                 (T[idx]).flat,
                 (p[idx] / pp.composite.PRESSURE_SCALE).flat,
                 "+",
-                markersize=5,
+                markersize=3,
                 color="black",
             )[0]
         ]
         leg_ += ["2 liquids"]
+    crit = plot_crit_point_pT(axis)
+    img_ += crit[0]
+    leg_ += crit[1]
     axis.legend(img_, leg_, loc="upper right")
-    # remove p ticks from second plot
-    axis.set(yticklabels=[])
-    axis.set(ylabel=None)
-    axis.tick_params(left=False)
 
     fig.subplots_adjust(right=0.8)
     divider = make_axes_locatable(axis)
@@ -198,36 +244,6 @@ if __name__ == "__main__":
     # endregion
 
     # region plotting absolute errors for gas fraction
-
-    def _fmt(x, pos):
-        a, b = "{:.1e}".format(x).split("e")
-        b = int(b)
-        return r"${}e{{{}}}$".format(a, b)
-
-    def _error_cb(axis_, img_, fig_, err_):
-        divider = make_axes_locatable(axis_)
-        cax = divider.append_axes("right", size="5%", pad=0.1)
-        cb = fig_.colorbar(
-            img_,
-            cax=cax,
-            orientation="vertical",
-            format=ticker.FuncFormatter(_fmt),
-            # format=ticker.LogFormatterMathtext(),
-        )
-        cb.set_label(
-            "Max. abs. error: "
-            + "{:.0e}".format(float(err_.max()))
-            + "\nL2-error: "
-            + "{:.0e}".format(float(np.sqrt(np.sum(np.square(err_)))))
-        )
-        return cb
-
-    def _error_norm(err_):
-        # return mpl.colors.LogNorm(vmin=err_.min(), vmax=err_.max())
-        return mpl.colors.SymLogNorm(
-            linthresh=1e-3, linscale=0.5, vmin=err_.min(), vmax=err_.max()
-        )
-
     logger.info("Plotting absolute errors in gas fractions ..\n")
     fig = plt.figure(figsize=(FIGURE_WIDTH, 1080 / 1920 * FIGURE_WIDTH))
     gs = fig.add_gridspec(1, 1)
@@ -306,6 +322,5 @@ if __name__ == "__main__":
         format="png",
         dpi=DPI,
     )
-    fig.show()
     fig_num += 1
     # endregion

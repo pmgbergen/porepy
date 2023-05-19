@@ -1977,6 +1977,7 @@ class FlashNR:
                 logger.info(f"{del_log}Flash iteration {i}: res = {res_norm}")
 
                 DX = pypardiso.spsolve(F_k.jac, -F_k.val) * self.newton_update_chop
+                # DX = sps.linalg.spsolve(F_k.jac, -F_k.val) * self.newton_update_chop
 
                 check = np.sum(DX)
                 if np.isnan(check) or np.isinf(check):

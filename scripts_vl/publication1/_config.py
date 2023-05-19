@@ -7,7 +7,7 @@ import logging
 import pathlib
 import sys
 import time
-from ctypes import c_double, c_uint8
+from ctypes import c_double, c_uint8, c_char_p
 from multiprocessing import Array, Pool, Process, Queue
 from multiprocessing.pool import AsyncResult
 from typing import Any
@@ -35,17 +35,17 @@ FEED: list[float] = [0.99, 0.01]
 
 # pressure and temperature limits for calculations
 P_LIMITS: list[float] = [1e6, 50e6]  # [Pa]
-T_LIMITS: list[float] = [300.0, 600.0]  # [K]
+T_LIMITS: list[float] = [300.0, 650.0]  # [K]
 # temperature values for isotherms (isenthalpic flash calculations)
 ISOTHERMS: list[float] = [300.0, 400.0, 600.0]
 # resolution of p-T limits
-RESOLUTION: int = 5
+RESOLUTION: int = 100
 
 # Calculation modus for PorePy flash
 # 1 - point-wise (robust, but possibly very slow),
 # 2 - vectorized (not recommended),
 # 3 - parallelized (use with care)
-CALCULATION_MODE: int = 1
+CALCULATION_MODE: int = 3
 
 # paths to where results should be stored
 THERMO_DATA_PATH: str = "data/thermodata.csv"  # storing results from therm
@@ -516,6 +516,28 @@ def _access_shared_objects(
     arrays_loc = [vec for vec, _ in shared_arrays]
 
 
+def _array_headers() -> list[str]:
+    """Returns a list of header (names) for arrays created for the parallel flash."""
+    headers = [
+        success_HEADER,
+        # phases_HEADER,
+        num_iter_HEADER,
+        p_HEADER,
+        T_HEADER,
+        h_HEADER,
+        gas_frac_HEADER,
+        compressibility_HEADER[PHASES[1]],
+        compressibility_HEADER[PHASES[0]],
+    ]
+    for i in SPECIES:
+        for j in PHASES[:2]:
+            headers += [composition_HEADER[i][j]]
+    for i in SPECIES:
+        for j in PHASES[:2]:
+            headers += [fugacity_HEADER[i][j]]
+    return headers
+
+
 def _create_shared_arrays(size: int) -> list[tuple[Array, Any]]:
     """Creates shared memory arrays for the parallelized flash and returns a list of
     tuples with arrays and their data types as entries.
@@ -541,22 +563,27 @@ def _create_shared_arrays(size: int) -> list[tuple[Array, Any]]:
 
     def _uint_array():
         return Array(typecode_or_type=INT_PRECISION, size_or_initializer=size)
+    
+    def _string_array():
+        return Array(typecode_or_type=c_char_p, size_or_initializer=size)
 
     # array to store the success flag: 0 or 1
     success = _uint_array()
     shared_arrays.append((success, INT_PRECISION))
+    # split = _string_array()
+    # shared_arrays.append((split, c_char_p))
     # integer array to store the number of iterations necessary
     num_iter = _uint_array()
     shared_arrays.append((num_iter, INT_PRECISION))
     # array storing 1 if the flash showes a super-critical mixture at converged state.
-    is_supercrit = _uint_array()
-    shared_arrays.append((is_supercrit, INT_PRECISION))
+    # is_supercrit = _uint_array()
+    # shared_arrays.append((is_supercrit, INT_PRECISION))
     # array storing the condition number of the array at the beginning (initial guess)
-    cond_start = _double_array()
-    shared_arrays.append((cond_start, FLOAT_PRECISION))
+    # cond_start = _double_array()
+    # shared_arrays.append((cond_start, FLOAT_PRECISION))
     # array showing the condition number at converged state
-    cond_end = _double_array()
-    shared_arrays.append((cond_end, FLOAT_PRECISION))
+    # cond_end = _double_array()
+    # shared_arrays.append((cond_end, FLOAT_PRECISION))
     # arrays containing pressure, temperature and enthalpies
     p = _double_array()
     shared_arrays.append((p, FLOAT_PRECISION))
@@ -596,7 +623,7 @@ def _progress_counter(q: Queue, NC: int, flash_result: AsyncResult):
         i = q.get()
         progress_array[i] = 1
         progress = int(sum(progress_array))
-        print(f"\rParallel flash: {progress}/{NC}", end="", flush=True)
+        logger.info(f"{del_log}Parallel p-T flash: {progress}/{NC}")
         if progress == NC:
             break
 
@@ -682,6 +709,123 @@ def _porepy_parse_state(state: pp.composite.ThermodynamicState) -> dict:
     return out
 
 
+def _parallel_pT_flash(ipT):
+    """Performs a p-T flash (including modelling) and stores the results in shared
+    memory.
+
+    ``ipT`` must be a tuple containing the index where the results should be stored,
+    and the p-T point.
+
+    Warning:
+        There are some unresolved issues with parallel subprocesses if
+        numpy/scipy/pypardiso throw errors or warnings. It causes the respective
+        subprocess unable to join, despite finishing all flashes.
+
+    """
+
+    i, p, T = ipT
+
+    # accessing shared memory
+    global arrays_loc, progress_queue_loc
+    (
+        success_arr,
+        # split_arr,
+        num_iter_arr,
+        # is_supercrit_arr,
+        # cond_start_arr,
+        # cond_end_arr,
+        p_arr,
+        T_arr,
+        h_arr,
+        y_arr,
+        Z_L_arr,
+        Z_G_arr,
+        x_h2o_G_arr,
+        x_h2o_L_arr,
+        x_co2_G_arr,
+        x_co2_L_arr,
+        phi_h2o_G_arr,
+        phi_h2o_L_arr,
+        phi_co2_G_arr,
+        phi_co2_L_arr,
+    ) = arrays_loc
+
+    mix, flash = create_mixture(1)
+
+    p_vec = np.array([p], dtype=np.double) / pp.composite.PRESSURE_SCALE
+    T_vec = np.array([T])
+    feed = [np.ones(1)* z for z in FEED]
+
+    p_arr[i] = p
+    T_arr[i] = T
+
+    try:
+        success_, state = flash.flash(
+            state={'p': p_vec, 'T': T_vec},
+            feed=feed,
+            eos_kwargs={'apply_smoother': True}
+        )
+    except Exception as err:  # if Flasher fails, flag as failed
+        logger.warn(f"\nParallel p-T flash crashed at {ipT}\n{str(err)}\n")
+
+        success_arr[i] = 0
+        # split_arr[i] = str(NAN_ENTRY)
+        # is_supercrit_arr[i] = 0
+        y_arr[i] = NAN_ENTRY
+        x_h2o_L_arr[i] = NAN_ENTRY
+        x_h2o_G_arr[i] = NAN_ENTRY
+        x_co2_L_arr[i] = NAN_ENTRY
+        x_co2_G_arr[i] = NAN_ENTRY
+
+        num_iter_arr[i] = NAN_ENTRY
+        # cond_start_arr[i] = NAN_ENTRY
+        # cond_end_arr[i] = NAN_ENTRY
+
+        Z_L_arr[i] = NAN_ENTRY
+        Z_G_arr[i] = NAN_ENTRY
+        phi_h2o_L_arr[i] = NAN_ENTRY
+        phi_h2o_G_arr[i] = NAN_ENTRY
+        phi_co2_L_arr[i] = NAN_ENTRY
+        phi_co2_G_arr[i] = NAN_ENTRY
+        h_arr[i] = NAN_ENTRY
+    else:
+        if success_ == 0:
+            success_arr[i] = 1
+            props = mix.compute_properties(state.p, state.T, state.X, store=False)
+            Z_L_arr[i] = props[0].Z[0]
+            Z_G_arr[i] = props[1].Z[0]
+            phi_h2o_L_arr[i] = props[0].phis[0][0]
+            phi_co2_L_arr[i] = props[0].phis[1][0]
+            phi_h2o_G_arr[i] = props[1].phis[0][0]
+            phi_co2_G_arr[i] = props[1].phis[1][0]
+        else:
+            logger.warn(f"\nParallel p-T failed to converge at {ipT}\n")
+            success_arr[i] = 0
+            Z_L_arr[i] = NAN_ENTRY
+            Z_G_arr[i] = NAN_ENTRY
+            phi_h2o_L_arr[i] = NAN_ENTRY
+            phi_co2_L_arr[i] = NAN_ENTRY
+            phi_h2o_G_arr[i] = NAN_ENTRY
+            phi_co2_G_arr[i] = NAN_ENTRY
+
+        h_arr[i] = state.h[0]
+        y_arr[i] = state.y[1][0]
+        # if 0 < state.y[1][0] < 1:
+        #     split_arr[i] = 'GL'
+        # elif state.y[1][0] <= 0:
+        #     split_arr[i] = 'L'
+        # elif state.y[1][0] >= 1.:
+        #     split_arr[i] = 'G'
+        x_h2o_L_arr[i] = state.X[0][0][0]
+        x_h2o_G_arr[i] = state.X[1][0][0]
+        x_co2_L_arr[i] = state.X[0][1][0]
+        x_co2_G_arr[i] = state.X[1][1][0]
+
+        num_iter_arr[i] = flash.history[-1]["iterations"]
+
+    progress_queue_loc.put(i, block=False)
+
+
 def calculate_porepy_pT_data(p_points: list[float], T_points: list[float]) -> dict:
     """Performs the PorePy flash for given pressure-temperature points and
     returns a result structure similar to that of the thermo computation."""
@@ -744,10 +888,58 @@ def calculate_porepy_pT_data(p_points: list[float], T_points: list[float]) -> di
             for key, val in res.items():
                 results[key].append(val)
 
-    elif CALCULATION_MODE == 2:
+    elif CALCULATION_MODE == 2:  # vectorized flash
         pass
-    elif CALCULATION_MODE == 3:
-        pass
+    elif CALCULATION_MODE == 3:  # parallelized flash
+
+        ipx = [(i, p, x) for i, p, x in zip(np.arange(nf), p_points, T_points)]
+        shared_arrays = _create_shared_arrays(nf)
+        logger.info("Parallel p-T flash: starting ..")
+        start_time = time.time()
+        # multiprocessing.set_start_method('fork')
+        prog_q = Queue(maxsize=nf)
+        with Pool(
+            processes=NUM_PHYS_CPU_CORS + 1,
+            initargs=(shared_arrays, prog_q),
+            initializer=_access_shared_objects,
+        ) as pool:
+            
+            prog_process = Process(
+                target=_progress_counter, args=(prog_q, nf, None), daemon=True
+            )
+            prog_process.start()
+
+            chunksize = NUM_PHYS_CPU_CORS
+            result = pool.map_async(_parallel_pT_flash, ipx, chunksize=chunksize)
+
+            # Wait for some time and see if processes terminate as they should
+            # we terminate if the processes for some case could not finish
+            result.wait(60 * 60 * 5)
+            if result.ready():
+                prog_process.join(5)
+                if prog_process.exitcode != 0:
+                    prog_process.terminate()
+                pool.close()
+            else:
+                prog_process.terminate()
+                logger.warn(f"\nParallel p-T flash: terminated\n")
+                pool.close()
+                pool.terminate()
+            pool.join()
+
+        end_time = time.time()
+        logger.info(
+            f"Parallel p-T flash: finished after {end_time - start_time} seconds."
+        )
+
+        result_vecs = [
+            list(np.frombuffer(vec.get_obj(), dtype=dtype))
+            for vec, dtype in shared_arrays
+        ]
+        results = dict(
+            [(header, vec) for header, vec in zip(_array_headers(), result_vecs)]
+        )
+
     else:
         raise ValueError(f"Unknown flash calculation mode {CALCULATION_MODE}.")
 
@@ -785,7 +977,7 @@ def plot_phase_split_pT(
         cmap=cmap,
         vmin=0,
         vmax=3,
-        shading="gouraud",  # gouraud
+        shading="nearest",  # gouraud
     )
     # axis.set_xlabel('T [K]')
     # axis.set_ylabel('p [MPa]')
@@ -808,6 +1000,6 @@ def plot_abs_error_pT(
     else:
         kwargs = {"vmin": error.min(), "vmax": error.max()}
 
-    img = axis.pcolormesh(T, p_, error, cmap="Greys", shading="gouraud", **kwargs)
+    img = axis.pcolormesh(T, p_, error, cmap="Greys", shading="nearest", **kwargs)
 
     return img
