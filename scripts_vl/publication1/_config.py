@@ -39,7 +39,7 @@ T_LIMITS: list[float] = [300.0, 650.0]  # [K]
 # temperature values for isotherms (isenthalpic flash calculations)
 ISOTHERMS: list[float] = [300.0, 400.0, 600.0]
 # resolution of p-T limits
-RESOLUTION: int = 100
+RESOLUTION: int = 20
 
 # Calculation modus for PorePy flash
 # 1 - point-wise (robust, but possibly very slow),
@@ -48,9 +48,9 @@ RESOLUTION: int = 100
 CALCULATION_MODE: int = 3
 
 # paths to where results should be stored
-THERMO_DATA_PATH: str = "data/thermodata.csv"  # storing results from therm
-PT_FLASH_DATA_PATH: str = "data/flash_pT.csv"  # storing p-T results from porepy
-PH_FLASH_DATA_PATH: str = "data/flash_ph.csv"  # storing p-h results from porepy
+THERMO_DATA_PATH: str = "data/thermodata_.csv"  # storing results from therm
+PT_FLASH_DATA_PATH: str = "data/flash_pT_.csv"  # storing p-T results from porepy
+PH_FLASH_DATA_PATH: str = "data/flash_ph_.csv"  # storing p-h results from porepy
 FIG_PATH: str = "figs/"  # path to folder containing plots
 
 NUM_COMP: int = len(SPECIES)  # number of components

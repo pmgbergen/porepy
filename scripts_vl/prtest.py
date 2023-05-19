@@ -4,8 +4,8 @@ import porepy as pp
 chems = ["H2O", "CO2"]
 
 z = [np.array([0.01])]  # only co2 fraction is enough
-p = np.array([2])
-T = np.array([630.])
+p = np.array([10.])
+T = np.array([300.])
 verbosity = 1
 
 species = pp.composite.load_fluid_species(chems)
@@ -35,7 +35,7 @@ flash.armijo_parameters["rho"] = 0.99
 flash.armijo_parameters["j_max"] = 30
 flash.armijo_parameters["return_max"] = True
 flash.newton_update_chop = 1.0
-flash.tolerance = 1e-7
+flash.tolerance = 1e-8
 flash.max_iter = 100
 
 # p-T flash

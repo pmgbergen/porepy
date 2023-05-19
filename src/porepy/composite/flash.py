@@ -313,8 +313,11 @@ class FlashSystemNR(ThermodynamicState):
 
         # Second, evaluate equilibrium equations for each component
         # between independent phases and reference phase
-        for i in range(self._num_comp):
-            for j in range(1, self._num_phases):
+        sigma_r = safe_sum(X[0])
+        for j in range(1, self._num_phases):
+            sigma_j = safe_sum(X[j])
+            for i in range(self._num_comp):
+                # equ = X[j][i] * props[j].phis[i] * sigma_j - X[0][i] * props[0].phis[i] * sigma_r
                 equ = X[j][i] * props[j].phis[i] - X[0][i] * props[0].phis[i]
                 equations.append(equ)
 
