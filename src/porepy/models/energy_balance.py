@@ -679,17 +679,15 @@ class BoundaryConditionsEnergyBalance:
         # Loop over subdomains to collect boundary values
         for sd in subdomains:
             vals = np.zeros(sd.num_faces)
-            # If you know the boundary temperature, do something like:
-            # boundary_faces = self.domain_boundary_sides(sd).all_bf
-            # vals[boundary_faces] = (
-            #     self.fluid.specific_heat_capacity()
-            #     * dirichlet_values_temperature
-            #     * self.fluid.density()
-            #     / self.fluid.viscosity()
-            # )
-            # Dividing by viscosity is an implementation detail since later these
-            # values are multiplied by `DarcysLaw.darcy_flux`. Those must be divided by
-            # viscosity from the outside to represent the Darcy velocity.
+            # If you know the boundary temperature, you might want to reconstruct
+            # the enthalpy flux at the boundary. Using Dirichlet BCs, the value assigned
+            # herein will be multiplied with the Darcy flux -K \nabla p. Thus, one would
+            # normally convert to fluid flux multiplying by (density/viscosity). Then,
+            # if using EnthalpyFromTemperature, one would compute enthalpy value by
+            # multiplying by specific heat capacity and
+            # (boundary temperature - reference temperature). Note that using
+            # non-default constitutive laws in the interior might require changes to the
+            # above recipe.
 
             #  Append to list of boundary values
             bc_values.append(vals)
