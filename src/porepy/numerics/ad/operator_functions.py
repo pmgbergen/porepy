@@ -18,6 +18,8 @@ from porepy.numerics.ad.forward_mode import AdArray
 
 from .operators import Operator, Tree
 
+import pdb
+
 __all__ = [
     "Function",
     "ConstantFunction",
@@ -84,7 +86,9 @@ class AbstractFunction(Operator):
         """Indicator whether the callable can process arrays."""
 
         ### PRIVATE
-        self._operation: Operator.Operations = Operator.Operations.approximate
+        self._operation: Operator.Operations = (
+            Operator.Operations.approximate
+        )  ### what the heck are you?
 
         self._name: str = name if name is not None else ""
 
@@ -102,6 +106,7 @@ class AbstractFunction(Operator):
             The assigned operation is ``evaluate``.
 
         """
+
         children = [self, *args]
         op = Operator(tree=Tree(self._operation, children=children))
         return op
@@ -257,14 +262,18 @@ class Function(AbstractFunction):
     def __init__(self, func: Callable, name: str, array_compatible: bool = True):
         super().__init__(func, name, array_compatible)
         self._operation = Operator.Operations.evaluate
-        self.ad_compatible = True
+        self.ad_compatible = True  ### EB: with ad_compatibal=True the following two functions, define only here, are not going to be used.
 
     def get_values(self, *args: AdArray) -> np.ndarray:
         result = self.func(*args)
+
+        ### maybe I can loop over grids here?
         return result.val
 
     def get_jacobian(self, *args: AdArray) -> np.ndarray:
         result = self.func(*args)
+
+        ### maybe I can loop over grids here?
         return result.jac
 
 

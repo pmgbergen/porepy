@@ -10,6 +10,8 @@ from typing import Callable, Sequence, Union
 
 import porepy as pp
 
+import pdb
+
 
 class BalanceEquation:
     """Generic class for vector balance equations.
@@ -83,9 +85,15 @@ class BalanceEquation:
 
         """
 
+        # print("\n inside balance_equation")
+
         dt_operator = pp.ad.time_derivatives.dt
         dt = pp.ad.Scalar(self.time_manager.dt)
         div = pp.ad.Divergence(subdomains, dim=dim)
+
+        # tmp = dt_operator(accumulation, dt) + div @ surface_term - source
+        # pdb.set_trace()
+
         return dt_operator(accumulation, dt) + div @ surface_term - source
 
     def volume_integral(

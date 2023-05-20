@@ -24,7 +24,7 @@ def test_expansion_matrix():
     sd.compute_geometry()
     # pp.plot_grid(sd, vector_value=0.2 * sd.face_normals, info="cf", alpha=0)
 
-    hu = pp.Hu()
+    hu = pp.HybridUpwind()
 
     E = hu.expansion_matrix(sd)
     var_faces = np.array([1, 2, 3, 4])
@@ -41,7 +41,7 @@ def test_restriction_matrices():
     sd.compute_geometry()
     # pp.plot_grid(sd, vector_value=0.2*sd.face_normals, info='cf', alpha=0)
 
-    hu = pp.Hu()
+    hu = pp.HybridUpwind()
     L, R = hu.restriction_matrices_left_right(sd)
 
     var = np.arange(sd.num_cells)
@@ -113,7 +113,7 @@ def test_total_flux_no_gravity(ad):
 
     gravity_value = 0
 
-    hu = pp.Hu()
+    hu = pp.HybridUpwind()
     L, R = hu.restriction_matrices_left_right(sd)
     hu.compute_transmissibility_tpfa(sd, data)
     _, transmissibility_internal_tpfa = hu.get_transmissibility_tpfa(sd, data)
@@ -180,7 +180,7 @@ def test_total_flux_no_pressure(ad):
 
     gravity_value = 1
 
-    hu = pp.Hu()
+    hu = pp.HybridUpwind()
     L, R = hu.restriction_matrices_left_right(sd)
     hu.compute_transmissibility_tpfa(sd, data)
     _, transmissibility_internal_tpfa = hu.get_transmissibility_tpfa(sd, data)
@@ -247,7 +247,7 @@ def test_total_flux_null(ad):
 
     gravity_value = 1
 
-    hu = pp.Hu()
+    hu = pp.HybridUpwind()
     L, R = hu.restriction_matrices_left_right(sd)
     hu.compute_transmissibility_tpfa(sd, data)
     _, transmissibility_internal_tpfa = hu.get_transmissibility_tpfa(sd, data)
@@ -314,7 +314,7 @@ def test_total_flux_jac():
 
     dynamic_viscosity = 1
 
-    hu = pp.Hu()
+    hu = pp.HybridUpwind()
     ad = True
     _, qt_jacobian_ad = hu.compute_jacobian_qt_ad(
         sd, data, mixture, pressure, gravity_value, ad, dynamic_viscosity
@@ -413,7 +413,7 @@ def test_flux_V():
 
     gravity_value = 0
 
-    hu = pp.Hu()
+    hu = pp.HybridUpwind()
     L, R = hu.restriction_matrices_left_right(sd)
     hu.compute_transmissibility_tpfa(sd, data)
     _, transmissibility_internal_tpfa = hu.get_transmissibility_tpfa(sd, data)
@@ -476,7 +476,7 @@ def test_flux_G():
 
     gravity_value = 1
 
-    hu = pp.Hu()
+    hu = pp.HybridUpwind()
     L, R = hu.restriction_matrices_left_right(sd)
     hu.compute_transmissibility_tpfa(sd, data)
     _, transmissibility_internal_tpfa = hu.get_transmissibility_tpfa(sd, data)
@@ -534,7 +534,7 @@ def test_upwind_direction_V_G():
     mixture = pp.Mixture()
     mixture.add([wetting_phase, non_wetting_phase])
 
-    hu = pp.Hu()
+    hu = pp.HybridUpwind()
     L, R = hu.restriction_matrices_left_right(sd)
     hu.compute_transmissibility_tpfa(sd, data)
     _, transmissibility_internal_tpfa = hu.get_transmissibility_tpfa(sd, data)
@@ -687,7 +687,7 @@ def test_upwind_direction_V_G_3x3():
     #
     #
 
-    hu = pp.Hu()
+    hu = pp.HybridUpwind()
     L, R = hu.restriction_matrices_left_right(sd)
     hu.compute_transmissibility_tpfa(sd, data)
     _, transmissibility_internal_tpfa = hu.get_transmissibility_tpfa(sd, data)
@@ -835,7 +835,7 @@ def test_full_jacobian():
     mixture = pp.Mixture()
     mixture.add([wetting_phase, non_wetting_phase])
 
-    hu = pp.Hu()
+    hu = pp.HybridUpwind()
     dynamic_viscosity = 1
 
     ad = True
@@ -872,19 +872,19 @@ def test_full_jacobian():
     assert np.all(np.isclose(A_finite_diff, A_exact, rtol=0, atol=1e-5))
 
 
-ad = True
-test_expansion_matrix()
-test_restriction_matrices()
-test_total_flux_no_gravity(ad)
-test_total_flux_no_pressure(ad)
-test_total_flux_null(ad)
-test_total_flux_jac()
-test_flux_V()
-test_flux_G()
-test_full_jacobian()
-test_upwind_direction_V_G()
-test_upwind_direction_V_G_3x3()
-print("ufficial tests passed")
+# ad = True
+# test_expansion_matrix()
+# test_restriction_matrices()
+# test_total_flux_no_gravity(ad)
+# test_total_flux_no_pressure(ad)
+# test_total_flux_null(ad)
+# test_total_flux_jac()
+# test_flux_V()
+# test_flux_G()
+# test_full_jacobian()
+# test_upwind_direction_V_G()
+# test_upwind_direction_V_G_3x3()
+# print("ufficial tests passed")
 
 print("\n\n dont forget that these tests do not check everything\n\n")
 """
@@ -897,87 +897,6 @@ ex:
 the sign of tmp isnt goes unnoticed
 """
 
-
-###################################################################################################################
-# mass and energy model:
-###################################################################################################################
-"""
-model = pp.mass_and_energy_balance.MassAndEnergyBalance()
-params = {}
-pp.run_time_dependent_model(model, params)
-
-for i in dir(model):
-    print(i)
-
-pdb.set_trace()
-
-
-mass_bal = pp.fluid_mass_balance.MassBalanceEquations
-
-
-class EquationsFluidMassAndEnergy(
-    pressure_eq.EnergyBalanceEquations,
-    mass_bal.MassBalanceEquations,
-):
-    def set_equations(self):
-        pressure_eq.EnergyBalanceEquations.set_equations(self)
-
-        mass_bal.MassBalanceEquations.set_equations(self)
-
-
-# TODO: ---------------------------------
-class VariablesFluidMassAndEnergy(
-    energy.VariablesEnergyBalance,
-    mass.VariablesSinglePhaseFlow,
-):
-    def create_variables(self) -> None:
-        energy.VariablesEnergyBalance.create_variables(self)
-        mass.VariablesSinglePhaseFlow.create_variables(self)
-
-
-class ConstitutiveLawFluidMassAndEnergy(
-    pp.constitutive_laws.FluidDensityFromPressureAndTemperature,
-    pp.constitutive_laws.ConstantSolidDensity,
-    pp.constitutive_laws.EnthalpyFromTemperature,
-    pp.constitutive_laws.FouriersLaw,
-    pp.constitutive_laws.ThermalConductivityLTE,
-    pp.constitutive_laws.DimensionReduction,
-    pp.constitutive_laws.AdvectiveFlux,
-    pp.constitutive_laws.DarcysLaw,
-    pp.constitutive_laws.PeacemanWellFlux,
-    pp.constitutive_laws.FluidMobility,
-    pp.constitutive_laws.ConstantPorosity,
-    pp.constitutive_laws.ConstantPermeability,
-    pp.constitutive_laws.ConstantViscosity,
-):
-    pass
-
-
-class BoundaryConditionsFluidMassAndEnergy(
-    energy.BoundaryConditionsEnergyBalance,
-    mass.BoundaryConditionsSinglePhaseFlow,
-):
-    pass
-
-
-class SolutionStrategyFluidMassAndEnergy(
-    energy.SolutionStrategyEnergyBalance,
-    mass.SolutionStrategySinglePhaseFlow,
-):
-    pass
-
-
-class MassAndEnergyBalance(
-    EquationsFluidMassAndEnergy,
-    VariablesFluidMassAndEnergy,
-    ConstitutiveLawFluidMassAndEnergy,
-    BoundaryConditionsFluidMassAndEnergy,
-    SolutionStrategyFluidMassAndEnergy,
-    pp.ModelGeometry,
-    pp.DataSavingMixin,
-):
-    pass
-"""
 
 ###################################################################################################################
 #
@@ -1034,7 +953,7 @@ def newton_tmp(
     - initial_guess = solution at previous timestep
     - it is a mess but it is temporary...
     """
-    hu = pp.Hu()
+    hu = pp.HybridUpwind()
 
     toll = 1e-12  # no comment...
 
@@ -1249,7 +1168,7 @@ if do_this_section:
     # # HU discretization: -------------------------------------------------------------
     # delta_t = 1
 
-    # hu = pp.Hu()
+    # hu = pp.HybridUpwind()
 
     # ad = True
     # A, b = hu.assemble_matrix_rhs_ad(
@@ -1353,7 +1272,7 @@ if do_unofficial_tests:
 
     gravity_value = 1
 
-    hu = pp.Hu()
+    hu = pp.HybridUpwind()
     L, R = hu.restriction_matrices_left_right(sd)
     hu.compute_transmissibility_tpfa(sd, data)
     _, transmissibility_internal_tpfa = hu.get_transmissibility_tpfa(sd, data)

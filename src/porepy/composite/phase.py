@@ -46,7 +46,7 @@ class Phase(abc.ABC):
 
     # Physical properties: ----------------------------------------------------------------
 
-    def mass_density(self, p):  # -> NumericType | pp.ad.Operator:
+    def mass_density(self, p):  # TODO: p is useless, but thinl twice...
         """
         | Math. Dimension:        scalar
         | Phys. Dimension:        [kg / m^3]
@@ -75,5 +75,48 @@ class Phase(abc.ABC):
             beta * p0 * (p / p0 - 1)
         )  # i like dimless groups...
 
-        # print(rho.val)
+        # mass_density = (
+        #     pp.constitutive_laws.FluidDensityFromPressure
+        # )  # TODO: what is self?
+        # subdomains = self.mdg.subdomains()  # TODO: what is self?
+        # rho = mass_density.fluid_density(subdomains)
+
         return rho
+
+
+class PhaseMixin(abc.ABC):
+    """ """
+
+    def __init__(
+        self, name: str = "", physical_constants: pp.FluidConstants = None
+    ) -> None:
+        self._name = name
+
+        # # OLD:
+        # self._rho0 = rho0
+        self._physical_constants = physical_constants
+
+        self._s = None
+
+    @property
+    def saturation(self):
+        """ """
+        return self._s
+
+    def mass_density(self, pressure):  # TODO: pressure is useless, but thinl twice...
+        """ """
+        c = pp.ad.Scalar(
+            self._physical_constants.compressibility(), "fluid_compressibility"
+        )
+
+        exp_operators = pp.ad.Function(pp.ad.exp, "density_exponential")
+
+        db = pressure(subdomains) - pressure_ref(subdomains)
+        d_var.set_name("pressure_perturbation")
+
+        c = self.fluid_compressibility(subdomains)
+        pressure_exponential = exp_operators(c * dp)
+
+        rho_ref = pp.ad.Scalar(self.fluid.density(), "reference_fluid_density")
+        rho = rho_ref * pressure_exponential
+        rho.set_name("fluid_density")

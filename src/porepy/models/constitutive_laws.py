@@ -8,6 +8,9 @@ import numpy as np
 
 import porepy as pp
 
+import pdb
+import scipy as sp
+
 number = pp.number
 Scalar = pp.ad.Scalar
 
@@ -484,6 +487,8 @@ class FluidDensityFromPressure:
             Exponential term in the fluid density as a function of pressure.
 
         """
+
+        # print("\n\n print inside pressure_sxpoential")
         exp = pp.ad.Function(pp.ad.exp, "density_exponential")
 
         # Reference variables are defined in a variables class which is assumed
@@ -492,6 +497,7 @@ class FluidDensityFromPressure:
 
         # Wrap compressibility from fluid class as matrix (left multiplication with dp)
         c = self.fluid_compressibility(subdomains)
+
         return exp(c * dp)
 
 
@@ -554,6 +560,7 @@ class FluidDensityFromTemperature:
         # Reference variables are defined in a variables class which is assumed
         # to be available by mixin.
         dtemp = self.perturbation_from_reference("temperature", subdomains)
+
         return exp(Scalar(-1) * Scalar(self.fluid.thermal_expansion()) * dtemp)
 
 
@@ -968,6 +975,7 @@ class DarcysLaw:
         discr: Union[pp.ad.TpfaAd, pp.ad.MpfaAd] = self.darcy_flux_discretization(
             subdomains
         )
+
         flux: pp.ad.Operator = (
             discr.flux @ self.pressure(subdomains)
             + discr.bound_flux
@@ -1666,17 +1674,26 @@ class AdvectiveFlux:
             Operator representing the advective flux.
 
         """
+
+        # print("\n inside advective_flux")
+
         darcy_flux = self.darcy_flux(subdomains)
         interfaces = self.subdomains_to_interfaces(subdomains, [1])
         mortar_projection = pp.ad.MortarProjections(
             self.mdg, subdomains, interfaces, dim=1
         )
+
+        # EB: guess flux = discr.retunr the flux (matrix? vector? fanculo, this is the vector)
+        # + the flux contains the bc
+        # for me only, better to split the two functions as they already are, so internal flux + bc + glue them together
+
         flux: pp.ad.Operator = (
             darcy_flux * (discr.upwind @ advected_entity)
             - discr.bound_transport_dir @ (darcy_flux * bc_values)
-            # Advective flux coming from lower-dimensional subdomains
+            # Advective flux coming from lower-dimensional subdomains ### EB: comment, you are in the wrong place...
             - discr.bound_transport_neu @ bc_values
         )
+
         if interface_flux is not None:
             flux -= (
                 discr.bound_transport_neu
@@ -1685,6 +1702,7 @@ class AdvectiveFlux:
             )
         else:
             assert len(interfaces) == 0
+
         return flux
 
     def interface_advective_flux(

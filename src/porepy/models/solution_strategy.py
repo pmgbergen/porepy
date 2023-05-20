@@ -13,6 +13,9 @@ import warnings
 from pathlib import Path
 from typing import Any, Callable, Optional
 
+import pdb
+
+
 import numpy as np
 import scipy.sparse as sps
 
@@ -85,6 +88,11 @@ class SolutionStrategy(abc.ABC):
             "file_name": "data",
             "linear_solver": "pypardiso",
         }
+
+        # print("\n\n inside __init__")
+        # print("params = ", params)
+        # so far params contans boh of the entire model, it is not the data dictionary associated to a sd
+        # pdb.set_trace()
 
         default_params.update(params)
 
@@ -178,7 +186,22 @@ class SolutionStrategy(abc.ABC):
         """Run at the start of simulation. Used for initialization etc."""
         # Set the geometry of the problem. This is a method that must be implemented
         # in a ModelGeometry class.
+
+        # print("\n\n inside prepare_simulation")
+        # for sd, data in self.mdg.subdomains(return_data=True):
+        #     print("sd = ", sd)
+        #     print("data = ", data)
+        # # here I dont even have the mdg
+        # pdb.set_trace()
+
         self.set_geometry()
+
+        # print("\n\n inside prepare_simulation")
+        # for sd, data in self.mdg.subdomains(return_data=True):
+        #     print("sd = ", sd)
+        #     print("data = ", data)
+        # # Now I have mdg and almost empty data (I see only 'tangential_normal_projection')
+        # pdb.set_trace()
 
         # Exporter initialization must be done after grid creation,
         # but prior to data initialization.
@@ -188,13 +211,29 @@ class SolutionStrategy(abc.ABC):
         # Order of operations is important here.
         self.set_equation_system_manager()
         self.set_materials()
+
         self.create_variables()
         self.initial_condition()
         self.reset_state_from_file()
         self.set_equations()
 
+        # print("\n\n inside prepare_simulation")
+        # for sd, data in self.mdg.subdomains(return_data=True):
+        #     print("sd = ", sd)
+        #     print("data = ", data)
+        # # now data contains everything except the discretization matrices
+        # pdb.set_trace()
+
         self.set_discretization_parameters()
         self.discretize()
+
+        # print("\n\n inside prepare_simulation")
+        # for sd, data in self.mdg.subdomains(return_data=True):
+        #     print("sd = ", sd)
+        #     print("data = ", data)
+        # # now data contains everything
+        # pdb.set_trace()
+
         self._initialize_linear_solver()
         self.set_nonlinear_discretizations()
 
@@ -296,8 +335,14 @@ class SolutionStrategy(abc.ABC):
         passing modified material classes in params["fluid"] and params["solid"].
 
         """
+
+        # print("\n\n inside set_materials. Read comment")
+        # I dont think I want this function. I want to set the material (fluid constants) manually inside the phases
+        # pdb.set_trace()
+
         # Default values
         constants = {}
+
         constants.update(self.params.get("material_constants", {}))
         # Use standard models for fluid and solid constants if not provided.
         if "fluid" not in constants:

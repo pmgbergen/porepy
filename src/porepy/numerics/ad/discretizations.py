@@ -32,6 +32,8 @@ import porepy as pp
 
 from ._ad_utils import MergedOperator, wrap_discretization
 
+import pdb
+
 __all__ = [
     "Discretization",
     "BiotAd",
@@ -256,6 +258,7 @@ class UpwindAd(Discretization):
         self.upwind: MergedOperator
         self.bound_transport_dir: MergedOperator
         self.bound_transport_neu: MergedOperator
+
         wrap_discretization(self, self._discretization, subdomains=subdomains)
 
 
@@ -355,7 +358,6 @@ class DifferentiableFVAd:
         potential: pp.ad.Variable,
         keyword: str,
     ) -> None:
-
         self.subdomains = subdomains
         """List of subdomains on which the discretization is defined."""
         self.mdg = mdg

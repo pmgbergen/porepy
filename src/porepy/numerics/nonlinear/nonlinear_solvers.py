@@ -7,6 +7,8 @@ import logging
 
 import numpy as np
 
+import pdb
+
 # Module-wide logger
 logger = logging.getLogger(__name__)
 
@@ -36,7 +38,10 @@ class NewtonSolver:
         errors = []
         error_norm = 1
 
-        while iteration_counter <= self.params["max_iterations"] and not is_converged:
+        # while iteration_counter <= self.params["max_iterations"] and not is_converged:
+        while True:
+            print("\n\n\n NEWTON iteration_counter = ", iteration_counter)
+
             logger.info(
                 "Newton iteration number {} of {}".format(
                     iteration_counter, self.params["max_iterations"]

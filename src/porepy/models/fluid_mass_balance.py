@@ -24,6 +24,8 @@ import numpy as np
 
 import porepy as pp
 
+import pdb
+
 logger = logging.getLogger(__name__)
 
 
@@ -209,14 +211,20 @@ class MassBalanceEquations(pp.BalanceEquation):
             Operator representing the fluid flux.
 
         """
+
+        # print("\n\n insdie fluid_flux")
+        # pdb.set_trace()
+
         discr = self.mobility_discretization(subdomains)
         mob_rho = self.fluid_density(subdomains) * self.mobility(subdomains)
 
         bc_values = self.bc_values_mobrho(subdomains)
+
         flux = self.advective_flux(
             subdomains, mob_rho, discr, bc_values, self.interface_fluid_flux
         )
         flux.set_name("fluid_flux")
+
         return flux
 
     def interface_flux_equation(
@@ -778,14 +786,19 @@ class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
         dictionary for use in upstream weighting.
 
         """
+
         # Update parameters *before* the discretization matrices are re-computed.
         for sd, data in self.mdg.subdomains(return_data=True):
             vals = self.darcy_flux([sd]).evaluate(self.equation_system).val
             data[pp.PARAMETERS][self.mobility_keyword].update({"darcy_flux": vals})
 
+            #
+            #
+
         for intf, data in self.mdg.interfaces(return_data=True, codim=1):
             vals = self.interface_darcy_flux([intf]).evaluate(self.equation_system).val
             data[pp.PARAMETERS][self.mobility_keyword].update({"darcy_flux": vals})
+
         for intf, data in self.mdg.interfaces(return_data=True, codim=2):
             vals = self.well_flux([intf]).evaluate(self.equation_system).val
             data[pp.PARAMETERS][self.mobility_keyword].update({"darcy_flux": vals})
@@ -811,7 +824,18 @@ class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
 # which should be types as Callable[[int, int], None], cannot be parsed by mypy.
 # For this reason, we ignore the error here, and rely on the tests to catch any
 # inconsistencies.
-class SinglePhaseFlow(  # type: ignore[misc]
+
+
+# class RandomClass:
+#     def __init__(self):
+#         print("\n\ndsfsdfs\n\n")
+#         self.attribute = 1
+
+#     def method():
+#         print("\n\nxzcxczxc\n\n")
+
+
+class SinglePhaseFlow(  # type: ignore[misc
     MassBalanceEquations,
     VariablesSinglePhaseFlow,
     ConstitutiveLawsSinglePhaseFlow,
@@ -821,3 +845,43 @@ class SinglePhaseFlow(  # type: ignore[misc]
     pp.DataSavingMixin,
 ):
     """Class for single-phase flow in mixed-dimensional porous media."""
+
+
+# print("\n\nMassBalanceEquations")
+# for i in dir(MassBalanceEquations):
+#     print(i)
+
+# print("\n\nVariablesSinglePhaseFlow")
+# for i in dir(VariablesSinglePhaseFlow):
+#     print(i)
+
+# print("\n\nConstitutiveLawsSinglePhaseFlow")
+# for i in dir(ConstitutiveLawsSinglePhaseFlow):
+#     print(i)
+
+# print("\n\nBoundaryConditionsSinglePhaseFlow")
+# for i in dir(BoundaryConditionsSinglePhaseFlow):
+#     print(i)
+
+# print("\n\nSolutionStrategySinglePhaseFlow")
+# for i in dir(SolutionStrategySinglePhaseFlow):
+#     print(i)
+
+# print("\n\npp.ModelGeometry")
+# for i in dir(pp.ModelGeometry):
+#     print(i)
+
+# print("\n\npp.DataSavingMixin")
+# for i in dir(pp.DataSavingMixin):
+#     print(i)
+
+
+# pippo = SinglePhaseFlow()
+
+# pippo.attribute_a_caso = "attribute a caso"
+# print("\n\npippo:\n")
+# for i in dir(pippo):
+#     print(i)
+
+# print("\nyou are inside fluid_mass_balance.py ----------------------------------")
+# pdb.set_trace()

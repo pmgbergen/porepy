@@ -72,11 +72,35 @@ class Mixture(abc.ABC):
             self._phases.append(phase)
 
 
-class MixtureAD:
+class MixtureMixin:
     """
-    https://github.com/pmgbergen/porepy/blob/composite-flow/src/porepy/models/compositional_flow_model.py
-    https://github.com/pmgbergen/porepy/blob/composite-flow/src/porepy/composite/mixture.py
+    in the model i expect:
+    self._phases: list[Phase] = []
     """
 
-    def __init__(self):
-        """TODO"""
+    def num_phases(self) -> int:
+        """ """
+        return len(self._phases)
+
+    def phases(self):
+        """ """
+        for P in self._phases:
+            yield P
+
+    def get_phase(self, phase_id):
+        """ """
+        return self._phases[phase_id]
+
+    def apply_constraint(self):
+        """
+        - to be called in after_nonlinear_interation. and in prepare_simulation i guess... you have to define the saturation_m before newton
+
+        - hardcoded for two phase flow
+        """
+
+        if self.ell == 0:  # sorry...
+            m = 1
+        else:  # ell == 1
+            m = 0
+
+        self.get_phase(m)._s = 1 - self.get_phase(m).saturation

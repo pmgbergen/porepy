@@ -8,6 +8,8 @@ import scipy.sparse as sps
 import porepy as pp
 from porepy.numerics.discretization import Discretization
 
+import pdb
+
 
 class Upwind(Discretization):
     """
@@ -215,6 +217,8 @@ class Upwind(Discretization):
         for i in np.arange( N ):
             conc = invM.dot((M_minus_U).dot(conc) + rhs)
         """
+
+        print("discretize inside upwind.py HAS BEEN CALLED")
 
         parameter_dictionary: dict[str, Any] = data[pp.PARAMETERS][self.keyword]
         matrix_dictionary: dict[str, sps.spmatrix] = data[pp.DISCRETIZATION_MATRICES][

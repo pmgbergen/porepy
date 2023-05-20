@@ -28,6 +28,8 @@ import porepy as pp
 from . import operators
 from .forward_mode import AdArray
 
+import pdb
+
 
 def concatenate_ad_arrays(ad_arrays: list[AdArray], axis=0):
     """Concatenates a sequence of AD arrays into a single AD Array along a specified axis."""
@@ -49,6 +51,9 @@ def wrap_discretization(
     mat_dict_grids=None,
 ):
     """Convert a discretization to its AD equivalent."""
+
+    # print("\n\n inside wrap_discretization ")
+
     if subdomains is None:
         assert isinstance(interfaces, list)
     else:
@@ -71,7 +76,8 @@ def wrap_discretization(
 
     for s in dir(discr):
         if s.endswith("_matrix_key"):
-            key = s[:-11]
+            key = s[:-11]  ### EB: remove "_matrix_key" and keep the first part
+            # that will become the attribute name.
             key_set.append(key)
 
     # Make a merged discretization for each of the identified terms.
@@ -80,6 +86,13 @@ def wrap_discretization(
         op = MergedOperator(
             discr, key, mat_dict_key, mat_dict_grids, subdomains, interfaces
         )
+
+        # print("obj = ", obj)
+        # print("op = ", op)
+        # print("type(op) = ", type(op))
+
+        # pdb.set_trace()
+
         setattr(op, "keyword", mat_dict_key)
         setattr(obj, key, op)
 
@@ -153,8 +166,18 @@ def discretize_from_list(
     """For a list of (ideally uniquified) discretizations, perform the actual
     discretization.
     """
+    # print("\n inside discretize_form_list")
+
     for discr in discretizations:
         # discr is a discretization (on node or interface in the MixedDimensionalGrid sense)
+
+        # EB:
+        # (Pdb) type(discr)
+        # <class 'porepy.numerics.fv.mpfa.Mpfa'>
+
+        # print("discr = ", discr)
+        # print("type(discr) = ", type(discr))
+        # pdb.set_trace()
 
         # Loop over all subdomains (or MixedDimensionalGrid edges), do discretization.
         for g in discretizations[discr]:
@@ -250,6 +273,8 @@ class MergedOperator(operators.Operator):
             sps.spmatrix: The merged discretization matrices for the associated matrix.
 
         """
+        # print("\n inside parse of MergedOperator")
+        # print("self = ", self)
 
         # Data structure for matrices
         mat = []
@@ -263,7 +288,6 @@ class MergedOperator(operators.Operator):
         # Loop over all grid-discretization combinations, get hold of the discretization
         # matrix for this grid quantity
         for g in self.mat_dict_grids:
-
             # Get data dictionary for either grid or interface
             if isinstance(g, pp.MortarGrid):
                 data = mdg.interface_data(g)

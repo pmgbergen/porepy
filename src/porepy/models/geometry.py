@@ -12,6 +12,8 @@ import scipy.sparse as sps
 import porepy as pp
 from porepy.applications.md_grids.domains import nd_cube_domain
 
+import pdb
+
 
 class ModelGeometry:
     """This class provides geometry related methods and information for a simulation
@@ -52,6 +54,13 @@ class ModelGeometry:
             **self.meshing_kwargs(),
         )
         self.nd: int = self.mdg.dim_max()
+
+        # print("\n\n inside set_geometry")
+        # for sd, data in self.mdg.subdomains(return_data=True):
+        #     print("sd = ", sd)
+        #     print("data = ", data)
+        # # so far data is an empty dictionary
+        # pdb.set_trace()
 
         # Create projections between local and global coordinates for fracture grids.
         pp.set_local_coordinate_projections(self.mdg)

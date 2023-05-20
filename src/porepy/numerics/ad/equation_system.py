@@ -1562,6 +1562,8 @@ class EquationSystem:
                 for the specified equations. Scaled with -1 (moved to rhs).
 
         """
+
+        print("\n\n inside assemble_subsystem")
         if variables is None:
             variables = self._variables
 
@@ -1585,7 +1587,10 @@ class EquationSystem:
         for equ_name, rows in equ_blocks.items():
             # This will raise a key error if the equation name is unknown.
             eq = self._equations[equ_name]
+
+            print("\nBEFORE eq.evaluate: -----------------------------------")
             ad = eq.evaluate(self, state)
+            print("AFTER eq.evaluate -----------------------------------------")
 
             # If restriction to grid-related row blocks was made,
             # perform row slicing based on information we have obtained from parsing.

@@ -47,7 +47,11 @@ def run_time_dependent_model(model, params: dict) -> None:
     """
     # Assign parameters, variables and discretizations. Discretize time-indepedent terms
     if params.get("prepare_simulation", True):
+        print("\n\n\nBEFORE model.prepare_simulation:")
         model.prepare_simulation()
+        print(
+            "AFTER model.prepare_simulation ------------------------------------------------------"
+        )
 
     # Assign a solver
     solver: Union[pp.LinearSolver, pp.NewtonSolver]
@@ -68,7 +72,12 @@ def run_time_dependent_model(model, params: dict) -> None:
                 model.time_manager.dt,
             )
         )
+
+        print("\n\n\nBEFORE solver.solve:")
         solver.solve(model)
+        print(
+            "AFTER solver.solve --------------------------------------------------------"
+        )
         model.time_manager.compute_time_step()
 
     model.after_simulation()

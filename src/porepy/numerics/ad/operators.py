@@ -18,6 +18,8 @@ import porepy as pp
 from . import _ad_utils
 from .forward_mode import AdArray, initAdArrays
 
+import pdb
+
 __all__ = [
     "Operator",
     "SparseArray",
@@ -276,6 +278,7 @@ class Operator:
         hold until all children are processed works, but there likely are cases where
         this is not the case.
         """
+        # print("inside _parse_operator")
 
         # The parsing strategy depends on the operator at hand:
         # 1) If the operator is a Variable, it will be represented according to its
@@ -287,8 +290,11 @@ class Operator:
         #    and then perform the operation on the result.
 
         # Check for case 1 or 2
-        if isinstance(op, pp.ad.Variable) or isinstance(op, Variable):
-            # Case 1: Variable
+        if isinstance(op, pp.ad.Variable) or isinstance(
+            op, Variable
+        ):  ### EB: and the difference is...?
+            # Case 1: Variable -----------------------------------------------------------------
+            # print("Case 1")
 
             # How to access the array of (Ad representation of) states depends on
             # whether this is a single or combined variable; see self.__init__,
@@ -319,9 +325,17 @@ class Operator:
             return op
 
         elif op.is_leaf():
-            # Case 2
+            # Case 2: --------------------------------------------------------------------------------------
+            # print("Case 2")
+            # print("op = ", op)
+
+            # tmp = op.parse(mdg)
+            # pdb.set_trace()
+
             return op.parse(mdg)  # type:ignore
 
+        # Case 3: ----------------------------------------------------------------------------------------------
+        # print("Case 3")
         # This is not an atomic operator. First parse its children, then combine them
         tree = op.tree
         results = [self._parse_operator(child, mdg) for child in tree.children]
@@ -336,6 +350,7 @@ class Operator:
                 # this in a strange way. Instead switch the order of the operands and
                 # everything will be fine.
                 results = results[::-1]
+                ### EB: results[1] = results[2], results[2] = results[1]. why am I confused?
             try:
                 # An error here would typically be a dimension mismatch between the
                 # involved operators.
@@ -437,18 +452,30 @@ class Operator:
                 raise ValueError(msg) from exc
 
         elif tree.op == Operator.Operations.evaluate:
-            # This is a function, which should have at least one argument
+            # This is a function, which should have at least one argument ### and the argument is result[1:]
             assert len(results) > 1
             func_op = results[0]
+            ### EB: if it is a pp.ad.Function, results[0] is the operation, result[1] is the argiment to be passed to result[0]
 
             # if the callable can be fed with AdArrays, do it
             if func_op.ad_compatible:
+                # aaa = func_op.func(*results[1:])
+                # np.set_printoptions(precision=3, linewidth=200)
+                # print("\n aaa.val = ", aaa.val)
+                # print("\n aaa.jac =", aaa.jac.A)
+                # pdb.set_trace()
+
                 return func_op.func(*results[1:])
+
+            ### if func_op.eb_func: blablabla # why not?
+
             else:
                 # This should be a Function with approximated Jacobian and value.
                 try:
                     val = func_op.get_values(*results[1:])
                     jac = func_op.get_jacobian(*results[1:])
+
+                    # pdb.set_trace()
                 except Exception as exc:
                     # TODO specify what can go wrong here (Exception type)
                     msg = "Ad parsing: Error evaluating operator function:\n"
@@ -762,7 +789,7 @@ class Operator:
 
         # Parse operators. This is left to a separate function to facilitate the
         # necessary recursion for complex operators.
-        eq = self._parse_operator(self, mdg)
+        eq = self._parse_operator(self, mdg)  ### EB: this is AdArray(val, jac)
 
         return eq
 
