@@ -627,7 +627,6 @@ class TiltedGrids(unittest.TestCase):
         pp.set_solution_values(
             name="pressure", values=p_x, data=data, time_step_index=0
         )
-        pp.fvutils.compute_darcy_flux(g, data=data)
 
 
 if __name__ == "__main__":
