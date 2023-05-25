@@ -96,6 +96,11 @@ class Operator:
         interfaces: Optional[list[pp.MortarGrid]] = None,
         tree: Optional[Tree] = None,
     ) -> None:
+        # print("\n\n\n inside __init__ Operator")
+        # print("subdomains = ", subdomains)
+
+        # pdb.set_trace()
+
         self.interfaces: list[pp.MortarGrid] = [] if interfaces is None else interfaces
         """List of interfaces on which the operator is defined, passed at instantiation.
 
@@ -1633,6 +1638,9 @@ class MixedDimensionalVariable(Variable):
 
     def __init__(self, variables: list[Variable]) -> None:
         ### PUBLIC
+
+        # print("\n\n\n insdie __init__ od MixedDimensionalVariable")
+        # pdb.set_trace()
 
         self.sub_vars = variables
         """List of sub-variables passed at instantiation, each defined on a separate

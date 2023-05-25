@@ -92,6 +92,28 @@ class SolutionStrategyFluidMassAndEnergy(
     pass
 
 
+from porepy.applications.md_grids.domains import nd_cube_domain
+import numpy as np
+
+
+# from tutorial... It does NOT work
+# class MyModelGeometry(pp.ModelGeometry):
+#     def set_domain(self) -> None:
+#         """ """
+#         size = 2 / self.units.m
+#         self._domain = nd_cube_domain(2, size)
+
+#     def set_fractures(self) -> None:
+#         """ """
+#         frac1 = pp.LineFracture(np.array([[0.2, 0.5], [0.2, 0.5]]) / self.units.m)
+#         self._fractures: list = [frac1]
+
+#     def meshing_arguments(self) -> dict[str, float]:
+#         """ """
+#         mesh_args: dict[str, float] = {"cell_size": 0.1 / self.units.m}
+#         return mesh_args
+
+
 class MassAndEnergyBalance(  # type: ignore
     EquationsFluidMassAndEnergy,
     VariablesFluidMassAndEnergy,
@@ -99,6 +121,7 @@ class MassAndEnergyBalance(  # type: ignore
     BoundaryConditionsFluidMassAndEnergy,
     SolutionStrategyFluidMassAndEnergy,
     pp.ModelGeometry,
+    # MyModelGeometry,
     pp.DataSavingMixin,
 ):
     """Combine fluid mass and energy balance models into a single class.

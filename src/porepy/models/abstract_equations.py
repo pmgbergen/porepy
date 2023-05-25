@@ -181,8 +181,13 @@ class VariableMixin:
             Operator for the perturbation.
 
         """
+        # print("\n\ninside pertubation_form_reference")
+
         var = getattr(self, variable_name)
         var_ref = getattr(self, "reference_" + variable_name)
+
+        # pdb.set_trace()
+
         d_var = var(grids) - var_ref(grids)
         d_var.set_name(variable_name + "_perturbation")
         return d_var

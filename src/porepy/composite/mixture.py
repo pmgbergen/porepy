@@ -1,4 +1,5 @@
 import abc
+import porepy as pp
 from porepy.composite.phase import Phase
 
 
@@ -39,39 +40,39 @@ class Mixture(abc.ABC):
 
     @property
     def reference_phase(self) -> Phase:
-        """Returns the reference phase.
-        As of now, the first, added phase is declared as reference phase.
-        The fraction of the reference can be eliminated from the system using respective
-        flags.
-        Raises:
-            AssertionError: If no phases were added to the mixture.
-            TODO: read description
-        """
-
+        """ """
         assert self._phases, "No phases present in mixture."
         return self._phases[0]
 
     def add(self, phases: list[Phase]) -> None:
-        """Adds one or multiple components and phases to the mixture.
-        Components and phases must be added before the system can be set up.
-        Important:
-            This method is meant to be called only once per mixture!
-            This is due to the creation of respective AD variables.
-            By calling it twice, their reference is overwritten and the previous
-            variables remain as dangling parts in the AD system.
-        Parameters:
-            component: Component(s) to be added to this mixture.
-            phases: Phase(s) to be added to this mixture.
-        Raises:
-            ValueError: If a component or phase was instantiated using a different
-                AD system than the one used for this composition.
-            TODO: read description
-        """
-
+        """ """
         for phase in phases:
             self._phases.append(phase)
 
+    def mixture_for_subdomain(self, equation_system, subdomain):
+        for phase in self.phases:
+            phase.equation_system = equation_system
+            phase.subdomain = subdomain
+        return self
 
+    def apply_constraint(self):
+        """
+        - to be called in after_nonlinear_interation. and in prepare_simulation i guess... you have to define the saturation_m before newton
+
+        - hardcoded for two phase flow
+
+        - this is not the right place for this function
+        """
+
+        if self.ell == 0:  # sorry...
+            m = 1
+        else:  # ell == 1
+            m = 0
+
+        self.get_phase(m)._s = pp.ad.Scalar(1, "one") - self.get_phase(m).saturation
+
+
+'''
 class MixtureMixin:
     """
     in the model i expect:
@@ -104,3 +105,4 @@ class MixtureMixin:
             m = 0
 
         self.get_phase(m)._s = 1 - self.get_phase(m).saturation
+'''

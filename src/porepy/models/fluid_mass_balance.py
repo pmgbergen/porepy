@@ -792,9 +792,6 @@ class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
             vals = self.darcy_flux([sd]).evaluate(self.equation_system).val
             data[pp.PARAMETERS][self.mobility_keyword].update({"darcy_flux": vals})
 
-            #
-            #
-
         for intf, data in self.mdg.interfaces(return_data=True, codim=1):
             vals = self.interface_darcy_flux([intf]).evaluate(self.equation_system).val
             data[pp.PARAMETERS][self.mobility_keyword].update({"darcy_flux": vals})

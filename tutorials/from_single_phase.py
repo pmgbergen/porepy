@@ -107,7 +107,6 @@ class MySolutionStrategySinglePhaseFlow(SolutionStrategySinglePhaseFlow):
             )  # EB: dictionary["key"] = val?
 
         for sd, data in self.mdg.subdomains(return_data=True):
-            pdb.set_trace()
             pressure_array = self.pressure([sd]).evaluate(self.equation_system).val
             data["TMP_pressure"] = pressure_array
 

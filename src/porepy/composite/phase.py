@@ -22,27 +22,29 @@ class Phase(abc.ABC):
         #     subdomains=ad_system.mdg.subdomains(),
         # )
         self._rho0 = rho0
-        self._s = None
-        # self._phase_pressure = None # discuss with Eirik and Veljko # Not here
+        # self._s = None
+        self.subdomain = None
+        self.equation_system = None
 
     @property
     def name(self) -> str:
         """Name of this phase given at instantiation."""
         return self._name
 
+    # @property
+    # def saturation(self):  # -> pp.ad.MixedDimensionalVariable:
+    #     """ """
+    #     return self._s
+
     @property
-    def saturation(self):  # -> pp.ad.MixedDimensionalVariable:
-        """
-        | Math. Dimension:        scalar
-        | Phys. Dimension:        [-] fractional
-        The name of this variable is composed of the general symbol and the name
-        assigned to this phase at instantiation
-        (see :data:`~porepy.composite._composite_utils.VARIABLE_SYMBOLS`).
-        Returns:
-            Saturation (volumetric fraction), a secondary variable on the whole domain.
-            Indicates how much of the (local) volume is occupied by this phase per cell.
-        """
-        return self._s
+    def saturation(self):
+        s = self.saturation_operator(self.subdomain).evaluate(self.equation_system)
+
+    def saturation_operator(
+        self, subdomains: list[pp.Grid]
+    ) -> pp.ad.MixedDimensionalVariable:
+        s = self.equation_system.md_variable("saturation", subdomains)
+        return s
 
     # Physical properties: ----------------------------------------------------------------
 
@@ -83,7 +85,20 @@ class Phase(abc.ABC):
 
         return rho
 
+    def mass_density_operator(self, subdomains, pressure):
+        """
+        see pressure(rho) in consitutive laws
+        """
+        p = pressure(subdomains)
+        mass_density_operator = pp.ad.Function(self.mass_density, "mass_density")
+        rho = mass_density_operator(p)
+        # NO, you need the loop over grids, you know...
+        # NO, you don't need it, p is [ph, pl] and rho is a functoin depending only on p, so you don't need do distingush the grids
 
+        return rho
+
+
+'''
 class PhaseMixin(abc.ABC):
     """ """
 
@@ -120,3 +135,4 @@ class PhaseMixin(abc.ABC):
         rho_ref = pp.ad.Scalar(self.fluid.density(), "reference_fluid_density")
         rho = rho_ref * pressure_exponential
         rho.set_name("fluid_density")
+'''

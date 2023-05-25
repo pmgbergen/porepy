@@ -267,13 +267,13 @@ class Function(AbstractFunction):
     def get_values(self, *args: AdArray) -> np.ndarray:
         result = self.func(*args)
 
-        ### maybe I can loop over grids here?
+        ### double evaluation of the same function...
         return result.val
 
     def get_jacobian(self, *args: AdArray) -> np.ndarray:
         result = self.func(*args)
 
-        ### maybe I can loop over grids here?
+        ### double evaluation of the same function...
         return result.jac
 
 

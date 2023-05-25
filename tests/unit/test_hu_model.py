@@ -2,6 +2,9 @@ import numpy as np
 import scipy as sp
 import porepy as pp
 
+from typing import Callable, Optional, Type
+from porepy.numerics.ad.forward_mode import AdArray, initAdArrays
+
 import os
 import sys
 import pdb
@@ -16,33 +19,45 @@ def myprint(var):
 ###################################################################################################################
 # mass and energy model:
 ###################################################################################################################
-fluid_constants = pp.FluidConstants({"compressibility": 114})
-material_constants = {"fluid": fluid_constants}
-params = {"material_constants": material_constants}
-
-model = pp.mass_and_energy_balance.MassAndEnergyBalance(params)
 
 
-pp.run_time_dependent_model(model, params)
+# fluid_constants = pp.FluidConstants({"compressibility": 114})
+# material_constants = {"fluid": fluid_constants}
+# params = {"material_constants": material_constants}
 
+# model = pp.mass_and_energy_balance.MassAndEnergyBalance(params)
 
-print(model.fluid.constants)
+# pp.run_time_dependent_model(model, params)
 
-print("\n\n\n\n")
+# print(model.fluid.constants)
 
-for i in dir(model):
-    print(i)
+# print("\n\n\n\n")
 
-pdb.set_trace()
+# for i in dir(model):
+#     print(i)
+
+# pdb.set_trace()
 
 
 class FunctionTotalFlux(pp.ad.operator_functions.AbstractFunction):
     """ """
 
-    def __init__(self, func: Callable, name: str, array_compatible: bool = True):
+    def __init__(
+        self,
+        func: Callable,
+        equation_system,
+        mixture,
+        mdg,
+        name: str,
+        array_compatible: bool = True,
+    ):
         super().__init__(func, name, array_compatible)
         self._operation = pp.ad.operators.Operator.Operations.evaluate
         self.ad_compatible = False
+
+        self.equation_system = equation_system  # I'm sorry...
+        self.mixture = mixture
+        self.mdg = mdg
 
     def get_args_from_model(self):
         """to be overriden"""
@@ -51,8 +66,6 @@ class FunctionTotalFlux(pp.ad.operator_functions.AbstractFunction):
 
     def get_args_from_sd_data_dictionary(self, data):
         """ """
-
-        mixture = 1  # TODO: you know...
         pressure = data["for_hu"]["pressure_AdArray"]  # SOMETHING SIMILAR FOR SATURAION
         gravity_value = (
             self.gravtiy_value
@@ -66,7 +79,6 @@ class FunctionTotalFlux(pp.ad.operator_functions.AbstractFunction):
         dynamic_viscosity = 1  # Sorry
 
         return [
-            mixture,
             pressure,
             gravity_value,
             left_restriction,
@@ -81,6 +93,9 @@ class FunctionTotalFlux(pp.ad.operator_functions.AbstractFunction):
         rhs_list = []
         for subdomain, data in self.mdg.subdomain(return_data=True):
             args = [subdomain]
+            args.append(
+                self.mixture.mixture_for_subdomain(self.equation_system, subdomain)
+            )  # sorry
             args_dict = self.get_args_from_sd_data_dictionary(data)
             args.append(args_dict)
 
@@ -89,10 +104,15 @@ class FunctionTotalFlux(pp.ad.operator_functions.AbstractFunction):
         return np.hstack(rhs_list)
 
     def get_jacobian(self, *args: AdArray) -> np.ndarray:
-        """ """
+        """
+        TODO: find a smart way to not repeat the hu call for val and jac
+        """
         jac_list = []
         for subdomain, data in self.mdg.subdomain(return_data=True):
             args = [subdomain]
+            args.append(
+                self.mixture.mixture_for_subdomain(self.equation_system, subdomain)
+            )
             args_dict = self.get_args_from_sd_data_dictionary(data)
             args.append(args_dict)
 
@@ -104,10 +124,22 @@ class FunctionTotalFlux(pp.ad.operator_functions.AbstractFunction):
 class FunctionRhoV(pp.ad.operator_functions.AbstractFunction):
     """ """
 
-    def __init__(self, func: Callable, name: str, array_compatible: bool = True):
+    def __init__(
+        self,
+        func: Callable,
+        equation_system,
+        mixture,
+        mdg,
+        name: str,
+        array_compatible: bool = True,
+    ):
         super().__init__(func, name, array_compatible)
         self._operation = pp.ad.operators.Operator.Operations.evaluate
         self.ad_compatible = False
+
+        self.equation_system = equation_system  # I'm sorry...
+        self.mixture = mixture
+        self.mdg = mdg
 
     def get_args_from_model(self):
         """to be overriden"""
@@ -116,7 +148,7 @@ class FunctionRhoV(pp.ad.operator_functions.AbstractFunction):
 
     def get_args_from_sd_data_dictionary(self, data):
         """ """
-        mixture = 1  # TODO
+
         ell = data["for_hu"][
             "ell"
         ]  # YES, PUT IT INTO THE DICTIONARY. TODO: create proper function in the model
@@ -126,7 +158,6 @@ class FunctionRhoV(pp.ad.operator_functions.AbstractFunction):
         ad = True  # Sorry
         dynamic_viscosity = 1  # Sorry
         return [
-            mixture,
             ell,
             pressure,
             total_flux_internal,
@@ -141,12 +172,14 @@ class FunctionRhoV(pp.ad.operator_functions.AbstractFunction):
         rhs_list = []
         for subdomain, data in self.mdg.subdomain(return_data=True):
             args = [subdomain]
+            args.append(
+                self.mixture.mixture_for_subdomain(self.equation_system, subdomain)
+            )  # sorry
             args_dict = self.get_args_from_sd_data_dictionary(data)
             args.append(args_dict)
 
             rhs_list.append(self.func(*args).val)
             # TODO: not your they are actually rhs, check the sign
-            # TODO: find a smart way to not repeat the hu call for val and jac
         return np.hstack(rhs_list)
 
     def get_jacobian(self, *args: AdArray) -> np.ndarray:
@@ -154,6 +187,9 @@ class FunctionRhoV(pp.ad.operator_functions.AbstractFunction):
         jac_list = []
         for subdomain, data in self.mdg.subdomain(return_data=True):
             args = [subdomain]
+            args.append(
+                self.mixture.mixture_for_subdomain(self.equation_system, subdomain)
+            )  # sorry
             args_dict = self.get_args_from_sd_data_dictionary(data)
             args.append(args_dict)
 
@@ -165,10 +201,22 @@ class FunctionRhoV(pp.ad.operator_functions.AbstractFunction):
 class FunctionRhoG(pp.ad.operator_functions.AbstractFunction):
     """ """
 
-    def __init__(self, func: Callable, name: str, array_compatible: bool = True):
+    def __init__(
+        self,
+        func: Callable,
+        equation_system,
+        mixture,
+        mdg,
+        name: str,
+        array_compatible: bool = True,
+    ):
         super().__init__(func, name, array_compatible)
         self._operation = pp.ad.operators.Operator.Operations.evaluate
         self.ad_compatible = False
+
+        self.equation_system = equation_system  # I'm sorry...
+        self.mixture = mixture
+        self.mdg = mdg
 
     def get_args_from_model(self):
         """to be overriden"""
@@ -177,7 +225,7 @@ class FunctionRhoG(pp.ad.operator_functions.AbstractFunction):
 
     def get_args_from_sd_data_dictionary(self, data):
         """ """
-        mixture = 1  # TODO
+
         ell = data["for_hu"]["ell"]
         pressure = data["for_hu"]["pressure_AdArray"]
         gravity_value = self.gravity_value  # TODO: you know...
@@ -185,7 +233,6 @@ class FunctionRhoG(pp.ad.operator_functions.AbstractFunction):
         ad = True  # Sorry
         dynamic_viscosity = 1  # Sorry
         return [
-            mixture,
             ell,
             pressure,
             gravity_value,
@@ -200,6 +247,9 @@ class FunctionRhoG(pp.ad.operator_functions.AbstractFunction):
         rhs_list = []
         for subdomain, data in self.mdg.subdomain(return_data=True):
             args = [subdomain]
+            args.append(
+                self.mixture.mixture_for_subdomain(self.equation_system, subdomain)
+            )  # sorry
             args_dict = self.get_args_from_sd_data_dictionary(data)
             args.append(args_dict)
 
@@ -211,6 +261,9 @@ class FunctionRhoG(pp.ad.operator_functions.AbstractFunction):
         jac_list = []
         for subdomain, data in self.mdg.subdomain(return_data=True):
             args = [subdomain]
+            args.append(
+                self.mixture.mixture_for_subdomain(self.equation_system, subdomain)
+            )  # sorry
             args_dict = self.get_args_from_sd_data_dictionary(data)
             args.append(args_dict)
 
@@ -219,7 +272,110 @@ class FunctionRhoG(pp.ad.operator_functions.AbstractFunction):
         return sp.sparse.block_diag(jac_list)
 
 
-class VariablesTwoPhaseFlow(pp.VariableMixin):
+class PressureEquation(pp.BalanceEquation):
+    """ """
+
+    def set_equations(self):
+        subdomains = self.mdg.subdomains()
+        # codim_1_interfaces = self.mdg.interfaces(codim=1)
+        subdomain_eq = self.pressure_equation(subdomains)
+        # interface_eq = self.interface_darcy_flux_equation(codim_1_interfaces)
+        self.equation_system.set_equation(subdomain_eq, subdomains, {"cells": 1})
+        # self.equation_system.set_equation(
+        #     interface_eq, codim_1_interfaces, {"cells": 1}
+        # )
+
+    def pressure_equation(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        m = np.logical_not(self.ell) * 1  # sorry
+
+        mass_density_ell = (
+            self.porosity(subdomains)
+            * self.mixture.get_phase(self.ell).mass_density_operator(
+                subdomains, self.pressure
+            )
+            * self.mixture.get_phase(self.ell).saturation_operator(subdomains)
+        )
+        mass_density_m = (
+            self.porosity(subdomains)
+            * self.mixture.get_phase(m).mass_density_operator(subdomains, self.pressure)
+            * self.mixture.get_phase(m).saturation_operator(subdomains)
+        )
+        mass_density = mass_density_ell + mass_density_m
+
+        accumulation = self.volume_integral(mass_density, subdomains, dim=1)
+        accumulation.set_name("fluid_mass")
+
+        rho_total_flux_operator = FunctionTotalFlux(
+            pp.rho_total_flux,
+            self.equation_system,
+            self.mixture,
+            self.mdg,
+            name="rho qt",
+        )
+
+        flux = rho_total_flux_operator(None) + self.bc_values(
+            subdomains
+        )  # this is wrong, but bc val are 0 so I dont care... # TODO: not sure about None
+
+        source = pp.ad.Scalar(0)  # HARDCODED
+
+        eq = self.balance_equation(subdomains, accumulation, flux, source, dim=1)
+        eq.set_name("mass_balance_equation")
+        return eq
+
+
+class MassBalance(pp.BalanceEquation):
+    """ """
+
+    def set_equations(self):
+        subdomains = self.mdg.subdomains()
+        # codim_1_interfaces = self.mdg.interfaces(codim=1)
+        subdomain_eq = self.mass_balance_equation(subdomains)
+        # interface_eq = self.interface_darcy_flux_equation(codim_1_interfaces)
+        self.equation_system.set_equation(subdomain_eq, subdomains, {"cells": 1})
+        # self.equation_system.set_equation(
+        #     interface_eq, codim_1_interfaces, {"cells": 1}
+        # )
+
+    def mass_balance_equation(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        mass_density = (
+            self.porosity(subdomains)
+            * self.mixture.get_phase(self.ell).mass_density_operator(
+                subdomains, self.pressure
+            )
+            * self.mixture.get_phase(self.ell).saturation_operator(subdomains)
+        )
+        accumulation = self.volume_integral(mass_density, subdomains, dim=1)
+        accumulation.set_name("fluid_mass")
+
+        rho_V_operator = FunctionRhoV(
+            pp.rho_flux_V, self.equation_system, self.mixture, self.mdg, name="rho V"
+        )
+        rho_G_operator = FunctionRhoG(
+            pp.rho_flux_G, self.equation_system, self.mixture, self.mdg, name="rho G"
+        )
+
+        flux = (
+            rho_V_operator(None) + rho_G_operator(None) + self.bc_values(subdomains)
+        )  # this is wrong, but bc val are 0 so I dont care...  # TODO: not sure I have to add an argument, we'll see...
+
+        source = pp.ad.Scalar(0)  # HARDCODED
+
+        eq = self.balance_equation(subdomains, accumulation, flux, source, dim=1)
+        eq.set_name("mass_balance_equation")
+        return eq
+
+
+class EquationsPressureMass(
+    PressureEquation,
+    MassBalance,
+):
+    def set_equations(self):
+        PressureEquation.set_equations(self)
+        MassBalance.set_equations(self)
+
+
+class VariablesPressureMass(pp.VariableMixin):
     """ """
 
     def create_variables(self) -> None:
@@ -230,7 +386,7 @@ class VariablesTwoPhaseFlow(pp.VariableMixin):
             tags={"si_units": "Pa"},
         )
 
-        self.equation_system.create_variables(  ####
+        self.equation_system.create_variables(  # saturation is an attribute of the model, but please use mixture to take the saturation # TODO: improve it (as everything)
             self.saturation_variable,
             subdomains=self.mdg.subdomains(),
             tags={"si_units": ""},
@@ -246,11 +402,9 @@ class VariablesTwoPhaseFlow(pp.VariableMixin):
         p = self.equation_system.md_variable(self.pressure_variable, subdomains)
         return p
 
-    def saturation(self, subdomains: list[pp.Grid]) -> pp.ad.MixedDimensionalVariable:
-        s = self.equation_system.md_variable(self.saturation_variable, subdomains)
-        return s
+    # saturation is inside mixture
 
-    def interface_darcy_flux(  # TODO: do we want mortar fluxes?
+    def interface_darcy_flux(
         self, interfaces: list[pp.MortarGrid]
     ) -> pp.ad.MixedDimensionalVariable:
         """ """
@@ -259,181 +413,183 @@ class VariablesTwoPhaseFlow(pp.VariableMixin):
         )
         return flux
 
-    def reference_pressure(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """ """
-        p_ref = self.fluid.pressure()
-        size = sum([sd.num_cells for sd in subdomains])
-        return pp.wrap_as_ad_array(p_ref, size, name="reference_pressure")
+    # def reference_pressure(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+    #     """ """
+    #     p_ref = self.fluid.pressure()
+    #     size = sum([sd.num_cells for sd in subdomains])
+    #     return pp.wrap_as_ad_array(p_ref, size, name="reference_pressure")
 
 
-class BoundaryConditionsTwoPhaseFlow:
-    """TODO: really not clear what i'm supposed to do
-    don't i need just a function that returns the bc_val used in the constitutive law of hybrid upwind
-    """
+class ConstitutiveLawPressureMass(
+    pp.constitutive_laws.DimensionReduction,
+    pp.constitutive_laws.DarcysLaw,
+    pp.constitutive_laws.ConstantPorosity,
+    # pp.constitutive_laws.ConstantPermeability, # TODO: there is a lot to change...
+    # pp.constitutive_laws.ConstantViscosity, # TODO: there is a lot to change...
+):
+    pass
 
-    domain_boundary_sides: Callable[
-        [pp.Grid],
-        pp.domain.DomainSides,
-    ]
 
-    fluid: pp.FluidConstants
+class BoundaryConditionsPressureMass:
+    def bc_values(self, subdomains: list[pp.Grid]) -> pp.ad.DenseArray:
+        """
+        it's quite useless now, but i like how it is written
+        """
 
-    def bc_type_darcy(self, sd: pp.Grid) -> pp.BoundaryCondition:
-        """ """
-        boundary_faces = self.domain_boundary_sides(sd).all_bf
-        return pp.BoundaryCondition(sd, boundary_faces, "dir")
-
-    def bc_type_mobrho(self, sd: pp.Grid) -> pp.BoundaryCondition:
-        """ """
-        boundary_faces = self.domain_boundary_sides(sd).all_bf
-        return pp.BoundaryCondition(sd, boundary_faces, "dir")
-
-    def bc_values_darcy(self, subdomains: list[pp.Grid]) -> pp.ad.DenseArray:
-        """ """
-        num_faces = sum([sd.num_faces for sd in subdomains])
-        return pp.wrap_as_ad_array(0, num_faces, "bc_values_darcy")
-
-    def bc_values_mobrho(self, subdomains: list[pp.Grid]) -> pp.ad.DenseArray:
-        """ """
         bc_values: list[np.ndarray] = []
 
         for sd in subdomains:
             boundary_faces = self.domain_boundary_sides(sd).all_bf
+
             vals = np.zeros(sd.num_faces)
-            vals[boundary_faces] = self.fluid.density() / self.fluid.viscosity()
+            vals[boundary_faces] = 0  # change this if you want different bc val
             bc_values.append(vals)
 
-        bc_values_array: pp.ad.DenseArray = pp.wrap_as_ad_array(  # type: ignore
+        bc_values_array: pp.ad.DenseArray = pp.wrap_as_ad_array(
             np.hstack(bc_values), name="bc_values_mobility"
         )
         return bc_values_array
 
 
-class TwoPhaseMassBalEq(pp.fluid_mass_balance.MassBalanceEquations):
-
-    """TODO: roughly everywhere: not clear where to add ell"""
-
-    def set_equations(self):
-        """"""
-        subdomains = self.mdg.subdomains()
-        codim_1_interfaces = self.mdg.interfaces(codim=1)
-        codim_2_interfaces = self.mdg.interfaces(codim=2)
-        sd_eq = self.mass_balance_equation(subdomains)
-        intf_eq = self.interface_darcy_flux_equation(codim_1_interfaces)
-        # well_eq = self.well_flux_equation(codim_2_interfaces)
-        self.equation_system.set_equation(sd_eq, subdomains, {"cells": 1})
-        self.equation_system.set_equation(intf_eq, codim_1_interfaces, {"cells": 1})
-        # self.equation_system.set_equation(well_eq, codim_2_interfaces, {"cells": 1})
-
-    def mass_balance_equation(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """ """
-        accumulation = self.fluid_mass(subdomains)
-        flux = self.fluid_flux(subdomains)
-        source = self.fluid_source(subdomains)
-        eq = self.balance_equation(subdomains, accumulation, flux, source, dim=1)
-        eq.set_name("mass_balance_equation")
-        return eq
-
-    def fluid_mass(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """ """
-        mass_density = (
-            self.fluid_density(subdomains) * self.saturation * self.porosity(subdomains)
-        )
-        mass = self.volume_integral(mass_density, subdomains, dim=1)
-        mass.set_name("fluid_mass")
-        return mass
-
-    def fluid_flux(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """ """
-
-        bc_values = self.bc_values_phase_1(subdomains)  # TODO: this is tmp
-
-        rho_flux_V_operator = FunctionRhoV(
-            pp.hybrid_upwind.rho_flux_V, name="rho flux V"
-        )
-        rho_flux_G_operator = FunctionRhoG(
-            pp.hybrid_upwind.rho_flux_G, name="rho flux G"
-        )
-
-        rho_V_G = rho_flux_V_operator + rho_flux_G_operator
-
-        rho_V_G.set_name("flux rho V G")
-        return rho_V_G
-
-    def interface_flux_equation(
-        self, interfaces: list[pp.MortarGrid]
-    ) -> pp.ad.Operator:
-        """Interface flux equation.
-
-        Parameters:
-            interfaces: List of interface grids.
-
-        Returns:
-            Operator representing the interface flux equation.
-
-        """
-        return self.interface_darcy_flux_equation(interfaces)
-
-    def interface_fluid_flux(self, interfaces: list[pp.MortarGrid]) -> pp.ad.Operator:
-        """Interface fluid flux.
-
-        Parameters:
-            interfaces: List of interface grids.
-
-        Returns:
-            Operator representing the interface fluid flux.
-
-        """
-        subdomains = self.interfaces_to_subdomains(interfaces)
-        discr = self.interface_mobility_discretization(interfaces)
-        mob_rho = (
-            self.mobility(subdomains) * SATURATION * self.fluid_density(subdomains)
-        )
-
-        flux: pp.ad.Operator = self.interface_advective_flux(interfaces, mob_rho, discr)
-        flux.set_name("interface_fluid_flux")
-        return flux
-
-
-class SolutionStrategyMassBalance(
-    pp.fluid_mass_balance.SolutionStrategySinglePhaseFlow
-):
-    """ """
-
+class SolutionStrategyPressureMass(pp.SolutionStrategy):
     def __init__(self, params: Optional[dict] = None) -> None:
         super().__init__(params)
 
-        # Variables
         self.pressure_variable: str = "pressure"
-        """Name of the pressure variable."""
-
+        self.saturation_variable = "saturation"
         self.interface_darcy_flux_variable: str = "interface_darcy_flux"
-        """Name of the primary variable representing the Darcy flux on interfaces of
-        codimension one."""
-
-        self.well_flux_variable: str = "well_flux"
-        """Name of the primary variable representing the well flux on interfaces of
-        codimension two."""
-
-        # Discretization
         self.darcy_keyword: str = "flow"
-        """Keyword for Darcy flux term.
+        self.mobility_keyword: str = "mobility"  # used for darcy flux (? boh...)
 
-        Used to access discretization parameters and store discretization matrices.
+    def prepare_simulation(self) -> None:
+        """ """
+        self.set_geometry()
 
-        """
-        self.mobility_keyword: str = "mobility"
-        """Keyword for mobility factor.
+        self.initialize_data_saving()
 
-        Used to access discretization parameters and store discretization matrices.
+        self.set_equation_system_manager()
+        # self.set_materials() # NOT USED NOW
 
-        """
+        self.create_variables()
+        self.initial_condition()
+        self.reset_state_from_file()
+        self.set_equations()
+
+        self.set_discretization_parameters()
+        self.discretize()
+
+        self._initialize_linear_solver()
+        self.set_nonlinear_discretizations()
+
+        self.save_data_time_step()  # it is in pp.viz.data_saving_model_mixin, not copied here
+
+        # added:
+        self.computations_for_hu()
+
+    # methods called in prepare_simulation: ------------------------------------------------------
+
+    def set_equation_system_manager(self) -> None:
+        """ """
+        if not hasattr(self, "equation_system"):
+            self.equation_system = pp.ad.EquationSystem(self.mdg)
+
+    def set_materials(self):
+        """NOT USED NOW"""
+        constants = {}
+
+        constants.update(self.params.get("material_constants", {}))
+
+        if "fluid" not in constants:
+            constants["fluid"] = pp.FluidConstants()
+        if "solid" not in constants:
+            constants["solid"] = pp.SolidConstants()
+
+        for name, const in constants.items():
+            assert isinstance(const, pp.models.material_constants.MaterialConstants)
+            const.set_units(self.units)
+            setattr(self, name, const)
+
+    def initial_condition(self) -> None:
+        """ """
+        val = np.zeros(self.equation_system.num_dofs())
+        for time_step_index in self.time_step_indices:
+            self.equation_system.set_variable_values(
+                val,
+                time_step_index=time_step_index,
+            )
+
+        for iterate_index in self.iterate_indices:
+            self.equation_system.set_variable_values(val, iterate_index=iterate_index)
+
+    def reset_state_from_file(self) -> None:
+        """ """
+        if self.restart_options.get("restart", False):
+            if self.restart_options.get("pvd_file", None) is not None:
+                pvd_file = self.restart_options["pvd_file"]
+                is_mdg_pvd = self.restart_options.get("is_mdg_pvd", False)
+                times_file = self.restart_options.get("times_file", None)
+                self.load_data_from_pvd(
+                    pvd_file,
+                    is_mdg_pvd,
+                    times_file,
+                )
+            else:
+                vtu_files = self.restart_options["vtu_files"]
+                time_index = self.restart_options.get("time_index", -1)
+                times_file = self.restart_options.get("times_file", None)
+                self.load_data_from_vtu(
+                    vtu_files,
+                    time_index,
+                    times_file,
+                )
+            vals = self.equation_system.get_variable_values(time_step_index=0)
+            self.equation_system.set_variable_values(
+                vals, iterate_index=0, time_step_index=0
+            )
 
     def initial_condition(self) -> None:
         """TODO"""
+        val = np.zeros(self.equation_system.num_dofs())
+        for time_step_index in self.time_step_indices:
+            self.equation_system.set_variable_values(
+                val,
+                time_step_index=time_step_index,
+            )
+
+        for iterate_index in self.iterate_indices:
+            self.equation_system.set_variable_values(val, iterate_index=iterate_index)
+
+        # from email:
+        for sd in self.mdg.subdomains():
+            if sd.dim == self.mdg.dim_max():  # thers is a is_frac attribute somewhere
+                saturation_variable = self.equation_system.md_variable(
+                    name="saturation", grid=sd
+                )
+                values = np.zeros(sd.num_cells)
+                y_max = self.size  # TODO: not 100% sure size = y_max
+                values[
+                    np.where(sd.cell_centers[1] >= y_max / 2)
+                ] = 1.0  # TODO: HARDCODED for 2D
+                self.equation_system.set_variable(values, variable=saturation_variable)
+
+        # just copied, fix it:
+        for sd, data in self.mdg.subdomains(return_data=True):
+            pp.initialize_data(
+                sd,
+                data,
+                self.mobility_keyword,
+                {"darcy_flux": np.zeros(sd.num_faces)},
+            )
+        for intf, data in self.mdg.interfaces(return_data=True):
+            pp.initialize_data(
+                intf,
+                data,
+                self.mobility_keyword,
+                {"darcy_flux": np.zeros(intf.num_cells)},
+            )
 
     def set_discretization_parameters(self) -> None:
-        """TODO"""
+        """ """
         super().set_discretization_parameters()
         for sd, data in self.mdg.subdomains(return_data=True):
             pp.initialize_data(
@@ -441,21 +597,21 @@ class SolutionStrategyMassBalance(
                 data,
                 self.darcy_keyword,
                 {
-                    "bc": self.bc_type_darcy(sd),
+                    # "bc": self.bc_type_darcy(sd), ### TODO: I don't understand this... let's fix it from errors
                     "second_order_tensor": self.permeability_tensor(sd),
                     "ambient_dimension": self.nd,
                 },
             )
-            pp.initialize_data(
-                sd,
-                data,
-                self.mobility_keyword,
-                {
-                    "bc": self.bc_type_mobrho(sd),
-                },
-            )
+            # I souldn't need this neither:
+            # pp.initialize_data(
+            #     sd,
+            #     data,
+            #     self.mobility_keyword,
+            #     {
+            #         "bc": self.bc_type_mobrho(sd),
+            #     },
+            # )
 
-        # Assign diffusivity in the normal direction of the fractures.
         for intf, intf_data in self.mdg.interfaces(return_data=True, codim=1):
             pp.initialize_data(
                 intf,
@@ -466,19 +622,50 @@ class SolutionStrategyMassBalance(
                 },
             )
 
-    def before_nonlinear_iteration(self):
-        """
-        Evaluate Darcy flux for each subdomain and interface and store in the data
-        dictionary for use in upstream weighting.
+    def discretize(self) -> None:
+        """ """
+        self.equation_system.discretize()  # TODO: it should call only tpfa, but i didnt check
 
+    def _initialize_linear_solver(self) -> None:
+        """ """
+        solver = self.params["linear_solver"]
+        self.linear_solver = solver
+
+        if solver not in ["scipy_sparse", "pypardiso", "umfpack"]:
+            raise ValueError(f"Unknown linear solver {solver}")
+
+    def computations_for_hu(self):
         """
+        this will change a lot so it is useless to split this function
+        """
+        for _, data in self.mdg.subdomains(return_data=True):
+            data["for_hu"]["ell"] = self.ell
 
         for sd, data in self.mdg.subdomains(return_data=True):
-            mixture = 1  # TODO: you know
+            # expansion matrices? è un errore che non ci siano anche loro qui?
+            pp.numerics.fv.hybrid_upwind_utils.restriction_matrices_left_right(sd)
+            pp.numerics.fv.hybrid_upwind_utils.compute_transmissibility_tpfa(
+                sd, data, keyword="flow"
+            )
+
+    # other methods not called in prepared_simulation: -------------------------------------------------
+
+    def set_nonlinear_discretizations(self) -> None:
+        """ """
+        super().set_nonlinear_discretizations()  # TODO: EH? It does literally nothing...!
+
+        # self.add_nonlinear_discretization(
+        #     self.interface_mobility_discretization(self.mdg.interfaces()).flux,
+        # )
+
+    def before_nonlinear_iteration(self):
+        """ """
+
+        for sd, data in self.mdg.subdomains(return_data=True):
             pressure = self.pressure([sd]).evaluate(self.equation_system)
             left_restriction, right_restriction = data["for_hu"][
                 "restriction_matrices"
-            ]  # they will be created in a preceding step, in prepare_simulation
+            ]  # created in prepare_simulation
             transmissibility_internal_tpfa = data["for_hu"][
                 "transmissibility_internal_tpfa"
             ]  # idem...
@@ -486,7 +673,7 @@ class SolutionStrategyMassBalance(
             dynamic_viscosity = 1  # Sorry
             total_flux_internal = pp.hybrid_weighted_average.total_flux(
                 sd,
-                mixture,
+                self.mixture.mixture_for_subdomain(self.equation_system, sd),
                 pressure,
                 self.gravity_value,
                 left_restriction,
@@ -501,95 +688,59 @@ class SolutionStrategyMassBalance(
             data["for_hu"]["pressure_AdArray"] = self.pressure([sd]).evaluate(
                 self.equation_system
             )
-            # TODO: something similar for the saturation
 
             # from original before_nonlinear_iteration:
-            vals = self.darcy_flux([sd]).evaluate(self.equation_system).val
+            vals = (
+                self.darcy_flux([sd]).evaluate(self.equation_system).val
+            )  # TODO: i think i need only interface_darcy_flux, i dont' want to bother about htis now...
             data[pp.PARAMETERS][self.mobility_keyword].update({"darcy_flux": vals})
 
         for intf, data in self.mdg.interfaces(return_data=True, codim=1):
             vals = self.interface_darcy_flux([intf]).evaluate(self.equation_system).val
             data[pp.PARAMETERS][self.mobility_keyword].update({"darcy_flux": vals})
 
-        for intf, data in self.mdg.interfaces(return_data=True, codim=2):
-            vals = self.well_flux([intf]).evaluate(self.equation_system).val
-            data[pp.PARAMETERS][self.mobility_keyword].update({"darcy_flux": vals})
-
         super().before_nonlinear_iteration()
-
-    def set_nonlinear_discretizations(self) -> None:
-        """TODO"""
-        super().set_nonlinear_discretizations()
-        self.add_nonlinear_discretization(
-            self.mobility_discretization(self.mdg.subdomains()).upwind,
-        )
-        self.add_nonlinear_discretization(
-            self.interface_mobility_discretization(self.mdg.interfaces()).flux,
-        )
-        # TODO
-
-
-class EquationsPressureMass(
-    PressureEquation,
-    MassBalance,
-):
-    def set_equations(self):
-        PressureEquation.set_equations(self)
-        MassBalance.set_equations(self)
-
-
-class VariablesPressureMass(
-    PressureEquation,
-    MassBalance,
-):
-    def create_variables(self) -> None:
-        PressureEquation.create_variables(self)
-        MassBalance.create_variables(self)
-
-
-class ConstitutiveLawPressureMass(
-    pp.constitutive_laws.FluidDensityFromPressure,
-    pp.constitutive_laws.ConstantSolidDensity,
-    pp.constitutive_laws.DimensionReduction,
-    pp.constitutive_laws.AdvectiveFlux,
-    pp.constitutive_laws.DarcysLaw,
-    pp.constitutive_laws.FluidMobility,
-    pp.constitutive_laws.ConstantPorosity,
-    pp.constitutive_laws.ConstantPermeability,
-    pp.constitutive_laws.ConstantViscosity,
-):
-    pass
-
-
-class BoundaryConditionsPressureMass(
-    BoundaryConditionsPressure,
-    BoundaryConditionsTwoPhaseFlow,
-):
-    pass
-
-
-class SolutionStrategyPressureMass(
-    SolutionStrategyPressure,
-    SolutionStrategy,
-):
-    pass
 
 
 class MyModelGeometry(pp.ModelGeometry):
     def set_domain(self) -> None:
         """ """
-        size = 1 / self.units.m
-        self._domain = nd_cube_domain(2, size)
+        self.size = 1 / self.units.m
+        self._domain = pp.applications.md_grids.domains.nd_cube_domain(2, self.size)
+
+    def set_fractures(self) -> None:
+        """ """
+        frac1 = pp.LineFracture(np.array([[0, 0.5], [0, 0]]))
+        self._fractures: list = []  # [frac1]
+
+    def meshing_arguments(self) -> dict[str, float]:
+        """ """
+        default_meshing_args: dict[str, float] = {"cell_size": 0.1 / self.units.m}
+        return self.params.get("meshing_arguments", default_meshing_args)
 
 
-wetting_phase = ConstantDensityPhase(rho0=1)
-non_wetting_phase = ConstantDensityPhase(rho0=0.5)
+# class ConstantDensityPhase(pp.Phase):
+#     """ """
+
+#     def mass_density(self, p):
+#         """ """
+#         if isinstance(p, pp.ad.AdArray):
+#             rho = self._rho0 * pp.ad.AdArray(
+#                 np.ones(p.val.shape), 0 * p.jac
+#             )  # TODO: is it right?
+#         else:
+#             rho = self._rho0 * np.ones(p.shape)
+#         return rho
+
+
+wetting_phase = pp.composite.phase.Phase(rho0=1)
+non_wetting_phase = pp.composite.phase.Phase(rho0=0.5)
 
 mixture = pp.Mixture()
 mixture.add([wetting_phase, non_wetting_phase])
 
 
-class FinalModel(
+class PartialFinalModel(
     EquationsPressureMass,
     VariablesPressureMass,
     ConstitutiveLawPressureMass,
@@ -598,30 +749,34 @@ class FinalModel(
     MyModelGeometry,
     pp.DataSavingMixin,
 ):
-    def __init__(self, mixture):
+    """ """
+
+
+class FinalModel(PartialFinalModel):  # I'm sorry...
+    def __init__(self, mixture, params: Optional[dict] = None):
+        super().__init__(params)
         self.mixture = mixture
         self.ell = 0  # 0 = wetting, 1 = non-wetting
-        self.gravity_value = pp.GRAVITY_ACCELERATION  # TODO: ...
+        self.gravity_value = pp.GRAVITY_ACCELERATION
 
 
-# no, you can add attributes through the params of the model. They become attributes in NewtonSolver, right?
-
-
-fluid_constants = pp.FluidConstants(
-    {
-        "compressibility": 1,
-        "density": 1,  # TODO: is this the reference density?
-        "normal_thermal_conductivity": 1,
-        "pressure": 0,
-        "specific_heat_capacity": 1,
-        "temperature": 0,
-        "thermal_conductivity": 1,
-        "thermal_expansion": 0,
-        "viscosity": 1,
-    }
-)
-material_constants = {"fluid": fluid_constants}
-params = {"material_constants": material_constants}
+# fluid_constants = pp.FluidConstants(
+#     {
+#         "compressibility": 1,
+#         "density": 1,  # TODO: is this the reference density?
+#         "normal_thermal_conductivity": 1,
+#         "pressure": 0,
+#         "specific_heat_capacity": 1,
+#         "temperature": 0,
+#         "thermal_conductivity": 1,
+#         "thermal_expansion": 0,
+#         "viscosity": 1,
+#     }
+# )
+# material_constants = {"fluid": fluid_constants}
+# params = {"material_constants": material_constants}
+params = {}
 
 
 model = FinalModel(mixture, params)
+pp.run_time_dependent_model(model, params)
