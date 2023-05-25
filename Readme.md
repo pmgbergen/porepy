@@ -41,9 +41,11 @@ To get the most current version, install from github:
     cd porepy
 
 To get the stable (though not very frequently updated) version:
+
     git checkout master
 
 Install
+
     pip install -r requirements.txt
 
 Finally to install PorePy
