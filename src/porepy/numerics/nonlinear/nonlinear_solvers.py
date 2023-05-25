@@ -7,8 +7,14 @@ import logging
 
 import numpy as np
 
-# Avoid some mypy trouble.
-from tqdm.autonotebook import trange  # type: ignore
+# ``tqdm`` is not a dependency. Up to the user to install it.
+try:
+    # Avoid some mypy trouble.
+    from tqdm.autonotebook import trange  # type: ignore
+except:
+    _IS_TQDM_AVAILABLE: bool = False
+else:
+    _IS_TQDM_AVAILABLE = True
 
 from porepy.utils.ui_and_logging import (
     logging_redirect_tqdm_with_level as logging_redirect_tqdm,
@@ -31,7 +37,7 @@ class NewtonSolver:
         default_options.update(params)
         self.params = default_options
 
-        self.progress_bar: bool = params.get("progressbars", True)
+        self.progress_bar: bool = params.get("progressbars", False)
         # Allow the position of the progress bar to be flexible, depending on whether
         # this is called inside a time loop, a time loop and an additional propagation
         # loop or inside a stationary problem (default).
@@ -80,8 +86,9 @@ class NewtonSolver:
             prev_sol = sol
             errors.append(error_norm)
 
+        # Progressbars turned off or tqdm not installed:
         # Progressbars turned off:
-        if not self.progress_bar:
+        if not self.progress_bar or not _IS_TQDM_AVAILABLE:
             while (
                 iteration_counter <= self.params["max_iterations"] and not is_converged
             ):

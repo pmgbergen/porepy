@@ -4,8 +4,14 @@ from __future__ import annotations
 import logging
 from typing import Union
 
-# Avoid some mypy trouble.
-from tqdm.autonotebook import trange  # type: ignore
+# ``tqdm`` is not a dependency. Up to the user to install it.
+try:
+    # Avoid some mypy trouble.
+    from tqdm.autonotebook import trange  # type: ignore
+except:
+    _IS_TQDM_AVAILABLE: bool = False
+else:
+    _IS_TQDM_AVAILABLE = True
 
 import porepy as pp
 from porepy.utils.ui_and_logging import (
@@ -18,6 +24,15 @@ logger = logging.getLogger(__name__)
 
 def run_stationary_model(model, params: dict) -> None:
     """Run a stationary model.
+
+    Note:
+        If the ``"progressbars"`` key in ``params`` is set to ``True`` (default is
+        ``False``), the progress of nonlinear iterations will be shown on a progressbar.
+        This requires the ``tqdm`` package to be installed. The package is not included
+        in the dependencies, but can be installed with
+        ```
+        pip install tqdm
+        ```
 
     Parameters:
         model: Model class containing all information on parameters, variables,
@@ -42,6 +57,15 @@ def run_stationary_model(model, params: dict) -> None:
 
 def run_time_dependent_model(model, params: dict) -> None:
     """Run a time dependent model.
+
+    Note:
+        If the ``"progressbars"`` key in ``params`` is set to ``True`` (default is
+        ``False``), the progress of time steps and nonlinear iterations will be shown on
+        a progressbar. This requires the ``tqdm`` package to be installed. The package
+        is not included in the dependencies, but can be installed with
+        ```
+        pip install tqdm
+        ```
 
     Parameters:
         model: Model class containing all information on parameters, variables,
@@ -85,8 +109,8 @@ def run_time_dependent_model(model, params: dict) -> None:
         solver.solve(model)
         model.time_manager.compute_time_step()
 
-    # Progressbars turned off:
-    if not params.get("progressbars", False):
+    # Progressbars turned off or tqdm not installed:
+    if not params.get("progressbars", False) or not _IS_TQDM_AVAILABLE:
         while model.time_manager.time < model.time_manager.time_final:
             time_step()
 
@@ -129,6 +153,15 @@ def _run_iterative_model(model, params: dict) -> None:
 
     The intended use is for multi-step models with iterative couplings. Only known
     instance so far is the combination of fracture deformation and propagation.
+
+    Note:
+        If the ``"progressbars"`` key in ``params`` is set to ``True`` (default is
+        ``False``), the progress of time steps and nonlinear iterations will be shown on
+        a progressbar. This requires the ``tqdm`` package to be installed. The package
+        is not included in the dependencies, but can be installed with
+        ```
+        pip install tqdm
+        ```
 
     Parameters:
         model: Model class containing all information on parameters, variables,
@@ -175,8 +208,8 @@ def _run_iterative_model(model, params: dict) -> None:
             solver.solve(model)
         model.after_propagation_loop()
 
-    # Progressbars turned off:
-    if not params.get("progressbars", False):
+    # Progressbars turned off or tqdm not installed:
+    if not params.get("progressbars", False) or not _IS_TQDM_AVAILABLE:
         while model.time_manager.time < model.time_manager.time_final:
             time_step()
     # Progressbars turned on:
