@@ -399,57 +399,69 @@ class EquationSystem:
             non_admissible = requested_type.difference(self.admissible_dof_types)
             raise ValueError(f"Non-admissible DOF types {non_admissible} requested.")
 
-        # Sanity check if variable is defined anywhere.
-        if subdomains is None and interfaces is None:
-            raise ValueError(
-                "Cannot create variable not defined on any subdomain or interface."
-            )
-
         # Container for all grid variables.
         variables = []
 
         # Merge subdomains and interfaces into a single list.
-        assert subdomains is not None or interfaces is not None  # for mypy
-        grids: Sequence[pp.GridLike] = subdomains if subdomains else interfaces  # type: ignore
+        grids: Sequence[pp.GridLike]
+        if subdomains is not None and interfaces is None:
+            grids = subdomains
+        elif subdomains is None and interfaces is not None:
+            grids = interfaces
+        elif subdomains is None and interfaces is None:
+            raise ValueError(
+                "Cannot create variable not defined on any subdomain or interface."
+            )
+        else:
+            # Yura: The current behavior is just to ignore the interfaces, which is
+            # confusing for me. If this usage is not expected, should we throw an error?
+            grids = subdomains + interfaces  # type: ignore
 
         # Check if a md variable was already defined under that name on any of grids.
         for var in self.variables:
             if var.name == name and var.domain in grids:
                 raise KeyError(f"Variable {name} already defined on {var.domain}.")
 
-        if grids:
-            for grid in grids:
-                if subdomains:
-                    assert isinstance(grid, pp.Grid)  # mypy
-                    data = self.mdg.subdomain_data(grid)
-                else:
-                    assert isinstance(grid, pp.MortarGrid)  # mypy
-                    data = self.mdg.interface_data(grid)
+        def initialize_boundary_data(sd: pp.Grid):
+            """Register boundary grid data for the subdomain, if applicable."""
+            if (bg := self.mdg.subdomain_to_boundary_grid(sd)) is not None:
+                bg_data = self.mdg.boundary_grid_data(bg)
+                if name not in bg_data:
+                    bg_data[name] = {}
 
-                # Prepare storage structure for values in data dictionary if not
-                # already prepared.
-                if pp.TIME_STEP_SOLUTIONS not in data:
-                    data[pp.TIME_STEP_SOLUTIONS] = {}
+        for grid in grids:
+            if subdomains:
+                assert isinstance(grid, pp.Grid)  # mypy
+                data = self.mdg.subdomain_data(grid)
+                initialize_boundary_data(grid)
+            else:
+                assert isinstance(grid, pp.MortarGrid)  # mypy
+                data = self.mdg.interface_data(grid)
 
-                if name not in data[pp.TIME_STEP_SOLUTIONS]:
-                    data[pp.TIME_STEP_SOLUTIONS][name] = {}
+            # Prepare storage structure for values in data dictionary if not
+            # already prepared.
+            if pp.TIME_STEP_SOLUTIONS not in data:
+                data[pp.TIME_STEP_SOLUTIONS] = {}
 
-                if pp.ITERATE_SOLUTIONS not in data:
-                    data[pp.ITERATE_SOLUTIONS] = {}
+            if name not in data[pp.TIME_STEP_SOLUTIONS]:
+                data[pp.TIME_STEP_SOLUTIONS][name] = {}
 
-                if name not in data[pp.ITERATE_SOLUTIONS]:
-                    data[pp.ITERATE_SOLUTIONS][name] = {}
+            if pp.ITERATE_SOLUTIONS not in data:
+                data[pp.ITERATE_SOLUTIONS] = {}
 
-                # Create grid variable.
-                new_variable = Variable(name, dof_info, domain=grid, tags=tags)
+            if name not in data[pp.ITERATE_SOLUTIONS]:
+                data[pp.ITERATE_SOLUTIONS][name] = {}
 
-                # Store it in the system
-                variables.append(new_variable)
-                self._variables.append(new_variable)
+            # Create grid variable.
+            new_variable = Variable(name, dof_info, domain=grid, tags=tags)
 
-                # Append the new DOFs to the global system.
-                self._variable_dof_type[new_variable] = dof_info
-                self._append_dofs(new_variable)
+            # Store it in the system
+            variables.append(new_variable)
+            self._variables.append(new_variable)
+
+            # Append the new DOFs to the global system.
+            self._variable_dof_type[new_variable] = dof_info
+            self._append_dofs(new_variable)
 
         # Create an md variable that wraps all the individual variables created on
         # individual grids.
