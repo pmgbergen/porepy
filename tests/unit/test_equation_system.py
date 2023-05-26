@@ -22,6 +22,7 @@ To be tested:
 
 """
 import numpy as np
+from porepy.grids.standard_grids.md_grids_2d import single_horizontal
 import pytest
 import scipy.sparse as sps
 
@@ -36,7 +37,8 @@ def test_variable_creation():
 
     Also tested is the methods num_dofs() and partly dofs_of()
     """
-    mdg, _ = pp.grids.standard_grids.md_grids_2d.single_horizontal(simplex=False)
+
+    mdg, _ = single_horizontal(simplex=False)
 
     sys_man = pp.ad.EquationSystem(mdg)
 
@@ -116,9 +118,18 @@ def test_variable_creation():
         sys_man.num_dofs() == ndof_subdomains + ndof_single_subdomain + ndof_interface
     )
 
+    # Check that the variables registered in the boundary data storage.
+    for bg, data in mdg.boundaries(return_data=True):
+        assert subdomain_variable.name in data
+        assert interface_variable.name not in data
+        if mdg.boundary_grid_to_subdomain(bg) == single_subdomain[0]:
+            assert single_subdomain_variable.name in data
+        else:
+            assert single_subdomain_variable.name not in data
+
 
 def test_variable_tags():
-    mdg, _ = pp.grids.standard_grids.md_grids_2d.single_horizontal(simplex=False)
+    mdg, _ = single_horizontal(simplex=False)
 
     sys_man = pp.ad.EquationSystem(mdg)
 
