@@ -145,36 +145,6 @@ class TestFvutils(unittest.TestCase):
                 # may change in the future.
                 pass
 
-    def test_compute_darcy_flux_mono_grid(self):
-        g = pp.CartGrid([1, 1])
-        flux = sps.csc_matrix((4, 1))
-        bound_flux = sps.csc_matrix(
-            np.array([[0, 0, 0, 3], [5, 0, 0, 0], [1, 0, 0, 0], [3, 0, 0, 0]])
-        )
-        vector_source = sps.csc_matrix((g.num_faces, g.num_cells * g.dim))
-
-        bc_val = np.array([1, 2, 3, 4])
-        specified_parameters = {"bc_values": bc_val}
-        data = pp.initialize_default_data(g, {}, "flow", specified_parameters)
-        vals = np.array([3.14])
-        pp.set_solution_values(
-            name="pressure", values=vals, data=data, time_step_index=0
-        )
-
-        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES]["flow"]
-        matrix_dictionary["flux"] = flux
-        matrix_dictionary["bound_flux"] = bound_flux
-        matrix_dictionary["vector_source"] = vector_source
-
-        fvutils.compute_darcy_flux(g, data=data)
-
-        dis = data[pp.PARAMETERS]["flow"]["darcy_flux"]
-
-        dis_true = (
-            flux * data[pp.TIME_STEP_SOLUTIONS]["pressure"][0] + bound_flux * bc_val
-        )
-        self.assertTrue(np.allclose(dis, dis_true))
-
 
 if __name__ == "__main__":
     unittest.main()
