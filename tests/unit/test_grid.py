@@ -765,6 +765,7 @@ def test_boundary_grid():
     g.compute_geometry()
 
     boundary_grid = pp.BoundaryGrid(g)
+    boundary_grid.compute_geometry()
 
     # Hardcoded value for the number of cells
     assert boundary_grid.num_cells == 8
@@ -782,6 +783,7 @@ def test_boundary_grid():
     # The boundary grid should then be empty.
     g.tags["domain_boundary_faces"] = np.zeros(g.num_faces, dtype=bool)
     boundary_grid = pp.BoundaryGrid(g)
+    boundary_grid.compute_geometry()
     assert boundary_grid.num_cells == 0
     assert boundary_grid.projection.shape == (0, 12)
 

@@ -135,9 +135,12 @@ class TestReplaceHigherDimensionalGridInMixedDimensionalGrid(unittest.TestCase):
     """
 
     def test_replace_by_same(self):
-        # 1x2 grid.
-        # Copy the higher dimensional grid and replace. The mapping should be
-        # the same.
+        """1x2 grid. Copy the higher dimensional grid and replace. The mapping should be
+        the same.
+
+        We also check that the boundary grid is updated properly.
+
+        """
         mdg, _ = pp.md_grids_2d.single_horizontal([1, 2], simplex=False)
 
         intf_old = mdg.interfaces()[0]
@@ -147,15 +150,27 @@ class TestReplaceHigherDimensionalGridInMixedDimensionalGrid(unittest.TestCase):
         sd_old = mdg.subdomains(dim=2)[0]
         sd_new = sd_old.copy()
 
+        # Tracking the boundary.
+        bg_old = mdg.subdomain_to_boundary_grid(sd_old)
+
         mdg.replace_subdomains_and_interfaces({sd_old: sd_new})
 
         # Get mortar grid again
         intf_new = mdg.interfaces()[0]
 
         new_projection = intf_new.primary_to_mortar_int()
+        assert (
+            old_projection != new_projection
+        ).nnz == 0, "The projections should be identical."
 
-        # The projections should be identical
-        self.assertTrue((old_projection != new_projection).nnz == 0)
+        # Check that old grids are removed properly.
+        assert sd_old not in mdg
+        assert bg_old not in mdg
+
+        # Check that the new grid and its boundary appeared properly.
+        assert sd_new in mdg
+        bg_new = mdg.subdomain_to_boundary_grid(sd_new)
+        assert bg_new is not None
 
     def test_refine_high_dim(self):
         # Replace the 2d grid with a finer one
