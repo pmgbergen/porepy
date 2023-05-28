@@ -524,7 +524,9 @@ class TestStructuredTetrahedralGrid(unittest.TestCase):
         g.compute_geometry()
         self.g = g
 
-        # The ordering of faces may differ depending on the test system (presumably version of scipy or similar). Below are hard-coded combination of face-nodes, and the corresponding faces and face_areas.
+        # The ordering of faces may differ depending on the test system (presumably
+        # version of scipy or similar). Below are hard-coded combination of face-nodes,
+        # and the corresponding faces and face_areas.
         self.fn = np.array(
             [
                 [0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 3, 3, 3, 4, 5],

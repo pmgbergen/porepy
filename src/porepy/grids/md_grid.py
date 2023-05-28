@@ -37,7 +37,7 @@ class MixedDimensionalGrid:
         """Dictionary storing the boundary grids associated with subdomains.
 
         Note:
-            We assume there is only one boundary grid for one subdomain.
+            We assume there is only one boundary grid for each subdomain.
 
         """
         self._boundary_grid_data: dict[pp.BoundaryGrid, dict] = {}
@@ -53,7 +53,7 @@ class MixedDimensionalGrid:
             and key is among the subdomains of this mixed-dimensional grid,
             *or* ``key`` is a :class:`~porepy.grids.mortar_grid.MortarGrid` and among
             the interfaces of this mixed-dimensional grid, *or* ``key`` is a
-            :class:`~porepy.grids.boundary_grid.BoundaryGrid`. and among the boundary
+            :class:`~porepy.grids.boundary_grid.BoundaryGrid` and among the boundary
             grids of this mixed-dimensional grid.
 
         """
@@ -167,8 +167,8 @@ class MixedDimensionalGrid:
         Parameters:
             return_data: ``default=False``
 
-                If True, the data dictionary of the interface will
-                be returned together with the interface mortar grids.
+                If True, the data dictionary of the interface will be returned together
+                with the interface mortar grids.
             dim: ``default=None``
 
                 If provided, only interfaces of the specified dimension will
@@ -230,8 +230,8 @@ class MixedDimensionalGrid:
         Parameters:
             return_data: ``default=False``
 
-                If True, the data dictionary of the boundary grid will
-                be returned together with the boundary grids.
+                If True, the data dictionary of the boundary grid will be returned
+                together with the boundary grids.
 
             dim: ``default=None``
 
@@ -350,11 +350,11 @@ class MixedDimensionalGrid:
             bg: A boundary grid in the mixed-dimensional grid.
 
         Returns:
-            The subdomain associated with this boundary grid. If ``bg`` is not is not in
-            this mixed-dimensional grid, ``None`` is returned.
+            The subdomain associated with this boundary grid. If ``bg`` is not in this
+            mixed-dimensional grid, ``None`` is returned.
 
         """
-        # We assume there is always only one boundary grid for one subdomain.
+        # We assume there is always only one boundary grid for each subdomain.
         for sd, other_bg in self._subdomain_to_boundary_grid.items():
             if other_bg.id == bg.id:
                 return sd
@@ -444,6 +444,7 @@ class MixedDimensionalGrid:
 
     def add_subdomains(self, new_subdomains: Union[pp.Grid, Iterable[pp.Grid]]) -> None:
         """Add new subdomains to the mixed-dimensional grid.
+
         Creates a boundary grid for the subdomain.
 
         Parameters:
@@ -534,7 +535,7 @@ class MixedDimensionalGrid:
 
     def remove_subdomain(self, sd: pp.Grid) -> None:
         """Remove a subdomain, related interfaces and boundary grid from the
-            mixed-dimensional grid.
+        mixed-dimensional grid.
 
         Parameters:
            sd: The subdomain to be removed.
@@ -675,8 +676,8 @@ class MixedDimensionalGrid:
             bg.compute_geometry()
 
     def copy(self) -> MixedDimensionalGrid:
-        """Make a shallow copy of the mixed-dimensional grid. The underlying subdomain
-        and interface grids are not copied.
+        """Make a shallow copy of the mixed-dimensional grid. The underlying subdomain,
+        interface and boundary grids are not copied.
 
         Returns:
             Copy of this mixed-dimensional grid.
