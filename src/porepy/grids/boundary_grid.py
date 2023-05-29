@@ -63,7 +63,7 @@ class BoundaryGrid:
         grid. Initialized in :meth:`~compute_geometry`.
 
         """
-        self._projs: sps.csr_matrix
+        self._projections: sps.csr_matrix
         """Projection matrix from the parent grid to the boundary grid.
 
         Initialized in :meth:`~compute_geometry`.
@@ -92,7 +92,7 @@ class BoundaryGrid:
         self.cell_centers = self._parent.face_centers[:, parent_boundary]
 
         sz = self.num_cells
-        self._proj = sps.coo_matrix(
+        self._projections = sps.coo_matrix(
             (np.ones(sz), (np.arange(sz), np.where(parent_boundary)[0])),
             shape=(self.num_cells, self._parent.num_faces),
         ).tocsr()
@@ -106,7 +106,7 @@ class BoundaryGrid:
         which maps face-wise values on the parent grid to the boundary grid.
 
         """
-        return self._proj
+        return self._projections
 
     @property
     def id(self):
@@ -135,7 +135,8 @@ class BoundaryGrid:
                 f"Boundary grid of dimension {self.dim} "
                 f"containing {self.num_cells} cells.\n"
                 f"ID of parent grid: {self._parent.id}.\n"
-                f"Dimension of the projection from the parent grid: {self._proj.shape}."
+                "Dimension of the projection from the parent grid: "
+                f"{self._projections.shape}."
             )
 
         return (
