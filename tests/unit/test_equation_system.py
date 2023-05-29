@@ -118,7 +118,7 @@ def test_variable_creation():
         sys_man.num_dofs() == ndof_subdomains + ndof_single_subdomain + ndof_interface
     )
 
-    # Check that the variables registered in the boundary data storage.
+    # Check that the variables are registered in the boundary data storage.
     for bg, data in mdg.boundaries(return_data=True):
         assert subdomain_variable.name in data
         assert interface_variable.name not in data

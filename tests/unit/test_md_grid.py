@@ -342,6 +342,11 @@ class TestMixedDimensionalGrid(unittest.TestCase):
         assert all(parent_grids_found.values())
 
     def test_iterators_dim_keyword(self):
+        """Check that the iterators `subdomains`, `interfaces` and `boundaries`
+        return only the grids of the right dimension when the argument `dim` is
+        provided.
+        
+        """
         mdg = pp.MixedDimensionalGrid()
         sd_1 = MockGrid(1)
         sd_2 = MockGrid(2)
@@ -352,26 +357,26 @@ class TestMixedDimensionalGrid(unittest.TestCase):
 
         intf_12 = mock_mortar_grid(sd_2, sd_1)
         intf_32 = mock_mortar_grid(sd_3, sd_2)
-        all_interfaces = set([intf_12, intf_32])
         mdg.add_interface(intf_12, [sd_1, sd_2], None)
         mdg.add_interface(intf_32, [sd_2, sd_3], None)
 
-        # First, use the subdomains() function
+        # First, use the subdomains(dim=2) function
         found = {sd_2: False, sd_4: False}
         for sd in mdg.subdomains(dim=2):
             found[sd] = True
         assert all(found.values())
 
-        # Next, use the interfaces() function
+        # Next, use the interfaces(dim=2) function
         found = {intf_32: False}
         for intf in mdg.interfaces(dim=2):
             found[intf] = True
         assert all(found.values())
 
-        # Finally, use the boundaries() function
+        # Finally, use the boundaries(dim=1) function
         found_parent_grid = {sd_2: False, sd_4: False}
         for bg in mdg.boundaries(dim=1):
             parent_sd = mdg.boundary_grid_to_subdomain(bg)
+            assert parent_sd is not None
             found_parent_grid[parent_sd] = True
 
         assert all(found_parent_grid.values())
