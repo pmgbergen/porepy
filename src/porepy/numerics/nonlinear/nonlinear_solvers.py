@@ -11,14 +11,17 @@ import numpy as np
 try:
     # Avoid some mypy trouble.
     from tqdm.autonotebook import trange  # type: ignore
-except:
+
+    # Only import this if needed
+    from porepy.utils.ui_and_logging import (
+        logging_redirect_tqdm_with_level as logging_redirect_tqdm,
+    )
+
+except ImportError:
     _IS_TQDM_AVAILABLE: bool = False
 else:
     _IS_TQDM_AVAILABLE = True
 
-from porepy.utils.ui_and_logging import (
-    logging_redirect_tqdm_with_level as logging_redirect_tqdm,
-)
 
 # Module-wide logger
 logger = logging.getLogger(__name__)

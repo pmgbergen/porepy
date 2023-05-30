@@ -6,13 +6,17 @@ import logging
 from contextlib import contextmanager
 from typing import Iterator, Optional, Type
 
-# Avoid some mypy trouble.
-from tqdm.autonotebook import tqdm as std_tqdm  # type: ignore
-from tqdm.contrib.logging import _TqdmLoggingHandler  # type: ignore
-from tqdm.contrib.logging import logging_redirect_tqdm  # type: ignore
-from tqdm.contrib.logging import (  # type: ignore
-    _get_first_found_console_logging_handler,
-)
+# ``tqdm`` is not a dependency. Up to the user to install it.
+try:
+    # Avoid some mypy trouble.
+    from tqdm.autonotebook import tqdm as std_tqdm  # type: ignore
+    from tqdm.contrib.logging import _TqdmLoggingHandler  # type: ignore
+    from tqdm.contrib.logging import logging_redirect_tqdm  # type: ignore
+    from tqdm.contrib.logging import (  # type: ignore
+        _get_first_found_console_logging_handler,
+    )
+except ImportError:
+    std_tqdm = None
 
 
 @contextmanager
