@@ -128,19 +128,32 @@ class TestCreateFractureNetwork:
 
 class TestFractureNetwork2d(unittest.TestCase):
     def check_mdg_from_polytopal_2d_domain(self, domain, network, num_dom):
+        # Helper method to check that meshing a 2d domain with a polytopal (i.e., not
+        # rectangular) domain results works as expected. Three tests are performed:
+        # 1. That imposing the external boundary does not change the domain
+        # 2. That the generated mesh has the expected number of subdomains
+        # 3. That the generated mesh respects the domain.polytope lines and that
+        #    boundary nodes and faces are correctly tagged.
+
         # check if the domain in a fracture network is preserved after
         # calling impose_external_boundary
         network_0 = network.copy()
         network.impose_external_boundary(domain)
+        # A failure here means that the domain in the network was not properly set.
         self.assertTrue(network_0.domain == network.domain)
 
         # construct the gmsh mesh and check some of its properties
-        mesh_size = 0.5
-        mesh_kwargs = {"mesh_size_frac": mesh_size}
-        mdg = network.mesh(mesh_kwargs)
+        mdg = pp.create_mdg(
+            grid_type="simplex",
+            meshing_args={"cell_size": 0.5},
+            fracture_network=network,
+        )
 
         # check the number of subdomains
         for dim, n in enumerate(num_dom):
+            # A failure here (most likely related to a fracture subdomain) means that a
+            # fracture was not properly treated (possibly not split) when the domain
+            # boundary was imposed.
             self.assertTrue(n == len(mdg.subdomains(dim=dim)))
 
         # check if boundary faces and nodes respect the domain.polytope lines
@@ -155,17 +168,22 @@ class TestFractureNetwork2d(unittest.TestCase):
 
             face_on_boundary = np.zeros(faces.sum(), dtype=bool)
             node_on_boundary = np.zeros(nodes.sum(), dtype=bool)
-            for l in domain.polytope:
+            # Loop over all lines in the domain.polytope. Compute the distance from the
+            # tagged boundary faces and nodes, mark those that are (almost) zero as
+            # being on a boundary.
+            for line in domain.polytope:
                 dist, _ = pp.geometry.distances.points_segments(
-                    bf[:2, :], l[:, 0], l[:, 1]
+                    bf[:2, :], line[:, 0], line[:, 1]
                 )
                 face_on_boundary[np.isclose(dist, 0).ravel()] = True
 
                 dist, _ = pp.geometry.distances.points_segments(
-                    bn[:2, :], l[:, 0], l[:, 1]
+                    bn[:2, :], line[:, 0], line[:, 1]
                 )
                 node_on_boundary[np.isclose(dist, 0).ravel()] = True
 
+            # All faces and nodes on the boundary should have been found by the above
+            # loop.
             self.assertTrue(np.all(face_on_boundary))
             self.assertTrue(np.all(node_on_boundary))
 
@@ -355,6 +373,8 @@ class TestFractureNetwork2d(unittest.TestCase):
         known_tags = np.array([tag1, tag1, tag2, tag2])
         self.assertTrue(np.all(together._edges[2] == known_tags))
 
+    # Below are tests with polytopal domains
+
     def test_triangle_domain_no_fracs(self):
         # test a grid where the outer domain is a triangle, no fractures
         line_1 = np.array([[0, 1], [0, 0]])
@@ -367,8 +387,8 @@ class TestFractureNetwork2d(unittest.TestCase):
         self.check_mdg_from_polytopal_2d_domain(domain, network, [0, 0, 1])
 
     def test_triangle_domain_with_fracs(self):
-        # test a grid where the outer domain is a triangle, one fracture
-        # immersed in the domain
+        # test a grid where the outer domain is a triangle, one fracture immersed in the
+        # domain
         line_1 = np.array([[0, 1], [0, 0]])
         line_2 = np.array([[1, 0], [0, 1]])
         line_3 = np.array([[0, 0], [1, 0]])
@@ -381,9 +401,8 @@ class TestFractureNetwork2d(unittest.TestCase):
         self.check_mdg_from_polytopal_2d_domain(domain, network, [0, 1, 1])
 
     def test_pentagon_domain_with_fracs(self):
-        # test a grid where the outer domain is a concave pentagon,
-        # one fracture is partially immersed which results in two
-        # 1d grids
+        # test a grid where the outer domain is a concave pentagon, one fracture is
+        # partially immersed which results in two 1d grids
         line_1 = np.array([[0, 1], [0, 0]])
         line_2 = np.array([[1, 1], [0, 1]])
         line_3 = np.array([[1, 0.5], [1, 0.5]])
@@ -396,6 +415,8 @@ class TestFractureNetwork2d(unittest.TestCase):
         network = pp.create_fracture_network([frac], domain=domain)
 
         self.check_mdg_from_polytopal_2d_domain(domain, network, [0, 2, 1])
+
+    # Test of other methods
 
     def test_copy(self):
         network_1 = pp.create_fracture_network(self.fracs)
