@@ -1961,7 +1961,7 @@ class GravityForce:
 
         """
         val = self.fluid.convert_units(pp.GRAVITY_ACCELERATION, "m*s^-2")
-        size = np.sum([g.num_cells for g in grids])
+        size = np.sum([g.num_cells for g in grids]).astype(int)
         gravity = pp.wrap_as_ad_array(val, size=size, name="gravity")
         rho = getattr(self, material + "_density")(grids)
         # Gravity acts along the last coordinate direction (z in 3d, y in 2d)

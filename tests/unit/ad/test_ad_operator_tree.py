@@ -19,7 +19,6 @@ import scipy.sparse as sps
 
 import porepy as pp
 
-
 _operations = pp.ad.operators.Operator.Operations
 
 operators = [
@@ -191,6 +190,43 @@ def test_elementary_wrappers(field):
 
     # The deep copy should differ independent of which type of Ad quantity this is
     assert not compare(obj, wrapped_deep_copy.parse(None))
+
+
+@pytest.mark.parametrize("field", fields)
+def test_ad_arrays_unary_minus_parsing(field):
+    """Check that __neg__ works as intended for SparseArrays, DenseArrays and Scalars.
+
+    The objects are wrapped in the respective Ad classes, the __neg__ methods are used,
+    and it is tested whether parsing returns the expected object.
+
+    """
+    obj = field[1]
+    wrapped_obj = -field[0](obj, name="foo")  # Using the __neg__ method
+    stored_obj = wrapped_obj.parse(None)
+
+    def compare(one, other):
+        if isinstance(one, np.ndarray):
+            return np.allclose(-one, other)
+        elif isinstance(one, sps.spmatrix):
+            return np.allclose(-one.data, other.data)
+        else:  # Scalar
+            return -one == other
+
+    assert compare(obj, stored_obj)
+
+
+def test_ad_operator_unary_minus_parsing():
+    """Check that __neg__ works as intended for a non-trivial pp.ad.Operator object.
+
+    This is done by summing two SparseArray objects to form an Operator object.
+
+    """
+    mat1 = sps.csr_matrix(np.random.rand(3))
+    mat2 = sps.csr_matrix(np.random.rand(3))
+    sp_array1 = pp.ad.SparseArray(mat1)
+    sp_array2 = pp.ad.SparseArray(mat2)
+    op = sp_array1 + sp_array2
+    assert np.allclose(op._parse_operator(-op, None).data, -(mat1 + mat2).data)
 
 
 def test_time_dependent_array():
