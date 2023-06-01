@@ -13,7 +13,8 @@ import scipy.sparse as sps
 import porepy as pp
 from porepy.numerics.ad.operator_functions import NumericType
 
-from .._core import ENERGY_SCALE, PRESSURE_SCALE, R_IDEAL, safe_sum
+from .._core import ENERGY_SCALE, PRESSURE_SCALE, R_IDEAL
+from ..composite_utils import truncexp, safe_sum
 from ..phase import AbstractEoS, PhaseProperties
 from .mixing import VanDerWaals
 from .pr_bip import load_bip
@@ -494,39 +495,41 @@ class PengRobinsonEoS(AbstractEoS):
         h = h_ideal + h_dep
 
         # Fugacity extensions as per Ben Gharbia 2021
-        dxi_a = list()
-        if np.any(self.is_extended):
-            extend_phi: bool = True
-            rho_ext = self._rho(p, T, Z_other)
-            G = self._Z_polynom(Z, A, B)
-            Gamma_ext = Z * G / ((Z - B) * (Z**2 + 2 * Z * B - B**2))
-            dxi_Z_other = list()
-            for i in range(len(self.components)):
-                dxi_a_ = self._dXi_a(X, a_comps, bip, i)
-                dxi_a.append(dxi_a_)
-                dxi_Z_other_ = self._dxi_Z(T, rho_ext, a, b, self._b_vals[i], dxi_a[i])
-                dxi_Z_other.append(dxi_Z_other_)
-            dZ_other = safe_sum([x * dz for x, dz in zip(X, dxi_Z_other)])
-        else:
-            extend_phi: bool = False
-            for i in range(len(self.components)):
-                dxi_a_ = self._dXi_a(X, a_comps, bip, i)
-                dxi_a.append(dxi_a_)
+        # dxi_a = list()
+        # if np.any(self.is_extended):
+        #     extend_phi: bool = True
+        #     rho_ext = self._rho(p, T, Z_other)
+        #     G = self._Z_polynom(Z, A, B)
+        #     Gamma_ext = Z * G / ((Z - B) * (Z**2 + 2 * Z * B - B**2))
+        #     dxi_Z_other = list()
+        #     for i in range(len(self.components)):
+        #         dxi_a_ = self._dXi_a(X, a_comps, bip, i)
+        #         dxi_a.append(dxi_a_)
+        #         dxi_Z_other_ = self._dxi_Z(T, rho_ext, a, b, self._b_vals[i], dxi_a[i])
+        #         dxi_Z_other.append(dxi_Z_other_)
+        #     dZ_other = safe_sum([x * dz for x, dz in zip(X, dxi_Z_other)])
+        # else:
+        #     extend_phi: bool = False
+        #     for i in range(len(self.components)):
+        #         dxi_a_ = self._dXi_a(X, a_comps, bip, i)
+        #         dxi_a.append(dxi_a_)
         # fugacity per present component
         phis: list[NumericType] = list()
         for i in range(len(self.components)):
             b_i = self._b_vals[i]
             B_i = self._B(b_i, p, T)
-            A_i = dxi_a[i] * p / (T * R_IDEAL) ** 2
+            dxi_a_ = self._dXi_a(X, a_comps, bip, i)
+            # dxi_a_ = dxi_a[i]
+            A_i = dxi_a_ * p / (T * R_IDEAL) ** 2
             phi_i = self._phi_i(Z, A_i, A, B_i, B)
 
-            if extend_phi:
-                w1 = (B - B_i + dZ_other - dxi_Z_other[i]) / Z / 2
-                w2 = (B - B_i) / B
-                ext_i = Gamma_ext * (w1 + w2)
+            # if extend_phi:
+            #     w1 = (B - B_i + dZ_other - dxi_Z_other[i]) / Z / 2
+            #     w2 = (B - B_i) / B
+            #     ext_i = Gamma_ext * (w1 + w2)
 
-                ext_i = ext_i[self.is_extended]
-                phi_i[self.is_extended] = phi_i[self.is_extended] + ext_i
+            #     ext_i = ext_i[self.is_extended]
+            #     phi_i[self.is_extended] = phi_i[self.is_extended] + ext_i
 
             phis.append(phi_i)
 
@@ -879,7 +882,7 @@ class PengRobinsonEoS(AbstractEoS):
             * (A_i / A - B ** (-1) * B_i)
             * pp.ad.log((Z + (1 + np.sqrt(2)) * B) / (Z + (1 - np.sqrt(2)) * B))
         )
-        return pp.ad.exp(log_phi_i)
+        return truncexp(log_phi_i)
 
     @staticmethod
     def _dxi_Z(

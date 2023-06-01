@@ -17,12 +17,14 @@ sys.path.append(str(pathlib.Path(__file__).parent.resolve()))
 from _config import (
     PH_FLASH_DATA_PATH,
     PT_FLASH_DATA_PATH,
+    ISOTHERM_DATA_PATH,
     THERMO_DATA_PATH,
     calculate_porepy_pT_data,
+    calculate_porepy_ph_data,
     calculate_thermo_pT_data,
+    calculate_porepy_isotherm_data,
     logger,
     read_px_data,
-    read_results,
     write_results,
 )
 
@@ -47,7 +49,21 @@ if __name__ == "__main__":
     logger.info(f"Finished PorePy p-T-calculations ({end_time - start_time} seconds).")
     write_results(PT_FLASH_DATA_PATH, results_pT)
 
-    r = read_results(THERMO_DATA_PATH)
+    logger.info("Starting PorePy p-T calculations along isotherms ..\n")
+    start_time = time.time()
+    results_pT_isotherms = calculate_porepy_isotherm_data()
+    end_time = time.time()
+    logger.info(f"Finished isotherm-calculations ({end_time - start_time} seconds).")
+    write_results(ISOTHERM_DATA_PATH, results_pT_isotherms)
+
+    logger.info("Reading data for isothermal flash ..\n")
+    p_points, h_points = read_px_data(ISOTHERM_DATA_PATH, 'h')
+    logger.info("Starting PorePy p-h calculations along isotherms ..\n")
+    start_time = time.time()
+    results_ph_isotherms = calculate_porepy_ph_data(p_points, h_points)
+    end_time = time.time()
+    logger.info(f"Finished p-h-calculations ({end_time - start_time} seconds).")
+    write_results(PH_FLASH_DATA_PATH, results_ph_isotherms)
 
     total_time_end = time.time()
     logger.info(f"Data computed (total {total_time_end - total_time_start} seconds)")
