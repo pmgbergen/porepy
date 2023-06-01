@@ -343,23 +343,6 @@ class MixedDimensionalGrid:
         """
         return self._subdomain_to_boundary_grid.get(sd, None)
 
-    def boundary_grid_to_subdomain(self, bg: pp.BoundaryGrid) -> Optional[pp.Grid]:
-        """Get the subdomain associated with a boundary grid.
-
-        Parameters:
-            bg: A boundary grid in the mixed-dimensional grid.
-
-        Returns:
-            The subdomain associated with this boundary grid. If ``bg`` is not in this
-            mixed-dimensional grid, ``None`` is returned.
-
-        """
-        # We assume there is always only one boundary grid for each subdomain.
-        for sd, other_bg in self._subdomain_to_boundary_grid.items():
-            if other_bg.id == bg.id:
-                return sd
-        return None
-
     def neighboring_subdomains(
         self, sd: pp.Grid, only_higher: bool = False, only_lower: bool = False
     ) -> list[pp.Grid]:
@@ -672,8 +655,15 @@ class MixedDimensionalGrid:
         for intf in self.interfaces():
             intf.compute_geometry()
 
+    def set_boundary_grid_projections(self):
+        """Set projections to the boundary grids.
+
+        This method must be called after having split the fracture faces, or else
+        the projections will have the wrong dimension.
+
+        """
         for bg in self.boundaries():
-            bg.compute_geometry()
+            bg.set_projections()
 
     def copy(self) -> MixedDimensionalGrid:
         """Make a shallow copy of the mixed-dimensional grid. The underlying subdomain,
