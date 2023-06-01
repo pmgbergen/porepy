@@ -899,6 +899,15 @@ class Operator:
         s += f" formed by {self.tree.op} with {len(self.tree.children)} children."
         return s
 
+    def __neg__(self) -> Operator:
+        """Unary minus operation.
+
+        Returns:
+            Operator: The negative of the operator.
+
+        """
+        return pp.ad.Scalar(-1) * self
+
     def __add__(self, other: Operator) -> Operator:
         """Add two operators.
 
@@ -1158,6 +1167,17 @@ class SparseArray(Operator):
             s += self._name
         return s
 
+    def __neg__(self) -> SparseArray:
+        """We override :meth:`Operator.__neg__` to prevent constructing a composite
+        operator from just a sparse array.
+
+        Returns:
+            Operator: The negative of the operator.
+
+        """
+        new_name = None if self.name is None else f"minus {self.name}"
+        return SparseArray(mat=-self._mat, name=new_name)
+
     def parse(self, mdg: pp.MixedDimensionalGrid) -> sps.spmatrix:
         """See :meth:`Operator.parse`.
 
@@ -1216,6 +1236,17 @@ class DenseArray(Operator):
         if self._name is not None:
             s += f"({self._name})"
         return s
+
+    def __neg__(self) -> DenseArray:
+        """We override :meth:`Operator.__neg__` to prevent constructing a composite
+        operator from just an array.
+
+        Returns:
+            Operator: The negative of the operator.
+
+        """
+        new_name = None if self.name is None else f"minus {self.name}"
+        return DenseArray(values=-self._values, name=new_name)
 
     @property
     def size(self) -> int:
@@ -1408,6 +1439,17 @@ class Scalar(Operator):
             s += f"({self._name})"
         return s
 
+    def __neg__(self) -> Scalar:
+        """We override :meth:`Operator.__neg__` to prevent constructing a composite
+        operator from just a scalar.
+
+        Returns:
+            Operator: The negative of the operator.
+
+        """
+        new_name = None if self.name is None else f"minus {self.name}"
+        return Scalar(value=-self._value, name=new_name)
+
     def parse(self, mdg: pp.MixedDimensionalGrid) -> float:
         """See :meth:`Operator.parse`.
 
@@ -1416,6 +1458,18 @@ class Scalar(Operator):
 
         """
         return self._value
+
+    def set_value(self, value: float) -> None:
+        """Set the value of this scalar.
+
+        Usage includes changing the value of the scalar, as needed when using dynamic
+        time stepping.
+
+        Parameters:
+            value: The new value.
+
+        """
+        self._value = value
 
 
 class Variable(Operator):
