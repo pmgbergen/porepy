@@ -7,7 +7,7 @@ import logging
 import pathlib
 import sys
 import time
-from ctypes import c_double, c_uint8, c_char_p
+from ctypes import c_char_p, c_double, c_uint8
 from multiprocessing import Array, Pool, Process, Queue
 from multiprocessing.pool import AsyncResult
 from typing import Any
@@ -17,7 +17,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 import psutil
 from matplotlib import figure
-from mpl_toolkits.axes_grid1 import make_axes_locatable
 from thermo import PR78MIX, CEOSGas, CEOSLiquid, ChemicalConstantsPackage, FlashVLN
 from thermo.interaction_parameters import IPDB
 
@@ -35,9 +34,9 @@ FEED: list[float] = [0.99, 0.01]
 
 # pressure and temperature limits for calculations
 P_LIMITS: list[float] = [1e6, 50e6]  # [Pa]
-T_LIMITS: list[float] = [300.0, 650.0]  # [K]
+T_LIMITS: list[float] = [450.0, 700.0]  # [K]
 # temperature values for isotherms (isenthalpic flash calculations)
-ISOTHERMS: list[float] = [300., 350., 400., 450., 500., 550., 600., 620.]
+ISOTHERMS: list[float] = [450.0, 500.0, 550.0, 600.0, 650.0, 700.0]
 P_LIMITS_ISOTHERMS: list[float] = [1e6, 20e6]
 # resolution of p-T limits
 RESOLUTION_pT: int = 10
@@ -48,12 +47,14 @@ RESOLUTION_isotherms: int = 10
 # 1 - point-wise (robust, but possibly very slow),
 # 2 - vectorized (not recommended),
 # 3 - parallelized (use with care, if system compatible)
-CALCULATION_MODE: int = 1
+CALCULATION_MODE: int = 3
 
 # paths to where results should be stored
 THERMO_DATA_PATH: str = "data/thermodata_.csv"  # storing results from therm
 PT_FLASH_DATA_PATH: str = "data/flash_pT_.csv"  # storing p-T results from porepy
-ISOTHERM_DATA_PATH: str = "data/flash_pT_isotherms.csv"  # storing p-T results on isotherms
+ISOTHERM_DATA_PATH: str = (
+    "data/flash_pT_isotherms.csv"  # storing p-T results on isotherms
+)
 PH_FLASH_DATA_PATH: str = "data/flash_ph_.csv"  # storing p-h results from porepy
 FIG_PATH: str = "figs/"  # path to folder containing plots
 
@@ -478,7 +479,7 @@ def calculate_thermo_pT_data() -> dict[str, list]:
         for P in p_points:
             try:
                 state = flasher.flash(P=P, T=T, zs=FEED)
-            except Exception as err:
+            except Exception:
                 logger.warn(f"\nThermo p-T-flash failed for p, T = ({P}, {T})\n")
                 parsed = _failed_entry()
             else:
@@ -569,7 +570,7 @@ def _create_shared_arrays(size: int) -> list[tuple[Array, Any]]:
 
     def _uint_array():
         return Array(typecode_or_type=INT_PRECISION, size_or_initializer=size)
-    
+
     def _string_array():
         return Array(typecode_or_type=c_char_p, size_or_initializer=size)
 
@@ -760,16 +761,16 @@ def _parallel_pT_flash(ipT):
 
     p_vec = np.array([p], dtype=np.double) / pp.composite.PRESSURE_SCALE
     T_vec = np.array([T])
-    feed = [np.ones(1)* z for z in FEED]
+    feed = [np.ones(1) * z for z in FEED]
 
     p_arr[i] = p
     T_arr[i] = T
 
     try:
         success_, state = flash.flash(
-            state={'p': p_vec, 'T': T_vec},
+            state={"p": p_vec, "T": T_vec},
             feed=feed,
-            eos_kwargs={'apply_smoother': True}
+            eos_kwargs={"apply_smoother": True},
         )
     except Exception as err:  # if Flasher fails, flag as failed
         logger.warn(f"\nParallel p-T flash crashed at {ipT}\n{str(err)}\n")
@@ -877,16 +878,16 @@ def _parallel_ph_flash(iph):
 
     p_vec = np.array([p], dtype=np.double) / pp.composite.PRESSURE_SCALE
     h_vec = np.array([h])
-    feed = [np.ones(1)* z for z in FEED]
+    feed = [np.ones(1) * z for z in FEED]
 
     p_arr[i] = p
     h_arr[i] = h
 
     try:
         success_, state = flash.flash(
-            state={'p': p_vec, 'h': h_vec},
+            state={"p": p_vec, "h": h_vec},
             feed=feed,
-            eos_kwargs={'apply_smoother': True}
+            eos_kwargs={"apply_smoother": True},
         )
     except Exception as err:  # if Flasher fails, flag as failed
         logger.warn(f"\nParallel p-h flash crashed at {iph}\n{str(err)}\n")
@@ -993,7 +994,9 @@ def calculate_porepy_pT_data(p_points: list[float], T_points: list[float]) -> di
                         state.p, state.T, state.X, store=False
                     )
 
-                    res[h_HEADER] = mix.evaluate_weighed_sum([prop.h for prop in props], state.y)[0]
+                    res[h_HEADER] = mix.evaluate_weighed_sum(
+                        [prop.h for prop in props], state.y
+                    )[0]
 
                     res[compressibility_HEADER[PHASES[1]]] = props[0].Z[0]
                     for i, s in enumerate(SPECIES):
@@ -1023,7 +1026,7 @@ def calculate_porepy_pT_data(p_points: list[float], T_points: list[float]) -> di
             initargs=(shared_arrays, prog_q),
             initializer=_access_shared_objects,
         ) as pool:
-            
+
             prog_process = Process(
                 target=_progress_counter, args=(prog_q, nf, None), daemon=True
             )
@@ -1072,8 +1075,11 @@ def calculate_porepy_isotherm_data():
     p_points = list()
     T_points = list()
     p_ = np.linspace(
-        P_LIMITS_ISOTHERMS[0], P_LIMITS_ISOTHERMS[1], RESOLUTION_isotherms,
-        endpoint=True, dtype=float
+        P_LIMITS_ISOTHERMS[0],
+        P_LIMITS_ISOTHERMS[1],
+        RESOLUTION_isotherms,
+        endpoint=True,
+        dtype=float,
     )
 
     for T in ISOTHERMS:
@@ -1121,7 +1127,9 @@ def calculate_porepy_isotherm_data():
                         state.p, state.T, state.X, store=False
                     )
 
-                    res[h_HEADER] = mix.evaluate_weighed_sum([prop.h for prop in props], state.y)[0]
+                    res[h_HEADER] = mix.evaluate_weighed_sum(
+                        [prop.h for prop in props], state.y
+                    )[0]
 
                     res[compressibility_HEADER[PHASES[1]]] = props[0].Z[0]
                     for i, s in enumerate(SPECIES):
@@ -1151,7 +1159,7 @@ def calculate_porepy_isotherm_data():
             initargs=(shared_arrays, prog_q),
             initializer=_access_shared_objects,
         ) as pool:
-            
+
             prog_process = Process(
                 target=_progress_counter, args=(prog_q, nf, None), daemon=True
             )
@@ -1274,7 +1282,7 @@ def calculate_porepy_ph_data(p_points: list[float], h_points: list[float]) -> di
             initargs=(shared_arrays, prog_q),
             initializer=_access_shared_objects,
         ) as pool:
-            
+
             prog_process = Process(
                 target=_progress_counter, args=(prog_q, nf, None), daemon=True
             )

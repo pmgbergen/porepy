@@ -24,13 +24,13 @@ __all__ = [
 def truncexp(var):
     if isinstance(var, pp.ad.AdArray):
         trunc = var > 700
-        val = np.exp(var.val, where= (~trunc))
+        val = np.exp(var.val, where=(~trunc))
         val[trunc] = np.exp(700)
         der = var._diagvec_mul_jac(val)
         return pp.ad.AdArray(val, der)
     else:
         trunc = var > 700
-        val =  np.exp(var, where= (~trunc))
+        val = np.exp(var, where=(~trunc))
         val[trunc] = np.exp(700)
         return val
 

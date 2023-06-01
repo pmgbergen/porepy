@@ -174,10 +174,14 @@ class H2S(Component_PR):
         book/10.1002/9781118135341>`_ .
 
         """
-        return R_IDEAL * (
-            self.cp1 * (T - T_REF)
-            + self.cp2 / 2 * (pp.ad.power(T, 2) - T_REF**2)
-            - self.cp3 * (pp.ad.power(T, -1) - T_REF ** (-1))
+        return (
+            R_IDEAL
+            * ENERGY_SCALE
+            * (
+                self.cp1 * (T - T_REF)
+                + self.cp2 / 2 * (pp.ad.power(T, 2) - T_REF**2)
+                - self.cp3 * (pp.ad.power(T, -1) - T_REF ** (-1))
+            )
         )
 
 
@@ -213,10 +217,14 @@ class N2(Component_PR):
         book/10.1002/9781118135341>`_ .
 
         """
-        return R_IDEAL * (
-            self.cp1 * (T - T_REF)
-            + self.cp2 / 2 * (pp.ad.power(T, 2) - T_REF**2)
-            - self.cp3 * (pp.ad.power(T, -1) - T_REF ** (-1))
+        return (
+            R_IDEAL
+            * ENERGY_SCALE
+            * (
+                self.cp1 * (T - T_REF)
+                + self.cp2 / 2 * (pp.ad.power(T, 2) - T_REF**2)
+                - self.cp3 * (pp.ad.power(T, -1) - T_REF ** (-1))
+            )
         )
 
 
