@@ -1014,7 +1014,7 @@ class FlashNR:
             if guess_from_state is None:
                 thd_state.z = feed
                 thd_state = self._guess_fractions(
-                    thd_state, num_vals, num_iter=2, guess_K_values=True
+                    thd_state, num_vals, num_iter=3, guess_K_values=True
                 )
 
         elif flash_type == "p-h":
@@ -1053,7 +1053,8 @@ class FlashNR:
                     thd_state = self._guess_fractions(
                         thd_state, num_vals, num_iter=2, guess_K_values=True
                     )
-                    # Do so multiple times in a loop, break if res for h constraint reached
+                    # Do so multiple times in a loop, break if res for h constraint
+                    # reached.
                     if res_is_zeros:
                         break
 
@@ -1421,6 +1422,10 @@ class FlashNR:
         # tolerance to bind K-values away from zero
         K_tol: float = 1e-10
 
+        # pseudo-critical pressure and temperature
+        T_cp = self.mixture.evaluate_weighed_sum(state.z, [c.T_crit for c in self.mixture.components])
+        p_cp = self.mixture.evaluate_weighed_sum(state.z, [c.p_crit for c in self.mixture.components])
+
         if guess_K_values:
             # TODO can we use Wilson for all independent phases if more than 2 phases?
             p = state.p.val if isinstance(state.p, pp.ad.AdArray) else state.p
@@ -1444,7 +1449,7 @@ class FlashNR:
                 for j in range(1, nph)
             ]
 
-        for _ in range(num_iter):
+        for it in range(num_iter):
             # Computing phase fraction estimates,
             # depending on number of independent phases
             if nph == 2:
@@ -1463,7 +1468,41 @@ class FlashNR:
                 correction_2 = (rr_pot < 0.0) & invalid & feasible_reg
                 y = np.where(correction_2, np.ones(num_vals), y)
 
-                corrected = correction_1 | correction_2
+                # clearly liquid
+                correction_3 = (state.T < T_cp) & (state.p > p_cp) & invalid
+                y[correction_3] = 0.
+                # clearly gas
+                correction_4 = (state.T > T_cp) & (state.p < p_cp) & invalid
+                y[correction_4] = 1.
+
+
+                K_ = np.array(K[0])
+                K_min = np.min(K_, axis=0)
+                K_max = np.max(K_, axis=0)
+                y_min_ = 1 / (1 - K_max)
+                y_max_ = 1 / (1 - K_min)
+                # for some unknown reasons, above formula does not always hold
+                y_min = np.where(y_min_ < y_max_, y_min_, y_max_)
+                y_max = np.where(y_min_ < y_max_, y_max_, y_min_)
+                y_feasible = np.logical_and(y_min < y, y < y_max)
+                # corr_neg = np.logical_and(y_feasible, negative)
+                corr_neg_1 = y_feasible & negative
+                y[corr_neg_1] = 0.0
+                # corr_pos = np.logical_and(y_feasible, exceeds)
+                corr_pos_1 = y_feasible & exceeds
+                y[corr_pos_1] = 1.0
+
+                # If all K-values are smaller than 1 and gas fraction is negative,
+                # the liquid phase is clearly saturated
+                # Vice versa, if fraction above 1 and K-values greater than 1.
+                # the gas phase is clearly saturated
+                corr_neg_2 = negative & np.all(K_ < 1.0, axis=0)
+                corr_pos_2 = exceeds & np.all(K_ > 1.0, axis=0)
+                y[corr_neg_2] = 0.0
+                y[corr_pos_2] = 1.0
+
+
+                corrected = correction_1 | correction_2 | correction_3 | correction_4
 
                 need_correction = invalid & (~corrected)
 
@@ -1471,6 +1510,7 @@ class FlashNR:
                     # Corrections based on the negative flash.
                     # As long as the gas fraction is within the two inner-most poles,
                     # it is a feasible solution.
+                    print("\n\nnegative flash correction\n")
                     K_ = np.array(K[0])
                     K_min = np.min(K_, axis=0)
                     K_max = np.max(K_, axis=0)
@@ -1481,20 +1521,35 @@ class FlashNR:
                     y_max = np.where(y_min_ < y_max_, y_max_, y_min_)
                     y_feasible = np.logical_and(y_min < y, y < y_max)
                     # corr_neg = np.logical_and(y_feasible, negative)
-                    corr_neg = y_feasible & negative & need_correction
-                    y[corr_neg] = 0.0
+                    corr_neg_1 = y_feasible & negative & need_correction
+                    y[corr_neg_1] = 0.0
                     # corr_pos = np.logical_and(y_feasible, exceeds)
-                    corr_pos = y_feasible & exceeds & need_correction
-                    y[corr_pos] = 1.0
+                    corr_pos_1 = y_feasible & exceeds & need_correction
+                    y[corr_pos_1] = 1.0
 
                     # If all K-values are smaller than 1 and gas fraction is negative,
                     # the liquid phase is clearly saturated
                     # Vice versa, if fraction above 1 and K-values greater than 1.
                     # the gas phase is clearly saturated
-                    corr_neg = negative & np.all(K_ < 1.0, axis=0) & need_correction
-                    corr_pos = exceeds & np.all(K_ > 1.0, axis=0) & need_correction
-                    y[corr_neg] = 0.0
-                    y[corr_pos] = 1.0
+                    corr_neg_2 = negative & np.all(K_ < 1.0, axis=0) & need_correction
+                    corr_pos_2 = exceeds & np.all(K_ > 1.0, axis=0) & need_correction
+                    y[corr_neg_2] = 0.0
+                    y[corr_pos_2] = 1.0
+
+                    # corrected = corr_neg_1 | corr_neg_2 | corr_pos_1 | corr_pos_2
+
+                    # need_correction = invalid & (~corrected)
+                    # if np.any(need_correction):
+                    #     print('\nspecial correction')
+                    #     feasible_reg = rachford_rice_feasible_region(
+                    #         state.z, [np.ones(num_vals)], K
+                    #     )
+                    #     rr_pot = rachford_rice_potential(state.z, [np.ones(num_vals)], K)
+
+                    #     correction_1 = (rr_pot > 0.0) & need_correction
+                    #     y = np.where(correction_1, np.zeros(num_vals), y)
+                    #     correction_2 = (rr_pot < 0.0) & feasible_reg & need_correction
+                    #     y = np.where(correction_2, np.ones(num_vals), y)
 
                 assert not np.any(
                     np.logical_or(y < 0.0, 1.0 < y)
@@ -1564,6 +1619,7 @@ class FlashNR:
         else:
             h_norm = state.h.copy()
             h_norm[np.abs(h_norm) <= 1] = 1.0
+            nc = len(state.h)
             for _ in range(num_iter):
                 phase_props = self.mixture.compute_properties(
                     state.p, state.T, state.X, store=False, normalize=True
@@ -1578,14 +1634,35 @@ class FlashNR:
                     # get only the derivative w.r.t to temperature and solve
                     # derivative w.r.t temperature is diagonal since it is local
                     dT = -H.val / H.jac[:, :num_vals].diagonal() * 2e-1
+                    
+                    # get update based on approximate changes in internal energy
+                    s = FlashSystemNR.evaluate_saturations(
+                        [y.val for y in state.y],
+                        [prop.rho.val for prop in phase_props]
+                    )
+                    rho = self.mixture.evaluate_weighed_sum(
+                        [prop.rho for prop in phase_props],
+                        s
+                    )
+                    v = rho**(-1)
+                    pw = v * state.p
+                    u_target = (pw - state.h) * (-1)  # avoid numpy overload
+                    u_is = h_mix - pw
+
                     # Correct descend direction assuming T has to increase if current
-                    # enthalpy is below target (and vice versa)
+                    # internal energy is below target (and vice versa)
                     corrector = np.logical_or(
-                        np.logical_and(h_mix.val > state.h, dT > 0),
-                        np.logical_and(h_mix.val < state.h, dT < 0),
+                        np.logical_and(u_is > u_target, dT > 0),
+                        np.logical_and(u_is < u_target, dT < 0),
                     )
                     dT[corrector] *= -1
-                    state.T.val = state.T.val + dT * (1 - np.abs(dT) / state.T.val)
+                    dT *= (1 - np.abs(dT) / state.T.val)
+
+                    dT = (u_target.val - u_is.val) / u_is.jac[:, :nc].diagonal()
+                    check = np.abs(dT) > state.T.val
+                    dT[check] = (0.1 * state.T.val * np.sign(dT))[check]
+                    dT *= (1 - np.abs(dT) / state.T.val)
+                    state.T.val = state.T.val + dT
 
         return state, res_is_zero
 

@@ -14,10 +14,25 @@ from porepy.numerics.ad.operator_functions import NumericType
 
 __all__ = [
     "safe_sum",
+    "truncexp",
     "normalize_fractions",
     "CompositionalSingleton",
     "AdProperty",
 ]
+
+
+def truncexp(var):
+    if isinstance(var, pp.ad.AdArray):
+        trunc = var > 700
+        val = np.exp(var.val, where= (~trunc))
+        val[trunc] = np.exp(700)
+        der = var._diagvec_mul_jac(val)
+        return pp.ad.AdArray(val, der)
+    else:
+        trunc = var > 700
+        val =  np.exp(var, where= (~trunc))
+        val[trunc] = np.exp(700)
+        return val
 
 
 def safe_sum(x: tuple[Any]) -> Any:
