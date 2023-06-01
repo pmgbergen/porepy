@@ -384,7 +384,8 @@ class EquationSystem:
 
         Raises:
             ValueError: If non-admissible DOF types are used as local DOFs.
-            ValueError: If one attempts to create a variable not defined on any grid.
+            ValueError: If one attempts to create a variable not defined on any grid,
+                or both on interfaces and subdomains.
             KeyError: If a variable with given name is already defined.
 
         """
@@ -413,44 +414,38 @@ class EquationSystem:
                 "Cannot create variable not defined on any subdomain or interface."
             )
         else:
-            # Yura: The current behavior is just to ignore the interfaces, which is
-            # confusing for me. If this usage is not expected, should we throw an error?
-            grids = subdomains + interfaces  # type: ignore
+            raise ValueError(
+                "Cannot create variable both on interfaces and subdomains."
+            )
 
         # Check if a md variable was already defined under that name on any of grids.
         for var in self.variables:
             if var.name == name and var.domain in grids:
                 raise KeyError(f"Variable {name} already defined on {var.domain}.")
 
-        def initialize_boundary_data(sd: pp.Grid):
-            """Register boundary grid data for the subdomain, if applicable."""
-            if (bg := self.mdg.subdomain_to_boundary_grid(sd)) is not None:
-                bg_data = self.mdg.boundary_grid_data(bg)
-                if name not in bg_data:
-                    bg_data[name] = {}
+        def initialize_data_with_key(data: dict, key: str) -> None:
+            """Prepare storage structure for values in data dictionary if not already
+            prepared."""
+            if key not in data:
+                data[key] = {}
+            if name not in data[key]:
+                data[key][name] = {}
 
         for grid in grids:
             if subdomains:
                 assert isinstance(grid, pp.Grid)  # mypy
                 data = self.mdg.subdomain_data(grid)
-                initialize_boundary_data(grid)
+
+                # Register boundary grid data for the subdomain if applicable.
+                if (bg := self.mdg.subdomain_to_boundary_grid(grid)) is not None:
+                    bg_data = self.mdg.boundary_grid_data(bg)
+                    initialize_data_with_key(data=bg_data, key=pp.TIME_STEP_SOLUTIONS)
             else:
                 assert isinstance(grid, pp.MortarGrid)  # mypy
                 data = self.mdg.interface_data(grid)
 
-            # Prepare storage structure for values in data dictionary if not
-            # already prepared.
-            if pp.TIME_STEP_SOLUTIONS not in data:
-                data[pp.TIME_STEP_SOLUTIONS] = {}
-
-            if name not in data[pp.TIME_STEP_SOLUTIONS]:
-                data[pp.TIME_STEP_SOLUTIONS][name] = {}
-
-            if pp.ITERATE_SOLUTIONS not in data:
-                data[pp.ITERATE_SOLUTIONS] = {}
-
-            if name not in data[pp.ITERATE_SOLUTIONS]:
-                data[pp.ITERATE_SOLUTIONS][name] = {}
+            initialize_data_with_key(data=data, key=pp.TIME_STEP_SOLUTIONS)
+            initialize_data_with_key(data=data, key=pp.ITERATE_SOLUTIONS)
 
             # Create grid variable.
             new_variable = Variable(name, dof_info, domain=grid, tags=tags)

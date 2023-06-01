@@ -83,6 +83,10 @@ def subdomains_to_mdg(
     # will be added to the mixed-dimensional grid.
     create_interfaces(mdg, node_pairs)
 
+    # Set projections to the boundary grids (this must be done after having
+    # split the fracture faces, or else the projections will have the wrong dimension).
+    mdg.set_boundary_grid_projections()
+
     if time_tot is not None:
         logger.info(
             "Mesh construction completed. Total time " + str(time.time() - time_tot)

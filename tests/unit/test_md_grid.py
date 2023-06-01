@@ -285,8 +285,8 @@ class TestMixedDimensionalGrid(unittest.TestCase):
         self.assertTrue(sd_pair_43[1] == sd_3)
 
     def test_subdomain_to_boundary_grid(self) -> None:
-        """Test the methods `subdomain_to_boundary_grid` and
-        `boundary_grid_to_subdomain`.
+        """Test the method `subdomain_to_boundary_grid`. Also test restoring
+        a subdomain from its boundary grid.
 
         """
         _, _, _, mdg, sd_1d_0, sd_1d_1, sd_2d, sd_3d = self.mdg_dims_3211()
@@ -296,17 +296,13 @@ class TestMixedDimensionalGrid(unittest.TestCase):
         assert bg is not None
         assert bg.dim == 2, "Subdomain is 3D, boundary must be 2D."
 
-        result_sd = mdg.boundary_grid_to_subdomain(bg)
-        assert result_sd is not None
+        result_sd = bg.parent
         assert result_sd is sd_3d, "Must be the same object."
 
         # Next, check the grids which are not present in the mdg.
         unwanted_sd = MockGrid(3)
-        unwanted_bg = pp.BoundaryGrid(unwanted_sd)
         bg_or_none = mdg.subdomain_to_boundary_grid(unwanted_sd)
         assert bg_or_none is None
-        sd_or_none = mdg.boundary_grid_to_subdomain(unwanted_bg)
-        assert sd_or_none is None
 
     # ------ Test of iterators ------*
     def test_subdomain_interface_boundary_iterators(self):
@@ -337,7 +333,7 @@ class TestMixedDimensionalGrid(unittest.TestCase):
         # Finally, check the boundaries
         parent_grids_found = {sd_1: False, sd_2: False, sd_3: False}
         for bg in mdg.boundaries():
-            parent_sd = mdg.boundary_grid_to_subdomain(bg)
+            parent_sd = bg.parent
             parent_grids_found[parent_sd] = True
         assert all(parent_grids_found.values())
 
@@ -345,7 +341,7 @@ class TestMixedDimensionalGrid(unittest.TestCase):
         """Check that the iterators `subdomains`, `interfaces` and `boundaries`
         return only the grids of the right dimension when the argument `dim` is
         provided.
-        
+
         """
         mdg = pp.MixedDimensionalGrid()
         sd_1 = MockGrid(1)
@@ -375,8 +371,7 @@ class TestMixedDimensionalGrid(unittest.TestCase):
         # Finally, use the boundaries(dim=1) function
         found_parent_grid = {sd_2: False, sd_4: False}
         for bg in mdg.boundaries(dim=1):
-            parent_sd = mdg.boundary_grid_to_subdomain(bg)
-            assert parent_sd is not None
+            parent_sd = bg.parent
             found_parent_grid[parent_sd] = True
 
         assert all(found_parent_grid.values())

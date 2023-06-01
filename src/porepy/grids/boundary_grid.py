@@ -60,30 +60,30 @@ class BoundaryGrid:
         """Number of cells in the boundary grid.
 
         Will correspond to the number of faces on the domain boundary in the parent
-        grid. Initialized in :meth:`~compute_geometry`.
+        grid. Initialized in :meth:`~set_projections`.
 
         """
         self._projections: sps.csr_matrix
         """Projection matrix from the parent grid to the boundary grid.
 
-        Initialized in :meth:`~compute_geometry`.
+        Initialized in :meth:`~set_projections`.
 
         """
         self.cell_centers: np.ndarray
         """Cell centers of the boundary grid.
 
         Subset of the face centers of the parent grid. Initialized in
-        :meth:`~compute_geometry`.
+        :meth:`~set_projections`.
 
         """
 
-    def compute_geometry(self) -> None:
-        """Compute geometric quantities for the boundary grid.
+    def set_projections(self) -> None:
+        """Set projections from the parent grid and set the corresponding attributes.
 
-        Currently, there are no heavy computations here. However, the parent grid can
-        be modified during its construction, and the boundary grid must reflect these
-        changes. Thus, it is required to call this method after calling
-        :meth:`Grid.compute_geometry`. Usually, this is done by the MDG.
+        The parent grid can be modified during its construction, and the boundary grid
+        must reflect these changes. It is required to call this method after having
+        split the fracture faces in order to finish the initialization of
+        the boundary grid.
 
         """
         parent_boundary = self._parent.tags["domain_boundary_faces"]
@@ -107,6 +107,11 @@ class BoundaryGrid:
 
         """
         return self._projections
+
+    @property
+    def parent(self) -> pp.Grid:
+        """Subdomain associated with this boundary grid."""
+        return self._parent
 
     @property
     def id(self):
