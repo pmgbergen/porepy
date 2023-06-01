@@ -15,14 +15,14 @@ import time
 sys.path.append(str(pathlib.Path(__file__).parent.resolve()))
 
 from _config import (
+    ISOTHERM_DATA_PATH,
     PH_FLASH_DATA_PATH,
     PT_FLASH_DATA_PATH,
-    ISOTHERM_DATA_PATH,
     THERMO_DATA_PATH,
-    calculate_porepy_pT_data,
-    calculate_porepy_ph_data,
-    calculate_thermo_pT_data,
     calculate_porepy_isotherm_data,
+    calculate_porepy_ph_data,
+    calculate_porepy_pT_data,
+    calculate_thermo_pT_data,
     logger,
     read_px_data,
     write_results,
@@ -57,7 +57,7 @@ if __name__ == "__main__":
     write_results(ISOTHERM_DATA_PATH, results_pT_isotherms)
 
     logger.info("Reading data for isothermal flash ..\n")
-    p_points, h_points = read_px_data(ISOTHERM_DATA_PATH, 'h')
+    p_points, h_points = read_px_data(ISOTHERM_DATA_PATH, "h")
     logger.info("Starting PorePy p-h calculations along isotherms ..\n")
     start_time = time.time()
     results_ph_isotherms = calculate_porepy_ph_data(p_points, h_points)

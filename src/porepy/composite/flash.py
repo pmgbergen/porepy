@@ -313,11 +313,8 @@ class FlashSystemNR(ThermodynamicState):
 
         # Second, evaluate equilibrium equations for each component
         # between independent phases and reference phase
-        sigma_r = safe_sum(X[0])
         for j in range(1, self._num_phases):
-            sigma_j = safe_sum(X[j])
             for i in range(self._num_comp):
-                # equ = X[j][i] * props[j].phis[i] * sigma_j - X[0][i] * props[0].phis[i] * sigma_r
                 equ = X[j][i] * props[j].phis[i] - X[0][i] * props[0].phis[i]
                 equations.append(equ)
 
@@ -1423,8 +1420,12 @@ class FlashNR:
         K_tol: float = 1e-10
 
         # pseudo-critical pressure and temperature
-        T_cp = self.mixture.evaluate_weighed_sum(state.z, [c.T_crit for c in self.mixture.components])
-        p_cp = self.mixture.evaluate_weighed_sum(state.z, [c.p_crit for c in self.mixture.components])
+        T_cp = self.mixture.evaluate_weighed_sum(
+            state.z, [c.T_crit for c in self.mixture.components]
+        )
+        p_cp = self.mixture.evaluate_weighed_sum(
+            state.z, [c.p_crit for c in self.mixture.components]
+        )
 
         if guess_K_values:
             # TODO can we use Wilson for all independent phases if more than 2 phases?
@@ -1470,11 +1471,10 @@ class FlashNR:
 
                 # clearly liquid
                 correction_3 = (state.T < T_cp) & (state.p > p_cp) & invalid
-                y[correction_3] = 0.
+                y[correction_3] = 0.0
                 # clearly gas
                 correction_4 = (state.T > T_cp) & (state.p < p_cp) & invalid
-                y[correction_4] = 1.
-
+                y[correction_4] = 1.0
 
                 K_ = np.array(K[0])
                 K_min = np.min(K_, axis=0)
@@ -1500,7 +1500,6 @@ class FlashNR:
                 corr_pos_2 = exceeds & np.all(K_ > 1.0, axis=0)
                 y[corr_neg_2] = 0.0
                 y[corr_pos_2] = 1.0
-
 
                 corrected = correction_1 | correction_2 | correction_3 | correction_4
 
@@ -1634,17 +1633,15 @@ class FlashNR:
                     # get only the derivative w.r.t to temperature and solve
                     # derivative w.r.t temperature is diagonal since it is local
                     dT = -H.val / H.jac[:, :num_vals].diagonal() * 2e-1
-                    
+
                     # get update based on approximate changes in internal energy
                     s = FlashSystemNR.evaluate_saturations(
-                        [y.val for y in state.y],
-                        [prop.rho.val for prop in phase_props]
+                        [y.val for y in state.y], [prop.rho.val for prop in phase_props]
                     )
                     rho = self.mixture.evaluate_weighed_sum(
-                        [prop.rho for prop in phase_props],
-                        s
+                        [prop.rho for prop in phase_props], s
                     )
-                    v = rho**(-1)
+                    v = rho ** (-1)
                     pw = v * state.p
                     u_target = (pw - state.h) * (-1)  # avoid numpy overload
                     u_is = h_mix - pw
@@ -1656,12 +1653,12 @@ class FlashNR:
                         np.logical_and(u_is < u_target, dT < 0),
                     )
                     dT[corrector] *= -1
-                    dT *= (1 - np.abs(dT) / state.T.val)
+                    dT *= 1 - np.abs(dT) / state.T.val
 
                     dT = (u_target.val - u_is.val) / u_is.jac[:, :nc].diagonal()
                     check = np.abs(dT) > state.T.val
                     dT[check] = (0.1 * state.T.val * np.sign(dT))[check]
-                    dT *= (1 - np.abs(dT) / state.T.val)
+                    dT *= 1 - np.abs(dT) / state.T.val
                     state.T.val = state.T.val + dT
 
         return state, res_is_zero

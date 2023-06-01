@@ -14,7 +14,7 @@ import porepy as pp
 from porepy.numerics.ad.operator_functions import NumericType
 
 from .._core import ENERGY_SCALE, PRESSURE_SCALE, R_IDEAL
-from ..composite_utils import truncexp, safe_sum
+from ..composite_utils import safe_sum, truncexp
 from ..phase import AbstractEoS, PhaseProperties
 from .mixing import VanDerWaals
 from .pr_bip import load_bip
@@ -492,7 +492,7 @@ class PengRobinsonEoS(AbstractEoS):
         # departure enthalpy
         h_dep = self._h_dep(T, Z, a, dT_a, b, B)
         h_ideal = self.get_h_ideal(p, T, X)
-        h = h_ideal + h_dep
+        h = (h_ideal + h_dep) / ENERGY_SCALE
 
         # Fugacity extensions as per Ben Gharbia 2021
         # dxi_a = list()
@@ -518,9 +518,7 @@ class PengRobinsonEoS(AbstractEoS):
         for i in range(len(self.components)):
             b_i = self._b_vals[i]
             B_i = self._B(b_i, p, T)
-            dxi_a_ = self._dXi_a(X, a_comps, bip, i)
-            # dxi_a_ = dxi_a[i]
-            A_i = dxi_a_ * p / (T * R_IDEAL) ** 2
+            A_i = self._A(self._dXi_a(X, a_comps, bip, i), p, T)
             phi_i = self._phi_i(Z, A_i, A, B_i, B)
 
             # if extend_phi:
@@ -575,22 +573,20 @@ class PengRobinsonEoS(AbstractEoS):
 
         """
         # construct first output from the constant bips and their trivial derivative
-        bips: list[list[NumericType]] = self._bip_vals.tolist()  # type: ignore
-        dT_bips: list[list[NumericType]] = np.zeros(
-            self._bip_vals.shape
-        ).tolist()  # type: ignore
+        bips: list[list[NumericType]] = (self._bip_vals + self._bip_vals.T).tolist()
+        dT_bips: list[list[NumericType]] = np.zeros(self._bip_vals.shape).tolist()
 
         # if any custom bips are to be used, update the respective entries
         if self._custom_bips:
-            for (
-                idx,
-                bip_c,
-            ) in self._custom_bips.items():
+            for idx, bip_c in self._custom_bips.items():
                 i, j = idx
                 bip, dT_bip = bip_c(T)
 
+                # values are symmetric
                 bips[i][j] = bip
+                bips[j][i] = bip
                 dT_bips[i][j] = dT_bip
+                dT_bips[j][i] = dT_bip
 
         return bips, dT_bips
 
@@ -708,7 +704,8 @@ class PengRobinsonEoS(AbstractEoS):
             The component-specific critical covolume.
 
         """
-        return cls.B_CRIT * (R_IDEAL * T_crit) / p_crit
+        b = cls.B_CRIT * (R_IDEAL * T_crit) / p_crit
+        return b * ENERGY_SCALE / PRESSURE_SCALE
 
     @classmethod
     def _a_crit(cls, p_crit: float, T_crit: float) -> float:
@@ -725,7 +722,8 @@ class PengRobinsonEoS(AbstractEoS):
             The component-specific critical cohesion.
 
         """
-        return cls.A_CRIT * (R_IDEAL**2 * T_crit**2) / p_crit
+        a = cls.A_CRIT * (R_IDEAL**2 * T_crit**2) / p_crit
+        return a * ENERGY_SCALE**2 / PRESSURE_SCALE
 
     @staticmethod
     def _a_cor(omega: float) -> float:
@@ -742,7 +740,7 @@ class PengRobinsonEoS(AbstractEoS):
             acentric factor.
 
         """
-        if omega < 0.49:
+        if omega < 0.491:
             return 0.37464 + 1.54226 * omega - 0.26992 * omega**2
         else:
             return (
@@ -784,17 +782,21 @@ class PengRobinsonEoS(AbstractEoS):
     def _A(a: NumericType, p: NumericType, T: NumericType) -> NumericType:
         """Auxiliary method implementing formula for non-dimensional cohesion."""
         if isinstance(T, pp.ad.AdArray):
-            return T ** (-2) * a * p / R_IDEAL**2
+            A = T ** (-2) * a * p / R_IDEAL**2
         else:
-            return a * p / (R_IDEAL**2 * T**2)
+            A = a * p / (R_IDEAL**2 * T**2)
+
+        return A * PRESSURE_SCALE / ENERGY_SCALE**2
 
     @staticmethod
     def _B(b: NumericType, p: NumericType, T: NumericType) -> NumericType:
         """Auxiliary method implementing formula for non-dimensional covolume."""
         if isinstance(T, pp.ad.AdArray):
-            return T ** (-1) * b * p / R_IDEAL
+            B = T ** (-1) * b * p / R_IDEAL
         else:
-            return b * p / (R_IDEAL * T)
+            B = b * p / (R_IDEAL * T)
+
+        return B * PRESSURE_SCALE / ENERGY_SCALE
 
     # TODO
     def _kappa(self, p: NumericType, T: NumericType, Z: NumericType) -> NumericType:
@@ -850,20 +852,22 @@ class PengRobinsonEoS(AbstractEoS):
             * (dT_a * T - a)
             / b
             * pp.ad.log((Z + (1 + np.sqrt(2)) * B) / (Z + (1 - np.sqrt(2)) * B))
-            + (Z - 1) * T * R_IDEAL
+            + (Z - 1) * T * R_IDEAL * ENERGY_SCALE
         )
 
     @staticmethod
     def _g_dep(A: NumericType, B: NumericType, Z: NumericType):
         """Auxiliary function for computing the Gibbs departure function."""
-        return pp.ad.log(Z - B) - pp.ad.log(
+        return pp.ad.log(pp.ad.maximum(Z - B, 1e-5)) - pp.ad.log(
             (Z + (1 + np.sqrt(2)) * B) / (Z + (1 - np.sqrt(2)) * B)
         ) * A / B / np.sqrt(8)
 
     @staticmethod
     def _g_ideal(T: NumericType, X: list[NumericType]) -> NumericType:
         """Auxiliary function to compute the ideal part of the Gibbs energy."""
-        return safe_sum([x * pp.ad.log(x) for x in X]) * T * R_IDEAL
+        return (
+            safe_sum([x * pp.ad.log(pp.ad.maximum(x, 1e-5)) for x in X]) * T * R_IDEAL
+        )
 
     @staticmethod
     def _phi_i(
@@ -876,7 +880,7 @@ class PengRobinsonEoS(AbstractEoS):
         """Auxiliary method implementing the formula for the fugacity coefficient."""
         log_phi_i = (
             (Z - 1) / B * B_i
-            - pp.ad.log(Z - B)
+            - pp.ad.log(pp.ad.maximum(Z - B, 1e-5))
             - A
             / (B * np.sqrt(8))
             * (A_i / A - B ** (-1) * B_i)
@@ -983,6 +987,9 @@ class PengRobinsonEoS(AbstractEoS):
         # AD-arrays
         # identify super-critical line
         self.is_supercritical = B >= self.B_CRIT / self.A_CRIT * A
+        # identify approximated sub pseudo-critical line (approximates Widom line)
+        widom_line = B <= self.B_CRIT + 0.8 * 0.3381965009398633 * (A - self.A_CRIT)
+
         # At A,B=0 we have 2 real roots, one with multiplicity 2
         zero_point = np.logical_and(
             np.logical_and(A >= -self.eps, A <= self.eps),
@@ -1044,6 +1051,7 @@ class PengRobinsonEoS(AbstractEoS):
             q_ = q[one_root_region]
             delta_ = delta[one_root_region]
             c2_ = c2[one_root_region]
+            B_ = B[one_root_region]
 
             # delta has only positive values in this case by logic
             t = -q_ / 2 + pp.ad.sqrt(delta_)
@@ -1069,13 +1077,15 @@ class PengRobinsonEoS(AbstractEoS):
 
             # real part of the conjugate imaginary roots
             # used for extension of vanished roots
-            w = -real_part / 2 - c2_ / 3
+            # w = -real_part / 2 - c2_ / 3 + 2.0 * B + self.B_CRIT
+            # w = (1 - B - z_1) / 2 + B + self.B_CRIT
+            w = (1 - B_ - z_1) / 2 + B_
 
-            extension_is_bigger = z_1 < w
+            extension_is_bigger = widom_line[one_root_region]  # z_1 < w
 
-            correction = ~(acbc_rect[one_root_region])
-            w[correction] = z_1[correction]
-            extension_is_bigger[correction] = False
+            # correction = ~(acbc_rect[one_root_region])
+            # w[correction] = z_1[correction]
+            # extension_is_bigger[correction] = False
 
             # slice indices such that w is the smaller root
             z_1_small = z_1[extension_is_bigger]
@@ -1176,19 +1186,19 @@ class PengRobinsonEoS(AbstractEoS):
             Z_L[region] = z_23
             Z_G[region] = z_1
 
-        # Correct the smaller root if it violates the lower bound B
-        correction = Z_L <= B
-        if np.any(correction):
-            Z_L[correction] = B[correction] + self.eps
+        # # Correct the smaller root if it violates the lower bound B
+        # correction = Z_L <= B
+        # if np.any(correction):
+        #     Z_L[correction] = B[correction] + self.eps
 
         # assert physical meaningfulness
         # assert np.all(
         #     Z_L > B
         # ), "Liquid root violates lower physical bound given by covolume B."
         # assert gas root is bigger than liquid root
-        assert np.all(
-            Z_G >= Z_L
-        ), "Liquid root violates upper physical bound given by gas root."
+        # assert np.all(
+        #     Z_G >= Z_L
+        # ), "Liquid root violates upper physical bound given by gas root."
 
         # convert Jacobians to csr
         if isinstance(Z_L, pp.ad.AdArray):
