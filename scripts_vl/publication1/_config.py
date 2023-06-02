@@ -37,7 +37,7 @@ P_LIMITS: list[float] = [1e6, 50e6]  # [Pa]
 T_LIMITS: list[float] = [450.0, 700.0]  # [K]
 # temperature values for isotherms (isenthalpic flash calculations)
 # more refined around critical temperature of water, up to critical pressure of water
-ISOTHERMS: list[float] = [500.0, 550., 600, 645., 647.14, 650.]
+ISOTHERMS: list[float] = [500.0, 550., 620, 645., 647.14, 650.]
 P_LIMITS_ISOTHERMS: list[float] = [1e6, 23000000.0]
 # resolution of p-T limits
 RESOLUTION_pT: int = 50
@@ -686,7 +686,7 @@ def create_mixture(
     flash.armijo_parameters["j_max"] = 50
     flash.armijo_parameters["return_max"] = True
     flash.newton_update_chop = 1.0
-    flash.tolerance = 1e-6
+    flash.tolerance = 1e-5
     flash.max_iter = 120
 
     return mix, flash
@@ -821,7 +821,7 @@ def _parallel_pT_flash(ipT):
             phi_h2o_G_arr[i] = props[1].phis[0][0]
             phi_co2_G_arr[i] = props[1].phis[1][0]
         else:
-            logger.warn(f"\nParallel p-T failed to converge at {ipT}\n")
+            logger.warn(f"\nParallel p-T failed to converge at {ipT} (exit code = {success_})\n")
             success_arr[i] = 0
             Z_L_arr[i] = NAN_ENTRY
             Z_G_arr[i] = NAN_ENTRY
@@ -941,7 +941,7 @@ def _parallel_ph_flash(iph):
             phi_h2o_G_arr[i] = props[1].phis[0][0]
             phi_co2_G_arr[i] = props[1].phis[1][0]
         else:
-            logger.warn(f"\nParallel p-h failed to converge at {iph}\n")
+            logger.warn(f"\nParallel p-h failed to converge at {iph} (exit code = {success_})\n")
             success_arr[i] = 0
             Z_L_arr[i] = NAN_ENTRY
             Z_G_arr[i] = NAN_ENTRY

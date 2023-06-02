@@ -344,13 +344,14 @@ if __name__ == "__main__":
             idx = idx_map_ph[(p_, h_)]
             success_ph = int(res_pp_ph[success_HEADER][idx])
 
-            if success_ph:
-                T_res = float(res_pp_ph[T_HEADER][idx])
-                err = np.abs(T_res - T_target)
+            T_res = res_pp_ph[T_HEADER][idx]
+
+            if T_res not in [NAN_ENTRY, str(NAN_ENTRY)]:
+                err = np.abs(float(T_res) - T_target)
                 if err > 3.0:
                     print("investigate: phT", p_, h_, T_, f"\terr: {err}")
             else:
-                err = 0.0  # np.nan
+                err = 0.  # np.nan
 
             err_T_isotherms[T_idx].append(err)
 
