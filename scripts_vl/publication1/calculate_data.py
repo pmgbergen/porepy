@@ -18,6 +18,7 @@ from _config import (
     ISOTHERM_DATA_PATH,
     PH_FLASH_DATA_PATH,
     PT_FLASH_DATA_PATH,
+    PT_QUICKSHOT_DATA_PATH,
     THERMO_DATA_PATH,
     calculate_porepy_isotherm_data,
     calculate_porepy_ph_data,
@@ -41,6 +42,15 @@ if __name__ == "__main__":
 
     logger.info("Reading p-T data for PorePy flash ..\n")
     p_points, T_points = read_px_data(THERMO_DATA_PATH, "T")
+
+    logger.info("Starting PorePy p-T-quickshort calculations ..\n")
+    start_time = time.time()
+    results_pT = calculate_porepy_pT_data(p_points, T_points, quickshot=True)
+    end_time = time.time()
+    logger.info(
+        f"Finished PorePy p-T-quickshot calculations ({end_time - start_time} seconds)."
+    )
+    write_results(PT_QUICKSHOT_DATA_PATH, results_pT)
 
     logger.info("Starting PorePy p-T-calculations ..\n")
     start_time = time.time()

@@ -36,12 +36,16 @@ FEED: list[float] = [0.99, 0.01]
 P_LIMITS: list[float] = [1e6, 50e6]  # [Pa]
 T_LIMITS: list[float] = [450.0, 700.0]  # [K]
 # temperature values for isotherms (isenthalpic flash calculations)
-ISOTHERMS: list[float] = [450.0, 500.0, 550.0, 600.0, 650.0, 700.0]
+ISOTHERMS: list[float] = [500.0, 600, 625.0, 640.0, 645.0, 650.0]
 P_LIMITS_ISOTHERMS: list[float] = [1e6, 20e6]
 # resolution of p-T limits
-RESOLUTION_pT: int = 10
+RESOLUTION_pT: int = 50
 # pressure resolution along isotherms
-RESOLUTION_isotherms: int = 10
+RESOLUTION_isotherms: int = 25
+
+# Scaling for plots
+PRESSURE_SCALE: float = 1e-6  # to MPa
+PRESSURE_SCALE_NAME: str = "MPa"
 
 # Calculation modus for PorePy flash
 # 1 - point-wise (robust, but possibly very slow),
@@ -50,12 +54,15 @@ RESOLUTION_isotherms: int = 10
 CALCULATION_MODE: int = 3
 
 # paths to where results should be stored
-THERMO_DATA_PATH: str = "data/thermodata_.csv"  # storing results from therm
-PT_FLASH_DATA_PATH: str = "data/flash_pT_.csv"  # storing p-T results from porepy
+THERMO_DATA_PATH: str = "data/thermodata.csv"  # storing results from therm
+PT_FLASH_DATA_PATH: str = "data/flash_pT.csv"  # storing p-T results from porepy
+PT_QUICKSHOT_DATA_PATH: str = (
+    "data/flash_pT.csv"  # storing p-T results from initial guess
+)
 ISOTHERM_DATA_PATH: str = (
     "data/flash_pT_isotherms.csv"  # storing p-T results on isotherms
 )
-PH_FLASH_DATA_PATH: str = "data/flash_ph_.csv"  # storing p-h results from porepy
+PH_FLASH_DATA_PATH: str = "data/flash_ph.csv"  # storing p-h results from porepy
 FIG_PATH: str = "figs/"  # path to folder containing plots
 
 NUM_COMP: int = len(SPECIES)  # number of components
@@ -67,10 +74,11 @@ PHASES: list[str] = ["G"] + [f"L{i}" for i in range(1, NUM_COMP + 1)]
 # headers in result files
 success_HEADER: str = "success"
 num_iter_HEADER: str = "num-iter"
+conditioning_HEADER: str = "condition-number"
 phases_HEADER: str = "phase-split"
 p_HEADER: str = "p [Pa]"
 T_HEADER: str = "T [K]"
-h_HEADER: str = "h [kJ/mol]"
+h_HEADER: str = "h [J/mol]"
 gas_frac_HEADER: str = "y"
 liq_frac_HEADER: list[str] = [f"y_L{j}" for j in range(1, NUM_COMP + 1)]
 compressibility_HEADER: dict[str, str] = dict([(f"{j}", f"Z_{j}") for j in PHASES])
@@ -263,6 +271,7 @@ def _init_empty_results() -> dict[str, list]:
     results: dict[str, list] = {
         success_HEADER: list(),
         num_iter_HEADER: list(),
+        conditioning_HEADER: list(),
         p_HEADER: list(),
         T_HEADER: list(),
         h_HEADER: list(),
@@ -488,7 +497,7 @@ def calculate_thermo_pT_data() -> dict[str, list]:
                 assert state.P == P, "Thermo p-T result has different pressure."
                 assert state.T == T, "Thermo p-T result has different temperature."
                 # in the p-T flash, we use the thermo enthalpy also as target enthalpy
-                parsed[h_HEADER] = state.H() / pp.composite.ENERGY_SCALE
+                parsed[h_HEADER] = state.H()
             finally:
                 parsed[p_HEADER] = P
                 parsed[T_HEADER] = T
@@ -529,6 +538,7 @@ def _array_headers() -> list[str]:
         success_HEADER,
         # phases_HEADER,
         num_iter_HEADER,
+        conditioning_HEADER,
         p_HEADER,
         T_HEADER,
         h_HEADER,
@@ -586,8 +596,8 @@ def _create_shared_arrays(size: int) -> list[tuple[Array, Any]]:
     # is_supercrit = _uint_array()
     # shared_arrays.append((is_supercrit, INT_PRECISION))
     # array storing the condition number of the array at the beginning (initial guess)
-    # cond_start = _double_array()
-    # shared_arrays.append((cond_start, FLOAT_PRECISION))
+    cond_start = _double_array()
+    shared_arrays.append((cond_start, FLOAT_PRECISION))
     # array showing the condition number at converged state
     # cond_end = _double_array()
     # shared_arrays.append((cond_end, FLOAT_PRECISION))
@@ -675,7 +685,7 @@ def create_mixture(
     flash.armijo_parameters["j_max"] = 50
     flash.armijo_parameters["return_max"] = True
     flash.newton_update_chop = 1.0
-    flash.tolerance = 1e-8
+    flash.tolerance = 1e-6
     flash.max_iter = 120
 
     return mix, flash
@@ -730,7 +740,7 @@ def _parallel_pT_flash(ipT):
 
     """
 
-    i, p, T = ipT
+    i, p, T, quickshot = ipT
 
     # accessing shared memory
     global arrays_loc, progress_queue_loc
@@ -739,7 +749,7 @@ def _parallel_pT_flash(ipT):
         # split_arr,
         num_iter_arr,
         # is_supercrit_arr,
-        # cond_start_arr,
+        cond_arr,
         # cond_end_arr,
         p_arr,
         T_arr,
@@ -759,7 +769,7 @@ def _parallel_pT_flash(ipT):
 
     mix, flash = create_mixture(1)
 
-    p_vec = np.array([p], dtype=np.double) / pp.composite.PRESSURE_SCALE
+    p_vec = np.array([p], dtype=np.double)
     T_vec = np.array([T])
     feed = [np.ones(1) * z for z in FEED]
 
@@ -771,6 +781,8 @@ def _parallel_pT_flash(ipT):
             state={"p": p_vec, "T": T_vec},
             feed=feed,
             eos_kwargs={"apply_smoother": True},
+            quickshot=quickshot,
+            return_system=True,
         )
     except Exception as err:  # if Flasher fails, flag as failed
         logger.warn(f"\nParallel p-T flash crashed at {ipT}\n{str(err)}\n")
@@ -785,7 +797,7 @@ def _parallel_pT_flash(ipT):
         x_co2_G_arr[i] = NAN_ENTRY
 
         num_iter_arr[i] = NAN_ENTRY
-        # cond_start_arr[i] = NAN_ENTRY
+        cond_arr[i] = NAN_ENTRY
         # cond_end_arr[i] = NAN_ENTRY
 
         Z_L_arr[i] = NAN_ENTRY
@@ -796,7 +808,9 @@ def _parallel_pT_flash(ipT):
         phi_co2_G_arr[i] = NAN_ENTRY
         h_arr[i] = NAN_ENTRY
     else:
-        if success_ == 0:
+        cond_arr[i] = np.linalg.cond(state(with_derivatives=True).jac.todense())
+        state = state.export_state()
+        if success_ in [0, 3]:
             success_arr[i] = 1
             props = mix.compute_properties(state.p, state.T, state.X, store=False)
             Z_L_arr[i] = props[0].Z[0]
@@ -828,7 +842,10 @@ def _parallel_pT_flash(ipT):
         x_co2_L_arr[i] = state.X[0][1][0]
         x_co2_G_arr[i] = state.X[1][1][0]
 
-        num_iter_arr[i] = flash.history[-1]["iterations"]
+        if quickshot:
+            num_iter_arr[i] = 0
+        else:
+            num_iter_arr[i] = flash.history[-1]["iterations"]
 
     progress_queue_loc.put(i, block=False)
 
@@ -856,7 +873,7 @@ def _parallel_ph_flash(iph):
         # split_arr,
         num_iter_arr,
         # is_supercrit_arr,
-        # cond_start_arr,
+        cond_arr,
         # cond_end_arr,
         p_arr,
         T_arr,
@@ -876,7 +893,7 @@ def _parallel_ph_flash(iph):
 
     mix, flash = create_mixture(1)
 
-    p_vec = np.array([p], dtype=np.double) / pp.composite.PRESSURE_SCALE
+    p_vec = np.array([p], dtype=np.double)
     h_vec = np.array([h])
     feed = [np.ones(1) * z for z in FEED]
 
@@ -950,9 +967,13 @@ def _parallel_ph_flash(iph):
     progress_queue_loc.put(i, block=False)
 
 
-def calculate_porepy_pT_data(p_points: list[float], T_points: list[float]) -> dict:
+def calculate_porepy_pT_data(
+    p_points: list[float], T_points: list[float], quickshot: bool = False
+) -> dict:
     """Performs the PorePy flash for given pressure-temperature points and
-    returns a result structure similar to that of the thermo computation."""
+    returns a result structure similar to that of the thermo computation.
+
+    If ``quickshot`` is True, returns the results from the initial guess."""
 
     results = _init_empty_results()
     nf = len(p_points)
@@ -965,7 +986,7 @@ def calculate_porepy_pT_data(p_points: list[float], T_points: list[float]) -> di
 
         for f, pT in enumerate(zip(p_points, T_points)):
             p, T = pT
-            p_ = v * p / pp.composite.PRESSURE_SCALE  # scale to MPa
+            p_ = v * p
             T_ = v * T
 
             try:
@@ -973,15 +994,23 @@ def calculate_porepy_pT_data(p_points: list[float], T_points: list[float]) -> di
                     state={"p": p_, "T": T_},
                     feed=feed,
                     eos_kwargs={"apply_smoother": True},
+                    quickshot=quickshot,
+                    return_system=True,
                 )
             except:
                 logger.warn(f"\nPorePy p-T-flash crashed for p,T = ({p}, {T})\n")
                 res = _failed_entry()
             else:
+                cn = np.linalg.cond(state(with_derivatives=True).jac.todense())
+                state = state.export_state()
                 res = _porepy_parse_state(state)
 
-                res[num_iter_HEADER] = int(flash.history[-1]["iterations"])
-                if success != 0:
+                if quickshot:
+                    res[num_iter_HEADER] = 0
+                else:
+                    res[num_iter_HEADER] = int(flash.history[-1]["iterations"])
+                res[conditioning_HEADER] = cn
+                if success not in [0, 3]:
                     logger.warn(
                         f"\nPorePy p-T-flash failed to converge for p,T = ({p}, {T})\n"
                     )
@@ -1015,7 +1044,9 @@ def calculate_porepy_pT_data(p_points: list[float], T_points: list[float]) -> di
         pass
     elif CALCULATION_MODE == 3:  # parallelized flash
 
-        ipx = [(i, p, x) for i, p, x in zip(np.arange(nf), p_points, T_points)]
+        ipx = [
+            (i, p, x, quickshot) for i, p, x in zip(np.arange(nf), p_points, T_points)
+        ]
         shared_arrays = _create_shared_arrays(nf)
         logger.info("Parallel p-T flash: starting ..")
         start_time = time.time()
@@ -1098,7 +1129,7 @@ def calculate_porepy_isotherm_data():
 
         for f, pT in enumerate(zip(p_points, T_points)):
             p, T = pT
-            p_ = v * p / pp.composite.PRESSURE_SCALE  # scale to MPa
+            p_ = v * p
             T_ = v * T
 
             try:
@@ -1148,7 +1179,7 @@ def calculate_porepy_isotherm_data():
         pass
     elif CALCULATION_MODE == 3:  # parallelized flash
 
-        ipx = [(i, p, x) for i, p, x in zip(np.arange(nf), p_points, T_points)]
+        ipx = [(i, p, x, False) for i, p, x in zip(np.arange(nf), p_points, T_points)]
         shared_arrays = _create_shared_arrays(nf)
         logger.info("Parallel p-T flash: starting ..")
         start_time = time.time()
@@ -1217,7 +1248,7 @@ def calculate_porepy_ph_data(p_points: list[float], h_points: list[float]) -> di
 
         for f, ph in enumerate(zip(p_points, h_points)):
             p, h = ph
-            p_ = v * p / pp.composite.PRESSURE_SCALE  # scale to MPa
+            p_ = v * p
             h_ = v * h
 
             # if the p-T- flash yielding h failed, h is none
@@ -1330,9 +1361,14 @@ def plot_crit_point_pT(axis: plt.Axes):
 
     S = pp.composite.load_fluid_species(SPECIES)
 
-    img = [axis.plot(s.T_crit, s.p_crit, "*", markersize=7, color="gold")[0] for s in S]
+    img = [
+        axis.plot(
+            s.T_crit, s.p_crit * PRESSURE_SCALE, "*", markersize=7, color="fuchsia"
+        )[0]
+        for s in S[:1]
+    ]
 
-    return img, [f"Crit. point {s.name}" for s in S]
+    return img, [f"Crit. point {s.name}" for s in S[:1]]
 
 
 def plot_phase_split_pT(
@@ -1343,23 +1379,19 @@ def plot_phase_split_pT(
 ) -> figure.Figure:
     """Plots a phase split figure across a range of pressure and temperature values."""
 
-    # scaling to MPa
-    p_ = p / pp.composite.PRESSURE_SCALE
-
     cmap = mpl.colors.ListedColormap(
         ["firebrick", "royalblue", "mediumturquoise", "forestgreen"]
     )
     img = axis.pcolormesh(
         T,
-        p_,
+        p * PRESSURE_SCALE,
         split,
         cmap=cmap,
         vmin=0,
         vmax=3,
         shading="nearest",  # gouraud
     )
-    # axis.set_xlabel('T [K]')
-    # axis.set_ylabel('p [MPa]')
+
     return img
 
 
@@ -1371,14 +1403,14 @@ def plot_abs_error_pT(
     norm=None,
 ) -> figure.Figure:
     """Plots the absolute error in grey scales."""
-    # scaling to MPa
-    p_ = p / pp.composite.PRESSURE_SCALE
 
     if norm:
         kwargs = {"norm": norm}
     else:
         kwargs = {"vmin": error.min(), "vmax": error.max()}
 
-    img = axis.pcolormesh(T, p_, error, cmap="Greys", shading="nearest", **kwargs)
+    img = axis.pcolormesh(
+        T, p * PRESSURE_SCALE, error, cmap="Greys", shading="nearest", **kwargs
+    )
 
     return img

@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import chemicals
 
-from ._core import MASS_SCALE, PRESSURE_SCALE, VOLUME_SCALE
 from .chem_species import FluidSpeciesData
 
 __all__ = ["load_fluid_species"]
@@ -61,10 +60,10 @@ def load_fluid_species(
             cas = str(chemicals.CAS_from_any(name))
 
             # extracting data
-            mw = float(chemicals.MW(cas)) / MASS_SCALE  # molas mass in g / mol
-            pc = float(chemicals.Pc(cas)) / PRESSURE_SCALE  # critical pressure in Pa
+            mw = float(chemicals.MW(cas)) * 1e-3  # molas mass in kg / mol
+            pc = float(chemicals.Pc(cas))  # critical pressure in Pa
             Tc = float(chemicals.Tc(cas))  # critical temperature in K
-            vc = float(chemicals.Vc(cas)) / VOLUME_SCALE  # critical volume in m^3 / mol
+            vc = float(chemicals.Vc(cas))  # critical volume in m^3 / mol
             omega = float(chemicals.acentric.omega(cas))  # acentric factor
         else:
             raise NotImplementedError(f"Unsupported package `{package}`.")
