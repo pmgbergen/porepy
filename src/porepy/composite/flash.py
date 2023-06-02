@@ -1087,14 +1087,14 @@ class FlashNR:
                 # Alternating guess for fractions and temperature
                 # successive-substitution-like
                 res_is_zeros = False
-                for _ in range(3):
+                for _ in range(15):
                     # iterate over the enthalpy constraint some times to update T
                     thd_state, res_is_zeros = self._guess_temperature(
                         thd_state, num_vals, 3, use_pseudocritical=False
                     )
                     # Update fractions using the updated T
                     thd_state = self._guess_fractions(
-                        thd_state, num_vals, num_iter=2, guess_K_values=True
+                        thd_state, num_vals, num_iter=1, guess_K_values=False
                     )
                     # Do so multiple times in a loop, break if res for h constraint
                     # reached.
@@ -1166,6 +1166,8 @@ class FlashNR:
                 return 3, flash_system.export_state()
 
         # Perform Newton iterations with above F(x)
+        if verbosity >= 2:
+            logger.info(f"Initial state:\n{flash_system.export_state()}\n")
         logger.info("Starting iterations ...\n")
         success, iter_final, solution = self._newton_iterations(
             X_0=flash_system.state,
@@ -1683,7 +1685,8 @@ class FlashNR:
                 )
                 h_mix = safe_sum([y * prop.h for y, prop in zip(state.y, phase_props)])
 
-                H = state.T ** (-2) * (h_mix - state.h) / h_norm
+                # H = state.T ** (-2) * (h_mix - state.h) / h_norm
+                H = (h_mix - state.h) / h_norm
                 if np.linalg.norm(H.val) <= self.tolerance:
                     res_is_zero = True
                     break
@@ -1696,22 +1699,22 @@ class FlashNR:
                     dT *= 1 - np.abs(dT) / state.T.val
 
                     # get update based on approximate changes in internal energy
-                    s = FlashSystemNR.evaluate_saturations(
-                        [y.val for y in state.y], [prop.rho.val for prop in phase_props]
-                    )
-                    rho = self.mixture.evaluate_weighed_sum(
-                        [prop.rho for prop in phase_props], s
-                    )
-                    v = rho ** (-1)
-                    pw = v * state.p
-                    u_target = (pw - state.h) * (-1)  # avoid numpy overload
-                    u_is = h_mix - pw
+                    # s = FlashSystemNR.evaluate_saturations(
+                    #     [y.val for y in state.y], [prop.rho.val for prop in phase_props]
+                    # )
+                    # rho = self.mixture.evaluate_weighed_sum(
+                    #     [prop.rho for prop in phase_props], s
+                    # )
+                    # v = rho ** (-1)
+                    # pw = v * state.p
+                    # u_target = (pw - state.h) * (-1)  # avoid numpy overload
+                    # u_is = h_mix - pw
 
-                    dT = (u_target.val - u_is.val) / u_is.jac[:, :nc].diagonal()
-                    # to avoid an overshoot, scale down if necessary
-                    check = np.abs(dT) > state.T.val
-                    dT[check] = (0.1 * state.T.val * np.sign(dT))[check]
-                    dT *= 1 - np.abs(dT) / state.T.val
+                    # dT = (u_target.val - u_is.val) / u_is.jac[:, :nc].diagonal()
+                    # # to avoid an overshoot, scale down if necessary
+                    # check = np.abs(dT) > state.T.val
+                    # dT[check] = (0.1 * state.T.val * np.sign(dT))[check]
+                    # dT *= 1 - np.abs(dT) / state.T.val
                     state.T.val = state.T.val + dT
 
         return state, res_is_zero
