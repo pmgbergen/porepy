@@ -819,7 +819,7 @@ class MixedDimensionalGrid:
         """
         # Access protected attribute instead of subdomains() to avoid sorting, which can
         # lead to a recursion error.
-        return max([sd.dim for sd in self._subdomain_data.keys()], default=0)
+        return max([sd.dim for sd in self._subdomain_data.keys()])
 
     def num_subdomain_cells(
         self, cond: Optional[Callable[[pp.Grid], bool]] = None
