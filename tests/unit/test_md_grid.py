@@ -41,12 +41,6 @@ class MockGrid(pp.CartGrid):
         return self.box
 
 
-class MockMortarGrid:
-    def __init__(self, dim, side_grids):
-        self.dim = dim
-        self.side_grids = side_grids
-
-
 def mock_mortar_grid(sd_primary: pp.Grid, sd_secondary: pp.Grid) -> pp.MortarGrid:
     """Construct mock mortar grid.
 
@@ -76,7 +70,6 @@ def mock_mortar_grid(sd_primary: pp.Grid, sd_secondary: pp.Grid) -> pp.MortarGri
     )  # (([1], ([0], [0])), shape=(shape_0, sd_secondary.num_cells))
     mg = pp.MortarGrid(sd_secondary.dim, {"left": sd_secondary}, primary_secondary=map)
     return mg
-    # return MockMortarGrid(sd_secondary.dim, {"left": sd_primary, "right": sd_secondary})
 
 
 class TestMixedDimensionalGrid(unittest.TestCase):
@@ -88,11 +81,23 @@ class TestMixedDimensionalGrid(unittest.TestCase):
         return mdg
 
     # ----- Tests of adding nodes and edges ----- #
-    def test_add_subdomains(self):
+    def test_add_remove_subdomains(self):
         # Simply add grid. Should work.
         mdg = pp.MixedDimensionalGrid()
         mdg.add_subdomains(MockGrid())
         mdg.add_subdomains(MockGrid())
+
+        # Check that they are stored.
+        subdomains = mdg.subdomains()
+        assert len(subdomains) == 2
+        assert len(mdg.boundaries()) == 2, "Boundary grids must be created."
+
+        # Check removal.
+        for sd in subdomains:
+            mdg.remove_subdomain(sd)
+
+        assert len(mdg.subdomains()) == 0
+        assert len(mdg.boundaries()) == 0
 
     def test_add_subdomains_same_grid_twice(self):
         # Add the same grid twice. Should raise an exception
@@ -279,8 +284,28 @@ class TestMixedDimensionalGrid(unittest.TestCase):
         self.assertTrue(sd_pair_43[0] == sd_4)  # First because of dimension
         self.assertTrue(sd_pair_43[1] == sd_3)
 
+    def test_subdomain_to_boundary_grid(self) -> None:
+        """Test the method `subdomain_to_boundary_grid`. Also test restoring
+        a subdomain from its boundary grid.
+
+        """
+        _, _, _, mdg, sd_1d_0, sd_1d_1, sd_2d, sd_3d = self.mdg_dims_3211()
+
+        # First, check the mapping for the present subdomains and boundaries.
+        bg = mdg.subdomain_to_boundary_grid(sd_3d)
+        assert bg is not None
+        assert bg.dim == 2, "Subdomain is 3D, boundary must be 2D."
+
+        result_sd = bg.parent
+        assert result_sd is sd_3d, "Must be the same object."
+
+        # Next, check the grids which are not present in the mdg.
+        unwanted_sd = MockGrid(3)
+        bg_or_none = mdg.subdomain_to_boundary_grid(unwanted_sd)
+        assert bg_or_none is None
+
     # ------ Test of iterators ------*
-    def test_subdomain_and_interface_iterators(self):
+    def test_subdomain_interface_boundary_iterators(self):
         mdg = pp.MixedDimensionalGrid()
         sd_1 = MockGrid(1)
         sd_2 = MockGrid(2)
@@ -293,33 +318,95 @@ class TestMixedDimensionalGrid(unittest.TestCase):
         mdg.add_interface(intf_12, [sd_1, sd_2], None)
         mdg.add_interface(intf_32, [sd_2, sd_3], None)
 
-        # First test traversal by gb.__iter__
+        # First, use the subdomains() function
         found = {sd_1: False, sd_2: False, sd_3: False}
         for sd in mdg.subdomains():
             found[sd] = True
-        self.assertTrue(all([v for v in list(found.values())]))
+        assert all(found.values())
 
-        # Next, use the subdomains() function
-        found = {sd_1: False, sd_2: False, sd_3: False}
-        for sd in mdg.subdomains():
-            found[sd] = True
-        self.assertTrue(all([v for v in list(found.values())]))
-
-        # Finally, check the interfaces
+        # Next, check the interfaces
         found = {intf_12: False, intf_32: False}
         for intf in mdg.interfaces():
             found[intf] = True
-        self.assertTrue(all([v for v in list(found.values())]))
+        assert all(found.values())
+
+        # Finally, check the boundaries
+        parent_grids_found = {sd_1: False, sd_2: False, sd_3: False}
+        for bg in mdg.boundaries():
+            parent_sd = bg.parent
+            parent_grids_found[parent_sd] = True
+        assert all(parent_grids_found.values())
+
+    def test_iterators_dim_keyword(self):
+        """Check that the iterators `subdomains`, `interfaces` and `boundaries`
+        return only the grids of the right dimension when the argument `dim` is
+        provided.
+
+        """
+        mdg = pp.MixedDimensionalGrid()
+        sd_1 = MockGrid(1)
+        sd_2 = MockGrid(2)
+        sd_3 = MockGrid(3)
+        sd_4 = MockGrid(2)
+        for sd in [sd_1, sd_2, sd_3, sd_4]:
+            mdg.add_subdomains(sd)
+
+        intf_12 = mock_mortar_grid(sd_2, sd_1)
+        intf_32 = mock_mortar_grid(sd_3, sd_2)
+        mdg.add_interface(intf_12, [sd_1, sd_2], None)
+        mdg.add_interface(intf_32, [sd_2, sd_3], None)
+
+        # First, use the subdomains(dim=2) function
+        found = {sd_2: False, sd_4: False}
+        for sd in mdg.subdomains(dim=2):
+            found[sd] = True
+        assert all(found.values())
+
+        # Next, use the interfaces(dim=2) function
+        found = {intf_32: False}
+        for intf in mdg.interfaces(dim=2):
+            found[intf] = True
+        assert all(found.values())
+
+        # Finally, use the boundaries(dim=1) function
+        found_parent_grid = {sd_2: False, sd_4: False}
+        for bg in mdg.boundaries(dim=1):
+            parent_sd = bg.parent
+            found_parent_grid[parent_sd] = True
+
+        assert all(found_parent_grid.values())
+
+    def test_data_getters(self) -> None:
+        """Check methods `boundary_grid_data`, `interface_data` and `subdomain_data."""
+        _, _, _, mdg, _, _, _, _ = self.mdg_dims_3211()
+
+        # First, check subdomains.
+        for sd, data_from_iterator in mdg.subdomains(return_data=True):
+            data_from_getter = mdg.subdomain_data(sd)
+            assert isinstance(data_from_iterator, dict), "Must be initialized."
+            assert data_from_iterator is data_from_getter, "Must be the same object."
+
+        # Next, check interfaces.
+        for intf, data_from_iterator in mdg.interfaces(return_data=True):
+            data_from_getter = mdg.interface_data(intf)
+            assert isinstance(data_from_iterator, dict), "Must be initialized."
+            assert data_from_iterator is data_from_getter, "Must be the same object."
+
+        # Finally, check boundaries.
+        for bg, data_from_iterator in mdg.boundaries(return_data=True):
+            data_from_getter = mdg.boundary_grid_data(bg)
+            assert isinstance(data_from_iterator, dict), "Must be initialized."
+            assert data_from_iterator is data_from_getter, "Must be the same object."
 
     def test_contains_subdomain(self):
         mdg = self.simple_mdg(1)
 
         for sd in mdg.subdomains():
-            self.assertTrue(sd in mdg.subdomains())
+            assert sd in mdg
 
         # Define a grid that is not in the mdg
         sd = MockGrid()
-        self.assertTrue(not sd in mdg.subdomains())
+        assert sd not in mdg
 
     def test_contains_interface(self):
         mdg = pp.MixedDimensionalGrid()
@@ -333,10 +420,19 @@ class TestMixedDimensionalGrid(unittest.TestCase):
         mdg.add_interface(intf_12, [sd_1, sd_2], None)
 
         # This edge is defined
-        self.assertTrue(intf_12 in mdg.interfaces())
+        assert intf_12 in mdg
         # this is not
         intf_31 = mock_mortar_grid(sd_3, sd_1)
-        self.assertFalse(intf_31 in mdg.interfaces())
+        assert intf_31 not in mdg
+
+    def test_contains_boundary_grid(self) -> None:
+        mdg = self.simple_mdg(2)
+        for bg in mdg.boundaries():
+            assert bg in mdg
+
+        # Creating new boundary outside mdg.
+        bg = pp.BoundaryGrid(mdg.subdomains()[0])
+        assert bg not in mdg
 
     def test_diameter(self):
         sd_1 = MockGrid(1, 2)
@@ -364,7 +460,6 @@ class TestMixedDimensionalGrid(unittest.TestCase):
         self.assertTrue(np.allclose(bmax, sd_2.nodes.max(axis=1)))
 
     def test_num_cells(self):
-
         sd_1 = MockGrid(dim=1, num_cells=1, num_faces=3, num_nodes=3)
         sd_2 = MockGrid(dim=2, num_cells=3, num_faces=7, num_nodes=3)
         mdg = pp.MixedDimensionalGrid()
@@ -391,15 +486,12 @@ class TestMixedDimensionalGrid(unittest.TestCase):
         self.assertTrue(mdg.num_subdomains() == 3)
 
     def test_str_repr(self):
-
         sd_1 = MockGrid(dim=1, num_cells=1, num_faces=3, num_nodes=3)
         sd_2 = MockGrid(dim=2, num_cells=3, num_faces=7, num_nodes=3)
         mdg = pp.MixedDimensionalGrid()
         mdg.add_subdomains([sd_1, sd_2])
         mdg.__str__()
         mdg.__repr__()
-
-    # ------------ Tests for removers
 
 
 def test_pickle_md_grid():
