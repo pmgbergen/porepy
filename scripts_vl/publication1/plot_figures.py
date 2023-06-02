@@ -123,6 +123,10 @@ if __name__ == "__main__":
     eos_l = pp.composite.peng_robinson.PengRobinsonEoS(False)
     eos_g = pp.composite.peng_robinson.PengRobinsonEoS(True)
     species = pp.composite.load_fluid_species(SPECIES)
+    if DEBUG:
+        logger.info("\nCritical values:\n")
+        for spec in species:
+            logger.info(f"{spec.name}: T_crit = {spec.T_crit} , p_crit = {spec.p_crit}\n")
     comps = [
         pp.composite.peng_robinson.H2O.from_species(species[0]),
         pp.composite.peng_robinson.CO2.from_species(species[1]),

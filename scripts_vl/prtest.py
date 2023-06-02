@@ -4,9 +4,9 @@ import porepy as pp
 chems = ["H2O", "CO2"]
 
 z = [np.array([0.01])]  # only co2 fraction is enough
-p = np.array([40000000.0]) 
-T = np.array([700.])
-h = np.array([-12766.389444826201])
+p = np.array([6500000.0]) 
+T = np.array([550.])
+h = np.array([-14529.693477083738])
 verbosity = 1
 
 species = pp.composite.load_fluid_species(chems)
@@ -33,17 +33,25 @@ mix.set_up()
 flash = pp.composite.FlashNR(mix)
 flash.use_armijo = True
 flash.armijo_parameters["rho"] = 0.99
-flash.armijo_parameters["j_max"] = 20
+flash.armijo_parameters["j_max"] = 50
 flash.armijo_parameters["return_max"] = True
 flash.newton_update_chop = 1.0
 flash.tolerance = 1e-6
 flash.max_iter = 120
 
-# success, results_ph = flash.flash(
-#     state={'p': p, 'h': h}, eos_kwargs={'apply_smoother': True},
-#     feed = z,
-#     verbosity=verbosity,
-# )
+success, results_pT = flash.flash(
+    state={'p': p, 'T': T}, eos_kwargs={'apply_smoother': True},
+    feed = z,
+    verbosity=verbosity,
+)
+print(results_pT)
+
+success, results_ph = flash.flash(
+    state={'p': p, 'h': h}, eos_kwargs={'apply_smoother': True},
+    feed = z,
+    verbosity=verbosity,
+)
+print(results_ph)
 
 # p-T flash
 success, results_pT = flash.flash(

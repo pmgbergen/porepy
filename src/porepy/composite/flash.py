@@ -1087,10 +1087,10 @@ class FlashNR:
                 # Alternating guess for fractions and temperature
                 # successive-substitution-like
                 res_is_zeros = False
-                for _ in range(5):
+                for _ in range(3):
                     # iterate over the enthalpy constraint some times to update T
                     thd_state, res_is_zeros = self._guess_temperature(
-                        thd_state, num_vals, 5, use_pseudocritical=False
+                        thd_state, num_vals, 3, use_pseudocritical=False
                     )
                     # Update fractions using the updated T
                     thd_state = self._guess_fractions(
@@ -1098,8 +1098,8 @@ class FlashNR:
                     )
                     # Do so multiple times in a loop, break if res for h constraint
                     # reached.
-                    if res_is_zeros:
-                        break
+                    # if res_is_zeros:
+                    #     break
 
         elif flash_type == "h-v":
 
@@ -1690,7 +1690,10 @@ class FlashNR:
                 else:
                     # get only the derivative w.r.t to temperature and solve
                     # derivative w.r.t temperature is diagonal since it is local
-                    dT = -H.val / H.jac[:, :num_vals].diagonal() * 2e-1
+                    dT = -H.val / H.jac[:, :num_vals].diagonal()
+                    check = np.abs(dT) > state.T.val
+                    dT[check] = (0.1 * state.T.val * np.sign(dT))[check]
+                    dT *= 1 - np.abs(dT) / state.T.val
 
                     # get update based on approximate changes in internal energy
                     s = FlashSystemNR.evaluate_saturations(
@@ -1704,16 +1707,8 @@ class FlashNR:
                     u_target = (pw - state.h) * (-1)  # avoid numpy overload
                     u_is = h_mix - pw
 
-                    # Correct descend direction assuming T has to increase if current
-                    # internal energy is below target (and vice versa)
-                    corrector = np.logical_or(
-                        np.logical_and(u_is > u_target, dT > 0),
-                        np.logical_and(u_is < u_target, dT < 0),
-                    )
-                    dT[corrector] *= -1
-                    dT *= 1 - np.abs(dT) / state.T.val
-
                     dT = (u_target.val - u_is.val) / u_is.jac[:, :nc].diagonal()
+                    # to avoid an overshoot, scale down if necessary
                     check = np.abs(dT) > state.T.val
                     dT[check] = (0.1 * state.T.val * np.sign(dT))[check]
                     dT *= 1 - np.abs(dT) / state.T.val
