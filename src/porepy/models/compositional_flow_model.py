@@ -100,6 +100,13 @@ class CompositionalFlowModel:
         self.permeability = 0.03
         """Base permeability of model domain."""
 
+        self.pressure_scale: float = 1e6
+        """Multiplicative factor to convert the pressure from the flow scale to
+        the thermodynamic scale (Pa)."""
+        self.energy_scale: float = 1e3
+        """Multiplicative factor to convert the enthalpy from the flow scale to the
+        thermodynamic scale (J / mol)."""
+
         ## Initial Conditions
         self.initial_pressure: float = 1.0
         """Initial pressure in the domain in MPa."""
@@ -223,10 +230,10 @@ class CompositionalFlowModel:
         """Assigns a cartesian grid as computational domain.
         Overwrites/sets the instance variables 'mdg'.
         """
-        refinement = 2
+        refinement = 10
         phys_dims = [3, 2]
-        # n_cells = [4, 2]
         n_cells = [i * refinement for i in phys_dims]
+        # n_cells = [2, 1]
         bounding_box_points = np.array([[0, phys_dims[0]], [0, phys_dims[1]]])
         self.box = pp.geometry.domain.bounding_box_of_point_cloud(bounding_box_points)
         sg = pp.CartGrid(n_cells, phys_dims)
@@ -311,11 +318,11 @@ class CompositionalFlowModel:
         self.flash.armijo_parameters["j_max"] = 50
         self.flash.armijo_parameters["return_max"] = True
         self.flash.newton_update_chop = 1.0
-        self.flash.tolerance = 1e-8
-        self.flash.max_iter = 140
+        self.flash.tolerance = 1e-4
+        self.flash.max_iter = 120
         _, initial_state = self.flash.flash(
             state={
-                "p": vec * self.initial_pressure,
+                "p": vec * self.initial_pressure * self.pressure_scale,
                 "T": vec * self.initial_temperature,
             },
             feed=[comps[1].fraction],
@@ -323,7 +330,7 @@ class CompositionalFlowModel:
         )
 
         ## configuration at boundary
-        p = np.ones(1) * self.inflow_boundary_pressure
+        p = np.ones(1) * self.inflow_boundary_pressure * self.pressure_scale
         T = np.ones(1) * self.inflow_boundary_temperature
         feed = [np.ones(1) * self.inflow_boundary_feed[i] for i in range(len(comps))]
         logger.info("Computing inflow boundary equilibrium ...\n")
@@ -333,7 +340,7 @@ class CompositionalFlowModel:
             verbosity=self._verbosity,
         )
         rho = boundary_state.rho[0]
-        self.inflow_boundary_advective_weight_energy = rho * boundary_state.h[0]
+        self.inflow_boundary_advective_weight_energy = rho * boundary_state.h[0] / self.energy_scale
         self.inflow_boundary_advective_weight_pressure = rho
 
         phase_densities = []
@@ -356,7 +363,7 @@ class CompositionalFlowModel:
 
         ## Configuration at injection
         if self.injection_pressure and self.injection_temperature:
-            p = np.ones(1) * self.injection_pressure
+            p = np.ones(1) * self.injection_pressure * self.pressure_scale
             T = np.ones(1) * self.injection_temperature
             feed = [np.ones(1) * self.injection_feed[i] for i in range(len(comps))]
             logger.info("Computing injection equilibrium ...\n")
@@ -365,7 +372,7 @@ class CompositionalFlowModel:
                 feed=feed,
                 verbosity=self._verbosity,
             )
-            self.injected_ext_enthalpy = (injection_state.rho * injection_state.h)[0]
+            self.injected_ext_enthalpy = (injection_state.rho * injection_state.h)[0] / self.energy_scale
         else:
             self.injected_ext_enthalpy = 0.0
 
@@ -410,7 +417,7 @@ class CompositionalFlowModel:
         initial_state = self.create_mixture()
         # setting initial enthalpy values after equilibrium as been computed
         self.ad_system.set_variable_values(
-            initial_state.h,
+            initial_state.h / self.energy_scale,
             variables=[self.h.name],
             iterate_index=0,
             time_step_index=0,
@@ -466,7 +473,7 @@ class CompositionalFlowModel:
                 sec_eq.append(equ.name)
                 self.ad_system.set_equation(equ, subdomains, {"cells": 1})
         name = "enthalpy-constraint"
-        equ = self.h - self.fluid.enthalpy
+        equ = (self.h - self.fluid.enthalpy / self.energy_scale) / self.h / self.T**2
         equ.set_name(name)
         self.ad_system.set_equation(equ, subdomains, {"cells": 1})
         self.system_names["secondary-equations"] = [name] + sec_eq
@@ -811,12 +818,12 @@ class CompositionalFlowModel:
             f"\n.. Newton iteration {self._nonlinear_iteration}:"
             + " Starting isenthalpic flash .."
         )
-        p = self.ad_system.get_variable_values([self.p.name], iterate_index=0)
-        h = self.ad_system.get_variable_values([self.h.name], iterate_index=0)
+        p = self.ad_system.get_variable_values([self.p.name], iterate_index=0) * self.pressure_scale
+        h = self.ad_system.get_variable_values([self.h.name], iterate_index=0) * self.energy_scale
         T = self.ad_system.get_variable_values([self.T.name], iterate_index=0)
         iterate_state = self.fluid.get_fractional_state_from_vector()
         iterate_state.T = T
-        self.flash.tolerance = 1e-5
+        self.flash.tolerance = 5e-6
         success, state = self.flash.flash(
             state={"p": p, "h": h},
             eos_kwargs={"apply_smoother": True},
@@ -859,7 +866,7 @@ class CompositionalFlowModel:
                 self._system_vars, iterate_index=0
             )
             self.fluid.compute_properties_from_vector(
-                self.p,
+                self.p * self.pressure_scale,
                 self.T,
                 state=state_vector,
                 as_ad=True,
@@ -988,15 +995,7 @@ class CompositionalFlowModel:
             self.system_names["secondary-variables"],
         )
 
-        inv_A_ss = np.linalg.inv(A_ss.A)
-        inv_A_ss = sps.csr_matrix(inv_A_ss)
-
-        A = A_pp - A_ps * inv_A_ss * A_sp
-        A = sps.csr_matrix(A)
-        b = b_p - A_ps * inv_A_ss * b_s
-        self._schur_expansion = (inv_A_ss, b_s, A_sp)
-
-        res = np.linalg.norm(b)
+        res = np.linalg.norm(np.hstack([b_p, b_s]))
         logger.info(
             f"{del_log}.. Newton iteration {self._nonlinear_iteration}: res = {res}"
         )
@@ -1009,6 +1008,14 @@ class CompositionalFlowModel:
                 variables=self._system_vars, iterate_index=0
             )
             return x
+
+        inv_A_ss = np.linalg.inv(A_ss.A)
+        inv_A_ss = sps.csr_matrix(inv_A_ss)
+
+        A = A_pp - A_ps * inv_A_ss * A_sp
+        A = sps.csr_matrix(A)
+        b = b_p - A_ps * inv_A_ss * b_s
+        self._schur_expansion = (inv_A_ss, b_s, A_sp)
 
         # dx = sps.linalg.spsolve(A, b)
         dx = pypardiso.spsolve(A, b)
@@ -1125,7 +1132,7 @@ class CompositionalFlowModel:
 
         ### ADVECTION
         advective_weight = [
-            phase.enthalpy * self.phase_mobility(phase) for phase in self.fluid.phases
+            phase.enthalpy / self.energy_scale * self.phase_mobility(phase) for phase in self.fluid.phases
         ]
         # sum over all phases
         advective_weight = pp.ad.sum_operator_list(

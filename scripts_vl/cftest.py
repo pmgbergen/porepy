@@ -15,7 +15,7 @@ t = 0.0
 T = 2.2
 dt = 0.01  # T / 1e2
 max_iter = 70
-tol = 5e-7
+tol = 5e-5
 
 model = pp.CompositionalFlowModel(params=params, verbosity=1)
 
