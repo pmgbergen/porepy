@@ -655,7 +655,7 @@ class MixedDimensionalGrid:
         for intf in self.interfaces():
             intf.compute_geometry()
 
-    def set_boundary_grid_projections(self):
+    def set_boundary_grid_projections(self) -> None:
         """Set projections to the boundary grids.
 
         This method must be called after having split the fracture faces, or else
