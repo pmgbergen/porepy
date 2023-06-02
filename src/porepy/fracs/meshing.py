@@ -82,10 +82,10 @@ def subdomains_to_mdg(
     # we are ready to create mortar grids on the interface between subdomains. These
     # will be added to the mixed-dimensional grid.
     create_interfaces(mdg, node_pairs)
-    # Add boundary grids to the MixedDimensionalGrid (this must be done after having
-    # split the fracture faces, or else the projection to the boundary grids will have
-    # the wrong dimension).
-    _add_boundary_grids(mdg)
+
+    # Set projections to the boundary grids (this must be done after having
+    # split the fracture faces, or else the projections will have the wrong dimension).
+    mdg.set_boundary_grid_projections()
 
     if time_tot is not None:
         logger.info(
@@ -534,22 +534,6 @@ def _assemble_mdg(
                 sd_pair_to_face_cell_map[(hsd, lsd)] = face_cell_map
 
     return mdg, sd_pair_to_face_cell_map
-
-
-def _add_boundary_grids(mdg: pp.MixedDimensionalGrid) -> None:
-    """Add boundary grids to a mixed-dimensional grid.
-
-    The grid is added to the dictionary
-    ``~porepy.grids.md_grid.MixedDimensionalGrid._subdomain_boundary_grids``
-
-    Parameters:
-        mdg: The mixed-dimensional grid where the boundary grids are added.
-
-    """
-    for sd in mdg.subdomains():
-        if sd.dim > 0:
-            # Generate a boundary grid for this grid
-            mdg._subdomain_boundary_grids[sd] = pp.BoundaryGrid(g=sd)
 
 
 def create_interfaces(
