@@ -431,7 +431,7 @@ class FluidDensityFromPressure:
 
     """
 
-    def fluid_compressibility(self, subdomains: list[pp.Grid]) -> pp.ad.Scalar:
+    def fluid_compressibility(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Fluid compressibility [1/Pa].
 
         Parameters:
