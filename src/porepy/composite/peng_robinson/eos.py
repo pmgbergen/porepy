@@ -13,7 +13,7 @@ import scipy.sparse as sps
 import porepy as pp
 from porepy.numerics.ad.operator_functions import NumericType
 
-from .._core import ENERGY_SCALE, PRESSURE_SCALE, R_IDEAL
+from .._core import R_IDEAL
 from ..composite_utils import safe_sum, truncexp
 from ..phase import AbstractEoS, PhaseProperties
 from .mixing import VanDerWaals
@@ -490,9 +490,10 @@ class PengRobinsonEoS(AbstractEoS):
         # volume
         v = self._v(p, T, Z)
         # departure enthalpy
-        h_dep = self._h_dep(T, Z, a, dT_a, b, B)
+        dT_A = dT_a / (R_IDEAL * T) ** 2 * p - 2 * a / (R_IDEAL**2 * T**3) * p
+        h_dep = self._h_dep(T, Z, A, dT_A, B)
         h_ideal = self.get_h_ideal(p, T, X)
-        h = (h_ideal + h_dep) / ENERGY_SCALE
+        h = h_ideal + h_dep
 
         # Fugacity extensions as per Ben Gharbia 2021
         # dxi_a = list()
@@ -704,8 +705,7 @@ class PengRobinsonEoS(AbstractEoS):
             The component-specific critical covolume.
 
         """
-        b = cls.B_CRIT * (R_IDEAL * T_crit) / p_crit
-        return b * ENERGY_SCALE / PRESSURE_SCALE
+        return cls.B_CRIT * (R_IDEAL * T_crit) / p_crit
 
     @classmethod
     def _a_crit(cls, p_crit: float, T_crit: float) -> float:
@@ -722,8 +722,7 @@ class PengRobinsonEoS(AbstractEoS):
             The component-specific critical cohesion.
 
         """
-        a = cls.A_CRIT * (R_IDEAL**2 * T_crit**2) / p_crit
-        return a * ENERGY_SCALE**2 / PRESSURE_SCALE
+        return cls.A_CRIT * (R_IDEAL**2 * T_crit**2) / p_crit
 
     @staticmethod
     def _a_cor(omega: float) -> float:
@@ -782,21 +781,17 @@ class PengRobinsonEoS(AbstractEoS):
     def _A(a: NumericType, p: NumericType, T: NumericType) -> NumericType:
         """Auxiliary method implementing formula for non-dimensional cohesion."""
         if isinstance(T, pp.ad.AdArray):
-            A = T ** (-2) * a * p / R_IDEAL**2
+            return T ** (-2) * a * p / R_IDEAL**2
         else:
-            A = a * p / (R_IDEAL**2 * T**2)
-
-        return A * PRESSURE_SCALE / ENERGY_SCALE**2
+            return a * p / (R_IDEAL**2 * T**2)
 
     @staticmethod
     def _B(b: NumericType, p: NumericType, T: NumericType) -> NumericType:
         """Auxiliary method implementing formula for non-dimensional covolume."""
         if isinstance(T, pp.ad.AdArray):
-            B = T ** (-1) * b * p / R_IDEAL
+            return T ** (-1) * b * p / R_IDEAL
         else:
-            B = b * p / (R_IDEAL * T)
-
-        return B * PRESSURE_SCALE / ENERGY_SCALE
+            return b * p / (R_IDEAL * T)
 
     # TODO
     def _kappa(self, p: NumericType, T: NumericType, Z: NumericType) -> NumericType:
@@ -829,30 +824,29 @@ class PengRobinsonEoS(AbstractEoS):
     @staticmethod
     def _rho(p: NumericType, T: NumericType, Z: NumericType) -> NumericType:
         """Auxiliary function implementing the formula for density."""
-        return Z ** (-1) * (p) / (T * R_IDEAL) * PRESSURE_SCALE / ENERGY_SCALE
+        return Z ** (-1) * p / (T * R_IDEAL)
 
     @staticmethod
     def _v(p: NumericType, T: NumericType, Z: NumericType) -> NumericType:
         """Auxiliary function implementing the formula for volume."""
-        return Z * (T * R_IDEAL) / (p) * ENERGY_SCALE / PRESSURE_SCALE
+        return Z * (T * R_IDEAL) / p
 
     @staticmethod
     def _h_dep(
         T: NumericType,
         Z: NumericType,
-        a: NumericType,
-        dT_a: NumericType,
-        b: NumericType,
+        A: NumericType,
+        dT_A: NumericType,
         B: NumericType,
     ) -> NumericType:
         """Auxiliary function for computing the enthalpy departure function."""
         return (
             1
             / np.sqrt(8)
-            * (dT_a * T - a)
-            / b
+            * (dT_A * T**2 * R_IDEAL + A * T * R_IDEAL)
+            / B
             * pp.ad.log((Z + (1 + np.sqrt(2)) * B) / (Z + (1 - np.sqrt(2)) * B))
-            + (Z - 1) * T * R_IDEAL * ENERGY_SCALE
+            + (Z - 1) * T * R_IDEAL
         )
 
     @staticmethod
@@ -1118,6 +1112,13 @@ class PengRobinsonEoS(AbstractEoS):
             z2 = -t_1 * pp.ad.cos(t_2 + np.pi / 3) - c2_ / 3
             z1 = -t_1 * pp.ad.cos(t_2 - np.pi / 3) - c2_ / 3
 
+            # there is a 3-root region in the supercritical part, where the lowest root
+            # is possibly negative.
+            correction = (~subc_triang)[three_root_region]
+            correction = correction & (z1 <= B[three_root_region])
+            if np.any(correction):
+                z1[correction] = B[correction] + self.eps
+
             # Smoothing procedure only valid in the sub-critical area, where the three
             # roots are positive and bound from below by B
             smoothable = subc_triang[three_root_region]
@@ -1128,9 +1129,7 @@ class PengRobinsonEoS(AbstractEoS):
                 z1[smoothable] = z1_s[smoothable]
 
             # assert roots are ordered by size
-            assert np.all(z1 <= z2) and np.all(
-                z2 <= z3
-            ), "Roots in three-root-region improperly ordered."
+            assert np.all(z1 <= z3), "Roots in three-root-region improperly ordered."
 
             Z_L[three_root_region] = z1
             Z_G[three_root_region] = z3

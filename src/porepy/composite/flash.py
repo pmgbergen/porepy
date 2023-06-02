@@ -4,7 +4,7 @@ from __future__ import annotations
 import logging
 import numbers
 from dataclasses import asdict
-from typing import Any, Callable, Literal, Optional
+from typing import Any, Callable, Literal, Optional, overload
 
 import numpy as np
 import pypardiso
@@ -14,10 +14,7 @@ import porepy as pp
 from porepy.numerics.ad.operator_functions import NumericType
 
 from ._core import (
-    ENERGY_SCALE,
-    PRESSURE_SCALE,
     R_IDEAL,
-    VOLUME_SCALE,
     _rr_pole,
     rachford_rice_feasible_region,
     rachford_rice_potential,
@@ -129,6 +126,7 @@ class FlashSystemNR(ThermodynamicState):
         self._num_comp: int = mixture.num_components
         self._num_phases: int = mixture.num_phases
         self._num_vals: int = num_vals
+        self._flash_type: str = flash_type
 
         self._num_vars: int = self._num_comp * self._num_phases + self._num_phases - 1
         """Number of independent variables in the flash system."""
@@ -145,6 +143,7 @@ class FlashSystemNR(ThermodynamicState):
         # NPIPM parameters
         self._eta: float = 0.0
         self._u: float = 0.0
+        self._uses_npipm: bool = False
 
         # flags for which constraints to assemble
         self._assemble_h_constraint: bool = False
@@ -170,6 +169,7 @@ class FlashSystemNR(ThermodynamicState):
             self._num_vars += 1  # slack variable is independent
             self._eta = npipm.get("eta", 0.5)
             self._u = npipm.get("u", 1.0)
+            self._uses_npipm = True
 
             # assembling slack variable
             jac_nu = sps.lil_matrix((self._num_vals, self._num_vals * self._num_vars))
@@ -859,6 +859,7 @@ class FlashNR:
 
         """
 
+    @overload
     def flash(
         self,
         state: dict[Literal["p", "T", "v", "u", "h"], pp.ad.Operator | NumericType],
@@ -866,8 +867,39 @@ class FlashNR:
         feed: Optional[list[pp.ad.Operator | NumericType]] = None,
         method: Literal["newton-min", "npipm"] = "npipm",
         eos_kwargs: dict = dict(),
+        quickshot: bool = False,
+        return_system: Literal[False] = False,
         verbosity: bool = 0,
     ) -> tuple[int, ThermodynamicState]:
+        ...
+        # overload for the default value signature
+
+    @overload
+    def flash(
+        self,
+        state: dict[Literal["p", "T", "v", "u", "h"], pp.ad.Operator | NumericType],
+        guess_from_state: Optional[ThermodynamicState] = None,
+        feed: Optional[list[pp.ad.Operator | NumericType]] = None,
+        method: Literal["newton-min", "npipm"] = "npipm",
+        eos_kwargs: dict = dict(),
+        quickshot: bool = False,
+        return_system: Literal[True] = True,
+        verbosity: bool = 0,
+    ) -> tuple[int, FlashSystemNR]:
+        ...
+        # overload of alternative return signature
+
+    def flash(
+        self,
+        state: dict[Literal["p", "T", "v", "u", "h"], pp.ad.Operator | NumericType],
+        guess_from_state: Optional[ThermodynamicState] = None,
+        feed: Optional[list[pp.ad.Operator | NumericType]] = None,
+        method: Literal["newton-min", "npipm"] = "npipm",
+        eos_kwargs: dict = dict(),
+        quickshot: bool = False,
+        return_system: bool = False,
+        verbosity: bool = 0,
+    ) -> tuple[int, ThermodynamicState] | tuple[int, FlashSystemNR]:
         """Performs a flash procedure based on the arguments.
 
         Note:
@@ -927,6 +959,19 @@ class FlashNR:
 
                 Keyword-arguments to be passed to
                 :meth:`~porepy.composite.mixture.BasicMixture.compute_properties`.
+            quickshot: ``default=False``
+
+                If True, it returns the results from the initial guess procedure as a
+                rough estimate. Otherwise it performs Newton iterations on the whole
+                system until the convergence criterion is reached.
+
+            return_system: ``default=False``
+
+                If True, returns a callable representation of the mathematical model
+                of the mixture. This can be used to linearize the system or evaluate its
+                residual (see :class:`FlashSystemNR`).
+                Otherwise the results are returned as a value
+                (see :class:`~porepy.composite.mixture.ThermodynamicState`).
             verbosity: ``default=0``
 
                 Verbosity for logging. Per default, only warnings and logs of higher
@@ -944,9 +989,11 @@ class FlashNR:
 
             - A success indicator:
 
-              - 0 - success,
-              - 1 - did not converge after max iter,
-              - 2 - divergence (``Nan`` or ``infty`` detected in update).
+              - 0: success,
+              - 1: did not converge after max iter,
+              - 2: divergence (``Nan`` or ``infty`` detected in update).
+              - 3: returning the system after initialization without iterations
+                (see ``quickshot``).
 
             - A data structure containing the resulting thermodynamic state.
               The returned state contains the passed values from ``state``, as well as
@@ -970,7 +1017,6 @@ class FlashNR:
 
         num_comp = self.mixture.num_components
         num_phases = self.mixture.num_phases
-        success = False  # success flag
 
         # parsing state arguments
         if guess_from_state is None:
@@ -1112,6 +1158,13 @@ class FlashNR:
             **asdict(thd_state),
         )
 
+        if quickshot:
+            logger.info("Returning initial guess (quickshot).\n")
+            if return_system:
+                return 3, flash_system
+            else:
+                return 3, flash_system.export_state()
+
         # Perform Newton iterations with above F(x)
         logger.info("Starting iterations ...\n")
         success, iter_final, solution = self._newton_iterations(
@@ -1137,7 +1190,12 @@ class FlashNR:
             success=success,
         )
 
-        return success, flash_system.export_state()
+        if return_system:
+            return_state = flash_system
+        else:
+            return_state = flash_system.export_state()
+
+        return success, return_state
 
     ### misc methods -------------------------------------------------------------------
 
@@ -1736,15 +1794,7 @@ class FlashNR:
             T_liq = T_pc / np.sqrt(R)
             T_guess[liquid_like] = T_liq[liquid_like]
 
-            p_guess = (
-                Z
-                * T_guess
-                * R_IDEAL
-                / state.v
-                * ENERGY_SCALE
-                / PRESSURE_SCALE
-                * VOLUME_SCALE
-            )
+            p_guess = Z * T_guess * R_IDEAL / state.v
 
             state.p.val = p_guess
             state.T.val = T_guess

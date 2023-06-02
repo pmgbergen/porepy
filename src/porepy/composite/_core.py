@@ -14,44 +14,12 @@ from porepy.numerics.ad.operator_functions import NumericType
 from .composite_utils import safe_sum
 
 __all__ = [
-    "PRESSURE_SCALE",
-    "ENERGY_SCALE",
-    "MASS_SCALE",
-    "VOLUME_SCALE",
     "R_IDEAL",
     "P_REF",
     "T_REF",
 ]
 
-PRESSURE_SCALE: float = 1e6
-"""Scaling factor for pressure unit (relative to Pascal).
-
-If pressure is given in Mega-Pascal, set this to ``1e6``.
-
-"""
-
-ENERGY_SCALE: float = 1e3
-"""Scaling factor for energy unit (starting from Joule).
-
-If energy is given in kilo-Joule, set this to ``1e3``.
-
-"""
-
-MASS_SCALE: float = 1.0
-"""Scaling factor for mass unit (starting from gram).
-
-If mass is given in kilo-gram, set this to ``1e3``.
-
-"""
-
-VOLUME_SCALE: float = 1.0
-"""Scaling factor for volume unit (starting from cubic meter).
-
-If volume is given in cubic centimeter, set this to ``1e4``.
-
-"""
-
-R_IDEAL: float = 8.31446261815324 / ENERGY_SCALE
+R_IDEAL: float = 8.31446261815324
 """Universal molar gas constant.
 
 | Math. Dimension:        scalar
@@ -59,7 +27,7 @@ R_IDEAL: float = 8.31446261815324 / ENERGY_SCALE
 
 """
 
-P_REF: float = 611.657 / PRESSURE_SCALE
+P_REF: float = 611.657
 """The reference pressure for the composite module is set to the triple point pressure
 of pure water.
 
@@ -103,7 +71,7 @@ reference temperature, reference volume and universal gas constant.
 
 """
 
-U_REF: float = 0.0 / ENERGY_SCALE
+U_REF: float = 0.0
 """The reference value for the specific internal energy.
 
 The composite submodule assumes the specific internal energy of the ideal gas at given
@@ -114,7 +82,7 @@ reference pressure and temperature to be zero.
 
 """
 
-H_REF: float = (U_REF + P_REF / RHO_REF) / ENERGY_SCALE
+H_REF: float = U_REF + P_REF / RHO_REF
 """The reference value for the specific enthalpy.
 
 based on other reference values it holds:
