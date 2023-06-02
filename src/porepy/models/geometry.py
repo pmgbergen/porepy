@@ -80,7 +80,7 @@ class ModelGeometry:
         Override this method to define a geometry with a different domain.
 
         """
-        size = 1 / self.units.m
+        size = self.solid.convert_units(1, "m")
         self._domain = nd_cube_domain(2, size)
 
     @property
@@ -135,7 +135,8 @@ class ModelGeometry:
 
         """
         # Default value of 1/2, scaled by the length unit.
-        default_meshing_args: dict[str, float] = {"cell_size": 0.5 / self.units.m}
+        cell_size = self.solid.convert_units(0.5, "m")
+        default_meshing_args: dict[str, float] = {"cell_size": cell_size}
         return self.params.get("meshing_arguments", default_meshing_args)
 
     def meshing_kwargs(self) -> dict:
