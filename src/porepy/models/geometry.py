@@ -80,8 +80,7 @@ class ModelGeometry:
         Override this method to define a geometry with a different domain.
 
         """
-        size = self.solid.convert_units(1, "m")
-        self._domain = nd_cube_domain(2, size)
+        self._domain = nd_cube_domain(2, 1.0 / self.units.m)
 
     @property
     def fractures(self) -> Union[list[pp.LineFracture], list[pp.PlaneFracture]]:
@@ -135,8 +134,7 @@ class ModelGeometry:
 
         """
         # Default value of 1/2, scaled by the length unit.
-        cell_size = self.solid.convert_units(0.5, "m")
-        default_meshing_args: dict[str, float] = {"cell_size": cell_size}
+        default_meshing_args: dict[str, float] = {"cell_size": 0.5 / self.units.m}
         return self.params.get("meshing_arguments", default_meshing_args)
 
     def meshing_kwargs(self) -> dict:
