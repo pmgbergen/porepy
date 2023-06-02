@@ -624,6 +624,22 @@ class MixedDimensionalGrid:
 
         """
         sort_inds_all: list[np.ndarray] = list()
+
+        # Special case: No subdomains in the mixed-dimensional grid
+        if len(self._subdomain_data) == 0:
+            # IMPLEMENTATION NOTE (EK): Strictly speaking, there is no requirement that
+            # the grids to be sorted are subdomains in this mixed-dimensional grid (note
+            # there are no calls to ``self`` in the below code, except for
+            # ``self.dim_max()``). While one can imagine use cases where a
+            # mixed-dimensional grid is used to sort grids that are not subdomains in
+            # the mixed-dimensional grid, this is not the intended use case. Therefore,
+            # we raise an error if the mixed-dimensional grid is empty, but the grid
+            # list is not. To remove this restriction, one could by default convert the
+            # iterator of grids into a list, and pick the maximum dimension from the
+            # list of grids, instead of using ``self.dim_max()``..
+            assert len([g for g in grids]) == 0
+            return np.array([], dtype=int)
+
         # Traverse dimensions in descending order. Progress to 0 in case dim_min is
         # greater than minimum dimension of interface grids.
         for dim in np.arange(self.dim_max(), -1, -1):
@@ -802,10 +818,16 @@ class MixedDimensionalGrid:
     def dim_min(self) -> int:
         """Get the minimal dimension represented in the mixed-dimensional grid.
 
+        Raises:
+            ValueError: If the mixed-dimensional grid has no subdomains.
+
         Returns:
             Minimum dimension of the grids present in the hierarchy.
 
         """
+        if len(self._subdomain_data) == 0:
+            raise ValueError("The mixed-dimensional grid has no subdomains.")
+
         # Access protected attribute instead of subdomains() to avoid sorting, which can
         # lead to a recursion error.
         return np.min([sd.dim for sd in self._subdomain_data.keys()])
@@ -813,10 +835,16 @@ class MixedDimensionalGrid:
     def dim_max(self) -> int:
         """Get the maximal dimension represented in the grid.
 
+        Raises:
+            ValueError: If the mixed-dimensional grid has no subdomains.
+
         Returns:
             Maximum dimension of the grids present in the hierarchy.
 
         """
+        if len(self._subdomain_data) == 0:
+            raise ValueError("The mixed-dimensional grid has no subdomains.")
+
         # Access protected attribute instead of subdomains() to avoid sorting, which can
         # lead to a recursion error.
         return max([sd.dim for sd in self._subdomain_data.keys()])
