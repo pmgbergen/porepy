@@ -31,6 +31,8 @@ class ModelGeometry:
     """Unit system."""
     params: dict
     """Parameters for the model."""
+    solid: pp.SolidConstants
+    """Solid constant object that takes care of scaling of solid-related quantities."""
 
     def set_geometry(self) -> None:
         """Define geometry and create a mixed-dimensional grid.
