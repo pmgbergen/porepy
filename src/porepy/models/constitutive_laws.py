@@ -982,7 +982,7 @@ class DarcysLaw:
         return flux
 
     def interface_darcy_flux_equation(
-            self, interfaces: list[pp.MortarGrid]
+        self, interfaces: list[pp.MortarGrid]
     ) -> pp.ad.Operator:
         """Darcy flux on interfaces.
 
