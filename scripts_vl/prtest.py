@@ -3,10 +3,11 @@ import porepy as pp
 
 chems = ["H2O", "CO2"]
 
-z = [np.array([0.01])]  # only co2 fraction is enough
-p = np.array([12916666.666666666]) 
-T = np.array([550.])
-h = np.array([-5372.056951273314])
+vec = np.ones(2)
+z = [vec * 0.01]  # only co2 fraction is enough
+p = vec * 12916666.666666666 
+T = vec * 550.
+h = vec * -5372.056951273314
 verbosity = 2
 
 species = pp.composite.load_fluid_species(chems)

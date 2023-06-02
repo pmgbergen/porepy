@@ -415,7 +415,7 @@ class ThermodynamicState:
                 # Global Jacobian for new, independent states
                 jac_glob = sps.lil_matrix((num_vals, N * num_vals))
                 # occupied column indices, counted from right to left
-                occupied = num_comp * num_phases + indp
+                occupied = (num_comp * num_phases + indp) * num_vals
 
                 # update derivative of reference phase fraction if requested
                 if "y_r" in is_independent and not indp:
