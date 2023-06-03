@@ -524,7 +524,9 @@ class TestStructuredTetrahedralGrid(unittest.TestCase):
         g.compute_geometry()
         self.g = g
 
-        # The ordering of faces may differ depending on the test system (presumably version of scipy or similar). Below are hard-coded combination of face-nodes, and the corresponding faces and face_areas.
+        # The ordering of faces may differ depending on the test system (presumably
+        # version of scipy or similar). Below are hard-coded combination of face-nodes,
+        # and the corresponding faces and face_areas.
         self.fn = np.array(
             [
                 [0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 3, 3, 3, 4, 5],
@@ -765,6 +767,7 @@ def test_boundary_grid():
     g.compute_geometry()
 
     boundary_grid = pp.BoundaryGrid(g)
+    boundary_grid.set_projections()
 
     # Hardcoded value for the number of cells
     assert boundary_grid.num_cells == 8
@@ -782,6 +785,7 @@ def test_boundary_grid():
     # The boundary grid should then be empty.
     g.tags["domain_boundary_faces"] = np.zeros(g.num_faces, dtype=bool)
     boundary_grid = pp.BoundaryGrid(g)
+    boundary_grid.set_projections()
     assert boundary_grid.num_cells == 0
     assert boundary_grid.projection.shape == (0, 12)
 
