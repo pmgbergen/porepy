@@ -175,7 +175,6 @@ def norm_L2(g: pp.GridLike, val: np.ndarray):
 
 
 def l2_error(
-    self,
     grid: pp.GridLike,
     true_array: np.ndarray,
     approx_array: np.ndarray,
@@ -203,7 +202,7 @@ def l2_error(
         Discrete L2-error between the true and approximated arrays.
 
     Raises:
-        ValueError if a mortar grid is given and ``is_cc=False``.
+        NotImplementedError if a mortar grid is given and ``is_cc=False``.
         ZeroDivisionError if the denominator in the relative error is zero.
 
     References:
@@ -215,9 +214,10 @@ def l2_error(
     """
     # Sanity check
     if isinstance(grid, pp.MortarGrid) and not is_cc:
-        raise ValueError("Mortar variables can only be cell-centered.")
+        raise NotImplementedError("Interface variables can only be cell-centered.")
 
-    # Obtain proper measure
+    # Obtain proper measure, e.g., cell volumes for cell-centered quantities and face
+    # areas for face-centered quantities.
     if is_cc:
         if is_scalar:
             meas = grid.cell_volumes
@@ -230,9 +230,12 @@ def l2_error(
         else:
             meas = grid.face_areas.repeat(grid.dim)
 
-    # Compute error
+    # Obtain numerator and denominator to determine the error.
     numerator = np.sqrt(np.sum(meas * np.abs(true_array - approx_array) ** 2))
-    denominator = np.sqrt(np.sum(meas * np.abs(true_array) ** 2)) if relative else 1
-    if denominator == 0:
+    denominator = np.sqrt(np.sum(meas * np.abs(true_array) ** 2)) if relative else 1.0
+
+    # Deal with the case when the denominator is zero when computing the relative error.
+    if np.isclose(denominator, 0):
         raise ZeroDivisionError("Attempted division by zero.")
+
     return numerator / denominator
