@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import warnings
 from typing import Callable, Dict, List
 
 import numpy as np
@@ -34,6 +35,11 @@ def grid_error(
             variable, the error is reported.
 
     """
+    warnings.warn(
+        "This method will soon be removed from PorePy",
+        DeprecationWarning,
+    )
+
     assert len(variable) == len(variable_dof), (
         "Each variable must have associated " "with it a number of degrees of freedom."
     )
