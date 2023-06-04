@@ -7,6 +7,22 @@ import logging
 
 import numpy as np
 
+# ``tqdm`` is not a dependency. Up to the user to install it.
+try:
+    # Avoid some mypy trouble.
+    from tqdm.autonotebook import trange  # type: ignore
+
+    # Only import this if needed
+    from porepy.utils.ui_and_logging import (
+        logging_redirect_tqdm_with_level as logging_redirect_tqdm,
+    )
+
+except ImportError:
+    _IS_TQDM_AVAILABLE: bool = False
+else:
+    _IS_TQDM_AVAILABLE = True
+
+
 # Module-wide logger
 logger = logging.getLogger(__name__)
 
@@ -24,23 +40,40 @@ class NewtonSolver:
         default_options.update(params)
         self.params = default_options
 
+        self.progress_bar: bool = params.get("progressbars", False)
+        # Allow the position of the progress bar to be flexible, depending on whether
+        # this is called inside a time loop, a time loop and an additional propagation
+        # loop or inside a stationary problem (default).
+        self.progress_bar_position: int = params.get("progress_bar_position", 0)
+
     def solve(self, model):
         model.before_nonlinear_loop()
 
         iteration_counter = 0
 
         is_converged = False
+        is_diverged = False
         prev_sol = model.equation_system.get_variable_values(time_step_index=0)
 
         init_sol = prev_sol
+        sol = init_sol
         errors = []
         error_norm = 1
 
-        while iteration_counter <= self.params["max_iterations"] and not is_converged:
+        # Define a function that does all the work during one Newton iteration, except
+        # for everything ``tqdm`` related.
+        def newton_step() -> None:
+            # Bind to variables in the outer function
+            nonlocal prev_sol
+            nonlocal sol
+            nonlocal error_norm
+            nonlocal is_converged
+            nonlocal is_diverged
+
+            # Logging.
             logger.info(
-                "Newton iteration number {} of {}".format(
-                    iteration_counter, self.params["max_iterations"]
-                )
+                f"Newton iteration number {iteration_counter}"
+                + f" of {self.params['max_iterations']}"
             )
 
             # Re-discretize the nonlinear term
@@ -56,12 +89,61 @@ class NewtonSolver:
             prev_sol = sol
             errors.append(error_norm)
 
-            if is_diverged:
-                model.after_nonlinear_failure(sol, errors, iteration_counter)
-            elif is_converged:
-                model.after_nonlinear_convergence(sol, errors, iteration_counter)
+        # Progressbars turned off or tqdm not installed:
+        # Progressbars turned off:
+        if not self.progress_bar or not _IS_TQDM_AVAILABLE:
+            while (
+                iteration_counter <= self.params["max_iterations"] and not is_converged
+            ):
+                newton_step()
 
-            iteration_counter += 1
+                if is_diverged:
+                    model.after_nonlinear_failure(sol, errors, iteration_counter)
+                elif is_converged:
+                    model.after_nonlinear_convergence(sol, errors, iteration_counter)
+
+                iteration_counter += 1
+
+        # Progressbars turned on:
+        else:
+            # Redirect the root logger, s.t. no logger interferes with the
+            # progressbars.
+            with logging_redirect_tqdm([logging.root]):
+                # Initialize a progress bar. Length is the number of maximal Newton
+                # iterations.
+                solver_progressbar = trange(
+                    self.params["max_iterations"],
+                    desc="Newton loop",
+                    position=self.progress_bar_position,
+                    leave=False,
+                )
+
+                while (
+                    iteration_counter <= self.params["max_iterations"]
+                    and not is_converged
+                ):
+                    solver_progressbar.set_description_str(
+                        f"Newton iteration number {iteration_counter + 1} of \
+                            {self.params['max_iterations']}"
+                    )
+                    newton_step()
+                    solver_progressbar.update(n=1)
+                    solver_progressbar.set_postfix_str(f"Error {error_norm}")
+
+                    if is_diverged:
+                        # If the process finishes early, the tqdm bar needs to be
+                        # manually closed. See https://stackoverflow.com/a/73175351.
+                        solver_progressbar.close()
+                        model.after_nonlinear_failure(sol, errors, iteration_counter)
+                        break
+                    elif is_converged:
+                        solver_progressbar.close()
+                        model.after_nonlinear_convergence(
+                            sol, errors, iteration_counter
+                        )
+                        break
+
+                    iteration_counter += 1
 
         if not is_converged:
             model.after_nonlinear_failure(sol, errors, iteration_counter)
@@ -74,9 +156,7 @@ class NewtonSolver:
         Right now, this is a single line, however, we keep it as a separate function
         to prepare for possible future introduction of more advanced schemes.
         """
-
         # Assemble and solve
         model.assemble_linear_system()
         sol = model.solve_linear_system()
-
         return sol
