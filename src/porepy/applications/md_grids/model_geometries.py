@@ -23,7 +23,11 @@ class SquareDomainOrthogonalFractures:
     units: pp.Units
     """Units for the model geometry."""
     solid: pp.SolidConstants
-    """Solid constant object that takes care of scaling of solid-related quantities."""
+    """Solid constant object that takes care of scaling of solid-related quantities.
+    Normally, this is set by a mixin of instance
+    :class:`~porepy.models.solution_strategy.SolutionStrategy`.
+
+    """
 
     @property
     def domain_size(self) -> pp.number:
@@ -60,7 +64,11 @@ class CubeDomainOrthogonalFractures:
     units: pp.Units
     """Units for the model geometry."""
     solid: pp.SolidConstants
-    """Solid constant object that takes care of scaling of solid-related quantities."""
+    """Solid constant object that takes care of scaling of solid-related quantities.
+    Normally, this is set by a mixin of instance
+    :class:`~porepy.models.solution_strategy.SolutionStrategy`.
+
+    """
 
     @property
     def domain_size(self) -> pp.number:
