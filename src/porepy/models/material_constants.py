@@ -113,7 +113,8 @@ class MaterialConstants:
         # Make a copy of the value to avoid modifying the original.
         # This is not strictly necessary for scalars, but is done in case the method is
         # used for arrays.
-        value = value.copy() if hasattr(value, "copy") else value
+        if isinstance(value, np.ndarray):
+            value = value.copy()
         # Trim any spaces
         units = units.replace(" ", "")
         if units in ["", "1", "-"]:
