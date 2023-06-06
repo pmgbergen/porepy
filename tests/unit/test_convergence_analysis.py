@@ -688,6 +688,46 @@ class TestOrderOfConvergence:
         np.testing.assert_almost_equal(ooc["ooc_var_0"], 1.0, decimal=10)
         np.testing.assert_almost_equal(ooc["ooc_var_1"], 2.0, decimal=10)
 
+    def test_order_of_convergence_with_reduced_range(
+            self,
+            stationary_mock_model,
+    ) -> None:
+        """Test order of convergence for a subset of the data.
+
+        Parameters:
+            stationary_mock_model: Stationary mock model.
+
+        """
+        @dataclass
+        class MockDataClass:
+            """Minimal data class to save error and cell diameter."""
+            error_var: float
+            cell_diameter: float
+
+        # Create convergence analysis object
+        conv = ConvergenceAnalysis(
+            model_class=stationary_mock_model,
+            model_params={},
+            levels=4,
+            spatial_refinement_rate=2,
+        )
+
+        # Set linear convergence only for the last two levels
+        results = [
+            MockDataClass(error_var=42, cell_diameter=1.0),
+            MockDataClass(error_var=np.pi, cell_diameter=0.5),
+            MockDataClass(error_var=1.0, cell_diameter=0.25),
+            MockDataClass(error_var=0.5, cell_diameter=0.125),
+        ]
+
+        # Order of convergence for the reduced range (last two levels) should be 1.0
+        ooc_reduced_range = conv.order_of_convergence(
+            list_of_results=results,
+            data_range=slice(-2, None, None),
+        )
+
+        assert np.isclose(ooc_reduced_range["ooc_var"], 1.0, 1e-10)
+
 
 # -----> TEST: The `export_errors_to_txt` method.
 class TestExportErrors:

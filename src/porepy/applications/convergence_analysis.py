@@ -266,6 +266,7 @@ class ConvergenceAnalysis:
         x_axis: Literal["cell_diameter", "time_step"] = "cell_diameter",
         base_log_x_axis: int = 2,
         base_log_y_axis: int = 2,
+        data_range: slice = slice(None, None, None),
     ) -> dict[str, float]:
         """Compute order of convergence (OOC) for a given set of variables.
 
@@ -295,6 +296,17 @@ class ConvergenceAnalysis:
             base_log_y_axis: ``default=2``
 
                 Base of the logarithm for the data in the y-axis.
+
+            data_range: ``default=slice(None, None, None)``
+
+                Data range used for the estimation of the observed order of convergence.
+                It should be given as a slice. For example, if
+                ``data_range=slice(-2, None, None)``, then only the last two data points
+                from the list of results will be used. If not given, the whole range
+                (i.e., errors collected at each level) will be used. Intended usage of
+                this parameter is to employ only a subset of the data range (e.g.,
+                the one corresponding to the asymptotic range) to determine the
+                observed order of convergence.
 
         Returns:
             Dictionary containing the OOC for the given variables.
@@ -333,11 +345,15 @@ class ConvergenceAnalysis:
                 y_val.append(getattr(result, name))
             y_vals.append(np.emath.logn(base_log_y_axis, np.array(y_val)))
 
+        # Filter the data to be used according to the given data range
+        x_vals_filtered = x_vals[data_range]
+        y_vals_filtered = [y_val[data_range] for y_val in y_vals]
+
         # Perform linear regression and populate the return dictionary
         # Keywords of the dictionary will have the prefix "ooc_" before the `name`
         ooc_dict: dict[str, float] = {}
         for idx, name in enumerate(names):
-            slope, *_ = stats.linregress(x_vals, y_vals[idx])
+            slope, *_ = stats.linregress(x_vals_filtered, y_vals_filtered[idx])
             ooc_name = "ooc_" + name.lstrip("error_")  # strip the prefix "error_"
             ooc_dict[ooc_name] = slope
 
