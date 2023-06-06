@@ -51,15 +51,16 @@ class OneVerticalWell:
     def set_well_network(self) -> None:
         """Assign well network class."""
         points = np.array([[0.5, 0.5], [0.5, 0.5], [0.2, 1]])
+        mesh_size = self.solid.convert_units(1 / 10.0, "m")
         self.well_network = pp.WellNetwork3d(
             domain=self.domain,
             wells=[pp.Well(points)],
-            parameters={"mesh_size": 1 / 10 / self.units.m},
+            parameters={"mesh_size": mesh_size},
         )
 
     def meshing_arguments(self) -> dict:
         # Length scale:
-        ls = 1 / self.units.m
+        ls = self.solid.convert_units(1, "m")
         h = 0.15 * ls
         mesh_sizes = {
             "cell_size_fracture": h,
@@ -422,7 +423,7 @@ class Poromechanics(
 ):
     def meshing_arguments(self) -> dict:
         # Length scale:
-        ls = 1 / self.units.m
+        ls = self.solid.convert_units(1, "m")
         h = 0.5 * ls
         mesh_sizes = {
             "cell_size": h,
@@ -449,7 +450,7 @@ class Thermoporomechanics(
 ):
     def meshing_arguments(self) -> dict:
         # Length scale:
-        ls = 1 / self.units.m
+        ls = self.solid.convert_units(1, "m")
         h = 0.5 * ls
         mesh_sizes = {
             "cell_size": h,

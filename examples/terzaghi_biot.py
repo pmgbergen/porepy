@@ -292,8 +292,8 @@ class TerzaghiUtils(VerificationUtils):
     # ---> Derived physical quantities
     def gravity_acceleration(self) -> number:
         """Gravity acceleration in scaled [m * s^-2]."""
-        ls = 1 / self.units.m
-        ts = 1 / self.units.s
+        ls = self.solid.convert_units(1, "m")
+        ts = self.solid.convert_units(1, "s")
         scaling_factor = ls / ts**2
         return pp.GRAVITY_ACCELERATION * scaling_factor  # scaled [m * s^-2]
 
@@ -499,7 +499,7 @@ class PseudoOneDimensionalColumn(pp.ModelGeometry):
 
     def height(self) -> pp.number:
         """Retrieve height of the domain, in scaled [m]."""
-        ls = 1 / self.units.m  # length scaling
+        ls = self.solid.convert_units(1, "m")  # length scaling
         height = self.params.get("height", 1.0)  # [m]
         return height * ls
 
