@@ -192,6 +192,10 @@ def l2_error(
 
     It is possible to compute the absolute error (default) or the relative error.
 
+    Raises:
+        NotImplementedError if a mortar grid is given and ``is_cc=False``.
+        ZeroDivisionError if the denominator in the relative error is zero.
+
     Parameters:
         grid: Either a subdomain grid or a mortar grid.
         true_array: Array containing the true values of a given variable.
@@ -207,10 +211,6 @@ def l2_error(
     Returns:
         Discrete L2-error between the true and approximated arrays.
 
-    Raises:
-        NotImplementedError if a mortar grid is given and ``is_cc=False``.
-        ZeroDivisionError if the denominator in the relative error is zero.
-
     References:
 
         - [1] Nordbotten, J. M. (2016). Stable cell-centered finite volume
@@ -225,16 +225,13 @@ def l2_error(
     # Obtain proper measure, e.g., cell volumes for cell-centered quantities and face
     # areas for face-centered quantities.
     if is_cc:
-        if is_scalar:
-            meas = grid.cell_volumes
-        else:
-            meas = grid.cell_volumes.repeat(grid.dim)
+        meas = grid.cell_volumes
     else:
-        assert isinstance(grid, pp.Grid)
-        if is_scalar:
-            meas = grid.face_areas
-        else:
-            meas = grid.face_areas.repeat(grid.dim)
+        assert isinstance(grid, pp.Grid)  # to please mypy
+        meas = grid.face_areas
+
+    if not is_scalar:
+        meas = meas.repeat(grid.dim)
 
     # Obtain numerator and denominator to determine the error.
     numerator = np.sqrt(np.sum(meas * np.abs(true_array - approx_array) ** 2))
