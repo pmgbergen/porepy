@@ -22,12 +22,18 @@ class SquareDomainOrthogonalFractures:
     """
     units: pp.Units
     """Units for the model geometry."""
+    solid: pp.SolidConstants
+    """Solid constant object that takes care of scaling of solid-related quantities.
+    Normally, this is set by a mixin of instance
+    :class:`~porepy.models.solution_strategy.SolutionStrategy`.
+
+    """
 
     @property
     def domain_size(self) -> pp.number:
         """Return the side length of the square domain."""
         # Scale by length unit.
-        return self.params.get("domain_size", 1) / self.units.m
+        return self.params.get("domain_size", self.solid.convert_units(1, "m"))
 
     def set_fractures(self) -> None:
         """Assigns 0 to 2 fractures."""
@@ -57,12 +63,18 @@ class CubeDomainOrthogonalFractures:
     """
     units: pp.Units
     """Units for the model geometry."""
+    solid: pp.SolidConstants
+    """Solid constant object that takes care of scaling of solid-related quantities.
+    Normally, this is set by a mixin of instance
+    :class:`~porepy.models.solution_strategy.SolutionStrategy`.
+
+    """
 
     @property
     def domain_size(self) -> pp.number:
         """Return the side length of the cube domain."""
         # Scale by length unit.
-        return self.params.get("domain_size", 1) / self.units.m
+        return self.params.get("domain_size", self.solid.convert_units(1, "m"))
 
     def set_fractures(self) -> None:
         """Assigns 0 to 3 fractures."""
