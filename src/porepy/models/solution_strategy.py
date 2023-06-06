@@ -183,8 +183,9 @@ class SolutionStrategy(abc.ABC):
 
     def prepare_simulation(self) -> None:
         """Run at the start of simulation. Used for initialization etc."""
-        # Set the geometry of the problem. This is a method that must be implemented
-        # in a ModelGeometry class.
+        # Set the material and geometry of the problem. The geometry method must be
+        # implemented in a ModelGeometry class.
+        self.set_materials()
         self.set_geometry()
 
         # Exporter initialization must be done after grid creation,
@@ -194,7 +195,6 @@ class SolutionStrategy(abc.ABC):
         # Set variables, constitutive relations, discretizations and equations.
         # Order of operations is important here.
         self.set_equation_system_manager()
-        self.set_materials()
         self.create_variables()
         self.initial_condition()
         self.reset_state_from_file()
