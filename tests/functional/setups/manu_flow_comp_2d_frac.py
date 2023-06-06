@@ -115,7 +115,7 @@ class ManuCompDataSaving(VerificationDataSaving):
         exact_matrix_pressure = exact_sol.matrix_pressure(sd_matrix, t)
         matrix_pressure_ad = self.pressure([sd_matrix])
         approx_matrix_pressure = matrix_pressure_ad.evaluate(self.equation_system).val
-        error_matrix_pressure = pp.error.l2_error(
+        error_matrix_pressure = pp.error_computation.l2_error(
             grid=sd_matrix,
             true_array=exact_matrix_pressure,
             approx_array=approx_matrix_pressure,
@@ -127,7 +127,7 @@ class ManuCompDataSaving(VerificationDataSaving):
         exact_matrix_flux = exact_sol.matrix_flux(sd_matrix, t)
         matrix_flux_ad = self.darcy_flux([sd_matrix])
         approx_matrix_flux = matrix_flux_ad.evaluate(self.equation_system).val
-        error_matrix_flux = pp.error.l2_error(
+        error_matrix_flux = pp.error_computation.l2_error(
             grid=sd_matrix,
             true_array=exact_matrix_flux,
             approx_array=approx_matrix_flux,
@@ -139,7 +139,7 @@ class ManuCompDataSaving(VerificationDataSaving):
         exact_frac_pressure = exact_sol.fracture_pressure(sd_frac, t)
         frac_pressure_ad = self.pressure([sd_frac])
         approx_frac_pressure = frac_pressure_ad.evaluate(self.equation_system).val
-        error_frac_pressure = pp.error.l2_error(
+        error_frac_pressure = pp.error_computation.l2_error(
             grid=sd_frac,
             true_array=exact_frac_pressure,
             approx_array=approx_frac_pressure,
@@ -151,7 +151,7 @@ class ManuCompDataSaving(VerificationDataSaving):
         exact_frac_flux = exact_sol.fracture_flux(sd_frac, t)
         frac_flux_ad = self.darcy_flux([sd_frac])
         approx_frac_flux = frac_flux_ad.evaluate(self.equation_system).val
-        error_frac_flux = pp.error.l2_error(
+        error_frac_flux = pp.error_computation.l2_error(
             grid=sd_frac,
             true_array=exact_frac_flux,
             approx_array=approx_frac_flux,
@@ -163,7 +163,7 @@ class ManuCompDataSaving(VerificationDataSaving):
         exact_intf_flux = exact_sol.interface_flux(intf, t)
         int_flux_ad = self.interface_darcy_flux([intf])
         approx_intf_flux = int_flux_ad.evaluate(self.equation_system).val
-        error_intf_flux = pp.error.l2_error(
+        error_intf_flux = pp.error_computation.l2_error(
             grid=intf,
             true_array=exact_intf_flux,
             approx_array=approx_intf_flux,
