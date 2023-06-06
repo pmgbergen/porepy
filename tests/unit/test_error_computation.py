@@ -144,10 +144,10 @@ def test_l2_error_not_implemented_error(grids: list[pp.Grid, pp.MortarGrid]) -> 
     """
     msg = "Interface variables can only be cell-centered."
     with pytest.raises(NotImplementedError) as excinfo:
-        # Attempt to obtain L2-relative error with true array of zeros
+        # Attempt to compute the error for a face-centered quantity on a mortar grid
         pp.error_computation.l2_error(
             grid=grids[1],
-            true_array=np.zeros(6),
+            true_array=np.ones(6),
             approx_array=np.random.random(6),
             is_cc=False,
             is_scalar=True,
