@@ -90,7 +90,7 @@ def test_l2_error(
             true_l2_error = np.sqrt(2 * np.sum(grid.face_areas))
 
     # Compute actual error
-    actual_l2_error = pp.error.l2_error(
+    actual_l2_error = pp.error_computation.l2_error(
         grid=grid,
         true_array=np.ones(ndof),
         approx_array=np.zeros(ndof),
@@ -120,7 +120,7 @@ def test_l2_error_division_by_zero_error(grids: list[pp.Grid, pp.MortarGrid]) ->
     msg = "Attempted division by zero."
     with pytest.raises(ZeroDivisionError) as excinfo:
         # Attempt to obtain L2-relative error with true array of zeros
-        pp.error.l2_error(
+        pp.error_computation.l2_error(
             grid=grids[0],
             true_array=np.zeros(4),
             approx_array=np.random.random(4),
@@ -145,7 +145,7 @@ def test_l2_error_not_implemented_error(grids: list[pp.Grid, pp.MortarGrid]) -> 
     msg = "Interface variables can only be cell-centered."
     with pytest.raises(NotImplementedError) as excinfo:
         # Attempt to obtain L2-relative error with true array of zeros
-        pp.error.l2_error(
+        pp.error_computation.l2_error(
             grid=grids[1],
             true_array=np.zeros(6),
             approx_array=np.random.random(6),
