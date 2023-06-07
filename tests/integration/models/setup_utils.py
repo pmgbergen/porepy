@@ -29,7 +29,7 @@ class RectangularDomainThreeFractures(pp.ModelGeometry):
 
     def set_fractures(self) -> None:
         # Length scale:
-        ls = 1 / self.units.m
+        ls = self.solid.convert_units(1, "m")
 
         fracture_indices = self.params.get("fracture_indices", [0])
         fractures = [
@@ -41,7 +41,8 @@ class RectangularDomainThreeFractures(pp.ModelGeometry):
 
     def meshing_arguments(self) -> dict:
         # Divide by length scale:
-        ls = 1 / self.units.m
+        ls = self.solid.convert_units(1, "m")
+
         mesh_sizes = {
             # Cartesian: 2 by 8 cells.
             "cell_size_x": 0.25 * ls,
@@ -60,7 +61,8 @@ class RectangularDomainThreeFractures(pp.ModelGeometry):
             self.params["grid_type"] = "cartesian"
 
         # Length scale:
-        ls = 1 / self.units.m
+        ls = self.solid.convert_units(1, "m")
+
         # Mono-dimensional grid by default
         phys_dims = np.array([2, 1]) * ls
         box = {"xmin": 0, "xmax": phys_dims[0], "ymin": 0, "ymax": phys_dims[1]}
@@ -81,7 +83,8 @@ class OrthogonalFractures3d(CubeDomainOrthogonalFractures):
 
     def meshing_arguments(self) -> dict:
         # Length scale:
-        ls = 1 / self.units.m
+        ls = self.solid.convert_units(1, "m")
+
         mesh_sizes = {
             "cell_size": 0.5 * ls,
             "cell_size_fracture": 0.5 * ls,

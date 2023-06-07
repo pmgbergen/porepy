@@ -73,6 +73,10 @@ jobs:
       run: |
         pip install pypardiso
 
+    - name: Install jupyter
+      run: |
+        pip install jupyter 
+
     - name: Install PorePy
       run: |
         pip install .
