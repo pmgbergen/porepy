@@ -2123,7 +2123,7 @@ class LinearElasticMechanicalStress:
         traction.set_name("mechanical_fracture_stress")
         return traction
 
-    def stress_discretization(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+    def stress_discretization(self, subdomains: list[pp.Grid]) -> pp.ad.MpfaAd:
         """Discretization of the stress tensor.
 
         Parameters:
@@ -2133,7 +2133,7 @@ class LinearElasticMechanicalStress:
             Discretization operator for the stress tensor.
 
         """
-        return pp.ad.BiotAd(self.stress_keyword, subdomains)
+        return pp.ad.MpfaAd(self.stress_keyword, subdomains)
 
 
 class PressureStress(LinearElasticMechanicalStress):
@@ -2293,7 +2293,7 @@ class PressureStress(LinearElasticMechanicalStress):
         stress.set_name("fracture_pressure_stress")
         return stress
 
-    def stress_discretization(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+    def stress_discretization(self, subdomains: list[pp.Grid]) -> pp.ad.BiotAd:
         """Discretization of the stress tensor.
 
         Parameters:
