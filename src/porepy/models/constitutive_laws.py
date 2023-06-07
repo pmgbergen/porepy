@@ -2059,7 +2059,7 @@ class LinearElasticMechanicalStress:
 
         # No need to facilitate changing of stress discretization, only one is
         # available at the moment.
-        discr = pp.ad.MpsaAd(self.stress_keyword, subdomains)
+        discr = self.stress_discretization(subdomains)
         # Fractures in the domain
         interfaces = self.subdomains_to_interfaces(subdomains, [1])
         # Boundary conditions on external boundaries
@@ -2122,6 +2122,18 @@ class LinearElasticMechanicalStress:
         )
         traction.set_name("mechanical_fracture_stress")
         return traction
+
+    def stress_discretization(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Discretization of the stress tensor.
+
+        Parameters:
+            subdomains: List of subdomains where the stress is defined.
+
+        Returns:
+            Discretization operator for the stress tensor.
+
+        """
+        return pp.ad.BiotAd(self.stress_keyword, subdomains)
 
 
 class PressureStress(LinearElasticMechanicalStress):
@@ -2280,6 +2292,18 @@ class PressureStress(LinearElasticMechanicalStress):
         )
         stress.set_name("fracture_pressure_stress")
         return stress
+
+    def stress_discretization(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Discretization of the stress tensor.
+
+        Parameters:
+            subdomains: List of subdomains where the stress is defined.
+
+        Returns:
+            Discretization operator of the stress tensor.
+
+        """
+        return pp.ad.BiotAd(self.stress_keyword, subdomains)
 
 
 class ThermoPressureStress(PressureStress):
