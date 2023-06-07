@@ -1,4 +1,17 @@
-"""Provides quantitative tests for AD methods used in the single phase flow model."""
+"""Provides tests for AD methods used in the single phase flow model.
+
+We provide two tests:
+
+    (1) `test_tested_vs_testable_methods_single_phase_flow`: This test checks that
+      all the testable methods (see docstring of `setup_utils.get_testable_methods()`
+      to see what constitutes a testable method) of the single-phase flow model are
+      included in the parametrization of `test_ad_operator_methods_single_phase_flow`,
+      and,
+
+    (2) `test_ad_operator_methods_single_phase_flow`: A parametrized test where each
+      tested method is evaluated and their output is compared to expected values.
+
+"""
 
 from __future__ import annotations
 
@@ -18,11 +31,11 @@ from tests.integration.models import setup_utils
 
 @pytest.fixture(scope="function")
 def model_setup():
-    """Minimal compressible single-phase flow setup with a single horizontal fracture.
+    """Minimal compressible single-phase flow setup with two intersecting fractures.
 
     The model is set up with realistic physical parameters using water and granite.
     A 2x2 Cartesian grid on a unit domain is employed. One horizontal and one vertical
-    fracture are included in the domain. This results in the following mdg:
+    fractures are included in the domain. This results in the following `mdg`:
 
         Maximum dimension present: 2
         Minimum dimension present: 0
@@ -40,6 +53,7 @@ def model_setup():
         Prepared-for-simulation model with non-trivial primary variables.
 
     """
+
     class Model(SquareDomainOrthogonalFractures, SinglePhaseFlow):
         """Single phase flow model in a domain with two intersecting fractures."""
 
@@ -77,6 +91,80 @@ def model_setup():
         )
 
     return setup
+
+
+@pytest.fixture(scope="function")
+def all_tested_methods(request) -> list[str]:
+    """Get all tested methods.
+
+    Parameters:
+        request: PyTest request object.
+
+    Returns:
+        List of all tested methods in `test_ad_operator_methods_single_phase_flow`.
+
+    """
+    # Declare name of the test.
+    test_name = "test_ad_operator_methods_single_phase_flow"
+
+    # Retrieve all tests that are part of the parametrization.
+    tests = [
+        item.name for item in request.session.items if item.name.startswith(test_name)
+    ]
+
+    # Filter the name of the first parameter from the pytest.mark.parametrize
+    tested_methods = [test[test.find("[") + 1 : test.find("-")] for test in tests]
+
+    return tested_methods
+
+
+@pytest.fixture(scope="function")
+def all_testable_methods(model_setup) -> list[str]:
+    """Get all testable methods.
+
+    Parameters:
+        model_setup: Single-phase flow model setup after `prepare_for_simulation()`
+            has been called.
+
+    Returns:
+        List of all possible testable methods for the model.
+
+    """
+    return setup_utils.get_testable_methods_names(model_setup)
+
+
+def test_tested_vs_testable_methods_single_phase_flow(
+    all_tested_methods: list[str],
+    all_testable_methods: list[str],
+) -> None:
+    """Test whether all the tested methods coincide with all the testable methods.
+
+    Note:
+        This test will fail if it is run in isolation since it relies on the
+        collection of the tests from `test_ad_operator_methods_single_phase_flow`.
+        As long as such tests are part of the pytest session, this should work fine.
+
+    Parameters:
+        all_tested_methods: List of all tested methods.
+        all_testable_methods: List of all testable methods.
+
+    """
+    # Failure here could be mean two things:
+    #
+    #   (1) The `all_tested_methods` fixture is an empty list due to the tests
+    #       from `test_ad_operator_methods_single_phase_flow` not being collected (see
+    #       the Note in the docstring), or
+    #
+    #   (2) There is at least one method that was added/renamed in the core, but it was
+    #       not included/updated in the parametrization of
+    #       `test_ad_operator_methods_single_phase_flow`. To fix the test, please add
+    #       the missing method with the expected value as part of the parametrization of
+    #       `test_ad_operator_methods_single_phase_flow`. If you don't know which method
+    #       is missing, add a break point before the "assert" and compare the list of
+    #       `testable_methods` with the list of `tested_methods`. Remember to debug
+    #       while running all the tests from the module so that you don't incur in (1).
+    #
+    assert all_tested_methods == all_testable_methods
 
 
 @pytest.mark.parametrize(
@@ -294,7 +382,6 @@ def test_ad_operator_methods_single_phase_flow(
     method_name: str,
     expected_value: float | np.ndarray,
     dimension_restriction: int | None,
-    request,
 ) -> None:
     """Test that Ad operator methods return expected values.
 
@@ -303,26 +390,11 @@ def test_ad_operator_methods_single_phase_flow(
         method_name: Name of the method to be tested.
         expected_value: The expected value from the evaluation.
         dimension_restriction: Dimension in which the method is restricted. If None,
-            all valid dimensions for the method will be considered.
-        request: request pytest object.
+            all valid dimensions for the method will be considered. Can also be used
+            to test a method that is valid in all dimensions, but for the sake of
+            compactness is only tested in one dimension.
 
     """
-    # Check that the parametrization contains all possible testable methods.
-    # Failure here means that there is at least one method that was added/renamed
-    # in the core, but it was not included in this parametrization. To fix the test,
-    # please add the missing method with the expected value as part of the
-    # parametrization. If you don't know which method is missing, add a break point
-    # before the first assert and compare the list of `testable_methods` with the
-    # list of `tested_methods`.
-    # JV: I've considered testing this only once (e.g., for the first triplet of the
-    # parametrization). However, if the assertion is False, only the first test will
-    # fail. This might be extremely confusing for someone trying to debug the test. If
-    # you are worried about this being slow, is really not (it takes only ~1.5 ms to
-    # run the next three lines).
-    testable_methods: list[str] = setup_utils.get_testable_methods_names(model_setup)
-    tested_methods: list[str] = setup_utils.methods_from_pytest_session(request)
-    assert testable_methods == tested_methods
-
     # Get the method to be tested.
     method: Callable = getattr(model_setup, method_name)
 
@@ -337,7 +409,6 @@ def test_ad_operator_methods_single_phase_flow(
     operator = method(domains)
 
     # Discretize (if necessary), evaluate, and retrieve numerical values.
-    assert isinstance(operator, pp.ad.Operator)
     operator.discretize(model_setup.mdg)
     val = operator.evaluate(model_setup.equation_system)
     if isinstance(val, pp.ad.AdArray):
@@ -347,4 +418,3 @@ def test_ad_operator_methods_single_phase_flow(
 
     # Compare the actual and expected values.
     assert np.allclose(val, expected_value, rtol=1e-8, atol=1e-15)
-
