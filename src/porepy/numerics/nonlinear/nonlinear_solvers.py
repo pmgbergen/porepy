@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 
 
 class NewtonSolver:
-    def __init__(self, params=None):
+    def __init__(self, params=None) -> None:
         if params is None:
             params = {}
 
@@ -46,7 +46,26 @@ class NewtonSolver:
         # loop or inside a stationary problem (default).
         self.progress_bar_position: int = params.get("progress_bar_position", 0)
 
-    def solve(self, model) -> None:
+    def solve(self, model) -> tuple[float, bool, int]:
+        """Solve the nonlinear problem.
+
+        Parameters:
+            model: The model instance specifying the problem to be solved.
+
+        Returns:
+            A 3-tuple containing:
+
+            float:
+
+                The error estimate.
+            bool:
+
+                True if the solution is converged.
+            int:
+
+                Number of iterations used.
+
+        """
         model.before_nonlinear_loop()
 
         iteration_counter = 0
@@ -58,7 +77,7 @@ class NewtonSolver:
         init_sol = prev_sol
         sol = init_sol
         errors = []
-        error_norm = 1
+        error_norm = 1.0
 
         # Define a function that does all the work during one Newton iteration, except
         # for everything ``tqdm`` related.
