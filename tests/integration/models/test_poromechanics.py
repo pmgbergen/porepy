@@ -15,7 +15,6 @@ import pytest
 
 import porepy as pp
 
-
 from .setup_utils import (
     BoundaryConditionsMassAndEnergyDirNorthSouth,
     Poromechanics,

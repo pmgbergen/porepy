@@ -7,11 +7,8 @@ from typing import Any, Callable
 import numpy as np
 
 import porepy as pp
+from porepy.applications.md_grids.model_geometries import CubeDomainOrthogonalFractures
 from porepy.fracs.fracture_network_2d import FractureNetwork2d
-
-from porepy.applications.md_grids.model_geometries import (
-    CubeDomainOrthogonalFractures,
-)
 
 
 class RectangularDomainThreeFractures(pp.ModelGeometry):
@@ -661,3 +658,46 @@ def compare_values(
         # Add a small absolute tolerance to avoid problems with zero values.
         rtol = 1e-5 * np.sum(np.abs(values_0))
         assert np.isclose(np.sum(values_0 - values_1), 0, atol=1e-10 + rtol)
+
+
+def get_testable_methods_names(model_setup) -> list[str]:
+    """Get all possible testable methods for the test_eval_methods_... tests.
+
+    Parameters:
+        model_setup: Model setup after `prepare_for_simulation()`.
+
+    Returns:
+        List of all possible testable method names for the given model.
+
+    """
+
+    # Get all public methods
+    all_methods = [method for method in dir(model_setup) if not method.startswith("_")]
+
+    # Get all testable methods
+    # A testable method is one that:
+    # (1) Has a single parameter,
+    # (2) The name of the parameter is 'subdomains' or 'interfaces', and
+    # (3) Returns a 'pp.ad.Operator' or a 'np.ndarray'.
+    testable_methods: list[str] = []
+    for method in all_methods:
+        callable_method = getattr(model_setup, method)
+        try:
+            signature = inspect.signature(callable_method)
+        except TypeError:
+            continue
+
+        if (
+            len(signature.parameters) == 1
+            and (
+                "subdomains" in signature.parameters
+                or "interfaces" in signature.parameters
+            )
+            and (
+                "pp.ad.Operator" in signature.return_annotation
+                or "np.ndarray" in signature.return_annotation
+            )
+        ):
+            testable_methods.append(method)
+
+    return testable_methods
