@@ -872,19 +872,19 @@ def test_full_jacobian():
     assert np.all(np.isclose(A_finite_diff, A_exact, rtol=0, atol=1e-5))
 
 
-# ad = True
-# test_expansion_matrix()
-# test_restriction_matrices()
-# test_total_flux_no_gravity(ad)
-# test_total_flux_no_pressure(ad)
-# test_total_flux_null(ad)
-# test_total_flux_jac()
-# test_flux_V()
-# test_flux_G()
-# test_full_jacobian()
-# test_upwind_direction_V_G()
-# test_upwind_direction_V_G_3x3()
-# print("ufficial tests passed")
+ad = True
+test_expansion_matrix()
+test_restriction_matrices()
+test_total_flux_no_gravity(ad)
+test_total_flux_no_pressure(ad)
+test_total_flux_null(ad)
+test_total_flux_jac()
+test_flux_V()
+test_flux_G()
+test_full_jacobian()
+test_upwind_direction_V_G()
+test_upwind_direction_V_G_3x3()
+print("ufficial tests passed")
 
 print("\n\n dont forget that these tests do not check everything\n\n")
 """

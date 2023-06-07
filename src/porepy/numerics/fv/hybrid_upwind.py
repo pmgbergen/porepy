@@ -114,7 +114,8 @@ def rho_flux_V(
     dynamic_viscosity,
 ):
     """ """
-    V = hu_utils.flux_V(
+
+    V = pp.numerics.fv.hybrid_upwind.flux_V(
         sd,
         mixture,
         ell,
@@ -309,7 +310,7 @@ def rho_flux_G(
     dynamic_viscosity,
 ):
     """ """
-    G = hu_utils.flux_G(
+    G = pp.numerics.fv.hybrid_upwind.flux_G(
         sd,
         mixture,
         ell,

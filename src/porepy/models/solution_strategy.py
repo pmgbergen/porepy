@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any, Callable, Optional
 
 import pdb
+import sys
 
 
 import numpy as np
@@ -593,7 +594,14 @@ class SolutionStrategy(abc.ABC):
             np.ndarray: Solution vector.
 
         """
+
+        # np.set_printoptions(precision=3, threshold=sys.maxsize, linewidth=300)
+
         A, b = self.linear_system
+
+        # print("\n A = ", A.todense())
+        # pdb.set_trace()
+
         t_0 = time.time()
         logger.debug(f"Max element in A {np.max(np.abs(A)):.2e}")
         logger.debug(

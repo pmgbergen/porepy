@@ -19,7 +19,7 @@ def ndof(g: pp.Grid) -> int:
     return 2 * g.num_cells
 
 
-def total_flux(
+def total_flux_internal(
     sd,
     mixture,
     pressure,
@@ -30,6 +30,10 @@ def total_flux(
     ad,
     dynamic_viscosity,
 ):
+    """
+    TODO: change name, this is total:flux:internal
+    """
+
     def gamma_value():
         """ """
         alpha = 1  # as in the paper 2022
@@ -40,7 +44,8 @@ def total_flux(
         ).max()  # TODO: improve it...
 
         gamma_val = alpha / kr0 * dd_kr_max
-        return pp.ad.Scalar(gamma_val, name="gamma value")
+        # return pp.ad.Scalar(gamma_val, name="gamma value")
+        return gamma_val
 
     def g_ref_faces(
         mixture, pressure, z, gravity_value, left_restriction, right_restriction
@@ -61,7 +66,9 @@ def total_flux(
             right_restriction,
         )
 
-        density_max = np.maximum(density_faces_0, density_faces_1)
+        density_max = pp.ad.maximum(
+            density_faces_0, density_faces_1
+        )  # 1 Giune 2023: np.maximum(density_faces_0, density_faces_1), eh? che è successo? non puoi usare np.maximum, ovv...
         # density_max = maximum_operators(density_faces_0, density_faces_1)
 
         # # OLD:
@@ -217,7 +224,7 @@ def total_flux(
     return total_flux
 
 
-def rho_total_flux(
+def rho_total_flux_internal(
     sd: pp.Grid,
     mixture,
     pressure,
@@ -229,7 +236,7 @@ def rho_total_flux(
     dynamic_viscosity,
 ):
     """ """
-    qt = total_flux(
+    qt = total_flux_internal(
         sd,
         mixture,
         pressure,
@@ -252,6 +259,33 @@ def rho_total_flux(
         rho_qt[m] = rho_m * qt[m]
 
     rho_qt = rho_qt[0] + rho_qt[1]
+    return rho_qt
+
+
+def rho_total_flux(
+    sd: pp.Grid,
+    mixture,
+    pressure,
+    gravity_value,
+    left_restriction,
+    right_restriction,
+    expansion_matrix,
+    transmissibility_internal_tpfa,
+    ad,
+    dynamic_viscosity,
+):
+    rho_qt = expansion_matrix @ rho_total_flux_internal(
+        sd,
+        mixture,
+        pressure,
+        gravity_value,
+        left_restriction,
+        right_restriction,
+        transmissibility_internal_tpfa,
+        ad,
+        dynamic_viscosity,
+    )
+
     return rho_qt
 
 

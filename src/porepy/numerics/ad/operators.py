@@ -313,6 +313,7 @@ class Operator:
                 elif op.prev_iter:
                     return self._prev_iter_vals[op.id]
                 else:
+                    # print("I nailed it!")
                     return self._ad[op.id]
             else:
                 if op.prev_time:
@@ -754,7 +755,7 @@ class Operator:
         # this matrix.
 
         # First generate an Ad array (ready for forward Ad) for the full set.
-        ad_vars = initAdArrays([state])[0]
+        ad_vars = initAdArrays([state])[0]  ### this is a AdArray
 
         # Next, the Ad array must be split into variables of the right size
         # (splitting impacts values and number of rows in the Jacobian, but

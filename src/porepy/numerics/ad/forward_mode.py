@@ -9,6 +9,8 @@ import scipy.sparse as sps
 
 import porepy as pp
 
+import pdb
+
 AdType = Union[float, np.ndarray, sps.spmatrix, "AdArray"]
 
 __all__ = ["initAdArrays", "AdArray"]
@@ -294,7 +296,9 @@ class AdArray:
 
         if isinstance(other, (int, float)):
             # This is a polynomial, use standard rules for differentiation.
+
             new_val = self.val**other
+
             # Left-multiply jac with a diagonal-matrix version of the differentiated
             # polynomial, this will give the desired column-wise scaling of the
             # gradients.

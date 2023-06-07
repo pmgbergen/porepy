@@ -6,6 +6,8 @@ from typing import Union
 
 import porepy as pp
 
+import pdb
+
 logger = logging.getLogger(__name__)
 
 
@@ -73,7 +75,16 @@ def run_time_dependent_model(model, params: dict) -> None:
             )
         )
 
-        print("\n\n\nBEFORE solver.solve:")
+        print(
+            "\n\n\nTime step {} at time {:.1e} of {:.1e} with time step {:.1e}".format(
+                model.time_manager.time_index,
+                model.time_manager.time,
+                model.time_manager.time_final,
+                model.time_manager.dt,
+            )
+        )
+        print("BEFORE solver.solve:")
+
         solver.solve(model)
         print(
             "AFTER solver.solve --------------------------------------------------------"

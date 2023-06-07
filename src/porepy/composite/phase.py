@@ -3,6 +3,7 @@ import abc
 import numpy as np
 import porepy as pp
 
+import pdb
 
 # then, i guess, pressure_phase = p +- capillary(saturation_phase)
 
@@ -22,7 +23,7 @@ class Phase(abc.ABC):
         #     subdomains=ad_system.mdg.subdomains(),
         # )
         self._rho0 = rho0
-        # self._s = None
+        self._s = None
         self.subdomain = None
         self.equation_system = None
 
@@ -38,13 +39,18 @@ class Phase(abc.ABC):
 
     @property
     def saturation(self):
-        s = self.saturation_operator(self.subdomain).evaluate(self.equation_system)
-
-    def saturation_operator(
-        self, subdomains: list[pp.Grid]
-    ) -> pp.ad.MixedDimensionalVariable:
-        s = self.equation_system.md_variable("saturation", subdomains)
+        s = self.saturation_operator([self.subdomain]).evaluate(self.equation_system)
         return s
+
+    # def saturation_operator(
+    #     self, subdomains: list[pp.Grid]
+    # ) -> pp.ad.MixedDimensionalVariable:
+    #     # TODO: redo constraint
+    #     s = self.equation_system.md_variable("saturation", subdomains)
+    #     return s
+
+    def saturation_operator(self, subdomains: list) -> pp.ad.MixedDimensionalVariable:
+        return self._s
 
     # Physical properties: ----------------------------------------------------------------
 
@@ -79,8 +85,8 @@ class Phase(abc.ABC):
 
         # mass_density = (
         #     pp.constitutive_laws.FluidDensityFromPressure
-        # )  # TODO: what is self?
-        # subdomains = self.mdg.subdomains()  # TODO: what is self?
+        # )
+        # subdomains = self.mdg.subdomains()
         # rho = mass_density.fluid_density(subdomains)
 
         return rho
@@ -90,8 +96,8 @@ class Phase(abc.ABC):
         see pressure(rho) in consitutive laws
         """
         p = pressure(subdomains)
-        mass_density_operator = pp.ad.Function(self.mass_density, "mass_density")
-        rho = mass_density_operator(p)
+        mass_rho_operator = pp.ad.Function(self.mass_density, "mass_density_operator")
+        rho = mass_rho_operator(p)
         # NO, you need the loop over grids, you know...
         # NO, you don't need it, p is [ph, pl] and rho is a functoin depending only on p, so you don't need do distingush the grids
 

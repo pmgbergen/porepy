@@ -15,6 +15,8 @@ import porepy as pp
 from . import _ad_utils
 from .operators import MixedDimensionalVariable, Operator, Variable
 
+import pdb
+
 __all__ = ["EquationSystem"]
 
 
@@ -665,7 +667,7 @@ class EquationSystem:
         """
         if time_step_index is None and iterate_index is None:
             raise ValueError(
-                "At least one of time_step_index and iterate_index needs to be"
+                "At least one of time_step_index and iterate_index needs to be "
                 "different from None."
             )
 
@@ -1251,14 +1253,24 @@ class EquationSystem:
             discr: list storing found discretizations
 
         """
+
+        # print("\noperator.tree.children = ", operator.tree.children)
+        # print("len(operator.tree.children) = ", len(operator.tree.children))
         if len(operator.tree.children) > 0:
             # Go further in recursion
             for child in operator.tree.children:
+                # print("child = ", child)
+
+                # if child.name == "rho qt":
+                #     # if child.name == "mass_density_operator":
+                #     pdb.set_trace()
+
                 discr += EquationSystem._recursive_discretization_search(child, list())
 
         if isinstance(operator, _ad_utils.MergedOperator):
             # We have reached the bottom; this is a discretization (example: mpfa.flux)
             discr.append(operator)
+        # pdb.set_trace()
 
         return discr
 
@@ -1479,11 +1491,13 @@ class EquationSystem:
         # TODO: the search can be done once (in some kind of initialization). Revisit
         # this during update of the Ad machinery.
         for name in equation_names:
+            # print("\n name = ", name)
             # this raises a key error if a given equation name is unknown
             eqn = self._equations[name]
             # This will expand the list discr with new discretizations.
             # The list may contain duplicates.
             discr += self._recursive_discretization_search(eqn, list())
+            # pdb.set_trace()
 
         # Uniquify to save computational time, then discretize.
         unique_discr = _ad_utils.uniquify_discretization_list(discr)
@@ -1588,9 +1602,15 @@ class EquationSystem:
             # This will raise a key error if the equation name is unknown.
             eq = self._equations[equ_name]
 
-            print("\nBEFORE eq.evaluate: -----------------------------------")
+            print("BEFORE eq.evaluate: -----------------------------------")
+
+            # print("eq = ", eq)
+
             ad = eq.evaluate(self, state)
-            print("AFTER eq.evaluate -----------------------------------------")
+
+            # pdb.set_trace()
+
+            print("AFTER eq.evaluate -----------------------------------------\n")
 
             # If restriction to grid-related row blocks was made,
             # perform row slicing based on information we have obtained from parsing.

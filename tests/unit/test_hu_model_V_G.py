@@ -12,33 +12,6 @@ import pdb
 os.system("clear")
 
 
-def myprint(var):
-    print("\n" + var + " = ", eval(var))
-
-
-###################################################################################################################
-# mass and energy model:
-###################################################################################################################
-
-
-# fluid_constants = pp.FluidConstants({"compressibility": 114})
-# material_constants = {"fluid": fluid_constants}
-# params = {"material_constants": material_constants}
-
-# model = pp.mass_and_energy_balance.MassAndEnergyBalance(params)
-
-# pp.run_time_dependent_model(model, params)
-
-# print(model.fluid.constants)
-
-# print("\n\n\n\n")
-
-# for i in dir(model):
-#     print(i)
-
-# pdb.set_trace()
-
-
 class FunctionTotalFlux(pp.ad.operator_functions.AbstractFunction):
     """ """
 
@@ -95,9 +68,7 @@ class FunctionTotalFlux(pp.ad.operator_functions.AbstractFunction):
         """
         remember that *args_not_used are result[1] in _parse_operator
         """
-        known_term_list = (
-            []
-        )  # TODO: find a better name, which is not rhs because it is not yet
+        rhs_list = []
         for subdomain, data in self.mdg.subdomains(return_data=True):
             args = [subdomain]
 
@@ -108,11 +79,9 @@ class FunctionTotalFlux(pp.ad.operator_functions.AbstractFunction):
             args_from_dict = self.get_args_from_sd_data_dictionary(data)
             args = np.hstack((args, args_from_dict))
 
-            known_term_list.append(
-                self.func(*args).val
-            )  # equation_system.assemble_subsystem will add the "-", so it will actually become a rhs
+            rhs_list.append(self.func(*args).val)
 
-        return np.hstack(known_term_list)
+        return np.hstack(rhs_list)
 
     def get_jacobian(self, *args_not_used: AdArray) -> np.ndarray:
         """
@@ -179,7 +148,7 @@ class FunctionRhoV(pp.ad.operator_functions.AbstractFunction):
 
     def get_values(self, *args_not_used: AdArray) -> np.ndarray:
         """ """
-        known_term_list = []
+        rhs_list = []
         for subdomain, data in self.mdg.subdomains(return_data=True):
             args = [subdomain]
             args.append(
@@ -188,9 +157,9 @@ class FunctionRhoV(pp.ad.operator_functions.AbstractFunction):
             args_from_dict = self.get_args_from_sd_data_dictionary(data)
             args = np.hstack((args, args_from_dict))
 
-            known_term_list.append(self.func(*args).val)
-
-        return np.hstack(known_term_list)
+            rhs_list.append(self.func(*args).val)
+            # TODO: not your they are actually rhs, check the sign
+        return np.hstack(rhs_list)
 
     def get_jacobian(self, *args_not_used: AdArray) -> np.ndarray:
         """ """
@@ -259,7 +228,7 @@ class FunctionRhoG(pp.ad.operator_functions.AbstractFunction):
 
     def get_values(self, *args_not_used: AdArray) -> np.ndarray:
         """ """
-        known_term_list = []
+        rhs_list = []
         for subdomain, data in self.mdg.subdomains(return_data=True):
             args = [subdomain]
             args.append(
@@ -268,8 +237,8 @@ class FunctionRhoG(pp.ad.operator_functions.AbstractFunction):
             args_from_dict = self.get_args_from_sd_data_dictionary(data)
             args = np.hstack((args, args_from_dict))
 
-            known_term_list.append(self.func(*args).val)
-        return np.hstack(known_term_list)
+            rhs_list.append(self.func(*args).val)
+        return np.hstack(rhs_list)
 
     def get_jacobian(self, *args_not_used: AdArray) -> np.ndarray:
         """ """
@@ -317,7 +286,9 @@ class PressureEquation(pp.BalanceEquation):
         )
         mass_density = mass_density_ell + mass_density_m
 
-        accumulation = self.volume_integral(mass_density, subdomains, dim=1)
+        accumulation = pp.ad.Scalar(0, "zero") * self.volume_integral(
+            mass_density, subdomains, dim=1
+        )
         accumulation.set_name("fluid_mass")
 
         rho_total_flux_operator = FunctionTotalFlux(
@@ -361,7 +332,9 @@ class MassBalance(pp.BalanceEquation):
             )
             * self.mixture.get_phase(self.ell).saturation_operator(subdomains)
         )
-        accumulation = self.volume_integral(mass_density, subdomains, dim=1)
+        accumulation = pp.ad.Scalar(0, "zero") * self.volume_integral(
+            mass_density, subdomains, dim=1
+        )
         accumulation.set_name("fluid_mass")
 
         rho_V_operator = FunctionRhoV(
@@ -373,15 +346,17 @@ class MassBalance(pp.BalanceEquation):
 
         fake_input = self.pressure(subdomains)
         flux = (
-            rho_V_operator(fake_input)
+            pp.ad.Scalar(0, "zero") * rho_V_operator(fake_input)
             + rho_G_operator(fake_input)
             + self.bc_values(subdomains)
         )  # this is wrong, but bc val are 0 so I dont care...  # TODO: not sure I have to add an argument, we'll see...
 
         source = pp.ad.Scalar(0)  # HARDCODED
 
-        eq = self.balance_equation(subdomains, accumulation, flux, source, dim=1)
-        eq.set_name("mass_balance_equation")
+        # eq = self.balance_equation(subdomains, accumulation, flux, source, dim=1)
+        # eq.set_name("mass_balance_equation")
+
+        eq = flux  # I need to test only this one...
 
         return eq
 
@@ -444,8 +419,6 @@ class ConstitutiveLawPressureMass(
     pp.constitutive_laws.DimensionReduction,
     pp.constitutive_laws.DarcysLaw,
     pp.constitutive_laws.ConstantPorosity,
-    # pp.constitutive_laws.ConstantPermeability, # TODO: there is a lot to change...
-    # pp.constitutive_laws.ConstantViscosity, # TODO: there is a lot to change...
 ):
     pass
 
@@ -530,11 +503,6 @@ class SolutionStrategyPressureMass(pp.SolutionStrategy):
 
         constants.update(self.params.get("material_constants", {}))
 
-        # if "fluid" not in constants:
-        #     constants["fluid"] = pp.FluidConstants()
-        # if "solid" not in constants:
-        #     constants["solid"] = pp.SolidConstants()
-
         for name, const in constants.items():
             assert isinstance(const, pp.models.material_constants.MaterialConstants)
             const.set_units(self.units)
@@ -590,24 +558,18 @@ class SolutionStrategyPressureMass(pp.SolutionStrategy):
                     .saturation_operator([sd])
                 )
 
-                saturation_values = np.zeros(sd.num_cells)
-                y_max = self.size  # TODO: not 100% sure size = y_max
-                saturation_values[
-                    np.where(sd.cell_centers[1] >= y_max / 2)
-                ] = 1.0  # TODO: HARDCODED for 2D
+                saturation_values = np.array([1.0, 1])
+
                 self.equation_system.set_variable_values(
                     saturation_values,
                     variables=[saturation_variable],
                     time_step_index=0,
-                    iterate_index=0,  ### not totally clear, aqp you have to change both timestep values and iterate
-                )  # TODO: i don't understand, this stores the value in data[pp.TIME_STEP_SOLUTION]["saturation"] without modifying the value of saturation
+                    iterate_index=0,
+                )
 
                 pressure_variable = self.pressure([sd])
 
-                pressure_values = (
-                    2 - 1 * sd.cell_centers[1] / y_max
-                )  # TODO: hardcoded for 2D
-
+                pressure_values = np.array([0.0, 0])
                 self.equation_system.set_variable_values(
                     pressure_values,
                     variables=[pressure_variable],
@@ -766,6 +728,30 @@ class SolutionStrategyPressureMass(pp.SolutionStrategy):
         )  ### TODO: redo...
 
         for sd, data in self.mdg.subdomains(return_data=True):
+            gigi = (
+                self.mixture.mixture_for_subdomain(self.equation_system, [sd])
+                .get_phase(0)
+                .saturation
+            )
+
+            mario = (
+                self.mixture.mixture_for_subdomain(self.equation_system, [sd])
+                .get_phase(1)
+                .saturation
+            )
+
+            sss = self.equation_system.md_variable(
+                "saturation", self.mdg.subdomains()
+            ).evaluate(self.equation_system)
+
+            ppp = self.equation_system.md_variable(
+                "pressure", self.mdg.subdomains()
+            ).evaluate(self.equation_system)
+
+            print("saturation = ", mario.val)
+            print("pressure = ", ppp.val)
+            # pdb.set_trace()
+
             pressure_adarray = self.pressure([sd]).evaluate(self.equation_system)
             left_restriction = data["for_hu"]["left_restriction"]
             right_restriction = data["for_hu"][
@@ -790,7 +776,7 @@ class SolutionStrategyPressureMass(pp.SolutionStrategy):
                 )
             )
             data["for_hu"]["total_flux_internal"] = (
-                total_flux_internal[0] + total_flux_internal[1]
+                total_flux_internal[0].val + total_flux_internal[1].val
             )
             data["for_hu"]["pressure_AdArray"] = self.pressure([sd]).evaluate(
                 self.equation_system
@@ -802,69 +788,77 @@ class SolutionStrategyPressureMass(pp.SolutionStrategy):
             )  # TODO: i think i need only interface_darcy_flux, i dont' want to bother about htis now...
             data[pp.PARAMETERS][self.mobility_keyword].update({"darcy_flux": vals})
 
+            # some plot: ---------------
+            pp.plot_grid(sd, sss.val, alpha=0.5, info="c")
+            pp.plot_grid(sd, gigi.val, alpha=0.5, info="c")
+            pp.plot_grid(sd, ppp.val, alpha=0.5, info="c")
+
         for intf, data in self.mdg.interfaces(return_data=True, codim=1):
             vals = self.interface_darcy_flux([intf]).evaluate(self.equation_system).val
             data[pp.PARAMETERS][self.mobility_keyword].update({"darcy_flux": vals})
 
+        # TEST SECTION: -----------------------
+        # sorry, I dont have time to create different tests... modify this one looking at test_hu.py
+
+        subdomain = self.mdg.subdomains()
+        # rho_V = self.mass_balance_equation(subdomain)
+        # rho_V = rho_V.evaluate(self.equation_system)
+
+        # assert np.all(rho_V.val == np.array([0, 0, 0, 0, 0, 1, 0])) # PASSED
+
+        rho_G = self.mass_balance_equation(subdomain)
+        rho_G = rho_G.evaluate(self.equation_system)
+
+        pdb.set_trace()
+        assert np.all(rho_G.val == np.array([0, 0, 0, 0, 0, 0, 0]))  # PASSED
+
+        print("\n\n TEST PASSED ------------------- ")
+
         super().before_nonlinear_iteration()
-
-    def after_nonlinear_iteration(self, solution_vector: np.ndarray) -> None:
-        """ """
-        self._nonlinear_iteration += 1
-        self.equation_system.shift_iterate_values()
-        self.equation_system.set_variable_values(
-            values=solution_vector, additive=True, iterate_index=0
-        )
-
-        # added:
-        for sd, _ in self.mdg.subdomains(return_data=True):
-            gigi = (
-                self.mixture.mixture_for_subdomain(self.equation_system, [sd])
-                .get_phase(0)
-                .saturation
-            )
-
-            mario = (
-                self.mixture.mixture_for_subdomain(self.equation_system, [sd])
-                .get_phase(1)
-                .saturation
-            )
-
-            sss = self.equation_system.md_variable(
-                "saturation", self.mdg.subdomains()
-            ).evaluate(self.equation_system)
-
-            ppp = self.equation_system.md_variable(
-                "pressure", self.mdg.subdomains()
-            ).evaluate(self.equation_system)
-
-            print("saturation = ", mario.val)
-            print("pressure = ", ppp.val)
-
-            pp.plot_grid(sd, sss.val, alpha=0.5, info="c")
-            pp.plot_grid(sd, gigi.val, alpha=0.5, info="c")
-            pp.plot_grid(sd, ppp.val, alpha=0.5, info="c")
 
 
 class MyModelGeometry(pp.ModelGeometry):
     def set_domain(self) -> None:
         """ """
-        self.size = 1 / self.units.m
-        self._domain = pp.applications.md_grids.domains.nd_cube_domain(2, self.size)
+        self.size = 1.0 / self.units.m
+        box = {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 2 * self.size}
+        self._domain = pp.Domain(box)
 
     def set_fractures(self) -> None:
         """ """
-        frac1 = pp.LineFracture(np.array([[0, 0.5], [0, 0]]))
-        self._fractures: list = []  # [frac1]
+        self._fractures: list = []
 
     def meshing_arguments(self) -> dict[str, float]:
         """ """
-        default_meshing_args: dict[str, float] = {"cell_size": 0.2 / self.units.m}
+        default_meshing_args: dict[str, float] = {"cell_size": 0.9}
         return self.params.get("meshing_arguments", default_meshing_args)
 
 
-wetting_phase = pp.composite.phase.Phase(rho0=1)
-non_wetting_phase = pp.composite.phase.Phase(rho0=0.5)
+class ConstantDensityPhase(pp.Phase):
+    """ """
+
+    def mass_density(self, p):
+        """ """
+        if isinstance(p, pp.ad.AdArray):
+            rho = self._rho0 * pp.ad.AdArray(
+                np.ones(p.val.shape), 0 * p.jac
+            )  # TODO: is it right?
+        else:
+            rho = self._rho0 * np.ones(p.shape)
+        return rho
+
+    def mass_density_operator(self, subdomains, pressure):
+        """ """
+        p = pressure(subdomains)
+        mass_rho_operator = pp.ad.Function(self.mass_density, "mass_density_operator")
+        rho = mass_rho_operator(p)
+
+        return rho
+
+
+wetting_phase = ConstantDensityPhase(rho0=1)
+non_wetting_phase = ConstantDensityPhase(rho0=0.5)
+
 
 mixture = pp.Mixture()
 mixture.add([wetting_phase, non_wetting_phase])
@@ -887,42 +881,14 @@ class FinalModel(PartialFinalModel):  # I'm sorry...
         super().__init__(params)
         self.mixture = mixture
         self.ell = 0  # 0 = wetting, 1 = non-wetting
-        self.gravity_value = pp.GRAVITY_ACCELERATION
+        self.gravity_value = 1.0
 
 
-# fluid_constants = pp.FluidConstants(
-#     {
-#         "compressibility": 1,
-#         "density": 1,  # TODO: is this the reference density?
-#         "normal_thermal_conductivity": 1,
-#         "pressure": 0,
-#         "specific_heat_capacity": 1,
-#         "temperature": 0,
-#         "thermal_conductivity": 1,
-#         "thermal_expansion": 0,
-#         "viscosity": 1,
-#     }
-# )
 fluid_constants = pp.FluidConstants({})
 solid_constants = pp.SolidConstants({"porosity": 0.25, "permeability": 1})
-# material_constants = {"solid": solid_constants}
+
 material_constants = {"fluid": fluid_constants, "solid": solid_constants}
-
-time_manager = pp.TimeManager(
-    schedule=[0, 1],
-    dt_init=5e-2,
-    constant_dt=True,
-    iter_max=10,
-    print_info=True,
-)
-
-params = {
-    "material_constants": material_constants,
-    "max_iterations": 100,
-    "nl_convergence_tol": 1e-10,
-    "nl_divergence_tol": 1e5,
-    "time_manager": time_manager,
-}
+params = {"material_constants": material_constants}
 
 
 model = FinalModel(mixture, params)
