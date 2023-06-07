@@ -678,7 +678,7 @@ def get_testable_methods_names(model_setup) -> list[str]:
     # A testable method is one that:
     # (1) Has a single parameter,
     # (2) The name of the parameter is 'subdomains' or 'interfaces', and
-    # (3) Returns a 'pp.ad.Operator' or a 'np.ndarray'.
+    # (3) Returns a 'pp.ad.Operator' or a 'pp.ad.DenseArray'.
     testable_methods: list[str] = []
     for method in all_methods:
         callable_method = getattr(model_setup, method)
@@ -695,9 +695,27 @@ def get_testable_methods_names(model_setup) -> list[str]:
             )
             and (
                 "pp.ad.Operator" in signature.return_annotation
-                or "np.ndarray" in signature.return_annotation
+                or "pp.ad.DenseArray" in signature.return_annotation
             )
         ):
             testable_methods.append(method)
 
     return testable_methods
+
+
+def methods_from_pytest_session(request) -> list[str]:
+    """Get all methods that are currently part of a parametrization.
+
+    Parameters:
+        request: Pytest request object.
+
+    Returns:
+        List with the names of all methods currently present in the parametrization.
+
+    """
+    method_names: list = []
+    for session_item in request.session.items:
+        test_name = session_item.name
+        method_name = test_name[test_name.find("[") + 1 : test_name.find("-")]
+        method_names.append(method_name)
+    return method_names
