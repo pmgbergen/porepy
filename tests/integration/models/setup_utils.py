@@ -701,21 +701,3 @@ def get_testable_methods_names(model_setup) -> list[str]:
             testable_methods.append(method)
 
     return testable_methods
-
-
-def methods_from_pytest_session(request) -> list[str]:
-    """Get all methods that are currently part of a parametrization.
-
-    Parameters:
-        request: Pytest request object.
-
-    Returns:
-        List with the names of all methods currently present in the parametrization.
-
-    """
-    method_names: list = []
-    for session_item in request.session.items:
-        test_name = session_item.name
-        method_name = test_name[test_name.find("[") + 1 : test_name.find("-")]
-        method_names.append(method_name)
-    return method_names
