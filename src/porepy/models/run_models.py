@@ -110,7 +110,6 @@ def run_time_dependent_model(model, params: dict) -> None:
             + f" with time step {model.time_manager.dt:.1e}"
         )
         solver.solve(model)
-        model.time_manager.compute_time_step()
 
     # Progressbars turned off or tqdm not installed:
     if not params.get("progressbars", False) or not _IS_TQDM_AVAILABLE:
