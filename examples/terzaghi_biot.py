@@ -139,13 +139,6 @@ class TerzaghiDataSaving(VerificationDataSaving):
 
     """
 
-    relative_l2_error: Callable
-    """Method for computing the discrete relative L2-error. Normally provided by a
-    mixin instance of :class:`~porepy.applications.building_blocks.
-    verification_utils.VerificationUtils`.
-
-    """
-
     def collect_data(self) -> TerzaghiSaveData:
         """Collect data for the current simulation time.
 
@@ -160,12 +153,13 @@ class TerzaghiDataSaving(VerificationDataSaving):
         exact_pressure = self.exact_sol.pressure(sd.cell_centers[1], t)
         pressure_ad = self.pressure([sd])
         approx_pressure = pressure_ad.evaluate(self.equation_system).val
-        error_pressure = self.relative_l2_error(
+        error_pressure = pp.error_computation.l2_error(
             grid=sd,
             true_array=exact_pressure,
             approx_array=approx_pressure,
             is_scalar=True,
             is_cc=True,
+            relative=True,
         )
 
         displacement_ad = self.displacement([sd])
