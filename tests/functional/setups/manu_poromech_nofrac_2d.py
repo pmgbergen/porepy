@@ -143,13 +143,6 @@ class ManuPoroMechDataSaving(VerificationDataSaving):
 
     """
 
-    relative_l2_error: Callable
-    """Method for computing the discrete relative L2-error. Normally provided by a
-    mixin instance of :class:`~porepy.applications.building_blocks.
-    verification_utils.VerificationUtils`.
-
-    """
-
     def collect_data(self) -> ManuPoroMechSaveData:
         """Collect data from the verification setup.
 
@@ -167,45 +160,49 @@ class ManuPoroMechDataSaving(VerificationDataSaving):
         exact_pressure = self.exact_sol.pressure(sd=sd, time=t)
         pressure_ad = self.pressure([sd])
         approx_pressure = pressure_ad.evaluate(self.equation_system).val
-        error_pressure = self.relative_l2_error(
+        error_pressure = pp.error_computation.l2_error(
             grid=sd,
             true_array=exact_pressure,
             approx_array=approx_pressure,
             is_scalar=True,
             is_cc=True,
+            relative=True,
         )
 
         exact_displacement = self.exact_sol.displacement(sd=sd, time=t)
         displacement_ad = self.displacement([sd])
         approx_displacement = displacement_ad.evaluate(self.equation_system).val
-        error_displacement = self.relative_l2_error(
+        error_displacement = pp.error_computation.l2_error(
             grid=sd,
             true_array=exact_displacement,
             approx_array=approx_displacement,
             is_scalar=False,
             is_cc=True,
+            relative=True,
         )
 
         exact_flux = self.exact_sol.darcy_flux(sd=sd, time=t)
         flux_ad = self.darcy_flux([sd])
         approx_flux = flux_ad.evaluate(self.equation_system).val
-        error_flux = self.relative_l2_error(
+        error_flux = pp.error_computation.l2_error(
             grid=sd,
             true_array=exact_flux,
             approx_array=approx_flux,
             is_scalar=True,
             is_cc=False,
+            relative=True,
         )
 
         exact_force = self.exact_sol.poroelastic_force(sd=sd, time=t)
         force_ad = self.stress([sd])
         approx_force = force_ad.evaluate(self.equation_system).val
-        error_force = self.relative_l2_error(
+        error_force = pp.error_computation.l2_error(
             grid=sd,
             true_array=exact_force,
             approx_array=approx_force,
             is_scalar=False,
             is_cc=False,
+            relative=True,
         )
 
         # Store collected data in data class
