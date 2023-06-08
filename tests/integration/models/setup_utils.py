@@ -659,11 +659,17 @@ def compare_values(
         assert np.isclose(np.sum(values_0 - values_1), 0, atol=1e-10 + rtol)
 
 
-def get_testable_methods_names(model_setup) -> list[str]:
-    """Get all possible testable methods for the test_eval_methods_... tests.
+def get_model_methods_returning_ad_operator(model_setup) -> list[str]:
+    """Get all possible testable methods to be used in the test_ad_methods_xxx.py files.
+
+    A testable method is one that:
+
+        (1) Has a single input parameter,
+        (2) The name of the parameter is either 'subdomains' or 'interfaces', and
+        (3) Returns either a 'pp.ad.Operator' or a 'pp.ad.DenseArray'.
 
     Parameters:
-        model_setup: Model setup after `prepare_for_simulation()`.
+        model_setup: Model setup after `prepare_simulation()` has been called.
 
     Returns:
         List of all possible testable method names for the given model.
@@ -674,18 +680,18 @@ def get_testable_methods_names(model_setup) -> list[str]:
     all_methods = [method for method in dir(model_setup) if not method.startswith("_")]
 
     # Get all testable methods
-    # A testable method is one that:
-    # (1) Has a single parameter,
-    # (2) The name of the parameter is 'subdomains' or 'interfaces', and
-    # (3) Returns a 'pp.ad.Operator' or a 'pp.ad.DenseArray'.
     testable_methods: list[str] = []
     for method in all_methods:
+        # Get method in callable form
         callable_method = getattr(model_setup, method)
+
+        # Retrieve method signature via inspect
         try:
             signature = inspect.signature(callable_method)
         except TypeError:
             continue
 
+        # Append method to the `testable_methods` list if the conditions are met
         if (
             len(signature.parameters) == 1
             and (
