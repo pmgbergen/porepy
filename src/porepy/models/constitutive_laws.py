@@ -431,7 +431,7 @@ class FluidDensityFromPressure:
 
     """
 
-    def fluid_compressibility(self, subdomains: list[pp.Grid]) -> pp.ad.Scalar:
+    def fluid_compressibility(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Fluid compressibility [1/Pa].
 
         Parameters:
@@ -981,7 +981,9 @@ class DarcysLaw:
         flux.set_name("Darcy_flux")
         return flux
 
-    def interface_darcy_flux_equation(self, interfaces: list[pp.MortarGrid]):
+    def interface_darcy_flux_equation(
+        self, interfaces: list[pp.MortarGrid]
+    ) -> pp.ad.Operator:
         """Darcy flux on interfaces.
 
         The units of the Darcy flux are [m^2 Pa / s], see note in :meth:`darcy_flux`.
