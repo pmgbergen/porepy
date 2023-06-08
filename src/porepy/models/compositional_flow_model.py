@@ -230,7 +230,7 @@ class CompositionalFlowModel:
         """Assigns a cartesian grid as computational domain.
         Overwrites/sets the instance variables 'mdg'.
         """
-        refinement = 10
+        refinement = 20
         phys_dims = [3, 2]
         n_cells = [i * refinement for i in phys_dims]
         # n_cells = [2, 1]

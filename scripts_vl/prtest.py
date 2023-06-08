@@ -3,10 +3,10 @@ import porepy as pp
 
 chems = ["H2O", "CO2"]
 
-vec = np.ones(2)
+vec = np.ones(1)
 z = [vec * 0.01]  # only co2 fraction is enough
-p = vec * 12916666.666666666 
-T = vec * 550.
+p = vec * 23458333.333333336
+T = vec * 450.
 h = vec * -5372.056951273314
 verbosity = 2
 
@@ -40,12 +40,12 @@ flash.newton_update_chop = 1.0
 flash.tolerance = 1e-6
 flash.max_iter = 120
 
-# success, results_pT = flash.flash(
-#     state={'p': p, 'T': T}, eos_kwargs={'apply_smoother': True},
-#     feed = z,
-#     verbosity=verbosity,
-# )
-# print(results_pT)
+success, results_pT = flash.flash(
+    state={'p': p, 'T': T}, eos_kwargs={'apply_smoother': True},
+    feed = z,
+    verbosity=verbosity,
+)
+print(results_pT)
 
 success, results_ph = flash.flash(
     state={'p': p, 'h': h}, eos_kwargs={'apply_smoother': True},

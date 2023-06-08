@@ -43,7 +43,7 @@ Once a mixture is modelled, flash calculations can be performed using a
 """
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, field
+from dataclasses import dataclass, field
 from typing import Any, Generator, Literal, Optional, overload
 
 import numpy as np

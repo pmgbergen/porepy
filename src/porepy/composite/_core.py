@@ -341,6 +341,6 @@ def rachford_rice_feasible_region(
         for j in range(nph):
             cond_2.append(t_i - K[j][i] * z[i] >= 0)
         cond_2 = np.all(np.array(cond_2), axis=0)
-        all_conditions.append(np.logical_and(cond_1, cond_2))
+        all_conditions.append(cond_1 & cond_2)
 
     return np.all(np.array(all_conditions), axis=0)
