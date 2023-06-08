@@ -8,7 +8,6 @@ import numpy as np
 
 import porepy as pp
 from porepy.applications.md_grids.model_geometries import CubeDomainOrthogonalFractures
-from porepy.fracs.fracture_network_2d import FractureNetwork2d
 
 
 class RectangularDomainThreeFractures(pp.ModelGeometry):
