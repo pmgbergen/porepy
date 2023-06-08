@@ -53,6 +53,7 @@ def model_setup():
         Prepared-for-simulation model with non-trivial primary variables.
 
     """
+
     class Model(SquareDomainOrthogonalFractures, SinglePhaseFlow):
         """Single phase flow model in a domain with two intersecting fractures."""
 
@@ -119,14 +120,14 @@ def all_testable_methods(model_setup) -> list[str]:
     """Get all testable methods.
 
     Parameters:
-        model_setup: Single-phase flow model setup after `prepare_for_simulation()`
+        model_setup: Single-phase flow model setup after `prepare_simulation()`
             has been called.
 
     Returns:
         List of all possible testable methods for the model.
 
     """
-    return setup_utils.get_testable_methods_names(model_setup)
+    return setup_utils.get_model_methods_returning_ad_operator(model_setup)
 
 
 def test_tested_vs_testable_methods_single_phase_flow(
@@ -167,7 +168,9 @@ def test_tested_vs_testable_methods_single_phase_flow(
     "method_name, expected_value, dimension_restriction",
     [
         ("aperture", np.array([1, 1, 1, 1, 0.01, 0.01, 0.01, 0.01, 0.01]), None),
+        # Boundary values for the elliptic discretization
         ("bc_values_darcy", np.zeros(24), None),
+        # Boundary values for the upwind discretization
         (
             "bc_values_mobrho",
             np.array(
@@ -200,6 +203,7 @@ def test_tested_vs_testable_methods_single_phase_flow(
             ),
             None,
         ),
+        # Darcy fluxes (with unitary values for the viscosity).
         (
             "darcy_flux",
             np.array(
@@ -238,7 +242,9 @@ def test_tested_vs_testable_methods_single_phase_flow(
             None,
         ),
         ("fluid_compressibility", 4e-10, None),
+        # rho = rho_ref * exp(c_f * (p - p_ref))
         ("fluid_density", 1000 * np.exp(4e-10 * 200 * pp.BAR), None),
+        # Values of the mass fluxes (i.e., scaling with rho/mu is incorporated).
         (
             "fluid_flux",
             np.array(
@@ -271,6 +277,7 @@ def test_tested_vs_testable_methods_single_phase_flow(
             ),
             None,
         ),
+        # fluid_mass = rho * phi * cell_volume
         (
             "fluid_mass",
             np.array(
@@ -288,6 +295,7 @@ def test_tested_vs_testable_methods_single_phase_flow(
             ),
             None,
         ),
+        # Only sources from interface fluxes are non-zero. External sources are zero.
         (
             "fluid_source",
             np.array(
@@ -332,6 +340,7 @@ def test_tested_vs_testable_methods_single_phase_flow(
         ("normal_permeability", 1.0, None),
         ("permeability", 1e-20, None),
         ("porosity", 7e-3, None),
+        # pressure_exponential = exp(c_f * (p - p_ref))
         ("pressure_exponential", np.exp(4e-10 * 200 * pp.BAR), None),
         (
             "pressure_trace",
@@ -388,10 +397,10 @@ def test_ad_operator_methods_single_phase_flow(
         dimension_restriction: Dimension in which the method is restricted. If None,
             all valid dimensions for the method will be considered. Can also be used
             to test a method that is valid in all dimensions, but for the sake of
-            compactness is only tested in one dimension.
+            compactness, only tested in one dimension.
 
     """
-    # Get the method to be tested.
+    # Get the method to be tested in callable form..
     method: Callable = getattr(model_setup, method_name)
 
     # Obtain list of subdomain or interface grids where the method is defined.
