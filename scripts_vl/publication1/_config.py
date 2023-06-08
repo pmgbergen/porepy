@@ -37,16 +37,22 @@ P_LIMITS: list[float] = [1e6, 50e6]  # [Pa]
 T_LIMITS: list[float] = [450.0, 700.0]  # [K]
 # temperature values for isotherms (isenthalpic flash calculations)
 # more refined around critical temperature of water, up to critical pressure of water
-ISOTHERMS: list[float] = [500.0, 550., 620, 645., 647.14, 650.]
+ISOTHERMS: list[float] = [500.0, 550.0, 620, 645.0, 647.14, 650.0]
 P_LIMITS_ISOTHERMS: list[float] = [1e6, 23000000.0]
 # resolution of p-T limits
-RESOLUTION_pT: int = 50
+RESOLUTION_pT: int = 40
 # pressure resolution along isotherms
-RESOLUTION_isotherms: int = 25
+RESOLUTION_isotherms: int = 10
 
 # Scaling for plots
 PRESSURE_SCALE: float = 1e-6  # to MPa
 PRESSURE_SCALE_NAME: str = "MPa"
+
+# Widom line for water: Pressure and Temperature values
+WIDOM_LINE: list[np.ndarray] = [
+    np.array([225, 250, 270]) * 1e5,  # bar to Pa
+    np.array([646.9, 655.6, 664.9])
+]
 
 # Calculation modus for PorePy flash
 # 1 - point-wise (robust, but possibly very slow),
@@ -54,11 +60,16 @@ PRESSURE_SCALE_NAME: str = "MPa"
 # 3 - parallelized (use with care, if system compatible)
 CALCULATION_MODE: int = 3
 
+# Limits for A and B when plotting te roots
+A_LIMITS: list[float] = [0, 2 * pp.composite.peng_robinson.PengRobinsonEoS.A_CRIT]
+B_LIMITS: list[float] = [0, 2 * pp.composite.peng_robinson.PengRobinsonEoS.B_CRIT]
+RESOLUTION_AB: int = 300
+
 # paths to where results should be stored
 THERMO_DATA_PATH: str = "data/thermodata.csv"  # storing results from therm
 PT_FLASH_DATA_PATH: str = "data/flash_pT.csv"  # storing p-T results from porepy
 PT_QUICKSHOT_DATA_PATH: str = (
-    "data/flash_pT.csv"  # storing p-T results from initial guess
+    "data/flash_pT_initial.csv"  # storing p-T results from initial guess
 )
 ISOTHERM_DATA_PATH: str = (
     "data/flash_pT_isotherms.csv"  # storing p-T results on isotherms
@@ -299,7 +310,7 @@ def _thermo_parse_result(state) -> dict:
 
     out.update(
         {
-            success_HEADER: 1,
+            success_HEADER: 0,
             gas_frac_HEADER: state.VF,
         }
     )
@@ -464,7 +475,7 @@ def _failed_entry() -> dict[str]:
     failed: dict = _init_empty_results()
     for k in failed.keys():
         failed[k] = NAN_ENTRY
-    failed[success_HEADER] = 0
+    failed[success_HEADER] = 2
     return failed
 
 
@@ -788,7 +799,7 @@ def _parallel_pT_flash(ipT):
     except Exception as err:  # if Flasher fails, flag as failed
         logger.warn(f"\nParallel p-T flash crashed at {ipT}\n{str(err)}\n")
 
-        success_arr[i] = 0
+        success_arr[i] = 2
         # split_arr[i] = str(NAN_ENTRY)
         # is_supercrit_arr[i] = 0
         y_arr[i] = NAN_ENTRY
@@ -809,10 +820,33 @@ def _parallel_pT_flash(ipT):
         phi_co2_G_arr[i] = NAN_ENTRY
         h_arr[i] = NAN_ENTRY
     else:
-        cond_arr[i] = np.linalg.cond(state(with_derivatives=True).jac.todense())
-        state = state.export_state()
-        if success_ in [0, 3]:
-            success_arr[i] = 1
+        success_arr[i] = success_
+        if success_ == 2:
+            logger.warn(f"\nParallel p-T diverged at {ipT} (exit code = {success_})\n")
+            cond_arr[i] = NAN_ENTRY
+            Z_L_arr[i] = NAN_ENTRY
+            Z_G_arr[i] = NAN_ENTRY
+            phi_h2o_L_arr[i] = NAN_ENTRY
+            phi_co2_L_arr[i] = NAN_ENTRY
+            phi_h2o_G_arr[i] = NAN_ENTRY
+            phi_co2_G_arr[i] = NAN_ENTRY
+        else:
+            if success_ == 1:
+                logger.warn(
+                    f"\nParallel p-T failed to converge at {ipT} (exit code = {success_})\n"
+                )
+                # cond_arr[i] = NAN_ENTRY
+            
+            try:
+                cn = np.linalg.cond(state(with_derivatives=True).jac.todense())
+            except:
+                logger.warn(
+                    f"\nParallel p-T failed to compute condition number at {ipT} (exit code = {success_})\n"
+                )
+                cn = NAN_ENTRY
+
+            cond_arr[i] = cn
+            state = state.export_state()
             props = mix.compute_properties(state.p, state.T, state.X, store=False)
             Z_L_arr[i] = props[0].Z[0]
             Z_G_arr[i] = props[1].Z[0]
@@ -820,24 +854,9 @@ def _parallel_pT_flash(ipT):
             phi_co2_L_arr[i] = props[0].phis[1][0]
             phi_h2o_G_arr[i] = props[1].phis[0][0]
             phi_co2_G_arr[i] = props[1].phis[1][0]
-        else:
-            logger.warn(f"\nParallel p-T failed to converge at {ipT} (exit code = {success_})\n")
-            success_arr[i] = 0
-            Z_L_arr[i] = NAN_ENTRY
-            Z_G_arr[i] = NAN_ENTRY
-            phi_h2o_L_arr[i] = NAN_ENTRY
-            phi_co2_L_arr[i] = NAN_ENTRY
-            phi_h2o_G_arr[i] = NAN_ENTRY
-            phi_co2_G_arr[i] = NAN_ENTRY
 
         h_arr[i] = state.h[0]
         y_arr[i] = state.y[1][0]
-        # if 0 < state.y[1][0] < 1:
-        #     split_arr[i] = 'GL'
-        # elif state.y[1][0] <= 0:
-        #     split_arr[i] = 'L'
-        # elif state.y[1][0] >= 1.:
-        #     split_arr[i] = 'G'
         x_h2o_L_arr[i] = state.X[0][0][0]
         x_h2o_G_arr[i] = state.X[1][0][0]
         x_co2_L_arr[i] = state.X[0][1][0]
@@ -910,7 +929,7 @@ def _parallel_ph_flash(iph):
     except Exception as err:  # if Flasher fails, flag as failed
         logger.warn(f"\nParallel p-h flash crashed at {iph}\n{str(err)}\n")
 
-        success_arr[i] = 0
+        success_arr[i] = 2
         # split_arr[i] = str(NAN_ENTRY)
         # is_supercrit_arr[i] = 0
         y_arr[i] = NAN_ENTRY
@@ -931,8 +950,20 @@ def _parallel_ph_flash(iph):
         phi_co2_G_arr[i] = NAN_ENTRY
         T_arr[i] = NAN_ENTRY
     else:
-        if success_ == 0:
-            success_arr[i] = 1
+        success_arr[i] = success_
+        if success_ == 2:
+            logger.warn(f"\nParallel p-h diverged at {iph} (exit code = {success_})\n")
+            Z_L_arr[i] = NAN_ENTRY
+            Z_G_arr[i] = NAN_ENTRY
+            phi_h2o_L_arr[i] = NAN_ENTRY
+            phi_co2_L_arr[i] = NAN_ENTRY
+            phi_h2o_G_arr[i] = NAN_ENTRY
+            phi_co2_G_arr[i] = NAN_ENTRY
+        else:
+            if success_ == 1:
+                logger.warn(
+                    f"\nParallel p-h failed to converge at {iph} (exit code = {success_})\n"
+                )
             props = mix.compute_properties(state.p, state.T, state.X, store=False)
             Z_L_arr[i] = props[0].Z[0]
             Z_G_arr[i] = props[1].Z[0]
@@ -940,24 +971,9 @@ def _parallel_ph_flash(iph):
             phi_co2_L_arr[i] = props[0].phis[1][0]
             phi_h2o_G_arr[i] = props[1].phis[0][0]
             phi_co2_G_arr[i] = props[1].phis[1][0]
-        else:
-            logger.warn(f"\nParallel p-h failed to converge at {iph} (exit code = {success_})\n")
-            success_arr[i] = 0
-            Z_L_arr[i] = NAN_ENTRY
-            Z_G_arr[i] = NAN_ENTRY
-            phi_h2o_L_arr[i] = NAN_ENTRY
-            phi_co2_L_arr[i] = NAN_ENTRY
-            phi_h2o_G_arr[i] = NAN_ENTRY
-            phi_co2_G_arr[i] = NAN_ENTRY
 
         T_arr[i] = state.T[0]
         y_arr[i] = state.y[1][0]
-        # if 0 < state.y[1][0] < 1:
-        #     split_arr[i] = 'GL'
-        # elif state.y[1][0] <= 0:
-        #     split_arr[i] = 'L'
-        # elif state.y[1][0] >= 1.:
-        #     split_arr[i] = 'G'
         x_h2o_L_arr[i] = state.X[0][0][0]
         x_h2o_G_arr[i] = state.X[1][0][0]
         x_co2_L_arr[i] = state.X[0][1][0]
@@ -999,10 +1015,13 @@ def calculate_porepy_pT_data(
                     return_system=True,
                 )
             except:
-                logger.warn(f"\nPorePy p-T-flash crashed for p,T = ({p}, {T})\n")
+                logger.warn(f"\nPorePy p-T-flash crashed for p,T = ({f}, {p}, {T})\n")
                 res = _failed_entry()
             else:
-                cn = np.linalg.cond(state(with_derivatives=True).jac.todense())
+                if success in [0, 3]:
+                    cn = np.linalg.cond(state(with_derivatives=True).jac.todense())
+                else:
+                    cn = NAN_ENTRY
                 state = state.export_state()
                 res = _porepy_parse_state(state)
 
@@ -1011,15 +1030,19 @@ def calculate_porepy_pT_data(
                 else:
                     res[num_iter_HEADER] = int(flash.history[-1]["iterations"])
                 res[conditioning_HEADER] = cn
-                if success not in [0, 3]:
+
+                res[success_HEADER] = success
+
+                if success == 2:
                     logger.warn(
-                        f"\nPorePy p-T-flash failed to converge for p,T = ({p}, {T})\n"
+                        f"\nPorePy p-T-flash diverged at({f}, {p}, {T}) (exit code = {success})\n"
                     )
-                    res[success_HEADER] = 0
+                elif success == 1:
+                    logger.warn(
+                        f"\nPorePy p-T-flash failed to converge at ({f}, {p}, {T}) (exit code = {success})\n"
+                    )
                 else:
                     logger.info(f"{del_log}PorePy p-T-flash: {f+1} / {nf} ..")
-                    res[success_HEADER] = 1
-
                     props = mix.compute_properties(
                         state.p, state.T, state.X, store=False
                     )
@@ -1119,119 +1142,7 @@ def calculate_porepy_isotherm_data():
             T_points.append(T)
             p_points.append(p)
 
-    results = _init_empty_results()
-    nf = len(p_points)
-
-    if CALCULATION_MODE == 1:  # point-wise flash
-        v = np.ones(1)
-        logger.info(f"PorePy p-T-flash: initializing point-wise calculations ..")
-        mix, flash = create_mixture(1)
-        feed = [v * z for z in FEED]
-
-        for f, pT in enumerate(zip(p_points, T_points)):
-            p, T = pT
-            p_ = v * p
-            T_ = v * T
-
-            try:
-                success, state = flash.flash(
-                    state={"p": p_, "T": T_},
-                    feed=feed,
-                    eos_kwargs={"apply_smoother": True},
-                )
-            except:
-                logger.warn(f"\nPorePy p-T-flash crashed for p,T = ({p}, {T})\n")
-                res = _failed_entry()
-            else:
-                res = _porepy_parse_state(state)
-
-                res[num_iter_HEADER] = int(flash.history[-1]["iterations"])
-                if success != 0:
-                    logger.warn(
-                        f"\nPorePy p-T-flash failed to converge for p,T = ({p}, {T})\n"
-                    )
-                    res[success_HEADER] = 0
-                else:
-                    logger.info(f"{del_log}PorePy p-T-flash: {f+1} / {nf} ..")
-                    res[success_HEADER] = 1
-
-                    props = mix.compute_properties(
-                        state.p, state.T, state.X, store=False
-                    )
-
-                    res[h_HEADER] = mix.evaluate_weighed_sum(
-                        [prop.h for prop in props], state.y
-                    )[0]
-
-                    res[compressibility_HEADER[PHASES[1]]] = props[0].Z[0]
-                    for i, s in enumerate(SPECIES):
-                        res[fugacity_HEADER[s][PHASES[1]]] = props[0].phis[i][0]
-                    res[compressibility_HEADER[PHASES[0]]] = props[1].Z[0]
-                    for i, s in enumerate(SPECIES):
-                        res[fugacity_HEADER[s][PHASES[0]]] = props[1].phis[i][0]
-
-            res[p_HEADER] = p
-            res[T_HEADER] = T
-
-            for key, val in res.items():
-                results[key].append(val)
-
-    elif CALCULATION_MODE == 2:  # vectorized flash
-        pass
-    elif CALCULATION_MODE == 3:  # parallelized flash
-
-        ipx = [(i, p, x, False) for i, p, x in zip(np.arange(nf), p_points, T_points)]
-        shared_arrays = _create_shared_arrays(nf)
-        logger.info("Parallel p-T flash: starting ..")
-        start_time = time.time()
-        # multiprocessing.set_start_method('fork')
-        prog_q = Queue(maxsize=nf)
-        with Pool(
-            processes=NUM_PHYS_CPU_CORS + 1,
-            initargs=(shared_arrays, prog_q),
-            initializer=_access_shared_objects,
-        ) as pool:
-
-            prog_process = Process(
-                target=_progress_counter, args=(prog_q, nf, None), daemon=True
-            )
-            prog_process.start()
-
-            chunksize = NUM_PHYS_CPU_CORS
-            result = pool.map_async(_parallel_pT_flash, ipx, chunksize=chunksize)
-
-            # Wait for some time and see if processes terminate as they should
-            # we terminate if the processes for some case could not finish
-            result.wait(60 * 60 * 5)
-            if result.ready():
-                prog_process.join(5)
-                if prog_process.exitcode != 0:
-                    prog_process.terminate()
-                pool.close()
-            else:
-                prog_process.terminate()
-                logger.warn(f"\nParallel p-T flash: terminated\n")
-                pool.close()
-                pool.terminate()
-            pool.join()
-
-        end_time = time.time()
-        logger.info(
-            f"\nParallel p-T flash: finished after {end_time - start_time} seconds.\n"
-        )
-
-        result_vecs = [
-            list(np.frombuffer(vec.get_obj(), dtype=dtype))
-            for vec, dtype in shared_arrays
-        ]
-        results = dict(
-            [(header, vec) for header, vec in zip(_array_headers(), result_vecs)]
-        )
-
-    else:
-        raise ValueError(f"Unknown flash calculation mode {CALCULATION_MODE}.")
-
-    return results
+    return calculate_porepy_pT_data(p_points, T_points, False)
 
 
 def calculate_porepy_ph_data(p_points: list[float], h_points: list[float]) -> dict:
@@ -1271,15 +1182,18 @@ def calculate_porepy_ph_data(p_points: list[float], h_points: list[float]) -> di
                     res = _porepy_parse_state(state)
 
                     res[num_iter_HEADER] = int(flash.history[-1]["iterations"])
-                    if success != 0:
+                    res[success_HEADER] = success
+
+                    if success == 2:
                         logger.warn(
-                            f"\nPorePy p-h-flash failed to converge for p,h = ({p}, {h})\n"
+                            f"\nPorePy p-h-flash diverged at({f}, {p}, {h}) (exit code = {success})\n"
                         )
-                        res[success_HEADER] = 0
+                    elif success == 1:
+                        logger.warn(
+                            f"\nPorePy p-h-flash failed to converge at ({f}, {p}, {h}) (exit code = {success})\n"
+                        )
                     else:
                         logger.info(f"{del_log}PorePy p-h-flash: {f+1} / {nf} ..")
-                        res[success_HEADER] = 1
-
                         props = mix.compute_properties(
                             state.p, state.T, state.X, store=False
                         )
@@ -1364,12 +1278,32 @@ def plot_crit_point_pT(axis: plt.Axes):
 
     img = [
         axis.plot(
-            s.T_crit, s.p_crit * PRESSURE_SCALE, "*", markersize=7, color="fuchsia"
+            s.T_crit, s.p_crit * PRESSURE_SCALE, "*", markersize=6, color="fuchsia"
         )[0]
         for s in S[:1]
     ]
 
-    return img, [f"Crit. point {s.name}" for s in S[:1]]
+    return img, [f"crit. point {s.name}" for s in S[:1]]
+
+
+def plot_max_iter_reached(
+    axis: plt.Axes,
+    p: np.ndarray,
+    T: np.ndarray,
+    max_iter_reached: np.ndarray,
+) -> figure.Figure:
+    """Plots markers where the maximal number of iterations is reached."""
+    if np.any(max_iter_reached):
+        img = axis.plot(
+            T[max_iter_reached],
+            p[max_iter_reached] * PRESSURE_SCALE,
+            "x",
+            markersize=5,
+            color="red",
+        )
+        return [img[0]], ["max iter reached"]
+    else:
+        return [], []
 
 
 def plot_phase_split_pT(
@@ -1415,3 +1349,112 @@ def plot_abs_error_pT(
     )
 
     return img
+
+
+def _plot_critical_line(axis: plt.Axes, A_mesh: np.ndarray):
+    A_CRIT = pp.composite.peng_robinson.PengRobinsonEoS.A_CRIT
+    B_CRIT = pp.composite.peng_robinson.PengRobinsonEoS.B_CRIT
+    slope = B_CRIT / A_CRIT
+    x_vals = np.sort(np.unique(A_mesh.flatten()))
+    x_vals = x_vals[x_vals <= A_CRIT]
+    y_vals = 0.0 + slope * x_vals
+    # critical line
+    img_line = axis.plot(x_vals, y_vals, "-", color="red", linewidth=1)
+    # critical point
+    img_point = axis.plot(A_CRIT, B_CRIT, "*", markersize=6, color="red")
+    return [img_point[0], img_line[0]], ["(A_crit, B_crit)", "critical line"]
+
+
+def plot_root_regions(
+    axis: plt.Axes,
+    A_mesh: np.ndarray,
+    B_mesh: np.ndarray,
+    regions: np.ndarray,
+    liq_root: np.ndarray,
+    gas_root: np.ndarray,
+):
+    """A discrete plot for plotting the root cases."""
+    cmap = mpl.colors.ListedColormap(["yellow", "green", "blue", "indigo"])
+    img = axis.pcolormesh(A_mesh, B_mesh, regions, cmap=cmap, vmin=0, vmax=3)
+    imgs_c, legs_c = _plot_critical_line(axis, A_mesh)
+
+    violated = liq_root <= B_mesh
+    if np.any(violated):
+        img_ = axis.plot(
+            A_mesh[violated], B_mesh[violated], ".-", markersize=0.5, color="red", linewidth=0.1,
+        )
+        img_v = [img_[0]]
+        leg_v = [f"Z_L <= B"]
+    else:
+        img_v = []
+        leg_v = []
+
+    violated = gas_root < liq_root
+    if np.any(violated):
+        img_ = axis.plot(
+            A_mesh[violated], B_mesh[violated], ".-", markersize=0.5, color="black", linewidth=0.1,
+        )
+        img_v2 = [img_[0]]
+        leg_v2 = [f"Z_G < Z_L"]
+    else:
+        img_v2 = []
+        leg_v2 = []
+
+    axis.legend(imgs_c + img_v + img_v2, legs_c + leg_v + leg_v2, loc="lower right")
+
+    return img
+
+
+def plot_extension_markers(
+    axis: plt.Axes,
+    A_mesh: np.ndarray,
+    B_mesh: np.ndarray,
+    liq_extended: np.ndarray,
+    gas_extended_widom: np.ndarray,
+    gas_extended: np.ndarray,
+    liq_root: np.ndarray,
+    gas_root: np.ndarray,
+):
+    """A discrete plot for plotting the root cases."""
+    # empt mesh plot to scale the figure properly
+    img = axis.pcolormesh(
+        A_mesh, B_mesh, np.zeros(A_mesh.shape), cmap="Greys", vmin=0, vmax=1
+    )
+
+    img_l = axis.plot(
+        A_mesh[liq_extended], B_mesh[liq_extended], ".-", markersize=1, color="blue", linewidth=0.1,
+    )
+    img_g_w = axis.plot(
+        A_mesh[gas_extended_widom], B_mesh[gas_extended_widom], ".-", markersize=1, color="orange", linewidth=0.1,
+    )
+    img_g = axis.plot(
+        A_mesh[gas_extended], B_mesh[gas_extended], ".-", markersize=1, color="red", linewidth=0.1,
+    )
+    img_e = [img_l[0], img_g_w[0], img_g[0]]
+    leg_e = ["liquid extended", "gas extended (Widom)", "gas extended"]
+
+    imgs_c, legs_c = _plot_critical_line(axis, A_mesh)
+    # violated = gas_root < liq_root
+    # if np.any(violated):
+    #     img_ = axis.plot(
+    #         A_mesh[violated], B_mesh[violated], ".", markersize=0.5, color="black"
+    #     )
+    #     img_v = [img_[0]]
+    #     leg_v = [f"Z_G < Z_L"]
+    # else:
+    img_v = []
+    leg_v = []
+
+    axis.legend(imgs_c + img_e + img_v, legs_c + leg_e + leg_v, loc="lower right")
+
+    return img
+
+
+def plot_widom_line(axis:plt.Axes):
+    """Plots the three points corresponding to the experimental Widom line
+    (Maxim et al. 2019)"""
+
+    img = axis.plot(
+        WIDOM_LINE[1], WIDOM_LINE[0] * PRESSURE_SCALE, "D-", markersize=3, color="black"
+    )
+    return [img[0]], ["exp. Widom line"]

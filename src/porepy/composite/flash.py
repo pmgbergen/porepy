@@ -652,9 +652,9 @@ class FlashSystemNR(ThermodynamicState):
                 s_1 = np.zeros(y_1.shape)
                 s_2 = np.zeros(y_2.shape)
 
-                phase_1_saturated = np.logical_and(y_1 > 1 - eps, y_1 < 1 + eps)
-                phase_2_saturated = np.logical_and(y_2 > 1 - eps, y_2 < 1 + eps)
-                idx = np.logical_not(phase_2_saturated)
+                phase_1_saturated = (y_1 > 1 - eps) & (y_1 < 1 + eps)
+                phase_2_saturated = (y_2 > 1 - eps) & (y_2 < 1 + eps)
+                idx = ~phase_2_saturated
                 y2_idx = y_2[idx]
                 rho1_idx = rho_1[idx]
                 rho2_idx = rho_2[idx]
@@ -662,7 +662,7 @@ class FlashSystemNR(ThermodynamicState):
                 s_1[phase_1_saturated] = 1.0
                 s_1[phase_2_saturated] = 0.0
 
-                idx = np.logical_not(phase_1_saturated)
+                idx = ~phase_1_saturated
                 y1_idx = y_1[idx]
                 rho1_idx = rho_1[idx]
                 rho2_idx = rho_2[idx]
@@ -685,21 +685,21 @@ class FlashSystemNR(ThermodynamicState):
                 for j2 in range(num_phases):
                     # get the DOFS where one phase is fully saturated
                     # TODO check sensitivity of this
-                    saturated_j = np.logical_and(y[j2] > 1 - eps, y[j2] < 1 + eps)
+                    saturated_j = (y[j2] > 1 - eps) & (y[j2] < 1 + eps)
                     saturated.append(saturated_j)
                     # store information that other phases vanish at these DOFs
                     for j2 in range(num_phases):
                         if j2 != j2:
                             # where phase j is saturated, phase j2 vanishes
                             # logical OR acts cumulatively
-                            vanished[j2] = np.logical_or(vanished[j2], saturated_j)
+                            vanished[j2] = vanished[j2] | saturated_j
 
                 # stacked indicator which DOFs
                 saturated = np.hstack(saturated)
                 # staacked indicator which DOFs vanish
                 vanished = np.hstack(vanished)
                 # all other DOFs are in multiphase regions
-                multiphase = np.logical_not(np.logical_or(saturated, vanished))
+                multiphase = ~(saturated | vanished)
 
                 # construct the matrix for saturation flash
                 # first loop, per block row (equation per phase)
@@ -1374,55 +1374,6 @@ class FlashNR:
         nph = len(state.y)
         ncp = len(state.z)
 
-        # indices where any phase is saturated
-        # saturated = np.zeros(num_vals, dtype=bool)
-
-        # # Check if the reference phase is saturated. Where it is, solve isofugacity
-        # # constraints to obtain the other phase fractions.
-        # r_saturated = state.y[0].val >= 1.0 - self.eps
-        # if np.any(r_saturated):
-        #     saturated = np.logical_or(saturated, r_saturated)
-        #     p = state.p[r_saturated]
-        #     T = state.T[r_saturated]
-        #     p = p.val if isinstance(p, pp.ad.AdArray) else p
-        #     T = T.val if isinstance(T, pp.ad.AdArray) else T
-        #     for i in range(ncp):
-        #         state.X[0][i].val[r_saturated] = state.z[i][r_saturated]
-        #     for j in range(1, nph):
-        #         pass
-
-        # # Do the same for other phases
-        # for j in range(1, nph):
-        #     j_saturated = state.y[j].val >= 1.0 - self.eps
-        #     if np.any(j_saturated):
-        #         saturated = np.logical_or(saturated, j_saturated)
-        #         p = state.p[j_saturated]
-        #         T = state.T[j_saturated]
-        #         p = p.val if isinstance(p, pp.ad.AdArray) else p
-        #         T = T.val if isinstance(T, pp.ad.AdArray) else T
-        #         for i in range(ncp):
-        #             state.X[j][i].val[j_saturated] = state.z[i][j_saturated]
-
-        # # Where no phase is saturated, we use the RR formula
-        # ns = np.logical_not(saturated)
-        # if np.any(ns):
-        #     for i in range(ncp):
-        #         t_i = _rr_pole(i, state.y[1:], K).val
-        #         # compute composition of independent phases
-        #         # store r-phase composition and average
-        #         x_i_0 = list()
-        #         for j in range(1, nph):
-
-        #             x_i_j = state.z[i] * K[j - 1][i] / t_i
-        #             state.X[j][i].val[ns] = x_i_j[ns]
-
-        #             x_i_0_ = (state.z[i] / t_i)[ns]
-        #             x_i_0.append(x_i_0_)
-
-        #         # compute composition of reference phase by averaging
-        #         x_i_0 = safe_sum(x_i_0) / len(x_i_0)
-        #         state.X[0][i].val[ns] = x_i_0
-
         for i in range(ncp):
             t_i = _rr_pole(i, state.y[1:], K).val
             # compute composition of independent phases
@@ -1517,7 +1468,7 @@ class FlashNR:
                 y = rachford_rice_vle_inversion(state.z, K[0])
                 negative = y < 0.0
                 exceeds = y > 1.0
-                invalid = np.logical_or(negative, exceeds)
+                invalid = negative | exceeds
 
                 feasible_reg = rachford_rice_feasible_region(
                     state.z, [np.ones(num_vals)], K
@@ -1544,11 +1495,9 @@ class FlashNR:
                 # for some unknown reasons, above formula does not always hold
                 y_min = np.where(y_min_ < y_max_, y_min_, y_max_)
                 y_max = np.where(y_min_ < y_max_, y_max_, y_min_)
-                y_feasible = np.logical_and(y_min < y, y < y_max)
-                # corr_neg = np.logical_and(y_feasible, negative)
+                y_feasible = (y_min < y) & (y < y_max)
                 corr_neg_1 = y_feasible & negative
                 y[corr_neg_1] = 0.0
-                # corr_pos = np.logical_and(y_feasible, exceeds)
                 corr_pos_1 = y_feasible & exceeds
                 y[corr_pos_1] = 1.0
 
@@ -1561,57 +1510,8 @@ class FlashNR:
                 y[corr_neg_2] = 0.0
                 y[corr_pos_2] = 1.0
 
-                corrected = correction_1 | correction_2 | correction_3 | correction_4
-
-                need_correction = invalid & (~corrected)
-
-                if np.any(need_correction):
-                    # Corrections based on the negative flash.
-                    # As long as the gas fraction is within the two inner-most poles,
-                    # it is a feasible solution.
-                    print("\n\nnegative flash correction\n")
-                    K_ = np.array(K[0])
-                    K_min = np.min(K_, axis=0)
-                    K_max = np.max(K_, axis=0)
-                    y_min_ = 1 / (1 - K_max)
-                    y_max_ = 1 / (1 - K_min)
-                    # for some unknown reasons, above formula does not always hold
-                    y_min = np.where(y_min_ < y_max_, y_min_, y_max_)
-                    y_max = np.where(y_min_ < y_max_, y_max_, y_min_)
-                    y_feasible = np.logical_and(y_min < y, y < y_max)
-                    # corr_neg = np.logical_and(y_feasible, negative)
-                    corr_neg_1 = y_feasible & negative & need_correction
-                    y[corr_neg_1] = 0.0
-                    # corr_pos = np.logical_and(y_feasible, exceeds)
-                    corr_pos_1 = y_feasible & exceeds & need_correction
-                    y[corr_pos_1] = 1.0
-
-                    # If all K-values are smaller than 1 and gas fraction is negative,
-                    # the liquid phase is clearly saturated
-                    # Vice versa, if fraction above 1 and K-values greater than 1.
-                    # the gas phase is clearly saturated
-                    corr_neg_2 = negative & np.all(K_ < 1.0, axis=0) & need_correction
-                    corr_pos_2 = exceeds & np.all(K_ > 1.0, axis=0) & need_correction
-                    y[corr_neg_2] = 0.0
-                    y[corr_pos_2] = 1.0
-
-                    # corrected = corr_neg_1 | corr_neg_2 | corr_pos_1 | corr_pos_2
-
-                    # need_correction = invalid & (~corrected)
-                    # if np.any(need_correction):
-                    #     print('\nspecial correction')
-                    #     feasible_reg = rachford_rice_feasible_region(
-                    #         state.z, [np.ones(num_vals)], K
-                    #     )
-                    #     rr_pot = rachford_rice_potential(state.z, [np.ones(num_vals)], K)
-
-                    #     correction_1 = (rr_pot > 0.0) & need_correction
-                    #     y = np.where(correction_1, np.zeros(num_vals), y)
-                    #     correction_2 = (rr_pot < 0.0) & feasible_reg & need_correction
-                    #     y = np.where(correction_2, np.ones(num_vals), y)
-
                 assert not np.any(
-                    np.logical_or(y < 0.0, 1.0 < y)
+                    (y < 0.0) | (1.0 < y)
                 ), "y fraction estimate outside bound [0, 1]."
                 state.y[1].val = y
                 state.y[0].val = 1 - y
@@ -1678,7 +1578,6 @@ class FlashNR:
         else:
             h_norm = state.h.copy()
             h_norm[np.abs(h_norm) <= 1] = 1.0
-            nc = len(state.h)
             for _ in range(num_iter):
                 phase_props = self.mixture.compute_properties(
                     state.p, state.T, state.X, store=False, normalize=True
@@ -2109,7 +2008,7 @@ class FlashNR:
                     iter_final = i
                     success = 2
                     logger.warn(
-                        f"\nFlash iteration {iter_final}: divergence detected!\n"
+                        f"{del_log}Flash iteration {iter_final}: divergence detected!\n"
                     )
                     break
 

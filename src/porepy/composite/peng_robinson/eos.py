@@ -88,7 +88,7 @@ def _gas_smoother(proximity: np.ndarray, s: float) -> np.ndarray:
     # values around smoothing parameter are constructed according to Vu
     upper_bound = proximity < 1 - s
     lower_bound = (1 - 2 * s) < proximity
-    bound = np.logical_and(upper_bound, lower_bound)
+    bound = upper_bound & lower_bound
 
     bound_smoother = (proximity[bound] - (1 - 2 * s)) / s
     bound_smoother = bound_smoother**2 * (3 - 2 * bound_smoother)
@@ -119,7 +119,7 @@ def _liquid_smoother(proximity: np.ndarray, s: float) -> np.ndarray:
     # values around smoothing parameter are constructed according to Vu
     upper_bound = proximity < 2 * s
     lower_bound = s < proximity
-    bound = np.logical_and(upper_bound, lower_bound)
+    bound = upper_bound & lower_bound
 
     bound_smoother = (proximity[bound] - s) / s
     bound_smoother = (-1) * bound_smoother**2 * (3 - 2 * bound_smoother) + 1
@@ -299,6 +299,19 @@ class PengRobinsonEoS(AbstractEoS):
 
         self.smoothing_factor: float = smoothing_factor
         """Passed at instantiation."""
+
+        self.regions: list[np.ndarray] = [np.zeros(1, dtype=bool)] * 4
+        """A list of root-region indicates.
+
+        Contains boolean arrays indicating where which root case is registered
+        during the last computation.
+
+        - 0: Array containing True where a triple-root was computed.
+        - 1: Array containing True where a single real root was computed.
+        - 2: Array indicating where 2 distinct real roots were computed.
+        - 3: Array indicating where 3 distinct real roots were computed.
+
+        """
 
     def _num_frac_check(self, X) -> None:
         """Auxiliary method to check the number of passed fractions.
@@ -910,7 +923,12 @@ class PengRobinsonEoS(AbstractEoS):
         )
 
     def _Z(
-        self, A: NumericType, B: NumericType, apply_smoother: bool = False
+        self,
+        A: NumericType,
+        B: NumericType,
+        apply_smoother: bool = False,
+        ensure_B_bound: bool = True,
+        use_widom_line: bool = True,
     ) -> tuple[NumericType, NumericType]:
         """Auxiliary method to compute the compressibility factor based on Cardano
         formulas.
@@ -921,6 +939,16 @@ class PengRobinsonEoS(AbstractEoS):
             apply_smoother: ``default=False``
 
                 Flag to apply smoothing procedure.
+            ensure_B_bound: ``default=True``
+
+                If True, ensures the smallest root is greater than ``B`` by ``eps``.
+                Otherwise it can be smaller in the super-critical region.
+                Use with care.
+            use_widom_line: ``default=True``
+
+                If True, uses a linear approximation of the Widom line to separate
+                between liquid-like and gas-like root in the supercritical region.
+                Otherwise a simple comparison of root size is used.
 
         Returns:
             Returns two roots. The first one corresponds to the assigned phase label
@@ -985,47 +1013,35 @@ class PengRobinsonEoS(AbstractEoS):
         widom_line = B <= self.B_CRIT + 0.8 * 0.3381965009398633 * (A - self.A_CRIT)
 
         # At A,B=0 we have 2 real roots, one with multiplicity 2
-        zero_point = np.logical_and(
-            np.logical_and(A >= -self.eps, A <= self.eps),
-            np.logical_and(B >= -self.eps, B <= self.eps),
+        zero_point = (
+            (A >= -self.eps) & (A <= self.eps) & (B >= -self.eps) & (B <= self.eps)
         )
         # The critical point is known to be a triple-point
-        critical_point = np.logical_and(
-            np.logical_and(A >= self.A_CRIT - self.eps, A <= self.A_CRIT + self.eps),
-            np.logical_and(B >= self.B_CRIT - self.eps, B <= self.B_CRIT + self.eps),
-        )
-        # rectangle with upper right corner at (Ac,Bc) and lower left corner at 0
-        # with tolerance
-        acbc_rect = np.logical_and(
-            np.logical_and(A > self.eps, A < self.A_CRIT - self.eps),
-            np.logical_and(B > self.eps, B < self.B_CRIT - self.eps),
+        critical_point = (
+            (A >= self.A_CRIT - self.eps)
+            & (A <= self.A_CRIT + self.eps)
+            & (B >= self.B_CRIT - self.eps)
+            & (B <= self.B_CRIT + self.eps)
         )
         # subcritical triangle in the acbc rectangle
-        subc_triang = np.logical_and(np.logical_not(self.is_supercritical), acbc_rect)
+        # NOTE: This is te area where the Gharbia analysis holds
+        subc_triang = (~self.is_supercritical) & (B < self.B_CRIT)
 
         # discriminant of zero indicates triple or two real roots with multiplicity
-        degenerate_region = np.logical_and(delta >= -self.eps, delta <= self.eps)
+        degenerate_region = (delta >= -self.eps) & (delta <= self.eps)
 
-        double_root_region = np.logical_and(
-            degenerate_region, np.logical_or(r < -self.eps, r > self.eps)
-        )
-        triple_root_region = np.logical_and(
-            degenerate_region, np.logical_and(r >= -self.eps, r <= self.eps)
-        )
+        double_root_region = degenerate_region & ((r < -self.eps) | (r > self.eps))
+        triple_root_region = degenerate_region & ((r >= -self.eps) & (r <= self.eps))
 
         one_root_region = delta > self.eps
         three_root_region = delta < -self.eps
 
         # sanity check that every cell/case is covered
         assert np.all(
-            np.logical_or.reduce(
-                [
-                    one_root_region,
-                    triple_root_region,
-                    double_root_region,
-                    three_root_region,
-                ]
-            )
+            one_root_region
+            | double_root_region
+            | three_root_region
+            | triple_root_region
         ), "Uncovered cells/rows detected in PR root computation."
 
         # sanity check that the regions are mutually exclusive
@@ -1040,6 +1056,7 @@ class PengRobinsonEoS(AbstractEoS):
 
         ### COMPUTATIONS IN THE ONE-ROOT-REGION
         # Missing real root is replaced with conjugated imaginary roots
+        self.regions[1] = one_root_region
         if np.any(one_root_region):
             r_ = r[one_root_region]
             q_ = q[one_root_region]
@@ -1071,20 +1088,33 @@ class PengRobinsonEoS(AbstractEoS):
 
             # real part of the conjugate imaginary roots
             # used for extension of vanished roots
-            # w = -real_part / 2 - c2_ / 3 + 2.0 * B + self.B_CRIT
-            # w = (1 - B - z_1) / 2 + B + self.B_CRIT
-            w = (1 - B_ - z_1) / 2 + B_
+            w = (1 - B_ - z_1) / 2 + B_  # * 2 + self.B_CRIT
 
-            extension_is_bigger = widom_line[one_root_region]  # z_1 < w
+            if use_widom_line:
+                extension_is_bigger = widom_line[one_root_region]
+            else:
+                extension_is_bigger = z_1 < w
 
-            # correction = ~(acbc_rect[one_root_region])
-            # w[correction] = z_1[correction]
-            # extension_is_bigger[correction] = False
-
-            # slice indices such that w is the smaller root
+            # assign the smaller values to w
             z_1_small = z_1[extension_is_bigger]
             z_1[extension_is_bigger] = w[extension_is_bigger]
             w[extension_is_bigger] = z_1_small
+
+            # if use_widom_line:
+            #     # If the Widom line is used for labeling, there is possibly a region
+            #     # below it where w is still bigger.
+
+            #     extension_is_bigger = widom_line[one_root_region]
+            #     correction = extension_is_bigger & (z_1 < w)
+            #     if np.any(correction):
+            #         z_1_small = z_1[correction]
+            #         z_1[correction] = w[correction]
+            #         w[correction] = z_1_small
+
+            correction = (~subc_triang)[one_root_region]
+            correction = correction & (z_1 <= B_)
+            if np.any(correction) and ensure_B_bound:
+                w[w <= B_] = B_ + self.eps
 
             Z_L[one_root_region] = w
             Z_G[one_root_region] = z_1
@@ -1098,6 +1128,7 @@ class PengRobinsonEoS(AbstractEoS):
         ### COMPUTATIONS IN THE THREE-ROOT-REGION
         # compute all three roots, label them (smallest=liquid, biggest=gas)
         # optionally smooth them
+        self.regions[3] = three_root_region
         if np.any(three_root_region):
             r_ = r[three_root_region]
             q_ = q[three_root_region]
@@ -1116,7 +1147,7 @@ class PengRobinsonEoS(AbstractEoS):
             # is possibly negative.
             correction = (~subc_triang)[three_root_region]
             correction = correction & (z1 <= B[three_root_region])
-            if np.any(correction):
+            if np.any(correction) and ensure_B_bound:
                 z1[correction] = B[correction] + self.eps
 
             # Smoothing procedure only valid in the sub-critical area, where the three
@@ -1141,7 +1172,8 @@ class PengRobinsonEoS(AbstractEoS):
         # The critical point is known to be a triple root
         # Use logical or to include unknown triple points, but that should not happen
         # NOTE In the critical point, the roots are unavoidably equal
-        region = np.logical_or(triple_root_region, critical_point)
+        region = triple_root_region | critical_point
+        self.regions[0] = region
         if np.any(region):
             c2_ = c2[region]
 
@@ -1156,7 +1188,8 @@ class PengRobinsonEoS(AbstractEoS):
 
         ### COMPUTATIONS IN DOUBLE ROOT REGION
         # The point A,B = 0 is known to be such a point
-        region = np.logical_or(double_root_region, zero_point)
+        region = double_root_region | zero_point
+        self.regions[2] = region
         if np.any(region):
             r_ = r[region]
             q_ = q[region]
@@ -1184,20 +1217,6 @@ class PengRobinsonEoS(AbstractEoS):
 
             Z_L[region] = z_23
             Z_G[region] = z_1
-
-        # # Correct the smaller root if it violates the lower bound B
-        # correction = Z_L <= B
-        # if np.any(correction):
-        #     Z_L[correction] = B[correction] + self.eps
-
-        # assert physical meaningfulness
-        # assert np.all(
-        #     Z_L > B
-        # ), "Liquid root violates lower physical bound given by covolume B."
-        # assert gas root is bigger than liquid root
-        # assert np.all(
-        #     Z_G >= Z_L
-        # ), "Liquid root violates upper physical bound given by gas root."
 
         # convert Jacobians to csr
         if isinstance(Z_L, pp.ad.AdArray):
