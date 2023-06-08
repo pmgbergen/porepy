@@ -73,6 +73,8 @@ from _config import (
 # some additional plots for debugging
 DEBUG: bool = True
 
+FIG_SIZE = (FIGURE_WIDTH, 0.33 * FIGURE_WIDTH)  # 1080 / 1920
+
 
 def _fmt(x, pos):
     a, b = "{:.1e}".format(x).split("e")
@@ -176,6 +178,7 @@ if __name__ == "__main__":
     gas_frac = np.zeros(p.shape)
     err_gas_comp = np.zeros((NUM_COMP, num_p, num_T))
     err_liq_comp = np.zeros((NUM_COMP, num_p, num_T))
+    unity_gap = np.zeros(p.shape)
 
     p_crit_water = species[0].p_crit
     T_crit_water = species[0].T_crit
@@ -317,6 +320,16 @@ if __name__ == "__main__":
                         )
 
                     err_liq_comp[k, i, j] = np.abs(x_Lk_pp - x_Lk_thermo)
+            else:  # unity gap
+                if y_pp <= 0.:
+                    phase_idx = PHASES[0]
+                elif y_pp >= 1.:
+                    phase_idx = PHASES[1]
+                sum_ = []
+                for k, s in enumerate(SPECIES):
+                    sum_.append(float(res_pp[composition_HEADER[s][phase_idx]][idx]))
+
+                unity_gap[i, j] = 1 - sum(sum_)
 
     sc_mismatch_initial_p = sc_mismatch_initial_p[sc_mismatch_initial_p != 0.0]
     sc_mismatch_initial_T = sc_mismatch_initial_T[sc_mismatch_initial_T != 0.0]
@@ -334,10 +347,13 @@ if __name__ == "__main__":
     p_points, T_points = read_px_data(ISOTHERM_DATA_PATH, "T")
     _, h_points = read_px_data(PH_FLASH_DATA_PATH, "h")
     res_pp_ph = read_results(PH_FLASH_DATA_PATH)
+    res_pp_isotherms = read_results(ISOTHERM_DATA_PATH)
     idx_map_ph = create_index_map(p_points, h_points)
+    idx_map_isotherms = create_index_map(p_points, T_points)
 
     T_vec_isotherms = np.array(ISOTHERMS)
     err_T_isotherms: list[list[float]] = [[] for _ in ISOTHERMS]
+    err_y_isotherms: list[list[float]] = [[] for _ in ISOTHERMS]
 
     logger.info("Calculating isenthalpic plot data ..\n")
     for T_, h_ in zip(T_points, h_points):
@@ -361,6 +377,11 @@ if __name__ == "__main__":
                 err = 0.0  # np.nan
 
             err_T_isotherms[T_idx].append(err)
+
+            idx_ = idx_map_isotherms[(p_, T_target)]
+            y_pT = float(res_pp_isotherms[gas_frac_HEADER][idx_])
+            y_ph = float(res_pp_ph[gas_frac_HEADER][idx])
+            err_y_isotherms[T_idx].append(np.abs(y_pT - y_ph))
 
     logger.info("Calculating root data ..")
     A = np.linspace(A_LIMITS[0], A_LIMITS[1], RESOLUTION_AB)
@@ -418,7 +439,7 @@ if __name__ == "__main__":
     # region Gibbs Energy plot
     logger.info(f"{del_log}Plotting Gibbs Energy plot ..")
     fig, axis = plt.subplots(nrows=1, ncols=2, subplot_kw={"projection": "3d"})
-    fig.set_size_inches(FIGURE_WIDTH, 1080 / 1920 * FIGURE_WIDTH)
+    fig.set_size_inches(FIG_SIZE)
     fig.suptitle(f"Gibbs energy")
     axis[0].set_title("Liquid phase")
     axis[0].set_xlabel("T [K]")
@@ -459,9 +480,9 @@ if __name__ == "__main__":
 
     # region Root plot
     logger.info(f"{del_log}Plotting roots ..")
-    fig = plt.figure(figsize=(FIGURE_WIDTH, 1080 / 1920 * FIGURE_WIDTH))
+    fig = plt.figure(figsize=FIG_SIZE)
     gs = fig.add_gridspec(1, 2)
-    fig.suptitle(f"Root cases for the Peng-Robinson EoS")
+    # fig.suptitle(f"Root cases for the Peng-Robinson EoS")
     axis = fig.add_subplot(gs[0, 0])
     axis.set_title("Number of distinct real roots")
     axis.set_xlabel("A")
@@ -495,9 +516,9 @@ if __name__ == "__main__":
 
     # region Plotting phase splits
     logger.info(f"{del_log}Plotting phase split regions ..")
-    fig = plt.figure(figsize=(FIGURE_WIDTH, 1080 / 1920 * FIGURE_WIDTH))
+    fig = plt.figure(figsize=FIG_SIZE)
     gs = fig.add_gridspec(1, 3)
-    fig.suptitle(f"Phase split")
+    # fig.suptitle(f"Phase split")
 
     axis = fig.add_subplot(gs[0, 0])
     axis.set_title("Unified flash: after initial guess")
@@ -529,6 +550,7 @@ if __name__ == "__main__":
     axis.set(ylabel=None)
     axis.tick_params(left=False)
     img = plot_phase_split_pT(axis, p, T, split_thermo)
+    plot_widom_line(axis)
     plot_crit_point_pT(axis)
     img_, leg_ = ([], [])
     idx = ll_split == 1  # plotting LL split in thermo plot
@@ -563,9 +585,9 @@ if __name__ == "__main__":
 
     # region Plotting condition numbers
     logger.info(f"{del_log}Plotting condition numbers ..")
-    fig = plt.figure(figsize=(FIGURE_WIDTH, 1080 / 1920 * FIGURE_WIDTH))
+    fig = plt.figure(figsize=FIG_SIZE)
     gs = fig.add_gridspec(1, 2)
-    fig.suptitle(f"Condition number of the unified p-T-flash")
+    # fig.suptitle(f"Condition number of the unified p-T-flash")
     axis = fig.add_subplot(gs[0, 0])
     axis.set_title("After initial guess")
     axis.set_xlabel("T [K]")
@@ -573,7 +595,6 @@ if __name__ == "__main__":
     norm = _error_norm(cond_initial)
     img = plot_abs_error_pT(axis, p, T, cond_initial, norm=norm)
     cb = _add_colorbar(axis, img, fig, cond_initial, for_errors=False)
-    img_, leg_ = plot_max_iter_reached(axis, p, T, max_iter_reached)
 
     axis = fig.add_subplot(gs[0, 1])
     axis.set_title("After iterations")
@@ -582,9 +603,9 @@ if __name__ == "__main__":
     norm = _error_norm(cond_end)
     img = plot_abs_error_pT(axis, p, T, cond_end, norm=norm)
     cb = _add_colorbar(axis, img, fig, cond_end, for_errors=False)
+    crit = plot_crit_point_pT(axis)
     img_, leg_ = plot_max_iter_reached(axis, p, T, max_iter_reached)
-    if img_:
-        axis.legend(img_, leg_, loc="lower right")
+    axis.legend(crit[0] + img_, crit[1] + leg_, loc="lower right")
 
     fig.tight_layout()
     fig.savefig(
@@ -598,7 +619,7 @@ if __name__ == "__main__":
     # region Plotting error in enthalpy values
     if DEBUG:
         logger.info(f"{del_log}Plotting absolute errors in enthalpy ..")
-        fig = plt.figure(figsize=(FIGURE_WIDTH, 1080 / 1920 * FIGURE_WIDTH))
+        fig = plt.figure(figsize=FIG_SIZE)
         gs = fig.add_gridspec(1, 1)
         fig.suptitle(f"Abs. error in spec. enthalpy of the mixture")
         axis = fig.add_subplot(gs[0, 0])
@@ -625,9 +646,9 @@ if __name__ == "__main__":
 
     # region Plotting absolute errors for gas fraction
     logger.info(f"{del_log}Plotting absolute errors in gas fractions ..")
-    fig = plt.figure(figsize=(FIGURE_WIDTH, 1080 / 1920 * FIGURE_WIDTH))
+    fig = plt.figure(figsize=FIG_SIZE)
     gs = fig.add_gridspec(1, 2)
-    fig.suptitle(f"Abs. error in gas fraction")
+    # fig.suptitle(f"Abs. error in gas fraction")
     axis = fig.add_subplot(gs[0, 0])
     axis.set_title("After initial guess")
     axis.set_xlabel("T [K]")
@@ -692,7 +713,7 @@ if __name__ == "__main__":
     # region Gas fraction values
     if DEBUG:
         logger.info(f"{del_log}Plotting gas fraction values ..")
-        fig = plt.figure(figsize=(FIGURE_WIDTH, 1080 / 1920 * FIGURE_WIDTH))
+        fig = plt.figure(figsize=FIG_SIZE)
         gs = fig.add_gridspec(1, 1)
         fig.suptitle(f"Gas fraction values with over- and undershot values")
         axis = fig.add_subplot(gs[0, 0])
@@ -739,12 +760,12 @@ if __name__ == "__main__":
         )
     # endregion
 
-    # region plotting phase composition errors
+    # region Plotting phase composition errors
 
     logger.info(f"{del_log}Plotting absolute errors in phase compositions ..")
-    fig = plt.figure(figsize=(FIGURE_WIDTH, 1080 / 1920 * FIGURE_WIDTH))
+    fig = plt.figure(figsize=FIG_SIZE)
     gs = fig.add_gridspec(2, 2)
-    fig.suptitle(f"Absolute errors in phase compositions")
+    # fig.suptitle(f"Absolute errors in phase compositions")
     axis = fig.add_subplot(gs[0, 0])
     axis.set_title(f"{SPECIES[0]}")
     axis.set_ylabel(f"p [{PRESSURE_SCALE_NAME}]")
@@ -804,20 +825,52 @@ if __name__ == "__main__":
     fig_num += 1
     # endregion
 
+    # region Plotting unity gap
+    logger.info(f"{del_log}Plotting unity gap ..")
+    fig = plt.figure(figsize=FIG_SIZE)
+    gs = fig.add_gridspec(1, 1)
+    # fig.suptitle(f"Unity gaps in single-phase regions")
+    axis = fig.add_subplot(gs[0, 0])
+    axis.set_xlabel("T [K]")
+    axis.set_ylabel(f"p [{PRESSURE_SCALE_NAME}]")
+    norm = _error_norm(unity_gap)
+    img = plot_abs_error_pT(axis, p, T, unity_gap, norm=False)
+    crit = plot_crit_point_pT(axis)
+    axis.legend(crit[0], crit[1], loc="upper right")
+    cb = _add_colorbar(axis, img, fig, unity_gap, for_errors=False)
+
+    fig.tight_layout()
+    fig.savefig(
+        f"{fig_path}figure_{fig_num}.png",
+        format="png",
+        dpi=DPI,
+    )
+    fig_num += 1
+    # endregion
+
     # region Plotting L2 error across isotherms
     err_T_l2 = [np.sqrt(np.sum(np.array(vec) ** 2)) for vec in err_T_isotherms]
     err_T_l2 = np.array(err_T_l2)
+    err_y_l2 = [np.sqrt(np.sum(np.array(vec) ** 2)) for vec in err_y_isotherms]
+    err_y_l2 = np.array(err_y_l2)
 
-    logger.info(f"{del_log}Plotting L2 error for temperature ..")
-    fig = plt.figure(figsize=(FIGURE_WIDTH, 1080 / 1920 * FIGURE_WIDTH))
+    # bound errors from below for plot
+    cap = 1e-10
+    err_T_l2[err_T_l2 <cap] = cap
+    err_y_l2[err_y_l2 <cap] = cap
+
+    logger.info(f"{del_log}Plotting L2 errors for isenthalpic flash ..")
+    fig = plt.figure(figsize=FIG_SIZE)
     gs = fig.add_gridspec(1, 1)
-    fig.suptitle(f"L2-error along isotherms in temperature from p-h flash")
+    # fig.suptitle(f"L2-error along isotherms in temperature from p-h flash")
     axis = fig.add_subplot(gs[0, 0])
     axis.set_xlabel("T [K]")
-    # axis.set_ylabel("L-2 error")
     axis.set_yscale("log")
 
-    axis.plot(T_vec_isotherms, err_T_l2, "-*", color="black")
+    img_T = axis.plot(T_vec_isotherms, err_T_l2, "-*", color="red")[0]
+    img_y = axis.plot(T_vec_isotherms, err_y_l2, "-*", color="black")[0]
+
+    axis.legend([img_T, img_y], ["L2-err in T", "L2-err in y"], loc="upper left")
 
     fig.tight_layout()
     fig.savefig(
@@ -841,45 +894,37 @@ if __name__ == "__main__":
         * PRESSURE_SCALE
     )
 
-    fig = plt.figure(figsize=(FIGURE_WIDTH, 1080 / 1920 * FIGURE_WIDTH))
+    fig = plt.figure(figsize=FIG_SIZE)
     gs = fig.add_gridspec(2, 3)
-    fig.suptitle(f"Abs. error per isotherm in temperature resulting from p-h-flash")
+    # fig.suptitle(f"Abs. error per isotherm in temperature resulting from p-h-flash")
 
-    axis = fig.add_subplot(gs[0, 0])
-    axis.set_xlabel(f"p [{PRESSURE_SCALE_NAME}]")
-    axis.set_title(f"T = {T_vec_isotherms[0]}")
-    axis.set_yscale("log")
-    axis.plot(p_, err_T_isotherms[0], "-*", color="black")
+    nT = len(ISOTHERMS)
+    nrow = 2
+    if nT % 2 == 0:
+        ncol = [int(nT / 2)] * 2
+    else:
+        ncol = [int(np.ceil(nT / 2)), int(np.floor(nT / 2))]
 
-    axis = fig.add_subplot(gs[0, 1])
-    axis.set_xlabel(f"p [{PRESSURE_SCALE_NAME}]")
-    axis.set_title(f"T = {T_vec_isotherms[1]}")
-    axis.set_yscale("log")
-    axis.plot(p_, err_T_isotherms[1], "-*", color="black")
+    n = 0
+    err_cap = 1e-10
+    for r in range(nrow):
+        for c in range(ncol[r]):
 
-    axis = fig.add_subplot(gs[0, 2])
-    axis.set_xlabel(f"p [{PRESSURE_SCALE_NAME}]")
-    axis.set_title(f"T = {T_vec_isotherms[2]}")
-    axis.set_yscale("log")
-    axis.plot(p_, err_T_isotherms[2], "-*", color="black")
+            axis = fig.add_subplot(gs[r, c])
+            axis.set_xlabel(f"p [{PRESSURE_SCALE_NAME}]")
+            axis.set_title(f"T = {T_vec_isotherms[n]}")
+            axis.set_yscale("log")
+            # caping errors from below for plot
+            err_T_abs = np.array(err_T_isotherms[n])
+            err_y_abs = np.array(err_y_isotherms[n])
+            err_T_abs[err_T_abs < cap] = cap
+            err_y_abs[err_y_abs < cap] = cap
+            img_T = axis.plot(p_, err_T_abs, "-*", color="red")[0]
+            img_y = axis.plot(p_, err_y_abs, "-*", color="black")[0]
+            n += 1
 
-    axis = fig.add_subplot(gs[1, 0])
-    axis.set_xlabel(f"p [{PRESSURE_SCALE_NAME}]")
-    axis.set_title(f"T = {T_vec_isotherms[3]}")
-    axis.set_yscale("log")
-    axis.plot(p_, err_T_isotherms[3], "-*", color="black")
-
-    axis = fig.add_subplot(gs[1, 1])
-    axis.set_xlabel(f"p [{PRESSURE_SCALE_NAME}]")
-    axis.set_title(f"T = {T_vec_isotherms[4]}")
-    axis.set_yscale("log")
-    axis.plot(p_, err_T_isotherms[4], "-*", color="black")
-
-    axis = fig.add_subplot(gs[1, 2])
-    axis.set_xlabel(f"p [{PRESSURE_SCALE_NAME}]")
-    axis.set_title(f"T = {T_vec_isotherms[5]}")
-    axis.set_yscale("log")
-    axis.plot(p_, err_T_isotherms[5], "-*", color="black")
+            # if r == 0 and c == (ncol[0] - 1):
+            #     axis.legend([img_T, img_y], ["Abs. err. in T", "Abs. err. in y"], loc="upper right")
 
     fig.tight_layout()
     fig.savefig(
@@ -887,5 +932,4 @@ if __name__ == "__main__":
         format="png",
         dpi=DPI,
     )
-
     # endregion
