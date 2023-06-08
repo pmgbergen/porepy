@@ -3,10 +3,10 @@
 We provide two tests:
 
     (1) `test_tested_vs_testable_methods_single_phase_flow`: This test checks that
-      all the testable methods (see docstring of `setup_utils.get_testable_methods()`
-      to see what constitutes a testable method) of the single-phase flow model are
-      included in the parametrization of `test_ad_operator_methods_single_phase_flow`,
-      and,
+      all the testable methods (see docstring of
+      `setup_utils.get_model_methods_returning_ad_operator()` to see what constitutes
+      a testable method) of the single-phase flow model are included in the
+      parametrization of `test_ad_operator_methods_single_phase_flow`, and
 
     (2) `test_ad_operator_methods_single_phase_flow`: A parametrized test where each
       tested method is evaluated and their output is compared to expected values.
@@ -53,7 +53,6 @@ def model_setup():
         Prepared-for-simulation model with non-trivial primary variables.
 
     """
-
     class Model(SquareDomainOrthogonalFractures, SinglePhaseFlow):
         """Single phase flow model in a domain with two intersecting fractures."""
 
