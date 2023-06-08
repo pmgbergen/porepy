@@ -74,21 +74,18 @@ def model_setup():
 
     # Prepare to simulate
     setup.prepare_simulation()
-    setup.set_well_network()
 
     # Set constant but non-zero values for the primary variables
-    if hasattr(setup, "pressure_variable"):
-        setup.equation_system.set_variable_values(
-            200 * pp.BAR * np.ones(setup.mdg.num_subdomain_cells()),
-            [setup.pressure_variable],
-            iterate_index=0,
-        )
-    if hasattr(setup, "interface_darcy_flux_variable"):
-        setup.equation_system.set_variable_values(
-            1e-12 * np.ones(setup.mdg.num_interface_cells()),
-            [setup.interface_darcy_flux_variable],
-            iterate_index=0,
-        )
+    setup.equation_system.set_variable_values(
+        200 * pp.BAR * np.ones(setup.mdg.num_subdomain_cells()),
+        [setup.pressure_variable],
+        iterate_index=0,
+    )
+    setup.equation_system.set_variable_values(
+        1e-12 * np.ones(setup.mdg.num_interface_cells()),
+        [setup.interface_darcy_flux_variable],
+        iterate_index=0,
+    )
 
     return setup
 
