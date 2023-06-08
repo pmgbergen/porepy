@@ -142,6 +142,8 @@ class ModelGeometry:
         # Default value of 1/2, scaled by the length unit.
         cell_size = self.solid.convert_units(0.5, "m")
         default_meshing_args: dict[str, float] = {"cell_size": cell_size}
+        # If meshing arguments are provided in the params, they should already be
+        # scaled by the length unit.
         return self.params.get("meshing_arguments", default_meshing_args)
 
     def meshing_kwargs(self) -> dict:
