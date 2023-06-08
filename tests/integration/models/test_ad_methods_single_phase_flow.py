@@ -277,7 +277,7 @@ def test_tested_vs_testable_methods_single_phase_flow(
             ),
             None,
         ),
-        # fluid_mass = rho * phi * cell_volume
+        # fluid_mass = rho * phi * specific_volume
         (
             "fluid_mass",
             np.array(
