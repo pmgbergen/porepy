@@ -38,6 +38,7 @@ T_LIMITS: list[float] = [450.0, 700.0]  # [K]
 # temperature values for isotherms (isenthalpic flash calculations)
 # more refined around critical temperature of water, up to critical pressure of water
 ISOTHERMS: list[float] = [500.0, 550.0, 620, 645.0, 647.14, 650.0]
+assert len(ISOTHERMS) == 6  # don't mess with this because of plots.
 P_LIMITS_ISOTHERMS: list[float] = [1e6, 23000000.0]
 # resolution of p-T limits
 RESOLUTION_pT: int = 40
