@@ -64,14 +64,16 @@ from _config import (
     plot_max_iter_reached,
     plot_phase_split_pT,
     plot_root_regions,
+    plot_widom_line,
     read_px_data,
     read_results,
     success_HEADER,
-    plot_widom_line,
 )
 
 # some additional plots for debugging
 DEBUG: bool = True
+
+PLOT_ROOTS: bool = False
 
 FIG_SIZE = (FIGURE_WIDTH, 0.33 * FIGURE_WIDTH)  # 1080 / 1920
 
@@ -131,7 +133,7 @@ if __name__ == "__main__":
 
     eos_l = pp.composite.peng_robinson.PengRobinsonEoS(False)
     eos_g = pp.composite.peng_robinson.PengRobinsonEoS(True)
-    species = pp.composite.load_fluid_species(SPECIES)
+    species = pp.composite.load_fluid_species(["ethane", "heptane"])
     comps = [
         pp.composite.peng_robinson.H2O.from_species(species[0]),
         pp.composite.peng_robinson.CO2.from_species(species[1]),
@@ -321,9 +323,9 @@ if __name__ == "__main__":
 
                     err_liq_comp[k, i, j] = np.abs(x_Lk_pp - x_Lk_thermo)
             else:  # unity gap
-                if y_pp <= 0.:
+                if y_pp <= 0.0:
                     phase_idx = PHASES[0]
-                elif y_pp >= 1.:
+                elif y_pp >= 1.0:
                     phase_idx = PHASES[1]
                 sum_ = []
                 for k, s in enumerate(SPECIES):
@@ -383,58 +385,63 @@ if __name__ == "__main__":
             y_ph = float(res_pp_ph[gas_frac_HEADER][idx])
             err_y_isotherms[T_idx].append(np.abs(y_pT - y_ph))
 
-    logger.info("Calculating root data ..")
-    A = np.linspace(A_LIMITS[0], A_LIMITS[1], RESOLUTION_AB)
-    B = np.linspace(B_LIMITS[0], B_LIMITS[1], RESOLUTION_AB)
-    A = np.hstack([A, np.array([0.0])])
-    A = np.sort(np.unique(A))
-    B = np.hstack([B, np.array([0.0])])
-    B = np.sort(np.unique(B))
+    if PLOT_ROOTS:
+        logger.info("Calculating root data ..")
+        A = np.linspace(A_LIMITS[0], A_LIMITS[1], RESOLUTION_AB)
+        B = np.linspace(B_LIMITS[0], B_LIMITS[1], RESOLUTION_AB)
+        A = np.hstack([A, np.array([0.0])])
+        A = np.sort(np.unique(A))
+        B = np.hstack([B, np.array([0.0])])
+        B = np.sort(np.unique(B))
 
-    A_mesh, B_mesh = np.meshgrid(A, B)
-    n, m = A_mesh.shape
-    regions = np.zeros(A_mesh.shape)
-    liq_root = np.zeros(A_mesh.shape)
-    gas_root = np.zeros(A_mesh.shape)
-    gas_extended_widom = np.zeros(A_mesh.shape, dtype=bool)
-    gas_extended = np.zeros(A_mesh.shape, dtype=bool)
-    liq_extended = np.zeros(A_mesh.shape, dtype=bool)
-    counter: int = 1
-    nm = n * m
-    eos = pp.composite.peng_robinson.PengRobinsonEoS(False)
-    for i in range(n):
-        for j in range(m):
-            A_ = A_mesh[i, j]
-            B_ = B_mesh[i, j]
+        A_mesh, B_mesh = np.meshgrid(A, B)
+        n, m = A_mesh.shape
+        regions = np.zeros(A_mesh.shape)
+        liq_root = np.zeros(A_mesh.shape)
+        gas_root = np.zeros(A_mesh.shape)
+        gas_extended_widom = np.zeros(A_mesh.shape, dtype=bool)
+        gas_extended = np.zeros(A_mesh.shape, dtype=bool)
+        liq_extended = np.zeros(A_mesh.shape, dtype=bool)
+        counter: int = 1
+        nm = n * m
+        eos = pp.composite.peng_robinson.PengRobinsonEoS(False)
+        for i in range(n):
+            for j in range(m):
+                A_ = A_mesh[i, j]
+                B_ = B_mesh[i, j]
 
-            A_ij = np.array([A_])
-            B_ij = np.array([B_])
+                A_ij = np.array([A_])
+                B_ij = np.array([B_])
 
-            Z_L, Z_G = eos._Z(A_ij, B_ij, ensure_B_bound=False, use_widom_line=True)
-            is_extended_w = int(eos.is_extended[0])
+                Z_L, Z_G = eos._Z(
+                    A_ij, B_ij, asymmetric_extension=False, use_widom_line=True
+                )
+                is_extended_w = int(eos.is_extended[0])
 
-            _, _ = eos._Z(A_ij, B_ij, ensure_B_bound=False, use_widom_line=False)
-            is_extended = int(eos.is_extended[0])
-            Z_L = float(Z_L[0])
-            Z_G = float(Z_G[0])
-            for r_ in range(4):
-                if eos.regions[r_][0]:
-                    regions[i, j] = r_
+                _, _ = eos._Z(
+                    A_ij, B_ij, asymmetric_extension=False, use_widom_line=False
+                )
+                is_extended = int(eos.is_extended[0])
+                Z_L = float(Z_L[0])
+                Z_G = float(Z_G[0])
+                for r_ in range(4):
+                    if eos.regions[r_][0]:
+                        regions[i, j] = r_
 
-            liq_root[i, j] = Z_L
-            gas_root[i, j] = Z_G
+                liq_root[i, j] = Z_L
+                gas_root[i, j] = Z_G
 
-            if regions[i, j] == 1:
-                if is_extended_w == 0:
-                    gas_extended_widom[i, j] = True
-                elif is_extended_w == 1:
-                    liq_extended[i, j] = True
+                if regions[i, j] == 1:
+                    if is_extended_w == 0:
+                        gas_extended_widom[i, j] = True
+                    elif is_extended_w == 1:
+                        liq_extended[i, j] = True
 
-                if is_extended == 0:
-                    gas_extended[i, j] = True
+                    if is_extended == 0:
+                        gas_extended[i, j] = True
 
-            logger.info(f"{del_log}Calculating root data: {counter}/{nm}")
-            counter += 1
+                logger.info(f"{del_log}Calculating root data: {counter}/{nm}")
+                counter += 1
 
     # region Gibbs Energy plot
     logger.info(f"{del_log}Plotting Gibbs Energy plot ..")
@@ -479,38 +486,46 @@ if __name__ == "__main__":
     # endregion
 
     # region Root plot
-    logger.info(f"{del_log}Plotting roots ..")
-    fig = plt.figure(figsize=FIG_SIZE)
-    gs = fig.add_gridspec(1, 2)
-    # fig.suptitle(f"Root cases for the Peng-Robinson EoS")
-    axis = fig.add_subplot(gs[0, 0])
-    axis.set_title("Number of distinct real roots")
-    axis.set_xlabel("A")
-    axis.set_ylabel("B")
-    img = plot_root_regions(axis, A_mesh, B_mesh, regions, liq_root, gas_root)
+    if PLOT_ROOTS:
+        logger.info(f"{del_log}Plotting roots ..")
+        fig = plt.figure(figsize=FIG_SIZE)
+        gs = fig.add_gridspec(1, 2)
+        # fig.suptitle(f"Root cases for the Peng-Robinson EoS")
+        axis = fig.add_subplot(gs[0, 0])
+        axis.set_title("Number of distinct real roots")
+        axis.set_xlabel("A")
+        axis.set_ylabel("B")
+        img = plot_root_regions(axis, A_mesh, B_mesh, regions, liq_root, gas_root)
 
-    divider = make_axes_locatable(axis)
-    cax = divider.append_axes("right", size="5%", pad=0.1)
-    cb_rr = fig.colorbar(img, cax=cax, orientation="vertical")
-    cb_rr.set_ticks([3 / 4 * k - 3 / 8 for k in range(1, 5)])
-    cb_rr.set_ticklabels(["triple", "1 root", "2 roots", "3 roots"])
+        divider = make_axes_locatable(axis)
+        cax = divider.append_axes("right", size="5%", pad=0.1)
+        cb_rr = fig.colorbar(img, cax=cax, orientation="vertical")
+        cb_rr.set_ticks([3 / 4 * k - 3 / 8 for k in range(1, 5)])
+        cb_rr.set_ticklabels(["triple", "1 root", "2 roots", "3 roots"])
 
-    axis = fig.add_subplot(gs[0, 1])
-    axis.set_xlabel("A")
-    axis.set_title("Usage of extended roots")
-    axis.set(yticklabels=[])
-    axis.set(ylabel=None)
-    axis.tick_params(left=False)
-    img = plot_extension_markers(
-        axis, A_mesh, B_mesh, liq_extended, gas_extended_widom, gas_extended, liq_root, gas_root
-    )
+        axis = fig.add_subplot(gs[0, 1])
+        axis.set_xlabel("A")
+        axis.set_title("Usage of extended roots")
+        axis.set(yticklabels=[])
+        axis.set(ylabel=None)
+        axis.tick_params(left=False)
+        img = plot_extension_markers(
+            axis,
+            A_mesh,
+            B_mesh,
+            liq_extended,
+            gas_extended_widom,
+            gas_extended,
+            liq_root,
+            gas_root,
+        )
 
-    fig.tight_layout()
-    fig.savefig(
-        f"{fig_path}figure_{fig_num}.png",
-        format="png",
-        dpi=DPI,
-    )
+        fig.tight_layout()
+        fig.savefig(
+            f"{fig_path}figure_{fig_num}.png",
+            format="png",
+            dpi=DPI,
+        )
     fig_num += 1
     # endregion
 
@@ -856,8 +871,8 @@ if __name__ == "__main__":
 
     # bound errors from below for plot
     cap = 1e-10
-    err_T_l2[err_T_l2 <cap] = cap
-    err_y_l2[err_y_l2 <cap] = cap
+    err_T_l2[err_T_l2 < cap] = cap
+    err_y_l2[err_y_l2 < cap] = cap
 
     logger.info(f"{del_log}Plotting L2 errors for isenthalpic flash ..")
     fig = plt.figure(figsize=FIG_SIZE)
