@@ -36,7 +36,7 @@ from _config import (
 COMPUTE_THERMO_DATA = False
 COMPUTE_PT_DATA_quickshot = False
 COMPUTE_PT_DATA = True
-COMPUTE_PH_DATA = False
+COMPUTE_PH_DATA = True
 
 if __name__ == "__main__":
 
@@ -55,10 +55,10 @@ if __name__ == "__main__":
     for c in comps:
         logger.info(f"{c.name}\t{c.T_crit}\t{c.p_crit}\t{c.omega}\n")
     logger.info("Binary interaction parameters:\n")
-    bip = pp.composite.peng_robinson.load_bip(comps[0].CASr_number, comps[1].CASr_number)
-    logger.info(
-        f"{comps[0].name} - {comps[1].name}: {bip}\n"
+    bip = pp.composite.peng_robinson.load_bip(
+        comps[0].CASr_number, comps[1].CASr_number
     )
+    logger.info(f"{comps[0].name} - {comps[1].name}: {bip}\n")
 
     if COMPUTE_THERMO_DATA:
         logger.info("Starting thermo p-T-calculations ..\n")

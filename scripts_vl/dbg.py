@@ -18,5 +18,8 @@ comps = [
 eos_l = pp.composite.peng_robinson.PengRobinsonEoS(False)
 eos_l.components = comps
 
-prop_l = eos_l.compute(p, T, X)
-G_l = eos_l._g_ideal(T, X) + eos_l._g_dep(prop_l.A, prop_l.B, prop_l.Z)
+# prop_l = eos_l.compute(p, T, X)
+# G_l = eos_l._g_ideal(T, X) + eos_l._g_dep(prop_l.A, prop_l.B, prop_l.Z)
+
+Z_L, Z_G = eos_l._Z(np.array([1e-7, 0.35]), np.array([0.01, 0.15]), True, True, True)
+print("")

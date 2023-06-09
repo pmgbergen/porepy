@@ -52,7 +52,7 @@ PRESSURE_SCALE_NAME: str = "MPa"
 # Widom line for water: Pressure and Temperature values
 WIDOM_LINE: list[np.ndarray] = [
     np.array([225, 250, 270]) * 1e5,  # bar to Pa
-    np.array([646.9, 655.6, 664.9])
+    np.array([646.9, 655.6, 664.9]),
 ]
 
 # Calculation modus for PorePy flash
@@ -837,7 +837,7 @@ def _parallel_pT_flash(ipT):
                     f"\nParallel p-T failed to converge at {ipT} (exit code = {success_})\n"
                 )
                 # cond_arr[i] = NAN_ENTRY
-            
+
             try:
                 cn = np.linalg.cond(state(with_derivatives=True).jac.todense())
             except:
@@ -1382,7 +1382,12 @@ def plot_root_regions(
     violated = liq_root <= B_mesh
     if np.any(violated):
         img_ = axis.plot(
-            A_mesh[violated], B_mesh[violated], ".-", markersize=0.5, color="red", linewidth=0.1,
+            A_mesh[violated],
+            B_mesh[violated],
+            ".-",
+            markersize=0.5,
+            color="red",
+            linewidth=0.1,
         )
         img_v = [img_[0]]
         leg_v = [f"Z_L <= B"]
@@ -1393,7 +1398,12 @@ def plot_root_regions(
     violated = gas_root < liq_root
     if np.any(violated):
         img_ = axis.plot(
-            A_mesh[violated], B_mesh[violated], ".-", markersize=0.5, color="black", linewidth=0.1,
+            A_mesh[violated],
+            B_mesh[violated],
+            ".-",
+            markersize=0.5,
+            color="black",
+            linewidth=0.1,
         )
         img_v2 = [img_[0]]
         leg_v2 = [f"Z_G < Z_L"]
@@ -1423,13 +1433,28 @@ def plot_extension_markers(
     )
 
     img_l = axis.plot(
-        A_mesh[liq_extended], B_mesh[liq_extended], ".-", markersize=1, color="blue", linewidth=0.1,
+        A_mesh[liq_extended],
+        B_mesh[liq_extended],
+        ".-",
+        markersize=1,
+        color="blue",
+        linewidth=0.1,
     )
     img_g_w = axis.plot(
-        A_mesh[gas_extended_widom], B_mesh[gas_extended_widom], ".-", markersize=1, color="orange", linewidth=0.1,
+        A_mesh[gas_extended_widom],
+        B_mesh[gas_extended_widom],
+        ".-",
+        markersize=1,
+        color="orange",
+        linewidth=0.1,
     )
     img_g = axis.plot(
-        A_mesh[gas_extended], B_mesh[gas_extended], ".-", markersize=1, color="red", linewidth=0.1,
+        A_mesh[gas_extended],
+        B_mesh[gas_extended],
+        ".-",
+        markersize=1,
+        color="red",
+        linewidth=0.1,
     )
     img_e = [img_l[0], img_g_w[0], img_g[0]]
     leg_e = ["liquid extended", "gas extended (Widom)", "gas extended"]
@@ -1451,7 +1476,7 @@ def plot_extension_markers(
     return img
 
 
-def plot_widom_line(axis:plt.Axes):
+def plot_widom_line(axis: plt.Axes):
     """Plots the three points corresponding to the experimental Widom line
     (Maxim et al. 2019)"""
 

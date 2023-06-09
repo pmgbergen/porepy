@@ -131,6 +131,18 @@ def _liquid_smoother(proximity: np.ndarray, s: float) -> np.ndarray:
     return smoother
 
 
+def _point_to_line_distance(point: np.ndarray, line: np.ndarray) -> np.ndarray:
+    """Auxiliary function to compute the normal distance between a point and a line
+    represented by two points (rows in a matrix ``line``)."""
+
+    d = np.sqrt((line[1, 0] - line[0, 0]) ** 2 + (line[1, 1] - line[0, 1]) ** 2)
+    n = np.abs(
+        (line[1, 0] - line[0, 0]) * (line[0, 1] - point[1])
+        - (line[0, 0] - point[0]) * (line[1, 1] - line[0, 1])
+    )
+    return n / d
+
+
 @dataclass(frozen=True)
 class PhaseProperties_cubic(PhaseProperties):
     """Extended phase properties resulting from computations using a cubic EoS.
@@ -196,13 +208,13 @@ class PengRobinsonEoS(AbstractEoS):
         mixingrule: ``default='VdW'``
 
             Name of the mixing rule to be applied.
-        transition_smoothing: ``default=1e-4``
+        smoothing_factor: ``default=1e-2``
 
             A small number to determine proximity between 3-root and double-root case.
 
             See also `Vu et al. (2021), Section 6. <https://doi.org/10.1016/
             j.matcom.2021.07.015>`_ .
-        eps: ``default=1e-16``
+        eps: ``default=1e-14``
 
             A small number defining the numerical zero.
 
@@ -241,7 +253,7 @@ class PengRobinsonEoS(AbstractEoS):
         gaslike: bool,
         *args,
         mixingrule: Literal["VdW"] = "VdW",
-        smoothing_factor: float = 1e-4,
+        smoothing_factor: float = 1e-2,
         eps: float = 1e-14,
         **kwargs,
     ) -> None:
@@ -286,6 +298,18 @@ class PengRobinsonEoS(AbstractEoS):
         See :attr:`~porepy.composite.peng_robinson.pr_components.Component_PR.bip_map`.
 
         """
+
+        self._widom_points: np.ndarray = np.array(
+            [[0, self.Widom_line(0)], [self.A_CRIT, self.Widom_line(self.A_CRIT)]]
+        )
+        """The Widom line for water characterized by two points at ``A=0`` and
+        ``A=A_criet``"""
+
+        self._critline_points: np.ndarray = np.array(
+            [[0, 0], [self.A_CRIT, self.B_CRIT]]
+        )
+        """The critical line characterized by two points ``(0, 0)`` and
+        ``(A_crit, B_crit)``"""
 
         self.gaslike: bool = bool(gaslike)
         """Flag passed at instantiation denoting the state of matter, liquid or gas."""
@@ -922,12 +946,46 @@ class PengRobinsonEoS(AbstractEoS):
             - (A * B - B**3 - B**2)
         )
 
+    @classmethod
+    def Widom_line(cls, A: NumericType) -> NumericType:
+        """Returns the Widom-line ``B(A)``"""
+        return cls.B_CRIT + 0.8 * 0.3381965009398633 * (A - cls.A_CRIT)
+
+    @classmethod
+    def critical_line(cls, A: NumericType) -> NumericType:
+        """Returns the critical line ``B_crit / A_crit * A``"""
+        return cls.B_CRIT / cls.A_CRIT * A
+
+    @staticmethod
+    def extended_root_sub(B: NumericType, Z: NumericType) -> NumericType:
+        """Auxiliary function implementing the formula for the extended root, motivated
+        by the formula proposed in Gharbia et al. (2021)
+
+        Parameters:
+            B: Dimensionless covolume.
+            Z: The real root.
+
+        """
+        return (1 - B - Z) / 2 + B  # * 2 + self.B_CRIT
+
+    @staticmethod
+    def extended_root_super(B: NumericType, Z: NumericType) -> NumericType:
+        """Auxiliary function implementing the formula for the extended root in the
+        supercritical region
+
+        Parameters:
+            B: Dimensionless covolume.
+            Z: The real root.
+
+        """
+        return Z - (Z - B) / 2
+
     def _Z(
         self,
         A: NumericType,
         B: NumericType,
         apply_smoother: bool = False,
-        ensure_B_bound: bool = True,
+        asymmetric_extension: bool = True,
         use_widom_line: bool = True,
     ) -> tuple[NumericType, NumericType]:
         """Auxiliary method to compute the compressibility factor based on Cardano
@@ -939,11 +997,11 @@ class PengRobinsonEoS(AbstractEoS):
             apply_smoother: ``default=False``
 
                 Flag to apply smoothing procedure.
-            ensure_B_bound: ``default=True``
+            asymmetric_extension: ``default=True``
 
-                If True, ensures the smallest root is greater than ``B`` by ``eps``.
-                Otherwise it can be smaller in the super-critical region.
-                Use with care.
+                If True, creates an asymmetric extension above the critical line for the
+                liquid-like root, since violations of the lower ``B``-bound where
+                observed there.
             use_widom_line: ``default=True``
 
                 If True, uses a linear approximation of the Widom line to separate
@@ -1008,9 +1066,9 @@ class PengRobinsonEoS(AbstractEoS):
         # NOTE: The logical comparisons are a bit awkward for compatibility reasons with
         # AD-arrays
         # identify super-critical line
-        self.is_supercritical = B >= self.B_CRIT / self.A_CRIT * A
+        self.is_supercritical = B >= self.critical_line(A)
         # identify approximated sub pseudo-critical line (approximates Widom line)
-        widom_line = B <= self.B_CRIT + 0.8 * 0.3381965009398633 * (A - self.A_CRIT)
+        widom_line = B <= self.Widom_line(A)
 
         # At A,B=0 we have 2 real roots, one with multiplicity 2
         zero_point = (
@@ -1088,7 +1146,7 @@ class PengRobinsonEoS(AbstractEoS):
 
             # real part of the conjugate imaginary roots
             # used for extension of vanished roots
-            w = (1 - B_ - z_1) / 2 + B_  # * 2 + self.B_CRIT
+            w = self.extended_root_sub(B_, z_1)
 
             if use_widom_line:
                 extension_is_bigger = widom_line[one_root_region]
@@ -1099,22 +1157,6 @@ class PengRobinsonEoS(AbstractEoS):
             z_1_small = z_1[extension_is_bigger]
             z_1[extension_is_bigger] = w[extension_is_bigger]
             w[extension_is_bigger] = z_1_small
-
-            # if use_widom_line:
-            #     # If the Widom line is used for labeling, there is possibly a region
-            #     # below it where w is still bigger.
-
-            #     extension_is_bigger = widom_line[one_root_region]
-            #     correction = extension_is_bigger & (z_1 < w)
-            #     if np.any(correction):
-            #         z_1_small = z_1[correction]
-            #         z_1[correction] = w[correction]
-            #         w[correction] = z_1_small
-
-            correction = (~subc_triang)[one_root_region]
-            correction = correction & (z_1 <= B_)
-            if np.any(correction) and ensure_B_bound:
-                w[w <= B_] = B_ + self.eps
 
             Z_L[one_root_region] = w
             Z_G[one_root_region] = z_1
@@ -1142,13 +1184,6 @@ class PengRobinsonEoS(AbstractEoS):
             z3 = t_1 * pp.ad.cos(t_2) - c2_ / 3
             z2 = -t_1 * pp.ad.cos(t_2 + np.pi / 3) - c2_ / 3
             z1 = -t_1 * pp.ad.cos(t_2 - np.pi / 3) - c2_ / 3
-
-            # there is a 3-root region in the supercritical part, where the lowest root
-            # is possibly negative.
-            correction = (~subc_triang)[three_root_region]
-            correction = correction & (z1 <= B[three_root_region])
-            if np.any(correction) and ensure_B_bound:
-                z1[correction] = B[correction] + self.eps
 
             # Smoothing procedure only valid in the sub-critical area, where the three
             # roots are positive and bound from below by B
@@ -1217,6 +1252,38 @@ class PengRobinsonEoS(AbstractEoS):
 
             Z_L[region] = z_23
             Z_G[region] = z_1
+
+        # Correction of extended liquid like root above the supercritical line
+        # Asymmetric extension
+        correction = self.is_supercritical
+        if use_widom_line:  # Widom line has larger incline than supercritical line
+            correction = self.is_supercritical & (~widom_line)
+        if np.any(correction) and asymmetric_extension and apply_smoother:
+
+            # Extended root in the supercritical region
+            w = self.extended_root_super(B, Z_G)[correction]
+
+            # compute normal distance of extended liquid root to critical line and
+            # normal line and chose the smaller one
+            A_ = A.val[correction] if isinstance(A, pp.ad.AdArray) else A[correction]
+            B_ = B.val[correction] if isinstance(B, pp.ad.AdArray) else B[correction]
+            AB = np.array([A_, B_])
+            d_w = _point_to_line_distance(AB, self._widom_points)
+            d_s = _point_to_line_distance(AB, self._critline_points)
+            d = np.minimum(d_w, d_s)
+
+            # designated distance of smoothing
+            smoothing_distance = 1e-2
+            smooth = d < smoothing_distance
+            if np.any(smooth):
+                # normalize distance at in smoothable region and make a convex-combination
+                # between sub and super-critical extension
+                d = d / smoothing_distance
+                w_sub = self.extended_root_sub(B, Z_G)[correction]
+
+                w[smooth] = (w_sub * (1 - d) + w * d)[smooth]
+
+            Z_L[correction] = w
 
         # convert Jacobians to csr
         if isinstance(Z_L, pp.ad.AdArray):
