@@ -66,7 +66,6 @@ def restriction_matrices_left_right(sd):
 
 def density_internal_faces(saturation, density, left_restriction, right_restriction):
     """ """
-
     s_rho = saturation * density
 
     density_internal_faces = (left_restriction @ s_rho + right_restriction @ s_rho) / (

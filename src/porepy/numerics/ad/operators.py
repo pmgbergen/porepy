@@ -313,7 +313,6 @@ class Operator:
                 elif op.prev_iter:
                     return self._prev_iter_vals[op.id]
                 else:
-                    # print("I nailed it!")
                     return self._ad[op.id]
             else:
                 if op.prev_time:

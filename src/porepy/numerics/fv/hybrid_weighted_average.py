@@ -29,10 +29,9 @@ def total_flux_internal(
     transmissibility_internal_tpfa,
     ad,
     dynamic_viscosity,
+    dim_max,
 ):
-    """
-    TODO: change name, this is total:flux:internal
-    """
+    """ """
 
     def gamma_value():
         """ """
@@ -166,18 +165,19 @@ def total_flux_internal(
 
     # total flux computation:
     z = -sd.cell_centers[
-        sd.dim - 1
+        dim_max - 1
     ]  # zed is reversed to conform to the notation in paper 2022
+    # pp assumes that a 2D problem lies in xy plane. I assume that g is alinged to the last axes. Therefore I need to know dim_max and I call last dimension coordinate z
 
     # # TODO:
     # dim_max = self.sd.dim_max()
     # z = -self.wrap_grid_attribute(
     #     sd.subdomains(), "cell_centers", dim_max
-    # )  # it sould be ok...
+    # )  # it sould be ok...x
 
     # print("\n\n check z: -------")
     # pdb.set_trace()
-    # TODO: projection to be added
+    # TODO: projection to be added. # NO! you simply dont have to
 
     g_ref_faces = g_ref_faces(
         mixture, pressure, z, gravity_value, left_restriction, right_restriction
@@ -234,6 +234,7 @@ def rho_total_flux_internal(
     transmissibility_internal_tpfa,
     ad,
     dynamic_viscosity,
+    dim_max,
 ):
     """ """
     qt = total_flux_internal(
@@ -246,6 +247,7 @@ def rho_total_flux_internal(
         transmissibility_internal_tpfa,
         ad,
         dynamic_viscosity,
+        dim_max,
     )
 
     rho_qt = [None, None]
@@ -273,6 +275,7 @@ def rho_total_flux(
     transmissibility_internal_tpfa,
     ad,
     dynamic_viscosity,
+    dim_max,
 ):
     rho_qt = expansion_matrix @ rho_total_flux_internal(
         sd,
@@ -284,6 +287,7 @@ def rho_total_flux(
         transmissibility_internal_tpfa,
         ad,
         dynamic_viscosity,
+        dim_max,
     )
 
     return rho_qt

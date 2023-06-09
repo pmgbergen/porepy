@@ -69,12 +69,15 @@ class Mixture(abc.ABC):
         else:  # ell == 1
             m = 0
 
-        self.get_phase(ell)._s = equation_system.md_variable(
-            "saturation", subdomains
-        )  ### I'm making a shallow copy of mixed dim var. TODO: check that it is ok and you are actually changing both copies
-        self.get_phase(m)._s = pp.ad.Scalar(1, "one") - equation_system.md_variable(
-            "saturation", subdomains
-        )
+        # self.get_phase(ell)._s = equation_system.md_variable(
+        #     "saturation", subdomains
+        # )  ### I'm making a shallow copy of mixed dim var. TODO: check that it is ok and you are actually changing both copies
+        # self.get_phase(m)._s = pp.ad.Scalar(1, "one") - equation_system.md_variable(
+        #     "saturation", subdomains
+        # )
+
+        self.get_phase(ell).apply_constraint = False
+        self.get_phase(m).apply_constraint = True
 
 
 '''

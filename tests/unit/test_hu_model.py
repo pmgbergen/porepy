@@ -21,24 +21,6 @@ def myprint(var):
 ###################################################################################################################
 
 
-# fluid_constants = pp.FluidConstants({"compressibility": 114})
-# material_constants = {"fluid": fluid_constants}
-# params = {"material_constants": material_constants}
-
-# model = pp.mass_and_energy_balance.MassAndEnergyBalance(params)
-
-# pp.run_time_dependent_model(model, params)
-
-# print(model.fluid.constants)
-
-# print("\n\n\n\n")
-
-# for i in dir(model):
-#     print(i)
-
-# pdb.set_trace()
-
-
 class FunctionTotalFlux(pp.ad.operator_functions.AbstractFunction):
     """ """
 
@@ -66,7 +48,7 @@ class FunctionTotalFlux(pp.ad.operator_functions.AbstractFunction):
 
     def get_args_from_sd_data_dictionary(self, data):
         """ """
-        pressure = data["for_hu"]["pressure_AdArray"]  # SOMETHING SIMILAR FOR SATURAION
+        pressure = data["for_hu"]["pressure_AdArray"]
         gravity_value = data["for_hu"][
             "gravity_value"
         ]  # just saying, you can add it as attribute during initialization
@@ -79,6 +61,7 @@ class FunctionTotalFlux(pp.ad.operator_functions.AbstractFunction):
         ]
         ad = True  # Sorry
         dynamic_viscosity = 1  # Sorry
+        dim_max = data["for_hu"]["dim_max"]
 
         return [
             pressure,
@@ -89,6 +72,7 @@ class FunctionTotalFlux(pp.ad.operator_functions.AbstractFunction):
             transmissibility_internal_tpfa,
             ad,
             dynamic_viscosity,
+            dim_max,
         ]
 
     def get_values(self, *args_not_used: AdArray) -> np.ndarray:
@@ -112,7 +96,9 @@ class FunctionTotalFlux(pp.ad.operator_functions.AbstractFunction):
                 self.func(*args).val
             )  # equation_system.assemble_subsystem will add the "-", so it will actually become a rhs
 
-        return np.hstack(known_term_list)
+        return np.hstack(
+            known_term_list
+        )  # TODO: how much are you sure about this hstack? idem for jacobian
 
     def get_jacobian(self, *args_not_used: AdArray) -> np.ndarray:
         """
@@ -129,7 +115,8 @@ class FunctionTotalFlux(pp.ad.operator_functions.AbstractFunction):
 
             jac_list.append(self.func(*args).jac)
 
-        return sp.sparse.block_diag(jac_list)
+        # return sp.sparse.block_diag(jac_list)
+        return sp.sparse.vstack(jac_list)  # TODO: are you 100% sure?
 
 
 class FunctionRhoV(pp.ad.operator_functions.AbstractFunction):
@@ -167,6 +154,8 @@ class FunctionRhoV(pp.ad.operator_functions.AbstractFunction):
         right_restriction = data["for_hu"]["right_restriction"]
         ad = True  # Sorry
         dynamic_viscosity = 1  # Sorry
+        # n_dof_tot = data["for_hu"]["n_dof_tot"]
+
         return [
             ell,
             pressure,
@@ -175,6 +164,7 @@ class FunctionRhoV(pp.ad.operator_functions.AbstractFunction):
             right_restriction,
             ad,
             dynamic_viscosity,
+            # n_dof_tot,
         ]
 
     def get_values(self, *args_not_used: AdArray) -> np.ndarray:
@@ -205,7 +195,8 @@ class FunctionRhoV(pp.ad.operator_functions.AbstractFunction):
 
             jac_list.append(self.func(*args).jac)
 
-        return sp.sparse.block_diag(jac_list)
+        # return sp.sparse.block_diag(jac_list)
+        return sp.sparse.vstack(jac_list)
 
 
 class FunctionRhoG(pp.ad.operator_functions.AbstractFunction):
@@ -246,6 +237,8 @@ class FunctionRhoG(pp.ad.operator_functions.AbstractFunction):
         ]
         ad = True  # Sorry
         dynamic_viscosity = 1  # Sorry
+        dim_max = data["for_hu"]["dim_max"]
+        # n_dof_tot = data["for_hu"]["n_dof_tot"]
         return [
             ell,
             pressure,
@@ -255,6 +248,8 @@ class FunctionRhoG(pp.ad.operator_functions.AbstractFunction):
             transmissibility_internal_tpfa,
             ad,
             dynamic_viscosity,
+            dim_max,
+            # n_dof_tot,
         ]
 
     def get_values(self, *args_not_used: AdArray) -> np.ndarray:
@@ -284,7 +279,8 @@ class FunctionRhoG(pp.ad.operator_functions.AbstractFunction):
 
             jac_list.append(self.func(*args).jac)
 
-        return sp.sparse.block_diag(jac_list)
+        # return sp.sparse.block_diag(jac_list)
+        return sp.sparse.vstack(jac_list)
 
 
 class PressureEquation(pp.BalanceEquation):
@@ -318,7 +314,7 @@ class PressureEquation(pp.BalanceEquation):
         mass_density = mass_density_ell + mass_density_m
 
         accumulation = self.volume_integral(mass_density, subdomains, dim=1)
-        accumulation.set_name("fluid_mass")
+        accumulation.set_name("fluid_mass_p_eq")
 
         rho_total_flux_operator = FunctionTotalFlux(
             pp.rho_total_flux,
@@ -337,6 +333,7 @@ class PressureEquation(pp.BalanceEquation):
 
         eq = self.balance_equation(subdomains, accumulation, flux, source, dim=1)
         eq.set_name("pressure_equation")
+
         return eq
 
 
@@ -362,7 +359,7 @@ class MassBalance(pp.BalanceEquation):
             * self.mixture.get_phase(self.ell).saturation_operator(subdomains)
         )
         accumulation = self.volume_integral(mass_density, subdomains, dim=1)
-        accumulation.set_name("fluid_mass")
+        accumulation.set_name("fluid_mass_mass_eq")
 
         rho_V_operator = FunctionRhoV(
             pp.rho_flux_V, self.equation_system, self.mixture, self.mdg, name="rho V"
@@ -393,6 +390,19 @@ class EquationsPressureMass(
     def set_equations(self):
         PressureEquation.set_equations(self)
         MassBalance.set_equations(self)
+
+        # subdomains = self.mdg.subdomains()
+        # # codim_1_interfaces = self.mdg.interfaces(codim=1)
+        # subdomain_eq = self.pressure_equation(subdomains)
+        # # interface_eq = self.interface_darcy_flux_equation(codim_1_interfaces)
+        # self.equation_system.set_equation(subdomain_eq, subdomains, {"cells": 1})
+        # # self.equation_system.set_equation(
+        # #     interface_eq, codim_1_interfaces, {"cells": 1}
+        # # )
+
+        # codim_1_interfaces = self.mdg.interfaces(codim=1)
+        # intf_eq = self.interface_darcy_flux_equation(codim_1_interfaces)
+        # self.equation_system.set_equation(intf_eq, codim_1_interfaces, {"cells": 1})
 
 
 class VariablesPressureMass(pp.VariableMixin):
@@ -492,12 +502,14 @@ class SolutionStrategyPressureMass(pp.SolutionStrategy):
         self.set_equation_system_manager()
 
         self.add_equation_system_to_phases()
-
-        self.create_variables()
         self.mixture.apply_constraint(
             self.ell, self.equation_system, self.mdg.subdomains()
         )
+
+        self.create_variables()
+
         self.initial_condition()
+
         self.reset_state_from_file()
         self.set_equations()
 
@@ -578,23 +590,25 @@ class SolutionStrategyPressureMass(pp.SolutionStrategy):
         for iterate_index in self.iterate_indices:
             self.equation_system.set_variable_values(val, iterate_index=iterate_index)
 
-        # from email:
         for sd in self.mdg.subdomains():
-            if sd.dim == self.mdg.dim_max():  # thers is a is_frac attribute somewhere
-                # saturation_variable = self.equation_system.md_variable(
-                #     name="saturation", grids=[sd]
-                # )
+            # if sd.dim == self.mdg.dim_max():  # thers is a is_frac attribute somewhere
+            if True:  ### ...
                 saturation_variable = (
                     self.mixture.mixture_for_subdomain(self.equation_system, sd)
                     .get_phase(0)
                     .saturation_operator([sd])
                 )
 
+                # saturation_variable = self.equation_system.md_variable(
+                #     "saturation", [sd]
+                # )
+
                 saturation_values = np.zeros(sd.num_cells)
                 y_max = self.size  # TODO: not 100% sure size = y_max
                 saturation_values[
                     np.where(sd.cell_centers[1] >= y_max / 2)
                 ] = 1.0  # TODO: HARDCODED for 2D
+
                 self.equation_system.set_variable_values(
                     saturation_values,
                     variables=[saturation_variable],
@@ -747,6 +761,8 @@ class SolutionStrategyPressureMass(pp.SolutionStrategy):
                 sd, data, keyword="flow"
             )
             data["for_hu"]["transmissibility_internal_tpfa"] = transmissibility_internal
+            data["for_hu"]["dim_max"] = self.mdg.dim_max()
+            # data["for_hu"]["n_dof_tot"] = self.equation_system.num_dofs()
 
     # other methods not called in prepared_simulation: -------------------------------------------------
 
@@ -776,6 +792,7 @@ class SolutionStrategyPressureMass(pp.SolutionStrategy):
             ]  # idem...
             ad = True
             dynamic_viscosity = 1  # Sorry
+            dim_max = data["for_hu"]["dim_max"]
             total_flux_internal = (
                 pp.numerics.fv.hybrid_weighted_average.total_flux_internal(
                     sd,
@@ -787,6 +804,7 @@ class SolutionStrategyPressureMass(pp.SolutionStrategy):
                     transmissibility_internal_tpfa,
                     ad,
                     dynamic_viscosity,
+                    dim_max,
                 )
             )
             data["for_hu"]["total_flux_internal"] = (
@@ -817,49 +835,98 @@ class SolutionStrategyPressureMass(pp.SolutionStrategy):
         )
 
         # added:
-        for sd, _ in self.mdg.subdomains(return_data=True):
-            gigi = (
-                self.mixture.mixture_for_subdomain(self.equation_system, [sd])
-                .get_phase(0)
-                .saturation
-            )
+        print("self.time_manager.time = ", self.time_manager.time)
+        if np.isclose(np.mod(self.time_manager.time, 0.1), 0, rtol=0, atol=1e-4):
+            for sd, _ in self.mdg.subdomains(return_data=True):
+                gigi = (
+                    self.mixture.mixture_for_subdomain(self.equation_system, [sd])
+                    .get_phase(0)
+                    .saturation
+                )
 
-            mario = (
-                self.mixture.mixture_for_subdomain(self.equation_system, [sd])
-                .get_phase(1)
-                .saturation
-            )
+                mario = (
+                    self.mixture.mixture_for_subdomain(self.equation_system, [sd])
+                    .get_phase(1)
+                    .saturation
+                )
 
-            sss = self.equation_system.md_variable(
-                "saturation", self.mdg.subdomains()
-            ).evaluate(self.equation_system)
+                # sss = self.equation_system.md_variable(
+                #     "saturation", self.mdg.subdomains()
+                # ).evaluate(self.equation_system)
 
-            ppp = self.equation_system.md_variable(
-                "pressure", self.mdg.subdomains()
-            ).evaluate(self.equation_system)
+                ppp = self.equation_system.md_variable(
+                    "pressure", self.mdg.subdomains()
+                ).evaluate(self.equation_system)
 
-            print("saturation = ", mario.val)
-            print("pressure = ", ppp.val)
+                print("saturation = ", mario.val)
+                print("pressure = ", ppp.val)
 
-            pp.plot_grid(sd, sss.val, alpha=0.5, info="c")
-            pp.plot_grid(sd, gigi.val, alpha=0.5, info="c")
-            pp.plot_grid(sd, ppp.val, alpha=0.5, info="c")
+                pp.plot_grid(
+                    sd,
+                    gigi.val,
+                    alpha=0.5,
+                    info="c",
+                    title="saturation " + str(self.ell),
+                )
+                # pp.plot_grid(
+                #     sd,
+                #     sss.val,
+                #     alpha=0.5,
+                #     info="c",
+                #     title="saturation " + str(self.ell),
+                # )
+                pp.plot_grid(sd, ppp.val, alpha=0.5, info="c", title="pressure")
 
 
 class MyModelGeometry(pp.ModelGeometry):
+    def set_geometry(self) -> None:
+        """ """
+
+        self.set_domain()
+        self.set_fractures()
+
+        self.fracture_network = pp.create_fracture_network(self.fractures, self.domain)
+
+        self.mdg = pp.create_mdg(
+            "simplex",
+            self.meshing_arguments(),
+            self.fracture_network,
+            **self.meshing_kwargs(),
+        )
+        self.nd: int = self.mdg.dim_max()
+
+        pp.set_local_coordinate_projections(self.mdg)
+
+        self.set_well_network()
+        if len(self.well_network.wells) > 0:
+            assert isinstance(self.fracture_network, pp.FractureNetwork3d)
+            pp.compute_well_fracture_intersections(
+                self.well_network, self.fracture_network
+            )
+            self.well_network.mesh(self.mdg)
+
     def set_domain(self) -> None:
         """ """
         self.size = 1 / self.units.m
+
+        # structired square:
         self._domain = pp.applications.md_grids.domains.nd_cube_domain(2, self.size)
+
+        # unstructred unit square:
+        bounding_box = {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1}
+        self._domain = pp.Domain(bounding_box=bounding_box)
 
     def set_fractures(self) -> None:
         """ """
-        frac1 = pp.LineFracture(np.array([[0, 0.5], [0, 0]]))
-        self._fractures: list = []  # [frac1]
+        frac1 = pp.LineFracture(np.array([[0.1, 0.5], [0.5, 0.7]]))
+        self._fractures: list = [frac1]  # []
 
     def meshing_arguments(self) -> dict[str, float]:
         """ """
-        default_meshing_args: dict[str, float] = {"cell_size": 0.2 / self.units.m}
+        default_meshing_args: dict[str, float] = {
+            "cell_size": 0.9 / self.units.m,
+            "cell_size_fracture": 0.1 / self.units.m,
+        }
         return self.params.get("meshing_arguments", default_meshing_args)
 
 
@@ -909,7 +976,7 @@ solid_constants = pp.SolidConstants({"porosity": 0.25, "permeability": 1})
 material_constants = {"fluid": fluid_constants, "solid": solid_constants}
 
 time_manager = pp.TimeManager(
-    schedule=[0, 1],
+    schedule=[0, 10],
     dt_init=5e-2,
     constant_dt=True,
     iter_max=10,

@@ -185,8 +185,8 @@ class SolutionStrategy(abc.ABC):
 
     def prepare_simulation(self) -> None:
         """Run at the start of simulation. Used for initialization etc."""
-        # Set the geometry of the problem. This is a method that must be implemented
-        # in a ModelGeometry class.
+
+        self.set_materials()  ### moved, in the last verions of pp it is here
 
         # print("\n\n inside prepare_simulation")
         # for sd, data in self.mdg.subdomains(return_data=True):
@@ -195,6 +195,8 @@ class SolutionStrategy(abc.ABC):
         # # here I dont even have the mdg
         # pdb.set_trace()
 
+        # Set the geometry of the problem. This is a method that must be implemented
+        # in a ModelGeometry class.
         self.set_geometry()
 
         # print("\n\n inside prepare_simulation")
@@ -211,7 +213,6 @@ class SolutionStrategy(abc.ABC):
         # Set variables, constitutive relations, discretizations and equations.
         # Order of operations is important here.
         self.set_equation_system_manager()
-        self.set_materials()
 
         self.create_variables()
         self.initial_condition()

@@ -59,23 +59,32 @@ def flux_V(
         """ """
 
         if ad:
-            mobility_tot = pp.ad.AdArray(
-                np.zeros(left_restriction.shape[0]),
-                0 * sp.sparse.eye(left_restriction.shape[0], 2 * sd.num_cells),
-            )  # TODO: find a smart way to initialize ad vars
+            # mobility_tot = pp.ad.AdArray(
+            #     np.zeros(left_restriction.shape[0]),
+            #     0 * sp.sparse.eye(left_restriction.shape[0], 2 * sd.num_cells),
+            # )  # TODO: find a smart way to initialize ad vars
+
+            mobility_tot = (
+                []
+            )  # to initialize it you need the total number of dof, which is not a info sd related, therefore I avoid the initializazion and I append the elelnents in a list
         else:
             mobility_tot = np.zeros(
                 left_restriction.shape[0], dtype=np.complex128
-            )  # TODO: improve it, left_restriction.shape[0] = len(sd.get_internal_faces())
+            )  # TODO: improve it ### this is not working anymore
 
         for m in np.arange(mixture.num_phases):
-            mobility_tot += mobility_V_faces(
-                saturation_list[m],
-                total_flux_internal,
-                left_restriction,
-                right_restriction,
-                dynamic_viscosity,
+            mobility_tot.append(
+                mobility_V_faces(
+                    saturation_list[m],
+                    total_flux_internal,
+                    left_restriction,
+                    right_restriction,
+                    dynamic_viscosity,
+                )
             )
+            # I had to avoid "+=" bcs it requirs jac initialization. waiting for a better solution...
+
+        mobility_tot = sum(mobility_tot)
         return mobility_tot
 
     # V (viscous/convective) flux computation:
@@ -148,6 +157,7 @@ def flux_G(
     transmissibility_internal_tpfa,
     ad,
     dynamic_viscosity,
+    dim_max,
 ):
     """
     TODO: consider the idea to move omega outside the flux_G, if you don't see why => it is already in the right place.
@@ -156,21 +166,28 @@ def flux_G(
     def omega(num_phases, ell, mobilities, g, left_restriction, right_restriction, ad):
         """
         TODO: i run into some issues with pp.ad.functions.heaviside
+
+        TODO: omega_ell doenst have to be a adArray
         """
         if ad:
-            omega_ell = pp.ad.AdArray(
-                np.zeros(left_restriction.shape[0]),
-                0 * sp.sparse.eye(left_restriction.shape[0], 2 * sd.num_cells),
-            )  # TODO: find a better way to initialize arrays
+            # omega_ell = pp.ad.AdArray(
+            #     np.zeros(left_restriction.shape[0]),
+            #     0 * sp.sparse.eye(left_restriction.shape[0], 2 * sd.num_cells),
+            # )  # TODO: find a better way to initialize arrays
+            omega_ell = []
 
             for m in np.arange(num_phases):
-                omega_ell += (
-                    (left_restriction @ mobilities[m])
-                    * pp.ad.functions.heaviside(-g[m] + g[ell])
-                    + (right_restriction @ mobilities[m])
-                    * pp.ad.functions.heaviside(g[m] - g[ell])
-                ) * (g[m] - g[ell])
+                omega_ell.append(
+                    (
+                        (left_restriction @ mobilities[m])
+                        * pp.ad.functions.heaviside(-g[m] + g[ell])
+                        + (right_restriction @ mobilities[m])
+                        * pp.ad.functions.heaviside(g[m] - g[ell])
+                    )
+                    * (g[m] - g[ell])
+                )
 
+            omega_ell = sum(omega_ell)
         else:
             omega_ell = np.zeros(left_restriction.shape[0], dtype=np.complex128)
 
@@ -207,28 +224,33 @@ def flux_G(
     ):
         """ """
         if ad:
-            mobility_tot_G = pp.ad.AdArray(
-                np.zeros(left_restriction.shape[0]),
-                0 * sp.sparse.eye(left_restriction.shape[0], 2 * sd.num_cells),
-            )
+            # mobility_tot_G = pp.ad.AdArray(
+            #     np.zeros(left_restriction.shape[0]),
+            #     0 * sp.sparse.eye(left_restriction.shape[0], 2 * sd.num_cells),
+            # )
+            mobility_tot_G = []
         else:
             mobility_tot_G = np.zeros(left_restriction.shape[0], dtype=np.complex128)
 
         for m in np.arange(num_phases):  # m = phase_id
-            mobility_tot_G += mobility_G_faces(
-                saturation_list[m],
-                omega_ell,
-                left_restriction,
-                right_restriction,
-                dynamic_viscosity,
+            mobility_tot_G.append(
+                mobility_G_faces(
+                    saturation_list[m],
+                    omega_ell,
+                    left_restriction,
+                    right_restriction,
+                    dynamic_viscosity,
+                )
             )
+
+        mobility_tot_G = sum(mobility_tot_G)
 
         return mobility_tot_G
 
     # flux G computation:
     z = -sd.cell_centers[
-        sd.dim - 1
-    ]  # TODO: this is wrong, works only in 2D ### zed is reversed to conform to paper 2022 notation
+        dim_max - 1
+    ]  # zed is reversed to conform to paper 2022 notation
 
     saturation_list = [None] * mixture.num_phases
     g_list = [None] * mixture.num_phases
@@ -267,10 +289,11 @@ def flux_G(
     )
 
     if ad:
-        G_internal = pp.ad.AdArray(
-            np.zeros(left_restriction.shape[0]),
-            0 * sp.sparse.eye(left_restriction.shape[0], 2 * sd.num_cells),
-        )  # TODO: find a smart way to initialize ad vars
+        # G_internal = pp.ad.AdArray(
+        #     np.zeros(left_restriction.shape[0]),
+        #     0 * sp.sparse.eye(left_restriction.shape[0], 2 * sd.num_cells),
+        # )  # TODO: find a smart way to initialize ad vars
+        G_internal = []
     else:
         G_internal = np.zeros(
             left_restriction.shape[0], dtype=np.complex128
@@ -291,8 +314,9 @@ def flux_G(
             right_restriction,
             dynamic_viscosity,
         )
-        G_internal += mob_G_ell * mob_G_m / mob_tot_G * (g_list[m] - g_list[ell])
+        G_internal.append(mob_G_ell * mob_G_m / mob_tot_G * (g_list[m] - g_list[ell]))
 
+    G_internal = sum(G_internal)
     G_internal *= transmissibility_internal_tpfa
     return G_internal
 
@@ -308,6 +332,7 @@ def rho_flux_G(
     transmissibility_internal_tpfa,
     ad,
     dynamic_viscosity,
+    dim_max,
 ):
     """ """
     G = pp.numerics.fv.hybrid_upwind.flux_G(
@@ -321,6 +346,7 @@ def rho_flux_G(
         transmissibility_internal_tpfa,
         ad,
         dynamic_viscosity,
+        dim_max,
     )
     density = mixture.get_phase(ell).mass_density(pressure)
     rho_upwinded = hu_utils.var_upwinded_faces(
@@ -375,6 +401,7 @@ def rho_flux_G(
 #     )
 
 
+'''
 def boundary_conditions_tmp(sd: pp.Grid, bc_val):
     """
     TODO: bc for pressure eq and for mass flux. For now, flux = 0, so I use this method for both
@@ -390,7 +417,6 @@ def boundary_conditions_tmp(sd: pp.Grid, bc_val):
     return -abs(sd.cell_faces).T @ (sd.face_areas * bc_val)
 
 
-'''
     @staticmethod
     def compute_jacobian_V_G_ad(
         sd, data, mixture, ell, pressure, gravity_value, ad, dynamic_viscosity

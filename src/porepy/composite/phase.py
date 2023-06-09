@@ -23,7 +23,8 @@ class Phase(abc.ABC):
         #     subdomains=ad_system.mdg.subdomains(),
         # )
         self._rho0 = rho0
-        self._s = None
+        self.apply_constraint = None
+        # self._s = None
         self.subdomain = None
         self.equation_system = None
 
@@ -42,15 +43,19 @@ class Phase(abc.ABC):
         s = self.saturation_operator([self.subdomain]).evaluate(self.equation_system)
         return s
 
-    # def saturation_operator(
-    #     self, subdomains: list[pp.Grid]
-    # ) -> pp.ad.MixedDimensionalVariable:
-    #     # TODO: redo constraint
-    #     s = self.equation_system.md_variable("saturation", subdomains)
-    #     return s
+    def saturation_operator(self, subdomains: list[pp.Grid]):
+        """ """
+        if self.apply_constraint:
+            s = pp.ad.Scalar(1, "one") - self.equation_system.md_variable(
+                "saturation", subdomains
+            )
+        else:
+            s = self.equation_system.md_variable("saturation", subdomains)
+        return s
 
-    def saturation_operator(self, subdomains: list) -> pp.ad.MixedDimensionalVariable:
-        return self._s
+    # def saturation_operator(self, subdomains: list) -> pp.ad.MixedDimensionalVariable:
+    #     """TODO: this is wrong, it works only in my case... fix also the constraint"""
+    #     return self._s
 
     # Physical properties: ----------------------------------------------------------------
 

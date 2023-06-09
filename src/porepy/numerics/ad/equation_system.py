@@ -1603,8 +1603,7 @@ class EquationSystem:
             eq = self._equations[equ_name]
 
             print("BEFORE eq.evaluate: -----------------------------------")
-
-            # print("eq = ", eq)
+            print("eq = ", eq)
 
             ad = eq.evaluate(self, state)
 
