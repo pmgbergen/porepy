@@ -32,7 +32,7 @@ DPI: int = 400  # Dots per Inch (level of detail per figure)
 # 1 - point-wise (robust, but possibly very slow),
 # 2 - vectorized (not recommended),
 # 3 - parallelized (use with care, if system compatible)
-CALCULATION_MODE: int = 1
+CALCULATION_MODE: int = 3
 
 # fluid mixture configuration
 SPECIES: list[str] = ["H2O", "CO2"]
@@ -46,10 +46,10 @@ RESOLUTION_pT: int = 40
 
 # temperature values for isotherms for p-h calculations
 # more refined around critical temperature of water, up to critical pressure of water
-ISOTHERMS: list[float] = [500.0, 550.0, 620, 645.0, 647.14, 650.0]
+ISOTHERMS: list[float] = [500.0, 550.0, 600, 645.0, 647.14, 650.0]
 P_LIMITS_ISOTHERMS: list[float] = [1e6, 23000000.0]
 # pressure resolution along isotherms
-RESOLUTION_ph: int = 10
+RESOLUTION_ph: int = 20
 
 # Isobar and isotherm for h-v calculations
 HV_ISOBAR: float = 13e6
@@ -57,7 +57,7 @@ HV_ISOBAR_T_LIMITS: list[float] = [550, 620]
 HV_ISOTHERM: float = 575.0
 HV_ISOTHERM_P_LIMITS: list[float] = [5e6, 15e6]
 # pressure and temperature resolution for isobar and isotherm for h-v flash
-RESOLUTION_hv: int = 3
+RESOLUTION_hv: int = 10
 
 # Limits for A and B when plotting te roots
 A_LIMITS: list[float] = [0, 2 * pp.composite.peng_robinson.PengRobinsonEoS.A_CRIT]
@@ -665,11 +665,11 @@ def create_mixture(
     flash = pp.composite.FlashNR(mix)
     flash.use_armijo = True
     flash.armijo_parameters["rho"] = 0.99
-    flash.armijo_parameters["j_max"] = 50
+    flash.armijo_parameters["j_max"] = 150
     flash.armijo_parameters["return_max"] = True
     flash.newton_update_chop = 1.0
     flash.tolerance = 1e-5
-    flash.max_iter = 120
+    flash.max_iter = 150
 
     return mix, flash
 
@@ -799,12 +799,12 @@ def _parallel_porepy_flash(args):
         success_arr[i] = success_
         if success_ == 2:
             logger.warn(
-                f"\nParallel {flash_type} diverged at {msg} (exit code = {success_})\n"
+                f"\nParallel {flash_type} diverged at {msg}\n"
             )
         else:
             if success_ == 1:
                 logger.warn(
-                    f"\nParallel {flash_type} failed to converge at {msg} (exit code = {success_})\n"
+                    f"\nParallel {flash_type} stopped after max iter at {msg}\n"
                 )
             try:
                 cn = np.linalg.cond(state(with_derivatives=True).jac.todense())
@@ -898,12 +898,12 @@ def calculate_porepy_data(
             else:
                 if success == 2:
                     logger.warn(
-                        f"\nPorePy {flash_type} flash diverged at ({f}, {xy}) (exit code = {success})\n"
+                        f"\nPorePy {flash_type} flash diverged at ({f}, {xy})\n"
                     )
                 else:
                     if success == 1:
                         logger.warn(
-                            f"\nPorePy {flash_type} flash failed to converge at ({f}, {xy}) (exit code = {success})\n"
+                            f"\nPorePy {flash_type} stopped after max iter at ({f}, {xy})\n"
                         )
 
                     try:
@@ -982,7 +982,9 @@ def calculate_porepy_data(
             )
             prog_process.start()
 
-            chunksize = NUM_PHYS_CPU_CORS
+            chunksize = np.array(
+                [NUM_PHYS_CPU_CORS, RESOLUTION_hv, RESOLUTION_ph, RESOLUTION_pT]
+            ).min()
             result = pool.map_async(_parallel_porepy_flash, args, chunksize=chunksize)
 
             # Wait for some time and see if processes terminate as they should

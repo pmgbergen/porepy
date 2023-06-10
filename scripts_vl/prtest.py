@@ -5,9 +5,9 @@ chems = ["H2O", "CO2"]
 
 vec = np.ones(1)
 z = [vec * 0.01]  # only co2 fraction is enough
-p = vec * 23458333.333333336
+p = vec * 13736842.105263157
 T = vec * 450.
-h = vec * -17260.984401067843
+h = vec * -13093.869119674486
 v = vec * 3.736962284714034e-05
 verbosity = 2
 
@@ -35,14 +35,14 @@ mix.set_up()
 flash = pp.composite.FlashNR(mix)
 flash.use_armijo = True
 flash.armijo_parameters["rho"] = 0.99
-flash.armijo_parameters["j_max"] = 70
+flash.armijo_parameters["j_max"] = 200
 flash.armijo_parameters["return_max"] = True
 flash.newton_update_chop = 1.0
 flash.tolerance = 1e-5
 flash.max_iter = 120
 
 success, results_ = flash.flash(
-    state={'h': h, 'v': v}, eos_kwargs={'apply_smoother': True},
+    state={'h': h, 'p': p}, eos_kwargs={'apply_smoother': True},
     feed = z,
     verbosity=verbosity,
 )
