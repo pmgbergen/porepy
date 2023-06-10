@@ -326,7 +326,6 @@ class FlashSystemNR(ThermodynamicState):
             h_norm = self.h.copy()
             h_norm[np.abs(h_norm) <= 1] = 1.0
             equ = equ / h_norm  # / (T**2)
-            # equ = equ / h_norm
             equations.append(equ)
 
         # Third, volume constraint if pressure is unknown
@@ -1113,13 +1112,15 @@ class FlashNR:
                 # thd_state = self._guess_pT_for_hv_saha(
                 #     thd_state, num_vals, gas_phase_index
                 # )
-                for _ in range(10):
+                for _ in range(25):
                     # solve constraints
-                    thd_state, _ = self._guess_pT_for_hv(thd_state, num_vals, 5)
+                    thd_state, res_is_zero = self._guess_pT_for_hv(thd_state, num_vals, 2)
                     # Update fractions using the updated T
                     thd_state = self._guess_fractions(
-                        thd_state, num_vals, num_iter=1, guess_K_values=False
+                        thd_state, num_vals, num_iter=2, guess_K_values=False
                     )
+                    if res_is_zero:
+                        break
                 # final saturation update
                 phase_props = self.mixture.compute_properties(
                     thd_state.p, thd_state.T, thd_state.X, store=False, normalize=True
@@ -1711,7 +1712,7 @@ class FlashNR:
         factor = 1 - np.abs(dT) / state.T.val
 
         T_new = state.T.val + factor * dT
-        p_new = state.p.val  # * (1 - factor)
+        p_new = state.p.val * (2 - factor)
 
         correction = state.y[gas_phase_index] > 1e-3
         if np.any(correction):
@@ -1721,6 +1722,7 @@ class FlashNR:
             v_target_approx = (h_mix - state.p * state.v - state.h) / state.p
             dvdp = v_target_approx.jac[:, :num_vals].diagonal()
             dvdT = v_target_approx.jac[:, num_vals : 2 * num_vals].diagonal()
+            # dvdT = (state.v - h_mix.jac[:, :num_vals].diagonal()) / state.T.val
 
             p_new[correction] = (state.p.val + factor * dT * dvdT / np.abs(dvdp))[
                 correction
@@ -1771,14 +1773,18 @@ class FlashNR:
                 [prop.rho for prop in phase_props], state.s
             )
             v_mix = rho_mix ** (-1)
+            u_mix = h_mix - state.p * v_mix
 
             H = (h_mix - state.h) / h_norm
-            V = v_mix - state.v
+            V = (v_mix - state.v) / state.v
             S = rho_mix * state.y[1] - phase_props[1].rho * state.s[1]
+
+            U = u_mix + state.p * state.v - state.h
+            h = (u_mix + state.p * state.v)* (-1) - state.h
 
             A = sps.vstack([H.jac, V.jac, S.jac], format="csr")
             b = np.hstack([H.val, V.val, S.val])
-            if np.linalg.norm(b) <= self.tolerance:
+            if np.linalg.norm(b) <= 2e-2:
                 res_is_zero = True
                 break
             else:
@@ -1790,16 +1796,26 @@ class FlashNR:
                 check = np.abs(dT) > state.T.val
                 dT[check] = (0.1 * state.T.val * np.sign(dT))[check]
                 check = np.abs(dp) > state.p.val
-                dp[check] = (0.1 * state.p.val * np.sign(dp))[check]
+                dp[check] = (0.2 * state.p.val * np.sign(dp))[check]
 
-                # factor = 1 - np.abs(dT) / state.T.val
-                factor = 0.2
-                state.T.val = state.T.val + factor * dT
-                state.p.val = state.p.val + factor * dp
-
-                dvdp = v_mix.jac[:, :num_vals].diagonal()
-                dvdT = v_mix.jac[:, num_vals : 2 * num_vals].diagonal()
-                dv = dvdT / np.abs(dvdp)
+                factor_T = 1 - np.abs(dT) / state.T.val
+                factor_p = 1 - np.abs(dp) / state.p.val
+                factor = factor_p * factor_T
+                # dvdp = v_mix.jac[:, :num_vals].diagonal()
+                # dvdT = v_mix.jac[:, num_vals : 2 * num_vals].diagonal()
+                # dvdT_ = (state.v - h_mix.jac[:, :num_vals].diagonal()) / state.T.val
+                # dv = dvdT / np.abs(dvdp)
+                cor = (state.y[1].val > 1e-3) & (v_mix.val > state.v) & (dT < 0)
+                dT[cor] = 0. 
+                state.T.val = state.T.val + factor_T * dT
+                # liquid_like = state.y[1].val < 1e3
+                # p_l = state.p.val * (2 - factor)
+                cor_p = (state.y[1].val > 1e-3) & (dp < 0) & (v_mix.val > state.v)
+                dp[cor_p] = 0.
+                state.p.val = state.p.val + factor_p * dp
+                cor_p_2 = (v_mix.val > state.v) & (state.y[1].val >= 1.)
+                state.p.val[cor_p_2] *= (2 - factor_p)
+                # state.p.val[liquid_like] = p_l[liquid_like]
 
         return state, res_is_zero
 

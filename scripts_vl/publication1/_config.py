@@ -32,7 +32,7 @@ DPI: int = 400  # Dots per Inch (level of detail per figure)
 # 1 - point-wise (robust, but possibly very slow),
 # 2 - vectorized (not recommended),
 # 3 - parallelized (use with care, if system compatible)
-CALCULATION_MODE: int = 3
+CALCULATION_MODE: int = 1
 
 # fluid mixture configuration
 SPECIES: list[str] = ["H2O", "CO2"]

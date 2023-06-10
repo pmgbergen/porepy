@@ -7,8 +7,8 @@ vec = np.ones(1)
 z = [vec * 0.01]  # only co2 fraction is enough
 p = vec * 23458333.333333336
 T = vec * 450.
-h = vec * -16604.200976546
-v = vec * 0.0000644473515820043
+h = vec * -17260.984401067843
+v = vec * 3.736962284714034e-05
 verbosity = 2
 
 species = pp.composite.load_fluid_species(chems)

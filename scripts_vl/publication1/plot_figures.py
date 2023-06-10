@@ -1079,7 +1079,7 @@ if __name__ == "__main__":
     img_ip, leg_ip = plot_hv_iso(
         axis, T_ip, err_hv_p_ip, err_hv_T_ip, err_hv_s_ip, err_hv_y_ip
     )
-    axis.legend(img_ip, leg_ip, loc="upper left")
+    axis.legend(img_ip, leg_ip, loc="center left")
 
     axis = fig.add_subplot(gs[0, 1])
     axis.set_title(f"T = {HV_ISOTHERM} [K]")
