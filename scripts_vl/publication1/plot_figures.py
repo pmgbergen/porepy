@@ -82,6 +82,9 @@ from _config import (
 # some additional plots for debugging
 DEBUG: bool = True
 
+# bounding errors from below for plotting purpose
+ERROR_CAP = 1e-10
+
 PLOT_ROOTS: bool = False
 
 FIG_SIZE = (FIGURE_WIDTH, 0.33 * FIGURE_WIDTH)  # 1080 / 1920
@@ -443,10 +446,16 @@ if __name__ == "__main__":
             y_hv = float(results_hv[gas_frac_HEADER][idx])
             s_hv = float(results_hv[gas_satur_HEADER][idx])
 
-            err_hv_p_ip.append(np.abs(HV_ISOBAR - p_hv))
+            err_hv_p_ip.append(np.abs(HV_ISOBAR - p_hv) * PRESSURE_SCALE)
             err_hv_T_ip.append(np.abs(T_ - T_hv))
             err_hv_s_ip.append(np.abs(s_pT - s_hv))
             err_hv_y_ip.append(np.abs(y_pT - y_hv))
+
+            if DEBUG and (err_hv_p_ip[-1] > 5 or err_hv_T_ip[-1] > 5):
+                print(
+                    "investigate: pThv", HV_ISOBAR, T_, h_pT, v_pT,
+                    f"\terr p: {err_hv_p_ip[-1]} \t err T: {err_hv_T_ip[-1]}"
+                )
         else:
             err_hv_p_ip.append(0.0)
             err_hv_T_ip.append(0.0)
@@ -457,6 +466,8 @@ if __name__ == "__main__":
     err_hv_T_ip = np.array(err_hv_T_ip)
     err_hv_s_ip = np.array(err_hv_s_ip)
     err_hv_y_ip = np.array(err_hv_y_ip)
+    err_hv_s_ip[err_hv_s_ip < ERROR_CAP] = ERROR_CAP
+    err_hv_y_ip[err_hv_y_ip < ERROR_CAP] = ERROR_CAP
 
     err_hv_T_iT = []
     err_hv_p_iT = []
@@ -487,10 +498,16 @@ if __name__ == "__main__":
             y_hv = float(results_hv[gas_frac_HEADER][idx])
             s_hv = float(results_hv[gas_satur_HEADER][idx])
 
-            err_hv_p_iT.append(np.abs(p_ - p_hv))
+            err_hv_p_iT.append(np.abs(p_ - p_hv) * PRESSURE_SCALE)
             err_hv_T_iT.append(np.abs(HV_ISOTHERM - T_hv))
             err_hv_s_iT.append(np.abs(s_pT - s_hv))
             err_hv_y_iT.append(np.abs(y_pT - y_hv))
+
+            if DEBUG and (err_hv_p_iT[-1] > 5 or err_hv_T_iT[-1] > 5):
+                print(
+                    "investigate: pThv", HV_ISOBAR, T_, h_pT, v_pT,
+                    f"\terr p: {err_hv_p_iT[-1]} \t err T: {err_hv_T_iT[-1]}"
+                )
         else:
             err_hv_p_iT.append(0.0)
             err_hv_T_iT.append(0.0)
@@ -501,6 +518,8 @@ if __name__ == "__main__":
     err_hv_T_iT = np.array(err_hv_T_iT)
     err_hv_s_iT = np.array(err_hv_s_iT)
     err_hv_y_iT = np.array(err_hv_y_iT)
+    err_hv_y_iT[err_hv_y_iT < ERROR_CAP] = ERROR_CAP
+    err_hv_s_iT[err_hv_s_iT < ERROR_CAP] = ERROR_CAP
 
     if PLOT_ROOTS:
         logger.info("Calculating root data ..")
@@ -987,9 +1006,8 @@ if __name__ == "__main__":
     err_y_l2 = np.array(err_y_l2)
 
     # bound errors from below for plot
-    cap = 1e-10
-    err_T_l2[err_T_l2 < cap] = cap
-    err_y_l2[err_y_l2 < cap] = cap
+    err_T_l2[err_T_l2 < ERROR_CAP] = ERROR_CAP
+    err_y_l2[err_y_l2 < ERROR_CAP] = ERROR_CAP
 
     logger.info(f"{del_log}Plotting L2 errors for isenthalpic flash ..")
     fig = plt.figure(figsize=FIG_SIZE)
@@ -1049,8 +1067,8 @@ if __name__ == "__main__":
             # caping errors from below for plot
             err_T_abs = np.array(err_T_isotherms[n])
             err_y_abs = np.array(err_y_isotherms[n])
-            err_T_abs[err_T_abs < cap] = cap
-            err_y_abs[err_y_abs < cap] = cap
+            err_T_abs[err_T_abs < ERROR_CAP] = ERROR_CAP
+            err_y_abs[err_y_abs < ERROR_CAP] = ERROR_CAP
             img_T = axis.plot(p_, err_T_abs, "-*", color="red")[0]
             img_y = axis.plot(p_, err_y_abs, "-*", color="black")[0]
             n += 1
@@ -1086,7 +1104,7 @@ if __name__ == "__main__":
     axis.set_xlabel(f"p [{PRESSURE_SCALE_NAME}]")
     axis.set_yscale("log")
     img_ip, leg_ip = plot_hv_iso(
-        axis, p_iT, err_hv_p_iT, err_hv_T_iT, err_hv_s_iT, err_hv_y_iT
+        axis, p_iT * PRESSURE_SCALE, err_hv_p_iT, err_hv_T_iT, err_hv_s_iT, err_hv_y_iT
     )
 
     fig.tight_layout()
