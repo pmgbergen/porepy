@@ -14,7 +14,7 @@ import porepy as pp
 from porepy.numerics.ad.operator_functions import NumericType
 
 from .._core import R_IDEAL
-from ..composite_utils import safe_sum, truncexp
+from ..composite_utils import safe_sum, truncexp, trunclog
 from ..phase import AbstractEoS, PhaseProperties
 from .mixing import VanDerWaals
 from .pr_bip import load_bip
@@ -882,23 +882,21 @@ class PengRobinsonEoS(AbstractEoS):
             / np.sqrt(8)
             * (dT_A * T**2 * R_IDEAL + A * T * R_IDEAL)
             / B
-            * pp.ad.log((Z + (1 + np.sqrt(2)) * B) / (Z + (1 - np.sqrt(2)) * B))
+            * trunclog((Z + (1 + np.sqrt(2)) * B) / (Z + (1 - np.sqrt(2)) * B), 1e-6)
             + (Z - 1) * T * R_IDEAL
         )
 
     @staticmethod
     def _g_dep(A: NumericType, B: NumericType, Z: NumericType):
         """Auxiliary function for computing the Gibbs departure function."""
-        return pp.ad.log(pp.ad.maximum(Z - B, 1e-5)) - pp.ad.log(
-            (Z + (1 + np.sqrt(2)) * B) / (Z + (1 - np.sqrt(2)) * B)
+        return trunclog(Z - B, 1e-6) - trunclog(
+            (Z + (1 + np.sqrt(2)) * B) / (Z + (1 - np.sqrt(2)) * B), 1e-6
         ) * A / B / np.sqrt(8)
 
     @staticmethod
     def _g_ideal(T: NumericType, X: list[NumericType]) -> NumericType:
         """Auxiliary function to compute the ideal part of the Gibbs energy."""
-        return (
-            safe_sum([x * pp.ad.log(pp.ad.maximum(x, 1e-5)) for x in X]) * T * R_IDEAL
-        )
+        return safe_sum([x * trunclog(x, 1e-6) for x in X]) * T * R_IDEAL
 
     @staticmethod
     def _phi_i(
@@ -911,11 +909,11 @@ class PengRobinsonEoS(AbstractEoS):
         """Auxiliary method implementing the formula for the fugacity coefficient."""
         log_phi_i = (
             (Z - 1) / B * B_i
-            - pp.ad.log(pp.ad.maximum(Z - B, 1e-5))
+            - trunclog(Z - B, 1e-6)
             - A
             / (B * np.sqrt(8))
             * (A_i / A - B ** (-1) * B_i)
-            * pp.ad.log((Z + (1 + np.sqrt(2)) * B) / (Z + (1 - np.sqrt(2)) * B))
+            * trunclog((Z + (1 + np.sqrt(2)) * B) / (Z + (1 - np.sqrt(2)) * B), 1e-6)
         )
         return truncexp(log_phi_i)
 

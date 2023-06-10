@@ -15,6 +15,7 @@ from porepy.numerics.ad.operator_functions import NumericType
 __all__ = [
     "safe_sum",
     "truncexp",
+    "trunclog",
     "normalize_fractions",
     "CompositionalSingleton",
     "AdProperty",
@@ -33,6 +34,16 @@ def truncexp(var):
         val = np.exp(var, where=(~trunc))
         val[trunc] = np.exp(700)
         return val
+
+
+def trunclog(var, eps):
+    if isinstance(var, pp.ad.AdArray):
+        trunc_val = np.maximum(var.val, eps)
+        val = np.log(trunc_val)
+        der = var._diagvec_mul_jac(1 / trunc_val)
+        return pp.ad.AdArray(val, der)
+    else:
+        return np.log(np.maximum(var, eps))
 
 
 def safe_sum(x: tuple[Any]) -> Any:

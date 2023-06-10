@@ -31,6 +31,11 @@ from _config import (
     FEED,
     FIG_PATH,
     FIGURE_WIDTH,
+    HV_FLASH_DATA_PATH,
+    HV_ISOBAR,
+    HV_ISOBAR_DATA_PATH,
+    HV_ISOTHERM,
+    HV_ISOTHERM_DATA_PATH,
     ISOTHERM_DATA_PATH,
     ISOTHERMS,
     NAN_ENTRY,
@@ -46,28 +51,32 @@ from _config import (
     SPECIES,
     T_HEADER,
     THERMO_DATA_PATH,
-    RESOLUTION_isotherms,
+    RESOLUTION_ph,
     RESOLUTION_pT,
     composition_HEADER,
     conditioning_HEADER,
     create_index_map,
     del_log,
     gas_frac_HEADER,
+    gas_satur_HEADER,
     h_HEADER,
     liq_frac_HEADER,
     logger,
+    p_HEADER,
     path,
     phases_HEADER,
     plot_abs_error_pT,
     plot_crit_point_pT,
     plot_extension_markers,
+    plot_hv_iso,
     plot_max_iter_reached,
     plot_phase_split_pT,
     plot_root_regions,
     plot_widom_line,
-    read_px_data,
+    read_data_column,
     read_results,
     success_HEADER,
+    v_HEADER,
 )
 
 # some additional plots for debugging
@@ -119,7 +128,8 @@ if __name__ == "__main__":
 
     # read p-T data
     logger.info("Reading p-T data for thermo comparison ..")
-    p_points, T_points = read_px_data(THERMO_DATA_PATH, "T")
+    p_points = read_data_column(THERMO_DATA_PATH, p_HEADER)
+    T_points = read_data_column(THERMO_DATA_PATH, T_HEADER)
     idx_map = create_index_map(p_points, T_points)
     res_thermo = read_results(THERMO_DATA_PATH)
     res_pp = read_results(PT_FLASH_DATA_PATH)
@@ -346,8 +356,9 @@ if __name__ == "__main__":
     err_gas_frac[err_gas_frac == -1] = err_gas_frac.max()
 
     logger.info("Reading data for comparison along isotherms ..\n")
-    p_points, T_points = read_px_data(ISOTHERM_DATA_PATH, "T")
-    _, h_points = read_px_data(PH_FLASH_DATA_PATH, "h")
+    p_points = read_data_column(ISOTHERM_DATA_PATH, p_HEADER)
+    T_points = read_data_column(ISOTHERM_DATA_PATH, T_HEADER)
+    h_points = read_data_column(ISOTHERM_DATA_PATH, h_HEADER)
     res_pp_ph = read_results(PH_FLASH_DATA_PATH)
     res_pp_isotherms = read_results(ISOTHERM_DATA_PATH)
     idx_map_ph = create_index_map(p_points, h_points)
@@ -384,6 +395,112 @@ if __name__ == "__main__":
             y_pT = float(res_pp_isotherms[gas_frac_HEADER][idx_])
             y_ph = float(res_pp_ph[gas_frac_HEADER][idx])
             err_y_isotherms[T_idx].append(np.abs(y_pT - y_ph))
+
+    logger.info("Calculating h-v flash plot data ..\n")
+    results_hv = read_results(HV_FLASH_DATA_PATH)
+    results_hv_ip = read_results(HV_ISOBAR_DATA_PATH)
+    results_hv_iT = read_results(HV_ISOTHERM_DATA_PATH)
+
+    idx_map_hv = create_index_map(
+        np.array([float(_) for _ in results_hv[h_HEADER]]),
+        np.array([float(_) for _ in results_hv[v_HEADER]]),
+    )
+    idx_map_hv_ip = create_index_map(
+        np.array([float(_) for _ in results_hv_ip[p_HEADER]]),
+        np.array([float(_) for _ in results_hv_ip[T_HEADER]]),
+    )
+    idx_map_hv_iT = create_index_map(
+        np.array([float(_) for _ in results_hv_iT[p_HEADER]]),
+        np.array([float(_) for _ in results_hv_iT[T_HEADER]]),
+    )
+
+    err_hv_T_ip = []
+    err_hv_p_ip = []
+    err_hv_s_ip = []
+    err_hv_y_ip = []
+
+    vec_ = np.array([float(_) for _ in results_hv_ip[p_HEADER]])
+    p_ip = np.sort(np.unique(vec_))
+    assert len(p_ip) == 1 and p_ip[0] == HV_ISOBAR, "Unknown isobar for HV"
+    vec_ = np.array([float(_) for _ in results_hv_ip[T_HEADER]])
+    T_ip = np.sort(np.unique(vec_))
+    for T_ in T_ip:
+        # get results from corresponding p-T flash
+        idx = idx_map_hv_ip[(HV_ISOBAR, T_)]
+        y_pT = float(results_hv_ip[gas_frac_HEADER][idx])
+        s_pT = float(results_hv_ip[gas_satur_HEADER][idx])
+
+        # get results from h-v flash
+        h_pT = float(results_hv_ip[h_HEADER][idx])
+        v_pT = float(results_hv_ip[v_HEADER][idx])
+
+        idx = idx_map_hv[(h_pT, v_pT)]
+        success_ = int(results_hv[success_HEADER][idx])
+
+        if success_ != 2:
+            p_hv = float(results_hv[p_HEADER][idx])
+            T_hv = float(results_hv[T_HEADER][idx])
+            y_hv = float(results_hv[gas_frac_HEADER][idx])
+            s_hv = float(results_hv[gas_satur_HEADER][idx])
+
+            err_hv_p_ip.append(np.abs(HV_ISOBAR - p_hv))
+            err_hv_T_ip.append(np.abs(T_ - T_hv))
+            err_hv_s_ip.append(np.abs(s_pT - s_hv))
+            err_hv_y_ip.append(np.abs(y_pT - y_hv))
+        else:
+            err_hv_p_ip.append(0.0)
+            err_hv_T_ip.append(0.0)
+            err_hv_s_ip.append(0.0)
+            err_hv_y_ip.append(0.0)
+
+    err_hv_p_ip = np.array(err_hv_p_ip)
+    err_hv_T_ip = np.array(err_hv_T_ip)
+    err_hv_s_ip = np.array(err_hv_s_ip)
+    err_hv_y_ip = np.array(err_hv_y_ip)
+
+    err_hv_T_iT = []
+    err_hv_p_iT = []
+    err_hv_s_iT = []
+    err_hv_y_iT = []
+
+    vec_ = np.array([float(_) for _ in results_hv_iT[T_HEADER]])
+    T_iT = np.sort(np.unique(vec_))
+    assert len(T_iT) == 1 and T_iT[0] == HV_ISOTHERM, "Unknown isotherm for HV"
+    vec_ = np.array([float(_) for _ in results_hv_iT[p_HEADER]])
+    p_iT = np.sort(np.unique(vec_))
+    for p_ in p_iT:
+        # get results from corresponding p-T flash
+        idx = idx_map_hv_iT[(p_, HV_ISOTHERM)]
+        y_pT = float(results_hv_iT[gas_frac_HEADER][idx])
+        s_pT = float(results_hv_iT[gas_satur_HEADER][idx])
+
+        # get results from h-v flash
+        h_pT = float(results_hv_iT[h_HEADER][idx])
+        v_pT = float(results_hv_iT[v_HEADER][idx])
+
+        idx = idx_map_hv[(h_pT, v_pT)]
+        success_ = int(results_hv[success_HEADER][idx])
+
+        if success_ != 2:
+            p_hv = float(results_hv[p_HEADER][idx])
+            T_hv = float(results_hv[T_HEADER][idx])
+            y_hv = float(results_hv[gas_frac_HEADER][idx])
+            s_hv = float(results_hv[gas_satur_HEADER][idx])
+
+            err_hv_p_iT.append(np.abs(p_ - p_hv))
+            err_hv_T_iT.append(np.abs(HV_ISOTHERM - T_hv))
+            err_hv_s_iT.append(np.abs(s_pT - s_hv))
+            err_hv_y_iT.append(np.abs(y_pT - y_hv))
+        else:
+            err_hv_p_iT.append(0.0)
+            err_hv_T_iT.append(0.0)
+            err_hv_s_iT.append(0.0)
+            err_hv_y_iT.append(0.0)
+
+    err_hv_p_iT = np.array(err_hv_p_iT)
+    err_hv_T_iT = np.array(err_hv_T_iT)
+    err_hv_s_iT = np.array(err_hv_s_iT)
+    err_hv_y_iT = np.array(err_hv_y_iT)
 
     if PLOT_ROOTS:
         logger.info("Calculating root data ..")
@@ -902,7 +1019,7 @@ if __name__ == "__main__":
         np.linspace(
             P_LIMITS_ISOTHERMS[0],
             P_LIMITS_ISOTHERMS[1],
-            RESOLUTION_isotherms,
+            RESOLUTION_ph,
             endpoint=True,
             dtype=float,
         )
@@ -927,7 +1044,7 @@ if __name__ == "__main__":
 
             axis = fig.add_subplot(gs[r, c])
             axis.set_xlabel(f"p [{PRESSURE_SCALE_NAME}]")
-            axis.set_title(f"T = {T_vec_isotherms[n]}")
+            axis.set_title(f"T = {T_vec_isotherms[n]} [K]")
             axis.set_yscale("log")
             # caping errors from below for plot
             err_T_abs = np.array(err_T_isotherms[n])
@@ -947,4 +1064,36 @@ if __name__ == "__main__":
         format="png",
         dpi=DPI,
     )
+    fig_num += 1
+    # endregion
+
+    # region Plotting errors for h-v flash
+    logger.info(f"{del_log}Plotting errors for h-v flash ..")
+    fig = plt.figure(figsize=FIG_SIZE)
+    gs = fig.add_gridspec(1, 2)
+
+    axis = fig.add_subplot(gs[0, 0])
+    axis.set_title(f"p = {HV_ISOBAR * PRESSURE_SCALE} [{PRESSURE_SCALE_NAME}]")
+    axis.set_xlabel(f"T [K]")
+    axis.set_yscale("log")
+    img_ip, leg_ip = plot_hv_iso(
+        axis, T_ip, err_hv_p_ip, err_hv_T_ip, err_hv_s_ip, err_hv_y_ip
+    )
+    axis.legend(img_ip, leg_ip, loc="upper left")
+
+    axis = fig.add_subplot(gs[0, 1])
+    axis.set_title(f"T = {HV_ISOTHERM} [K]")
+    axis.set_xlabel(f"p [{PRESSURE_SCALE_NAME}]")
+    axis.set_yscale("log")
+    img_ip, leg_ip = plot_hv_iso(
+        axis, p_iT, err_hv_p_iT, err_hv_T_iT, err_hv_s_iT, err_hv_y_iT
+    )
+
+    fig.tight_layout()
+    fig.savefig(
+        f"{fig_path}figure_{fig_num}.png",
+        format="png",
+        dpi=DPI,
+    )
+    fig_num += 1
     # endregion

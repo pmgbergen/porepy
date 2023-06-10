@@ -11,7 +11,7 @@ import numpy as np
 import porepy as pp
 from porepy.numerics.ad.operator_functions import NumericType
 
-from .composite_utils import safe_sum
+from .composite_utils import safe_sum, trunclog
 
 __all__ = [
     "R_IDEAL",
@@ -251,7 +251,7 @@ def rachford_rice_potential(
         The value of the potential based on above formula.
 
     """
-    F = [-pp.ad.log(pp.ad.abs(_rr_pole(i, y, K))) * z[i] for i in range(len(z))]
+    F = [-trunclog(pp.ad.abs(_rr_pole(i, y, K)), 1e-6) * z[i] for i in range(len(z))]
     return safe_sum(F)
 
 
