@@ -7,7 +7,8 @@ vec = np.ones(1)
 z = [vec * 0.01]  # only co2 fraction is enough
 p = vec * 23458333.333333336
 T = vec * 450.
-h = vec * -5372.056951273314
+h = vec * -16604.200976546
+v = vec * 0.0000644473515820043
 verbosity = 2
 
 species = pp.composite.load_fluid_species(chems)
@@ -34,25 +35,18 @@ mix.set_up()
 flash = pp.composite.FlashNR(mix)
 flash.use_armijo = True
 flash.armijo_parameters["rho"] = 0.99
-flash.armijo_parameters["j_max"] = 50
+flash.armijo_parameters["j_max"] = 70
 flash.armijo_parameters["return_max"] = True
 flash.newton_update_chop = 1.0
-flash.tolerance = 1e-6
+flash.tolerance = 1e-5
 flash.max_iter = 120
 
-success, results_pT = flash.flash(
-    state={'p': p, 'T': T}, eos_kwargs={'apply_smoother': True},
+success, results_ = flash.flash(
+    state={'h': h, 'v': v}, eos_kwargs={'apply_smoother': True},
     feed = z,
     verbosity=verbosity,
 )
-print(results_pT)
-
-success, results_ph = flash.flash(
-    state={'p': p, 'h': h}, eos_kwargs={'apply_smoother': True},
-    feed = z,
-    verbosity=verbosity,
-)
-print(results_ph)
+print(results_)
 
 # p-T flash
 success, results_pT = flash.flash(
