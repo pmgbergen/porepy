@@ -5,10 +5,10 @@ chems = ["H2O", "CO2"]
 
 vec = np.ones(1)
 z = [vec * 0.01]  # only co2 fraction is enough
-p = vec * 13736842.105263157
-T = vec * 450.
-h = vec * -13093.869119674486
-v = vec * 3.736962284714034e-05
+p = vec * 9444444.44444444
+T = vec * 575.
+h = vec * -13086.1248170987
+v = vec * 0.000113560243476885
 verbosity = 2
 
 species = pp.composite.load_fluid_species(chems)
@@ -42,7 +42,7 @@ flash.tolerance = 1e-5
 flash.max_iter = 120
 
 success, results_ = flash.flash(
-    state={'h': h, 'p': p}, eos_kwargs={'apply_smoother': True},
+    state={'h': h, 'v': v}, eos_kwargs={'apply_smoother': True},
     feed = z,
     verbosity=verbosity,
 )

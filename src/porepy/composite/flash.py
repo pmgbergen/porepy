@@ -1109,6 +1109,10 @@ class FlashNR:
                 thd_state = self._pseudo_crit_p(
                     thd_state, num_vals, gas_phase_index, correct_T=True
                 )
+                # update fractions with new guess
+                thd_state = self._guess_fractions(
+                    thd_state, num_vals, num_iter=1, guess_K_values=False
+                )
                 # thd_state = self._guess_pT_for_hv_saha(
                 #     thd_state, num_vals, gas_phase_index
                 # )
@@ -1654,9 +1658,6 @@ class FlashNR:
             state.p.val[correction] *= 0.7
             # state.T.val[correction] *= 1.1
 
-        # update fractions with new guess
-        state = self._guess_fractions(state, num_vals, num_iter=1, guess_K_values=False)
-
         return state
 
     def _guess_pT_for_hv_saha(
@@ -1779,9 +1780,6 @@ class FlashNR:
             V = (v_mix - state.v) / state.v
             S = rho_mix * state.y[1] - phase_props[1].rho * state.s[1]
 
-            U = u_mix + state.p * state.v - state.h
-            h = (u_mix + state.p * state.v)* (-1) - state.h
-
             A = sps.vstack([H.jac, V.jac, S.jac], format="csr")
             b = np.hstack([H.val, V.val, S.val])
             if np.linalg.norm(b) <= 2e-2:
@@ -1800,7 +1798,6 @@ class FlashNR:
 
                 factor_T = 1 - np.abs(dT) / state.T.val
                 factor_p = 1 - np.abs(dp) / state.p.val
-                factor = factor_p * factor_T
                 # dvdp = v_mix.jac[:, :num_vals].diagonal()
                 # dvdT = v_mix.jac[:, num_vals : 2 * num_vals].diagonal()
                 # dvdT_ = (state.v - h_mix.jac[:, :num_vals].diagonal()) / state.T.val
@@ -1808,14 +1805,16 @@ class FlashNR:
                 cor = (state.y[1].val > 1e-3) & (v_mix.val > state.v) & (dT < 0)
                 dT[cor] = 0. 
                 state.T.val = state.T.val + factor_T * dT
-                # liquid_like = state.y[1].val < 1e3
-                # p_l = state.p.val * (2 - factor)
+
                 cor_p = (state.y[1].val > 1e-3) & (dp < 0) & (v_mix.val > state.v)
                 dp[cor_p] = 0.
                 state.p.val = state.p.val + factor_p * dp
+                # correction for gas-like mixtures
                 cor_p_2 = (v_mix.val > state.v) & (state.y[1].val >= 1.)
                 state.p.val[cor_p_2] *= (2 - factor_p)
-                # state.p.val[liquid_like] = p_l[liquid_like]
+                # correction for liquid-like mixtures
+                cor_p_3 = (h_mix.val < state.h) & (state.y[0].val >= 1 - 1e-1)
+                state.p.val[cor_p_3] *= 1.1
 
         return state, res_is_zero
 
