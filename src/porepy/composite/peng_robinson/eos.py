@@ -887,16 +887,18 @@ class PengRobinsonEoS(AbstractEoS):
         )
 
     @staticmethod
-    def _g_dep(A: NumericType, B: NumericType, Z: NumericType):
+    def _g_dep(
+        T: NumericType, A: NumericType, B: NumericType, Z: NumericType
+    ) -> NumericType:
         """Auxiliary function for computing the Gibbs departure function."""
-        return trunclog(Z - B, 1e-6) - trunclog(
+        return (trunclog(Z - B, 1e-6) - trunclog(
             (Z + (1 + np.sqrt(2)) * B) / (Z + (1 - np.sqrt(2)) * B), 1e-6
-        ) * A / B / np.sqrt(8)
+        ) * A / B / np.sqrt(8)) * T * R_IDEAL
 
     @staticmethod
-    def _g_ideal(T: NumericType, X: list[NumericType]) -> NumericType:
+    def _g_ideal(X: list[NumericType]) -> NumericType:
         """Auxiliary function to compute the ideal part of the Gibbs energy."""
-        return safe_sum([x * trunclog(x, 1e-6) for x in X]) * T * R_IDEAL
+        return safe_sum([x * trunclog(x, 1e-6) for x in X])
 
     @staticmethod
     def _phi_i(

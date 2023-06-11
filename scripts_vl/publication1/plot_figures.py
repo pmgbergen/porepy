@@ -170,8 +170,8 @@ if __name__ == "__main__":
             Tv = np.ones(1) * T_
             prop_l = eos_l.compute(pv, Tv, feed)
             prop_g = eos_g.compute(pv, Tv, feed)
-            G_l = eos_l._g_ideal(Tv, feed) + eos_l._g_dep(prop_l.A, prop_l.B, prop_l.Z)
-            G_g = eos_g._g_ideal(Tv, feed) + eos_g._g_dep(prop_g.A, prop_g.B, prop_g.Z)
+            G_l = eos_l._g_ideal(feed) + eos_l._g_dep(Tv, prop_l.A, prop_l.B, prop_l.Z)
+            G_g = eos_g._g_ideal(feed) + eos_g._g_dep(Tv, prop_g.A, prop_g.B, prop_g.Z)
 
             Gibbs_energy_l[i, j] = G_l[0]
             Gibbs_energy_g[i, j] = G_g[0]
@@ -591,7 +591,7 @@ if __name__ == "__main__":
     img = axis[0].plot_surface(
         T,
         X,
-        Gibbs_energy_l,
+        Gibbs_energy_l / Gibbs_energy_l.max(),
         # T, p / pp.composite.PRESSURE_SCALE, Gibbs_energy_l,
         cmap="coolwarm",
         linewidth=0,
