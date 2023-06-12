@@ -14,7 +14,7 @@ import pypardiso
 import scipy.sparse as sps
 
 import porepy as pp
-from porepy.composite.component import Component
+from porepy.composite.component import Component, Compound
 from porepy.composite.flash import del_log, logger
 
 
@@ -108,12 +108,14 @@ class CompositionalFlowModel:
         thermodynamic scale (J / mol)."""
 
         ## Initial Conditions
-        self.initial_pressure: float = 1.0
+        self.initial_pressure: float = 15.
         """Initial pressure in the domain in MPa."""
-        self.initial_temperature: float = 350
+        self.initial_temperature: float = 530
         """Initial temperature in the domain in K."""
         self.initial_component_fractions: list[float] = [0.99, 0.01]
         """Contains per component in composition the initial feed fraction."""
+        self.initial_solute_fractions: list[float] = [0.08]
+        """Contains initial solute fractions per compound and its solutes"""
 
         ## Injection parameters
         self.injection_pressure = 0
@@ -124,9 +126,9 @@ class CompositionalFlowModel:
         ## Boundary conditions
         self.outflow_boundary_pressure: float = self.initial_pressure
         """Dirichlet boundary pressure for the outflow in MPA for the advective flux."""
-        self.inflow_boundary_pressure: float = self.initial_pressure * 2.
+        self.inflow_boundary_pressure: float = 25.
         """Dirichlet boundary pressure for the inflow in MPa for the advective flux."""
-        self.inflow_boundary_temperature: float = self.initial_temperature
+        self.inflow_boundary_temperature: float = 450
         """Temperature at the inflow boundary for the advective flux."""
         self.inflow_boundary_feed: list[float] = [0.99, 0.01]
         """Contains per component in composition the feed fraction at the inflow
@@ -136,7 +138,9 @@ class CompositionalFlowModel:
         effects.
 
         """
-        self.heated_boundary_temperature = self.initial_temperature + 50
+        self.inflow_boundary_solute_feed: list[float] = [1e-3]
+        """Contains inflow solute fractions per compound and its solutes"""
+        self.heated_boundary_temperature = 630
         """Dirichlet boundary temperature in Kelvin for the conductive flux,
         bottom boundary."""
         self.injection_feed: list[float] = [0.0, 0.0]
@@ -152,6 +156,8 @@ class CompositionalFlowModel:
         To be set in :meth:`set_composition` after computing the equilibrium at the
         inflow.
         """
+        self.inflow_boundary_advective_weights_solutes: dict[pp.composite.ChemicalSpecies, float] = dict()
+        """Contains per solute (key) the scalar part of the advective transport for the solute transport."""
         self.inflow_boundary_advective_weight_pressure: float
         """Value for scalar part of the advective flux on the
         inflow boundary for the global pressure equation.
@@ -217,10 +223,12 @@ class CompositionalFlowModel:
         self.advective_upwind_pressure: pp.ad.UpwindAd
         self.advective_upwind_energy: pp.ad.UpwindAd
         self.advective_upwind_component: dict[Component, pp.ad.UpwindAd] = dict()
+        self.advective_upwind_solute: dict[pp.composite.ChemicalSpecies, pp.ad.UpwindAd] = dict()
         self.advective_bc_pressure: pp.ad.DenseArray
         self.advective_weight_bc_pressure: pp.ad.DenseArray
         self.advective_weight_bc_energy: pp.ad.DenseArray
         self.advective_weight_bc_component: dict[Component, pp.ad.DenseArray] = dict()
+        self.advective_weight_bc_solute: dict[pp.composite.ChemicalSpecies, pp.ad.DenseArray] = dict()
         self.conductive_flux: pp.ad.MpfaAd
         self.conductive_upwind_energy: pp.ad.UpwindAd
         self.conductive_bc_temperature: pp.ad.DenseArray
@@ -230,9 +238,8 @@ class CompositionalFlowModel:
         """Assigns a cartesian grid as computational domain.
         Overwrites/sets the instance variables 'mdg'.
         """
-        refinement = 20
-        phys_dims = [3, 2]
-        n_cells = [i * refinement for i in phys_dims]
+        phys_dims = [6, 3]
+        n_cells = [6, 3]
         # n_cells = [2, 1]
         bounding_box_points = np.array([[0, phys_dims[0]], [0, phys_dims[1]]])
         self.box = pp.geometry.domain.bounding_box_of_point_cloud(bounding_box_points)
@@ -280,7 +287,7 @@ class CompositionalFlowModel:
         species = pp.composite.load_species(self.species)
 
         comps = [
-            pp.composite.peng_robinson.H2O.from_species(species[0]),
+            pp.composite.peng_robinson.NaClBrine.from_species(species[0]),
             pp.composite.peng_robinson.CO2.from_species(species[1]),
         ]
 
@@ -300,15 +307,26 @@ class CompositionalFlowModel:
         vec = np.ones(nc)
 
         # initial fractions
+        idx = 0
         for i, comp in enumerate(self.fluid.components):
-            if comp == self.fluid.reference_component:
-                continue
-            self.ad_system.set_variable_values(
-                self.initial_component_fractions[i] * vec,
-                variables=[comp.fraction.name],
-                iterate_index=0,
-                time_step_index=0,
-            )
+            if comp != self.fluid.reference_component:
+                self.ad_system.set_variable_values(
+                    self.initial_component_fractions[i] * vec,
+                    variables=[comp.fraction.name],
+                    iterate_index=0,
+                    time_step_index=0,
+                )
+            if isinstance(comp, Compound):
+                for solute in comp.solutes:
+                    self.ad_system.set_variable_values(
+                        self.initial_solute_fractions[idx] * vec,
+                        variables=[comp.solute_fraction_of[solute].name],
+                        iterate_index=0,
+                        time_step_index=0,
+                    )
+                    idx += 1
+        # Setting initial molalities
+        comps[0].compute_molalities(vec * self.initial_solute_fractions[0], store=True)
 
         ## initialize and construct flasher
         logger.info("Computing initial, domain-wide equilibrium ...\n")
@@ -333,6 +351,8 @@ class CompositionalFlowModel:
         p = np.ones(1) * self.inflow_boundary_pressure * self.pressure_scale
         T = np.ones(1) * self.inflow_boundary_temperature
         feed = [np.ones(1) * self.inflow_boundary_feed[i] for i in range(len(comps))]
+        # boundary molalities
+        comps[0].compute_molalities(np.ones(1) * self.inflow_boundary_solute_feed[0], store=True)
         logger.info("Computing inflow boundary equilibrium ...\n")
         _, boundary_state = self.flash.flash(
             state={"p": p, "T": T},
@@ -360,6 +380,11 @@ class CompositionalFlowModel:
                 ]
             )
             self.inflow_boundary_advective_weights.update({comp: advective_weight[0]})
+        # Advective weight for solute
+        self.inflow_boundary_advective_weights_solutes = dict()
+        self.inflow_boundary_advective_weights_solutes.update(
+            {comps[0].solutes[0]: self.inflow_boundary_advective_weights[comps[0]] * self.inflow_boundary_solute_feed[0]}
+        )
 
         ## Configuration at injection
         if self.injection_pressure and self.injection_temperature:
@@ -375,6 +400,10 @@ class CompositionalFlowModel:
             self.injected_ext_enthalpy = (injection_state.rho * injection_state.h)[0] / self.energy_scale
         else:
             self.injected_ext_enthalpy = 0.0
+
+
+        # Re-store molalities to initial state
+        comps[0].compute_molalities(vec * self.initial_solute_fractions[0], store=True)
 
         return initial_state
 
@@ -447,6 +476,8 @@ class CompositionalFlowModel:
 
         # getting the names of primary and secondary variables
         primary_vars = [self.p.name, self.h.name] + self.fluid.feed_fraction_variables
+        for _, solute_fractions in self.fluid.solute_fraction_variables.items():
+            primary_vars += solute_fractions
         secondary_vars = [self.T.name] + self.fluid.saturation_variables
         secondary_vars += self.fluid.molar_fraction_variables
 
@@ -465,6 +496,7 @@ class CompositionalFlowModel:
         # primary equations
         self._set_pressure_equation()
         self._set_mass_balance_equations()
+        self._set_solute_mass_balance_equations()
         self._set_energy_balance_equation()
         # secondary equations: Phase fraction relations and enthalpy constraint
         sec_eq = [eq for eq in self.fluid.equations]  # deep copy
@@ -566,24 +598,41 @@ class CompositionalFlowModel:
             # storage for advective flux upwinding per component mass balance
             for component in self.fluid.components:
                 # skip eliminated reference component in case of global pressure equation
-                if component == self.fluid.reference_component:
-                    continue
-                val_c = self.bc_advective_weight_component(sd, component)
-                bc = pp.ad.DenseArray(
-                    val_c.copy(),
-                    name=f"BC-advective-weight-{component.name}",
-                )
-                self.advective_weight_bc_component.update({component: bc})
-                pp.initialize_data(
-                    sd,
-                    data,
-                    f"{self.upwind_keyword}-{self.flow_keyword}-{component.name}",
-                    {
-                        "bc": bc_p,
-                        "bc_values": val_c.copy(),
-                        "darcy_flux": np.zeros(sd.num_faces),
-                    },
-                )
+                if component != self.fluid.reference_component:
+                    val_c = self.bc_advective_weight_component(sd, component)
+                    bc = pp.ad.DenseArray(
+                        val_c.copy(),
+                        name=f"BC-advective-weight-{component.name}",
+                    )
+                    self.advective_weight_bc_component.update({component: bc})
+                    pp.initialize_data(
+                        sd,
+                        data,
+                        f"{self.upwind_keyword}-{self.flow_keyword}-{component.name}",
+                        {
+                            "bc": bc_p,
+                            "bc_values": val_c.copy(),
+                            "darcy_flux": np.zeros(sd.num_faces),
+                        },
+                    )
+                if isinstance(component, Compound):
+                    for solute in component.solutes:
+                        val_c = self.bc_advective_weight_solute(sd, solute)
+                        bc = pp.ad.DenseArray(
+                            val_c.copy(),
+                            name=f"BC-advective-weight-{component.name}-{solute.name}",
+                        )
+                        self.advective_weight_bc_solute.update({solute: bc})
+                        pp.initialize_data(
+                            sd,
+                            data,
+                            f"{self.upwind_keyword}-{self.flow_keyword}-{component.name}-{solute.name}",
+                            {
+                                "bc": bc_p,
+                                "bc_values": val_c.copy(),
+                                "darcy_flux": np.zeros(sd.num_faces),
+                            },
+                        )
 
             # enthalpy sources due to injection
             vec = injection_point * self.injected_ext_enthalpy
@@ -675,16 +724,25 @@ class CompositionalFlowModel:
         )
 
         for component in self.fluid.components:
-            if component == self.fluid.reference_component:
-                continue
-            self.advective_upwind_component.update(
-                {
-                    component: pp.ad.UpwindAd(
-                        f"{self.upwind_keyword}-{self.flow_keyword}-{component.name}",
-                        subdomains,
+            if component != self.fluid.reference_component:
+                self.advective_upwind_component.update(
+                    {
+                        component: pp.ad.UpwindAd(
+                            f"{self.upwind_keyword}-{self.flow_keyword}-{component.name}",
+                            subdomains,
+                        )
+                    }
+                )
+            if isinstance(component, Compound):
+                for solute in component.solutes:
+                    self.advective_upwind_solute.update(
+                        {
+                            solute: pp.ad.UpwindAd(
+                                f"{self.upwind_keyword}-{self.flow_keyword}-{component.name}-{solute.name}",
+                                subdomains,
+                            )
+                        }
                     )
-                }
-            )
 
     ## Boundary Conditions
 
@@ -732,6 +790,17 @@ class CompositionalFlowModel:
         vals[idx_west] = self.inflow_boundary_advective_weights[component]
 
         return vals
+    
+    def bc_advective_weight_solute(
+        self, sd: pp.Grid, solute: pp.composite.ChemicalSpecies
+    ) -> np.ndarray:
+        """BC values for the weight in the advective flux in solute transport."""
+        _, _, idx_west, *_ = self._domain_boundary_sides(sd)
+
+        vals = np.zeros(sd.num_faces)
+        vals[idx_west] = self.inflow_boundary_advective_weights_solutes[solute]
+
+        return vals
 
     def bc_advective_weight_energy(self, sd: pp.Grid) -> np.ndarray:
         """BC values for the scalar part in the advective flux in component mass balance."""
@@ -771,9 +840,10 @@ class CompositionalFlowModel:
         _, _, idx_west, idx_north, idx_south, *_ = self._domain_boundary_sides(sd)
 
         vals = np.zeros(sd.num_faces)
-        vals[idx_south] = 5.0
-        vals[idx_north] = 5.0
-        vals[idx_west] = 5.0  # TODO this needs proper computation
+        vals[idx_south] = 1.
+        vals[idx_north] = 1.
+        vals[idx_west] = 1.
+        vals *= 10.  # TODO this needs proper computation
 
         return vals
 
@@ -821,6 +891,9 @@ class CompositionalFlowModel:
         p = self.ad_system.get_variable_values([self.p.name], iterate_index=0) * self.pressure_scale
         h = self.ad_system.get_variable_values([self.h.name], iterate_index=0) * self.energy_scale
         T = self.ad_system.get_variable_values([self.T.name], iterate_index=0)
+        for compound, solute_fractions in self.fluid.solute_fraction_variables.items():
+            X = [self.ad_system.get_variable_values([s], iterate_index=0) for s in solute_fractions]
+            compound.compute_molalities(*tuple(X), store=True)
         iterate_state = self.fluid.get_fractional_state_from_vector()
         iterate_state.T = T
         self.flash.tolerance = 5e-6
@@ -911,15 +984,20 @@ class CompositionalFlowModel:
             # copy the flux to the dictionaries belonging to mass balance per component
             for component in self.fluid.components:
                 # skip the eliminated component mass balance
-                if component == self.fluid.reference_component:
-                    continue
-                kw = f"{self.upwind_keyword}-{self.flow_keyword}-{component.name}"
-                data["parameters"][kw]["darcy_flux"] = np.copy(flux)
+                if component != self.fluid.reference_component:
+                    kw = f"{self.upwind_keyword}-{self.flow_keyword}-{component.name}"
+                    data["parameters"][kw]["darcy_flux"] = np.copy(flux)
+                if isinstance(component, Compound):
+                    for solute in component.solutes:
+                        kw = f"{self.upwind_keyword}-{self.flow_keyword}-{component.name}-{solute.name}"
+                        data["parameters"][kw]["darcy_flux"] = np.copy(flux)
 
         # TODO recompute the effective conductive BC based on new saturation values.
         self.advective_upwind_pressure.upwind.discretize(self.domain)
         self.conductive_upwind_energy.upwind.discretize(self.domain)
         for _, upwind in self.advective_upwind_component.items():
+            upwind.upwind.discretize(self.domain)
+        for _, upwind in self.advective_upwind_solute.items():
             upwind.upwind.discretize(self.domain)
 
     def after_newton_iteration(self, update_vector: np.ndarray) -> None:
@@ -1066,8 +1144,7 @@ class CompositionalFlowModel:
     def _set_mass_balance_equations(self) -> None:
         """Set mass balance equations per component.
 
-        If the pressure equation is used,
-        excludes the equation for the reference component.
+        The reference component is excluded.
 
         """
 
@@ -1120,6 +1197,65 @@ class CompositionalFlowModel:
             self.ad_system.set_equation(
                 equation, self.domain.subdomains(), {"cells": 1}
             )
+
+    def _set_solute_mass_balance_equations(self) -> None:
+        """Set mass balance equations per solute in compounds."""
+
+        for component in self.fluid.components:
+            # skipping reference component, since feed fraction eliminated by
+            # unity
+            if not isinstance(component, Compound):
+                continue
+
+            for solute in component.solutes:
+                name = f"{self._mass_balance_name}-{component.name}-{solute.name}"
+
+                advective_weight_bc = self.advective_weight_bc_solute[solute]
+                advective_upwind = self.advective_upwind_solute[solute]
+
+                ### ACCUMULATION
+                accumulation = self.mass_matrix.mass @ (
+                    component.solute_fraction_of[solute]
+                    * component.fraction
+                    * self.fluid.density
+                    - component.solute_fraction_of[solute].previous_timestep()
+                    * component.fraction.previous_timestep()
+                    * self.fluid.density.previous_timestep()
+                )
+
+                ### ADVECTION
+                advective_weight = [
+                    phase.normalized_fraction_of[component] * self.phase_mobility(phase)
+                    for phase in self.fluid.phases
+                ]
+                # sum over all phases
+                advective_weight = pp.ad.sum_operator_list(
+                    advective_weight, name=f"advective-weight-{name}"
+                )
+                # scale moles by solute fraction
+                advective_weight = component.solute_fraction_of[solute] * advective_weight
+
+                advection = (
+                    self.advective_flux * (advective_upwind.upwind @ advective_weight)
+                    - advective_upwind.bound_transport_dir
+                    @ (self.advective_flux * advective_weight_bc)
+                    - advective_upwind.bound_transport_neu @ advective_weight_bc
+                )
+
+                ### SOURCE
+                # source = self.mass_matrix.mass @ self._source_arrays_solutes[solute]
+
+                ### MASS BALANCE PER COMPONENT
+                # minus in advection already included
+                equation: pp.ad.Operator = accumulation + self.dt * (
+                    self.div @ advection  # - source
+                )  # type: ignore
+
+                self.system_names["primary-equations"].append(name)
+                equation.set_name(name)
+                self.ad_system.set_equation(
+                    equation, self.domain.subdomains(), {"cells": 1}
+                )
 
     def _set_energy_balance_equation(self) -> None:
         """Sets the global energy balance equation in terms of enthalpy."""

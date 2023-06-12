@@ -25,7 +25,7 @@ from __future__ import annotations
 
 import abc
 from dataclasses import asdict
-from typing import Literal, overload
+from typing import Generator, Literal, overload
 
 import numpy as np
 import porepy as pp
@@ -213,6 +213,11 @@ class Compound(Component):
                fractions.
 
         """
+
+    def __iter__(self) -> Generator[ChemicalSpecies, None, None]:
+        """Iterator overload to iterate over present solutes"""
+        for solute in self._solutes:
+            yield solute
 
     @property
     def solutes(self) -> list[ChemicalSpecies]:

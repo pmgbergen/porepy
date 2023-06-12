@@ -840,7 +840,7 @@ class PengRobinsonEoS(AbstractEoS):
             The thermal conductivity.
 
         """
-        return 1.0
+        return 1.
 
     # TODO
     def _mu(self, p: NumericType, T: NumericType, Z: NumericType) -> NumericType:
@@ -854,7 +854,7 @@ class PengRobinsonEoS(AbstractEoS):
             The dynamic viscosity.
 
         """
-        return 1.0
+        return 1.
 
     @staticmethod
     def _rho(p: NumericType, T: NumericType, Z: NumericType) -> NumericType:
