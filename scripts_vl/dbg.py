@@ -3,9 +3,9 @@ import porepy as pp
 
 chems = ["H2O", "CO2"]
 
-vec = np.ones(3)
+vec = np.ones(1)
 z = [vec * 0.01]  # only co2 fraction is enough
-salt = vec * 0.01
+salt = vec * 0.1
 p = vec * 7e6
 T = vec * 550.
 verbosity = 2
@@ -48,3 +48,4 @@ success, results_pT = flash.flash(
     feed = z,
     verbosity=verbosity,
 )
+print(results_pT)

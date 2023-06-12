@@ -267,12 +267,12 @@ class NaClBrine(Compound, H2O):
             b = self.molalities[1]
 
             return (
-                -0.31092 * (1 + 0.15587 * pp.ad.power(b, 0.7505))
-                + 0.23580 * (1 + 0.17837 * pp.ad.power(b, 0.979)) * T_r
+                T_r * 0.23580 * (1 + 0.17837 * pp.ad.power(b, 0.979))
                 - 21.2566 * pp.ad.exp(-6.7222 * T_r - b)
+                - 0.31092 * (1 + 0.15587 * pp.ad.power(b, 0.7505))
             ), (
-                0.23580 * (1 + 0.17837 * pp.ad.power(b, 0.979)) / co2.T_crit
-                + 21.2566 * pp.ad.exp(-6.7222 * T_r - b) * (6.7222 / co2.T_crit)
+                21.2566 * pp.ad.exp(-6.7222 * T_r - b) * (6.7222 / co2.T_crit)
+                + 0.23580 * (1 + 0.17837 * pp.ad.power(b, 0.979)) / co2.T_crit
             )
 
         def bip_h2s(T: NumericType) -> tuple[NumericType, NumericType]:
@@ -284,8 +284,8 @@ class NaClBrine(Compound, H2O):
             b = self.molalities[1]
 
             return (
-                -1.70235 * (1 + 0.25587 * pp.ad.power(b, 0.75))
-                + 0.44338 * (1 + 0.08126 * pp.ad.power(b, 0.75)) * T_r
+                T_r * 0.44338 * (1 + 0.08126 * pp.ad.power(b, 0.75))
+                - 1.70235 * (1 + 0.25587 * pp.ad.power(b, 0.75))
             ), (0.44338 * (1 + 0.08126 * pp.ad.power(b, 0.75)) / n2.T_crit)
 
         self.bip_map = {
