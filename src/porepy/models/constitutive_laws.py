@@ -1687,10 +1687,6 @@ class AdvectiveFlux:
             self.mdg, subdomains, interfaces, dim=1
         )
 
-        # EB: guess flux = discr.retunr the flux (matrix? vector? fanculo, this is the vector)
-        # + the flux contains the bc
-        # for me only, better to split the two functions as they already are, so internal flux + bc + glue them together
-
         flux: pp.ad.Operator = (
             darcy_flux * (discr.upwind @ advected_entity)
             - discr.bound_transport_dir @ (darcy_flux * bc_values)

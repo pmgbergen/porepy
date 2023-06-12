@@ -12,8 +12,9 @@ from porepy.numerics.interface_laws.abstract_interface_law import AbstractInterf
 
 
 class UpwindCoupling(AbstractInterfaceLaw):
-    def __init__(self, keyword: str) -> None:
+    def __init__(self, keyword: str, flux_array_key="pick one") -> None:
         super().__init__(keyword)
+        print("UpwindCoupling has been modified")
 
         # Keywords for accessing discretization matrices
 
@@ -30,7 +31,7 @@ class UpwindCoupling(AbstractInterfaceLaw):
         # Discretization of the mortar variable
         self.mortar_discr_matrix_key = "mortar_discr"
 
-        self._flux_array_key = "darcy_flux"
+        self._flux_array_key = flux_array_key
 
     def key(self) -> str:
         return self.keyword + "_"
@@ -50,7 +51,6 @@ class UpwindCoupling(AbstractInterfaceLaw):
         data_secondary: Dict,
         data_intf: Dict,
     ) -> None:
-
         # First check if the grid dimensions are compatible with the implementation.
         # It is not difficult to cover the case of equal dimensions, it will require
         # trace operators for both grids, but it has not yet been done.

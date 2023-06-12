@@ -19,7 +19,9 @@ class Upwind(Discretization):
 
     """
 
-    def __init__(self, keyword: str = "transport") -> None:
+    def __init__(self, keyword: str = "transport", flux_array_key="pick one") -> None:
+        print("upwind.py has been mod")
+
         self.keyword = keyword
 
         # Keywords used to store matrix and right-hand side in the matrix_dictionary
@@ -28,7 +30,7 @@ class Upwind(Discretization):
         self.bound_transport_neu_matrix_key = "rhs_neu"
 
         # Key used to set the advective flux in the parameter dictionary
-        self._flux_array_key = "darcy_flux"
+        self._flux_array_key = flux_array_key
 
     def ndof(self, sd: pp.Grid) -> int:
         """
@@ -218,7 +220,7 @@ class Upwind(Discretization):
             conc = invM.dot((M_minus_U).dot(conc) + rhs)
         """
 
-        print("discretize inside upwind.py HAS BEEN CALLED")
+        # print("discretize inside upwind.py HAS BEEN CALLED")
 
         parameter_dictionary: dict[str, Any] = data[pp.PARAMETERS][self.keyword]
         matrix_dictionary: dict[str, sps.spmatrix] = data[pp.DISCRETIZATION_MATRICES][

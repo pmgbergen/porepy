@@ -253,7 +253,9 @@ class MassBalanceEquations(pp.BalanceEquation):
         """
         subdomains = self.interfaces_to_subdomains(interfaces)
         discr = self.interface_mobility_discretization(interfaces)
-        mob_rho = self.mobility(subdomains) * self.fluid_density(subdomains)
+        mob_rho = self.mobility(subdomains) * self.fluid_density(
+            subdomains
+        )  ### mobility is 1/mu...
         # Call to constitutive law for advective fluxes.
         flux: pp.ad.Operator = self.interface_advective_flux(interfaces, mob_rho, discr)
         flux.set_name("interface_fluid_flux")

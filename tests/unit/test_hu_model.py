@@ -2,7 +2,7 @@ import numpy as np
 import scipy as sp
 import porepy as pp
 
-from typing import Callable, Optional, Type
+from typing import Callable, Optional, Type, Literal, Sequence, Union
 from porepy.numerics.ad.forward_mode import AdArray, initAdArrays
 
 import os
@@ -283,18 +283,98 @@ class FunctionRhoG(pp.ad.operator_functions.AbstractFunction):
         return sp.sparse.vstack(jac_list)
 
 
-class PressureEquation(pp.BalanceEquation):
+class PrimaryVariables(pp.VariableMixin):
     """ """
 
+    def create_variables(self) -> None:
+        """ """
+        self.equation_system.create_variables(
+            self.pressure_variable,
+            subdomains=self.mdg.subdomains(),
+            tags={"si_units": "Pa"},
+        )
+
+        self.equation_system.create_variables(  # saturation is an attribute of the model, but please use mixture to take the saturation # TODO: improve it (as everything)
+            self.saturation_variable,
+            subdomains=self.mdg.subdomains(),
+            tags={"si_units": ""},
+        )
+
+        self.equation_system.create_variables(
+            self.interface_mortar_flux_phase_0_variable,
+            interfaces=self.mdg.interfaces(codim=1),
+            tags={"si_units": f"m^{self.nd} * Pa"},
+        )
+
+        self.equation_system.create_variables(
+            self.interface_mortar_flux_phase_1_variable,
+            interfaces=self.mdg.interfaces(codim=1),
+            tags={"si_units": f"m^{self.nd} * Pa"},
+        )
+
+    def pressure(self, subdomains: list[pp.Grid]) -> pp.ad.MixedDimensionalVariable:
+        p = self.equation_system.md_variable(self.pressure_variable, subdomains)
+        return p
+
+    # saturation is inside mixture
+
+    def interface_mortar_flux_phase_0(
+        self, interfaces: list[pp.MortarGrid]
+    ) -> pp.ad.MixedDimensionalVariable:
+        """ """
+        mortar_flux = self.equation_system.md_variable(
+            self.interface_mortar_flux_phase_0_variable, interfaces
+        )
+        return mortar_flux
+
+    def interface_mortar_flux_phase_1(
+        self, interfaces: list[pp.MortarGrid]
+    ) -> pp.ad.MixedDimensionalVariable:
+        """ """
+        mortar_flux = self.equation_system.md_variable(
+            self.interface_mortar_flux_phase_1_variable, interfaces
+        )
+        return mortar_flux
+
+    # def reference_pressure(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+    #     """ """
+    #     p_ref = self.fluid.pressure()
+    #     size = sum([sd.num_cells for sd in subdomains])
+    #     return pp.wrap_as_ad_array(p_ref, size, name="reference_pressure")
+
+
+class Equations(pp.BalanceEquation):
+    """I dont see the point of splitting this class more than this, I prefer commented titles instead of mixin classes"""
+
     def set_equations(self):
+        # pressure equation:
         subdomains = self.mdg.subdomains()
-        # codim_1_interfaces = self.mdg.interfaces(codim=1)
-        subdomain_eq = self.pressure_equation(subdomains)
-        # interface_eq = self.interface_darcy_flux_equation(codim_1_interfaces)
-        self.equation_system.set_equation(subdomain_eq, subdomains, {"cells": 1})
-        # self.equation_system.set_equation(
-        #     interface_eq, codim_1_interfaces, {"cells": 1}
-        # )
+        subdomain_p_eq = self.pressure_equation(subdomains)
+        self.equation_system.set_equation(subdomain_p_eq, subdomains, {"cells": 1})
+
+        # mass balance:
+        subdomains = self.mdg.subdomains()
+        subdomain_mass_bal = self.mass_balance_equation(subdomains)
+        self.equation_system.set_equation(subdomain_mass_bal, subdomains, {"cells": 1})
+
+        # mortar fluxes pahse 0:
+        codim_1_interfaces = self.mdg.interfaces(codim=1)
+        interface_mortar_eq_phase_0 = self.interface_mortar_flux_equation_phase_0(
+            codim_1_interfaces
+        )
+        self.equation_system.set_equation(
+            interface_mortar_eq_phase_0, codim_1_interfaces, {"cells": 1}
+        )
+
+        # mortar fluxes phase 1:
+        interface_mortar_eq_phase_1 = self.interface_darcy_flux_equation_phase_1(
+            codim_1_interfaces
+        )
+        self.equation_system.set_equation(
+            interface_mortar_eq_phase_1, codim_1_interfaces, {"cells": 1}
+        )
+
+    # PRESSURE EQUATION: -------------------------------------------------------------------------------------------------
 
     def pressure_equation(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         m = np.logical_not(self.ell) * 1  # sorry
@@ -329,28 +409,63 @@ class PressureEquation(pp.BalanceEquation):
             subdomains
         )  # this is wrong, but bc val are 0 so I dont care...
 
-        source = pp.ad.Scalar(0)  # HARDCODED
+        # interfaces flux contribution (copied from mass bal): ------------------------------------
+        interfaces = self.subdomains_to_interfaces(subdomains, [1])
+        mortar_projection = pp.ad.MortarProjections(
+            self.mdg, subdomains, interfaces, dim=1
+        )
+
+        discr = self.ppu_discretization(subdomains, "darcy_flux_phase_0")
+        flux -= (
+            discr.bound_transport_neu
+            @ mortar_projection.mortar_to_primary_int
+            @ self.interface_fluid_mass_flux_phase_0(
+                interfaces,
+                self.mixture.get_phase(0),
+                "interface_mortar_flux_phase_0",
+            )
+        )
+
+        discr = self.ppu_discretization(subdomains, "darcy_flux_phase_1")
+        flux -= (
+            discr.bound_transport_neu
+            @ mortar_projection.mortar_to_primary_int
+            @ self.interface_fluid_mass_flux_phase_1(
+                interfaces,
+                self.mixture.get_phase(1),
+                "interface_mortar_flux_phase_1",
+            )
+        )
+
+        # sources: ---------------------------------------
+
+        projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces)
+        source = (
+            projection.mortar_to_secondary_int
+            @ self.interface_fluid_mass_flux_phase_0(
+                interfaces, mixture.get_phase(0), "interface_mortar_flux_phase_0"
+            )
+        )
+        source.set_name("interface_fluid_mass_flux_source_phase_0")
+
+        projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces)
+        source = (
+            projection.mortar_to_secondary_int
+            @ self.interface_fluid_mass_flux_phase_1(
+                interfaces, mixture.get_phase(1), "interface_mortar_flux_phase_1"
+            )
+        )
+        source.set_name("interface_fluid_mass_flux_source_phase_1")
 
         eq = self.balance_equation(subdomains, accumulation, flux, source, dim=1)
         eq.set_name("pressure_equation")
 
         return eq
 
-
-class MassBalance(pp.BalanceEquation):
-    """ """
-
-    def set_equations(self):
-        subdomains = self.mdg.subdomains()
-        # codim_1_interfaces = self.mdg.interfaces(codim=1)
-        subdomain_eq = self.mass_balance_equation(subdomains)
-        # interface_eq = self.interface_darcy_flux_equation(codim_1_interfaces)
-        self.equation_system.set_equation(subdomain_eq, subdomains, {"cells": 1})
-        # self.equation_system.set_equation(
-        #     interface_eq, codim_1_interfaces, {"cells": 1}
-        # )
+    # MASS BALANCE: ----------------------------------------------------------------------------------------------------------------
 
     def mass_balance_equation(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        # accumulation term: ------------------------------------------------
         mass_density = (
             self.porosity(subdomains)
             * self.mixture.get_phase(self.ell).mass_density_operator(
@@ -361,6 +476,7 @@ class MassBalance(pp.BalanceEquation):
         accumulation = self.volume_integral(mass_density, subdomains, dim=1)
         accumulation.set_name("fluid_mass_mass_eq")
 
+        # subdomains flux contribution: -------------------------------------
         rho_V_operator = FunctionRhoV(
             pp.rho_flux_V, self.equation_system, self.mixture, self.mdg, name="rho V"
         )
@@ -373,86 +489,410 @@ class MassBalance(pp.BalanceEquation):
             rho_V_operator(fake_input)
             + rho_G_operator(fake_input)
             + self.bc_values(subdomains)
-        )  # this is wrong, but bc val are 0 so I dont care...  # TODO: not sure I have to add an argument, we'll see...
+        )  # TODO: this is wrong, but bc val are 0 so I dont care...
 
-        source = pp.ad.Scalar(0)  # HARDCODED
+        # interfaces flux contribution: ------------------------------------
+        interfaces = self.subdomains_to_interfaces(subdomains, [1])
+        mortar_projection = pp.ad.MortarProjections(
+            self.mdg, subdomains, interfaces, dim=1
+        )
+
+        if self.ell == 0:  # TODO: you can avoid if condition
+            discr = self.ppu_discretization(subdomains, "darcy_flux_phase_0")
+            flux -= (
+                discr.bound_transport_neu
+                @ mortar_projection.mortar_to_primary_int
+                @ self.interface_fluid_mass_flux_phase_0(
+                    interfaces,
+                    self.mixture.get_phase(0),
+                    "interface_mortar_flux_phase_0",
+                )
+            )
+
+        else:  # self.ell == 1
+            discr = self.ppu_discretization(subdomains, "darcy_flux_phase_1")
+            flux -= (
+                discr.bound_transport_neu
+                @ mortar_projection.mortar_to_primary_int
+                @ self.interface_fluid_mass_flux_phase_1(
+                    interfaces,
+                    self.mixture.get_phase(1),
+                    "interface_mortar_flux_phase_1",
+                )
+            )
+
+        # sources: ---------------------------------------
+        if self.ell == 0:  # TODO: you can avoid if condition
+            projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces)
+            source = (
+                projection.mortar_to_secondary_int
+                @ self.interface_fluid_mass_flux_phase_0(
+                    interfaces, mixture.get_phase(0), "interface_mortar_flux_phase_0"
+                )
+            )
+            source.set_name("interface_fluid_mass_flux_source_phase_0")
+
+        else:  # self.ell == 1:
+            projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces)
+            source = (
+                projection.mortar_to_secondary_int
+                @ self.interface_fluid_mass_flux_phase_1(
+                    interfaces, mixture.get_phase(1), "interface_mortar_flux_phase_1"
+                )
+            )
+            source.set_name("interface_fluid_mass_flux_source_phase_1")
 
         eq = self.balance_equation(subdomains, accumulation, flux, source, dim=1)
         eq.set_name("mass_balance_equation")
 
         return eq
 
+    # DARCY LAWS (to be imporeved): ----------------------------------------------------------------------------------------------------------
 
-class EquationsPressureMass(
-    PressureEquation,
-    MassBalance,
-):
-    def set_equations(self):
-        PressureEquation.set_equations(self)
-        MassBalance.set_equations(self)
+    def interface_mortar_flux_equation_phase_0(self, interfaces: list[pp.MortarGrid]):
+        """definition of mortar flux
+        - mortar flux is integrated mortar flux
+        - dynamic viscosity is not included into this definition of mortar flux
+        """
+        subdomains = self.interfaces_to_subdomains(interfaces)
 
-        # subdomains = self.mdg.subdomains()
-        # # codim_1_interfaces = self.mdg.interfaces(codim=1)
-        # subdomain_eq = self.pressure_equation(subdomains)
-        # # interface_eq = self.interface_darcy_flux_equation(codim_1_interfaces)
-        # self.equation_system.set_equation(subdomain_eq, subdomains, {"cells": 1})
-        # # self.equation_system.set_equation(
-        # #     interface_eq, codim_1_interfaces, {"cells": 1}
-        # # )
+        projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1)
 
-        # codim_1_interfaces = self.mdg.interfaces(codim=1)
-        # intf_eq = self.interface_darcy_flux_equation(codim_1_interfaces)
-        # self.equation_system.set_equation(intf_eq, codim_1_interfaces, {"cells": 1})
+        cell_volumes = self.wrap_grid_attribute(
+            interfaces, "cell_volumes", dim=1  # type: ignore[call-arg]
+        )
+        trace = pp.ad.Trace(subdomains, dim=1)
 
+        normal_gradient = pp.ad.Scalar(2) * (
+            projection.secondary_to_mortar_avg
+            @ self.aperture(subdomains) ** pp.ad.Scalar(-1)
+        )
+        normal_gradient.set_name("normal_gradient")
 
-class VariablesPressureMass(pp.VariableMixin):
-    """ """
+        pressure_l = projection.secondary_to_mortar_avg @ self.pressure(subdomains)
+        pressure_h = projection.primary_to_mortar_avg @ self.pressure_trace(subdomains)
+        specific_volume_intf = (
+            projection.primary_to_mortar_avg
+            @ trace.trace
+            @ self.specific_volume(subdomains)
+        )
+        specific_volume_intf.set_name("specific_volume_at_interfaces")
 
-    def create_variables(self) -> None:
+        discr = self.interface_ppu_discretization(
+            interfaces, "interface_mortar_flux_phase_0"
+        )
+        # upwinded_saturation = self.var_upwinded_interfaces(interfaces, self.mixture.get_phase(0).saturation_operator(subdomains), discr)
+        # upwinded_pressure = self.var_upwinded_interfaces(interfaces, self.pressure(subdomains), discr)
+        # if there is any problem, you can upwind directiliy the mobility and mass_density, which is also more natural...
+        # I changed my mind, let's upwind the density.
+        density_upwinded = self.var_upwinded_interfaces(
+            interfaces,
+            self.mixture.get_phase(0).mass_density(self.pressure(subdomains)),
+            discr,
+        )
+
+        eq = self.interface_mortar_flux_phase_0(interfaces) - (
+            cell_volumes
+            * (
+                self.normal_permeability(interfaces)
+                # * pp.tobedefined.mobility_operator(interfaces, upwinded_saturation, self.dynamic_viscosity ) # not included in this definition of mortar flux
+                * normal_gradient  # this is 2/eps
+                * specific_volume_intf
+                * (
+                    pressure_h
+                    - pressure_l
+                    + density_upwinded
+                    / normal_gradient  # Why is here not the density in fluid_mass_balance?
+                    * self.interface_vector_source(
+                        interfaces, material="fluid"
+                    )  # gravity
+                )
+            )
+        )
+
+        eq.set_name("interface_darcy_flux_equation_phase_0")
+        return eq
+
+    def interface_mortar_flux_equation_phase_1(self, interfaces: list[pp.MortarGrid]):
         """ """
-        self.equation_system.create_variables(
-            self.pressure_variable,
-            subdomains=self.mdg.subdomains(),
-            tags={"si_units": "Pa"},
+        subdomains = self.interfaces_to_subdomains(interfaces)
+
+        projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1)
+
+        cell_volumes = self.wrap_grid_attribute(
+            interfaces, "cell_volumes", dim=1  # type: ignore[call-arg]
+        )
+        trace = pp.ad.Trace(subdomains, dim=1)
+
+        normal_gradient = pp.ad.Scalar(2) * (
+            projection.secondary_to_mortar_avg
+            @ self.aperture(subdomains) ** pp.ad.Scalar(-1)
+        )
+        normal_gradient.set_name("normal_gradient")
+
+        pressure_l = projection.secondary_to_mortar_avg @ self.pressure(subdomains)
+        pressure_h = projection.primary_to_mortar_avg @ self.pressure_trace(subdomains)
+        specific_volume_intf = (
+            projection.primary_to_mortar_avg
+            @ trace.trace
+            @ self.specific_volume(subdomains)
+        )
+        specific_volume_intf.set_name("specific_volume_at_interfaces")
+
+        discr = self.interface_ppu_discretization(
+            interfaces, "interface_mortar_flux_phase_1"
+        )
+        density_upwinded = self.var_upwinded_interfaces(
+            interfaces,
+            self.mixture.get_phase(1).mass_density(self.pressure(subdomains)),
+            discr,
         )
 
-        self.equation_system.create_variables(  # saturation is an attribute of the model, but please use mixture to take the saturation # TODO: improve it (as everything)
-            self.saturation_variable,
-            subdomains=self.mdg.subdomains(),
-            tags={"si_units": ""},
+        eq = self.interface_mortar_flux_phase_1(interfaces) - (
+            cell_volumes
+            * (
+                self.normal_permeability(interfaces)
+                * normal_gradient  # this is 2/eps
+                * specific_volume_intf
+                * (
+                    pressure_h
+                    - pressure_l
+                    + density_upwinded
+                    / normal_gradient  # Why is here not the density in fluid_mass_balance?
+                    * self.interface_vector_source(
+                        interfaces, material="fluid"
+                    )  # gravity
+                )
+            )
         )
 
-        self.equation_system.create_variables(
-            self.interface_darcy_flux_variable,
-            interfaces=self.mdg.interfaces(codim=1),
-            tags={"si_units": f"m^{self.nd} * Pa"},
+        eq.set_name("interface_darcy_flux_equation_phase_1")
+        return eq
+
+    # MISCELLANEA FOR EQUATIONS: -------------------------------------------------------------------------------------------------
+
+    def interface_advective_flux_phase_0(
+        self,
+        interfaces: list[pp.MortarGrid],
+        advected_entity: pp.ad.Operator,
+        discr: pp.ad.UpwindCouplingAd,
+    ) -> pp.ad.Operator:
+        """copied from sonstitutive laws"""
+        subdomains = self.interfaces_to_subdomains(interfaces)
+        mortar_projection = pp.ad.MortarProjections(
+            self.mdg, subdomains, interfaces, dim=1
+        )
+        trace = pp.ad.Trace(subdomains)
+        interface_flux: pp.ad.Operator = self.interface_mortar_flux_phase_0(
+            interfaces
+        ) * (
+            discr.upwind_primary
+            @ mortar_projection.primary_to_mortar_avg
+            @ trace.trace
+            @ advected_entity
+            + discr.upwind_secondary
+            @ mortar_projection.secondary_to_mortar_avg
+            @ advected_entity
+        )
+        return interface_flux
+
+    def interface_advective_flux_phase_1(
+        self,
+        interfaces: list[pp.MortarGrid],
+        advected_entity: pp.ad.Operator,
+        discr: pp.ad.UpwindCouplingAd,
+    ) -> pp.ad.Operator:
+        """copied from sonstitutive laws"""
+        subdomains = self.interfaces_to_subdomains(interfaces)
+        mortar_projection = pp.ad.MortarProjections(
+            self.mdg, subdomains, interfaces, dim=1
+        )
+        trace = pp.ad.Trace(subdomains)
+        interface_flux: pp.ad.Operator = self.interface_mortar_flux_phase_1(
+            interfaces
+        ) * (
+            discr.upwind_primary
+            @ mortar_projection.primary_to_mortar_avg
+            @ trace.trace
+            @ advected_entity
+            + discr.upwind_secondary
+            @ mortar_projection.secondary_to_mortar_avg
+            @ advected_entity
+        )
+        return interface_flux
+
+    def interface_fluid_mass_flux_phase_0(
+        self, interfaces: list[pp.MortarGrid], phase, flux_array_key
+    ) -> pp.ad.Operator:
+        """TODO: redundant input
+        TODO: consider the idea to use var_upwinded_interfaces
+        """
+        subdomains = self.interfaces_to_subdomains(interfaces)
+        discr = self.interface_ppu_discretization(interfaces, flux_array_key)
+        rho_over_mu = (
+            phase.mass_density_operator(subdomains, self.pressure)
+            / self.dynamic_viscosity
         )
 
-    def pressure(self, subdomains: list[pp.Grid]) -> pp.ad.MixedDimensionalVariable:
-        p = self.equation_system.md_variable(self.pressure_variable, subdomains)
-        return p
-
-    # saturation is inside mixture
-
-    def interface_darcy_flux(
-        self, interfaces: list[pp.MortarGrid]
-    ) -> pp.ad.MixedDimensionalVariable:
-        """ """
-        flux = self.equation_system.md_variable(
-            self.interface_darcy_flux_variable, interfaces
+        flux: pp.ad.Operator = self.interface_advective_flux_phase_0(
+            interfaces, rho_over_mu, discr
         )
+        flux.set_name("interface_fluid_mass_flux")
         return flux
 
-    # def reference_pressure(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-    #     """ """
-    #     p_ref = self.fluid.pressure()
-    #     size = sum([sd.num_cells for sd in subdomains])
-    #     return pp.wrap_as_ad_array(p_ref, size, name="reference_pressure")
+    def interface_fluid_mass_flux_phase_1(
+        self, interfaces: list[pp.MortarGrid], phase, flux_array_key
+    ) -> pp.ad.Operator:
+        """TODO: redundant input
+        TODO: consider the idea to use var_upwinded_interfaces
+        """
+        subdomains = self.interfaces_to_subdomains(interfaces)
+        discr = self.interface_ppu_discretization(interfaces, flux_array_key)
+        rho_over_mu = (
+            phase.mass_density_operator(subdomains, self.pressure)
+            / self.dynamic_viscosity
+        )
+
+        flux: pp.ad.Operator = self.interface_advective_flux_phase_1(
+            interfaces, rho_over_mu, discr
+        )
+        flux.set_name("interface_fluid_mass_flux")
+        return flux
+
+    def ppu_discretization(
+        self, subdomains: list[pp.Grid], flux_array_key
+    ) -> pp.ad.UpwindAd:
+        """
+        flux_array_key =  either darcy_flux_phase_0 or darcy_flux_phase_1
+        """
+        return pp.ad.UpwindAd(self.ppu_keyword, subdomains, flux_array_key)
+
+    def interface_ppu_discretization(
+        self, interfaces: list[pp.MortarGrid], flux_array_key
+    ) -> pp.ad.UpwindCouplingAd:
+        """
+        flux_array_key = either interface_mortar_flux_phase_0 or interface_mortar_flux_phase_1
+        """
+        return pp.ad.UpwindCouplingAd(self.ppu_keyword, interfaces, flux_array_key)
+
+    def var_upwinded_interfaces(
+        self,
+        interfaces: list[pp.MortarGrid],
+        advected_entity: pp.ad.Operator,
+        discr: pp.ad.UpwindCouplingAd,
+    ) -> pp.ad.Operator:
+        """same of constitutive_law.interface_advective_flux without interface_darcy_flux"""
+        subdomains = self.interfaces_to_subdomains(interfaces)
+        mortar_projection = pp.ad.MortarProjections(
+            self.mdg, subdomains, interfaces, dim=1
+        )
+        trace = pp.ad.Trace(subdomains)
+
+        var_upwinded: pp.ad.Operator = (
+            discr.upwind_primary
+            @ mortar_projection.primary_to_mortar_avg
+            @ trace.trace
+            @ advected_entity
+            + discr.upwind_secondary
+            @ mortar_projection.secondary_to_mortar_avg
+            @ advected_entity
+        )
+        return var_upwinded
+
+    def pressure_trace(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """ """
+        interfaces: list[pp.MortarGrid] = self.subdomains_to_interfaces(subdomains, [1])
+        projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1)
+        discr: Union[pp.ad.TpfaAd, pp.ad.MpfaAd] = self.darcy_flux_discretization(
+            subdomains
+        )
+
+        pressure_trace = (
+            discr.bound_pressure_cell @ self.pressure(subdomains)
+            + discr.bound_pressure_face
+            @ (projection.mortar_to_primary_int @ self.interface_darcy_flux(interfaces))
+            + discr.bound_pressure_face @ self.bc_values_darcy(subdomains)
+            + discr.vector_source @ self.vector_source(subdomains, material="fluid")
+        )
+        return pressure_trace
+
+    def darcy_flux(self, subdomains: list[pp.Grid], phase) -> pp.ad.Operator:
+        """
+        TODO: this is not two-phase... but do i need darcy_flux? I think I need only interface darcy flux
+        NO, you need it for the flux. Why? I don't understand. I think we compute darcy fluc in the entire subdomin even though we need it only a the interface cells
+        - need only the direction, I never use its norm
+
+        """
+        interfaces: list[pp.MortarGrid] = self.subdomains_to_interfaces(subdomains, [1])
+        projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1)
+        discr: Union[pp.ad.TpfaAd, pp.ad.MpfaAd] = self.darcy_flux_discretization(
+            subdomains
+        )
+
+        flux: pp.ad.Operator = (
+            discr.flux @ self.pressure(subdomains)
+            + discr.bound_flux
+            @ (
+                self.bc_values_darcy(subdomains)
+                + projection.mortar_to_primary_int
+                @ self.interface_darcy_flux(interfaces)
+            )
+            + discr.vector_source
+            @ (
+                phase.mass_density_operator(self.pressure(subdomains))
+                @ self.vector_source(subdomains, material="fluid")
+            )  # NOTE: mass_density not upwinded
+        )
+        flux.set_name("darcy_flux")
+        return flux
+
+    def darcy_flux_discretization(self, subdomains: list[pp.Grid]) -> pp.ad.MpfaAd:
+        """ """
+        return pp.ad.MpfaAd(self.darcy_keyword, subdomains)
+
+    def vector_source(
+        self,
+        grids: Union[list[pp.Grid], list[pp.MortarGrid]],
+        material: str,  # phase,
+    ) -> pp.ad.Operator:
+        """Vector source term. Represents gravity effects"""
+
+        # val = self.fluid.convert_units(0, "m*s^-2")
+        val = self.gravity_value  ### TODO: check it
+        size = int(np.sum([g.num_cells for g in grids]) * self.nd)
+
+        # rho = phase.mass_density() ### just in case...
+        source = pp.wrap_as_ad_array(val, size=size, name="zero_vector_source")
+
+        return source
+
+    def interface_vector_source(
+        self, interfaces: list[pp.MortarGrid], material: str
+    ) -> pp.ad.Operator:
+        """ """
+        normals = self.outwards_internal_boundary_normals(
+            interfaces, unitary=True  # type: ignore[call-arg]
+        )
+        subdomain_neighbors = self.interfaces_to_subdomains(interfaces)
+        projection = pp.ad.MortarProjections(
+            self.mdg, subdomain_neighbors, interfaces, dim=self.nd
+        )
+        vector_source = projection.secondary_to_mortar_avg @ self.vector_source(
+            subdomain_neighbors,
+            material,
+            # self.mixture.get_phase(0),
+        )
+        normals_times_source = normals * vector_source
+        nd_to_scalar_sum = pp.ad.sum_operator_list(
+            [e.T for e in self.basis(interfaces, dim=self.nd)]  # type: ignore[call-arg]
+        )
+        dot_product = nd_to_scalar_sum @ normals_times_source
+        dot_product.set_name("Interface vector source term")
+        return dot_product
 
 
 class ConstitutiveLawPressureMass(
     pp.constitutive_laws.DimensionReduction,
-    pp.constitutive_laws.DarcysLaw,
     pp.constitutive_laws.ConstantPorosity,
     # pp.constitutive_laws.ConstantPermeability, # TODO: there is a lot to change...
     # pp.constitutive_laws.ConstantViscosity, # TODO: there is a lot to change...
@@ -488,9 +928,14 @@ class SolutionStrategyPressureMass(pp.SolutionStrategy):
 
         self.pressure_variable: str = "pressure"
         self.saturation_variable = "saturation"
-        self.interface_darcy_flux_variable: str = "interface_darcy_flux"
+        self.interface_mortar_flux_phase_0_variable: str = (
+            "interface_mortar_flux_phase_0"
+        )
+        self.interface_mortar_flux_phase_1_variable: str = (
+            "interface_mortar_flux_phase_1"
+        )
         self.darcy_keyword: str = "flow"
-        self.mobility_keyword: str = "mobility"  # used for darcy flux (? boh...)
+        self.ppu_keyword: str = "ppu"
 
     def prepare_simulation(self) -> None:
         """ """
@@ -634,15 +1079,21 @@ class SolutionStrategyPressureMass(pp.SolutionStrategy):
             pp.initialize_data(
                 sd,
                 data,
-                self.mobility_keyword,
-                {"darcy_flux": np.zeros(sd.num_faces)},
+                self.ppu_keyword,
+                {
+                    "darcy_flux_phase_0": np.zeros(sd.num_faces),
+                    "darcy_flux_phase_1": np.zeros(sd.num_faces),
+                },
             )
         for intf, data in self.mdg.interfaces(return_data=True):
             pp.initialize_data(
                 intf,
                 data,
-                self.mobility_keyword,
-                {"darcy_flux": np.zeros(intf.num_cells)},
+                self.ppu_keyword,
+                {
+                    "interface_darcy_flux_phase_0": np.zeros(intf.num_cells),
+                    "interface_darcy_flux_phase_1": np.zeros(intf.num_cells),
+                },
             )
 
     def set_discretization_parameters(self) -> None:
@@ -665,7 +1116,7 @@ class SolutionStrategyPressureMass(pp.SolutionStrategy):
             # pp.initialize_data(
             #     sd,
             #     data,
-            #     self.mobility_keyword,
+            #     self.ppu_keyword,
             #     {
             #         "bc": self.bc_type_mobrho(sd),
             #     },
@@ -771,7 +1222,7 @@ class SolutionStrategyPressureMass(pp.SolutionStrategy):
         super().set_nonlinear_discretizations()  # TODO: EH? It does literally nothing...!
 
         # self.add_nonlinear_discretization(
-        #     self.interface_mobility_discretization(self.mdg.interfaces()).flux,
+        #     self.interface_ppu_discretization(self.mdg.interfaces()).flux,
         # )
 
     def before_nonlinear_iteration(self):
@@ -814,15 +1265,38 @@ class SolutionStrategyPressureMass(pp.SolutionStrategy):
                 self.equation_system
             )
 
-            # from original before_nonlinear_iteration:
             vals = (
-                self.darcy_flux([sd]).evaluate(self.equation_system).val
-            )  # TODO: i think i need only interface_darcy_flux, i dont' want to bother about htis now...
-            data[pp.PARAMETERS][self.mobility_keyword].update({"darcy_flux": vals})
+                self.darcy_flux([sd], self.mixture.get_phase(0))
+                .evaluate(self.equation_system)
+                .val
+            )
+            data[pp.PARAMETERS][self.ppu_keyword].update({"darcy_flux_phase_0": vals})
+
+            vals = (
+                self.darcy_flux([sd], self.mixture.get_phase(1))
+                .evaluate(self.equation_system)
+                .val
+            )
+            data[pp.PARAMETERS][self.ppu_keyword].update({"darcy_flux_phase_1": vals})
 
         for intf, data in self.mdg.interfaces(return_data=True, codim=1):
-            vals = self.interface_darcy_flux([intf]).evaluate(self.equation_system).val
-            data[pp.PARAMETERS][self.mobility_keyword].update({"darcy_flux": vals})
+            vals = (
+                self.interface_mortar_flux_phase_0([intf])
+                .evaluate(self.equation_system)
+                .val
+            )
+            data[pp.PARAMETERS][self.ppu_keyword].update(
+                {"interface_mortar_flux_phase_0": vals}
+            )
+
+            vals = (
+                self.interface_mortar_flux_phase_1([intf])
+                .evaluate(self.equation_system)
+                .val
+            )
+            data[pp.PARAMETERS][self.ppu_keyword].update(
+                {"interface_mortar_flux_phase_1": vals}
+            )
 
         super().before_nonlinear_iteration()
 
@@ -938,8 +1412,8 @@ mixture.add([wetting_phase, non_wetting_phase])
 
 
 class PartialFinalModel(
-    EquationsPressureMass,
-    VariablesPressureMass,
+    PrimaryVariables,
+    Equations,
     ConstitutiveLawPressureMass,
     BoundaryConditionsPressureMass,
     SolutionStrategyPressureMass,
@@ -955,6 +1429,7 @@ class FinalModel(PartialFinalModel):  # I'm sorry...
         self.mixture = mixture
         self.ell = 0  # 0 = wetting, 1 = non-wetting
         self.gravity_value = pp.GRAVITY_ACCELERATION
+        self.dynamic_viscosity = 1  # TODO: it is hardoced everywhere, you know...
 
 
 # fluid_constants = pp.FluidConstants(
@@ -971,7 +1446,9 @@ class FinalModel(PartialFinalModel):  # I'm sorry...
 #     }
 # )
 fluid_constants = pp.FluidConstants({})
-solid_constants = pp.SolidConstants({"porosity": 0.25, "permeability": 1})
+solid_constants = pp.SolidConstants(
+    {"porosity": 0.25, "permeability": 1, "normal_permeability": 1}
+)
 # material_constants = {"solid": solid_constants}
 material_constants = {"fluid": fluid_constants, "solid": solid_constants}
 
