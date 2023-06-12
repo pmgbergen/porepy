@@ -9,17 +9,39 @@ Currently supported (Python-) packages include
 """
 from __future__ import annotations
 
+from typing import Callable, Literal, overload
+
 import chemicals
 
-from .chem_species import FluidSpeciesData
+from .chem_species import ChemicalSpecies, FluidSpecies
 
-__all__ = ["load_fluid_species"]
+__all__ = ["load_species"]
 
 
-def load_fluid_species(
-    names: list[str], package: str = "chemicals"
-) -> list[FluidSpeciesData]:
-    """Creates a fluid species, if identifiable by ``name`` in ``package``
+@overload
+def load_species(
+    names: list[str],
+    package: str = "chemicals",
+    species_type: Literal["fluid"] = "fluid",
+) -> list[FluidSpecies]:
+    # overload for default species type fluid
+    ...
+
+
+@overload
+def load_species(
+    names: list[str],
+    package: str = "chemicals",
+    species_type: Literal["basic"] = "basic",
+) -> list[ChemicalSpecies]:
+    # overload for basic species type
+    ...
+
+
+def load_species(
+    names: list[str], package: str = "chemicals", species_type: str = "fluid"
+) -> list[ChemicalSpecies] | list[FluidSpecies]:
+    """Creates a species, if identifiable by ``name`` in ``package``
 
     Important:
         The ``name`` is passed directly to the package. There is no guarantee if the
@@ -35,6 +57,15 @@ def load_fluid_species(
             Currently supported:
 
             - chemicals
+        species_type: ``default='fluid'``
+
+            Species type to be loaded. By default, fluid species are created.
+
+            This argument defines which parameters are attempted to be loaded.
+            Only parameters relevant for the species type are loaded.
+
+            - ``'fluid'``: Returns :class:`~~porepy.composite.chem_species.FluidSpecies`
+            - ``'basic'``: :class:`~~porepy.composite.chem_species.ChemicalSpecies`
 
     Raises:
         NotImplementedError: If an unsupported package is passed as argument.
@@ -45,39 +76,54 @@ def load_fluid_species(
 
     """
 
-    species: list[FluidSpeciesData] = []
+    species: list[FluidSpecies] = []
 
     cas: str
-    mw: float
-    pc: float
-    Tc: float
-    vc: float
-    omega: float
+
+    cas_loader: Callable
+    mw_loader: Callable
+    pc_loader: Callable
+    Tc_loader: Callable
+    vc_loader: Callable
+    omega_loader: Callable
+
+    if package == "chemicals":
+
+        cas_loader = chemicals.CAS_from_any
+        mw_loader = lambda x: chemicals.MW(x) * 1e-3  # molas mass in kg / mol
+        pc_loader = chemicals.Pc  # critical pressure in Pa
+        Tc_loader = chemicals.Tc  # critical temperature in K
+        vc_loader = chemicals.Vc  # critical volume in m^3 / mol
+        omega_loader = chemicals.acentric.omega  # acentric factor
+
+    else:
+        raise NotImplementedError(f"Unsupported package `{package}`.")
 
     for name in names:
-        if package == "chemicals":
-
-            cas = str(chemicals.CAS_from_any(name))
-
-            # extracting data
-            mw = float(chemicals.MW(cas)) * 1e-3  # molas mass in kg / mol
-            pc = float(chemicals.Pc(cas))  # critical pressure in Pa
-            Tc = float(chemicals.Tc(cas))  # critical temperature in K
-            vc = float(chemicals.Vc(cas))  # critical volume in m^3 / mol
-            omega = float(chemicals.acentric.omega(cas))  # acentric factor
-        else:
-            raise NotImplementedError(f"Unsupported package `{package}`.")
-
-        species.append(
-            FluidSpeciesData(
-                name=name,
-                CASr_number=cas,
-                molar_mass=mw,
-                p_crit=pc,
-                T_crit=Tc,
-                V_crit=vc,
-                omega=omega,
+        cas = str(cas_loader(name))
+        # default species
+        if species_type == "fluid":
+            species.append(
+                FluidSpecies(
+                    name=name,
+                    CASr_number=cas,
+                    molar_mass=float(mw_loader(cas)),
+                    p_crit=float(pc_loader(cas)),
+                    T_crit=float(Tc_loader(cas)),
+                    V_crit=float(vc_loader(cas)),
+                    omega=float(omega_loader(cas)),
+                )
             )
-        )
+        # Basic species
+        elif species_type == "basic":
+            species.append(
+                ChemicalSpecies(
+                    name=name,
+                    CASr_number=cas,
+                    molar_mass=float(mw_loader(cas)),
+                )
+            )
+        else:
+            raise NotImplementedError(f"Unsupported species type `{species_type}`.")
 
     return species

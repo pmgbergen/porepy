@@ -11,11 +11,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-__all__ = ["ChemicalSpeciesData", "FluidSpeciesData"]
+__all__ = ["ChemicalSpecies", "FluidSpecies"]
 
 
 @dataclass(frozen=True)
-class ChemicalSpeciesData:
+class ChemicalSpecies:
     """A basic data class for species, containing identification and basic properties."""
 
     name: str
@@ -29,7 +29,7 @@ class ChemicalSpeciesData:
 
 
 @dataclass(frozen=True)
-class FluidSpeciesData(ChemicalSpeciesData):
+class FluidSpecies(ChemicalSpecies):
     """A data class containing required physical properties for fluid species
     such that they can be converted into a
     :class:`~porepy.composite.component.Component`.

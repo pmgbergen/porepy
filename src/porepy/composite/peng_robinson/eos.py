@@ -409,7 +409,7 @@ class PengRobinsonEoS(AbstractEoS):
             customs_for_i = []
             # check if component i has custom BIPs implemented
             if hasattr(comp_i, "bip_map"):
-                for j in range(i + 1, nc):
+                for j in range(0, nc):
                     comp_j = components[j]
                     bip_c = comp_i.bip_map.get(comp_j.CASr_number, None)
                     # if found, store and mark to check it with the other component
@@ -453,8 +453,6 @@ class PengRobinsonEoS(AbstractEoS):
                         "Loaded a BIP with zero value for"
                         + f" components {comp_i.name} and {comp_j.name}."
                     )
-                # assert that no custom BIP is overwritten
-                assert (i, j) not in bip_callables.keys(), "Overwriting custom BIP."
                 self._bip_vals[i, j] = bip
 
         # If custom implementations for bips were found, store them.
@@ -891,9 +889,19 @@ class PengRobinsonEoS(AbstractEoS):
         T: NumericType, A: NumericType, B: NumericType, Z: NumericType
     ) -> NumericType:
         """Auxiliary function for computing the Gibbs departure function."""
-        return (trunclog(Z - B, 1e-6) - trunclog(
-            (Z + (1 + np.sqrt(2)) * B) / (Z + (1 - np.sqrt(2)) * B), 1e-6
-        ) * A / B / np.sqrt(8)) * T * R_IDEAL
+        return (
+            (
+                trunclog(Z - B, 1e-6)
+                - trunclog(
+                    (Z + (1 + np.sqrt(2)) * B) / (Z + (1 - np.sqrt(2)) * B), 1e-6
+                )
+                * A
+                / B
+                / np.sqrt(8)
+            )
+            * T
+            * R_IDEAL
+        )
 
     @staticmethod
     def _g_ideal(X: list[NumericType]) -> NumericType:

@@ -18,7 +18,8 @@ import porepy as pp
 from porepy.numerics.ad.operator_functions import NumericType
 
 from .._core import R_IDEAL, T_REF
-from ..chem_interface import load_fluid_species
+from ..chem_interface import load_species
+from ..chem_species import ChemicalSpecies
 from ..component import Component, Compound
 
 __all__ = [
@@ -199,7 +200,7 @@ class N2(Component_PR):
     def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
 
-        cas_water = pp.composite.load_fluid_species(["H2O"])[0].CASr_number
+        cas_water = pp.composite.load_species(["H2O"])[0].CASr_number
 
         def bip_water(T: NumericType) -> tuple[NumericType, NumericType]:
             return 0.385438, 0
@@ -236,9 +237,9 @@ class NaClBrine(Compound, H2O):
         super().__init__(**kwargs)
 
         # instantiate NaCl_ps as a solute
-        solute = load_fluid_species(["NaCl"])[0]
+        solute = load_species(["NaCl"], species_type="basic")
         # add solute to self
-        self.add_solute(solute)
+        self.solutes = solute
 
         # store NaCl for quick access
         self.NaCl = solute
@@ -247,11 +248,11 @@ class NaClBrine(Compound, H2O):
         def alpha(T: NumericType) -> NumericType:
             # molal salinity
             T_r = T / self.T_crit
-            cw = self.molality_of(self.NaCl)
+            b = self.molalities[1]
 
             alpha_ = (
                 1
-                + 0.453 * (1 - T_r * (1 - 0.0103 * pp.ad.power(cw, 1.1)))
+                + 0.453 * (1 - T_r * (1 - 0.0103 * pp.ad.power(b, 1.1)))
                 + 0.0034 * (pp.ad.power(T_r, -3) - 1)
             )
 
@@ -259,19 +260,19 @@ class NaClBrine(Compound, H2O):
 
         self.alpha = alpha
 
-        co2, h2s, n2 = pp.composite.load_fluid_species(["CO2", "H2S", "N2"])
+        co2, h2s, n2 = pp.composite.load_species(["CO2", "H2S", "N2"])
 
         def bip_co2(T: NumericType) -> tuple[NumericType, NumericType]:
             T_r = T / co2.T_crit
-            molality = self.molality_of(solute)
+            b = self.molalities[1]
 
             return (
-                -0.31092 * (1 + 0.15587 * pp.ad.power(molality, 0.7505))
-                + 0.23580 * (1 + 0.17837 * pp.ad.power(molality, 0.979)) * T_r
-                - 21.2566 * pp.ad.exp(-6.7222 * T_r - molality)
+                -0.31092 * (1 + 0.15587 * pp.ad.power(b, 0.7505))
+                + 0.23580 * (1 + 0.17837 * pp.ad.power(b, 0.979)) * T_r
+                - 21.2566 * pp.ad.exp(-6.7222 * T_r - b)
             ), (
-                0.23580 * (1 + 0.17837 * pp.ad.power(molality, 0.979)) / co2.T_crit
-                + 21.2566 * pp.ad.exp(-6.7222 * T_r - molality) * (6.7222 / co2.T_crit)
+                0.23580 * (1 + 0.17837 * pp.ad.power(b, 0.979)) / co2.T_crit
+                + 21.2566 * pp.ad.exp(-6.7222 * T_r - b) * (6.7222 / co2.T_crit)
             )
 
         def bip_h2s(T: NumericType) -> tuple[NumericType, NumericType]:
@@ -280,12 +281,12 @@ class NaClBrine(Compound, H2O):
 
         def bip_n2(T: NumericType) -> tuple[NumericType, NumericType]:
             T_r = T / n2.T_crit
-            molality = self.molality_of(self.NaCl)
+            b = self.molalities[1]
 
             return (
-                -1.70235 * (1 + 0.25587 * pp.ad.power(molality, 0.75))
-                + 0.44338 * (1 + 0.08126 * pp.ad.power(molality, 0.75)) * T_r
-            ), (0.44338 * (1 + 0.08126 * pp.ad.power(molality, 0.75)) / n2.T_crit)
+                -1.70235 * (1 + 0.25587 * pp.ad.power(b, 0.75))
+                + 0.44338 * (1 + 0.08126 * pp.ad.power(b, 0.75)) * T_r
+            ), (0.44338 * (1 + 0.08126 * pp.ad.power(b, 0.75)) / n2.T_crit)
 
         self.bip_map = {
             co2.CASr_number: bip_co2,

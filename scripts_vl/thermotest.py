@@ -41,7 +41,7 @@ results = flasher.flash(P=p, T=T, zs=[1 - z_co2, z_co2])
 
 eos_g = pp.composite.peng_robinson.PengRobinsonEoS(True)
 eos_l = pp.composite.peng_robinson.PengRobinsonEoS(False)
-species = pp.composite.load_fluid_species(['H2O', 'CO2'])
+species = pp.composite.load_species(['H2O', 'CO2'])
 comps = [
     pp.composite.peng_robinson.H2O.from_species(species[0]),
     pp.composite.peng_robinson.CO2.from_species(species[1]),
