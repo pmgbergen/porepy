@@ -367,7 +367,7 @@ class Equations(pp.BalanceEquation):
         )
 
         # mortar fluxes phase 1:
-        interface_mortar_eq_phase_1 = self.interface_darcy_flux_equation_phase_1(
+        interface_mortar_eq_phase_1 = self.interface_mortar_flux_equation_phase_1(
             codim_1_interfaces
         )
         self.equation_system.set_equation(
@@ -570,7 +570,9 @@ class Equations(pp.BalanceEquation):
         normal_gradient.set_name("normal_gradient")
 
         pressure_l = projection.secondary_to_mortar_avg @ self.pressure(subdomains)
-        pressure_h = projection.primary_to_mortar_avg @ self.pressure_trace(subdomains)
+        pressure_h = projection.primary_to_mortar_avg @ self.pressure_trace_phase_0(
+            subdomains
+        )
         specific_volume_intf = (
             projection.primary_to_mortar_avg
             @ trace.trace
@@ -587,14 +589,14 @@ class Equations(pp.BalanceEquation):
         # I changed my mind, let's upwind the density.
         density_upwinded = self.var_upwinded_interfaces(
             interfaces,
-            self.mixture.get_phase(0).mass_density(self.pressure(subdomains)),
+            self.mixture.get_phase(0).mass_density_operator(subdomains, self.pressure),
             discr,
         )
 
         eq = self.interface_mortar_flux_phase_0(interfaces) - (
             cell_volumes
             * (
-                self.normal_permeability(interfaces)
+                pp.ad.Scalar(self.solid.normal_permeability())
                 # * pp.tobedefined.mobility_operator(interfaces, upwinded_saturation, self.dynamic_viscosity ) # not included in this definition of mortar flux
                 * normal_gradient  # this is 2/eps
                 * specific_volume_intf
@@ -631,7 +633,9 @@ class Equations(pp.BalanceEquation):
         normal_gradient.set_name("normal_gradient")
 
         pressure_l = projection.secondary_to_mortar_avg @ self.pressure(subdomains)
-        pressure_h = projection.primary_to_mortar_avg @ self.pressure_trace(subdomains)
+        pressure_h = projection.primary_to_mortar_avg @ self.pressure_trace_phase_1(
+            subdomains
+        )
         specific_volume_intf = (
             projection.primary_to_mortar_avg
             @ trace.trace
@@ -644,14 +648,14 @@ class Equations(pp.BalanceEquation):
         )
         density_upwinded = self.var_upwinded_interfaces(
             interfaces,
-            self.mixture.get_phase(1).mass_density(self.pressure(subdomains)),
+            self.mixture.get_phase(1).mass_density_operator(subdomains, self.pressure),
             discr,
         )
 
         eq = self.interface_mortar_flux_phase_1(interfaces) - (
             cell_volumes
             * (
-                self.normal_permeability(interfaces)
+                pp.ad.Scalar(self.solid.normal_permeability())
                 * normal_gradient  # this is 2/eps
                 * specific_volume_intf
                 * (
@@ -666,7 +670,7 @@ class Equations(pp.BalanceEquation):
             )
         )
 
-        eq.set_name("interface_darcy_flux_equation_phase_1")
+        eq.set_name("interface_mortar_flux_equation_phase_1")
         return eq
 
     # MISCELLANEA FOR EQUATIONS: -------------------------------------------------------------------------------------------------
@@ -799,7 +803,7 @@ class Equations(pp.BalanceEquation):
         )
         return var_upwinded
 
-    def pressure_trace(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+    def pressure_trace_phase_0(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """ """
         interfaces: list[pp.MortarGrid] = self.subdomains_to_interfaces(subdomains, [1])
         projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1)
@@ -810,13 +814,36 @@ class Equations(pp.BalanceEquation):
         pressure_trace = (
             discr.bound_pressure_cell @ self.pressure(subdomains)
             + discr.bound_pressure_face
-            @ (projection.mortar_to_primary_int @ self.interface_darcy_flux(interfaces))
+            @ (
+                projection.mortar_to_primary_int
+                @ self.interface_mortar_flux_phase_0(interfaces)
+            )
             + discr.bound_pressure_face @ self.bc_values_darcy(subdomains)
             + discr.vector_source @ self.vector_source(subdomains, material="fluid")
         )
         return pressure_trace
 
-    def darcy_flux(self, subdomains: list[pp.Grid], phase) -> pp.ad.Operator:
+    def pressure_trace_phase_1(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """ """
+        interfaces: list[pp.MortarGrid] = self.subdomains_to_interfaces(subdomains, [1])
+        projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1)
+        discr: Union[pp.ad.TpfaAd, pp.ad.MpfaAd] = self.darcy_flux_discretization(
+            subdomains
+        )
+
+        pressure_trace = (
+            discr.bound_pressure_cell @ self.pressure(subdomains)
+            + discr.bound_pressure_face
+            @ (
+                projection.mortar_to_primary_int
+                @ self.interface_mortar_flux_phase_1(interfaces)
+            )
+            + discr.bound_pressure_face @ self.bc_values_darcy(subdomains)
+            + discr.vector_source @ self.vector_source(subdomains, material="fluid")
+        )
+        return pressure_trace
+
+    def darcy_flux_phase_0(self, subdomains: list[pp.Grid], phase) -> pp.ad.Operator:
         """
         TODO: this is not two-phase... but do i need darcy_flux? I think I need only interface darcy flux
         NO, you need it for the flux. Why? I don't understand. I think we compute darcy fluc in the entire subdomin even though we need it only a the interface cells
@@ -829,21 +856,69 @@ class Equations(pp.BalanceEquation):
             subdomains
         )
 
+        mass_density = phase.mass_density_operator(subdomains, self.pressure)
+
+        expansion_matrix = sp.sparse.eye(
+            subdomains[0].num_cells
+        )  # hope there is only one grid
+        mat_list = [expansion_matrix] * self.nd
+        expansion_matrix = pp.ad.SparseArray(sp.sparse.vstack(mat_list))
+        rho = expansion_matrix @ mass_density
+
         flux: pp.ad.Operator = (
             discr.flux @ self.pressure(subdomains)
             + discr.bound_flux
             @ (
                 self.bc_values_darcy(subdomains)
                 + projection.mortar_to_primary_int
-                @ self.interface_darcy_flux(interfaces)
+                @ self.interface_mortar_flux_phase_0(interfaces)
             )
             + discr.vector_source
             @ (
-                phase.mass_density_operator(self.pressure(subdomains))
-                @ self.vector_source(subdomains, material="fluid")
+                rho  ### VECTOR source, not scalar source
+                * self.vector_source(subdomains, material="fluid")
             )  # NOTE: mass_density not upwinded
         )
-        flux.set_name("darcy_flux")
+
+        flux.set_name("darcy_flux_phase_0")
+        return flux
+
+    def darcy_flux_phase_1(self, subdomains: list[pp.Grid], phase) -> pp.ad.Operator:
+        """
+        TODO: this is not two-phase... but do i need darcy_flux? I think I need only interface darcy flux
+        NO, you need it for the flux. Why? I don't understand. I think we compute darcy fluc in the entire subdomin even though we need it only a the interface cells
+        - need only the direction, I never use its norm
+
+        """
+        interfaces: list[pp.MortarGrid] = self.subdomains_to_interfaces(subdomains, [1])
+        projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1)
+        discr: Union[pp.ad.TpfaAd, pp.ad.MpfaAd] = self.darcy_flux_discretization(
+            subdomains
+        )
+
+        mass_density = phase.mass_density_operator(subdomains, self.pressure)
+
+        expansion_matrix = sp.sparse.eye(
+            subdomains[0].num_cells
+        )  # hope there is only one grid
+        mat_list = [expansion_matrix] * self.nd
+        expansion_matrix = pp.ad.SparseArray(sp.sparse.vstack(mat_list))
+        rho = expansion_matrix @ mass_density
+
+        flux: pp.ad.Operator = (
+            discr.flux @ self.pressure(subdomains)
+            + discr.bound_flux
+            @ (
+                self.bc_values_darcy(subdomains)
+                + projection.mortar_to_primary_int
+                @ self.interface_mortar_flux_phase_1(interfaces)
+            )
+            + discr.vector_source
+            @ (
+                rho * self.vector_source(subdomains, material="fluid")
+            )  # NOTE: mass_density not upwinded
+        )
+        flux.set_name("darcy_flux_phase_0")
         return flux
 
     def darcy_flux_discretization(self, subdomains: list[pp.Grid]) -> pp.ad.MpfaAd:
@@ -862,7 +937,7 @@ class Equations(pp.BalanceEquation):
         size = int(np.sum([g.num_cells for g in grids]) * self.nd)
 
         # rho = phase.mass_density() ### just in case...
-        source = pp.wrap_as_ad_array(val, size=size, name="zero_vector_source")
+        source = pp.wrap_as_ad_array(val, size=size, name="gravity_vector_source")
 
         return source
 
@@ -1091,8 +1166,8 @@ class SolutionStrategyPressureMass(pp.SolutionStrategy):
                 data,
                 self.ppu_keyword,
                 {
-                    "interface_darcy_flux_phase_0": np.zeros(intf.num_cells),
-                    "interface_darcy_flux_phase_1": np.zeros(intf.num_cells),
+                    "interface_mortar_flux_phase_0": np.zeros(intf.num_cells),
+                    "interface_mortar_flux_phase_1": np.zeros(intf.num_cells),
                 },
             )
 
@@ -1112,15 +1187,15 @@ class SolutionStrategyPressureMass(pp.SolutionStrategy):
                     "ambient_dimension": self.nd,
                 },
             )
-            # I souldn't need this neither:
-            # pp.initialize_data(
-            #     sd,
-            #     data,
-            #     self.ppu_keyword,
-            #     {
-            #         "bc": self.bc_type_mobrho(sd),
-            #     },
-            # )
+
+            pp.initialize_data(
+                sd,
+                data,
+                self.ppu_keyword,
+                {
+                    "bc": self.bc_type_darcy(sd),
+                },
+            )
 
         for intf, intf_data in self.mdg.interfaces(return_data=True, codim=1):
             pp.initialize_data(
@@ -1133,7 +1208,9 @@ class SolutionStrategyPressureMass(pp.SolutionStrategy):
             )
 
     def bc_type_darcy(self, sd: pp.Grid) -> pp.BoundaryCondition:
-        """rewuired by tpfa (only?)"""
+        """required by tpfa, upwind
+        TODO: bc_type_darcy is a wrong name... change it
+        """
 
         boundary_faces = self.domain_boundary_sides(sd).all_bf
 
@@ -1266,14 +1343,14 @@ class SolutionStrategyPressureMass(pp.SolutionStrategy):
             )
 
             vals = (
-                self.darcy_flux([sd], self.mixture.get_phase(0))
+                self.darcy_flux_phase_0([sd], self.mixture.get_phase(0))
                 .evaluate(self.equation_system)
                 .val
             )
             data[pp.PARAMETERS][self.ppu_keyword].update({"darcy_flux_phase_0": vals})
 
             vals = (
-                self.darcy_flux([sd], self.mixture.get_phase(1))
+                self.darcy_flux_phase_1([sd], self.mixture.get_phase(1))
                 .evaluate(self.equation_system)
                 .val
             )
@@ -1454,7 +1531,7 @@ material_constants = {"fluid": fluid_constants, "solid": solid_constants}
 
 time_manager = pp.TimeManager(
     schedule=[0, 10],
-    dt_init=5e-2,
+    dt_init=1e-3,
     constant_dt=True,
     iter_max=10,
     print_info=True,
