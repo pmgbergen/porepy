@@ -146,7 +146,7 @@ if __name__ == "__main__":
 
     eos_l = pp.composite.peng_robinson.PengRobinsonEoS(False)
     eos_g = pp.composite.peng_robinson.PengRobinsonEoS(True)
-    species = pp.composite.load_fluid_species(["ethane", "heptane"])
+    species = pp.composite.load_species(["ethane", "heptane"])
     comps = [
         pp.composite.peng_robinson.H2O.from_species(species[0]),
         pp.composite.peng_robinson.CO2.from_species(species[1]),

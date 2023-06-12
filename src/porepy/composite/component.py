@@ -25,16 +25,16 @@ from __future__ import annotations
 
 import abc
 from dataclasses import asdict
-from typing import Generator
+from typing import Literal, overload
 
 import numpy as np
-from scipy import sparse as sps
-
 import porepy as pp
+
 from porepy.numerics.ad.operator_functions import NumericType
 
-from ._core import COMPOSITIONAL_VARIABLE_SYMBOLS, R_IDEAL
-from .chem_species import ChemicalSpeciesData, FluidSpeciesData
+from ._core import R_IDEAL
+from .chem_species import ChemicalSpecies, FluidSpecies
+from .composite_utils import safe_sum
 
 __all__ = [
     "Component",
@@ -42,7 +42,7 @@ __all__ = [
 ]
 
 
-class Component(abc.ABC, FluidSpeciesData):
+class Component(abc.ABC, FluidSpecies):
     """Abstract base class for components modelled inside a mixture.
 
     Components are chemical species which possibly go through phase transitions and
@@ -91,7 +91,7 @@ class Component(abc.ABC, FluidSpeciesData):
         """
 
     @classmethod
-    def from_species(cls, species: FluidSpeciesData) -> Component:
+    def from_species(cls, species: FluidSpecies) -> Component:
         """An instance factory creating an instance of this class based on a load
         fluid species represented by respective data class.
 
@@ -142,17 +142,22 @@ class Component(abc.ABC, FluidSpeciesData):
         return self.h_ideal(p, T) - T * R_IDEAL
 
 
-class Compound(Component):  # TODO fix molality to make it an ad.Function call
+class Compound(Component):
     """Abstract base class for compounds in a mixture.
 
     A compound is a simplified, but meaningfully generalized set of components inside a
     mixture, for which it makes sense to treat it as a single component.
 
-    It is represented by one component declared as the solvent, and arbitrary many other
-    species declared as solutes.
+    It is represents one species, the solvent, and contains arbitrary many solutes.
 
     A compound can appear in multiple phases and its thermodynamic properties are
     influenced by the presence of solutes.
+
+    Solutes are transportable and are represented by a molar fraction relative to
+    the :attr:`~Component.fraction` of the compound, i.e. the moles of a solute are
+    given by a product of mixture density, compound fraction and solute fraction.
+
+    The solvent fraction is eliminated by unity.
 
     Note:
         Due to the generalization, the solvent and solutes alone are not considered as
@@ -160,16 +165,7 @@ class Compound(Component):  # TODO fix molality to make it an ad.Function call
         but rather as parameters in the flash problem.
         Only the compound as a whole splits into various phases. Fractions in phases
         are associated with the compound.
-
-    This class provides variables representing fractions of solutes.
-    The solute fractions are formulated with respect to the component
-    :attr:`~Component.fraction`.
-    Solute fractions are secondary variables in the flash problem,
-    but primary (transportable) in the flow problem.
-
-    Note:
-        There is no variable representing the fraction of the solvent.
-        The solvent fraction is always expressed by unity through the solute fractions.
+        Solvent and solute fractions are not variables in the flash problem.
 
     Example:
         Brines with species salt and water as solute and solvent, where it is
@@ -181,319 +177,184 @@ class Compound(Component):  # TODO fix molality to make it an ad.Function call
         Another example would be the black-oil model, where black-oil is treated as a
         compound with various hydrocarbons as pseudo-components.
 
-    Parameters:
-        ad_system: AD system in which this component is present cell-wise in each
-            subdomain.
-        solvent: A pseudo-component representing the solvent.
-
     """
 
     def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
 
-        self._solutes: list[ChemicalSpeciesData] = list()
+        self._solutes: list[ChemicalSpecies] = list()
         """A list containing present solutes."""
 
-        self._solute_fractions: dict[
-            PseudoComponent, pp.ad.MixedDimensionalVariable
+        self.molalities: list[NumericType] = list()
+        """A list containing the molality for the solvent, followed by molalities for
+        present solutes.
+
+        Important:
+            Molalities must be computed and stored using (relative) fractions per
+            solute (see :meth:`compute_molalities`).
+
+        """
+
+        self.solute_fraction_of: dict[
+            ChemicalSpecies, pp.ad.MixedDimensionalVariable
         ] = dict()
-        """A dictionary containing the variables representing solute fractions for a
-        given pseudo-component (key)."""
+        """A dictionary containing per solute (key) the relative fraction of it
+        in this compound.
 
-    @property
-    def solvent(self) -> PseudoComponent:
-        """The pseudo-component representing the solvent, passed at instantiation"""
-        return self._solvent
+        Solute fractions indicate how many of the moles in the compound belong to the
+        solute.
 
-    @property
-    def solutes(self) -> Generator[PseudoComponent, None, None]:
-        """
-        Yields:
-            Pseudo-components modelled as solutes in this compound.
-
-        """
-        for solute in self._solutes:
-            yield solute
-
-    @property
-    def molar_mass(self) -> pp.ad.Operator:
-        """The molar mass of a compound depends on how much of the solutes is available.
-
-        It is a sum of the molar masses of present pseudo-components, weighed with their
-        respective fraction.
-
-        Returns:
-            An operator representing the molar mass of the compound,
-            depending on solute fractions.
-
-        """
-        M = self.solvent.molar_mass() * self.solution_fraction_of(self.solvent)
-
-        for solute in self.solutes:
-            M += solute.molar_mass() * self.solution_fraction_of(solute)
-
-        return M
-
-    def solute_fraction_name(self, solute: PseudoComponent) -> str:
-        """
-        Returns:
-            The name of the solute fraction,
-            composed of the general symbol and the solute name.
-
-        """
-        return f"{COMPOSITIONAL_VARIABLE_SYMBOLS['solute_fraction']}_{solute.name}"
-
-    def solution_fraction_of(self, pseudo_component: PseudoComponent) -> pp.ad.Operator:
-        """
         | Math. Dimension:        scalar
         | Phys. Dimension:        [-] fractional
 
+        Important:
+            1. Solute fractions are transportable quantities!
+            2. The Solvent fraction is not included. It can be obtained by unity of
+               fractions.
+
+        """
+
+    @property
+    def solutes(self) -> list[ChemicalSpecies]:
+        """Solutes present in this compound.
+
+        Important:
+            Solutes must be set before the compound is added to a mixture.
+
         Parameters:
-            pseudo_component: A pseudo-component present in this compound.
+            solutes: A list of solutes to be added to the compound.
+
+        """
+        return [s for s in self._solutes]
+
+    @solutes.setter
+    def solutes(self, solutes: list[ChemicalSpecies]) -> None:
+        # avoid double species
+        double = []
+        self._solutes = []
+        for s in solutes:
+            if s.CASr_number not in double:
+                self._solutes.append(s)
+                double.append(s.CASr_number)
+
+    @pp.ad.admethod
+    def compound_molar_mass(self, *X: tuple[NumericType]) -> NumericType:
+        """The molar mass of a compound depends on how much of the solutes is available.
+
+        It is a sum of the molar masses of present species, weighed with their
+        respective fraction, including the solvent.
+
+        Parameters:
+            *X: (Relative) solute fractions.
+
+        Raises:
+            AssertionError: If the number of provided values does not match the number
+                of present solutes.
 
         Returns:
-            A representation of the molar fraction of a present pseudo_component.
-
-            Fractions of solutes are represented by their respective variable.
-            The fraction of the solvent is represented by unity where
-
-                ``fraction_solute = 1 - sum_solutes solute_fraction``
-
-            Returns zero for any unknown pseudo-component.
+            The molar mass of the compound.
 
         """
+        assert len(X) == len(self._solutes), f"Need {len(self._solutes)} values."
+        M = self.molar_mass * (1 - safe_sum(X))
 
-        if pseudo_component == self.solvent:
-            # represent solvent fraction by unity
-            fraction = pp.ad.Scalar(1.0)
-            for solute in self.solutes:
-                fraction -= self._solute_fractions[solute]
+        for solute, x in zip(self._solutes, X):
+            M += solute.molar_mass * x
 
-            return fraction
+        return M
 
-        elif pseudo_component in self.solutes:
-            return self._solute_fractions[pseudo_component]
-        else:
-            return pp.ad.Scalar(0.0)
+    @overload
+    def compute_molalities(
+        self, *X: tuple[NumericType], store: Literal[True] = True
+    ) -> None:
+        # signature overload for default args
+        ...
 
-    def molality_of(self, solute: PseudoComponent) -> pp.ad.Operator | pp.ad.Scalar:
-        """
-        | Math. Dimension:        scalar
-        | Phys. Dimension:        [mol / kg]
+    @overload
+    def compute_molalities(
+        self, *X: tuple[NumericType], store: Literal[False] = False
+    ) -> list[NumericType]:
+        # signature overload for ``store==False``
+        ...
 
-        The molality ``m`` of a pseudo-component is calculated with respect to the total
-        number of moles in the mixture ``n``
+    def compute_molalities(
+        self, *X: tuple[NumericType], store: bool = True
+    ) -> list[NumericType] | None:
+        """Computes the molalities of present species, including the solvent.
 
-            ``n_compound = n * fraction_compound``,
-            ``m_solute = (n * fraction_compound * solute_fraction) ``,
-            ``/ (n * fraction_compound * solvent_fraction * molar_mass*solvent)``,
-            ``m_solute = solute_fraction / (solvent_fraction * molar_mass*solvent)``.
+        The first molality value belongs to the solvent, the remainder are ordered
+        as given by :meth:`solutes`.
 
         Note:
-            The molality of the solvent is its molar mass.
+            The solvent molality is always the reciprocal of the solvent molar mass.
+            Hence, it is always a scalar.
 
-            The molality of a solute not present in a compound is zero.
+        Parameters:
+            *X: Relative solute fractions.
+            store: ``default=True``
+
+                If True, the molalities are stored.
+
+        Raises:
+            AssertionError: If the number of provided values does not match the number
+                of present solutes.
 
         Returns:
-            An operator representing the molality of a solute,
-            i.e. number of moles of solute per ``kg`` of solvent.
+            A list of molality values if ``store=False``.
 
         """
-        if solute == self.solvent:
-            return pp.ad.Scalar(1.0 / self.solvent.molar_mass())
-        elif solute in self.solutes:
-            # get fractions of solute and solvent
-            fraction_solute = self.solution_fraction_of(solute)
-            fraction_solvent = self.solution_fraction_of(self.solvent)
-            # apply above formula
-            return fraction_solute / (fraction_solvent * self.solvent.molar_mass())
+        assert len(X) == len(self._solutes), f"Need {len(self._solutes)} values."
+
+        molalities = []
+
+        # molality of solvent
+        molalities.append(1 / self.molar_mass)
+
+        # solvent fraction
+        x_s = 1 - safe_sum(X)
+        for x in X:
+            m_i = x / (x_s * self.molar_mass)
+            molalities.append(m_i)
+
+        if store:
+            # for storage, derivatives are removed
+            molalities = [
+                m.val if isinstance(m, pp.ad.AdArray) else m for m in molalities
+            ]
+            self.molalities = molalities
         else:
-            return pp.ad.Scalar(0.0)
+            return molalities
 
-    def add_solute(self, solutes: PseudoComponent | list[PseudoComponent]) -> None:
-        """Adds a solute to the compound.
-
-        This method introduces new variables into the system, the solute fraction.
-
-        If a solute was already added, it is ignored.
-
-        Parameters:
-            solutes: One or multiple pseudo-components to be added to this compound.
-
-        Raises:
-            TypeError: If a user attempts to add a genuine component to a compound.
-
+    def fractions_from_molalities(
+        self, molalities: list[NumericType]
+    ) -> list[np.ndarray]:
         """
-        if isinstance(solutes, PseudoComponent):
-            solutes = [solutes]  # type: ignore
-
-        for solute in solutes:
-            if solutes not in self.solutes:
-                # sanity check if attempt to add a genuine components.
-                if isinstance(solute, Component):
-                    raise TypeError(
-                        f"Cannot add genuine component '{solute.name}' to a compound."
-                    )
-                # create name of solute fraction and respective variable
-                fraction_name = self.solute_fraction_name(solute)
-                solute_fraction = self.ad_system.create_variables(
-                    fraction_name, subdomains=self.ad_system.mdg.subdomains()
-                )
-
-                # store fraction and solute
-                self._solutes.append(solute)
-                self._solute_fractions[solute] = solute_fraction
-
-    def set_solute_fractions(
-        self,
-        fractions: dict[PseudoComponent, float | np.ndarray],
-        copy_to_state: bool = True,
-    ) -> None:
-        """Set the solute fractions per solute in this component.
-
-        The fraction can either be given as an array with entries per cell,
-        or as float for a homogenous distribution.
-
-        Only fractions for solutes are to be passed,
-        since the solvent fraction is represented by unity.
-
         Note:
-            Per cell, the sum of fractions have to be in ``[0,1)``,
-            where the right interval end is open on purpose.
-            This means the solvent **has** to be always present.
-            As of now, the chemistry when the solvent disappears is not considered.
+            Molalities must only be given for solutes, not the solvent.
 
         Parameters:
-            fractions: A dictionary containing per solute (key) the respective fraction.
-            copy_to_state: ``default=True``
-
-                Copies the values to the STATE of the AD variable,
-                additionally to ITERATE. Defaults to True.
+            molalities: A list of molalities per present solute.
 
         Raises:
-            ValueError: If
+            AssertionError: If the number of provided values does not match the number
+                of present solutes.
 
-                - any value breaches above restriction,
-                - the cell-wise sum is greater or equal to 1,
-                - values are missing for a present solute.
-
-            AssertionError: If array-like fractions don't have ``num_cells`` values.
-
-        """
-
-        nc = self.ad_system.mdg.num_subdomain_cells()
-        # sum of fractions for validity check
-        fraction_sum = np.zeros(nc)
-
-        # loop over present solutes to ensure we have fractions for every solute.
-        for solute in self.solutes:
-
-            # check if fractions are passed for present solute
-            if solute not in fractions:
-                raise ValueError(f"Missing fraction for solute {solute.name}.")
-
-            frac_val = fractions[solute]
-            # convert to array
-            if not isinstance(frac_val, np.ndarray):
-                frac_val = np.ones(nc) * frac_val
-
-            # assert enough values are present
-            assert (
-                len(frac_val) == nc
-            ), f"Array values for solute {solute.name} do not cover the whole domain."
-            # check validity of fraction values
-            if np.any(frac_val < 0.0) or np.any(frac_val >= 1.0):
-                raise ValueError(f"Values for solute {solute.name} not in [0,1).")
-
-            # sum values
-            fraction_sum += frac_val
-
-            # set values for fraction
-            frac_name = self.solute_fraction_name(solute)
-            self.ad_system.set_variable_values(
-                frac_val,
-                variables=[frac_name],
-                to_iterate=True,
-                to_state=copy_to_state,
-            )
-
-        # last validity check to ensure the solvent is present everywhere
-        if np.any(fraction_sum >= 1.0):
-            raise ValueError("Sum of solute fractions is >= 1.")
-
-    def set_solute_fractions_with_molality(
-        self, molalities: dict[PseudoComponent, np.ndarray | float]
-    ) -> None:
-        """Uses the formula given in :meth:`molality_of` to set solute fractions using
-        values for molality per solute.
-
-        After computing fractions based on given molalities,
-        :meth:`set_solute_fractions` is called to set the fraction,
-        i.e. the the same restrictions apply and errors will be raised if molality
-        values violate the restrictions on respective fractions.
-
-        Analogously to fractions, molal values can be set cell-wise in an array or
-        homogeneously using numbers.
-
-        It holds for every solute ``c``:
-
-            ``molality_c * (1 - sum_i fraction_i) * molar_M_solvent = fraction_c``,
-            ``molality_c * molar_M_solvent =``
-            ``(1 + molality_c * molar_M_solvent)  * fraction_c``
-            ``+ molality_c * molar_M_solvent * (sum_{i != c} fraction_i``.
-
-        Parameters:
-            molalities: A dictionary containing per solute (key) the respective molality
-                values.
-
-        Raises:
-            ValueError: If the molality for a present solute is missing.
+        Returns:
+            A list of relative solute fractions calculated from molalities,
+            where the first fraction always corresponds to the solute fraction.
 
         """
+        # strip off derivatives if Ad
+        molalities = [m.val if isinstance(m, pp.ad.AdArray) else m for m in molalities]
 
-        nc = self.ad_system.mdg.num_subdomain_cells()
+        m_sum = safe_sum(molalities)
 
-        # data structure to set resulting fractions
-        fractions: dict[PseudoComponent, np.ndarray] = dict()
-        # rhs and matrix for linear system to convert to fractions
-        rhs_: list[np.ndarray] = list()
-        A_: list[sps.spmatrix] = list()
-        # column slicing to solute fractions
-        fraction_names = [self.solute_fraction_name(solute) for solute in self.solutes]
-        projection = self.ad_system.projection_to(fraction_names)
+        X: list[np.ndarray] = []
 
-        # loop over present solutes and construct row-blocks of linear system for
-        # conversion
-        for solute in self.solutes:
-            if solute not in molalities:
-                raise ValueError(f"Missing molality for solute {solute.name}.")
+        for m in molalities:
+            # See https://en.wikipedia.org/wiki/Molality
+            x_i = self.molar_mass * m / (1 + self.molar_mass * m_sum)
+            X.append(x_i)
 
-            molality = molalities[solute]
-            # convert to array
-            if not isinstance(molality, np.ndarray):
-                molality = np.ones(nc) * molality
-
-            rhs_.append(self.solvent.molar_mass() * molality)
-
-            A_block = (1 + rhs_[-1]) * self.solution_fraction_of(solute)
-            for other_solute in self.solutes:
-                if other_solute != solute:
-                    A_block += rhs_[-1] * self.solution_fraction_of(other_solute)
-
-            A_block = A_block.evaluate(self.ad_system).jac * projection.transpose()
-            A_.append(A_block)
-
-        # compute fractions by solving the linear system
-        A = sps.vstack(A_, format="csr")
-        rhs = np.concatenate(rhs_)
-        fractions = sps.linalg.spsolve(A, rhs)
-
-        # extract computed fractions and assemble dictionary for setting fractions
-        for i, solute in enumerate(self.solutes):
-            idx_start = i * nc
-            idx_end = (i + 1) * nc
-            solute_fraction = fractions[idx_start:idx_end]
-            fractions[solute] = solute_fraction
-
-        # set computed fractions
-        self.set_solute_fractions(fractions)
+        # Return including solvent fraction
+        return [1 - safe_sum(X)] + X

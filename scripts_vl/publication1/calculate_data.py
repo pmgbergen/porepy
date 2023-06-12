@@ -51,15 +51,15 @@ from _config import (
 COMPUTE_THERMO_DATA = True
 COMPUTE_PT_DATA_quickshot = True
 COMPUTE_PT_DATA = True
-COMPUTE_PH_DATA = False
-COMPUTE_HV_DATA = False
+COMPUTE_PH_DATA = True
+COMPUTE_HV_DATA = True
 
 if __name__ == "__main__":
 
     total_time_start = time.time()
 
     logger.info("Fetching constant parameters ..\n")
-    species = pp.composite.load_fluid_species(SPECIES)
+    species = pp.composite.load_species(SPECIES)
 
     comps = [
         pp.composite.peng_robinson.H2O.from_species(species[0]),

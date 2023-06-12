@@ -1118,7 +1118,9 @@ class FlashNR:
                 # )
                 for _ in range(25):
                     # solve constraints
-                    thd_state, res_is_zero = self._guess_pT_for_hv(thd_state, num_vals, 2)
+                    thd_state, res_is_zero = self._guess_pT_for_hv(
+                        thd_state, num_vals, 2
+                    )
                     # Update fractions using the updated T
                     thd_state = self._guess_fractions(
                         thd_state, num_vals, num_iter=2, guess_K_values=False
@@ -1774,7 +1776,7 @@ class FlashNR:
                 [prop.rho for prop in phase_props], state.s
             )
             v_mix = rho_mix ** (-1)
-            u_mix = h_mix - state.p * v_mix
+            # u_mix = h_mix - state.p * v_mix
 
             H = (h_mix - state.h) / h_norm
             V = (v_mix - state.v) / state.v
@@ -1803,15 +1805,15 @@ class FlashNR:
                 # dvdT_ = (state.v - h_mix.jac[:, :num_vals].diagonal()) / state.T.val
                 # dv = dvdT / np.abs(dvdp)
                 cor = (state.y[1].val > 1e-3) & (v_mix.val > state.v) & (dT < 0)
-                dT[cor] = 0. 
+                dT[cor] = 0.0
                 state.T.val = state.T.val + factor_T * dT
 
                 cor_p = (state.y[1].val > 1e-3) & (dp < 0) & (v_mix.val > state.v)
-                dp[cor_p] = 0.
+                dp[cor_p] = 0.0
                 state.p.val = state.p.val + factor_p * dp
                 # correction for gas-like mixtures
-                cor_p_2 = (v_mix.val > state.v) & (state.y[1].val >= 1.)
-                state.p.val[cor_p_2] *= (2 - factor_p)
+                cor_p_2 = (v_mix.val > state.v) & (state.y[1].val >= 1.0)
+                state.p.val[cor_p_2] *= 2 - factor_p
                 # correction for liquid-like mixtures
                 cor_p_3 = (h_mix.val < state.h) & (state.y[0].val >= 1 - 1e-1)
                 state.p.val[cor_p_3] *= 1.1

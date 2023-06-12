@@ -641,7 +641,7 @@ def create_mixture(
 
     """
 
-    species = pp.composite.load_fluid_species(SPECIES)
+    species = pp.composite.load_species(SPECIES)
 
     comps = [
         pp.composite.peng_robinson.H2O.from_species(species[0]),
@@ -1024,7 +1024,7 @@ def calculate_porepy_data(
 def plot_crit_point_pT(axis: plt.Axes):
     """Plot critical pressure and temperature in p-T plot for components H2O and CO2."""
 
-    S = pp.composite.load_fluid_species(SPECIES)
+    S = pp.composite.load_species(SPECIES)
 
     img = [
         axis.plot(

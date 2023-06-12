@@ -2,7 +2,7 @@ import porepy as pp
 import numpy as np
 import matplotlib.pyplot as plt
 
-species = pp.composite.load_fluid_species(['H2O', 'CO2'])
+species = pp.composite.load_species(['H2O', 'CO2'])
 
 comps = [
     pp.composite.peng_robinson.H2O.from_species(species[0]),

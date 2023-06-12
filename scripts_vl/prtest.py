@@ -11,7 +11,7 @@ h = vec * -13086.1248170987
 v = vec * 0.000113560243476885
 verbosity = 2
 
-species = pp.composite.load_fluid_species(chems)
+species = pp.composite.load_species(chems)
 
 comps = [
     pp.composite.peng_robinson.H2O.from_species(species[0]),

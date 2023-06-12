@@ -3,23 +3,48 @@ import porepy as pp
 
 chems = ["H2O", "CO2"]
 
-z1 = np.ones(1) * 1e-5
-p = np.ones(1) * 15
-T = np.ones(1) * 643.8775510204082
-X = [z1, 1 - z1]
+vec = np.ones(3)
+z = [vec * 0.01]  # only co2 fraction is enough
+salt = vec * 0.01
+p = vec * 7e6
+T = vec * 550.
+verbosity = 2
 
-species = pp.composite.load_fluid_species(chems)
+species = pp.composite.load_species(chems)
 
 comps = [
-    pp.composite.peng_robinson.H2O.from_species(species[0]),
+    pp.composite.peng_robinson.NaClBrine.from_species(species[0]),
     pp.composite.peng_robinson.CO2.from_species(species[1]),
 ]
 
-eos_l = pp.composite.peng_robinson.PengRobinsonEoS(False)
-eos_l.components = comps
+phases = [
+    pp.composite.Phase(pp.composite.peng_robinson.PengRobinsonEoS(gaslike=False), name='L'),
+    pp.composite.Phase(pp.composite.peng_robinson.PengRobinsonEoS(gaslike=True), name='G'),
+]
 
-# prop_l = eos_l.compute(p, T, X)
-# G_l = eos_l._g_ideal(T, X) + eos_l._g_dep(prop_l.A, prop_l.B, prop_l.Z)
+mix = pp.composite.NonReactiveMixture(comps, phases)
 
-Z_L, Z_G = eos_l._Z(np.array([1e-7, 0.35]), np.array([0.01, 0.15]), True, True, True)
-print("")
+mix.set_up()
+
+[
+    mix.system.set_variable_values(val, [comp.fraction.name], 0, 0)
+    for val, comp in zip(z, comps)
+]
+
+comps[0].compute_molalities(salt, store=True)
+x = comps[0].fractions_from_molalities(comps[0].molalities[1:])
+
+flash = pp.composite.FlashNR(mix)
+flash.use_armijo = True
+flash.armijo_parameters["rho"] = 0.99
+flash.armijo_parameters["j_max"] = 200
+flash.armijo_parameters["return_max"] = True
+flash.newton_update_chop = 1.0
+flash.tolerance = 1e-5
+flash.max_iter = 120
+
+success, results_pT = flash.flash(
+    state={'p': p, 'T': T}, eos_kwargs={'apply_smoother': True},
+    feed = z,
+    verbosity=verbosity,
+)

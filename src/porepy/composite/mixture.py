@@ -53,7 +53,7 @@ import porepy as pp
 from porepy.numerics.ad.operator_functions import NumericType
 
 from ._core import COMPOSITIONAL_VARIABLE_SYMBOLS
-from .component import Component
+from .component import Component, Compound
 from .composite_utils import normalize_fractions, safe_sum
 from .phase import Phase, PhaseProperties
 
@@ -621,6 +621,18 @@ class BasicMixture:
 
         """
 
+        self.solute_fraction_variables: dict[Compound, list[str]] = dict()
+        """A dictionary containing per compound (key) names of solute fractions
+        for each solute in that compound.
+
+        Note:
+            Solute fractions are assumed constant in non-reactive mixtures.
+            They are not used anywhere in the flash by default.
+
+        This map is created in :meth:`set_up`.
+
+        """
+
         self.y_R: pp.ad.Operator
         """A representation of the :meth:`~porepy.composite.phase.Phase.fraction` of the
         :meth:`reference_phase` by unity, using the fractions of other present phases.
@@ -955,8 +967,9 @@ class BasicMixture:
         self.reference_phase_eliminated = bool(eliminate_ref_phase)
 
         ## Creating fractional variables.
-        # First, create all component fractions.
+        # First, create all component fractions and solute fraction for compounds
         variables: list[str] = []
+        solute_variables: dict[Compound, list[str]] = dict()
         for comp in self.components:
             if comp != self.reference_component:
                 name = (
@@ -965,6 +978,18 @@ class BasicMixture:
                 )
                 comp.fraction = self._instantiate_frac_var(ad_system, name, domains)
                 variables.append(name)
+
+            if isinstance(comp, Compound):
+                solute_variables.update({comp: []})
+                for solute in comp.solutes:
+                    name = (
+                        f"{COMPOSITIONAL_VARIABLE_SYMBOLS['solute_fraction']}"
+                        + f"_{solute.name}_{comp.name}"
+                    )
+                    comp.solute_fraction_of[solute] = self._instantiate_frac_var(
+                        ad_system, name, domains
+                    )
+                    solute_variables[comp].append(name)
 
         z_R: pp.ad.Operator = self.evaluate_unity(
             [c.fraction for c in self.components if c != self.reference_component]
@@ -982,6 +1007,7 @@ class BasicMixture:
             )
             variables.append(name)
         self.feed_fraction_variables = variables
+        self.solute_fraction_variables = solute_variables
 
         # Second, create all saturations.
         # Eliminate ref phase saturation by unity, if requested.

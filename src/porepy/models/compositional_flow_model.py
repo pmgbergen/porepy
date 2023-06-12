@@ -277,7 +277,7 @@ class CompositionalFlowModel:
 
         """
         ## creating composition
-        species = pp.composite.load_fluid_species(self.species)
+        species = pp.composite.load_species(self.species)
 
         comps = [
             pp.composite.peng_robinson.H2O.from_species(species[0]),
