@@ -9,12 +9,7 @@ import pdb
 
 
 class Phase(abc.ABC):
-    """
-    https://github.com/pmgbergen/porepy/blob/539f876e3cda7f5b911db9784210fceba19980ea/src/porepy/composite/phase.py
-
-    Termodynamics properties, pressure and temperature, outside Phase. But each phase has its own pressure due to capillary
-    so, reference pressure outside and phase_pressure inside?
-    """
+    """ """
 
     def __init__(self, name: str = "", rho0: float = 1) -> None:
         self._name = name

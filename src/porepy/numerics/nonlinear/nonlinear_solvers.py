@@ -40,7 +40,7 @@ class NewtonSolver:
 
         while iteration_counter <= self.params["max_iterations"] and not is_converged:
             # while True:
-            print("\n\n\n NEWTON iteration_counter = ", iteration_counter)
+            print("\n NEWTON iteration_counter = ", iteration_counter)
 
             # pdb.set_trace()
 

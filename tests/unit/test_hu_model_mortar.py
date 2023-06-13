@@ -762,14 +762,14 @@ class Equations(pp.BalanceEquation):
         """
         subdomains = self.interfaces_to_subdomains(interfaces)
         discr = self.interface_ppu_discretization(interfaces, flux_array_key)
-        rho_mob = phase.mass_density_operator(
+        rho_over_mu = phase.mass_density_operator(
             subdomains, self.pressure
         ) * pp.tobedefined.mobility.mobility_operator(
             subdomains, phase.saturation_operator, self.dynamic_viscosity
         )
 
         flux: pp.ad.Operator = self.interface_advective_flux_phase_0(
-            interfaces, rho_mob, discr
+            interfaces, rho_over_mu, discr
         )
         flux.set_name("interface_fluid_mass_flux")
         return flux
@@ -777,19 +777,17 @@ class Equations(pp.BalanceEquation):
     def interface_fluid_mass_flux_phase_1(
         self, interfaces: list[pp.MortarGrid], phase, flux_array_key
     ) -> pp.ad.Operator:
-        """TODO: redundant input
-        TODO: consider the idea to use var_upwinded_interfaces
-        """
+        """ """
         subdomains = self.interfaces_to_subdomains(interfaces)
         discr = self.interface_ppu_discretization(interfaces, flux_array_key)
-        rho_mob = phase.mass_density_operator(
+        rho_over_mu = phase.mass_density_operator(
             subdomains, self.pressure
         ) * pp.tobedefined.mobility.mobility_operator(
             subdomains, phase.saturation_operator, self.dynamic_viscosity
         )
 
         flux: pp.ad.Operator = self.interface_advective_flux_phase_1(
-            interfaces, rho_mob, discr
+            interfaces, rho_over_mu, discr
         )
         flux.set_name("interface_fluid_mass_flux")
         return flux
@@ -978,7 +976,8 @@ class Equations(pp.BalanceEquation):
         """ """
         normals = self.outwards_internal_boundary_normals(
             interfaces, unitary=True  # type: ignore[call-arg]
-        )
+        )  ### these are actually normals, so -1,0,1
+
         subdomain_neighbors = self.interfaces_to_subdomains(interfaces)
         projection = pp.ad.MortarProjections(
             self.mdg, subdomain_neighbors, interfaces, dim=self.nd
@@ -1046,6 +1045,9 @@ class SolutionStrategyPressureMass(pp.SolutionStrategy):
     def prepare_simulation(self) -> None:
         """ """
         self.set_geometry()
+
+        pp.plot_grid(self.mdg, alpha=0.1, info="c")
+        pp.plot_fractures
 
         self.initialize_data_saving()
 
@@ -1150,28 +1152,24 @@ class SolutionStrategyPressureMass(pp.SolutionStrategy):
                     .saturation_operator([sd])
                 )
 
-                # saturation_variable = self.equation_system.md_variable(
-                #     "saturation", [sd]
-                # )
-
-                saturation_values = np.zeros(sd.num_cells)
-                y_max = self.size  # TODO: not 100% sure size = y_max
-                saturation_values[
-                    np.where(sd.cell_centers[1] >= y_max / 2)
-                ] = 1.0  # TODO: HARDCODED for 2D
+                saturation_values = np.ones(sd.num_cells)
 
                 self.equation_system.set_variable_values(
                     saturation_values,
                     variables=[saturation_variable],
                     time_step_index=0,
-                    iterate_index=0,  ### not totally clear, aqp you have to change both timestep values and iterate
-                )  # TODO: i don't understand, this stores the value in data[pp.TIME_STEP_SOLUTION]["saturation"] without modifying the value of saturation
+                    iterate_index=0,
+                )
 
                 pressure_variable = self.pressure([sd])
 
-                pressure_values = (
-                    2 - 1 * sd.cell_centers[1] / y_max
-                )  # TODO: hardcoded for 2D
+                if sd.dim == 2:
+                    print("setting IC for 2D grid")
+                    pressure_values = np.ones(sd.num_cells)
+                else:  # sd.dim == 1
+                    print("setting IC for 1D grid")
+                    # pressure_values = np.zeros(sd.num_cells)
+                    pressure_values = np.ones(sd.num_cells)
 
                 self.equation_system.set_variable_values(
                     pressure_values,
@@ -1180,12 +1178,7 @@ class SolutionStrategyPressureMass(pp.SolutionStrategy):
                     iterate_index=0,
                 )
 
-        # just copied, fix it:
         for sd, data in self.mdg.subdomains(return_data=True):
-            # aperture = np.ones(sd.num_cells) * np.power(
-            #     7e-2, self.mdg.dim_max() - sd.dim
-            # )
-
             pp.initialize_data(
                 sd,
                 data,
@@ -1193,7 +1186,6 @@ class SolutionStrategyPressureMass(pp.SolutionStrategy):
                 {
                     "darcy_flux_phase_0": np.zeros(sd.num_faces),
                     "darcy_flux_phase_1": np.zeros(sd.num_faces),
-                    # "aperture": aperture,
                 },
             )
         for intf, data in self.mdg.interfaces(return_data=True):
@@ -1334,10 +1326,6 @@ class SolutionStrategyPressureMass(pp.SolutionStrategy):
         """ """
         super().set_nonlinear_discretizations()  # TODO: EH? It does literally nothing...!
 
-        # self.add_nonlinear_discretization(
-        #     self.interface_ppu_discretization(self.mdg.interfaces()).flux,
-        # )
-
     def before_nonlinear_iteration(self):
         """ """
 
@@ -1413,6 +1401,55 @@ class SolutionStrategyPressureMass(pp.SolutionStrategy):
 
         super().before_nonlinear_iteration()
 
+        # TEST: ----------------------------------
+
+        # for intf, data in self.mdg.interfaces(return_data=True, codim=1):
+        #     mortar = (
+        #         self.interface_mortar_flux_equation_phase_1([intf])
+        #         .evaluate(self.equation_system)
+        #         .val
+        #     )
+
+        # # assert np.all(mortar == np.array([1, 1, -1, -1])) # phase 0, delta p = 0, g = 1 # PASSED
+        # assert np.all(
+        #     mortar == np.array([0.5, 0.5, -0.5, -0.5])
+        # )  # phase 1, delta p = 0, g = 1 # PASSED # remember that this mortar flux is NOT the mass flux
+        # # assert np.all(
+        # #     mortar == np.array([0, 0, 0, 0])
+        # # )  # phase 0 and 1,  delta p = 0, g = 0 # PASSED
+        # # assert np.all(
+        # #     mortar == np.array([-20, -20, -20, -20])
+        # # )  # phase 0 and 1, delta p = 1, g = 0 # PASSED
+
+        # pdb.set_trace()
+
+        for intf, data in self.mdg.interfaces(return_data=True, codim=1):
+            mass_flux = (
+                self.interface_fluid_mass_flux_phase_0(
+                    [intf], self.mixture.get_phase(0), "interface_mortar_flux_phase_0"
+                )
+                .evaluate(self.equation_system)
+                .val
+            )
+
+        print(mass_flux)
+        pdb.set_trace()
+
+        # assert np.all(mortar == np.array([1, 1, -1, -1])) # phase 0, delta p = 0, g = 1 # TODO
+        assert np.all(
+            mass_flux == np.array([0, 0, 0, 0])
+        )  # phase 1, delta p = 0, g = 1 # PASSED
+        # assert np.all(
+        #     mortar == np.array([0, 0, 0, 0])
+        # )  # phase 0 and 1,  delta p = 0, g = 0 # TODO
+        # assert np.all(
+        #     mortar == np.array([-20, -20, -20, -20])
+        # )  # phase 0 and 1, delta p = 1, g = 0 # TODO
+
+        print("\n\n\n === NOT SURE ABOUT THE SIGN OF mortar. ASK AND CHECK === \n\n\n")
+
+        pdb.set_trace()
+
     def after_nonlinear_iteration(self, solution_vector: np.ndarray) -> None:
         """ """
         self._nonlinear_iteration += 1
@@ -1421,75 +1458,8 @@ class SolutionStrategyPressureMass(pp.SolutionStrategy):
             values=solution_vector, additive=True, iterate_index=0
         )
 
-        # added:
-        # print("self.time_manager.time = ", self.time_manager.time)
-        # if np.isclose(np.mod(self.time_manager.time, 0.002), 0, rtol=0, atol=1e-5):
-        #     for sd, _ in self.mdg.subdomains(return_data=True):
-        #         gigi = (
-        #             self.mixture.mixture_for_subdomain(self.equation_system, sd)
-        #             .get_phase(0)
-        #             .saturation
-        #         )
-
-        #         mario = (
-        #             self.mixture.mixture_for_subdomain(self.equation_system, sd)
-        #             .get_phase(1)
-        #             .saturation
-        #         )
-
-        #         # sss = self.equation_system.md_variable(
-        #         #     "saturation", self.mdg.subdomains()
-        #         # ).evaluate(self.equation_system)
-
-        #         ppp = self.equation_system.md_variable(
-        #             "pressure", self.mdg.subdomains()
-        #         ).evaluate(self.equation_system)
-
-        #         print("saturation = ", mario.val)
-        #         print("pressure = ", ppp.val)
-
-        #         pp.plot_grid(
-        #             sd,
-        #             gigi.val,
-        #             alpha=0.5,
-        #             info="c",
-        #             title="saturation " + str(self.ell),
-        #         )
-        #         # pp.plot_grid(
-        #         #     sd,
-        #         #     sss.val,
-        #         #     alpha=0.5,
-        #         #     info="c",
-        #         #     title="saturation " + str(self.ell),
-        #         # )
-        #         pp.plot_grid(sd, ppp.val, alpha=0.5, info="c", title="pressure")
-
     def eb_after_timestep(self):
         """ """
-        print("self.time_manager.time = ", self.time_manager.time)
-        if np.isclose(np.mod(self.time_manager.time, 0.01), 0, rtol=0, atol=1e-5):
-            for sd, _ in self.mdg.subdomains(return_data=True):
-                gigi = (
-                    self.mixture.mixture_for_subdomain(self.equation_system, sd)
-                    .get_phase(0)
-                    .saturation
-                )
-
-                ppp = self.equation_system.md_variable(
-                    "pressure", self.mdg.subdomains()
-                ).evaluate(self.equation_system)
-
-                print("saturation = ", gigi.val)
-                print("pressure = ", ppp.val)
-
-                pp.plot_grid(
-                    sd,
-                    gigi.val,
-                    alpha=0.5,
-                    info="",
-                    title="saturation " + str(self.ell),
-                )
-                pp.plot_grid(sd, ppp.val, alpha=0.5, info="", title="pressure")
 
 
 class MyModelGeometry(pp.ModelGeometry):
@@ -1502,7 +1472,7 @@ class MyModelGeometry(pp.ModelGeometry):
         self.fracture_network = pp.create_fracture_network(self.fractures, self.domain)
 
         self.mdg = pp.create_mdg(
-            "simplex",
+            "cartesian",
             self.meshing_arguments(),
             self.fracture_network,
             **self.meshing_kwargs(),
@@ -1521,25 +1491,19 @@ class MyModelGeometry(pp.ModelGeometry):
 
     def set_domain(self) -> None:
         """ """
-        self.size = 1 / self.units.m
-
-        # structired square:
-        # self._domain = pp.applications.md_grids.domains.nd_cube_domain(2, self.size)
-
-        # unstructred unit square:
-        bounding_box = {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1}
-        self._domain = pp.Domain(bounding_box=bounding_box)
+        self.size = 2 / self.units.m
+        self._domain = pp.applications.md_grids.domains.nd_cube_domain(2, self.size)
 
     def set_fractures(self) -> None:
         """ """
-        frac1 = pp.LineFracture(np.array([[0.2, 0.7], [0.7, 0.7]]))
+        frac1 = pp.LineFracture(np.array([[0.0, 2.0], [1.0, 1.0]]))
         self._fractures: list = [frac1]
 
     def meshing_arguments(self) -> dict[str, float]:
         """ """
         default_meshing_args: dict[str, float] = {
-            "cell_size": 0.1 / self.units.m,
-            "cell_size_fracture": 0.05 / self.units.m,
+            "cell_size": 1 / self.units.m,
+            "cell_size_fracture": 1 / self.units.m,
         }
         return self.params.get("meshing_arguments", default_meshing_args)
 
@@ -1563,34 +1527,21 @@ class PartialFinalModel(
     """ """
 
 
-class FinalModel(PartialFinalModel):  # I'm sorry...
+class FinalModel(PartialFinalModel):
     def __init__(self, mixture, params: Optional[dict] = None):
         super().__init__(params)
         self.mixture = mixture
         self.ell = 0  # 0 = wetting, 1 = non-wetting
-        self.gravity_value = 1  # pp.GRAVITY_ACCELERATION
-        self.dynamic_viscosity = 1  # TODO: it is hardoced everywhere, you know...
+        self.gravity_value = 1
+        self.dynamic_viscosity = 1
 
 
-# fluid_constants = pp.FluidConstants(
-#     {
-#         "compressibility": 1,
-#         "density": 1,  # TODO: is this the reference density?
-#         "normal_thermal_conductivity": 1,
-#         "pressure": 0,
-#         "specific_heat_capacity": 1,
-#         "temperature": 0,
-#         "thermal_conductivity": 1,
-#         "thermal_expansion": 0,
-#         "viscosity": 1,
-#     }
-# )
 fluid_constants = pp.FluidConstants({})
 solid_constants = pp.SolidConstants(
     {
         "porosity": 0.25,
         "permeability": 1,
-        "normal_permeability": 1e0,
+        "normal_permeability": 1,
         "residual_aperture": 0.1,
     }
 )
@@ -1599,7 +1550,7 @@ material_constants = {"fluid": fluid_constants, "solid": solid_constants}
 
 time_manager = pp.TimeManager(
     schedule=[0, 10],
-    dt_init=1e-3,
+    dt_init=5e-4,
     constant_dt=True,
     iter_max=10,
     print_info=True,

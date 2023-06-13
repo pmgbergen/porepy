@@ -98,6 +98,8 @@ from typing import Optional, Union
 import numpy as np
 from numpy.typing import ArrayLike
 
+import pdb
+
 __all__ = ["TimeManager"]
 
 
@@ -319,13 +321,11 @@ class TimeManager:
             # If the time step is constant, check that the scheduled times and the time
             # step are compatible. See documentation of ``schedule``.
             sim_times = np.arange(schedule[0], schedule[-1] + dt_init, dt_init)
-            compat_rtol = 1e-05
-            compat_atol = 1e-08
+            print("time_step_control.py mod")
+            compat_rtol = 1e-7  # 1e-05
+            compat_atol = 1e-9  # 1e-08
             is_compatible = self.is_schedule_in_simulated_times(
-                schedule,
-                sim_times,
-                rtol=compat_rtol,
-                atol=compat_atol,
+                schedule, sim_times, rtol=compat_rtol, atol=compat_atol
             )
             if not is_compatible:
                 msg = (

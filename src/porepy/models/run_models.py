@@ -83,13 +83,14 @@ def run_time_dependent_model(model, params: dict) -> None:
                 model.time_manager.dt,
             )
         )
-        print("BEFORE solver.solve:")
+        # print("BEFORE solver.solve:")
 
         solver.solve(model)
-        print(
-            "AFTER solver.solve --------------------------------------------------------"
-        )
+        # print(
+        #     "AFTER solver.solve --------------------------------------------------------"
+        # )
         model.time_manager.compute_time_step()
+        model.eb_after_timestep()
 
     model.after_simulation()
 

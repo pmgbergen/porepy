@@ -1577,7 +1577,7 @@ class EquationSystem:
 
         """
 
-        print("\n\n inside assemble_subsystem")
+        # print("\n\n inside assemble_subsystem")
         if variables is None:
             variables = self._variables
 
