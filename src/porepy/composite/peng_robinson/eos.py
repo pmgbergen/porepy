@@ -840,7 +840,7 @@ class PengRobinsonEoS(AbstractEoS):
             The thermal conductivity.
 
         """
-        return 1.
+        return 10
 
     # TODO
     def _mu(self, p: NumericType, T: NumericType, Z: NumericType) -> NumericType:
