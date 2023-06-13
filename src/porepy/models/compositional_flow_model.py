@@ -95,7 +95,7 @@ class CompositionalFlowModel:
         """Timestep size."""
         self.dt.value = 0.1
 
-        self.porosity = 1.0
+        self.porosity = 0.2
         """Base porosity of model domain."""
         self.permeability = 0.03
         """Base permeability of model domain."""
@@ -112,7 +112,7 @@ class CompositionalFlowModel:
         """Initial pressure in the domain in MPa."""
         self.initial_temperature: float = 530
         """Initial temperature in the domain in K."""
-        self.initial_component_fractions: list[float] = [0.99, 0.01]
+        self.initial_component_fractions: list[float] = [0.9, 0.1]
         """Contains per component in composition the initial feed fraction."""
         self.initial_solute_fractions: list[float] = [0.08]
         """Contains initial solute fractions per compound and its solutes"""
@@ -238,8 +238,8 @@ class CompositionalFlowModel:
         """Assigns a cartesian grid as computational domain.
         Overwrites/sets the instance variables 'mdg'.
         """
-        phys_dims = [6, 3]
-        n_cells = [6, 3]
+        phys_dims = [50, 15]
+        n_cells = phys_dims
         # n_cells = [2, 1]
         bounding_box_points = np.array([[0, phys_dims[0]], [0, phys_dims[1]]])
         self.box = pp.geometry.domain.bounding_box_of_point_cloud(bounding_box_points)
