@@ -1850,37 +1850,6 @@ class MixedDimensionalVariable(Variable):
         return s
 
 
-# class Tree:
-#     """Simple implementation of a Tree class. Used to represent combinations of
-#     Ad operators.
-
-#     References:
-#         https://stackoverflow.com/questions/2358045/how-can-i-implement-a-tree-in-python
-
-
-#     Parameters:
-#         operation: See :data:`Operation`
-#         children: List of children, either as Ad arrays or other :class:`Operator`.
-
-#     """
-
-#     def __init__(
-#         self,
-#         operation: Operator.Operations,
-#         children: Optional[Sequence[Union[Operator, AdArray]]] = None,
-#     ):
-#         self.op = operation
-
-#         self.children: list[Union[Operator, AdArray]] = []
-#         if children is not None:
-#             for child in children:
-#                 self.add_child(child)
-
-#     def add_child(self, node: Union[Operator, AdArray]) -> None:
-#         """Adds a child to this instance."""
-#         self.children.append(node)
-
-
 @overload
 def _ad_wrapper(
     vals: Union[pp.number, np.ndarray],
