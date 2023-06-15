@@ -1,8 +1,7 @@
 from datetime import datetime
 
 import porepy as pp
-
-from porepy.models.compositional_flow_model import logger, del_log
+from porepy.models.compositional_flow_model import del_log, logger
 
 timestamp = datetime.now().strftime("%Y_%m_%d__%H_%M")
 file_name = "cf_test"  # + timestamp
@@ -12,8 +11,8 @@ params = {
 }
 
 t = 0.0
-T = 15.
-max_dt = 0.1
+T = 15.0
+max_dt = 0.3
 min_dt = 1e-4
 dt = 0.05
 simulation_success = False
@@ -26,8 +25,9 @@ first_time_min_dt = True
 
 tol = 5e-3
 relaxed_tol = 1e-2
-flash_tol = 3e-4
-relaxed_flash_tol = 5e-3
+flash_tol = 1e-4
+relaxed_flash_tol = 1e-3
+use_iterate = (True,)
 
 model = pp.CompositionalFlowModel(params=params, verbosity=1)
 
@@ -45,9 +45,12 @@ while t < T:
         else:
             itol = tol
             ftol = flash_tol
-        
+
         flash_success, DX = model.before_newton_iteration(
-            flash_tol=ftol, flash_max_iter=flah_max_iter, flash_armijo_iter=flash_armijo_iter
+            flash_tol=ftol,
+            flash_max_iter=flah_max_iter,
+            flash_armijo_iter=flash_armijo_iter,
+            use_iterate=use_iterate,
         )
         if not flash_success:
             break
@@ -61,8 +64,10 @@ while t < T:
 
     if not model.converged:
         faile_counter += 1
+        if faile_counter >= 2:
+            use_iterate = False
         model.after_newton_failure(DX)
-        dt /= 2
+        dt *= 0.75
         model.dt.value = dt
         if dt < min_dt and not first_time_min_dt:
             logger.warning(
@@ -75,15 +80,16 @@ while t < T:
             first_time_min_dt = False
             dt = min_dt
             model.dt.value = dt
-            logger.warning(f'\nReached minimal admissible time step size {min_dt}.')
+            logger.warning(f"\nReached minimal admissible time step size {min_dt}.")
         else:
             logger.info(f"\nReducing timestep to {dt}")
     else:
         faile_counter = 0
+        use_iterate = True
         t += dt
         # gradually increase step size if it converges and if it was decrease previously.
         if dt < max_dt:
-            dt *= 1.1
+            dt *= 1.5
             if dt > max_dt:
                 dt = max_dt
             logger.info(f"\nRelaxing timestep to {dt}")

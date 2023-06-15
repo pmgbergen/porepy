@@ -19,7 +19,6 @@ from porepy.numerics.ad.operator_functions import NumericType
 
 from .._core import R_IDEAL, T_REF
 from ..chem_interface import load_species
-from ..chem_species import ChemicalSpecies
 from ..component import Component, Compound
 
 __all__ = [

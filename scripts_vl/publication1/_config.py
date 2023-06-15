@@ -800,9 +800,7 @@ def _parallel_porepy_flash(args):
     else:
         success_arr[i] = success_
         if success_ == 2:
-            logger.warn(
-                f"\nParallel {flash_type} diverged at {msg}\n"
-            )
+            logger.warn(f"\nParallel {flash_type} diverged at {msg}\n")
         else:
             if success_ == 1:
                 logger.warn(
@@ -1162,7 +1160,12 @@ def plot_root_regions(
         img_v2 = []
         leg_v2 = []
 
-    axis.legend(imgs_c + img_v + img_v2, legs_c + leg_v + leg_v2, loc="lower right", markerscale=MARKER_SCALE)
+    axis.legend(
+        imgs_c + img_v + img_v2,
+        legs_c + leg_v + leg_v2,
+        loc="lower right",
+        markerscale=MARKER_SCALE,
+    )
 
     return img
 
@@ -1212,7 +1215,9 @@ def plot_extension_markers(
 
     imgs_c, legs_c = _plot_critical_line(axis, A_mesh)
 
-    axis.legend(imgs_c + img_e , legs_c + leg_e, loc="lower right", markerscale=MARKER_SCALE)
+    axis.legend(
+        imgs_c + img_e, legs_c + leg_e, loc="lower right", markerscale=MARKER_SCALE
+    )
 
     return img
 

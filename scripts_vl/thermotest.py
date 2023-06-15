@@ -1,5 +1,4 @@
 import numpy as np
-import porepy as pp
 from thermo import (  # PRMIX,; FlashVL,
     PR78MIX,
     CEOSGas,
@@ -9,7 +8,9 @@ from thermo import (  # PRMIX,; FlashVL,
 )
 from thermo.interaction_parameters import IPDB
 
-COMPONENTS = ['H2O', 'CO2']
+import porepy as pp
+
+COMPONENTS = ["H2O", "CO2"]
 MAX_LIQ_PHASES = 1
 z_co2 = 0.01
 p = 7e6
@@ -41,7 +42,7 @@ results = flasher.flash(P=p, T=T, zs=[1 - z_co2, z_co2])
 
 eos_g = pp.composite.peng_robinson.PengRobinsonEoS(True)
 eos_l = pp.composite.peng_robinson.PengRobinsonEoS(False)
-species = pp.composite.load_species(['H2O', 'CO2'])
+species = pp.composite.load_species(["H2O", "CO2"])
 comps = [
     pp.composite.peng_robinson.H2O.from_species(species[0]),
     pp.composite.peng_robinson.CO2.from_species(species[1]),
@@ -56,13 +57,13 @@ z_ = np.array([z_co2])
 print("Gas fraction: ", results.VF)
 if results.liquids:
     print("Liquid Comp: ", results.liquid0.zs)
-    phis_l = eos_l.compute(p_, T_, [1-z_, z_]).phis
+    phis_l = eos_l.compute(p_, T_, [1 - z_, z_]).phis
     print("thermo phis: ", results.liquid0.phis())
     print("my phis: ", phis_l)
 if results.gas:
     print("Gas Comp: ", results.gas.zs)
     print("thermo phis: ", results.gas.phis())
-    phis_g = eos_g.compute(p_, T_, [1-z_, z_]).phis
+    phis_g = eos_g.compute(p_, T_, [1 - z_, z_]).phis
     print("my phis: ", phis_g)
 
-print('')
+print("")

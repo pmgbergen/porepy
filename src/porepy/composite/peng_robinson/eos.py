@@ -523,7 +523,7 @@ class PengRobinsonEoS(AbstractEoS):
 
         # volume and density
         v = self._v(p, T, Z)
-        rho = v**(-1)  # self._rho(p, T, Z)
+        rho = v ** (-1)  # self._rho(p, T, Z)
         rho_mass = self.get_rho_mass(rho, X)
         # departure enthalpy
         dT_A = dT_a / (R_IDEAL * T) ** 2 * p - 2 * a / (R_IDEAL**2 * T**3) * p
@@ -535,9 +535,9 @@ class PengRobinsonEoS(AbstractEoS):
         # dxi_a = list()
         # if np.any(self.is_extended):
         #     extend_phi: bool = True
-        #     rho_ext = self._rho(p, T, Z_other)
+        #     rho_ext = self._v(p, T, Z_other) **(-1)
         #     G = self._Z_polynom(Z, A, B)
-        #     Gamma_ext = Z * G / ((Z - B) * (Z**2 + 2 * Z * B - B**2))
+        #     Gamma_ext = G * Z / ((B - Z) * (B**2 - Z**2 - 2 * Z * B))
         #     dxi_Z_other = list()
         #     for i in range(len(self.components)):
         #         dxi_a_ = self._dXi_a(X, a_comps, bip, i)
@@ -556,6 +556,7 @@ class PengRobinsonEoS(AbstractEoS):
             b_i = self._b_vals[i]
             B_i = self._B(b_i, p, T)
             A_i = self._A(self._dXi_a(X, a_comps, bip, i), p, T)
+            # A_i = self._A(dxi_a[i], p, T)
             phi_i = self._phi_i(Z, A_i, A, B_i, B)
 
             # if extend_phi:
@@ -841,7 +842,7 @@ class PengRobinsonEoS(AbstractEoS):
             The thermal conductivity.
 
         """
-        return 1.
+        return 1.0
 
     # TODO
     def _mu(self, p: NumericType, T: NumericType, Z: NumericType) -> NumericType:
@@ -855,7 +856,7 @@ class PengRobinsonEoS(AbstractEoS):
             The dynamic viscosity.
 
         """
-        return 1.
+        return 1.0
 
     @staticmethod
     def _rho(p: NumericType, T: NumericType, Z: NumericType) -> NumericType:
@@ -868,7 +869,7 @@ class PengRobinsonEoS(AbstractEoS):
         if isinstance(T, pp.ad.AdArray):
             return T * Z * R_IDEAL / p
         else:
-            return Z * T / p * R_IDEAL 
+            return Z * T / p * R_IDEAL
 
     @staticmethod
     def _log_ZB_0(Z: NumericType, B: NumericType) -> NumericType:
@@ -905,13 +906,7 @@ class PengRobinsonEoS(AbstractEoS):
     ) -> NumericType:
         """Auxiliary function for computing the Gibbs departure function."""
         return (
-            (
-                self._log_ZB_0(Z, B)
-                - self._log_ZB_1(Z, B)
-                * A
-                / B
-                / np.sqrt(8)
-            )
+            (self._log_ZB_0(Z, B) - self._log_ZB_1(Z, B) * A / B / np.sqrt(8))
             * T
             * R_IDEAL
         )
@@ -931,12 +926,9 @@ class PengRobinsonEoS(AbstractEoS):
     ) -> NumericType:
         """Auxiliary method implementing the formula for the fugacity coefficient."""
         log_phi_i = (
-            B**(-1) * (Z - 1) * B_i
+            B ** (-1) * (Z - 1) * B_i
             - self._log_ZB_0(Z, B)
-            - A
-            / (B * np.sqrt(8))
-            * (A_i / A - B ** (-1) * B_i)
-            * self._log_ZB_1(Z, B)
+            - A / (B * np.sqrt(8)) * (A_i / A - B ** (-1) * B_i) * self._log_ZB_1(Z, B)
         )
         return truncexp(log_phi_i)
 
@@ -951,10 +943,10 @@ class PengRobinsonEoS(AbstractEoS):
     ) -> NumericType:
         """Auxiliary function implementing the derivative of the compressibility factor
         w.r.t. molar fraction ``x_i``."""
-        d = 1 + 2 * rho * b - (rho * b) ** 2
-        return rho * b_i / (1 - rho * b) ** 2 + (
-            rho * a * (2 * rho * b_i + 2 * rho**2 * b * b_i) / (d**2 * T * R_IDEAL)
-            - rho * dxi_a / (d * T * R_IDEAL)
+        d = 1 + 2 * b * rho - (b * rho) ** 2
+        return (1 - b * rho) ** (-2) * rho * b_i + (
+            a * rho * (2 * rho * b_i + 2 * b * rho**2 * b_i) / (d**2 * T * R_IDEAL)
+            - dxi_a * rho / (d * T * R_IDEAL)
         )
 
     @staticmethod
@@ -1008,7 +1000,7 @@ class PengRobinsonEoS(AbstractEoS):
         apply_smoother: bool = False,
         asymmetric_extension: bool = True,
         use_widom_line: bool = True,
-        Z_as_AD: bool = False,
+        Z_as_AD: bool = True,
     ) -> tuple[NumericType, NumericType]:
         """Auxiliary method to compute the compressibility factor based on Cardano
         formulas.

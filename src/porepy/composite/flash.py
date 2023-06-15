@@ -1583,6 +1583,9 @@ class FlashNR:
                 dT[check] = (0.1 * state.T.val * np.sign(dT))[check]
                 dT *= 1 - np.abs(dT) / state.T.val
 
+                correction = (h_mix.val < state.h) & (state.y[1].val > 1e-3)
+                dT[correction] *= 0.4
+
                 state.T.val = state.T.val + dT
 
         return state, res_is_zero
