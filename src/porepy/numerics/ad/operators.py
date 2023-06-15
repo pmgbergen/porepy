@@ -58,8 +58,10 @@ class Operator:
         interfaces (optional): List of interfaces in the mixed-dimensional grid on which
             the operator is defined. Will be empty for operators not associated with any
             interface. Defaults to None (converted to empty list).
-        tree (optional): The tree structure of child operators. Defaults to None
-            (converted to a tree with a single void operator). TODO
+        operation (optional): Arithmetic or other operation represented by this
+            operator. Defaults to void operation.
+        children (optional): List of children, other AD operators. Defaults to empty
+            list.
 
     """
 
@@ -107,11 +109,15 @@ class Operator:
         """
 
         self.children: Sequence[Operator]
-        """TODO
+        """List of children, other AD operators.
+
+        Will be empty if the operator is a leaf.
         """
 
         self.operation: Operator.Operations
-        """TODO
+        """Arithmetic or other operation represented by this operator.
+
+        Will be void if the operator is a leaf.
         """
 
         self._initialize_children(operation=operation, children=children)
@@ -601,7 +607,7 @@ class Operator:
         nx.draw(G, with_labels=True)
         plt.show()
 
-    ### Operator discretization ---------------------------------------------------------------
+    ### Operator discretization --------------------------------------------------------
     # TODO this is specific to discretizations and should not be done here
     # let the EquationSystem do this by calling respective util methods
 
@@ -643,7 +649,7 @@ class Operator:
 
         return discr
 
-    ### Operator parsing ----------------------------------------------------------------------
+    ### Operator parsing ---------------------------------------------------------------
 
     def evaluate(
         self,
