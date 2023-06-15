@@ -2,7 +2,7 @@ from datetime import datetime
 
 import porepy as pp
 
-from porepy.models.compositional_flow_model import logger
+from porepy.models.compositional_flow_model import logger, del_log
 
 timestamp = datetime.now().strftime("%Y_%m_%d__%H_%M")
 file_name = "cf_test"  # + timestamp
@@ -12,63 +12,88 @@ params = {
 }
 
 t = 0.0
-T = 100
-dt = 0.15  # T / 1e2
-max_iter = 70
-tol = 5e-5
+T = 15.
+max_dt = 0.1
+min_dt = 1e-4
+dt = 0.05
+simulation_success = False
+
+max_iter = 20
+flah_max_iter = 70
+flash_armijo_iter = 100
+faile_counter = 0
+first_time_min_dt = True
+
+tol = 5e-3
+relaxed_tol = 1e-2
+flash_tol = 3e-4
+relaxed_flash_tol = 5e-3
 
 model = pp.CompositionalFlowModel(params=params, verbosity=1)
 
 model.dt.value = dt
 model.prepare_simulation()
-# cond_start = list()
-# cond_end = list()
 
 while t < T:
-    logger.info(f"\n.. Timestep t={t} ; dt={dt}\n")
+    logger.info(f"\n.. Time t={t} , dt = {dt} , failures = {faile_counter}\n")
     model.before_newton_loop()
 
-    # A, b = model.ad_system.assemble_subsystem(
-    #     equations=model._system_equations, variables=model._system_vars
-    # )
-    # cond_start.append(np.linalg.cond(A.todense()))
-
     for _ in range(1, max_iter + 1):
-        model.before_newton_iteration()
-        DX = model.assemble_and_solve_linear_system(tol)
+        if faile_counter >= 2:
+            itol = relaxed_tol
+            ftol = relaxed_flash_tol
+        else:
+            itol = tol
+            ftol = flash_tol
+        
+        flash_success, DX = model.before_newton_iteration(
+            flash_tol=ftol, flash_max_iter=flah_max_iter, flash_armijo_iter=flash_armijo_iter
+        )
+        if not flash_success:
+            break
+
+        DX = model.assemble_and_solve_linear_system(itol)
+
         if model.converged:
             model.after_newton_convergence(DX)
             break
         model.after_newton_iteration(DX)
 
     if not model.converged:
+        faile_counter += 1
         model.after_newton_failure(DX)
         dt /= 2
         model.dt.value = dt
-        logger.info(f"Halving timestep to {dt}")
-        if dt < 0.001:
-            model.after_simulation()
-            raise RuntimeError(
-                "Time step halving due to convergence failure reached critical value."
+        if dt < min_dt and not first_time_min_dt:
+            logger.warning(
+                f"\nDid not converge for min time step and increased tolerance. Aborting simulation.\n"
             )
+            break
+        elif dt < min_dt and first_time_min_dt:
+            if faile_counter < 2:
+                faile_counter = 2
+            first_time_min_dt = False
+            dt = min_dt
+            model.dt.value = dt
+            logger.warning(f'\nReached minimal admissible time step size {min_dt}.')
+        else:
+            logger.info(f"\nReducing timestep to {dt}")
     else:
+        faile_counter = 0
         t += dt
-        # A, b = model.ad_system.assemble_subsystem(
-        #     equations=model._system_equations, variables=model._system_vars
-        # )
-        # cond_end.append(np.linalg.cond(A.todense()))
+        # gradually increase step size if it converges and if it was decrease previously.
+        if dt < max_dt:
+            dt *= 1.1
+            if dt > max_dt:
+                dt = max_dt
+            logger.info(f"\nRelaxing timestep to {dt}")
+            model.dt.value = dt
+        # resetting flag to allow the procedure to do it again with min_dt if necessary
+        first_time_min_dt = True
 
     if t >= T:
-        logger.info(f"\bReached simulation end time t={t}")
-# cond_start = np.array(cond_start)
-# cond_end = np.array(cond_end)
-# print("CONDITION NUMBERS: ")
-# print("\tAt beginning of iterations:")
-# print(f"\tMin: {'{:.4e}'.format(np.min(cond_start))}\n\t"
-# + f"Max: {'{:.4e}'.format(np.max(cond_start))}\n\t"
-# + f"Mean: {'{:.4e}'.format(np.mean(cond_start))}")
-# print("\tAt converged state:")
-# print(f"\tMin: {'{:.4e}'.format(np.min(cond_end))}\n\t"
-# + f"Max: {'{:.4e}'.format(np.max(cond_end))}\n\t"
-# + f"Mean: {'{:.4e}'.format(np.mean(cond_end))}")
+        simulation_success = True
+        logger.info(f"\nReached simulation end time t={t}\n")
+
+logger.info(f"\nSimulation success: {simulation_success}\n")
 model.after_simulation()

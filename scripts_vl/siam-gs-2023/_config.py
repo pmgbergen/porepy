@@ -27,8 +27,6 @@ sys.path.append(str(pathlib.Path(__file__).parent.resolve()))
 # figure configurations
 FIGURE_WIDTH: int = 15  # in inches, 1080 / 1920 ratio applied to height
 DPI: int = 400  # Dots per Inch (level of detail per figure)
-MARKER_SCALE: int = 2  # Size scaling of markers in legend
-MARKER_SIZE: int = 5
 
 # Calculation modus for PorePy flash
 # 1 - point-wise (robust, but possibly very slow),
@@ -41,10 +39,12 @@ SPECIES: list[str] = ["H2O", "CO2"]
 FEED: list[float] = [0.99, 0.01]
 
 # pressure and temperature limits for p-T calculations
-P_LIMITS: list[float] = [1e6, 50e6]  # [Pa]
-T_LIMITS: list[float] = [450.0, 700.0]  # [K]
+P_LIMITS: list[float] = [1e6, 40e6]  # [Pa]
+T_LIMITS: list[float] = [450.0, 670.0]  # [K]
 # resolution of p-T limits
-RESOLUTION_pT: int = 50
+RESOLUTION_pT: int = 40
+
+SALINITIES: list[float] = [0., 0.04, 0.08]
 
 # temperature values for isotherms for p-h calculations
 # more refined around critical temperature of water, up to critical pressure of water
@@ -77,22 +77,7 @@ PRESSURE_SCALE: float = 1e-6  # to MPa
 PRESSURE_SCALE_NAME: str = "MPa"
 
 # paths to where results should be stored
-THERMO_DATA_PATH: str = "data/thermodata.csv"  # storing results from therm
-PT_FLASH_DATA_PATH: str = "data/flash_pT.csv"  # storing p-T results from porepy
-PT_QUICKSHOT_DATA_PATH: str = (
-    "data/flash_pT_initial.csv"  # storing p-T results from initial guess
-)
-ISOTHERM_DATA_PATH: str = (
-    "data/flash_pT_isotherms.csv"  # storing p-T results on isotherms
-)
-PH_FLASH_DATA_PATH: str = "data/flash_ph.csv"  # storing p-h results from porepy
-HV_ISOTHERM_DATA_PATH: str = (
-    "data/flash_hv_isotherm.csv"  # storing p-T results on isotherm for h-v flash
-)
-HV_ISOBAR_DATA_PATH: str = (
-    "data/flash_hv_isobar.csv"  # storing p-T results on isobar for h-v flash
-)
-HV_FLASH_DATA_PATH: str = "data/flash_hv.csv"  # storing h-v results from porepy
+DATA_PATH: str = "data/salinity.csv"
 FIG_PATH: str = "figs/"  # path to folder containing plots
 
 NUM_COMP: int = len(SPECIES)  # number of components
@@ -139,6 +124,16 @@ del_log = "\r" + " " * 100 + "\r"
 def path():
     """Returns path to script calling this function as string."""
     return str(pathlib.Path(__file__).parent.resolve())
+
+
+def sal_path(datapath: str, s: float) -> str:
+
+    ss = str(s)
+    ss = ss[ss.rfind('.') + 1:]
+
+    idx = datapath.rfind(".csv")
+
+    return f"{datapath[:idx]}_{ss}.csv"
 
 
 def read_data_column(
@@ -233,33 +228,6 @@ def write_results(filename: str, results: dict[str, list]):
     logger.info(f"{del_log}Writing result data: done\n")
 
 
-def _thermo_init() -> FlashVLN:
-    """Helper function to initiate the thermo flash."""
-    constants, properties = ChemicalConstantsPackage.from_IDs(SPECIES)
-    kijs = IPDB.get_ip_asymmetric_matrix("ChemSep PR", constants.CASs, "kij")
-    eos_kwargs = {
-        "Pcs": constants.Pcs,
-        "Tcs": constants.Tcs,
-        "omegas": constants.omegas,
-        "kijs": kijs,
-    }
-
-    GAS = CEOSGas(
-        PR78MIX, eos_kwargs=eos_kwargs, HeatCapacityGases=properties.HeatCapacityGases
-    )
-    LIQs = [
-        CEOSLiquid(
-            PR78MIX,
-            eos_kwargs=eos_kwargs,
-            HeatCapacityGases=properties.HeatCapacityGases,
-        )
-        for _ in range(NUM_COMP)
-    ]
-    flasher = FlashVLN(constants, properties, liquids=LIQs, gas=GAS)
-
-    return flasher
-
-
 def _init_empty_results() -> dict[str, list]:
     """Initiate and return an results dict with proper headers as needed for the
     comparison."""
@@ -288,174 +256,6 @@ def _init_empty_results() -> dict[str, list]:
     return results
 
 
-def _thermo_parse_result(state) -> dict:
-    """Helper function to parse a state returned by thermo into processable format."""
-    out = _init_empty_results()
-    for k in out.keys():
-        out[k] = NAN_ENTRY
-
-    out.update(
-        {
-            success_HEADER: 0,
-            gas_frac_HEADER: state.VF,
-        }
-    )
-    # anticipate at max only 1 gas phase and predefined number of liquid phases
-    if 0 < state.phase_count <= 1 + NUM_COMP:
-        if (
-            0.0 < state.VF <= 1.0
-        ) and state.gas is not None:  # parse gas phase if present
-            j = PHASES[0]
-            out.update(
-                {
-                    phases_HEADER: j,
-                    compressibility_HEADER[j]: state.gas.Z(),
-                }
-            )
-            out.update(
-                dict(
-                    [
-                        (composition_HEADER[i][j], state.gas.zs[SPECIES.index(i)])
-                        for i in SPECIES
-                    ]
-                    + [
-                        (fugacity_HEADER[i][j], state.gas.phis()[SPECIES.index(i)])
-                        for i in SPECIES
-                    ]
-                )
-            )
-        # should not happen
-        elif (state.gas is None and (0.0 < state.VF <= 1.0)) or (
-            state.gas is not None and state.VF == 0.0
-        ):
-            raise NotImplementedError(
-                f"Uncovered thermo phase case: conflicting gas state"
-            )
-        else:  # gas phase is not present, store nans
-            assert state.VF == 0.0, "Uncovered thermo gas phase state."
-            j = PHASES[0]
-            out.update(
-                {
-                    phases_HEADER: "",
-                    compressibility_HEADER[j]: NAN_ENTRY,
-                }
-            )
-            out.update(
-                dict(
-                    [(composition_HEADER[i][j], NAN_ENTRY) for i in SPECIES]
-                    + [(fugacity_HEADER[i][j], NAN_ENTRY) for i in SPECIES]
-                )
-            )
-
-        if (
-            state.gas is not None and state.VF == 1.0
-        ):  # if only gas, fill liquid entries with nans
-            # for anticipated liquid phases
-            for liq_frac in liq_frac_HEADER:
-                out.update({liq_frac: 0.0})
-            for j in PHASES[1:]:
-                out.update(
-                    {
-                        compressibility_HEADER[j]: NAN_ENTRY,
-                    }
-                )
-                out.update(
-                    dict(
-                        [(composition_HEADER[i][j], NAN_ENTRY) for i in SPECIES]
-                        + [(fugacity_HEADER[i][j], NAN_ENTRY) for i in SPECIES]
-                    )
-                )
-        else:  # parse present liquid phases
-            # sanity check
-            assert (
-                state.VF < 1.0
-            ), "Thermo conflicting gas state: Gas saturated with liquid phases"
-            if len(state.liquids) == 1:  # if only one liquid phase
-                out[phases_HEADER] = out[phases_HEADER] + "L"
-                j = PHASES[1]
-                out.update({liq_frac_HEADER[0]: 1 - state.VF})
-                for yl in liq_frac_HEADER[1:]:
-                    out.update({yl: NAN_ENTRY})
-                out.update(
-                    {
-                        compressibility_HEADER[j]: state.liquids[0].Z(),
-                    }
-                )
-                out.update(
-                    dict(
-                        [
-                            (
-                                composition_HEADER[i][j],
-                                state.liquids[0].zs[SPECIES.index(i)],
-                            )
-                            for i in SPECIES
-                        ]
-                        + [
-                            (
-                                fugacity_HEADER[i][j],
-                                state.liquids[0].phis()[SPECIES.index(i)],
-                            )
-                            for i in SPECIES
-                        ]
-                    )
-                )
-                # fill other liquid phases with nans
-                for j in PHASES[2:]:
-                    out.update(
-                        {
-                            compressibility_HEADER[j]: NAN_ENTRY,
-                        }
-                    )
-                    out.update(
-                        dict(
-                            [(composition_HEADER[i][j], NAN_ENTRY) for i in SPECIES]
-                            + [(fugacity_HEADER[i][j], NAN_ENTRY) for i in SPECIES]
-                        )
-                    )
-            elif 1 < len(state.liquids) <= NUM_COMP:  # get all liquid data
-                assert (
-                    state.liquids_betas
-                ), "Thermo conflicting liquid phase state: no liquid betas"
-                for i in range(NUM_COMP):
-                    out.update({liq_frac_HEADER[i]: state.liquids_betas[i]})
-                for p_idx, j in enumerate(PHASES[1:]):
-                    out[phases_HEADER] = out[phases_HEADER] + "L"
-                    out.update(
-                        {
-                            compressibility_HEADER[j]: state.liquids[p_idx].Z(),
-                        }
-                    )
-                    out.update(
-                        dict(
-                            [
-                                (
-                                    composition_HEADER[i][j],
-                                    state.liquids[p_idx].zs[SPECIES.index(i)],
-                                )
-                                for i in SPECIES
-                            ]
-                            + [
-                                (
-                                    fugacity_HEADER[i][j],
-                                    state.liquids[p_idx].phis()[SPECIES.index(i)],
-                                )
-                                for i in SPECIES
-                            ]
-                        )
-                    )
-            else:  # more liquid phases than anticipated
-                raise NotImplementedError(
-                    f"Uncovered thermo state with:"
-                    + f"\nLiquid: {state.liquids}\nGas: {state.gas}"
-                )
-    else:
-        raise NotImplementedError(
-            f"Uncovered thermo state phase-count {state.phase_count}"
-        )
-
-    return out
-
-
 def _failed_entry() -> dict[str]:
     """Create a row-entry for failed flashes."""
     failed: dict = _init_empty_results()
@@ -463,50 +263,6 @@ def _failed_entry() -> dict[str]:
         failed[k] = NAN_ENTRY
     failed[success_HEADER] = 2
     return failed
-
-
-def calculate_thermo_pT_data() -> dict[str, list]:
-    """Uses thermo to perform the p-T flash for various pressure and temperature ranges.
-
-    Returns a dictionary containing per header (name of some property) respective values
-    per p-T point.
-
-    """
-
-    flasher = _thermo_init()
-    results = _init_empty_results()
-
-    p_points = np.linspace(P_LIMITS[0], P_LIMITS[1], num=RESOLUTION_pT).tolist()
-    T_points = np.linspace(T_LIMITS[0], T_LIMITS[1], num=RESOLUTION_pT).tolist()
-
-    f_num = len(T_points) * len(p_points)
-    f_count = 1
-
-    for T in T_points:
-        for P in p_points:
-            try:
-                state = flasher.flash(P=P, T=T, zs=FEED)
-            except Exception:
-                logger.warn(f"\nThermo p-T-flash failed for p, T = ({P}, {T})\n")
-                parsed = _failed_entry()
-            else:
-                parsed = _thermo_parse_result(state)
-                # sanity check
-                assert state.P == P, "Thermo p-T result has different pressure."
-                assert state.T == T, "Thermo p-T result has different temperature."
-                # in the p-T flash, we use the thermo enthalpy also as target enthalpy
-                parsed[h_HEADER] = state.H()
-            finally:
-                parsed[p_HEADER] = P
-                parsed[T_HEADER] = T
-                for head, val in parsed.items():
-                    results[head].append(val)
-                print(f"\rFlash: {f_count}/{f_num} done", end="", flush=True)
-                logger.info(f"{del_log}Thermo p-T-flash: {f_count}/{f_num}")
-                f_count += 1
-    logger.info(f"{del_log}Thermo p-T-flash: done\n")
-
-    return results
 
 
 def _access_shared_objects(
@@ -632,6 +388,7 @@ def _progress_counter(q: Queue, NC: int, flash_result: AsyncResult):
 
 def create_mixture(
     num_vals: int,
+    salinity: float
 ) -> tuple[pp.composite.NonReactiveMixture, pp.composite.FlashNR]:
     """Returns instances of the modelled mixture and flash using PorePy's framework.
 
@@ -646,9 +403,11 @@ def create_mixture(
     species = pp.composite.load_species(SPECIES)
 
     comps = [
-        pp.composite.peng_robinson.H2O.from_species(species[0]),
+        pp.composite.peng_robinson.NaClBrine.from_species(species[0]),
         pp.composite.peng_robinson.CO2.from_species(species[1]),
     ]
+
+    comps[0].compute_molalities(np.ones(num_vals) * salinity, store=True)
 
     phases = [
         pp.composite.Phase(
@@ -729,7 +488,7 @@ def _parallel_porepy_flash(args):
 
     """
 
-    i, state_1, state_2, flash_type, quickshot = args
+    i, state_1, state_2, flash_type, salinity, quickshot = args
     msg = (i, state_1, state_2, quickshot)
 
     # accessing shared memory
@@ -756,7 +515,7 @@ def _parallel_porepy_flash(args):
         phi_co2_L_arr,
     ) = arrays_loc
 
-    mix, flash = create_mixture(1)
+    mix, flash = create_mixture(1, salinity)
     feed = [np.ones(1) * z for z in FEED]
 
     # Default entries are FAILURE
@@ -858,7 +617,11 @@ def _parallel_porepy_flash(args):
 
 
 def calculate_porepy_data(
-    state_1: list[float], state_2: list[float], flash_type: str, quickshot: bool = False
+    state_1: list[float],
+    state_2: list[float],
+    flash_type: str,
+    salinity: float,
+    quickshot: bool = False
 ) -> dict:
     """Performs the PorePy flash for given pressure-temperature points and
     returns a result structure similar to that of the thermo computation.
@@ -873,7 +636,7 @@ def calculate_porepy_data(
         logger.info(
             f"PorePy {flash_type}-flash: initializing point-wise calculations .."
         )
-        mix, flash = create_mixture(1)
+        mix, flash = create_mixture(1, salinity)
         feed = [v * z for z in FEED]
 
         for f, xy in enumerate(zip(state_1, state_2)):
@@ -966,7 +729,7 @@ def calculate_porepy_data(
     elif CALCULATION_MODE == 3:  # parallelized flash
 
         args = [
-            (i, x, y, flash_type, quickshot)
+            (i, x, y, flash_type, salinity, quickshot)
             for i, x, y in zip(np.arange(nf), state_1, state_2)
         ]
         shared_arrays = _create_shared_arrays(nf)
@@ -1162,7 +925,7 @@ def plot_root_regions(
         img_v2 = []
         leg_v2 = []
 
-    axis.legend(imgs_c + img_v + img_v2, legs_c + leg_v + leg_v2, loc="lower right", markerscale=MARKER_SCALE)
+    axis.legend(imgs_c + img_v + img_v2, legs_c + leg_v + leg_v2, loc="lower right")
 
     return img
 
@@ -1211,8 +974,18 @@ def plot_extension_markers(
     leg_e = ["liquid extended", "gas extended (Widom)", "gas extended"]
 
     imgs_c, legs_c = _plot_critical_line(axis, A_mesh)
+    # violated = gas_root < liq_root
+    # if np.any(violated):
+    #     img_ = axis.plot(
+    #         A_mesh[violated], B_mesh[violated], ".", markersize=0.5, color="black"
+    #     )
+    #     img_v = [img_[0]]
+    #     leg_v = [f"Z_G < Z_L"]
+    # else:
+    img_v = []
+    leg_v = []
 
-    axis.legend(imgs_c + img_e , legs_c + leg_e, loc="lower right", markerscale=MARKER_SCALE)
+    axis.legend(imgs_c + img_e + img_v, legs_c + leg_e + leg_v, loc="lower right")
 
     return img
 

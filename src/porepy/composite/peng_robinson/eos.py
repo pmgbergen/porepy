@@ -470,6 +470,7 @@ class PengRobinsonEoS(AbstractEoS):
         T: NumericType,
         X: list[NumericType],
         apply_smoother: bool = False,
+        Z_as_AD: bool = True,
         **kwargs,
     ) -> PhaseProperties_cubic:
         """Computes all thermodynamic properties based on the passed state.
@@ -518,12 +519,12 @@ class PengRobinsonEoS(AbstractEoS):
         A = self._A(a, p, T)
         B = self._B(b, p, T)
         # root
-        Z, Z_other = self._Z(A, B, apply_smoother)
-        # density
-        rho = self._rho(p, T, Z)
-        rho_mass = self.get_rho_mass(rho, X)
-        # volume
+        Z, Z_other = self._Z(A, B, apply_smoother=apply_smoother, Z_as_AD=Z_as_AD)
+
+        # volume and density
         v = self._v(p, T, Z)
+        rho = v**(-1)  # self._rho(p, T, Z)
+        rho_mass = self.get_rho_mass(rho, X)
         # departure enthalpy
         dT_A = dT_a / (R_IDEAL * T) ** 2 * p - 2 * a / (R_IDEAL**2 * T**3) * p
         h_dep = self._h_dep(T, Z, A, dT_A, B)
@@ -840,7 +841,7 @@ class PengRobinsonEoS(AbstractEoS):
             The thermal conductivity.
 
         """
-        return 10
+        return 1.
 
     # TODO
     def _mu(self, p: NumericType, T: NumericType, Z: NumericType) -> NumericType:
@@ -864,10 +865,21 @@ class PengRobinsonEoS(AbstractEoS):
     @staticmethod
     def _v(p: NumericType, T: NumericType, Z: NumericType) -> NumericType:
         """Auxiliary function implementing the formula for volume."""
-        return Z * (T * R_IDEAL) / p
+        if isinstance(T, pp.ad.AdArray):
+            return T * Z * R_IDEAL / p
+        else:
+            return Z * T / p * R_IDEAL 
 
     @staticmethod
+    def _log_ZB_0(Z: NumericType, B: NumericType) -> NumericType:
+        return trunclog((B - Z) * (-1), 1e-6)
+
+    @staticmethod
+    def _log_ZB_1(Z: NumericType, B: NumericType) -> NumericType:
+        return trunclog(((1 + np.sqrt(2)) * B + Z) / ((1 - np.sqrt(2)) * B + Z), 1e-6)
+
     def _h_dep(
+        self,
         T: NumericType,
         Z: NumericType,
         A: NumericType,
@@ -875,26 +887,27 @@ class PengRobinsonEoS(AbstractEoS):
         B: NumericType,
     ) -> NumericType:
         """Auxiliary function for computing the enthalpy departure function."""
+        if isinstance(T, pp.ad.AdArray):
+            i = T * (Z - 1) * R_IDEAL
+        else:
+            i = (Z - 1) * T * R_IDEAL
         return (
             1
             / np.sqrt(8)
             * (dT_A * T**2 * R_IDEAL + A * T * R_IDEAL)
             / B
-            * trunclog((Z + (1 + np.sqrt(2)) * B) / (Z + (1 - np.sqrt(2)) * B), 1e-6)
-            + (Z - 1) * T * R_IDEAL
+            * self._log_ZB_1(Z, B)
+            + i
         )
 
-    @staticmethod
     def _g_dep(
-        T: NumericType, A: NumericType, B: NumericType, Z: NumericType
+        self, T: NumericType, A: NumericType, B: NumericType, Z: NumericType
     ) -> NumericType:
         """Auxiliary function for computing the Gibbs departure function."""
         return (
             (
-                trunclog(Z - B, 1e-6)
-                - trunclog(
-                    (Z + (1 + np.sqrt(2)) * B) / (Z + (1 - np.sqrt(2)) * B), 1e-6
-                )
+                self._log_ZB_0(Z, B)
+                - self._log_ZB_1(Z, B)
                 * A
                 / B
                 / np.sqrt(8)
@@ -908,8 +921,8 @@ class PengRobinsonEoS(AbstractEoS):
         """Auxiliary function to compute the ideal part of the Gibbs energy."""
         return safe_sum([x * trunclog(x, 1e-6) for x in X])
 
-    @staticmethod
     def _phi_i(
+        self,
         Z: NumericType,
         A_i: NumericType,
         A: NumericType,
@@ -918,12 +931,12 @@ class PengRobinsonEoS(AbstractEoS):
     ) -> NumericType:
         """Auxiliary method implementing the formula for the fugacity coefficient."""
         log_phi_i = (
-            (Z - 1) / B * B_i
-            - trunclog(Z - B, 1e-6)
+            B**(-1) * (Z - 1) * B_i
+            - self._log_ZB_0(Z, B)
             - A
             / (B * np.sqrt(8))
             * (A_i / A - B ** (-1) * B_i)
-            * trunclog((Z + (1 + np.sqrt(2)) * B) / (Z + (1 - np.sqrt(2)) * B), 1e-6)
+            * self._log_ZB_1(Z, B)
         )
         return truncexp(log_phi_i)
 
@@ -948,10 +961,10 @@ class PengRobinsonEoS(AbstractEoS):
     def _Z_polynom(Z: NumericType, A: NumericType, B: NumericType) -> NumericType:
         """Auxiliary method implementing the compressibility polynomial."""
         return (
-            Z**3
-            + Z**2 * (B - 1)
-            + Z * (A - 2 * B - 3 * B**2)
-            - (A * B - B**3 - B**2)
+            (B**3 + B**2 - A * B)
+            + (B - 1) * Z**2
+            + (A - 2 * B - 3 * B**2) * Z
+            + Z**3
         )
 
     @classmethod
@@ -986,7 +999,7 @@ class PengRobinsonEoS(AbstractEoS):
             Z: The real root.
 
         """
-        return Z - (Z - B) / 2
+        return (B - Z) / 2 + Z
 
     def _Z(
         self,
@@ -995,6 +1008,7 @@ class PengRobinsonEoS(AbstractEoS):
         apply_smoother: bool = False,
         asymmetric_extension: bool = True,
         use_widom_line: bool = True,
+        Z_as_AD: bool = False,
     ) -> tuple[NumericType, NumericType]:
         """Auxiliary method to compute the compressibility factor based on Cardano
         formulas.
@@ -1296,8 +1310,12 @@ class PengRobinsonEoS(AbstractEoS):
         # convert Jacobians to csr
         if isinstance(Z_L, pp.ad.AdArray):
             Z_L.jac = Z_L.jac.tocsr()
+            if not Z_as_AD:
+                Z_L = Z_L.val
         if isinstance(Z_G, pp.ad.AdArray):
             Z_G.jac = Z_G.jac.tocsr()
+            if not Z_as_AD:
+                Z_G = Z_G.val
 
         if self.gaslike:
             return Z_G, Z_L

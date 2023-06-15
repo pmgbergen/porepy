@@ -325,7 +325,7 @@ class FlashSystemNR(ThermodynamicState):
             # normalizing enthalpy constraint, without blowing it up
             h_norm = self.h.copy()
             h_norm[np.abs(h_norm) <= 1] = 1.0
-            equ = equ / h_norm  # / (T**2)
+            equ = equ / h_norm / (T**2)
             equations.append(equ)
 
         # Third, volume constraint if pressure is unknown
@@ -421,9 +421,9 @@ class FlashSystemNR(ThermodynamicState):
             * self._u
             / self._num_phases**2
         )
-        reg = safe_sum(reg) * 4
+        # reg = safe_sum(reg) * 4
 
-        f = self._eta * nu + nu * nu + (negativity_penalty + dot_part + reg) / 2
+        f = self._eta * nu + nu * nu + (negativity_penalty + dot_part) / 2  # + reg / 2
         return f
 
     @property
@@ -1002,8 +1002,10 @@ class FlashNR:
         """
 
         # setting logging verbosity
-        if verbosity:
+        if verbosity == 1:
             logger.setLevel(logging.INFO)
+        elif verbosity >= 2:
+            logger.setLevel(logging.DEBUG)
         else:
             logger.setLevel(logging.WARNING)
 
@@ -1024,14 +1026,13 @@ class FlashNR:
 
         num_vals = len(state_args[0])  # number of values per state function
 
-        if verbosity >= 2:
-            logger.info(
-                f"\nStarting {flash_type} flash\n"
-                + f"Method: {method}\n"
-                + f"Using Armijo line search: {self.use_armijo}\n"
-                + f"Computing initial guess: {not bool(guess_from_state)}\n"
-                + f"\nInitializing state ...\n"
-            )
+        logger.debug(
+            f"\nStarting {flash_type} flash\n"
+            + f"Method: {method}\n"
+            + f"Using Armijo line search: {self.use_armijo}\n"
+            + f"Computing initial guess: {not bool(guess_from_state)}\n"
+            + f"\nInitializing state ...\n"
+        )
         # getting gas-phase index
         gas_phase_index: Optional[int] = None
         for j, phase in enumerate(self.mixture.phases):
@@ -1150,31 +1151,28 @@ class FlashNR:
         )
 
         if quickshot:
-            logger.info("Returning initial guess (quickshot).\n")
+            logger.info(f"{del_log}Returning initial guess (quickshot).\n")
             if return_system:
                 return 3, flash_system
             else:
                 return 3, flash_system.export_state()
 
         # Perform Newton iterations with above F(x)
-        if verbosity >= 2:
-            logger.info(f"Initial state:\n{flash_system.export_state()}\n")
-        logger.info("Starting iterations ...\n")
+        logger.debug(f"{del_log}Initial state:\n{flash_system.export_state()}\n")
+        logger.info(f"{del_log}Starting iterations ...")
         success, iter_final, solution = self._newton_iterations(
             X_0=flash_system.state,
             F=flash_system,
         )
-        if verbosity >= 2:
-            logger.info("\nPost-processing ...\n")
+        logger.debug(f"{del_log}Post-processing ...")
         flash_system.state = solution
         flash_system.evaluate_dependent_states()
 
-        if verbosity >= 2:
-            logger.info(
-                f"{flash_type} flash done.\n"
-                + f"SUCCESS: {not bool(success)}\n"
-                + f"Iterations: {iter_final}\n\n"
-            )
+        logger.debug(
+            f"{flash_type} flash done.\n"
+            + f"SUCCESS: {not bool(success)}\n"
+            + f"Iterations: {iter_final}\n\n"
+        )
         # append history entry
         self._history_entry(
             flash=flash_type,
@@ -1968,17 +1966,16 @@ class FlashNR:
         res_norm = np.linalg.norm(F_k.val)
         # if residual is already small enough
         if res_norm <= self.tolerance:
-            logger.info("Flash iteration 0: success\n")
+            logger.info(f"{del_log}Flash iteration 0: success")
             success = 0
         else:
             for i in range(1, self.max_iter + 1):
-                logger.info(f"{del_log}Flash iteration {i}: res = {res_norm}")
 
                 DX = pypardiso.spsolve(F_k.jac, -F_k.val) * self.newton_update_chop
                 # DX = sps.linalg.spsolve(F_k.jac, -F_k.val) * self.newton_update_chop
 
                 check = np.sum(DX)
-                if np.isnan(check) or np.isinf(check):
+                if np.any(np.isnan(check)) or np.any(np.isinf(check)):
                     iter_final = i
                     success = 2
                     logger.warn(
@@ -1995,12 +1992,12 @@ class FlashNR:
 
                 F_k = F(X_k, True)
                 res_norm = np.linalg.norm(F_k.val)
-
+                logger.info(f"{del_log}Flash iteration {i}: res = {res_norm}")
                 # in case of convergence
                 if res_norm <= self.tolerance:
                     # counting necessary number of iterations
                     iter_final = i
-                    logger.info(f"\nFlash iteration {iter_final}: success\n")
+                    logger.info(f"{del_log}Flash iteration {iter_final}: success")
                     success = 0
                     break
 

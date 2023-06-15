@@ -87,17 +87,22 @@ class CompositionalFlowModel:
         """List of names of present species (or chemical formulas) such that they
         can be loaded by the composite subpackage."""
 
+        self.num_cells: list[int] = [10, 5]  # 50, 15
+        self.phys_dim: list[int] = [10, 5]
+        """Number of cells in each direction, physical dimensions will be set equal.
+        I.e. unit cells."""
+
         self.params: dict = params
         """Parameter dictionary passed at instantiation."""
         self.converged: bool = False
         """Indicator if current Newton-step converged."""
         self.dt: pp.composite.AdProperty = pp.composite.AdProperty("timestep")
         """Timestep size."""
-        self.dt.value = 0.1
+        self.dt.value = 1.
 
-        self.porosity = 0.2
+        self.porosity = 1.
         """Base porosity of model domain."""
-        self.permeability = 0.03
+        self.permeability = 1.
         """Base permeability of model domain."""
 
         self.pressure_scale: float = 1e6
@@ -108,11 +113,10 @@ class CompositionalFlowModel:
         thermodynamic scale (J / mol)."""
 
         ## Initial Conditions
-        self.initial_pressure: float = 15.
+        self.initial_pressure: float = 10.
         """Initial pressure in the domain in MPa."""
-        self.initial_temperature: float = 530
-        """Initial temperature in the domain in K."""
-        self.initial_component_fractions: list[float] = [0.9, 0.1]
+        
+        self.initial_component_fractions: list[float] = [0.99, 0.01]
         """Contains per component in composition the initial feed fraction."""
         self.initial_solute_fractions: list[float] = [0.08]
         """Contains initial solute fractions per compound and its solutes"""
@@ -126,7 +130,7 @@ class CompositionalFlowModel:
         ## Boundary conditions
         self.outflow_boundary_pressure: float = self.initial_pressure
         """Dirichlet boundary pressure for the outflow in MPA for the advective flux."""
-        self.inflow_boundary_pressure: float = 25.
+        self.inflow_boundary_pressure: float = 12.
         """Dirichlet boundary pressure for the inflow in MPa for the advective flux."""
         self.inflow_boundary_temperature: float = 450
         """Temperature at the inflow boundary for the advective flux."""
@@ -138,11 +142,13 @@ class CompositionalFlowModel:
         effects.
 
         """
-        self.inflow_boundary_solute_feed: list[float] = [1e-3]
+        self.inflow_boundary_solute_feed: list[float] = [0.001]
         """Contains inflow solute fractions per compound and its solutes"""
-        self.heated_boundary_temperature = 630
+        self.heated_boundary_temperature = 600
         """Dirichlet boundary temperature in Kelvin for the conductive flux,
         bottom boundary."""
+        self.upper_boundary_temperature: float = 500
+        """Initial temperature in the domain in K."""
         self.injection_feed: list[float] = [0.0, 0.0]
         """Contains per component in composition the amount of injected moles.
 
@@ -238,9 +244,8 @@ class CompositionalFlowModel:
         """Assigns a cartesian grid as computational domain.
         Overwrites/sets the instance variables 'mdg'.
         """
-        phys_dims = [50, 15]
-        n_cells = phys_dims
-        # n_cells = [2, 1]
+        phys_dims = self.phys_dim
+        n_cells = self.num_cells
         bounding_box_points = np.array([[0, phys_dims[0]], [0, phys_dims[1]]])
         self.box = pp.geometry.domain.bounding_box_of_point_cloud(bounding_box_points)
         sg = pp.CartGrid(n_cells, phys_dims)
@@ -305,6 +310,7 @@ class CompositionalFlowModel:
         ## setting thermodynamic state in terms of p-T-z
         nc = self.domain.num_subdomain_cells()
         vec = np.ones(nc)
+        T_vals = self.ad_system.get_variable_values([self.T.name], time_step_index=0)
 
         # initial fractions
         idx = 0
@@ -329,19 +335,19 @@ class CompositionalFlowModel:
         comps[0].compute_molalities(vec * self.initial_solute_fractions[0], store=True)
 
         ## initialize and construct flasher
-        logger.info("Computing initial, domain-wide equilibrium ...\n")
+        logger.info("Computing initial equilibrium ...\n")
         self.flash = pp.composite.FlashNR(self.fluid)
         self.flash.use_armijo = True
         self.flash.armijo_parameters["rho"] = 0.99
         self.flash.armijo_parameters["j_max"] = 50
         self.flash.armijo_parameters["return_max"] = True
         self.flash.newton_update_chop = 1.0
-        self.flash.tolerance = 1e-4
+        self.flash.tolerance = 1e-6
         self.flash.max_iter = 120
         _, initial_state = self.flash.flash(
             state={
                 "p": vec * self.initial_pressure * self.pressure_scale,
-                "T": vec * self.initial_temperature,
+                "T": T_vals,
             },
             feed=[comps[1].fraction],
             verbosity=self._verbosity,
@@ -353,7 +359,7 @@ class CompositionalFlowModel:
         feed = [np.ones(1) * self.inflow_boundary_feed[i] for i in range(len(comps))]
         # boundary molalities
         comps[0].compute_molalities(np.ones(1) * self.inflow_boundary_solute_feed[0], store=True)
-        logger.info("Computing inflow boundary equilibrium ...\n")
+        logger.info(f"{del_log}Computing inflow boundary equilibrium ...\n")
         _, boundary_state = self.flash.flash(
             state={"p": p, "T": T},
             feed=feed,
@@ -391,7 +397,7 @@ class CompositionalFlowModel:
             p = np.ones(1) * self.injection_pressure * self.pressure_scale
             T = np.ones(1) * self.injection_temperature
             feed = [np.ones(1) * self.injection_feed[i] for i in range(len(comps))]
-            logger.info("Computing injection equilibrium ...\n")
+            logger.info(f"{del_log}Computing injection equilibrium ...\n")
             _, injection_state = self.flash.flash(
                 state={"p": p, "T": T},
                 feed=feed,
@@ -422,6 +428,10 @@ class CompositionalFlowModel:
         self.T = self.ad_system.create_variables("temperature", subdomains=subdomains)
 
         # setting initial values for pressure and temperature
+        T_vals = []
+        for sd in subdomains:
+            T_vals = self._T_gradient(sd)
+        T_vals = np.hstack(T_vals)
         vec = np.ones(self.domain.num_subdomain_cells())
         self.ad_system.set_variable_values(
             vec * self.initial_pressure,
@@ -430,7 +440,7 @@ class CompositionalFlowModel:
             time_step_index=0,
         )
         self.ad_system.set_variable_values(
-            vec * self.initial_temperature,
+            T_vals,
             variables=[self.T.name],
             iterate_index=0,
             time_step_index=0,
@@ -505,13 +515,14 @@ class CompositionalFlowModel:
                 sec_eq.append(equ.name)
                 self.ad_system.set_equation(equ, subdomains, {"cells": 1})
         name = "enthalpy-constraint"
-        equ = (self.h - self.fluid.enthalpy / self.energy_scale) / self.h / self.T**2
+        equ = (self.h - self.fluid.enthalpy / self.energy_scale) / self.h # / self.T**2
         equ.set_name(name)
         self.ad_system.set_equation(equ, subdomains, {"cells": 1})
         self.system_names["secondary-equations"] = [name] + sec_eq
 
         self.ad_system.discretize()
         self._export()
+        self._exporter.write_pvd()
 
         self.transport_equations = [
             equ for equ in self.system_names["primary-equations"]
@@ -521,6 +532,14 @@ class CompositionalFlowModel:
         self._exporter.write_vtu(self._system_vars, time_dependent=True)
 
     ### SET-UP -------------------------------------------------------------------------
+
+    def _T_gradient(self, sd: pp.Grid) -> np.ndarray:
+
+        y_coords = sd.cell_centers[1]
+        b = np.abs(self.box['ymin'] - self.box['ymax'])
+        dT = (self.heated_boundary_temperature - self.upper_boundary_temperature)
+
+        return self.heated_boundary_temperature - dT * (y_coords - self.box['ymin'])/ b
 
     def _set_up(self) -> None:
         """Set model components including
@@ -746,6 +765,26 @@ class CompositionalFlowModel:
 
     ## Boundary Conditions
 
+    def _inlet_faces(self, sd: pp.Grid, tol: Optional[float] = 1e-10) -> np.ndarray:
+        box = self.box
+        d = np.abs(box["ymax"] - box["ymin"])
+        west = np.abs(box["xmin"] - sd.face_centers[0]) <= tol
+        # including only half of faces around center
+        mid_half = np.abs(d - sd.face_centers[1]) <= (d / 4)
+        lim_up = box["ymax"] - d / self.num_cells[1]
+        lim_low = box["ymin"] + d / self.num_cells[1]
+        # excluding corner cells
+        mid = (sd.face_centers[1] < lim_up) & (sd.face_centers[1] > lim_low)
+
+        return west & mid
+    
+    def _unit_advective_flux(self, sd: pp.Grid) -> tuple[np.ndarray, np.ndarray]:
+        _, _, idx_west, *_ = self._domain_boundary_sides(sd)
+        idx_west = self._inlet_faces(sd)
+        vals = np.zeros(sd.num_faces)
+        vals[idx_west] = 1.
+        return vals, idx_west
+
     def bc_pressure(self, sd: pp.Grid) -> tuple[np.ndarray, pp.BoundaryCondition]:
         """BC for advective flux (Darcy). Override for modifications.
 
@@ -755,9 +794,8 @@ class CompositionalFlowModel:
             - Neumann conditions: [m^3 / m^2 s]
 
         """
-        _, idx_east, idx_west, *_ = self._domain_boundary_sides(sd)
-
-        vals = np.zeros(sd.num_faces)
+        _, idx_east, *_ = self._domain_boundary_sides(sd)
+        vals, idx_west = self._unit_advective_flux(sd)
         idx = np.zeros(sd.num_faces, dtype=bool)
 
         if self.inflow_boundary_pressure:
@@ -773,20 +811,15 @@ class CompositionalFlowModel:
 
     def bc_advective_weight_pressure(self, sd: pp.Grid) -> np.ndarray:
         """BC values for the scalar part in the advective flux in pressure equation."""
-        _, _, idx_west, *_ = self._domain_boundary_sides(sd)
-
-        vals = np.zeros(sd.num_faces)
+        vals, idx_west = self._unit_advective_flux(sd)
         vals[idx_west] = self.inflow_boundary_advective_weight_pressure
-
         return vals
 
     def bc_advective_weight_component(
         self, sd: pp.Grid, component: Component
     ) -> np.ndarray:
         """BC values for the weight in the advective flux in component mass balance."""
-        _, _, idx_west, *_ = self._domain_boundary_sides(sd)
-
-        vals = np.zeros(sd.num_faces)
+        vals, idx_west = self._unit_advective_flux(sd)
         vals[idx_west] = self.inflow_boundary_advective_weights[component]
 
         return vals
@@ -795,18 +828,13 @@ class CompositionalFlowModel:
         self, sd: pp.Grid, solute: pp.composite.ChemicalSpecies
     ) -> np.ndarray:
         """BC values for the weight in the advective flux in solute transport."""
-        _, _, idx_west, *_ = self._domain_boundary_sides(sd)
-
-        vals = np.zeros(sd.num_faces)
+        vals, idx_west = self._unit_advective_flux(sd)
         vals[idx_west] = self.inflow_boundary_advective_weights_solutes[solute]
-
         return vals
 
     def bc_advective_weight_energy(self, sd: pp.Grid) -> np.ndarray:
         """BC values for the scalar part in the advective flux in component mass balance."""
-        _, _, idx_west, *_ = self._domain_boundary_sides(sd)
-
-        vals = np.zeros(sd.num_faces)
+        vals, idx_west = self._unit_advective_flux(sd)
         vals[idx_west] = self.inflow_boundary_advective_weight_energy
 
         return vals
@@ -824,13 +852,14 @@ class CompositionalFlowModel:
 
         """
         _, _, idx_west, idx_north, idx_south, *_ = self._domain_boundary_sides(sd)
+        idx_west = self._inlet_faces(sd)
 
         vals = np.zeros(sd.num_faces)
         vals[idx_south] = self.heated_boundary_temperature
-        vals[idx_north] = self.initial_temperature
-        vals[idx_west] = self.inflow_boundary_temperature
+        vals[idx_north] = self.upper_boundary_temperature
+        # vals[idx_west] = self.inflow_boundary_temperature
 
-        idx = idx_south | idx_north | idx_west
+        idx = idx_south | idx_north  # | idx_west
         bc = pp.BoundaryCondition(sd, idx, cond="dir")
 
         return vals, bc
@@ -838,12 +867,13 @@ class CompositionalFlowModel:
     def bc_conductive_weight_energy(self, sd: pp.Grid) -> np.ndarray:
         """BC values for the scalar part in the conductive flux."""
         _, _, idx_west, idx_north, idx_south, *_ = self._domain_boundary_sides(sd)
+        idx_west = self._inlet_faces(sd)
 
         vals = np.zeros(sd.num_faces)
         vals[idx_south] = 1.
         vals[idx_north] = 1.
-        vals[idx_west] = 1.
-        vals *= 10.  # TODO this needs proper computation
+        # vals[idx_west] = 1.
+        vals *= 1.  # TODO this needs proper computation
 
         return vals
 
@@ -881,13 +911,12 @@ class CompositionalFlowModel:
         self.converged = False
         self._nonlinear_iteration = 0
 
-    def before_newton_iteration(self) -> None:
+    def before_newton_iteration(
+        self, flash_tol: float = 1e-4, flash_max_iter: int = 120, flash_armijo_iter: int = 150,
+    ) -> None:
         """Re-discretizes the Upwind operators and the fluxes."""
 
-        logger.info(
-            f"\n.. Newton iteration {self._nonlinear_iteration}:"
-            + " Starting isenthalpic flash .."
-        )
+        logger.info("\n")
         p = self.ad_system.get_variable_values([self.p.name], iterate_index=0) * self.pressure_scale
         h = self.ad_system.get_variable_values([self.h.name], iterate_index=0) * self.energy_scale
         T = self.ad_system.get_variable_values([self.T.name], iterate_index=0)
@@ -896,15 +925,35 @@ class CompositionalFlowModel:
             compound.compute_molalities(*tuple(X), store=True)
         iterate_state = self.fluid.get_fractional_state_from_vector()
         iterate_state.T = T
-        self.flash.tolerance = 5e-6
-        success, state = self.flash.flash(
-            state={"p": p, "h": h},
-            eos_kwargs={"apply_smoother": True},
-            guess_from_state=iterate_state,
-            verbosity=self._verbosity,
-        )
+        self.flash.tolerance = flash_tol
+        self.flash.max_iter = flash_max_iter
+        self.flash.armijo_parameters["j_max"] = flash_armijo_iter
+        try:
+            success, state = self.flash.flash(
+                state={"p": p, "h": h},
+                eos_kwargs={"apply_smoother": True},
+                guess_from_state=iterate_state,  # iterate state
+                verbosity=self._verbosity,
+            )
+        except Exception as err:
+            logger.warn(f"\nFlash crashed:\n{str(err)}")
+            success = 2
 
-        if success == 0:
+        if success != 0:  # try with custom initial guess.
+            logger.warn(f"\n.. Attempting flash with computed initial guess ..\n")
+            try:
+                success, state = self.flash.flash(
+                    state={"p": p, "h": h},
+                    eos_kwargs={"apply_smoother": True},
+                    guess_from_state=None,  # iterate state
+                    feed=iterate_state.z,
+                    verbosity=self._verbosity,
+                )
+            except Exception as err:
+                logger.warn(f"\nFlash crashed:\n{str(err)}\n")
+                success = 2
+
+        if success in [0]:
             logger.info(
                 f"{del_log}.. Newton iteration {self._nonlinear_iteration}:"
                 + " Flash succeeded. Updating values .."
@@ -944,10 +993,18 @@ class CompositionalFlowModel:
                 state=state_vector,
                 as_ad=True,
                 derivatives=self._system_vars,
+                Z_as_AD = True,
             )
 
         else:
-            raise RuntimeError("FAILURE: Isenthalpic flash.")
+            x = self.ad_system.get_variable_values(
+                variables=self._system_vars, iterate_index=0
+            )
+            logger.warn(
+                f"{del_log}.. Newton iteration {self._nonlinear_iteration}:"
+                + " Flash failed."
+            )
+            return False, x
 
         logger.info(
             f"{del_log}.. Newton iteration {self._nonlinear_iteration}:"
@@ -1000,6 +1057,8 @@ class CompositionalFlowModel:
         for _, upwind in self.advective_upwind_solute.items():
             upwind.upwind.discretize(self.domain)
 
+        return True, 0
+
     def after_newton_iteration(self, update_vector: np.ndarray) -> None:
         """Distributes solution of iteration additively to the iterate state of the
         variables. Increases the iteration counter.
@@ -1029,7 +1088,7 @@ class CompositionalFlowModel:
         )
         logger.info(
             f"{del_log}.. Newton iteration {self._nonlinear_iteration}:"
-            + " exporting state\n"
+            + " exporting state"
         )
         self._export()
 
@@ -1045,10 +1104,12 @@ class CompositionalFlowModel:
         self.ad_system.set_variable_values(
             X, variables=self._system_vars, iterate_index=0
         )
+        # safe progress
+        self._exporter.write_pvd()
 
     def after_simulation(self) -> None:
         """Writes PVD file."""
-        logger.info(f"{del_log}Stopping simulation. Writing PVD\n")
+        logger.info(f"{del_log}Simulation finished. Writing PVD\n")
         self._exporter.write_pvd()
 
     def assemble_and_solve_linear_system(self, tol: float) -> np.ndarray:
