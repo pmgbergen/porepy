@@ -85,7 +85,7 @@ class AbstractFunction(Operator):
 
         super().__init__(name=name, operation=Operator.Operations.evaluate)
 
-    def __call__(self, *args: pp.ad.Operator | AdArray) -> pp.ad.Operator:
+    def __call__(self, *args: pp.ad.Operator) -> pp.ad.Operator:
         """Renders this function operator callable, fulfilling its notion as 'function'.
 
         Parameters:
@@ -98,15 +98,7 @@ class AbstractFunction(Operator):
 
         """
         children = [self, *args]
-
-        # There is an issue with typing here. All the other places assume that children
-        # are pp.ad.Operator and never check if they are AdArray. Pypy complains a lot
-        # about that in "operator.py", but for some reason it never fails. Setting the
-        # type of children to only pp.ad.Operator silences pypy, now it complains only
-        # here. The proper solution is to refactor the operator.py so that it would take
-        # into the account that children can be of type AdArray. Until it is not done,
-        # I leave type: ignore here for now.
-        op = Operator(children=children, operation=self.operation)  # type: ignore
+        op = Operator(children=children, operation=self.operation)
         return op
 
     def __repr__(self) -> str:
