@@ -38,6 +38,7 @@ from _config import (
     HV_ISOTHERM_DATA_PATH,
     ISOTHERM_DATA_PATH,
     ISOTHERMS,
+    MARKER_SCALE,
     NAN_ENTRY,
     NUM_COMP,
     P_LIMITS_ISOTHERMS,
@@ -77,11 +78,10 @@ from _config import (
     read_results,
     success_HEADER,
     v_HEADER,
-    MARKER_SCALE,
 )
 
 # some additional plots for debugging
-DEBUG: bool = False
+DEBUG: bool = True
 
 # bounding errors from below for plotting purpose
 ERROR_CAP = 1e-10
@@ -92,12 +92,12 @@ PLOT_ROOTS: bool = True
 FIG_SIZE = (FIGURE_WIDTH, 0.33 * FIGURE_WIDTH)  # 1080 / 1920
 
 font_size = 17
-plt.rc('font', size=font_size) #controls default text size
-plt.rc('axes', titlesize=font_size) #fontsize of the title
-plt.rc('axes', labelsize=font_size) #fontsize of the x and y labels
-plt.rc('xtick', labelsize=font_size) #fontsize of the x tick labels
-plt.rc('ytick', labelsize=font_size) #fontsize of the y tick labels
-plt.rc('legend', fontsize=14) #fontsize of the legend
+plt.rc("font", size=font_size)  # controls default text size
+plt.rc("axes", titlesize=font_size)  # fontsize of the title
+plt.rc("axes", labelsize=font_size)  # fontsize of the x and y labels
+plt.rc("xtick", labelsize=font_size)  # fontsize of the x tick labels
+plt.rc("ytick", labelsize=font_size)  # fontsize of the y tick labels
+plt.rc("legend", fontsize=14)  # fontsize of the legend
 
 
 def _fmt(x, pos):
@@ -463,8 +463,12 @@ if __name__ == "__main__":
 
             if DEBUG and (err_hv_p_ip[-1] > 5 or err_hv_T_ip[-1] > 5):
                 print(
-                    "investigate: pThv", HV_ISOBAR, T_, h_pT, v_pT,
-                    f"\terr p: {err_hv_p_ip[-1]} \t err T: {err_hv_T_ip[-1]}"
+                    "investigate: pThv",
+                    HV_ISOBAR,
+                    T_,
+                    h_pT,
+                    v_pT,
+                    f"\terr p: {err_hv_p_ip[-1]} \t err T: {err_hv_T_ip[-1]}",
                 )
         else:
             err_hv_p_ip.append(0.0)
@@ -515,8 +519,12 @@ if __name__ == "__main__":
 
             if DEBUG and (err_hv_p_iT[-1] > 5 or err_hv_T_iT[-1] > 5):
                 print(
-                    "investigate: pThv", HV_ISOBAR, T_, h_pT, v_pT,
-                    f"\terr p: {err_hv_p_iT[-1]} \t err T: {err_hv_T_iT[-1]}"
+                    "investigate: pThv",
+                    HV_ISOBAR,
+                    T_,
+                    h_pT,
+                    v_pT,
+                    f"\terr p: {err_hv_p_iT[-1]} \t err T: {err_hv_T_iT[-1]}",
                 )
         else:
             err_hv_p_iT.append(0.0)
@@ -774,7 +782,9 @@ if __name__ == "__main__":
     cb = _add_colorbar(axis, img, fig, cond_end, for_errors=False)
     crit = plot_crit_point_pT(axis)
     img_, leg_ = plot_max_iter_reached(axis, p, T, max_iter_reached)
-    axis.legend(crit[0] + img_, crit[1] + leg_, loc="upper left", markerscale=MARKER_SCALE)
+    axis.legend(
+        crit[0] + img_, crit[1] + leg_, loc="upper left", markerscale=MARKER_SCALE
+    )
 
     fig.tight_layout()
     fig.savefig(
@@ -783,34 +793,6 @@ if __name__ == "__main__":
         dpi=DPI,
     )
     fig_num += 1
-    # endregion
-
-    # region Plotting error in enthalpy values
-    if DEBUG:
-        logger.info(f"{del_log}Plotting absolute errors in enthalpy ..")
-        fig = plt.figure(figsize=FIG_SIZE)
-        gs = fig.add_gridspec(1, 1)
-        fig.suptitle(f"Abs. error in spec. enthalpy of the mixture")
-        axis = fig.add_subplot(gs[0, 0])
-        axis.set_xlabel("T [K]")
-        axis.set_ylabel(f"p [{PRESSURE_SCALE_NAME}]")
-        norm = _error_norm(err_enthalpy)
-        img = plot_abs_error_pT(axis, p, T, err_enthalpy, norm=None)
-        cb = _add_colorbar(axis, img, fig, err_enthalpy)
-
-        img_ = []
-        leg_ = []
-        crit = plot_crit_point_pT(axis)
-        img_ += crit[0]
-        leg_ += crit[1]
-        axis.legend(img_, leg_, loc="upper right", markerscale=MARKER_SCALE)
-
-        fig.tight_layout()
-        fig.savefig(
-            f"{fig_path}figure_{fig_num - 1}_1.png",
-            format="png",
-            dpi=DPI,
-        )
     # endregion
 
     # region Plotting absolute errors for gas fraction
@@ -879,56 +861,6 @@ if __name__ == "__main__":
         dpi=DPI,
     )
     fig_num += 1
-    # endregion
-
-    # region Gas fraction values
-    if DEBUG:
-        logger.info(f"{del_log}Plotting gas fraction values ..")
-        fig = plt.figure(figsize=FIG_SIZE)
-        gs = fig.add_gridspec(1, 1)
-        fig.suptitle(f"Gas fraction values with over- and undershot values")
-        axis = fig.add_subplot(gs[0, 0])
-        axis.set_xlabel("T [K]")
-        axis.set_ylabel(f"p [{PRESSURE_SCALE_NAME}]")
-        norm = _error_norm(err_gas_frac)
-        img = axis.pcolormesh(
-            T, p, gas_frac, cmap="Greys", shading="nearest", norm=_error_norm(gas_frac)
-        )
-        overshoot = gas_frac > 1.0
-        if np.any(overshoot):
-            axis.plot(
-                (T[overshoot]).flat,
-                (p[overshoot] * PRESSURE_SCALE).flat,
-                "^",
-                markersize=8,
-                color="red",
-            )
-        undershoot = gas_frac < 0.0
-        if np.any(undershoot):
-            axis.plot(
-                (T[undershoot]).flat,
-                (p[undershoot] * PRESSURE_SCALE).flat,
-                "v",
-                markersize=6,
-                color="orange",
-            )
-        divider = make_axes_locatable(axis)
-        cax = divider.append_axes("right", size="5%", pad=0.1)
-        cb = fig.colorbar(
-            img,
-            cax=cax,
-            orientation="vertical",
-            format=ticker.FuncFormatter(_fmt),
-            # format=ticker.LogFormatterMathtext(),
-        )
-        cb.set_label(f"Max.: {gas_frac.max()}\nMin.: {gas_frac.min()}")
-
-        fig.tight_layout()
-        fig.savefig(
-            f"{fig_path}figure_{fig_num - 1}_1.png",
-            format="png",
-            dpi=DPI,
-        )
     # endregion
 
     # region Plotting phase composition errors
@@ -1040,7 +972,12 @@ if __name__ == "__main__":
     img_T = axis.plot(T_vec_isotherms, err_T_l2, "-*", color="red")[0]
     img_y = axis.plot(T_vec_isotherms, err_y_l2, "-*", color="black")[0]
 
-    axis.legend([img_T, img_y], ["L2-err in T", "L2-err in y"], loc="upper left", markerscale=MARKER_SCALE)
+    axis.legend(
+        [img_T, img_y],
+        ["L2-err in T", "L2-err in y"],
+        loc="upper left",
+        markerscale=MARKER_SCALE,
+    )
 
     fig.tight_layout()
     fig.savefig(

@@ -480,7 +480,7 @@ def calc_Z_mod(
     # rectangle with upper right corner at (Ac,Bc)
     acbc_rect = np.logical_and(
         np.logical_and(EPS < A, A < A_CRIT - EPS),
-        np.logical_and(EPS < B, B < B_CRIT - EPS)
+        np.logical_and(EPS < B, B < B_CRIT - EPS),
     )
     # This can happen if some fraction is slightly negative and pushed B outside
     A_neg_halfplain = A <= EPS
@@ -492,18 +492,13 @@ def calc_Z_mod(
     # it includes the positive A axis, where the smaller (extended) root possibly
     # violates the lower bound B
     outer_region = np.logical_and(
-        np.logical_not(A_neg_halfplain),
-        np.logical_not(acbc_rect)
+        np.logical_not(A_neg_halfplain), np.logical_not(acbc_rect)
     )
     # At A,B=0 we have 2 real roots, one with multiplicity 2
-    zero_point = np.logical_and(
-        np.isclose(A, 0, atol=EPS),
-        np.isclose(B, 0, atol=EPS)
-    )
+    zero_point = np.logical_and(np.isclose(A, 0, atol=EPS), np.isclose(B, 0, atol=EPS))
     # The critical point is known to be a triple-point
     critical_point = np.logical_and(
-        np.isclose(A, A_CRIT, rtol=0, atol=EPS),
-        np.isclose(B, B_CRIT, rtol=0, atol=EPS)
+        np.isclose(A, A_CRIT, rtol=0, atol=EPS), np.isclose(B, B_CRIT, rtol=0, atol=EPS)
     )
 
     # discriminant of zero indicates triple or two real roots with multiplicity
@@ -560,7 +555,6 @@ def calc_Z_mod(
         else:
             u_1 = np.cbrt(t_1)
 
-        
         real_part = u_1 - r / (u_1 * 3)
 
         z_1 = real_part - c2 / 3
@@ -616,7 +610,6 @@ def calc_Z_mod(
         else:
             u_1 = np.cbrt(t_1)
 
-        
         real_part = u_1 - r / (u_1 * 3)
 
         z_1 = real_part - c2 / 3
@@ -633,7 +626,9 @@ def calc_Z_mod(
         small_root = z_1.copy()
         small_root[extension_is_smaller] = w_1[extension_is_smaller]
 
-        assert np.all(big_root > B), 'Bigger root violates B-bound in 1-root-region outside of subcrit triangle.'
+        assert np.all(
+            big_root > B
+        ), "Bigger root violates B-bound in 1-root-region outside of subcrit triangle."
 
         correction = small_root <= B
         if np.any(correction):
@@ -678,7 +673,9 @@ def calc_Z_mod(
         assert np.all(z1_3 <= z2_3) and np.all(
             z2_3 <= z3_3
         ), "Roots in three-root-region improperly ordered."
-        assert np.all(z1_3 > B), "Sub-critical three-root-region violates lower bound by covolume"
+        assert np.all(
+            z1_3 > B
+        ), "Sub-critical three-root-region violates lower bound by covolume"
 
         ## Smoothing of roots close to double-real-root case
         # this happens when the phase changes, at the phase border the polynomial
@@ -698,7 +695,7 @@ def calc_Z_mod(
         return REGION_ENCODING[3], [Z_L, Z_I, Z_G], None
 
         ### COMPUTATIONS IN TRIPLE ROOT REGION
-    
+
     region = np.logical_and(three_root_region, np.logical_not(subc_triang))
     if np.all(region):
 
@@ -715,7 +712,9 @@ def calc_Z_mod(
         assert np.all(z1_3 <= z2_3) and np.all(
             z2_3 <= z3_3
         ), "Roots in three-root-region improperly ordered."
-        assert np.all(z3_3 > B), "Bigger root violates B bound outside of subcrit triangle."
+        assert np.all(
+            z3_3 > B
+        ), "Bigger root violates B bound outside of subcrit triangle."
 
         correction = z1_3 <= B
         if np.any(correction):
@@ -723,7 +722,7 @@ def calc_Z_mod(
             over_corrected = c >= z3_3
             if np.any(over_corrected):
                 c = B + (z3_3 - B) / 2
-            
+
             z1_3[correction] = c
 
         ## Labeling in the three-root-region follows topological patterns
@@ -778,8 +777,10 @@ def calc_Z_mod(
             c = B + EPS
             over_corrected = c >= big_root
             if np.any(over_corrected):
-                c[over_corrected] = B + (big_root[over_corrected] - B[over_corrected]) / 2
-            
+                c[over_corrected] = (
+                    B + (big_root[over_corrected] - B[over_corrected]) / 2
+                )
+
             small_root[correction] = c
 
         # store values in global root structure
@@ -801,9 +802,9 @@ if __name__ == "__main__":
     B = np.linspace(B_LIMIT[0], B_LIMIT[1], REFINEMENT)
 
     if INCLUDE_ZERO:
-        A = np.hstack([A, np.array([0.])])
+        A = np.hstack([A, np.array([0.0])])
         A = np.sort(np.unique(A))
-        B = np.hstack([B, np.array([0.])])
+        B = np.hstack([B, np.array([0.0])])
         B = np.sort(np.unique(B))
 
     A_mesh, B_mesh = np.meshgrid(A, B)
@@ -861,5 +862,7 @@ if __name__ == "__main__":
         assert isinstance(r[1], float), f"Liquid root not readable as float: row {row}"
         # assert isinstance(r[2], float), f"Intermediate not readable as float: row {row}"
         assert isinstance(r[2], float), f"Gas root not readable as float: row {row}"
-        assert isinstance(r[3], int), f"Extension flag not readable as int or None: row {row}"
+        assert isinstance(
+            r[3], int
+        ), f"Extension flag not readable as int or None: row {row}"
     print("Done", flush=True)

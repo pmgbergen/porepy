@@ -25,11 +25,17 @@ import porepy as pp
 sys.path.append(str(pathlib.Path(__file__).parent.resolve()))
 
 from _config import (
+    DATA_PATH,
     DPI,
     FIG_PATH,
     FIGURE_WIDTH,
+    PHASES,
+    PRESSURE_SCALE,
     PRESSURE_SCALE_NAME,
+    SALINITIES,
+    SPECIES,
     T_HEADER,
+    composition_HEADER,
     create_index_map,
     del_log,
     gas_frac_HEADER,
@@ -41,14 +47,8 @@ from _config import (
     plot_phase_split_pT,
     read_data_column,
     read_results,
-    success_HEADER,
     sal_path,
-    SALINITIES,
-    DATA_PATH,
-    composition_HEADER,
-    PHASES,
-    SPECIES,
-    PRESSURE_SCALE,
+    success_HEADER,
 )
 
 # some additional plots for debugging
@@ -62,12 +62,12 @@ PLOT_ROOTS: bool = False
 FIG_SIZE = (FIGURE_WIDTH, 0.33 * FIGURE_WIDTH)  # 1080 / 1920
 
 font_size = 20
-plt.rc('font', size=font_size) #controls default text size
-plt.rc('axes', titlesize=font_size) #fontsize of the title
-plt.rc('axes', labelsize=font_size) #fontsize of the x and y labels
-plt.rc('xtick', labelsize=font_size) #fontsize of the x tick labels
-plt.rc('ytick', labelsize=font_size) #fontsize of the y tick labels
-plt.rc('legend', fontsize=13) #fontsize of the legend
+plt.rc("font", size=font_size)  # controls default text size
+plt.rc("axes", titlesize=font_size)  # fontsize of the title
+plt.rc("axes", labelsize=font_size)  # fontsize of the x and y labels
+plt.rc("xtick", labelsize=font_size)  # fontsize of the x tick labels
+plt.rc("ytick", labelsize=font_size)  # fontsize of the y tick labels
+plt.rc("legend", fontsize=13)  # fontsize of the legend
 
 
 def _fmt(x, pos):
@@ -159,13 +159,15 @@ if __name__ == "__main__":
 
                 gas_frac[sidx][i, j] = float(results[sidx][gas_frac_HEADER][idx])
                 if gas_frac[sidx][i, j] > 0:
-                    x = float(results[sidx][composition_HEADER[SPECIES[1]][PHASES[0]]][idx])
+                    x = float(
+                        results[sidx][composition_HEADER[SPECIES[1]][PHASES[0]]][idx]
+                    )
                     co2_frac[sidx][i, j] = x
 
     for sidx, s in enumerate(SALINITIES):
-        gas_frac[sidx][np.isnan(gas_frac[sidx])] = 0.
-        gas_frac[sidx][gas_frac[sidx] < 0.] = 0.
-        co2_frac[sidx][np.isnan(co2_frac[sidx])] = 0.
+        gas_frac[sidx][np.isnan(gas_frac[sidx])] = 0.0
+        gas_frac[sidx][gas_frac[sidx] < 0.0] = 0.0
+        co2_frac[sidx][np.isnan(co2_frac[sidx])] = 0.0
 
     # region Plotting phase splits
     logger.info(f"{del_log}Plotting phase split regions ..")
@@ -175,7 +177,7 @@ if __name__ == "__main__":
     for sidx, s in enumerate(SALINITIES):
         axis = fig.add_subplot(gs[0, sidx])
         sal = str(s)
-        sal = sal[sal.rfind(".")+1:]
+        sal = sal[sal.rfind(".") + 1 :]
         axis.set_title(f"salinity: {s}")
         axis.set_xlabel("T [K]")
         if sidx == 0:
@@ -218,8 +220,13 @@ if __name__ == "__main__":
     axis.set_ylabel(f"p [{PRESSURE_SCALE_NAME}]")
     norm = _error_norm(gas_frac[-1])
     img = axis.pcolormesh(
-            T, p * PRESSURE_SCALE, gas_frac[-1], cmap="Greys", shading="nearest", norm=norm,
-        )
+        T,
+        p * PRESSURE_SCALE,
+        gas_frac[-1],
+        cmap="Greys",
+        shading="nearest",
+        norm=norm,
+    )
 
     fig.subplots_adjust(right=0.8)
     divider = make_axes_locatable(axis)
@@ -237,8 +244,8 @@ if __name__ == "__main__":
     axis.set_ylabel(f"p [{PRESSURE_SCALE_NAME}]")
     norm = _error_norm(co2_frac[-1])
     img = axis.pcolormesh(
-            T, p * PRESSURE_SCALE, co2_frac[-1], cmap="Greys", shading="nearest", norm=norm
-        )
+        T, p * PRESSURE_SCALE, co2_frac[-1], cmap="Greys", shading="nearest", norm=norm
+    )
 
     fig.subplots_adjust(right=0.8)
     divider = make_axes_locatable(axis)

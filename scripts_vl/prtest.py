@@ -1,4 +1,5 @@
 import numpy as np
+
 import porepy as pp
 
 chems = ["H2O", "CO2"]
@@ -6,7 +7,7 @@ chems = ["H2O", "CO2"]
 vec = np.ones(1)
 z = [vec * 0.01]  # only co2 fraction is enough
 p = vec * 9444444.44444444
-T = vec * 575.
+T = vec * 575.0
 h = vec * -13086.1248170987
 v = vec * 0.000113560243476885
 verbosity = 2
@@ -19,8 +20,12 @@ comps = [
 ]
 
 phases = [
-    pp.composite.Phase(pp.composite.peng_robinson.PengRobinsonEoS(gaslike=False), name='L'),
-    pp.composite.Phase(pp.composite.peng_robinson.PengRobinsonEoS(gaslike=True), name='G'),
+    pp.composite.Phase(
+        pp.composite.peng_robinson.PengRobinsonEoS(gaslike=False), name="L"
+    ),
+    pp.composite.Phase(
+        pp.composite.peng_robinson.PengRobinsonEoS(gaslike=True), name="G"
+    ),
 ]
 
 mix = pp.composite.NonReactiveMixture(comps, phases)
@@ -42,36 +47,33 @@ flash.tolerance = 1e-5
 flash.max_iter = 120
 
 success, results_ = flash.flash(
-    state={'h': h, 'v': v}, eos_kwargs={'apply_smoother': True},
-    feed = z,
+    state={"h": h, "v": v},
+    eos_kwargs={"apply_smoother": True},
+    feed=z,
     verbosity=verbosity,
 )
 print(results_)
 
 # p-T flash
 success, results_pT = flash.flash(
-    state={'p': p, 'T': T}, eos_kwargs={'apply_smoother': True},
-    feed = z,
+    state={"p": p, "T": T},
+    eos_kwargs={"apply_smoother": True},
+    feed=z,
     verbosity=verbosity,
 )
-print(
-    "Results p-T:\n" +
-    "------------"
-)
+print("Results p-T:\n" + "------------")
 print(str(results_pT))
 print("------------")
 
 # p-h flash
 success, results_ph = flash.flash(
-    state={'p': p, 'h': results_pT.h}, eos_kwargs={'apply_smoother': True},
-    feed = z,
+    state={"p": p, "h": results_pT.h},
+    eos_kwargs={"apply_smoother": True},
+    feed=z,
     verbosity=verbosity,
 )
 
-print(
-    "Difference between p-T and p-h:\n" +
-    "-------------------------------"
-)
+print("Difference between p-T and p-h:\n" + "-------------------------------")
 print(str(results_pT.diff(results_ph)))
 print("-------------------------------")
 
@@ -81,14 +83,12 @@ flash.armijo_parameters["rho"] = 0.99
 flash.use_armijo = True
 flash.max_iter = 150
 success, results_hv = flash.flash(
-    state={'h': results_pT.h, 'v': results_pT.v}, eos_kwargs={'apply_smoother': True},
-    feed = z,
+    state={"h": results_pT.h, "v": results_pT.v},
+    eos_kwargs={"apply_smoother": True},
+    feed=z,
     verbosity=verbosity,
 )
-print(
-    "Difference between p-T and h-v:\n" +
-    "-------------------------------"
-)
+print("Difference between p-T and h-v:\n" + "-------------------------------")
 print(str(results_pT.diff(results_hv)))
 print("-------------------------------")
 print("")

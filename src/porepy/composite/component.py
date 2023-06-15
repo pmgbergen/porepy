@@ -28,8 +28,8 @@ from dataclasses import asdict
 from typing import Generator, Literal, overload
 
 import numpy as np
-import porepy as pp
 
+import porepy as pp
 from porepy.numerics.ad.operator_functions import NumericType
 
 from ._core import R_IDEAL

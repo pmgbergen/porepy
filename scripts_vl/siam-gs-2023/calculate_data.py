@@ -16,15 +16,15 @@ import numpy as np
 sys.path.append(str(pathlib.Path(__file__).parent.resolve()))
 
 from _config import (
-    calculate_porepy_data,
-    logger,
-    write_results,
-    SALINITIES,
-    sal_path,
+    DATA_PATH,
     P_LIMITS,
+    SALINITIES,
     T_LIMITS,
     RESOLUTION_pT,
-    DATA_PATH,
+    calculate_porepy_data,
+    logger,
+    sal_path,
+    write_results,
 )
 
 if __name__ == "__main__":
@@ -39,5 +39,7 @@ if __name__ == "__main__":
     for sal in SALINITIES:
         logger.info(f"Starting computations for salinity {sal}\n")
         p = sal_path(DATA_PATH, sal)
-        results = calculate_porepy_data(p_points, T_points, "p-T", salinity=sal, quickshot=False)
+        results = calculate_porepy_data(
+            p_points, T_points, "p-T", salinity=sal, quickshot=False
+        )
         write_results(p, results)

@@ -1,13 +1,15 @@
 import numpy as np
+
 import porepy as pp
 
 chems = ["H2O", "CO2"]
 
 vec = np.ones(1)
 z = [vec * 0.01]  # only co2 fraction is enough
-salt = vec * 0.1
-p = vec * 7e6
-T = vec * 550.
+salt = vec * 0.0141289
+p = vec * 9.5911e6
+T = vec * 550.0
+h = vec * 5.6709e3
 verbosity = 2
 
 species = pp.composite.load_species(chems)
@@ -18,8 +20,12 @@ comps = [
 ]
 
 phases = [
-    pp.composite.Phase(pp.composite.peng_robinson.PengRobinsonEoS(gaslike=False), name='L'),
-    pp.composite.Phase(pp.composite.peng_robinson.PengRobinsonEoS(gaslike=True), name='G'),
+    pp.composite.Phase(
+        pp.composite.peng_robinson.PengRobinsonEoS(gaslike=False), name="L"
+    ),
+    pp.composite.Phase(
+        pp.composite.peng_robinson.PengRobinsonEoS(gaslike=True), name="G"
+    ),
 ]
 
 mix = pp.composite.NonReactiveMixture(comps, phases)
@@ -32,7 +38,6 @@ mix.set_up()
 ]
 
 comps[0].compute_molalities(salt, store=True)
-x = comps[0].fractions_from_molalities(comps[0].molalities[1:])
 
 flash = pp.composite.FlashNR(mix)
 flash.use_armijo = True
@@ -44,8 +49,9 @@ flash.tolerance = 1e-5
 flash.max_iter = 120
 
 success, results_pT = flash.flash(
-    state={'p': p, 'T': T}, eos_kwargs={'apply_smoother': True},
-    feed = z,
+    state={"p": p, "h": h},
+    eos_kwargs={"apply_smoother": True},
+    feed=z,
     verbosity=verbosity,
 )
 print(results_pT)

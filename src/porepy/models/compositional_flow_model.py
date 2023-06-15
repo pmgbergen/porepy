@@ -118,7 +118,7 @@ class CompositionalFlowModel:
         
         self.initial_component_fractions: list[float] = [0.99, 0.01]
         """Contains per component in composition the initial feed fraction."""
-        self.initial_solute_fractions: list[float] = [0.08]
+        self.initial_solute_fractions: list[float] = [0.01]
         """Contains initial solute fractions per compound and its solutes"""
 
         ## Injection parameters
@@ -142,7 +142,7 @@ class CompositionalFlowModel:
         effects.
 
         """
-        self.inflow_boundary_solute_feed: list[float] = [0.001]
+        self.inflow_boundary_solute_feed: list[float] = [0.08]
         """Contains inflow solute fractions per compound and its solutes"""
         self.heated_boundary_temperature = 600
         """Dirichlet boundary temperature in Kelvin for the conductive flux,
@@ -912,7 +912,11 @@ class CompositionalFlowModel:
         self._nonlinear_iteration = 0
 
     def before_newton_iteration(
-        self, flash_tol: float = 1e-4, flash_max_iter: int = 120, flash_armijo_iter: int = 150,
+        self,
+        flash_tol: float = 1e-4,
+        flash_max_iter: int = 120,
+        flash_armijo_iter: int = 150,
+        use_iterate: bool = False,
     ) -> None:
         """Re-discretizes the Upwind operators and the fluxes."""
 
@@ -928,18 +932,24 @@ class CompositionalFlowModel:
         self.flash.tolerance = flash_tol
         self.flash.max_iter = flash_max_iter
         self.flash.armijo_parameters["j_max"] = flash_armijo_iter
-        try:
-            success, state = self.flash.flash(
-                state={"p": p, "h": h},
-                eos_kwargs={"apply_smoother": True},
-                guess_from_state=iterate_state,  # iterate state
-                verbosity=self._verbosity,
-            )
-        except Exception as err:
-            logger.warn(f"\nFlash crashed:\n{str(err)}")
-            success = 2
+
+        if use_iterate:
+            try:
+                success, state = self.flash.flash(
+                    state={"p": p, "h": h},
+                    eos_kwargs={"apply_smoother": True},
+                    guess_from_state=iterate_state,  # iterate state
+                    verbosity=self._verbosity,
+                )
+            except Exception as err:
+                logger.warn(f"\nFlash crashed:\n{str(err)}")
+                success = 2
+        else:
+            success = 3
 
         if success != 0:  # try with custom initial guess.
+            self.flash.max_iter = 200
+            self.flash.armijo_parameters["j_max"] = 120
             logger.warn(f"\n.. Attempting flash with computed initial guess ..\n")
             try:
                 success, state = self.flash.flash(

@@ -672,7 +672,11 @@ def plot_abs_error_values(
                 # introduced by extended fractions
                 if is_rel_frac:
                     y = float(results[gas_frac_HEADER][idx])
-                    if (y <= 0. or y >= 1.)  and v_target not in ignore and comp is not None:
+                    if (
+                        (y <= 0.0 or y >= 1.0)
+                        and v_target not in ignore
+                        and comp is not None
+                    ):
                         v_target = FEED[comp]
                 if (v not in ignore) and (v_target not in ignore):
                     v = float(v)
@@ -844,7 +848,13 @@ if __name__ == "__main__":
 
     axis = fig.add_subplot(gs[0, 1])
     plot_phase_regions_from_y(
-        axis, p_mesh, x_mesh, results[success_HEADER], results[gas_frac_HEADER], x_name, px_map
+        axis,
+        p_mesh,
+        x_mesh,
+        results[success_HEADER],
+        results[gas_frac_HEADER],
+        x_name,
+        px_map,
     )
 
     fig.tight_layout()

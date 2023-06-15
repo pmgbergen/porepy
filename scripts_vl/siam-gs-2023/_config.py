@@ -44,7 +44,7 @@ T_LIMITS: list[float] = [450.0, 670.0]  # [K]
 # resolution of p-T limits
 RESOLUTION_pT: int = 40
 
-SALINITIES: list[float] = [0., 0.04, 0.08]
+SALINITIES: list[float] = [0.0, 0.04, 0.08]
 
 # temperature values for isotherms for p-h calculations
 # more refined around critical temperature of water, up to critical pressure of water
@@ -129,7 +129,7 @@ def path():
 def sal_path(datapath: str, s: float) -> str:
 
     ss = str(s)
-    ss = ss[ss.rfind('.') + 1:]
+    ss = ss[ss.rfind(".") + 1 :]
 
     idx = datapath.rfind(".csv")
 
@@ -387,8 +387,7 @@ def _progress_counter(q: Queue, NC: int, flash_result: AsyncResult):
 
 
 def create_mixture(
-    num_vals: int,
-    salinity: float
+    num_vals: int, salinity: float
 ) -> tuple[pp.composite.NonReactiveMixture, pp.composite.FlashNR]:
     """Returns instances of the modelled mixture and flash using PorePy's framework.
 
@@ -559,9 +558,7 @@ def _parallel_porepy_flash(args):
     else:
         success_arr[i] = success_
         if success_ == 2:
-            logger.warn(
-                f"\nParallel {flash_type} diverged at {msg}\n"
-            )
+            logger.warn(f"\nParallel {flash_type} diverged at {msg}\n")
         else:
             if success_ == 1:
                 logger.warn(
@@ -621,7 +618,7 @@ def calculate_porepy_data(
     state_2: list[float],
     flash_type: str,
     salinity: float,
-    quickshot: bool = False
+    quickshot: bool = False,
 ) -> dict:
     """Performs the PorePy flash for given pressure-temperature points and
     returns a result structure similar to that of the thermo computation.
