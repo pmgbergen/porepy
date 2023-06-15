@@ -77,17 +77,27 @@ from _config import (
     read_results,
     success_HEADER,
     v_HEADER,
+    MARKER_SCALE,
 )
 
 # some additional plots for debugging
-DEBUG: bool = True
+DEBUG: bool = False
 
 # bounding errors from below for plotting purpose
 ERROR_CAP = 1e-10
 
-PLOT_ROOTS: bool = False
+# Skip calculation of root data for A-B plot for performance
+PLOT_ROOTS: bool = True
 
 FIG_SIZE = (FIGURE_WIDTH, 0.33 * FIGURE_WIDTH)  # 1080 / 1920
+
+font_size = 17
+plt.rc('font', size=font_size) #controls default text size
+plt.rc('axes', titlesize=font_size) #fontsize of the title
+plt.rc('axes', labelsize=font_size) #fontsize of the x and y labels
+plt.rc('xtick', labelsize=font_size) #fontsize of the x tick labels
+plt.rc('ytick', labelsize=font_size) #fontsize of the y tick labels
+plt.rc('legend', fontsize=14) #fontsize of the legend
 
 
 def _fmt(x, pos):
@@ -108,9 +118,9 @@ def _add_colorbar(axis_, img_, fig_, vals_, for_errors=True):
     )
     if for_errors:
         cb.set_label(
-            "Max. abs. error: "
+            "Max: "
             + "{:.0e}".format(float(vals_.max()))
-            + "\nL2-error: "
+            + "\nL2: "
             + "{:.0e}".format(float(np.sqrt(np.sum(np.square(vals_)))))
         )
     return cb
@@ -581,36 +591,37 @@ if __name__ == "__main__":
 
     # region Gibbs Energy plot
     logger.info(f"{del_log}Plotting Gibbs Energy plot ..")
-    fig, axis = plt.subplots(nrows=1, ncols=2, subplot_kw={"projection": "3d"})
+    fig, axis = plt.subplots(nrows=1, ncols=1, subplot_kw={"projection": "3d"})
     fig.set_size_inches(FIG_SIZE)
-    fig.suptitle(f"Gibbs energy")
-    axis[0].set_title("Liquid phase")
-    axis[0].set_xlabel("T [K]")
-    axis[0].set_ylabel("z_1 [-]")
-    axis[0].set_zlabel("g [kJ]")
-    img = axis[0].plot_surface(
+    # fig.suptitle(f"Gibbs energy")
+    # axis[0].set_title("Liquid phase")
+    pad = 13
+    axis.set_xlabel("T [K]", labelpad=pad)
+    axis.set_ylabel("x_1 [-]", labelpad=pad)
+    axis.set_zlabel("g [kJ / mol]", labelpad=pad)
+    img = axis.plot_surface(
         T,
         X,
-        Gibbs_energy_l / Gibbs_energy_l.max(),
+        Gibbs_energy_g / 1e3,
         # T, p / pp.composite.PRESSURE_SCALE, Gibbs_energy_l,
         cmap="coolwarm",
         linewidth=0,
         antialiased=False,
     )
 
-    axis[1].set_title("Gas phase")
-    axis[1].set_xlabel("T [K]")
-    axis[1].set_ylabel("z_1 [-]")
-    axis[1].set_zlabel("g [kJ]")
-    img = axis[1].plot_surface(
-        T,
-        X,
-        Gibbs_energy_g,
-        # T, p / pp.composite.PRESSURE_SCALE, Gibbs_energy_g,
-        cmap="coolwarm",
-        linewidth=0,
-        antialiased=False,
-    )
+    # axis[1].set_title("Gas phase")
+    # axis[1].set_xlabel("T [K]")
+    # axis[1].set_ylabel("z_1 [-]")
+    # axis[1].set_zlabel("g [kJ]")
+    # img = axis[1].plot_surface(
+    #     T,
+    #     X,
+    #     Gibbs_energy_g,
+    #     # T, p / pp.composite.PRESSURE_SCALE, Gibbs_energy_g,
+    #     cmap="coolwarm",
+    #     linewidth=0,
+    #     antialiased=False,
+    # )
 
     fig.tight_layout()
     fig.savefig(
@@ -672,17 +683,22 @@ if __name__ == "__main__":
     # fig.suptitle(f"Phase split")
 
     axis = fig.add_subplot(gs[0, 0])
-    axis.set_title("Unified flash: after initial guess")
+    axis.set_title("Unified flash: initial guess")
     axis.set_xlabel("T [K]")
     axis.set_ylabel(f"p [{PRESSURE_SCALE_NAME}]")
     img = plot_phase_split_pT(axis, p, T, split_pp_initial)
-    plot_widom_line(axis)
-    plot_crit_point_pT(axis)
+    wid = plot_widom_line(axis)
+    crit = plot_crit_point_pT(axis)
+    # img_ = crit[0] + wid[0]
+    # leg_ = crit[1] + wid[1]
+    # axis.legend(img_, leg_, loc="upper center", markerscale=MARKER_SCALE)
 
     axis = fig.add_subplot(gs[0, 1])
     axis.set_title("Unified flash: after iterations")
     axis.set_xlabel("T [K]")
-    axis.set_ylabel(f"p [{PRESSURE_SCALE_NAME}]")
+    axis.set(yticklabels=[])
+    axis.set(ylabel=None)
+    axis.tick_params(left=False)
     img = plot_phase_split_pT(axis, p, T, split_pp)
     wid = plot_widom_line(axis)
     crit = plot_crit_point_pT(axis)
@@ -692,7 +708,7 @@ if __name__ == "__main__":
     if img_m:
         img_ += img_m
         leg_ += leg_m
-    axis.legend(img_, leg_, loc="upper center")
+    axis.legend(img_, leg_, loc="upper center", markerscale=MARKER_SCALE)
 
     axis = fig.add_subplot(gs[0, 2])
     axis.set_title("thermo")
@@ -716,7 +732,7 @@ if __name__ == "__main__":
             )[0]
         ]
         leg_ += ["2 liquids"]
-        axis.legend(img_, leg_, loc="upper center")
+        axis.legend(img_, leg_, loc="upper center", markerscale=MARKER_SCALE)
 
     fig.subplots_adjust(right=0.8)
     divider = make_axes_locatable(axis)
@@ -750,13 +766,15 @@ if __name__ == "__main__":
     axis = fig.add_subplot(gs[0, 1])
     axis.set_title("After iterations")
     axis.set_xlabel("T [K]")
-    axis.set_ylabel(f"p [{PRESSURE_SCALE_NAME}]")
+    axis.set(yticklabels=[])
+    axis.set(ylabel=None)
+    axis.tick_params(left=False)
     norm = _error_norm(cond_end)
     img = plot_abs_error_pT(axis, p, T, cond_end, norm=norm)
     cb = _add_colorbar(axis, img, fig, cond_end, for_errors=False)
     crit = plot_crit_point_pT(axis)
     img_, leg_ = plot_max_iter_reached(axis, p, T, max_iter_reached)
-    axis.legend(crit[0] + img_, crit[1] + leg_, loc="lower right")
+    axis.legend(crit[0] + img_, crit[1] + leg_, loc="upper left", markerscale=MARKER_SCALE)
 
     fig.tight_layout()
     fig.savefig(
@@ -785,7 +803,7 @@ if __name__ == "__main__":
         crit = plot_crit_point_pT(axis)
         img_ += crit[0]
         leg_ += crit[1]
-        axis.legend(img_, leg_, loc="upper right")
+        axis.legend(img_, leg_, loc="upper right", markerscale=MARKER_SCALE)
 
         fig.tight_layout()
         fig.savefig(
@@ -824,12 +842,14 @@ if __name__ == "__main__":
             )[0]
         ]
         leg_ += ["supercrit. root mismatch"]
-    axis.legend(img_, leg_, loc="upper right")
+    axis.legend(img_, leg_, loc="upper right", markerscale=MARKER_SCALE)
 
     axis = fig.add_subplot(gs[0, 1])
     axis.set_title("After convergence")
     axis.set_xlabel("T [K]")
-    axis.set_ylabel(f"p [{PRESSURE_SCALE_NAME}]")
+    axis.set(yticklabels=[])
+    axis.set(ylabel=None)
+    axis.tick_params(left=False)
     norm = _error_norm(err_gas_frac)
     img = plot_abs_error_pT(axis, p, T, err_gas_frac, norm=None)
     cb = _add_colorbar(axis, img, fig, err_gas_frac)
@@ -850,7 +870,7 @@ if __name__ == "__main__":
             )[0]
         ]
         leg_ += ["supercrit. root mismatch"]
-    axis.legend(img_, leg_, loc="upper right")
+    axis.legend(img_, leg_, loc="upper right", markerscale=MARKER_SCALE)
 
     fig.tight_layout()
     fig.savefig(
@@ -965,8 +985,8 @@ if __name__ == "__main__":
     fig.subplots_adjust(left=0.1)
     fig.tight_layout()
 
-    fig.text(0.02, 0.7, "Liquid\nphase", fontsize=rcParams["axes.titlesize"])
-    fig.text(0.02, 0.26, "Gas\nphase", fontsize=rcParams["axes.titlesize"])
+    fig.text(0.0, 0.7, "Liquid\nphase", fontsize=rcParams["axes.titlesize"])
+    fig.text(0.0, 0.26, "Gas\nphase", fontsize=rcParams["axes.titlesize"])
     fig.subplots_adjust(left=0.1)
     fig.savefig(
         f"{fig_path}figure_{fig_num}.png",
@@ -987,7 +1007,7 @@ if __name__ == "__main__":
     norm = _error_norm(unity_gap)
     img = plot_abs_error_pT(axis, p, T, unity_gap, norm=False)
     crit = plot_crit_point_pT(axis)
-    axis.legend(crit[0], crit[1], loc="upper right")
+    axis.legend(crit[0], crit[1], loc="upper right", markerscale=MARKER_SCALE)
     cb = _add_colorbar(axis, img, fig, unity_gap, for_errors=False)
 
     fig.tight_layout()
@@ -1020,7 +1040,7 @@ if __name__ == "__main__":
     img_T = axis.plot(T_vec_isotherms, err_T_l2, "-*", color="red")[0]
     img_y = axis.plot(T_vec_isotherms, err_y_l2, "-*", color="black")[0]
 
-    axis.legend([img_T, img_y], ["L2-err in T", "L2-err in y"], loc="upper left")
+    axis.legend([img_T, img_y], ["L2-err in T", "L2-err in y"], loc="upper left", markerscale=MARKER_SCALE)
 
     fig.tight_layout()
     fig.savefig(
@@ -1061,7 +1081,12 @@ if __name__ == "__main__":
         for c in range(ncol[r]):
 
             axis = fig.add_subplot(gs[r, c])
-            axis.set_xlabel(f"p [{PRESSURE_SCALE_NAME}]")
+            if r == 0:
+                axis.set(xticklabels=[])
+                axis.set(xlabel=None)
+                axis.tick_params(bottom=False)
+            else:
+                axis.set_xlabel(f"p [{PRESSURE_SCALE_NAME}]")
             axis.set_title(f"T = {T_vec_isotherms[n]} [K]")
             axis.set_yscale("log")
             # caping errors from below for plot
@@ -1097,7 +1122,7 @@ if __name__ == "__main__":
     img_ip, leg_ip = plot_hv_iso(
         axis, T_ip, err_hv_p_ip, err_hv_T_ip, err_hv_s_ip, err_hv_y_ip
     )
-    axis.legend(img_ip, leg_ip, loc="center left")
+    axis.legend(img_ip, leg_ip, loc="upper left", markerscale=MARKER_SCALE)
 
     axis = fig.add_subplot(gs[0, 1])
     axis.set_title(f"T = {HV_ISOTHERM} [K]")

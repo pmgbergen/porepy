@@ -90,12 +90,12 @@ if __name__ == "__main__":
         T_points = read_data_column(THERMO_DATA_PATH, T_HEADER)
 
     if COMPUTE_PT_DATA_quickshot:
-        logger.info("Starting PorePy p-T quickshot calculations ..\n")
+        logger.info("Computing PorePy p-T initialization values ..\n")
         start_time = time.time()
         results = calculate_porepy_data(p_points, T_points, "p-T", quickshot=True)
         end_time = time.time()
         logger.info(
-            f"Finished PorePy p-T-quickshot calculations ({end_time - start_time} seconds)."
+            f"Finished computing p-T initialization values in ({end_time - start_time} seconds)."
         )
         write_results(PT_QUICKSHOT_DATA_PATH, results)
 
