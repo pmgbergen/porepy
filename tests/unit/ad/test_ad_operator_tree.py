@@ -45,11 +45,10 @@ def test_elementary_operations(operator):
     c = eval(f"a {operator[0]} b")
 
     # Check that the combined operator has the expected structure.
-    tree = c.tree
-    assert tree.op == operator[1]
+    assert c.operation == operator[1]
 
-    assert tree.children[0] == a
-    assert tree.children[1] == b
+    assert c.children[0] == a
+    assert c.children[1] == b
 
 
 def test_copy_operator_tree():
@@ -75,19 +74,19 @@ def test_copy_operator_tree():
 
     # First check that the two copies have behaved as they should.
     # The operators should be the same for all trees.
-    assert c.tree.op == c_copy.tree.op
-    assert c.tree.op == c_deepcopy.tree.op
+    assert c.operation == c_copy.operation
+    assert c.operation == c_deepcopy.operation
 
     # The deep copy should have made a new list of children.
     # The shallow copy should have the same list.
-    assert c.tree.children == c_copy.tree.children
-    assert not c.tree.children == c_deepcopy.tree.children
+    assert c.children == c_copy.children
+    assert not c.children == c_deepcopy.children
 
     # Check that the shallow copy also has the same children, while
     # the deep copy has copied these as well.
-    for c1, c2 in zip(c.tree.children, c_copy.tree.children):
+    for c1, c2 in zip(c.children, c_copy.children):
         assert c1 == c2
-    for c1, c2 in zip(c.tree.children, c_deepcopy.tree.children):
+    for c1, c2 in zip(c.children, c_deepcopy.children):
         assert not c1 == c2
 
     # As a second test, also validate that the operators are parsed correctly.

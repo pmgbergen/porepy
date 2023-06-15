@@ -16,7 +16,7 @@ import scipy.sparse as sps
 import porepy as pp
 from porepy.numerics.ad.forward_mode import AdArray
 
-from .operators import Operator, Tree
+from .operators import Operator
 
 __all__ = [
     "Function",
@@ -83,12 +83,7 @@ class AbstractFunction(Operator):
         self.array_compatible: bool = array_compatible
         """Indicator whether the callable can process arrays."""
 
-        ### PRIVATE
-        self._operation: Operator.Operations = Operator.Operations.approximate
-
-        self._name: str = name if name is not None else ""
-
-        self._set_tree()
+        super().__init__(name=name, operation=Operator.Operations.evaluate)
 
     def __call__(self, *args: pp.ad.Operator | AdArray) -> pp.ad.Operator:
         """Renders this function operator callable, fulfilling its notion as 'function'.
@@ -103,7 +98,15 @@ class AbstractFunction(Operator):
 
         """
         children = [self, *args]
-        op = Operator(tree=Tree(self._operation, children=children))
+
+        # There is an issue with typing here. All the other places assume that children
+        # are pp.ad.Operator and never check if they are AdArray. Pypy complains a lot
+        # about that in "operator.py", but for some reason it never fails. Setting the
+        # type of children to only pp.ad.Operator silences pypy, now it complains only
+        # here. The proper solution is to refactor the operator.py so that it would take
+        # into the account that children can be of type AdArray. Until it is not done,
+        # I leave type: ignore here for now.
+        op = Operator(children=children, operation=self.operation)  # type: ignore
         return op
 
     def __repr__(self) -> str:
@@ -256,7 +259,6 @@ class Function(AbstractFunction):
 
     def __init__(self, func: Callable, name: str, array_compatible: bool = True):
         super().__init__(func, name, array_compatible)
-        self._operation = Operator.Operations.evaluate
         self.ad_compatible = True
 
     def get_values(self, *args: AdArray) -> np.ndarray:
