@@ -80,9 +80,6 @@ from porepy.params.data import (
     initialize_default_data,
 )
 
-from porepy.params.rock import UnitRock, Shale, SandStone, Granite
-from porepy.params.fluid import Water, UnitFluid
-
 from porepy.applications.material_values import fluid_values
 from porepy.applications.material_values import solid_values
 
