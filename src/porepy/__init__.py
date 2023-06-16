@@ -83,8 +83,8 @@ from porepy.params.data import (
 from porepy.params.rock import UnitRock, Shale, SandStone, Granite
 from porepy.params.fluid import Water, UnitFluid
 
-from porepy.applications.material_values.water import water_values
-from porepy.applications.material_values.granite import granite_values
+from porepy.applications.material_values import fluid_values
+from porepy.applications.material_values import solid_values
 
 # Grids
 from porepy.grids.grid import Grid

@@ -1,4 +1,7 @@
-"""Water properties at 20 degrees Celsius.
+"""This file contains values for fluid parameters.
+
+
+Water values at 20 degrees Celsius.
 
 The values (except thermal conductivity) are gathered from:
 * https://kdusling.github.io/teaching/Applied-Fluids/WaterProperties?T=20C 
@@ -22,7 +25,7 @@ conductivity between 290K (16.85C) and 295K (21.85C).
 
 """
 
-water_values = {
+water = {
     "compressibility": 0.4559 * 1e-9,  # [Pa^-1], isentropic compressibility
     "density": 998.2,  # [kg m^-3]
     "specific_heat_capacity": 4182.0,  # [J kg^-1 K^-1], isochoric specific heat

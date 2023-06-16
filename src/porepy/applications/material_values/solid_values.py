@@ -1,8 +1,13 @@
-"""Granite values.
+"""This file contains values for fluid parameters.
+
+
+Granite values.
+
+TODO: Add values and references.
 
 """
 
-granite_values = {
+granite = {
     "biot_coefficient": None,  # []
     "density": None,  # []
     "lame_lambda": None,  # []
