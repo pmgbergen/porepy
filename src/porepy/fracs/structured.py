@@ -297,10 +297,8 @@ def _create_lower_dim_grids_3d(
             "zmax": np.max(g_3d.nodes[2]),
         }
     else:
+        # Use default 0 for minima.
         box = {
-            "xmin": 0,
-            "ymin": 0,
-            "zmin": 0,
             "xmax": physdims[0],
             "ymax": physdims[1],
             "zmax": physdims[2],

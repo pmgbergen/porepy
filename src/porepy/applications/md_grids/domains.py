@@ -25,13 +25,13 @@ def nd_cube_domain(dimension: Literal[2, 3], size=pp.number) -> pp.Domain:
     """
 
     assert dimension in np.arange(2, 4)
-    box: dict[str, pp.number] = {"xmin": 0, "xmax": size}
+    box: dict[str, pp.number] = {"xmax": size}
 
     if dimension > 1:
-        box.update({"ymin": 0, "ymax": size})
+        box.update({"ymax": size})
 
     if dimension > 2:
-        box.update({"zmin": 0, "zmax": size})
+        box.update({"zmax": size})
 
     return pp.Domain(box)
 
