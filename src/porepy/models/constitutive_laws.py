@@ -3317,7 +3317,7 @@ class ThermoPoroMechanicsPorosity(PoroMechanicsPorosity):
     ) -> pp.ad.Operator:
         """Thermal contribution to the changes in porosity [-].
 
-        TODO: Discuss cf. Coussy p. 73. Not sure about the interpretation of alpha_phi.
+        beta_phi = (alpha - phi_ref) * beta_solid according to Coussy Eq. 4.44.
 
         Parameters:
             subdomains: List of subdomains where the porosity is defined.
