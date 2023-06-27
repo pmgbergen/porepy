@@ -600,6 +600,7 @@ class SolutionStrategy(abc.ABC):
 
         A, b = self.linear_system
 
+        # np.set_printoptions(precision=5, threshold=sys.maxsize, linewidth=300)
         # print("\n A = ", A.todense())
         # pdb.set_trace()
 

@@ -91,7 +91,8 @@ class BalanceEquation:
         dt = pp.ad.Scalar(self.time_manager.dt)
         div = pp.ad.Divergence(subdomains, dim=dim)
 
-        # tmp = dt_operator(accumulation, dt) + div @ surface_term - source
+        # tmp = dt_operator(accumulation, dt)
+        # tmp.evaluate(self.equation_system).val
         # pdb.set_trace()
 
         return dt_operator(accumulation, dt) + div @ surface_term - source

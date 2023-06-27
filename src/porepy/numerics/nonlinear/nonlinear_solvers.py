@@ -69,6 +69,7 @@ class NewtonSolver:
                 model.after_nonlinear_convergence(sol, errors, iteration_counter)
 
             iteration_counter += 1
+            print("error_norm = ", error_norm)  ###
 
         if not is_converged:
             model.after_nonlinear_failure(sol, errors, iteration_counter)

@@ -58,9 +58,7 @@ class Mixture(abc.ABC):
     def apply_constraint(self, ell, equation_system, subdomains):
         """
         - hardcoded for two phase flow
-
         - this is not the right place for this function
-
         - TODO: redo constraint
         """
 
