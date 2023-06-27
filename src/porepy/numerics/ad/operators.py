@@ -894,7 +894,6 @@ class Operator:
                     # Effectively, this node is one step from the leaf
                     var_list.append(var)
                 elif isinstance(var, list):
-                    assert False
                     # We are further up in the tree.
                     for sub_var in var:
                         if isinstance(sub_var, Variable):
