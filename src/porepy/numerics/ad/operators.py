@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import copy
-from enum import Enum, EnumMeta
+from enum import Enum
 from functools import reduce
 from itertools import count
 from typing import Any, Literal, Optional, Sequence, Union, overload
@@ -58,28 +58,28 @@ class Operator:
         interfaces (optional): List of interfaces in the mixed-dimensional grid on which
             the operator is defined. Will be empty for operators not associated with any
             interface. Defaults to None (converted to empty list).
-        tree (optional): The tree structure of child operators. Defaults to None
-            (converted to a tree with a single void operator).
+        operation (optional): Arithmetic or other operation represented by this
+            operator. Defaults to void operation.
+        children (optional): List of children, other AD operators. Defaults to empty
+            list.
 
     """
 
-    Operations: EnumMeta = Enum(
-        "Operations",
-        [
-            "void",
-            "add",
-            "sub",
-            "mul",
-            "rmul",
-            "matmul",
-            "div",
-            "rdiv",
-            "evaluate",
-            "approximate",
-            "pow",
-            "rpow",
-        ],
-    )
+    class Operations(Enum):
+        void = "void"
+        add = "add"
+        sub = "sub"
+        mul = "mul"
+        rmul = "rmul"
+        matmul = "matmul"
+        rmatmul = "rmatmul"
+        div = "div"
+        rdiv = "rdiv"
+        evaluate = "evaluate"
+        approximate = "approximate"
+        pow = "pow"
+        rpow = "rpow"
+
     """Object representing all supported operations by the operator class.
 
     Used to construct the operator tree and identify Operator.Operations.
@@ -91,7 +91,8 @@ class Operator:
         name: Optional[str] = None,
         subdomains: Optional[list[pp.Grid]] = None,
         interfaces: Optional[list[pp.MortarGrid]] = None,
-        tree: Optional[Tree] = None,
+        operation: Optional[Operator.Operations] = None,
+        children: Optional[Sequence[Operator]] = None,
     ) -> None:
         self.interfaces: list[pp.MortarGrid] = [] if interfaces is None else interfaces
         """List of interfaces on which the operator is defined, passed at instantiation.
@@ -106,22 +107,40 @@ class Operator:
         Will be empty for operators not associated with specific subdomains.
 
         """
+
+        self.children: Sequence[Operator]
+        """List of children, other AD operators.
+
+        Will be empty if the operator is a leaf.
+        """
+
+        self.operation: Operator.Operations
+        """Arithmetic or other operation represented by this operator.
+
+        Will be void if the operator is a leaf.
+        """
+
+        self._initialize_children(operation=operation, children=children)
+
         ### PRIVATE
-
         self._name = name if name is not None else ""
-
-        self._set_tree(tree)
 
     @property
     def name(self) -> str:
         """The name given to this variable."""
         return self._name
 
-    def _set_tree(self, tree=None):
-        if tree is None:
-            self.tree = Tree(Operator.Operations.void)
-        else:
-            self.tree = tree
+    def _initialize_children(
+        self,
+        operation: Optional[Operator.Operations] = None,
+        children: Optional[Sequence[Operator]] = None,
+    ):
+        """This is a part of initialization which can be called separately since some
+        subclasses do not call super().__init__()
+
+        """
+        self.children = [] if children is None else children
+        self.operation = Operator.Operations.void if operation is None else operation
 
     def _set_subdomains_or_interfaces(
         self,
@@ -160,7 +179,7 @@ class Operator:
             True if the operator has no children.
 
         """
-        return len(self.tree.children) == 0
+        return len(self.children) == 0
 
     def set_name(self, name: str) -> None:
         """Reset this object's name originally passed at instantiation.
@@ -191,7 +210,7 @@ class Operator:
         def _traverse_tree(op: Operator) -> Operator:
             """Helper function which traverses an operator tree by recursion."""
 
-            children = op.tree.children
+            children = op.children
 
             if len(children) == 0:
                 # We are on an atomic operator. If this is a time-dependent operator,
@@ -220,16 +239,6 @@ class Operator:
                     # Recursive call to fix the subtree.
                     new_children.append(_traverse_tree(child))
 
-                # We would like to return a new operator which represents the same
-                # calculation as op, though with a different set of children. We cannot
-                # use copy.copy (shallow copy), since this will identify the lists of
-                # children in the old and new operator. Also, we cannot do a deep copy,
-                # since this will copy grids in individual subdomains - see
-                # implementation not in the above treatment of Variables.
-                # The solution is to make a new Tree with the same operation as the old
-                # operator, but with the new list of children.
-                new_tree = Tree(op.tree.op, children=new_children)
-
                 # Use the same lists of subdomains and interfaces as in the old operator,
                 # with empty lists if these are not present.
                 subdomains = getattr(op, "subdomains", [])
@@ -240,7 +249,8 @@ class Operator:
                     name=op._name,
                     subdomains=subdomains,
                     interfaces=interfaces,
-                    tree=new_tree,
+                    operation=op.operation,
+                    children=new_children,
                 )
                 return new_op
 
@@ -322,11 +332,11 @@ class Operator:
             return op.parse(mdg)  # type:ignore
 
         # This is not an atomic operator. First parse its children, then combine them
-        tree = op.tree
-        results = [self._parse_operator(child, mdg) for child in tree.children]
+        results = [self._parse_operator(child, mdg) for child in op.children]
 
         # Combine the results
-        if tree.op == Operator.Operations.add:
+        operation = op.operation
+        if operation == Operator.Operations.add:
             # To add we need two objects
             assert len(results) == 2
 
@@ -340,10 +350,10 @@ class Operator:
                 # involved operators.
                 return results[0] + results[1]
             except ValueError as exc:
-                msg = self._get_error_message("adding", tree, results)
+                msg = self._get_error_message("adding", op.children, results)
                 raise ValueError(msg) from exc
 
-        elif tree.op == Operator.Operations.sub:
+        elif operation == Operator.Operations.sub:
             # To subtract we need two objects
             assert len(results) == 2
 
@@ -360,10 +370,10 @@ class Operator:
                 # involved operators.
                 return factor * (results[0] - results[1])
             except ValueError as exc:
-                msg = self._get_error_message("subtracting", tree, results)
+                msg = self._get_error_message("subtracting", op.children, results)
                 raise ValueError(msg) from exc
 
-        elif tree.op == Operator.Operations.mul:
+        elif operation == Operator.Operations.mul:
             # To multiply we need two objects
             assert len(results) == 2
 
@@ -380,10 +390,10 @@ class Operator:
                 # involved operators.
                 return results[0] * results[1]
             except ValueError as exc:
-                msg = self._get_error_message("multiplying", tree, results)
+                msg = self._get_error_message("multiplying", op.children, results)
                 raise ValueError(msg) from exc
 
-        elif tree.op == Operator.Operations.div:
+        elif operation == Operator.Operations.div:
             # Some care is needed here, to account for cases where item in the results
             # array is a numpy array
             try:
@@ -397,10 +407,10 @@ class Operator:
                 else:
                     return results[0] / results[1]
             except ValueError as exc:
-                msg = self._get_error_message("dividing", tree, results)
+                msg = self._get_error_message("dividing", op.children, results)
                 raise ValueError(msg) from exc
 
-        elif tree.op == Operator.Operations.pow:
+        elif operation == Operator.Operations.pow:
             try:
                 if isinstance(results[0], np.ndarray) and isinstance(
                     results[1], (pp.ad.AdArray, pp.ad.forward_mode.AdArray)
@@ -412,10 +422,12 @@ class Operator:
                 else:
                     return results[0] ** results[1]
             except ValueError as exc:
-                msg = self._get_error_message("raising to a power", tree, results)
+                msg = self._get_error_message(
+                    "raising to a power", op.children, results
+                )
                 raise ValueError(msg) from exc
 
-        elif tree.op == Operator.Operations.matmul:
+        elif operation == Operator.Operations.matmul:
             try:
                 if isinstance(results[0], np.ndarray) and isinstance(
                     results[1], (pp.ad.AdArray, pp.ad.forward_mode.AdArray)
@@ -432,10 +444,12 @@ class Operator:
                 else:
                     return results[0] @ results[1]
             except ValueError as exc:
-                msg = self._get_error_message("matrix multiplying", tree, results)
+                msg = self._get_error_message(
+                    "matrix multiplying", op.children, results
+                )
                 raise ValueError(msg) from exc
 
-        elif tree.op == Operator.Operations.evaluate:
+        elif operation == Operator.Operations.evaluate:
             # This is a function, which should have at least one argument
             assert len(results) > 1
             func_op = results[0]
@@ -456,12 +470,14 @@ class Operator:
                 return AdArray(val, jac)
 
         else:
-            raise ValueError(f"Encountered unknown operator {tree.op}")
+            raise ValueError(f"Encountered unknown operation {operation}")
 
-    def _get_error_message(self, operation: str, tree, results: list) -> str:
+    def _get_error_message(
+        self, operation: str, children: Sequence[Operator], results: list
+    ) -> str:
         # Helper function to format error message
-        msg_0 = tree.children[0]._parse_readable()
-        msg_1 = tree.children[1]._parse_readable()
+        msg_0 = children[0]._parse_readable()
+        msg_1 = children[1]._parse_readable()
 
         nl = "\n"
         msg = f"Ad parsing: Error when {operation}\n\n"
@@ -473,12 +489,12 @@ class Operator:
             msg += f"Name of the intended result: {self.name}\n"
         else:
             msg += "The intended result is not named\n"
-        if len(tree.children[0].name) > 0:
-            msg += f"Name of the first argument: {tree.children[0].name}\n"
+        if len(children[0].name) > 0:
+            msg += f"Name of the first argument: {children[0].name}\n"
         else:
             msg += "The first argument is not named\n"
-        if len(tree.children[1].name) > 0:
-            msg += f"Name of the second argument: {tree.children[1].name}\n"
+        if len(children[1].name) > 0:
+            msg += f"Name of the second argument: {children[1].name}\n"
         else:
             msg += "The second argument is not named\n"
         msg += nl
@@ -532,29 +548,28 @@ class Operator:
             return self._name
 
         # General operator. Split into its parts by recursion.
-        tree = self.tree
-
-        child_str = [child._parse_readable() for child in tree.children]
+        child_str = [child._parse_readable() for child in self.children]
 
         is_func = False
         operator_str = None
 
         # readable representations of known operations
-        if tree.op == Operator.Operations.add:
+        op = self.operation
+        if op == Operator.Operations.add:
             operator_str = "+"
-        elif tree.op == Operator.Operations.sub:
+        elif op == Operator.Operations.sub:
             operator_str = "-"
-        elif tree.op == Operator.Operations.mul:
+        elif op == Operator.Operations.mul:
             operator_str = "*"
-        elif tree.op == Operator.Operations.matmul:
+        elif op == Operator.Operations.matmul:
             operator_str = "@"
-        elif tree.op == Operator.Operations.div:
+        elif op == Operator.Operations.div:
             operator_str = "/"
-        elif tree.op == Operator.Operations.pow:
+        elif op == Operator.Operations.pow:
             operator_str = "**"
 
         # function evaluations have their own readable representation
-        elif tree.op == Operator.Operations.evaluate:
+        elif op == Operator.Operations.evaluate:
             is_func = True
         # for unknown operations, 'operator_str' remains None
 
@@ -579,12 +594,12 @@ class Operator:
 
         def parse_subgraph(node: Operator):
             G.add_node(node)
-            if len(node.tree.children) == 0:
+            if len(node.children) == 0:
                 return
-            operation = node.tree.op
+            operation = node.operation
             G.add_node(operation)
             G.add_edge(node, operation)
-            for child in node.tree.children:
+            for child in node.children:
                 parse_subgraph(child)
                 G.add_edge(child, operation)
 
@@ -592,7 +607,7 @@ class Operator:
         nx.draw(G, with_labels=True)
         plt.show()
 
-    ### Operator discretization ---------------------------------------------------------------
+    ### Operator discretization --------------------------------------------------------
     # TODO this is specific to discretizations and should not be done here
     # let the EquationSystem do this by calling respective util methods
 
@@ -623,9 +638,9 @@ class Operator:
         """Recursive search in the tree of this operator to identify all discretizations
         represented in the operator.
         """
-        if len(self.tree.children) > 0:
+        if len(self.children) > 0:
             # Go further in recursion
-            for child in self.tree.children:
+            for child in self.children:
                 discr += child._identify_subtree_discretizations([])
 
         if isinstance(self, _ad_utils.MergedOperator):
@@ -634,7 +649,7 @@ class Operator:
 
         return discr
 
-    ### Operator parsing ----------------------------------------------------------------------
+    ### Operator parsing ---------------------------------------------------------------
 
     def evaluate(
         self,
@@ -868,7 +883,7 @@ class Operator:
             # When using nested pp.ad.Functions, some of the children may be AdArrays
             # (forward mode), rather than Operators. For the former, don't look for
             # children - they have none.
-            for child in self.tree.children:
+            for child in self.children:
                 if isinstance(child, Operator):
                     sub_variables += child._find_subtree_variables()
 
@@ -895,7 +910,7 @@ class Operator:
             s = "Operator with no name"
         else:
             s = f"Operator '{self._name}'"
-        s += f" formed by {self.tree.op} with {len(self.tree.children)} children."
+        s += f" formed by {self.operation} with {len(self.children)} children."
         return s
 
     def __neg__(self) -> Operator:
@@ -918,7 +933,9 @@ class Operator:
 
         """
         children = self._parse_other(other)
-        return Operator(tree=Tree(Operator.Operations.add, children), name="+ operator")
+        return Operator(
+            children=children, operation=Operator.Operations.add, name="+ operator"
+        )
 
     def __radd__(self, other: Operator) -> Operator:
         """Add two operators.
@@ -946,7 +963,9 @@ class Operator:
 
         """
         children = self._parse_other(other)
-        return Operator(tree=Tree(Operator.Operations.sub, children), name="- operator")
+        return Operator(
+            children=children, operation=Operator.Operations.sub, name="- operator"
+        )
 
     def __rsub__(self, other: Operator) -> Operator:
         """Subtract two operators.
@@ -962,7 +981,9 @@ class Operator:
         children = self._parse_other(other)
         # we need to change the order here since a-b != b-a
         children = [children[1], children[0]]
-        return Operator(tree=Tree(Operator.Operations.sub, children), name="- operator")
+        return Operator(
+            children=children, operation=Operator.Operations.sub, name="- operator"
+        )
 
     def __mul__(self, other: Operator) -> Operator:
         """Elementwise multiplication of two operators.
@@ -975,7 +996,9 @@ class Operator:
 
         """
         children = self._parse_other(other)
-        return Operator(tree=Tree(Operator.Operations.mul, children), name="* operator")
+        return Operator(
+            children=children, operation=Operator.Operations.mul, name="* operator"
+        )
 
     def __rmul__(self, other: Operator) -> Operator:
         """Elementwise multiplication of two operators.
@@ -992,7 +1015,9 @@ class Operator:
         """
         children = self._parse_other(other)
         return Operator(
-            tree=Tree(Operator.Operations.rmul, children), name="right * operator"
+            children=children,
+            operation=Operator.Operations.rmul,
+            name="right * operator",
         )
 
     def __truediv__(self, other: Operator) -> Operator:
@@ -1006,7 +1031,9 @@ class Operator:
 
         """
         children = self._parse_other(other)
-        return Operator(tree=Tree(Operator.Operations.div, children), name="/ operator")
+        return Operator(
+            children=children, operation=Operator.Operations.div, name="/ operator"
+        )
 
     def __rtruediv__(self, other: Operator) -> Operator:
         """Elementwise division of two operators.
@@ -1023,7 +1050,9 @@ class Operator:
         """
         children = self._parse_other(other)
         return Operator(
-            tree=Tree(Operator.Operations.rdiv, children), name="right / operator"
+            children=children,
+            operation=Operator.Operations.rdiv,
+            name="right / operator",
         )
 
     def __pow__(self, other: Operator) -> Operator:
@@ -1064,7 +1093,7 @@ class Operator:
 
         children = self._parse_other(other)
         return Operator(
-            tree=Tree(Operator.Operations.pow, children), name="** operator"
+            children=children, operation=Operator.Operations.pow, name="** operator"
         )
 
     def __rpow__(self, other: Operator) -> Operator:
@@ -1082,7 +1111,9 @@ class Operator:
         """
         children = self._parse_other(other)
         return Operator(
-            tree=Tree(Operator.Operations.rpow, children), name="reverse ** operator"
+            children=children,
+            operation=Operator.Operations.rpow,
+            name="reverse ** operator",
         )
 
     def __matmul__(self, other: Operator) -> Operator:
@@ -1097,7 +1128,7 @@ class Operator:
         """
         children = self._parse_other(other)
         return Operator(
-            tree=Tree(Operator.Operations.matmul, children), name="@ operator"
+            children=children, operation=Operator.Operations.matmul, name="@ operator"
         )
 
     def __rmatmul__(self, other):
@@ -1115,7 +1146,9 @@ class Operator:
         """
         children = self._parse_other(other)
         return Operator(
-            tree=Tree(Operator.Operations.rmatmul, children), name="reverse @ operator"
+            children=children,
+            operation=Operator.Operations.rmatmul,
+            name="reverse @ operator",
         )
 
     def _parse_other(self, other):
@@ -1342,7 +1375,7 @@ class TimeDependentDenseArray(DenseArray):
 
         """
 
-        self._set_tree()
+        self._initialize_children()
 
     def previous_timestep(self) -> TimeDependentDenseArray:
         """
@@ -1708,7 +1741,9 @@ class MixedDimensionalVariable(Variable):
             assert len(all_names) <= 1
 
         # must be done since super not called here in init
-        self._set_tree()
+        # Yura: Is it only the problem of type checking that makes us inherit from
+        # Variable?
+        self._initialize_children()
         self.copy_common_sub_tags()
 
     def copy_common_sub_tags(self) -> None:
@@ -1818,37 +1853,6 @@ class MixedDimensionalVariable(Variable):
             s += "Evaluated at the previous time step.\n"
 
         return s
-
-
-class Tree:
-    """Simple implementation of a Tree class. Used to represent combinations of
-    Ad operators.
-
-    References:
-        https://stackoverflow.com/questions/2358045/how-can-i-implement-a-tree-in-python
-
-
-    Parameters:
-        operation: See :data:`Operation`
-        children: List of children, either as Ad arrays or other :class:`Operator`.
-
-    """
-
-    def __init__(
-        self,
-        operation: Operator.Operations,
-        children: Optional[Sequence[Union[Operator, AdArray]]] = None,
-    ):
-        self.op = operation
-
-        self.children: list[Union[Operator, AdArray]] = []
-        if children is not None:
-            for child in children:
-                self.add_child(child)
-
-    def add_child(self, node: Union[Operator, AdArray]) -> None:
-        """Adds a child to this instance."""
-        self.children.append(node)
 
 
 @overload
