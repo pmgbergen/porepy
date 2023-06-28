@@ -6,7 +6,7 @@ networkx
 numba >= 0.57
 numpy
 requests
-scipy
+scipy <= 1.10
 shapely
 six
 sympy
