@@ -630,7 +630,6 @@ class FractureNetwork2d:
         )
 
     def _find_intersection_points(self, lines: np.ndarray) -> np.ndarray:
-
         frac_id = np.ravel(lines[:2, lines[2] == GmshInterfaceTags.FRACTURE.value])
         _, frac_ia, frac_count = np.unique(frac_id, True, False, True)
 

@@ -420,7 +420,7 @@ class Equations(pp.BalanceEquation):
         source_phase_0 = (
             projection.mortar_to_secondary_int
             @ self.interface_fluid_mass_flux_phase_0(
-                interfaces, mixture.get_phase(0), "interface_mortar_flux_phase_0"
+                interfaces, self.mixture.get_phase(0), "interface_mortar_flux_phase_0"
             )
         )
         source_phase_0.set_name("interface_fluid_mass_flux_source_phase_0")
@@ -429,14 +429,16 @@ class Equations(pp.BalanceEquation):
         source_phase_1 = (
             projection.mortar_to_secondary_int
             @ self.interface_fluid_mass_flux_phase_1(
-                interfaces, mixture.get_phase(1), "interface_mortar_flux_phase_1"
+                interfaces, self.mixture.get_phase(1), "interface_mortar_flux_phase_1"
             )
         )
         source_phase_1.set_name("interface_fluid_mass_flux_source_phase_1")
 
         source = source_phase_0 + source_phase_1
 
-        eq = self.balance_equation(subdomains, accumulation, flux, source, dim=1)
+        eq = pp.ad.Scalar(1e6) * self.balance_equation(
+            subdomains, accumulation, flux, source, dim=1
+        )
         eq.set_name("pressure_equation")
 
         return eq
@@ -507,7 +509,9 @@ class Equations(pp.BalanceEquation):
             source = (
                 projection.mortar_to_secondary_int
                 @ self.interface_fluid_mass_flux_phase_0(
-                    interfaces, mixture.get_phase(0), "interface_mortar_flux_phase_0"
+                    interfaces,
+                    self.mixture.get_phase(0),
+                    "interface_mortar_flux_phase_0",
                 )
             )
             source.set_name("interface_fluid_mass_flux_source_phase_0")
@@ -517,12 +521,16 @@ class Equations(pp.BalanceEquation):
             source = (
                 projection.mortar_to_secondary_int
                 @ self.interface_fluid_mass_flux_phase_1(
-                    interfaces, mixture.get_phase(1), "interface_mortar_flux_phase_1"
+                    interfaces,
+                    self.mixture.get_phase(1),
+                    "interface_mortar_flux_phase_1",
                 )
             )
             source.set_name("interface_fluid_mass_flux_source_phase_1")
 
-        eq = self.balance_equation(subdomains, accumulation, flux, source, dim=1)
+        eq = pp.ad.Scalar(1e6) * self.balance_equation(
+            subdomains, accumulation, flux, source, dim=1
+        )
         eq.set_name("mass_balance_equation")
         return eq
 
@@ -1023,6 +1031,7 @@ class SolutionStrategyPressureMass(pp.SolutionStrategy):
 
     def prepare_simulation(self) -> None:
         """ """
+
         self.set_geometry()
 
         self.initialize_data_saving()
@@ -1298,7 +1307,6 @@ class SolutionStrategyPressureMass(pp.SolutionStrategy):
             )
             data["for_hu"]["transmissibility_internal_tpfa"] = transmissibility_internal
             data["for_hu"]["dim_max"] = self.mdg.dim_max()
-            # data["for_hu"]["n_dof_tot"] = self.equation_system.num_dofs()
 
     # other methods not called in prepared_simulation: -------------------------------------------------
 
@@ -1382,6 +1390,15 @@ class SolutionStrategyPressureMass(pp.SolutionStrategy):
             data[pp.PARAMETERS][self.ppu_keyword].update(
                 {"interface_mortar_flux_phase_1": vals}
             )
+
+        # self.assemble_linear_system()
+        # A, b = self.linear_system
+        # # A = A.todense()
+
+        # np.set_printoptions(precision=5, threshold=sys.maxsize, linewidth=300)
+        # print("\n A = ", A)
+        # print("\n b = ", b)
+        # pdb.set_trace()
 
         super().before_nonlinear_iteration()
 
@@ -1505,7 +1522,8 @@ class MyModelGeometry(pp.ModelGeometry):
     def set_fractures(self) -> None:
         """ """
         frac1 = pp.LineFracture(np.array([[0.2, 0.7], [0.7, 0.7]]))
-        self._fractures: list = [frac1]
+        frac2 = pp.LineFracture(np.array([[0.2, 0.7], [0.2, 0.2]]))
+        self._fractures: list = [frac1, frac2]
 
     def meshing_arguments(self) -> dict[str, float]:
         """ """
@@ -1528,52 +1546,50 @@ class PartialFinalModel(
     """ """
 
 
-class FinalModel(PartialFinalModel):  # I'm sorry...
-    def __init__(self, mixture, params: Optional[dict] = None):
-        super().__init__(params)
-        self.mixture = mixture
-        self.ell = 0  # 0 = wetting, 1 = non-wetting
-        self.gravity_value = 1  # pp.GRAVITY_ACCELERATION
-        self.dynamic_viscosity = 1  # TODO: it is hardoced everywhere, you know...
-
-
-fluid_constants = pp.FluidConstants({})
-solid_constants = pp.SolidConstants(
-    {
-        "porosity": 0.25,
-        "permeability": 1,
-        "normal_permeability": 1e-6,
-        "residual_aperture": 0.1,
-    }
-)
-# material_constants = {"solid": solid_constants}
-material_constants = {"fluid": fluid_constants, "solid": solid_constants}
-
-time_manager = pp.TimeManager(
-    schedule=[0, 10],
-    dt_init=1e-2,
-    constant_dt=True,
-    iter_max=10,
-    print_info=True,
-)
-
-params = {
-    "material_constants": material_constants,
-    "max_iterations": 100,
-    "nl_convergence_tol": 1e-10,
-    "nl_divergence_tol": 1e5,
-    "time_manager": time_manager,
-}
-
-wetting_phase = pp.composite.phase.Phase(rho0=1)
-non_wetting_phase = pp.composite.phase.Phase(rho0=0.5)
-
-mixture = pp.Mixture()
-mixture.add([wetting_phase, non_wetting_phase])
-
-
-model = FinalModel(mixture, params)
-
-
 if __name__ == "__main__":
+
+    class FinalModel(PartialFinalModel):  # I'm sorry...
+        def __init__(self, mixture, params: Optional[dict] = None):
+            super().__init__(params)
+            self.mixture = mixture
+            self.ell = 0  # 0 = wetting, 1 = non-wetting
+            self.gravity_value = 1  # pp.GRAVITY_ACCELERATION
+            self.dynamic_viscosity = 1  # TODO: it is hardoced everywhere, you know...
+
+    fluid_constants = pp.FluidConstants({})
+    solid_constants = pp.SolidConstants(
+        {
+            "porosity": 0.25,
+            "permeability": 1,
+            "normal_permeability": 1e6,
+            "residual_aperture": 0.1,
+        }
+    )
+    # material_constants = {"solid": solid_constants}
+    material_constants = {"fluid": fluid_constants, "solid": solid_constants}
+
+    time_manager = pp.TimeManager(
+        schedule=[0, 10],
+        dt_init=1e-2,
+        constant_dt=True,
+        iter_max=10,
+        print_info=True,
+    )
+
+    params = {
+        "material_constants": material_constants,
+        "max_iterations": 100,
+        "nl_convergence_tol": 1e-10,
+        "nl_divergence_tol": 1e5,
+        "time_manager": time_manager,
+    }
+
+    wetting_phase = pp.composite.phase.Phase(rho0=1)
+    non_wetting_phase = pp.composite.phase.Phase(rho0=0.5)
+
+    mixture = pp.Mixture()
+    mixture.add([wetting_phase, non_wetting_phase])
+
+    model = FinalModel(mixture, params)
+
     pp.run_time_dependent_model(model, params)

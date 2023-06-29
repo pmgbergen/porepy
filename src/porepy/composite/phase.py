@@ -77,7 +77,7 @@ class Phase(abc.ABC):
             rho = self._rho0 * np.ones(p.shape)
 
         # variable density:
-        beta = 1e-4  # 5e-10
+        beta = 1e-5  # 5e-10
         p0 = 1  # 1e5
         rho = self._rho0 * pp.ad.functions.exp(
             beta * p0 * (p / p0 - 1)
@@ -102,43 +102,3 @@ class Phase(abc.ABC):
         # NO, you don't need it, p is [ph, pl] and rho is a functoin depending only on p, so you don't need do distingush the grids
 
         return rho
-
-
-'''
-class PhaseMixin(abc.ABC):
-    """ """
-
-    def __init__(
-        self, name: str = "", physical_constants: pp.FluidConstants = None
-    ) -> None:
-        self._name = name
-
-        # # OLD:
-        # self._rho0 = rho0
-        self._physical_constants = physical_constants
-
-        self._s = None
-
-    @property
-    def saturation(self):
-        """ """
-        return self._s
-
-    def mass_density(self, pressure):  # TODO: pressure is useless, but thinl twice...
-        """ """
-        c = pp.ad.Scalar(
-            self._physical_constants.compressibility(), "fluid_compressibility"
-        )
-
-        exp_operators = pp.ad.Function(pp.ad.exp, "density_exponential")
-
-        db = pressure(subdomains) - pressure_ref(subdomains)
-        d_var.set_name("pressure_perturbation")
-
-        c = self.fluid_compressibility(subdomains)
-        pressure_exponential = exp_operators(c * dp)
-
-        rho_ref = pp.ad.Scalar(self.fluid.density(), "reference_fluid_density")
-        rho = rho_ref * pressure_exponential
-        rho.set_name("fluid_density")
-'''

@@ -164,6 +164,7 @@ def total_flux_internal(
         return lambda_WA
 
     # total flux computation:
+
     z = -sd.cell_centers[
         dim_max - 1
     ]  # zed is reversed to conform to the notation in paper 2022

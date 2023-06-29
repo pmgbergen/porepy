@@ -496,7 +496,9 @@ def test_flux_G():
         ad,
         dynamic_viscosity,
     )
-    assert np.all(rho_G.val == np.array([0, 0, 0, 0, 0, 0, 0]))
+    assert np.all(
+        rho_G.val == np.array([0, 0, 0, 0, 0, 0, 0])
+    )  # you have only one phase so G = 0
 
 
 def test_flux_V_G():
