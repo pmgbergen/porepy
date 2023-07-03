@@ -19,7 +19,6 @@ from matplotlib import rcParams
 
 # from matplotlib.colors import from_levels_and_colors
 from mpl_toolkits.axes_grid1 import make_axes_locatable
-from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 
 import porepy as pp
 
@@ -600,8 +599,6 @@ if __name__ == "__main__":
         axis.set_yticks(b_ticks)
         img = plot_root_regions(axis, A_mesh, B_mesh, regions, liq_root)
 
-        # divider = make_axes_locatable(axis)
-        # cax = divider.append_axes("right", size="5%", pad=0.2)
         cax = axis.inset_axes([1.04, 0.2, 0.05, 0.6])
         cb_rr = fig.colorbar(img, ax=axis, cax=cax, orientation="vertical")
         cb_rr.set_ticks([3 / 4 * k - 3 / 8 for k in range(1, 5)])
@@ -627,11 +624,9 @@ if __name__ == "__main__":
             B_mesh,
             root_extensions,
         )
-        # divider = make_axes_locatable(axis)
-        # cax = divider.append_axes("right", size="5%", pad=0.2)
+
         cax = axis.inset_axes([1.04, 0.2, 0.05, 0.6])
         cb_rr = fig.colorbar(img, ax=axis, cax=cax, orientation="vertical")
-        # cb_rr = fig.colorbar(img, cax=cax, orientation="vertical")
         cb_rr.set_ticks([3 / 4 * k - 3 / 8 for k in range(1, 5)])
         cb_rr.set_ticklabels(["no\nextension", "liq. extended", "gas extended\n(Widom)", "gas extended\n(Ben Gharbia)"])
         fig.text(0.25, 0.6, "supercrit.\nliq. extension", fontsize=rcParams["axes.titlesize"])
