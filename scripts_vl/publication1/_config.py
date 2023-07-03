@@ -1219,9 +1219,9 @@ def plot_hv_iso(
     """Plots the pressure, temperature, saturation and molar fraction error after the
     h-v flash."""
 
-    img_p = axis.plot(x, p_err, "-*", color="blue")[0]
-    img_T = axis.plot(x, T_err, "-*", color="red")[0]
-    img_s = axis.plot(x, s_err, "-*", color="green")[0]
-    img_y = axis.plot(x, y_err, "--*", color="black")[0]
+    img_p = axis.plot(x, p_err, "-s", color="blue", markersize=MARKER_SIZE)[0]
+    img_T = axis.plot(x, T_err, "-s", color="red", markersize=MARKER_SIZE)[0]
+    img_s = axis.plot(x, s_err, "-s", color="green", markersize=MARKER_SIZE)[0]
+    img_y = axis.plot(x, y_err, "--s", color="black", markersize=MARKER_SIZE)[0]
 
     return [img_p, img_T, img_s, img_y], ["p err", "T err", "s err", "y error"]
