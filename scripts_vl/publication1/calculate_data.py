@@ -49,7 +49,7 @@ from _config import (
 
 # Flags for which data should be computed, to avoid long waiting for re-computations
 COMPUTE_THERMO_DATA = True
-COMPUTE_PT_DATA_quickshot = True
+COMPUTE_PT_DATA_quickshot = False  # return results after initial guess
 COMPUTE_PT_DATA = True
 COMPUTE_PH_DATA = True
 COMPUTE_HV_DATA = True
