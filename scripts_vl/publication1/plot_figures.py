@@ -16,10 +16,6 @@ import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 import numpy as np
 from matplotlib import rcParams
-from matplotlib import colorbar
-
-# from matplotlib.colors import from_levels_and_colors
-from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 import porepy as pp
 
@@ -48,7 +44,6 @@ from _config import (
     PRESSURE_SCALE,
     PRESSURE_SCALE_NAME,
     PT_FLASH_DATA_PATH,
-    PT_QUICKSHOT_DATA_PATH,
     RESOLUTION_AB,
     SPECIES,
     T_HEADER,
@@ -67,7 +62,7 @@ from _config import (
     path,
     phases_HEADER,
     plot_abs_error_pT,
-    plot_crit_point_pT,
+    plot_crit_point_H2O,
     plot_root_extensions,
     plot_hv_iso,
     plot_max_iter_reached,
@@ -90,9 +85,10 @@ DEBUG: bool = True
 ERROR_CAP = 1e-10
 
 # Skip calculation of root data for A-B plot for performance
-PLOT_ROOTS: bool = False
+PLOT_ROOTS: bool = True
 
-FIG_SIZE = (FIGURE_WIDTH, 0.33 * FIGURE_WIDTH)  # 1080 / 1920
+# Padding from figure borders
+FIG_PAD: float = 0.05
 
 font_size = 20
 plt.rc("font", size=font_size)  # controls default text size
@@ -104,32 +100,10 @@ plt.rc("legend", fontsize=17)  # fontsize of the legend
 
 
 def _fmt(x, pos):
+    """Colorbar ticks formatter"""
     a, b = "{:.1e}".format(x).split("e")
     b = int(b)
     return r"${}e{{{}}}$".format(a, b)
-
-
-def _add_colorbar(axis_, img_, fig_, vals_):
-    divider = make_axes_locatable(axis_)
-    cax = divider.append_axes("right", size="5%", pad=0.1)
-    cb = fig_.colorbar(
-        img_,
-        cax=cax,
-        orientation="vertical",
-        format=ticker.FuncFormatter(_fmt),
-    )
-    cbt = cb.get_ticks()
-    cbt = cbt[cbt < vals_.max()]
-    cbt = np.sort(np.hstack([cbt, np.array([vals_.max()])]))
-    cb.set_ticks(cbt)
-    return cb
-
-
-def _error_norm(err_):
-    # return mpl.colors.LogNorm(vmin=err_.min(), vmax=err_.max())
-    return mpl.colors.SymLogNorm(
-        linthresh=1e-3, linscale=0.5, vmin=err_.min(), vmax=err_.max()
-    )
 
 
 if __name__ == "__main__":
@@ -145,7 +119,6 @@ if __name__ == "__main__":
     idx_map = create_index_map(p_points, T_points)
     res_thermo = read_results(THERMO_DATA_PATH)
     res_pp = read_results(PT_FLASH_DATA_PATH)
-    res_pp_initial = read_results(PT_QUICKSHOT_DATA_PATH)
     # create p-T mesh
     p_vec = np.unique(np.sort(np.array(p_points)))
     T_vec = np.unique(np.sort(np.array(T_points)))
@@ -155,20 +128,14 @@ if __name__ == "__main__":
     species = pp.composite.load_species(["ethane", "heptane"])
 
     # region Calculating values to be plotted
-
     split_thermo = np.zeros(p.shape)
     max_iter_reached = np.zeros(p.shape, dtype=bool)
     num_iter = np.zeros(p.shape)
     ll_split = np.zeros(p.shape)
     split_pp = np.zeros(p.shape)
-    split_pp_initial = np.zeros(p.shape)
-    cond_initial = np.zeros(p.shape)
     cond_end = np.zeros(p.shape)
     err_gas_frac = np.zeros(p.shape)
-    err_gas_frac_initial = np.zeros(p.shape)
     err_enthalpy = np.zeros(p.shape)
-    sc_mismatch_initial_p = np.zeros(p.shape)
-    sc_mismatch_initial_T = np.zeros(p.shape)
     sc_mismatch_p = np.zeros(p.shape)
     sc_mismatch_T = np.zeros(p.shape)
     gas_frac = np.zeros(p.shape)
@@ -202,24 +169,6 @@ if __name__ == "__main__":
                 if "LL" in split_t:
                     ll_split[i, j] = 1
 
-            # porepy split from initial guess
-            if phases_HEADER in res_pp_initial:
-                split = res_pp_initial[phases_HEADER][idx]
-                if split == "L":
-                    split_pp_initial[i, j] = 1
-                elif split == "GL":
-                    split_pp_initial[i, j] = 2
-                elif split == "G":
-                    split_pp_initial[i, j] = 3
-            else:
-                y_pp = float(res_pp_initial[gas_frac_HEADER][idx])
-                if y_pp <= 0.0:
-                    split_pp_initial[i, j] = 1
-                elif 0 < y_pp < 1.0:
-                    split_pp_initial[i, j] = 2
-                elif y_pp >= 1.0:
-                    split_pp_initial[i, j] = 3
-
             # porepy split
             if success_pp in [0, 1, 3]:
                 # if phase split is not available, use gas fraction
@@ -246,27 +195,12 @@ if __name__ == "__main__":
                 num_iter[i, j] = int(res_pp[num_iter_HEADER][idx])
 
             # exclude mismatching roots in supercritical region
+            skip_y_error = False 
             if p_ >= p_crit_water and T_ >= T_crit_water:
-                if split_pp_initial[i, j] != split_thermo[i, j]:
-                    skip_y_error_init = True
-                    sc_mismatch_initial_p[i, j] = p_
-                    sc_mismatch_initial_T[i, j] = T_
                 if split_pp[i, j] != split_thermo[i, j]:
                     skip_y_error = True
                     sc_mismatch_p[i, j] = p_
-                    sc_mismatch_T[i, j] = T_
-            else:
-                skip_y_error_init = False
-                skip_y_error = False
-
-            # condition number after initial guess
-            cond_initial[i, j] = float(res_pp_initial[conditioning_HEADER][idx])
-
-            # absolute error in gas fraction after initial guess
-            y_thermo = float(res_thermo[gas_frac_HEADER][idx])
-            y_pp_initial = float(res_pp_initial[gas_frac_HEADER][idx])
-            if not skip_y_error_init:
-                err_gas_frac_initial[i, j] = np.abs(y_pp_initial - y_thermo)
+                    sc_mismatch_T[i, j] = T_           
 
             # skip remainder if both failed
             if success_pp == 2 and success_thermo == 2:
@@ -275,13 +209,14 @@ if __name__ == "__main__":
             # final condition number
             cond_end[i, j] = float(res_pp[conditioning_HEADER][idx])
 
-            # absolute error in enthalpy
+            # absolute discrepancy in enthalpy, this is significant due to different models
             h_t = float(res_thermo[h_HEADER][idx])
             h_pp = float(res_pp[h_HEADER][idx])
 
             err_enthalpy[i, j] = np.abs(h_t - h_pp)
 
             # absolute error in gas fraction
+            y_thermo = float(res_thermo[gas_frac_HEADER][idx])
             y_pp = float(res_pp[gas_frac_HEADER][idx])
             gas_frac[i, j] = y_pp
             if not skip_y_error:
@@ -329,15 +264,11 @@ if __name__ == "__main__":
 
                 unity_gap[i, j] = 1 - sum(sum_)
 
-    sc_mismatch_initial_p = sc_mismatch_initial_p[sc_mismatch_initial_p != 0.0]
-    sc_mismatch_initial_T = sc_mismatch_initial_T[sc_mismatch_initial_T != 0.0]
     sc_mismatch_p = sc_mismatch_p[sc_mismatch_p != 0.0]
     sc_mismatch_T = sc_mismatch_T[sc_mismatch_T != 0.0]
 
     cond_end[np.isnan(cond_end)] = 0
     cond_end[cond_end == 0] = cond_end.max()
-    cond_initial[np.isnan(cond_initial)] = 0
-    cond_initial[cond_initial == 0] = cond_initial.max()
 
     err_gas_frac[err_gas_frac == -1] = err_gas_frac.max()
 
@@ -618,12 +549,12 @@ if __name__ == "__main__":
         cax = axis.inset_axes([1.04, 0.2, 0.05, 0.6])
         cb_rr = fig.colorbar(img, ax=axis, cax=cax, orientation="vertical")
         cb_rr.set_ticks([3 / 4 * k - 3 / 8 for k in range(1, 5)])
-        cb_rr.set_ticklabels(["no\nextension", "liquid\nextended", "gas\nextended\n(Widom)", "gas\nextended\n(Ben Gharbia)"])
+        cb_rr.set_ticklabels(["no\nextension", "liquid\nextended", "gas\nextended\n(Widom)", "gas\nextended\n(B.Gharbia)"])
         fig.text(0.55, 0.6, "supercrit.\nliq. extension", fontsize=rcParams["axes.titlesize"])
-        fig.text(0.58, 0.18, "subcrit.\nextension\n(Ben Gharbia)", fontsize=rcParams["axes.titlesize"])
+        fig.text(0.6, 0.18, "subcrit.\nextension\n(B.Gharbia)", fontsize=rcParams["axes.titlesize"])
         fig.text(0.72, 0.5, "gas extension", fontsize=rcParams["axes.titlesize"])
 
-        fig.tight_layout(pad=0.)
+        fig.tight_layout(pad=FIG_PAD)
         fig.savefig(
             f"{fig_path}figure_{fig_num}.{FIGURE_FORMAT}",
             format=FIGURE_FORMAT,
@@ -644,10 +575,10 @@ if __name__ == "__main__":
     axis.tick_params(bottom=False)
     img = plot_phase_split_pT(axis, p, T, split_pp)
     wid = plot_Widom_points_experimental(axis)
-    crit = plot_crit_point_pT(axis)
+    crit = plot_crit_point_H2O(axis)
     img_ = crit[0] + wid[0]
     leg_ = crit[1] + wid[1]
-    axis.legend(img_, leg_, loc="upper center", markerscale=MARKER_SCALE)
+    axis.legend(img_, leg_, loc="upper left", markerscale=MARKER_SCALE)
 
     axis = fig.add_subplot(2,1,2)
     axis.set_box_aspect(1)
@@ -655,7 +586,7 @@ if __name__ == "__main__":
     axis.set_ylabel(f"p [{PRESSURE_SCALE_NAME}]")
     img = plot_phase_split_pT(axis, p, T, split_thermo)
     plot_Widom_points_experimental(axis)
-    plot_crit_point_pT(axis)
+    plot_crit_point_H2O(axis)
     img_, leg_ = ([], [])
     idx = ll_split == 1  # plotting LL split in thermo plot
     if np.any(idx):
@@ -669,17 +600,15 @@ if __name__ == "__main__":
             )[0]
         ]
         leg_ += ["2 liquids"]
-        axis.legend(img_, leg_, loc="upper center", markerscale=MARKER_SCALE)
+        axis.legend(img_, leg_, loc="upper left", markerscale=MARKER_SCALE)
 
-    fig.tight_layout(pad=0., w_pad=0.1)
+    fig.tight_layout(pad=FIG_PAD, w_pad=0.1)
     fig.subplots_adjust(right=0.95)
     cax = fig.add_axes([0.87, 0.33, 0.05, 0.33])
-    # cax = axis.inset_axes([1.04, 0.2, 0.05, 0.6])
     cb = fig.colorbar(img, cax=cax, orientation='vertical')
     cb.set_ticks([3 / 4 * k - 3 / 8 for k in range(1, 5)])
     cb.set_ticklabels(["N/A", "L", "GL", "G"])
 
-    # fig.tight_layout(pad=0.)
     fig.savefig(
         f"{fig_path}figure_{fig_num}.{FIGURE_FORMAT}",
         format=FIGURE_FORMAT,
@@ -697,7 +626,7 @@ if __name__ == "__main__":
     axis.set_ylabel(f"p [{PRESSURE_SCALE_NAME}]")
 
     img = plot_abs_error_pT(axis, p, T, num_iter, norm=None)
-    crit = plot_crit_point_pT(axis)
+    crit = plot_crit_point_H2O(axis)
     img_, leg_ = plot_max_iter_reached(axis, p, T, max_iter_reached)
     axis.legend(
         crit[0] + img_, crit[1] + leg_, loc="upper left", markerscale=MARKER_SCALE
@@ -711,7 +640,7 @@ if __name__ == "__main__":
     cbt = np.sort(np.hstack([cbt, np.array([num_iter.max()])]))
     cb.set_ticks(cbt)
 
-    fig.tight_layout(pad=0.)
+    fig.tight_layout(pad=FIG_PAD)
     fig.savefig(
         f"{fig_path}figure_{fig_num}.{FIGURE_FORMAT}",
         format=FIGURE_FORMAT,
@@ -727,9 +656,9 @@ if __name__ == "__main__":
     axis.set_box_aspect(1)
     axis.set_xlabel("T [K]")
     axis.set_ylabel(f"p [{PRESSURE_SCALE_NAME}]")
-    norm = _error_norm(cond_end)
+    norm = mpl.colors.LogNorm(vmin=cond_end.min(), vmax=cond_end.max(), clip=False)
     img = plot_abs_error_pT(axis, p, T, cond_end, norm=norm)
-    crit = plot_crit_point_pT(axis)
+    crit = plot_crit_point_H2O(axis)
     axis.legend(
         crit[0], crit[1], loc="upper left", markerscale=MARKER_SCALE
     )
@@ -739,10 +668,11 @@ if __name__ == "__main__":
         img, ax=axis, cax=cax, orientation="vertical",format=ticker.FuncFormatter(_fmt),
     )
     cbt = cb.get_ticks()
-    cbt = np.sort(np.hstack([cbt, np.array([cond_end.max()])]))
+    cbt = cbt[(cbt <= cond_end.max()) & (cbt >= cond_end.min())]
+    cbt = np.sort(np.hstack([cbt, np.array([cond_end.min(), cond_end.max()])]))
     cb.set_ticks(cbt)
 
-    fig.tight_layout(pad=0.)
+    fig.tight_layout(pad=FIG_PAD)
     fig.savefig(
         f"{fig_path}figure_{fig_num}.{FIGURE_FORMAT}",
         format=FIGURE_FORMAT,
@@ -758,12 +688,11 @@ if __name__ == "__main__":
     axis.set_box_aspect(1)
     axis.set_xlabel("T [K]")
     axis.set_ylabel(f"p [{PRESSURE_SCALE_NAME}]")
-    norm = _error_norm(err_gas_frac)
-    img = plot_abs_error_pT(axis, p, T, err_gas_frac, norm=None)
+    img = plot_abs_error_pT(axis, p, T, err_gas_frac)
 
     img_ = []
     leg_ = []
-    crit = plot_crit_point_pT(axis)
+    crit = plot_crit_point_H2O(axis)
     img_ += crit[0]
     leg_ += crit[1]
     if np.any(sc_mismatch_p) or np.any(sc_mismatch_T):
@@ -788,7 +717,7 @@ if __name__ == "__main__":
     cbt = np.sort(np.hstack([cbt, np.array([err_gas_frac.max()])]))
     cb.set_ticks(cbt)
 
-    fig.tight_layout(pad=0.)
+    fig.tight_layout(pad=FIG_PAD)
     fig.savefig(
         f"{fig_path}figure_{fig_num}.{FIGURE_FORMAT}",
         format=FIGURE_FORMAT,
@@ -839,6 +768,9 @@ if __name__ == "__main__":
                     axis.set(ylabel=None)
                     axis.tick_params(left=False)
             
+            # capping errors
+            err_c[err_c < ERROR_CAP] = ERROR_CAP
+
             img = axis.pcolormesh(
                 T, p * PRESSURE_SCALE, err_c, cmap="Greys",
                 shading="nearest",
@@ -847,7 +779,7 @@ if __name__ == "__main__":
             )
             axis.set_ylim(p_min, 25.)
 
-    fig.tight_layout(pad=0.)
+    fig.tight_layout(pad=FIG_PAD)
     fig.subplots_adjust(right=0.75)
     cax = fig.add_axes([0.8, 0.15, 0.05, 0.7])
     cb = fig.colorbar(
@@ -877,8 +809,8 @@ if __name__ == "__main__":
     axis.set_xlabel("T [K]")
     axis.set_ylabel(f"p [{PRESSURE_SCALE_NAME}]")
     img = plot_abs_error_pT(axis, p, T, unity_gap)
-    crit = plot_crit_point_pT(axis)
-    axis.legend(crit[0], crit[1], loc="upper right", markerscale=MARKER_SCALE)
+    crit = plot_crit_point_H2O(axis)
+    axis.legend(crit[0], crit[1], loc="upper left", markerscale=MARKER_SCALE)
 
     cax = axis.inset_axes([1.04, 0.2, 0.05, 0.6])
     cb = fig.colorbar(
@@ -889,7 +821,7 @@ if __name__ == "__main__":
     cbt = np.sort(np.hstack([cbt, np.array([unity_gap.max()])]))
     cb.set_ticks(cbt)
 
-    fig.tight_layout(pad=0.)
+    fig.tight_layout(pad=FIG_PAD)
     fig.savefig(
         f"{fig_path}figure_{fig_num}.{FIGURE_FORMAT}",
         format=FIGURE_FORMAT,
@@ -925,7 +857,7 @@ if __name__ == "__main__":
         markerscale=MARKER_SCALE,
     )
 
-    fig.tight_layout(pad=0.)
+    fig.tight_layout(pad=FIG_PAD)
     fig.savefig(
         f"{fig_path}figure_{fig_num}.{FIGURE_FORMAT}",
         format=FIGURE_FORMAT,
@@ -987,7 +919,7 @@ if __name__ == "__main__":
             axis.set_yscale("log")
             n += 1
 
-    fig.tight_layout(pad=0., h_pad = 0.5, w_pad=0.5)
+    fig.tight_layout(pad=FIG_PAD, h_pad = 0.5, w_pad=0.5)
     fig.savefig(
         f"{fig_path}figure_{fig_num}.{FIGURE_FORMAT}",
         format=FIGURE_FORMAT,
@@ -1016,7 +948,7 @@ if __name__ == "__main__":
         axis, p_iT * PRESSURE_SCALE, err_hv_p_iT, err_hv_T_iT, err_hv_s_iT, err_hv_y_iT
     )
 
-    fig.tight_layout(pad=0., h_pad = 0.5)
+    fig.tight_layout(pad=FIG_PAD, h_pad = 0.5)
     fig.savefig(
         f"{fig_path}figure_{fig_num}.{FIGURE_FORMAT}",
         format=FIGURE_FORMAT,
@@ -1042,14 +974,14 @@ if __name__ == "__main__":
     isotherm_p = p_iT * PRESSURE_SCALE
 
     marker_size = int(np.floor(MARKER_SIZE * 2/ 3))
-    img_ip = axis.plot(isobar_T, isobar_p, "-o", fillstyle='none', color="blue", markersize=marker_size, linewidth=3)[0]
-    img_iT = axis.plot(isothermo_T, isotherm_p, "-s", fillstyle='none', color="red", markersize=marker_size, linewidth=3)[0]
+    img_ip = axis.plot(isobar_T, isobar_p, "-o", fillstyle='none', color="black", markersize=marker_size, linewidth=1)[0]
+    img_iT = axis.plot(isothermo_T, isotherm_p, "-s", fillstyle='none', color="black", markersize=marker_size, linewidth=1)[0]
 
     axis.set_ylim(p_min, 25.)
 
     img_ = []
     leg_ = []
-    crit = plot_crit_point_pT(axis)
+    crit = plot_crit_point_H2O(axis)
     img_ += crit[0]
     leg_ += crit[1]
 
@@ -1062,7 +994,7 @@ if __name__ == "__main__":
     cb.set_ticks([3 / 4 * k - 3 / 8 for k in range(1, 5)])
     cb.set_ticklabels(["N/A", "L", "GL", "G"])
 
-    fig.tight_layout(pad=0.)
+    fig.tight_layout(pad=FIG_PAD)
     fig.savefig(
         f"{fig_path}figure_{fig_num}.{FIGURE_FORMAT}",
         format=FIGURE_FORMAT,
