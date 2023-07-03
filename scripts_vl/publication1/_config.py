@@ -25,9 +25,13 @@ import porepy as pp
 sys.path.append(str(pathlib.Path(__file__).parent.resolve()))
 
 # figure configurations
-FIGURE_WIDTH: int = 15  # in inches, 1080 / 1920 ratio applied to height
+# in inches, all plots are square, error plots have a aspect ratio of 1:3
+FIGURE_WIDTH: int = 10
+# height-to-width ratio per plot
+# This is not applied to error plots
+ASPECT_RATIO: float = 0.8
 DPI: int = 400  # Dots per Inch (level of detail per figure)
-FIGURE_FORMAT: str = "svg"
+FIGURE_FORMAT: str = "png"
 MARKER_SCALE: int = 2  # Size scaling of markers in legend
 MARKER_SIZE: int = 10
 
@@ -1218,10 +1222,11 @@ def plot_hv_iso(
 ):
     """Plots the pressure, temperature, saturation and molar fraction error after the
     h-v flash."""
+    marker_size = int(np.floor(MARKER_SIZE / 2))
+    marker_size = MARKER_SIZE
+    img_p = axis.plot(x, p_err, "--o", fillstyle='none', color="blue", markersize=marker_size)[0]
+    img_s = axis.plot(x, s_err, "--P", color="green", markersize=marker_size)[0]
+    img_T = axis.plot(x, T_err, "-s", color="red", markersize=marker_size)[0]
+    img_y = axis.plot(x, y_err, "-D", color="black", markersize=marker_size)[0]
 
-    img_p = axis.plot(x, p_err, "-s", color="blue", markersize=MARKER_SIZE)[0]
-    img_T = axis.plot(x, T_err, "-s", color="red", markersize=MARKER_SIZE)[0]
-    img_s = axis.plot(x, s_err, "-s", color="green", markersize=MARKER_SIZE)[0]
-    img_y = axis.plot(x, y_err, "--s", color="black", markersize=MARKER_SIZE)[0]
-
-    return [img_p, img_T, img_s, img_y], ["p err", "T err", "s err", "y error"]
+    return [img_p, img_s, img_T, img_y], ["p err", "s err", "T err", "y error"]
