@@ -17,12 +17,15 @@ import matplotlib.pyplot as plt
 import numpy as np
 import psutil
 from matplotlib import figure
+from matplotlib.colors import LinearSegmentedColormap  
 from thermo import PR78MIX, CEOSGas, CEOSLiquid, ChemicalConstantsPackage, FlashVLN
 from thermo.interaction_parameters import IPDB
 
 import porepy as pp
 
 sys.path.append(str(pathlib.Path(__file__).parent.resolve()))
+
+from batlow import cm_data as batlow_data
 
 # figure configurations
 # in inches, all plots are square, error plots have a aspect ratio of 1:3
@@ -34,6 +37,17 @@ DPI: int = 400  # Dots per Inch (level of detail per figure)
 FIGURE_FORMAT: str = "png"
 MARKER_SCALE: int = 2  # Size scaling of markers in legend
 MARKER_SIZE: int = 10
+
+# Defining colors for plots
+batlow_map = LinearSegmentedColormap.from_list('batlow', batlow_data)
+NA_COL = batlow_map(0.)  # color for not available data
+LIQ_COL = batlow_map(0.25)  # color for liquid phase
+MPHASE_COL = batlow_map(0.5)  # color for multi-phase region
+GAS_COL = batlow_map(0.75)  # color for gas phase
+GAS_COL_2 = batlow_map(1.)  # Additional color for gas phase (Widom extension)
+WHITE_COL = (1, 1, 1, 1)
+BLACK_COL = (0, 0, 0, 1)
+GREY_COL = (.5, .5, .5, 1)
 
 # Calculation modus for PorePy flash
 # 1 - point-wise (robust, but possibly very slow),
@@ -69,7 +83,7 @@ RESOLUTION_hv: int = 10
 # Limits for A and B when plotting te roots
 A_LIMITS: list[float] = [0, 2 * pp.composite.peng_robinson.PengRobinsonEoS.A_CRIT]
 B_LIMITS: list[float] = [0, 2 * pp.composite.peng_robinson.PengRobinsonEoS.B_CRIT]
-RESOLUTION_AB: int = 100
+RESOLUTION_AB: int = 300
 
 # Widom line for water: Pressure and Temperature values
 WIDOM_LINE: list[np.ndarray] = [
@@ -1026,7 +1040,7 @@ def calculate_porepy_data(
     return results
 
 
-def plot_crit_point_pT(axis: plt.Axes):
+def plot_crit_point_H2O(axis: plt.Axes):
     """Plot critical pressure and temperature in p-T plot for components H2O and CO2."""
 
     S = pp.composite.load_species(SPECIES)
@@ -1069,8 +1083,11 @@ def plot_phase_split_pT(
 ) -> figure.Figure:
     """Plots a phase split figure across a range of pressure and temperature values."""
 
+    # cmap = mpl.colors.ListedColormap(
+    #     ["firebrick", "royalblue", "mediumturquoise", "forestgreen"]
+    # )
     cmap = mpl.colors.ListedColormap(
-        ["firebrick", "royalblue", "mediumturquoise", "forestgreen"]
+        np.array([NA_COL, LIQ_COL, MPHASE_COL, GAS_COL])
     )
     img = axis.pcolormesh(
         T,
@@ -1147,7 +1164,10 @@ def plot_root_regions(
     liq_root: np.ndarray,
 ):
     """A discrete plot for plotting the root cases."""
-    cmap = mpl.colors.ListedColormap(["yellow", "green", "blue", "indigo"])
+    # cmap = mpl.colors.ListedColormap(["yellow", "green", "blue", "indigo"])
+    cmap = mpl.colors.ListedColormap(
+        np.array([GREY_COL, WHITE_COL, NA_COL, MPHASE_COL])
+    )
     img = axis.pcolormesh(A_mesh, B_mesh, regions, cmap=cmap, vmin=0, vmax=3,shading="nearest",)
     imgs_c, legs_c = _plot_critical_line(axis, A_mesh)
 
@@ -1173,7 +1193,7 @@ def plot_root_regions(
     axis.legend(
         imgs_c + img_v,
         legs_c + leg_v,
-        loc="lower right",
+        loc="upper right",
         markerscale=MARKER_SCALE,
     )
 
@@ -1187,7 +1207,10 @@ def plot_root_extensions(
     root_extensions: np.ndarray,
 ):
     """A discrete plot for plotting the root cases."""
-    cmap = mpl.colors.ListedColormap(["white", "royalblue", "orange", "forestgreen"])
+    # cmap = mpl.colors.ListedColormap(["white", "royalblue", "orange", "forestgreen"])
+    cmap = mpl.colors.ListedColormap(
+        np.array([MPHASE_COL, LIQ_COL, GAS_COL_2, GAS_COL])
+    )
     img = axis.pcolormesh(
         A_mesh, B_mesh, root_extensions, cmap=cmap, vmin=0, vmax=3, shading="nearest",
     )
@@ -1196,7 +1219,7 @@ def plot_root_extensions(
     img_w, leg_w = _plot_Widom_line(axis, A_mesh, B_mesh)
 
     axis.legend(
-        imgs_c + img_w, legs_c + leg_w, loc="lower right", markerscale=MARKER_SCALE
+        imgs_c + img_w, legs_c + leg_w, loc="upper left", markerscale=MARKER_SCALE
     )
 
     return img
@@ -1207,7 +1230,7 @@ def plot_Widom_points_experimental(axis: plt.Axes):
     (Maxim et al. 2019)"""
 
     img = axis.plot(
-        WIDOM_LINE[1], WIDOM_LINE[0] * PRESSURE_SCALE, "D-", markersize=6, color="black"
+        WIDOM_LINE[1], WIDOM_LINE[0] * PRESSURE_SCALE, "D-", markersize=MARKER_SIZE, color="black"
     )
     return [img[0]], ["Widom-line data"]
 
@@ -1224,8 +1247,8 @@ def plot_hv_iso(
     h-v flash."""
     marker_size = int(np.floor(MARKER_SIZE / 2))
     marker_size = MARKER_SIZE
-    img_p = axis.plot(x, p_err, "--o", fillstyle='none', color="blue", markersize=marker_size)[0]
-    img_s = axis.plot(x, s_err, "--P", color="green", markersize=marker_size)[0]
+    img_p = axis.plot(x, p_err, "--o", fillstyle='none', color="red", markersize=marker_size)[0]
+    img_s = axis.plot(x, s_err, "--P", fillstyle='none', color="black", markersize=marker_size)[0]
     img_T = axis.plot(x, T_err, "-s", color="red", markersize=marker_size)[0]
     img_y = axis.plot(x, y_err, "-D", color="black", markersize=marker_size)[0]
 
