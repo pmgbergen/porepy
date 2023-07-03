@@ -1176,7 +1176,7 @@ class FlashNR:
         # append history entry
         self._history_entry(
             flash=flash_type,
-            method="newton-min",
+            method=method,
             iterations=iter_final,
             success=success,
         )
@@ -1962,6 +1962,7 @@ class FlashNR:
 
         success: bool = 1
         iter_final: int = 0
+        i: int = 0
 
         F_k = F(X_0, True)
         X_k = X_0
@@ -1971,9 +1972,10 @@ class FlashNR:
         if res_norm <= self.tolerance:
             logger.info(f"{del_log}Flash iteration 0: success")
             success = 0
+            iter_final = i
         else:
-            for i in range(1, self.max_iter + 1):
-
+            while i < self.max_iter:
+                i += 1
                 DX = pypardiso.spsolve(F_k.jac, -F_k.val) * self.newton_update_chop
                 # DX = sps.linalg.spsolve(F_k.jac, -F_k.val) * self.newton_update_chop
 
@@ -2003,5 +2005,8 @@ class FlashNR:
                     logger.info(f"{del_log}Flash iteration {iter_final}: success")
                     success = 0
                     break
+            else:
+                iter_final = i
+                success = 1
 
         return success, iter_final, X_k

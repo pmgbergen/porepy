@@ -27,8 +27,9 @@ sys.path.append(str(pathlib.Path(__file__).parent.resolve()))
 # figure configurations
 FIGURE_WIDTH: int = 15  # in inches, 1080 / 1920 ratio applied to height
 DPI: int = 400  # Dots per Inch (level of detail per figure)
+FIGURE_FORMAT: str = "svg"
 MARKER_SCALE: int = 2  # Size scaling of markers in legend
-MARKER_SIZE: int = 5
+MARKER_SIZE: int = 10
 
 # Calculation modus for PorePy flash
 # 1 - point-wise (robust, but possibly very slow),
@@ -64,7 +65,7 @@ RESOLUTION_hv: int = 10
 # Limits for A and B when plotting te roots
 A_LIMITS: list[float] = [0, 2 * pp.composite.peng_robinson.PengRobinsonEoS.A_CRIT]
 B_LIMITS: list[float] = [0, 2 * pp.composite.peng_robinson.PengRobinsonEoS.B_CRIT]
-RESOLUTION_AB: int = 300
+RESOLUTION_AB: int = 100
 
 # Widom line for water: Pressure and Temperature values
 WIDOM_LINE: list[np.ndarray] = [
@@ -1028,7 +1029,7 @@ def plot_crit_point_pT(axis: plt.Axes):
 
     img = [
         axis.plot(
-            s.T_crit, s.p_crit * PRESSURE_SCALE, "*", markersize=6, color="fuchsia"
+            s.T_crit, s.p_crit * PRESSURE_SCALE, "*", markersize=MARKER_SIZE, color="red"
         )[0]
         for s in S[:1]
     ]
@@ -1047,9 +1048,9 @@ def plot_max_iter_reached(
         img = axis.plot(
             T[max_iter_reached],
             p[max_iter_reached] * PRESSURE_SCALE,
-            "x",
-            markersize=5,
-            color="red",
+            "P",
+            markersize=MARKER_SIZE,
+            color="black",
         )
         return [img[0]], ["max iter reached"]
     else:
@@ -1109,10 +1110,29 @@ def _plot_critical_line(axis: plt.Axes, A_mesh: np.ndarray):
     x_vals = x_vals[x_vals <= A_CRIT]
     y_vals = 0.0 + slope * x_vals
     # critical line
-    img_line = axis.plot(x_vals, y_vals, "-", color="red", linewidth=1)
+    img_line = axis.plot(x_vals, y_vals, "-", color="black", linewidth=3)
     # critical point
-    img_point = axis.plot(A_CRIT, B_CRIT, "*", markersize=6, color="red")
-    return [img_point[0], img_line[0]], ["(A_crit, B_crit)", "critical line"]
+    img_point = axis.plot(A_CRIT, B_CRIT, "*", markersize=MARKER_SIZE, color="red")
+    return [img_point[0], img_line[0]], ["(A_c, B_c)", "crit. line"]
+
+
+def _plot_Widom_line(axis: plt.Axes, A_mesh: np.ndarray, B_mesh: np.ndarray):
+    """Plots the approximation of the Widom-line."""
+    A_CRIT = pp.composite.peng_robinson.PengRobinsonEoS.A_CRIT
+    B_CRIT = pp.composite.peng_robinson.PengRobinsonEoS.B_CRIT
+    x_vals = np.sort(np.unique(A_mesh.flatten()))
+    x_vals = x_vals[x_vals >= A_CRIT]
+    y_vals = pp.composite.peng_robinson.PengRobinsonEoS.Widom_line(x_vals)
+    cap = y_vals <= B_mesh.max()
+    y_vals = y_vals[cap]
+    x_vals = x_vals[cap]
+
+    # Widom line
+    img_line = axis.plot(x_vals, y_vals, linestyle='dashed', color="black", linewidth=3)
+    # subcrit- triangle
+    img_b = axis.plot([A_CRIT, A_CRIT], [0, B_CRIT], linestyle='dotted', color="black", linewidth=3)
+
+    return [img_line[0], img_b[0]], ["Widom line", "A=A_c"]
 
 
 def plot_root_regions(
@@ -1121,48 +1141,34 @@ def plot_root_regions(
     B_mesh: np.ndarray,
     regions: np.ndarray,
     liq_root: np.ndarray,
-    gas_root: np.ndarray,
 ):
     """A discrete plot for plotting the root cases."""
     cmap = mpl.colors.ListedColormap(["yellow", "green", "blue", "indigo"])
-    img = axis.pcolormesh(A_mesh, B_mesh, regions, cmap=cmap, vmin=0, vmax=3)
+    img = axis.pcolormesh(A_mesh, B_mesh, regions, cmap=cmap, vmin=0, vmax=3,shading="nearest",)
     imgs_c, legs_c = _plot_critical_line(axis, A_mesh)
 
-    violated = liq_root <= B_mesh
+    violated = (liq_root <= B_mesh) & (B_mesh >= pp.composite.peng_robinson.PengRobinsonEoS.critical_line(A_mesh))
     if np.any(violated):
-        img_ = axis.plot(
-            A_mesh[violated],
-            B_mesh[violated],
-            ".-",
-            markersize=0.5,
-            color="red",
-            linewidth=0.1,
+        mr = np.ma.array(regions, mask=np.logical_not(violated))
+        hatch = axis.pcolor(
+            A_mesh,
+            B_mesh,
+            mr,
+            hatch='//', edgecolor='black',
+            cmap=mpl.colors.ListedColormap(['none']),
+            facecolor='none',
+            vmin=0, vmax=3,shading="nearest",
+            lw=0, zorder=2,
         )
-        img_v = [img_[0]]
+        img_v = [hatch]
         leg_v = [f"Z_L <= B"]
     else:
         img_v = []
         leg_v = []
 
-    violated = gas_root < liq_root
-    if np.any(violated):
-        img_ = axis.plot(
-            A_mesh[violated],
-            B_mesh[violated],
-            ".-",
-            markersize=0.5,
-            color="black",
-            linewidth=0.1,
-        )
-        img_v2 = [img_[0]]
-        leg_v2 = [f"Z_G < Z_L"]
-    else:
-        img_v2 = []
-        leg_v2 = []
-
     axis.legend(
-        imgs_c + img_v + img_v2,
-        legs_c + leg_v + leg_v2,
+        imgs_c + img_v,
+        legs_c + leg_v,
         loc="lower right",
         markerscale=MARKER_SCALE,
     )
@@ -1170,66 +1176,36 @@ def plot_root_regions(
     return img
 
 
-def plot_extension_markers(
+def plot_root_extensions(
     axis: plt.Axes,
     A_mesh: np.ndarray,
     B_mesh: np.ndarray,
-    liq_extended: np.ndarray,
-    gas_extended_widom: np.ndarray,
-    gas_extended: np.ndarray,
-    liq_root: np.ndarray,
-    gas_root: np.ndarray,
+    root_extensions: np.ndarray,
 ):
     """A discrete plot for plotting the root cases."""
-    # empt mesh plot to scale the figure properly
+    cmap = mpl.colors.ListedColormap(["white", "royalblue", "orange", "forestgreen"])
     img = axis.pcolormesh(
-        A_mesh, B_mesh, np.zeros(A_mesh.shape), cmap="Greys", vmin=0, vmax=1
+        A_mesh, B_mesh, root_extensions, cmap=cmap, vmin=0, vmax=3, shading="nearest",
     )
-
-    img_l = axis.plot(
-        A_mesh[liq_extended],
-        B_mesh[liq_extended],
-        ".-",
-        markersize=1,
-        color="blue",
-        linewidth=0.1,
-    )
-    img_g_w = axis.plot(
-        A_mesh[gas_extended_widom],
-        B_mesh[gas_extended_widom],
-        ".-",
-        markersize=1,
-        color="orange",
-        linewidth=0.1,
-    )
-    img_g = axis.plot(
-        A_mesh[gas_extended],
-        B_mesh[gas_extended],
-        ".-",
-        markersize=1,
-        color="red",
-        linewidth=0.1,
-    )
-    img_e = [img_l[0], img_g_w[0], img_g[0]]
-    leg_e = ["liquid extended", "gas extended (Widom)", "gas extended"]
 
     imgs_c, legs_c = _plot_critical_line(axis, A_mesh)
+    img_w, leg_w = _plot_Widom_line(axis, A_mesh, B_mesh)
 
     axis.legend(
-        imgs_c + img_e, legs_c + leg_e, loc="lower right", markerscale=MARKER_SCALE
+        imgs_c + img_w, legs_c + leg_w, loc="lower right", markerscale=MARKER_SCALE
     )
 
     return img
 
 
-def plot_widom_line(axis: plt.Axes):
+def plot_Widom_points_experimental(axis: plt.Axes):
     """Plots the three points corresponding to the experimental Widom line
     (Maxim et al. 2019)"""
 
     img = axis.plot(
-        WIDOM_LINE[1], WIDOM_LINE[0] * PRESSURE_SCALE, "D-", markersize=3, color="black"
+        WIDOM_LINE[1], WIDOM_LINE[0] * PRESSURE_SCALE, "D-", markersize=6, color="black"
     )
-    return [img[0]], ["exp. Widom line"]
+    return [img[0]], ["Widom-line data"]
 
 
 def plot_hv_iso(

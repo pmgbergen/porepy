@@ -19,6 +19,7 @@ from matplotlib import rcParams
 
 # from matplotlib.colors import from_levels_and_colors
 from mpl_toolkits.axes_grid1 import make_axes_locatable
+from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 
 import porepy as pp
 
@@ -28,8 +29,8 @@ from _config import (
     A_LIMITS,
     B_LIMITS,
     DPI,
-    FEED,
     FIG_PATH,
+    FIGURE_FORMAT,
     FIGURE_WIDTH,
     HV_FLASH_DATA_PATH,
     HV_ISOBAR,
@@ -53,7 +54,6 @@ from _config import (
     T_HEADER,
     THERMO_DATA_PATH,
     RESOLUTION_ph,
-    RESOLUTION_pT,
     composition_HEADER,
     conditioning_HEADER,
     create_index_map,
@@ -68,16 +68,18 @@ from _config import (
     phases_HEADER,
     plot_abs_error_pT,
     plot_crit_point_pT,
-    plot_extension_markers,
+    plot_root_extensions,
     plot_hv_iso,
     plot_max_iter_reached,
     plot_phase_split_pT,
     plot_root_regions,
-    plot_widom_line,
+    plot_Widom_points_experimental,
     read_data_column,
     read_results,
     success_HEADER,
     v_HEADER,
+    num_iter_HEADER,
+    MARKER_SIZE,
 )
 
 # some additional plots for debugging
@@ -87,7 +89,7 @@ DEBUG: bool = True
 ERROR_CAP = 1e-10
 
 # Skip calculation of root data for A-B plot for performance
-PLOT_ROOTS: bool = True
+PLOT_ROOTS: bool = False
 
 FIG_SIZE = (FIGURE_WIDTH, 0.33 * FIGURE_WIDTH)  # 1080 / 1920
 
@@ -116,13 +118,16 @@ def _add_colorbar(axis_, img_, fig_, vals_, for_errors=True):
         format=ticker.FuncFormatter(_fmt),
         # format=ticker.LogFormatterMathtext(),
     )
-    if for_errors:
-        cb.set_label(
-            "Max: "
-            + "{:.0e}".format(float(vals_.max()))
-            + "\nL2: "
-            + "{:.0e}".format(float(np.sqrt(np.sum(np.square(vals_)))))
-        )
+    cbt = cb.get_ticks()
+    cbt = np.sort(np.hstack([cbt, np.array([vals_.max()])]))
+    cb.set_ticks(cbt)
+    # if for_errors:
+    #     cb.set_label(
+    #         "Max: "
+    #         + "{:.0e}".format(float(vals_.max()))
+    #         + "\nL2: "
+    #         + "{:.0e}".format(float(np.sqrt(np.sum(np.square(vals_)))))
+    #     )
     return cb
 
 
@@ -151,43 +156,15 @@ if __name__ == "__main__":
     p_vec = np.unique(np.sort(np.array(p_points)))
     T_vec = np.unique(np.sort(np.array(T_points)))
     T, p = np.meshgrid(T_vec, p_vec)
-    x_vec = np.linspace(0 + 1e-5, 1 - 1e-5, RESOLUTION_pT, dtype=float)
-    _, X = np.meshgrid(T_vec, x_vec)
+    num_p, num_T = p.shape
 
-    eos_l = pp.composite.peng_robinson.PengRobinsonEoS(False)
-    eos_g = pp.composite.peng_robinson.PengRobinsonEoS(True)
     species = pp.composite.load_species(["ethane", "heptane"])
-    comps = [
-        pp.composite.peng_robinson.H2O.from_species(species[0]),
-        pp.composite.peng_robinson.CO2.from_species(species[1]),
-    ]
-    eos_l.components = comps
-    eos_g.components = comps
-    feed = [np.ones(1) * z for z in FEED]
 
     # calculating values to be plotted
 
-    num_p, num_T = p.shape
-    Gibbs_energy_l = np.zeros(p.shape)
-    Gibbs_energy_g = np.zeros(p.shape)
-    logger.info("Calculating Gibbs energy plot data ..\n")
-    for i in range(num_p):
-        for j in range(num_T):
-            x_ = X[i, j]
-            T_ = T[i, j]
-            feed = [np.ones(1) * x_, np.ones(1) * (1 - x_)]
-            pv = np.ones(1) * 15e6
-            Tv = np.ones(1) * T_
-            prop_l = eos_l.compute(pv, Tv, feed)
-            prop_g = eos_g.compute(pv, Tv, feed)
-            G_l = eos_l._g_ideal(feed) + eos_l._g_dep(Tv, prop_l.A, prop_l.B, prop_l.Z)
-            G_g = eos_g._g_ideal(feed) + eos_g._g_dep(Tv, prop_g.A, prop_g.B, prop_g.Z)
-
-            Gibbs_energy_l[i, j] = G_l[0]
-            Gibbs_energy_g[i, j] = G_g[0]
-
     split_thermo = np.zeros(p.shape)
     max_iter_reached = np.zeros(p.shape, dtype=bool)
+    num_iter = np.zeros(p.shape)
     ll_split = np.zeros(p.shape)
     split_pp = np.zeros(p.shape)
     split_pp_initial = np.zeros(p.shape)
@@ -271,6 +248,8 @@ if __name__ == "__main__":
 
                 if success_pp == 1:
                     max_iter_reached[i, j] = True
+
+                num_iter[i, j] = int(res_pp[num_iter_HEADER][idx])
 
             # exclude mismatching roots in supercritical region
             if p_ >= p_crit_water and T_ >= T_crit_water:
@@ -553,9 +532,9 @@ if __name__ == "__main__":
         regions = np.zeros(A_mesh.shape)
         liq_root = np.zeros(A_mesh.shape)
         gas_root = np.zeros(A_mesh.shape)
-        gas_extended_widom = np.zeros(A_mesh.shape, dtype=bool)
-        gas_extended = np.zeros(A_mesh.shape, dtype=bool)
-        liq_extended = np.zeros(A_mesh.shape, dtype=bool)
+        # indicater which root is extended
+        # 1 - liquid extended, 2 - gas extended with Widom, 3 - gas extended with Gharbia
+        root_extensions = np.zeros(A_mesh.shape)
         counter: int = 1
         nm = n * m
         eos = pp.composite.peng_robinson.PengRobinsonEoS(False)
@@ -585,130 +564,105 @@ if __name__ == "__main__":
                 liq_root[i, j] = Z_L
                 gas_root[i, j] = Z_G
 
+                # liquid extension in super-crit area
+                if regions[i,j] == 3:
+                    b_c = eos.critical_line(A_)
+                    if B_ >= b_c:
+                        root_extensions[i, j] = 1
+                # plotting extension in one-root region
                 if regions[i, j] == 1:
+                    # liquid extended by default
+                    root_extensions[i, j] = 1
+                    # if Gas extended using Widom line
                     if is_extended_w == 0:
-                        gas_extended_widom[i, j] = True
-                    elif is_extended_w == 1:
-                        liq_extended[i, j] = True
-
+                        root_extensions[i, j] = 2
+                    # if Gas extended with Gharbia extension
                     if is_extended == 0:
-                        gas_extended[i, j] = True
+                        root_extensions[i, j] = 3
+                
 
                 logger.info(f"{del_log}Calculating root data: {counter}/{nm}")
                 counter += 1
 
-    # region Gibbs Energy plot
-    logger.info(f"{del_log}Plotting Gibbs Energy plot ..")
-    fig, axis = plt.subplots(nrows=1, ncols=1, subplot_kw={"projection": "3d"})
-    fig.set_size_inches(FIG_SIZE)
-    # fig.suptitle(f"Gibbs energy")
-    # axis[0].set_title("Liquid phase")
-    pad = 13
-    axis.set_xlabel("T [K]", labelpad=pad)
-    axis.set_ylabel("x_1 [-]", labelpad=pad)
-    axis.set_zlabel("g [kJ / mol]", labelpad=pad)
-    img = axis.plot_surface(
-        T,
-        X,
-        Gibbs_energy_g / 1e3,
-        # T, p / pp.composite.PRESSURE_SCALE, Gibbs_energy_l,
-        cmap="coolwarm",
-        linewidth=0,
-        antialiased=False,
-    )
-
-    # axis[1].set_title("Gas phase")
-    # axis[1].set_xlabel("T [K]")
-    # axis[1].set_ylabel("z_1 [-]")
-    # axis[1].set_zlabel("g [kJ]")
-    # img = axis[1].plot_surface(
-    #     T,
-    #     X,
-    #     Gibbs_energy_g,
-    #     # T, p / pp.composite.PRESSURE_SCALE, Gibbs_energy_g,
-    #     cmap="coolwarm",
-    #     linewidth=0,
-    #     antialiased=False,
-    # )
-
-    fig.tight_layout()
-    fig.savefig(
-        f"{fig_path}figure_{fig_num}.png",
-        format="png",
-        dpi=DPI,
-    )
-    fig_num += 1
-    # endregion
-
     # region Root plot
     if PLOT_ROOTS:
+        a_ticks = np.around(np.linspace(A_mesh.min(), A_mesh.max(), 6), decimals=1)
+        b_ticks = np.around(np.linspace(B_mesh.min(), B_mesh.max(), 7)[1:], decimals=2)
         logger.info(f"{del_log}Plotting roots ..")
-        fig = plt.figure(figsize=FIG_SIZE)
-        gs = fig.add_gridspec(1, 2)
-        # fig.suptitle(f"Root cases for the Peng-Robinson EoS")
+        fig = plt.figure(figsize=(FIGURE_WIDTH, FIGURE_WIDTH))
+        gs = fig.add_gridspec(1, 1)
         axis = fig.add_subplot(gs[0, 0])
-        axis.set_title("Number of distinct real roots")
+        axis.set_box_aspect(1)
+        # axis.set_title("Number of distinct real roots")
         axis.set_xlabel("A")
         axis.set_ylabel("B")
-        img = plot_root_regions(axis, A_mesh, B_mesh, regions, liq_root, gas_root)
+        axis.set_xticks(a_ticks)
+        axis.set_yticks(b_ticks)
+        img = plot_root_regions(axis, A_mesh, B_mesh, regions, liq_root)
 
-        divider = make_axes_locatable(axis)
-        cax = divider.append_axes("right", size="5%", pad=0.1)
-        cb_rr = fig.colorbar(img, cax=cax, orientation="vertical")
+        # divider = make_axes_locatable(axis)
+        # cax = divider.append_axes("right", size="5%", pad=0.2)
+        cax = axis.inset_axes([1.04, 0.2, 0.05, 0.6])
+        cb_rr = fig.colorbar(img, ax=axis, cax=cax, orientation="vertical")
         cb_rr.set_ticks([3 / 4 * k - 3 / 8 for k in range(1, 5)])
         cb_rr.set_ticklabels(["triple", "1 root", "2 roots", "3 roots"])
+        fig.tight_layout()
+        fig.savefig(
+            f"{fig_path}figure_1.{FIGURE_FORMAT}",
+            format=FIGURE_FORMAT,
+            dpi=DPI,
+        )
 
-        axis = fig.add_subplot(gs[0, 1])
+        fig = plt.figure(figsize=(FIGURE_WIDTH, FIGURE_WIDTH))
+        gs = fig.add_gridspec(1, 1)
+        axis = fig.add_subplot(gs[0, 0])
+        axis.set_box_aspect(1)
         axis.set_xlabel("A")
-        axis.set_title("Usage of extended roots")
-        axis.set(yticklabels=[])
-        axis.set(ylabel=None)
-        axis.tick_params(left=False)
-        img = plot_extension_markers(
+        axis.set_ylabel("B")
+        axis.set_xticks(a_ticks)
+        axis.set_yticks(b_ticks)
+        img = plot_root_extensions(
             axis,
             A_mesh,
             B_mesh,
-            liq_extended,
-            gas_extended_widom,
-            gas_extended,
-            liq_root,
-            gas_root,
+            root_extensions,
         )
+        # divider = make_axes_locatable(axis)
+        # cax = divider.append_axes("right", size="5%", pad=0.2)
+        cax = axis.inset_axes([1.04, 0.2, 0.05, 0.6])
+        cb_rr = fig.colorbar(img, ax=axis, cax=cax, orientation="vertical")
+        # cb_rr = fig.colorbar(img, cax=cax, orientation="vertical")
+        cb_rr.set_ticks([3 / 4 * k - 3 / 8 for k in range(1, 5)])
+        cb_rr.set_ticklabels(["no\nextension", "liq. extended", "gas extended\n(Widom)", "gas extended\n(Ben Gharbia)"])
+        fig.text(0.25, 0.6, "supercrit.\nliq. extension", fontsize=rcParams["axes.titlesize"])
+        fig.text(0.25, 0.22, "subcrit.\nextension\n(Ben Gharbia)", fontsize=rcParams["axes.titlesize"])
+        fig.text(0.6, 0.4, "gas extension", fontsize=rcParams["axes.titlesize"])
 
         fig.tight_layout()
         fig.savefig(
-            f"{fig_path}figure_{fig_num}.png",
-            format="png",
+            f"{fig_path}figure_2.{FIGURE_FORMAT}",
+            format=FIGURE_FORMAT,
             dpi=DPI,
         )
-    fig_num += 1
+    fig_num = 3
     # endregion
 
     # region Plotting phase splits
     logger.info(f"{del_log}Plotting phase split regions ..")
-    fig = plt.figure(figsize=FIG_SIZE)
-    gs = fig.add_gridspec(1, 3)
+    fig = plt.figure(figsize=(FIGURE_WIDTH, 2 * FIGURE_WIDTH))
+    gs = fig.add_gridspec(2, 1, hspace=0., wspace=0.)
     # fig.suptitle(f"Phase split")
 
     axis = fig.add_subplot(gs[0, 0])
-    axis.set_title("Unified flash: initial guess")
-    axis.set_xlabel("T [K]")
+    axis.set_box_aspect(1)
+    # axis.set_title("Unified flash: after iterations")
+    # axis.set_xlabel("T [K]")
     axis.set_ylabel(f"p [{PRESSURE_SCALE_NAME}]")
-    img = plot_phase_split_pT(axis, p, T, split_pp_initial)
-    wid = plot_widom_line(axis)
-    crit = plot_crit_point_pT(axis)
-    # img_ = crit[0] + wid[0]
-    # leg_ = crit[1] + wid[1]
-    # axis.legend(img_, leg_, loc="upper center", markerscale=MARKER_SCALE)
-
-    axis = fig.add_subplot(gs[0, 1])
-    axis.set_title("Unified flash: after iterations")
-    axis.set_xlabel("T [K]")
-    axis.set(yticklabels=[])
-    axis.set(ylabel=None)
-    axis.tick_params(left=False)
+    axis.set(xticklabels=[])
+    axis.set(xlabel=None)
+    axis.tick_params(bottom=False)
     img = plot_phase_split_pT(axis, p, T, split_pp)
-    wid = plot_widom_line(axis)
+    wid = plot_Widom_points_experimental(axis)
     crit = plot_crit_point_pT(axis)
     img_ = crit[0] + wid[0]
     leg_ = crit[1] + wid[1]
@@ -718,14 +672,19 @@ if __name__ == "__main__":
         leg_ += leg_m
     axis.legend(img_, leg_, loc="upper center", markerscale=MARKER_SCALE)
 
-    axis = fig.add_subplot(gs[0, 2])
-    axis.set_title("thermo")
+    fig.subplots_adjust(right=0.8)
+    cax = axis.inset_axes([1.04, 0.2, 0.05, 0.6])
+    cb = fig.colorbar(img, ax=axis, cax=cax, orientation="vertical")
+    cb.set_ticks([3 / 4 * k - 3 / 8 for k in range(1, 5)])
+    cb.set_ticklabels(["N/A", "L", "GL", "G"])
+
+    axis = fig.add_subplot(gs[1, 0])
+    axis.set_box_aspect(1)
+    # axis.set_title("thermo")
     axis.set_xlabel("T [K]")
-    axis.set(yticklabels=[])
-    axis.set(ylabel=None)
-    axis.tick_params(left=False)
+    axis.set_ylabel(f"p [{PRESSURE_SCALE_NAME}]")
     img = plot_phase_split_pT(axis, p, T, split_thermo)
-    plot_widom_line(axis)
+    plot_Widom_points_experimental(axis)
     plot_crit_point_pT(axis)
     img_, leg_ = ([], [])
     idx = ll_split == 1  # plotting LL split in thermo plot
@@ -742,17 +701,42 @@ if __name__ == "__main__":
         leg_ += ["2 liquids"]
         axis.legend(img_, leg_, loc="upper center", markerscale=MARKER_SCALE)
 
-    fig.subplots_adjust(right=0.8)
-    divider = make_axes_locatable(axis)
-    cbar_ax = divider.append_axes("right", size="5%", pad=0.3)
-    cb = fig.colorbar(img, cax=cbar_ax, orientation="vertical")
-    cb.set_ticks([3 / 4 * k - 3 / 8 for k in range(1, 5)])
-    cb.set_ticklabels(["N/A", "L", "GL", "G"])
+    fig.tight_layout()
+    fig.savefig(
+        f"{fig_path}figure_{fig_num}.{FIGURE_FORMAT}",
+        format=FIGURE_FORMAT,
+        dpi=DPI,
+    )
+    fig_num += 1
+    # endregion
+
+    # region Plotting iteration numbers
+    logger.info(f"{del_log}Plotting iteration numbers ..")
+    fig = plt.figure(figsize=(FIGURE_WIDTH, FIGURE_WIDTH))
+    axis = fig.add_subplot(gs[0, 0])
+    axis.set_box_aspect(1)
+    axis.set_xlabel("T [K]")
+    axis.set_ylabel(f"p [{PRESSURE_SCALE_NAME}]")
+
+    img = plot_abs_error_pT(axis, p, T, num_iter, norm=None)
+    crit = plot_crit_point_pT(axis)
+    img_, leg_ = plot_max_iter_reached(axis, p, T, max_iter_reached)
+    axis.legend(
+        crit[0] + img_, crit[1] + leg_, loc="upper left", markerscale=MARKER_SCALE
+    )
+
+    cax = axis.inset_axes([1.04, 0.2, 0.05, 0.6])
+    cb = fig.colorbar(img, ax=axis, cax=cax, orientation="vertical",
+        # format=ticker.FuncFormatter(_fmt),
+    )
+    cbt = cb.get_ticks()
+    cbt = np.sort(np.hstack([cbt, np.array([num_iter.max()])]))
+    cb.set_ticks(cbt)
 
     fig.tight_layout()
     fig.savefig(
-        f"{fig_path}figure_{fig_num}.png",
-        format="png",
+        f"{fig_path}figure_{fig_num}.{FIGURE_FORMAT}",
+        format=FIGURE_FORMAT,
         dpi=DPI,
     )
     fig_num += 1
@@ -760,36 +744,30 @@ if __name__ == "__main__":
 
     # region Plotting condition numbers
     logger.info(f"{del_log}Plotting condition numbers ..")
-    fig = plt.figure(figsize=FIG_SIZE)
-    gs = fig.add_gridspec(1, 2)
-    # fig.suptitle(f"Condition number of the unified p-T-flash")
+    fig = plt.figure(figsize=(FIGURE_WIDTH, FIGURE_WIDTH))
     axis = fig.add_subplot(gs[0, 0])
-    axis.set_title("After initial guess")
+    axis.set_box_aspect(1)
     axis.set_xlabel("T [K]")
     axis.set_ylabel(f"p [{PRESSURE_SCALE_NAME}]")
-    norm = _error_norm(cond_initial)
-    img = plot_abs_error_pT(axis, p, T, cond_initial, norm=norm)
-    cb = _add_colorbar(axis, img, fig, cond_initial, for_errors=False)
-
-    axis = fig.add_subplot(gs[0, 1])
-    axis.set_title("After iterations")
-    axis.set_xlabel("T [K]")
-    axis.set(yticklabels=[])
-    axis.set(ylabel=None)
-    axis.tick_params(left=False)
     norm = _error_norm(cond_end)
     img = plot_abs_error_pT(axis, p, T, cond_end, norm=norm)
-    cb = _add_colorbar(axis, img, fig, cond_end, for_errors=False)
     crit = plot_crit_point_pT(axis)
     img_, leg_ = plot_max_iter_reached(axis, p, T, max_iter_reached)
     axis.legend(
         crit[0] + img_, crit[1] + leg_, loc="upper left", markerscale=MARKER_SCALE
     )
 
+    cax = axis.inset_axes([1.04, 0.2, 0.05, 0.6])
+    cb = fig.colorbar(img, ax=axis, cax=cax, orientation="vertical",format=ticker.FuncFormatter(_fmt),
+    )
+    cbt = cb.get_ticks()
+    cbt = np.sort(np.hstack([cbt, np.array([cond_end.max()])]))
+    cb.set_ticks(cbt)
+
     fig.tight_layout()
     fig.savefig(
-        f"{fig_path}figure_{fig_num}.png",
-        format="png",
+        f"{fig_path}figure_{fig_num}.{FIGURE_FORMAT}",
+        format=FIGURE_FORMAT,
         dpi=DPI,
     )
     fig_num += 1
@@ -856,8 +834,8 @@ if __name__ == "__main__":
 
     fig.tight_layout()
     fig.savefig(
-        f"{fig_path}figure_{fig_num}.png",
-        format="png",
+        f"{fig_path}figure_{fig_num}",
+        format=FIGURE_FORMAT,
         dpi=DPI,
     )
     fig_num += 1
@@ -921,8 +899,8 @@ if __name__ == "__main__":
     fig.text(0.0, 0.26, "Gas\nphase", fontsize=rcParams["axes.titlesize"])
     fig.subplots_adjust(left=0.1)
     fig.savefig(
-        f"{fig_path}figure_{fig_num}.png",
-        format="png",
+        f"{fig_path}figure_{fig_num}",
+        format=FIGURE_FORMAT,
         dpi=DPI,
     )
     fig_num += 1
@@ -930,31 +908,31 @@ if __name__ == "__main__":
 
     # region Plotting unity gap
     logger.info(f"{del_log}Plotting unity gap ..")
-    fig = plt.figure(figsize=FIG_SIZE)
+    fig = plt.figure(figsize=(FIGURE_WIDTH, FIGURE_WIDTH))
     gs = fig.add_gridspec(1, 1)
     # fig.suptitle(f"Unity gaps in single-phase regions")
     axis = fig.add_subplot(gs[0, 0])
+    axis.set_box_aspect(1)
     axis.set_xlabel("T [K]")
     axis.set_ylabel(f"p [{PRESSURE_SCALE_NAME}]")
-    norm = _error_norm(unity_gap)
-    img = plot_abs_error_pT(axis, p, T, unity_gap, norm=False)
+    img = plot_abs_error_pT(axis, p, T, unity_gap)
     crit = plot_crit_point_pT(axis)
     axis.legend(crit[0], crit[1], loc="upper right", markerscale=MARKER_SCALE)
     cb = _add_colorbar(axis, img, fig, unity_gap, for_errors=False)
 
     fig.tight_layout()
     fig.savefig(
-        f"{fig_path}figure_{fig_num}.png",
-        format="png",
+        f"{fig_path}figure_{fig_num}.{FIGURE_FORMAT}",
+        format=FIGURE_FORMAT,
         dpi=DPI,
     )
     fig_num += 1
     # endregion
 
     # region Plotting L2 error across isotherms
-    err_T_l2 = [np.sqrt(np.sum(np.array(vec) ** 2)) for vec in err_T_isotherms]
+    err_T_l2 = [np.sqrt(np.sum(np.array(vec) ** 2)) / len(vec) for vec in err_T_isotherms]
     err_T_l2 = np.array(err_T_l2)
-    err_y_l2 = [np.sqrt(np.sum(np.array(vec) ** 2)) for vec in err_y_isotherms]
+    err_y_l2 = [np.sqrt(np.sum(np.array(vec) ** 2)) / len(vec) for vec in err_y_isotherms]
     err_y_l2 = np.array(err_y_l2)
 
     # bound errors from below for plot
@@ -962,15 +940,16 @@ if __name__ == "__main__":
     err_y_l2[err_y_l2 < ERROR_CAP] = ERROR_CAP
 
     logger.info(f"{del_log}Plotting L2 errors for isenthalpic flash ..")
-    fig = plt.figure(figsize=FIG_SIZE)
+    fig = plt.figure(figsize=(FIGURE_WIDTH, FIGURE_WIDTH))
     gs = fig.add_gridspec(1, 1)
     # fig.suptitle(f"L2-error along isotherms in temperature from p-h flash")
     axis = fig.add_subplot(gs[0, 0])
+    axis.set_box_aspect(1)
     axis.set_xlabel("T [K]")
     axis.set_yscale("log")
 
-    img_T = axis.plot(T_vec_isotherms, err_T_l2, "-*", color="red")[0]
-    img_y = axis.plot(T_vec_isotherms, err_y_l2, "-*", color="black")[0]
+    img_T = axis.plot(T_vec_isotherms, err_T_l2, "-s", color="red", markersize=MARKER_SIZE)[0]
+    img_y = axis.plot(T_vec_isotherms, err_y_l2, "-s", color="black", markersize=MARKER_SIZE)[0]
 
     axis.legend(
         [img_T, img_y],
@@ -981,8 +960,8 @@ if __name__ == "__main__":
 
     fig.tight_layout()
     fig.savefig(
-        f"{fig_path}figure_{fig_num}.png",
-        format="png",
+        f"{fig_path}figure_{fig_num}",
+        format=FIGURE_FORMAT,
         dpi=DPI,
     )
     fig_num += 1
@@ -1040,8 +1019,8 @@ if __name__ == "__main__":
 
     fig.tight_layout()
     fig.savefig(
-        f"{fig_path}figure_{fig_num}.png",
-        format="png",
+        f"{fig_path}figure_{fig_num}",
+        format=FIGURE_FORMAT,
         dpi=DPI,
     )
     fig_num += 1
@@ -1071,8 +1050,8 @@ if __name__ == "__main__":
 
     fig.tight_layout()
     fig.savefig(
-        f"{fig_path}figure_{fig_num}.png",
-        format="png",
+        f"{fig_path}figure_{fig_num}",
+        format=FIGURE_FORMAT,
         dpi=DPI,
     )
     fig_num += 1
