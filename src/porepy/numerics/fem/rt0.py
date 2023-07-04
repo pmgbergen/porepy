@@ -269,7 +269,7 @@ class RT0(DualElliptic):
         # initialize the map
         cell_face_to_opposite_node = np.empty((sd.num_cells, sd.dim + 1), dtype=int)
 
-        nodes, _, _ = sps.find(sd.face_nodes)
+        nodes = sd.face_nodes.indices
         indptr = sd.face_nodes.indptr
 
         # loop on all the cells to construct the map
