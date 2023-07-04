@@ -16,7 +16,7 @@ import scipy.sparse as sps
 import porepy as pp
 from porepy.numerics.ad.forward_mode import AdArray
 
-from .operators import Operator, Tree
+from .operators import Operator
 
 __all__ = [
     "Function",
@@ -83,14 +83,9 @@ class AbstractFunction(Operator):
         self.array_compatible: bool = array_compatible
         """Indicator whether the callable can process arrays."""
 
-        ### PRIVATE
-        self._operation: Operator.Operations = Operator.Operations.approximate
+        super().__init__(name=name, operation=Operator.Operations.evaluate)
 
-        self._name: str = name if name is not None else ""
-
-        self._set_tree()
-
-    def __call__(self, *args: pp.ad.Operator | AdArray) -> pp.ad.Operator:
+    def __call__(self, *args: pp.ad.Operator) -> pp.ad.Operator:
         """Renders this function operator callable, fulfilling its notion as 'function'.
 
         Parameters:
@@ -103,7 +98,7 @@ class AbstractFunction(Operator):
 
         """
         children = [self, *args]
-        op = Operator(tree=Tree(self._operation, children=children))
+        op = Operator(children=children, operation=self.operation)
         return op
 
     def __repr__(self) -> str:
@@ -256,7 +251,6 @@ class Function(AbstractFunction):
 
     def __init__(self, func: Callable, name: str, array_compatible: bool = True):
         super().__init__(func, name, array_compatible)
-        self._operation = Operator.Operations.evaluate
         self.ad_compatible = True
 
     def get_values(self, *args: AdArray) -> np.ndarray:
