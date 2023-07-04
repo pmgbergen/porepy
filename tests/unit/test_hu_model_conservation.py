@@ -26,219 +26,6 @@ I'm not able to run a stationary simulation
 """
 
 
-class EquationsTest(test_hu_model.Equations):
-    # PRESSURE EQUATION: -------------------------------------------------------------------------------------------------
-
-    def pressure_equation(
-        self, subdomains: list[pp.Grid], return_flux=False
-    ) -> pp.ad.Operator:
-        # accumulation term: ------------------------------
-        mass_density_phase_0 = (
-            self.porosity(subdomains)
-            * self.mixture.get_phase(0).mass_density_operator(subdomains, self.pressure)
-            * self.mixture.get_phase(0).saturation_operator(subdomains)
-        )
-        mass_density_phase_1 = (
-            self.porosity(subdomains)
-            * self.mixture.get_phase(1).mass_density_operator(subdomains, self.pressure)
-            * self.mixture.get_phase(1).saturation_operator(subdomains)
-        )
-        mass_density = mass_density_phase_0 + mass_density_phase_1
-
-        accumulation = self.volume_integral(mass_density, subdomains, dim=1)
-        accumulation.set_name("fluid_mass_p_eq")
-
-        rho_total_flux_operator = FunctionTotalFlux(
-            pp.rho_total_flux,
-            self.equation_system,
-            self.mixture,
-            self.mdg,
-            name="rho qt",
-        )
-
-        fake_input = self.pressure(subdomains)
-        flux = rho_total_flux_operator(fake_input) + self.bc_values(
-            subdomains
-        )  # this is wrong, but bc val are 0 so I dont care...
-
-        # interfaces flux contribution (copied from mass bal): ------------------------------------
-        interfaces = self.subdomains_to_interfaces(subdomains, [1])
-        mortar_projection = pp.ad.MortarProjections(
-            self.mdg, subdomains, interfaces, dim=1
-        )
-
-        discr = self.ppu_discretization(subdomains, "darcy_flux_phase_0")
-        flux_intf_phase_0 = (
-            discr.bound_transport_neu
-            @ mortar_projection.mortar_to_primary_int
-            @ self.interface_fluid_mass_flux_phase_0(
-                interfaces,
-                self.mixture.get_phase(0),
-                "interface_mortar_flux_phase_0",
-            )
-        )
-
-        discr = self.ppu_discretization(subdomains, "darcy_flux_phase_1")
-        flux_intf_phase_1 = (
-            discr.bound_transport_neu
-            @ mortar_projection.mortar_to_primary_int
-            @ self.interface_fluid_mass_flux_phase_1(
-                interfaces,
-                self.mixture.get_phase(1),
-                "interface_mortar_flux_phase_1",
-            )
-        )
-
-        print("\n\ninside pressure equaiton")
-        # gigi = self.interface_fluid_mass_flux_phase_1(interfaces, self.mixture.get_phase(1),"interface_mortar_flux_phase_1").evaluate(self.equation_system).val
-        # flux_intf_phase_1.evaluate(self.equation_system).val
-
-        flux = flux - flux_intf_phase_0 - flux_intf_phase_1
-
-        # sources: --------------------------------------------------------------
-        projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces)
-        source_phase_0 = (
-            projection.mortar_to_secondary_int
-            @ self.interface_fluid_mass_flux_phase_0(
-                interfaces, mixture.get_phase(0), "interface_mortar_flux_phase_0"
-            )
-        )
-        source_phase_0.set_name("interface_fluid_mass_flux_source_phase_0")
-
-        projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces)
-        source_phase_1 = (
-            projection.mortar_to_secondary_int
-            @ self.interface_fluid_mass_flux_phase_1(
-                interfaces, mixture.get_phase(1), "interface_mortar_flux_phase_1"
-            )
-        )
-        source_phase_1.set_name("interface_fluid_mass_flux_source_phase_1")
-
-        source = source_phase_0 + source_phase_1
-
-        eq = self.balance_equation(subdomains, accumulation, flux, source, dim=1)
-        eq.set_name("pressure_equation")
-
-        flux_contribution = (
-            pp.ad.Scalar(-1)
-            * pp.ad.Divergence(subdomains, dim=1)
-            @ (flux_intf_phase_0 + flux_intf_phase_1)
-        )
-
-        print(
-            "\n TMP: do manually after newton convergence the test delta lmanda = source, see below"
-        )
-        # gelido = flux_contribution.evaluate(self.equation_system).val
-        # fulmina = source_phase_0.evaluate(self.equation_system).val
-        # source_phase_1.evaluate(self.equation_system).val
-
-        # giulia = gelido[7] + gelido[2] # == fulmina[the middle]
-        # angelo = gelido[6] + gelido[1] # == fulmina[the first]
-        # cara = gelido[8] + gelido[3] # == fulmina[the last]
-
-        pdb.set_trace()
-
-        if return_flux:
-            flux.set_name("pressure_flux")
-            return flux  ### for test
-        else:
-            return eq
-
-    # MASS BALANCE: ----------------------------------------------------------------------------------------------------------------
-
-    def mass_balance_equation(
-        self, subdomains: list[pp.Grid], return_flux=False
-    ) -> pp.ad.Operator:
-        # accumulation term: ------------------------------------------------
-        mass_density = (
-            self.porosity(subdomains)
-            * self.mixture.get_phase(self.ell).mass_density_operator(
-                subdomains, self.pressure
-            )
-            * self.mixture.get_phase(self.ell).saturation_operator(subdomains)
-        )
-        accumulation = self.volume_integral(
-            mass_density, subdomains, dim=1
-        )  # pp.ad.Scalar(0, "zero") *
-        accumulation.set_name("fluid_mass_mass_eq")
-
-        # subdomains flux contribution: -------------------------------------
-        rho_V_operator = FunctionRhoV(
-            pp.rho_flux_V, self.equation_system, self.mixture, self.mdg, name="rho V"
-        )
-        rho_G_operator = FunctionRhoG(
-            pp.rho_flux_G, self.equation_system, self.mixture, self.mdg, name="rho G"
-        )
-
-        fake_input = self.pressure(subdomains)
-        flux = (
-            rho_V_operator(fake_input)
-            + rho_G_operator(fake_input)
-            + self.bc_values(subdomains)
-        )  # TODO: this is wrong, but bc val are 0 so I dont care...
-
-        # interfaces flux contribution: ------------------------------------
-        interfaces = self.subdomains_to_interfaces(subdomains, [1])
-        mortar_projection = pp.ad.MortarProjections(
-            self.mdg, subdomains, interfaces, dim=1
-        )
-
-        if self.ell == 0:  # TODO: you can avoid if condition
-            discr = self.ppu_discretization(subdomains, "darcy_flux_phase_0")
-
-            flux -= (
-                discr.bound_transport_neu  # -1,0,1 matrix
-                @ mortar_projection.mortar_to_primary_int
-                @ self.interface_fluid_mass_flux_phase_0(
-                    interfaces,
-                    self.mixture.get_phase(0),
-                    "interface_mortar_flux_phase_0",
-                )
-            )
-
-        else:  # self.ell == 1
-            discr = self.ppu_discretization(subdomains, "darcy_flux_phase_1")
-            flux -= (
-                discr.bound_transport_neu
-                @ mortar_projection.mortar_to_primary_int
-                @ self.interface_fluid_mass_flux_phase_1(
-                    interfaces,
-                    self.mixture.get_phase(1),
-                    "interface_mortar_flux_phase_1",
-                )
-            )
-
-        # sources: ---------------------------------------
-        if self.ell == 0:  # TODO: you can avoid if condition
-            projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces)
-            source = (
-                projection.mortar_to_secondary_int
-                @ self.interface_fluid_mass_flux_phase_0(
-                    interfaces, mixture.get_phase(0), "interface_mortar_flux_phase_0"
-                )
-            )
-            source.set_name("interface_fluid_mass_flux_source_phase_0")
-
-        else:  # self.ell == 1:
-            projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces)
-            source = (
-                projection.mortar_to_secondary_int
-                @ self.interface_fluid_mass_flux_phase_1(
-                    interfaces, mixture.get_phase(1), "interface_mortar_flux_phase_1"
-                )
-            )
-            source.set_name("interface_fluid_mass_flux_source_phase_1")
-
-        eq = self.balance_equation(subdomains, accumulation, flux, source, dim=1)
-        eq.set_name("mass_balance_equation")
-
-        if return_flux:
-            flux.set_name("mass_flux")
-            return flux  ### for test
-        else:
-            return eq
-
-
 class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMass):
     def initial_condition(self) -> None:
         """ """
@@ -255,7 +42,7 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
         # from email:
         for sd in self.mdg.subdomains():
             saturation_variable = (
-                self.mixture.mixture_for_subdomain(self.equation_system, sd)
+                self.mixture.mixture_for_subdomain(sd)
                 .get_phase(0)
                 .saturation_operator([sd])
             )
@@ -276,9 +63,9 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
             pressure_variable = self.pressure([sd])
 
             if sd.dim == 2:
-                pressure_values = np.ones(sd.num_cells)
+                pressure_values = self.pressure_values_2d
             else:  # sd.dim == 1
-                pressure_values = np.zeros(sd.num_cells)
+                pressure_values = self.pressure_values_1d
 
             self.equation_system.set_variable_values(
                 pressure_values,
@@ -315,7 +102,7 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
 
         for sd in self.mdg.subdomains():
             gigi = (
-                self.mixture.mixture_for_subdomain(self.equation_system, sd)
+                self.mixture.mixture_for_subdomain(sd)
                 .get_phase(0)
                 .saturation
             )
@@ -332,8 +119,7 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
         """ """
 
         self.mixture.apply_constraint(
-            self.ell, self.equation_system, self.mdg.subdomains()
-        )  ### TODO: redo...
+            self.ell,)
 
         for sd, data in self.mdg.subdomains(return_data=True):
             pressure_adarray = self.pressure([sd]).evaluate(self.equation_system)
@@ -350,7 +136,7 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
             total_flux_internal = (
                 pp.numerics.fv.hybrid_weighted_average.total_flux_internal(
                     sd,
-                    self.mixture.mixture_for_subdomain(self.equation_system, sd),
+                    self.mixture.mixture_for_subdomain(sd),
                     pressure_adarray,
                     self.gravity_value,
                     left_restriction,
@@ -401,10 +187,25 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
                 {"interface_mortar_flux_phase_1": vals}
             )
 
+        (
+            eq,
+            accumulation_mass,
+            flux_V_G,
+            flux_intf_phase_0,
+            flux_intf_phase_1,
+            source_phase_0,
+            source_phase_1,
+        ) = self.eq_fcn_mass(self.mdg.subdomains())
+
+        accumulation_mass = (accumulation_mass.evaluate(self.equation_system).val)[7]
+        print("\n accumulation mass cell 7 before nonlinear iter = ", accumulation_mass)
+        print("\n")
+
         super().before_nonlinear_iteration()
 
     def eb_after_timestep(self):
         """ """
+
         # TEST SECTION: ---------------------------------------------------------
 
         # # open the fracture:
@@ -421,8 +222,8 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
         for sd in self.mdg.subdomains():  # useless, but may be useful, so keep it
             if sd.dim == 2:
                 gigi = (
-                    self.mixture.mixture_for_subdomain(self.equation_system, sd)
-                    .get_phase(0)
+                    self.mixture.mixture_for_subdomain(sd)
+                    .get_phase(self.ell)
                     .saturation
                 )
                 print("saturation = ", gigi.val)
@@ -435,34 +236,83 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
                 )
 
                 # pressure flux:
-                fluxes = (
-                    self.pressure_equation(self.mdg.subdomains(), return_flux=True)
-                    .evaluate(self.equation_system)
-                    .val
-                )  # at the end of this vector there are the fluxes in the fracture
+                (
+                    eq,
+                    accumulation_pressure,
+                    flux_tot,
+                    flux_intf_phase_0,
+                    flux_intf_phase_1,
+                    flux_pressure,
+                    source_phase_0,
+                    source_phase_1,
+                    source_pressure,
+                ) = self.eq_fcn_pressure(self.mdg.subdomains())
 
                 # conservation cell 7
-                flux_cell_7 = fluxes[[8, 9, 24, 28]]  # see the plot for the indeces...
-                net_flux = np.sum(flux_cell_7)
-                print("\nnet_flux pressure = ", net_flux)
+                flux_cell_7_pressure = flux_pressure.evaluate(self.equation_system).val[
+                    [8, 9, 24, 28]
+                ]  # see the plot for the indeces... # at the end of this vector there are the fluxes in the fracture
+                net_flux_pressure = np.sum(flux_cell_7_pressure)
+                print("\nnet_flux pressure = ", net_flux_pressure)
 
-                pdb.set_trace()
-                # assert net_flux == 0
-
-                # mass flux:
-                fluxes = (
-                    self.mass_balance_equation(self.mdg.subdomains(), return_flux=True)
+                dt_operator = pp.ad.time_derivatives.dt
+                dt = pp.ad.Scalar(self.time_manager.dt)
+                accumulation_pressure = (
+                    dt_operator(accumulation_pressure, dt)
                     .evaluate(self.equation_system)
                     .val
                 )
 
+                accumulation_pressure = accumulation_pressure[7]
+                print(
+                    "\n accumulation pressure cell 7 = ", accumulation_pressure
+                )  # I think it's zero because it is set to zero
+
+                source_pressure = source_pressure.evaluate(self.equation_system).val[7]
+                print("\n source_pressure cell 7 = ", source_pressure)
+
+                (
+                    eq,
+                    accumulation_mass,
+                    flux_V_G,
+                    flux_intf_phase_0,
+                    flux_intf_phase_1,
+                    source_phase_0,
+                    source_phase_1,
+                ) = self.eq_fcn_mass(self.mdg.subdomains())
+
+                # mass flux:
+                flux_mass = (
+                    (flux_V_G - flux_intf_phase_0).evaluate(self.equation_system).val
+                )
+                accumulation_mass = accumulation_mass.evaluate(
+                    self.equation_system
+                ).val[7]
+                print("\n accumulation mass cell 7 = ", accumulation_mass)
+
+                source_mass = source_phase_0.evaluate(self.equation_system).val[7]
+                print("\n source_mass cell 7 = ", source_mass)
+
                 # conservation cell 7
-                flux_cell_7 = fluxes[[8, 9, 24, 28]]  # see the plot for the indeces...
-                net_flux = np.sum(flux_cell_7)
-                print("\nnet_flux mass = ", net_flux)
+                flux_cell_7_mass = flux_mass[
+                    [8, 9, 24, 28]
+                ]  # see the plot for the indeces...
+                net_flux_mass = np.sum(flux_cell_7_mass)
+                print("\nnet_flux mass = ", net_flux_mass)
 
                 pdb.set_trace()
-                # assert net_flux == 0
+                if self.case == 1:
+                    print("case 1")
+                    # assert net_flux_pressure == 0
+                    # assert net_flux_mass == 0
+                if self.case == 2:
+                    print("case 2")
+                    # assert net_flux_pressure == 0
+                    # assert net_flux_mass == 0
+                if self.case == 3:
+                    print("case 3")
+                    # assert net_flux_pressure == 0
+                    # assert net_flux_mass == 0
 
         print("\n\n TEST PASSED ------------------- ")
         pdb.set_trace()
@@ -502,8 +352,7 @@ class ConstantDensityPhase(pp.Phase):
 
 class PartialFinalModelTest(
     test_hu_model.PrimaryVariables,
-    EquationsTest,  ### pay attention
-    # test_hu_model.Equations,  ### pay attention
+    test_hu_model.Equations,
     test_hu_model.ConstitutiveLawPressureMass,
     test_hu_model.BoundaryConditionsPressureMass,
     SolutionStrategyPressureMassTest,
@@ -518,8 +367,12 @@ class FinalModel(PartialFinalModelTest):  # I'm sorry...
         super().__init__(params)
         self.mixture = mixture
         self.ell = 0  # 0 = wetting, 1 = non-wetting
-        self.gravity_value = 1  # pp.GRAVITY_ACCELERATION
+        self.gravity_value = None  # pp.GRAVITY_ACCELERATION
         self.dynamic_viscosity = 1  # TODO: it is hardoced everywhere, you know...
+
+        self.case = None  # only for tests
+        self.pressure_values_2d = None
+        self.pressure_values_1d = None
 
 
 fluid_constants = pp.FluidConstants({})
@@ -549,15 +402,42 @@ params = {
     "time_manager": time_manager,
 }
 
-wetting_phase = ConstantDensityPhase(rho0=1)
-non_wetting_phase = ConstantDensityPhase(rho0=0.5)
+# wetting_phase = ConstantDensityPhase(rho0=1)
+# non_wetting_phase = ConstantDensityPhase(rho0=0.5)
+
+wetting_phase = pp.composite.phase.Phase(rho0=1)
+non_wetting_phase = pp.composite.phase.Phase(rho0=0.5)
 
 mixture = pp.Mixture()
 mixture.add([wetting_phase, non_wetting_phase])
 
-mixture = test_hu_model.mixture
 
-model = FinalModel(mixture, params)  # eh... non capisco il problema
+model = FinalModel(mixture, params)
+case = 2
+model.case = case
 
+if case == 1:
+    print("\n\n\n case 1")
+    model.gravity_value = 0
+    model.pressure_values_2d = 1 * np.array([1.0, 1, 1, 1, 1, 1, 1, 1, 1, 1])
+    model.pressure_values_1d = 1 * np.array([0.0, 0, 0])
+
+    # PASSED. of course, let it run few timesteps
+
+if case == 2:
+    print("\n\n\n case 2")
+    model.gravity_value = 1
+    model.pressure_values_2d = 0 * np.array([1.0, 1, 1, 1, 1, 1, 1, 1, 1, 1])
+    model.pressure_values_1d = 0 * np.array([0.0, 0, 0])
+
+    # FAILED
+
+if case == 3:
+    print("\n\n\n case 3")
+    model.gravity_value = 1
+    model.pressure_values_2d = 1 * np.array([1.0, 1, 1, 1, 1, 1, 1, 1, 1, 1])
+    model.pressure_values_1d = 1 * np.array([0.0, 0, 0])
+
+    # FAILED
 
 pp.run_time_dependent_model(model, params)

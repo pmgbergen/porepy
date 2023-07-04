@@ -93,6 +93,7 @@ class BalanceEquation:
 
         # tmp = dt_operator(accumulation, dt)
         # tmp.evaluate(self.equation_system).val
+        # dt_operator(accumulation, dt).evaluate(self.equation_system).val
         # pdb.set_trace()
 
         return dt_operator(accumulation, dt) + div @ surface_term - source

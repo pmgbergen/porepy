@@ -53,7 +53,9 @@ class NewtonSolver:
             # Re-discretize the nonlinear term
             model.before_nonlinear_iteration()
 
+            # print('\n ------------before iteration')
             sol = self.iteration(model)
+            # print('\n ------------right after iteration')
 
             model.after_nonlinear_iteration(sol)
 

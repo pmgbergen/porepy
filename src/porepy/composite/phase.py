@@ -20,8 +20,8 @@ class Phase(abc.ABC):
         self._rho0 = rho0
         self.apply_constraint = None
         # self._s = None
-        self.subdomain = None
         self.equation_system = None
+        self.subdomain = None
 
     @property
     def name(self) -> str:

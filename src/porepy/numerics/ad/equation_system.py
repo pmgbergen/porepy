@@ -616,6 +616,7 @@ class EquationSystem:
                     raise KeyError(
                         f"No values stored for variable {name} on grid {grid}."
                     )
+                
 
         # If there are matching blocks, concatenate and return.
         if values:
@@ -711,6 +712,17 @@ class EquationSystem:
                         data[pp.TIME_STEP_SOLUTIONS][name][
                             time_step_index
                         ] = local_vec.copy()
+
+
+                # if name == "pressure":
+                #     print('=========== PRESSURE: ==========================')
+                #     print('local_vec = ', local_vec)
+                #     pdb.set_trace()
+
+                # if name == "saturation":
+                #     print('=========== SATURATION: ==========================')
+                #     print('local_vec = ', local_vec)
+                #     pdb.set_trace()
 
                 # Move dissection forward.
                 dof_start = dof_end

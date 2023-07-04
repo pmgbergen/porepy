@@ -544,9 +544,18 @@ class SolutionStrategy(abc.ABC):
             # We normalize by the size of the solution vector.
             # Enforce float to make mypy happy
             error = float(np.linalg.norm(solution)) / np.sqrt(solution.size)
+
+            # ###
+            # print("Newton has been mod")
+            # A, b = self.linear_system
+            # err_res = np.linalg.norm(b)
+            # print("----> err_res = ", err_res)
+            # error = err_res
+
             logger.info(f"Normalized residual norm: {error:.2e}")
             converged = error < nl_params["nl_convergence_tol"]
             diverged = False
+
             return error, converged, diverged
 
     def _initialize_linear_solver(self) -> None:

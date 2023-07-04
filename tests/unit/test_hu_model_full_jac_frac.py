@@ -18,12 +18,6 @@ os.system("clear")
 
 """
 NOTE: 
-- test copied from test_hu, so see comments there
-- accumulation and sources = 0
-- g = 1
-- p = [1,0]
-- constant density
-(- come negli altri test, ci potrebbero esser problemi con la mixture che non ho proprio capito)
 
 """
 
@@ -43,7 +37,7 @@ class EquationsTest(test_hu_model.Equations):
         ) = self.eq_fcn_pressure(subdomains)
 
         accumulation = pp.ad.Scalar(0)
-        flux = flux  # there aren't fractures so flux = flux_tot
+        flux = flux
         source = pp.ad.Scalar(0)
         eq_mod = self.balance_equation(subdomains, accumulation, flux, source, dim=1)
         eq_mod.set_name("pressure_equation_test")
@@ -61,9 +55,7 @@ class EquationsTest(test_hu_model.Equations):
         ) = self.eq_fcn_mass(subdomains)
 
         accumulation = pp.ad.Scalar(0)
-        flux = (
-            flux_V_G - flux_intf_phase_0 - flux_intf_phase_1
-        )  # there aren't fracture so flux = flux_V_G
+        flux = flux_V_G - flux_intf_phase_0  # self.ell = 0
         source = pp.ad.Scalar(0)
         eq_mod = self.balance_equation(subdomains, accumulation, flux, source, dim=1)
         eq_mod.set_name("mass_balance_equation_test")
@@ -95,7 +87,10 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
                     .saturation_operator([sd])
                 )
 
-                saturation_values = np.array([1.0, 1.0])
+                if sd.dim == 2:
+                    saturation_values = self.saturation_values_2d
+                else:
+                    saturation_values = self.saturation_values_1d
 
                 self.equation_system.set_variable_values(
                     saturation_values,
@@ -106,7 +101,11 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
 
                 pressure_variable = self.pressure([sd])
 
-                pressure_values = np.array([1.0, 0.0])
+                if sd.dim == 2:
+                    pressure_values = self.pressure_values_2d
+                else:  # sd.dim == 1
+                    pressure_values = self.pressure_values_1d
+
                 self.equation_system.set_variable_values(
                     pressure_values,
                     variables=[pressure_variable],
@@ -211,11 +210,17 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
 
         # TEST SECTION: --------------------------------------------------------------
 
+        pp.plot_grid(self.mdg, info="c", alpha=0)
+
+
+        sss = self.mixture.get_phase(0).saturation
+        ppp = self.pressure(self.mdg.subdomains()).evaluate(self.equation_system)
+        
+
         self.assemble_linear_system()
         A_ad = self.linear_system[0].todense()
-        np.set_printoptions(precision=3)
-
-        A_exact = np.array([[1, -1, 0, 0], [-1, 1, 0, 0], [1, -1, 0, 0], [-1, 1, 0, 0]])
+        np.set_printoptions(precision=2, linewidth=700, threshold=sys.maxsize)
+        A_exact = np.array([])
         print("A_ad = ", A_ad)
         print("A_exact = ", A_exact)
 
@@ -238,7 +243,8 @@ class MyModelGeometryTest(pp.ModelGeometry):
 
     def set_fractures(self) -> None:
         """ """
-        self._fractures: list = []
+        frac1 = pp.LineFracture(np.array([[0, 1], [1, 1]]))
+        self._fractures: list = [frac1]
 
     def meshing_arguments(self) -> dict[str, float]:
         """ """
@@ -280,13 +286,19 @@ class FinalModel(PartialFinalModelTest):  # I'm sorry...
         self.gravity_value = 1  # pp.GRAVITY_ACCELERATION
         self.dynamic_viscosity = 1  # TODO: it is hardoced everywhere, you know...
 
+        self.case = None
+        self.saturation_values_2d = None
+        self.saturation_values_1d = None
+        self.pressure_values_2d = None
+        self.pressure_values_1d = None
+
 
 fluid_constants = pp.FluidConstants({})
 solid_constants = pp.SolidConstants(
     {
         "porosity": 0.25,
         "permeability": 1,
-        "normal_permeability": 1e3,
+        "normal_permeability": 1,
         "residual_aperture": 0.1,
     }
 )
@@ -294,7 +306,7 @@ solid_constants = pp.SolidConstants(
 material_constants = {"fluid": fluid_constants, "solid": solid_constants}
 time_manager = pp.TimeManager(
     schedule=[0, 10],
-    dt_init=5e-4,
+    dt_init=1,
     constant_dt=True,
     iter_max=10,
     print_info=True,
@@ -315,6 +327,11 @@ mixture = pp.Mixture()
 mixture.add([wetting_phase, non_wetting_phase])
 
 model = FinalModel(mixture, params)
+
+model.saturation_values_2d = np.array([1.0, 56161])
+model.saturation_values_1d = np.array([1451.0])
+model.pressure_values_2d = np.array([-541.0, 550])
+model.pressure_values_1d = np.array([-60.0])
 
 
 pp.run_time_dependent_model(model, params)

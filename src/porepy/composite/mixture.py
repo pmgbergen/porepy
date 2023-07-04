@@ -49,13 +49,18 @@ class Mixture(abc.ABC):
         for phase in phases:
             self._phases.append(phase)
 
-    def mixture_for_subdomain(self, equation_system, subdomain):
+    # def mixture_for_subdomain(self, equation_system, subdomain): # OLD, bugged
+    #     for phase in self.phases:
+    #         phase.equation_system = equation_system  # i think is useless, you have to set equation system before bcs you need it for saturation_operator
+    #         phase.subdomain = subdomain
+    #     return self
+    
+    def mixture_for_subdomain(self, subdomain): # NEW, even more
         for phase in self.phases:
-            phase.equation_system = equation_system  # i think is useless, you have to set equation system before bcs you need it for saturation_operator
             phase.subdomain = subdomain
         return self
 
-    def apply_constraint(self, ell, equation_system, subdomains):
+    def apply_constraint(self, ell):
         """
         - hardcoded for two phase flow
         - this is not the right place for this function
