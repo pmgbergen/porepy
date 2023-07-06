@@ -23,6 +23,7 @@ sys.path.append(str(pathlib.Path(__file__).parent.resolve()))
 
 from _config import (
     A_LIMITS,
+    ASPECT_RATIO,
     B_LIMITS,
     DPI,
     FIG_PATH,
@@ -36,6 +37,7 @@ from _config import (
     ISOTHERM_DATA_PATH,
     ISOTHERMS,
     MARKER_SCALE,
+    MARKER_SIZE,
     NAN_ENTRY,
     NUM_COMP,
     P_LIMITS_ISOTHERMS,
@@ -58,24 +60,22 @@ from _config import (
     h_HEADER,
     liq_frac_HEADER,
     logger,
+    num_iter_HEADER,
     p_HEADER,
     path,
     phases_HEADER,
     plot_abs_error_pT,
     plot_crit_point_H2O,
-    plot_root_extensions,
     plot_hv_iso,
     plot_max_iter_reached,
     plot_phase_split_pT,
+    plot_root_extensions,
     plot_root_regions,
     plot_Widom_points_experimental,
     read_data_column,
     read_results,
     success_HEADER,
     v_HEADER,
-    num_iter_HEADER,
-    MARKER_SIZE,
-    ASPECT_RATIO
 )
 
 # some additional plots for debugging
@@ -195,12 +195,12 @@ if __name__ == "__main__":
                 num_iter[i, j] = int(res_pp[num_iter_HEADER][idx])
 
             # exclude mismatching roots in supercritical region
-            skip_y_error = False 
+            skip_y_error = False
             if p_ >= p_crit_water and T_ >= T_crit_water:
                 if split_pp[i, j] != split_thermo[i, j]:
                     skip_y_error = True
                     sc_mismatch_p[i, j] = p_
-                    sc_mismatch_T[i, j] = T_           
+                    sc_mismatch_T[i, j] = T_
 
             # skip remainder if both failed
             if success_pp == 2 and success_thermo == 2:
@@ -490,7 +490,7 @@ if __name__ == "__main__":
                 gas_root[i, j] = Z_G
 
                 # liquid extension in super-crit area
-                if regions[i,j] == 3:
+                if regions[i, j] == 3:
                     b_c = eos.critical_line(A_)
                     if B_ >= b_c:
                         root_extensions[i, j] = 1
@@ -504,7 +504,6 @@ if __name__ == "__main__":
                     # if Gas extended with Gharbia extension
                     if is_extended == 0:
                         root_extensions[i, j] = 3
-                
 
                 logger.info(f"{del_log}Calculating root data: {counter}/{nm}")
                 counter += 1
@@ -515,10 +514,10 @@ if __name__ == "__main__":
     if PLOT_ROOTS:
         a_ticks = np.around(np.linspace(A_mesh.min(), A_mesh.max(), 6), decimals=1)
         b_ticks = np.around(np.linspace(B_mesh.min(), B_mesh.max(), 7)[1:], decimals=2)
-        b_ticks = np.hstack([b_ticks, np.array([0.])])
+        b_ticks = np.hstack([b_ticks, np.array([0.0])])
         logger.info(f"{del_log}Plotting roots ..")
         fig = plt.figure(figsize=(2 * FIGURE_WIDTH, ASPECT_RATIO * FIGURE_WIDTH))
-        axis = fig.add_subplot(1,2,1)
+        axis = fig.add_subplot(1, 2, 1)
         axis.set_box_aspect(1)
         axis.set_xlabel("A")
         axis.set_ylabel("B")
@@ -531,7 +530,7 @@ if __name__ == "__main__":
         cb_rr.set_ticks([3 / 4 * k - 3 / 8 for k in range(1, 5)])
         cb_rr.set_ticklabels(["triple", "1 root", "2 roots", "3 roots"])
 
-        axis = fig.add_subplot(1,2,2)
+        axis = fig.add_subplot(1, 2, 2)
         axis.set_box_aspect(1)
         axis.set_xlabel("A")
         # axis.set_ylabel("B")
@@ -549,9 +548,23 @@ if __name__ == "__main__":
         cax = axis.inset_axes([1.04, 0.2, 0.05, 0.6])
         cb_rr = fig.colorbar(img, ax=axis, cax=cax, orientation="vertical")
         cb_rr.set_ticks([3 / 4 * k - 3 / 8 for k in range(1, 5)])
-        cb_rr.set_ticklabels(["no\nextension", "liquid\nextended", "gas\nextended\n(Widom)", "gas\nextended\n(B.Gharbia)"])
-        fig.text(0.55, 0.6, "supercrit.\nliq. extension", fontsize=rcParams["axes.titlesize"])
-        fig.text(0.6, 0.18, "subcrit.\nextension\n(B.Gharbia)", fontsize=rcParams["axes.titlesize"])
+        cb_rr.set_ticklabels(
+            [
+                "no\nextension",
+                "liquid\nextended",
+                "gas\nextended\n(Widom)",
+                "gas\nextended",
+            ]
+        )
+        fig.text(
+            0.55, 0.6, "supercrit.\nliq. extension", fontsize=rcParams["axes.titlesize"]
+        )
+        fig.text(
+            0.6,
+            0.18,
+            "subcrit.\nextension\n(B.Gharbia)",
+            fontsize=rcParams["axes.titlesize"],
+        )
         fig.text(0.72, 0.5, "gas extension", fontsize=rcParams["axes.titlesize"])
 
         fig.tight_layout(pad=FIG_PAD)
@@ -560,13 +573,13 @@ if __name__ == "__main__":
             format=FIGURE_FORMAT,
             dpi=DPI,
         )
-    fig_num +=1
+    fig_num += 1
     # endregion
 
     # region Plotting phase splits
     logger.info(f"{del_log}Plotting phase split regions ..")
     fig = plt.figure(figsize=(FIGURE_WIDTH, ASPECT_RATIO * 2 * FIGURE_WIDTH))
-    axis = fig.add_subplot(2,1,1)
+    axis = fig.add_subplot(2, 1, 1)
     axis.set_box_aspect(1)
     axis.set_ylabel(f"p [{PRESSURE_SCALE_NAME}]")
     # axis.set_xlabel("T [K]")
@@ -580,7 +593,7 @@ if __name__ == "__main__":
     leg_ = crit[1] + wid[1]
     axis.legend(img_, leg_, loc="upper left", markerscale=MARKER_SCALE)
 
-    axis = fig.add_subplot(2,1,2)
+    axis = fig.add_subplot(2, 1, 2)
     axis.set_box_aspect(1)
     axis.set_xlabel("T [K]")
     axis.set_ylabel(f"p [{PRESSURE_SCALE_NAME}]")
@@ -605,7 +618,7 @@ if __name__ == "__main__":
     fig.tight_layout(pad=FIG_PAD, w_pad=0.1)
     fig.subplots_adjust(right=0.95)
     cax = fig.add_axes([0.87, 0.33, 0.05, 0.33])
-    cb = fig.colorbar(img, cax=cax, orientation='vertical')
+    cb = fig.colorbar(img, cax=cax, orientation="vertical")
     cb.set_ticks([3 / 4 * k - 3 / 8 for k in range(1, 5)])
     cb.set_ticklabels(["N/A", "L", "GL", "G"])
 
@@ -620,7 +633,7 @@ if __name__ == "__main__":
     # region Plotting iteration numbers
     logger.info(f"{del_log}Plotting iteration numbers ..")
     fig = plt.figure(figsize=(FIGURE_WIDTH, ASPECT_RATIO * FIGURE_WIDTH))
-    axis = fig.add_subplot(1,1,1)
+    axis = fig.add_subplot(1, 1, 1)
     axis.set_box_aspect(1)
     axis.set_xlabel("T [K]")
     axis.set_ylabel(f"p [{PRESSURE_SCALE_NAME}]")
@@ -634,7 +647,10 @@ if __name__ == "__main__":
 
     cax = axis.inset_axes([1.04, 0.2, 0.05, 0.6])
     cb = fig.colorbar(
-        img, ax=axis, cax=cax, orientation="vertical", # format=ticker.FuncFormatter(_fmt),
+        img,
+        ax=axis,
+        cax=cax,
+        orientation="vertical",  # format=ticker.FuncFormatter(_fmt),
     )
     cbt = cb.get_ticks()
     cbt = np.sort(np.hstack([cbt, np.array([num_iter.max()])]))
@@ -652,20 +668,22 @@ if __name__ == "__main__":
     # region Plotting condition numbers
     logger.info(f"{del_log}Plotting condition numbers ..")
     fig = plt.figure(figsize=(FIGURE_WIDTH, ASPECT_RATIO * FIGURE_WIDTH))
-    axis = fig.add_subplot(1,1,1)
+    axis = fig.add_subplot(1, 1, 1)
     axis.set_box_aspect(1)
     axis.set_xlabel("T [K]")
     axis.set_ylabel(f"p [{PRESSURE_SCALE_NAME}]")
     norm = mpl.colors.LogNorm(vmin=cond_end.min(), vmax=cond_end.max(), clip=False)
     img = plot_abs_error_pT(axis, p, T, cond_end, norm=norm)
     crit = plot_crit_point_H2O(axis)
-    axis.legend(
-        crit[0], crit[1], loc="upper left", markerscale=MARKER_SCALE
-    )
+    axis.legend(crit[0], crit[1], loc="upper left", markerscale=MARKER_SCALE)
 
     cax = axis.inset_axes([1.04, 0.2, 0.05, 0.6])
     cb = fig.colorbar(
-        img, ax=axis, cax=cax, orientation="vertical",format=ticker.FuncFormatter(_fmt),
+        img,
+        ax=axis,
+        cax=cax,
+        orientation="vertical",
+        format=ticker.FuncFormatter(_fmt),
     )
     cbt = cb.get_ticks()
     cbt = cbt[(cbt <= cond_end.max()) & (cbt >= cond_end.min())]
@@ -684,7 +702,7 @@ if __name__ == "__main__":
     # region Plotting absolute errors for gas fraction
     logger.info(f"{del_log}Plotting absolute errors in gas fractions ..")
     fig = plt.figure(figsize=(FIGURE_WIDTH, ASPECT_RATIO * FIGURE_WIDTH))
-    axis = fig.add_subplot(1,1,1)
+    axis = fig.add_subplot(1, 1, 1)
     axis.set_box_aspect(1)
     axis.set_xlabel("T [K]")
     axis.set_ylabel(f"p [{PRESSURE_SCALE_NAME}]")
@@ -710,7 +728,11 @@ if __name__ == "__main__":
 
     cax = axis.inset_axes([1.04, 0.2, 0.05, 0.6])
     cb = fig.colorbar(
-        img, ax=axis, cax=cax, orientation="vertical",format=ticker.FuncFormatter(_fmt),
+        img,
+        ax=axis,
+        cax=cax,
+        orientation="vertical",
+        format=ticker.FuncFormatter(_fmt),
     )
     cbt = cb.get_ticks()
     cbt = cbt[cbt < err_gas_frac.max()]
@@ -738,14 +760,14 @@ if __name__ == "__main__":
     p_min = p.min() * PRESSURE_SCALE
     for r in [0, 1]:
         for c in [0, 1]:
-            axis = fig.add_subplot(2,2,nf)
+            axis = fig.add_subplot(2, 2, nf)
             nf += 1
             axis.set_box_aspect(0.5)
 
             if r == 0:
                 err_c = err_liq_comp[c, :, :]
                 axis.set_title(f"{SPECIES[c]}")
-                if c == 0 :
+                if c == 0:
                     axis.set_ylabel(f"p [{PRESSURE_SCALE_NAME}]")
                     axis.set(xticklabels=[])
                     axis.set(xlabel=None)
@@ -759,7 +781,7 @@ if __name__ == "__main__":
                     axis.tick_params(left=False)
             elif r == 1:
                 err_c = err_gas_comp[c, :, :]
-                if c == 0 :
+                if c == 0:
                     axis.set_ylabel(f"p [{PRESSURE_SCALE_NAME}]")
                     axis.set_xlabel("T [K]")
                 elif c == 1:
@@ -767,23 +789,29 @@ if __name__ == "__main__":
                     axis.set(yticklabels=[])
                     axis.set(ylabel=None)
                     axis.tick_params(left=False)
-            
+
             # capping errors
             err_c[err_c < ERROR_CAP] = ERROR_CAP
 
             img = axis.pcolormesh(
-                T, p * PRESSURE_SCALE, err_c, cmap="Greys",
+                T,
+                p * PRESSURE_SCALE,
+                err_c,
+                cmap="Greys",
                 shading="nearest",
                 # vmin=0., vmax=vmax,
-                norm=norm
+                norm=norm,
             )
-            axis.set_ylim(p_min, 25.)
+            axis.set_ylim(p_min, 25.0)
 
     fig.tight_layout(pad=FIG_PAD)
     fig.subplots_adjust(right=0.75)
     cax = fig.add_axes([0.8, 0.15, 0.05, 0.7])
     cb = fig.colorbar(
-        img, cax=cax, orientation="vertical", format=ticker.FuncFormatter(_fmt),
+        img,
+        cax=cax,
+        orientation="vertical",
+        format=ticker.FuncFormatter(_fmt),
     )
     cbt = cb.get_ticks()
     cbt = cbt[cbt < vmax]
@@ -804,7 +832,7 @@ if __name__ == "__main__":
     # region Plotting unity gap
     logger.info(f"{del_log}Plotting unity gap ..")
     fig = plt.figure(figsize=(FIGURE_WIDTH, ASPECT_RATIO * FIGURE_WIDTH))
-    axis = fig.add_subplot(1,1,1)
+    axis = fig.add_subplot(1, 1, 1)
     axis.set_box_aspect(1)
     axis.set_xlabel("T [K]")
     axis.set_ylabel(f"p [{PRESSURE_SCALE_NAME}]")
@@ -814,7 +842,11 @@ if __name__ == "__main__":
 
     cax = axis.inset_axes([1.04, 0.2, 0.05, 0.6])
     cb = fig.colorbar(
-        img, ax=axis, cax=cax, orientation="vertical",format=ticker.FuncFormatter(_fmt),
+        img,
+        ax=axis,
+        cax=cax,
+        orientation="vertical",
+        format=ticker.FuncFormatter(_fmt),
     )
     cbt = cb.get_ticks()
     cbt = cbt[cbt < unity_gap.max()]
@@ -831,9 +863,13 @@ if __name__ == "__main__":
     # endregion
 
     # region Plotting L2 error across isotherms
-    err_T_l2 = [np.sqrt(np.sum(np.array(vec) ** 2)) / len(vec) for vec in err_T_isotherms]
+    err_T_l2 = [
+        np.sqrt(np.sum(np.array(vec) ** 2)) / len(vec) for vec in err_T_isotherms
+    ]
     err_T_l2 = np.array(err_T_l2)
-    err_y_l2 = [np.sqrt(np.sum(np.array(vec) ** 2)) / len(vec) for vec in err_y_isotherms]
+    err_y_l2 = [
+        np.sqrt(np.sum(np.array(vec) ** 2)) / len(vec) for vec in err_y_isotherms
+    ]
     err_y_l2 = np.array(err_y_l2)
 
     # bound errors from below for plot
@@ -841,14 +877,18 @@ if __name__ == "__main__":
     err_y_l2[err_y_l2 < ERROR_CAP] = ERROR_CAP
 
     logger.info(f"{del_log}Plotting L2 errors for isenthalpic flash ..")
-    fig = plt.figure(figsize=(FIGURE_WIDTH, ASPECT_RATIO * FIGURE_WIDTH))
-    axis = fig.add_subplot(1,1,1)
-    axis.set_box_aspect(1)
+    fig = plt.figure(figsize=(FIGURE_WIDTH, ASPECT_RATIO * 0.5 * FIGURE_WIDTH))
+    axis = fig.add_subplot(1, 1, 1)
+    axis.set_box_aspect(0.5)
     axis.set_xlabel("T [K]")
     axis.set_yscale("log")
 
-    img_T = axis.plot(T_vec_isotherms, err_T_l2, "-s", color="red", markersize=MARKER_SIZE)[0]
-    img_y = axis.plot(T_vec_isotherms, err_y_l2, "-D", color="black", markersize=MARKER_SIZE)[0]
+    img_T = axis.plot(
+        T_vec_isotherms, err_T_l2, "-s", color="red", markersize=MARKER_SIZE
+    )[0]
+    img_y = axis.plot(
+        T_vec_isotherms, err_y_l2, "-D", color="black", markersize=MARKER_SIZE
+    )[0]
 
     axis.legend(
         [img_T, img_y],
@@ -879,15 +919,20 @@ if __name__ == "__main__":
         * PRESSURE_SCALE
     )
 
-    fig = plt.figure(figsize=(2 * FIGURE_WIDTH, ASPECT_RATIO * FIGURE_WIDTH))
-    gs = fig.add_gridspec(2, 3)
-
     nT = len(ISOTHERMS)
-    nrow = 2
+    nrow = 0
+    ncol = [0, 0]
     if nT % 2 == 0:
-        ncol = [int(nT / 2)] * 2
+        nrow = int(nT / 2)
+        ncol = [2] * nrow
     else:
-        ncol = [int(np.ceil(nT / 2)), int(np.floor(nT / 2))]
+        nrow = int(np.ceil(nT / 2))
+        ncol = [2] * (nrow - 1) + [1]
+
+    fig = plt.figure(
+        figsize=(FIGURE_WIDTH, (0.33 * nrow) * ASPECT_RATIO * FIGURE_WIDTH)
+    )
+    gs = fig.add_gridspec(nrow, 2)
 
     n = 0
     marker_size = int(np.floor(MARKER_SIZE / 2))
@@ -895,12 +940,14 @@ if __name__ == "__main__":
         for c in range(ncol[r]):
 
             axis = fig.add_subplot(gs[r, c])
-            if r == 0:
+            axis.set_box_aspect(0.5)
+            if r == nrow - 1:
+                axis.set_xlabel(f"p [{PRESSURE_SCALE_NAME}]")
+            else:
                 axis.set(xticklabels=[])
                 axis.set(xlabel=None)
                 axis.tick_params(bottom=False)
-            else:
-                axis.set_xlabel(f"p [{PRESSURE_SCALE_NAME}]")
+
             axis.set_title(f"T = {T_vec_isotherms[n]} [K]")
 
             # caping errors from below for plot
@@ -908,18 +955,25 @@ if __name__ == "__main__":
             err_y_abs = np.array(err_y_isotherms[n])
             err_T_abs[err_T_abs < ERROR_CAP] = ERROR_CAP
             err_y_abs[err_y_abs < ERROR_CAP] = ERROR_CAP
-            img_T = axis.plot(p_, err_T_abs, "-s", color="red", markersize=marker_size)[0]
-            img_y = axis.plot(p_, err_y_abs, "-D", color="black", markersize=marker_size)[0]
-
-            yticks = axis.get_yticks()
-            min_ = np.min([err_T_abs.min(), err_y_abs.min()])
-            max_ = np.min([err_T_abs.max(), err_y_abs.max()])
-            yticks = np.sort(np.hstack([yticks, np.array([min_, max_])]))
-            axis.set_yticks(yticks)
+            img_T = axis.plot(p_, err_T_abs, "-s", color="red", markersize=marker_size)[
+                0
+            ]
+            img_y = axis.plot(
+                p_, err_y_abs, "-D", color="black", markersize=marker_size
+            )[0]
             axis.set_yscale("log")
+
+            if c == 0:
+                yticks = [1e1, 1e-1, 1e-3, 1e-6, ERROR_CAP]
+                axis.set_yticks(yticks)
+            else:
+                axis.set(yticklabels=[])
+                axis.set(ylabel=None)
+                axis.tick_params(left=False)
+
             n += 1
 
-    fig.tight_layout(pad=FIG_PAD, h_pad = 0.5, w_pad=0.5)
+    fig.tight_layout(pad=FIG_PAD, h_pad=0.5, w_pad=0.5)
     fig.savefig(
         f"{fig_path}figure_{fig_num}.{FIGURE_FORMAT}",
         format=FIGURE_FORMAT,
@@ -930,8 +984,9 @@ if __name__ == "__main__":
 
     # region Plotting errors for h-v flash
     logger.info(f"{del_log}Plotting errors for h-v flash ..")
-    fig = plt.figure(figsize=(FIGURE_WIDTH, 2 * ASPECT_RATIO * FIGURE_WIDTH))
-    axis = fig.add_subplot(2,1,1)
+    fig = plt.figure(figsize=(FIGURE_WIDTH, FIGURE_WIDTH))
+    axis = fig.add_subplot(2, 1, 1)
+    axis.set_box_aspect(0.5)
     axis.set_title(f"p = {HV_ISOBAR * PRESSURE_SCALE} [{PRESSURE_SCALE_NAME}]")
     axis.set_xlabel(f"T [K]")
     axis.set_yscale("log")
@@ -940,7 +995,8 @@ if __name__ == "__main__":
     )
     axis.legend(img_ip, leg_ip, loc="upper left", markerscale=MARKER_SCALE)
 
-    axis = fig.add_subplot(2,1,2)
+    axis = fig.add_subplot(2, 1, 2)
+    axis.set_box_aspect(0.5)
     axis.set_title(f"T = {HV_ISOTHERM} [K]")
     axis.set_xlabel(f"p [{PRESSURE_SCALE_NAME}]")
     axis.set_yscale("log")
@@ -948,7 +1004,7 @@ if __name__ == "__main__":
         axis, p_iT * PRESSURE_SCALE, err_hv_p_iT, err_hv_T_iT, err_hv_s_iT, err_hv_y_iT
     )
 
-    fig.tight_layout(pad=FIG_PAD, h_pad = 0.5)
+    fig.tight_layout(pad=FIG_PAD, h_pad=0.5)
     fig.savefig(
         f"{fig_path}figure_{fig_num}.{FIGURE_FORMAT}",
         format=FIGURE_FORMAT,
@@ -959,8 +1015,8 @@ if __name__ == "__main__":
 
     # region Plotting h-v isolines
     logger.info(f"{del_log}Plotting h-v flash isolines ..")
-    fig = plt.figure(figsize=(FIGURE_WIDTH, .5* ASPECT_RATIO * FIGURE_WIDTH))
-    axis = fig.add_subplot(1,1,1)
+    fig = plt.figure(figsize=(FIGURE_WIDTH, 0.5 * ASPECT_RATIO * FIGURE_WIDTH))
+    axis = fig.add_subplot(1, 1, 1)
     axis.set_box_aspect(0.5)
     axis.set_xlabel("T [K]")
     axis.set_ylabel(f"p [{PRESSURE_SCALE_NAME}]")
@@ -973,11 +1029,27 @@ if __name__ == "__main__":
     isothermo_T = np.ones(len(p_iT)) * HV_ISOTHERM
     isotherm_p = p_iT * PRESSURE_SCALE
 
-    marker_size = int(np.floor(MARKER_SIZE * 2/ 3))
-    img_ip = axis.plot(isobar_T, isobar_p, "-o", fillstyle='none', color="black", markersize=marker_size, linewidth=1)[0]
-    img_iT = axis.plot(isothermo_T, isotherm_p, "-s", fillstyle='none', color="black", markersize=marker_size, linewidth=1)[0]
+    marker_size = int(np.floor(MARKER_SIZE * 2 / 3))
+    img_ip = axis.plot(
+        isobar_T,
+        isobar_p,
+        "-o",
+        fillstyle="none",
+        color="black",
+        markersize=marker_size,
+        linewidth=1,
+    )[0]
+    img_iT = axis.plot(
+        isothermo_T,
+        isotherm_p,
+        "-s",
+        fillstyle="none",
+        color="black",
+        markersize=marker_size,
+        linewidth=1,
+    )[0]
 
-    axis.set_ylim(p_min, 25.)
+    axis.set_ylim(p_min, 25.0)
 
     img_ = []
     leg_ = []
@@ -986,11 +1058,14 @@ if __name__ == "__main__":
     leg_ += crit[1]
 
     img_ += [img_ip, img_iT]
-    leg_ += [f"isobar p= = {HV_ISOBAR * PRESSURE_SCALE} [{PRESSURE_SCALE_NAME}]", f"isotherm T = {HV_ISOTHERM} [K] "]
+    leg_ += [
+        f"isobar p = {HV_ISOBAR * PRESSURE_SCALE} [{PRESSURE_SCALE_NAME}]",
+        f"isotherm T = {HV_ISOTHERM} [K] ",
+    ]
     axis.legend(img_, leg_, loc="upper left", markerscale=MARKER_SCALE)
 
     cax = axis.inset_axes([1.04, 0.2, 0.05, 0.6])
-    cb = fig.colorbar(img, cax=cax, orientation='vertical')
+    cb = fig.colorbar(img, cax=cax, orientation="vertical")
     cb.set_ticks([3 / 4 * k - 3 / 8 for k in range(1, 5)])
     cb.set_ticklabels(["N/A", "L", "GL", "G"])
 
