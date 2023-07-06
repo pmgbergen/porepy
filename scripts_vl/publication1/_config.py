@@ -17,7 +17,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import psutil
 from matplotlib import figure
-from matplotlib.colors import LinearSegmentedColormap  
+from matplotlib.colors import LinearSegmentedColormap
 from thermo import PR78MIX, CEOSGas, CEOSLiquid, ChemicalConstantsPackage, FlashVLN
 from thermo.interaction_parameters import IPDB
 
@@ -39,15 +39,15 @@ MARKER_SCALE: int = 2  # Size scaling of markers in legend
 MARKER_SIZE: int = 10
 
 # Defining colors for plots
-batlow_map = LinearSegmentedColormap.from_list('batlow', batlow_data)
-NA_COL = batlow_map(0.)  # color for not available data
+batlow_map = LinearSegmentedColormap.from_list("batlow", batlow_data)
+NA_COL = batlow_map(0.0)  # color for not available data
 LIQ_COL = batlow_map(0.25)  # color for liquid phase
 MPHASE_COL = batlow_map(0.5)  # color for multi-phase region
 GAS_COL = batlow_map(0.75)  # color for gas phase
-GAS_COL_2 = batlow_map(1.)  # Additional color for gas phase (Widom extension)
+GAS_COL_2 = batlow_map(1.0)  # Additional color for gas phase (Widom extension)
 WHITE_COL = (1, 1, 1, 1)
 BLACK_COL = (0, 0, 0, 1)
-GREY_COL = (.5, .5, .5, 1)
+GREY_COL = (0.5, 0.5, 0.5, 1)
 
 # Calculation modus for PorePy flash
 # 1 - point-wise (robust, but possibly very slow),
@@ -1047,7 +1047,11 @@ def plot_crit_point_H2O(axis: plt.Axes):
 
     img = [
         axis.plot(
-            s.T_crit, s.p_crit * PRESSURE_SCALE, "*", markersize=MARKER_SIZE, color="red"
+            s.T_crit,
+            s.p_crit * PRESSURE_SCALE,
+            "*",
+            markersize=MARKER_SIZE,
+            color="red",
         )[0]
         for s in S[:1]
     ]
@@ -1086,9 +1090,7 @@ def plot_phase_split_pT(
     # cmap = mpl.colors.ListedColormap(
     #     ["firebrick", "royalblue", "mediumturquoise", "forestgreen"]
     # )
-    cmap = mpl.colors.ListedColormap(
-        np.array([NA_COL, LIQ_COL, MPHASE_COL, GAS_COL])
-    )
+    cmap = mpl.colors.ListedColormap(np.array([NA_COL, LIQ_COL, MPHASE_COL, GAS_COL]))
     img = axis.pcolormesh(
         T,
         p * PRESSURE_SCALE,
@@ -1149,9 +1151,11 @@ def _plot_Widom_line(axis: plt.Axes, A_mesh: np.ndarray, B_mesh: np.ndarray):
     x_vals = x_vals[cap]
 
     # Widom line
-    img_line = axis.plot(x_vals, y_vals, linestyle='dashed', color="black", linewidth=3)
+    img_line = axis.plot(x_vals, y_vals, linestyle="dashed", color="black", linewidth=3)
     # subcrit- triangle
-    img_b = axis.plot([A_CRIT, A_CRIT], [0, B_CRIT], linestyle='dotted', color="black", linewidth=3)
+    img_b = axis.plot(
+        [A_CRIT, A_CRIT], [0, B_CRIT], linestyle="dotted", color="black", linewidth=3
+    )
 
     return [img_line[0], img_b[0]], ["Widom line", "A=A_c"]
 
@@ -1168,21 +1172,35 @@ def plot_root_regions(
     cmap = mpl.colors.ListedColormap(
         np.array([GREY_COL, WHITE_COL, NA_COL, MPHASE_COL])
     )
-    img = axis.pcolormesh(A_mesh, B_mesh, regions, cmap=cmap, vmin=0, vmax=3,shading="nearest",)
+    img = axis.pcolormesh(
+        A_mesh,
+        B_mesh,
+        regions,
+        cmap=cmap,
+        vmin=0,
+        vmax=3,
+        shading="nearest",
+    )
     imgs_c, legs_c = _plot_critical_line(axis, A_mesh)
 
-    violated = (liq_root <= B_mesh) & (B_mesh >= pp.composite.peng_robinson.PengRobinsonEoS.critical_line(A_mesh))
+    violated = (liq_root <= B_mesh) & (
+        B_mesh >= pp.composite.peng_robinson.PengRobinsonEoS.critical_line(A_mesh)
+    )
     if np.any(violated):
         mr = np.ma.array(regions, mask=np.logical_not(violated))
         hatch = axis.pcolor(
             A_mesh,
             B_mesh,
             mr,
-            hatch='//', edgecolor='black',
-            cmap=mpl.colors.ListedColormap(['none']),
-            facecolor='none',
-            vmin=0, vmax=3,shading="nearest",
-            lw=0, zorder=2,
+            hatch="//",
+            edgecolor="black",
+            cmap=mpl.colors.ListedColormap(["none"]),
+            facecolor="none",
+            vmin=0,
+            vmax=3,
+            shading="nearest",
+            lw=0,
+            zorder=2,
         )
         img_v = [hatch]
         leg_v = [f"Z_L <= B"]
@@ -1212,11 +1230,17 @@ def plot_root_extensions(
         np.array([MPHASE_COL, LIQ_COL, GAS_COL_2, GAS_COL])
     )
     img = axis.pcolormesh(
-        A_mesh, B_mesh, root_extensions, cmap=cmap, vmin=0, vmax=3, shading="nearest",
+        A_mesh,
+        B_mesh,
+        root_extensions,
+        cmap=cmap,
+        vmin=0,
+        vmax=3,
+        shading="nearest",
     )
 
-    imgs_c, legs_c = _plot_critical_line(axis, A_mesh)
     img_w, leg_w = _plot_Widom_line(axis, A_mesh, B_mesh)
+    imgs_c, legs_c = _plot_critical_line(axis, A_mesh)
 
     axis.legend(
         imgs_c + img_w, legs_c + leg_w, loc="upper left", markerscale=MARKER_SCALE
@@ -1230,7 +1254,11 @@ def plot_Widom_points_experimental(axis: plt.Axes):
     (Maxim et al. 2019)"""
 
     img = axis.plot(
-        WIDOM_LINE[1], WIDOM_LINE[0] * PRESSURE_SCALE, "D-", markersize=MARKER_SIZE, color="black"
+        WIDOM_LINE[1],
+        WIDOM_LINE[0] * PRESSURE_SCALE,
+        "D-",
+        markersize=MARKER_SIZE,
+        color="black",
     )
     return [img[0]], ["Widom-line data"]
 
@@ -1247,9 +1275,13 @@ def plot_hv_iso(
     h-v flash."""
     marker_size = int(np.floor(MARKER_SIZE / 2))
     marker_size = MARKER_SIZE
-    img_p = axis.plot(x, p_err, "--o", fillstyle='none', color="red", markersize=marker_size)[0]
-    img_s = axis.plot(x, s_err, "--P", fillstyle='none', color="black", markersize=marker_size)[0]
+    img_p = axis.plot(
+        x, p_err, "--o", fillstyle="none", color="red", markersize=marker_size
+    )[0]
+    img_s = axis.plot(
+        x, s_err, "--P", fillstyle="none", color="black", markersize=marker_size
+    )[0]
     img_T = axis.plot(x, T_err, "-s", color="red", markersize=marker_size)[0]
     img_y = axis.plot(x, y_err, "-D", color="black", markersize=marker_size)[0]
 
-    return [img_p, img_s, img_T, img_y], ["p err", "s err", "T err", "y error"]
+    return [img_p, img_s, img_T, img_y], ["p err", "s err", "T err", "y err"]
