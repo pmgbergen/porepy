@@ -16,6 +16,7 @@ from . import _ad_utils
 from .operators import MixedDimensionalVariable, Operator, Variable
 
 import pdb
+import sys
 
 __all__ = ["EquationSystem"]
 
@@ -1614,14 +1615,12 @@ class EquationSystem:
             # This will raise a key error if the equation name is unknown.
             eq = self._equations[equ_name]
 
-            print("BEFORE eq.evaluate: -----------------------------------")
             print("eq = ", eq)
 
             ad = eq.evaluate(self, state)
 
             # pdb.set_trace()
 
-            print("AFTER eq.evaluate -----------------------------------------\n")
 
             # If restriction to grid-related row blocks was made,
             # perform row slicing based on information we have obtained from parsing.
@@ -1630,10 +1629,14 @@ class EquationSystem:
                 rhs.append(ad.val[rows])
                 block_length = len(rhs[-1])
             # If no grid-related row restriction was made, append the whole thing.
-            else:
+            else:                
                 mat.append(ad.jac)
                 rhs.append(ad.val)
                 block_length = len(ad.val)
+
+
+                # np.set_printoptions(precision=2, linewidth=700, threshold=sys.maxsize)
+                # pdb.set_trace()
 
             # Create indices range and shift to correct position.
             block_indices = np.arange(block_length) + ind_start

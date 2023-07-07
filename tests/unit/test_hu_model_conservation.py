@@ -43,7 +43,7 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
         for sd in self.mdg.subdomains():
             saturation_variable = (
                 self.mixture.mixture_for_subdomain(sd)
-                .get_phase(0)
+                .get_phase(self.ell)
                 .saturation_operator([sd])
             )
 
@@ -117,6 +117,7 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
 
     def before_nonlinear_iteration(self):
         """ """
+        print('\n\n --------- inside before_nonlinear_iteration: -----------')
 
         self.mixture.apply_constraint(
             self.ell,)
@@ -187,9 +188,52 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
                 {"interface_mortar_flux_phase_1": vals}
             )
 
+
+
+        # check the conservation equation, the sum of the three terms must be zero. If not, see what happens.
+        # this is done before Nweton iter, so values at previoes iter are taken.
+
+        dt_operator = pp.ad.time_derivatives.dt
+        dt = pp.ad.Scalar(self.time_manager.dt)
+                
+        # PRESSURE EQ: ----------------
         (
             eq,
-            accumulation_mass,
+            accumulation,
+            flux_tot,
+            flux_intf_phase_0,
+            flux_intf_phase_1,
+            flux,
+            source_phase_0,
+            source_phase_1,
+            source,
+        ) = self.eq_fcn_pressure(self.mdg.subdomains())
+
+        print('2D:')
+        accumulation_pressure = dt_operator(accumulation, dt).evaluate(self.equation_system).val[7]
+        net_flux_pressure = flux.evaluate(self.equation_system).val[[8, 9, 19, 24]]
+        net_flux_pressure = net_flux_pressure[0] - net_flux_pressure[1] + net_flux_pressure[2] - net_flux_pressure[3]
+        source_pressure = source.evaluate(self.equation_system).val[7]
+        
+        print("accumulation pressure cell 7 = ", accumulation_pressure)
+        print("net_flux_pressure cell 7     = ", net_flux_pressure)
+        print("source pressure cell 7       = ", source_pressure)
+
+        print('1D:') # cell 1 frac = 11 global ref
+        accumulation_pressure = dt_operator(accumulation, dt).evaluate(self.equation_system).val[11]
+        net_flux_pressure = flux.evaluate(self.equation_system).val[[31, 32]]
+        net_flux_pressure = net_flux_pressure[0] - net_flux_pressure[1]
+        source_pressure = source.evaluate(self.equation_system).val[11]
+        
+        print("accumulation pressure cell 1 = ", accumulation_pressure)
+        print("net_flux_pressure cell 1     = ", net_flux_pressure)
+        print("source pressure cell 1       = ", source_pressure)
+
+
+        # MASS BALANCE: ---------------
+        (
+            eq,
+            accumulation,
             flux_V_G,
             flux_intf_phase_0,
             flux_intf_phase_1,
@@ -197,14 +241,34 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
             source_phase_1,
         ) = self.eq_fcn_mass(self.mdg.subdomains())
 
-        accumulation_mass = (accumulation_mass.evaluate(self.equation_system).val)[7]
-        print("\n accumulation mass cell 7 before nonlinear iter = ", accumulation_mass)
-        print("\n")
+        print("2D:")
+        accumulation_mass = dt_operator(accumulation, dt).evaluate(self.equation_system).val[7]
+        net_flux_mass = flux_V_G - flux_intf_phase_0 # ell = 0
+        net_flux_mass = net_flux_mass.evaluate(self.equation_system).val[[8, 9, 19, 24]]
+        net_flux_mass = net_flux_mass[0] - net_flux_mass[1] + net_flux_mass[2] - net_flux_mass[3]
+        source_mass = source_phase_0.evaluate(self.equation_system).val[7]
 
-        super().before_nonlinear_iteration()
+        print("accumulation mass cell 7 = ", accumulation_mass)
+        print("net_flux mass cell 7     = ", net_flux_mass)
+        print("source mass cell 7       = ", source_mass)
 
+        print("1D:")
+        accumulation_mass = dt_operator(accumulation, dt).evaluate(self.equation_system).val[11]
+        net_flux_mass = flux_V_G - flux_intf_phase_0 # ell = 0
+        net_flux_mass = net_flux_mass.evaluate(self.equation_system).val[[31, 32]]
+        net_flux_mass = net_flux_mass[0] - net_flux_mass[1]
+        source_mass = source_phase_0.evaluate(self.equation_system).val[11]
+
+        print("accumulation mass cell 1 = ", accumulation_mass)
+        print("net_flux mass cell 1     = ", net_flux_mass)
+        print("source mass cell 1       = ", source_mass)
+
+        self.set_discretization_parameters()
+        self.rediscretize()
+        
     def eb_after_timestep(self):
         """ """
+        print('\n\n -------------- inside eb_after_timestep: -------------------')
 
         # TEST SECTION: ---------------------------------------------------------
 
@@ -212,107 +276,158 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
         # for sd in self.mdg.subdomains():
         #     if sd.dim == 2:
         #         internal_nodes_id = sd.get_internal_nodes()
-        #         sd.nodes[1][[8, 10]] += 0.1
-        #         sd.nodes[1][[9, 11]] -= 0.1
+        #         sd.nodes[1][[8, 10]] -= 0.1
+        #         sd.nodes[1][[9, 11]] += 0.1
 
         # self.mdg.compute_geometry()
 
-        pp.plot_grid(self.mdg, info="cf", alpha=0)
+        # pp.plot_grid(self.mdg, info="cf", alpha=0.1)
 
-        for sd in self.mdg.subdomains():  # useless, but may be useful, so keep it
-            if sd.dim == 2:
-                gigi = (
-                    self.mixture.mixture_for_subdomain(sd)
-                    .get_phase(self.ell)
-                    .saturation
-                )
-                print("saturation = ", gigi.val)
-                pp.plot_grid(
-                    sd,
-                    gigi.val,
-                    alpha=0.5,
-                    info="c",
-                    title="saturation " + str(self.ell),
-                )
+        # for sd in self.mdg.subdomains():
+        #     if sd.dim == 2:
+        #         normals = sd.face_normals
+        #         pp.plot_grid(
+        #             sd, vector_value=0.5 * normals, info='f', alpha=0
+        #         ) 
+                
 
-                # pressure flux:
-                (
-                    eq,
-                    accumulation_pressure,
-                    flux_tot,
-                    flux_intf_phase_0,
-                    flux_intf_phase_1,
-                    flux_pressure,
-                    source_phase_0,
-                    source_phase_1,
-                    source_pressure,
-                ) = self.eq_fcn_pressure(self.mdg.subdomains())
+        # for sd in self.mdg.subdomains(): 
+        #     if sd.dim == 2:
+        #         gigi = (
+        #             self.mixture.mixture_for_subdomain(sd)
+        #             .get_phase(self.ell)
+        #             .saturation
+        #         )
+        #         print("saturation = ", gigi.val)
+        #         pp.plot_grid(
+        #             sd,
+        #             gigi.val,
+        #             alpha=0.5,
+        #             info="c",
+        #             title="saturation " + str(self.ell),
+        #         )
 
-                # conservation cell 7
-                flux_cell_7_pressure = flux_pressure.evaluate(self.equation_system).val[
-                    [8, 9, 24, 28]
-                ]  # see the plot for the indeces... # at the end of this vector there are the fluxes in the fracture
-                net_flux_pressure = np.sum(flux_cell_7_pressure)
-                print("\nnet_flux pressure = ", net_flux_pressure)
+        dt_operator = pp.ad.time_derivatives.dt
+        dt = pp.ad.Scalar(self.time_manager.dt)
+        div = pp.ad.Divergence(self.mdg.subdomains(), dim=1)
 
-                dt_operator = pp.ad.time_derivatives.dt
-                dt = pp.ad.Scalar(self.time_manager.dt)
-                accumulation_pressure = (
-                    dt_operator(accumulation_pressure, dt)
-                    .evaluate(self.equation_system)
-                    .val
-                )
+        # check confervation of cell 7
+        # PRESSURE EQ: -----------------------
+        (
+            eq,
+            accumulation,
+            flux_tot,
+            flux_intf_phase_0,
+            flux_intf_phase_1,
+            flux_pressure,
+            source_phase_0,
+            source_phase_1,
+            source,
+        ) = self.eq_fcn_pressure(self.mdg.subdomains())
 
-                accumulation_pressure = accumulation_pressure[7]
-                print(
-                    "\n accumulation pressure cell 7 = ", accumulation_pressure
-                )  # I think it's zero because it is set to zero
+        print('2D:')
+        accumulation_pressure = (
+            dt_operator(accumulation, dt)
+            .evaluate(self.equation_system)
+            .val
+        )[7]
+        
+        flux_cell_7_pressure = flux_pressure.evaluate(self.equation_system).val[
+            [8, 9, 19, 24]
+        ]  # see the plot for the indeces... # at the end of this vector there are the fluxes in the fracture
+        net_flux_pressure = flux_cell_7_pressure[0] - flux_cell_7_pressure[1] + flux_cell_7_pressure[2] - flux_cell_7_pressure[3] 
+        
+        # print(div.evaluate(self.equation_system)) # 2D: 8-1, 9+1, 19-1, 24+1. # 1D: 31-1, 32+1
+        assert net_flux_pressure == -(div @ flux_pressure).evaluate(self.equation_system).val[7]
+        print("minus? I'm confused...")
 
-                source_pressure = source_pressure.evaluate(self.equation_system).val[7]
-                print("\n source_pressure cell 7 = ", source_pressure)
+        source_pressure = source.evaluate(self.equation_system).val[7]
+        print("accumulation pressure cell 7 = ", accumulation_pressure
+        )  # I think it's zero because it is set to zero
+        print("net_flux pressure            = ", net_flux_pressure)
+        print("source_pressure cell 7       = ", source_pressure)
 
-                (
-                    eq,
-                    accumulation_mass,
-                    flux_V_G,
-                    flux_intf_phase_0,
-                    flux_intf_phase_1,
-                    source_phase_0,
-                    source_phase_1,
-                ) = self.eq_fcn_mass(self.mdg.subdomains())
+        print('1D:')
+        accumulation_pressure = (
+            dt_operator(accumulation, dt)
+            .evaluate(self.equation_system)
+            .val
+        )[11]
+        
+        flux_cell_7_pressure = flux_pressure.evaluate(self.equation_system).val[[31, 32]]  
+        net_flux_pressure = flux_cell_7_pressure[0] - flux_cell_7_pressure[1]
+        
+        assert net_flux_pressure == -(div @ flux_pressure).evaluate(self.equation_system).val[11]
 
-                # mass flux:
-                flux_mass = (
-                    (flux_V_G - flux_intf_phase_0).evaluate(self.equation_system).val
-                )
-                accumulation_mass = accumulation_mass.evaluate(
-                    self.equation_system
-                ).val[7]
-                print("\n accumulation mass cell 7 = ", accumulation_mass)
+        source_pressure = source.evaluate(self.equation_system).val[11]
 
-                source_mass = source_phase_0.evaluate(self.equation_system).val[7]
-                print("\n source_mass cell 7 = ", source_mass)
+        print("accumulation pressure cell 7 = ", accumulation_pressure)
+        print("net_flux pressure            = ", net_flux_pressure)
+        print("source_pressure cell 7       = ", source_pressure)
 
-                # conservation cell 7
-                flux_cell_7_mass = flux_mass[
-                    [8, 9, 24, 28]
-                ]  # see the plot for the indeces...
-                net_flux_mass = np.sum(flux_cell_7_mass)
-                print("\nnet_flux mass = ", net_flux_mass)
+        # MASS BALANCE: -----------------------
+        (
+            eq,
+            accumulation,
+            flux_V_G,
+            flux_intf_phase_0,
+            flux_intf_phase_1,
+            source_phase_0,
+            source_phase_1,
+        ) = self.eq_fcn_mass(self.mdg.subdomains())
 
-                pdb.set_trace()
-                if self.case == 1:
-                    print("case 1")
-                    # assert net_flux_pressure == 0
-                    # assert net_flux_mass == 0
-                if self.case == 2:
-                    print("case 2")
-                    # assert net_flux_pressure == 0
-                    # assert net_flux_mass == 0
-                if self.case == 3:
-                    print("case 3")
-                    # assert net_flux_pressure == 0
-                    # assert net_flux_mass == 0
+        print("2D:")
+        accumulation_mass = accumulation.evaluate(
+            self.equation_system
+        ).val[7]
+
+        flux_mass_op = flux_V_G - flux_intf_phase_0
+        flux_mass =  flux_mass_op.evaluate(self.equation_system).val
+        # conservation cell 7
+        flux_cell_7_mass = flux_mass[
+            [8, 9, 19, 24]
+        ]  # see the plot for the indeces...
+        net_flux_mass = flux_cell_7_mass[0] - flux_cell_7_mass[1] + flux_cell_7_mass[2] - flux_cell_7_mass[3]
+        assert net_flux_mass == -(div @ flux_mass_op).evaluate(self.equation_system).val[7]        
+
+        source_mass = source_phase_0.evaluate(self.equation_system).val[7]
+
+        print("accumulation mass cell 7 = ", accumulation_mass)
+        print("net_flux mass cell 11    = ", net_flux_mass)
+        print("source_mass cell 7       = ", source_mass)
+        print('\n THE ACCUMULATION IS EQUAL TO THE POROSITY, why?')
+
+        print("1D:")
+        accumulation_mass = accumulation.evaluate(
+            self.equation_system
+        ).val[11]
+
+        flux_mass_op = flux_V_G - flux_intf_phase_0
+        flux_mass =  flux_mass_op.evaluate(self.equation_system).val
+        flux_cell_7_mass = flux_mass[[31, 32]]
+        net_flux_mass = flux_cell_7_mass[0] - flux_cell_7_mass[1]
+
+        assert net_flux_mass == -(div @ flux_mass_op).evaluate(self.equation_system).val[11]        
+
+        source_mass = source_phase_0.evaluate(self.equation_system).val[11]
+
+        print("accumulation mass cell 11 = ", accumulation_mass)
+        print("net_flux mass cell 11     = ", net_flux_mass)
+        print("source_mass cell 11       = ", source_mass)
+        
+        pdb.set_trace()
+        if self.case == 1:
+            print("case 1")
+            # assert net_flux_pressure == 0
+            # assert net_flux_mass == 0
+        if self.case == 2:
+            print("case 2")
+            # assert net_flux_pressure == 0
+            # assert net_flux_mass == 0
+        if self.case == 3:
+            print("case 3")
+            # assert net_flux_pressure == 0
+            # assert net_flux_mass == 0
 
         print("\n\n TEST PASSED ------------------- ")
         pdb.set_trace()

@@ -77,41 +77,38 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
 
         # from email:
         for sd in self.mdg.subdomains():
-            if sd.dim == self.mdg.dim_max():  # thers is a is_frac attribute somewhere
-                # saturation_variable = self.equation_system.md_variable(
-                #     name="saturation", grids=[sd]
-                # )
-                saturation_variable = (
-                    self.mixture.mixture_for_subdomain(self.equation_system, sd)
-                    .get_phase(0)
-                    .saturation_operator([sd])
-                )
+            saturation_variable = (
+                # self.mixture.mixture_for_subdomain(self.equation_system, sd)
+                self.mixture.mixture_for_subdomain(sd)
+                .get_phase(0)
+                .saturation_operator([sd])
+            )
 
-                if sd.dim == 2:
-                    saturation_values = self.saturation_values_2d
-                else:
-                    saturation_values = self.saturation_values_1d
+            if sd.dim == 2:
+                saturation_values = self.saturation_values_2d
+            else:
+                saturation_values = self.saturation_values_1d
 
-                self.equation_system.set_variable_values(
-                    saturation_values,
-                    variables=[saturation_variable],
-                    time_step_index=0,
-                    iterate_index=0,
-                )
+            self.equation_system.set_variable_values(
+                saturation_values,
+                variables=[saturation_variable],
+                time_step_index=0,
+                iterate_index=0,
+            )
 
-                pressure_variable = self.pressure([sd])
+            pressure_variable = self.pressure([sd])
 
-                if sd.dim == 2:
-                    pressure_values = self.pressure_values_2d
-                else:  # sd.dim == 1
-                    pressure_values = self.pressure_values_1d
+            if sd.dim == 2:
+                pressure_values = self.pressure_values_2d
+            else:  # sd.dim == 1
+                pressure_values = self.pressure_values_1d
 
-                self.equation_system.set_variable_values(
-                    pressure_values,
-                    variables=[pressure_variable],
-                    time_step_index=0,
-                    iterate_index=0,
-                )
+            self.equation_system.set_variable_values(
+                pressure_values,
+                variables=[pressure_variable],
+                time_step_index=0,
+                iterate_index=0,
+            )
 
         for sd, data in self.mdg.subdomains(return_data=True):
             pp.initialize_data(
@@ -139,8 +136,8 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
         """ """
 
         self.mixture.apply_constraint(
-            self.ell, self.equation_system, self.mdg.subdomains()
-        )  ### TODO: redo...
+            self.ell) #, self.equation_system, self.mdg.subdomains() )
+        
 
         for sd, data in self.mdg.subdomains(return_data=True):
             pressure_adarray = self.pressure([sd]).evaluate(self.equation_system)
@@ -157,7 +154,8 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
             total_flux_internal = (
                 pp.numerics.fv.hybrid_weighted_average.total_flux_internal(
                     sd,
-                    self.mixture.mixture_for_subdomain(self.equation_system, sd),
+                    # self.mixture.mixture_for_subdomain(self.equation_system, sd),
+                    self.mixture.mixture_for_subdomain(sd),
                     pressure_adarray,
                     self.gravity_value,
                     left_restriction,

@@ -17,6 +17,12 @@ def myprint(var):
     print("\n" + var + " = ", eval(var))
 
 
+"""
+- is it ok to consider mu (dynamic viscosity, mu = nu/rho) constant? 
+- 
+"""
+
+
 ###################################################################################################################
 # mass and energy model:
 ###################################################################################################################
@@ -75,14 +81,28 @@ class FunctionTotalFlux(pp.ad.operator_functions.AbstractFunction):
     def get_values(self, *args_not_used: AdArray) -> np.ndarray:
         """
         remember that *args_not_used are result[1] in _parse_operator
-        - I rely on the fact the _parse first calld get_values and then get_jacobian
+        - I rely on the fact the _parse first calld get_values and THEN get_jacobian
         """
         self.result_list = []  # otherwise it will remembers old values...
 
         known_term_list = (
             []
         )  # TODO: find a better name, which is not rhs because it is not yet
+
+
+        # subdomains = []
+        # datas = []
+        # for subdomain, data in self.mdg.subdomains(return_data=True): #######################################
+        #     subdomains.append(subdomain)
+        #     datas.append(data)
+
+
         for subdomain, data in self.mdg.subdomains(return_data=True):
+        # for i in [1,0]: #reverse the order
+        #     subdomain = subdomains[i] ############################################################ see picture for the result ad.val
+        #     data = datas[i] 
+
+
             args = [subdomain]
 
             args.append(
@@ -91,7 +111,12 @@ class FunctionTotalFlux(pp.ad.operator_functions.AbstractFunction):
             )  # sorry
 
             args_from_dict = self.get_args_from_sd_data_dictionary(data)
-            args = np.hstack((args, args_from_dict))
+            args = np.hstack((args, args_from_dict))    
+
+
+            # print('\n\n\n before result')
+            # print(subdomain)
+            # pdb.set_trace()
 
             result = self.func(*args)
             self.result_list.append(result)
@@ -100,13 +125,15 @@ class FunctionTotalFlux(pp.ad.operator_functions.AbstractFunction):
                 result.val
             )  # equation_system.assemble_subsystem will add the "-", so it will actually become a rhs
 
-        return np.hstack(
-            known_term_list
-        )  # TODO: how much are you sure about this hstack? idem for jacobian
+            # print('\n\n\nafter result')
+            # pdb.set_trace()
+
+        # return np.hstack(known_term_list)  # TODO: how much are you sure about this hstack? idem for jacobian
+        return np.concatenate(known_term_list) # same as before, I want to use exacly the same commands int equation_system.assemble_subsystem
 
     def get_jacobian(self, *args_not_used: AdArray) -> np.ndarray:
         """
-        - I rely on the fact the _parse first calls get_values and then get_jacobian
+        - I rely on the fact the _parse first calls get_values and THEN get_jacobian
         """
         jac_list = []
 
@@ -177,7 +204,8 @@ class FunctionRhoV(pp.ad.operator_functions.AbstractFunction):
             self.result_list.append(results)
             known_term_list.append(results.val)
 
-        return np.hstack(known_term_list)
+        # return np.hstack(known_term_list)
+        return np.concatenate(known_term_list)
 
     def get_jacobian(self, *args_not_used: AdArray) -> np.ndarray:
         """ """
@@ -257,7 +285,8 @@ class FunctionRhoG(pp.ad.operator_functions.AbstractFunction):
             self.result_list.append(result)
 
             known_term_list.append(result.val)
-        return np.hstack(known_term_list)
+        # return np.hstack(known_term_list)
+        return np.concatenate(known_term_list)
 
     def get_jacobian(self, *args_not_used: AdArray) -> np.ndarray:
         """ """
@@ -1019,6 +1048,9 @@ class SolutionStrategyPressureMass(pp.SolutionStrategy):
 
         self.set_geometry()
 
+        # pp.plot_grid(self.mdg, info='c', alpha=0)
+        # pdb.set_trace()
+
         self.initialize_data_saving()
 
         self.set_materials()
@@ -1108,43 +1140,42 @@ class SolutionStrategyPressureMass(pp.SolutionStrategy):
 
         for sd in self.mdg.subdomains():
             # if sd.dim == self.mdg.dim_max():  # thers is a is_frac attribute somewhere
-            if True:  ### ...
-                saturation_variable = (
-                    # self.mixture.mixture_for_subdomain(self.equation_system, sd)
-                    self.mixture.mixture_for_subdomain(sd)
-                    .get_phase(0)
-                    .saturation_operator([sd])
-                )
+            saturation_variable = (
+                # self.mixture.mixture_for_subdomain(self.equation_system, sd)
+                self.mixture.mixture_for_subdomain(sd)
+                .get_phase(self.ell)
+                .saturation_operator([sd])
+            )
 
-                # saturation_variable = self.equation_system.md_variable(
-                #     "saturation", [sd]
-                # )
+            # saturation_variable = self.equation_system.md_variable(
+            #     "saturation", [sd]
+            # )
 
-                saturation_values = 0*np.ones(sd.num_cells)
-                y_max = self.size  # TODO: not 100% sure size = y_max
-                saturation_values[
-                    np.where(sd.cell_centers[1] >= y_max / 2)
-                ] = 1.0  # TODO: HARDCODED for 2D
+            saturation_values = 0*np.ones(sd.num_cells)
+            y_max = self.size  # TODO: not 100% sure size = y_max
+            saturation_values[
+                np.where(sd.cell_centers[1] >= y_max / 2)
+            ] = 1.0  # TODO: HARDCODED for 2D
 
-                self.equation_system.set_variable_values(
-                    saturation_values,
-                    variables=[saturation_variable],
-                    time_step_index=0,
-                    iterate_index=0,  ### not totally clear, aqp you have to change both timestep values and iterate
-                )  # TODO: i don't understand, this stores the value in data[pp.TIME_STEP_SOLUTION]["saturation"] without modifying the value of saturation
+            self.equation_system.set_variable_values(
+                saturation_values,
+                variables=[saturation_variable],
+                time_step_index=0,
+                iterate_index=0,  ### not totally clear, aqp you have to change both timestep values and iterate
+            )  # TODO: i don't understand, this stores the value in data[pp.TIME_STEP_SOLUTION]["saturation"] without modifying the value of saturation
 
-                pressure_variable = self.pressure([sd])
+            pressure_variable = self.pressure([sd])
 
-                pressure_values = (
-                    2 - 1 * sd.cell_centers[1] / y_max
-                )  # TODO: hardcoded for 2D
+            pressure_values = (
+                2 - 1 * sd.cell_centers[1] / y_max
+            )  # TODO: hardcoded for 2D
 
-                self.equation_system.set_variable_values(
-                    pressure_values,
-                    variables=[pressure_variable],
-                    time_step_index=0,
-                    iterate_index=0,
-                )
+            self.equation_system.set_variable_values(
+                pressure_values,
+                variables=[pressure_variable],
+                time_step_index=0,
+                iterate_index=0,
+            )
 
         for sd, data in self.mdg.subdomains(return_data=True):
             # aperture = np.ones(sd.num_cells) * np.power(
@@ -1382,7 +1413,12 @@ class SolutionStrategyPressureMass(pp.SolutionStrategy):
         # print("\n b = ", b)
         # pdb.set_trace()
 
-        super().before_nonlinear_iteration()
+        for sd in self.mdg.subdomains():
+            pp.plot_grid(sd, self.mixture.mixture_for_subdomain(sd).get_phase(0).saturation.val, info='c', alpha=0.5)
+
+        # super().before_nonlinear_iteration() # attento... se ineriti questa classe crei un loop di merda. Ho copiato le funzioni qui sotto
+        self.set_discretization_parameters()
+        self.rediscretize()
 
     def after_nonlinear_iteration(self, solution_vector: np.ndarray) -> None:
         """ """
@@ -1505,15 +1541,15 @@ class MyModelGeometry(pp.ModelGeometry):
 
     def set_fractures(self) -> None:
         """ """
-        frac1 = pp.LineFracture(np.array([[0.2, 0.7], [0.7, 0.7]]))
+        frac1 = pp.LineFracture(np.array([[0.2, 0.7], [0.5, 0.5]]))
         # frac2 = pp.LineFracture(np.array([[0.2, 0.7], [0.2, 0.2]]))
-        self._fractures: list = [] # [frac1, frac2]
+        self._fractures: list = [frac1] #, frac2]
 
     def meshing_arguments(self) -> dict[str, float]:
         """ """
         default_meshing_args: dict[str, float] = {
-            "cell_size": 0.2 / self.units.m,
-            "cell_size_fracture": 0.05 / self.units.m,
+            "cell_size": 0.9 / self.units.m,
+            "cell_size_fracture": 0.5 / self.units.m,
         }
         return self.params.get("meshing_arguments", default_meshing_args)
 

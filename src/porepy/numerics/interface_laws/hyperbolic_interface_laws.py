@@ -14,8 +14,7 @@ from porepy.numerics.interface_laws.abstract_interface_law import AbstractInterf
 class UpwindCoupling(AbstractInterfaceLaw):
     def __init__(self, keyword: str, flux_array_key="pick one") -> None:
         super().__init__(keyword)
-        print("UpwindCoupling has been modified")
-
+        
         # Keywords for accessing discretization matrices
 
         # Trace operator for the primary grid

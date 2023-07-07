@@ -278,6 +278,26 @@ def rho_total_flux(
     dynamic_viscosity,
     dim_max,
 ):
+    
+
+
+    # print(sd)
+    # print(mixture)
+    # print(mixture.get_phase(0).saturation.val)
+    # print(mixture.get_phase(1).saturation.val)
+    # print(pressure)
+    # print(gravity_value)
+    # print(left_restriction)
+    # print(right_restriction)
+    # print(expansion_matrix)
+    # print(transmissibility_internal_tpfa)
+    # print(ad)
+    # print(dynamic_viscosity)
+    # print(dim_max)
+
+    # pdb.set_trace()
+
+
     rho_qt = expansion_matrix @ rho_total_flux_internal(
         sd,
         mixture,
