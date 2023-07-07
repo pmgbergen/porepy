@@ -20,4 +20,4 @@ def second_derivative(saturation):
     """
     move it? i need the second derivative in hu
     """
-    return 2 * np.ones(saturation.shape)
+    return 2 * np.ones(saturation.shape) 

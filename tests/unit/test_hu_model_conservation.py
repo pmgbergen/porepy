@@ -119,8 +119,7 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
         """ """
         print('\n\n --------- inside before_nonlinear_iteration: -----------')
 
-        self.mixture.apply_constraint(
-            self.ell,)
+        self.mixture.apply_constraint(self.ell)
 
         for sd, data in self.mdg.subdomains(return_data=True):
             pressure_adarray = self.pressure([sd]).evaluate(self.equation_system)
@@ -343,7 +342,7 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
 
         source_pressure = source.evaluate(self.equation_system).val[7]
         print("accumulation pressure cell 7 = ", accumulation_pressure
-        )  # I think it's zero because it is set to zero
+        )  # I think it's zero because it is set to zero. DON'T THINK, CHECK.
         print("net_flux pressure            = ", net_flux_pressure)
         print("source_pressure cell 7       = ", source_pressure)
 

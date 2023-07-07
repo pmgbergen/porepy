@@ -391,13 +391,20 @@ class Equations(pp.BalanceEquation):
         mass_density_phase_0 = self.mixture.get_phase(0).mass_density_operator(
             subdomains, self.pressure
         ) * self.mixture.get_phase(0).saturation_operator(subdomains)
+
         mass_density_phase_1 = self.mixture.get_phase(1).mass_density_operator(
             subdomains, self.pressure
         ) * self.mixture.get_phase(1).saturation_operator(subdomains)
 
+        # lala = mass_density_phase_0.evaluate(self.equation_system)
+        # head = mass_density_phase_1.evaluate(self.equation_system)
+        # horsefly = self.mixture.get_phase(0).saturation_operator(subdomains).evaluate(self.equation_system)
+        # boy = self.mixture.get_phase(1).saturation_operator(subdomains).evaluate(self.equation_system)
+        # pdb.set_trace()
+
         mass_density = self.porosity(subdomains) * (
             mass_density_phase_0 + mass_density_phase_1
-        )
+        ) # pp.ad.Scalar(0)*
 
         accumulation = self.volume_integral(mass_density, subdomains, dim=1)
         accumulation.set_name("fluid_mass_p_eq")
@@ -1413,8 +1420,8 @@ class SolutionStrategyPressureMass(pp.SolutionStrategy):
         # print("\n b = ", b)
         # pdb.set_trace()
 
-        for sd in self.mdg.subdomains():
-            pp.plot_grid(sd, self.mixture.mixture_for_subdomain(sd).get_phase(0).saturation.val, info='c', alpha=0.5)
+        # for sd in self.mdg.subdomains():
+        #     pp.plot_grid(sd, self.mixture.mixture_for_subdomain(sd).get_phase(0).saturation.val, info='c', alpha=0.5)
 
         # super().before_nonlinear_iteration() # attento... se ineriti questa classe crei un loop di merda. Ho copiato le funzioni qui sotto
         self.set_discretization_parameters()

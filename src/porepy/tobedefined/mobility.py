@@ -10,6 +10,6 @@ def mobility(saturation, dynamic_viscosity):
 def mobility_operator(subdomains, saturation, dynamic_viscosity):
     """ """
     s = saturation(subdomains)
-    mobility_operator = pp.ad.Function(mobility, "mobility_operator")
-    mob = mobility_operator(s, pp.ad.Scalar(dynamic_viscosity))
+    mob_operator = pp.ad.Function(mobility, "mobility_operator")
+    mob = mob_operator(s, pp.ad.Scalar(dynamic_viscosity))
     return mob

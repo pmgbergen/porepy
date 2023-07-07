@@ -20,7 +20,14 @@ def myprint(var):
 
 
 """
-NOTE: from test_hu_mortar.py
+- from test_hu_model_mortar_fluid_flux.py
+
+- I'd like to test each term of the equation but:
+ idk how to test d/dt
+ hu flux alredy tested
+ interface fluxes tested
+ there is only the source left that in 2D is 0 and in 1D has to be equal to the delta flux. 
+ This is what I added in this test 
 
 """
 
@@ -41,7 +48,7 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
         for sd in self.mdg.subdomains():
             saturation_variable = (
                 self.mixture.mixture_for_subdomain(sd)
-                .get_phase(0)
+                .get_phase(self.ell)
                 .saturation_operator([sd])
             )
 
@@ -92,7 +99,6 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
                 },
             )
 
-    # other methods not called in prepared_simulation: -------------------------------------------------
 
     def before_nonlinear_iteration(self):
         """ """
@@ -177,8 +183,8 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
         #             print(i)
 
         #         internal_nodes_id = sd.get_internal_nodes()
-        #         sd.nodes[1][internal_nodes_id[1]] += 0.1
-        #         sd.nodes[1][internal_nodes_id[0]] -= 0.1
+        #         sd.nodes[1][internal_nodes_id[1]] -= 0.1
+        #         sd.nodes[1][internal_nodes_id[0]] += 0.1
 
         # self.mdg.compute_geometry()
 
@@ -259,6 +265,93 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
                 .evaluate(self.equation_system)
                 .val
             )
+
+
+
+            # mi sono rotto:
+            self.equation_system.set_variable_values(
+                mortar_phase_0,
+                variables=[self.interface_mortar_flux_phase_0_variable],
+                time_step_index=0,
+                iterate_index=0,
+            )
+
+            self.equation_system.set_variable_values(
+                mortar_phase_1,
+                variables=[self.interface_mortar_flux_phase_1_variable],
+                time_step_index=0,
+                iterate_index=0,
+            )
+
+
+            div = pp.ad.Divergence(self.mdg.subdomains(), dim=1)
+
+            # PRESSURE EQ: -------------------------
+            ( 
+            eq,
+            accumulation,
+            flux_tot,
+            flux_intf_phase_0_p,
+            flux_intf_phase_1_p,
+            flux,
+            source_phase_0_p,
+            source_phase_1_p,
+            source, 
+            ) = self.eq_fcn_pressure(self.mdg.subdomains())
+
+            flux_intf_phase_0_p = ( div @ flux_intf_phase_0_p ).evaluate(self.equation_system).val[[0, 1, 2, 3]] 
+            flux_intf_phase_1_p = ( div @ flux_intf_phase_1_p ).evaluate(self.equation_system).val[[0, 1, 2, 3]]
+
+            source_phase_0_p_2d = source_phase_0_p.evaluate(self.equation_system).val[[0, 1, 2, 3]]
+            source_phase_1_p_2d = source_phase_1_p.evaluate(self.equation_system).val[[0, 1, 2, 3]]
+            
+            source_phase_0_p_1d = source_phase_0_p.evaluate(self.equation_system).val[[4, 5]]
+            source_phase_1_p_1d = source_phase_1_p.evaluate(self.equation_system).val[[4, 5]]
+
+
+
+            # MASS BAL: ----------------------------
+            (
+            eq,
+            accumulation,
+            flux_V_G,
+            flux_intf_phase_0_m,
+            flux_intf_phase_1_m,
+            source_phase_0_m,
+            source_phase_1_m,
+            ) = self.eq_fcn_mass(self.mdg.subdomains())
+
+            flux_intf_phase_0_m = ( div @ flux_intf_phase_0_m ).evaluate(self.equation_system).val[[0, 1, 2, 3]]
+            flux_intf_phase_1_m = ( div @ flux_intf_phase_1_m ).evaluate(self.equation_system).val[[0, 1, 2, 3]]
+
+            source_phase_0_m_2d = source_phase_0_m.evaluate(self.equation_system).val[[0, 1, 2, 3]]
+            source_phase_1_m_2d = source_phase_1_m.evaluate(self.equation_system).val[[0, 1, 2, 3]]
+            
+            source_phase_0_m_1d = source_phase_0_m.evaluate(self.equation_system).val[[4, 5]]
+            source_phase_1_m_1d = source_phase_1_m.evaluate(self.equation_system).val[[4, 5]]
+
+
+            # the following has to be always true, and each term depends on fluid flux, so then only the fluid flux in the cases
+            assert np.any( source_phase_0_p_2d ==  np.array([0, 0, 0, 0]) )
+            assert np.any( source_phase_1_p_2d ==  np.array([0, 0, 0, 0]) )
+            assert np.any( source_phase_0_m_2d ==  np.array([0, 0, 0, 0]) )
+            assert np.any( source_phase_1_m_2d ==  np.array([0, 0, 0, 0]) )
+
+            assert np.any( np.isclose( source_phase_0_p_1d[0], (flux_intf_phase_0_p[0] + flux_intf_phase_0_p[2]), rtol=0, atol=1e-10) )
+            assert np.any( np.isclose( source_phase_0_p_1d[1], (flux_intf_phase_0_p[1] + flux_intf_phase_0_p[3]), rtol=0, atol=1e-10) )
+            assert np.any( np.isclose( source_phase_1_p_1d[0], (flux_intf_phase_1_p[0] + flux_intf_phase_1_p[2]), rtol=0, atol=1e-10) )
+            assert np.any( np.isclose( source_phase_1_p_1d[1], (flux_intf_phase_1_p[1] + flux_intf_phase_1_p[3]), rtol=0, atol=1e-10) )
+
+            assert np.any( np.isclose( source_phase_0_m_1d[0], (flux_intf_phase_0_m[0] + flux_intf_phase_0_m[2]), rtol=0, atol=1e-10) )
+            assert np.any( np.isclose( source_phase_0_m_1d[1], (flux_intf_phase_0_m[1] + flux_intf_phase_0_m[3]), rtol=0, atol=1e-10) )
+            assert np.any( np.isclose( source_phase_1_m_1d[0], (flux_intf_phase_1_m[0] + flux_intf_phase_1_m[2]), rtol=0, atol=1e-10) )
+            assert np.any( np.isclose( source_phase_1_m_1d[1], (flux_intf_phase_1_m[1] + flux_intf_phase_1_m[3]), rtol=0, atol=1e-10) )
+
+            assert np.any(flux_intf_phase_0_p == fluid_flux_phase_0)
+            assert np.any(flux_intf_phase_1_p == fluid_flux_phase_1)
+            assert np.any(flux_intf_phase_0_m == fluid_flux_phase_0)
+            assert np.any(flux_intf_phase_1_m == fluid_flux_phase_1)
+
 
             print("\n\n\n")
             print("mortar_phase_0 = ", mortar_phase_0)
@@ -641,8 +734,8 @@ class FinalModelTest(PartialFinalModel):  # I'm sorry...
         super().__init__(params)
         self.mixture = mixture
         self.ell = 0  # 0 = wetting, 1 = non-wetting
-        self.gravity_value = None  # pp.GRAVITY_ACCELERATION
-        self.dynamic_viscosity = 1  # TODO: it is hardoced everywhere, you know...
+        self.gravity_value = None  
+        self.dynamic_viscosity = 1  
 
         self.case = None
         self.saturation_values_2d = None
@@ -689,7 +782,7 @@ mixture.add([wetting_phase, non_wetting_phase])
 model = FinalModelTest(mixture, params)
 
 
-case = 1
+case = 2
 model.case = case
 
 if case == 1:  # delta p = 0, g = 1
@@ -698,7 +791,7 @@ if case == 1:  # delta p = 0, g = 1
     model.saturation_values_1d = 0 * np.array([1.0, 1])
     model.pressure_values_2d = 1 * np.array([1.0, 1, 1, 1])
     model.pressure_values_1d = 1 * np.array([1.0, 1])
-    # test both mortar and interface fluid flux of phase 1 and 2
+
 
 if case == 2:  # delta p = 0, g = 1
     model.gravity_value = 1
