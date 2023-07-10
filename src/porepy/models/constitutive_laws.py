@@ -747,7 +747,7 @@ class CubicLawPermeability(ConstantPermeability):
 
     equation_system: pp.ad.EquationSystem
     """EquationSystem object for the current model. Normally defined in a mixin class
-    defining the solution strategy.
+    definin the solution strategy.
 
     """
     specific_volume: Callable[
