@@ -233,6 +233,8 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
         (
             eq,
             accumulation,
+            rho_V,
+            rho_G,
             flux_V_G,
             flux_intf_phase_0,
             flux_intf_phase_1,
@@ -341,10 +343,11 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
         print("minus? I'm confused...")
 
         source_pressure = source.evaluate(self.equation_system).val[7]
-        print("accumulation pressure cell 7 = ", accumulation_pressure
+        print("no time derivative acc cell 7 = ", accumulation.evaluate(self.equation_system).val[7])
+        print("accumulation pressure cell 7  = ", accumulation_pressure
         )  # I think it's zero because it is set to zero. DON'T THINK, CHECK.
-        print("net_flux pressure            = ", net_flux_pressure)
-        print("source_pressure cell 7       = ", source_pressure)
+        print("net_flux pressure             = ", net_flux_pressure)
+        print("source_pressure cell 7        = ", source_pressure)
 
         print('1D:')
         accumulation_pressure = (
@@ -360,14 +363,17 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
 
         source_pressure = source.evaluate(self.equation_system).val[11]
 
-        print("accumulation pressure cell 7 = ", accumulation_pressure)
-        print("net_flux pressure            = ", net_flux_pressure)
-        print("source_pressure cell 7       = ", source_pressure)
+        print("no time derivative acc cell 11 = ", accumulation.evaluate(self.equation_system).val[11])
+        print("accumulation pressure cell 11  = ", accumulation_pressure)
+        print("net_flux pressure cell 11      = ", net_flux_pressure)
+        print("source_pressure cell 7         = ", source_pressure)
 
         # MASS BALANCE: -----------------------
         (
             eq,
             accumulation,
+            rho_V,
+            rho_G,
             flux_V_G,
             flux_intf_phase_0,
             flux_intf_phase_1,
@@ -376,7 +382,7 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
         ) = self.eq_fcn_mass(self.mdg.subdomains())
 
         print("2D:")
-        accumulation_mass = accumulation.evaluate(
+        accumulation_mass = dt_operator(accumulation, dt).evaluate(
             self.equation_system
         ).val[7]
 
@@ -391,13 +397,13 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
 
         source_mass = source_phase_0.evaluate(self.equation_system).val[7]
 
-        print("accumulation mass cell 7 = ", accumulation_mass)
-        print("net_flux mass cell 11    = ", net_flux_mass)
-        print("source_mass cell 7       = ", source_mass)
-        print('\n THE ACCUMULATION IS EQUAL TO THE POROSITY, why?')
+        print("no time derivative acc cell 7 = ", accumulation.evaluate(self.equation_system).val[7])
+        print("accumulation mass cell 7      = ", accumulation_mass)
+        print("net_flux mass cell 11         = ", net_flux_mass)
+        print("source_mass cell 7            = ", source_mass)
 
         print("1D:")
-        accumulation_mass = accumulation.evaluate(
+        accumulation_mass = dt_operator(accumulation, dt).evaluate(
             self.equation_system
         ).val[11]
 
@@ -410,9 +416,10 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
 
         source_mass = source_phase_0.evaluate(self.equation_system).val[11]
 
-        print("accumulation mass cell 11 = ", accumulation_mass)
-        print("net_flux mass cell 11     = ", net_flux_mass)
-        print("source_mass cell 11       = ", source_mass)
+        print("no time derivative acc cell 11 = ", accumulation.evaluate(self.equation_system).val[11])
+        print("accumulation mass cell 11      = ", accumulation_mass)
+        print("net_flux mass cell 11          = ", net_flux_mass)
+        print("source_mass cell 11            = ", source_mass)
         
         pdb.set_trace()
         if self.case == 1:
@@ -536,22 +543,16 @@ if case == 1:
     model.pressure_values_2d = 1 * np.array([1.0, 1, 1, 1, 1, 1, 1, 1, 1, 1])
     model.pressure_values_1d = 1 * np.array([0.0, 0, 0])
 
-    # PASSED. of course, let it run few timesteps
-
 if case == 2:
     print("\n\n\n case 2")
     model.gravity_value = 1
     model.pressure_values_2d = 0 * np.array([1.0, 1, 1, 1, 1, 1, 1, 1, 1, 1])
     model.pressure_values_1d = 0 * np.array([0.0, 0, 0])
 
-    # FAILED
-
 if case == 3:
     print("\n\n\n case 3")
     model.gravity_value = 1
     model.pressure_values_2d = 1 * np.array([1.0, 1, 1, 1, 1, 1, 1, 1, 1, 1])
     model.pressure_values_1d = 1 * np.array([0.0, 0, 0])
-
-    # FAILED
 
 pp.run_time_dependent_model(model, params)

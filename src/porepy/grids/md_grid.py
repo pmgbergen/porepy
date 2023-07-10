@@ -112,6 +112,11 @@ class MixedDimensionalGrid:
                 subdomains.append(sd)
                 data_list.append(data)
         sort_ind = self.argsort_grids(subdomains)
+
+
+        # subdomains.reverse() ############
+        # data_list.reverse()
+
         if return_data:
             return [(subdomains[i], data_list[i]) for i in sort_ind]
         else:
@@ -184,6 +189,11 @@ class MixedDimensionalGrid:
             ):
                 interfaces.append(intf)
                 data_list.append(data)
+
+    
+        # interfaces.reverse() #######
+        # data_list.reverse()
+
         sort_ind = self.argsort_grids(interfaces)
         if return_data:
             return [(interfaces[i], data_list[i]) for i in sort_ind]

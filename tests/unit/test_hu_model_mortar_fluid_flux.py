@@ -26,6 +26,7 @@ NOTE: from test_hu_mortar.py
 
 
 class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMass):
+    
     def initial_condition(self) -> None:
         """ """
         val = np.zeros(self.equation_system.num_dofs())
@@ -96,6 +97,8 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
 
     def before_nonlinear_iteration(self):
         """ """
+
+        pp.plot_grid(self.mdg, info='c', alpha=0)
 
         self.mixture.apply_constraint(self.ell)
         
@@ -484,7 +487,7 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
                     )
                 )
 
-            if self.case == 6:  # delta p = 1, g = 1, s0=0
+            if self.case == 7:  # delta p = 1, g = 1, s0=0
                 rho_mob_phase_0 = 1
                 rho_mob_phase_1 = 0
 
@@ -560,6 +563,305 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
                     )
                 )
 
+
+
+
+
+
+            if self.case == 9:  # delta p = 0, g = 1, s0=0
+                rho_mob_phase_0 = 0
+                rho_mob_phase_1 = 0.5
+
+                assert np.all(
+                    np.isclose(
+                        mortar_phase_0, 2*np.array([1, 1, -1, -1]), rtol=0, atol=1e-10
+                    )
+                )
+                assert np.all(
+                    np.isclose(
+                        fluid_flux_phase_0,
+                        2*rho_mob_phase_0 * np.array([1, 1, -1, -1]),
+                        rtol=0,
+                        atol=1e-10,
+                    )
+                )
+
+                assert np.all(
+                    np.isclose(
+                        mortar_phase_1,
+                        2*np.array([0.5, 0.5, -0.5, -0.5]),
+                        rtol=0,
+                        atol=1e-10,
+                    )
+                )
+                assert np.all(
+                    np.isclose(
+                        fluid_flux_phase_1,
+                        2*rho_mob_phase_1 * np.array([0.5, 0.5, -0.5, -0.5]),
+                        rtol=0,
+                        atol=1e-10,
+                    )
+                )
+
+            if self.case == 10:  # delta p = 0, g = 1, s0=1
+                rho_mob_phase_0 = 1
+                rho_mob_phase_1 = 0
+
+                assert np.all(
+                    np.isclose(
+                        mortar_phase_0, 2*np.array([1, 1, -1, -1]), rtol=0, atol=1e-10
+                    )
+                )
+                assert np.all(
+                    np.isclose(
+                        fluid_flux_phase_0,
+                        2*rho_mob_phase_0 * np.array([1, 1, -1, -1]),
+                        rtol=0,
+                        atol=1e-10,
+                    )
+                )
+
+                assert np.all(
+                    np.isclose(
+                        mortar_phase_1,
+                        2*np.array([0.5, 0.5, -0.5, -0.5]),
+                        rtol=0,
+                        atol=1e-10,
+                    )
+                )
+                assert np.all(
+                    np.isclose(
+                        fluid_flux_phase_1,
+                        2*rho_mob_phase_1 * np.array([0.5, 0.5, -0.5, -0.5]),
+                        rtol=0,
+                        atol=1e-10,
+                    )
+                )
+
+            if self.case == 11:  # delta p = 1, g = 0, s0=0
+                rho_mob_phase_0 = 0
+                rho_mob_phase_1 = 0.5
+
+                assert np.all(
+                    np.isclose(
+                        mortar_phase_0, 2*np.array([20, 20, 20, 20]), rtol=0, atol=1e-10
+                    )
+                )
+                assert np.all(
+                    np.isclose(
+                        fluid_flux_phase_0,
+                        2*rho_mob_phase_0 * np.array([20, 20, 20, 20]),
+                        rtol=0,
+                        atol=1e-10,
+                    )
+                )
+
+                assert np.all(
+                    np.isclose(
+                        mortar_phase_1,
+                        2*np.array([20, 20, 20, 20]),
+                        rtol=0,
+                        atol=1e-10,
+                    )
+                )
+                assert np.all(
+                    np.isclose(
+                        fluid_flux_phase_1,
+                        2*rho_mob_phase_1 * np.array([20, 20, 20, 20]),
+                        rtol=0,
+                        atol=1e-10,
+                    )
+                )
+
+            if self.case == 12:  # delta p = 1, g = 0, s0=1
+                rho_mob_phase_0 = 1
+                rho_mob_phase_1 = 0
+
+                assert np.all(
+                    np.isclose(
+                        mortar_phase_0, 2*np.array([20, 20, 20, 20]), rtol=0, atol=1e-10
+                    )
+                )
+                assert np.all(
+                    np.isclose(
+                        fluid_flux_phase_0,
+                        2*rho_mob_phase_0 * np.array([20, 20, 20, 20]),
+                        rtol=0,
+                        atol=1e-10,
+                    )
+                )
+
+                assert np.all(
+                    np.isclose(
+                        mortar_phase_1,
+                        2*np.array([20, 20, 20, 20]),
+                        rtol=0,
+                        atol=1e-10,
+                    )
+                )
+                assert np.all(
+                    np.isclose(
+                        fluid_flux_phase_1,
+                        2*rho_mob_phase_1 * np.array([20, 20, 20, 20]),
+                        rtol=0,
+                        atol=1e-10,
+                    )
+                )
+
+            if self.case == 13:  # delta p = -1, g = 0, s0=0
+                rho_mob_phase_0 = 0
+                rho_mob_phase_1 = 0.5
+
+                assert np.all(
+                    np.isclose(
+                        mortar_phase_0,
+                        2*np.array([-20, -20, -20, -20]),
+                        rtol=0,
+                        atol=1e-10,
+                    )
+                )
+                assert np.all(
+                    np.isclose(
+                        fluid_flux_phase_0,
+                        2*rho_mob_phase_0 * np.array([-20, -20, -20, -20]),
+                        rtol=0,
+                        atol=1e-10,
+                    )
+                )
+
+                assert np.all(
+                    np.isclose(
+                        mortar_phase_1,
+                        2*np.array([-20, -20, -20, -20]),
+                        rtol=0,
+                        atol=1e-10,
+                    )
+                )
+                assert np.all(
+                    np.isclose(
+                        fluid_flux_phase_1,
+                        2*rho_mob_phase_1 * np.array([-20, -20, -20, -20]),
+                        rtol=0,
+                        atol=1e-10,
+                    )
+                )
+
+            if self.case == 14:  # delta p = 1, g = 1, s0=0
+                rho_mob_phase_0 = 0
+                rho_mob_phase_1 = 0.5
+
+                assert np.all(
+                    np.isclose(
+                        mortar_phase_0,
+                        2*np.array([21, 21, 19, 19]),
+                        rtol=0,
+                        atol=1e-10,
+                    )
+                )
+                assert np.all(
+                    np.isclose(
+                        fluid_flux_phase_0,
+                        2*rho_mob_phase_0 * np.array([21, 21, 19, 19]),
+                        rtol=0,
+                        atol=1e-10,
+                    )
+                )
+
+                assert np.all(
+                    np.isclose(
+                        mortar_phase_1,
+                        2*np.array([20.5, 20.5, 19.5, 19.5]),
+                        rtol=0,
+                        atol=1e-10,
+                    )
+                )
+                assert np.all(
+                    np.isclose(
+                        fluid_flux_phase_1,
+                        2*rho_mob_phase_1 * np.array([20.5, 20.5, 19.5, 19.5]),
+                        rtol=0,
+                        atol=1e-10,
+                    )
+                )
+
+            if self.case == 15:  # delta p = 1, g = 1, s0=0
+                rho_mob_phase_0 = 1
+                rho_mob_phase_1 = 0
+
+                assert np.all(
+                    np.isclose(
+                        mortar_phase_0,
+                        2*np.array([21, 21, 19, 19]),
+                        rtol=0,
+                        atol=1e-10,
+                    )
+                )
+                assert np.all(
+                    np.isclose(
+                        fluid_flux_phase_0,
+                        2*rho_mob_phase_0 * np.array([21, 21, 19, 19]),
+                        rtol=0,
+                        atol=1e-10,
+                    )
+                )
+
+                assert np.all(
+                    np.isclose(
+                        mortar_phase_1,
+                        2*np.array([20.5, 20.5, 19.5, 19.5]),
+                        rtol=0,
+                        atol=1e-10,
+                    )
+                )
+                assert np.all(
+                    np.isclose(
+                        fluid_flux_phase_1,
+                        2*rho_mob_phase_1 * np.array([20.5, 20.5, 19.5, 19.5]),
+                        rtol=0,
+                        atol=1e-10,
+                    )
+                )
+
+            if self.case == 16:  # delta p = -1, g = 1, s0=1
+                rho_mob_phase_0 = 1
+                rho_mob_phase_1 = 0
+
+                assert np.all(
+                    np.isclose(
+                        mortar_phase_0,
+                       2* np.array([-19, -19, -21, -21]),
+                        rtol=0,
+                        atol=1e-10,
+                    )
+                )
+                assert np.all(
+                    np.isclose(
+                        fluid_flux_phase_0,
+                       2* rho_mob_phase_0 * np.array([-19, -19, -21, -21]),
+                        rtol=0,
+                        atol=1e-10,
+                    )
+                )
+
+                assert np.all(
+                    np.isclose(
+                        mortar_phase_1,
+                        2*np.array([-19.5, -19.5, -20.5, -20.5]),
+                        rtol=0,
+                        atol=1e-10,
+                    )
+                )
+                assert np.all(
+                    np.isclose(
+                        fluid_flux_phase_1,
+                        2*rho_mob_phase_1 * np.array([-19.5, -19.5, -20.5, -20.5]),
+                        rtol=0,
+                        atol=1e-10,
+                    )
+                )
+
+            
+
             print("\n\n\n TEST PASSED ----------------------------------------")
             pdb.set_trace()
 
@@ -581,34 +883,25 @@ class MyModelGeometryTest(test_hu_model.MyModelGeometry):
         )
         self.nd: int = self.mdg.dim_max()
 
-        pp.set_local_coordinate_projections(self.mdg)
-
-        self.set_well_network()
-        if len(self.well_network.wells) > 0:
-            assert isinstance(self.fracture_network, pp.FractureNetwork3d)
-            pp.compute_well_fracture_intersections(
-                self.well_network, self.fracture_network
-            )
-            self.well_network.mesh(self.mdg)
-
     def set_domain(self) -> None:
         """ """
-        self.size = 2 / self.units.m
-        self._domain = pp.applications.md_grids.domains.nd_cube_domain(2, self.size)
+        self.size = 1 / self.units.m
+        bounding_box = {"xmin": 0, "xmax": self.xmax, "ymin": 0, "ymax": 2}
+        self._domain = pp.Domain(bounding_box=bounding_box)
 
     def set_fractures(self) -> None:
         """ """
-        frac1 = pp.LineFracture(np.array([[0.0, 2.0], [1.0, 1.0]]))
-        self._fractures: list = [frac1]
+        frac1 = pp.LineFracture(np.array([[0, self.xmax], [1, 1]]))
+        self._fractures: list = [frac1] #, frac2]
 
     def meshing_arguments(self) -> dict[str, float]:
         """ """
         default_meshing_args: dict[str, float] = {
-            "cell_size": 1 / self.units.m,
-            "cell_size_fracture": 1 / self.units.m,
+            "cell_size_x": self.xmax/2-0.1,
+            "cell_size_y": 1.,
+            "cell_size_fracture": 1.,
         }
         return self.params.get("meshing_arguments", default_meshing_args)
-
 
 class ConstantDensityPhase(pp.Phase):
     """ """
@@ -645,6 +938,9 @@ class FinalModelTest(PartialFinalModel):  # I'm sorry...
         self.dynamic_viscosity = 1  # TODO: it is hardoced everywhere, you know...
 
         self.case = None
+
+        self.xmax = None
+
         self.saturation_values_2d = None
         self.saturation_values_1d = None
         self.pressure_values_2d = None
@@ -689,10 +985,11 @@ mixture.add([wetting_phase, non_wetting_phase])
 model = FinalModelTest(mixture, params)
 
 
-case = 1
+case = 16 
 model.case = case
 
 if case == 1:  # delta p = 0, g = 1
+    model.xmax = 2
     model.gravity_value = 1
     model.saturation_values_2d = 0 * np.array([1.0, 1, 1, 1])
     model.saturation_values_1d = 0 * np.array([1.0, 1])
@@ -701,6 +998,7 @@ if case == 1:  # delta p = 0, g = 1
     # test both mortar and interface fluid flux of phase 1 and 2
 
 if case == 2:  # delta p = 0, g = 1
+    model.xmax = 2
     model.gravity_value = 1
     model.saturation_values_2d = 1 * np.array([1.0, 1, 1, 1])
     model.saturation_values_1d = 1 * np.array([1.0, 1])
@@ -708,6 +1006,7 @@ if case == 2:  # delta p = 0, g = 1
     model.pressure_values_1d = 1 * np.array([1, 1.0])
 
 if case == 3:  # delta p = 1, g = 0
+    model.xmax = 2
     model.gravity_value = 0
     model.saturation_values_2d = 0 * np.array([1.0, 1, 1, 1])
     model.saturation_values_1d = 0 * np.array([1.0, 1])
@@ -715,6 +1014,7 @@ if case == 3:  # delta p = 1, g = 0
     model.pressure_values_1d = 0 * np.array([1.0, 1])
 
 if case == 4:  # delta p = 1, g = 0
+    model.xmax = 2
     model.gravity_value = 0
     model.saturation_values_2d = 1 * np.array([1.0, 1, 1, 1])
     model.saturation_values_1d = 1 * np.array([1.0, 1])
@@ -722,6 +1022,7 @@ if case == 4:  # delta p = 1, g = 0
     model.pressure_values_1d = 0 * np.array([1.0, 1])
 
 if case == 5:  # delta p = -1, g = 0
+    model.xmax = 2
     model.gravity_value = 0
     model.saturation_values_2d = 0 * np.array([1.0, 1, 1, 1])
     model.saturation_values_1d = 0 * np.array([1.0, 1])
@@ -730,6 +1031,7 @@ if case == 5:  # delta p = -1, g = 0
     # delta p negative
 
 if case == 6:  # delta p = 1, g = 1
+    model.xmax = 2
     model.gravity_value = 1
     model.saturation_values_2d = 0 * np.array([1.0, 1, 1, 1])
     model.saturation_values_1d = 0 * np.array([1.0, 1])
@@ -737,6 +1039,7 @@ if case == 6:  # delta p = 1, g = 1
     model.pressure_values_1d = 0 * np.array([1.0, 1])
 
 if case == 7:  # delta p = 1, g = 1
+    model.xmax = 2
     model.gravity_value = 1
     model.saturation_values_2d = 1 * np.array([1.0, 1, 1, 1])
     model.saturation_values_1d = 1 * np.array([1.0, 1])
@@ -744,6 +1047,77 @@ if case == 7:  # delta p = 1, g = 1
     model.pressure_values_1d = 0 * np.array([1.0, 1])
 
 if case == 8:  # delta p = -1, g = 1
+    model.xmax = 2
+    model.gravity_value = 1
+    model.saturation_values_2d = 1 * np.array([1.0, 1, 1, 1])
+    model.saturation_values_1d = 1 * np.array([1.0, 1])
+    model.pressure_values_2d = 0 * np.array([1.0, 1, 1, 1])
+    model.pressure_values_1d = 1 * np.array([1.0, 1])
+
+
+
+
+# TODO:
+if case == 9:  # delta p = 0, g = 1
+    model.xmax = 4
+    model.gravity_value = 1
+    model.saturation_values_2d = 0 * np.array([1.0, 1, 1, 1])
+    model.saturation_values_1d = 0 * np.array([1.0, 1])
+    model.pressure_values_2d = 1 * np.array([1.0, 1, 1, 1])
+    model.pressure_values_1d = 1 * np.array([1.0, 1])
+    # test both mortar and interface fluid flux of phase 1 and 2
+
+if case == 10:  # delta p = 0, g = 1
+    model.xmax = 4
+    model.gravity_value = 1
+    model.saturation_values_2d = 1 * np.array([1.0, 1, 1, 1])
+    model.saturation_values_1d = 1 * np.array([1.0, 1])
+    model.pressure_values_2d = 1 * np.array([1, 1.0, 1, 1])
+    model.pressure_values_1d = 1 * np.array([1, 1.0])
+
+if case == 11:  # delta p = 1, g = 0
+    model.xmax = 4
+    model.gravity_value = 0
+    model.saturation_values_2d = 0 * np.array([1.0, 1, 1, 1])
+    model.saturation_values_1d = 0 * np.array([1.0, 1])
+    model.pressure_values_2d = 1 * np.array([1.0, 1, 1, 1])
+    model.pressure_values_1d = 0 * np.array([1.0, 1])
+
+if case == 12:  # delta p = 1, g = 0
+    model.xmax = 4
+    model.gravity_value = 0
+    model.saturation_values_2d = 1 * np.array([1.0, 1, 1, 1])
+    model.saturation_values_1d = 1 * np.array([1.0, 1])
+    model.pressure_values_2d = 1 * np.array([1.0, 1, 1, 1])
+    model.pressure_values_1d = 0 * np.array([1.0, 1])
+
+if case == 13:  # delta p = -1, g = 0
+    model.xmax = 4
+    model.gravity_value = 0
+    model.saturation_values_2d = 0 * np.array([1.0, 1, 1, 1])
+    model.saturation_values_1d = 0 * np.array([1.0, 1])
+    model.pressure_values_2d = 0 * np.array([1.0, 1, 1, 1])
+    model.pressure_values_1d = 1 * np.array([1.0, 1])
+    # delta p negative
+
+if case == 14:  # delta p = 1, g = 1
+    model.xmax = 4
+    model.gravity_value = 1
+    model.saturation_values_2d = 0 * np.array([1.0, 1, 1, 1])
+    model.saturation_values_1d = 0 * np.array([1.0, 1])
+    model.pressure_values_2d = 1 * np.array([1.0, 1, 1, 1])
+    model.pressure_values_1d = 0 * np.array([1.0, 1])
+
+if case == 15:  # delta p = 1, g = 1
+    model.xmax = 4
+    model.gravity_value = 1
+    model.saturation_values_2d = 1 * np.array([1.0, 1, 1, 1])
+    model.saturation_values_1d = 1 * np.array([1.0, 1])
+    model.pressure_values_2d = 1 * np.array([1.0, 1, 1, 1])
+    model.pressure_values_1d = 0 * np.array([1.0, 1])
+
+if case == 16:  # delta p = -1, g = 1
+    model.xmax = 4
     model.gravity_value = 1
     model.saturation_values_2d = 1 * np.array([1.0, 1, 1, 1])
     model.saturation_values_1d = 1 * np.array([1.0, 1])

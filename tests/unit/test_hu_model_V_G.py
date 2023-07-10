@@ -20,104 +20,6 @@ os.system("clear")
 
 """
 
-
-class EquationsTest(test_hu_model.Equations):
-    def mass_balance_equation(
-        self,
-        subdomains: list[pp.Grid],
-        return_flux=False,
-    ) -> pp.ad.Operator:
-        # accumulation term: ------------------------------------------------
-        mass_density = (
-            self.porosity(subdomains)
-            * self.mixture.get_phase(self.ell).mass_density_operator(
-                subdomains, self.pressure
-            )
-            * self.mixture.get_phase(self.ell).saturation_operator(subdomains)
-        )
-        accumulation = self.volume_integral(mass_density, subdomains, dim=1)
-        accumulation.set_name("fluid_mass_mass_eq")
-
-        # accumulation = pp.ad.Scalar(0) * accumulation
-
-        # subdomains flux contribution: -------------------------------------
-        rho_V_operator = FunctionRhoV(
-            pp.rho_flux_V, self.equation_system, self.mixture, self.mdg, name="rho V"
-        )
-        rho_G_operator = FunctionRhoG(
-            pp.rho_flux_G, self.equation_system, self.mixture, self.mdg, name="rho G"
-        )
-
-        fake_input = self.pressure(subdomains)
-        flux = (
-            # rho_V_operator(fake_input)  ##########################################
-            rho_G_operator(fake_input)  ##########################################
-            # + self.bc_values(subdomains)
-        )  # TODO: this is wrong, but bc val are 0 so I dont care...
-
-        # interfaces flux contribution: ------------------------------------
-        interfaces = self.subdomains_to_interfaces(subdomains, [1])
-        mortar_projection = pp.ad.MortarProjections(
-            self.mdg, subdomains, interfaces, dim=1
-        )
-
-        if self.ell == 0:  # TODO: you can avoid if condition
-            discr = self.ppu_discretization(subdomains, "darcy_flux_phase_0")
-
-            flux -= (
-                discr.bound_transport_neu  # -1,0,1 matrix
-                @ mortar_projection.mortar_to_primary_int
-                @ self.interface_fluid_mass_flux_phase_0(
-                    interfaces,
-                    self.mixture.get_phase(0),
-                    "interface_mortar_flux_phase_0",
-                )
-            )
-
-        else:  # self.ell == 1
-            discr = self.ppu_discretization(subdomains, "darcy_flux_phase_1")
-            flux -= (
-                discr.bound_transport_neu
-                @ mortar_projection.mortar_to_primary_int
-                @ self.interface_fluid_mass_flux_phase_1(
-                    interfaces,
-                    self.mixture.get_phase(1),
-                    "interface_mortar_flux_phase_1",
-                )
-            )
-
-        # sources: ---------------------------------------
-        if self.ell == 0:  # TODO: you can avoid if condition
-            projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces)
-            source = (
-                projection.mortar_to_secondary_int
-                @ self.interface_fluid_mass_flux_phase_0(
-                    interfaces, mixture.get_phase(0), "interface_mortar_flux_phase_0"
-                )
-            )
-            source.set_name("interface_fluid_mass_flux_source_phase_0")
-
-        else:  # self.ell == 1:
-            projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces)
-            source = (
-                projection.mortar_to_secondary_int
-                @ self.interface_fluid_mass_flux_phase_1(
-                    interfaces, mixture.get_phase(1), "interface_mortar_flux_phase_1"
-                )
-            )
-            source.set_name("interface_fluid_mass_flux_source_phase_1")
-
-        # source = pp.ad.Scalar(0) * source
-
-        eq = self.balance_equation(subdomains, accumulation, flux, source, dim=1)
-        eq.set_name("mass_balance_equation")
-
-        if return_flux:
-            return flux  # comments in the code rho_G rho_V
-
-        return eq
-
-
 class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMass):
     def initial_condition(self) -> None:
         """ """
@@ -133,14 +35,12 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
 
         for sd in self.mdg.subdomains():
             saturation_variable = (
-                self.mixture.mixture_for_subdomain(self.equation_system, sd)
-                .get_phase(0)
+                self.mixture.mixture_for_subdomain(sd)
+                .get_phase(self.ell)
                 .saturation_operator([sd])
             )
 
-            saturation_values = np.array(
-                [0.0, 1.0]
-            )  ######################################
+            saturation_values = self.saturation_values_2d
 
             self.equation_system.set_variable_values(
                 saturation_values,
@@ -151,7 +51,7 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
 
             pressure_variable = self.pressure([sd])
 
-            pressure_values = np.array([1.0, 0.0])
+            pressure_values = self.pressure_values_2d
 
             self.equation_system.set_variable_values(
                 pressure_values,
@@ -188,7 +88,7 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
 
         for sd in self.mdg.subdomains():
             gigi = (
-                self.mixture.mixture_for_subdomain(self.equation_system, sd)
+                self.mixture.mixture_for_subdomain(sd)
                 .get_phase(0)
                 .saturation
             )
@@ -204,9 +104,7 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
     def before_nonlinear_iteration(self):
         """ """
 
-        self.mixture.apply_constraint(
-            self.ell, self.equation_system, self.mdg.subdomains()
-        )  ### TODO: redo...
+        self.mixture.apply_constraint(self.ell)
 
         for sd, data in self.mdg.subdomains(return_data=True):
             pressure_adarray = self.pressure([sd]).evaluate(self.equation_system)
@@ -223,7 +121,7 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
             total_flux_internal = (
                 pp.numerics.fv.hybrid_weighted_average.total_flux_internal(
                     sd,
-                    self.mixture.mixture_for_subdomain(self.equation_system, sd),
+                    self.mixture.mixture_for_subdomain(sd),
                     pressure_adarray,
                     self.gravity_value,
                     left_restriction,
@@ -237,6 +135,9 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
             data["for_hu"]["total_flux_internal"] = (
                 total_flux_internal[0] + total_flux_internal[1]
             )
+
+            pdb.set_trace()
+            
             data["for_hu"]["pressure_AdArray"] = self.pressure([sd]).evaluate(
                 self.equation_system
             )
@@ -275,65 +176,91 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
             )
 
         # TEST: --------------------------------------------------------------------------------------------
-        pp.plot_grid(self.mdg, info="cf", alpha=0)
-        pp.plot_grid(sd, vector_value=0.2 * sd.face_normals, info="cf", alpha=0)
+        # pp.plot_grid(self.mdg, info="cf", alpha=0)
+        # pp.plot_grid(sd, vector_value=0.2 * sd.face_normals, info="cf", alpha=0)
 
-        subdomain = self.mdg.subdomains()
+        (
+            eq,
+            accumulation,
+            rho_V_operator,
+            rho_G_operator,
+            flux_V_G,
+            flux_intf_phase_0,
+            flux_intf_phase_1,
+            source_phase_0,
+            source_phase_1,
+        ) = self.eq_fcn_mass(self.mdg.subdomains())
 
-        rho_V = self.mass_balance_equation(
-            subdomain, return_flux=True
-        )  # remember to comment G in the equation
-        rho_V = rho_V.evaluate(self.equation_system)
+        rho_V = rho_V_operator.evaluate(self.equation_system).val
+        rho_G = rho_G_operator.evaluate(self.equation_system).val
 
-        # print("\n\n", rho_V.val)
-        # pdb.set_trace()
 
-        # # assert np.all(rho_V.val == np.array([0, 0, 0, 0, 0, 1, 0]))  # p = [1,0], g = 0, PASSED
-        # assert np.all(
-        #     np.isclose(rho_V.val, np.array([0, 0, 0, 0, 0, 0, 0]))
-        # )  # p = [1,0], g = 1, PASSED. IF COMPRESSIBLE I GET A SMALL VALUE OF THE SAME ORDER OF MAGNITUDE OF COMPRESSIBIITY
+        print("\nrho_V = ", rho_V)
+        print("\nrho_G = ", rho_G)
 
-        rho_G = self.mass_balance_equation(
-            subdomain, return_flux=True
-        )  # remember to comment V in the equation
-        rho_G = rho_G.evaluate(self.equation_system)
-
-        print("\n\n", rho_G.val)
         pdb.set_trace()
-        assert np.all(
-            rho_G.val == np.array([0, 0, 0, 0, 0, 0, 0])
-        )  # s = [1, 1] => G = 0, PASSED. IF COMPRESSIBLE I GET A SMALL VALUE OF THE SAME ORDER OF MAGNITUDE OF COMPRESSIBIITY
-        assert np.all(
-            np.isclose(
-                rho_G.val == np.array([0, 0, 0, 0, 0, -0.5, 0]), rtol=0, atol=1e-3
-            )
-        )  # s = [0, 1], PASSED. if compressible not exaclty -0.5
+
+        if self.case == 1: # p = [1,0], g = 0
+            assert np.all(rho_V == np.array([0, 0, 0, 0, 0, 1, 0]))
+
+        if self.case == 2: # p = [1,0], g = 1
+            np.all(np.isclose(rho_V, np.array([0, 0, 0, 0, 0, 0, 0])))  # IF COMPRESSIBLE I GET A SMALL VALUE OF THE SAME ORDER OF MAGNITUDE OF COMPRESSIBIITY
+
+        if self.case == 3: # s = [1, 1] => G = 0
+            assert np.all(
+                rho_G == np.array([0, 0, 0, 0, 0, 0, 0])
+            ) # PASSED. IF COMPRESSIBLE I GET A SMALL VALUE OF THE SAME ORDER OF MAGNITUDE OF COMPRESSIBIITY
+
+        if self.case == 4: # s = [0, 1] 
+            assert np.all(np.isclose(
+                rho_G, np.array([0, 0, 0, 0, 0, -0.5, 0]), rtol=0, atol=1e-3 )) # PASSED. if compressible not exaclty -0.5
+
+
+        # same with larger cell:
+        if self.case == 5: # p = [1,0], g = 0
+            assert np.all(rho_V == 2*np.array([0, 0, 0, 0, 0, 1, 0]))
+
+        if self.case == 6: # p = [1,0], g = 1
+            np.all(np.isclose(rho_V, 2*np.array([0, 0, 0, 0, 0, 0, 0])))  # PASSED...
+
+        if self.case == 7: # s = [1, 1] => G = 0
+            assert np.all(
+                rho_G == 2*np.array([0, 0, 0, 0, 0, 0, 0])
+            ) # PASSED...
+
+        if self.case == 8: # s = [0, 1] 
+            assert np.all(np.isclose(
+                rho_G, 2*np.array([0, 0, 0, 0, 0, -0.5, 0]), rtol=0, atol=1e-3 )) # PASSED         
+        
+        
 
         print("\n\n TEST PASSED ------------------- ")
-
-        super().before_nonlinear_iteration()
+        pdb.set_trace()
+        
+        self.set_discretization_parameters()
+        self.rediscretize()
 
 
 class MyModelGeometryTest(pp.ModelGeometry):
-    def set_domain(self) -> None:
+    def set_geometry(self) -> None:
         """ """
-        self.size = 1.0 / self.units.m
-        box = {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 2 * self.size}
-        self._domain = pp.Domain(box)
+        nxny = np.array([1, 2])
+        physical_dim = {'xmin':0, "xmax":self.xmax, 'ymin':0, 'ymax':2}
+        sd = pp.CartGrid(nxny, physical_dim)
 
-    def set_fractures(self) -> None:
-        """ """
-        self._fractures: list = []
+        self.mdg = pp.MixedDimensionalGrid()
+        self.mdg._subdomain_data = {sd: {}}
+        self.mdg.compute_geometry()
 
-    def meshing_arguments(self) -> dict[str, float]:
-        """ """
-        default_meshing_args: dict[str, float] = {"cell_size": 0.9}
-        return self.params.get("meshing_arguments", default_meshing_args)
+        self.nd: int = self.mdg.dim_max()
+
+        # fake:
+        self._domain = pp.Domain(bounding_box=physical_dim)
 
 
 class PartialFinalModelTest(
     test_hu_model.PrimaryVariables,
-    EquationsTest,
+    test_hu_model.Equations,
     test_hu_model.ConstitutiveLawPressureMass,
     test_hu_model.BoundaryConditionsPressureMass,
     SolutionStrategyPressureMassTest,
@@ -348,8 +275,18 @@ class FinalModel(PartialFinalModelTest):  # I'm sorry...
         super().__init__(params)
         self.mixture = mixture
         self.ell = 0  # 0 = wetting, 1 = non-wetting
-        self.gravity_value = 1  # pp.GRAVITY_ACCELERATION
+        self.gravity_value = None  # pp.GRAVITY_ACCELERATION
         self.dynamic_viscosity = 1  # TODO: it is hardoced everywhere, you know...
+
+        self.case = None  
+        self.xmax = None
+
+        self.pressure_values_2d = None
+        self.pressure_values_1d = None
+
+        self.saturation_values_2d = None
+        self.saturation_values_1d = None
+
 
 
 fluid_constants = pp.FluidConstants({})
@@ -394,9 +331,6 @@ class ConstantDensityPhase(pp.composite.phase.Phase):
         return rho
 
 
-# wetting_phase = pp.composite.phase.Phase(rho0=1)
-# non_wetting_phase = pp.composite.phase.Phase(rho0=0.5)
-
 wetting_phase = ConstantDensityPhase(rho0=1)
 non_wetting_phase = ConstantDensityPhase(rho0=0.5)
 
@@ -404,5 +338,59 @@ mixture = pp.Mixture()
 mixture.add([wetting_phase, non_wetting_phase])
 
 model = FinalModel(mixture, params)
+
+case = 8
+model.case = case
+
+if case == 1:
+    model.xmax = 1
+    model.gravity_value = 0
+    model.pressure_values_2d = np.array([1., 0])
+    model.saturation_values_2d = np.array([1., 1]) 
+
+if case == 2:
+    model.xmax = 1
+    model.gravity_value = 1
+    model.pressure_values_2d = np.array([1., 0])
+    model.saturation_values_2d = np.array([1., 1])
+
+if case == 3:
+    model.xmax = 1
+    model.gravity_value = 1
+    model.pressure_values_2d = np.array([0., 0.])
+    model.saturation_values_2d = np.array([1., 1.])
+
+if case == 4:
+    model.xmax = 1
+    model.gravity_value = 1
+    model.pressure_values_2d = np.array([0., 0.])
+    model.saturation_values_2d = np.array([0., 1])
+
+if case == 5:
+    model.xmax = 2
+    model.gravity_value = 0
+    model.pressure_values_2d = np.array([1., 0])
+    model.saturation_values_2d = np.array([1., 1]) 
+
+if case == 6:
+    model.xmax = 2
+    model.gravity_value = 1
+    model.pressure_values_2d = np.array([1., 0])
+    model.saturation_values_2d = np.array([1., 1])
+
+if case == 7:
+    model.xmax = 2
+    model.gravity_value = 1
+    model.pressure_values_2d = np.array([0., 0.])
+    model.saturation_values_2d = np.array([1., 1.])
+
+if case == 8:
+    model.xmax = 2
+    model.gravity_value = 1
+    model.pressure_values_2d = np.array([0., 0.])
+    model.saturation_values_2d = np.array([0., 1])
+
+
+
 
 pp.run_time_dependent_model(model, params)

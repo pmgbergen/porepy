@@ -314,6 +314,8 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
             (
             eq,
             accumulation,
+            rho_V, 
+            rho_G,
             flux_V_G,
             flux_intf_phase_0_m,
             flux_intf_phase_1_m,

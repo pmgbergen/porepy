@@ -375,7 +375,7 @@ class Equations(pp.BalanceEquation):
         self.equation_system.set_equation(
             interface_mortar_eq_phase_0, codim_1_interfaces, {"cells": 1}
         )
-
+        
         # mortar fluxes phase 1:
         interface_mortar_eq_phase_1 = self.interface_mortar_flux_equation_phase_1(
             codim_1_interfaces
@@ -616,6 +616,8 @@ class Equations(pp.BalanceEquation):
         return (
             eq,
             accumulation,
+            rho_V_operator(fake_input),
+            rho_G_operator(fake_input),
             flux_V_G,
             flux_intf_phase_0,
             flux_intf_phase_1,
@@ -624,7 +626,7 @@ class Equations(pp.BalanceEquation):
         )
 
     def mass_balance_equation(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        eq, _, _, _, _, _, _ = self.eq_fcn_mass(subdomains)
+        eq, _, _, _, _, _, _, _, _ = self.eq_fcn_mass(subdomains)
 
         return eq
 
@@ -917,14 +919,15 @@ class Equations(pp.BalanceEquation):
         )
 
         flux.set_name("darcy_flux_phase_0")
+
+
+        # pdb.set_trace()
+        # flux.evaluate(self.equation_system).val
+
         return flux
 
     def darcy_flux_phase_1(self, subdomains: list[pp.Grid], phase) -> pp.ad.Operator:
         """
-        TODO: this is not two-phase... but do i need darcy_flux? I think I need only interface darcy flux
-        NO, you need it for the flux. Why? I don't understand. I think we compute darcy fluc in the entire subdomin even though we need it only a the interface cells
-        - need only the direction, I never use its norm
-
         """
         interfaces: list[pp.MortarGrid] = self.subdomains_to_interfaces(subdomains, [1])
         projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1)
@@ -1164,6 +1167,9 @@ class SolutionStrategyPressureMass(pp.SolutionStrategy):
                 np.where(sd.cell_centers[1] >= y_max / 2)
             ] = 1.0  # TODO: HARDCODED for 2D
 
+            if sd.dim == 1:
+                saturation_values = 0.5*np.ones(sd.num_cells)
+
             self.equation_system.set_variable_values(
                 saturation_values,
                 variables=[saturation_variable],
@@ -1374,6 +1380,7 @@ class SolutionStrategyPressureMass(pp.SolutionStrategy):
             data["for_hu"]["total_flux_internal"] = (
                 total_flux_internal[0] + total_flux_internal[1]
             )
+            
             data["for_hu"]["pressure_AdArray"] = self.pressure([sd]).evaluate(
                 self.equation_system
             )
@@ -1436,18 +1443,18 @@ class SolutionStrategyPressureMass(pp.SolutionStrategy):
             values=solution_vector, additive=True, iterate_index=0
         )
       
-        # added:
+        # # added:
         # print("self.time_manager.time = ", self.time_manager.time)
         # if np.isclose(np.mod(self.time_manager.time, 0.002), 0, rtol=0, atol=1e-5):
         #     for sd, _ in self.mdg.subdomains(return_data=True):
         #         gigi = (
-        #             self.mixture.mixture_for_subdomain(self.equation_system, sd)
+        #             self.mixture.mixture_for_subdomain(sd)
         #             .get_phase(0)
         #             .saturation
         #         )
 
         #         mario = (
-        #             self.mixture.mixture_for_subdomain(self.equation_system, sd)
+        #             self.mixture.mixture_for_subdomain(sd)
         #             .get_phase(1)
         #             .saturation
         #         )
@@ -1482,7 +1489,7 @@ class SolutionStrategyPressureMass(pp.SolutionStrategy):
     def eb_after_timestep(self):
         """ """
         print("self.time_manager.time = ", self.time_manager.time)
-        if np.isclose(np.mod(self.time_manager.time, 0.1), 0, rtol=0, atol=1e-5):
+        if False: #np.isclose(np.mod(self.time_manager.time, 0.5), 0, rtol=0, atol=1e-5) or self.time_manager.time == self.time_manager.dt:
             for sd, _ in self.mdg.subdomains(return_data=True):
                 gigi = (
                     # self.mixture.mixture_for_subdomain(self.equation_system, sd)
@@ -1543,20 +1550,22 @@ class MyModelGeometry(pp.ModelGeometry):
         # self._domain = pp.applications.md_grids.domains.nd_cube_domain(2, self.size)
 
         # unstructred unit square:
-        bounding_box = {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1}
+        bounding_box = {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1} #, "zmin": 0, "zmax": 1}
         self._domain = pp.Domain(bounding_box=bounding_box)
 
     def set_fractures(self) -> None:
         """ """
         frac1 = pp.LineFracture(np.array([[0.2, 0.7], [0.5, 0.5]]))
         # frac2 = pp.LineFracture(np.array([[0.2, 0.7], [0.2, 0.2]]))
+
+        # frac1 = pp.PlaneFracture(np.array([[0.2, 0.7, 0.7, 0.2],[0.2, 0.2, 0.8, 0.8],[0.5, 0.5, 0.5, 0.5]]))
         self._fractures: list = [frac1] #, frac2]
 
     def meshing_arguments(self) -> dict[str, float]:
         """ """
         default_meshing_args: dict[str, float] = {
-            "cell_size": 0.9 / self.units.m,
-            "cell_size_fracture": 0.5 / self.units.m,
+            "cell_size": 0.1 / self.units.m,
+            "cell_size_fracture": 0.05 / self.units.m,
         }
         return self.params.get("meshing_arguments", default_meshing_args)
 
@@ -1588,7 +1597,7 @@ if __name__ == "__main__":
         {
             "porosity": 0.25,
             "permeability": 1,
-            "normal_permeability": 1e0,
+            "normal_permeability": 1e1,
             "residual_aperture": 0.1,
         }
     )

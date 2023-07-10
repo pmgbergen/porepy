@@ -18,6 +18,8 @@ import scipy.sparse as sps
 
 from porepy.grids.grid import Grid
 
+import pdb
+
 
 class TensorGrid(Grid):
     """Representation of a grid formed by a tensor product of line point

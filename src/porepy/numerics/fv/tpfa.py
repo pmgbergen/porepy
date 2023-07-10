@@ -179,7 +179,7 @@ class Tpfa(pp.FVElliptic):
 
         t_face = np.divide(t_face, dist_face_cell)
 
-        # Return harmonic average. Note that we here use fi_mat to count indices.
+        # Return harmonic average. Note that we here use fi_mat to count indices.               ### famous fi_mat...
         t = 1 / np.bincount(fi_periodic, weights=1 / t_face)
 
         transmissibility = copy.deepcopy(t)                                                     ### tmp
