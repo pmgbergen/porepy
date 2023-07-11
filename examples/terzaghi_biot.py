@@ -507,9 +507,7 @@ class PseudoOneDimensionalColumn(pp.ModelGeometry):
         """A fracture network without fractures."""
 
         # Define the domain
-        domain = pp.Domain(
-            {"xmin": 0, "xmax": self.height(), "ymin": 0, "ymax": self.height()}
-        )
+        domain = pp.Domain({"xmax": self.height(), "ymax": self.height()})
         self._domain = domain
 
     def meshing_arguments(self) -> dict:

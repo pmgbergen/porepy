@@ -746,8 +746,8 @@ class CubicLawPermeability(ConstantPermeability):
     """Cubic law permeability for fractures and intersections."""
 
     equation_system: pp.ad.EquationSystem
-    """EquationSystem object for the current model. Normally defined in a mixin class
-    defining the solution strategy.
+    """EquationSystem object for the current model. Solution strategies are normally
+    defined in a mixin class.
 
     """
     specific_volume: Callable[
@@ -3317,7 +3317,7 @@ class ThermoPoroMechanicsPorosity(PoroMechanicsPorosity):
     ) -> pp.ad.Operator:
         """Thermal contribution to the changes in porosity [-].
 
-        TODO: Discuss cf. Coussy p. 73. Not sure about the interpretation of alpha_phi.
+        beta_phi = (alpha - phi_ref) * beta_solid according to Coussy Eq. 4.44.
 
         Parameters:
             subdomains: List of subdomains where the porosity is defined.

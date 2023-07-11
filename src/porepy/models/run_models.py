@@ -103,7 +103,7 @@ def run_time_dependent_model(model, params: dict) -> None:
     def time_step() -> None:
         model.time_manager.increase_time()
         model.time_manager.increase_time_index()
-        logger.debug(
+        logger.info(
             f"\nTime step {model.time_manager.time_index} at time"
             + f" {model.time_manager.time:.1e}"
             + f" of {model.time_manager.time_final:.1e}"
@@ -198,7 +198,7 @@ def _run_iterative_model(model, params: dict) -> None:
         model.propagation_index = 0
         model.time_manager.increase_time()
         model.time_manager.increase_time_index()
-        logger.debug(
+        logger.info(
             f"\nTime step {model.time_manager.time_index} at time"
             + f" {model.time_manager.time:.1e} of"
             + f" {model.time_manager.time_final:.1e}"
