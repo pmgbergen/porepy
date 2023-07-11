@@ -746,8 +746,8 @@ class CubicLawPermeability(ConstantPermeability):
     """Cubic law permeability for fractures and intersections."""
 
     equation_system: pp.ad.EquationSystem
-    """EquationSystem object for the current model. Normally defined in a mixin class
-    definin the solution strategy.
+    """EquationSystem object for the current model. Solution strategies are normally
+    defined in a mixin class.
 
     """
     specific_volume: Callable[
