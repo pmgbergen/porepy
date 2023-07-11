@@ -1,5 +1,6 @@
 import abc
 
+import scipy as sp
 import numpy as np
 import porepy as pp
 
@@ -54,7 +55,7 @@ class Phase(abc.ABC):
 
     # Physical properties: ----------------------------------------------------------------
 
-    def mass_density(self, p):  # TODO: p is useless, but thinl twice...
+    def mass_density(self, p): #, vector_dim=False, sds_dof=False): 
         """
         | Math. Dimension:        scalar
         | Phys. Dimension:        [kg / m^3]
@@ -89,15 +90,38 @@ class Phase(abc.ABC):
         # subdomains = self.mdg.subdomains()
         # rho = mass_density.fluid_density(subdomains)
 
+        # nice try...
+        # if vector_dim:
+        #     rho_sd = [ pp.ad.AdArray(1, sp.sparse.spmatrix(1)) ]*len(sds_dof)
+
+        #     for i in np.arange(len(sds_dof)):
+        #         tmp_val = [ rho.val[[0 + sum(sds_dof[0:i]), sds_dof[i] + sum(sds_dof[0:i]) ]] ] * vector_dim
+        #         tmp_jac = [ rho.jac[[0 + sum(sds_dof[0:i]), sds_dof[i] + sum(sds_dof[0:i]) ], :] ] * vector_dim
+        #         rho_sd[i].val = np.vstack((v.val for v in tmp_val))
+        #         rho_sd[i].jac = np.vstak((v.jac for v in tmp_jac))
+
+        #     rho.val = (v.val for v in rho_sd)
+        #     rho.jac = (v.jac for v in rho_sd)
+
+        # print('\n\n\nvaffanculo pezzo di merda')
+        # print(p.val.shape)
+        # print(p.jac.shape)
+        # pdb.set_trace()
         return rho
 
-    def mass_density_operator(self, subdomains, pressure):
+    def mass_density_operator(self, subdomains, pressure): #, vector_dim=False):
         """
         see pressure(rho) in consitutive laws
         """
+
+        # sds_dof = []
+        # for sd in subdomains:
+        #     sds_dof.append(sd.num_cells)
+
         p = pressure(subdomains)
         mass_rho_operator = pp.ad.Function(self.mass_density, "mass_density_operator")
-        rho = mass_rho_operator(p)
+        rho = mass_rho_operator(p) # old
+        # rho = mass_rho_operator(p, vector_dim, sds_dof # new
         # NO, you need the loop over grids, you know...
         # NO, you don't need it, p is [ph, pl] and rho is a functoin depending only on p, so you don't need do distingush the grids
 

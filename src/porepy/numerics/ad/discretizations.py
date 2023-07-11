@@ -260,7 +260,7 @@ class UpwindAd(Discretization):
         self.bound_transport_neu: MergedOperator
 
         wrap_discretization(self, self._discretization, subdomains=subdomains)
-
+        
 
 ## Interface coupling discretizations
 

@@ -1,5 +1,6 @@
 import numpy as np
 import scipy as sp
+import scipy.sparse as sps
 import porepy as pp
 
 from typing import Callable, Optional, Type, Literal, Sequence, Union
@@ -21,12 +22,6 @@ def myprint(var):
 - is it ok to consider mu (dynamic viscosity, mu = nu/rho) constant? 
 - 
 """
-
-
-###################################################################################################################
-# mass and energy model:
-###################################################################################################################
-
 
 class FunctionTotalFlux(pp.ad.operator_functions.AbstractFunction):
     """ """
@@ -409,6 +404,7 @@ class Equations(pp.BalanceEquation):
         accumulation = self.volume_integral(mass_density, subdomains, dim=1)
         accumulation.set_name("fluid_mass_p_eq")
 
+        # subdoamins flux: ---------------------------------------------------------
         rho_total_flux_operator = FunctionTotalFlux(
             pp.rho_total_flux,
             # self.equation_system,
@@ -886,6 +882,7 @@ class Equations(pp.BalanceEquation):
         - need only darcy flux at internal boundaries but i compute it everywhere. sorry.
         - need only the direction, I never use its norm
         - TODO: redundant input
+        - pay attention to its definition: mob rho is not included
 
         """
         interfaces: list[pp.MortarGrid] = self.subdomains_to_interfaces(subdomains, [1])
@@ -896,13 +893,17 @@ class Equations(pp.BalanceEquation):
 
         mass_density = phase.mass_density_operator(subdomains, self.pressure)
 
-        expansion_matrix = sp.sparse.eye(
-            subdomains[0].num_cells
-        )  # hope there is only one grid in subdomains
-        mat_list = [expansion_matrix] * self.nd
-        expansion_matrix = pp.ad.SparseArray(sp.sparse.vstack(mat_list))
-        rho = expansion_matrix @ mass_density
+        # OLD:
+        # expansion_matrix = sp.sparse.eye(
+        #     subdomains[0].num_cells
+        # )  # hope there is only one grid
+        # mat_list = [expansion_matrix] * self.nd
+        # expansion_matrix = pp.ad.SparseArray(sp.sparse.vstack(mat_list))
+        # rho = expansion_matrix @ mass_density
 
+        # NEW:
+        rho = self.vector_expansion(subdomains) @ mass_density # there are a lot of extra computation in vector_expansion
+        
         flux: pp.ad.Operator = (
             discr.flux @ self.pressure(subdomains)
             + discr.bound_flux
@@ -934,15 +935,9 @@ class Equations(pp.BalanceEquation):
         discr: Union[pp.ad.TpfaAd, pp.ad.MpfaAd] = self.darcy_flux_discretization(
             subdomains
         )
-
+        
         mass_density = phase.mass_density_operator(subdomains, self.pressure)
-
-        expansion_matrix = sp.sparse.eye(
-            subdomains[0].num_cells
-        )  # hope there is only one grid
-        mat_list = [expansion_matrix] * self.nd
-        expansion_matrix = pp.ad.SparseArray(sp.sparse.vstack(mat_list))
-        rho = expansion_matrix @ mass_density
+        rho = self.vector_expansion(subdomains) @ mass_density
 
         flux: pp.ad.Operator = (
             discr.flux @ self.pressure(subdomains)
@@ -1003,6 +998,35 @@ class Equations(pp.BalanceEquation):
         dot_product = nd_to_scalar_sum @ normals_times_source
         dot_product.set_name("Interface vector source term")
         return dot_product
+    
+    def vector_expansion(self, subdomains):
+        """used only for exanding the densisty in darcy fluxes"""
+
+        # I have to make the mass density a vector, from [rho_h, rho_l] to [rho_h, rho_h, rho_h, rho_l, rho_l, rho_l]
+        num_cells_tot = 0
+        for sd in subdomains:
+            num_cells_tot += sd.num_cells
+
+        i = 0
+        offset = 0
+        expansion_list = [None] * self.mdg.num_subdomains()
+        for sd in subdomains:
+            shape = (sd.num_cells, num_cells_tot)
+            sd_expansion = sps.diags([1]*sd.num_cells, offsets=offset, shape=shape)
+            sd_expansion_vect  = [ sd_expansion ] * self.nd
+            expansion_list[i] = sps.vstack(sd_expansion_vect)
+            i += 1 # TODO: I don't like this solution, improve it
+            offset += sd.num_cells # TODO: I don't like this solution, improve it
+
+        expansion = sps.vstack(expansion_list) 
+        expansion_operator = pp.ad.SparseArray(expansion)
+        
+        self.vector_expansion_operator = expansion_operator
+
+        # np.set_printoptions(linewidth=700, threshold=sys.maxsize)
+        # print(expansion.todense())
+        # pdb.set_trace()
+        return expansion_operator
 
 
 class ConstitutiveLawPressureMass(
@@ -1489,7 +1513,7 @@ class SolutionStrategyPressureMass(pp.SolutionStrategy):
     def eb_after_timestep(self):
         """ """
         print("self.time_manager.time = ", self.time_manager.time)
-        if False: #np.isclose(np.mod(self.time_manager.time, 0.5), 0, rtol=0, atol=1e-5) or self.time_manager.time == self.time_manager.dt:
+        if np.isclose(np.mod(self.time_manager.time, 0.01), 0, rtol=0, atol=1e-5) or self.time_manager.time == self.time_manager.dt:
             for sd, _ in self.mdg.subdomains(return_data=True):
                 gigi = (
                     # self.mixture.mixture_for_subdomain(self.equation_system, sd)
@@ -1559,13 +1583,13 @@ class MyModelGeometry(pp.ModelGeometry):
         # frac2 = pp.LineFracture(np.array([[0.2, 0.7], [0.2, 0.2]]))
 
         # frac1 = pp.PlaneFracture(np.array([[0.2, 0.7, 0.7, 0.2],[0.2, 0.2, 0.8, 0.8],[0.5, 0.5, 0.5, 0.5]]))
-        self._fractures: list = [frac1] #, frac2]
+        self._fractures: list = [] #[frac1] #, frac2]
 
     def meshing_arguments(self) -> dict[str, float]:
         """ """
         default_meshing_args: dict[str, float] = {
             "cell_size": 0.1 / self.units.m,
-            "cell_size_fracture": 0.05 / self.units.m,
+            "cell_size_fracture": 0.5 / self.units.m,
         }
         return self.params.get("meshing_arguments", default_meshing_args)
 
