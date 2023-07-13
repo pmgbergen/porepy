@@ -362,22 +362,23 @@ class Equations(pp.BalanceEquation):
         subdomain_mass_bal = self.mass_balance_equation(subdomains)
         self.equation_system.set_equation(subdomain_mass_bal, subdomains, {"cells": 1})
 
-        # mortar fluxes pahse 0:
-        codim_1_interfaces = self.mdg.interfaces(codim=1)
-        interface_mortar_eq_phase_0 = self.interface_mortar_flux_equation_phase_0(
-            codim_1_interfaces
-        )
-        self.equation_system.set_equation(
-            interface_mortar_eq_phase_0, codim_1_interfaces, {"cells": 1}
-        )
-        
-        # mortar fluxes phase 1:
-        interface_mortar_eq_phase_1 = self.interface_mortar_flux_equation_phase_1(
-            codim_1_interfaces
-        )
-        self.equation_system.set_equation(
-            interface_mortar_eq_phase_1, codim_1_interfaces, {"cells": 1}
-        )
+        if self.mdg.num_subdomains() > 1: # pp... why do try to set morart eq even though there arent fracts...
+            # mortar fluxes pahse 0:
+            codim_1_interfaces = self.mdg.interfaces(codim=1)
+            interface_mortar_eq_phase_0 = self.interface_mortar_flux_equation_phase_0(
+                codim_1_interfaces
+            )
+            self.equation_system.set_equation(
+                interface_mortar_eq_phase_0, codim_1_interfaces, {"cells": 1}
+            )
+            
+            # mortar fluxes phase 1:
+            interface_mortar_eq_phase_1 = self.interface_mortar_flux_equation_phase_1(
+                codim_1_interfaces
+            )
+            self.equation_system.set_equation(
+                interface_mortar_eq_phase_1, codim_1_interfaces, {"cells": 1}
+            )
 
     # PRESSURE EQUATION: -------------------------------------------------------------------------------------------------
 
@@ -626,7 +627,7 @@ class Equations(pp.BalanceEquation):
 
     # DARCY LAWS (to be imporeved): ----------------------------------------------------------------------------------------------------------
 
-    def interface_mortar_flux_equation_phase_0(self, interfaces: list[pp.MortarGrid]):
+    def eq_fcn_mortar_phase_0(self, interfaces: list[pp.MortarGrid]):
         """definition of mortar flux
         - mortar flux is integrated mortar flux
         - mobility, Kr(s)/mu, is not included into this definition of mortar flux
@@ -667,25 +668,31 @@ class Equations(pp.BalanceEquation):
             discr,
         )
 
+        kn = pp.ad.Scalar(self.solid.normal_permeability())
+        delta_p = pressure_h - pressure_l
+        g_term = self.interface_vector_source(
+                        interfaces, material="fluid"
+                    )  # gravity
+
         eq = self.interface_mortar_flux_phase_0(interfaces) - (
             cell_volumes
             * (
-                pp.ad.Scalar(self.solid.normal_permeability())
+                kn
                 * normal_gradient  # this is 2/eps
                 * specific_volume_intf
-                * (
-                    pressure_h
-                    - pressure_l
+                * (delta_p
                     - density_upwinded
                     / normal_gradient  # Why is the density in fluid_mass_balance not here?
-                    * self.interface_vector_source(
-                        interfaces, material="fluid"
-                    )  # gravity
+                    * g_term
                 )
             )
         )
 
         eq.set_name("interface_darcy_flux_equation_phase_0")
+        return (eq, kn, pressure_h, pressure_l, g_term)
+
+    def interface_mortar_flux_equation_phase_0(self, interfaces: list[pp.MortarGrid]):
+        eq, _, _, _, _ = self.eq_fcn_mortar_phase_0(interfaces)
         return eq
 
     def interface_mortar_flux_equation_phase_1(self, interfaces: list[pp.MortarGrid]):
@@ -853,6 +860,7 @@ class Equations(pp.BalanceEquation):
             + discr.bound_pressure_face @ self.bc_values_darcy(subdomains)
             + discr.vector_source @ self.vector_source(subdomains, material="fluid")
         )
+        print('\n\n\n\n\nFANCULO MANCA UNA DENSITÀ')
         return pressure_trace
 
     def pressure_trace_phase_1(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
@@ -873,6 +881,7 @@ class Equations(pp.BalanceEquation):
             + discr.bound_pressure_face @ self.bc_values_darcy(subdomains)
             + discr.vector_source @ self.vector_source(subdomains, material="fluid")
         )
+        print('\n\n\n\n\nFANCULO MANCA UNA DENSITÀ o saturazione o qualcosa, non può esserci g soltanto')
         return pressure_trace
 
     def darcy_flux_phase_0(self, subdomains: list[pp.Grid], phase) -> pp.ad.Operator:
@@ -959,17 +968,47 @@ class Equations(pp.BalanceEquation):
 
     def vector_source(
         self,
-        grids: Union[list[pp.Grid], list[pp.MortarGrid]],
+        subdomains: Union[list[pp.Grid], list[pp.MortarGrid]],
         material: str,  # phase,
     ) -> pp.ad.Operator:
         """Vector source term. Represents gravity effects"""
 
-        # val = self.fluid.convert_units(0, "m*s^-2")
-        val = self.gravity_value
-        size = int(np.sum([g.num_cells for g in grids]) * self.nd)
+        # val = self.gravity_value
+        # size = int(np.sum([g.num_cells for g in grids]) * self.nd)
+        # source = pp.wrap_as_ad_array(val, size=size, name="gravity_vector_source")
 
-        # rho = phase.mass_density() ### just in case...
-        source = pp.wrap_as_ad_array(val, size=size, name="gravity_vector_source")
+        source = []
+ 
+        # # order 1. [sd_1_[x,y,z], sd_2_[x,y,z], ...] # WRONG
+        # for sd in subdomains:
+        #     source_sd = [np.zeros(sd.num_cells)] * self.nd
+        #     source_sd[self.nd-1] = self.gravity_value * np.ones(sd.num_cells) # gravity acts on the last coordinate. This is an implicit notation in HU and pp (not 100% sure about the latter)
+        #     source.append(np.concatenate(source_sd))
+
+
+        # # order 2. [all x, all y, all z] # WRONG
+        # num_cells_tot = 0
+        # for sd in subdomains:
+        #     num_cells_tot += sd.num_cells # sorry...
+        
+        # for i in np.arange(self.nd-1):
+        #     source.append(np.zeros(num_cells_tot))
+        # source.append(self.gravity_value*np.ones(num_cells_tot))
+
+        # # order 3. x y z cell1, x y z cell2, .... 
+        source_cell = np.zeros(self.nd)
+        source_cell[self.nd-1] = -self.gravity_value 
+        print("NOT 100 SURE ABOUT THE SIGN, I DIDNT TEST IT")
+
+        num_cells_tot = 0
+        for sd in subdomains:
+            num_cells_tot += sd.num_cells # sorry..
+
+        source = [source_cell] * num_cells_tot
+
+        source = pp.ad.DenseArray(np.concatenate(source))
+        # source = pp.ad.DenseArray(source)
+        source.set_name("vector source (gravity)")
 
         return source
 
@@ -984,11 +1023,12 @@ class Equations(pp.BalanceEquation):
         projection = pp.ad.MortarProjections(
             self.mdg, subdomain_neighbors, interfaces, dim=self.nd
         )
-        vector_source = projection.secondary_to_mortar_avg @ self.vector_source(
+
+        vector_source_all = self.vector_source(
             subdomain_neighbors,
             material,
-            # self.mixture.get_phase(0),
         )
+        vector_source = projection.secondary_to_mortar_avg @ vector_source_all
         normals_times_source = normals * vector_source
         nd_to_scalar_sum = pp.ad.sum_operator_list(
             [e.T for e in self.basis(interfaces, dim=self.nd)]  # type: ignore[call-arg]
@@ -1585,17 +1625,17 @@ class MyModelGeometry(pp.ModelGeometry):
 
     def set_fractures(self) -> None:
         """ """
-        frac1 = pp.LineFracture(np.array([[0.2, 0.7], [0.5, 0.5]]))
-        # frac2 = pp.LineFracture(np.array([[0.2, 0.7], [0.2, 0.2]]))
-        frac3 = pp.LineFracture(np.array([[0.5, 0.5], [0.2, 0.7]]))
+        frac1 = pp.LineFracture(np.array([[0.2, 0.8], [0.5, 0.5]]))
+        frac2 = pp.LineFracture(np.array([[0.2, 0.8], [0.2, 0.2]]))
+        frac3 = pp.LineFracture(np.array([[0.5, 0.5], [0.2, 0.8]]))
 
         # frac1 = pp.PlaneFracture(np.array([[0.2, 0.7, 0.7, 0.2],[0.2, 0.2, 0.8, 0.8],[0.5, 0.5, 0.5, 0.5]]))
-        self._fractures: list = [frac1, frac3]
+        self._fractures: list = [frac1]
 
     def meshing_arguments(self) -> dict[str, float]:
         """ """
         default_meshing_args: dict[str, float] = {
-            "cell_size": 0.1 / self.units.m,
+            "cell_size": 0.05 / self.units.m,
             "cell_size_fracture": 0.05 / self.units.m,
         }
         return self.params.get("meshing_arguments", default_meshing_args)
@@ -1612,6 +1652,33 @@ class PartialFinalModel(
 ):
     """ """
 
+fluid_constants = pp.FluidConstants({})
+solid_constants = pp.SolidConstants(
+        {
+            "porosity": 0.25,
+            "permeability": 1,
+            "normal_permeability": 1e1,
+            "residual_aperture": 0.1,
+        }
+    )
+# material_constants = {"solid": solid_constants}
+material_constants = {"fluid": fluid_constants, "solid": solid_constants}
+
+time_manager = pp.TimeManager(
+    schedule=[0, 10],
+    dt_init=0.1e-2,
+    constant_dt=True,
+    iter_max=10,
+    print_info=True,
+)
+
+params = {
+    "material_constants": material_constants,
+    "max_iterations": 100,
+    "nl_convergence_tol": 1e-10,
+    "nl_divergence_tol": 1e5,
+    "time_manager": time_manager,
+}
 
 if __name__ == "__main__":
 
@@ -1622,35 +1689,7 @@ if __name__ == "__main__":
             self.ell = 0  # 0 = wetting, 1 = non-wetting
             self.gravity_value = 1  # pp.GRAVITY_ACCELERATION
             self.dynamic_viscosity = 1  # TODO: it is hardoced everywhere, you know...
-
-    fluid_constants = pp.FluidConstants({})
-    solid_constants = pp.SolidConstants(
-        {
-            "porosity": 0.25,
-            "permeability": 1,
-            "normal_permeability": 1e1,
-            "residual_aperture": 0.1,
-        }
-    )
-    # material_constants = {"solid": solid_constants}
-    material_constants = {"fluid": fluid_constants, "solid": solid_constants}
-
-    time_manager = pp.TimeManager(
-        schedule=[0, 10],
-        dt_init=1e-3,
-        constant_dt=True,
-        iter_max=10,
-        print_info=True,
-    )
-
-    params = {
-        "material_constants": material_constants,
-        "max_iterations": 100,
-        "nl_convergence_tol": 1e-10,
-        "nl_divergence_tol": 1e5,
-        "time_manager": time_manager,
-    }
-
+ 
     wetting_phase = pp.composite.phase.Phase(rho0=1)
     non_wetting_phase = pp.composite.phase.Phase(rho0=0.5)
 

@@ -380,33 +380,6 @@ if __name__ == "__main__":
             self.gravity_value = 1  # pp.GRAVITY_ACCELERATION
             self.dynamic_viscosity = 1  # TODO: it is hardoced everywhere, you know...
 
-    fluid_constants = pp.FluidConstants({})
-    solid_constants = pp.SolidConstants(
-        {
-            "porosity": 0.25,
-            "permeability": 1,
-            "normal_permeability": 1e1,
-            "residual_aperture": 0.1,
-        }
-    )
-    # material_constants = {"solid": solid_constants}
-    material_constants = {"fluid": fluid_constants, "solid": solid_constants}
-
-    time_manager = pp.TimeManager(
-        schedule=[0, 10],
-        dt_init=1e-2,
-        constant_dt=True,
-        iter_max=10,
-        print_info=True,
-    )
-
-    params = {
-        "material_constants": material_constants,
-        "max_iterations": 100,
-        "nl_convergence_tol": 1e-10,
-        "nl_divergence_tol": 1e5,
-        "time_manager": time_manager,
-    }
 
     wetting_phase = pp.composite.phase.Phase(rho0=1)
     non_wetting_phase = pp.composite.phase.Phase(rho0=0.5)
@@ -414,6 +387,7 @@ if __name__ == "__main__":
     mixture = pp.Mixture()
     mixture.add([wetting_phase, non_wetting_phase])
 
+    params = test_hu_model.params
     model = FinalModel(mixture, params) # why... add it directly as attribute: model.mixture = mixture
 
     pp.run_time_dependent_model(model, params)

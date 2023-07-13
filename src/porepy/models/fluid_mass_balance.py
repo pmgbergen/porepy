@@ -798,13 +798,6 @@ class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
         for intf, data in self.mdg.interfaces(return_data=True, codim=2):
             vals = self.well_flux([intf]).evaluate(self.equation_system).val
             data[pp.PARAMETERS][self.mobility_keyword].update({"darcy_flux": vals})
-
-
-
-        gigi = self.mobility_discretization(self.mdg.subdomains())
-        mario = gigi.bound_transport_neu
-        mario.evaluate(self.equation_system)
-        pdb.set_trace()
         
         super().before_nonlinear_iteration()
 
@@ -892,8 +885,8 @@ class SinglePhaseFlow(  # type: ignore[misc
     ConstitutiveLawsSinglePhaseFlow,
     BoundaryConditionsSinglePhaseFlow,
     SolutionStrategySinglePhaseFlow,
-    # pp.ModelGeometry,
-    MyModelGeometry,
+    pp.ModelGeometry,
+    # MyModelGeometry,
     pp.DataSavingMixin,
 ):
     """Class for single-phase flow in mixed-dimensional porous media."""

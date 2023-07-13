@@ -20,8 +20,6 @@ def myprint(var):
 
 
 """
-NOTE: from test_hu_mortar.py
-
 """
 
 
@@ -180,12 +178,12 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
         #             print(i)
 
         #         internal_nodes_id = sd.get_internal_nodes()
-        #         sd.nodes[1][internal_nodes_id[1]] += 0.1
-        #         sd.nodes[1][internal_nodes_id[0]] -= 0.1
+        #         sd.nodes[0][internal_nodes_id[1]] += 0.1
+        #         sd.nodes[0][internal_nodes_id[0]] -= 0.1
 
         # self.mdg.compute_geometry()
 
-        # pp.plot_grid(self.mdg, info="cf", alpha=0)
+        # pp.plot_grid(self.mdg, info="cf", alpha=0.1)
 
         # for intf, data in self.mdg.interfaces(return_data=True, codim=1):
         #     print("intf.mortar_to_primary_avg() = ", intf.mortar_to_primary_avg())
@@ -219,10 +217,6 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
                 .val
             )
             assert np.all(mortar_initialized == np.array([0, 0, 0, 0]))
-
-            # pay attention, you are goning to evaluate the equation "lamnda - rhs = ...". Since lambda = 0 ny initialization the evaluation of thr equations is -mortar
-            # that's why i'll write -np.array([...
-            # NO, please, put a minus in mortar
 
             # notations:
             # (see upwind.py) boundary flux >0 => outwards, so boundary flux <0 corrensponds to accumulation
@@ -269,6 +263,17 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
             print("fluid_flux_phase_0 = ", fluid_flux_phase_0)
             print("fluid_flux_phase_1 = ", fluid_flux_phase_1)
 
+
+            eq, kn, pressure_h, pressure_l, g_term = self.eq_fcn_mortar_phase_0([intf])
+            pressure_h = pressure_h.evaluate(self.equation_system).val
+            pressure_l = pressure_l.evaluate(self.equation_system).val
+            g_term = g_term.evaluate(self.equation_system)
+            print("\nkn = ", kn)
+            print('\npressure_h = ', pressure_h)
+            print("\npressure_l = ", pressure_l)
+            print("\ng_term = ", g_term)
+
+
             pdb.set_trace()
 
             if self.case == 1:  # delta p = 0, g = 1, s0=0
@@ -277,13 +282,13 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
 
                 assert np.all(
                     np.isclose(
-                        mortar_phase_0, np.array([1, 1, -1, -1]), rtol=0, atol=1e-10
+                        mortar_phase_0, np.array([0,0,0,0]), rtol=0, atol=1e-10
                     )
                 )
                 assert np.all(
                     np.isclose(
                         fluid_flux_phase_0,
-                        rho_mob_phase_0 * np.array([1, 1, -1, -1]),
+                        rho_mob_phase_0 * np.array([0,0,0,0]),
                         rtol=0,
                         atol=1e-10,
                     )
@@ -292,7 +297,7 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
                 assert np.all(
                     np.isclose(
                         mortar_phase_1,
-                        np.array([0.5, 0.5, -0.5, -0.5]),
+                        np.array([0,0,0,0]),
                         rtol=0,
                         atol=1e-10,
                     )
@@ -300,7 +305,7 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
                 assert np.all(
                     np.isclose(
                         fluid_flux_phase_1,
-                        rho_mob_phase_1 * np.array([0.5, 0.5, -0.5, -0.5]),
+                        rho_mob_phase_1 * np.array([0,0,0,0]),
                         rtol=0,
                         atol=1e-10,
                     )
@@ -312,13 +317,13 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
 
                 assert np.all(
                     np.isclose(
-                        mortar_phase_0, np.array([1, 1, -1, -1]), rtol=0, atol=1e-10
+                        mortar_phase_0, np.array([0,0,0,0]), rtol=0, atol=1e-10
                     )
                 )
                 assert np.all(
                     np.isclose(
                         fluid_flux_phase_0,
-                        rho_mob_phase_0 * np.array([1, 1, -1, -1]),
+                        rho_mob_phase_0 * np.array([0,0,0,0]),
                         rtol=0,
                         atol=1e-10,
                     )
@@ -327,7 +332,7 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
                 assert np.all(
                     np.isclose(
                         mortar_phase_1,
-                        np.array([0.5, 0.5, -0.5, -0.5]),
+                        np.array([0,0,0,0]),
                         rtol=0,
                         atol=1e-10,
                     )
@@ -335,7 +340,7 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
                 assert np.all(
                     np.isclose(
                         fluid_flux_phase_1,
-                        rho_mob_phase_1 * np.array([0.5, 0.5, -0.5, -0.5]),
+                        rho_mob_phase_1 * np.array([0,0,0,0]),
                         rtol=0,
                         atol=1e-10,
                     )
@@ -886,19 +891,19 @@ class MyModelGeometryTest(test_hu_model.MyModelGeometry):
     def set_domain(self) -> None:
         """ """
         self.size = 1 / self.units.m
-        bounding_box = {"xmin": 0, "xmax": self.xmax, "ymin": 0, "ymax": 2}
+        bounding_box = {"xmin": 0, "xmax": 2, "ymin": 0, "ymax": self.ymax}
         self._domain = pp.Domain(bounding_box=bounding_box)
 
     def set_fractures(self) -> None:
         """ """
-        frac1 = pp.LineFracture(np.array([[0, self.xmax], [1, 1]]))
+        frac1 = pp.LineFracture(np.array([[1, 1], [0, self.ymax]]))
         self._fractures: list = [frac1] #, frac2]
 
     def meshing_arguments(self) -> dict[str, float]:
         """ """
         default_meshing_args: dict[str, float] = {
-            "cell_size_x": self.xmax/2-0.1,
-            "cell_size_y": 1.,
+            "cell_size_x": 1.,
+            "cell_size_y": self.ymax/2-0.1,
             "cell_size_fracture": 1.,
         }
         return self.params.get("meshing_arguments", default_meshing_args)
@@ -939,7 +944,7 @@ class FinalModelTest(PartialFinalModel):  # I'm sorry...
 
         self.case = None
 
-        self.xmax = None
+        self.ymax = None
 
         self.saturation_values_2d = None
         self.saturation_values_1d = None
@@ -985,20 +990,21 @@ mixture.add([wetting_phase, non_wetting_phase])
 model = FinalModelTest(mixture, params)
 
 
-case = 1
+case = 2
 model.case = case
 
+print('FATTI SOLO CASO 1 E 2')
+
 if case == 1:  # delta p = 0, g = 1
-    model.xmax = 2
+    model.ymax = 2
     model.gravity_value = 1
     model.saturation_values_2d = 0 * np.array([1.0, 1, 1, 1])
     model.saturation_values_1d = 0 * np.array([1.0, 1])
     model.pressure_values_2d = 1 * np.array([1.0, 1, 1, 1])
     model.pressure_values_1d = 1 * np.array([1.0, 1])
-    # test both mortar and interface fluid flux of phase 1 and 2
 
 if case == 2:  # delta p = 0, g = 1
-    model.xmax = 2
+    model.ymax = 2
     model.gravity_value = 1
     model.saturation_values_2d = 1 * np.array([1.0, 1, 1, 1])
     model.saturation_values_1d = 1 * np.array([1.0, 1])
@@ -1006,7 +1012,7 @@ if case == 2:  # delta p = 0, g = 1
     model.pressure_values_1d = 1 * np.array([1, 1.0])
 
 if case == 3:  # delta p = 1, g = 0
-    model.xmax = 2
+    model.ymax = 2
     model.gravity_value = 0
     model.saturation_values_2d = 0 * np.array([1.0, 1, 1, 1])
     model.saturation_values_1d = 0 * np.array([1.0, 1])
@@ -1014,7 +1020,7 @@ if case == 3:  # delta p = 1, g = 0
     model.pressure_values_1d = 0 * np.array([1.0, 1])
 
 if case == 4:  # delta p = 1, g = 0
-    model.xmax = 2
+    model.ymax = 2
     model.gravity_value = 0
     model.saturation_values_2d = 1 * np.array([1.0, 1, 1, 1])
     model.saturation_values_1d = 1 * np.array([1.0, 1])
@@ -1022,7 +1028,7 @@ if case == 4:  # delta p = 1, g = 0
     model.pressure_values_1d = 0 * np.array([1.0, 1])
 
 if case == 5:  # delta p = -1, g = 0
-    model.xmax = 2
+    model.ymax = 2
     model.gravity_value = 0
     model.saturation_values_2d = 0 * np.array([1.0, 1, 1, 1])
     model.saturation_values_1d = 0 * np.array([1.0, 1])
@@ -1031,7 +1037,7 @@ if case == 5:  # delta p = -1, g = 0
     # delta p negative
 
 if case == 6:  # delta p = 1, g = 1
-    model.xmax = 2
+    model.ymax = 2
     model.gravity_value = 1
     model.saturation_values_2d = 0 * np.array([1.0, 1, 1, 1])
     model.saturation_values_1d = 0 * np.array([1.0, 1])
@@ -1039,7 +1045,7 @@ if case == 6:  # delta p = 1, g = 1
     model.pressure_values_1d = 0 * np.array([1.0, 1])
 
 if case == 7:  # delta p = 1, g = 1
-    model.xmax = 2
+    model.ymax = 2
     model.gravity_value = 1
     model.saturation_values_2d = 1 * np.array([1.0, 1, 1, 1])
     model.saturation_values_1d = 1 * np.array([1.0, 1])
@@ -1047,7 +1053,7 @@ if case == 7:  # delta p = 1, g = 1
     model.pressure_values_1d = 0 * np.array([1.0, 1])
 
 if case == 8:  # delta p = -1, g = 1
-    model.xmax = 2
+    model.ymax = 2
     model.gravity_value = 1
     model.saturation_values_2d = 1 * np.array([1.0, 1, 1, 1])
     model.saturation_values_1d = 1 * np.array([1.0, 1])
@@ -1059,16 +1065,15 @@ if case == 8:  # delta p = -1, g = 1
 
 # TODO:
 if case == 9:  # delta p = 0, g = 1
-    model.xmax = 4
+    model.ymax = 4
     model.gravity_value = 1
     model.saturation_values_2d = 0 * np.array([1.0, 1, 1, 1])
     model.saturation_values_1d = 0 * np.array([1.0, 1])
     model.pressure_values_2d = 1 * np.array([1.0, 1, 1, 1])
     model.pressure_values_1d = 1 * np.array([1.0, 1])
-    # test both mortar and interface fluid flux of phase 1 and 2
 
 if case == 10:  # delta p = 0, g = 1
-    model.xmax = 4
+    model.ymax = 4
     model.gravity_value = 1
     model.saturation_values_2d = 1 * np.array([1.0, 1, 1, 1])
     model.saturation_values_1d = 1 * np.array([1.0, 1])
@@ -1076,7 +1081,7 @@ if case == 10:  # delta p = 0, g = 1
     model.pressure_values_1d = 1 * np.array([1, 1.0])
 
 if case == 11:  # delta p = 1, g = 0
-    model.xmax = 4
+    model.ymax = 4
     model.gravity_value = 0
     model.saturation_values_2d = 0 * np.array([1.0, 1, 1, 1])
     model.saturation_values_1d = 0 * np.array([1.0, 1])
@@ -1084,7 +1089,7 @@ if case == 11:  # delta p = 1, g = 0
     model.pressure_values_1d = 0 * np.array([1.0, 1])
 
 if case == 12:  # delta p = 1, g = 0
-    model.xmax = 4
+    model.ymax = 4
     model.gravity_value = 0
     model.saturation_values_2d = 1 * np.array([1.0, 1, 1, 1])
     model.saturation_values_1d = 1 * np.array([1.0, 1])
@@ -1092,7 +1097,7 @@ if case == 12:  # delta p = 1, g = 0
     model.pressure_values_1d = 0 * np.array([1.0, 1])
 
 if case == 13:  # delta p = -1, g = 0
-    model.xmax = 4
+    model.ymax = 4
     model.gravity_value = 0
     model.saturation_values_2d = 0 * np.array([1.0, 1, 1, 1])
     model.saturation_values_1d = 0 * np.array([1.0, 1])
@@ -1101,7 +1106,7 @@ if case == 13:  # delta p = -1, g = 0
     # delta p negative
 
 if case == 14:  # delta p = 1, g = 1
-    model.xmax = 4
+    model.ymax = 4
     model.gravity_value = 1
     model.saturation_values_2d = 0 * np.array([1.0, 1, 1, 1])
     model.saturation_values_1d = 0 * np.array([1.0, 1])
@@ -1109,7 +1114,7 @@ if case == 14:  # delta p = 1, g = 1
     model.pressure_values_1d = 0 * np.array([1.0, 1])
 
 if case == 15:  # delta p = 1, g = 1
-    model.xmax = 4
+    model.ymax = 4
     model.gravity_value = 1
     model.saturation_values_2d = 1 * np.array([1.0, 1, 1, 1])
     model.saturation_values_1d = 1 * np.array([1.0, 1])
@@ -1117,7 +1122,7 @@ if case == 15:  # delta p = 1, g = 1
     model.pressure_values_1d = 0 * np.array([1.0, 1])
 
 if case == 16:  # delta p = -1, g = 1
-    model.xmax = 4
+    model.ymax = 4
     model.gravity_value = 1
     model.saturation_values_2d = 1 * np.array([1.0, 1, 1, 1])
     model.saturation_values_1d = 1 * np.array([1.0, 1])
