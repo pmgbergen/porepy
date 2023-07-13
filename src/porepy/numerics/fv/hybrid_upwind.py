@@ -124,6 +124,12 @@ def rho_flux_V(
 ):
     """ """
 
+    # 0D shortcut:
+    if sd.dim == 0:
+        # rho_V = pp.ad.AdArray(np.array([0]), 0*pressure.jac[0])
+        rho_V = pp.ad.AdArray(np.empty((0)), sp.sparse.csr_matrix((0, pressure.jac.shape[1])))
+        return rho_V
+
     V = pp.numerics.fv.hybrid_upwind.flux_V(
         sd,
         mixture,
@@ -335,6 +341,13 @@ def rho_flux_G(
     dim_max,
 ):
     """ """
+
+    # 0D shortcut:
+    if sd.dim == 0:
+        # rho_G = pp.ad.AdArray(np.array([0]), 0*pressure.jac[0])
+        rho_G = pp.ad.AdArray(np.empty((0)), sp.sparse.csr_matrix((0, pressure.jac.shape[1])))
+        return rho_G
+
     G = pp.numerics.fv.hybrid_upwind.flux_G(
         sd,
         mixture,

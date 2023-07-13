@@ -414,9 +414,7 @@ class Equations(pp.BalanceEquation):
         )
 
         fake_input = self.pressure(subdomains)
-        flux_tot = rho_total_flux_operator(fake_input) + self.bc_values(
-            subdomains
-        )  # this is wrong, but bc val are 0 so I dont care...
+        flux_tot = rho_total_flux_operator(fake_input) # + self.bc_values(subdomains)  # this is wrong, but bc val are 0 so I dont care...
 
         # interfaces flux contribution (copied from mass bal): ------------------------------------
         interfaces = self.subdomains_to_interfaces(subdomains, [1])
@@ -532,8 +530,8 @@ class Equations(pp.BalanceEquation):
         flux_V_G = (
             rho_V_operator(fake_input)
             + rho_G_operator(fake_input)
-            + self.bc_values(subdomains)
-        )  # TODO: this is wrong, but bc val are 0 so I dont care...
+            # + self.bc_values(subdomains)
+        )  # TODO: bc wrong, but bc val are 0 so I dont care...
 
         # interfaces flux contribution: ------------------------------------
         interfaces = self.subdomains_to_interfaces(subdomains, [1])
@@ -1330,35 +1328,42 @@ class SolutionStrategyPressureMass(pp.SolutionStrategy):
         """
         for sd, data in self.mdg.subdomains(return_data=True):
             data[
-                "for_hu"
-            ] = {}  # this is the first call, so i need to create the dictionary first
+                    "for_hu"
+                ] = {}  # this is the first call, so i need to create the dictionary first
 
             data["for_hu"]["gravity_value"] = self.gravity_value
             data["for_hu"]["ell"] = self.ell
 
-            # expansion matrices? è un errore che non ci siano anche loro qui?
-            (
-                left_restriction,
-                right_restriction,
-            ) = pp.numerics.fv.hybrid_upwind_utils.restriction_matrices_left_right(sd)
-            data["for_hu"]["left_restriction"] = left_restriction
-            data["for_hu"]["right_restriction"] = right_restriction
-            data["for_hu"][
-                "expansion_matrix"
-            ] = pp.numerics.fv.hybrid_upwind_utils.expansion_matrix(sd)
+            if sd.dim == 0:
+                data["for_hu"]["left_restriction"] = None
+                data["for_hu"]["right_restriction"] = None
+                data["for_hu"]["expansion_matrix"] = None
+                data["for_hu"]["transmissibility_internal_tpfa"] = None
+                data["for_hu"]["dim_max"] = None
 
-            pp.numerics.fv.hybrid_upwind_utils.compute_transmissibility_tpfa(
-                sd, data, keyword="flow"
-            )
+            else:
+                (
+                    left_restriction,
+                    right_restriction,
+                ) = pp.numerics.fv.hybrid_upwind_utils.restriction_matrices_left_right(sd)
+                data["for_hu"]["left_restriction"] = left_restriction
+                data["for_hu"]["right_restriction"] = right_restriction
+                data["for_hu"][
+                    "expansion_matrix"
+                ] = pp.numerics.fv.hybrid_upwind_utils.expansion_matrix(sd)
 
-            (
-                _,
-                transmissibility_internal,
-            ) = pp.numerics.fv.hybrid_upwind_utils.get_transmissibility_tpfa(
-                sd, data, keyword="flow"
-            )
-            data["for_hu"]["transmissibility_internal_tpfa"] = transmissibility_internal
-            data["for_hu"]["dim_max"] = self.mdg.dim_max()
+                pp.numerics.fv.hybrid_upwind_utils.compute_transmissibility_tpfa(
+                    sd, data, keyword="flow"
+                )
+
+                (
+                    _,
+                    transmissibility_internal,
+                ) = pp.numerics.fv.hybrid_upwind_utils.get_transmissibility_tpfa(
+                    sd, data, keyword="flow"
+                )
+                data["for_hu"]["transmissibility_internal_tpfa"] = transmissibility_internal
+                data["for_hu"]["dim_max"] = self.mdg.dim_max()
 
     # other methods not called in prepared_simulation: -------------------------------------------------
 
@@ -1529,14 +1534,15 @@ class SolutionStrategyPressureMass(pp.SolutionStrategy):
                 print("saturation = ", gigi.val)
                 print("pressure = ", ppp.val)
 
-                pp.plot_grid(
-                    sd,
-                    gigi.val,
-                    alpha=0.5,
-                    info="",
-                    title="saturation " + str(self.ell),
-                )
-                pp.plot_grid(sd, ppp.val, alpha=0.5, info="", title="pressure")
+                if sd.dim > 0: # otherwise plot_grid gets mad
+                    pp.plot_grid(
+                        sd,
+                        gigi.val,
+                        alpha=0.5,
+                        info="",
+                        title="saturation " + str(self.ell),
+                    )
+                    pp.plot_grid(sd, ppp.val, alpha=0.5, info="", title="pressure")
 
 
 class MyModelGeometry(pp.ModelGeometry):
@@ -1581,15 +1587,16 @@ class MyModelGeometry(pp.ModelGeometry):
         """ """
         frac1 = pp.LineFracture(np.array([[0.2, 0.7], [0.5, 0.5]]))
         # frac2 = pp.LineFracture(np.array([[0.2, 0.7], [0.2, 0.2]]))
+        frac3 = pp.LineFracture(np.array([[0.5, 0.5], [0.2, 0.7]]))
 
         # frac1 = pp.PlaneFracture(np.array([[0.2, 0.7, 0.7, 0.2],[0.2, 0.2, 0.8, 0.8],[0.5, 0.5, 0.5, 0.5]]))
-        self._fractures: list = [] #[frac1] #, frac2]
+        self._fractures: list = [frac1, frac3]
 
     def meshing_arguments(self) -> dict[str, float]:
         """ """
         default_meshing_args: dict[str, float] = {
             "cell_size": 0.1 / self.units.m,
-            "cell_size_fracture": 0.5 / self.units.m,
+            "cell_size_fracture": 0.05 / self.units.m,
         }
         return self.params.get("meshing_arguments", default_meshing_args)
 
@@ -1630,7 +1637,7 @@ if __name__ == "__main__":
 
     time_manager = pp.TimeManager(
         schedule=[0, 10],
-        dt_init=1e-2,
+        dt_init=1e-3,
         constant_dt=True,
         iter_max=10,
         print_info=True,

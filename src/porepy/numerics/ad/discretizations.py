@@ -249,7 +249,7 @@ class MassMatrixAd(Discretization):
 
 
 class UpwindAd(Discretization):
-    def __init__(self, keyword: str, subdomains: list[pp.Grid], flux_array_key) -> None:
+    def __init__(self, keyword: str, subdomains: list[pp.Grid], flux_array_key="darcy_flux") -> None:
         self.subdomains = subdomains
         self._discretization = pp.Upwind(keyword, flux_array_key)
         self._name = "Upwind"
@@ -305,7 +305,7 @@ class RobinCouplingAd(Discretization):
 
 class UpwindCouplingAd(Discretization):
     def __init__(
-        self, keyword: str, interfaces: list[pp.MortarGrid], flux_array_key
+        self, keyword: str, interfaces: list[pp.MortarGrid], flux_array_key='darcy_flux'
     ) -> None:
         self.interfaces = interfaces
         self._discretization = pp.UpwindCoupling(keyword, flux_array_key)

@@ -165,6 +165,15 @@ def total_flux_internal(
 
     # total flux computation:
 
+    # 0D shortcut:
+    if sd.dim == 0:
+        total_flux = [None] * mixture.num_phases
+        for m in np.arange(mixture.num_phases):
+            # total_flux[m] = pp.ad.AdArray(None, 0*pressure.jac[0])
+            total_flux[m] = pp.ad.AdArray(np.empty((0)), sp.sparse.csr_matrix((0, pressure.jac.shape[1])))
+
+        return total_flux
+
     z = -sd.cell_centers[
         dim_max - 1
     ]  # zed is reversed to conform to the notation in paper 2022
@@ -295,7 +304,11 @@ def rho_total_flux(
     # print(dynamic_viscosity)
     # print(dim_max)
 
-    # pdb.set_trace()
+    # 0D shortcut:
+    if sd.dim == 0:
+        # rho_qt = pp.ad.AdArray(np.array([0]), 0*pressure.jac[0])
+        rho_qt = pp.ad.AdArray(np.empty((0)), sp.sparse.csr_matrix((0, pressure.jac.shape[1])))
+        return rho_qt
 
 
     rho_qt = expansion_matrix @ rho_total_flux_internal(

@@ -92,7 +92,7 @@ class EquationsPPU(test_hu_model.Equations):
         ) * self.mixture.get_phase(1).saturation_operator(subdomains)
 
         mass_density = self.porosity(subdomains) * (
-            mass_density_phase_0 + mass_density_phase_1
+            pp.ad.Scalar(0)*mass_density_phase_0 + mass_density_phase_1
         ) 
 
         accumulation = self.volume_integral(mass_density, subdomains, dim=1)
@@ -129,7 +129,7 @@ class EquationsPPU(test_hu_model.Equations):
             + self.bc_values(subdomains) 
         )
 
-        flux_tot = flux_phase_0 + flux_phase_1
+        flux_tot = pp.ad.Scalar(0)*flux_phase_0 + flux_phase_1
 
         # interfaces flux contribution (copied from mass bal): ------------------------------------
         interfaces = self.subdomains_to_interfaces(subdomains, [1])
@@ -161,7 +161,7 @@ class EquationsPPU(test_hu_model.Equations):
             )
         )
 
-        flux = flux_tot - flux_intf_phase_0 - flux_intf_phase_1
+        flux = flux_tot - pp.ad.Scalar(0)*flux_intf_phase_0 - flux_intf_phase_1
 
         # sources: --------------------------------------------------------------
         projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces)
@@ -188,7 +188,7 @@ class EquationsPPU(test_hu_model.Equations):
         )
         source_phase_1.set_name("interface_fluid_mass_flux_source_phase_1")
 
-        source = source_phase_0 + source_phase_1
+        source = pp.ad.Scalar(0)*source_phase_0 + source_phase_1
 
         eq = self.balance_equation(
             subdomains, accumulation, flux, source, dim=1

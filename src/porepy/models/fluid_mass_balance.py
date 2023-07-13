@@ -211,10 +211,6 @@ class MassBalanceEquations(pp.BalanceEquation):
             Operator representing the fluid flux.
 
         """
-
-        # print("\n\n insdie fluid_flux")
-        # pdb.set_trace()
-
         discr = self.mobility_discretization(subdomains)
         mob_rho = self.fluid_density(subdomains) * self.mobility(subdomains)
 
@@ -696,6 +692,7 @@ class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
         included).
 
         """
+
         super().initial_condition()
         for sd, data in self.mdg.subdomains(return_data=True):
             pp.initialize_data(
@@ -802,6 +799,13 @@ class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
             vals = self.well_flux([intf]).evaluate(self.equation_system).val
             data[pp.PARAMETERS][self.mobility_keyword].update({"darcy_flux": vals})
 
+
+
+        gigi = self.mobility_discretization(self.mdg.subdomains())
+        mario = gigi.bound_transport_neu
+        mario.evaluate(self.equation_system)
+        pdb.set_trace()
+        
         super().before_nonlinear_iteration()
 
     def set_nonlinear_discretizations(self) -> None:
@@ -825,13 +829,61 @@ class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
 # inconsistencies.
 
 
-# class RandomClass:
-#     def __init__(self):
-#         print("\n\ndsfsdfs\n\n")
-#         self.attribute = 1
+class MyModelGeometry(pp.ModelGeometry):
+    def set_geometry(self) -> None:
+        """ """
 
-#     def method():
-#         print("\n\nxzcxczxc\n\n")
+        self.set_domain()
+        self.set_fractures()
+
+        self.fracture_network = pp.create_fracture_network(self.fractures, self.domain)
+
+        self.mdg = pp.create_mdg(
+            "simplex",
+            self.meshing_arguments(),
+            self.fracture_network,
+            **self.meshing_kwargs(),
+        )
+        self.nd: int = self.mdg.dim_max()
+
+        pp.set_local_coordinate_projections(self.mdg)
+
+        self.set_well_network()
+        if len(self.well_network.wells) > 0:
+            assert isinstance(self.fracture_network, pp.FractureNetwork3d)
+            pp.compute_well_fracture_intersections(
+                self.well_network, self.fracture_network
+            )
+            self.well_network.mesh(self.mdg)
+
+    def set_domain(self) -> None:
+        """ """
+        self.size = 1 / self.units.m
+
+        # structired square:
+        # self._domain = pp.applications.md_grids.domains.nd_cube_domain(2, self.size)
+
+        # unstructred unit square:
+        bounding_box = {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1} #, "zmin": 0, "zmax": 1}
+        self._domain = pp.Domain(bounding_box=bounding_box)
+
+    def set_fractures(self) -> None:
+        """ """
+        frac1 = pp.LineFracture(np.array([[0.2, 0.7], [0.5, 0.5]]))
+        # frac2 = pp.LineFracture(np.array([[0.2, 0.7], [0.2, 0.2]]))
+        frac3 = pp.LineFracture(np.array([[0.5, 0.5], [0.2, 0.7]]))
+
+        # frac1 = pp.PlaneFracture(np.array([[0.2, 0.7, 0.7, 0.2],[0.2, 0.2, 0.8, 0.8],[0.5, 0.5, 0.5, 0.5]]))
+        self._fractures: list = [frac1, frac3]
+
+    def meshing_arguments(self) -> dict[str, float]:
+        """ """
+        default_meshing_args: dict[str, float] = {
+            "cell_size": 0.1 / self.units.m,
+            "cell_size_fracture": 0.05 / self.units.m,
+        }
+        return self.params.get("meshing_arguments", default_meshing_args)
+
 
 
 class SinglePhaseFlow(  # type: ignore[misc
@@ -840,7 +892,47 @@ class SinglePhaseFlow(  # type: ignore[misc
     ConstitutiveLawsSinglePhaseFlow,
     BoundaryConditionsSinglePhaseFlow,
     SolutionStrategySinglePhaseFlow,
-    pp.ModelGeometry,
+    # pp.ModelGeometry,
+    MyModelGeometry,
     pp.DataSavingMixin,
 ):
     """Class for single-phase flow in mixed-dimensional porous media."""
+
+
+
+
+### added:
+
+if __name__ == "__main__":
+    fluid_constants = pp.FluidConstants({})
+    solid_constants = pp.SolidConstants(
+        {
+            "porosity": 0.25,
+            "permeability": 1,
+            "normal_permeability": 1e1,
+            "residual_aperture": 0.1,
+        }
+    )
+    
+    material_constants = {"fluid": fluid_constants, "solid": solid_constants}
+
+    time_manager = pp.TimeManager(
+        schedule=[0, 10],
+        dt_init=1e-2,
+        constant_dt=True,
+        iter_max=10,
+        print_info=True,
+    )
+
+    params = {
+        "material_constants": material_constants,
+        "max_iterations": 100,
+        "nl_convergence_tol": 1e-10,
+        "nl_divergence_tol": 1e5,
+        "time_manager": time_manager,
+    }
+
+
+    model = SinglePhaseFlow()
+    pp.run_time_dependent_model(model, params)
+

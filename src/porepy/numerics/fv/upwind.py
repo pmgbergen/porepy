@@ -19,7 +19,7 @@ class Upwind(Discretization):
 
     """
 
-    def __init__(self, keyword: str = "transport", flux_array_key="pick one") -> None:
+    def __init__(self, keyword: str = "transport", flux_array_key="darcy_flux") -> None:
         print("upwind.py has been mod")
 
         self.keyword = keyword
