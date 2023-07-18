@@ -1063,7 +1063,7 @@ class Mpfa(pp.FVElliptic):
 
         An example of a vector source is the gravitational forces in Darcy's law. For
         more details, see Starnoni et al (2020), Consistent discretization of flow for
-        inhomogeneoug gravitational fields, WRR.
+        inhomogeneoug gravitational fields, WRR. ### Sure this is the right paper?
 
         Parameters:
             g: grid to be discretized
