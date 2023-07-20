@@ -20,7 +20,7 @@ def myprint(var):
 
 """
 - is it ok to consider mu (dynamic viscosity, mu = nu/rho) constant? 
-- 
+- inside var_upwinded_interfaces there should be ..._int not avg. Doesn't matter as long as the grids are conforming.
 """
 
 class FunctionTotalFlux(pp.ad.operator_functions.AbstractFunction):
@@ -415,7 +415,7 @@ class Equations(pp.BalanceEquation):
         )
 
         fake_input = self.pressure(subdomains)
-        flux_tot = rho_total_flux_operator(fake_input) # + self.bc_values(subdomains)  # this is wrong, but bc val are 0 so I dont care...
+        flux_tot = rho_total_flux_operator(fake_input)
 
         # interfaces flux contribution (copied from mass bal): ------------------------------------
         interfaces = self.subdomains_to_interfaces(subdomains, [1])
@@ -447,7 +447,12 @@ class Equations(pp.BalanceEquation):
             )
         )
 
-        flux = flux_tot - flux_intf_phase_0 - flux_intf_phase_1
+        discr_phase_0 = self.ppu_discretization(subdomains, "darcy_flux_phase_0")
+        discr_phase_1 = self.ppu_discretization(subdomains, "darcy_flux_phase_1")
+         
+        flux = ( flux_tot - flux_intf_phase_0 - flux_intf_phase_1
+                - discr_phase_0.bound_transport_neu @ self.bc_neu_phase_0(subdomains)
+                - discr_phase_1.bound_transport_neu @ self.bc_neu_phase_1(subdomains) ) 
 
         # sources: --------------------------------------------------------------
         projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces)
@@ -531,8 +536,7 @@ class Equations(pp.BalanceEquation):
         flux_V_G = (
             rho_V_operator(fake_input)
             + rho_G_operator(fake_input)
-            # + self.bc_values(subdomains)
-        )  # TODO: bc wrong, but bc val are 0 so I dont care...
+        )
 
         # interfaces flux contribution: ------------------------------------
         interfaces = self.subdomains_to_interfaces(subdomains, [1])
@@ -564,13 +568,16 @@ class Equations(pp.BalanceEquation):
             )
         )
 
+        discr_phase_0 = self.ppu_discretization(subdomains, "darcy_flux_phase_0")
+        discr_phase_1 = self.ppu_discretization(subdomains, "darcy_flux_phase_1")
+        
         if (
             self.ell == 0
         ):  # TODO: move the flux computation inside if (which btw could be removed) after all the bugs are fixed
-            flux = flux_V_G - flux_intf_phase_0
+            flux = flux_V_G - flux_intf_phase_0 - discr_phase_0.bound_transport_neu @ self.bc_neu_phase_0(subdomains) 
 
         else:  # self.ell == 1
-            flux = flux_V_G - flux_intf_phase_1
+            flux = flux_V_G - flux_intf_phase_1 - discr_phase_1.bound_transport_neu @ self.bc_neu_phase_1(subdomains)
 
         # sources: ---------------------------------------
         projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces)
@@ -638,7 +645,8 @@ class Equations(pp.BalanceEquation):
 
         cell_volumes = self.wrap_grid_attribute(
             interfaces, "cell_volumes", dim=1  # type: ignore[call-arg]
-        )
+        ) # surface in 2D, length in 1D, the thickness isn't included
+
         trace = pp.ad.Trace(subdomains, dim=1)
 
         normal_gradient = pp.ad.Scalar(2) * (
@@ -662,13 +670,21 @@ class Equations(pp.BalanceEquation):
             interfaces, "interface_mortar_flux_phase_0"
         )
 
+        # anna = specific_volume_intf.evaluate(self.equation_system)
+        # pdb.set_trace()
+
         density_upwinded = self.var_upwinded_interfaces(
             interfaces,
             self.mixture.get_phase(0).mass_density_operator(subdomains, self.pressure),
             discr,
         )
 
-        kn = pp.ad.Scalar(self.solid.normal_permeability())
+        kn = pp.ad.Scalar(self.solid.normal_permeability()) * normal_gradient  # this is 2/eps
+
+        # print("self.solid.normal_permeability() = ", self.solid.normal_permeability())
+        # lara = kn.evaluate(self.equation_system)
+        # pdb.set_trace()
+
         delta_p = pressure_h - pressure_l
         g_term = self.interface_vector_source(
                         interfaces, material="fluid"
@@ -678,7 +694,6 @@ class Equations(pp.BalanceEquation):
             cell_volumes
             * (
                 kn
-                * normal_gradient  # this is 2/eps
                 * specific_volume_intf
                 * (delta_p
                     + density_upwinded
@@ -831,16 +846,17 @@ class Equations(pp.BalanceEquation):
             self.mdg, subdomains, interfaces, dim=1
         )
         trace = pp.ad.Trace(subdomains)
-
+        
         var_upwinded: pp.ad.Operator = (
             discr.upwind_primary
-            @ mortar_projection.primary_to_mortar_avg
+            @ mortar_projection.primary_to_mortar_avg # should't it be int?
             @ trace.trace
             @ advected_entity
             + discr.upwind_secondary
-            @ mortar_projection.secondary_to_mortar_avg
+            @ mortar_projection.secondary_to_mortar_avg # should't it be int?
             @ advected_entity
         )
+        
         return var_upwinded
 
     def eq_fcn_pressure_trace(self, subdomains: list[pp.Grid]):
@@ -859,6 +875,7 @@ class Equations(pp.BalanceEquation):
         rho_mob_phase_0 = mass_density_phase_0 * pp.tobedefined.mobility.mobility_operator(subdomains, self.mixture.get_phase(0).saturation_operator, self.dynamic_viscosity)
         rho_mob_phase_1 = mass_density_phase_1 * pp.tobedefined.mobility.mobility_operator(subdomains, self.mixture.get_phase(1).saturation_operator, self.dynamic_viscosity)
 
+        # wrong stuff:
         # frac_faces = []
         # tot_faces = 0
         # for sd in self.mdg.subdomains():
@@ -881,7 +898,7 @@ class Equations(pp.BalanceEquation):
         # traccia = trace.trace.evaluate(self.equation_system)
         # lala = projection.mortar_to_primary_int.evaluate(self.equation_system)
         # # and now compare intf_faces_to_global_faces, traccia, lala
-        # pdb.set_trace()
+        # pdb.set_
         # inft_faces_to_global_faces = pp.ad.DenseArray(inft_faces_to_global_faces) ### you sure you dont have to use projection.mortar_to_primary_int?
 
         # without upwind:
@@ -928,7 +945,7 @@ class Equations(pp.BalanceEquation):
         # mario = rho_mob_upwinded_phase_0.evaluate(self.equation_system)
         # lucifer = inft_faces_to_global_faces.evaluate(self.equation_system)
 
-        # pdb.set_trace()
+        # pdb.set_
         print('\n\n\n\n check it. In particular check why in pp vector source is NOT multiplied by bound_pressure_face')
 
         return pressure_trace, pressure_cell, correction
@@ -964,7 +981,7 @@ class Equations(pp.BalanceEquation):
         # rho = expansion_matrix @ mass_density
 
         # NEW:
-        rho = self.vector_expansion(subdomains) @ mass_density # there are a lot of extra computation in vector_expansion
+        rho = self.vector_expansion(subdomains) @ mass_density # there are a lot of extra computations in vector_expansion
         
         flux: pp.ad.Operator = (
             discr.flux @ self.pressure(subdomains)
@@ -982,10 +999,6 @@ class Equations(pp.BalanceEquation):
         )
 
         flux.set_name("darcy_flux_phase_0")
-
-
-        # pdb.set_trace()
-        # flux.evaluate(self.equation_system).val
 
         return flux
 
@@ -1116,9 +1129,6 @@ class Equations(pp.BalanceEquation):
         
         self.vector_expansion_operator = expansion_operator
 
-        # np.set_printoptions(linewidth=700, threshold=sys.maxsize)
-        # print(expansion.todense())
-        # pdb.set_trace()
         return expansion_operator
 
 
@@ -1132,7 +1142,7 @@ class ConstitutiveLawPressureMass(
 
 
 class BoundaryConditionsPressureMass:
-    def bc_values(self, subdomains: list[pp.Grid]) -> pp.ad.DenseArray:
+    def bc_neu_phase_0(self, subdomains: list[pp.Grid]) -> pp.ad.DenseArray:
         """
         it's quite useless now, but i like how it is written
         """
@@ -1140,13 +1150,60 @@ class BoundaryConditionsPressureMass:
         bc_values: list[np.ndarray] = []
 
         for sd in subdomains:
-            boundary_faces = self.domain_boundary_sides(sd).all_bf
+            if sd.dim == self.nd:
+                boundary_faces = self.domain_boundary_sides(sd).all_bf
+                
+                eps = 1e-6
+                left_boundary = np.where(sd.face_centers[0]<(0+eps))[0] # add xmin as in the tests pls
+                right_boundary = np.where(sd.face_centers[0]>(1-eps))[0] # add xmax as in the tests pls
+                vals = np.zeros(sd.num_faces)
+                vals[left_boundary] = -0*sd.face_areas[left_boundary] # inlet
+                vals[right_boundary] = 0*sd.face_areas[right_boundary] # outlet
+                bc_values.append(vals)
+            
+            else:
+                boundary_faces = self.domain_boundary_sides(sd).all_bf
 
-            vals = np.zeros(sd.num_faces)
-            vals[
-                boundary_faces
-            ] = 0  # change this if you want different bc val # pay attention, there is a mistake in calance eq, take a look...
-            bc_values.append(vals)
+                vals = np.zeros(sd.num_faces)
+                vals[
+                    boundary_faces
+                ] = 0  # change this if you want different bc val # pay attention, there is a mistake in calance eq, take a look...
+                bc_values.append(vals)
+
+
+        bc_values_array: pp.ad.DenseArray = pp.wrap_as_ad_array(
+            np.hstack(bc_values), name="bc_values_flux"
+        )
+
+        return bc_values_array
+    
+    def bc_neu_phase_1(self, subdomains: list[pp.Grid]) -> pp.ad.DenseArray:
+        """
+        """
+
+        bc_values: list[np.ndarray] = []
+
+        for sd in subdomains:
+            if sd.dim == self.nd:
+                boundary_faces = self.domain_boundary_sides(sd).all_bf
+                
+                eps = 1e-6
+                left_boundary = np.where(sd.face_centers[0]<(0+eps))[0] # add xmin as in the tests pls
+                right_boundary = np.where(sd.face_centers[0]>(1-eps))[0]
+                vals = np.zeros(sd.num_faces)
+                vals[left_boundary] = -0*sd.face_areas[left_boundary] # inlet
+                vals[right_boundary] = 0*sd.face_areas[right_boundary] # outlet
+                bc_values.append(vals)
+            
+            else:
+                boundary_faces = self.domain_boundary_sides(sd).all_bf
+
+                vals = np.zeros(sd.num_faces)
+                vals[
+                    boundary_faces
+                ] = 0  # change this if you want different bc val # pay attention, there is a mistake in calance eq, take a look...
+                bc_values.append(vals)
+
 
         bc_values_array: pp.ad.DenseArray = pp.wrap_as_ad_array(
             np.hstack(bc_values), name="bc_values_flux"
@@ -1176,7 +1233,7 @@ class SolutionStrategyPressureMass(pp.SolutionStrategy):
         self.set_geometry()
 
         # pp.plot_grid(self.mdg, info='c', alpha=0)
-        # pdb.set_trace()
+        # pdb.
 
         self.initialize_data_saving()
 
@@ -1557,20 +1614,20 @@ class SolutionStrategyPressureMass(pp.SolutionStrategy):
         # super().before_nonlinear_iteration() # attento... se ineriti questa classe crei un loop di merda. Ho copiato le funzioni qui sotto
         
         subdomains = self.mdg.subdomains()
-        interfaces: list[pp.MortarGrid] = self.subdomains_to_interfaces(subdomains, [1])
+        # interfaces: list[pp.MortarGrid] = self.subdomains_to_interfaces(subdomains, [1])
 
         # discr = self.darcy_flux_discretization(self.mdg.subdomains())
-        projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1
-                                             )
+        # projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1)
+                                             
         # gigi = discr.bound_pressure_cell.evaluate(self.equation_system)
         # mario = discr.bound_pressure_face.evaluate(self.equation_system)
         # giulia = projection.mortar_to_primary_int.evaluate(self.equation_system)
         
-        pressure_trace, pressure_cell, correction = self.eq_fcn_pressure_trace(subdomains)
-        pressure_trace = pressure_trace.evaluate(self.equation_system)
-        pressure_cell = pressure_cell.evaluate(self.equation_system)
-        correction = correction.evaluate(self.equation_system)
-        actual_ph = (projection.primary_to_mortar_avg @ pressure_trace).evaluate(self.equation_system)
+        # pressure_trace, pressure_cell, correction = self.eq_fcn_pressure_trace(subdomains)
+        # pressure_trace = pressure_trace.evaluate(self.equation_system)
+        # pressure_cell = pressure_cell.evaluate(self.equation_system)
+        # correction = correction.evaluate(self.equation_system)
+        # actual_ph = (projection.primary_to_mortar_avg @ pressure_trace).evaluate(self.equation_system)
 
         # (eq, kn, pressure_h, pressure_l, g_term) = self.eq_fcn_mortar_phase_0(interfaces)
         # p_h = pressure_h.evaluate(self.equation_system).val
@@ -1578,10 +1635,10 @@ class SolutionStrategyPressureMass(pp.SolutionStrategy):
         # discr = self.darcy_flux_discretization(subdomains)
         # strega = discr.vector_source.evaluate(self.equation_system)
         # avvoltoio = self.vector_source(subdomains, material="fluid").evaluate(self.equation_system)
-        
-
-        pdb.set_trace()
-
+    
+        # discr_phase_0 = self.ppu_discretization(subdomains, "darcy_flux_phase_0")
+        # lara = discr_phase_0.bound_transport_neu.evaluate(self.equation_system)
+        # pdb.set_trace()
 
         self.set_discretization_parameters()
         self.rediscretize()
@@ -1713,13 +1770,13 @@ class MyModelGeometry(pp.ModelGeometry):
         frac3 = pp.LineFracture(np.array([[0.5, 0.5], [0.2, 0.8]]))
 
         # frac1 = pp.PlaneFracture(np.array([[0.2, 0.7, 0.7, 0.2],[0.2, 0.2, 0.8, 0.8],[0.5, 0.5, 0.5, 0.5]]))
-        self._fractures: list = [frac1]
+        self._fractures: list = []
 
     def meshing_arguments(self) -> dict[str, float]:
         """ """
         default_meshing_args: dict[str, float] = {
-            "cell_size": 0.9 / self.units.m,
-            "cell_size_fracture": 0.5 / self.units.m,
+            "cell_size": 0.1 / self.units.m,
+            "cell_size_fracture": 0.05 / self.units.m,
         }
         return self.params.get("meshing_arguments", default_meshing_args)
 
@@ -1740,7 +1797,7 @@ solid_constants = pp.SolidConstants(
         {
             "porosity": 0.25,
             "permeability": 1,
-            "normal_permeability": 1e1,
+            "normal_permeability": 1, # this does NOT include the aperture
             "residual_aperture": 0.1,
         }
     )
@@ -1749,7 +1806,7 @@ material_constants = {"fluid": fluid_constants, "solid": solid_constants}
 
 time_manager = pp.TimeManager(
     schedule=[0, 10],
-    dt_init=0.1e-2,
+    dt_init=1e-2,
     constant_dt=True,
     iter_max=10,
     print_info=True,

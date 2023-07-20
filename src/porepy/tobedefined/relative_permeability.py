@@ -1,9 +1,15 @@
 import numpy as np
 import porepy as pp
 
+import pdb
 
 def rel_perm_brooks_corey(saturation):  # ->... :
     """ """
+    # print("\inside rel_perm_brooks_corey")
+    # print("saturation = ", saturation)
+    # if type(saturation) == pp.ad.AdArray:
+    #     saturation.val = np.clip(saturation.val, 0, 1)
+    #     print("saturation.val = ", saturation.val)
     relative_perm = saturation**2
     return relative_perm
 

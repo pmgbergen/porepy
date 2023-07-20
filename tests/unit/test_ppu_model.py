@@ -110,8 +110,6 @@ class EquationsPPU(test_hu_model.Equations):
 
         flux_phase_0: pp.ad.Operator = (
             darcy_flux_phase_0 * (discr.upwind @ mob_rho)
-            # - discr.bound_transport_neu @ bc_values # original from fluid_mass_balance.py
-            + self.bc_values(subdomains) # bc might be wrong, but they are zero, so i let the next one to fix it...
         )
     
         discr = self.ppu_discretization(subdomains, "darcy_flux_phase_1")
@@ -126,10 +124,9 @@ class EquationsPPU(test_hu_model.Equations):
 
         flux_phase_1: pp.ad.Operator = (
             darcy_flux_phase_1 * (discr.upwind @ mob_rho)
-            + self.bc_values(subdomains) 
         )
 
-        flux_tot = pp.ad.Scalar(0)*flux_phase_0 + flux_phase_1
+        flux_tot = flux_phase_0 + flux_phase_1
 
         # interfaces flux contribution (copied from mass bal): ------------------------------------
         interfaces = self.subdomains_to_interfaces(subdomains, [1])
@@ -161,7 +158,12 @@ class EquationsPPU(test_hu_model.Equations):
             )
         )
 
-        flux = flux_tot - pp.ad.Scalar(0)*flux_intf_phase_0 - flux_intf_phase_1
+        discr_phase_0 = self.ppu_discretization(subdomains, "darcy_flux_phase_0")
+        discr_phase_1 = self.ppu_discretization(subdomains, "darcy_flux_phase_1")
+        
+        flux = ( flux_tot - flux_intf_phase_0 - flux_intf_phase_1
+                - discr_phase_0.bound_transport_neu @ self.bc_neu_phase_0(subdomains)
+                - discr_phase_1.bound_transport_neu @ self.bc_neu_phase_1(subdomains) ) 
 
         # sources: --------------------------------------------------------------
         projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces)
@@ -188,7 +190,7 @@ class EquationsPPU(test_hu_model.Equations):
         )
         source_phase_1.set_name("interface_fluid_mass_flux_source_phase_1")
 
-        source = pp.ad.Scalar(0)*source_phase_0 + source_phase_1
+        source = source_phase_0 + source_phase_1
 
         eq = self.balance_equation(
             subdomains, accumulation, flux, source, dim=1
@@ -239,8 +241,6 @@ class EquationsPPU(test_hu_model.Equations):
 
             flux_phase_0: pp.ad.Operator = (
                 darcy_flux_phase_0 * (discr.upwind @ mob_rho)
-                # - discr.bound_transport_neu @ bc_values # original from fluid_mass_balance.py
-                + self.bc_values(subdomains) # bc might be wrong, but they are zero, so i let the next one to fix it...
             )
 
             flux_no_intf = flux_phase_0 # just to keep the structure of hu code
@@ -258,8 +258,6 @@ class EquationsPPU(test_hu_model.Equations):
 
             flux_phase_1: pp.ad.Operator = (
                 darcy_flux_phase_1 * (discr.upwind @ mob_rho)
-                # - discr.bound_transport_neu @ bc_values # original from fluid_mass_balance.py
-                + self.bc_values(subdomains) # bc might be wrong, but they are zero, so i let the next one to fix it...
             )
 
             flux_no_intf = flux_phase_1
@@ -294,13 +292,16 @@ class EquationsPPU(test_hu_model.Equations):
             )
         )
 
+        discr_phase_0 = self.ppu_discretization(subdomains, "darcy_flux_phase_0")
+        discr_phase_1 = self.ppu_discretization(subdomains, "darcy_flux_phase_1")
+        
         if (
             self.ell == 0
         ):  # TODO: move the flux computation inside if (which btw could be removed) after all the bugs are fixed
-            flux = flux_phase_0 - flux_intf_phase_0
+            flux = flux_phase_0 - flux_intf_phase_0 - discr_phase_0.bound_transport_neu @ self.bc_neu_phase_0(subdomains)
 
         else:  # self.ell == 1
-            flux = flux_phase_1 - flux_intf_phase_1
+            flux = flux_phase_1 - flux_intf_phase_1 - discr_phase_1.bound_transport_neu @ self.bc_neu_phase_1(subdomains)
 
         flux.set_name("ppu_flux")
 

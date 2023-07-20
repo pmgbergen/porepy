@@ -990,7 +990,7 @@ mixture.add([wetting_phase, non_wetting_phase])
 model = FinalModelTest(mixture, params)
 
 
-case = 2
+case = 1
 model.case = case
 
 print('FATTI SOLO CASO 1 E 2')
