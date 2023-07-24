@@ -377,11 +377,12 @@ class SolutionStrategy(abc.ABC):
         # Uniquify to save computational time, then discretize.
         unique_discr = pp.ad._ad_utils.uniquify_discretization_list(
             self.nonlinear_discretizations
-        )
+        ) 
         pp.ad._ad_utils.discretize_from_list(unique_discr, self.mdg)
         logger.info(
             "Re-discretized nonlinear terms in {} seconds".format(time.time() - tic)
         )
+    
 
     @property
     def nonlinear_discretizations(self) -> list[pp.ad._ad_utils.MergedOperator]:

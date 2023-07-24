@@ -1516,6 +1516,10 @@ class EquationSystem:
         unique_discr = _ad_utils.uniquify_discretization_list(discr)
         _ad_utils.discretize_from_list(unique_discr, self.mdg)
 
+        # for i in discr:
+        #     print(i.name) 
+        # pdb.set_trace()
+
     def assemble(
         self,
         state: Optional[np.ndarray] = None,

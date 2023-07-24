@@ -144,8 +144,9 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
             print("darcy_flux_phase_0 = ", vals)
             
             if self.case == 100:
-                print("darcy_flux_phase_0 case 100 = ", self.darcy_flux_phase_0_values_2d)
-                data[pp.PARAMETERS][self.ppu_keyword].update({"darcy_flux_phase_0": self.darcy_flux_phase_0_values_2d})
+                if sd.dim == 2:
+                    print("darcy_flux_phase_0 case 100 = ", self.darcy_flux_phase_0_values_2d)
+                    data[pp.PARAMETERS][self.ppu_keyword].update({"darcy_flux_phase_0": self.darcy_flux_phase_0_values_2d})
             else:
                 data[pp.PARAMETERS][self.ppu_keyword].update({"darcy_flux_phase_0": vals})
 
@@ -158,8 +159,9 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
             print("darcy_flux_phase_1 = ", vals)
 
             if self.case == 100:
-                print("darcy_flux_phase_1 case 100 = ", self.darcy_flux_phase_1_values_2d)
-                data[pp.PARAMETERS][self.ppu_keyword].update({"darcy_flux_phase_1": self.darcy_flux_phase_1_values_2d})
+                if sd.dim == 2:
+                    print("darcy_flux_phase_1 case 100 = ", self.darcy_flux_phase_1_values_2d)
+                    data[pp.PARAMETERS][self.ppu_keyword].update({"darcy_flux_phase_1": self.darcy_flux_phase_1_values_2d})
             else:
                 data[pp.PARAMETERS][self.ppu_keyword].update({"darcy_flux_phase_1": vals})
 
@@ -187,17 +189,17 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
 
         # TEST: ---------------------------------------------------------------------------
 
-        # # open the fracture:
-        # for sd in self.mdg.subdomains():
-        #     if sd.dim == 2:
-        #         for i in dir(sd):
-        #             print(i)
+        # open the fracture:
+        for sd in self.mdg.subdomains():
+            if sd.dim == 2:
+                for i in dir(sd):
+                    print(i)
 
-        #         internal_nodes_id = sd.get_internal_nodes()
-        #         sd.nodes[1][internal_nodes_id[1]] += 0.1
-        #         sd.nodes[1][internal_nodes_id[0]] -= 0.1
+                internal_nodes_id = sd.get_internal_nodes()
+                sd.nodes[1][internal_nodes_id[1]] += 0.1
+                sd.nodes[1][internal_nodes_id[0]] -= 0.1
 
-        # self.mdg.compute_geometry()
+        self.mdg.compute_geometry()
 
         # pp.plot_grid(self.mdg, info="cf", alpha=0)
 
@@ -218,6 +220,17 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
         #             sd, vector_value=0.5 * normals, alpha=0
         #         )  # REMARK: mortar are positive from higer to lower, they do NOT respect the face normals
         #         pdb.set_trace()
+
+        for sd,data in self.mdg.subdomains(return_data=True):
+            if sd.dim == 2:
+                normals = sd.face_normals
+                darcy_phase_0 = data[pp.PARAMETERS][self.ppu_keyword]["darcy_flux_phase_0"] * normals
+                darcy_phase_1 = data[pp.PARAMETERS][self.ppu_keyword]["darcy_flux_phase_1"] * normals
+                pp.plot_grid(sd, vector_value=0.5 * darcy_phase_0, alpha=0, title="darcy_phase_0")
+                pp.plot_grid(sd, vector_value=0.5 * darcy_phase_1, alpha=0, title="darcy_phase_1")
+                pdb.set_trace()
+                
+
 
         for intf, data in self.mdg.interfaces(return_data=True, codim=1):
             mortar_initialized = (
@@ -1149,7 +1162,8 @@ if case == 100:  # delta p = 0, g = 1
     model.pressure_values_1d = 1 * np.array([1.0, 1])
 
     model.darcy_flux_phase_0_values_2d = np.array([0.,0,0,0,0, 0,0,0,0,0, 0,0,0,0])
-    model.darcy_flux_phase_1_values_2d = np.array([0.,0,0,0,0, 0,0,0,-1,-1, 0,0,-1,-1])
+    #model.darcy_flux_phase_1_values_2d = np.array([0.,0,0,0,0, 0,0,0,-1,-1, 0,0,-1,-1])
+    model.darcy_flux_phase_1_values_2d = np.ones(14)
 
 
 

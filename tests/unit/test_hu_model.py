@@ -1466,6 +1466,19 @@ class SolutionStrategyPressureMass(pp.SolutionStrategy):
         """ """
         self.equation_system.discretize()
 
+    def rediscretize(self) -> None:
+        """TODO: Discretize only nonlinear terms"""
+        # tic = time.time()
+        # # Uniquify to save computational time, then discretize.
+        # unique_discr = pp.ad._ad_utils.uniquify_discretization_list(
+        #     self.nonlinear_discretizations
+        # ) # empty dictionary
+        # pp.ad._ad_utils.discretize_from_list(unique_discr, self.mdg)
+        # logger.info(
+        #     "Re-discretized nonlinear terms in {} seconds".format(time.time() - tic)
+        # )
+        self.discretize()
+
     def _initialize_linear_solver(self) -> None:
         """ """
         solver = self.params["linear_solver"]
@@ -1613,7 +1626,7 @@ class SolutionStrategyPressureMass(pp.SolutionStrategy):
 
         # super().before_nonlinear_iteration() # attento... se ineriti questa classe crei un loop di merda. Ho copiato le funzioni qui sotto
         
-        subdomains = self.mdg.subdomains()
+        # subdomains = self.mdg.subdomains()
         # interfaces: list[pp.MortarGrid] = self.subdomains_to_interfaces(subdomains, [1])
 
         # discr = self.darcy_flux_discretization(self.mdg.subdomains())
@@ -1770,13 +1783,13 @@ class MyModelGeometry(pp.ModelGeometry):
         frac3 = pp.LineFracture(np.array([[0.5, 0.5], [0.2, 0.8]]))
 
         # frac1 = pp.PlaneFracture(np.array([[0.2, 0.7, 0.7, 0.2],[0.2, 0.2, 0.8, 0.8],[0.5, 0.5, 0.5, 0.5]]))
-        self._fractures: list = []
+        self._fractures: list = [frac1]
 
     def meshing_arguments(self) -> dict[str, float]:
         """ """
         default_meshing_args: dict[str, float] = {
-            "cell_size": 0.1 / self.units.m,
-            "cell_size_fracture": 0.05 / self.units.m,
+            "cell_size": 0.2 / self.units.m,
+            "cell_size_fracture": 0.1 / self.units.m,
         }
         return self.params.get("meshing_arguments", default_meshing_args)
 
