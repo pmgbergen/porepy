@@ -376,6 +376,16 @@ def test_ad_variable_creation():
     assert mvar_1_prev_iter.id != mvar_1.id
     assert mvar_1_prev_time.id != mvar_1.id
 
+    # It must be impossible to create a variable both on previous time step and iter.
+    with pytest.raises(ValueError):
+        _ = mvar_1_prev_iter.previous_timestep()
+    with pytest.raises(ValueError):
+        _ = mvar_1_prev_time.previous_iteration()
+
+    # It must be impossible to create a variable on more than one iteration behind.
+    with pytest.raises(NotImplementedError):
+        _ = mvar_1_prev_iter.previous_iteration()
+
 
 def test_ad_variable_evaluation():
     """Test that the values of Ad variables are as expected under evalutation

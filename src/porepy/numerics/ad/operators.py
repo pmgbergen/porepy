@@ -1624,6 +1624,11 @@ class Variable(Operator):
         If the variable is already a representation of the previous time step, the
         method returns itself.
 
+        Raises:
+            ValueError:
+                If the variable is a representation of the previous time
+                iteration, previously set by :meth:`~previous_iteration`.
+
         Returns:
             A representation of this variable at the previous time step,
             with its ``prev_time`` attribute set to ``True``.
@@ -1631,6 +1636,12 @@ class Variable(Operator):
         """
         if self.prev_time:
             return self
+
+        if self.prev_iter:
+            raise ValueError(
+                "Cannot create a variable both on the previous time step and "
+                "previous iteration."
+            )
 
         ndof: dict[Literal["cells", "faces", "nodes"], int] = {
             "cells": self._cells,
@@ -1644,11 +1655,31 @@ class Variable(Operator):
 
     def previous_iteration(self) -> Variable:
         """
+        Raises:
+            ValueError:
+                If the variable is a representation of the previous time
+                step, previously set by :meth:`~previous_timestep`.
+
+            NotImplementedError:
+                If the variable is already a representation of the previous time
+                iteration. Currently, we support creating only one previous iteration.
+
         Returns:
             A representation of this variable on the previous time iteration,
             with its ``prev_iter`` attribute set to ``True``.
 
         """
+        if self.prev_time:
+            raise ValueError(
+                "Cannot create a variable both on the previous time step and "
+                "previous iteration."
+            )
+        if self.prev_iter:
+            raise NotImplementedError(
+                "Currently it is not supported to create a variable representing more"
+                "than one iterations behind."
+            )
+
         ndof: dict[Literal["cells", "faces", "nodes"], int] = {
             "cells": self._cells,
             "faces": self._faces,
