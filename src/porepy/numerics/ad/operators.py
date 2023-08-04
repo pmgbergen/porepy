@@ -1621,13 +1621,14 @@ class Variable(Operator):
     def previous_timestep(self) -> Variable:
         """Return a representation of this variable on the previous time step.
 
-        If the variable is already a representation of the previous time step, the
-        method returns itself.
-
         Raises:
             ValueError:
                 If the variable is a representation of the previous time
                 iteration, previously set by :meth:`~previous_iteration`.
+
+            NotImplementedError:
+                If the variable is already a representation of the previous time step.
+                Currently, we support creating only one previous time step.
 
         Returns:
             A representation of this variable at the previous time step,
@@ -1657,11 +1658,13 @@ class Variable(Operator):
         return new_var
 
     def previous_iteration(self) -> Variable:
-        """
+        """Return a representation of this mixed-dimensional variable on the previous
+        iteration.
+
         Raises:
             ValueError:
-                If the variable is a representation of the previous time
-                step, previously set by :meth:`~previous_timestep`.
+                If the variable is a representation of the previous time step,
+                previously set by :meth:`~previous_timestep`.
 
             NotImplementedError:
                 If the variable is already a representation of the previous time
@@ -1825,15 +1828,20 @@ class MixedDimensionalVariable(Variable):
         """Return a representation of this mixed-dimensional variable on the previous
         time step.
 
-        If the md-variable is already defined on the previous time step, return itself.
+        Raises:
+            ValueError:
+                If the variable is a representation of the previous time
+                iteration, previously set by :meth:`~previous_iteration`.
+
+            NotImplementedError:
+                If the variable is already a representation of the previous time step.
+                Currently, we support creating only one previous time step.
 
         Returns:
             A representation of this merged variable on the previous time
             iteration, with its ``prev_iter`` attribute set to ``True``.
 
         """
-        if self.prev_time:
-            return self
 
         new_subs = [var.previous_timestep() for var in self.sub_vars]
         new_var = MixedDimensionalVariable(new_subs)
@@ -1845,6 +1853,15 @@ class MixedDimensionalVariable(Variable):
     def previous_iteration(self) -> MixedDimensionalVariable:
         """Return a representation of this mixed-dimensional variable on the previous
         iteration.
+
+        Raises:
+            ValueError:
+                If the variable is a representation of the previous time step,
+                previously set by :meth:`~previous_timestep`.
+
+            NotImplementedError:
+                If the variable is already a representation of the previous time
+                iteration. Currently, we support creating only one previous iteration.
 
         Returns:
             A representation of this merged variable on the previous
