@@ -1635,7 +1635,10 @@ class Variable(Operator):
 
         """
         if self.prev_time:
-            return self
+            raise NotImplementedError(
+                "Currently, it is not supported to create a variable that represents "
+                "more than one time step behind."
+            )
 
         if self.prev_iter:
             raise ValueError(
@@ -1676,8 +1679,8 @@ class Variable(Operator):
             )
         if self.prev_iter:
             raise NotImplementedError(
-                "Currently it is not supported to create a variable representing more"
-                "than one iterations behind."
+                "Currently, it is not supported to create a variable that represents "
+                "more than one iteration behind."
             )
 
         ndof: dict[Literal["cells", "faces", "nodes"], int] = {
