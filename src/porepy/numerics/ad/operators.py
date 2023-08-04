@@ -1623,8 +1623,8 @@ class Variable(Operator):
 
         Raises:
             ValueError:
-                If the variable is a representation of the previous time
-                iteration, previously set by :meth:`~previous_iteration`.
+                If the variable is a representation of the previous iteration,
+                previously set by :meth:`~previous_iteration`.
 
             NotImplementedError:
                 If the variable is already a representation of the previous time step.
@@ -1830,8 +1830,8 @@ class MixedDimensionalVariable(Variable):
 
         Raises:
             ValueError:
-                If the variable is a representation of the previous time
-                iteration, previously set by :meth:`~previous_iteration`.
+                If the variable is a representation of the previous iteration,
+                previously set by :meth:`~previous_iteration`.
 
             NotImplementedError:
                 If the variable is already a representation of the previous time step.
