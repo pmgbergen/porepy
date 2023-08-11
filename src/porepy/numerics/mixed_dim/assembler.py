@@ -14,7 +14,7 @@ import porepy as pp
 csc_or_csr_matrix = Union[sps.csc_matrix, sps.csr_matrix]
 
 GridVariableTerm = namedtuple("GridVariableTerm", ["grid", "row", "col", "term"])
-GridVariableTerm.__doc__ += (
+GridVariableTerm.__doc__ = (
     "Combinations of grids variables and terms found in MixedDimensionalGrid"
 )
 GridVariableTerm.grid.__doc__ = (
