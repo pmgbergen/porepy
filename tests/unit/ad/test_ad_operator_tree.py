@@ -376,6 +376,19 @@ def test_ad_variable_creation():
     assert mvar_1_prev_iter.id != mvar_1.id
     assert mvar_1_prev_time.id != mvar_1.id
 
+    # We prohibit creating a variable both on previous time step and iter.
+    with pytest.raises(ValueError):
+        _ = mvar_1_prev_iter.previous_timestep()
+    with pytest.raises(ValueError):
+        _ = mvar_1_prev_time.previous_iteration()
+
+    # We prohibit creating a variable on more than one iter or time step behind.
+    # NOTE: This should be removed when this feature is implemented.
+    with pytest.raises(NotImplementedError):
+        _ = mvar_1_prev_iter.previous_iteration()
+    with pytest.raises(NotImplementedError):
+        _ = mvar_1_prev_time.previous_timestep()
+
 
 def test_ad_variable_evaluation():
     """Test that the values of Ad variables are as expected under evalutation
@@ -795,12 +808,3 @@ def test_time_differentiation():
     dt_mvar = pp.ad.dt(mvar * mvar, time_step)
     assert np.allclose(dt_mvar.evaluate(eq_system).val[: sd.num_cells], 4)
     assert np.allclose(dt_mvar.evaluate(eq_system).val[sd.num_cells :], 0.5)
-
-    # Finally create a variable at the previous time step. Its derivative should be
-    # zero.
-    var_2 = var_1.previous_timestep()
-    dt_var_2 = pp.ad.dt(var_2, time_step)
-    assert np.allclose(dt_var_2.evaluate(eq_system), 0)
-    # Also test the time increment method
-    diff_var_2 = pp.ad.time_increment(var_2)
-    assert np.allclose(diff_var_2.evaluate(eq_system), 0)

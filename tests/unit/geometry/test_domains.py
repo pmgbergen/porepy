@@ -42,6 +42,13 @@ def test_init(bounding_box, dim):
     if bounding_box:
         # Generate from bounding box
         domain = pp.Domain(bounding_box=known_box)
+        # Generate bounding box without providing min values
+        max_box = {key: val for key, val in known_box.items() if "max" in key}
+        domain_default_min = pp.Domain(bounding_box=max_box)
+        # Check that the two domains are the same
+        assert domain == domain_default_min
+        # Proceed with the rest of the tests for the domain with min values.
+
     else:
         # Generate from polytope
         domain = pp.Domain(polytope=known_polytope)

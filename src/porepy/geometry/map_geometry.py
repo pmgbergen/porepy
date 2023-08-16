@@ -347,7 +347,7 @@ def project_line_matrix(
         reference = np.array([0.0, 0.0, 1.0])
 
     # Appease mypy
-    assert type(tangent) == np.ndarray
+    assert isinstance(tangent, np.ndarray)
 
     reference = np.asarray(reference, dtype=float)
     angle = np.arccos(np.dot(tangent, reference))
@@ -431,7 +431,8 @@ def normal_matrix(
         raise ValueError(
             "Need either points or normal vector to compute normal matrix."
         )
-    assert type(normal) == np.ndarray
+    # Appease mypy
+    assert isinstance(normal, np.ndarray)
 
     # Ravel normal vector for the calculation to work
     return np.tensordot(normal, normal.ravel(), axes=0)
