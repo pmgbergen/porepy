@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import pathlib
 import sys
+import os
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -79,7 +80,7 @@ from _config import (
 )
 
 # Max iter number, for visualization of respective plot
-MAX_ITER: int = 50
+MAX_ITER: int = 150
 
 # bounding errors from below for plotting purpose
 ERROR_CAP = 1e-10
@@ -114,6 +115,10 @@ if __name__ == "__main__":
     nan = str(NAN_ENTRY)
     fig_num: int = 1  # for numbering the figures
     fig_path: str = f"{path()}/{FIG_PATH}"
+
+    if not os.path.isdir(fig_path):
+        logger.info("Creating figure directory ..\n")
+        os.mkdir(fig_path)
 
     # read p-T data
     logger.info("Reading p-T data for thermo comparison ..")
@@ -313,7 +318,7 @@ if __name__ == "__main__":
 
             if T_res not in [NAN_ENTRY, str(NAN_ENTRY)]:
                 err = np.abs(float(T_res) - T_target)
-                if err > 3.0 and DEBUG:
+                if err > 1.0 and DEBUG:
                     print("investigate: phT", p_, h_, T_, f"\terr: {err}")
             else:
                 err = 0.0  # np.nan
@@ -377,7 +382,7 @@ if __name__ == "__main__":
             err_hv_s_ip.append(np.abs(s_pT - s_hv))
             err_hv_y_ip.append(np.abs(y_pT - y_hv))
 
-            if DEBUG and (err_hv_p_ip[-1] > 5 or err_hv_T_ip[-1] > 5):
+            if DEBUG and (err_hv_p_ip[-1] > 1 or err_hv_T_ip[-1] > 1):
                 print(
                     "investigate: pThv",
                     HV_ISOBAR,
@@ -434,7 +439,7 @@ if __name__ == "__main__":
             err_hv_s_iT.append(np.abs(s_pT - s_hv))
             err_hv_y_iT.append(np.abs(y_pT - y_hv))
 
-            if DEBUG and (err_hv_p_iT[-1] > 5 or err_hv_T_iT[-1] > 5):
+            if DEBUG and (err_hv_p_iT[-1] > 1 or err_hv_T_iT[-1] > 1):
                 print(
                     "investigate: pThv",
                     HV_ISOBAR,
@@ -704,6 +709,7 @@ if __name__ == "__main__":
     )
     cbt = cb.get_ticks()
     cbt = cbt[(cbt <= cond_end.max()) & (cbt >= cond_end.min())]
+    cbt = np.sort(cbt)[1:]
     cbt = np.sort(np.hstack([cbt, np.array([cond_end.min(), cond_end.max()])]))
     cb.set_ticks(cbt)
 

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import pathlib
 import sys
+import os
 import time
 
 import numpy as np
@@ -44,6 +45,7 @@ from _config import (
     read_data_column,
     v_HEADER,
     write_results,
+    path,
 )
 
 # Flags for which data should be computed, to avoid long waiting for re-computations
@@ -73,6 +75,11 @@ if __name__ == "__main__":
         comps[0].CASr_number, comps[1].CASr_number
     )
     logger.info(f"{comps[0].name} - {comps[1].name}: {bip}\n")
+
+    data_path = f"{path()}/data/"
+    if not os.path.isdir(data_path):
+        logger.info("Creating data directory ..\n")
+        os.mkdir(data_path)
 
     if COMPUTE_THERMO_DATA:
         logger.info("Starting thermo calculations ..\n")

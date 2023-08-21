@@ -686,7 +686,7 @@ def create_mixture(
     flash = pp.composite.FlashNR(mix)
     flash.use_armijo = True
     flash.armijo_parameters["rho"] = 0.99
-    flash.armijo_parameters["j_max"] = 50
+    flash.armijo_parameters["j_max"] = 70
     flash.armijo_parameters["return_max"] = True
     flash.newton_update_chop = 1.0
     flash.tolerance = 1e-5

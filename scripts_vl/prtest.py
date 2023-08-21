@@ -5,7 +5,7 @@ import porepy as pp
 chems = ["H2O", "CO2"]
 
 vec = np.ones(1)
-z = [vec * 0.01]  # only co2 fraction is enough
+z = [vec * 0.99,  vec * 0.01]
 p = vec * 27000000.0
 T = vec * 664.2857142857142
 h = vec * -13185.069163143246
