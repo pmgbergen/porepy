@@ -16,14 +16,19 @@ import porepy as pp
 chems = ["H2O", "CO2"]
 
 vec = np.ones(1)
-z = [vec * 0.01]  # only co2 fraction is enough
+# feed fractions
+z = [vec * 0.99,  vec * 0.01]
+# pressure
 p = vec * 13000000.0
+# temperature
 T = vec * 550.0
+# verbosity for logs during flash
 verbosity = 2
 
 ### Setting up the fluid mixture
 species = pp.composite.load_species(chems)
 
+# Components using specific models for ideal enthalpies.
 comps = [
     pp.composite.peng_robinson.H2O.from_species(species[0]),
     pp.composite.peng_robinson.CO2.from_species(species[1]),
