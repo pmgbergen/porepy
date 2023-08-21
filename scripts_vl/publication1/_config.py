@@ -51,7 +51,6 @@ GREY_COL = (0.5, 0.5, 0.5, 1)
 
 # Calculation modus for PorePy flash
 # 1 - point-wise (robust, but possibly very slow),
-# 2 - vectorized (not recommended),
 # 3 - parallelized (use with care, if system compatible)
 CALCULATION_MODE: int = 3
 
@@ -73,8 +72,8 @@ P_LIMITS_ISOTHERMS: list[float] = [1e6, 23000000.0]
 RESOLUTION_ph: int = 20
 
 # Isobar and isotherm for h-v calculations
-HV_ISOBAR: float = 13e6
-HV_ISOBAR_T_LIMITS: list[float] = [550, 620]
+HV_ISOBAR: float = 15e6
+HV_ISOBAR_T_LIMITS: list[float] = [575, 630]
 HV_ISOTHERM: float = 575.0
 HV_ISOTHERM_P_LIMITS: list[float] = [5e6, 15e6]
 # pressure and temperature resolution for isobar and isotherm for h-v flash
@@ -98,9 +97,6 @@ PRESSURE_SCALE_NAME: str = "MPa"
 # paths to where results should be stored
 THERMO_DATA_PATH: str = "data/thermodata.csv"  # storing results from therm
 PT_FLASH_DATA_PATH: str = "data/flash_pT.csv"  # storing p-T results from porepy
-PT_QUICKSHOT_DATA_PATH: str = (
-    "data/flash_pT_initial.csv"  # storing p-T results from initial guess
-)
 ISOTHERM_DATA_PATH: str = (
     "data/flash_pT_isotherms.csv"  # storing p-T results on isotherms
 )
@@ -651,12 +647,16 @@ def _progress_counter(q: Queue, NC: int, flash_result: AsyncResult):
 
 def create_mixture(
     num_vals: int,
+    flash_type: str,
 ) -> tuple[pp.composite.NonReactiveMixture, pp.composite.FlashNR]:
     """Returns instances of the modelled mixture and flash using PorePy's framework.
 
     ``num_vals`` is an integer indicating how many DOFs per state function are set.
     This is used for vectorization.
     Especially, choose 1 for a point-wise and parallelized flash.
+
+    ``flash_type`` is a string containing the flash type in terms of specificiations.
+    This influences the solver settings.
 
     Configure flash parameters here.
 
@@ -686,11 +686,15 @@ def create_mixture(
     flash = pp.composite.FlashNR(mix)
     flash.use_armijo = True
     flash.armijo_parameters["rho"] = 0.99
-    flash.armijo_parameters["j_max"] = 150
+    flash.armijo_parameters["j_max"] = 50
     flash.armijo_parameters["return_max"] = True
     flash.newton_update_chop = 1.0
     flash.tolerance = 1e-5
     flash.max_iter = 150
+
+    if flash_type == "h-v":
+        flash.armijo_parameters["rho"] = 0.9
+        flash.armijo_parameters["j_max"] = 150
 
     return mix, flash
 
@@ -749,7 +753,7 @@ def _parallel_porepy_flash(args):
     """
 
     i, state_1, state_2, flash_type, quickshot = args
-    msg = (i, state_1, state_2, quickshot)
+    msg = (i, state_1, state_2)
 
     # accessing shared memory
     global arrays_loc, progress_queue_loc
@@ -775,7 +779,7 @@ def _parallel_porepy_flash(args):
         phi_co2_L_arr,
     ) = arrays_loc
 
-    mix, flash = create_mixture(1)
+    mix, flash = create_mixture(1, flash_type)
     feed = [np.ones(1) * z for z in FEED]
 
     # Default entries are FAILURE
@@ -829,7 +833,8 @@ def _parallel_porepy_flash(args):
                 cn = np.linalg.cond(state(with_derivatives=True).jac.todense())
             except:
                 logger.warn(
-                    f"\nParallel {flash_type} failed to compute condition number at {msg} (exit code = {success_})\n"
+                    f"\nParallel {flash_type} failed to compute condition number at "
+                    + f"{msg} (exit code = {success_})\n"
                 )
                 cn = NAN_ENTRY
 
@@ -890,7 +895,7 @@ def calculate_porepy_data(
         logger.info(
             f"PorePy {flash_type}-flash: initializing point-wise calculations .."
         )
-        mix, flash = create_mixture(1)
+        mix, flash = create_mixture(1, flash_type)
         feed = [v * z for z in FEED]
 
         for f, xy in enumerate(zip(state_1, state_2)):
@@ -927,9 +932,10 @@ def calculate_porepy_data(
 
                     try:
                         cn = np.linalg.cond(state(with_derivatives=True).jac.todense())
-                    except Exception as err:
+                    except Exception:
                         logger.warn(
-                            f"\nPorepy {flash_type} failed to compute condition number at ({f}, {xy}) (exit code = {success})\n"
+                            f"\nPorepy {flash_type} failed to compute condition number"
+                            + f" at ({f}, {xy}) (exit code = {success})\n"
                         )
                         cn = NAN_ENTRY
                     else:
@@ -1154,10 +1160,14 @@ def _plot_Widom_line(axis: plt.Axes, A_mesh: np.ndarray, B_mesh: np.ndarray):
     img_line = axis.plot(x_vals, y_vals, linestyle="dashed", color="black", linewidth=3)
     # subcrit- triangle
     img_b = axis.plot(
-        [A_CRIT, A_CRIT], [0, B_CRIT], linestyle="dotted", color="black", linewidth=3
+        [A_CRIT, A_mesh.max()],
+        [B_CRIT, B_CRIT],
+        linestyle="dotted",
+        color="black",
+        linewidth=3,
     )
 
-    return [img_line[0], img_b[0]], ["Widom line", "A=A_c"]
+    return [img_line[0], img_b[0]], ["Widom line", "B=B_c"]
 
 
 def plot_root_regions(

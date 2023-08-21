@@ -1117,7 +1117,7 @@ class FlashNR:
                 # thd_state = self._guess_pT_for_hv_saha(
                 #     thd_state, num_vals, gas_phase_index
                 # )
-                for _ in range(25):
+                for _ in range(7):
                     # solve constraints
                     thd_state, res_is_zero = self._guess_pT_for_hv(
                         thd_state, num_vals, 2

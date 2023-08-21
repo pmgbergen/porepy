@@ -31,7 +31,6 @@ from _config import (
     P_LIMITS_ISOTHERMS,
     PH_FLASH_DATA_PATH,
     PT_FLASH_DATA_PATH,
-    PT_QUICKSHOT_DATA_PATH,
     SPECIES,
     T_HEADER,
     THERMO_DATA_PATH,
@@ -49,7 +48,6 @@ from _config import (
 
 # Flags for which data should be computed, to avoid long waiting for re-computations
 COMPUTE_THERMO_DATA = True
-COMPUTE_PT_DATA_quickshot = False  # return results after initial guess
 COMPUTE_PT_DATA = True
 COMPUTE_PH_DATA = True
 COMPUTE_HV_DATA = True
@@ -84,22 +82,10 @@ if __name__ == "__main__":
         logger.info(f"Finished thermo calculations ({end_time - start_time} seconds).")
         write_results(THERMO_DATA_PATH, results)
 
-    if COMPUTE_PT_DATA or COMPUTE_PT_DATA_quickshot:
+    if COMPUTE_PT_DATA:
         logger.info("Reading p-T data for PorePy flash ..")
         p_points = read_data_column(THERMO_DATA_PATH, p_HEADER)
         T_points = read_data_column(THERMO_DATA_PATH, T_HEADER)
-
-    if COMPUTE_PT_DATA_quickshot:
-        logger.info("Computing PorePy p-T initialization values ..\n")
-        start_time = time.time()
-        results = calculate_porepy_data(p_points, T_points, "p-T", quickshot=True)
-        end_time = time.time()
-        logger.info(
-            f"Finished computing p-T initialization values in ({end_time - start_time} seconds)."
-        )
-        write_results(PT_QUICKSHOT_DATA_PATH, results)
-
-    if COMPUTE_PT_DATA:
         logger.info("Starting PorePy p-T-calculations ..\n")
         start_time = time.time()
         results = calculate_porepy_data(p_points, T_points, "p-T", quickshot=False)
