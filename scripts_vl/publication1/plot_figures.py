@@ -78,8 +78,8 @@ from _config import (
     v_HEADER,
 )
 
-# some additional plots for debugging
-DEBUG: bool = True
+# Max iter number, for visualization of respective plot
+MAX_ITER: int = 50
 
 # bounding errors from below for plotting purpose
 ERROR_CAP = 1e-10
@@ -89,6 +89,9 @@ PLOT_ROOTS: bool = True
 
 # Padding from figure borders
 FIG_PAD: float = 0.05
+
+# prints some additional information for debugging
+DEBUG: bool = False
 
 font_size = 20
 plt.rc("font", size=font_size)  # controls default text size
@@ -209,7 +212,8 @@ if __name__ == "__main__":
             # final condition number
             cond_end[i, j] = float(res_pp[conditioning_HEADER][idx])
 
-            # absolute discrepancy in enthalpy, this is significant due to different models
+            # absolute discrepancy in enthalpy,
+            # this is significant due to different models
             h_t = float(res_thermo[h_HEADER][idx])
             h_pp = float(res_pp[h_HEADER][idx])
 
@@ -264,12 +268,20 @@ if __name__ == "__main__":
 
                 unity_gap[i, j] = 1 - sum(sum_)
 
+    # get only points where there is a mismatch
     sc_mismatch_p = sc_mismatch_p[sc_mismatch_p != 0.0]
     sc_mismatch_T = sc_mismatch_T[sc_mismatch_T != 0.0]
 
+    # removing the max iter for plotting purpose.
+    # points where max iter reached are plotted with markers, not coloring.
+    num_iter[num_iter >= MAX_ITER] = 0
+
+    # This happens, or is severely ill-conditioned. Set to max for plotting purpose.
     cond_end[np.isnan(cond_end)] = 0
     cond_end[cond_end == 0] = cond_end.max()
 
+    # if a flash failed (-1), set the error there to max error, for plotting purpose
+    # failures are plotted by coloring in a separate plot
     err_gas_frac[err_gas_frac == -1] = err_gas_frac.max()
 
     logger.info("Reading data for comparison along isotherms ..\n")
@@ -384,6 +396,7 @@ if __name__ == "__main__":
     err_hv_T_ip = np.array(err_hv_T_ip)
     err_hv_s_ip = np.array(err_hv_s_ip)
     err_hv_y_ip = np.array(err_hv_y_ip)
+    # Capping numerical zero errors from below for plotting purpose.
     err_hv_s_ip[err_hv_s_ip < ERROR_CAP] = ERROR_CAP
     err_hv_y_ip[err_hv_y_ip < ERROR_CAP] = ERROR_CAP
 
@@ -440,6 +453,7 @@ if __name__ == "__main__":
     err_hv_T_iT = np.array(err_hv_T_iT)
     err_hv_s_iT = np.array(err_hv_s_iT)
     err_hv_y_iT = np.array(err_hv_y_iT)
+    # Capping numerical zero errors from below for plotting purpose.
     err_hv_y_iT[err_hv_y_iT < ERROR_CAP] = ERROR_CAP
     err_hv_s_iT[err_hv_s_iT < ERROR_CAP] = ERROR_CAP
 
@@ -560,12 +574,14 @@ if __name__ == "__main__":
             0.55, 0.6, "supercrit.\nliq. extension", fontsize=rcParams["axes.titlesize"]
         )
         fig.text(
-            0.6,
-            0.18,
-            "subcrit.\nextension\n(B.Gharbia)",
+            0.77, 0.6, "supercrit.\ngas extension", fontsize=rcParams["axes.titlesize"]
+        )
+        fig.text(
+            0.72,
+            0.25,
+            "subcrit.\nextension\n(Ben Gharbia)",
             fontsize=rcParams["axes.titlesize"],
         )
-        fig.text(0.72, 0.5, "gas extension", fontsize=rcParams["axes.titlesize"])
 
         fig.tight_layout(pad=FIG_PAD)
         fig.savefig(
@@ -654,7 +670,8 @@ if __name__ == "__main__":
     )
     cbt = cb.get_ticks()
     cbt = np.sort(np.hstack([cbt, np.array([num_iter.max()])]))
-    cb.set_ticks(cbt)
+    cbt = cbt[cbt <= num_iter.max()]
+    cb.set_ticks(cbt.astype(int))
 
     fig.tight_layout(pad=FIG_PAD)
     fig.savefig(

@@ -305,6 +305,11 @@ class PengRobinsonEoS(AbstractEoS):
         """The Widom line for water characterized by two points at ``A=0`` and
         ``A=A_criet``"""
 
+        self._B_crit_points: np.ndarray = np.array(
+            [[0, self.B_CRIT], [self.A_CRIT, self.B_CRIT]]
+        )
+        """Two points (rows) characterizing the line ``B=B_crit``."""
+
         self._critline_points: np.ndarray = np.array(
             [[0, 0], [self.A_CRIT, self.B_CRIT]]
         )
@@ -971,8 +976,20 @@ class PengRobinsonEoS(AbstractEoS):
 
     @staticmethod
     def extended_root_sub(B: NumericType, Z: NumericType) -> NumericType:
-        """Auxiliary function implementing the formula for the extended root, motivated
-        by the formula proposed in Gharbia et al. (2021)
+        """Auxiliary function implementing the formula for the extended, subcritical
+        root proposed in Gharbia et al. (2021)
+
+        Parameters:
+            B: Dimensionless covolume.
+            Z: The real root.
+
+        """
+        return (1 - B - Z) / 2
+    
+    @staticmethod
+    def extended_root_gas_sc(B: NumericType, Z: NumericType) -> NumericType:
+        """Auxiliary function implementing the formula for the extended, supercritical
+        gas root.
 
         Parameters:
             B: Dimensionless covolume.
@@ -982,9 +999,9 @@ class PengRobinsonEoS(AbstractEoS):
         return (1 - B - Z) / 2 + B  # * 2 + self.B_CRIT
 
     @staticmethod
-    def extended_root_super(B: NumericType, Z: NumericType) -> NumericType:
-        """Auxiliary function implementing the formula for the extended root in the
-        supercritical region
+    def extended_root_liquid_sc(B: NumericType, Z: NumericType) -> NumericType:
+        """Auxiliary function implementing the formula for the extended, supercritical
+        liquid root
 
         Parameters:
             B: Dimensionless covolume.
@@ -1096,8 +1113,11 @@ class PengRobinsonEoS(AbstractEoS):
             & (B <= self.B_CRIT + self.eps)
         )
         # subcritical triangle in the acbc rectangle
-        # NOTE: This is te area where the Gharbia analysis holds
-        subc_triang = (~self.is_supercritical) & (B < self.B_CRIT)
+        # Area where the Gharbia analysis and extension holds
+        gharbia_ext = (~self.is_supercritical) & (B < self.B_CRIT)
+        # extra regions for extensions
+        liq_ext_supc = self.is_supercritical & (~widom_line)
+        gas_ext_supc = (~gharbia_ext) & widom_line
 
         # discriminant of zero indicates triple or two real roots with multiplicity
         degenerate_region = (delta >= -self.eps) & (delta <= self.eps)
@@ -1134,6 +1154,7 @@ class PengRobinsonEoS(AbstractEoS):
             q_ = q[one_root_region]
             delta_ = delta[one_root_region]
             c2_ = c2[one_root_region]
+            A_ = A[one_root_region]
             B_ = B[one_root_region]
 
             # delta has only positive values in this case by logic
@@ -1161,6 +1182,53 @@ class PengRobinsonEoS(AbstractEoS):
             # real part of the conjugate imaginary roots
             # used for extension of vanished roots
             w = self.extended_root_sub(B_, z_1)
+
+            # using asymmetric, supercritical extension
+            gas_ext_supc = gas_ext_supc[one_root_region]
+            liq_ext_supc = liq_ext_supc[one_root_region]
+            smoothing_distance = 1e-1
+            if np.any(gas_ext_supc) and asymmetric_extension:
+                w_g = self.extended_root_gas_sc(B_, z_1)[gas_ext_supc]
+                w_sub = w[gas_ext_supc]
+
+                # compute normal distance of extended gas root in supercritical area
+                # to line B = B_CRIT
+                a = A_.val[gas_ext_supc] if isinstance(A_, pp.ad.AdArray) else A_[gas_ext_supc]
+                b = B_.val[gas_ext_supc] if isinstance(B_, pp.ad.AdArray) else B_[gas_ext_supc]
+                ab = np.array([a, b])
+
+                d_g  = _point_to_line_distance(ab, self._B_crit_points)
+
+                # smoothing towards subcritical region (Gharbia extension)
+                smooth = (d_g < smoothing_distance) & (b >= self.B_CRIT)
+                d = d_g / smoothing_distance  # normalize distance
+                w_g[smooth] = (w_sub * (1 - d) + w_g * d)[smooth]
+                w[gas_ext_supc] = w_g
+            if np.any(liq_ext_supc) and asymmetric_extension:
+                # Extended root in the supercritical region
+                w_l = self.extended_root_liquid_sc(B_, z_1)[liq_ext_supc]
+                w_g = self.extended_root_gas_sc(B_, z_1)[liq_ext_supc]
+                w_sub = w[liq_ext_supc]
+
+                # compute normal distance of extended liquid root to critical line and
+                # normal line and chose the smaller one
+                a = A_.val[liq_ext_supc] if isinstance(A_, pp.ad.AdArray) else A_[liq_ext_supc]
+                b = B_.val[liq_ext_supc] if isinstance(B_, pp.ad.AdArray) else B_[liq_ext_supc]
+                ab = np.array([a, b])
+                d_w = _point_to_line_distance(ab, self._widom_points)
+                d_s = _point_to_line_distance(ab, self._critline_points)
+
+                # smoothing towards supercritical gas extension
+                # Smoothing using a convex combination of extended gas root
+                smooth = (d_w < smoothing_distance) & (b >= self.B_CRIT)
+                d = d_w / smoothing_distance  # normalize distance
+                w_l[smooth] = (w_g * (1 - d) + w_l * d)[smooth]
+                # smoothing towards subcritical Ben Gharbia extension
+                smooth = (d_s < smoothing_distance) & (b < self.B_CRIT)
+                d = d_s / smoothing_distance
+                w_l[smooth] = (w_sub * (1-d) + w_l * d)[smooth]
+
+                w[liq_ext_supc] = w_l
 
             if use_widom_line:
                 extension_is_bigger = widom_line[one_root_region]
@@ -1201,7 +1269,7 @@ class PengRobinsonEoS(AbstractEoS):
 
             # Smoothing procedure only valid in the sub-critical area, where the three
             # roots are positive and bound from below by B
-            smoothable = subc_triang[three_root_region]
+            smoothable = gharbia_ext[three_root_region]
             if apply_smoother and np.any(smoothable):
                 z1_s, z3_s = root_smoother(z1, z2, z3, self.smoothing_factor)
 
@@ -1220,7 +1288,7 @@ class PengRobinsonEoS(AbstractEoS):
         ### COMPUTATIONS IN TRIPLE ROOT REGION
         # The critical point is known to be a triple root
         # Use logical or to include unknown triple points, but that should not happen
-        # NOTE In the critical point, the roots are unavoidably equal
+        # NOTE In this case, the roots are unavoidably equal
         region = triple_root_region | critical_point
         self.regions[0] = region
         if np.any(region):
@@ -1266,38 +1334,6 @@ class PengRobinsonEoS(AbstractEoS):
 
             Z_L[region] = z_23
             Z_G[region] = z_1
-
-        # Correction of extended liquid like root above the supercritical line
-        # Asymmetric extension
-        correction = self.is_supercritical
-        if use_widom_line:  # Widom line has larger incline than supercritical line
-            correction = self.is_supercritical & (~widom_line)
-        if np.any(correction) and asymmetric_extension and apply_smoother:
-
-            # Extended root in the supercritical region
-            w = self.extended_root_super(B, Z_G)[correction]
-
-            # compute normal distance of extended liquid root to critical line and
-            # normal line and chose the smaller one
-            A_ = A.val[correction] if isinstance(A, pp.ad.AdArray) else A[correction]
-            B_ = B.val[correction] if isinstance(B, pp.ad.AdArray) else B[correction]
-            AB = np.array([A_, B_])
-            d_w = _point_to_line_distance(AB, self._widom_points)
-            d_s = _point_to_line_distance(AB, self._critline_points)
-            d = np.minimum(d_w, d_s)
-
-            # designated distance of smoothing
-            smoothing_distance = 1e-2
-            smooth = d < smoothing_distance
-            if np.any(smooth):
-                # normalize distance at in smoothable region and make a convex-combination
-                # between sub and super-critical extension
-                d = d / smoothing_distance
-                w_sub = self.extended_root_sub(B, Z_G)[correction]
-
-                w[smooth] = (w_sub * (1 - d) + w * d)[smooth]
-
-            Z_L[correction] = w
 
         # convert Jacobians to csr
         if isinstance(Z_L, pp.ad.AdArray):
