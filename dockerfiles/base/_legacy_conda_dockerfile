@@ -1,19 +1,12 @@
-# This is the base image for PorePy installations. It is not intended for direct use,
-# instead, use the stable or development versions.
-# To build:
+# This is a legacy file that allows for setting up docker image with PorePy using conda
+# to install dependencies. The file has not been used since August 2023, when it was
+# decided to switch to the much simpler pip install. The file is kept to give users who
+# need to use PorePy together with conda a starting point, but the file is not
+# maintained. Unless you have a specific reason to use conda, we recommend using the
+# official, pip-based, Docker images instead.
 #
-#    docker build  --tag porepy --file dockerfiles/base/Dockerfile .
-#
-# To run (sharing the current directory with the container)
-#
-#    docker run -ti -v $(pwd):/home/porepy/shared porepy:latest
-#
-# To save a modified container, from host:
-#
-#    docker commit porepy TAG_FOR_NEW_IMAGE
-#    docker run -ti TAG_FOR_NEW_IMAGE  # will contain modifications.
-#
-
+# BELOW HERE IS LEGACY CODE
+# 
 # Base the Docker image on phusion, since this apparently gives a version of
 # Ubuntu better suited for running inside a container.
 FROM phusion/baseimage:jammy-1.0.0
