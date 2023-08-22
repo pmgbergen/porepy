@@ -28,7 +28,7 @@ RUN git checkout main
 # Do the install
 RUN pip install -e .
 
-# Run a pip freeze it is always good to know whas been installed
+# Run a pip freeze. It is always good to know what been installed.
 RUN pip freeze
 
 # Add PorePy home to the pythonpath. This may or may not be necessary.
