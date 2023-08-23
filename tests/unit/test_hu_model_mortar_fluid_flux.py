@@ -98,7 +98,7 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
     def before_nonlinear_iteration(self):
         """ """
 
-        pp.plot_grid(self.mdg, info='c', alpha=0)
+        pp.plot_grid(self.mdg, info='cf', alpha=0)
 
         self.mixture.apply_constraint(self.ell)
         
@@ -188,7 +188,6 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
         self.rediscretize()
 
         # TEST: ---------------------------------------------------------------------------
-
         # open the fracture:
         for sd in self.mdg.subdomains():
             if sd.dim == 2:
@@ -213,24 +212,24 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
         # ---------
         #  3     2
 
-        # for sd in self.mdg.subdomains():
-        #     if sd.dim == 2:
-        #         normals = sd.face_normals
-        #         pp.plot_grid(
-        #             sd, vector_value=0.5 * normals, alpha=0
-        #         )  # REMARK: mortar are positive from higer to lower, they do NOT respect the face normals
-        #         pdb.set_trace()
-
-        for sd,data in self.mdg.subdomains(return_data=True):
+        div = pp.ad.Divergence(self.mdg.subdomains(), dim=1).evaluate(self.equation_system)
+        print(div)
+        for sd in self.mdg.subdomains():
             if sd.dim == 2:
                 normals = sd.face_normals
-                darcy_phase_0 = data[pp.PARAMETERS][self.ppu_keyword]["darcy_flux_phase_0"] * normals
-                darcy_phase_1 = data[pp.PARAMETERS][self.ppu_keyword]["darcy_flux_phase_1"] * normals
-                pp.plot_grid(sd, vector_value=0.5 * darcy_phase_0, alpha=0, title="darcy_phase_0")
-                pp.plot_grid(sd, vector_value=0.5 * darcy_phase_1, alpha=0, title="darcy_phase_1")
+                pp.plot_grid(
+                    sd, vector_value=0.5 * normals, info='f', alpha=0
+                )  # REMARK: mortar are positive from higer to lower, they do NOT respect the face normals
                 pdb.set_trace()
-                
 
+        # for sd,data in self.mdg.subdomains(return_data=True):
+        #     if sd.dim == 2:
+        #         normals = sd.face_normals
+        #         darcy_phase_0 = data[pp.PARAMETERS][self.ppu_keyword]["darcy_flux_phase_0"] * normals
+        #         darcy_phase_1 = data[pp.PARAMETERS][self.ppu_keyword]["darcy_flux_phase_1"] * normals
+        #         pp.plot_grid(sd, vector_value=0.5 * darcy_phase_0, alpha=0, title="darcy_phase_0")
+        #         pp.plot_grid(sd, vector_value=0.5 * darcy_phase_1, alpha=0, title="darcy_phase_1")
+                
 
         for intf, data in self.mdg.interfaces(return_data=True, codim=1):
             mortar_initialized = (
@@ -247,650 +246,704 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
             )
             assert np.all(mortar_initialized == np.array([0, 0, 0, 0]))
 
-            # pay attention, you are goning to evaluate the equation "lamnda - rhs = ...". Since lambda = 0 ny initialization the evaluation of thr equations is -mortar
-            # that's why i'll write -np.array([...
-            # NO, please, put a minus in mortar
-
-            # notations:
-            # (see upwind.py) boundary flux >0 => outwards, so boundary flux <0 corrensponds to accumulation
-            # mortar >0 if from higher to lower
-            # so mortar > 0 => fluid flux >0 => exiting boundary flux => a minus in the conservation law: div(F-boundary_flux)
-
-            mortar_phase_0 = -(
-                self.interface_mortar_flux_equation_phase_0([intf])
-                .evaluate(self.equation_system)
-                .val
-            )
-
-            mortar_phase_1 = -(
-                self.interface_mortar_flux_equation_phase_1([intf])
-                .evaluate(self.equation_system)
-                .val
-            )
-
-            fluid_flux_phase_0 = (
-                self.interface_fluid_mass_flux_phase_0(
-                    pp.ad.DenseArray(mortar_phase_0),
-                    [intf],
-                    self.mixture.get_phase(0),
-                    "interface_mortar_flux_phase_0",
-                )
-                .evaluate(self.equation_system)
-                .val
-            )
-
-            fluid_flux_phase_1 = (
-                self.interface_fluid_mass_flux_phase_1(
-                    pp.ad.DenseArray(mortar_phase_1),
-                    [intf],
-                    self.mixture.get_phase(1),
-                    "interface_mortar_flux_phase_1",
-                )
-                .evaluate(self.equation_system)
-                .val
-            )
-
-            print("\n\n\n")
-            print("mortar_phase_0 = ", mortar_phase_0)
-            print("mortar_phase_1 = ", mortar_phase_1)
-            print("fluid_flux_phase_0 = ", fluid_flux_phase_0)
-            print("fluid_flux_phase_1 = ", fluid_flux_phase_1)
-
-            pdb.set_trace()
-
-            if self.case == 1:  # delta p = 0, g = 1, s0=0
-                rho_mob_phase_0 = 0
-                rho_mob_phase_1 = 0.5
-
-                assert np.all(
-                    np.isclose(
-                        mortar_phase_0, np.array([1, 1, -1, -1]), rtol=0, atol=1e-10
-                    )
-                )
-                assert np.all(
-                    np.isclose(
-                        fluid_flux_phase_0,
-                        rho_mob_phase_0 * np.array([1, 1, -1, -1]),
-                        rtol=0,
-                        atol=1e-10,
-                    )
-                )
-
-                assert np.all(
-                    np.isclose(
-                        mortar_phase_1,
-                        np.array([0.5, 0.5, -0.5, -0.5]),
-                        rtol=0,
-                        atol=1e-10,
-                    )
-                )
-                assert np.all(
-                    np.isclose(
-                        fluid_flux_phase_1,
-                        rho_mob_phase_1 * np.array([0.5, 0.5, -0.5, -0.5]),
-                        rtol=0,
-                        atol=1e-10,
-                    )
-                )
-
-            if self.case == 2:  # delta p = 0, g = 1, s0=1
-                rho_mob_phase_0 = 1
-                rho_mob_phase_1 = 0
-
-                assert np.all(
-                    np.isclose(
-                        mortar_phase_0, np.array([1, 1, -1, -1]), rtol=0, atol=1e-10
-                    )
-                )
-                assert np.all(
-                    np.isclose(
-                        fluid_flux_phase_0,
-                        rho_mob_phase_0 * np.array([1, 1, -1, -1]),
-                        rtol=0,
-                        atol=1e-10,
-                    )
-                )
-
-                assert np.all(
-                    np.isclose(
-                        mortar_phase_1,
-                        np.array([0.5, 0.5, -0.5, -0.5]),
-                        rtol=0,
-                        atol=1e-10,
-                    )
-                )
-                assert np.all(
-                    np.isclose(
-                        fluid_flux_phase_1,
-                        rho_mob_phase_1 * np.array([0.5, 0.5, -0.5, -0.5]),
-                        rtol=0,
-                        atol=1e-10,
-                    )
-                )
-
-            if self.case == 3:  # delta p = 1, g = 0, s0=0
-                rho_mob_phase_0 = 0
-                rho_mob_phase_1 = 0.5
-
-                assert np.all(
-                    np.isclose(
-                        mortar_phase_0, np.array([20, 20, 20, 20]), rtol=0, atol=1e-10
-                    )
-                )
-                assert np.all(
-                    np.isclose(
-                        fluid_flux_phase_0,
-                        rho_mob_phase_0 * np.array([20, 20, 20, 20]),
-                        rtol=0,
-                        atol=1e-10,
-                    )
-                )
-
-                assert np.all(
-                    np.isclose(
-                        mortar_phase_1,
-                        np.array([20, 20, 20, 20]),
-                        rtol=0,
-                        atol=1e-10,
-                    )
-                )
-                assert np.all(
-                    np.isclose(
-                        fluid_flux_phase_1,
-                        rho_mob_phase_1 * np.array([20, 20, 20, 20]),
-                        rtol=0,
-                        atol=1e-10,
-                    )
-                )
-
-            if self.case == 4:  # delta p = 1, g = 0, s0=1
-                rho_mob_phase_0 = 1
-                rho_mob_phase_1 = 0
-
-                assert np.all(
-                    np.isclose(
-                        mortar_phase_0, np.array([20, 20, 20, 20]), rtol=0, atol=1e-10
-                    )
-                )
-                assert np.all(
-                    np.isclose(
-                        fluid_flux_phase_0,
-                        rho_mob_phase_0 * np.array([20, 20, 20, 20]),
-                        rtol=0,
-                        atol=1e-10,
-                    )
-                )
-
-                assert np.all(
-                    np.isclose(
-                        mortar_phase_1,
-                        np.array([20, 20, 20, 20]),
-                        rtol=0,
-                        atol=1e-10,
-                    )
-                )
-                assert np.all(
-                    np.isclose(
-                        fluid_flux_phase_1,
-                        rho_mob_phase_1 * np.array([20, 20, 20, 20]),
-                        rtol=0,
-                        atol=1e-10,
-                    )
-                )
-
-            if self.case == 5:  # delta p = -1, g = 0, s0=0
-                rho_mob_phase_0 = 0
-                rho_mob_phase_1 = 0.5
-
-                assert np.all(
-                    np.isclose(
-                        mortar_phase_0,
-                        np.array([-20, -20, -20, -20]),
-                        rtol=0,
-                        atol=1e-10,
-                    )
-                )
-                assert np.all(
-                    np.isclose(
-                        fluid_flux_phase_0,
-                        rho_mob_phase_0 * np.array([-20, -20, -20, -20]),
-                        rtol=0,
-                        atol=1e-10,
-                    )
-                )
-
-                assert np.all(
-                    np.isclose(
-                        mortar_phase_1,
-                        np.array([-20, -20, -20, -20]),
-                        rtol=0,
-                        atol=1e-10,
-                    )
-                )
-                assert np.all(
-                    np.isclose(
-                        fluid_flux_phase_1,
-                        rho_mob_phase_1 * np.array([-20, -20, -20, -20]),
-                        rtol=0,
-                        atol=1e-10,
-                    )
-                )
-
-            if self.case == 6:  # delta p = 1, g = 1, s0=0
-                rho_mob_phase_0 = 0
-                rho_mob_phase_1 = 0.5
-
-                assert np.all(
-                    np.isclose(
-                        mortar_phase_0,
-                        np.array([21, 21, 19, 19]),
-                        rtol=0,
-                        atol=1e-10,
-                    )
-                )
-                assert np.all(
-                    np.isclose(
-                        fluid_flux_phase_0,
-                        rho_mob_phase_0 * np.array([21, 21, 19, 19]),
-                        rtol=0,
-                        atol=1e-10,
-                    )
-                )
-
-                assert np.all(
-                    np.isclose(
-                        mortar_phase_1,
-                        np.array([20.5, 20.5, 19.5, 19.5]),
-                        rtol=0,
-                        atol=1e-10,
-                    )
-                )
-                assert np.all(
-                    np.isclose(
-                        fluid_flux_phase_1,
-                        rho_mob_phase_1 * np.array([20.5, 20.5, 19.5, 19.5]),
-                        rtol=0,
-                        atol=1e-10,
-                    )
-                )
-
-            if self.case == 7:  # delta p = 1, g = 1, s0=0
-                rho_mob_phase_0 = 1
-                rho_mob_phase_1 = 0
-
-                assert np.all(
-                    np.isclose(
-                        mortar_phase_0,
-                        np.array([21, 21, 19, 19]),
-                        rtol=0,
-                        atol=1e-10,
-                    )
-                )
-                assert np.all(
-                    np.isclose(
-                        fluid_flux_phase_0,
-                        rho_mob_phase_0 * np.array([21, 21, 19, 19]),
-                        rtol=0,
-                        atol=1e-10,
-                    )
-                )
-
-                assert np.all(
-                    np.isclose(
-                        mortar_phase_1,
-                        np.array([20.5, 20.5, 19.5, 19.5]),
-                        rtol=0,
-                        atol=1e-10,
-                    )
-                )
-                assert np.all(
-                    np.isclose(
-                        fluid_flux_phase_1,
-                        rho_mob_phase_1 * np.array([20.5, 20.5, 19.5, 19.5]),
-                        rtol=0,
-                        atol=1e-10,
-                    )
-                )
-
-            if self.case == 8:  # delta p = -1, g = 1, s0=1
-                rho_mob_phase_0 = 1
-                rho_mob_phase_1 = 0
-
-                assert np.all(
-                    np.isclose(
-                        mortar_phase_0,
-                        np.array([-19, -19, -21, -21]),
-                        rtol=0,
-                        atol=1e-10,
-                    )
-                )
-                assert np.all(
-                    np.isclose(
-                        fluid_flux_phase_0,
-                        rho_mob_phase_0 * np.array([-19, -19, -21, -21]),
-                        rtol=0,
-                        atol=1e-10,
-                    )
-                )
-
-                assert np.all(
-                    np.isclose(
-                        mortar_phase_1,
-                        np.array([-19.5, -19.5, -20.5, -20.5]),
-                        rtol=0,
-                        atol=1e-10,
-                    )
-                )
-                assert np.all(
-                    np.isclose(
-                        fluid_flux_phase_1,
-                        rho_mob_phase_1 * np.array([-19.5, -19.5, -20.5, -20.5]),
-                        rtol=0,
-                        atol=1e-10,
-                    )
-                )
-
-
-
-
-
-
-            if self.case == 9:  # delta p = 0, g = 1, s0=0
-                rho_mob_phase_0 = 0
-                rho_mob_phase_1 = 0.5
-
-                assert np.all(
-                    np.isclose(
-                        mortar_phase_0, 2*np.array([1, 1, -1, -1]), rtol=0, atol=1e-10
-                    )
-                )
-                assert np.all(
-                    np.isclose(
-                        fluid_flux_phase_0,
-                        2*rho_mob_phase_0 * np.array([1, 1, -1, -1]),
-                        rtol=0,
-                        atol=1e-10,
-                    )
-                )
-
-                assert np.all(
-                    np.isclose(
-                        mortar_phase_1,
-                        2*np.array([0.5, 0.5, -0.5, -0.5]),
-                        rtol=0,
-                        atol=1e-10,
-                    )
-                )
-                assert np.all(
-                    np.isclose(
-                        fluid_flux_phase_1,
-                        2*rho_mob_phase_1 * np.array([0.5, 0.5, -0.5, -0.5]),
-                        rtol=0,
-                        atol=1e-10,
-                    )
-                )
-
-            if self.case == 10:  # delta p = 0, g = 1, s0=1
-                rho_mob_phase_0 = 1
-                rho_mob_phase_1 = 0
-
-                assert np.all(
-                    np.isclose(
-                        mortar_phase_0, 2*np.array([1, 1, -1, -1]), rtol=0, atol=1e-10
-                    )
-                )
-                assert np.all(
-                    np.isclose(
-                        fluid_flux_phase_0,
-                        2*rho_mob_phase_0 * np.array([1, 1, -1, -1]),
-                        rtol=0,
-                        atol=1e-10,
-                    )
-                )
-
-                assert np.all(
-                    np.isclose(
-                        mortar_phase_1,
-                        2*np.array([0.5, 0.5, -0.5, -0.5]),
-                        rtol=0,
-                        atol=1e-10,
-                    )
-                )
-                assert np.all(
-                    np.isclose(
-                        fluid_flux_phase_1,
-                        2*rho_mob_phase_1 * np.array([0.5, 0.5, -0.5, -0.5]),
-                        rtol=0,
-                        atol=1e-10,
-                    )
-                )
-
-            if self.case == 11:  # delta p = 1, g = 0, s0=0
-                rho_mob_phase_0 = 0
-                rho_mob_phase_1 = 0.5
-
-                assert np.all(
-                    np.isclose(
-                        mortar_phase_0, 2*np.array([20, 20, 20, 20]), rtol=0, atol=1e-10
-                    )
-                )
-                assert np.all(
-                    np.isclose(
-                        fluid_flux_phase_0,
-                        2*rho_mob_phase_0 * np.array([20, 20, 20, 20]),
-                        rtol=0,
-                        atol=1e-10,
-                    )
-                )
-
-                assert np.all(
-                    np.isclose(
-                        mortar_phase_1,
-                        2*np.array([20, 20, 20, 20]),
-                        rtol=0,
-                        atol=1e-10,
-                    )
-                )
-                assert np.all(
-                    np.isclose(
-                        fluid_flux_phase_1,
-                        2*rho_mob_phase_1 * np.array([20, 20, 20, 20]),
-                        rtol=0,
-                        atol=1e-10,
-                    )
-                )
-
-            if self.case == 12:  # delta p = 1, g = 0, s0=1
-                rho_mob_phase_0 = 1
-                rho_mob_phase_1 = 0
-
-                assert np.all(
-                    np.isclose(
-                        mortar_phase_0, 2*np.array([20, 20, 20, 20]), rtol=0, atol=1e-10
-                    )
-                )
-                assert np.all(
-                    np.isclose(
-                        fluid_flux_phase_0,
-                        2*rho_mob_phase_0 * np.array([20, 20, 20, 20]),
-                        rtol=0,
-                        atol=1e-10,
-                    )
-                )
-
-                assert np.all(
-                    np.isclose(
-                        mortar_phase_1,
-                        2*np.array([20, 20, 20, 20]),
-                        rtol=0,
-                        atol=1e-10,
-                    )
-                )
-                assert np.all(
-                    np.isclose(
-                        fluid_flux_phase_1,
-                        2*rho_mob_phase_1 * np.array([20, 20, 20, 20]),
-                        rtol=0,
-                        atol=1e-10,
-                    )
-                )
-
-            if self.case == 13:  # delta p = -1, g = 0, s0=0
-                rho_mob_phase_0 = 0
-                rho_mob_phase_1 = 0.5
-
-                assert np.all(
-                    np.isclose(
-                        mortar_phase_0,
-                        2*np.array([-20, -20, -20, -20]),
-                        rtol=0,
-                        atol=1e-10,
-                    )
-                )
-                assert np.all(
-                    np.isclose(
-                        fluid_flux_phase_0,
-                        2*rho_mob_phase_0 * np.array([-20, -20, -20, -20]),
-                        rtol=0,
-                        atol=1e-10,
-                    )
-                )
-
-                assert np.all(
-                    np.isclose(
-                        mortar_phase_1,
-                        2*np.array([-20, -20, -20, -20]),
-                        rtol=0,
-                        atol=1e-10,
-                    )
-                )
-                assert np.all(
-                    np.isclose(
-                        fluid_flux_phase_1,
-                        2*rho_mob_phase_1 * np.array([-20, -20, -20, -20]),
-                        rtol=0,
-                        atol=1e-10,
-                    )
-                )
-
-            if self.case == 14:  # delta p = 1, g = 1, s0=0
-                rho_mob_phase_0 = 0
-                rho_mob_phase_1 = 0.5
-
-                assert np.all(
-                    np.isclose(
-                        mortar_phase_0,
-                        2*np.array([21, 21, 19, 19]),
-                        rtol=0,
-                        atol=1e-10,
-                    )
-                )
-                assert np.all(
-                    np.isclose(
-                        fluid_flux_phase_0,
-                        2*rho_mob_phase_0 * np.array([21, 21, 19, 19]),
-                        rtol=0,
-                        atol=1e-10,
-                    )
-                )
-
-                assert np.all(
-                    np.isclose(
-                        mortar_phase_1,
-                        2*np.array([20.5, 20.5, 19.5, 19.5]),
-                        rtol=0,
-                        atol=1e-10,
-                    )
-                )
-                assert np.all(
-                    np.isclose(
-                        fluid_flux_phase_1,
-                        2*rho_mob_phase_1 * np.array([20.5, 20.5, 19.5, 19.5]),
-                        rtol=0,
-                        atol=1e-10,
-                    )
-                )
-
-            if self.case == 15:  # delta p = 1, g = 1, s0=0
-                rho_mob_phase_0 = 1
-                rho_mob_phase_1 = 0
-
-                assert np.all(
-                    np.isclose(
-                        mortar_phase_0,
-                        2*np.array([21, 21, 19, 19]),
-                        rtol=0,
-                        atol=1e-10,
-                    )
-                )
-                assert np.all(
-                    np.isclose(
-                        fluid_flux_phase_0,
-                        2*rho_mob_phase_0 * np.array([21, 21, 19, 19]),
-                        rtol=0,
-                        atol=1e-10,
-                    )
-                )
-
-                assert np.all(
-                    np.isclose(
-                        mortar_phase_1,
-                        2*np.array([20.5, 20.5, 19.5, 19.5]),
-                        rtol=0,
-                        atol=1e-10,
-                    )
-                )
-                assert np.all(
-                    np.isclose(
-                        fluid_flux_phase_1,
-                        2*rho_mob_phase_1 * np.array([20.5, 20.5, 19.5, 19.5]),
-                        rtol=0,
-                        atol=1e-10,
-                    )
-                )
-
-            if self.case == 16:  # delta p = -1, g = 1, s0=1
-                rho_mob_phase_0 = 1
-                rho_mob_phase_1 = 0
-
-                assert np.all(
-                    np.isclose(
-                        mortar_phase_0,
-                       2* np.array([-19, -19, -21, -21]),
-                        rtol=0,
-                        atol=1e-10,
-                    )
-                )
-                assert np.all(
-                    np.isclose(
-                        fluid_flux_phase_0,
-                       2* rho_mob_phase_0 * np.array([-19, -19, -21, -21]),
-                        rtol=0,
-                        atol=1e-10,
-                    )
-                )
-
-                assert np.all(
-                    np.isclose(
-                        mortar_phase_1,
-                        2*np.array([-19.5, -19.5, -20.5, -20.5]),
-                        rtol=0,
-                        atol=1e-10,
-                    )
-                )
-                assert np.all(
-                    np.isclose(
-                        fluid_flux_phase_1,
-                        2*rho_mob_phase_1 * np.array([-19.5, -19.5, -20.5, -20.5]),
-                        rtol=0,
-                        atol=1e-10,
-                    )
-                )
-
             
+        # pay attention, you are goning to evaluate the equation "lamnda - rhs = ...". Since lambda = 0 ny initialization the evaluation of thr equations is -mortar
+        # that's why i'll write -np.array([...
+        # NO, please, put a minus in mortar
 
-            print("\n\n\n TEST PASSED ----------------------------------------")
-            pdb.set_trace()
+        # notations:
+        # (see upwind.py) boundary flux >0 => outwards, so boundary flux <0 corrensponds to accumulation
+        # mortar >0 if from higher to lower
+        # so mortar > 0 => fluid flux >0 => exiting boundary flux => a minus in the conservation law: div(F-boundary_flux)
+
+        mortar_phase_0 = -(
+            self.interface_mortar_flux_equation_phase_0([intf])
+            .evaluate(self.equation_system)
+            .val
+        )
+
+        mortar_phase_1 = -(
+            self.interface_mortar_flux_equation_phase_1([intf])
+            .evaluate(self.equation_system)
+            .val
+        )
+
+        fluid_flux_phase_0 = (
+            self.interface_fluid_mass_flux_phase_0(
+                pp.ad.DenseArray(mortar_phase_0),
+                [intf],
+                self.mixture.get_phase(0),
+                "interface_mortar_flux_phase_0",
+            )
+            .evaluate(self.equation_system)
+            .val
+        )
+
+        fluid_flux_phase_1 = (
+            self.interface_fluid_mass_flux_phase_1(
+                pp.ad.DenseArray(mortar_phase_1),
+                [intf],
+                self.mixture.get_phase(1),
+                "interface_mortar_flux_phase_1",
+            )
+            .evaluate(self.equation_system)
+            .val
+        )
+
+
+        subdomains = self.mdg.subdomains()
+        mortar_projection = pp.ad.MortarProjections(self.mdg, subdomains, [intf], dim=1)
+
+        discr = self.ppu_discretization(subdomains, "darcy_flux_phase_0")
+        
+        flux_intf_phase_0_from_mass = (
+            discr.bound_transport_neu
+            @ mortar_projection.mortar_to_primary_int
+            @ self.interface_fluid_mass_flux_phase_0(
+                pp.ad.DenseArray(mortar_phase_0),
+                [intf],
+                self.mixture.get_phase(0),
+                "interface_mortar_flux_phase_0",
+            )
+        ).evaluate(self.equation_system).val
+
+        discr = self.ppu_discretization(subdomains, "darcy_flux_phase_1")
+        
+        flux_intf_phase_1_from_mass_ = (
+            discr.bound_transport_neu
+            @ mortar_projection.mortar_to_primary_int
+            @ self.interface_fluid_mass_flux_phase_1(
+                pp.ad.DenseArray(mortar_phase_1),
+                [intf],
+                self.mixture.get_phase(1),
+                "interface_mortar_flux_phase_1",
+            )
+        ).evaluate(self.equation_system).val
+        
+        mat = (
+            discr.bound_transport_neu
+            @ mortar_projection.mortar_to_primary_int ).evaluate(self.equation_system)
+        flux_intf_phase_1_from_mass = mat @ fluid_flux_phase_1
+
+        assert np.all(flux_intf_phase_1_from_mass_ == flux_intf_phase_1_from_mass)
+
+        up_mat = discr.bound_transport_neu.evaluate(self.equation_system)
+
+        print("up_mat = ", up_mat)
+        print("flux_intf_phase_0_from_mass = ", flux_intf_phase_0_from_mass)
+        print("flux_intf_phase_1_from_mass = ", flux_intf_phase_1_from_mass)
+
+        div = pp.ad.Divergence(subdomains, dim=1).evaluate(self.equation_system)
+
+        # flux_intf_phase_0_from_mass = flux_intf_phase_0_from_mass[[8, 9, 12, 13]] 
+        # flux_intf_phase_1_from_mass = flux_intf_phase_1_from_mass[[8, 9, 12, 13]]
+
+        div_flux_intf_phase_0_from_mass = div @ flux_intf_phase_0_from_mass
+        div_flux_intf_phase_1_from_mass = div @ flux_intf_phase_1_from_mass
+
+        print("\n\n\n")
+        print("mortar_phase_0 = ", mortar_phase_0)
+        print("mortar_phase_1 = ", mortar_phase_1)
+        print("fluid_flux_phase_0 = ", fluid_flux_phase_0)
+        print("fluid_flux_phase_1 = ", fluid_flux_phase_1)
+        print("div_flux_intf_phase_0_from_mass = ", div_flux_intf_phase_0_from_mass)
+        print("div_flux_intf_phase_1_from_mass = ", div_flux_intf_phase_1_from_mass)
+
+        pdb.set_trace()
+
+        if self.case == 1:  # delta p = 0, g = 1, s0 = 0
+            rho_mob_phase_0 = 0
+            rho_mob_phase_1 = 0.5
+
+            assert np.all(
+                np.isclose(
+                    mortar_phase_0, np.array([1, 1, -1, -1]), rtol=0, atol=1e-10
+                )
+            )
+            assert np.all(
+                np.isclose(
+                    fluid_flux_phase_0,
+                    rho_mob_phase_0 * np.array([1, 1, -1, -1]),
+                    rtol=0,
+                    atol=1e-10,
+                )
+            )
+
+            assert np.all(
+                np.isclose(
+                    mortar_phase_1,
+                    np.array([0.5, 0.5, -0.5, -0.5]),
+                    rtol=0,
+                    atol=1e-10,
+                )
+            )
+            assert np.all(
+                np.isclose(
+                    fluid_flux_phase_1,
+                    rho_mob_phase_1 * np.array([0.5, 0.5, -0.5, -0.5]),
+                    rtol=0,
+                    atol=1e-10,
+                )
+            )
+
+        if self.case == 2:  # delta p = 0, g = 1, s0=1
+            rho_mob_phase_0 = 1
+            rho_mob_phase_1 = 0
+
+            assert np.all(
+                np.isclose(
+                    mortar_phase_0, np.array([1, 1, -1, -1]), rtol=0, atol=1e-10
+                )
+            )
+            assert np.all(
+                np.isclose(
+                    fluid_flux_phase_0,
+                    rho_mob_phase_0 * np.array([1, 1, -1, -1]),
+                    rtol=0,
+                    atol=1e-10,
+                )
+            )
+
+            assert np.all(
+                np.isclose(
+                    mortar_phase_1,
+                    np.array([0.5, 0.5, -0.5, -0.5]),
+                    rtol=0,
+                    atol=1e-10,
+                )
+            )
+            assert np.all(
+                np.isclose(
+                    fluid_flux_phase_1,
+                    rho_mob_phase_1 * np.array([0.5, 0.5, -0.5, -0.5]),
+                    rtol=0,
+                    atol=1e-10,
+                )
+            )
+
+        if self.case == 3:  # delta p = 1, g = 0, s0=0
+            rho_mob_phase_0 = 0
+            rho_mob_phase_1 = 0.5
+
+            assert np.all(
+                np.isclose(
+                    mortar_phase_0, np.array([20, 20, 20, 20]), rtol=0, atol=1e-10
+                )
+            )
+            assert np.all(
+                np.isclose(
+                    fluid_flux_phase_0,
+                    rho_mob_phase_0 * np.array([20, 20, 20, 20]),
+                    rtol=0,
+                    atol=1e-10,
+                )
+            )
+
+            assert np.all(
+                np.isclose(
+                    mortar_phase_1,
+                    np.array([20, 20, 20, 20]),
+                    rtol=0,
+                    atol=1e-10,
+                )
+            )
+            assert np.all(
+                np.isclose(
+                    fluid_flux_phase_1,
+                    rho_mob_phase_1 * np.array([20, 20, 20, 20]),
+                    rtol=0,
+                    atol=1e-10,
+                )
+            )
+
+        if self.case == 4:  # delta p = 1, g = 0, s0=1
+            rho_mob_phase_0 = 1
+            rho_mob_phase_1 = 0
+
+            assert np.all(
+                np.isclose(
+                    mortar_phase_0, np.array([20, 20, 20, 20]), rtol=0, atol=1e-10
+                )
+            )
+            assert np.all(
+                np.isclose(
+                    fluid_flux_phase_0,
+                    rho_mob_phase_0 * np.array([20, 20, 20, 20]),
+                    rtol=0,
+                    atol=1e-10,
+                )
+            )
+
+            assert np.all(
+                np.isclose(
+                    mortar_phase_1,
+                    np.array([20, 20, 20, 20]),
+                    rtol=0,
+                    atol=1e-10,
+                )
+            )
+            assert np.all(
+                np.isclose(
+                    fluid_flux_phase_1,
+                    rho_mob_phase_1 * np.array([20, 20, 20, 20]),
+                    rtol=0,
+                    atol=1e-10,
+                )
+            )
+
+        if self.case == 5:  # delta p = -1, g = 0, s0=0
+            rho_mob_phase_0 = 0
+            rho_mob_phase_1 = 0.5
+
+            assert np.all(
+                np.isclose(
+                    mortar_phase_0,
+                    np.array([-20, -20, -20, -20]),
+                    rtol=0,
+                    atol=1e-10,
+                )
+            )
+            assert np.all(
+                np.isclose(
+                    fluid_flux_phase_0,
+                    rho_mob_phase_0 * np.array([-20, -20, -20, -20]),
+                    rtol=0,
+                    atol=1e-10,
+                )
+            )
+
+            assert np.all(
+                np.isclose(
+                    mortar_phase_1,
+                    np.array([-20, -20, -20, -20]),
+                    rtol=0,
+                    atol=1e-10,
+                )
+            )
+            assert np.all(
+                np.isclose(
+                    fluid_flux_phase_1,
+                    rho_mob_phase_1 * np.array([-20, -20, -20, -20]),
+                    rtol=0,
+                    atol=1e-10,
+                )
+            )
+
+        if self.case == 6:  # delta p = 1, g = 1, s0=0
+            rho_mob_phase_0 = 0
+            rho_mob_phase_1 = 0.5
+
+            assert np.all(
+                np.isclose(
+                    mortar_phase_0,
+                    np.array([21, 21, 19, 19]),
+                    rtol=0,
+                    atol=1e-10,
+                )
+            )
+            assert np.all(
+                np.isclose(
+                    fluid_flux_phase_0,
+                    rho_mob_phase_0 * np.array([21, 21, 19, 19]),
+                    rtol=0,
+                    atol=1e-10,
+                )
+            )
+
+            assert np.all(
+                np.isclose(
+                    mortar_phase_1,
+                    np.array([20.5, 20.5, 19.5, 19.5]),
+                    rtol=0,
+                    atol=1e-10,
+                )
+            )
+            assert np.all(
+                np.isclose(
+                    fluid_flux_phase_1,
+                    rho_mob_phase_1 * np.array([20.5, 20.5, 19.5, 19.5]),
+                    rtol=0,
+                    atol=1e-10,
+                )
+            )
+
+        if self.case == 7:  # delta p = 1, g = 1, s0=0
+            rho_mob_phase_0 = 1
+            rho_mob_phase_1 = 0
+
+            assert np.all(
+                np.isclose(
+                    mortar_phase_0,
+                    np.array([21, 21, 19, 19]),
+                    rtol=0,
+                    atol=1e-10,
+                )
+            )
+            assert np.all(
+                np.isclose(
+                    fluid_flux_phase_0,
+                    rho_mob_phase_0 * np.array([21, 21, 19, 19]),
+                    rtol=0,
+                    atol=1e-10,
+                )
+            )
+
+            assert np.all(
+                np.isclose(
+                    mortar_phase_1,
+                    np.array([20.5, 20.5, 19.5, 19.5]),
+                    rtol=0,
+                    atol=1e-10,
+                )
+            )
+            assert np.all(
+                np.isclose(
+                    fluid_flux_phase_1,
+                    rho_mob_phase_1 * np.array([20.5, 20.5, 19.5, 19.5]),
+                    rtol=0,
+                    atol=1e-10,
+                )
+            )
+
+        if self.case == 8:  # delta p = -1, g = 1, s0=1
+            rho_mob_phase_0 = 1
+            rho_mob_phase_1 = 0
+
+            assert np.all(
+                np.isclose(
+                    mortar_phase_0,
+                    np.array([-19, -19, -21, -21]),
+                    rtol=0,
+                    atol=1e-10,
+                )
+            )
+            assert np.all(
+                np.isclose(
+                    fluid_flux_phase_0,
+                    rho_mob_phase_0 * np.array([-19, -19, -21, -21]),
+                    rtol=0,
+                    atol=1e-10,
+                )
+            )
+
+            assert np.all(
+                np.isclose(
+                    mortar_phase_1,
+                    np.array([-19.5, -19.5, -20.5, -20.5]),
+                    rtol=0,
+                    atol=1e-10,
+                )
+            )
+            assert np.all(
+                np.isclose(
+                    fluid_flux_phase_1,
+                    rho_mob_phase_1 * np.array([-19.5, -19.5, -20.5, -20.5]),
+                    rtol=0,
+                    atol=1e-10,
+                )
+            )
+
+
+
+
+
+
+        if self.case == 9:  # delta p = 0, g = 1, s0=0
+            rho_mob_phase_0 = 0
+            rho_mob_phase_1 = 0.5
+
+            assert np.all(
+                np.isclose(
+                    mortar_phase_0, 2*np.array([1, 1, -1, -1]), rtol=0, atol=1e-10
+                )
+            )
+            assert np.all(
+                np.isclose(
+                    fluid_flux_phase_0,
+                    2*rho_mob_phase_0 * np.array([1, 1, -1, -1]),
+                    rtol=0,
+                    atol=1e-10,
+                )
+            )
+
+            assert np.all(
+                np.isclose(
+                    mortar_phase_1,
+                    2*np.array([0.5, 0.5, -0.5, -0.5]),
+                    rtol=0,
+                    atol=1e-10,
+                )
+            )
+            assert np.all(
+                np.isclose(
+                    fluid_flux_phase_1,
+                    2*rho_mob_phase_1 * np.array([0.5, 0.5, -0.5, -0.5]),
+                    rtol=0,
+                    atol=1e-10,
+                )
+            )
+
+        if self.case == 10:  # delta p = 0, g = 1, s0=1
+            rho_mob_phase_0 = 1
+            rho_mob_phase_1 = 0
+
+            assert np.all(
+                np.isclose(
+                    mortar_phase_0, 2*np.array([1, 1, -1, -1]), rtol=0, atol=1e-10
+                )
+            )
+            assert np.all(
+                np.isclose(
+                    fluid_flux_phase_0,
+                    2*rho_mob_phase_0 * np.array([1, 1, -1, -1]),
+                    rtol=0,
+                    atol=1e-10,
+                )
+            )
+
+            assert np.all(
+                np.isclose(
+                    mortar_phase_1,
+                    2*np.array([0.5, 0.5, -0.5, -0.5]),
+                    rtol=0,
+                    atol=1e-10,
+                )
+            )
+            assert np.all(
+                np.isclose(
+                    fluid_flux_phase_1,
+                    2*rho_mob_phase_1 * np.array([0.5, 0.5, -0.5, -0.5]),
+                    rtol=0,
+                    atol=1e-10,
+                )
+            )
+
+        if self.case == 11:  # delta p = 1, g = 0, s0=0
+            rho_mob_phase_0 = 0
+            rho_mob_phase_1 = 0.5
+
+            assert np.all(
+                np.isclose(
+                    mortar_phase_0, 2*np.array([20, 20, 20, 20]), rtol=0, atol=1e-10
+                )
+            )
+            assert np.all(
+                np.isclose(
+                    fluid_flux_phase_0,
+                    2*rho_mob_phase_0 * np.array([20, 20, 20, 20]),
+                    rtol=0,
+                    atol=1e-10,
+                )
+            )
+
+            assert np.all(
+                np.isclose(
+                    mortar_phase_1,
+                    2*np.array([20, 20, 20, 20]),
+                    rtol=0,
+                    atol=1e-10,
+                )
+            )
+            assert np.all(
+                np.isclose(
+                    fluid_flux_phase_1,
+                    2*rho_mob_phase_1 * np.array([20, 20, 20, 20]),
+                    rtol=0,
+                    atol=1e-10,
+                )
+            )
+
+        if self.case == 12:  # delta p = 1, g = 0, s0=1
+            rho_mob_phase_0 = 1
+            rho_mob_phase_1 = 0
+
+            assert np.all(
+                np.isclose(
+                    mortar_phase_0, 2*np.array([20, 20, 20, 20]), rtol=0, atol=1e-10
+                )
+            )
+            assert np.all(
+                np.isclose(
+                    fluid_flux_phase_0,
+                    2*rho_mob_phase_0 * np.array([20, 20, 20, 20]),
+                    rtol=0,
+                    atol=1e-10,
+                )
+            )
+
+            assert np.all(
+                np.isclose(
+                    mortar_phase_1,
+                    2*np.array([20, 20, 20, 20]),
+                    rtol=0,
+                    atol=1e-10,
+                )
+            )
+            assert np.all(
+                np.isclose(
+                    fluid_flux_phase_1,
+                    2*rho_mob_phase_1 * np.array([20, 20, 20, 20]),
+                    rtol=0,
+                    atol=1e-10,
+                )
+            )
+
+        if self.case == 13:  # delta p = -1, g = 0, s0=0
+            rho_mob_phase_0 = 0
+            rho_mob_phase_1 = 0.5
+
+            assert np.all(
+                np.isclose(
+                    mortar_phase_0,
+                    2*np.array([-20, -20, -20, -20]),
+                    rtol=0,
+                    atol=1e-10,
+                )
+            )
+            assert np.all(
+                np.isclose(
+                    fluid_flux_phase_0,
+                    2*rho_mob_phase_0 * np.array([-20, -20, -20, -20]),
+                    rtol=0,
+                    atol=1e-10,
+                )
+            )
+
+            assert np.all(
+                np.isclose(
+                    mortar_phase_1,
+                    2*np.array([-20, -20, -20, -20]),
+                    rtol=0,
+                    atol=1e-10,
+                )
+            )
+            assert np.all(
+                np.isclose(
+                    fluid_flux_phase_1,
+                    2*rho_mob_phase_1 * np.array([-20, -20, -20, -20]),
+                    rtol=0,
+                    atol=1e-10,
+                )
+            )
+
+        if self.case == 14:  # delta p = 1, g = 1, s0=0
+            rho_mob_phase_0 = 0
+            rho_mob_phase_1 = 0.5
+
+            assert np.all(
+                np.isclose(
+                    mortar_phase_0,
+                    2*np.array([21, 21, 19, 19]),
+                    rtol=0,
+                    atol=1e-10,
+                )
+            )
+            assert np.all(
+                np.isclose(
+                    fluid_flux_phase_0,
+                    2*rho_mob_phase_0 * np.array([21, 21, 19, 19]),
+                    rtol=0,
+                    atol=1e-10,
+                )
+            )
+
+            assert np.all(
+                np.isclose(
+                    mortar_phase_1,
+                    2*np.array([20.5, 20.5, 19.5, 19.5]),
+                    rtol=0,
+                    atol=1e-10,
+                )
+            )
+            assert np.all(
+                np.isclose(
+                    fluid_flux_phase_1,
+                    2*rho_mob_phase_1 * np.array([20.5, 20.5, 19.5, 19.5]),
+                    rtol=0,
+                    atol=1e-10,
+                )
+            )
+
+        if self.case == 15:  # delta p = 1, g = 1, s0=0
+            rho_mob_phase_0 = 1
+            rho_mob_phase_1 = 0
+
+            assert np.all(
+                np.isclose(
+                    mortar_phase_0,
+                    2*np.array([21, 21, 19, 19]),
+                    rtol=0,
+                    atol=1e-10,
+                )
+            )
+            assert np.all(
+                np.isclose(
+                    fluid_flux_phase_0,
+                    2*rho_mob_phase_0 * np.array([21, 21, 19, 19]),
+                    rtol=0,
+                    atol=1e-10,
+                )
+            )
+
+            assert np.all(
+                np.isclose(
+                    mortar_phase_1,
+                    2*np.array([20.5, 20.5, 19.5, 19.5]),
+                    rtol=0,
+                    atol=1e-10,
+                )
+            )
+            assert np.all(
+                np.isclose(
+                    fluid_flux_phase_1,
+                    2*rho_mob_phase_1 * np.array([20.5, 20.5, 19.5, 19.5]),
+                    rtol=0,
+                    atol=1e-10,
+                )
+            )
+
+        if self.case == 16:  # delta p = -1, g = 1, s0=1
+            rho_mob_phase_0 = 1
+            rho_mob_phase_1 = 0
+
+            assert np.all(
+                np.isclose(
+                    mortar_phase_0,
+                2* np.array([-19, -19, -21, -21]),
+                    rtol=0,
+                    atol=1e-10,
+                )
+            )
+            assert np.all(
+                np.isclose(
+                    fluid_flux_phase_0,
+                2* rho_mob_phase_0 * np.array([-19, -19, -21, -21]),
+                    rtol=0,
+                    atol=1e-10,
+                )
+            )
+
+            assert np.all(
+                np.isclose(
+                    mortar_phase_1,
+                    2*np.array([-19.5, -19.5, -20.5, -20.5]),
+                    rtol=0,
+                    atol=1e-10,
+                )
+            )
+            assert np.all(
+                np.isclose(
+                    fluid_flux_phase_1,
+                    2*rho_mob_phase_1 * np.array([-19.5, -19.5, -20.5, -20.5]),
+                    rtol=0,
+                    atol=1e-10,
+                )
+            )
+
+        
+
+        print("\n\n\n TEST PASSED ----------------------------------------")
+        pdb.set_trace()
 
 
 class MyModelGeometryTest(test_hu_model.MyModelGeometry):
@@ -974,6 +1027,7 @@ class FinalModelTest(PartialFinalModel):  # I'm sorry...
         self.pressure_values_1d = None
 
 
+
 fluid_constants = pp.FluidConstants({})
 solid_constants = pp.SolidConstants(
     {
@@ -1012,7 +1066,7 @@ mixture.add([wetting_phase, non_wetting_phase])
 model = FinalModelTest(mixture, params)
 
 
-case = 100
+case = 3
 model.case = case
 
 if case == 1:  # delta p = 0, g = 1

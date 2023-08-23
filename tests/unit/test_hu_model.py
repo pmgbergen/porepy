@@ -845,6 +845,7 @@ class Equations(pp.BalanceEquation):
         mortar_projection = pp.ad.MortarProjections(
             self.mdg, subdomains, interfaces, dim=1
         )
+
         trace = pp.ad.Trace(subdomains)
         
         var_upwinded: pp.ad.Operator = (
@@ -907,6 +908,16 @@ class Equations(pp.BalanceEquation):
         # with upwind:
         epsilon = 1e-10 # avoid division by zero # TODO: NO... they shouldnt be zero
         discr_up = self.interface_ppu_discretization(interfaces, "interface_mortar_flux_phase_0")
+
+
+        # print('\n\n\n\ninside test_hu_model.py')
+        # print(self.mdg.subdomains())
+        # print(interfaces)
+        # print('rho_mob_phase_0: ', rho_mob_phase_0.evaluate(self.equation_system))
+        # print(discr_up)
+        # pdb.set_trace()
+
+        
         rho_mob_upwinded_phase_0 = self.var_upwinded_interfaces(interfaces, rho_mob_phase_0, discr_up)
 
         discr_up = self.interface_ppu_discretization(interfaces, "interface_mortar_flux_phase_1")
@@ -1335,7 +1346,7 @@ class SolutionStrategyPressureMass(pp.SolutionStrategy):
             #     "saturation", [sd]
             # )
 
-            saturation_values = 0*np.ones(sd.num_cells)
+            saturation_values = 1*np.ones(sd.num_cells)
             y_max = self.size  # TODO: not 100% sure size = y_max
             saturation_values[
                 np.where(sd.cell_centers[1] >= y_max / 2)
@@ -1394,7 +1405,7 @@ class SolutionStrategyPressureMass(pp.SolutionStrategy):
         """ """
         super().set_discretization_parameters()
         for sd, data in self.mdg.subdomains(return_data=True):
-            pp.initialize_data(
+            pp.initialize_data( # initiale or update, bad name
                 sd,
                 data,
                 self.darcy_keyword,
@@ -1489,7 +1500,7 @@ class SolutionStrategyPressureMass(pp.SolutionStrategy):
 
     def computations_for_hu(self):
         """
-        this will change a lot so it is useless to split this function
+        this will change a lot so it is useless to improve it right now
         """
         for sd, data in self.mdg.subdomains(return_data=True):
             data[
@@ -1575,9 +1586,7 @@ class SolutionStrategyPressureMass(pp.SolutionStrategy):
                 total_flux_internal[0] + total_flux_internal[1]
             )
             
-            data["for_hu"]["pressure_AdArray"] = self.pressure([sd]).evaluate(
-                self.equation_system
-            )
+            data["for_hu"]["pressure_AdArray"] = self.pressure([sd]).evaluate(self.equation_system) 
 
             vals = (
                 self.darcy_flux_phase_0([sd], self.mixture.get_phase(0))
@@ -1707,6 +1716,9 @@ class SolutionStrategyPressureMass(pp.SolutionStrategy):
         #         #     title="saturation " + str(self.ell),
         #         # )
         #         pp.plot_grid(sd, ppp.val, alpha=0.5, info="c", title="pressure")
+        
+
+
 
     def eb_after_timestep(self):
         """ """
@@ -1736,7 +1748,66 @@ class SolutionStrategyPressureMass(pp.SolutionStrategy):
                         title="saturation " + str(self.ell),
                     )
                     pp.plot_grid(sd, ppp.val, alpha=0.5, info="", title="pressure")
+            
+            # open the fracture:
+            for sd in self.mdg.subdomains():
+                if sd.dim == 2:
+                    internal_nodes_id = sd.get_internal_nodes()
+                    # only for this grid: "cell_size": 0.2 / self.units.m;      "cell_size_fracture": 0.1 / self.units.m;        [frac1]
+                    print(internal_nodes_id)
+                    sd.nodes[1][26] += 0.04
+                    sd.nodes[1][27] -= 0.04
+                    sd.nodes[1][28] += 0.04
+                    sd.nodes[1][29] -= 0.04
 
+            self.mdg.compute_geometry()
+            # pp.plot_grid(self.mdg, info="n", alpha=0.1)
+
+            # 
+            for sd, data in self.mdg.subdomains(return_data=True):
+                if sd.dim == 2:
+                    normals = sd.face_normals
+
+                    interfaces = self.subdomains_to_interfaces(self.mdg.subdomains(), [1])
+                    ff0 = self.interface_fluid_mass_flux_phase_0(self.interface_mortar_flux_phase_0(interfaces), interfaces, self.mixture.get_phase(0), "interface_mortar_flux_phase_0").evaluate(self.equation_system).val
+                    ff0_vect = normals
+                    ff0_vect[1, sd.tags["fracture_faces"]] = 1000*ff0
+
+                    ff1 = self.interface_fluid_mass_flux_phase_1(self.interface_mortar_flux_phase_1(interfaces), interfaces, self.mixture.get_phase(1), "interface_mortar_flux_phase_1").evaluate(self.equation_system).val
+                    ff1_vect = normals
+                    ff1_vect[1, sd.tags["fracture_faces"]] = 1000*ff1
+                    
+                    
+                    print("PAY ATTENTION TO WHAT YOU ARE PLOTTING...") # there is the funcion to flip the normal in such a way that they conform the mortar sign notation. find it...
+                    # pp.plot_grid(sd, vector_value=0.5 * normals, alpha=0)
+                    print("ff0 = ", ff0)
+                    pp.plot_grid(sd, vector_value=0.1 * ff0_vect, alpha=0, title="kind of ff0")
+                    print("ff1 = ", ff1)
+                    pp.plot_grid(sd, vector_value=0.1 * ff1_vect, alpha=0, title="kind of ff1")
+                    
+                
+        # close the fracture:
+        for sd in self.mdg.subdomains():
+            if sd.dim == 2:
+                internal_nodes_id = sd.get_internal_nodes()
+                
+                sd.nodes[1][26] -= 0.04
+                sd.nodes[1][27] += 0.04
+                sd.nodes[1][28] -= 0.04
+                sd.nodes[1][29] += 0.04
+
+        self.mdg.compute_geometry()
+
+
+
+        subdomains = self.mdg.subdomains()
+        mortar_projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1)
+        discr = self.ppu_discretization(subdomains, "darcy_flux_phase_0")
+        
+        sadboy = discr.bound_transport_neu.evaluate(self.equation_system)
+        lala = mortar_projection.mortar_to_primary_int.evaluate(self.equation_system)
+
+        pdb.set_trace()
 
 class MyModelGeometry(pp.ModelGeometry):
     def set_geometry(self) -> None:
@@ -1819,7 +1890,7 @@ material_constants = {"fluid": fluid_constants, "solid": solid_constants}
 
 time_manager = pp.TimeManager(
     schedule=[0, 10],
-    dt_init=1e-2,
+    dt_init=1e-3,
     constant_dt=True,
     iter_max=10,
     print_info=True,
