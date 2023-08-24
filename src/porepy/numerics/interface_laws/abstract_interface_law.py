@@ -373,7 +373,6 @@ class AbstractInterfaceLaw(abc.ABC):
         dof = np.array([dof_grid, dof_mortar_primary, dof_mortar_secondary])
 
         if create_matrix:
-
             if not dof_grid == matrix[grid_ind, grid_ind].shape[1]:
                 raise ValueError(
                     """The number of dofs of the primary discretization given
@@ -488,7 +487,6 @@ class AbstractInterfaceLaw(abc.ABC):
         assemble_matrix: bool = True,
         assemble_rhs: bool = True,
     ):
-
         """Method to assemble the contribution from one interface to another one.
 
         The method must be implemented for subclasses of AbstractInterfaceLaw which has

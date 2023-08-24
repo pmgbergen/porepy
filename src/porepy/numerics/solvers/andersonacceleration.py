@@ -6,7 +6,6 @@ class AndersonAcceleration:
     """Anderson acceleration as described by Walker and Ni in doi:10.2307/23074353."""
 
     def __init__(self, dimension, depth) -> None:
-
         self._dimension = dimension
         self._depth = depth
 

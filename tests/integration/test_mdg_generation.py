@@ -69,10 +69,8 @@ class TestMDGridGeneration:
 
     def domains(self):
         """Domain list"""
-        domain_2d = pp.Domain({"xmin": 0, "xmax": 5, "ymin": 0, "ymax": 5})
-        domain_3d = pp.Domain(
-            {"xmin": 0, "xmax": 5, "ymin": 0, "ymax": 5, "zmin": 0, "zmax": 5}
-        )
+        domain_2d = pp.Domain({"xmax": 5, "ymax": 5})
+        domain_3d = pp.Domain({"xmax": 5, "ymax": 5, "zmax": 5})
         return [domain_2d, domain_3d]
 
     # Extra mesh arguments

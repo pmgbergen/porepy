@@ -23,21 +23,14 @@ FROM porepy/base
 ## Download PorePy from github
 # Make sure we are in the home directory
 WORKDIR ${POREPY_HOME}
-USER porepy
-# Clone from Github
-RUN git clone https://github.com/pmgbergen/porepy.git ${POREPY_SRC}
-
-
-# Enter source directory
-WORKDIR ${POREPY_SRC}
 # Make sure we're on the develop branch
 RUN git checkout develop
 
 # Do the install
 RUN pip install -e .
 
-# Run a conda list, it is always good to know whas been installed
-RUN conda list
+# Run a pip freeze. It is always good to know what been installed
+RUN pip freeze
 
 # Add PorePy home to the pythonpath. This may or may not be necessary.
 ENV PYTHONPATH $POREPY_HOME:$PYTHONPATH
@@ -46,10 +39,6 @@ ENV PYTHONPATH $POREPY_HOME:$PYTHONPATH
 # NOTE: When run as a GH action (presumably after a PR to the develop branch
 # was accepted, e.g., when the tests have already been run on GH), this should
 # only fail if the docker image itself is flawed.
-WORKDIR ${POREPY_SRC}/tests
+WORKDIR ${POREPY_HOME}/tests
 RUN pytest
 WORKDIR ${POREPY_HOME}
-
-# Apparently, the phusion/baseimage needs to end with root as user, or else
-# something goes wrong with trying to log into the container. So it goes.
-USER root

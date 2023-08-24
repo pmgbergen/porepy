@@ -138,7 +138,8 @@ def plot_sd(
             face (see the _quiver function).
         info (str, optional): Which geometry information to display, see add_info.
         kwargs (optional): Keyword arguments:
-            figsize: Size of figure.
+            fig_size: Size of figure.
+            fig_num: The number of the figure.
             color_map: Limits of the cell value color axis.
             if_plot: Boolean flag determining whether the plot is shown or not.
             plot_2d: Boolean flag determining wheter the plit is showed in 2d or 3d.
@@ -150,11 +151,9 @@ def plot_sd(
                    where cells[c]=True
     """
     # Initialize figure with correct size.
-    figsize = kwargs.get("figsize", None)
-    if figsize is None:
-        fig = plt.figure()
-    else:
-        fig = plt.figure(figsize=figsize)
+    fig_size = kwargs.get("fig_size", None)
+    fig_num = kwargs.get("fig_num", None)
+    fig = plt.figure(num=fig_num, figsize=fig_size)
 
     # Initialize the corresponding axis
     if kwargs.get("plot_2d", False):
@@ -228,7 +227,8 @@ def plot_mdg(
         vector_value (str): key to vector cell or face values.
         info (str, optional): Which geometry information to display, see add_info.
         kwargs (optional): Keyword arguments:
-            figsize: Size of figure.
+            fig_size: Size of figure.
+            fig_num: The number of the figure.
             color_map: Limits of the cell value color axis.
             rgb: Color map weights. Defaults to [1, 0, 0].
             if_plot: Boolean flag determining whether the plot is shown or not.
@@ -239,21 +239,23 @@ def plot_mdg(
                    where cells[c]=True
     """
     # Initialize figure with correct size
-    figsize = kwargs.get("figsize", None)
-    if figsize is None:
-        fig = plt.figure()
-    else:
-        fig = plt.figure(figsize=figsize)
+    fig_size = kwargs.get("fig_size", None)
+    fig_num = kwargs.get("fig_num", None)
+    fig = plt.figure(num=fig_num, figsize=fig_size)
 
-    # Initialize axis
-    ax = fig.add_subplot(111, projection="3d")
+    # Initialize the corresponding axis
+    if kwargs.get("plot_2d", False):
+        ax = fig.add_subplot(111)
+    else:
+        ax = fig.add_subplot(111, projection="3d")
 
     # Add title and axis labels
     title = kwargs.get("title", " ".join(mdg.name))
     ax.set_title(title)
     ax.set_xlabel("x")
     ax.set_ylabel("y")
-    ax.set_zlabel("z")
+    if not kwargs.get("plot_2d", False):
+        ax.set_zlabel("z")
 
     # Define color map (based on min and max value of the cell value if none externally
     # provided)
@@ -274,9 +276,9 @@ def plot_mdg(
         kwargs["color_map"] = _color_map(extr_value)
 
     # Plot each subdomain separately
-    for sd, sd_data in mdg.subdomains(return_data=True):
+    for index, (sd, sd_data) in enumerate(mdg.subdomains(return_data=True)):
         # Adjust rgb colors depending on the subdomain ordering
-        kwargs["rgb"] = np.divide(kwargs.get("rgb", [1, 0, 0]), sd.id + 1)
+        kwargs["rgb"] = np.divide(kwargs.get("rgb", [1, 0, 0]), index + 1)
         # Plot the subdomain and data
 
         vector_value_array = (
@@ -313,17 +315,24 @@ def plot_mdg(
     y = [np.amin(val[:, 1, :]), np.amax(val[:, 1, :])]
     z = [np.amin(val[:, 2, :]), np.amax(val[:, 2, :])]
 
-    if not np.isclose(x[0], x[1]):
-        ax.set_xlim3d(x)
-    if not np.isclose(y[0], y[1]):
-        ax.set_ylim3d(y)
-    if not np.isclose(z[0], z[1]):
-        ax.set_zlim3d(z)
+    # In 2d, restrict the data, in 3d (default), do not.
+    if kwargs.get("plot_2d", False):
+        if not np.isclose(x[0], x[1]):
+            ax.set_xlim(x)
+        if not np.isclose(y[0], y[1]):
+            ax.set_ylim(y)
+    else:
+        if not np.isclose(x[0], x[1]):
+            ax.set_xlim3d(x)
+        if not np.isclose(y[0], y[1]):
+            ax.set_ylim3d(y)
+        if not kwargs.get("plot_2d", False):
+            ax.set_zlim3d(z)
 
     # Add info if provided
     if info is not None:
         for sd in mdg.subdomains():
-            _add_info(sd, info, ax)
+            _add_info(sd, info, ax, **kwargs)
 
     # Add color map if provided
     if kwargs.get("color_map"):
@@ -563,15 +572,17 @@ def _add_info(sd: pp.Grid, info: str, ax: mpl.axis.Axis, **kwargs) -> None:
     # Consider all options if info is equal to 'all' (modulo case sensitivity)
     info = string.ascii_uppercase if info == "ALL" else info
 
+    dim = 2 if kwargs.get("plot_2d", False) else 3
+
     # Display cell centers if "C" in info
     if "C" in info:
-        _disp_loop(sd.cell_centers, "r", "o")
+        _disp_loop(sd.cell_centers[:dim, :], "r", "o")
     # Display nodes if "N" in info
     if "N" in info:
-        _disp_loop(sd.nodes, "b", "s")
+        _disp_loop(sd.nodes[:dim, :], "b", "s")
     # Display face centers if "F" in info
     if "F" in info:
-        _disp_loop(sd.face_centers, "y", "d")
+        _disp_loop(sd.face_centers[:dim, :], "y", "d")
     # Display face normals if "O" in info
     if "O" in info.upper() and sd.dim != 0:
         # Plot face normals. Scaling set to reduce interference with other information
@@ -589,7 +600,8 @@ def _plot_sd_0d(sd: pp.Grid, ax: mpl.axis.Axis, **kwargs) -> None:
         kwargs (optional): Keyword arguments
             pointsize (float): defining the size of the marker
     """
-    ax.scatter(*sd.nodes, color="k", marker="o", s=kwargs.get("pointsize", 1))
+    dim = 2 if kwargs.get("plot_2d", False) else 3
+    ax.scatter(*sd.nodes[:dim, :], color="k", marker="o", s=kwargs.get("pointsize", 1))
 
 
 def _plot_sd_1d(
@@ -643,13 +655,15 @@ def _plot_sd_1d(
         loc = slice(cell_nodes.indptr[c], cell_nodes.indptr[c + 1])
         ptsId = nodes[loc]
         pts = sd.nodes[:, ptsId]
-        # Define a polygon in 3d and define
-        poly = Poly3DCollection([pts.T])
-        # Add coloring based on the cell value.
-        # NOTE: A 1d cell is an edge in a 3d polygon.
-        poly.set_edgecolor(_color_edge(cell_value[c]))
-        # Add cell to the plot
-        ax.add_collection3d(poly)
+        linewidth = kwargs.get("linewidth", 1)
+        if kwargs.get("plot_2d", False):
+            poly = PolyCollection([pts[:2, :].T], linewidth=linewidth)
+            poly.set_edgecolor(_color_edge(cell_value[c]))
+            ax.add_collection(poly)
+        else:
+            poly = Poly3DCollection([pts.T], linewidth=linewidth)
+            poly.set_edgecolor(_color_edge(cell_value[c]))
+            ax.add_collection3d(poly)
 
 
 def _plot_sd_2d(

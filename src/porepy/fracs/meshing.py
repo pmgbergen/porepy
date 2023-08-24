@@ -83,6 +83,10 @@ def subdomains_to_mdg(
     # will be added to the mixed-dimensional grid.
     create_interfaces(mdg, node_pairs)
 
+    # Set projections to the boundary grids (this must be done after having
+    # split the fracture faces, or else the projections will have the wrong dimension).
+    mdg.set_boundary_grid_projections()
+
     if time_tot is not None:
         logger.info(
             "Mesh construction completed. Total time " + str(time.time() - time_tot)
@@ -430,7 +434,6 @@ def _assemble_mdg(
         # non-empty, there is a coupling will be made between the higher and
         # lower-dimensional grid, and the face-to-cell relation will be saved.
         for hsd in subdomains[dim]:
-
             # We have to specify the number of nodes per face to generate a matrix of
             # the nodes of each face.
             n_per_face = _nodes_per_face(hsd)
@@ -536,7 +539,7 @@ def _assemble_mdg(
 def create_interfaces(
     mdg: pp.MixedDimensionalGrid,
     sd_pair_to_face_cell_map: dict[tuple[pp.Grid, pp.Grid], sps.spmatrix],
-):
+) -> None:
     """Create interfaces for a given mixed-dimensional grid.
 
     Parameters:
@@ -553,7 +556,6 @@ def create_interfaces(
 
     # loop on all the subdomain pairs and create the mortar grids
     for sd_pair, face_cells in sd_pair_to_face_cell_map.items():
-
         sd_h, sd_l = sd_pair
 
         # face_cells.indices gives mappings into the lower dimensional cells. Count

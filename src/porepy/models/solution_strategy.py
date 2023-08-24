@@ -173,11 +173,19 @@ class SolutionStrategy(abc.ABC):
         within :class:`~porepy.viz.data_saving_model_mixin.DataSavingMixin`.
 
         """
+        self.ad_time_step = pp.ad.Scalar(self.time_manager.dt)
+        """Time step as an automatic differentiation scalar.
+
+        This is used to ensure that the time step is for all equations if the time step
+        is adjusted during simulation. See :meth:`before_nonlinear_loop`.
+
+        """
 
     def prepare_simulation(self) -> None:
         """Run at the start of simulation. Used for initialization etc."""
-        # Set the geometry of the problem. This is a method that must be implemented
-        # in a ModelGeometry class.
+        # Set the material and geometry of the problem. The geometry method must be
+        # implemented in a ModelGeometry class.
+        self.set_materials()
         self.set_geometry()
 
         # Exporter initialization must be done after grid creation,
@@ -187,7 +195,6 @@ class SolutionStrategy(abc.ABC):
         # Set variables, constitutive relations, discretizations and equations.
         # Order of operations is important here.
         self.set_equation_system_manager()
-        self.set_materials()
         self.create_variables()
         self.initial_condition()
         self.reset_state_from_file()
@@ -374,7 +381,10 @@ class SolutionStrategy(abc.ABC):
         Possible usage is to update time-dependent parameters, discretizations etc.
 
         """
+        # Reset counter for nonlinear iterations.
         self._nonlinear_iteration = 0
+        # Update time step size.
+        self.ad_time_step.set_value(self.time_manager.dt)
 
     def before_nonlinear_iteration(self) -> None:
         """Method to be called at the start of every non-linear iteration.
@@ -581,7 +591,7 @@ class SolutionStrategy(abc.ABC):
             raise ValueError(
                 f"AbstractModel does not know how to apply the linear solver {solver}"
             )
-        logger.debug(f"Solved linear system in {t_0-time.time():.2e} seconds.")
+        logger.info(f"Solved linear system in {time.time()-t_0:.2e} seconds.")
 
         return np.atleast_1d(x)
 

@@ -139,13 +139,6 @@ class TerzaghiDataSaving(VerificationDataSaving):
 
     """
 
-    relative_l2_error: Callable
-    """Method for computing the discrete relative L2-error. Normally provided by a
-    mixin instance of :class:`~porepy.applications.building_blocks.
-    verification_utils.VerificationUtils`.
-
-    """
-
     def collect_data(self) -> TerzaghiSaveData:
         """Collect data for the current simulation time.
 
@@ -160,12 +153,13 @@ class TerzaghiDataSaving(VerificationDataSaving):
         exact_pressure = self.exact_sol.pressure(sd.cell_centers[1], t)
         pressure_ad = self.pressure([sd])
         approx_pressure = pressure_ad.evaluate(self.equation_system).val
-        error_pressure = self.relative_l2_error(
+        error_pressure = pp.error_computation.l2_error(
             grid=sd,
             true_array=exact_pressure,
             approx_array=approx_pressure,
             is_scalar=True,
             is_cc=True,
+            relative=True,
         )
 
         displacement_ad = self.displacement([sd])
@@ -298,8 +292,8 @@ class TerzaghiUtils(VerificationUtils):
     # ---> Derived physical quantities
     def gravity_acceleration(self) -> number:
         """Gravity acceleration in scaled [m * s^-2]."""
-        ls = 1 / self.units.m
-        ts = 1 / self.units.s
+        ls = self.solid.convert_units(1, "m")
+        ts = self.solid.convert_units(1, "s")
         scaling_factor = ls / ts**2
         return pp.GRAVITY_ACCELERATION * scaling_factor  # scaled [m * s^-2]
 
@@ -505,7 +499,7 @@ class PseudoOneDimensionalColumn(pp.ModelGeometry):
 
     def height(self) -> pp.number:
         """Retrieve height of the domain, in scaled [m]."""
-        ls = 1 / self.units.m  # length scaling
+        ls = self.solid.convert_units(1, "m")  # length scaling
         height = self.params.get("height", 1.0)  # [m]
         return height * ls
 
@@ -513,9 +507,7 @@ class PseudoOneDimensionalColumn(pp.ModelGeometry):
         """A fracture network without fractures."""
 
         # Define the domain
-        domain = pp.Domain(
-            {"xmin": 0, "xmax": self.height(), "ymin": 0, "ymax": self.height()}
-        )
+        domain = pp.Domain({"xmax": self.height(), "ymax": self.height()})
         self._domain = domain
 
     def meshing_arguments(self) -> dict:

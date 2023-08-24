@@ -53,7 +53,7 @@ class RT0(DualElliptic):
             matrix_dictionary[self.div_matrix_key] = sps.csr_matrix(
                 (sd.num_faces, sd.num_cells)
             )
-            matrix_dictionary[self.vector_proj_key] = sps.csr_matrix((3, sd.num_cells))
+            matrix_dictionary[self.vector_proj_key] = sps.csr_matrix((3, 0))
             return
 
         # Get dictionary for parameter storage
@@ -269,7 +269,7 @@ class RT0(DualElliptic):
         # initialize the map
         cell_face_to_opposite_node = np.empty((sd.num_cells, sd.dim + 1), dtype=int)
 
-        nodes, _, _ = sps.find(sd.face_nodes)
+        nodes = sd.face_nodes.indices
         indptr = sd.face_nodes.indptr
 
         # loop on all the cells to construct the map

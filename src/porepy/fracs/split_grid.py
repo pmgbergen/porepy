@@ -823,7 +823,6 @@ def duplicate_nodes(g: pp.Grid, nodes: np.ndarray, offset: float) -> int:
 
     # Loop over combination of nodes and subclusters
     for ni, comp in zip(node_of_component, subclusters):
-
         # If the increase in node index is zero, there is no need to do anything.
         if node_occ[ni] == 0:
             node_occ[ni] += 1

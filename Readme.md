@@ -1,7 +1,9 @@
-![build](https://github.com/pmgbergen/porepy/workflows/Build%20Test/badge.svg)
+![Pytest](https://github.com/pmgbergen/porepy/actions/workflows/run-pytest.yml/badge.svg)
+![Pytest including slow](https://github.com/pmgbergen/porepy/actions/workflows/run-pytest-all.yml/badge.svg)
+![Mypy, black, isort, flake8](https://github.com/pmgbergen/porepy/actions/workflows/run-static-checks.yml/badge.svg)
 [![DOI](https://zenodo.org/badge/89228838.svg)](https://zenodo.org/badge/latestdoi/89228838)
 [![License: GPL v3](https://img.shields.io/badge/License-GPL%20v3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
-[![Code style](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/ambv/black)
+
 
 # PorePy: A Simulation Tool for Fractured and Deformable Porous Media written in Python.
 PorePy currently has the following distinguishing features:
@@ -30,7 +32,7 @@ Note that you may have to revert to an older version of PorePy to run the exampl
 Install instructions can be found here [Install](https://github.com/pmgbergen/porepy/blob/develop/Install.md).
 Note that there are a few simple but non-obvious steps in the installation, so please read the entire document before sending questions.
 
-PorePy is developed under Python >=3.8.
+PorePy is developed under Python >=3.10.
 
 To get the most current version, install from github:
 
@@ -39,9 +41,11 @@ To get the most current version, install from github:
     cd porepy
 
 To get the stable (though not very frequently updated) version:
+
     git checkout master
 
 Install
+
     pip install -r requirements.txt
 
 Finally to install PorePy

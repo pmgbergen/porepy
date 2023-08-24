@@ -640,7 +640,6 @@ def snap_points_to_segments(
 
     nl = edges.shape[1]
     for ei in range(nl):
-
         # Find start and endpoint of this segment.
         # If we modify the edges themselves (mod_edges==True), we should use the updated
         # point coordinates. If not, we risk trouble for almost coinciding vertexes.

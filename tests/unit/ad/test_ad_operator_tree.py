@@ -19,7 +19,6 @@ import scipy.sparse as sps
 
 import porepy as pp
 
-
 _operations = pp.ad.operators.Operator.Operations
 
 operators = [
@@ -46,11 +45,10 @@ def test_elementary_operations(operator):
     c = eval(f"a {operator[0]} b")
 
     # Check that the combined operator has the expected structure.
-    tree = c.tree
-    assert tree.op == operator[1]
+    assert c.operation == operator[1]
 
-    assert tree.children[0] == a
-    assert tree.children[1] == b
+    assert c.children[0] == a
+    assert c.children[1] == b
 
 
 def test_copy_operator_tree():
@@ -76,19 +74,19 @@ def test_copy_operator_tree():
 
     # First check that the two copies have behaved as they should.
     # The operators should be the same for all trees.
-    assert c.tree.op == c_copy.tree.op
-    assert c.tree.op == c_deepcopy.tree.op
+    assert c.operation == c_copy.operation
+    assert c.operation == c_deepcopy.operation
 
     # The deep copy should have made a new list of children.
     # The shallow copy should have the same list.
-    assert c.tree.children == c_copy.tree.children
-    assert not c.tree.children == c_deepcopy.tree.children
+    assert c.children == c_copy.children
+    assert not c.children == c_deepcopy.children
 
     # Check that the shallow copy also has the same children, while
     # the deep copy has copied these as well.
-    for c1, c2 in zip(c.tree.children, c_copy.tree.children):
+    for c1, c2 in zip(c.children, c_copy.children):
         assert c1 == c2
-    for c1, c2 in zip(c.tree.children, c_deepcopy.tree.children):
+    for c1, c2 in zip(c.children, c_deepcopy.children):
         assert not c1 == c2
 
     # As a second test, also validate that the operators are parsed correctly.
@@ -191,6 +189,43 @@ def test_elementary_wrappers(field):
 
     # The deep copy should differ independent of which type of Ad quantity this is
     assert not compare(obj, wrapped_deep_copy.parse(None))
+
+
+@pytest.mark.parametrize("field", fields)
+def test_ad_arrays_unary_minus_parsing(field):
+    """Check that __neg__ works as intended for SparseArrays, DenseArrays and Scalars.
+
+    The objects are wrapped in the respective Ad classes, the __neg__ methods are used,
+    and it is tested whether parsing returns the expected object.
+
+    """
+    obj = field[1]
+    wrapped_obj = -field[0](obj, name="foo")  # Using the __neg__ method
+    stored_obj = wrapped_obj.parse(None)
+
+    def compare(one, other):
+        if isinstance(one, np.ndarray):
+            return np.allclose(-one, other)
+        elif isinstance(one, sps.spmatrix):
+            return np.allclose(-one.data, other.data)
+        else:  # Scalar
+            return -one == other
+
+    assert compare(obj, stored_obj)
+
+
+def test_ad_operator_unary_minus_parsing():
+    """Check that __neg__ works as intended for a non-trivial pp.ad.Operator object.
+
+    This is done by summing two SparseArray objects to form an Operator object.
+
+    """
+    mat1 = sps.csr_matrix(np.random.rand(3))
+    mat2 = sps.csr_matrix(np.random.rand(3))
+    sp_array1 = pp.ad.SparseArray(mat1)
+    sp_array2 = pp.ad.SparseArray(mat2)
+    op = sp_array1 + sp_array2
+    assert np.allclose(op._parse_operator(-op, None).data, -(mat1 + mat2).data)
 
 
 def test_time_dependent_array():
@@ -340,6 +375,19 @@ def test_ad_variable_creation():
     mvar_1_prev_time = mvar_1.previous_timestep()
     assert mvar_1_prev_iter.id != mvar_1.id
     assert mvar_1_prev_time.id != mvar_1.id
+
+    # We prohibit creating a variable both on previous time step and iter.
+    with pytest.raises(ValueError):
+        _ = mvar_1_prev_iter.previous_timestep()
+    with pytest.raises(ValueError):
+        _ = mvar_1_prev_time.previous_iteration()
+
+    # We prohibit creating a variable on more than one iter or time step behind.
+    # NOTE: This should be removed when this feature is implemented.
+    with pytest.raises(NotImplementedError):
+        _ = mvar_1_prev_iter.previous_iteration()
+    with pytest.raises(NotImplementedError):
+        _ = mvar_1_prev_time.previous_timestep()
 
 
 def test_ad_variable_evaluation():
@@ -760,12 +808,3 @@ def test_time_differentiation():
     dt_mvar = pp.ad.dt(mvar * mvar, time_step)
     assert np.allclose(dt_mvar.evaluate(eq_system).val[: sd.num_cells], 4)
     assert np.allclose(dt_mvar.evaluate(eq_system).val[sd.num_cells :], 0.5)
-
-    # Finally create a variable at the previous time step. Its derivative should be
-    # zero.
-    var_2 = var_1.previous_timestep()
-    dt_var_2 = pp.ad.dt(var_2, time_step)
-    assert np.allclose(dt_var_2.evaluate(eq_system), 0)
-    # Also test the time increment method
-    diff_var_2 = pp.ad.time_increment(var_2)
-    assert np.allclose(diff_var_2.evaluate(eq_system), 0)

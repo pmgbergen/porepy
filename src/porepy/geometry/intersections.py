@@ -470,7 +470,7 @@ def polygons_3d(
     # intersection not being picked up. To circumvent the issue, detect such situations
     # and give ourselves a bit wiggle room.
     # It seems that this will not give problems in other cases.
-    for (cmin, cmax) in [(x_min, x_max), (y_min, y_max), (z_min, z_max)]:
+    for cmin, cmax in [(x_min, x_max), (y_min, y_max), (z_min, z_max)]:
         hit = cmax - cmin < tol
         cmin[hit] -= 0.5 * tol
         cmax[hit] += 0.5 * tol
@@ -812,7 +812,6 @@ def polygons_3d(
                     # The polygons share a plane, but no intersections
                     continue
                 elif isect.shape[1] == 1:
-
                     if not include_point_contact:
                         continue
 
@@ -989,7 +988,6 @@ def polygons_3d(
                 seg_vert_main_1 = (sign_change_full[0], True)
 
             elif np.all(dot_prod_from_other[:-1] == 0):
-
                 isect = np.zeros((3, 0))
                 for so in range(polys[o].shape[1]):
                     tmp_isect = np.zeros((3, 0))
@@ -1947,7 +1945,6 @@ def surface_tessellations(
 
     # Loop over all set of polygons, do intersection with existing
     for i in range(1, len(list_of_sets)):
-
         # Represent this polygon as in shapely format. Also find max and min coordinates
         new_x, new_y = list_of_sets[i]
         min_x_new, max_x_new = _min_max_coord(new_x)
@@ -1971,7 +1968,6 @@ def surface_tessellations(
 
         # Loop over all elements in the intersected polygon
         for j in range(len(poly_shapely)):
-
             # Find cells in the new polygon that are clearly outside this polygon This
             # corresponds to creating a box around this intersected polygon, and
             # disregard all new polygons clearly outside this box.
@@ -2193,7 +2189,7 @@ def split_intersecting_segments_2d(
     # intersection not being picked up. To circumvent the issue, detect such situations
     # and give ourselves a bit wiggle room. It seems that this will not give problems in
     # other cases.
-    for (cmin, cmax) in [(x_min, x_max), (y_min, y_max)]:
+    for cmin, cmax in [(x_min, x_max), (y_min, y_max)]:
         hit = cmax - cmin < tol
         cmin[hit] -= 0.5 * tol
         cmax[hit] += 0.5 * tol
