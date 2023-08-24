@@ -86,7 +86,7 @@ from . import setup_utils
         1,
         pytest.param(2, marks=pytest.mark.skipped),
         pytest.param(3, marks=pytest.mark.skipped),
-    ]
+    ],
 )
 # By default we run only a 2d test. Activate 3d if needed in debugging.
 @pytest.mark.parametrize("domain_dim", [2, pytest.param(3, marks=pytest.mark.skipped)])

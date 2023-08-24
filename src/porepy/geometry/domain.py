@@ -25,9 +25,13 @@ class Domain:
 
         .. code:: python3
 
-            # Create a domain from a bounding box
+            # Create a domain from a bounding box using default minimum corner (0, 0)
+            domain_from_box_defualt_minima = pp.Domain(
+                bounding_box={"xmax": 1, "ymin": 1}
+            )
+            # Create a domain from a bounding box with a custom minimum corner
             domain_from_box = pp.Domain(
-                bounding_box={"xmin": 0, "xmax": 1, "ymin": 0, "ymin": 1}
+                bounding_box={"xmin": 0, "xmax": 1, "ymin": 0.5, "ymin": 1}
             )
 
             # Create a domain from a 2d-polytope
@@ -45,7 +49,8 @@ class Domain:
 
     Parameters:
         bounding_box: Dictionary containing the minimum and maximum coordinates
-            defining the bounding box of the domain.
+            defining the bounding box of the domain. If not given, the minimum corner
+            is placed at the origin by default.
 
             Expected keywords are ``xmin``, ``xmax``, ``ymin``, ``ymax``, and if 3d,
             ``zmin`` and ``zmax``.
@@ -94,8 +99,9 @@ class Domain:
 
         if bounding_box is not None:
             self.bounding_box = bounding_box
+            self._set_default_minimum_coordinates()
             self.polytope = self.polytope_from_bounding_box()
-            self.dim = bounding_box_dimension(bounding_box)
+            self.dim = bounding_box_dimension(self.bounding_box)
             self.is_boxed = True
         elif polytope is not None:
             self.polytope = polytope
@@ -283,6 +289,13 @@ class Domain:
         bound_planes = [west, east, south, north, bottom, top]
 
         return bound_planes
+
+    def _set_default_minimum_coordinates(self) -> None:
+        """Set default 0 minimum coordinates for the bounding box."""
+        keys = self.bounding_box.keys()
+        for dim in ["x", "y", "z"]:
+            if dim + "min" not in keys and dim + "max" in keys:
+                self.bounding_box[dim + "min"] = 0
 
 
 class DomainSides(NamedTuple):

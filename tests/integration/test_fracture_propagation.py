@@ -154,7 +154,7 @@ def test_pick_propagation_face_conforming_propagation(generate):
             tip_faces = np.where(sd_frac.tags["tip_faces"])[0]
 
             # Data structure to tag tip faces to propagate from, and angles
-            prop_face = np.zeros(sd_frac.num_faces, dtype=np.bool)
+            prop_face = np.zeros(sd_frac.num_faces, dtype=bool)
             prop_angle = np.zeros(sd_frac.num_faces)
 
             # Loop over all targets for this grid, tag faces to propagate

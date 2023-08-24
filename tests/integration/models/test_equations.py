@@ -42,7 +42,7 @@ from . import setup_utils
         1,
         pytest.param(2, marks=pytest.mark.skipped),
         pytest.param(3, marks=pytest.mark.skipped),
-    ]
+    ],
 )
 @pytest.mark.parametrize("domain_dim", [2, 3])
 def test_parse_equations(

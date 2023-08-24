@@ -355,7 +355,6 @@ class DifferentiableFVAd:
         potential: pp.ad.Variable,
         keyword: str,
     ) -> None:
-
         self.subdomains = subdomains
         """List of subdomains on which the discretization is defined."""
         self.mdg = mdg

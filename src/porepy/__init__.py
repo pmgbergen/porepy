@@ -23,15 +23,8 @@ from pathlib import Path
 import configparser
 import warnings
 
-__version__ = "1.6.0"
 
-# Give a deprecation warning if the user is using python 3.8 or older
-if sys.version_info.major <= 3 and sys.version_info.minor <= 8:
-    warnings.warn(
-        "Python 3.8 or older will soon be deprecated."
-        " Please upgrade to Python 3.9 or newer.",
-        DeprecationWarning,
-    )
+__version__ = "1.7.0"
 
 # Try to read the config file from the directory where python process was launched
 try:
@@ -229,7 +222,7 @@ from porepy.viz.exporter import Exporter
 from porepy.viz.plot_grid import plot_grid, save_img
 from porepy.viz.fracture_visualization import plot_fractures, plot_wells
 
-from porepy.utils import error
+from porepy.utils import error_computation
 
 
 # Modules

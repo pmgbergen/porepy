@@ -431,7 +431,7 @@ class FluidDensityFromPressure:
 
     """
 
-    def fluid_compressibility(self, subdomains: list[pp.Grid]) -> pp.ad.Scalar:
+    def fluid_compressibility(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Fluid compressibility [1/Pa].
 
         Parameters:
@@ -746,8 +746,8 @@ class CubicLawPermeability(ConstantPermeability):
     """Cubic law permeability for fractures and intersections."""
 
     equation_system: pp.ad.EquationSystem
-    """EquationSystem object for the current model. Normally defined in a mixin class
-    defining the solution strategy.
+    """EquationSystem object for the current model. Solution strategies are normally
+    defined in a mixin class.
 
     """
     specific_volume: Callable[
@@ -981,7 +981,9 @@ class DarcysLaw:
         flux.set_name("Darcy_flux")
         return flux
 
-    def interface_darcy_flux_equation(self, interfaces: list[pp.MortarGrid]):
+    def interface_darcy_flux_equation(
+        self, interfaces: list[pp.MortarGrid]
+    ) -> pp.ad.Operator:
         """Darcy flux on interfaces.
 
         The units of the Darcy flux are [m^2 Pa / s], see note in :meth:`darcy_flux`.
@@ -1961,7 +1963,7 @@ class GravityForce:
 
         """
         val = self.fluid.convert_units(pp.GRAVITY_ACCELERATION, "m*s^-2")
-        size = np.sum([g.num_cells for g in grids])
+        size = np.sum([g.num_cells for g in grids]).astype(int)
         gravity = pp.wrap_as_ad_array(val, size=size, name="gravity")
         rho = getattr(self, material + "_density")(grids)
         # Gravity acts along the last coordinate direction (z in 3d, y in 2d)
@@ -2059,7 +2061,7 @@ class LinearElasticMechanicalStress:
 
         # No need to facilitate changing of stress discretization, only one is
         # available at the moment.
-        discr = pp.ad.MpsaAd(self.stress_keyword, subdomains)
+        discr = self.stress_discretization(subdomains)
         # Fractures in the domain
         interfaces = self.subdomains_to_interfaces(subdomains, [1])
         # Boundary conditions on external boundaries
@@ -2122,6 +2124,20 @@ class LinearElasticMechanicalStress:
         )
         traction.set_name("mechanical_fracture_stress")
         return traction
+
+    def stress_discretization(
+        self, subdomains: list[pp.Grid]
+    ) -> pp.ad.BiotAd | pp.ad.MpsaAd:
+        """Discretization of the stress tensor.
+
+        Parameters:
+            subdomains: List of subdomains where the stress is defined.
+
+        Returns:
+            Discretization operator for the stress tensor.
+
+        """
+        return pp.ad.MpsaAd(self.stress_keyword, subdomains)
 
 
 class PressureStress(LinearElasticMechanicalStress):
@@ -2280,6 +2296,20 @@ class PressureStress(LinearElasticMechanicalStress):
         )
         stress.set_name("fracture_pressure_stress")
         return stress
+
+    def stress_discretization(
+        self, subdomains: list[pp.Grid]
+    ) -> pp.ad.BiotAd | pp.ad.MpsaAd:
+        """Discretization of the stress tensor.
+
+        Parameters:
+            subdomains: List of subdomains where the stress is defined.
+
+        Returns:
+            Discretization operator of the stress tensor.
+
+        """
+        return pp.ad.BiotAd(self.stress_keyword, subdomains)
 
 
 class ThermoPressureStress(PressureStress):
@@ -3287,7 +3317,7 @@ class ThermoPoroMechanicsPorosity(PoroMechanicsPorosity):
     ) -> pp.ad.Operator:
         """Thermal contribution to the changes in porosity [-].
 
-        TODO: Discuss cf. Coussy p. 73. Not sure about the interpretation of alpha_phi.
+        beta_phi = (alpha - phi_ref) * beta_solid according to Coussy Eq. 4.44.
 
         Parameters:
             subdomains: List of subdomains where the porosity is defined.

@@ -81,7 +81,6 @@ class DualElliptic(EllipticDiscretization):
     """
 
     def __init__(self, keyword: str, name: str) -> None:
-
         # Identify which parameters to use:
         self.keyword = keyword
         self.name = name

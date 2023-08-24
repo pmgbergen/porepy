@@ -1,5 +1,5 @@
 """Tests of the mortar grids. Mainly focuses on mappings between mortar grids and
-surrounding grids. 
+surrounding grids.
 
 The module contains the following groups of tests:
 
@@ -135,9 +135,12 @@ class TestReplaceHigherDimensionalGridInMixedDimensionalGrid(unittest.TestCase):
     """
 
     def test_replace_by_same(self):
-        # 1x2 grid.
-        # Copy the higher dimensional grid and replace. The mapping should be
-        # the same.
+        """1x2 grid. Copy the higher dimensional grid and replace. The mapping should be
+        the same.
+
+        We also check that the boundary grid is updated properly.
+
+        """
         mdg, _ = pp.md_grids_2d.single_horizontal([1, 2], simplex=False)
 
         intf_old = mdg.interfaces()[0]
@@ -147,15 +150,27 @@ class TestReplaceHigherDimensionalGridInMixedDimensionalGrid(unittest.TestCase):
         sd_old = mdg.subdomains(dim=2)[0]
         sd_new = sd_old.copy()
 
+        # Tracking the boundary.
+        bg_old = mdg.subdomain_to_boundary_grid(sd_old)
+
         mdg.replace_subdomains_and_interfaces({sd_old: sd_new})
 
         # Get mortar grid again
         intf_new = mdg.interfaces()[0]
 
         new_projection = intf_new.primary_to_mortar_int()
+        assert (
+            old_projection != new_projection
+        ).nnz == 0, "The projections should be identical."
 
-        # The projections should be identical
-        self.assertTrue((old_projection != new_projection).nnz == 0)
+        # Check that old grids are removed properly.
+        assert sd_old not in mdg
+        assert bg_old not in mdg
+
+        # Check that the new grid and its boundary appeared properly.
+        assert sd_new in mdg
+        bg_new = mdg.subdomain_to_boundary_grid(sd_new)
+        assert bg_new is not None
 
     def test_refine_high_dim(self):
         # Replace the 2d grid with a finer one
@@ -585,40 +600,40 @@ class MockGrid:
 
 
 class TestReplace1dand2dGridsIn3dDomain(unittest.TestCase):
-    """Various tests for replacing subdomain and interface grids in a 3d mixed-dimensional
-    grid.
+    """Various tests for replacing subdomain and interface grids in a 3d mixed-
+    dimensional grid.
 
     The grid consists of the following components:
         A 3d grid, which is intersected by a fracture at y=0. On each side of this plane
-        the grid has 5 nodes (four of them along y=0, the fifth is at y=+-1) and two cells.
-        Most importantly, each side (above and below y=0) has two faces at y=0, one
-        with node coordinates {(0, 0), (1, 0), (1, 1)}, the other with {(0, 0), (1, 1), (0, 1)}.
-        The node at (1, 1) will in some cases be perturbed to (1, 2) (if pert=True),
-        besides this, the 3d grid is not changed in the tests, and really not that
-        important.
+        the grid has 5 nodes (four of them along y=0, the fifth is at y=+-1) and two
+        cells. Most importantly, each side (above and below y=0) has two faces at y=0,
+        one with node coordinates {(0, 0), (1, 0), (1, 1)}, the other with
+        {(0, 0), (1, 1), (0, 1)}. The node at (1, 1) will in some cases be perturbed to
+        (1, 2) (if pert=True), besides this, the 3d grid is not changed in the tests,
+        and really not that important.
 
         A 2d grid, which is located at y=0. Two versions of this grid can be generated:
             1) One with four nodes, at {(0, 0), (1, 0), (1, 1), (0, 1)} - the third node
-               is moved to (1, 2) if pert=True - and two cells formed by the sets of nodes
-               {(0, 0), (1, 0), (1, 1)} and {(0, 0), (1, 1), (0, 1)}.
+               is moved to (1, 2) if pert=True - and two cells formed by the sets of
+               nodes {(0, 0), (1, 0), (1, 1)} and {(0, 0), (1, 1), (0, 1)}.
             2) One with five nodes, at {(0, 0), (1, 0), (1, 1), (0, 1), (0.5, 0.5)}, and
-               four cells formed by the midle node and pairs of neighboring nodes on the sides.
-               Again, pert=True will move the node (1, 1), but it this case, it will also
-               move the midle node to (0.5, 1) to ensure it stays on the line between
-               (0, 0) and now (1, 2) - or else the 1d grid defined below will not conform
-               to the 2d faces.
+               four cells formed by the midle node and pairs of neighboring nodes on the
+               sides. Again, pert=True will move the node (1, 1), but it this case, it
+               will also move the midle node to (0.5, 1) to ensure it stays on the line
+               between (0, 0) and now (1, 2) - or else the 1d grid defined below will
+               not conform to the 2d faces.
         Several of the tests below consists of replacing the 2d grid with two cells with
         that with four cells, and ensure all mappings are correct.
 
         A 1d grid that extends from (0, 0) to (1, 1) (or (1, 2) if pert=True).
 
-        At the 3d-2d and 2d-1d interfaces, there are of course mortar grids that will have
-        their mappings updated as the adjacent subdomain grids are replaced.
+        At the 3d-2d and 2d-1d interfaces, there are of course mortar grids that will
+        have their mappings updated as the adjacent subdomain grids are replaced.
 
-    IMPLEMENTATION NOTE: When perturbing the grid (moving (1, 1) -> (1, 2)), several updates
-    of the grid geometry are hardcoded, like cell centers, face normals etc. This is messy,
-    and a more transparent approach would have been preferrable, but it will have to do
-    for now.
+    IMPLEMENTATION NOTE: When perturbing the grid (moving (1, 1) -> (1, 2)), several
+    updates of the grid geometry are hardcoded, like cell centers, face normals etc.
+    This is messy, and a more transparent approach would have been preferrable, but it
+    will have to do for now.
 
     """
 
@@ -782,7 +797,6 @@ class TestReplace1dand2dGridsIn3dDomain(unittest.TestCase):
         return g
 
     def grid_2d_two_cells(self, pert=False):
-
         n = np.array(
             [[0, 0, 0], [1, 0, 0], [1, 0, 1], [0, 0, 0], [1, 0, 1], [0, 0, 1]]
         ).T
@@ -827,7 +841,6 @@ class TestReplace1dand2dGridsIn3dDomain(unittest.TestCase):
         return g
 
     def grid_2d_two_cells_no_1d(self, pert=False):
-
         n = np.array([[0, 0, 0], [1, 0, 0], [1, 0, 1], [0, 0, 1]]).T
         if pert:
             n[2, 2] = 2
@@ -959,7 +972,6 @@ class TestReplace1dand2dGridsIn3dDomain(unittest.TestCase):
         return g
 
     def grid_2d_four_cells_no_1d(self, pert=False):
-
         n = np.array([[0, 0, 0], [1, 0, 0], [1, 0, 1], [0, 0, 1], [0.5, 0, 0.5]]).T
         if pert:
             n[2, 2] = 2

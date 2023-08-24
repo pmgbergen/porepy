@@ -23,7 +23,7 @@ References:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Callable, Union
+from typing import Callable, Literal, Union
 
 import matplotlib.colors as mcolors  # type: ignore
 import matplotlib.pyplot as plt
@@ -32,7 +32,6 @@ import scipy.optimize as opt
 import scipy.sparse as sps
 
 import porepy as pp
-import porepy.fracs.fracture_network_2d
 import porepy.models.fluid_mass_balance as mass
 import porepy.models.poromechanics as poromechanics
 from porepy.models.derived_models.biot import BiotPoromechanics
@@ -149,13 +148,6 @@ class MandelDataSaving(VerificationDataSaving):
 
     """
 
-    relative_l2_error: Callable
-    """Method for computing the discrete relative L2-error. Normally provided by a
-    mixin instance of :class:`~porepy.applications.building_blocks.
-    verification_utils.VerificationUtils`.
-
-    """
-
     stress: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Method that returns the (integrated) poroelastic stress in the form of an Ad
     operator. Usually provided by the mixin class
@@ -181,46 +173,50 @@ class MandelDataSaving(VerificationDataSaving):
         exact_pressure = self.exact_sol.pressure(sd, t)
         pressure_ad = self.pressure([sd])
         approx_pressure = pressure_ad.evaluate(self.equation_system).val
-        error_pressure = self.relative_l2_error(
+        error_pressure = pp.error_computation.l2_error(
             grid=sd,
             true_array=exact_pressure,
             approx_array=approx_pressure,
             is_scalar=True,
             is_cc=True,
+            relative=True,
         )
 
         exact_displacement = self.exact_sol.displacement(sd, t)
         displacement_ad = self.displacement([sd])
         approx_displacement = displacement_ad.evaluate(self.equation_system).val
-        error_displacement = self.relative_l2_error(
+        error_displacement = pp.error_computation.l2_error(
             grid=sd,
             true_array=exact_displacement,
             approx_array=approx_displacement,
             is_scalar=False,
             is_cc=True,
+            relative=True,
         )
 
         exact_flux = self.exact_sol.flux(sd, t)
         flux_ad = self.darcy_flux([sd])
         mobility = 1 / self.fluid.viscosity()
         approx_flux = mobility * flux_ad.evaluate(self.equation_system).val
-        error_flux = self.relative_l2_error(
+        error_flux = pp.error_computation.l2_error(
             grid=sd,
             true_array=exact_flux,
             approx_array=approx_flux,
             is_scalar=True,
             is_cc=False,
+            relative=True,
         )
 
         exact_force = self.exact_sol.poroelastic_force(sd, t)
         force_ad = self.stress([sd])
         approx_force = force_ad.evaluate(self.equation_system).val
-        error_force = self.relative_l2_error(
+        error_force = pp.error_computation.l2_error(
             grid=sd,
             true_array=exact_force,
             approx_array=approx_force,
             is_scalar=False,
             is_cc=False,
+            relative=True,
         )
 
         exact_consolidation_degree = self.exact_sol.degree_of_consolidation(t)
@@ -1154,7 +1150,7 @@ class MandelUtils(VerificationUtils):
         """Plot degree of consolidation as a function of time."""
 
         # Retrieve data
-        m = 1 / self.units.m
+        m = self.solid.convert_units(1, "m")
         a, _ = self.params.get("domain_size", (100, 10))  # [m]
         a *= m
         c_f = self.fluid_diffusivity()  # [m^2 * s^-1]
@@ -1241,14 +1237,14 @@ class MandelGeometry(pp.ModelGeometry):
 
     def set_domain(self) -> None:
         """Set the domain."""
-        ls = 1 / self.units.m  # length scaling
+        ls = self.solid.convert_units(1, "m")  # length scaling
         a, b = self.params.get("domain_size", (100, 10))  # [m]
         domain = pp.Domain({"xmin": 0.0, "xmax": a * ls, "ymin": 0.0, "ymax": b * ls})
         self._domain = domain
 
     def meshing_arguments(self) -> dict[str, float]:
         """Set meshing arguments."""
-        ls = 1 / self.units.m  # length scaling
+        ls = self.solid.convert_units(1, "m")  # length scaling
         default_meshing_arguments = {"cell_size": 2 * ls}
         return self.params.get("meshing_arguments", default_meshing_arguments)
 
@@ -1298,8 +1294,8 @@ class MandelBoundaryConditionsMechanicsTimeDependent(
             Applied vertical load on the North boundary in scaled [N * m^-1].
 
         """
-        N = 1 / self.units.N  # force scaling
-        m = 1 / self.units.m  # length scaling
+        N = self.solid.convert_units(1, "N")  # force scaling
+        m = self.solid.convert_units(1, "m")  # length scaling
         applied_force = self.params.get("vertical_load", 6e8)  # [N * m^-1]
         return applied_force * (N / m)
 

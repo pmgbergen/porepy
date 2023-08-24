@@ -11,8 +11,6 @@ Notes:
     Refactoring needed for constitutive equations. Modularisation and moving to the
     library.
 
-    Upwind for the mobility of the fluid flux is not complete.
-
 """
 
 from __future__ import annotations
