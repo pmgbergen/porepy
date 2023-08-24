@@ -939,7 +939,7 @@ def calculate_porepy_data(
                         )
                         cn = NAN_ENTRY
                     else:
-                        cn = NAN_ENTRY
+                        cn = float(cn)
 
                     state = state.export_state()
                     res = _porepy_parse_state(state)
