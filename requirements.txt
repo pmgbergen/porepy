@@ -11,3 +11,6 @@ shapely
 six
 sympy
 typing_extensions
+thermo
+chemicals
+psutil
