@@ -3,6 +3,8 @@ with the Peng-Robinson framework for mutliphase-multicomponent mixtures."""
 
 from __future__ import annotations
 
+import sympy as sm
+
 import porepy as pp
 from porepy.numerics.ad.operator_functions import NumericType
 
@@ -80,6 +82,32 @@ class VanDerWaals:
                 dT_a_parts.append(2.0 * x_ij * dT_a_ij)
 
         return safe_sum(a_parts), safe_sum(dT_a_parts)
+    
+    @staticmethod
+    def cohesion_s(
+        X: list[NumericType], a: list[NumericType], bip: list[list[NumericType]]
+    ) -> NumericType:
+        """Symbolic implementation for the mixing rule for the cohesion term."""
+
+        nc = len(X)  # number of components
+
+        a_parts: list[NumericType] = []
+
+        # mixture matrix is symmetric, sum over all entries in upper triangle
+        # multiply off-diagonal elements with 2
+        for i in range(nc):
+            a_parts.append(X[i] ** 2 * a[i])
+            for j in range(i + 1, nc):
+                x_ij = X[i] * X[j]
+                a_ij_ = sm.sqrt(a[i] * a[j])
+                delta_ij = 1 - bip[i][j]
+
+                a_ij = a_ij_ * delta_ij
+
+                # off-diagonal elements appear always twice due to symmetry
+                a_parts.append(2. * x_ij * a_ij)
+
+        return safe_sum(a_parts)
 
     @staticmethod
     def dXi_cohesion(

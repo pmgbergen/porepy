@@ -128,14 +128,15 @@ where g (heat capacity ratio) is set to 8/6 for triatomic molecules.
 """
 
 COMPOSITIONAL_VARIABLE_SYMBOLS = {
-    "pressure": "p_mix",
-    "enthalpy": "h_mix",
-    "temperature": "T_mix",
+    "pressure": "p",
+    "enthalpy": "h",
+    "temperature": "T",
+    "volume": "v",
     "component_fraction": "z",
     "phase_fraction": "y",
     "phase_saturation": "s",
     "phase_composition": "x",
-    "solute_fraction": "solute",
+    "solute_fraction": "c",
 }
 """A dictionary mapping names of variables (key) to their symbol, which is used in the
 composite framework.

@@ -477,35 +477,28 @@ class ThermodynamicState:
 
 
 class BasicMixture:
-    """Basic class for all multiphase, multicomponent mixture models in the
-    unified setting.
+    """Base mixture class managing present components and modelled phases.
 
-    It serves as a container for various phase and component classes,
-    as well as for for providing a basic set-up using PorePy's AD framework.
+    This is a layer-1 implementation of a mixture, containing the core functionality
+    and objects representing the variables and basic thermodynamic properties.
 
-    Setting up a mixture for as a mathematical model (see :meth:`set_up`) introduces
-    new variables into the system (represented by a
-    :class:`~porepy.numerics.ad.equation_system.EquationSystem`).
-    An overview can be found in :meth:`set_up`.
+    The equilibrium problem is set in the unified formulation (unified flash).
+    It allows one gas-like phase and an arbitrary number of liquid-like phases.
 
-    Among all fractional variables, one family of variables stands out, the components'
-    :attr:`~porepy.composite.component.Component.fraction`.
-    This family is related to the overall present mass and must be handled by the
-    modeller separately (providing initial values etc.). All other families of fractions
-    are unknowns in the equilibrium problem.
+    For performing the flash computations, see respective Flash classes.
 
-    Notes:
+    Important:
         - The first, non-gas-like phase is treated as the reference phase.
           Its molar fraction and saturation will not be part of the primary variables.
         - The first component is set as reference component.
-          Its mass conservation will not be part of the flash equations.
+          Its mass conservation will not be part of the equilibrium equations.
         - Choice of reference phase and component influence the choice of equations and
           variables, keep that in mind. It might have numeric implications.
 
-    Important:
+    Notes:
         If the user wants to model a single-component mixture, a dummy component must be
         added as the first component (reference component for elimination),
-        with a feed fraction small enough such that its effects on the
+        with a feed fraction small enough s.t. its effects on the
         thermodynamic properties are negligible.
 
         This approximates a single-component mixture, due to the flash system being
@@ -514,11 +507,14 @@ class BasicMixture:
     Parameters:
         components: A list of components to be added to the mixture.
             This are the chemical species which can appear in multiple phases.
-        phases: A list of phases to be modelled. CUrrently only liquid- and gas-like
-            phases are supported.
+        phases: A list of phases to be modelled.
 
     Raises:
-        AssertionError: If more than 1 gas-like phase is added.
+        AssertionError: If the model assumptions are violated.
+
+            - 1 gas phase must be modelled.
+            - At least 2 components must be present.
+            - At least 2 phases must be modelled.
 
     """
 
@@ -552,9 +548,6 @@ class BasicMixture:
                 doubles.append(phase.name)
                 # add phase
                 if phase.gaslike:
-                    assert (
-                        len(gaslike_phases) == 0
-                    ), "Only 1 gas-like phase is permitted."
                     gaslike_phases.append(phase)
                 else:
                     other_phases.append(phase)
@@ -563,6 +556,11 @@ class BasicMixture:
         # adding all components to every phase, according to unified procedure
         for phase in self.phases:
             phase.components = list(self.components)
+
+        # checking model assumptions
+        assert len(gaslike_phases) == 1, "Only 1 gas-like phase is permitted."
+        assert len(self._components) > 1, "At least 2 components required."
+        assert len(self._phases) > 1, "At least 2 phases required."
 
         ### PUBLIC
 
@@ -791,12 +789,7 @@ class BasicMixture:
         - Phase fraction and saturation can be dependent expression, not variables
           (Elimination by unity).
 
-        Raises:
-            AssertionError: If no phases were passed at instantiation to the mixture.
-
         """
-        # assert the child classes has a non-empty list of phases
-        assert self._phases, "No phases present in mixture."
         return self._phases[0]
 
     @property
@@ -810,12 +803,7 @@ class BasicMixture:
         - The mass constraint can be eliminated, since it is linear dependent on the
           other mass constraints due to various unity constraints.
 
-        Raises:
-            AssertionError: If no components were passed at instantiation to the
-                mixture.
-
         """
-        assert self._components, "No components present in mixture."
         return self._components[0]
 
     def _instantiate_frac_var(
@@ -1407,7 +1395,10 @@ class BasicMixture:
 
 
 class NonReactiveMixture(BasicMixture):
-    """A class modelling non-reactive mixtures and their equilibrium equations.
+    """A class modelling non-reactive mixtures using the unified formulation.
+
+    This is a layer-2 mixture implementing equilibrium equations on top of the
+    standard expressions and variables in the base class.
 
     It contains some generic methods to evaluate or construct equations, compatible with
     PorePy's AD framework. These include:
