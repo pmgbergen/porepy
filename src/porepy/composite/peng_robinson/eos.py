@@ -392,9 +392,9 @@ class PengRobinsonEoS(AbstractEoS):
 
         # computing constant parameters
         for comp in components:
-            a_crits.append(self._a_crit(comp.p_crit, comp.T_crit))
-            bs.append(self._b_crit(comp.p_crit, comp.T_crit))
-            a_cors.append(self._a_cor(comp.omega))
+            a_crits.append(self.a_crit(comp.p_crit, comp.T_crit))
+            bs.append(self.b_crit(comp.p_crit, comp.T_crit))
+            a_cors.append(self.a_correction_weight(comp.omega))
 
         self._a_cor_vals = tuple(a_cors)
         self._b_vals = tuple(bs)
@@ -521,8 +521,8 @@ class PengRobinsonEoS(AbstractEoS):
         a, dT_a, a_comps, _ = self._compute_cohesion_terms(T, X, bip, dT_bip)
         b = self._compute_mixture_covolume(X)
         # compute non-dimensional quantities
-        A = self._A(a, p, T)
-        B = self._B(b, p, T)
+        A = self.A(a, p, T)
+        B = self.B(b, p, T)
         # root
         Z, Z_other = self._Z(A, B, apply_smoother=apply_smoother, Z_as_AD=Z_as_AD)
 
@@ -559,8 +559,8 @@ class PengRobinsonEoS(AbstractEoS):
         phis: list[NumericType] = list()
         for i in range(len(self.components)):
             b_i = self._b_vals[i]
-            B_i = self._B(b_i, p, T)
-            A_i = self._A(self._dXi_a(X, a_comps, bip, i), p, T)
+            B_i = self.B(b_i, p, T)
+            A_i = self.A(self._dXi_a(X, a_comps, bip, i), p, T)
             # A_i = self._A(dxi_a[i], p, T)
             phi_i = self._phi_i(Z, A_i, A, B_i, B)
 
@@ -659,7 +659,7 @@ class PengRobinsonEoS(AbstractEoS):
             if hasattr(comp, "alpha"):
                 alpha_i = comp.alpha(T)
             else:
-                alpha_i = self._a_alpha(a_cor_i, T_r_i)
+                alpha_i = self.a_correction(a_cor_i, T_r_i)
 
             a_i = a_crit_i * pp.ad.power(alpha_i, 2)
             # outer derivative
@@ -733,7 +733,7 @@ class PengRobinsonEoS(AbstractEoS):
     # formulae -------------------------------------------------------------------------
 
     @classmethod
-    def _b_crit(cls, p_crit: float, T_crit: float) -> float:
+    def b_crit(cls, p_crit: float, T_crit: float) -> float:
         """
         .. math::
 
@@ -750,7 +750,7 @@ class PengRobinsonEoS(AbstractEoS):
         return cls.B_CRIT * (R_IDEAL * T_crit) / p_crit
 
     @classmethod
-    def _a_crit(cls, p_crit: float, T_crit: float) -> float:
+    def a_crit(cls, p_crit: float, T_crit: float) -> float:
         """
         .. math::
 
@@ -767,7 +767,7 @@ class PengRobinsonEoS(AbstractEoS):
         return cls.A_CRIT * (R_IDEAL**2 * T_crit**2) / p_crit
 
     @staticmethod
-    def _a_cor(omega: float) -> float:
+    def a_correction_weight(omega: float) -> float:
         """
         References:
             `Zhu et al. (2014), Appendix A
@@ -792,10 +792,10 @@ class PengRobinsonEoS(AbstractEoS):
             )
 
     @staticmethod
-    def _a_alpha(a_cor: float, T_r: NumericType) -> NumericType:
+    def a_correction(kappa: float, T_r: NumericType) -> NumericType:
         """
         Parameters:
-            a_cor: Acentric factor-dependent weight in the linearized correction of
+            kappa: Acentric factor-dependent weight in the linearized correction of
                 the cohesion for a component.
             T_r: Reduced temperature for a component (divided by the component's
                 critical temperature.).
@@ -804,7 +804,7 @@ class PengRobinsonEoS(AbstractEoS):
             The root of the linearized correction for the cohesion term.
 
         """
-        return 1 + a_cor * (1 - pp.ad.sqrt(T_r))
+        return 1 + kappa * (1 - pp.ad.sqrt(T_r))
 
     def _dXi_a(
         self,
@@ -820,7 +820,7 @@ class PengRobinsonEoS(AbstractEoS):
             raise ValueError(f"Unknown mixing rule {self.mixingrule}.")
 
     @staticmethod
-    def _A(a: NumericType, p: NumericType, T: NumericType) -> NumericType:
+    def A(a: NumericType, p: NumericType, T: NumericType) -> NumericType:
         """Auxiliary method implementing formula for non-dimensional cohesion."""
         if isinstance(T, pp.ad.AdArray):
             return T ** (-2) * a * p / R_IDEAL**2
@@ -828,7 +828,7 @@ class PengRobinsonEoS(AbstractEoS):
             return a * p / (R_IDEAL**2 * T**2)
 
     @staticmethod
-    def _B(b: NumericType, p: NumericType, T: NumericType) -> NumericType:
+    def B(b: NumericType, p: NumericType, T: NumericType) -> NumericType:
         """Auxiliary method implementing formula for non-dimensional covolume."""
         if isinstance(T, pp.ad.AdArray):
             return T ** (-1) * b * p / R_IDEAL
