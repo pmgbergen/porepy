@@ -5,8 +5,9 @@ For now we provide parameter values for the following solids:
 * Basalt
 
 The dictionary containing parameter values is obtained by e.g. pp.solid_values.granite.
+"""
 
-
+"""
 Granite:
 ---------------
 
@@ -41,7 +42,7 @@ Coefficient of friction is gathered from:
 pressure. Journal of Geophysical Research (1896-1977), 72(14), 3639-3648.
 https://doi.org/https://doi.org/10.1029/JZ072i014p03639 
 
-Figure 23: slope of the normal/tangential stress curve. 
+Figure 23: slope of the normal stress/tangential stress curve. 
 
 
 
@@ -55,8 +56,19 @@ are of order 1e-18 and 1e-19.
 
 
 
-Specific storage is gathered from:
+Specific storage is gathered from: 
+* Hsieh, P. A., Neuman, S. P., Stiles, G. K., & Simpson, E. S. (1985). Field
+Determination of the Three-Dimensional Hydraulic Conductivity Tensor of Anisotropic
+Media: 2. Methodology and Application to Fractured Rocks. Water Resources Research,
+21(11), 1667-1676. https://doi.org/https://doi.org/10.1029/WR021i011p01667
 
+Values are provided in 1/m. We convert to 1/Pa using:
+* https://books.gw-project.org/groundwater-storage-in-confined-aquifers/chapter/jacobs-compressibility-formula-for-aquifer-storage/.
+
+The average specific storage value from the paper:
+S_s = 4.65e-6 m^-1 = 4.65e-6 / (rho_water * g) Pa^-1 = 4.74e-10 Pa^-1.
+
+(Using rho_water = 1000 kg m^-3, g = 9.81 m s^-2)
 
 """
 
@@ -69,7 +81,7 @@ granite = {
     "porosity": 1.3e-2,  # [-]
     "shear_modulus": 14854722.0,  # [Pa]
     "specific_heat_capacity": 720.7,  # [J * kg^-1 * K^-1]
-    "specific_storage": None,  # [Pa^-1]
+    "specific_storage": 4.74e-10,  # [Pa^-1]
     "thermal_conductivity": 3.1,  # [W * m^-1 * K^-1]
     "thermal_expansion": 9.66e-6,  # [K^-1]
 }
