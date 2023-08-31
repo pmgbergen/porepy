@@ -1,7 +1,13 @@
 """This file contains values for fluid parameters.
 
+For now we provide parameter values for the following fluids:
+* Water (at 20 degrees Celsius)
 
-Water values at 20 degrees Celsius.
+The dictionary containing parameter values is obtained by e.g. pp.fluid_values.water.
+
+
+Water:
+---------------
 
 The values (except thermal conductivity) are gathered from:
 * https://kdusling.github.io/teaching/Applied-Fluids/WaterProperties?T=20C 
