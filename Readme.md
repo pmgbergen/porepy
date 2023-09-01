@@ -7,13 +7,13 @@
 
 # PorePy: A Simulation Tool for Fractured and Deformable Porous Media written in Python.
 PorePy currently has the following distinguishing features:
-- General grids in 2d and 3d, as well as mixed-dimensional grids defined by intersecting fracture networks.
+- General grids in 2d and 3d, as well as mixed-dimensional grids defined by, possibly intersecting, fracture networks.
 - Automatic gridding for complex fracture networks in 2d and 3d.
 - Discretization of mixed-dimensional multi-physics processes:
     - Finite volume and mixed and virtual finite element methods for flow
     - Finite volume methods for transport and thermo-poroelasticity
     - Deformation of existing fractures treated as a frictional contact problem
-    - Some functionality for fracture propagation along existing grid lines
+
 
 
 PorePy is developed by the Porous Media Group at the University of Bergen, Norway. The software is developed under projects funded by the Research Council of Norway, the European Research Council and Equinor.
