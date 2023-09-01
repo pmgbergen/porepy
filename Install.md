@@ -1,26 +1,44 @@
-# Setting up a PorePy environment
+# Install PorePy from source
+If you do not want to use the Docker image, instractions for installation on Linux are given below.
+Get the most current version, install from github:
+
+    git clone https://github.com/pmgbergen/porepy.git
+
+    cd porepy
+
+To get the stable (though not very frequently updated) version:
+
+    git checkout master
+
+Install
+
+    pip install -r requirements.txt
+
+If you plan to edit the code, also do
+
+    pip install -r requirements-dev.txt
+
+Finally to install PorePy
+
+    pip install .
+
+or for editable installs into the user directory:
+
+    pip install --user -e .
+
+
 Installation of PorePy itself should be straightforward, following the instructions in Readme.md.
 
 To get the code fully working requires a few more steps, as described below. Please read the full instructions (including the part on point_in_polyhedron) before reporting an issue on installation.
 
-## Installation on Linux
-Instructions are found on the GitHub webpage. Others libraries that should be installed found in the file `pyproject.toml`.
 
-## Intall on Windows
-Installation on Windows is currently (Spring 2021) rather easy, following these Linux instructions. The dependencies should be installed  using either `conda` or the Intel python distribution and then `pip install porepy` from source. 
+## Installation on Windows
+Installation on Windows is currently (Spring 2021) rather easy, following the above instructions. The dependencies should be installed  using either `conda` or the Intel python distribution and then `pip install porepy` from source. 
 
 Please note that running PorePy on Windows is not officially supported, in the sense that we may introduce updates to the code or new dependencies which may break Windows compatibility. 
 
 ## Installation on Mac
 Install on Mac should also be straightforward if using `conda`. Similar to Windows, compatibility with Mac is not officially supported.
-
-# Setting up ancillary requirements
-
-Some of these requirements aren't strictly necessary to run porepy, however, many workflows require these ancillary components.
-
-## Optional python packages for faster runtimes
-
-Several computationally expensive methods can be accelerated with Cython or Numba. Shapely is used for certain geometry-operations. To install these packages, an administrative level pip install should be sufficient, i.e. through `sudo pip install cython numba shapely`
 
 ### Metis & pymetis
 The metis package is used to partition meshes. In order to use this package, you must install metis from George Karypis
@@ -36,7 +54,6 @@ If the apt install doesn't work, try the followig:
 - You should now have Metis installed on your machine. Test this by running mpmetis -help.
 - Make sure you have pybind11 installed via `pip install pybind11`
 - Install pymetis via `pip install pymetis`
-
 
 ## Paraview
 The bulk of the visualization in 3D relies on the visualization toolkit [(VTK)](https://github.com/Kitware/VTK) and a visualization client, which [Paraview](https://www.paraview.org/) is likely the most widely used.
