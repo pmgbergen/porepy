@@ -1,12 +1,12 @@
 # Install PorePy from source
-If you do not want to use the Docker image, instractions for installation on Linux are given below.
-Get the most current version, install from github:
+If you do not want to use the Docker image as described in the Readme, instructions for installation on Linux are given below.
+Get the most current version from GitHub:
 
     git clone https://github.com/pmgbergen/porepy.git
 
     cd porepy
 
-To get the stable (though not very frequently updated) version:
+The default branch is `develop`. To get the stable (though not very frequently updated) version:
 
     git checkout master
 
@@ -14,7 +14,7 @@ Install
 
     pip install -r requirements.txt
 
-If you plan to edit the code, also do
+If you plan more advanced usage, also do
 
     pip install -r requirements-dev.txt
 
