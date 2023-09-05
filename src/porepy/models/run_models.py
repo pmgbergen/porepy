@@ -239,8 +239,8 @@ def _choose_solver(model, params: dict) -> Union[pp.LinearSolver, pp.NewtonSolve
     """Choose between linear and non-linear solver.
 
     Parameters:
-        model: Model class containing all information on parameters, variables,
-            discretization, geometry. Various methods such as those relating to solving
+        model: Model class containing all information on material parameters, variables,
+            discretization and geometry. Various methods such as those relating to solving
             the system, see the appropriate solver for documentation.
         params: Parameters related to the solution procedure.
 
