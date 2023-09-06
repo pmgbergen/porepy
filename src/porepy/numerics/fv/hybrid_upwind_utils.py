@@ -33,7 +33,7 @@ def restriction_matrices_left_right(sd):
 
     var_left = left_restriction @ var
     var_left.shape = (len(sd.get_internal_faces()),)
-    var.shape = (sd.num_faces,)
+    var.shape = (sd.num_faces,) # you mean, sd.num_cells, right?
     """
 
     internal_faces = sd.get_internal_faces()

@@ -6,6 +6,7 @@ import porepy as pp
 from typing import Callable, Optional, Type, Literal, Sequence, Union
 from porepy.numerics.ad.forward_mode import AdArray, initAdArrays
 
+import copy
 
 import os
 import sys
@@ -1085,8 +1086,12 @@ class Equations(pp.BalanceEquation):
 
         source = [source_cell] * num_cells_tot
 
-        source = pp.ad.DenseArray(np.concatenate(source))
-        # source = pp.ad.DenseArray(source)
+        try:
+            source = pp.ad.DenseArray(np.concatenate(source))
+        except:
+            source = pp.ad.DenseArray(np.array(source)) # if frac = [], interface_vector_source calls this fcn with source = [], so np.concatenate gets mad.
+            # I don't like this except because source = [] for a bug you dont see it... find a better solution
+            print('FIX THIS...')
         source.set_name("vector source (gravity)")
 
         return source
@@ -1154,9 +1159,7 @@ class ConstitutiveLawPressureMass(
 
 class BoundaryConditionsPressureMass:
     def bc_neu_phase_0(self, subdomains: list[pp.Grid]) -> pp.ad.DenseArray:
-        """
-        it's quite useless now, but i like how it is written
-        """
+        """ """
 
         bc_values: list[np.ndarray] = []
 
@@ -1166,10 +1169,10 @@ class BoundaryConditionsPressureMass:
                 
                 eps = 1e-6
                 left_boundary = np.where(sd.face_centers[0]<(0+eps))[0] # add xmin as in the tests pls
-                right_boundary = np.where(sd.face_centers[0]>(1-eps))[0] # add xmax as in the tests pls
+                right_boundary = np.where(sd.face_centers[0]>(self.xmax-eps))[0] # add xmax as in the tests pls
                 vals = np.zeros(sd.num_faces)
                 vals[left_boundary] = -0*sd.face_areas[left_boundary] # inlet
-                vals[right_boundary] = 0*sd.face_areas[right_boundary] # outlet
+                vals[right_boundary] = 1*sd.face_areas[right_boundary] # outlet
                 bc_values.append(vals)
             
             else:
@@ -1200,9 +1203,9 @@ class BoundaryConditionsPressureMass:
                 
                 eps = 1e-6
                 left_boundary = np.where(sd.face_centers[0]<(0+eps))[0] # add xmin as in the tests pls
-                right_boundary = np.where(sd.face_centers[0]>(1-eps))[0]
+                right_boundary = np.where(sd.face_centers[0]>(self.xmax-eps))[0]
                 vals = np.zeros(sd.num_faces)
-                vals[left_boundary] = -0*sd.face_areas[left_boundary] # inlet
+                vals[left_boundary] = -0.5*sd.face_areas[left_boundary] # inlet
                 vals[right_boundary] = 0*sd.face_areas[right_boundary] # outlet
                 bc_values.append(vals)
             
@@ -1347,10 +1350,10 @@ class SolutionStrategyPressureMass(pp.SolutionStrategy):
             # )
 
             saturation_values = 1*np.ones(sd.num_cells)
-            y_max = self.size  # TODO: not 100% sure size = y_max
+            # y_max = self.size  # TODO: not 100% sure size = y_max
             saturation_values[
-                np.where(sd.cell_centers[1] >= y_max / 2)
-            ] = 1.0  # TODO: HARDCODED for 2D
+                np.where(sd.cell_centers[1] >= self.ymax / 2)
+            ] = 1.  # TODO: HARDCODED for 2D
 
             if sd.dim == 1:
                 saturation_values = 0.8*np.ones(sd.num_cells)
@@ -1663,7 +1666,7 @@ class SolutionStrategyPressureMass(pp.SolutionStrategy):
         # pdb.set_trace()
 
         self.set_discretization_parameters()
-        self.rediscretize()
+        self.rediscretize() 
 
     def after_nonlinear_iteration(self, solution_vector: np.ndarray) -> None:
         """ """
@@ -1674,7 +1677,7 @@ class SolutionStrategyPressureMass(pp.SolutionStrategy):
             values=solution_vector, additive=True, iterate_index=0
         )
       
-        # # added:
+        # added:
         # print("self.time_manager.time = ", self.time_manager.time)
         # if np.isclose(np.mod(self.time_manager.time, 0.002), 0, rtol=0, atol=1e-5):
         #     for sd, _ in self.mdg.subdomains(return_data=True):
@@ -1723,7 +1726,34 @@ class SolutionStrategyPressureMass(pp.SolutionStrategy):
     def eb_after_timestep(self):
         """ """
         print("self.time_manager.time = ", self.time_manager.time)
-        if np.isclose(np.mod(self.time_manager.time, 0.01), 0, rtol=0, atol=1e-5) or self.time_manager.time == self.time_manager.dt:
+        if np.isclose(np.mod(self.time_manager.time, 0.05), 0, rtol=0, atol=1e-4) or self.time_manager.time == self.time_manager.dt:
+            
+            #  # open the fracture:
+            # for sd in self.mdg.subdomains():
+            #     if sd.dim == 2:
+            #         internal_nodes_id = sd.get_internal_nodes()
+            #         # only for this grid: "simplex";  "cell_size": 0.2 / self.units.m;      "cell_size_fracture": 0.1 / self.units.m;        [frac1]
+            #         # print(internal_nodes_id)
+            #         # sd.nodes[1][26] += 0.04
+            #         # sd.nodes[1][27] -= 0.04
+            #         # sd.nodes[1][28] += 0.04
+            #         # sd.nodes[1][29] -= 0.04
+
+            #         tmp_0 = np.zeros(sd.num_faces)
+            #         tmp_0[sd.frac_pairs[0]] = 1                    
+
+            #         tmp_1 = np.zeros(sd.num_faces)
+            #         tmp_1[sd.frac_pairs[1]] = 1
+
+            #         side_0_nodes = np.where((sd.face_nodes @ tmp_0)==2)[0]
+            #         side_1_nodes = np.where((sd.face_nodes @ tmp_1)==2)[0]
+
+            #         sd.nodes[1][side_0_nodes] += 0.01
+            #         sd.nodes[1][side_1_nodes] -= 0.01
+
+            # self.mdg.compute_geometry()
+            # pp.plot_grid(self.mdg, info="", alpha=0.1)
+            
             for sd, _ in self.mdg.subdomains(return_data=True):
                 gigi = (
                     # self.mixture.mixture_for_subdomain(self.equation_system, sd)
@@ -1731,6 +1761,10 @@ class SolutionStrategyPressureMass(pp.SolutionStrategy):
                     .get_phase(0)
                     .saturation
                 )
+                gigi_1 = (self.mixture.mixture_for_subdomain(sd)
+                    .get_phase(1)
+                    .saturation)
+        
 
                 ppp = self.equation_system.md_variable("pressure", [sd]).evaluate(
                     self.equation_system
@@ -1738,6 +1772,27 @@ class SolutionStrategyPressureMass(pp.SolutionStrategy):
 
                 print("saturation = ", gigi.val)
                 print("pressure = ", ppp.val)
+                
+                interfaces = self.subdomains_to_interfaces(self.mdg.subdomains(), [1])
+                (eq, kn, pressure_h, pressure_l, g_term) = self.eq_fcn_mortar_phase_0(interfaces)
+                pressure_h = pressure_h.evaluate(self.equation_system).val
+                pressure_l = pressure_l.evaluate(self.equation_system).val
+                dp = pressure_h - pressure_l
+                g_term = g_term.evaluate(self.equation_system)
+
+                # if sd.dim == 2:
+                #     mortar_projection = pp.ad.MortarProjections(self.mdg, [sd], interfaces, dim=1)
+                #     M = mortar_projection.mortar_to_primary_avg.evaluate(self.equation_system)
+                #     g_term_all = M @ g_term
+                #     normals = self.outwards_internal_boundary_normals(interfaces, unitary=True).evaluate(self.equation_system) 
+                #     normals = normals.reshape((int(np.shape(normals)[0]/2), 2)).T
+                #     normals_all = sd.face_normals
+                #     g_term_vect = normals_all
+                #     g_term_vect[0] = 0
+                #     g_term_vect[1] = (M @ normals[1]) * g_term_all # MAYBE YOU DON'T NEED M HERE, check the function outwards_internal...
+
+                #     print("g_term = ", g_term)
+                #     pp.plot_grid(sd, vector_value=0.1*g_term_vect, alpha=0)
 
                 if sd.dim > 0: # otherwise plot_grid gets mad
                     pp.plot_grid(
@@ -1747,67 +1802,83 @@ class SolutionStrategyPressureMass(pp.SolutionStrategy):
                         info="",
                         title="saturation " + str(self.ell),
                     )
+                    pp.plot_grid(
+                        sd,
+                        gigi_1.val,
+                        alpha=0.5,
+                        info="",
+                        title="saturation 1",
+                    )
                     pp.plot_grid(sd, ppp.val, alpha=0.5, info="", title="pressure")
             
-            # open the fracture:
-            for sd in self.mdg.subdomains():
-                if sd.dim == 2:
-                    internal_nodes_id = sd.get_internal_nodes()
-                    # only for this grid: "cell_size": 0.2 / self.units.m;      "cell_size_fracture": 0.1 / self.units.m;        [frac1]
-                    print(internal_nodes_id)
-                    sd.nodes[1][26] += 0.04
-                    sd.nodes[1][27] -= 0.04
-                    sd.nodes[1][28] += 0.04
-                    sd.nodes[1][29] -= 0.04
+                
 
-            self.mdg.compute_geometry()
-            # pp.plot_grid(self.mdg, info="n", alpha=0.1)
+            # for sd, data in self.mdg.subdomains(return_data=True):
+            #     if sd.dim == 2:
 
-            # 
-            for sd, data in self.mdg.subdomains(return_data=True):
-                if sd.dim == 2:
-                    normals = sd.face_normals
+            #         interfaces = self.subdomains_to_interfaces(self.mdg.subdomains(), [1])
 
-                    interfaces = self.subdomains_to_interfaces(self.mdg.subdomains(), [1])
-                    ff0 = self.interface_fluid_mass_flux_phase_0(self.interface_mortar_flux_phase_0(interfaces), interfaces, self.mixture.get_phase(0), "interface_mortar_flux_phase_0").evaluate(self.equation_system).val
-                    ff0_vect = normals
-                    ff0_vect[1, sd.tags["fracture_faces"]] = 1000*ff0
+            #         # mortar_projection = pp.ad.MortarProjections(self.mdg, [sd], interfaces, dim=1)
+            #         # M = mortar_projection.mortar_to_primary_int.evaluate(self.equation_system)
 
-                    ff1 = self.interface_fluid_mass_flux_phase_1(self.interface_mortar_flux_phase_1(interfaces), interfaces, self.mixture.get_phase(1), "interface_mortar_flux_phase_1").evaluate(self.equation_system).val
-                    ff1_vect = normals
-                    ff1_vect[1, sd.tags["fracture_faces"]] = 1000*ff1
-                    
-                    
-                    print("PAY ATTENTION TO WHAT YOU ARE PLOTTING...") # there is the funcion to flip the normal in such a way that they conform the mortar sign notation. find it...
-                    # pp.plot_grid(sd, vector_value=0.5 * normals, alpha=0)
-                    print("ff0 = ", ff0)
-                    pp.plot_grid(sd, vector_value=0.1 * ff0_vect, alpha=0, title="kind of ff0")
-                    print("ff1 = ", ff1)
-                    pp.plot_grid(sd, vector_value=0.1 * ff1_vect, alpha=0, title="kind of ff1")
+            #         normals_all = sd.face_normals
+            #         # normals = self.outwards_internal_boundary_normals(interfaces, unitary=True).evaluate(self.equation_system) # they are not unitary... ???
+            #         # normals = normals.reshape( (int(normals.shape[0]/2), 2) ).T # Hope it is right
+
+            #         # ff0 = self.interface_fluid_mass_flux_phase_0(self.interface_mortar_flux_phase_0(interfaces), interfaces, self.mixture.get_phase(0), "interface_mortar_flux_phase_0").evaluate(self.equation_system).val
+            #         # ff0_vect = normals
+            #         # ff0_vect[1] = 1000*ff0
+            #         # ff0_vect[1, sd.tags["fracture_faces"]] = 1000*ff0
+            #         # ff0_vect_all = 0*normals_all
+            #         # ff0_vect_all[1, sd.tags["fracture_faces"]] = ff0_vect[1]
+
+            #         (
+            #         eq,
+            #         accumulation,
+            #         flux_tot,
+            #         flux_intf_phase_0,
+            #         flux_intf_phase_1,
+            #         flux,
+            #         source_phase_0,
+            #         source_phase_1,
+            #         source,
+            #         ) = self.eq_fcn_pressure([sd])
+
+            #         ff0_from_p = -flux_intf_phase_0.evaluate(self.equation_system).val # "-" bcs weird pp notation, you know
+            #         ff1_from_p = -flux_intf_phase_1.evaluate(self.equation_system).val
+
+            #         ff0_vect_from_p = copy.deepcopy(normals_all)
+            #         ff0_vect_from_p[0] = 0
+            #         ff0_vect_from_p[1] *= ff0_from_p
+
+            #         ff1_vect_from_p = copy.deepcopy(normals_all)
+            #         ff1_vect_from_p[0] = 0
+            #         ff1_vect_from_p[1] *= ff1_from_p
+
+            #         # pp.plot_grid(sd, vector_value=0.5 * normals, alpha=0)
+            #         # print("ff0 = ", ff0)
+            #         print("ff0_vect_from_p = ", ff0_vect_from_p)
+            #         # pp.plot_grid(sd, vector_value=0.1 * ff0_vect_all, alpha=0, title="kind of ff0")
+            #         pp.plot_grid(sd, vector_value=200 * ff0_vect_from_p, alpha=0, title="ff0 from p")
+            #         #  print("ff1 = ", ff1)
+            #         print("ff1_vect_from_p = ", ff1_vect_from_p)
+            #         pp.plot_grid(sd, vector_value=1000 * ff1_vect_from_p, alpha=0, title="ff1 from p")
+            #         pdb.set_trace()
                     
                 
-        # close the fracture:
-        for sd in self.mdg.subdomains():
-            if sd.dim == 2:
-                internal_nodes_id = sd.get_internal_nodes()
+        # # close the fracture:
+        # for sd in self.mdg.subdomains():
+        #     if sd.dim == 2:
+        #         internal_nodes_id = sd.get_internal_nodes()
                 
-                sd.nodes[1][26] -= 0.04
-                sd.nodes[1][27] += 0.04
-                sd.nodes[1][28] -= 0.04
-                sd.nodes[1][29] += 0.04
+        #         sd.nodes[1][26] -= 0.04
+        #         sd.nodes[1][27] += 0.04
+        #         sd.nodes[1][28] -= 0.04
+        #         sd.nodes[1][29] += 0.04
 
-        self.mdg.compute_geometry()
+        # self.mdg.compute_geometry()
 
 
-
-        subdomains = self.mdg.subdomains()
-        mortar_projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1)
-        discr = self.ppu_discretization(subdomains, "darcy_flux_phase_0")
-        
-        sadboy = discr.bound_transport_neu.evaluate(self.equation_system)
-        lala = mortar_projection.mortar_to_primary_int.evaluate(self.equation_system)
-
-        pdb.set_trace()
 
 class MyModelGeometry(pp.ModelGeometry):
     def set_geometry(self) -> None:
@@ -1819,7 +1890,7 @@ class MyModelGeometry(pp.ModelGeometry):
         self.fracture_network = pp.create_fracture_network(self.fractures, self.domain)
 
         self.mdg = pp.create_mdg(
-            "simplex",
+            "cartesian",
             self.meshing_arguments(),
             self.fracture_network,
             **self.meshing_kwargs(),
@@ -1844,7 +1915,7 @@ class MyModelGeometry(pp.ModelGeometry):
         # self._domain = pp.applications.md_grids.domains.nd_cube_domain(2, self.size)
 
         # unstructred unit square:
-        bounding_box = {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1} #, "zmin": 0, "zmax": 1}
+        bounding_box = {"xmin": 0, "xmax": self.xmax, "ymin": 0, "ymax": self.ymax} #, "zmin": 0, "zmax": 1}
         self._domain = pp.Domain(bounding_box=bounding_box)
 
     def set_fractures(self) -> None:
@@ -1854,12 +1925,12 @@ class MyModelGeometry(pp.ModelGeometry):
         frac3 = pp.LineFracture(np.array([[0.5, 0.5], [0.2, 0.8]]))
 
         # frac1 = pp.PlaneFracture(np.array([[0.2, 0.7, 0.7, 0.2],[0.2, 0.2, 0.8, 0.8],[0.5, 0.5, 0.5, 0.5]]))
-        self._fractures: list = [frac1]
+        self._fractures: list = [] #[frac1]
 
     def meshing_arguments(self) -> dict[str, float]:
         """ """
         default_meshing_args: dict[str, float] = {
-            "cell_size": 0.2 / self.units.m,
+            "cell_size": 1 / self.units.m, # 0.05
             "cell_size_fracture": 0.1 / self.units.m,
         }
         return self.params.get("meshing_arguments", default_meshing_args)
@@ -1890,7 +1961,7 @@ material_constants = {"fluid": fluid_constants, "solid": solid_constants}
 
 time_manager = pp.TimeManager(
     schedule=[0, 10],
-    dt_init=1e-3,
+    dt_init=1e-2,
     constant_dt=True,
     iter_max=10,
     print_info=True,
@@ -1913,7 +1984,10 @@ if __name__ == "__main__":
             self.ell = 0  # 0 = wetting, 1 = non-wetting
             self.gravity_value = 1  # pp.GRAVITY_ACCELERATION
             self.dynamic_viscosity = 1  # TODO: it is hardoced everywhere, you know...
- 
+            
+            self.xmax = 20
+            self.ymax = 20
+    
     wetting_phase = pp.composite.phase.Phase(rho0=1)
     non_wetting_phase = pp.composite.phase.Phase(rho0=0.5)
 

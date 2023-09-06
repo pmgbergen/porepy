@@ -188,17 +188,17 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
         self.rediscretize()
 
         # TEST: ---------------------------------------------------------------------------
-        # open the fracture:
-        for sd in self.mdg.subdomains():
-            if sd.dim == 2:
-                for i in dir(sd):
-                    print(i)
+        # # open the fracture:
+        # for sd in self.mdg.subdomains():
+        #     if sd.dim == 2:
+        #         for i in dir(sd):
+        #             print(i)
 
-                internal_nodes_id = sd.get_internal_nodes()
-                sd.nodes[1][internal_nodes_id[1]] += 0.1
-                sd.nodes[1][internal_nodes_id[0]] -= 0.1
+        #         internal_nodes_id = sd.get_internal_nodes()
+        #         sd.nodes[1][internal_nodes_id[1]] += 0.1
+        #         sd.nodes[1][internal_nodes_id[0]] -= 0.1
 
-        self.mdg.compute_geometry()
+        # self.mdg.compute_geometry()
 
         # pp.plot_grid(self.mdg, info="cf", alpha=0)
 
@@ -212,15 +212,13 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
         # ---------
         #  3     2
 
-        div = pp.ad.Divergence(self.mdg.subdomains(), dim=1).evaluate(self.equation_system)
-        print(div)
-        for sd in self.mdg.subdomains():
-            if sd.dim == 2:
-                normals = sd.face_normals
-                pp.plot_grid(
-                    sd, vector_value=0.5 * normals, info='f', alpha=0
-                )  # REMARK: mortar are positive from higer to lower, they do NOT respect the face normals
-                pdb.set_trace()
+        # for sd in self.mdg.subdomains():
+        #     if sd.dim == 2:
+        #         normals = sd.face_normals
+        #         pp.plot_grid(
+        #             sd, vector_value=0.5 * normals, info='f', alpha=0
+        #         )  # REMARK: mortar are positive from higer to lower, they do NOT respect the face normals
+        #         # pdb.set_trace()
 
         # for sd,data in self.mdg.subdomains(return_data=True):
         #     if sd.dim == 2:
@@ -290,13 +288,13 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
             .val
         )
 
-
+        # intf fluid fluxes how they are in the balance eq. remember that I cant use the output of eq_fcn_xxx bcs of zero initialization for newton loow
         subdomains = self.mdg.subdomains()
         mortar_projection = pp.ad.MortarProjections(self.mdg, subdomains, [intf], dim=1)
 
         discr = self.ppu_discretization(subdomains, "darcy_flux_phase_0")
         
-        flux_intf_phase_0_from_mass = (
+        flux_intf_phase_0_from_mass_ = (
             discr.bound_transport_neu
             @ mortar_projection.mortar_to_primary_int
             @ self.interface_fluid_mass_flux_phase_0(
@@ -307,6 +305,13 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
             )
         ).evaluate(self.equation_system).val
 
+        mat = (
+            discr.bound_transport_neu
+            @ mortar_projection.mortar_to_primary_int ).evaluate(self.equation_system)
+
+        # here I want to use the previous quantities:
+        flux_intf_phase_0_from_mass = mat @ fluid_flux_phase_0 
+        
         discr = self.ppu_discretization(subdomains, "darcy_flux_phase_1")
         
         flux_intf_phase_1_from_mass_ = (
@@ -323,24 +328,31 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
         mat = (
             discr.bound_transport_neu
             @ mortar_projection.mortar_to_primary_int ).evaluate(self.equation_system)
-        flux_intf_phase_1_from_mass = mat @ fluid_flux_phase_1
 
+        flux_intf_phase_1_from_mass = mat @ fluid_flux_phase_1 # I want to use the previos quantities 
+
+        assert np.all(flux_intf_phase_0_from_mass_ == flux_intf_phase_0_from_mass)
         assert np.all(flux_intf_phase_1_from_mass_ == flux_intf_phase_1_from_mass)
 
-        up_mat = discr.bound_transport_neu.evaluate(self.equation_system)
-
-        print("up_mat = ", up_mat)
-        print("flux_intf_phase_0_from_mass = ", flux_intf_phase_0_from_mass)
-        print("flux_intf_phase_1_from_mass = ", flux_intf_phase_1_from_mass)
-
         div = pp.ad.Divergence(subdomains, dim=1).evaluate(self.equation_system)
-
-        # flux_intf_phase_0_from_mass = flux_intf_phase_0_from_mass[[8, 9, 12, 13]] 
-        # flux_intf_phase_1_from_mass = flux_intf_phase_1_from_mass[[8, 9, 12, 13]]
 
         div_flux_intf_phase_0_from_mass = div @ flux_intf_phase_0_from_mass
         div_flux_intf_phase_1_from_mass = div @ flux_intf_phase_1_from_mass
 
+        intf_to_cells_signed = np.array([[0, 0, 0, 1],
+                                         [0, 0, 1, 0],
+                                         [0, 1, 0, 0],
+                                         [1, 0, 0, 0],
+                                         [0, 0, 0, 0],
+                                         [0, 0, 0, 0]]) # fluid flux multiplied by this matrix becomes the flux in/out the cell, so it becames the term in the conservation law
+
+        div_flux_intf_phase_0_from_mass_by_hand = intf_to_cells_signed @ fluid_flux_phase_0
+        div_flux_intf_phase_1_from_mass_by_hand = intf_to_cells_signed @ fluid_flux_phase_1
+
+        # after these two asserts I dont have to test the term inside the balances eq anymore
+        assert np.all( div_flux_intf_phase_0_from_mass_by_hand == -div_flux_intf_phase_0_from_mass )
+        assert np.all( div_flux_intf_phase_1_from_mass_by_hand == -div_flux_intf_phase_1_from_mass ) # minus bcs in the balance eq the intf fluxes are subtracted... weird pp notation, I followed it
+    
         print("\n\n\n")
         print("mortar_phase_0 = ", mortar_phase_0)
         print("mortar_phase_1 = ", mortar_phase_1)
@@ -348,8 +360,6 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
         print("fluid_flux_phase_1 = ", fluid_flux_phase_1)
         print("div_flux_intf_phase_0_from_mass = ", div_flux_intf_phase_0_from_mass)
         print("div_flux_intf_phase_1_from_mass = ", div_flux_intf_phase_1_from_mass)
-
-        pdb.set_trace()
 
         if self.case == 1:  # delta p = 0, g = 1, s0 = 0
             rho_mob_phase_0 = 0
@@ -1066,7 +1076,7 @@ mixture.add([wetting_phase, non_wetting_phase])
 model = FinalModelTest(mixture, params)
 
 
-case = 3
+case = 1
 model.case = case
 
 if case == 1:  # delta p = 0, g = 1
