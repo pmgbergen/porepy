@@ -1258,9 +1258,9 @@ class EquationSystem:
             discr: list storing found discretizations
 
         """
-        if len(operator.tree.children) > 0:
+        if len(operator.children) > 0:
             # Go further in recursion
-            for child in operator.tree.children:
+            for child in operator.children:
                 discr += EquationSystem._recursive_discretization_search(child, list())
 
         if isinstance(operator, _ad_utils.MergedOperator):

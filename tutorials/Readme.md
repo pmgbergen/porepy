@@ -29,4 +29,4 @@ For the more experienced user, some more specific tutorials are also available:
 11. [Equations](./equations.ipynb) briefly covers some general basics about automatic differentiation (AD). It mainly covers how AD is extensively used in PorePy equations, which means that it is most useful for the users that want to define their own equations.
 12. [Mandel's problem](./mandels_problem.ipynb) shows how to set up and run the Mandel's consolidation problem based on the Biot equations of poroelasticity. 
 13. [Flux discretizations](./flux_discretizations.ipynb) shows different discretization methods available for diffusive fluxes. These are used for Darcy's law for fluid fluxes in a mass balance equation. 
-14. [Stress discretization](./stress_discretization.ipynb) describes the discretization method used for the vector version of 13. that arises in the stress-strain relationship of Hooke's law.
+14. [Stress discretization](./stress_discretization.ipynb) describes the discretization method used for the vector version of tutorial #13, which arises in the linear elastisity equations.
