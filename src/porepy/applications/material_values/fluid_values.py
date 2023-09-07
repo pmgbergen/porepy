@@ -10,11 +10,11 @@ Water:
 ---------------
 
 The values (except thermal conductivity) are gathered from:
-* https://kdusling.github.io/teaching/Applied-Fluids/WaterProperties?T=20C 
+* https://kdusling.github.io/teaching/Applied-Fluids/WaterProperties?T=20C
 * Kell, G. S. (1975). Density, thermal expansivity, and compressibility of liquid water
 from 0.deg. to 150.deg.. Correlations and tables for atmospheric pressure and saturation
 reviewed and expressed on 1968 temperature scale. Journal of Chemical & Engineering
-Data, 20(1), 97-105. https://doi.org/10.1021/je60064a005 
+Data, 20(1), 97-105. https://doi.org/10.1021/je60064a005
 
 The first reference is a calculator-like site based on the second reference.
 
