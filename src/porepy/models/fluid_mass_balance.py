@@ -16,7 +16,7 @@ Notes:
 from __future__ import annotations
 
 import logging
-from typing import Callable, Optional, Union
+from typing import Callable, Optional, Union, Sequence
 
 import numpy as np
 
@@ -195,6 +195,11 @@ class MassBalanceEquations(pp.BalanceEquation):
         mass.set_name("fluid_mass")
         return mass
 
+    def mobility_rho(
+        self, grids: Sequence[pp.Grid] | Sequence[pp.BoundaryGrid]
+    ) -> pp.ad.Operator:
+        return self.fluid_density(grids) * self.mobility(grids)
+
     def fluid_flux(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Fluid flux.
 
@@ -208,9 +213,12 @@ class MassBalanceEquations(pp.BalanceEquation):
 
         """
         discr = self.mobility_discretization(subdomains)
-        mob_rho = self.fluid_density(subdomains) * self.mobility(subdomains)
+        mob_rho = self.mobility_rho(subdomains)
 
-        bc_values = self.bc_values_mobrho(subdomains)
+        bc_projection = pp.ad.BoundaryProjection(mdg=self.mdg, subdomains=subdomains)
+        bc_values = bc_projection.boundary_to_subdomain @ self.mobility_rho(
+            self.mdg.subdomains_to_boundary_grids(subdomains)
+        )
         flux = self.advective_flux(
             subdomains, mob_rho, discr, bc_values, self.interface_fluid_flux
         )
@@ -341,8 +349,6 @@ class ConstitutiveLawsSinglePhaseFlow(
 
     """
 
-    pass
-
 
 class BoundaryConditionsSinglePhaseFlow:
     """Boundary conditions for single-phase flow."""
@@ -361,6 +367,10 @@ class BoundaryConditionsSinglePhaseFlow:
     :class:`~porepy.models.solution_strategy.SolutionStrategy`.
 
     """
+
+    mdg: pp.MixedDimensionalGrid
+    pressure: Callable[[list[pp.Grid]], pp.ad.Operator]
+    darcy_flux: Callable[[Sequence[pp.Grid]], pp.ad.Operator]
 
     def bc_type_darcy(self, sd: pp.Grid) -> pp.BoundaryCondition:
         """Dirichlet conditions on all external boundaries.
@@ -392,63 +402,20 @@ class BoundaryConditionsSinglePhaseFlow:
         # Define boundary condition on all boundary faces.
         return pp.BoundaryCondition(sd, boundary_faces, "dir")
 
-    def bc_values_darcy(self, subdomains: list[pp.Grid]) -> pp.ad.DenseArray:
-        """Boundary condition values for the Darcy flux.
+    def bc_values_darcy(self, subdomains: Sequence[pp.Grid]) -> pp.ad.Operator:
+        """Boundary condition operator for the Darcy flux.
 
         Parameters:
             subdomains: List of subdomains.
 
         Returns:
-            Ad array representing the boundary condition values for the Darcy flux.
+            Operator representing the boundary condition values for the Darcy flux.
 
         """
-        num_faces = sum([sd.num_faces for sd in subdomains])
-        # Ignore typing error below, the parameter in _ad_wrapper forces it to be an
-        # Array.
-        return pp.wrap_as_ad_array(0, num_faces, "bc_values_darcy")
-
-    def bc_values_mobrho(self, subdomains: list[pp.Grid]) -> pp.ad.DenseArray:
-        """Boundary condition values for the mobility times density.
-
-        Units for Dirichlet: kg * m^-3 * Pa^-1 * s^-1
-
-        Parameters:
-            Value is tricky if ..math:
-                mobility = \\rho / \\mu
-            with \rho and \mu being functions of p (or other variables), since variables
-            are not defined at the boundary. This may lead to inconsistency between
-            boundary conditions for Darcy flux and mobility. For now, we assume that the
-            mobility is constant. TODO: Better solution. Could involve defining boundary
-            grids.
-
-        Parameters:
-            subdomains: List of subdomains.
-
-        Returns:
-            Array with boundary values for the mobility.
-
-        """
-        # List for all subdomains
-        bc_values: list[np.ndarray] = []
-
-        # Loop over subdomains to collect boundary values
-        for sd in subdomains:
-            # Get density and viscosity values on boundary faces applying trace to
-            # interior values.
-            # Define boundary faces.
-            boundary_faces = self.domain_boundary_sides(sd).all_bf
-            # Append to list of boundary values
-            vals = np.zeros(sd.num_faces)
-            vals[boundary_faces] = self.fluid.density() / self.fluid.viscosity()
-            bc_values.append(vals)
-
-        # Concatenate to single array and wrap as ad.DenseArray
-        # We have forced the type of bc_values_array to be an ad.DenseArray, but mypy does
-        # not recognize this. We therefore ignore the typing error.
-        bc_values_array: pp.ad.DenseArray = pp.wrap_as_ad_array(  # type: ignore
-            np.hstack(bc_values), name="bc_values_mobility"
-        )
-        return bc_values_array
+        boundary_grids = self.mdg.subdomains_to_boundary_grids(subdomains)
+        pressure_dirichlet = self.pressure(boundary_grids)
+        flux_neumann = self.darcy_flux(boundary_grids)
+        return pressure_dirichlet + flux_neumann
 
 
 class VariablesSinglePhaseFlow(pp.VariableMixin):
@@ -502,6 +469,8 @@ class VariablesSinglePhaseFlow(pp.VariableMixin):
     :class:`~porepy.models.fluid_mass_balance.SolutionStrategySinglePhaseFlow`.
 
     """
+    bc_data_pressure_key: str
+    """TODO"""
     nd: int
     """Number of spatial dimensions. Normally defined in a mixin of instance
     :class:`~porepy.models.geometry.ModelGeometry`.
@@ -534,9 +503,15 @@ class VariablesSinglePhaseFlow(pp.VariableMixin):
             tags={"si_units": f"m^{self.nd} * Pa"},
         )
 
-    def pressure(self, subdomains: list[pp.Grid]) -> pp.ad.MixedDimensionalVariable:
-        p = self.equation_system.md_variable(self.pressure_variable, subdomains)
-        return p
+    def pressure(
+        self, grids: list[pp.Grid] | list[pp.BoundaryGrid]
+    ) -> pp.ad.MixedDimensionalVariable:
+        if len(grids) > 0 and isinstance(grids[0], pp.BoundaryGrid):
+            return pp.ad.TimeDependentDenseArray(
+                name=self.bc_data_pressure_key, domains=grids
+            )
+
+        return self.equation_system.md_variable(self.pressure_variable, grids)
 
     def interface_darcy_flux(
         self, interfaces: list[pp.MortarGrid]
@@ -649,6 +624,10 @@ class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
     by a mixin instance of :class:`~porepy.models.constitutive_laws.FluidMobility`.
 
     """
+    bc_data_darcy_flux_key: str = "bc_data_darcy_flux"
+    """TODO"""
+    bc_data_pressure_key: str = "bc_data_pressure"
+    """TODO"""
 
     def __init__(self, params: Optional[dict] = None) -> None:
         super().__init__(params)
@@ -743,6 +722,26 @@ class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
                 },
             )
 
+    def set_boundary_data(self) -> None:
+        """Set values for the boundary conditions.
+
+        Both Neuman and Dirichlet data should be initialized here.
+
+        """
+        for bc_var_name in [self.bc_data_pressure_key, self.bc_data_darcy_flux_key]:
+            for bg, bg_data in self.mdg.boundaries(return_data=True):
+                bc_values = np.zeros(bg.num_cells)
+
+                timestep_data = bg_data[pp.TIME_STEP_SOLUTIONS]
+                timestep_data[bc_var_name] = {}
+                for timestep_idx in self.time_step_indices:
+                    timestep_data[bc_var_name][timestep_idx] = bc_values.copy()
+
+                iterate_data = bg_data[pp.ITERATE_SOLUTIONS]
+                iterate_data[bc_var_name] = {}
+                for iterate_idx in self.time_step_indices:
+                    iterate_data[bc_var_name][iterate_idx] = bc_values.copy()
+
     def permeability_tensor(self, sd: pp.Grid) -> pp.SecondOrderTensor:
         """Convert ad permeability to :class:`~pp.params.tensor.SecondOrderTensor`.
 
@@ -769,6 +768,10 @@ class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
             permeability = permeability.val
         # TODO: Safeguard against negative permeability?
         return pp.SecondOrderTensor(permeability)
+
+    def before_nonlinear_loop(self) -> None:
+        super().before_nonlinear_loop()
+        self.set_boundary_data()
 
     def before_nonlinear_iteration(self):
         """

@@ -14,6 +14,7 @@ import porepy as pp
 from .operators import Operator, SparseArray
 
 __all__ = [
+    "BoundaryProjection",
     "MortarProjections",
     "Divergence",
     "Trace",
@@ -186,7 +187,7 @@ class SubdomainProjections(Operator):
         return "Argument should be a subdomain grid or a list of subdomain grids"
 
 
-class MortarProjections(Operator):
+class MortarProjections:
     """Wrapper class to generate projections to and from MortarGrids.
 
     Attributes:
@@ -497,13 +498,8 @@ class MortarProjections(Operator):
         return s
 
 
-class BoundaryProjection(Operator):
-    """A projection operator between boundary grids and subdomains.
-
-    NOTE: This is WIP. The projections have not yet been used to formulate equations,
-    thus it is not clear whether the design is optimal, or if changes are needed.
-
-    """
+class BoundaryProjection:
+    """A projection operator between boundary grids and subdomains."""
 
     def __init__(
         self, mdg: pp.MixedDimensionalGrid, subdomains: list[pp.Grid], dim: int = 1
@@ -527,11 +523,16 @@ class BoundaryProjection(Operator):
         self._projection: sps.spmatrix = sps.bmat([[m] for m in mat], format="csr")
         """Projection from subdomain faces to boundary grids cells."""
 
-    def subdomain_to_boundary(self) -> sps.spmatrix:
-        return self._projection
+    @property
+    def subdomain_to_boundary(self) -> Operator:
+        return SparseArray(self._projection, name="subdomains to boundaries projection")
 
-    def boundary_to_subdomain(self) -> sps.spmatrix:
-        return self._projection.transpose().tocsc()
+    @property
+    def boundary_to_subdomain(self) -> Operator:
+        return SparseArray(
+            self._projection.transpose().tocsc(),
+            name="boundaries to subdomains projection",
+        )
 
 
 class Trace(Operator):

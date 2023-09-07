@@ -14,7 +14,7 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
-from porepy.utils.porepy_types import GridLike
+from porepy.utils.porepy_types import GridLike, GridsLike
 
 from . import _ad_utils
 from .forward_mode import AdArray, initAdArrays
@@ -1295,7 +1295,7 @@ class DenseArray(Operator):
         return self._values
 
 
-class TimeDependentDenseArray(DenseArray):
+class TimeDependentDenseArray(Operator):
     """An Ad-wrapper around a time-dependent numpy array.
 
     The array is tied to a MixedDimensionalGrid, and is distributed among the data
@@ -1332,40 +1332,23 @@ class TimeDependentDenseArray(DenseArray):
     def __init__(
         self,
         name: str,
-        subdomains: Optional[list[pp.Grid]] = None,
-        interfaces: Optional[list[pp.MortarGrid]] = None,
+        domains: GridsLike,
         previous_timestep: bool = False,
     ):
         self._name: str = name
-
-        if subdomains is None:
-            subdomains = []
-        if interfaces is None:
-            interfaces = []
-
-        if len(interfaces) > 0 and len(subdomains) > 0:
-            raise ValueError(
-                "A time dependent array must be associated with either"
-                " interfaces or subdomains, not both."
-            )
-
-        # Store subdomains and interfaces.
-        self.subdomains = subdomains
-        self.interfaces = interfaces
-
-        self._grids: Sequence[GridLike]
-        self._is_interface_array: bool
-
-        # Shorthand access to subdomain or interface grids:
-        if len(interfaces) == 0:
-            # Appease mypy
-            assert all([isinstance(sd, pp.Grid) for sd in subdomains])
-            self._grids = subdomains
-            self._is_interface_array = False
+        self._grids: GridsLike = domains
+        self._grid_type: Literal["subdomains", "interfaces", "boundary grids"]
+        if all([isinstance(d, pp.Grid) for d in domains]):
+            self._grid_type = "subdomains"
+        elif all([isinstance(d, pp.MortarGrid) for d in domains]):
+            self._grid_type = "interfaces"
+        elif all([isinstance(d, pp.BoundaryGrid) for d in domains]):
+            self._grid_type = "boundary grids"
         else:
-            assert all([isinstance(intf, pp.MortarGrid) for intf in interfaces])
-            self._grids = interfaces
-            self._is_interface_array = True
+            raise NotImplementedError(
+                "A time dependent array must be associated with either"
+                " interfaces, subdomains or boundary grids."
+            )
 
         self.prev_time: bool = previous_timestep
         """If True, the array will be evaluated using ``data[pp.TIME_STEP_SOLUTIONS]``
@@ -1375,7 +1358,10 @@ class TimeDependentDenseArray(DenseArray):
 
         """
 
-        self._initialize_children()
+        super().__init__(name=name)
+
+    def grid_type(self) -> Literal["subdomains", "interfaces", "boundary grids"]:
+        return self._grid_type
 
     def previous_timestep(self) -> TimeDependentDenseArray:
         """
@@ -1383,14 +1369,9 @@ class TimeDependentDenseArray(DenseArray):
             This array represented at the previous time step.
 
         """
-        if self._is_interface_array:
-            return TimeDependentDenseArray(
-                self._name, interfaces=self.interfaces, previous_timestep=True
-            )
-        else:
-            return TimeDependentDenseArray(
-                self._name, subdomains=self.subdomains, previous_timestep=True
-            )
+        return TimeDependentDenseArray(
+            name=self._name, domains=self._grids, previous_timestep=True
+        )
 
     def parse(self, mdg: pp.MixedDimensionalGrid) -> np.ndarray:
         """Convert this array into numerical values.
@@ -1410,14 +1391,17 @@ class TimeDependentDenseArray(DenseArray):
         """
         vals = []
         for g in self._grids:
-            if self._is_interface_array:
-                # Appease mypy
-                assert isinstance(g, pp.MortarGrid)
-                data = mdg.interface_data(g)
-            else:
+            if self._grid_type == "subdomains":
                 assert isinstance(g, pp.Grid)
                 data = mdg.subdomain_data(g)
-
+            elif self._grid_type == "interfaces":
+                assert isinstance(g, pp.MortarGrid)
+                data = mdg.interface_data(g)
+            elif self._grid_type == "boundary grids":
+                assert isinstance(g, pp.BoundaryGrid)
+                data = mdg.boundary_grid_data(g)
+            else:
+                raise ValueError(f"Unknown grid type: {self._grid_type}.")
             if self.prev_time:
                 vals.append(data[pp.TIME_STEP_SOLUTIONS][self._name][0])
             else:
@@ -1431,16 +1415,10 @@ class TimeDependentDenseArray(DenseArray):
             return np.empty(0, dtype=float)
 
     def __repr__(self) -> str:
-        s = f"Wrapped time-dependent array with name {self._name}.\n"
-
-        if self._is_interface_array:
-            s += f"Defined on {len(self._grids)} interfaces.\n"
-        else:
-            s += f"Defined on {len(self._grids)} subdomains.\n"
-
-        if self.prev_time:
-            s += "Evaluated at the previous time step."
-        return s
+        return (
+            f"Wrapped time-dependent array with name {self._name}.\n"
+            f"Defined on {len(self._grids)} {self._grid_type}.\n"
+        )
 
 
 class Scalar(Operator):

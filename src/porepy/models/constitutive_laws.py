@@ -858,7 +858,7 @@ class DarcysLaw:
     instance of :class:`~porepy.models.geometry.ModelGeometry`.
 
     """
-    bc_values_darcy: Callable[[list[pp.Grid]], pp.ad.DenseArray]
+    bc_values_darcy: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Darcy flux boundary conditions. Normally defined in a mixin instance of
     :class:`~porepy.models.fluid_mass_balance.BoundaryConditionsSinglePhaseFlow`.
 
@@ -885,6 +885,8 @@ class DarcysLaw:
     :class:`~porepy.models.fluid_mass_balance.SolutionStrategySinglePhaseFlow`.
 
     """
+    bc_data_darcy_flux_key: str
+    """TODO"""
     basis: Callable[[Sequence[pp.GridLike], int], list[pp.ad.SparseArray]]
     """Basis for the local coordinate system. Normally set by a mixin instance of
     :class:`porepy.models.geometry.ModelGeometry`.
@@ -934,6 +936,7 @@ class DarcysLaw:
         """
         interfaces: list[pp.MortarGrid] = self.subdomains_to_interfaces(subdomains, [1])
         projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1)
+        projection_bound = pp.ad.BoundaryProjection(self.mdg, subdomains=subdomains)
         discr: Union[pp.ad.TpfaAd, pp.ad.MpfaAd] = self.darcy_flux_discretization(
             subdomains
         )
@@ -942,12 +945,16 @@ class DarcysLaw:
             discr.bound_pressure_cell @ p
             + discr.bound_pressure_face
             @ (projection.mortar_to_primary_int @ self.interface_darcy_flux(interfaces))
-            + discr.bound_pressure_face @ self.bc_values_darcy(subdomains)
+            + discr.bound_pressure_face
+            @ projection_bound.boundary_to_subdomain
+            @ self.bc_values_darcy(subdomains)
             + discr.vector_source @ self.vector_source(subdomains, material="fluid")
         )
         return pressure_trace
 
-    def darcy_flux(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+    def darcy_flux(
+        self, subdomains: Sequence[pp.Grid] | Sequence[pp.BoundaryGrid]
+    ) -> pp.ad.Operator:
         """Discretization of Darcy's law.
 
         Note:
@@ -963,8 +970,19 @@ class DarcysLaw:
             Face-wise Darcy flux in cubic meters per second.
 
         """
+
+        if len(subdomains) > 0 and isinstance(subdomains[0], pp.BoundaryGrid):
+            return pp.ad.TimeDependentDenseArray(
+                name=self.bc_data_darcy_flux_key, domains=subdomains
+            )
+
         interfaces: list[pp.MortarGrid] = self.subdomains_to_interfaces(subdomains, [1])
-        projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1)
+        intf_projection = pp.ad.MortarProjections(
+            self.mdg, subdomains, interfaces, dim=1
+        )
+        bound_projection = pp.ad.grid_operators.BoundaryProjection(
+            self.mdg, subdomains=subdomains
+        )
         discr: Union[pp.ad.TpfaAd, pp.ad.MpfaAd] = self.darcy_flux_discretization(
             subdomains
         )
@@ -972,8 +990,9 @@ class DarcysLaw:
             discr.flux @ self.pressure(subdomains)
             + discr.bound_flux
             @ (
-                self.bc_values_darcy(subdomains)
-                + projection.mortar_to_primary_int
+                bound_projection.boundary_to_subdomain
+                @ self.bc_values_darcy(subdomains)
+                + intf_projection.mortar_to_primary_int
                 @ self.interface_darcy_flux(interfaces)
             )
             + discr.vector_source @ self.vector_source(subdomains, material="fluid")
