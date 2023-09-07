@@ -33,16 +33,14 @@ Biot coefficient is gathered from:
 estimating the Biot coefficient for Grimsel granite. Solid Earth, 10(6), 2001-2014.
 https://doi.org/10.5194/se-10-2001-2019 
 
-Approximate value for westerly granite: 0.47
-
-
 
 Coefficient of friction is gathered from:
 * Byerlee, J. D. (1967). Frictional characteristics of granite under high confining
 pressure. Journal of Geophysical Research (1896-1977), 72(14), 3639-3648.
 https://doi.org/https://doi.org/10.1029/JZ072i014p03639 
 
-Figure 23: slope of the normal stress/tangential stress curve. 
+Figure 23: Coefficient of friction is the slope of the normal stress/tangential stress
+curve. 
 
 
 
@@ -51,8 +49,8 @@ Permeability is gathered from:
 of deforming Westerly granite near the brittle-ductile transition. Scientific Reports,
 11(1), 24027. https://doi.org/10.1038/s41598-021-03435-0 
 
-They present initial permeabilitiy for various westerly granite samples in Table 1. All
-are of order 1e-18 and 1e-19.
+The authors of the article present initial permeabilitiy for various westerly granite
+samples in Table 1. All are of order 1e-18 and 1e-19.
 
 
 
