@@ -4,6 +4,8 @@ For now we provide parameter values for the following fluids:
 * Water (at 20 degrees Celsius)
 
 The dictionary containing parameter values is obtained by e.g. pp.fluid_values.water.
+They can be used in a simulation by passing `fluid = pp.FluidConstants(pp.fluid_values.water)` as a 
+material parameter on model initiation.
 
 
 Water:
