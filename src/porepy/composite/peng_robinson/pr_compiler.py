@@ -1,7 +1,17 @@
 """Experimentel code for efficient unified flash calculations using numba and sympy."""
 from __future__ import annotations
 
+import inspect
+import os
+import time
+
+# os.environ['NUMBA_DISABLE_INTEL_SVML']  = '1'
+os.environ['PYDEVD_WARN_SLOW_RESOLVE_TIMEOUT'] = '30'
+
 from typing import Any, Generator, Literal, Optional, overload
+
+import numba
+from numba import njit
 
 import numpy as np
 import scipy.sparse as sps
@@ -15,10 +25,186 @@ from ..composite_utils import normalize_fractions, safe_sum
 from ..phase import Phase, PhaseProperties
 from ..mixture import NonReactiveMixture, BasicMixture
 
-from .eos import PengRobinsonEoS
+from .eos import PengRobinsonEoS, A_CRIT, B_CRIT
 from .mixing import VanDerWaals
 
 __all__ = ['MixtureSymbols', 'PR_Compiler']
+
+
+
+_COEFF_COMPILTER_ARGS = {
+    'fastmath': True,
+    'cache' : True,
+}
+
+
+def coef0(A, B):
+    """Coefficient for the zeroth monomial."""
+    return B**3 + B**2 - A * B
+
+
+coef0_c = njit(**_COEFF_COMPILTER_ARGS)(coef0)
+
+
+def coef1(A, B):
+    """Coefficient for the first monomial."""
+    return A - 2 * B - 3 * B**2
+
+
+coef1_c = njit(**_COEFF_COMPILTER_ARGS)(coef1)
+
+
+def coef2(A, B):
+    """Coefficient for the second monomial."""
+    return B - 1
+
+
+coef2_c = njit(**_COEFF_COMPILTER_ARGS)(coef2)
+
+
+def red_coef0(A, B):
+    """Zeroth coefficient of the reduced polynomial."""
+    c2 = coef2(A, B)
+    return 2 / 27 * c2**3 - c2 * coef1(A, B) / 3 + coef0(A, B)
+
+
+@njit(**_COEFF_COMPILTER_ARGS)
+def red_coef0_c(A, B):
+    c2 = coef2_c(A, B)
+    return 2 / 27 * c2**3 - c2 * coef1_c(A, B) / 3 + coef0_c(A, B)
+
+
+def red_coef1(A, B):
+    """First coefficient of the reduced polynomial."""
+    return coef1(A, B) - coef2(A, B)**2 / 3
+
+
+@njit(**_COEFF_COMPILTER_ARGS)
+def red_coef1_c(A, B):
+    return coef1_c(A, B) - coef2_c(A, B)**2 / 3
+
+
+def discr(rc0, rc1):
+    """Discriminant of the polynomial based on the zeroth and first reduced coefficient.
+    """
+    return rc0**2 / 4 + rc1**3 / 27
+
+
+discr_c = njit(**_COEFF_COMPILTER_ARGS)(discr)
+
+
+@njit(**_COEFF_COMPILTER_ARGS)
+def get_root_case_c(A, B, eps=1e-14):
+    """"An piece-wise cosntant function dependent on
+    non-dimensional cohesion and covolume, characterizing the root case:
+
+    - 0 : triple root
+    - 1 : 1 real root, 2 complex-conjugated roots
+    - 2 : 2 real roots, one with multiplicity 2
+    - 3 : 3 distinct real roots
+
+    ``eps`` is for defining the numerical zero (degenerate polynomial).
+
+    """
+    q = red_coef0_c(A, B)
+    r = red_coef1_c(A, B)
+    d = discr_c(q, r)
+
+    # c = np.zeros(d.shape)
+
+    # if discriminant is positive, the polynomial has one real root
+    if d > eps:
+        return 1
+    # if discriminant is negative, the polynomial has three distinct real roots
+    if d < -eps:
+        return 3
+    # if discrimant is zero, we are in the degenerate case
+    else:
+        # if first reduced coefficient is zero, the polynomial has a triple root
+        # the critical point is a known triple root
+        if np.abs(r) < eps or (np.abs(A - A_CRIT) < eps and np.abs(B - B_CRIT) < eps):
+            return 0
+        # if first reduced coefficient is not zero, the polynomial has 2 real roots
+        # one with multiplicity 2
+        # the zero point (A=B=0) is one such case.
+        else:
+            return 2
+
+
+get_root_case_cv = numba.vectorize(
+    [numba.int8(numba.float64, numba.float64, numba.float64)],
+    nopython=True,
+    **_COEFF_COMPILTER_ARGS,
+)(get_root_case_c)
+
+
+def wrap_diffs(f, dtype = np.float64):
+    """For wrapping symbolic, multivariate derivatives which return a sequence,
+    instead of a numpy array."""
+    f = njit(f)
+
+    @njit
+    def inner(x):
+        return np.array(f(x), dtype=dtype)
+
+    return inner
+
+
+def triple_root(A: sm.Expr, B: sm.Expr) -> sm.Expr:
+    """Formula for tripple root. Only valid if triple root case."""
+    c2 = coef2(A, B)
+    return - c2 / 3
+
+
+def double_root(A: sm.Expr, B: sm.Expr, gaslike: bool) -> sm.Expr:
+    """Returns the largest root in the 2-root case if ``gaslike==True``.
+    Else it returns the smallest one."""
+    c2 = coef2(A, B)
+    q = red_coef0(A, B)
+    r = red_coef1(A, B)
+
+    u = 3 / 2 * q / r
+
+    z1 = 2 * u - c2 / 3
+    z23 = -u - c2 / 3
+
+    if gaslike:
+        return sm.Piecewise((z1, z1 > z23), (z23, True))
+    else:
+        return sm.Piecewise((z23, z1 > z23), (z1, True))
+
+
+def three_root(A: sm.Expr, B: sm.Expr, gaslike: bool) -> sm.Expr:
+    """Returns the largest root in the three-root case if ``gaslike==True``.
+    Else it returns the smallest one.
+
+    Applies toe trigonometric formula for Casus Irreducibilis."""
+    c2 = coef2(A, B)
+    q = red_coef0(A, B)
+    r = red_coef1(A, B)
+
+    # trigonometric formula for Casus Irreducibilis
+    t_2 = sm.acos(-q / 2 * sm.sqrt(-27 * r **(-3))) / 3
+    t_1 = sm.sqrt(-4 / 3 * r)
+
+    if gaslike:
+        return t_1 * sm.cos(t_2) - c2 / 3
+    else:
+        return -t_1 * sm.cos(t_2 - np.pi / 3) - c2 / 3
+
+
+def three_root_intermediate(A: sm.Expr, B: sm.Expr) -> sm.Expr:
+    """Returns the middle root in the 3-root-case.
+    
+    Applies toe trigonometric formula for Casus Irreducibilis."""
+    c2 = coef2(A, B)
+    q = red_coef0(A, B)
+    r = red_coef1(A, B)
+
+    t_2 = sm.acos(-q / 2 * sm.sqrt(-27 * r **(-3))) / 3
+    t_1 = sm.sqrt(-4 / 3 * r)
+
+    return -t_1 * sm.cos(t_2 + np.pi / 3) - c2 / 3
 
 
 class MixtureSymbols:
@@ -285,6 +471,9 @@ class PR_Compiler:
         p = self.symbols('pressure')
         T = self.symbols('temperature')
 
+        X_arg = [p, T] + Y[1:] + X[0] + X[1]
+        t = np.array([15e6, 500, 0.1, 0.9, 0.1, 0.3, 0.3])
+
         # critical covolume per component
         b_i_crit = [
             PengRobinsonEoS.b_crit(comp.p_crit, comp.T_crit)
@@ -321,5 +510,10 @@ class PR_Compiler:
         # mixed cohesion terms per phase
         a_j = [VanDerWaals.cohesion_s(x_j, a_i, bips) for x_j in X]
         A_j = [PengRobinsonEoS.A(a, p, T) for a in a_j]
+
+        dT_A_j = [A_.diff(T) for A_ in A_j]
+        dxi_A_j = [[A_.diff(x_i) for x_i in X_j] for A_, X_j in zip(A_j, X)]
+
+        # Z_j = [PengRobinsonEoS.compressibility_factor(A_, B_) for A_, B_ in zip(A_j, B_j)]
 
         pass
