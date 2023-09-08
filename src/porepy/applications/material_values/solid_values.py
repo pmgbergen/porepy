@@ -5,6 +5,8 @@ For now we provide parameter values for the following solids:
 * Basalt
 
 The dictionary containing parameter values is obtained by e.g. pp.solid_values.granite.
+They can be used in a simulation by passing `solid = pp.SolidConstants(pp.solid_values.
+granite)` as a material parameter on model initiation.
 """
 
 """
