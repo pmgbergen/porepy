@@ -203,6 +203,13 @@ class ModelGeometry:
                     subdomains.append(sd)
         return self.mdg.sort_subdomains(subdomains)
 
+    def subdomains_to_boundary_grids(
+        self, subdomains: Sequence[pp.Grid]
+    ) -> Sequence[pp.BoundaryGrid]:
+        """TODO"""
+        boundary_grids = [self.subdomain_to_boundary_grid(sd) for sd in subdomains]
+        return [bg for bg in boundary_grids if bg is not None]
+
     def wrap_grid_attribute(
         self,
         grids: Sequence[pp.GridLike],

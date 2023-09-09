@@ -198,6 +198,7 @@ class MassBalanceEquations(pp.BalanceEquation):
     def mobility_rho(
         self, grids: Sequence[pp.Grid] | Sequence[pp.BoundaryGrid]
     ) -> pp.ad.Operator:
+        """This term represents fluid density times mobility."""
         return self.fluid_density(grids) * self.mobility(grids)
 
     def fluid_flux(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
@@ -215,8 +216,8 @@ class MassBalanceEquations(pp.BalanceEquation):
         discr = self.mobility_discretization(subdomains)
         mob_rho = self.mobility_rho(subdomains)
 
-        bc_projection = pp.ad.BoundaryProjection(mdg=self.mdg, subdomains=subdomains)
-        bc_values = bc_projection.boundary_to_subdomain @ self.mobility_rho(
+        boundary_projection = pp.ad.BoundaryProjection(self.mdg, subdomains=subdomains)
+        bc_values = boundary_projection.boundary_to_subdomain @ self.mobility_rho(
             self.mdg.subdomains_to_boundary_grids(subdomains)
         )
         flux = self.advective_flux(
@@ -368,9 +369,14 @@ class BoundaryConditionsSinglePhaseFlow:
 
     """
 
-    mdg: pp.MixedDimensionalGrid
-    pressure: Callable[[list[pp.Grid]], pp.ad.Operator]
-    darcy_flux: Callable[[Sequence[pp.Grid]], pp.ad.Operator]
+    subdomains_to_boundary_grids: Callable[
+        [Sequence[pp.Grid]], Sequence[pp.BoundaryGrid]
+    ]
+    """TODO"""
+    pressure: Callable[[pp.GridsOrSubdomains], pp.ad.Operator]
+    """TODO"""
+    darcy_flux: Callable[[pp.GridsOrSubdomains], pp.ad.Operator]
+    """TODO"""
 
     def bc_type_darcy(self, sd: pp.Grid) -> pp.BoundaryCondition:
         """Dirichlet conditions on all external boundaries.
@@ -412,7 +418,7 @@ class BoundaryConditionsSinglePhaseFlow:
             Operator representing the boundary condition values for the Darcy flux.
 
         """
-        boundary_grids = self.mdg.subdomains_to_boundary_grids(subdomains)
+        boundary_grids = self.subdomains_to_boundary_grids(subdomains)
         pressure_dirichlet = self.pressure(boundary_grids)
         flux_neumann = self.darcy_flux(boundary_grids)
         return pressure_dirichlet + flux_neumann
@@ -504,8 +510,8 @@ class VariablesSinglePhaseFlow(pp.VariableMixin):
         )
 
     def pressure(
-        self, grids: list[pp.Grid] | list[pp.BoundaryGrid]
-    ) -> pp.ad.MixedDimensionalVariable:
+        self, grids: pp.SubdomainsOrBoundaries
+    ) -> pp.ad.Operator:
         if len(grids) > 0 and isinstance(grids[0], pp.BoundaryGrid):
             return pp.ad.TimeDependentDenseArray(
                 name=self.bc_data_pressure_key, domains=grids
