@@ -8,7 +8,7 @@ import porepy as pp
 __all__ = [
     "number",
     "GridLike",
-    "GridsLike",
+    "GridLikeSequence",
     "SubdomainsOrBoundaries",
     "discretization_type",
     "fracture_network",
@@ -19,7 +19,7 @@ GridLike = Union["pp.Grid", "pp.MortarGrid", "pp.BoundaryGrid"]
 SubdomainsOrBoundaries = Sequence["pp.Grid"] | Sequence["pp.BoundaryGrid"]
 """Type for sequence of subdomains or sequence of boundary grids."""
 
-GridsLike = SubdomainsOrBoundaries | Sequence["pp.MortarGrid"]
+GridLikeSequence = SubdomainsOrBoundaries | Sequence["pp.MortarGrid"]
 """Type for sequence of any kind of grids, but not a mixture of them."""
 
 number = Union[float, int]

@@ -344,13 +344,6 @@ class MixedDimensionalGrid:
         """
         return self._subdomain_to_boundary_grid.get(sd, None)
 
-    def subdomains_to_boundary_grids(
-        self, subdomains: Sequence[pp.Grid]
-    ) -> Sequence[pp.BoundaryGrid]:
-        """TODO"""
-        boundary_grids = [self.subdomain_to_boundary_grid(sd) for sd in subdomains]
-        return [bg for bg in boundary_grids if bg is not None]
-
     def neighboring_subdomains(
         self, sd: pp.Grid, only_higher: bool = False, only_lower: bool = False
     ) -> list[pp.Grid]:

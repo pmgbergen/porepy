@@ -14,7 +14,7 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
-from porepy.utils.porepy_types import GridLike, GridsLike
+from porepy.utils.porepy_types import GridLike, GridLikeSequence
 
 from . import _ad_utils
 from .forward_mode import AdArray, initAdArrays
@@ -1332,11 +1332,11 @@ class TimeDependentDenseArray(Operator):
     def __init__(
         self,
         name: str,
-        domains: GridsLike,
+        domains: GridLikeSequence,
         previous_timestep: bool = False,
     ):
         self._name: str = name
-        self._grids: GridsLike = domains
+        self._grids: GridLikeSequence = domains
         self._grid_type: Literal["subdomains", "interfaces", "boundary grids"]
         if all([isinstance(d, pp.Grid) for d in domains]):
             self._grid_type = "subdomains"

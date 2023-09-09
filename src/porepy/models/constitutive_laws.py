@@ -936,7 +936,7 @@ class DarcysLaw:
         """
         interfaces: list[pp.MortarGrid] = self.subdomains_to_interfaces(subdomains, [1])
         projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1)
-        projection_bound = pp.ad.BoundaryProjection(self.mdg, subdomains=subdomains)
+        boundary_projection = pp.ad.BoundaryProjection(self.mdg, subdomains=subdomains)
         discr: Union[pp.ad.TpfaAd, pp.ad.MpfaAd] = self.darcy_flux_discretization(
             subdomains
         )
@@ -946,7 +946,7 @@ class DarcysLaw:
             + discr.bound_pressure_face
             @ (projection.mortar_to_primary_int @ self.interface_darcy_flux(interfaces))
             + discr.bound_pressure_face
-            @ projection_bound.boundary_to_subdomain
+            @ boundary_projection.boundary_to_subdomain
             @ self.bc_values_darcy(subdomains)
             + discr.vector_source @ self.vector_source(subdomains, material="fluid")
         )
