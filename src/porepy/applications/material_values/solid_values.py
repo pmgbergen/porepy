@@ -101,6 +101,17 @@ The value was listed with the unit [cal s^-1 cm^-1 C^-1] and is converted to [W 
 K^-1].
 
 
+Shear modulus and Lame's first param. are calculated from Young's modulus and Poisson's 
+ratio given in:
+A. Auriac and others, InSAR observations and models of crustal deformation due to a
+glacial surge in Iceland, Geophysical Journal International, Volume 198, Issue 3, 
+September, 2014, Pages 1329–1341, https://doi.org/10.1093/gji/ggu205
+
+Figure 9: Probability distribution estimate of the Young's modulus (E) and 
+Poisson's ratio (v) for one-elastic layer models. The best model (white cross) 
+predicts E = 46.4 GPa and v = 0.17.
+
+
 Specific heat capacity:
 * Xiaoqing et al. Analysis of the thermophysical properties and influencing factors of
 various rock types from the Guizhou province.
@@ -125,10 +136,10 @@ basalt = {
     "biot_coefficient": None,  # [-]
     "density": 2950.0,  # [kg * m^-3]
     "friction_coefficient": None,  # [-]
-    "lame_lambda": None,  # [Pa]
+    "lame_lambda": 4.3e9,  # [Pa]
     "permeability": 1e-16,  # [m^2]
     "porosity": 0.10,  # [-]
-    "shear_modulus": None,  # [Pa]
+    "shear_modulus": 2.0e10,  # [Pa]
     "specific_heat_capacity": 500.0,  # [J * kg^-1 * K^-1]
     "specific_storage": None,  # [Pa^-1]
     "thermal_conductivity": 1.6736,  # [W * m^-1 * K^-1]
