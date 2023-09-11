@@ -12,7 +12,6 @@ from scipy import sparse as sps
 import porepy as pp
 from porepy.grids import mortar_grid
 from porepy.utils.porepy_types import GridLike
-from typing import Sequence
 
 
 class MixedDimensionalGrid:
