@@ -8,16 +8,10 @@ import time
 # os.environ['NUMBA_DISABLE_INTEL_SVML']  = '1'
 os.environ['PYDEVD_WARN_SLOW_RESOLVE_TIMEOUT'] = '30'
 
-from typing import Any, Generator, Literal, Optional, overload
-
 import numba
-from numba import njit
 
 import numpy as np
-import scipy.sparse as sps
 import sympy as sm
-
-import porepy as pp
 
 from .._core import COMPOSITIONAL_VARIABLE_SYMBOLS as SYMBOLS
 from ..component import Component, Compound
@@ -31,11 +25,17 @@ from .mixing import VanDerWaals
 __all__ = ['MixtureSymbols', 'PR_Compiler']
 
 
-
 _COEFF_COMPILTER_ARGS = {
     'fastmath': True,
     'cache' : True,
 }
+
+
+# Need abstraction for cubic root, sympy will use **(1/3) otherwise,
+# which is bad.
+# NOTE lambdified expressions need an substitution of for {'cbrt': numpy.cbrt}
+# in their module argument
+_cbrt = sm.Function('cbrt')
 
 
 def coef0(A, B):
@@ -43,15 +43,15 @@ def coef0(A, B):
     return B**3 + B**2 - A * B
 
 
-coef0_c = njit(**_COEFF_COMPILTER_ARGS)(coef0)
+coef0_c = numba.njit(**_COEFF_COMPILTER_ARGS)(coef0)
 
 
 def coef1(A, B):
     """Coefficient for the first monomial."""
-    return A - 2 * B - 3 * B**2
+    return A - 2. * B - 3. * B**2
 
 
-coef1_c = njit(**_COEFF_COMPILTER_ARGS)(coef1)
+coef1_c = numba.njit(**_COEFF_COMPILTER_ARGS)(coef1)
 
 
 def coef2(A, B):
@@ -59,41 +59,41 @@ def coef2(A, B):
     return B - 1
 
 
-coef2_c = njit(**_COEFF_COMPILTER_ARGS)(coef2)
+coef2_c = numba.njit(**_COEFF_COMPILTER_ARGS)(coef2)
 
 
 def red_coef0(A, B):
     """Zeroth coefficient of the reduced polynomial."""
     c2 = coef2(A, B)
-    return 2 / 27 * c2**3 - c2 * coef1(A, B) / 3 + coef0(A, B)
+    return c2**3 * (2. / 27.) - c2 * coef1(A, B) * (1. / 3.) + coef0(A, B)
 
 
-@njit(**_COEFF_COMPILTER_ARGS)
+@numba.njit(**_COEFF_COMPILTER_ARGS)
 def red_coef0_c(A, B):
     c2 = coef2_c(A, B)
-    return 2 / 27 * c2**3 - c2 * coef1_c(A, B) / 3 + coef0_c(A, B)
+    return c2**3 * (2. / 27.)  - c2 * coef1_c(A, B) * (1. / 3.) + coef0_c(A, B)
 
 
 def red_coef1(A, B):
     """First coefficient of the reduced polynomial."""
-    return coef1(A, B) - coef2(A, B)**2 / 3
+    return coef1(A, B) - coef2(A, B)**2 * (1. / 3.)
 
 
-@njit(**_COEFF_COMPILTER_ARGS)
+@numba.njit(**_COEFF_COMPILTER_ARGS)
 def red_coef1_c(A, B):
-    return coef1_c(A, B) - coef2_c(A, B)**2 / 3
+    return coef1_c(A, B) - coef2_c(A, B)**2 * (1. / 3.)
 
 
 def discr(rc0, rc1):
     """Discriminant of the polynomial based on the zeroth and first reduced coefficient.
     """
-    return rc0**2 / 4 + rc1**3 / 27
+    return rc0**2 * (1. / 4.) + rc1**3 * (1. / 27.)
 
 
-discr_c = njit(**_COEFF_COMPILTER_ARGS)(discr)
+discr_c = numba.njit(**_COEFF_COMPILTER_ARGS)(discr)
 
 
-@njit(**_COEFF_COMPILTER_ARGS)
+@numba.njit(**_COEFF_COMPILTER_ARGS)
 def get_root_case_c(A, B, eps=1e-14):
     """"An piece-wise cosntant function dependent on
     non-dimensional cohesion and covolume, characterizing the root case:
@@ -141,9 +141,9 @@ get_root_case_cv = numba.vectorize(
 def wrap_diffs(f, dtype = np.float64):
     """For wrapping symbolic, multivariate derivatives which return a sequence,
     instead of a numpy array."""
-    f = njit(f)
+    f = numba.njit(f)
 
-    @njit
+    @numba.njit
     def inner(x):
         return np.array(f(x), dtype=dtype)
 
@@ -207,6 +207,58 @@ def three_root_intermediate(A: sm.Expr, B: sm.Expr) -> sm.Expr:
     return -t_1 * sm.cos(t_2 + np.pi / 3) - c2 / 3
 
 
+def one_root(A: sm.Expr, B: sm.Expr) -> sm.Expr:
+    """Returns the single real root in the 1-root case."""
+    c2 = coef2(A, B)
+    q = red_coef0(A, B)
+    r = red_coef1(A, B)
+    d = discr(q, r)
+
+    t1 = sm.sqrt(d) - q * .5
+    t2 = -1 * (sm.sqrt(d) + q * .5)
+
+    t = sm.Piecewise((t2, sm.Abs(t2) > sm.Abs(t1)), (t1, True))
+
+    u = _cbrt(t)
+
+    return u - r / (3 * u) - c2 / 3
+
+
+def ext_root_gharbia(Z: sm.Expr, B: sm.Expr) -> sm.Expr:
+    """Returns the extended compressibility factor following Ben Gharbia et al."""
+    return (1 - B - Z) / 2
+
+
+def ext_root_scg(Z: sm.Expr, B: sm.Expr) -> sm.Expr:
+    """Returns the extended compressibility factor for absend gas phase in the
+    supercritical area."""
+    return (1 - B - Z) / 2 + B 
+
+
+def ext_root_scl(Z: sm.Expr, B: sm.Expr) -> sm.Expr:
+    """Returns the extended compressibility factor for absend liquid phase above the
+    supercritical line."""
+    return (B - Z) / 2 + Z
+
+
+@numba.njit(**_COEFF_COMPILTER_ARGS)
+def check_if_root_c(Z, A, B):
+    """Checks if given Z is a root of the compressibility polynomial by evaluating
+    the polynomial. If Z is a root, the value is (numerically) zero."""
+    c2 = coef2_c(A, B)
+    c1 = coef1_c(A, B)
+    c0 = coef0_c(A, B)
+
+    return Z**3 + c2 * Z**2 + c1 * Z + c0
+
+
+check_if_root_cv = numba.vectorize(
+    [numba.int8(numba.float64, numba.float64, numba.float64)],
+    nopython=True,
+    **_COEFF_COMPILTER_ARGS,
+)(check_if_root_c)
+
+
 class MixtureSymbols:
     """A class containing basic symbols (thermodynamic properties and variables) for a
     mixture represented using ``sympy``.
@@ -255,6 +307,21 @@ class MixtureSymbols:
 
         self.phase_compositions: dict[str, sm.Symbol] = dict()
         """A map containing the symbols for molar component fractions in phases."""
+
+        self.composition_j: dict[str, sm.Symbol] = dict()
+        """A map containing symbols for molar component fractions in a phase j,
+        independent of the phase index.
+        
+        They are independent since the expressions comming from an EoS are applied
+        to all phases the same way."""
+
+        self.composition_i: dict[str, sm.Symbol] = dict()
+        """A map containing generic symbols for molar fractions of a component in all
+        all phases, associated with a component i.
+        
+        They serve for expressions which depend only on the fractions associated with
+        a component i, like mass conservation.
+        """
 
         # expression for reference component
         # we do this inconvenient way to preserve the order of components
@@ -305,6 +372,28 @@ class MixtureSymbols:
         self.phase_fractions.update({name_y_r: 1 - safe_sum(y_)})
         self.phase_saturations.update({name_s_r: 1 - safe_sum(s_)})
 
+        # generic phase composition, for a phase j
+        for comp in mixture.components:
+            name = f"{SYMBOLS['phase_composition']}_{comp.name}_j"
+            self.composition_j.update({name: sm.Symbol(name)})
+
+        # generic phase composition, for a component i
+        np = 1
+        name_r = f"{SYMBOLS['phase_composition']}_i_R"
+        for phase in mixture.phases:
+            if phase == mixture.reference_phase:
+                name = f"{SYMBOLS['phase_composition']}_i_R"
+                # add only name key to preserve order from mixture
+                self.composition_i.update({name: 0})
+            else:
+                if phase.gaslike:  # NOTE assumption only 1 gas-like phase
+                    name = f"{SYMBOLS['phase_composition']}_i_G"
+                else:
+                    name = f"{SYMBOLS['phase_composition']}_i_{np}"
+                    np += 1
+                self.composition_i.update({name: sm.Symbol(name)})
+        self.composition_i.update({name_r: sm.Symbol(name_r)})
+
         # construct shortcut mapping for general access functionality
         for k in self.mixture_properties.keys():
             self._all.update({k: self.mixture_properties})
@@ -316,6 +405,10 @@ class MixtureSymbols:
             self._all.update({k: self.phase_saturations})
         for k in self.phase_compositions.keys():
             self._all.update({k: self.phase_compositions})
+        for k in self.composition_j.keys():
+            self._all.update({k: self.composition_j})
+        for k in self.composition_i.keys():
+            self._all.update({k: self.composition_i})
 
     def __call__(self, symbol_name: str) -> sm.Symbol:
         """
@@ -407,7 +500,7 @@ class PR_Compiler:
             {
                 'p-T': X_pT,
                 'p-h': X_ph,
-                'h-v': X_hv,
+                'v-h': X_hv,
             }
         )
 
@@ -421,21 +514,24 @@ class PR_Compiler:
         args_pT = [self.symbols('pressure'), self.symbols('temperature')] + X_pT
 
         # arguments for the p-h system
-        args_ph = [self.symbols('pressure'), self.symbols('enthalpy')] + X_ph
+        args_ph = [self.symbols('enthalpy'), self.symbols('pressure')] + X_ph
 
         # arguments for the h-v system
-        args_hv = [self.symbols('enthalpy'), self.symbols('volume')] + X_hv
+        args_hv = [self.symbols('volume'), self.symbols('enthalpy')] + X_hv
 
         self.arguments.update(
             {
                 'p-T': args_z + args_pT,
                 'p-h': args_z + args_ph,
-                'h-v': args_z + args_hv,
+                'v-h': args_z + args_hv,
             }
         )
 
     def _define_equations_and_jacobians(self, mixture: NonReactiveMixture):
         """Constructs the equilibrium equatins for each flash specification."""
+
+        ncomp = self._n_c
+        nphase = self._n_p
 
         # list of fractional unknowns in symbolic form
         X_ = list(self.symbols.phase_compositions.values())
@@ -446,6 +542,14 @@ class PR_Compiler:
         for j in range(self._n_p):
             X_j = X_[j * self._n_c : (j + 1) * self._n_c]
             X.append(X_j)
+
+        # generic compositions of a phase
+        X_ = list(self.symbols.composition_j.values())
+        # generic compositional fractions associated with a component i
+        X_of_comp = list(self.symbols.composition_i.values())
+
+        assert len(Y) == len(X_of_comp), 'Mismatch in generic compositional symbols for a component.'
+        assert len(X_) == len(Z), 'Mismatch in generic comp. symbols per phase.'
 
         # list of mass conservation per component, except reference component
         mass_conservation: list[sm.Expr] = list()
@@ -470,9 +574,9 @@ class PR_Compiler:
         ### symbolic computation of EoS specific terms.
         p = self.symbols('pressure')
         T = self.symbols('temperature')
-
-        X_arg = [p, T] + Y[1:] + X[0] + X[1]
-        t = np.array([15e6, 500, 0.1, 0.9, 0.1, 0.3, 0.3])
+        
+        # generic argument for thermodynamic properties
+        gen_arg_ = [p, T] + Y[1:] + X_
 
         # critical covolume per component
         b_i_crit = [
@@ -481,6 +585,8 @@ class PR_Compiler:
         ]
 
         # mixed covolume per phase
+        b = VanDerWaals.covolume(X_, b_i_crit)
+        B = PengRobinsonEoS.B(b, p, T)
         b_j = [VanDerWaals.covolume(x_j, b_i_crit) for x_j in X]
         B_j = [PengRobinsonEoS.B(b_j_, p, T) for b_j_ in b_j]
 
@@ -508,12 +614,71 @@ class PR_Compiler:
         a_i = [a * corr**2 for a, corr in zip(a_i_crit, a_i_correction)]
 
         # mixed cohesion terms per phase
-        a_j = [VanDerWaals.cohesion_s(x_j, a_i, bips) for x_j in X]
-        A_j = [PengRobinsonEoS.A(a, p, T) for a in a_j]
+        a = VanDerWaals.cohesion_s(X_, a_i, bips)
+        A = PengRobinsonEoS.A(a, p, T)
 
-        dT_A_j = [A_.diff(T) for A_ in A_j]
-        dxi_A_j = [[A_.diff(x_i) for x_i in X_j] for A_, X_j in zip(A_j, X)]
+        dT_A = A.diff(T)
+        dXi_A = [A.diff(x_) for x_ in X_]
+        # a_j = [VanDerWaals.cohesion_s(x_j, a_i, bips) for x_j in X]
+        # A_j = [PengRobinsonEoS.A(a, p, T) for a in a_j]
 
+        # dT_A_j = [A_.diff(T) for A_ in A_j]
+        # dxi_A_j = [[A_.diff(x_i) for x_i in X_j] for A_, X_j in zip(A_j, X)]
+
+
+
+        for phase in mixture.phases:
+            pass
         # Z_j = [PengRobinsonEoS.compressibility_factor(A_, B_) for A_, B_ in zip(A_j, B_j)]
+
+        # symbolic expression for mass conservation without the feed fraction
+        mass = safe_sum([-y * x for y, x in zip(Y, X_of_comp)])
+        d_mass = [mass.diff(_) for _ in Y[1:] +  X_of_comp]
+
+        mass = sm.lambdify([Y[1:] +  X_of_comp], mass)
+        d_mass = sm.lambdify([Y[1:] +  X_of_comp], d_mass)
+
+        mass_c = numba.njit(mass)
+        d_mass_c = wrap_diffs(d_mass)
+
+        @numba.njit
+        def _parse_xyz(X_gen: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+            """Helper function to parse the fractions from a generic argument."""
+            # feed fraction per component, except reference component
+            Z = X_gen[:ncomp - 1]
+            # phase compositions
+            X = X_gen[- ncomp * nphase:]
+            X = X.reshape((ncomp, nphase))
+            # phase fractions, +1 because fraction of ref phase is eliminated
+            Y = X_gen[- (ncomp * nphase + nphase) + 1: - ncomp * nphase]
+
+            return X, Y, Z
+
+        def F_pT(X_gen: np.ndarray) -> np.ndarray:
+            """Callable representing the p-T flash system"""
+
+            X, Y, Z = _parse_xyz(X_gen)
+
+            mass = np.array(
+                [z + mass_c(np.concatenate((Y, xi))) for z, xi in zip(Z, X.T[1:])]
+            )
+
+            return np.hstack((mass))
+        
+        def DF_pT(X_gen: np.ndarray) -> np.ndarray:
+
+            X, Y, Z = _parse_xyz(X_gen)
+
+            d_mass = np.array(
+                [d_mass_c(np.concatenate((Y, xi))) for z, xi in zip(Z, X.T[1:])]
+            )
+
+            return np.hstack((mass))
+
+
+        t = np.array([0.01, 0.5, 0.1, 0.2, 0.3, 0.4])
+
+        print(F_pT(t))
+        print(DF_pT(t))
 
         pass
