@@ -23,3 +23,8 @@ mix = pp.composite.NonReactiveMixture(comps, phases)
 mix.set_up()
 
 PRC = pp.composite.peng_robinson.PR_Compiler(mix)
+
+t = np.array([0.01, 1e6, 300, 0.9, 0.1, 0.2, 0.3, 0.4])
+
+print(PRC.equations['p-T'](t))
+print(PRC.jacobians['p-T'](t))

@@ -13,6 +13,8 @@ import numba
 import numpy as np
 import sympy as sm
 
+from typing import Callable, Literal
+
 from .._core import COMPOSITIONAL_VARIABLE_SYMBOLS as SYMBOLS
 from ..component import Component, Compound
 from ..composite_utils import normalize_fractions, safe_sum
@@ -138,16 +140,82 @@ get_root_case_cv = numba.vectorize(
 )(get_root_case_c)
 
 
-def wrap_diffs(f, dtype = np.float64):
-    """For wrapping symbolic, multivariate derivatives which return a sequence,
-    instead of a numpy array."""
-    f = numba.njit(f)
+@numba.njit(**_COEFF_COMPILTER_ARGS)
+def critical_line_c(A: float) -> float:
+    """Returns the critical line parametrized as ``B(A)``."""
+    return B_CRIT / A_CRIT * A
 
-    @numba.njit
+
+critical_line_cv = numba.vectorize(
+    [numba.float64(numba.float64)],
+    nopython=True,
+    **_COEFF_COMPILTER_ARGS,
+)(critical_line_c)
+
+
+@numba.njit(**_COEFF_COMPILTER_ARGS)
+def widom_line_c(A: float) -> float:
+    """Returns the Widom-line ``B(A)``"""
+    return B_CRIT + 0.8 * 0.3381965009398633 * (A - A_CRIT)
+
+
+widom_line_cv = numba.vectorize(
+    [numba.float64(numba.float64)],
+    nopython=True,
+    **_COEFF_COMPILTER_ARGS,
+)(widom_line_c)
+
+
+def njit_diffs_v(f, dtype = np.float64, **njit_kwargs):
+    """For wrapping symbolic, multivariate derivatives which return a sequence,
+    instead of a numpy array.
+    
+    Intended for functions which take the multivariate, scalar input in array form.
+    
+    """
+    f = numba.njit(f, **njit_kwargs)
+
+    @numba.njit(**njit_kwargs)
     def inner(x):
         return np.array(f(x), dtype=dtype)
 
     return inner
+
+
+def njit_diffs(f, dtype = np.float64, **njit_kwargs):
+    """For wrapping symbolic, multivariate derivatives which return a sequence,
+    instead of a numpy array.
+    
+    Intended for functions which take the multivariate, scalar input as individual
+    arguments.
+
+    """
+    f = numba.njit(f, **njit_kwargs)
+
+    @numba.njit(**njit_kwargs)
+    def inner(*x):
+        return np.array(f(*x), dtype=dtype)
+
+    return inner
+
+
+@numba.njit(cache=True)
+def point_to_line_distance_c(p: np.ndarray, lp1: np.ndarray, lp2: np.ndarray) -> float:
+    """Computes the distance between a 2-D point ``p`` and a line spanned by two points
+    ``lp1`` and ``lp2``."""
+
+    d = np.sqrt((lp2[0] - lp1[0]) ** 2 + (lp2[1] - lp1[1]) ** 2)
+    n = np.abs(
+        (lp2[0] - lp1[0]) * (lp1[1] - p[1])
+        - (lp1[0] - p[0]) * (lp2[1] - lp1[1])
+    )
+    return n / d
+
+B_CRIT_LINE_POINTS = (np.array([0., B_CRIT]), np.array([A_CRIT, B_CRIT]))
+
+S_CRIT_LINE_POINTS = (np.zeros(2), np.array([A_CRIT, B_CRIT]))
+
+W_LINE_POINTS = (np.array([0., widom_line_c(0)]), np.array([A_CRIT, widom_line_c(A_CRIT)]))
 
 
 def triple_root(A: sm.Expr, B: sm.Expr) -> sm.Expr:
@@ -460,11 +528,11 @@ class PR_Compiler:
         for the p-T flash it includes the symbol for p and T, followed by the symbolic
         unknowns for the p-T flash."""
 
-        self.equations: dict[str, sm.Expr] = dict()
+        self.equations: dict[Literal['p-T', 'p-h', 'v-h'], Callable] = dict()
         """A map between flash-types (p-T, p-h,...) and the equilibrium equations
         represented by multivariate, vector-valued callables."""
 
-        self.jacobians: dict[str, sm.Expr] = dict()
+        self.jacobians: dict[Literal['p-T', 'p-h', 'v-h'], Callable] = dict()
         """A map between flash-types (p-T, p-h,...) and the Jacobian of respective
         equilibrium equations."""
 
@@ -533,51 +601,42 @@ class PR_Compiler:
         ncomp = self._n_c
         nphase = self._n_p
 
-        # list of fractional unknowns in symbolic form
-        X_ = list(self.symbols.phase_compositions.values())
-        Y = list(self.symbols.phase_fractions.values())
-        Z = list(self.symbols.feed_fractions.values())
+        # region Symbol definition
+        # for thermodynamic properties
+        p = self.symbols('pressure')
+        T = self.symbols('temperature')
+        # symbol for compressibility factor, for partial evaluation and derivative
+        Z = sm.Symbol('Z')
 
+        # list of fractional unknowns in symbolic form
+
+        # X[j][i] is fraction of component i in phase j
+        X_nested = list(self.symbols.phase_compositions.values())
+        # molar phase fractions. NOTE first fraction is dependent expression
+        Y = list(self.symbols.phase_fractions.values())
+        # feed fraction per component. NOTE first fraction is dependent expression
+        feed = list(self.symbols.feed_fractions.values())
+
+        # complete array of compositions, ordered per phase, per component
         X: list[list[sm.Symbol]] = list()
         for j in range(self._n_p):
-            X_j = X_[j * self._n_c : (j + 1) * self._n_c]
+            X_j = X_nested[j * self._n_c : (j + 1) * self._n_c]
             X.append(X_j)
 
         # generic compositions of a phase
-        X_ = list(self.symbols.composition_j.values())
-        # generic compositional fractions associated with a component i
-        X_of_comp = list(self.symbols.composition_i.values())
+        X_per_phase = list(self.symbols.composition_j.values())
+        # generic composition associated with a component i
+        X_per_comp = list(self.symbols.composition_i.values())
 
-        assert len(Y) == len(X_of_comp), 'Mismatch in generic compositional symbols for a component.'
-        assert len(X_) == len(Z), 'Mismatch in generic comp. symbols per phase.'
+        # assert number of symbols is consistent
+        assert len(Y) == len(X_per_comp), 'Mismatch in generic compositional symbols for a component.'
+        assert len(X_per_phase) == len(feed), 'Mismatch in generic comp. symbols per phase.'
+        # endregion
 
-        # list of mass conservation per component, except reference component
-        mass_conservation: list[sm.Expr] = list()
-
-        for i, C in enumerate(zip(mixture.components, Z)):
-            comp, z_i = C
-            if comp != mixture.reference_component:
-                conservation_i = z_i
-                for j, y in enumerate(Y):
-                    conservation_i -= y * X[j][i]
-
-                mass_conservation.append(conservation_i)
-
-        # list of complementary conditions
-        complement_cond: list[sm.Expr] = list()
-
-        for j, y in enumerate(Y):
-            cc_j = y * (1 - safe_sum(X[j]))
-            complement_cond.append(cc_j)
-
-
-        ### symbolic computation of EoS specific terms.
-        p = self.symbols('pressure')
-        T = self.symbols('temperature')
-        
         # generic argument for thermodynamic properties
-        gen_arg_ = [p, T] + Y[1:] + X_
+        gen_arg = [p, T] + X_per_phase
 
+        # region Cohesion and Covolume
         # critical covolume per component
         b_i_crit = [
             PengRobinsonEoS.b_crit(comp.p_crit, comp.T_crit)
@@ -585,10 +644,9 @@ class PR_Compiler:
         ]
 
         # mixed covolume per phase
-        b = VanDerWaals.covolume(X_, b_i_crit)
+        b = VanDerWaals.covolume(X_per_phase, b_i_crit)
         B = PengRobinsonEoS.B(b, p, T)
-        b_j = [VanDerWaals.covolume(x_j, b_i_crit) for x_j in X]
-        B_j = [PengRobinsonEoS.B(b_j_, p, T) for b_j_ in b_j]
+        B_c = numba.njit(sm.lambdify(gen_arg, B))
 
         # cohesion per phase
 
@@ -614,32 +672,262 @@ class PR_Compiler:
         a_i = [a * corr**2 for a, corr in zip(a_i_crit, a_i_correction)]
 
         # mixed cohesion terms per phase
-        a = VanDerWaals.cohesion_s(X_, a_i, bips)
+        a = VanDerWaals.cohesion_s(X_per_phase, a_i, bips)
         A = PengRobinsonEoS.A(a, p, T)
+        A_c = numba.njit(sm.lambdify(gen_arg, A))
 
         dT_A = A.diff(T)
-        dXi_A = [A.diff(x_) for x_ in X_]
-        # a_j = [VanDerWaals.cohesion_s(x_j, a_i, bips) for x_j in X]
-        # A_j = [PengRobinsonEoS.A(a, p, T) for a in a_j]
+        dXi_A = [A.diff(x_) for x_ in X_per_phase]
+        # endregion
 
-        # dT_A_j = [A_.diff(T) for A_ in A_j]
-        # dxi_A_j = [[A_.diff(x_i) for x_i in X_j] for A_, X_j in zip(A_j, X)]
+        # region Compressibility factor computation
+        # constructing expressiong for compressibility factors dependent on p-T-X
 
+        Z_triple = triple_root(A, B)  # triple root case
+        Z_triple_c = numba.njit(sm.lambdify(gen_arg, Z_triple))
 
+        # need math module, not numpy, because of piecewise nature
+        # NOTE np.select not supported by numba
+        # NOTE need special substitution of sqrt and cbrt for numerical stability
+        Z_one = one_root(A, B)  # one real root case
+        Z_one_c = numba.njit(
+            sm.lambdify(gen_arg, Z_one, [{"cbrt": np.cbrt, "sqrt": np.sqrt}, "math"]),
+        )
+        
+        Z_ext_sub = ext_root_gharbia(Z_one, B)  # extended subcritical root
+        Z_ext_sub_c = numba.njit(
+            sm.lambdify(gen_arg, Z_ext_sub, [{"cbrt": np.cbrt, "sqrt": np.sqrt}, "math"]),
+        )
+        Z_ext_scg = ext_root_scg(Z_one, B)  # extended supercritical gas root
+        Z_ext_scg_c = numba.njit(
+            sm.lambdify(gen_arg, Z_ext_scg, [{"cbrt": np.cbrt, "sqrt": np.sqrt}, "math"]),
+        )
+        Z_ext_scl = ext_root_scl(Z_one, B)  # extended supercritical liquid root
+        Z_ext_scl_c = numba.njit(
+            sm.lambdify(gen_arg, Z_ext_scl, [{"cbrt": np.cbrt, "sqrt": np.sqrt}, "math"]),
+        )
 
-        for phase in mixture.phases:
-            pass
-        # Z_j = [PengRobinsonEoS.compressibility_factor(A_, B_) for A_, B_ in zip(A_j, B_j)]
+        # need math module again because of piecewise operation
+        Z_double_g = double_root(A, B, True)  # gas-like root in double root case
+        Z_double_g_c = numba.njit(
+            sm.lambdify(gen_arg, Z_double_g, 'math'),
+        )
+        Z_double_l = double_root(A, B, False)  # liquid-like root in double root case
+        Z_double_l_c = numba.njit(
+            sm.lambdify(gen_arg, Z_double_l, 'math'),
+        )
+
+        Z_three_g = three_root(A, B, True)  # gas-like root in 3-root case
+        Z_three_g_c = numba.njit(sm.lambdify(gen_arg, Z_three_g))
+        Z_three_l = three_root(A, B, False)  # liquid-like root in 3-root case
+        Z_three_l_c = numba.njit(sm.lambdify(gen_arg, Z_three_l))
+        Z_three_i = three_root_intermediate(A, B)  # intermediate root in 3-root case
+        Z_three_i_c = numba.njit(sm.lambdify(gen_arg, Z_three_i))
+
+        # list containing gas-like flags per phase to decide which to use in the
+        # 2- or 3-root case
+        gaslike: list[bool] = [phase.gaslike for phase in mixture.phases]
+
+        @numba.njit
+        def Z_c(
+            gaslike: bool,
+            p: float,
+            T: float,
+            X: np.ndarray,
+            eps: float=1e-14,
+            smooth_e: float = 1e-2,
+            smooth_3: float = 1e-3,
+        )-> float:
+            """Wrapper function computing the compressibility factor for given
+            thermodynamic state.
+
+            This function provides the labeling and smoothing, on top of the wrapped
+            computations of Z.
+
+            Smoothing can be disabled by setting respective argument to zero.
+
+            ``eps`` is used to determine the root case :func:`get_root_case_c`.
+
+            """
+            # X = (_ for _ in X)
+            X = X.tolist()  # TODO
+            A_ = A_c(p, T, *X)
+            B_ = B_c(p, T, *X)
+
+            # super critical check
+            is_sc = B_ >= critical_line_c(A_)
+
+            below_widom = B_ <= widom_line_c(A_)
+
+            nroot = get_root_case_c(A_, B_, eps)
+
+            if nroot == 1:
+                Z_1_real = Z_one_c(p, T, *X)
+                # Extension procedure according Ben Gharbia et al.
+                if not is_sc and B_ < B_CRIT:
+                    W = Z_ext_sub_c(p, T, *X)
+                    if below_widom:
+                        return W if gaslike else Z_1_real
+                    else:
+                        return Z_1_real if gaslike else W
+                # Extension procedure with asymmetric extension of gas
+                elif below_widom and B_ >= B_CRIT:
+                    if gaslike:
+                        W = Z_ext_scg_c(p, T, *X)
+
+                        # computing distance to border to subcritical extension
+                        # smooth if close
+                        d = point_to_line_distance_c(
+                            np.array([A_, B_]), *B_CRIT_LINE_POINTS
+                        )
+                        if smooth_e > 0. and d < smooth_e:
+                            d_n = d / smooth_e
+                            W = Z_ext_sub_c(p, T, *X) * (1 - d_n) + W * d_n
+
+                        return W
+                    else:
+                        return Z_1_real
+                # Extension procedure with asymmetric extension of liquid
+                else:
+                    if gaslike:
+                        return Z_1_real
+                    else:
+                        W = Z_ext_scl_c(p, T, *X)
+                        ab_ = np.array([A_, B_])
+
+                        # computing distance to Widom-line,
+                        # which separates gas and liquid in supercrit area
+                        d = point_to_line_distance_c(ab_, *W_LINE_POINTS)
+                        if smooth_e > 0. and d < smooth_e and B_ >= B_CRIT:
+                            d_n = d / smooth_e
+                            W = Z_ext_scg_c(p, T, *X) * (1 - d_n) + W * d_n
+
+                        # Computing distance to supercritical line,
+                        # which separates sub- and supercritical liquid extension
+                        d = point_to_line_distance_c(ab_, *S_CRIT_LINE_POINTS)
+                        if smooth_e > 0. and d < smooth_e and B_ < B_CRIT:
+                            d_n = d / smooth_e
+                            W = Z_ext_sub_c(p, T, *X) * (1 - d_n) + W * d_n
+
+                        return W
+            elif nroot == 2:
+                if gaslike:
+                    return Z_double_g_c(p, T, *X)
+                else:
+                    return Z_double_l_c(p, T, *X)
+            elif nroot == 3:
+                # triple root area above the critical line is substituted with the
+                # extended supercritical liquid-like root
+                if is_sc:
+                    if gaslike:
+                        return Z_three_g_c(p, T, *X)
+                    else:
+                        W = Z_ext_scl_c(p, T, *X)
+                        ab_ = np.array([A_, B_])
+
+                        # computing distance to Widom-line,
+                        # which separates gas and liquid in supercrit area
+                        d = point_to_line_distance_c(ab_, *W_LINE_POINTS)
+                        if smooth_e > 0. and d < smooth_e and B_ >= B_CRIT:
+                            d_n = d / smooth_e
+                            W = Z_ext_scg_c(p, T, *X) * (1 - d_n) + W * d_n
+
+                        # Computing distance to supercritical line,
+                        # which separates sub- and supercritical liquid extension
+                        d = point_to_line_distance_c(ab_, *S_CRIT_LINE_POINTS)
+                        if smooth_e > 0. and d < smooth_e and B_ < B_CRIT:
+                            d_n = d / smooth_e
+                            W = Z_ext_sub_c(p, T, *X) * (1 - d_n) + W * d_n
+
+                        return W
+                else:
+                    # smoothing according Ben Gharbia et al., in physical 2-phase region
+                    if smooth_3 > 0.:
+                        Z_l = Z_three_l_c(p, T, *X)
+                        Z_i = Z_three_i_c(p, T, *X)
+                        Z_g = Z_three_g_c(p, T, *X)
+                        
+                        d = (Z_i - Z_l) / (Z_g - Z_l)
+
+                        # gas root smoothing
+                        if gaslike:
+                            # gas root smoothing weight
+                            v_g = (d - (1 - 2 * smooth_3)) / smooth_3
+                            v_g = v_g ** 2 * (3 - 2 * v_g)
+                            if d >= 1 - smooth_3:
+                                v_g = 1.
+                            elif d <= 1 - 2 * smooth_3:
+                                v_g = 0.
+
+                            return Z_g * (1 - v_g) + (Z_i + Z_g) * .5 * v_g
+                        # liquid root smoothing
+                        else:
+
+                            v_l = (d - smooth_3) / smooth_3
+                            v_l = -v_l**2 * (3 - 2 * v_l) + 1.
+                            if d <= smooth_3:
+                                v_l = 1.
+                            elif d >= 2 * smooth_3:
+                                v_l = 0.
+
+                            return Z_l * (1 - v_l) + (Z_i + Z_l) * .5 * v_l
+                    else:
+                        return Z_three_g_c(p, T, *X) if gaslike else Z_three_l_c(p, T, *X)
+
+            else:
+                return Z_triple_c(p, T, *X)
+            
+        # Z_cv = numba.vectorize(
+        #     [
+        #         numba.float64(
+        #             numba.bool_,
+        #             numba.float64,
+        #             numba.float64,
+        #             *(numba.float64 for _ in range(len(X_per_phase))),
+        #             numba.float64,
+        #             numba.float64,
+        #             numba.float64,
+        #         )
+        #     ],
+        #     nopython=True,
+        # )(Z_c)
+        # endregion
+
+        p_ = 1e6
+        T_ = 300
+        X__ = np.array([0.3, 0.7])
+        se = 1e-2
+        s3 = 1e-3
+        eps = 1e-14
+
+        z_ = Z_c(True, p_, T_, X__, eps=eps, smooth_e=se, smooth_3=s3)
+
+        # region Symbolic equations
+        NJIT_KWARGS_equ = {
+            'fastmath': True,
+        }
 
         # symbolic expression for mass conservation without the feed fraction
-        mass = safe_sum([-y * x for y, x in zip(Y, X_of_comp)])
-        d_mass = [mass.diff(_) for _ in Y[1:] +  X_of_comp]
+        mass = safe_sum([-y * x for y, x in zip(Y, X_per_comp)])
+        d_mass = [mass.diff(_) for _ in Y[1:] + X_per_comp]
 
-        mass = sm.lambdify([Y[1:] +  X_of_comp], mass)
-        d_mass = sm.lambdify([Y[1:] +  X_of_comp], d_mass)
+        # callables taking fractional unknowns as individual arguments
+        mass = sm.lambdify(Y[1:] + X_per_comp, mass)
+        d_mass = sm.lambdify(Y[1:] + X_per_comp, d_mass)
 
-        mass_c = numba.njit(mass)
-        d_mass_c = wrap_diffs(d_mass)
+        mass_c = numba.njit(mass, **NJIT_KWARGS_equ)
+        d_mass_c = njit_diffs(d_mass, **NJIT_KWARGS_equ)
+
+        # symbolic expression for complementary condition y_j * (1 - sum_i x_ij)
+        cc = [y_ * (1 - safe_sum(X_per_phase)) for y_ in Y]
+        d_cc = [[cc_.diff(_) for _ in Y[1:] + X_per_phase] for cc_ in cc]
+
+        cc = [sm.lambdify(Y[1:] + X_per_phase, cc_) for cc_ in cc]
+        d_cc = [sm.lambdify(Y[1:] + X_per_phase, d_cc_) for d_cc_ in d_cc]
+
+        cc_c = [numba.njit(cc_, **NJIT_KWARGS_equ) for cc_ in cc]
+        d_cc_c = [njit_diffs(d_cc_, **NJIT_KWARGS_equ) for d_cc_ in d_cc]
+        # endregion
 
         @numba.njit
         def _parse_xyz(X_gen: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -648,37 +936,85 @@ class PR_Compiler:
             Z = X_gen[:ncomp - 1]
             # phase compositions
             X = X_gen[- ncomp * nphase:]
+            # matrix:
+            # rows have compositions per phase,
+            # columns have compositions related to a component
             X = X.reshape((ncomp, nphase))
-            # phase fractions, +1 because fraction of ref phase is eliminated
-            Y = X_gen[- (ncomp * nphase + nphase) + 1: - ncomp * nphase]
+            # phase fractions, -1 because fraction of ref phase is eliminated
+            Y = X_gen[- (ncomp * nphase + nphase - 1): - ncomp * nphase]
 
             return X, Y, Z
 
+        @numba.njit
+        def _parse_pT(X_gen: np.ndarray) -> np.ndarray:
+            """Helper function extracint pressure and temperature from a generic
+            argument."""
+            return X_gen[-(ncomp*nphase + nphase -1) - 2: -(ncomp*nphase + nphase -1)]
+
+        # region p-T flash
         def F_pT(X_gen: np.ndarray) -> np.ndarray:
             """Callable representing the p-T flash system"""
 
             X, Y, Z = _parse_xyz(X_gen)
+            p, T = _parse_pT(X_gen)
 
+            # maxx conservation excluding first component
+            # NOTE this assumes the first set of compositions in component order belongs
+            # to the reference component
             mass = np.array(
-                [z + mass_c(np.concatenate((Y, xi))) for z, xi in zip(Z, X.T[1:])]
+                [z + mass_c(*Y, *xi) for z, xi in zip(Z, X.T[1:])]
             )
 
-            return np.hstack((mass))
+            cc = np.array([cc_c_(*Y, *xj) for cc_c_, xj in zip(cc_c, X)])
+
+            return np.concatenate((mass, cc))
         
         def DF_pT(X_gen: np.ndarray) -> np.ndarray:
+
+            # degrees of freedom include compositions and independent phase fractions
+            dofs = ncomp * nphase + nphase - 1
+            # empty dense matrix. NOTE numba can deal only with dense np arrays
+            DF = np.zeros((dofs, dofs))
 
             X, Y, Z = _parse_xyz(X_gen)
 
             d_mass = np.array(
-                [d_mass_c(np.concatenate((Y, xi))) for z, xi in zip(Z, X.T[1:])]
+                [d_mass_c(*Y, *xi) for xi in X.T[1:]]
             )
 
-            return np.hstack((mass))
+            d_cc = np.array([d_cc_c_(*Y, *xj) for d_cc_c_, xj in zip(d_cc_c, X)])
 
+            for i in range(ncomp):
+                # insert derivatives of mass conservations for component i != ref comp
+                if i < ncomp - 1:
+                    # derivatives w.r.t. phase fractions
+                    DF[i, : nphase - 1] = d_mass[i, : nphase - 1]
+                    # derivatives w.r.t compositional fractions of that component
+                    DF[i, nphase + i::nphase] = d_mass[i, nphase-1:]
+            for j in range(nphase):
 
-        t = np.array([0.01, 0.5, 0.1, 0.2, 0.3, 0.4])
+                # inserting derivatives of complementary conditions
+                # derivatives w.r.t phase fractions
+                DF[ncomp*nphase - 1 + j, :nphase - 1] = d_cc[j, :nphase - 1]
+                # derivatives w.r.t compositions of that phase
+                DF[ncomp*nphase - 1 + j, nphase - 1 + j ::ncomp] = d_cc[j, nphase-1:]
+
+            return DF
+        # endregion
+
+        t = np.array([0.01, 1e6, 300, 0.9, 0.1, 0.2, 0.3, 0.4])
 
         print(F_pT(t))
         print(DF_pT(t))
 
-        pass
+        self.equations.update(
+            {
+                'p-T': F_pT,
+            }
+        )
+
+        self.jacobians.update(
+            {
+                'p-T': DF_pT
+            }
+        )
