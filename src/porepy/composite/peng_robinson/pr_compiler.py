@@ -733,7 +733,7 @@ class PR_Compiler:
             gaslike: bool,
             p: float,
             T: float,
-            X: np.ndarray,
+            *X: tuple[float],
             eps: float=1e-14,
             smooth_e: float = 1e-2,
             smooth_3: float = 1e-3,
@@ -749,8 +749,7 @@ class PR_Compiler:
             ``eps`` is used to determine the root case :func:`get_root_case_c`.
 
             """
-            # X = (_ for _ in X)
-            X = X.tolist()  # TODO
+
             A_ = A_c(p, T, *X)
             B_ = B_c(p, T, *X)
 
@@ -895,7 +894,7 @@ class PR_Compiler:
 
         p_ = 1e6
         T_ = 300
-        X__ = np.array([0.3, 0.7])
+        X__ = (0.3, 0.7)
         se = 1e-2
         s3 = 1e-3
         eps = 1e-14
