@@ -67,6 +67,11 @@ class SolutionStrategy(abc.ABC):
     :class:`~porepy.viz.exporter.Exporter`.
 
     """
+    update_boundary_conditions: Callable[[bool], None]
+    """Set the values of the boundary conditions for the new time step.
+    :class:`~porepy.models.abstract_equations.BoundaryConditionsMixin`
+    
+    """
 
     def __init__(self, params: Optional[dict] = None):
         """Initialize the solution strategy.
@@ -240,6 +245,9 @@ class SolutionStrategy(abc.ABC):
         for iterate_index in self.iterate_indices:
             self.equation_system.set_variable_values(val, iterate_index=iterate_index)
 
+        # Initialize time dependent ad arrays, including those for boundary values.
+        self.update_time_dependent_ad_arrays(initial=True)
+
     @property
     def time_step_indices(self) -> np.ndarray:
         """Indices for storing time step solutions.
@@ -385,6 +393,8 @@ class SolutionStrategy(abc.ABC):
         self._nonlinear_iteration = 0
         # Update time step size.
         self.ad_time_step.set_value(self.time_manager.dt)
+        # Update the boundary conditions to both the time step and iterate solution.
+        self.update_time_dependent_ad_arrays(initial=False)
 
     def before_nonlinear_iteration(self) -> None:
         """Method to be called at the start of every non-linear iteration.
@@ -613,7 +623,10 @@ class SolutionStrategy(abc.ABC):
         return True
 
     def update_time_dependent_ad_arrays(self, initial: bool) -> None:
-        """Update the time dependent arrays for the mechanics boundary conditions.
+        """Update the time dependent arrays before a new time step.
+
+        The base implementation updates those for the boundary condition values.
+        Override it to update other model-specific time dependent arrays.
 
         Parameters:
             initial: If True, the array generating method is called for both the stored
@@ -622,4 +635,4 @@ class SolutionStrategy(abc.ABC):
                 updated by copying the iterate.
 
         """
-        pass
+        self.update_boundary_conditions(initial=initial)
