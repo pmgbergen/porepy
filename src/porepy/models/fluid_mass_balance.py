@@ -218,7 +218,7 @@ class MassBalanceEquations(pp.BalanceEquation):
 
         boundary_projection = pp.ad.BoundaryProjection(self.mdg, subdomains=subdomains)
         bc_values = boundary_projection.boundary_to_subdomain @ self.mobility_rho(
-            self.mdg.subdomains_to_boundary_grids(subdomains)
+            self.subdomains_to_boundary_grids(subdomains)
         )
         flux = self.advective_flux(
             subdomains, mob_rho, discr, bc_values, self.interface_fluid_flux
@@ -351,7 +351,7 @@ class ConstitutiveLawsSinglePhaseFlow(
     """
 
 
-class BoundaryConditionsSinglePhaseFlow:
+class BoundaryConditionsSinglePhaseFlow(pp.BoundaryConditionsMixin):
     """Boundary conditions for single-phase flow."""
 
     domain_boundary_sides: Callable[
@@ -368,6 +368,11 @@ class BoundaryConditionsSinglePhaseFlow:
     :class:`~porepy.models.solution_strategy.SolutionStrategy`.
 
     """
+
+    bc_data_darcy_flux_key: str = "darcy_flux"
+    """TODO"""
+    bc_data_pressure_key: str = "pressure"
+    """TODO"""
 
     subdomains_to_boundary_grids: Callable[
         [Sequence[pp.Grid]], Sequence[pp.BoundaryGrid]
@@ -423,6 +428,25 @@ class BoundaryConditionsSinglePhaseFlow:
         flux_neumann = self.darcy_flux(boundary_grids)
         return pressure_dirichlet + flux_neumann
 
+    def update_boundary_conditions(self, initial: bool) -> None:
+        """Set values for the pressure and the darcy flux on boundaries."""
+        super().update_boundary_conditions(initial=initial)
+
+        def pressure(boundary_grids: Sequence[pp.BoundaryGrid]) -> np.ndarray:
+            num_cells = sum(bg.num_cells for bg in boundary_grids)
+            return np.ones(num_cells) * self.fluid.pressure()
+
+        def darcy_flux(boundary_grids: Sequence[pp.BoundaryGrid]) -> np.ndarray:
+            num_cells = sum(bg.num_cells for bg in boundary_grids)
+            return np.zeros(num_cells)
+
+        self._update_boundary_condition(
+            name=self.bc_data_pressure_key, function=pressure, initial=initial
+        )
+        self._update_boundary_condition(
+            name=self.bc_data_darcy_flux_key, function=darcy_flux, initial=initial
+        )
+
 
 class VariablesSinglePhaseFlow(pp.VariableMixin):
     """
@@ -476,7 +500,13 @@ class VariablesSinglePhaseFlow(pp.VariableMixin):
 
     """
     bc_data_pressure_key: str
-    """TODO"""
+    """TODO
+    
+    """
+    make_boundary_operator: Callable[[str, Sequence[pp.BoundaryGrid]], None]
+    """TODO
+    
+    """
     nd: int
     """Number of spatial dimensions. Normally defined in a mixin of instance
     :class:`~porepy.models.geometry.ModelGeometry`.
@@ -509,11 +539,9 @@ class VariablesSinglePhaseFlow(pp.VariableMixin):
             tags={"si_units": f"m^{self.nd} * Pa"},
         )
 
-    def pressure(
-        self, grids: pp.SubdomainsOrBoundaries
-    ) -> pp.ad.Operator:
+    def pressure(self, grids: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
         if len(grids) > 0 and isinstance(grids[0], pp.BoundaryGrid):
-            return pp.ad.TimeDependentDenseArray(
+            return self.make_boundary_operator(
                 name=self.bc_data_pressure_key, domains=grids
             )
 
@@ -630,10 +658,6 @@ class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
     by a mixin instance of :class:`~porepy.models.constitutive_laws.FluidMobility`.
 
     """
-    bc_data_darcy_flux_key: str = "bc_data_darcy_flux"
-    """TODO"""
-    bc_data_pressure_key: str = "bc_data_pressure"
-    """TODO"""
 
     def __init__(self, params: Optional[dict] = None) -> None:
         super().__init__(params)
@@ -728,26 +752,6 @@ class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
                 },
             )
 
-    def set_boundary_data(self) -> None:
-        """Set values for the boundary conditions.
-
-        Both Neuman and Dirichlet data should be initialized here.
-
-        """
-        for bc_var_name in [self.bc_data_pressure_key, self.bc_data_darcy_flux_key]:
-            for bg, bg_data in self.mdg.boundaries(return_data=True):
-                bc_values = np.zeros(bg.num_cells)
-
-                timestep_data = bg_data[pp.TIME_STEP_SOLUTIONS]
-                timestep_data[bc_var_name] = {}
-                for timestep_idx in self.time_step_indices:
-                    timestep_data[bc_var_name][timestep_idx] = bc_values.copy()
-
-                iterate_data = bg_data[pp.ITERATE_SOLUTIONS]
-                iterate_data[bc_var_name] = {}
-                for iterate_idx in self.time_step_indices:
-                    iterate_data[bc_var_name][iterate_idx] = bc_values.copy()
-
     def permeability_tensor(self, sd: pp.Grid) -> pp.SecondOrderTensor:
         """Convert ad permeability to :class:`~pp.params.tensor.SecondOrderTensor`.
 
@@ -774,10 +778,6 @@ class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
             permeability = permeability.val
         # TODO: Safeguard against negative permeability?
         return pp.SecondOrderTensor(permeability)
-
-    def before_nonlinear_loop(self) -> None:
-        super().before_nonlinear_loop()
-        self.set_boundary_data()
 
     def before_nonlinear_iteration(self):
         """

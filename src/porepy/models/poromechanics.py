@@ -177,18 +177,6 @@ class SolutionStrategyTimeDependentBCs(pp.SolutionStrategy):
         """
         return "bc_values_mechanics"
 
-    def initial_condition(self) -> None:
-        """Set initial condition for the coupled problem.
-
-        The initial condition for the coupled problem is the initial condition for the
-        subproblems.
-
-        """
-        # Set initial condition for the subproblems.
-        super().initial_condition()
-
-        self.update_time_dependent_ad_arrays(initial=True)
-
     def reset_state_from_file(self) -> None:
         """Reset states but through a restart from file.
 
@@ -197,13 +185,8 @@ class SolutionStrategyTimeDependentBCs(pp.SolutionStrategy):
         """
         super().reset_state_from_file()
 
+        assert False, "Assert we can remove this function"
         self.update_time_dependent_ad_arrays(initial=True)
-
-    def before_nonlinear_loop(self) -> None:
-        super().before_nonlinear_loop()
-        # Update the mechanical boundary conditions to both the time step and iterate
-        # solution.
-        self.update_time_dependent_ad_arrays(initial=False)
 
     def update_time_dependent_ad_arrays(self, initial: bool) -> None:
         """Update the time dependent arrays for the mechanics boundary conditions.
@@ -218,33 +201,35 @@ class SolutionStrategyTimeDependentBCs(pp.SolutionStrategy):
         # Call super in case class is combined with other classes implementing this
         # method.
         super().update_time_dependent_ad_arrays(initial)
-        # Update the mechanical boundary conditions to both the solutions and iterates.
-        for sd, data in self.mdg.subdomains(return_data=True, dim=self.nd):
-            if initial:
-                vals = self.time_dependent_bc_values_mechanics([sd])
-                pp.set_solution_values(
-                    name=self.bc_values_mechanics_key,
-                    values=vals,
-                    data=data,
-                    time_step_index=0,
-                )
-            else:
-                # Copy old values from iterate to the solution.
-                vals = data[pp.ITERATE_SOLUTIONS][self.bc_values_mechanics_key][0]
-                pp.set_solution_values(
-                    name=self.bc_values_mechanics_key,
-                    values=vals,
-                    data=data,
-                    time_step_index=0,
-                )
+        assert False, "Assert we can remove this function"
 
-            vals = self.time_dependent_bc_values_mechanics([sd])
-            pp.set_solution_values(
-                name=self.bc_values_mechanics_key,
-                values=vals,
-                data=data,
-                iterate_index=0,
-            )
+        # # Update the mechanical boundary conditions to both the solutions and iterates.
+        # for sd, data in self.mdg.subdomains(return_data=True, dim=self.nd):
+        #     if initial:
+        #         vals = self.time_dependent_bc_values_mechanics([sd])
+        #         pp.set_solution_values(
+        #             name=self.bc_values_mechanics_key,
+        #             values=vals,
+        #             data=data,
+        #             time_step_index=0,
+        #         )
+        #     else:
+        #         # Copy old values from iterate to the solution.
+        #         vals = data[pp.ITERATE_SOLUTIONS][self.bc_values_mechanics_key][0]
+        #         pp.set_solution_values(
+        #             name=self.bc_values_mechanics_key,
+        #             values=vals,
+        #             data=data,
+        #             time_step_index=0,
+        #         )
+
+        #     vals = self.time_dependent_bc_values_mechanics([sd])
+        #     pp.set_solution_values(
+        #         name=self.bc_values_mechanics_key,
+        #         values=vals,
+        #         data=data,
+        #         iterate_index=0,
+        #     )
 
 
 class SolutionStrategyPoromechanics(

@@ -886,7 +886,13 @@ class DarcysLaw:
 
     """
     bc_data_darcy_flux_key: str
-    """TODO"""
+    """TODO
+    
+    """
+    make_boundary_operator: Callable[[str, Sequence[pp.BoundaryGrid]], None]
+    """TODO
+    
+    """
     basis: Callable[[Sequence[pp.GridLike], int], list[pp.ad.SparseArray]]
     """Basis for the local coordinate system. Normally set by a mixin instance of
     :class:`porepy.models.geometry.ModelGeometry`.
@@ -952,9 +958,7 @@ class DarcysLaw:
         )
         return pressure_trace
 
-    def darcy_flux(
-        self, subdomains: Sequence[pp.Grid] | Sequence[pp.BoundaryGrid]
-    ) -> pp.ad.Operator:
+    def darcy_flux(self, subdomains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
         """Discretization of Darcy's law.
 
         Note:
@@ -972,7 +976,7 @@ class DarcysLaw:
         """
 
         if len(subdomains) > 0 and isinstance(subdomains[0], pp.BoundaryGrid):
-            return pp.ad.TimeDependentDenseArray(
+            return self.make_boundary_operator(
                 name=self.bc_data_darcy_flux_key, domains=subdomains
             )
 
