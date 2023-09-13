@@ -101,29 +101,18 @@ The value was listed with the unit [cal s^-1 cm^-1 C^-1] and is converted to [W 
 K^-1].
 
 
-Shear modulus and Lame's first param. are calculated from Young's modulus and Poisson's 
-ratio given in:
-A. Auriac and others, InSAR observations and models of crustal deformation due to a
-glacial surge in Iceland, Geophysical Journal International, Volume 198, Issue 3, 
-September, 2014, Pages 1329–1341, https://doi.org/10.1093/gji/ggu205
+Shear modulus and Lame's first parameter:
+* Auriac et al. InSAR observations and models of crustal deformation due to a glacial
+surge in Iceland. https://doi.org/10.1093/gji/ggu205
 
-Figure 9: Probability distribution estimate of the Young's modulus (E) and 
-Poisson's ratio (v) for one-elastic layer models. The best model (white cross) 
-predicts E = 46.4 GPa and v = 0.17.
+Calculated from Young's modulus and Poisson's ratio found in figure 9. The best model
+(white cross) predicts E = 46.4 GPa and v = 0.17.
 
 
 Specific heat capacity:
 * Xiaoqing et al. Analysis of the thermophysical properties and influencing factors of
 various rock types from the Guizhou province.
 https://doi.org/10.1051/e3sconf/20185303059
-
-
-TODO: Add Lame lambda and shear modulus from:
-* Auriac et al. InSAR observations and models of crustal deformation due to a glacial
-surge in Iceland. https://doi.org/10.1093/gji/ggu205
-
-Both parameter values are calculated from the Young's modulus and Poisson's ratio found
-in the paper.
 
 
 TODO:
