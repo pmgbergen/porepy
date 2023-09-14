@@ -14,7 +14,7 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 from porepy.composite.peng_robinson.eos import A_CRIT, B_CRIT
 
-from porepy.composite.peng_robinson.pr_compiler import (
+from porepy.composite.peng_robinson.compiler import (
     get_root_case_cv,
     get_root_case_c,
     one_root,
@@ -140,7 +140,7 @@ r2l_c = numba.njit(sm.lambdify([A, B], r2l, "math"))
 
 r1 = one_root(A, B)
 r1_c = numba.njit(
-    sm.lambdify([A, B], r1, [{"cbrt": np.cbrt, "sqrt": np.sqrt}, "math"]),
+    sm.lambdify([A, B], r1, [{'pcbrt': np.cbrt}, 'math']),
     # sm.lambdify([A, B], r1, "numpy"),
 )
 
@@ -322,8 +322,8 @@ fig.savefig(
 )
 # endregion
 
-N = [1e2, 1e3, 1e4, 1e5, 1e6, 5e6, 1e7]
-# N = [1e2, 1e3, 1e4, 1e5]
+# N = [1e2, 1e3, 1e4, 1e5, 1e6, 5e6, 1e7]
+N = [1e2, 1e3, 1e4, 1e5]
 
 N = [int(_) for _ in N]
 AVG_T = []

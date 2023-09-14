@@ -62,8 +62,8 @@ HV_ISOTHERM_P_LIMITS: list[float] = [5e6, 15e6]
 RESOLUTION_hv: int = 10
 
 # Limits for A and B when plotting te roots
-A_LIMITS: list[float] = [0, 2 * pp.composite.peng_robinson.PengRobinsonEoS.A_CRIT]
-B_LIMITS: list[float] = [0, 2 * pp.composite.peng_robinson.PengRobinsonEoS.B_CRIT]
+A_LIMITS: list[float] = [0, 2 * pp.composite.peng_robinson.A_CRIT]
+B_LIMITS: list[float] = [0, 2 * pp.composite.peng_robinson.B_CRIT]
 RESOLUTION_AB: int = 300
 
 # Widom line for water: Pressure and Temperature values
@@ -864,8 +864,8 @@ def plot_abs_error_pT(
 
 
 def _plot_critical_line(axis: plt.Axes, A_mesh: np.ndarray):
-    A_CRIT = pp.composite.peng_robinson.PengRobinsonEoS.A_CRIT
-    B_CRIT = pp.composite.peng_robinson.PengRobinsonEoS.B_CRIT
+    A_CRIT = pp.composite.peng_robinson.A_CRIT
+    B_CRIT = pp.composite.peng_robinson.B_CRIT
     slope = B_CRIT / A_CRIT
     x_vals = np.sort(np.unique(A_mesh.flatten()))
     x_vals = x_vals[x_vals <= A_CRIT]
