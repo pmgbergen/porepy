@@ -115,22 +115,52 @@ various rock types from the Guizhou province.
 https://doi.org/10.1051/e3sconf/20185303059
 
 
-TODO:
-Add values for Biot coefficient, specific storage and coefficient of friction
+Specific storage:
+* Kuang et al. A review of specific storage in aquifers.
+https://doi.org/10.1016/j.jhydrol.2019.124383.
 
+Basalt: 1.30e-7 to 4.70e-6 [m^-1]
+Granite: 3.18e9 to 1.00e-3 [m^-1]
+
+Values retrived from Table 1: Specific storage and hydraulic conductivity of different
+types of unconsolidated deposits and rocks.
+
+Converted from 1/m to 1/Pa using same method as described for granite above.
+
+
+Coefficient of friction:
+* Zhong et al. Experimental investigation on frictional properties of stressed basalt
+fractures. https://doi.org/10.1016/j.jrmge.2022.12.020.
+
+The measured basalt friction coefficients are in the range of 0.67–0.74
+
+
+Biot coefficient is calculated using the formula:
+** alpha = 1 - K/Ks, where K and Ks are the bulk modulus of the rock and the matrix
+bulk modulus of the rock respectively. We assume that K can be calculated from 
+Young's modulus and Poisson's ratio found in Auriac et al. and Ks is retrived from
+* Qin, Han, & Zhao. Measurement of grain bulk modulus on sandstone samples from the 
+Norwegian Continental Shelf. https://doi.org/10.1029/2022JB024550
+
+K = 23 GPa, using E = 46.4 GPa and v = 0.17
+Ks= 50 GPa, sandstone with ~ 10% porosity
+
+Note: 
+Biot coefficient and Ks for basalt is difficult to find and here the assumption
+that Ks of basalt with 10% porosity is similar to sandstone with 10% porosity.
 
 """
 
 basalt = {
-    "biot_coefficient": None,  # [-]
-    "density": 2950.0,  # [kg * m^-3]
-    "friction_coefficient": None,  # [-]
+    "biot_coefficient": 0.5,  # [-]
+    "density": 2950,  # [kg * m^-3]
+    "friction_coefficient": 0.7,  # [-]
     "lame_lambda": 4.3e9,  # [Pa]
     "permeability": 1e-16,  # [m^2]
     "porosity": 0.10,  # [-]
     "shear_modulus": 2.0e10,  # [Pa]
     "specific_heat_capacity": 500.0,  # [J * kg^-1 * K^-1]
-    "specific_storage": None,  # [Pa^-1]
+    "specific_storage": 2.5e-10,  # [Pa^-1]
     "thermal_conductivity": 1.6736,  # [W * m^-1 * K^-1]
     "thermal_expansion": 5.0e-6,  # [K^-1]
 }
