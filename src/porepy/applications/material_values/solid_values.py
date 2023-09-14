@@ -132,20 +132,20 @@ Coefficient of friction:
 * Zhong et al. Experimental investigation on frictional properties of stressed basalt
 fractures. https://doi.org/10.1016/j.jrmge.2022.12.020.
 
-The measured basalt friction coefficients are in the range of 0.67–0.74
+The measured basalt friction coefficients are in the range of 0.67-0.74.
 
 
 Biot coefficient is calculated using the formula:
-** alpha = 1 - K/Ks, where K and Ks are the bulk modulus of the rock and the matrix
-bulk modulus of the rock respectively. We assume that K can be calculated from 
-Young's modulus and Poisson's ratio found in Auriac et al. and Ks is retrived from
-* Qin, Han, & Zhao. Measurement of grain bulk modulus on sandstone samples from the 
+** alpha = 1 - K/Ks, where K and Ks are the bulk modulus of the rock and the matrix bulk
+modulus of the rock respectively. We assume that K can be calculated from Young's
+modulus and Poisson's ratio found in Auriac et al. and Ks is retrived from
+* Qin, Han, & Zhao. Measurement of grain bulk modulus on sandstone samples from the
 Norwegian Continental Shelf. https://doi.org/10.1029/2022JB024550
 
 K = 23 GPa, using E = 46.4 GPa and v = 0.17
 Ks= 50 GPa, sandstone with ~ 10% porosity
 
-Note: 
+Note:
 Biot coefficient and Ks for basalt is difficult to find and here the assumption
 that Ks of basalt with 10% porosity is similar to sandstone with 10% porosity.
 
