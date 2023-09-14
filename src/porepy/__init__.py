@@ -190,8 +190,8 @@ from porepy import models
 from porepy.models.abstract_equations import (
     BalanceEquation,
     VariableMixin,
-    BoundaryConditionsMixin,
 )
+from porepy.models.boundary_condition import BoundaryConditionMixin
 from porepy.models.geometry import ModelGeometry
 from porepy.models.units import Units
 from porepy.models.material_constants import (

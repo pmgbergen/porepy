@@ -351,7 +351,7 @@ class ConstitutiveLawsSinglePhaseFlow(
     """
 
 
-class BoundaryConditionsSinglePhaseFlow(pp.BoundaryConditionsMixin):
+class BoundaryConditionsSinglePhaseFlow(pp.BoundaryConditionMixin):
     """Boundary conditions for single-phase flow."""
 
     domain_boundary_sides: Callable[
@@ -371,7 +371,7 @@ class BoundaryConditionsSinglePhaseFlow(pp.BoundaryConditionsMixin):
 
     bc_data_darcy_flux_key: str = "darcy_flux"
     """TODO"""
-    bc_data_pressure_key: str = "pressure"
+    pressure_variable: str
     """TODO"""
 
     subdomains_to_boundary_grids: Callable[
@@ -428,23 +428,31 @@ class BoundaryConditionsSinglePhaseFlow(pp.BoundaryConditionsMixin):
         flux_neumann = self.darcy_flux(boundary_grids)
         return pressure_dirichlet + flux_neumann
 
-    def update_boundary_conditions(self, initial: bool) -> None:
+    def _boundary_pressure(
+        self, boundary_grids: Sequence[pp.BoundaryGrid]
+    ) -> np.ndarray:
+        num_cells = sum(bg.num_cells for bg in boundary_grids)
+        return np.ones(num_cells) * self.fluid.pressure()
+
+    def _boundary_darcy_flux(
+        self, boundary_grids: Sequence[pp.BoundaryGrid]
+    ) -> np.ndarray:
+        num_cells = sum(bg.num_cells for bg in boundary_grids)
+        return np.zeros(num_cells)
+
+    def set_boundary_conditions(self, initial: bool) -> None:
         """Set values for the pressure and the darcy flux on boundaries."""
-        super().update_boundary_conditions(initial=initial)
-
-        def pressure(boundary_grids: Sequence[pp.BoundaryGrid]) -> np.ndarray:
-            num_cells = sum(bg.num_cells for bg in boundary_grids)
-            return np.ones(num_cells) * self.fluid.pressure()
-
-        def darcy_flux(boundary_grids: Sequence[pp.BoundaryGrid]) -> np.ndarray:
-            num_cells = sum(bg.num_cells for bg in boundary_grids)
-            return np.zeros(num_cells)
+        super().set_boundary_conditions(initial=initial)
 
         self._update_boundary_condition(
-            name=self.bc_data_pressure_key, function=pressure, initial=initial
+            name=self.pressure_variable,
+            function=self._boundary_pressure,
+            initial=initial,
         )
         self._update_boundary_condition(
-            name=self.bc_data_darcy_flux_key, function=darcy_flux, initial=initial
+            name=self.bc_data_darcy_flux_key,
+            function=self._boundary_darcy_flux,
+            initial=initial,
         )
 
 
@@ -499,10 +507,6 @@ class VariablesSinglePhaseFlow(pp.VariableMixin):
     :class:`~porepy.models.fluid_mass_balance.SolutionStrategySinglePhaseFlow`.
 
     """
-    bc_data_pressure_key: str
-    """TODO
-    
-    """
     make_boundary_operator: Callable[[str, Sequence[pp.BoundaryGrid]], None]
     """TODO
     
@@ -542,7 +546,7 @@ class VariablesSinglePhaseFlow(pp.VariableMixin):
     def pressure(self, grids: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
         if len(grids) > 0 and isinstance(grids[0], pp.BoundaryGrid):
             return self.make_boundary_operator(
-                name=self.bc_data_pressure_key, domains=grids
+                name=self.pressure_variable, domains=grids
             )
 
         return self.equation_system.md_variable(self.pressure_variable, grids)
