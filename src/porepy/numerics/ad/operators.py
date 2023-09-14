@@ -1337,13 +1337,13 @@ class TimeDependentDenseArray(Operator):
     ):
         self._name: str = name
         self._grids: GridLikeSequence = domains
-        self._grid_type: Literal["subdomains", "interfaces", "boundary grids"]
+        self._domain_type: Literal["subdomains", "interfaces", "boundary grids"]
         if all([isinstance(d, pp.Grid) for d in domains]):
-            self._grid_type = "subdomains"
+            self._domain_type = "subdomains"
         elif all([isinstance(d, pp.MortarGrid) for d in domains]):
-            self._grid_type = "interfaces"
+            self._domain_type = "interfaces"
         elif all([isinstance(d, pp.BoundaryGrid) for d in domains]):
-            self._grid_type = "boundary grids"
+            self._domain_type = "boundary grids"
         else:
             raise NotImplementedError(
                 "A time dependent array must be associated with either"
@@ -1360,8 +1360,9 @@ class TimeDependentDenseArray(Operator):
 
         super().__init__(name=name)
 
-    def grid_type(self) -> Literal["subdomains", "interfaces", "boundary grids"]:
-        return self._grid_type
+    @property
+    def domain_type(self) -> Literal["subdomains", "interfaces", "boundary grids"]:
+        return self._domain_type
 
     def previous_timestep(self) -> TimeDependentDenseArray:
         """
@@ -1391,17 +1392,17 @@ class TimeDependentDenseArray(Operator):
         """
         vals = []
         for g in self._grids:
-            if self._grid_type == "subdomains":
+            if self._domain_type == "subdomains":
                 assert isinstance(g, pp.Grid)
                 data = mdg.subdomain_data(g)
-            elif self._grid_type == "interfaces":
+            elif self._domain_type == "interfaces":
                 assert isinstance(g, pp.MortarGrid)
                 data = mdg.interface_data(g)
-            elif self._grid_type == "boundary grids":
+            elif self._domain_type == "boundary grids":
                 assert isinstance(g, pp.BoundaryGrid)
                 data = mdg.boundary_grid_data(g)
             else:
-                raise ValueError(f"Unknown grid type: {self._grid_type}.")
+                raise ValueError(f"Unknown grid type: {self._domain_type}.")
             if self.prev_time:
                 vals.append(data[pp.TIME_STEP_SOLUTIONS][self._name][0])
             else:
@@ -1417,7 +1418,7 @@ class TimeDependentDenseArray(Operator):
     def __repr__(self) -> str:
         return (
             f"Wrapped time-dependent array with name {self._name}.\n"
-            f"Defined on {len(self._grids)} {self._grid_type}.\n"
+            f"Defined on {len(self._grids)} {self._domain_type}.\n"
         )
 
 

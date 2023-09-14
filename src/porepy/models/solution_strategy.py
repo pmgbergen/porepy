@@ -67,10 +67,10 @@ class SolutionStrategy(abc.ABC):
     :class:`~porepy.viz.exporter.Exporter`.
 
     """
-    update_boundary_conditions: Callable[[bool], None]
+    set_boundary_conditions: Callable[[bool], None]
     """Set the values of the boundary conditions for the new time step.
     :class:`~porepy.models.abstract_equations.BoundaryConditionsMixin`
-    
+
     """
 
     def __init__(self, params: Optional[dict] = None):
@@ -635,4 +635,4 @@ class SolutionStrategy(abc.ABC):
                 updated by copying the iterate.
 
         """
-        self.update_boundary_conditions(initial=initial)
+        self.set_boundary_conditions(initial=initial)
