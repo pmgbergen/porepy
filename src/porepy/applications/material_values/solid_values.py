@@ -1,12 +1,18 @@
 """This file contains values for solid parameters.
 
+The values provided here should be taken as representative, and not be mistaken to be
+from one specific location or be of one specific rock sample. It was very difficult to
+find one reference providing all the material values we needed, and therefore there are
+several references per material.
+
 For now we provide parameter values for the following solids:
 * Granite
 * Basalt
 
-The dictionary containing parameter values is obtained by e.g. pp.solid_values.granite.
-They can be used in a simulation by passing `solid = pp.SolidConstants(pp.solid_values.
-granite)` as a material parameter on model initiation.
+The dictionaries containing parameter values is obtained by e.g.
+pp.solid_values.granite. They can be used in a simulation by passing `solid =
+pp.SolidConstants(pp.solid_values. granite)` as a material parameter on model
+initiation.
 """
 
 """
@@ -18,8 +24,8 @@ Specific heat capacity, thermal conductivity and density are gathered from:
 high heat production from Central Portugal. https://doi.org/10.1007/s41513-018-0096-9
 
 
-Density, thermal expansion/contraction coefficient, porosity, shear modulus and lame
-lambda are gathered from:
+Density, thermal expansion coefficient, porosity, shear modulus and lame lambda are
+gathered from:
 * Sousa, L. Petrophysical properties and durability of granites employed as
 building stone: A comprehensive evaluation. https://doi.org/10.1007/s10064-013-0553-9
 
@@ -102,11 +108,11 @@ K^-1].
 
 
 Shear modulus and Lame's first parameter:
-* Auriac et al. InSAR observations and models of crustal deformation due to a glacial
-surge in Iceland. https://doi.org/10.1093/gji/ggu205
+* Schultz, R. A. Limits on strength and deformation properties of jointed basaltic rock
+masses.
 
-Calculated from Young's modulus and Poisson's ratio found in figure 9. The best model
-(white cross) predicts E = 46.4 GPa and v = 0.17.
+Calculated from average Young's modulus (E = 78 GPa) and Poisson's ratio (v = 0.25)
+provided in the abstract.
 
 
 Specific heat capacity:
@@ -120,13 +126,11 @@ Specific storage:
 https://doi.org/10.1016/j.jhydrol.2019.124383.
 
 Basalt: 1.30e-7 to 4.70e-6 [m^-1]
-Granite: 3.18e9 to 1.00e-3 [m^-1]
 
 Values retrived from Table 1: Specific storage and hydraulic conductivity of different
 types of unconsolidated deposits and rocks.
 
 Converted from 1/m to 1/Pa using same method as described for granite above.
-
 
 Coefficient of friction:
 * Zhong et al. Experimental investigation on frictional properties of stressed basalt
@@ -135,31 +139,23 @@ fractures. https://doi.org/10.1016/j.jrmge.2022.12.020.
 The measured basalt friction coefficients are in the range of 0.67-0.74.
 
 
-Biot coefficient is calculated using the formula:
-** alpha = 1 - K/Ks, where K and Ks are the bulk modulus of the rock and the matrix bulk
-modulus of the rock respectively. We assume that K can be calculated from Young's
-modulus and Poisson's ratio found in Auriac et al. and Ks is retrived from
-* Qin, Han, & Zhao. Measurement of grain bulk modulus on sandstone samples from the
-Norwegian Continental Shelf. https://doi.org/10.1029/2022JB024550
+Biot coefficient is gathered from:
+* Detournay et al. Numerical technique to estimate the Biot coefficient for rock masses.
+https://papers.ssrn.com/sol3/papers.cfm?abstract_id=4229729
 
-K = 23 GPa, using E = 46.4 GPa and v = 0.17
-Ks= 50 GPa, sandstone with ~ 10% porosity
-
-Note:
-Biot coefficient and Ks for basalt is difficult to find and here the assumption
-that Ks of basalt with 10% porosity is similar to sandstone with 10% porosity.
+Chose the average value of the estimate provided in table 6.
 
 """
 
 basalt = {
-    "biot_coefficient": 0.5,  # [-]
-    "density": 2950,  # [kg * m^-3]
+    "biot_coefficient": 0.35,  # [-]
+    "density": 2950.0,  # [kg * m^-3]
     "friction_coefficient": 0.7,  # [-]
-    "lame_lambda": 4.3e9,  # [Pa]
+    "lame_lambda": 31.2e9,  # [Pa]
     "permeability": 1e-16,  # [m^2]
     "porosity": 0.10,  # [-]
-    "shear_modulus": 2.0e10,  # [Pa]
-    "specific_heat_capacity": 500.0,  # [J * kg^-1 * K^-1]
+    "shear_modulus": 31.2e9,  # [Pa]
+    "specific_heat_capacity": 603.0,  # [J * kg^-1 * K^-1]
     "specific_storage": 2.5e-10,  # [Pa^-1]
     "thermal_conductivity": 1.6736,  # [W * m^-1 * K^-1]
     "thermal_expansion": 5.0e-6,  # [K^-1]
