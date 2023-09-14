@@ -11,8 +11,8 @@ import porepy as pp
 RESULTFILE: str = "roots.csv"
 DELIMITER: str = ","
 
-B_CRIT: float = pp.composite.peng_robinson.PengRobinsonEoS.B_CRIT
-A_CRIT: float = pp.composite.peng_robinson.PengRobinsonEoS.A_CRIT
+B_CRIT: float = pp.composite.peng_robinson.B_CRIT
+A_CRIT: float = pp.composite.peng_robinson.A_CRIT
 EPS: float = 1e-14
 SMOOTHING_FACTOR: float = 5e-1
 

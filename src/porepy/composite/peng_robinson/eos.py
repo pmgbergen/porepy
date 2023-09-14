@@ -8,10 +8,7 @@ from dataclasses import dataclass
 from typing import Callable, Literal
 
 import numpy as np
-import sympy as sm
 import scipy.sparse as sps
-
-from sympy.abc import z as Z_symb
 
 import porepy as pp
 from porepy.numerics.ad.operator_functions import NumericType
@@ -23,7 +20,7 @@ from .mixing import VanDerWaals
 from .pr_bip import load_bip
 from .pr_components import Component_PR
 
-__all__ = ["PhaseProperties_cubic", "PengRobinsonEoS"]
+__all__ = ["PhaseProperties_cubic", "PengRobinsonEoS", "A_CRIT", "B_CRIT", "Z_CRIT"]
 
 logger = logging.getLogger(__name__)
 
@@ -251,30 +248,6 @@ class PengRobinsonEoS(AbstractEoS):
 
     """
 
-    A_CRIT: float = (
-        1
-        / 512
-        * (
-            -59
-            + 3 * np.cbrt(276231 - 192512 * np.sqrt(2))
-            + 3 * np.cbrt(276231 + 192512 * np.sqrt(2))
-        )
-    )
-    """Critical, non-dimensional cohesion value in the Peng-Robinson EoS,
-    ~ 0.457235529."""
-
-    B_CRIT: float = (
-        1
-        / 32
-        * (-1 - 3 * np.cbrt(16 * np.sqrt(2) - 13) + 3 * np.cbrt(16 * np.sqrt(2) + 13))
-    )
-    """Critical, non-dimensional covolume in the Peng-Robinson EoS, ~ 0.077796073."""
-
-    Z_CRIT: float = (
-        1 / 32 * (11 + np.cbrt(16 * np.sqrt(2) - 13) - np.cbrt(16 * np.sqrt(2) + 13))
-    )
-    """Critical compressibility factor in the Peng-Robinson EoS, ~ 0.307401308."""
-
     def __init__(
         self,
         gaslike: bool,
@@ -327,18 +300,18 @@ class PengRobinsonEoS(AbstractEoS):
         """
 
         self._widom_points: np.ndarray = np.array(
-            [[0, self.Widom_line(0)], [self.A_CRIT, self.Widom_line(self.A_CRIT)]]
+            [[0, self.Widom_line(0)], [A_CRIT, self.Widom_line(A_CRIT)]]
         )
         """The Widom line for water characterized by two points at ``A=0`` and
         ``A=A_criet``"""
 
         self._B_crit_points: np.ndarray = np.array(
-            [[0, self.B_CRIT], [self.A_CRIT, self.B_CRIT]]
+            [[0, B_CRIT], [A_CRIT, B_CRIT]]
         )
         """Two points (rows) characterizing the line ``B=B_crit``."""
 
         self._critline_points: np.ndarray = np.array(
-            [[0, 0], [self.A_CRIT, self.B_CRIT]]
+            [[0, 0], [A_CRIT, B_CRIT]]
         )
         """The critical line characterized by two points ``(0, 0)`` and
         ``(A_crit, B_crit)``"""
@@ -543,7 +516,7 @@ class PengRobinsonEoS(AbstractEoS):
         # sanity check
         self._num_frac_check(X)
         # binary interaction parameters
-        bip, dT_bip = self._compute_bips(T)
+        bip, dT_bip = self.compute_bips(T)
         # cohesion and covolume, and derivative
         a, dT_a, a_comps, _ = self._compute_cohesion_terms(T, X, bip, dT_bip)
         b = self._compute_mixture_covolume(X)
@@ -623,7 +596,7 @@ class PengRobinsonEoS(AbstractEoS):
             mu=mu,
         )
 
-    def _compute_bips(
+    def compute_bips(
         self, T: NumericType
     ) -> tuple[list[list[NumericType]], list[list[NumericType]]]:
         """
@@ -759,8 +732,8 @@ class PengRobinsonEoS(AbstractEoS):
 
     # formulae -------------------------------------------------------------------------
 
-    @classmethod
-    def b_crit(cls, p_crit: float, T_crit: float) -> float:
+    @staticmethod
+    def b_crit(p_crit: float, T_crit: float) -> float:
         """
         .. math::
 
@@ -774,10 +747,10 @@ class PengRobinsonEoS(AbstractEoS):
             The component-specific critical covolume.
 
         """
-        return cls.B_CRIT * (R_IDEAL * T_crit) / p_crit
+        return B_CRIT * (R_IDEAL * T_crit) / p_crit
 
-    @classmethod
-    def a_crit(cls, p_crit: float, T_crit: float) -> float:
+    @staticmethod
+    def a_crit(p_crit: float, T_crit: float) -> float:
         """
         .. math::
 
@@ -791,7 +764,7 @@ class PengRobinsonEoS(AbstractEoS):
             The component-specific critical cohesion.
 
         """
-        return cls.A_CRIT * (R_IDEAL**2 * T_crit**2) / p_crit
+        return A_CRIT * (R_IDEAL**2 * T_crit**2) / p_crit
 
     @staticmethod
     def a_correction_weight(omega: float) -> float:
@@ -991,15 +964,15 @@ class PengRobinsonEoS(AbstractEoS):
             + Z**3
         )
 
-    @classmethod
-    def Widom_line(cls, A: NumericType) -> NumericType:
+    @staticmethod
+    def Widom_line(A: NumericType) -> NumericType:
         """Returns the Widom-line ``B(A)``"""
-        return cls.B_CRIT + 0.8 * 0.3381965009398633 * (A - cls.A_CRIT)
+        return B_CRIT + 0.8 * 0.3381965009398633 * (A - A_CRIT)
 
-    @classmethod
-    def critical_line(cls, A: NumericType) -> NumericType:
+    @staticmethod
+    def critical_line(A: NumericType) -> NumericType:
         """Returns the critical line ``B_crit / A_crit * A``"""
-        return cls.B_CRIT / cls.A_CRIT * A
+        return B_CRIT / A_CRIT * A
 
     @staticmethod
     def extended_root_sub(B: NumericType, Z: NumericType) -> NumericType:
@@ -1134,14 +1107,14 @@ class PengRobinsonEoS(AbstractEoS):
         )
         # The critical point is known to be a triple-point
         critical_point = (
-            (A >= self.A_CRIT - self.eps)
-            & (A <= self.A_CRIT + self.eps)
-            & (B >= self.B_CRIT - self.eps)
-            & (B <= self.B_CRIT + self.eps)
+            (A >= A_CRIT - self.eps)
+            & (A <= A_CRIT + self.eps)
+            & (B >= B_CRIT - self.eps)
+            & (B <= B_CRIT + self.eps)
         )
         # subcritical triangle in the acbc rectangle
         # Area where the Gharbia analysis and extension holds
-        gharbia_ext = (~self.is_supercritical) & (B < self.B_CRIT)
+        gharbia_ext = (~self.is_supercritical) & (B < B_CRIT)
         # extra regions for extensions
         liq_ext_supc = self.is_supercritical & (~widom_line)
         gas_ext_supc = (~gharbia_ext) & widom_line
@@ -1227,7 +1200,7 @@ class PengRobinsonEoS(AbstractEoS):
                 d_g  = _point_to_line_distance(ab, self._B_crit_points)
 
                 # smoothing towards subcritical region (Gharbia extension)
-                smooth = (d_g < smoothing_distance) & (b >= self.B_CRIT)
+                smooth = (d_g < smoothing_distance) & (b >= B_CRIT)
                 d = d_g / smoothing_distance  # normalize distance
                 w_g[smooth] = (w_sub * (1 - d) + w_g * d)[smooth]
                 w[gas_ext_supc] = w_g
@@ -1247,11 +1220,11 @@ class PengRobinsonEoS(AbstractEoS):
 
                 # smoothing towards supercritical gas extension
                 # Smoothing using a convex combination of extended gas root
-                smooth = (d_w < smoothing_distance) & (b >= self.B_CRIT)
+                smooth = (d_w < smoothing_distance) & (b >= B_CRIT)
                 d = d_w / smoothing_distance  # normalize distance
                 w_l[smooth] = (w_g * (1 - d) + w_l * d)[smooth]
                 # smoothing towards subcritical Ben Gharbia extension
-                smooth = (d_s < smoothing_distance) & (b < self.B_CRIT)
+                smooth = (d_s < smoothing_distance) & (b < B_CRIT)
                 d = d_s / smoothing_distance
                 w_l[smooth] = (w_sub * (1-d) + w_l * d)[smooth]
 
