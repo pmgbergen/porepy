@@ -182,6 +182,7 @@ from porepy.numerics import ad
 from porepy.numerics.ad.operators import wrap_as_ad_array, wrap_as_ad_matrix
 from porepy.numerics.ad.equation_system import EquationSystem
 from porepy.numerics.ad.equation_system import set_solution_values
+from porepy.numerics.ad.equation_system import get_solution_values
 
 # Time stepping control
 from porepy.numerics.time_step_control import TimeManager
