@@ -6,7 +6,7 @@ import os
 # os.environ['NUMBA_DISABLE_INTEL_SVML']  = '1'
 os.environ["PYDEVD_WARN_SLOW_RESOLVE_TIMEOUT"] = "30"
 
-from typing import Callable, Literal
+from typing import Callable, Literal, Sequence
 
 import numba
 import numpy as np
@@ -22,12 +22,22 @@ __all__ = ["MixtureSymbols", "PR_Compiler"]
 
 
 # TODO this needs more work s.t. I must not replace a call to this in lambdified expr.
-class pcbrt(sm.Function):
+class cbrt(sm.Function):
+    """Custom symbolic cubic root to circumvent sympy using the power expression.
 
-    # Define differentiation.
+    The power expression is costly and does not always work with negative numbers.
+    It returns sometimes not the principle cubic root (which is always real).
+
+    TODO more tests are required here.
+    TODO make sure it is upon usage of sympy.lambdify replaced by the module functions
+    math.cbrt and numpy.cbrt (which always return the principle root).
+    """
+
     def fdiff(self, argindex=1):
+        """Custom implementation of derivative of cubic root such that it always
+        returns a positive, real number."""
         a = self.args[0]
-        return 1. / (pcbrt(a**2) * 3)
+        return 1.0 / (cbrt(a**2) * 3)
 
 
 _COEFF_COMPILTER_ARGS = {
@@ -230,7 +240,7 @@ def one_root(A: sm.Expr, B: sm.Expr) -> sm.Expr:
 
     t = sm.Piecewise((t2, sm.Abs(t2) > sm.Abs(t1)), (t1, True))
 
-    u = pcbrt(t)  # TODO this needs extensive testing if computed value is correct
+    u = cbrt(t)  # TODO potential source of error
 
     return u - r / (3 * u) - c2 / 3
 
@@ -658,7 +668,13 @@ class PR_Compiler:
         # endregion
 
         # generic argument for thermodynamic properties of a phase
-        thd_arg_j = [p_s, T_s] + X_in_j_s
+        thd_arg_j = [p_s, T_s, X_in_j_s]
+
+        def _diff(expr_, thd_arg_):
+            """Helper function to define the gradient of a multivariate function,
+            where the argument has the special structure of ``thd_arg_j``."""
+            p_, T_, X_j_ = thd_arg_
+            return [expr_.diff(p_), expr_.diff(T_)] + [expr_.diff(_) for _ in X_j_]
 
         # region Cohesion and Covolume
         # critical covolume per component
@@ -672,7 +688,8 @@ class PR_Compiler:
         B_e = PengRobinsonEoS.B(b_e, p_s, T_s)
         B_c = numba.njit(sm.lambdify(thd_arg_j, B_e), fastmath=True)
 
-        d_B_e = [B_e.diff(_) for _ in thd_arg_j]
+        # d_B_e = [B_e.diff(_) for _ in thd_arg_j]
+        d_B_e = _diff(B_e, thd_arg_j)
         d_B_c = njit_diffs(sm.lambdify(thd_arg_j, d_B_e), fastmath=True)
 
         # cohesion per phase
@@ -704,7 +721,7 @@ class PR_Compiler:
         A_e = PengRobinsonEoS.A(a_e, p_s, T_s)
         A_c = numba.njit(sm.lambdify(thd_arg_j, A_e))
 
-        d_A_e = [A_e.diff(_) for _ in thd_arg_j]
+        d_A_e = _diff(A_e, thd_arg_j)
         d_A_c = njit_diffs(sm.lambdify(thd_arg_j, d_A_e))
 
         dT_A_e = A_e.diff(T_s)
@@ -726,9 +743,10 @@ class PR_Compiler:
         d_Z_triple_e = [Z_triple_e.diff(_) for _ in AB_arg]
         d_Z_triple_c = njit_diffs(sm.lambdify(AB_arg, d_Z_triple_e))
 
-        # Need to substitute the custom function with a numerical evaluation.
-        # Use np.cbrt because it returns always the principle cubic root
-        _lam = [{'pcbrt': np.cbrt}, "math"]
+        # Need to substitute the custom function with numpy.cbrt
+        # Need 'math' built-in module because of piecewise nature
+        # But numba has no support for math.cbrt .... hence replace it explicitely.
+        _lam = [{"cbrt": np.cbrt}, "math"]
         # _lam = 'math'
 
         Z_one_e = one_root(A_s, B_s)  # one real root case
@@ -753,16 +771,16 @@ class PR_Compiler:
 
         # need math module again because of piecewise operation
         Z_double_g_e = double_root(A_s, B_s, True)  # gas-like root in double root case
-        Z_double_g_c = numba.njit(sm.lambdify(AB_arg, Z_double_g_e, 'math'))
+        Z_double_g_c = numba.njit(sm.lambdify(AB_arg, Z_double_g_e, "math"))
         Z_double_l_e = double_root(
             A_s, B_s, False
         )  # liquid-like root in double root case
-        Z_double_l_c = numba.njit(sm.lambdify(AB_arg, Z_double_l_e, 'math'))
+        Z_double_l_c = numba.njit(sm.lambdify(AB_arg, Z_double_l_e, "math"))
 
         d_Z_double_g_e = [Z_double_g_e.diff(_) for _ in AB_arg]
-        d_Z_double_g_c = njit_diffs(sm.lambdify(AB_arg, d_Z_double_g_e, 'math'))
+        d_Z_double_g_c = njit_diffs(sm.lambdify(AB_arg, d_Z_double_g_e, "math"))
         d_Z_double_l_e = [Z_double_l_e.diff(_) for _ in AB_arg]
-        d_Z_double_l_c = njit_diffs(sm.lambdify(AB_arg, d_Z_double_l_e, 'math'))
+        d_Z_double_l_c = njit_diffs(sm.lambdify(AB_arg, d_Z_double_l_e, "math"))
 
         Z_three_g_e = three_root(A_s, B_s, True)  # gas-like root in 3-root case
         Z_three_g_c = numba.njit(sm.lambdify(AB_arg, Z_three_g_e))
@@ -780,10 +798,10 @@ class PR_Compiler:
 
         @numba.njit
         def Z_c(
-            gaslike: bool,
+            gaslike: int,
             p: float,
             T: float,
-            X: tuple[float, ...],
+            X: Sequence[float],
             eps: float = 1e-14,
             smooth_e: float = 1e-2,
             smooth_3: float = 1e-3,
@@ -802,8 +820,8 @@ class PR_Compiler:
 
             """
 
-            A_val = A_c(p, T, *X)
-            B_val = B_c(p, T, *X)
+            A_val = A_c(p, T, X)
+            B_val = B_c(p, T, X)
 
             # super critical check
             is_sc = B_val >= critical_line_c(A_val)
@@ -931,12 +949,47 @@ class PR_Compiler:
             else:
                 return Z_triple_c(A_val, B_val)
 
+        @numba.guvectorize(
+            [
+                "void(int8, float64, float64, float64[:], float64, float64, float64, float64[:])"
+            ],
+            "(),(),(),(n),(),(),()->()",
+            target="parallel",
+            nopython=True,
+            cache=True,
+        )
+        def _Z_cv(
+            gaslike,
+            p,
+            T,
+            X,
+            eps,
+            smooth_e,
+            smooth_3,
+            out,
+        ):
+            out[0] = Z_c(gaslike, p, T, X, eps, smooth_e, smooth_3)
+
+        def Z_cv(
+            gaslike: bool,
+            p: float | np.ndarray,
+            T: float | np.ndarray,
+            X: Sequence[float | np.ndarray],
+            eps: float = 1e-14,
+            smooth_e: float = 1e-2,
+            smooth_3: float = 1e-3,
+        ):
+            # get correct shape independent of format of input
+            out = np.zeros_like(p + T + sum(X.T if isinstance(X, np.ndarray) else X))
+            _Z_cv(int(gaslike), p, T, X, eps, smooth_e, smooth_3, out)
+            return out
+
         @numba.njit
         def d_Z_c(
-            gaslike: bool,
+            gaslike: int,
             p: float,
             T: float,
-            X: tuple[float, ...],
+            X: Sequence[float],
             eps: float = 1e-14,
             smooth_e: float = 1e-2,
             smooth_3: float = 1e-3,
@@ -954,8 +1007,8 @@ class PR_Compiler:
 
             """
 
-            A_val = A_c(p, T, *X)
-            B_val = B_c(p, T, *X)
+            A_val = A_c(p, T, X)
+            B_val = B_c(p, T, X)
 
             # super critical check
             is_sc = B_val >= critical_line_c(A_val)
@@ -1090,10 +1143,55 @@ class PR_Compiler:
 
             # substitute derivatives
 
-            dA = d_A_c(p, T, *X)
-            dB = d_B_c(p, T, *X)
+            dA = d_A_c(p, T, X)
+            dB = d_B_c(p, T, X)
 
             return dz[0] * dA + dz[1] * dB
+
+        @numba.guvectorize(
+            [
+                "void(int8, float64, float64, float64[:], float64, float64, float64, float64[:], float64[:])"
+            ],
+            "(),(),(),(n),(),(),(),(m)->(m)",
+            target="parallel",
+            nopython=True,
+            cache=True,
+        )
+        def _d_Z_cv(
+            gaslike,
+            p,
+            T,
+            X,
+            eps,
+            smooth_e,
+            smooth_3,
+            out,
+            dummy,
+        ):
+            # dummy is required to get the dimension of of the derivative
+            # per row in vectorized computations (m in layout arg to guvectorize)
+            # https://stackoverflow.com/questions/66052723/bad-token-in-signature-with-numba-guvectorize
+            out[:] = d_Z_c(gaslike, p, T, X, eps, smooth_e, smooth_3)
+
+        def d_Z_cv(
+            gaslike: bool,
+            p: float | np.ndarray,
+            T: float | np.ndarray,
+            X: Sequence[float | np.ndarray],
+            eps: float = 1e-14,
+            smooth_e: float = 1e-2,
+            smooth_3: float = 1e-3,
+        ):
+            # get correct shape independent of format of input
+            out_ = np.zeros_like(p + T + sum(X.T if isinstance(X, np.ndarray) else X))
+            if out_.shape:
+                out = np.empty((out_.shape[0], 2 + ncomp))
+            else:
+                out = np.empty((1, 2 + ncomp), dtype=np.float64)
+            _d_Z_cv(int(gaslike), p, T, X, eps, smooth_e, smooth_3, out)
+            # TODO in the case of scalar input (not vectorized)
+            # decide if return arg has shape (1,n) or (n,)
+            return out
 
         # endregion
 
@@ -1246,6 +1344,15 @@ class PR_Compiler:
         assert (
             np.linalg.norm(d_z_test_l - dzl_) < tol
         ), "Derivative-test for compiled, liquid-like compressibility factor failed."
+
+        n = 10000
+        p = np.random.rand(n) * 1e6 + 1
+        T = np.random.rand(n) * 1e2 + 1
+        X = np.random.rand(n, 2)
+        s = np.sum(X, axis=1)
+        X[:, 0] = X[:, 0] / s
+        X[:, 1] = X[:, 1] / s
+        x0 = np.array([0.0, 0.0])
         # endregion
 
         # region Storage of compiled functions and systems
@@ -1257,6 +1364,8 @@ class PR_Compiler:
                 "d_B": d_B_c,
                 "Z": Z_c,
                 "d_Z": d_Z_c,
+                "Z_cv": Z_cv,
+                "d_Z_cv": d_Z_cv,
             }
         )
 
@@ -1277,5 +1386,3 @@ class PR_Compiler:
 
         print(F_pT(t))
         print(DF_pT(t))
-
-        
