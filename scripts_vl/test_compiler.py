@@ -140,7 +140,7 @@ r2l_c = numba.njit(sm.lambdify([A, B], r2l, "math"))
 
 r1 = one_root(A, B)
 r1_c = numba.njit(
-    sm.lambdify([A, B], r1, [{'pcbrt': np.cbrt}, 'math']),
+    sm.lambdify([A, B], r1, [{'cbrt': np.cbrt}, 'math']),
     # sm.lambdify([A, B], r1, "numpy"),
 )
 
