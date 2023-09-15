@@ -12,6 +12,7 @@ from __future__ import annotations
 import string
 from typing import Optional, Union
 
+import mpl_toolkits as mpl3d
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
@@ -156,9 +157,10 @@ def plot_sd(
     fig = plt.figure(num=fig_num, figsize=fig_size)
 
     # Initialize the corresponding axis
-    if kwargs.get("plot_2d", False):
-        ax = fig.add_subplot(111)
-    else:
+    ax: Union[mpl.axes.Axes, mpl3d.mplot3d.axes3d.Axes3D] = fig.add_subplot(
+        111
+    )
+    if not kwargs.get("plot_2d", False):
         ax = fig.add_subplot(111, projection="3d")
 
     # Set title and axis labels
@@ -244,10 +246,10 @@ def plot_mdg(
     fig = plt.figure(num=fig_num, figsize=fig_size)
 
     # Initialize the corresponding axis
-    if kwargs.get("plot_2d", False):
-        ax = fig.add_subplot(111)
-    else:
+    ax: mpl.axes.Axes = fig.add_subplot(111)
+    if not kwargs.get("plot_2d", False):
         ax = fig.add_subplot(111, projection="3d")
+
 
     # Add title and axis labels
     title = kwargs.get("title", " ".join(mdg.name))
@@ -311,9 +313,9 @@ def plot_mdg(
     # of all 1d, 2d, 3d subdomains
     val = np.array([_lim(sd.nodes) for sd in mdg.subdomains() if sd.dim > 0])
 
-    x = [np.amin(val[:, 0, :]), np.amax(val[:, 0, :])]
-    y = [np.amin(val[:, 1, :]), np.amax(val[:, 1, :])]
-    z = [np.amin(val[:, 2, :]), np.amax(val[:, 2, :])]
+    x: tuple[float, float] = (np.amin(val[:, 0, :]), np.amax(val[:, 0, :]))
+    y: tuple[float, float] = (np.amin(val[:, 1, :]), np.amax(val[:, 1, :]))
+    z: tuple[float, float] = (np.amin(val[:, 2, :]), np.amax(val[:, 2, :]))
 
     # In 2d, restrict the data, in 3d (default), do not.
     if kwargs.get("plot_2d", False):
@@ -466,7 +468,7 @@ def _plot_sd_xd(
     sd: pp.Grid,
     cell_value: Optional[np.ndarray],
     vector_value: Optional[np.ndarray],
-    ax: mpl.axis.Axis,
+    ax: mpl.axes.Axes,
     **kwargs,
 ) -> None:
     """
@@ -495,7 +497,7 @@ def _plot_sd_xd(
         _quiver(sd, vector_value, ax, **kwargs)
 
 
-def _lim(nodes: np.ndarray) -> tuple[list[float], list[float], list[float]]:
+def _lim(nodes: np.ndarray) -> tuple[tuple[float, float], tuple[float, float], tuple[float, float]]:
     """
     Extracts the x, y and z limits of a node array.
 
@@ -503,9 +505,9 @@ def _lim(nodes: np.ndarray) -> tuple[list[float], list[float], list[float]]:
         nodes (np.ndarray): 3d node array
     """
     # Determine min and max values for each compononent of all coordinates
-    x = [np.amin(nodes[0, :]), np.amax(nodes[0, :])]
-    y = [np.amin(nodes[1, :]), np.amax(nodes[1, :])]
-    z = [np.amin(nodes[2, :]), np.amax(nodes[2, :])]
+    x: tuple[float, float] = (np.amin(nodes[0, :]), np.amax(nodes[0, :]))
+    y: tuple[float, float] = (np.amin(nodes[1, :]), np.amax(nodes[1, :]))
+    z: tuple[float, float] = (np.amin(nodes[2, :]), np.amax(nodes[2, :]))
 
     return x, y, z
 
@@ -528,7 +530,7 @@ def _color_map(
     return scalar_map
 
 
-def _add_info(sd: pp.Grid, info: str, ax: mpl.axis.Axis, **kwargs) -> None:
+def _add_info(sd: pp.Grid, info: str, ax: mpl.axes.Axes, **kwargs) -> None:
     """
     Adds information on numbering of geometry information of the grid g to ax.
 
@@ -545,7 +547,7 @@ def _add_info(sd: pp.Grid, info: str, ax: mpl.axis.Axis, **kwargs) -> None:
         kwargs (optional): Keyword arguments used in _quiver.
     """
 
-    def _disp(i: int, p: np.ndarray, c, m):
+    def _disp(i: int, p: np.ndarray, c, m: mpl.markers.MarkerStyle):
         """Add single scatter plot to ax.
 
         Args:
@@ -590,13 +592,13 @@ def _add_info(sd: pp.Grid, info: str, ax: mpl.axis.Axis, **kwargs) -> None:
         _quiver(sd, sd.face_normals * 0.4, ax, **kwargs)
 
 
-def _plot_sd_0d(sd: pp.Grid, ax: mpl.axis.Axis, **kwargs) -> None:
+def _plot_sd_0d(sd: pp.Grid, ax: mpl.axes.Axes, **kwargs) -> None:
     """
     Plot the 0d grid g as a circle on the axis ax.
 
     Args:
         sd (pp.Grid): 0d subdomain
-        ax (matplotlib axis): axis
+        ax (matplotlib axes): axes
         kwargs (optional): Keyword arguments
             pointsize (float): defining the size of the marker
     """
@@ -605,7 +607,7 @@ def _plot_sd_0d(sd: pp.Grid, ax: mpl.axis.Axis, **kwargs) -> None:
 
 
 def _plot_sd_1d(
-    sd: pp.Grid, cell_value: Optional[np.ndarray], ax: mpl.axis.Axis, **kwargs
+    sd: pp.Grid, cell_value: Optional[np.ndarray], ax: mpl.axes.Axes, **kwargs
 ) -> None:
     """
     Plot the 1d grid g to the axis ax, with cell_value represented by the cell coloring.
@@ -613,7 +615,7 @@ def _plot_sd_1d(
     Args:
         sd (pp.Grid): 1d subdomain
         cell_value (np.ndarray): cell values
-        as (matplotlib axis): axis
+        ax (matplotlib axes): axes
         kwargs (optional): Keyword arguments
             color_map: Limits of the cell value color axis.
             alpha: Transparency of the plot.
@@ -667,7 +669,7 @@ def _plot_sd_1d(
 
 
 def _plot_sd_2d(
-    sd: pp.Grid, cell_value: Optional[np.ndarray], ax: mpl.axis.Axis, **kwargs
+    sd: pp.Grid, cell_value: Optional[np.ndarray], ax: mpl.axes.Axes, **kwargs
 ):
     """
     Plot the 2d grid g to the axis ax, with cell_value represented by the cell coloring.
@@ -675,6 +677,7 @@ def _plot_sd_2d(
     Args:
         sd (pp.Grid): 2d subdomain
         cell_value (np.ndarray): cell values
+        ax (matplotlib axes): axes
         kwargs (optional): Keyword arguments:
             color_map: Limits of the cell value color axis.
             linewidth: Width of faces in 2d and edges in 3d.
@@ -745,13 +748,13 @@ def _plot_sd_2d(
         ax.view_init(90, -90)
 
 
-def _plot_sd_3d(sd: pp.Grid, ax: mpl.axis.Axis, **kwargs) -> None:
+def _plot_sd_3d(sd: pp.Grid, ax: mpl.axes.Axes, **kwargs) -> None:
     """
     Plot the 3d subdomain to the axis ax.
 
     Args:
         sd (pp.Grid): 3d subdomain
-        ax (matplotlib axis): axis
+        ax (matplotlib axes): axes
         kwargs (optional): Keyword arguments:
     """
     faces_cells, cells, _ = sps.find(sd.cell_faces)
