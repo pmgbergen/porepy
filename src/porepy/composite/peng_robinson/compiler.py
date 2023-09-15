@@ -670,7 +670,7 @@ class PR_Compiler:
         # generic argument for thermodynamic properties of a phase
         thd_arg_j = [p_s, T_s, X_in_j_s]
 
-        def _diff(expr_, thd_arg_):
+        def _diff_thd(expr_, thd_arg_):
             """Helper function to define the gradient of a multivariate function,
             where the argument has the special structure of ``thd_arg_j``."""
             p_, T_, X_j_ = thd_arg_
@@ -689,7 +689,7 @@ class PR_Compiler:
         B_c = numba.njit(sm.lambdify(thd_arg_j, B_e), fastmath=True)
 
         # d_B_e = [B_e.diff(_) for _ in thd_arg_j]
-        d_B_e = _diff(B_e, thd_arg_j)
+        d_B_e = _diff_thd(B_e, thd_arg_j)
         d_B_c = njit_diffs(sm.lambdify(thd_arg_j, d_B_e), fastmath=True)
 
         # cohesion per phase
@@ -721,7 +721,7 @@ class PR_Compiler:
         A_e = PengRobinsonEoS.A(a_e, p_s, T_s)
         A_c = numba.njit(sm.lambdify(thd_arg_j, A_e))
 
-        d_A_e = _diff(A_e, thd_arg_j)
+        d_A_e = _diff_thd(A_e, thd_arg_j)
         d_A_c = njit_diffs(sm.lambdify(thd_arg_j, d_A_e))
 
         dT_A_e = A_e.diff(T_s)
@@ -1201,20 +1201,30 @@ class PR_Compiler:
         # region Symbolic equations
 
         # symbolic expression for mass conservation without the feed fraction
-        mass = safe_sum([-y * x for y, x in zip(Y_s, X_per_i_s)])
-        d_mass = [mass.diff(_) for _ in Y_s[1:] + X_per_i_s]
+        feed_from_xy = safe_sum([-y * x for y, x in zip(Y_s, X_per_i_s)])
+        d_feed_from_xy = [feed_from_xy.diff(_) for _ in Y_s[1:] + X_per_i_s]
 
-        mass_c = numba.njit(sm.lambdify(Y_s[1:] + X_per_i_s, mass), **NJIT_KWARGS_equ)
-        d_mass_c = njit_diffs(
-            sm.lambdify(Y_s[1:] + X_per_i_s, d_mass), **NJIT_KWARGS_equ
+        # mass equation takes two vectors:
+        # vector of independent y and vector of x per component i
+        mass_arg = [Y_s[1:], X_per_i_s]
+
+        feed_from_xz_c = numba.njit(
+            sm.lambdify(mass_arg, feed_from_xy), **NJIT_KWARGS_equ
+        )
+        d_feed_from_xy_c = njit_diffs(
+            sm.lambdify(mass_arg, d_feed_from_xy), **NJIT_KWARGS_equ
         )
 
         # symbolic expression for complementary condition y_j * (1 - sum_i x_ij)
         cc = [y_ * (1 - safe_sum(X_in_j_s)) for y_ in Y_s]
         d_cc = [[cc_.diff(_) for _ in Y_s[1:] + X_in_j_s] for cc_ in cc]
 
-        cc = [sm.lambdify(Y_s[1:] + X_in_j_s, cc_) for cc_ in cc]
-        d_cc = [sm.lambdify(Y_s[1:] + X_in_j_s, d_cc_) for d_cc_ in d_cc]
+        # complementary condition takes two vectors:
+        # vector of independent y and vector of x per phase j
+        cc_arg = [Y_s[1:], X_in_j_s]
+
+        cc = [sm.lambdify(cc_arg, cc_) for cc_ in cc]
+        d_cc = [sm.lambdify(cc_arg, d_cc_) for d_cc_ in d_cc]
 
         cc_c = [numba.njit(cc_, **NJIT_KWARGS_equ) for cc_ in cc]
         d_cc_c = [njit_diffs(d_cc_, **NJIT_KWARGS_equ) for d_cc_ in d_cc]
@@ -1258,9 +1268,9 @@ class PR_Compiler:
             # maxx conservation excluding first component
             # NOTE this assumes the first set of compositions in component order belongs
             # to the reference component
-            mass = np.array([z + mass_c(*Y, *xi) for z, xi in zip(Z, X.T[1:])])
+            mass = np.array([z - feed_from_xz_c(Y, xi) for z, xi in zip(Z, X.T[1:])])
 
-            cc = np.array([cc_c_(*Y, *xj) for cc_c_, xj in zip(cc_c, X)])
+            cc = np.array([cc_c_(Y, xj) for cc_c_, xj in zip(cc_c, X)])
 
             return np.concatenate((mass, cc))
 
@@ -1273,9 +1283,9 @@ class PR_Compiler:
             X, Y, Z = _parse_xyz(X_gen)
             p, T = _parse_pT(X_gen)
 
-            d_mass = np.array([d_mass_c(*Y, *xi) for xi in X.T[1:]])
+            d_mass = np.array([d_feed_from_xy_c(Y, xi) for xi in X.T[1:]]) * (-1)
 
-            d_cc = np.array([d_cc_c_(*Y, *xj) for d_cc_c_, xj in zip(d_cc_c, X)])
+            d_cc = np.array([d_cc_c_(Y, xj) for d_cc_c_, xj in zip(d_cc_c, X)])
 
             for i in range(ncomp):
                 # insert derivatives of mass conservations for component i != ref comp
@@ -1302,14 +1312,14 @@ class PR_Compiler:
         tol = 1e-12  # tolerance for test
         p_test = 1.0
         T_test = 1.0
-        X_test = tuple((0.0 for _ in range(ncomp)))
+        X_test = np.array([0.0] * ncomp)
 
         # if compositions are zero, A and B are zero
         assert (
-            B_c(p_test, T_test, *X_test) < tol
+            B_c(p_test, T_test, X_test) < tol
         ), "Value-test of compiled call to non-dimensional covolume failed."
         assert (
-            A_c(p_test, T_test, *X_test) < tol
+            A_c(p_test, T_test, X_test) < tol
         ), "Value-test of compiled call to non-dimensional cohesion failed."
 
         # if A,B are zero, this should give the double-root case
@@ -1332,8 +1342,8 @@ class PR_Compiler:
         d_z_test_l = d_Z_c(
             False, p_test, T_test, X_test, eps=1e-14, smooth_e=0.0, smooth_3=0.0
         )
-        da_ = d_A_c(p_test, T_test, *X_test)
-        db_ = d_B_c(p_test, T_test, *X_test)
+        da_ = d_A_c(p_test, T_test, X_test)
+        db_ = d_B_c(p_test, T_test, X_test)
         dzg_ = d_Z_double_g_c(0.0, 0.0)
         dzl_ = d_Z_double_l_c(0.0, 0.0)
         dzg_ = dzg_[0] * da_ + dzg_[1] * db_
