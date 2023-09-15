@@ -336,7 +336,7 @@ def plot_mdg(
 
     # Add color map if provided
     if kwargs.get("color_map"):
-        fig.colorbar(kwargs["color_map"])
+        fig.colorbar(kwargs["color_map"], ax=ax)
 
     # Draw and potentially show the plot.
     plt.draw()
