@@ -12,9 +12,9 @@ from __future__ import annotations
 import string
 from typing import Optional, Union
 
-import mpl_toolkits as mpl3d
 import matplotlib as mpl
 import matplotlib.pyplot as plt
+import mpl_toolkits as mpl3d
 import numpy as np
 import scipy.sparse as sps
 from matplotlib.collections import PolyCollection
@@ -157,9 +157,7 @@ def plot_sd(
     fig = plt.figure(num=fig_num, figsize=fig_size)
 
     # Initialize the corresponding axis
-    ax: Union[mpl.axes.Axes, mpl3d.mplot3d.axes3d.Axes3D] = fig.add_subplot(
-        111
-    )
+    ax: Union[mpl.axes.Axes, mpl3d.mplot3d.axes3d.Axes3D] = fig.add_subplot(111)
     if not kwargs.get("plot_2d", False):
         ax = fig.add_subplot(111, projection="3d")
 
@@ -249,7 +247,6 @@ def plot_mdg(
     ax: mpl.axes.Axes = fig.add_subplot(111)
     if not kwargs.get("plot_2d", False):
         ax = fig.add_subplot(111, projection="3d")
-
 
     # Add title and axis labels
     title = kwargs.get("title", " ".join(mdg.name))
@@ -497,7 +494,9 @@ def _plot_sd_xd(
         _quiver(sd, vector_value, ax, **kwargs)
 
 
-def _lim(nodes: np.ndarray) -> tuple[tuple[float, float], tuple[float, float], tuple[float, float]]:
+def _lim(
+    nodes: np.ndarray,
+) -> tuple[tuple[float, float], tuple[float, float], tuple[float, float]]:
     """
     Extracts the x, y and z limits of a node array.
 
