@@ -227,7 +227,6 @@ class TestDFN(unittest.TestCase):
             dof = np.arange(global_dof[block], global_dof[block + 1])
 
             if sd.dim == 1 and np.allclose(sd.nodes[0], 1):  # f1
-
                 self.assertTrue(np.allclose(A[dof, :][:, dof], A_f1))
                 self.assertTrue(np.allclose(b[dof], b_f1))
             elif sd.dim == 1 and np.allclose(sd.nodes[1], 1):  # f2
@@ -364,12 +363,10 @@ class TestDFN(unittest.TestCase):
         assembler.distribute_variable(x)
         for sd, data in mdg.subdomains(return_data=True):
             discr = data["discretization"]["flow"]["flux"]
-            data["pressure"] = discr.extract_pressure(
-                sd, data[pp.TIME_STEP_SOLUTIONS]["flow"][0], data
-            )
+            values = pp.get_solution_values(name="flow", data=data, time_step_index=0)
+            data["pressure"] = discr.extract_pressure(sd, values, data)
 
         for sd, data in mdg.subdomains(return_data=True):
-
             if sd.dim == 1:
                 if np.all(sd.cell_centers[1] == 0.5 * N):  # f1
                     known = np.array([4.0, 4.0, 4.0, 4.0, 4.0, 4.0, 4.0, 4.0])
@@ -432,7 +429,6 @@ class TestDFN(unittest.TestCase):
         assembler.distribute_variable(x)
 
         for g, d in mdg.subdomains(return_data=True):
-
             if g.dim == 1:
                 if np.all(g.cell_centers[1] == 0.5 * N):  # f1
                     known = np.array([4.0, 4.0, 4.0, 4.0, 4.0, 4.0, 4.0, 4.0])
@@ -458,8 +454,10 @@ class TestDFN(unittest.TestCase):
                     known = np.array([2])
                 else:
                     raise ValueError
-
-            self.assertTrue(np.allclose(d[pp.TIME_STEP_SOLUTIONS]["flow"][0], known))
+            estimated_values = pp.get_solution_values(
+                name="flow", data=d, time_step_index=0
+            )
+            self.assertTrue(np.allclose(estimated_values, known))
 
 
 # ------------------------- HELP FUNCTIONS --------------------------------#
