@@ -2039,7 +2039,6 @@ def get_solution_values(
     Returns:
         An array containing the solution values.
 
-
     """
     if (time_step_index is None and iterate_index is None) or (
         time_step_index is not None and iterate_index is not None

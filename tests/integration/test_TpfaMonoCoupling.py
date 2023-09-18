@@ -50,9 +50,12 @@ class TestTpfaCouplingDiffGrids(unittest.TestCase):
 
         # test pressure
         for sd, data in mdg.subdomains(return_data=True):
+            values = pp.get_solution_values(
+                name="pressure", data=data, time_step_index=0
+            )
             self.assertTrue(
                 np.allclose(
-                    data[pp.TIME_STEP_SOLUTIONS]["pressure"][0],
+                    values,
                     xmax - sd.cell_centers[0],
                 )
             )
@@ -66,16 +69,12 @@ class TestTpfaCouplingDiffGrids(unittest.TestCase):
             primary_area = primary_to_m * g_primary.face_areas
             secondary_area = secondary_to_m * g_secondary.face_areas
 
-            self.assertTrue(
-                np.allclose(
-                    data[pp.TIME_STEP_SOLUTIONS]["mortar_flux"][0] / primary_area, 1
-                )
+            mortar_flux_values = pp.get_solution_values(
+                name="mortar_flux", data=data, time_step_index=0
             )
-            self.assertTrue(
-                np.allclose(
-                    data[pp.TIME_STEP_SOLUTIONS]["mortar_flux"][0] / secondary_area, 1
-                )
-            )
+
+            self.assertTrue(np.allclose(mortar_flux_values / primary_area, 1))
+            self.assertTrue(np.allclose(mortar_flux_values / secondary_area, 1))
 
     def generate_grids(self, n, xmax, ymax, split):
         g1 = pp.CartGrid([split * n, ymax * n], physdims=[split, ymax])
@@ -292,9 +291,8 @@ class TestTpfaCouplingPeriodicBc(unittest.TestCase):
         # test pressure
         for sd, data in mdg.subdomains(return_data=True):
             ap, _, _ = analytic_p(sd.cell_centers)
-            self.assertTrue(
-                np.max(np.abs(data[pp.TIME_STEP_SOLUTIONS][key_p][0] - ap)) < 5e-2
-            )
+            values = pp.get_solution_values(name=key_p, data=data, time_step_index=0)
+            self.assertTrue(np.max(np.abs(values - ap)) < 5e-2)
 
         # test mortar solution
         for intf, data in mdg.interfaces(return_data=True):
@@ -318,14 +316,10 @@ class TestTpfaCouplingPeriodicBc(unittest.TestCase):
             right_flux = -right_to_m * (
                 d2[pp.DISCRETIZATION_MATRICES][kw]["bound_flux"] * right_flux
             )
-            self.assertTrue(
-                np.max(np.abs(data[pp.TIME_STEP_SOLUTIONS][key_m][0] - left_flux))
-                < 5e-2
-            )
-            self.assertTrue(
-                np.max(np.abs(data[pp.TIME_STEP_SOLUTIONS][key_m][0] - right_flux))
-                < 5e-2
-            )
+
+            values = pp.get_solution_values(name=key_m, data=data, time_step_index=0)
+            self.assertTrue(np.max(np.abs(values - left_flux)) < 5e-2)
+            self.assertTrue(np.max(np.abs(values - right_flux)) < 5e-2)
 
     def generate_2d_grid(self, n, xmax, ymax):
         g1 = pp.CartGrid([xmax * n, ymax * n], physdims=[xmax, ymax])

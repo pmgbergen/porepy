@@ -230,7 +230,9 @@ class SolutionStrategyTimeDependentBCs(pp.SolutionStrategy):
                 )
             else:
                 # Copy old values from iterate to the solution.
-                vals = data[pp.ITERATE_SOLUTIONS][self.bc_values_mechanics_key][0]
+                vals = pp.get_solution_values(
+                    name=self.bc_values_mechanics_key, data=data, iterate_index=0
+                )
                 pp.set_solution_values(
                     name=self.bc_values_mechanics_key,
                     values=vals,
