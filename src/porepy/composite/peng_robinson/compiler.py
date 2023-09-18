@@ -13,7 +13,7 @@ import numpy as np
 import sympy as sm
 
 from .._core import COMPOSITIONAL_VARIABLE_SYMBOLS as SYMBOLS
-from ..composite_utils import normalize_fractions, safe_sum
+from ..composite_utils import safe_sum
 from ..mixture import BasicMixture, NonReactiveMixture
 from .eos import A_CRIT, B_CRIT, Z_CRIT, PengRobinsonEoS
 from .mixing import VanDerWaals
@@ -280,22 +280,6 @@ check_if_root_cv = numba.vectorize(
 )(check_if_root_c)
 
 
-def njit_diffs_v(f, dtype=np.float64, **njit_kwargs):
-    """For wrapping symbolic, multivariate derivatives which return a sequence,
-    instead of a numpy array.
-
-    Intended for functions which take the multivariate, scalar input in array form.
-
-    """
-    f = numba.njit(f, **njit_kwargs)
-
-    @numba.njit(**njit_kwargs)
-    def inner(x):
-        return np.array(f(x), dtype=dtype)
-
-    return inner
-
-
 def njit_diffs(f, dtype=np.float64, **njit_kwargs):
     """For wrapping symbolic, multivariate derivatives which return a sequence,
     instead of a numpy array.
@@ -335,6 +319,17 @@ W_LINE_POINTS = (
     np.array([0.0, widom_line_c(0)]),
     np.array([A_CRIT, widom_line_c(A_CRIT)]),
 )
+
+
+@numba.njit
+def normalize_fractions(X: np.ndarray) -> np.ndarray:
+    """Takes a matrix of phase compositions (rows - phase, columns - component)
+    and normalizes the fractions.
+    
+    Meaning it divides each matrix element by the sum of respective row.
+    
+    """
+    return (X.T / X.sum(axis=1)).T
 
 
 class MixtureSymbols:
@@ -517,6 +512,13 @@ class PR_Compiler:
         self._n_p = mixture.num_phases
         self._n_c = mixture.num_components
 
+        self._Z_cfuncs: dict[str, Callable] = dict()
+        """A map containing compiled functions for the compressibility factor,
+        dependeng on A and B.
+        
+        The functions represent computations for each root-case of the characteristic
+        polynomial, as well as the gradient w.r.t. A and B."""
+
         self.symbols: MixtureSymbols = MixtureSymbols(mixture)
         """A container class for symbols representing (potentially) independent
         variables in the equilibrium problem."""
@@ -544,9 +546,9 @@ class PR_Compiler:
 
         self.cfuncs: dict[str, Callable] = dict()
         """Contains a collection of numba-compiled callables representing thermodynamic
-        properties.
+        properties. (nopython, just-in-time compilation)
 
-        Keys are names of the properties. Standard symbols from ltierature are used.
+        Keys are names of the properties. Standard symbols from literature are used.
 
         Several naming conventions apply:
 
@@ -567,8 +569,20 @@ class PR_Compiler:
 
         """
 
+        self.gufuncs: dict[str, Callable] = dict()
+        """Generalized numpy-ufunc represenatation of some thermodynamic properties.
+        
+        See :attr:`cfuncs` for more information.
+        
+        Callable contained here describe generalized numpy functions, meaning they
+        operatore on scalar and vectorized input (nummpy arrays).
+        They exploit numba.guvectorize (among others) for efficient computation.
+
+        """
+
         self._define_unknowns_and_arguments(mixture)
-        self._define_equations_and_jacobians(mixture)
+        self._compile_expressions_equations_jacobians(mixture)
+        self.compile_gufuncs()
 
     def _define_unknowns_and_arguments(self, mixture: NonReactiveMixture) -> None:
         """Set the list of symbolic unknowns per flash type."""
@@ -625,7 +639,7 @@ class PR_Compiler:
             }
         )
 
-    def _define_equations_and_jacobians(self, mixture: NonReactiveMixture):
+    def _compile_expressions_equations_jacobians(self, mixture: NonReactiveMixture):
         """Constructs the equilibrium equatins for each flash specification."""
 
         ncomp = self._n_c
@@ -724,8 +738,55 @@ class PR_Compiler:
         d_A_e = _diff_thd(A_e, thd_arg_j)
         d_A_c = njit_diffs(sm.lambdify(thd_arg_j, d_A_e))
 
-        dT_A_e = A_e.diff(T_s)
-        dXi_A_e = [A_e.diff(x_) for x_ in X_in_j_s]
+        # endregion
+
+        # region Fugacity coefficients
+        # expressions of fugacity coeffs per component,
+        # where Z, A, B are independent symbols
+        phi_i_e: list[sm.Expr] = list()
+        # derivatives w.r.t. p, T, X in phase j, A, B, Z
+        d_phi_i_e: list[sm.Expr] = list()
+        # dependencies as a list of arguments, X_in_j will be vectorized
+        phi_arg = [p_s, T_s, X_in_j_s, A_s, B_s, Z_s]
+
+        # compiled callables
+        phi_i_c: list[Callable] = list()
+        d_phi_i_c: list[Callable] = list()
+
+        for i in range(ncomp):
+            B_i_e = PengRobinsonEoS.B(b_i_crit[i], p_s, T_s)
+            dXi_A_e = A_e.diff(X_in_j_s[i])
+            log_phi_i = (
+                B_i_e / B_s * (Z_s - 1)
+                - sm.ln(Z_s - B_s)
+                - A_s / (B_s * np.sqrt(8))
+                * sm.ln(
+                    (Z_s + (1 + np.sqrt(2)) * B_s)
+                    / (Z_s + (1 - np.sqrt(2)) * B_s)
+                )
+                * (dXi_A_e / A_s - B_i_e / B_s)
+            )
+
+            phi_i_ = sm.exp(log_phi_i)
+
+            d_phi_i_ = [
+                phi_i_.diff(p_s), phi_i_.diff(T_s)
+            ] + [phi_i_.diff(_) for _ in X_in_j_s] + [
+                phi_i_.diff(A_s), phi_i_.diff(B_s), phi_i_.diff(Z_s)
+            ]
+
+            # TODO this is numerically disadvantages
+            # no truncation and usage of exp
+            phi_i_e.append(phi_i_)
+            d_phi_i_e.append(d_phi_i_)
+
+            # TODO, replace low and exp by trunclog and truncexp here if necessary
+            phi_i_c_ = numba.njit(sm.lambdify(phi_arg, phi_i_))
+
+            d_phi_i_c_ = njit_diffs(sm.lambdify(phi_arg, d_phi_i_))
+
+            phi_i_c.append(phi_i_c_)
+            d_phi_i_c.append(d_phi_i_c_)
 
         # endregion
 
@@ -795,6 +856,29 @@ class PR_Compiler:
         d_Z_three_l_c = njit_diffs(sm.lambdify(AB_arg, d_Z_three_l_e))
         d_Z_three_i_e = [Z_three_i_e.diff(_) for _ in AB_arg]
         d_Z_three_i_c = njit_diffs(sm.lambdify(AB_arg, d_Z_three_i_e))
+
+        self._Z_cfuncs.update(
+            {
+                'one-root': Z_one_c,
+                'double-root-gas': Z_double_g_c,
+                'double-root-liq': Z_double_l_c,
+                'three-root-gas': Z_three_g_c,
+                'three-root-inter': Z_three_i_c,
+                'three-root-liq': Z_three_l_c,
+                'ext-root-sub': Z_ext_sub_c,
+                'ext-root-super-gas': Z_ext_scg_c,
+                'ext-root-super-liq': Z_ext_scl_c,
+                'd-one-root': d_Z_one_c,
+                'd-double-root-gas': d_Z_double_g_c,
+                'd-double-root-liq': d_Z_double_l_c,
+                'd-three-root-gas': d_Z_three_g_c,
+                'd-three-root-inter': d_Z_three_i_c,
+                'd-three-root-liq': d_Z_three_l_c,
+                'd-ext-root-sub': d_Z_ext_sub_c,
+                'd-ext-root-super-gas': d_Z_ext_scg_c,
+                'd-ext-root-super-liq': d_Z_ext_scl_c,
+            }
+        )
 
         @numba.njit
         def Z_c(
@@ -948,41 +1032,6 @@ class PR_Compiler:
 
             else:
                 return Z_triple_c(A_val, B_val)
-
-        @numba.guvectorize(
-            [
-                "void(int8, float64, float64, float64[:], float64, float64, float64, float64[:])"
-            ],
-            "(),(),(),(n),(),(),()->()",
-            target="parallel",
-            nopython=True,
-            cache=True,
-        )
-        def _Z_cv(
-            gaslike,
-            p,
-            T,
-            X,
-            eps,
-            smooth_e,
-            smooth_3,
-            out,
-        ):
-            out[0] = Z_c(gaslike, p, T, X, eps, smooth_e, smooth_3)
-
-        def Z_cv(
-            gaslike: bool,
-            p: float | np.ndarray,
-            T: float | np.ndarray,
-            X: Sequence[float | np.ndarray],
-            eps: float = 1e-14,
-            smooth_e: float = 1e-2,
-            smooth_3: float = 1e-3,
-        ):
-            # get correct shape independent of format of input
-            out = np.zeros_like(p + T + sum(X.T if isinstance(X, np.ndarray) else X))
-            _Z_cv(int(gaslike), p, T, X, eps, smooth_e, smooth_3, out)
-            return out
 
         @numba.njit
         def d_Z_c(
@@ -1148,6 +1197,417 @@ class PR_Compiler:
 
             return dz[0] * dA + dz[1] * dB
 
+        # endregion
+
+        NJIT_KWARGS_equ = {
+            "fastmath": True,
+        }
+        # region Symbolic equations
+
+        # symbolic expression for mass conservation without the feed fraction
+        feed_from_xy = safe_sum([-y * x for y, x in zip(Y_s, X_per_i_s)])
+        d_feed_from_xy = [feed_from_xy.diff(_) for _ in Y_s[1:] + X_per_i_s]
+
+        # mass equation takes two vectors:
+        # vector of independent y and vector of x per component i
+        mass_arg = [Y_s[1:], X_per_i_s]
+
+        feed_from_xz_c = numba.njit(
+            sm.lambdify(mass_arg, feed_from_xy), **NJIT_KWARGS_equ
+        )
+        d_feed_from_xy_c = njit_diffs(
+            sm.lambdify(mass_arg, d_feed_from_xy), **NJIT_KWARGS_equ
+        )
+
+        # symbolic expression for complementary condition y_j * (1 - sum_i x_ij)
+        cc = [y_ * (1 - safe_sum(X_in_j_s)) for y_ in Y_s]
+        d_cc = [[cc_.diff(_) for _ in Y_s[1:] + X_in_j_s] for cc_ in cc]
+
+        # complementary condition takes two vectors:
+        # vector of independent y and vector of x per phase j
+        cc_arg = [Y_s[1:], X_in_j_s]
+
+        cc = [sm.lambdify(cc_arg, cc_) for cc_ in cc]
+        d_cc = [sm.lambdify(cc_arg, d_cc_) for d_cc_ in d_cc]
+
+        cc_c = [numba.njit(cc_, **NJIT_KWARGS_equ) for cc_ in cc]
+        d_cc_c = [njit_diffs(d_cc_, **NJIT_KWARGS_equ) for d_cc_ in d_cc]
+        # endregion
+
+        # list containing gas-like flags per phase to decide which to use in the
+        # 2- or 3-root case
+        gaslike: list[int] = [int(phase.gaslike) for phase in mixture.phases]
+
+        @numba.njit
+        def _parse_xyz(X_gen: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+            """Helper function to parse the fractions from a generic argument."""
+            # feed fraction per component, except reference component
+            Z = X_gen[: ncomp - 1]
+            # phase compositions
+            X = X_gen[-ncomp * nphase :]
+            # matrix:
+            # rows have compositions per phase,
+            # columns have compositions related to a component
+            X = X.reshape((ncomp, nphase))
+            # phase fractions, -1 because fraction of ref phase is eliminated
+            Y = X_gen[-(ncomp * nphase + nphase - 1) : -ncomp * nphase]
+
+            return X, Y, Z
+
+        @numba.njit
+        def _parse_pT(X_gen: np.ndarray) -> np.ndarray:
+            """Helper function extracint pressure and temperature from a generic
+            argument."""
+            return X_gen[
+                -(ncomp * nphase + nphase - 1) - 2 : -(ncomp * nphase + nphase - 1)
+            ]
+
+        def isofug_constr_c(
+                p: float, T: float, X: np.ndarray,
+                A_j: np.ndarray, B_j: np.ndarray, Z_j: np.ndarray,
+        ):
+            """Helper function to assemble the isofugacity constraint.
+
+            Formulation is always w.r.t. the reference phase r, assumed to be r=0.
+
+            """
+            xr = X[0]
+            phi_r = [phi_i_c[i](p, T, X[0], A_j[0], B_j[0], Z_j[0]) for i in range(ncomp)]
+
+            constr = np.array(
+                [
+                    X[j, i] * phi_i_c[i](p, T, X[j], A_j[j], B_j[j], Z_j[j])
+                    - xr[i] * phi_r[i]
+                    # for j in range(1, nphase)
+                    for i in range(ncomp)
+                    for j in range(1, nphase)
+                ]
+            )
+
+            return constr
+        
+        def d_isofug_constr_c(
+                p: float, T: float, X: np.ndarray,
+                A_j: np.ndarray, B_j: np.ndarray, Z_j: np.ndarray,
+        ):
+            """Helper function to assemble the derivative of the isofugacity constraints
+
+            Formulation is always w.r.t. the reference phase r, assumed to be zero 0.
+
+            Important:
+                The derivative is taken w.r.t. to A, B, Z (among others).
+                An forward expansion must be done after a call to this function.
+
+            """
+            d_iso = list()
+            for i in range(ncomp):
+                # start with fugacity in reference phase
+                xir = X[0, i]
+                # derivativses for p, T, X in j, A, B, and Z
+                dxir = np.zeros(2 + ncomp + 3)
+                dxir[2 + i] = 1.
+
+                phi_ir = phi_i_c[i](p, T, X[0], A_j[0], B_j[0], Z_j[0])
+
+                # product rule d(x * phi) = dx * phi + x * dphi
+                dphi_ir = (
+                    dxir * phi_ir
+                    +  xir * d_phi_i_c[i](p, T, X[0], A_j[0], B_j[0], Z_j[0])
+                )
+
+                # get derivatives of A, B, Z, w.r.t. p, T and X in r to expand them
+                dA0 = d_A_c(p, T, X[0])
+                dB0 = d_B_c(p, T, X[0])
+                dZ0 = d_Z_c(gaslike[0], p, T, X[0])
+
+                dphi_ir = (
+                    dphi_ir[:-3]  # derivatives w.r.t. p, T, X in r
+                    + dphi_ir[-3] * dA0  # expand derivatives of A,
+                    + dphi_ir[-2] * dB0  # B,
+                    + dphi_ir[-1] * dZ0  # and Z to deritatives w.r.t. p, T, X
+                )
+
+                # Add zero columns for fractions in other phases
+                # (-1) * because of x_ij * phi_ij - x_ir * phi_ir
+                dphi_ir = np.concatenate([dphi_ir * (-1), np.zeros(ncomp * (nphase - 1))])
+
+                for j in range(1, nphase):
+                    # repeat basically above steps for other phases, insert column block
+                    # and store equation
+                    equ = dphi_ir.copy()
+
+                    xij = X[j, i]
+                    dxij = np.zeros(2 + ncomp + 3)
+                    dxij[2 + i] = 1.
+
+                    phi_ij = phi_i_c[i](p, T, X[j], A_j[j], B_j[j], Z_j[j])
+                    dphi_ij = (
+                        dxij * phi_ij
+                        +  xij * d_phi_i_c[i](p, T, X[j], A_j[j], B_j[j], Z_j[j])
+                    )
+
+                    dAj = d_A_c(p, T, X[j])
+                    dBj = d_B_c(p, T, X[j])
+                    dZj = d_Z_c(gaslike[j], p, T, X[j])
+
+                    dphi_ij = (
+                        dphi_ij[:-3]
+                        + dphi_ij[-3] * dAj
+                        + dphi_ij[-2] * dBj
+                        + dphi_ij[-1] * dZj
+                    )
+
+                    # Add derivatives w.r.t p and T
+                    equ[:2] += dphi_ij[:2]
+                    # insert derivatives w.r.t. X in j where they belong
+                    equ[2 + j * nphase: 2 + j * nphase + ncomp] = dphi_ij[2:]
+                    
+                    # append equation
+                    d_iso.append(equ)
+
+            # create matrix of equations and return
+            return np.array(d_iso)
+
+        # region p-T flash
+        def F_pT(X_gen: np.ndarray) -> np.ndarray:
+            """Callable representing the p-T flash system"""
+
+            X, Y, Z = _parse_xyz(X_gen)
+            p, T = _parse_pT(X_gen)
+
+            # maxx conservation excluding first component
+            # NOTE this assumes the first set of compositions in component order belongs
+            # to the reference component
+            mass = np.array([z - feed_from_xz_c(Y, xi) for z, xi in zip(Z, X.T[1:])])
+
+            cc = np.array([cc_c_(Y, xj) for cc_c_, xj in zip(cc_c, X)])
+
+            # EoS specific calculations
+            Xn = normalize_fractions(X)
+            Z_j = np.array([Z_c(gaslike[j], p, T, Xn[j]) for j in range(nphase)])
+            A_j = np.array([A_c(p, T, Xn[j]) for j in range(nphase)])
+            B_j = np.array([B_c(p, T, Xn[j]) for j in range(nphase)])
+
+            isofug = isofug_constr_c(p, T, Xn, A_j, B_j, Z_j)
+
+            # Complementary conditions always last
+            return np.concatenate([mass, isofug, cc])
+
+        def DF_pT(X_gen: np.ndarray) -> np.ndarray:
+            # degrees of freedom include compositions and independent phase fractions
+            dofs = ncomp * nphase + nphase - 1
+            # empty dense matrix. NOTE numba can deal only with dense np arrays
+            DF = np.zeros((dofs, dofs))
+
+            X, Y, _ = _parse_xyz(X_gen)
+            p, T = _parse_pT(X_gen)
+
+            d_mass = np.array([d_feed_from_xy_c(Y, xi) for xi in X.T[1:]]) * (-1)
+            d_cc = np.array([d_cc_c_(Y, xj) for d_cc_c_, xj in zip(d_cc_c, X)])
+
+            for i in range(ncomp):
+                # insert derivatives of mass conservations for component i != ref comp
+                if i < ncomp - 1:
+                    # derivatives w.r.t. phase fractions
+                    DF[i, : nphase - 1] = d_mass[i, : nphase - 1]
+                    # derivatives w.r.t compositional fractions of that component
+                    DF[i, nphase + i :: nphase] = d_mass[i, nphase - 1 :]
+            for j in range(nphase):
+                # inserting derivatives of complementary conditions
+                # derivatives w.r.t phase fractions
+                DF[ncomp * nphase - 1 + j, : nphase - 1] = d_cc[j, : nphase - 1]
+                # derivatives w.r.t compositions of that phase
+                DF[ncomp * nphase - 1 + j, nphase - 1 + j :: ncomp] = d_cc[
+                    j, nphase - 1 :
+                ]
+
+            # EoS specific calculations
+            Xn = normalize_fractions(X)
+            Z_j = np.array([Z_c(gaslike[j], p, T, Xn[j]) for j in range(nphase)])
+            A_j = np.array([A_c(p, T, Xn[j]) for j in range(nphase)])
+            B_j = np.array([B_c(p, T, Xn[j]) for j in range(nphase)])
+
+            d_iso = d_isofug_constr_c(p, T, Xn, A_j, B_j, Z_j)
+
+            # isofugacity constraints are inserted directly after mass conservation
+            # no derivatives w.r.t. p, T or Y
+            DF[ncomp - 1: ncomp - 1 + ncomp * (nphase - 1), nphase - 1:] = d_iso[:, 2:]
+
+            return DF
+
+        # endregion
+
+        # region Storage of compiled functions and systems
+        self.cfuncs.update(
+            {
+                "A": A_c,
+                "d_A": d_A_c,
+                "B": B_c,
+                "d_B": d_B_c,
+                "Z": Z_c,
+                "d_Z": d_Z_c,
+            }
+        )
+
+        self.equations.update(
+            {
+                "p-T": F_pT,
+            }
+        )
+
+        self.jacobians.update(
+            {
+                "p-T": DF_pT,
+            }
+        )
+        # endregion
+
+        t = np.array([0.01, 1e6, 300, 0.9, 0.1, 0.2, 0.3, 0.4])
+
+        print(F_pT(t))
+        print(DF_pT(t))
+
+    def test_compiled_functions(self, tol: float = 1e-12, n: int = 100000):
+        """Performs some tests on assembled functions.
+
+        Warning:
+            This triggers numba's just-in-time compilation!
+
+            I.e., the execution of this function takes a considerable amount of time.
+
+        Warning:
+            This method raises AssertionErrors if any test failes.
+
+        Parameters:
+            tol: ``default=1e-12``
+
+                Tolerance for numerical zero.
+            n: ``default=100000``
+
+                Number for testing of vectorized computations.
+
+        """
+
+        ncomp = self._n_c
+        nphase = self._n_p
+
+        p_1 = 1.0
+        T_1 = 1.0
+        X0 = np.array([0.0] * ncomp)
+
+        A_c = self.cfuncs['A']
+        d_A_c = self.cfuncs['d_A']
+        B_c = self.cfuncs['B']
+        d_B_c = self.cfuncs['d_B']
+        Z_c = self.cfuncs['Z']
+        d_Z_c = self.cfuncs['d_Z']
+
+        Z_double_g_c = self._Z_cfuncs['double-root-gas']
+        d_Z_double_g_c = self._Z_cfuncs['d-double-root-gas']
+        Z_double_l_c = self._Z_cfuncs['double-root-liq']
+        d_Z_double_l_c = self._Z_cfuncs['d-double-root-liq']
+
+        # if compositions are zero, A and B are zero
+        assert (
+            B_c(p_1, T_1, X0) < tol
+        ), "Value-test of compiled call to non-dimensional covolume failed."
+        assert (
+            A_c(p_1, T_1, X0) < tol
+        ), "Value-test of compiled call to non-dimensional cohesion failed."
+
+        # if A,B are zero, this should give the double-root case
+        z_test_g = Z_c(
+            True, p_1, T_1, X0, eps=1e-14, smooth_e=0.0, smooth_3=0.0
+        )
+        z_test_l = Z_c(
+            False, p_1, T_1, X0, eps=1e-14, smooth_e=0.0, smooth_3=0.0
+        )
+        assert (
+            np.abs(z_test_g - Z_double_g_c(0.0, 0.0)) < tol
+        ), "Value-test for compiled, gas-like compressibility factor failed."
+        assert (
+            np.abs(z_test_l - Z_double_l_c(0.0, 0.0)) < tol
+        ), "Value-test for compiled, liquid-like compressibility factor failed."
+
+        d_z_test_g = d_Z_c(
+            True, p_1, T_1, X0, eps=1e-14, smooth_e=0.0, smooth_3=0.0
+        )
+        d_z_test_l = d_Z_c(
+            False, p_1, T_1, X0, eps=1e-14, smooth_e=0.0, smooth_3=0.0
+        )
+        da_ = d_A_c(p_1, T_1, X0)
+        db_ = d_B_c(p_1, T_1, X0)
+        dzg_ = d_Z_double_g_c(0.0, 0.0)
+        dzl_ = d_Z_double_l_c(0.0, 0.0)
+        dzg_ = dzg_[0] * da_ + dzg_[1] * db_
+        dzl_ = dzl_[0] * da_ + dzl_[1] * db_
+        assert (
+            np.linalg.norm(d_z_test_g - dzg_) < tol
+        ), "Derivative-test for compiled, gas-like compressibility factor failed."
+        assert (
+            np.linalg.norm(d_z_test_l - dzl_) < tol
+        ), "Derivative-test for compiled, liquid-like compressibility factor failed."
+
+        p = np.random.rand(n) * 1e6 + 1
+        T = np.random.rand(n) * 1e2 + 1
+        X = np.random.rand(n, 2)
+        X = normalize_fractions(X)
+
+    def compile_gufuncs(self):
+        """Creates general numpy-ufuncs for some properties, which are required for
+        fast fast computation of e.g. fluid properties.
+
+        Compiled functions are stored in :attr:`gufuncs`.
+
+        Important:
+            Be aware that the compilation can take a considarable amount of time.
+
+            The compilation has not been tested using a multithreaded or multiprocessing
+            approach.
+
+        """
+
+        ncomp = self._n_c
+        nphase = self._n_p
+
+        Z_c = self.cfuncs['Z']
+        d_Z_c = self.cfuncs['d_Z']
+
+        @numba.guvectorize(
+            [
+                "void(int8, float64, float64, float64[:], float64, float64, float64, float64[:])"
+            ],
+            "(),(),(),(n),(),(),()->()",
+            target="parallel",
+            nopython=True,
+            cache=True,
+        )
+        def _Z_cv(
+            gaslike,
+            p,
+            T,
+            X,
+            eps,
+            smooth_e,
+            smooth_3,
+            out,
+        ):
+            out[0] = Z_c(gaslike, p, T, X, eps, smooth_e, smooth_3)
+
+        def Z_cv(
+            gaslike: bool,
+            p: float | np.ndarray,
+            T: float | np.ndarray,
+            X: Sequence[float | np.ndarray],
+            eps: float = 1e-14,
+            smooth_e: float = 1e-2,
+            smooth_3: float = 1e-3,
+        ):
+            # get correct shape independent of format of input
+            out = np.zeros_like(p + T + sum(X.T if isinstance(X, np.ndarray) else X))
+            _Z_cv(int(gaslike), p, T, X, eps, smooth_e, smooth_3, out)
+            return out
+        
         @numba.guvectorize(
             [
                 "void(int8, float64, float64, float64[:], float64, float64, float64, float64[:], float64[:])"
@@ -1193,206 +1653,9 @@ class PR_Compiler:
             # decide if return arg has shape (1,n) or (n,)
             return out
 
-        # endregion
-
-        NJIT_KWARGS_equ = {
-            "fastmath": True,
-        }
-        # region Symbolic equations
-
-        # symbolic expression for mass conservation without the feed fraction
-        feed_from_xy = safe_sum([-y * x for y, x in zip(Y_s, X_per_i_s)])
-        d_feed_from_xy = [feed_from_xy.diff(_) for _ in Y_s[1:] + X_per_i_s]
-
-        # mass equation takes two vectors:
-        # vector of independent y and vector of x per component i
-        mass_arg = [Y_s[1:], X_per_i_s]
-
-        feed_from_xz_c = numba.njit(
-            sm.lambdify(mass_arg, feed_from_xy), **NJIT_KWARGS_equ
-        )
-        d_feed_from_xy_c = njit_diffs(
-            sm.lambdify(mass_arg, d_feed_from_xy), **NJIT_KWARGS_equ
-        )
-
-        # symbolic expression for complementary condition y_j * (1 - sum_i x_ij)
-        cc = [y_ * (1 - safe_sum(X_in_j_s)) for y_ in Y_s]
-        d_cc = [[cc_.diff(_) for _ in Y_s[1:] + X_in_j_s] for cc_ in cc]
-
-        # complementary condition takes two vectors:
-        # vector of independent y and vector of x per phase j
-        cc_arg = [Y_s[1:], X_in_j_s]
-
-        cc = [sm.lambdify(cc_arg, cc_) for cc_ in cc]
-        d_cc = [sm.lambdify(cc_arg, d_cc_) for d_cc_ in d_cc]
-
-        cc_c = [numba.njit(cc_, **NJIT_KWARGS_equ) for cc_ in cc]
-        d_cc_c = [njit_diffs(d_cc_, **NJIT_KWARGS_equ) for d_cc_ in d_cc]
-        # endregion
-
-        # list containing gas-like flags per phase to decide which to use in the
-        # 2- or 3-root case
-        gaslike: list[bool] = [phase.gaslike for phase in mixture.phases]
-
-        @numba.njit
-        def _parse_xyz(X_gen: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-            """Helper function to parse the fractions from a generic argument."""
-            # feed fraction per component, except reference component
-            Z = X_gen[: ncomp - 1]
-            # phase compositions
-            X = X_gen[-ncomp * nphase :]
-            # matrix:
-            # rows have compositions per phase,
-            # columns have compositions related to a component
-            X = X.reshape((ncomp, nphase))
-            # phase fractions, -1 because fraction of ref phase is eliminated
-            Y = X_gen[-(ncomp * nphase + nphase - 1) : -ncomp * nphase]
-
-            return X, Y, Z
-
-        @numba.njit
-        def _parse_pT(X_gen: np.ndarray) -> np.ndarray:
-            """Helper function extracint pressure and temperature from a generic
-            argument."""
-            return X_gen[
-                -(ncomp * nphase + nphase - 1) - 2 : -(ncomp * nphase + nphase - 1)
-            ]
-
-        # region p-T flash
-        def F_pT(X_gen: np.ndarray) -> np.ndarray:
-            """Callable representing the p-T flash system"""
-
-            X, Y, Z = _parse_xyz(X_gen)
-            p, T = _parse_pT(X_gen)
-
-            # maxx conservation excluding first component
-            # NOTE this assumes the first set of compositions in component order belongs
-            # to the reference component
-            mass = np.array([z - feed_from_xz_c(Y, xi) for z, xi in zip(Z, X.T[1:])])
-
-            cc = np.array([cc_c_(Y, xj) for cc_c_, xj in zip(cc_c, X)])
-
-            return np.concatenate((mass, cc))
-
-        def DF_pT(X_gen: np.ndarray) -> np.ndarray:
-            # degrees of freedom include compositions and independent phase fractions
-            dofs = ncomp * nphase + nphase - 1
-            # empty dense matrix. NOTE numba can deal only with dense np arrays
-            DF = np.zeros((dofs, dofs))
-
-            X, Y, Z = _parse_xyz(X_gen)
-            p, T = _parse_pT(X_gen)
-
-            d_mass = np.array([d_feed_from_xy_c(Y, xi) for xi in X.T[1:]]) * (-1)
-
-            d_cc = np.array([d_cc_c_(Y, xj) for d_cc_c_, xj in zip(d_cc_c, X)])
-
-            for i in range(ncomp):
-                # insert derivatives of mass conservations for component i != ref comp
-                if i < ncomp - 1:
-                    # derivatives w.r.t. phase fractions
-                    DF[i, : nphase - 1] = d_mass[i, : nphase - 1]
-                    # derivatives w.r.t compositional fractions of that component
-                    DF[i, nphase + i :: nphase] = d_mass[i, nphase - 1 :]
-            for j in range(nphase):
-                # inserting derivatives of complementary conditions
-                # derivatives w.r.t phase fractions
-                DF[ncomp * nphase - 1 + j, : nphase - 1] = d_cc[j, : nphase - 1]
-                # derivatives w.r.t compositions of that phase
-                DF[ncomp * nphase - 1 + j, nphase - 1 + j :: ncomp] = d_cc[
-                    j, nphase - 1 :
-                ]
-
-            return DF
-
-        # endregion
-
-        # region Pre-compilation and some sanity checks
-
-        tol = 1e-12  # tolerance for test
-        p_test = 1.0
-        T_test = 1.0
-        X_test = np.array([0.0] * ncomp)
-
-        # if compositions are zero, A and B are zero
-        assert (
-            B_c(p_test, T_test, X_test) < tol
-        ), "Value-test of compiled call to non-dimensional covolume failed."
-        assert (
-            A_c(p_test, T_test, X_test) < tol
-        ), "Value-test of compiled call to non-dimensional cohesion failed."
-
-        # if A,B are zero, this should give the double-root case
-        z_test_g = Z_c(
-            True, p_test, T_test, X_test, eps=1e-14, smooth_e=0.0, smooth_3=0.0
-        )
-        z_test_l = Z_c(
-            False, p_test, T_test, X_test, eps=1e-14, smooth_e=0.0, smooth_3=0.0
-        )
-        assert (
-            np.abs(z_test_g - Z_double_g_c(0.0, 0.0)) < tol
-        ), "Value-test for compiled, gas-like compressibility factor failed."
-        assert (
-            np.abs(z_test_l - Z_double_l_c(0.0, 0.0)) < tol
-        ), "Value-test for compiled, liquid-like compressibility factor failed."
-
-        d_z_test_g = d_Z_c(
-            True, p_test, T_test, X_test, eps=1e-14, smooth_e=0.0, smooth_3=0.0
-        )
-        d_z_test_l = d_Z_c(
-            False, p_test, T_test, X_test, eps=1e-14, smooth_e=0.0, smooth_3=0.0
-        )
-        da_ = d_A_c(p_test, T_test, X_test)
-        db_ = d_B_c(p_test, T_test, X_test)
-        dzg_ = d_Z_double_g_c(0.0, 0.0)
-        dzl_ = d_Z_double_l_c(0.0, 0.0)
-        dzg_ = dzg_[0] * da_ + dzg_[1] * db_
-        dzl_ = dzl_[0] * da_ + dzl_[1] * db_
-        assert (
-            np.linalg.norm(d_z_test_g - dzg_) < tol
-        ), "Derivative-test for compiled, gas-like compressibility factor failed."
-        assert (
-            np.linalg.norm(d_z_test_l - dzl_) < tol
-        ), "Derivative-test for compiled, liquid-like compressibility factor failed."
-
-        n = 10000
-        p = np.random.rand(n) * 1e6 + 1
-        T = np.random.rand(n) * 1e2 + 1
-        X = np.random.rand(n, 2)
-        s = np.sum(X, axis=1)
-        X[:, 0] = X[:, 0] / s
-        X[:, 1] = X[:, 1] / s
-        x0 = np.array([0.0, 0.0])
-        # endregion
-
-        # region Storage of compiled functions and systems
-        self.cfuncs.update(
+        self.gufuncs.update(
             {
-                "A": A_c,
-                "d_A": d_A_c,
-                "B": B_c,
-                "d_B": d_B_c,
-                "Z": Z_c,
-                "d_Z": d_Z_c,
                 "Z_cv": Z_cv,
                 "d_Z_cv": d_Z_cv,
             }
         )
-
-        self.equations.update(
-            {
-                "p-T": F_pT,
-            }
-        )
-
-        self.jacobians.update(
-            {
-                "p-T": DF_pT,
-            }
-        )
-        # endregion
-
-        t = np.array([0.01, 1e6, 300, 0.9, 0.1, 0.2, 0.3, 0.4])
-
-        print(F_pT(t))
-        print(DF_pT(t))
