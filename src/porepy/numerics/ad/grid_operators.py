@@ -22,7 +22,7 @@ __all__ = [
 ]
 
 
-class SubdomainProjections(Operator):
+class SubdomainProjections:
     """Wrapper class for generating projection to and from subdomains.
 
     One use case in when variables are defined on only some subdomains.
@@ -535,7 +535,7 @@ class BoundaryProjection:
         )
 
 
-class Trace(Operator):
+class Trace:
     """Wrapper class for Ad representations of trace operators and their inverse,
     that is, mappings between grid cells and faces.
 
@@ -566,10 +566,9 @@ class Trace(Operator):
             name: Name of the operator. Default is None.
 
         """
-        super().__init__(name=name)
-
-        self.grids = subdomains
+        self.subdomains: list[pp.Grid] = subdomains
         self.dim: int = dim
+        self._name: str = name
         self._is_scalar: bool = dim == 1
         self._num_grids: int = len(subdomains)
 
@@ -645,7 +644,7 @@ class Divergence(Operator):
             name: Name to be assigned to the operator. Default is None.
 
         """
-        super().__init__(subdomains=subdomains, name=name)
+        super().__init__(domains=subdomains, name=name)
 
         self.dim: int = dim
 

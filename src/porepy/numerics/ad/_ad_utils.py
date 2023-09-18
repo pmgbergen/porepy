@@ -51,9 +51,11 @@ def wrap_discretization(
     """Convert a discretization to its AD equivalent."""
     if subdomains is None:
         assert isinstance(interfaces, list)
+        domains = interfaces
     else:
         assert isinstance(subdomains, list)
         assert interfaces is None
+        domains = subdomains
 
     key_set = []
     # Loop over all discretizations, identify all attributes that ends with
@@ -78,7 +80,11 @@ def wrap_discretization(
     # If some keys are not shared by all values in grid_discr, errors will result.
     for key in key_set:
         op = MergedOperator(
-            discr, key, mat_dict_key, mat_dict_grids, subdomains, interfaces
+            discr=discr,
+            key=key,
+            mat_dict_key=mat_dict_key,
+            mat_dict_grids=mat_dict_grids,
+            domains=domains,
         )
         setattr(op, "keyword", mat_dict_key)
         setattr(obj, key, op)
@@ -192,8 +198,7 @@ class MergedOperator(operators.Operator):
         key: str,
         mat_dict_key: str,
         mat_dict_grids,
-        subdomains: Optional[list[pp.Grid]] = None,
-        interfaces: Optional[list[pp.MortarGrid]] = None,
+        domains: Optional[pp.GridLikeSequence] = None,
     ) -> None:
         """Initiate a merged discretization.
 
@@ -209,19 +214,10 @@ class MergedOperator(operators.Operator):
 
         """
         name = discr.__class__.__name__
-        super().__init__(name=name)
+        super().__init__(name=name, domains=domains)
 
         self.key = key
         self.discr = discr
-        if subdomains is None:
-            assert isinstance(interfaces, list)
-            self.subdomains = []
-            self.interfaces = list(interfaces)
-        else:
-            assert isinstance(subdomains, list)
-            assert interfaces is None
-            self.subdomains = list(subdomains)
-            self.interfaces = []
 
         # Special field to access matrix dictionary for Biot
         self.mat_dict_key = mat_dict_key

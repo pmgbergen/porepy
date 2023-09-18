@@ -66,6 +66,12 @@ class Operator:
     """
 
     class Operations(Enum):
+        """Object representing all supported operations by the operator class.
+
+        Used to construct the operator tree and identify Operator.Operations.
+
+        """
+
         void = "void"
         add = "add"
         sub = "sub"
@@ -80,33 +86,28 @@ class Operator:
         pow = "pow"
         rpow = "rpow"
 
-    """Object representing all supported operations by the operator class.
-
-    Used to construct the operator tree and identify Operator.Operations.
-
-    """
-
     def __init__(
         self,
         name: Optional[str] = None,
-        subdomains: Optional[list[pp.Grid]] = None,
-        interfaces: Optional[list[pp.MortarGrid]] = None,
+        domains: Optional[GridLikeSequence] = None,
         operation: Optional[Operator.Operations] = None,
         children: Optional[Sequence[Operator]] = None,
     ) -> None:
-        self.interfaces: list[pp.MortarGrid] = [] if interfaces is None else interfaces
-        """List of interfaces on which the operator is defined, passed at instantiation.
-
-        Will be empty for operators not associated with specific interfaces.
-
-        """
-
-        self.subdomains: list[pp.Grid] = [] if subdomains is None else subdomains
-        """List of subdomains on which the operator is defined, passed at instantiation.
-
-        Will be empty for operators not associated with specific subdomains.
-
-        """
+        if domains is None:
+            domains = []
+        self._domains: GridLikeSequence = domains
+        self._domain_type: Literal["subdomains", "interfaces", "boundary grids"]
+        if all([isinstance(d, pp.Grid) for d in domains]):
+            self._domain_type = "subdomains"
+        elif all([isinstance(d, pp.MortarGrid) for d in domains]):
+            self._domain_type = "interfaces"
+        elif all([isinstance(d, pp.BoundaryGrid) for d in domains]):
+            self._domain_type = "boundary grids"
+        else:
+            raise NotImplementedError(
+                "A time dependent array must be associated with either"
+                " interfaces, subdomains or boundary grids."
+            )
 
         self.children: Sequence[Operator]
         """List of children, other AD operators.
@@ -124,6 +125,34 @@ class Operator:
 
         ### PRIVATE
         self._name = name if name is not None else ""
+
+    @property
+    def interfaces(self):
+        """List of interfaces on which the operator is defined, passed at instantiation.
+
+        Will be empty for operators not associated with specific interfaces.
+
+        """
+        return self._domains if self._domain_type == "interfaces" else []
+
+    @property
+    def subdomains(self):
+        """List of subdomains on which the operator is defined, passed at instantiation.
+
+        Will be empty for operators not associated with specific subdomains.
+
+        """
+        return self._domains if self._domain_type == "subdomains" else []
+
+    @property
+    def domain_type(self) -> Literal["subdomains", "interfaces", "boundary grids"]:
+        """TODO"""
+        return self._domain_type
+
+    @property
+    def domains(self) -> GridLikeSequence:
+        """TODO"""
+        return self._domains
 
     @property
     def name(self) -> str:
@@ -239,16 +268,13 @@ class Operator:
                     # Recursive call to fix the subtree.
                     new_children.append(_traverse_tree(child))
 
-                # Use the same lists of subdomains and interfaces as in the old operator,
-                # with empty lists if these are not present.
-                subdomains = getattr(op, "subdomains", [])
-                interfaces = getattr(op, "interfaces", [])
+                # Use the same lists of domains as in the old operator.
+                domains = op.domains
 
                 # Create new operator from the tree.
                 new_op = Operator(
-                    name=op._name,
-                    subdomains=subdomains,
-                    interfaces=interfaces,
+                    name=op.name,
+                    domains=domains,
                     operation=op.operation,
                     children=new_children,
                 )
@@ -1335,21 +1361,6 @@ class TimeDependentDenseArray(Operator):
         domains: GridLikeSequence,
         previous_timestep: bool = False,
     ):
-        self._name: str = name
-        self._grids: GridLikeSequence = domains
-        self._domain_type: Literal["subdomains", "interfaces", "boundary grids"]
-        if all([isinstance(d, pp.Grid) for d in domains]):
-            self._domain_type = "subdomains"
-        elif all([isinstance(d, pp.MortarGrid) for d in domains]):
-            self._domain_type = "interfaces"
-        elif all([isinstance(d, pp.BoundaryGrid) for d in domains]):
-            self._domain_type = "boundary grids"
-        else:
-            raise NotImplementedError(
-                "A time dependent array must be associated with either"
-                " interfaces, subdomains or boundary grids."
-            )
-
         self.prev_time: bool = previous_timestep
         """If True, the array will be evaluated using ``data[pp.TIME_STEP_SOLUTIONS]``
         (data being the data dictionaries for subdomains and interfaces).
@@ -1358,11 +1369,7 @@ class TimeDependentDenseArray(Operator):
 
         """
 
-        super().__init__(name=name)
-
-    @property
-    def domain_type(self) -> Literal["subdomains", "interfaces", "boundary grids"]:
-        return self._domain_type
+        super().__init__(name=name, domains=domains)
 
     def previous_timestep(self) -> TimeDependentDenseArray:
         """
@@ -1371,7 +1378,7 @@ class TimeDependentDenseArray(Operator):
 
         """
         return TimeDependentDenseArray(
-            name=self._name, domains=self._grids, previous_timestep=True
+            name=self._name, domains=self._domains, previous_timestep=True
         )
 
     def parse(self, mdg: pp.MixedDimensionalGrid) -> np.ndarray:
@@ -1391,7 +1398,7 @@ class TimeDependentDenseArray(Operator):
 
         """
         vals = []
-        for g in self._grids:
+        for g in self._domains:
             if self._domain_type == "subdomains":
                 assert isinstance(g, pp.Grid)
                 data = mdg.subdomain_data(g)
@@ -1418,7 +1425,7 @@ class TimeDependentDenseArray(Operator):
     def __repr__(self) -> str:
         return (
             f"Wrapped time-dependent array with name {self._name}.\n"
-            f"Defined on {len(self._grids)} {self._domain_type}.\n"
+            f"Defined on {len(self._domains)} {self._domain_type}.\n"
         )
 
 
@@ -1520,7 +1527,7 @@ class Variable(Operator):
         previous_timestep: bool = False,
         previous_iteration: bool = False,
     ) -> None:
-        super().__init__(name=name)
+        super().__init__(name=name, domains=[domain])
 
         ### PUBLIC
 
@@ -1546,13 +1553,8 @@ class Variable(Operator):
         :meth:`Variable.previous_iteration` to keep a link to the original variable.
         """
 
-        # overwrite properties set by the parent constructor
-        if isinstance(domain, pp.MortarGrid):
-            self.interfaces = [domain]
-        elif isinstance(domain, pp.Grid):
-            self.subdomains = [domain]
-        else:
-            raise ValueError("Variable domain must be either a grid or mortar grid.")
+        if self._domain_type == "boundary grids":
+            raise NotImplementedError("Variables on boundaries are not supported.")
 
         ### PRIVATE
         # domain
