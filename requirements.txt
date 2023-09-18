@@ -1,14 +1,14 @@
 future
 gmsh
-matplotlib
+matplotlib <= 3.7.0
 meshio >= 5.0
 networkx
-numba >= 0.56.3
+numba >= 0.57
 numpy
 requests
-scipy
+scipy <= 1.10
+seaborn 
 shapely
-shapely[vectorized]
 six
 sympy
 typing_extensions
