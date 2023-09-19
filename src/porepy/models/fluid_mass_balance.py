@@ -507,7 +507,7 @@ class VariablesSinglePhaseFlow(pp.VariableMixin):
     :class:`~porepy.models.fluid_mass_balance.SolutionStrategySinglePhaseFlow`.
 
     """
-    make_boundary_operator: Callable[[str, Sequence[pp.BoundaryGrid]], None]
+    create_boundary_operator: Callable[[str, Sequence[pp.BoundaryGrid]], None]
     """TODO
     
     """
@@ -545,7 +545,7 @@ class VariablesSinglePhaseFlow(pp.VariableMixin):
 
     def pressure(self, grids: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
         if len(grids) > 0 and isinstance(grids[0], pp.BoundaryGrid):
-            return self.make_boundary_operator(
+            return self.create_boundary_operator(
                 name=self.pressure_variable, domains=grids
             )
 

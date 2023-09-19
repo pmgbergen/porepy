@@ -52,7 +52,7 @@ class BoundaryConditionMixin(ABC):
             vals = function([bg])
             pp.set_solution_values(name=name, values=vals, data=data, iterate_index=0)
 
-    def make_boundary_operator(
+    def create_boundary_operator(
         self, name: str, domains: Sequence[pp.BoundaryGrid]
     ) -> pp.ad.Operator:
         """TODO
