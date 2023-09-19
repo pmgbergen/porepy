@@ -12,15 +12,16 @@ class Foo:
     
     def compile_bar(self):
 
-        @numba.njit
+        @numba.njit("double(double, double)")
         def func1(a, b):
             return a * b
 
-        @numba.njit
+        @numba.njit("double(double, double)")
         def func2(a, b):
             return a / b
 
-        l_c: list[Callable] = [func1, func2]
+        l_c: tuple[Callable, ...] = tuple([func1, func2])
+        # l_c: list[Callable]= [func1, func2]
 
         # l_c = numba.typed.List.empty_list(numba.float64(numba.float64, numba.float64).as_type())
         # l_c.append(func1)
@@ -28,8 +29,11 @@ class Foo:
 
         @numba.njit
         def wrapper(a, b):
+            c = 0.
             for func in l_c:
                 print(func(a, b))
+                c += func(a, b)
+            return c
 
         self.compiled.update({'bar': wrapper})
 
