@@ -512,6 +512,12 @@ class PR_Compiler:
         self._n_p = mixture.num_phases
         self._n_c = mixture.num_components
 
+        self._sysfuncs: dict[str, Callable | list[Callable]] = dict()
+        """A collection of relevant functions, which must not be dereferenced."""
+
+        self._gaslike: list[int] = []
+        """List containing gaslike flags per phase as integers."""
+
         self._Z_cfuncs: dict[str, Callable] = dict()
         """A map containing compiled functions for the compressibility factor,
         dependeng on A and B.
@@ -582,7 +588,7 @@ class PR_Compiler:
 
         self._define_unknowns_and_arguments(mixture)
         self._compile_expressions_equations_jacobians(mixture)
-        self.compile_gufuncs()
+        # self.compile_gufuncs()
 
     def _define_unknowns_and_arguments(self, mixture: NonReactiveMixture) -> None:
         """Set the list of symbolic unknowns per flash type."""
@@ -781,12 +787,8 @@ class PR_Compiler:
             d_phi_i_e.append(d_phi_i_)
 
             # TODO, replace low and exp by trunclog and truncexp here if necessary
-            phi_i_c_ = numba.njit(sm.lambdify(phi_arg, phi_i_))
-
-            d_phi_i_c_ = njit_diffs(sm.lambdify(phi_arg, d_phi_i_))
-
-            phi_i_c.append(phi_i_c_)
-            d_phi_i_c.append(d_phi_i_c_)
+            phi_i_c.append(numba.njit(sm.lambdify(phi_arg, phi_i_)))
+            d_phi_i_c.append(njit_diffs(sm.lambdify(phi_arg, d_phi_i_)))
 
         # endregion
 
@@ -1205,14 +1207,14 @@ class PR_Compiler:
         # region Symbolic equations
 
         # symbolic expression for mass conservation without the feed fraction
-        feed_from_xy = safe_sum([-y * x for y, x in zip(Y_s, X_per_i_s)])
+        feed_from_xy = safe_sum([y * x for y, x in zip(Y_s, X_per_i_s)])
         d_feed_from_xy = [feed_from_xy.diff(_) for _ in Y_s[1:] + X_per_i_s]
 
         # mass equation takes two vectors:
         # vector of independent y and vector of x per component i
         mass_arg = [Y_s[1:], X_per_i_s]
 
-        feed_from_xz_c = numba.njit(
+        feed_from_xy_c = numba.njit(
             sm.lambdify(mass_arg, feed_from_xy), **NJIT_KWARGS_equ
         )
         d_feed_from_xy_c = njit_diffs(
@@ -1220,18 +1222,21 @@ class PR_Compiler:
         )
 
         # symbolic expression for complementary condition y_j * (1 - sum_i x_ij)
-        cc = [y_ * (1 - safe_sum(X_in_j_s)) for y_ in Y_s]
-        d_cc = [[cc_.diff(_) for _ in Y_s[1:] + X_in_j_s] for cc_ in cc]
+        cc_e = [y_ * (1 - safe_sum(X_in_j_s)) for y_ in Y_s]
+        d_cc_e = [[cc_.diff(_) for _ in Y_s[1:] + X_in_j_s] for cc_ in cc_e]
 
         # complementary condition takes two vectors:
         # vector of independent y and vector of x per phase j
         cc_arg = [Y_s[1:], X_in_j_s]
 
-        cc = [sm.lambdify(cc_arg, cc_) for cc_ in cc]
-        d_cc = [sm.lambdify(cc_arg, d_cc_) for d_cc_ in d_cc]
-
-        cc_c = [numba.njit(cc_, **NJIT_KWARGS_equ) for cc_ in cc]
-        d_cc_c = [njit_diffs(d_cc_, **NJIT_KWARGS_equ) for d_cc_ in d_cc]
+        cc_c: list[Callable] = [
+            numba.njit(sm.lambdify(cc_arg, cc_), **NJIT_KWARGS_equ)
+            for cc_ in cc_e
+        ]
+        d_cc_c: list[Callable] = [
+            njit_diffs(sm.lambdify(cc_arg, d_cc_) , **NJIT_KWARGS_equ)
+            for d_cc_ in d_cc_e
+        ]
         # endregion
 
         # list containing gas-like flags per phase to decide which to use in the
@@ -1262,8 +1267,9 @@ class PR_Compiler:
                 -(ncomp * nphase + nphase - 1) - 2 : -(ncomp * nphase + nphase - 1)
             ]
 
+        # @numba.njit
         def isofug_constr_c(
-                p: float, T: float, X: np.ndarray,
+                p: float, T: float, Xn: np.ndarray,
                 A_j: np.ndarray, B_j: np.ndarray, Z_j: np.ndarray,
         ):
             """Helper function to assemble the isofugacity constraint.
@@ -1271,21 +1277,22 @@ class PR_Compiler:
             Formulation is always w.r.t. the reference phase r, assumed to be r=0.
 
             """
-            xr = X[0]
-            phi_r = [phi_i_c[i](p, T, X[0], A_j[0], B_j[0], Z_j[0]) for i in range(ncomp)]
+            phi_r = np.zeros(ncomp)
+            for i, phi in enumerate(phi_i_c):
+                phi_r[i] = phi(p, T, Xn[0], A_j[0], B_j[0], Z_j[0]) 
 
-            constr = np.array(
+            isofug = np.array(
                 [
-                    X[j, i] * phi_i_c[i](p, T, X[j], A_j[j], B_j[j], Z_j[j])
-                    - xr[i] * phi_r[i]
-                    # for j in range(1, nphase)
+                    Xn[j, i] * phi_i_c[i](p, T, Xn[j], A_j[j], B_j[j], Z_j[j])
+                    - Xn[0, i] * phi_r[i]
                     for i in range(ncomp)
                     for j in range(1, nphase)
                 ]
             )
 
-            return constr
+            return isofug
         
+        # @numba.njit
         def d_isofug_constr_c(
                 p: float, T: float, X: np.ndarray,
                 A_j: np.ndarray, B_j: np.ndarray, Z_j: np.ndarray,
@@ -1300,6 +1307,8 @@ class PR_Compiler:
 
             """
             d_iso = list()
+
+            d_iso = np.zeros((ncomp * (nphase - 1), 2 + ncomp * nphase))
             for i in range(ncomp):
                 # start with fugacity in reference phase
                 xir = X[0, i]
@@ -1328,13 +1337,14 @@ class PR_Compiler:
                 )
 
                 # Add zero columns for fractions in other phases
+                equ_ = np.zeros(2 + ncomp * nphase)
                 # (-1) * because of x_ij * phi_ij - x_ir * phi_ir
-                dphi_ir = np.concatenate([dphi_ir * (-1), np.zeros(ncomp * (nphase - 1))])
+                equ_[:2 + ncomp] = dphi_ir * (-1)
 
                 for j in range(1, nphase):
                     # repeat basically above steps for other phases, insert column block
                     # and store equation
-                    equ = dphi_ir.copy()
+                    equ = equ_.copy()
 
                     xij = X[j, i]
                     dxij = np.zeros(2 + ncomp + 3)
@@ -1362,25 +1372,30 @@ class PR_Compiler:
                     # insert derivatives w.r.t. X in j where they belong
                     equ[2 + j * nphase: 2 + j * nphase + ncomp] = dphi_ij[2:]
                     
-                    # append equation
-                    d_iso.append(equ)
+                    # store equation
+                    d_iso[i * (nphase - 1) + j - 1, :] = equ
 
             # create matrix of equations and return
-            return np.array(d_iso)
+            return d_iso
 
         # region p-T flash
+        # @numba.njit
         def F_pT(X_gen: np.ndarray) -> np.ndarray:
             """Callable representing the p-T flash system"""
 
             X, Y, Z = _parse_xyz(X_gen)
             p, T = _parse_pT(X_gen)
 
-            # maxx conservation excluding first component
-            # NOTE this assumes the first set of compositions in component order belongs
-            # to the reference component
-            mass = np.array([z - feed_from_xz_c(Y, xi) for z, xi in zip(Z, X.T[1:])])
+            # mass conservation excluding first component
+            mass = np.zeros(ncomp - 1)
+            for i in range(ncomp - 1):
+                # NOTE assuming first column of compositions belongs to ref component
+                mass[i] = Z[i] - feed_from_xy_c(Y, X[:, i + 1])
 
-            cc = np.array([cc_c_(Y, xj) for cc_c_, xj in zip(cc_c, X)])
+            # complementary conditions
+            cc = np.zeros(nphase)
+            for j in range(nphase):
+                cc[j] = cc_c[j](Y, X[j, :])
 
             # EoS specific calculations
             Xn = normalize_fractions(X)
@@ -1390,9 +1405,14 @@ class PR_Compiler:
 
             isofug = isofug_constr_c(p, T, Xn, A_j, B_j, Z_j)
 
-            # Complementary conditions always last
-            return np.concatenate([mass, isofug, cc])
+            F_val = np.zeros(ncomp - 1 + ncomp * (nphase - 1) + nphase)
+            F_val[:ncomp-1] = mass
+            F_val[ncomp - 1 : ncomp - 1 + ncomp * (nphase - 1)] = isofug
+            F_val[-nphase:] = cc  # Complementary conditions always last
 
+            return F_val
+
+        # @numba.njit
         def DF_pT(X_gen: np.ndarray) -> np.ndarray:
             # degrees of freedom include compositions and independent phase fractions
             dofs = ncomp * nphase + nphase - 1
@@ -1402,8 +1422,11 @@ class PR_Compiler:
             X, Y, _ = _parse_xyz(X_gen)
             p, T = _parse_pT(X_gen)
 
-            d_mass = np.array([d_feed_from_xy_c(Y, xi) for xi in X.T[1:]]) * (-1)
-            d_cc = np.array([d_cc_c_(Y, xj) for d_cc_c_, xj in zip(d_cc_c, X)])
+            # * (-1) because of z - z(x,y) = 0
+            d_mass = np.array(
+                [d_feed_from_xy_c(Y, X[:, i]) for i in range(1, ncomp)]
+            ) * (-1)
+            d_cc = np.array([d_cc_c[j](Y, X[j, :]) for j in range(nphase)])
 
             for i in range(ncomp):
                 # insert derivatives of mass conservations for component i != ref comp
@@ -1417,7 +1440,7 @@ class PR_Compiler:
                 # derivatives w.r.t phase fractions
                 DF[ncomp * nphase - 1 + j, : nphase - 1] = d_cc[j, : nphase - 1]
                 # derivatives w.r.t compositions of that phase
-                DF[ncomp * nphase - 1 + j, nphase - 1 + j :: ncomp] = d_cc[
+                DF[ncomp * nphase - 1 + j, nphase - 1 + j * ncomp : nphase - 1 + (j + 1) * ncomp] = d_cc[
                     j, nphase - 1 :
                 ]
 
@@ -1460,12 +1483,25 @@ class PR_Compiler:
                 "p-T": DF_pT,
             }
         )
-        # endregion
 
-        t = np.array([0.01, 1e6, 300, 0.9, 0.1, 0.2, 0.3, 0.4])
+        self._sysfuncs.update(
+            {
+                'complementary-conditions': cc_c,
+                'd-complementary-conditions': d_cc_c,
+                'feed-from-x-y': feed_from_xy_c,
+                'd-feed-from-x-y': d_feed_from_xy_c,
+                'fugacity-coefficients': phi_i_c,
+                'd-fugacity-coefficients': d_phi_i_c,
+            }
+        )
 
+        self._gaslike = gaslike
+
+        t = np.array([0.01, 5e6, 500, 0.9, 0.1, 0.2, 0.3, 0.4])
+        # isofug_constr_c(1e6, 400., np.eye(2, dtype=float), 0.1 * np.ones(2), 0.1 * np.ones(2), 1. * np.ones(2))
         print(F_pT(t))
         print(DF_pT(t))
+        # endregion
 
     def test_compiled_functions(self, tol: float = 1e-12, n: int = 100000):
         """Performs some tests on assembled functions.
