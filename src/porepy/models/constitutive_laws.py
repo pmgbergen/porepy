@@ -889,7 +889,7 @@ class DarcysLaw:
     """TODO
     
     """
-    make_boundary_operator: Callable[[str, Sequence[pp.BoundaryGrid]], None]
+    create_boundary_operator: Callable[[str, Sequence[pp.BoundaryGrid]], None]
     """TODO
     
     """
@@ -976,7 +976,7 @@ class DarcysLaw:
         """
 
         if len(subdomains) > 0 and isinstance(subdomains[0], pp.BoundaryGrid):
-            return self.make_boundary_operator(
+            return self.create_boundary_operator(
                 name=self.bc_data_darcy_flux_key, domains=subdomains
             )
 
