@@ -575,7 +575,7 @@ class PR_Compiler:
 
         """
 
-        self.gufuncs: dict[str, Callable] = dict()
+        self.ufuncs: dict[str, Callable] = dict()
         """Generalized numpy-ufunc represenatation of some thermodynamic properties.
 
         See :attr:`cfuncs` for more information.
@@ -1292,7 +1292,7 @@ class PR_Compiler:
             # feed fraction per component, except reference component
             Z = X_gen[: ncomp - 1]
             # phase compositions
-            X = X_gen[-ncomp * nphase :]
+            X = X_gen[-ncomp * nphase :].copy()
             # matrix:
             # rows have compositions per phase,
             # columns have compositions related to a component
@@ -1420,7 +1420,7 @@ class PR_Compiler:
             return d_iso
 
         # region p-T flash
-        @numba.njit
+        @numba.njit('float64[:](float64[:])')
         def F_pT(X_gen: np.ndarray) -> np.ndarray:
             """Callable representing the p-T flash system"""
 
@@ -1453,7 +1453,7 @@ class PR_Compiler:
 
             return F_val
 
-        @numba.njit
+        @numba.njit('float64[:,:](float64[:])')
         def DF_pT(X_gen: np.ndarray) -> np.ndarray:
             # degrees of freedom include compositions and independent phase fractions
             dofs = ncomp * nphase + nphase - 1
@@ -1539,6 +1539,8 @@ class PR_Compiler:
                 "d-feed-from-x-y": d_feed_from_xy_c,
                 "fugacity-coefficients": phi_i_c,
                 "d-fugacity-coefficients": d_phi_i_c,
+                "parser-xyz": _parse_xyz,
+                "parser-pT": _parse_pT,
             }
         )
 
@@ -1723,7 +1725,7 @@ class PR_Compiler:
             # decide if return arg has shape (1,n) or (n,)
             return out
 
-        self.gufuncs.update(
+        self.ufuncs.update(
             {
                 "Z_cv": Z_cv,
                 "d_Z_cv": d_Z_cv,
