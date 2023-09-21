@@ -220,35 +220,6 @@ class BoundaryConditionsMassAndEnergyDirNorthSouth(
         # Define boundary condition on faces
         return pp.BoundaryCondition(sd, domain_sides.north + domain_sides.south, "dir")
 
-    def bc_values_mobrho(self, subdomains: list[pp.Grid]) -> pp.ad.DenseArray:
-        """Boundary condition values for the mobility.
-
-        Nonzero values are only defined on the north and south boundaries corresponding
-        to the reference value of the density-mobility product.
-
-        Parameters:
-            subdomains: List of subdomains for which to define boundary conditions.
-
-        Returns:
-            bc_values: Array of boundary condition values.
-
-        """
-        values = []
-        for sd in subdomains:
-            # Get density and viscosity values on boundary faces applying trace to
-            # interior values.
-            domain_sides = self.domain_boundary_sides(sd)
-            # Append to list of boundary values
-            vals = np.zeros(sd.num_faces)
-            vals[domain_sides.north + domain_sides.south] = (
-                self.fluid.density() / self.fluid.viscosity()
-            )
-            values.append(vals)
-
-        # Concatenate to single array and wrap as ad.DenseArray
-        bc_values = pp.wrap_as_ad_array(np.hstack(values), name="bc_values_mobility")
-        return bc_values
-
 
 class BoundaryConditionsMechanicsDirNorthSouth(
     pp.momentum_balance.BoundaryConditionsMomentumBalance
@@ -350,6 +321,7 @@ class TimeDependentMechanicalBCsDirNorthSouth:
     def time_dependent_bc_values_mechanics(
         self, subdomains: list[pp.Grid]
     ) -> np.ndarray:
+        assert False, "TODO: It's not called anymore"
         assert len(subdomains) == 1
         sd = subdomains[0]
 
