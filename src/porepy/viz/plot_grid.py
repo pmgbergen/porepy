@@ -14,7 +14,6 @@ from typing import Optional, Union
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
-import mpl_toolkits as mpl3d
 import numpy as np
 import scipy.sparse as sps
 from matplotlib.collections import PolyCollection
@@ -157,7 +156,7 @@ def plot_sd(
     fig = plt.figure(num=fig_num, figsize=fig_size)
 
     # Initialize the corresponding axis
-    ax: Union[mpl.axes.Axes, mpl3d.mplot3d.axes3d.Axes3D] = fig.add_subplot(111)
+    ax: mpl.axes.Axes = fig.add_subplot(111)
     if not kwargs.get("plot_2d", False):
         ax = fig.add_subplot(111, projection="3d")
 
@@ -166,7 +165,7 @@ def plot_sd(
     ax.set_xlabel("x")
     ax.set_ylabel("y")
     if not kwargs.get("plot_2d", False):
-        ax.set_zlabel("z")
+        ax.set_zlabel("z")  # type: ignore[attr-defined]
 
     # Determine the color map (based on min and max values if not provided externally)
     if cell_value is not None and sd.dim != 3:
@@ -190,11 +189,11 @@ def plot_sd(
             ax.set_ylim(y)
     else:
         if not np.isclose(x[0], x[1]):
-            ax.set_xlim3d(x)
+            ax.set_xlim3d(x)  # type: ignore[attr-defined]
         if not np.isclose(y[0], y[1]):
-            ax.set_ylim3d(y)
+            ax.set_ylim3d(y)  # type: ignore[attr-defined]
         if not kwargs.get("plot_2d", False):
-            ax.set_zlim3d(z)
+            ax.set_zlim3d(z)  # type: ignore[attr-defined]
 
     # Add info if provided.
     if info is not None:
@@ -254,7 +253,7 @@ def plot_mdg(
     ax.set_xlabel("x")
     ax.set_ylabel("y")
     if not kwargs.get("plot_2d", False):
-        ax.set_zlabel("z")
+        ax.set_zlabel("z")  # type: ignore[attr-defined]
 
     # Define color map (based on min and max value of the cell value if none externally
     # provided)
@@ -322,11 +321,11 @@ def plot_mdg(
             ax.set_ylim(y)
     else:
         if not np.isclose(x[0], x[1]):
-            ax.set_xlim3d(x)
+            ax.set_xlim3d(x)  # type: ignore[attr-defined]
         if not np.isclose(y[0], y[1]):
-            ax.set_ylim3d(y)
+            ax.set_ylim3d(y)  # type: ignore[attr-defined]
         if not kwargs.get("plot_2d", False):
-            ax.set_zlim3d(z)
+            ax.set_zlim3d(z)  # type: ignore[attr-defined]
 
     # Add info if provided
     if info is not None:
@@ -397,7 +396,8 @@ class _Arrow3D(FancyArrowPatch):
         """
         # Render the 3d coordinates of the arrows as preparation for plotting in the 2d plane.
         xs3d, ys3d, zs3d = self._verts3d
-        xs, ys, zs = proj3d.proj_transform(xs3d, ys3d, zs3d, self.axes.M)
+        axes_M = self.axes.M  # type: ignore[union-attr]
+        xs, ys, zs = proj3d.proj_transform(xs3d, ys3d, zs3d, axes_M)
         # Extract the rendered positions in the 2d plotting plane
         self.set_positions((xs[0], ys[0]), (xs[1], ys[1]))
         # Draw the arrows
@@ -546,7 +546,7 @@ def _add_info(sd: pp.Grid, info: str, ax: mpl.axes.Axes, **kwargs) -> None:
         kwargs (optional): Keyword arguments used in _quiver.
     """
 
-    def _disp(i: int, p: np.ndarray, c, m: mpl.markers.MarkerStyle):
+    def _disp(i: int, p: np.ndarray, c, m):
         """Add single scatter plot to ax.
 
         Args:
@@ -555,8 +555,8 @@ def _add_info(sd: pp.Grid, info: str, ax: mpl.axes.Axes, **kwargs) -> None:
             c: color
             m: marker
         """
-        ax.scatter(*p, c=c, marker=m)
-        ax.text(*p, i)
+        ax.scatter(*p, c=c, marker=m)  # type: ignore[misc]
+        ax.text(*p, i)  # type: ignore[call-arg]
 
     def _disp_loop(v: np.ndarray, c, m):
         """Loop over disp.
@@ -602,7 +602,9 @@ def _plot_sd_0d(sd: pp.Grid, ax: mpl.axes.Axes, **kwargs) -> None:
             pointsize (float): defining the size of the marker
     """
     dim = 2 if kwargs.get("plot_2d", False) else 3
-    ax.scatter(*sd.nodes[:dim, :], color="k", marker="o", s=kwargs.get("pointsize", 1))
+    ax.scatter(
+        *sd.nodes[:dim, :], color="k", marker="o", s=kwargs.get("pointsize", 1)
+    )  # type: ignore[misc]
 
 
 def _plot_sd_1d(
@@ -664,7 +666,7 @@ def _plot_sd_1d(
         else:
             poly = Poly3DCollection([pts.T], linewidth=linewidth)
             poly.set_edgecolor(_color_edge(cell_value[c]))
-            ax.add_collection3d(poly)
+            ax.add_collection3d(poly)  # type: ignore[attr-defined]
 
 
 def _plot_sd_2d(
@@ -739,12 +741,12 @@ def _plot_sd_2d(
         else:
             poly = Poly3DCollection([pts.T], linewidth=linewidth)
             poly.set_edgecolor("k")
-            poly.set_facecolors(_color_face(cell_value[c]))
-            ax.add_collection3d(poly)
+            poly.set_facecolors(_color_face(cell_value[c]))  # type: ignore[attr-defined]
+            ax.add_collection3d(poly)  # type: ignore[attr-defined]
 
     # Define viewing angle in 3d
     if not kwargs.get("plot_2d", False):
-        ax.view_init(90, -90)
+        ax.view_init(90, -90)  # type: ignore[attr-defined]
 
 
 def _plot_sd_3d(sd: pp.Grid, ax: mpl.axes.Axes, **kwargs) -> None:
@@ -795,4 +797,4 @@ def _plot_sd_3d(sd: pp.Grid, ax: mpl.axes.Axes, **kwargs) -> None:
             poly = Poly3DCollection([pts.T], linewidth=linewidth)
             poly.set_edgecolor("k")
             poly.set_facecolors(_color_face(cell_value[c]))
-            ax.add_collection3d(poly)
+            ax.add_collection3d(poly)  # type: ignore[attr-defined]
