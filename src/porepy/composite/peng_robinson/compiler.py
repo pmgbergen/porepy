@@ -6,7 +6,7 @@ import os
 # os.environ['NUMBA_DISABLE_INTEL_SVML']  = '1'
 os.environ["PYDEVD_WARN_SLOW_RESOLVE_TIMEOUT"] = "30"
 
-from typing import Callable, Literal, Sequence
+from typing import Any, Callable, Literal, Sequence
 
 import numba
 import numpy as np
@@ -46,71 +46,207 @@ _COEFF_COMPILTER_ARGS = {
 }
 
 
-def coef0(A, B):
-    """Coefficient for the zeroth monomial."""
+def coef0(A: Any, B: Any) -> Any:
+    """Coefficient for the zeroth monomial of the characteristic equation
+
+    :math:`Z^3 + c_2 Z^2 + c_1 Z + c_0 = 0`.
+
+    For any input type supporting Python's overload of ``+,-,*,**``.
+
+    Parameters:
+        A: Non-dimensional cohesion.
+        B: Non-dimensional covolume.
+
+    Returns:
+        The result of :math:`B^3 + B^2 - AB`.
+
+    """
     return B**3 + B**2 - A * B
 
 
-coef0_c = numba.njit(**_COEFF_COMPILTER_ARGS)(coef0)
+coef0_c = numba.njit("float64(float64, float64)", **_COEFF_COMPILTER_ARGS)(coef0)
+"""NJIT-ed version of :func:`coef0`.
+
+Signature: ``(float64, float64) -> float64``
+
+"""
 
 
-def coef1(A, B):
-    """Coefficient for the first monomial."""
+def coef1(A: Any, B: Any) -> Any:
+    """Coefficient for the first monomial of the characteristic equation
+
+    :math:`Z^3 + c_2 Z^2 + c_1 Z + c_0 = 0`.
+
+    For any input type supporting Python's overload of ``+,-,*,**``.
+
+    Parameters:
+        A: Non-dimensional cohesion.
+        B: Non-dimensional covolume.
+
+    Returns:
+        The result of :math:`A - 2 B - 3 B^2`.
+
+    """
     return A - 2.0 * B - 3.0 * B**2
 
 
-coef1_c = numba.njit(**_COEFF_COMPILTER_ARGS)(coef1)
+coef1_c = numba.njit("float64(float64, float64)", **_COEFF_COMPILTER_ARGS)(coef1)
+"""NJIT-ed version of :func:`coef1`.
+
+Signature: ``(float64, float64) -> float64``
+
+"""
 
 
-def coef2(A, B):
-    """Coefficient for the second monomial."""
+def coef2(A: Any, B: Any) -> Any:
+    """Coefficient for the second monomial of the characteristic equation
+
+    :math:`Z^3 + c_2 Z^2 + c_1 Z + c_0 = 0`.
+
+    For any input type supporting Python's overload of ``-``.
+
+    Parameters:
+        A: Non-dimensional cohesion.
+        B: Non-dimensional covolume.
+
+    Returns:
+        The result of :math:`B - 1`.
+
+    """
     return B - 1
 
 
-coef2_c = numba.njit(**_COEFF_COMPILTER_ARGS)(coef2)
+coef2_c = numba.njit("float64(float64, float64)", **_COEFF_COMPILTER_ARGS)(coef2)
+"""NJIT-ed version of :func:`coef2`.
+
+Signature: ``(float64, float64) -> float64``
+
+"""
 
 
-def red_coef0(A, B):
-    """Zeroth coefficient of the reduced polynomial."""
+def red_coef0(A: Any, B: Any) -> Any:
+    """Zeroth coefficient of the reduced characteristic equation
+
+    :math:`Z^3 + c_{r1} Z + c_{r0} = 0`.
+
+    Uses :func:`coef0` - :func:`coef2` to compute the expressions in terms of
+    ``A`` and ``B``
+
+    Parameters:
+        A: Non-dimensional cohesion.
+        B: Non-dimensional covolume.
+
+    Returns:
+        The result of
+
+        .. math::
+
+            c_2^3(A, B)\\frac{2}{27} - c_2(A, B) c_1(A, B)\\frac{1}{3} + c_0(A, B)
+
+    """
     c2 = coef2(A, B)
     return c2**3 * (2.0 / 27.0) - c2 * coef1(A, B) * (1.0 / 3.0) + coef0(A, B)
 
 
-@numba.njit(**_COEFF_COMPILTER_ARGS)
-def red_coef0_c(A, B):
+@numba.njit("float64(float64, float64)", **_COEFF_COMPILTER_ARGS)
+def red_coef0_c(A: float, B: float) -> float:
+    """NJIT-ed version of :func:`red_coef0`.
+
+    Signature: ``(float64, float64) -> float64``
+
+    """
     c2 = coef2_c(A, B)
     return c2**3 * (2.0 / 27.0) - c2 * coef1_c(A, B) * (1.0 / 3.0) + coef0_c(A, B)
 
 
-def red_coef1(A, B):
-    """First coefficient of the reduced polynomial."""
+def red_coef1(A: Any, B: Any) -> Any:
+    """First coefficient of the reduced characteristic equation
+
+    :math:`Z^3 + c_{r1} Z + c_{r0} = 0`.
+
+    Uses :func:`coef0` - :func:`coef2` to compute the expressions in terms of
+    ``A`` and ``B``
+
+    Parameters:
+        A: Non-dimensional cohesion.
+        B: Non-dimensional covolume.
+
+    Returns:
+        The result of
+
+        .. math::
+
+            c_1(A, B) - c_2^2(A, B)\\frac{1}{3}
+
+    """
     return coef1(A, B) - coef2(A, B) ** 2 * (1.0 / 3.0)
 
 
-@numba.njit(**_COEFF_COMPILTER_ARGS)
-def red_coef1_c(A, B):
+@numba.njit("float64(float64, float64)", **_COEFF_COMPILTER_ARGS)
+def red_coef1_c(A: float, B: float) -> float:
+    """NJIT-ed version of :func:`red_coef1`.
+
+    Signature: ``(float64, float64) -> float64``
+
+    """
     return coef1_c(A, B) - coef2_c(A, B) ** 2 * (1.0 / 3.0)
 
 
-def discr(rc0, rc1):
-    """Discriminant of the polynomial based on the zeroth and first reduced coefficient."""
+def discr(rc0: Any, rc1: Any) -> Any:
+    """Discriminant of the characeteristic polynomial based on the reduced coefficient.
+
+    Parameters:
+        rc0: Zeroth reduced coefficient (see :func:`red_coef0`)
+        rc1: First reduced coefficient (see :func:`red_coef1`)
+
+    Returns:
+        The result of
+
+        .. math::
+
+            c_{r0}^2\\frac{1}{4} - c_{r1}^3\\frac{1}{27}
+
+    """
     return rc0**2 * (1.0 / 4.0) + rc1**3 * (1.0 / 27.0)
 
 
-discr_c = numba.njit(**_COEFF_COMPILTER_ARGS)(discr)
+discr_c = numba.njit("float64(float64, float64)", **_COEFF_COMPILTER_ARGS)(discr)
+"""NJIT-ed version of :func:`discr`.
+
+Signature: ``(float64, float64) -> float64``
+
+"""
 
 
-@numba.njit(**_COEFF_COMPILTER_ARGS)
+@numba.njit("int8(float64, float64, float64)", **_COEFF_COMPILTER_ARGS)
 def get_root_case_c(A, B, eps=1e-14):
     """ "An piece-wise cosntant function dependent on
-    non-dimensional cohesion and covolume, characterizing the root case:
+    non-dimensional cohesion and covolume, representing the number of roots
+    of the characteristic polynomial in terms of cohesion and covolume.
 
-    - 0 : triple root
-    - 1 : 1 real root, 2 complex-conjugated roots
-    - 2 : 2 real roots, one with multiplicity 2
-    - 3 : 3 distinct real roots
+    NJIT-ed function with signature ``(float64, float64, float64) -> int8``.
 
-    ``eps`` is for defining the numerical zero (degenerate polynomial).
+    :data:`red_coef0_c`, :data:`red_coef1_c` and :data:`discr_c` are used to compute
+    and determine the root case.
+
+    For more information,
+    `see here <https://de.wikipedia.org/wiki/Cardanische_Formeln>`_ .
+
+
+    Parameters:
+        A: Non-dimensional cohesion.
+        B: Non-dimensional covolume.
+        eps: ``default=1e-14``
+
+            Numerical zero to detect degenerate polynomials (zero discriminant).
+
+    Returns:
+        An integer indicating the root case
+
+        - 0 : triple root
+        - 1 : 1 real root, 2 complex-conjugated roots
+        - 2 : 2 real roots, one with multiplicity 2
+        - 3 : 3 distinct real roots
 
     """
     q = red_coef0_c(A, B)
@@ -143,32 +279,43 @@ get_root_case_cv = numba.vectorize(
     nopython=True,
     **_COEFF_COMPILTER_ARGS,
 )(get_root_case_c)
+"""Numpy-universial version of :func:`get_root_case_c`.
+
+Important:
+    ``eps`` is not optional eny more. Can be made so with a simple wrapper.
+
+"""
 
 
-@numba.njit(**_COEFF_COMPILTER_ARGS)
-def critical_line_c(A: float) -> float:
-    """Returns the critical line parametrized as ``B(A)``."""
-    return B_CRIT / A_CRIT * A
+@numba.njit("float64(float64,float64,float64)", **_COEFF_COMPILTER_ARGS)
+def characteristic_residual_c(Z, A, B):
+    """NJIT-ed function with signature ``(float64,float64,float64) -> float64``.
+
+    Parameters:
+        Z: A supposed root.
+        A: Non-dimensional cohesion.
+        B: Non-dimensional covolume.
+
+    Returns:
+        The residual of the characteristic polynomial
+        :math:`Z^3 + c_2(A, B) Z^2 + c_1(A, B) Z + c_0(A, B)`.
+
+        IF ``Z`` is an actual root, the residual is 0.
+
+    """
+    c2 = coef2_c(A, B)
+    c1 = coef1_c(A, B)
+    c0 = coef0_c(A, B)
+
+    return Z**3 + c2 * Z**2 + c1 * Z + c0
 
 
-critical_line_cv = numba.vectorize(
-    [numba.float64(numba.float64)],
+check_if_root_cv = numba.vectorize(
+    [numba.float64(numba.float64, numba.float64, numba.float64)],
     nopython=True,
     **_COEFF_COMPILTER_ARGS,
-)(critical_line_c)
-
-
-@numba.njit(**_COEFF_COMPILTER_ARGS)
-def widom_line_c(A: float) -> float:
-    """Returns the Widom-line ``B(A)``"""
-    return B_CRIT + 0.8 * 0.3381965009398633 * (A - A_CRIT)
-
-
-widom_line_cv = numba.vectorize(
-    [numba.float64(numba.float64)],
-    nopython=True,
-    **_COEFF_COMPILTER_ARGS,
-)(widom_line_c)
+)(characteristic_residual_c)
+"""Numpy-universial version of :func:`characteristic_residual_c`."""
 
 
 def triple_root(A: sm.Expr, B: sm.Expr) -> sm.Expr:
@@ -262,22 +409,162 @@ def ext_root_scl(Z: sm.Expr, B: sm.Expr) -> sm.Expr:
     return (B - Z) / 2 + Z
 
 
-@numba.njit(**_COEFF_COMPILTER_ARGS)
-def check_if_root_c(Z, A, B):
-    """Checks if given Z is a root of the compressibility polynomial by evaluating
-    the polynomial. If Z is a root, the value is (numerically) zero."""
-    c2 = coef2_c(A, B)
-    c1 = coef1_c(A, B)
-    c0 = coef0_c(A, B)
+@numba.njit(
+    [
+        numba.float64(
+            numba.types.Array(numba.float64, 1, "C", readonly=False),
+            numba.types.Array(numba.float64, 1, "C", readonly=True),
+            numba.types.Array(numba.float64, 1, "C", readonly=True),
+        ),
+        numba.float64(
+            numba.types.Array(numba.float64, 1, "C", readonly=False),
+            numba.types.Array(numba.float64, 1, "C", readonly=False),
+            numba.types.Array(numba.float64, 1, "C", readonly=False),
+        ),
+    ],
+    cache=True,
+)
+def point_to_line_distance_c(p: np.ndarray, lp1: np.ndarray, lp2: np.ndarray) -> float:
+    """Computes the distance between a 2-D point and a line spanned by two points.
 
-    return Z**3 + c2 * Z**2 + c1 * Z + c0
+    NJIT-ed function with signature ``(float64[:], float64[:], float64[:]) -> float64``.
+
+    Parameters:
+        p: ``shape=(2,)``
+
+            Point in 2D space.
+        lp1: ``shape=(2,)``
+
+            First point spanning the line.
+        lp2: ``shape=(2,)``
+
+            Second point spanning the line.
+
+    Returns:
+        Normal distance between ``p`` and the spanned line.
+
+    """
+
+    d = np.sqrt((lp2[0] - lp1[0]) ** 2 + (lp2[1] - lp1[1]) ** 2)
+    n = np.abs(
+        (lp2[0] - lp1[0]) * (lp1[1] - p[1]) - (lp1[0] - p[0]) * (lp2[1] - lp1[1])
+    )
+    return n / d
 
 
-check_if_root_cv = numba.vectorize(
-    [numba.int8(numba.float64, numba.float64, numba.float64)],
+@numba.njit("float64(float64)", fastmath=True, cache=True)
+def critical_line_c(A: float) -> float:
+    """Returns the critical line parametrized as ``B(A)``.
+
+    .. math::
+
+        \\frac{B_{crit}}{A_{crit}} A
+
+    NJIT-ed function with signature ``float64(float64)``.
+
+    """
+    return (B_CRIT / A_CRIT) * A
+
+
+critical_line_cv = numba.vectorize(
+    [numba.float64(numba.float64)],
     nopython=True,
-    **_COEFF_COMPILTER_ARGS,
-)(check_if_root_c)
+    fastmath=True,
+    cache=True,
+)(critical_line_c)
+"""Numpy-universial version of :func:`critical_line_cv`."""
+
+
+@numba.njit("float64(float64)", fastmath=True, cache=True)
+def widom_line_c(A: float) -> float:
+    """Returns the Widom-line parametrized as ``B(A)`` in the A-B space:
+
+    .. math::
+
+        B_{crit} + 0.8 \\cdot 0.3381965009398633 \\cdot \\left(A - A_{crit}\\right)
+
+    NJIT-ed function with signature ``float64(float64)``.
+
+    """
+    return B_CRIT + 0.8 * 0.3381965009398633 * (A - A_CRIT)
+
+
+widom_line_cv = numba.vectorize(
+    [numba.float64(numba.float64)],
+    nopython=True,
+    fastmath=True,
+    cache=True,
+)(widom_line_c)
+"""Numpy-universial version of :func:`widom_line_c`."""
+
+
+B_CRIT_LINE_POINTS: tuple[np.ndarray, np.ndarray] = (
+    np.array([0.0, B_CRIT]),
+    np.array([A_CRIT, B_CRIT]),
+)
+"""Two 2D points characterizing the line ``B=B_CRIT`` in the A-B space, namely
+
+.. math::
+
+    (0, B_{crit}),~(A_{crit},B_{crit})
+
+See :data:`~porepy.composite.peng_robinson.eos.B_CRIT`.
+See :data:`~porepy.composite.peng_robinson.eos.A_CRIT`.
+
+"""
+
+
+S_CRIT_LINE_POINTS: tuple[np.ndarray, np.ndarray] = (
+    np.zeros(2),
+    np.array([A_CRIT, B_CRIT]),
+)
+"""Two 2D points characterizing the super-critical line in the A-B space, namely
+
+.. math::
+
+    (0,0),~(A_{crit},B_{crit})
+
+See :data:`~porepy.composite.peng_robinson.eos.B_CRIT`.
+See :data:`~porepy.composite.peng_robinson.eos.A_CRIT`.
+
+"""
+
+
+W_LINE_POINTS: tuple[np.ndarray, np.ndarray] = (
+    np.array([0.0, widom_line_c(0)]),
+    np.array([A_CRIT, widom_line_c(A_CRIT)]),
+)
+"""Two 2D points characterizing the Widom-line for water.
+
+The points are created by using :func:`widom_line_c` for :math:`A\\in\\{0, A_{crit}\\}`.
+
+See :data:`~porepy.composite.peng_robinson.eos.A_CRIT`.
+
+"""
+
+
+@numba.njit("float64[:,:](float64[:,:])", fastmath=True, cache=True)
+def normalize_fractions(X: np.ndarray) -> np.ndarray:
+    """Takes a matrix of phase compositions (rows - phase, columns - component)
+    and normalizes the fractions.
+
+    Meaning it divides each matrix element by the sum of respective row.
+
+    NJIT-ed function with signature ``(float64[:,:]) -> float64[:,:]``.
+
+    Parameters:
+        X: ``shape=(num_phases, num_components)``
+
+            A matrix of phase compositions, containing per row the (extended)
+            fractions per component.
+
+    Returns:
+        A normalized version of ``X``, with the normalization performed row-wise
+        (phase-wise).
+
+    """
+    return (X.T / X.sum(axis=1)).T
+
 
 # TODO check if this is only required for derivatives lambdified with 'math'
 # if lambdified with numpy, maybe it returns already an array.
@@ -296,41 +583,6 @@ def njit_diffs(f, dtype=np.float64, **njit_kwargs):
         return np.array(f(*x), dtype=dtype)
 
     return inner
-
-
-@numba.njit(cache=True)
-def point_to_line_distance_c(p: np.ndarray, lp1: np.ndarray, lp2: np.ndarray) -> float:
-    """Computes the distance between a 2-D point ``p`` and a line spanned by two points
-    ``lp1`` and ``lp2``."""
-
-    d = np.sqrt((lp2[0] - lp1[0]) ** 2 + (lp2[1] - lp1[1]) ** 2)
-    n = np.abs(
-        (lp2[0] - lp1[0]) * (lp1[1] - p[1]) - (lp1[0] - p[0]) * (lp2[1] - lp1[1])
-    )
-    return n / d
-
-
-B_CRIT_LINE_POINTS = (np.array([0.0, B_CRIT]), np.array([A_CRIT, B_CRIT]))
-
-
-S_CRIT_LINE_POINTS = (np.zeros(2), np.array([A_CRIT, B_CRIT]))
-
-
-W_LINE_POINTS = (
-    np.array([0.0, widom_line_c(0)]),
-    np.array([A_CRIT, widom_line_c(A_CRIT)]),
-)
-
-
-@numba.njit
-def normalize_fractions(X: np.ndarray) -> np.ndarray:
-    """Takes a matrix of phase compositions (rows - phase, columns - component)
-    and normalizes the fractions.
-
-    Meaning it divides each matrix element by the sum of respective row.
-
-    """
-    return (X.T / X.sum(axis=1)).T
 
 
 class MixtureSymbols:
@@ -725,13 +977,13 @@ class PR_Compiler:
                 return np.array(f(p_, T_, X_, A_, B_, Z_))
 
             return inner
-        
+
         def _njit_phi(f, **njit_kwargs):
             """Helper function to compile the function for fugacities in phase.
 
             It needs an intermediate collapse, since sympy.Matrix lambdified returns
             a (n, 1) array not (n,)
-            
+
             Enforces a special signature.
 
             """
@@ -777,35 +1029,38 @@ class PR_Compiler:
         # pull it out of here and make ncomp and nphase an argument.
         # pre-compile it with fixed signature and fitting numba flags (including cache)
 
-        @numba.njit('float64(float64, float64[:])', fastmath=True, cache=True)
+        @numba.njit("float64(float64, float64[:])", fastmath=True, cache=True)
         def cc_c(y: float, x: np.ndarray) -> float:
             """Takes an independent phase fraction, and composition of that phase,
             and computes complementary condition y_j * (1 - sum x_j)"""
-            return y * (1. - np.sum(x))
-        
-        @numba.njit('float64[:](float64[:], float64[:], int32)', fastmath=True, cache=True)
+            return y * (1.0 - np.sum(x))
+
+        @numba.njit(
+            "float64[:](float64[:], float64[:], int32)", fastmath=True, cache=True
+        )
         def d_cc_c(y: np.ndarray, x: np.ndarray, j: int) -> np.ndarray:
             """Constructs the derivative of the complementary conditions,
             including the derivative w.r.t. to all phase fractions.
-            
+
             Hence the phase index j must be given.
 
             y is assumed to be the vector of independent phase fractions.
             x must be the composition of phase j
-            
+
             """
             d = np.zeros(nphase - 1 + ncomp)
             unity = 1 - np.sum(x)
 
             if j == 0:
-                d[:nphase - 1] = (-1) * unity
-                d[nphase - 1:] = (-1) * (1 - np.sum(y))
+                d[: nphase - 1] = (-1) * unity
+                d[nphase - 1 :] = (-1) * (1 - np.sum(y))
             else:
                 # y has independent phase fraction y_0 is eliminted, hence j - 1
                 d[j - 1] = unity
-                d[nphase - 1:] = (-1) * y[j-1]  # y has independent phase fractions
+                d[nphase - 1 :] = (-1) * y[j - 1]  # y has independent phase fractions
 
             return d
+
         # endregion
 
         # region Cohesion and Covolume
@@ -913,7 +1168,9 @@ class PR_Compiler:
 
         # needs special wrapping to collaps (n,1) to (n,)
         phi_c = _njit_phi(sm.lambdify(phi_arg, phi_e))
-        d_phi_c = numba.njit('float64[:,:](float64, float64, float64[:], float64, float64, float64)')(sm.lambdify(phi_arg, d_phi_e))
+        d_phi_c = numba.njit(
+            "float64[:,:](float64, float64, float64[:], float64, float64, float64)"
+        )(sm.lambdify(phi_arg, d_phi_e))
 
         # endregion
 
@@ -1033,6 +1290,7 @@ class PR_Compiler:
 
             A_val = A_c(p, T, X)
             B_val = B_c(p, T, X)
+            AB_point = np.array([A_val, B_val])
 
             # super critical check
             is_sc = B_val >= critical_line_c(A_val)
@@ -1058,7 +1316,9 @@ class PR_Compiler:
                         # computing distance to border to subcritical extension
                         # smooth if close
                         d = point_to_line_distance_c(
-                            np.array([A_val, B_val]), *B_CRIT_LINE_POINTS
+                            AB_point,
+                            B_CRIT_LINE_POINTS[0],
+                            B_CRIT_LINE_POINTS[1],
                         )
                         if smooth_e > 0.0 and d < smooth_e:
                             d_n = d / smooth_e
@@ -1073,18 +1333,25 @@ class PR_Compiler:
                         return Z_1_real
                     else:
                         W = Z_ext_scl_c(A_val, B_val)
-                        ab_ = np.array([A_val, B_val])
 
                         # computing distance to Widom-line,
                         # which separates gas and liquid in supercrit area
-                        d = point_to_line_distance_c(ab_, *W_LINE_POINTS)
+                        d = point_to_line_distance_c(
+                            AB_point,
+                            W_LINE_POINTS[0],
+                            W_LINE_POINTS[1],
+                        )
                         if smooth_e > 0.0 and d < smooth_e and B_val >= B_CRIT:
                             d_n = d / smooth_e
                             W = Z_ext_scg_c(A_val, B_val) * (1 - d_n) + W * d_n
 
                         # Computing distance to supercritical line,
                         # which separates sub- and supercritical liquid extension
-                        d = point_to_line_distance_c(ab_, *S_CRIT_LINE_POINTS)
+                        d = point_to_line_distance_c(
+                            AB_point,
+                            S_CRIT_LINE_POINTS[0],
+                            S_CRIT_LINE_POINTS[1],
+                        )
                         if smooth_e > 0.0 and d < smooth_e and B_val < B_CRIT:
                             d_n = d / smooth_e
                             W = Z_ext_sub_c(A_val, B_val) * (1 - d_n) + W * d_n
@@ -1103,18 +1370,25 @@ class PR_Compiler:
                         return Z_three_g_c(A_val, B_val)
                     else:
                         W = Z_ext_scl_c(A_val, B_val)
-                        ab_ = np.array([A_val, B_val])
 
                         # computing distance to Widom-line,
                         # which separates gas and liquid in supercrit area
-                        d = point_to_line_distance_c(ab_, *W_LINE_POINTS)
+                        d = point_to_line_distance_c(
+                            AB_point,
+                            W_LINE_POINTS[0],
+                            W_LINE_POINTS[1],
+                        )
                         if smooth_e > 0.0 and d < smooth_e and B_val >= B_CRIT:
                             d_n = d / smooth_e
                             W = Z_ext_scg_c(A_val, B_val) * (1 - d_n) + W * d_n
 
                         # Computing distance to supercritical line,
                         # which separates sub- and supercritical liquid extension
-                        d = point_to_line_distance_c(ab_, *S_CRIT_LINE_POINTS)
+                        d = point_to_line_distance_c(
+                            AB_point,
+                            S_CRIT_LINE_POINTS[0],
+                            S_CRIT_LINE_POINTS[1],
+                        )
                         if smooth_e > 0.0 and d < smooth_e and B_val < B_CRIT:
                             d_n = d / smooth_e
                             W = Z_ext_sub_c(A_val, B_val) * (1 - d_n) + W * d_n
@@ -1186,6 +1460,8 @@ class PR_Compiler:
             A_val = A_c(p, T, X)
             B_val = B_c(p, T, X)
 
+            AB_point = np.array([A_val, B_val])
+
             # super critical check
             is_sc = B_val >= critical_line_c(A_val)
 
@@ -1212,7 +1488,9 @@ class PR_Compiler:
                         # computing distance to border to subcritical extension
                         # smooth if close
                         d = point_to_line_distance_c(
-                            np.array([A_val, B_val]), *B_CRIT_LINE_POINTS
+                            AB_point,
+                            B_CRIT_LINE_POINTS[0],
+                            B_CRIT_LINE_POINTS[1],
                         )
                         if smooth_e > 0.0 and d < smooth_e:
                             d_n = d / smooth_e
@@ -1227,18 +1505,25 @@ class PR_Compiler:
                         dz = d_Z_1_real
                     else:
                         W = d_Z_ext_scl_c(A_val, B_val)
-                        ab_ = np.array([A_val, B_val])
 
                         # computing distance to Widom-line,
                         # which separates gas and liquid in supercrit area
-                        d = point_to_line_distance_c(ab_, *W_LINE_POINTS)
+                        d = point_to_line_distance_c(
+                            AB_point,
+                            W_LINE_POINTS[0],
+                            W_LINE_POINTS[1],
+                        )
                         if smooth_e > 0.0 and d < smooth_e and B_val >= B_CRIT:
                             d_n = d / smooth_e
                             W = d_Z_ext_scg_c(A_val, B_val) * (1 - d_n) + W * d_n
 
                         # Computing distance to supercritical line,
                         # which separates sub- and supercritical liquid extension
-                        d = point_to_line_distance_c(ab_, *S_CRIT_LINE_POINTS)
+                        d = point_to_line_distance_c(
+                            AB_point,
+                            S_CRIT_LINE_POINTS[0],
+                            S_CRIT_LINE_POINTS[1],
+                        )
                         if smooth_e > 0.0 and d < smooth_e and B_val < B_CRIT:
                             d_n = d / smooth_e
                             W = d_Z_ext_sub_c(A_val, B_val) * (1 - d_n) + W * d_n
@@ -1257,18 +1542,25 @@ class PR_Compiler:
                         dz = d_Z_three_g_c(A_val, B_val)
                     else:
                         W = d_Z_ext_scl_c(A_val, B_val)
-                        ab_ = np.array([A_val, B_val])
 
                         # computing distance to Widom-line,
                         # which separates gas and liquid in supercrit area
-                        d = point_to_line_distance_c(ab_, *W_LINE_POINTS)
+                        d = point_to_line_distance_c(
+                            AB_point,
+                            W_LINE_POINTS[0],
+                            W_LINE_POINTS[1],
+                        )
                         if smooth_e > 0.0 and d < smooth_e and B_val >= B_CRIT:
                             d_n = d / smooth_e
                             W = d_Z_ext_scg_c(A_val, B_val) * (1 - d_n) + W * d_n
 
                         # Computing distance to supercritical line,
                         # which separates sub- and supercritical liquid extension
-                        d = point_to_line_distance_c(ab_, *S_CRIT_LINE_POINTS)
+                        d = point_to_line_distance_c(
+                            AB_point,
+                            S_CRIT_LINE_POINTS[0],
+                            S_CRIT_LINE_POINTS[1],
+                        )
                         if smooth_e > 0.0 and d < smooth_e and B_val < B_CRIT:
                             d_n = d / smooth_e
                             W = d_Z_ext_sub_c(A_val, B_val) * (1 - d_n) + W * d_n
@@ -1356,22 +1648,22 @@ class PR_Compiler:
                 -(ncomp * nphase + nphase - 1) - 2 : -(ncomp * nphase + nphase - 1)
             ]
 
-        @numba.njit('float64[:](float64[:], float64[:,:])', fastmath=True)
+        @numba.njit("float64[:](float64[:], float64[:,:])", fastmath=True)
         def complementary_cond_c(Y: np.ndarray, X: np.ndarray) -> np.ndarray:
             """Helper function to evaluate the complementary conditions"""
 
             ccs = np.empty(nphase, dtype=np.float64)
             ccs[0] = cc_c(1 - np.sum(Y), X[0])
             for j in range(1, nphase):
-                ccs[j] = cc_c(Y[j-1], X[j])
+                ccs[j] = cc_c(Y[j - 1], X[j])
 
             return ccs
-        
-        @numba.njit('float64[:,:](float64[:], float64[:,:])', fastmath=True)
+
+        @numba.njit("float64[:,:](float64[:], float64[:,:])", fastmath=True)
         def d_complementary_cond_c(Y: np.ndarray, X: np.ndarray) -> np.ndarray:
-            """ Hellper function to construct the derivative of the complementary
+            """Hellper function to construct the derivative of the complementary
             conditions per phase.
-            
+
             Note however that the derivatives w.r.t. to X_ij are displaced.
             For convenience reasons, the derivatives w.r.t to x_ij is for all phases
             in one column.
@@ -1408,14 +1700,15 @@ class PR_Compiler:
                 phi_j = phi_c(p, T, Xn[j], A_j[j], B_j[j], Z_j[j])
 
                 # isofugacity constraint between phase j and phase r
-                isofug[(j-1) * ncomp : j * ncomp] = (
-                    Xn[j] * phi_c(p, T, Xn[j], A_j[j], B_j[j], Z_j[j])
-                    - Xn[0] * phi_r
+                isofug[(j - 1) * ncomp : j * ncomp] = (
+                    Xn[j] * phi_c(p, T, Xn[j], A_j[j], B_j[j], Z_j[j]) - Xn[0] * phi_r
                 )
 
             return isofug
-        
-        @numba.njit('float64[:,:](float64, float64, float64[:], float64, float64, float64, int32)')
+
+        @numba.njit(
+            "float64[:,:](float64, float64, float64[:], float64, float64, float64, int32)"
+        )
         def d_isofug_block_j(
             p: float,
             T: float,
@@ -1431,13 +1724,13 @@ class PR_Compiler:
             """
             # derivatives w.r.t. p, T, all compositions, A, B, Z
             dx_phi_j = np.zeros((ncomp, 2 + ncomp + 3))
-            
+
             phi_j = phi_c(p, T, Xn, A_j, B_j, Z_j)
             d_phi_j = d_phi_c(p, T, Xn, A_j, B_j, Z_j)
 
             # product rule d(x * phi) = dx * phi + x * dphi
             # dx is is identity
-            dx_phi_j[:, 2: 2 + ncomp] = np.diag(phi_j)
+            dx_phi_j[:, 2 : 2 + ncomp] = np.diag(phi_j)
             d_xphi_j = dx_phi_j + (d_phi_j.T * Xn).T
 
             # expanding derivatives w.r.t. to A, B, Z
@@ -1448,14 +1741,16 @@ class PR_Compiler:
 
             d_xphi_j = (
                 d_xphi_j[:, :-3]
-                + np.outer(d_xphi_j[:,-3], dAj)
-                + np.outer(d_xphi_j[:,-2], dBj)
-                + np.outer(d_xphi_j[:,-1], dZj)
+                + np.outer(d_xphi_j[:, -3], dAj)
+                + np.outer(d_xphi_j[:, -2], dBj)
+                + np.outer(d_xphi_j[:, -1], dZj)
             )
 
             return d_xphi_j
 
-        @numba.njit('float64[:,:](float64, float64, float64[:,:], float64[:], float64[:], float64[:])')
+        @numba.njit(
+            "float64[:,:](float64, float64, float64[:,:], float64[:], float64[:], float64[:])"
+        )
         def d_isofug_constr_c(
             p: float,
             T: float,
@@ -1480,22 +1775,30 @@ class PR_Compiler:
 
             for j in range(1, nphase):
                 # construct the same as above for other phases
-                d_xphi_j = d_isofug_block_j(p, T, Xn[j], A_j[j], B_j[j], Z_j[j], gaslike[j])
+                d_xphi_j = d_isofug_block_j(
+                    p, T, Xn[j], A_j[j], B_j[j], Z_j[j], gaslike[j]
+                )
 
                 # filling in the relevant blocks
                 # remember: d(x_ij * phi_ij - x_ir * phi_ir)
                 # hence every row-block contains (-1)* d_xphi_r
                 # p, T derivative
-                d_iso[(j-1) * ncomp: j * ncomp, :2] = d_xphi_j[:, :2] - d_xphi_r[:, :2]
+                d_iso[(j - 1) * ncomp : j * ncomp, :2] = (
+                    d_xphi_j[:, :2] - d_xphi_r[:, :2]
+                )
                 # derivative w.r.t. fractions in reference phase
-                d_iso[(j - 1) * ncomp : j * ncomp, 2: 2 + ncomp] = (-1) * d_xphi_r[:, 2:]
+                d_iso[(j - 1) * ncomp : j * ncomp, 2 : 2 + ncomp] = (-1) * d_xphi_r[
+                    :, 2:
+                ]
                 # derivatives w.r.t. fractions in independent phase j
-                d_iso[(j - 1) * ncomp : j * ncomp, 2 + j * ncomp: 2 + (j + 1) * ncomp] = d_xphi_j[:, 2:]
+                d_iso[
+                    (j - 1) * ncomp : j * ncomp, 2 + j * ncomp : 2 + (j + 1) * ncomp
+                ] = d_xphi_j[:, 2:]
 
             return d_iso
 
         # region p-T flash
-        @numba.njit('float64[:](float64[:])')
+        @numba.njit("float64[:](float64[:])")
         def F_pT(X_gen: np.ndarray) -> np.ndarray:
             """Callable representing the p-T flash system"""
 
@@ -1526,7 +1829,7 @@ class PR_Compiler:
 
             return F_val
 
-        @numba.njit('float64[:,:](float64[:])')
+        @numba.njit("float64[:,:](float64[:])")
         def DF_pT(X_gen: np.ndarray) -> np.ndarray:
             # degrees of freedom include compositions and independent phase fractions
             dofs = ncomp * nphase + nphase - 1
