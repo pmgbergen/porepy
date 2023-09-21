@@ -118,15 +118,6 @@ def test_variable_creation():
         sys_man.num_dofs() == ndof_subdomains + ndof_single_subdomain + ndof_interface
     )
 
-    # Check that the variables are registered in the boundary data storage.
-    for bg, data in mdg.boundaries(return_data=True):
-        assert subdomain_variable.name in data[pp.TIME_STEP_SOLUTIONS]
-        assert interface_variable.name not in data[pp.TIME_STEP_SOLUTIONS]
-        if bg.parent == single_subdomain[0]:
-            assert single_subdomain_variable.name in data[pp.TIME_STEP_SOLUTIONS]
-        else:
-            assert single_subdomain_variable.name not in data[pp.TIME_STEP_SOLUTIONS]
-
 
 def test_variable_tags():
     mdg, _ = single_horizontal(simplex=False)

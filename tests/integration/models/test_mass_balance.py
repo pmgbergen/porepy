@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import copy
-
 import numpy as np
 import pytest
 
@@ -17,7 +16,9 @@ from .setup_utils import (
 )
 
 
-class BoundaryConditionLinearPressure:
+class BoundaryConditionLinearPressure(
+    pp.fluid_mass_balance.BoundaryConditionsSinglePhaseFlow
+):
     """Overload the boundary condition to give a linear pressure profile.
 
     Homogeneous Neumann conditions on top and bottom, Dirichlet 1 and 0 on the
@@ -40,46 +41,21 @@ class BoundaryConditionLinearPressure:
         # Define Dirichlet conditions on the left and right boundaries
         return pp.BoundaryCondition(sd, east + west, "dir")
 
-    def bc_values_darcy(self, subdomains: list[pp.Grid]) -> pp.ad.DenseArray:
+    def boundary_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
         """Boundary values for the pressure.
 
         Parameters:
-            subdomains: List of subdomains on which to define boundary conditions.
+            boundary_grid: The boundary grid on which to define boundary conditions.
 
         Returns:
             Array of boundary values.
 
         """
-        values = []
-        for sd in subdomains:
-            _, _, west, *_ = self.domain_boundary_sides(sd)
-            val_loc = np.zeros(sd.num_faces)
-            val_loc[west] = self.fluid.convert_units(1, "Pa")
-            values.append(val_loc)
-        if len(values) > 0:
-            bc_values = np.hstack(values)
-        else:
-            bc_values = np.empty(0)
-        return pp.wrap_as_ad_array(bc_values, name="bc_values_darcy")
 
-    def bc_values_mobrho(self, subdomains: list[pp.Grid]) -> pp.ad.DenseArray:
-        """Boundary values for the mobility times density.
-
-        Parameters:
-            subdomains: List of subdomains on which to define boundary conditions.
-
-        Returns:
-            Array of boundary values.
-
-        """
-        # Define boundary regions
-        values = []
-        for sd in subdomains:
-            all_bf, *_ = self.domain_boundary_sides(sd)
-            val_loc = np.zeros(sd.num_faces)
-            val_loc[all_bf] = self.fluid.density() / self.fluid.viscosity()
-            values.append(val_loc)
-        return pp.wrap_as_ad_array(np.hstack(values), name="bc_values_mobrho")
+        sides = self.domain_boundary_sides(boundary_grid)
+        vals = np.zeros(boundary_grid.num_cells)
+        vals[sides.west] = self.fluid.convert_units(1, "Pa")
+        return vals
 
 
 class LinearModel(BoundaryConditionLinearPressure, MassBalance):
