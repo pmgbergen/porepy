@@ -10,7 +10,6 @@ numba.warnings.simplefilter('ignore', numba.NumbaExperimentalFeatureWarning)
 from typing import Callable
 
 from porepy.composite import safe_sum
-from matplotlib import pyplot as plt
 
 vec = np.ones(1)
 z = [vec * 0.99,  vec * 0.01]
@@ -54,34 +53,6 @@ flash.armijo_parameters["return_max"] = True
 flash.newton_update_chop = 1.0
 flash.tolerance = 1e-7
 flash.max_iter = 150
-
-# success, results_pT = flash.flash(
-_, oldsys = flash.flash(
-    state={"p": p, "T": T},
-    eos_kwargs={"apply_smoother": True},
-    feed=z,
-    verbosity=verbosity,
-    quickshot=True,
-    return_system=True,
-)
-
-initstate = oldsys.state
-oldsys_eval = oldsys(initstate, True)
-print("old value", oldsys_eval.val)
-print("old matrix")
-print(oldsys_eval.jac.todense()[:-1, :-1])
-
-x_test[3:] = initstate[:-1]
-
-newval = PRC.equations['p-T'](x_test)
-newjac = PRC.jacobians['p-T'](x_test)
-print('new val')
-print(newval)
-print('new matrix')
-print(newjac)
-
-print("diff vals", np.linalg.norm(newval - oldsys_eval.val[:-1]))
-print("diff jac", np.linalg.norm(newjac - oldsys_eval.jac.todense()[:-1, :-1]))
 
 # NPIPM
 ncomp = mix.num_components
@@ -285,12 +256,6 @@ def Armijo_line_search(
 
 
 @numba.njit
-def dummy():
-    j = 1.
-    for i in range(1000):
-        j = j ** 2
-
-@numba.njit
 def newton(
     X0: np.ndarray,
     F: Callable[[np.ndarray], np.ndarray],
@@ -336,7 +301,7 @@ def newton(
                 success = 0
                 break
 
-        return X, success, num_iter
+    return X0, success, num_iter
 
 
 @numba.njit(
@@ -384,18 +349,28 @@ def par_newton(
     
     return result, converged, num_iter
 
-NF = 20
+
+_, oldsys = flash.flash(
+    state={"p": p, "T": T},
+    eos_kwargs={"apply_smoother": True},
+    feed=z,
+    verbosity=verbosity,
+    quickshot=True,
+    return_system=True,
+)
+
+initstate = oldsys.state
+oldsys_eval = oldsys(initstate, True)
+x_test[3:] = initstate[:-1]
+
 # dimension of  per flash: 1 z_i, 2 thd state (p, T), 1 y_j, 4 x_ij, 1 nu (npipm)
 xdim = 1 + 2 + 1 + 4 + 1
 
 x_, y_, _ = parser_xyz(x_test)
-
 y_ = np.concatenate([np.array([1 - np.sum(y_)]), y_])
-
 nu0 = safe_sum([y__ * (1 - np.sum(x__)) for y__, x__ in zip(y_, x_)]) / nphase
 
 x_test = np.concatenate([x_test, np.array([nu0])])
-X_total = np.repeat(x_test.reshape((1, len(x_test))), NF, axis=0)
 
 newval = F_npipm(x_test)
 newjac = DF_npipm(x_test)
@@ -412,7 +387,7 @@ print(oldsys_eval.jac.todense())
 print('diff')
 print(np.abs(newjac - oldsys_eval.jac.todense()))
 
-result, conv, num_iter = par_newton(X_total, F_npipm, DF_npipm, 6, 1e-7, 150)
+### PAR TESTING
 
 success, results_old = flash.flash(
     state={"p": p, "T": T},
@@ -422,73 +397,20 @@ success, results_old = flash.flash(
 )
 old_iter = flash.history[-1]['iterations']
 
-tolerance = 1e-5
 
-if not np.all(conv == 0):
-    print(f"{len(conv[np.logical_not(conv==0)])} cases not converged")
-else:
-    print(f"All cases converged.")
-
-idx = num_iter == old_iter
-if not np.all(idx):
-    print(f"{len(num_iter[np.logical_not(idx)])} mismatches in number of iterations.")
-    print(f"Should be {old_iter}, got {num_iter[:4]} ...")
-else:
-    print("Number of iterations matches")
-
-if len(np.unique(num_iter)) != 1:
-    print(f"Heterogeneous number of iterations: {len(np.unique(num_iter))} different results.")
-
-idx = np.isclose(result[:, 0], results_old.y[1][0], rtol = 0, atol = tolerance)
-if not np.all(idx):
-    print(f"{len(result[:, 0][np.logical_not(idx)])} mismatches in results for y.")
-else:
-    print("No mismatch for y")
-
-idx = np.isclose(result[:, 1], results_old.X[0][0][0], rtol = 0, atol = tolerance)
-if not np.all(idx):
-    print(f"{len(result[:, 1][np.logical_not(idx)])} mismatches in results for x_11.")
-else:
-    print("No mismtach for x_11.")
-
-idx = np.isclose(result[:, 2], results_old.X[0][1][0], rtol = 0, atol = tolerance)
-if not np.all(idx):
-    print(f"{len(result[:, 2][np.logical_not(idx)])} mismatches in results for x_21.")
-else:
-    print("No mismtach for x_21.")
-
-idx = np.isclose(result[:, 3], results_old.X[1][0][0], rtol = 0, atol = tolerance)
-if not np.all(idx):
-    print(f"{len(result[:, 3][np.logical_not(idx)])} mismatches in results for x_12.")
-else:
-    print("No mismtach for x_12.")
-
-idx = np.isclose(result[:, 4], results_old.X[1][1][0], rtol = 0, atol = tolerance)
-if not np.all(idx):
-    print(f"{len(result[:, 4][np.logical_not(idx)])} mismatches in results for x_22.")
-else:
-    print("No mismtach for x_22.")
-
-idx = np.isclose(result[:, 5], 0., rtol = 0, atol = tolerance)
-if not np.all(idx):
-    print(f"{len(result[:, 5][np.logical_not(idx)])} violations for NPIPM slack.")
-else:
-    print("No violation for NPIPM slack.")
-
-
-
-NF_l = [100, 1000, 10000, 100000, 1000000, 5000000, 10000000]
-NF_l = [100, 1000, 10000]
+tolerance = 1e-4
+NF_l = [10, 100, 1000, 10000, 100000, 1000000, 5000000, 10000000]
+NF_l = [10, 100, 1000, 10000, 100000, 1000000]
 times_l = []
 
 for n in NF_l:
 
     X_total = np.repeat(x_test.reshape((1, len(x_test))), n, axis=0)
 
+    print(f"------ CALL PAR n={n}")
     start = time.time()
-    result, conv, num_iter = par_newton(X_total, F_npipm, DF_npipm, 6, 1e-7, 1000)
+    result, conv, num_iter = par_newton(X_total, F_npipm, DF_npipm, 6, 1e-7, 150)
     end = time.time()
-
     times_l.append(end - start)
 
     print(f"----- RESULTS FOR n={n}, tol = {tolerance}, time = {times_l[-1]} s")
@@ -511,39 +433,48 @@ for n in NF_l:
     idx = np.isclose(result[:, 0], results_old.y[1][0], rtol = 0, atol = tolerance)
     if not np.all(idx):
         print(f"{len(result[:, 0][np.logical_not(idx)])} mismatches in results for y.")
+        print(f"Max error: {np.max(np.abs(result[:, 0] - results_old.y[1][0]))}")
     else:
         print("No mismatch for y")
 
     idx = np.isclose(result[:, 1], results_old.X[0][0][0], rtol = 0, atol = tolerance)
     if not np.all(idx):
         print(f"{len(result[:, 1][np.logical_not(idx)])} mismatches in results for x_11.")
+        print(f"Max error: {np.max(np.abs(result[:, 1] - results_old.X[0][0][0]))}")
     else:
         print("No mismtach for x_11.")
 
     idx = np.isclose(result[:, 2], results_old.X[0][1][0], rtol = 0, atol = tolerance)
     if not np.all(idx):
         print(f"{len(result[:, 2][np.logical_not(idx)])} mismatches in results for x_21.")
+        print(f"Max error: {np.max(np.abs(result[:, 2] - results_old.X[0][1][0]))}")
     else:
         print("No mismtach for x_21.")
 
     idx = np.isclose(result[:, 3], results_old.X[1][0][0], rtol = 0, atol = tolerance)
     if not np.all(idx):
         print(f"{len(result[:, 3][np.logical_not(idx)])} mismatches in results for x_12.")
+        print(f"Max error: {np.max(np.abs(result[:, 3] - results_old.X[1][0][0]))}")
     else:
         print("No mismtach for x_12.")
 
     idx = np.isclose(result[:, 4], results_old.X[1][1][0], rtol = 0, atol = tolerance)
     if not np.all(idx):
         print(f"{len(result[:, 4][np.logical_not(idx)])} mismatches in results for x_22.")
+        print(f"Max error: {np.max(np.abs(result[:, 4] - results_old.X[1][1][0]))}")
     else:
         print("No mismtach for x_22.")
 
     idx = np.isclose(result[:, 5], 0., rtol = 0, atol = tolerance)
     if not np.all(idx):
         print(f"{len(result[:, 5][np.logical_not(idx)])} violations for NPIPM slack.")
+        print(f"Max error: {np.max(np.abs(result[:, 5] - 0.))}")
     else:
         print("No violation for NPIPM slack.")
 
     print(f"-----")
 
-par_newton.parallel_diagnostics(level=4)
+print("Computational times:")
+print(times_l)
+print("for N as")
+print(NF_l)

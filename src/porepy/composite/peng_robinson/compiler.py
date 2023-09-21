@@ -279,7 +279,8 @@ check_if_root_cv = numba.vectorize(
     **_COEFF_COMPILTER_ARGS,
 )(check_if_root_c)
 
-
+# TODO check if this is only required for derivatives lambdified with 'math'
+# if lambdified with numpy, maybe it returns already an array.
 def njit_diffs(f, dtype=np.float64, **njit_kwargs):
     """For wrapping symbolic, multivariate derivatives which return a sequence,
     instead of a numpy array.
@@ -696,6 +697,117 @@ class PR_Compiler:
             p_, T_, X_j_ = thd_arg_
             return [expr_.diff(p_), expr_.diff(T_)] + [expr_.diff(_) for _ in X_j_]
 
+        def _njit_diff_2(f, **njit_kwargs):
+            """Helper function for special wrapping of some compiled derivatives.
+
+            Enforces a special signature."""
+
+            f = numba.njit(f, **njit_kwargs)
+
+            @numba.njit("float64[:](float64[:], float64[:])", **njit_kwargs)
+            def inner(x, y):
+                return np.array(f(x, y))
+
+            return inner
+
+        def _njit_phi_diffs(f, **njit_kwargs):
+            """Helper function to compile the derivative functions for fugacity
+            coefficiets. Enforces a special signature.
+
+            """
+            f = numba.njit(f, **njit_kwargs)
+
+            @numba.njit(
+                "float64[:](float64, float64, float64[:], float64, float64, float64)",
+                **njit_kwargs,
+            )
+            def inner(p_, T_, X_, A_, B_, Z_):
+                return np.array(f(p_, T_, X_, A_, B_, Z_))
+
+            return inner
+        
+        def _njit_phi(f, **njit_kwargs):
+            """Helper function to compile the function for fugacities in phase.
+
+            It needs an intermediate collapse, since sympy.Matrix lambdified returns
+            a (n, 1) array not (n,)
+            
+            Enforces a special signature.
+
+            """
+            f = numba.njit(f, **njit_kwargs)
+
+            @numba.njit(
+                "float64[:](float64, float64, float64[:], float64, float64, float64)",
+                **njit_kwargs,
+            )
+            def inner(p_, T_, X_, A_, B_, Z_):
+                phi_ = f(p_, T_, X_, A_, B_, Z_)
+                return phi_[:, 0]
+
+            return inner
+
+        # region Equation for feed fraction in terms of phase fractions and compositions
+
+        # symbolic expression for mass conservation without the feed fraction
+        feed_from_xy = safe_sum([y * x for y, x in zip(Y_s, X_per_i_s)])
+        d_feed_from_xy = [feed_from_xy.diff(_) for _ in Y_s[1:] + X_per_i_s]
+
+        # mass equation takes two vectors:
+        # vector of independent y and vector of x per component i
+        mass_arg = [Y_s[1:], X_per_i_s]
+
+        feed_from_xy_c = numba.njit("float64(float64[:], float64[:])", fastmath=True)(
+            sm.lambdify(mass_arg, feed_from_xy)
+        )
+        d_feed_from_xy_c = _njit_diff_2(
+            sm.lambdify(mass_arg, d_feed_from_xy),
+            fastmath=True,
+        )
+        # endregion
+
+        # region Equation for complementary condition
+
+        # NOTE: we have take a special approach here, because we define a list of
+        # symbolic equations and compile them. Numba cannot parallelize an iteration
+        # over custom compiled function
+        # ("first-class function types are an experimental feature")
+
+        # TODO this function is general, along many others
+        # pull it out of here and make ncomp and nphase an argument.
+        # pre-compile it with fixed signature and fitting numba flags (including cache)
+
+        @numba.njit('float64(float64, float64[:])', fastmath=True, cache=True)
+        def cc_c(y: float, x: np.ndarray) -> float:
+            """Takes an independent phase fraction, and composition of that phase,
+            and computes complementary condition y_j * (1 - sum x_j)"""
+            return y * (1. - np.sum(x))
+        
+        @numba.njit('float64[:](float64[:], float64[:], int32)', fastmath=True, cache=True)
+        def d_cc_c(y: np.ndarray, x: np.ndarray, j: int) -> np.ndarray:
+            """Constructs the derivative of the complementary conditions,
+            including the derivative w.r.t. to all phase fractions.
+            
+            Hence the phase index j must be given.
+
+            y is assumed to be the vector of independent phase fractions.
+            x must be the composition of phase j
+            
+            """
+            d = np.zeros(nphase - 1 + ncomp)
+            unity = 1 - np.sum(x)
+
+            if j == 0:
+                d[:nphase - 1] = (-1) * unity
+                d[nphase - 1:] = (-1) * (1 - np.sum(y))
+            else:
+                # y has independent phase fraction y_0 is eliminted, hence j - 1
+                d[j - 1] = unity
+                d[nphase - 1:] = (-1) * y[j-1]  # y has independent phase fractions
+
+            return d
+        # endregion
+
         # region Cohesion and Covolume
         # critical covolume per component
         b_i_crit = [
@@ -746,22 +858,6 @@ class PR_Compiler:
 
         # endregion
 
-        def _njit_phi_diffs(f, **njit_kwargs):
-            """Helper function to compile the derivative functions for fugacity
-            coefficiets. Enforces a special signature.
-
-            """
-            f = numba.njit(f, **njit_kwargs)
-
-            @numba.njit(
-                "float64[:](float64, float64, float64[:], float64, float64, float64)",
-                **njit_kwargs,
-            )
-            def inner(p_, T_, X_, A_, B_, Z_):
-                return np.array(f(p_, T_, X_, A_, B_, Z_))
-
-            return inner
-
         # region Fugacity coefficients
         # expressions of fugacity coeffs per component,
         # where Z, A, B are independent symbols
@@ -810,6 +906,14 @@ class PR_Compiler:
 
         phi_i_c: tuple[Callable, ...] = tuple(phi_i_c)
         d_phi_i_c: tuple[Callable, ...] = tuple(d_phi_i_c)
+
+        # matrix approach
+        phi_e = sm.Matrix(phi_i_e)
+        d_phi_e = phi_e.jacobian([p_s, T_s] + X_in_j_s + [A_s, B_s, Z_s])
+
+        # needs special wrapping to collaps (n,1) to (n,)
+        phi_c = _njit_phi(sm.lambdify(phi_arg, phi_e))
+        d_phi_c = numba.njit('float64[:,:](float64, float64, float64[:], float64, float64, float64)')(sm.lambdify(phi_arg, d_phi_e))
 
         # endregion
 
@@ -1222,64 +1326,6 @@ class PR_Compiler:
 
         # endregion
 
-        def _njit_diff_2(f, **njit_kwargs):
-            """Helper function for special wrapping of some compiled derivatives.
-
-            Enforces a special signature."""
-
-            f = numba.njit(f, **njit_kwargs)
-
-            @numba.njit("float64[:](float64[:], float64[:])", **njit_kwargs)
-            def inner(x, y):
-                return np.array(f(x, y))
-
-            return inner
-
-        # region Symbolic equations
-
-        # symbolic expression for mass conservation without the feed fraction
-        feed_from_xy = safe_sum([y * x for y, x in zip(Y_s, X_per_i_s)])
-        d_feed_from_xy = [feed_from_xy.diff(_) for _ in Y_s[1:] + X_per_i_s]
-
-        # mass equation takes two vectors:
-        # vector of independent y and vector of x per component i
-        mass_arg = [Y_s[1:], X_per_i_s]
-
-        feed_from_xy_c = numba.njit("float64(float64[:], float64[:])", fastmath=True)(
-            sm.lambdify(mass_arg, feed_from_xy)
-        )
-        d_feed_from_xy_c = _njit_diff_2(
-            sm.lambdify(mass_arg, d_feed_from_xy),
-            fastmath=True,
-        )
-
-        # symbolic expression for complementary condition y_j * (1 - sum_i x_ij)
-        cc_e = [y_ * (1 - safe_sum(X_in_j_s)) for y_ in Y_s]
-        d_cc_e = [[cc_.diff(_) for _ in Y_s[1:] + X_in_j_s] for cc_ in cc_e]
-
-        # complementary condition takes two vectors:
-        # vector of independent y and vector of x per phase j
-        cc_arg = [Y_s[1:], X_in_j_s]
-
-        cc_c = [
-            numba.njit("float64(float64[:], float64[:])", fastmath=True)(
-                sm.lambdify(cc_arg, cc_),
-            )
-            for cc_ in cc_e
-        ]
-        d_cc_c = [
-            _njit_diff_2(sm.lambdify(cc_arg, d_cc_), fastmath=True) for d_cc_ in d_cc_e
-        ]
-
-        cc_c: tuple[Callable, ...] = tuple(cc_c)
-        d_cc_c: tuple[Callable, ...] = tuple(d_cc_c)
-
-        # cc_e = Y_s[1] * (1 - safe_sum(X_in_j_s))
-        # d_cc_e = [ cc_e.diff(_) for _ in [Y_s[1]] + X_in_j_s]
-        # cc_c = numba.njit(sm.lambdify(cc_arg, cc_e), **NJIT_KWARGS_equ)
-        # d_cc_c = njit_diffs(sm.lambdify(cc_arg, d_cc_e), **NJIT_KWARGS_equ)
-        # endregion
-
         # list containing gas-like flags per phase to decide which to use in the
         # 2- or 3-root case
         gaslike: tuple[int, ...] = tuple(
@@ -1310,6 +1356,36 @@ class PR_Compiler:
                 -(ncomp * nphase + nphase - 1) - 2 : -(ncomp * nphase + nphase - 1)
             ]
 
+        @numba.njit('float64[:](float64[:], float64[:,:])', fastmath=True)
+        def complementary_cond_c(Y: np.ndarray, X: np.ndarray) -> np.ndarray:
+            """Helper function to evaluate the complementary conditions"""
+
+            ccs = np.empty(nphase, dtype=np.float64)
+            ccs[0] = cc_c(1 - np.sum(Y), X[0])
+            for j in range(1, nphase):
+                ccs[j] = cc_c(Y[j-1], X[j])
+
+            return ccs
+        
+        @numba.njit('float64[:,:](float64[:], float64[:,:])', fastmath=True)
+        def d_complementary_cond_c(Y: np.ndarray, X: np.ndarray) -> np.ndarray:
+            """ Hellper function to construct the derivative of the complementary
+            conditions per phase.
+            
+            Note however that the derivatives w.r.t. to X_ij are displaced.
+            For convenience reasons, the derivatives w.r.t to x_ij is for all phases
+            in one column.
+            Must be inserted properly in the flash system.
+            """
+
+            d_ccs = np.empty((nphase, nphase - 1 + ncomp), dtype=np.float64)
+
+            d_ccs[0] = d_cc_c(Y, X[0], 0)
+            for j in range(1, nphase):
+                d_ccs[j] = d_cc_c(Y, X[j], j)
+
+            return d_ccs
+
         @numba.njit
         def isofug_constr_c(
             p: float,
@@ -1324,22 +1400,66 @@ class PR_Compiler:
             Formulation is always w.r.t. the reference phase r, assumed to be r=0.
 
             """
-            isofug = np.zeros(ncomp * (nphase - 1))
-            for i, f in zip(range(ncomp), phi_i_c):
-                phi_i_r = f(p, T, Xn[0], A_j[0], B_j[0], Z_j[0])
-                for j in range(1, nphase):
-                    isofug[i * (nphase - 1) + j - 1] = (
-                        Xn[j, i] * f(p, T, Xn[j], A_j[j], B_j[j], Z_j[j])
-                        - Xn[0, i] * phi_i_r
-                    )
+            isofug = np.empty(ncomp * (nphase - 1), dtype=np.float64)
+
+            phi_r = phi_c(p, T, Xn[0], A_j[0], B_j[0], Z_j[0])
+
+            for j in range(1, nphase):
+                phi_j = phi_c(p, T, Xn[j], A_j[j], B_j[j], Z_j[j])
+
+                # isofugacity constraint between phase j and phase r
+                isofug[(j-1) * ncomp : j * ncomp] = (
+                    Xn[j] * phi_c(p, T, Xn[j], A_j[j], B_j[j], Z_j[j])
+                    - Xn[0] * phi_r
+                )
 
             return isofug
+        
+        @numba.njit('float64[:,:](float64, float64, float64[:], float64, float64, float64, int32)')
+        def d_isofug_block_j(
+            p: float,
+            T: float,
+            Xn: np.ndarray,
+            A_j: float,
+            B_j: float,
+            Z_j: float,
+            gaslike_j: int,
+        ):
+            """Helper function to construct a block representing the derivative
+            of x_ij * phi_ij for all i as a matrix, with i row index.
+            This is constructed for a given phase j.
+            """
+            # derivatives w.r.t. p, T, all compositions, A, B, Z
+            dx_phi_j = np.zeros((ncomp, 2 + ncomp + 3))
+            
+            phi_j = phi_c(p, T, Xn, A_j, B_j, Z_j)
+            d_phi_j = d_phi_c(p, T, Xn, A_j, B_j, Z_j)
 
-        @numba.njit
+            # product rule d(x * phi) = dx * phi + x * dphi
+            # dx is is identity
+            dx_phi_j[:, 2: 2 + ncomp] = np.diag(phi_j)
+            d_xphi_j = dx_phi_j + (d_phi_j.T * Xn).T
+
+            # expanding derivatives w.r.t. to A, B, Z
+            # get derivatives of A, B, Z, w.r.t. p, T and X
+            dAj = d_A_c(p, T, Xn)
+            dBj = d_B_c(p, T, Xn)
+            dZj = d_Z_c(gaslike_j, p, T, Xn)
+
+            d_xphi_j = (
+                d_xphi_j[:, :-3]
+                + np.outer(d_xphi_j[:,-3], dAj)
+                + np.outer(d_xphi_j[:,-2], dBj)
+                + np.outer(d_xphi_j[:,-1], dZj)
+            )
+
+            return d_xphi_j
+
+        @numba.njit('float64[:,:](float64, float64, float64[:,:], float64[:], float64[:], float64[:])')
         def d_isofug_constr_c(
             p: float,
             T: float,
-            X: np.ndarray,
+            Xn: np.ndarray,
             A_j: np.ndarray,
             B_j: np.ndarray,
             Z_j: np.ndarray,
@@ -1354,69 +1474,24 @@ class PR_Compiler:
 
             """
             d_iso = np.zeros((ncomp * (nphase - 1), 2 + ncomp * nphase))
-            for i, f, df in zip(range(ncomp), phi_i_c, d_phi_i_c):
-                # start with fugacity in reference phase
-                xir = X[0, i]
-                # derivativses for p, T, X in j, A, B, and Z
-                dxir = np.zeros(2 + ncomp + 3)
-                dxir[2 + i] = 1.0
 
-                phi_ir = f(p, T, X[0], A_j[0], B_j[0], Z_j[0])
+            # creating derivative parts involving the reference phase
+            d_xphi_r = d_isofug_block_j(p, T, Xn[0], A_j[0], B_j[0], Z_j[0], gaslike[0])
 
-                # product rule d(x * phi) = dx * phi + x * dphi
-                dphi_ir = dxir * phi_ir + xir * df(p, T, X[0], A_j[0], B_j[0], Z_j[0])
+            for j in range(1, nphase):
+                # construct the same as above for other phases
+                d_xphi_j = d_isofug_block_j(p, T, Xn[j], A_j[j], B_j[j], Z_j[j], gaslike[j])
 
-                # get derivatives of A, B, Z, w.r.t. p, T and X in r to expand them
-                dA0 = d_A_c(p, T, X[0])
-                dB0 = d_B_c(p, T, X[0])
-                dZ0 = d_Z_c(gaslike[0], p, T, X[0])
+                # filling in the relevant blocks
+                # remember: d(x_ij * phi_ij - x_ir * phi_ir)
+                # hence every row-block contains (-1)* d_xphi_r
+                # p, T derivative
+                d_iso[(j-1) * ncomp: j * ncomp, :2] = d_xphi_j[:, :2] - d_xphi_r[:, :2]
+                # derivative w.r.t. fractions in reference phase
+                d_iso[(j - 1) * ncomp : j * ncomp, 2: 2 + ncomp] = (-1) * d_xphi_r[:, 2:]
+                # derivatives w.r.t. fractions in independent phase j
+                d_iso[(j - 1) * ncomp : j * ncomp, 2 + j * ncomp: 2 + (j + 1) * ncomp] = d_xphi_j[:, 2:]
 
-                dphi_ir = (
-                    dphi_ir[:-3]  # derivatives w.r.t. p, T, X in r
-                    + dphi_ir[-3] * dA0  # expand derivatives of A,
-                    + dphi_ir[-2] * dB0  # B,
-                    + dphi_ir[-1] * dZ0  # and Z to deritatives w.r.t. p, T, X
-                )
-
-                # Add zero columns for fractions in other phases
-                equ_ = np.zeros(2 + ncomp * nphase)
-                # (-1) * because of x_ij * phi_ij - x_ir * phi_ir
-                equ_[: 2 + ncomp] = dphi_ir * (-1)
-
-                for j in range(1, nphase):
-                    # repeat basically above steps for other phases, insert column block
-                    # and store equation
-                    equ = equ_.copy()
-
-                    xij = X[j, i]
-                    dxij = np.zeros(2 + ncomp + 3)
-                    dxij[2 + i] = 1.0
-
-                    phi_ij = f(p, T, X[j], A_j[j], B_j[j], Z_j[j])
-                    dphi_ij = dxij * phi_ij + xij * df(
-                        p, T, X[j], A_j[j], B_j[j], Z_j[j]
-                    )
-
-                    dAj = d_A_c(p, T, X[j])
-                    dBj = d_B_c(p, T, X[j])
-                    dZj = d_Z_c(gaslike[j], p, T, X[j])
-
-                    dphi_ij = (
-                        dphi_ij[:-3]
-                        + dphi_ij[-3] * dAj
-                        + dphi_ij[-2] * dBj
-                        + dphi_ij[-1] * dZj
-                    )
-
-                    # Add derivatives w.r.t p and T
-                    equ[:2] += dphi_ij[:2]
-                    # insert derivatives w.r.t. X in j where they belong
-                    equ[2 + j * nphase : 2 + j * nphase + ncomp] = dphi_ij[2:]
-
-                    # store equation
-                    d_iso[i * (nphase - 1) + j - 1, :] = equ
-
-            # create matrix of equations and return
             return d_iso
 
         # region p-T flash
@@ -1434,9 +1509,7 @@ class PR_Compiler:
                 mass[i] = Z[i] - feed_from_xy_c(Y, X[:, i + 1])
 
             # complementary conditions
-            cc = np.zeros(nphase)
-            for j, f in zip(range(nphase), cc_c):
-                cc[j] = f(Y, X[j, :])
+            cc = complementary_cond_c(Y, X)
 
             # EoS specific calculations
             Xn = normalize_fractions(X)
@@ -1468,9 +1541,7 @@ class PR_Compiler:
             for i in range(1, ncomp):
                 d_mass[i - 1, :] = (-1) * d_feed_from_xy_c(Y, X[:, i])
 
-            d_cc = np.zeros((nphase, nphase - 1 + ncomp))
-            for j, f in zip(range(nphase), d_cc_c):
-                d_cc[j, :] = f(Y, X[j, :])
+            d_cc = d_complementary_cond_c(Y, X)
 
             for i in range(ncomp):
                 # insert derivatives of mass conservations for component i != ref comp
