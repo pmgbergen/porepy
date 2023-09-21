@@ -186,21 +186,15 @@ class SolutionStrategyTimeDependentBCs(pp.SolutionStrategy):
         super().reset_state_from_file()
 
         assert False, "Assert we can remove this function"
-        self.update_time_dependent_ad_arrays(initial=True)
+        self.update_time_dependent_ad_arrays()
 
-    def update_time_dependent_ad_arrays(self, initial: bool) -> None:
+    def update_time_dependent_ad_arrays(self) -> None:
         """Update the time dependent arrays for the mechanics boundary conditions.
-
-        Parameters:
-            initial: If True, the array generating method is called for both time step
-                and iterate solution. If False, the array generating method is called
-                only for the iterate solution, and the time step solution is updated by
-                copying the iterate solution.
 
         """
         # Call super in case class is combined with other classes implementing this
         # method.
-        super().update_time_dependent_ad_arrays(initial)
+        super().update_time_dependent_ad_arrays()
         assert False, "Assert we can remove this function"
 
         # # Update the mechanical boundary conditions to both the solutions and iterates.

@@ -13,7 +13,7 @@ class BoundaryConditionMixin(ABC):
     mdg: pp.MixedDimensionalGrid
 
     @abstractmethod
-    def set_boundary_conditions(self, initial: bool) -> None:
+    def update_boundary_conditions(self) -> None:
         """This method is called before a new time step to set the values of the
         boundary conditions. The specific boundary condition values should be updated in
         concrete overrides. By default, it does nothing.
@@ -28,7 +28,6 @@ class BoundaryConditionMixin(ABC):
         self,
         name: str,
         function: Callable[[Sequence[pp.BoundaryGrid]], np.ndarray],
-        initial: bool,
     ) -> None:
         """TODO
 
@@ -37,18 +36,17 @@ class BoundaryConditionMixin(ABC):
         """
 
         for bg, data in self.mdg.boundaries(return_data=True):
-            # Set the known time step value.
-            if initial:
-                vals = function([bg])
-                pp.set_solution_values(
-                    name=name, values=vals, data=data, time_step_index=0
-                )
-            else:
+            # Set the known time step values.
+            if name in data[pp.ITERATE_SOLUTIONS]:
+                # Use the values at the unknown time step from the previous time step.
                 vals = data[pp.ITERATE_SOLUTIONS][name][0]
-                pp.set_solution_values(
-                    name=name, values=vals, data=data, time_step_index=0
-                )
-            # Set the iterate value.
+            else:
+                # No previous time step exists. The method was called during
+                # the initialization.
+                vals = function([bg])
+            pp.set_solution_values(name=name, values=vals, data=data, time_step_index=0)
+
+            # Set the unknown time step values.
             vals = function([bg])
             pp.set_solution_values(name=name, values=vals, data=data, iterate_index=0)
 
