@@ -199,7 +199,9 @@ class ConformingFracturePropagation(FracturePropagation):
             self.mechanics_parameter_key  # type: ignore
         ]
         u_j: np.ndarray = pp.get_solution_values(
-            name=self.mortar_displacement_variable, data=data_intf, iterate_index=0
+            name=self.mortar_displacement_variable,  # type: ignore
+            data=data_intf,
+            iterate_index=0,
         )
 
         # Only operate on tips
