@@ -5,8 +5,6 @@ import sympy as sm
 import numba
 import time
 
-numba.warnings.simplefilter('ignore', numba.NumbaExperimentalFeatureWarning)
-
 from typing import Callable
 
 from porepy.composite import safe_sum

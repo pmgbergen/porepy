@@ -22,7 +22,7 @@ from porepy.composite.peng_robinson.compiler import (
     three_root_intermediate,
     double_root,
     triple_root,
-    check_if_root_c,
+    characteristic_residual_c,
     red_coef0,
     red_coef1,
     discr,
@@ -236,17 +236,17 @@ def test_residual(A_, B_, eps_):
 
         if c == 0:
             z_ = r0_c(a_, b_)
-            r = check_if_root_c(z_, a_, b_)
+            r = characteristic_residual_c(z_, a_, b_)
             res[i] = r
         elif c == 1:
             z_ = r1_c(a_, b_)
-            r = check_if_root_c(z_, a_, b_)
+            r = characteristic_residual_c(z_, a_, b_)
             res[i] = r
         elif c == 2:
             z1_ = r2g_c(a_, b_)
             z2_ = r2l_c(a_, b_)
-            r1 = check_if_root_c(z1_, a_, b_)
-            r2 = check_if_root_c(z2_, a_, b_)
+            r1 = characteristic_residual_c(z1_, a_, b_)
+            r2 = characteristic_residual_c(z2_, a_, b_)
             res[i] = (r1 + r2) / 2.0
             if z1_ >= z2_:
                 order_2[i] = True
@@ -255,9 +255,9 @@ def test_residual(A_, B_, eps_):
             z2 = r3i_c(a_, b_)
             z3 = r3l_c(a_, b_)
 
-            r1 = check_if_root_c(z1, a_, b_)
-            r2 = check_if_root_c(z2, a_, b_)
-            r3 = check_if_root_c(z3, a_, b_)
+            r1 = characteristic_residual_c(z1, a_, b_)
+            r2 = characteristic_residual_c(z2, a_, b_)
+            r3 = characteristic_residual_c(z3, a_, b_)
 
             res[i] = (r1 + r2 + r3) / 3.0
 
