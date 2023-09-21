@@ -217,7 +217,7 @@ def set_solution_values(
     if time_step_index is None and iterate_index is None:
         raise ValueError(
             "At least one of time_step_index and iterate_index needs to be different"
-            " from None"
+            " from None."
         )
 
     if not additive:
@@ -251,7 +251,7 @@ def get_solution_values(
     """Function for fetching values stored in the data dictionary.
 
     This function should be used for obtaining solution values that are not related to a
-    variable. This is to avoid the time consuming alternative of writing e.g.:
+    variable. This is to avoid the cumbersome alternative of writing e.g.:
     `data["solution_name"][pp.TIME_STEP_SOLUTION/pp.ITERATE_SOLUTION][0]`.
 
     Parameters:
@@ -265,8 +265,9 @@ def get_solution_values(
             from before.
 
     Raises:
-        ValueError: If both time_step_index and iterate_index are None, or if both are
-            assigned a value.
+        ValueError: If both time_step_index and iterate_index are None.
+
+        ValueErorr: If both time_step_index and iterate_index are assigned a value.
 
         KeyError: If there are no data values assigned to the provided name.
 
@@ -276,12 +277,12 @@ def get_solution_values(
         An array containing the solution values.
 
     """
-    if (time_step_index is None and iterate_index is None) or (
-        time_step_index is not None and iterate_index is not None
-    ):
+    if time_step_index is None and iterate_index is None:
+        raise ValueError("Both time_step_index and iterate_index cannot be None.")
+
+    if time_step_index is not None and iterate_index is not None:
         raise ValueError(
-            "Both time_step_index and iterate_index cannot be None/assigned a value."
-            "Only one at a time."
+            "Both time_step_index and iterate_index cannot be assigned a value."
         )
 
     if time_step_index is not None:
@@ -290,7 +291,7 @@ def get_solution_values(
 
         if time_step_index not in data[pp.TIME_STEP_SOLUTIONS][name].keys():
             raise KeyError(
-                f"There are no values stored for time step index {time_step_index}"
+                f"There are no values stored for time step index {time_step_index}."
             )
         return data[pp.TIME_STEP_SOLUTIONS][name][time_step_index].copy()
 
@@ -300,7 +301,7 @@ def get_solution_values(
 
         if iterate_index not in data[pp.ITERATE_SOLUTIONS][name].keys():
             raise KeyError(
-                f"There are no values stored for iterate index {iterate_index}"
+                f"There are no values stored for iterate index {iterate_index}."
             )
         return data[pp.ITERATE_SOLUTIONS][name][iterate_index].copy()
 
