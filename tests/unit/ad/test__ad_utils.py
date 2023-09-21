@@ -93,6 +93,3 @@ def test_get_set_solution_values():
     with pytest.raises(KeyError):
         # Try to fetch values associated with a iterate index that is not assigned.
         pp.get_solution_values(name=parameter_name, data=data, iterate_index=2)
-
-
-test_get_set_solution_values()
