@@ -20,7 +20,7 @@ def project_flux(
     mdg: pp.MixedDimensionalGrid,
     discr,
     flux: str,
-    P0_flux: np.ndarray,
+    P0_flux: str,
     mortar_key: str = "mortar_solution",
 ) -> None:
     """
