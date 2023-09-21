@@ -520,8 +520,13 @@ class BoundaryProjection:
                 # The subdomain has no faces, so the projection does not exist.
                 mat_loc = sps.csr_matrix((0, tot_num_faces))
             mat.append(mat_loc)
-        self._projection: sps.spmatrix = sps.bmat([[m] for m in mat], format="csr")
+
+        self._projection: sps.spmatrix
         """Projection from subdomain faces to boundary grids cells."""
+        if len(mat) > 0:
+            self._projection = sps.bmat([[m] for m in mat], format="csr")
+        else:
+            self._projection = sps.csr_matrix((0, 0))
 
     @property
     def subdomain_to_boundary(self) -> Operator:

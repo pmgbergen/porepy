@@ -198,7 +198,10 @@ class MassBalanceEquations(pp.BalanceEquation):
     def mobility_rho(
         self, grids: Sequence[pp.Grid] | Sequence[pp.BoundaryGrid]
     ) -> pp.ad.Operator:
-        """This term represents fluid density times mobility."""
+        """This term represents fluid density times mobility.
+
+        TODO: Need tests for the case if the method accepts several types of grids.
+        """
         return self.fluid_density(grids) * self.mobility(grids)
 
     def fluid_flux(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
@@ -378,9 +381,9 @@ class BoundaryConditionsSinglePhaseFlow(pp.BoundaryConditionMixin):
         [Sequence[pp.Grid]], Sequence[pp.BoundaryGrid]
     ]
     """TODO"""
-    pressure: Callable[[pp.GridsOrSubdomains], pp.ad.Operator]
+    pressure: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     """TODO"""
-    darcy_flux: Callable[[pp.GridsOrSubdomains], pp.ad.Operator]
+    darcy_flux: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     """TODO"""
 
     def bc_type_darcy(self, sd: pp.Grid) -> pp.BoundaryCondition:
@@ -426,29 +429,27 @@ class BoundaryConditionsSinglePhaseFlow(pp.BoundaryConditionMixin):
         boundary_grids = self.subdomains_to_boundary_grids(subdomains)
         pressure_dirichlet = self.pressure(boundary_grids)
         flux_neumann = self.darcy_flux(boundary_grids)
-        return pressure_dirichlet + flux_neumann
+        result = pressure_dirichlet + flux_neumann
+        result.set_name("bc_values_darcy")
+        return result
 
-    def _boundary_pressure(
-        self, boundary_grids: Sequence[pp.BoundaryGrid]
-    ) -> np.ndarray:
-        num_cells = sum(bg.num_cells for bg in boundary_grids)
-        return np.ones(num_cells) * self.fluid.pressure()
+    def boundary_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+        """TODO"""
+        return np.ones(boundary_grid.num_cells) * self.fluid.pressure()
 
-    def _boundary_darcy_flux(
-        self, boundary_grids: Sequence[pp.BoundaryGrid]
-    ) -> np.ndarray:
-        num_cells = sum(bg.num_cells for bg in boundary_grids)
-        return np.zeros(num_cells)
+    def boundary_darcy_flux(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+        """TODO"""
+        return np.zeros(boundary_grid.num_cells)
 
     def update_boundary_conditions(self) -> None:
         """Set values for the pressure and the darcy flux on boundaries."""
         super().update_boundary_conditions()
 
-        self._update_boundary_condition(
-            name=self.pressure_variable, function=self._boundary_pressure
+        self.update_boundary_condition(
+            name=self.pressure_variable, function=self.boundary_pressure
         )
-        self._update_boundary_condition(
-            name=self.bc_data_darcy_flux_key, function=self._boundary_darcy_flux
+        self.update_boundary_condition(
+            name=self.bc_data_darcy_flux_key, function=self.boundary_darcy_flux
         )
 
 

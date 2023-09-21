@@ -95,139 +95,28 @@ class VariablesPoromechanics(
         momentum.VariablesMomentumBalance.create_variables(self)
 
 
-class BoundaryConditionsMechanicsTimeDependent(
-    momentum.BoundaryConditionsMomentumBalance,
-):
-    bc_values_mechanics_key: str
-    """Key for mechanical boundary conditions in the time step and iterate dictionaries.
-
-    """
-
-    def bc_values_mechanics(
-        self, subdomains: list[pp.Grid]
-    ) -> pp.ad.TimeDependentDenseArray:
-        """Boundary values for mechanics.
-
-        Parameters:
-            subdomains: List of subdomains on which to define boundary conditions.
-
-        Returns:
-            Array of boundary values.
-
-        """
-        if not all([sd.dim == self.nd for sd in subdomains]):
-            raise ValueError("Subdomains must be of dimension nd.")
-        # Use time dependent array to allow for time dependent boundary conditions in
-        # the div(u) term.
-        return pp.ad.TimeDependentDenseArray(self.bc_values_mechanics_key, subdomains)
-
-    def time_dependent_bc_values_mechanics(
-        self, subdomains: list[pp.Grid]
-    ) -> np.ndarray:
-        """Boundary values for mechanics.
-
-        Parameters:
-            subdomains: List of subdomains on which to define boundary conditions.
-
-        Returns:
-            Array of boundary values.
-
-        """
-        if not all([sd.dim == self.nd for sd in subdomains]):
-            raise ValueError("Subdomains must be of dimension nd.")
-
-        # Default is zero.
-        num_faces = np.sum([sd.num_faces for sd in subdomains])
-        vals = np.zeros((self.nd, num_faces))
-        return vals.ravel("F")
-
-
 class BoundaryConditionsPoromechanics(
     mass.BoundaryConditionsSinglePhaseFlow,
-    BoundaryConditionsMechanicsTimeDependent,
+    momentum.BoundaryConditionsMomentumBalance,
 ):
     """Combines mass and momentum balance boundary conditions.
 
     Note:
         The mechanical boundary conditions are differentiated wrt time in the div_u
-        term. Thus, time dependent values must be defined using
-        :class:`~porepy.numerics.ad.operators.TimeDependentArray`.
+        term.
 
         To modify the values of the mechanical boundary conditions, the user must
         redefine the method
-        :meth:`~porepy.models.poromechanics.BoundaryConditionsPoromechanics.
-        time_dependent_bc_values_mechanics`, which is called by the methods
-        :meth:`~porepy.models.poromechanics.SolutionStrategyPoromechanics.
-        initial_condition` and :meth:`~porepy.models.poromechanics.
-        SolutionStrategyPoromechanics.before_nonlinear_loop` to update the boundary
-        conditions in `data[pp.TIME_STEP_SOLUTIONS]` and `data[pp.ITERATE_SOLUTIONS]`.
+        :meth:`~momentum.BoundaryConditionsMomentumBalance.
+        boundary_displacement_values`, which is triggered by the method
+        :meth:`~porepy.BoundaryConditionMixin.update_boundary_conditions`
+        to update the boundary condition values in `data[pp.TIME_STEP_SOLUTIONS]` and
+        `data[pp.ITERATE_SOLUTIONS]`.
 
     """
 
 
-class SolutionStrategyTimeDependentBCs(pp.SolutionStrategy):
-    time_dependent_bc_values_mechanics: Callable[[list[pp.Grid]], np.ndarray]
-    """Method for time dependent boundary conditions for mechanics."""
-
-    @property
-    def bc_values_mechanics_key(self) -> str:
-        """Key for mechanical boundary conditions in the time step and iterate
-        dictionaries.
-
-        """
-        return "bc_values_mechanics"
-
-    def reset_state_from_file(self) -> None:
-        """Reset states but through a restart from file.
-
-        Add treatment of boundary conditions to the standard reset of states from file.
-
-        """
-        super().reset_state_from_file()
-
-        assert False, "Assert we can remove this function"
-        self.update_time_dependent_ad_arrays()
-
-    def update_time_dependent_ad_arrays(self) -> None:
-        """Update the time dependent arrays for the mechanics boundary conditions.
-
-        """
-        # Call super in case class is combined with other classes implementing this
-        # method.
-        super().update_time_dependent_ad_arrays()
-        assert False, "Assert we can remove this function"
-
-        # # Update the mechanical boundary conditions to both the solutions and iterates.
-        # for sd, data in self.mdg.subdomains(return_data=True, dim=self.nd):
-        #     if initial:
-        #         vals = self.time_dependent_bc_values_mechanics([sd])
-        #         pp.set_solution_values(
-        #             name=self.bc_values_mechanics_key,
-        #             values=vals,
-        #             data=data,
-        #             time_step_index=0,
-        #         )
-        #     else:
-        #         # Copy old values from iterate to the solution.
-        #         vals = data[pp.ITERATE_SOLUTIONS][self.bc_values_mechanics_key][0]
-        #         pp.set_solution_values(
-        #             name=self.bc_values_mechanics_key,
-        #             values=vals,
-        #             data=data,
-        #             time_step_index=0,
-        #         )
-
-        #     vals = self.time_dependent_bc_values_mechanics([sd])
-        #     pp.set_solution_values(
-        #         name=self.bc_values_mechanics_key,
-        #         values=vals,
-        #         data=data,
-        #         iterate_index=0,
-        #     )
-
-
 class SolutionStrategyPoromechanics(
-    SolutionStrategyTimeDependentBCs,
     mass.SolutionStrategySinglePhaseFlow,
     momentum.SolutionStrategyMomentumBalance,
 ):
@@ -305,5 +194,3 @@ class Poromechanics(  # type: ignore[misc]
     medium.
 
     """
-
-    pass
