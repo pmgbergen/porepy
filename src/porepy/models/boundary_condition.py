@@ -19,22 +19,21 @@ class BoundaryConditionMixin(ABC):
         concrete overrides. By default, it does nothing.
 
         Note:
-            One can use the convenience method `_update_boundary_condition` for each
+            One can use the convenience method `update_boundary_condition` for each
             boundary condition value.
 
         """
 
-    def _update_boundary_condition(
+    def update_boundary_condition(
         self,
         name: str,
-        function: Callable[[Sequence[pp.BoundaryGrid]], np.ndarray],
+        function: Callable[[pp.BoundaryGrid], np.ndarray],
     ) -> None:
         """TODO
 
         TODO: Somewhere we must have an assertion that there is only 1 time step behind
         stored, and 1 iterate.
         """
-
         for bg, data in self.mdg.boundaries(return_data=True):
             # Set the known time step values.
             if name in data[pp.ITERATE_SOLUTIONS]:
@@ -43,11 +42,11 @@ class BoundaryConditionMixin(ABC):
             else:
                 # No previous time step exists. The method was called during
                 # the initialization.
-                vals = function([bg])
+                vals = function(bg)
             pp.set_solution_values(name=name, values=vals, data=data, time_step_index=0)
 
             # Set the unknown time step values.
-            vals = function([bg])
+            vals = function(bg)
             pp.set_solution_values(name=name, values=vals, data=data, iterate_index=0)
 
     def create_boundary_operator(

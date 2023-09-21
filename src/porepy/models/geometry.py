@@ -512,7 +512,7 @@ class ModelGeometry:
         return proj
 
     def domain_boundary_sides(
-        self, sd: pp.Grid, tol: Optional[float] = 1e-10
+        self, domain: pp.Grid | pp.BoundaryGrid, tol: Optional[float] = 1e-10
     ) -> pp.domain.DomainSides:
         """Obtain indices of the faces lying on the sides of the domain boundaries.
 
@@ -521,7 +521,7 @@ class ModelGeometry:
         provided `tol` is tuned accordingly.
 
         Parameters:
-            sd: Subdomain grid.
+            domain: Subdomain or boundary grid.
             tol: Tolerance used to determine whether a face center lies on a boundary side.
 
         Returns:
@@ -549,23 +549,39 @@ class ModelGeometry:
                 assert all(north_by_index == north_by_name)
 
         """
+        if isinstance(domain, pp.Grid):
+            # bc_type_* methods ... require working with subdomains
+
+            face_centers = domain.face_centers
+            num_faces = domain.num_faces
+            all_bf = domain.get_boundary_faces()
+        elif isinstance(domain, pp.BoundaryGrid):
+            # Cells of the boundary grid are faces of the parent subdomain.
+            face_centers = domain.cell_centers
+            num_faces = domain.num_cells
+            all_bf = np.arange(num_faces)
+        else:
+            raise ValueError(
+                "Domain must be either Grid or BoundaryGrid. Provided:", domain
+            )
+
         # Get domain boundary sides
         box = copy.deepcopy(self.domain.bounding_box)
-        east = np.abs(box["xmax"] - sd.face_centers[0]) <= tol
-        west = np.abs(box["xmin"] - sd.face_centers[0]) <= tol
+
+        east = np.abs(box["xmax"] - face_centers[0]) <= tol
+        west = np.abs(box["xmin"] - face_centers[0]) <= tol
         if self.mdg.dim_max() == 1:
-            north = np.zeros(sd.num_faces, dtype=bool)
+            north = np.zeros(num_faces, dtype=bool)
             south = north.copy()
         else:
-            north = np.abs(box["ymax"] - sd.face_centers[1]) <= tol
-            south = np.abs(box["ymin"] - sd.face_centers[1]) <= tol
+            north = np.abs(box["ymax"] - face_centers[1]) <= tol
+            south = np.abs(box["ymin"] - face_centers[1]) <= tol
         if self.mdg.dim_max() < 3:
-            top = np.zeros(sd.num_faces, dtype=bool)
+            top = np.zeros(num_faces, dtype=bool)
             bottom = top.copy()
         else:
-            top = np.abs(box["zmax"] - sd.face_centers[2]) <= tol
-            bottom = np.abs(box["zmin"] - sd.face_centers[2]) <= tol
-        all_bf = sd.get_boundary_faces()
+            top = np.abs(box["zmax"] - face_centers[2]) <= tol
+            bottom = np.abs(box["zmin"] - face_centers[2]) <= tol
 
         # Create a namedtuple to store the arrays
         domain_sides = pp.domain.DomainSides(

@@ -975,7 +975,11 @@ class DarcysLaw:
 
         """
 
-        if len(subdomains) > 0 and isinstance(subdomains[0], pp.BoundaryGrid):
+        if len(subdomains) == 0 or isinstance(subdomains[0], pp.BoundaryGrid):
+            # Note: in case of the empty subdomain list, the time dependent array is
+            # still returned. Otherwise, this method produces the infinite recursion
+            # loop. It does not affect real computations anyhow, but this is a change in
+            # behavior from how it was before.
             return self.create_boundary_operator(
                 name=self.bc_data_darcy_flux_key, domains=subdomains
             )
@@ -2088,7 +2092,12 @@ class LinearElasticMechanicalStress:
         # Fractures in the domain
         interfaces = self.subdomains_to_interfaces(subdomains, [1])
         # Boundary conditions on external boundaries
-        bc = self.bc_values_mechanics(subdomains)
+        boundary_projection = pp.ad.BoundaryProjection(
+            self.mdg, subdomains=subdomains, dim=self.nd
+        )
+        bc_values = self.bc_values_mechanics(subdomains)
+        bc = boundary_projection.boundary_to_subdomain @ bc_values
+
         proj = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=self.nd)
         # The stress in the subdomanis is the sum of the stress in the subdomain,
         # the stress on the external boundaries, and the stress on the interfaces.
@@ -3192,13 +3201,17 @@ class PoroMechanicsPorosity:
         mortar_projection = pp.ad.MortarProjections(
             self.mdg, subdomains, interfaces, dim=self.nd
         )
+        boundary_projection = pp.ad.BoundaryProjection(
+            mdg=self.mdg, subdomains=subdomains, dim=self.nd
+        )
         bc_values = self.bc_values_mechanics(subdomains)
+        bc = boundary_projection.boundary_to_subdomain @ bc_values
 
         # Compose operator.
         div_u_integrated = discr.div_u @ self.displacement(
             subdomains
         ) + discr.bound_div_u @ (
-            bc_values
+            bc
             + sd_projection.face_restriction(subdomains)
             @ mortar_projection.mortar_to_primary_avg
             @ self.interface_displacement(interfaces)

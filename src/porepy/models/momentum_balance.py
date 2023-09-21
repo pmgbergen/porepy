@@ -554,7 +554,7 @@ class VariablesMomentumBalance:
             tags={"si_units": "Pa"},
         )
 
-    def displacement(self, subdomains: list[pp.Grid]) -> pp.ad.Variable:
+    def displacement(self, grids: pp.SubdomainsOrBoundaries) -> pp.ad.Variable:
         """Displacement in the matrix.
 
         Parameters:
@@ -569,12 +569,17 @@ class VariablesMomentumBalance:
                 dimension of the problem.
 
         """
-        if not all([sd.dim == self.nd for sd in subdomains]):
+        if len(grids) > 0 and isinstance(grids[0], pp.BoundaryGrid):
+            return self.create_boundary_operator(
+                name=self.displacement_variable, domains=grids
+            )
+
+        if not all([grid.dim == self.nd for grid in grids]):
             raise ValueError(
                 "Displacement is only defined in subdomains of dimension nd."
             )
 
-        return self.equation_system.md_variable(self.displacement_variable, subdomains)
+        return self.equation_system.md_variable(self.displacement_variable, grids)
 
     def interface_displacement(self, interfaces: list[pp.MortarGrid]) -> pp.ad.Variable:
         """Displacement on fracture-matrix interfaces.
@@ -810,7 +815,7 @@ class SolutionStrategyMomentumBalance(pp.SolutionStrategy):
         return self.mdg.dim_min() < self.nd
 
 
-class BoundaryConditionsMomentumBalance:
+class BoundaryConditionsMomentumBalance(pp.BoundaryConditionMixin):
     """Boundary conditions for the momentum balance."""
 
     nd: int
@@ -841,21 +846,35 @@ class BoundaryConditionsMomentumBalance:
         bc.internal_to_dirichlet(sd)
         return bc
 
-    def bc_values_mechanics(self, subdomains: list[pp.Grid]) -> pp.ad.DenseArray:
+    def bc_values_mechanics(self, subdomains: Sequence[pp.Grid]) -> pp.ad.Operator:
         """Boundary values for the momentum balance.
 
         Parameters:
             subdomains: List of subdomains.
 
         Returns:
-            bc_values: Array of boundary condition values, zero by default. If combined
-            with transient problems in e.g. Biot, this should be a
-            :class:`pp.ad.TimeDependentArray` (or a variable following BoundaryGrid
-            extension).
+            bc_values: Operator of boundary condition values, which is defined on a
+            `BoundaryGrid`. Values zero by default. If combined
+            with transient problems in e.g. Biot, the values should be updated in
+            `update_boundary_conditions`.
 
         """
-        num_faces = sum([sd.num_faces for sd in subdomains])
-        return pp.wrap_as_ad_array(0, num_faces * self.nd, "bc_vals_mechanics")
+        boundary_grids = self.subdomains_to_boundary_grids(subdomains)
+        # TODO: Neumann?
+        return self.displacement(boundary_grids)
+
+    def boundary_displacement_values(
+        self, boundary_grid: pp.BoundaryGrid
+    ) -> np.ndarray:
+        """TODO"""
+        return np.zeros((self.nd, boundary_grid.num_cells)).ravel("F")
+
+    def update_boundary_conditions(self) -> None:
+        """TODO"""
+        super().update_boundary_conditions()
+        self.update_boundary_condition(
+            self.displacement_variable, self.boundary_displacement_values
+        )
 
 
 # Note that we ignore a mypy error here. There are some inconsistencies in the method

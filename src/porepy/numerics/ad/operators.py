@@ -104,7 +104,7 @@ class Operator:
         elif all([isinstance(d, pp.BoundaryGrid) for d in domains]):
             self._domain_type = "boundary grids"
         else:
-            raise NotImplementedError(
+            raise ValueError(
                 "A time dependent array must be associated with either"
                 " interfaces, subdomains or boundary grids."
             )
@@ -1196,7 +1196,7 @@ class Operator:
 class SparseArray(Operator):
     """Ad representation of a sparse matrix.
 
-    For dense matrices, use :class:`Array` instead.
+    For dense matrices, use :class:`DenseArray` instead.
 
     This is a shallow wrapper around the real matrix; it is needed to combine the matrix
     with other types of Ad objects.
@@ -1747,6 +1747,9 @@ class MixedDimensionalVariable(Variable):
         # defined on subdomains of codimension >= 1 (e.g., contact traction variable),
         # assigned to a problem where the grid happened not to have any fractures.
         self._no_variables = len(variables) == 0
+
+        # It should be defined in the parent class, but we do not call super().__init__
+        self._domains = [var.domains[0] for var in variables]
 
         # Take the name from the first variable.
         if self._no_variables:
