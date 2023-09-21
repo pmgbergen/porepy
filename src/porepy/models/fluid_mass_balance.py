@@ -440,19 +440,15 @@ class BoundaryConditionsSinglePhaseFlow(pp.BoundaryConditionMixin):
         num_cells = sum(bg.num_cells for bg in boundary_grids)
         return np.zeros(num_cells)
 
-    def set_boundary_conditions(self, initial: bool) -> None:
+    def update_boundary_conditions(self) -> None:
         """Set values for the pressure and the darcy flux on boundaries."""
-        super().set_boundary_conditions(initial=initial)
+        super().update_boundary_conditions()
 
         self._update_boundary_condition(
-            name=self.pressure_variable,
-            function=self._boundary_pressure,
-            initial=initial,
+            name=self.pressure_variable, function=self._boundary_pressure
         )
         self._update_boundary_condition(
-            name=self.bc_data_darcy_flux_key,
-            function=self._boundary_darcy_flux,
-            initial=initial,
+            name=self.bc_data_darcy_flux_key, function=self._boundary_darcy_flux
         )
 
 
