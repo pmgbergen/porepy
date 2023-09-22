@@ -57,10 +57,13 @@ def test_plot_grid_simple_grid(mdg, vector_variable):
     This use case requires the user to reshape the vector array to the shape (3 x n).
     The redundant dimensions are filled with zeros."""
     grid, data = mdg.subdomains(return_data=True)[0]
-    scalar_data = data[pp.TIME_STEP_SOLUTIONS][SCALAR_VARIABLE][0]
-    vector_data = data[pp.TIME_STEP_SOLUTIONS][vector_variable][0].reshape(
-        (mdg.dim_max(), -1), order="F"
+    scalar_data = pp.get_solution_values(
+        name=SCALAR_VARIABLE, data=data, time_step_index=0
     )
+    vector_data = pp.get_solution_values(
+        name=vector_variable, data=data, time_step_index=0
+    )
+    vector_data = vector_data.reshape((mdg.dim_max(), -1), order="F")
     vector_data = np.vstack(
         [vector_data, np.zeros((3 - vector_data.shape[0], vector_data.shape[1]))]
     )

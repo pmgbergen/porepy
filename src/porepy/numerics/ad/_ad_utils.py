@@ -2,6 +2,9 @@
 Utility functions for the AD package.
 
 Functions:
+    concatenate_ad_arrays: Concatenates a sequence of AD arrays into a single AD Array
+        along a specified axis.
+
     wrap_discretization: Convert a discretization to its ad equivalent.
 
     uniquify_discretization_list: Define a unique list of discretization-keyword
@@ -9,6 +12,12 @@ Functions:
 
     discretize_from_list: Perform the actual discretization for a list of AD
         discretizations.
+
+    set_solution_values: Set values to the data dictionary providing parameter name and
+        time step/iterate index.
+
+    get_solution_values: Get values from the data dictionary providing parameter name
+        and time step/iterate index.
 
 Classes:
     MergedOperator: Representation of specific discretization fields for an AD
@@ -173,6 +182,128 @@ def discretize_from_list(
                 except NotImplementedError:
                     # This will likely be GradP and other Biot discretizations
                     pass
+
+
+def set_solution_values(
+    name: str,
+    values: np.ndarray,
+    data: dict,
+    time_step_index: Optional[int] = None,
+    iterate_index: Optional[int] = None,
+    additive: bool = False,
+) -> None:
+    """Function for setting values in the data dictionary.
+
+    Parameters:
+        name: Name of the quantity that is to be assigned values.
+        values: The values that are set in the data dictionary.
+        data: Data dictionary corresponding to the subdomain or interface in question.
+        time_step_index (optional): Determines the key of where `values` are to be
+            stored in `data[pp.TIME_STEP_SOLUTIONS][name]`. 0 means it is the most
+            recent set of values, 1 means the one time step back in time, 2 is two time
+            steps back, and so on.
+        iterate_index (optional): Determines the key of where `values` are to be
+            stored in `data[pp.ITERATE_SOLUTIONS][name]`. 0 means it is the most
+            recent set of values, 1 means the values one iteration back in time, 2 is
+            two iterations back, and so on.
+        additive: Flag to decide whether the values already stored in the data
+            dictionary should be added to or overwritten.
+
+    Raises:
+        ValueError: If neither of `time_step_index` or `iterate_index` have been
+            assigned a non-None value.
+
+    """
+    if time_step_index is None and iterate_index is None:
+        raise ValueError(
+            "At least one of time_step_index and iterate_index needs to be different"
+            " from None."
+        )
+
+    if not additive:
+        if time_step_index is not None:
+            if pp.TIME_STEP_SOLUTIONS not in data:
+                data[pp.TIME_STEP_SOLUTIONS] = {}
+            if name not in data[pp.TIME_STEP_SOLUTIONS]:
+                data[pp.TIME_STEP_SOLUTIONS][name] = {}
+            data[pp.TIME_STEP_SOLUTIONS][name][time_step_index] = values.copy()
+
+        if iterate_index is not None:
+            if pp.ITERATE_SOLUTIONS not in data:
+                data[pp.ITERATE_SOLUTIONS] = {}
+            if name not in data[pp.ITERATE_SOLUTIONS]:
+                data[pp.ITERATE_SOLUTIONS][name] = {}
+            data[pp.ITERATE_SOLUTIONS][name][iterate_index] = values.copy()
+    else:
+        if time_step_index is not None:
+            data[pp.TIME_STEP_SOLUTIONS][name][time_step_index] += values
+
+        if iterate_index is not None:
+            data[pp.ITERATE_SOLUTIONS][name][iterate_index] += values
+
+
+def get_solution_values(
+    name: str,
+    data: dict,
+    time_step_index: Optional[int] = None,
+    iterate_index: Optional[int] = None,
+) -> np.ndarray:
+    """Function for fetching values stored in the data dictionary.
+
+    This function should be used for obtaining solution values that are not related to a
+    variable. This is to avoid the cumbersome alternative of writing e.g.:
+    `data["solution_name"][pp.TIME_STEP_SOLUTION/pp.ITERATE_SOLUTION][0]`.
+
+    Parameters:
+        name: Name of the parameter whose values we are interested in.
+        data: The data dictionary.
+        time_step_index: Which time step we want to get values for. 0 is current, 1 is
+            one time step back in time. This is only limited by how many time steps are
+            stored from before.
+        iterate_index: Which iterate we want to get values for. 0 is current, 1 is one
+            iterate back in time. This is only limited by how many iterates are stored
+            from before.
+
+    Raises:
+        ValueError: If both time_step_index and iterate_index are None.
+
+        ValueErorr: If both time_step_index and iterate_index are assigned a value.
+
+        KeyError: If there are no data values assigned to the provided name.
+
+        KeyError: If there are no data values assigned to the time step/iterate index.
+
+    Returns:
+        An array containing the solution values.
+
+    """
+    if time_step_index is None and iterate_index is None:
+        raise ValueError("Both time_step_index and iterate_index cannot be None.")
+
+    if time_step_index is not None and iterate_index is not None:
+        raise ValueError(
+            "Both time_step_index and iterate_index cannot be assigned a value."
+        )
+
+    if time_step_index is not None:
+        if name not in data[pp.TIME_STEP_SOLUTIONS].keys():
+            raise KeyError(f"There are no values related the parameter name {name}.")
+
+        if time_step_index not in data[pp.TIME_STEP_SOLUTIONS][name].keys():
+            raise KeyError(
+                f"There are no values stored for time step index {time_step_index}."
+            )
+        return data[pp.TIME_STEP_SOLUTIONS][name][time_step_index].copy()
+
+    else:
+        if name not in data[pp.ITERATE_SOLUTIONS].keys():
+            raise KeyError(f"There are no values related the parameter name {name}.")
+
+        if iterate_index not in data[pp.ITERATE_SOLUTIONS][name].keys():
+            raise KeyError(
+                f"There are no values stored for iterate index {iterate_index}."
+            )
+        return data[pp.ITERATE_SOLUTIONS][name][iterate_index].copy()
 
 
 class MergedOperator(operators.Operator):
