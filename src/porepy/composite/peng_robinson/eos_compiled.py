@@ -1,0 +1,1232 @@
+"""This module contains compiled versions of the Peng-Robinson EoS functionalities,
+and related, required functions.
+
+The compilation relies on implementing symbolic expressions for various quantities using
+``sympy``, then lambdifying them using :func:`sympy.lambdify`, and finally compiling
+the resulting callable using ``numba`` (:func:`numba.njit`).
+
+Several functions are also implemented as only Python Callables, and then NJIT-ed.
+
+Important:
+    Importing this module for the first time triggers numba NJIT compilation with
+    static signatures for a multitude of functions.
+
+    This takes a considerable amount of time.
+
+
+Due to the magnitude of expressions and functions (and different versions),
+naming conflicts are hard to avoid.
+We introcued the naming convention ``<derivative>_<name>_<version>``,
+where the name represents the quantity, and version how the quantity is represented.
+
+For example, the compressibility factor has the standard symbol ``Z`` in literature.
+- ``Z_s`` denotes the symbolic representation using ``sympy``.
+- ``Z_c`` denotes a compiled, scalar callable with a specified signature.
+- ``Z_u`` denotes the numpy-universal function, a vectorized version of ``Z_c`` since
+  a fast and efficient evaluation of the compressibility factor is deemed necessary
+  (e.g. in flow problems to compute fluid properties)
+- ``d_Z_u`` denotes the numpy universal function of the total derivative of ``Z``,
+  w.r.t. to the dependencies given in the call signature of ``Z_c``
+- ``dp_Z_c`` denotes a compiled function returning the derivative of ``Z`` w.r.t.
+  pressure ``p``, with the same call signature as ``Z_c``.
+
+You can assume the equal call signature for all related quantities, in terms of
+number of dependencies, ``*args`` and ``**kwargs``.
+
+The following convention for versions is used:
+
+- ``_c``: NJIT compiled callable with a specific signature.
+- ``_u``: Numpy-universal version (ufunc) of the respective ``_c`` callable, for
+  vectorized evaluation.
+- ``_s``: A symbol representing either an independent quantity, or an intermediate
+  quantity serving as an argument. Created using :class:`sympy.Symbol`.
+- ``_e``: A symbolic expression created using some algebraic combination of symbols.
+
+The following standard names are used for thermodynamic quantities:
+
+- ``Z`` compressibility factor
+- ``A`` non-dimensional cohesion
+- ``B`` non-dimensional covolume
+- ``a`` cohesion
+- ``b`` covolume
+- ``T`` temperature
+- ``p`` pressure
+- ``X`` (extended) fractions of components in a phases
+- ``y`` molar phase fractions
+- ``z`` overal component fractions / feed fractions
+- ``s`` volumetric phase fractions (saturations)
+- ``_i`` index related to a component i
+- ``_j`` index related to a phase j
+- ``_r`` index related to the reference phase (the first one is assumed to be r)
+
+- We decided to append ``_c`` to the name of the compiled version of a function,
+  which takes non-vectorized input.
+- ``_u`` denotes a numpy-universal function. These versions have been implemented
+  for some quantities, where fast, vectorized evaluation is deemed required.
+ Not all functions have a ``_u`` version.
+
+
+"""
+from __future__ import annotations
+
+import os
+
+# Some sympy expressions are rather large and complicated
+# Use this before importing to disable the efficiency warning
+os.environ["PYDEVD_WARN_SLOW_RESOLVE_TIMEOUT"] = "30"
+
+from typing import Any, Callable, Literal, Sequence
+
+import numba
+import numpy as np
+import sympy as sp
+
+import porepy as pp
+
+from .eos import (
+    A_CRIT,
+    B_CRIT,
+    B_CRIT_LINE_POINTS,
+    S_CRIT_LINE_POINTS,
+    W_LINE_POINTS,
+    PengRobinsonEoS,
+    coef0,
+    coef1,
+    coef2,
+    critical_line,
+    discr,
+    point_to_line_distance,
+    red_coef0,
+    red_coef1,
+    widom_line,
+)
+
+_STATIC_FAST_COMPILE_ARGS: dict[str, Any] = {
+    "fastmath": True,
+    "cache": True,
+}
+
+
+# region Functions related to the characteristic polynomial and its roots
+
+
+coef0_c: Callable[[float, float], float] = numba.njit(
+    "float64(float64, float64)", **_STATIC_FAST_COMPILE_ARGS
+)(coef0)
+"""NJIT-ed version of :func:`coef0`.
+
+Signature: ``(float64, float64) -> float64``
+
+"""
+
+
+coef1_c: Callable[[float, float], float] = numba.njit(
+    "float64(float64, float64)", **_STATIC_FAST_COMPILE_ARGS
+)(coef1)
+"""NJIT-ed version of :func:`coef1`.
+
+Signature: ``(float64, float64) -> float64``
+
+"""
+
+
+coef2_c: Callable[[float, float], float] = numba.njit(
+    "float64(float64, float64)", **_STATIC_FAST_COMPILE_ARGS
+)(coef2)
+"""NJIT-ed version of :func:`coef2`.
+
+Signature: ``(float64, float64) -> float64``
+
+"""
+
+
+@numba.njit("float64(float64, float64)", **_STATIC_FAST_COMPILE_ARGS)
+def red_coef0_c(A: float, B: float) -> float:
+    """NJIT-ed version of :func:`red_coef0`.
+
+    Signature: ``(float64, float64) -> float64``
+
+    """
+    c2 = coef2_c(A, B)
+    return c2**3 * (2.0 / 27.0) - c2 * coef1_c(A, B) * (1.0 / 3.0) + coef0_c(A, B)
+
+
+@numba.njit("float64(float64, float64)", **_STATIC_FAST_COMPILE_ARGS)
+def red_coef1_c(A: float, B: float) -> float:
+    """NJIT-ed version of :func:`red_coef1`.
+
+    Signature: ``(float64, float64) -> float64``
+
+    """
+    return coef1_c(A, B) - coef2_c(A, B) ** 2 * (1.0 / 3.0)
+
+
+discr_c: Callable[[float, float], float] = numba.njit(
+    "float64(float64, float64)", **_STATIC_FAST_COMPILE_ARGS
+)(discr)
+"""NJIT-ed version of :func:`discr`.
+
+Signature: ``(float64, float64) -> float64``
+
+"""
+
+
+@numba.njit("int8(float64, float64, float64)", **_STATIC_FAST_COMPILE_ARGS)
+def get_root_case_c(A, B, eps=1e-14):
+    """A piece-wise cosntant function dependent on
+    non-dimensional cohesion and covolume, representing the number of roots
+    of the characteristic polynomial in terms of cohesion and covolume.
+
+    NJIT-ed function with signature ``(float64, float64, float64) -> int8``.
+
+    :data:`red_coef0_c`, :data:`red_coef1_c` and :data:`discr_c` are used to compute
+    and determine the root case.
+
+    For more information,
+    `see here <https://de.wikipedia.org/wiki/Cardanische_Formeln>`_ .
+
+
+    Parameters:
+        A: Non-dimensional cohesion.
+        B: Non-dimensional covolume.
+        eps: ``default=1e-14``
+
+            Numerical zero to detect degenerate polynomials (zero discriminant).
+
+    Returns:
+        An integer indicating the root case
+
+        - 0 : triple root
+        - 1 : 1 real root, 2 complex-conjugated roots
+        - 2 : 2 real roots, one with multiplicity 2
+        - 3 : 3 distinct real roots
+
+    """
+    q = red_coef0_c(A, B)
+    r = red_coef1_c(A, B)
+    d = discr_c(q, r)
+
+    # if discriminant is positive, the polynomial has one real root
+    if d > eps:
+        return 1
+    # if discriminant is negative, the polynomial has three distinct real roots
+    if d < -eps:
+        return 3
+    # if discrimant is zero, we are in the degenerate case
+    else:
+        # if first reduced coefficient is zero, the polynomial has a triple root
+        # the critical point is a known triple root
+        if np.abs(r) < eps or (np.abs(A - A_CRIT) < eps and np.abs(B - B_CRIT) < eps):
+            return 0
+        # if first reduced coefficient is not zero, the polynomial has 2 real roots
+        # one with multiplicity 2
+        # the zero point (A=B=0) is one such case.
+        else:
+            return 2
+
+
+get_root_case_u = numba.vectorize(
+    [numba.int8(numba.float64, numba.float64, numba.float64)],
+    nopython=True,
+    **_STATIC_FAST_COMPILE_ARGS,
+)(get_root_case_c)
+"""Numpy-universial version of :func:`get_root_case_c`.
+
+Important:
+    ``eps`` is not optional any more. Can be made so with a simple wrapper.
+
+"""
+
+
+@numba.njit("float64(float64,float64,float64)", **_STATIC_FAST_COMPILE_ARGS)
+def characteristic_residual_c(Z, A, B):
+    r"""NJIT-ed function with signature ``(float64,float64,float64) -> float64``.
+
+    Parameters:
+        Z: A supposed root.
+        A: Non-dimensional cohesion.
+        B: Non-dimensional covolume.
+
+    Returns:
+        The residual of the characteristic polynomial
+        :math:`Z^3 + c_2(A, B) Z^2 + c_1(A, B) Z + c_0(A, B)`.
+
+        IF ``Z`` is an actual root, the residual is 0.
+
+    """
+    c2 = coef2_c(A, B)
+    c1 = coef1_c(A, B)
+    c0 = coef0_c(A, B)
+
+    return Z**3 + c2 * Z**2 + c1 * Z + c0
+
+
+characteristic_residual_u = numba.vectorize(
+    [numba.float64(numba.float64, numba.float64, numba.float64)],
+    nopython=True,
+    **_STATIC_FAST_COMPILE_ARGS,
+)(characteristic_residual_c)
+"""Numpy-universial version of :func:`characteristic_residual_c`."""
+
+
+class _cbrt(sp.Function):
+    """Custom symbolic cubic root to circumvent sympy using the power expression.
+
+    The power expression is costly and does not always work with negative numbers.
+    It returns sometimes not the principle cubic root (which is always real).
+
+    Has a custom implementation of the derivative to always return a positive, real
+    number.
+
+    For more information
+    `see here <https://docs.sympy.org/latest/guides/custom-functions.html>`_.
+
+    Warning:
+        As of now, lambdified expressions using this must use
+        ``[{'_cbrt': numpy.cbrt}]`` in there module argument to provide a numerical
+        evaluation for this function. TODO
+
+        This Function is temprary and experimental. TODO do tests.
+
+    """
+
+    def fdiff(self, argindex=1):
+        a = self.args[0]
+        return 1.0 / (_cbrt(a**2) * 3)
+
+
+def triple_root(A: sp.Symbol, B: sp.Symbol) -> sp.Expr:
+    r"""Formula for tripple root of characteristic polynomial.
+
+    Only valid in triple root case (see :func:`get_root_case_c`).
+
+    Parameters:
+        A: Non-dimensional cohesion.
+        B: Non-dimensional covolume.
+
+    Returns:
+        `See here <https://de.wikipedia.org/wiki/Cardanische_Formeln>`_
+        in section triple-root case.
+
+    """
+    c2 = coef2(A, B)
+    return -c2 / 3
+
+
+def double_root(A: sp.Symbol, B: sp.Symbol, gaslike: bool) -> sp.Expr:
+    """Formulae for double roots.
+
+    Only valid in 2-root case (see :func:`get_root_case_c`).
+
+    Important:
+        This returns a piece-wise expression, selecting the bigger root for the gas-like
+        case. Lambdification only with module ``'math'``.
+
+        The lambdified expression usind module ``'numpy'`` cannot be compiled by
+        numba.
+
+    Parameters:
+        A: Non-dimensional cohesion.
+        B: Non-dimensional covolume.
+        gaslike: Bool indicating if the bigger root should be returned, or the smaller
+
+    Returns:
+        `See here <https://de.wikipedia.org/wiki/Cardanische_Formeln>`_
+        in section 2-root case.
+
+    """
+    c2 = coef2(A, B)
+    q = red_coef0(A, B)
+    r = red_coef1(A, B)
+
+    u = 3 / 2 * q / r
+
+    z1 = 2 * u - c2 / 3
+    z23 = -u - c2 / 3
+
+    if gaslike:
+        return sp.Piecewise((z1, z1 > z23), (z23, True))
+    else:
+        return sp.Piecewise((z23, z1 > z23), (z1, True))
+
+
+def three_root(A: sp.Symbol, B: sp.Symbol, gaslike: bool) -> sp.Expr:
+    """Formulae for the 3-root case using the trigonometric representation
+    (Casus Irreducibilis)
+
+    Only valid in 3-root case (see :func:`get_root_case_c`).
+
+    Note:
+        The formulae allow for a clear distinction which root is the biggest, which
+        the smallest. I.e. no piecewise nature required.
+
+    Parameters:
+        A: Non-dimensional cohesion.
+        B: Non-dimensional covolume.
+        gaslike: Bool indicating if the biggest root should be returned, or the smallest
+
+    Returns:
+        `See here <https://de.wikipedia.org/wiki/Cardanische_Formeln>`_
+        in section 3-root case, trigonometric approach.
+
+    """
+    c2 = coef2(A, B)
+    q = red_coef0(A, B)
+    r = red_coef1(A, B)
+
+    # trigonometric formula for Casus Irreducibilis
+    t_2 = sp.acos(-q / 2 * sp.sqrt(-27 * r ** (-3))) / 3
+    t_1 = sp.sqrt(-4 / 3 * r)
+
+    if gaslike:
+        return t_1 * sp.cos(t_2) - c2 / 3
+    else:
+        return -t_1 * sp.cos(t_2 - np.pi / 3) - c2 / 3
+
+
+def three_root_intermediate(A: sp.Symbol, B: sp.Symbol) -> sp.Expr:
+    """Formula for the intermediate root in the 3-root case using the trigonometric
+    representation
+
+    Only valid in 3-root case (see :func:`get_root_case_c`).
+
+    Note:
+        This root has no physical meaning and is only used in the smoothing procedure
+        proposed by Ben Gharbia et al. (2021).
+
+    Parameters:
+        A: Non-dimensional cohesion.
+        B: Non-dimensional covolume.
+
+    Returns:
+        `See here <https://de.wikipedia.org/wiki/Cardanische_Formeln>`_
+        in section 3-root case, trigonometric approach.
+
+    """
+    c2 = coef2(A, B)
+    q = red_coef0(A, B)
+    r = red_coef1(A, B)
+
+    t_2 = sp.acos(-q / 2 * sp.sqrt(-27 * r ** (-3))) / 3
+    t_1 = sp.sqrt(-4 / 3 * r)
+
+    return -t_1 * sp.cos(t_2 + np.pi / 3) - c2 / 3
+
+
+def one_root(A: sp.Symbol, B: sp.Symbol) -> sp.Expr:
+    """Formulae for single, real root.
+
+    Only valid in 1-root case (see :func:`get_root_case_c`).
+
+    Important:
+        This returns a piece-wise expression, due to some special choices of root
+        computation for numerical reasons.
+
+        Lambdification only with module ``'math'``.
+        The lambdified expression usind module ``'numpy'`` cannot be compiled by
+        numba.
+
+        Furthermore, a custom implementation of the cubic root is used, which
+        allways returns the principal cubic root (which is always real).
+
+        This custom implementation must be replaced upon lambdification, using
+        the module argument ``[{'_cbrt': numpy.cbrt}, 'math']``
+
+    Parameters:
+        A: Non-dimensional cohesion.
+        B: Non-dimensional covolume.
+
+    Returns:
+        `See here <https://de.wikipedia.org/wiki/Cardanische_Formeln>`_
+        in section 1-root case.
+
+    """
+    c2 = coef2(A, B)
+    q = red_coef0(A, B)
+    r = red_coef1(A, B)
+    d = discr(q, r)
+
+    t1 = sp.sqrt(d) - q * 0.5
+    t2 = -1 * (sp.sqrt(d) + q * 0.5)
+
+    t = sp.Piecewise((t2, sp.Abs(t2) > sp.Abs(t1)), (t1, True))
+
+    u = _cbrt(t)  # TODO potential source of error
+
+    return u - r / (3 * u) - c2 / 3
+
+
+def ext_root_gharbia(Z: sp.Expr, B: sp.Symbol) -> sp.Expr:
+    r"""Formula for the Ben Gharbia extension in the case of only one real root in the
+    subcritical area of the A-B space.
+
+    Parameters:
+        Z: The single, real root
+        B: Non-dimensional covolume.
+
+    Returns:
+        The expression :math:`\frac{1 - B - Z}{2}`.
+
+    """
+    return (1 - B - Z) / 2
+
+
+def ext_root_scg(Z: sp.Expr, B: sp.Symbol) -> sp.Expr:
+    r"""Formula for the extended, gas-like root, outside the subcritical area defined
+    by Ben Gharbia et al..
+
+    Parameters:
+        Z: The single, real root
+        B: Non-dimensional covolume.
+
+    Returns:
+        The expression :math:`\frac{1 - B - Z}{2} + B`.
+
+    """
+    return (1 - B - Z) / 2 + B
+
+
+def ext_root_scl(Z: sp.Expr, B: sp.Symbol) -> sp.Expr:
+    r"""Formula for the extended, liquid-like root, outside the subcritical area defined
+    by Ben Gharbia et al.
+
+    This is the counterpart to :func:`ext_root_scg` for the case when the liquid-like
+    phase needs to be extended.
+
+    To be used also in the 3-root region above the critical line in the A-B space.
+
+    Parameters:
+        Z: The single, real root
+        B: Non-dimensional covolume.
+
+    Returns:
+        The expression :math:`\frac{B - Z}{2} + Z`.
+
+    """
+    return (B - Z) / 2 + Z
+
+
+# endregion
+# region Functions related to the A-B space
+
+critical_line_c: Callable[[float], float] = numba.njit(
+    "float64(float64)", **_STATIC_FAST_COMPILE_ARGS
+)(critical_line)
+"""NJIT-ed version of :func:`critical_line`.
+
+Signature: ``(float64) -> float64``
+
+"""
+
+
+critical_line_u = numba.vectorize(
+    [numba.float64(numba.float64)],
+    nopython=True,
+    fastmath=True,
+    cache=True,
+)(critical_line_c)
+"""Numpy-universal version of :func:`critical_line_c`."""
+
+
+widom_line_c: Callable[[float], float] = numba.njit(
+    "float64(float64)", fastmath=True, cache=True
+)(widom_line)
+"""NJIT-ed version of :func:`widom_line`.
+
+Signature: ``(float64) -> float64``
+
+"""
+
+
+widom_line_u = numba.vectorize(
+    [numba.float64(numba.float64)],
+    nopython=True,
+    fastmath=True,
+    cache=True,
+)(widom_line_c)
+"""Numpy-universal version of :func:`widom_line_c`."""
+
+
+point_to_line_distance_c = numba.njit(
+    [
+        numba.float64(
+            numba.types.Array(numba.float64, 1, "C", readonly=False),
+            numba.types.Array(numba.float64, 1, "C", readonly=True),
+            numba.types.Array(numba.float64, 1, "C", readonly=True),
+        ),
+        numba.float64(
+            numba.types.Array(numba.float64, 1, "C", readonly=False),
+            numba.types.Array(numba.float64, 1, "C", readonly=False),
+            numba.types.Array(numba.float64, 1, "C", readonly=False),
+        ),
+    ],
+    cache=True,  # NOTE no fastmath because of sqrt and abs for small numbers
+)(point_to_line_distance)
+"""NJIT-ed version of :func:`point_to_line_distance`.
+
+Signatures:
+
+- ``(float64[:], float64[:], float64[:]) -> float64``.
+- ``(float64[:], readonly float64[:], readonly float64[:]) -> float64``.
+
+Second signature is for the case the line is constant and defined somewhere.
+
+Important:
+    Compared to the original function, this one is only meant for a single point
+    given as a 1D array of two floats.
+
+"""
+
+
+# endregion
+# region Functions, expressions and symbols related to the compressibility factor
+
+
+A_s: sp.Symbol = sp.Symbol("A")
+
+B_s: sp.Symbol = sp.Symbol("B")
+
+_AB_arg: list[sp.Symbol] = [A_s, B_s]
+"""Arguments for lambdified expressions representing any root of the characteristic
+polynomial."""
+
+# Symbolic expressions for roots
+
+Z_triple_e: sp.Expr = triple_root(A_s, B_s)
+d_Z_triple_e: list[sp.Expr] = [Z_triple_e.diff(_) for _ in _AB_arg]
+
+Z_one_e: sp.Expr = one_root(A_s, B_s)
+d_Z_one_e: list[sp.Expr] = [Z_one_e.diff(_) for _ in _AB_arg]
+
+Z_ext_sub_e: sp.Expr = ext_root_gharbia(Z_one_e, B_s)
+d_Z_ext_sub_e: list[sp.Expr] = [Z_ext_sub_e.diff(_) for _ in _AB_arg]
+
+Z_ext_scg_e: sp.Expr = ext_root_scg(Z_one_e, B_s)
+d_Z_ext_scg_e: list[sp.Expr] = [Z_ext_scg_e.diff(_) for _ in _AB_arg]
+
+Z_ext_scl_e: sp.Expr = ext_root_scl(Z_one_e, B_s)
+d_Z_ext_scl_e: list[sp.Expr] = [Z_ext_scl_e.diff(_) for _ in _AB_arg]
+
+Z_double_g_e: sp.Expr = double_root(A_s, B_s, True)
+d_Z_double_g_e: list[sp.Expr] = [Z_double_g_e.diff(_) for _ in _AB_arg]
+
+Z_double_l_e: sp.Expr = double_root(A_s, B_s, False)
+d_Z_double_l_e: list[sp.Expr] = [Z_double_l_e.diff(_) for _ in _AB_arg]
+
+Z_three_g_e: sp.Expr = three_root(A_s, B_s, True)
+d_Z_three_g_e: list[sp.Expr] = [Z_three_g_e.diff(_) for _ in _AB_arg]
+
+Z_three_l_e: sp.Expr = three_root(A_s, B_s, False)
+d_Z_three_l_e: list[sp.Expr] = [Z_three_l_e.diff(_) for _ in _AB_arg]
+
+Z_three_i_e: sp.Expr = three_root_intermediate(A_s, B_s)
+d_Z_three_i_e: list[sp.Expr] = [Z_three_i_e.diff(_) for _ in _AB_arg]
+
+# NJIT compilation of lambdified expressions
+
+
+def _compile_Z_diffs(
+    d_Z_: list[sp.Expr], fastmath: bool = False, lambdify_mod: Any = None
+) -> Callable[[float, float], np.ndarray]:
+    """Helper function to wrap derivatives of compressibility factors into arrays.
+
+    Parameters:
+        d_Z_: Symbolic expression of derivative of root,
+            dependent on symbols for A and B.
+        fastmath: for numba (use only for simple expressions)
+        lambdify_mod: module argument for :func:`sympy.lambdify`
+
+    Returns:
+        NJIT-compiled function with signature ``(float64, float64) -> float64[:]``.
+
+    """
+
+    f = (
+        sp.lambdify(_AB_arg, d_Z_)
+        if lambdify_mod is None
+        else sp.lambdify(_AB_arg, d_Z_, lambdify_mod)
+    )
+    f_ = numba.njit(f, cache=True, fastmath=fastmath)
+
+    @numba.njit("float64[:](float64, float64)", cache=True, fastmath=fastmath)
+    def inner(a, b):
+        return np.array(f_(a, b), dtype=np.float64)
+
+    return inner
+
+
+def _compile_Z(
+    Z_: sp.Expr, fastmath: bool = False, lambdify_mod: Any = None
+) -> Callable[[float, float], float]:
+    """Helper function to compile expressions representing compressibility factors as
+    roots.
+
+    Parameters:
+        Z_: Symbolic expression for root, dependent on symbols for A and B.
+        fastmath: for numba (use only for simple expressions)
+        lambdify_mod: module argument for :func:`sympy.lambdify`
+
+    Returns:
+        NJIT-compiled function with signature ``(float64, float64) -> float64``.
+
+    """
+    f = (
+        sp.lambdify(_AB_arg, Z_)
+        if lambdify_mod is None
+        else sp.lambdify(_AB_arg, Z_, lambdify_mod)
+    )
+    return numba.njit("float64(float64, float64)", cache=True, fastmath=fastmath)(f)
+
+
+Z_triple_c: Callable[[float, float], float] = _compile_Z(Z_triple_e, fastmath=True)
+d_Z_triple_c: Callable[[float, float], np.ndarray] = _compile_Z_diffs(
+    d_Z_triple_e, fastmath=True
+)
+
+# because piecewise and to provide numeric evaluation of custom cubic root
+_module_one_root = [{"_cbrt": np.cbrt}, "math"]
+
+Z_one_c: Callable[[float, float], float] = _compile_Z(
+    Z_one_e, lambdify_mod=_module_one_root
+)
+d_Z_one_c: Callable[[float, float], np.ndarray] = _compile_Z_diffs(
+    d_Z_one_e, lambdify_mod=_module_one_root
+)
+
+Z_ext_sub_c: Callable[[float, float], float] = _compile_Z(
+    Z_ext_sub_e, lambdify_mod=_module_one_root
+)
+d_Z_ext_sub_c: Callable[[float, float], np.ndarray] = _compile_Z_diffs(
+    d_Z_ext_sub_e, lambdify_mod=_module_one_root
+)
+
+Z_ext_scg_c: Callable[[float, float], float] = _compile_Z(
+    Z_ext_scg_e, lambdify_mod=_module_one_root
+)
+d_Z_ext_scg_c: Callable[[float, float], np.ndarray] = _compile_Z_diffs(
+    d_Z_ext_scg_e, lambdify_mod=_module_one_root
+)
+
+Z_ext_scl_c: Callable[[float, float], float] = _compile_Z(
+    Z_ext_scl_e, lambdify_mod=_module_one_root
+)
+d_Z_ext_scl_c: Callable[[float, float], np.ndarray] = _compile_Z_diffs(
+    d_Z_ext_scl_e, lambdify_mod=_module_one_root
+)
+
+# because piece-wise
+_module_double_root = "math"
+
+Z_double_g_c: Callable[[float, float], float] = _compile_Z(
+    Z_double_g_e, lambdify_mod=_module_double_root
+)
+d_Z_double_g_c: Callable[[float, float], np.ndarray] = _compile_Z_diffs(
+    d_Z_double_g_e, lambdify_mod=_module_double_root
+)
+
+Z_double_l_c: Callable[[float, float], float] = _compile_Z(
+    Z_double_l_e, lambdify_mod=_module_double_root
+)
+d_Z_double_l_c: Callable[[float, float], np.ndarray] = _compile_Z_diffs(
+    d_Z_double_l_e, lambdify_mod=_module_double_root
+)
+
+Z_three_g_c: Callable[[float, float], float] = _compile_Z(Z_three_g_e)
+d_Z_three_g_c: Callable[[float, float], np.ndarray] = _compile_Z_diffs(d_Z_three_g_e)
+
+Z_three_l_c: Callable[[float, float], float] = _compile_Z(Z_three_l_e)
+d_Z_three_l_c: Callable[[float, float], np.ndarray] = _compile_Z_diffs(d_Z_three_l_e)
+
+Z_three_i_c: Callable[[float, float], float] = _compile_Z(Z_three_i_e)
+d_Z_three_i_c: Callable[[float, float], np.ndarray] = _compile_Z_diffs(d_Z_three_i_e)
+
+
+@numba.njit("int8(int8, float64, float64, float64)", cache=True, fastmath=True)
+def is_real_root(gaslike: int, A: float, B: float, eps: float = 1e-14) -> int:
+    """Checks if a configuration of gas-like flag, cohesion and covolume would
+    lead to an real root.
+
+    If not, an extension procedure was applied, i.e. the compressibility factor
+    is not an actual root of the characteristic polynomial.
+
+    Parameters:
+        gaslike: 1 if a gas-like root is assumed, 0 otherwise.
+        A: Non-dimensional cohesion.
+        B: Non-dimensional covolume.
+        eps: ``default=1e-14``
+
+            Numerical zero, used to determine the root case
+            (see :func:`get_root_case_c`).
+
+    Returns:
+        1, if the root is a real root of the polynomial, 0 if it is an extended root.
+
+    """
+    nroot = get_root_case_c(A, B, eps)
+    # super critical check
+    is_sc = B >= critical_line_c(A)
+    # below widom -> gas-like root is extended
+    below_widom = B <= widom_line_c(A)
+
+    ext = 1  # default return value is 1, real root.
+
+    # only here can an extended representation be used
+    if nroot == 1 and below_widom and gaslike:
+        ext = 0
+    elif nroot == 3 and is_sc and gaslike == 0:
+        ext = 0
+
+    return ext
+
+
+@numba.njit(
+    "float64(int8, float64, float64, float64, float64, float64)",
+    cache=True,
+)
+def Z_c(
+    gaslike: int,
+    A: float,
+    B: float,
+    eps: float = 1e-14,
+    smooth_e: float = 1e-2,
+    smooth_3: float = 1e-3,
+) -> float:
+    """Computation of the (extended) compressibility factor depending on A and B.
+
+    NJIT-ed function with signature
+    ``(int8, float64, float64, float64, float64, float64) -> float64``
+
+    It determince the root case, depending on A and B, and applies the
+    correct formula to obtain the root.
+    It also computes the extended root, if it turns out to be required.
+
+    To check if a root is extended, see :func:`is_extended`
+
+    Parameters:
+        gaslike: 0 if the computation should return the liquid-like root, 1 for the
+            gas-like root.
+        A: Non-dimensional cohesion.
+        B: Non-dimensional covolume.
+        eps: ``default=1e-14``
+
+            Numerical zero, used to determine the root case
+            (see :func:`get_root_case_c`).
+        smooth_e: ``default=1e-2``
+
+            Width of smoothing area around borders between areas of different extension
+            procedures.
+
+            Set to 0. to turn of this moothing.
+        smooth_3: ``default=1e-3``
+
+            Width of area in the subcritical 2-phase/ 3-root region for smoothing
+            according Ben Gharbia et al. (2021)
+
+            Set to 0. to turn it of.
+
+    Returns:
+        The (possibly extended) compressibility factor.
+
+    """
+    # computed root
+    root_out = 0.0
+    AB_point = np.array([A, B])
+
+    # super critical check
+    is_sc = B >= critical_line_c(A)
+    # below widom -> gas-like root is extended
+    below_widom = B <= widom_line_c(A)
+    # determine number of roots
+    nroot = get_root_case_c(A, B, eps)
+
+    if nroot == 1:
+        Z_1_real = Z_one_c(A, B)
+        # Extension procedure according Ben Gharbia et al.
+        # though we use the Widom-line to distinguis between roots, not their size
+        if not is_sc and B < B_CRIT:
+            W = Z_ext_sub_c(A, B)
+            if below_widom:
+                root_out = W if gaslike else Z_1_real
+
+            else:
+                root_out = Z_1_real if gaslike else W
+        # Extension procedure with asymmetric extension of gas
+        elif below_widom and B >= B_CRIT:
+            if gaslike:
+                W = Z_ext_scg_c(A, B)
+
+                # computing distance to border to subcritical extension
+                # smooth if close
+                d = point_to_line_distance_c(
+                    AB_point,
+                    B_CRIT_LINE_POINTS[0],
+                    B_CRIT_LINE_POINTS[1],
+                )
+                if smooth_e > 0.0 and d < smooth_e:
+                    d_n = d / smooth_e
+                    W = Z_ext_sub_c(A, B) * (1 - d_n) + W * d_n
+
+                root_out = W
+            else:
+                root_out = Z_1_real
+        # Extension procedure with asymmetric extension of liquid
+        else:
+            if gaslike:
+                root_out = Z_1_real
+            else:
+                W = Z_ext_scl_c(A, B)
+
+                # computing distance to Widom-line,
+                # which separates gas and liquid in supercrit area
+                d = point_to_line_distance_c(
+                    AB_point,
+                    W_LINE_POINTS[0],
+                    W_LINE_POINTS[1],
+                )
+                if smooth_e > 0.0 and d < smooth_e and B >= B_CRIT:
+                    d_n = d / smooth_e
+                    W = Z_ext_scg_c(A, B) * (1 - d_n) + W * d_n
+
+                # Computing distance to supercritical line,
+                # which separates sub- and supercritical liquid extension
+                d = point_to_line_distance_c(
+                    AB_point,
+                    S_CRIT_LINE_POINTS[0],
+                    S_CRIT_LINE_POINTS[1],
+                )
+                if smooth_e > 0.0 and d < smooth_e and B < B_CRIT:
+                    d_n = d / smooth_e
+                    W = Z_ext_sub_c(A, B) * (1 - d_n) + W * d_n
+
+                root_out = W
+    elif nroot == 2:
+        if gaslike > 0:
+            root_out = Z_double_g_c(A, B)
+        else:
+            root_out = Z_double_l_c(A, B)
+    elif nroot == 3:
+        # triple root area above the critical line is substituted with the
+        # extended supercritical liquid-like root
+        if is_sc:
+            if gaslike:
+                root_out = Z_three_g_c(A, B)
+            else:
+                W = Z_ext_scl_c(A, B)
+
+                # computing distance to Widom-line,
+                # which separates gas and liquid in supercrit area
+                d = point_to_line_distance_c(
+                    AB_point,
+                    W_LINE_POINTS[0],
+                    W_LINE_POINTS[1],
+                )
+                if smooth_e > 0.0 and d < smooth_e and B >= B_CRIT:
+                    d_n = d / smooth_e
+                    W = Z_ext_scg_c(A, B) * (1 - d_n) + W * d_n
+
+                # Computing distance to supercritical line,
+                # which separates sub- and supercritical liquid extension
+                d = point_to_line_distance_c(
+                    AB_point,
+                    S_CRIT_LINE_POINTS[0],
+                    S_CRIT_LINE_POINTS[1],
+                )
+                if smooth_e > 0.0 and d < smooth_e and B < B_CRIT:
+                    d_n = d / smooth_e
+                    W = Z_ext_sub_c(A, B) * (1 - d_n) + W * d_n
+
+                root_out = W
+        else:
+            # smoothing according Ben Gharbia et al., in physical 2-phase region
+            if smooth_3 > 0.0:
+                Z_l = Z_three_l_c(A, B)
+                Z_i = Z_three_i_c(A, B)
+                Z_g = Z_three_g_c(A, B)
+
+                d = (Z_i - Z_l) / (Z_g - Z_l)
+
+                # gas root smoothing
+                if gaslike:
+                    # gas root smoothing weight
+                    v_g = (d - (1 - 2 * smooth_3)) / smooth_3
+                    v_g = v_g**2 * (3 - 2 * v_g)
+                    if d >= 1 - smooth_3:
+                        v_g = 1.0
+                    elif d <= 1 - 2 * smooth_3:
+                        v_g = 0.0
+
+                    root_out = Z_g * (1 - v_g) + (Z_i + Z_g) * 0.5 * v_g
+                # liquid root smoothing
+                else:
+                    v_l = (d - smooth_3) / smooth_3
+                    v_l = -(v_l**2) * (3 - 2 * v_l) + 1.0
+                    if d <= smooth_3:
+                        v_l = 1.0
+                    elif d >= 2 * smooth_3:
+                        v_l = 0.0
+
+                    root_out = Z_l * (1 - v_l) + (Z_i + Z_l) * 0.5 * v_l
+            else:
+                if gaslike:
+                    root_out = Z_three_g_c(A, B)
+                else:
+                    root_out = Z_three_l_c(A, B)
+    else:
+        root_out = Z_triple_c(A, B)
+
+    return root_out
+
+
+@numba.guvectorize(
+    ["void(int8, float64, float64, float64, float64, float64, float64[:])"],
+    "(),(),(),(),(),()->()",
+    target="parallel",
+    nopython=True,
+    cache=True,
+)
+def _Z_u(
+    gaslike,
+    A,
+    B,
+    eps,
+    smooth_e,
+    smooth_3,
+    out,
+):
+    """Internal ufunc because it cannot have default arguments"""
+    out[0] = Z_c(gaslike, A, B, eps, smooth_e, smooth_3)
+
+
+def Z_u(
+    gaslike: bool | int,
+    A: float | np.ndarray,
+    B: float | np.ndarray,
+    eps: float = 1e-14,
+    smooth_e: float = 1e-2,
+    smooth_3: float = 1e-3,
+) -> float | np.ndarray:
+    """Numpy-universal function of :func:`Z_c`.
+
+    This is a shallow wrapper of the actual ufunc to allow default arguments.
+
+    """
+    # get correct shape independent of format of input
+    out = np.empty_like(A + B)
+    _Z_u(int(gaslike), A, B, eps, smooth_e, smooth_3, out)
+    return out
+
+
+@numba.njit(
+    "float64[:](int8, float64, float64, float64, float64, float64)",
+    cache=True,
+)
+def d_Z_c(
+    gaslike: int,
+    A: float,
+    B: float,
+    eps: float = 1e-14,
+    smooth_e: float = 1e-2,
+    smooth_3: float = 1e-3,
+) -> np.ndarray:
+    """Analogoues to :func:`Z_c`, only returns an array instead of the root.
+    The array contains the derivative w.r.t. A and B of the root"""
+
+    # derivatives of the root
+    dz = np.zeros(2)
+    AB_point = np.array([A, B])
+
+    # super critical check
+    is_sc = B >= critical_line_c(A)
+    # below widom -> gas-like root is extended
+    below_widom = B <= widom_line_c(A)
+    # determine number of roots
+    nroot = get_root_case_c(A, B, eps)
+
+    if nroot == 1:
+        d_Z_1_real = d_Z_one_c(A, B)
+        # Extension procedure according Ben Gharbia et al.
+        if not is_sc and B < B_CRIT:
+            W = d_Z_ext_sub_c(A, B)
+            if below_widom:
+                dz = W if gaslike else d_Z_1_real
+
+            else:
+                dz = d_Z_1_real if gaslike else W
+        # Extension procedure with asymmetric extension of gas
+        elif below_widom and B >= B_CRIT:
+            if gaslike:
+                W = d_Z_ext_scg_c(A, B)
+
+                # computing distance to border to subcritical extension
+                # smooth if close
+                d = point_to_line_distance_c(
+                    AB_point,
+                    B_CRIT_LINE_POINTS[0],
+                    B_CRIT_LINE_POINTS[1],
+                )
+                if smooth_e > 0.0 and d < smooth_e:
+                    d_n = d / smooth_e
+                    W = d_Z_ext_sub_c(A, B) * (1 - d_n) + W * d_n
+
+                dz = W
+            else:
+                dz = d_Z_1_real
+        # Extension procedure with asymmetric extension of liquid
+        else:
+            if gaslike:
+                dz = d_Z_1_real
+            else:
+                W = d_Z_ext_scl_c(A, B)
+
+                # computing distance to Widom-line,
+                # which separates gas and liquid in supercrit area
+                d = point_to_line_distance_c(
+                    AB_point,
+                    W_LINE_POINTS[0],
+                    W_LINE_POINTS[1],
+                )
+                if smooth_e > 0.0 and d < smooth_e and B >= B_CRIT:
+                    d_n = d / smooth_e
+                    W = d_Z_ext_scg_c(A, B) * (1 - d_n) + W * d_n
+
+                # Computing distance to supercritical line,
+                # which separates sub- and supercritical liquid extension
+                d = point_to_line_distance_c(
+                    AB_point,
+                    S_CRIT_LINE_POINTS[0],
+                    S_CRIT_LINE_POINTS[1],
+                )
+                if smooth_e > 0.0 and d < smooth_e and B < B_CRIT:
+                    d_n = d / smooth_e
+                    W = d_Z_ext_sub_c(A, B) * (1 - d_n) + W * d_n
+
+                dz = W
+    elif nroot == 2:
+        if gaslike:
+            dz = d_Z_double_g_c(A, B)
+        else:
+            dz = d_Z_double_l_c(A, B)
+    elif nroot == 3:
+        # triple root area above the critical line is substituted with the
+        # extended supercritical liquid-like root
+        if is_sc:
+            if gaslike:
+                dz = d_Z_three_g_c(A, B)
+            else:
+                W = d_Z_ext_scl_c(A, B)
+
+                # computing distance to Widom-line,
+                # which separates gas and liquid in supercrit area
+                d = point_to_line_distance_c(
+                    AB_point,
+                    W_LINE_POINTS[0],
+                    W_LINE_POINTS[1],
+                )
+                if smooth_e > 0.0 and d < smooth_e and B >= B_CRIT:
+                    d_n = d / smooth_e
+                    W = d_Z_ext_scg_c(A, B) * (1 - d_n) + W * d_n
+
+                # Computing distance to supercritical line,
+                # which separates sub- and supercritical liquid extension
+                d = point_to_line_distance_c(
+                    AB_point,
+                    S_CRIT_LINE_POINTS[0],
+                    S_CRIT_LINE_POINTS[1],
+                )
+                if smooth_e > 0.0 and d < smooth_e and B < B_CRIT:
+                    d_n = d / smooth_e
+                    W = d_Z_ext_sub_c(A, B) * (1 - d_n) + W * d_n
+
+                dz = W
+        else:
+            # smoothing according Ben Gharbia et al., in physical 2-phase region
+            if smooth_3 > 0.0:
+                Z_l = Z_three_l_c(A, B)
+                Z_i = Z_three_i_c(A, B)
+                Z_g = Z_three_g_c(A, B)
+
+                d_Z_l = d_Z_three_l_c(A, B)
+                d_Z_i = d_Z_three_i_c(A, B)
+                d_Z_g = d_Z_three_g_c(A, B)
+
+                d = (Z_i - Z_l) / (Z_g - Z_l)
+
+                # gas root smoothing
+                if gaslike:
+                    # gas root smoothing weight
+                    v_g = (d - (1 - 2 * smooth_3)) / smooth_3
+                    v_g = v_g**2 * (3 - 2 * v_g)
+                    if d >= 1 - smooth_3:
+                        v_g = 1.0
+                    elif d <= 1 - 2 * smooth_3:
+                        v_g = 0.0
+
+                    dz = d_Z_g * (1 - v_g) + (d_Z_i + d_Z_g) * 0.5 * v_g
+                # liquid root smoothing
+                else:
+                    v_l = (d - smooth_3) / smooth_3
+                    v_l = -(v_l**2) * (3 - 2 * v_l) + 1.0
+                    if d <= smooth_3:
+                        v_l = 1.0
+                    elif d >= 2 * smooth_3:
+                        v_l = 0.0
+
+                    dz = d_Z_l * (1 - v_l) + (d_Z_i + d_Z_l) * 0.5 * v_l
+            else:
+                dz = d_Z_three_g_c(A, B) if gaslike else d_Z_three_l_c(A, B)
+    else:
+        dz = d_Z_triple_c(A, B)
+
+    return dz
+
+
+@numba.guvectorize(
+    ["void(int8, float64, float64, float64, float64, float64, float64[:], float64[:])"],
+    "(),(),(),(),(),(),(m)->(m)",
+    target="parallel",
+    nopython=True,
+    cache=True,
+)
+def _d_Z_u(
+    gaslike,
+    A,
+    B,
+    eps,
+    smooth_e,
+    smooth_3,
+    out,
+    dummy,
+):
+    """Internal ufunc because it cannot have default arguments"""
+    # dummy is required to get the dimension of of the derivative
+    # per row in vectorized computations (m in layout arg to guvectorize)
+    # https://stackoverflow.com/questions/66052723/bad-token-in-signature-with-numba-guvectorize
+    out[:] = d_Z_c(gaslike, A, B, eps, smooth_e, smooth_3)
+
+
+def d_Z_u(
+    gaslike: bool | int,
+    A: float | np.ndarray,
+    B: float | np.ndarray,
+    eps: float = 1e-14,
+    smooth_e: float = 1e-2,
+    smooth_3: float = 1e-3,
+) -> float | np.ndarray:
+    """Numpy-universal function of :func:`d_Z_c`.
+
+    This is a shallow wrapper of the actual ufunc to allow default arguments.
+
+    """
+    # get correct shape independent of format of input
+    out_ = np.empty_like(A + B)
+    if out_.shape:
+        out = np.empty((out_.shape[0], 2))
+    else:
+        out = np.empty((1, 2), dtype=np.float64)
+    _d_Z_u(int(gaslike), A, B, eps, smooth_e, smooth_3, out)
+    # TODO in the case of scalar input (not vectorized)
+    # decide if return arg has shape (1,n) or (n,)
+    return out
+
+
+# endregion

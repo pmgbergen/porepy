@@ -1151,7 +1151,7 @@ def _plot_Widom_line(axis: plt.Axes, A_mesh: np.ndarray, B_mesh: np.ndarray):
     B_CRIT = pp.composite.peng_robinson.B_CRIT
     x_vals = np.sort(np.unique(A_mesh.flatten()))
     x_vals = x_vals[x_vals >= A_CRIT]
-    y_vals = pp.composite.peng_robinson.PengRobinsonEoS.Widom_line(x_vals)
+    y_vals = pp.composite.peng_robinson.widom_line(x_vals)
     cap = y_vals <= B_mesh.max()
     y_vals = y_vals[cap]
     x_vals = x_vals[cap]
@@ -1194,7 +1194,7 @@ def plot_root_regions(
     imgs_c, legs_c = _plot_critical_line(axis, A_mesh)
 
     violated = (liq_root <= B_mesh) & (
-        B_mesh >= pp.composite.peng_robinson.PengRobinsonEoS.critical_line(A_mesh)
+        B_mesh >= pp.composite.peng_robinson.critical_line(A_mesh)
     )
     if np.any(violated):
         mr = np.ma.array(regions, mask=np.logical_not(violated))

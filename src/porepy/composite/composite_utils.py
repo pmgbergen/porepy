@@ -5,7 +5,7 @@ The subpackage is built around the assumptions made here.
 from __future__ import annotations
 
 import abc
-from typing import Any
+from typing import Any, Sequence
 
 import numpy as np
 
@@ -46,7 +46,7 @@ def trunclog(var, eps):
         return np.log(np.maximum(var, eps))
 
 
-def safe_sum(x: tuple[Any]) -> Any:
+def safe_sum(x: Sequence[Any]) -> Any:
     """Auxiliary method to safely sum the elements, without creating
     a first addition with 0 (important for AD operators to avoid overhead)."""
     if len(x) >= 1:
