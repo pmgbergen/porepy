@@ -43,7 +43,6 @@ class ManuCompExactSolution3d:
     """Class containing the exact manufactured solution for the verification setup."""
 
     def __init__(self, setup):
-
         # Model setup
         self.setup = setup
 
@@ -233,7 +232,7 @@ class ManuCompExactSolution3d:
 
         # Cell-centered pressures
         p_cc = np.zeros(sd_matrix.num_cells)
-        for (p, idx) in zip(p_fun, cell_idx):
+        for p, idx in zip(p_fun, cell_idx):
             p_cc += p(cc[0], cc[1], cc[2], time) * idx
 
         return p_cc
@@ -338,7 +337,7 @@ class ManuCompExactSolution3d:
         # Integrated cell-centered sources
         vol = sd_matrix.cell_volumes
         f_cc = np.zeros(sd_matrix.num_cells)
-        for (f, idx) in zip(f_fun, cell_idx):
+        for f, idx in zip(f_fun, cell_idx):
             f_cc += f(cc[0], cc[1], cc[2], time) * vol * idx
 
         return f_cc
@@ -461,13 +460,13 @@ class ManuCompExactSolution3d:
 
     def matrix_boundary_pressure(
         self,
-        sd_matrix: pp.Grid,
+        bg_matrix: pp.BoundaryGrid,
         time: pp.number,
     ) -> np.ndarray:
         """Exact pressure at the boundary faces.
 
         Parameters:
-            sd_matrix: Matrix grid.
+            bg_matrix: Boundary grid of the matrix.
             time: time in seconds.
 
         Returns:
@@ -479,19 +478,16 @@ class ManuCompExactSolution3d:
         x, y, z, t = sym.symbols("x y z t")
 
         # Get list of face indices
-        fc = sd_matrix.face_centers
+        fc = bg_matrix.cell_centers
         face_idx = self.get_region_indices(where="fc")
-
-        # Boundary faces
-        bc_faces = sd_matrix.get_boundary_faces()
 
         # Lambdify expression
         p_fun = [sym.lambdify((x, y, z, t), p, "numpy") for p in self.p_matrix]
 
         # Boundary pressures
-        p_bf = np.zeros(sd_matrix.num_faces)
-        for (p, idx) in zip(p_fun, face_idx):
-            p_bf[bc_faces] += p(fc[0], fc[1], fc[2], time)[bc_faces] * idx[bc_faces]
+        p_bf = np.zeros(bg_matrix.num_cells)
+        for p, idx in zip(p_fun, face_idx):
+            p_bf += p(fc[0], fc[1], fc[2], time) * idx
 
         return p_bf
 
@@ -509,25 +505,27 @@ class ManuCompExactSolution3d:
             on the exterior boundary faces for the given ``time``.
 
         """
-        # Symbolic variables
-        x, y, z, t = sym.symbols("x y z t")
+        assert False, "We should not need it anymore."
 
-        # Get list of face indices
-        fc = sd_matrix.face_centers
-        face_idx = self.get_region_indices(where="fc")
+    #     # Symbolic variables
+    #     x, y, z, t = sym.symbols("x y z t")
 
-        # Boundary faces
-        bc_faces = sd_matrix.get_boundary_faces()
+    #     # Get list of face indices
+    #     fc = sd_matrix.face_centers
+    #     face_idx = self.get_region_indices(where="fc")
 
-        # Lambdify expression
-        rho_fun = [sym.lambdify((x, y, z, t), rho, "numpy") for rho in self.rho_matrix]
+    #     # Boundary faces
+    #     bc_faces = sd_matrix.get_boundary_faces()
 
-        # Boundary pressures
-        rho_bf = np.zeros(sd_matrix.num_faces)
-        for (rho, idx) in zip(rho_fun, face_idx):
-            rho_bf[bc_faces] += rho(fc[0], fc[1], fc[2], time)[bc_faces] * idx[bc_faces]
+    #     # Lambdify expression
+    #     rho_fun = [sym.lambdify((x, y, z, t), rho, "numpy") for rho in self.rho_matrix]
 
-        return rho_bf
+    #     # Boundary pressures
+    #     rho_bf = np.zeros(sd_matrix.num_faces)
+    #     for (rho, idx) in zip(rho_fun, face_idx):
+    #         rho_bf[bc_faces] += rho(fc[0], fc[1], fc[2], time)[bc_faces] * idx[bc_faces]
+
+    #     return rho_bf
 
 
 # -----> Solution strategy

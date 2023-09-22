@@ -45,6 +45,7 @@ import numpy as np
 import porepy as pp
 import porepy.models.fluid_mass_balance as mass
 import porepy.models.poromechanics as poromechanics
+import porepy.models.momentum_balance as mechanics
 from porepy.models.derived_models.biot import BiotPoromechanics
 from porepy.utils.examples_utils import VerificationUtils
 from porepy.viz.data_saving_model_mixin import VerificationDataSaving
@@ -519,24 +520,7 @@ class PseudoOneDimensionalColumn(pp.ModelGeometry):
 
 
 # -----> Boundary conditions
-class TerzaghiBoundaryConditionsMechanics(
-    poromechanics.BoundaryConditionsMechanicsTimeDependent,
-):
-    bc_values_mechanics_key: str
-    """Keyword for accessing the boundary values for the mechanical subproblem."""
-
-    domain_boundary_sides: Callable[[pp.Grid], pp.domain.DomainSides]
-    """Boundary sides of the domain. Normally defined in a mixin instance of
-    :class:`~porepy.models.geometry.ModelGeometry`.
-
-    """
-
-    mdg: pp.MixedDimensionalGrid
-    """Mixed-dimensional grid for the current model. Normally defined in a mixin
-    instance of :class:`~porepy.models.geometry.ModelGeometry`.
-
-    """
-
+class TerzaghiBoundaryConditionsMechanics(mechanics.BoundaryConditionsMomentumBalance):
     params: dict
     """Parameter dictionary of the verification setup."""
 
@@ -546,9 +530,6 @@ class TerzaghiBoundaryConditionsMechanics(
     :class:`~porepy.models.solution_strategy.SolutionStrategy`.
 
     """
-
-    stress_keyword: str
-    """Keyword for accessing the parameters of the mechanical subproblem."""
 
     def applied_load(self) -> pp.number:
         """Obtain vertical load in scaled [Pa]."""
@@ -588,35 +569,29 @@ class TerzaghiBoundaryConditionsMechanics(
 
         return bc
 
-    def time_dependent_bc_values_mechanics(
-        self, subdomains: list[pp.Grid]
+    def boundary_displacement_values(
+        self, boundary_grid: pp.BoundaryGrid
     ) -> np.ndarray:
         """Boundary values for mechanics.
 
         Parameters:
-            subdomains: List of subdomains on which to define boundary conditions.
+            boundary_grid: The boundary grid on which to define boundary conditions.
 
         Returns:
             Array of boundary values. Only non-zero values are the ones associated to
             the North side of the domain.
 
         """
-        sd = subdomains[0]
-        _, _, _, north, *_ = self.domain_boundary_sides(sd)
-        bc_values = np.array([np.zeros(sd.num_faces), np.zeros(sd.num_faces)])
-        bc_values[1, north] = -self.applied_load() * sd.face_areas[north]
+        north = self.domain_boundary_sides(boundary_grid).north
+        bc_values = np.zeros((2, boundary_grid.num_cells))
+        boundary_face_areas = boundary_grid.cell_volumes
+        bc_values[1, north] = -self.applied_load() * boundary_face_areas[north]
         return bc_values.ravel("F")
 
 
 class TerzaghiBoundaryConditionsFlow(
     mass.BoundaryConditionsSinglePhaseFlow,
 ):
-    domain_boundary_sides: Callable[[pp.Grid], pp.domain.DomainSides]
-    """Boundary sides of the domain. Normally defined in a mixin instance of
-    :class:`~porepy.models.geometry.ModelGeometry`.
-
-    """
-
     def bc_type_darcy(self, sd: pp.Grid) -> pp.BoundaryCondition:
         """Define boundary condition types for the flow subproblem.
 

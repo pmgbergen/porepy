@@ -640,7 +640,7 @@ class ManuPoroMechMassBalance(mass.MassBalanceEquations):
         # AdArray.
         external_sources = pp.ad.TimeDependentDenseArray(
             name="source_flow",
-            subdomains=self.mdg.subdomains(),
+            domains=self.mdg.subdomains(),
             previous_timestep=True,
         )
 
@@ -678,7 +678,7 @@ class ManuPoroMechMomentumBalance(momentum.MomentumBalanceEquations):
 
         external_sources = pp.ad.TimeDependentDenseArray(
             name="source_mechanics",
-            subdomains=self.mdg.subdomains(),
+            domains=self.mdg.subdomains(),
             previous_timestep=True,
         )
 

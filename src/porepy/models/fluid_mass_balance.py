@@ -357,14 +357,6 @@ class ConstitutiveLawsSinglePhaseFlow(
 class BoundaryConditionsSinglePhaseFlow(pp.BoundaryConditionMixin):
     """Boundary conditions for single-phase flow."""
 
-    domain_boundary_sides: Callable[
-        [pp.Grid],
-        pp.domain.DomainSides,
-    ]
-    """Boundary sides of the domain. Normally defined in a mixin instance of
-    :class:`~porepy.models.geometry.ModelGeometry`.
-
-    """
     fluid: pp.FluidConstants
     """Fluid constant object that takes care of scaling of fluid-related quantities.
     Normally, this is set by a mixin of instance
@@ -426,10 +418,12 @@ class BoundaryConditionsSinglePhaseFlow(pp.BoundaryConditionMixin):
             Operator representing the boundary condition values for the Darcy flux.
 
         """
+        boundary_projection = pp.ad.BoundaryProjection(self.mdg, subdomains=subdomains)
         boundary_grids = self.subdomains_to_boundary_grids(subdomains)
         pressure_dirichlet = self.pressure(boundary_grids)
         flux_neumann = self.darcy_flux(boundary_grids)
         result = pressure_dirichlet + flux_neumann
+        result = boundary_projection.boundary_to_subdomain @ result
         result.set_name("bc_values_darcy")
         return result
 

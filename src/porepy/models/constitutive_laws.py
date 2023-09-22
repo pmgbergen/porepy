@@ -942,7 +942,6 @@ class DarcysLaw:
         """
         interfaces: list[pp.MortarGrid] = self.subdomains_to_interfaces(subdomains, [1])
         projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1)
-        boundary_projection = pp.ad.BoundaryProjection(self.mdg, subdomains=subdomains)
         discr: Union[pp.ad.TpfaAd, pp.ad.MpfaAd] = self.darcy_flux_discretization(
             subdomains
         )
@@ -951,9 +950,7 @@ class DarcysLaw:
             discr.bound_pressure_cell @ p
             + discr.bound_pressure_face
             @ (projection.mortar_to_primary_int @ self.interface_darcy_flux(interfaces))
-            + discr.bound_pressure_face
-            @ boundary_projection.boundary_to_subdomain
-            @ self.bc_values_darcy(subdomains)
+            + discr.bound_pressure_face @ self.bc_values_darcy(subdomains)
             + discr.vector_source @ self.vector_source(subdomains, material="fluid")
         )
         return pressure_trace
@@ -988,9 +985,7 @@ class DarcysLaw:
         intf_projection = pp.ad.MortarProjections(
             self.mdg, subdomains, interfaces, dim=1
         )
-        bound_projection = pp.ad.grid_operators.BoundaryProjection(
-            self.mdg, subdomains=subdomains
-        )
+
         discr: Union[pp.ad.TpfaAd, pp.ad.MpfaAd] = self.darcy_flux_discretization(
             subdomains
         )
@@ -998,8 +993,7 @@ class DarcysLaw:
             discr.flux @ self.pressure(subdomains)
             + discr.bound_flux
             @ (
-                bound_projection.boundary_to_subdomain
-                @ self.bc_values_darcy(subdomains)
+                self.bc_values_darcy(subdomains)
                 + intf_projection.mortar_to_primary_int
                 @ self.interface_darcy_flux(interfaces)
             )
@@ -2091,12 +2085,9 @@ class LinearElasticMechanicalStress:
         discr = self.stress_discretization(subdomains)
         # Fractures in the domain
         interfaces = self.subdomains_to_interfaces(subdomains, [1])
+
         # Boundary conditions on external boundaries
-        boundary_projection = pp.ad.BoundaryProjection(
-            self.mdg, subdomains=subdomains, dim=self.nd
-        )
-        bc_values = self.bc_values_mechanics(subdomains)
-        bc = boundary_projection.boundary_to_subdomain @ bc_values
+        bc = self.bc_values_mechanics(subdomains)
 
         proj = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=self.nd)
         # The stress in the subdomanis is the sum of the stress in the subdomain,
@@ -3201,11 +3192,7 @@ class PoroMechanicsPorosity:
         mortar_projection = pp.ad.MortarProjections(
             self.mdg, subdomains, interfaces, dim=self.nd
         )
-        boundary_projection = pp.ad.BoundaryProjection(
-            mdg=self.mdg, subdomains=subdomains, dim=self.nd
-        )
-        bc_values = self.bc_values_mechanics(subdomains)
-        bc = boundary_projection.boundary_to_subdomain @ bc_values
+        bc = self.bc_values_mechanics(subdomains)
 
         # Compose operator.
         div_u_integrated = discr.div_u @ self.displacement(

@@ -558,11 +558,13 @@ class ManuCompExactSolution2d:
 
         return lmbda_cc
 
-    def matrix_boundary_pressure(self, sd_matrix: pp.Grid, time: number) -> np.ndarray:
+    def matrix_boundary_pressure(
+        self, bg_matrix: pp.BoundaryGrid, time: number
+    ) -> np.ndarray:
         """Exact pressure at the boundary faces.
 
         Parameters:
-            sd_matrix: Matrix grid.
+            bg_matrix: Boundary grid of the matrix.
             time: time in seconds.
 
         Returns:
@@ -574,22 +576,19 @@ class ManuCompExactSolution2d:
         x, y, t = sym.symbols("x y t")
 
         # Get list of face indices
-        fc = sd_matrix.face_centers
+        fc = bg_matrix.cell_centers
         bot = fc[1] < 0.25
         mid = (fc[1] >= 0.25) & (fc[1] <= 0.75)
         top = fc[1] > 0.75
         face_idx = [bot, mid, top]
 
-        # Boundary faces
-        bc_faces = sd_matrix.get_boundary_faces()
-
         # Lambdify expression
         p_fun = [sym.lambdify((x, y, t), p, "numpy") for p in self.p_matrix]
 
         # Boundary pressures
-        p_bf = np.zeros(sd_matrix.num_faces)
+        p_bf = np.zeros(bg_matrix.num_cells)
         for p, idx in zip(p_fun, face_idx):
-            p_bf[bc_faces] += p(fc[0], fc[1], time)[bc_faces] * idx[bc_faces]
+            p_bf += p(fc[0], fc[1], time) * idx
 
         return p_bf
 
@@ -605,42 +604,39 @@ class ManuCompExactSolution2d:
             on the exterior boundary faces for the given ``time``.
 
         """
-        # Symbolic variables
-        x, y, t = sym.symbols("x y t")
+        assert False, "We should not need it anymore."
+        # # Symbolic variables
+        # x, y, t = sym.symbols("x y t")
 
-        # Get list of face indices
-        fc = sd_matrix.face_centers
-        bot = fc[1] < 0.25
-        mid = (fc[1] >= 0.25) & (fc[1] <= 0.75)
-        top = fc[1] > 0.75
-        face_idx = [bot, mid, top]
+        # # Get list of face indices
+        # fc = sd_matrix.face_centers
+        # bot = fc[1] < 0.25
+        # mid = (fc[1] >= 0.25) & (fc[1] <= 0.75)
+        # top = fc[1] > 0.75
+        # face_idx = [bot, mid, top]
 
-        # Boundary faces
-        bc_faces = sd_matrix.get_boundary_faces()
+        # # Boundary faces
+        # bc_faces = sd_matrix.get_boundary_faces()
 
-        # Lambdify expression
-        rho_fun = [sym.lambdify((x, y, t), rho, "numpy") for rho in self.rho_matrix]
+        # # Lambdify expression
+        # rho_fun = [sym.lambdify((x, y, t), rho, "numpy") for rho in self.rho_matrix]
 
-        # Boundary pressures
-        rho_bf = np.zeros(sd_matrix.num_faces)
-        for rho, idx in zip(rho_fun, face_idx):
-            rho_bf[bc_faces] += rho(fc[0], fc[1], time)[bc_faces] * idx[bc_faces]
+        # # Boundary pressures
+        # rho_bf = np.zeros(sd_matrix.num_faces)
+        # for rho, idx in zip(rho_fun, face_idx):
+        #     rho_bf[bc_faces] += rho(fc[0], fc[1], time)[bc_faces] * idx[bc_faces]
 
-        return rho_bf
+        # return rho_bf
 
 
 # -----> Boundary conditions
-class ManuCompBoundaryConditions:
+class ManuCompBoundaryConditions(
+    pp.fluid_mass_balance.BoundaryConditionsSinglePhaseFlow
+):
     """Set boundary conditions for the simulation model."""
 
-    domain_boundary_sides: Callable[[pp.Grid], pp.domain.DomainSides]
-    """Utility function to access the domain boundary sides."""
-
-    mdg: pp.MixedDimensionalGrid
-    """Mixed-dimensional grid object."""
-
-    time_manager: pp.TimeManager
-    """Properly initialized time manager object."""
+    exact_sol: ManuCompExactSolution2d
+    """Exact solution object."""
 
     def bc_type_darcy(self, sd: pp.Grid) -> pp.BoundaryCondition:
         """Set boundary condition types for the elliptic discretization."""
@@ -660,19 +656,20 @@ class ManuCompBoundaryConditions:
             boundary_faces = self.domain_boundary_sides(sd).all_bf
             return pp.BoundaryCondition(sd, boundary_faces, "neu")
 
-    def bc_values_darcy(self, subdomains: list[pp.Grid]) -> pp.ad.DenseArray:
-        """Set boundary condition values for the elliptic discretization."""
-        bc_values = pp.ad.TimeDependentDenseArray(
-            name="darcy_bc_values", subdomains=subdomains, previous_timestep=True
-        )
-        return bc_values
+    def boundary_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+        # Retrieve current time
+        t = self.time_manager.time
 
-    def bc_values_mobrho(self, subdomains: list[pp.Grid]) -> pp.ad.DenseArray:
-        """Set boundary condition values for the upwind discretization."""
-        bc_values = pp.ad.TimeDependentDenseArray(
-            name="mobrho_bc_values", subdomains=subdomains, previous_timestep=True
-        )
-        return bc_values
+        sd_matrix = self.mdg.subdomains()[0]
+        sd_frac = self.mdg.subdomains()[1]
+
+        # Boundary conditions for the elliptic discretization
+        if boundary_grid.parent == sd_matrix:
+            return self.exact_sol.matrix_boundary_pressure(boundary_grid, t)
+        elif boundary_grid.parent == sd_frac:
+            return np.zeros(boundary_grid.num_cells)
+        else:
+            raise ValueError(boundary_grid)
 
 
 # -----> Balance equations
@@ -689,7 +686,7 @@ class ManuCompBalanceEquation(pp.fluid_mass_balance.MassBalanceEquations):
         # AdArray.
         external_sources = pp.ad.TimeDependentDenseArray(
             name="external_sources",
-            subdomains=self.mdg.subdomains(),
+            domains=self.mdg.subdomains(),
             previous_timestep=True,
         )
 
@@ -757,8 +754,9 @@ class ManuCompSolutionStrategy2d(pp.fluid_mass_balance.SolutionStrategySinglePha
         # Instantiate exact solution object
         self.exact_sol = ManuCompExactSolution2d(self)
 
-    def before_nonlinear_loop(self) -> None:
+    def update_time_dependent_ad_arrays(self) -> None:
         """Update values of external sources and boundary conditions."""
+        super().update_time_dependent_ad_arrays()
 
         # Retrieve subdomains and data dictionaries
         sd_matrix = self.mdg.subdomains()[0]
@@ -784,41 +782,6 @@ class ManuCompSolutionStrategy2d(pp.fluid_mass_balance.SolutionStrategySinglePha
         pp.set_solution_values(
             name="external_sources",
             values=frac_source,
-            data=data_frac,
-            time_step_index=0,
-        )
-
-        # Boundary conditions for the elliptic discretization
-        matrix_pressure_boundary = self.exact_sol.matrix_boundary_pressure(sd_matrix, t)
-
-        pp.set_solution_values(
-            name="darcy_bc_values",
-            values=matrix_pressure_boundary,
-            data=data_matrix,
-            time_step_index=0,
-        )
-        pp.set_solution_values(
-            name="darcy_bc_values",
-            values=np.zeros(sd_frac.num_faces),
-            data=data_frac,
-            time_step_index=0,
-        )
-
-        # Boundary conditions for the upwind discretization
-        matrix_density_boundary = self.exact_sol.matrix_boundary_density(sd_matrix, t)
-        viscosity = self.fluid.viscosity()
-        matrix_mobrho = matrix_density_boundary / viscosity
-
-        pp.set_solution_values(
-            name="mobrho_bc_values",
-            values=matrix_mobrho,
-            data=data_matrix,
-            time_step_index=0,
-        )
-
-        pp.set_solution_values(
-            name="mobrho_bc_values",
-            values=np.zeros(sd_frac.num_faces),
             data=data_frac,
             time_step_index=0,
         )
