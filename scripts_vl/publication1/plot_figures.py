@@ -510,7 +510,7 @@ if __name__ == "__main__":
 
                 # liquid extension in super-crit area
                 if regions[i, j] == 3:
-                    b_c = eos.critical_line(A_)
+                    b_c = pp.composite.peng_robinson.critical_line(A_)
                     if B_ >= b_c:
                         root_extensions[i, j] = 1
                 # plotting extension in one-root region

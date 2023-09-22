@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 import numbers
 from dataclasses import dataclass
-from typing import Callable, Literal
+from typing import Callable, Literal, Any
 
 import numpy as np
 import scipy.sparse as sps
@@ -20,7 +20,7 @@ from .mixing import VanDerWaals
 from .pr_bip import load_bip
 from .pr_components import Component_PR
 
-__all__ = ["PhaseProperties_cubic", "PengRobinsonEoS", "A_CRIT", "B_CRIT", "Z_CRIT"]
+__all__ = ["PhaseProperties_cubic", "PengRobinsonEoS", "A_CRIT", "B_CRIT", "Z_CRIT", "critical_line", "widom_line"]
 
 logger = logging.getLogger(__name__)
 
@@ -47,6 +47,218 @@ Z_CRIT: float = (
     1 / 32 * (11 + np.cbrt(16 * np.sqrt(2) - 13) - np.cbrt(16 * np.sqrt(2) + 13))
 )
 """Critical compressibility factor in the Peng-Robinson EoS, ~ 0.307401308."""
+
+
+def coef0(A: Any, B: Any) -> Any:
+    r"""Coefficient for the zeroth monomial of the characteristic equation
+
+    :math:`Z^3 + c_2 Z^2 + c_1 Z + c_0 = 0`.
+
+    For any input type supporting Python's overload of ``+,-,*,**``.
+
+    Parameters:
+        A: Non-dimensional cohesion.
+        B: Non-dimensional covolume.
+
+    Returns:
+        The result of :math:`B^3 + B^2 - AB`.
+
+    """
+    return B**3 + B**2 - A * B
+
+
+def coef1(A: Any, B: Any) -> Any:
+    r"""Coefficient for the first monomial of the characteristic equation
+
+    :math:`Z^3 + c_2 Z^2 + c_1 Z + c_0 = 0`.
+
+    For any input type supporting Python's overload of ``+,-,*,**``.
+
+    Parameters:
+        A: Non-dimensional cohesion.
+        B: Non-dimensional covolume.
+
+    Returns:
+        The result of :math:`A - 2 B - 3 B^2`.
+
+    """
+    return A - 2.0 * B - 3.0 * B**2
+
+
+def coef2(A: Any, B: Any) -> Any:
+    r"""Coefficient for the second monomial of the characteristic equation
+
+    :math:`Z^3 + c_2 Z^2 + c_1 Z + c_0 = 0`.
+
+    For any input type supporting Python's overload of ``-``.
+
+    Parameters:
+        A: Non-dimensional cohesion.
+        B: Non-dimensional covolume.
+
+    Returns:
+        The result of :math:`B - 1`.
+
+    """
+    return B - 1
+
+
+def red_coef0(A: Any, B: Any) -> Any:
+    r"""Zeroth coefficient of the reduced characteristic equation
+
+    :math:`Z^3 + c_{r1} Z + c_{r0} = 0`.
+
+    Uses :func:`coef0` - :func:`coef2` to compute the expressions in terms of
+    ``A`` and ``B``
+
+    Parameters:
+        A: Non-dimensional cohesion.
+        B: Non-dimensional covolume.
+
+    Returns:
+        The result of
+
+        .. math::
+
+            c_2^3(A, B)\frac{2}{27} - c_2(A, B) c_1(A, B)\frac{1}{3} + c_0(A, B)
+
+    """
+    c2 = coef2(A, B)
+    return c2**3 * (2.0 / 27.0) - c2 * coef1(A, B) * (1.0 / 3.0) + coef0(A, B)
+
+
+def red_coef1(A: Any, B: Any) -> Any:
+    r"""First coefficient of the reduced characteristic equation
+
+    :math:`Z^3 + c_{r1} Z + c_{r0} = 0`.
+
+    Uses :func:`coef0` - :func:`coef2` to compute the expressions in terms of
+    ``A`` and ``B``
+
+    Parameters:
+        A: Non-dimensional cohesion.
+        B: Non-dimensional covolume.
+
+    Returns:
+        The result of
+
+        .. math::
+
+            c_1(A, B) - c_2^2(A, B)\frac{1}{3}
+
+    """
+    return coef1(A, B) - coef2(A, B) ** 2 * (1.0 / 3.0)
+
+
+def discr(rc0: Any, rc1: Any) -> Any:
+    """Discriminant of the characeteristic polynomial based on the reduced coefficient.
+
+    Parameters:
+        rc0: Zeroth reduced coefficient (see :func:`red_coef0`)
+        rc1: First reduced coefficient (see :func:`red_coef1`)
+
+    Returns:
+        The result of
+
+        .. math::
+
+            c_{r0}^2\\frac{1}{4} - c_{r1}^3\\frac{1}{27}
+
+    """
+    return rc0**2 * (1.0 / 4.0) + rc1**3 * (1.0 / 27.0)
+
+
+def critical_line(A: Any) -> Any:
+    r"""Returns the critical line parametrized as ``B(A)``.
+
+    .. math::
+
+        \frac{B_{crit}}{A_{crit}} A
+
+    """
+    return (B_CRIT / A_CRIT) * A
+
+
+def widom_line(A: Any) -> Any:
+    r"""Returns the Widom-line parametrized as ``B(A)`` in the A-B space:
+
+    .. math::
+
+        B_{crit} + 0.8 \cdot 0.3381965009398633 \cdot \left(A - A_{crit}\right)
+
+    """
+    return B_CRIT + 0.8 * 0.3381965009398633 * (A - A_CRIT)
+
+
+B_CRIT_LINE_POINTS: tuple[np.ndarray, np.ndarray] = (
+    np.array([0.0, B_CRIT], dtype=np.float64),
+    np.array([A_CRIT, B_CRIT], dtype=np.float64),
+)
+r"""Two 2D points characterizing the line ``B=B_CRIT`` in the A-B space, namely
+
+.. math::
+
+    (0, B_{crit}),~(A_{crit},B_{crit})
+
+See :data:`B_CRIT`, data:`A_CRIT`.
+
+"""
+
+
+S_CRIT_LINE_POINTS: tuple[np.ndarray, np.ndarray] = (
+    np.zeros(2, dtype=np.float64),
+    np.array([A_CRIT, B_CRIT], dtype=np.float64),
+)
+r"""Two 2D points characterizing the super-critical line in the A-B space, namely
+
+.. math::
+
+    (0,0),~(A_{crit},B_{crit})
+
+See :data:`B_CRIT`, data:`A_CRIT`.
+
+"""
+
+
+W_LINE_POINTS: tuple[np.ndarray, np.ndarray] = (
+    np.array([0.0, widom_line(0)], dtype=np.float64),
+    np.array([A_CRIT, widom_line(A_CRIT)], dtype=np.float64),
+)
+r"""Two 2D points characterizing the Widom-line for water.
+
+The points are created by using :func:`widom_line` for :math:`A\in\{0, A_{crit}\}`.
+
+See :data:`~porepy.composite.peng_robinson.eos.A_CRIT`.
+
+"""
+
+
+def point_to_line_distance(p: np.ndarray, lp1: np.ndarray, lp2: np.ndarray) -> float:
+    """Computes the distance between a 2-D point and a line spanned by two points.
+
+    NJIT-ed function with signature ``(float64[:], float64[:], float64[:]) -> float64``.
+
+    Parameters:
+        p: ``shape=(2,n)``
+
+            Point(s) in 2D space.
+        lp1: ``shape=(2,)``
+
+            First point spanning the line.
+        lp2: ``shape=(2,)``
+
+            Second point spanning the line.
+
+    Returns:
+        Normal distance between ``p`` and the spanned line.
+
+    """
+
+    d = np.sqrt((lp2[0] - lp1[0]) ** 2 + (lp2[1] - lp1[1]) ** 2)
+    n = np.abs(
+        (lp2[0] - lp1[0]) * (lp1[1] - p[1]) - (lp1[0] - p[0]) * (lp2[1] - lp1[1])
+    )
+    return n / d
 
 
 def root_smoother(
@@ -153,18 +365,6 @@ def _liquid_smoother(proximity: np.ndarray, s: float) -> np.ndarray:
     smoother[proximity <= s] = 1.0
 
     return smoother
-
-
-def _point_to_line_distance(point: np.ndarray, line: np.ndarray) -> np.ndarray:
-    """Auxiliary function to compute the normal distance between a point and a line
-    represented by two points (rows in a matrix ``line``)."""
-
-    d = np.sqrt((line[1, 0] - line[0, 0]) ** 2 + (line[1, 1] - line[0, 1]) ** 2)
-    n = np.abs(
-        (line[1, 0] - line[0, 0]) * (line[0, 1] - point[1])
-        - (line[0, 0] - point[0]) * (line[1, 1] - line[0, 1])
-    )
-    return n / d
 
 
 @dataclass(frozen=True)
@@ -298,23 +498,6 @@ class PengRobinsonEoS(AbstractEoS):
         See :attr:`~porepy.composite.peng_robinson.pr_components.Component_PR.bip_map`.
 
         """
-
-        self._widom_points: np.ndarray = np.array(
-            [[0, self.Widom_line(0)], [A_CRIT, self.Widom_line(A_CRIT)]]
-        )
-        """The Widom line for water characterized by two points at ``A=0`` and
-        ``A=A_criet``"""
-
-        self._B_crit_points: np.ndarray = np.array(
-            [[0, B_CRIT], [A_CRIT, B_CRIT]]
-        )
-        """Two points (rows) characterizing the line ``B=B_crit``."""
-
-        self._critline_points: np.ndarray = np.array(
-            [[0, 0], [A_CRIT, B_CRIT]]
-        )
-        """The critical line characterized by two points ``(0, 0)`` and
-        ``(A_crit, B_crit)``"""
 
         self.gaslike: bool = bool(gaslike)
         """Flag passed at instantiation denoting the state of matter, liquid or gas."""
@@ -965,16 +1148,6 @@ class PengRobinsonEoS(AbstractEoS):
         )
 
     @staticmethod
-    def Widom_line(A: NumericType) -> NumericType:
-        """Returns the Widom-line ``B(A)``"""
-        return B_CRIT + 0.8 * 0.3381965009398633 * (A - A_CRIT)
-
-    @staticmethod
-    def critical_line(A: NumericType) -> NumericType:
-        """Returns the critical line ``B_crit / A_crit * A``"""
-        return B_CRIT / A_CRIT * A
-
-    @staticmethod
     def extended_root_sub(B: NumericType, Z: NumericType) -> NumericType:
         """Auxiliary function implementing the formula for the extended, subcritical
         root proposed in Gharbia et al. (2021)
@@ -1097,9 +1270,9 @@ class PengRobinsonEoS(AbstractEoS):
         # NOTE: The logical comparisons are a bit awkward for compatibility reasons with
         # AD-arrays
         # identify super-critical line
-        self.is_supercritical = B >= self.critical_line(A)
+        self.is_supercritical = B >= critical_line(A)
         # identify approximated sub pseudo-critical line (approximates Widom line)
-        widom_line = B <= self.Widom_line(A)
+        widom_line = B <= widom_line(A)
 
         # At A,B=0 we have 2 real roots, one with multiplicity 2
         zero_point = (
@@ -1197,7 +1370,9 @@ class PengRobinsonEoS(AbstractEoS):
                 b = B_.val[gas_ext_supc] if isinstance(B_, pp.ad.AdArray) else B_[gas_ext_supc]
                 ab = np.array([a, b])
 
-                d_g  = _point_to_line_distance(ab, self._B_crit_points)
+                d_g  = point_to_line_distance(
+                    ab, B_CRIT_LINE_POINTS[0], B_CRIT_LINE_POINTS[1]
+                )
 
                 # smoothing towards subcritical region (Gharbia extension)
                 smooth = (d_g < smoothing_distance) & (b >= B_CRIT)
@@ -1215,8 +1390,12 @@ class PengRobinsonEoS(AbstractEoS):
                 a = A_.val[liq_ext_supc] if isinstance(A_, pp.ad.AdArray) else A_[liq_ext_supc]
                 b = B_.val[liq_ext_supc] if isinstance(B_, pp.ad.AdArray) else B_[liq_ext_supc]
                 ab = np.array([a, b])
-                d_w = _point_to_line_distance(ab, self._widom_points)
-                d_s = _point_to_line_distance(ab, self._critline_points)
+                d_w = point_to_line_distance(
+                    ab, W_LINE_POINTS[0], W_LINE_POINTS[1]
+                )
+                d_s = point_to_line_distance(
+                    ab, S_CRIT_LINE_POINTS[0], S_CRIT_LINE_POINTS[1]
+                )
 
                 # smoothing towards supercritical gas extension
                 # Smoothing using a convex combination of extended gas root
