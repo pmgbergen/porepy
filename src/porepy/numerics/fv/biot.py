@@ -1392,7 +1392,9 @@ class DivU(Discretization):
         )
 
         # Time part
-        d_cell = sd_data[pp.TIME_STEP_SOLUTIONS][self.variable][0]
+        d_cell = pp.get_solution_values(
+            name=self.variable, data=sd_data, time_step_index=0
+        )
 
         div_u = matrix_dictionary[self.div_u_matrix_key]
         rhs_time = np.squeeze(biot_alpha * div_u * d_cell)
@@ -1449,7 +1451,9 @@ class DivU(Discretization):
         biot_alpha = sd_data[pp.PARAMETERS][self.flow_keyword]["biot_alpha"]
         bound_div_u = matrix_dictionary[self.bound_div_u_matrix_key]
 
-        u_bound_previous = intf_data[pp.TIME_STEP_SOLUTIONS][self.mortar_variable][0]
+        u_bound_previous = pp.get_solution_values(
+            name=self.mortar_variable, data=intf_data, time_step_index=0
+        )
 
         if bound_div_u.shape[1] != proj.shape[0]:
             raise ValueError(
@@ -1514,9 +1518,11 @@ class DivU(Discretization):
             sd.num_cells, self.flow_keyword, ["biot_alpha"]
         )[0]
         # Project the previous solution to the secondary grid
+        previous_displacement_values = pp.get_solution_values(
+            name=self.mortar_variable, data=intf_data, time_step_index=0
+        )
         previous_displacement_jump_global_coord = (
-            jump_on_secondary
-            * intf_data[pp.TIME_STEP_SOLUTIONS][self.mortar_variable][0]
+            jump_on_secondary * previous_displacement_values
         )
         # Rotated displacement jumps. These are in the local coordinates, on
         # the lower-dimensional grid
@@ -1650,7 +1656,9 @@ class BiotStabilization(Discretization):
         # The stabilization is the pressure contribution to the div u part of the
         # fluid mass conservation, thus needs a right-hand side in the implicit Euler
         # discretization.
-        pressure_0 = sd_data[pp.TIME_STEP_SOLUTIONS][self.variable][0]
+        pressure_0 = pp.get_solution_values(
+            name=self.variable, data=sd_data, time_step_index=0
+        )
         A_stability = matrix_dictionary[self.stabilization_matrix_key]
         rhs_time = A_stability * pressure_0
 

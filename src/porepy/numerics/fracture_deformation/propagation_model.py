@@ -171,14 +171,18 @@ class FracturePropagation(abc.ABC):
                 # Loop over stored time steps. Loop on keys to avoid bad practice of
                 # changing looped quantity using items method.
                 for ind in data[pp.TIME_STEP_SOLUTIONS][var].keys():
-                    values = data[pp.TIME_STEP_SOLUTIONS][var][ind]
+                    values = pp.get_solution_values(
+                        name=var, data=data, time_step_index=ind
+                    )
                     values = mapping * values
                     values[new_ind] = new_vals
                     pp.set_solution_values(var, values, data, time_step_index=ind)
 
                 # Repeat for iterate:
                 for ind in data[pp.ITERATE_SOLUTIONS][var].keys():
-                    values = data[pp.ITERATE_SOLUTIONS][var][ind]
+                    values = pp.get_solution_values(
+                        name=var, data=data, iterate_index=ind
+                    )
                     values = mapping * values
                     values[new_ind] = new_vals
                     pp.set_solution_values(var, values, data, iterate_index=ind)
@@ -210,14 +214,18 @@ class FracturePropagation(abc.ABC):
                 # keys to avoid bad practice of changing looped quantity using items
                 # method.
                 for ind in data[pp.TIME_STEP_SOLUTIONS][var].keys():
-                    values = data[pp.TIME_STEP_SOLUTIONS][var][ind]
+                    values = pp.get_solution_values(
+                        name=var, data=data, time_step_index=ind
+                    )
                     values = mapping * values
                     values[new_ind] = new_vals
                     pp.set_solution_values(var, values, data, time_step_index=ind)
 
                 # Repeat for iterate.
                 for ind in data[pp.ITERATE_SOLUTIONS][var].keys():
-                    values = data[pp.ITERATE_SOLUTIONS][var][ind]
+                    values = pp.get_solution_values(
+                        name=var, data=data, iterate_index=ind
+                    )
                     values = mapping * values
                     values[new_ind] = new_vals
                     pp.set_solution_values(var, values, data, iterate_index=ind)
