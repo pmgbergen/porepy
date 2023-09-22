@@ -963,8 +963,12 @@ class Exporter:
                         and key in grid_data[pp.TIME_STEP_SOLUTIONS]
                     ):
                         # Fetch data and convert to vectorial format if needed
+                        data_to_convert = pp.get_solution_values(
+                            name=key, data=grid_data, time_step_index=0
+                        )
                         value: np.ndarray = _to_vector_format(
-                            grid_data[pp.TIME_STEP_SOLUTIONS][key][0], grid
+                            data_to_convert,
+                            grid,
                         )
 
                         # Add data point in correct format to the collection
@@ -1051,9 +1055,10 @@ class Exporter:
                         )
 
                     # Fetch data and convert to vectorial format if suitable
-                    value = _to_vector_format(
-                        sd_data[pp.TIME_STEP_SOLUTIONS][key][0], sd
+                    data_to_convert = pp.get_solution_values(
+                        name=key, data=sd_data, time_step_index=0
                     )
+                    value = _to_vector_format(data_to_convert, sd)
 
                     # Add data point in correct format to collection
                     subdomain_data[(sd, key)] = value
@@ -1122,9 +1127,10 @@ class Exporter:
                         )
 
                     # Fetch data and convert to vectorial format if suitable
-                    value = _to_vector_format(
-                        intf_data[pp.TIME_STEP_SOLUTIONS][key][0], intf
+                    data_to_convert = pp.get_solution_values(
+                        name=key, data=intf_data, time_step_index=0
                     )
+                    value = _to_vector_format(data_to_convert, intf)
 
                     # Add data point in correct format to collection
                     interface_data[(intf, key)] = value

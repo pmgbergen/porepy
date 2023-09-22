@@ -265,12 +265,15 @@ def plot_mdg(
         else:
             extr_value = np.array([np.inf, -np.inf])
             for _, sd_data in mdg.subdomains(return_data=True):
+                values = pp.get_solution_values(
+                    name=cell_value, data=sd_data, time_step_index=0
+                )
                 extr_value[0] = min(
-                    np.amin(sd_data[pp.TIME_STEP_SOLUTIONS][cell_value][0]),
+                    np.amin(values),
                     extr_value[0],
                 )
                 extr_value[1] = max(
-                    np.amax(sd_data[pp.TIME_STEP_SOLUTIONS][cell_value][0]),
+                    np.amax(values),
                     extr_value[1],
                 )
         kwargs["color_map"] = _color_map(extr_value)

@@ -858,12 +858,15 @@ class VariableMappingInitializationUnderPropagation(unittest.TestCase):
             # Also check that pp.TIME_STEP_SOLUTIONS and ITERATES has been correctly
             # updated
             d = mdg.subdomain_data(g_2d)
-            self.assertTrue(
-                np.all(d[pp.TIME_STEP_SOLUTIONS][self.cv2][0] == cell_val_2d)
+            time_step_values_cv2 = pp.get_solution_values(
+                name=self.cv2, data=d, time_step_index=0
             )
-            self.assertTrue(
-                np.all(d[pp.ITERATE_SOLUTIONS][self.cv2][0] == 2 * cell_val_2d)
+            self.assertTrue(np.all(time_step_values_cv2 == cell_val_2d))
+
+            iterate_values_cv2 = pp.get_solution_values(
+                name=self.cv2, data=d, iterate_index=0
             )
+            self.assertTrue(np.all(iterate_values_cv2 == 2 * cell_val_2d))
 
             # Loop over all 1d grids, check both grid and the associated mortar grid
             for g in g_1d:
@@ -884,12 +887,16 @@ class VariableMappingInitializationUnderPropagation(unittest.TestCase):
                 # Also check that pp.TIME_STEP_SOLUTIONS and ITERATE has been correctly
                 # updated
                 d = mdg.subdomain_data(g)
-                self.assertTrue(
-                    np.all(d[pp.TIME_STEP_SOLUTIONS][self.cv1][0] == truth_1d)
+
+                time_step_values_cv1 = pp.get_solution_values(
+                    name=self.cv1, data=d, time_step_index=0
                 )
-                self.assertTrue(
-                    np.all(d[pp.ITERATE_SOLUTIONS][self.cv1][0] == truth_iterate)
+                self.assertTrue(np.all(time_step_values_cv1 == truth_1d))
+
+                iterate_values_cv1 = pp.get_solution_values(
+                    name=self.cv1, data=d, iterate_index=0
                 )
+                self.assertTrue(np.all(iterate_values_cv1 == truth_iterate))
 
                 # The propagation model will assign the value 42 to new cells also in
                 # the next step. To be sure values from the first propagation are mapped
@@ -938,10 +945,16 @@ class VariableMappingInitializationUnderPropagation(unittest.TestCase):
 
                 self.assertTrue(np.all(x_mortar == truth_mortar))
                 self.assertTrue(
-                    np.all(d[pp.TIME_STEP_SOLUTIONS][self.mv][0] == truth_mortar)
+                    np.all(
+                        pp.get_solution_values(name=self.mv, data=d, time_step_index=0)
+                        == truth_mortar
+                    )
                 )
                 self.assertTrue(
-                    np.all(d[pp.ITERATE_SOLUTIONS][self.mv][0] == truth_iterate)
+                    np.all(
+                        pp.get_solution_values(name=self.mv, data=d, iterate_index=0)
+                        == truth_iterate
+                    )
                 )
                 x_new[dof_manager.grid_and_variable_to_dofs(intf, self.mv)] = np.r_[
                     val_mortar_prev[g][:sz],
@@ -958,8 +971,16 @@ class VariableMappingInitializationUnderPropagation(unittest.TestCase):
                     val_mortar_iterate_prev[g][sz : 2 * sz],
                     np.full(var_sz_mortar * num_new_cells, 43),
                 ]
-                d[pp.TIME_STEP_SOLUTIONS][self.mv][0] = val_mortar_prev[g]
-                d[pp.ITERATE_SOLUTIONS][self.mv][0] = val_mortar_iterate_prev[g]
+
+                pp.set_solution_values(
+                    name=self.mv, values=val_mortar_prev[g], data=d, time_step_index=0
+                )
+                pp.set_solution_values(
+                    name=self.mv,
+                    values=val_mortar_iterate_prev[g],
+                    data=d,
+                    iterate_index=0,
+                )
 
                 x = x_new
 
