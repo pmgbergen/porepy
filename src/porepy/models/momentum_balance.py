@@ -823,7 +823,6 @@ class BoundaryConditionsMomentumBalance(pp.BoundaryConditionMixin):
     :class:`porepy.models.geometry.ModelGeometry`.
 
     """
-    domain_boundary_sides: Callable[[pp.Grid], pp.domain.DomainSides]
 
     def bc_type_mechanics(self, sd: pp.Grid) -> pp.BoundaryConditionVectorial:
         """Define type of boundary conditions.
@@ -860,8 +859,14 @@ class BoundaryConditionsMomentumBalance(pp.BoundaryConditionMixin):
 
         """
         boundary_grids = self.subdomains_to_boundary_grids(subdomains)
+        boundary_projection = pp.ad.BoundaryProjection(
+            self.mdg, subdomains=subdomains, dim=self.nd
+        )
         # TODO: Neumann?
-        return self.displacement(boundary_grids)
+        result = self.displacement(boundary_grids)
+        result = boundary_projection.boundary_to_subdomain @ result
+        result.set_name("bc_values_mechanics")
+        return result
 
     def boundary_displacement_values(
         self, boundary_grid: pp.BoundaryGrid

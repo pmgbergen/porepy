@@ -255,7 +255,9 @@ class BoundaryConditionsMechanicsDirNorthSouth(
         bc.internal_to_dirichlet(sd)
         return bc
 
-    def bc_values_mechanics_np(self, sd: pp.Grid) -> np.ndarray:
+    def boundary_displacement_values(
+        self, boundary_grid: pp.BoundaryGrid
+    ) -> np.ndarray:
         """Boundary values for the mechanics problem as a numpy array.
 
         Extracted from below method to facilitate time dependent boundary conditions.
@@ -263,15 +265,15 @@ class BoundaryConditionsMechanicsDirNorthSouth(
         through attributes ux_north, uy_north, ux_south, uy_south.
 
         Parameters:
-            sd: Subdomain for which boundary values are to be returned.
+            boundary_grid: Boundary grid for which boundary values are to be returned.
 
         Returns:
             Array of boundary values, with one value for each dimension of the
                 problem, for each face in the subdomain.
 
         """
-        domain_sides = self.domain_boundary_sides(sd)
-        values = np.zeros((sd.dim, sd.num_faces))
+        domain_sides = self.domain_boundary_sides(boundary_grid)
+        values = np.zeros((self.nd, boundary_grid.num_cells))
         values[1, domain_sides.north] = self.solid.convert_units(
             self.params.get("uy_north", 0), "m"
         )
@@ -286,47 +288,18 @@ class BoundaryConditionsMechanicsDirNorthSouth(
         )
         return values.ravel("F")
 
-    def bc_values_mechanics(self, subdomains: list[pp.Grid]) -> pp.ad.DenseArray:
-        """Boundary values for the mechanics problem.
 
-        Parameters:
-            subdomains: List of subdomains for which boundary values are to be returned.
-
-        Returns:
-            Array of boundary values, with one value for each dimension of the
-                problem, for each face in the subdomain.
-
-        """
-        # Set the boundary values
-        bc_values = []
-        if len(subdomains) == 0:
-            return pp.ad.DenseArray(np.zeros(0), name="bc_values_mechanics")
-        for sd in subdomains:
-            bc_values.append(self.bc_values_mechanics_np(sd))
-        ad_values = pp.wrap_as_ad_array(
-            np.hstack(bc_values), name="bc_values_mechanics"
-        )
-        return ad_values
-
-
-class TimeDependentMechanicalBCsDirNorthSouth:
+class TimeDependentMechanicalBCsDirNorthSouth(BoundaryConditionsMechanicsDirNorthSouth):
     """Time dependent displacement boundary conditions.
 
     For use in (thermo)poremechanics.
     """
 
-    def bc_type_mechanics(self, sd: pp.Grid) -> pp.BoundaryCondition:
-        return BoundaryConditionsMechanicsDirNorthSouth.bc_type_mechanics(self, sd)
-
-    def time_dependent_bc_values_mechanics(
-        self, subdomains: list[pp.Grid]
+    def boundary_displacement_values(
+        self, boundary_grid: pp.BoundaryGrid
     ) -> np.ndarray:
-        assert False, "TODO: It's not called anymore"
-        assert len(subdomains) == 1
-        sd = subdomains[0]
-
-        domain_sides = self.domain_boundary_sides(sd)
-        values = np.zeros((self.nd, sd.num_faces))
+        domain_sides = self.domain_boundary_sides(boundary_grid)
+        values = np.zeros((self.nd, boundary_grid.num_cells))
         # Add fracture width on top if there is a fracture.
         if len(self.mdg.subdomains()) > 1:
             frac_val = self.solid.convert_units(0.042, "m")

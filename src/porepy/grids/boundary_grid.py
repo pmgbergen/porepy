@@ -77,6 +77,14 @@ class BoundaryGrid:
 
         """
 
+        self.cell_volumes: np.ndarray
+        """Volumes of cells of the boundary grid. Remember that boundary grid cells are
+        faces of the parent grid. Thus, it stores areas of boundary faces.
+
+        Initialized in :meth:`~set_projections`.
+
+        """
+
     def set_projections(self) -> None:
         """Set projections from the parent grid and set the corresponding attributes.
 
@@ -90,6 +98,7 @@ class BoundaryGrid:
 
         self.num_cells = int(np.sum(parent_boundary))
         self.cell_centers = self._parent.face_centers[:, parent_boundary]
+        self.cell_volumes = self._parent.face_areas[parent_boundary]
 
         sz = self.num_cells
         self._projections = sps.coo_matrix(

@@ -1258,35 +1258,11 @@ class MandelGeometry(pp.ModelGeometry):
 class MandelBoundaryConditionsMechanicsTimeDependent(
     momentum_balance.BoundaryConditionsMomentumBalance,
 ):
-    domain_boundary_sides: Callable[[pp.Grid], pp.domain.DomainSides]
-    """Boundary sides of the domain. Normally defined in a mixin instance of
-    :class:`~porepy.models.geometry.ModelGeometry`.
-
-    """
-
     exact_sol: MandelExactSolution
     """Exact solution object."""
 
-    mdg: pp.MixedDimensionalGrid
-    """Mixed-dimensional grid for the current model. Normally defined in a mixin
-    instance of :class:`~porepy.models.geometry.ModelGeometry`.
-
-    """
-
     params: dict
     """Parameter dictionary of the verification setup."""
-
-    stress_keyword: str
-    """Keyword for accessing the parameters of the mechanical subproblem."""
-
-    time_manager: pp.TimeManager
-    """Time manager. Normally set by an instance of a subclass of
-    :class:`porepy.models.solution_strategy.SolutionStrategy`.
-
-    """
-
-    units: pp.Units
-    """Units object, containing the scaling of base magnitudes."""
 
     def vertical_load(self):
         """Retrieve and scale applied force.
