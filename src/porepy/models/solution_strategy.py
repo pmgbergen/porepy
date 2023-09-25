@@ -415,7 +415,7 @@ class SolutionStrategy(abc.ABC):
         )
 
     def after_nonlinear_convergence(
-        self, solution: np.ndarray, errors: float, iteration_counter: int
+        self, solution: np.ndarray, errors: dict, iteration_counter: int
     ) -> None:
         """Method to be called after every non-linear iteration.
 
@@ -437,7 +437,7 @@ class SolutionStrategy(abc.ABC):
         self.save_data_time_step()
 
     def after_nonlinear_failure(
-        self, solution: np.ndarray, errors: float, iteration_counter: int
+        self, solution: np.ndarray, errors: dict, iteration_counter: int
     ) -> None:
         """Method to be called if the non-linear solver fails to converge.
 
@@ -462,8 +462,9 @@ class SolutionStrategy(abc.ABC):
         solution: np.ndarray,
         prev_solution: np.ndarray,
         init_solution: np.ndarray,
+        residual: np.ndarray,
         nl_params: dict[str, Any],
-    ) -> tuple[float, bool, bool]:
+    ) -> tuple[float, float, bool, bool]:
         """Implements a convergence check, to be called by a non-linear solver.
 
         Parameters:
@@ -478,7 +479,9 @@ class SolutionStrategy(abc.ABC):
             The method returns the following tuple:
 
             float:
-                Error, computed to the norm in question.
+                Residual error, computed to the norm in question.
+            float:
+                Increment error, computed to the norm in quesiton.
             boolean:
                 True if the solution is converged according to the test implemented by
                 this method.
@@ -493,24 +496,55 @@ class SolutionStrategy(abc.ABC):
             # is returned. We check for this.
             diverged = bool(np.any(np.isnan(solution)))
             converged: bool = not diverged
-            error: float = np.nan if diverged else 0.0
-            return error, converged, diverged
+            error_res: float = np.nan if diverged else 0.0
+            error_inc: float = np.nan if diverged else 0.0
+            return error_res, error_inc, converged, diverged
         else:
             # First a simple check for nan values.
             if np.any(np.isnan(solution)):
                 # If the solution contains nan values, we have diverged.
-                return np.nan, False, True
+                return np.nan, np.nan, False, True
             # Simple but fairly robust convergence criterion. More advanced options are
             # e.g. considering errors for each variable and/or each grid separately,
             # possibly using _l2_norm_cell
             #
+            # Residual based error
             # We normalize by the size of the solution vector.
             # Enforce float to make mypy happy
-            error = float(np.linalg.norm(solution)) / np.sqrt(solution.size)
-            logger.info(f"Normalized residual norm: {error:.2e}")
-            converged = error < nl_params["nl_convergence_tol"]
+            error_res = self._nonlinear_residual_error(residual)
+            # Increment based error
+            error_inc = self._nonlinear_increment_error(solution)
+            logger.info(f"Normalized residual error: {error_res:.2e}")
+            logger.info(f"Normalized increment error: {error_inc:.2e}")
+            converged = error_inc < nl_params["nl_convergence_tol_inc"] and \
+                        error_res < nl_params["nl_convergence_tol_res"]
             diverged = False
-            return error, converged, diverged
+            return error_res, error_inc, converged, diverged
+
+    def _nonlinear_residual_error(self, residual: np.ndarray) -> float:
+        """Compute the residual error for a nonliner iteration.
+
+        Parameters:
+            residual: Residual of current iteration.
+
+        Returns:
+            float: Residual error.
+        """
+        error_res = np.linalg.norm(residual) / np.sqrt(residual.size)
+        return error_res
+
+    def _nonlinear_increment_error(self, solution: np.ndarray) -> float:
+        """Compute the error based on the update increment for a nonliner iteration.
+
+        Parameters:
+            solution: Solution to the Newton linearization.
+
+        Returns:
+            float: Update error.
+        """
+        error_inc = np.linalg.norm(solution) / np.sqrt(solution.size)
+        return error_inc
+
 
     def _initialize_linear_solver(self) -> None:
         """Initialize linear solver.
@@ -533,7 +567,7 @@ class SolutionStrategy(abc.ABC):
         if solver not in ["scipy_sparse", "pypardiso", "umfpack"]:
             raise ValueError(f"Unknown linear solver {solver}")
 
-    def assemble_linear_system(self) -> None:
+    def assemble_linear_system(self) -> tuple[sps.spmatrix, np.ndarray]:
         """Assemble the linearized system and store it in :attr:`linear_system`.
 
         The linear system is defined by the current state of the model.
@@ -542,6 +576,7 @@ class SolutionStrategy(abc.ABC):
         t_0 = time.time()
         self.linear_system = self.equation_system.assemble()
         logger.debug(f"Assembled linear system in {t_0-time.time():.2e} seconds.")
+        return self.linear_system
 
     def solve_linear_system(self) -> np.ndarray:
         """Solve linear system.

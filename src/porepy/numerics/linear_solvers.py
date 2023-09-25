@@ -30,14 +30,14 @@ class LinearSolver:
             params = {}
         self.params = params
 
-    def solve(self, setup: SolutionStrategy) -> tuple[float, bool]:
+    def solve(self, setup: SolutionStrategy) -> tuple[dict, bool]:
         """Solve a linear problem defined by the current state of the model.
 
         Parameters:
             setup (subclass of pp.SolutionStrategy): Model to be solved.
 
         Returns:
-            float: Norm of the error.
+            dict: Dictionary containing the residual errors and increment errors.
             boolean: True if the linear solver converged.
 
         """
@@ -49,12 +49,16 @@ class LinearSolver:
         # FIXME: This assumes a direct solver is applied, but it may also be that parameters
         # for linear solvers should be a property of the model, not the solver. This
         # needs clarification at some point.
-        setup.assemble_linear_system()
+        errors = {"residual_error": [], "increment_error": []}
+
+        _, res = setup.assemble_linear_system()
         sol = setup.solve_linear_system()
 
-        error_norm, is_converged, _ = setup.check_convergence(
-            sol, prev_sol, prev_sol, self.params
+        error_res, error_inc, is_converged, _ = setup.check_convergence(
+            sol, prev_sol, prev_sol, res, self.params
         )
+        errors['residual_error'].append(error_res)
+        errors['increment_error'].append(error_inc)
 
         if is_converged:
             # IMPLEMENTATION NOTE: The following is a bit awkward, and really shows there is
@@ -67,7 +71,7 @@ class LinearSolver:
             # the case for ContactMechanics and possibly others). Thus, we first call
             # after_nonlinear_iteration(), and then after_nonlinear_convergence()
             setup.after_nonlinear_iteration(sol)
-            setup.after_nonlinear_convergence(sol, error_norm, iteration_counter=1)
+            setup.after_nonlinear_convergence(sol, errors, iteration_counter=1)
         else:
-            setup.after_nonlinear_failure(sol, error_norm, iteration_counter=1)
-        return error_norm, is_converged
+            setup.after_nonlinear_failure(sol, errors, iteration_counter=1)
+        return errors, is_converged
