@@ -34,7 +34,8 @@ class NewtonSolver:
 
         default_options = {
             "max_iterations": 10,
-            "nl_convergence_tol": 1e-10,
+            "nl_convergence_tol_inc": 1e-10,
+            "nl_convergence_tol_res": 1e-10,
             "nl_divergence_tol": 1e5,
         }
         default_options.update(params)
@@ -46,7 +47,7 @@ class NewtonSolver:
         # loop or inside a stationary problem (default).
         self.progress_bar_position: int = params.get("progress_bar_position", 0)
 
-    def solve(self, model) -> tuple[float, bool, int]:
+    def solve(self, model) -> tuple[dict, bool, int]:
         """Solve the nonlinear problem.
 
         Parameters:
@@ -55,9 +56,10 @@ class NewtonSolver:
         Returns:
             A 3-tuple containing:
 
-            float:
+            dict:
 
-                The error estimate.
+                Dictionary containing the residual errors and increment errors for each
+                nonlinear iteration.
             bool:
 
                 True if the solution is converged.
@@ -76,7 +78,7 @@ class NewtonSolver:
 
         init_sol = prev_sol
         sol = init_sol
-        errors = []
+        errors = {"residual_error": [], "increment_error": []}
         error_norm = 1.0
 
         # Define a function that does all the work during one Newton iteration, except
@@ -85,7 +87,7 @@ class NewtonSolver:
             # Bind to variables in the outer function
             nonlocal prev_sol
             nonlocal sol
-            nonlocal error_norm
+            nonlocal errors
             nonlocal is_converged
             nonlocal is_diverged
 
@@ -98,15 +100,16 @@ class NewtonSolver:
             # Re-discretize the nonlinear term
             model.before_nonlinear_iteration()
 
-            sol = self.iteration(model)
+            res, sol = self.iteration(model)
 
             model.after_nonlinear_iteration(sol)
 
-            error_norm, is_converged, is_diverged = model.check_convergence(
-                sol, prev_sol, init_sol, self.params
+            error_res, error_inc, is_converged, is_diverged = model.check_convergence(
+                sol, prev_sol, init_sol, res, self.params
             )
             prev_sol = sol
-            errors.append(error_norm)
+            errors['residual_error'].append(error_res)
+            errors['increment_error'].append(error_inc)
 
         # Progressbars turned off or tqdm not installed:
         if not self.progress_bar or not _IS_TQDM_AVAILABLE:
@@ -165,15 +168,15 @@ class NewtonSolver:
         if not is_converged:
             model.after_nonlinear_failure(sol, errors, iteration_counter)
 
-        return error_norm, is_converged, iteration_counter
+        return errors, is_converged, iteration_counter
 
-    def iteration(self, model) -> np.ndarray:
+    def iteration(self, model) -> tuple[np.ndarray, np.ndarray]:
         """A single nonlinear iteration.
 
         Right now, this is an almost trivial function. However, we keep it as a separate
         function to prepare for possible future introduction of more advanced schemes.
 
         """
-        model.assemble_linear_system()
+        _, res = model.assemble_linear_system()
         sol = model.solve_linear_system()
-        return sol
+        return res, sol
