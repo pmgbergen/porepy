@@ -32,15 +32,16 @@ References:
 
 __all__ = []
 
-from . import compiler, eos, mixing, pr_bip, pr_components
+from . import eos, mixing, pr_bip, pr_components  # , compiler
 from .eos import *
 from .mixing import *
 from .pr_bip import *
 from .pr_components import *
-from .compiler import *
+
+# from .compiler import *
 
 __all__.extend(eos.__all__)
 __all__.extend(mixing.__all__)
 __all__.extend(pr_bip.__all__)
 __all__.extend(pr_components.__all__)
-__all__.extend(compiler.__all__)
+# __all__.extend(compiler.__all__)

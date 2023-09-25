@@ -82,7 +82,7 @@ class VanDerWaals:
                 dT_a_parts.append(2.0 * x_ij * dT_a_ij)
 
         return safe_sum(a_parts), safe_sum(dT_a_parts)
-    
+
     @staticmethod
     def cohesion_s(
         X: list[NumericType], a: list[NumericType], bip: list[list[NumericType]]
@@ -105,7 +105,7 @@ class VanDerWaals:
                 a_ij = a_ij_ * delta_ij
 
                 # off-diagonal elements appear always twice due to symmetry
-                a_parts.append(2. * x_ij * a_ij)
+                a_parts.append(2.0 * x_ij * a_ij)
 
         return safe_sum(a_parts)
 

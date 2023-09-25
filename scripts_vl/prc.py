@@ -1,3 +1,9 @@
+import os
+
+os.environ["PYDEVD_WARN_SLOW_RESOLVE_TIMEOUT"] = "30"
+os.environ['NUMBA_CACHE_DIR'] = f"{str(os.path.dirname(__file__))}/__pycache__/"
+# os.environ['NUMBA_DEBUG_CACHE'] = str(1)
+
 import numpy as np
 
 import porepy as pp
@@ -8,6 +14,10 @@ import time
 from typing import Callable
 
 from porepy.composite import safe_sum
+
+from porepy.composite.flash_compiler import FlashCompiler, parse_xyz
+from porepy.composite.peng_robinson.eos_compiler import PengRobinson_c
+from porepy.composite.peng_robinson.compiler import PR_Compiler
 
 vec = np.ones(1)
 z = [vec * 0.99,  vec * 0.01]
@@ -26,10 +36,10 @@ comps = [
 
 phases = [
     pp.composite.Phase(
-        pp.composite.peng_robinson.PengRobinsonEoS(gaslike=False), name="L"
+        pp.composite.peng_robinson.PengRobinson(gaslike=False), name="L"
     ),
     pp.composite.Phase(
-        pp.composite.peng_robinson.PengRobinsonEoS(gaslike=True), name="G"
+        pp.composite.peng_robinson.PengRobinson(gaslike=True), name="G"
     ),
 ]
 
@@ -41,7 +51,10 @@ mix.set_up()
     for val, comp in zip(z, comps)
 ]
 
-PRC = pp.composite.peng_robinson.PR_Compiler(mix)
+# eos_c = PengRobinson_c(mix)
+# PRC_new = FlashCompiler((2, 2), eos_c)
+
+PRC = PR_Compiler(mix)
 
 flash = pp.composite.FlashNR(mix)
 flash.use_armijo = True
@@ -55,6 +68,7 @@ flash.max_iter = 150
 # NPIPM
 ncomp = mix.num_components
 nphase = mix.num_phases
+mpmc = (nphase, ncomp)
 
 u = 1.
 eta = .5
@@ -62,7 +76,8 @@ eta = .5
 F_pT = PRC.equations['p-T']
 DF_pT = PRC.jacobians['p-T']
 
-parser_xyz = PRC._sysfuncs['parser-xyz']
+# F_pT = PRC_new.residuals['p-T']
+# DF_pT = PRC_new.jacobians['p-T']
 
 
 def pos_symbolic(a: sm.Expr) -> sm.Expr:
@@ -110,7 +125,7 @@ def F_npipm(X: np.ndarray) -> np.ndarray:
 
     X_thd = X[:-1]
     nu = X[-1]
-    x, y, _ = parser_xyz(X_thd)
+    x, y, _ = parse_xyz(X_thd, mpmc)
 
     f_flash = F_pT(X_thd)
 
@@ -123,10 +138,7 @@ def F_npipm(X: np.ndarray) -> np.ndarray:
         unity_j[j] = 1. - np.sum(x[j])
 
     # complete vector of fractions
-    v = np.zeros(nphase)
-    v[1:] = y
-    v[0] = 1 - np.sum(y)
-    slack = slack_equ_c(v, unity_j, nu)
+    slack = slack_equ_c(y, unity_j, nu)
 
     # NPIPM system has one equation more at end
     f_npipm = np.zeros(f_flash.shape[0] + 1)
@@ -141,7 +153,7 @@ def DF_npipm(X: np.ndarray) -> np.ndarray:
 
     X_thd = X[:-1]
     nu = X[-1]
-    x, y, _ = parser_xyz(X_thd)
+    x, y, _ = parse_xyz(X_thd, mpmc)
 
     df_flash = DF_pT(X_thd)
 
@@ -158,10 +170,7 @@ def DF_npipm(X: np.ndarray) -> np.ndarray:
         unity_j[j] = 1. - np.sum(x[j])
 
     # complete vector of fractions
-    v = np.zeros(nphase)
-    v[1:] = y
-    v[0] = 1 - np.sum(y)
-    d_slack = d_slack_equ_c(v, unity_j, nu)
+    d_slack = d_slack_equ_c(y, unity_j, nu)
     # d slack has derivatives w.r.t. y_j and w_j
     # d w_j must be expanded since w_j = 1 - sum x_j
     # d y_0 must be expanded since reference phase is eliminated by unity
@@ -193,12 +202,9 @@ def DF_npipm(X: np.ndarray) -> np.ndarray:
 @numba.njit('Tuple((float64[:,:], float64[:]))(float64[:], float64[:,:], float64[:])', fastmath=True, cache=True)
 def npipm_regularization(X, A, b):
 
-    x, y_, _ = parser_xyz(X[:-1])
+    x, y, _ = parse_xyz(X[:-1], mpmc)
 
     reg = 0.
-    y = np.zeros(nphase)
-    y[1:] = y_
-    y[0] = 1 - np.sum(y_)
     for j in range(nphase):
         reg += y[j] * (1 - np.sum(x[j]))
 
@@ -364,7 +370,7 @@ x_test[3:] = initstate[:-1]
 # dimension of  per flash: 1 z_i, 2 thd state (p, T), 1 y_j, 4 x_ij, 1 nu (npipm)
 xdim = 1 + 2 + 1 + 4 + 1
 
-x_, y_, _ = parser_xyz(x_test)
+x_, y_, _ = parse_xyz(x_test, mpmc)
 y_ = np.concatenate([np.array([1 - np.sum(y_)]), y_])
 nu0 = safe_sum([y__ * (1 - np.sum(x__)) for y__, x__ in zip(y_, x_)]) / nphase
 
@@ -398,7 +404,7 @@ old_iter = flash.history[-1]['iterations']
 
 tolerance = 1e-4
 NF_l = [10, 100, 1000, 10000, 100000, 1000000, 5000000, 10000000]
-NF_l = [10, 100, 1000, 10000, 100000, 1000000]
+# NF_l = [10, 100, 1000, 10000, 100000, 1000000]
 times_l = []
 
 for n in NF_l:

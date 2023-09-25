@@ -1,13 +1,7 @@
 """Experimentel code for efficient unified flash calculations using numba and sympy."""
 from __future__ import annotations
 
-import os
-
-# Some sympy expressions are rather large and complicated
-# Use this before importing to disable the efficiency warning
-os.environ["PYDEVD_WARN_SLOW_RESOLVE_TIMEOUT"] = "30"
-
-from typing import Any, Callable, Literal, Sequence
+from typing import Callable, Literal, Sequence
 
 import numba
 import numpy as np
@@ -16,9 +10,23 @@ import sympy as sm
 from .._core import COMPOSITIONAL_VARIABLE_SYMBOLS as SYMBOLS
 from ..composite_utils import safe_sum
 from ..mixture import BasicMixture, NonReactiveMixture
-from .eos import A_CRIT, B_CRIT, PengRobinsonEoS, coef0, coef1, coef2, red_coef0, red_coef1, discr, B_CRIT_LINE_POINTS, W_LINE_POINTS, S_CRIT_LINE_POINTS
-from .eos_compiled import coef0_c, coef1_c, coef2_c, red_coef0_c, red_coef1_c, discr_c, critical_line_c, widom_line_c, get_root_case_c, point_to_line_distance_c
-
+from .eos import (
+    B_CRIT,
+    B_CRIT_LINE_POINTS,
+    S_CRIT_LINE_POINTS,
+    W_LINE_POINTS,
+    PengRobinson,
+    coef2,
+    discr,
+    red_coef0,
+    red_coef1,
+)
+from .eos_compiler import (
+    critical_line_c,
+    get_root_case_c,
+    point_to_line_distance_c,
+    widom_line_c,
+)
 from .mixing import VanDerWaals
 
 __all__ = ["MixtureSymbols", "PR_Compiler"]
@@ -553,22 +561,6 @@ class PR_Compiler:
 
             return inner
 
-        def _njit_phi_diffs(f, **njit_kwargs):
-            """Helper function to compile the derivative functions for fugacity
-            coefficiets. Enforces a special signature.
-
-            """
-            f = numba.njit(f, **njit_kwargs)
-
-            @numba.njit(
-                "float64[:](float64, float64, float64[:], float64, float64, float64)",
-                **njit_kwargs,
-            )
-            def inner(p_, T_, X_, A_, B_, Z_):
-                return np.array(f(p_, T_, X_, A_, B_, Z_))
-
-            return inner
-
         def _njit_phi(f, **njit_kwargs):
             """Helper function to compile the function for fugacities in phase.
 
@@ -657,13 +649,12 @@ class PR_Compiler:
         # region Cohesion and Covolume
         # critical covolume per component
         b_i_crit = [
-            PengRobinsonEoS.b_crit(comp.p_crit, comp.T_crit)
-            for comp in mixture.components
+            PengRobinson.b_crit(comp.p_crit, comp.T_crit) for comp in mixture.components
         ]
 
         # mixed covolume per phase
         b_e = VanDerWaals.covolume(X_in_j_s, b_i_crit)
-        B_e = PengRobinsonEoS.B(b_e, p_s, T_s)
+        B_e = PengRobinson.B(b_e, p_s, T_s)
         B_c = numba.njit(sm.lambdify(thd_arg_j, B_e), fastmath=True)
 
         # d_B_e = [B_e.diff(_) for _ in thd_arg_j]
@@ -677,13 +668,11 @@ class PR_Compiler:
         bips, dT_bips = mixture.reference_phase.eos.compute_bips(T_s)
 
         ai_crit: list[float] = [
-            PengRobinsonEoS.a_crit(comp.p_crit, comp.T_crit)
-            for comp in mixture.components
+            PengRobinson.a_crit(comp.p_crit, comp.T_crit) for comp in mixture.components
         ]
 
         ki: list[float] = [
-            PengRobinsonEoS.a_correction_weight(comp.omega)
-            for comp in mixture.components
+            PengRobinson.a_correction_weight(comp.omega) for comp in mixture.components
         ]
 
         ai_correction_e = [
@@ -696,7 +685,7 @@ class PR_Compiler:
 
         # mixed cohesion terms per phase
         a_e = VanDerWaals.cohesion_s(X_in_j_s, ai_e, bips)
-        A_e = PengRobinsonEoS.A(a_e, p_s, T_s)
+        A_e = PengRobinson.A(a_e, p_s, T_s)
         A_c = numba.njit(sm.lambdify(thd_arg_j, A_e))
 
         d_A_e = _diff_thd(A_e, thd_arg_j)
@@ -713,12 +702,8 @@ class PR_Compiler:
         # dependencies as a list of arguments, X_in_j will be vectorized
         phi_arg = [p_s, T_s, X_in_j_s, A_s, B_s, Z_s]
 
-        # compiled callables
-        phi_i_c = list()
-        d_phi_i_c = list()
-
         for i in range(ncomp):
-            B_i_e = PengRobinsonEoS.B(b_i_crit[i], p_s, T_s)
+            B_i_e = PengRobinson.B(b_i_crit[i], p_s, T_s)
             dXi_A_e = A_e.diff(X_in_j_s[i])
             log_phi_i = (
                 B_i_e / B_s * (Z_s - 1)
@@ -741,17 +726,6 @@ class PR_Compiler:
             # no truncation and usage of exp
             phi_i_e.append(phi_i_)
             d_phi_i_e.append(d_phi_i_)
-
-            # TODO, replace low and exp by trunclog and truncexp here if necessary
-            phi_i_c.append(
-                numba.njit(
-                    "float64(float64, float64, float64[:], float64, float64, float64)"
-                )(sm.lambdify(phi_arg, phi_i_))
-            )
-            d_phi_i_c.append(_njit_phi_diffs(sm.lambdify(phi_arg, d_phi_i_)))
-
-        phi_i_c: tuple[Callable, ...] = tuple(phi_i_c)
-        d_phi_i_c: tuple[Callable, ...] = tuple(d_phi_i_c)
 
         # matrix approach
         phi_e = sm.Matrix(phi_i_e)
@@ -1287,8 +1261,6 @@ class PR_Compiler:
             phi_r = phi_c(p, T, Xn[0], A_j[0], B_j[0], Z_j[0])
 
             for j in range(1, nphase):
-                phi_j = phi_c(p, T, Xn[j], A_j[j], B_j[j], Z_j[j])
-
                 # isofugacity constraint between phase j and phase r
                 isofug[(j - 1) * ncomp : j * ncomp] = (
                     Xn[j] * phi_c(p, T, Xn[j], A_j[j], B_j[j], Z_j[j]) - Xn[0] * phi_r
@@ -1501,8 +1473,8 @@ class PR_Compiler:
                 "d-complementary-conditions": d_cc_c,
                 "feed-from-x-y": feed_from_xy_c,
                 "d-feed-from-x-y": d_feed_from_xy_c,
-                "fugacity-coefficients": phi_i_c,
-                "d-fugacity-coefficients": d_phi_i_c,
+                "fugacity-coefficients": phi_c,
+                "d-fugacity-coefficients": d_phi_c,
                 "parser-xyz": _parse_xyz,
                 "parser-pT": _parse_pT,
             }
@@ -1533,7 +1505,6 @@ class PR_Compiler:
         """
 
         ncomp = self._n_c
-        nphase = self._n_p
 
         p_1 = 1.0
         T_1 = 1.0
@@ -1584,7 +1555,7 @@ class PR_Compiler:
             np.linalg.norm(d_z_test_l - dzl_) < tol
         ), "Derivative-test for compiled, liquid-like compressibility factor failed."
 
-        p = np.random.rand(n) * 1e6 + 1
-        T = np.random.rand(n) * 1e2 + 1
-        X = np.random.rand(n, 2)
-        X = normalize_fractions(X)
+        # p = np.random.rand(n) * 1e6 + 1
+        # T = np.random.rand(n) * 1e2 + 1
+        # X = np.random.rand(n, 2)
+        # X = normalize_fractions(X)

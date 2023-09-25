@@ -69,13 +69,7 @@ The following standard names are used for thermodynamic quantities:
 """
 from __future__ import annotations
 
-import os
-
-# Some sympy expressions are rather large and complicated
-# Use this before importing to disable the efficiency warning
-os.environ["PYDEVD_WARN_SLOW_RESOLVE_TIMEOUT"] = "30"
-
-from typing import Any, Callable, Literal, Sequence
+from typing import Any, Callable
 
 import numba
 import numpy as np
@@ -83,13 +77,15 @@ import sympy as sp
 
 import porepy as pp
 
+from .._core import COMPOSITIONAL_VARIABLE_SYMBOLS as SYMBOLS
+from ..flash_compiler import EoSCompiler
 from .eos import (
     A_CRIT,
     B_CRIT,
     B_CRIT_LINE_POINTS,
     S_CRIT_LINE_POINTS,
     W_LINE_POINTS,
-    PengRobinsonEoS,
+    PengRobinson,
     coef0,
     coef1,
     coef2,
@@ -100,6 +96,7 @@ from .eos import (
     red_coef1,
     widom_line,
 )
+from .mixing import VanDerWaals
 
 _STATIC_FAST_COMPILE_ARGS: dict[str, Any] = {
     "fastmath": True,
@@ -581,10 +578,27 @@ Important:
 # endregion
 # region Functions, expressions and symbols related to the compressibility factor
 
+Z_s: sp.Symbol = sp.Symbol("Z")
+"""Symbol for the compressibility factor.
 
+Intended use is as an intermediate, independent quantity to evaluate
+complex symbolic expressions.
+
+"""
 A_s: sp.Symbol = sp.Symbol("A")
+"""Symbol for non-dimensional cohesion.
 
+Intended use is as an intermediate, independent quantity to evaluate complex
+symbolic expressions.
+
+"""
 B_s: sp.Symbol = sp.Symbol("B")
+"""Symbol for non-dimensional covolume.
+
+Intended use is as an intermediate, independent quantity to evaluate complex
+symbolic expressions.
+
+"""
 
 _AB_arg: list[sp.Symbol] = [A_s, B_s]
 """Arguments for lambdified expressions representing any root of the characteristic
@@ -625,6 +639,10 @@ d_Z_three_i_e: list[sp.Expr] = [Z_three_i_e.diff(_) for _ in _AB_arg]
 # NJIT compilation of lambdified expressions
 
 
+# TODO sympy.lambdified functions are source-less and cannot be cached
+# find solution for this
+# see https://github.com/sympy/sympy/issues/18432
+# https://github.com/numba/numba/issues/5128
 def _compile_Z_diffs(
     d_Z_: list[sp.Expr], fastmath: bool = False, lambdify_mod: Any = None
 ) -> Callable[[float, float], np.ndarray]:
@@ -646,9 +664,9 @@ def _compile_Z_diffs(
         if lambdify_mod is None
         else sp.lambdify(_AB_arg, d_Z_, lambdify_mod)
     )
-    f_ = numba.njit(f, cache=True, fastmath=fastmath)
+    f_ = numba.njit(f, cache=False, fastmath=fastmath)
 
-    @numba.njit("float64[:](float64, float64)", cache=True, fastmath=fastmath)
+    @numba.njit("float64[:](float64, float64)", cache=False, fastmath=fastmath)
     def inner(a, b):
         return np.array(f_(a, b), dtype=np.float64)
 
@@ -675,7 +693,7 @@ def _compile_Z(
         if lambdify_mod is None
         else sp.lambdify(_AB_arg, Z_, lambdify_mod)
     )
-    return numba.njit("float64(float64, float64)", cache=True, fastmath=fastmath)(f)
+    return numba.njit("float64(float64, float64)", cache=False, fastmath=fastmath)(f)
 
 
 Z_triple_c: Callable[[float, float], float] = _compile_Z(Z_triple_e, fastmath=True)
@@ -779,8 +797,10 @@ def is_real_root(gaslike: int, A: float, B: float, eps: float = 1e-14) -> int:
     return ext
 
 
+# TODO find proper signature with or without default args
+# must be done for Z_c, d_Z_c and compile_Z_mix, compile_d_Z_mix
 @numba.njit(
-    "float64(int8, float64, float64, float64, float64, float64)",
+    # "float64(int8, float64, float64, float64, float64, float64)",
     cache=True,
 )
 def Z_c(
@@ -1017,7 +1037,7 @@ def Z_u(
 
 
 @numba.njit(
-    "float64[:](int8, float64, float64, float64, float64, float64)",
+    # "float64[:](int8, float64, float64, float64, float64, float64)",
     cache=True,
 )
 def d_Z_c(
@@ -1227,6 +1247,430 @@ def d_Z_u(
     # TODO in the case of scalar input (not vectorized)
     # decide if return arg has shape (1,n) or (n,)
     return out
+
+
+def compile_Z_mix(
+    A_c: Callable[[float, float, np.ndarray], float],
+    B_c: Callable[[float, float, np.ndarray], float],
+) -> Callable[[int, float, float, np.ndarray, float, float, float], float]:
+    """Compiles a mixture-specific function for the compressibility factor, based on
+    given (NJIT compatible) callables for the mixture's cohesion and covolume.
+
+    This functiones is intended to be used inside :class:`PengRobinson_c`.
+
+    Parameters:
+        A_c: NJIT-ed representation of the mixed cohesion, dependent on pressure,
+            temperature and fractions of components.
+        B_c: Analogous mixed covolume.
+
+    Returns:
+        A compiled callable, expressing the compressibility factor in terms of
+        pressure, temperature and fractions, instead of cohesion and covolume.
+
+        The signature of the mixture-specific compressibility factor is identical to
+        :func:`Z_c`, except that instead of the arguments ``A,B``,
+        the arguments ``p, T, x`` are now taken, where ``x`` is an array of length equal
+        to number of components.
+
+    """
+
+    # TODO signature with default args
+    # @numba.njit(
+    #     "float64(int8, float64, float64, float64[:], float64, float64, float64)"
+    # )
+    @numba.njit
+    def Z_mix(
+        gaslike: int,
+        p: float,
+        T: float,
+        X: np.ndarray,
+        eps: float = 1e-14,
+        smooth_e: float = 1e-2,
+        smooth_3: float = 1e-3,
+    ) -> float:
+        A_ = A_c(p, T, X)
+        B_ = B_c(p, T, X)
+        return Z_c(gaslike, A_, B_, eps, smooth_e, smooth_3)
+
+    return Z_mix
+
+
+def compile_d_Z_mix(
+    A_c: Callable[[float, float, np.ndarray], float],
+    B_c: Callable[[float, float, np.ndarray], float],
+    d_A_c: Callable[[float, float, np.ndarray], np.ndarray],
+    d_B_c: Callable[[float, float, np.ndarray], np.ndarray],
+) -> Callable[[int, float, float, np.ndarray, float, float, float], np.ndarray]:
+    """Same as :func:`compile_Z_mix`, only for the derivative of Z (see :func:`d_Z_c`).
+
+    Parameters:
+        A_c: NJIT-ed representation of the mixed cohesion, dependent on pressure,
+            temperature and fractions of components.
+        B_c: Analogous to ``A_c``.
+        d_A_c: NJIT-ed representation of the derivative of the mixed cohesion ``A_c``,
+            dependent on pressure, temperature and fractions of components.
+            The returned array is expected to be of ``shape=(2 + num_comp,)``.
+        d_B_c: Analogous to ``d_A_c`` for ``B_c``.
+
+    Returns:
+        A compiled callable, expressing the derivative compressibility factor in terms
+        of pressure, temperature and fractions, instead of cohesion and covolume.
+
+        Also here, the signature is changed from taking ``A,B`` to ``p,T,x``
+        (see :func:`d_Z_c`).
+        The return value is an array with the derivatives of compressibility factor
+        w.r.t. the pressure, temperature and compositions per component
+        (return array ``shape=(2 + num_comp,)``).
+
+    """
+
+    # TODO signature with default args
+    # @numba.njit(
+    #     "float64[:](int8, float64, float64, float64[:], float64, float64, float64)"
+    # )
+    @numba.njit
+    def d_Z_mix(
+        gaslike: int,
+        p: float,
+        T: float,
+        X: np.ndarray,
+        eps: float = 1e-14,
+        smooth_e: float = 1e-2,
+        smooth_3: float = 1e-3,
+    ) -> float:
+        A_ = A_c(p, T, X)
+        B_ = B_c(p, T, X)
+        dA = d_A_c(p, T, X)
+        dB = d_B_c(p, T, X)
+        dz = d_Z_c(gaslike, A_, B_, eps, smooth_e, smooth_3)
+        return dz[0] * dA + dz[1] * dB
+
+    return d_Z_mix
+
+
+# endregion
+# region Compiled EoS
+
+
+class PengRobinson_s:
+    """Symbolic representation fo some thermodynamic quantities using the
+    Peng-Robinson EoS."""
+
+    def __init__(self, mixture: pp.composite.NonReactiveMixture) -> None:
+        self.p: sp.Symbol = sp.Symbol(str(SYMBOLS["pressure"]))
+        """Symbolic representation fo pressure."""
+        self.T: sp.Symbol = sp.Symbol(str(SYMBOLS["temperature"]))
+        """Symbolic representation fo temperature."""
+        self.h: sp.Symbol = sp.Symbol(str(SYMBOLS["enthalpy"]))
+        """Symbolic representation fo specific molar enthalpy."""
+        self.v: sp.Symbol = sp.Symbol(str(SYMBOLS["volume"]))
+        """Symbolic representation fo specific molar volume."""
+
+        self.x_in_j: list[sp.Symbol] = [
+            sp.Symbol(f"{SYMBOLS['phase_composition']}_{comp.name}_j")
+            for comp in mixture.components
+        ]
+        """List of phase composition fractions associated with a phase.
+        Length is equal to number of components, because every component is asssumed
+        present in every phase in the unified setting."""
+
+        self.thd_arg = [self.p, self.T, self.x_in_j]
+        """General representation of the thermodynamic argument:
+        a pressure value, a temperature value, and a sequence of fractional values."""
+
+        # region coterms
+        # covolume per component
+        self.b_i_crit: list[float] = [
+            PengRobinson.b_crit(comp.p_crit, comp.T_crit) for comp in mixture.components
+        ]
+        """List of critical covolumes per component"""
+
+        # mixed covolume
+        self.b_e: sp.Expr = VanDerWaals.covolume(self.x_in_j, self.b_i_crit)
+        """Mixed covolume according to the Van der Waals mixing rule."""
+        # non-dimensional covolume
+        self.B_e: sp.Expr = PengRobinson.B(self.b_e, self.p, self.T)
+        """Non-dimensional, mixed covolume created using :attr:`b_e`"""
+
+        # cohesion
+
+        # TODO this is not safe. Special BIP implementations are not reliably sympy
+        # compatible as of now
+        bips, _ = mixture.reference_phase.eos.compute_bips(self.T)
+
+        self.ai_crit: list[float] = [
+            PengRobinson.a_crit(comp.p_crit, comp.T_crit) for comp in mixture.components
+        ]
+        """List of critical cohesion values per component."""
+
+        ki: list[float] = [
+            PengRobinson.a_correction_weight(comp.omega) for comp in mixture.components
+        ]
+        ai_correction_e: list[sp.Expr] = [
+            1 + k * (1 - sp.sqrt(self.T / comp.T_crit))
+            for k, comp in zip(ki, mixture.components)
+        ]
+
+        self.ai_e: list[sp.Expr] = [
+            a * corr**2 for a, corr in zip(self.ai_crit, ai_correction_e)
+        ]
+        """List of cohesion values per component, including a correction involving
+        the critical temperature and acentric factor."""
+
+        self.a_e: sp.Expr = VanDerWaals.cohesion_s(self.x_in_j, self.ai_e, bips)
+        """Mixed cohesion according to the Van der Waals mixing rule."""
+        self.A_e: sp.Expr = PengRobinson.A(self.a_e, self.p, self.T)
+        """Non-dimensional, mixed cohesion created using :attr:`b_e`"""
+        # endregion
+
+        # region Fugacity coefficients
+        phi_i_e: list[sp.Expr] = []
+
+        for i in range(mixture.num_components):
+            B_i_e = PengRobinson.B(self.b_i_crit[i], self.p, self.T)
+            dXi_A_e = self.A_e.diff(self.x_in_j[i])
+            log_phi_i = (
+                B_i_e / B_s * (Z_s - 1)
+                - sp.ln(Z_s - B_s)
+                - A_s
+                / (B_s * np.sqrt(8))
+                * sp.ln((Z_s + (1 + np.sqrt(2)) * B_s) / (Z_s + (1 - np.sqrt(2)) * B_s))
+                * (dXi_A_e / A_s - B_i_e / B_s)
+            )
+            # TODO this is numerically disadvantages
+            # no truncation and usage of exp
+            phi_i_e.append(sp.exp(log_phi_i))
+
+        self.phi_e: sp.Matrix = sp.Matrix(phi_i_e)
+        """A vector-valued symbolic expression containing fugacity coefficients per
+        component.
+
+        Note:
+            We need to make it vector-valued to avoid looping over individual functions.
+            This is not parallelizable with numba.
+
+        """
+        self.d_phi_e: sp.Matrix = self.phi_e.jacobian(
+            [self.p, self.T] + self.x_in_j + [A_s, B_s, Z_s]
+        )
+        """The symbolic Jacobian of :attr:`phi_e`."""
+        # endregion
+
+
+def _compile_coterms_diffs(
+    expr: sp.Expr,
+    thd_arg: tuple[sp.Symbol, sp.Symbol, list[sp.Symbol]],
+    fastmath: bool = False,
+) -> Callable[[float, float, np.ndarray], np.ndarray]:
+    """Helper function to compile the derivatives of A and B.
+
+    Includes differentiating, wrapping into an array and a compilation with a proper
+    signature.
+
+    Note:
+        No caching since functions are mixture dependent
+
+    """
+    diff = [expr.diff(thd_arg[0]), expr.diff(thd_arg[1])] + [
+        expr.diff(_) for _ in thd_arg[2]
+    ]
+    diff_c = numba.njit(sp.lambdify(thd_arg, diff), fastmath=fastmath)
+
+    @numba.njit("float64[:](float64, float64, float64[:])", fastmath=fastmath)
+    def inner(
+        p_,
+        T_,
+        X_,
+    ):
+        return np.array(diff_c(p_, T_, X_), dtype=np.float64)
+
+    return inner
+
+
+def _compile_fugacities(
+    phis: sp.Matrix,
+    phi_arg: tuple[
+        sp.Symbol, sp.Symbol, list[sp.Symbol], sp.Symbol, sp.Symbol, sp.Symbol
+    ],
+) -> Callable[[float, float, np.ndarray, float, float, float], np.ndarray]:
+    """Helper function to compile the vector of fugacity coefficients.
+
+    It needs an additional reduction of shape from ``(num_comp, 1)`` to ``(num_comp,)``
+    because of the usage of a symbolic, vector-valued function."""
+    f = numba.njit(sp.lambdify(phi_arg, phis))
+
+    @numba.njit(
+        "float64[:](float64, float64, float64[:], float64, float64, float64)",
+    )
+    def inner(p_, T_, X_, A_, B_, Z_):
+        phi_ = f(p_, T_, X_, A_, B_, Z_)
+        return phi_[:, 0]
+
+    return inner
+
+
+class PengRobinson_c(EoSCompiler):
+    """Class providing compiled computations of thermodynamic quantities for the
+    Peng-Robinson EoS."""
+
+    def __init__(self, mixture: pp.composite.NonReactiveMixture) -> None:
+        self.symbolic: PengRobinson_s = PengRobinson_s(mixture)
+
+        self._gaslike: tuple[int] = tuple(
+            [int(phase.gaslike) for phase in mixture.phases]
+        )
+        self._mpmc: tuple[int, int] = (mixture.num_phases, mixture.num_components)
+
+        self._cfuncs: dict[str, Callable] = dict()
+        """A collection of internally required, compiled callables"""
+
+        B_c = numba.njit(
+            "float64(float64, float64, float64[:])",
+            fastmath=True,
+        )(sp.lambdify(self.symbolic.thd_arg, self.symbolic.B_e))
+
+        d_B_c = _compile_coterms_diffs(
+            self.symbolic.B_e, self.symbolic.thd_arg, fastmath=True
+        )
+
+        A_c = numba.njit(
+            "float64(float64, float64, float64[:])",
+        )(sp.lambdify(self.symbolic.thd_arg, self.symbolic.A_e))
+        # no fastmath because of sqrt
+        d_A_c = _compile_coterms_diffs(self.symbolic.A_e, self.symbolic.thd_arg)
+
+        Z_mix_c = compile_Z_mix(A_c, B_c)
+        d_Z_mix_c = compile_d_Z_mix(A_c, B_c, d_A_c, d_B_c)
+
+        phi_arg = [
+            self.symbolic.p,
+            self.symbolic.T,
+            self.symbolic.x_in_j,
+            A_s,
+            B_s,
+            Z_s,
+        ]
+
+        phi_c = _compile_fugacities(self.symbolic.phi_e, phi_arg)
+
+        d_phi_c = numba.njit(
+            "float64[:,:](float64, float64, float64[:], float64, float64, float64)"
+        )(sp.lambdify(phi_arg, self.symbolic.d_phi_e))
+
+        self._cfuncs.update(
+            {
+                "A": A_c,
+                "B": B_c,
+                "Z": Z_mix_c,
+                "d_A": d_A_c,
+                "d_B": d_B_c,
+                "d_Z": d_Z_mix_c,
+                "phi": phi_c,
+                "d_phi": d_phi_c,
+            }
+        )
+
+    def get_pre_arg_computation_res(
+        self,
+    ) -> Callable[[float, float, np.ndarray], np.ndarray]:
+        nphase, _ = self._mpmc
+        gaslike = self._gaslike
+
+        A_c = self._cfuncs["A"]
+        B_c = self._cfuncs["B"]
+        Z_c = self._cfuncs["Z"]
+
+        @numba.njit("float64[:,:](float64, float64, float64[:,:])")
+        def pre_arg_res_c(p: float, T: float, XN: np.ndarray) -> np.ndarray:
+            pre_arg = np.empty((nphase, 3), dtype=np.float64)
+
+            for j in range(nphase):
+                pre_arg[j, 0] = A_c(p, T, XN[j])
+                pre_arg[j, 1] = B_c(p, T, XN[j])
+                pre_arg[j, 2] = Z_c(gaslike[j], p, T, XN[j])
+
+            return pre_arg
+
+        return pre_arg_res_c
+
+    def get_pre_arg_computation_jac(
+        self,
+    ) -> Callable[[float, float, np.ndarray], np.ndarray]:
+        nphase, ncomp = self._mpmc
+        gaslike = self._gaslike
+
+        A_c = self._cfuncs["A"]
+        B_c = self._cfuncs["B"]
+        Z_c = self._cfuncs["Z"]
+
+        dA_c = self._cfuncs["d_A"]
+        dB_c = self._cfuncs["d_B"]
+        dZ_c = self._cfuncs["d_Z"]
+
+        # number of derivatives for A, B, Z
+        d = 2 + ncomp
+
+        @numba.njit("float64[:,:](float64, float64, float64[:,:])")
+        def pre_arg_jac_c(p: float, T: float, XN: np.ndarray) -> np.ndarray:
+            # the pre-arg for the jacobian contains, besided A, B, Z, also their
+            # derivatives w.r.t. p, T, and the composition in that phase.
+            pre_arg = np.empty((nphase, 3 + 3 * d), dtype=np.float64)
+
+            for j in range(nphase):
+                pre_arg[j, 0] = A_c(p, T, XN[j])
+                pre_arg[j, 1] = B_c(p, T, XN[j])
+                pre_arg[j, 2] = Z_c(gaslike[j], p, T, XN[j])
+                pre_arg[j, 3 : 3 + d] = dA_c(p, T, XN[j])
+                pre_arg[j, 3 + d : 3 + 2 * d] = dB_c(p, T, XN[j])
+                pre_arg[j, 3 + 2 * d : 3 + 3 * d] = dZ_c(gaslike[j], p, T, XN[j])
+
+            return pre_arg
+
+        return pre_arg_jac_c
+
+    def get_fugacity_computation(
+        self,
+    ) -> Callable[[np.ndarray, int, float, float, np.ndarray], np.ndarray]:
+        phi_c = self._cfuncs["phi"]
+        _, ncomp = self._mpmc
+
+        @numba.njit("float64[:](float64[:,:], int32, float64, float64, float64[:])")
+        def phi_mix_c(
+            prearg: np.ndarray, j: int, p: float, T: float, xn: np.ndarray
+        ) -> np.ndarray:
+            return phi_c(p, T, xn, prearg[j, 0], prearg[j, 1], prearg[j, 2])
+
+        return phi_mix_c
+
+    def get_dpTX_fugacity_computation(
+        self,
+    ) -> Callable[[np.ndarray, int, float, float, np.ndarray], np.ndarray]:
+        d_phi_c = self._cfuncs["d_phi"]
+        _, ncomp = self._mpmc
+        # number of derivatives for A, B, Z
+        d = 2 + ncomp
+
+        @numba.njit("float64[:,:](float64[:,:], int32, float64, float64, float64[:])")
+        def d_phi_mix_c(
+            prearg_jac: np.ndarray, j: int, p: float, T: float, xn: np.ndarray
+        ) -> np.ndarray:
+            # computation of phis dependent on A_j, B_j, Z_j
+            d_phis = d_phi_c(
+                p, T, xn, prearg_jac[j, 0], prearg_jac[j, 1], prearg_jac[j, 2]
+            )
+            # derivatives of A_j, B_j, Z_j w.r.t. p, T, and X_j
+            dA = prearg_jac[j, 3 : 3 + d]
+            dB = prearg_jac[j, 3 + d : 3 + 2 * d]
+            dZ = prearg_jac[j, 3 + 2 * d : 3 + 3 * d]
+            # expansion of derivatives
+            return (
+                d_phis[:, :-3]
+                + np.outer(d_phis[:, -3], dA)
+                + np.outer(d_phis[:, -2], dB)
+                + np.outer(d_phis[:, -1], dZ)
+            )
+
+        return d_phi_mix_c
 
 
 # endregion

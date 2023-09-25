@@ -40,8 +40,8 @@ LIQs = [
 flasher = FlashVLN(constants, properties, liquids=LIQs, gas=GAS)
 results = flasher.flash(P=p, T=T, zs=[1 - z_co2, z_co2])
 
-eos_g = pp.composite.peng_robinson.PengRobinsonEoS(True)
-eos_l = pp.composite.peng_robinson.PengRobinsonEoS(False)
+eos_g = pp.composite.peng_robinson.PengRobinson(True)
+eos_l = pp.composite.peng_robinson.PengRobinson(False)
 species = pp.composite.load_species(["H2O", "CO2"])
 comps = [
     pp.composite.peng_robinson.H2O.from_species(species[0]),

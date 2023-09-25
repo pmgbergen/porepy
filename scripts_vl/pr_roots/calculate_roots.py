@@ -819,7 +819,7 @@ if __name__ == "__main__":
 
     print("Calculating roots: ...", end="", flush=True)
     counter: int = 1
-    eos = pp.composite.peng_robinson.PengRobinsonEoS(
+    eos = pp.composite.peng_robinson.PengRobinson(
         False, smoothing_factor=SMOOTHING_FACTOR, eps=EPS
     )
     func = eos._Z

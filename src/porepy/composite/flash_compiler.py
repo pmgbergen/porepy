@@ -13,21 +13,15 @@ and ``numba``.
 """
 from __future__ import annotations
 
+import abc
 from typing import Callable, Literal
 
 import numba
 import numpy as np
-import sympy as sp
-
-import porepy as pp
-
-from ._core import COMPOSITIONAL_VARIABLE_SYMBOLS as SYMBOLS
-from .composite_utils import safe_sum
-from .mixture import BasicMixture
 
 
 @numba.njit(
-    "Tuple(float64[:,:], float64[:], float64[:])(float64[:], UniTuple(int32, 2))",
+    "Tuple((float64[:,:], float64[:], float64[:]))(float64[:], UniTuple(int32, 2))",
     fastmath=True,
     cache=True,
 )
@@ -81,7 +75,7 @@ def parse_xyz(
     # matrix:
     # rows have compositions per phase,
     # columns have compositions related to a component
-    X = X.reshape((ncomp, nphase))
+    X = X.reshape((nphase, ncomp))
     # phase fractions, -1 because fraction of ref phase is eliminated and not part of
     # the generic argument
     Y = np.empty(nphase, dtype=np.float64)
@@ -92,7 +86,7 @@ def parse_xyz(
 
 
 @numba.njit(
-    "float64[:](float64[:], UniTuple(int, 2))",
+    "float64[:](float64[:], UniTuple(int32, 2))",
     fastmath=True,
     cache=True,
 )
@@ -233,7 +227,7 @@ def mass_conservation_jac(x: np.ndarray, y: np.ndarray) -> np.ndarray:
     return (-1) * jac
 
 
-@numba.njit("float64[:](float64[:], float64[:,:])", fastmath=True, cache=True)
+@numba.njit("float64[:](float64[:,:], float64[:])", fastmath=True, cache=True)
 def complementary_conditions_res(x: np.ndarray, y: np.ndarray) -> np.ndarray:
     r"""Assembles the residual of the complementary conditions.
 
@@ -272,7 +266,7 @@ def complementary_conditions_res(x: np.ndarray, y: np.ndarray) -> np.ndarray:
     return ccs
 
 
-@numba.njit("float64[:,:](float64[:], float64[:,:])", fastmath=True, cache=True)
+@numba.njit("float64[:,:](float64[:,:], float64[:])", fastmath=True, cache=True)
 def complementary_conditions_jac(x: np.ndarray, y: np.ndarray) -> np.ndarray:
     """Returns the Jacobian of the residual described in
     :func:`complementary_conditions_res`
@@ -305,139 +299,156 @@ def complementary_conditions_jac(x: np.ndarray, y: np.ndarray) -> np.ndarray:
     return d_ccs
 
 
-class MixtureSymbols:
-    """A class containing basic symbols (thermodynamic properties and variables) for a
-    mixture represented using ``sympy``.
+class EoSCompiler(abc.ABC):
+    """Abstract base class for EoS specific compilation using numba.
 
-    It is meant for symbols which are considered primary or independent or given,
-    e.g., pressure or molar fractions, not for higher expressions.
+    The :class:`FlashCompiler` needs functions computing
+
+    - fugacity coefficients
+    - enthalpies
+    - densities
+    - the derivatives of above w.r.t. pressure, temperature and phase compositions
+
+    Respective functions must be assembled and compiled by a child class with a specific
+    EoS.
+
+    The compiled functions are expected to have the following signature:
+
+    ``(prearg: np.ndarray, phase_index: int, p: float, T: float, xn: numpy.ndarray)``
+
+    1. ``prearg``: A 2-dimensional array containing the results of the pre-computation
+       using the function returned by :meth:`get_pre_arg_computation`.
+    2. ``phase_index``, the index of the phase, for which the quantities should be
+       computed (``j = 0 ... num_phase - 1``), assuming 0 is the reference phase
+    3. ``p``: The pressure value.
+    4. ``T``: The temperature value.
+    5 ``xn``: An array with ``shape=(num_comp,)`` containing the normalized fractions
+      per component in phase ``phase_index``.
+
+    The purpose of the ``prearg`` is efficiency.
+    Many EoS have computions of some coterms or compressibility factors f.e.,
+    which must only be computed once for all remaining thermodynamic quantities.
+
+    The function for the ``prearg`` computation must have the signature:
+
+    ``(p: float, T: float, XN: np.ndarray)``
+
+    where ``XN`` contains **all** normalized compositions,
+    stored row-wose per phase as a matrix.
+
+    There are two ``prearg`` computations: One for the residual, one for the Jacobian
+    of the flash system.
+
+    The ``prearg`` for the Jacobian will be fed to the functions representing
+    derivatives of thermodynamic quantities
+    (e.g. derivative fugacity coefficients w.r.t. p, T, X).
+
+    The ``prearg`` for the residual will be passed to thermodynamic quantities without
+    derivation.
 
     """
 
-    def __init__(self, mixture: BasicMixture) -> None:
-        self.p: sp.Symbol = sp.Symbol(str(SYMBOLS["pressure"]))
-        """Symbolic representation fo pressure."""
-        self.T: sp.Symbol = sp.Symbol(str(SYMBOLS["temperature"]))
-        """Symbolic representation fo temperature."""
-        self.h: sp.Symbol = sp.Symbol(str(SYMBOLS["enthalpy"]))
-        """Symbolic representation fo specific molar enthalpy."""
-        self.v: sp.Symbol = sp.Symbol(str(SYMBOLS["volume"]))
-        """Symbolic representation fo specific molar volume."""
+    @abc.abstractmethod
+    def get_pre_arg_computation_res(
+        self,
+    ) -> Callable[[float, float, np.ndarray], np.ndarray]:
+        """Abstract function for obtaining the compiled computation of the pre-argument
+        for the residual.
 
-        self.z: list[sp.Symbol | sp.Expr] = [
-            sp.Symbol(f"{SYMBOLS['component_fraction']}_{comp.name}")
-            for comp in mixture.components
-        ]
-        """List of symbolic representations of overal molar fractions per component.
-
-        The fraction of the reference component is eliminated by unity.
-
-        Ordered as in the mixture class.
+        Returns:
+            A NJIT-ed function taking values for pressure, temperature and normalized
+            phase compositions for all phases as a matrix, and returning any matrix,
+            which will be passed to other functions computing thermodynamic quantities.
 
         """
+        pass
 
-        self.y: list[sp.Symbol | sp.Expr] = [
-            sp.Symbol(f"{SYMBOLS['phase_fraction']}_{phase.name}")
-            for phase in mixture.phases
-        ]
-        """List of symbolic representations of molar phase fractions per phase.
+    @abc.abstractmethod
+    def get_pre_arg_computation_jac(
+        self,
+    ) -> Callable[[float, float, np.ndarray], np.ndarray]:
+        """Abstract function for obtaining the compiled computation of the pre-argument
+        for the Jacobian.
 
-        The fraction of the reference phase is eliminated by unity.
-
-        Ordered as in the mixture class.
-
-        """
-
-        self.s: list[sp.Symbol | sp.Expr] = [
-            sp.Symbol(f"{SYMBOLS['phase_saturation']}_{phase.name}")
-            for phase in mixture.phases
-        ]
-        """List of symbolic representations of volumetric phase fractions per phase.
-
-        Analogous to :attr:`y`.
+        Returns:
+            A NJIT-ed function taking values for pressure, temperature and normalized
+            phase compositions for all phases as a matrix, and returning any matrix,
+            which will be passed to other functions computing derivatives of
+            thermodynamic quantities.
 
         """
+        pass
 
-        self.x_per_i: list[sp.Symbol] = []
-        """List of phase composition fractions associated with a component.
-        Length is equal to number of phases, because every phase is modelled in the
-        unified setting.
+    @abc.abstractmethod
+    def get_fugacity_computation(
+        self,
+    ) -> Callable[[np.ndarray, int, float, float, np.ndarray], np.ndarray]:
+        """Abstract assembler for compiled computations of the fugacity coefficients.
 
-        The phase indices are given by
-        - ``_R`` denoting the reference phase
-        - ``_G`` denoting the one assumed gas phase
-        - ``_<number>`` some number for additional liquid-like phases
+        Returns:
+            A NJIT-ed function taking
+            - the pre-argument for the residual,
+            - the phase index,
+            - pressure value,
+            - temperature value,
+            - an array normalized fractions of componentn in phase ``phase_index``
+
+            and returning an array of fugacity coefficients with ``shape=(num_comp,)``.
 
         """
+        pass
 
-        self.x_in_j: list[sp.Symbol] = [
-            sp.Symbol(f"{SYMBOLS['phase_composition']}_{comp.name}_j")
-            for comp in mixture.components
-        ]
-        """List of phase composition fractions associated with a phase.
-        Length is equal to number of components, because every component is asssumed
-        present in every phase in the unified setting."""
+    @abc.abstractmethod
+    def get_dpTX_fugacity_computation(
+        self,
+    ) -> Callable[[np.ndarray, int, float, float, np.ndarray], np.ndarray]:
+        """Abstract assembler for compiled computations of the derivative of fugacity
+        coefficients.
 
-        # representations for symbols eliminated by unity
-        z_r = 1.0 - safe_sum(self.z)
-        self.z = [
-            z if comp != mixture.reference_component else z_r
-            for z, comp in zip(self.z, mixture.components)
-        ]
+        The functions should return the derivative fugacities for each component
+        row-wise in a matrix.
+        It must contain the derivatives w.r.t. pressure, temperature and each fraction
+        in a specified phase.
+        I.e. the return value must be an array with ``shape=(num_comp, 2 + num_comp)``.
 
-        y_r = 1.0 - safe_sum(self.y)
-        self.y = [
-            y if phase != mixture.reference_phase else y_r
-            for y, phase in zip(self.y, mixture.phases)
-        ]
+        Returns:
+            A NJIT-ed function taking
+            - the pre-argument for the Jacobian,
+            - the phase index,
+            - pressure value,
+            - temperature value,
+            - an array normalized fractions of componentn in phase ``phase_index``
 
-        s_r = 1.0 - safe_sum(self.s)
-        self.s = [
-            s if phase != mixture.reference_phase else s_r
-            for s, phase in zip(self.s, mixture.phases)
-        ]
+            and returning an array of derivatives offugacity coefficients with
+            ``shape=(num_comp, 2 + num_comp)``., where the columns indicate the
+            derivatives w.r.t. to pressure, temperature and fractions.
 
-        # layout of X per i, with more information on the phase.
-        _np = 1
-        for phase in mixture.phases:
-            if phase == mixture.reference_phase:
-                self.x_per_i.append(sp.Symbol(f"{SYMBOLS['phase_composition']}_i_R"))
-            else:
-                # NOTE assuming only 1 gas phase
-                if phase.gaslike:
-                    self.x_per_i.append(
-                        sp.Symbol(f"{SYMBOLS['phase_composition']}_i_G")
-                    )
-                else:
-                    self.x_per_i.append(
-                        sp.Symbol(f"{SYMBOLS['phase_composition']}_i_{_np}")
-                    )
-                    _np += 1
+        """
+        pass
 
 
 class FlashCompiler:
     """Class implementing NJIT-compiled representation of the equilibrium equations
-    using numba and sympy.
+    using numba.
 
     It uses the no-python mode of numba to produce highly efficient, compiled code.
 
+    Intended for parallel solution of the local equilibrium problem in compositional
+    flow.
+
+    Parameters:
+        mpmc: A 2-tuple containing the number of phases and number of components
+        eos_compiler: A compilter class providing NJIT-ed functions for fugacity values
+            among others.
+
     """
 
-    def __init__(self, mixture: pp.composite.NonReactiveMixture) -> None:
-        self._mpmc: tuple[int, int] = (mixture.num_phases, mixture.num_components)
-        """2-tuple containing the number of phases and components.
-
-        This is an import argument for many function compilations
-        """
-
-        self._gaslike: tuple[int, ...] = tuple(
-            [int(phase.gaslike) for phase in mixture.phases]
-        )
-        """Tuple of length ``num_phase`` containing flags if modelled phases are
-        gas-like. Only one gaslike phase should be allowed"""
-        assert sum(self._gaslike) == 1, "Mixture must have exactly 1 gas-like phase."
-
-        self.symbols: MixtureSymbols = MixtureSymbols(mixture)
+    def __init__(
+        self,
+        mpmc: tuple[int, int],
+        eos_compiler: EoSCompiler,
+    ) -> None:
+        ### declaration of available residuals and Jacobians
 
         self.residuals: dict[
             Literal["p-T", "p-h", "v-h"], Callable[[np.ndarray], np.ndarray]
@@ -449,22 +460,117 @@ class FlashCompiler:
         ] = dict()
         """Contains per flash configuration the respective Jacobian as a callable."""
 
-        self._compile_flash_systems(mixture)
+        ### Compilation of residuals and Jacobians
 
-    def _compile_flash_systems(self, mixture: pp.composite.NonReactiveMixture) -> None:
-        """Creates compiled callables representing various flash systems.
-
-        The callables represent residuals and Jacobians of the flash equations, and
-        their size depends on the number of present phases and components.
-
-        """
-        nphase, ncomp = self._mpmc
+        nphase, ncomp = mpmc
 
         # number of equations for the pT system
         # ncomp - 1 mass constraints
         # (nphase - 1) * ncomp fugacity constraints (w.r.t. ref phase formulated)
         # nphase complementary conditions
         pT_dim = ncomp - 1 + (nphase - 1) * ncomp + nphase
+
+        prearg_res_c = eos_compiler.get_pre_arg_computation_res()
+        prearg_jac_c = eos_compiler.get_pre_arg_computation_jac()
+        phi_c = eos_compiler.get_fugacity_computation()
+        d_phi_c = eos_compiler.get_dpTX_fugacity_computation()
+
+        @numba.njit("float64[:](float64[:,:], float64, float64, float64[:,:])")
+        def isofug_constr_c(
+            prearg_res: np.ndarray,
+            p: float,
+            T: float,
+            Xn: np.ndarray,
+        ):
+            """Helper function to assemble the isofugacity constraint.
+
+            Formulation is always w.r.t. the reference phase r, assumed to be r=0.
+
+            """
+            isofug = np.empty(ncomp * (nphase - 1), dtype=np.float64)
+
+            phi_r = phi_c(prearg_res, 0, p, T, Xn[0])
+
+            for j in range(1, nphase):
+                phi_j = phi_c(prearg_res, j, p, T, Xn[j])
+                # isofugacity constraint between phase j and phase r
+                isofug[(j - 1) * ncomp : j * ncomp] = Xn[j] * phi_j - Xn[0] * phi_r
+
+            return isofug
+
+        @numba.njit(
+            "float64[:,:](float64[:,:], float64[:,:], int32, float64, float64, float64[:])"
+        )
+        def d_isofug_block_j(
+            prearg_res: np.ndarray,
+            prearg_jac: np.ndarray,
+            j: int,
+            p: float,
+            T: float,
+            Xn: np.ndarray,
+        ):
+            """Helper function to construct a block representing the derivative
+            of x_ij * phi_ij for all i as a matrix, with i row index.
+            This is constructed for a given phase j.
+            """
+            # derivatives w.r.t. p, T, all compositions, A, B, Z
+            dx_phi_j = np.zeros((ncomp, 2 + ncomp))
+
+            phi_j = phi_c(prearg_res, j, p, T, Xn)
+            d_phi_j = d_phi_c(prearg_jac, j, p, T, Xn)
+
+            # product rule d(x * phi) = dx * phi + x * dphi
+            # dx is is identity
+            dx_phi_j[:, 2 : 2 + ncomp] = np.diag(phi_j)
+            d_xphi_j = dx_phi_j + (d_phi_j.T * Xn).T
+
+            return d_xphi_j
+
+        @numba.njit(
+            "float64[:,:](float64[:,:], float64[:, :], float64, float64, float64[:,:])"
+        )
+        def d_isofug_constr_c(
+            prearg_res: np.ndarray,
+            prearg_jac: np.ndarray,
+            p: float,
+            T: float,
+            Xn: np.ndarray,
+        ):
+            """Helper function to assemble the derivative of the isofugacity constraints
+
+            Formulation is always w.r.t. the reference phase r, assumed to be zero 0.
+
+            Important:
+                The derivative is taken w.r.t. to A, B, Z (among others).
+                An forward expansion must be done after a call to this function.
+
+            """
+            d_iso = np.zeros((ncomp * (nphase - 1), 2 + ncomp * nphase))
+
+            # creating derivative parts involving the reference phase
+            d_xphi_r = d_isofug_block_j(prearg_res, prearg_jac, 0, p, T, Xn[0])
+
+            for j in range(1, nphase):
+                # construct the same as above for other phases
+                d_xphi_j = d_isofug_block_j(prearg_res, prearg_jac, 1, p, T, Xn[j])
+
+                # filling in the relevant blocks
+                # remember: d(x_ij * phi_ij - x_ir * phi_ir)
+                # hence every row-block contains (-1)* d_xphi_r
+                # p, T derivative
+                d_iso[(j - 1) * ncomp : j * ncomp, :2] = (
+                    d_xphi_j[:, :2] - d_xphi_r[:, :2]
+                )
+                # derivative w.r.t. fractions in reference phase
+                d_iso[(j - 1) * ncomp : j * ncomp, 2 : 2 + ncomp] = (-1) * d_xphi_r[
+                    :, 2:
+                ]
+                # derivatives w.r.t. fractions in independent phase j
+                d_iso[
+                    (j - 1) * ncomp : j * ncomp, 2 + j * ncomp : 2 + (j + 1) * ncomp
+                ] = d_xphi_j[:, 2:]
+
+            return d_iso
 
         @numba.njit("float64[:](float64[:])")
         def F_pT(X_gen: np.ndarray) -> np.ndarray:
@@ -478,11 +584,19 @@ class FlashCompiler:
             # last nphase equations are always complementary conditions
             res[-nphase:] = complementary_conditions_res(x, y)
 
+            # EoS specific computations
+            xn = normalize_fractions(x)
+            prearg = prearg_res_c(p, T, xn)
+
+            res[ncomp - 1 : ncomp - 1 + ncomp * (nphase - 1)] = isofug_constr_c(
+                prearg, p, T, xn
+            )
+
             return res
 
         @numba.njit("float64[:,:](float64[:])")
         def DF_pT(X_gen: np.ndarray) -> np.ndarray:
-            x, y, z = parse_xyz(X_gen, (nphase, ncomp))
+            x, y, _ = parse_xyz(X_gen, (nphase, ncomp))
             p, T = parse_pT(X_gen, (nphase, ncomp))
 
             # declare Jacobian or proper dimension
@@ -491,6 +605,15 @@ class FlashCompiler:
             jac[: ncomp - 1] = mass_conservation_jac(x, y)
             # last nphase equations are always complementary conditions
             jac[-nphase:] = complementary_conditions_jac(x, y)
+
+            # EoS specific computations
+            xn = normalize_fractions(x)
+            prearg_res = prearg_res_c(p, T, xn)
+            prearg_jac = prearg_jac_c(p, T, xn)
+
+            jac[
+                ncomp - 1 : ncomp - 1 + ncomp * (nphase - 1), nphase - 1 :
+            ] = d_isofug_constr_c(prearg_res, prearg_jac, p, T, xn)[:, 2:]
 
             return jac
 

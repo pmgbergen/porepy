@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 import numbers
 from dataclasses import dataclass
-from typing import Callable, Literal, Any
+from typing import Any, Callable, Literal
 
 import numpy as np
 import scipy.sparse as sps
@@ -20,19 +20,27 @@ from .mixing import VanDerWaals
 from .pr_bip import load_bip
 from .pr_components import Component_PR
 
-__all__ = ["PhaseProperties_cubic", "PengRobinsonEoS", "A_CRIT", "B_CRIT", "Z_CRIT", "critical_line", "widom_line"]
+__all__ = [
+    "PhaseProperties_cubic",
+    "PengRobinson",
+    "A_CRIT",
+    "B_CRIT",
+    "Z_CRIT",
+    "critical_line",
+    "widom_line",
+]
 
 logger = logging.getLogger(__name__)
 
 A_CRIT: float = (
-        1
-        / 512
-        * (
-            -59
-            + 3 * np.cbrt(276231 - 192512 * np.sqrt(2))
-            + 3 * np.cbrt(276231 + 192512 * np.sqrt(2))
-        )
+    1
+    / 512
+    * (
+        -59
+        + 3 * np.cbrt(276231 - 192512 * np.sqrt(2))
+        + 3 * np.cbrt(276231 + 192512 * np.sqrt(2))
     )
+)
 """Critical, non-dimensional cohesion value in the Peng-Robinson EoS,
 ~ 0.457235529."""
 
@@ -394,7 +402,7 @@ class PhaseProperties_cubic(PhaseProperties):
     """Compressibility factor."""
 
 
-class PengRobinsonEoS(AbstractEoS):
+class PengRobinson(AbstractEoS):
     """A class implementing thermodynamic properties resulting from the Peng-Robinson
     equation of state
 
@@ -566,7 +574,6 @@ class PengRobinsonEoS(AbstractEoS):
 
     @components.setter
     def components(self, components: list[Component_PR]) -> None:
-
         a_crits: list[float] = list()
         bs: list[float] = list()
         a_cors: list[float] = list()
@@ -1158,7 +1165,7 @@ class PengRobinsonEoS(AbstractEoS):
 
         """
         return (1 - B - Z) / 2
-    
+
     @staticmethod
     def extended_root_gas_sc(B: NumericType, Z: NumericType) -> NumericType:
         """Auxiliary function implementing the formula for the extended, supercritical
@@ -1272,7 +1279,7 @@ class PengRobinsonEoS(AbstractEoS):
         # identify super-critical line
         self.is_supercritical = B >= critical_line(A)
         # identify approximated sub pseudo-critical line (approximates Widom line)
-        widom_line = B <= widom_line(A)
+        below_widom = B <= widom_line(A)
 
         # At A,B=0 we have 2 real roots, one with multiplicity 2
         zero_point = (
@@ -1289,8 +1296,8 @@ class PengRobinsonEoS(AbstractEoS):
         # Area where the Gharbia analysis and extension holds
         gharbia_ext = (~self.is_supercritical) & (B < B_CRIT)
         # extra regions for extensions
-        liq_ext_supc = self.is_supercritical & (~widom_line)
-        gas_ext_supc = (~gharbia_ext) & widom_line
+        liq_ext_supc = self.is_supercritical & (~below_widom)
+        gas_ext_supc = (~gharbia_ext) & below_widom
 
         # discriminant of zero indicates triple or two real roots with multiplicity
         degenerate_region = (delta >= -self.eps) & (delta <= self.eps)
@@ -1366,11 +1373,19 @@ class PengRobinsonEoS(AbstractEoS):
 
                 # compute normal distance of extended gas root in supercritical area
                 # to line B = B_CRIT
-                a = A_.val[gas_ext_supc] if isinstance(A_, pp.ad.AdArray) else A_[gas_ext_supc]
-                b = B_.val[gas_ext_supc] if isinstance(B_, pp.ad.AdArray) else B_[gas_ext_supc]
+                a = (
+                    A_.val[gas_ext_supc]
+                    if isinstance(A_, pp.ad.AdArray)
+                    else A_[gas_ext_supc]
+                )
+                b = (
+                    B_.val[gas_ext_supc]
+                    if isinstance(B_, pp.ad.AdArray)
+                    else B_[gas_ext_supc]
+                )
                 ab = np.array([a, b])
 
-                d_g  = point_to_line_distance(
+                d_g = point_to_line_distance(
                     ab, B_CRIT_LINE_POINTS[0], B_CRIT_LINE_POINTS[1]
                 )
 
@@ -1387,12 +1402,18 @@ class PengRobinsonEoS(AbstractEoS):
 
                 # compute normal distance of extended liquid root to critical line and
                 # normal line and chose the smaller one
-                a = A_.val[liq_ext_supc] if isinstance(A_, pp.ad.AdArray) else A_[liq_ext_supc]
-                b = B_.val[liq_ext_supc] if isinstance(B_, pp.ad.AdArray) else B_[liq_ext_supc]
-                ab = np.array([a, b])
-                d_w = point_to_line_distance(
-                    ab, W_LINE_POINTS[0], W_LINE_POINTS[1]
+                a = (
+                    A_.val[liq_ext_supc]
+                    if isinstance(A_, pp.ad.AdArray)
+                    else A_[liq_ext_supc]
                 )
+                b = (
+                    B_.val[liq_ext_supc]
+                    if isinstance(B_, pp.ad.AdArray)
+                    else B_[liq_ext_supc]
+                )
+                ab = np.array([a, b])
+                d_w = point_to_line_distance(ab, W_LINE_POINTS[0], W_LINE_POINTS[1])
                 d_s = point_to_line_distance(
                     ab, S_CRIT_LINE_POINTS[0], S_CRIT_LINE_POINTS[1]
                 )
@@ -1405,12 +1426,12 @@ class PengRobinsonEoS(AbstractEoS):
                 # smoothing towards subcritical Ben Gharbia extension
                 smooth = (d_s < smoothing_distance) & (b < B_CRIT)
                 d = d_s / smoothing_distance
-                w_l[smooth] = (w_sub * (1-d) + w_l * d)[smooth]
+                w_l[smooth] = (w_sub * (1 - d) + w_l * d)[smooth]
 
                 w[liq_ext_supc] = w_l
 
             if use_widom_line:
-                extension_is_bigger = widom_line[one_root_region]
+                extension_is_bigger = below_widom[one_root_region]
             else:
                 extension_is_bigger = z_1 < w
 

@@ -11,9 +11,9 @@ comps = [
 ]
 
 
-eosl = pp.composite.peng_robinson.PengRobinsonEoS(False)
+eosl = pp.composite.peng_robinson.PengRobinson(False)
 eosl.components = comps
-eosg = pp.composite.peng_robinson.PengRobinsonEoS(True)
+eosg = pp.composite.peng_robinson.PengRobinson(True)
 eosg.components = comps
 
 p = 7
