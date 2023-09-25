@@ -481,7 +481,7 @@ if __name__ == "__main__":
         root_extensions = np.zeros(A_mesh.shape)
         counter: int = 1
         nm = n * m
-        eos = pp.composite.peng_robinson.PengRobinsonEoS(False)
+        eos = pp.composite.peng_robinson.PengRobinson(False)
         for i in range(n):
             for j in range(m):
                 A_ = A_mesh[i, j]

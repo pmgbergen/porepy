@@ -81,7 +81,6 @@ class AbstractEoS(abc.ABC):
     """
 
     def __init__(self, gaslike: bool, *args, **kwargs) -> None:
-
         super().__init__()
 
         self._components: list[Component] = list()
@@ -282,7 +281,6 @@ class Phase:
         eos: AbstractEoS,
         name: str,
     ) -> None:
-
         self._name: str = name
         """Name given to the phase at instantiation."""
 

@@ -62,7 +62,6 @@ class Component(abc.ABC, FluidSpecies):
     """
 
     def __init__(self, **kwargs) -> None:
-
         super().__init__(
             **kwargs
             # **{

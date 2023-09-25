@@ -232,7 +232,6 @@ class FlashSystemNR(ThermodynamicState):
             X = self.X
             nu = self._nu
         else:
-
             idx = 0  # index counter from top to bottom
             p: NumericType = 0.0
             T: NumericType = 0.0
@@ -780,7 +779,6 @@ class FlashNR:
     """
 
     def __init__(self, mixture: NonReactiveMixture) -> None:
-
         ### PUBLIC
 
         # currently only 2-phase flash is supported
@@ -1042,7 +1040,6 @@ class FlashNR:
         thd_state: ThermodynamicState
         # Computation of initial guess values
         if flash_type == "p-T":
-
             thd_state = ThermodynamicState.initialize(
                 num_comp, num_phases, num_vals, True, values_from=guess_from_state
             )
@@ -1057,7 +1054,6 @@ class FlashNR:
                 )
 
         elif flash_type == "p-h":
-
             thd_state = ThermodynamicState.initialize(
                 num_comp,
                 num_phases,
@@ -1089,7 +1085,6 @@ class FlashNR:
                     )
 
         elif flash_type == "h-v":
-
             thd_state = ThermodynamicState.initialize(
                 num_comp,
                 num_phases,
@@ -1369,7 +1364,6 @@ class FlashNR:
             # store r-phase composition and average
             x_i_0 = list()
             for j in range(1, nph):
-
                 x_i_j = state.z[i] * K[j - 1][i] / t_i
                 state.X[j][i].val = x_i_j
 

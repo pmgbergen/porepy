@@ -88,7 +88,6 @@ def load_species(
     omega_loader: Callable
 
     if package == "chemicals":
-
         cas_loader = chemicals.CAS_from_any
         mw_loader = lambda x: chemicals.MW(x) * 1e-3  # molas mass in kg / mol
         pc_loader = chemicals.Pc  # critical pressure in Pa

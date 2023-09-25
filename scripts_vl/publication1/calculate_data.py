@@ -65,7 +65,7 @@ if __name__ == "__main__":
         pp.composite.peng_robinson.H2O.from_species(species[0]),
         pp.composite.peng_robinson.CO2.from_species(species[1]),
     ]
-    eos = pp.composite.peng_robinson.PengRobinsonEoS(True)
+    eos = pp.composite.peng_robinson.PengRobinson(True)
     eos.components = comps
     logger.info("Name\tT_crit\tp_crit\tomega\n")
     for c in comps:

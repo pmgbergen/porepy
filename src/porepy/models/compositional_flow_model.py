@@ -298,10 +298,10 @@ class CompositionalFlowModel:
 
         phases = [
             pp.composite.Phase(
-                pp.composite.peng_robinson.PengRobinsonEoS(gaslike=False), name="L"
+                pp.composite.peng_robinson.PengRobinson(gaslike=False), name="L"
             ),
             pp.composite.Phase(
-                pp.composite.peng_robinson.PengRobinsonEoS(gaslike=True), name="G"
+                pp.composite.peng_robinson.PengRobinson(gaslike=True), name="G"
             ),
         ]
 

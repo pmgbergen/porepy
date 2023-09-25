@@ -523,7 +523,6 @@ class BasicMixture:
         components: list[Component],
         phases: list[Phase],
     ) -> None:
-
         # modelled phases and components
         self._components: list[Component] = []
         """A list of components passed at instantiation."""
