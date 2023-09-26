@@ -855,7 +855,7 @@ class BoundaryConditionsMomentumBalance(pp.BoundaryConditionMixin):
             bc_values: Operator of boundary condition values, which is defined on a
             `BoundaryGrid`. Values zero by default. If combined
             with transient problems in e.g. Biot, the values should be updated in
-            `update_boundary_conditions`.
+            `update_all_boundary_conditions`.
 
         """
         boundary_grids = self.subdomains_to_boundary_grids(subdomains)
@@ -874,9 +874,9 @@ class BoundaryConditionsMomentumBalance(pp.BoundaryConditionMixin):
         """TODO"""
         return np.zeros((self.nd, boundary_grid.num_cells)).ravel("F")
 
-    def update_boundary_conditions(self) -> None:
+    def update_all_boundary_conditions(self) -> None:
         """TODO"""
-        super().update_boundary_conditions()
+        super().update_all_boundary_conditions()
         self.update_boundary_condition(
             self.displacement_variable, self.boundary_displacement_values
         )

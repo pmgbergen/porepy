@@ -886,12 +886,13 @@ class DarcysLaw:
 
     """
     bc_data_darcy_flux_key: str
-    """TODO
-    
-    """
-    create_boundary_operator: Callable[[str, Sequence[pp.BoundaryGrid]], None]
-    """TODO
-    
+    """TODO"""
+    create_boundary_operator: Callable[
+        [str, Sequence[pp.BoundaryGrid]], pp.ad.TimeDependentDenseArray
+    ]
+    """Boundary conditions wrapped as an operator. Defined in
+    :class:`~porepy.models.boundary_condition.BoundaryConditionMixin`.
+
     """
     basis: Callable[[Sequence[pp.GridLike], int], list[pp.ad.SparseArray]]
     """Basis for the local coordinate system. Normally set by a mixin instance of
@@ -1481,6 +1482,15 @@ class FouriersLaw:
     :class:`~porepy.models.fluid_mass_balance.SolutionStrategyEnergyBalance`.
 
     """
+    bc_data_fourier_flux_key: str
+    """TODO"""
+    create_boundary_operator: Callable[
+        [str, Sequence[pp.BoundaryGrid]], pp.ad.TimeDependentDenseArray
+    ]
+    """Boundary conditions wrapped as an operator. Defined in
+    :class:`~porepy.models.boundary_condition.BoundaryConditionMixin`.
+
+    """
     wrap_grid_attribute: Callable[[Sequence[pp.GridLike], str, int], pp.ad.DenseArray]
     """Wrap a grid attribute as a DenseArray. Normally set by a mixin instance of
     :class:`porepy.models.geometry.ModelGeometry`.
@@ -1547,6 +1557,13 @@ class FouriersLaw:
             An Ad-operator representing the Fourier flux on the subdomains.
 
         """
+
+        if len(subdomains) == 0 or isinstance(subdomains[0], pp.BoundaryGrid):
+            # Given Neumann data expected for Fourier flux on boundary
+            return self.create_boundary_operator(
+                name=self.bc_data_fourier_flux_key, domains=subdomains
+            )
+
         interfaces: list[pp.MortarGrid] = self.subdomains_to_interfaces(subdomains, [1])
         projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1)
         discr: Union[pp.ad.TpfaAd, pp.ad.MpfaAd] = self.fourier_flux_discretization(
