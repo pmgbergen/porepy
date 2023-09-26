@@ -1,10 +1,9 @@
-import porepy as pp
-
 from abc import ABC, abstractmethod
+from typing import Callable, Sequence
+
 import numpy as np
 
-
-from typing import Callable, Sequence
+import porepy as pp
 
 
 class BoundaryConditionMixin(ABC):
@@ -32,7 +31,7 @@ class BoundaryConditionMixin(ABC):
     """Units object, containing the scaling of base magnitudes."""
 
     @abstractmethod
-    def update_boundary_conditions(self) -> None:
+    def update_all_boundary_conditions(self) -> None:
         """This method is called before a new time step to set the values of the
         boundary conditions. The specific boundary condition values should be updated in
         concrete overrides. By default, it does nothing.
@@ -42,6 +41,7 @@ class BoundaryConditionMixin(ABC):
             boundary condition value.
 
         """
+        pass
 
     def update_boundary_condition(
         self,
@@ -70,10 +70,19 @@ class BoundaryConditionMixin(ABC):
 
     def create_boundary_operator(
         self, name: str, domains: Sequence[pp.BoundaryGrid]
-    ) -> pp.ad.Operator:
-        """TODO
-        Yury: this function wraps two line of code, but I decided to make it, because we
-        later might decide to do something more / else here.
+    ) -> pp.ad.TimeDependentDenseArray:
+        """
+        Parameters:
+            name: Name of the variable or operator to be represented on the boundary.
+            domains: A sequence of boundary grids on which the operator is defined.
+
+        Raises:
+            AssertionError: If the passed sequence of domains does not consist entirely
+                of instances of boundary grid.
+
+        Returns:
+            An operator of given name representing time-dependent value on given
+            sequence of boundary grids.
 
         """
         assert all(isinstance(x, pp.BoundaryGrid) for x in domains)

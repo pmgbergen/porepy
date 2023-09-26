@@ -67,7 +67,7 @@ class SolutionStrategy(abc.ABC):
     :class:`~porepy.viz.exporter.Exporter`.
 
     """
-    update_boundary_conditions: Callable[[], None]
+    update_all_boundary_conditions: Callable[[], None]
     """Set the values of the boundary conditions for the new time step.
     :class:`~porepy.models.abstract_equations.BoundaryConditionsMixin`
 
@@ -629,4 +629,4 @@ class SolutionStrategy(abc.ABC):
         Override it to update other model-specific time dependent arrays.
 
         """
-        self.update_boundary_conditions()
+        self.update_all_boundary_conditions()

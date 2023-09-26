@@ -16,7 +16,7 @@ Notes:
 from __future__ import annotations
 
 import logging
-from typing import Callable, Optional, Union, Sequence
+from typing import Callable, Optional, Sequence, Union
 
 import numpy as np
 
@@ -196,7 +196,7 @@ class MassBalanceEquations(pp.BalanceEquation):
         return mass
 
     def mobility_rho(
-        self, grids: Sequence[pp.Grid] | Sequence[pp.BoundaryGrid]
+        self, grids: Sequence[pp.SubdomainsOrBoundaries]
     ) -> pp.ad.Operator:
         """This term represents fluid density times mobility.
 
@@ -220,6 +220,9 @@ class MassBalanceEquations(pp.BalanceEquation):
         mob_rho = self.mobility_rho(subdomains)
 
         boundary_projection = pp.ad.BoundaryProjection(self.mdg, subdomains=subdomains)
+        # NOTE Here (in the background), some Dirichlet-type data for p and T have
+        # to be set on Neumann-faces, for the case of INFLUX
+        # This is then the advected entity which by upwinwinding enters the domain
         bc_values = boundary_projection.boundary_to_subdomain @ self.mobility_rho(
             self.subdomains_to_boundary_grids(subdomains)
         )
@@ -429,15 +432,15 @@ class BoundaryConditionsSinglePhaseFlow(pp.BoundaryConditionMixin):
 
     def boundary_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
         """TODO"""
-        return np.ones(boundary_grid.num_cells) * self.fluid.pressure()
+        return self.fluid.pressure() * np.ones(boundary_grid.num_cells)
 
     def boundary_darcy_flux(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
         """TODO"""
         return np.zeros(boundary_grid.num_cells)
 
-    def update_boundary_conditions(self) -> None:
+    def update_all_boundary_conditions(self) -> None:
         """Set values for the pressure and the darcy flux on boundaries."""
-        super().update_boundary_conditions()
+        super().update_all_boundary_conditions()
 
         self.update_boundary_condition(
             name=self.pressure_variable, function=self.boundary_pressure
@@ -498,9 +501,12 @@ class VariablesSinglePhaseFlow(pp.VariableMixin):
     :class:`~porepy.models.fluid_mass_balance.SolutionStrategySinglePhaseFlow`.
 
     """
-    create_boundary_operator: Callable[[str, Sequence[pp.BoundaryGrid]], None]
-    """TODO
-    
+    create_boundary_operator: Callable[
+        [str, Sequence[pp.BoundaryGrid]], pp.ad.TimeDependentDenseArray
+    ]
+    """Boundary conditions wrapped as an operator. Defined in
+    :class:`~porepy.models.boundary_condition.BoundaryConditionMixin`.
+
     """
     nd: int
     """Number of spatial dimensions. Normally defined in a mixin of instance

@@ -109,7 +109,7 @@ class BoundaryConditionsPoromechanics(
         redefine the method
         :meth:`~momentum.BoundaryConditionsMomentumBalance.
         boundary_displacement_values`, which is triggered by the method
-        :meth:`~porepy.BoundaryConditionMixin.update_boundary_conditions`
+        :meth:`~porepy.BoundaryConditionMixin.update_all_boundary_conditions`
         to update the boundary condition values in `data[pp.TIME_STEP_SOLUTIONS]` and
         `data[pp.ITERATE_SOLUTIONS]`.
 
