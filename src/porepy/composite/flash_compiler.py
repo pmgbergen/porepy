@@ -19,6 +19,14 @@ from typing import Callable, Literal
 import numba
 import numpy as np
 
+__all__ = [
+    "parse_xyz",
+    "parse_pT",
+    "normalize_fractions",
+    "EoSCompiler",
+    "FlashCompiler",
+]
+
 
 @numba.njit(
     "Tuple((float64[:,:], float64[:], float64[:]))(float64[:], UniTuple(int32, 2))",
@@ -521,7 +529,7 @@ class FlashCompiler:
 
             # product rule d(x * phi) = dx * phi + x * dphi
             # dx is is identity
-            dx_phi_j[:, 2 : 2 + ncomp] = np.diag(phi_j)
+            dx_phi_j[:, 2:] = np.diag(phi_j)
             d_xphi_j = dx_phi_j + (d_phi_j.T * Xn).T
 
             return d_xphi_j
@@ -600,7 +608,7 @@ class FlashCompiler:
             p, T = parse_pT(X_gen, (nphase, ncomp))
 
             # declare Jacobian or proper dimension
-            jac = np.empty((pT_dim, pT_dim), dtype=np.float64)
+            jac = np.zeros((pT_dim, pT_dim), dtype=np.float64)
 
             jac[: ncomp - 1] = mass_conservation_jac(x, y)
             # last nphase equations are always complementary conditions

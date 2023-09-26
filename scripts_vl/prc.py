@@ -1,6 +1,6 @@
 import os
 
-os.environ["PYDEVD_WARN_SLOW_RESOLVE_TIMEOUT"] = "30"
+# os.environ["PYDEVD_WARN_SLOW_RESOLVE_TIMEOUT"] = "30"
 os.environ['NUMBA_CACHE_DIR'] = f"{str(os.path.dirname(__file__))}/__pycache__/"
 # os.environ['NUMBA_DEBUG_CACHE'] = str(1)
 
@@ -23,7 +23,7 @@ vec = np.ones(1)
 z = [vec * 0.99,  vec * 0.01]
 p = vec * 5e6
 T = vec * 500
-verbosity = 2
+verbosity = 0
 
 x_test = np.array([0.01, 5e6, 500, 0.9, 0.1, 0.2, 0.3, 0.4])
 
@@ -51,10 +51,10 @@ mix.set_up()
     for val, comp in zip(z, comps)
 ]
 
-# eos_c = PengRobinson_c(mix)
-# PRC_new = FlashCompiler((2, 2), eos_c)
+eos_c = PengRobinson_c(mix)
+PRC = FlashCompiler((2, 2), eos_c)
 
-PRC = PR_Compiler(mix)
+# PRC = PR_Compiler(mix)
 
 flash = pp.composite.FlashNR(mix)
 flash.use_armijo = True
@@ -73,11 +73,8 @@ mpmc = (nphase, ncomp)
 u = 1.
 eta = .5
 
-F_pT = PRC.equations['p-T']
+F_pT = PRC.residuals['p-T']
 DF_pT = PRC.jacobians['p-T']
-
-# F_pT = PRC_new.residuals['p-T']
-# DF_pT = PRC_new.jacobians['p-T']
 
 
 def pos_symbolic(a: sm.Expr) -> sm.Expr:
@@ -339,17 +336,9 @@ def par_newton(
     # for n in range(N):
 
         res_i, conv_i, n_i = newton(X0[n], F, DF, tol, max_iter)
-        # res_i = np.ones(F_dim)
-        # conv_i = 0
-        # n_i = 4
-        # for i in range(10000000):
-        #     res_i = res_i ** 9.5
         converged[n] = conv_i
         num_iter[n] = n_i
         result[n] = res_i[-F_dim:]
-
-        # done[n] = 1
-        # print(f"\rPar Newton done: {np.sum(done)} / {N}")
     
     return result, converged, num_iter
 
@@ -378,18 +367,18 @@ x_test = np.concatenate([x_test, np.array([nu0])])
 
 newval = F_npipm(x_test)
 newjac = DF_npipm(x_test)
-print('new val')
-print(newval)
-print('old val')
-print(oldsys_eval.val)
-print('diff')
-print(np.abs(newval - oldsys_eval.val))
-print('new matrix')
-print(newjac)
-print('old matrix')
-print(oldsys_eval.jac.todense())
-print('diff')
-print(np.abs(newjac - oldsys_eval.jac.todense()))
+# print('new val')
+# print(newval)
+# print('old val')
+# print(oldsys_eval.val)
+# print('diff')
+# print(np.abs(newval - oldsys_eval.val))
+# print('new matrix')
+# print(newjac)
+# print('old matrix')
+# print(oldsys_eval.jac.todense())
+# print('diff')
+# print(np.abs(newjac - oldsys_eval.jac.todense()))
 
 ### PAR TESTING
 
@@ -405,6 +394,7 @@ old_iter = flash.history[-1]['iterations']
 tolerance = 1e-4
 NF_l = [10, 100, 1000, 10000, 100000, 1000000, 5000000, 10000000]
 # NF_l = [10, 100, 1000, 10000, 100000, 1000000]
+# NF_l = [10]
 times_l = []
 
 for n in NF_l:
