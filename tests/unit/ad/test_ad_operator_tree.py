@@ -667,7 +667,10 @@ def test_variable_combinations(grids, variables):
             if sd == var.domain:
                 expr = var.evaluate(eq_system)
                 # Check that the size of the variable is correct
-                assert np.allclose(expr.val, data[pp.TIME_STEP_SOLUTIONS][var.name][0])
+                values = pp.get_solution_values(
+                    name=var.name, data=data, time_step_index=0
+                )
+                assert np.allclose(expr.val, values)
                 # Check that the Jacobian matrix has the right number of columns
                 assert expr.jac.shape[1] == eq_system.num_dofs()
 
@@ -676,11 +679,11 @@ def test_variable_combinations(grids, variables):
         expr = var.evaluate(eq_system)
         vals = []
         for sub_var in var.sub_vars:
-            vals.append(
-                mdg.subdomain_data(sub_var.domain)[pp.TIME_STEP_SOLUTIONS][
-                    sub_var.name
-                ][0]
+            data = mdg.subdomain_data(sub_var.domain)
+            values = pp.get_solution_values(
+                name=sub_var.name, data=data, time_step_index=0
             )
+            vals.append(values)
 
         assert np.allclose(expr.val, np.hstack([v for v in vals]))
         assert expr.jac.shape[1] == eq_system.num_dofs()

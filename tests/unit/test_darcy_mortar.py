@@ -111,23 +111,26 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
             g2d = mdg.subdomains(dim=2)[0]
             p_n = np.zeros(sum([g.num_cells for g in mdg.subdomains()]))
             for g, d in mdg.subdomains(return_data=True):
+                pressure_values = pp.get_solution_values(
+                    name="pressure", data=d, time_step_index=0
+                )
                 if g.dim == 2:
-                    p_n[: g2d.num_cells] = d[pp.TIME_STEP_SOLUTIONS]["pressure"][0][
-                        g.num_faces :
-                    ]
+                    p_n[: g2d.num_cells] = pressure_values[g.num_faces :]
                 else:
-                    p_n[g2d.num_cells :] = d[pp.TIME_STEP_SOLUTIONS]["pressure"][0][
-                        g.num_faces :
-                    ]
-                d[pp.TIME_STEP_SOLUTIONS]["pressure"][0] = d[pp.TIME_STEP_SOLUTIONS][
-                    "pressure"
-                ][0][g.num_faces :]
+                    p_n[g2d.num_cells :] = pressure_values[g.num_faces :]
+
+                pp.set_solution_values(
+                    name="pressure",
+                    values=pressure_values[g.num_faces :],
+                    data=d,
+                    time_step_index=0,
+                )
             p = p_n
         return p
 
     def verify_cv(self, mdg):
         for g, d in mdg.subdomains(return_data=True):
-            p = d[pp.TIME_STEP_SOLUTIONS]["pressure"][0]
+            p = pp.get_solution_values(name="pressure", data=d, time_step_index=0)
             self.assertTrue(np.allclose(p, g.cell_centers[1], rtol=1e-3, atol=1e-3))
 
     def test_tpfa_matching_grids_no_flow(self):
@@ -565,7 +568,7 @@ class TestMortar2DSimplexGridStandardMeshing(unittest.TestCase):
         # tolerance. The current value turned out to be sufficient for all
         # tests considered herein.
         for g, d in mdg.subdomains(return_data=True):
-            p = d[pp.TIME_STEP_SOLUTIONS]["pressure"][0]
+            p = pp.get_solution_values(name="pressure", data=d, time_step_index=0)
             self.assertTrue(np.allclose(p, g.cell_centers[1], rtol=tol, atol=tol))
 
     def run_mpfa(self, mdg):
@@ -586,9 +589,15 @@ class TestMortar2DSimplexGridStandardMeshing(unittest.TestCase):
         p = sps.linalg.spsolve(A_flow, b_flow)
         assembler.distribute_variable(p)
         for g, d in mdg.subdomains(return_data=True):
-            d[pp.TIME_STEP_SOLUTIONS]["pressure"][0] = d[pp.TIME_STEP_SOLUTIONS][
-                "pressure"
-            ][0][g.num_faces :]
+            pressure_values = pp.get_solution_values(
+                name="pressure", data=d, time_step_index=0
+            )
+            pp.set_solution_values(
+                name="pressure",
+                values=pressure_values[g.num_faces :],
+                data=d,
+                time_step_index=0,
+            )
 
     def test_mpfa_one_frac(self):
         mdg = self.setup(num_fracs=1)
@@ -764,7 +773,7 @@ class TestMortar3D(unittest.TestCase):
 
     def verify_cv(self, mdg):
         for g, d in mdg.subdomains(return_data=True):
-            p = d[pp.TIME_STEP_SOLUTIONS]["pressure"][0]
+            p = pp.get_solution_values(name="pressure", data=d, time_step_index=0)
             self.assertTrue(np.allclose(p, g.cell_centers[1], rtol=1e-3, atol=1e-3))
 
     def run_mpfa(self, mdg):
@@ -961,7 +970,7 @@ class TestMortar2DSimplexGrid(unittest.TestCase):
         # tolerance. The current value turned out to be sufficient for all
         # tests considered herein.
         for g, d in mdg.subdomains(return_data=True):
-            p = d[pp.TIME_STEP_SOLUTIONS]["pressure"][0]
+            p = pp.get_solution_values(name="pressure", data=d, time_step_index=0)
             self.assertTrue(np.allclose(p, g.cell_centers[1], rtol=tol, atol=tol))
 
     def _solve(self, mdg, method, key):
@@ -981,24 +990,43 @@ class TestMortar2DSimplexGrid(unittest.TestCase):
         method = pp.MVEM(key)
         self._solve(mdg, method, key)
         for g, d in mdg.subdomains(return_data=True):
-            d[pp.TIME_STEP_SOLUTIONS]["darcy_flux"] = d[pp.TIME_STEP_SOLUTIONS][
-                "pressure"
-            ][0][: g.num_faces]
-            d[pp.TIME_STEP_SOLUTIONS]["pressure"][0] = d[pp.TIME_STEP_SOLUTIONS][
-                "pressure"
-            ][0][g.num_faces :]
+            pressure_values = pp.get_solution_values(
+                name="pressure", data=d, time_step_index=0
+            )
+            pp.set_solution_values(
+                name="darcy_flux",
+                values=pressure_values[: g.num_faces],
+                data=d,
+                time_step_index=0,
+            )
+            pp.set_solution_values(
+                name="pressure",
+                values=pressure_values[g.num_faces :],
+                data=d,
+                time_step_index=0,
+            )
 
     def run_RT0(self, mdg):
         key = "flow"
         method = pp.RT0(key)
         self._solve(mdg, method, key)
         for g, d in mdg.subdomains(return_data=True):
-            d[pp.TIME_STEP_SOLUTIONS]["darcy_flux"] = d[pp.TIME_STEP_SOLUTIONS][
-                "pressure"
-            ][0][: g.num_faces]
-            d[pp.TIME_STEP_SOLUTIONS]["pressure"][0] = d[pp.TIME_STEP_SOLUTIONS][
-                "pressure"
-            ][0][g.num_faces :]
+            pressure_values = pp.get_solution_values(
+                name="pressure", data=d, time_step_index=0
+            )
+
+            pp.set_solution_values(
+                name="darcy_flux",
+                values=pressure_values[: g.num_faces],
+                data=d,
+                time_step_index=0,
+            )
+            pp.set_solution_values(
+                name="pressure",
+                values=pressure_values[g.num_faces :],
+                data=d,
+                time_step_index=0,
+            )
 
     def test_mpfa(self):
         mdg = self.setup(False)

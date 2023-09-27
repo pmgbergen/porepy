@@ -1411,9 +1411,15 @@ class TimeDependentDenseArray(Operator):
             else:
                 raise ValueError(f"Unknown grid type: {self._domain_type}.")
             if self.prev_time:
-                vals.append(data[pp.TIME_STEP_SOLUTIONS][self._name][0])
+                vals.append(
+                    pp.get_solution_values(
+                        name=self._name, data=data, time_step_index=0
+                    )
+                )
             else:
-                vals.append(data[pp.ITERATE_SOLUTIONS][self._name][0])
+                vals.append(
+                    pp.get_solution_values(name=self._name, data=data, iterate_index=0)
+                )
 
         if len(vals) > 0:
             # Normal case: concatenate the values from all grids
