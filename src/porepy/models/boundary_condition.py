@@ -76,7 +76,7 @@ class BoundaryConditionMixin(ABC):
             domains: A sequence of boundary grids on which the operator is defined.
 
         Raises:
-            AssertionError: If the passed sequence of domains does not consist entirely
+            ValueError: If the passed sequence of domains does not consist entirely
                 of instances of boundary grid.
 
         Returns:
@@ -84,5 +84,6 @@ class BoundaryConditionMixin(ABC):
             sequence of boundary grids.
 
         """
-        assert all(isinstance(x, pp.BoundaryGrid) for x in domains)
+        if not all(isinstance(x, pp.BoundaryGrid) for x in domains):
+            raise ValueError("domains must consist entirely of the boundary grids.")
         return pp.ad.TimeDependentDenseArray(name=name, domains=domains)
