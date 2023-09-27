@@ -459,7 +459,7 @@ class ConstitutiveLawsMomentumBalance(
 ):
     """Class for constitutive equations for momentum balance equations."""
 
-    def stress(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+    def stress(self, grids: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
         """Stress operator.
 
         Parameters:
@@ -470,7 +470,7 @@ class ConstitutiveLawsMomentumBalance(
 
         """
         # Method from constitutive library's LinearElasticRock.
-        return self.mechanical_stress(subdomains)
+        return self.mechanical_stress(grids)
 
 
 class VariablesMomentumBalance:
@@ -862,8 +862,7 @@ class BoundaryConditionsMomentumBalance(pp.BoundaryConditionMixin):
         boundary_projection = pp.ad.BoundaryProjection(
             self.mdg, subdomains=subdomains, dim=self.nd
         )
-        # TODO: Neumann?
-        result = self.displacement(boundary_grids)
+        result = self.displacement(boundary_grids) + self.stress(boundary_grids)
         result = boundary_projection.boundary_to_subdomain @ result
         result.set_name("bc_values_mechanics")
         return result
@@ -871,14 +870,39 @@ class BoundaryConditionsMomentumBalance(pp.BoundaryConditionMixin):
     def boundary_displacement_values(
         self, boundary_grid: pp.BoundaryGrid
     ) -> np.ndarray:
-        """TODO"""
+        """Displacement values for the Dirichlet boundary condition.
+
+        Parameters:
+            boundary_grid: Boundary grid to evaluate values on.
+
+        Returns:
+            An array with shape (boundary_grid.num_cells,) containing the displacement
+            values on the provided boundary grid.
+
+        """
+        return np.zeros((self.nd, boundary_grid.num_cells)).ravel("F")
+
+    def boundary_stress_values(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+        """Stress values for the Nirichlet boundary condition.
+
+        Parameters:
+            boundary_grid: Boundary grid to evaluate values on.
+
+        Returns:
+            An array with shape (boundary_grid.num_cells,) containing the stress values
+            on the provided boundary grid.
+
+        """
         return np.zeros((self.nd, boundary_grid.num_cells)).ravel("F")
 
     def update_all_boundary_conditions(self) -> None:
-        """TODO"""
+        """Set values for the displacement and the stress on boundaries."""
         super().update_all_boundary_conditions()
         self.update_boundary_condition(
             self.displacement_variable, self.boundary_displacement_values
+        )
+        self.update_boundary_condition(
+            self.stress_keyword, self.boundary_displacement_values
         )
 
 
@@ -900,5 +924,3 @@ class MomentumBalance(  # type: ignore[misc]
     pp.DataSavingMixin,
 ):
     """Class for mixed-dimensional momentum balance with contact mechanics."""
-
-    pass

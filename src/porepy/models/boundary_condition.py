@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import Callable, Sequence
+import warnings
 
 import numpy as np
 
@@ -7,7 +8,12 @@ import porepy as pp
 
 
 class BoundaryConditionMixin(ABC):
-    """TODO"""
+    """Mixin class for bounray conditions.
+
+    This class is intended to be used together with the other model classes providing
+    generic functionality for boundary conditions.
+
+    """
 
     mdg: pp.MixedDimensionalGrid
     """Mixed-dimensional grid for the current model. Normally defined in a mixin
@@ -26,6 +32,10 @@ class BoundaryConditionMixin(ABC):
     :class:`porepy.models.solution_strategy.SolutionStrategy`.
 
     """
+
+    subdomains_to_boundary_grids: Callable[
+        [Sequence[pp.Grid]], Sequence[pp.BoundaryGrid]
+    ]
 
     units: "pp.Units"
     """Units object, containing the scaling of base magnitudes."""
@@ -47,16 +57,27 @@ class BoundaryConditionMixin(ABC):
         name: str,
         function: Callable[[pp.BoundaryGrid], np.ndarray],
     ) -> None:
-        """TODO
+        """This method is the unified procedure of updating a boundary condition.
+        It moves the boundary condition values used on the previous time step from
+        iterate data (current time step) to previous time step data.
+        Next, it evaluates the boundary condition values for the new time step and
+        stores them in the iterate data.
 
-        TODO: Somewhere we must have an assertion that there is only 1 time step behind
-        stored, and 1 iterate.
+        Note:
+            This implementation assumes that only one time step and iterate layers are
+            used. Otherwise, it prints a warning.
+
+        Parameters:
+            name: Name of the operator defined onon the boundary.
+            function: A callable that provides the boundary condition values on a given
+                boundary grid.
+
         """
         for bg, data in self.mdg.boundaries(return_data=True):
             # Set the known time step values.
             if name in data[pp.ITERATE_SOLUTIONS]:
                 # Use the values at the unknown time step from the previous time step.
-                vals = data[pp.ITERATE_SOLUTIONS][name][0]
+                vals = pp.get_solution_values(name=name, data=data, time_step_index=0)
             else:
                 # No previous time step exists. The method was called during
                 # the initialization.
@@ -66,6 +87,18 @@ class BoundaryConditionMixin(ABC):
             # Set the unknown time step values.
             vals = function(bg)
             pp.set_solution_values(name=name, values=vals, data=data, iterate_index=0)
+
+            # If more than one time step or iterate values are stored, the user should
+            # override this method to handle boundary data replacement properly.
+            max_steps_back = max(
+                len(data[pp.ITERATE_SOLUTIONS][name]),
+                len(data[pp.TIME_STEP_SOLUTIONS][name]),
+            )
+            if max_steps_back > 1:
+                warnings.warn(
+                    "The default implementation of update_boundary_condition does not"
+                    " consider having more than one time step or iterate data layers."
+                )
 
     def create_boundary_operator(
         self, name: str, domains: Sequence[pp.BoundaryGrid]

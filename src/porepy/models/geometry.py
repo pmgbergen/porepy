@@ -206,7 +206,15 @@ class ModelGeometry:
     def subdomains_to_boundary_grids(
         self, subdomains: Sequence[pp.Grid]
     ) -> Sequence[pp.BoundaryGrid]:
-        """TODO"""
+        """Boundary grids of subdomains.
+
+        Parameters:
+            subdomains: List of subdomains for which to find boundary grids.
+
+        Returns:
+            List of boundary grids associated with the provided subdomains.
+
+        """
         boundary_grids = [self.mdg.subdomain_to_boundary_grid(sd) for sd in subdomains]
         return [bg for bg in boundary_grids if bg is not None]
 
