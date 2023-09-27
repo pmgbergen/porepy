@@ -633,7 +633,6 @@ class ConstitutiveLawsEnergyBalance(
     """Collect constitutive laws for the energy balance."""
 
 
-
 class BoundaryConditionsEnergyBalance(pp.BoundaryConditionMixin):
     """Boundary conditions for the energy balance.
 
@@ -664,10 +663,6 @@ class BoundaryConditionsEnergyBalance(pp.BoundaryConditionMixin):
     fluid_enthalpy: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     """TODO"""
     fluid_density: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
-    """TODO"""
-    subdomains_to_boundary_grids: Callable[
-        [Sequence[pp.Grid]], Sequence[pp.BoundaryGrid]
-    ]
     """TODO"""
     darcy_flux: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     """TODO"""

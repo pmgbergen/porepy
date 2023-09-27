@@ -198,9 +198,14 @@ class MassBalanceEquations(pp.BalanceEquation):
     def mobility_rho(
         self, grids: Sequence[pp.SubdomainsOrBoundaries]
     ) -> pp.ad.Operator:
-        """This term represents fluid density times mobility.
+        """Fluid density times mobility.
 
-        TODO: Need tests for the case if the method accepts several types of grids.
+        Parameters:
+            grids: List of grids to define the operator on.
+
+        Returns:
+            Operator representing the fluid density times mobility.
+
         """
         return self.fluid_density(grids) * self.mobility(grids)
 
@@ -368,18 +373,11 @@ class BoundaryConditionsSinglePhaseFlow(pp.BoundaryConditionMixin):
     """
 
     bc_data_darcy_flux_key: str = "darcy_flux"
-    """TODO"""
+    """Name of the boundary data for the Neuman boundary condition."""
     pressure_variable: str
-    """TODO"""
-
-    subdomains_to_boundary_grids: Callable[
-        [Sequence[pp.Grid]], Sequence[pp.BoundaryGrid]
-    ]
-    """TODO"""
+    """Name of the pressure variable."""
     pressure: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
-    """TODO"""
     darcy_flux: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
-    """TODO"""
 
     def bc_type_darcy(self, sd: pp.Grid) -> pp.BoundaryCondition:
         """Dirichlet conditions on all external boundaries.
@@ -431,11 +429,29 @@ class BoundaryConditionsSinglePhaseFlow(pp.BoundaryConditionMixin):
         return result
 
     def boundary_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
-        """TODO"""
+        """Pressure values for the Dirichlet boundary condition.
+
+        Parameters:
+            boundary_grid: Boundary grid to evaluate values on.
+
+        Returns:
+            An array with shape (boundary_grid.num_cells,) containing the pressure
+            values on the provided boundary grid.
+
+        """
         return self.fluid.pressure() * np.ones(boundary_grid.num_cells)
 
     def boundary_darcy_flux(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
-        """TODO"""
+        """Volumetric Darcy flux values for the Neumann boundary condition.
+
+        Parameters:
+            boundary_grid: Boundary grid to evaluate values on.
+
+        Returns:
+            An array with shape (boundary_grid.num_cells,) containing the volumetric
+            Darcy flux values on the provided boundary grid.
+
+        """
         return np.zeros(boundary_grid.num_cells)
 
     def update_all_boundary_conditions(self) -> None:
@@ -541,6 +557,16 @@ class VariablesSinglePhaseFlow(pp.VariableMixin):
         )
 
     def pressure(self, grids: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+        """Pressure term. Either a primary variable if subdomains are provided a
+        boundary condition operator if boundary grids are provided.
+
+        Parameters:
+            grids: List of subdomains or boundary grids.
+
+        Returns:
+            Operator representing the pressure.
+
+        """
         if len(grids) > 0 and isinstance(grids[0], pp.BoundaryGrid):
             return self.create_boundary_operator(
                 name=self.pressure_variable, domains=grids
