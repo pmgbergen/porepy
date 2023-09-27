@@ -344,16 +344,12 @@ class MomentumBalance(
 ):
     """Combine components needed for momentum balance simulation."""
 
-    pass
-
 
 class MassAndEnergyBalance(
     RectangularDomainThreeFractures,
     pp.mass_and_energy_balance.MassAndEnergyBalance,
 ):
     """Combine components needed for force balance simulation."""
-
-    pass
 
 
 class Poromechanics(
@@ -362,16 +358,12 @@ class Poromechanics(
 ):
     """Combine components needed for poromechanics simulation."""
 
-    pass
-
 
 class Thermoporomechanics(
     RectangularDomainThreeFractures,
     pp.thermoporomechanics.Thermoporomechanics,
 ):
     """Combine components needed for poromechanics simulation."""
-
-    pass
 
 
 def model(

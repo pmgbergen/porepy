@@ -632,7 +632,6 @@ class ConstitutiveLawsEnergyBalance(
 ):
     """Collect constitutive laws for the energy balance."""
 
-    pass
 
 
 class BoundaryConditionsEnergyBalance(pp.BoundaryConditionMixin):

@@ -41,7 +41,6 @@ class BoundaryConditionMixin(ABC):
             boundary condition value.
 
         """
-        pass
 
     def update_boundary_condition(
         self,

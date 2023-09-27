@@ -37,7 +37,7 @@ class BoundaryConditionLinearPressure(
 
         """
         # Define boundary regions
-        all_bf, east, west, *_ = self.domain_boundary_sides(sd)
+        _, east, west, *_ = self.domain_boundary_sides(sd)
         # Define Dirichlet conditions on the left and right boundaries
         return pp.BoundaryCondition(sd, east + west, "dir")
 
