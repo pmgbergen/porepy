@@ -1330,7 +1330,7 @@ class MandelBoundaryConditionsMechanicsTimeDependent(
         sides = self.domain_boundary_sides(boundary_grid)
         # Cells of the boundary grid are faces of the parent subdomain.
         face_centers = boundary_grid.cell_centers
-        yf_north = face_centers[1][sides.north]
+        yf_north = face_centers[1, sides.north]
 
         t = self.time_manager.time  # scaled [s]
         uy_north_bc = self.exact_sol.vertical_displacement_profile(yf_north, t)
