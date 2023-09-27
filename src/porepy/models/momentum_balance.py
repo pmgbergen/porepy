@@ -853,7 +853,7 @@ class BoundaryConditionsMomentumBalance(pp.BoundaryConditionMixin):
 
         Returns:
             bc_values: Operator of boundary condition values, which is defined on a
-            `BoundaryGrid`. Values zero by default. If combined
+            sequence of `BoundaryGrid`s. Values zero by default. If combined
             with transient problems in e.g. Biot, the values should be updated in
             `update_all_boundary_conditions`.
 

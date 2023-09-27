@@ -69,7 +69,7 @@ class SolutionStrategy(abc.ABC):
     """
     update_all_boundary_conditions: Callable[[], None]
     """Set the values of the boundary conditions for the new time step.
-    :class:`~porepy.models.abstract_equations.BoundaryConditionsMixin`
+    Defined in :class:`~porepy.models.abstract_equations.BoundaryConditionsMixin`.
 
     """
 
@@ -380,7 +380,6 @@ class SolutionStrategy(abc.ABC):
         be used to set the list of nonlinear discretizations.
 
         """
-        pass
 
     def before_nonlinear_loop(self) -> None:
         """Method to be called before entering the non-linear solver, thus at the start

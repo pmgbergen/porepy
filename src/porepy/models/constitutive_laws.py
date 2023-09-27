@@ -975,9 +975,8 @@ class DarcysLaw:
 
         if len(subdomains) == 0 or isinstance(subdomains[0], pp.BoundaryGrid):
             # Note: in case of the empty subdomain list, the time dependent array is
-            # still returned. Otherwise, this method produces the infinite recursion
-            # loop. It does not affect real computations anyhow, but this is a change in
-            # behavior from how it was before.
+            # still returned. Otherwise, this method produces an infinite recursion
+            # loop. It does not affect real computations anyhow.
             return self.create_boundary_operator(
                 name=self.bc_data_darcy_flux_key, domains=subdomains
             )
@@ -1559,7 +1558,7 @@ class FouriersLaw:
         """
 
         if len(subdomains) == 0 or isinstance(subdomains[0], pp.BoundaryGrid):
-            # Given Neumann data expected for Fourier flux on boundary
+            # Given Neumann data prescribed for Fourier flux on boundary.
             return self.create_boundary_operator(
                 name=self.bc_data_fourier_flux_key, domains=subdomains
             )
@@ -3209,13 +3208,12 @@ class PoroMechanicsPorosity:
         mortar_projection = pp.ad.MortarProjections(
             self.mdg, subdomains, interfaces, dim=self.nd
         )
-        bc = self.bc_values_mechanics(subdomains)
 
         # Compose operator.
         div_u_integrated = discr.div_u @ self.displacement(
             subdomains
         ) + discr.bound_div_u @ (
-            bc
+            self.bc_values_mechanics(subdomains)
             + sd_projection.face_restriction(subdomains)
             @ mortar_projection.mortar_to_primary_avg
             @ self.interface_displacement(interfaces)
