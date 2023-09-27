@@ -1,7 +1,7 @@
 import os
 
 # os.environ["PYDEVD_WARN_SLOW_RESOLVE_TIMEOUT"] = "30"
-os.environ['NUMBA_CACHE_DIR'] = f"{str(os.path.dirname(__file__))}/__pycache__/"
+os.environ["NUMBA_CACHE_DIR"] = f"{str(os.path.dirname(__file__))}/__pycache__/"
 # os.environ['NUMBA_DEBUG_CACHE'] = str(1)
 
 import numpy as np
@@ -10,17 +10,17 @@ import porepy as pp
 import sympy as sm
 import numba
 import time
+import matplotlib.pyplot as plt
 
 from typing import Callable
 
 from porepy.composite import safe_sum
 
-from porepy.composite.flash_compiler import FlashCompiler, parse_xyz
 from porepy.composite.peng_robinson.eos_compiler import PengRobinson_c
-from porepy.composite.peng_robinson.compiler import PR_Compiler
+from porepy.composite.flash_c import parse_xyz, Flash_c
 
 vec = np.ones(1)
-z = [vec * 0.99,  vec * 0.01]
+z = [vec * 0.99, vec * 0.01]
 p = vec * 5e6
 T = vec * 500
 verbosity = 0
@@ -38,9 +38,7 @@ phases = [
     pp.composite.Phase(
         pp.composite.peng_robinson.PengRobinson(gaslike=False), name="L"
     ),
-    pp.composite.Phase(
-        pp.composite.peng_robinson.PengRobinson(gaslike=True), name="G"
-    ),
+    pp.composite.Phase(pp.composite.peng_robinson.PengRobinson(gaslike=True), name="G"),
 ]
 
 mix = pp.composite.NonReactiveMixture(comps, phases)
@@ -52,9 +50,7 @@ mix.set_up()
 ]
 
 eos_c = PengRobinson_c(mix)
-PRC = FlashCompiler((2, 2), eos_c)
-
-# PRC = PR_Compiler(mix)
+PRC = Flash_c((2, 2), eos_c)
 
 flash = pp.composite.FlashNR(mix)
 flash.use_armijo = True
@@ -70,37 +66,53 @@ ncomp = mix.num_components
 nphase = mix.num_phases
 mpmc = (nphase, ncomp)
 
-u = 1.
-eta = .5
+u = 1.0
+eta = 0.5
 
-F_pT = PRC.residuals['p-T']
-DF_pT = PRC.jacobians['p-T']
+F_pT = PRC.residuals["p-T"]
+DF_pT = PRC.jacobians["p-T"]
 
 
 def pos_symbolic(a: sm.Expr) -> sm.Expr:
-    return sm.Piecewise((a, a > 0.), (0, a <= 0.))
+    return sm.Piecewise((a, a > 0.0), (0, a <= 0.0))
+
 
 def neg_symbolic(a: sm.Expr) -> sm.Expr:
-    return sm.Piecewise((a, a < 0.), (0, a >= 0.))
+    return sm.Piecewise((a, a < 0.0), (0, a >= 0.0))
 
 
-V_s = [sm.Symbol(f'v_{j}') for j in range(1, nphase + 1)]
-W_s = [sm.Symbol(f'w_{j}') for j in range(1, nphase + 1)]
-nu_s = sm.Symbol('nu')
+V_s = [sm.Symbol(f"v_{j}") for j in range(1, nphase + 1)]
+W_s = [sm.Symbol(f"w_{j}") for j in range(1, nphase + 1)]
+nu_s = sm.Symbol("nu")
 
 slack_arg = [V_s, W_s, nu_s]  # two vector args, one scalar arg
 
 # decrease of nu
-slack_equ_e = eta * nu_s + nu_s ** 2
+slack_equ_e = eta * nu_s + nu_s**2
 # punishment of negative parts (original inequality cosntraint)
-slack_equ_e +=  safe_sum([neg_symbolic(v) ** 2 + neg_symbolic(w) ** 2 for v, w in zip(V_s, W_s)]) / 2
+slack_equ_e += (
+    safe_sum([neg_symbolic(v) ** 2 + neg_symbolic(w) ** 2 for v, w in zip(V_s, W_s)])
+    / 2
+)
 # punishment of positive parts (CC violation)
-slack_equ_e += (pos_symbolic(safe_sum([v * w for v, w in zip(V_s, W_s)])))**2 * u / nphase**2 / 2
+slack_equ_e += (
+    (pos_symbolic(safe_sum([v * w for v, w in zip(V_s, W_s)]))) ** 2
+    * u
+    / nphase**2
+    / 2
+)
 
-d_slack_equ_e = [slack_equ_e.diff(_) for _ in V_s] + [slack_equ_e.diff(_) for _ in W_s] + [slack_equ_e.diff(nu_s)]
+d_slack_equ_e = (
+    [slack_equ_e.diff(_) for _ in V_s]
+    + [slack_equ_e.diff(_) for _ in W_s]
+    + [slack_equ_e.diff(nu_s)]
+)
 
-slack_equ_c = sm.lambdify(slack_arg, slack_equ_e, 'math')
-slack_equ_c = numba.njit('float64(float64[:], float64[:], float64)', fastmath=True)(slack_equ_c)
+slack_equ_c = sm.lambdify(slack_arg, slack_equ_e, "math")
+slack_equ_c = numba.njit("float64(float64[:], float64[:], float64)", fastmath=True)(
+    slack_equ_c
+)
+
 
 def _njit_diff(f, **njit_kwargs):
     """Helper function for special wrapping of some compiled derivative of slack equation."""
@@ -113,13 +125,13 @@ def _njit_diff(f, **njit_kwargs):
 
     return inner
 
-d_slack_equ_c = sm.lambdify(slack_arg, d_slack_equ_e, 'math')
+
+d_slack_equ_c = sm.lambdify(slack_arg, d_slack_equ_e, "math")
 d_slack_equ_c = _njit_diff(d_slack_equ_c, fastmath=True)
 
 
-@numba.njit('float64[:](float64[:])')
+@numba.njit("float64[:](float64[:])")
 def F_npipm(X: np.ndarray) -> np.ndarray:
-
     X_thd = X[:-1]
     nu = X[-1]
     x, y, _ = parse_xyz(X_thd, mpmc)
@@ -132,7 +144,7 @@ def F_npipm(X: np.ndarray) -> np.ndarray:
     # NPIPM equation
     unity_j = np.zeros(nphase)
     for j in range(nphase):
-        unity_j[j] = 1. - np.sum(x[j])
+        unity_j[j] = 1.0 - np.sum(x[j])
 
     # complete vector of fractions
     slack = slack_equ_c(y, unity_j, nu)
@@ -145,9 +157,8 @@ def F_npipm(X: np.ndarray) -> np.ndarray:
     return f_npipm
 
 
-@numba.njit('float64[:,:](float64[:])')
+@numba.njit("float64[:,:](float64[:])")
 def DF_npipm(X: np.ndarray) -> np.ndarray:
-
     X_thd = X[:-1]
     nu = X[-1]
     x, y, _ = parse_xyz(X_thd, mpmc)
@@ -159,12 +170,12 @@ def DF_npipm(X: np.ndarray) -> np.ndarray:
     df_npipm[:-1, :-1] = df_flash
     # relaxed complementary conditions read as y * (1 - sum x) - nu
     # add the -1 for the derivative w.r.t. nu
-    df_npipm[-(nphase + 1): -1, -1] = np.ones(nphase)*(-1)
+    df_npipm[-(nphase + 1) : -1, -1] = np.ones(nphase) * (-1)
 
     # derivative NPIPM equation
     unity_j = np.zeros(nphase)
     for j in range(nphase):
-        unity_j[j] = 1. - np.sum(x[j])
+        unity_j[j] = 1.0 - np.sum(x[j])
 
     # complete vector of fractions
     d_slack = d_slack_equ_c(y, unity_j, nu)
@@ -175,41 +186,46 @@ def DF_npipm(X: np.ndarray) -> np.ndarray:
     expand_x_in_j = np.ones(ncomp) * (-1)
 
     # expansion of y_0 and cut of redundant value
-    d_slack[1: nphase - 1] += d_slack[0] * expand_yr
+    d_slack[1 : nphase - 1] += d_slack[0] * expand_yr
     d_slack = d_slack[1:]
 
     # expand it also to include possibly other derivatives
     d_slack_expanded = np.zeros(df_npipm.shape[1])
     # last derivative is w.r.t. nu
     d_slack_expanded[-1] = d_slack[-1]
-    
+
     for j in range(nphase):
         # derivatives w.r.t. x_ij, +2 because nu must be skipped and j starts with 0
         vec = expand_x_in_j * d_slack[-(j + 2)]
-        d_slack_expanded[-(1 + (j + 1) * ncomp):-(1 + j * ncomp)] = vec
+        d_slack_expanded[-(1 + (j + 1) * ncomp) : -(1 + j * ncomp)] = vec
 
     # derivatives w.r.t y_j. j != r
-    d_slack_expanded[-(1 + nphase * ncomp + nphase - 1) : -(1 + nphase * ncomp)] = d_slack[:nphase - 1]
+    d_slack_expanded[
+        -(1 + nphase * ncomp + nphase - 1) : -(1 + nphase * ncomp)
+    ] = d_slack[: nphase - 1]
 
     df_npipm[-1] = d_slack_expanded
 
     return df_npipm
 
 
-@numba.njit('Tuple((float64[:,:], float64[:]))(float64[:], float64[:,:], float64[:])', fastmath=True, cache=True)
+@numba.njit(
+    "Tuple((float64[:,:], float64[:]))(float64[:], float64[:,:], float64[:])",
+    fastmath=True,
+    cache=True,
+)
 def npipm_regularization(X, A, b):
-
     x, y, _ = parse_xyz(X[:-1], mpmc)
 
-    reg = 0.
+    reg = 0.0
     for j in range(nphase):
         reg += y[j] * (1 - np.sum(x[j]))
 
-    reg = 0. if reg < 0 else reg
+    reg = 0.0 if reg < 0 else reg
     reg *= u / ncomp**2
 
     # subtract all relaxed complementary conditions multiplied with reg from the slack equation
-    b[-1] = b[-1] - reg * np.sum(b[-(nphase + 1): -1])
+    b[-1] = b[-1] - reg * np.sum(b[-(nphase + 1) : -1])
     # do the same for respective rows in the Jacobian
     for j in range(nphase):
         # +2 to skip slack equation and because j start with 0
@@ -220,10 +236,9 @@ def npipm_regularization(X, A, b):
 
 
 # Numerical solvers
-@numba.njit('float64(float64[:])', fastmath=True, cache=True)
+@numba.njit("float64(float64[:])", fastmath=True, cache=True)
 def l2_potential(vec: np.ndarray) -> float:
-    # return np.dot(vec, vec) / 2.
-    return np.sum(vec * vec) / 2.
+    return np.sum(vec * vec) / 2.0
 
 
 @numba.njit
@@ -232,7 +247,6 @@ def Armijo_line_search(
     dXk: np.ndarray,
     F: Callable[[np.ndarray], np.ndarray],
 ) -> float:
-    
     fk = F(Xk)
     potk = l2_potential(fk)
     rho_j = 0.99
@@ -240,7 +254,7 @@ def Armijo_line_search(
     j_max = 150
 
     for j in range(1, j_max + 1):
-        rho_j = rho_j ** j
+        rho_j = rho_j**j
 
         try:
             fk_j = F(Xk + rho_j * dXk)
@@ -290,7 +304,7 @@ def newton(
             # X contains also parameters (p, T, z_i, ...)
             # exactly ncomp - 1 feed fractions and 2 state definitions (p-T, p-h, ...)
             # for broadcasting insert solution into new vector
-            DX[ncomp - 1 + 2:] = dx
+            DX[ncomp - 1 + 2 :] = dx
 
             s = Armijo_line_search(X, DX, F)
 
@@ -319,27 +333,25 @@ def par_newton(
     max_iter: int,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Parallel Newton, assuming each row in ``X0`` is a starting point to find a root of ``F``.
-    
+
     Note that ``X0`` can contain parameters for the evaluation of ``F``.
     Therefore the dimension of the image of ``F`` must be defined ``F_dim``.
-    
+
     I.e., ``len(F(X0[i])) == F_dim`` and ``DF(X0[i]).shape == (F_dim, F_dim)``"""
 
     N = X0.shape[0]
-    # done = np.zeros(N, dtype=np.int32)
 
     result = np.empty((N, F_dim))
     num_iter = np.empty(N, dtype=np.int32)
     converged = np.empty(N, dtype=np.int32)
 
     for n in numba.prange(N):
-    # for n in range(N):
 
         res_i, conv_i, n_i = newton(X0[n], F, DF, tol, max_iter)
         converged[n] = conv_i
         num_iter[n] = n_i
         result[n] = res_i[-F_dim:]
-    
+
     return result, converged, num_iter
 
 
@@ -388,7 +400,7 @@ success, results_old = flash.flash(
     feed=z,
     verbosity=verbosity,
 )
-old_iter = flash.history[-1]['iterations']
+old_iter = flash.history[-1]["iterations"]
 
 
 tolerance = 1e-4
@@ -398,7 +410,6 @@ NF_l = [10, 100, 1000, 10000, 100000, 1000000, 5000000, 10000000]
 times_l = []
 
 for n in NF_l:
-
     X_total = np.repeat(x_test.reshape((1, len(x_test))), n, axis=0)
 
     print(f"------ CALL PAR n={n}")
@@ -416,50 +427,62 @@ for n in NF_l:
 
     idx = num_iter == old_iter
     if not np.all(idx):
-        print(f"{len(num_iter[np.logical_not(idx)])} mismatches in number of iterations.")
+        print(
+            f"{len(num_iter[np.logical_not(idx)])} mismatches in number of iterations."
+        )
         print(f"Should be {old_iter}, got {num_iter[:4]} ...")
     else:
         print("Number of iterations matches")
 
     if len(np.unique(num_iter)) != 1:
-        print(f"Heterogeneous number of iterations: {len(np.unique(num_iter))} different results.")
+        print(
+            f"Heterogeneous number of iterations: {len(np.unique(num_iter))} different results."
+        )
 
-    idx = np.isclose(result[:, 0], results_old.y[1][0], rtol = 0, atol = tolerance)
+    idx = np.isclose(result[:, 0], results_old.y[1][0], rtol=0, atol=tolerance)
     if not np.all(idx):
         print(f"{len(result[:, 0][np.logical_not(idx)])} mismatches in results for y.")
         print(f"Max error: {np.max(np.abs(result[:, 0] - results_old.y[1][0]))}")
     else:
         print("No mismatch for y")
 
-    idx = np.isclose(result[:, 1], results_old.X[0][0][0], rtol = 0, atol = tolerance)
+    idx = np.isclose(result[:, 1], results_old.X[0][0][0], rtol=0, atol=tolerance)
     if not np.all(idx):
-        print(f"{len(result[:, 1][np.logical_not(idx)])} mismatches in results for x_11.")
+        print(
+            f"{len(result[:, 1][np.logical_not(idx)])} mismatches in results for x_11."
+        )
         print(f"Max error: {np.max(np.abs(result[:, 1] - results_old.X[0][0][0]))}")
     else:
         print("No mismtach for x_11.")
 
-    idx = np.isclose(result[:, 2], results_old.X[0][1][0], rtol = 0, atol = tolerance)
+    idx = np.isclose(result[:, 2], results_old.X[0][1][0], rtol=0, atol=tolerance)
     if not np.all(idx):
-        print(f"{len(result[:, 2][np.logical_not(idx)])} mismatches in results for x_21.")
+        print(
+            f"{len(result[:, 2][np.logical_not(idx)])} mismatches in results for x_21."
+        )
         print(f"Max error: {np.max(np.abs(result[:, 2] - results_old.X[0][1][0]))}")
     else:
         print("No mismtach for x_21.")
 
-    idx = np.isclose(result[:, 3], results_old.X[1][0][0], rtol = 0, atol = tolerance)
+    idx = np.isclose(result[:, 3], results_old.X[1][0][0], rtol=0, atol=tolerance)
     if not np.all(idx):
-        print(f"{len(result[:, 3][np.logical_not(idx)])} mismatches in results for x_12.")
+        print(
+            f"{len(result[:, 3][np.logical_not(idx)])} mismatches in results for x_12."
+        )
         print(f"Max error: {np.max(np.abs(result[:, 3] - results_old.X[1][0][0]))}")
     else:
         print("No mismtach for x_12.")
 
-    idx = np.isclose(result[:, 4], results_old.X[1][1][0], rtol = 0, atol = tolerance)
+    idx = np.isclose(result[:, 4], results_old.X[1][1][0], rtol=0, atol=tolerance)
     if not np.all(idx):
-        print(f"{len(result[:, 4][np.logical_not(idx)])} mismatches in results for x_22.")
+        print(
+            f"{len(result[:, 4][np.logical_not(idx)])} mismatches in results for x_22."
+        )
         print(f"Max error: {np.max(np.abs(result[:, 4] - results_old.X[1][1][0]))}")
     else:
         print("No mismtach for x_22.")
 
-    idx = np.isclose(result[:, 5], 0., rtol = 0, atol = tolerance)
+    idx = np.isclose(result[:, 5], 0.0, rtol=0, atol=tolerance)
     if not np.all(idx):
         print(f"{len(result[:, 5][np.logical_not(idx)])} violations for NPIPM slack.")
         print(f"Max error: {np.max(np.abs(result[:, 5] - 0.))}")
@@ -472,3 +495,45 @@ print("Computational times:")
 print(times_l)
 print("for N as")
 print(NF_l)
+
+# copied from output of regular run
+NF_l_test = [10, 100, 1000, 10000, 100000, 1000000, 5000000, 10000000]
+times_test = [
+    60.24044609069824,
+    0.0008132457733154297,
+    0.00570988655090332,
+    0.062392473220825195,
+    0.6264514923095703,
+    6.295071363449097,
+    36.79759645462036,
+    76.59307980537415,
+]
+
+print("\nPlotting ..", flush=True)
+fig = plt.figure(figsize=(10, 10))
+fig.suptitle(f"Residual tolerance: 1e-7")
+axis = fig.add_subplot(1, 1, 1)
+axis.set_box_aspect(1)
+img_a = axis.plot(NF_l_test, times_test, "-*", color="black")
+img_m = axis.plot(NF_l, times_l, "--*", color="red")
+axis.legend(img_a + img_m, ["test case - 3 conv", "worst case - max conv"], loc='lower right')
+
+xt = axis.get_xticks()
+
+for i, v in zip(NF_l_test, times_test):
+    axis.text(i, 1.5 * v, "%.4f" % v, ha="center")
+
+for i, v in zip(NF_l, times_l):
+    axis.text(i, 1.5 * v, "%.4f" % v, ha="center")
+
+axis.set_xscale("log")
+axis.set_yscale("log")
+axis.set_xlabel('Number of flashes')
+axis.set_ylabel('Total execution time [s]')
+
+fig.tight_layout()
+fig.savefig(
+    "parflash_times.png",
+    format="png",
+    dpi=300,
+)

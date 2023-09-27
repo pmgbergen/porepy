@@ -39,7 +39,7 @@ from . import (
     component,
     composite_utils,
     flash,
-    flash_compiler,
+    flash_c,
     mixture,
     peng_robinson,
     phase,
@@ -50,7 +50,7 @@ from .chem_species import *
 from .component import *
 from .composite_utils import *
 from .flash import *
-from .flash_compiler import *
+from .flash_c import *
 from .mixture import *
 from .phase import *
 
@@ -62,4 +62,4 @@ __all__.extend(composite_utils.__all__)
 __all__.extend(flash.__all__)
 __all__.extend(mixture.__all__)
 __all__.extend(phase.__all__)
-__all__.extend(flash_compiler.__all__)
+__all__.extend(flash_c.__all__)

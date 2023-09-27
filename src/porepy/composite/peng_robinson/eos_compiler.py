@@ -78,7 +78,7 @@ import sympy as sp
 import porepy as pp
 
 from .._core import COMPOSITIONAL_VARIABLE_SYMBOLS as SYMBOLS
-from ..flash_compiler import EoSCompiler
+from ..flash_c import EoSCompiler
 from .eos import (
     A_CRIT,
     B_CRIT,
@@ -636,9 +636,8 @@ d_Z_three_l_e: list[sp.Expr] = [Z_three_l_e.diff(_) for _ in _AB_arg]
 Z_three_i_e: sp.Expr = three_root_intermediate(A_s, B_s)
 d_Z_three_i_e: list[sp.Expr] = [Z_three_i_e.diff(_) for _ in _AB_arg]
 
+
 # NJIT compilation of lambdified expressions
-
-
 # TODO sympy.lambdified functions are source-less and cannot be cached
 # find solution for this
 # see https://github.com/sympy/sympy/issues/18432
@@ -1349,7 +1348,6 @@ def compile_d_Z_mix(
 
 
 # endregion
-# region Compiled EoS
 
 
 class PengRobinson_s:
@@ -1671,6 +1669,3 @@ class PengRobinson_c(EoSCompiler):
             )
 
         return d_phi_mix_c
-
-
-# endregion

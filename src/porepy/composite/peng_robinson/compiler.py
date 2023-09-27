@@ -8,6 +8,7 @@ import sympy as sm
 
 from ..mixture import NonReactiveMixture
 
+
 class PR_Compiler:
     """Class implementing JIT-compiled representation of the equilibrium equations
     using numba and sympy, based on the Peng-Robinson EoS.
