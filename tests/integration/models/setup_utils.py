@@ -307,7 +307,7 @@ class TimeDependentMechanicalBCsDirNorthSouth(BoundaryConditionsMechanicsDirNort
         return values.ravel("F")
 
 
-class NoPhysics(pp.ModelGeometry, pp.SolutionStrategy, pp.DataSavingMixin):
+class NoPhysics(pp.ModelGeometry, pp.SolutionStrategy, pp.DataSavingMixin, pp.BoundaryConditionMixin):
     """A model with no physics, for testing purposes.
 
     The model comes with minimal physical properties, making testing of individual
@@ -319,6 +319,9 @@ class NoPhysics(pp.ModelGeometry, pp.SolutionStrategy, pp.DataSavingMixin):
         pass
 
     def set_equations(self):
+        pass
+
+    def update_all_boundary_conditions(self):
         pass
 
 

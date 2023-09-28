@@ -26,7 +26,7 @@ from . import setup_utils
 @pytest.mark.parametrize(
     "model_type,method_name,only_codimension",
     [  # Fluid mass balance
-        ("mass_balance", "bc_values_darcy", None),
+        ("mass_balance", "bc_values_darcy_flux", None),
         ("mass_balance", "mobility_rho", None),
         ("mass_balance", "fluid_viscosity", None),
         ("mass_balance", "fluid_source", None),
@@ -40,7 +40,8 @@ from . import setup_utils
         ("mass_balance", "porosity", None),
         ("mass_balance", "reference_pressure", None),
         # Momentum balance
-        ("momentum_balance", "bc_values_mechanics", None),
+        ("momentum_balance", "bc_values_displacement", None),
+        ("momentum_balance", "bc_values_stress", None),
         # The body force and stress are only meaningful in the top dimension
         ("momentum_balance", "body_force", 0),
         ("momentum_balance", "stress", 0),
@@ -55,8 +56,6 @@ from . import setup_utils
         ("momentum_balance", "friction_coefficient", 1),
         ("momentum_balance", "friction_bound", 1),
         # Energy balance
-        ("energy_balance", "bc_values_enthalpy_flux", None),
-        ("energy_balance", "bc_values_fourier", None),
         ("energy_balance", "energy_source", None),
         ("energy_balance", "enthalpy_flux", None),
         ("energy_balance", "fourier_flux", None),
