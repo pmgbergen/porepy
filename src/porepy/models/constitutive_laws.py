@@ -2107,7 +2107,7 @@ class LinearElasticMechanicalStress:
             Ad operator representing the mechanical stress on the faces of the grids.
 
         """
-        if len(grids) > 0 and isinstance(grids[0], pp.BoundaryGrid):
+        if len(grids) == 0 or isinstance(grids[0], pp.BoundaryGrid):
             return self.create_boundary_operator(
                 name=self.stress_keyword, domains=grids
             )
