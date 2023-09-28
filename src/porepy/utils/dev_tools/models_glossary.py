@@ -167,14 +167,6 @@ class Glossary:
         name="bc_values_mechanics",
     )
 
-    bc_values_mobrho: Entry = Entry(
-        type="Callable[[list[pp.Grid]], pp.ad.DenseArray]",
-        docstring="Mobility times density boundary conditions. Normally defined in a"
-        " mixin instance of :class:`~porepy.models.fluid_mass_balance"
-        ".BoundaryConditionsSinglePhaseFlow`.",
-        name="bc_values_mobrho",
-    )
-
     biot_coefficient: Entry = Entry(
         type="Callable[[list[pp.Grid]], pp.ad.Operator]",
         docstring="Biot coefficient. Normally defined in a mixin instance of "

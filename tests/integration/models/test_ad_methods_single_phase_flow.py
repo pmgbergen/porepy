@@ -172,7 +172,7 @@ def test_tested_vs_testable_methods_single_phase_flow(
         ("bc_values_darcy", np.zeros(24), None),
         # Boundary values for the upwind discretization
         (
-            "bc_values_mobrho",
+            "mobility_rho",
             np.array(
                 [
                     1e6,
