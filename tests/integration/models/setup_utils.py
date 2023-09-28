@@ -117,16 +117,13 @@ class WellGeometryMixin:
         )
 
 
-class BoundaryConditionsMassAndEnergyDirNorthSouth(
-    pp.mass_and_energy_balance.BoundaryConditionsFluidMassAndEnergy
+class BoundaryConditionsMassDirNorthSouth(
+    # pp.fluid_mass_balance.BoundaryConditionsSinglePhaseFlow
 ):
-    """Boundary conditions for the thermoporomechanics problem.
+    """Boundary conditions for the flow problem.
 
     Dirichlet boundary conditions are defined on the north and south boundaries. Some
     of the default values may be changed directly through attributes of the class.
-
-    Implementation of mechanical values facilitates time-dependent boundary conditions
-    with use of :class:`pp.time.TimeDependentArray` for :math:`\nabla \cdot u` term.
 
     Usage: tests for models defining equations for any subset of the thermoporomechanics
     problem.
@@ -183,6 +180,18 @@ class BoundaryConditionsMassAndEnergyDirNorthSouth(
         # Define boundary condition on faces
         return pp.BoundaryCondition(sd, domain_sides.north + domain_sides.south, "dir")
 
+
+class BoundaryConditionsEnergyDirNorthSouth(pp.BoundaryConditionMixin):
+    """Boundary conditions for the thermal problem.
+
+    Dirichlet boundary conditions are defined on the north and south boundaries. Some
+    of the default values may be changed directly through attributes of the class.
+
+    Usage: tests for models defining equations for any subset of the thermoporomechanics
+    problem.
+
+    """
+
     def bc_type_fourier(self, sd: pp.Grid) -> pp.BoundaryCondition:
         """Boundary condition type for the Fourier heat flux.
 
@@ -216,9 +225,7 @@ class BoundaryConditionsMassAndEnergyDirNorthSouth(
         return pp.BoundaryCondition(sd, domain_sides.north + domain_sides.south, "dir")
 
 
-class BoundaryConditionsMechanicsDirNorthSouth(
-    pp.momentum_balance.BoundaryConditionsMomentumBalance
-):
+class BoundaryConditionsMechanicsDirNorthSouth(pp.BoundaryConditionMixin):
     """Boundary conditions for the mechanics with Dirichlet conditions on north and
     south boundaries.
 

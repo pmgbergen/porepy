@@ -226,7 +226,6 @@ class SolutionStrategy(abc.ABC):
         the permeability, the porosity, etc.
 
         """
-        pass
 
     def initial_condition(self) -> None:
         """Set the initial condition for the problem.

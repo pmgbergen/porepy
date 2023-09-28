@@ -61,7 +61,10 @@ class RediscretizationTest:
 
 
 # Non-trivial solution achieved through BCs.
-class BCs(setup_utils.BoundaryConditionsMassAndEnergyDirNorthSouth):
+class BCs(
+    setup_utils.BoundaryConditionsMassDirNorthSouth,
+    setup_utils.BoundaryConditionsEnergyDirNorthSouth,
+):
     def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
         """Boundary condition values for Darcy flux.
 
