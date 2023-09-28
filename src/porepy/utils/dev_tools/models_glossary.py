@@ -136,12 +136,12 @@ class Glossary:
         name="bc_type_mechanics",
     )
 
-    bc_values_darcy: Entry = Entry(
-        type="Callable[[list[pp.Grid]], pp.ad.DenseArray]",
+    bc_values_darcy_flux: Entry = Entry(
+        type="Callable[[pp.BoundaryGrid], np.ndarray]",
         docstring="Darcy flux boundary conditions. Normally defined in a mixin instance"
         " of :class:`~porepy.models.fluid_mass_balance"
         ".BoundaryConditionsSinglePhaseFlow`.",
-        name="bc_values_darcy",
+        name="bc_values_darcy_flux",
     )
 
     bc_values_enthalpy_flux: Entry = Entry(

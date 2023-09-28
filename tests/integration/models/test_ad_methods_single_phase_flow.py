@@ -169,7 +169,7 @@ def test_tested_vs_testable_methods_single_phase_flow(
     [
         ("aperture", np.array([1, 1, 1, 1, 0.01, 0.01, 0.01, 0.01, 0.01]), None),
         # Boundary values for the elliptic discretization
-        ("bc_values_darcy", np.zeros(24), None),
+        ("bc_values_darcy_flux", np.zeros(24), None),
         # Boundary values for the upwind discretization
         (
             "mobility_rho",
