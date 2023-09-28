@@ -165,12 +165,15 @@ class ManuCompExactSolution3d:
         # Private attributes
         self._bubble = bubble_fun
 
-    def get_region_indices(self, where: str) -> list[np.ndarray]:
+    def get_region_indices(
+        self, where: str, on_boundary: bool = False
+    ) -> list[np.ndarray]:
         """Get indices of the cells belonging to the different regions of the domain.
 
         Parameters:
             where: Use "cc" to evaluate at the cell centers and "fc" to evaluate at
-                the face centers.
+                the face centers. Use "bg" to evaluate only at face centers related to
+                the external domain boundary.
 
         Returns:
             List of length 9, containing the indices of the different regions of the
@@ -178,14 +181,18 @@ class ManuCompExactSolution3d:
 
         """
         # Sanity check
-        assert where in ["cc", "fc"]
+        assert where in ["cc", "fc", "bg"]
 
         # Retrieve coordinates
         sd = self.setup.mdg.subdomains()[0]
         if where == "cc":
             x = sd.cell_centers
-        else:
+        elif where == "fc":
             x = sd.face_centers
+        else:
+            bg = self.setup.mdg.subdomain_to_boundary_grid(sd)
+            assert bg is not None
+            x = bg.cell_centers
 
         # Get indices
         bottom_front = (x[1] < 0.25) & (x[2] < 0.25)
@@ -479,7 +486,7 @@ class ManuCompExactSolution3d:
 
         # Get list of face indices
         fc = bg_matrix.cell_centers
-        face_idx = self.get_region_indices(where="fc")
+        face_idx = self.get_region_indices(where="bg")
 
         # Lambdify expression
         p_fun = [sym.lambdify((x, y, z, t), p, "numpy") for p in self.p_matrix]

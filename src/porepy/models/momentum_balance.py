@@ -569,7 +569,7 @@ class VariablesMomentumBalance:
                 dimension of the problem.
 
         """
-        if len(grids) > 0 and isinstance(grids[0], pp.BoundaryGrid):
+        if len(grids) == 0 or isinstance(grids[0], pp.BoundaryGrid):
             return self.create_boundary_operator(
                 name=self.displacement_variable, domains=grids
             )
@@ -862,7 +862,9 @@ class BoundaryConditionsMomentumBalance(pp.BoundaryConditionMixin):
         boundary_projection = pp.ad.BoundaryProjection(
             self.mdg, subdomains=subdomains, dim=self.nd
         )
-        result = self.displacement(boundary_grids) + self.stress(boundary_grids)
+        result = self.displacement(boundary_grids) + self.mechanical_stress(
+            boundary_grids
+        )
         result = boundary_projection.boundary_to_subdomain @ result
         result.set_name("bc_values_mechanics")
         return result
@@ -901,9 +903,7 @@ class BoundaryConditionsMomentumBalance(pp.BoundaryConditionMixin):
         self.update_boundary_condition(
             self.displacement_variable, self.boundary_displacement_values
         )
-        self.update_boundary_condition(
-            self.stress_keyword, self.boundary_displacement_values
-        )
+        self.update_boundary_condition(self.stress_keyword, self.boundary_stress_values)
 
 
 # Note that we ignore a mypy error here. There are some inconsistencies in the method
