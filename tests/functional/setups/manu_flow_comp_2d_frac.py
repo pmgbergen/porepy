@@ -656,7 +656,7 @@ class ManuCompBoundaryConditions(
             boundary_faces = self.domain_boundary_sides(sd).all_bf
             return pp.BoundaryCondition(sd, boundary_faces, "neu")
 
-    def boundary_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+    def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
         # Retrieve current time
         t = self.time_manager.time
 

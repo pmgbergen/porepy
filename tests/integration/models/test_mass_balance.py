@@ -41,7 +41,7 @@ class BoundaryConditionLinearPressure(
         # Define Dirichlet conditions on the left and right boundaries
         return pp.BoundaryCondition(sd, east + west, "dir")
 
-    def boundary_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+    def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
         """Boundary values for the pressure.
 
         Parameters:

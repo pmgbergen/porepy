@@ -120,3 +120,42 @@ class BoundaryConditionMixin(ABC):
         if not all(isinstance(x, pp.BoundaryGrid) for x in domains):
             raise ValueError("domains must consist entirely of the boundary grids.")
         return pp.ad.TimeDependentDenseArray(name=name, domains=domains)
+
+    def _make_boundary_operator(
+        self,
+        subdomains: Sequence[pp.Grid],
+        dirichlet_operator: Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
+        neumann_operator: Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
+        dim: int = 1,
+        name: str = 'bc_values'
+    ) -> pp.ad.Operator:
+        """Creates an operator representing Dirichlet and Neumann boundary conditions
+        and projects it to the subdomains from boundary grids.
+
+        Parameters:
+            subdomains: List of subdomains.
+
+            dirichlet_operator: Function that returns the Dirichlet boundary condition
+                operator.
+
+            neumann_operator: Function that returns the Neumann boundary condition
+                operator.
+
+            dim: Dimension of the equation. Defaults to 1.
+
+            name: Name of the resulting operator. Defaults to "bc_values".
+
+        Returns:
+            Boundary condition representation operator.
+
+        """
+        boundary_projection = pp.ad.BoundaryProjection(
+            self.mdg, subdomains=subdomains, dim=dim
+        )
+        boundary_grids = self.subdomains_to_boundary_grids(subdomains)
+        dirichlet = dirichlet_operator(boundary_grids)
+        neumann = neumann_operator(boundary_grids)
+        result = dirichlet + neumann
+        result = boundary_projection.boundary_to_subdomain @ result
+        result.set_name(name)
+        return result

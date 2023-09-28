@@ -517,37 +517,34 @@ class ManuIncompExactSolution2d:
 
         return lmbda_cc
 
-    def boundary_values(self, sd_matrix: pp.Grid) -> np.ndarray:
+    def boundary_values(self, boundary_grid_matrix: pp.BoundaryGrid) -> np.ndarray:
         """Exact pressure at the boundary faces.
 
         Parameters:
-            sd_matrix: Matrix grid.
+            boundary_grid_matrix: Matrix boundary grid.
 
         Returns:
-            Array of ``shape=(sd_matrix.num_faces, )`` with the exact pressure values
-            at the exterior boundary faces.
+            Array of ``shape=(boundary_grid_matrix.num_cells, )`` with the exact
+            pressure values at the exterior boundary faces.
 
         """
         # Symbolic variables
         x, y = sym.symbols("x y")
 
         # Get list of face indices
-        fc = sd_matrix.face_centers
+        fc = boundary_grid_matrix.cell_centers
         bot = fc[1] < 0.25
         mid = (fc[1] >= 0.25) & (fc[1] <= 0.75)
         top = fc[1] > 0.75
         face_idx = [bot, mid, top]
 
-        # Boundary faces
-        bc_faces = sd_matrix.get_boundary_faces()
-
         # Lambdify expression
         p_fun = [sym.lambdify((x, y), p, "numpy") for p in self.p_matrix]
 
         # Boundary pressures
-        p_bf = np.zeros(sd_matrix.num_faces)
+        p_bf = np.zeros(boundary_grid_matrix.num_cells)
         for p, idx in zip(p_fun, face_idx):
-            p_bf[bc_faces] += p(fc[0], fc[1])[bc_faces] * idx[bc_faces]
+            p_bf += p(fc[0], fc[1]) * idx
 
         return p_bf
 
@@ -669,17 +666,13 @@ class SingleEmbeddedVerticalLineFracture:
 
 
 # -----> Boundary conditions
-class ManuIncompBoundaryConditions:
+class ManuIncompBoundaryConditions(
+    pp.fluid_mass_balance.BoundaryConditionsSinglePhaseFlow
+):
     """Set boundary conditions for the simulation model."""
-
-    domain_boundary_sides: Callable[[pp.Grid], pp.domain.DomainSides]
-    """Utility function to access the domain boundary sides."""
 
     exact_sol: ManuIncompExactSolution2d
     """Exact solution object."""
-
-    mdg: pp.MixedDimensionalGrid
-    """Mixed-dimensional grid."""
 
     def bc_type_darcy(self, sd: pp.Grid) -> pp.BoundaryCondition:
         """Set boundary condition type."""
@@ -690,17 +683,12 @@ class ManuIncompBoundaryConditions:
             boundary_faces = self.domain_boundary_sides(sd).all_bf
             return pp.BoundaryCondition(sd, boundary_faces, "neu")
 
-    def bc_values_darcy(self, subdomains: list[pp.Grid]) -> pp.ad.DenseArray:
-        """Set boundary condition values."""
-        values = []
-        for sd in subdomains:
-            boundary_faces = self.domain_boundary_sides(sd).all_bf
-            val_loc = np.zeros(sd.num_faces)
-            if sd.dim == self.mdg.dim_max():
-                exact_bc = self.exact_sol.boundary_values(sd_matrix=sd)
-                val_loc[boundary_faces] = exact_bc[boundary_faces]
-            values.append(val_loc)
-        return pp.wrap_as_ad_array(np.hstack(values), name="bc_values_darcy")
+    def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+        vals = np.zeros(boundary_grid.num_cells)
+        if boundary_grid.dim == (self.mdg.dim_max() - 1):
+            # Dirichlet for matrix
+            vals[:] = self.exact_sol.boundary_values(boundary_grid_matrix=boundary_grid)
+        return vals
 
 
 # -----> Balance equations

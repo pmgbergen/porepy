@@ -845,31 +845,7 @@ class BoundaryConditionsMomentumBalance(pp.BoundaryConditionMixin):
         bc.internal_to_dirichlet(sd)
         return bc
 
-    def bc_values_mechanics(self, subdomains: Sequence[pp.Grid]) -> pp.ad.Operator:
-        """Boundary values for the momentum balance.
-
-        Parameters:
-            subdomains: List of subdomains.
-
-        Returns:
-            bc_values: Operator of boundary condition values, which is defined on a
-            sequence of `BoundaryGrid`s. Values zero by default. If combined
-            with transient problems in e.g. Biot, the values should be updated in
-            `update_all_boundary_conditions`.
-
-        """
-        boundary_grids = self.subdomains_to_boundary_grids(subdomains)
-        boundary_projection = pp.ad.BoundaryProjection(
-            self.mdg, subdomains=subdomains, dim=self.nd
-        )
-        result = self.displacement(boundary_grids) + self.mechanical_stress(
-            boundary_grids
-        )
-        result = boundary_projection.boundary_to_subdomain @ result
-        result.set_name("bc_values_mechanics")
-        return result
-
-    def boundary_displacement_values(
+    def bc_values_displacement(
         self, boundary_grid: pp.BoundaryGrid
     ) -> np.ndarray:
         """Displacement values for the Dirichlet boundary condition.
@@ -884,7 +860,7 @@ class BoundaryConditionsMomentumBalance(pp.BoundaryConditionMixin):
         """
         return np.zeros((self.nd, boundary_grid.num_cells)).ravel("F")
 
-    def boundary_stress_values(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+    def bc_values_stress(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
         """Stress values for the Nirichlet boundary condition.
 
         Parameters:
@@ -901,9 +877,9 @@ class BoundaryConditionsMomentumBalance(pp.BoundaryConditionMixin):
         """Set values for the displacement and the stress on boundaries."""
         super().update_all_boundary_conditions()
         self.update_boundary_condition(
-            self.displacement_variable, self.boundary_displacement_values
+            self.displacement_variable, self.bc_values_displacement
         )
-        self.update_boundary_condition(self.stress_keyword, self.boundary_stress_values)
+        self.update_boundary_condition(self.stress_keyword, self.bc_values_stress)
 
 
 # Note that we ignore a mypy error here. There are some inconsistencies in the method

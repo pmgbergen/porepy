@@ -951,11 +951,19 @@ class DarcysLaw:
             subdomains
         )
         p: pp.ad.MixedDimensionalVariable = self.pressure(subdomains)
+
+        boundary_operator = self._make_boundary_operator(
+            subdomains=subdomains,
+            dirichlet_operator=self.pressure,
+            neumann_operator=self.darcy_flux,
+            name='bc_values_darcy'
+        )
+
         pressure_trace = (
             discr.bound_pressure_cell @ p
             + discr.bound_pressure_face
             @ (projection.mortar_to_primary_int @ self.interface_darcy_flux(interfaces))
-            + discr.bound_pressure_face @ self.bc_values_darcy(subdomains)
+            + discr.bound_pressure_face @ boundary_operator
             + discr.vector_source @ self.vector_source(subdomains, material="fluid")
         )
         return pressure_trace
@@ -990,6 +998,13 @@ class DarcysLaw:
             self.mdg, subdomains, interfaces, dim=1
         )
 
+        boundary_operator = self._make_boundary_operator(
+            subdomains=subdomains,
+            dirichlet_operator=self.pressure,
+            neumann_operator=self.darcy_flux,
+            name='bc_values_darcy'
+        )
+
         discr: Union[pp.ad.TpfaAd, pp.ad.MpfaAd] = self.darcy_flux_discretization(
             subdomains
         )
@@ -997,7 +1012,7 @@ class DarcysLaw:
             discr.flux @ self.pressure(subdomains)
             + discr.bound_flux
             @ (
-                self.bc_values_darcy(subdomains)
+                boundary_operator
                 + intf_projection.mortar_to_primary_int
                 @ self.interface_darcy_flux(interfaces)
             )
@@ -1537,6 +1552,14 @@ class FouriersLaw:
         discr: Union[pp.ad.TpfaAd, pp.ad.MpfaAd] = self.fourier_flux_discretization(
             subdomains
         )
+
+        boundary_operator_fourier = self._make_boundary_operator(
+            subdomains=subdomains,
+            dirichlet_operator=self.temperature,
+            neumann_operator=self.fourier_flux,
+            name='bc_values_fourier'
+        )
+
         t: pp.ad.MixedDimensionalVariable = self.temperature(subdomains)
         temperature_trace = (
             discr.bound_pressure_cell @ t  # "pressure" is a legacy misnomer
@@ -1545,7 +1568,7 @@ class FouriersLaw:
                 projection.mortar_to_primary_int
                 @ self.interface_fourier_flux(interfaces)
             )
-            + discr.bound_pressure_face @ self.bc_values_fourier(subdomains)
+            + discr.bound_pressure_face @ boundary_operator_fourier
         )
         return temperature_trace
 
@@ -1577,12 +1600,19 @@ class FouriersLaw:
             subdomains
         )
 
+        boundary_operator_fourier = self._make_boundary_operator(
+            subdomains=subdomains,
+            dirichlet_operator=self.temperature,
+            neumann_operator=self.fourier_flux,
+            name='bc_values_fourier'
+        )
+
         # As opposed to darcy_flux in :class:`DarcyFluxFV`, the gravity term is not
         # included here.
         flux: pp.ad.Operator = discr.flux @ self.temperature(
             subdomains
         ) + discr.bound_flux @ (
-            self.bc_values_fourier(subdomains)
+            boundary_operator_fourier
             + projection.mortar_to_primary_int @ self.interface_fourier_flux(interfaces)
         )
         flux.set_name("Fourier_flux")
@@ -2123,7 +2153,13 @@ class LinearElasticMechanicalStress:
         interfaces = self.subdomains_to_interfaces(grids, [1])
 
         # Boundary conditions on external boundaries
-        bc = self.bc_values_mechanics(grids)
+        boundary_operator = self._make_boundary_operator(
+            subdomains=grids,
+            dirichlet_operator=self.displacement,
+            neumann_operator=self.mechanical_stress,
+            dim=self.nd,
+            name='bc_values_mechanics'
+        )
 
         proj = pp.ad.MortarProjections(self.mdg, grids, interfaces, dim=self.nd)
         # The stress in the subdomanis is the sum of the stress in the subdomain,
@@ -2133,7 +2169,7 @@ class LinearElasticMechanicalStress:
         # subdomains.
         stress = (
             discr.stress @ self.displacement(grids)
-            + discr.bound_stress @ bc
+            + discr.bound_stress @ boundary_operator
             + discr.bound_stress
             @ proj.mortar_to_primary_avg
             @ self.interface_displacement(interfaces)
@@ -3229,11 +3265,19 @@ class PoroMechanicsPorosity:
             self.mdg, subdomains, interfaces, dim=self.nd
         )
 
+        boundary_operator = self._make_boundary_operator(
+            subdomains=subdomains,
+            dirichlet_operator=self.displacement,
+            neumann_operator=self.mechanical_stress,
+            dim=self.nd,
+            name='bc_values_mechanics'
+        )
+
         # Compose operator.
         div_u_integrated = discr.div_u @ self.displacement(
             subdomains
         ) + discr.bound_div_u @ (
-            self.bc_values_mechanics(subdomains)
+            boundary_operator
             + sd_projection.face_restriction(subdomains)
             @ mortar_projection.mortar_to_primary_avg
             @ self.interface_displacement(interfaces)

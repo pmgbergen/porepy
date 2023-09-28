@@ -412,26 +412,7 @@ class BoundaryConditionsSinglePhaseFlow(pp.BoundaryConditionMixin):
         # Define boundary condition on all boundary faces.
         return pp.BoundaryCondition(sd, boundary_faces, "dir")
 
-    def bc_values_darcy(self, subdomains: Sequence[pp.Grid]) -> pp.ad.Operator:
-        """Boundary condition operator for the Darcy flux.
-
-        Parameters:
-            subdomains: List of subdomains.
-
-        Returns:
-            Operator representing the boundary condition values for the Darcy flux.
-
-        """
-        boundary_projection = pp.ad.BoundaryProjection(self.mdg, subdomains=subdomains)
-        boundary_grids = self.subdomains_to_boundary_grids(subdomains)
-        pressure_dirichlet = self.pressure(boundary_grids)
-        flux_neumann = self.darcy_flux(boundary_grids)
-        result = pressure_dirichlet + flux_neumann
-        result = boundary_projection.boundary_to_subdomain @ result
-        result.set_name("bc_values_darcy")
-        return result
-
-    def boundary_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+    def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
         """Pressure values for the Dirichlet boundary condition.
 
         Parameters:
@@ -444,7 +425,7 @@ class BoundaryConditionsSinglePhaseFlow(pp.BoundaryConditionMixin):
         """
         return self.fluid.pressure() * np.ones(boundary_grid.num_cells)
 
-    def boundary_darcy_flux(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+    def bc_values_darcy_flux(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
         """Volumetric Darcy flux values for the Neumann boundary condition.
 
         Parameters:
@@ -462,10 +443,10 @@ class BoundaryConditionsSinglePhaseFlow(pp.BoundaryConditionMixin):
         super().update_all_boundary_conditions()
 
         self.update_boundary_condition(
-            name=self.pressure_variable, function=self.boundary_pressure
+            name=self.pressure_variable, function=self.bc_values_pressure
         )
         self.update_boundary_condition(
-            name=self.bc_data_darcy_flux_key, function=self.boundary_darcy_flux
+            name=self.bc_data_darcy_flux_key, function=self.bc_values_darcy_flux
         )
 
 
