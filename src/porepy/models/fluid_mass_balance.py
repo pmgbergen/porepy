@@ -76,11 +76,6 @@ class MassBalanceEquations(pp.BalanceEquation):
     by a mixin instance of :class:`~porepy.models.constitutive_laws.FluidMobility`.
 
     """
-    bc_values_mobrho: Callable[[list[pp.Grid]], pp.ad.DenseArray]
-    """Mobility times density boundary conditions. Normally defined in a mixin instance
-    of :class:`~porepy.models.fluid_mass_balance.BoundaryConditionsSinglePhaseFlow`.
-
-    """
     advective_flux: Callable[
         [
             list[pp.Grid],

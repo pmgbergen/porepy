@@ -27,7 +27,7 @@ from . import setup_utils
     "model_type,method_name,only_codimension",
     [  # Fluid mass balance
         ("mass_balance", "bc_values_darcy", None),
-        ("mass_balance", "bc_values_mobrho", None),
+        ("mass_balance", "mobility_rho", None),
         ("mass_balance", "fluid_viscosity", None),
         ("mass_balance", "fluid_source", None),
         ("mass_balance", "mobility", None),
