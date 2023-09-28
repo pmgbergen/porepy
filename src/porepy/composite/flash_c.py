@@ -12,16 +12,25 @@ Parallelization is achieved by applying Newton in parallel for multiple input.
 The intended use is for larg compositional flow problems, where an efficient solution
 to the local equilibrium problem is required.
 
+References:
+    [1]: `Ben Gharbia et al. (2021) <https://doi.org/10.1051/m2an/2021075>`_
+    [2]: `Vu et al. (2021) <https://doi.org/10.1016/j.matcom.2021.07.015>`_
+
+
 """
 from __future__ import annotations
 
 import abc
-from typing import Callable, Literal
+import logging
+import time
+from typing import Callable, Literal, Optional, Sequence
 
 import numba
 import numpy as np
 
+from .composite_utils import safe_sum
 from .flash import del_log, logger
+from .mixture import ThermodynamicState
 
 __all__ = [
     "parse_xyz",
@@ -926,6 +935,9 @@ class Flash_c:
         self.npnc: tuple[int, int] = npnc
         """Number of phases and components, passed at instantiation."""
 
+        # currently only 2-phase flash is supported
+        assert npnc[0] == 2, "Currently supports only 2-phase mixtures."
+
         self.eos_compiler: EoSCompiler = eos_compiler
         """Assembler and compiler of EoS-related expressions equation.
         passed at instantiation."""
@@ -966,6 +978,42 @@ class Flash_c:
 
         """
 
+        self.npipm_parameters: dict[str, float] = {
+            "eta": 0.5,
+            "u": 1.0,
+        }
+        """A dictionary containing per parameter name (str, key) the respective
+        parameter for the NPIPM:
+
+        - ``'eta': 0.5``
+        - ``'u': 1.``
+
+        Values can be set directly by modifying the values of this dictionary.
+
+        """
+
+        self.armijo_parameters: dict[str, float] = {
+            "kappa": 0.4,
+            "rho": 0.99,
+            "j_max": 150,
+        }
+        """A dictionary containing per parameter name (str, key) the respective
+        parameter for the Armijo line-search:
+
+        - ``'kappa': 0.4``
+        - ``'rho_0': 0.99``
+        - ``'j_max': 150`` (maximal number of Armijo iterations)
+
+        Values can be set directly by modifying the values of this dictionary.
+
+        """
+
+        self.tolerance: float = 1e-7
+        """Convergence criterion for the flash algorithm. Defaults to ``1e-7``."""
+
+        self.max_iter: int = 100
+        """Maximal number of iterations for the flash algorithms. Defaults to 100."""
+
     def compile(self, verbosity: int = 1) -> None:
         """Triggers the assembly and compilation of equilibrium equations, including
         the NPIPM approach.
@@ -980,6 +1028,14 @@ class Flash_c:
                 Enable progress logs. Set to zero to disable.
 
         """
+        # setting logging verbosity
+        if verbosity == 1:
+            logger.setLevel(logging.INFO)
+        elif verbosity >= 2:
+            logger.setLevel(logging.DEBUG)
+        else:
+            logger.setLevel(logging.WARNING)
+
         nphase, ncomp = self.npnc
 
         ## dimension of flash systems, excluding NPIPM
@@ -995,10 +1051,18 @@ class Flash_c:
         vh_dim = ph_dim + 1 + (nphase - 1)
 
         ## Compilation start
+        logger.info(f"{del_log}Starting compilation of EoS-related functions\n")
+        logger.info(f"{del_log}Compiling residual pre-argument ..")
         prearg_res_c = self.eos_compiler.get_pre_arg_computation_res()
+        logger.info(f"{del_log}Compiling Jacobian pre-argument ..")
         prearg_jac_c = self.eos_compiler.get_pre_arg_computation_jac()
+        logger.info(f"{del_log}Compiling fugacity coefficient function ..")
         phi_c = self.eos_compiler.get_fugacity_computation()
+        logger.info(f"{del_log}Compiling derivatives of fugacity coefficients ..")
         d_phi_c = self.eos_compiler.get_dpTX_fugacity_computation()
+
+        logger.info(f"{del_log}Starting compilation isofugacity constraints\n")
+        logger.info(f"{del_log}Compiling residual of isogucacity constraints ..")
 
         @numba.njit("float64[:](float64[:,:], float64, float64, float64[:,:])")
         def isofug_constr_c(
@@ -1022,6 +1086,8 @@ class Flash_c:
                 isofug[(j - 1) * ncomp : j * ncomp] = Xn[j] * phi_j - Xn[0] * phi_r
 
             return isofug
+
+        logger.info(f"{del_log}Compiling Jacobian of isogucacity constraints ..")
 
         @numba.njit(
             "float64[:,:]"
@@ -1098,6 +1164,9 @@ class Flash_c:
 
             return d_iso
 
+        logger.info(f"{del_log}Starting compilation of flash systems\n")
+        logger.info(f"{del_log}Compiling p-T flash equations ..")
+
         @numba.njit("float64[:](float64[:])")
         def F_pT(X_gen: np.ndarray) -> np.ndarray:
             x, y, z = parse_xyz(X_gen, (nphase, ncomp))
@@ -1143,6 +1212,7 @@ class Flash_c:
 
             return jac
 
+        logger.info(f"{del_log}Storing compiled flash equations ..")
         self.residuals.update(
             {
                 "p-T": F_pT,
@@ -1155,12 +1225,363 @@ class Flash_c:
             }
         )
 
-    def reconfigure_npipm(self, u: float = 1.0, eta: float = 0.5) -> None:
+        logger.info(f"{del_log}Compilation compleded.\n")
+        u = self.npipm_parameters["u"]
+        eta = self.npipm_parameters["eta"]
+
+        self.reconfigure_npipm(u, eta, verbosity)
+
+    def reconfigure_npipm(
+        self, u: float = 1.0, eta: float = 0.5, verbosity: int = 1
+    ) -> None:
         """Re-compiles the NPIPM slack equation using updated parameters ``u, eta``.
 
         For more information on ``u`` and ``eta``, see :func:`slack_equation_res`.
 
         Default values ``u=1, eta=0.5`` are used in the first compilation
         while calling :meth:`compile`.
+
+        Note:
+            The user must recompile the system with ``u,eta`` being quasi-static in
+            order to be able to call the system with a single argument
+            (slack variable appended thermodynamic state) for the numerical
+            methods to work.
+            Passing ``u`` and ``eta`` as separate arguments is quite cumbersome
+            with the current state of numba and the approach of having a single-argument
+            callables which represents residuals and Jacobian.
+
+        """
+        # setting logging verbosity
+        if verbosity == 1:
+            logger.setLevel(logging.INFO)
+        elif verbosity >= 2:
+            logger.setLevel(logging.DEBUG)
+        else:
+            logger.setLevel(logging.WARNING)
+
+        npnc = self.npnc
+        nphase, ncomp = npnc
+        u = float(u)
+        eta = float(eta)
+
+        logger.info(f"{del_log}Starting compilation of NPIPM systems\n")
+        logger.info(f"{del_log}Compiling NPIPM p-T flash ..")
+
+        F_pT = self.residuals["p-T"]
+        DF_pT = self.jacobians["p-T"]
+
+        @numba.njit("float64[:](float64[:])")
+        def F_npipm_pT(X: np.ndarray) -> np.ndarray:
+            X_thd = X[:-1]
+            nu = X[-1]
+            x, y, _ = parse_xyz(X_thd, npnc)
+
+            f_flash = F_pT(X_thd)
+
+            # couple complementary conditions with nu
+            f_flash[-nphase:] -= nu
+
+            # NPIPM equation
+            unity_j = np.zeros(nphase)
+            for j in range(nphase):
+                unity_j[j] = 1.0 - np.sum(x[j])
+
+            # complete vector of fractions
+            slack = slack_equation_res(y, unity_j, nu, u, eta)
+
+            # NPIPM system has one equation more at end
+            f_npipm = np.zeros(f_flash.shape[0] + 1)
+            f_npipm[:-1] = f_flash
+            f_npipm[-1] = slack
+
+            return f_npipm
+
+        @numba.njit("float64[:,:](float64[:])")
+        def DF_npipm_pT(X: np.ndarray) -> np.ndarray:
+            X_thd = X[:-1]
+            nu = X[-1]
+            x, y, _ = parse_xyz(X_thd, npnc)
+
+            df_flash = DF_pT(X_thd)
+
+            # NPIPM matrix has one row and one column more
+            df_npipm = np.zeros((df_flash.shape[0] + 1, df_flash.shape[1] + 1))
+            df_npipm[:-1, :-1] = df_flash
+            # relaxed complementary conditions read as y * (1 - sum x) - nu
+            # add the -1 for the derivative w.r.t. nu
+            df_npipm[-(nphase + 1) : -1, -1] = np.ones(nphase) * (-1)
+
+            # derivative NPIPM equation
+            unity_j = np.zeros(nphase)
+            for j in range(nphase):
+                unity_j[j] = 1.0 - np.sum(x[j])
+
+            # complete vector of fractions
+            d_slack = slack_equation_jac(y, unity_j, nu, u, eta)
+            # d slack has derivatives w.r.t. y_j and w_j
+            # d w_j must be expanded since w_j = 1 - sum x_j
+            # d y_0 must be expanded since reference phase is eliminated by unity
+            expand_yr = np.ones(nphase - 1) * (-1)
+            expand_x_in_j = np.ones(ncomp) * (-1)
+
+            # expansion of y_0 and cut of redundant value
+            d_slack[1 : nphase - 1] += d_slack[0] * expand_yr
+            d_slack = d_slack[1:]
+
+            # expand it also to include possibly other derivatives
+            d_slack_expanded = np.zeros(df_npipm.shape[1])
+            # last derivative is w.r.t. nu
+            d_slack_expanded[-1] = d_slack[-1]
+
+            for j in range(nphase):
+                # derivatives w.r.t. x_ij, +2 because nu must be skipped and j starts with 0
+                vec = expand_x_in_j * d_slack[-(j + 2)]
+                d_slack_expanded[-(1 + (j + 1) * ncomp) : -(1 + j * ncomp)] = vec
+
+            # derivatives w.r.t y_j. j != r
+            d_slack_expanded[
+                -(1 + nphase * ncomp + nphase - 1) : -(1 + nphase * ncomp)
+            ] = d_slack[: nphase - 1]
+
+            df_npipm[-1] = d_slack_expanded
+
+            return df_npipm
+
+        logger.info(f"{del_log}Storing compiled flash equations ..")
+
+        self.npipm_res.update(
+            {
+                "p-T": F_npipm_pT,
+            }
+        )
+
+        self.npipm_jac.update(
+            {
+                "p-T": DF_npipm_pT,
+            }
+        )
+
+        logger.info(f"{del_log}Compilation completed.\n")
+
+    def flash(
+        self,
+        z: Sequence[np.ndarray],
+        p: Optional[np.ndarray] = None,
+        T: Optional[np.ndarray] = None,
+        h: Optional[np.ndarray] = None,
+        v: Optional[np.ndarray] = None,
+        initial_state: Optional[ThermodynamicState] = None,
+        mode: Literal["linear", "parallel"] = "linear",
+        verbosity: int = 0,
+    ) -> tuple[ThermodynamicState, np.ndarray, np.ndarray]:
+        """Performes the flash for given feed fractions and state definition.
+
+        Exactly 2 thermodynamic state must be defined in terms of ``p, T, h`` or ``v``
+        for an equilibrium problem to be well-defined.
+
+        One state must relate to pressure or volume.
+        The other to temperature or energy.
+
+        Supported combination:
+
+        - p-T
+        - p-h
+        - v-h
+
+        Parameters:
+            z: ``len=num_comp - 1``
+
+                A squence of feed fractions per component, except reference component.
+            p: Pressure at equilibrium.
+            T: Temperature at equilibrium.
+            h: Specific enthalpy of the mixture at equilibrium,
+            v: Specific volume of the mixture at equilibrium,
+            initial_state: ``default=None``
+
+                If not given, an initial guess is computed for the unknowns of the flash
+                type.
+
+                If given, it must have at least values for phase fractions and
+                compositions.
+                Molar phase fraction for reference phase **must not** be provided.
+
+                It must have additionally values for temperature, for
+                a state definition where temperature is not known at equilibrium.
+
+                It must have additionally values for pressure and saturations, for
+                state definitions where pressure is not known at equilibrium.
+                Saturation for reference phase **must not** be provided.
+            mode: ``default='linear'``
+
+                Mode of solving the equilibrium problems for multiple state definitions
+                given by arrays.
+
+                - ``'linear'``: A classical loop over state defintions (row-wise).
+                - ``'parallel'``: A parallelized loop, intended for larger amounts of
+                  problems.
+
+            verbosity: ``default=0``
+
+                For logging information about progress. Note that as of now, there is
+                no support for logs during solution procedures in the loop since
+                compiled code is exectuded.
+
+        Raises:
+            ValueError: If an insufficient amount of feed fractions is passed or they
+                violate the unity constraint.
+            NotImplementedError: If an unsupported combination of insufficient number of
+                of thermodynamic states is passed.
+
+        Returns:
+            A 3-tuple containing the results, success flags and number of iterations as
+            returned by :func:`newton`.
+            The results are stored in a thermodynamic state structure.
+
+        """
+        # setting logging verbosity
+        if verbosity == 1:
+            logger.setLevel(logging.INFO)
+        elif verbosity >= 2:
+            logger.setLevel(logging.DEBUG)
+        else:
+            logger.setLevel(logging.WARNING)
+
+        nphase, ncomp = self.npnc
+        z_sum = safe_sum(z)
+        if len(z) != ncomp - 1:
+            raise ValueError(f"Need {ncomp - 1} feed fractions. {len(z)} Given.")
+        if not np.all(z_sum <= 1.0):
+            raise ValueError(f"Feed fractions violate unity constraint.")
+
+        flash_type: Literal["p-T", "p-h", "v-h"]
+        F_dim: int
+        NF: int  # number of vectorized target states
+        X0: np.ndarray  # vectorized, generic flash argument
+        gen_arg_dim: int  # number of required values for a flash
+        result_state = ThermodynamicState()
+
+        if p is not None and T is not None and (h is None and v is None):
+            flash_type = "p-T"
+            F_dim = nphase - 1 + nphase * ncomp
+            NF = (z_sum + p + T).shape[0]
+            gen_arg_dim = ncomp - 1 + 2 + F_dim + 1
+            state_1 = p
+            state_2 = T
+            result_state.p = p
+            result_state.T = T
+        elif p is not None and h is not None and (T is None and v is None):
+            flash_type = "p-h"
+            F_dim = nphase - 1 + nphase * ncomp + 1
+            NF = (z_sum + p + h).shape[0]
+            gen_arg_dim = ncomp - 1 + 2 + 1 + F_dim + 1
+            state_1 = p
+            state_2 = h
+            result_state.p = p
+            result_state.h = h
+        elif v is not None and h is not None and (T is None and v is None):
+            flash_type = "v-h"
+            F_dim = nphase - 1 + nphase * ncomp + 2 + nphase - 1
+            NF = (z_sum + p + h).shape[0]
+            gen_arg_dim = ncomp - 1 + 2 + nphase - 1 + 2 + F_dim + 1
+            state_1 = v
+            state_2 = h
+            result_state.v = v
+            result_state.h = h
+        else:
+            raise NotImplementedError(
+                f"Unsupported flash with state definitions {p, T, h, v}"
+            )
+
+        logger.info(f"{del_log}Determined flash type: {flash_type}\n")
+
+        logger.debug(f"{del_log}Assembling generic flash arguments ..")
+        X0 = np.zeros((NF, gen_arg_dim))
+        for i, z_i in enumerate(z):
+            X0[:, i] = z_i
+        X0[:, ncomp - 1] = state_1
+        X0[:, ncomp] = state_2
+
+        if initial_state is None:
+            logger.info(f"{del_log}Computing initial state ..")
+            start = time.time()
+
+            end = time.time()
+            logger.info(f"{del_log}Initial state computed.\n")
+            t = end - start
+            logger.debug(
+                f"Elapsed time (min): {t / 60.}\n"
+                if t > 60.0
+                else f"Elapsed time (s): {t}\n"
+            )
+        else:
+            logger.debug(f"{del_log}Parsing initial state ..")
+            # parsing phase compositions and molar fractions
+            for j in range(nphase):
+                # values for molar phase fractions except for reference phase
+                if j < nphase - 1:
+                    X0[:, -(1 + nphase * ncomp + nphase - 1 + j)] = initial_state.y[j]
+                # composition of phase j
+                for i in range(ncomp):
+                    X0[:, -(1 + (nphase - j) * ncomp + i)] = initial_state.X[j][i]
+
+            # If T is unknown, get provided guess for T
+            if "T" not in flash_type:
+                X0[:, -(1 + ncomp * nphase + nphase - 1 + 1)] = initial_state.T
+            # If p is unknown, get provided guess for p and saturations
+            if "p" not in flash_type:
+                X0[:, -(1 + ncomp * nphase + nphase - 1 + 2)] = initial_state.p
+                for j in range(nphase - 1):
+                    X0[
+                        :, -(1 + ncomp * nphase + nphase - 1 + 2 + nphase - 1 + j)
+                    ] = initial_state.s[j]
+
+            # parsing molar phsae fractions
+
+        F = self.npipm_res[flash_type]
+        DF = self.npipm_jac[flash_type]
+        solver_args = (
+            F_dim,
+            self.tolerance,
+            self.max_iter,
+            self.npnc,
+            self.npipm_parameters["u"],
+            self.armijo_parameters["rho"],
+            self.armijo_parameters["kappa"],
+            self.armijo_parameters["j_max"],
+        )
+
+        logger.info(f"{del_log}Solving ..")
+        start = time.time()
+        if mode == "linear":
+            results, success, num_iter = linear_newton(X0, F, DF, *solver_args)
+        elif mode == "parallel":
+            results, success, num_iter = parallel_newton(X0, F, DF, *solver_args)
+        else:
+            raise ValueError(f"Unknown mode of compuation {mode}")
+        end = time.time()
+        logger.info(f"{del_log}Flash computations done.\n")
+        t = end - start
+        logger.debug(
+            f"Elapsed time (min): {t / 60.}\n"
+            if t > 60.0
+            else f"Elapsed time (s): {t}\n"
+        )
+
+        logger.debug(f"{del_log}Parsing and returning results.\n")
+        return (
+            self._parse_and_complete_results(results, result_state, flash_type),
+            success,
+            num_iter,
+        )
+
+    def _parse_and_complete_results(
+        self, results: np.ndarray, result_state: ThermodynamicState, flash_type: str
+    ) -> ThermodynamicState:
+        """Helper function to fill a result state with the results from the flash.
+
+        Modifies and returns the passed result state structur containing flash
+        specifications.
+
+        Also, fills up secondary expressions for respective flash type.
 
         """
