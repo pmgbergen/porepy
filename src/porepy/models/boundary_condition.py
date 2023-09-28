@@ -1,6 +1,6 @@
+import warnings
 from abc import ABC, abstractmethod
 from typing import Callable, Sequence
-import warnings
 
 import numpy as np
 

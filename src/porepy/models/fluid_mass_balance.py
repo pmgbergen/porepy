@@ -195,9 +195,7 @@ class MassBalanceEquations(pp.BalanceEquation):
         mass.set_name("fluid_mass")
         return mass
 
-    def mobility_rho(
-        self, grids: Sequence[pp.SubdomainsOrBoundaries]
-    ) -> pp.ad.Operator:
+    def mobility_rho(self, grids: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
         """Fluid density times mobility.
 
         Parameters:
@@ -214,6 +212,14 @@ class MassBalanceEquations(pp.BalanceEquation):
 
         Darcy flux times density and mobility.
 
+        Note:
+            The advected entity in the fluid flux is given by :meth:`mobility_rho`.
+            When using upwinding, Dirichlet-type data for pressure and temperature
+            must also be provided on the Neumann-boundary when there is
+            an in-flux into the domain.
+            The advected entity must provide values on the boundary in this case, since
+            the upstream value of it is on the boundary.
+
         Parameters:
             subdomains: List of subdomains.
 
@@ -225,9 +231,6 @@ class MassBalanceEquations(pp.BalanceEquation):
         mob_rho = self.mobility_rho(subdomains)
 
         boundary_projection = pp.ad.BoundaryProjection(self.mdg, subdomains=subdomains)
-        # NOTE Here (in the background), some Dirichlet-type data for p and T have
-        # to be set on Neumann-faces, for the case of INFLUX
-        # This is then the advected entity which by upwinwinding enters the domain
         bc_values = boundary_projection.boundary_to_subdomain @ self.mobility_rho(
             self.subdomains_to_boundary_grids(subdomains)
         )

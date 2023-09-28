@@ -886,7 +886,11 @@ class DarcysLaw:
 
     """
     bc_data_darcy_flux_key: str
-    """TODO"""
+    """See
+    :attr:`~porepy.models.fluid_mass_balance.BoundaryConditionsSinglePhaseFlow.
+    bc_data_darcy_flux_key`.
+
+    """
     create_boundary_operator: Callable[
         [str, Sequence[pp.BoundaryGrid]], pp.ad.TimeDependentDenseArray
     ]
@@ -1482,7 +1486,11 @@ class FouriersLaw:
 
     """
     bc_data_fourier_flux_key: str
-    """TODO"""
+    """See
+    :attr:`~porepy.models.energy_balance.BoundaryConditionsEnergyBalance.
+    bc_data_fourier_flux_key`.
+
+    """
     create_boundary_operator: Callable[
         [str, Sequence[pp.BoundaryGrid]], pp.ad.TimeDependentDenseArray
     ]
