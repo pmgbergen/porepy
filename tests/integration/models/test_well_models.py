@@ -136,23 +136,6 @@ class BoundaryConditionsWellSetup(
     def bc_type_mobrho(self, sd: pp.Grid) -> pp.BoundaryCondition:
         return self._bc_type(sd, "dir")
 
-    def bc_values_mobrho(self, subdomains: list[pp.Grid]) -> pp.ad.DenseArray:
-        """Boundary condition values for Darcy flux.
-
-        Dirichlet boundary conditions are defined on the north and south boundaries,
-        with a constant value of 0 unless fluid's reference pressure is changed.
-
-        Parameters:
-            subdomains: List of subdomains for which to define boundary conditions.
-
-        Returns:
-            bc: Boundary condition object.
-
-        """
-        assert False
-        val = self.fluid.density()
-        return self._bc_values(subdomains, val, "bc_values_mobrho")
-
     def bc_type_enthalpy(self, sd: pp.Grid) -> pp.BoundaryCondition:
         """Boundary condition type for enthalpy.
 
@@ -166,25 +149,6 @@ class BoundaryConditionsWellSetup(
 
         """
         return self._bc_type(sd, "dir")
-
-    def bc_values_enthalpy_flux(self, subdomains: list[pp.Grid]) -> pp.ad.DenseArray:
-        """Boundary condition values for enthalpy.
-
-        Dirichlet boundary conditions are defined on the north and south boundaries,
-        with a constant value of 0 unless fluid's reference pressure is changed.
-
-        Parameters:
-            subdomains: List of subdomains for which to define boundary conditions.
-
-        Returns:
-            bc: Boundary condition object.
-
-        """
-        assert False
-        val = self.fluid.convert_units(
-            self.params.get("well_enthalpy", 1e7), "kg * m ^ 3 * s ^ -1"
-        )
-        return self._bc_values(subdomains, val)
 
     def bc_type_fourier(self, sd: pp.Grid) -> pp.BoundaryCondition:
         """Boundary condition type for Fourier flux.
