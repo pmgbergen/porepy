@@ -149,28 +149,23 @@ class BoundaryConditionsMassAndEnergyDirNorthSouth(
         # Define boundary condition on faces
         return pp.BoundaryCondition(sd, domain_sides.north + domain_sides.south, "dir")
 
-    def bc_values_darcy(self, subdomains: list[pp.Grid]) -> pp.ad.DenseArray:
+    def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
         """Boundary condition values for Darcy flux.
 
         Dirichlet boundary conditions are defined on the north and south boundaries,
         with a constant value of 0 unless fluid's reference pressure is changed.
 
         Parameters:
-            subdomains: List of subdomains for which to define boundary conditions.
+            boundary_grid: Boundary grid for which to define boundary conditions.
 
         Returns:
-            bc: Boundary condition object.
+            Boundary condition values array.
 
         """
-        vals = []
-        if len(subdomains) == 0:
-            return pp.ad.DenseArray(np.zeros(0), name="bc_values_darcy")
-        for sd in subdomains:
-            domain_sides = self.domain_boundary_sides(sd)
-            vals_loc = np.zeros(sd.num_faces)
-            vals_loc[domain_sides.north + domain_sides.south] = self.fluid.pressure()
-            vals.append(vals_loc)
-        return pp.wrap_as_ad_array(np.hstack(vals), name="bc_values_darcy")
+        domain_sides = self.domain_boundary_sides(boundary_grid)
+        vals_loc = np.zeros(boundary_grid.num_cells)
+        vals_loc[domain_sides.north + domain_sides.south] = self.fluid.pressure()
+        return vals_loc
 
     def bc_type_mobrho(self, sd):
         """Boundary condition type for the density-mobility product.
@@ -255,9 +250,7 @@ class BoundaryConditionsMechanicsDirNorthSouth(
         bc.internal_to_dirichlet(sd)
         return bc
 
-    def boundary_displacement_values(
-        self, boundary_grid: pp.BoundaryGrid
-    ) -> np.ndarray:
+    def bc_values_displacement(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
         """Boundary values for the mechanics problem as a numpy array.
 
         Extracted from below method to facilitate time dependent boundary conditions.
@@ -295,9 +288,7 @@ class TimeDependentMechanicalBCsDirNorthSouth(BoundaryConditionsMechanicsDirNort
     For use in (thermo)poremechanics.
     """
 
-    def boundary_displacement_values(
-        self, boundary_grid: pp.BoundaryGrid
-    ) -> np.ndarray:
+    def bc_values_displacement(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
         domain_sides = self.domain_boundary_sides(boundary_grid)
         values = np.zeros((self.nd, boundary_grid.num_cells))
         # Add fracture width on top if there is a fracture.

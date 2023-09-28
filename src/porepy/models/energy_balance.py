@@ -320,6 +320,18 @@ class EnergyBalanceEquations(pp.BalanceEquation):
                 * self.mobility(subdomains)
             )
 
+        def enthalpy_dirichlet(boundary_grids):
+            result = self.fluid_enthalpy(boundary_grids)
+            result += self.fluid_density(boundary_grids)
+            return result
+
+        boundary_operator_enthalpy = self._make_boundary_operator(
+            subdomains=subdomains,
+            dirichlet_operator=enthalpy_dirichlet,
+            neumann_operator=self.enthalpy_flux,
+            name='bc_values_enthalpy'
+        )
+
         discr = self.enthalpy_discretization(subdomains)
         flux = self.advective_flux(
             subdomains,
@@ -327,7 +339,7 @@ class EnergyBalanceEquations(pp.BalanceEquation):
             * self.mobility(subdomains)
             * self.fluid_density(subdomains),
             discr,
-            self.bc_values_enthalpy_flux(subdomains),
+            boundary_operator_enthalpy,
             self.interface_enthalpy_flux,
         )
         flux.set_name("enthalpy_flux")
@@ -710,55 +722,7 @@ class BoundaryConditionsEnergyBalance(pp.BoundaryConditionMixin):
         # Define boundary condition on all boundary faces.
         return pp.BoundaryCondition(sd, boundary_faces, "dir")
 
-    def bc_values_fourier(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Boundary values for the Fourier flux.
-
-        Parameters:
-            subdomains: List of subdomains.
-
-        Returns:
-            Ad array representing the boundary condition values for the Fourier flux.
-
-        """
-        boundary_projection = pp.ad.BoundaryProjection(self.mdg, subdomains=subdomains)
-        boundary_grids = self.subdomains_to_boundary_grids(subdomains)
-        temperature_dirichlet = self.temperature(boundary_grids)
-        flux_neumann = self.fourier_flux(boundary_grids)
-        fourier_flux_bc = boundary_projection.boundary_to_subdomain @ (
-            temperature_dirichlet + flux_neumann
-        )
-        fourier_flux_bc.set_name("bc_values_fourier")
-        return fourier_flux_bc
-
-    def bc_values_enthalpy_flux(self, subdomains: list[pp.Grid]) -> pp.ad.DenseArray:
-        """Boundary values for the enthalpy.
-
-        SI units for Dirichlet: [J/m^3]
-        SI units for Neumann: TODO
-
-        Parameters:
-            subdomains: List of subdomains.
-
-        Returns:
-            Array with boundary values for the enthalpy.
-
-        """
-
-        boundary_projection = pp.ad.BoundaryProjection(self.mdg, subdomains=subdomains)
-        boundary_grids = self.subdomains_to_boundary_grids(subdomains)
-
-        enthalpy_dirichlet = self.fluid_enthalpy(boundary_grids) * self.fluid_density(
-            boundary_grids
-        )
-        enthalpy_neumann = self.enthalpy_flux(boundary_grids)
-
-        enthalpy_flux_bc = boundary_projection.boundary_to_subdomain @ (
-            enthalpy_dirichlet + enthalpy_neumann
-        )
-        enthalpy_flux_bc.set_name("bc_values_enthalpy")
-        return enthalpy_flux_bc
-
-    def boundary_temperature(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+    def bc_values_temperature(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
         """
         Parameters:
             boundary_grids: A boundary grid in the domain.
@@ -769,26 +733,13 @@ class BoundaryConditionsEnergyBalance(pp.BoundaryConditionMixin):
         """
         return self.fluid.temperature() * np.ones(boundary_grid.num_cells)
 
-    def boundary_fourier_flux(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+    def bc_values_fourier_flux(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
         """
         Parameters:
             boundary_grids: A boundary grid in the domain.
 
         Returns:
             Numeric Fourier flux values for a Neumann-type BC.
-
-        """
-        return np.zeros(boundary_grid.num_cells)
-
-    def boundary_enthalpy_flux(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
-        """
-        Parameters:
-            boundary_grids: A boundary grid in the domain.
-
-        Returns:
-            Numeric enthalpy flux values for Dirichlet boundary conditions **and**
-            Neumann boundary conditions, where enthalpy can enter the system due to
-            influx/upwinding.
 
         """
         return np.zeros(boundary_grid.num_cells)
@@ -807,11 +758,11 @@ class BoundaryConditionsEnergyBalance(pp.BoundaryConditionMixin):
 
         # Update Neumann conditions
         self.update_boundary_condition(
-            name=self.bc_data_fourier_flux_key, function=self.boundary_fourier_flux
+            name=self.bc_data_fourier_flux_key, function=self.bc_values_fourier_flux
         )
         # Update Dirichlet conditions
         self.update_boundary_condition(
-            name=self.temperature_variable, function=self.boundary_temperature
+            name=self.temperature_variable, function=self.bc_values_temperature
         )
 
 

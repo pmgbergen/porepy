@@ -1312,7 +1312,7 @@ class MandelBoundaryConditionsMechanicsTimeDependent(
 
         return bc
 
-    def boundary_displacement_values(
+    def bc_values_displacement(
         self, boundary_grid: pp.BoundaryGrid
     ) -> np.ndarray:
         """Boundary values for mechanics.
@@ -1325,7 +1325,7 @@ class MandelBoundaryConditionsMechanicsTimeDependent(
             the North side of the domain.
 
         """
-        bc_vals = super().boundary_displacement_values(boundary_grid)
+        bc_vals = super().bc_values_displacement(boundary_grid)
 
         sides = self.domain_boundary_sides(boundary_grid)
         # Cells of the boundary grid are faces of the parent subdomain.

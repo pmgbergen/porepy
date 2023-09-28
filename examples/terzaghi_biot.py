@@ -569,7 +569,7 @@ class TerzaghiBoundaryConditionsMechanics(mechanics.BoundaryConditionsMomentumBa
 
         return bc
 
-    def boundary_displacement_values(
+    def bc_values_displacement(
         self, boundary_grid: pp.BoundaryGrid
     ) -> np.ndarray:
         """Boundary values for mechanics.
