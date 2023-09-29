@@ -1,13 +1,13 @@
 import warnings
-from abc import ABC, abstractmethod
 from typing import Callable, Sequence
+from functools import cached_property
 
 import numpy as np
 
 import porepy as pp
 
 
-class BoundaryConditionMixin(ABC):
+class BoundaryConditionMixin:
     """Mixin class for bounray conditions.
 
     This class is intended to be used together with the other model classes providing
@@ -40,17 +40,37 @@ class BoundaryConditionMixin(ABC):
     units: "pp.Units"
     """Units object, containing the scaling of base magnitudes."""
 
-    @abstractmethod
     def update_all_boundary_conditions(self) -> None:
         """This method is called before a new time step to set the values of the
-        boundary conditions. The specific boundary condition values should be updated in
-        concrete overrides. By default, it does nothing.
+        boundary conditions.
+
+        This implementation updates only the filters for Dirichlet and Neumann
+        values. The specific boundary condition values should be updated in
+        overrides by models.
 
         Note:
             One can use the convenience method `update_boundary_condition` for each
             boundary condition value.
 
         """
+        for name, bc_type_callable in self.__bc_type_storage.items():
+            # Note: transposition is unavoidable to treat vector values correctly.
+            def dirichlet(bg: pp.BoundaryGrid):
+                is_dir = bc_type_callable(bg.parent).is_dir.T
+                is_dir = bg.projection @ is_dir
+                return is_dir.T.ravel("F")
+
+            def neumann(bg: pp.BoundaryGrid):
+                is_neu = bc_type_callable(bg.parent).is_neu.T
+                is_neu = bg.projection @ is_neu
+                return is_neu.T.ravel("F")
+
+            self.update_boundary_condition(
+                name=(name + "_filter_dir"), function=dirichlet
+            )
+            self.update_boundary_condition(
+                name=(name + "_filter_neu"), function=neumann
+            )
 
     def update_boundary_condition(
         self,
@@ -126,8 +146,9 @@ class BoundaryConditionMixin(ABC):
         subdomains: Sequence[pp.Grid],
         dirichlet_operator: Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
         neumann_operator: Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
+        bc_type: Callable[[pp.Grid], pp.BoundaryCondition],
+        name: str,
         dim: int = 1,
-        name: str = 'bc_values'
     ) -> pp.ad.Operator:
         """Creates an operator representing Dirichlet and Neumann boundary conditions
         and projects it to the subdomains from boundary grids.
@@ -143,19 +164,38 @@ class BoundaryConditionMixin(ABC):
 
             dim: Dimension of the equation. Defaults to 1.
 
-            name: Name of the resulting operator. Defaults to "bc_values".
+            name: Name of the resulting operator.
 
         Returns:
             Boundary condition representation operator.
 
         """
-        boundary_projection = pp.ad.BoundaryProjection(
-            self.mdg, subdomains=subdomains, dim=dim
-        )
         boundary_grids = self.subdomains_to_boundary_grids(subdomains)
         dirichlet = dirichlet_operator(boundary_grids)
         neumann = neumann_operator(boundary_grids)
-        result = dirichlet + neumann
-        result = boundary_projection.boundary_to_subdomain @ result
+
+        self.__bc_type_storage[name] = bc_type
+        dir_filter = pp.ad.TimeDependentDenseArray(
+            name=(name + "_filter_dir"), domains=boundary_grids
+        )
+        neu_filter = pp.ad.TimeDependentDenseArray(
+            name=(name + "_filter_neu"), domains=boundary_grids
+        )
+
+        boundary_to_subdomain = pp.ad.BoundaryProjection(
+            self.mdg, subdomains=subdomains, dim=dim
+        ).boundary_to_subdomain
+
+        dirichlet *= dir_filter
+        neumann *= neu_filter
+        result = boundary_to_subdomain @ (dirichlet + neumann)
         result.set_name(name)
+
+        # self.update_all_boundary_conditions()  # TODO: Remove this line
+
         return result
+
+    @cached_property
+    def __bc_type_storage(self) -> dict[str, Callable[[pp.Grid], pp.BoundaryCondition]]:
+        """TODO"""
+        return {}

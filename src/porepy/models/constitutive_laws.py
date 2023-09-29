@@ -956,7 +956,8 @@ class DarcysLaw:
             subdomains=subdomains,
             dirichlet_operator=self.pressure,
             neumann_operator=self.darcy_flux,
-            name='bc_values_darcy'
+            bc_type=self.bc_type_darcy,
+            name='bc_values_darcy',
         )
 
         pressure_trace = (
@@ -1002,6 +1003,7 @@ class DarcysLaw:
             subdomains=subdomains,
             dirichlet_operator=self.pressure,
             neumann_operator=self.darcy_flux,
+            bc_type=self.bc_type_darcy,
             name='bc_values_darcy'
         )
 
@@ -1557,6 +1559,7 @@ class FouriersLaw:
             subdomains=subdomains,
             dirichlet_operator=self.temperature,
             neumann_operator=self.fourier_flux,
+            bc_type=self.bc_type_fourier,
             name='bc_values_fourier'
         )
 
@@ -1604,6 +1607,7 @@ class FouriersLaw:
             subdomains=subdomains,
             dirichlet_operator=self.temperature,
             neumann_operator=self.fourier_flux,
+            bc_type=self.bc_type_fourier,
             name='bc_values_fourier'
         )
 
@@ -2157,6 +2161,7 @@ class LinearElasticMechanicalStress:
             subdomains=grids,
             dirichlet_operator=self.displacement,
             neumann_operator=self.mechanical_stress,
+            bc_type=self.bc_type_mechanics,
             dim=self.nd,
             name='bc_values_mechanics'
         )
@@ -3269,6 +3274,7 @@ class PoroMechanicsPorosity:
             subdomains=subdomains,
             dirichlet_operator=self.displacement,
             neumann_operator=self.mechanical_stress,
+            bc_type=self.bc_type_mechanics,
             dim=self.nd,
             name='bc_values_mechanics'
         )

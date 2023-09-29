@@ -745,6 +745,7 @@ class ManuPoroMechSolutionStrategy2d(poromechanics.SolutionStrategyPoromechanics
 
     def before_nonlinear_loop(self) -> None:
         """Update values of external sources."""
+        super().before_nonlinear_loop()
 
         sd = self.mdg.subdomains()[0]
         data = self.mdg.subdomain_data(sd)
