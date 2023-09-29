@@ -847,11 +847,12 @@ class EoSCompiler(abc.ABC):
 
         Returns:
             A NJIT-ed function taking
+
             - the pre-argument for the residual,
             - the phase index,
             - pressure value,
             - temperature value,
-            - an array normalized fractions of componentn in phase ``phase_index``
+            - an array of normalized fractions of componentn in phase ``phase_index``,
 
             and returning an array of fugacity coefficients with ``shape=(num_comp,)``.
 
@@ -873,11 +874,12 @@ class EoSCompiler(abc.ABC):
 
         Returns:
             A NJIT-ed function taking
+
             - the pre-argument for the Jacobian,
             - the phase index,
             - pressure value,
             - temperature value,
-            - an array normalized fractions of componentn in phase ``phase_index``
+            - an array of normalized fractions of componentn in phase ``phase_index``,
 
             and returning an array of derivatives offugacity coefficients with
             ``shape=(num_comp, 2 + num_comp)``., where the columns indicate the
@@ -1585,3 +1587,36 @@ class Flash_c:
         Also, fills up secondary expressions for respective flash type.
 
         """
+        nphase, ncomp = self.npnc
+
+        # Parsing phase compositions and molar phsae fractions
+        y = [0.0] * nphase
+        X = [[0.0] * ncomp for _ in range(nphase)]
+        for j in range(nphase):
+            # values for molar phase fractions except for reference phase
+            if j < nphase - 1:
+                y[j + 1] = results[:, -(1 + nphase * ncomp + nphase - 1 + j)]
+            # composition of phase j
+            for i in range(ncomp):
+                X[j][i] = results[:, -(1 + (nphase - j) * ncomp + i)]
+        # reference phase
+        y[0] = 1 - sum(y)
+
+        result_state.y = y
+        result_state.X = X
+        # If T is unknown, get provided guess for T
+        if "T" not in flash_type:
+            result_state.T = results[:, -(1 + ncomp * nphase + nphase - 1 + 1)]
+        # If p is unknown, get provided guess for p and saturations
+        if "p" not in flash_type:
+            result_state.p = results[:, -(1 + ncomp * nphase + nphase - 1 + 2)]
+            s = [0.0] * nphase
+            for j in range(nphase - 1):
+                s[j + 1] = results[
+                    :, -(1 + ncomp * nphase + nphase - 1 + 2 + nphase - 1 + j)
+                ]
+            s[0] = 1 - sum(s)
+            result_state.s = s
+
+        # TODO fill up missing quantities in result state if any
+        return result_state
