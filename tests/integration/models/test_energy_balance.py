@@ -19,38 +19,12 @@ from .setup_utils import (
 from .test_mass_balance import BoundaryConditionLinearPressure
 
 
-class BoundaryCondition(BoundaryConditionLinearPressure):
-    domain_boundary_sides: Callable[
-        [pp.Grid],
-        pp.domain.DomainSides,
-    ]
-    """Utility function to access the domain boundary sides."""
-    fluid: pp.FluidConstants
-    """Fluid object."""
-
-    def bc_values_fourier(self, subdomains: list[pp.Grid]) -> pp.ad.DenseArray:
-        """
-
-        Parameters:
-            subdomains: List of subdomains on which to define boundary conditions.
-
-        Returns:
-            Array of boundary values.
-
-        """
-        # Define boundary regions
-        values = []
-        for sd in subdomains:
-            _, _, west, *_ = self.domain_boundary_sides(sd)
-            val_loc = np.zeros(sd.num_faces)
-            val_loc[west] = self.fluid.convert_units(1, "K")
-            values.append(val_loc)
-        # Concatenate to single array.
-        if len(values) > 0:
-            bc_values = np.hstack(values)
-        else:
-            bc_values = np.empty(0)
-        return pp.wrap_as_ad_array(bc_values, name="bc_values_fourier")
+class BoundaryConditionsEnergy(pp.energy_balance.BoundaryConditionsEnergyBalance):
+    def bc_values_temperature(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+        sides = self.domain_boundary_sides(boundary_grid)
+        vals = np.zeros(boundary_grid.num_cells)
+        vals[sides.west] = self.fluid.convert_units(1, "K")
+        return vals
 
     def bc_type_fourier(self, sd: pp.Grid) -> pp.BoundaryCondition:
         """Dirichlet conditions on all external boundaries.
@@ -63,43 +37,22 @@ class BoundaryCondition(BoundaryConditionLinearPressure):
 
         """
         # Define boundary regions
-        _, east, west, *_ = self.domain_boundary_sides(sd)
+        sides = self.domain_boundary_sides(sd)
         # Define Dirichlet conditions on the left and right boundaries
-        return pp.BoundaryCondition(sd, east + west, "dir")
+        return pp.BoundaryCondition(sd, sides.west + sides.east, "dir")
 
-    def bc_values_enthalpy_flux(self, subdomains: list[pp.Grid]) -> pp.ad.DenseArray:
-        """Boundary values for the enthalpy.
-
-        Parameters:
-            subdomains: List of subdomains.
-
-        Returns:
-            Array with boundary values for the enthalpy.
-
-        """
-        # List for all subdomains
-        values = []
-
-        # Loop over subdomains to collect boundary values
-        for sd in subdomains:
-            # Get enthalpy values on boundary faces applying trace to interior values.
-            _, _, west, *_ = self.domain_boundary_sides(sd)
-            vals = np.zeros(sd.num_faces)
-            temperature = self.fluid.convert_units(1, "K")
-            density = self.fluid.density()
-            mobility = 1 / self.fluid.viscosity()
-            vals[west] = (
-                self.fluid.specific_heat_capacity() * temperature * density * mobility
-            )
-            # Append to list of boundary values
-            values.append(vals)
-
-        # Concatenate to single array and wrap as ad.DenseArray
-        bc_values = pp.wrap_as_ad_array(np.hstack(values), name="bc_values_enthalpy")
-        return bc_values
+    def bc_type_enthalpy(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        # Define boundary regions
+        sides = self.domain_boundary_sides(sd)
+        # Define Dirichlet conditions on the left and right boundaries
+        return pp.BoundaryCondition(sd, sides.west, "dir")
 
 
-class EnergyBalanceTailoredBCs(BoundaryCondition, MassAndEnergyBalance):
+class EnergyBalanceTailoredBCs(
+    BoundaryConditionsEnergy,
+    BoundaryConditionLinearPressure,
+    MassAndEnergyBalance,
+):
     pass
 
 

@@ -74,10 +74,8 @@ class OneVerticalWell:
         return "simplex"
 
 
-class BoundaryConditionsWellSetup(
-    pp.fluid_mass_balance.BoundaryConditionsSinglePhaseFlow
-):
-    def _bc_type(self, sd: pp.Grid, well_cond) -> pp.BoundaryCondition:
+class BoundaryConditionsWellSetup(pp.BoundaryConditionMixin):
+    def _bc_type(self, sd: pp.Grid, well_cond: str) -> pp.BoundaryCondition:
         """Boundary condition type for Darcy flux.
 
         Dirichlet boundary conditions are defined on the north and south boundaries.
@@ -95,6 +93,25 @@ class BoundaryConditionsWellSetup(
         # Define boundary condition on faces
         return pp.BoundaryCondition(sd, domain_sides.top + domain_sides.bottom, cond)
 
+    def _bc_values(self, boundary_grid: pp.BoundaryGrid, value: float) -> np.ndarray:
+        """
+        Parameters:
+            boundary_grid: Boundary grid for which to define boundary conditions.
+
+            value: Value to assign.
+
+        Returns:
+            bc: Boundary condition array.
+
+        """
+
+        vals_loc = np.zeros(boundary_grid.num_cells)
+        if boundary_grid.dim == 0:
+            domain_sides = self.domain_boundary_sides(boundary_grid)
+            # Inflow for the top boundary of the well.
+            vals_loc[domain_sides.top] = value
+        return vals_loc
+
     def bc_type_darcy(self, sd: pp.Grid) -> pp.BoundaryCondition:
         """Boundary condition type for Darcy flux.
 
@@ -109,7 +126,7 @@ class BoundaryConditionsWellSetup(
         """
         return self._bc_type(sd, "neu")
 
-    def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+    def bc_values_darcy_flux(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
         """Boundary condition values for Darcy flux.
 
         Dirichlet boundary conditions are defined on the north and south boundaries,
@@ -125,13 +142,7 @@ class BoundaryConditionsWellSetup(
         value = self.fluid.convert_units(
             self.params.get("well_flux", -1), "kg * m ^ 3 * s ^ -1"
         )
-
-        vals_loc = np.zeros(boundary_grid.num_cells)
-        if boundary_grid.dim == 0:
-            domain_sides = self.domain_boundary_sides(boundary_grid)
-            # Inflow for the top boundary of the well.
-            vals_loc[domain_sides.top] = value
-        return vals_loc
+        return self._bc_values(boundary_grid, value)
 
     def bc_type_mobrho(self, sd: pp.Grid) -> pp.BoundaryCondition:
         return self._bc_type(sd, "dir")
@@ -149,6 +160,18 @@ class BoundaryConditionsWellSetup(
 
         """
         return self._bc_type(sd, "dir")
+
+    def bc_values_temperature(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+        """
+        Parameters:
+            boundary_grids: A boundary grid in the domain.
+
+        Returns:
+            Numeric enthalpy flux values for a Neumann-type BC.
+
+        """
+        val = self.fluid.convert_units(self.params.get("well_enthalpy", 1e7), "K")
+        return self._bc_values(boundary_grid, val)
 
     def bc_type_fourier(self, sd: pp.Grid) -> pp.BoundaryCondition:
         """Boundary condition type for Fourier flux.

@@ -288,7 +288,7 @@ class EnergyBalanceEquations(pp.BalanceEquation):
         flux.set_name("interface_energy_flux")
         return flux
 
-    def enthalpy_flux(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+    def enthalpy_flux(self, subdomains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
         """Enthalpy flux.
 
         Note:
@@ -310,26 +310,22 @@ class EnergyBalanceEquations(pp.BalanceEquation):
         """
 
         if len(subdomains) == 0 or isinstance(subdomains[0], pp.BoundaryGrid):
-            # Given Neumann data for enthalpy flux expected on boundary grids
-            # NOTE Here (in the background), some Dirichlet-type data for p and T have
-            # to be set on Neumann-faces, for the case of INFLUX
-            # This is then the advected entity which by upwinwinding enters the domain
-            return (
-                self.fluid_enthalpy(subdomains)
-                * self.fluid_density(subdomains)
-                * self.mobility(subdomains)
+            return self.create_boundary_operator(
+                name=self.bc_data_enthalpy_flux_key, domains=subdomains
             )
 
         def enthalpy_dirichlet(boundary_grids):
             result = self.fluid_enthalpy(boundary_grids)
-            result += self.fluid_density(boundary_grids)
+            # result *= self.fluid_density(boundary_grids)
+            result *= self.mobility_rho(boundary_grids)
             return result
 
         boundary_operator_enthalpy = self._make_boundary_operator(
             subdomains=subdomains,
             dirichlet_operator=enthalpy_dirichlet,
             neumann_operator=self.enthalpy_flux,
-            name='bc_values_enthalpy'
+            bc_type=self.bc_type_enthalpy,
+            name="bc_values_enthalpy",
         )
 
         discr = self.enthalpy_discretization(subdomains)
@@ -664,17 +660,11 @@ class BoundaryConditionsEnergyBalance(pp.BoundaryConditionMixin):
     :class:`~porepy.models.solution_strategy.SolutionStrategy`.
 
     """
-    domain_boundary_sides: Callable[
-        [pp.Grid],
-        pp.domain.DomainSides,
-    ]
-    """Boundary sides of the domain. Normally defined in a mixin instance of
-    :class:`~porepy.models.geometry.ModelGeometry`.
-
-    """
     bc_data_fourier_flux_key: str = "fourier_flux"
     """Keyword for the storage of Neumann-type boundary conditions for the Fourier
     flux."""
+    bc_data_enthalpy_flux_key: str = "enthalpy_flux"
+    """TODO"""
     temperature_variable: str
     """See :attr:`SolutionStrategyEnergyBalance.temperature_variable`."""
     temperature: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
@@ -744,6 +734,17 @@ class BoundaryConditionsEnergyBalance(pp.BoundaryConditionMixin):
         """
         return np.zeros(boundary_grid.num_cells)
 
+    def bc_values_enthalpy_flux(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+        """
+        Parameters:
+            boundary_grids: A boundary grid in the domain.
+
+        Returns:
+            Numeric enthalpy flux values for a Neumann-type BC.
+
+        """
+        return np.zeros(boundary_grid.num_cells)
+
     def update_all_boundary_conditions(self) -> None:
         """Set values for the temperature and the Fourier flux on boundaries.
 
@@ -763,6 +764,10 @@ class BoundaryConditionsEnergyBalance(pp.BoundaryConditionMixin):
         # Update Dirichlet conditions
         self.update_boundary_condition(
             name=self.temperature_variable, function=self.bc_values_temperature
+        )
+        #
+        self.update_boundary_condition(
+            name=self.bc_data_enthalpy_flux_key, function=self.bc_values_enthalpy_flux
         )
 
 
