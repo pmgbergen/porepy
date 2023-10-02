@@ -177,6 +177,16 @@ class NewtonSolver:
         Right now, this is an almost trivial function. However, we keep it as a separate
         function to prepare for possible future introduction of more advanced schemes.
 
+        Parameters:
+            model: The model instance specifying the problem to be solved.
+
+        Returns:
+            The method returns the following tuple:
+
+            np.ndarray: Residual vector of nonlinear system.
+            np.ndarray: Solution to linearized system, i.e. the Newton update
+                increment.
+
         """
         model.assemble_linear_system()
         _, res = model.linear_system  # Extract residual
