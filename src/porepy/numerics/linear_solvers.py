@@ -58,8 +58,8 @@ class LinearSolver:
         error_res, error_inc, is_converged, _ = setup.check_convergence(
             sol, prev_sol, prev_sol, res, self.params
         )
-        errors['residual_error'].append(error_res)
-        errors['increment_error'].append(error_inc)
+        errors["residual_error"].append(error_res)
+        errors["increment_error"].append(error_inc)
 
         if is_converged:
             # IMPLEMENTATION NOTE: The following is a bit awkward, and really shows there is
