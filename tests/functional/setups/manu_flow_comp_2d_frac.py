@@ -592,42 +592,6 @@ class ManuCompExactSolution2d:
 
         return p_bf
 
-    def matrix_boundary_density(self, sd_matrix: pp.Grid, time: float) -> np.ndarray:
-        """Exact density at the boundary faces.
-
-        Parameters:
-            sd_matrix: Matrix grid.
-            time: time in seconds.
-
-        Returns:
-            Array of ``shape=(sd_matrix.num_faces, )`` with the exact density values
-            on the exterior boundary faces for the given ``time``.
-
-        """
-        assert False, "We should not need it anymore."
-        # # Symbolic variables
-        # x, y, t = sym.symbols("x y t")
-
-        # # Get list of face indices
-        # fc = sd_matrix.face_centers
-        # bot = fc[1] < 0.25
-        # mid = (fc[1] >= 0.25) & (fc[1] <= 0.75)
-        # top = fc[1] > 0.75
-        # face_idx = [bot, mid, top]
-
-        # # Boundary faces
-        # bc_faces = sd_matrix.get_boundary_faces()
-
-        # # Lambdify expression
-        # rho_fun = [sym.lambdify((x, y, t), rho, "numpy") for rho in self.rho_matrix]
-
-        # # Boundary pressures
-        # rho_bf = np.zeros(sd_matrix.num_faces)
-        # for rho, idx in zip(rho_fun, face_idx):
-        #     rho_bf[bc_faces] += rho(fc[0], fc[1], time)[bc_faces] * idx[bc_faces]
-
-        # return rho_bf
-
 
 # -----> Boundary conditions
 class ManuCompBoundaryConditions(
