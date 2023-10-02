@@ -957,7 +957,7 @@ class DarcysLaw:
             dirichlet_operator=self.pressure,
             neumann_operator=self.darcy_flux,
             bc_type=self.bc_type_darcy,
-            name='bc_values_darcy',
+            name="bc_values_darcy",
         )
 
         pressure_trace = (
@@ -1004,7 +1004,7 @@ class DarcysLaw:
             dirichlet_operator=self.pressure,
             neumann_operator=self.darcy_flux,
             bc_type=self.bc_type_darcy,
-            name='bc_values_darcy'
+            name="bc_values_darcy",
         )
 
         discr: Union[pp.ad.TpfaAd, pp.ad.MpfaAd] = self.darcy_flux_discretization(
@@ -1560,7 +1560,7 @@ class FouriersLaw:
             dirichlet_operator=self.temperature,
             neumann_operator=self.fourier_flux,
             bc_type=self.bc_type_fourier,
-            name='bc_values_fourier'
+            name="bc_values_fourier",
         )
 
         t: pp.ad.MixedDimensionalVariable = self.temperature(subdomains)
@@ -1608,7 +1608,7 @@ class FouriersLaw:
             dirichlet_operator=self.temperature,
             neumann_operator=self.fourier_flux,
             bc_type=self.bc_type_fourier,
-            name='bc_values_fourier'
+            name="bc_values_fourier",
         )
 
         # As opposed to darcy_flux in :class:`DarcyFluxFV`, the gravity term is not
@@ -2163,7 +2163,7 @@ class LinearElasticMechanicalStress:
             neumann_operator=self.mechanical_stress,
             bc_type=self.bc_type_mechanics,
             dim=self.nd,
-            name='bc_values_mechanics'
+            name="bc_values_mechanics",
         )
 
         proj = pp.ad.MortarProjections(self.mdg, grids, interfaces, dim=self.nd)
@@ -3276,7 +3276,7 @@ class PoroMechanicsPorosity:
             neumann_operator=self.mechanical_stress,
             bc_type=self.bc_type_mechanics,
             dim=self.nd,
-            name='bc_values_mechanics'
+            name="bc_values_mechanics",
         )
 
         # Compose operator.

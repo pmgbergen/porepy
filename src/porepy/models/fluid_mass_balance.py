@@ -202,9 +202,8 @@ class MassBalanceEquations(pp.BalanceEquation):
         """
         return self.fluid_density(grids) * self.mobility(grids)
 
-    def fluid_flux(self, subdomains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+    def fluid_flux(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
         """Fluid flux.
-        TODO: boundary grids
         Darcy flux times density and mobility.
 
         Note:
@@ -216,35 +215,35 @@ class MassBalanceEquations(pp.BalanceEquation):
             the upstream value of it is on the boundary.
 
         Parameters:
-            subdomains: List of subdomains.
+            domains: List of subdomains or boundary grids.
 
         Returns:
             Operator representing the fluid flux.
 
         """
-        if len(subdomains) == 0 or isinstance(subdomains[0], pp.BoundaryGrid):
+        if len(domains) == 0 or isinstance(domains[0], pp.BoundaryGrid):
             # Note: in case of the empty subdomain list, the time dependent array is
             # still returned. Otherwise, this method produces an infinite recursion
             # loop. It does not affect real computations anyhow.
             return self.create_boundary_operator(
-                name=self.bc_data_fluid_flux_key, domains=subdomains
+                name=self.bc_data_fluid_flux_key, domains=domains
             )
-        discr = self.mobility_discretization(subdomains)
-        mob_rho = self.mobility_rho(subdomains)
+        discr = self.mobility_discretization(domains)
+        mob_rho = self.mobility_rho(domains)
 
         # boundary_projection = pp.ad.BoundaryProjection(self.mdg, subdomains=subdomains)
         # bc_values = boundary_projection.boundary_to_subdomain @ self.mobility_rho(
         #     self.subdomains_to_boundary_grids(subdomains)
         # )
         boundary_operator = self._make_boundary_operator(
-            subdomains=subdomains,
+            subdomains=domains,
             dirichlet_operator=self.mobility_rho,
             neumann_operator=self.fluid_flux,
             bc_type=self.bc_type_mobrho,
             name="bc_values_fluid_flux",
         )
         flux = self.advective_flux(
-            subdomains, mob_rho, discr, boundary_operator, self.interface_fluid_flux
+            domains, mob_rho, discr, boundary_operator, self.interface_fluid_flux
         )
         flux.set_name("fluid_flux")
         return flux
@@ -425,6 +424,9 @@ class BoundaryConditionsSinglePhaseFlow(pp.BoundaryConditionMixin):
     def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
         """Pressure values for the Dirichlet boundary condition.
 
+        These values are used on the boundaries where `self.bc_type_darcy` and
+        `self.bc_type_mobrho` are Dirichlet.
+
         Parameters:
             boundary_grid: Boundary grid to evaluate values on.
 
@@ -438,6 +440,8 @@ class BoundaryConditionsSinglePhaseFlow(pp.BoundaryConditionMixin):
     def bc_values_darcy_flux(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
         """Volumetric Darcy flux values for the Neumann boundary condition.
 
+        These values are used on the boundaries where `self.bc_type_darcy` is Neumann.
+
         Parameters:
             boundary_grid: Boundary grid to evaluate values on.
 
@@ -449,7 +453,18 @@ class BoundaryConditionsSinglePhaseFlow(pp.BoundaryConditionMixin):
         return np.zeros(boundary_grid.num_cells)
 
     def bc_values_fluid_flux(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
-        """TODO"""
+        """Fluid mass flux values for the Neumann boundary condition
+
+        These values are used on the boundaries where `self.bc_type_mobrho` is Neumann.
+
+        Parameters:
+            boundary_grid: Boundary grid to evaluate values on.
+
+        Returns:
+            An array with shape (boundary_grid.num_cells,) containing the mass
+            fluid flux values on the provided boundary grid.
+
+        """
         return np.zeros(boundary_grid.num_cells)
 
     def update_all_boundary_conditions(self) -> None:

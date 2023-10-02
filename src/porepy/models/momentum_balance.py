@@ -845,9 +845,7 @@ class BoundaryConditionsMomentumBalance(pp.BoundaryConditionMixin):
         bc.internal_to_dirichlet(sd)
         return bc
 
-    def bc_values_displacement(
-        self, boundary_grid: pp.BoundaryGrid
-    ) -> np.ndarray:
+    def bc_values_displacement(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
         """Displacement values for the Dirichlet boundary condition.
 
         Parameters:
