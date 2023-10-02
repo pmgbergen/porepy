@@ -539,6 +539,7 @@ class BoundaryProjection:
             name="boundaries to subdomains projection",
         )
 
+
 class Trace:
     """Wrapper class for Ad representations of trace operators and their inverse,
     that is, mappings between grid cells and faces.

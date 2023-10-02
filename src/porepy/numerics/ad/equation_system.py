@@ -13,11 +13,7 @@ from typing_extensions import TypeAlias
 import porepy as pp
 
 from . import _ad_utils
-from .operators import (
-    MixedDimensionalVariable,
-    Operator,
-    Variable,
-)
+from .operators import MixedDimensionalVariable, Operator, Variable
 
 __all__ = ["EquationSystem"]
 

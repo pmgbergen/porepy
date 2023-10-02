@@ -1,6 +1,6 @@
 import warnings
-from typing import Callable, Sequence
 from functools import cached_property
+from typing import Callable, Sequence
 
 import numpy as np
 
@@ -190,12 +190,12 @@ class BoundaryConditionMixin:
         neumann *= neu_filter
         result = boundary_to_subdomain @ (dirichlet + neumann)
         result.set_name(name)
-
-        # self.update_all_boundary_conditions()  # TODO: Remove this line
-
         return result
 
     @cached_property
     def __bc_type_storage(self) -> dict[str, Callable[[pp.Grid], pp.BoundaryCondition]]:
-        """TODO"""
+        """Storage of functions that determine the boundary condition type on the given
+        grid. Used in `update_all_boundary_conditions` for Dirichlet and Neumann
+        filters.
+        """
         return {}
