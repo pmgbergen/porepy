@@ -538,11 +538,6 @@ class BoundaryProjection:
             self._projection.transpose().tocsc(),
             name="boundaries to subdomains projection",
         )
-    
-    # @property
-    # def dirichlet_to_subdomain(self) -> Operator:
-        # dirichlet = 
-
 
 class Trace:
     """Wrapper class for Ad representations of trace operators and their inverse,
