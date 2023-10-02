@@ -97,7 +97,7 @@ class BoundaryConditionMixin:
             # Set the known time step values.
             if name in data[pp.ITERATE_SOLUTIONS]:
                 # Use the values at the unknown time step from the previous time step.
-                vals = pp.get_solution_values(name=name, data=data, time_step_index=0)
+                vals = pp.get_solution_values(name=name, data=data, iterate_index=0)
             else:
                 # No previous time step exists. The method was called during
                 # the initialization.
