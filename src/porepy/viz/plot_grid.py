@@ -156,9 +156,8 @@ def plot_sd(
     fig = plt.figure(num=fig_num, figsize=fig_size)
 
     # Initialize the corresponding axis
-    if kwargs.get("plot_2d", False):
-        ax = fig.add_subplot(111)
-    else:
+    ax: mpl.axes.Axes = fig.add_subplot(111)
+    if not kwargs.get("plot_2d", False):
         ax = fig.add_subplot(111, projection="3d")
 
     # Set title and axis labels
@@ -166,7 +165,7 @@ def plot_sd(
     ax.set_xlabel("x")
     ax.set_ylabel("y")
     if not kwargs.get("plot_2d", False):
-        ax.set_zlabel("z")
+        ax.set_zlabel("z")  # type: ignore[attr-defined]
 
     # Determine the color map (based on min and max values if not provided externally)
     if cell_value is not None and sd.dim != 3:
@@ -190,11 +189,11 @@ def plot_sd(
             ax.set_ylim(y)
     else:
         if not np.isclose(x[0], x[1]):
-            ax.set_xlim3d(x)
+            ax.set_xlim3d(x)  # type: ignore[attr-defined]
         if not np.isclose(y[0], y[1]):
-            ax.set_ylim3d(y)
+            ax.set_ylim3d(y)  # type: ignore[attr-defined]
         if not kwargs.get("plot_2d", False):
-            ax.set_zlim3d(z)
+            ax.set_zlim3d(z)  # type: ignore[attr-defined]
 
     # Add info if provided.
     if info is not None:
@@ -202,7 +201,7 @@ def plot_sd(
 
     # Add color map if provided.
     if kwargs.get("color_map"):
-        fig.colorbar(kwargs["color_map"])
+        fig.colorbar(kwargs["color_map"], ax=ax)
 
     # Draw and potentially show the plot.
     plt.draw()
@@ -244,9 +243,8 @@ def plot_mdg(
     fig = plt.figure(num=fig_num, figsize=fig_size)
 
     # Initialize the corresponding axis
-    if kwargs.get("plot_2d", False):
-        ax = fig.add_subplot(111)
-    else:
+    ax: mpl.axes.Axes = fig.add_subplot(111)
+    if not kwargs.get("plot_2d", False):
         ax = fig.add_subplot(111, projection="3d")
 
     # Add title and axis labels
@@ -255,7 +253,7 @@ def plot_mdg(
     ax.set_xlabel("x")
     ax.set_ylabel("y")
     if not kwargs.get("plot_2d", False):
-        ax.set_zlabel("z")
+        ax.set_zlabel("z")  # type: ignore[attr-defined]
 
     # Define color map (based on min and max value of the cell value if none externally
     # provided)
@@ -265,12 +263,15 @@ def plot_mdg(
         else:
             extr_value = np.array([np.inf, -np.inf])
             for _, sd_data in mdg.subdomains(return_data=True):
+                values = pp.get_solution_values(
+                    name=cell_value, data=sd_data, time_step_index=0
+                )
                 extr_value[0] = min(
-                    np.amin(sd_data[pp.TIME_STEP_SOLUTIONS][cell_value][0]),
+                    np.amin(values),
                     extr_value[0],
                 )
                 extr_value[1] = max(
-                    np.amax(sd_data[pp.TIME_STEP_SOLUTIONS][cell_value][0]),
+                    np.amax(values),
                     extr_value[1],
                 )
         kwargs["color_map"] = _color_map(extr_value)
@@ -311,9 +312,9 @@ def plot_mdg(
     # of all 1d, 2d, 3d subdomains
     val = np.array([_lim(sd.nodes) for sd in mdg.subdomains() if sd.dim > 0])
 
-    x = [np.amin(val[:, 0, :]), np.amax(val[:, 0, :])]
-    y = [np.amin(val[:, 1, :]), np.amax(val[:, 1, :])]
-    z = [np.amin(val[:, 2, :]), np.amax(val[:, 2, :])]
+    x: tuple[float, float] = (np.amin(val[:, 0, :]), np.amax(val[:, 0, :]))
+    y: tuple[float, float] = (np.amin(val[:, 1, :]), np.amax(val[:, 1, :]))
+    z: tuple[float, float] = (np.amin(val[:, 2, :]), np.amax(val[:, 2, :]))
 
     # In 2d, restrict the data, in 3d (default), do not.
     if kwargs.get("plot_2d", False):
@@ -323,11 +324,11 @@ def plot_mdg(
             ax.set_ylim(y)
     else:
         if not np.isclose(x[0], x[1]):
-            ax.set_xlim3d(x)
+            ax.set_xlim3d(x)  # type: ignore[attr-defined]
         if not np.isclose(y[0], y[1]):
-            ax.set_ylim3d(y)
+            ax.set_ylim3d(y)  # type: ignore[attr-defined]
         if not kwargs.get("plot_2d", False):
-            ax.set_zlim3d(z)
+            ax.set_zlim3d(z)  # type: ignore[attr-defined]
 
     # Add info if provided
     if info is not None:
@@ -336,7 +337,7 @@ def plot_mdg(
 
     # Add color map if provided
     if kwargs.get("color_map"):
-        fig.colorbar(kwargs["color_map"])
+        fig.colorbar(kwargs["color_map"], ax=ax)
 
     # Draw and potentially show the plot.
     plt.draw()
@@ -398,7 +399,8 @@ class _Arrow3D(FancyArrowPatch):
         """
         # Render the 3d coordinates of the arrows as preparation for plotting in the 2d plane.
         xs3d, ys3d, zs3d = self._verts3d
-        xs, ys, zs = proj3d.proj_transform(xs3d, ys3d, zs3d, self.axes.M)
+        axes_M = self.axes.M  # type: ignore[union-attr]
+        xs, ys, zs = proj3d.proj_transform(xs3d, ys3d, zs3d, axes_M)
         # Extract the rendered positions in the 2d plotting plane
         self.set_positions((xs[0], ys[0]), (xs[1], ys[1]))
         # Draw the arrows
@@ -466,7 +468,7 @@ def _plot_sd_xd(
     sd: pp.Grid,
     cell_value: Optional[np.ndarray],
     vector_value: Optional[np.ndarray],
-    ax: mpl.axis.Axis,
+    ax: mpl.axes.Axes,
     **kwargs,
 ) -> None:
     """
@@ -495,7 +497,9 @@ def _plot_sd_xd(
         _quiver(sd, vector_value, ax, **kwargs)
 
 
-def _lim(nodes: np.ndarray) -> tuple[list[float], list[float], list[float]]:
+def _lim(
+    nodes: np.ndarray,
+) -> tuple[tuple[float, float], tuple[float, float], tuple[float, float]]:
     """
     Extracts the x, y and z limits of a node array.
 
@@ -503,9 +507,9 @@ def _lim(nodes: np.ndarray) -> tuple[list[float], list[float], list[float]]:
         nodes (np.ndarray): 3d node array
     """
     # Determine min and max values for each compononent of all coordinates
-    x = [np.amin(nodes[0, :]), np.amax(nodes[0, :])]
-    y = [np.amin(nodes[1, :]), np.amax(nodes[1, :])]
-    z = [np.amin(nodes[2, :]), np.amax(nodes[2, :])]
+    x: tuple[float, float] = (np.amin(nodes[0, :]), np.amax(nodes[0, :]))
+    y: tuple[float, float] = (np.amin(nodes[1, :]), np.amax(nodes[1, :]))
+    z: tuple[float, float] = (np.amin(nodes[2, :]), np.amax(nodes[2, :]))
 
     return x, y, z
 
@@ -528,7 +532,7 @@ def _color_map(
     return scalar_map
 
 
-def _add_info(sd: pp.Grid, info: str, ax: mpl.axis.Axis, **kwargs) -> None:
+def _add_info(sd: pp.Grid, info: str, ax: mpl.axes.Axes, **kwargs) -> None:
     """
     Adds information on numbering of geometry information of the grid g to ax.
 
@@ -554,8 +558,8 @@ def _add_info(sd: pp.Grid, info: str, ax: mpl.axis.Axis, **kwargs) -> None:
             c: color
             m: marker
         """
-        ax.scatter(*p, c=c, marker=m)
-        ax.text(*p, i)
+        ax.scatter(*p, c=c, marker=m)  # type: ignore[misc]
+        ax.text(*p, i)  # type: ignore[call-arg]
 
     def _disp_loop(v: np.ndarray, c, m):
         """Loop over disp.
@@ -590,22 +594,24 @@ def _add_info(sd: pp.Grid, info: str, ax: mpl.axis.Axis, **kwargs) -> None:
         _quiver(sd, sd.face_normals * 0.4, ax, **kwargs)
 
 
-def _plot_sd_0d(sd: pp.Grid, ax: mpl.axis.Axis, **kwargs) -> None:
+def _plot_sd_0d(sd: pp.Grid, ax: mpl.axes.Axes, **kwargs) -> None:
     """
     Plot the 0d grid g as a circle on the axis ax.
 
     Args:
         sd (pp.Grid): 0d subdomain
-        ax (matplotlib axis): axis
+        ax (matplotlib axes): axes
         kwargs (optional): Keyword arguments
             pointsize (float): defining the size of the marker
     """
     dim = 2 if kwargs.get("plot_2d", False) else 3
-    ax.scatter(*sd.nodes[:dim, :], color="k", marker="o", s=kwargs.get("pointsize", 1))
+    ax.scatter(
+        *sd.nodes[:dim, :], color="k", marker="o", s=kwargs.get("pointsize", 1)
+    )  # type: ignore[misc]
 
 
 def _plot_sd_1d(
-    sd: pp.Grid, cell_value: Optional[np.ndarray], ax: mpl.axis.Axis, **kwargs
+    sd: pp.Grid, cell_value: Optional[np.ndarray], ax: mpl.axes.Axes, **kwargs
 ) -> None:
     """
     Plot the 1d grid g to the axis ax, with cell_value represented by the cell coloring.
@@ -613,7 +619,7 @@ def _plot_sd_1d(
     Args:
         sd (pp.Grid): 1d subdomain
         cell_value (np.ndarray): cell values
-        as (matplotlib axis): axis
+        ax (matplotlib axes): axes
         kwargs (optional): Keyword arguments
             color_map: Limits of the cell value color axis.
             alpha: Transparency of the plot.
@@ -663,11 +669,11 @@ def _plot_sd_1d(
         else:
             poly = Poly3DCollection([pts.T], linewidth=linewidth)
             poly.set_edgecolor(_color_edge(cell_value[c]))
-            ax.add_collection3d(poly)
+            ax.add_collection3d(poly)  # type: ignore[attr-defined]
 
 
 def _plot_sd_2d(
-    sd: pp.Grid, cell_value: Optional[np.ndarray], ax: mpl.axis.Axis, **kwargs
+    sd: pp.Grid, cell_value: Optional[np.ndarray], ax: mpl.axes.Axes, **kwargs
 ):
     """
     Plot the 2d grid g to the axis ax, with cell_value represented by the cell coloring.
@@ -675,6 +681,7 @@ def _plot_sd_2d(
     Args:
         sd (pp.Grid): 2d subdomain
         cell_value (np.ndarray): cell values
+        ax (matplotlib axes): axes
         kwargs (optional): Keyword arguments:
             color_map: Limits of the cell value color axis.
             linewidth: Width of faces in 2d and edges in 3d.
@@ -737,21 +744,21 @@ def _plot_sd_2d(
         else:
             poly = Poly3DCollection([pts.T], linewidth=linewidth)
             poly.set_edgecolor("k")
-            poly.set_facecolors(_color_face(cell_value[c]))
-            ax.add_collection3d(poly)
+            poly.set_facecolors(_color_face(cell_value[c]))  # type: ignore[attr-defined]
+            ax.add_collection3d(poly)  # type: ignore[attr-defined]
 
     # Define viewing angle in 3d
     if not kwargs.get("plot_2d", False):
-        ax.view_init(90, -90)
+        ax.view_init(90, -90)  # type: ignore[attr-defined]
 
 
-def _plot_sd_3d(sd: pp.Grid, ax: mpl.axis.Axis, **kwargs) -> None:
+def _plot_sd_3d(sd: pp.Grid, ax: mpl.axes.Axes, **kwargs) -> None:
     """
     Plot the 3d subdomain to the axis ax.
 
     Args:
         sd (pp.Grid): 3d subdomain
-        ax (matplotlib axis): axis
+        ax (matplotlib axes): axes
         kwargs (optional): Keyword arguments:
     """
     faces_cells, cells, _ = sps.find(sd.cell_faces)
@@ -793,4 +800,4 @@ def _plot_sd_3d(sd: pp.Grid, ax: mpl.axis.Axis, **kwargs) -> None:
             poly = Poly3DCollection([pts.T], linewidth=linewidth)
             poly.set_edgecolor("k")
             poly.set_facecolors(_color_face(cell_value[c]))
-            ax.add_collection3d(poly)
+            ax.add_collection3d(poly)  # type: ignore[attr-defined]
