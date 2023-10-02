@@ -51,7 +51,8 @@ class LinearSolver:
         # needs clarification at some point.
         errors = {"residual_error": [], "increment_error": []}
 
-        _, res = setup.assemble_linear_system()
+        setup.assemble_linear_system()
+        _, res = setup.linear_system  # Extract residual
         sol = setup.solve_linear_system()
 
         error_res, error_inc, is_converged, _ = setup.check_convergence(
