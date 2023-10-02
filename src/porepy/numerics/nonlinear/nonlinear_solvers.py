@@ -78,7 +78,7 @@ class NewtonSolver:
 
         init_sol = prev_sol
         sol = init_sol
-        errors = {"residual_error": [], "increment_error": []}
+        errors: dict = {"residual_error": [], "increment_error": []}
 
         # Define a function that does all the work during one Newton iteration, except
         # for everything ``tqdm`` related.
@@ -147,7 +147,8 @@ class NewtonSolver:
                     )
                     newton_step()
                     solver_progressbar.update(n=1)
-                    solver_progressbar.set_postfix_str(f"Error {error_inc}")
+                    solver_progressbar.set_postfix_str(
+                        f"Error {errors['increment_error'][-1]}")
 
                     if is_diverged:
                         # If the process finishes early, the tqdm bar needs to be

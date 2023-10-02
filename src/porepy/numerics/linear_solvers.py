@@ -49,7 +49,7 @@ class LinearSolver:
         # FIXME: This assumes a direct solver is applied, but it may also be that parameters
         # for linear solvers should be a property of the model, not the solver. This
         # needs clarification at some point.
-        errors = {"residual_error": [], "increment_error": []}
+        errors: dict = {"residual_error": [], "increment_error": []}
 
         setup.assemble_linear_system()
         _, res = setup.linear_system  # Extract residual

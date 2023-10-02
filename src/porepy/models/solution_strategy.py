@@ -514,9 +514,9 @@ class SolutionStrategy(abc.ABC):
             # Enforce float to make mypy happy
 
             # Residual based error
-            error_res = self._nonlinear_residual_error(residual)
+            error_res = self.nonlinear_residual_error(residual)
             # Increment based error
-            error_inc = self._nonlinear_increment_error(solution)
+            error_inc = self.nonlinear_increment_error(solution)
             logger.info(f"Normalized residual error: {error_res:.2e}")
             logger.info(f"Normalized increment error: {error_inc:.2e}")
             converged = error_inc < nl_params["nl_convergence_tol"] and \
@@ -524,8 +524,8 @@ class SolutionStrategy(abc.ABC):
             diverged = False
             return error_res, error_inc, converged, diverged
 
-    def _nonlinear_residual_error(self, residual: np.ndarray) -> float:
-        """Compute the residual error for a nonliner iteration.
+    def nonlinear_residual_error(self, residual: np.ndarray) -> float:
+        """Compute the residual error for a nonlinear iteration.
 
         Parameters:
             residual: Residual of current iteration.
@@ -536,7 +536,7 @@ class SolutionStrategy(abc.ABC):
         error_res = np.linalg.norm(residual) / np.sqrt(residual.size)
         return error_res
 
-    def _nonlinear_increment_error(self, solution: np.ndarray) -> float:
+    def nonlinear_increment_error(self, solution: np.ndarray) -> float:
         """Compute the error based on the update increment for a nonlinear iteration.
 
         Parameters:
