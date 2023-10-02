@@ -107,8 +107,8 @@ class NewtonSolver:
                 sol, prev_sol, init_sol, res, self.params
             )
             prev_sol = sol
-            errors['residual_error'].append(error_res)
-            errors['increment_error'].append(error_inc)
+            errors["residual_error"].append(error_res)
+            errors["increment_error"].append(error_inc)
 
         # Progressbars turned off or tqdm not installed:
         if not self.progress_bar or not _IS_TQDM_AVAILABLE:
@@ -148,7 +148,8 @@ class NewtonSolver:
                     newton_step()
                     solver_progressbar.update(n=1)
                     solver_progressbar.set_postfix_str(
-                        f"Error {errors['increment_error'][-1]}")
+                        f"Error {errors['increment_error'][-1]}"
+                    )
 
                     if is_diverged:
                         # If the process finishes early, the tqdm bar needs to be

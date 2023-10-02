@@ -519,8 +519,10 @@ class SolutionStrategy(abc.ABC):
             error_inc = self.nonlinear_increment_error(solution)
             logger.info(f"Normalized residual error: {error_res:.2e}")
             logger.info(f"Normalized increment error: {error_inc:.2e}")
-            converged = error_inc < nl_params["nl_convergence_tol"] and \
-                        error_res < nl_params["nl_convergence_tol_res"]
+            converged = (
+                error_inc < nl_params["nl_convergence_tol"]
+                and error_res < nl_params["nl_convergence_tol_res"]
+            )
             diverged = False
             return error_res, error_inc, converged, diverged
 
@@ -547,7 +549,6 @@ class SolutionStrategy(abc.ABC):
         """
         error_inc = np.linalg.norm(solution) / np.sqrt(solution.size)
         return error_inc
-
 
     def _initialize_linear_solver(self) -> None:
         """Initialize linear solver.
