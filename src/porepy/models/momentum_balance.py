@@ -524,6 +524,9 @@ class VariablesMomentumBalance:
     :class:`~porepy.models.geometry.ModelGeometry`.
 
     """
+    create_boundary_operator: Callable[
+        [str, Sequence[pp.BoundaryGrid]], pp.ad.TimeDependentDenseArray
+    ]
 
     def create_variables(self) -> None:
         """Set variables for the subdomains and interfaces.
@@ -554,7 +557,7 @@ class VariablesMomentumBalance:
             tags={"si_units": "Pa"},
         )
 
-    def displacement(self, grids: pp.SubdomainsOrBoundaries) -> pp.ad.Variable:
+    def displacement(self, grids: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
         """Displacement in the matrix.
 
         Parameters:
@@ -570,7 +573,7 @@ class VariablesMomentumBalance:
 
         """
         if len(grids) == 0 or isinstance(grids[0], pp.BoundaryGrid):
-            return self.create_boundary_operator(
+            return self.create_boundary_operator(  # type: ignore[call-arg]
                 name=self.displacement_variable, domains=grids
             )
 
@@ -823,6 +826,9 @@ class BoundaryConditionsMomentumBalance(pp.BoundaryConditionMixin):
     :class:`porepy.models.geometry.ModelGeometry`.
 
     """
+    displacement_variable: Callable[[list[pp.Grid]], pp.ad.Variable]
+
+    stress_keyword: str
 
     def bc_type_mechanics(self, sd: pp.Grid) -> pp.BoundaryConditionVectorial:
         """Define type of boundary conditions.

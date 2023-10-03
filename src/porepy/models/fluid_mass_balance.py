@@ -126,6 +126,25 @@ class MassBalanceEquations(pp.BalanceEquation):
     :class:`~porepy.models.constitutive_laws.AdvectiveFlux`.
 
     """
+    create_boundary_operator: Callable[
+        [str, Sequence[pp.BoundaryGrid]], pp.ad.TimeDependentDenseArray
+    ]
+
+    bc_data_fluid_flux_key: str
+
+    bc_type_mobrho: Callable[[pp.Grid], pp.BoundaryCondition]
+
+    _make_boundary_operator: Callable[
+        [
+            Sequence[pp.Grid],
+            Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
+            Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
+            Callable[[pp.Grid], pp.BoundaryCondition],
+            str,
+            int,
+        ],
+        pp.ad.Operator,
+    ]
 
     def set_equations(self):
         """Set the equations for the mass balance problem.
@@ -225,14 +244,14 @@ class MassBalanceEquations(pp.BalanceEquation):
             # Note: in case of the empty subdomain list, the time dependent array is
             # still returned. Otherwise, this method produces an infinite recursion
             # loop. It does not affect real computations anyhow.
-            return self.create_boundary_operator(
+            return self.create_boundary_operator(  # type: ignore[call-arg]
                 name=self.bc_data_fluid_flux_key, domains=domains
             )
         discr = self.mobility_discretization(domains)
         mob_rho = self.mobility_rho(domains)
 
         # )
-        boundary_operator = self._make_boundary_operator(
+        boundary_operator = self._make_boundary_operator(  # type: ignore[call-arg]
             subdomains=domains,
             dirichlet_operator=self.mobility_rho,
             neumann_operator=self.fluid_flux,
@@ -582,7 +601,7 @@ class VariablesSinglePhaseFlow(pp.VariableMixin):
         """
         if len(grids) > 0 and isinstance(grids[0], pp.BoundaryGrid):
             return self.create_boundary_operator(
-                name=self.pressure_variable, domains=grids
+                name=self.pressure_variable, domains=grids  # type: ignore[call-arg]
             )
 
         return self.equation_system.md_variable(self.pressure_variable, grids)

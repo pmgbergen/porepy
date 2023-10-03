@@ -891,6 +891,8 @@ class DarcysLaw:
     bc_data_darcy_flux_key`.
 
     """
+    bc_type_darcy: Callable[[pp.Grid], pp.ad.Operator]
+
     create_boundary_operator: Callable[
         [str, Sequence[pp.BoundaryGrid]], pp.ad.TimeDependentDenseArray
     ]
@@ -898,6 +900,18 @@ class DarcysLaw:
     :class:`~porepy.models.boundary_condition.BoundaryConditionMixin`.
 
     """
+    _make_boundary_operator: Callable[
+        [
+            Sequence[pp.Grid],
+            Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
+            Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
+            Callable[[pp.Grid], pp.BoundaryCondition],
+            str,
+            int,
+        ],
+        pp.ad.Operator,
+    ]
+
     basis: Callable[[Sequence[pp.GridLike], int], list[pp.ad.SparseArray]]
     """Basis for the local coordinate system. Normally set by a mixin instance of
     :class:`porepy.models.geometry.ModelGeometry`.
@@ -952,7 +966,7 @@ class DarcysLaw:
         )
         p: pp.ad.MixedDimensionalVariable = self.pressure(subdomains)
 
-        boundary_operator = self._make_boundary_operator(
+        boundary_operator = self._make_boundary_operator(  # type: ignore[call-arg]
             subdomains=subdomains,
             dirichlet_operator=self.pressure,
             neumann_operator=self.darcy_flux,
@@ -991,7 +1005,8 @@ class DarcysLaw:
             # still returned. Otherwise, this method produces an infinite recursion
             # loop. It does not affect real computations anyhow.
             return self.create_boundary_operator(
-                name=self.bc_data_darcy_flux_key, domains=subdomains
+                name=self.bc_data_darcy_flux_key,  # type: ignore[call-arg]
+                domains=subdomains,  # type: ignore[call-arg]
             )
 
         interfaces: list[pp.MortarGrid] = self.subdomains_to_interfaces(subdomains, [1])
@@ -1000,11 +1015,11 @@ class DarcysLaw:
         )
 
         boundary_operator = self._make_boundary_operator(
-            subdomains=subdomains,
-            dirichlet_operator=self.pressure,
-            neumann_operator=self.darcy_flux,
-            bc_type=self.bc_type_darcy,
-            name="bc_values_darcy",
+            subdomains=subdomains,  # type: ignore[call-arg]
+            dirichlet_operator=self.pressure,  # type: ignore[call-arg]
+            neumann_operator=self.darcy_flux,  # type: ignore[call-arg]
+            bc_type=self.bc_type_darcy,  # type: ignore[call-arg]
+            name="bc_values_darcy",  # type: ignore[call-arg]
         )
 
         discr: Union[pp.ad.TpfaAd, pp.ad.MpfaAd] = self.darcy_flux_discretization(
@@ -1508,6 +1523,20 @@ class FouriersLaw:
     bc_data_fourier_flux_key`.
 
     """
+    bc_type_fourier: Callable[[pp.Grid], pp.ad.Operator]
+
+    _make_boundary_operator: Callable[
+        [
+            Sequence[pp.Grid],
+            Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
+            Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
+            Callable[[pp.Grid], pp.BoundaryCondition],
+            str,
+            int,
+        ],
+        pp.ad.Operator,
+    ]
+
     create_boundary_operator: Callable[
         [str, Sequence[pp.BoundaryGrid]], pp.ad.TimeDependentDenseArray
     ]
@@ -1556,11 +1585,11 @@ class FouriersLaw:
         )
 
         boundary_operator_fourier = self._make_boundary_operator(
-            subdomains=subdomains,
-            dirichlet_operator=self.temperature,
-            neumann_operator=self.fourier_flux,
-            bc_type=self.bc_type_fourier,
-            name="bc_values_fourier",
+            subdomains=subdomains,  # type: ignore[call-arg]
+            dirichlet_operator=self.temperature,  # type: ignore[call-arg]
+            neumann_operator=self.fourier_flux,  # type: ignore[call-arg]
+            bc_type=self.bc_type_fourier,  # type: ignore[call-arg]
+            name="bc_values_fourier",  # type: ignore[call-arg]
         )
 
         t: pp.ad.MixedDimensionalVariable = self.temperature(subdomains)
@@ -1593,7 +1622,7 @@ class FouriersLaw:
 
         if len(subdomains) == 0 or isinstance(subdomains[0], pp.BoundaryGrid):
             # Given Neumann data prescribed for Fourier flux on boundary.
-            return self.create_boundary_operator(
+            return self.create_boundary_operator(  # type: ignore[call-arg]
                 name=self.bc_data_fourier_flux_key, domains=subdomains
             )
 
@@ -1603,7 +1632,7 @@ class FouriersLaw:
             subdomains
         )
 
-        boundary_operator_fourier = self._make_boundary_operator(
+        boundary_operator_fourier = self._make_boundary_operator(  # type: ignore[call-arg]
             subdomains=subdomains,
             dirichlet_operator=self.temperature,
             neumann_operator=self.fourier_flux,
@@ -1703,7 +1732,7 @@ class AdvectiveFlux:
     """Mixed dimensional grid for the current model. Normally defined in a mixin
     instance of :class:`~porepy.models.geometry.ModelGeometry`.
     """
-    darcy_flux: Callable[[list[pp.Grid]], pp.ad.Operator]
+    darcy_flux: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     """Darcy flux variables on subdomains. Normally defined in a mixin instance of
     :class:`~porepy.models.constitutive_laws.DarcysLaw`.
     """
@@ -2123,6 +2152,19 @@ class LinearElasticMechanicalStress:
     :class:`~porepy.models.boundary_condition.BoundaryConditionMixin`.
 
     """
+    bc_type_mechanics: Callable[[pp.Grid], pp.ad.Operator]
+
+    _make_boundary_operator: Callable[
+        [
+            Sequence[pp.Grid],
+            Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
+            Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
+            Callable[[pp.Grid], pp.BoundaryCondition],
+            str,
+            int,
+        ],
+        pp.ad.Operator,
+    ]
 
     def mechanical_stress(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
         """Linear elastic mechanical stress.
@@ -2143,7 +2185,7 @@ class LinearElasticMechanicalStress:
         """
         if len(domains) == 0 or all(isinstance(d, pp.BoundaryGrid) for d in domains):
             return self.create_boundary_operator(
-                name=self.stress_keyword, domains=domains
+                name=self.stress_keyword, domains=domains  # type: ignore[call-arg]
             )
 
         for sd in domains:
@@ -2157,7 +2199,7 @@ class LinearElasticMechanicalStress:
         interfaces = self.subdomains_to_interfaces(domains, [1])
 
         # Boundary conditions on external boundaries
-        boundary_operator = self._make_boundary_operator(
+        boundary_operator = self._make_boundary_operator(  # type: ignore[call-arg]
             subdomains=domains,
             dirichlet_operator=self.displacement,
             neumann_operator=self.mechanical_stress,
@@ -3123,6 +3165,21 @@ class PoroMechanicsPorosity:
     :class:`porepy.models.geometry.ModelGeometry`.
 
     """
+    bc_type_mechanics: Callable[[pp.Grid], pp.ad.Operator]
+
+    _make_boundary_operator: Callable[
+        [
+            Sequence[pp.Grid],
+            Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
+            Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
+            Callable[[pp.Grid], pp.BoundaryCondition],
+            str,
+            int,
+        ],
+        pp.ad.Operator,
+    ]
+
+    mechanical_stress: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
 
     def porosity(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Porosity.
@@ -3270,7 +3327,7 @@ class PoroMechanicsPorosity:
             self.mdg, subdomains, interfaces, dim=self.nd
         )
 
-        boundary_operator = self._make_boundary_operator(
+        boundary_operator = self._make_boundary_operator(  # type: ignore[call-arg]
             subdomains=subdomains,
             dirichlet_operator=self.displacement,
             neumann_operator=self.mechanical_stress,

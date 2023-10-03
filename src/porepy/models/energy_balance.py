@@ -163,6 +163,21 @@ class EnergyBalanceEquations(pp.BalanceEquation):
     :class:`~porepy.models.boundary_condition.BoundaryConditionMixin`.
 
     """
+    _make_boundary_operator: Callable[
+        [
+            Sequence[pp.Grid],
+            Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
+            Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
+            Callable[[pp.Grid], pp.BoundaryCondition],
+            str,
+            int,
+        ],
+        pp.ad.Operator,
+    ]
+
+    bc_type_enthalpy: Callable[[pp.Grid], pp.BoundaryCondition]
+
+    bc_data_enthalpy_flux_key: str
 
     def set_equations(self):
         """Set the equations for the energy balance problem.
@@ -310,8 +325,9 @@ class EnergyBalanceEquations(pp.BalanceEquation):
         """
 
         if len(subdomains) == 0 or isinstance(subdomains[0], pp.BoundaryGrid):
-            return self.create_boundary_operator(
-                name=self.bc_data_enthalpy_flux_key, domains=subdomains
+            return self.create_boundary_operator(  # type: ignore[call-arg]
+                name=self.bc_data_enthalpy_flux_key,
+                domains=subdomains,
             )
 
         def enthalpy_dirichlet(boundary_grids):
@@ -320,7 +336,7 @@ class EnergyBalanceEquations(pp.BalanceEquation):
             result *= self.mobility_rho(boundary_grids)
             return result
 
-        boundary_operator_enthalpy = self._make_boundary_operator(
+        boundary_operator_enthalpy = self._make_boundary_operator(  # type: ignore[call-arg]
             subdomains=subdomains,
             dirichlet_operator=enthalpy_dirichlet,
             neumann_operator=self.enthalpy_flux,
@@ -561,7 +577,7 @@ class VariablesEnergyBalance:
         """
         if len(grids) > 0 and isinstance(grids[0], pp.BoundaryGrid):
             return self.create_boundary_operator(
-                name=self.temperature_variable, domains=grids
+                name=self.temperature_variable, domains=grids  # type: ignore[call-arg]
             )
 
         return self.equation_system.md_variable(self.temperature_variable, grids)
