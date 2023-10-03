@@ -107,7 +107,7 @@ class VerificationUtils:
         discr_poromech = pp.ad.BiotAd(self.stress_keyword, [sd])
 
         # Boundary conditions
-        bc = self._make_boundary_operator(
+        bc = self._combine_boundary_operators(
             subdomains=[sd],
             dirichlet_operator=self.displacement,
             neumann_operator=self.mechanical_stress,

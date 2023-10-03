@@ -125,7 +125,7 @@ class BoundaryConditionMixin:
             raise ValueError("domains must consist entirely of the boundary grids.")
         return pp.ad.TimeDependentDenseArray(name=name, domains=domains)
 
-    def _make_boundary_operator(
+    def _combine_boundary_operators(
         self,
         subdomains: Sequence[pp.Grid],
         dirichlet_operator: Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
