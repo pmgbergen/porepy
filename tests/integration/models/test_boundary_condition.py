@@ -30,8 +30,8 @@ class CustomBoundaryCondition(pp.BoundaryConditionMixin):
         )
 
     def bc_values_neumann(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
-        """Return values on the whole subdomain. We implicitly rely on the filter that
-        will set zeros at the cells related to Dirichlet condition.
+        """Returns values on the whole boundary. We implicitly rely on the filter that
+        sets zeros at the cells related to Dirichlet condition.
 
         Note: the values are time dependent.
 
@@ -47,7 +47,7 @@ class CustomBoundaryCondition(pp.BoundaryConditionMixin):
     def create_dummy_ad_boundary_condition(
         self, subdomains: Sequence[pp.Grid]
     ) -> pp.ad.Operator:
-        return self._make_boundary_operator(
+        return self._combine_boundary_operators(
             subdomains=subdomains,
             dirichlet_operator=self.fluid_density,
             neumann_operator=lambda bgs: self.create_boundary_operator(

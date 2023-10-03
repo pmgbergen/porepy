@@ -163,7 +163,7 @@ class EnergyBalanceEquations(pp.BalanceEquation):
     :class:`~porepy.models.boundary_condition.BoundaryConditionMixin`.
 
     """
-    _make_boundary_operator: Callable[
+    _combine_boundary_operators: Callable[
         [
             Sequence[pp.Grid],
             Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
@@ -336,7 +336,7 @@ class EnergyBalanceEquations(pp.BalanceEquation):
             result *= self.mobility_rho(boundary_grids)
             return result
 
-        boundary_operator_enthalpy = self._make_boundary_operator(  # type: ignore[call-arg]
+        boundary_operator_enthalpy = self._combine_boundary_operators(  # type: ignore[call-arg]
             subdomains=subdomains,
             dirichlet_operator=enthalpy_dirichlet,
             neumann_operator=self.enthalpy_flux,
