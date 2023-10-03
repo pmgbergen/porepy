@@ -117,9 +117,7 @@ class WellGeometryMixin:
         )
 
 
-class BoundaryConditionsMassDirNorthSouth(
-    # pp.fluid_mass_balance.BoundaryConditionsSinglePhaseFlow
-):
+class BoundaryConditionsMassDirNorthSouth:
     """Boundary conditions for the flow problem.
 
     Dirichlet boundary conditions are defined on the north and south boundaries. Some
@@ -314,7 +312,9 @@ class TimeDependentMechanicalBCsDirNorthSouth(BoundaryConditionsMechanicsDirNort
         return values.ravel("F")
 
 
-class NoPhysics(pp.ModelGeometry, pp.SolutionStrategy, pp.DataSavingMixin, pp.BoundaryConditionMixin):
+class NoPhysics(
+    pp.ModelGeometry, pp.SolutionStrategy, pp.DataSavingMixin, pp.BoundaryConditionMixin
+):
     """A model with no physics, for testing purposes.
 
     The model comes with minimal physical properties, making testing of individual
