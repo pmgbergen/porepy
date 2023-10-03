@@ -236,6 +236,7 @@ def test_boundary_grid_projection(mdg: pp.MixedDimensionalGrid, scalar: bool):
     2) Specifically that the top-dimensional grid and one of the fracture grids
        contribute to the boundary projection operator, while the third has a projection
        matrix with zero rows.
+    3) Projection from a subdomain to a boundary is consistent with its reverse.
 
     """
     proj_dim = 1 if scalar else mdg.dim_max()
@@ -295,6 +296,9 @@ def test_boundary_grid_projection(mdg: pp.MixedDimensionalGrid, scalar: bool):
     ind0 = ind1
     ind1 += g_1.num_faces * proj_dim
     assert np.sum(subdomain_to_boundary[:, ind0:ind1]) == 2 * proj_dim
+
+    # Check that subdomain_to_boundary and boundary_to_subdomain are consistent.
+    assert np.allclose((subdomain_to_boundary - boundary_to_subdomain.T).data, 0)
 
 
 # Geometry based operators
