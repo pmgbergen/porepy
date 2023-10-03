@@ -4,7 +4,7 @@ defined here are mainly wrappers that constructs Ad matrices based on grid infor
 """
 from __future__ import annotations
 
-from typing import Optional
+from typing import Optional, Sequence
 
 import numpy as np
 import scipy.sparse as sps
@@ -502,7 +502,7 @@ class BoundaryProjection:
     """A projection operator between boundary grids and subdomains."""
 
     def __init__(
-        self, mdg: pp.MixedDimensionalGrid, subdomains: list[pp.Grid], dim: int = 1
+        self, mdg: pp.MixedDimensionalGrid, subdomains: Sequence[pp.Grid], dim: int = 1
     ) -> None:
         _, face_projections = _subgrid_projections(subdomains, dim)
 
@@ -573,7 +573,7 @@ class Trace:
         """
         self.subdomains: list[pp.Grid] = subdomains
         self.dim: int = dim
-        self._name: str = name
+        self._name: Optional[str] = name
         self._is_scalar: bool = dim == 1
         self._num_grids: int = len(subdomains)
 

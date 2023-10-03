@@ -58,6 +58,7 @@ def wrap_discretization(
     mat_dict_grids=None,
 ):
     """Convert a discretization to its AD equivalent."""
+    domains: pp.GridLikeSequence
     if subdomains is None:
         assert isinstance(interfaces, list)
         domains = interfaces
