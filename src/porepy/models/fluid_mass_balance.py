@@ -16,7 +16,7 @@ Notes:
 from __future__ import annotations
 
 import logging
-from typing import Callable, Optional, Sequence, Union
+from typing import Callable, Optional, Sequence, Union, cast
 
 import numpy as np
 
@@ -236,6 +236,9 @@ class MassBalanceEquations(pp.BalanceEquation):
         Parameters:
             domains: List of subdomains or boundary grids.
 
+        Raises:
+            ValueError: If the domains are not all subdomains or all boundary grids.
+
         Returns:
             Operator representing the fluid flux.
 
@@ -247,6 +250,13 @@ class MassBalanceEquations(pp.BalanceEquation):
             return self.create_boundary_operator(  # type: ignore[call-arg]
                 name=self.bc_data_fluid_flux_key, domains=domains
             )
+
+        # Verify that the domains are subdomains.
+        if not all(isinstance(d, pp.Grid) for d in domains):
+            raise ValueError("domains must consist entirely of subdomains.")
+        # Now we can cast the domains
+        domains = cast(list[pp.Grid], domains)
+
         discr = self.mobility_discretization(domains)
         mob_rho = self.mobility_rho(domains)
 
@@ -595,6 +605,9 @@ class VariablesSinglePhaseFlow(pp.VariableMixin):
         Parameters:
             grids: List of subdomains or boundary grids.
 
+        Raises:
+            ValueError: If the grids are not all subdomains or all boundary grids.
+
         Returns:
             Operator representing the pressure.
 
@@ -603,6 +616,11 @@ class VariablesSinglePhaseFlow(pp.VariableMixin):
             return self.create_boundary_operator(
                 name=self.pressure_variable, domains=grids  # type: ignore[call-arg]
             )
+        # Check that all grids are subdomains.
+        if not all(isinstance(g, pp.Grid) for g in grids):
+            raise ValueError("grids must consist entirely of subdomains.")
+        # Now we can cast the grids
+        grids = cast(list[pp.Grid], grids)
 
         return self.equation_system.md_variable(self.pressure_variable, grids)
 

@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from functools import partial
-from typing import Callable, Literal, Optional, Sequence, Union
+from typing import Callable, Literal, Optional, Sequence, Union, cast
 
 import numpy as np
 
@@ -983,7 +983,7 @@ class DarcysLaw:
         )
         return pressure_trace
 
-    def darcy_flux(self, subdomains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+    def darcy_flux(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
         """Discretization of Darcy's law.
 
         Note:
@@ -993,47 +993,58 @@ class DarcysLaw:
             The units of the Darcy flux are [m^2 Pa / s].
 
         Parameters:
-            subdomains: List of subdomains where the Darcy flux is defined.
+            domains: List of domains where the Darcy flux is defined.
+
+        Raises:
+            ValueError if the domains are a mixture of grids and boundary grids.
 
         Returns:
             Face-wise Darcy flux in cubic meters per second.
 
         """
 
-        if len(subdomains) == 0 or isinstance(subdomains[0], pp.BoundaryGrid):
+        if len(domains) == 0 or all([isinstance(g, pp.BoundaryGrid) for g in domains]):
             # Note: in case of the empty subdomain list, the time dependent array is
             # still returned. Otherwise, this method produces an infinite recursion
             # loop. It does not affect real computations anyhow.
-            return self.create_boundary_operator(
-                name=self.bc_data_darcy_flux_key,  # type: ignore[call-arg]
-                domains=subdomains,  # type: ignore[call-arg]
+            return self.create_boundary_operator(  # type: ignore[call-arg]
+                name=self.bc_data_darcy_flux_key,
+                domains=domains,
             )
 
-        interfaces: list[pp.MortarGrid] = self.subdomains_to_interfaces(subdomains, [1])
-        intf_projection = pp.ad.MortarProjections(
-            self.mdg, subdomains, interfaces, dim=1
-        )
+        # Check that the domains are grids.
+        if not all([isinstance(g, pp.Grid) for g in domains]):
+            raise ValueError(
+                """Argument domains a mixture of grids and
+                                boundary grids"""
+            )
+        # By now we know that subdomains is a list of grids, so we can cast it as such
+        # (in the typing sense).
+        domains = cast(list[pp.Grid], domains)
 
-        boundary_operator = self._combine_boundary_operators(
-            subdomains=subdomains,  # type: ignore[call-arg]
-            dirichlet_operator=self.pressure,  # type: ignore[call-arg]
-            neumann_operator=self.darcy_flux,  # type: ignore[call-arg]
-            bc_type=self.bc_type_darcy,  # type: ignore[call-arg]
-            name="bc_values_darcy",  # type: ignore[call-arg]
+        interfaces: list[pp.MortarGrid] = self.subdomains_to_interfaces(domains, [1])
+        intf_projection = pp.ad.MortarProjections(self.mdg, domains, interfaces, dim=1)
+
+        boundary_operator = self._combine_boundary_operators(  # type: ignore[call-arg]
+            subdomains=domains,
+            dirichlet_operator=self.pressure,
+            neumann_operator=self.darcy_flux,
+            bc_type=self.bc_type_darcy,
+            name="bc_values_darcy",
         )
 
         discr: Union[pp.ad.TpfaAd, pp.ad.MpfaAd] = self.darcy_flux_discretization(
-            subdomains
+            domains
         )
         flux: pp.ad.Operator = (
-            discr.flux @ self.pressure(subdomains)
+            discr.flux @ self.pressure(domains)
             + discr.bound_flux
             @ (
                 boundary_operator
                 + intf_projection.mortar_to_primary_int
                 @ self.interface_darcy_flux(interfaces)
             )
-            + discr.vector_source @ self.vector_source(subdomains, material="fluid")
+            + discr.vector_source @ self.vector_source(domains, material="fluid")
         )
         flux.set_name("Darcy_flux")
         return flux
@@ -1584,12 +1595,14 @@ class FouriersLaw:
             subdomains
         )
 
-        boundary_operator_fourier = self._combine_boundary_operators(
-            subdomains=subdomains,  # type: ignore[call-arg]
-            dirichlet_operator=self.temperature,  # type: ignore[call-arg]
-            neumann_operator=self.fourier_flux,  # type: ignore[call-arg]
-            bc_type=self.bc_type_fourier,  # type: ignore[call-arg]
-            name="bc_values_fourier",  # type: ignore[call-arg]
+        boundary_operator_fourier = (
+            self._combine_boundary_operators(  # type: ignore[call-arg]
+                subdomains=subdomains,
+                dirichlet_operator=self.temperature,
+                neumann_operator=self.fourier_flux,
+                bc_type=self.bc_type_fourier,
+                name="bc_values_fourier",
+            )
         )
 
         t: pp.ad.MixedDimensionalVariable = self.temperature(subdomains)
@@ -2179,6 +2192,11 @@ class LinearElasticMechanicalStress:
             grids: List of subdomains or boundary grids. If subdomains, should be of
                 co-dimension 0.
 
+        Raises:
+            ValueError: If any grid is not of co-dimension 0.
+            ValueError: If any the method is called with a mixture of subdomains and
+                boundary grids.
+
         Returns:
             Ad operator representing the mechanical stress on the faces of the grids.
 
@@ -2188,9 +2206,20 @@ class LinearElasticMechanicalStress:
                 name=self.stress_keyword, domains=domains  # type: ignore[call-arg]
             )
 
+        # Check that the subdomains are grids.
+        if not all([isinstance(g, pp.Grid) for g in domains]):
+            raise ValueError(
+                """Argument subdomains a mixture of grids and
+                                boundary grids"""
+            )
+        # By now we know that subdomains is a list of grids, so we can cast it as such
+        # (in the typing sense).
+        domains = cast(list[pp.Grid], domains)
+
         for sd in domains:
             # The mechanical stress is only defined on subdomains of co-dimension 0.
-            assert sd.dim == self.nd
+            if sd.dim != self.nd:
+                raise ValueError("Subdomain must be of co-dimension 0.")
 
         # No need to facilitate changing of stress discretization, only one is
         # available at the moment.

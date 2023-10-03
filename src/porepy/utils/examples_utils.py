@@ -1,7 +1,7 @@
 """Module containing a mixin class for reusing methods in verification setups."""
 from __future__ import annotations
 
-from typing import Callable
+from typing import Callable, Sequence
 
 import numpy as np
 
@@ -76,6 +76,26 @@ class VerificationUtils:
     units: pp.Units
     """Units object, containing the scaling of base magnitudes."""
 
+    nd: int
+
+    bc_type_mechanics: Callable[[pp.BoundaryGrid], np.ndarray]
+
+    mechanical_stress: Callable[
+        [pp.SubdomainsOrBoundaries], pp.ad.MixedDimensionalVariable
+    ]
+
+    _combine_boundary_operators: Callable[
+        [
+            Sequence[pp.Grid],
+            Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
+            Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
+            Callable[[pp.Grid], pp.BoundaryCondition],
+            str,
+            int,
+        ],
+        pp.ad.Operator,
+    ]
+
     def face_displacement(self, sd: pp.Grid) -> np.ndarray:
         """Project the displacement vector onto the faces.
 
@@ -107,7 +127,7 @@ class VerificationUtils:
         discr_poromech = pp.ad.BiotAd(self.stress_keyword, [sd])
 
         # Boundary conditions
-        bc = self._combine_boundary_operators(
+        bc = self._combine_boundary_operators(  # type: ignore [call-arg]
             subdomains=[sd],
             dirichlet_operator=self.displacement,
             neumann_operator=self.mechanical_stress,

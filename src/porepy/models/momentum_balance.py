@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import logging
 from functools import partial
-from typing import Callable, Optional, Sequence
+from typing import Callable, Optional, Sequence, cast
 
 import numpy as np
 
@@ -570,12 +570,19 @@ class VariablesMomentumBalance:
         Raises:
             ValueError: If the dimension of the subdomains is not equal to the ambient
                 dimension of the problem.
+            ValueError: If the method is called on a mixture of grids and boundary
+                grids
 
         """
-        if len(grids) == 0 or isinstance(grids[0], pp.BoundaryGrid):
+        if len(grids) == 0 or all(isinstance(grid, pp.BoundaryGrid) for grid in grids):
             return self.create_boundary_operator(  # type: ignore[call-arg]
                 name=self.displacement_variable, domains=grids
             )
+        # Check that the subdomains are grids
+        if not all(isinstance(grid, pp.Grid) for grid in grids):
+            raise ValueError("Method called on a mixture of grids and boundary grids.")
+        # Now we can cast to Grid
+        grids = cast(list[pp.Grid], grids)
 
         if not all([grid.dim == self.nd for grid in grids]):
             raise ValueError(
@@ -826,7 +833,7 @@ class BoundaryConditionsMomentumBalance(pp.BoundaryConditionMixin):
     :class:`porepy.models.geometry.ModelGeometry`.
 
     """
-    displacement_variable: Callable[[list[pp.Grid]], pp.ad.Variable]
+    displacement_variable: str
 
     stress_keyword: str
 

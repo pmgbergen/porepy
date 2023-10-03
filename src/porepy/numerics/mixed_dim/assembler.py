@@ -1233,7 +1233,7 @@ class Assembler:
             elif isinstance(grid, pp.MortarGrid):
                 d = self.mdg.interface_data(grid)
             else:
-                raise ValueError(f"Only subdomains and interfaces are allowed: {g}")
+                raise ValueError(f"Only subdomains and interfaces are allowed: {grid}")
 
             # Dofs related to cell
             dof: Dict[str, int] = d[pp.PRIMARY_VARIABLES][variable]
