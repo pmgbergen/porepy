@@ -332,7 +332,6 @@ class EnergyBalanceEquations(pp.BalanceEquation):
 
         def enthalpy_dirichlet(boundary_grids):
             result = self.fluid_enthalpy(boundary_grids)
-            # result *= self.fluid_density(boundary_grids)
             result *= self.mobility_rho(boundary_grids)
             return result
 
