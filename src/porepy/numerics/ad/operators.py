@@ -146,16 +146,12 @@ class Operator:
 
     @property
     def domain_type(self) -> Literal["subdomains", "interfaces", "boundary grids"]:
-        """Type of domains where the operator is defined.
-
-        """
+        """Type of domains where the operator is defined."""
         return self._domain_type
 
     @property
     def domains(self) -> GridLikeSequence:
-        """List of domains where the operator is defined.
-        
-        """
+        """List of domains where the operator is defined."""
         return self._domains
 
     @property

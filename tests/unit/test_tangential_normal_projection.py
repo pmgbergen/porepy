@@ -72,7 +72,6 @@ class TestTangentialNormalProjection(unittest.TestCase):
 
         known_projection_of_normal = np.array([0, 1])
         for i in range(self.n2.shape[1]):
-
             # Check that the projection of the normal vector only has a component in the
             # normal direction
             projected_normal = proj.projection[:, :, i].dot(self.n2_normalized[:, i])
@@ -86,7 +85,6 @@ class TestTangentialNormalProjection(unittest.TestCase):
 
         known_projection_of_normal = np.array([0, 0, 1])
         for i in range(self.n3.shape[1]):
-
             # Check that the projection of the normal vector only has a component in the
             # normal direction
             projected_normal = proj.projection[:, :, i].dot(self.n3_normalized[:, i])

@@ -22,11 +22,11 @@ To be tested:
 
 """
 import numpy as np
-from porepy.grids.standard_grids.md_grids_2d import single_horizontal
 import pytest
 import scipy.sparse as sps
 
 import porepy as pp
+from porepy.grids.standard_grids.md_grids_2d import single_horizontal
 
 
 def test_variable_creation():

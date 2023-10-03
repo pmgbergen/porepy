@@ -15,8 +15,8 @@ import pytest
 import porepy as pp
 
 from .setup_utils import (
-    BoundaryConditionsMassDirNorthSouth,
     BoundaryConditionsEnergyDirNorthSouth,
+    BoundaryConditionsMassDirNorthSouth,
     Thermoporomechanics,
     TimeDependentMechanicalBCsDirNorthSouth,
     compare_scaled_model_quantities,

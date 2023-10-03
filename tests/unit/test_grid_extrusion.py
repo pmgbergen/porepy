@@ -582,7 +582,6 @@ class TestGridExtrusionNd(unittest.TestCase):
 
 class TestMixedDimensionalGridExtrusion(unittest.TestCase):
     def test_single_fracture(self):
-
         f = np.array([[1, 3], [1, 1]])
         mdg = pp.meshing.cart_grid([f], [4, 2])
 

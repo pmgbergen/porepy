@@ -36,7 +36,6 @@ class ManuIncompExactSolution3d:
     """Class containing the exact manufactured solution for the verification setup."""
 
     def __init__(self, setup):
-
         # Model setup
         self.setup = setup
 
@@ -125,13 +124,13 @@ class ManuIncompExactSolution3d:
 
         """
         # Sanity check
-        assert where in ["cc", "fc", 'bg']
+        assert where in ["cc", "fc", "bg"]
 
         # Retrieve coordinates
         sd = self.setup.mdg.subdomains()[0]
         if where == "cc":
             x = sd.cell_centers
-        elif where == 'fc':
+        elif where == "fc":
             x = sd.face_centers
         else:
             bg = self.setup.mdg.subdomain_to_boundary_grid(sd)
@@ -186,7 +185,7 @@ class ManuIncompExactSolution3d:
 
         # Cell-centered pressures
         p_cc = np.zeros(sd_matrix.num_cells)
-        for (p, idx) in zip(p_fun, cell_idx):
+        for p, idx in zip(p_fun, cell_idx):
             p_cc += p(cc[0], cc[1], cc[2]) * idx
 
         return p_cc
@@ -288,7 +287,7 @@ class ManuIncompExactSolution3d:
         # Integrated cell-centered sources
         vol = sd_matrix.cell_volumes
         f_cc = np.zeros(sd_matrix.num_cells)
-        for (f, idx) in zip(f_fun, cell_idx):
+        for f, idx in zip(f_fun, cell_idx):
             f_cc += f(cc[0], cc[1], cc[2]) * vol * idx
 
         return f_cc
@@ -427,7 +426,7 @@ class ManuIncompExactSolution3d:
 
         # Boundary pressures
         p_bf = np.zeros(boundary_grid_matrix.num_cells)
-        for (p, idx) in zip(p_fun, face_idx):
+        for p, idx in zip(p_fun, face_idx):
             p_bf += p(fc[0], fc[1], fc[2]) * idx
 
         return p_bf

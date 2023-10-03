@@ -204,7 +204,6 @@ class SolutionStrategy(abc.ABC):
         self.initial_condition()
         self.reset_state_from_file()
         self.set_equations()
-        self.update_time_dependent_ad_arrays()  # This must be done after set_equations.
 
         self.set_discretization_parameters()
         self.discretize()

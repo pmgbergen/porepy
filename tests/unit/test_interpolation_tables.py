@@ -32,7 +32,7 @@ class _LinearFunc:
     def func(self):
         def f(*args):
             val = 0
-            for (coeff, x) in zip(self.coeff, args):
+            for coeff, x in zip(self.coeff, args):
                 val += coeff * x
             return val
 
@@ -59,7 +59,7 @@ class _QuadraticFunc:
     def func(self):
         def f(*args):
             val = 0
-            for (coeff, x) in zip(self.coeff, args):
+            for coeff, x in zip(self.coeff, args):
                 val += coeff * x**2
             return val
 

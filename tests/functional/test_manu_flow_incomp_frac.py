@@ -61,6 +61,7 @@ def material_constants() -> dict:
 
 # --> [TEST_1] Relative L2-errors on Cartesian grid
 
+
 # ----> Retrieve actual L2-errors
 @pytest.fixture(scope="module")
 def actual_l2_errors(material_constants: dict) -> list[dict[str, float]]:
@@ -174,6 +175,7 @@ def test_relative_l2_errors_cartesian_grid(
 
 
 # --> [TEST_2] Observed order of convergence
+
 
 # ----> Retrieve actual order of convergence
 @pytest.fixture(scope="module")

@@ -54,25 +54,7 @@ class BoundaryConditionMixin:
 
         """
         for name, bc_type_callable in self.__bc_type_storage.items():
-            # Note: transposition is unavoidable to treat vector values correctly.
-            def dirichlet(bg: pp.BoundaryGrid):
-                # Transpose to get a n_face x nd array with shape compatible with the projection matrix
-                is_dir = bc_type_callable(bg.parent).is_dir.T
-                is_dir = bg.projection @ is_dir
-                # Transpose back, then ravel (in that order).
-                return is_dir.T.ravel("F")
-
-            def neumann(bg: pp.BoundaryGrid):
-                is_neu = bc_type_callable(bg.parent).is_neu.T
-                is_neu = bg.projection @ is_neu
-                return is_neu.T.ravel("F")
-
-            self.update_boundary_condition(
-                name=(name + "_filter_dir"), function=dirichlet
-            )
-            self.update_boundary_condition(
-                name=(name + "_filter_neu"), function=neumann
-            )
+            self._update_bc_type_filter(name=name, bc_type_callable=bc_type_callable)
 
     def update_boundary_condition(
         self,
@@ -189,6 +171,8 @@ class BoundaryConditionMixin:
         neu_filter = pp.ad.TimeDependentDenseArray(
             name=(name + "_filter_neu"), domains=boundary_grids
         )
+        # Setting the values of the filters for the first time.
+        self._update_bc_type_filter(name=name, bc_type_callable=bc_type)
 
         boundary_to_subdomain = pp.ad.BoundaryProjection(
             self.mdg, subdomains=subdomains, dim=dim
@@ -203,6 +187,34 @@ class BoundaryConditionMixin:
         result = boundary_to_subdomain @ (dirichlet + neumann)
         result.set_name(name)
         return result
+
+    def _update_bc_type_filter(
+        self, name: str, bc_type_callable: Callable[[pp.Grid], pp.BoundaryCondition]
+    ):
+        """Update the filters for Dirichlet and Neumann
+        values.
+
+        This is done to set discard the data related to Dirichlet boundary condition in
+        cells where the bc_type is Neumann and vise versa.
+
+        """
+
+        # Note: transposition is unavoidable to treat vector values correctly.
+        def dirichlet(bg: pp.BoundaryGrid):
+            # Transpose to get a n_face x nd array with shape compatible with
+            # the projection matrix.
+            is_dir = bc_type_callable(bg.parent).is_dir.T
+            is_dir = bg.projection @ is_dir
+            # Transpose back, then ravel (in that order).
+            return is_dir.T.ravel("F")
+
+        def neumann(bg: pp.BoundaryGrid):
+            is_neu = bc_type_callable(bg.parent).is_neu.T
+            is_neu = bg.projection @ is_neu
+            return is_neu.T.ravel("F")
+
+        self.update_boundary_condition(name=(name + "_filter_dir"), function=dirichlet)
+        self.update_boundary_condition(name=(name + "_filter_neu"), function=neumann)
 
     @cached_property
     def __bc_type_storage(self) -> dict[str, Callable[[pp.Grid], pp.BoundaryCondition]]:

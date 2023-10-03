@@ -100,7 +100,6 @@ class TestMpsaExactReproduction(unittest.TestCase):
             self.assertTrue(np.max(np.abs(traction[1::2] - traction_ex_y)) < 1e-8)
 
     def test_uniform_displacement(self):
-
         g_list = setup_grids.setup_2d()
 
         for g in g_list:
