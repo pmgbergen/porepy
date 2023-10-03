@@ -231,9 +231,6 @@ class MassBalanceEquations(pp.BalanceEquation):
         discr = self.mobility_discretization(domains)
         mob_rho = self.mobility_rho(domains)
 
-        # boundary_projection = pp.ad.BoundaryProjection(self.mdg, subdomains=subdomains)
-        # bc_values = boundary_projection.boundary_to_subdomain @ self.mobility_rho(
-        #     self.subdomains_to_boundary_grids(subdomains)
         # )
         boundary_operator = self._make_boundary_operator(
             subdomains=domains,

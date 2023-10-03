@@ -105,7 +105,7 @@ class Operator:
             self._domain_type = "boundary grids"
         else:
             raise ValueError(
-                "A time dependent array must be associated with either"
+                "An operator must be associated with either"
                 " interfaces, subdomains or boundary grids."
             )
 

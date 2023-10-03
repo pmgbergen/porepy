@@ -8,7 +8,7 @@ import porepy as pp
 
 
 class BoundaryConditionMixin:
-    """Mixin class for bounray conditions.
+    """Mixin class for boundary conditions.
 
     This class is intended to be used together with the other model classes providing
     generic functionality for boundary conditions.
@@ -56,8 +56,10 @@ class BoundaryConditionMixin:
         for name, bc_type_callable in self.__bc_type_storage.items():
             # Note: transposition is unavoidable to treat vector values correctly.
             def dirichlet(bg: pp.BoundaryGrid):
+                # Transpose to get a n_face x nd array with shape compatible with the projection matrix
                 is_dir = bc_type_callable(bg.parent).is_dir.T
                 is_dir = bg.projection @ is_dir
+                # Transpose back, then ravel (in that order).
                 return is_dir.T.ravel("F")
 
             def neumann(bg: pp.BoundaryGrid):
@@ -192,7 +194,10 @@ class BoundaryConditionMixin:
             self.mdg, subdomains=subdomains, dim=dim
         ).boundary_to_subdomain
 
+        # Ensure that the Dirichlet operator only assigns (non-zero)
+        # values to faces that are marked as having Dirichlet conditions.
         dirichlet *= dir_filter
+        # Same with Neumann conditions.
         neumann *= neu_filter
         # Projecting from the boundary grid to the subdomain.
         result = boundary_to_subdomain @ (dirichlet + neumann)
