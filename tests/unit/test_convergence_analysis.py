@@ -689,8 +689,8 @@ class TestOrderOfConvergence:
         np.testing.assert_almost_equal(ooc["ooc_var_1"], 2.0, decimal=10)
 
     def test_order_of_convergence_with_reduced_range(
-            self,
-            stationary_mock_model,
+        self,
+        stationary_mock_model,
     ) -> None:
         """Test order of convergence for a subset of the data.
 
@@ -698,9 +698,11 @@ class TestOrderOfConvergence:
             stationary_mock_model: Stationary mock model.
 
         """
+
         @dataclass
         class MockDataClass:
             """Minimal data class to save error and cell diameter."""
+
             error_var: float
             cell_diameter: float
 

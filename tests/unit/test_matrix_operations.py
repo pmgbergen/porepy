@@ -319,7 +319,6 @@ class TestSparseMath(unittest.TestCase):
 
     # Tests of csr_matrix_from_blocks
     def test_csr_matrix_from_single_block(self):
-
         block_size = 2
         arr = np.arange(block_size**2).reshape((block_size, block_size))
 
@@ -343,7 +342,6 @@ class TestSparseMath(unittest.TestCase):
 
     # Tests of csr_matrix_from_blocks
     def test_csr_matrix_from_two_blocks(self):
-
         block_size = 2
         num_blocks = 2
         full_arr = np.arange((num_blocks * block_size) ** 2).reshape(
@@ -362,7 +360,6 @@ class TestSparseMath(unittest.TestCase):
         self.assertTrue(np.allclose(known, value.toarray()))
 
     def test_csr_matrix_from_array(self):
-
         block_size = 2
         num_blocks = 2
         arr = np.array([1, 2, 3, 4, 5, 6, 7, 8])
@@ -374,7 +371,6 @@ class TestSparseMath(unittest.TestCase):
 
     # Tests of csr_matrix_from_blocks
     def test_csc_matrix_from_array(self):
-
         block_size = 2
         num_blocks = 2
         arr = np.array([1, 2, 3, 4, 5, 6, 7, 8])

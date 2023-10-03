@@ -159,7 +159,6 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
         self.assertTrue(np.allclose(p[3:], 0))
 
     def test_tpfa_matching_grids_uniform_flow(self):
-
         kn = 1e4
         mdg = self.set_grids(N=[1, 2], num_nodes_mortar=2, num_nodes_1d=2)
         self.set_param_flow(mdg, no_flow=False, method="tpfa", kn=kn)
@@ -169,7 +168,6 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
         self.verify_cv(mdg)
 
     def test_tpfa_matching_grids_refine_1d_uniform_flow(self):
-
         kn = 1e4
         mdg = self.set_grids(N=[1, 2], num_nodes_mortar=2, num_nodes_1d=3)
         self.set_param_flow(mdg, no_flow=False, method="tpfa", kn=kn)
@@ -178,7 +176,6 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
         self.verify_cv(mdg)
 
     def test_tpfa_matching_grids_refine_mortar_uniform_flow(self):
-
         kn = 1e4
         mdg = self.set_grids(N=[1, 2], num_nodes_mortar=3, num_nodes_1d=2)
         self.set_param_flow(mdg, no_flow=False, method="tpfa", kn=kn)
@@ -187,7 +184,6 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
         self.verify_cv(mdg)
 
     def test_tpfa_matching_grids_refine_2d_uniform_flow(self):
-
         kn = 1e4
         mdg = self.set_grids(N=[2, 2], num_nodes_mortar=2, num_nodes_1d=2)
         self.set_param_flow(mdg, no_flow=False, method="tpfa", kn=kn)
@@ -196,7 +192,6 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
         self.verify_cv(mdg)
 
     def test_tpfa_matching_grids_uniform_flow_larger_domain(self):
-
         kn = 1e4
         mdg = self.set_grids(
             N=[1, 2], num_nodes_mortar=2, num_nodes_1d=2, physdims=[2, 1]
@@ -207,7 +202,6 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
         self.verify_cv(mdg)
 
     def test_tpfa_matching_grids_refine_1d_uniform_flow_larger_domain(self):
-
         kn = 1e4
         mdg = self.set_grids(
             N=[1, 2], num_nodes_mortar=2, num_nodes_1d=3, physdims=[2, 1]
@@ -218,7 +212,6 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
         self.verify_cv(mdg)
 
     def test_tpfa_matching_grids_refine_mortar_uniform_flow_larger_domain(self):
-
         kn = 1e4
         mdg = self.set_grids(
             N=[1, 2], num_nodes_mortar=3, num_nodes_1d=2, physdims=[2, 1]
@@ -229,7 +222,6 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
         self.verify_cv(mdg)
 
     def test_tpfa_matching_grids_refine_2d_uniform_flow_larger_domain(self):
-
         kn = 1e4
         mdg = self.set_grids(
             N=[2, 2], num_nodes_mortar=2, num_nodes_1d=2, physdims=[2, 1]
@@ -292,7 +284,6 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
         self.assertTrue(np.allclose(p[:3], 1))
 
     def test_mpfa_matching_grids_uniform_flow(self):
-
         kn = 1e4
         mdg = self.set_grids(N=[1, 2], num_nodes_mortar=2, num_nodes_1d=2)
         self.set_param_flow(mdg, no_flow=False, method="mpfa", kn=kn)
@@ -301,7 +292,6 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
         self.verify_cv(mdg)
 
     def test_mvem_matching_grids_uniform_flow(self):
-
         kn = 1e4
         mdg = self.set_grids(N=[1, 2], num_nodes_mortar=2, num_nodes_1d=2)
         self.set_param_flow(mdg, no_flow=False, method="mvem", kn=kn)
@@ -310,7 +300,6 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
         self.verify_cv(mdg)
 
     def test_mpfa_matching_grids_refine_1d_uniform_flow(self):
-
         kn = 1e4
         mdg = self.set_grids(N=[1, 2], num_nodes_mortar=2, num_nodes_1d=3)
         self.set_param_flow(mdg, no_flow=False, method="mpfa", kn=kn)
@@ -319,7 +308,6 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
         self.verify_cv(mdg)
 
     def test_mvem_matching_grids_refine_1d_uniform_flow(self):
-
         kn = 1e4
         mdg = self.set_grids(N=[1, 2], num_nodes_mortar=2, num_nodes_1d=3)
         self.set_param_flow(mdg, no_flow=False, method="mvem", kn=kn)
@@ -328,7 +316,6 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
         self.verify_cv(mdg)
 
     def test_mpfa_matching_grids_refine_mortar_uniform_flow(self):
-
         kn = 1e4
         mdg = self.set_grids(N=[1, 2], num_nodes_mortar=3, num_nodes_1d=2)
         self.set_param_flow(mdg, no_flow=False, method="mpfa", kn=kn)
@@ -337,7 +324,6 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
         self.verify_cv(mdg)
 
     def test_mvem_matching_grids_refine_mortar_uniform_flow(self):
-
         kn = 1e4
         mdg = self.set_grids(N=[1, 2], num_nodes_mortar=3, num_nodes_1d=2)
         self.set_param_flow(mdg, no_flow=False, method="mvem", kn=kn)
@@ -346,7 +332,6 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
         self.verify_cv(mdg)
 
     def test_mpfa_matching_grids_refine_2d_uniform_flow(self):
-
         kn = 1e4
         mdg = self.set_grids(N=[2, 2], num_nodes_mortar=2, num_nodes_1d=2)
         self.set_param_flow(mdg, no_flow=False, method="mpfa", kn=kn)
@@ -355,7 +340,6 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
         self.verify_cv(mdg)
 
     def test_mvem_matching_grids_refine_2d_uniform_flow(self):
-
         kn = 1e4
         mdg = self.set_grids(N=[2, 2], num_nodes_mortar=2, num_nodes_1d=2)
         self.set_param_flow(mdg, no_flow=False, method="mvem", kn=kn)
@@ -365,7 +349,6 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
         self.verify_cv(mdg)
 
     def test_mpfa_matching_grids_uniform_flow_larger_domain(self):
-
         kn = 1e4
         mdg = self.set_grids(
             N=[1, 2], num_nodes_mortar=2, num_nodes_1d=2, physdims=[2, 1]
@@ -376,7 +359,6 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
         self.verify_cv(mdg)
 
     def test_mvem_matching_grids_uniform_flow_larger_domain(self):
-
         kn = 1e4
         mdg = self.set_grids(
             N=[1, 2], num_nodes_mortar=2, num_nodes_1d=2, physdims=[2, 1]
@@ -387,7 +369,6 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
         self.verify_cv(mdg)
 
     def test_mpfa_matching_grids_refine_1d_uniform_flow_larger_domain(self):
-
         kn = 1e4
         mdg = self.set_grids(
             N=[1, 2], num_nodes_mortar=2, num_nodes_1d=3, physdims=[2, 1]
@@ -398,7 +379,6 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
         self.verify_cv(mdg)
 
     def test_mvem_matching_grids_refine_1d_uniform_flow_larger_domain(self):
-
         kn = 1e4
         mdg = self.set_grids(
             N=[1, 2], num_nodes_mortar=2, num_nodes_1d=3, physdims=[2, 1]
@@ -409,7 +389,6 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
         self.verify_cv(mdg)
 
     def test_mpfa_matching_grids_refine_mortar_uniform_flow_larger_domain(self):
-
         kn = 1e4
         mdg = self.set_grids(
             N=[1, 2], num_nodes_mortar=3, num_nodes_1d=2, physdims=[2, 1]
@@ -420,7 +399,6 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
         self.verify_cv(mdg)
 
     def test_mvem_matching_grids_refine_mortar_uniform_flow_larger_domain(self):
-
         kn = 1e4
         mdg = self.set_grids(
             N=[1, 2], num_nodes_mortar=3, num_nodes_1d=2, physdims=[2, 1]
@@ -431,7 +409,6 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
         self.verify_cv(mdg)
 
     def test_mpfa_matching_grids_refine_2d_uniform_flow_larger_domain(self):
-
         kn = 1e4
         mdg = self.set_grids(
             N=[2, 2], num_nodes_mortar=2, num_nodes_1d=2, physdims=[2, 1]
@@ -442,7 +419,6 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
         self.verify_cv(mdg)
 
     def test_mvem_matching_grids_refine_2d_uniform_flow_larger_domain(self):
-
         kn = 1e4
         mdg = self.set_grids(
             N=[2, 2], num_nodes_mortar=4, num_nodes_1d=2, physdims=[2, 1]
@@ -462,7 +438,6 @@ class TestMortar2DSimplexGridStandardMeshing(unittest.TestCase):
         alpha_mortar=None,
         alpha_2d=None,
     ):
-
         if num_fracs == 0:
             p = np.zeros((2, 0))
             e = np.zeros((2, 0))
@@ -553,7 +528,6 @@ class TestMortar2DSimplexGridStandardMeshing(unittest.TestCase):
 
         kn = 1e7
         for mg, d in mdg.interfaces(return_data=True):
-
             flow_dictionary = {"normal_diffusivity": 2 * kn * np.ones(mg.num_cells)}
             d[pp.PARAMETERS] = pp.Parameters(
                 keywords=["flow"], dictionaries=[flow_dictionary]
@@ -708,7 +682,6 @@ class TestMortar2DSimplexGridStandardMeshing(unittest.TestCase):
 
 class TestMortar3D(unittest.TestCase):
     def setup(self, num_fracs=1, remove_tags=False):
-
         fracture_1 = pp.PlaneFracture(
             np.array([[0, 1, 1, 0], [0.5, 0.5, 0.5, 0.5], [0, 0, 1, 1]])
         )
@@ -764,7 +737,6 @@ class TestMortar3D(unittest.TestCase):
             d[pp.DISCRETIZATION_MATRICES] = {"flow": {}}
         kn = 1e7
         for intf, d in mdg.interfaces():
-
             flow_dictionary = {"normal_diffusivity": 2 * kn * np.ones(intf.num_cells)}
             d[pp.PARAMETERS] = pp.Parameters(
                 keywords=["flow"], dictionaries=[flow_dictionary]

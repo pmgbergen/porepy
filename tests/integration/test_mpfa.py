@@ -15,7 +15,6 @@ import porepy as pp
 
 
 def setup_cart_2d(nx):
-
     g = pp.CartGrid(nx)
     g.compute_geometry()
 

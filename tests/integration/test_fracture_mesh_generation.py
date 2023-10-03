@@ -13,7 +13,6 @@ import numpy as np
 import porepy as pp
 from porepy.fracs import structured
 from porepy.fracs.utils import pts_edges_to_linefractures
-
 from tests import test_utils
 
 # Named tuple used to identify intersections of fractures by their parent fractures

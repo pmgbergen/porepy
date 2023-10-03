@@ -531,7 +531,7 @@ class DofManager:
             elif isinstance(g, pp.Grid):
                 data = self.mdg.subdomain_data(g)
             else:
-                raise ValueError(f'Only subdomains or interfaces are supported: {g}')
+                raise ValueError(f"Only subdomains or interfaces are supported: {g}")
 
             if not to_iterate:
                 pp.set_solution_values(
