@@ -81,6 +81,7 @@ class BCs(
         """
         domain_sides = self.domain_boundary_sides(boundary_grid)
         vals_loc = np.zeros(boundary_grid.num_cells)
+        # Fix the random seed to make it possible to debug in the future.
         np.random.seed(0)
         vals_loc[domain_sides.north] = np.random.rand(domain_sides.north.sum())
         return vals_loc

@@ -530,7 +530,8 @@ class ModelGeometry:
 
         Parameters:
             domain: Subdomain or boundary grid.
-            tol: Tolerance used to determine whether a face center lies on a boundary side.
+            tol: Tolerance used to determine whether a face center lies on a boundary 
+                side.
 
         Returns:
             NamedTuple containing the domain boundary sides. Available attributes are:
