@@ -107,12 +107,13 @@ class VerificationUtils:
         discr_poromech = pp.ad.BiotAd(self.stress_keyword, [sd])
 
         # Boundary conditions
-        boundary_grids = self.subdomains_to_boundary_grids([sd])
-        boundary_projection = pp.ad.BoundaryProjection(
-            mdg=self.mdg, subdomains=[sd], dim=sd.dim
-        )
-        bc = boundary_projection.boundary_to_subdomain @ self.displacement(
-            boundary_grids
+        bc = self._make_boundary_operator(
+            subdomains=[sd],
+            dirichlet_operator=self.displacement,
+            neumann_operator=self.mechanical_stress,
+            bc_type=self.bc_type_mechanics,
+            dim=self.nd,
+            name="bc_values_mechanics",
         )
 
         # Compute the pseudo-trace of the displacement
