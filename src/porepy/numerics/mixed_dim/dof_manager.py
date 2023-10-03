@@ -528,7 +528,7 @@ class DofManager:
             if isinstance(g, pp.MortarGrid):
                 # This is really an edge
                 data = self.mdg.interface_data(g)
-            elif:
+            elif isinstance(g, pp.Grid):
                 data = self.mdg.subdomain_data(g)
             else:
                 raise ValueError(f'Only subdomains or interfaces are supported: {g}')

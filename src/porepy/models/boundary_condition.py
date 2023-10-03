@@ -164,17 +164,23 @@ class BoundaryConditionMixin:
 
             dim: Dimension of the equation. Defaults to 1.
 
-            name: Name of the resulting operator.
+            name: Name of the resulting operator. Must be unique for an operator.
 
         Returns:
             Boundary condition representation operator.
 
         """
         boundary_grids = self.subdomains_to_boundary_grids(subdomains)
+
+        # Creating the Dirichlet and Neumann AD expressions.
         dirichlet = dirichlet_operator(boundary_grids)
         neumann = neumann_operator(boundary_grids)
 
+        # Adding bc_type function to local storage to evaluate it before every time step
+        # in case if the type changes in the runtime.
         self.__bc_type_storage[name] = bc_type
+        # Creating the filters to ensure that Dirichlet and Neumann arrays do not
+        # intersect where we do not want it.
         dir_filter = pp.ad.TimeDependentDenseArray(
             name=(name + "_filter_dir"), domains=boundary_grids
         )
@@ -188,6 +194,7 @@ class BoundaryConditionMixin:
 
         dirichlet *= dir_filter
         neumann *= neu_filter
+        # Projecting from the boundary grid to the subdomain.
         result = boundary_to_subdomain @ (dirichlet + neumann)
         result.set_name(name)
         return result
