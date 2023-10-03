@@ -12,7 +12,7 @@ models, notably :class:`~porepy.models.mass_and_energy_balance.MassAndEnergyBala
 """
 from __future__ import annotations
 
-from typing import Callable, Optional, Sequence, Union
+from typing import Callable, Optional, Sequence, Union, cast
 
 import numpy as np
 
@@ -324,23 +324,37 @@ class EnergyBalanceEquations(pp.BalanceEquation):
 
         """
 
-        if len(subdomains) == 0 or isinstance(subdomains[0], pp.BoundaryGrid):
+        if len(subdomains) == 0 or all(
+            [isinstance(g, pp.BoundaryGrid) for g in subdomains]
+        ):
             return self.create_boundary_operator(  # type: ignore[call-arg]
                 name=self.bc_data_enthalpy_flux_key,
                 domains=subdomains,
             )
+
+        # Check that the domains are grids.
+        if not all([isinstance(g, pp.Grid) for g in subdomains]):
+            raise ValueError(
+                """Argument domains a mixture of grids and
+                                boundary grids"""
+            )
+        # By now we know that subdomains is a list of grids, so we can cast it as such
+        # (in the typing sense).
+        subdomains = cast(list[pp.Grid], subdomains)
 
         def enthalpy_dirichlet(boundary_grids):
             result = self.fluid_enthalpy(boundary_grids)
             result *= self.mobility_rho(boundary_grids)
             return result
 
-        boundary_operator_enthalpy = self._combine_boundary_operators(  # type: ignore[call-arg]
-            subdomains=subdomains,
-            dirichlet_operator=enthalpy_dirichlet,
-            neumann_operator=self.enthalpy_flux,
-            bc_type=self.bc_type_enthalpy,
-            name="bc_values_enthalpy",
+        boundary_operator_enthalpy = (
+            self._combine_boundary_operators(  # type: ignore[call-arg]
+                subdomains=subdomains,
+                dirichlet_operator=enthalpy_dirichlet,
+                neumann_operator=self.enthalpy_flux,
+                bc_type=self.bc_type_enthalpy,
+                name="bc_values_enthalpy",
+            )
         )
 
         discr = self.enthalpy_discretization(subdomains)
@@ -566,6 +580,10 @@ class VariablesEnergyBalance:
         Parameters:
             grids: List of subdomains or list of boundary grids
 
+        Raises:
+            ValueError: If the passed sequence of domains does not consist entirely
+                of instances of boundary grid.
+
         Returns:
             A mixed-dimensional variable representing the temperature, if called with a
             list of subdomains.
@@ -574,10 +592,19 @@ class VariablesEnergyBalance:
             boundary values.
 
         """
-        if len(grids) > 0 and isinstance(grids[0], pp.BoundaryGrid):
+        if len(grids) > 0 and all([isinstance(g, pp.BoundaryGrid) for g in grids]):
             return self.create_boundary_operator(
                 name=self.temperature_variable, domains=grids  # type: ignore[call-arg]
             )
+
+        # Check that the domains are grids.
+        if not all([isinstance(g, pp.Grid) for g in grids]):
+            raise ValueError(
+                """Argument domains a mixture of grids and
+                                boundary grids"""
+            )
+
+        grids = cast(list[pp.Grid], grids)
 
         return self.equation_system.md_variable(self.temperature_variable, grids)
 

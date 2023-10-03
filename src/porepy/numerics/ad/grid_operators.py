@@ -35,7 +35,7 @@ class SubdomainProjections:
 
     def __init__(
         self,
-        subdomains: list[pp.Grid],
+        subdomains: Sequence[pp.Grid],
         dim: int = 1,
     ) -> None:
         """Construct subdomain restrictions and prolongations for a set of subdomains.
@@ -224,8 +224,8 @@ class MortarProjections:
     def __init__(
         self,
         mdg: pp.MixedDimensionalGrid,
-        subdomains: list[pp.Grid],
-        interfaces: list[pp.MortarGrid],
+        subdomains: Sequence[pp.Grid],
+        interfaces: Sequence[pp.MortarGrid],
         dim: int = 1,
     ) -> None:
         """Construct mortar projection object.
@@ -699,7 +699,7 @@ class Divergence(Operator):
 
 
 def _subgrid_projections(
-    subdomains: list[pp.Grid], dim: int
+    subdomains: Sequence[pp.Grid], dim: int
 ) -> tuple[dict[pp.Grid, sps.spmatrix], dict[pp.Grid, sps.spmatrix]]:
     """Construct prolongation matrices from individual subdomains to a set of subdomains.
 

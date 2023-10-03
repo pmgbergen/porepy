@@ -171,34 +171,6 @@ class Operator:
         self.children = [] if children is None else children
         self.operation = Operator.Operations.void if operation is None else operation
 
-    def _set_subdomains_or_interfaces(
-        self,
-        subdomains: Optional[list[pp.Grid]] = None,
-        interfaces: Optional[list[pp.MortarGrid]] = None,
-    ) -> None:
-        """For operators which are defined for either subdomains or interfaces but not both.
-
-        Check that exactly one of subdomains and interfaces is given and assign to the
-        operator. The unspecified grid-like type will also be set as an attribute, i.e.
-        either op.subdomains or op.interfaces is an empty list, while the other is a
-        list with len>0.
-
-        Parameters:
-            subdomains (optional list of subdomains): The subdomain list.
-            interfaces (optional list of tuples of subdomains): The interface list.
-
-        """
-        if subdomains is None:
-            subdomains = []
-        if interfaces is None:
-            interfaces = []
-
-        if len(subdomains) > 0 and len(interfaces) > 0:
-            raise ValueError("Operator defined on both subdomains and interfaces.")
-
-        self.subdomains = subdomains
-        self.interfaces = interfaces
-
     def is_leaf(self) -> bool:
         """Check if this operator is a leaf in the tree-representation of an expression.
 
@@ -1533,7 +1505,12 @@ class Variable(Operator):
         previous_timestep: bool = False,
         previous_iteration: bool = False,
     ) -> None:
-        super().__init__(name=name, domains=[domain])
+        # Block a mypy warning here: Domain is known to be GridLike (grid, mortar grid,
+        # or boundary grid), thus the below wrapping in a list gives a list of GridLike,
+        # but the super constructor expects a sequence of grids, sequence or mortar
+        # grids etc. Mypy makes a difference, but the additional entropy needed to
+        # circumvent the warning is not worth it.
+        super().__init__(name=name, domains=[domain])  # type: ignore [arg-type]
 
         ### PUBLIC
 
@@ -1756,8 +1733,12 @@ class MixedDimensionalVariable(Variable):
         self._no_variables = len(variables) == 0
 
         # It should be defined in the parent class, but we do not call super().__init__
-        self._domains = [var.domains[0] for var in variables]
-
+        # Mypy complains that we do not know that all variables have the same type of
+        # domain. While formally correct, this should be picked up in other places so we
+        # ignore the warning here.
+        self._domains = [
+            var.domains[0] for var in variables  # type: ignore[assignment]
+        ]
         # Take the name from the first variable.
         if self._no_variables:
             self._name = "no_sub_variables"
