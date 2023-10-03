@@ -1593,12 +1593,13 @@ class Variable(Operator):
         if isinstance(self.domain, pp.MortarGrid):
             # This is a mortar grid. Assume that there are only cell dofs
             return self.domain.num_cells * self._cells
-        else:
+        if isinstance(self.domain, pp.Grid):
             return (
                 self.domain.num_cells * self._cells
                 + self.domain.num_faces * self._faces
                 + self.domain.num_nodes * self._nodes
             )
+        raise ValueError()
 
     def set_name(self, name: str) -> None:
         """

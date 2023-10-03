@@ -2124,7 +2124,7 @@ class LinearElasticMechanicalStress:
 
     """
 
-    def mechanical_stress(self, grids: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+    def mechanical_stress(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
         """Linear elastic mechanical stress.
 
         .. note::
@@ -2141,24 +2141,24 @@ class LinearElasticMechanicalStress:
             Ad operator representing the mechanical stress on the faces of the grids.
 
         """
-        if len(grids) == 0 or isinstance(grids[0], pp.BoundaryGrid):
+        if len(domains) == 0 or all(isinstance(d, pp.BoundaryGrid) for d in domains):
             return self.create_boundary_operator(
-                name=self.stress_keyword, domains=grids
+                name=self.stress_keyword, domains=domains
             )
 
-        for sd in grids:
+        for sd in domains:
             # The mechanical stress is only defined on subdomains of co-dimension 0.
             assert sd.dim == self.nd
 
         # No need to facilitate changing of stress discretization, only one is
         # available at the moment.
-        discr = self.stress_discretization(grids)
+        discr = self.stress_discretization(domains)
         # Fractures in the domain
-        interfaces = self.subdomains_to_interfaces(grids, [1])
+        interfaces = self.subdomains_to_interfaces(domains, [1])
 
         # Boundary conditions on external boundaries
         boundary_operator = self._make_boundary_operator(
-            subdomains=grids,
+            subdomains=domains,
             dirichlet_operator=self.displacement,
             neumann_operator=self.mechanical_stress,
             bc_type=self.bc_type_mechanics,
@@ -2166,14 +2166,14 @@ class LinearElasticMechanicalStress:
             name="bc_values_mechanics",
         )
 
-        proj = pp.ad.MortarProjections(self.mdg, grids, interfaces, dim=self.nd)
+        proj = pp.ad.MortarProjections(self.mdg, domains, interfaces, dim=self.nd)
         # The stress in the subdomanis is the sum of the stress in the subdomain,
         # the stress on the external boundaries, and the stress on the interfaces.
         # The latter is found by projecting the displacement on the interfaces to the
         # subdomains, and let these act as Dirichlet boundary conditions on the
         # subdomains.
         stress = (
-            discr.stress @ self.displacement(grids)
+            discr.stress @ self.displacement(domains)
             + discr.bound_stress @ boundary_operator
             + discr.bound_stress
             @ proj.mortar_to_primary_avg
