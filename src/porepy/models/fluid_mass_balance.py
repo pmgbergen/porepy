@@ -238,7 +238,7 @@ class MassBalanceEquations(pp.BalanceEquation):
             domains: List of subdomains or boundary grids.
 
         Raises:
-            ValueError: If the domains are not all subdomains or all boundary grids.
+            ValueError: If the domains are not all grids or all boundary grids.
 
         Returns:
             Operator representing the fluid flux.
@@ -419,13 +419,14 @@ class BoundaryConditionsSinglePhaseFlow(pp.BoundaryConditionMixin):
     darcy_flux: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
 
     def bc_type_darcy(self, sd: pp.Grid) -> pp.BoundaryCondition:
-        """Dirichlet conditions on all external boundaries.
+        """Boundary conditions on all external boundaries.
 
         Parameters:
             sd: Subdomain grid on which to define boundary conditions.
 
         Returns:
-            Boundary condition object.
+            Boundary condition object. Per default Dirichlet-type BC are assigned,
+            requiring pressure values on the bonudary.
 
         """
         # Define boundary faces.
@@ -434,13 +435,13 @@ class BoundaryConditionsSinglePhaseFlow(pp.BoundaryConditionMixin):
         return pp.BoundaryCondition(sd, boundary_faces, "dir")
 
     def bc_type_mobrho(self, sd: pp.Grid) -> pp.BoundaryCondition:
-        """Dirichlet conditions on all external boundaries.
+        """Boundary conditions on all external boundaries.
 
         Parameters:
             sd: Subdomain grid on which to define boundary conditions.
 
         Returns:
-            Boundary condition object.
+            Boundary condition object. Per default Dirichlet-type BC are assigned.
 
         """
         # Define boundary faces.
@@ -451,44 +452,61 @@ class BoundaryConditionsSinglePhaseFlow(pp.BoundaryConditionMixin):
     def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
         """Pressure values for the Dirichlet boundary condition.
 
-        These values are used on the boundaries where `self.bc_type_darcy` and
-        `self.bc_type_mobrho` are Dirichlet.
+        These values are used for quantities relying on Dirichlet data for pressure on
+        the boundary, such as mobility, density or Darcy flux.
+
+        Important:
+            Override this method to provide custom Dirichlet boundary data for pressure,
+            per boundary grid as a numpy array with numerical values.
 
         Parameters:
-            boundary_grid: Boundary grid to evaluate values on.
+            boundary_grid: Boundary grid to provide values for.
 
         Returns:
-            An array with shape (boundary_grid.num_cells,) containing the pressure
+            An array with ``shape(boundary_grid.num_cells,)`` containing the pressure
             values on the provided boundary grid.
 
         """
         return self.fluid.pressure() * np.ones(boundary_grid.num_cells)
 
     def bc_values_darcy_flux(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
-        """Volumetric Darcy flux values for the Neumann boundary condition.
+        """**Volumetric** Darcy flux values for the Neumann boundary condition.
 
-        These values are used on the boundaries where `self.bc_type_darcy` is Neumann.
+        These values are used on the boundaries where Neumann data for the
+        volumetric Darcy :math:`\\mathbf{K}\\nabla p` flux are required.
+
+        Important:
+            Override this method to provide custom Neumann data for the flux,
+            per boundary grid as a numpy array with numerical values.
 
         Parameters:
-            boundary_grid: Boundary grid to evaluate values on.
+            boundary_grid: Boundary grid to provide values for.
 
         Returns:
-            An array with shape (boundary_grid.num_cells,) containing the volumetric
+            An array with ``shape=(boundary_grid.num_cells,)`` containing the volumetric
             Darcy flux values on the provided boundary grid.
 
         """
         return np.zeros(boundary_grid.num_cells)
 
     def bc_values_fluid_flux(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
-        """Fluid mass flux values for the Neumann boundary condition
+        r"""**Mass** flux values on the Neumann boundary.
 
         These values are used on the boundaries where `self.bc_type_mobrho` is Neumann.
 
+        These values are used on the boundary for
+        :math:`\frac{\rho}{\mu} \mathbf{K} \nabla p` where Neumann data is required for
+        the whole expression.
+
+        Important:
+            Override this method to provide custom Neumann data for the flux,
+            per boundary grid as a numpy array with numerical values.
+
         Parameters:
-            boundary_grid: Boundary grid to evaluate values on.
+            boundary_grid: Boundary grid to provide values for.
 
         Returns:
-            An array with shape (boundary_grid.num_cells,) containing the mass
+            An array with ``shape=(boundary_grid.num_cells,)`` containing the mass
             fluid flux values on the provided boundary grid.
 
         """

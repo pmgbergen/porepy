@@ -858,11 +858,6 @@ class DarcysLaw:
     instance of :class:`~porepy.models.geometry.ModelGeometry`.
 
     """
-    bc_values_darcy: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Darcy flux boundary conditions. Normally defined in a mixin instance of
-    :class:`~porepy.models.fluid_mass_balance.BoundaryConditionsSinglePhaseFlow`.
-
-    """
     normal_permeability: Callable[[list[pp.MortarGrid]], pp.ad.Operator]
     """Normal permeability. Normally defined in a mixin instance of :
     class:`~porepy.models.constitutive_laws.ConstantPermeability`.
@@ -1510,11 +1505,6 @@ class FouriersLaw:
     ]
     """Fourier flux variable on interfaces. Normally defined in a mixin instance of
    :class:`~porepy.models.energy_balance.VariablesEnergyBalance`.
-
-    """
-    bc_values_fourier: Callable[[list[pp.Grid]], pp.ad.DenseArray]
-    """Fourier flux boundary conditions. Normally defined in a mixin instance of
-    :class:`~porepy.models.fluid_mass_balance.BoundaryConditionsEnergyBalance`.
 
     """
     normal_thermal_conductivity: Callable[[list[pp.MortarGrid]], pp.ad.Scalar]

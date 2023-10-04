@@ -307,7 +307,6 @@ class EnergyBalanceEquations(pp.BalanceEquation):
         """Enthalpy flux.
 
         Note:
-            Note:
             The advected entity in the enthalpy flux is a product of density,
             enthalpy and mobility of the fluid.
             When using upwinding, Dirichlet-type data for pressure and temperature
@@ -317,7 +316,10 @@ class EnergyBalanceEquations(pp.BalanceEquation):
             the upstream value of it is on the boundary.
 
         Parameters:
-            subdomains: List of subdomains.
+            subdomains: List of subdomains or boundary grids.
+
+        Raises:
+            ValueError: If the domains are not all grids or all boundary grids.
 
         Returns:
             Operator representing the enthalpy flux.
@@ -706,7 +708,8 @@ class BoundaryConditionsEnergyBalance(pp.BoundaryConditionMixin):
     """Keyword for the storage of Neumann-type boundary conditions for the Fourier
     flux."""
     bc_data_enthalpy_flux_key: str = "enthalpy_flux"
-    """TODO"""
+    """Keyword for the storage of Neumann-type boundary conditions for the advective
+    enthalpy flux."""
     temperature_variable: str
     """See :attr:`SolutionStrategyEnergyBalance.temperature_variable`."""
     temperature: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
@@ -725,13 +728,15 @@ class BoundaryConditionsEnergyBalance(pp.BoundaryConditionMixin):
     """See :meth:`EnergyBalanceEquations.enthalpy_flux`."""
 
     def bc_type_fourier(self, sd: pp.Grid) -> pp.BoundaryCondition:
-        """Dirichlet conditions on all external boundaries.
+        """Boundary conditions on all external boundaries for the conductive flux
+        in the energy equation.
 
         Parameters:
             sd: Subdomain grid on which to define boundary conditions.
 
         Returns:
-            Boundary condition object.
+            Boundary condition object. Per default Dirichlet-type BC are assigned,
+            requiring temperature values on the bonudary.
 
         """
         # Define boundary faces.
@@ -740,13 +745,23 @@ class BoundaryConditionsEnergyBalance(pp.BoundaryConditionMixin):
         return pp.BoundaryCondition(sd, boundary_faces, "dir")
 
     def bc_type_enthalpy(self, sd: pp.Grid) -> pp.BoundaryCondition:
-        """Dirichlet conditions on all external boundaries.
+        """Boundary conditions on all external boundaries for the advective flux in the
+        energy equation.
+
+        Warning:
+            This must not be different from mixed in definition of
+            :meth:`~porepy.models.fluid_mass_balance.BoundaryConditionsSinglePhaseFlow.
+            bc_type_darcy`.
+            Advective enthalpy flux is due to energy associated with mass entering the
+            system, which is the same as for the mass balance equation.
+            Unphysical systems arise otherwise.
 
         Parameters:
             sd: Subdomain grid on which to define boundary conditions.
 
         Returns:
-            Boundary condition object.
+            Boundary condition object. Per default Dirichlet-type BC are assigned,
+            requiring pressure and some energy-related values on the bonudary.
 
         """
         # Define boundary faces.
@@ -755,20 +770,38 @@ class BoundaryConditionsEnergyBalance(pp.BoundaryConditionMixin):
         return pp.BoundaryCondition(sd, boundary_faces, "dir")
 
     def bc_values_temperature(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
-        """
+        """Temperature values for the Dirichlet boundary condition.
+
+        These values are used for quantities relying on Dirichlet data for temperature
+        on the boundary, such as the Fourier flux.
+
+        Important:
+            Override this method to provide custom Dirichlet boundary data for
+            temperature, per boundary grid as a numpy array with numerical values.
+
         Parameters:
-            boundary_grids: A boundary grid in the domain.
+            boundary_grid: Boundary grid to provide values for.
 
         Returns:
-            Numeric fluid temperature values for a Dirichlet-type BC.
+            An array with ``shape=(boundary_grid.num_cells,)`` containing temperature
+            values on the provided boundary grid.
 
         """
         return self.fluid.temperature() * np.ones(boundary_grid.num_cells)
 
     def bc_values_fourier_flux(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
-        """
+        """**Heat** flux values on the Neumann boundary to be used with Fourier's law.
+
+        The values are used on the boundary for :math:`c \\nabla T` where Neumann data
+        is required for the whole expression
+        (``c`` being the conductivity on the boundary).
+
+        Important:
+            Override this method to provide custom Neumann boundary data for
+            the flux, per boundary grid as a numpy array with numerical values.
+
         Parameters:
-            boundary_grids: A boundary grid in the domain.
+            boundary_grids: Boundary grid to provide values for.
 
         Returns:
             Numeric Fourier flux values for a Neumann-type BC.
@@ -777,12 +810,22 @@ class BoundaryConditionsEnergyBalance(pp.BoundaryConditionMixin):
         return np.zeros(boundary_grid.num_cells)
 
     def bc_values_enthalpy_flux(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
-        """
+        r"""**Energy** flux values on the Neumann boundary.
+
+        These values are used on the boundary for
+        :math:`\frac{\rho h}{\mu} \mathbf{K} \nabla p` where Neumann data is required
+        for the whole expression.
+
+        Important:
+            Override this method to provide custom Neumann boundary data for
+            the flux, per boundary grid as a numpy array with numerical values.
+
         Parameters:
-            boundary_grids: A boundary grid in the domain.
+            boundary_grids: Boundary grid to provide values for.
 
         Returns:
-            Numeric enthalpy flux values for a Neumann-type BC.
+            An array with ``shape=(boundary_grid.num_cells,)`` containing values for the
+            flux on the provided boundary grid.
 
         """
         return np.zeros(boundary_grid.num_cells)
