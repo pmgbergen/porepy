@@ -48,7 +48,7 @@ class EnergyBalanceEquations(pp.BalanceEquation):
     :class:`~porepy.models.energy_balance.VariablesEnergyBalance`.
 
     """
-    fluid_density: Callable[[list[pp.Grid]], pp.ad.Operator]
+    fluid_density: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     """Fluid density. Defined in a mixin class with a suitable constitutive relation.
     """
     fluid_enthalpy: Callable[[list[pp.Grid]], pp.ad.Operator]
@@ -60,12 +60,12 @@ class EnergyBalanceEquations(pp.BalanceEquation):
     solid_density: Callable[[list[pp.Grid]], pp.ad.Scalar]
     """Solid density. Defined in a mixin class with a suitable constitutive relation.
     """
-    porosity: Callable[[list[pp.Grid]], pp.ad.Operator]
+    porosity: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     """Porosity of the rock. Normally provided by a mixin instance of
     :class:`~porepy.models.constitutive_laws.ConstantPorosity` or a subclass thereof.
 
     """
-    mobility: Callable[[list[pp.Grid]], pp.ad.Operator]
+    mobility: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     """Fluid mobility. Normally provided by a mixin instance of
     :class:`~porepy.models.constitutive_laws.FluidMobility`.
 

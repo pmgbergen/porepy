@@ -62,6 +62,7 @@ class BoundaryConditionMixin:
         function: Callable[[pp.BoundaryGrid], np.ndarray],
     ) -> None:
         """This method is the unified procedure of updating a boundary condition.
+
         It moves the boundary condition values used on the previous time step from
         iterate data (current time step) to previous time step data.
         Next, it evaluates the boundary condition values for the new time step and
@@ -72,7 +73,7 @@ class BoundaryConditionMixin:
             used. Otherwise, it prints a warning.
 
         Parameters:
-            name: Name of the operator defined onon the boundary.
+            name: Name of the operator defined on the boundary.
             function: A callable that provides the boundary condition values on a given
                 boundary grid.
 
@@ -139,15 +140,11 @@ class BoundaryConditionMixin:
 
         Parameters:
             subdomains: List of subdomains.
-
             dirichlet_operator: Function that returns the Dirichlet boundary condition
                 operator.
-
             neumann_operator: Function that returns the Neumann boundary condition
                 operator.
-
             dim: Dimension of the equation. Defaults to 1.
-
             name: Name of the resulting operator. Must be unique for an operator.
 
         Returns:
@@ -191,11 +188,10 @@ class BoundaryConditionMixin:
     def _update_bc_type_filter(
         self, name: str, bc_type_callable: Callable[[pp.Grid], pp.BoundaryCondition]
     ):
-        """Update the filters for Dirichlet and Neumann
-        values.
+        """Update the filters for Dirichlet and Neumann values.
 
-        This is done to set discard the data related to Dirichlet boundary condition in
-        cells where the bc_type is Neumann and vise versa.
+        This is done to discard the data related to Dirichlet boundary condition in
+        cells where the ``bc_type`` is Neumann and vice versa.
 
         """
 
@@ -219,7 +215,13 @@ class BoundaryConditionMixin:
     @cached_property
     def __bc_type_storage(self) -> dict[str, Callable[[pp.Grid], pp.BoundaryCondition]]:
         """Storage of functions that determine the boundary condition type on the given
-        grid. Used in `update_all_boundary_conditions` for Dirichlet and Neumann
+        grid.
+
+        Used in :meth:`update_all_boundary_conditions` for Dirichlet and Neumann
         filters.
+
+        Stores per operator name (key) a callable (value) returning an operator
+        representing the BC type per subdomain.
+
         """
         return {}
