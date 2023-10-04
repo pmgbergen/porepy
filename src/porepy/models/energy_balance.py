@@ -747,14 +747,6 @@ class BoundaryConditionsEnergyBalance(pp.BoundaryConditionMixin):
         """Boundary conditions on all external boundaries for the advective flux in the
         energy equation.
 
-        Warning:
-            This must not be different from mixed in definition of
-            :meth:`~porepy.models.fluid_mass_balance.BoundaryConditionsSinglePhaseFlow.
-            bc_type_darcy_flux`.
-            Advective enthalpy flux is due to energy associated with mass entering the
-            system, which is the same as for the mass balance equation.
-            Unphysical systems arise otherwise.
-
         Parameters:
             sd: Subdomain grid on which to define boundary conditions.
 
