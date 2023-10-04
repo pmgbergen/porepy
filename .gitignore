@@ -150,7 +150,7 @@ nbproject/
 .vscode/
 .spyderproject
 .spyproject
-.code-workspace
+*.code-workspace
 
 # Files Misc.
 *.7z
