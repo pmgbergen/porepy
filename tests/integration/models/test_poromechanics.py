@@ -37,7 +37,7 @@ class NonzeroFractureGapPoromechanics:
     params: dict
     """Parameters for the model."""
 
-    def bc_type_darcy(self, sd: pp.Grid) -> pp.BoundaryCondition:
+    def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         domain_sides = self.domain_boundary_sides(sd)
         return pp.BoundaryCondition(sd, domain_sides.north + domain_sides.south, "dir")
 

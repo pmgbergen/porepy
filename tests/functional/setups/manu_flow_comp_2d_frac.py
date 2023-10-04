@@ -602,7 +602,7 @@ class ManuCompBoundaryConditions(
     exact_sol: ManuCompExactSolution2d
     """Exact solution object."""
 
-    def bc_type_darcy(self, sd: pp.Grid) -> pp.BoundaryCondition:
+    def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         """Set boundary condition types for the elliptic discretization."""
         if sd.dim == self.mdg.dim_max():  # Dirichlet for the matrix
             boundary_faces = self.domain_boundary_sides(sd).all_bf
@@ -611,7 +611,7 @@ class ManuCompBoundaryConditions(
             boundary_faces = self.domain_boundary_sides(sd).all_bf
             return pp.BoundaryCondition(sd, boundary_faces, "neu")
 
-    def bc_type_mobrho(self, sd: pp.Grid) -> pp.BoundaryCondition:
+    def bc_type_fluid_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         """Set boundary condition types for the upwind discretization."""
         if sd.dim == self.mdg.dim_max():  # Dirichlet for the matrix
             boundary_faces = self.domain_boundary_sides(sd).all_bf

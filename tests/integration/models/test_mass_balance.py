@@ -27,7 +27,7 @@ class BoundaryConditionLinearPressure(
 
     """
 
-    def bc_type_darcy(self, sd: pp.Grid) -> pp.BoundaryCondition:
+    def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         """Dirichlet conditions on all external boundaries.
 
         Parameters:

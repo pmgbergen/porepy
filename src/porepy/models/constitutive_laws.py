@@ -886,7 +886,7 @@ class DarcysLaw:
     bc_data_darcy_flux_key`.
 
     """
-    bc_type_darcy: Callable[[pp.Grid], pp.ad.Operator]
+    bc_type_darcy_flux: Callable[[pp.Grid], pp.ad.Operator]
 
     create_boundary_operator: Callable[
         [str, Sequence[pp.BoundaryGrid]], pp.ad.TimeDependentDenseArray
@@ -965,7 +965,7 @@ class DarcysLaw:
             subdomains=subdomains,
             dirichlet_operator=self.pressure,
             neumann_operator=self.darcy_flux,
-            bc_type=self.bc_type_darcy,
+            bc_type=self.bc_type_darcy_flux,
             name="bc_values_darcy",
         )
 
@@ -1024,7 +1024,7 @@ class DarcysLaw:
             subdomains=domains,
             dirichlet_operator=self.pressure,
             neumann_operator=self.darcy_flux,
-            bc_type=self.bc_type_darcy,
+            bc_type=self.bc_type_darcy_flux,
             name="bc_values_darcy",
         )
 
@@ -1524,7 +1524,7 @@ class FouriersLaw:
     bc_data_fourier_flux_key`.
 
     """
-    bc_type_fourier: Callable[[pp.Grid], pp.ad.Operator]
+    bc_type_fourier_flux: Callable[[pp.Grid], pp.ad.Operator]
 
     _combine_boundary_operators: Callable[
         [
@@ -1590,7 +1590,7 @@ class FouriersLaw:
                 subdomains=subdomains,
                 dirichlet_operator=self.temperature,
                 neumann_operator=self.fourier_flux,
-                bc_type=self.bc_type_fourier,
+                bc_type=self.bc_type_fourier_flux,
                 name="bc_values_fourier",
             )
         )
@@ -1639,7 +1639,7 @@ class FouriersLaw:
             subdomains=subdomains,
             dirichlet_operator=self.temperature,
             neumann_operator=self.fourier_flux,
-            bc_type=self.bc_type_fourier,
+            bc_type=self.bc_type_fourier_flux,
             name="bc_values_fourier",
         )
 

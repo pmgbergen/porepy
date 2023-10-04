@@ -26,7 +26,7 @@ class BoundaryConditionsEnergy(pp.energy_balance.BoundaryConditionsEnergyBalance
         vals[sides.west] = self.fluid.convert_units(1, "K")
         return vals
 
-    def bc_type_fourier(self, sd: pp.Grid) -> pp.BoundaryCondition:
+    def bc_type_fourier_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         """Dirichlet conditions on all external boundaries.
 
         Parameters:
@@ -41,7 +41,7 @@ class BoundaryConditionsEnergy(pp.energy_balance.BoundaryConditionsEnergyBalance
         # Define Dirichlet conditions on the left and right boundaries
         return pp.BoundaryCondition(sd, sides.west + sides.east, "dir")
 
-    def bc_type_enthalpy(self, sd: pp.Grid) -> pp.BoundaryCondition:
+    def bc_type_enthalpy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         # Define boundary regions
         sides = self.domain_boundary_sides(sd)
         # Define Dirichlet conditions on the left and right boundaries
