@@ -80,7 +80,7 @@ class BoundaryConditionMixin:
         """
         for bg, data in self.mdg.boundaries(return_data=True):
             # Set the known time step values.
-            if name in data[pp.ITERATE_SOLUTIONS]:
+            if pp.ITERATE_SOLUTIONS in data and name in data[pp.ITERATE_SOLUTIONS]:
                 # Use the values at the unknown time step from the previous time step.
                 vals = pp.get_solution_values(name=name, data=data, iterate_index=0)
             else:
