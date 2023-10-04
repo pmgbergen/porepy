@@ -14,11 +14,9 @@ this see test_evaluate_constitutive_laws.py.
 """
 from __future__ import annotations
 
-import numpy as np
 import pytest
 
 import porepy as pp
-import porepy.models.constitutive_laws as c_l
 
 from . import setup_utils
 
@@ -142,7 +140,7 @@ def test_parse_constitutive_laws(
     # Fetch the relevant method of this model and extract the domains for which it is
     # defined.
     method = getattr(setup, method_name)
-    domains = setup_utils.domains_from_method_name(
+    domains = setup_utils.subdomains_or_interfaces_from_method_name(
         setup.mdg, method, dimensions_to_assemble
     )
 

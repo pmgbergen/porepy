@@ -209,11 +209,11 @@ class MassBalanceEquations(pp.BalanceEquation):
         mass.set_name("fluid_mass")
         return mass
 
-    def mobility_rho(self, grids: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+    def mobility_rho(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
         """Fluid density times mobility.
 
         Parameters:
-            grids: List of grids to define the operator on.
+            domains: List of grids to define the operator on.
                 Returns a variable-independent representation of boundary conditions if
                 called using a list of boundary grids.
 
@@ -221,7 +221,7 @@ class MassBalanceEquations(pp.BalanceEquation):
             Operator representing the fluid density times mobility.
 
         """
-        return self.fluid_density(grids) * self.mobility(grids)
+        return self.fluid_density(domains) * self.mobility(domains)
 
     def fluid_flux(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
         """Fluid flux as Darcy flux times density and mobility.

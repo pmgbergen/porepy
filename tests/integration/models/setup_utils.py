@@ -415,7 +415,7 @@ def model(
     return model
 
 
-def domains_from_method_name(
+def subdomains_or_interfaces_from_method_name(
     mdg: pp.MixedDimensionalGrid,
     method_name: Callable,
     domain_dimension: int,
@@ -425,7 +425,8 @@ def domains_from_method_name(
     The method to be tested is assumed to take as input only its domain of definition,
     that is a list of subdomains or interfaces. The test framework is not compatible with
     methods that take other arguments (and such a method would also break the implicit
-    contract of the constitutive laws).
+    contract of the constitutive laws). Note that for the ambiguity related to methods
+    defined on either subdomains or boundaries, only subdomains are considered.
 
     Parameters:
         mdg: Mixed-dimensional grid.
@@ -441,7 +442,7 @@ def domains_from_method_name(
     assert len(signature.parameters) == 1
 
     # The domain is a list of either subdomains or interfaces.
-    if "subdomains" in signature.parameters:
+    if "subdomains" in signature.parameters or "domains" in signature.parameters:
         # If relevant, filter out the domains that are not to be tested.
         domains = mdg.subdomains(dim=domain_dimension)
     elif "interfaces" in signature.parameters:
@@ -561,7 +562,9 @@ def compare_scaled_model_quantities(
         for setup in [setup_0, setup_1]:
             # Obtain scaled values.
             method = getattr(setup, method_name)
-            domains = domains_from_method_name(setup.mdg, method, domain_dimension=dim)
+            domains = subdomains_or_interfaces_from_method_name(
+                setup.mdg, method, domain_dimension=dim
+            )
             # Convert back to SI units.
             value = method(domains).evaluate(setup.equation_system)
             if isinstance(value, pp.ad.AdArray):
@@ -635,6 +638,7 @@ def get_model_methods_returning_ad_operator(model_setup) -> list[str]:
             and (
                 "subdomains" in signature.parameters
                 or "interfaces" in signature.parameters
+                or "domains" in signature.parameters
             )
             and (
                 "pp.ad.Operator" in signature.return_annotation
