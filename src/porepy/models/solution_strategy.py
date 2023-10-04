@@ -297,6 +297,8 @@ class SolutionStrategy(abc.ABC):
             self.equation_system.set_variable_values(
                 vals, iterate_index=0, time_step_index=0
             )
+            # Update the boundary conditions to both the time step and iterate solution.
+            self.update_time_dependent_ad_arrays()
 
     def set_materials(self):
         """Set material parameters.
