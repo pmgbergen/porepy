@@ -51,15 +51,15 @@ class MassBalanceEquations(pp.BalanceEquation):
     defining the solution strategy.
 
     """
-    fluid_density: Callable[[list[pp.Grid]], pp.ad.Operator]
+    fluid_density: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     """Fluid density. Defined in a mixin class with a suitable constitutive relation.
     """
-    porosity: Callable[[list[pp.Grid]], pp.ad.Operator]
+    porosity: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     """Porosity of the rock. Normally provided by a mixin instance of
     :class:`~porepy.models.constitutive_laws.ConstantPorosity` or a subclass thereof.
 
     """
-    mobility: Callable[[list[pp.Grid]], pp.ad.Operator]
+    mobility: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     """Fluid mobility. Normally provided by a mixin instance of
     :class:`~porepy.models.constitutive_laws.FluidMobility`.
 
@@ -214,6 +214,8 @@ class MassBalanceEquations(pp.BalanceEquation):
 
         Parameters:
             grids: List of grids to define the operator on.
+                Returns a variable-independent representation of boundary conditions if
+                called using a list of boundary grids.
 
         Returns:
             Operator representing the fluid density times mobility.
@@ -222,8 +224,7 @@ class MassBalanceEquations(pp.BalanceEquation):
         return self.fluid_density(grids) * self.mobility(grids)
 
     def fluid_flux(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
-        """Fluid flux.
-        Darcy flux times density and mobility.
+        """Fluid flux as Darcy flux times density and mobility.
 
         Note:
             The advected entity in the fluid flux is given by :meth:`mobility_rho`.
