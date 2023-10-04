@@ -16,7 +16,7 @@ import pytest
 import porepy as pp
 
 from .setup_utils import (
-    BoundaryConditionsMassAndEnergyDirNorthSouth,
+    BoundaryConditionsMassDirNorthSouth,
     Poromechanics,
     TimeDependentMechanicalBCsDirNorthSouth,
     compare_scaled_model_quantities,
@@ -37,7 +37,7 @@ class NonzeroFractureGapPoromechanics:
     params: dict
     """Parameters for the model."""
 
-    def bc_type_darcy(self, sd: pp.Grid) -> pp.BoundaryCondition:
+    def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         domain_sides = self.domain_boundary_sides(sd)
         return pp.BoundaryCondition(sd, domain_sides.north + domain_sides.south, "dir")
 
@@ -154,7 +154,7 @@ class NonzeroFractureGapPoromechanics:
 class TailoredPoromechanics(
     NonzeroFractureGapPoromechanics,
     TimeDependentMechanicalBCsDirNorthSouth,
-    BoundaryConditionsMassAndEnergyDirNorthSouth,
+    BoundaryConditionsMassDirNorthSouth,
     Poromechanics,
 ):
     pass

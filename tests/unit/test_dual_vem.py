@@ -700,7 +700,6 @@ class BasicsTest(unittest.TestCase):
 
 
 class TestMVEMGravity(unittest.TestCase):
-
     # ------------------------------------------------------------------------------#
     def _matrix(self, g, perm, bc, vect):
         solver = pp.MVEM(keyword="flow")
@@ -738,7 +737,6 @@ class TestMVEMGravity(unittest.TestCase):
     # ------------------------------------------------------------------------------#
 
     def test_mvem_2d_triangle(self):
-
         dim = 2
         nodes = np.array([[0, 1, 0], [0, 0, 1], [0, 0, 0]])
 
@@ -790,7 +788,6 @@ class TestMVEMGravity(unittest.TestCase):
     # ------------------------------------------------------------------------------#
 
     def test_mvem_tetra(self):
-
         dim = 3
         nodes = np.array([[0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]])
 
@@ -820,7 +817,6 @@ class TestMVEMGravity(unittest.TestCase):
     # ------------------------------------------------------------------------------#
 
     def test_convergence_mvem_2d_iso_simplex_exact(self):
-
         p_ex = lambda pt: 2 * pt[0, :] - 3 * pt[1, :] - 9
         u_ex = np.array([-1, 4, 0])
 
@@ -867,7 +863,6 @@ class TestMVEMGravity(unittest.TestCase):
     # ------------------------------------------------------------------------------#
 
     def test_mvem_3d(self):
-
         g = pp.StructuredTetrahedralGrid([1, 1, 1], [1, 1, 1])
         g.compute_geometry()
 
@@ -965,7 +960,6 @@ class TestMVEMGravity(unittest.TestCase):
     # ------------------------------------------------------------------------------#
 
     def test_convergence_mvem_2d_iso_simplex(self):
-
         a = 8 * np.pi**2
         rhs_ex = lambda pt: np.multiply(
             np.sin(2 * np.pi * pt[0, :]), np.sin(2 * np.pi * pt[1, :])
@@ -1073,7 +1067,6 @@ class TestMVEMGravity(unittest.TestCase):
     # ------------------------------------------------------------------------------#
 
     def test_convergence_mvem_2d_ani_simplex(self):
-
         rhs_ex = lambda pt: 14
         p_ex = (
             lambda pt: 2 * np.power(pt[0, :], 2)

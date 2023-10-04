@@ -213,3 +213,11 @@ def test_add_one_well_with_matrix() -> None:
             rtol=1e-5,
             atol=1e-8,
         )
+
+    # Adding a well also adds a new boundary grid. Check that new boundary grid is
+    # initialized.
+    well_boundaries = mdg.boundaries(dim=0)
+    assert len(well_boundaries) == 1
+    for well_bg in well_boundaries:
+        # num_cells is one of the attributes that are initialized lazily.
+        assert isinstance(well_bg.num_cells, int)

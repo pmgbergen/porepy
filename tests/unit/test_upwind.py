@@ -668,7 +668,6 @@ class TestUpwindDiscretization(unittest.TestCase):
         time = np.empty(Nt)
         production = np.zeros(Nt)
         for i in np.arange(Nt):
-
             # Update the solution
             production[i] = np.sum(OF.dot(conc))
             conc = invM.dot((M_minus_U).dot(conc) + rhs)
@@ -807,7 +806,6 @@ class TestUpwindDiscretization(unittest.TestCase):
         Nt = int(T / time_step)
         time = np.empty(Nt)
         for i in np.arange(Nt):
-
             # Update the solution
             conc = invM.dot((M_minus_U).dot(conc) + rhs)
             time[i] = time_step * i

@@ -117,7 +117,6 @@ class TestIntersectionPolygonsEmbeddedIn3d(unittest.TestCase):
         self.assertTrue(len(seg_vert[0]) == 0)
 
     def test_two_intersecting_fractures(self):
-
         f_1 = np.array([[-1, 1, 1, -1], [0, 0, 0, 0], [-1, -1, 1, 1]])
         f_2 = np.array([[0, 0, 0, 0], [-1, 1, 1, -1], [-0.7, -0.7, 0.8, 0.8]])
 
@@ -626,7 +625,6 @@ class TestIntersectionPolygonsEmbeddedIn3d(unittest.TestCase):
         self.assertEqual(seg_vert[1][1], (1, False))
 
     def test_T_intersection_both_on_polygon(self):
-
         f_1 = np.array([[-2, -2, 2, 2], [-2, -2, 1, 1], [-2, 2, 2, -2]])
         f_2 = np.array(
             [[2.0, 2.0, 2.0, 2.0], [-2.0, -2.0, 2.0, 2.0], [2.0, -2.0, -2.0, 2.0]]
@@ -730,14 +728,12 @@ class TestIntersectionPolygonsEmbeddedIn3d(unittest.TestCase):
     ### Tests involving polygons sharing a the same plane
 
     def test_same_plane_no_intersections(self):
-
         f_1 = np.array([[0, 1, 1, 0], [0, 0, 1, 1], [0, 0, 0, 0]])
         f_2 = np.array([[2, 3, 3, 2], [0, 0, 1, 1], [0, 0, 0, 0]])
         new_pt, isect_pt, on_bound, *_ = pp.intersections.polygons_3d([f_1, f_2])
         self.assertTrue(new_pt.shape[1] == 0)
 
     def test_same_plane_intersections(self):
-
         f_1 = np.array([[0, 1, 1, 0], [0, 0, 1, 1], [0, 0, 0, 0]])
         f_2 = np.array([[2, 2, 0], [0, 2, 1.5], [0, 0, 0]])
         new_pt, isect_pt, on_bound, *_ = pp.intersections.polygons_3d([f_1, f_2])
@@ -1483,7 +1479,6 @@ class TestPolygonPolyhedronIntersection(unittest.TestCase):
         self.assertTrue(test_utils.compare_arrays(constrained_poly[0], known_poly))
 
     def test_polyhedron_in_same_plane_overlapping_segment(self):
-
         f_1 = np.array(
             [[0.0, 0.3, 0.3, 0.0], [1.5, 1.5, 1.5, 1.5], [0.8, 0.8, 0.2, 0.2]]
         )
@@ -1517,7 +1512,6 @@ class TestPolygonPolyhedronIntersection(unittest.TestCase):
         self.assertTrue(test_utils.compare_arrays(constrained_poly[0], known_poly))
 
     def test_point_intersection_fully_inside_box(self):
-
         self.setUp()
 
         # f_1 has one intersection along a surface, point intersection in the third vertex.
@@ -1533,7 +1527,6 @@ class TestPolygonPolyhedronIntersection(unittest.TestCase):
         self.assertTrue(test_utils.compare_arrays(constrained_poly[1], f_2))
 
     def test_point_intersection_fully_outside_box(self):
-
         self.setUp()
 
         # f_1 has one point intersection outside, rest is outside
@@ -1546,7 +1539,6 @@ class TestPolygonPolyhedronIntersection(unittest.TestCase):
         self.assertTrue(len(constrained_poly) == 0)
 
     def test_point_intersection_crossing_on_other_side(self):
-
         self.setUp()
 
         # Constrained polygon formed by point contact and two standard intersections.

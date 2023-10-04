@@ -61,8 +61,11 @@ class RediscretizationTest:
 
 
 # Non-trivial solution achieved through BCs.
-class BCs(setup_utils.BoundaryConditionsMassAndEnergyDirNorthSouth):
-    def bc_values_darcy(self, subdomains: list[pp.Grid]) -> pp.ad.DenseArray:
+class BCs(
+    setup_utils.BoundaryConditionsMassDirNorthSouth,
+    setup_utils.BoundaryConditionsEnergyDirNorthSouth,
+):
+    def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
         """Boundary condition values for Darcy flux.
 
         Dirichlet boundary conditions are defined on the north and south boundaries. We
@@ -70,22 +73,18 @@ class BCs(setup_utils.BoundaryConditionsMassAndEnergyDirNorthSouth):
         boundary.
 
         Parameters:
-            subdomains: List of subdomains for which to define boundary conditions.
+            boundary_grid: Boundary grid for which to define boundary conditions.
 
         Returns:
-            bc: Boundary condition object.
+            Boundary condition values array.
 
         """
-        vals = []
-        if len(subdomains) == 0:
-            return pp.ad.DenseArray(np.zeros(0), name="bc_values_darcy")
-        for sd in subdomains:
-            domain_sides = self.domain_boundary_sides(sd)
-            vals_loc = np.zeros(sd.num_faces)
-            np.random.seed(0)
-            vals_loc[domain_sides.north] = np.random.rand(domain_sides.north.sum())
-            vals.append(vals_loc)
-        return pp.wrap_as_ad_array(np.hstack(vals), name="bc_values_darcy")
+        domain_sides = self.domain_boundary_sides(boundary_grid)
+        vals_loc = np.zeros(boundary_grid.num_cells)
+        # Fix the random seed to make it possible to debug in the future.
+        np.random.seed(0)
+        vals_loc[domain_sides.north] = np.random.rand(domain_sides.north.sum())
+        return vals_loc
 
 
 # No need to test momentum balance, as it contains no discretizations that need

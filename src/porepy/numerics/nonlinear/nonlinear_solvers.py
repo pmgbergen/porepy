@@ -128,7 +128,7 @@ class NewtonSolver:
             with logging_redirect_tqdm([logging.root]):
                 # Initialize a progress bar. Length is the number of maximal Newton
                 # iterations.
-                solver_progressbar = trange(
+                solver_progressbar = trange(  # type: ignore
                     self.params["max_iterations"],
                     desc="Newton loop",
                     position=self.progress_bar_position,

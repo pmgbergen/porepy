@@ -510,7 +510,6 @@ class TestMixedDimGravity(unittest.TestCase):
     # --3d section. See analogous methods/tests above for documentation --#
 
     def set_grids_3d(self, num_fracs=1):
-
         f1 = pp.PlaneFracture(
             np.array([[0, 1, 1, 0], [0.5, 0.5, 0.5, 0.5], [0, 0, 1, 1]])
         )

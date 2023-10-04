@@ -558,7 +558,6 @@ class TestPartitionGrid(unittest.TestCase):
         self.assertTrue(np.allclose(node_map_list[0], np.arange(sg.num_nodes)))
 
     def test_single_cell_partitioning(self):
-
         g = pp.CartGrid([3, 3])
         ind = np.arange(g.num_cells)
         sub_g, face_map_list, node_map_list = pp.partition.partition_grid(g, ind)

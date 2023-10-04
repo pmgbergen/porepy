@@ -12,7 +12,6 @@ from tests.integration import _helper_test_upwind_coupling
 
 
 class BasicsTest(unittest.TestCase):
-
     # ------------------------------------------------------------------------------#
 
     def test_upwind_coupling_2d_1d_bottom_top(self):
@@ -97,7 +96,6 @@ class BasicsTest(unittest.TestCase):
         # assign parameters
         a = 1e-2
         for sd, data in mdg.subdomains(return_data=True):
-
             aperture = np.ones(sd.num_cells) * np.power(a, mdg.dim_max() - sd.dim)
             specified_parameters = {"aperture": aperture}
             bound_faces = sd.tags["domain_boundary_faces"].nonzero()[0]
@@ -919,7 +917,6 @@ class BasicsTest(unittest.TestCase):
             specified_parameters = {"aperture": aperture}
             bound_faces = sd.tags["domain_boundary_faces"].nonzero()[0]
             if bound_faces.size != 0:
-
                 bound_face_centers = sd.face_centers[:, bound_faces]
 
                 left = bound_face_centers[0, :] < tol
@@ -1051,7 +1048,6 @@ class BasicsTest(unittest.TestCase):
     # ------------------------------------------------------------------------------#
 
     def test_upwind_2d_beta_positive(self):
-
         f = np.array([[2, 2], [0, 2]])
         mdg = pp.meshing.cart_grid([f], [4, 2])
         mdg.compute_geometry()
@@ -1195,7 +1191,6 @@ class BasicsTest(unittest.TestCase):
     # ------------------------------------------------------------------------------#
 
     def test_upwind_2d_full_beta_bc_dir(self):
-
         f = np.array([[2, 2], [0, 2]])
         mdg = pp.meshing.cart_grid([f], [4, 2])
         mdg.compute_geometry()

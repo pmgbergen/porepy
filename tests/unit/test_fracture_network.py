@@ -6,16 +6,16 @@ Also tests for utility functions for generation of default domains.
 from __future__ import annotations
 
 import unittest
-import pytest
 
 import numpy as np
+import pytest
 
 import porepy as pp
-from tests import test_utils
-from porepy.fracs.utils import pts_edges_to_linefractures
 from porepy.fracs.fracture_network_2d import FractureNetwork2d
 from porepy.fracs.fracture_network_3d import FractureNetwork3d
+from porepy.fracs.utils import pts_edges_to_linefractures
 from porepy.grids.standard_grids.utils import unit_domain
+from tests import test_utils
 
 
 class TestCreateFractureNetwork:

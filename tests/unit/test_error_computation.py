@@ -1,8 +1,9 @@
 """Module containing tests for error computation."""
 
-import porepy as pp
 import numpy as np
 import pytest
+
+import porepy as pp
 from porepy.applications.md_grids.mdg_library import square_with_orthogonal_fractures
 
 
@@ -34,15 +35,14 @@ def grids() -> list[pp.Grid, pp.MortarGrid]:
         (True, False, False),  # subdomain vector face-centered quantity
         (False, True, True),  # interface scalar cell-centered quantity
         (False, True, False),  # interface vector cell-centered quantity
-
-    ]
+    ],
 )
 def test_l2_error(
-        is_sd: bool,
-        is_scalar: bool,
-        is_cc: bool,
-        is_relative: bool,
-        grids: list[pp.Grid, pp.MortarGrid],
+    is_sd: bool,
+    is_scalar: bool,
+    is_cc: bool,
+    is_relative: bool,
+    grids: list[pp.Grid, pp.MortarGrid],
 ) -> None:
     """Test whether the discrete L2-error is computed correctly.
 

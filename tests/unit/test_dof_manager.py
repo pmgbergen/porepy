@@ -6,6 +6,7 @@ the ``get_variable_values`` function, which was not working correctly.
 """
 
 import numpy as np
+
 import porepy as pp
 
 
