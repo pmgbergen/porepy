@@ -68,7 +68,6 @@ class TestCellIndForPartialUpdate(unittest.TestCase):
         self.assertTrue(np.alltrue(known_faces == face_ind))
 
     def test_cell_based_ind_2d(self):
-
         c = np.array([12])
         known_cells = np.setdiff1d(np.arange(25), np.array([0, 4, 20, 24]))
         known_faces = np.array([8, 9, 14, 15, 20, 21, 41, 42, 43, 46, 47, 48])
@@ -117,7 +116,6 @@ class TestCellIndForPartialUpdate(unittest.TestCase):
         self.assertTrue(np.alltrue(known_faces == face_ind))
 
     def test_face_based_ind_2d(self):
-
         # Use face between cells 11 and 12
         f = np.array([14])
 

@@ -257,13 +257,30 @@ def test_time_dependent_array():
             name="bar", values=vals_it, data=intf_data, iterate_index=0
         )
 
+    for bg, bg_data in mdg.boundaries(return_data=True):
+        vals_sol = np.arange(bg.num_cells)
+        pp.set_solution_values(
+            name="foobar", values=vals_sol, data=bg_data, time_step_index=0
+        )
+
+        vals_it = np.ones(bg.num_cells) * bg.parent.dim
+        pp.set_solution_values(
+            name="foobar", values=vals_it, data=bg_data, iterate_index=0
+        )
+
     # We make three arrays: One defined on a single subdomain, one on all subdomains of
     # mdg and one on an interface.
     sd_array_top = pp.ad.TimeDependentDenseArray(
-        "foo", subdomains=mdg.subdomains(dim=mdg.dim_max())
+        "foo", domains=mdg.subdomains(dim=mdg.dim_max())
     )
-    sd_array = pp.ad.TimeDependentDenseArray("foo", subdomains=mdg.subdomains())
-    intf_array = pp.ad.TimeDependentDenseArray("bar", interfaces=mdg.interfaces())
+    sd_array = pp.ad.TimeDependentDenseArray("foo", domains=mdg.subdomains())
+    intf_array = pp.ad.TimeDependentDenseArray("bar", domains=mdg.interfaces())
+    bg_array = pp.ad.TimeDependentDenseArray("foobar", domains=mdg.boundaries())
+
+    # Check correct domain types
+    assert sd_array.domain_type == sd_array_top.domain_type == "subdomains"
+    assert intf_array.domain_type == "interfaces"
+    assert bg_array.domain_type == "boundary grids"
 
     # Evaluate each of the Ad objects, verify that they have the expected values.
     sd_array_top_eval = sd_array_top.parse(mdg)
@@ -277,6 +294,11 @@ def test_time_dependent_array():
     # The interface.
     intf_val = intf_array.parse(mdg)
     assert np.allclose(intf_val, 1)
+    # Boundary grids.
+    bg_sizes = [bg.num_cells for bg in mdg.boundaries()]
+    bg_val = bg_array.parse(mdg)
+    assert np.allclose(bg_val[: bg_sizes[0]], 2)
+    assert np.allclose(bg_val[bg_sizes[0] :], 1)
 
     # Evaluate at previous time steps
 
@@ -290,9 +312,13 @@ def test_time_dependent_array():
     intf_prev_timestep = intf_array.previous_timestep()
     assert np.allclose(intf_prev_timestep.parse(mdg), np.arange(intf_val.size))
 
+    bg_val_prev_timestep = bg_array.previous_timestep().parse(mdg)
+    assert np.allclose(bg_val_prev_timestep[: bg_sizes[0]], np.arange(bg_sizes[0]))
+    assert np.allclose(bg_val_prev_timestep[bg_sizes[0] :], np.arange(bg_sizes[1]))
+
     # Create and evaluate a time-dependent array that is a function of neither
     # subdomains nor interfaces.
-    empty_array = pp.ad.TimeDependentDenseArray("none", subdomains=[], interfaces=[])
+    empty_array = pp.ad.TimeDependentDenseArray("none", domains=[])
     # In this case evaluation should return an empty array.
     empty_eval = empty_array.parse(mdg)
     assert empty_eval.size == 0
@@ -304,7 +330,7 @@ def test_time_dependent_array():
         # If we try to define an array on both subdomain and interface, we should get an
         # error.
         pp.ad.TimeDependentDenseArray(
-            "foobar", subdomains=mdg.subdomains(), interfaces=mdg.interfaces()
+            "foofoobar", domains=[*mdg.subdomains(), *mdg.interfaces()]
         )
 
 
@@ -777,7 +803,7 @@ def test_time_differentiation():
     assert np.allclose(diff_var_1.evaluate(eq_system).val, 2 * ts)
 
     # Differentiate the time dependent array residing on the subdomain
-    array = pp.ad.TimeDependentDenseArray(name="bar", subdomains=[sd])
+    array = pp.ad.TimeDependentDenseArray(name="bar", domains=[sd])
     dt_array = pp.ad.dt(array, time_step)
     assert np.allclose(dt_array.evaluate(eq_system), -0.5)
 

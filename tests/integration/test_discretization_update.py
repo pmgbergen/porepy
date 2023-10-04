@@ -149,7 +149,6 @@ def test_propagation(geometry, method):
 
         # Compare discretization matrices
         for eq_type in ["flow", "mechanics"]:  # We know which keywords were used
-
             for key in data[pp.DISCRETIZATION_MATRICES][eq_type]:
                 assert key in new_d[pp.DISCRETIZATION_MATRICES][eq_type]
             for key in new_d[pp.DISCRETIZATION_MATRICES][eq_type]:

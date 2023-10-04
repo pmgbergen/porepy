@@ -12,8 +12,8 @@ import scipy.sparse as sps
 
 from porepy.fracs import meshing
 from porepy.grids import refinement
-from porepy.grids.structured import TensorGrid
 from porepy.grids.simplex import TriangleGrid
+from porepy.grids.structured import TensorGrid
 from tests import test_utils
 
 
@@ -113,13 +113,11 @@ class TestGridRefinement2dSimplex(unittest.TestCase):
 
 class TestRefinementMortarGrid(unittest.TestCase):
     def test_mortar_grid_1d(self):
-
         f1 = np.array([[0, 1], [0.5, 0.5]])
 
         mdg = meshing.cart_grid([f1], [2, 2], **{"physdims": [1, 1]})
 
         for intf in mdg.interfaces():
-
             high_to_mortar_known = np.matrix(
                 [
                     [
@@ -204,14 +202,12 @@ class TestRefinementMortarGrid(unittest.TestCase):
             )
 
     def test_mortar_grid_1d_equally_refine_mortar_grids(self):
-
         f1 = np.array([[0, 1], [0.5, 0.5]])
 
         mdg = meshing.cart_grid([f1], [2, 2], **{"physdims": [1, 1]})
         mdg.compute_geometry()
 
         for intf, data in mdg.interfaces(return_data=True):
-
             new_side_grids = {
                 s: refinement.remesh_1d(g, num_nodes=4)
                 for s, g in intf.side_grids.items()
@@ -353,13 +349,11 @@ class TestRefinementMortarGrid(unittest.TestCase):
     # ------------------------------------------------------------------------------#
 
     def test_mortar_grid_1d_unequally_refine_mortar_grids(self):
-
         f1 = np.array([[0, 1], [0.5, 0.5]])
 
         mdg = meshing.cart_grid([f1], [2, 2], **{"physdims": [1, 1]})
 
         for intf, data in mdg.interfaces(return_data=True):
-
             new_side_grids = {
                 s: refinement.remesh_1d(g, num_nodes=s.value + 3)
                 for s, g in intf.side_grids.items()
@@ -517,7 +511,6 @@ class TestRefinementMortarGrid(unittest.TestCase):
         mdg = meshing.cart_grid([f1], [2, 2], **{"physdims": [1, 1]})
 
         for intf in mdg.interfaces():
-
             # refine the 1d-physical grid
             old_g = mdg.interface_to_subdomain_pair(intf)[1]
             new_g = refinement.remesh_1d(old_g, num_nodes=5)
@@ -633,7 +626,6 @@ class TestRefinementMortarGrid(unittest.TestCase):
         mdg = meshing.cart_grid([f1], [2, 2], **{"physdims": [1, 1]})
 
         for intf in mdg.interfaces():
-
             # refine the 1d-physical grid
             old_g = mdg.interface_to_subdomain_pair(intf)[1]
             new_g = refinement.remesh_1d(old_g, num_nodes=4)
@@ -754,7 +746,6 @@ class TestRefinementMortarGrid(unittest.TestCase):
     # ------------------------------------------------------------------------------#
 
     def test_mortar_grid_2d(self):
-
         f = np.array([[0, 1, 1, 0], [0, 0, 1, 1], [0.5, 0.5, 0.5, 0.5]])
         mdg = meshing.cart_grid([f], [2] * 3, **{"physdims": [1] * 3})
         mdg.compute_geometry()
@@ -763,7 +754,6 @@ class TestRefinementMortarGrid(unittest.TestCase):
         # mdg.assign_node_ordering()
 
         for intf, data in mdg.interfaces(return_data=True):
-
             indices_known = np.array([28, 29, 30, 31, 36, 37, 38, 39])
             self.assertTrue(
                 np.array_equal(intf.primary_to_mortar_int().indices, indices_known)

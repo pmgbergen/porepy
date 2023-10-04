@@ -10,16 +10,16 @@ should be covered in tests to be written.
 
 """
 from __future__ import annotations
-import pytest
-import scipy.sparse as sps
-import numpy as np
-
-from porepy.numerics.ad.forward_mode import AdArray, initAdArrays
-from porepy.numerics.ad import functions as af
 
 from typing import Literal, Union
 
+import numpy as np
+import pytest
+import scipy.sparse as sps
+
 import porepy as pp
+from porepy.numerics.ad import functions as af
+from porepy.numerics.ad.forward_mode import AdArray, initAdArrays
 
 AdType = Union[float, np.ndarray, sps.spmatrix, pp.ad.AdArray]
 

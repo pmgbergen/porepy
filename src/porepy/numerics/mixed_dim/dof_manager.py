@@ -528,8 +528,10 @@ class DofManager:
             if isinstance(g, pp.MortarGrid):
                 # This is really an edge
                 data = self.mdg.interface_data(g)
-            else:
+            elif isinstance(g, pp.Grid):
                 data = self.mdg.subdomain_data(g)
+            else:
+                raise ValueError(f"Only subdomains or interfaces are supported: {g}")
 
             if not to_iterate:
                 pp.set_solution_values(
@@ -587,8 +589,10 @@ class DofManager:
             if isinstance(g, pp.MortarGrid):
                 # This is really an edge
                 data = self.mdg.interface_data(g)
-            else:
+            elif isinstance(g, pp.Grid):
                 data = self.mdg.subdomain_data(g)
+            else:
+                raise ValueError(f"Only subdomains and interfaces are allowed: {g}")
 
             if from_iterate:
                 # Use copy to avoid nasty bugs.

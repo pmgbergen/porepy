@@ -9,7 +9,6 @@ from porepy.utils import graph
 
 
 class BasicsTest(unittest.TestCase):
-
     # ------------------------------------------------------------------------------#
 
     def test_fully_connected_graph(self):

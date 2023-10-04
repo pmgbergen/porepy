@@ -11,7 +11,6 @@ from porepy.grids import coarsening as co
 
 
 class BasicsTest(unittest.TestCase):
-
     # ------------------------------------------------------------------------------#
 
     def test_coarse_grid_2d(self):
@@ -193,7 +192,6 @@ class BasicsTest(unittest.TestCase):
                     known = [2, 5]
 
                 elif sd_secondary.dim == 1 and sd_primary.dim == 2:
-
                     if np.allclose(sd_secondary.cell_centers, cell_centers_1):
                         known = [5, 10, 14, 18, 52, 53, 54, 55]
                     elif np.allclose(sd_secondary.cell_centers, cell_centers_2):
@@ -436,7 +434,6 @@ class BasicsTest(unittest.TestCase):
                     known = [2, 7, 12, 17, 40, 41, 42, 43]
 
                 if sd_primary.dim == 3 and sd_secondary.dim == 2:
-
                     if np.allclose(sd_secondary.cell_centers, cell_centers_1):
                         known_indices = [
                             3,
@@ -889,7 +886,6 @@ class BasicsTest(unittest.TestCase):
     # ------------------------------------------------------------------------------#
 
     def test_create_partition_2d_1d_test1(self):
-
         mdg, _ = pp.md_grids_2d.single_horizontal(
             [2, 2], x_endpoints=[0.5, 0], simplex=False
         )
@@ -1009,7 +1005,6 @@ class BasicsTest(unittest.TestCase):
                     known_indices = [0, 1]
 
                 elif sd_primary.dim == 2 and sd_secondary.dim == 1:
-
                     g = sd_secondary
 
                     if np.allclose(g.cell_centers, cell_centers_1):
@@ -1059,7 +1054,6 @@ class BasicsTest(unittest.TestCase):
 
             # Test
             for intf in mdg.interfaces():
-
                 sd_primary, sd_secondary = mdg.interface_to_subdomain_pair(intf)
 
                 indices, faces, _ = sps.find(intf.primary_to_mortar_int())
@@ -1069,7 +1063,6 @@ class BasicsTest(unittest.TestCase):
                     known_indices = [0, 1]
 
                 if sd_secondary.dim == 1 and sd_primary.dim == 2:
-
                     if np.allclose(sd_secondary.cell_centers, cell_centers_1):
                         known = [5, 10, 14, 18, 52, 53, 54, 55]
                         known_indices = [3, 2, 1, 0, 7, 6, 5, 4]
@@ -1241,7 +1234,6 @@ class BasicsTest(unittest.TestCase):
                     known_indices = [0, 1]
 
                 elif sd_primary.dim == 2 and sd_secondary.dim == 1:
-
                     g = sd_secondary
 
                     if np.allclose(g.cell_centers, cell_centers_1):

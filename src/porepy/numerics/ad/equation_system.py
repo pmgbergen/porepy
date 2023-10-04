@@ -423,14 +423,6 @@ class EquationSystem:
             if var.name == name and var.domain in grids:
                 raise KeyError(f"Variable {name} already defined on {var.domain}.")
 
-        def initialize_data_with_key(data: dict, key: str) -> None:
-            """Prepare storage structure for values in data dictionary if not already
-            prepared."""
-            if key not in data:
-                data[key] = {}
-            if name not in data[key]:
-                data[key][name] = {}
-
         for grid in grids:
             if subdomains:
                 assert isinstance(grid, pp.Grid)  # mypy
@@ -439,13 +431,18 @@ class EquationSystem:
                 # Register boundary grid data for the subdomain if applicable.
                 if (bg := self.mdg.subdomain_to_boundary_grid(grid)) is not None:
                     bg_data = self.mdg.boundary_grid_data(bg)
-                    initialize_data_with_key(data=bg_data, key=pp.TIME_STEP_SOLUTIONS)
+                    for key in [pp.TIME_STEP_SOLUTIONS, pp.ITERATE_SOLUTIONS]:
+                        if key not in data:
+                            bg_data[key] = {}
             else:
                 assert isinstance(grid, pp.MortarGrid)  # mypy
                 data = self.mdg.interface_data(grid)
 
-            initialize_data_with_key(data=data, key=pp.TIME_STEP_SOLUTIONS)
-            initialize_data_with_key(data=data, key=pp.ITERATE_SOLUTIONS)
+            for key in [pp.TIME_STEP_SOLUTIONS, pp.ITERATE_SOLUTIONS]:
+                if key not in data:
+                    data[key] = {}
+                if name not in data[key]:
+                    data[key][name] = {}
 
             # Create grid variable.
             new_variable = Variable(name, dof_info, domain=grid, tags=tags)

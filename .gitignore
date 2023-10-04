@@ -81,6 +81,9 @@ $RECYCLE.BIN/
 *.geo
 *.geo_unrolled
 
+# Restart-related time step monitoring files
+times.json
+
 # Paraview
 *.pvd
 *.vtu
@@ -147,6 +150,7 @@ nbproject/
 .vscode/
 .spyderproject
 .spyproject
+*.code-workspace
 
 # Files Misc.
 *.7z

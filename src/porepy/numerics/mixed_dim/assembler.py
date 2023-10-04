@@ -1230,8 +1230,10 @@ class Assembler:
             # Get data dictionary - this is slightly different for grid and interface
             if isinstance(grid, pp.Grid):
                 d = self.mdg.subdomain_data(grid)
-            else:  # This is an interface
+            elif isinstance(grid, pp.MortarGrid):
                 d = self.mdg.interface_data(grid)
+            else:
+                raise ValueError(f"Only subdomains and interfaces are allowed: {grid}")
 
             # Dofs related to cell
             dof: Dict[str, int] = d[pp.PRIMARY_VARIABLES][variable]

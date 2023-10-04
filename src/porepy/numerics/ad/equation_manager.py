@@ -125,7 +125,8 @@ class EquationManager:
     def _set_variables(self, mdg: pp.MixedDimensionalGrid):
         # Define variables as specified in the MixedDimensionalGrid
         variables: Dict[
-            Union[pp.Grid, pp.MortarGrid], dict[str, operators.Variable]
+            Union[pp.Grid, pp.MortarGrid, pp.BoundaryGrid],
+            dict[str, operators.Variable],
         ] = dict()
         for sd, sd_data in mdg.subdomains(return_data=True):
             variables[sd] = {}

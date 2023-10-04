@@ -257,5 +257,5 @@ def test_intersect_sets(data):
     assert np.allclose(a_in_b, a_in_b_known)
 
     # a_2_b is a list of list, check one by one.
-    for (e1, e2) in zip(a_2_b, a_2_b_known):
+    for e1, e2 in zip(a_2_b, a_2_b_known):
         assert np.allclose(e1, e2)

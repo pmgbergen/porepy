@@ -80,7 +80,6 @@ class TestMpfaConvergenceVaryingPerm(unittest.TestCase):
         return pp.initialize_default_data(g, {}, "flow", specified_parameters)
 
     def error_p(self, g, p):
-
         sol = np.array([self.solution(*pt) for pt in g.cell_centers.T])
         return np.sqrt(np.sum(np.power(np.abs(p - sol), 2) * g.cell_volumes))
 
@@ -169,7 +168,6 @@ class TestMpfaConvergenceVaryingPermSurface(unittest.TestCase):
         return pp.initialize_default_data(g, {}, "flow", specified_parameters)
 
     def error_p(self, g, p):
-
         sol = np.array([self.solution(*pt) for pt in g.cell_centers.T])
         return np.sqrt(np.sum(np.power(np.abs(p - sol), 2) * g.cell_volumes))
 
@@ -248,7 +246,6 @@ class TestMpfaConvergenceVaryingPermSurface2(unittest.TestCase):
         return pp.initialize_default_data(g, {}, "flow", specified_parameters)
 
     def error_p(self, g, p):
-
         sol = np.array([self.solution(*pt) for pt in g.cell_centers.T])
         return np.sqrt(np.sum(np.power(np.abs(p - sol), 2) * g.cell_volumes))
 
@@ -439,7 +436,6 @@ class MainTester(unittest.TestCase):
     def solve_system_homogeneous_elasticity(
         self, g, bound_cond, bound_faces, k, an_sol
     ):
-
         # Boundary conditions
         xf = g.face_centers
         u_bound = np.zeros((g.dim, g.num_faces))
