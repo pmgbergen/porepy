@@ -27,7 +27,6 @@ from deepdiff import DeepDiff
 import porepy as pp
 from porepy.fracs.utils import pts_edges_to_linefractures
 
-
 # Globally store location of reference files
 folder_reference = (
     os.path.dirname(os.path.realpath(__file__)) + "/" + "test_vtk_reference"

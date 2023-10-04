@@ -60,7 +60,6 @@ def test_node_is_fracture_tip_2d():
 
 
 def test_node_is_fracture_tip_3d():
-
     dims = np.array([6, 5, 5])
 
     # f1 is isolated, all tip nodes should be marked in gh
@@ -827,7 +826,6 @@ class BasicsTest(unittest.TestCase):
         mdg, _ = pp.md_grids_2d.single_horizontal([4, 4], simplex=False)
 
         for sd in mdg.subdomains():
-
             if sd.dim == 1:
                 self.assertTrue(
                     np.array_equal(sd.tags["fracture_faces"], [False] * sd.num_faces)
@@ -894,7 +892,6 @@ class BasicsTest(unittest.TestCase):
         )
 
         for sd in mdg.subdomains():
-
             if sd.dim == 0:
                 self.assertTrue(np.sum(sd.tags["fracture_faces"]) == 0)
                 self.assertTrue(np.sum(sd.tags["fracture_nodes"]) == 0)

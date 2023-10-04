@@ -63,7 +63,6 @@ class TestVEMVaryingPerm(unittest.TestCase):
         return pp.initialize_default_data(g, {}, "flow", specified_parameters)
 
     def error_p(self, g, p):
-
         sol = np.array([self.solution(*pt) for pt in g.cell_centers.T])
         return np.sqrt(np.sum(np.power(np.abs(p - sol), 2) * g.cell_volumes))
 
@@ -158,7 +157,6 @@ class TestVEMVaryingPermTiltedGrid(unittest.TestCase):
         return pp.initialize_default_data(g, {}, "flow", specified_parameters)
 
     def error_p(self, g, p):
-
         sol = np.array([self.solution(*pt) for pt in g.cell_centers.T])
         return np.sqrt(np.sum(np.power(np.abs(p - sol), 2) * g.cell_volumes))
 
@@ -243,7 +241,6 @@ class TestVEMVaryingPermSurface_2(unittest.TestCase):
         return pp.initialize_default_data(g, {}, "flow", specified_parameters)
 
     def error_p(self, g, p):
-
         sol = np.array([self.solution(*pt) for pt in g.cell_centers.T])
         return np.sqrt(np.sum(np.power(np.abs(p - sol), 2) * g.cell_volumes))
 

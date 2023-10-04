@@ -10,7 +10,6 @@ import porepy as pp
 
 
 class BasicsTest(unittest.TestCase):
-
     # ------------------------------------------------------------------------------#
     def _matrix(self, g, perm, bc):
         solver = pp.RT0(keyword="flow")
@@ -110,7 +109,6 @@ class BasicsTest(unittest.TestCase):
     # ------------------------------------------------------------------------------#
 
     def test_rt0_2d_triangle(self):
-
         dim = 2
         nodes = np.array([[0, 1, 0], [0, 0, 1], [0, 0, 0]])
 
@@ -524,7 +522,6 @@ class BasicsTest(unittest.TestCase):
     # ------------------------------------------------------------------------------#
 
     def test_rt0_tetra(self):
-
         dim = 3
         nodes = np.array([[0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]])
 
@@ -565,7 +562,6 @@ class BasicsTest(unittest.TestCase):
     # ------------------------------------------------------------------------------#
 
     def test_rt0_3d(self):
-
         g = pp.StructuredTetrahedralGrid([1, 1, 1], [1, 1, 1])
         g.compute_geometry()
 
@@ -728,7 +724,6 @@ class BasicsTest(unittest.TestCase):
     # ------------------------------------------------------------------------------#
 
     def test_convergence_rt0_2d_iso_simplex_exact(self):
-
         p_ex = lambda pt: 2 * pt[0, :] - 3 * pt[1, :] - 9
         u_ex = np.array([-2, 3, 0])
 
@@ -772,7 +767,6 @@ class BasicsTest(unittest.TestCase):
     # ------------------------------------------------------------------------------#
 
     def test_convergence_rt0_2d_iso_simplex(self):
-
         a = 8 * np.pi**2
         rhs_ex = lambda pt: np.multiply(
             np.sin(2 * np.pi * pt[0, :]), np.sin(2 * np.pi * pt[1, :])
@@ -875,7 +869,6 @@ class BasicsTest(unittest.TestCase):
     # ------------------------------------------------------------------------------#
 
     def test_convergence_rt0_2d_ani_simplex(self):
-
         rhs_ex = lambda pt: 14
         p_ex = (
             lambda pt: 2 * np.power(pt[0, :], 2)
@@ -963,7 +956,6 @@ class BasicsTest(unittest.TestCase):
 
 
 class TestRT0Gravity(unittest.TestCase):
-
     # ------------------------------------------------------------------------------#
     def _matrix(self, g, perm, bc, vect):
         solver = pp.RT0(keyword="flow")
@@ -1001,7 +993,6 @@ class TestRT0Gravity(unittest.TestCase):
     # ------------------------------------------------------------------------------#
 
     def test_rt0_2d_triangle(self):
-
         dim = 2
         nodes = np.array([[0, 1, 0], [0, 0, 1], [0, 0, 0]])
 
@@ -1053,7 +1044,6 @@ class TestRT0Gravity(unittest.TestCase):
     # ------------------------------------------------------------------------------#
 
     def test_rt0_tetra(self):
-
         dim = 3
         nodes = np.array([[0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]])
 
@@ -1083,7 +1073,6 @@ class TestRT0Gravity(unittest.TestCase):
     # ------------------------------------------------------------------------------#
 
     def test_convergence_rt0_2d_iso_simplex_exact(self):
-
         p_ex = lambda pt: 2 * pt[0, :] - 3 * pt[1, :] - 9
         u_ex = np.array([-1, 4, 0])
 
@@ -1131,7 +1120,6 @@ class TestRT0Gravity(unittest.TestCase):
     # ------------------------------------------------------------------------------#
 
     def test_rt0_3d(self):
-
         g = pp.StructuredTetrahedralGrid([1, 1, 1], [1, 1, 1])
         g.compute_geometry()
 
@@ -1229,7 +1217,6 @@ class TestRT0Gravity(unittest.TestCase):
     # ------------------------------------------------------------------------------#
 
     def test_convergence_rt0_2d_iso_simplex(self):
-
         a = 8 * np.pi**2
         rhs_ex = lambda pt: np.multiply(
             np.sin(2 * np.pi * pt[0, :]), np.sin(2 * np.pi * pt[1, :])
@@ -1337,7 +1324,6 @@ class TestRT0Gravity(unittest.TestCase):
     # ------------------------------------------------------------------------------#
 
     def test_convergence_rt0_2d_ani_simplex(self):
-
         rhs_ex = lambda pt: 14
         p_ex = (
             lambda pt: 2 * np.power(pt[0, :], 2)

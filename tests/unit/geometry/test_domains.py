@@ -3,9 +3,9 @@
 The test coverage is somewhat patchy for now, see however additional tests (primarily in
 the bounding box functionality) in test_fracture_network.py.
 """
+import numpy as np
 import pytest
 
-import numpy as np
 import porepy as pp
 
 

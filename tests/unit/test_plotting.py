@@ -9,7 +9,6 @@ import pytest
 import porepy as pp
 from porepy.grids.standard_grids import md_grids_2d, md_grids_3d
 
-
 plt = pytest.importorskip("matplotlib.pyplot")
 
 

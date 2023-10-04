@@ -429,6 +429,11 @@ class WellNetwork3d:
                 sd_w.nodes = points_subline.copy()
                 sd_w.compute_geometry()
                 mdg.add_subdomains(sd_w)
+
+                # Properly initalizing the newly generated boundary grid.
+                if (bg_w := mdg.subdomain_to_boundary_grid(sd_w)) is not None:
+                    bg_w.set_projections()
+
                 sd_w.well_num = well_num
                 sd_w.name += " well " + str(well_num)
                 sd_w.tags["parent_well_index"] = w.index

@@ -117,23 +117,18 @@ class WellGeometryMixin:
         )
 
 
-class BoundaryConditionsMassAndEnergyDirNorthSouth(
-    pp.mass_and_energy_balance.BoundaryConditionsFluidMassAndEnergy
-):
-    """Boundary conditions for the thermoporomechanics problem.
+class BoundaryConditionsMassDirNorthSouth:
+    """Boundary conditions for the flow problem.
 
     Dirichlet boundary conditions are defined on the north and south boundaries. Some
     of the default values may be changed directly through attributes of the class.
-
-    Implementation of mechanical values facilitates time-dependent boundary conditions
-    with use of :class:`pp.time.TimeDependentArray` for :math:`\nabla \cdot u` term.
 
     Usage: tests for models defining equations for any subset of the thermoporomechanics
     problem.
 
     """
 
-    def bc_type_darcy(self, sd: pp.Grid) -> pp.BoundaryCondition:
+    def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         """Boundary condition type for Darcy flux.
 
         Dirichlet boundary conditions are defined on the north and south boundaries.
@@ -149,30 +144,25 @@ class BoundaryConditionsMassAndEnergyDirNorthSouth(
         # Define boundary condition on faces
         return pp.BoundaryCondition(sd, domain_sides.north + domain_sides.south, "dir")
 
-    def bc_values_darcy(self, subdomains: list[pp.Grid]) -> pp.ad.DenseArray:
+    def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
         """Boundary condition values for Darcy flux.
 
         Dirichlet boundary conditions are defined on the north and south boundaries,
         with a constant value of 0 unless fluid's reference pressure is changed.
 
         Parameters:
-            subdomains: List of subdomains for which to define boundary conditions.
+            boundary_grid: Boundary grid for which to define boundary conditions.
 
         Returns:
-            bc: Boundary condition object.
+            Boundary condition values array.
 
         """
-        vals = []
-        if len(subdomains) == 0:
-            return pp.ad.DenseArray(np.zeros(0), name="bc_values_darcy")
-        for sd in subdomains:
-            domain_sides = self.domain_boundary_sides(sd)
-            vals_loc = np.zeros(sd.num_faces)
-            vals_loc[domain_sides.north + domain_sides.south] = self.fluid.pressure()
-            vals.append(vals_loc)
-        return pp.wrap_as_ad_array(np.hstack(vals), name="bc_values_darcy")
+        domain_sides = self.domain_boundary_sides(boundary_grid)
+        vals_loc = np.zeros(boundary_grid.num_cells)
+        vals_loc[domain_sides.north + domain_sides.south] = self.fluid.pressure()
+        return vals_loc
 
-    def bc_type_mobrho(self, sd):
+    def bc_type_fluid_flux(self, sd):
         """Boundary condition type for the density-mobility product.
 
         Dirichlet boundary conditions are defined on the north and south boundaries.
@@ -188,7 +178,19 @@ class BoundaryConditionsMassAndEnergyDirNorthSouth(
         # Define boundary condition on faces
         return pp.BoundaryCondition(sd, domain_sides.north + domain_sides.south, "dir")
 
-    def bc_type_fourier(self, sd: pp.Grid) -> pp.BoundaryCondition:
+
+class BoundaryConditionsEnergyDirNorthSouth(pp.BoundaryConditionMixin):
+    """Boundary conditions for the thermal problem.
+
+    Dirichlet boundary conditions are defined on the north and south boundaries. Some
+    of the default values may be changed directly through attributes of the class.
+
+    Usage: tests for models defining equations for any subset of the thermoporomechanics
+    problem.
+
+    """
+
+    def bc_type_fourier_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         """Boundary condition type for the Fourier heat flux.
 
         Dirichlet boundary conditions are defined on the north and south boundaries.
@@ -204,7 +206,7 @@ class BoundaryConditionsMassAndEnergyDirNorthSouth(
         # Define boundary condition on faces
         return pp.BoundaryCondition(sd, domain_sides.north + domain_sides.south, "dir")
 
-    def bc_type_enthalpy(self, sd: pp.Grid) -> pp.BoundaryCondition:
+    def bc_type_enthalpy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         """Boundary condition type for the enthalpy.
 
         Dirichlet boundary conditions are defined on the north and south boundaries.
@@ -220,39 +222,8 @@ class BoundaryConditionsMassAndEnergyDirNorthSouth(
         # Define boundary condition on faces
         return pp.BoundaryCondition(sd, domain_sides.north + domain_sides.south, "dir")
 
-    def bc_values_mobrho(self, subdomains: list[pp.Grid]) -> pp.ad.DenseArray:
-        """Boundary condition values for the mobility.
 
-        Nonzero values are only defined on the north and south boundaries corresponding
-        to the reference value of the density-mobility product.
-
-        Parameters:
-            subdomains: List of subdomains for which to define boundary conditions.
-
-        Returns:
-            bc_values: Array of boundary condition values.
-
-        """
-        values = []
-        for sd in subdomains:
-            # Get density and viscosity values on boundary faces applying trace to
-            # interior values.
-            domain_sides = self.domain_boundary_sides(sd)
-            # Append to list of boundary values
-            vals = np.zeros(sd.num_faces)
-            vals[domain_sides.north + domain_sides.south] = (
-                self.fluid.density() / self.fluid.viscosity()
-            )
-            values.append(vals)
-
-        # Concatenate to single array and wrap as ad.DenseArray
-        bc_values = pp.wrap_as_ad_array(np.hstack(values), name="bc_values_mobility")
-        return bc_values
-
-
-class BoundaryConditionsMechanicsDirNorthSouth(
-    pp.momentum_balance.BoundaryConditionsMomentumBalance
-):
+class BoundaryConditionsMechanicsDirNorthSouth(pp.BoundaryConditionMixin):
     """Boundary conditions for the mechanics with Dirichlet conditions on north and
     south boundaries.
 
@@ -284,7 +255,7 @@ class BoundaryConditionsMechanicsDirNorthSouth(
         bc.internal_to_dirichlet(sd)
         return bc
 
-    def bc_values_mechanics_np(self, sd: pp.Grid) -> np.ndarray:
+    def bc_values_displacement(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
         """Boundary values for the mechanics problem as a numpy array.
 
         Extracted from below method to facilitate time dependent boundary conditions.
@@ -292,15 +263,15 @@ class BoundaryConditionsMechanicsDirNorthSouth(
         through attributes ux_north, uy_north, ux_south, uy_south.
 
         Parameters:
-            sd: Subdomain for which boundary values are to be returned.
+            boundary_grid: Boundary grid for which boundary values are to be returned.
 
         Returns:
             Array of boundary values, with one value for each dimension of the
                 problem, for each face in the subdomain.
 
         """
-        domain_sides = self.domain_boundary_sides(sd)
-        values = np.zeros((sd.dim, sd.num_faces))
+        domain_sides = self.domain_boundary_sides(boundary_grid)
+        values = np.zeros((self.nd, boundary_grid.num_cells))
         values[1, domain_sides.north] = self.solid.convert_units(
             self.params.get("uy_north", 0), "m"
         )
@@ -315,46 +286,16 @@ class BoundaryConditionsMechanicsDirNorthSouth(
         )
         return values.ravel("F")
 
-    def bc_values_mechanics(self, subdomains: list[pp.Grid]) -> pp.ad.DenseArray:
-        """Boundary values for the mechanics problem.
 
-        Parameters:
-            subdomains: List of subdomains for which boundary values are to be returned.
-
-        Returns:
-            Array of boundary values, with one value for each dimension of the
-                problem, for each face in the subdomain.
-
-        """
-        # Set the boundary values
-        bc_values = []
-        if len(subdomains) == 0:
-            return pp.ad.DenseArray(np.zeros(0), name="bc_values_mechanics")
-        for sd in subdomains:
-            bc_values.append(self.bc_values_mechanics_np(sd))
-        ad_values = pp.wrap_as_ad_array(
-            np.hstack(bc_values), name="bc_values_mechanics"
-        )
-        return ad_values
-
-
-class TimeDependentMechanicalBCsDirNorthSouth:
+class TimeDependentMechanicalBCsDirNorthSouth(BoundaryConditionsMechanicsDirNorthSouth):
     """Time dependent displacement boundary conditions.
 
     For use in (thermo)poremechanics.
     """
 
-    def bc_type_mechanics(self, sd: pp.Grid) -> pp.BoundaryCondition:
-        return BoundaryConditionsMechanicsDirNorthSouth.bc_type_mechanics(self, sd)
-
-    def time_dependent_bc_values_mechanics(
-        self, subdomains: list[pp.Grid]
-    ) -> np.ndarray:
-        assert len(subdomains) == 1
-        sd = subdomains[0]
-
-        domain_sides = self.domain_boundary_sides(sd)
-        values = np.zeros((self.nd, sd.num_faces))
+    def bc_values_displacement(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+        domain_sides = self.domain_boundary_sides(boundary_grid)
+        values = np.zeros((self.nd, boundary_grid.num_cells))
         # Add fracture width on top if there is a fracture.
         if len(self.mdg.subdomains()) > 1:
             frac_val = self.solid.convert_units(0.042, "m")
@@ -371,7 +312,9 @@ class TimeDependentMechanicalBCsDirNorthSouth:
         return values.ravel("F")
 
 
-class NoPhysics(pp.ModelGeometry, pp.SolutionStrategy, pp.DataSavingMixin):
+class NoPhysics(
+    pp.ModelGeometry, pp.SolutionStrategy, pp.DataSavingMixin, pp.BoundaryConditionMixin
+):
     """A model with no physics, for testing purposes.
 
     The model comes with minimal physical properties, making testing of individual
@@ -383,6 +326,9 @@ class NoPhysics(pp.ModelGeometry, pp.SolutionStrategy, pp.DataSavingMixin):
         pass
 
     def set_equations(self):
+        pass
+
+    def update_all_boundary_conditions(self):
         pass
 
 
@@ -399,16 +345,12 @@ class MomentumBalance(
 ):
     """Combine components needed for momentum balance simulation."""
 
-    pass
-
 
 class MassAndEnergyBalance(
     RectangularDomainThreeFractures,
     pp.mass_and_energy_balance.MassAndEnergyBalance,
 ):
     """Combine components needed for force balance simulation."""
-
-    pass
 
 
 class Poromechanics(
@@ -417,16 +359,12 @@ class Poromechanics(
 ):
     """Combine components needed for poromechanics simulation."""
 
-    pass
-
 
 class Thermoporomechanics(
     RectangularDomainThreeFractures,
     pp.thermoporomechanics.Thermoporomechanics,
 ):
     """Combine components needed for poromechanics simulation."""
-
-    pass
 
 
 def model(
@@ -477,7 +415,7 @@ def model(
     return model
 
 
-def domains_from_method_name(
+def subdomains_or_interfaces_from_method_name(
     mdg: pp.MixedDimensionalGrid,
     method_name: Callable,
     domain_dimension: int,
@@ -487,7 +425,8 @@ def domains_from_method_name(
     The method to be tested is assumed to take as input only its domain of definition,
     that is a list of subdomains or interfaces. The test framework is not compatible with
     methods that take other arguments (and such a method would also break the implicit
-    contract of the constitutive laws).
+    contract of the constitutive laws). Note that for the ambiguity related to methods
+    defined on either subdomains or boundaries, only subdomains are considered.
 
     Parameters:
         mdg: Mixed-dimensional grid.
@@ -503,7 +442,7 @@ def domains_from_method_name(
     assert len(signature.parameters) == 1
 
     # The domain is a list of either subdomains or interfaces.
-    if "subdomains" in signature.parameters:
+    if "subdomains" in signature.parameters or "domains" in signature.parameters:
         # If relevant, filter out the domains that are not to be tested.
         domains = mdg.subdomains(dim=domain_dimension)
     elif "interfaces" in signature.parameters:
@@ -623,7 +562,9 @@ def compare_scaled_model_quantities(
         for setup in [setup_0, setup_1]:
             # Obtain scaled values.
             method = getattr(setup, method_name)
-            domains = domains_from_method_name(setup.mdg, method, domain_dimension=dim)
+            domains = subdomains_or_interfaces_from_method_name(
+                setup.mdg, method, domain_dimension=dim
+            )
             # Convert back to SI units.
             value = method(domains).evaluate(setup.equation_system)
             if isinstance(value, pp.ad.AdArray):
@@ -697,6 +638,7 @@ def get_model_methods_returning_ad_operator(model_setup) -> list[str]:
             and (
                 "subdomains" in signature.parameters
                 or "interfaces" in signature.parameters
+                or "domains" in signature.parameters
             )
             and (
                 "pp.ad.Operator" in signature.return_annotation

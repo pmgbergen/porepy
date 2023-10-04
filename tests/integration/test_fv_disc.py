@@ -12,7 +12,6 @@ import porepy as pp
 
 
 def setup_cart_2d(nx, physdims):
-
     g = pp.CartGrid(nx, physdims)
     g.compute_geometry()
     kxx = 0.5 * np.ones(g.num_cells)

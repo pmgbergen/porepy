@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import logging
 from functools import partial
-from typing import Callable, Optional, Sequence
+from typing import Callable, Optional, Sequence, cast
 
 import numpy as np
 
@@ -459,7 +459,7 @@ class ConstitutiveLawsMomentumBalance(
 ):
     """Class for constitutive equations for momentum balance equations."""
 
-    def stress(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+    def stress(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
         """Stress operator.
 
         Parameters:
@@ -470,7 +470,7 @@ class ConstitutiveLawsMomentumBalance(
 
         """
         # Method from constitutive library's LinearElasticRock.
-        return self.mechanical_stress(subdomains)
+        return self.mechanical_stress(domains)
 
 
 class VariablesMomentumBalance:
@@ -524,6 +524,9 @@ class VariablesMomentumBalance:
     :class:`~porepy.models.geometry.ModelGeometry`.
 
     """
+    create_boundary_operator: Callable[
+        [str, Sequence[pp.BoundaryGrid]], pp.ad.TimeDependentDenseArray
+    ]
 
     def create_variables(self) -> None:
         """Set variables for the subdomains and interfaces.
@@ -554,11 +557,11 @@ class VariablesMomentumBalance:
             tags={"si_units": "Pa"},
         )
 
-    def displacement(self, subdomains: list[pp.Grid]) -> pp.ad.Variable:
+    def displacement(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
         """Displacement in the matrix.
 
         Parameters:
-            grids: List of subdomains or interface grids where the displacement is
+            domains: List of subdomains or interface grids where the displacement is
                 defined. Should be the matrix subdomains.
 
         Returns:
@@ -567,14 +570,30 @@ class VariablesMomentumBalance:
         Raises:
             ValueError: If the dimension of the subdomains is not equal to the ambient
                 dimension of the problem.
+            ValueError: If the method is called on a mixture of grids and boundary
+                grids
 
         """
-        if not all([sd.dim == self.nd for sd in subdomains]):
+        if len(domains) == 0 or all(
+            isinstance(grid, pp.BoundaryGrid) for grid in domains
+        ):
+            return self.create_boundary_operator(  # type: ignore[call-arg]
+                name=self.displacement_variable, domains=domains
+            )
+        # Check that the subdomains are grids
+        if not all(isinstance(grid, pp.Grid) for grid in domains):
+            raise ValueError(
+                "Method called on a mixture of subdomain and boundary grids."
+            )
+        # Now we can cast to Grid
+        domains = cast(list[pp.Grid], domains)
+
+        if not all([grid.dim == self.nd for grid in domains]):
             raise ValueError(
                 "Displacement is only defined in subdomains of dimension nd."
             )
 
-        return self.equation_system.md_variable(self.displacement_variable, subdomains)
+        return self.equation_system.md_variable(self.displacement_variable, domains)
 
     def interface_displacement(self, interfaces: list[pp.MortarGrid]) -> pp.ad.Variable:
         """Displacement on fracture-matrix interfaces.
@@ -810,7 +829,7 @@ class SolutionStrategyMomentumBalance(pp.SolutionStrategy):
         return self.mdg.dim_min() < self.nd
 
 
-class BoundaryConditionsMomentumBalance:
+class BoundaryConditionsMomentumBalance(pp.BoundaryConditionMixin):
     """Boundary conditions for the momentum balance."""
 
     nd: int
@@ -818,7 +837,9 @@ class BoundaryConditionsMomentumBalance:
     :class:`porepy.models.geometry.ModelGeometry`.
 
     """
-    domain_boundary_sides: Callable[[pp.Grid], pp.domain.DomainSides]
+    displacement_variable: str
+
+    stress_keyword: str
 
     def bc_type_mechanics(self, sd: pp.Grid) -> pp.BoundaryConditionVectorial:
         """Define type of boundary conditions.
@@ -841,21 +862,39 @@ class BoundaryConditionsMomentumBalance:
         bc.internal_to_dirichlet(sd)
         return bc
 
-    def bc_values_mechanics(self, subdomains: list[pp.Grid]) -> pp.ad.DenseArray:
-        """Boundary values for the momentum balance.
+    def bc_values_displacement(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+        """Displacement values for the Dirichlet boundary condition.
 
         Parameters:
-            subdomains: List of subdomains.
+            boundary_grid: Boundary grid to evaluate values on.
 
         Returns:
-            bc_values: Array of boundary condition values, zero by default. If combined
-            with transient problems in e.g. Biot, this should be a
-            :class:`pp.ad.TimeDependentArray` (or a variable following BoundaryGrid
-            extension).
+            An array with shape (boundary_grid.num_cells,) containing the displacement
+            values on the provided boundary grid.
 
         """
-        num_faces = sum([sd.num_faces for sd in subdomains])
-        return pp.wrap_as_ad_array(0, num_faces * self.nd, "bc_vals_mechanics")
+        return np.zeros((self.nd, boundary_grid.num_cells)).ravel("F")
+
+    def bc_values_stress(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+        """Stress values for the Nirichlet boundary condition.
+
+        Parameters:
+            boundary_grid: Boundary grid to evaluate values on.
+
+        Returns:
+            An array with shape (boundary_grid.num_cells,) containing the stress values
+            on the provided boundary grid.
+
+        """
+        return np.zeros((self.nd, boundary_grid.num_cells)).ravel("F")
+
+    def update_all_boundary_conditions(self) -> None:
+        """Set values for the displacement and the stress on boundaries."""
+        super().update_all_boundary_conditions()
+        self.update_boundary_condition(
+            self.displacement_variable, self.bc_values_displacement
+        )
+        self.update_boundary_condition(self.stress_keyword, self.bc_values_stress)
 
 
 # Note that we ignore a mypy error here. There are some inconsistencies in the method
@@ -876,5 +915,3 @@ class MomentumBalance(  # type: ignore[misc]
     pp.DataSavingMixin,
 ):
     """Class for mixed-dimensional momentum balance with contact mechanics."""
-
-    pass

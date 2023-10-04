@@ -81,7 +81,6 @@ def test_subdomain_projections(mdg, scalar):
 
     # Test projection of one fracture at a time for the full set of grids
     for sd in subdomains:
-
         ind = _list_ind_of_grid(subdomains, sd)
 
         nc, nf = sd.num_cells, sd.num_faces
@@ -237,6 +236,7 @@ def test_boundary_grid_projection(mdg: pp.MixedDimensionalGrid, scalar: bool):
     2) Specifically that the top-dimensional grid and one of the fracture grids
        contribute to the boundary projection operator, while the third has a projection
        matrix with zero rows.
+    3) Projection from a subdomain to a boundary is consistent with its reverse.
 
     """
     proj_dim = 1 if scalar else mdg.dim_max()
@@ -248,30 +248,31 @@ def test_boundary_grid_projection(mdg: pp.MixedDimensionalGrid, scalar: bool):
     # Compute geometry for the mixed-dimensional grid. This is needed for
     # boundary projection operator.
     mdg.compute_geometry()
-    projection = pp.ad.grid_operators.BoundaryProjection(
-        mdg, mdg.subdomains(), proj_dim
-    )
+    projection = pp.ad.BoundaryProjection(mdg, mdg.subdomains(), proj_dim)
+    # Obtaining sparse matrices from the AD Operators.
+    subdomain_to_boundary = projection.subdomain_to_boundary.parse(mdg)
+    boundary_to_subdomain = projection.boundary_to_subdomain.parse(mdg)
     # Check sizes.
-    assert projection.subdomain_to_boundary().shape == (num_cells, num_faces)
-    assert projection.boundary_to_subdomain().shape == (num_faces, num_cells)
+    assert subdomain_to_boundary.shape == (num_cells, num_faces)
+    assert boundary_to_subdomain.shape == (num_faces, num_cells)
 
     # Check that the projection matrix for the top-dimensional grid is non-zero.
     # The matrix has eight boundary faces.
     ind0 = 0
     ind1 = g_0.num_faces * proj_dim
-    assert np.sum(projection.subdomain_to_boundary()[:, ind0:ind1]) == 8 * proj_dim
+    assert np.sum(subdomain_to_boundary[:, ind0:ind1]) == 8 * proj_dim
     # Check that the projection matrix for the first fracture is non-zero. Since the
     # fracture touches the boundary on two sides, we expect two non-zero rows.
     ind0 = ind1
     ind1 += g_1.num_faces * proj_dim
-    assert np.sum(projection.subdomain_to_boundary()[:, ind0:ind1]) == 2 * proj_dim
+    assert np.sum(subdomain_to_boundary[:, ind0:ind1]) == 2 * proj_dim
     # Check that the projection matrix for the second fracture is non-zero.
     ind0 = ind1
     ind1 += g_2.num_faces * proj_dim
-    assert np.sum(projection.subdomain_to_boundary()[:, ind0:ind1]) == 2 * proj_dim
+    assert np.sum(subdomain_to_boundary[:, ind0:ind1]) == 2 * proj_dim
     # The projection matrix for the intersection should be zero.
     ind0 = ind1
-    assert np.sum(projection.subdomain_to_boundary()[:, ind0:]) == 0
+    assert np.sum(subdomain_to_boundary[:, ind0:]) == 0
 
     # Make second projection on subset of grids.
     subdomains = [g_0, g_1]
@@ -280,18 +281,24 @@ def test_boundary_grid_projection(mdg: pp.MixedDimensionalGrid, scalar: bool):
     num_cells = proj_dim * sum(
         [mdg.subdomain_to_boundary_grid(sd).num_cells for sd in subdomains]
     )
+    # Obtaining sparse matrices from the AD Operators.
+    subdomain_to_boundary = projection.subdomain_to_boundary.parse(mdg)
+    boundary_to_subdomain = projection.boundary_to_subdomain.parse(mdg)
     # Check sizes.
-    assert projection.subdomain_to_boundary().shape == (num_cells, num_faces)
-    assert projection.boundary_to_subdomain().shape == (num_faces, num_cells)
+    assert subdomain_to_boundary.shape == (num_cells, num_faces)
+    assert boundary_to_subdomain.shape == (num_faces, num_cells)
 
     # Check that the projection matrix for the top-dimensional grid is non-zero.
     # Same sizes as above.
     ind0 = 0
     ind1 = g_0.num_faces * proj_dim
-    assert np.sum(projection.subdomain_to_boundary()[:, ind0:ind1]) == 8 * proj_dim
+    assert np.sum(subdomain_to_boundary[:, ind0:ind1]) == 8 * proj_dim
     ind0 = ind1
     ind1 += g_1.num_faces * proj_dim
-    assert np.sum(projection.subdomain_to_boundary()[:, ind0:ind1]) == 2 * proj_dim
+    assert np.sum(subdomain_to_boundary[:, ind0:ind1]) == 2 * proj_dim
+
+    # Check that subdomain_to_boundary and boundary_to_subdomain are consistent.
+    assert np.allclose((subdomain_to_boundary - boundary_to_subdomain.T).data, 0)
 
 
 # Geometry based operators
