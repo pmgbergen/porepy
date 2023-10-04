@@ -576,11 +576,11 @@ class VariablesEnergyBalance:
             tags={"si_units": "W"},
         )
 
-    def temperature(self, grids: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+    def temperature(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
         """Representation of the temperature as an AD-Operator.
 
         Parameters:
-            grids: List of subdomains or list of boundary grids
+            domains: List of subdomains or list of boundary grids.
 
         Raises:
             ValueError: If the passed sequence of domains does not consist entirely
@@ -594,21 +594,20 @@ class VariablesEnergyBalance:
             boundary values.
 
         """
-        if len(grids) > 0 and all([isinstance(g, pp.BoundaryGrid) for g in grids]):
+        if len(domains) > 0 and all([isinstance(g, pp.BoundaryGrid) for g in domains]):
             return self.create_boundary_operator(
-                name=self.temperature_variable, domains=grids  # type: ignore[call-arg]
+                name=self.temperature_variable, domains=domains  # type: ignore[call-arg]
             )
 
         # Check that the domains are grids.
-        if not all([isinstance(g, pp.Grid) for g in grids]):
+        if not all([isinstance(g, pp.Grid) for g in domains]):
             raise ValueError(
-                """Argument domains a mixture of grids and
-                                boundary grids"""
+                """Argument domains a mixture of subdomain and boundary grids"""
             )
 
-        grids = cast(list[pp.Grid], grids)
+        domains = cast(list[pp.Grid], domains)
 
-        return self.equation_system.md_variable(self.temperature_variable, grids)
+        return self.equation_system.md_variable(self.temperature_variable, domains)
 
     def interface_fourier_flux(
         self, interfaces: list[pp.MortarGrid]

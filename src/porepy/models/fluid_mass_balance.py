@@ -617,12 +617,12 @@ class VariablesSinglePhaseFlow(pp.VariableMixin):
             tags={"si_units": f"m^{self.nd} * Pa"},
         )
 
-    def pressure(self, grids: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+    def pressure(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
         """Pressure term. Either a primary variable if subdomains are provided a
         boundary condition operator if boundary grids are provided.
 
         Parameters:
-            grids: List of subdomains or boundary grids.
+            domains: List of subdomains or boundary grids.
 
         Raises:
             ValueError: If the grids are not all subdomains or all boundary grids.
@@ -631,17 +631,17 @@ class VariablesSinglePhaseFlow(pp.VariableMixin):
             Operator representing the pressure.
 
         """
-        if len(grids) > 0 and isinstance(grids[0], pp.BoundaryGrid):
+        if len(domains) > 0 and isinstance(domains[0], pp.BoundaryGrid):
             return self.create_boundary_operator(
-                name=self.pressure_variable, domains=grids  # type: ignore[call-arg]
+                name=self.pressure_variable, domains=domains  # type: ignore[call-arg]
             )
-        # Check that all grids are subdomains.
-        if not all(isinstance(g, pp.Grid) for g in grids):
+        # Check that all domains are subdomains.
+        if not all(isinstance(g, pp.Grid) for g in domains):
             raise ValueError("grids must consist entirely of subdomains.")
         # Now we can cast the grids
-        grids = cast(list[pp.Grid], grids)
+        domains = cast(list[pp.Grid], domains)
 
-        return self.equation_system.md_variable(self.pressure_variable, grids)
+        return self.equation_system.md_variable(self.pressure_variable, domains)
 
     def interface_darcy_flux(
         self, interfaces: list[pp.MortarGrid]
