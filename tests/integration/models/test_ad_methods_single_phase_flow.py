@@ -168,39 +168,11 @@ def test_tested_vs_testable_methods_single_phase_flow(
     "method_name, expected_value, dimension_restriction",
     [
         ("aperture", np.array([1, 1, 1, 1, 0.01, 0.01, 0.01, 0.01, 0.01]), None),
-        # Boundary values for the elliptic discretization
-        ("bc_values_darcy_flux", np.zeros(24), None),
-        # Boundary values for the upwind discretization
+        # Combination of mobility and fluid density = rho/mu
+        # = rho_ref * exp(c_f * (p - p_ref)) / mu = 1000 * exp(4e-10 * 2e7) /  0.001
         (
             "mobility_rho",
-            np.array(
-                [
-                    1e6,
-                    0,
-                    1e6,
-                    1e6,
-                    0,
-                    1e6,
-                    1e6,
-                    1e6,
-                    0,
-                    0,
-                    1e6,
-                    1e6,
-                    0,
-                    0,
-                    0,
-                    0,
-                    1e6,
-                    0,
-                    1e6,
-                    0,
-                    1e6,
-                    0,
-                    1e6,
-                    0,
-                ]
-            ),
+            np.ones(9) * 1008032.0855042734,
             None,
         ),
         # Darcy fluxes (with unitary values for the viscosity).
@@ -404,7 +376,7 @@ def test_ad_operator_methods_single_phase_flow(
     method: Callable = getattr(model_setup, method_name)
 
     # Obtain list of subdomain or interface grids where the method is defined.
-    domains = setup_utils.domains_from_method_name(
+    domains = setup_utils.subdomains_or_interfaces_from_method_name(
         model_setup.mdg,
         method,
         dimension_restriction,
