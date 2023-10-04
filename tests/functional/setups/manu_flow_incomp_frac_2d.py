@@ -684,6 +684,15 @@ class ManuIncompBoundaryConditions(
             return pp.BoundaryCondition(sd, boundary_faces, "neu")
 
     def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+        """Analytical boundary condition values for Darcy flux.
+
+        Parameters:
+            boundary_grid: Boundary grid for which to define boundary conditions.
+
+        Returns:
+            Boundary condition values array.
+
+        """
         vals = np.zeros(boundary_grid.num_cells)
         if boundary_grid.dim == (self.mdg.dim_max() - 1):
             # Dirichlet for matrix
