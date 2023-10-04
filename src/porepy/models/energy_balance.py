@@ -175,7 +175,7 @@ class EnergyBalanceEquations(pp.BalanceEquation):
         pp.ad.Operator,
     ]
 
-    bc_type_enthalpy: Callable[[pp.Grid], pp.BoundaryCondition]
+    bc_type_enthalpy_flux: Callable[[pp.Grid], pp.BoundaryCondition]
 
     bc_data_enthalpy_flux_key: str
 
@@ -354,7 +354,7 @@ class EnergyBalanceEquations(pp.BalanceEquation):
                 subdomains=subdomains,
                 dirichlet_operator=enthalpy_dirichlet,
                 neumann_operator=self.enthalpy_flux,
-                bc_type=self.bc_type_enthalpy,
+                bc_type=self.bc_type_enthalpy_flux,
                 name="bc_values_enthalpy",
             )
         )
@@ -726,7 +726,7 @@ class BoundaryConditionsEnergyBalance(pp.BoundaryConditionMixin):
     enthalpy_flux: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     """See :meth:`EnergyBalanceEquations.enthalpy_flux`."""
 
-    def bc_type_fourier(self, sd: pp.Grid) -> pp.BoundaryCondition:
+    def bc_type_fourier_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         """Boundary conditions on all external boundaries for the conductive flux
         in the energy equation.
 
@@ -743,14 +743,14 @@ class BoundaryConditionsEnergyBalance(pp.BoundaryConditionMixin):
         # Define boundary condition on all boundary faces.
         return pp.BoundaryCondition(sd, boundary_faces, "dir")
 
-    def bc_type_enthalpy(self, sd: pp.Grid) -> pp.BoundaryCondition:
+    def bc_type_enthalpy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         """Boundary conditions on all external boundaries for the advective flux in the
         energy equation.
 
         Warning:
             This must not be different from mixed in definition of
             :meth:`~porepy.models.fluid_mass_balance.BoundaryConditionsSinglePhaseFlow.
-            bc_type_darcy`.
+            bc_type_darcy_flux`.
             Advective enthalpy flux is due to energy associated with mass entering the
             system, which is the same as for the mass balance equation.
             Unphysical systems arise otherwise.
@@ -880,13 +880,13 @@ class SolutionStrategyEnergyBalance(pp.SolutionStrategy):
     :class:`~porepy.models.constitutive_laws.ThermalConductivityLTE` or a subclass.
 
     """
-    bc_type_fourier: Callable[[pp.Grid], pp.BoundaryCondition]
+    bc_type_fourier_flux: Callable[[pp.Grid], pp.BoundaryCondition]
     """Function that returns the boundary condition type for the Fourier flux. Normally
     defined in a mixin instance of
     :class:`~porepy.models.fluid_mass_balance.BoundaryConditionsEnergyBalance`.
 
     """
-    bc_type_enthalpy: Callable[[pp.Grid], pp.BoundaryCondition]
+    bc_type_enthalpy_flux: Callable[[pp.Grid], pp.BoundaryCondition]
     """Function that returns the boundary condition type for the enthalpy flux.
     Normally defined in a mixin instance
     of :class:`~porepy.models.fluid_mass_balance.BoundaryConditionsEnergyBalance`.
@@ -955,7 +955,7 @@ class SolutionStrategyEnergyBalance(pp.SolutionStrategy):
                 data,
                 self.fourier_keyword,
                 {
-                    "bc": self.bc_type_fourier(sd),
+                    "bc": self.bc_type_fourier_flux(sd),
                     "second_order_tensor": self.thermal_conductivity_tensor(sd),
                     "ambient_dimension": self.nd,
                 },
@@ -965,7 +965,7 @@ class SolutionStrategyEnergyBalance(pp.SolutionStrategy):
                 data,
                 self.enthalpy_keyword,
                 {
-                    "bc": self.bc_type_enthalpy(sd),
+                    "bc": self.bc_type_enthalpy_flux(sd),
                 },
             )
 

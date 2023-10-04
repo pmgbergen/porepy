@@ -674,7 +674,7 @@ class ManuIncompBoundaryConditions(
     exact_sol: ManuIncompExactSolution2d
     """Exact solution object."""
 
-    def bc_type_darcy(self, sd: pp.Grid) -> pp.BoundaryCondition:
+    def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         """Set boundary condition type."""
         if sd.dim == self.mdg.dim_max():  # Dirichlet for the matrix
             boundary_faces = self.domain_boundary_sides(sd).all_bf

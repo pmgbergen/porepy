@@ -112,7 +112,7 @@ class BoundaryConditionsWellSetup(pp.BoundaryConditionMixin):
             vals_loc[domain_sides.top] = value
         return vals_loc
 
-    def bc_type_darcy(self, sd: pp.Grid) -> pp.BoundaryCondition:
+    def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         """Boundary condition type for Darcy flux.
 
         Dirichlet boundary conditions are defined on the north and south boundaries.
@@ -144,10 +144,10 @@ class BoundaryConditionsWellSetup(pp.BoundaryConditionMixin):
         )
         return self._bc_values(boundary_grid, value)
 
-    def bc_type_mobrho(self, sd: pp.Grid) -> pp.BoundaryCondition:
+    def bc_type_fluid_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         return self._bc_type(sd, "dir")
 
-    def bc_type_enthalpy(self, sd: pp.Grid) -> pp.BoundaryCondition:
+    def bc_type_enthalpy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         """Boundary condition type for enthalpy.
 
         Dirichlet boundary conditions are defined on the north and south boundaries.
@@ -173,7 +173,7 @@ class BoundaryConditionsWellSetup(pp.BoundaryConditionMixin):
         val = self.fluid.convert_units(self.params.get("well_enthalpy", 1e7), "K")
         return self._bc_values(boundary_grid, val)
 
-    def bc_type_fourier(self, sd: pp.Grid) -> pp.BoundaryCondition:
+    def bc_type_fourier_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         """Boundary condition type for Fourier flux.
 
         Dirichlet boundary conditions are defined on the north and south boundaries.

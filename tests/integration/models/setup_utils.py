@@ -128,7 +128,7 @@ class BoundaryConditionsMassDirNorthSouth:
 
     """
 
-    def bc_type_darcy(self, sd: pp.Grid) -> pp.BoundaryCondition:
+    def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         """Boundary condition type for Darcy flux.
 
         Dirichlet boundary conditions are defined on the north and south boundaries.
@@ -162,7 +162,7 @@ class BoundaryConditionsMassDirNorthSouth:
         vals_loc[domain_sides.north + domain_sides.south] = self.fluid.pressure()
         return vals_loc
 
-    def bc_type_mobrho(self, sd):
+    def bc_type_fluid_flux(self, sd):
         """Boundary condition type for the density-mobility product.
 
         Dirichlet boundary conditions are defined on the north and south boundaries.
@@ -190,7 +190,7 @@ class BoundaryConditionsEnergyDirNorthSouth(pp.BoundaryConditionMixin):
 
     """
 
-    def bc_type_fourier(self, sd: pp.Grid) -> pp.BoundaryCondition:
+    def bc_type_fourier_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         """Boundary condition type for the Fourier heat flux.
 
         Dirichlet boundary conditions are defined on the north and south boundaries.
@@ -206,7 +206,7 @@ class BoundaryConditionsEnergyDirNorthSouth(pp.BoundaryConditionMixin):
         # Define boundary condition on faces
         return pp.BoundaryCondition(sd, domain_sides.north + domain_sides.south, "dir")
 
-    def bc_type_enthalpy(self, sd: pp.Grid) -> pp.BoundaryCondition:
+    def bc_type_enthalpy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         """Boundary condition type for the enthalpy.
 
         Dirichlet boundary conditions are defined on the north and south boundaries.

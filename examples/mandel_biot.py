@@ -1344,8 +1344,8 @@ class MandelBoundaryConditionsSinglePhaseFlow(mass.BoundaryConditionsSinglePhase
 
     """
 
-    def bc_type_darcy(self, sd: pp.Grid) -> pp.BoundaryCondition:
-        """Define boundary condition types for the flow subproblem.
+    def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        """Define boundary condition types for the Darcy flux.
 
         All sides are set as Neumann, except the East side, which is Dirichlet.
 

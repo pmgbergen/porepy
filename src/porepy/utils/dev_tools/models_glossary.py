@@ -96,36 +96,36 @@ class Glossary:
         name="basis",
     )
 
-    bc_type_darcy: Entry = Entry(
+    bc_type_darcy_flux: Entry = Entry(
         type="Callable[[pp.Grid], pp.BoundaryCondition]",
         docstring="Function that returns the boundary condition type for the Darcy"
         " flux. Normally provided by a mixin instance of :class:`~porepy.models."
         "fluid_mass_balance.BoundaryConditionsSinglePhaseFlow`.",
-        name="bc_type_darcy",
+        name="bc_type_darcy_flux",
     )
 
-    bc_type_enthalpy: Entry = Entry(
+    bc_type_enthalpy_flux: Entry = Entry(
         type="Callable[[pp.Grid], pp.ad.DenseArray]",
         docstring="Function that returns the boundary condition type for the enthalpy"
         " flux. Normally defined in a mixin instance of :class:`~porepy.models."
         "fluid_mass_balance.BoundaryConditionsEnergyBalance`.",
-        name="bc_type_enthalpy",
+        name="bc_type_enthalpy_flux",
     )
 
-    bc_type_fourier: Entry = Entry(
+    bc_type_fourier_flux: Entry = Entry(
         type="Callable[[pp.Grid], pp.ad.DenseArray]",
         docstring="Function that returns the boundary condition type for the Fourier"
         " flux. Normally defined in a mixin instance of :class:`~porepy.models."
         "fluid_mass_balance.BoundaryConditionsEnergyBalance`.",
-        name="bc_type_fourier",
+        name="bc_type_fourier_flux",
     )
 
-    bc_type_mobrho: Entry = Entry(
+    bc_type_fluid_flux: Entry = Entry(
         type="Callable[[pp.Grid], pp.BoundaryCondition]",
         docstring="Function that returns the boundary condition type for the advective"
         " flux. Normally provided by a mixin instance of :class:`~porepy.models."
         "fluid_mass_balance.BoundaryConditionsSinglePhaseFlow`.",
-        name="bc_type_mobrho",
+        name="bc_type_fluid_flux",
     )
 
     bc_type_mechanics: Entry = Entry(

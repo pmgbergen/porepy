@@ -590,8 +590,8 @@ class TerzaghiBoundaryConditionsMechanics(mechanics.BoundaryConditionsMomentumBa
 class TerzaghiBoundaryConditionsFlow(
     mass.BoundaryConditionsSinglePhaseFlow,
 ):
-    def bc_type_darcy(self, sd: pp.Grid) -> pp.BoundaryCondition:
-        """Define boundary condition types for the flow subproblem.
+    def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        """Define boundary condition types for the Darcy flux.
 
         Parameters:
             sd: Subdomain grid.

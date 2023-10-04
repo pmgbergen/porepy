@@ -132,7 +132,7 @@ class MassBalanceEquations(pp.BalanceEquation):
 
     bc_data_fluid_flux_key: str
 
-    bc_type_mobrho: Callable[[pp.Grid], pp.BoundaryCondition]
+    bc_type_fluid_flux: Callable[[pp.Grid], pp.BoundaryCondition]
 
     _combine_boundary_operators: Callable[
         [
@@ -266,7 +266,7 @@ class MassBalanceEquations(pp.BalanceEquation):
             subdomains=domains,
             dirichlet_operator=self.mobility_rho,
             neumann_operator=self.fluid_flux,
-            bc_type=self.bc_type_mobrho,
+            bc_type=self.bc_type_fluid_flux,
             name="bc_values_fluid_flux",
         )
         flux = self.advective_flux(
@@ -418,7 +418,7 @@ class BoundaryConditionsSinglePhaseFlow(pp.BoundaryConditionMixin):
     pressure: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     darcy_flux: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
 
-    def bc_type_darcy(self, sd: pp.Grid) -> pp.BoundaryCondition:
+    def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         """Boundary conditions on all external boundaries.
 
         Parameters:
@@ -434,7 +434,7 @@ class BoundaryConditionsSinglePhaseFlow(pp.BoundaryConditionMixin):
         # Define boundary condition on all boundary faces.
         return pp.BoundaryCondition(sd, boundary_faces, "dir")
 
-    def bc_type_mobrho(self, sd: pp.Grid) -> pp.BoundaryCondition:
+    def bc_type_fluid_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         """Boundary conditions on all external boundaries.
 
         Parameters:
@@ -492,7 +492,8 @@ class BoundaryConditionsSinglePhaseFlow(pp.BoundaryConditionMixin):
     def bc_values_fluid_flux(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
         r"""**Mass** flux values on the Neumann boundary.
 
-        These values are used on the boundaries where `self.bc_type_mobrho` is Neumann.
+        These values are used on the boundaries where `self.bc_type_fluid_flux` is
+        Neumann.
 
         These values are used on the boundary for
         :math:`\frac{\rho}{\mu} \mathbf{K} \nabla p` where Neumann data is required for
@@ -730,13 +731,13 @@ class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
     :class:`porepy.models.geometry.ModelGeometry`.
 
     """
-    bc_type_darcy: Callable[[pp.Grid], pp.BoundaryCondition]
+    bc_type_darcy_flux: Callable[[pp.Grid], pp.BoundaryCondition]
     """Function that returns the boundary condition type for the Darcy flux. Normally
     provided by a mixin instance of
     :class:`~porepy.models.fluid_mass_balance.BoundaryConditionsSinglePhaseFlow`.
 
     """
-    bc_type_mobrho: Callable[[pp.Grid], pp.BoundaryCondition]
+    bc_type_fluid_flux: Callable[[pp.Grid], pp.BoundaryCondition]
     """Function that returns the boundary condition type for the advective flux.
     Normally provided by a mixin instance of
     :class:`~porepy.models.fluid_mass_balance.BoundaryConditionsSinglePhaseFlow`.
@@ -823,7 +824,7 @@ class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
                 data,
                 self.darcy_keyword,
                 {
-                    "bc": self.bc_type_darcy(sd),
+                    "bc": self.bc_type_darcy_flux(sd),
                     "second_order_tensor": self.permeability_tensor(sd),
                     "ambient_dimension": self.nd,
                 },
@@ -833,7 +834,7 @@ class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
                 data,
                 self.mobility_keyword,
                 {
-                    "bc": self.bc_type_mobrho(sd),
+                    "bc": self.bc_type_fluid_flux(sd),
                 },
             )
 
