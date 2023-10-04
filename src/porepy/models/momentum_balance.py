@@ -459,7 +459,7 @@ class ConstitutiveLawsMomentumBalance(
 ):
     """Class for constitutive equations for momentum balance equations."""
 
-    def stress(self, grids: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+    def stress(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
         """Stress operator.
 
         Parameters:
@@ -470,7 +470,7 @@ class ConstitutiveLawsMomentumBalance(
 
         """
         # Method from constitutive library's LinearElasticRock.
-        return self.mechanical_stress(grids)
+        return self.mechanical_stress(domains)
 
 
 class VariablesMomentumBalance:
@@ -557,11 +557,11 @@ class VariablesMomentumBalance:
             tags={"si_units": "Pa"},
         )
 
-    def displacement(self, grids: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+    def displacement(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
         """Displacement in the matrix.
 
         Parameters:
-            grids: List of subdomains or interface grids where the displacement is
+            domains: List of subdomains or interface grids where the displacement is
                 defined. Should be the matrix subdomains.
 
         Returns:
@@ -574,22 +574,26 @@ class VariablesMomentumBalance:
                 grids
 
         """
-        if len(grids) == 0 or all(isinstance(grid, pp.BoundaryGrid) for grid in grids):
+        if len(domains) == 0 or all(
+            isinstance(grid, pp.BoundaryGrid) for grid in domains
+        ):
             return self.create_boundary_operator(  # type: ignore[call-arg]
-                name=self.displacement_variable, domains=grids
+                name=self.displacement_variable, domains=domains
             )
         # Check that the subdomains are grids
-        if not all(isinstance(grid, pp.Grid) for grid in grids):
-            raise ValueError("Method called on a mixture of grids and boundary grids.")
+        if not all(isinstance(grid, pp.Grid) for grid in domains):
+            raise ValueError(
+                "Method called on a mixture of subdomain and boundary grids."
+            )
         # Now we can cast to Grid
-        grids = cast(list[pp.Grid], grids)
+        domains = cast(list[pp.Grid], domains)
 
-        if not all([grid.dim == self.nd for grid in grids]):
+        if not all([grid.dim == self.nd for grid in domains]):
             raise ValueError(
                 "Displacement is only defined in subdomains of dimension nd."
             )
 
-        return self.equation_system.md_variable(self.displacement_variable, grids)
+        return self.equation_system.md_variable(self.displacement_variable, domains)
 
     def interface_displacement(self, interfaces: list[pp.MortarGrid]) -> pp.ad.Variable:
         """Displacement on fracture-matrix interfaces.
