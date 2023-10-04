@@ -103,7 +103,6 @@ class BasicsTest(unittest.TestCase):
         self.assertTrue(np.allclose(g.face_centers[0, tag], 0))
 
     def test_auxiliary(self):
-
         subdomain_start = np.array([[0.25], [0.5]])
         subdomain_end = np.array([[0.5], [0.5]])
         p = np.hstack((subdomain_start, subdomain_end))
@@ -138,7 +137,6 @@ class BasicsTest(unittest.TestCase):
         )
 
     def test_auxiliary_refined(self):
-
         subdomain_start = np.array([[0.25], [0.5]])
         subdomain_end = np.array([[0.5], [0.5]])
         p = np.hstack((subdomain_start, subdomain_end))
@@ -173,7 +171,6 @@ class BasicsTest(unittest.TestCase):
         )
 
     def test_auxiliary_2(self):
-
         constraint_start_0 = np.array([[0.0], [0.5]])
         constraint_end_0 = np.array([[0.75], [0.5]])
         constraint_start_1 = np.array([[0.5], [0.25]])
@@ -220,7 +217,6 @@ class BasicsTest(unittest.TestCase):
         )
 
     def test_auxiliary_2_refined(self):
-
         constraint_start_0 = np.array([[0.0], [0.5]])
         constraint_end_0 = np.array([[0.75], [0.5]])
         constraint_start_1 = np.array([[0.5], [0.25]])
@@ -267,7 +263,6 @@ class BasicsTest(unittest.TestCase):
         )
 
     def test_fracture(self):
-
         frac_start = np.array([[0.25], [0.5]])
         frac_end = np.array([[0.75], [0.5]])
         mdg, _ = pp.md_grids_2d.single_horizontal(
@@ -298,7 +293,6 @@ class BasicsTest(unittest.TestCase):
         )
 
     def test_fracture_refined(self):
-
         frac_start = np.array([[0.25], [0.5]])
         frac_end = np.array([[0.75], [0.5]])
 
@@ -330,7 +324,6 @@ class BasicsTest(unittest.TestCase):
         )
 
     def test_fracture_2(self):
-
         frac_start_0 = np.array([[0.0], [0.5]])
         frac_end_0 = np.array([[0.75], [0.5]])
         frac_start_1 = np.array([[0.5], [0.25]])
@@ -373,7 +366,6 @@ class BasicsTest(unittest.TestCase):
         )
 
     def test_fracture_auxiliary(self):
-
         frac_start = np.array([[0.5], [0.25]])
         frac_end = np.array([[0.5], [0.75]])
         constraint_start = np.array([[0.25], [0.5]])
@@ -420,7 +412,6 @@ class BasicsTest(unittest.TestCase):
         )
 
     def test_auxiliary_intersect(self):
-
         constraint_start_0 = np.array([[0.0], [0.5]])
         constraint_end_0 = np.array([[0.75], [0.5]])
         constraint_start_1 = np.array([[0.5], [0.25]])

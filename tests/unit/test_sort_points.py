@@ -79,7 +79,6 @@ class TestSortPointPlane(unittest.TestCase):
 
 class SortTriangleEdges(unittest.TestCase):
     def test_no_sorting(self):
-
         t = np.array([[0, 1, 2], [2, 1, 3]]).T
         sorted_t = sort_points.sort_triangle_edges(t)
 
@@ -87,7 +86,6 @@ class SortTriangleEdges(unittest.TestCase):
         self.assertTrue(np.allclose(sorted_t, truth))
 
     def test_sort_one(self):
-
         t = np.array([[0, 1, 2], [1, 2, 3]]).T
         sorted_t = sort_points.sort_triangle_edges(t)
 
@@ -95,7 +93,6 @@ class SortTriangleEdges(unittest.TestCase):
         self.assertTrue(np.allclose(sorted_t, truth))
 
     def test_sort_one_2(self):
-
         t = np.array([[1, 3, 0], [3, 2, 1]]).T
         sorted_t = sort_points.sort_triangle_edges(t)
 

@@ -98,6 +98,22 @@ def test_boundary_sides(geometry_class, num_fracs):
         for side, dim in zip([west, south, bottom], [0, 1, 2]):
             assert np.all(np.isclose(sd.face_centers[dim, side], box_min[dim]))
 
+    # The same for boundary grids.
+    bg: pp.BoundaryGrid
+    for bg in geometry.mdg.boundaries():
+        all_bf, east, west, north, south, top, bottom = geometry.domain_boundary_sides(
+            bg
+        )
+        all_bool = np.ones(bg.num_cells, dtype=bool)
+
+        assert np.all(all_bool == (east + west + north + south + top + bottom))
+
+        # Check that the coordinates of the
+        for side, dim in zip([east, north, top], [0, 1, 2]):
+            assert np.all(np.isclose(bg.cell_centers[dim, side], box_max[dim]))
+        for side, dim in zip([west, south, bottom], [0, 1, 2]):
+            assert np.all(np.isclose(bg.cell_centers[dim, side], box_min[dim]))
+
 
 @pytest.mark.parametrize("geometry_class", geometry_list)
 # Only test up to two fractures here, that should suffice.

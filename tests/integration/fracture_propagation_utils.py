@@ -213,7 +213,6 @@ def check_equivalent_md_grids(md_grids, decimals=12):
 
     for dim in range(dim_l, dim_h + 1):
         for target_grid in range(len(md_grids[0].subdomains(dim=dim))):
-
             n_cells, n_faces, n_nodes = np.empty(0), np.empty(0), np.empty(0)
             nodes, face_centers, cell_centers = [], [], []
             cell_faces, face_nodes = [], []

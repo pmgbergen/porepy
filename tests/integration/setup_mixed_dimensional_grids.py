@@ -368,12 +368,10 @@ def set_bc_mech_tension_sneddon(
             internal_tension = np.zeros((g.dim, g.num_faces))
 
             if g.dim > last_ind:
-
                 domain_boundary_fc = bound_face_centers[:, ~internal_logical]
                 fracture_center = np.array([length / 2, height / 2, 0])
 
                 if g.dim == 2:
-
                     sigma_b = boundary_tension_sneddon(
                         p0,
                         domain_boundary_fc[:2, :],

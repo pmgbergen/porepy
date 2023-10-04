@@ -13,7 +13,6 @@ from porepy.utils import setmembership
 
 class TestUniqueRows(unittest.TestCase):
     def test_unique_rows_1(self):
-
         a = np.array([[1, 2], [2, 1], [2, 4], [2, 1], [2, 4]])
         ua_expected = np.array([[1, 2], [2, 1], [2, 4]])
         ia_expected = np.array([0, 1, 2])

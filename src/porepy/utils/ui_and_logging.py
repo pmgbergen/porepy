@@ -16,7 +16,7 @@ try:
         _get_first_found_console_logging_handler,
     )
 except ImportError:
-    std_tqdm = None
+    std_tqdm = None  # type: ignore
 
 
 @contextmanager

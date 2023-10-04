@@ -88,7 +88,7 @@ def test_parse_equations(
     # Fetch the relevant method of this model and extract the domains for which it is
     # defined.
     method = getattr(setup, equation_name)
-    domains = setup_utils.domains_from_method_name(
+    domains = setup_utils.subdomains_or_interfaces_from_method_name(
         setup.mdg, method, dimensions_to_assemble
     )
 

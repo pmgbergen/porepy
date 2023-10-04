@@ -53,7 +53,10 @@ def test_parse_variables(model_type, variable_name, domain_inds):
     assert len(sig.parameters) == 1
 
     # The domain is a list of either subdomains or interfaces.
-    if "subdomains" in sig.parameters:
+    if "subdomains" in sig.parameters or "domains" in sig.parameters:
+        # We only define variables on subdomains, even if boundary grids are allowed
+        # in the signature (returns pp.ad.TimeDependentDenseArray). Since this test is
+        # for variables, we do not need to test boundary grids.
         domains = setup.mdg.subdomains()
     elif "interfaces" in sig.parameters:
         domains = setup.mdg.interfaces()

@@ -1256,7 +1256,6 @@ class TestMpfaBoundaryPressure(unittest.TestCase):
 
 
 class TestMpfaSimplexGrid(unittest.TestCase):
-
     def grid(self):
         mesh_size = {"mesh_size_frac": 0.3, "mesh_size_bound": 0.3}
         network = pp.create_fracture_network(None, unit_domain(2))

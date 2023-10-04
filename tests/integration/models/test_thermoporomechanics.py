@@ -15,7 +15,8 @@ import pytest
 import porepy as pp
 
 from .setup_utils import (
-    BoundaryConditionsMassAndEnergyDirNorthSouth,
+    BoundaryConditionsEnergyDirNorthSouth,
+    BoundaryConditionsMassDirNorthSouth,
     Thermoporomechanics,
     TimeDependentMechanicalBCsDirNorthSouth,
     compare_scaled_model_quantities,
@@ -28,7 +29,8 @@ from .test_poromechanics import get_variables as get_variables_poromechanics
 class TailoredThermoporomechanics(
     NonzeroFractureGapPoromechanics,
     TimeDependentMechanicalBCsDirNorthSouth,
-    BoundaryConditionsMassAndEnergyDirNorthSouth,
+    BoundaryConditionsEnergyDirNorthSouth,
+    BoundaryConditionsMassDirNorthSouth,
     Thermoporomechanics,
 ):
     pass

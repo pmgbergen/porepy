@@ -36,7 +36,6 @@ class ManuIncompExactSolution3d:
     """Class containing the exact manufactured solution for the verification setup."""
 
     def __init__(self, setup):
-
         # Model setup
         self.setup = setup
 
@@ -115,8 +114,9 @@ class ManuIncompExactSolution3d:
         """Get indices of the cells belonging to the different regions of the domain.
 
         Parameters:
-            where: Use "cc" to evaluate at the cell centers and "fc" to evaluate at
-                the face centers.
+            where: Use "cc" to evaluate at the cell centers, "fc" to evaluate at
+                the face centers and "bg" to evaluate at the face centers associated
+                with the external boundary
 
         Returns:
             List of length 9, containing the indices of the different regions of the
@@ -124,14 +124,18 @@ class ManuIncompExactSolution3d:
 
         """
         # Sanity check
-        assert where in ["cc", "fc"]
+        assert where in ["cc", "fc", "bg"]
 
         # Retrieve coordinates
         sd = self.setup.mdg.subdomains()[0]
         if where == "cc":
             x = sd.cell_centers
-        else:
+        elif where == "fc":
             x = sd.face_centers
+        else:
+            bg = self.setup.mdg.subdomain_to_boundary_grid(sd)
+            assert bg is not None
+            x = bg.cell_centers
 
         # Get indices
         bottom_front = (x[1] < 0.25) & (x[2] < 0.25)
@@ -181,7 +185,7 @@ class ManuIncompExactSolution3d:
 
         # Cell-centered pressures
         p_cc = np.zeros(sd_matrix.num_cells)
-        for (p, idx) in zip(p_fun, cell_idx):
+        for p, idx in zip(p_fun, cell_idx):
             p_cc += p(cc[0], cc[1], cc[2]) * idx
 
         return p_cc
@@ -283,7 +287,7 @@ class ManuIncompExactSolution3d:
         # Integrated cell-centered sources
         vol = sd_matrix.cell_volumes
         f_cc = np.zeros(sd_matrix.num_cells)
-        for (f, idx) in zip(f_fun, cell_idx):
+        for f, idx in zip(f_fun, cell_idx):
             f_cc += f(cc[0], cc[1], cc[2]) * vol * idx
 
         return f_cc
@@ -399,34 +403,31 @@ class ManuIncompExactSolution3d:
 
         return lmbda_cc
 
-    def boundary_values(self, sd_matrix: pp.Grid) -> np.ndarray:
+    def boundary_values(self, boundary_grid_matrix: pp.BoundaryGrid) -> np.ndarray:
         """Exact pressure at the boundary faces.
 
         Parameters:
-            sd_matrix: Matrix grid.
+            boundary_grid_matrix: Matrix boundary grid.
 
         Returns:
-            Array of ``shape=(sd_matrix.num_faces, )`` with the exact pressure values
-            on the exterior boundary faces.
+            Array of ``shape=(boundary_grid_matrix.num_cells, )`` with the exact
+            pressure values at the exterior boundary faces.
 
         """
         # Symbolic variables
         x, y, z = sym.symbols("x y z")
 
         # Get list of face indices
-        fc = sd_matrix.face_centers
-        face_idx = self.get_region_indices(where="fc")
-
-        # Boundary faces
-        bc_faces = sd_matrix.get_boundary_faces()
+        fc = boundary_grid_matrix.cell_centers
+        face_idx = self.get_region_indices(where="bg")
 
         # Lambdify expression
         p_fun = [sym.lambdify((x, y, z), p, "numpy") for p in self.p_matrix]
 
         # Boundary pressures
-        p_bf = np.zeros(sd_matrix.num_faces)
-        for (p, idx) in zip(p_fun, face_idx):
-            p_bf[bc_faces] += p(fc[0], fc[1], fc[2])[bc_faces] * idx[bc_faces]
+        p_bf = np.zeros(boundary_grid_matrix.num_cells)
+        for p, idx in zip(p_fun, face_idx):
+            p_bf += p(fc[0], fc[1], fc[2]) * idx
 
         return p_bf
 

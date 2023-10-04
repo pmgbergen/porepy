@@ -10,7 +10,6 @@ import scipy.sparse as sps
 
 
 def matrix_rhs_for_test_upwind_coupling_3d_2d_1d_0d():
-
     indptr = np.array(
         [
             0,
