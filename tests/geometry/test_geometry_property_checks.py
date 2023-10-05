@@ -3,6 +3,9 @@ import pytest
 from porepy import geometry_property_checks
 
 
+# --------- Testing point_in_polygon ---------
+
+
 @pytest.fixture
 def poly():
     return np.array([[0, 1, 1, 0], [0, 0, 1, 1]])
@@ -101,6 +104,9 @@ def test_large_polygon():
     assert inside[1]
 
 
+# --------- Testing point_in_polyhedron ---------
+
+
 @pytest.fixture
 def cart_polyhedron():
     west = np.array([[0, 0, 0, 0], [0, 1, 1, 0], [0, 0, 1, 1]])
@@ -171,6 +177,9 @@ def test_point_outside_non_convex_inside_box(non_convex_polyhedron):
     is_inside = geometry_property_checks.point_in_polyhedron(non_convex_polyhedron, p)
     assert is_inside.size == 1
     assert is_inside[0] == 0
+
+
+# --------- Testing point_in_cell ---------
 
 
 def test_planar_square():
@@ -298,3 +307,22 @@ def test_planar_concave():
 
     pt = np.array([1.1, -0.1, 0])
     assert not geometry_property_checks.point_in_cell(pts, pt)
+
+
+# --------- Testing points_are_planar ---------
+
+
+def test_is_planar_2d():
+    pts = np.array([[0.0, 2.0, -1.0], [0.0, 4.0, 2.0], [2.0, 2.0, 2.0]])
+    assert geometry_property_checks.points_are_planar(pts)
+
+
+def test_is_planar_3d():
+    pts = np.array(
+        [
+            [0.0, 1.0, 0.0, 4.0 / 7.0],
+            [0.0, 1.0, 1.0, 0.0],
+            [5.0 / 8.0, 7.0 / 8.0, 7.0 / 4.0, 1.0 / 8.0],
+        ]
+    )
+    assert geometry_property_checks.points_are_planar(pts)
