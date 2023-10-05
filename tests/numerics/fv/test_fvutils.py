@@ -99,7 +99,21 @@ def test_diagonal_scaling_matrix():
     assert compare_arrays(values, D.diagonal())
 
 
-def test_node_based_ind_2d(g_2d):
+"""IMPLEMENTATION NOTE: 
+Below are tests that considers the definition of computational stencils under a partial
+update of the FV discretization. 
+
+The logic of the tests is:
+    1) Construct a grid, and pick a cell quantity (node, face, cell) as the trigger for
+       refinement.
+    2) Compute the update stencil.
+    3) Compare the stencil with a known value, hard-coded based on knowledge of the grid
+       and the ordering of the cell quantities.
+
+"""
+
+
+def test_cell_and_face_indices_from_node_indices_2d(g_2d):
     # Nodes of cell 12 (middle one) - from counting
     n = np.array([14, 15, 20, 21])
 
@@ -111,7 +125,7 @@ def test_node_based_ind_2d(g_2d):
     assert compare_arrays(known_faces, face_ind)
 
 
-def test_node_based_ind_2d_bound(g_2d):
+def test_cell_and_face_indices_from_node_indices_2d_boundary(g_2d):
     # Nodes of cell 1
     n = np.array([1, 2, 7, 8])
     known_cells = np.array([0, 1, 2, 5, 6, 7])
@@ -123,7 +137,7 @@ def test_node_based_ind_2d_bound(g_2d):
     assert compare_arrays(known_faces, face_ind)
 
 
-def test_node_based_ind_3d(g_3d):
+def test_cell_and_face_indices_from_node_indices_3d(g_3d):
     # Nodes of cell 13 (middle one) - from counting
     n = np.array([21, 22, 25, 26, 37, 38, 41, 42])
 
@@ -136,7 +150,7 @@ def test_node_based_ind_3d(g_3d):
     assert compare_arrays(known_faces, face_ind)
 
 
-def test_node_based_ind_3d_bound(g_3d):
+def test_cell_and_face_indices_from_node_indices_3d_boundary(g_3d):
     # Nodes of cell 1
     n = np.array([1, 2, 5, 6, 17, 18, 21, 22])
     known_cells = np.array([0, 1, 2, 3, 4, 5, 9, 10, 11, 12, 13, 14])
@@ -148,7 +162,7 @@ def test_node_based_ind_3d_bound(g_3d):
     assert compare_arrays(known_faces, face_ind)
 
 
-def test_cell_based_ind_2d(g_2d):
+def test_cell_and_face_indices_from_cell_indices_2d(g_2d):
     c = np.array([12])
     known_cells = np.setdiff1d(np.arange(25), np.array([0, 4, 20, 24]))
     known_faces = np.array([8, 9, 14, 15, 20, 21, 41, 42, 43, 46, 47, 48])
@@ -159,7 +173,7 @@ def test_cell_based_ind_2d(g_2d):
     assert compare_arrays(known_faces, face_ind)
 
 
-def test_cell_based_ind_3d(g_3d):
+def test_cell_and_face_indices_from_cell_indices_3d(g_3d):
     # Use cell 13 (middle one)
     c = np.array([13])
     known_cells = np.arange(27)
@@ -186,7 +200,7 @@ def test_cell_based_ind_3d(g_3d):
     assert compare_arrays(known_faces, face_ind)
 
 
-def test_cell_based_ind_bound_3d(g_3d):
+def test_cell_and_face_indices_from_cell_indices_3d_boundary(g_3d):
     c = np.array([1])
     known_cells = np.arange(27)
     fx = np.array([1, 2, 5, 6, 13, 14, 17, 18])
@@ -199,7 +213,7 @@ def test_cell_based_ind_bound_3d(g_3d):
     assert compare_arrays(known_faces, face_ind)
 
 
-def test_face_based_ind_2d(g_2d):
+def test_cell_and_face_indices_from_face_indices_2d(g_2d):
     # Use face between cells 11 and 12
     f = np.array([14])
 
@@ -211,7 +225,7 @@ def test_face_based_ind_2d(g_2d):
     assert compare_arrays(known_faces, face_ind)
 
 
-def test_face_based_ind_2d_bound(g_2d):
+def test_cell_and_face_indices_from_face_indices_2d_boundary(g_2d):
     # Face between cell 1 and 2
     f = np.array([2])
     known_cells = np.array(
