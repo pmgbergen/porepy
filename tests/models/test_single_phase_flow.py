@@ -15,6 +15,8 @@ We provide two tests:
 
 from __future__ import annotations
 
+import copy
+
 from typing import Callable
 
 import numpy as np
@@ -430,12 +432,12 @@ def test_unit_conversion(units):
     pp.run_time_dependent_model(setup_1, params)
     variables = [setup_1.pressure_variable, setup_1.interface_darcy_flux_variable]
     variable_units = ["Pa", "Pa * m^2 * s^-1"]
-    compare_scaled_primary_variables(setup_0, setup_1, variables, variable_units)
+    models.compare_scaled_primary_variables(setup_0, setup_1, variables, variable_units)
     flux_names = ["darcy_flux", "fluid_flux"]
     flux_units = ["Pa * m^2 * s^-1", "kg * m^-1 * s^-1"]
     # No domain restrictions.
     domain_dimensions = [None, None]
-    compare_scaled_model_quantities(
+    models.compare_scaled_model_quantities(
         setup_0, setup_1, flux_names, flux_units, domain_dimensions
     )
 
