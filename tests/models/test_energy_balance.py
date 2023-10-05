@@ -1,5 +1,7 @@
 """Tests for energy balance.
 
+TODO: This test should be updated along the lines of test_single_phase_flow.py.
+
 """
 from __future__ import annotations
 
@@ -11,12 +13,50 @@ import pytest
 
 import porepy as pp
 
-from .setup_utils import (
-    MassAndEnergyBalance,
-    compare_scaled_model_quantities,
-    compare_scaled_primary_variables,
-)
-from .test_mass_balance import BoundaryConditionLinearPressure
+
+from porepy.applications.test_utils import models
+
+
+class BoundaryConditionLinearPressure(
+    pp.fluid_mass_balance.BoundaryConditionsSinglePhaseFlow
+):
+    """Overload the boundary condition to give a linear pressure profile.
+
+    Homogeneous Neumann conditions on top and bottom, Dirichlet 1 and 0 on the
+    left and right boundaries, respectively.
+
+    """
+
+    def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        """Dirichlet conditions on all external boundaries.
+
+        Parameters:
+            sd: Subdomain grid on which to define boundary conditions.
+
+        Returns:
+            Boundary condition object.
+
+        """
+        # Define boundary regions
+        sides = self.domain_boundary_sides(sd)
+        # Define Dirichlet conditions on the left and right boundaries
+        return pp.BoundaryCondition(sd, sides.east + sides.west, "dir")
+
+    def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+        """Boundary values for the pressure.
+
+        Parameters:
+            boundary_grid: The boundary grid on which to define boundary conditions.
+
+        Returns:
+            Array of boundary values.
+
+        """
+
+        sides = self.domain_boundary_sides(boundary_grid)
+        vals = np.zeros(boundary_grid.num_cells)
+        vals[sides.west] = self.fluid.convert_units(1, "Pa")
+        return vals
 
 
 class BoundaryConditionsEnergy(pp.energy_balance.BoundaryConditionsEnergyBalance):
@@ -49,9 +89,9 @@ class BoundaryConditionsEnergy(pp.energy_balance.BoundaryConditionsEnergyBalance
 
 
 class EnergyBalanceTailoredBCs(
-    BoundaryConditionsEnergy,
     BoundaryConditionLinearPressure,
-    MassAndEnergyBalance,
+    BoundaryConditionsEnergy,
+    models.MassAndEnergyBalance,
 ):
     pass
 
@@ -188,9 +228,9 @@ def test_unit_conversion(units):
     secondary_units = ["m^2 * s^-1 * Pa", "m^-1 * s^-1 * J", "m^-1 * s^-1 * J"]
     # No domain restrictions.
     domain_dimensions = [None, None, None]
-    compare_scaled_primary_variables(
+    models.compare_scaled_primary_variables(
         setup, reference_setup, variable_names, variable_units
     )
-    compare_scaled_model_quantities(
+    models.compare_scaled_model_quantities(
         setup, reference_setup, secondary_variables, secondary_units, domain_dimensions
     )
