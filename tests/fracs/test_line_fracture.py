@@ -2,7 +2,6 @@ import numpy as np
 
 from porepy.fracs import line_fracture
 
-
 # Test computation of fracture centroids. Most of the common fracture functionality is
 # covered in test_plane_fracture.py
 

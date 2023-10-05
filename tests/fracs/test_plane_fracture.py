@@ -1,7 +1,7 @@
 import numpy as np
+import pytest
 
 from porepy.fracs import plane_fracture
-import pytest
 
 # Test computation of fracture centroids.
 
@@ -98,14 +98,14 @@ def frac():
 def test_not_vertex(frac):
     p = np.array([0.5, 0.5, 0])
     is_vert, ind = frac.is_vertex(p)
-    assert is_vert == False
+    assert not is_vert
     assert ind is None
 
 
 def test_is_vertex(frac):
     p = np.array([0.0, 0.0, 0])
     is_vert, ind = frac.is_vertex(p)
-    assert is_vert == True
+    assert is_vert
     assert ind == 0
 
 
@@ -113,11 +113,11 @@ def test_tolerance_sensitivity(frac):
     # Borderline, is a vertex depending on the tolerance
     p = np.array([1e-4, 0, 0])
     is_vert, ind = frac.is_vertex(p, tol=1e-5)
-    assert is_vert == False
+    assert not is_vert
     assert ind is None
 
     is_vert, ind = frac.is_vertex(p, tol=1e-3)
-    assert is_vert == True
+    assert is_vert
     assert ind == 0
 
 
