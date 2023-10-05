@@ -10,6 +10,9 @@ from porepy import matrix_operations
 from porepy.applications.test_utils.arrays import compare_matrices
 
 
+# ------------------ Test zero_columns -----------------------
+
+
 def test_zero_1_column():
     A = sps.csc_matrix(
         (np.array([1, 2, 3]), (np.array([0, 2, 1]), np.array([0, 1, 2]))),
@@ -33,7 +36,6 @@ def test_zero_2_columns():
 
 
 def test_zero_columns():
-    # Test slicing of csr_matrix
     A = sps.csc_matrix(np.array([[0, 0, 0], [1, 0, 0], [0, 0, 3]]))
 
     A0_t = sps.csc_matrix(np.array([[0, 0, 0], [0, 0, 0], [0, 0, 3]]))
@@ -54,10 +56,13 @@ def test_zero_columns():
 def test_zero_columns_assert():
     A = sps.csr_matrix(np.array([[0, 0, 0], [1, 0, 0], [0, 0, 3]]))
     with pytest.raises(ValueError):
+        # Should be csc_matrix
         matrix_operations.zero_columns(A, 1)
 
 
-# ----------Zero out rows---------------
+# ------------------ Test zero_rows -----------------------
+
+
 def test_zero_1_row():
     A = sps.csr_matrix(
         (np.array([1, 2, 3]), (np.array([0, 2, 1]), np.array([0, 1, 2]))),
@@ -101,12 +106,14 @@ def test_zero_rows():
 def test_zero_rows_assert():
     A = sps.csc_matrix(np.array([[0, 0, 0], [1, 0, 0], [0, 0, 3]]))
     with pytest.raises(ValueError):
+        # Should be csr_matrix
         matrix_operations.zero_rows(A, 1)
 
 
-# ------------------- get slicing indices ------------------
+# ------------------ Test slice_indices -----------------------
+
+
 def test_csr_slice():
-    # Test slicing of csr_matrix
     A = sps.csr_matrix(np.array([[0, 0, 0], [1, 0, 0], [0, 0, 3]]))
 
     cols_0 = matrix_operations.slice_indices(A, np.array([0]))
@@ -123,7 +130,6 @@ def test_csr_slice():
 
 
 def test_csc_slice():
-    # Test slicing of csr_matrix
     A = sps.csc_matrix(np.array([[0, 0, 0], [1, 0, 0], [0, 0, 3]]))
     rows_0 = matrix_operations.slice_indices(A, np.array([0], dtype=int))
     rows_1 = matrix_operations.slice_indices(A, 1)
@@ -138,10 +144,10 @@ def test_csc_slice():
     assert np.all(rows0_2 == np.array([1, 2]))
 
 
-# ------------------ Test sliced_mat() -----------------------
-def test_sliced_mat_columns():
-    # Test slicing of csr_matrix
+# ------------------ Test slice_mat -----------------------
 
+
+def test_sliced_mat_columns():
     # original matrix
     A = sps.csc_matrix(np.array([[0, 0, 0], [1, 0, 0], [0, 0, 3]]))
 
@@ -170,7 +176,6 @@ def test_sliced_mat_columns():
 
 
 def test_sliced_mat_rows():
-    # Test slicing of csr_matrix
     A = sps.csr_matrix(np.array([[0, 0, 0], [1, 0, 0], [0, 0, 3]]))
 
     A0_t = sps.csr_matrix(np.array([[1, 0, 0], [0, 0, 3]]))
@@ -195,9 +200,10 @@ def test_sliced_mat_rows():
     assert np.sum(A5 != A5_t) == 0
 
 
-# ------------------ Test stack_mat() -----------------------
+# ------------------ Test stack_mat -----------------------
+
+
 def test_stack_mat_columns():
-    # Test slicing of csr_matrix
     A = sps.csc_matrix(np.array([[0, 0, 0], [1, 0, 0], [0, 0, 3]]))
 
     B = sps.csc_matrix(np.array([[0, 2], [3, 1], [1, 0]]))
@@ -210,7 +216,6 @@ def test_stack_mat_columns():
 
 
 def test_stack_empty_mat_columns():
-    # Test slicing of csr_matrix
     A = sps.csc_matrix(np.array([[0, 0, 0], [1, 0, 0], [0, 0, 3]]))
 
     B = sps.csc_matrix(np.array([[], [], []]))
@@ -224,7 +229,6 @@ def test_stack_empty_mat_columns():
 
 
 def test_stack_mat_rows():
-    # Test slicing of csr_matrix
     A = sps.csr_matrix(np.array([[0, 0, 0], [1, 0, 0], [0, 0, 3]]))
 
     B = sps.csr_matrix(np.array([[0, 2, 2], [3, 1, 3]]))
@@ -239,7 +243,6 @@ def test_stack_mat_rows():
 
 
 def test_stack_empty_mat_rows():
-    # Test slicing of csr_matrix
     A = sps.csr_matrix(np.array([[0, 0, 0], [1, 0, 0], [0, 0, 3]]))
 
     B = sps.csr_matrix(np.array([[], [], []]).T)
@@ -252,11 +255,10 @@ def test_stack_empty_mat_rows():
     assert compare_matrices(B, B_t)
 
 
-# ------------------ Test merge_matrices() -----------------------
+# ------------------ Test merge_matrices -----------------------
 
 
 def test_merge_mat_split_columns():
-    # Test slicing of csr_matrix
     A = sps.csc_matrix(np.array([[0, 0, 0], [1, 0, 0], [0, 0, 3]]))
 
     B = sps.csc_matrix(np.array([[0, 2], [3, 1], [1, 0]]))
@@ -271,7 +273,6 @@ def test_merge_mat_split_columns():
 
 
 def test_merge_mat_columns():
-    # Test slicing of csr_matrix
     A = sps.csc_matrix(np.array([[0, 0, 0], [1, 0, 0], [0, 0, 3]]))
 
     B = sps.csc_matrix(np.array([[0, 2], [3, 1], [1, 0]]))
@@ -286,7 +287,6 @@ def test_merge_mat_columns():
 
 
 def test_merge_mat_split_columns_same_pos():
-    # Test slicing of csr_matrix
     A = sps.csc_matrix(np.array([[0, 0, 0], [1, 0, 0], [0, 0, 3]]))
 
     B = sps.csc_matrix(np.array([[0, 2], [3, 1], [1, 0]]))
@@ -298,7 +298,6 @@ def test_merge_mat_split_columns_same_pos():
 
 
 def test_merge_mat_split_rows():
-    # Test slicing of csr_matrix
     A = sps.csr_matrix(np.array([[0, 0, 0], [1, 0, 0], [0, 0, 3]]))
 
     B = sps.csr_matrix(np.array([[0, 2, 2], [3, 1, 3]]))
@@ -313,7 +312,6 @@ def test_merge_mat_split_rows():
 
 
 def test_merge_mat_rows():
-    # Test slicing of csr_matrix
     A = sps.csr_matrix(np.array([[0, 0, 0], [1, 0, 0], [0, 0, 3]]))
 
     B = sps.csr_matrix(np.array([[0, 2, 2], [3, 1, 3]]))
@@ -327,7 +325,9 @@ def test_merge_mat_rows():
     assert compare_matrices(A, A_t)
 
 
-# Tests of csr_matrix_from_blocks
+# ------------------ Test csr_matrix_from_blocks -----------------------
+
+
 def test_csr_matrix_from_single_block():
     block_size = 2
     arr = np.arange(block_size**2).reshape((block_size, block_size))
@@ -347,7 +347,6 @@ def test_csr_matrix_from_single_block():
     assert np.all(known == value.toarray())
 
 
-# Tests of csr_matrix_from_blocks
 def test_csr_matrix_from_two_blocks():
     block_size = 2
     num_blocks = 2
@@ -378,7 +377,9 @@ def test_csr_matrix_from_array():
     assert np.all(known == value.toarray())
 
 
-# Tests of csr_matrix_from_blocks
+# ------------------ Test csc_matrix_from_blocks -----------------------
+
+
 def test_csc_matrix_from_array():
     block_size = 2
     num_blocks = 2
@@ -409,6 +410,9 @@ def test_optimized_storage(mat):
         assert optimized.getformat() == "csc"
     else:
         assert optimized.getformat() == "csr"
+
+
+# ------------------ Test inverting matrices -----------------------
 
 
 @pytest.fixture(params=["python", "numba"])
