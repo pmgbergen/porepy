@@ -10,7 +10,7 @@ import pytest
 
 import porepy as pp
 
-from .setup_utils import (
+from porepy.applications.test_utils.models import (
     BoundaryConditionsMechanicsDirNorthSouth,
     MomentumBalance,
     compare_scaled_model_quantities,

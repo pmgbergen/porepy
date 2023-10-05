@@ -7,7 +7,7 @@ import numpy as np
 import pytest
 
 import porepy as pp
-from tests.integration.models.setup_utils import MassBalance as MassBalance_
+from porepy.applications.test_utils.models import MassBalance as MassBalance_
 
 
 class CustomBoundaryCondition(pp.BoundaryConditionMixin):

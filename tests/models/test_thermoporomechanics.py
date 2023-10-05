@@ -13,8 +13,8 @@ import numpy as np
 import pytest
 
 import porepy as pp
-
-from .setup_utils import (
+from porepy.applications.test_utils import models, well_models
+from porepy.applications.test_utils.models import (
     BoundaryConditionsEnergyDirNorthSouth,
     BoundaryConditionsMassDirNorthSouth,
     Thermoporomechanics,
@@ -22,6 +22,7 @@ from .setup_utils import (
     compare_scaled_model_quantities,
     compare_scaled_primary_variables,
 )
+
 from .test_poromechanics import NonzeroFractureGapPoromechanics
 from .test_poromechanics import get_variables as get_variables_poromechanics
 
@@ -321,3 +322,30 @@ def test_unit_conversion(units):
     compare_scaled_model_quantities(
         setup_0, setup_1, secondary_variables, secondary_units, domain_dimensions
     )
+
+
+class ThermoporomechanicsWell(
+    well_models.OneVerticalWell,
+    models.OrthogonalFractures3d,
+    well_models.BoundaryConditionsWellSetup,
+    pp.poromechanics.Poromechanics,
+):
+    def meshing_arguments(self) -> dict:
+        # Length scale:
+        ls = self.solid.convert_units(1, "m")
+        h = 0.5 * ls
+        mesh_sizes = {
+            "cell_size": h,
+        }
+        return mesh_sizes
+
+
+def test_poromechanics():
+    """Test that the poromechanics model runs without errors."""
+    # These parameters hopefully yield a relatively easy problem
+    params = {
+        "fracture_indices": [2],
+        "well_flux": -1e-2,
+    }
+    setup = ThermoporomechanicsWell(params)
+    pp.run_time_dependent_model(setup, {})

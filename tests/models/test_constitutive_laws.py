@@ -16,13 +16,11 @@ constitutive laws, the first test might be removed.
 """
 from __future__ import annotations
 
+import numpy as np
 import pytest
 
 import porepy as pp
-
 import porepy.models.constitutive_laws as c_l
-
-
 from porepy.applications.test_utils import models
 
 
