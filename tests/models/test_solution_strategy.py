@@ -1,7 +1,14 @@
-"""Test for restart of a model.
+"""Test for solution strategy part of models.
 
-Here, exemplarily for a mixed-dimensional poromechanics model with time-varying boundary
-conditions.
+We test:
+    - Restart: Here, exemplarily for a mixed-dimensional poromechanics model with time-varying boundary
+    conditions.
+
+    -Targeted rediscretization: Targeted rediscretization is a feature that allows
+    rediscretization of a subset of discretizations defined in the
+    nonlinear_discretization property. The list is accessed by
+    :meth:`porepy.models.solution_strategy.SolutionStrategy.rediscretize`  called at the
+    beginning of a nonlinear iteration.
 
 """
 from __future__ import annotations
@@ -16,8 +23,10 @@ import pytest
 
 import porepy as pp
 from porepy.applications.test_utils.vtk import compare_pvd_files, compare_vtu_files
+from porepy.applications.test_utils import models
 
 from .test_poromechanics import TailoredPoromechanics, create_fractured_setup
+
 
 # Store current directory, directory containing reference files, and temporary
 # visualization folder.
@@ -26,7 +35,7 @@ reference_dir = current_dir / Path("restart_reference")
 visualization_dir = Path("visualization")
 
 
-def create_enhanced_fractured_setup(
+def create_restart_model(
     solid_vals: dict, fluid_vals: dict, uy_north: float, restart: bool
 ):
     # Create fractured setup
@@ -61,7 +70,7 @@ def create_enhanced_fractured_setup(
         ({"porosity": 0.5}, 0.1),
     ],
 )
-def test_restart_2d_single_fracture(solid_vals, north_displacement):
+def test_restart(solid_vals, north_displacement):
     """Restart version of .test_poromechanics.test_2d_single_fracture.
 
     Provided the exported data from a previous time step, restart the simulaton,
@@ -82,9 +91,7 @@ def test_restart_2d_single_fracture(solid_vals, north_displacement):
     # Setup and run model for full time interval. With this generate reference files
     # for comparison with a restarted simulation. At the same time, this generates the
     # restart files.
-    setup = create_enhanced_fractured_setup(
-        solid_vals, {}, north_displacement, restart=False
-    )
+    setup = create_restart_model(solid_vals, {}, north_displacement, restart=False)
     pp.run_time_dependent_model(setup, {})
 
     # The run generates data for initial and the first two time steps. In order to use
@@ -102,9 +109,7 @@ def test_restart_2d_single_fracture(solid_vals, north_displacement):
     # time step. Thus, the simulation is restarted from the first time step.
     # Recompute the second time step which will serve as foundation for the comparison
     # to the above computed reference files.
-    setup = create_enhanced_fractured_setup(
-        solid_vals, {}, north_displacement, restart=True
-    )
+    setup = create_restart_model(solid_vals, {}, north_displacement, restart=True)
     pp.run_time_dependent_model(setup, {})
 
     # To verify the restart capabilities, perform five tests.
@@ -164,3 +169,122 @@ def test_restart_2d_single_fracture(solid_vals, north_displacement):
     for f in pvd_files + vtu_files + json_files:
         src = reference_dir / Path(f.stem + f.suffix)
         src.unlink()
+
+
+class RediscretizationTest:
+    """Class to short-circuit the solution strategy to a single iteration.
+
+    The class is used as a mixin which partially replaces the SolutionStrategy class.
+
+    Relevant parts of simulation flow:
+    1. Discretize the problem
+    2. Assemble the linear system
+    3. Solve the linear system
+    4. Update the state variables
+    5. Check convergence first time (expected not to pass)
+    6. Rediscretize at the beginning of the next iteration
+    7. Assemble the linear system
+    8. Check convergence second time (passes by hard-coding)
+
+    Then, quit the simulation and compare stored linear systems.
+
+    """
+
+    def check_convergence(self, *args, **kwargs):
+        if self._nonlinear_iteration > 1:
+            return 0.0, True, False
+        else:
+            # Call to super is okay here, since the full model used in the tests is
+            # known to have a method of this name.
+            return super().check_convergence(*args, **kwargs)
+
+    def rediscretize(self):
+        if self.params["full_rediscretization"]:
+            return super().discretize()
+        else:
+            return super().rediscretize()
+
+    def assemble_linear_system(self) -> None:
+        """Store all assembled linear systems for later comparison."""
+        super().assemble_linear_system()
+        if not hasattr(self, "stored_linear_system"):
+            self.stored_linear_system = []
+        self.stored_linear_system.append(copy.deepcopy(self.linear_system))
+
+
+# Non-trivial solution achieved through BCs.
+class RandomPressureBCs(
+    models.BoundaryConditionsMassDirNorthSouth,
+    models.BoundaryConditionsEnergyDirNorthSouth,
+):
+    def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+        """Boundary condition values for Darcy flux.
+
+        Dirichlet boundary conditions are defined on the north and south boundaries. We
+        set the nonzero random pressure on the north boundary, and 0 on the south
+        boundary.
+
+        Parameters:
+            boundary_grid: Boundary grid for which to define boundary conditions.
+
+        Returns:
+            Boundary condition values array.
+
+        """
+        domain_sides = self.domain_boundary_sides(boundary_grid)
+        vals_loc = np.zeros(boundary_grid.num_cells)
+        # Fix the random seed to make it possible to debug in the future.
+        np.random.seed(0)
+        vals_loc[domain_sides.north] = np.random.rand(domain_sides.north.sum())
+        return vals_loc
+
+
+# No need to test momentum balance, as it contains no discretizations that need
+# rediscretization.
+model_classes = [
+    models._add_mixin(RandomPressureBCs, models.MassBalance),
+    models._add_mixin(RandomPressureBCs, models.MassAndEnergyBalance),
+    models._add_mixin(RandomPressureBCs, models.Poromechanics),
+    models._add_mixin(RandomPressureBCs, models.Thermoporomechanics),
+]
+
+
+@pytest.mark.parametrize("model_class", model_classes)
+def test_targeted_rediscretization(model_class):
+    """Test that targeted rediscretization yields same results as full discretization."""
+    params_full = {
+        "full_rediscretization": True,
+        "fracture_indices": [0, 1],
+        "cartesian": True,
+        # Make flow problem non-linear:
+        "material_constants": {"fluid": pp.FluidConstants({"compressibility": 1})},
+    }
+    # Finalize the model class by adding the rediscretization mixin.
+    rediscretization_model_class = models._add_mixin(RediscretizationTest, model_class)
+    # A model object with full rediscretization.
+    model_full = rediscretization_model_class(params_full)
+    pp.run_time_dependent_model(model_full, params_full)
+
+    # A model object with targeted rediscretization.
+    params_targeted = params_full.copy()
+    params_targeted["full_rediscretization"] = False
+    # Set up the model.
+    model_targeted = rediscretization_model_class(params_targeted)
+    pp.run_time_dependent_model(model_targeted, params_targeted)
+
+    # Check that the linear systems are the same.
+    assert len(model_full.stored_linear_system) == 2
+    assert len(model_targeted.stored_linear_system) == 2
+    for i in range(len(model_full.stored_linear_system)):
+        A_full, b_full = model_full.stored_linear_system[i]
+        A_targeted, b_targeted = model_targeted.stored_linear_system[i]
+
+        # Convert to dense array to ensure the matrices are identical.
+        assert np.allclose(A_full.A, A_targeted.A)
+        assert np.allclose(b_full, b_targeted)
+
+    # Check that the discretization matrix changes between iterations. Without this
+    # check, missing rediscretization may go unnoticed.
+    tol = 1e-2
+    diff = model_full.stored_linear_system[0][0] - model_full.stored_linear_system[1][0]
+    assert np.linalg.norm(diff.todense()) > tol
