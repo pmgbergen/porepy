@@ -326,3 +326,81 @@ def test_is_planar_3d():
         ]
     )
     assert geometry_property_checks.points_are_planar(pts)
+
+
+# --------- Testing is_ccw_polyline ---------
+
+
+def make_ccw_vectors():
+    p1 = np.array([0, 0])
+    p2 = np.array([1, 0])
+    p3 = np.array([1, 1])
+    return p1, p2, p3
+
+
+def make_ccw_close_vectors(y):
+    p1 = np.array([0, 0])
+    p2 = np.array([2, 0])
+    p3 = np.array([1, y])
+    return p1, p2, p3
+
+
+def test_is_ccw():
+    p1, p2, p3 = make_ccw_vectors()
+    assert geometry_property_checks.is_ccw_polyline(p1, p2, p3)
+
+
+def test_not_ccw():
+    p1, p2, p3 = make_ccw_vectors()
+    assert not geometry_property_checks.is_ccw_polyline(p1, p3, p2)
+
+
+def test_ccw_on_boundary():
+    p1, p2, p3 = make_ccw_close_vectors(0)
+    assert geometry_property_checks.is_ccw_polyline(p1, p2, p3, default=True)
+    assert not geometry_property_checks.is_ccw_polyline(p1, p2, p3, default=False)
+
+
+def test_tolerance():
+    p1, p2, p3 = make_ccw_close_vectors(1e-6)
+
+    # Safety margin saves ut
+    assert geometry_property_checks.is_ccw_polyline(p1, p2, p3, tol=1e-4, default=True)
+
+    # Default kills us, even though we're inside safety margin
+    assert not geometry_property_checks.is_ccw_polyline(
+        p1, p2, p3, tol=1e-4, default=False
+    )
+
+    # Outside safety margin, and on the ccw side
+    assert geometry_property_checks.is_ccw_polyline(p1, p2, p3, tol=1e-8, default=False)
+
+
+def test_tolerance_outside():
+    p1, p2, p3 = make_ccw_close_vectors(-1e-6)
+
+    # Safety margin saves ut
+    assert geometry_property_checks.is_ccw_polyline(p1, p2, p3, tol=1e-4, default=True)
+
+    # Default kills us, even though we're inside safety margin
+    assert not geometry_property_checks.is_ccw_polyline(
+        p1, p2, p3, tol=1e-4, default=False
+    )
+
+    # Outside safety margin, and not on the ccw side
+    assert not geometry_property_checks.is_ccw_polyline(
+        p1, p2, p3, tol=1e-8, default=False
+    )
+
+
+def test_several_points():
+    p1, p2, _ = make_ccw_vectors()
+
+    p_test = np.array([[0.5, 0.5], [1, -1]])
+    known = np.array([1, 0], dtype=bool)
+    assert np.allclose(
+        known,
+        geometry_property_checks.is_ccw_polyline(
+            p1, p2, p_test, tol=1e-8, default=False
+        ),
+    )
