@@ -6,15 +6,11 @@ mixed dimensional grids and fractured/non-fractured domains.
 The tests have been developed gradually, and are not coherent, but should give
 reasonable coverage.
 """
+import numpy as np
 import pytest
 
-import numpy as np
-
 import porepy as pp
-
 from porepy.fracs import meshing
-
-from porepy.applications.test_utils.arrays import compare_arrays
 
 
 def _compare_tip_nodes(g, known_tips):
