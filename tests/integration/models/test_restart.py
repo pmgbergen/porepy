@@ -15,8 +15,8 @@ import numpy as np
 import pytest
 
 import porepy as pp
+from porepy.applications.test_utils.vtk import compare_pvd_files, compare_vtu_files
 
-from ...unit.test_vtk import _compare_pvd_files, _compare_vtu_files
 from .test_poromechanics import TailoredPoromechanics, create_fractured_setup
 
 # Store current directory, directory containing reference files, and temporary
@@ -112,11 +112,11 @@ def test_restart_2d_single_fracture(solid_vals, north_displacement):
     # 1. Check whether the states have been correctly initialized at restart time.
     # Visit all dimensions and the mortar grids for this.
     for i in ["1", "2"]:
-        assert _compare_vtu_files(
+        assert compare_vtu_files(
             visualization_dir / Path(f"data_{i}_000001.vtu"),
             reference_dir / Path(f"data_{i}_000001.vtu"),
         )
-    assert _compare_vtu_files(
+    assert compare_vtu_files(
         visualization_dir / Path(f"data_mortar_1_000001.vtu"),
         reference_dir / Path(f"data_mortar_1_000001.vtu"),
     )
@@ -124,23 +124,23 @@ def test_restart_2d_single_fracture(solid_vals, north_displacement):
     # 2. Check whether the successive time step has been computed correctely.
     # Visit all dimensions and the mortar grids for this.
     for i in ["1", "2"]:
-        assert _compare_vtu_files(
+        assert compare_vtu_files(
             visualization_dir / Path(f"data_{i}_000002.vtu"),
             reference_dir / Path(f"data_{i}_000002.vtu"),
         )
-    assert _compare_vtu_files(
+    assert compare_vtu_files(
         visualization_dir / Path(f"data_mortar_1_000002.vtu"),
         reference_dir / Path(f"data_mortar_1_000002.vtu"),
     )
 
     # 3. Check whether the mdg pvd file is defined correctly.
-    assert _compare_pvd_files(
+    assert compare_pvd_files(
         visualization_dir / Path(f"data_000002.pvd"),
         reference_dir / Path(f"data_000002.pvd"),
     )
 
     # 4. Check whether the pvd file is compiled correctly, combining old and new data.
-    assert _compare_pvd_files(
+    assert compare_pvd_files(
         visualization_dir / Path(f"data.pvd"),
         reference_dir / Path(f"data.pvd"),
     )
