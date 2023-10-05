@@ -10,8 +10,8 @@ import numpy as np
 
 from porepy import constrain_geometry
 
-
 # ---------- Testing snap_points_to_segments ----------
+
 
 def test_single_point_snap():
     p = np.array([[0, 1], [0, 0]])

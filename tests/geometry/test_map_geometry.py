@@ -1,6 +1,7 @@
 import numpy as np
-from porepy import map_geometry
 import pytest
+
+from porepy import map_geometry
 
 # ---------- Testing compute_normal ----------
 

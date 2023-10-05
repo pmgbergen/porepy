@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
-from porepy import geometry_property_checks
 
+from porepy import geometry_property_checks
 
 # --------- Testing point_in_polygon ---------
 
