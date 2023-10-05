@@ -11,7 +11,7 @@ from porepy.applications.test_utils.partial_discretization import (
 
 @pytest.fixture
 def discretization_matrices():
-    """Return a grid and the corresponding mpfa discretization matrices."""
+    """Return a grid and the corresponding mpsa discretization matrices."""
     g = pp.CartGrid([5, 5])
     g.compute_geometry()
     stiffness = pp.FourthOrderTensor(np.ones(g.num_cells), np.ones(g.num_cells))
