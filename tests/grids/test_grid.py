@@ -20,406 +20,430 @@ def set_tol():
     return 1e-8
 
 
-class TestDiameterComputation(unittest.TestCase):
-    def test_cell_diameters_2d(self):
-        g = pp.CartGrid([3, 2], np.array([1, 1]))
-        cell_diameters = g.cell_diameters()
-        known = np.repeat(np.sqrt(0.5**2 + 1.0 / 3.0**2), g.num_cells)
-        self.assertTrue(np.allclose(cell_diameters, known))
-
-    def test_cell_diameters_3d(self):
-        g = pp.CartGrid([3, 2, 1])
-        cell_diameters = g.cell_diameters()
-        known = np.repeat(np.sqrt(3), g.num_cells)
-        self.assertTrue(np.allclose(cell_diameters, known))
+def test_cell_diameters_2d():
+    g = pp.CartGrid(np.array([3, 2]), np.array([1, 1]))
+    cell_diameters = g.cell_diameters()
+    known = np.repeat(np.sqrt(0.5**2 + 1.0 / 3.0**2), g.num_cells)
+    assert np.allclose(cell_diameters, known)
 
 
-class TestReprAndStr(unittest.TestCase):
-    def test_repr(self):
-        # Call repr, just to see that it works
-        g = pp.CartGrid(np.array([1, 1]))
-        g.__repr__()
-
-    def test_str(self):
-        # Call repr, just to see that it works
-        g = pp.CartGrid(np.array([1, 1]))
-        g.__str__()
+def test_cell_diameters_3d():
+    g = pp.CartGrid(np.array([3, 2, 1]))
+    cell_diameters = g.cell_diameters()
+    known = np.repeat(np.sqrt(3), g.num_cells)
+    assert np.allclose(cell_diameters, known)
 
 
-class TestClosestCell(unittest.TestCase):
-    # Test of function to find closest cell
-
-    def test_in_plane(self):
-        # 2d grid, points also in plane
-        g = pp.CartGrid([3, 3])
-        g.compute_geometry()
-
-        p = np.array([[0.5, -0.5], [0.5, 0.5]])
-        ind = g.closest_cell(p)
-        self.assertTrue(np.allclose(ind, 0 * ind))
-
-    def test_out_of_plane(self):
-        g = pp.CartGrid([2, 2])
-        g.compute_geometry()
-        p = np.array([[0.1], [0.1], [1]])
-        ind = g.closest_cell(p)
-        self.assertTrue(ind[0] == 0)
-        self.assertTrue(ind.size == 1)
+def test_repr():
+    # Call repr, just to see that it works
+    g = pp.CartGrid(np.array([1, 1]))
+    g.__repr__()
 
 
-class TestCellFaceAsDense(unittest.TestCase):
-    def test_cart_grid(self):
-        g = pp.CartGrid([2, 1])
-        cf = g.cell_face_as_dense()
-        known = np.array([[-1, 0, 1, -1, -1, 0, 1], [0, 1, -1, 0, 1, -1, -1]])
-        self.assertTrue(np.allclose(cf, known))
+def test_str():
+    # Call str, just to see that it works
+    g = pp.CartGrid(np.array([1, 1]))
+    g.__str__()
 
 
-class TestBoundaries(unittest.TestCase):
-    def test_bounary_node_cart(self):
-        g = pp.CartGrid([2, 2])
-        bound_ind = g.get_boundary_nodes()
-        known_bound = np.array([0, 1, 2, 3, 5, 6, 7, 8])
-        self.assertTrue(np.allclose(np.sort(bound_ind), known_bound))
+# Tests of function to find the closest cell
 
-    def test_boundary_faces_cart(self):
-        g = pp.CartGrid([2, 1])
-        int_faces = g.get_internal_faces()
-        self.assertTrue(int_faces.size == 1)
-        self.assertTrue(int_faces[0] == 1)
-
-    def test_get_internal_nodes_cart(self):
-        g = pp.CartGrid([2, 2])
-        int_nodes = g.get_internal_nodes()
-        self.assertTrue(int_nodes.size == 1)
-        self.assertTrue(int_nodes[0] == 4)
-
-    def test_get_internal_nodes_empty(self):
-        g = pp.CartGrid([2, 1])
-        int_nodes = g.get_internal_nodes()
-        self.assertTrue(int_nodes.size == 0)
-
-    def test_bounding_box(self):
-        sd = pp.CartGrid(np.array([1, 1]))
-        sd.nodes = np.random.random((sd.dim, sd.num_nodes))
-        bmin, bmax = pp.domain.grid_minmax_coordinates(sd)
-        self.assertTrue(np.allclose(bmin, sd.nodes.min(axis=1)))
-        self.assertTrue(np.allclose(bmax, sd.nodes.max(axis=1)))
+def test_closest_cell_in_plane():
+    # 2d grid, points also in plane
+    g = pp.CartGrid(np.array([3, 3]))
+    g.compute_geometry()
+    p = np.array([[0.5, -0.5], [0.5, 0.5]])
+    ind = g.closest_cell(p)
+    assert np.allclose(ind, 0 * ind)
 
 
-class TestComputeGeometry(unittest.TestCase):
-    def test_unit_cart_2d(self):
-        g = pp.CartGrid(np.array([1, 1]))
-        g.compute_geometry()
-        known_areas = np.ones(4)
-        known_volumes = np.ones(1)
-        known_normals = np.array([[1, 0, 0], [1, 0, 0], [0, 1, 0], [0, 1, 0]]).T
-        known_f_centr = np.array([[0, 0.5, 0], [1, 0.5, 0], [0.5, 0, 0], [0.5, 1, 0]]).T
-        known_c_centr = np.array([[0.5, 0.5, 0]]).T
-        self.assertTrue(np.allclose(g.face_areas, known_areas))
-        self.assertTrue(np.allclose(g.cell_volumes, known_volumes))
-        self.assertTrue(np.allclose(g.face_normals, known_normals))
-        self.assertTrue(np.allclose(g.face_centers, known_f_centr))
-        self.assertTrue(np.allclose(g.cell_centers, known_c_centr))
-
-    def test_huge_cart_2d(self):
-        g = pp.CartGrid(np.array([1, 1]), [5000, 5000])
-        g.compute_geometry()
-        known_areas = 5000 * np.ones(4)
-        known_volumes = 5000**2 * np.ones(1)
-        known_normals = np.array([[1, 0, 0], [1, 0, 0], [0, 1, 0], [0, 1, 0]]).T * 5000
-        known_f_centr = (
-            np.array([[0, 0.5, 0], [1, 0.5, 0], [0.5, 0, 0], [0.5, 1, 0]]).T * 5000
-        )
-        known_c_centr = np.array([[0.5, 0.5, 0]]).T * 5000
-        self.assertTrue(np.allclose(g.face_areas, known_areas))
-        self.assertTrue(np.allclose(g.cell_volumes, known_volumes))
-        self.assertTrue(np.allclose(g.face_normals, known_normals))
-        self.assertTrue(np.allclose(g.face_centers, known_f_centr))
-        self.assertTrue(np.allclose(g.cell_centers, known_c_centr))
-
-    def test_inconsistent_orientation_2d(self):
-        # Test to trigger is_oriented = False such that compute_geometry falls
-        # back on the implementation based on convex cells.
-
-        nodes = np.array([[0, 1, 0, 1], [0, 0, 1, 1], np.zeros(4)])
-        indices = np.array([0, 1, 2, 3, 0, 2, 1, 3])
-        face_nodes = sps.csc_matrix((np.ones(8), indices, np.arange(0, 9, 2)))
-        cell_faces = sps.csc_matrix(np.ones((4, 1)))
-
-        sd = pp.Grid(2, nodes, face_nodes, cell_faces, "inconsistent")
-        sd.compute_geometry()
-
-        self.assertTrue(np.isclose(sd.cell_volumes[0], 1))
-        self.assertTrue(np.allclose(sd.cell_centers, np.array([[0.5], [0.5], [0]])))
-        known_face_normals = np.array(
-            [[0.0, -0.0, -1.0, 1.0], [-1.0, 1.0, -0.0, 0.0], [0.0, -0.0, -0.0, 0.0]]
-        )
-        self.assertTrue(np.allclose(sd.face_normals, known_face_normals))
-
-    def test_concave_quad(self):
-        # Known quadrilateral for which the convexity assumption fails.
-
-        nodes = np.array([[0, 0.5, 1, 0.5], [0, 0.5, 0, 1], np.zeros(4)])
-        indices = np.array([0, 1, 1, 2, 2, 3, 3, 0])
-        face_nodes = sps.csc_matrix((np.ones(8), indices, np.arange(0, 9, 2)))
-        cell_faces = sps.csc_matrix(np.ones((4, 1)))
-
-        sd = pp.Grid(2, nodes, face_nodes, cell_faces, "concave")
-        sd.compute_geometry()
-
-        self.assertTrue(np.isclose(sd.cell_volumes[0], 0.25))
-        self.assertTrue(np.allclose(sd.cell_centers, np.array([[0.5], [0.5], [0]])))
-        known_face_normals = np.array(
-            [[0.5, -0.5, 1.0, -1.0], [-0.5, -0.5, 0.5, 0.5], [0.0, 0.0, -0.0, 0.0]]
-        )
-        self.assertTrue(np.allclose(sd.face_normals, known_face_normals))
-
-    def test_exterior_cell_center(self):
-        # Known quadrilateral for which the convexity assumption fails
-        # and the centroid is external.
-
-        nodes = np.array([[0, 0.5, 1, 0.5], [0, 0.75, 0, 1], np.zeros(4)])
-        indices = np.array([0, 1, 1, 2, 2, 3, 3, 0])
-        face_nodes = sps.csc_matrix((np.ones(8), indices, np.arange(0, 9, 2)))
-        cell_faces = sps.csc_matrix(np.ones((4, 1)))
-
-        sd = pp.Grid(2, nodes, face_nodes, cell_faces, "concave")
-        sd.compute_geometry()
-
-        self.assertTrue(np.isclose(sd.cell_volumes[0], 0.125))
-        self.assertTrue(
-            np.allclose(sd.cell_centers, np.array([[0.5], [1.75 / 3], [0]]))
-        )
-        known_face_normals = np.array(
-            [[0.75, -0.75, 1.0, -1.0], [-0.5, -0.5, 0.5, 0.5], [0.0, 0.0, -0.0, 0.0]]
-        )
-        self.assertTrue(np.allclose(sd.face_normals, known_face_normals))
-
-    def test_multiple_concave_quads(self):
-        # Small mesh consisting of two concave and one convex cell.
-
-        nodes = np.array(
-            [[0, 0.5, 1, 0.5, 0.5, 0.5], [0, 0.5, 0, 1, -0.5, -1], np.zeros(6)]
-        )
-        indices = np.array([0, 1, 1, 2, 2, 3, 3, 0, 0, 5, 5, 2, 2, 4, 4, 0])
-        face_nodes = sps.csc_matrix((np.ones(16), indices, np.arange(0, 17, 2)))
-        cell_faces_j = np.repeat(np.arange(3), 4)
-        cell_faces_i = np.array([0, 1, 2, 3, 7, 6, 1, 0, 4, 5, 6, 7])
-        cell_faces_v = np.array([1, 1, 1, 1, -1, -1, -1, -1, 1, 1, 1, 1])
-        cell_faces = sps.csc_matrix((cell_faces_v, (cell_faces_i, cell_faces_j)))
-
-        sd = pp.Grid(2, nodes, face_nodes, cell_faces, "concave")
-        sd.compute_geometry()
-
-        self.assertTrue(np.allclose(sd.cell_volumes, [0.25, 0.5, 0.25]))
-        known_cell_centers = np.array(
-            [[0.5, 0.5, 0.5], [0.5, 0.0, -0.5], [0.0, 0.0, 0.0]]
-        )
-        self.assertTrue(np.allclose(sd.cell_centers, known_cell_centers))
-        known_face_normals = np.array(
-            [
-                [0.5, -0.5, 1.0, -1.0, -1.0, 1.0, -0.5, 0.5],
-                [-0.5, -0.5, 0.5, 0.5, -0.5, -0.5, 0.5, 0.5],
-                [0.0, 0.0, -0.0, 0.0, 0.0, 0.0, 0.0, -0.0],
-            ]
-        )
-        self.assertTrue(np.allclose(sd.face_normals, known_face_normals))
+def test_closest_cell_out_of_plane():
+    g = pp.CartGrid(np.array([2, 2]))
+    g.compute_geometry()
+    p = np.array([[0.1], [0.1], [1]])
+    ind = g.closest_cell(p)
+    assert ind[0] == 0
+    assert ind.size == 1
 
 
-class TestCartGrideGeometry2DUnpert(unittest.TestCase):
-    def setUp(self):
-        self.tol = set_tol()
-        nc = np.array([2, 3])
-        self.g = structured.CartGrid(nc)
-        self.g.compute_geometry()
+def test_cell_face_as_dense():
+    g = pp.CartGrid(np.array([2, 1]))
+    cf = g.cell_face_as_dense()
+    known = np.array([[-1, 0, 1, -1, -1, 0, 1], [0, 1, -1, 0, 1, -1, -1]])
+    assert np.allclose(cf, known)
 
-    def test_node_coord(self):
-        xn = np.array([0, 1, 2, 0, 1, 2, 0, 1, 2, 0, 1, 2])
-        yn = np.array([0, 0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 3])
-        self.assertTrue(np.isclose(xn, self.g.nodes[0]).all())
-        self.assertTrue(np.isclose(yn, self.g.nodes[1]).all())
-
-    def test_faces_areas(self):
-        areas = 1 * np.ones(self.g.num_faces)
-        self.assertTrue(np.isclose(areas, self.g.face_areas).all())
-
-    def test_cell_volumes(self):
-        volumes = 1 * np.ones(self.g.num_cells)
-        self.assertTrue(np.isclose(volumes, self.g.cell_volumes).all())
+# Boundary tests
 
 
-class TestCartGridGeometry2DPert(unittest.TestCase):
-    def setUp(self):
-        self.tol = set_tol()
-        nc = np.array([2, 2])
-        g = structured.CartGrid(nc)
-        g.nodes[0, 4] = 1.5
-        g.compute_geometry()
-        self.g = g
-
-    def test_node_coord(self):
-        xn = np.array([0, 1, 2, 0, 1.5, 2, 0, 1, 2])
-        yn = np.array([0, 0, 0, 1, 1, 1, 2, 2, 2])
-        self.assertTrue(np.isclose(xn, self.g.nodes[0]).all())
-        self.assertTrue(np.isclose(yn, self.g.nodes[1]).all())
-
-    def test_faces_areas(self):
-        areas = np.array(
-            [1, np.sqrt(1.25), 1, 1, np.sqrt(1.25), 1, 1, 1, 1.5, 0.5, 1, 1]
-        )
-        self.assertTrue(np.isclose(areas, self.g.face_areas).all())
-
-    def test_cell_volumes(self):
-        volumes = np.array([1.25, 0.75, 1.25, 0.75])
-        self.assertTrue(np.isclose(volumes, self.g.cell_volumes).all())
-
-    def test_face_normals(self):
-        nx = np.array([1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0])
-        ny = np.array([0, -0.5, 0, 0, 0.5, 0, 1, 1, 1.5, 0.5, 1, 1])
-        fn = self.g.face_normals
-        self.assertTrue(np.isclose(nx, fn[0]).all())
-        self.assertTrue(np.isclose(ny, fn[1]).all())
+def test_boundary_node_cart():
+    g = pp.CartGrid(np.array([2, 2]))
+    bound_ind = g.get_boundary_nodes()
+    known_bound = np.array([0, 1, 2, 3, 5, 6, 7, 8])
+    assert np.allclose(np.sort(bound_ind), known_bound)
 
 
-class TestCartGridGeometryUnpert3D(unittest.TestCase):
-    def setUp(self):
-        nc = 2 * np.ones(3, dtype=int)
-        g = structured.CartGrid(nc)
-        g.compute_geometry()
-        self.g = g
+def test_boundary_faces_cart():
+    g = pp.CartGrid(np.array([2, 1]))
+    int_faces = g.get_internal_faces()
+    assert int_faces.size == 1
+    assert int_faces[0] == 1
 
-    def test_node_coord(self):
-        x = np.array(
-            [
-                0,
-                1,
-                2,
-                0,
-                1,
-                2,
-                0,
-                1,
-                2,  # z == 0
-                0,
-                1,
-                2,
-                0,
-                1,
-                2,
-                0,
-                1,
-                2,  # z == 1
-                0,
-                1,
-                2,
-                0,
-                1,
-                2,
-                0,
-                1,
-                2,
-            ]
-        )  # z == 2
-        y = np.array(
-            [
-                0,
-                0,
-                0,
-                1,
-                1,
-                1,
-                2,
-                2,
-                2,
-                0,
-                0,
-                0,
-                1,
-                1,
-                1,
-                2,
-                2,
-                2,
-                0,
-                0,
-                0,
-                1,
-                1,
-                1,
-                2,
-                2,
-                2,
-            ]
-        )
-        z = np.array(
-            [
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                1,
-                1,
-                1,
-                1,
-                1,
-                1,
-                1,
-                1,
-                1,
-                2,
-                2,
-                2,
-                2,
-                2,
-                2,
-                2,
-                2,
-                2,
-            ]
-        )
 
-        self.assertTrue(np.isclose(x, self.g.nodes[0]).all())
-        self.assertTrue(np.isclose(y, self.g.nodes[1]).all())
-        self.assertTrue(np.isclose(z, self.g.nodes[2]).all())
+def test_get_internal_nodes_cart():
+    g = pp.CartGrid(np.array([2, 2]))
+    int_nodes = g.get_internal_nodes()
+    assert int_nodes.size == 1
+    assert int_nodes[0] == 4
 
-    def test_faces_areas(self):
-        areas = 1 * np.ones(self.g.num_faces)
-        self.assertTrue(np.isclose(areas, self.g.face_areas).all())
 
-    def test_face_normals(self):
-        face_per_dim = 3 * 2 * 2
-        ones = np.ones(face_per_dim)
-        zeros = np.zeros(face_per_dim)
+def test_get_internal_nodes_empty():
+    g = pp.CartGrid(np.array([2, 1]))
+    int_nodes = g.get_internal_nodes()
+    assert int_nodes.size == 0
 
-        nx = np.hstack((ones, zeros, zeros))
-        ny = np.hstack((zeros, ones, zeros))
-        nz = np.hstack((zeros, zeros, ones))
 
-        fn = self.g.face_normals
-        self.assertTrue(np.isclose(nx, fn[0]).all())
-        self.assertTrue(np.isclose(ny, fn[1]).all())
-        self.assertTrue(np.isclose(nz, fn[2]).all())
+def test_bounding_box():
+    sd = pp.CartGrid(np.array([1, 1]))
+    sd.nodes = np.random.random((sd.dim, sd.num_nodes))
+    bmin, bmax = pp.domain.grid_minmax_coordinates(sd)
+    assert np.allclose(bmin, sd.nodes.min(axis=1))
+    assert np.allclose(bmax, sd.nodes.max(axis=1))
 
-    def test_cell_volumes(self):
-        volumes = 1 * np.ones(self.g.num_cells)
-        self.assertTrue(np.isclose(volumes, self.g.cell_volumes).all())
 
-    def test_cell_centers(self):
-        cx = np.array([0.5, 1.5, 0.5, 1.5, 0.5, 1.5, 0.5, 1.5])
-        cy = np.array([0.5, 0.5, 1.5, 1.5, 0.5, 0.5, 1.5, 1.5])
-        cz = np.array([0.5, 0.5, 0.5, 0.5, 1.5, 1.5, 1.5, 1.5])
+# Tests of the compute_geometry function
 
-        cc = self.g.cell_centers
+def test_compute_geometry_unit_cart_2d():
+    g = pp.CartGrid(np.array([1, 1]))
+    g.compute_geometry()
+    known_areas = np.ones(4)
+    known_volumes = np.ones(1)
+    known_normals = np.array([[1, 0, 0], [1, 0, 0], [0, 1, 0], [0, 1, 0]]).T
+    known_f_centr = np.array([[0, 0.5, 0], [1, 0.5, 0], [0.5, 0, 0], [0.5, 1, 0]]).T
+    known_c_centr = np.array([[0.5, 0.5, 0]]).T
+    assert np.allclose(g.face_areas, known_areas)
+    assert np.allclose(g.cell_volumes, known_volumes)
+    assert np.allclose(g.face_normals, known_normals)
+    assert np.allclose(g.face_centers, known_f_centr)
+    assert np.allclose(g.cell_centers, known_c_centr)
 
-        self.assertTrue(np.isclose(cx, cc[0]).all())
-        self.assertTrue(np.isclose(cy, cc[1]).all())
-        self.assertTrue(np.isclose(cz, cc[2]).all())
+
+def test_compute_geometry_huge_cart_2d():
+    g = pp.CartGrid(np.array([1, 1]), np.array([5000, 5000]))
+    g.compute_geometry()
+    known_areas = 5000 * np.ones(4)
+    known_volumes = 5000**2 * np.ones(1)
+    known_normals = np.array([[1, 0, 0], [1, 0, 0], [0, 1, 0], [0, 1, 0]]).T * 5000
+    known_f_centr = (
+        np.array([[0, 0.5, 0], [1, 0.5, 0], [0.5, 0, 0], [0.5, 1, 0]]).T * 5000
+    )
+    known_c_centr = np.array([[0.5, 0.5, 0]]).T * 5000
+    assert np.allclose(g.face_areas, known_areas)
+    assert np.allclose(g.cell_volumes, known_volumes)
+    assert np.allclose(g.face_normals, known_normals)
+    assert np.allclose(g.face_centers, known_f_centr)
+    assert np.allclose(g.cell_centers, known_c_centr)
+
+
+def test_compute_geometry_inconsistent_orientation_2d():
+    # Test to trigger is_oriented = False such that compute_geometry falls
+    # back on the implementation based on convex cells.
+
+    nodes = np.array([[0, 1, 0, 1], [0, 0, 1, 1], np.zeros(4)])
+    indices = np.array([0, 1, 2, 3, 0, 2, 1, 3])
+    face_nodes = sps.csc_matrix((np.ones(8), indices, np.arange(0, 9, 2)))
+    cell_faces = sps.csc_matrix(np.ones((4, 1)))
+
+    sd = pp.Grid(2, nodes, face_nodes, cell_faces, "inconsistent")
+    sd.compute_geometry()
+
+    assert np.isclose(sd.cell_volumes[0], 1)
+    assert np.allclose(sd.cell_centers, np.array([[0.5], [0.5], [0]]))
+    known_face_normals = np.array(
+        [[0.0, -0.0, -1.0, 1.0], [-1.0, 1.0, -0.0, 0.0], [0.0, -0.0, -0.0, 0.0]]
+    )
+    assert np.allclose(sd.face_normals, known_face_normals)
+
+
+def test_compute_geometry_concave_quad():
+    # Known quadrilateral for which the convexity assumption fails.
+
+    nodes = np.array([[0, 0.5, 1, 0.5], [0, 0.5, 0, 1], np.zeros(4)])
+    indices = np.array([0, 1, 1, 2, 2, 3, 3, 0])
+    face_nodes = sps.csc_matrix((np.ones(8), indices, np.arange(0, 9, 2)))
+    cell_faces = sps.csc_matrix(np.ones((4, 1)))
+
+    sd = pp.Grid(2, nodes, face_nodes, cell_faces, "concave")
+    sd.compute_geometry()
+
+    assert np.isclose(sd.cell_volumes[0], 0.25)
+    assert np.allclose(sd.cell_centers, np.array([[0.5], [0.5], [0]]))
+    known_face_normals = np.array(
+        [[0.5, -0.5, 1.0, -1.0], [-0.5, -0.5, 0.5, 0.5], [0.0, 0.0, -0.0, 0.0]]
+    )
+    assert np.allclose(sd.face_normals, known_face_normals)
+
+
+def test_compute_geometry_exterior_cell_center():
+    # Known quadrilateral for which the convexity assumption fails
+    # and the centroid is external.
+
+    nodes = np.array([[0, 0.5, 1, 0.5], [0, 0.75, 0, 1], np.zeros(4)])
+    indices = np.array([0, 1, 1, 2, 2, 3, 3, 0])
+    face_nodes = sps.csc_matrix((np.ones(8), indices, np.arange(0, 9, 2)))
+    cell_faces = sps.csc_matrix(np.ones((4, 1)))
+
+    sd = pp.Grid(2, nodes, face_nodes, cell_faces, "concave")
+    sd.compute_geometry()
+
+    assert np.isclose(sd.cell_volumes[0], 0.125)
+    assert np.allclose(sd.cell_centers, np.array([[0.5], [1.75 / 3], [0]]))
+    known_face_normals = np.array(
+        [[0.75, -0.75, 1.0, -1.0], [-0.5, -0.5, 0.5, 0.5], [0.0, 0.0, -0.0, 0.0]]
+    )
+    assert np.allclose(sd.face_normals, known_face_normals)
+
+
+def test_compute_geometry_multiple_concave_quads():
+    # Small mesh consisting of two concave and one convex cell.
+
+    nodes = np.array(
+        [[0, 0.5, 1, 0.5, 0.5, 0.5], [0, 0.5, 0, 1, -0.5, -1], np.zeros(6)]
+    )
+    indices = np.array([0, 1, 1, 2, 2, 3, 3, 0, 0, 5, 5, 2, 2, 4, 4, 0])
+    face_nodes = sps.csc_matrix((np.ones(16), indices, np.arange(0, 17, 2)))
+    cell_faces_j = np.repeat(np.arange(3), 4)
+    cell_faces_i = np.array([0, 1, 2, 3, 7, 6, 1, 0, 4, 5, 6, 7])
+    cell_faces_v = np.array([1, 1, 1, 1, -1, -1, -1, -1, 1, 1, 1, 1])
+    cell_faces = sps.csc_matrix((cell_faces_v, (cell_faces_i, cell_faces_j)))
+
+    sd = pp.Grid(2, nodes, face_nodes, cell_faces, "concave")
+    sd.compute_geometry()
+
+    assert np.allclose(sd.cell_volumes, [0.25, 0.5, 0.25])
+    known_cell_centers = np.array(
+        [[0.5, 0.5, 0.5], [0.5, 0.0, -0.5], [0.0, 0.0, 0.0]]
+    )
+    assert np.allclose(sd.cell_centers, known_cell_centers)
+    known_face_normals = np.array(
+        [
+            [0.5, -0.5, 1.0, -1.0, -1.0, 1.0, -0.5, 0.5],
+            [-0.5, -0.5, 0.5, 0.5, -0.5, -0.5, 0.5, 0.5],
+            [0.0, 0.0, -0.0, 0.0, 0.0, 0.0, 0.0, -0.0],
+        ]
+    )
+    assert np.allclose(sd.face_normals, known_face_normals)
+
+
+# Tests for a 2d unperturbed grid
+
+@pytest.fixture
+def grid_2d_unperturbed():
+    nc = np.array([2, 3])
+    g = structured.CartGrid(nc)
+    g.compute_geometry()
+    return g
+
+
+def test_node_coord_2d_unperturbed(grid_2d_unperturbed):
+    xn = np.array([0, 1, 2, 0, 1, 2, 0, 1, 2, 0, 1, 2])
+    yn = np.array([0, 0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 3])
+    assert np.isclose(xn, grid_2d_unperturbed.nodes[0]).all()
+    assert np.isclose(yn, grid_2d_unperturbed.nodes[1]).all()
+
+
+def test_faces_areas_2d_unperturbed(grid_2d_unperturbed):
+    areas = 1 * np.ones(grid_2d_unperturbed.num_faces)
+    assert np.isclose(areas, grid_2d_unperturbed.face_areas).all()
+
+
+def test_cell_volumes_2d_unperturbed(grid_2d_unperturbed):
+    volumes = 1 * np.ones(grid_2d_unperturbed.num_cells)
+    assert np.isclose(volumes, grid_2d_unperturbed.cell_volumes).all()
+
+
+# Tests for a 2d perturbed grid.
+
+@pytest.fixture
+def grid_2d_perturbed():
+    nc = np.array([2, 2])
+    g = structured.CartGrid(nc)
+    g.nodes[0, 4] = 1.5
+    g.compute_geometry()
+    return g
+
+
+def test_node_coord_2d_perturbed(grid_2d_perturbed):
+    xn = np.array([0, 1, 2, 0, 1.5, 2, 0, 1, 2])
+    yn = np.array([0, 0, 0, 1, 1, 1, 2, 2, 2])
+    assert np.isclose(xn, grid_2d_perturbed.nodes[0]).all()
+    assert np.isclose(yn, grid_2d_perturbed.nodes[1]).all()
+
+
+def test_faces_areas_2d_perturbed(grid_2d_perturbed):
+    areas = np.array(
+        [1, np.sqrt(1.25), 1, 1, np.sqrt(1.25), 1, 1, 1, 1.5, 0.5, 1, 1]
+    )
+    assert np.isclose(areas, grid_2d_perturbed.face_areas).all()
+
+
+def test_cell_volumes_2d_perturbed(grid_2d_perturbed):
+    volumes = np.array([1.25, 0.75, 1.25, 0.75])
+    assert np.isclose(volumes, grid_2d_perturbed.cell_volumes).all()
+
+
+def test_face_normals_2d_perturbed(grid_2d_perturbed):
+    nx = np.array([1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0])
+    ny = np.array([0, -0.5, 0, 0, 0.5, 0, 1, 1, 1.5, 0.5, 1, 1])
+    fn = grid_2d_perturbed.face_normals
+    assert np.isclose(nx, fn[0]).all()
+    assert np.isclose(ny, fn[1]).all()
+
+
+# Tests for a 3d unperturbed grid
+
+@pytest.fixture
+def grid_3d_unperturbed():
+    nc = 2 * np.ones(3, dtype=int)
+    g = structured.CartGrid(nc)
+    g.compute_geometry()
+    return g
+
+
+def test_node_coord_3d_unperturbed(grid_3d_unperturbed):
+    x = np.array(
+        [
+            0,
+            1,
+            2,
+            0,
+            1,
+            2,
+            0,
+            1,
+            2,  # z == 0
+            0,
+            1,
+            2,
+            0,
+            1,
+            2,
+            0,
+            1,
+            2,  # z == 1
+            0,
+            1,
+            2,
+            0,
+            1,
+            2,
+            0,
+            1,
+            2,
+        ]
+    )  # z == 2
+    y = np.array(
+        [
+            0,
+            0,
+            0,
+            1,
+            1,
+            1,
+            2,
+            2,
+            2,
+            0,
+            0,
+            0,
+            1,
+            1,
+            1,
+            2,
+            2,
+            2,
+            0,
+            0,
+            0,
+            1,
+            1,
+            1,
+            2,
+            2,
+            2,
+        ]
+    )
+    z = np.array(
+        [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+        ]
+    )
+
+    assert np.isclose(x, grid_3d_unperturbed.nodes[0]).all()
+    assert np.isclose(y, grid_3d_unperturbed.nodes[1]).all()
+    assert np.isclose(z, grid_3d_unperturbed.nodes[2]).all()
+
+
+def test_faces_areas_3d_unperturbed(grid_3d_unperturbed):
+    areas = 1 * np.ones(grid_3d_unperturbed.num_faces)
+    assert np.isclose(areas, grid_3d_unperturbed.face_areas).all()
+
+
+def test_face_normals_3d_unperturbed(grid_3d_unperturbed):
+    face_per_dim = 3 * 2 * 2
+    ones = np.ones(face_per_dim)
+    zeros = np.zeros(face_per_dim)
+
+    nx = np.hstack((ones, zeros, zeros))
+    ny = np.hstack((zeros, ones, zeros))
+    nz = np.hstack((zeros, zeros, ones))
+
+    fn = grid_3d_unperturbed.face_normals
+    assert np.isclose(nx, fn[0]).all()
+    assert np.isclose(ny, fn[1]).all()
+    assert np.isclose(nz, fn[2]).all()
+
+
+def test_cell_volumes_3d_unperturbed(grid_3d_unperturbed):
+    volumes = 1 * np.ones(grid_3d_unperturbed.num_cells)
+    assert np.isclose(volumes, grid_3d_unperturbed.cell_volumes).all()
+
+
+def test_cell_centers_3d_unperturbed(grid_3d_unperturbed):
+    cx = np.array([0.5, 1.5, 0.5, 1.5, 0.5, 1.5, 0.5, 1.5])
+    cy = np.array([0.5, 0.5, 1.5, 1.5, 0.5, 0.5, 1.5, 1.5])
+    cz = np.array([0.5, 0.5, 0.5, 0.5, 1.5, 1.5, 1.5, 1.5])
+
+    cc = grid_3d_unperturbed.cell_centers
+
+    assert np.isclose(cx, cc[0]).all()
+    assert np.isclose(cy, cc[1]).all()
+    assert np.isclose(cz, cc[2]).all()
 
 
 class TestCartGridGeometry1CellPert3D(unittest.TestCase):
