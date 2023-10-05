@@ -116,6 +116,32 @@ def test_sort_points_in_plane(points, center, target_ordering):
             np.array([[0, 1, 2], [1, 2, 3], [3, 2, 4], [0, 4, 2]]).T,
             np.array([[0, 1, 2], [2, 1, 3], [2, 3, 4], [2, 4, 0]]).T,
         ),
+        # issue #1 (here the points where copied during passing as arg)
+        (
+            np.array(
+                [
+                    [2, 1, 0, 5, 1, 0, 1, 6, 4, 7, 4, 5],
+                    [3, 3, 5, 3, 5, 5, 6, 7, 3, 3, 7, 4],
+                    [1, 0, 3, 4, 6, 1, 2, 2, 7, 2, 6, 6],
+                ]
+            ),
+            np.array(
+                [
+                    [2, 3, 1],
+                    [1, 3, 0],
+                    [3, 5, 0],
+                    [5, 3, 4],
+                    [1, 5, 6],
+                    [0, 5, 1],
+                    [1, 6, 2],
+                    [6, 7, 2],
+                    [4, 3, 7],
+                    [7, 3, 2],
+                    [4, 7, 6],
+                    [5, 4, 6],
+                ]
+            ).T,
+        ),
     ],
 )
 def test_sorting_triangle_edge(points, target_sorting):
@@ -123,31 +149,31 @@ def test_sorting_triangle_edge(points, target_sorting):
     assert np.allclose(sorted_t, target_sorting)
 
 
-def test_issue_1():
-    # Bug found while using the code
-    t = np.array(
-        [
-            [2, 1, 0, 5, 1, 0, 1, 6, 4, 7, 4, 5],
-            [3, 3, 5, 3, 5, 5, 6, 7, 3, 3, 7, 4],
-            [1, 0, 3, 4, 6, 1, 2, 2, 7, 2, 6, 6],
-        ]
-    )
-    sorted_t = sort_points.sort_triangle_edges(t.copy())
-    truth = np.array(
-        [
-            [2, 3, 1],
-            [1, 3, 0],
-            [3, 5, 0],
-            [5, 3, 4],
-            [1, 5, 6],
-            [0, 5, 1],
-            [1, 6, 2],
-            [6, 7, 2],
-            [4, 3, 7],
-            [7, 3, 2],
-            [4, 7, 6],
-            [5, 4, 6],
-        ]
-    ).T
+# def test_issue_1():
+#     # Bug found while using the code
+#     t = np.array(
+#         [
+#             [2, 1, 0, 5, 1, 0, 1, 6, 4, 7, 4, 5],
+#             [3, 3, 5, 3, 5, 5, 6, 7, 3, 3, 7, 4],
+#             [1, 0, 3, 4, 6, 1, 2, 2, 7, 2, 6, 6],
+#         ]
+#     )
+#     sorted_t = sort_points.sort_triangle_edges(t.copy())
+#     truth = np.array(
+#         [
+#             [2, 3, 1],
+#             [1, 3, 0],
+#             [3, 5, 0],
+#             [5, 3, 4],
+#             [1, 5, 6],
+#             [0, 5, 1],
+#             [1, 6, 2],
+#             [6, 7, 2],
+#             [4, 3, 7],
+#             [7, 3, 2],
+#             [4, 7, 6],
+#             [5, 4, 6],
+#         ]
+#     ).T
 
-    assert np.allclose(sorted_t, truth)
+#     assert np.allclose(sorted_t, truth)
