@@ -4,97 +4,221 @@ Currently tested are:
     * The subcell topology for 2d Cartesian and simplex grids.
     * The determination of the eta parameter.
     * The helper function computing a diagonal scaling matrix.
+    * The function for obtaining indices of cells and faces for a partial update of the
+    discretization stencil. 
 
 """
 from __future__ import division
 
-import unittest
+import pytest
 
 import numpy as np
 import scipy.sparse as sps
 
+from porepy.applications.test_utils.arrays import compare_arrays
 from porepy.grids import simplex, structured
 from porepy.numerics.fv import fvutils
 
 
-class TestFvutils(unittest.TestCase):
-    def test_subcell_topology_2d_cart(self):
-        # Verify that the subcell topology is correct for a 2d Cartesian grid.
-        x = np.ones(2, dtype=int)
-        g = structured.CartGrid(x)
+@pytest.fixture
+def g_2d():
+    return structured.CartGrid([5, 5])
 
-        subcell_topology = fvutils.SubcellTopology(g)
 
-        self.assertTrue(np.all(subcell_topology.cno == 0))
+@pytest.fixture
+def g_3d():
+    return structured.CartGrid([3, 3, 3])
 
-        ncum = np.bincount(
-            subcell_topology.nno, weights=np.ones(subcell_topology.nno.size)
+
+def test_subcell_topology_2d_cart():
+    # Verify that the subcell topology is correct for a 2d Cartesian grid.
+    x = np.ones(2, dtype=int)
+    g = structured.CartGrid(x)
+    subcell_topology = fvutils.SubcellTopology(g)
+
+    assert np.all(subcell_topology.cno == 0)
+
+    ncum = np.bincount(subcell_topology.nno, weights=np.ones(subcell_topology.nno.size))
+    assert np.all(ncum == 2)
+
+    fcum = np.bincount(subcell_topology.fno, weights=np.ones(subcell_topology.fno.size))
+    assert np.all(fcum == 2)
+
+    # There is only one cell, thus only unique subfno
+    usubfno = np.unique(subcell_topology.subfno)
+    assert usubfno.size == subcell_topology.subfno.size
+
+    assert np.all(np.in1d(subcell_topology.subfno, subcell_topology.subhfno))
+
+
+def test_subcell_mapping_2d_simplex():
+    # Verify that the subcell mapping is correct for a 2d simplex grid.
+    p = np.array([[0, 1, 1, 0], [0, 0, 1, 1]])
+    g = simplex.TriangleGrid(p)
+
+    subcell_topology = fvutils.SubcellTopology(g)
+
+    ccum = np.bincount(subcell_topology.cno, weights=np.ones(subcell_topology.cno.size))
+    assert np.all(ccum == 6)
+
+    ncum = np.bincount(subcell_topology.nno, weights=np.ones(subcell_topology.nno.size))
+    assert ncum[0] == 2
+    assert ncum[1] == 4
+    assert ncum[2] == 2
+    assert ncum[3] == 4
+
+    fcum = np.bincount(subcell_topology.fno, weights=np.ones(subcell_topology.fno.size))
+    assert np.sum(fcum == 4) == 1
+    assert np.sum(fcum == 2) == 4
+
+    subfcum = np.bincount(
+        subcell_topology.subfno, weights=np.ones(subcell_topology.subfno.size)
+    )
+    assert np.sum(subfcum == 2) == 2
+    assert np.sum(subfcum == 1) == 8
+
+
+@pytest.mark.parametrize(
+    "grid, expected_eta",
+    [(simplex.StructuredTriangleGrid([1, 1]), 1 / 3), (structured.CartGrid([1, 1]), 0)],
+)
+def test_determine_eta(grid, expected_eta):
+    # Test that the automatic computation of the pressure continuity point is
+    # correct for a Cartesian and simplex grid.
+    assert fvutils.determine_eta(grid) == expected_eta
+
+
+def test_diagonal_scaling_matrix():
+    # Generate a matrix with a known row sum, check that the target function returns the
+    # correct diagonal.
+    A = np.array([[1, 2, 3], [0, -5, 6], [-7, 8, 0]])
+    A_sum = np.array([6, 11, 15])
+    values = 1 / A_sum
+
+    D = fvutils.diagonal_scaling_matrix(sps.csr_matrix(A))
+    assert compare_arrays(values, D.diagonal())
+
+
+def test_node_based_ind_2d(g_2d):
+    # Nodes of cell 12 (middle one) - from counting
+    n = np.array([14, 15, 20, 21])
+
+    known_cells = np.array([6, 7, 8, 11, 12, 13, 16, 17, 18])
+    known_faces = np.array([14, 15, 42, 47])
+
+    cell_ind, face_ind = fvutils.cell_ind_for_partial_update(g_2d, nodes=n)
+    assert compare_arrays(known_cells, cell_ind)
+    assert compare_arrays(known_faces, face_ind)
+
+
+def test_node_based_ind_2d_bound(g_2d):
+    # Nodes of cell 1
+    n = np.array([1, 2, 7, 8])
+    known_cells = np.array([0, 1, 2, 5, 6, 7])
+    known_faces = np.array([1, 2, 31, 36])
+
+    cell_ind, face_ind = fvutils.cell_ind_for_partial_update(g_2d, nodes=n)
+
+    assert compare_arrays(known_cells, cell_ind)
+    assert compare_arrays(known_faces, face_ind)
+
+
+def test_node_based_ind_3d(g_3d):
+    # Nodes of cell 13 (middle one) - from counting
+    n = np.array([21, 22, 25, 26, 37, 38, 41, 42])
+
+    known_cells = np.arange(27)
+    known_faces = np.array([17, 18, 52, 55, 85, 94])
+
+    cell_ind, face_ind = fvutils.cell_ind_for_partial_update(g_3d, nodes=n)
+
+    assert compare_arrays(known_cells, cell_ind)
+    assert compare_arrays(known_faces, face_ind)
+
+
+def test_node_based_ind_3d_bound(g_3d):
+    # Nodes of cell 1
+    n = np.array([1, 2, 5, 6, 17, 18, 21, 22])
+    known_cells = np.array([0, 1, 2, 3, 4, 5, 9, 10, 11, 12, 13, 14])
+    known_faces = np.array([1, 2, 37, 40, 73, 82])
+
+    cell_ind, face_ind = fvutils.cell_ind_for_partial_update(g_3d, nodes=n)
+
+    assert compare_arrays(known_cells, cell_ind)
+    assert compare_arrays(known_faces, face_ind)
+
+
+def test_cell_based_ind_2d(g_2d):
+    c = np.array([12])
+    known_cells = np.setdiff1d(np.arange(25), np.array([0, 4, 20, 24]))
+    known_faces = np.array([8, 9, 14, 15, 20, 21, 41, 42, 43, 46, 47, 48])
+
+    cell_ind, face_ind = fvutils.cell_ind_for_partial_update(g_2d, cells=c)
+
+    assert compare_arrays(known_cells, cell_ind)
+    assert compare_arrays(known_faces, face_ind)
+
+
+def test_cell_based_ind_3d(g_3d):
+    # Use cell 13 (middle one)
+    c = np.array([13])
+    known_cells = np.arange(27)
+    fx = np.hstack(
+        (
+            np.array([1, 2, 5, 6, 9, 10]),
+            np.array([1, 2, 5, 6, 9, 10]) + 12,
+            np.array([1, 2, 5, 6, 9, 10]) + 24,
         )
-        self.assertTrue(np.all(ncum == 2))
-
-        fcum = np.bincount(
-            subcell_topology.fno, weights=np.ones(subcell_topology.fno.size)
+    )
+    fy = 36 + np.hstack(
+        (
+            np.array([3, 4, 5, 6, 7, 8]),
+            np.array([3, 4, 5, 6, 7, 8]) + 12,
+            np.array([3, 4, 5, 6, 7, 8]) + 24,
         )
-        self.assertTrue(np.all(fcum == 2))
+    )
+    fz = 72 + np.hstack((np.arange(9) + 9, np.arange(9) + 18))
+    known_faces = np.hstack((fx, fy, fz))
 
-        # There is only one cell, thus only unique subfno
-        usubfno = np.unique(subcell_topology.subfno)
-        self.assertTrue(usubfno.size == subcell_topology.subfno.size)
+    cell_ind, face_ind = fvutils.cell_ind_for_partial_update(g_3d, cells=c)
 
-        self.assertTrue(
-            np.all(np.in1d(subcell_topology.subfno, subcell_topology.subhfno))
-        )
-
-    def test_subcell_mapping_2d_simplex(self):
-        # Verify that the subcell mapping is correct for a 2d simplex grid.
-        p = np.array([[0, 1, 1, 0], [0, 0, 1, 1]])
-        g = simplex.TriangleGrid(p)
-
-        subcell_topology = fvutils.SubcellTopology(g)
-
-        ccum = np.bincount(
-            subcell_topology.cno, weights=np.ones(subcell_topology.cno.size)
-        )
-        self.assertTrue(np.all(ccum == 6))
-
-        ncum = np.bincount(
-            subcell_topology.nno, weights=np.ones(subcell_topology.nno.size)
-        )
-        self.assertTrue(ncum[0] == 2)
-        self.assertTrue(ncum[1] == 4)
-        self.assertTrue(ncum[2] == 2)
-        self.assertTrue(ncum[3] == 4)
-
-        fcum = np.bincount(
-            subcell_topology.fno, weights=np.ones(subcell_topology.fno.size)
-        )
-        self.assertTrue(np.sum(fcum == 4) == 1)
-        self.assertTrue(np.sum(fcum == 2) == 4)
-
-        subfcum = np.bincount(
-            subcell_topology.subfno, weights=np.ones(subcell_topology.subfno.size)
-        )
-        self.assertTrue(np.sum(subfcum == 2) == 2)
-        self.assertTrue(np.sum(subfcum == 1) == 8)
-
-    def test_determine_eta(self):
-        # Test that the automatic computation of the pressure continuity point is
-        # correct for a Cartesian and simplex grid.
-        g = simplex.StructuredTriangleGrid([1, 1])
-        self.assertTrue(fvutils.determine_eta(g) == 1 / 3)
-        g = structured.CartGrid([1, 1])
-        self.assertTrue(fvutils.determine_eta(g) == 0)
-
-    def test_diagonal_scaling_matrix(self):
-        # Generate a matrix with a known row sum, check that the target function
-        # returns the correct diagonal.
-        A = np.array([[1, 2, 3], [0, -5, 6], [-7, 8, 0]])
-        A_sum = np.array([6, 11, 15])
-        values = 1 / A_sum
-
-        D = fvutils.diagonal_scaling_matrix(sps.csr_matrix(A))
-        self.assertTrue(np.allclose(values, D.diagonal()))
+    assert compare_arrays(known_cells, cell_ind)
+    assert compare_arrays(known_faces, face_ind)
 
 
-if __name__ == "__main__":
-    unittest.main()
+def test_cell_based_ind_bound_3d(g_3d):
+    c = np.array([1])
+    known_cells = np.arange(27)
+    fx = np.array([1, 2, 5, 6, 13, 14, 17, 18])
+    fy = 36 + np.array([0, 1, 2, 3, 4, 5, 12, 13, 14, 15, 16, 17])
+    fz = 72 + np.array([0, 1, 2, 3, 4, 5, 9, 10, 11, 12, 13, 14])
+    known_faces = np.hstack((fx, fy, fz))
+    cell_ind, face_ind = fvutils.cell_ind_for_partial_update(g_3d, cells=c)
+
+    assert compare_arrays(known_cells, cell_ind)
+    assert compare_arrays(known_faces, face_ind)
+
+
+def test_face_based_ind_2d(g_2d):
+    # Use face between cells 11 and 12
+    f = np.array([14])
+
+    known_cells = np.arange(g_2d.num_cells)
+    known_faces = np.array([8, 14, 20, 41, 42, 46, 47])
+    cell_ind, face_ind = fvutils.cell_ind_for_partial_update(g_2d, faces=f)
+
+    assert compare_arrays(known_cells, cell_ind)
+    assert compare_arrays(known_faces, face_ind)
+
+
+def test_face_based_ind_2d_bound(g_2d):
+    # Face between cell 1 and 2
+    f = np.array([2])
+    known_cells = np.array(
+        [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18]
+    )
+    known_faces = np.array([2, 8, 31, 32, 36, 37])
+    cell_ind, face_ind = fvutils.cell_ind_for_partial_update(g_2d, faces=f)
+
+    assert compare_arrays(known_cells, cell_ind)
+    assert compare_arrays(known_faces, face_ind)
