@@ -7,11 +7,17 @@ import pytest
 from porepy.utils import mcolon
 
 
-def test_mcolon_simple():
-    a = np.array([1, 2])
-    b = np.array([3, 4])
-    c = mcolon.mcolon(a, b)
-    assert np.all((c - np.array([1, 2, 2, 3])) == 0)
+@pytest.mark.parametrize(
+    "input,expected",
+    [
+        ((np.array([1, 2]), np.array([3, 4])), np.array([1, 2, 2, 3])),
+        ((np.array([1, 2]), np.array([3, 1])), np.array([1, 2])),
+    ],
+)
+def test_mcolon_simple(input, expected):
+    """Test for simple comparison of input (2 arrays) and expected output of mcolon."""
+    c = mcolon.mcolon(input[0], input[1])
+    assert np.all((c - expected) == 0)
 
 
 def test_mcolon_zero_output():
@@ -19,13 +25,6 @@ def test_mcolon_zero_output():
     b = np.array([1, 2])
     c = mcolon.mcolon(a, b)
     assert c.size == 0
-
-
-def test_mcolon_one_missing():
-    a = np.array([1, 2])
-    b = np.array([3, 1])
-    c = mcolon.mcolon(a, b)
-    assert np.all((c - np.array([1, 2])) == 0)
 
 
 def test_mcolon_middle_equal():
