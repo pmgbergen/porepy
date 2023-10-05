@@ -13,12 +13,12 @@ should be exactly interpolated in data points).
 import numpy as np
 import pytest
 
-import porepy as pp
+from porepy.utils import interpolation_tables
 
 
 class _LinearFunc:
     # Helper class to represent a linear function.
-    def __init__(self, nd, *args):
+    def __init__(self, nd, h):
         self.coeff = np.random.rand(nd, 1)
 
         # Tolerances tuned to the accuracy that can be expected from linear
@@ -97,11 +97,11 @@ def _generate_interpolation_tables(dim, factory, adaptive_has_function, random_s
     function = factory(dim, max_size)
 
     # Create interpolation tables
-    table = pp.InterpolationTable(low, high, num_pt, function.func())
+    table = interpolation_tables.InterpolationTable(low, high, num_pt, function.func())
 
     # Give the adaptive table the function to be interpolated, if requested.
     function_arg = function.func() if adaptive_has_function else None
-    adaptive_table = pp.AdaptiveInterpolationTable(
+    adaptive_table = interpolation_tables.AdaptiveInterpolationTable(
         dx=(high - low) / (num_pt - 1), base_point=low, function=function_arg, dim=1
     )
 

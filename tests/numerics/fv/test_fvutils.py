@@ -5,14 +5,13 @@ Currently tested are:
     * The determination of the eta parameter.
     * The helper function computing a diagonal scaling matrix.
     * The function for obtaining indices of cells and faces for a partial update of the
-    discretization stencil. 
+    discretization stencil.
 
 """
 from __future__ import division
 
-import pytest
-
 import numpy as np
+import pytest
 import scipy.sparse as sps
 
 from porepy.applications.test_utils.arrays import compare_arrays
@@ -99,9 +98,9 @@ def test_diagonal_scaling_matrix():
     assert compare_arrays(values, D.diagonal())
 
 
-"""IMPLEMENTATION NOTE: 
+"""IMPLEMENTATION NOTE:
 Below are tests that considers the definition of computational stencils under a partial
-update of the FV discretization. 
+update of the FV discretization.
 
 The logic of the tests is:
     1) Construct a grid, and pick a cell quantity (node, face, cell) as the trigger for
