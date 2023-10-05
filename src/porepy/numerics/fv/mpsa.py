@@ -261,7 +261,7 @@ class Mpsa(Discretization):
                 loc_bound_stress,
                 loc_bound_displacement_cell,
                 loc_bound_displacement_face,
-            ) = self._stress_disrcetization(
+            ) = self._stress_discretization(
                 sub_g, loc_c, loc_bnd, eta=eta, inverter=inverter, hf_eta=hf_eta
             )
 
@@ -500,7 +500,7 @@ class Mpsa(Discretization):
 
         return -div * bound_stress * bc_val + parameter_dictionary["source"]
 
-    def _stress_disrcetization(
+    def _stress_discretization(
         self,
         sd: pp.Grid,
         constit: pp.FourthOrderTensor,
