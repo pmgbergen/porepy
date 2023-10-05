@@ -95,3 +95,87 @@ def test_full_incline(domain: Domain, fracture: PlaneFracture):
     assert len(network.fractures) == (1 + 6)
     p_comp = network.fractures[0].pts
     assert compare_arrays(p_comp, p_known, sort=True, tol=1e-5)
+
+
+class TestFractureNetwork3dBoundingBox:
+    def test_single_fracture(self):
+        # Test of method FractureNetwork.bounding_box() to inquire about
+        # network extent
+        f1 = PlaneFracture(
+            np.array([[0, 1, 1, 0], [0, 0, 1, 1], [0, 0, 1, 1]]), check_convexity=False
+        )
+
+        network = pp.create_fracture_network([f1])
+        d = network.bounding_box()
+
+        assert d["xmin"] == 0
+        assert d["xmax"] == 1
+        assert d["ymin"] == 0
+        assert d["ymax"] == 1
+        assert d["zmin"] == 0
+        assert d["zmax"] == 1
+
+    def test_single_fracture_aligned_with_axis(self):
+        # Test of method FractureNetwork.bounding_box() to inquire about
+        # network extent
+        f1 = PlaneFracture(
+            np.array([[0, 1, 1, 0], [0, 0, 1, 1], [0, 0, 0, 0]]), check_convexity=False
+        )
+
+        network = pp.create_fracture_network([f1])
+        d = network.bounding_box()
+
+        assert d["xmin"] == 0
+        assert d["xmax"] == 1
+        assert d["ymin"] == 0
+        assert d["ymax"] == 1
+        assert d["zmin"] == 0
+        assert d["zmax"] == 0
+
+    def test_two_fractures(self):
+        # Test of method FractureNetwork.bounding_box() to inquire about
+        # network extent
+        f1 = PlaneFracture(
+            np.array([[0, 2, 2, 0], [0, 0, 1, 1], [0, 0, 1, 1]]), check_convexity=False
+        )
+        f2 = PlaneFracture(
+            np.array([[0, 1, 1, 0], [0, 0, 1, 1], [-1, -1, 1, 1]]),
+            check_convexity=False,
+        )
+
+        network = pp.create_fracture_network([f1, f2])
+        d = network.bounding_box()
+
+        assert d["xmin"] == 0
+        assert d["xmax"] == 2
+        assert d["ymin"] == 0
+        assert d["ymax"] == 1
+        assert d["zmin"] == -1
+        assert d["zmax"] == 1
+
+    def test_external_boundary_added(self):
+        # Test of method FractureNetwork.bounding_box() when an external
+        # boundary is added. Thus double as test of this adding.
+        fracture_1 = PlaneFracture(
+            np.array([[0, 1, 1, 0], [0, 0, 1, 1], [0, 0, 1, 1]]), check_convexity=False
+        )
+
+        network = pp.create_fracture_network([fracture_1])
+
+        external_box = {
+            "xmin": -1,
+            "xmax": 2,
+            "ymin": -1,
+            "ymax": 2,
+            "zmin": -1,
+            "zmax": 2,
+        }
+        domain_to_impose = pp.Domain(bounding_box=external_box)
+        network.impose_external_boundary(domain=domain_to_impose)
+
+        assert network.domain.bounding_box["xmin"] == external_box["xmin"]
+        assert network.domain.bounding_box["xmax"] == external_box["xmax"]
+        assert network.domain.bounding_box["ymin"] == external_box["ymin"]
+        assert network.domain.bounding_box["ymax"] == external_box["ymax"]
+        assert network.domain.bounding_box["zmin"] == external_box["zmin"]
+        assert network.domain.bounding_box["zmax"] == external_box["zmax"]
