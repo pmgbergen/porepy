@@ -1,94 +1,138 @@
+"""The module contains tests of match_grids.py. For the moment, only function
+match_grids_1d() is tested.
+
+"""
 import unittest
 import numpy as np
 import scipy.sparse as sps
 import porepy as pp
+import pytest
 
 
-class TestGridMappings1d(unittest.TestCase):
-    """Tests of matching of 1d grids.
+"""IMPLEMENTATION NOTE: While all tests are based on the same grid, most of them also
+    do a perturbation of the grid. To document the logic behind individual tests, it was
+    decided not to use a fixture or parametrization, but to centralize the grid creation
+    and comparison of mappings.
+"""
 
-    This is in practice a test of pp.match_grids.match_1d()
-    """
 
-    def test_merge_grids_all_common(self):
-        """ "Replace a grid by itself. The mappings should be identical."""
-        g = pp.TensorGrid(np.arange(3))
-        g.compute_geometry()
-        mat = pp.match_grids.match_1d(g, g, tol=1e-4)
-        mat.eliminate_zeros()
-        mat = mat.tocoo()
+def test_match_grids_1d_no_perturbation():
+    """Test the mapping between two identical grids. This should give a unit mapping."""
+    g, h = _grid_1d(), _grid_1d()
+    known_data = np.ones(2)
+    known_row = np.arange(2)
+    known_col = np.arange(2)
+    _compare_matched_grids_with_known_values(g, h, known_data, known_row, known_col)
 
-        self.assertTrue(np.allclose(mat.data, np.ones(2)))
-        self.assertTrue(np.allclose(mat.row, np.arange(2)))
-        self.assertTrue(np.allclose(mat.col, np.arange(2)))
 
-    def test_merge_grids_non_matching(self):
-        """ "Perturb one node in the new grid."""
-        g = pp.TensorGrid(np.arange(3))
-        h = pp.TensorGrid(np.arange(3))
-        g.nodes[0, 1] = 0.5
-        g.compute_geometry()
-        h.compute_geometry()
-        mat = pp.match_grids.match_1d(g, h, tol=1e-4, scaling="averaged")
-        mat.eliminate_zeros()
-        mat = mat.tocoo()
+def test_match_grids_1d_perturbation():
+    """Perturb one node in the new grid. This gives a non-trivial mapping."""
+    g, h = _grid_1d(), _grid_1d()
+    # Perturb one node in the first grid
+    g.nodes[0, 1] = 0.5
+    # To be careful, recompute geometry of the perturbed grid
+    g.compute_geometry()
 
-        # Weights give mappings from h to g. The first cell in h is
-        # fully within the first cell in g. The second in h is split 1/3
-        # in first of g, 2/3 in second.
-        self.assertTrue(np.allclose(mat.data, np.array([1, 1.0 / 3, 2.0 / 3])))
-        self.assertTrue(np.allclose(mat.row, np.array([0, 1, 1])))
-        self.assertTrue(np.allclose(mat.col, np.array([0, 0, 1])))
+    known_data = np.array([1, 1.0 / 3, 2.0 / 3])
+    known_row = np.array([0, 1, 1])
+    known_col = np.array([0, 0, 1])
 
-    def test_merge_grids_reverse_order(self):
-        g = pp.TensorGrid(np.arange(3))
-        h = pp.TensorGrid(np.arange(3))
-        h.nodes = h.nodes[:, ::-1]
-        g.compute_geometry()
-        h.compute_geometry()
-        mat = pp.match_grids.match_1d(g, h, tol=1e-4, scaling="averaged")
-        mat.eliminate_zeros()
-        mat = mat.tocoo()
+    _compare_matched_grids_with_known_values(g, h, known_data, known_row, known_col)
 
-        self.assertTrue(np.allclose(mat.data, np.array([1, 1])))
-        # In this case, we don't know which ordering the combined grid uses
-        # Instead, make sure that the two mappings are ordered in separate
-        # directions
-        self.assertTrue(np.allclose(mat.row[::-1], mat.col))
 
-    def test_merge_grids_split(self):
-        g1 = pp.TensorGrid(np.linspace(0, 2, 2))
-        g2 = pp.TensorGrid(np.linspace(2, 4, 2))
+def test_match_grids_1d_reversed_node_order():
+    """Reverse the order of nodes in the new grid. This gives a non-trivial mapping."""
+    g, h = _grid_1d(), _grid_1d()
+    # Reverse the order of the nodes in the second grid. Since every face consists of a
+    # single node, this also reverses the order of the faces, so that the two grids are:
+    # g: 0--1--2
+    # h: 2--1--0
+    # Thus, cell 0 (defined by faces 0 and 1 in both grids) spans the interval [0, 1]
+    # in g, but [1, 2] in h, and vice versa.
+    h.nodes = h.nodes[:, ::-1]
+    h.compute_geometry()
+
+    known_data = np.array([1, 1])
+    known_row = np.array([0, 1])
+    known_col = np.array([1, 0])
+    _compare_matched_grids_with_known_values(g, h, known_data, known_row, known_col)
+
+
+def test_match_grids_1d_complex():
+    """Define more complex grids, by combining two simple grids, and test the mappings."""
+
+    def _create_combined_grid(g1, g2):
+        # Helper function to create a combined grid from two grids.
         g_nodes = np.hstack((g1.nodes, g2.nodes))
         g_face_nodes = sps.block_diag((g1.face_nodes, g2.face_nodes), "csc")
         g_cell_faces = sps.block_diag((g1.cell_faces, g2.cell_faces), "csc")
         g = pp.Grid(1, g_nodes, g_face_nodes, g_cell_faces, "pp.TensorGrid")
-
-        h1 = pp.TensorGrid(np.linspace(0, 2, 3))
-        h2 = pp.TensorGrid(np.linspace(2, 4, 3))
-        h_nodes = np.hstack((h1.nodes, h2.nodes))
-        h_face_nodes = sps.block_diag((h1.face_nodes, h2.face_nodes), "csc")
-        h_cell_faces = sps.block_diag((h1.cell_faces, h2.cell_faces), "csc")
-        h = pp.Grid(1, h_nodes, h_face_nodes, h_cell_faces, "pp.TensorGrid")
-
         g.compute_geometry()
-        h.compute_geometry()
-        # Construct a map from g to h
-        mat_g_2_h = pp.match_grids.match_1d(h, g, tol=1e-4, scaling="averaged")
-        mat_g_2_h.eliminate_zeros()
-        mat_g_2_h = mat_g_2_h.tocoo()
+        return g
 
-        # Weights give mappings from g to h.
-        self.assertTrue(np.allclose(mat_g_2_h.data, np.array([1.0, 1.0, 1.0, 1.0])))
-        self.assertTrue(np.allclose(mat_g_2_h.row, np.array([0, 1, 2, 3])))
-        self.assertTrue(np.allclose(mat_g_2_h.col, np.array([0, 0, 1, 1])))
+    g = _create_combined_grid(
+        pp.TensorGrid(np.linspace(0, 2, 2)), pp.TensorGrid(np.linspace(2, 4, 2))
+    )
+    h = _create_combined_grid(
+        pp.TensorGrid(np.linspace(0, 2, 3)), pp.TensorGrid(np.linspace(2, 4, 3))
+    )
 
-        # Next, make a map from h to g. In this case, the cells in h are split in two
-        # thus the weight is 0.5.
-        mat_h_2_g = pp.match_grids.match_1d(g, h, tol=1e-4, scaling="averaged")
-        mat_h_2_g.eliminate_zeros()
-        mat_h_2_g = mat_h_2_g.tocoo()
+    # First create mappings from h to g.
+    known_data_h_2_g = np.array([1.0, 1.0, 1.0, 1.0])
+    known_row_h_2_g = np.array([0, 1, 2, 3])
+    known_col_h_2_g = np.array([0, 0, 1, 1])
+    _compare_matched_grids_with_known_values(
+        h, g, known_data_h_2_g, known_row_h_2_g, known_col_h_2_g
+    )
 
-        self.assertTrue(np.allclose(mat_h_2_g.data, np.array([0.5, 0.5, 0.5, 0.5])))
-        self.assertTrue(np.allclose(mat_h_2_g.row, np.array([0, 0, 1, 1])))
-        self.assertTrue(np.allclose(mat_h_2_g.col, np.array([0, 1, 2, 3])))
+    # Next, make a map from g to h. In this case, the cells in h are split in two
+    # thus the weight is 0.5.
+    known_data_g_2_h = np.array([0.5, 0.5, 0.5, 0.5])
+    known_row_g_2_h = np.array([0, 0, 1, 1])
+    known_col_g_2_h = np.array([0, 1, 2, 3])
+    _compare_matched_grids_with_known_values(
+        g, h, known_data_g_2_h, known_row_g_2_h, known_col_g_2_h
+    )
+
+
+## Helper functions below
+
+
+def _grid_1d():
+    """Helper function to create a 1d grid used in most tests.
+
+    Returns:
+        g: A 1d grid with two cells.
+    """
+    g = pp.TensorGrid(np.arange(3))
+    g.compute_geometry()
+    return g
+
+
+def _compare_matched_grids_with_known_values(
+    g: pp.TensorGrid,
+    h: pp.TensorGrid,
+    data: np.ndarray,
+    row: np.ndarray,
+    col: np.ndarray,
+):
+    """Compared the mapping from g to h with known values.
+
+    Parameters:
+        g: Grid to map from.
+        h: Grid to map to.
+        data: Known values of the mapping, as computed from match_grids_1d.
+        row: Known row indices of the mapping, as computed from match_grids_1d.
+        col: Known column indices of the mapping, as computed from match_grids_1d.
+
+    """
+
+    # Construct a map from h to g
+    mat_h_2_g = pp.match_grids.match_1d(g, h, tol=1e-4, scaling="averaged")
+    mat_h_2_g.eliminate_zeros()
+    # Convert to coo format for easy comparison
+    mat_h_2_g = mat_h_2_g.tocoo()
+    # A failure here means the mapping is not correct
+    assert np.allclose(mat_h_2_g.data, data)
+    assert np.allclose(mat_h_2_g.row, row)
+    assert np.allclose(mat_h_2_g.col, col)
