@@ -17,12 +17,9 @@ We test:
     achieved for the test approach in test_single_phase_flow.py.
 
 """
-
-import pytest
-
-from . import setup_utils
 from __future__ import annotations
 
+import copy
 import json
 import os
 import shutil
@@ -32,11 +29,10 @@ import numpy as np
 import pytest
 
 import porepy as pp
-from porepy.applications.test_utils.vtk import compare_pvd_files, compare_vtu_files
 from porepy.applications.test_utils import models
+from porepy.applications.test_utils.vtk import compare_pvd_files, compare_vtu_files
 
 from .test_poromechanics import TailoredPoromechanics, create_fractured_setup
-
 
 # Store current directory, directory containing reference files, and temporary
 # visualization folder.

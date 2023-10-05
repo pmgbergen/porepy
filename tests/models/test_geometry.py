@@ -16,13 +16,14 @@ import scipy.sparse as sps
 
 import porepy as pp
 
-from . import setup_utils
+from porepy.applications.test_utils import models
 
 
 class GeometryClassWithSolidConstants:
     """To enable/allow use of convert_units method when testing geometry.
 
-    The convert_units method is accessed by instantiating `pp.SolidConstants` and then calling its `set_units` method.
+    The convert_units method is accessed by instantiating `pp.SolidConstants` and then
+    calling its `set_units` method.
 
     For local use. Only overrides init, which is not defined in other geometry classes.
 
@@ -34,13 +35,13 @@ class GeometryClassWithSolidConstants:
 
 
 geometry_list = [
-    setup_utils._add_mixin(
-        GeometryClassWithSolidConstants, setup_utils.RectangularDomainThreeFractures
+    models._add_mixin(
+        GeometryClassWithSolidConstants, models.RectangularDomainThreeFractures
     ),
-    setup_utils._add_mixin(
+    models._add_mixin(
         GeometryClassWithSolidConstants,
-        setup_utils._add_mixin(
-            setup_utils.OrthogonalFractures3d, pp.models.geometry.ModelGeometry
+        models._add_mixin(
+            models.OrthogonalFractures3d, pp.models.geometry.ModelGeometry
         ),
     ),
 ]
