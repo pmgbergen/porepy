@@ -392,3 +392,45 @@ def test_ad_operator_methods_single_phase_flow(
 
     # Compare the actual and expected values.
     assert np.allclose(val, expected_value, rtol=1e-8, atol=1e-15)
+
+
+@pytest.mark.parametrize(
+    "units",
+    [
+        {"m": 2, "kg": 3, "s": 1, "K": 1},
+    ],
+)
+def test_unit_conversion(units):
+    """Test that solution is independent of units.
+
+    Parameters:
+        units (dict): Dictionary with keys as those in
+            :class:`~pp.models.material_constants.MaterialConstants`.
+
+    """
+    params = {
+        "suppress_export": True,  # Suppress output for tests
+        "fracture_indices": [0, 1],
+        "cartesian": True,
+    }
+    reference_params = copy.deepcopy(params)
+    reference_params["file_name"] = "unit_conversion_reference"
+
+    # Create model and run simulation
+    setup_0 = LinearModel(reference_params)
+    pp.run_time_dependent_model(setup_0, reference_params)
+
+    params["units"] = pp.Units(**units)
+    setup_1 = LinearModel(params)
+
+    pp.run_time_dependent_model(setup_1, params)
+    variables = [setup_1.pressure_variable, setup_1.interface_darcy_flux_variable]
+    variable_units = ["Pa", "Pa * m^2 * s^-1"]
+    compare_scaled_primary_variables(setup_0, setup_1, variables, variable_units)
+    flux_names = ["darcy_flux", "fluid_flux"]
+    flux_units = ["Pa * m^2 * s^-1", "kg * m^-1 * s^-1"]
+    # No domain restrictions.
+    domain_dimensions = [None, None]
+    compare_scaled_model_quantities(
+        setup_0, setup_1, flux_names, flux_units, domain_dimensions
+    )
