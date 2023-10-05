@@ -6,7 +6,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-import porepy as pp
+from porepy import array_operations
 
 coord_1 = [
     [[np.array([1])], np.array([42])],
@@ -112,21 +112,19 @@ def test_sparse_nd_array(coords_values: list[np.ndarray]):
     # bath or one by one), retrieve the values and check that the result is as expected.
 
     # Additive, add all at the same time
-    arr_additive = pp.array_operations.SparseNdArray(dim, value_dim=value_dim)
+    arr_additive = array_operations.SparseNdArray(dim, value_dim=value_dim)
     arr_additive.add(coords, values, additive=True)
     retrieved_values_additive = arr_additive.get(coords)
     assert np.allclose(retrieved_values_additive, expected_values_additive)
 
     # Overwrite, all at the same time
-    arr_overwrite = pp.array_operations.SparseNdArray(dim, value_dim=value_dim)
+    arr_overwrite = array_operations.SparseNdArray(dim, value_dim=value_dim)
     arr_overwrite.add(coords, values)
     retrieved_values_overwrite = arr_overwrite.get(coords)
     assert np.allclose(retrieved_values_overwrite, expected_values_overwrite)
 
     # Additive, add one by one
-    arr_additive_incremental = pp.array_operations.SparseNdArray(
-        dim, value_dim=value_dim
-    )
+    arr_additive_incremental = array_operations.SparseNdArray(dim, value_dim=value_dim)
     for ind, coord in enumerate(coords):
         arr_additive_incremental.add(
             [coord], values[:, ind].reshape((-1, 1)), additive=True
@@ -136,9 +134,7 @@ def test_sparse_nd_array(coords_values: list[np.ndarray]):
     assert np.allclose(retrieved_values_additive_incremental, expected_values_additive)
 
     # Overwrite, one at a time
-    arr_overwrite_incremental = pp.array_operations.SparseNdArray(
-        dim, value_dim=value_dim
-    )
+    arr_overwrite_incremental = array_operations.SparseNdArray(dim, value_dim=value_dim)
     for ind, coord in enumerate(coords):
         arr_overwrite_incremental.add(
             [coord], values[:, ind].reshape((-1, 1)), additive=False
@@ -246,7 +242,7 @@ def test_intersect_sets(data):
     """
     a, b, tol, ia_known, ib_known, a_2_b_known = data
 
-    ia, ib, a_in_b, a_2_b = pp.array_operations.intersect_sets(a, b, tol)
+    ia, ib, a_in_b, a_2_b = array_operations.intersect_sets(a, b, tol)
 
     assert np.allclose(ia, np.sort(ia_known))
     assert np.allclose(ib, np.sort(ib_known))
