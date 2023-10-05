@@ -1,6 +1,6 @@
 import numpy as np
 import pytest
-import porepy as pp
+from porepy import geometry_property_checks
 
 
 @pytest.fixture
@@ -10,13 +10,13 @@ def poly():
 
 def test_inside(poly):
     p = np.array([0.5, 0.5])
-    assert np.all(pp.geometry_property_checks.point_in_polygon(poly, p))
+    assert np.all(geometry_property_checks.point_in_polygon(poly, p))
 
 
 def test_outside(poly):
     p = np.array([2, 2])
 
-    inside = pp.geometry_property_checks.point_in_polygon(poly, p)
+    inside = geometry_property_checks.point_in_polygon(poly, p)
 
     assert not inside[0]
 
@@ -25,26 +25,26 @@ def test_on_line(poly):
     # Point on the line, but not the segment, of the polygon
     p = np.array([2, 0])
 
-    inside = pp.geometry_property_checks.point_in_polygon(poly, p)
+    inside = geometry_property_checks.point_in_polygon(poly, p)
     assert not inside[0]
 
 
 def test_on_boundary(poly):
     p = np.array([0, 0.5])
 
-    inside = pp.geometry_property_checks.point_in_polygon(poly, p)
+    inside = geometry_property_checks.point_in_polygon(poly, p)
     assert not inside[0]
 
 
 def test_just_inside(poly):
     p = np.array([0.5, 1e-6])
-    assert pp.geometry_property_checks.point_in_polygon(poly, p)
+    assert geometry_property_checks.point_in_polygon(poly, p)
 
 
 def test_multiple_points(poly):
     p = np.array([[0.5, 0.5], [0.5, 1.5]])
 
-    inside = pp.geometry_property_checks.point_in_polygon(poly, p)
+    inside = geometry_property_checks.point_in_polygon(poly, p)
 
     assert inside[0]
     assert not inside[1]
@@ -96,7 +96,7 @@ def test_large_polygon():
         ]
     )
     b = np.array([[0.1281648, 0.04746067], [-0.22076491, 0.16421546]])
-    inside = pp.geometry_property_checks.point_in_polygon(a, b)
+    inside = geometry_property_checks.point_in_polygon(a, b)
     assert not inside[0]
     assert inside[1]
 
@@ -140,38 +140,161 @@ def non_convex_polyhedron():
 
 def test_point_inside_box(cart_polyhedron):
     p = np.array([0.3, 0.5, 0.5])
-    is_inside = pp.geometry_property_checks.point_in_polyhedron(cart_polyhedron, p)
+    is_inside = geometry_property_checks.point_in_polyhedron(cart_polyhedron, p)
     assert is_inside.size == 1
     assert is_inside[0] == 1
 
 
 def test_two_points_inside_box(cart_polyhedron):
     p = np.array([[0.3, 0.5, 0.5], [0.5, 0.5, 0.5]]).T
-    is_inside = pp.geometry_property_checks.point_in_polyhedron(cart_polyhedron, p)
+    is_inside = geometry_property_checks.point_in_polyhedron(cart_polyhedron, p)
     assert is_inside.size == 2
     assert np.all(is_inside[0] == 1)
 
 
 def test_point_outside_box(cart_polyhedron):
     p = np.array([1.5, 0.5, 0.5])
-    is_inside = pp.geometry_property_checks.point_in_polyhedron(cart_polyhedron, p)
+    is_inside = geometry_property_checks.point_in_polyhedron(cart_polyhedron, p)
     assert is_inside.size == 1
     assert is_inside[0] == 0
 
 
 def test_point_inside_non_convex(non_convex_polyhedron):
     p = np.array([0.5, 0.5, 0.7])
-    is_inside = pp.geometry_property_checks.point_in_polyhedron(
-        non_convex_polyhedron, p
-    )
+    is_inside = geometry_property_checks.point_in_polyhedron(non_convex_polyhedron, p)
     assert is_inside.size == 1
     assert is_inside[0] == 1
 
 
 def test_point_outside_non_convex_inside_box(non_convex_polyhedron):
     p = np.array([0.5, 0.5, 0.3])
-    is_inside = pp.geometry_property_checks.point_in_polyhedron(
-        non_convex_polyhedron, p
-    )
+    is_inside = geometry_property_checks.point_in_polyhedron(non_convex_polyhedron, p)
     assert is_inside.size == 1
     assert is_inside[0] == 0
+
+
+def test_planar_square():
+    pts = np.array([[0, 1, 1, 0], [0, 0, 1, 1], [0, 0, 0, 0]], dtype=float)
+
+    pt = np.array([0.2, 0.3, 0])
+    assert geometry_property_checks.point_in_cell(pts, pt)
+
+    pt = np.array([1.1, 0.5, 0])
+    assert not geometry_property_checks.point_in_cell(pts, pt)
+
+    pt = np.array([-0.1, 0.5, 0])
+    assert not geometry_property_checks.point_in_cell(pts, pt)
+
+    pt = np.array([0.5, 1.1, 0])
+    assert not geometry_property_checks.point_in_cell(pts, pt)
+
+    pt = np.array([0.5, -0.1, 0])
+    assert not geometry_property_checks.point_in_cell(pts, pt)
+
+    pt = np.array([1.1, 1.1, 0])
+    assert not geometry_property_checks.point_in_cell(pts, pt)
+
+    pt = np.array([-0.1, 1.1, 0])
+    assert not geometry_property_checks.point_in_cell(pts, pt)
+
+    pt = np.array([-0.1, -0.1, 0])
+    assert not geometry_property_checks.point_in_cell(pts, pt)
+
+    pt = np.array([1.1, -0.1, 0])
+    assert not geometry_property_checks.point_in_cell(pts, pt)
+
+
+def test_planar_square_1():
+    pts = np.array([[0, 0.5, 1, 1, 0], [0, 0, 0, 1, 1], [0, 0, 0, 0, 0]], dtype=float)
+
+    pt = np.array([0.2, 0.3, 0])
+    assert geometry_property_checks.point_in_cell(pts, pt)
+
+    pt = np.array([1.1, 0.5, 0])
+    assert not geometry_property_checks.point_in_cell(pts, pt)
+
+    pt = np.array([-0.1, 0.5, 0])
+    assert not geometry_property_checks.point_in_cell(pts, pt)
+
+    pt = np.array([0.5, 1.1, 0])
+    assert not geometry_property_checks.point_in_cell(pts, pt)
+
+    pt = np.array([0.5, -0.1, 0])
+    assert not geometry_property_checks.point_in_cell(pts, pt)
+
+    pt = np.array([1.1, 1.1, 0])
+    assert not geometry_property_checks.point_in_cell(pts, pt)
+
+    pt = np.array([-0.1, 1.1, 0])
+    assert not geometry_property_checks.point_in_cell(pts, pt)
+
+    pt = np.array([-0.1, -0.1, 0])
+    assert not geometry_property_checks.point_in_cell(pts, pt)
+
+    pt = np.array([1.1, -0.1, 0])
+    assert not geometry_property_checks.point_in_cell(pts, pt)
+
+
+def test_planar_convex():
+    pts = np.array(
+        [[0, 1, 1.2, 0.5, -0.2], [0, 0, 1, 1.2, 1], [0, 0, 0, 0, 0]], dtype=float
+    )
+
+    pt = np.array([0.2, 0.3, 0])
+    assert geometry_property_checks.point_in_cell(pts, pt)
+
+    pt = np.array([0.5, 1, 0])
+    assert geometry_property_checks.point_in_cell(pts, pt)
+
+    pt = np.array([1.3, 0.5, 0])
+    assert not geometry_property_checks.point_in_cell(pts, pt)
+
+    pt = np.array([-0.1, 0.5, 0])
+    assert not geometry_property_checks.point_in_cell(pts, pt)
+
+    pt = np.array([1.1, -0.1, 0])
+    assert not geometry_property_checks.point_in_cell(pts, pt)
+
+
+def test_planar_convex_1():
+    pts = np.array(
+        [[0, 0.5, 1, 1.2, 0.5, -0.2], [0, 0, 0, 1, 1.2, 1], [0, 0, 0, 0, 0, 0]],
+        dtype=float,
+    )
+
+    pt = np.array([0.2, 0.3, 0])
+    assert geometry_property_checks.point_in_cell(pts, pt)
+
+    pt = np.array([0.5, 1, 0])
+    assert geometry_property_checks.point_in_cell(pts, pt)
+
+    pt = np.array([1.3, 0.5, 0])
+    assert not geometry_property_checks.point_in_cell(pts, pt)
+
+    pt = np.array([-0.1, 0.5, 0])
+    assert not geometry_property_checks.point_in_cell(pts, pt)
+
+    pt = np.array([1.1, -0.1, 0])
+    assert not geometry_property_checks.point_in_cell(pts, pt)
+
+
+def test_planar_concave():
+    pts = np.array(
+        [[0, 0.5, 1, 0.4, 0.5, -0.2], [0, 0, 0, 1, 1.2, 1], [0, 0, 0, 0, 0, 0]],
+        dtype=float,
+    )
+
+    pt = np.array([0.2, 0.3, 0])
+    assert geometry_property_checks.point_in_cell(pts, pt)
+
+    pt = np.array([0.5, 1, 0])
+    assert not geometry_property_checks.point_in_cell(pts, pt)
+
+    pt = np.array([1.3, 0.5, 0])
+    assert not geometry_property_checks.point_in_cell(pts, pt)
+
+    pt = np.array([-0.1, 0.5, 0])
+    assert not geometry_property_checks.point_in_cell(pts, pt)
+
+    pt = np.array([1.1, -0.1, 0])
+    assert not geometry_property_checks.point_in_cell(pts, pt)
