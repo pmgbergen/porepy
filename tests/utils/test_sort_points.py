@@ -1,3 +1,4 @@
+"""Testing the sorting of points for multiple cases."""
 import numpy as np
 import pytest
 
