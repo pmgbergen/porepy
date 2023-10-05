@@ -1992,7 +1992,7 @@ class TestRaviartThomasRHS:
             sd.compute_geometry()
         return sd
 
-    def _matrix(self, sd, perm, bc, vect):
+    def _rhs(self, sd, perm, bc, vect):
         """Compute rhs for given subdomain"""
         solver = pp.RT0(keyword="flow")
 
@@ -2018,7 +2018,7 @@ class TestRaviartThomasRHS:
             (sd.cell_volumes, np.zeros(sd.num_cells), np.zeros(sd.num_cells))
         ).ravel(order="F")
 
-        b = self._matrix(sd, perm, bc, vect)
+        b = self._rhs(sd, perm, bc, vect)
         b_known = np.array(
             [0.16666667, 0.33333333, 0.33333333, 0.16666667, 0.0, 0.0, 0.0]
         )
@@ -2038,7 +2038,7 @@ class TestRaviartThomasRHS:
         vect = np.vstack(
             (2 * sd.cell_volumes, 3 * sd.cell_volumes, np.zeros(sd.num_cells))
         ).ravel(order="F")
-        b = self._matrix(sd, perm, bc, vect)
+        b = self._rhs(sd, perm, bc, vect)
 
         b_known = np.array(
             [-1.33333333, 1.16666667, -0.33333333, 1.16666667, -1.33333333, 0.0, 0.0]
@@ -2060,7 +2060,7 @@ class TestRaviartThomasRHS:
             (7 * sd.cell_volumes, 4 * sd.cell_volumes, 3 * sd.cell_volumes)
         ).ravel(order="F")
 
-        b = self._matrix(sd, perm, bc, vect)
+        b = self._rhs(sd, perm, bc, vect)
         b_known = np.array(
             [
                 -0.16666667,
@@ -2106,7 +2106,7 @@ class TestRaviartThomasRHS:
             (sd.cell_volumes, 3 * sd.cell_volumes, np.zeros(sd.num_cells))
         ).ravel(order="F")
 
-        b = self._matrix(sd, perm, bc, vect)
+        b = self._rhs(sd, perm, bc, vect)
         b_known = np.array([-0.83333333, 0.66666667, 0.16666667, 0.0])
 
         assert compare_arrays(b, b_known)
@@ -2125,7 +2125,7 @@ class TestRaviartThomasRHS:
             (2 * sd.cell_volumes, 3 * sd.cell_volumes, np.zeros(sd.num_cells))
         ).ravel(order="F")
 
-        b = self._matrix(sd, perm, bc, vect)
+        b = self._rhs(sd, perm, bc, vect)
         b_known = np.array([0.41666667, 0.41666667, -0.25, -0.58333333, 0.0])
 
         assert compare_arrays(b, b_known)
@@ -2148,7 +2148,7 @@ class TestRaviartThomasRHS:
             (sd.cell_volumes, 0 * sd.cell_volumes, 0 * sd.cell_volumes)
         ).ravel(order="F")
 
-        b = self._matrix(sd, perm, bc, vect)
+        b = self._rhs(sd, perm, bc, vect)
         b_known = np.array(
             [0.14433757, 0.28867513, 0.28867513, 0.14433757, 0.0, 0.0, 0.0]
         )
@@ -2173,7 +2173,7 @@ class TestRaviartThomasRHS:
             (sd.cell_volumes, 2 * sd.cell_volumes, 0 * sd.cell_volumes)
         ).ravel(order="F")
 
-        b = self._matrix(sd, perm, bc, vect)
+        b = self._rhs(sd, perm, bc, vect)
         b_known = np.array(
             [-0.73570226, 0.82197528, 0.17254603, 0.82197528, -0.73570226, 0.0, 0.0]
         )
