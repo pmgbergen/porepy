@@ -15,7 +15,7 @@ from __future__ import annotations
 import os
 import shutil
 import xml.etree.ElementTree as ET
-from collections import namedtuple
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Union
 
@@ -28,7 +28,7 @@ import porepy as pp
 from porepy.fracs.utils import pts_edges_to_linefractures
 
 # Globally store location of reference files
-folder_reference = (
+FOLDER_REFERENCE = (
     os.path.dirname(os.path.realpath(__file__)) + "/" + "test_vtk_reference"
 )
 
@@ -36,21 +36,28 @@ folder_reference = (
 PathLike = Union[str, Path]
 
 
+@dataclass
 class ExporterTestSetup:
     """Class to define where to store vtu files, and test the export functionality of
     the Exporter, FractureNetwork2d, and FractureNetwork3d.
 
     """
 
-    def __init__(self):
-        # Define ingredients of where to store vtu files for exporting during testing.
-        self.folder = "./test_vtk"
-        self.file_name = "grid"
-        self.folder_reference = folder_reference
+    folder = "./test_vtk"
+    file_name = "grid"
+    folder_reference = FOLDER_REFERENCE
+
+
+@dataclass
+class SingleSubdomain:
+    """Data type for a single subdomain."""
+
+    grid: pp.Grid
+    ref_vtu_file: PathLike
 
 
 @pytest.fixture
-def setup():
+def setup() -> ExporterTestSetup:
     """Method to deliver a setup to all tests, and remove any temporary directory."""
 
     # Setup
@@ -195,8 +202,8 @@ def _compare_pvd_files(
     return _check_xml_tree_equality(tree_test, tree_ref, keys)
 
 
-@pytest.fixture(scope="function")
-def subdomain(request):
+@pytest.fixture(params=range(7))
+def subdomain(request: pytest.FixtureRequest) -> SingleSubdomain:
     """Helper for parametrization of test_single_subdomains.
 
     Define collection of single subdomains incl. 1d, 2d, 3d grids, of simplicial,
@@ -216,52 +223,50 @@ def subdomain(request):
         sd_polytop_3d, [0, 0, 1, 0, 1, 1, 0, 2, 2, 3, 2, 2, 4, 4, 4, 4, 4, 4]
     )
 
-    # Define data type for a single subdomain
-    SingleSubdomain = namedtuple("SingleSubdomain", ["grid", "ref_vtu_file"])
-
     # Define the collection of subdomains
-    subdomains = [
+    subdomains: list[SingleSubdomain] = [
         # 1d grid
         SingleSubdomain(
             pp.CartGrid(3, 1),
-            f"{folder_reference}/single_subdomain_1d.vtu",
+            f"{FOLDER_REFERENCE}/single_subdomain_1d.vtu",
         ),
         # 2d simplex grid
         SingleSubdomain(
             pp.StructuredTriangleGrid([3] * 2, [1] * 2),
-            f"{folder_reference}/single_subdomain_2d_simplex_grid.vtu",
+            f"{FOLDER_REFERENCE}/single_subdomain_2d_simplex_grid.vtu",
         ),
         # 2d Cartesian grid
         SingleSubdomain(
             pp.CartGrid([4] * 2, [1] * 2),
-            f"{folder_reference}/single_subdomain_2d_cart_grid.vtu",
+            f"{FOLDER_REFERENCE}/single_subdomain_2d_cart_grid.vtu",
         ),
         # 2d polytopal grid
         SingleSubdomain(
             sd_polytop_2d,
-            f"{folder_reference}/single_subdomain_2d_polytop_grid.vtu",
+            f"{FOLDER_REFERENCE}/single_subdomain_2d_polytop_grid.vtu",
         ),
         # 3d simplex grid
         SingleSubdomain(
             pp.StructuredTetrahedralGrid([3] * 3, [1] * 3),
-            f"{folder_reference}/single_subdomain_3d_simplex_grid.vtu",
+            f"{FOLDER_REFERENCE}/single_subdomain_3d_simplex_grid.vtu",
         ),
         # 3d Cartesian grid
         SingleSubdomain(
             pp.CartGrid([4] * 3, [1] * 3),
-            f"{folder_reference}/single_subdomain_3d_cart_grid.vtu",
+            f"{FOLDER_REFERENCE}/single_subdomain_3d_cart_grid.vtu",
         ),
         # 3d polytopal grid
         SingleSubdomain(
             sd_polytop_3d,
-            f"{folder_reference}/single_subdomain_3d_polytop_grid.vtu",
+            f"{FOLDER_REFERENCE}/single_subdomain_3d_polytop_grid.vtu",
         ),
     ]
-    return subdomains[request.param]
+    subdomain = subdomains[request.param]
+    subdomain.compute_geometry()
+    return subdomain
 
 
-@pytest.mark.parametrize("subdomain", np.arange(7), indirect=True)
-def test_single_subdomains(setup, subdomain):
+def test_single_subdomains(setup: ExporterTestSetup, subdomain: SingleSubdomain):
     """Test of the Exporter for single subdomains of different dimensionality and
     different grid type. Exporting of scalar and vectorial data is tested.
 
@@ -269,7 +274,6 @@ def test_single_subdomains(setup, subdomain):
 
     # Define grid
     sd = subdomain.grid
-    sd.compute_geometry()
 
     # Define data
     dummy_scalar = np.ones(sd.num_cells) * sd.dim
@@ -291,14 +295,14 @@ def test_single_subdomains(setup, subdomain):
     )
 
 
-@pytest.mark.parametrize("subdomain", np.arange(7), indirect=True)
-def test_import_state_from_vtu_single_subdomains(setup, subdomain):
+def test_import_state_from_vtu_single_subdomains(
+    setup: ExporterTestSetup, subdomain: SingleSubdomain
+):
     # Test of the import routine of the Exporter for single subdomains. Consistent
     # with test_single_subdomains.
 
     # Define grid
     sd = subdomain.grid
-    sd.compute_geometry()
 
     # Define exporter
     save = pp.Exporter(
@@ -332,7 +336,7 @@ def test_import_state_from_vtu_single_subdomains(setup, subdomain):
     )
 
 
-def test_mdg(setup):
+def test_mdg(setup: ExporterTestSetup):
     """Test Exporter for 2d mixed-dimensional grids for a two-fracture domain.
 
     Exporting of scalar and vectorial data, separately defined on both subdomains and
@@ -393,8 +397,8 @@ def test_mdg(setup):
         )
 
 
-@pytest.mark.parametrize("case", np.arange(2))
-def test_import_from_pvd_mdg(setup, case):
+@pytest.mark.parametrize("case", range(2))
+def test_import_from_pvd_mdg(setup: ExporterTestSetup, case: int):
     """Test import-from-pvd functionality of the Exporter for 2d mixed-dimensional grids
     for a two-fracture domain.
 
@@ -482,7 +486,7 @@ def test_import_from_pvd_mdg(setup, case):
 
 
 @pytest.mark.parametrize("addendum", ["", "nontrivial_data_"])
-def test_import_state_from_vtu_mdg(setup, addendum):
+def test_import_state_from_vtu_mdg(setup: ExporterTestSetup, addendum: str):
     # Test of the import routine of the Exporter for 2d mixed-dimensional grids.
     # Consistent with test_mdg.
 
@@ -525,7 +529,7 @@ def test_import_state_from_vtu_mdg(setup, addendum):
         )
 
 
-def test_mdg_data_selection(setup):
+def test_mdg_data_selection(setup: ExporterTestSetup):
     """Test Exporter for 2d mixed-dimensional grids for a two-fracture domain.
 
     Exporting of scalar and vectorial data, separately defined on both subdomains and
@@ -600,7 +604,7 @@ def test_mdg_data_selection(setup):
         )
 
 
-def test_constant_data(setup):
+def test_constant_data(setup: ExporterTestSetup):
     """Test Exporter functionality to distinguish between constant and non-constant
     data during exporting.
 
@@ -632,7 +636,7 @@ def test_constant_data(setup):
         )
 
 
-def test_fracture_network_2d(setup):
+def test_fracture_network_2d(setup: ExporterTestSetup):
     """Test of the export functionality of FractureNetwork2d."""
 
     # Define network
@@ -664,7 +668,7 @@ def test_fracture_network_2d(setup):
     )
 
 
-def test_fracture_network_3d(setup):
+def test_fracture_network_3d(setup: ExporterTestSetup):
     """Test of the export functionality of FractureNetwork3d."""
 
     # Define network
