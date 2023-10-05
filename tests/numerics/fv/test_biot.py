@@ -21,7 +21,7 @@ def flow_keyword():
 
 @pytest.fixture
 def discretization_matrices(flow_keyword, mechanics_keyword):
-    """Return a grid and the corresponding mpfa discretization matrices."""
+    """Return a grid and the corresponding Biot discretization matrices."""
     g = pp.CartGrid([5, 5])
     g.compute_geometry()
     stiffness = pp.FourthOrderTensor(np.ones(g.num_cells), np.ones(g.num_cells))
