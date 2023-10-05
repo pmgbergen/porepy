@@ -1,5 +1,6 @@
 """Helper methods to compare grids.
 """
+import numpy as np
 import porepy as pp
 from . import arrays
 
@@ -33,10 +34,10 @@ def compare_grids(g1: pp.Grid, g2: pp.Grid) -> bool:
     ):
         return False
 
-    if not arrays.compare_arrays(g1.face_nodes, g2.face_nodes, 0.1):
+    if not arrays.compare_matrices(g1.face_nodes, g2.face_nodes, 0.1):
         return False
 
-    if not arrays.compare_arrays(g1.cell_faces, g2.cell_faces, 0.1):
+    if not arrays.compare_matrices(g1.cell_faces, g2.cell_faces, 0.1):
         return False
 
     if g1.dim > 0:
