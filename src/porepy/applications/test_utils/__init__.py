@@ -6,3 +6,4 @@ Functions which are relevant also outside tests should go elsewhere.
 """
 from . import arrays
 from . import grids
+from . import partial_discretization
