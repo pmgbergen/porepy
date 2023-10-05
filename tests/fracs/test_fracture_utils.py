@@ -5,11 +5,7 @@ Created on Mon Mar 26 10:12:47 2018
 
 @author: eke001
 """
-
-import unittest
-
 import numpy as np
-import pytest
 
 import porepy as pp
 from porepy.fracs.utils import linefractures_to_pts_edges, pts_edges_to_linefractures
@@ -31,20 +27,20 @@ def arrays_equal(a, b, tol=1e-5):
     return is_true
 
 
-class TestFractureLength(unittest.TestCase):
+class TestFractureLength:
     def test_single_fracture(self):
         p = np.array([[0, 1], [0, 0]])
         e = np.array([[0], [1]])
         fl = pp.frac_utils.fracture_length_2d(p, e)
 
-        self.assertTrue(fl == 1)
+        assert fl == 1
 
     def test_single_fracture_not_aligned(self):
         p = np.array([[0, 1], [0, 1]])
         e = np.array([[0], [1]])
         fl = pp.frac_utils.fracture_length_2d(p, e)
 
-        self.assertTrue(fl == np.sqrt(2))
+        assert fl == np.sqrt(2)
 
     def test_two_fractures_separate_points(self):
         p = np.array([[0, 1, 0, 0], [0, 1, 0, 1]])
@@ -52,7 +48,7 @@ class TestFractureLength(unittest.TestCase):
         fl = pp.frac_utils.fracture_length_2d(p, e)
 
         fl_known = np.array([np.sqrt(2), 1])
-        self.assertTrue(np.allclose(fl, fl_known))
+        assert np.allclose(fl, fl_known)
 
     def test_common_points_reverse_order(self):
         p = np.array([[0, 1, 0], [0, 1, 1]])
@@ -60,18 +56,18 @@ class TestFractureLength(unittest.TestCase):
         fl = pp.frac_utils.fracture_length_2d(p, e)
 
         fl_known = np.array([np.sqrt(2), 1])
-        self.assertTrue(np.allclose(fl, fl_known))
+        assert np.allclose(fl, fl_known)
 
 
-class TestUniquifyPoints(unittest.TestCase):
+class TestUniquifyPoints:
     def test_no_change(self):
         p = np.array([[0, 1], [0, 0]])
         e = np.array([[0], [1]])
 
         up, ue, deleted = pp.frac_utils.uniquify_points(p, e, tol=1e-4)
-        self.assertTrue(np.allclose(up, p))
-        self.assertTrue(np.allclose(ue, e))
-        self.assertTrue(deleted.size == 0)
+        assert np.allclose(up, p)
+        assert np.allclose(ue, e)
+        assert deleted.size == 0
 
     def test_merge_one_point(self):
         p = np.array([[0, 1, 0, 0], [0, 1, 0, 1]])
@@ -80,9 +76,9 @@ class TestUniquifyPoints(unittest.TestCase):
 
         p_known = np.array([[0, 1, 0], [0, 1, 1]])
         e_known = np.array([[0, 0], [1, 2]])
-        self.assertTrue(arrays_equal(p_known, up))
-        self.assertTrue(arrays_equal(e_known, ue))
-        self.assertTrue(deleted.size == 0)
+        assert arrays_equal(p_known, up)
+        assert arrays_equal(e_known, ue)
+        assert deleted.size == 0
 
     def test_merge_one_point_variable_tolerance(self):
         # Check that a point is merged or not, depending on tolerance
@@ -93,15 +89,15 @@ class TestUniquifyPoints(unittest.TestCase):
         up, ue, deleted = pp.frac_utils.uniquify_points(p, e, tol=1e-2)
         p_known = np.array([[0, 1, 0], [0, 1, 1]])
         e_known = np.array([[0, 0], [1, 2]])
-        self.assertTrue(arrays_equal(p_known, up))
-        self.assertTrue(arrays_equal(e_known, ue))
-        self.assertTrue(deleted.size == 0)
+        assert arrays_equal(p_known, up)
+        assert arrays_equal(e_known, ue)
+        assert deleted.size == 0
 
         # There should be no merge
         up, ue, deleted = pp.frac_utils.uniquify_points(p, e, tol=1e-4)
-        self.assertTrue(arrays_equal(p, up))
-        self.assertTrue(arrays_equal(e, ue))
-        self.assertTrue(deleted.size == 0)
+        assert arrays_equal(p, up)
+        assert arrays_equal(e, ue)
+        assert deleted.size == 0
 
     def test_delete_point_edge(self):
         p = np.array([[0, 1, 1, 2], [0, 0, 0, 0]])
@@ -113,10 +109,10 @@ class TestUniquifyPoints(unittest.TestCase):
         p_known = np.array([[0, 1, 2], [0, 0, 0]])
         # Edge with tags
         e_known = np.array([[0, 1], [1, 2], [0, 2]])
-        self.assertTrue(arrays_equal(p_known, up))
-        self.assertTrue(arrays_equal(e_known, ue))
-        self.assertTrue(deleted.size == 1)
-        self.assertTrue(deleted[0] == 1)
+        assert arrays_equal(p_known, up)
+        assert arrays_equal(e_known, ue)
+        assert deleted.size == 1
+        assert deleted[0] == 1
 
 
 class TestConversionBetweenLineFracturesAndPointsEdges:
@@ -258,7 +254,3 @@ class TestConversionBetweenLineFracturesAndPointsEdges:
         edges = np.zeros([2, 0], dtype=int)
         converted_fracs = pts_edges_to_linefractures(pts, edges)
         assert converted_fracs == []
-
-
-if __name__ == "__main__":
-    unittest.main()
