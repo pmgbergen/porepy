@@ -1,19 +1,12 @@
-""" Tests of discretization methods' update_discretization functionality.
-
-Partial coverage so far; will be improved when the notion of discretization updates is
-cleaned up in Mpfa, Mpsa and Biot.
-
+""" Tests related to fracture propagation.
 """
 import numpy as np
 import pytest
 
 import porepy as pp
 
-#################
 ## Below follows methods to test the partial update of FV discretization schemes under
 # fracture propagation.
-
-## Helper method to define geometry
 
 
 def _two_fractures_overlapping_regions():
@@ -51,7 +44,7 @@ def _two_fractures_regions_become_overlapping():
     return mdg, split_scheme
 
 
-# The main test function
+# The main test function for
 @pytest.mark.parametrize(
     "geometry",
     [
@@ -61,17 +54,20 @@ def _two_fractures_regions_become_overlapping():
     ],
 )
 @pytest.mark.parametrize(
-    "method", [pp.Mpfa("flow"), pp.Mpsa("mechanics"), pp.Biot("mechanics", "flow")]
+    "discretization",
+    [pp.Mpfa("flow"), pp.Mpsa("mechanics"), pp.Biot("mechanics", "flow")],
 )
-def test_propagation(geometry, method):
-    # Method to test partial discretization (aimed at finite volume methods) under
-    # fracture propagation. The test is based on first discretizing, and then do one
-    # or several fracture propagation steps. after each step, we do a partial
-    # update of the discretization scheme, and compare with a full discretization on
-    # the newly split grid. The test fails unless all discretization matrices generated
-    # are identical.
-    #
-    # NOTE: Only the highest-dimensional grid in the MixedDimensionalGrid is used.
+def test_partial_discretization(geometry, discretization):
+    """Method to test (FV) partial discretization under fracture propagation.
+
+    The test is based on first discretizing, and then do one or several fracture
+    propagation steps. after each step, we do a partial update of the discretization
+    scheme, and compare with a full discretization on the newly split grid. The test
+    fails unless all discretization matrices generated are identical.
+
+    NOTE: Only the highest-dimensional grid in the MixedDimensionalGrid is used.
+
+    """
 
     # Get MixedDimensionalGrid and splitting schedule
     mdg, faces_to_split = geometry()
@@ -111,7 +107,7 @@ def test_propagation(geometry, method):
     data[pp.DISCRETIZATION_MATRICES] = {"flow": {}, "mechanics": {}}
     set_param(sd_top, data)
     # Discretize
-    method.discretize(sd_top, data)
+    discretization.discretize(sd_top, data)
 
     # Loop over propagation steps
     for split in split_faces:
@@ -137,7 +133,7 @@ def test_propagation(geometry, method):
         data["update_discretization"] = update_info
 
         # Update the discretization
-        method.update_discretization(sd_top, data)
+        discretization.update_discretization(sd_top, data)
 
         # Create a new data dictionary, populate
         new_d = {}
@@ -145,7 +141,7 @@ def test_propagation(geometry, method):
         set_param(sd_top, new_d)
 
         # Full discretization
-        method.discretize(sd_top, new_d)
+        discretization.discretize(sd_top, new_d)
 
         # Compare discretization matrices
         for eq_type in ["flow", "mechanics"]:  # We know which keywords were used
