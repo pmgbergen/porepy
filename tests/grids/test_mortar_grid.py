@@ -19,6 +19,7 @@ The module contains the following groups of tests:
 import pickle
 import unittest
 from itertools import count
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -1114,4 +1115,4 @@ def test_pickle_mortar_grid(g):
 
     pp.test_utils.grids.compare_mortar_grids(mg_one_sided, mg_read)
 
-    pp.test_utils.grids.delete_file(fn)
+    Path.unlink(fn)
