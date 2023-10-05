@@ -3,8 +3,6 @@ surrounding grids.
 
 The module contains the following groups of tests:
 
-    TestGridMappings1d: In practice tests of pp.match_grids.match_1d().
-
     TestReplaceHigherDimensionalGridInMixedDimensionalGrid: Test the method
         replace_subdomains_and_interfaces in a mixed-dimensional grid applied to
         the highest-dimensional grid. In practice, this only applies to 2d domains,
@@ -509,6 +507,238 @@ class MockGrid:
         return np.arange(self.num_faces)
 
 
+def _grid_3d(include_1d: bool, pert: bool):
+    if include_1d:
+        # Grid consisting of 3d, 2d and 1d grid. Nodes along the main
+        # surface are split into two or four.
+        # The first two cells are below the plane y=0, the last two are above the plane.
+        n = np.array(
+            [
+                [0, 0, 1, 1, 0, 1, 0, 0, 1, 1, 0, 1, 0, 0],
+                [-1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+                [0, 0, 0, 1, 0, 1, 1, 0, 0, 1, 0, 1, 1, 0],
+            ]
+        )
+        fn = array(
+            [
+                [0, 0, 0, 1, 0, 0, 0, 4, 13, 13, 13, 7, 13, 13, 13, 10],
+                [1, 2, 3, 2, 4, 5, 6, 5, 7, 8, 9, 8, 10, 11, 12, 11],
+                [2, 3, 1, 3, 5, 6, 4, 6, 8, 9, 7, 9, 11, 12, 10, 12],
+            ]
+        )
+        cf = np.array([[0, 1, 2, 3], [4, 5, 6, 7], [8, 9, 10, 11], [12, 13, 14, 15]]).T
+
+    else:
+        n = array(
+            [
+                [0, 0, 1, 1, 0, 0, 1, 1, 0, 0],
+                [-1, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+                [0, 0, 0, 1, 1, 0, 0, 1, 1, 0],
+            ]
+        )
+
+        fn = array(
+            [
+                [0, 0, 0, 0, 0, 1, 1, 9, 9, 9, 9, 9, 5, 5],
+                [1, 2, 3, 4, 1, 2, 3, 5, 6, 7, 8, 5, 6, 7],
+                [2, 3, 4, 1, 3, 3, 4, 6, 7, 8, 5, 7, 7, 8],
+            ]
+        )
+        cf = np.array([[0, 1, 4, 5], [2, 3, 4, 6], [7, 8, 11, 12], [9, 10, 11, 13]]).T
+
+    cols = np.tile(np.arange(fn.shape[1]), (fn.shape[0], 1)).ravel("F")
+    face_nodes = sps.csc_matrix((np.ones_like(cols), (fn.ravel("F"), cols)))
+
+    cols = np.tile(np.arange(cf.shape[1]), (cf.shape[0], 1)).ravel("F")
+    cell_faces = sps.csc_matrix((np.ones_like(cols), (cf.ravel("F"), cols)))
+
+    cell_centers = np.array(
+        [
+            [-0.25, 0.75, 0.25],
+            [-0.25, 0.5, 0.5],
+            [-0.25, 0.75, 0.25],
+            [0.25, 0.5, 0.5],
+        ]
+    ).T
+    face_normals = np.zeros((3, face_nodes.shape[1]))
+
+    if include_1d:
+        # We will only use face normals for faces on the interface
+        face_normals[1, [3, 7, 11, 15]] = 1
+        if pert:
+            # Move the node at  (1, 0, 1) to (1, 0, 2)
+            # This will invalidate the assigned geometry, but it should not matter
+            # since we do not use the face_area for anything (we never replace the
+            # highest-dimensional, 3d grid)
+            n[2, [3, 9]] = 2
+    else:
+        face_normals[2, [5, 6, 12, 13]] = 1
+        if pert:
+            # This will invalidate the assigned geometry, but it should not matter
+            n[2, 4] = 2
+            n[2, 9] = 2
+
+    cell_volumes = 1 / 6 * np.ones(cell_centers.shape[1])
+
+    # Create a grid
+    g = pp.Grid(nodes=n, faces=face_nodes, cells=cell_faces, dim=3)
+    # Assign additional fields to ensure we are in full control of the grid geometry
+    g.face_normals = face_normals
+    g.cell_centers = cell_centers
+    g.cell_volumes = cell_volumes
+    g.global_point_ind = np.arange(n.shape[1])
+
+
+def grid_2d_two_cells(include_1d: bool, pert: bool):
+    if include_1d:
+        n = np.array([[0, 1, 1, 0, 1, 0], [0, 0, 0, 0, 0, 0], [0, 0, 1, 0, 1, 1]])
+        if pert:
+            n[2, 2] = 2
+            n[2, 4] = 2
+
+        fn = np.array([[0, 1], [1, 2], [2, 0], [3, 4], [4, 5], [5, 3]]).T
+        cf = np.array([[0, 1, 2], [3, 4, 5]]).T
+
+        face_normals = np.array([[0, -1], [1, 0], [-1, 1], [-1, 1], [0, 1], [-1, 0]]).T
+        face_normals = np.vstack(
+            (face_normals[0], np.zeros_like(face_normals[0]), face_normals[1])
+        )
+        cell_centers = np.array([[2.0 / 3, 0, 1.0 / 3], [1.0 / 3, 0, 2.0 / 3]]).T
+        cell_volumes = 1 / 2 * np.ones(cell_centers.shape[1])
+
+        if pert:
+            cell_volumes[0] = 1
+            cell_volumes[1] = 0.5
+
+            face_normals[0, 2] = -2
+            face_normals[0, 3] = -2
+            cell_centers[2, 1] = 1
+
+    else:
+        n = array([[0, 1, 1, 0], [0, 0, 0, 0], [0, 0, 1, 1]])
+        if pert:
+            n[2, 2] = 2
+
+        fn = np.array([[0, 1], [1, 2], [2, 3], [3, 0], [0, 2]]).T
+
+        cf = np.array([[0, 1, 4], [4, 2, 3]]).T
+        face_normals = np.array([[0, -1], [1, 0], [0, 1], [-1, 0], [-1, 1]]).T
+        face_normals = np.vstack(
+            (face_normals[0], np.zeros_like(face_normals[0]), face_normals[1])
+        )
+        cell_centers = np.array([[2.0 / 3, 0, 1.0 / 3], [1.0 / 3, 0, 2.0 / 3]]).T
+        cell_volumes = 1 / 2 * np.ones(cell_centers.shape[1])
+
+        if pert:
+            cell_volumes[0] = 1
+            cell_volumes[1] = 0.5
+
+    cols = np.tile(np.arange(fn.shape[1]), (fn.shape[0], 1)).ravel("F")
+    face_nodes = sps.csc_matrix((np.ones_like(cols), (fn.ravel("F"), cols)))
+    cols = np.tile(np.arange(cf.shape[1]), (cf.shape[0], 1)).ravel("F")
+    cell_faces = sps.csc_matrix((np.ones_like(cols), (cf.ravel("F"), cols)))
+
+    # Create a grid
+    g = pp.Grid(nodes=n, face_nodes=face_nodes, cell_faces=cell_faces, dim=2)
+    # Assign additional fields to ensure we are in full control of the grid geometry
+    g.face_normals = face_normals
+    g.cell_centers = cell_centers
+    g.cell_volumes = cell_volumes
+    g.global_point_ind = 1 + np.arange(n.shape[1])
+
+
+def grid_2d_four_cells(include_1d: bool, pert: bool, move_interior_point: bool):
+    if include_1d:
+        n = array(
+            [
+                [0.0, 1.0, 1.0, 0.5, 0.0, 0.0, 1.0, 0.5],
+                [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                [0.0, 0.0, 1.0, 0.5, 0.0, 1.0, 1.0, 0.5],
+            ]
+        )
+        if pert:
+            # Move the point x=1, z=1 to x=1, z = 2
+            n[2, 2] = 2
+            n[2, 6] = 2
+            if move_interior_point:
+                # To make the midpoint (x, z) = (0.5, 0.5) stay on the line between
+                # (0, 0) and [the newly moved to] (1, 2), we need to update the coordinates
+                # of points 3 and 7.
+                n[2, 3] = 1
+                n[2, 7] = 1
+        fn = np.array([[0, 1, 3, 1, 2, 4, 5, 7, 7, 6], [1, 3, 0, 2, 3, 5, 7, 4, 6, 5]])
+        cf = np.array([[0, 1, 2], [3, 4, 1], [5, 6, 7], [8, 9, 6]]).T
+        face_normals = array(
+            [[0, 1, -1, 1, -1, -1, 1, 1, 1, 0], [-1, 1, 1, 0, 1, 0, 1, -1, -1, 1]]
+        )
+
+        face_normals = np.vstack(
+            (face_normals[0], np.zeros_like(face_normals[0]), face_normals[1])
+        )
+
+        cell_volumes = 1 / 4 * np.ones(cell_centers.shape[1])
+
+        if pert:
+            cell_volumes[1] = 1
+            cell_volumes[2] = 0.5
+
+            cell_centers[2, 1] = 1
+            cell_centers[2, 2] = 4 / 3
+
+            if move_interior_point:
+                cell_volumes[0] = 0.5
+                cell_volumes[1] = 0.5
+                cell_volumes[2] = 0.25
+
+                face_normals[0, 2] = -2
+                face_normals[0, 4] = -2
+                face_normals[0, 7] = 2
+                face_normals[0, 8] = 2
+
+    else:  # Do not inculde 1d
+        n = np.array(
+            [
+                [0.0, 1.0, 1.0, 0.0, 0.5],
+                [0.0, 0.0, 0.0, 0.0, 0.0],
+                [0.0, 0.0, 1.0, 1.0, 0.5],
+            ]
+        )
+
+        if pert:
+            n[2, 2] = 2
+
+        fn = array([[0, 1, 2, 3, 0, 1, 2, 3], [1, 2, 3, 0, 4, 4, 4, 4]])
+        cf = np.array([[0, 4, 5], [1, 5, 6], [2, 7, 6], [3, 4, 7]]).T
+
+        face_normals = np.array(
+            [[0, -1], [1, 0], [0, 1], [-1, 0], [-1, 1], [1, 1], [1, -1], [1, 1]]
+        ).T
+        face_normals = np.vstack(
+            (face_normals[0], np.zeros_like(face_normals[0]), face_normals[1])
+        )
+        if pert:
+            cell_volumes[1] = 0.5
+            cell_volumes[2] = 0.5
+
+    cell_centers = np.array(
+        [[0.5, 0, 1.0 / 6], [5.0 / 6, 0, 0.5], [0.5, 0, 5.0 / 6], [1.0 / 6, 0, 0.5]]
+    ).T
+    cell_volumes = 1 / 4 * np.ones(cell_centers.shape[1])
+
+    cols = np.tile(np.arange(fn.shape[1]), (fn.shape[0], 1)).ravel("F")
+    face_nodes = sps.csc_matrix((np.ones_like(cols), (fn.ravel("F"), cols)))
+
+    cols = np.tile(np.arange(cf.shape[1]), (cf.shape[0], 1)).ravel("F")
+    cell_faces = sps.csc_matrix((np.ones_like(cols), (cf.ravel("F"), cols)))
+
+    g = pp.Grid(nodes=n, face_nodes=face_nodes, cell_faces=cell_faces, dim=2)
+    # Assign additional fields to ensure we are in full control of the grid geometry
+    g.face_normals = face_normals
+    g.cell_centers = cell_centers
+    g.cell_volumes = cell_volumes
+    g.global_point_ind = 10 + np.arange(n.shape[1])
+
+
 class TestReplace1dand2dGridsIn3dDomain(unittest.TestCase):
     """Various tests for replacing subdomain and interface grids in a 3d mixed-
     dimensional grid.
@@ -547,326 +777,16 @@ class TestReplace1dand2dGridsIn3dDomain(unittest.TestCase):
 
     """
 
-    def grid_3d(self, pert=False):
-        # Grid consisting of 3d, 2d and 1d grid. Nodes along the main
-        # surface are split into two or four.
-        # The first two cells are below the plane y=0, the last two are above the plane.
-        n = np.array(
-            [
-                [0, -1, 0],
-                [0, 0, 0],
-                [1, 0, 0],
-                [1, 0, 1],
-                [0, 0, 0],
-                [1, 0, 1],
-                [0, 0, 1],
-                [0, 0, 0],
-                [1, 0, 0],
-                [1, 0, 1],
-                [0, 0, 0],
-                [1, 0, 1],
-                [0, 0, 1],
-                [0, 1, 0],
-            ]
-        ).T
-
-        fn = np.array(
-            [
-                [0, 1, 2],
-                [0, 2, 3],
-                [0, 3, 1],
-                [1, 2, 3],
-                [0, 4, 5],
-                [0, 5, 6],
-                [0, 6, 4],
-                [4, 5, 6],
-                [13, 7, 8],
-                [13, 8, 9],
-                [13, 9, 7],
-                [7, 8, 9],
-                [13, 10, 11],
-                [13, 11, 12],
-                [13, 12, 10],
-                [10, 11, 12],
-            ]
-        ).T
-        cols = np.tile(np.arange(fn.shape[1]), (fn.shape[0], 1)).ravel("F")
-        face_nodes = sps.csc_matrix((np.ones_like(cols), (fn.ravel("F"), cols)))
-
-        cf = np.array([[0, 1, 2, 3], [4, 5, 6, 7], [8, 9, 10, 11], [12, 13, 14, 15]]).T
-        cols = np.tile(np.arange(cf.shape[1]), (cf.shape[0], 1)).ravel("F")
-        cell_faces = sps.csc_matrix((np.ones_like(cols), (cf.ravel("F"), cols)))
-
-        cell_centers = np.array(
-            [
-                [-0.25, 0.75, 0.25],
-                [-0.25, 0.5, 0.5],
-                [-0.25, 0.75, 0.25],
-                [0.25, 0.5, 0.5],
-            ]
-        ).T
-        face_normals = np.zeros((3, face_nodes.shape[1]))
-        # We will only use face normals for faces on the interface
-        face_normals[1, [3, 7, 11, 15]] = 1
-
-        cell_volumes = 1 / 6 * np.ones(cell_centers.shape[1])
-
-        if pert:
-            # Move the node at  (1, 0, 1) to (1, 0, 2)
-            # This will invalidate the assigned geometry, but it should not matter
-            # since we do not use the face_area for anything (we never replace the
-            # highest-dimensional, 3d grid)
-            n[2, [3, 9]] = 2
-
-        g = MockGrid(
-            n,
-            face_nodes,
-            cell_faces,
-            cell_centers,
-            face_normals,
-            cell_volumes,
-            3,
-            frac_face=[3, 7, 11, 15],
-        )
-        g.global_point_ind = np.arange(n.shape[1])
-        return g
-
-    def grid_3d_no_1d(self, pert=False):
-        # Domain consisting of only 2d and 3d grid. The nodes along the 2d grid
-        # are split in two
-        n = np.array(
-            [
-                [0, -1, 0],
-                [0, 0, 0],
-                [1, 0, 0],
-                [1, 0, 1],
-                [0, 0, 1],
-                [0, 0, 0],
-                [1, 0, 0],
-                [1, 0, 1],
-                [0, 0, 1],
-                [0, 1, 0],
-            ]
-        ).T
-
-        fn = np.array(
-            [
-                [0, 1, 2],
-                [0, 2, 3],
-                [0, 3, 4],
-                [0, 4, 1],
-                [0, 1, 3],
-                [1, 2, 3],
-                [1, 3, 4],  # Up to now, the lower half. Then the upper
-                [9, 5, 6],
-                [9, 6, 7],
-                [9, 7, 8],
-                [9, 8, 5],
-                [9, 5, 7],
-                [5, 6, 7],
-                [5, 7, 8],
-            ]
-        ).T
-        cols = np.tile(np.arange(fn.shape[1]), (fn.shape[0], 1)).ravel("F")
-        face_nodes = sps.csc_matrix((np.ones_like(cols), (fn.ravel("F"), cols)))
-
-        cf = np.array([[0, 1, 4, 5], [2, 3, 4, 6], [7, 8, 11, 12], [9, 10, 11, 13]]).T
-        cols = np.tile(np.arange(cf.shape[1]), (cf.shape[0], 1)).ravel("F")
-        cell_faces = sps.csc_matrix((np.ones_like(cols), (cf.ravel("F"), cols)))
-
-        cell_centers = np.array(
-            [
-                [-0.25, 0.75, 0.25],
-                [-0.25, 0.5, 0.5],
-                [-0.25, 0.75, 0.25],
-                [0.25, 0.5, 0.5],
-            ]
-        ).T
-        face_normals = np.zeros((3, face_nodes.shape[1]))
-        # We will only use face normals for faces on the interface
-        face_normals[2, [5, 6, 12, 13]] = 1
-
-        cell_volumes = 1 / 6 * np.ones(cell_centers.shape[1])
-
-        if pert:
-            # This will invalidate the assigned geometry, but it should not matter
-            n[2, 4] = 2
-            n[2, 9] = 2
-
-        g = MockGrid(
-            n,
-            face_nodes,
-            cell_faces,
-            cell_centers,
-            face_normals,
-            cell_volumes,
-            3,
-            frac_face=[5, 6, 12, 13],
-        )
-        g.global_point_ind = np.arange(n.shape[1])
-        return g
-
-    def grid_2d_two_cells(self, pert=False):
-        n = np.array(
-            [[0, 0, 0], [1, 0, 0], [1, 0, 1], [0, 0, 0], [1, 0, 1], [0, 0, 1]]
-        ).T
-        if pert:
-            n[2, 2] = 2
-            n[2, 4] = 2
-
-        fn = np.array([[0, 1], [1, 2], [2, 0], [3, 4], [4, 5], [5, 3]]).T
-        cols = np.tile(np.arange(fn.shape[1]), (fn.shape[0], 1)).ravel("F")
-        face_nodes = sps.csc_matrix((np.ones_like(cols), (fn.ravel("F"), cols)))
-
-        cf = np.array([[0, 1, 2], [3, 4, 5]]).T
-        cols = np.tile(np.arange(cf.shape[1]), (cf.shape[0], 1)).ravel("F")
-        cell_faces = sps.csc_matrix((np.ones_like(cols), (cf.ravel("F"), cols)))
-
-        face_normals = np.array([[0, -1], [1, 0], [-1, 1], [-1, 1], [0, 1], [-1, 0]]).T
-        face_normals = np.vstack(
-            (face_normals[0], np.zeros_like(face_normals[0]), face_normals[1])
-        )
-        cell_centers = np.array([[2.0 / 3, 0, 1.0 / 3], [1.0 / 3, 0, 2.0 / 3]]).T
-        cell_volumes = 1 / 2 * np.ones(cell_centers.shape[1])
-
-        if pert:
-            cell_volumes[0] = 1
-            cell_volumes[1] = 0.5
-
-            face_normals[0, 2] = -2
-            face_normals[0, 3] = -2
-            cell_centers[2, 1] = 1
-
-        g = MockGrid(
-            n,
-            face_nodes,
-            cell_faces,
-            cell_centers,
-            face_normals,
-            cell_volumes,
-            2,
-            frac_face=[2, 3],
-        )
-        g.global_point_ind = 1 + np.arange(n.shape[1])
-        return g
-
-    def grid_2d_two_cells_no_1d(self, pert=False):
-        n = np.array([[0, 0, 0], [1, 0, 0], [1, 0, 1], [0, 0, 1]]).T
-        if pert:
-            n[2, 2] = 2
-
-        fn = np.array([[0, 1], [1, 2], [2, 3], [3, 0], [0, 2]]).T
-        cols = np.tile(np.arange(fn.shape[1]), (fn.shape[0], 1)).ravel("F")
-        face_nodes = sps.csc_matrix((np.ones_like(cols), (fn.ravel("F"), cols)))
-
-        cf = np.array([[0, 1, 4], [4, 2, 3]]).T
-        cols = np.tile(np.arange(cf.shape[1]), (cf.shape[0], 1)).ravel("F")
-        cell_faces = sps.csc_matrix((np.ones_like(cols), (cf.ravel("F"), cols)))
-
-        face_normals = np.array([[0, -1], [1, 0], [0, 1], [-1, 0], [-1, 1]]).T
-        face_normals = np.vstack(
-            (face_normals[0], np.zeros_like(face_normals[0]), face_normals[1])
-        )
-        cell_centers = np.array([[2.0 / 3, 0, 1.0 / 3], [1.0 / 3, 0, 2.0 / 3]]).T
-        cell_volumes = 1 / 2 * np.ones(cell_centers.shape[1])
-
-        if pert:
-            cell_volumes[0] = 1
-            cell_volumes[1] = 0.5
-
-        g = MockGrid(
-            n, face_nodes, cell_faces, cell_centers, face_normals, cell_volumes, 2
-        )
-        g.global_point_ind = 1 + np.arange(n.shape[1])
-        return g
-
     def grid_2d_four_cells(self, pert=False, move_interior_point=False):
         # pert: Move the point (1, 0 1) -> (1, 0, 2)
         # move_interior_point: Move the point (0.5, 0, 0.5) -> (0.5, 0, 1). Should only
         #    be used together with pert.
 
-        n = np.array(
-            [
-                [0, 0, 0],
-                [1, 0, 0],
-                [1, 0, 1],
-                [0.5, 0, 0.5],
-                [0, 0, 0],
-                [0, 0, 1],
-                [1, 0, 1],
-                [0.5, 0, 0.5],
-            ]
-        ).T
-        if pert:
-            # Move the point x=1, z=1 to x=1, z = 2
-            n[2, 2] = 2
-            n[2, 6] = 2
-            if move_interior_point:
-                # To make the midpoint (x, z) = (0.5, 0.5) stay on the line between
-                # (0, 0) and [the newly moved to] (1, 2), we need to update the coordinates
-                # of points 3 and 7.
-                n[2, 3] = 1
-                n[2, 7] = 1
-
-        fn = np.array(
-            [
-                [0, 1],
-                [1, 3],
-                [3, 0],
-                [1, 2],
-                [2, 3],
-                [4, 5],
-                [5, 7],
-                [7, 4],
-                [7, 6],
-                [6, 5],
-            ]
-        ).T
         cols = np.tile(np.arange(fn.shape[1]), (fn.shape[0], 1)).ravel("F")
         face_nodes = sps.csc_matrix((np.ones_like(cols), (fn.ravel("F"), cols)))
 
-        cf = np.array([[0, 1, 2], [3, 4, 1], [5, 6, 7], [8, 9, 6]]).T
         cols = np.tile(np.arange(cf.shape[1]), (cf.shape[0], 1)).ravel("F")
         cell_faces = sps.csc_matrix((np.ones_like(cols), (cf.ravel("F"), cols)))
-
-        face_normals = np.array(
-            [
-                [0, -1],
-                [1, 1],
-                [-1, 1],
-                [1, 0],
-                [-1, 1],
-                [-1, 0],
-                [1, 1],
-                [1, -1],
-                [1, -1],
-                [0, 1],
-            ]
-        ).T
-
-        face_normals = np.vstack(
-            (face_normals[0], np.zeros_like(face_normals[0]), face_normals[1])
-        )
-        cell_centers = np.array(
-            [[0.5, 0, 1.0 / 6], [5.0 / 6, 0, 0.5], [0.5, 0, 5.0 / 6], [1.0 / 6, 0, 0.5]]
-        ).T
-        cell_volumes = 1 / 4 * np.ones(cell_centers.shape[1])
-        if pert:
-            cell_volumes[1] = 1
-            cell_volumes[2] = 0.5
-
-            cell_centers[2, 1] = 1
-            cell_centers[2, 2] = 4 / 3
-
-            if move_interior_point:
-                cell_volumes[0] = 0.5
-                cell_volumes[1] = 0.5
-                cell_volumes[2] = 0.25
-
-                face_normals[0, 2] = -2
-                face_normals[0, 4] = -2
-                face_normals[0, 7] = 2
-                face_normals[0, 8] = 2
 
         g = MockGrid(
             n,
@@ -882,38 +802,6 @@ class TestReplace1dand2dGridsIn3dDomain(unittest.TestCase):
         return g
 
     def grid_2d_four_cells_no_1d(self, pert=False):
-        n = np.array([[0, 0, 0], [1, 0, 0], [1, 0, 1], [0, 0, 1], [0.5, 0, 0.5]]).T
-        if pert:
-            n[2, 2] = 2
-
-        fn = np.array(
-            [[0, 1], [1, 2], [2, 3], [3, 0], [0, 4], [1, 4], [2, 4], [3, 4]]
-        ).T
-        cols = np.tile(np.arange(fn.shape[1]), (fn.shape[0], 1)).ravel("F")
-        face_nodes = sps.csc_matrix((np.ones_like(cols), (fn.ravel("F"), cols)))
-
-        cf = np.array([[0, 4, 5], [1, 5, 6], [2, 7, 6], [3, 4, 7]]).T
-        cols = np.tile(np.arange(cf.shape[1]), (cf.shape[0], 1)).ravel("F")
-        cell_faces = sps.csc_matrix((np.ones_like(cols), (cf.ravel("F"), cols)))
-
-        face_normals = np.array(
-            [[0, -1], [1, 0], [0, 1], [-1, 0], [-1, 1], [1, 1], [1, -1], [1, 1]]
-        ).T
-        face_normals = np.vstack(
-            (face_normals[0], np.zeros_like(face_normals[0]), face_normals[1])
-        )
-        cell_centers = np.array(
-            [[0.5, 0, 1.0 / 6], [5.0 / 6, 0, 0.5], [0.5, 0, 5.0 / 6], [1.0 / 6, 0, 0.5]]
-        ).T
-        cell_volumes = 1 / 4 * np.ones(cell_centers.shape[1])
-        if pert:
-            cell_volumes[1] = 0.5
-            cell_volumes[2] = 0.5
-
-        g = MockGrid(
-            n, face_nodes, cell_faces, cell_centers, face_normals, cell_volumes, 2
-        )
-        g.global_point_ind = 10 + np.arange(n.shape[1])
         return g
 
     def grid_1d(self, n_nodes=2):
@@ -1122,6 +1010,10 @@ class TestReplace1dand2dGridsIn3dDomain(unittest.TestCase):
         known_p1h[0, [2, 4]] = 0.5
         known_p1h[1, [7, 8]] = 0.5
         self.assertTrue(np.allclose(known_p1h, p1h.A))
+
+
+def _create_mdg(pert, include_1d):
+    ...
 
 
 @pytest.mark.parametrize(
