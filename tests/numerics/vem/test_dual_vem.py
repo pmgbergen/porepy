@@ -1,36 +1,50 @@
-""" Module contains two sets of tests: One on MVEM itself, one on MVEM with gravity.
+""" Module contains two sets of unit tests for mixed Virtual Element Method (MVEM).
+    - The first is dedicated for discrete operators;
+    - The second is dedicated for the right-hand side (Gravitational forces).
 """
-import unittest
+
 
 import numpy as np
+import pytest
 import scipy.sparse as sps
 
 import porepy as pp
 
 
-class BasicsTest(unittest.TestCase):
-    def _matrix(self, g, perm, bc):
+class TestMVEMDiscretization:
+    def _matrix(self, sd, perm, bc):
+        """Compute stiffness operator for a given subdomain"""
         solver = pp.MVEM(keyword="flow")
 
         data = pp.initialize_default_data(
-            g, {}, "flow", {"second_order_tensor": perm, "bc": bc}
+            sd, {}, "flow", {"second_order_tensor": perm, "bc": bc}
         )
-        solver.discretize(g, data)
+        solver.discretize(sd, data)
 
-        return solver.assemble_matrix(g, data).todense()
+        return solver.assemble_matrix(sd, data).todense()
 
-    # ------------------------------------------------------------------------------#
+    def _create_cartesian_grid(self, dimension):
+        """Generates a mono-dimensional cartesian grid."""
+        if dimension == 1:
+            sd = pp.CartGrid(3, 1)
+            sd.compute_geometry()
+        elif dimension == 2:
+            sd = pp.CartGrid([2, 1], [1, 1])
+            sd.compute_geometry()
+        else:
+            sd = pp.CartGrid([2, 2, 2], [1, 1, 1])
+            sd.compute_geometry()
+        return sd
 
-    def test_dual_vem_1d_iso(self):
-        g = pp.CartGrid(3, 1)
-        g.compute_geometry()
+    def test_1d_isotropic_permeability(self):
+        sd = self._create_cartesian_grid(dimension=1)
 
-        kxx = np.ones(g.num_cells)
+        kxx = np.ones(sd.num_cells)
         perm = pp.SecondOrderTensor(kxx)
-        bf = g.tags["domain_boundary_faces"].nonzero()[0]
-        bc = pp.BoundaryCondition(g, bf, bf.size * ["dir"])
+        bf = sd.tags["domain_boundary_faces"].nonzero()[0]
+        bc = pp.BoundaryCondition(sd, bf, bf.size * ["dir"])
 
-        M = self._matrix(g, perm, bc)
+        M = self._matrix(sd, perm, bc)
 
         M_known = 1e-2 * np.array(
             [
@@ -46,23 +60,20 @@ class BasicsTest(unittest.TestCase):
 
         rtol = 1e-15
         atol = rtol
-        self.assertTrue(np.allclose(M, M.T, rtol, atol))
-        self.assertTrue(np.allclose(M, M_known, rtol, atol))
+        assert np.allclose(M, M.T, rtol, atol)
+        assert np.allclose(M, M_known, rtol, atol)
 
-    # ------------------------------------------------------------------------------#
+    def test_1d_anisotropic_permeability(self):
+        sd = self._create_cartesian_grid(dimension=1)
 
-    def test_dual_vem_1d_ani(self):
-        g = pp.CartGrid(3, 1)
-        g.compute_geometry()
-
-        kxx = np.sin(g.cell_centers[0, :]) + 1
+        kxx = np.sin(sd.cell_centers[0, :]) + 1
         perm = pp.SecondOrderTensor(
-            kxx, kyy=np.ones(g.num_cells), kzz=np.ones(g.num_cells)
+            kxx, kyy=np.ones(sd.num_cells), kzz=np.ones(sd.num_cells)
         )
-        bf = g.tags["domain_boundary_faces"].nonzero()[0]
-        bc = pp.BoundaryCondition(g, bf, bf.size * ["dir"])
+        bf = sd.tags["domain_boundary_faces"].nonzero()[0]
+        bc = pp.BoundaryCondition(sd, bf, bf.size * ["dir"])
 
-        M = self._matrix(g, perm, bc)
+        M = self._matrix(sd, perm, bc)
         M_known = 1e-2 * np.array(
             [
                 [21.4427334468001192, -7.14757781560004, 0, 0, 1e2, 0, 0],
@@ -93,22 +104,19 @@ class BasicsTest(unittest.TestCase):
 
         rtol = 1e-15
         atol = rtol
-        self.assertTrue(np.allclose(M, M.T, rtol, atol))
-        self.assertTrue(np.allclose(M, M_known, rtol, atol))
+        assert np.allclose(M, M.T, rtol, atol)
+        assert np.allclose(M, M_known, rtol, atol)
 
-    # ------------------------------------------------------------------------------#
+    def test_2d_isotropic_permeability_cart(self):
+        sd = self._create_cartesian_grid(dimension=2)
 
-    def test_dual_vem_2d_iso_cart(self):
-        g = pp.CartGrid([2, 1], [1, 1])
-        g.compute_geometry()
-
-        kxx = np.ones(g.num_cells)
+        kxx = np.ones(sd.num_cells)
         perm = pp.SecondOrderTensor(kxx=kxx, kyy=kxx, kzz=kxx)
 
-        bf = g.tags["domain_boundary_faces"].nonzero()[0]
-        bc = pp.BoundaryCondition(g, bf, bf.size * ["dir"])
+        bf = sd.tags["domain_boundary_faces"].nonzero()[0]
+        bc = pp.BoundaryCondition(sd, bf, bf.size * ["dir"])
 
-        M = self._matrix(g, perm, bc)
+        M = self._matrix(sd, perm, bc)
         # Matrix computed with an already validated code (MRST)
         M_known = np.array(
             [
@@ -126,24 +134,21 @@ class BasicsTest(unittest.TestCase):
 
         rtol = 1e-15
         atol = rtol
-        self.assertTrue(np.allclose(M, M.T, rtol, atol))
-        self.assertTrue(np.allclose(M, M_known, rtol, atol))
+        assert np.allclose(M, M.T, rtol, atol)
+        assert np.allclose(M, M_known, rtol, atol)
 
-    # ------------------------------------------------------------------------------#
+    def test_2d_anisotropic_permeability_cart(self):
+        sd = self._create_cartesian_grid(dimension=2)
 
-    def test_dual_vem_2d_ani_cart(self):
-        g = pp.CartGrid([2, 1], [1, 1])
-        g.compute_geometry()
-
-        kxx = np.square(g.cell_centers[1, :]) + 1
-        kyy = np.square(g.cell_centers[0, :]) + 1
-        kxy = -np.multiply(g.cell_centers[0, :], g.cell_centers[1, :])
+        kxx = np.square(sd.cell_centers[1, :]) + 1
+        kyy = np.square(sd.cell_centers[0, :]) + 1
+        kxy = -np.multiply(sd.cell_centers[0, :], sd.cell_centers[1, :])
         perm = pp.SecondOrderTensor(kxx=kxx, kyy=kyy, kxy=kxy)
 
-        bf = g.tags["domain_boundary_faces"].nonzero()[0]
-        bc = pp.BoundaryCondition(g, bf, bf.size * ["dir"])
+        bf = sd.tags["domain_boundary_faces"].nonzero()[0]
+        bc = pp.BoundaryCondition(sd, bf, bf.size * ["dir"])
 
-        M = self._matrix(g, perm, bc)
+        M = self._matrix(sd, perm, bc)
         # Matrix computed with an already validated code (MRST)
         M_known = np.array(
             [
@@ -231,22 +236,59 @@ class BasicsTest(unittest.TestCase):
 
         rtol = 1e-15
         atol = rtol
-        self.assertTrue(np.allclose(M, M.T, rtol, atol))
-        self.assertTrue(np.allclose(M, M_known, rtol, atol))
+        assert np.allclose(M, M.T, rtol, atol)
+        assert np.allclose(M, M_known, rtol, atol)
 
-    # ------------------------------------------------------------------------------#
+    def test_3d_isotropic_permeability_cart(self):
+        sd = self._create_cartesian_grid(dimension=3)
 
-    def test_dual_vem_2d_iso_simplex(self):
-        g = pp.StructuredTriangleGrid([1, 1], [1, 1])
-        g.compute_geometry()
+        kxx = np.ones(sd.num_cells)
+        perm = pp.SecondOrderTensor(kxx=kxx, kyy=kxx, kzz=kxx)
 
-        kxx = np.ones(g.num_cells)
+        bf = sd.tags["domain_boundary_faces"].nonzero()[0]
+        bc = pp.BoundaryCondition(sd, bf, bf.size * ["dir"])
+
+        M = self._matrix(sd, perm, bc)
+        # np.savetxt('matrix.txt', M, delimiter=',', newline='],\n[')
+        M_known = matrix_for_test_dual_vem_3d_iso_cart()
+
+        rtol = 1e-14
+        atol = rtol
+        assert np.allclose(M, M.T, rtol, atol)
+        assert np.allclose(M, M_known, rtol, atol)
+
+    def test_3d_anisotropic_permeability_cart(self):
+        sd = self._create_cartesian_grid(dimension=3)
+
+        kxx = np.square(sd.cell_centers[1, :]) + 1
+        kyy = np.square(sd.cell_centers[0, :]) + 1
+        kzz = sd.cell_centers[2, :] + 1
+        kxy = -np.multiply(sd.cell_centers[0, :], sd.cell_centers[1, :])
+        perm = pp.SecondOrderTensor(kxx=kxx, kyy=kyy, kxy=kxy, kzz=kzz)
+
+        bf = sd.tags["domain_boundary_faces"].nonzero()[0]
+        bc = pp.BoundaryCondition(sd, bf, bf.size * ["dir"])
+
+        M = self._matrix(sd, perm, bc)
+        # np.savetxt('matrix.txt', M, delimiter=',', newline='],\n[')
+        M_known = matrix_for_test_dual_vem_3d_ani_cart()
+
+        rtol = 1e-15
+        atol = rtol
+        assert np.allclose(M, M.T, rtol, atol)
+        assert np.allclose(M, M_known, rtol, atol)
+
+    def test_2d_isotropic_permeability_simplex(self):
+        sd = pp.StructuredTriangleGrid([1, 1], [1, 1])
+        sd.compute_geometry()
+
+        kxx = np.ones(sd.num_cells)
         perm = pp.SecondOrderTensor(kxx=kxx, kyy=kxx)
 
-        bf = g.tags["domain_boundary_faces"].nonzero()[0]
-        bc = pp.BoundaryCondition(g, bf, bf.size * ["dir"])
+        bf = sd.tags["domain_boundary_faces"].nonzero()[0]
+        bc = pp.BoundaryCondition(sd, bf, bf.size * ["dir"])
 
-        M = self._matrix(g, perm, bc)
+        M = self._matrix(sd, perm, bc)
         # Matrix computed with an already validated code (MRST)
         faces = np.arange(5)
         M_known = np.array(
@@ -267,83 +309,28 @@ class BasicsTest(unittest.TestCase):
 
         rtol = 1e-15
         atol = rtol
-        self.assertTrue(np.allclose(M, M.T, rtol, atol))
+        assert np.allclose(M, M.T, rtol, atol)
         # We test only the mass-Hdiv part
-        self.assertTrue(
-            np.allclose(
-                M[np.ix_(faces, faces)],
-                M_known,
-                rtol,
-                atol,
-            )
+        assert np.allclose(
+            M[np.ix_(faces, faces)],
+            M_known,
+            rtol,
+            atol,
         )
 
-    # ------------------------------------------------------------------------------#
+    def test_2d_anisotropic_permeability_simplex(self):
+        sd = pp.StructuredTriangleGrid([1, 1], [1, 1])
+        sd.compute_geometry()
 
-    def test_dual_vem_2d_iso_simplex_mixed_bc(self):
-        g = pp.StructuredTriangleGrid([2, 2], [1, 1])
-        g.compute_geometry()
-
-        kxx = np.ones(g.num_cells)
-        perm = pp.SecondOrderTensor(kxx=kxx, kyy=kxx)
-
-        tol = 1e-6
-        bf = g.tags["domain_boundary_faces"].nonzero()[0]
-        bf_centers = g.face_centers[:, bf]
-        left = bf_centers[0, :] < 0 + tol
-        right = bf_centers[0, :] > 1 - tol
-
-        labels = np.array(["neu"] * bf.size)
-        labels[left] = "rob"
-        labels[right] = "dir"
-
-        bc = pp.BoundaryCondition(g, bf, labels)
-        bc.robin_weight[bf[left]] = 2
-
-        bc_val = np.zeros(g.num_faces)
-        bc_val[bf[left]] = 3
-
-        solver = pp.MVEM(keyword="flow")
-
-        data = pp.initialize_default_data(
-            g, {}, "flow", {"second_order_tensor": perm, "bc": bc, "bc_values": bc_val}
-        )
-        solver.discretize(g, data)
-        M, rhs = solver.assemble_matrix_rhs(g, data)
-        up = sps.linalg.spsolve(M, rhs)
-
-        p = solver.extract_pressure(g, up, data)
-        u = solver.extract_flux(g, up, data)
-        P0u = solver.project_flux(g, u, data)
-
-        p_ex = 1 - g.cell_centers[0, :]
-        P0u_ex = np.vstack(
-            (np.ones(g.num_cells), np.zeros(g.num_cells), np.zeros(g.num_cells))
-        )
-
-        self.assertTrue(np.allclose(p, p_ex))
-        self.assertTrue(np.allclose(P0u, P0u_ex))
-
-        # np.savetxt('matrix.txt', M.todense(), delimiter=',', newline='],\n[')
-        M_known = matrix_for_test_dual_vem_2d_iso_simplex_mixed_bc()
-        M_ijv = np.vstack(sps.find(M))
-        self.assertTrue(np.allclose(M_ijv, M_known))
-
-    # ------------------------------------------------------------------------------#
-
-    def test_dual_vem_2d_ani_simplex(self):
-        g = pp.StructuredTriangleGrid([1, 1], [1, 1])
-        g.compute_geometry()
-
-        kxx = np.square(g.cell_centers[1, :]) + 1
-        kyy = np.square(g.cell_centers[0, :]) + 1
-        kxy = -np.multiply(g.cell_centers[0, :], g.cell_centers[1, :])
+        kxx = np.square(sd.cell_centers[1, :]) + 1
+        kyy = np.square(sd.cell_centers[0, :]) + 1
+        kxy = -np.multiply(sd.cell_centers[0, :], sd.cell_centers[1, :])
         perm = pp.SecondOrderTensor(kxx=kxx, kyy=kyy, kxy=kxy, kzz=1)
 
-        bf = g.tags["domain_boundary_faces"].nonzero()[0]
-        bc = pp.BoundaryCondition(g, bf, bf.size * ["dir"])
+        bf = sd.tags["domain_boundary_faces"].nonzero()[0]
+        bc = pp.BoundaryCondition(sd, bf, bf.size * ["dir"])
 
-        M = self._matrix(g, perm, bc)
+        M = self._matrix(sd, perm, bc)
         # Matrix computed with an already validated code (MRST)
         faces = np.arange(5)
         M_known = np.array(
@@ -364,78 +351,78 @@ class BasicsTest(unittest.TestCase):
 
         rtol = 1e-15
         atol = rtol
-        self.assertTrue(np.allclose(M, M.T, rtol, atol))
+        assert np.allclose(M, M.T, rtol, atol)
         # We test only the mass-Hdiv part
-        self.assertTrue(
-            np.allclose(
-                M[np.ix_(faces, faces)],
-                M_known,
-                rtol,
-                atol,
-            )
+        assert np.allclose(
+            M[np.ix_(faces, faces)],
+            M_known,
+            rtol,
+            atol,
         )
 
-    # ------------------------------------------------------------------------------#
+    def test_2d_isotropic_permeability_simplex_mixed_bc(self):
+        sd = pp.StructuredTriangleGrid([2, 2], [1, 1])
+        sd.compute_geometry()
 
-    def test_dual_vem_3d_iso_cart(self):
-        g = pp.CartGrid([2, 2, 2], [1, 1, 1])
-        g.compute_geometry()
+        kxx = np.ones(sd.num_cells)
+        perm = pp.SecondOrderTensor(kxx=kxx, kyy=kxx)
 
-        kxx = np.ones(g.num_cells)
-        perm = pp.SecondOrderTensor(kxx=kxx, kyy=kxx, kzz=kxx)
+        tol = 1e-6
+        bf = sd.tags["domain_boundary_faces"].nonzero()[0]
+        bf_centers = sd.face_centers[:, bf]
+        left = bf_centers[0, :] < 0 + tol
+        right = bf_centers[0, :] > 1 - tol
 
-        bf = g.tags["domain_boundary_faces"].nonzero()[0]
-        bc = pp.BoundaryCondition(g, bf, bf.size * ["dir"])
+        labels = np.array(["neu"] * bf.size)
+        labels[left] = "rob"
+        labels[right] = "dir"
 
-        M = self._matrix(g, perm, bc)
-        # np.savetxt('matrix.txt', M, delimiter=',', newline='],\n[')
-        M_known = matrix_for_test_dual_vem_3d_iso_cart()
+        bc = pp.BoundaryCondition(sd, bf, labels)
+        bc.robin_weight[bf[left]] = 2
 
-        rtol = 1e-14
-        atol = rtol
-        self.assertTrue(np.allclose(M, M.T, rtol, atol))
-        self.assertTrue(np.allclose(M, M_known, rtol, atol))
+        bc_val = np.zeros(sd.num_faces)
+        bc_val[bf[left]] = 3
 
-    # ------------------------------------------------------------------------------#
+        solver = pp.MVEM(keyword="flow")
 
-    def test_dual_vem_3d_ani_cart(self):
-        g = pp.CartGrid([2, 2, 2], [1, 1, 1])
-        g.compute_geometry()
+        data = pp.initialize_default_data(
+            sd, {}, "flow", {"second_order_tensor": perm, "bc": bc, "bc_values": bc_val}
+        )
+        solver.discretize(sd, data)
+        M, rhs = solver.assemble_matrix_rhs(sd, data)
+        up = sps.linalg.spsolve(M, rhs)
 
-        kxx = np.square(g.cell_centers[1, :]) + 1
-        kyy = np.square(g.cell_centers[0, :]) + 1
-        kzz = g.cell_centers[2, :] + 1
-        kxy = -np.multiply(g.cell_centers[0, :], g.cell_centers[1, :])
-        perm = pp.SecondOrderTensor(kxx=kxx, kyy=kyy, kxy=kxy, kzz=kzz)
+        p = solver.extract_pressure(sd, up, data)
+        u = solver.extract_flux(sd, up, data)
+        P0u = solver.project_flux(sd, u, data)
 
-        bf = g.tags["domain_boundary_faces"].nonzero()[0]
-        bc = pp.BoundaryCondition(g, bf, bf.size * ["dir"])
+        p_ex = 1 - sd.cell_centers[0, :]
+        P0u_ex = np.vstack(
+            (np.ones(sd.num_cells), np.zeros(sd.num_cells), np.zeros(sd.num_cells))
+        )
 
-        M = self._matrix(g, perm, bc)
-        # np.savetxt('matrix.txt', M, delimiter=',', newline='],\n[')
-        M_known = matrix_for_test_dual_vem_3d_ani_cart()
+        assert np.allclose(p, p_ex)
+        assert np.allclose(P0u, P0u_ex)
 
-        rtol = 1e-15
-        atol = rtol
-        self.assertTrue(np.allclose(M, M.T, rtol, atol))
-        self.assertTrue(np.allclose(M, M_known, rtol, atol))
+        # np.savetxt('matrix.txt', M.todense(), delimiter=',', newline='],\n[')
+        M_known = matrix_for_test_dual_vem_2d_iso_simplex_mixed_bc()
+        M_ijv = np.vstack(sps.find(M))
+        assert np.allclose(M_ijv, M_known)
 
-    # ------------------------------------------------------------------------------#
-
-    def test_dual_vem_1d_iso_line(self):
-        g = pp.CartGrid(3, 1)
+    def test_1d_R1_R3_isotropic_permeability(self):
+        sd = self._create_cartesian_grid(dimension=1)
         R = pp.map_geometry.rotation_matrix(np.pi / 6.0, [0, 0, 1])
-        g.nodes = np.dot(R, g.nodes)
-        g.compute_geometry()
+        sd.nodes = np.dot(R, sd.nodes)
+        sd.compute_geometry()
 
-        kxx = np.ones(g.num_cells)
+        kxx = np.ones(sd.num_cells)
         perm = pp.SecondOrderTensor(kxx, kyy=1, kzz=1)
         perm.rotate(R)
 
-        bf = g.tags["domain_boundary_faces"].nonzero()[0]
-        bc = pp.BoundaryCondition(g, bf, bf.size * ["dir"])
+        bf = sd.tags["domain_boundary_faces"].nonzero()[0]
+        bc = pp.BoundaryCondition(sd, bf, bf.size * ["dir"])
 
-        M = self._matrix(g, perm, bc)
+        M = self._matrix(sd, perm, bc)
         # Matrix computed with an already validated code (MRST)
         M_known = 1e-2 * np.array(
             [
@@ -451,25 +438,23 @@ class BasicsTest(unittest.TestCase):
 
         rtol = 1e-15
         atol = rtol
-        self.assertTrue(np.allclose(M, M.T, rtol, atol))
-        self.assertTrue(np.allclose(M, M_known, rtol, atol))
+        assert np.allclose(M, M.T, rtol, atol)
+        assert np.allclose(M, M_known, rtol, atol)
 
-    # ------------------------------------------------------------------------------#
-
-    def test_dual_vem_2d_iso_cart_surf(self):
-        g = pp.CartGrid([2, 1], [1, 1])
+    def test_2d_R2_R3_isotropic_permeability(self):
+        sd = self._create_cartesian_grid(dimension=2)
         R = pp.map_geometry.rotation_matrix(np.pi / 4.0, [0, 1, 0])
-        g.nodes = np.dot(R, g.nodes)
-        g.compute_geometry()
+        sd.nodes = np.dot(R, sd.nodes)
+        sd.compute_geometry()
 
-        kxx = np.ones(g.num_cells)
+        kxx = np.ones(sd.num_cells)
         perm = pp.SecondOrderTensor(kxx=kxx, kyy=kxx, kzz=1)
         perm.rotate(R)
 
-        bf = g.tags["domain_boundary_faces"].nonzero()[0]
-        bc = pp.BoundaryCondition(g, bf, bf.size * ["dir"])
+        bf = sd.tags["domain_boundary_faces"].nonzero()[0]
+        bc = pp.BoundaryCondition(sd, bf, bf.size * ["dir"])
 
-        M = self._matrix(g, perm, bc)
+        M = self._matrix(sd, perm, bc)
         # Matrix computed with an already validated code (MRST)
         M_known = np.array(
             [
@@ -487,29 +472,27 @@ class BasicsTest(unittest.TestCase):
 
         rtol = 1e-15
         atol = rtol
-        self.assertTrue(np.allclose(M, M.T, rtol, atol))
-        self.assertTrue(np.allclose(M, M_known, rtol, atol))
+        assert np.allclose(M, M.T, rtol, atol)
+        assert np.allclose(M, M_known, rtol, atol)
 
-    # ------------------------------------------------------------------------------#
+    def test_2d_R2_R3_anisotropic_permeability(self):
+        sd = self._create_cartesian_grid(dimension=2)
+        sd.compute_geometry()
 
-    def test_dual_vem_2d_ani_cart_surf(self):
-        g = pp.CartGrid([2, 1], [1, 1])
-        g.compute_geometry()
-
-        kxx = np.square(g.cell_centers[1, :]) + 1
-        kyy = np.square(g.cell_centers[0, :]) + 1
-        kxy = -np.multiply(g.cell_centers[0, :], g.cell_centers[1, :])
+        kxx = np.square(sd.cell_centers[1, :]) + 1
+        kyy = np.square(sd.cell_centers[0, :]) + 1
+        kxy = -np.multiply(sd.cell_centers[0, :], sd.cell_centers[1, :])
         perm = pp.SecondOrderTensor(kxx=kxx, kyy=kyy, kxy=kxy, kzz=1)
 
         R = pp.map_geometry.rotation_matrix(np.pi / 3.0, [1, 1, 0])
         perm.rotate(R)
-        g.nodes = np.dot(R, g.nodes)
-        g.compute_geometry()
+        sd.nodes = np.dot(R, sd.nodes)
+        sd.compute_geometry()
 
-        bf = g.tags["domain_boundary_faces"].nonzero()[0]
-        bc = pp.BoundaryCondition(g, bf, bf.size * ["dir"])
+        bf = sd.tags["domain_boundary_faces"].nonzero()[0]
+        bc = pp.BoundaryCondition(sd, bf, bf.size * ["dir"])
 
-        M = self._matrix(g, perm, bc)
+        M = self._matrix(sd, perm, bc)
         # Matrix computed with an already validated code (MRST)
         M_known = np.array(
             [
@@ -597,25 +580,23 @@ class BasicsTest(unittest.TestCase):
 
         rtol = 1e-15
         atol = rtol
-        self.assertTrue(np.allclose(M, M.T, rtol, atol))
-        self.assertTrue(np.allclose(M, M_known, rtol, atol))
+        assert np.allclose(M, M.T, rtol, atol)
+        assert np.allclose(M, M_known, rtol, atol)
 
-    # ------------------------------------------------------------------------------#
-
-    def test_dual_vem_2d_iso_simplex_surf(self):
-        g = pp.StructuredTriangleGrid([1, 1], [1, 1])
+    def test_2d_R2_R3_isotropic_permeability_simplex(self):
+        sd = pp.StructuredTriangleGrid([1, 1], [1, 1])
         R = pp.map_geometry.rotation_matrix(-np.pi / 4.0, [1, 1, -1])
-        g.nodes = np.dot(R, g.nodes)
-        g.compute_geometry()
+        sd.nodes = np.dot(R, sd.nodes)
+        sd.compute_geometry()
 
-        kxx = np.ones(g.num_cells)
+        kxx = np.ones(sd.num_cells)
         perm = pp.SecondOrderTensor(kxx=kxx, kyy=kxx, kzz=1)
         perm.rotate(R)
 
-        bf = g.tags["domain_boundary_faces"].nonzero()[0]
-        bc = pp.BoundaryCondition(g, bf, bf.size * ["dir"])
+        bf = sd.tags["domain_boundary_faces"].nonzero()[0]
+        bc = pp.BoundaryCondition(sd, bf, bf.size * ["dir"])
 
-        M = self._matrix(g, perm, bc)
+        M = self._matrix(sd, perm, bc)
         # Matrix computed with an already validated code (MRST)
         faces = np.arange(5)
         M_known = np.array(
@@ -636,37 +617,33 @@ class BasicsTest(unittest.TestCase):
 
         rtol = 1e-15
         atol = rtol
-        self.assertTrue(np.allclose(M, M.T, rtol, atol))
+        assert np.allclose(M, M.T, rtol, atol)
         # We test only the mass-Hdiv part
-        self.assertTrue(
-            np.allclose(
-                M[np.ix_(faces, faces)],
-                M_known,
-                rtol,
-                atol,
-            )
+        assert np.allclose(
+            M[np.ix_(faces, faces)],
+            M_known,
+            rtol,
+            atol,
         )
 
-    # ------------------------------------------------------------------------------#
+    def test_2d_R2_R3_anisotropic_permeability_simplex(self):
+        sd = pp.StructuredTriangleGrid([1, 1], [1, 1])
+        sd.compute_geometry()
 
-    def test_dual_vem_2d_ani_simplex_surf(self):
-        g = pp.StructuredTriangleGrid([1, 1], [1, 1])
-        g.compute_geometry()
-
-        kxx = np.square(g.cell_centers[1, :]) + 1
-        kyy = np.square(g.cell_centers[0, :]) + 1
-        kxy = -np.multiply(g.cell_centers[0, :], g.cell_centers[1, :])
+        kxx = np.square(sd.cell_centers[1, :]) + 1
+        kyy = np.square(sd.cell_centers[0, :]) + 1
+        kxy = -np.multiply(sd.cell_centers[0, :], sd.cell_centers[1, :])
         perm = pp.SecondOrderTensor(kxx=kxx, kyy=kyy, kxy=kxy, kzz=1)
 
         R = pp.map_geometry.rotation_matrix(np.pi / 3.0, [1, 1, 0])
         perm.rotate(R)
-        g.nodes = np.dot(R, g.nodes)
-        g.compute_geometry()
+        sd.nodes = np.dot(R, sd.nodes)
+        sd.compute_geometry()
 
-        bf = g.tags["domain_boundary_faces"].nonzero()[0]
-        bc = pp.BoundaryCondition(g, bf, bf.size * ["dir"])
+        bf = sd.tags["domain_boundary_faces"].nonzero()[0]
+        bc = pp.BoundaryCondition(sd, bf, bf.size * ["dir"])
 
-        M = self._matrix(g, perm, bc)
+        M = self._matrix(sd, perm, bc)
         # assemble_matrix_rhs computed with an already validated code (MRST)
         faces = np.arange(5)
         M_known = np.array(
@@ -687,195 +664,89 @@ class BasicsTest(unittest.TestCase):
 
         rtol = 1e-15
         atol = rtol
-        self.assertTrue(np.allclose(M, M.T, rtol, atol))
+        assert np.allclose(M, M.T, rtol, atol)
         # We test only the mass-Hdiv part
-        self.assertTrue(
-            np.allclose(
-                M[np.ix_(faces, faces)],
-                M_known,
-                rtol,
-                atol,
-            )
+        assert np.allclose(
+            M[np.ix_(faces, faces)],
+            M_known,
+            rtol,
+            atol,
         )
 
 
-class TestMVEMGravity(unittest.TestCase):
-    # ------------------------------------------------------------------------------#
-    def _matrix(self, g, perm, bc, vect):
+class TestMVEMRHS:
+    def _rhs(self, sd, perm, bc, vect):
+        """Compute rhs for given subdomain"""
         solver = pp.MVEM(keyword="flow")
 
         data = pp.initialize_default_data(
-            g,
+            sd,
             {},
             "flow",
             {"second_order_tensor": perm, "bc": bc, "vector_source": vect},
         )
-        solver.discretize(g, data)
-        return solver.assemble_matrix_rhs(g, data)[1]
+        solver.discretize(sd, data)
+        return solver.assemble_matrix_rhs(sd, data)[1]
 
-    # ------------------------------------------------------------------------------#
+    """Test one-dimensional for isotropic material data."""
 
-    def test_mvem_1d(self):
-        g = pp.CartGrid(3, 1)
-        g.compute_geometry()
+    def test_1d_isotropic_permeability(self):
+        sd = pp.CartGrid(3, 1)
+        sd.compute_geometry()
 
-        kxx = np.ones(g.num_cells)
+        kxx = np.ones(sd.num_cells)
         perm = pp.SecondOrderTensor(kxx, kyy=1, kzz=1)
-        bf = g.get_boundary_faces()
-        bc = pp.BoundaryCondition(g, bf, bf.size * ["dir"])
+        bf = sd.get_boundary_faces()
+        bc = pp.BoundaryCondition(sd, bf, bf.size * ["dir"])
         vect = np.vstack(
-            (g.cell_volumes, np.zeros(g.num_cells), np.zeros(g.num_cells))
+            (sd.cell_volumes, np.zeros(sd.num_cells), np.zeros(sd.num_cells))
         ).ravel(order="F")
 
-        b = self._matrix(g, perm, bc, vect)
+        b = self._rhs(sd, perm, bc, vect)
         b_known = np.array(
             [0.16666667, 0.33333333, 0.33333333, 0.16666667, 0.0, 0.0, 0.0]
         )
 
-        self.assertTrue(np.allclose(b, b_known))
+        assert np.allclose(b, b_known)
 
-    # ------------------------------------------------------------------------------#
+    """Test two-dimensional for isotropic material data."""
 
-    def test_mvem_2d_triangle(self):
-        dim = 2
-        nodes = np.array([[0, 1, 0], [0, 0, 1], [0, 0, 0]])
+    def test_2d_isotropic_permeability(self):
+        sd = pp.StructuredTriangleGrid([1, 1], [1, 1])
+        sd.compute_geometry()
 
-        indices = [0, 1, 1, 2, 2, 0]
-        indptr = [0, 2, 4, 6]
-        face_nodes = sps.csc_matrix(([True] * 6, indices, indptr))
-        cell_faces = sps.csc_matrix([[1], [1], [1]])
-        name = "test"
-
-        g = pp.Grid(dim, nodes, face_nodes, cell_faces, name)
-        g.compute_geometry()
-
-        kxx = np.ones(g.num_cells)
+        kxx = np.ones(sd.num_cells)
         perm = pp.SecondOrderTensor(kxx=kxx, kyy=kxx, kzz=1)
 
-        bf = g.get_boundary_faces()
-        bc = pp.BoundaryCondition(g, bf, bf.size * ["dir"])
+        bf = sd.get_boundary_faces()
+        bc = pp.BoundaryCondition(sd, bf, bf.size * ["dir"])
         vect = np.vstack(
-            (g.cell_volumes, 3 * g.cell_volumes, np.zeros(g.num_cells))
+            (2 * sd.cell_volumes, 3 * sd.cell_volumes, np.zeros(sd.num_cells))
         ).ravel(order="F")
-
-        b = self._matrix(g, perm, bc, vect)
-        b_known = np.array([-0.83333333, 0.66666667, 0.16666667, 0.0])
-
-        self.assertTrue(np.allclose(b, b_known))
-
-    # ------------------------------------------------------------------------------#
-
-    def test_mvem_2d_simplex(self):
-        g = pp.StructuredTriangleGrid([1, 1], [1, 1])
-        g.compute_geometry()
-
-        kxx = np.ones(g.num_cells)
-        perm = pp.SecondOrderTensor(kxx=kxx, kyy=kxx, kzz=1)
-
-        bf = g.get_boundary_faces()
-        bc = pp.BoundaryCondition(g, bf, bf.size * ["dir"])
-        vect = np.vstack(
-            (2 * g.cell_volumes, 3 * g.cell_volumes, np.zeros(g.num_cells))
-        ).ravel(order="F")
-        b = self._matrix(g, perm, bc, vect)
+        b = self._rhs(sd, perm, bc, vect)
 
         b_known = np.array(
             [-1.33333333, 1.16666667, -0.33333333, 1.16666667, -1.33333333, 0.0, 0.0]
         )
 
-        self.assertTrue(np.allclose(b, b_known))
+        assert np.allclose(b, b_known)
 
-    # ------------------------------------------------------------------------------#
+    """Test three-dimensional for isotropic material data."""
 
-    def test_mvem_tetra(self):
-        dim = 3
-        nodes = np.array([[0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]])
+    def test_3d_isotropic_permeability(self):
+        sd = pp.StructuredTetrahedralGrid([1, 1, 1], [1, 1, 1])
+        sd.compute_geometry()
 
-        indices = [0, 2, 1, 1, 2, 3, 2, 0, 3, 3, 0, 1]
-        indptr = [0, 3, 6, 9, 12]
-        face_nodes = sps.csc_matrix(([True] * 12, indices, indptr))
-        cell_faces = sps.csc_matrix([[1], [1], [1], [1]])
-        name = "test"
-
-        g = pp.Grid(dim, nodes, face_nodes, cell_faces, name)
-        g.compute_geometry()
-
-        kxx = np.ones(g.num_cells)
+        kxx = np.ones(sd.num_cells)
         perm = pp.SecondOrderTensor(kxx=kxx, kyy=kxx, kzz=kxx)
 
-        bf = g.get_boundary_faces()
-        bc = pp.BoundaryCondition(g, bf, bf.size * ["dir"])
+        bf = sd.get_boundary_faces()
+        bc = pp.BoundaryCondition(sd, bf, bf.size * ["dir"])
         vect = np.vstack(
-            (2 * g.cell_volumes, 3 * g.cell_volumes, np.zeros(g.num_cells))
+            (7 * sd.cell_volumes, 4 * sd.cell_volumes, 3 * sd.cell_volumes)
         ).ravel(order="F")
 
-        b = self._matrix(g, perm, bc, vect)
-        b_known = np.array([0.41666667, 0.41666667, -0.25, -0.58333333, 0.0])
-
-        self.assertTrue(np.allclose(b, b_known))
-
-    # ------------------------------------------------------------------------------#
-
-    def test_convergence_mvem_2d_iso_simplex_exact(self):
-        p_ex = lambda pt: 2 * pt[0, :] - 3 * pt[1, :] - 9
-        u_ex = np.array([-1, 4, 0])
-
-        for i in np.arange(5):
-            g = pp.StructuredTriangleGrid([3 + i] * 2, [1, 1])
-            g.compute_geometry()
-
-            kxx = np.ones(g.num_cells)
-            perm = pp.SecondOrderTensor(kxx=kxx, kyy=kxx, kzz=1)
-            bf = g.get_boundary_faces()
-            bc = pp.BoundaryCondition(g, bf, bf.size * ["dir"])
-            bc_val = np.zeros(g.num_faces)
-            bc_val[bf] = p_ex(g.face_centers[:, bf])
-            vect = np.vstack(
-                (g.cell_volumes, g.cell_volumes, np.zeros(g.num_cells))
-            ).ravel(order="F")
-
-            solver = pp.MVEM(keyword="flow")
-
-            specified_parameters = {
-                "bc": bc,
-                "bc_values": bc_val,
-                "second_order_tensor": perm,
-                "vector_source": vect,
-            }
-            data = pp.initialize_default_data(g, {}, "flow", specified_parameters)
-
-            solver.discretize(g, data)
-            M, rhs = solver.assemble_matrix_rhs(g, data)
-            up = sps.linalg.spsolve(M, rhs)
-            p = solver.extract_pressure(g, up, data)
-            err = np.sum(np.abs(p - p_ex(g.cell_centers)))
-
-            self.assertTrue(np.isclose(err, 0))
-
-            _ = data[pp.DISCRETIZATION_MATRICES]["flow"][solver.vector_proj_key]
-            u = solver.extract_flux(g, up, data)
-            P0u = solver.project_flux(g, u, data)
-            err = np.sum(
-                np.abs(P0u - np.tile(u_ex, g.num_cells).reshape((3, -1), order="F"))
-            )
-            self.assertTrue(np.isclose(err, 0))
-
-    # ------------------------------------------------------------------------------#
-
-    def test_mvem_3d(self):
-        g = pp.StructuredTetrahedralGrid([1, 1, 1], [1, 1, 1])
-        g.compute_geometry()
-
-        kxx = np.ones(g.num_cells)
-        perm = pp.SecondOrderTensor(kxx=kxx, kyy=kxx, kzz=kxx)
-
-        bf = g.get_boundary_faces()
-        bc = pp.BoundaryCondition(g, bf, bf.size * ["dir"])
-        vect = np.vstack(
-            (7 * g.cell_volumes, 4 * g.cell_volumes, 3 * g.cell_volumes)
-        ).ravel(order="F")
-
-        b = self._matrix(g, perm, bc, vect)
+        b = self._rhs(sd, perm, bc, vect)
         b_known = np.array(
             [
                 -0.16666667,
@@ -905,60 +776,162 @@ class TestMVEMGravity(unittest.TestCase):
             ]
         )
 
-        self.assertTrue(np.allclose(b, b_known))
+        assert np.allclose(b, b_known)
 
-    # ------------------------------------------------------------------------------#
+    """Test for single 2d-cell with isotropic material data."""
 
-    def test_dual_mvem_1d_line(self):
-        g = pp.CartGrid(3, 1)
+    def test_single_triangle_discretization(self):
+        dim = 2
+        nodes = np.array([[0, 1, 0], [0, 0, 1], [0, 0, 0]])
+
+        indices = [0, 1, 1, 2, 2, 0]
+        indptr = [0, 2, 4, 6]
+        face_nodes = sps.csc_matrix(([True] * 6, indices, indptr))
+        cell_faces = sps.csc_matrix([[1], [1], [1]])
+        name = "test"
+
+        sd = pp.Grid(dim, nodes, face_nodes, cell_faces, name)
+        sd.compute_geometry()
+
+        kxx = np.ones(sd.num_cells)
+        perm = pp.SecondOrderTensor(kxx=kxx, kyy=kxx, kzz=1)
+
+        bf = sd.get_boundary_faces()
+        bc = pp.BoundaryCondition(sd, bf, bf.size * ["dir"])
+        vect = np.vstack(
+            (sd.cell_volumes, 3 * sd.cell_volumes, np.zeros(sd.num_cells))
+        ).ravel(order="F")
+
+        b = self._rhs(sd, perm, bc, vect)
+        b_known = np.array([-0.83333333, 0.66666667, 0.16666667, 0.0])
+
+        assert np.allclose(b, b_known)
+
+    """Test for single 3d-cell with isotropic material data."""
+
+    def test_single_tetrahedron_discretization(self):
+        dim = 3
+        nodes = np.array([[0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]])
+
+        indices = [0, 2, 1, 1, 2, 3, 2, 0, 3, 3, 0, 1]
+        indptr = [0, 3, 6, 9, 12]
+        face_nodes = sps.csc_matrix(([True] * 12, indices, indptr))
+        cell_faces = sps.csc_matrix([[1], [1], [1], [1]])
+        name = "test"
+
+        sd = pp.Grid(dim, nodes, face_nodes, cell_faces, name)
+        sd.compute_geometry()
+
+        kxx = np.ones(sd.num_cells)
+        perm = pp.SecondOrderTensor(kxx=kxx, kyy=kxx, kzz=kxx)
+
+        bf = sd.get_boundary_faces()
+        bc = pp.BoundaryCondition(sd, bf, bf.size * ["dir"])
+        vect = np.vstack(
+            (2 * sd.cell_volumes, 3 * sd.cell_volumes, np.zeros(sd.num_cells))
+        ).ravel(order="F")
+
+        b = self._rhs(sd, perm, bc, vect)
+        b_known = np.array([0.41666667, 0.41666667, -0.25, -0.58333333, 0.0])
+
+        assert np.allclose(b, b_known)
+
+    """Test one-dimensional R1-R3 for isotropic material data."""
+
+    def test_1d_R1_R3_isotropic_permeability(self):
+        sd = pp.CartGrid(3, 1)
         R = pp.map_geometry.rotation_matrix(np.pi / 6.0, [0, 0, 1])
-        g.nodes = np.dot(R, g.nodes)
-        g.compute_geometry()
+        sd.nodes = np.dot(R, sd.nodes)
+        sd.compute_geometry()
 
-        kxx = np.ones(g.num_cells)
+        kxx = np.ones(sd.num_cells)
         perm = pp.SecondOrderTensor(kxx, kyy=1, kzz=1)
         perm.rotate(R)
 
-        bf = g.get_boundary_faces()
-        bc = pp.BoundaryCondition(g, bf, bf.size * ["dir"])
+        bf = sd.get_boundary_faces()
+        bc = pp.BoundaryCondition(sd, bf, bf.size * ["dir"])
         vect = np.vstack(
-            (g.cell_volumes, 0 * g.cell_volumes, 0 * g.cell_volumes)
+            (sd.cell_volumes, 0 * sd.cell_volumes, 0 * sd.cell_volumes)
         ).ravel(order="F")
 
-        b = self._matrix(g, perm, bc, vect)
+        b = self._rhs(sd, perm, bc, vect)
         b_known = np.array(
             [0.14433757, 0.28867513, 0.28867513, 0.14433757, 0.0, 0.0, 0.0]
         )
 
-        self.assertTrue(np.allclose(b, b_known))
+        assert np.allclose(b, b_known)
 
-    # ------------------------------------------------------------------------------#
+    """Test two-dimensional R2-R3 for isotropic material data."""
 
-    def test_mvem_2d_simplex_surf(self):
-        g = pp.StructuredTriangleGrid([1, 1], [1, 1])
+    def test_2d_R2_R3_isotropic_permeability(self):
+        sd = pp.StructuredTriangleGrid([1, 1], [1, 1])
         R = pp.map_geometry.rotation_matrix(-np.pi / 4.0, [1, 1, -1])
-        g.nodes = np.dot(R, g.nodes)
-        g.compute_geometry()
+        sd.nodes = np.dot(R, sd.nodes)
+        sd.compute_geometry()
 
-        kxx = np.ones(g.num_cells)
+        kxx = np.ones(sd.num_cells)
         perm = pp.SecondOrderTensor(kxx=kxx, kyy=kxx, kzz=1)
         perm.rotate(R)
 
-        bf = g.get_boundary_faces()
-        bc = pp.BoundaryCondition(g, bf, bf.size * ["dir"])
+        bf = sd.get_boundary_faces()
+        bc = pp.BoundaryCondition(sd, bf, bf.size * ["dir"])
         vect = np.vstack(
-            (g.cell_volumes, 2 * g.cell_volumes, 0 * g.cell_volumes)
+            (sd.cell_volumes, 2 * sd.cell_volumes, 0 * sd.cell_volumes)
         ).ravel(order="F")
 
-        b = self._matrix(g, perm, bc, vect)
+        b = self._rhs(sd, perm, bc, vect)
         b_known = np.array(
             [-0.73570226, 0.82197528, 0.17254603, 0.82197528, -0.73570226, 0.0, 0.0]
         )
 
-        self.assertTrue(np.allclose(b, b_known))
+        assert np.allclose(b, b_known)
 
-    # ------------------------------------------------------------------------------#
+    # TODO: It checks for a functionality is already tested. This should be deleted.
+    def test_convergence_mvem_2d_iso_simplex_exact(self):
+        p_ex = lambda pt: 2 * pt[0, :] - 3 * pt[1, :] - 9
+        u_ex = np.array([-1, 4, 0])
 
+        for i in np.arange(5):
+            sd = pp.StructuredTriangleGrid([3 + i] * 2, [1, 1])
+            sd.compute_geometry()
+
+            kxx = np.ones(sd.num_cells)
+            perm = pp.SecondOrderTensor(kxx=kxx, kyy=kxx, kzz=1)
+            bf = sd.get_boundary_faces()
+            bc = pp.BoundaryCondition(sd, bf, bf.size * ["dir"])
+            bc_val = np.zeros(sd.num_faces)
+            bc_val[bf] = p_ex(sd.face_centers[:, bf])
+            vect = np.vstack(
+                (sd.cell_volumes, sd.cell_volumes, np.zeros(sd.num_cells))
+            ).ravel(order="F")
+
+            solver = pp.MVEM(keyword="flow")
+
+            specified_parameters = {
+                "bc": bc,
+                "bc_values": bc_val,
+                "second_order_tensor": perm,
+                "vector_source": vect,
+            }
+            data = pp.initialize_default_data(sd, {}, "flow", specified_parameters)
+
+            solver.discretize(sd, data)
+            M, rhs = solver.assemble_matrix_rhs(sd, data)
+            up = sps.linalg.spsolve(M, rhs)
+            p = solver.extract_pressure(sd, up, data)
+            err = np.sum(np.abs(p - p_ex(sd.cell_centers)))
+
+            assert np.isclose(err, 0)
+
+            _ = data[pp.DISCRETIZATION_MATRICES]["flow"][solver.vector_proj_key]
+            u = solver.extract_flux(sd, up, data)
+            P0u = solver.project_flux(sd, u, data)
+            err = np.sum(
+                np.abs(P0u - np.tile(u_ex, sd.num_cells).reshape((3, -1), order="F"))
+            )
+            assert np.isclose(err, 0)
+
+    # TODO: It checks for a functionality is already tested. This should be deleted.
     def test_convergence_mvem_2d_iso_simplex(self):
         a = 8 * np.pi**2
         rhs_ex = lambda pt: np.multiply(
@@ -1006,19 +979,19 @@ class TestMVEMGravity(unittest.TestCase):
         for i, p_err_known, u_err_known in zip(
             np.arange(5), p_errs_known, u_errs_known
         ):
-            g = pp.StructuredTriangleGrid([3 + i] * 2, [1, 1])
-            g.compute_geometry()
+            sd = pp.StructuredTriangleGrid([3 + i] * 2, [1, 1])
+            sd.compute_geometry()
 
-            kxx = np.ones(g.num_cells)
+            kxx = np.ones(sd.num_cells)
             perm = pp.SecondOrderTensor(kxx=kxx, kyy=kxx, kzz=1)
-            bf = g.get_boundary_faces()
-            bc = pp.BoundaryCondition(g, bf, bf.size * ["dir"])
-            bc_val = np.zeros(g.num_faces)
-            bc_val[bf] = p_ex(g.face_centers[:, bf])
+            bf = sd.get_boundary_faces()
+            bc = pp.BoundaryCondition(sd, bf, bf.size * ["dir"])
+            bc_val = np.zeros(sd.num_faces)
+            bc_val[bf] = p_ex(sd.face_centers[:, bf])
             # Minus sign to move to rhs
-            source = np.multiply(g.cell_volumes, rhs_ex(g.cell_centers))
+            source = np.multiply(sd.cell_volumes, rhs_ex(sd.cell_centers))
             vect = np.vstack(
-                (g.cell_volumes, np.zeros(g.num_cells), np.zeros(g.num_cells))
+                (sd.cell_volumes, np.zeros(sd.num_cells), np.zeros(sd.num_cells))
             ).ravel(order="F")
 
             solver = pp.MVEM(keyword="flow")
@@ -1031,41 +1004,40 @@ class TestMVEMGravity(unittest.TestCase):
                 "source": source,
                 "vector_source": vect,
             }
-            data = pp.initialize_default_data(g, {}, "flow", specified_parameters)
+            data = pp.initialize_default_data(sd, {}, "flow", specified_parameters)
 
-            solver.discretize(g, data)
-            solver_rhs.discretize(g, data)
+            solver.discretize(sd, data)
+            solver_rhs.discretize(sd, data)
 
-            M, rhs_bc = solver.assemble_matrix_rhs(g, data)
-            _, rhs = solver_rhs.assemble_matrix_rhs(g, data)
+            M, rhs_bc = solver.assemble_matrix_rhs(sd, data)
+            _, rhs = solver_rhs.assemble_matrix_rhs(sd, data)
 
             up = sps.linalg.spsolve(M, rhs_bc + rhs)
-            p = solver.extract_pressure(g, up, data)
+            p = solver.extract_pressure(sd, up, data)
             err = np.sqrt(
                 np.sum(
-                    np.multiply(g.cell_volumes, np.power(p - p_ex(g.cell_centers), 2))
+                    np.multiply(sd.cell_volumes, np.power(p - p_ex(sd.cell_centers), 2))
                 )
             )
-            self.assertTrue(np.isclose(err, p_err_known))
+            assert np.isclose(err, p_err_known)
 
             _ = data[pp.DISCRETIZATION_MATRICES]["flow"][solver.vector_proj_key]
-            u = solver.extract_flux(g, up, data)
-            P0u = solver.project_flux(g, u, data)
-            uu_ex_0 = u_ex_0(g.cell_centers)
-            uu_ex_1 = u_ex_1(g.cell_centers)
-            uu_ex_2 = np.zeros(g.num_cells)
+            u = solver.extract_flux(sd, up, data)
+            P0u = solver.project_flux(sd, u, data)
+            uu_ex_0 = u_ex_0(sd.cell_centers)
+            uu_ex_1 = u_ex_1(sd.cell_centers)
+            uu_ex_2 = np.zeros(sd.num_cells)
             uu_ex = np.vstack((uu_ex_0, uu_ex_1, uu_ex_2))
             err = np.sqrt(
                 np.sum(
                     np.multiply(
-                        g.cell_volumes, np.sum(np.power(P0u - uu_ex, 2), axis=0)
+                        sd.cell_volumes, np.sum(np.power(P0u - uu_ex, 2), axis=0)
                     )
                 )
             )
-            self.assertTrue(np.isclose(err, u_err_known))
+            assert np.isclose(err, u_err_known)
 
-    # ------------------------------------------------------------------------------#
-
+    # TODO: It checks for a functionality is already tested. This should be deleted.
     def test_convergence_mvem_2d_ani_simplex(self):
         rhs_ex = lambda pt: 14
         p_ex = (
@@ -1098,20 +1070,20 @@ class TestMVEMGravity(unittest.TestCase):
         for i, p_err_known, u_err_known in zip(
             np.arange(5), p_errs_known, u_errs_known
         ):
-            g = pp.StructuredTriangleGrid([3 + i] * 2, [1, 1])
-            g.compute_geometry()
+            sd = pp.StructuredTriangleGrid([3 + i] * 2, [1, 1])
+            sd.compute_geometry()
 
-            kxx = 2 * np.ones(g.num_cells)
-            kxy = np.ones(g.num_cells)
+            kxx = 2 * np.ones(sd.num_cells)
+            kxy = np.ones(sd.num_cells)
             perm = pp.SecondOrderTensor(kxx=kxx, kyy=kxx, kxy=kxy, kzz=1)
-            bf = g.get_boundary_faces()
-            bc = pp.BoundaryCondition(g, bf, bf.size * ["dir"])
-            bc_val = np.zeros(g.num_faces)
-            bc_val[bf] = p_ex(g.face_centers[:, bf])
+            bf = sd.get_boundary_faces()
+            bc = pp.BoundaryCondition(sd, bf, bf.size * ["dir"])
+            bc_val = np.zeros(sd.num_faces)
+            bc_val[bf] = p_ex(sd.face_centers[:, bf])
             # Minus sign to move to rhs
-            source = np.multiply(g.cell_volumes, rhs_ex(g.cell_centers))
+            source = np.multiply(sd.cell_volumes, rhs_ex(sd.cell_centers))
             vect = np.vstack(
-                (g.cell_volumes, 2 * g.cell_volumes, np.zeros(g.num_cells))
+                (sd.cell_volumes, 2 * sd.cell_volumes, np.zeros(sd.num_cells))
             ).ravel(order="F")
 
             solver = pp.MVEM(keyword="flow")
@@ -1124,40 +1096,36 @@ class TestMVEMGravity(unittest.TestCase):
                 "source": source,
                 "vector_source": vect,
             }
-            data = pp.initialize_default_data(g, {}, "flow", specified_parameters)
+            data = pp.initialize_default_data(sd, {}, "flow", specified_parameters)
 
-            solver.discretize(g, data)
-            solver_rhs.discretize(g, data)
-            M, rhs_bc = solver.assemble_matrix_rhs(g, data)
-            _, rhs = solver_rhs.assemble_matrix_rhs(g, data)
+            solver.discretize(sd, data)
+            solver_rhs.discretize(sd, data)
+            M, rhs_bc = solver.assemble_matrix_rhs(sd, data)
+            _, rhs = solver_rhs.assemble_matrix_rhs(sd, data)
 
             up = sps.linalg.spsolve(M, rhs_bc + rhs)
-            p = solver.extract_pressure(g, up, data)
+            p = solver.extract_pressure(sd, up, data)
             err = np.sqrt(
                 np.sum(
-                    np.multiply(g.cell_volumes, np.power(p - p_ex(g.cell_centers), 2))
+                    np.multiply(sd.cell_volumes, np.power(p - p_ex(sd.cell_centers), 2))
                 )
             )
-            self.assertTrue(np.isclose(err, p_err_known))
+            assert np.isclose(err, p_err_known)
 
-            P = data[pp.DISCRETIZATION_MATRICES]["flow"][solver.vector_proj_key]
-            u = solver.extract_flux(g, up, data)
-            P0u = solver.project_flux(g, u, data)
-            uu_ex_0 = u_ex_0(g.cell_centers)
-            uu_ex_1 = u_ex_1(g.cell_centers)
-            uu_ex_2 = np.zeros(g.num_cells)
+            u = solver.extract_flux(sd, up, data)
+            P0u = solver.project_flux(sd, u, data)
+            uu_ex_0 = u_ex_0(sd.cell_centers)
+            uu_ex_1 = u_ex_1(sd.cell_centers)
+            uu_ex_2 = np.zeros(sd.num_cells)
             uu_ex = np.vstack((uu_ex_0, uu_ex_1, uu_ex_2))
             err = np.sqrt(
                 np.sum(
                     np.multiply(
-                        g.cell_volumes, np.sum(np.power(P0u - uu_ex, 2), axis=0)
+                        sd.cell_volumes, np.sum(np.power(P0u - uu_ex, 2), axis=0)
                     )
                 )
             )
-            self.assertTrue(np.isclose(err, u_err_known))
-
-
-# ------------------------------------------------------------------------------#
+            assert np.isclose(err, u_err_known)
 
 
 def matrix_for_test_dual_vem_2d_iso_simplex_mixed_bc():
@@ -1471,9 +1439,6 @@ def matrix_for_test_dual_vem_2d_iso_simplex_mixed_bc():
             ],
         ]
     )
-
-
-# ------------------------------------------------------------------------------#
 
 
 def matrix_for_test_dual_vem_3d_iso_cart():
@@ -3507,9 +3472,6 @@ def matrix_for_test_dual_vem_3d_iso_cart():
     )
 
 
-# ------------------------------------------------------------------------------#
-
-
 def matrix_for_test_dual_vem_3d_ani_cart():
     return np.array(
         [
@@ -5541,6 +5503,148 @@ def matrix_for_test_dual_vem_3d_ani_cart():
     )
 
 
-# ------------------------------------------------------------------------------#
-if __name__ == "__main__":
-    unittest.main()
+"""Test known convergence rate for 2d domain with varying permeability"""
+
+
+class TestVEMConvergence:
+    def _rhs(self, x, y, z, case):
+        if case == 1:
+            return (
+                8.0
+                * np.pi**2
+                * np.sin(2.0 * np.pi * x)
+                * np.sin(2.0 * np.pi * y)
+                * (1 + 100.0 * x**2 + 100.0 * y**2)
+                - 400.0 * np.pi * y * np.cos(2.0 * np.pi * y) * np.sin(2.0 * np.pi * x)
+                - 400.0 * np.pi * x * np.cos(2.0 * np.pi * x) * np.sin(2.0 * np.pi * y)
+            )
+        elif case == 2:
+            return (
+                7.0 * z * (x**2 + y**2 + 1.0)
+                - y * (x**2 - 9.0 * z**2)
+                - 4.0 * x**2 * z
+                - (
+                    8.0 * np.sin(np.pi * y)
+                    - 4.0 * np.pi**2 * y**2 * np.sin(np.pi * y)
+                    + 16.0 * np.pi * y * np.cos(np.pi * y)
+                )
+                * (x**2 / 2.0 + y**2 / 2.0 + 1.0 / 2.0)
+                - 4.0
+                * y**2
+                * (2.0 * np.sin(np.pi * y) + np.pi * y * np.cos(np.pi * y))
+            )
+        else:
+            return 8.0 * z * (125.0 * x**2 + 200.0 * y**2 + 425.0 * z**2 + 2.0)
+
+    def _solution(self, x, y, z, case):
+        if case == 1:
+            return np.sin(2.0 * np.pi * x) * np.sin(2.0 * np.pi * y)
+        elif case == 2:
+            return x**2 * z + 4.0 * y**2 * np.sin(np.pi * y) - 3.0 * z**3
+        else:
+            return x**2 * z + 4.0 * y**2 * np.sin(np.pi * y) - 3.0 * z**3
+
+    def _permeability(self, x, y, z, case):
+        if case == 1:
+            return 1 + 100.0 * x**2 + 100.0 * y**2
+        elif case == 2:
+            return 1.0 + x**2 + y**2
+        else:
+            return 1.0 + 100.0 * (x**2 + y**2 + z**2.0)
+
+    def _expected_order(self, case):
+        if case == 1:
+            return 2.00266229752
+        elif case == 2:
+            return 1.97928213116
+        else:
+            return 1.9890160655
+
+    def _create_grid(self, N, case):
+        Nx = Ny = N
+        if case == 1:
+            sd = pp.StructuredTriangleGrid([Nx, Ny], [1, 1])
+            sd.compute_geometry()
+        elif case == 2:
+            sd = pp.StructuredTriangleGrid([Nx, Ny], [1, 1])
+            R = pp.map_geometry.rotation_matrix(np.pi / 4.0, [1, 0, 0])
+            sd.nodes = np.dot(R, sd.nodes)
+            sd.compute_geometry()
+        else:
+            sd = pp.StructuredTriangleGrid([Nx, Ny], [1, 1])
+            R = pp.map_geometry.rotation_matrix(np.pi / 2.0, [1, 0, 0])
+            sd.nodes = np.dot(R, sd.nodes)
+            sd.compute_geometry()
+        return sd
+
+    def _assign_parameters(self, sd, case):
+        """
+        Define the permeability, apertures, boundary conditions
+        """
+        # Permeability
+        kxx = np.array([self._permeability(*pt, case) for pt in sd.cell_centers.T])
+        perm = pp.SecondOrderTensor(kxx)
+
+        # Source term
+        source = sd.cell_volumes * np.array(
+            [self._rhs(*pt, case) for pt in sd.cell_centers.T]
+        )
+
+        # Boundaries
+        bound_faces = sd.tags["domain_boundary_faces"].nonzero()[0]
+        bound_face_centers = sd.face_centers[:, bound_faces]
+
+        labels = np.array(["dir"] * bound_faces.size)
+
+        bc_val = np.zeros(sd.num_faces)
+        bc_val[bound_faces] = np.array(
+            [self._solution(*pt, case) for pt in bound_face_centers.T]
+        )
+
+        bound = pp.BoundaryCondition(sd, bound_faces, labels)
+        specified_parameters = {
+            "second_order_tensor": perm,
+            "source": source,
+            "bc": bound,
+            "bc_values": bc_val,
+        }
+        return pp.initialize_default_data(sd, {}, "flow", specified_parameters)
+
+    def _error_p(self, sd, p, case):
+        sol = np.array([self._solution(*pt, case) for pt in sd.cell_centers.T])
+        return np.sqrt(np.sum(np.power(np.abs(p - sol), 2) * sd.cell_volumes))
+
+    def _compute_approximation(self, N, case):
+        sd = self._create_grid(N, case)
+        data = self._assign_parameters(sd, case)
+
+        # Choose and define the solvers
+        solver_flow = pp.MVEM("flow")
+        solver_flow.discretize(sd, data)
+        A_flow, b_flow = solver_flow.assemble_matrix_rhs(sd, data)
+
+        solver_source = pp.DualScalarSource("flow")
+        solver_source.discretize(sd, data)
+        A_source, b_source = solver_source.assemble_matrix_rhs(sd, data)
+
+        up = sps.linalg.spsolve(A_flow + A_source, b_flow + b_source)
+        p = solver_flow.extract_pressure(sd, up, data)
+
+        diam = np.amax(sd.cell_diameters())
+        return diam, self._error_p(sd, p, case)
+
+    # Cases description:
+    # 1) Variable permeability
+    # 2) Variable permeability with Tilted Grid with plane rotation of Pi / 4.0
+    # 3) Variable permeability with Tilted Grid with plane rotation of Pi / 2.0
+    test_cases = [1, 2, 3]
+
+    @pytest.mark.integtest
+    @pytest.mark.parametrize("case", test_cases)
+    def test_expected_conv_rate(self, case):
+        diam_10, error_10 = self._compute_approximation(10, case)
+        diam_20, error_20 = self._compute_approximation(20, case)
+
+        known_order = self._expected_order(case)
+        order = np.log(error_10 / error_20) / np.log(diam_10 / diam_20)
+        assert np.isclose(order, known_order)
