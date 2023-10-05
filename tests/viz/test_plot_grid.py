@@ -3,14 +3,16 @@
 
 import os
 
+import matplotlib
 import numpy as np
 import pytest
 
 import porepy as pp
+from porepy.grids.md_grid import MixedDimensionalGrid
 from porepy.grids.standard_grids import md_grids_2d, md_grids_3d
 
-plt = pytest.importorskip("matplotlib.pyplot")
-
+# Setting a non-interactive backend that does not open new windows.
+matplotlib.use("agg")
 
 SCALAR_VARIABLE = "scalar"
 VECTOR_VARIABLE_CELL = "vector_cell"
@@ -24,33 +26,56 @@ VECTOR_VARIABLE_FACE = "vector_face"
         md_grids_3d.single_horizontal(mesh_args=[3, 3, 3], simplex=False),
     ],
 )
-def mdg(request):
-    """Helper for initialization of the parametrized mdgs"""
-    mdg_ = request.param[0]
-    _initialize_mdg(mdg_)
-    return mdg_
+def mdg(request: pytest.FixtureRequest) -> pp.MixedDimensionalGrid:
+    """Initializes the mdg.
+
+    The state contains one scalar variable at cell centers and two vector variables at
+    cell centres and cell faces, respectively.
+
+    """
+    mdg = request.param[0]
+
+    for sd, data in mdg.subdomains(return_data=True):
+        if sd.dim in (mdg.dim_max(), mdg.dim_max() - 1):
+            variables = np.array(
+                [SCALAR_VARIABLE, VECTOR_VARIABLE_CELL, VECTOR_VARIABLE_FACE]
+            )
+
+            vals_scalar = np.ones(sd.num_cells)
+            vals_vect_cell = np.ones((mdg.dim_max(), sd.num_cells)).ravel(order="F")
+            vals_vect_face = np.ones((mdg.dim_max(), sd.num_faces)).ravel(order="F")
+
+            values = [vals_scalar, vals_vect_cell, vals_vect_face]
+
+            for i in range(len(variables)):
+                pp.set_solution_values(
+                    name=variables[i], values=values[i], data=data, time_step_index=0
+                )
+
+        else:
+            data[pp.TIME_STEP_SOLUTIONS] = {}
+
+    return mdg
 
 
 @pytest.mark.parametrize(
     "vector_variable", [VECTOR_VARIABLE_CELL, VECTOR_VARIABLE_FACE]
 )
-def test_plot_grid_mdg(mdg, vector_variable):
-    """Tests that no error is raised if we plot mdg and provide variable names."""
+def test_plot_grid_mdg(mdg: MixedDimensionalGrid, vector_variable: str):
+    """Testing that no error is raised if we plot mdg and provide variable names."""
     pp.plot_grid(
         mdg,
         cell_value=SCALAR_VARIABLE,
         vector_value=vector_variable,
         vector_scale=10,
         info="CNFO",
-        if_plot=False,
     )
-    plt.close()
 
 
 @pytest.mark.parametrize(
     "vector_variable", [VECTOR_VARIABLE_CELL, VECTOR_VARIABLE_FACE]
 )
-def test_plot_grid_simple_grid(mdg, vector_variable):
+def test_plot_grid_simple_grid(mdg: MixedDimensionalGrid, vector_variable: str):
     """Tests that no error is raised if we plot a single dimension grid and provide
     variable arrays.
     This use case requires the user to reshape the vector array to the shape (3 x n).
@@ -72,20 +97,21 @@ def test_plot_grid_simple_grid(mdg, vector_variable):
         vector_value=vector_data,
         vector_scale=10,
         info="CNFO",
-        if_plot=False,
     )
-    plt.close()
 
 
-def test_save_img():
-    """Tests that `save_img` saves some image."""
-
-    mdg_ = md_grids_2d.single_horizontal(mesh_args=[5, 5], simplex=False)[0]
-    _initialize_mdg(mdg_)
-
+@pytest.fixture
+def image_name() -> str:
     image_name = "test_save_img.png"
     assert not os.path.exists(image_name)
+    yield image_name
 
+    # Tear down
+    os.remove(image_name)
+
+
+def test_save_img(mdg: MixedDimensionalGrid, image_name: str):
+    """Testing that `save_img` works."""
     pp.save_img(
         image_name,
         mdg,
@@ -94,30 +120,3 @@ def test_save_img():
     )
 
     assert os.path.exists(image_name)
-    os.remove(image_name)
-
-
-def _initialize_mdg(mdg_):
-    """Initializes mdg with an arbitrary state.
-
-    The state contains one scalar and one vector variable at cell centres."""
-
-    for sd, data in mdg_.subdomains(return_data=True):
-        if sd.dim in (mdg_.dim_max(), mdg_.dim_max() - 1):
-            variables = np.array(
-                [SCALAR_VARIABLE, VECTOR_VARIABLE_CELL, VECTOR_VARIABLE_FACE]
-            )
-
-            vals_scalar = np.ones(sd.num_cells)
-            vals_vect_cell = np.ones((mdg_.dim_max(), sd.num_cells)).ravel(order="F")
-            vals_vect_face = np.ones((mdg_.dim_max(), sd.num_faces)).ravel(order="F")
-
-            values = [vals_scalar, vals_vect_cell, vals_vect_face]
-
-            for i in range(len(variables)):
-                pp.set_solution_values(
-                    name=variables[i], values=values[i], data=data, time_step_index=0
-                )
-
-        else:
-            data[pp.TIME_STEP_SOLUTIONS] = {}
