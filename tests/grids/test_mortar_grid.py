@@ -11,7 +11,6 @@ A further description is given for each of the groups of tests.
 
 """
 import pickle
-from itertools import count
 from pathlib import Path
 
 import numpy as np
@@ -19,6 +18,30 @@ import pytest
 import scipy.sparse as sps
 
 import porepy as pp
+from porepy.fracs import meshing
+
+"""Simple testing of 1d mortar grid mapping"""
+
+
+def test_1d_mortar_grid_mappings():
+    f1 = np.array([[0, 1], [0.5, 0.5]])
+    mdg = meshing.cart_grid([f1], [2, 2], **{"physdims": [1, 1]})
+
+    for intf in mdg.interfaces():
+        high_to_mortar_known = np.matrix(
+            [
+                [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0],
+            ]
+        )
+        low_to_mortar_known = np.matrix([[1, 0], [0, 1], [1, 0], [0, 1]])
+
+        assert np.allclose(high_to_mortar_known, intf.primary_to_mortar_int().todense())
+        assert np.allclose(
+            low_to_mortar_known, intf.secondary_to_mortar_int().todense()
+        )
 
 
 """Tests of replacement of the 2d subdomain in a 2d domain with a single fracture.
@@ -28,8 +51,8 @@ logic:
     1. A 2d grid is created, with a single fracture.
     2. A new 2d grid is created, and possibly perturbed.
     3. The new grid is inserted into the old md-grid.
-    4. The projections between the old fracture and the new 2d grid are fetched, and some simple
-        sanity checks are done (common for all tests).
+    4. The projections between the old fracture and the new 2d grid are fetched, and
+       some simple sanity checks are done (common for all tests).
     5. Specific checks of the projections are done for each test, based on knowledge of
        how the new grid was perturbed and what the expected result is. This involves
        checking the projections against hard coded values.
@@ -452,7 +475,7 @@ The grid consists of the following components:
     At the 3d-2d and 2d-1d interfaces, there are of course mortar grids that will have
     their mappings updated as the adjacent subdomain grids are replaced.
 
-IMPLEMENTATION NOTE: 
+IMPLEMENTATION NOTE:
 
     When perturbing the grid (moving (1, 1) -> (1, 2)), several updates of the grid
     geometry are hardcoded, like cell centers, face normals etc. This is messy, and a
@@ -884,7 +907,7 @@ def _grid_2d_two_cells(include_1d: bool, pert: bool) -> pp.Grid:
         face_normals = np.vstack(
             (face_normals[0], np.zeros_like(face_normals[0]), face_normals[1])
         )
-        cell_centers = np.array([[2.0 / 3, 0, 1.0 / 3], [1.0 / 3, 0, 2.0 / 3]]).T
+        cell_centers = np.array([[2 / 3, 0, 1 / 3], [1 / 3, 0, 2 / 3]]).T
         cell_volumes = 1 / 2 * np.ones(cell_centers.shape[1])
 
         if pert:
@@ -907,7 +930,7 @@ def _grid_2d_two_cells(include_1d: bool, pert: bool) -> pp.Grid:
         face_normals = np.vstack(
             (face_normals[0], np.zeros_like(face_normals[0]), face_normals[1])
         )
-        cell_centers = np.array([[2.0 / 3, 0, 1.0 / 3], [1.0 / 3, 0, 2.0 / 3]]).T
+        cell_centers = np.array([[2 / 3, 0, 1 / 3], [1 / 3, 0, 2 / 3]]).T
         cell_volumes = 1 / 2 * np.ones(cell_centers.shape[1])
 
         if pert:
@@ -944,9 +967,9 @@ def _grid_2d_four_cells(
     if include_1d:
         n = np.array(
             [
-                [0.0, 1.0, 1.0, 0.5, 0.0, 0.0, 1.0, 0.5],
-                [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-                [0.0, 0.0, 1.0, 0.5, 0.0, 1.0, 1.0, 0.5],
+                [0, 1, 1, 0.5, 0, 0, 1, 0.5],
+                [0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 1, 0.5, 0, 1, 1, 0.5],
             ]
         )
         if pert:
@@ -974,9 +997,9 @@ def _grid_2d_four_cells(
     else:  # Do not inculde 1d
         n = np.array(
             [
-                [0.0, 1.0, 1.0, 0.0, 0.5],
-                [0.0, 0.0, 0.0, 0.0, 0.0],
-                [0.0, 0.0, 1.0, 1.0, 0.5],
+                [0, 1, 1, 0, 0.5],
+                [0, 0, 0, 0, 0],
+                [0, 0, 1, 1, 0.5],
             ]
         )
 
@@ -994,7 +1017,7 @@ def _grid_2d_four_cells(
         )
 
     cell_centers = np.array(
-        [[0.5, 0, 1.0 / 6], [5.0 / 6, 0, 0.5], [0.5, 0, 5.0 / 6], [1.0 / 6, 0, 0.5]]
+        [[0.5, 0, 1 / 6], [5 / 6, 0, 0.5], [0.5, 0, 5 / 6], [1 / 6, 0, 0.5]]
     ).T
     cell_volumes = 1 / 4 * np.ones(cell_centers.shape[1])
 
