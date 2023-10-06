@@ -30,75 +30,13 @@ def test_1d_mortar_grid_mappings():
     for intf in mdg.interfaces():
         high_to_mortar_known = np.matrix(
             [
-                [
-                    0.0,
-                    0.0,
-                    0.0,
-                    0.0,
-                    0.0,
-                    0.0,
-                    0.0,
-                    0.0,
-                    0.0,
-                    1.0,
-                    0.0,
-                    0.0,
-                    0.0,
-                    0.0,
-                ],
-                [
-                    0.0,
-                    0.0,
-                    0.0,
-                    0.0,
-                    0.0,
-                    0.0,
-                    0.0,
-                    0.0,
-                    1.0,
-                    0.0,
-                    0.0,
-                    0.0,
-                    0.0,
-                    0.0,
-                ],
-                [
-                    0.0,
-                    0.0,
-                    0.0,
-                    0.0,
-                    0.0,
-                    0.0,
-                    0.0,
-                    0.0,
-                    0.0,
-                    0.0,
-                    0.0,
-                    0.0,
-                    0.0,
-                    1.0,
-                ],
-                [
-                    0.0,
-                    0.0,
-                    0.0,
-                    0.0,
-                    0.0,
-                    0.0,
-                    0.0,
-                    0.0,
-                    0.0,
-                    0.0,
-                    0.0,
-                    0.0,
-                    1.0,
-                    0.0,
-                ],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0],
             ]
         )
-        low_to_mortar_known = np.matrix(
-            [[1.0, 0.0], [0.0, 1.0], [1.0, 0.0], [0.0, 1.0]]
-        )
+        low_to_mortar_known = np.matrix([[1, 0], [0, 1], [1, 0], [0, 1]])
 
         assert np.allclose(high_to_mortar_known, intf.primary_to_mortar_int().todense())
         assert np.allclose(
@@ -969,7 +907,7 @@ def _grid_2d_two_cells(include_1d: bool, pert: bool) -> pp.Grid:
         face_normals = np.vstack(
             (face_normals[0], np.zeros_like(face_normals[0]), face_normals[1])
         )
-        cell_centers = np.array([[2.0 / 3, 0, 1.0 / 3], [1.0 / 3, 0, 2.0 / 3]]).T
+        cell_centers = np.array([[2 / 3, 0, 1 / 3], [1 / 3, 0, 2 / 3]]).T
         cell_volumes = 1 / 2 * np.ones(cell_centers.shape[1])
 
         if pert:
@@ -992,7 +930,7 @@ def _grid_2d_two_cells(include_1d: bool, pert: bool) -> pp.Grid:
         face_normals = np.vstack(
             (face_normals[0], np.zeros_like(face_normals[0]), face_normals[1])
         )
-        cell_centers = np.array([[2.0 / 3, 0, 1.0 / 3], [1.0 / 3, 0, 2.0 / 3]]).T
+        cell_centers = np.array([[2 / 3, 0, 1 / 3], [1 / 3, 0, 2 / 3]]).T
         cell_volumes = 1 / 2 * np.ones(cell_centers.shape[1])
 
         if pert:
@@ -1029,9 +967,9 @@ def _grid_2d_four_cells(
     if include_1d:
         n = np.array(
             [
-                [0.0, 1.0, 1.0, 0.5, 0.0, 0.0, 1.0, 0.5],
-                [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-                [0.0, 0.0, 1.0, 0.5, 0.0, 1.0, 1.0, 0.5],
+                [0, 1, 1, 0.5, 0, 0, 1, 0.5],
+                [0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 1, 0.5, 0, 1, 1, 0.5],
             ]
         )
         if pert:
@@ -1059,9 +997,9 @@ def _grid_2d_four_cells(
     else:  # Do not inculde 1d
         n = np.array(
             [
-                [0.0, 1.0, 1.0, 0.0, 0.5],
-                [0.0, 0.0, 0.0, 0.0, 0.0],
-                [0.0, 0.0, 1.0, 1.0, 0.5],
+                [0, 1, 1, 0, 0.5],
+                [0, 0, 0, 0, 0],
+                [0, 0, 1, 1, 0.5],
             ]
         )
 
@@ -1079,7 +1017,7 @@ def _grid_2d_four_cells(
         )
 
     cell_centers = np.array(
-        [[0.5, 0, 1.0 / 6], [5.0 / 6, 0, 0.5], [0.5, 0, 5.0 / 6], [1.0 / 6, 0, 0.5]]
+        [[0.5, 0, 1 / 6], [5 / 6, 0, 0.5], [0.5, 0, 5 / 6], [1 / 6, 0, 0.5]]
     ).T
     cell_volumes = 1 / 4 * np.ones(cell_centers.shape[1])
 
