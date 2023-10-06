@@ -1,4 +1,4 @@
-"""This is a test collection of the functions being wrapped in a
+"""Test collection of the functions being wrapped in a
 :class:`~porepy.numerics.ad.operator_functions.Function`.
 
 For each supported function, the value and jacobian are compared with a reference data.

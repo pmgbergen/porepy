@@ -8,7 +8,6 @@ add, sub, etc., which are also covered in other tests.
 from __future__ import annotations
 
 import numpy as np
-import pytest
 import scipy.sparse as sps
 
 from porepy.numerics.ad import functions as af
@@ -187,7 +186,6 @@ def test_copy_vector():
     assert np.allclose(b.jac.A, sps.csr_matrix(np.diag(np.ones((3)))).A)
 
 
-@pytest.mark.integtest
 def test_exp_scalar_times_ad_var():
     val = np.array([1, 2, 3])
     J = sps.diags(np.array([1, 1, 1]))
