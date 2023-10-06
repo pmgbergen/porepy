@@ -12,6 +12,7 @@ import numpy as np
 import porepy as pp
 
 
+# TODO: It needs to be extended for simplex, cartesian, tensor grids in 2d and 3d
 def setup():
     mdg = pp.MixedDimensionalGrid()
     g_1 = pp.CartGrid([1, 1])
