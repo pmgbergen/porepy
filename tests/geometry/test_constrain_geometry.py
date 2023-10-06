@@ -1,3 +1,6 @@
+"""This file contains testing of funcionality found within
+porepy.geometry.constrain_geometry.py"""
+
 import numpy as np
 
 import porepy as pp
