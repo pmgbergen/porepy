@@ -10,15 +10,17 @@ import pytest
 
 import porepy as pp
 
-from .setup_utils import (
-    BoundaryConditionsMechanicsDirNorthSouth,
+from porepy.applications.test_utils.models import (
     MomentumBalance,
     compare_scaled_model_quantities,
     compare_scaled_primary_variables,
 )
 
 
-class LinearModel(BoundaryConditionsMechanicsDirNorthSouth, MomentumBalance):
+class LinearModel(
+    pp.model_boundary_conditions.BoundaryConditionsMechanicsDirNorthSouth,
+    MomentumBalance,
+):
     pass
 
 
