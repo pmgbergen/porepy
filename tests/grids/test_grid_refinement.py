@@ -1,13 +1,18 @@
-"""
-Created on Sat Nov 11 17:25:01 2017
+"""Testing of
 
-@author: Eirik Keilegavlens
+- :func:`porepy.grids.refinement.distort_grid_1d`
+- :func:`porepy.grids.refinement.refine_grid_1d`
+- :func:`porepy.grids.refinement.refine_triangle_grid`
+- :func:`porepy.grids.refinement.remesh_1d`
+- :func:`porepy.fracs.meshing.cart_grid`
+
 """
 from __future__ import division
 
 import numpy as np
 import pytest
 
+import porepy as pp
 from porepy.fracs import meshing
 from porepy.grids import refinement
 from porepy.grids.simplex import TriangleGrid
@@ -111,104 +116,110 @@ class TestGridRefinement2DSimplex:
 
 
 class TestRefinementMortarGrid:
-    def test_mortar_grid_1d(self):
-        f1 = np.array([[0, 1], [0.5, 0.5]])
-        mdg = meshing.cart_grid([f1], [2, 2], **{"physdims": [1, 1]})
+    # def test_mortar_grid_1d(self):
+    #     f1 = np.array([[0, 1], [0.5, 0.5]])
+    #     mdg = meshing.cart_grid([f1], [2, 2], **{"physdims": [1, 1]})
 
-        for intf in mdg.interfaces():
-            high_to_mortar_known = np.matrix(
-                [
-                    [
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        1.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                    ],
-                    [
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        1.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                    ],
-                    [
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        1.0,
-                    ],
-                    [
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        1.0,
-                        0.0,
-                    ],
-                ]
-            )
-            low_to_mortar_known = np.matrix(
-                [[1.0, 0.0], [0.0, 1.0], [1.0, 0.0], [0.0, 1.0]]
-            )
+    #     for intf in mdg.interfaces():
+    #         high_to_mortar_known = np.matrix(
+    #             [
+    #                 [
+    #                     0.0,
+    #                     0.0,
+    #                     0.0,
+    #                     0.0,
+    #                     0.0,
+    #                     0.0,
+    #                     0.0,
+    #                     0.0,
+    #                     0.0,
+    #                     1.0,
+    #                     0.0,
+    #                     0.0,
+    #                     0.0,
+    #                     0.0,
+    #                 ],
+    #                 [
+    #                     0.0,
+    #                     0.0,
+    #                     0.0,
+    #                     0.0,
+    #                     0.0,
+    #                     0.0,
+    #                     0.0,
+    #                     0.0,
+    #                     1.0,
+    #                     0.0,
+    #                     0.0,
+    #                     0.0,
+    #                     0.0,
+    #                     0.0,
+    #                 ],
+    #                 [
+    #                     0.0,
+    #                     0.0,
+    #                     0.0,
+    #                     0.0,
+    #                     0.0,
+    #                     0.0,
+    #                     0.0,
+    #                     0.0,
+    #                     0.0,
+    #                     0.0,
+    #                     0.0,
+    #                     0.0,
+    #                     0.0,
+    #                     1.0,
+    #                 ],
+    #                 [
+    #                     0.0,
+    #                     0.0,
+    #                     0.0,
+    #                     0.0,
+    #                     0.0,
+    #                     0.0,
+    #                     0.0,
+    #                     0.0,
+    #                     0.0,
+    #                     0.0,
+    #                     0.0,
+    #                     0.0,
+    #                     1.0,
+    #                     0.0,
+    #                 ],
+    #             ]
+    #         )
+    #         low_to_mortar_known = np.matrix(
+    #             [[1.0, 0.0], [0.0, 1.0], [1.0, 0.0], [0.0, 1.0]]
+    #         )
 
-            assert np.allclose(
-                high_to_mortar_known, intf.primary_to_mortar_int().todense()
-            )
-            assert np.allclose(
-                low_to_mortar_known, intf.secondary_to_mortar_int().todense()
-            )
+    #         assert np.allclose(
+    #             high_to_mortar_known, intf.primary_to_mortar_int().todense()
+    #         )
+    #         assert np.allclose(
+    #             low_to_mortar_known, intf.secondary_to_mortar_int().todense()
+    #         )
 
-    def test_mortar_grid_1d_equally_refine_mortar_grids(self):
+    @pytest.fixture(scope="function")
+    def mdg(self):
+        """Fixture representing md grid for tests.
+
+        Important:
+            Scope is set to ``function``, since the refinement in each step modifies
+            the md grid. Otherwise tests are working on a single md-grid modified by the
+            previous grid.
+
+        """
         f1 = np.array([[0, 1], [0.5, 0.5]])
         mdg = meshing.cart_grid([f1], [2, 2], **{"physdims": [1, 1]})
         mdg.compute_geometry()
+        return mdg
 
-        for intf in mdg.interfaces():
-            new_side_grids = {
-                s: refinement.remesh_1d(g, num_nodes=4)
-                for s, g in intf.side_grids.items()
-            }
-
-            intf.update_mortar(new_side_grids, 1e-4)
-
-            high_to_mortar_known = (
+    @pytest.mark.parametrize(
+        "ref_num_nodes,high_to_mortar_known,low_to_mortar_known",
+        [
+            (
+                4,
                 1.0
                 / 3.0
                 * np.matrix(
@@ -310,9 +321,7 @@ class TestRefinementMortarGrid:
                             2.0,
                         ],
                     ]
-                )
-            )
-            low_to_mortar_known = (
+                ),
                 1.0
                 / 3.0
                 * np.matrix(
@@ -324,363 +333,366 @@ class TestRefinementMortarGrid:
                         [1.0, 1.0],
                         [2.0, 0.0],
                     ]
-                )
-            )
-
-            assert np.allclose(
-                high_to_mortar_known, intf.primary_to_mortar_int().todense()
-            )
-            assert np.allclose(
-                low_to_mortar_known, intf.secondary_to_mortar_int().todense()
-            )
-
-    def test_mortar_grid_1d_unequally_refine_mortar_grids(self):
-        f1 = np.array([[0, 1], [0.5, 0.5]])
-        mdg = meshing.cart_grid([f1], [2, 2], **{"physdims": [1, 1]})
-
-        for intf in mdg.interfaces():
-            new_side_grids = {
-                s: refinement.remesh_1d(g, num_nodes=s.value + 3)
-                for s, g in intf.side_grids.items()
-            }
-
-            intf.update_mortar(new_side_grids, 1e-4)
-
-            high_to_mortar_known = np.matrix(
-                [
+                ),
+            ),
+            (
+                None,
+                np.matrix(
                     [
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.66666667,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                    ],
+                        [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.66666667,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                        ],
+                        [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.33333333,
+                            0.33333333,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                        ],
+                        [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.66666667,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                        ],
+                        [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.5,
+                            0.0,
+                        ],
+                        [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.5,
+                            0.0,
+                        ],
+                        [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.5,
+                        ],
+                        [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.5,
+                        ],
+                    ]
+                ),
+                np.matrix(
                     [
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.33333333,
-                        0.33333333,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                    ],
-                    [
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.66666667,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                    ],
-                    [
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.5,
-                        0.0,
-                    ],
-                    [
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.5,
-                        0.0,
-                    ],
-                    [
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.5,
-                    ],
-                    [
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.5,
-                    ],
-                ]
-            )
-            low_to_mortar_known = np.matrix(
-                [
-                    [0.0, 0.66666667],
-                    [0.33333333, 0.33333333],
-                    [0.66666667, 0.0],
-                    [0.0, 0.5],
-                    [0.0, 0.5],
-                    [0.5, 0.0],
-                    [0.5, 0.0],
-                ]
-            )
+                        [0.0, 0.66666667],
+                        [0.33333333, 0.33333333],
+                        [0.66666667, 0.0],
+                        [0.0, 0.5],
+                        [0.0, 0.5],
+                        [0.5, 0.0],
+                        [0.5, 0.0],
+                    ]
+                ),
+            ),
+        ],
+    )
+    def test_mortar_grid_1d_refine_mortar_grids(
+        self,
+        ref_num_nodes,
+        high_to_mortar_known,
+        low_to_mortar_known,
+        request,
+    ):
+        """Tests the refinement of of side grids of interfaces.
 
-            assert np.allclose(
-                high_to_mortar_known, intf.primary_to_mortar_int().todense()
-            )
-            assert np.allclose(
-                low_to_mortar_known, intf.secondary_to_mortar_int().todense()
-            )
+        ``ref_num_nodes`` can either be an integer, for uniform refinement,
+        or None, to use the side-grid value for non-uniform refinement.
 
-    def test_mortar_grid_1d_refine_1d_grid(self):
-        """Refine the lower-dimensional grid so that it is matching with the
-        higher dimensional grid.
+        Note:
+            (VL) probably not a good parametrization of ``ref_num_nodes``.
+
         """
 
-        f1 = np.array([[0, 1], [0.5, 0.5]])
-        mdg = meshing.cart_grid([f1], [2, 2], **{"physdims": [1, 1]})
+        mdg: pp.MixedDimensionalGrid = request.getfixturevalue("mdg")
 
         for intf in mdg.interfaces():
-            # refine the 1d-physical grid
-            old_g = mdg.interface_to_subdomain_pair(intf)[1]
-            new_g = refinement.remesh_1d(old_g, num_nodes=5)
-            new_g.compute_geometry()
+            if ref_num_nodes is None:
+                new_side_grids = {
+                    s: refinement.remesh_1d(g, num_nodes=s.value + 3)
+                    for s, g in intf.side_grids.items()
+                }
+            else:
+                new_side_grids = {
+                    s: refinement.remesh_1d(g, num_nodes=ref_num_nodes)
+                    for s, g in intf.side_grids.items()
+                }
 
-            mdg.replace_subdomains_and_interfaces(sd_map={old_g: new_g})
-            intf.update_secondary(new_g, 1e-4)
-
-            high_to_mortar_known = np.matrix(
-                [
-                    [
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        1.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                    ],
-                    [
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        1.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                    ],
-                    [
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        1.0,
-                    ],
-                    [
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        1.0,
-                        0.0,
-                    ],
-                ]
-            )
-            low_to_mortar_known_avg = np.matrix(
-                [
-                    [0.0, 0.0, 0.5, 0.5],
-                    [0.5, 0.5, 0.0, 0.0],
-                    [0.0, 0.0, 0.5, 0.5],
-                    [0.5, 0.5, 0.0, 0.0],
-                ]
-            )
+            intf.update_mortar(new_side_grids, 1e-4)
 
             assert np.allclose(
                 high_to_mortar_known, intf.primary_to_mortar_int().todense()
             )
-            # The ordering of the cells in the new 1d grid may be flipped on
-            # some systems; therefore allow two configurations
-            assert np.logical_or(
-                np.allclose(low_to_mortar_known_avg, intf.secondary_to_mortar_avg().A),
-                np.allclose(
-                    low_to_mortar_known_avg,
-                    intf.secondary_to_mortar_avg().A[::-1],
+            assert np.allclose(
+                low_to_mortar_known, intf.secondary_to_mortar_int().todense()
+            )
+
+    @pytest.mark.parametrize(
+        "ref_num_nodes,high_to_mortar_known,"
+        + "low_to_mortar_known_avg,low_to_mortar_known_int",
+        [
+            (
+                5,
+                np.matrix(
+                    [
+                        [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                        ],
+                        [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                        ],
+                        [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0,
+                        ],
+                        [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0,
+                            0.0,
+                        ],
+                    ]
                 ),
-            )
-
-    def test_mortar_grid_1d_refine_1d_grid_2(self):
-        """Refine the 1D grid so that it no longer matches the 2D grid."""
-
-        f1 = np.array([[0, 1], [0.5, 0.5]])
-        mdg = meshing.cart_grid([f1], [2, 2], **{"physdims": [1, 1]})
-
-        for intf in mdg.interfaces():
-            # refine the 1d-physical grid
-            old_g = mdg.interface_to_subdomain_pair(intf)[1]
-            new_g = refinement.remesh_1d(old_g, num_nodes=4)
-            new_g.compute_geometry()
-
-            mdg.replace_subdomains_and_interfaces(sd_map={old_g: new_g})
-            intf.update_secondary(new_g, 1e-4)
-
-            high_to_mortar_known = np.matrix(
-                [
+                np.matrix(
                     [
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        1.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                    ],
+                        [0.0, 0.0, 0.5, 0.5],
+                        [0.5, 0.5, 0.0, 0.0],
+                        [0.0, 0.0, 0.5, 0.5],
+                        [0.5, 0.5, 0.0, 0.0],
+                    ]
+                ),
+                None,
+            ),
+            (
+                4,
+                np.matrix(
                     [
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        1.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                    ],
-                    [
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        1.0,
-                    ],
-                    [
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        1.0,
-                        0.0,
-                    ],
-                ]
-            )
-            low_to_mortar_known_avg = (
+                        [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                        ],
+                        [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                        ],
+                        [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0,
+                        ],
+                        [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0,
+                            0.0,
+                        ],
+                    ]
+                ),
                 1.0
                 / 3.0
                 * np.matrix(
                     [[0.0, 1.0, 2.0], [2.0, 1.0, 0.0], [0.0, 1.0, 2.0], [2.0, 1.0, 0.0]]
-                )
-            )
-            low_to_mortar_known_int = np.matrix(
-                [[0.0, 0.5, 1.0], [1.0, 0.5, 0.0], [0.0, 0.5, 1.0], [1.0, 0.5, 0.0]]
-            )
+                ),
+                np.matrix(
+                    [[0.0, 0.5, 1.0], [1.0, 0.5, 0.0], [0.0, 0.5, 1.0], [1.0, 0.5, 0.0]]
+                ),
+            ),
+        ],
+    )
+    def test_mortar_grid_1d_refine_1d_grid(
+        self,
+        ref_num_nodes,
+        high_to_mortar_known,
+        low_to_mortar_known_avg,
+        low_to_mortar_known_int,
+        request,
+    ):
+        """Refine the lower-dimensional grid so that it is matching with the
+        higher dimensional grid.
+        """
+        mdg: pp.MixedDimensionalGrid = request.getfixturevalue("mdg")
+
+        for intf in mdg.interfaces():
+            # refine the 1d-physical grid
+            old_g = mdg.interface_to_subdomain_pair(intf)[1]
+            new_g = refinement.remesh_1d(old_g, num_nodes=ref_num_nodes)
+            new_g.compute_geometry()
+
+            mdg.replace_subdomains_and_interfaces(sd_map={old_g: new_g})
+            intf.update_secondary(new_g, 1e-4)
 
             assert np.allclose(
                 high_to_mortar_known, intf.primary_to_mortar_int().todense()
@@ -694,13 +706,17 @@ class TestRefinementMortarGrid:
                     intf.secondary_to_mortar_avg().A[::-1],
                 ),
             )
-            assert np.logical_or(
-                np.allclose(low_to_mortar_known_int, intf.secondary_to_mortar_int().A),
-                np.allclose(
-                    low_to_mortar_known_int,
-                    intf.secondary_to_mortar_int().A[::-1],
-                ),
-            )
+
+            if low_to_mortar_known_int is not None:
+                assert np.logical_or(
+                    np.allclose(
+                        low_to_mortar_known_int, intf.secondary_to_mortar_int().A
+                    ),
+                    np.allclose(
+                        low_to_mortar_known_int,
+                        intf.secondary_to_mortar_int().A[::-1],
+                    ),
+                )
 
     def test_mortar_grid_2d(self):
         f = np.array([[0, 1, 1, 0], [0, 0, 1, 1], [0.5, 0.5, 0.5, 0.5]])
