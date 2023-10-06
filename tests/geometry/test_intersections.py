@@ -1124,8 +1124,8 @@ class TestIntersectionPolygonsEmbeddedIn3d:
         assert compare_arrays(np.sort(isect_pt[0]), [0, 1])
         assert compare_arrays(np.sort(isect_pt[1]), [0, 1])
         assert on_bound.size == 2
-        assert np.all(on_bound[0]) is False
-        assert np.all(on_bound[1]) is False
+        assert not np.all(on_bound[0])
+        assert not np.all(on_bound[1])
 
         known_points = np.array([[0, 0, -0.7], [0, 0, 0.8]]).T
         assert compare_arrays(new_pt, known_points)
@@ -1152,9 +1152,9 @@ class TestIntersectionPolygonsEmbeddedIn3d:
         assert len(isect_pt[1]) == 4
         assert len(isect_pt[2]) == 4
         assert on_bound.size == 3
-        assert np.all(on_bound[0]) is False
-        assert np.all(on_bound[1]) is False
-        assert np.all(on_bound[2]) is False
+        assert not np.all(on_bound[0])
+        assert not np.all(on_bound[1])
+        assert not np.all(on_bound[2])
 
         known_points = np.array(
             [[0, 0, -0.7], [0, 0, 0.8], [1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0]]
@@ -1198,9 +1198,9 @@ class TestIntersectionPolygonsEmbeddedIn3d:
         assert len(isect_pt[1]) == 2
         assert len(isect_pt[2]) == 2
         assert on_bound.size == 3
-        assert np.all(on_bound[0]) is False
-        assert np.all(on_bound[1]) is False
-        assert np.all(on_bound[2]) is False
+        assert not np.all(on_bound[0])
+        assert not np.all(on_bound[1])
+        assert not np.all(on_bound[2])
 
         known_points = np.array(
             [[0, 0, -0.7], [0, 0, 0.8], [0.5, 0.0, -0.7], [0.5, 0.0, 0.8]]
@@ -1244,9 +1244,9 @@ class TestIntersectionPolygonsEmbeddedIn3d:
         assert len(isect_pt[1]) == 4
         assert len(isect_pt[2]) == 4
         assert on_bound.size == 3
-        assert np.all(on_bound[0]) is False
-        assert np.all(on_bound[1]) is False
-        assert np.all(on_bound[2]) is False
+        assert not np.all(on_bound[0])
+        assert not np.all(on_bound[1])
+        assert not np.all(on_bound[2])
 
         known_points = np.array(
             [
@@ -1302,9 +1302,9 @@ class TestIntersectionPolygonsEmbeddedIn3d:
         assert len(isect_pt[1]) == 4
         assert len(isect_pt[2]) == 4
         assert on_bound.size == 3
-        assert np.all(on_bound[0]) is False
-        assert np.all(on_bound[1]) is False
-        assert np.all(on_bound[2]) is False
+        assert not np.all(on_bound[0])
+        assert not np.all(on_bound[1])
+        assert not np.all(on_bound[2])
 
         known_points = np.array(
             [
@@ -1355,8 +1355,8 @@ class TestIntersectionPolygonsEmbeddedIn3d:
         assert len(isect_pt[0]) == 2
         assert len(isect_pt[1]) == 2
         assert on_bound.size == 2
-        assert np.all(on_bound[0]) is False
-        assert np.all(on_bound[1]) is False
+        assert not np.all(on_bound[0])
+        assert not np.all(on_bound[1])
 
         known_points = np.array([[0, -1, -1], [0, 1, 1]]).T
         assert compare_arrays(new_pt, known_points)
@@ -1382,8 +1382,8 @@ class TestIntersectionPolygonsEmbeddedIn3d:
         assert len(isect_pt[0]) == 2
         assert len(isect_pt[1]) == 2
         assert on_bound.size == 2
-        assert np.all(on_bound[0]) is False
-        assert np.all(on_bound[1]) is False
+        assert not np.all(on_bound[0])
+        assert not np.all(on_bound[1])
 
         known_points = np.array([[0, -1, -1], [0, 1, 1]]).T
         assert compare_arrays(new_pt, known_points)
@@ -1408,8 +1408,8 @@ class TestIntersectionPolygonsEmbeddedIn3d:
         assert len(isect_pt[0]) == 2
         assert len(isect_pt[1]) == 2
         assert on_bound.size == 2
-        assert np.all(on_bound[0]) is False
-        assert np.all(on_bound[1]) is False
+        assert not np.all(on_bound[0])
+        assert not np.all(on_bound[1])
 
         known_points = np.array([[0, -1, -1], [0, 1, 1]]).T
         assert compare_arrays(new_pt, known_points)
@@ -1435,8 +1435,8 @@ class TestIntersectionPolygonsEmbeddedIn3d:
         assert len(isect_pt[0]) == 2
         assert len(isect_pt[1]) == 2
         assert on_bound.size == 2
-        assert np.all(on_bound[0]) is False
-        assert np.all(on_bound[1]) is False
+        assert not np.all(on_bound[0])
+        assert not np.all(on_bound[1])
 
         known_points = np.array([[0, -1, -1], [0, 1, 1]]).T
         assert compare_arrays(new_pt, known_points)
