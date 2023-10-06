@@ -4,10 +4,8 @@ porepy.geometry.constrain_geometry.py"""
 import numpy as np
 
 import porepy as pp
-from tests.test_utils import compare_arrays
-
-
 from porepy import constrain_geometry
+from tests.test_utils import compare_arrays
 
 
 class TestBasic:
@@ -105,6 +103,7 @@ class TestBasic:
         assert compare_arrays(new_lines, lines_known)
         assert compare_arrays(lines_kept, kept_known)
 
+
 # ---------- Testing snap_points_to_segments ----------
 
 
@@ -166,4 +165,3 @@ def test_snapping_3d():
     p_new = constrain_geometry.snap_points_to_segments(p, e, tol)
     p_known = np.array([[0, 1, 0.5, 0.5], [0, 0, 0, 1], [0, 1, 0.5, 1]])
     assert np.allclose(p_new, p_known)
-
