@@ -7,17 +7,22 @@ import pytest
 TUTORIAL_FILENAMES = glob.glob("tutorials/*.ipynb")
 
 
+@pytest.mark.tutorials
 @pytest.mark.parametrize("tutorial_path", TUTORIAL_FILENAMES)
 def test_run_tutorials(tutorial_path: str):
     """We run the tutorial and check that it didn't raise any error.
     This assumes we run pytest from the porepy directory.
 
     """
-    new_file = tutorial_path[:-6] + ".py"
+    new_file = tutorial_path.removesuffix(".ipynb") + ".py"
 
     # This command might fail in github actions.
-    cmd_convert = "jupyter nbconvert --to script " + tutorial_path
-    os.system(cmd_convert)
+    cmd_convert = "jupyter-nbconvert --to script " + tutorial_path
+    status = os.system(cmd_convert)
+    if status != 0:
+        raise RuntimeError(
+            ".ipynb file is not converted to .py file. Is jupyter-nbconvert available?"
+        )
     edit_imports(new_file)
 
     cmd_run = "python " + str(new_file)
