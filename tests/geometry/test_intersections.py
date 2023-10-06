@@ -5,10 +5,9 @@ import numpy as np
 import pytest
 
 import porepy as pp
+from porepy import intersections
 from porepy.applications.test_utils.arrays import compare_arrays
 from porepy.grids.standard_grids.utils import unit_domain
-from porepy import intersections
-
 
 
 class TestSplitIntersectingLines2D:
@@ -675,14 +674,24 @@ class TestSegmentSegmentIntersection:
         p_known_1 = p_1.reshape((-1, 1))
         p_known_2 = p_2.reshape((-1, 1))
 
-        assert np.min(np.sum(np.abs(p_int_1 - p_known_1), axis=0)) < 1e-8
-        assert np.min(np.sum(np.abs(p_int_1 - p_known_2), axis=0)) < 1e-8
-        assert np.min(np.sum(np.abs(p_int_2 - p_known_1), axis=0)) < 1e-8
-        assert np.min(np.sum(np.abs(p_int_2 - p_known_2), axis=0)) < 1e-8
-        assert np.min(np.sum(np.abs(p_int_3 - p_known_1), axis=0)) < 1e-8
-        assert np.min(np.sum(np.abs(p_int_3 - p_known_2), axis=0)) < 1e-8
-        assert np.min(np.sum(np.abs(p_int_4 - p_known_1), axis=0)) < 1e-8
-        assert np.min(np.sum(np.abs(p_int_4 - p_known_2), axis=0)) < 1e-8
+        l1 = np.array(
+            [p_int_1, p_int_1, p_int_2, p_int_2, p_int_3, p_int_3, p_int_4, p_int_4]
+        )
+        l2 = np.array(
+            [
+                p_known_1,
+                p_known_2,
+                p_known_1,
+                p_known_2,
+                p_known_1,
+                p_known_2,
+                p_known_1,
+                p_known_2,
+            ]
+        )
+
+        for p_int, p_known in zip(l1, l2):
+            assert np.min(np.sum(np.abs(p_int - p_known), axis=0)) < 1e-8
 
     @pytest.fixture
     def assert_equal_segments_3d(self):
