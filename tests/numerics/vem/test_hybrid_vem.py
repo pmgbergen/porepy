@@ -1,4 +1,6 @@
-import unittest
+""" Module contains a sets of unit tests for hybrid Virtual Element Method (VEM).
+    - It is dedicated for checking the consistency of discrete operators.
+"""
 
 import numpy as np
 
@@ -6,34 +8,50 @@ import porepy as pp
 from porepy.numerics.vem import hybrid
 
 
-def make_dictionary(g, perm, bc, bc_val=None):
+def build_dictionary(sd, perm, bc, bc_val=None):
+    """Generates a dictionary from a given grid."""
     if bc_val is None:
-        bc_val = np.zeros(g.num_faces)
+        bc_val = np.zeros(sd.num_faces)
     d = {
         "bc": bc,
         "bc_values": bc_val,
         "second_order_tensor": perm,
-        "aperture": np.ones(g.num_cells),
-        "source": np.zeros(g.num_cells),
+        "aperture": np.ones(sd.num_cells),
+        "source": np.zeros(sd.num_cells),
     }
 
-    return pp.initialize_default_data(g, {}, "flow", d)
+    return pp.initialize_default_data(sd, {}, "flow", d)
 
 
-class BasicsTest(unittest.TestCase):
-    def test_dual_hybrid_vem_1d_iso(self):
-        g = pp.CartGrid(3, 1)
-        g.compute_geometry()
+class TestVEMDiscretization:
+    def _create_cartesian_grid(self, dimension):
+        """Generates a mono-dimensional cartesian grid."""
+        if dimension == 1:
+            sd = pp.CartGrid(3, 1)
+            sd.compute_geometry()
+        elif dimension == 2:
+            sd = pp.CartGrid([2, 1], [1, 1])
+            sd.compute_geometry()
+        else:
+            sd = pp.CartGrid([2, 2, 2], [1, 1, 1])
+            sd.compute_geometry()
+        return sd
 
-        kxx = np.ones(g.num_cells)
+    """Test one-dimensional for isotropic material data."""
+
+    def test_1d_isotropic_permeability_cartesian(self):
+        sd = self._create_cartesian_grid(dimension=1)
+        sd.compute_geometry()
+
+        kxx = np.ones(sd.num_cells)
         perm = pp.SecondOrderTensor(kxx)
-        bf = g.tags["domain_boundary_faces"].nonzero()[0]
-        bc = pp.BoundaryCondition(g, bf, bf.size * ["neu"])
+        bf = sd.tags["domain_boundary_faces"].nonzero()[0]
+        bc = pp.BoundaryCondition(sd, bf, bf.size * ["neu"])
 
         solver = hybrid.HybridDualVEM(keyword="flow")
 
-        data = make_dictionary(g, perm, bc)
-        M = solver.matrix_rhs(g, data)[0].todense()
+        data = build_dictionary(sd, perm, bc)
+        M = solver.matrix_rhs(sd, data)[0].todense()
 
         M_known = 3 * np.array(
             [[-1, 1, 0, 0], [1, -2, 1, 0], [0, 1, -2, 1], [0, 0, 1, -1]]
@@ -41,23 +59,25 @@ class BasicsTest(unittest.TestCase):
 
         rtol = 1e-15
         atol = rtol
-        self.assertTrue(np.allclose(M, M.T, rtol, atol))
-        self.assertTrue(np.allclose(M, M_known, rtol, atol))
+        assert np.allclose(M, M.T, rtol, atol)
+        assert np.allclose(M, M_known, rtol, atol)
 
-    def test_dual_hybrid_vem_1d_ani(self):
-        g = pp.CartGrid(3, 1)
-        g.compute_geometry()
+    """Test one-dimensional for anisotropic material data."""
 
-        kxx = np.sin(g.cell_centers[0, :]) + 1
+    def test_1d_anisotropic_permeability_cartesian(self):
+        sd = self._create_cartesian_grid(dimension=1)
+        sd.compute_geometry()
+
+        kxx = np.sin(sd.cell_centers[0, :]) + 1
         perm = pp.SecondOrderTensor(kxx)
 
-        bf = g.tags["domain_boundary_faces"].nonzero()[0]
-        bc = pp.BoundaryCondition(g, bf, bf.size * ["neu"])
+        bf = sd.tags["domain_boundary_faces"].nonzero()[0]
+        bc = pp.BoundaryCondition(sd, bf, bf.size * ["neu"])
 
         solver = hybrid.HybridDualVEM(keyword="flow")
 
-        data = make_dictionary(g, perm, bc)
-        M = solver.matrix_rhs(g, data)[0].todense()
+        data = build_dictionary(sd, perm, bc)
+        M = solver.matrix_rhs(sd, data)[0].todense()
 
         M_known = np.array(
             [
@@ -70,23 +90,25 @@ class BasicsTest(unittest.TestCase):
 
         rtol = 1e-15
         atol = rtol
-        self.assertTrue(np.allclose(M, M.T, rtol, atol))
-        self.assertTrue(np.allclose(M, M_known, rtol, atol))
+        assert np.allclose(M, M.T, rtol, atol)
+        assert np.allclose(M, M_known, rtol, atol)
 
-    def test_dual_hybrid_vem_2d_iso_cart(self):
-        g = pp.CartGrid([2, 1], [1, 1])
-        g.compute_geometry()
+    """Test two-dimensional for isotropic material data."""
 
-        kxx = np.ones(g.num_cells)
+    def test_2d_isotropic_permeability_carterian(self):
+        sd = self._create_cartesian_grid(dimension=2)
+        sd.compute_geometry()
+
+        kxx = np.ones(sd.num_cells)
         perm = pp.SecondOrderTensor(kxx)
 
-        bf = g.tags["domain_boundary_faces"].nonzero()[0]
-        bc = pp.BoundaryCondition(g, bf, bf.size * ["neu"])
+        bf = sd.tags["domain_boundary_faces"].nonzero()[0]
+        bc = pp.BoundaryCondition(sd, bf, bf.size * ["neu"])
 
         solver = hybrid.HybridDualVEM(keyword="flow")
 
-        data = make_dictionary(g, perm, bc)
-        M = solver.matrix_rhs(g, data)[0].todense()
+        data = build_dictionary(sd, perm, bc)
+        M = solver.matrix_rhs(sd, data)[0].todense()
 
         M_known = np.array(
             [
@@ -102,25 +124,27 @@ class BasicsTest(unittest.TestCase):
 
         rtol = 1e-15
         atol = rtol
-        self.assertTrue(np.allclose(M, M.T, rtol, atol))
-        self.assertTrue(np.allclose(M, M_known, rtol, atol))
+        assert np.allclose(M, M.T, rtol, atol)
+        assert np.allclose(M, M_known, rtol, atol)
 
-    def test_dual_hybrid_vem_2d_ani_cart(self):
-        g = pp.CartGrid([2, 1], [1, 1])
-        g.compute_geometry()
+    """Test two-dimensional for anisotropic material data."""
 
-        kxx = np.square(g.cell_centers[1, :]) + 1
-        kyy = np.square(g.cell_centers[0, :]) + 1
-        kxy = -np.multiply(g.cell_centers[0, :], g.cell_centers[1, :])
+    def test_2d_anisotropic_permeability_carterian(self):
+        sd = self._create_cartesian_grid(dimension=2)
+        sd.compute_geometry()
+
+        kxx = np.square(sd.cell_centers[1, :]) + 1
+        kyy = np.square(sd.cell_centers[0, :]) + 1
+        kxy = -np.multiply(sd.cell_centers[0, :], sd.cell_centers[1, :])
         perm = pp.SecondOrderTensor(kxx=kxx, kyy=kyy, kxy=kxy)
 
-        bf = g.tags["domain_boundary_faces"].nonzero()[0]
-        bc = pp.BoundaryCondition(g, bf, bf.size * ["neu"])
+        bf = sd.tags["domain_boundary_faces"].nonzero()[0]
+        bc = pp.BoundaryCondition(sd, bf, bf.size * ["neu"])
 
         solver = hybrid.HybridDualVEM(keyword="flow")
 
-        data = make_dictionary(g, perm, bc)
-        M = solver.matrix_rhs(g, data)[0].todense()
+        data = build_dictionary(sd, perm, bc)
+        M = solver.matrix_rhs(sd, data)[0].todense()
 
         M_known = np.array(
             [
@@ -192,23 +216,72 @@ class BasicsTest(unittest.TestCase):
 
         rtol = 1e-15
         atol = rtol
-        self.assertTrue(np.allclose(M, M.T, rtol, atol))
-        self.assertTrue(np.allclose(M, M_known, rtol, atol))
+        assert np.allclose(M, M.T, rtol, atol)
+        assert np.allclose(M, M_known, rtol, atol)
 
-    def test_dual_hybrid_vem_2d_iso_simplex(self):
-        g = pp.StructuredTriangleGrid([1, 1], [1, 1])
-        g.compute_geometry()
+    def test_3d_isotropic_permeability_carterian(self):
+        sd = self._create_cartesian_grid(dimension=3)
+        sd.compute_geometry()
 
-        kxx = np.ones(g.num_cells)
+        kxx = np.ones(sd.num_cells)
         perm = pp.SecondOrderTensor(kxx)
 
-        bf = g.tags["domain_boundary_faces"].nonzero()[0]
-        bc = pp.BoundaryCondition(g, bf, bf.size * ["neu"])
+        bf = sd.tags["domain_boundary_faces"].nonzero()[0]
+        bc = pp.BoundaryCondition(sd, bf, bf.size * ["neu"])
 
         solver = hybrid.HybridDualVEM(keyword="flow")
 
-        data = make_dictionary(g, perm, bc)
-        M = solver.matrix_rhs(g, data)[0].todense()
+        data = build_dictionary(sd, perm, bc)
+        M = solver.matrix_rhs(sd, data)[0].todense()
+
+        M_known = matrix_for_test_dual_hybrid_vem_3d_isotropic_cart()
+
+        rtol = 1e-14
+        atol = rtol
+        assert np.allclose(M, M.T, rtol, atol)
+        assert np.allclose(M, M_known, rtol, atol)
+
+    """Test three-dimensional for anisotropic material data."""
+
+    def test_3d_anisotropic_permeability_carterian(self):
+        sd = self._create_cartesian_grid(dimension=3)
+        sd.compute_geometry()
+
+        kxx = np.square(sd.cell_centers[1, :]) + 1
+        kyy = np.square(sd.cell_centers[0, :]) + 1
+        kzz = sd.cell_centers[2, :] + 1
+        kxy = -np.multiply(sd.cell_centers[0, :], sd.cell_centers[1, :])
+        perm = pp.SecondOrderTensor(kxx=kxx, kyy=kyy, kxy=kxy, kzz=kzz)
+
+        bf = sd.tags["domain_boundary_faces"].nonzero()[0]
+        bc = pp.BoundaryCondition(sd, bf, bf.size * ["neu"])
+
+        solver = hybrid.HybridDualVEM(keyword="flow")
+
+        data = build_dictionary(sd, perm, bc)
+        M = solver.matrix_rhs(sd, data)[0].todense()
+        M_known = matrix_for_test_dual_hybrid_vem_3d_anisotropic_cart()
+
+        rtol = 1e-15
+        atol = rtol
+        assert np.allclose(M, M.T, rtol, atol)
+        assert np.allclose(M, M_known, rtol, atol)
+
+    """Test two-dimensional for isotropic material data (simplex grid)."""
+    def test_2d_isotropic_permeability_simplex(self):
+        sd = pp.StructuredTriangleGrid([1, 1], [1, 1])
+        sd.compute_geometry()
+
+        kxx = np.ones(sd.num_cells)
+        perm = pp.SecondOrderTensor(kxx)
+
+        bf = sd.tags["domain_boundary_faces"].nonzero()[0]
+        bc = pp.BoundaryCondition(sd, bf, bf.size * ["neu"])
+
+        solver = hybrid.HybridDualVEM(keyword="flow")
+
+        data = build_dictionary(sd, perm, bc)
+        M = solver.matrix_rhs(sd, data)[0].todense()
 
         M_known = np.array(
             [
@@ -246,25 +319,27 @@ class BasicsTest(unittest.TestCase):
 
         rtol = 1e-15
         atol = rtol
-        self.assertTrue(np.allclose(M, M.T, rtol, atol))
+        assert np.allclose(M, M.T, rtol, atol)
         # We test only the mass-Hdiv part
-        self.assertTrue(np.allclose(M, M_known, rtol, atol))
+        assert np.allclose(M, M_known, rtol, atol)
 
-    def test_dual_hybrid_vem_2d_ani_simplex(self):
-        g = pp.StructuredTriangleGrid([1, 1], [1, 1])
-        g.compute_geometry()
-        kxx = np.square(g.cell_centers[1, :]) + 1
-        kyy = np.square(g.cell_centers[0, :]) + 1
-        kxy = -np.multiply(g.cell_centers[0, :], g.cell_centers[1, :])
+    """Test two-dimensional for anisotropic material data (simplex grid)."""
+
+    def test_2d_anisotropic_permeability_simplex(self):
+        sd = pp.StructuredTriangleGrid([1, 1], [1, 1])
+        sd.compute_geometry()
+        kxx = np.square(sd.cell_centers[1, :]) + 1
+        kyy = np.square(sd.cell_centers[0, :]) + 1
+        kxy = -np.multiply(sd.cell_centers[0, :], sd.cell_centers[1, :])
         perm = pp.SecondOrderTensor(kxx=kxx, kyy=kyy, kxy=kxy)
 
-        bf = g.tags["domain_boundary_faces"].nonzero()[0]
-        bc = pp.BoundaryCondition(g, bf, bf.size * ["neu"])
+        bf = sd.tags["domain_boundary_faces"].nonzero()[0]
+        bc = pp.BoundaryCondition(sd, bf, bf.size * ["neu"])
 
         solver = hybrid.HybridDualVEM(keyword="flow")
 
-        data = make_dictionary(g, perm, bc)
-        M = solver.matrix_rhs(g, data)[0].todense()
+        data = build_dictionary(sd, perm, bc)
+        M = solver.matrix_rhs(sd, data)[0].todense()
 
         M_known = np.array(
             [
@@ -290,73 +365,59 @@ class BasicsTest(unittest.TestCase):
 
         rtol = 1e-15
         atol = rtol
-        self.assertTrue(np.allclose(M, M.T, rtol, atol))
+        assert np.allclose(M, M.T, rtol, atol)
         # We test only the mass-Hdiv part
-        self.assertTrue(np.allclose(M, M_known, rtol, atol))
+        assert np.allclose(M, M_known, rtol, atol)
 
-    def test_dual_hybrid_vem_3d_iso_cart(self):
-        g = pp.CartGrid([2, 2, 2], [1, 1, 1])
-        g.compute_geometry()
+    """Test one-dimensional R1-R3 for isotropic material data."""
 
-        kxx = np.ones(g.num_cells)
+    def test_1d_R1_R3_isotropic_permeability(self):
+        sd = self._create_cartesian_grid(dimension=1)
+        R = pp.map_geometry.rotation_matrix(np.pi / 6.0, [0, 0, 1])
+        sd.nodes = np.dot(R, sd.nodes)
+        sd.compute_geometry()
+
+        kxx = np.ones(sd.num_cells)
         perm = pp.SecondOrderTensor(kxx)
 
-        bf = g.tags["domain_boundary_faces"].nonzero()[0]
-        bc = pp.BoundaryCondition(g, bf, bf.size * ["neu"])
+        bf = sd.tags["domain_boundary_faces"].nonzero()[0]
+        bc = pp.BoundaryCondition(sd, bf, bf.size * ["neu"])
 
         solver = hybrid.HybridDualVEM(keyword="flow")
 
-        data = make_dictionary(g, perm, bc)
-        M = solver.matrix_rhs(g, data)[0].todense()
-
-        # np.savetxt('matrix.txt', M, delimiter=',', newline='],\n[')
-        M_known = matrix_for_test_dual_hybrid_vem_3d_iso_cart()
-
-        rtol = 1e-14
-        atol = rtol
-        self.assertTrue(np.allclose(M, M.T, rtol, atol))
-        self.assertTrue(np.allclose(M, M_known, rtol, atol))
-
-    def test_dual_hybrid_vem_3d_ani_cart(self):
-        g = pp.CartGrid([2, 2, 2], [1, 1, 1])
-        g.compute_geometry()
-
-        kxx = np.square(g.cell_centers[1, :]) + 1
-        kyy = np.square(g.cell_centers[0, :]) + 1
-        kzz = g.cell_centers[2, :] + 1
-        kxy = -np.multiply(g.cell_centers[0, :], g.cell_centers[1, :])
-        perm = pp.SecondOrderTensor(kxx=kxx, kyy=kyy, kxy=kxy, kzz=kzz)
-
-        bf = g.tags["domain_boundary_faces"].nonzero()[0]
-        bc = pp.BoundaryCondition(g, bf, bf.size * ["neu"])
-
-        solver = hybrid.HybridDualVEM(keyword="flow")
-
-        data = make_dictionary(g, perm, bc)
-        M = solver.matrix_rhs(g, data)[0].todense()
-        # np.savetxt('matrix.txt', M, delimiter=',', newline='],\n[')
-        M_known = matrix_for_test_dual_hybrid_vem_3d_ani_cart()
+        data = build_dictionary(sd, perm, bc)
+        M = solver.matrix_rhs(sd, data)[0].todense()
+        M_known = np.array(
+            [
+                [-3.0, 3.0, 0.0, 0.0],
+                [3.0, -6.0, 3.0, 0.0],
+                [0.0, 3.0, -6.0, 3.0],
+                [0.0, 0.0, 3.0, -3.0],
+            ]
+        )
 
         rtol = 1e-15
         atol = rtol
-        self.assertTrue(np.allclose(M, M.T, rtol, atol))
-        self.assertTrue(np.allclose(M, M_known, rtol, atol))
+        assert np.allclose(M, M.T, rtol, atol)
+        assert np.allclose(M, M_known, rtol, atol)
 
-    def test_dual_vem_2d_iso_cart_surf(self):
-        g = pp.CartGrid([2, 1], [1, 1])
+    """Test two-dimensional R2-R3 for isotropic material data."""
+
+    def test_2d_R2_R3_isotropic_permeability(self):
+        sd = self._create_cartesian_grid(dimension=2)
         R = pp.map_geometry.rotation_matrix(np.pi / 4.0, [0, 1, 0])
-        g.nodes = np.dot(R, g.nodes)
-        g.compute_geometry()
+        sd.nodes = np.dot(R, sd.nodes)
+        sd.compute_geometry()
 
-        kxx = np.ones(g.num_cells)
+        kxx = np.ones(sd.num_cells)
         perm = pp.SecondOrderTensor(kxx)
-        bf = g.tags["domain_boundary_faces"].nonzero()[0]
-        bc = pp.BoundaryCondition(g, bf, bf.size * ["neu"])
+        bf = sd.tags["domain_boundary_faces"].nonzero()[0]
+        bc = pp.BoundaryCondition(sd, bf, bf.size * ["neu"])
 
         solver = hybrid.HybridDualVEM(keyword="flow")
 
-        data = make_dictionary(g, perm, bc)
-        M = solver.matrix_rhs(g, data)[0].todense()
+        data = build_dictionary(sd, perm, bc)
+        M = solver.matrix_rhs(sd, data)[0].todense()
         M_known = np.array(
             [
                 [-2.25, 1.75, 0.0, 0.25, 0.0, 0.25, 0.0],
@@ -371,41 +432,12 @@ class BasicsTest(unittest.TestCase):
 
         rtol = 1e-15
         atol = rtol
-        self.assertTrue(np.allclose(M, M.T, rtol, atol))
-        self.assertTrue(np.allclose(M, M_known, rtol, atol))
-
-    def test_dual_vem_1d_iso_line(self):
-        g = pp.CartGrid(3, 1)
-        R = pp.map_geometry.rotation_matrix(np.pi / 6.0, [0, 0, 1])
-        g.nodes = np.dot(R, g.nodes)
-        g.compute_geometry()
-
-        kxx = np.ones(g.num_cells)
-        perm = pp.SecondOrderTensor(kxx)
-
-        bf = g.tags["domain_boundary_faces"].nonzero()[0]
-        bc = pp.BoundaryCondition(g, bf, bf.size * ["neu"])
-
-        solver = hybrid.HybridDualVEM(keyword="flow")
-
-        data = make_dictionary(g, perm, bc)
-        M = solver.matrix_rhs(g, data)[0].todense()
-        M_known = np.array(
-            [
-                [-3.0, 3.0, 0.0, 0.0],
-                [3.0, -6.0, 3.0, 0.0],
-                [0.0, 3.0, -6.0, 3.0],
-                [0.0, 0.0, 3.0, -3.0],
-            ]
-        )
-
-        rtol = 1e-15
-        atol = rtol
-        self.assertTrue(np.allclose(M, M.T, rtol, atol))
-        self.assertTrue(np.allclose(M, M_known, rtol, atol))
+        assert np.allclose(M, M.T, rtol, atol)
+        assert np.allclose(M, M_known, rtol, atol)
 
 
-def matrix_for_test_dual_hybrid_vem_3d_iso_cart():
+def matrix_for_test_dual_hybrid_vem_3d_isotropic_cart():
+    """Reference operator for three-dimensional discretization test."""
     return np.array(
         [
             [
@@ -1780,7 +1812,8 @@ def matrix_for_test_dual_hybrid_vem_3d_iso_cart():
     )
 
 
-def matrix_for_test_dual_hybrid_vem_3d_ani_cart():
+def matrix_for_test_dual_hybrid_vem_3d_anisotropic_cart():
+    """Reference operator for three-dimensional discretization test."""
     return np.array(
         [
             [
@@ -3153,7 +3186,3 @@ def matrix_for_test_dual_hybrid_vem_3d_ani_cart():
             ],
         ]
     )
-
-
-if __name__ == "__main__":
-    unittest.main()
