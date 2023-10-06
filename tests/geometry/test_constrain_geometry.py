@@ -1,12 +1,10 @@
-import pytest
-
 import numpy as np
 
 import porepy as pp
 from tests.test_utils import compare_arrays
 
 
-class BasicTest:
+class TestBasic:
     """
     Various tests of intersect_polygon_lines.
 
