@@ -3,7 +3,6 @@ porepy.geometry.constrain_geometry.py"""
 
 import numpy as np
 
-import porepy as pp
 from porepy import constrain_geometry
 from tests.test_utils import compare_arrays
 
@@ -25,7 +24,7 @@ class TestBasic:
         )
         lines = np.array([[0, 2, 4, 6], [1, 3, 5, 7]])
 
-        new_pts, new_lines, lines_kept = pp.constrain_geometry.lines_by_polygon(
+        new_pts, new_lines, lines_kept = constrain_geometry.lines_by_polygon(
             polygon, pts, lines
         )
 
@@ -56,7 +55,7 @@ class TestBasic:
         )
         lines = np.array([[0, 2, 4, 6, 8], [1, 3, 5, 7, 9]])
 
-        new_pts, new_lines, lines_kept = pp.constrain_geometry.lines_by_polygon(
+        new_pts, new_lines, lines_kept = constrain_geometry.lines_by_polygon(
             polygon, pts, lines
         )
 
@@ -86,7 +85,7 @@ class TestBasic:
         )
         lines = np.array([[0, 2, 4, 6, 8, 10, 12], [1, 3, 5, 7, 9, 11, 13]])
 
-        new_pts, new_lines, lines_kept = pp.constrain_geometry.lines_by_polygon(
+        new_pts, new_lines, lines_kept = constrain_geometry.lines_by_polygon(
             polygon, pts, lines
         )
         pts_known = np.array(
