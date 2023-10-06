@@ -3,148 +3,106 @@ import pytest
 
 from porepy.fracs import plane_fracture
 
-# Test computation of fracture centroids.
 
-
-def test_frac_3d_1():
+def test_plane_fracture_center_normal():
     # Simple plane, known center.
-    f_1 = plane_fracture.PlaneFracture(
+    fracture = plane_fracture.PlaneFracture(
         np.array([[0, 2, 2, 0], [0, 2, 2, 0], [-1, -1, 1, 1]]),
         check_convexity=False,
     )
-    c_known = np.array([1, 1, 0]).reshape((3, 1))
-    n_known = np.array([1, -1, 0]).reshape((1, 3))
-    assert np.allclose(c_known, f_1.center)
-    assert np.allclose(np.cross(n_known, f_1.normal.T), 0)
+    center_known = np.array([1, 1, 0]).reshape((3, 1))
+    normal_known = np.array([1, -1, 0]).reshape((1, 3))
+    assert np.allclose(center_known, fracture.center)
+    assert np.allclose(np.cross(normal_known, fracture.normal.T), 0)
 
 
-def test_frac_3d_2():
-    # Center away from xy-plane
-    f_1 = plane_fracture.PlaneFracture(
-        np.array([[0, 2, 2, 0], [0, 2, 2, 0], [0, 0, 1, 1]]), check_convexity=False
-    )
-    c_known = np.array([1, 1, 0.5]).reshape((3, 1))
-    assert np.allclose(c_known, f_1.center)
+@pytest.mark.parametrize(
+    "points__center_known",
+    [
+        # Center away from xy-plane
+        ([[0, 2, 2, 0], [0, 2, 2, 0], [0, 0, 1, 1]], [1, 1, 0.5]),
+        # Fracture plane defined by x + y + z = 1
+        ([[0, 1, 1, 0], [0, 0, 1, 1], [1, 0, -1, 0]], [0.5, 0.5, 0]),
+        # Fracture plane defined by x + y + z = 4
+        ([[0, 1, 1, 0], [0, 0, 1, 1], [4, 3, 2, 3]], [0.5, 0.5, 3]),
+    ],
+)
+def test_plane_fracture_center(points__center_known):
+    points = np.array(points__center_known[0])
+    center_known = np.array(points__center_known[1]).reshape((3, 1))
+    fracture = plane_fracture.PlaneFracture(points, check_convexity=False)
+    assert np.allclose(center_known, fracture.center)
 
 
-def test_frac_3d_3():
-    # Fracture plane defined by x + y + z = 1
-    f_1 = plane_fracture.PlaneFracture(
-        np.array([[0, 1, 1, 0], [0, 0, 1, 1], [1, 0, -1, 0]]), check_convexity=False
-    )
-    c_known = np.array([0.5, 0.5, 0]).reshape((3, 1))
-    assert np.allclose(c_known, f_1.center)
-
-
-def test_frac_3d_4():
-    # Fracture plane defined by x + y + z = 4
-    f_1 = plane_fracture.PlaneFracture(
-        np.array([[0, 1, 1, 0], [0, 0, 1, 1], [4, 3, 2, 3]]), check_convexity=False
-    )
-    c_known = np.array([0.5, 0.5, 3]).reshape((3, 1))
-    assert np.allclose(c_known, f_1.center)
-
-
-def test_frac_3d_rand():
+def test_plane_fracture_center_normal_random():
     # Random normal vector.
-    r = np.random.rand(4)
+    random = np.random.rand(4)
     x = np.array([0, 1, 1, 0])
     y = np.array([0, 0, 1, 1])
-    z = (r[0] - r[1] * x - r[2] * y) / r[3]
-    f = plane_fracture.PlaneFracture(np.vstack((x, y, z)), check_convexity=False)
-    z_cc = (r[0] - 0.5 * r[1] - 0.5 * r[2]) / r[3]
-    c_known = np.array([0.5, 0.5, z_cc]).reshape((3, 1))
-    assert np.allclose(c_known, f.center)
+    z = (random[0] - random[1] * x - random[2] * y) / random[3]
+    fracture = plane_fracture.PlaneFracture(np.vstack((x, y, z)), check_convexity=False)
+    z_center = (random[0] - 0.5 * random[1] - 0.5 * random[2]) / random[3]
+    center_known = np.array([0.5, 0.5, z_center]).reshape((3, 1))
+    assert np.allclose(center_known, fracture.center)
 
 
-# Test index attribute of Fracture. The attribute may need to change later, these tests
-# should ensure that we don't rush it.
-
-
-def make_plane_fracture(index: int | None):
+@pytest.mark.parametrize(
+    "indices_expected",
+    [
+        # Equal
+        (1, 1, True),
+        # Unequal
+        (1, 4, False),
+        # One fracture has no index set. Should not be equal
+        (1, None, False),
+    ],
+)
+def test_fracture_index(indices_expected):
+    """Test index attribute of Fracture. The attribute may need to change later, these
+    tests should ensure that we don't rush it."""
+    i0, i1, expected = indices_expected
     array = np.array([[0, 1, 0], [0, 0, 0], [0, 0, 1]])
-    return plane_fracture.PlaneFracture(array, index=index, check_convexity=False)
-
-
-def test_equal_index():
-    f1 = make_plane_fracture(index=1)
-    f2 = make_plane_fracture(index=1)
-    assert f1 == f2
-
-
-def test_unequal_index():
-    f1 = make_plane_fracture(index=1)
-    f2 = make_plane_fracture(index=4)
-    assert f1 != f2
-
-
-def test_no_index():
-    # One fracture has no index set. Should not be equal
-    f1 = make_plane_fracture(index=1)
-    f2 = make_plane_fracture(index=None)
-    assert f1 != f2
-
-
-# Testing is_vertex method.
+    f1 = plane_fracture.PlaneFracture(array, index=i0, check_convexity=False)
+    f2 = plane_fracture.PlaneFracture(array, index=i1, check_convexity=False)
+    assert (f1 == f2) is expected
 
 
 @pytest.fixture
-def frac():
+def frac() -> plane_fracture.PlaneFracture:
     return plane_fracture.PlaneFracture(
         np.array([[0, 1, 1, 0], [0, 0, 1, 1], [0, 0, 0, 0]]), check_convexity=False
     )
 
 
-def test_not_vertex(frac):
-    p = np.array([0.5, 0.5, 0])
-    is_vert, ind = frac.is_vertex(p)
-    assert not is_vert
-    assert ind is None
+@pytest.mark.parametrize(
+    "point_expected_tol",
+    [
+        #  Not vertex
+        ([0.5, 0.5, 0], False, 1e-4),
+        # Vertex
+        ([0, 0, 0.0], True, 1e-4),
+        # Borderline, is a vertex depending on the tolerance.
+        ([1e-4, 0, 0], False, 1e-5),
+        ([1e-4, 0, 0], True, 1e-3),
+    ],
+)
+def test_fracture_is_vertex(frac: plane_fracture.PlaneFracture, point_expected_tol):
+    """Testing is_vertex method."""
+    point = np.array(point_expected_tol[0])
+    expected_is_vertex = point_expected_tol[1]
+    tol = point_expected_tol[2]
+    is_vert, ind = frac.is_vertex(point, tol=tol)
+    assert is_vert == expected_is_vertex
+    assert (ind == 0) if expected_is_vertex else (ind is None)
 
 
-def test_is_vertex(frac):
-    p = np.array([0.0, 0.0, 0])
-    is_vert, ind = frac.is_vertex(p)
-    assert is_vert
-    assert ind == 0
-
-
-def test_tolerance_sensitivity(frac):
-    # Borderline, is a vertex depending on the tolerance
-    p = np.array([1e-4, 0, 0])
-    is_vert, ind = frac.is_vertex(p, tol=1e-5)
-    assert not is_vert
-    assert ind is None
-
-    is_vert, ind = frac.is_vertex(p, tol=1e-3)
-    assert is_vert
-    assert ind == 0
-
-
-# Testing copy method.
-
-
-def test_copy(frac):
+def test_fracture_copy(frac: plane_fracture.PlaneFracture):
+    """Testing copy method. Should make a deep copy."""
     f2 = frac.copy()
     assert id(frac) != id(f2)
-
-
-def test_deep_copy(frac):
-    f2 = frac.copy()
 
     # Points should be identical
     assert np.allclose(frac.pts, f2.pts)
 
     f2.pts[0, 0] = 7
     assert not np.allclose(frac.pts, f2.pts)
-
-
-# Testing __repr__ and __str__
-
-
-def test_str(frac):
-    frac.__str__()
-
-
-def test_repr(frac):
-    frac.__repr__()

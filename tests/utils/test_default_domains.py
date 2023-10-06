@@ -3,52 +3,45 @@ import porepy as pp
 import pytest
 
 
-class TestDomain:
-    def check_key_value(self, domain, keys, values):
-        tol = 1e-12
-        for dim, key in enumerate(keys):
-            if key in domain:
-                assert abs(domain.pop(key) - values[dim]) < tol
-            else:
-                assert False  # Did not find correct key
+def check_key_value(domain, keys, values):
+    tol = 1e-12
+    for dim, key in enumerate(keys):
+        if key in domain:
+            assert abs(domain.pop(key) - values[dim]) < tol
+        else:
+            assert False  # Did not find correct key
+    assert len(domain) == 0, "Domain should be empty now."
 
-    def test_unit_cube(self):
-        domain = pp.UnitCubeDomain()
+
+@pytest.mark.parametrize(
+    "physdims_domain",
+    [
+        # Unit cube
+        ([1, 1, 1], pp.UnitCubeDomain()),
+        # Unit square
+        ([1, 1], pp.UnitSquareDomain()),
+        # Cube
+        ([3.14, 1, 5], pp.CubeDomain([3.14, 1, 5])),
+        # Square
+        ([2.71, 1e5], pp.SquareDomain([2.71, 1e5])),
+    ],
+)
+def test_default_domains(physdims_domain):
+    physdims = physdims_domain[0]
+    domain = physdims_domain[1]
+    if len(physdims) == 3:
         keys = ["xmin", "ymin", "zmin", "xmax", "ymax", "zmax"]
-        values = [0, 0, 0, 1, 1, 1]
-        self.check_key_value(domain, keys, values)
-        if len(domain) != 0:
-            assert False  # Domain should be empty now
-
-    def test_unit_square(self):
-        domain = pp.UnitSquareDomain()
+        values = [0, 0, 0]
+    else:
         keys = ["xmin", "ymin", "xmax", "ymax"]
-        values = [0, 0, 1, 1]
-        self.check_key_value(domain, keys, values)
-        if len(domain) != 0:
-            assert False  # Domain should be empty now
+        values = [0, 0]
 
-    def test_cube(self):
-        physdims = [3.14, 1, 5]
-        domain = pp.CubeDomain(physdims)
-        keys = ["xmin", "ymin", "zmin", "xmax", "ymax", "zmax"]
-        values = [0, 0, 0] + physdims
+    values += physdims
 
-        self.check_key_value(domain, keys, values)
-        if len(domain) != 0:
-            assert False  # Domain should be empty now
+    check_key_value(domain, keys, values)
 
-    def test_squre(self):
-        physdims = [2.71, 1e5]
-        domain = pp.SquareDomain(physdims)
-        keys = ["xmin", "ymin", "xmax", "ymax"]
-        values = [0, 0] + physdims
 
-        self.check_key_value(domain, keys, values)
-        if len(domain) != 0:
-            assert False  # Domain should be empty now
-
-    def test_negative_domain(self):
-        physdims = [1, -1]
-        with pytest.raises(ValueError):
-            pp.SquareDomain(physdims)
+def test_negative_domain():
+    physdims = [1, -1]
+    with pytest.raises(ValueError):
+        _ = pp.SquareDomain(physdims)
