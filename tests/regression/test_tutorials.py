@@ -13,11 +13,15 @@ def test_run_tutorials(tutorial_path: str):
     This assumes we run pytest from the porepy directory.
 
     """
-    new_file = tutorial_path[:-6] + ".py"
+    new_file = tutorial_path.removesuffix(".ipynb") + ".py"
 
     # This command might fail in github actions.
-    cmd_convert = "jupyter nbconvert --to script " + tutorial_path
-    os.system(cmd_convert)
+    cmd_convert = "jupyter-nbconvert --to script " + tutorial_path
+    status = os.system(cmd_convert)
+    if status != 0:
+        raise RuntimeError(
+            ".ipynb file is not converted to .py file. Is jupyter-nbconvert available?"
+        )
     edit_imports(new_file)
 
     cmd_run = "python " + str(new_file)
