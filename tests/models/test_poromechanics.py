@@ -14,14 +14,8 @@ import numpy as np
 import pytest
 
 import porepy as pp
-
-from .setup_utils import (
-    BoundaryConditionsMassDirNorthSouth,
-    Poromechanics,
-    TimeDependentMechanicalBCsDirNorthSouth,
-    compare_scaled_model_quantities,
-    compare_scaled_primary_variables,
-)
+import porepy.applications.md_grids.model_geometries
+from porepy.applications.test_utils import models, well_models
 
 
 class NonzeroFractureGapPoromechanics:
@@ -153,9 +147,9 @@ class NonzeroFractureGapPoromechanics:
 
 class TailoredPoromechanics(
     NonzeroFractureGapPoromechanics,
-    TimeDependentMechanicalBCsDirNorthSouth,
-    BoundaryConditionsMassDirNorthSouth,
-    Poromechanics,
+    pp.model_boundary_conditions.TimeDependentMechanicalBCsDirNorthSouth,
+    pp.model_boundary_conditions.BoundaryConditionsMassDirNorthSouth,
+    models.Poromechanics,
 ):
     pass
 
@@ -198,7 +192,7 @@ def get_variables(
     """Utility function to extract variables from a setup.
 
     Parameters:
-        setup (TailoredPoromechanics): A setup for a fractured domain.
+        setup: A setup for a fractured domain.
 
     Returns:
         Tuple containing the following variables:
@@ -511,10 +505,37 @@ def test_unit_conversion(units):
         setup_1.interface_displacement_variable,
     ]
     variable_units = ["Pa", "Pa * m^2 * s^-1", "m", "m"]
-    compare_scaled_primary_variables(setup_0, setup_1, variables, variable_units)
+    models.compare_scaled_primary_variables(setup_0, setup_1, variables, variable_units)
     flux_names = ["darcy_flux", "fluid_flux", "stress", "fracture_stress"]
     flux_units = ["Pa * m^2 * s^-1", "kg * m^-1 * s^-1", "Pa * m", "Pa"]
     domain_dimensions = [None, None, 2, 1]
-    compare_scaled_model_quantities(
+    models.compare_scaled_model_quantities(
         setup_0, setup_1, flux_names, flux_units, domain_dimensions
     )
+
+
+class PoromechanicsWell(
+    well_models.OneVerticalWell,
+    porepy.applications.md_grids.model_geometries.OrthogonalFractures3d,
+    well_models.BoundaryConditionsWellSetup,
+    pp.poromechanics.Poromechanics,
+):
+    def meshing_arguments(self) -> dict:
+        # Length scale:
+        ls = self.solid.convert_units(1, "m")
+        h = 0.5 * ls
+        mesh_sizes = {
+            "cell_size": h,
+        }
+        return mesh_sizes
+
+
+def test_poromechanics():
+    """Test that the poromechanics model runs without errors."""
+    # These parameters hopefully yield a relatively easy problem
+    params = {
+        "fracture_indices": [2],
+        "well_flux": -1e-2,
+    }
+    setup = PoromechanicsWell(params)
+    pp.run_time_dependent_model(setup, {})

@@ -4,7 +4,7 @@ We provide two tests:
 
     (1) `test_tested_vs_testable_methods_single_phase_flow`: This test checks that
       all the testable methods (see docstring of
-      `setup_utils.get_model_methods_returning_ad_operator()` to see what constitutes
+      `models.get_model_methods_returning_ad_operator()` to see what constitutes
       a testable method) of the single-phase flow model are included in the
       parametrization of `test_ad_operator_methods_single_phase_flow`, and
 
@@ -14,6 +14,8 @@ We provide two tests:
 """
 
 from __future__ import annotations
+
+import copy
 
 from typing import Callable
 
@@ -25,8 +27,8 @@ import porepy as pp
 from porepy.applications.md_grids.model_geometries import (
     SquareDomainOrthogonalFractures,
 )
+from porepy.applications.test_utils import models, well_models
 from porepy.models.fluid_mass_balance import SinglePhaseFlow
-from tests.integration.models import setup_utils
 
 
 @pytest.fixture(scope="function")
@@ -58,8 +60,8 @@ def model_setup():
         """Single phase flow model in a domain with two intersecting fractures."""
 
     # Material constants
-    solid = pp.SolidConstants(setup_utils.granite_values)
-    fluid = pp.FluidConstants(setup_utils.water_values)
+    solid = pp.SolidConstants(models.granite_values)
+    fluid = pp.FluidConstants(models.water_values)
 
     # Declare model parameters
     params = {
@@ -127,7 +129,7 @@ def all_testable_methods(model_setup) -> list[str]:
         List of all possible testable methods for the model.
 
     """
-    return setup_utils.get_model_methods_returning_ad_operator(model_setup)
+    return models.get_model_methods_returning_ad_operator(model_setup)
 
 
 def test_tested_vs_testable_methods_single_phase_flow(
@@ -373,7 +375,7 @@ def test_ad_operator_methods_single_phase_flow(
     method: Callable = getattr(model_setup, method_name)
 
     # Obtain list of subdomain or interface grids where the method is defined.
-    domains = setup_utils.subdomains_or_interfaces_from_method_name(
+    domains = models.subdomains_or_interfaces_from_method_name(
         model_setup.mdg,
         method,
         dimension_restriction,
@@ -392,3 +394,121 @@ def test_ad_operator_methods_single_phase_flow(
 
     # Compare the actual and expected values.
     assert np.allclose(val, expected_value, rtol=1e-8, atol=1e-15)
+
+
+@pytest.mark.parametrize(
+    "units",
+    [
+        {"m": 2, "kg": 3, "s": 1, "K": 1},
+    ],
+)
+def test_unit_conversion(units):
+    """Test that solution is independent of units.
+
+    Parameters:
+        units (dict): Dictionary with keys as those in
+            :class:`~pp.models.material_constants.MaterialConstants`.
+
+    """
+
+    class Model(SquareDomainOrthogonalFractures, SinglePhaseFlow):
+        """Single phase flow model in a domain with two intersecting fractures."""
+
+    params = {
+        "suppress_export": True,  # Suppress output for tests
+        "fracture_indices": [0, 1],
+        "cartesian": True,
+    }
+    reference_params = copy.deepcopy(params)
+    reference_params["file_name"] = "unit_conversion_reference"
+
+    # Create model and run simulation
+    setup_0 = Model(reference_params)
+    pp.run_time_dependent_model(setup_0, reference_params)
+
+    params["units"] = pp.Units(**units)
+    setup_1 = Model(params)
+
+    pp.run_time_dependent_model(setup_1, params)
+    variables = [setup_1.pressure_variable, setup_1.interface_darcy_flux_variable]
+    variable_units = ["Pa", "Pa * m^2 * s^-1"]
+    models.compare_scaled_primary_variables(setup_0, setup_1, variables, variable_units)
+    flux_names = ["darcy_flux", "fluid_flux"]
+    flux_units = ["Pa * m^2 * s^-1", "kg * m^-1 * s^-1"]
+    # No domain restrictions.
+    domain_dimensions = [None, None]
+    models.compare_scaled_model_quantities(
+        setup_0, setup_1, flux_names, flux_units, domain_dimensions
+    )
+
+
+class WellModel(
+    well_models.OneVerticalWell,
+    models.OrthogonalFractures3d,
+    well_models.BoundaryConditionsWellSetup,
+    well_models.WellPermeability,
+    pp.fluid_mass_balance.SinglePhaseFlow,
+):
+    pass
+
+
+def test_well_incompressible_pressure_values():
+    """One central vertical well, one horizontal fracture.
+
+    The well is placed such that the pressure at the fracture is log distributed, up to
+    the effect of the low-permeable matrix.
+
+    """
+    params = {
+        # Set impermeable matrix
+        "material_constants": {
+            "solid": pp.SolidConstants({"permeability": 1e-6 / 4, "well_radius": 0.01})
+        },
+        # Use only the horizontal fracture of OrthogonalFractures3d
+        "fracture_indices": [2],
+    }
+
+    setup = WellModel(params)
+    pp.run_time_dependent_model(setup, params)
+    # Check that the matrix pressure is close to linear in z
+    matrix = setup.mdg.subdomains(dim=3)[0]
+    matrix_pressure = setup.pressure([matrix]).evaluate(setup.equation_system).val
+    dist = np.absolute(matrix.cell_centers[2, :] - 0.5)
+    p_range = np.max(matrix_pressure) - np.min(matrix_pressure)
+    expected_p = p_range * (0.5 - dist) / 0.5
+    diff = expected_p - matrix_pressure
+    # This is a very loose tolerance, but the pressure is not exactly linear due to the
+    # the fracture pressure distribution and grid effects.
+    assert np.max(np.abs(diff / p_range)) < 1e-1
+    # With a matrix permeability of 1/4e-6, the pressure drop for a unit flow rate is
+    # (1/2**2) / 1/4e-6 = 1e6: 1/2 for splitting flow in two directions (top and
+    # bottom), and 1/2 for the distance from the fracture to the boundary.
+    assert np.isclose(np.max(matrix_pressure), 1e6, rtol=1e-1)
+    # In the fracture, check that the pressure is log distributed
+    fracs = setup.mdg.subdomains(dim=2)
+    fracture_pressure = setup.pressure(fracs).evaluate(setup.equation_system).val
+    sd = fracs[0]
+    injection_cell = sd.closest_cell(np.atleast_2d([0.5, 0.5, 0.5]).T)
+    # Check that the injection cell is the one with the highest pressure
+    assert np.argmax(fracture_pressure) == injection_cell
+    pt = sd.cell_centers[:, injection_cell]
+    dist = pp.distances.point_pointset(pt, sd.cell_centers)
+    min_p = 1e6
+    scale_dist = np.exp(-np.max(dist))
+    perm = 1e-3
+    expected_p = min_p + 1 / (4 * np.pi * perm) * np.log(dist / scale_dist)
+    assert np.isclose(np.min(fracture_pressure), min_p, rtol=1e-2)
+    wells = setup.mdg.subdomains(dim=0)
+    well_pressure = setup.pressure(wells).evaluate(setup.equation_system).val
+
+    # Check that the pressure drop from the well to the fracture is as expected The
+    # Peacmann well model is: u = 2 * pi * k * h * (p_fracture - p_well) / ( ln(r_e /
+    # r_well) + S) We assume r_e = 0.20 * meas(injection_cell). h is the aperture, and
+    # the well radius is 0.01 and skin factor 0. With a permeability of 0.1^2/12
+    # and unit flow rate, the pressure drop is p_fracture - p_well = 1 / (2 * pi * 1e-3
+    # * 0.1) * ln(0.2 / 0.1)
+    k = 1e-2 / 12
+    r_e = np.sqrt(sd.cell_volumes[injection_cell]) * 0.2
+    dp_expected = 1 / (2 * np.pi * k * 0.1) * np.log(r_e / 0.01)
+    dp = well_pressure[0] - fracture_pressure[injection_cell]
+    assert np.isclose(dp, dp_expected, rtol=1e-4)
