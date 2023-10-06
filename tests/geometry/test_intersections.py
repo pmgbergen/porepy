@@ -1124,8 +1124,8 @@ class TestIntersectionPolygonsEmbeddedIn3d:
         assert compare_arrays(np.sort(isect_pt[0]), [0, 1])
         assert compare_arrays(np.sort(isect_pt[1]), [0, 1])
         assert on_bound.size == 2
-        assert np.all(on_bound[0]) == False
-        assert np.all(on_bound[1]) == False
+        assert np.all(on_bound[0]) is False
+        assert np.all(on_bound[1]) is False
 
         known_points = np.array([[0, 0, -0.7], [0, 0, 0.8]]).T
         assert compare_arrays(new_pt, known_points)
@@ -1152,9 +1152,9 @@ class TestIntersectionPolygonsEmbeddedIn3d:
         assert len(isect_pt[1]) == 4
         assert len(isect_pt[2]) == 4
         assert on_bound.size == 3
-        assert np.all(on_bound[0]) == False
-        assert np.all(on_bound[1]) == False
-        assert np.all(on_bound[2]) == False
+        assert np.all(on_bound[0]) is False
+        assert np.all(on_bound[1]) is False
+        assert np.all(on_bound[2]) is False
 
         known_points = np.array(
             [[0, 0, -0.7], [0, 0, 0.8], [1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0]]
@@ -1198,9 +1198,9 @@ class TestIntersectionPolygonsEmbeddedIn3d:
         assert len(isect_pt[1]) == 2
         assert len(isect_pt[2]) == 2
         assert on_bound.size == 3
-        assert np.all(on_bound[0]) == False
-        assert np.all(on_bound[1]) == False
-        assert np.all(on_bound[2]) == False
+        assert np.all(on_bound[0]) is False
+        assert np.all(on_bound[1]) is False
+        assert np.all(on_bound[2]) is False
 
         known_points = np.array(
             [[0, 0, -0.7], [0, 0, 0.8], [0.5, 0.0, -0.7], [0.5, 0.0, 0.8]]
@@ -1244,9 +1244,9 @@ class TestIntersectionPolygonsEmbeddedIn3d:
         assert len(isect_pt[1]) == 4
         assert len(isect_pt[2]) == 4
         assert on_bound.size == 3
-        assert np.all(on_bound[0]) == False
-        assert np.all(on_bound[1]) == False
-        assert np.all(on_bound[2]) == False
+        assert np.all(on_bound[0]) is False
+        assert np.all(on_bound[1]) is False
+        assert np.all(on_bound[2]) is False
 
         known_points = np.array(
             [
@@ -1302,9 +1302,9 @@ class TestIntersectionPolygonsEmbeddedIn3d:
         assert len(isect_pt[1]) == 4
         assert len(isect_pt[2]) == 4
         assert on_bound.size == 3
-        assert np.all(on_bound[0]) == False
-        assert np.all(on_bound[1]) == False
-        assert np.all(on_bound[2]) == False
+        assert np.all(on_bound[0]) is False
+        assert np.all(on_bound[1]) is False
+        assert np.all(on_bound[2]) is False
 
         known_points = np.array(
             [
@@ -1355,8 +1355,8 @@ class TestIntersectionPolygonsEmbeddedIn3d:
         assert len(isect_pt[0]) == 2
         assert len(isect_pt[1]) == 2
         assert on_bound.size == 2
-        assert np.all(on_bound[0]) == False
-        assert np.all(on_bound[1]) == False
+        assert np.all(on_bound[0]) is False
+        assert np.all(on_bound[1]) is False
 
         known_points = np.array([[0, -1, -1], [0, 1, 1]]).T
         assert compare_arrays(new_pt, known_points)
@@ -1382,8 +1382,8 @@ class TestIntersectionPolygonsEmbeddedIn3d:
         assert len(isect_pt[0]) == 2
         assert len(isect_pt[1]) == 2
         assert on_bound.size == 2
-        assert np.all(on_bound[0]) == False
-        assert np.all(on_bound[1]) == False
+        assert np.all(on_bound[0]) is False
+        assert np.all(on_bound[1]) is False
 
         known_points = np.array([[0, -1, -1], [0, 1, 1]]).T
         assert compare_arrays(new_pt, known_points)
@@ -1408,8 +1408,8 @@ class TestIntersectionPolygonsEmbeddedIn3d:
         assert len(isect_pt[0]) == 2
         assert len(isect_pt[1]) == 2
         assert on_bound.size == 2
-        assert np.all(on_bound[0]) == False
-        assert np.all(on_bound[1]) == False
+        assert np.all(on_bound[0]) is False
+        assert np.all(on_bound[1]) is False
 
         known_points = np.array([[0, -1, -1], [0, 1, 1]]).T
         assert compare_arrays(new_pt, known_points)
@@ -1435,8 +1435,8 @@ class TestIntersectionPolygonsEmbeddedIn3d:
         assert len(isect_pt[0]) == 2
         assert len(isect_pt[1]) == 2
         assert on_bound.size == 2
-        assert np.all(on_bound[0]) == False
-        assert np.all(on_bound[1]) == False
+        assert np.all(on_bound[0]) is False
+        assert np.all(on_bound[1]) is False
 
         known_points = np.array([[0, -1, -1], [0, 1, 1]]).T
         assert compare_arrays(new_pt, known_points)
@@ -1688,11 +1688,11 @@ class TestIntersectionPolygonsEmbeddedIn3d:
         known_points = np.array([[0.5, 0.0, 0], [0.5, 1.0, 0]]).T
         assert compare_arrays(new_pt, known_points)
 
-        assert (seg_vert[1][0], (0, True))
-        assert (seg_vert[1][1], (2, True))
+        assert seg_vert[1][0], (0, True)
+        assert seg_vert[1][1], (2, True)
 
-        assert (seg_vert[0][0], (1, False))
-        assert (seg_vert[0][1], (1, True))
+        assert seg_vert[0][0], (1, False)
+        assert seg_vert[0][1], (1, True)
 
     def test_T_intersection_both_on_boundary(self):
         """
@@ -2012,3 +2012,534 @@ class TestIntersectionPolygonsEmbeddedIn3d:
         # Intersection on f_2 is on the first vertex
         assert seg_vert2[1][0][0] == 0
         assert not (seg_vert2[1][0][0])
+
+
+class TestPolygonPolyhedronIntersection:
+    def setUp(self):
+        west = np.array([[0, 0, 0, 0], [0, 1, 1, 0], [0, 0, 1, 1]])
+        east = np.array([[1, 1, 1, 1], [0, 1, 1, 0], [0, 0, 1, 1]])
+        south = np.array([[0, 1, 1, 0], [0, 0, 0, 0], [0, 0, 1, 1]])
+        north = np.array([[0, 1, 1, 0], [1, 1, 1, 1], [0, 0, 1, 1]])
+        bottom = np.array([[0, 1, 1, 0], [0, 0, 1, 1], [0, 0, 0, 0]])
+        top = np.array([[0, 1, 1, 0], [0, 0, 1, 1], [1, 1, 1, 1]])
+        self.cart_polyhedron = [west, east, south, north, bottom, top]
+
+        south_w = np.array([[0, 0.5, 0.5, 0], [0, 0, 0, 0], [0, 0.5, 1, 1]])
+        south_e = np.array([[0.5, 1, 1, 0.5], [0, 0, 0, 0], [0.5, 0, 1, 1]])
+        north_w = np.array([[0, 0.5, 0.5, 0], [1, 1, 1, 1], [0, 0.5, 1, 1]])
+        north_e = np.array([[0.5, 1, 1, 0.5], [1, 1, 1, 1], [0.5, 0, 1, 1]])
+        bottom_w = np.array([[0, 0.5, 0.5, 0], [0, 0, 1, 1], [0, 0.5, 0.5, 0]])
+        bottom_e = np.array([[0.5, 1, 1, 0.5], [0, 0, 1, 1], [0.5, 0.0, 0, 0.5]])
+        top_w = np.array([[0, 0.5, 0.5, 0], [0, 0, 1, 1], [1, 1, 1, 1]])
+        top_e = np.array([[0.5, 1, 1, 0.5], [0, 0, 1, 1], [1, 1, 1, 1]])
+        self.non_convex_polyhedron = [
+            west,
+            east,
+            south_w,
+            south_e,
+            north_w,
+            north_e,
+            bottom_w,
+            bottom_e,
+            top_w,
+            top_e,
+        ]
+
+        west_bottom = np.array([[0, 0, 0], [0, 0, 1], [0, 1, 0]])
+        west_top = np.array([[0, 0, 0], [0, 1, 1], [1, 0, 1]])
+        east = np.array([[1, 1, 1, 1], [0, 1, 1, 0], [0, 0, 1, 1]])
+        south = np.array([[0, 1, 1, 0], [0, 0, 0, 0], [0, 0, 1, 1]])
+        north = np.array([[0, 1, 1, 0], [1, 1, 1, 1], [0, 0, 1, 1]])
+        bottom = np.array([[0, 1, 1, 0], [0, 0, 1, 1], [0, 0, 0, 0]])
+        top = np.array([[0, 1, 1, 0], [0, 0, 1, 1], [1, 1, 1, 1]])
+        self.cart_polyhedron_hanging_node = [
+            west_bottom,
+            west_top,
+            east,
+            south,
+            north,
+            bottom,
+            top,
+        ]
+
+    def test_poly_inside_no_intersections(self):
+        self.setUp()
+        poly = np.array(
+            [[0.2, 0.8, 0.8, 0.2], [0.5, 0.5, 0.5, 0.5], [0.2, 0.2, 0.8, 0.8]]
+        )
+
+        constrained_poly, inds = pp.constrain_geometry.polygons_by_polyhedron(
+            poly, self.cart_polyhedron
+        )
+        assert len(constrained_poly) == 1
+        assert np.allclose(constrained_poly[0], poly)
+
+    def test_poly_outside_no_intersections(self):
+        self.setUp()
+        poly = np.array(
+            [[1.2, 1.8, 1.8, 1.2], [0.5, 0.5, 0.5, 0.5], [0.2, 0.2, 0.8, 0.8]]
+        )
+
+        constrained_poly, inds = pp.constrain_geometry.polygons_by_polyhedron(
+            poly, self.cart_polyhedron
+        )
+        assert len(constrained_poly) == 0
+
+    def test_poly_intersects_all_sides(self):
+        # Polygon extends outside on all sides
+        self.setUp()
+        poly = np.array(
+            [[-0.2, 1.8, 1.8, -0.2], [0.5, 0.5, 0.5, 0.5], [-0.2, -0.2, 1.8, 1.8]]
+        )
+
+        constrained_poly, inds = pp.constrain_geometry.polygons_by_polyhedron(
+            poly, self.cart_polyhedron
+        )
+
+        known_constrained_poly = np.array(
+            [[0, 1, 0, 1], [0.5, 0.5, 0.5, 0.5], [0, 0, 1, 1]]
+        )
+
+        assert len(constrained_poly) == 1
+        assert compare_arrays(constrained_poly[0], known_constrained_poly)
+
+    def test_poly_intersects_one_side(self):
+        self.setUp()
+        # Polygon extends outside on all sides, except x=0
+        poly = np.array(
+            [[0.2, 1.8, 1.8, 0.2], [0.5, 0.5, 0.5, 0.5], [-0.2, -0.2, 1.8, 1.8]]
+        )
+
+        constrained_poly, inds = pp.constrain_geometry.polygons_by_polyhedron(
+            poly, self.cart_polyhedron
+        )
+
+        known_constrained_poly = np.array(
+            [[0.2, 1, 1, 0.2], [0.5, 0.5, 0.5, 0.5], [0, 0, 1, 1]]
+        )
+
+        assert len(constrained_poly) == 1
+        assert compare_arrays(constrained_poly[0], known_constrained_poly)
+
+    def test_poly_intersects_two_sides(self):
+        self.setUp()
+        # Polygon extends outside on x-planes, but not on z
+        poly = np.array(
+            [[-0.2, 1.8, 1.8, -0.2], [0.5, 0.5, 0.5, 0.5], [0.2, 0.2, 0.8, 0.8]]
+        )
+
+        constrained_poly, inds = pp.constrain_geometry.polygons_by_polyhedron(
+            poly, self.cart_polyhedron
+        )
+
+        known_constrained_poly = np.array(
+            [[0.0, 1, 1, 0.0], [0.5, 0.5, 0.5, 0.5], [0.2, 0.2, 0.8, 0.8]]
+        )
+
+        assert len(constrained_poly) == 1
+        assert compare_arrays(constrained_poly[0], known_constrained_poly)
+
+    def test_two_poly_one_intersects(self):
+        # Combination of two sides
+        self.setUp()
+        poly_1 = np.array(
+            [[-0.2, 1.8, 1.8, -0.2], [0.5, 0.5, 0.5, 0.5], [-0.2, -0.2, 1.8, 1.8]]
+        )
+        poly_2 = np.array(
+            [[0.2, 0.8, 0.8, 0.2], [0.5, 0.5, 0.5, 0.5], [0.2, 0.2, 0.8, 0.8]]
+        )
+
+        constrained_poly, inds = pp.constrain_geometry.polygons_by_polyhedron(
+            [poly_1, poly_2], self.cart_polyhedron
+        )
+
+        known_constrained_poly_1 = np.array(
+            [[0, 1, 0, 1], [0.5, 0.5, 0.5, 0.5], [0, 0, 1, 1]]
+        )
+
+        assert len(constrained_poly) == 2
+        assert compare_arrays(constrained_poly[0], known_constrained_poly_1)
+        assert compare_arrays(constrained_poly[1], poly_2)
+        assert np.allclose(inds, np.arange(2))
+
+    def test_intersection_on_segment_and_vertex(self):
+        # Polygon has one vertex at the polyhedron boundary.
+        # Permute the vertexes of the boundary - this used to be an issue.
+        self.setUp()
+
+        poly = np.array([[0.5, 1.5, 1.5], [0.5, 0.5, 0.5], [1.0, 0.5, 1.5]])
+        poly_2 = np.array([[1.5, 1.5, 0.5], [0.5, 0.5, 0.5], [1.5, 0.5, 1.0]])
+        constrained_poly, inds = pp.constrain_geometry.polygons_by_polyhedron(
+            [poly], self.cart_polyhedron
+        )
+        constrained_poly_2, inds = pp.constrain_geometry.polygons_by_polyhedron(
+            [poly_2], self.cart_polyhedron
+        )
+
+        known_constrained_poly = np.array([[0.5, 1, 1], [0.5, 0.5, 0.5], [1, 0.75, 1]])
+        assert compare_arrays(constrained_poly[0], known_constrained_poly)
+        assert compare_arrays(constrained_poly_2[0], known_constrained_poly)
+        assert np.allclose(inds, np.arange(1))
+
+    def test_one_poly_non_convex_domain(self):
+        # Polygon is intersected by polyhedron, cut, but still in one piece.
+        self.setUp()
+        poly = np.array([[-1, 2, 2, -1], [0.5, 0.5, 0.5, 0.5], [-1, -1, 2, 2]])
+
+        known_constrained_poly = np.array(
+            [[0, 1, 1, 0, 0.5], [0.5, 0.5, 0.5, 0.5, 0.5], [0, 0, 1, 1, 0.5]]
+        )
+        constrained_poly, inds = pp.constrain_geometry.polygons_by_polyhedron(
+            poly, self.non_convex_polyhedron
+        )
+        assert len(constrained_poly) == 1
+        assert compare_arrays(constrained_poly[0], known_constrained_poly)
+        assert inds[0] == 0
+
+    def test_poly_split_by_non_convex_domain(self):
+        self.setUp()
+        # Polygon is split into two pieces. No internal vertexes.
+        poly = np.array([[-1, 2, 2, -1], [0.5, 0.5, 0.5, 0.5], [-1, -1, 0.3, 0.3]])
+
+        known_constrained_poly_1 = np.array(
+            [[0, 0.3, 0], [0.5, 0.5, 0.5], [0, 0.3, 0.3]]
+        )
+        known_constrained_poly_2 = np.array(
+            [[0.7, 1, 1], [0.5, 0.5, 0.5], [0.3, 0.0, 0.3]]
+        )
+
+        constrained_poly, inds = pp.constrain_geometry.polygons_by_polyhedron(
+            poly, self.non_convex_polyhedron
+        )
+
+        assert len(constrained_poly) == 2
+        assert compare_arrays(
+            constrained_poly[0], known_constrained_poly_1
+        ) or compare_arrays(constrained_poly[0], known_constrained_poly_2)
+        assert compare_arrays(
+            constrained_poly[1], known_constrained_poly_1
+        ) or compare_arrays(constrained_poly[1], known_constrained_poly_2)
+        assert np.all(inds == 0)
+
+    def test_poly_split_by_non_convex_domain_2(self):
+        # Polygon is split into two pieces. The polygon does not extend outside the
+        # bounding box of the domain, and there are segment crossing the domain bounadry
+        # twice.
+        self.setUp()
+        poly = np.array(
+            [[0.1, 0.9, 0.9, 0.1], [0.5, 0.5, 0.5, 0.5], [0.2, 0.2, 0.4, 0.4]]
+        )
+
+        known_constrained_poly_1 = np.array(
+            [[0.1, 0.2, 0.4, 0.1], [0.5, 0.5, 0.5, 0.5], [0.2, 0.2, 0.4, 0.4]]
+        )
+        known_constrained_poly_2 = np.array(
+            [[0.8, 0.9, 0.9, 0.6], [0.5, 0.5, 0.5, 0.5], [0.2, 0.2, 0.4, 0.4]]
+        )
+
+        constrained_poly, inds = pp.constrain_geometry.polygons_by_polyhedron(
+            poly, self.non_convex_polyhedron
+        )
+
+        assert len(constrained_poly) == 2
+        assert compare_arrays(
+            constrained_poly[0], known_constrained_poly_1
+        ) or compare_arrays(constrained_poly[0], known_constrained_poly_2)
+        assert compare_arrays(
+            constrained_poly[1], known_constrained_poly_1
+        ) or compare_arrays(constrained_poly[1], known_constrained_poly_2)
+        assert np.all(inds == 0)
+
+    def test_poly_split_by_non_convex_domain_3(self):
+        # Polygon is split into two pieces. The polygon partly extends outside the
+        # bounding box of the domain; there is one point on the domain boundary.
+        # and there are segment crossing the domain bounadry twice.
+        self.setUp()
+        poly = np.array(
+            [[-0.1, 0.9, 0.9, 0.1], [0.5, 0.5, 0.5, 0.5], [0.2, 0.2, 0.4, 0.4]]
+        )
+
+        known_constrained_poly_1 = np.array(
+            [
+                [0.0, 0.2, 0.4, 0.1, 0.0],
+                [0.5, 0.5, 0.5, 0.5, 0.5],
+                [0.2, 0.2, 0.4, 0.4, 0.3],
+            ]
+        )
+        known_constrained_poly_2 = np.array(
+            [[0.8, 0.9, 0.9, 0.6], [0.5, 0.5, 0.5, 0.5], [0.2, 0.2, 0.4, 0.4]]
+        )
+
+        constrained_poly, inds = pp.constrain_geometry.polygons_by_polyhedron(
+            poly, self.non_convex_polyhedron
+        )
+
+        assert len(constrained_poly) == 2
+        assert compare_arrays(
+            constrained_poly[0], known_constrained_poly_1
+        ) or compare_arrays(constrained_poly[0], known_constrained_poly_2)
+        assert compare_arrays(
+            constrained_poly[1], known_constrained_poly_1
+        ) or compare_arrays(constrained_poly[1], known_constrained_poly_2)
+        assert np.all(inds == 0)
+
+    def test_poly_split_by_non_convex_domain_4(self):
+        # Polygon is split into two pieces. The polygon partly extends outside the
+        # bounding box of the domain; there is one point on the domain boundary.
+        # and there are segment crossing the domain bounadry twice.
+        self.setUp()
+        poly = np.array(
+            [[-0.1, 1.1, 1.1, -0.1], [0.5, 0.5, 0.5, 0.5], [0.2, 0.2, 0.4, 0.4]]
+        )
+
+        known_constrained_poly_1 = np.array(
+            [[0.0, 0.2, 0.4, 0.0], [0.5, 0.5, 0.5, 0.5], [0.2, 0.2, 0.4, 0.4]]
+        )
+        known_constrained_poly_2 = np.array(
+            [[0.8, 1.0, 1.0, 0.6], [0.5, 0.5, 0.5, 0.5], [0.2, 0.2, 0.4, 0.4]]
+        )
+
+        constrained_poly, inds = pp.constrain_geometry.polygons_by_polyhedron(
+            poly, self.non_convex_polyhedron
+        )
+
+        assert len(constrained_poly) == 2
+        assert compare_arrays(
+            constrained_poly[0], known_constrained_poly_1
+        ) or compare_arrays(constrained_poly[0], known_constrained_poly_2)
+        assert compare_arrays(
+            constrained_poly[1], known_constrained_poly_1
+        ) or compare_arrays(constrained_poly[1], known_constrained_poly_2)
+        assert np.all(inds == 0)
+
+    def test_poly_split_by_non_convex_domain_5(self):
+        # Polygon is split into two pieces. The polygon partly extends outside the
+        # bounding box of the domain; there is one point on the domain boundary.
+        # and there are segment crossing the domain bounadry twice.
+        self.setUp()
+        poly = np.array(
+            [[0.0, 1.1, 1.1, 0.0], [0.5, 0.5, 0.5, 0.5], [0.2, 0.2, 0.4, 0.4]]
+        )
+
+        known_constrained_poly_1 = np.array(
+            [[0.0, 0.2, 0.4, 0.0], [0.5, 0.5, 0.5, 0.5], [0.2, 0.2, 0.4, 0.4]]
+        )
+        known_constrained_poly_2 = np.array(
+            [[0.8, 1.0, 1.0, 0.6], [0.5, 0.5, 0.5, 0.5], [0.2, 0.2, 0.4, 0.4]]
+        )
+
+        constrained_poly, inds = pp.constrain_geometry.polygons_by_polyhedron(
+            poly, self.non_convex_polyhedron
+        )
+
+        assert len(constrained_poly) == 2
+        assert compare_arrays(
+            constrained_poly[0], known_constrained_poly_1
+        ) or compare_arrays(constrained_poly[0], known_constrained_poly_2)
+        assert compare_arrays(
+            constrained_poly[1], known_constrained_poly_1
+        ) or compare_arrays(constrained_poly[1], known_constrained_poly_2)
+        assert np.all(inds == 0)
+
+    def test_fully_internal_segments_1(self):
+        self.setUp()
+
+        f = np.array(
+            [
+                [0.5, 0.8, 0.5, 0.2, 0.2],
+                [0.5, 0.5, 0.5, 0.5, 0.5],
+                [0.0, 0.5, 1.5, 0.5, 0.3],
+            ]
+        )
+        constrained_poly, inds = pp.constrain_geometry.polygons_by_polyhedron(
+            f, self.non_convex_polyhedron
+        )
+
+        # TODO: Fix known poitns
+        known_constrained_poly = np.array(
+            [
+                [0.5, 0.6875, 0.8, 0.65, 0.35, 0.2, 0.2, 0.25],
+                [0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5],
+                [0.5, 0.3125, 0.5, 1.0, 1.0, 0.5, 0.3, 0.25],
+            ]
+        )
+
+        assert len(constrained_poly) == 1
+        assert compare_arrays(constrained_poly[0], known_constrained_poly)
+        assert inds[0] == 0
+
+    def test_fully_internal_segments_2(self):
+        # Issue that showed up while running the function on a fracture network
+        f_1 = np.array([[-1, 2, 2, -1], [0, 0, 0, 0], [-1, -1, 1, 1]])
+        #        f_2 = np.array([[-1, -1, 2, 2], [-1, 1, 1, -1], [0, 0, 0, 0]])
+
+        polyhedron = [
+            np.array([[-2, -2, -2, -2], [-2, 2, 2, -2], [-2, -2, 2, 2]]),
+            np.array([[2, 2, 2, 2], [-2, 2, 2, -2], [-2, -2, 2, 2]]),
+            np.array([[-2, 2, 2, -2], [-2, -2, -2, -2], [-2, -2, 2, 2]]),
+            np.array([[-2, 2, 2, -2], [2, 2, 2, 2], [-2, -2, 2, 2]]),
+            np.array([[-2, 2, 2, -2], [-2, -2, 2, 2], [-2, -2, -2, -2]]),
+            np.array([[-2, 2, 2, -2], [-2, -2, 2, 2], [2, 2, 2, 2]]),
+        ]
+
+        constrained_poly, inds = pp.constrain_geometry.polygons_by_polyhedron(
+            f_1, polyhedron
+        )
+        assert compare_arrays(f_1, constrained_poly[0])
+
+    #        assert(compare_arrays(f_2, constrained_poly[1]))
+
+    def test_fully_internal_segments_3(self):
+        # Issue that showed up while running the function on a fracture network
+        f_1 = np.array([[-1, 3, 3, -1], [0, 0, 0, 0], [-1, -1, 1, 1]])
+
+        polyhedron = [
+            np.array([[-2, -2, -2, -2], [-2, 2, 2, -2], [-2, -2, 2, 2]]),
+            np.array([[2, 2, 2, 2], [-2, 2, 2, -2], [-2, -2, 2, 2]]),
+            np.array([[-2, 2, 2, -2], [-2, -2, -2, -2], [-2, -2, 2, 2]]),
+            np.array([[-2, 2, 2, -2], [2, 2, 2, 2], [-2, -2, 2, 2]]),
+            np.array([[-2, 2, 2, -2], [-2, -2, 2, 2], [-2, -2, -2, -2]]),
+            np.array([[-2, 2, 2, -2], [-2, -2, 2, 2], [2, 2, 2, 2]]),
+        ]
+
+        constrained_poly, inds = pp.constrain_geometry.polygons_by_polyhedron(
+            f_1, polyhedron
+        )
+        known_poly = np.array([[-1, 2, 2, -1], [0, 0, 0, 0], [-1, -1, 1, 1]])
+
+        assert compare_arrays(constrained_poly[0], known_poly)
+
+    def test_poly_hits_oposing_boundaries(self):
+        # Issue that showed up while running the function on a fracture network
+        f_1 = np.array([[-2, 2, 2, -2], [0, 0, 0, 0], [-1, -1, 1, 1]])
+
+        polyhedron = [
+            np.array([[-2, -2, -2, -2], [-2, 2, 2, -2], [-2, -2, 2, 2]]),
+            np.array([[2, 2, 2, 2], [-2, 2, 2, -2], [-2, -2, 2, 2]]),
+            np.array([[-2, 2, 2, -2], [-2, -2, -2, -2], [-2, -2, 2, 2]]),
+            np.array([[-2, 2, 2, -2], [2, 2, 2, 2], [-2, -2, 2, 2]]),
+            np.array([[-2, 2, 2, -2], [-2, -2, 2, 2], [-2, -2, -2, -2]]),
+            np.array([[-2, 2, 2, -2], [-2, -2, 2, 2], [2, 2, 2, 2]]),
+        ]
+
+        constrained_poly, inds = pp.constrain_geometry.polygons_by_polyhedron(
+            f_1, polyhedron
+        )
+        known_poly = f_1
+
+        assert compare_arrays(constrained_poly[0], known_poly)
+
+    def test_polyhedron_boundaries_in_same_plane_hanging_node(self):
+        # Split one of the boundary planes in two, so that the polygon will get a
+        # hanging node that must be treated
+        f_1 = np.array([[-1, 2, 2, -1], [0.5, 0.5, 0.5, 0.5], [0.2, 0.2, 0.8, 0.8]])
+
+        west_bottom = np.array([[0, 0, 0], [0, 0, 1], [0, 1, 0]])
+        west_top = np.array([[0, 0, 0], [0, 1, 1], [1, 0, 1]])
+        east = np.array([[1, 1, 1, 1], [0, 1, 1, 0], [0, 0, 1, 1]])
+        south = np.array([[0, 1, 1, 0], [0, 0, 0, 0], [0, 0, 1, 1]])
+        north = np.array([[0, 1, 1, 0], [1, 1, 1, 1], [0, 0, 1, 1]])
+        bottom = np.array([[0, 1, 1, 0], [0, 0, 1, 1], [0, 0, 0, 0]])
+        top = np.array([[0, 1, 1, 0], [0, 0, 1, 1], [1, 1, 1, 1]])
+        polyhedron = [west_bottom, west_top, east, south, north, bottom, top]
+
+        constrained_poly, inds = pp.constrain_geometry.polygons_by_polyhedron(
+            f_1, polyhedron
+        )
+        known_poly = np.array(
+            [[0, 1, 1, 0], [0.5, 0.5, 0.5, 0.5], [0.2, 0.2, 0.8, 0.8]]
+        )
+
+        assert compare_arrays(constrained_poly[0], known_poly)
+
+    def test_polyhedron_in_same_plane_overlapping_segment(self):
+        f_1 = np.array(
+            [[0.0, 0.3, 0.3, 0.0], [1.5, 1.5, 1.5, 1.5], [0.8, 0.8, 0.2, 0.2]]
+        )
+        f_1 = np.array(
+            [[0.0, 0.3, 0.3, 0.0], [1.5, 1.5, 1.5, 1.5], [0.2, 0.2, 0.8, 0.8]]
+        )
+
+        polyhedron = [
+            # The first four surfaces form a pyradim with top at (0.5, 1.5, 0.5) and
+            # base in the yz-plane with corners y=(1, 2), z=(0, 1) (then combine)
+            np.array([[0.5, 0.0, 0.0], [1.5, 1.0, 2.0], [0.5, 0.0, 0.0]]),
+            np.array([[0.5, 0.0, 0.0], [1.5, 2.0, 2.0], [0.5, 0.0, 1.0]]),
+            np.array([[0.5, 0.0, 0.0], [1.5, 2.0, 1.0], [0.5, 1.0, 1.0]]),
+            np.array([[0.5, 0.0, 0.0], [1.5, 1.0, 1.0], [0.5, 1.0, 0.0]]),
+            # The last surfaces cut the base in two
+            np.array([[0.0, 0.0, 0.0], [1.0, 2.0, 2.0], [0.0, 0.0, 1.0]]),
+            np.array([[0.0, 0.0, 0.0], [1.0, 2.0, 1.0], [0.0, 1.0, 1.0]]),
+        ]
+
+        constrained_poly, inds = pp.constrain_geometry.polygons_by_polyhedron(
+            f_1, polyhedron
+        )
+        known_poly = np.array(
+            [
+                [0.0, 0.2, 0.3, 0.3, 0.2, 0.0],
+                [1.5, 1.5, 1.5, 1.5, 1.5, 1.5],
+                [0.2, 0.2, 0.3, 0.7, 0.8, 0.8],
+            ]
+        )
+
+        assert compare_arrays(constrained_poly[0], known_poly)
+
+    def test_point_intersection_fully_inside_box(self):
+        self.setUp()
+
+        # f_1 has one intersection along a surface, point intersection in the third vertex.
+        f_1 = np.array([[0, 0, 1], [0.5, 0.5, 0.5], [0.2, 0.8, 0]])
+        # f_2 has three point intersections on different vertexes.
+        f_2 = np.array([[0, 0.5, 1], [0.5, 0.0, 0.5], [0.2, 0.8, 1]])
+
+        constrained_poly, inds = pp.constrain_geometry.polygons_by_polyhedron(
+            [f_1, f_2], self.cart_polyhedron
+        )
+
+        assert compare_arrays(constrained_poly[0], f_1)
+        assert compare_arrays(constrained_poly[1], f_2)
+
+    def test_point_intersection_fully_outside_box(self):
+        self.setUp()
+
+        # f_1 has one point intersection outside, rest is outside
+        f_1 = np.array([[-1, -1, 0], [0.5, 0.5, 0.5], [0.2, 0.8, 0]])
+
+        constrained_poly, inds = pp.constrain_geometry.polygons_by_polyhedron(
+            [f_1], self.cart_polyhedron
+        )
+
+        assert len(constrained_poly) == 0
+
+    def test_point_intersection_crossing_on_other_side(self):
+        self.setUp()
+
+        # Constrained polygon formed by point contact and two standard intersections.
+        f_1 = np.array([[-1, -1, 1], [0.5, 0.5, 0.5], [0.0, 1, 0.5]])
+
+        constrained_poly, inds = pp.constrain_geometry.polygons_by_polyhedron(
+            [f_1], self.cart_polyhedron
+        )
+
+        known_poly = np.array([[0, 1, 0], [0.5, 0.5, 0.5], [0.25, 0.5, 0.75]])
+
+        assert compare_arrays(constrained_poly[0], known_poly)
+
+    def test_point_intersection_rest_of_polygon_outside(self):
+        # This used to be a problem.
+        polyhedron = [
+            np.array([[0.1, 0.0, 0.0], [0.5, 0.4, 0.6], [0.1, 0.0, 0.0]]),
+            np.array([[0.1, 0.0, 0.0], [0.5, 0.6, 0.6], [0.1, 0.0, 0.2]]),
+            np.array([[0.1, 0.0, 0.0], [0.5, 0.6, 0.4], [0.1, 0.2, 0.2]]),
+            np.array([[0.1, 0.0, 0.0], [0.5, 0.4, 0.4], [0.1, 0.2, 0.0]]),
+            np.array([[0.0, 0.0, 0.0], [0.4, 0.6, 0.6], [0.0, 0.0, 0.2]]),
+            np.array([[0.0, 0.0, 0.0], [0.4, 0.6, 0.4], [0.0, 0.2, 0.2]]),
+        ]
+
+        poly = np.array(
+            [[0.1, 0.1, 0.1, 0.1], [0.5, 0.5, 0.9, 0.9], [0.0, 0.9, 0.9, 0.0]]
+        )
+
+        _, inds = pp.constrain_geometry.polygons_by_polyhedron([poly], polyhedron)
+        assert inds.size == 0
