@@ -116,89 +116,6 @@ class TestGridRefinement2DSimplex:
 
 
 class TestRefinementMortarGrid:
-    # def test_mortar_grid_1d(self):
-    #     f1 = np.array([[0, 1], [0.5, 0.5]])
-    #     mdg = meshing.cart_grid([f1], [2, 2], **{"physdims": [1, 1]})
-
-    #     for intf in mdg.interfaces():
-    #         high_to_mortar_known = np.matrix(
-    #             [
-    #                 [
-    #                     0.0,
-    #                     0.0,
-    #                     0.0,
-    #                     0.0,
-    #                     0.0,
-    #                     0.0,
-    #                     0.0,
-    #                     0.0,
-    #                     0.0,
-    #                     1.0,
-    #                     0.0,
-    #                     0.0,
-    #                     0.0,
-    #                     0.0,
-    #                 ],
-    #                 [
-    #                     0.0,
-    #                     0.0,
-    #                     0.0,
-    #                     0.0,
-    #                     0.0,
-    #                     0.0,
-    #                     0.0,
-    #                     0.0,
-    #                     1.0,
-    #                     0.0,
-    #                     0.0,
-    #                     0.0,
-    #                     0.0,
-    #                     0.0,
-    #                 ],
-    #                 [
-    #                     0.0,
-    #                     0.0,
-    #                     0.0,
-    #                     0.0,
-    #                     0.0,
-    #                     0.0,
-    #                     0.0,
-    #                     0.0,
-    #                     0.0,
-    #                     0.0,
-    #                     0.0,
-    #                     0.0,
-    #                     0.0,
-    #                     1.0,
-    #                 ],
-    #                 [
-    #                     0.0,
-    #                     0.0,
-    #                     0.0,
-    #                     0.0,
-    #                     0.0,
-    #                     0.0,
-    #                     0.0,
-    #                     0.0,
-    #                     0.0,
-    #                     0.0,
-    #                     0.0,
-    #                     0.0,
-    #                     1.0,
-    #                     0.0,
-    #                 ],
-    #             ]
-    #         )
-    #         low_to_mortar_known = np.matrix(
-    #             [[1.0, 0.0], [0.0, 1.0], [1.0, 0.0], [0.0, 1.0]]
-    #         )
-
-    #         assert np.allclose(
-    #             high_to_mortar_known, intf.primary_to_mortar_int().todense()
-    #         )
-    #         assert np.allclose(
-    #             low_to_mortar_known, intf.secondary_to_mortar_int().todense()
-    #         )
 
     @pytest.fixture(scope="function")
     def mdg(self):
@@ -682,6 +599,9 @@ class TestRefinementMortarGrid:
     ):
         """Refine the lower-dimensional grid so that it is matching with the
         higher dimensional grid.
+
+        ``low_to_mortar_known_int`` can be None to skip the testing of this,
+        if target values are not available.
         """
         mdg: pp.MixedDimensionalGrid = request.getfixturevalue("mdg")
 
