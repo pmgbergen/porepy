@@ -39,7 +39,7 @@ def test_str():
     g.__str__()
 
 
-# Tests of function to find the closest cell
+# ----- Tests of function to find the closest cell ----- #
 
 def test_closest_cell_in_plane():
     # 2d grid, points also in plane
@@ -65,8 +65,8 @@ def test_cell_face_as_dense():
     known = np.array([[-1, 0, 1, -1, -1, 0, 1], [0, 1, -1, 0, 1, -1, -1]])
     assert np.allclose(cf, known)
 
-# Boundary tests
 
+# ----- Boundary tests ----- #
 
 def test_boundary_node_cart():
     g = pp.CartGrid(np.array([2, 2]))
@@ -103,7 +103,7 @@ def test_bounding_box():
     assert np.allclose(bmax, sd.nodes.max(axis=1))
 
 
-# Tests of the compute_geometry function
+# ----- Tests of the compute_geometry function ----- #
 
 expected_geometry_1 = (np.ones(4), np.ones(1),
                        np.array([[1, 0, 0], [1, 0, 0], [0, 1, 0], [0, 1, 0]]).T,
@@ -138,7 +138,7 @@ def test_compute_geometry_cart_2d(grid, expected_geometry):
     assert np.allclose(grid.cell_centers, known_cell_center)
 
 
-# Test compute_geometry for various challenging grids.
+# ----- Test compute_geometry for various challenging grids ----- #
 
 # This grid should trigger is_oriented = False
 grid_1 = pp.Grid(2,
@@ -201,9 +201,10 @@ expected_geometry_4 = ([0.25, 0.5, 0.25],
         ]
     ))
 
+# The final parameter determines whether the
+# cell volumes should be checked for all cells (True) or just the first one (False).
 params = [
-    (grid_1, expected_geometry_1, False),  # The final parameter determines whether the
-    # cell volumes should be checked for all cells (True) or just the first one (False).
+    (grid_1, expected_geometry_1, False),
     (grid_2, expected_geometry_2, False),
     (grid_3, expected_geometry_3, False),
     (grid_4, expected_geometry_4, True)
@@ -223,7 +224,7 @@ def test_compute_geometry_challenging_grids(grid, expected_geometry,
     assert np.allclose(grid.face_normals, expected_geometry[2])
 
 
-# Tests for a 2d unperturbed grid
+# ----- Tests for a 2d unperturbed grid ----- #
 
 @pytest.fixture
 def grid_2d_unperturbed():
@@ -247,7 +248,7 @@ def test_geometry_2d_unperturbed(grid_2d_unperturbed):
     assert np.isclose(volumes, grid_2d_unperturbed.cell_volumes).all()
 
 
-# Tests for a 2d perturbed grid.
+# ----- Tests for a 2d perturbed grid ----- #
 
 @pytest.fixture
 def grid_2d_perturbed():
@@ -280,7 +281,7 @@ def test_geometry_2d_perturbed(grid_2d_perturbed):
     assert np.isclose(ny, fn[1]).all()
 
 
-# Tests for a 3d unperturbed grid
+# ----- Tests for a 3d unperturbed grid ----- #
 
 @pytest.fixture
 def grid_3d_unperturbed():
@@ -327,7 +328,7 @@ def test_geometry_3d_unperturbed(grid_3d_unperturbed):
     assert np.isclose(cz, grid_3d_unperturbed.cell_centers[2]).all()
 
 
-# Tests for a perturbed 3d grid consisting of one cell.
+# ----- Tests for a perturbed 3d grid consisting of one cell ----- #
 
 @pytest.fixture
 def grid_3d_perturbed():
@@ -379,7 +380,7 @@ def test_geometry_3d_perturbed(grid_3d_perturbed):
     assert np.isclose(cz, grid_3d_perturbed.cell_centers[2]).all()
 
 
-# Tests for a structured triangle grid.
+# ----- Tests for a structured triangle grid ----- #
 
 @pytest.fixture
 def triangle_grid():
@@ -409,7 +410,7 @@ def test_geometry_triangle_grid(triangle_grid):
     assert np.allclose(triangle_grid.face_normals, fn)
 
 
-# Tests for a structured tetrahedral grid.
+# ----- Tests for a structured tetrahedral grid ----- #
 
 @pytest.fixture
 def tetrahedral_grid():
