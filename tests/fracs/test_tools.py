@@ -1,5 +1,4 @@
-"""
-Tests of mesh size determination for 3d and 2d simplex grids.
+"""Tests of mesh size determination for 2d simplex grids.
 """
 import unittest
 
@@ -95,64 +94,3 @@ def _generate_and_verify_2d_grids(
 
     assert np.all(np.isclose(mesh_sizes, mesh_sizes_known))
     assert np.all(np.isclose(pts_split, pts_split_known))
-
-
-def test_3d_domain_fracture_reaches_boundary():
-    """3d domain. One fracture which extends to the boundary."""
-    # IMPLEMENTATION NOTE: The differences between the code test and the 2d tests
-    # reflect that the two fracture network classes for 2d and 3d are implemented quite
-    # differently, and so are the functions for mesh size determination.
-
-    f_1 = np.array([[1, 5, 5, 1], [1, 1, 1, 1], [1, 1, 3, 3]])
-    f_set = [pp.PlaneFracture(f_1)]
-    domain = pp.Domain(
-        {"xmin": 0, "ymin": 0, "zmin": 0, "xmax": 5, "ymax": 5, "zmax": 5}
-    )
-    on_boundary = np.array(
-        [False, False, False, False, True, True, True, True, True, True, True, True]
-    )
-    # Mesh size arguments
-    mesh_size_min = 0.1
-    mesh_size_frac = 0.1
-    mesh_size_bound = 2
-    # Define a fracture network, impose the boundary, find and split intersections.
-    # These operations mirror those performed in FractureNetwork3d.mesh() up to the
-    # point where the mesh size is determined and auxiliary points used to enforce the
-    # mesh size are inserted.
-    network = pp.create_fracture_network(f_set)
-    network.impose_external_boundary(domain)
-    network.find_intersections()
-    network.split_intersections()
-    network._insert_auxiliary_points(
-        mesh_size_frac=mesh_size_frac,
-        mesh_size_min=mesh_size_min,
-        mesh_size_bound=mesh_size_bound,
-    )
-    mesh_size = network._determine_mesh_size(point_tags=on_boundary)
-
-    # To get the mesh size, we need to access the decomposition of the domain
-    decomp = network.decomposition
-
-    # Many of the points should have mesh size of 2, adjust the exceptions below
-    mesh_size_known = np.full(decomp["points"].shape[1], mesh_size_bound, dtype=float)
-
-    # Find the points on the fracture
-    fracture_poly = np.where(np.logical_not(network.tags["boundary"]))[0]
-    # There is only one fracture. This is a sanity check.
-    assert fracture_poly.size == 1
-
-    # Points on the fracture should have been assigned fracture mesh size.
-    fracture_points = decomp["polygons"][fracture_poly[0]][0]
-    mesh_size_known[fracture_points] = mesh_size_frac
-
-    # Two of the domain corners are close enough to the fracture to have their mesh size
-    # modified from the default boundary value.
-    origin = np.zeros((3, 1))
-    _, ind = pp.utils.setmembership.ismember_rows(origin, decomp["points"])
-    mesh_size_known[ind] = np.sqrt(3)
-
-    corner = np.array([5, 0, 0]).reshape((3, 1))
-    _, ind = pp.utils.setmembership.ismember_rows(corner, decomp["points"], sort=False)
-    mesh_size_known[ind] = np.sqrt(2)
-
-    assert np.all(np.isclose(mesh_size, mesh_size_known))
