@@ -301,7 +301,7 @@ def determine_mesh_size(pts, pts_on_boundary=None, lines=None, **kwargs):
             line_list.append([seg[0], pt_id, seg[2], seg[3]])
             line_list.append([pt_id, seg[1], seg[2], seg[3]])
 
-    lines = np.array(line_list, dtype=np.int).T
+    lines = np.array(line_list, dtype=int).T
 
     return dist_pts, pts, lines
 

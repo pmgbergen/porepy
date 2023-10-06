@@ -1147,11 +1147,11 @@ class FractureNetwork2d:
         all_pts_id = np.arange(self._pts.shape[1])
 
         # determine the orphan points
-        to_keep = np.ones(all_pts_id.size, dtype=np.bool)
+        to_keep = np.ones(all_pts_id.size, dtype=bool)
         to_keep[np.setdiff1d(all_pts_id, pts_id, assume_unique=True)] = False
 
         # create the map between the old and new
-        new_pts_id = -np.ones(all_pts_id.size, dtype=np.int)
+        new_pts_id = -np.ones(all_pts_id.size, dtype=int)
         new_pts_id[to_keep] = np.arange(pts_id.size)
 
         # update the edges numeration

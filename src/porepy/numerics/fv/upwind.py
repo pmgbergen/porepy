@@ -246,7 +246,7 @@ class Upwind(Discretization):
         # Booleans of flux direction
         pos_flux = darcy_flux >= 0
         neg_flux = np.logical_not(pos_flux)
-
+        
         # Array to store index of the cell in the upstream direction
         upstream_cell_ind = np.zeros(sd.num_faces, dtype=int)
         # Fill the array based on the cell-face relation. By construction, the normal
