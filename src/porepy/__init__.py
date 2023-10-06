@@ -241,4 +241,7 @@ from porepy.utils.default_domains import (
     UnitCubeDomain,
 )
 
+# Applications
+from porepy.applications.md_grids import model_geometries
+from porepy.applications.boundary_conditions import model_boundary_conditions
 from porepy.applications import test_utils

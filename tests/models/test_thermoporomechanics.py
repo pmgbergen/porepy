@@ -13,12 +13,10 @@ import numpy as np
 import pytest
 
 import porepy as pp
-from porepy.applications.test_utils import models, well_models
+from porepy.applications.md_grids import model_geometries
+from porepy.applications.test_utils import well_models
 from porepy.applications.test_utils.models import (
-    BoundaryConditionsEnergyDirNorthSouth,
-    BoundaryConditionsMassDirNorthSouth,
     Thermoporomechanics,
-    TimeDependentMechanicalBCsDirNorthSouth,
     compare_scaled_model_quantities,
     compare_scaled_primary_variables,
 )
@@ -29,9 +27,9 @@ from .test_poromechanics import get_variables as get_variables_poromechanics
 
 class TailoredThermoporomechanics(
     NonzeroFractureGapPoromechanics,
-    TimeDependentMechanicalBCsDirNorthSouth,
-    BoundaryConditionsEnergyDirNorthSouth,
-    BoundaryConditionsMassDirNorthSouth,
+    pp.model_boundary_conditions.TimeDependentMechanicalBCsDirNorthSouth,
+    pp.model_boundary_conditions.BoundaryConditionsEnergyDirNorthSouth,
+    pp.model_boundary_conditions.BoundaryConditionsMassDirNorthSouth,
     Thermoporomechanics,
 ):
     pass
@@ -326,7 +324,7 @@ def test_unit_conversion(units):
 
 class ThermoporomechanicsWell(
     well_models.OneVerticalWell,
-    models.OrthogonalFractures3d,
+    model_geometries.OrthogonalFractures3d,
     well_models.BoundaryConditionsWellSetup,
     pp.poromechanics.Poromechanics,
 ):

@@ -14,6 +14,7 @@ import numpy as np
 import pytest
 
 import porepy as pp
+import porepy.applications.md_grids.model_geometries
 from porepy.applications.test_utils import models, well_models
 
 
@@ -146,8 +147,8 @@ class NonzeroFractureGapPoromechanics:
 
 class TailoredPoromechanics(
     NonzeroFractureGapPoromechanics,
-    models.TimeDependentMechanicalBCsDirNorthSouth,
-    models.BoundaryConditionsMassDirNorthSouth,
+    pp.model_boundary_conditions.TimeDependentMechanicalBCsDirNorthSouth,
+    pp.model_boundary_conditions.BoundaryConditionsMassDirNorthSouth,
     models.Poromechanics,
 ):
     pass
@@ -515,7 +516,7 @@ def test_unit_conversion(units):
 
 class PoromechanicsWell(
     well_models.OneVerticalWell,
-    models.OrthogonalFractures3d,
+    porepy.applications.md_grids.model_geometries.OrthogonalFractures3d,
     well_models.BoundaryConditionsWellSetup,
     pp.poromechanics.Poromechanics,
 ):

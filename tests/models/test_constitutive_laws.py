@@ -23,6 +23,16 @@ import porepy as pp
 import porepy.models.constitutive_laws as c_l
 from porepy.applications.test_utils import models
 
+solid_values = pp.solid_values.granite
+solid_values.update(
+    {
+        "fracture_normal_stiffness": 1529,
+        "maximum_fracture_closure": 1e-4,
+        "fracture_gap": 1e-4,
+        "residual_aperture": 0.01,
+    }
+)
+
 
 @pytest.mark.parametrize(
     "model_type,method_name,only_codimension",
@@ -159,36 +169,42 @@ def test_parse_constitutive_laws(
     op.evaluate(setup.equation_system)
 
 
+# Shorthand for values with many digits. Used to compute expected values in the tests.
+lbda = pp.solid_values.granite["lame_lambda"]
+mu = pp.solid_values.granite["shear_modulus"]
+bulk = lbda + 2 / 3 * mu
+
+
 @pytest.mark.parametrize(
     "model, method_name, expected, dimension",
     [
-        (models.Poromechanics, "fluid_density", 1000 * np.exp(4e-10 * 2), None),
+        (models.Poromechanics, "fluid_density", 998.2 * np.exp(4.559e-10 * 2), None),
         (
             models.Thermoporomechanics,
             "fluid_density",
             # \rho = \rho_0 \exp(compressibility p - thermal_expansion T)
-            1000 * np.exp(4e-10 * 2 - 2.1e-4 * 3),
+            998.2 * np.exp(4.559e-10 * 2 - 2.068e-4 * 3),
             None,
         ),
         (
             models.MassAndEnergyBalance,
             "thermal_conductivity",
             # Porosity weighted average of the solid and fluid thermal conductivities
-            (1 - 7e-3) * 2.5 + 7e-3 * 0.6,
+            (1 - 1.3e-2) * 3.1 + 1.3e-2 * 0.5975,
             None,
         ),
         (
             models.MassAndEnergyBalance,
             "solid_enthalpy",
             # c_p T
-            790 * 3,
+            720.7 * 3,
             None,
         ),
         (
             models.MassAndEnergyBalance,
             "fluid_enthalpy",
             # c_p T
-            4180 * 3,
+            4182 * 3,
             None,
         ),
         (
@@ -196,7 +212,7 @@ def test_parse_constitutive_laws(
             "matrix_porosity",
             # phi_0 + (alpha - phi_ref) * (1 - alpha) / bulk p. Only pressure, not
             # div(u), is included in this test.
-            7e-3 + (0.8 - 7e-3) * (1 - 0.8) / (11.11 * pp.GIGA) * 2,
+            1.3e-2 + (0.47 - 1.3e-2) * (1 - 0.47) / bulk * 2,
             2,  # Matrix porosity is only defined in Nd
         ),
         (
@@ -206,9 +222,9 @@ def test_parse_constitutive_laws(
             # - (alpha - phi_0) * thermal expansion * T
             #  Only pressure and temperature, not div(u), is included in this test.
             (
-                7e-3
-                + (0.8 - 7e-3) * (1 - 0.8) / (11.11 * pp.GIGA) * 2
-                - (0.8 - 7e-3) * 1e-5 * 3
+                1.3e-2
+                + (0.47 - 1.3e-2) * (1 - 0.47) / bulk * 2
+                - (0.47 - 1.3e-2) * 9.66e-6 * 3
             ),
             2,  # Matrix porosity is only defined in Nd
         ),
@@ -216,21 +232,21 @@ def test_parse_constitutive_laws(
             models.MomentumBalance,
             "bulk_modulus",
             # \lambda + 2/3 \mu
-            11.11 * pp.GIGA + 2 / 3 * 16.67 * pp.GIGA,
+            bulk,
             None,
         ),
         (
             models.MomentumBalance,
             "shear_modulus",
             # \mu
-            16.67 * pp.GIGA,
+            mu,
             None,
         ),
         (
             models.MomentumBalance,
             "youngs_modulus",
             # \mu (3 \lambda + 2 \mu) / (\lambda + \mu)
-            16.67 * (3 * 11.11 + 2 * 16.67) / (11.11 + 16.67) * pp.GIGA,
+            mu * (3 * lbda + 2 * mu) / (lbda + mu),
             None,
         ),
         (
@@ -246,7 +262,7 @@ def test_parse_constitutive_laws(
             # permeability
             models._add_mixin(c_l.CubicLawPermeability, models.MassBalance),
             "permeability",
-            1e-20,
+            5.0e-18,
             2,
         ),
         (
@@ -302,8 +318,8 @@ def test_evaluated_values(
     # The thermoporoelastic model covers most constitutive laws, so we use it for the
     # test.
     # Assign non-trivial values to the parameters to avoid masking errors.
-    solid = pp.SolidConstants(models.granite_values)
-    fluid = pp.FluidConstants(models.water_values)
+    solid = pp.SolidConstants(solid_values)
+    fluid = pp.FluidConstants(pp.fluid_values.water)
     params = {
         "material_constants": {"solid": solid, "fluid": fluid},
         "fracture_indices": [0, 1],

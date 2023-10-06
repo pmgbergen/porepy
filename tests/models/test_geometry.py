@@ -15,6 +15,7 @@ import pytest
 import scipy.sparse as sps
 
 import porepy as pp
+import porepy.applications.md_grids.model_geometries
 
 from porepy.applications.test_utils import models
 
@@ -36,12 +37,14 @@ class GeometryClassWithSolidConstants:
 
 geometry_list = [
     models._add_mixin(
-        GeometryClassWithSolidConstants, models.RectangularDomainThreeFractures
+        GeometryClassWithSolidConstants,
+        porepy.applications.md_grids.model_geometries.RectangularDomainThreeFractures,
     ),
     models._add_mixin(
         GeometryClassWithSolidConstants,
         models._add_mixin(
-            models.OrthogonalFractures3d, pp.models.geometry.ModelGeometry
+            porepy.applications.md_grids.model_geometries.OrthogonalFractures3d,
+            pp.models.geometry.ModelGeometry,
         ),
     ),
 ]
