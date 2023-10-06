@@ -1,12 +1,9 @@
-import unittest
+import numpy as np
 import pytest
 
-import numpy as np
-
 import porepy as pp
-from porepy.grids.standard_grids.utils import unit_domain
-
 from porepy.applications.test_utils.arrays import compare_arrays
+from porepy.grids.standard_grids.utils import unit_domain
 
 
 class TestSplitIntersectingLines2D:
@@ -742,55 +739,60 @@ class TestSweepAndPrune:
         pairs = pp.intersections._identify_overlapping_intervals(x_min, x_max)
         assert pairs.size == 0
 
-    def test_intersection_two_lines(self):
+    @pytest.fixture
+    def assert_pairs_of_overlapping_intervals(self):
+        """Helper function for asserting pairs of overlapping intervals.
+
+        Used in seven of the tests below.
+
+        """
+
+        def _assert_pairs_of_overlapping_intervals(x_min, x_max):
+            pairs = pp.intersections._identify_overlapping_intervals(x_min, x_max)
+
+            assert pairs.size == 2
+            assert pairs[0, 0] == 0
+            assert pairs[1, 0] == 1
+
+        return _assert_pairs_of_overlapping_intervals
+
+    def test_intersection_two_lines(self, assert_pairs_of_overlapping_intervals):
         x_min = np.array([0, 1])
         x_max = np.array([2, 3])
 
-        pairs = pp.intersections._identify_overlapping_intervals(x_min, x_max)
+        assert_pairs_of_overlapping_intervals(x_min, x_max)
 
-        assert pairs.size == 2
-        assert pairs[0, 0] == 0
-        assert pairs[1, 0] == 1
-
-    def test_intersection_two_lines_switched_order(self):
+    def test_intersection_two_lines_switched_order(
+        self, assert_pairs_of_overlapping_intervals
+    ):
         x_min = np.array([1, 0])
         x_max = np.array([3, 2])
 
-        pairs = pp.intersections._identify_overlapping_intervals(x_min, x_max)
+        assert_pairs_of_overlapping_intervals(x_min, x_max)
 
-        assert pairs.size == 2
-        assert pairs[0, 0] == 0
-        assert pairs[1, 0] == 1
-
-    def test_intersection_two_lines_same_start(self):
+    def test_intersection_two_lines_same_start(
+        self, assert_pairs_of_overlapping_intervals
+    ):
         x_min = np.array([0, 0])
         x_max = np.array([3, 2])
 
-        pairs = pp.intersections._identify_overlapping_intervals(x_min, x_max)
+        assert_pairs_of_overlapping_intervals(x_min, x_max)
 
-        assert pairs.size == 2
-        assert pairs[0, 0] == 0
-        assert pairs[1, 0] == 1
-
-    def test_intersection_two_lines_same_end(self):
+    def test_intersection_two_lines_same_end(
+        self, assert_pairs_of_overlapping_intervals
+    ):
         x_min = np.array([0, 1])
         x_max = np.array([3, 3])
 
-        pairs = pp.intersections._identify_overlapping_intervals(x_min, x_max)
+        assert_pairs_of_overlapping_intervals(x_min, x_max)
 
-        assert pairs.size == 2
-        assert pairs[0, 0] == 0
-        assert pairs[1, 0] == 1
-
-    def test_intersection_two_lines_same_start_and_end(self):
+    def test_intersection_two_lines_same_start_and_end(
+        self, assert_pairs_of_overlapping_intervals
+    ):
         x_min = np.array([0, 0])
         x_max = np.array([3, 3])
 
-        pairs = pp.intersections._identify_overlapping_intervals(x_min, x_max)
-
-        assert pairs.size == 2
-        assert pairs[0, 0] == 0
-        assert pairs[1, 0] == 1
+        assert_pairs_of_overlapping_intervals(x_min, x_max)
 
     def test_intersection_two_lines_one_is_point_no_intersection(self):
         x_min = np.array([0, 1])
@@ -800,25 +802,21 @@ class TestSweepAndPrune:
 
         assert pairs.size == 0
 
-    def test_intersection_two_lines_one_is_point_intersection(self):
+    def test_intersection_two_lines_one_is_point_intersection(
+        self, assert_pairs_of_overlapping_intervals
+    ):
         x_min = np.array([1, 0])
         x_max = np.array([1, 2])
 
-        pairs = pp.intersections._identify_overlapping_intervals(x_min, x_max)
+        assert_pairs_of_overlapping_intervals(x_min, x_max)
 
-        assert pairs.size == 2
-        assert pairs[0, 0] == 0
-        assert pairs[1, 0] == 1
-
-    def test_intersection_three_lines_two_intersect(self):
+    def test_intersection_three_lines_two_intersect(
+        self, assert_pairs_of_overlapping_intervals
+    ):
         x_min = np.array([1, 0, 3])
         x_max = np.array([2, 2, 4])
 
-        pairs = pp.intersections._identify_overlapping_intervals(x_min, x_max)
-
-        assert pairs.size == 2
-        assert pairs[0, 0] == 0
-        assert pairs[1, 0] == 1
+        assert_pairs_of_overlapping_intervals(x_min, x_max)
 
     def test_intersection_three_lines_all_intersect(self):
         x_min = np.array([1, 0, 1])
@@ -955,7 +953,6 @@ class TestFractureIntersectionRemoval:
         p = np.array([[-1, 1, 0, 0], [0, 0, -1, 1]])
 
         lines = np.array([[0, 1], [2, 3]])
-        box = np.array([[2], [2]])
         new_pts, new_lines, _ = pp.intersections.split_intersecting_segments_2d(
             p, lines
         )
@@ -1008,11 +1005,11 @@ class TestFractureBoundaryIntersection:
     Test of algorithm for constraining a fracture a bounding box.
 
     Since that algorithm uses fracture intersection methods, the tests functions as
-    partial test for the wider fracture intersection framework as well. Full tests
-    of the latter are too time consuming to fit into a unit test.
+    partial test for the wider fracture intersection framework as well. Full tests of
+    the latter are too time consuming to fit into a unit test.
 
-    Now the boundary is defined as set of "fake" fractures, all fracture network
-    have 2*dim additional fractures (hence the + 6 in the assertions)
+    Now the boundary is defined as set of "fake" fractures, all fracture network have
+    2*dim additional fractures (hence the + 6 in the assertions)
     """
 
     def setup(self):
@@ -1100,7 +1097,3 @@ class TestFractureBoundaryIntersection:
         assert len(network.fractures) == (1 + 6)
         p_comp = network.fractures[0].pts
         assert self._arrays_equal(p_known, p_comp)
-
-
-if __name__ == "__main__":
-    unittest.main()
