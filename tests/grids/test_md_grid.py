@@ -82,6 +82,7 @@ def simple_mdg(num_grids):
 
 # ----- Tests of adding nodes and edges ----- #
 
+
 def test_add_remove_subdomains():
     # Simply add grid. Should work.
     mdg = pp.MixedDimensionalGrid()
