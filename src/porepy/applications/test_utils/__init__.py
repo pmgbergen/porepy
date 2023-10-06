@@ -4,4 +4,4 @@ Utility functions that are not specific to a single test module should be placed
 Functions which are relevant also outside tests should go elsewhere.
 
 """
-from . import arrays, grids, vtk, partial_discretization
+from . import arrays, grids, vtk
