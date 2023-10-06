@@ -1,5 +1,7 @@
+"""Testing functionality related to FractureNetwork2d."""
 import numpy as np
 import pytest
+
 import porepy as pp
 from porepy.applications.test_utils.arrays import compare_arrays
 from porepy.fracs.fracture_network_2d import FractureNetwork2d

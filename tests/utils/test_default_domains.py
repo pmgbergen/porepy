@@ -1,6 +1,7 @@
 """Tests for utility functions for generation of default domains."""
-import porepy as pp
 import pytest
+
+import porepy as pp
 
 
 def check_key_value(domain, keys, values):

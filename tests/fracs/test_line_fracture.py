@@ -1,9 +1,11 @@
+"""Test functionality related to line_fracture module.
+
+Most of the common fracture functionality is covered in test_plane_fracture.py.
+
+"""
 import numpy as np
 
 from porepy.fracs import line_fracture
-
-# Test computation of fracture centroids. Most of the common fracture functionality is
-# covered in test_plane_fracture.py
 
 
 def make_line_fracture(index: int | None = None):

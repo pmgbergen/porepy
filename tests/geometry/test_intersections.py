@@ -1,3 +1,4 @@
+"""Test functionality related to intersection module."""
 import numpy as np
 import pytest
 

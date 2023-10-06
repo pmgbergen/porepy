@@ -1,6 +1,8 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
+"""Testing functionality related to the fracture importer. These functions are covered:
+- network_2d_from_csv
+- network_3d_from_csv
+- elliptic_network_3d_from_csv
+
 Created on Wed Dec 12 09:05:31 2018
 
 @author: eke001
@@ -8,8 +10,10 @@ Created on Wed Dec 12 09:05:31 2018
 
 from pathlib import Path
 from typing import Callable
+
 import numpy as np
 import pytest
+
 import porepy as pp
 from porepy.applications.test_utils.arrays import compare_arrays
 from porepy.fracs import fracture_importer

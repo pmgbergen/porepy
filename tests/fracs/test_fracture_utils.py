@@ -1,6 +1,5 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
+"""Testing functionality related to fracture utils module.
+
 Created on Mon Mar 26 10:12:47 2018
 
 @author: eke001
