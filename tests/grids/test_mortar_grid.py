@@ -2,18 +2,12 @@
 surrounding grids.
 
 The module contains the following groups of tests:
+    - One set of tests for 2d domains, where the 2d grid is replaced.
+    - One set of tests for 3d domains, where the 2d and 1d grids are replaced.
+    - test_pickle_mortar_grid: Individual test to verify that MortarGrids can be
+      pickled.
 
-    TestReplaceHigherDimensionalGridInMixedDimensionalGrid: Test the method
-        replace_subdomains_and_interfaces in a mixed-dimensional grid applied to
-        the highest-dimensional grid. In practice, this only applies to 2d domains,
-        since replacement of 3d grids is not supported.
-
-    TestReplace1dand2dGridsIn3dDomain: For a 3d domain with a 2d fracture, and optionally
-        a 1d intersection (geometry is hard coded), replace the 2d and/or the 1d grids.
-        This verifies that updates of the projections between mortar and primary/secondary
-        are correctly updated for 1d and 2d grids.
-
-    test_pickle_mortar_grid: Method to verify that MortarGrids can be pickled.
+A further description is given for each of the groups of tests.
 
 """
 import pickle
@@ -40,16 +34,17 @@ logic:
        how the new grid was perturbed and what the expected result is. This involves
        checking the projections against hard coded values.
 
+The tests are made up of the following functions:
+    - A set of functions to test indivdiual replacement operations.
+    - A helper function _create_2d_mdg, which creates a 2d domain with a single fracture.
+    - A helper function _replace_2d_grid_fetch_projections, which replaces the 2d grid
+        in the domain and fetches the projections between the old and the new grid.
+
 """
 
 
-def test_replace_by_same():
-    """1x2 grid. Copy the higher dimensional grid and replace. The mapping should be
-    the same.
-
-    We also check that the boundary grid is updated properly.
-
-    """
+def test_2d_domain_replace_2d_grid_by_identical_copy():
+    """Copy the higher dimensional grid and replace. The mapping should stay the same."""
     # Create a first md grid
     mdg, sd_old, old_projection = _create_2d_mdg([1, 2])
     # Copy the highest-dimensional grid
@@ -75,8 +70,8 @@ def test_replace_by_same():
     assert bg_new is not None
 
 
-def test_refine_high_dim():
-    # Replace the 2d grid with a finer one
+def test_2d_domain_replace_2d_grid_with_refined_grid():
+    """Replace the 2d grid with a finer one."""
 
     # Create a first md grid
     mdg, sd_old, old_projection = _create_2d_mdg([1, 2])
@@ -104,8 +99,8 @@ def test_refine_high_dim():
     assert np.all(new_projection[1, fi[2:]].toarray() == 0.5)
 
 
-def test_coarsen_high_dim():
-    # Replace the 2d grid with a coarser one
+def test_2d_domain_replace_2d_grid_with_coarse_grid():
+    """Replace the 2d grid with a coarser one."""
 
     # Create a first md grid
     mdg, sd_old, old_projection = _create_2d_mdg([2, 2])
@@ -142,9 +137,10 @@ def test_coarsen_high_dim():
     assert np.all(new_projection_avg[3, fi[1]] == 1)
 
 
-def test_refine_distort_high_dim():
-    # Replace the 2d grid with a finer one, and move the nodes along the
-    # interface so that areas along the interface are no longer equal.
+def test_2d_domain_replace_2d_grid_with_fine_perturbed_grid():
+    """Replace the 2d grid with a finer one, and move the nodes along the interface so
+    that areas along the interface are no longer equal.
+    """
 
     # Create a first md grid
     mdg, sd_old, old_projection = _create_2d_mdg([1, 2])
@@ -187,9 +183,10 @@ def test_refine_distort_high_dim():
     assert np.abs(new_projection_avg[1, 13] - 0.8 < 1e-6)
 
 
-def test_distort_high_dim():
-    # Replace the 2d grid with a finer one, and move the nodes along the
-    # interface so that areas along the interface are no longer equal.
+def test_2d_domain_replace_2d_grid_with_perturbed_grid():
+    """Replace the 2d grid with a finer one, and move the nodes along the interface so
+    that areas along the interface are no longer equal.
+    """
 
     # Create a first md grid
     mdg, sd_old, old_projection = _create_2d_mdg([2, 2])
@@ -242,10 +239,11 @@ def test_distort_high_dim():
     assert np.abs(new_projection_avg[3, 13] - 0.6 < 1e-6)
 
 
-def test_permute_nodes_in_replacement_grid():
-    # Replace higher dimensional grid with an identical one, except the
-    # node indices are perturbed. This will test sorting of nodes along
-    # 1d lines
+def test_2d_domain_replace_2d_grid_with_permuted_nodes():
+    """Replace higher dimensional grid with an identical one, except the node indices
+    are perturbed. This will test sorting of nodes along 1d lines.
+    """
+
     # Create a first md grid
     mdg, sd_old, old_projection = _create_2d_mdg([2, 2])
 
@@ -294,10 +292,11 @@ def test_permute_nodes_in_replacement_grid():
     assert (old_projection != new_projection_avg).nnz == 0
 
 
-def test_permute_perturb_nodes_in_replacement_grid():
-    # Replace higher dimensional grid with an identical one, except the
-    # node indices are perturbed. This will test sorting of nodes along
-    # 1d lines. Also perturb nodes along the segment.
+def test_2d_domain_replace_2d_grid_with_permuted_and_perturbed_nodes():
+    """Replace higher dimensional grid with an identical one, except the node indices
+    are perturbed. This will test sorting of nodes along 1d lines. Also perturb nodes
+    along the segment.
+    """
 
     # Create a first md grid
     mdg, sd_old, old_projection = _create_2d_mdg([2, 2])
@@ -472,7 +471,7 @@ IMPLEMENTATION NOTE:
 """
 
 
-def test_replace_1d_with_identity():
+def test_3d_domain_replace_1d_grid_with_identity():
     """Generate the full md_grid, and replace the 1d grid with a copy of itself.
 
     This should not change the mortar mappings. An error here indicates something is
@@ -481,20 +480,24 @@ def test_replace_1d_with_identity():
     when updating the grid).
 
     """
-    mdg = _setup_mdg(pert=False)
+    mdg = _create_3d_mdg(pert=False)
 
     # Fetch the mortar mappings
-    old_proj_1_h, old_proj_1_l, old_proj_2_h, old_proj_2_l = _mortar_projections(mdg)
+    old_proj_1_h, old_proj_1_l, old_proj_2_h, old_proj_2_l = _get_3d_mortar_projections(
+        mdg
+    )
 
     gn = _grid_1d(2)
     go = mdg.subdomains(dim=1)[0]
     mdg.replace_subdomains_and_interfaces({go: gn})
 
     # Fetch the new mortar mappings.
-    new_proj_1_h, new_proj_1_l, new_proj_2_h, new_proj_2_l = _mortar_projections(mdg)
+    new_proj_1_h, new_proj_1_l, new_proj_2_h, new_proj_2_l = _get_3d_mortar_projections(
+        mdg
+    )
 
     # There should be no changes to the mortar mappings, we can compare them directly
-    _compare_mortar_projections(
+    _compare_3d_mortar_projections(
         [
             (old_proj_1_h, new_proj_1_h),
             (old_proj_1_l, new_proj_1_l),
@@ -504,7 +507,7 @@ def test_replace_1d_with_identity():
     )
 
 
-def test_replace_2d_with_identity_no_1d():
+def test_3d_domain_without_1d_grid_replace_2d_grid_with_identity():
     """Generate the an md grid of a 3d and a 2d grid,  replace the 2d grid with a copy
     of itself.
 
@@ -515,18 +518,18 @@ def test_replace_2d_with_identity_no_1d():
 
     """
 
-    mdg = _setup_mdg(pert=False, include_1d=False)
+    mdg = _create_3d_mdg(pert=False, include_1d=False)
 
     # Fetch the mortar mappings. There is no 1d grid, thus the mappings to 1d are None
-    _, _, old_proj_2_h, old_proj_2_l = _mortar_projections(mdg)
+    _, _, old_proj_2_h, old_proj_2_l = _get_3d_mortar_projections(mdg)
 
     gn = _grid_2d_two_cells(pert=False, include_1d=False)
     go = mdg.subdomains(dim=2)[0]
     mdg.replace_subdomains_and_interfaces(sd_map={go: gn})
 
     # Fetch the new mortar mappings.
-    _, _, new_proj_2_h, new_proj_2_l = _mortar_projections(mdg)
-    _compare_mortar_projections(
+    _, _, new_proj_2_h, new_proj_2_l = _get_3d_mortar_projections(mdg)
+    _compare_3d_mortar_projections(
         [
             (old_proj_2_h, new_proj_2_h),
             (old_proj_2_l, new_proj_2_l),
@@ -534,7 +537,7 @@ def test_replace_2d_with_identity_no_1d():
     )
 
 
-def test_replace_2d_with_finer_no_1d():
+def test_3d_domain_without_1d_grid_replace_2d_grid_with_finer():
     """Generate the an md grid of a 3d and a 2d grid, replace the 2d grid with a refined
     2d grid.
 
@@ -543,23 +546,23 @@ def test_replace_2d_with_finer_no_1d():
 
     """
 
-    mdg = _setup_mdg(pert=False, include_1d=False)
+    mdg = _create_3d_mdg(pert=False, include_1d=False)
 
     # Fetch the mortar mappings. There is no 1d grid, thus the mappings to 1d are None
-    _, _, old_proj_2_h, _ = _mortar_projections(mdg)
+    _, _, old_proj_2_h, _ = _get_3d_mortar_projections(mdg)
 
     gn = _grid_2d_four_cells(include_1d=False, pert=False, move_interior_point=False)
     go = mdg.subdomains(dim=2)[0]
     mdg.replace_subdomains_and_interfaces({go: gn})
 
     # Fetch the new mortar mappings.
-    _, _, new_proj_2_h, new_proj_2_l = _mortar_projections(mdg)
+    _, _, new_proj_2_h, new_proj_2_l = _get_3d_mortar_projections(mdg)
 
     # There should be no changes in the mapping between mortar and primary
     # The known projection matrix, from secondary to one of the mortar grids.
     known_p_2_l = np.tile(np.array([[1, 1, 0, 0], [0, 0, 1, 1]]), (2, 1))
 
-    _compare_mortar_projections(
+    _compare_3d_mortar_projections(
         [
             (old_proj_2_h, new_proj_2_h),
             (known_p_2_l, new_proj_2_l),
@@ -567,7 +570,7 @@ def test_replace_2d_with_finer_no_1d():
     )
 
 
-def test_replace_2d_with_finer_no_1d_pert():
+def test_3d_domain_without_1d_grid_replace_2d_grid_with_finer_perturbed_grid():
     """Generate the an md grid of a 3d and a 2d grid, replace the 2d grid with a refined
     and perturbed 2d grid.
 
@@ -577,22 +580,22 @@ def test_replace_2d_with_finer_no_1d_pert():
     """
 
     # Create the md_grid, single 2d grid, no splitting.
-    mdg = _setup_mdg(pert=True, include_1d=False)
+    mdg = _create_3d_mdg(pert=True, include_1d=False)
 
     # Fetch the mortar mappings. There is no 1d grid, thus the mappings to 1d are None
-    _, _, old_proj_2_h, _ = _mortar_projections(mdg)
+    _, _, old_proj_2_h, _ = _get_3d_mortar_projections(mdg)
 
     gn = _grid_2d_four_cells(pert=True, include_1d=False, move_interior_point=False)
     go = mdg.subdomains(dim=2)[0]
     mdg.replace_subdomains_and_interfaces({go: gn})
 
     # Fetch the mortar mappings again. There is no 1d grid, thus the mappings to 1d are None
-    _, _, new_proj_2_h, new_proj_2_l = _mortar_projections(mdg)
+    _, _, new_proj_2_h, new_proj_2_l = _get_3d_mortar_projections(mdg)
 
     # The known projection matrix, from secondary to one of the mortar grids.
     known_2_l = np.tile(np.array([[1, 1, 1 / 3, 1 / 3], [0, 0, 2 / 3, 2 / 3]]), (2, 1))
     # There should be no changes in the mapping between mortar and primary
-    _compare_mortar_projections(
+    _compare_3d_mortar_projections(
         [
             (old_proj_2_h, new_proj_2_h),
             (known_2_l, new_proj_2_l),
@@ -600,7 +603,7 @@ def test_replace_2d_with_finer_no_1d_pert():
     )
 
 
-def test_replace_2d_with_identity():
+def test_3d_domain_replace_2d_grid_with_identity():
     """Generate the an md grid of a 3d, 2d and 1d grid, replace the 2d grid with a copy
     of itself.
 
@@ -611,9 +614,11 @@ def test_replace_2d_with_identity():
 
     """
 
-    mdg = _setup_mdg(pert=False, include_1d=True)
+    mdg = _create_3d_mdg(pert=False, include_1d=True)
     # Fetch the mortar mappings.
-    old_proj_1_h, old_proj_1_l, old_proj_2_h, old_proj_2_l = _mortar_projections(mdg)
+    old_proj_1_h, old_proj_1_l, old_proj_2_h, old_proj_2_l = _get_3d_mortar_projections(
+        mdg
+    )
 
     # Do a formal replacement
     gn = _grid_2d_two_cells(pert=False, include_1d=True)
@@ -621,10 +626,12 @@ def test_replace_2d_with_identity():
     mdg.replace_subdomains_and_interfaces({go: gn})
 
     # Fetch the mortar mappings again
-    new_proj_1_h, new_proj_1_l, new_proj_2_h, new_proj_2_l = _mortar_projections(mdg)
+    new_proj_1_h, new_proj_1_l, new_proj_2_h, new_proj_2_l = _get_3d_mortar_projections(
+        mdg
+    )
 
     # None of the mappings should have changed
-    _compare_mortar_projections(
+    _compare_3d_mortar_projections(
         [
             (old_proj_2_h, new_proj_2_h),
             (old_proj_2_l, new_proj_2_l),
@@ -634,7 +641,7 @@ def test_replace_2d_with_identity():
     )
 
 
-def test_replace_2d_with_finer_pert():
+def test_3d_domain_replace_2d_grid_with_finer_perturbed_grid():
     """Generate the an md grid of a 3d, 2d and 1d grid, replace the 2d grid with a finer
     and perturbed 2d grid.
 
@@ -642,16 +649,20 @@ def test_replace_2d_with_finer_pert():
     match_grids.match_2d.
 
     """
-    mdg = _setup_mdg(pert=True, include_1d=True)
+    mdg = _create_3d_mdg(pert=True, include_1d=True)
 
     # Fetch the mortar mappings.
-    old_proj_1_h, old_proj_1_l, old_proj_2_h, old_proj_2_l = _mortar_projections(mdg)
+    old_proj_1_h, old_proj_1_l, old_proj_2_h, old_proj_2_l = _get_3d_mortar_projections(
+        mdg
+    )
 
     # Change the 2d grid, obtain new mortar mappings
     gn = _grid_2d_four_cells(include_1d=True, pert=True, move_interior_point=True)
     go = mdg.subdomains(dim=2)[0]
     mdg.replace_subdomains_and_interfaces({go: gn})
-    new_proj_1_h, new_proj_1_l, new_proj_2_h, new_proj_2_l = _mortar_projections(mdg)
+    new_proj_1_h, new_proj_1_l, new_proj_2_h, new_proj_2_l = _get_3d_mortar_projections(
+        mdg
+    )
 
     # The mappings between mortars and the 2d grids will change, between mortar and
     # 3d/1d will stay the same.
@@ -661,7 +672,7 @@ def test_replace_2d_with_finer_pert():
     known_proj_1_h[1, [7, 8]] = 1
 
     # Verify that the mappings are as expected
-    _compare_mortar_projections(
+    _compare_3d_mortar_projections(
         [
             (old_proj_2_h, new_proj_2_h),
             (known_proj_2_l, new_proj_2_l),
@@ -671,7 +682,7 @@ def test_replace_2d_with_finer_pert():
     )
 
 
-def _compare_mortar_projections(
+def _compare_3d_mortar_projections(
     projections: list[tuple[np.ndarray | sps.spmatrix, np.ndarray | sps.spmatrix]]
 ):
     """Helper method to compare two sets of mortar projections."""
@@ -690,7 +701,7 @@ def _compare_mortar_projections(
         assert np.allclose(p0, p1)
 
 
-def _mortar_projections(mdg: pp.MixedDimensionalGrid):
+def _get_3d_mortar_projections(mdg: pp.MixedDimensionalGrid):
     """Fetch the mortar projections from the md_grid.
 
     Parameters:
@@ -735,7 +746,7 @@ def _mortar_projections(mdg: pp.MixedDimensionalGrid):
     return proj_1_h, proj_1_l, proj_2_h, proj_2_l
 
 
-def _setup_mdg(pert: bool = False, include_1d: bool = True):
+def _create_3d_mdg(pert: bool = False, include_1d: bool = True):
     """Set up a mixed-dimensional grid based on parameters given in the test function."""
     if include_1d:
         sd_3 = _grid_3d(include_1d=include_1d, pert=pert)
@@ -1059,20 +1070,25 @@ def _grid_1d(n_nodes: int = 2) -> pp.Grid:
     ],
 )
 def test_pickle_mortar_grid(g):
-    fn = "tmp.grid"
+    """Test that a mortar grid can be pickled."""
+
+    # Create a mortar grid from the passed grid.
     g.compute_geometry()
     mg = pp.MortarGrid(g.dim, {0: g, 1: g})
 
-    pickle.dump(mg, open(fn, "wb"))
-    mg_read = pickle.load(open(fn, "rb"))
-
+    # Dump the grid to file using pickle.
+    file_name = "tmp.grid"
+    pickle.dump(mg, open(file_name, "wb"))
+    # Read back
+    mg_read = pickle.load(open(file_name, "rb"))
+    # Compare the grids
     pp.test_utils.grids.compare_mortar_grids(mg, mg_read)
 
+    # Do the same operation with the one-sided grid.
     mg_one_sided = pp.MortarGrid(g.dim, {0: g})
-
-    pickle.dump(mg, open(fn, "wb"))
-    mg_read = pickle.load(open(fn, "rb"))
-
+    pickle.dump(mg, open(file_name, "wb"))
+    mg_read = pickle.load(open(file_name, "rb"))
     pp.test_utils.grids.compare_mortar_grids(mg_one_sided, mg_read)
 
-    Path.unlink(fn)
+    # Delete the file
+    Path.unlink(file_name)
