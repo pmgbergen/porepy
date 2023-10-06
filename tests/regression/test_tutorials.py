@@ -7,6 +7,7 @@ import pytest
 TUTORIAL_FILENAMES = glob.glob("tutorials/*.ipynb")
 
 
+@pytest.mark.tutorials
 @pytest.mark.parametrize("tutorial_path", TUTORIAL_FILENAMES)
 def test_run_tutorials(tutorial_path: str):
     """We run the tutorial and check that it didn't raise any error.
