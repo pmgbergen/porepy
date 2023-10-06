@@ -19,6 +19,7 @@ import scipy.sparse as sps
 
 import porepy as pp
 from porepy.numerics.ad import functions as af
+from porepy.numerics.ad._ad_utils import concatenate_ad_arrays
 from porepy.numerics.ad.forward_mode import AdArray, initAdArrays
 
 AdType = Union[float, np.ndarray, sps.spmatrix, pp.ad.AdArray]
@@ -129,7 +130,7 @@ def _expected_value(
     # General comment regarding implementation for cases that do not include the
     # AdArray: We always (except in a few cases which are documented explicitly) use
     # eval to evaluate the expression. To catch cases that are not supported by numpy
-    # or/else scipy, the evalutaion is surrounded by a try-except block. The except
+    # or/else scipy, the evalutation is surrounded by a try-except block. The except
     # typically checks that the operation is one that was expected to fail; example:
     # scalar @ scalar is not supported, but scalar + scalar is, so if the latter fails,
     # something is wrong. For a few combinations of operators, the combination will fail
@@ -618,6 +619,29 @@ variables). The test also partly cover the arithmetic operations implemented for
 AdArrays, e.g., __add__, __sub__, etc., but these are also tested in different tests.
 """
 
+def test_quadratic_function():
+    x, y = initAdArrays([np.array([1]), np.array([2])])
+    z = 1 * x + 2 * y + 3 * x * y + 4 * x * x + 5 * y * y
+    val = 35
+    assert (z.val == val and np.all(z.jac.A == [15, 25]))
+
+def test_vector_quadratic():
+    x, y = initAdArrays([np.array([1, 1]), np.array([2, 3])])
+    z = 1 * x + 2 * y + 3 * x * y + 4 * x * x + 5 * y * y
+    val = np.array([35, 65])
+    J = np.array([[15, 0, 25, 0], [0, 18, 0, 35]])
+
+    assert (np.all(z.val == val) and np.sum(z.jac != J) == 0)
+
+def test_mapping_m_to_n():
+    x, y = initAdArrays([np.array([1, 1, 3]), np.array([2, 3])])
+    A = sps.csc_matrix(np.array([[1, 2, 1], [2, 3, 4]]))
+
+    z = y * (A @ x)
+    val = np.array([12, 51])
+    J = np.array([[2, 4, 2, 6, 0], [6, 9, 12, 0, 17]])
+
+    assert (np.all(z.val == val) and np.sum(z.jac != J) == 0)
 
 def test_add_two_ad_variables_init():
     a, b = initAdArrays([np.array([1]), np.array([-10])])
