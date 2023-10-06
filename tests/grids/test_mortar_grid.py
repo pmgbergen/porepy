@@ -27,8 +27,8 @@ Various perturbations of the grid are tested. The tests are based on the followi
 logic:
     1. A 2d grid is created, with a single fracture.
     2. A new 2d grid is created, and possibly perturbed.
-    3. The new grid is inserted into the old grid.
-    4. The projections between the old and the new grid are fetched, and some simple
+    3. The new grid is inserted into the old md-grid.
+    4. The projections between the old fracture and the new 2d grid are fetched, and some simple
         sanity checks are done (common for all tests).
     5. Specific checks of the projections are done for each test, based on knowledge of
        how the new grid was perturbed and what the expected result is. This involves
