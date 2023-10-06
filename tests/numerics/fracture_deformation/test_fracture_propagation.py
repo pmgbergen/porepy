@@ -15,7 +15,6 @@ Content:
 The tests follow in part the unittest framework, in part pytest.
 
 """
-import unittest
 
 import numpy as np
 import pytest
@@ -25,6 +24,11 @@ import porepy as pp
 from tests.integration import setup_mixed_dimensional_grids as setup_mdg
 from tests.integration.fracture_propagation_utils import check_equivalent_md_grids
 from tests.test_utils import compare_arrays
+
+from typing import Union
+from porepy.fracs.fracture_network_2d import FractureNetwork2d
+from porepy.fracs.fracture_network_3d import FractureNetwork3d
+FractureNetwork = Union[FractureNetwork2d, FractureNetwork3d]
 
 ## Below follows tests of the picking of high-dimensional faces to split, when using
 #  the ConformingPropagation strategy.
@@ -38,14 +42,20 @@ def _single_fracture_two_steps_2d():
     # Propagate first in both ends, and then only in one end.
     # This is (almost) the simplest possible case, so if the test fails, something is
     # either fundamentally wrong with the propagation, or a basic assumption is broken.
-    fracs = [np.array([[1, 2], [1, 1]])]
-    mdg = pp.meshing.cart_grid(fracs, [4, 3])
-    sd_1 = mdg.subdomains(dim=mdg.dim_max() - 1)[0]
+
+    grid_type = 'cartesian'
+    domain: pp.Domain = pp.Domain({"xmax": 4.0, "ymax": 3.0})
+    meshing_args: dict = {"cell_size": 1.0}
+    fracture_geometry = [np.array([[1, 2], [1, 1]])]
+    disjoint_fractures = list(map(pp.LineFracture, fracture_geometry))
+    fracture_network = pp.create_fracture_network(disjoint_fractures, domain)
+    mdg = pp.create_mdg(grid_type, meshing_args, fracture_network)
+    sd_c1 = mdg.subdomains(dim=mdg.dim_max() - 1)[0]
 
     # Target cells
-    targets = [{sd_1: np.array([21, 19])}, {sd_1: np.array([22])}]
+    targets = [{sd_c1: np.array([21, 19])}, {sd_c1: np.array([22])}]
     # Always propagate in a straight line
-    angles = [{sd_1: np.array([0, 0])}, {sd_1: np.array([0])}]
+    angles = [{sd_c1: np.array([0, 0])}, {sd_c1: np.array([0])}]
 
     return mdg, targets, angles
 
@@ -55,12 +65,18 @@ def _single_fracture_multiple_steps_3d():
     # First step propagates in two directions.
     # Second step propagates in three directions, including both newly formed faces,
     # and the original fracture.
-    fracs = [np.array([[1, 1, 1, 1], [1, 2, 2, 1], [1, 1, 2, 2]])]
-    mdg = pp.meshing.cart_grid(fracs, [2, 3, 3])
 
-    sd_1 = mdg.subdomains(dim=mdg.dim_max() - 1)[0]
-    targets = [{sd_1: np.array([10, 4])}, {sd_1: np.array([1, 7, 16])}]
-    angles = [{sd_1: np.array([0, 0])}, {sd_1: np.array([0, 0, 0])}]
+    grid_type = 'cartesian'
+    domain: pp.Domain = pp.Domain({"xmax": 2.0, "ymax": 3.0, "zmax": 3.0})
+    meshing_args: dict = {"cell_size": 1.0}
+    fracture_geometry = [np.array([[1, 1, 1, 1], [1, 2, 2, 1], [1, 1, 2, 2]])]
+    disjoint_fractures = list(map(pp.PlaneFracture, fracture_geometry))
+    fracture_network = pp.create_fracture_network(disjoint_fractures, domain)
+    mdg = pp.create_mdg(grid_type, meshing_args, fracture_network)
+    sd_c1 = mdg.subdomains(dim=mdg.dim_max() - 1)[0]
+
+    targets = [{sd_c1: np.array([10, 4])}, {sd_c1: np.array([1, 7, 16])}]
+    angles = [{sd_c1: np.array([0, 0])}, {sd_c1: np.array([0, 0, 0])}]
 
     return mdg, targets, angles
 
@@ -73,23 +89,28 @@ def _two_fractures_multiple_steps_3d():
 
     # Note that the second fracture needs to be two faces away from the first one,
     # or else various assumptions in the code will be broken.
-    fracs = [
+    
+    grid_type = 'cartesian'
+    domain: pp.Domain = pp.Domain({"xmax": 4.0, "ymax": 3.0, "zmax": 3.0})
+    meshing_args: dict = {"cell_size": 1.0}
+    fracture_geometry = [
         np.array([[1, 1, 1, 1], [1, 2, 2, 1], [1, 1, 2, 2]]),
         np.array([[3, 3, 3, 3], [1, 2, 2, 1], [1, 1, 2, 2]]),
     ]
-    mdg = pp.meshing.cart_grid(fracs, [4, 3, 3])
-
-    sd_1 = mdg.subdomains(dim=mdg.dim_max() - 1)[0]
-    g2 = mdg.subdomains(dim=mdg.dim_max() - 1)[1]
+    disjoint_fractures = list(map(pp.PlaneFracture, fracture_geometry))
+    fracture_network = pp.create_fracture_network(disjoint_fractures, domain)
+    mdg = pp.create_mdg(grid_type, meshing_args, fracture_network)
+    sd1_c1 = mdg.subdomains(dim=mdg.dim_max() - 1)[0]
+    sd2_c1 = mdg.subdomains(dim=mdg.dim_max() - 1)[1]
 
     targets = [
-        {sd_1: np.array([16, 6]), g2: np.array([], dtype=int)},
-        {sd_1: np.array([1, 11, 26]), g2: np.array([8])},
+        {sd1_c1: np.array([16, 6]), sd2_c1: np.array([], dtype=int)},
+        {sd1_c1: np.array([1, 11, 26]), sd2_c1: np.array([8])},
     ]
 
     angles = [
-        {sd_1: np.array([0, 0]), g2: np.array([], dtype=int)},
-        {sd_1: np.array([0, 0, 0]), g2: np.array([0])},
+        {sd1_c1: np.array([0, 0]), sd2_c1: np.array([], dtype=int)},
+        {sd1_c1: np.array([0, 0, 0]), sd2_c1: np.array([0])},
     ]
 
     return mdg, targets, angles
@@ -195,7 +216,7 @@ def test_pick_propagation_face_conforming_propagation(generate):
         # ... on to the next propagation step.
 
 
-class FaceSplittingHostGrid(unittest.TestCase):
+class FaceSplittingHostGrid:
     """Tests of splitting of faces in the higher-dimensional grid.
 
     The different tests have been written at different points in time, and could have
@@ -502,7 +523,7 @@ class MockPropagationModel(pp.ConformingFracturePropagation):
         return vals
 
 
-class PropagationCriteria(unittest.TestCase):
+class PropagationCriteria:
     """Test of functionality to compute sifs and evaluate propagation onset and angle.
 
     Test logic:
@@ -705,7 +726,7 @@ class PropagationCriteria(unittest.TestCase):
         self.assertTrue(np.all(np.isclose(sifs[0], p_l["SIFs_equivalent"])))
 
 
-class VariableMappingInitializationUnderPropagation(unittest.TestCase):
+class VariableMappingInitializationUnderPropagation:
     """Test of functionality to update variables during propagation.
 
     In reality, three features are tested: First, the mappings for cell and face variables,
@@ -983,6 +1004,3 @@ class VariableMappingInitializationUnderPropagation(unittest.TestCase):
 
                 x = x_new
 
-
-if __name__ == "__main__":
-    unittest.main()
