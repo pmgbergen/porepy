@@ -15,11 +15,16 @@ from porepy.utils import setmembership
 from tests import test_utils
 
 
-@pytest.mark.parametrize("grid, expected_diameter",
-                         [(pp.CartGrid(np.array([3, 2]), np.array([1, 1])),
-                           np.sqrt(0.5**2 + 1.0 / 3.0**2)),
-                          (pp.CartGrid(np.array([3, 2, 1])), np.sqrt(3))]
-                         )
+@pytest.mark.parametrize(
+    "grid, expected_diameter",
+    [
+        (
+            pp.CartGrid(np.array([3, 2]), np.array([1, 1])),
+            np.sqrt(0.5**2 + 1.0 / 3.0**2),
+        ),
+        (pp.CartGrid(np.array([3, 2, 1])), np.sqrt(3)),
+    ],
+)
 def test_cell_diameters(grid, expected_diameter):
     # The test is run for a 2d grid and a 3d grid.
     cell_diameters = grid.cell_diameters()
@@ -40,6 +45,7 @@ def test_str():
 
 
 # ----- Tests of function to find the closest cell ----- #
+
 
 def test_closest_cell_in_plane():
     # 2d grid, points also in plane
@@ -67,6 +73,7 @@ def test_cell_face_as_dense():
 
 
 # ----- Boundary tests ----- #
+
 
 def test_boundary_node_cart():
     g = pp.CartGrid(np.array([2, 2]))
@@ -105,21 +112,28 @@ def test_bounding_box():
 
 # ----- Tests of the compute_geometry function ----- #
 
-expected_geometry_1 = (np.ones(4), np.ones(1),
-                       np.array([[1, 0, 0], [1, 0, 0], [0, 1, 0], [0, 1, 0]]).T,
-                       np.array([[0, 0.5, 0], [1, 0.5, 0], [0.5, 0, 0], [0.5, 1, 0]]).T,
-                       np.array([[0.5, 0.5, 0]]).T
+expected_geometry_1 = (
+    np.ones(4),
+    np.ones(1),
+    np.array([[1, 0, 0], [1, 0, 0], [0, 1, 0], [0, 1, 0]]).T,
+    np.array([[0, 0.5, 0], [1, 0.5, 0], [0.5, 0, 0], [0.5, 1, 0]]).T,
+    np.array([[0.5, 0.5, 0]]).T,
 )
-expected_geometry_2 = (5000 * np.ones(4), 5000**2 * np.ones(1),
-                       np.array([[1, 0, 0], [1, 0, 0], [0, 1, 0], [0, 1, 0]]).T * 5000,
-                np.array([[0, 0.5, 0], [1, 0.5, 0], [0.5, 0, 0], [0.5, 1, 0]]).T * 5000,
-                        np.array([[0.5, 0.5, 0]]).T * 5000
-
+expected_geometry_2 = (
+    5000 * np.ones(4),
+    5000**2 * np.ones(1),
+    np.array([[1, 0, 0], [1, 0, 0], [0, 1, 0], [0, 1, 0]]).T * 5000,
+    np.array([[0, 0.5, 0], [1, 0.5, 0], [0.5, 0, 0], [0.5, 1, 0]]).T * 5000,
+    np.array([[0.5, 0.5, 0]]).T * 5000,
 )
 params = [
     (pp.CartGrid(np.array([1, 1])), expected_geometry_1),  # Unit Cartesian grid
-    (pp.CartGrid(np.array([1, 1]), np.array([5000, 5000])),  # Very large Cartesian grid
-     expected_geometry_2)
+    (
+        pp.CartGrid(
+            np.array([1, 1]), np.array([5000, 5000])
+        ),  # Very large Cartesian grid
+        expected_geometry_2,
+    ),
 ]
 
 
@@ -142,65 +156,84 @@ def test_compute_geometry_cart_2d(grid, expected_geometry):
 
 # This grid should trigger is_oriented = False, and compute_geometry should fall
 # back on the implementation based on convex cells.
-grid_1 = pp.Grid(2,
-                 np.array([[0, 1, 0, 1], [0, 0, 1, 1], np.zeros(4)]),
-                 sps.csc_matrix((np.ones(8), np.array([0, 1, 2, 3, 0, 2, 1, 3]),
-                                 np.arange(0, 9, 2))),
-                 sps.csc_matrix(np.ones((4, 1))),
-                 "inconsistent")
+grid_1 = pp.Grid(
+    2,
+    np.array([[0, 1, 0, 1], [0, 0, 1, 1], np.zeros(4)]),
+    sps.csc_matrix(
+        (np.ones(8), np.array([0, 1, 2, 3, 0, 2, 1, 3]), np.arange(0, 9, 2))
+    ),
+    sps.csc_matrix(np.ones((4, 1))),
+    "inconsistent",
+)
 # Known quadrilateral for which the convexity assumption fails.
-grid_2 = pp.Grid(2,
-                 np.array([[0, 0.5, 1, 0.5], [0, 0.5, 0, 1], np.zeros(4)]),
-                 sps.csc_matrix((np.ones(8), np.array([0, 1, 1, 2, 2, 3, 3, 0]),
-                                 np.arange(0, 9, 2))),
-                 sps.csc_matrix(np.ones((4, 1))),
-                 "concave")
+grid_2 = pp.Grid(
+    2,
+    np.array([[0, 0.5, 1, 0.5], [0, 0.5, 0, 1], np.zeros(4)]),
+    sps.csc_matrix(
+        (np.ones(8), np.array([0, 1, 1, 2, 2, 3, 3, 0]), np.arange(0, 9, 2))
+    ),
+    sps.csc_matrix(np.ones((4, 1))),
+    "concave",
+)
 # Known quadrilateral for which the convexity assumption fails
 # and the centroid is external.
-grid_3 = pp.Grid(2,
-                 np.array([[0, 0.5, 1, 0.5], [0, 0.75, 0, 1], np.zeros(4)]),
-                 sps.csc_matrix((np.ones(8), np.array([0, 1, 1, 2, 2, 3, 3, 0]),
-                                 np.arange(0, 9, 2))),
-                 sps.csc_matrix(np.ones((4, 1))),
-                 "concave")
+grid_3 = pp.Grid(
+    2,
+    np.array([[0, 0.5, 1, 0.5], [0, 0.75, 0, 1], np.zeros(4)]),
+    sps.csc_matrix(
+        (np.ones(8), np.array([0, 1, 1, 2, 2, 3, 3, 0]), np.arange(0, 9, 2))
+    ),
+    sps.csc_matrix(np.ones((4, 1))),
+    "concave",
+)
 # Small mesh consisting of two concave and one convex cell.
-grid_4 = pp.Grid(2,
-                 np.array(
-                     [[0, 0.5, 1, 0.5, 0.5, 0.5], [0, 0.5, 0, 1, -0.5, -1], np.zeros(6)]
-                 ),
-                 sps.csc_matrix((np.ones(16),
-                 np.array([0, 1, 1, 2, 2, 3, 3, 0, 0, 5, 5, 2, 2, 4, 4, 0]),
-                 np.arange(0, 17, 2))),
-                 sps.csc_matrix((
-                     np.array([1, 1, 1, 1, -1, -1, -1, -1, 1, 1, 1, 1]),
-                     (np.array([0, 1, 2, 3, 7, 6, 1, 0, 4, 5, 6, 7]),
-                      np.repeat(np.arange(3), 4)))),
-                 "concave")
-expected_geometry_1 = (1,
-                       np.array([[0.5], [0.5], [0]]),
-                       np.array(
-        [[0.0, -0.0, -1.0, 1.0], [-1.0, 1.0, -0.0, 0.0], [0.0, -0.0, -0.0, 0.0]]
-    ))
-expected_geometry_2 = (0.25,
-                       np.array([[0.5], [0.5], [0]]),
-                       np.array(
-        [[0.5, -0.5, 1.0, -1.0], [-0.5, -0.5, 0.5, 0.5], [0.0, 0.0, -0.0, 0.0]]
-    ))
-expected_geometry_3 = (0.125,
-                       np.array([[0.5], [1.75 / 3], [0]]),
-                       np.array(
-        [[0.75, -0.75, 1.0, -1.0], [-0.5, -0.5, 0.5, 0.5], [0.0, 0.0, -0.0, 0.0]]
-    ))
-expected_geometry_4 = ([0.25, 0.5, 0.25],
-                       np.array(
-        [[0.5, 0.5, 0.5], [0.5, 0.0, -0.5], [0.0, 0.0, 0.0]]
-    ), np.array(
+grid_4 = pp.Grid(
+    2,
+    np.array([[0, 0.5, 1, 0.5, 0.5, 0.5], [0, 0.5, 0, 1, -0.5, -1], np.zeros(6)]),
+    sps.csc_matrix(
+        (
+            np.ones(16),
+            np.array([0, 1, 1, 2, 2, 3, 3, 0, 0, 5, 5, 2, 2, 4, 4, 0]),
+            np.arange(0, 17, 2),
+        )
+    ),
+    sps.csc_matrix(
+        (
+            np.array([1, 1, 1, 1, -1, -1, -1, -1, 1, 1, 1, 1]),
+            (
+                np.array([0, 1, 2, 3, 7, 6, 1, 0, 4, 5, 6, 7]),
+                np.repeat(np.arange(3), 4),
+            ),
+        )
+    ),
+    "concave",
+)
+expected_geometry_1 = (
+    1,
+    np.array([[0.5], [0.5], [0]]),
+    np.array([[0.0, -0.0, -1.0, 1.0], [-1.0, 1.0, -0.0, 0.0], [0.0, -0.0, -0.0, 0.0]]),
+)
+expected_geometry_2 = (
+    0.25,
+    np.array([[0.5], [0.5], [0]]),
+    np.array([[0.5, -0.5, 1.0, -1.0], [-0.5, -0.5, 0.5, 0.5], [0.0, 0.0, -0.0, 0.0]]),
+)
+expected_geometry_3 = (
+    0.125,
+    np.array([[0.5], [1.75 / 3], [0]]),
+    np.array([[0.75, -0.75, 1.0, -1.0], [-0.5, -0.5, 0.5, 0.5], [0.0, 0.0, -0.0, 0.0]]),
+)
+expected_geometry_4 = (
+    [0.25, 0.5, 0.25],
+    np.array([[0.5, 0.5, 0.5], [0.5, 0.0, -0.5], [0.0, 0.0, 0.0]]),
+    np.array(
         [
             [0.5, -0.5, 1.0, -1.0, -1.0, 1.0, -0.5, 0.5],
             [-0.5, -0.5, 0.5, 0.5, -0.5, -0.5, 0.5, 0.5],
             [0.0, 0.0, -0.0, 0.0, 0.0, 0.0, 0.0, -0.0],
         ]
-    ))
+    ),
+)
 
 # The final parameter determines whether the
 # cell volumes should be checked for all cells (True) or just the first one (False).
@@ -208,13 +241,14 @@ params = [
     (grid_1, expected_geometry_1, False),
     (grid_2, expected_geometry_2, False),
     (grid_3, expected_geometry_3, False),
-    (grid_4, expected_geometry_4, True)
+    (grid_4, expected_geometry_4, True),
 ]
 
 
 @pytest.mark.parametrize("grid, expected_geometry, check_all_cell_volumes", params)
-def test_compute_geometry_challenging_grids(grid, expected_geometry,
-                                            check_all_cell_volumes):
+def test_compute_geometry_challenging_grids(
+    grid, expected_geometry, check_all_cell_volumes
+):
     grid.compute_geometry()
     if check_all_cell_volumes:
         cell_volumes_to_compare = grid.cell_volumes
@@ -226,6 +260,7 @@ def test_compute_geometry_challenging_grids(grid, expected_geometry,
 
 
 # ----- Tests for a 2d unperturbed grid ----- #
+
 
 @pytest.fixture
 def grid_2d_unperturbed():
@@ -251,6 +286,7 @@ def test_geometry_2d_unperturbed(grid_2d_unperturbed):
 
 # ----- Tests for a 2d perturbed grid ----- #
 
+
 @pytest.fixture
 def grid_2d_perturbed():
     nc = np.array([2, 2])
@@ -265,9 +301,7 @@ def test_geometry_2d_perturbed(grid_2d_perturbed):
     xn = np.array([0, 1, 2, 0, 1.5, 2, 0, 1, 2])
     yn = np.array([0, 0, 0, 1, 1, 1, 2, 2, 2])
     # Expected face areas
-    areas = np.array(
-        [1, np.sqrt(1.25), 1, 1, np.sqrt(1.25), 1, 1, 1, 1.5, 0.5, 1, 1]
-    )
+    areas = np.array([1, np.sqrt(1.25), 1, 1, np.sqrt(1.25), 1, 1, 1, 1.5, 0.5, 1, 1])
     # Expected cell volumes
     volumes = np.array([1.25, 0.75, 1.25, 0.75])
     # Expected face normals
@@ -284,6 +318,7 @@ def test_geometry_2d_perturbed(grid_2d_perturbed):
 
 # ----- Tests for a 3d unperturbed grid ----- #
 
+
 @pytest.fixture
 def grid_3d_unperturbed():
     nc = 2 * np.ones(3, dtype=int)
@@ -294,12 +329,99 @@ def grid_3d_unperturbed():
 
 def test_geometry_3d_unperturbed(grid_3d_unperturbed):
     # Expected node coordinates
-    x = np.array([0, 1, 2, 0, 1, 2, 0, 1, 2, 0, 1, 2, 0, 1, 2, 0, 1, 2, 0, 1, 2, 0,
-       1, 2, 0, 1, 2])
-    y = np.array([0, 0, 0, 1, 1, 1, 2, 2, 2, 0, 0, 0, 1, 1, 1, 2, 2, 2, 0, 0, 0, 1,
-       1, 1, 2, 2, 2])
-    z = np.array([0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2,
-       2, 2, 2, 2, 2])
+    x = np.array(
+        [
+            0,
+            1,
+            2,
+            0,
+            1,
+            2,
+            0,
+            1,
+            2,
+            0,
+            1,
+            2,
+            0,
+            1,
+            2,
+            0,
+            1,
+            2,
+            0,
+            1,
+            2,
+            0,
+            1,
+            2,
+            0,
+            1,
+            2,
+        ]
+    )
+    y = np.array(
+        [
+            0,
+            0,
+            0,
+            1,
+            1,
+            1,
+            2,
+            2,
+            2,
+            0,
+            0,
+            0,
+            1,
+            1,
+            1,
+            2,
+            2,
+            2,
+            0,
+            0,
+            0,
+            1,
+            1,
+            1,
+            2,
+            2,
+            2,
+        ]
+    )
+    z = np.array(
+        [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+        ]
+    )
     # Expected face areas
     areas = 1 * np.ones(grid_3d_unperturbed.num_faces)
 
@@ -330,6 +452,7 @@ def test_geometry_3d_unperturbed(grid_3d_unperturbed):
 
 
 # ----- Tests for a perturbed 3d grid consisting of one cell ----- #
+
 
 @pytest.fixture
 def grid_3d_perturbed():
@@ -383,6 +506,7 @@ def test_geometry_3d_perturbed(grid_3d_perturbed):
 
 # ----- Tests for a structured triangle grid ----- #
 
+
 @pytest.fixture
 def triangle_grid():
     g = simplex.StructuredTriangleGrid(np.array([1, 1]))
@@ -412,6 +536,7 @@ def test_geometry_triangle_grid(triangle_grid):
 
 
 # ----- Tests for a structured tetrahedral grid ----- #
+
 
 @pytest.fixture
 def tetrahedral_grid():
@@ -455,32 +580,100 @@ def test_geometry_tetrahedral_grid(tetrahedral_grid):
         ]
     )
     # Expected face areas
-    fa = np.array([0.5, 0.5, 0.5, 0.5, 0.8660254, 0.70710678, 0.5, 0.70710678,
-              0.5, 0.70710678, 0.70710678, 0.5, 0.5, 0.8660254, 0.5, 0.5,
-              0.5, 0.5])
+    fa = np.array(
+        [
+            0.5,
+            0.5,
+            0.5,
+            0.5,
+            0.8660254,
+            0.70710678,
+            0.5,
+            0.70710678,
+            0.5,
+            0.70710678,
+            0.70710678,
+            0.5,
+            0.5,
+            0.8660254,
+            0.5,
+            0.5,
+            0.5,
+            0.5,
+        ]
+    )
     # Expected face centers
-    fc = np.array([[0.33333333, 0.33333333, 0., 0.66666667, 0.33333333,
-                                  0.33333333, 1., 0.66666667, 0.66666667, 0.33333333,
-                                  0.66666667, 0.33333333, 0., 0.66666667, 1.,
-                                  0.66666667,
-                                  0.33333333, 0.66666667], [0.33333333, 0., 0.33333333,
-                                                            0.66666667, 0.33333333,
-                                                            0.66666667, 0.33333333,
-                                                            0.66666667, 0., 0.33333333,
-                                                            0.33333333, 1., 0.66666667,
-                                                            0.66666667, 0.66666667, 1.,
-                                                            0.33333333, 0.66666667],
-                                 [0., 0.33333333, 0.33333333, 0., 0.33333333,
-                                  0.33333333,
-                                  0.33333333, 0.33333333, 0.66666667, 0.66666667,
-                                  0.66666667, 0.33333333, 0.66666667, 0.66666667,
-                                  0.66666667, 0.66666667, 1., 1.]])
+    fc = np.array(
+        [
+            [
+                0.33333333,
+                0.33333333,
+                0.0,
+                0.66666667,
+                0.33333333,
+                0.33333333,
+                1.0,
+                0.66666667,
+                0.66666667,
+                0.33333333,
+                0.66666667,
+                0.33333333,
+                0.0,
+                0.66666667,
+                1.0,
+                0.66666667,
+                0.33333333,
+                0.66666667,
+            ],
+            [
+                0.33333333,
+                0.0,
+                0.33333333,
+                0.66666667,
+                0.33333333,
+                0.66666667,
+                0.33333333,
+                0.66666667,
+                0.0,
+                0.33333333,
+                0.33333333,
+                1.0,
+                0.66666667,
+                0.66666667,
+                0.66666667,
+                1.0,
+                0.33333333,
+                0.66666667,
+            ],
+            [
+                0.0,
+                0.33333333,
+                0.33333333,
+                0.0,
+                0.33333333,
+                0.33333333,
+                0.33333333,
+                0.33333333,
+                0.66666667,
+                0.66666667,
+                0.66666667,
+                0.33333333,
+                0.66666667,
+                0.66666667,
+                0.66666667,
+                0.66666667,
+                1.0,
+                1.0,
+            ],
+        ]
+    )
     assert np.allclose(tetrahedral_grid.nodes, nodes)
     assert np.allclose(tetrahedral_grid.cell_centers, cc)
     assert np.allclose(tetrahedral_grid.cell_volumes, cv)
 
-    face_nodes = tetrahedral_grid.face_nodes.indices.reshape\
-        ((3, tetrahedral_grid.num_faces), order="F")
+    face_nodes = tetrahedral_grid.face_nodes.indices.reshape(
+        (3, tetrahedral_grid.num_faces), order="F"
+    )
     ismem, ind_map = setmembership.ismember_rows(fn, face_nodes)
     assert np.all(ismem)
     assert np.allclose(tetrahedral_grid.face_centers[:, ind_map], fc)
@@ -488,10 +681,21 @@ def test_geometry_tetrahedral_grid(tetrahedral_grid):
 
 
 # Test that verifies that the tesselation covers the whole domain.
-@pytest.mark.parametrize("grid, domain", [
-    (simplex.StructuredTriangleGrid(np.array([3, 5]), np.array([2, 3])), np.array([2, 3])),
-    (simplex.StructuredTetrahedralGrid(np.array([3, 5, 2]), np.array([2, 3, 0.7])), np.array([2, 3, 0.7]))
-])
+@pytest.mark.parametrize(
+    "grid, domain",
+    [
+        (
+            simplex.StructuredTriangleGrid(np.array([3, 5]), np.array([2, 3])),
+            np.array([2, 3]),
+        ),
+        (
+            simplex.StructuredTetrahedralGrid(
+                np.array([3, 5, 2]), np.array([2, 3, 0.7])
+            ),
+            np.array([2, 3, 0.7]),
+        ),
+    ],
+)
 def test_tesselation_coverage(grid, domain):
     grid.compute_geometry()
     assert np.abs(domain.prod() - np.sum(grid.cell_volumes)) < 1e-10

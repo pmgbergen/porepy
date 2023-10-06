@@ -82,6 +82,7 @@ def simple_mdg(num_grids):
 
 # ----- Tests of adding nodes and edges ----- #
 
+
 def test_add_remove_subdomains():
     # Simply add grid. Should work.
     mdg = pp.MixedDimensionalGrid()
@@ -319,6 +320,7 @@ def test_subdomain_to_boundary_grid():
 
 # ------ Test of iterators ------*
 
+
 def test_subdomain_interface_boundary_iterators():
     """Check the iterators `subdomains`, `interfaces` and `boundaries`."""
     mdg = pp.MixedDimensionalGrid()
@@ -493,8 +495,8 @@ def test_num_cells():
 
     assert mdg.num_subdomain_cells() == (sd_1.num_cells + sd_2.num_cells)
 
-    l = lambda g: g.dim == 1
-    assert mdg.num_subdomain_cells(l) == sd_1.num_cells
+    lam = lambda g: g.dim == 1
+    assert mdg.num_subdomain_cells(lam) == sd_1.num_cells
 
 
 def test_num_subdomains_and_interfaces():
