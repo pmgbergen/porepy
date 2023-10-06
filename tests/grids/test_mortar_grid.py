@@ -17,7 +17,6 @@ The module contains the following groups of tests:
 
 """
 import pickle
-import unittest
 from itertools import count
 from pathlib import Path
 
@@ -28,426 +27,387 @@ import scipy.sparse as sps
 import porepy as pp
 
 
-class TestReplaceHigherDimensionalGridInMixedDimensionalGrid(unittest.TestCase):
-    """Test of functionality to replace the higher-dimensional grid in a MixedDimensionalGrid.
+"""Tests of replacement of the 2d subdomain in a 2d domain with a single fracture.
 
-    Since we do not support replacement of 3d grids, this test considers only a 2d domain
-    with a single fracture, and replace the 2d grid with various perturbations etc. of
-    the grid.
+Various perturbations of the grid are tested. The tests are based on the following
+logic:
+    1. A 2d grid is created, with a single fracture.
+    2. A new 2d grid is created, and possibly perturbed.
+    3. The new grid is inserted into the old grid.
+    4. The projections between the old and the new grid are fetched, and some simple
+        sanity checks are done (common for all tests).
+    5. Specific checks of the projections are done for each test, based on knowledge of
+       how the new grid was perturbed and what the expected result is. This involves
+       checking the projections against hard coded values.
 
-    The critical point is to check that the projection from the primary grid to the
-    mortar grid is updated correctly.
+"""
 
-    Replacement of the highest-dimensional grid in a 1d domain is not checked, but that
-    seems to be a less relevant case.
+
+def test_replace_by_same():
+    """1x2 grid. Copy the higher dimensional grid and replace. The mapping should be
+    the same.
+
+    We also check that the boundary grid is updated properly.
+
     """
-
-    def test_replace_by_same(self):
-        """1x2 grid. Copy the higher dimensional grid and replace. The mapping should be
-        the same.
-
-        We also check that the boundary grid is updated properly.
-
-        """
-        mdg, _ = pp.md_grids_2d.single_horizontal([1, 2], simplex=False)
-
-        intf_old = mdg.interfaces()[0]
-
-        old_projection = intf_old.primary_to_mortar_int().copy()
-
-        sd_old = mdg.subdomains(dim=2)[0]
-        sd_new = sd_old.copy()
-
-        # Tracking the boundary.
-        bg_old = mdg.subdomain_to_boundary_grid(sd_old)
-
-        mdg.replace_subdomains_and_interfaces({sd_old: sd_new})
-
-        # Get mortar grid again
-        intf_new = mdg.interfaces()[0]
-
-        new_projection = intf_new.primary_to_mortar_int()
-        assert (
-            old_projection != new_projection
-        ).nnz == 0, "The projections should be identical."
-
-        # Check that old grids are removed properly.
-        assert sd_old not in mdg
-        assert bg_old not in mdg
-
-        # Check that the new grid and its boundary appeared properly.
-        assert sd_new in mdg
-        bg_new = mdg.subdomain_to_boundary_grid(sd_new)
-        assert bg_new is not None
-
-    def test_refine_high_dim(self):
-        # Replace the 2d grid with a finer one
-
-        mdg, _ = pp.md_grids_2d.single_horizontal([1, 2], simplex=False)
-
-        intf_old = mdg.interfaces()[0]
-
-        old_projection = intf_old.primary_to_mortar_int().copy()
-        sd_old = mdg.subdomains(dim=2)[0]
-
-        # Create a new, finer 2d grid. This is the simplest
-        # way to put the fracture in the right place is to create a new
-        # bucket, and pick out the higher dimensional grid
-        mdg_new, _ = pp.md_grids_2d.single_horizontal([2, 2], simplex=False)
-        mdg_new.compute_geometry()
-
-        sd_new = mdg_new.subdomains(dim=2)[0]
-
-        mdg.replace_subdomains_and_interfaces({sd_old: sd_new})
-
-        # Get mortar grid again
-        intf_new = mdg.interfaces()[0]
-
-        new_projection = intf_new.primary_to_mortar_avg()
-
-        # Check shape
-
-        self.assertTrue(new_projection.shape[0] == old_projection.shape[0])
-        self.assertTrue(new_projection.shape[1] == sd_new.num_faces)
-        # Projection sums to unity.
-        self.assertTrue(np.all(new_projection.toarray().sum(axis=1) == 1))
-
-        fi = np.where(sd_new.face_centers[1] == 0.5)[0]
-        self.assertTrue(fi.size == 4)
-        # Hard coded test (based on knowledge of how the grids and pp.meshing
-        # is implemented). Faces to the uppermost cell are always kept in
-        # place, the lowermost are duplicated towards the end of the face
-        # definition.
-        self.assertTrue(np.all(new_projection[0, fi[:2]].toarray() == 0.5))
-        self.assertTrue(np.all(new_projection[1, fi[2:]].toarray() == 0.5))
-
-    def test_coarsen_high_dim(self):
-        # Replace the 2d grid with a coarser one
-
-        mdg, _ = pp.md_grids_2d.single_horizontal([2, 2], simplex=False)
-
-        # Pick out mortar grid by a loop, there is only one edge in the bucket
-        intf_old = mdg.interfaces()[0]
-        old_projection = intf_old.primary_to_mortar_int().copy()
-        sd_old = mdg.subdomains(dim=2)[0]
-
-        # Create a new, coarser 2d grid. This is the simplest
-        # way to put the fracture in the right place is to create a new
-        # bucket, and pick out the higher dimensional grid
-        mdg_new, _ = pp.md_grids_2d.single_horizontal([1, 2], simplex=False)
-
-        sd_new = mdg_new.subdomains(dim=2)[0]
-
-        mdg.replace_subdomains_and_interfaces({sd_old: sd_new})
-
-        # Get mortar grid again
-        intf_new = mdg.interfaces()[0]
-
-        new_projection_avg = intf_new.primary_to_mortar_avg()
-        new_projection_int = intf_new.primary_to_mortar_int()
-
-        # Check shape
-        self.assertTrue(new_projection_avg.shape[0] == old_projection.shape[0])
-        self.assertTrue(new_projection_avg.shape[1] == sd_new.num_faces)
-
-        # Projection of averages sum to unity in the rows.
-        self.assertTrue(np.all(new_projection_avg.toarray().sum(axis=1) == 1))
-        # Columns in integrated projection sum to either 0 or 1
-        self.assertTrue(
-            np.all(
-                np.logical_or(
-                    new_projection_int.A.sum(axis=0) == 1,
-                    new_projection_int.A.sum(axis=0) == 0,
-                ),
-            )
-        )
-
-        fi = np.where(sd_new.face_centers[1] == 0.5)[0]
-        self.assertTrue(fi.size == 2)
-        # Hard coded test (based on knowledge of how the grids and pp.meshing
-        # is implemented). Faces to the uppermost cell are always kept in
-        # place, the lowermost are duplicated towards the end of the face
-        # definition.
-        self.assertTrue(np.all(new_projection_avg[0, fi[0]] == 1))
-        self.assertTrue(np.all(new_projection_avg[1, fi[0]] == 1))
-        self.assertTrue(np.all(new_projection_avg[2, fi[1]] == 1))
-        self.assertTrue(np.all(new_projection_avg[3, fi[1]] == 1))
-
-    def test_refine_distort_high_dim(self):
-        # Replace the 2d grid with a finer one, and move the nodes along the
-        # interface so that areas along the interface are no longer equal.
-
-        mdg, _ = pp.md_grids_2d.single_horizontal([1, 2], simplex=False)
-
-        intf_old = mdg.interfaces()[0]
-
-        old_projection = intf_old.primary_to_mortar_int().copy()
-        sd_old = mdg.subdomains(dim=2)[0]
-
-        # Create a new, finer 2d grid. This is the simplest
-        # way to put the fracture in the right place is to create a new
-        # bucket, and pick out the higher dimensional grid
-        mdg_new, _ = pp.md_grids_2d.single_horizontal([2, 2], simplex=False)
-
-        sd_new = mdg_new.subdomains(dim=2)[0]
-
-        # By construction of the split grid, we know that the nodes at
-        # (0.5, 0.5) are no 5 and 6, and that no 5 is associated with the
-        # face belonging to the lower cells.
-        # Move node belonging to the lower face
-        sd_new.nodes[0, 5] = 0.2
-        sd_new.nodes[0, 6] = 0.7
-        sd_new.compute_geometry()
-
-        mdg.replace_subdomains_and_interfaces({sd_old: sd_new})
-
-        # Get mortar grid again
-        intf_new = mdg.interfaces()[0]
-
-        new_projection_avg = intf_new.primary_to_mortar_avg()
-        new_projection_int = intf_new.primary_to_mortar_int()
-
-        # Check shape
-
-        self.assertTrue(new_projection_avg.shape[0] == old_projection.shape[0])
-        self.assertTrue(new_projection_avg.shape[1] == sd_new.num_faces)
-
-        # Projection of averages sum to unity in the rows
-        self.assertTrue(np.all(new_projection_avg.toarray().sum(axis=1) == 1))
-        # Columns in integrated projection sum to either 0 or 1.
-        self.assertTrue(
-            np.all(
-                np.logical_or(
-                    new_projection_int.A.sum(axis=0) == 1,
-                    new_projection_int.A.sum(axis=0) == 0,
-                ),
-            )
-        )
-
-        fi = np.where(sd_new.face_centers[1] == 0.5)[0]
-        self.assertTrue(fi.size == 4)
-        # Hard coded test (based on knowledge of how the grids and pp.meshing
-        # is implemented). Faces to the uppermost cell are always kept in
-        # place, the lowermost are duplicated towards the end of the face
-        # definition.
-        self.assertTrue(np.abs(new_projection_avg[0, 8] - 0.7 < 1e-6))
-        self.assertTrue(np.abs(new_projection_avg[0, 9] - 0.3 < 1e-6))
-        self.assertTrue(np.abs(new_projection_avg[1, 12] - 0.2 < 1e-6))
-        self.assertTrue(np.abs(new_projection_avg[1, 13] - 0.8 < 1e-6))
-
-    def test_distort_high_dim(self):
-        # Replace the 2d grid with a finer one, and move the nodes along the
-        # interface so that areas along the interface are no longer equal.
-
-        mdg, _ = pp.md_grids_2d.single_horizontal([2, 2], simplex=False)
-
-        intf_old = mdg.interfaces()[0]
-
-        old_projection = intf_old.primary_to_mortar_int().copy()
-        sd_old = mdg.subdomains(dim=2)[0]
-
-        # Create a new, finer 2d grid. This is the simplest
-        # way to put the fracture in the right place is to create a new
-        # bucket, and pick out the higher dimensional grid
-        mdg_new, _ = pp.md_grids_2d.single_horizontal([2, 2], simplex=False)
-
-        sd_new = mdg_new.subdomains(dim=2)[0]
-
-        # By construction of the split grid, we know that the nodes at
-        # (0.5, 0.5) are no 5 and 6, and that no 5 is associated with the
-        # face belonging to the lower cells.
-        # Move node belonging to the lower face
-        sd_new.nodes[0, 5] = 0.2
-        sd_new.nodes[0, 6] = 0.7
-        sd_new.compute_geometry()
-
-        mdg.replace_subdomains_and_interfaces({sd_old: sd_new})
-
-        # Get mortar grid again
-        intf_new = mdg.interfaces()[0]
-
-        new_projection_avg = intf_new.primary_to_mortar_avg()
-        new_projection_int = intf_new.primary_to_mortar_int()
-
-        # Check shape
-        self.assertTrue(new_projection_avg.shape[0] == old_projection.shape[0])
-        self.assertTrue(new_projection_avg.shape[1] == sd_new.num_faces)
-        # Projection of averages sums to unity in the rows
-        self.assertTrue(np.all(new_projection_avg.toarray().sum(axis=1) == 1))
-        # Columns in integrated projection sum to either 0 or 1.
-        self.assertTrue(
-            np.all(
-                np.logical_or(
-                    new_projection_int.A.sum(axis=0) == 1,
-                    new_projection_int.A.sum(axis=0) == 0,
-                ),
-            )
-        )
-
-        fi = np.where(sd_new.face_centers[1] == 0.5)[0]
-        self.assertTrue(fi.size == 4)
-        # Hard coded test (based on knowledge of how the grids and pp.meshing
-        # is implemented). Faces to the uppermost cell are always kept in
-        # place, the lowermost are duplicated towards the end of the face
-        # definition.
-
-        # It seems the mortar grid is designed so that the first cell is
-        # associated with face 9 in the old grid. This is split into 2/5 face
-        # 8 and 3/5 face 9.
-
-        self.assertTrue(np.abs(new_projection_avg[0, 8] - 0.4 < 1e-6))
-        self.assertTrue(np.abs(new_projection_avg[0, 9] - 0.6 < 1e-6))
-        # The second cell in mortar grid is still fully connected to face 9
-        self.assertTrue(np.abs(new_projection_avg[1, 9] - 1 < 1e-6))
-        self.assertTrue(np.abs(new_projection_avg[2, 13] - 1 < 1e-6))
-        self.assertTrue(np.abs(new_projection_avg[3, 12] - 0.4 < 1e-6))
-        self.assertTrue(np.abs(new_projection_avg[3, 13] - 0.6 < 1e-6))
-
-    def test_permute_nodes_in_replacement_grid(self):
-        # Replace higher dimensional grid with an identical one, except the
-        # node indices are perturbed. This will test sorting of nodes along
-        # 1d lines
-        mdg, _ = pp.md_grids_2d.single_horizontal([2, 2], simplex=False)
-
-        intf_old = mdg.interfaces()[0]
-
-        old_projection = intf_old.primary_to_mortar_int().copy()
-        sd_old = mdg.subdomains(dim=2)[0]
-
-        # Create a new, finer 2d grid. This is the simplest
-        # way to put the fracture in the right place is to create a new
-        # bucket, and pick out the higher dimensional grid
-        mdg_new, _ = pp.md_grids_2d.single_horizontal([2, 2], simplex=False)
-
-        sd_new = mdg_new.subdomains(dim=2)[0]
-
-        # By construction of the split grid, we know that the nodes at
-        # (0.5, 0.5) are no 5 and 6, and that no 5 is associated with the
-        # face belonging to the lower cells.
-        # Move node belonging to the lower face
-        #     g_new.nodes[0, 5] = 0.2
-        #     g_new.nodes[0, 6] = 0.7
-
-        # Replacements: along lower segment (3, 5, 7) -> (7, 5, 3)
-        # On upper segment: (4, 6, 8) -> (8, 4, 6)
-        sd_new.nodes[0, 3] = 1
-        sd_new.nodes[0, 4] = 0.5
-        sd_new.nodes[0, 5] = 0.5
-        sd_new.nodes[0, 6] = 1
-        sd_new.nodes[0, 7] = 0
-        sd_new.nodes[0, 8] = 0
-
-        fn = sd_new.face_nodes.indices.reshape((2, sd_new.num_faces), order="F")
-        fn[:, 8] = np.array([4, 8])
-        fn[:, 9] = np.array([4, 6])
-        fn[:, 12] = np.array([7, 5])
-        fn[:, 13] = np.array([5, 3])
-
-        mdg.replace_subdomains_and_interfaces({sd_old: sd_new})
-
-        # Get mortar grid again
-        intf_new = mdg.interfaces()[0]
-
-        new_projection_avg = intf_new.primary_to_mortar_avg()
-        new_projection_int = intf_new.primary_to_mortar_int()
-
-        # Check shape
-        self.assertTrue(new_projection_avg.shape[0] == old_projection.shape[0])
-        self.assertTrue(new_projection_avg.shape[1] == sd_new.num_faces)
-
-        # Projection of averages sum to unity in the rows
-        self.assertTrue(np.all(new_projection_avg.toarray().sum(axis=1) == 1))
-        # Columns in integrated projection sum to either 0 or 1.
-        self.assertTrue(
-            np.all(
-                np.logical_or(
-                    new_projection_int.A.sum(axis=0) == 1,
-                    new_projection_int.A.sum(axis=0) == 0,
-                ),
-            )
-        )
-        fi = np.where(sd_new.face_centers[1] == 0.5)[0]
-        self.assertTrue(fi.size == 4)
-        # Hard coded test (based on knowledge of how the grids and pp.meshing
-        # is implemented). Faces to the uppermost cell are always kept in
-        # place, the lowermost are duplicated towards the end of the face
-        # definition.
-        self.assertTrue((old_projection != new_projection_avg).nnz == 0)
-
-    def test_permute_perturb_nodes_in_replacement_grid(self):
-        # Replace higher dimensional grid with an identical one, except the
-        # node indices are perturbed. This will test sorting of nodes along
-        # 1d lines. Also perturb nodes along the segment.
-        mdg, _ = pp.md_grids_2d.single_horizontal([2, 2], simplex=False)
-
-        intf_old = mdg.interfaces()[0]
-
-        old_projection = intf_old.primary_to_mortar_int().copy()
-        sd_old = mdg.subdomains(dim=2)[0]
-
-        # Create a new, finer 2d grid. This is the simplest
-        # way to put the fracture in the right place is to create a new
-        # bucket, and pick out the higher dimensional grid
-        mdg_new, _ = pp.md_grids_2d.single_horizontal([2, 2], simplex=False)
-
-        sd_new = mdg_new.subdomains(dim=2)[0]
-        # By construction of the split grid, we know that the nodes at
-        # (0.5, 0.5) are no 5 and 6, and that no 5 is associated with the
-        # face belonging to the lower cells.
-        # Replacements: along lower segment (3, 5, 7) -> (7, 5, 3)
-        # On upper segment: (4, 6, 8) -> (8, 4, 6)
-        sd_new.nodes[0, 3] = 1
-        sd_new.nodes[0, 4] = 0.7
-        sd_new.nodes[0, 5] = 0.2
-        sd_new.nodes[0, 6] = 1
-        sd_new.nodes[0, 7] = 0
-        sd_new.nodes[0, 8] = 0
-
-        fn = sd_new.face_nodes.indices.reshape((2, sd_new.num_faces), order="F")
-        fn[:, 8] = np.array([4, 8])
-        fn[:, 9] = np.array([4, 6])
-        fn[:, 12] = np.array([7, 5])
-        fn[:, 13] = np.array([5, 3])
-
-        mdg.replace_subdomains_and_interfaces({sd_old: sd_new})
-        # Get mortar grid again
-        intf_new = mdg.interfaces()[0]
-
-        new_projection_avg = intf_new.primary_to_mortar_avg()
-        new_projection_int = intf_new.primary_to_mortar_int()
-
-        # Check shape
-        self.assertTrue(new_projection_avg.shape[0] == old_projection.shape[0])
-        self.assertTrue(new_projection_avg.shape[1] == sd_new.num_faces)
-        # Projection of averages sum to unity in the rows
-        self.assertTrue(np.all(new_projection_avg.toarray().sum(axis=1) == 1))
-        # Columns in integrated projection sum to either 0 or 1.
-        self.assertTrue(
-            np.all(
-                np.logical_or(
-                    new_projection_int.A.sum(axis=0) == 1,
-                    new_projection_int.A.sum(axis=0) == 0,
-                ),
-            )
-        )
-
-        fi = np.where(sd_new.face_centers[1] == 0.5)[0]
-        self.assertTrue(fi.size == 4)
-        # Hard coded test (based on knowledge of how the grids and pp.meshing
-        # is implemented). Faces to the uppermost cell are always kept in
-        # place, the lowermost are duplicated towards the end of the face
-        # definition.
-        # It seems the mortar grid is designed so that the first cell is
-        # associated with face 9 in the old grid. This is split into 2/5 face
-        # 8 and 3/5 face 9.
-
-        self.assertTrue(np.abs(new_projection_avg[0, 8] - 0.4 < 1e-6))
-        self.assertTrue(np.abs(new_projection_avg[0, 9] - 0.6 < 1e-6))
-        # The second cell in mortar grid is still fully connected to face 9
-        self.assertTrue(np.abs(new_projection_avg[1, 9] - 1 < 1e-6))
-        self.assertTrue(np.abs(new_projection_avg[2, 13] - 1 < 1e-6))
-        self.assertTrue(np.abs(new_projection_avg[3, 12] - 0.4 < 1e-6))
-        self.assertTrue(np.abs(new_projection_avg[3, 13] - 0.6 < 1e-6))
+    # Create a first md grid
+    mdg, sd_old, old_projection = _create_2d_mdg([1, 2])
+    # Copy the highest-dimensional grid
+    sd_new = sd_old.copy()
+
+    # Tracking the boundary.
+    bg_old = mdg.subdomain_to_boundary_grid(sd_old)
+
+    # Replace the 2d grid with a finer one and get the new projections. This function
+    # will also verify that the projections have the right size.
+    # Here we only test one of the projections, since the other is identical.
+    new_projection, _ = _replace_2d_grid_fetch_projections(
+        mdg, sd_old, sd_new, old_projection
+    )
+
+    # Check that old grids are removed properly.
+    assert sd_old not in mdg
+    assert bg_old not in mdg
+
+    # Check that the new grid and its boundary appeared properly.
+    assert sd_new in mdg
+    bg_new = mdg.subdomain_to_boundary_grid(sd_new)
+    assert bg_new is not None
+
+
+def test_refine_high_dim():
+    # Replace the 2d grid with a finer one
+
+    # Create a first md grid
+    mdg, sd_old, old_projection = _create_2d_mdg([1, 2])
+
+    # Create a new grid. We will take the higher dimensional grid from this and insert
+    # it into the old md grid.
+    _, sd_new, _ = _create_2d_mdg([2, 2])
+
+    # Replace the 2d grid with a finer one and get the new projections. This function
+    # will also verify that the projections have the right size.
+    # Here we only test one of the projections, since the other is identical.
+    new_projection, _ = _replace_2d_grid_fetch_projections(
+        mdg, sd_old, sd_new, old_projection
+    )
+    # Projection sums to unity.
+    assert np.all(new_projection.toarray().sum(axis=1) == 1)
+
+    fi = np.where(sd_new.face_centers[1] == 0.5)[0]
+    assert fi.size == 4
+    # Hard coded test (based on knowledge of how the grids and pp.meshing
+    # is implemented). Faces to the uppermost cell are always kept in
+    # place, the lowermost are duplicated towards the end of the face
+    # definition.
+    assert np.all(new_projection[0, fi[:2]].toarray() == 0.5)
+    assert np.all(new_projection[1, fi[2:]].toarray() == 0.5)
+
+
+def test_coarsen_high_dim():
+    # Replace the 2d grid with a coarser one
+
+    # Create a first md grid
+    mdg, sd_old, old_projection = _create_2d_mdg([2, 2])
+
+    # Create a new grid. We will take the higher dimensional grid from this and insert
+    # it into the old md grid.
+    _, sd_new, _ = _create_2d_mdg([1, 2])
+
+    # Replace the 2d grid with a finer one and get the new projections. This function
+    # will also verify that the projections have the right size.
+    new_projection_avg, new_projection_int = _replace_2d_grid_fetch_projections(
+        mdg, sd_old, sd_new, old_projection
+    )
+
+    # Projection of averages sum to unity in the rows.
+    assert np.all(new_projection_avg.toarray().sum(axis=1) == 1)
+    # Columns in integrated projection sum to either 0 or 1
+    assert np.all(
+        np.logical_or(
+            new_projection_int.A.sum(axis=0) == 1,
+            new_projection_int.A.sum(axis=0) == 0,
+        ),
+    )
+
+    fi = np.where(sd_new.face_centers[1] == 0.5)[0]
+    assert fi.size == 2
+    # Hard coded test (based on knowledge of how the grids and pp.meshing
+    # is implemented). Faces to the uppermost cell are always kept in
+    # place, the lowermost are duplicated towards the end of the face
+    # definition.
+    assert np.all(new_projection_avg[0, fi[0]] == 1)
+    assert np.all(new_projection_avg[1, fi[0]] == 1)
+    assert np.all(new_projection_avg[2, fi[1]] == 1)
+    assert np.all(new_projection_avg[3, fi[1]] == 1)
+
+
+def test_refine_distort_high_dim():
+    # Replace the 2d grid with a finer one, and move the nodes along the
+    # interface so that areas along the interface are no longer equal.
+
+    # Create a first md grid
+    mdg, sd_old, old_projection = _create_2d_mdg([1, 2])
+
+    # Create a new grid. We will take the higher dimensional grid from this and insert
+    # it into the old md grid.
+    _, sd_new, _ = _create_2d_mdg([2, 2])
+
+    # By construction of the split grid, we know that the nodes at
+    # (0.5, 0.5) are no 5 and 6, and that no 5 is associated with the
+    # face belonging to the lower cells.
+    # Move node belonging to the lower face
+    sd_new.nodes[0, [5, 6]] = [0.2, 0.7]
+    sd_new.compute_geometry()
+
+    # Replace the 2d grid with a finer one and get the new projections. This function
+    # will also verify that the projections have the right size.
+    new_projection_avg, new_projection_int = _replace_2d_grid_fetch_projections(
+        mdg, sd_old, sd_new, old_projection
+    )
+
+    # Projection of averages sum to unity in the rows
+    assert np.all(new_projection_avg.toarray().sum(axis=1) == 1)
+    # Columns in integrated projection sum to either 0 or 1.
+    assert np.all(
+        np.logical_or(
+            new_projection_int.A.sum(axis=0) == 1,
+            new_projection_int.A.sum(axis=0) == 0,
+        ),
+    )
+
+    fi = np.where(sd_new.face_centers[1] == 0.5)[0]
+    assert fi.size == 4
+    # Hard coded test (based on knowledge of how the grids and pp.meshing is
+    # implemented). Faces to the uppermost cell are always kept in place, the lowermost
+    # are duplicated towards the end of the face definition.
+    assert np.abs(new_projection_avg[0, 8] - 0.7 < 1e-6)
+    assert np.abs(new_projection_avg[0, 9] - 0.3 < 1e-6)
+    assert np.abs(new_projection_avg[1, 12] - 0.2 < 1e-6)
+    assert np.abs(new_projection_avg[1, 13] - 0.8 < 1e-6)
+
+
+def test_distort_high_dim():
+    # Replace the 2d grid with a finer one, and move the nodes along the
+    # interface so that areas along the interface are no longer equal.
+
+    # Create a first md grid
+    mdg, sd_old, old_projection = _create_2d_mdg([2, 2])
+
+    # Create a new grid. We will take the higher dimensional grid from this and insert
+    # it into the old md grid.
+    _, sd_new, _ = _create_2d_mdg([2, 2])
+
+    # By construction of the split grid, we know that the nodes at
+    # (0.5, 0.5) are no 5 and 6, and that no 5 is associated with the
+    # face belonging to the lower cells.
+    # Move node belonging to the lower face
+    sd_new.nodes[0, [5, 6]] = [0.2, 0.7]
+    sd_new.compute_geometry()
+
+    # Replace the 2d grid with a finer one and get the new projections. This function
+    # will also verify that the projections have the right size.
+    new_projection_avg, new_projection_int = _replace_2d_grid_fetch_projections(
+        mdg, sd_old, sd_new, old_projection
+    )
+
+    # Check shape
+    assert new_projection_avg.shape[0] == old_projection.shape[0]
+    assert new_projection_avg.shape[1] == sd_new.num_faces
+    # Projection of averages sums to unity in the rows
+    assert np.all(new_projection_avg.toarray().sum(axis=1) == 1)
+    # Columns in integrated projection sum to either 0 or 1.
+    assert np.all(
+        np.logical_or(
+            new_projection_int.A.sum(axis=0) == 1,
+            new_projection_int.A.sum(axis=0) == 0,
+        ),
+    )
+
+    fi = np.where(sd_new.face_centers[1] == 0.5)[0]
+    assert fi.size == 4
+    # Hard coded test (based on knowledge of how the grids and pp.meshing is
+    # implemented). Faces to the uppermost cell are always kept in place, the lowermost
+    # are duplicated towards the end of the face definition.
+
+    # It seems the mortar grid is designed so that the first cell is associated with
+    # face 9 in the old grid. This is split into 2/5 face 8 and 3/5 face 9.
+
+    assert np.abs(new_projection_avg[0, 8] - 0.4 < 1e-6)
+    assert np.abs(new_projection_avg[0, 9] - 0.6 < 1e-6)
+    # The second cell in mortar grid is still fully connected to face 9
+    assert np.abs(new_projection_avg[1, 9] - 1 < 1e-6)
+    assert np.abs(new_projection_avg[2, 13] - 1 < 1e-6)
+    assert np.abs(new_projection_avg[3, 12] - 0.4 < 1e-6)
+    assert np.abs(new_projection_avg[3, 13] - 0.6 < 1e-6)
+
+
+def test_permute_nodes_in_replacement_grid():
+    # Replace higher dimensional grid with an identical one, except the
+    # node indices are perturbed. This will test sorting of nodes along
+    # 1d lines
+    # Create a first md grid
+    mdg, sd_old, old_projection = _create_2d_mdg([2, 2])
+
+    # Create a new grid. We will take the higher dimensional grid from this and insert
+    # it into the old md grid.
+    _, sd_new, _ = _create_2d_mdg([2, 2])
+
+    # By construction of the split grid, we know that the nodes at
+    # (0.5, 0.5) are no 5 and 6, and that no 5 is associated with the
+    # face belonging to the lower cells.
+    # Move node belonging to the lower face
+    #     g_new.nodes[0, 5] = 0.2
+    #     g_new.nodes[0, 6] = 0.7
+
+    # Replacements: along lower segment (3, 5, 7) -> (7, 5, 3)
+    # On upper segment: (4, 6, 8) -> (8, 4, 6)
+    sd_new.nodes[0, [3, 4, 5, 6, 7, 8]] = [1, 0.5, 0.5, 1, 0, 0]
+
+    fn = sd_new.face_nodes.indices.reshape((2, sd_new.num_faces), order="F")
+    fn[:, 8] = np.array([4, 8])
+    fn[:, 9] = np.array([4, 6])
+    fn[:, 12] = np.array([7, 5])
+    fn[:, 13] = np.array([5, 3])
+
+    # Replace the 2d grid with a finer one and get the new projections. This function
+    # will also verify that the projections have the right size.
+    new_projection_avg, new_projection_int = _replace_2d_grid_fetch_projections(
+        mdg, sd_old, sd_new, old_projection
+    )
+
+    # Projection of averages sum to unity in the rows
+    assert np.all(new_projection_avg.toarray().sum(axis=1) == 1)
+    # Columns in integrated projection sum to either 0 or 1.
+    assert np.all(
+        np.logical_or(
+            new_projection_int.A.sum(axis=0) == 1,
+            new_projection_int.A.sum(axis=0) == 0,
+        ),
+    )
+    fi = np.where(sd_new.face_centers[1] == 0.5)[0]
+    assert fi.size == 4
+    # Hard coded test (based on knowledge of how the grids and pp.meshing
+    # is implemented). Faces to the uppermost cell are always kept in
+    # place, the lowermost are duplicated towards the end of the face
+    # definition.
+    assert (old_projection != new_projection_avg).nnz == 0
+
+
+def test_permute_perturb_nodes_in_replacement_grid():
+    # Replace higher dimensional grid with an identical one, except the
+    # node indices are perturbed. This will test sorting of nodes along
+    # 1d lines. Also perturb nodes along the segment.
+
+    # Create a first md grid
+    mdg, sd_old, old_projection = _create_2d_mdg([2, 2])
+
+    # Create a new grid. We will take the higher dimensional grid from this and insert
+    # it into the old md grid.
+    _, sd_new, _ = _create_2d_mdg([2, 2])
+
+    # By construction of the split grid, we know that the nodes at (0.5, 0.5) are no 5
+    # and 6, and that no 5 is associated with the face belonging to the lower cells.
+    # Replacements: along lower segment (3, 5, 7) -> (7, 5, 3)
+    # On upper segment: (4, 6, 8) -> (8, 4, 6)
+    sd_new.nodes[0, [3, 4, 5, 6, 7, 8]] = [1, 0.7, 0.2, 1, 0, 0]
+
+    fn = sd_new.face_nodes.indices.reshape((2, sd_new.num_faces), order="F")
+    fn[:, 8] = np.array([4, 8])
+    fn[:, 9] = np.array([4, 6])
+    fn[:, 12] = np.array([7, 5])
+    fn[:, 13] = np.array([5, 3])
+
+    # Replace the 2d grid with a finer one and get the new projections. This function
+    # will also verify that the projections have the right size.
+    new_projection_avg, new_projection_int = _replace_2d_grid_fetch_projections(
+        mdg, sd_old, sd_new, old_projection
+    )
+    # Projection of averages sum to unity in the rows
+    assert np.all(new_projection_avg.toarray().sum(axis=1) == 1)
+    # Columns in integrated projection sum to either 0 or 1.
+    assert np.all(
+        np.logical_or(
+            new_projection_int.A.sum(axis=0) == 1,
+            new_projection_int.A.sum(axis=0) == 0,
+        ),
+    )
+
+    fi = np.where(sd_new.face_centers[1] == 0.5)[0]
+    assert fi.size == 4
+    # Hard coded test (based on knowledge of how the grids and pp.meshing is
+    # implemented). Faces to the uppermost cell are always kept in place, the lowermost
+    # are duplicated towards the end of the face definition.
+    # It seems the mortar grid is designed so that the first cell is associated with
+    # face 9 in the old grid. This is split into 2/5 face 8 and 3/5 face 9.
+
+    assert np.abs(new_projection_avg[0, 8] - 0.4 < 1e-6)
+    assert np.abs(new_projection_avg[0, 9] - 0.6 < 1e-6)
+    # The second cell in mortar grid is still fully connected to face 9
+    assert np.abs(new_projection_avg[1, 9] - 1 < 1e-6)
+    assert np.abs(new_projection_avg[2, 13] - 1 < 1e-6)
+    assert np.abs(new_projection_avg[3, 12] - 0.4 < 1e-6)
+    assert np.abs(new_projection_avg[3, 13] - 0.6 < 1e-6)
+
+
+def _create_2d_mdg(
+    size: list[int, int]
+) -> tuple[pp.MixedDimensionalGrid, pp.Grid, sps.spmatrix]:
+    """Helper function to create a 2d md grid with a single interface.
+
+    Parameters:
+        size: Number of cells in the x and y direction.
+
+    Returns:
+        mdg: The mixed-dimensional grid.
+        sd: The subdomain grid.
+        projection: The projection from the subdomain to the mortar grid.
+
+    """
+    # Create the new grid
+    mdg, _ = pp.md_grids_2d.single_horizontal(size, simplex=False)
+    # Fetch the interface and a projection matrix. The grid is matching, so we
+    # arbitrarily use the integration projection.
+    intf = mdg.interfaces()[0]
+    projection = intf.primary_to_mortar_int().copy()
+    sd = mdg.subdomains(dim=2)[0]
+    return mdg, sd, projection
+
+
+def _replace_2d_grid_fetch_projections(mdg, sd_old, sd_new, old_projection):
+    """Helper function to replace a 2d grid in a md grid, and fetch the new projections.
+
+    The function also does a small sanity check on the size of the projections.
+
+    Parameters:
+        mdg: The mixed-dimensional grid.
+        sd_old: The subdomain grid to be replaced.
+        sd_new: The new subdomain grid.
+        old_projection: The projection from the old subdomain grid to the mortar grid.
+
+    Returns:
+        new_projection_avg: The new projection from the new subdomain grid to the mortar
+            grid, for quantities which should be averaged.
+        new_projection_int: The new projection from the new subdomain grid to the mortar
+            grid, for quantities which should be summed.
+
+    """
+    # Do the replacement
+    mdg.replace_subdomains_and_interfaces({sd_old: sd_new})
+    # Get mortar grid
+    intf_new = mdg.interfaces()[0]
+
+    # Fetch the new projections
+    new_projection_avg = intf_new.primary_to_mortar_avg()
+    new_projection_int = intf_new.primary_to_mortar_int()
+
+    # Sanity check: The mortar grid is not changed, so the number of rows in the
+    # projection should not change. The number of columns should be the number of faces
+    # in the new subdomain grid.
+    assert new_projection_avg.shape[0] == old_projection.shape[0]
+    assert new_projection_avg.shape[1] == sd_new.num_faces
+
+    return new_projection_avg, new_projection_int
 
 
 """Various tests for replacing subdomain and interface grids in a 3d mixed-
