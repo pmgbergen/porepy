@@ -54,11 +54,14 @@ def test_2d_domain_replace_2d_grid_by_identical_copy():
     bg_old = mdg.subdomain_to_boundary_grid(sd_old)
 
     # Replace the 2d grid with a finer one and get the new projections. This function
-    # will also verify that the projections have the right size.
-    # Here we only test one of the projections, since the other is identical.
-    new_projection, _ = _replace_2d_grid_fetch_projections(
+    # will also verify that the projections have the right size, and that the new
+    # average projection has rows summing to unity.
+    new_projection_avg, new_projection_int = _replace_2d_grid_fetch_projections(
         mdg, sd_old, sd_new, old_projection
     )
+    # The new and the old projections should be identical.
+    pp.test_utils.arrays.compare_matrices(new_projection_avg, old_projection)
+    pp.test_utils.arrays.compare_matrices(new_projection_int, old_projection)
 
     # Check that old grids are removed properly.
     assert sd_old not in mdg
@@ -81,22 +84,22 @@ def test_2d_domain_replace_2d_grid_with_refined_grid():
     _, sd_new, _ = _create_2d_mdg([2, 2])
 
     # Replace the 2d grid with a finer one and get the new projections. This function
-    # will also verify that the projections have the right size.
-    # Here we only test one of the projections, since the other is identical.
-    new_projection, _ = _replace_2d_grid_fetch_projections(
+    # will also verify that the projections have the right size, and that the new
+    # average projection has rows summing to unity.
+    new_projection_avg, new_projection_int = _replace_2d_grid_fetch_projections(
         mdg, sd_old, sd_new, old_projection
     )
-    # Projection sums to unity.
-    assert np.all(new_projection.toarray().sum(axis=1) == 1)
+    # The new and the old projections should be identical.
+    pp.test_utils.arrays.compare_matrices(new_projection_avg, old_projection)
+    pp.test_utils.arrays.compare_matrices(new_projection_int, old_projection)
 
     fi = np.where(sd_new.face_centers[1] == 0.5)[0]
     assert fi.size == 4
-    # Hard coded test (based on knowledge of how the grids and pp.meshing
-    # is implemented). Faces to the uppermost cell are always kept in
-    # place, the lowermost are duplicated towards the end of the face
-    # definition.
-    assert np.all(new_projection[0, fi[:2]].toarray() == 0.5)
-    assert np.all(new_projection[1, fi[2:]].toarray() == 0.5)
+    # Hard coded test (based on knowledge of how the grids and pp.meshing is
+    # implemented). Faces to the uppermost cell are always kept in place, the lowermost
+    # are duplicated towards the end of the face definition.
+    assert np.all(new_projection_avg[0, fi[:2]].toarray() == 0.5)
+    assert np.all(new_projection_avg[1, fi[2:]].toarray() == 0.5)
 
 
 def test_2d_domain_replace_2d_grid_with_coarse_grid():
@@ -110,13 +113,12 @@ def test_2d_domain_replace_2d_grid_with_coarse_grid():
     _, sd_new, _ = _create_2d_mdg([1, 2])
 
     # Replace the 2d grid with a finer one and get the new projections. This function
-    # will also verify that the projections have the right size.
+    # will also verify that the projections have the right size, and that the new
+    # average projection has rows summing to unity.
     new_projection_avg, new_projection_int = _replace_2d_grid_fetch_projections(
         mdg, sd_old, sd_new, old_projection
     )
 
-    # Projection of averages sum to unity in the rows.
-    assert np.all(new_projection_avg.toarray().sum(axis=1) == 1)
     # Columns in integrated projection sum to either 0 or 1
     assert np.all(
         np.logical_or(
@@ -127,10 +129,9 @@ def test_2d_domain_replace_2d_grid_with_coarse_grid():
 
     fi = np.where(sd_new.face_centers[1] == 0.5)[0]
     assert fi.size == 2
-    # Hard coded test (based on knowledge of how the grids and pp.meshing
-    # is implemented). Faces to the uppermost cell are always kept in
-    # place, the lowermost are duplicated towards the end of the face
-    # definition.
+    # Hard coded test (based on knowledge of how the grids and pp.meshing is
+    # implemented). Faces to the uppermost cell are always kept in place, the lowermost
+    # are duplicated towards the end of the face definition.
     assert np.all(new_projection_avg[0, fi[0]] == 1)
     assert np.all(new_projection_avg[1, fi[0]] == 1)
     assert np.all(new_projection_avg[2, fi[1]] == 1)
@@ -149,21 +150,19 @@ def test_2d_domain_replace_2d_grid_with_fine_perturbed_grid():
     # it into the old md grid.
     _, sd_new, _ = _create_2d_mdg([2, 2])
 
-    # By construction of the split grid, we know that the nodes at
-    # (0.5, 0.5) are no 5 and 6, and that no 5 is associated with the
-    # face belonging to the lower cells.
+    # By construction of the split grid, we know that the nodes at (0.5, 0.5) are no 5
+    # and 6, and that no 5 is associated with the face belonging to the lower cells.
     # Move node belonging to the lower face
     sd_new.nodes[0, [5, 6]] = [0.2, 0.7]
     sd_new.compute_geometry()
 
     # Replace the 2d grid with a finer one and get the new projections. This function
-    # will also verify that the projections have the right size.
+    # will also verify that the projections have the right size, and that the new
+    # average projection has rows summing to unity.
     new_projection_avg, new_projection_int = _replace_2d_grid_fetch_projections(
         mdg, sd_old, sd_new, old_projection
     )
 
-    # Projection of averages sum to unity in the rows
-    assert np.all(new_projection_avg.toarray().sum(axis=1) == 1)
     # Columns in integrated projection sum to either 0 or 1.
     assert np.all(
         np.logical_or(
@@ -195,24 +194,19 @@ def test_2d_domain_replace_2d_grid_with_perturbed_grid():
     # it into the old md grid.
     _, sd_new, _ = _create_2d_mdg([2, 2])
 
-    # By construction of the split grid, we know that the nodes at
-    # (0.5, 0.5) are no 5 and 6, and that no 5 is associated with the
-    # face belonging to the lower cells.
+    # By construction of the split grid, we know that the nodes at (0.5, 0.5) are no 5
+    # and 6, and that no 5 is associated with the face belonging to the lower cells.
     # Move node belonging to the lower face
     sd_new.nodes[0, [5, 6]] = [0.2, 0.7]
     sd_new.compute_geometry()
 
     # Replace the 2d grid with a finer one and get the new projections. This function
-    # will also verify that the projections have the right size.
+    # will also verify that the projections have the right size, and that the new
+    # average projection has rows summing to unity.
     new_projection_avg, new_projection_int = _replace_2d_grid_fetch_projections(
         mdg, sd_old, sd_new, old_projection
     )
 
-    # Check shape
-    assert new_projection_avg.shape[0] == old_projection.shape[0]
-    assert new_projection_avg.shape[1] == sd_new.num_faces
-    # Projection of averages sums to unity in the rows
-    assert np.all(new_projection_avg.toarray().sum(axis=1) == 1)
     # Columns in integrated projection sum to either 0 or 1.
     assert np.all(
         np.logical_or(
@@ -251,9 +245,8 @@ def test_2d_domain_replace_2d_grid_with_permuted_nodes():
     # it into the old md grid.
     _, sd_new, _ = _create_2d_mdg([2, 2])
 
-    # By construction of the split grid, we know that the nodes at
-    # (0.5, 0.5) are no 5 and 6, and that no 5 is associated with the
-    # face belonging to the lower cells.
+    # By construction of the split grid, we know that the nodes at (0.5, 0.5) are no 5
+    # and 6, and that no 5 is associated with the face belonging to the lower cells.
     # Move node belonging to the lower face
     #     g_new.nodes[0, 5] = 0.2
     #     g_new.nodes[0, 6] = 0.7
@@ -269,13 +262,12 @@ def test_2d_domain_replace_2d_grid_with_permuted_nodes():
     fn[:, 13] = np.array([5, 3])
 
     # Replace the 2d grid with a finer one and get the new projections. This function
-    # will also verify that the projections have the right size.
+    # will also verify that the projections have the right size, and that the new
+    # average projection has rows summing to unity.
     new_projection_avg, new_projection_int = _replace_2d_grid_fetch_projections(
         mdg, sd_old, sd_new, old_projection
     )
 
-    # Projection of averages sum to unity in the rows
-    assert np.all(new_projection_avg.toarray().sum(axis=1) == 1)
     # Columns in integrated projection sum to either 0 or 1.
     assert np.all(
         np.logical_or(
@@ -285,10 +277,9 @@ def test_2d_domain_replace_2d_grid_with_permuted_nodes():
     )
     fi = np.where(sd_new.face_centers[1] == 0.5)[0]
     assert fi.size == 4
-    # Hard coded test (based on knowledge of how the grids and pp.meshing
-    # is implemented). Faces to the uppermost cell are always kept in
-    # place, the lowermost are duplicated towards the end of the face
-    # definition.
+    # Hard coded test (based on knowledge of how the grids and pp.meshing is
+    # implemented). Faces to the uppermost cell are always kept in place, the lowermost
+    # are duplicated towards the end of the face definition.
     assert (old_projection != new_projection_avg).nnz == 0
 
 
@@ -318,12 +309,12 @@ def test_2d_domain_replace_2d_grid_with_permuted_and_perturbed_nodes():
     fn[:, 13] = np.array([5, 3])
 
     # Replace the 2d grid with a finer one and get the new projections. This function
-    # will also verify that the projections have the right size.
+    # will also verify that the projections have the right size, and that the new
+    # average projection has rows summing to unity.
     new_projection_avg, new_projection_int = _replace_2d_grid_fetch_projections(
         mdg, sd_old, sd_new, old_projection
     )
-    # Projection of averages sum to unity in the rows
-    assert np.all(new_projection_avg.toarray().sum(axis=1) == 1)
+
     # Columns in integrated projection sum to either 0 or 1.
     assert np.all(
         np.logical_or(
@@ -406,14 +397,18 @@ def _replace_2d_grid_fetch_projections(mdg, sd_old, sd_new, old_projection):
     assert new_projection_avg.shape[0] == old_projection.shape[0]
     assert new_projection_avg.shape[1] == sd_new.num_faces
 
+    assert np.all(new_projection_avg.toarray().sum(axis=1) == 1)
+
     return new_projection_avg, new_projection_int
 
 
 """Various tests for replacing subdomain and interface grids in a 3d mixed-
 dimensional grid.
 
-This can be considered integration tests for the method
-replace_subdomains_and_interfaces in the MixedDimensionalGrid class.
+While the method called in all tests is replace_subdomains_and_interfaces() in the
+MixedDimensionalGrid class, the tests are in effect integration tests for replacement of
+grids in the MortarGrid class, hence the placemnet in this test module.
+
 
 The geometries considered are designed so that grids can be replaced and that the
 mappings between mortar and primary/secondary grids are updated correctly. A description
