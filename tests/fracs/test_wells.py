@@ -19,48 +19,54 @@ import porepy as pp
 from porepy.grids.standard_grids.utils import unit_domain
 
 
-def _generate_mdg(fracture_indices: List[int], well_indices: List[int]):
-    """Construct networks and generate mdg.
+@pytest.fixture
+def get_mdg():
+    def inner(fracture_indices: List[int], well_indices: List[int]):
+        """Construct networks and generate mdg.
 
-    Parameters:
-        fracture_indices: which fractures to use.
-        well_indices: which wells to use.
+        Parameters:
+            fracture_indices: which fractures to use.
+            well_indices: which wells to use.
 
-    Returns:
-        Mixed-dimensional grid with matrix, fractures, wells and
-        well-fracture intersection grids + all interfaces
+        Returns:
+            Mixed-dimensional grid with matrix, fractures, wells and
+            well-fracture intersection grids + all interfaces
 
-    """
+        """
 
-    # Three horizontal fractures
-    fracture_coords = [
-        np.array([[0, 1, 1, 0], [1, 1, 0, 0], [0.5, 0.5, 0.5, 0.5]]),
-        np.array([[0, 1, 1, 0], [1, 1, 0, 0], [0.2, 0.2, 0.2, 0.2]]),
-        np.array([[0, 1, 1, 0], [1, 1, 0, 0], [0.1, 0.1, 0.1, 0.1]]),
-    ]
-    fractures = [pp.PlaneFracture(fracture_coords[i]) for i in fracture_indices]
-    fracture_network = pp.create_fracture_network(fractures, unit_domain(3))
+        # Three horizontal fractures
+        fracture_coords = [
+            np.array([[0, 1, 1, 0], [1, 1, 0, 0], [0.5, 0.5, 0.5, 0.5]]),
+            np.array([[0, 1, 1, 0], [1, 1, 0, 0], [0.2, 0.2, 0.2, 0.2]]),
+            np.array([[0, 1, 1, 0], [1, 1, 0, 0], [0.1, 0.1, 0.1, 0.1]]),
+        ]
+        fractures = [pp.PlaneFracture(fracture_coords[i]) for i in fracture_indices]
+        fracture_network = pp.create_fracture_network(fractures, unit_domain(3))
 
-    # Vertical well extending from 0.1 (frac 2) to upper boundary and
-    #   tilted well extending from 0.2 (frac 1) to upper boundary
-    well_coords = [
-        np.array([[0.5, 0.5], [0.5, 0.5], [1, 0.1]]),
-        np.array([[0.5, 0.6], [0.7, 0.8], [1, 0.2]]),
-    ]
-    wells = [pp.Well(well_coords[i]) for i in well_indices]
-    well_network = pp.WellNetwork3d(unit_domain(3), wells, parameters={"mesh_size": 1})
+        # Vertical well extending from 0.1 (frac 2) to upper boundary and
+        #   tilted well extending from 0.2 (frac 1) to upper boundary
+        well_coords = [
+            np.array([[0.5, 0.5], [0.5, 0.5], [1, 0.1]]),
+            np.array([[0.5, 0.6], [0.7, 0.8], [1, 0.2]]),
+        ]
+        wells = [pp.Well(well_coords[i]) for i in well_indices]
+        well_network = pp.WellNetwork3d(
+            unit_domain(3), wells, parameters={"mesh_size": 1}
+        )
 
-    mdg = fracture_network.mesh({"mesh_size_frac": 1, "mesh_size_min": 1})
+        mdg = fracture_network.mesh({"mesh_size_frac": 1, "mesh_size_min": 1})
 
-    # Compute intersections
-    pp.fracs.wells_3d.compute_well_fracture_intersections(
-        well_network, fracture_network
-    )
-    # Mesh fractures and add fracture + intersection grids to the mixed-dimensional grid
-    # along with these grids' new interfaces to fractures.
-    well_network.mesh(mdg)
+        # Compute intersections
+        pp.fracs.wells_3d.compute_well_fracture_intersections(
+            well_network, fracture_network
+        )
+        # Mesh fractures and add fracture + intersection grids to the md-grid
+        # along with these grids' new interfaces to fractures.
+        well_network.mesh(mdg)
 
-    return mdg
+        return mdg
+
+    return inner
 
 
 @pytest.mark.parametrize(
@@ -76,6 +82,7 @@ def test_add_one_well(
     fracture_indices: List[int],
     fracture_faces: List[List[int]],
     tip_faces: List[List[int]],
+    request,
 ) -> None:
     """Compute intersection between one well and the fracture network, mesh and
     add well grids to mdg.
@@ -88,7 +95,7 @@ def test_add_one_well(
             assumed to have two faces each.
 
     """
-    mdg = _generate_mdg(fracture_indices, [0])
+    mdg = request.getfixturevalue("get_mdg")(fracture_indices, [0])
     # One 3d grid, n_frac 2d grids, n_frac 1d well grids + one if none of the
     # fractures are on the well endpoint and n_frac intersections between
     # fractures and well
@@ -149,6 +156,7 @@ def test_add_two_wells(
     tip_faces: List[List[int]],
     boundary_faces: List[List[int]],
     mdg_data: List[int],
+    request,
 ) -> None:
     """Compute intersection between two well and the fracture network, mesh and
     add well grids to mdg.
@@ -164,7 +172,7 @@ def test_add_two_wells(
         mdg_data: expected number of grids and number of interfaces.
 
     """
-    mdg = _generate_mdg(fracture_indices, [0, 1])
+    mdg = request.getfixturevalue("get_mdg")(fracture_indices, [0, 1])
     assert np.isclose(mdg.num_subdomains(), mdg_data[0])
     assert np.isclose(mdg.num_interfaces(), mdg_data[1])
 
@@ -177,9 +185,9 @@ def test_add_two_wells(
         )
 
 
-def test_add_one_well_with_matrix() -> None:
+def test_add_one_well_with_matrix(get_mdg) -> None:
     """Compute intersection between one well and the rock matrix mesh."""
-    mdg = _generate_mdg([], [1])
+    mdg = get_mdg([], [1])
     # add the coupling between the rock matrix and the well
     pp.fracs.wells_3d.compute_well_rock_matrix_intersections(mdg)
 
