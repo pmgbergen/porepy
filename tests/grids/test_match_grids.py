@@ -2,12 +2,10 @@
 match_grids_1d() is tested.
 
 """
-import unittest
 import numpy as np
 import scipy.sparse as sps
-import porepy as pp
-import pytest
 
+import porepy as pp
 
 """IMPLEMENTATION NOTE: While all tests are based on the same grid, most of them also
     do a perturbation of the grid. To document the logic behind individual tests, it was
