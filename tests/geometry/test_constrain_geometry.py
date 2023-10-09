@@ -13,7 +13,7 @@ class TestBasic:
 
     """
 
-    def test_convex_polygon(self):
+    def test_constrain_lines_by_polygon(self):
         # convex polygon
         polygon = np.array([[0.0, 1.0, 1.0, 0.0], [0.0, 0.0, 1.0, 1.0]])
         pts = np.array(
@@ -43,7 +43,8 @@ class TestBasic:
         assert compare_arrays(lines_kept, kept_known)
 
     def test_convex_polygon_line_outside(self):
-        # convex polygon
+        # Test intersection between a line outside a convex polygon and the convex
+        # polygon.
         polygon = np.array([[0.0, 1.0, 1.0, 0.0], [0.0, 0.0, 1.0, 1.0]])
 
         # The last line is completely outside, and will be kicked out
@@ -73,7 +74,7 @@ class TestBasic:
         assert compare_arrays(lines_kept, kept_known)
 
     def test_non_convex_polygon(self):
-        # non-convex polygon
+        # Test intersections between lines and a non-convex polygon.
         polygon = np.array(
             [[0.0, 0.5, 0.75, 1.0, 1.5, 1.5, 0], [0.0, 0.0, 0.25, 0.0, 0, 1, 1]]
         )
