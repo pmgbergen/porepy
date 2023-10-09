@@ -12,11 +12,7 @@ from porepy.grids.standard_grids.utils import unit_domain
 
 class TestSplitIntersectingLines2D:
     """
-    Various tests of remove_edge_crossings.
-
-    Note that since this function in itself uses several subfunctions, this is somewhat
-    against the spirit of unit testing. The subfunctions are also fairly well covered by
-    unit tests, in the form of doctests.
+    Various tests of split_intersecting_segments_2d.
 
     """
 
@@ -29,7 +25,6 @@ class TestSplitIntersectingLines2D:
         assert compare_arrays(new_lines, lines)
 
     def test_three_lines_no_crossing(self):
-        # This test gave an error at some point
         p = np.array(
             [[0.0, 0.0, 0.3, 1.0, 1.0, 0.5], [2 / 3, 1 / 0.7, 0.3, 2 / 3, 1 / 0.7, 0.5]]
         )
@@ -41,7 +36,6 @@ class TestSplitIntersectingLines2D:
         assert compare_arrays(new_lines, lines)
 
     def test_three_lines_one_crossing(self):
-        # This test gave an error at some point
         p = np.array(
             [[0.0, 0.5, 0.3, 1.0, 0.3, 0.5], [2 / 3, 0.3, 0.3, 2 / 3, 0.5, 0.5]]
         )
@@ -121,6 +115,8 @@ class TestSplitIntersectingLines2D:
 
 
 class TestLinesIntersect:
+    """Class for testing of segments_2d."""
+
     def test_lines_intersect_segments_do_not(self):
         s0 = np.array([0.3, 0.3])
         e0 = np.array([0.5, 0.5])
@@ -336,7 +332,7 @@ class TestLinesIntersect:
 
 
 class TestLineTesselation:
-    def test_tesselation_do_not(self):
+    def test_tesselation_do_not_intersect(self):
         p1 = np.array([[0.3, 0.3, 0], [0.5, 0.5, 0], [0.9, 0.9, 0]]).T
         p2 = np.array([[0.4, 0.4, 0.1], [1.0, 1.0, 0.1]]).T
         l1 = np.array([[0, 1], [1, 2]]).T
@@ -344,7 +340,7 @@ class TestLineTesselation:
         intersect = intersections.line_tessellation(p1, p2, l1, l2)
         assert len(intersect) == 0
 
-    def test_tesselation_do(self):
+    def test_tesselation_do_intersect(self):
         p1 = np.array([[0.0, 0.0, 0], [0.5, 0.5, 0], [1.0, 1.0, 0]]).T
         p2 = np.array([[0.25, 0.25, 0], [1.0, 1.0, 0]]).T
         l1 = np.array([[0, 1], [1, 2]]).T
@@ -729,7 +725,7 @@ class TestSegmentSegmentIntersection:
         assert np.min(np.sum(np.abs(p_int - p_known), axis=0)) < 1e-8
 
 
-class TestSweepAndPrune:
+class TestIdentifyOverlappingIntervals:
     def pairs_contain(self, pairs, a):
         for pi in range(pairs.shape[1]):
             if a[0] == pairs[0, pi] and a[1] == pairs[1, pi]:
@@ -956,7 +952,6 @@ class TestFractureIntersectionRemoval:
         assert compare_arrays(new_lines, lines)
 
     def test_three_lines_no_crossing(self):
-        # This test gave an error at some point
         p = np.array(
             [[0.0, 0.0, 0.3, 1.0, 1.0, 0.5], [2 / 3, 1 / 0.7, 0.3, 2 / 3, 1 / 0.7, 0.5]]
         )
@@ -968,7 +963,6 @@ class TestFractureIntersectionRemoval:
         assert compare_arrays(new_lines, lines)
 
     def test_three_lines_one_crossing(self):
-        # This test gave an error at some point
         p = np.array(
             [[0.0, 0.5, 0.3, 1.0, 0.3, 0.5], [2 / 3, 0.3, 0.3, 2 / 3, 0.5, 0.5]]
         )
@@ -1090,7 +1084,7 @@ class TestFractureBoundaryIntersection:
 
 
 class TestIntersectionPolygonsEmbeddedIn3d:
-    def test_single_fracture(self):
+    def test_single_polygon(self):
         f_1 = np.array([[-1, 1, 1, -1], [0, 0, 0, 0], [-1, -1, 1, 1]])
         new_pt, isect_pt, on_bound, _, seg_vert, _ = intersections.polygons_3d([f_1])
         assert new_pt.size == 0
@@ -1102,7 +1096,7 @@ class TestIntersectionPolygonsEmbeddedIn3d:
         assert seg_vert.size == 1
         assert len(seg_vert[0]) == 0
 
-    def test_two_intersecting_fractures(self):
+    def test_two_intersecting_polygons(self):
         f_1 = np.array([[-1, 1, 1, -1], [0, 0, 0, 0], [-1, -1, 1, 1]])
         f_2 = np.array([[0, 0, 0, 0], [-1, 1, 1, -1], [-0.7, -0.7, 0.8, 0.8]])
 
@@ -1129,7 +1123,7 @@ class TestIntersectionPolygonsEmbeddedIn3d:
         assert seg_vert[1][0] == (0, True)
         assert seg_vert[1][1] == (2, True)
 
-    def test_three_intersecting_fractures(self):
+    def test_three_intersecting_polygons(self):
         f_1 = np.array([[-1, 1, 1, -1], [0, 0, 0, 0], [-1, -1, 1, 1]])
         f_2 = np.array([[0, 0, 0, 0], [-1, 1, 1, -1], [-0.7, -0.7, 0.8, 0.8]])
         f_3 = np.array([[-1, 1, 1, -1], [-1, -1, 1, 1], [0, 0, 0, 0]])
@@ -1175,7 +1169,7 @@ class TestIntersectionPolygonsEmbeddedIn3d:
             counter[p[0]] += 2
             counter[p[1]] += 2
 
-    def test_three_intersecting_fractures_one_intersected_by_two(self):
+    def test_three_intersecting_polygons_one_intersected_by_two(self):
         f_1 = np.array([[-1, 1, 1, -1], [0, 0, 0, 0], [-1, -1, 1, 1]])
         f_2 = np.array([[0, 0, 0, 0], [-1, 1, 1, -1], [-0.7, -0.7, 0.8, 0.8]])
         f_3 = f_2 + np.array([0.5, 0, 0]).reshape((-1, 1))
@@ -1218,12 +1212,12 @@ class TestIntersectionPolygonsEmbeddedIn3d:
             counter[p[0]] += 2
             counter[p[1]] += 2
 
-    def test_three_intersecting_fractures_sharing_segment(self):
-        # Fracture along y=0
+    def test_three_intersecting_polygons_sharing_segment(self):
+        # Polygon along y=0
         f_1 = np.array([[-1, 1, 1, -1], [0, 0, 0, 0], [-1, -1, 1, 1]])
-        # fracture along x=y
+        # Polygon along x=y
         f_2 = np.array([[-1, 1, 1, -1], [-1, 1, 1, -1], [-1, -1, 1, 1]])
-        # fracture along x=0
+        # Polygon along x=0
         f_3 = np.array([[0, 0, 0, 0], [-1, 1, 1, -1], [-1, -1, 1, 1]])
         new_pt, isect_pt, on_bound, pairs, seg_vert, _ = intersections.polygons_3d(
             [f_1, f_2, f_3]
@@ -1274,11 +1268,10 @@ class TestIntersectionPolygonsEmbeddedIn3d:
             counter[p[0]] += 2
             counter[p[1]] += 2
 
-    def test_three_intersecting_fractures_split_segment(self):
+    def test_three_intersecting_polygons_split_segment(self):
         """
-        Three fractures that all intersect along the same line, but with the
-        intersection between two of them forming an extension of the intersection
-        of all three.
+        Three polygons that all intersect along the same line, but with the intersection
+        between two of them forming an extension of the intersection of all three.
         """
         f_1 = np.array([[-1, 1, 1, -1], [0, 0, 0, 0], [-1, -1, 1, 1]])
         f_2 = np.array([[-0.5, 0.5, 0.5, -0.5], [-1, -1, 1, 1], [-2, -2, 2, 2]])
@@ -1330,10 +1323,10 @@ class TestIntersectionPolygonsEmbeddedIn3d:
             counter[p[0]] += 2
             counter[p[1]] += 2
 
-    def test_two_points_in_plane_of_other_fracture(self):
+    def test_two_points_in_plane_of_other_polygon(self):
         """
-        Two fractures. One has two (non-consecutive) vertexes in the plane
-        of another fracture
+        Two polygons. One has two (non-consecutive) vertexes in the plane of another
+        polygon.
         """
         f_1 = np.array([[-0.5, 0.5, 0.5, -0.5], [-1, -1, 1, 1], [-1, -1, 1, 1]])
         f_2 = np.array([[0, 0, 0, 0], [-1, 1, 1, -1], [-1, -1, 1, 1]])
@@ -1357,10 +1350,10 @@ class TestIntersectionPolygonsEmbeddedIn3d:
         assert seg_vert[1][0] == (0, False)
         assert seg_vert[1][1] == (2, False)
 
-    def test_two_points_in_plane_of_other_fracture_order_reversed(self):
+    def test_two_points_in_plane_of_other_polygon_order_reversed(self):
         """
-        Two fractures. One has two (non-consecutive) vertexes in the plane
-        of another fracture. Order of polygons is reversed compared to similar test
+        Two polygons. One has two (non-consecutive) vertexes in the plane of another
+        polygon. Order of polygons is reversed compared to similar test
         """
         f_1 = np.array([[-0.5, 0.5, 0.5, -0.5], [-1, -1, 1, 1], [-1, -1, 1, 1]])
         f_2 = np.array([[0, 0, 0, 0], [-1, 1, 1, -1], [-1, -1, 1, 1]])
@@ -1383,10 +1376,9 @@ class TestIntersectionPolygonsEmbeddedIn3d:
         assert seg_vert[0][0] == (0, False)
         assert seg_vert[0][1] == (2, False)
 
-    def test_one_point_in_plane_of_other_fracture(self):
+    def test_one_point_in_plane_of_other_polygon(self):
         """
-        Two fractures. One has one vertexes in the plane
-        of another fracture
+        Two polygons. One has one vertexes in the plane of another polygon.
         """
         f_1 = np.array([[-0.5, 0.5, 0.5, -0.5], [-1, -1, 1, 1], [-1, -1, 1, 1]])
         f_2 = np.array([[0, 0, 0, 0], [-1, 1, 1, -1], [-1, -1, 2, 1]])
@@ -1410,10 +1402,9 @@ class TestIntersectionPolygonsEmbeddedIn3d:
         assert seg_vert[1][0] == (0, False)
         assert seg_vert[1][1] == (1, True)
 
-    def test_one_point_in_plane_of_other_fracture_order_reversed(self):
+    def test_one_point_in_plane_of_other_polygon_order_reversed(self):
         """
-        Two fractures. One has one vertexes in the plane
-        of another fracture
+        Two polygons. One has one vertexes in the plane of another polygon.
         """
         f_1 = np.array([[-0.5, 0.5, 0.5, -0.5], [-1, -1, 1, 1], [-1, -1, 1, 1]])
         f_2 = np.array([[0, 0, 0, 0], [-1, 1, 1, -1], [-1, -1, 2, 1]])
@@ -1454,7 +1445,7 @@ class TestIntersectionPolygonsEmbeddedIn3d:
 
     def test_L_intersection(self):
         """
-        Two fractures, L-intersection.
+        Two polygons, L-intersection.
         """
         f_1 = np.array([[0, 1, 1, 0], [0, 0, 1, 1], [0, 0, 0, 0]])
         f_2 = np.array([[0, 0, 0, 0], [0.3, 0.7, 0.7, 0.3], [0, 0, 1, 1]])
@@ -1480,7 +1471,7 @@ class TestIntersectionPolygonsEmbeddedIn3d:
 
     def test_L_intersection_reverse_order(self):
         """
-        Two fractures, L-intersection.
+        Two polygons, L-intersection.
         """
         f_1 = np.array([[0, 1, 1, 0], [0, 0, 1, 1], [0, 0, 0, 0]])
         f_2 = np.array([[0, 0, 0, 0], [0.3, 0.7, 0.7, 0.3], [0, 0, 1, 1]])
@@ -1506,7 +1497,7 @@ class TestIntersectionPolygonsEmbeddedIn3d:
 
     def test_L_intersection_one_node_common(self):
         """
-        Two fractures, L-intersection, one common node.
+        Two polygons, L-intersection, one common node.
         """
         f_1 = np.array([[0, 1, 1, 0], [0, 0, 1, 1], [0, 0, 0, 0]])
         f_2 = np.array([[0, 0, 0, 0], [0.3, 1.0, 1, 0.3], [0, 0, 1, 1]])
@@ -1532,7 +1523,7 @@ class TestIntersectionPolygonsEmbeddedIn3d:
 
     def test_L_intersection_extends_beyond_each_other(self):
         """
-        Two fractures, L-intersection, partly overlapping segments
+        Two polygons, L-intersection, partly overlapping segments.
         """
         f_1 = np.array([[0, 1, 1, 0], [0, 0, 1, 1], [0, 0, 0, 0]])
         f_2 = np.array([[0, 0, 0, 0], [0.3, 1.5, 1.5, 0.3], [0, 0, 1, 1]])
@@ -1558,7 +1549,7 @@ class TestIntersectionPolygonsEmbeddedIn3d:
 
     def test_T_intersection_within_polygon(self):
         """
-        Two fractures, T-intersection, segment contained within the other polygon.
+        Two polygons, T-intersection, segment contained within the other polygon.
         """
         f_1 = np.array([[0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0]]).T
         f_2 = np.array([[0.5, 0.5, 1], [0.5, 0.5, 0], [0.5, 0.9, 0.0]]).T
@@ -1585,7 +1576,7 @@ class TestIntersectionPolygonsEmbeddedIn3d:
 
     def test_T_intersection_one_outside_polygon(self):
         """
-        Two fractures, L-intersection, partly overlapping segments
+        Two polygons, L-intersection, partly overlapping segments.
         """
         f_1 = np.array([[0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0]]).T
         f_2 = np.array([[0.5, 0.5, 1], [0.5, 0.5, 0], [0.5, 1.9, 0.0]]).T
@@ -1632,7 +1623,7 @@ class TestIntersectionPolygonsEmbeddedIn3d:
 
     def test_T_intersection_one_outside_one_on_polygon(self):
         """
-        Two fractures, L-intersection, partly overlapping segments
+        Two polygons, L-intersection, partly overlapping segments
         """
         f_1 = np.array([[0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0]]).T
         f_2 = np.array([[0.5, 0.5, 1], [0.5, 0.0, 0], [0.5, 1.9, 0.0]]).T
@@ -1659,7 +1650,7 @@ class TestIntersectionPolygonsEmbeddedIn3d:
 
     def test_T_intersection_one_outside_one_on_polygon_reverse_order(self):
         """
-        Two fractures, L-intersection, partly overlapping segments
+        Two polygons, L-intersection, partly overlapping segments.
         """
         f_1 = np.array([[0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0]]).T
         f_2 = np.array([[0.5, 0.5, 1], [0.5, 0.0, 0], [0.5, 1.9, 0.0]]).T
@@ -1686,7 +1677,7 @@ class TestIntersectionPolygonsEmbeddedIn3d:
 
     def test_T_intersection_both_on_boundary(self):
         """
-        Two fractures, L-intersection, partly overlapping segments
+        Two polygons, L-intersection, partly overlapping segments.
         """
         f_1 = np.array([[0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0]]).T
         f_2 = np.array([[0.5, 0.5, 1], [0.5, 0.0, 0], [0.5, 1.0, 0.0]]).T
@@ -2706,7 +2697,7 @@ def test_identify_overlapping_rectangles(xmin_xmax_ymin_ymax):
             # lines
             [[0, 1], [2, 3]],
         ),
-        # Three lines no crossing (this test gave an error at some point).
+        # Three lines no crossing.
         (
             # points
             [
@@ -2740,7 +2731,7 @@ def test_split_intersecting_segments_2d_no_crossing(points_lines):
             # expected_lines
             [[0, 4, 2, 4], [4, 1, 4, 3], [1, 1, 2, 2], [3, 3, 4, 4]],
         ),
-        # Three lines one crossing (this test gave an error at some point).
+        # Three lines one crossing.
         (
             # points
             [[0.0, 0.5, 0.3, 1.0, 0.3, 0.5], [2 / 3, 0.3, 0.3, 2 / 3, 0.5, 0.5]],
