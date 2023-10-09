@@ -492,7 +492,7 @@ class TestSurfaceTesselation:
         assert compare_arrays(mappings[2].toarray(), np.array([[1]]))
 
     ## Tests of the simplex tessalation of the subdivision
-    def test_return_simplex(self):
+    def test_return_simplexes_in_surface_tessellations(self):
         # First is unit square, split into two
         p1 = [
             np.array([[0, 1, 1, 0], [0, 0, 0.5, 0.5]]),
@@ -679,40 +679,41 @@ class TestSegmentSegmentIntersection:
         for p_int, p_known in zip(l1, l2):
             assert np.min(np.sum(np.abs(p_int - p_known), axis=0)) < 1e-8
 
-    @pytest.fixture
-    def assert_equal_segments_3d(self):
-        def _assert_equal_segments_3d(p_1, p_2, p_3, p_4):
-            p_int = intersections.segments_3d(p_1, p_2, p_3, p_4)
-            p_known_1 = p_1.reshape((-1, 1))
-            p_known_2 = p_4.reshape((-1, 1))
-            assert np.min(np.sum(np.abs(p_int - p_known_1), axis=0)) < 1e-8
-            assert np.min(np.sum(np.abs(p_int - p_known_2), axis=0)) < 1e-8
+    def assert_equal_segments_3d(self, p_1, p_2, p_3, p_4):
+        """Helper function for asserting equal segments.
 
-        return _assert_equal_segments_3d
+        Used in three of the tests below.
 
-    def test_segments_partly_overlap(self, assert_equal_segments_3d):
+        """
+        p_int = intersections.segments_3d(p_1, p_2, p_3, p_4)
+        p_known_1 = p_1.reshape((-1, 1))
+        p_known_2 = p_4.reshape((-1, 1))
+        assert np.min(np.sum(np.abs(p_int - p_known_1), axis=0)) < 1e-8
+        assert np.min(np.sum(np.abs(p_int - p_known_2), axis=0)) < 1e-8
+
+    def test_segments_partly_overlap(self):
         p_1 = np.ones(3)
         p_2 = 3 * p_1
         p_3 = 0 * p_1
         p_4 = 2 * p_1
 
-        assert_equal_segments_3d(p_1, p_2, p_3, p_4)
+        self.assert_equal_segments_3d(p_1, p_2, p_3, p_4)
 
-    def test_random_incline(self, assert_equal_segments_3d):
+    def test_random_incline(self):
         p_1 = np.random.rand(3)
         p_2 = 3 * p_1
         p_3 = 0 * p_1
         p_4 = 2 * p_1
 
-        assert_equal_segments_3d(p_1, p_2, p_3, p_4)
+        self.assert_equal_segments_3d(p_1, p_2, p_3, p_4)
 
-    def test_segments_aligned_with_axis(self, assert_equal_segments_3d):
+    def test_segments_aligned_with_axis(self):
         p_1 = np.array([0, 1, 1])
         p_2 = 3 * p_1
         p_3 = 0 * p_1
         p_4 = 2 * p_1
 
-        assert_equal_segments_3d(p_1, p_2, p_3, p_4)
+        self.assert_equal_segments_3d(p_1, p_2, p_3, p_4)
 
     def test_constant_y_axis(self):
         p_1 = np.array([1, 0, -1])
@@ -739,60 +740,47 @@ class TestIdentifyOverlappingIntervals:
         pairs = intersections._identify_overlapping_intervals(x_min, x_max)
         assert pairs.size == 0
 
-    @pytest.fixture
-    def assert_pairs_of_overlapping_intervals(self):
+    def assert_pairs_of_overlapping_intervals(self, x_min, x_max):
         """Helper function for asserting pairs of overlapping intervals.
 
         Used in seven of the tests below.
 
         """
+        pairs = intersections._identify_overlapping_intervals(x_min, x_max)
 
-        def _assert_pairs_of_overlapping_intervals(x_min, x_max):
-            pairs = intersections._identify_overlapping_intervals(x_min, x_max)
+        assert pairs.size == 2
+        assert pairs[0, 0] == 0
+        assert pairs[1, 0] == 1
 
-            assert pairs.size == 2
-            assert pairs[0, 0] == 0
-            assert pairs[1, 0] == 1
-
-        return _assert_pairs_of_overlapping_intervals
-
-    def test_intersection_two_lines(self, assert_pairs_of_overlapping_intervals):
+    def test_intersection_two_lines(self):
         x_min = np.array([0, 1])
         x_max = np.array([2, 3])
 
-        assert_pairs_of_overlapping_intervals(x_min, x_max)
+        self.assert_pairs_of_overlapping_intervals(x_min, x_max)
 
-    def test_intersection_two_lines_switched_order(
-        self, assert_pairs_of_overlapping_intervals
-    ):
+    def test_intersection_two_lines_switched_order(self):
         x_min = np.array([1, 0])
         x_max = np.array([3, 2])
 
-        assert_pairs_of_overlapping_intervals(x_min, x_max)
+        self.assert_pairs_of_overlapping_intervals(x_min, x_max)
 
-    def test_intersection_two_lines_same_start(
-        self, assert_pairs_of_overlapping_intervals
-    ):
+    def test_intersection_two_lines_same_start(self):
         x_min = np.array([0, 0])
         x_max = np.array([3, 2])
 
-        assert_pairs_of_overlapping_intervals(x_min, x_max)
+        self.assert_pairs_of_overlapping_intervals(x_min, x_max)
 
-    def test_intersection_two_lines_same_end(
-        self, assert_pairs_of_overlapping_intervals
-    ):
+    def test_intersection_two_lines_same_end(self):
         x_min = np.array([0, 1])
         x_max = np.array([3, 3])
 
-        assert_pairs_of_overlapping_intervals(x_min, x_max)
+        self.assert_pairs_of_overlapping_intervals(x_min, x_max)
 
-    def test_intersection_two_lines_same_start_and_end(
-        self, assert_pairs_of_overlapping_intervals
-    ):
+    def test_intersection_two_lines_same_start_and_end(self):
         x_min = np.array([0, 0])
         x_max = np.array([3, 3])
 
-        assert_pairs_of_overlapping_intervals(x_min, x_max)
+        self.assert_pairs_of_overlapping_intervals(x_min, x_max)
 
     def test_intersection_two_lines_one_is_point_no_intersection(self):
         x_min = np.array([0, 1])
@@ -802,21 +790,17 @@ class TestIdentifyOverlappingIntervals:
 
         assert pairs.size == 0
 
-    def test_intersection_two_lines_one_is_point_intersection(
-        self, assert_pairs_of_overlapping_intervals
-    ):
+    def test_intersection_two_lines_one_is_point_intersection(self):
         x_min = np.array([1, 0])
         x_max = np.array([1, 2])
 
-        assert_pairs_of_overlapping_intervals(x_min, x_max)
+        self.assert_pairs_of_overlapping_intervals(x_min, x_max)
 
-    def test_intersection_three_lines_two_intersect(
-        self, assert_pairs_of_overlapping_intervals
-    ):
+    def test_intersection_three_lines_two_intersect(self):
         x_min = np.array([1, 0, 3])
         x_max = np.array([2, 2, 4])
 
-        assert_pairs_of_overlapping_intervals(x_min, x_max)
+        self.assert_pairs_of_overlapping_intervals(x_min, x_max)
 
     def test_intersection_three_lines_all_intersect(self):
         x_min = np.array([1, 0, 1])
@@ -2367,8 +2351,6 @@ class TestPolygonPolyhedronIntersection:
             f_1, polyhedron
         )
         assert compare_arrays(f_1, constrained_poly[0])
-
-    #        assert(compare_arrays(f_2, constrained_poly[1]))
 
     def test_fully_internal_segments_3(self):
         # Issue that showed up while running the function on a fracture network
