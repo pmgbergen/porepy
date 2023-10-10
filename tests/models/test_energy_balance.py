@@ -6,7 +6,6 @@ TODO: This test should be updated along the lines of test_single_phase_flow.py.
 from __future__ import annotations
 
 import copy
-from typing import Callable
 
 import numpy as np
 import pytest

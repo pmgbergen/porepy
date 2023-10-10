@@ -16,6 +16,8 @@ constitutive laws, the first test might be removed.
 """
 from __future__ import annotations
 
+from typing import Any, Literal, Type
+
 import numpy as np
 import pytest
 
@@ -285,11 +287,11 @@ bulk = lbda + 2 / 3 * mu
     ],
 )
 def test_evaluated_values(
-    model: Type[Poromechanics]
-    | Type[Thermoporomechanics]
-    | Type[MassAndEnergyBalance]
-    | Type[MomentumBalance]
-    | Type[_],
+    model: Type[models.Poromechanics]
+    | Type[models.Thermoporomechanics]
+    | Type[models.MassAndEnergyBalance]
+    | Type[models.MomentumBalance]
+    | Type[_],  # noqa
     method_name: Literal[
         "fluid_density",
         "thermal_conductivity",
