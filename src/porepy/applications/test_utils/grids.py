@@ -1,7 +1,9 @@
 """Helper methods to compare grids.
 """
 import numpy as np
+
 import porepy as pp
+
 from . import arrays
 
 

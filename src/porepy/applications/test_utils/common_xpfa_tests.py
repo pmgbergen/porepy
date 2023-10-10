@@ -1,42 +1,26 @@
-import unittest
+"""Utility functions used here in test_mpfa.py and test_tpfa.py.
+Some simple for getting grid, permeability, bc object etc.
 
+Then more specific functions related to specific tests defined both here and for mpfa.
+
+"""
 import numpy as np
-import pytest
-import scipy
-import sympy
-from scipy.sparse.linalg import spsolve
 
 import porepy as pp
 
 
-class _SolutionHomogeneousDomainFlowWithGravity(object):
-    """Convenience class for representing an analytical solution, and its
-    derivatives"""
-
-    def __init__(self, p, x, y):
-        p_f = sympy.lambdify((x, y), p, "numpy")
-        gx = sympy.diff(p, x)
-        gy = sympy.diff(p, y)
-        gx_f = sympy.lambdify((x, y), gx, "numpy")
-        gy_f = sympy.lambdify((x, y), gy, "numpy")
-        self.p_f = p_f
-        self.gx_f = gx_f
-        self.gy_f = gy_f
+def _setup_cart_2d(nx, dir_faces=None):
+    g = pp.CartGrid(nx)
+    g.compute_geometry()
+    kxx = np.ones(g.num_cells)
+    perm = pp.SecondOrderTensor(kxx)
+    if dir_faces is None:
+        dir_faces = g.tags["domain_boundary_faces"].nonzero()[0]
+    bound = pp.BoundaryCondition(g, dir_faces, ["dir"] * dir_faces.size)
+    return g, perm, bound
 
 
-class _Solution1DFlowWithGravity(object):
-    """Convenience class for representing an analytical solution, and its
-    derivatives"""
-
-    def __init__(self, p, y):
-        p_f = sympy.lambdify(y, p, "numpy")
-        g = sympy.diff(p, y)
-        g_f = sympy.lambdify(y, g, "numpy")
-        self.p_f = p_f
-        self.g_f = g_f
-
-
-def perturb(g, rate, dx):
+def perturb_grid(g, rate, dx):
     rand = np.vstack((np.random.rand(g.dim, g.num_nodes), np.repeat(0.0, g.num_nodes)))
     r1 = np.ravel(
         np.argwhere(
@@ -54,8 +38,6 @@ def perturb(g, rate, dx):
             & (g.nodes[1] > 0.5 + 1e-10)
         )
     )
-    # r3 = np.ravel(np.argwhere((g.nodes[0] < 1 - 1e-10) & (g.nodes[0] > 1e-10) & (g.nodes[1] < 0.75 - 1e-10) & (g.nodes[1] > 0.5 + 1e-10)))
-    # r4 = np.ravel(np.argwhere((g.nodes[0] < 1 - 1e-10) & (g.nodes[0] > 1e-10) & (g.nodes[1] < 1.0 - 1e-10) & (g.nodes[1] > 0.75 + 1e-10)))
     pert_nodes = np.concatenate((r1, r2))
     npertnodes = pert_nodes.size
     rand = np.vstack((np.random.rand(g.dim, npertnodes), np.repeat(0.0, npertnodes)))
@@ -66,132 +48,126 @@ def perturb(g, rate, dx):
     return g
 
 
-def make_grid(grid, grid_dims, domain):
-    if grid.lower() == "cart":
-        return pp.CartGrid(grid_dims, domain)
-    elif grid.lower() == "triangular":
-        return pp.StructuredTriangleGrid(grid_dims, domain)
+"""Tests for discretization stensils. Base case + periodic BCs."""
 
 
-class TestMPFAgravity(unittest.TestCase):
-    def test_hydrostatic_pressure_1D(self):
-        # Test mpfa_gravity in 1D grid
-        # Solver uses TPFA + standard method
-        # Should be exact for hydrostatic pressure
-        # with stepwise gravity variation
+def _test_laplacian_stencil_cart_2d(discr_matrices_func):
+    """Apply TPFA or MPFA on Cartesian grid, should obtain Laplacian stencil."""
+    nx = np.array([3, 3])
+    dir_faces = np.array([0, 3, 12])
+    g, perm, bound = _setup_cart_2d(nx, dir_faces)
+    div, flux, bound_flux, _ = discr_matrices_func(g, perm, bound)
+    A = div * flux
+    b = -(div * bound_flux).A
 
-        x = sympy.symbols("x")
-        g1 = 10
-        g2 = 1
-        p0 = 1  # reference pressure
-        p = p0 + sympy.Piecewise(
-            ((1 - x) * g1, x >= 0.5), (0.5 * g1 + (0.5 - x) * g2, x < 0.5)
-        )
-        an_sol = _Solution1DFlowWithGravity(p, x)
+    # Checks on interior cell
+    mid = 4
+    assert A[mid, mid] == 4
+    assert A[mid - 1, mid] == -1
+    assert A[mid + 1, mid] == -1
+    assert A[mid - 3, mid] == -1
+    assert A[mid + 3, mid] == -1
 
-        g = pp.CartGrid(8, 1)
-        g.compute_geometry()
-        xc = g.cell_centers
-        xf = g.face_centers
+    # The first cell should have two Dirichlet bnds
+    assert A[0, 0] == 6
+    assert A[0, 1] == -1
+    assert A[0, 3] == -1
 
-        k = pp.SecondOrderTensor(np.ones(g.num_cells))
+    # Cell 3 has one Dirichlet, one Neumann face
+    assert A[2, 2] == 4
+    assert A[2, 1] == -1
+    assert A[2, 5] == -1
 
-        # Gravity
-        gforce = an_sol.g_f(xc[0])
+    # Cell 2 has one Neumann face
+    assert A[1, 1] == 3
+    assert A[1, 0] == -1
+    assert A[1, 2] == -1
+    assert A[1, 4] == -1
 
-        # Set type of boundary conditions
-        # 'dir' left, 'neu' right
-        p_bound = np.zeros(g.num_faces)
-        dir_faces = np.array([0])
-
-        bound_cond = pp.BoundaryCondition(g, dir_faces, ["dir"] * dir_faces.size)
-
-        # set value of boundary condition
-        p_bound[dir_faces] = an_sol.p_f(xf[0, dir_faces])
-
-        # GCMPFA discretization, and system matrix
-        flux, bound_flux, _, _, div_g, _ = pp.Mpfa("flow")._flux_discretization(
-            g, k, bound_cond, inverter="python"
-        )
-        div = pp.fvutils.scalar_divergence(g)
-        a = div * flux
-
-        flux_g = div_g * gforce
-        # assemble rhs
-        b = -div * bound_flux * p_bound - div * flux_g
-        # solve system
-        p = scipy.sparse.linalg.spsolve(a, b)
-        q = flux * p + bound_flux * p_bound + flux_g
-        p_ex = an_sol.p_f(xc[0])
-        q_ex = np.zeros(g.num_faces)
-        self.assertTrue(np.allclose(p, p_ex))
-        self.assertTrue(np.allclose(q, q_ex))
-
-    def test_hydrostatic_pressure(self):
-        # Test mpfa_gravity in 2D Cartesian
-        # and triangular grids
-        # Should be exact for hydrostatic pressure
-        # with stepwise gravity variation
-
-        grids = ["cart", "triangular"]
-
-        x, y = sympy.symbols("x y")
-        g1 = 10
-        g2 = 1
-        p0 = 1  # reference pressure
-        p = p0 + sympy.Piecewise(
-            ((1 - y) * g1, y >= 0.5), (0.5 * g1 + (0.5 - y) * g2, y < 0.5)
-        )
-        an_sol = _SolutionHomogeneousDomainFlowWithGravity(p, x, y)
-
-        for gr in grids:
-            domain = np.array([1, 1])
-            basedim = np.array([4, 4])
-            pert = 0.5
-            g = make_grid(gr, basedim, domain)
-            g.compute_geometry()
-            dx = np.max(domain / basedim)
-            g = perturb(g, pert, dx)
-            g.compute_geometry()
-            xc = g.cell_centers
-            xf = g.face_centers
-
-            k = pp.SecondOrderTensor(np.ones(g.num_cells))
-
-            # Gravity
-            gforce = np.zeros((2, g.num_cells))
-            gforce[0, :] = an_sol.gx_f(xc[0], xc[1])
-            gforce[1, :] = an_sol.gy_f(xc[0], xc[1])
-            gforce = gforce.ravel("F")
-
-            # Set type of boundary conditions
-            p_bound = np.zeros(g.num_faces)
-            left_faces = np.ravel(np.argwhere(g.face_centers[0] < 1e-10))
-            right_faces = np.ravel(np.argwhere(g.face_centers[0] > domain[0] - 1e-10))
-            dir_faces = np.concatenate((left_faces, right_faces))
-
-            bound_cond = pp.BoundaryCondition(g, dir_faces, ["dir"] * dir_faces.size)
-
-            # set value of boundary condition
-            p_bound[dir_faces] = an_sol.p_f(xf[0, dir_faces], xf[1, dir_faces])
-
-            # GCMPFA discretization, and system matrix
-            flux, bound_flux, _, _, div_g, _ = pp.Mpfa("flow")._flux_discretization(
-                g, k, bound_cond, inverter="python"
-            )
-            div = pp.fvutils.scalar_divergence(g)
-            a = div * flux
-            flux_g = div_g * gforce
-            b = -div * bound_flux * p_bound - div * flux_g
-            p = scipy.sparse.linalg.spsolve(a, b)
-            q = flux * p + bound_flux * p_bound + flux_g
-            p_ex = an_sol.p_f(xc[0], xc[1])
-            q_ex = np.zeros(g.num_faces)
-            self.assertTrue(np.allclose(p, p_ex))
-            self.assertTrue(np.allclose(q, q_ex))
+    assert b[1, 13] == -1
 
 
-def set_params_disrcetize(g, ambient_dim, method, periodic=False):
+def _test_laplacian_stensil_cart_2d_periodic_bcs(discr_matrices_func):
+    """Apply TPFA and MPFA on a periodic Cartesian grid, should obtain Laplacian stencil."""
+
+    # Structured Cartesian grid and permeability. We need tailored BC object.
+    g, perm, _ = _setup_cart_2d(np.array([3, 3]))
+
+    left_faces = [0, 4, 8, 12, 13, 14]
+    right_faces = [3, 7, 11, 21, 22, 23]
+    periodic_face_map = np.vstack((left_faces, right_faces))
+    g.set_periodic_map(periodic_face_map)
+
+    bound = pp.BoundaryCondition(g)
+    div, flux, bound_flux, _ = discr_matrices_func(g, perm, bound)
+    a = div * flux
+    b = -(div * bound_flux).A
+
+    # Create laplace matrix
+    A_lap = np.array(
+        [
+            [4.0, -1.0, -1.0, -1.0, 0.0, 0.0, -1.0, 0.0, 0.0],
+            [-1.0, 4.0, -1.0, 0.0, -1.0, 0.0, 0.0, -1.0, 0.0],
+            [-1.0, -1.0, 4.0, 0.0, 0.0, -1.0, 0.0, 0.0, -1.0],
+            [-1.0, 0.0, 0.0, 4.0, -1.0, -1.0, -1.0, 0.0, 0.0],
+            [0.0, -1.0, 0.0, -1.0, 4.0, -1.0, 0.0, -1.0, 0.0],
+            [0.0, 0.0, -1.0, -1.0, -1.0, 4.0, 0.0, 0.0, -1.0],
+            [-1.0, 0.0, 0.0, -1.0, 0.0, 0.0, 4.0, -1.0, -1.0],
+            [0.0, -1.0, 0.0, 0.0, -1.0, 0.0, -1.0, 4.0, -1.0],
+            [0.0, 0.0, -1.0, 0.0, 0.0, -1.0, -1.0, -1.0, 4.0],
+        ]
+    )
+    assert np.allclose(a.A, A_lap)
+    assert np.allclose(b, 0)
+
+
+def _test_symmetry_field_2d_periodic_bc(discr_matrices_func):
+    """
+    Test that we obtain a symmetric solution accross the periodic boundary.
+    The test consider the unit square with periodic boundary conditions
+    on the top and bottom boundary. A source is added to the bottom row of
+    cells and we test that the solution is periodic.
+    Setup, with x denoting the source:
+           --------
+          |       |
+    p = 0 |       | p = 0
+          |   x   |
+           -------
+    """
+    # Structured Cartesian grid and permeability. We need tailored BC object.
+    g, perm, _ = _setup_cart_2d(np.array([5, 5]))  # No physdims allowed, [1, 1])
+
+    bot_faces = np.argwhere(g.face_centers[1] < 1e-5).ravel()
+    top_faces = np.argwhere(g.face_centers[1] > 5 - 1e-5).ravel()
+
+    left_faces = np.argwhere(g.face_centers[0] < 1e-5).ravel()
+    right_faces = np.argwhere(g.face_centers[0] > 5 - 1e-5).ravel()
+
+    dir_faces = np.hstack((left_faces, right_faces))
+
+    g.set_periodic_map(np.vstack((bot_faces, top_faces)))
+
+    bound = pp.BoundaryCondition(g, dir_faces, "dir")
+
+    # Solve
+    div, flux, bound_flux, _ = discr_matrices_func(g, perm, bound)
+    a = div * flux
+
+    pr_bound = np.zeros(div.shape[1])
+    src = np.zeros(div.shape[0])
+    src[2] = 1
+
+    rhs = -div * bound_flux * pr_bound + src
+    pr = np.linalg.solve(a.todense(), rhs)
+
+    p_diff = pr[5:15] - np.hstack((pr[-5:], pr[-10:-5]))
+    assert np.max(np.abs(p_diff)) < 1e-10
+
+
+"""Gravity related testing."""
+
+
+def set_params_and_discretize_gravity(g, ambient_dim, method, periodic=False):
     g.compute_geometry()
     keyword = "flow"
 
@@ -228,13 +204,14 @@ def set_params_disrcetize(g, ambient_dim, method, periodic=False):
     return flux, vector_source, div
 
 
-@pytest.mark.parametrize("method", ["tpfa", "mpfa"])
-def test_1d_ambient_dim_1(method):
+def _test_gravity_1d_ambient_dim_1(method):
     dx = np.random.rand(1)[0]
     g = pp.TensorGrid(np.array([0, dx, 2 * dx]))
 
     ambient_dim = 1
-    flux, vector_source_discr, div = set_params_disrcetize(g, ambient_dim, method)
+    flux, vector_source_discr, div = set_params_and_discretize_gravity(
+        g, ambient_dim, method
+    )
 
     # Prepare to solve problem
     A = div * flux
@@ -257,13 +234,14 @@ def test_1d_ambient_dim_1(method):
     assert np.allclose(flux_x, 0)
 
 
-@pytest.mark.parametrize("method", ["tpfa", "mpfa"])
-def test_1d_ambient_dim_2(method):
+def _test_gravity_1d_ambient_dim_2(method):
     dx = np.random.rand(1)[0]
     g = pp.TensorGrid(np.array([0, dx, 2 * dx]))
 
     ambient_dim = 2
-    flux, vector_source_discr, div = set_params_disrcetize(g, ambient_dim, method)
+    flux, vector_source_discr, div = set_params_and_discretize_gravity(
+        g, ambient_dim, method
+    )
 
     # Prepare to solve problem
     A = div * flux
@@ -296,14 +274,15 @@ def test_1d_ambient_dim_2(method):
     assert np.allclose(flux_y, 0)
 
 
-@pytest.mark.parametrize("method", ["tpfa", "mpfa"])
-def test_1d_ambient_dim_2_nodes_reverted(method):
+def _test_gravity_1d_ambient_dim_2_nodes_reverted(method):
     # Same test as above, but with the orientation of the grid rotated.
     dx = np.random.rand(1)[0]
     g = pp.TensorGrid(np.array([0, -dx, -2 * dx]))
 
     ambient_dim = 2
-    flux, vector_source_discr, div = set_params_disrcetize(g, ambient_dim, method)
+    flux, vector_source_discr, div = set_params_and_discretize_gravity(
+        g, ambient_dim, method
+    )
 
     # Prepare to solve problem
     A = div * flux
@@ -335,14 +314,15 @@ def test_1d_ambient_dim_2_nodes_reverted(method):
     assert np.allclose(flux_y, 0)
 
 
-@pytest.mark.parametrize("method", ["tpfa", "mpfa"])
-def test_1d_ambient_dim_3(method):
+def _test_gravity_1d_ambient_dim_3(method):
     dx = np.random.rand(1)[0]
     g = pp.TensorGrid(np.array([0, dx, 2 * dx]))
     g.nodes[:] = np.array([0, dx, 2 * dx])
 
     ambient_dim = 3
-    flux, vector_source_discr, div = set_params_disrcetize(g, ambient_dim, method)
+    flux, vector_source_discr, div = set_params_and_discretize_gravity(
+        g, ambient_dim, method
+    )
 
     # Prepare to solve problem
     A = div * flux
@@ -375,8 +355,7 @@ def test_1d_ambient_dim_3(method):
     assert np.allclose(flux_y, 0)
 
 
-@pytest.mark.parametrize("method", ["tpfa", "mpfa"])
-def test_2d_horizontal_ambient_dim_3(method):
+def _test_gravity_2d_horizontal_ambient_dim_3(method):
     # Cartesian grid in xy-plane. The rotation of the grid in the mpfa discretization
     # will be trivial, leaving one source of error
 
@@ -390,7 +369,9 @@ def test_2d_horizontal_ambient_dim_3(method):
     ambient_dim = 3
 
     # Discretization
-    flux, vector_source_discr, div = set_params_disrcetize(g, ambient_dim, method)
+    flux, vector_source_discr, div = set_params_and_discretize_gravity(
+        g, ambient_dim, method
+    )
 
     # Prepare to solve problem
     A = div * flux
@@ -426,8 +407,7 @@ def test_2d_horizontal_ambient_dim_3(method):
     assert np.allclose(flux_x, 0)
 
 
-@pytest.mark.parametrize("method", ["tpfa", "mpfa"])
-def test_2d_horizontal_ambient_dim_2(method):
+def _test_gravity_2d_horizontal_ambient_dim_2(method):
     # Cartesian grid in xy-plane. The rotation of the grid in the mpfa discretization
     # will be trivial, leaving one source of error
 
@@ -441,7 +421,9 @@ def test_2d_horizontal_ambient_dim_2(method):
     ambient_dim = 2
 
     # Discretization
-    flux, vector_source_discr, div = set_params_disrcetize(g, ambient_dim, method)
+    flux, vector_source_discr, div = set_params_and_discretize_gravity(
+        g, ambient_dim, method
+    )
 
     # Prepare to solve problem
     A = div * flux
@@ -468,8 +450,7 @@ def test_2d_horizontal_ambient_dim_2(method):
     assert np.allclose(flux_x, 0)
 
 
-@pytest.mark.parametrize("method", ["tpfa"])
-def test_2d_horizontal_periodic_ambient_dim_2(method):
+def _test_gravity_2d_horizontal_periodic_ambient_dim_2(method):
     # Cartesian grid in xy-plane with periodic boundary conditions.
 
     # Random size of the domain
@@ -482,7 +463,9 @@ def test_2d_horizontal_periodic_ambient_dim_2(method):
     ambient_dim = 2
 
     # Discretization
-    flux, vector_source_discr, div = set_params_disrcetize(g, ambient_dim, method, True)
+    flux, vector_source_discr, div = set_params_and_discretize_gravity(
+        g, ambient_dim, method, True
+    )
 
     # Prepare to solve problem
     A = div * flux
@@ -541,89 +524,3 @@ def test_2d_horizontal_periodic_ambient_dim_2(method):
 
     assert np.allclose(A.A, A_known)
     assert np.allclose(vector_source_discr.A, vct_src_known)
-
-
-class TiltedGrids(unittest.TestCase):
-    def __init__(self, *args, **kwargs):
-        super(TiltedGrids, self).__init__(*args, **kwargs)
-        self.keyword = "flow"
-
-    def set_params_disrcetize(self, g, ambient_dim=3):
-        g.compute_geometry()
-
-        bc = pp.BoundaryCondition(g)
-        k = pp.SecondOrderTensor(np.ones(g.num_cells))
-
-        params = {
-            "bc": bc,
-            "second_order_tensor": k,
-            "mpfa_inverter": "python",
-            "ambient_dimension": ambient_dim,
-        }
-
-        data = pp.initialize_data(g, {}, self.keyword, params)
-        discr = pp.Mpfa(self.keyword)
-        discr.discretize(g, data)
-
-        flux = data[pp.DISCRETIZATION_MATRICES][self.keyword][discr.flux_matrix_key]
-        vector_source = data[pp.DISCRETIZATION_MATRICES][self.keyword][
-            discr.vector_source_matrix_key
-        ]
-        div = pp.fvutils.scalar_divergence(g)
-        return flux, vector_source, div
-
-    def test_assembly(self):
-        # Test the assemble_matrix_rhs method, with vector sources included.
-        # The rest of the setup is identical to that in
-        # self.test_2d_horizontal_ambient_dim_2()
-
-        # Random size of the domain
-        dx = np.random.rand(1)[0]
-
-        # 2x2 grid of the random size
-        g = pp.CartGrid([2, 2], [2 * dx, 2 * dx])
-
-        # Hhe vector source is a 2-vector per cell
-        ambient_dim = 2
-
-        g.compute_geometry()
-
-        bc = pp.BoundaryCondition(g)
-        k = pp.SecondOrderTensor(np.ones(g.num_cells))
-
-        # Make source strength another random number
-        grav_strength = np.random.rand(1)
-
-        # introduce a source term in x-direction
-        g_x = np.zeros(g.num_cells * ambient_dim)
-        g_x[::ambient_dim] = -1 * grav_strength
-
-        params = {
-            "bc": bc,
-            "bc_values": np.zeros(g.num_faces),
-            "second_order_tensor": k,
-            "mpfa_inverter": "python",
-            "ambient_dimension": ambient_dim,
-            "vector_source": g_x,
-        }
-
-        data = pp.initialize_data(g, {}, self.keyword, params)
-
-        discr = pp.Mpfa(self.keyword)
-        discr.discretize(g, data)
-
-        A, b = discr.assemble_matrix_rhs(g, data)
-
-        p_x = np.linalg.pinv(A.toarray()).dot(b)
-
-        # The solution should be higher in the first x-row of cells, with magnitude
-        # controlled by grid size and source stregth
-        self.assertTrue(np.allclose(p_x[0] - p_x[1], dx * grav_strength))
-        self.assertTrue(np.allclose(p_x[2] - p_x[3], dx * grav_strength))
-        # The solution should be equal for equal x-coordinate
-        self.assertTrue(np.allclose(p_x[0], p_x[2]))
-        self.assertTrue(np.allclose(p_x[1], p_x[3]))
-
-
-if __name__ == "__main__":
-    unittest.main()
