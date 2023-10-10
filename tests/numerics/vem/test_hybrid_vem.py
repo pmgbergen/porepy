@@ -268,6 +268,7 @@ class TestVEMDiscretization:
         assert np.allclose(M, M_known, rtol, atol)
 
     """Test two-dimensional for isotropic material data (simplex grid)."""
+
     def test_2d_isotropic_permeability_simplex(self):
         sd = pp.StructuredTriangleGrid([1, 1], [1, 1])
         sd.compute_geometry()

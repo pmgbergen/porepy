@@ -5,9 +5,7 @@ Then more specific functions related to specific tests defined both here and for
 
 """
 import numpy as np
-
 import scipy.sparse.linalg as spla
-
 
 import porepy as pp
 
