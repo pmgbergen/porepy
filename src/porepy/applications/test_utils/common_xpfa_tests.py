@@ -6,6 +6,9 @@ Then more specific functions related to specific tests defined both here and for
 """
 import numpy as np
 
+import scipy.sparse.linalg as spla
+
+
 import porepy as pp
 
 
@@ -524,3 +527,211 @@ def _test_gravity_2d_horizontal_periodic_ambient_dim_2(method):
 
     assert np.allclose(A.A, A_known)
     assert np.allclose(vector_source_discr.A, vct_src_known)
+
+
+class XpfaBoundaryPressureTests:
+    """Expects access to a fixture method "discr_instance" that returns a xpfa
+    discretization object. See the pressure method below.
+
+    """
+
+    def make_dictionary(self, g, bc, bc_values=None):
+        if bc_values is None:
+            bc_values = np.zeros(g.num_faces)
+        d = {"bc": bc, "bc_values": bc_values, "mpfa_inverter": "python"}
+        return pp.initialize_default_data(g, {}, "flow", d)
+
+    def boundary_pressure(self, p, bc_vals, data: dict):
+        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES]["flow"]
+
+        bound_p = (
+            matrix_dictionary["bound_pressure_cell"] * p
+            + matrix_dictionary["bound_pressure_face"] * bc_vals
+        )
+        return bound_p
+
+    def grid(self, nx=[2, 2], physdims=None) -> pp.Grid:
+        if physdims is None:
+            physdims = nx
+        g = pp.CartGrid(nx, physdims)
+        g.compute_geometry()
+        return g
+
+    def simplex_grid(self, nx=[2, 2]) -> pp.Grid:
+        g = pp.StructuredTriangleGrid(nx)
+        g.compute_geometry()
+        return g
+
+    def pressure(self, g: pp.Grid, data: dict):
+        # discr_instance: pp.Mpfa | pp.Tpfa = self.discr_instance
+        self.discr_instance.discretize(g, data)
+        A, b = self.discr_instance.assemble_matrix_rhs(g, data)
+        p = spla.spsolve(A, b)
+        return p
+
+    def test_zero_pressure(self):
+        g = self.grid()
+        bf = g.get_boundary_faces()
+        bc_type = bf.size * ["dir"]
+        bound = pp.BoundaryCondition(g, bf, bc_type)
+        data = self.make_dictionary(g, bound)
+        p = self.pressure(g, data)
+        assert np.allclose(p, np.zeros_like(p))
+
+        bound_p = self.boundary_pressure(p, np.zeros(g.num_faces), data)
+        assert np.allclose(bound_p, np.zeros_like(bound_p))
+
+    def test_constant_pressure(self):
+        g = self.grid()
+
+        bf = g.get_boundary_faces()
+        bc_type = bf.size * ["dir"]
+        bound = pp.BoundaryCondition(g, bf, bc_type)
+        bc_val = np.ones(g.num_faces)
+        data = self.make_dictionary(g, bound, bc_val)
+        p = self.pressure(g, data)
+        assert np.allclose(p, np.ones_like(p))
+
+        bound_p = self.boundary_pressure(p, bc_val, data)
+        assert np.allclose(bound_p[bf], bc_val[bf])
+
+    def test_constant_pressure_simplex_grid(self):
+        g = self.simplex_grid()
+
+        bf = g.get_boundary_faces()
+        bc_type = bf.size * ["dir"]
+        bound = pp.BoundaryCondition(g, bf, bc_type)
+
+        bc_val = np.ones(g.num_faces)
+        data = self.make_dictionary(g, bound, bc_val)
+
+        p = self.pressure(g, data)
+
+        assert np.allclose(p, np.ones_like(p))
+
+        bound_p = self.boundary_pressure(p, bc_val, data)
+        assert np.allclose(bound_p[bf], bc_val[bf])
+
+    def test_linear_pressure_dirichlet_conditions(self):
+        g = self.grid()
+
+        bf = g.get_boundary_faces()
+        bc_type = bf.size * ["dir"]
+        bound = pp.BoundaryCondition(g, bf, bc_type)
+
+        bc_val = 1 * g.face_centers[0] + 2 * g.face_centers[1]
+        data = self.make_dictionary(g, bound, bc_val)
+
+        p = self.pressure(g, data)
+
+        bound_p = self.boundary_pressure(p, bc_val, data)
+        assert np.allclose(bound_p[bf], bc_val[bf])
+
+    def test_linear_pressure_part_neumann_conditions(self):
+        g = self.grid()
+
+        bf = g.get_boundary_faces()
+        bc_type = bf.size * ["neu"]
+        bc_type[0] = "dir"
+        bc_type[2] = "dir"
+        bound = pp.BoundaryCondition(g, bf, bc_type)
+        bc_val = np.zeros(g.num_faces)
+        # Set up unit pressure gradient in x-direction
+        bc_val[[2, 5]] = 1
+        data = self.make_dictionary(g, bound, bc_val)
+
+        p = self.pressure(g, data)
+
+        bound_p = self.boundary_pressure(p, bc_val, data)
+        assert np.allclose(bound_p[bf], -g.face_centers[0, bf])
+
+    def test_linear_pressure_part_neumann_conditions_small_domain(self):
+        g = self.grid(physdims=[1, 1])
+
+        bf = g.get_boundary_faces()
+        bc_type = bf.size * ["neu"]
+        bc_type[0] = "dir"
+        bc_type[2] = "dir"
+        bound = pp.BoundaryCondition(g, bf, bc_type)
+
+        bc_val = np.zeros(g.num_faces)
+        # Set up unit pressure gradient in x-direction
+        bc_val[[2, 5]] = 1
+        data = self.make_dictionary(g, bound, bc_val)
+        p = self.pressure(g, data)
+
+        bound_p = self.boundary_pressure(p, bc_val, data)
+        assert np.allclose(bound_p[bf], -2 * g.face_centers[0, bf])
+
+    def test_linear_pressure_part_neumann_conditions_reverse_sign(self):
+        g = self.grid()
+
+        bf = g.get_boundary_faces()
+        bc_type = bf.size * ["neu"]
+        bc_type[0] = "dir"
+        bc_type[2] = "dir"
+        bound = pp.BoundaryCondition(g, bf, bc_type)
+
+        bc_val = np.zeros(g.num_faces)
+        # Set up pressure gradient in x-direction, with value -1
+        bc_val[[2, 5]] = -1
+        data = self.make_dictionary(g, bound, bc_val)
+        p = self.pressure(g, data)
+
+        bound_p = self.boundary_pressure(p, bc_val, data)
+        assert np.allclose(bound_p[bf], g.face_centers[0, bf])
+
+    def test_linear_pressure_part_neumann_conditions_smaller_domain(self):
+        # Smaller domain, check that the smaller pressure gradient is captured
+        g = pp.CartGrid([2, 2], physdims=[1, 2])
+        g.compute_geometry()
+
+        bf = g.get_boundary_faces()
+        bc_type = bf.size * ["neu"]
+        bc_type[0] = "dir"
+        bc_type[2] = "dir"
+        bound = pp.BoundaryCondition(g, bf, bc_type)
+
+        bc_val = np.zeros(g.num_faces)
+        # Set up unit pressure gradient in x-direction
+        bc_val[[2, 5]] = 1
+        data = self.make_dictionary(g, bound, bc_val)
+        p = self.pressure(g, data)
+
+        bound_p = self.boundary_pressure(p, bc_val, data)
+        assert np.allclose(bound_p[bf], -g.face_centers[0, bf])
+
+    def test_sign_trouble_two_neumann_sides(self):
+        g = pp.CartGrid(np.array([2, 2]), physdims=[2, 2])
+        g.compute_geometry()
+        bc_val = np.zeros(g.num_faces)
+        bc_val[[0, 3]] = 1
+        bc_val[[2, 5]] = -1
+
+        data = self.make_dictionary(g, pp.BoundaryCondition(g), bc_val)
+        self.discr_instance.discretize(g, data)
+        self.discr_instance.assemble_matrix_rhs(g, data)
+        # The problem is singular, and spsolve does not work well on all systems.
+        # Instead, set a consistent solution, and check that the boundary
+        # pressure is recovered.
+        x = g.cell_centers[0]
+
+        bound_p = self.boundary_pressure(x, bc_val, data)
+        assert bound_p[0] == x[0] - 0.5
+        assert bound_p[2] == x[1] + 0.5
+
+    def test_linear_pressure_dirichlet_conditions_perturbed_grid(self):
+        g = self.grid()
+        g.nodes[:2] = g.nodes[:2] + np.random.random((2, g.num_nodes))
+        g.compute_geometry()
+
+        bf = g.get_boundary_faces()
+        bc_type = bf.size * ["dir"]
+        bound = pp.BoundaryCondition(g, bf, bc_type)
+
+        bc_val = 1 * g.face_centers[0] + 2 * g.face_centers[1]
+        data = self.make_dictionary(g, bound, bc_val)
+        p = self.pressure(g, data)
+
+        bound_p = self.boundary_pressure(p, bc_val, data)
+        assert np.allclose(bound_p[bf], bc_val[bf])

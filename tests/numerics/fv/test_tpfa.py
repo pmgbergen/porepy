@@ -61,3 +61,19 @@ def test_symmetric_bc_common_with_mpfa():
 def test_tpfa_gravity_common_with_mpfa(test_method):
     """See test_utils.common_xpfa_tests.py for the original tests."""
     test_method("tpfa")
+
+
+discr_instance = pp.Tpfa("flow")
+
+
+class TestTpfaBoundaryPressure(xpfa_tests.XpfaBoundaryPressureTests):
+    """Tests for the boundary pressure computation in MPFA. Accesses the fixture
+    discr_instance, otherwise identical to the tests in test_utils.common_xpfa_tests.py
+    and used in test_tpfa.py.
+
+    """
+
+    @property
+    def discr_instance(self):
+        """Return a tpfa instance."""
+        return discr_instance
