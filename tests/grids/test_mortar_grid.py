@@ -11,6 +11,7 @@ A further description is given for each of the groups of tests.
 
 """
 import pickle
+import os
 from pathlib import Path
 
 import numpy as np
@@ -1109,4 +1110,4 @@ def test_pickle_mortar_grid(g):
     pp.test_utils.grids.compare_mortar_grids(mg_one_sided, mg_read)
 
     # Delete the file
-    Path.unlink(file_name)
+    os.unlink(file_name)
