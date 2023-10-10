@@ -1,16 +1,17 @@
 """Tests for the MPFA discretization scheme."""
-import numpy as np
-import scipy
-import scipy.sparse as sps
 import random
 
+import numpy as np
 import pytest
+import scipy
+import scipy.sparse as sps
 import sympy
+
 import porepy as pp
+from porepy.applications.test_utils import common_xpfa_tests as xpfa_tests
 from porepy.applications.test_utils.partial_discretization import (
     perform_partial_discretization_specified_nodes,
 )
-from porepy.applications.test_utils import common_xpfa_tests as xpfa_tests
 
 """Utility methods."""
 

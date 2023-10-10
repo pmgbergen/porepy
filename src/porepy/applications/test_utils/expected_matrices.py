@@ -1,7 +1,9 @@
 """Known values for the tests are collected in this file.
 
-The matrix should be named with the name of the test function, and the suffix
-_expected_{name_of_quantity}.
+For each test file, there should be a dictionary with the name of the test file. Inside
+this dictionary, there should be a dictionary with the name of the test function/class,
+containing the expected values for the test named according to what they are compared
+to.
 
 Underscores/private names are used for auxiliary variables not intended to be used
 outside this file. These variables may be overwritten multiple times inside this file.
@@ -9,6 +11,7 @@ outside this file. These variables may be overwritten multiple times inside this
 import numpy as np
 import scipy.sparse as sps
 
+# test_mpsa.py
 _data = np.array(
     [
         2.0,
@@ -302,10 +305,12 @@ _indptr = np.array(
         104,
     ]
 )
+test_mpsa = {
+    "TestAsymmetricNeumann": {
+        "test_cart_3d": {"igrad": sps.csr_matrix((_data, _indices, _indptr))}
+    }
+}
 
-test_mpsa_TestAsymmetricNeumann_test_cart_3d_known_igrad = sps.csr_matrix(
-    (_data, _indices, _indptr)
-)
 
 _data = np.array(
     [
@@ -362,6 +367,6 @@ _indices = np.array(
     ]
 )
 _indptr = np.array([0, 2, 3, 4, 6, 7, 9, 10, 12, 14, 15, 17, 18, 19, 20, 22, 23])
-test_mpsa_TestAsymmetricNeumann_test_cart_2d_known_igrad = sps.csr_matrix(
-    (_data, _indices, _indptr)
-)
+test_mpsa["TestAsymmetricNeumann"]["test_cart_2d"] = {
+    "igrad": sps.csr_matrix((_data, _indices, _indptr))
+}
