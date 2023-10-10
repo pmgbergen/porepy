@@ -6,10 +6,10 @@ Functions which are relevant also outside tests should go elsewhere.
 """
 from . import (
     arrays,
-    grids,
-    vtk,
-    partial_discretization,
     common_xpfa_tests,
-    reference_sparse_arrays,
+    grids,
+    partial_discretization,
     reference_dense_arrays,
+    reference_sparse_arrays,
+    vtk,
 )

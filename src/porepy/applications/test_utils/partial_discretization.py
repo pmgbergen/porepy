@@ -1,6 +1,7 @@
 """Utility functions for partial discretization updates."""
 
 import numpy as np
+
 import porepy as pp
 
 

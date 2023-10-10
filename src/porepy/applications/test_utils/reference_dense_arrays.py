@@ -8,8 +8,9 @@ to.
 """
 import numpy as np
 
+
 # test_mpfa.py
-grad_bound_known = np.array(
+_grad_bound_known = np.array(
     [
         [0.10416667, 0.0, 0.0, 0.0, 0.0, -0.02083333, 0.0, 0.0],
         [0.0, 0.25, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
@@ -29,7 +30,7 @@ grad_bound_known = np.array(
         [0.0, 0.0, -0.02083333, 0.0, 0.0, 0.0, 0.0, 0.10416667],
     ]
 )
-grad_cell = np.array(
+_grad_cell = np.array(
     [
         [1.0, 0.0],
         [0.0, 1.0],
@@ -52,8 +53,8 @@ grad_cell = np.array(
 test_mpsa = {
     "MpsaReconstructBoundaryDisplacement": {
         "test_cart_2d": {
-            "grad_bound_known": grad_bound_known,
-            "grad_cell_known": grad_cell,
+            "grad_bound_known": _grad_bound_known,
+            "grad_cell_known": _grad_cell,
         },
     }
 }
