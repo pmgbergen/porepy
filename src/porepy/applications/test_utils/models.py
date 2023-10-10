@@ -2,14 +2,14 @@
 from __future__ import annotations
 
 import inspect
-from typing import Any, Callable
+from typing import Callable
 
 import numpy as np
 
 import porepy as pp
 from porepy.applications.md_grids.model_geometries import (
-    RectangularDomainThreeFractures,
     OrthogonalFractures3d,
+    RectangularDomainThreeFractures,
 )
 
 

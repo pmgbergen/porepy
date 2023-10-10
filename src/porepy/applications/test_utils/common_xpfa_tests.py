@@ -4,8 +4,6 @@ Some simple for getting grid, permeability, bc object etc.
 Then more specific functions related to specific tests defined both here and for mpfa.
 
 """
-import sympy
-import scipy
 import numpy as np
 
 import porepy as pp
