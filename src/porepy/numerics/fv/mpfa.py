@@ -1564,7 +1564,7 @@ def reconstruct_presssure(
     Returns:
         :obj:`~scipy.sparse.spmatrix`: ``(shape=(num_half_faces, sd.num_cells))``
 
-            Pressure reconstruction for the displacement at the half faces. This is the
+            Pressure reconstruction for the pressure at the half faces. This is the
             contribution from the cell-center pressures.
         :obj:`~scipy.sparse.spmatrix`: ``(shape=(num_half_faces, sd.num_cells))``
 
