@@ -16,7 +16,6 @@ import scipy.sparse as sps
 
 import porepy as pp
 import porepy.applications.md_grids.model_geometries
-
 from porepy.applications.test_utils import models
 
 

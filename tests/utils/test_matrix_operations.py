@@ -9,7 +9,6 @@ import scipy.sparse as sps
 from porepy import matrix_operations
 from porepy.applications.test_utils.arrays import compare_matrices
 
-
 # ------------------ Test zero_columns -----------------------
 
 

@@ -9,7 +9,6 @@ import numpy as np
 import pytest
 
 import porepy as pp
-
 from porepy.applications.test_utils.models import (
     MomentumBalance,
     compare_scaled_model_quantities,

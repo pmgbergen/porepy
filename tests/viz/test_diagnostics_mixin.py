@@ -7,8 +7,8 @@ from unittest.mock import patch
 
 import pytest
 
-from porepy.viz.diagnostics_mixin import DiagnosticsMixin
 from porepy.applications.test_utils.models import Poromechanics
+from porepy.viz.diagnostics_mixin import DiagnosticsMixin
 
 
 class PoromechanicsWithDiagnostics(DiagnosticsMixin, Poromechanics):

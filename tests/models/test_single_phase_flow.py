@@ -16,7 +16,6 @@ We provide two tests:
 from __future__ import annotations
 
 import copy
-
 from typing import Callable
 
 import numpy as np
