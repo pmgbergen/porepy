@@ -10,8 +10,8 @@ The module contains the following groups of tests:
 A further description is given for each of the groups of tests.
 
 """
-import pickle
 import os
+import pickle
 from pathlib import Path
 
 import numpy as np

@@ -49,7 +49,7 @@ class BoundaryConditionsMassDirNorthSouth(pp.BoundaryConditionMixin):
             Boundary condition values array.
 
         """
-        domain_sides = self.domain_boundary_sides(boundary_grid.parent)
+        domain_sides = self.domain_boundary_sides(boundary_grid)
         vals_loc = np.zeros(boundary_grid.num_cells)
         vals_loc[domain_sides.north + domain_sides.south] = self.fluid.pressure()
         return vals_loc
@@ -162,8 +162,8 @@ class BoundaryConditionsMechanicsDirNorthSouth(pp.BoundaryConditionMixin):
                 problem, for each face in the subdomain.
 
         """
-        domain_sides = self.domain_boundary_sides(boundary_grid.parent)
-        values = np.zeros((boundary_grid.parent.dim, boundary_grid.num_cells))
+        domain_sides = self.domain_boundary_sides(boundary_grid)
+        values = np.zeros((self.nd, boundary_grid.num_cells))
         values[1, domain_sides.north] = self.solid.convert_units(
             self.params.get("uy_north", 0), "m"
         )
@@ -186,8 +186,8 @@ class TimeDependentMechanicalBCsDirNorthSouth(BoundaryConditionsMechanicsDirNort
     """
 
     def bc_values_displacement(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
-        domain_sides = self.domain_boundary_sides(boundary_grid.parent)
-        values = np.zeros((boundary_grid.parent.dim, boundary_grid.num_cells))
+        domain_sides = self.domain_boundary_sides(boundary_grid)
+        values = np.zeros((self.nd, boundary_grid.num_cells))
         # Add fracture width on top if there is a fracture.
         if len(self.mdg.subdomains()) > 1:
             frac_val = self.solid.convert_units(0.042, "m")

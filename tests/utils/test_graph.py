@@ -20,11 +20,11 @@ def test_fully_connected_graph():
 
 
 @pytest.mark.parametrize(
-    'node_connections',
+    "node_connections",
     [
         np.array([[0, 1, 1, 0], [1, 0, 1, 0], [1, 1, 0, 0], [0, 0, 0, 0]]),
         np.array([[1, 1, 1, 0], [1, 1, 1, 0], [1, 1, 1, 0], [0, 0, 0, 1]]),
-    ]
+    ],
 )
 def test_two_region_graph(node_connections):
     G = graph.Graph(sps.csc_matrix(node_connections))
