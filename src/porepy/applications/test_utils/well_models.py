@@ -1,6 +1,7 @@
 """Contains code for setting up a simple but non-trivial model with a well.
 """
 import numpy as np
+
 import porepy as pp
 
 

@@ -1,8 +1,7 @@
 """Tests for the Biot discretization."""
 import numpy as np
-import scipy.sparse as sps
-
 import pytest
+
 import porepy as pp
 from porepy.applications.test_utils.partial_discretization import (
     perform_partial_discretization_specified_nodes,
