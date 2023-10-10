@@ -8,7 +8,6 @@ to.
 """
 import numpy as np
 
-
 # test_mpfa.py
 grad_bound_known = np.array(
     [

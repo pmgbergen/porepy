@@ -10,6 +10,6 @@ from . import (
     vtk,
     partial_discretization,
     common_xpfa_tests,
-    expected_arrays,
-    expected_matrices,
+    reference_sparse_arrays,
+    reference_dense_arrays,
 )

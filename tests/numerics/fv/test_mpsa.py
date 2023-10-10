@@ -4,7 +4,6 @@ import pytest
 import scipy.sparse as sps
 
 import porepy as pp
-from porepy.applications.test_utils.expected_arrays import test_mpsa as expected_arrays
 from porepy.applications.test_utils.partial_discretization import (
     perform_partial_discretization_specified_nodes,
 )
@@ -563,9 +562,9 @@ class MpsaReconstructBoundaryDisplacement(TestUpdateMpsaDiscretization):
         )
 
         hf2f = (scaling * hf2f).toarray()
-        expected = expected_arrays["MpsaReconstructBoundaryDisplacement"][
-            "test_cart_2d"
-        ]
+        expected = pp.test_utils.reference_dense_arrays.test_mpsa[
+            "MpsaReconstructBoundaryDisplacement"
+        ]["test_cart_2d"]
         assert np.all(
             np.abs(grad_bound - hf2f.dot(expected["grad_bound_known"])) < 1e-7
         )
@@ -1115,12 +1114,12 @@ class RobinBoundTest:
 
 class TestAsymmetricNeumann:
     @property
-    def expected_matrices(self):
+    def reference_sparse_arrays(self):
         """Returns dictionary of expected matrices for test cases.
 
-        Each matrix is accessed as expected_matrices["test_name"]["matrix_name"]
+        Each matrix is accessed as reference_sparse_arrays["test_name"]["matrix_name"]
         """
-        return pp.test_utils.expected_matrices.test_mpsa["TestAsymmetricNeumann"]
+        return pp.test_utils.reference_sparse_arrays.test_mpsa["TestAsymmetricNeumann"]
 
     def test_cart_2d(self):
         g = pp.CartGrid([1, 1], physdims=(1, 1))
@@ -1144,7 +1143,7 @@ class TestAsymmetricNeumann:
             g, k, subcell_topology, bound_exclusion, 0, "python"
         )
 
-        expected_igrad = self.expected_matrices["test_cart_2d"]["igrad"]
+        expected_igrad = self.reference_sparse_arrays["test_cart_2d"]["igrad"]
 
         assert np.all(np.abs(igrad - expected_igrad).A < 1e-12)
 
@@ -1167,5 +1166,5 @@ class TestAsymmetricNeumann:
         _, igrad, _ = pp.Mpsa("")._create_inverse_gradient_matrix(
             g, k, subcell_topology, bound_exclusion, 0, "python"
         )
-        expected_igrad = self.expected_matrices["test_cart_3d"]["igrad"]
+        expected_igrad = self.reference_sparse_arrays["test_cart_3d"]["igrad"]
         assert np.all(np.abs(igrad - expected_igrad).A < 1e-12)
