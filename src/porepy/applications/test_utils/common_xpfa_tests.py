@@ -533,6 +533,11 @@ class XpfaBoundaryPressureTests:
 
     """
 
+    @property
+    def discr_instance(self):
+        """Abstract method that return a xpfa instance."""
+        pass
+
     def make_dictionary(self, g, bc, bc_values=None):
         if bc_values is None:
             bc_values = np.zeros(g.num_faces)
