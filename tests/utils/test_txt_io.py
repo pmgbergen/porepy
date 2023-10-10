@@ -11,7 +11,7 @@ from porepy.utils.txt_io import TxtData, export_data_to_txt, read_data_from_txt
 """Check that an error is raised when the arrays don't have the same size."""
 
 
-def test_sanity_of_list_of_txt_data(self) -> None:
+def test_sanity_of_list_of_txt_data() -> None:
     data0 = TxtData(header="pink", array=np.array([0, 1, 2]))
     data1 = TxtData(header="floyd", array=np.array([1973]))
     list_of_txt_data = [data0, data1]
@@ -24,7 +24,7 @@ def test_sanity_of_list_of_txt_data(self) -> None:
 """Check that the data is correctly exported."""
 
 
-def test_export_data(self) -> None:
+def test_export_data() -> None:
     # Create a list of txt data
     pressure = TxtData(
         header="pressure",
