@@ -68,7 +68,7 @@ class BoundaryConditionsWellSetup(pp.BoundaryConditionMixin):
 
         vals_loc = np.zeros(boundary_grid.num_cells)
         if boundary_grid.dim == 0:
-            domain_sides = self.domain_boundary_sides(boundary_grid)
+            domain_sides = self.domain_boundary_sides(boundary_grid.parent)
             # Inflow for the top boundary of the well.
             vals_loc[domain_sides.top] = value
         return vals_loc

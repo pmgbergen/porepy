@@ -114,7 +114,7 @@ class SolutionStrategy(abc.ABC):
         :class:`~porepy.models.geometry.ModelGeometry`.
 
         """
-        self.domain: pp.Domain
+        self._domain: pp.Domain
         """Box-shaped domain. Will normally be set by a mixin instance of
         :class:`~porepy.models.geometry.ModelGeometry`.
 
@@ -246,6 +246,11 @@ class SolutionStrategy(abc.ABC):
 
         # Initialize time dependent ad arrays, including those for boundary values.
         self.update_time_dependent_ad_arrays()
+
+    @property
+    def domain(self) -> pp.Domain:
+        """Domain of the problem."""
+        return self._domain
 
     @property
     def time_step_indices(self) -> np.ndarray:

@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import inspect
-from typing import Callable
+from typing import Any, Callable
 
 import numpy as np
 
@@ -81,6 +81,7 @@ def model(
     # them in a new class.
 
     # Identify the geometry class
+    geometry: Any = None
     if dim == 2:
         geometry = RectangularDomainThreeFractures
     elif dim == 3:
@@ -89,6 +90,7 @@ def model(
         raise ValueError(f"Unknown dimension {dim}")
 
     # Identify the physics class
+    model_class: Any = None
     if model_type == "mass_balance":
         model_class = pp.fluid_mass_balance.SinglePhaseFlow
     elif model_type == "momentum_balance":
