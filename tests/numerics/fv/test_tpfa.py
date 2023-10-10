@@ -1,8 +1,6 @@
 """Tests for the TPFA discretization scheme."""
 import pytest
 
-import numpy as np
-
 import porepy as pp
 from porepy.applications.test_utils import common_xpfa_tests as xpfa_tests
 

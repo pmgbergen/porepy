@@ -1,15 +1,14 @@
 """Tests for the MPSA discretization scheme."""
 import numpy as np
+import pytest
 import scipy.sparse as sps
 
-import pytest
 import porepy as pp
+from porepy.applications.test_utils.expected_arrays import test_mpsa as expected_arrays
 from porepy.applications.test_utils.partial_discretization import (
     perform_partial_discretization_specified_nodes,
 )
 from porepy.grids.standard_grids.utils import unit_domain
-from porepy.applications.test_utils.expected_arrays import test_mpsa as expected_arrays
-
 
 keyword = "mechanics"
 
