@@ -13,7 +13,7 @@ from porepy.applications.md_grids.model_geometries import (
 )
 
 
-class NoPhysics(
+class NoPhysics(  # type: ignore[misc]
     pp.ModelGeometry, pp.SolutionStrategy, pp.DataSavingMixin, pp.BoundaryConditionMixin
 ):
     """A model with no physics, for testing purposes.
@@ -33,35 +33,35 @@ class NoPhysics(
         pass
 
 
-class MassBalance(
+class MassBalance(  # type: ignore[misc]
     RectangularDomainThreeFractures,
     pp.fluid_mass_balance.SinglePhaseFlow,
 ):
     ...
 
 
-class MomentumBalance(
+class MomentumBalance(  # type: ignore[misc]
     RectangularDomainThreeFractures,
     pp.momentum_balance.MomentumBalance,
 ):
     """Combine components needed for momentum balance simulation."""
 
 
-class MassAndEnergyBalance(
+class MassAndEnergyBalance(  # type: ignore[misc]
     RectangularDomainThreeFractures,
     pp.mass_and_energy_balance.MassAndEnergyBalance,
 ):
     """Combine components needed for force balance simulation."""
 
 
-class Poromechanics(
+class Poromechanics(  # type: ignore[misc]
     RectangularDomainThreeFractures,
     pp.poromechanics.Poromechanics,
 ):
     """Combine components needed for poromechanics simulation."""
 
 
-class Thermoporomechanics(
+class Thermoporomechanics(  # type: ignore[misc]
     RectangularDomainThreeFractures,
     pp.thermoporomechanics.Thermoporomechanics,
 ):
@@ -121,7 +121,7 @@ def model(
 def subdomains_or_interfaces_from_method_name(
     mdg: pp.MixedDimensionalGrid,
     method_name: Callable,
-    domain_dimension: int,
+    domain_dimension: int | None,
 ) -> list[pp.Grid] | list[pp.MortarGrid]:
     """Return the domains to be tested for a given method.
 
@@ -149,7 +149,7 @@ def subdomains_or_interfaces_from_method_name(
         # If relevant, filter out the domains that are not to be tested.
         domains = mdg.subdomains(dim=domain_dimension)
     elif "interfaces" in signature.parameters:
-        domains = mdg.interfaces(dim=domain_dimension)
+        domains = mdg.interfaces(dim=domain_dimension)  # type: ignore[assignment]
 
     return domains
 

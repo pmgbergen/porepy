@@ -20,6 +20,9 @@ class BoundaryConditionsMassDirNorthSouth(pp.BoundaryConditionMixin):
 
     """
 
+    fluid: pp.FluidConstants
+
+
     def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         """Boundary condition type for Darcy flux.
 
@@ -127,6 +130,8 @@ class BoundaryConditionsMechanicsDirNorthSouth(pp.BoundaryConditionMixin):
     """Solid parameters."""
     fluid: pp.FluidConstants
     """Fluid parameters."""
+    nd: int
+    """Number of dimensions."""
 
     def bc_type_mechanics(self, sd):
         """Boundary condition type for mechanics.

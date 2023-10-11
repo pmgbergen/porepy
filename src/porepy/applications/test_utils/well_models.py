@@ -9,6 +9,8 @@ class OneVerticalWell:
     domain: pp.Domain
     """Domain for the model."""
 
+    solid: pp.SolidConstants
+
     def set_well_network(self) -> None:
         """Assign well network class."""
         points = np.array([[0.5, 0.5], [0.5, 0.5], [0.2, 1]])
@@ -36,6 +38,15 @@ class OneVerticalWell:
 
 
 class BoundaryConditionsWellSetup(pp.BoundaryConditionMixin):
+    """Boundary conditions for the well setup."""
+
+    fluid: pp.FluidConstants
+
+    solid: pp.SolidConstants
+
+    params: dict[str, float]
+    """Model parameters."""
+
     def _bc_type(self, sd: pp.Grid, well_cond: str) -> pp.BoundaryCondition:
         """Boundary condition type for Darcy flux.
 
