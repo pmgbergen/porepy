@@ -26,7 +26,6 @@ def plane_fracture():
     return pp.PlaneFracture(np.array([[0, 2, 2, 0], [0, 2, 2, 0], [-1, -1, 1, 1]]))
 
 
-# -----> Test #1
 @pytest.mark.parametrize("fractures", [[], None])
 def test_error_raised_if_fractures_and_domain_are_none(fractures):
     """Check that an error is raised when both fractures and domain are given as
