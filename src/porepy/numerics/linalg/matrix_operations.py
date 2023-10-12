@@ -844,7 +844,7 @@ def sparse_kronecker_product(matrix: sps.spmatrix, nd: int) -> sps.spmatrix:
 
     Parameters:
         matrix: Matrix to be expanded using a kronecker product.
-        nd: The dimension to which matrix is expanded. If the prescribed dimension 
+        nd: The dimension to which matrix is expanded. If the prescribed dimension
             is 1, the projection matrix is returned without changes.
 
 
