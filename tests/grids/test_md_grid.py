@@ -28,11 +28,6 @@ class MockGrid(pp.CartGrid):
         self.diameter = diameter
         self.box = box
         self.compute_geometry()
-        # self.num_cells = num_cells
-        # self.num_faces = num_faces
-        # self.num_nodes = num_nodes
-        # self.history = ["bar"]
-        # self.name = ["foo"]
 
     def cell_diameters(self):
         return self.diameter
@@ -65,9 +60,7 @@ def mock_mortar_grid(sd_primary: pp.Grid, sd_secondary: pp.Grid) -> pp.MortarGri
     array = np.zeros((shape_0, sd_secondary.num_cells))
 
     array[ind, np.arange(sd_secondary.num_cells)] = 1
-    map = sps.csc_matrix(
-        array
-    )  # (([1], ([0], [0])), shape=(shape_0, sd_secondary.num_cells))
+    map = sps.csc_matrix(array)
     mg = pp.MortarGrid(sd_secondary.dim, {"left": sd_secondary}, primary_secondary=map)
     return mg
 
