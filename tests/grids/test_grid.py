@@ -3,17 +3,17 @@
 * Specific tests for Simplex and Structured Grids
 * Tests for the mortar grid.
 """
-import pickle
 import os
+import pickle
 
 import numpy as np
 import pytest
 import scipy.sparse as sps
 
 import porepy as pp
+from porepy.applications.test_utils import reference_dense_arrays
 from porepy.grids import simplex, structured
 from porepy.utils import setmembership
-from porepy.applications.test_utils import reference_dense_arrays
 
 
 @pytest.mark.parametrize(
@@ -515,7 +515,9 @@ def test_geometry_tetrahedral_grid(tetrahedral_grid):
         ]
     )
     # Expected face centers - pick from reference file
-    fc = reference_dense_arrays.test_grid["test_geometry_tetrahedral_grid"]["face_centers"]
+    fc = reference_dense_arrays.test_grid["test_geometry_tetrahedral_grid"][
+        "face_centers"
+    ]
     assert np.allclose(tetrahedral_grid.nodes, nodes)
     assert np.allclose(tetrahedral_grid.cell_centers, cc)
     assert np.allclose(tetrahedral_grid.cell_volumes, cv)
@@ -647,7 +649,7 @@ def test_boundary_grid():
     # Hardcoded value for the number of cells
     assert boundary_grid.num_cells == 8
 
-    proj = boundary_grid.projection
+    proj = boundary_grid.projection()
 
     assert proj.shape == (8, 12)
 
@@ -662,7 +664,7 @@ def test_boundary_grid():
     boundary_grid = pp.BoundaryGrid(g)
     boundary_grid.set_projections()
     assert boundary_grid.num_cells == 0
-    assert boundary_grid.projection.shape == (0, 12)
+    assert boundary_grid.projection().shape == (0, 12)
 
 
 @pytest.mark.parametrize(
