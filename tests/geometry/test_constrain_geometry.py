@@ -7,7 +7,7 @@ from porepy import constrain_geometry
 from tests.test_utils import compare_arrays
 
 
-class TestBasic:
+class TestConstrainGeometry:
     """
     Various tests of intersect_polygon_lines.
 
