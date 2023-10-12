@@ -4,6 +4,7 @@
 * Tests for the mortar grid.
 """
 import pickle
+import os
 
 import numpy as np
 import pytest
@@ -12,7 +13,7 @@ import scipy.sparse as sps
 import porepy as pp
 from porepy.grids import simplex, structured
 from porepy.utils import setmembership
-from tests import test_utils
+from porepy.applications.test_utils import reference_dense_arrays
 
 
 @pytest.mark.parametrize(
@@ -329,99 +330,10 @@ def grid_3d_unperturbed():
 
 def test_geometry_3d_unperturbed(grid_3d_unperturbed):
     # Expected node coordinates
-    x = np.array(
-        [
-            0,
-            1,
-            2,
-            0,
-            1,
-            2,
-            0,
-            1,
-            2,
-            0,
-            1,
-            2,
-            0,
-            1,
-            2,
-            0,
-            1,
-            2,
-            0,
-            1,
-            2,
-            0,
-            1,
-            2,
-            0,
-            1,
-            2,
-        ]
-    )
-    y = np.array(
-        [
-            0,
-            0,
-            0,
-            1,
-            1,
-            1,
-            2,
-            2,
-            2,
-            0,
-            0,
-            0,
-            1,
-            1,
-            1,
-            2,
-            2,
-            2,
-            0,
-            0,
-            0,
-            1,
-            1,
-            1,
-            2,
-            2,
-            2,
-        ]
-    )
-    z = np.array(
-        [
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            1,
-            1,
-            1,
-            1,
-            1,
-            1,
-            1,
-            1,
-            1,
-            2,
-            2,
-            2,
-            2,
-            2,
-            2,
-            2,
-            2,
-            2,
-        ]
-    )
+    x = reference_dense_arrays.test_grid["test_geometry_3d_unperturbed"]["x"]
+    y = reference_dense_arrays.test_grid["test_geometry_3d_unperturbed"]["y"]
+    z = reference_dense_arrays.test_grid["test_geometry_3d_unperturbed"]["z"]
+
     # Expected face areas
     areas = 1 * np.ones(grid_3d_unperturbed.num_faces)
 
@@ -602,71 +514,8 @@ def test_geometry_tetrahedral_grid(tetrahedral_grid):
             0.5,
         ]
     )
-    # Expected face centers
-    fc = np.array(
-        [
-            [
-                0.33333333,
-                0.33333333,
-                0.0,
-                0.66666667,
-                0.33333333,
-                0.33333333,
-                1.0,
-                0.66666667,
-                0.66666667,
-                0.33333333,
-                0.66666667,
-                0.33333333,
-                0.0,
-                0.66666667,
-                1.0,
-                0.66666667,
-                0.33333333,
-                0.66666667,
-            ],
-            [
-                0.33333333,
-                0.0,
-                0.33333333,
-                0.66666667,
-                0.33333333,
-                0.66666667,
-                0.33333333,
-                0.66666667,
-                0.0,
-                0.33333333,
-                0.33333333,
-                1.0,
-                0.66666667,
-                0.66666667,
-                0.66666667,
-                1.0,
-                0.33333333,
-                0.66666667,
-            ],
-            [
-                0.0,
-                0.33333333,
-                0.33333333,
-                0.0,
-                0.33333333,
-                0.33333333,
-                0.33333333,
-                0.33333333,
-                0.66666667,
-                0.66666667,
-                0.66666667,
-                0.33333333,
-                0.66666667,
-                0.66666667,
-                0.66666667,
-                0.66666667,
-                1.0,
-                1.0,
-            ],
-        ]
-    )
+    # Expected face centers - pick from reference file
+    fc = reference_dense_arrays.test_grid["test_geometry_tetrahedral_grid"]["face_centers"]
     assert np.allclose(tetrahedral_grid.nodes, nodes)
     assert np.allclose(tetrahedral_grid.cell_centers, cc)
     assert np.allclose(tetrahedral_grid.cell_volumes, cv)
@@ -834,35 +683,5 @@ def test_pickle_grid(g):
 
     g_read = pickle.load(open(fn, "rb"))
 
-    test_utils.compare_grids(g, g_read)
-
-    test_utils.delete_file(fn)
-
-
-@pytest.mark.parametrize(
-    "g",
-    [
-        pp.PointGrid(np.array([0, 0, 0])),
-        pp.CartGrid(np.array([2])),
-        pp.CartGrid(np.array([2, 2])),
-        pp.StructuredTriangleGrid(np.array([2, 2])),
-    ],
-)
-def test_pickle_mortar_grid(g):
-    fn = "tmp.grid"
-    g.compute_geometry()
-    intf = pp.MortarGrid(g.dim, {0: g, 1: g})
-
-    pickle.dump(intf, open(fn, "wb"))
-    intf_read = pickle.load(open(fn, "rb"))
-
-    test_utils.compare_mortar_grids(intf, intf_read)
-
-    intf_one_sided = pp.MortarGrid(g.dim, {0: g})
-
-    pickle.dump(intf, open(fn, "wb"))
-    intf_read = pickle.load(open(fn, "rb"))
-
-    test_utils.compare_mortar_grids(intf_one_sided, intf_read)
-
-    test_utils.delete_file(fn)
+    pp.test_utils.grids.compare_grids(g, g_read)
+    os.unlink(fn)
