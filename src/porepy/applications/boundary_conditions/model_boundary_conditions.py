@@ -195,12 +195,14 @@ class TimeDependentMechanicalBCsDirNorthSouth(BoundaryConditionsMechanicsDirNort
     """
 
     def bc_values_displacement(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
-         """Displacement values.
-         
-         Initial value is u_y = 0.042 at north boundary. This is a hard-coded value corresponding
-         to aperture of horizontal fracture used in various tests. Adding it on the boundary ensures
-         a stress-free initial state. For positive times, uy_north and uy_south are fetched from parameter
-         dictionary and added, defaulting to 0.
+        """Displacement values.
+
+        Initial value is u_y = 0.042 at north boundary. This is a hard-coded value
+        corresponding to aperture of horizontal fracture used in various tests. Adding
+        it on the boundary ensures a stress-free initial state. For positive times,
+        uy_north and uy_south are fetched from parameter dictionary and added,
+        defaulting to 0.
+        """
         domain_sides = self.domain_boundary_sides(boundary_grid)
         values = np.zeros((self.nd, boundary_grid.num_cells))
         # Add fracture width on top if there is a fracture.
