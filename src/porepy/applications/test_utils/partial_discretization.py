@@ -10,6 +10,13 @@ def perform_partial_discretization_specified_nodes(
 ):
     """Perform partial discretization update.
 
+    This function is used to perform a partial discretization update, i.e., to
+    discretize a single cell. The functionality is only available for finite volume
+    discretizations, that is, MPFA, MPSA, and Biot.
+
+    TODO: We may want to allow for update of multiple cells at once. Whether this is
+    worth the effort depends on the use case, which currently is unknown.
+
     Parameters:
         g: The grid.
         discr: The discretization scheme.
