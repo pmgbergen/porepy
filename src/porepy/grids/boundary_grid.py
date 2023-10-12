@@ -118,7 +118,7 @@ class BoundaryGrid:
             nd: ``default=1``
 
                 Spatial dimension of the projected quantity. Defaults to 1
-                (mapping for scalar quantities). Higher integer values for 
+                (mapping for scalar quantities). Higher integer values for
                 projection of vector-valued quantities.
 
         """
