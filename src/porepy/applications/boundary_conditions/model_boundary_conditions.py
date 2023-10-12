@@ -168,7 +168,7 @@ class BoundaryConditionsMechanicsDirNorthSouth(pp.BoundaryConditionMixin):
 
         Returns:
             Array of boundary values, with one value for each dimension of the
-                problem, for each face in the subdomain.
+                domain, for each face in the subdomain.
 
         """
         domain_sides = self.domain_boundary_sides(boundary_grid)
