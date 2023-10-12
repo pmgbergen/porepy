@@ -21,7 +21,7 @@ class BoundaryConditionMixin:
 
     """
 
-    domain_boundary_sides: Callable[[pp.Grid], pp.domain.DomainSides]
+    domain_boundary_sides: Callable[[pp.Grid | pp.BoundaryGrid], pp.domain.DomainSides]
     """Boundary sides of the domain. Normally defined in a mixin instance of
     :class:`~porepy.models.geometry.ModelGeometry`.
 

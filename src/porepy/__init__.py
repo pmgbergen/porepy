@@ -83,6 +83,7 @@ from porepy.params.data import (
 from porepy.applications.material_values import fluid_values
 from porepy.applications.material_values import solid_values
 
+
 # Grids
 from porepy.grids.grid import Grid
 from porepy.grids.mortar_grid import MortarGrid
@@ -239,3 +240,8 @@ from porepy.utils.default_domains import (
     UnitSquareDomain,
     UnitCubeDomain,
 )
+
+# Applications
+from porepy.applications.md_grids import model_geometries
+from porepy.applications.boundary_conditions import model_boundary_conditions
+from porepy.applications import test_utils
