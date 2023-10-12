@@ -834,3 +834,17 @@ def rldecode(A: np.ndarray, n: np.ndarray) -> np.ndarray:
     j[i[1:-1:]] = 1
     B = A[np.cumsum(j)]
     return B
+
+
+def sparse_kronecker_product(matrix: sps.spmatrix, nd: int) -> sps.spmatrix:
+    """Convert the scalar projection to a vector quantity.
+
+    If the prescribed dimension is 1, the projection matrix will in effect not be
+    altered.
+
+    """
+    if nd == 1:
+        # No need to do expansion for 1d variables.
+        return matrix
+    else:
+        return sps.kron(matrix, sps.eye(nd)).tocsc()

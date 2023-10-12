@@ -514,7 +514,7 @@ class BoundaryProjection:
             if sd.dim > 0:
                 bg = mdg.subdomain_to_boundary_grid(sd)
                 if bg is not None:
-                    mat_loc = sps.kron(bg.projection, sps.eye(dim))
+                    mat_loc = sps.kron(bg.projection(), sps.eye(dim))
                     mat_loc = mat_loc * face_projections[sd].T
             else:
                 # The subdomain has no faces, so the projection does not exist.
