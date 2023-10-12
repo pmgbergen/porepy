@@ -92,6 +92,8 @@ class CubeDomainOrthogonalFractures:
 class RectangularDomainThreeFractures(pp.ModelGeometry):
     """A rectangular domain with up to three fractures.
 
+    The domain is `[0, 2] x [0, 1]`.
+
     The first two fractures are orthogonal, with `x` and `y` coordinates equal to
     0.5, respectively. The third fracture is tilted. The number of fractures is
     controlled by the parameter ``fracture_indices``, which can be any subset of
@@ -145,7 +147,7 @@ class RectangularDomainThreeFractures(pp.ModelGeometry):
 
 
 class OrthogonalFractures3d(CubeDomainOrthogonalFractures):
-    """A 3d domain with up to three orthogonal fractures.
+    """A 3d domain of the unit cube with up to three orthogonal fractures.
 
     The fractures have constant `x`, `y` and `z` coordinates equal to 0.5, respectively,
     and are situated in a unit cube domain. The number of fractures is controlled by

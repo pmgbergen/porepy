@@ -15,6 +15,8 @@ class BoundaryConditionsMassDirNorthSouth(pp.BoundaryConditionMixin):
     Dirichlet boundary conditions are defined on the north and south boundaries. Some
     of the default values may be changed directly through attributes of the class.
 
+    The domain can be 2d or 3d.
+
     Usage: tests for models defining equations for any subset of the thermoporomechanics
     problem.
 
@@ -42,7 +44,8 @@ class BoundaryConditionsMassDirNorthSouth(pp.BoundaryConditionMixin):
         """Boundary condition values for Darcy flux.
 
         Dirichlet boundary conditions are defined on the north and south boundaries,
-        with a constant value of 0 unless fluid's reference pressure is changed.
+        with a constant value equal to the fluid's reference pressure (which will be 0
+        by default).
 
         Parameters:
             boundary_grid: Boundary grid for which to define boundary conditions.
@@ -56,7 +59,7 @@ class BoundaryConditionsMassDirNorthSouth(pp.BoundaryConditionMixin):
         vals_loc[domain_sides.north + domain_sides.south] = self.fluid.pressure()
         return vals_loc
 
-    def bc_type_fluid_flux(self, sd):
+    def bc_type_fluid_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         """Boundary condition type for the density-mobility product.
 
         Dirichlet boundary conditions are defined on the north and south boundaries.
@@ -78,6 +81,8 @@ class BoundaryConditionsEnergyDirNorthSouth(pp.BoundaryConditionMixin):
 
     Dirichlet boundary conditions are defined on the north and south boundaries. Some
     of the default values may be changed directly through attributes of the class.
+
+    The domain can be 2d or 3d.
 
     Usage: tests for models defining equations for any subset of the thermoporomechanics
     problem.
@@ -132,7 +137,7 @@ class BoundaryConditionsMechanicsDirNorthSouth(pp.BoundaryConditionMixin):
     nd: int
     """Number of dimensions."""
 
-    def bc_type_mechanics(self, sd):
+    def bc_type_mechanics(self, sd: pp.Grid) -> pp.BoundaryConditionVectorial:
         """Boundary condition type for mechanics.
 
         Dirichlet boundary conditions are defined on the north and south boundaries.
@@ -154,9 +159,9 @@ class BoundaryConditionsMechanicsDirNorthSouth(pp.BoundaryConditionMixin):
     def bc_values_displacement(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
         """Boundary values for the mechanics problem as a numpy array.
 
-        Extracted from below method to facilitate time dependent boundary conditions.
         Values for north and south faces are set to zero unless otherwise specified
-        through attributes ux_north, uy_north, ux_south, uy_south.
+        through items ux_north, uy_north, ux_south, uy_south in the parameter dictionary passed
+        on model initialization.
 
         Parameters:
             boundary_grid: Boundary grid for which boundary values are to be returned.
@@ -190,6 +195,12 @@ class TimeDependentMechanicalBCsDirNorthSouth(BoundaryConditionsMechanicsDirNort
     """
 
     def bc_values_displacement(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+         """Displacement values.
+         
+         Initial value is u_y = 0.042 at north boundary. This is a hard-coded value corresponding
+         to aperture of horizontal fracture used in various tests. Adding it on the boundary ensures
+         a stress-free initial state. For positive times, uy_north and uy_south are fetched from parameter
+         dictionary and added, defaulting to 0.
         domain_sides = self.domain_boundary_sides(boundary_grid)
         values = np.zeros((self.nd, boundary_grid.num_cells))
         # Add fracture width on top if there is a fracture.

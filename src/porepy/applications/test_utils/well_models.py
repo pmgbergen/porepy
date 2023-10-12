@@ -50,7 +50,8 @@ class BoundaryConditionsWellSetup(pp.BoundaryConditionMixin):
     def _bc_type(self, sd: pp.Grid, well_cond: str) -> pp.BoundaryCondition:
         """Boundary condition type for Darcy flux.
 
-        Dirichlet boundary conditions are defined on the north and south boundaries.
+        If `sd` has dimension 1, `well_cond` will be assigned on the top and bottom faces of `sd`.
+        If `sd` has a different dimension, Dirichlet conditions are assigned on the top and bottom faces.
 
         Parameters:
             sd: Subdomain for which to define boundary conditions.
@@ -69,7 +70,6 @@ class BoundaryConditionsWellSetup(pp.BoundaryConditionMixin):
         """
         Parameters:
             boundary_grid: Boundary grid for which to define boundary conditions.
-
             value: Value to assign.
 
         Returns:

@@ -16,12 +16,15 @@ def _setup_cart_2d(nx, dir_faces=None):
     kxx = np.ones(g.num_cells)
     perm = pp.SecondOrderTensor(kxx)
     if dir_faces is None:
+        # If no Dirichlet faces are specified, set Dirichlet conditions on all faces.
         dir_faces = g.tags["domain_boundary_faces"].nonzero()[0]
     bound = pp.BoundaryCondition(g, dir_faces, ["dir"] * dir_faces.size)
     return g, perm, bound
 
 
 def perturb_grid(g, rate, dx):
+    # Perturb the nodes in a grid (assumed to cover the unit square). Nodes on the domain boundary,
+    # and along the line `y=0` are kept fixed.
     rand = np.vstack((np.random.rand(g.dim, g.num_nodes), np.repeat(0.0, g.num_nodes)))
     r1 = np.ravel(
         np.argwhere(
