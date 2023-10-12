@@ -23,8 +23,8 @@ def _setup_cart_2d(nx, dir_faces=None):
 
 
 def perturb_grid(g, rate, dx):
-    # Perturb the nodes in a grid (assumed to cover the unit square). Nodes on the domain boundary,
-    # and along the line `y=0` are kept fixed.
+    # Perturb the nodes in a grid (assumed to cover the unit square). Nodes on the
+    # domain boundary, and along the line `y=0` are kept fixed.
     rand = np.vstack((np.random.rand(g.dim, g.num_nodes), np.repeat(0.0, g.num_nodes)))
     r1 = np.ravel(
         np.argwhere(
