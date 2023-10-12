@@ -160,8 +160,8 @@ class BoundaryConditionsMechanicsDirNorthSouth(pp.BoundaryConditionMixin):
         """Boundary values for the mechanics problem as a numpy array.
 
         Values for north and south faces are set to zero unless otherwise specified
-        through items ux_north, uy_north, ux_south, uy_south in the parameter dictionary passed
-        on model initialization.
+        through items ux_north, uy_north, ux_south, uy_south in the parameter dictionary
+        passed on model initialization.
 
         Parameters:
             boundary_grid: Boundary grid for which boundary values are to be returned.
@@ -192,6 +192,7 @@ class TimeDependentMechanicalBCsDirNorthSouth(BoundaryConditionsMechanicsDirNort
     """Time dependent displacement boundary conditions.
 
     For use in (thermo)poremechanics.
+
     """
 
     def bc_values_displacement(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
@@ -202,6 +203,14 @@ class TimeDependentMechanicalBCsDirNorthSouth(BoundaryConditionsMechanicsDirNort
         it on the boundary ensures a stress-free initial state. For positive times,
         uy_north and uy_south are fetched from parameter dictionary and added,
         defaulting to 0.
+
+        Parameters:
+            boundary_grid: Boundary grid for which boundary values are to be returned.
+
+        Returns:
+            Array of boundary values, with one value for each dimension of the
+                problem, for each face in the subdomain.
+
         """
         domain_sides = self.domain_boundary_sides(boundary_grid)
         values = np.zeros((self.nd, boundary_grid.num_cells))
