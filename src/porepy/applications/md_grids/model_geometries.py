@@ -33,18 +33,37 @@ class SquareDomainOrthogonalFractures:
 
     @property
     def domain_size(self) -> pp.number:
-        """Return the side length of the square domain."""
+        """Return the side length of the square domain.
+
+        The domain size is controlled by the parameter ``domain_size`` in the model
+        parameter dictionary.
+
+        """
         # Scale by length unit.
         return self.solid.convert_units(self.params.get("domain_size", 1.0), "m")
 
     def set_fractures(self) -> None:
-        """Assigns 0 to 2 fractures."""
+        """Assigns 0 to 2 fractures to the domain.
+
+        The fractures are defined in
+        :meth:`porepy.applications.md_grids.fracture_sets.orthogonal_fractures_2d`, see
+        that method for a further description.
+
+        To control the number of fractures, the parameter ``fracture_indices`` can be
+        passed to the model, as a list of integers between 0 and 1.
+
+        """
         fracture_indices = self.params.get("fracture_indices", [0])
         all_fractures = fracture_sets.orthogonal_fractures_2d(self.domain_size)
         self._fractures = [all_fractures[i] for i in fracture_indices]
 
     def set_domain(self) -> None:
-        """Set the square domain."""
+        """Set the square domain.
+
+        To control the size of the domain, the parameter ``domain_size`` can be passed
+        in the model parameter dictionary.
+
+        """
         self._domain = domains.nd_cube_domain(2, self.domain_size)
 
 
