@@ -110,9 +110,16 @@ class BoundaryGrid:
     def projection(self, nd: int = 1) -> sps.spmatrix:
         """Projection matrix from the parent grid to the boundary grid.
 
-        The projection matrix is a sparse matrix, with  ``shape=(num_cells,
-        num_faces_parent)``, which maps face-wise values on the parent grid to the
+        The projection matrix is a sparse matrix, with  ``shape=(num_cells * nd,
+        num_faces_parent * nd)``, which maps face-wise values on the parent grid to the
         boundary grid.
+
+        Parameters:
+            nd: ``default=1``
+
+                Spatial dimension of the projected quantity. Defaults to 1
+                (mapping for scalar quantities). Higher integer values for 
+                projection of vector-valued quantities.
 
         """
         return sparse_kronecker_product(matrix=self._projections, nd=nd)
