@@ -200,13 +200,13 @@ class BoundaryConditionMixin:
             # Transpose to get a n_face x nd array with shape compatible with
             # the projection matrix.
             is_dir = bc_type_callable(bg.parent).is_dir.T
-            is_dir = bg.projection @ is_dir
+            is_dir = bg.projection() @ is_dir
             # Transpose back, then ravel (in that order).
             return is_dir.T.ravel("F")
 
         def neumann(bg: pp.BoundaryGrid):
             is_neu = bc_type_callable(bg.parent).is_neu.T
-            is_neu = bg.projection @ is_neu
+            is_neu = bg.projection() @ is_neu
             return is_neu.T.ravel("F")
 
         self.update_boundary_condition(name=(name + "_filter_dir"), function=dirichlet)
