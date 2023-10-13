@@ -386,6 +386,19 @@ class Test2dDomain:
         self.p2 = np.array([[0.2, 0.8, 0.2, 0.8], [0.2, 0.8, 0.8, 0.2]])
         self.e2 = np.array([[0, 2], [1, 3]])
 
+    def _verify_num_grids(self, mdg: pp.MixedDimensionalGrid, num_grids: list[int]):
+        """Helper method to verify that the number of grids of each dimension is as
+        expected.
+
+        Parameters:
+            mdg: Mixed-dimensional grid.
+            num_grids: List of expected number of grids of each dimension, starting from
+                0d grids.
+
+        """
+        for dim, n in enumerate(num_grids):
+            assert n == len(mdg.subdomains(dim=dim))
+
     def _generate_mesh(self, pts, edges, constraints=None):
         if pts is None and edges is None:
             line_fractures = None
@@ -398,44 +411,32 @@ class Test2dDomain:
     def test_no_fractures(self):
         self.setUp()
         mdg = self._generate_mesh(None, None)
-        assert len(mdg.subdomains(dim=2)) == 1
-        assert len(mdg.subdomains(dim=1)) == 0
-        assert len(mdg.subdomains(dim=0)) == 0
+        self._verify_num_grids(mdg, [0, 0, 1])
 
     def test_one_fracture(self):
         self.setUp()
         mdg = self._generate_mesh(self.p1, self.e1)
-        assert len(mdg.subdomains(dim=2)) == 1
-        assert len(mdg.subdomains(dim=1)) == 1
-        assert len(mdg.subdomains(dim=0)) == 0
+        self._verify_num_grids(mdg, [0, 1, 1])
 
-    def test_two_fractures(self):
+    def test_two_intersecting_fractures(self):
         self.setUp()
         mdg = self._generate_mesh(self.p2, self.e2)
-        assert len(mdg.subdomains(dim=2)) == 1
-        assert len(mdg.subdomains(dim=1)) == 2
-        assert len(mdg.subdomains(dim=0)) == 1
+        self._verify_num_grids(mdg, [1, 2, 1])
 
     def test_one_constraint(self):
         self.setUp()
         mdg = self._generate_mesh(self.p1, self.e1, constraints=np.array([0]))
-        assert len(mdg.subdomains(dim=2)) == 1
-        assert len(mdg.subdomains(dim=1)) == 0
-        assert len(mdg.subdomains(dim=0)) == 0
+        self._verify_num_grids(mdg, [0, 0, 1])
 
     def test_two_constraints(self):
         self.setUp()
         mdg = self._generate_mesh(self.p2, self.e2, constraints=np.arange(2))
-        assert len(mdg.subdomains(dim=2)) == 1
-        assert len(mdg.subdomains(dim=1)) == 0
-        assert len(mdg.subdomains(dim=0)) == 0
+        self._verify_num_grids(mdg, [0, 0, 1])
 
     def test_one_fracture_one_constraint(self):
         self.setUp()
         mdg = self._generate_mesh(self.p2, self.e2, constraints=np.array(1))
-        assert len(mdg.subdomains(dim=2)) == 1
-        assert len(mdg.subdomains(dim=1)) == 1
-        assert len(mdg.subdomains(dim=0)) == 0
+        self._verify_num_grids(mdg, [0, 1, 1])
 
 
 class TestGmshTags:
