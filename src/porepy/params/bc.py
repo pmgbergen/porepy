@@ -241,13 +241,13 @@ class BoundaryConditionVectorial(AbstractBoundaryCondition):
         num_faces (int): Number of faces in the grid of the subdomain.
         dim (int): Dimension of the boundary. One less than the dimension of
             the subdomain.
-        is_neu (np.ndarray boolean, size sd.dim x sd.num_faces): Element i is true if
-            face i has been assigned a Neumann condition. Tacitly assumes that
-            the face is on the boundary. Should be false for internal faces, as
-            well as Dirichlet faces.
-        is_dir (np.ndarray, boolean, size sd.dim x sd.num_faces): Element i is true if
+        is_neu (np.ndarray boolean, shape=(sd.dim, sd.num_faces)): Element i is true if
+            face i has been assigned a Neumann condition. Tacitly assumes that the face
+            is on the boundary. Should be false for internal faces, as well as Dirichlet
+            faces.
+        is_dir (np.ndarray, boolean, shape=(sd.dim, sd.num_faces)): Element i is true if
             face i has been assigned a Dirichlet condition.
-        is_rob (np.ndarray, boolean, size sd.dim x sd.num_faces): Element i is true if
+        is_rob (np.ndarray, boolean, shape=(sd.dim, sd.num_faces)): Element i is true if
             face i has been assigned a Robin condition.
 
     """

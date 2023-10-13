@@ -12,6 +12,7 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
+from porepy.numerics.linalg.matrix_operations import sparse_kronecker_product
 
 
 class BoundaryGrid:
@@ -106,16 +107,20 @@ class BoundaryGrid:
             shape=(self.num_cells, self._parent.num_faces),
         ).tocsr()
 
-    @property
-    def projection(self) -> sps.spmatrix:
+    def projection(self, nd: int = 1) -> sps.spmatrix:
         """Projection matrix from the parent grid to the boundary grid.
 
-        The projection matrix is a sparse matrix,
-        with  ``shape=(num_cells, num_faces_parent)``,
-        which maps face-wise values on the parent grid to the boundary grid.
+        The projection matrix is a sparse matrix, with  ``shape=(num_cells * nd,
+        num_faces_parent * nd)``, which maps face-wise values on the parent grid to the
+        boundary grid.
+
+        Parameters:
+            nd: ``default=1``. Spatial dimension of the projected quantity. Defaults to
+                1 (mapping for scalar quantities). Higher integer values for projection
+                of vector-valued quantities.
 
         """
-        return self._projections
+        return sparse_kronecker_product(matrix=self._projections, nd=nd)
 
     @property
     def parent(self) -> pp.Grid:
