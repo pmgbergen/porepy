@@ -1554,3 +1554,74 @@ _face_centers = np.array(
     ]
 )
 test_grid["test_geometry_tetrahedral_grid"] = {"face_centers": _face_centers}
+
+
+# test_meshing.py
+test_meshing = {
+    "test_fracture_and_boundary_face_tags_2d_domain_x_intersection": {
+        "fracture_tags": np.array(
+            [
+                False,
+                True,
+                False,
+                False,  # first row
+                False,
+                True,
+                False,
+                False,  # Second row
+                False,
+                False,
+                False,
+                False,  # third row
+                False,
+                False,
+                False,  # Bottom column
+                True,
+                True,
+                False,  # Second column
+                False,
+                False,
+                False,  # Third column
+                False,
+                False,
+                False,  # Top column
+                True,
+                True,
+                True,
+                True,
+            ]
+        ),
+        "domain_boundary_tags": np.array(
+            [
+                True,
+                False,
+                False,
+                True,  # first row
+                True,
+                False,
+                False,
+                True,  # Second row
+                True,
+                False,
+                False,
+                True,  # third row
+                True,
+                True,
+                True,  # Bottom column
+                False,
+                False,
+                False,  # Second column
+                False,
+                False,
+                False,  # Third column
+                True,
+                True,
+                True,  # Top column
+                False,
+                False,
+                False,
+                False,
+            ]
+        ),
+    }
+}
