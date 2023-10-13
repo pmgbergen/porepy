@@ -6,10 +6,10 @@ Content:
     - Test of meshing.
 
 """
-import numpy as np
-import pytest
 from collections import namedtuple
 
+import numpy as np
+import pytest
 
 import porepy as pp
 from porepy.applications.test_utils.arrays import compare_arrays
