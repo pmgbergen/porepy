@@ -360,3 +360,78 @@ def test_snapping(arg):
     pn, conv = network._snap_fracture_set(points, snap_tol=snap_tol)
     assert np.allclose(points_expected, pn)
     assert conv
+
+
+# Test of meshing
+
+
+class Test2dDomain:
+    """Tests of meshing 2d fractured domains.
+
+    For each fracture configuration, we verify tha the number of 1d and 0d grids
+    are as expected.
+    """
+
+    def setUp(self):
+        self.domain = pp.Domain({"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1})
+        self.mesh_args = {
+            "mesh_size_bound": 1,
+            "mesh_size_frac": 1,
+            "mesh_size_min": 0.1,
+        }
+
+        self.p1 = np.array([[0.2, 0.8], [0.2, 0.8]])
+        self.e1 = np.array([[0], [1]])
+        self.p2 = np.array([[0.2, 0.8, 0.2, 0.8], [0.2, 0.8, 0.8, 0.2]])
+        self.e2 = np.array([[0, 2], [1, 3]])
+
+    def _generate_mesh(self, pts, edges, constraints=None):
+        if pts is None and edges is None:
+            line_fractures = None
+        else:
+            line_fractures = pts_edges_to_linefractures(pts, edges)
+        network = pp.create_fracture_network(line_fractures, self.domain)
+        mdg = network.mesh(self.mesh_args, constraints=constraints)
+        return mdg
+
+    def test_no_fractures(self):
+        self.setUp()
+        mdg = self._generate_mesh(None, None)
+        assert len(mdg.subdomains(dim=2)) == 1
+        assert len(mdg.subdomains(dim=1)) == 0
+        assert len(mdg.subdomains(dim=0)) == 0
+
+    def test_one_fracture(self):
+        self.setUp()
+        mdg = self._generate_mesh(self.p1, self.e1)
+        assert len(mdg.subdomains(dim=2)) == 1
+        assert len(mdg.subdomains(dim=1)) == 1
+        assert len(mdg.subdomains(dim=0)) == 0
+
+    def test_two_fractures(self):
+        self.setUp()
+        mdg = self._generate_mesh(self.p2, self.e2)
+        assert len(mdg.subdomains(dim=2)) == 1
+        assert len(mdg.subdomains(dim=1)) == 2
+        assert len(mdg.subdomains(dim=0)) == 1
+
+    def test_one_constraint(self):
+        self.setUp()
+        mdg = self._generate_mesh(self.p1, self.e1, constraints=np.array([0]))
+        assert len(mdg.subdomains(dim=2)) == 1
+        assert len(mdg.subdomains(dim=1)) == 0
+        assert len(mdg.subdomains(dim=0)) == 0
+
+    def test_two_constraints(self):
+        self.setUp()
+        mdg = self._generate_mesh(self.p2, self.e2, constraints=np.arange(2))
+        assert len(mdg.subdomains(dim=2)) == 1
+        assert len(mdg.subdomains(dim=1)) == 0
+        assert len(mdg.subdomains(dim=0)) == 0
+
+    def test_one_fracture_one_constraint(self):
+        self.setUp()
+        mdg = self._generate_mesh(self.p2, self.e2, constraints=np.array(1))
+        assert len(mdg.subdomains(dim=2)) == 1
+        assert len(mdg.subdomains(dim=1)) == 1
+        assert len(mdg.subdomains(dim=0)) == 0
