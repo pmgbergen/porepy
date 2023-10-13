@@ -441,17 +441,29 @@ class Test2dDomain:
 class TestGmshTags:
     """Test that the tags of the faces of the grids returned from gmsh are correct."""
 
-    def check_boundary_faces(self, g: pp.Grid, num_auxiliary: int):
-        tag = np.where(g.tags[f"domain_boundary_line_{num_auxiliary}_faces"])[0]
+    def check_boundary_faces(self, g: pp.Grid, offset: int):
+        """Helper method to check that the boundary faces are correctly tagged.
+
+        The domain is assumed to be the unit square, and the ordering of the parts of
+        the boundary (east, south, etc.) is hardcoded in the FractureNetwork2d class. We
+        therefore check that faces tagged as parts of the boundary have the expected
+        coordinates.
+
+        NOTE: The domain boundary tags are of the form
+        'domain_boundary_line_{offset}_faces', where offset reflects the number of
+        fractures and constraints (auxiliary lines) in the network (again, this is just
+        how the FractureNetwork2d class is implemented).
+        """
+        tag = np.where(g.tags[f"domain_boundary_line_{offset}_faces"])[0]
         assert np.allclose(g.face_centers[1, tag], 0)
 
-        tag = np.where(g.tags[f"domain_boundary_line_{num_auxiliary + 1}_faces"])[0]
+        tag = np.where(g.tags[f"domain_boundary_line_{offset + 1}_faces"])[0]
         assert np.allclose(g.face_centers[0, tag], 1)
 
-        tag = np.where(g.tags[f"domain_boundary_line_{num_auxiliary + 2}_faces"])[0]
+        tag = np.where(g.tags[f"domain_boundary_line_{offset + 2}_faces"])[0]
         assert np.allclose(g.face_centers[1, tag], 1)
 
-        tag = np.where(g.tags[f"domain_boundary_line_{num_auxiliary + 3}_faces"])[0]
+        tag = np.where(g.tags[f"domain_boundary_line_{offset + 3}_faces"])[0]
         assert np.allclose(g.face_centers[0, tag], 0)
 
     def check_auxiliary_fracture_faces(
@@ -462,8 +474,14 @@ class TestGmshTags:
         end: list[np.ndarray],
         offset: int = 0,
     ):
+        """Helper method to check that the faces of auxiliary (constraint) and fracture
+        lines are correctly tagged.
+        """
         num_lines = len(start)
         for i in range(num_lines):
+            # In cases where both fractures and constraints are present, we need to
+            # offset the tag index (since we cannot check fractures and constraints
+            # at the same time, this was not implemented).
             tag = g.tags[f"{key}_{i + offset}_faces"]
             dist, _ = pp.distances.points_segments(g.face_centers[:2], start[i], end[i])
 
