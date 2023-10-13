@@ -5,8 +5,8 @@ So far, only a test of the function _tag_faces() is implemented.
 """
 import numpy as np
 
-from porepy.fracs import meshing
 from porepy.applications.test_utils import reference_dense_arrays
+from porepy.fracs import meshing
 
 
 def test_fracture_and_boundary_face_tags_2d_domain_x_intersection():
