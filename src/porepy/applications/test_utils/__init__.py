@@ -8,6 +8,7 @@ from . import (
     arrays,
     common_xpfa_tests,
     grids,
+    models,
     partial_discretization,
     reference_dense_arrays,
     reference_sparse_arrays,
