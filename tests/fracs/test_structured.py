@@ -1,10 +1,8 @@
-"""Test of meshing of 2d and 3d domains with fractures, using structured grids.
-"""
+"""Test of meshing of 2d and 3d domains with fractures, using structured grids."""
 import numpy as np
-import porepy as pp
-from porepy.fracs import structured
 import pytest
-from copy import deepcopy
+
+from porepy.fracs import structured
 
 
 @pytest.mark.parametrize(
@@ -122,7 +120,7 @@ def test_structured_meshing(data: dict, cart_grid: bool, perturb: bool):
             # No need to perturb if no fractures
             return
         # Perturb the fracture so that the meshing will need to move it back to the
-        # grid line. We also take a copy of the original fracture.
+        # grid line. We also make a copy of the original fracture.
         orig_fracture = f_set[0].copy()
         f_set[0] = f_set[0].astype(float) + 0.3
 
