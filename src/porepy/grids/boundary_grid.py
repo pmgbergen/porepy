@@ -115,11 +115,9 @@ class BoundaryGrid:
         boundary grid.
 
         Parameters:
-            nd: ``default=1``
-
-                Spatial dimension of the projected quantity. Defaults to 1
-                (mapping for scalar quantities). Higher integer values for
-                projection of vector-valued quantities.
+            nd: ``default=1``. Spatial dimension of the projected quantity. Defaults to
+                1 (mapping for scalar quantities). Higher integer values for projection
+                of vector-valued quantities.
 
         """
         return sparse_kronecker_product(matrix=self._projections, nd=nd)
