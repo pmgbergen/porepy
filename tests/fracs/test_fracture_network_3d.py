@@ -331,11 +331,19 @@ def check_mdg(
                     pp.domain.bounding_box_of_point_cloud(sd.nodes),
                 )
 
-    # The bounding boxes of the constructed 1d grids will be compared to the
-    # expected values. To construct the grid bounding boxes,
-    ii_computed_box = {}
+    # The bounding boxes of the constructed 1d grids will be compared to the expected
+    # values. To construct the grid bounding boxes, we will loop over all 1d grids and
+    # update the bounding box of the corresponding intersection grid.
+
+    # Bounding box for the computed intersection grids. The key is a tuple of the
+    # parent fractures, the value is a dictionary with the bounding box and the
+    # intersection line which should result from this combination of fractures.
+    ii_computed_box: dict[tuple[int, int] | tuple[int, int, int], dict] = {}
 
     for isect in isect_line:
+        # The initial assumption is that the bounding box is empty, signified by min and
+        # max values being inf and -inf, respectively (meaningful values will be
+        # inserted once we start updating the boxes).
         inital_box = {
             "xmin": np.inf,
             "xmax": -np.inf,
@@ -1038,42 +1046,53 @@ class TestMeshGenerationFractureHitsBoundary:
         f_1 = pp.PlaneFracture(np.array([[-1, 2, 2, -1], [0, 0, 0, 0], [-1, -1, 1, 1]]))
         domain = _standard_domain()
         mdg = _create_mdg([f_1], domain)
+        check_mdg(mdg, domain, fractures=[f_1])
 
     def test_one_fracture_touching_two_neighbouring_boundaries(self):
         f_1 = pp.PlaneFracture(np.array([[-1, 2, 2, -1], [0, 0, 0, 0], [-1, -1, 2, 2]]))
         domain = _standard_domain()
         mdg = _create_mdg([f_1], domain)
+        check_mdg(mdg, domain, fractures=[f_1])
 
     def test_one_fracture_touching_two_opposing_boundaries(self):
         f_1 = pp.PlaneFracture(np.array([[-2, 2, 2, -2], [0, 0, 0, 0], [-1, -1, 1, 1]]))
         domain = _standard_domain()
         mdg = _create_mdg([f_1], domain)
+        check_mdg(mdg, domain, fractures=[f_1])
 
     def test_one_fracture_touching_three_boundaries(self):
         f_1 = pp.PlaneFracture(np.array([[-2, 2, 2, -2], [0, 0, 0, 0], [-1, -1, 2, 2]]))
         domain = _standard_domain()
         mdg = _create_mdg([f_1], domain)
+        check_mdg(mdg, domain, fractures=[f_1])
 
     def test_one_fracture_touches_four_boundaries(self):
-        """One fracture, intersected by two other (but no point intersections)."""
         f_1 = pp.PlaneFracture(np.array([[-2, 2, 2, -2], [0, 0, 0, 0], [-2, -2, 2, 2]]))
         domain = _standard_domain()
         mdg = _create_mdg([f_1], domain)
+        check_mdg(mdg, domain, fractures=[f_1])
 
     def test_one_fracture_touches_boundary_corners(self):
-        """One fracture, intersected by two other (but no point intersections)."""
-
         f_1 = pp.PlaneFracture(
             np.array([[-2, 2, 2, -2], [-2, 2, 2, -2], [-2, -2, 2, 2]])
         )
         domain = _standard_domain()
         mdg = _create_mdg([f_1], domain)
+        check_mdg(mdg, domain, fractures=[f_1])
 
     def test_two_fractures_touching_one_boundary(self):
         f_1 = pp.PlaneFracture(np.array([[-1, 2, 2, -1], [0, 0, 0, 0], [-1, -1, 1, 1]]))
         f_2 = pp.PlaneFracture(np.array([[-1, -1, 2, 2], [-1, 1, 1, -1], [0, 0, 0, 0]]))
         domain = _standard_domain()
         mdg = _create_mdg([f_1, f_2], domain)
+        isect_line = [IntersectionInfo(0, 1, np.array([[-1, 2], [0, 0], [0, 0]]))]
+        check_mdg(
+            mdg,
+            domain,
+            fractures=[f_1, f_2],
+            isect_line=isect_line,
+            expected_num_1d_grids=1,
+        )
 
     def test_one_fracture_touches_boundary_and_corner(self):
         f_1 = pp.PlaneFracture(
@@ -1081,12 +1100,11 @@ class TestMeshGenerationFractureHitsBoundary:
         )
         domain = _standard_domain()
         mdg = _create_mdg([f_1], domain)
+        check_mdg(mdg, domain, fractures=[f_1])
 
 
 class TestDFMMeshGenerationWithConstraints:
-    """Tests similar to some those of the mother class, but with some fractures as
-    constraints.
-    """
+    """Tests similar to some those of TestDFMMeshGeneration, but with constraints."""
 
     def test_single_isolated_fracture(self):
         """

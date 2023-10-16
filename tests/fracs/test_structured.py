@@ -106,8 +106,8 @@ def test_structured_meshing(data: dict, cart_grid: bool, perturb: bool):
             f_set: List of fractures expected_num_grids: Number of grids in each
             dimension expected_num_cells: Number of cells in each grid dim: Spatial
             dimension
-        cart_grid: Whether to use Cartesian or tensor grids perturb: Whether to perturb
-        the fracture before meshing.
+        cart_grid: Whether to use Cartesian or tensor grids 
+        perturb: Whether to perturb the fracture before meshing.
 
     """
     f_set = data["f_set"]
