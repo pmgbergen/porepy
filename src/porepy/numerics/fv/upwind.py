@@ -270,7 +270,7 @@ class Upwind(Discretization):
 
         # faces with Neumann conditions
         neumann_ind = np.where(bc.is_neu)[0]
-
+        
         # Faces with Dirichlet conditions and inflow. The latter is identified by
         # considering the direction of the flux, and the upstream element in cf_dense
         # (note that the exterior of the domain is represented by -1 in cf_dense).
