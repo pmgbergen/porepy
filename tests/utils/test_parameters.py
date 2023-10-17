@@ -36,10 +36,10 @@ class TestParameters:
         Calls update_dictionaries with a list of the new keywords and empty (default
         option) dictionaries.
         """
-        keyword_kw_list = ["flow", "transport"]
-        self.p.update_dictionaries(keyword_kw_list)
-        keyword_kw_list.append("dummy_kw")
-        assert sorted(self.p.keys()) == sorted(keyword_kw_list)
+        keyword_list = ["flow", "transport"]
+        self.p.update_dictionaries(keyword_list)
+        keyword_list.append("dummy_kw")
+        assert sorted(self.p.keys()) == sorted(keyword_list)
 
     def test_update_empty_dictionary(self):
         """New keyword added with a parameter.
