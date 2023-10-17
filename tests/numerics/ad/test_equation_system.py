@@ -113,8 +113,9 @@ def test_variable_creation():
 
     # Define the number of variables per grid item. Faces are included just to test that
     # this also works.
-    dof_info_sd = {"cells": 1, "faces": 2}
-    dof_info_intf = {"cells": 1}
+    num_dof_per_cell, num_dof_per_face = 1, 2
+    dof_info_sd = {"cells": num_dof_per_cell, "faces": num_dof_per_face}
+    dof_info_intf = {"cells": num_dof_per_cell}
 
     # Create variables on subdomain and interface.
     subdomains = mdg.subdomains()
@@ -165,16 +166,18 @@ def test_variable_creation():
     # Check that the number of dofs is correct for each variable.
     num_subdomain_faces = sum([sd.num_faces for sd in subdomains])
 
-    # Need a factor 2 here, since we have defined two variables on all subdomains.
+    # Compute the expected number of dofs for each variable, by multiplying the number
+    # of cells and faces with the number of dofs per cell and face. Use the right
+    # grids (single subdomain or the whole mdg) in the computations.
     ndof_subdomains = (
-        mdg.num_subdomain_cells() * dof_info_sd["cells"]
-        + num_subdomain_faces * dof_info_sd["faces"]
+        mdg.num_subdomain_cells() * num_dof_per_cell
+        + num_subdomain_faces * num_dof_per_face
     )
     ndof_single_subdomain = (
-        single_subdomain[0].num_cells * dof_info_sd["cells"]
-        + single_subdomain[0].num_faces * dof_info_sd["faces"]
+        single_subdomain[0].num_cells * num_dof_per_cell
+        + single_subdomain[0].num_faces * num_dof_per_face
     )
-    ndof_interface = mdg.num_interface_cells() * dof_info_intf["cells"]
+    ndof_interface = mdg.num_interface_cells() * num_dof_per_cell
 
     assert (sys_man.dofs_of(subdomain_variable.sub_vars).size) == ndof_subdomains
     assert (
@@ -189,6 +192,13 @@ def test_variable_creation():
 
 
 def test_variable_tags():
+    """Test that variables can be tagged, and that the tags are correctly propagated
+    to the underlying atomic variables.
+
+    The test generates a MixedDimensionalGrid, defines some variables on it, assigns
+    and modifies tags, and checks that the tags updated as expected.
+
+    """
     mdg, _ = single_horizontal(simplex=False)
 
     sys_man = pp.ad.EquationSystem(mdg)
@@ -504,7 +514,7 @@ def _eliminate_columns_from_matrix(A, indices, reverse):
     return A[:, inds]
 
 
-@pytest.fixture
+@pytest.fixture(scope="function")
 def setup():
     # Method to deliver a setup to all tests
     return EquationSystemSetup()
