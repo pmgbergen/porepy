@@ -12,3 +12,11 @@ shapely
 six
 sympy
 typing_extensions
+black == 23.*
+deepdiff
+flake8
+isort
+mypy
+pytest >= 4.6
+pytest-cov
+pytest-runner

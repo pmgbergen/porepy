@@ -74,15 +74,8 @@ jobs:
         # https://blog.allenai.org/python-caching-in-github-actions-e9452698e98d
         pip install --upgrade --upgrade-strategy eager -r requirements.txt
 
-    # Install the requirements needed for development. This will give access to black,
-    # isort, mypy, and flake8
-    - name: Install requirements-dev
-      run: |
-        pip install --upgrade --upgrade-strategy eager -r requirements-dev.txt          
-
     # Run black, isort, flake8, and mypy.
-    # Note that since these are static checks, we have not installed PorePy, nor its
-    # dependencies (except the development ones).
+    # Note that since these are static checks, we have not installed PorePy.
     - name: black
       if: ${{ always() }}
       run: black --check src
