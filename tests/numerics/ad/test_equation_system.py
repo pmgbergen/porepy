@@ -30,7 +30,7 @@ import pytest
 import scipy.sparse as sps
 
 import porepy as pp
-from porepy.grids.standard_grids.md_grids_2d import single_horizontal
+from porepy.grids.standard_grids.md_grids_2d import single_horizontal, two_intersecting
 
 
 def test_evaluate_variables():
@@ -300,7 +300,7 @@ class EquationSystemSetup:
     """
 
     def __init__(self, square_system=False):
-        mdg, _ = pp.grids.standard_grids.md_grids_2d.two_intersecting()
+        mdg, _ = two_intersecting(simplex=False)
 
         sys_man = pp.ad.EquationSystem(mdg)
 
@@ -519,25 +519,6 @@ def _eliminate_rows_from_matrix(A, indices, reverse):
     return A[inds]
 
 
-def _compare_matrices(m1, m2):
-    # Helper method to compare two matrices. Returns True only if the matrices are
-    # identical up to a small tolerance.
-    if m1.shape != m2.shape:
-        # Matrices with different shape are unequal, unless the number of
-        # rows and columns is zero in at least one dimension.
-        if m1.shape[0] == 0 and m2.shape[0] == 0:
-            return True
-        elif m1.shape[1] == 0 and m2.shape[1] == 0:
-            return True
-        return False
-    d = m1 - m2
-
-    if d.data.size > 0:
-        if np.max(np.abs(d.data)) > 1e-10:
-            return False
-    return True
-
-
 def _variable_from_setup(
     setup,
     as_str: bool,
@@ -614,6 +595,13 @@ def test_set_get_methods(
     # later are ordered according to the global ordering of unknowns.
 
     inds = sys_man.dofs_of(variables)
+
+    # IMPLEMENATION NOTE: The first set of tests (down to checking of time_step_indices
+    # other than 0) could possibly streamlined by using a helper function and sending
+    # in relevant arguments (additive, time_step_index, iterate_index etc.). However,
+    # this would lead to a nested set of if-else statements that would require much more
+    # comments to be understandable. The current implementation is more verbose, but
+    # hopefully easier to understand.
 
     # First generate random values, set them, and then retrieve them.
     vals = np.random.rand(inds.size)
@@ -708,6 +696,14 @@ def test_set_get_methods(
     # dictionary values and then set the most recent time step/iterate value works as
     # expected.
 
+    def _retrieve_and_check_time_step(known_values):
+        # Helper method to retrieve values from time step solutions and check that they
+        # are as expected.
+        for ind, val in enumerate(known_values):
+            assert np.allclose(
+                sys_man.get_variable_values(variables, time_step_index=ind), val
+            )
+
     # Building a few solution vectors and defining the desired solution indices
     vals0 = vals
     vals1 = vals0 * 2
@@ -721,55 +717,21 @@ def test_set_get_methods(
         val = vals_mat[i].copy()
         sys_man.set_variable_values(values=val, variables=variables, time_step_index=i)
 
-    retrieved_ind_vals0 = sys_man.get_variable_values(variables, time_step_index=0)
-    retrieved_ind_vals1 = sys_man.get_variable_values(variables, time_step_index=1)
-    retrieved_ind_vals2 = sys_man.get_variable_values(variables, time_step_index=2)
-
-    assert np.allclose(vals0, retrieved_ind_vals0)
-    assert np.allclose(vals1, retrieved_ind_vals1)
-    assert np.allclose(vals2, retrieved_ind_vals2)
+    _retrieve_and_check_time_step([vals0, vals1, vals2])
 
     # Test functionality that shifts values to prepare setting of the most recent
     # solution values.
     sys_man.shift_time_step_values()
-
-    retrieved_shift_ind_vals0 = sys_man.get_variable_values(
-        variables, time_step_index=0
-    )
-    retrieved_shift_ind_vals1 = sys_man.get_variable_values(
-        variables, time_step_index=1
-    )
-    retrieved_shift_ind_vals2 = sys_man.get_variable_values(
-        variables, time_step_index=2
-    )
-
     # The expected result is that key 0 and 1 has the same values, and key 2 have the
     # values that were at key 1 before the values were shifted.
-    assert np.allclose(vals0, retrieved_shift_ind_vals0)
-    assert np.allclose(vals0, retrieved_shift_ind_vals1)
-    assert np.allclose(vals1, retrieved_shift_ind_vals2)
+    _retrieve_and_check_time_step([vals0, vals0, vals1])
 
     # Test additive = True to make sure only the most recently stored values are added
     # to.
     sys_man.set_variable_values(
         values=vals0, variables=variables, time_step_index=0, additive=True
     )
-
-    retrieved_shift_ind_vals0 = sys_man.get_variable_values(
-        variables, time_step_index=0
-    )
-    retrieved_shift_ind_vals1 = sys_man.get_variable_values(
-        variables, time_step_index=1
-    )
-    retrieved_shift_ind_vals2 = sys_man.get_variable_values(
-        variables, time_step_index=2
-    )
-
-    # Since additive = True, the values of key 0 should be twice the size of what they
-    # were.
-    assert np.allclose(vals0 * 2, retrieved_shift_ind_vals0)
-    assert np.allclose(vals0, retrieved_shift_ind_vals1)
-    assert np.allclose(vals1, retrieved_shift_ind_vals2)
+    _retrieve_and_check_time_step([2 * vals0, vals0, vals1])
 
     # Finally test setting and getting values at a non-zero storage index
     sys_man.set_variable_values(values=vals2, variables=variables, time_step_index=2)
@@ -1047,8 +1009,8 @@ def test_parse_equations():
     )
     received_keys_2 = list(received_equations_2.keys())
     assert len(received_keys_2) == 2
-    assert received_keys_2[0] == all_equation_names[0]
-    assert received_keys_2[1] == all_equation_names[1]
+    for i in range(len(received_keys_2)):
+        assert received_keys_2[i] == all_equation_names[i]
 
     # Send in the all_subdomains equation in both unrestricted and restricted form.
     # The restriction should override the unrestricted form.
@@ -1096,7 +1058,7 @@ def test_secondary_variable_assembly(setup, var_names):
     assert np.allclose(b, setup.b)
     # Compare system matrices. Since the variables specify columns to eliminate,
     # we use the reverse argument
-    assert _compare_matrices(
+    assert pp.test_utils.arrays.compare_matrices(
         A, _eliminate_columns_from_matrix(setup.A, dofs, reverse=True)
     )
     # Check that the size of equation blocks (rows) were correctly recorded
@@ -1187,7 +1149,7 @@ def test_assemble_subsystem(setup, equation_variables):
 
     # Check matrix and vector items
     assert np.allclose(b_sub, setup.b[rows])
-    assert _compare_matrices(A_sub, setup.A[rows][:, cols])
+    assert pp.test_utils.arrays.compare_matrices(A_sub, setup.A[rows][:, cols])
 
     # Also check that the equation row sizes were correctly recorded.
     if eq_names is not None:
@@ -1387,7 +1349,7 @@ def test_schur_complement(eq_var_to_exclude):
     )
 
     assert np.allclose(bS, b_known)
-    assert _compare_matrices(S, S_known)
+    assert pp.test_utils.arrays.compare_matrices(S, S_known)
 
     # Finally, test that the solution computed from a Schur complement and then
     # expanded to the full system (using the relevant method in EquationSystem) is
