@@ -4,7 +4,7 @@ EquationSystem.
 The tests focus on various assembly methods:
     * test_evaluate_variables: Test that variables are correctly evaluated at the
         current iterate, previous iterate and previous time step.
-    * test_variable_creation: Test that variable creation from a EquationSystem works.
+    * test_variable_creation: Test that variable creation from an EquationSystem works.
     * test_variable_tags: Tagging of variables, used for filtering in an EquationSystem.
     * test_set_get_methods: Get and set methods for variables.
     * test_projection_matrix: Projection from a global vector to one defined on a subset
@@ -260,7 +260,7 @@ def test_variable_tags():
     )
     assert len(retrieved_var_4) == 1
 
-    # Filter on a non-existing tags
+    # Filter on a non-existing tag name.
     retrieved_var_5 = sys_man.get_variables(tag_name="tag_4")
     assert len(retrieved_var_5) == 0
     # Filter on a tag that exists, but with a non-exiting value
@@ -597,7 +597,7 @@ def test_set_get_methods(
     inds = sys_man.dofs_of(variables)
 
     # IMPLEMENATION NOTE: The first set of tests (down to checking of time_step_indices
-    # other than 0) could possibly streamlined by using a helper function and sending
+    # other than 0) could possibly be streamlined by using a helper function and sending
     # in relevant arguments (additive, time_step_index, iterate_index etc.). However,
     # this would lead to a nested set of if-else statements that would require much more
     # comments to be understandable. The current implementation is more verbose, but
@@ -925,7 +925,7 @@ def test_parse_variable_like():
 
 
 def test_parse_single_equation():
-    """Test the helper function for parsing single equations.
+    """Test the helper function for parsing a single equation.
 
     We consider only the equation posed on all subdomains, parsing of other equations
     should be identical.
@@ -938,7 +938,8 @@ def test_parse_single_equation():
     eq_system = setup.sys_man
 
     # Represent the equation both by its string and its operator form.
-    # This could have been parametrized to the price of higher cost.
+    # This could have been parametrized to the price of computational higher cost 
+    # (Pytest assembly overhead).
     for eq in [setup.eq_all_subdomains, setup.eq_all_subdomains.name]:
         # The equation name.
         name = eq if isinstance(eq, str) else eq.name
@@ -1044,7 +1045,6 @@ def test_secondary_variable_assembly(setup, var_names):
     # Jacobian matrix is altered only in columns that correspond to eliminated
     # variables.
 
-    #    secondary_variables = [getattr(setup, name) for name in var_names]
     variables = [var for var in setup.sys_man.variables if var.name not in var_names]
     A, b = setup.sys_man.assemble_subsystem(variables=variables)
 
@@ -1271,7 +1271,6 @@ def test_schur_complement(eq_var_to_exclude):
     to test the ability to exclude specific grids, rather than full equations.
 
     """
-
     # Parse the input parameters.
     eq_to_exclude, var_to_exclude = eq_var_to_exclude
 
