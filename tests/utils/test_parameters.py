@@ -3,7 +3,7 @@
 
 
 """
-import unittest
+import pytest
 
 import numpy as np
 
@@ -13,7 +13,7 @@ from porepy.grids.structured import CartGrid
 from porepy.params.data import Parameters
 
 
-class TestParameters(unittest.TestCase):
+class TestParameters:
     """Test the Parameter class' method for parameter setting and modification.
 
     _kw refers to outer dictionary and is the keyword that would be given to a
@@ -22,6 +22,7 @@ class TestParameters(unittest.TestCase):
 
     """
 
+    @pytest.fixture(autouse=True)
     def setUp(self):
         self.g = CartGrid([3, 2])
         self.p = Parameters()
@@ -35,10 +36,10 @@ class TestParameters(unittest.TestCase):
         Calls update_dictionaries with a list of the new keywords and empty (default
         option) dictionaries.
         """
-        keyword_kw_list = ["flow", "transport"]
-        self.p.update_dictionaries(keyword_kw_list)
-        keyword_kw_list.append("dummy_kw")
-        self.assertListEqual(sorted(self.p.keys()), sorted(keyword_kw_list))
+        keyword_list = ["flow", "transport"]
+        self.p.update_dictionaries(keyword_list)
+        keyword_list.append("dummy_kw")
+        assert sorted(self.p.keys()) == sorted(keyword_list)
 
     def test_update_empty_dictionary(self):
         """New keyword added with a parameter.
@@ -52,44 +53,42 @@ class TestParameters(unittest.TestCase):
         d = {"porosity": np.ones(self.g.num_cells)}
         dictionary_kw_list = [d]
         self.p.update_dictionaries(keyword_kw_list, dictionary_kw_list)
-        self.assertIn("porosity", self.p["flow"])
+        assert "porosity" in self.p["flow"]
 
     def test_update_dictionary(self):
         """Add parameters to a dictionary already containing parameters."""
         d = {"string_key": "foo", "density": 3 * np.ones(self.g.num_cells)}
         self.p.update_dictionaries(["dummy_kw"], [d])
-        self.assertIn("density", self.p["dummy_kw"])
-        self.assertEqual(self.p["dummy_kw"]["string_key"], "foo")
+        assert "density" in self.p["dummy_kw"]
+        assert self.p["dummy_kw"]["string_key"] == "foo"
 
     def test_update_empty_dictionaries(self):
         keyword_kw_list = ["flow", "transport"]
         d1 = {
-            "porosity": 2 * np.ones(self.g.num_cells),
             "density": 3 * np.ones(self.g.num_cells),
         }
         d2 = {
-            "porosity": 5 * np.ones(self.g.num_cells),
             "storage_weight": 4 * np.ones(self.g.num_cells),
         }
         self.p.update_dictionaries(keyword_kw_list, [d1, d2])
         flow_p = self.p["flow"]
-        self.assertTrue(np.all(np.isclose(flow_p["density"], 3)))
+        assert np.all(np.isclose(flow_p["density"], 3))
 
     def test_set_from_other_subdictionary(self):
         """Sets a property of "flow" keyword to the one stored for "dummy_kw"."""
 
         self.p.update_dictionaries("flow")
         self.p.set_from_other("flow", "dummy_kw", ["string_key"])
-        self.assertEqual(self.p["flow"]["string_key"], self.p["dummy_kw"]["string_key"])
+        assert self.p["flow"]["string_key"] == self.p["dummy_kw"]["string_key"]
 
     def test_overwrite_shared_property(self):
         """Modifies a property shared by two keywords."""
         self.p.update_dictionaries(["transport", "flow"])
         self.p.set_from_other("flow", "dummy_kw", ["string_key"])
         self.p.overwrite_shared_parameters(["string_key"], [13])
-        self.assertNotIn("string_key", self.p["transport"])
-        self.assertAlmostEqual(self.p["dummy_kw"]["string_key"], 13)
-        self.assertAlmostEqual(self.p["flow"]["string_key"], 13)
+        assert "string_key" not in self.p["transport"]
+        assert np.allclose(self.p["dummy_kw"]["string_key"], 13)
+        assert np.allclose(self.p["flow"]["string_key"], 13)
 
     def test_modify_shared_list(self):
         """Modifies a list parameter shared by two keywords.
@@ -105,8 +104,9 @@ class TestParameters(unittest.TestCase):
         self.p.set_from_other("add_to_kw", "dummy_kw", ["list_key"])
         new_list = [2, 5]
         self.p.modify_parameters("add_to_kw", ["list_key"], [new_list])
-        self.assertListEqual(self.p["dummy_kw"]["list_key"], new_list)
-        self.assertNotIn("list_key", self.p["other_kw"])
+
+        assert self.p["dummy_kw"]["list_key"] == new_list
+        assert "list_key" not in self.p["other_kw"]
 
     def test_modify_shared_array(self):
         """Modifies an array parameter shared by two keywords.
@@ -119,10 +119,8 @@ class TestParameters(unittest.TestCase):
         self.p.set_from_other("add_to_kw", "add_from_kw", ["array_key"])
         new_array = np.array([3.14, 42.0])
         self.p.modify_parameters("add_to_kw", ["array_key"], [new_array])
-        self.assertTrue(
-            np.all(np.isclose(self.p["add_from_kw"]["array_key"], new_array))
-        )
-        self.assertNotIn("array_key", self.p["other_kw"])
+        assert np.all(np.isclose(self.p["add_from_kw"]["array_key"], new_array))
+        assert "array_key" not in self.p["other_kw"]
 
     def test_expand_scalars(self):
         """Expand scalars to arrays"""
@@ -131,17 +129,18 @@ class TestParameters(unittest.TestCase):
         defaults = [3] * 3
         array_list = self.p.expand_scalars(2, "dummy_kw", keys, defaults)
         for i in range(3):
-            self.assertEqual(array_list[i].size, 2)
-            self.assertEqual(np.sum(array_list[i]), 2 * (i + 1))
+            assert array_list[i].size == 2
+            assert np.sum(array_list[i]) == 2 * (i + 1)
 
 
-class TestParameterDictionaries(unittest.TestCase):
+class TestParameterDictionaries:
     """Tests for parameter dictionary initialization.
 
     Tests the data module's functions for parameter setting and modification.
-    TODO: Write tests for pp.initialize_data
+
     """
 
+    @pytest.fixture(autouse=True)
     def setUp(self):
         self.g = pp.CartGrid([3, 2])
 
@@ -173,14 +172,16 @@ class TestParameterDictionaries(unittest.TestCase):
             "darcy_flux",
             "mass_weight",
         ]
-        [self.assertIn(parameter, dictionary) for parameter in p_list]
+        for parameter in p_list:
+            assert parameter in dictionary
+
         # Check some values:
         unitary_parameters = ["mass_weight"]
         ones = np.ones(self.g.num_cells)
         for parameter in unitary_parameters:
-            self.assertTrue(np.all(np.isclose(dictionary[parameter], ones)))
+            assert np.all(np.isclose(dictionary[parameter], ones))
         zeros = np.zeros(self.g.num_faces)
-        self.assertTrue(np.all(np.isclose(dictionary["darcy_flux"], zeros)))
+        assert np.all(np.isclose(dictionary["darcy_flux"], zeros))
 
     def test_default_mechanics_dictionary(self):
         """Test the default mechanics dictionary.
@@ -198,11 +199,14 @@ class TestParameterDictionaries(unittest.TestCase):
             "bc_values",
             "slip_distance",
         ]
-        [self.assertIn(parameter, dictionary) for parameter in p_list]
+        for parameter in p_list:
+            assert parameter in dictionary
+
         # Check some values:
         zeros = np.zeros(self.g.num_faces * self.g.dim)
-        self.assertTrue(np.all(np.isclose(dictionary["slip_distance"], zeros)))
-        self.assertEqual(dictionary["bc"].bc_type, "vectorial")
+
+        assert np.all(np.isclose(dictionary["slip_distance"], zeros))
+        assert dictionary["bc"].bc_type == "vectorial"
 
     def test_initialize_default_data(self):
         """Test default flow data initialization with default values.
@@ -230,8 +234,8 @@ class TestParameterDictionaries(unittest.TestCase):
         self.g.compute_geometry()
         data = pp.initialize_default_data(self.g, {}, "transport", specified_parameters)
         dictionary = data[pp.PARAMETERS]["transport"]
-        self.assertEqual(dictionary["foo"], "bar")
-        self.assertAlmostEqual(dictionary["bc"], 15)
+        assert dictionary["foo"] == "bar"
+        assert dictionary["bc"] == 15
 
     def test_initialize_default_data_other_keyword(self):
         """Test transport data initialization with keyword differing from
@@ -246,7 +250,7 @@ class TestParameterDictionaries(unittest.TestCase):
             self.g, {}, "transport", specified_parameters, keyword="not_transport"
         )
         dictionary = data[pp.PARAMETERS]["not_transport"]
-        self.assertEqual(dictionary["foo"], "bar")
+        assert dictionary["foo"] == "bar"
 
     def test_initialize_data_specified(self):
         """Test transport data initialization without default values.
@@ -263,11 +267,11 @@ class TestParameterDictionaries(unittest.TestCase):
         }
         data = pp.initialize_data(self.g, {}, "transport", specified_parameters)
         dictionary = data[pp.PARAMETERS]["transport"]
-        self.assertEqual(dictionary["foo"], "bar")
-        self.assertAlmostEqual(dictionary["bc"], 15)
+        assert dictionary["foo"] == "bar"
+        assert dictionary["bc"] == 15
         # second_order_tensor is added in the default dictionary, but should not be
         # present since we are testing initialize_data, not initialize_default_data.
-        self.assertNotIn("second_order_tensor", dictionary)
+        assert "second_order_tensor" not in dictionary
 
     def check_default_flow_dictionary(self, dictionary):
         # Check that all parameters have been added.
@@ -279,16 +283,13 @@ class TestParameterDictionaries(unittest.TestCase):
             "bc",
             "bc_values",
         ]
-        [self.assertIn(parameter, dictionary) for parameter in p_list]
+        for parameter in p_list:
+            assert parameter in dictionary
+
         # Check some values:
         unitary_parameters = ["mass_weight"]
         ones = np.ones(self.g.num_cells)
         for parameter in unitary_parameters:
-            self.assertTrue(np.all(np.isclose(dictionary[parameter], ones)))
-        self.assertTrue(
-            np.all(np.isclose(dictionary["second_order_tensor"].values[2, 2], ones))
-        )
+            assert np.allclose(dictionary[parameter], ones)
 
-
-if __name__ == "__main__":
-    unittest.main()
+        assert np.allclose(dictionary["second_order_tensor"].values[2, 2], ones)

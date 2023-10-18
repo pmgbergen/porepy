@@ -41,7 +41,6 @@ RUN pip install pypardiso
 
 # Install dependencies
 RUN pip install -r ./requirements.txt
-RUN pip install -r ./requirements-dev.txt
 
 # Move back to code directory
 WORKDIR ${HOME}
