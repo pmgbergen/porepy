@@ -29,7 +29,6 @@ and
     docker pull porepy/stable
 
 Instructions to install from source can be found [here](https://github.com/pmgbergen/porepy/blob/develop/Install.md).
-Note that there are a few simple but non-obvious steps in the installation, so please read the entire document before sending questions.
 
 PorePy is developed under Python >=3.10.
 
