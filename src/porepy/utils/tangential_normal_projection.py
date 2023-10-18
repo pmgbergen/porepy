@@ -43,7 +43,7 @@ class TangentialNormalProjection:
         self.dim = dim
 
         # Compute normal and tangential basis
-        basis, normal = self._decompose_vector(normals)
+        basis, normal = self._decompose_vector_new(normals)
 
         basis = basis.reshape((dim, dim, self.num_vecs))
         self.tangential_basis = basis[:, :-1, :]
@@ -222,6 +222,36 @@ class TangentialNormalProjection:
             t1 = np.random.rand(self.dim, 1) * np.ones(self.num_vecs)
             normal, tc1 = self._gram_schmidt(nc, t1)
             basis = np.hstack([tc1, normal])
+        return basis, normal
+
+    def _decompose_vector_new(self, nc):
+        if self.dim == 2:
+            normal = nc / np.linalg.norm(nc, axis=0)
+            tc1 = np.vstack([-normal[1], normal[0]])
+            basis = np.hstack([tc1, normal])
+        else:  # self.dim == 3
+            normal = nc / np.linalg.norm(nc, axis=0)
+            max_dim = np.argmax(np.abs(normal), axis=0)
+            tc1 = np.zeros_like(nc)
+            tc2 = np.zeros_like(nc)
+            for i in range(self.dim):
+                other_dim = np.setdiff1d(np.arange(self.dim), i)
+                hit = max_dim == i
+                tc1[other_dim[0], hit] = -normal[other_dim[1], hit]
+                tc1[other_dim[1], hit] = normal[other_dim[0], hit]
+
+                hit_zero = np.logical_and(
+                    hit, np.linalg.norm(normal[other_dim], axis=0) < 1e-8
+                )
+                tc1[other_dim[0], hit_zero] = 1
+                # breakpoint()
+                debug = []
+
+            tc1 = tc1 / np.linalg.norm(tc1, axis=0)
+
+            tc2 = np.cross(nc, tc1, axis=0)
+            tc2 = tc2 / np.linalg.norm(tc2, axis=0)
+            basis = np.hstack([tc1, tc2, normal])
         return basis, normal
 
     def _gram_schmidt(self, u1, u2, u3=None):
