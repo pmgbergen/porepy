@@ -43,7 +43,7 @@ class TangentialNormalProjection:
         self.dim = dim
 
         # Compute normal and tangential basis
-        basis, normal = self._decompose_vector_new(normals)
+        basis, normal = self._decompose_vector(normals)
 
         basis = basis.reshape((dim, dim, self.num_vecs))
         self.tangential_basis = basis[:, :-1, :]
@@ -148,9 +148,7 @@ class TangentialNormalProjection:
     def project_normal(self, num=None):
         """Define a projection matrix of a specific size onto the normal space.
 
-        The intended usage is to project a grid-based vector variable onto the
-        normal space of the grid, with the tacit understanding that there is
-        a single normal vector shared for all the cells (or faces) in the grid.
+        The projection is from global coordinates to the local coordinates defined
 
         The method can also create projection matrix based on unequal normal vectors.
         One projection will be generated per column in self.normal. To activate
@@ -158,7 +156,6 @@ class TangentialNormalProjection:
 
         Parameters:
             num (int, optional): Number of (equal) projections to be generated.
-                Will correspond to the number of cells / faces in the grid.
                 The projection matrix will have num * self.dim columns. If not
                 specified (default), one projection will be generated per vector in
                 self.normals.
@@ -211,75 +208,84 @@ class TangentialNormalProjection:
         return self.projection[:, :, ind]
 
     ### Helper functions below
-
     def _decompose_vector(self, nc):
-        if self.dim == 3:
-            t1 = np.random.rand(self.dim, 1) * np.ones(self.num_vecs)
-            t2 = np.random.rand(self.dim, 1) * np.ones(self.num_vecs)
-            normal, tc1, tc2 = self._gram_schmidt(nc, t1, t2)
-            basis = np.hstack([tc1, tc2, normal])
-        else:
-            t1 = np.random.rand(self.dim, 1) * np.ones(self.num_vecs)
-            normal, tc1 = self._gram_schmidt(nc, t1)
-            basis = np.hstack([tc1, normal])
-        return basis, normal
-
-    def _decompose_vector_new(self, nc):
         if self.dim == 2:
+            # Normalize the normal vector, just to be sure
             normal = nc / np.linalg.norm(nc, axis=0)
-            tc1 = np.vstack([-normal[1], normal[0]])
+            # The tanegntial vector in 2d is deterministic up to an arbitrary sign. We
+            # choose the sign such that the vector points in the positive x-direction.
+            tc1 = np.zeros_like(normal)
+            negative_n1 = normal[1] < 0
+            tc1[:, negative_n1] = np.vstack(
+                [-normal[1, negative_n1], normal[0, negative_n1]]
+            )
+            positive_n1 = np.logical_not(negative_n1)
+            tc1[:, positive_n1] = np.vstack(
+                [normal[1, positive_n1], -normal[0, positive_n1]]
+            )
+
             basis = np.hstack([tc1, normal])
         else:  # self.dim == 3
+            # Normalize the normal vector, just to be sure
             normal = nc / np.linalg.norm(nc, axis=0)
+            # In 3d, there is some freedom in choosing the tangential vectors, but it is
+            # important that the definition minimize the risk for poorly conditioned
+            # computations (implementer note to self: Exactly what this means is
+            # unclear, but we have had spurious numerical issues that were traced back
+            # to a previous implementation using random vectors within the tangent
+            # plane. What caused this was never clear, but we do not want to take
+            # chances here). We choose one tangential vector to lie in the plane
+            # orthorgonal to the maximum direction of the normal vector (ex: a normal
+            # vector of [1, 3, 2] would give a first tangent vector in the xz-plane).
+            # The second tangent vector is the cross product of the normal and the first
+            # tangent vector.
+
+            # Find the maximum direction of the normal vector for each column (each
+            # individual normal vector)
             max_dim = np.argmax(np.abs(normal), axis=0)
+            # Tangent vectors, to be filled in
             tc1 = np.zeros_like(nc)
             tc2 = np.zeros_like(nc)
+
+            # Loop over the dimensions, fill in all columns (individual tangent vectors)
+            # that have their maximum along this dimension.
             for i in range(self.dim):
-                other_dim = np.setdiff1d(np.arange(self.dim), i)
+                # Columns to be filled in
                 hit = max_dim == i
+                # The other dimensions
+                other_dim = np.setdiff1d(np.arange(self.dim), i)
+
+                # NOTE: We could try to assign a positive sign to the first tangent, as
+                # is done in 2d, but the benefit is less clear in 3d. Also, the special
+                # case of a normal vector aligned with a coordinate direction, where a
+                # positive direction could be most useful, is covered just below.
                 tc1[other_dim[0], hit] = -normal[other_dim[1], hit]
                 tc1[other_dim[1], hit] = normal[other_dim[0], hit]
 
-                hit_zero = np.logical_and(
+                # If the normal vector is aligned with one of the coordinate directions,
+                # the tangent assigned above will be zero. In this case, we assign a
+                # positive value along the first dimension in other_dim. In practice
+                # (because of the definition of other_dim), this means the tangent
+                # vector points along the x-axis if the normal vector is aligned with
+                # the y- or z-axis, and along the y-axis if the normal vector is
+                # aligned with the x-axis.
+                aligned_with_axis = np.logical_and(
                     hit, np.linalg.norm(normal[other_dim], axis=0) < 1e-8
                 )
-                tc1[other_dim[0], hit_zero] = 1
-                # breakpoint()
-                debug = []
+                tc1[other_dim[0], aligned_with_axis] = 1
 
+            # Normalize the first tangent vectors
             tc1 = tc1 / np.linalg.norm(tc1, axis=0)
-
+            # The second tangent vector is the cross product of the normal and the
+            # first tangent vector.
             tc2 = np.cross(nc, tc1, axis=0)
+            # Normalize the second tangent vectors
             tc2 = tc2 / np.linalg.norm(tc2, axis=0)
+
+            # Define the matrix of tangent and normal vectors
             basis = np.hstack([tc1, tc2, normal])
+
         return basis, normal
-
-    def _gram_schmidt(self, u1, u2, u3=None):
-        """
-        Perform a Gram Schmidt procedure for the vectors u1, u2 and u3 to obtain a set of
-        orthogonal vectors.
-
-        Parameters:
-            u1: ndArray
-            u2: ndArray
-            u3: ndArray
-
-        Returns:
-            u1': ndArray u1 / ||u1||
-            u2': ndarray (u2 - u2*u1 * u1) / ||u2||
-            u3': (optional) ndArray (u3 - u3*u2' - u3*u1')/||u3||
-        """
-        u1 = u1 / np.sqrt(np.sum(u1**2, axis=0))
-
-        u2 = u2 - np.sum(u2 * u1, axis=0) * u1
-        u2 = u2 / np.sqrt(np.sum(u2**2, axis=0))
-
-        if u3 is None:
-            return u1, u2
-        u3 = u3 - np.sum(u3 * u1, axis=0) * u1 - np.sum(u3 * u2, axis=0) * u2
-        u3 = u3 / np.sqrt(np.sum(u3**2, axis=0))
-
-        return u1, u2, u3
 
     def _invert_3d_matrix(self, M):
         """
