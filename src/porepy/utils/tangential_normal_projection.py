@@ -66,15 +66,15 @@ class TangentialNormalProjection:
 
         Parameters:
             num: Number of projections to be generated. Will correspond
-                to the number of cells / faces in the grid. The projection matrix will
+                to the number of cells/faces in the grid. The projection matrix will
                 have ``num * self.dim columns``. If not specified, one
                 projection will be generated per vector in ``self.normals``.
                 NOTE: If ``self.num_vecs > 1``, but num is not None, only the first
                 given normal vector will be used to generate the tangential space.
 
         Returns:
-            Projection matrix, structure as a block diagonal matrix, with block size
-                ``dim x dim``. For each block, the first ``dim - 1`` rows projects onto
+            Projection matrix as a block diagonal matrix, with block size
+                ``dim x dim``. For each block, the first ``dim - 1`` rows project onto
                 the tangent space, the final row projects onto the normal space.
 
         """
@@ -221,7 +221,7 @@ class TangentialNormalProjection:
             # plane. What caused this was never clear, but we do not want to take
             # chances here). We choose one tangential vector to lie in the plane
             # orthorgonal to the maximum direction of the normal vector (ex: a normal
-            # vector of [1, 3, 2] would give a first tangent vector in the xz-plane).
+            # vector of [1, 3, 2] has maximum component in the y direction and thus gives a first tangent vector in the xz-plane).
             # The second tangent vector is the cross product of the normal and the first
             # tangent vector.
 
