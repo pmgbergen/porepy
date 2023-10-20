@@ -433,6 +433,7 @@ class WellNetwork3d:
                 # Properly initalizing the newly generated boundary grid.
                 if (bg_w := mdg.subdomain_to_boundary_grid(sd_w)) is not None:
                     bg_w.set_projections()
+                    bg_w.compute_geometry()
 
                 sd_w.well_num = well_num
                 sd_w.name += " well " + str(well_num)

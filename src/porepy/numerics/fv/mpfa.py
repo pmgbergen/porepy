@@ -102,7 +102,7 @@ class Mpfa(pp.FVElliptic):
             )
             matrix_dictionary[
                 self.bound_pressure_vector_source_matrix_key
-            ] = sps.csc_matrix((sd.num_faces, sd.num_faces * vector_source_dim))
+            ] = sps.csc_matrix((sd.num_faces, sd.num_cells * vector_source_dim))
             # Done
             return
 

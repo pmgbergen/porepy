@@ -16,7 +16,7 @@ We provide two tests:
 from __future__ import annotations
 
 import copy
-from typing import Callable
+from typing import Callable, Literal, Optional
 
 import numpy as np
 import pytest
@@ -25,6 +25,7 @@ import scipy.sparse as sps
 import porepy as pp
 from porepy.applications.md_grids.model_geometries import (
     SquareDomainOrthogonalFractures,
+    CubeDomainOrthogonalFractures,
 )
 from porepy.applications.test_utils import models, well_models
 from porepy.models.fluid_mass_balance import SinglePhaseFlow
@@ -511,3 +512,459 @@ def test_well_incompressible_pressure_values():
     dp_expected = 1 / (2 * np.pi * k * 0.1) * np.log(r_e / 0.01)
     dp = well_pressure[0] - fracture_pressure[injection_cell]
     assert np.isclose(dp, dp_expected, rtol=1e-4)
+
+
+# Definition of parameter space for gravity tests
+# For most tests, we want to combine the following parameters:
+#     - discretization method
+#     - number of nodes in the mortar grid
+#     - number of nodes in the 1d fracture grid
+#     - grid type (cartesian or simplex)
+# Exceptions (if statements below):
+#     - Simplex grids only give accurate results for mpfa discretization.
+#     - The construction of non-matching grids does not support simplex grids.
+# Some tests use tailored parameter combinations defined in the test function.
+discretizations = ["mpfa", "tpfa"]
+
+grid_types = ["cartesian", "simplex"]
+
+mortar_nodes = [3, 4]
+
+fracture_nodes = [2, 3, 4]
+
+gravity_parameter_combinations = [
+    (discretization_method, grid_type, num_nodes_mortar, num_nodes_1d)
+    for discretization_method in discretizations
+    for grid_type in grid_types
+    for num_nodes_mortar in mortar_nodes
+    for num_nodes_1d in fracture_nodes
+    if not (
+        grid_type == "simplex"
+        and (discretization_method == "tpfa" or num_nodes_mortar != num_nodes_1d)
+    )
+]
+
+
+def model_setup_gravity(
+    dimension: int,
+    model_params: dict,
+    num_nodes_mortar: Optional[int] = None,
+    num_nodes_1d: int = 3,
+    neu_val_top: Optional[float] = None,
+    dir_val_top: Optional[float] = None,
+    discretization_method: Literal["mpfa", "tpfa"] = "mpfa",
+    kn: float = 1e0,
+    aperture: float = 1e-1,
+    gravity_angle: float = 0,
+) -> SinglePhaseFlow:
+    """Create a single-phase flow model with gravity.
+
+    Parameters:
+        dimension: Dimension of the domain.
+        model_params: Model parameters as passed to the model constructor.
+        num_nodes_mortar: Number of nodes in the mortar grid. If None, no changes are
+            made to the grid (default behavior with matching grids).
+        num_nodes_1d: Number of nodes in the 1d fracture grid. Only used if
+            num_nodes_mortar is not None.
+        neu_val_top: Default None implies Dirichlet on top. If not None,
+            the prescribed value will be applied as the Neumann bc value.
+        dir_val_top: If not None, the prescribed value will be
+            applied as the Dirichlet bc value. Note that neu_val_top takes precedent
+            over dir_val_top.
+        discretization_method: Name of discretization method.
+        kn: Normal permeability of the fracture. Will be multiplied by aperture/2
+            to yield the normal diffusivity.
+        aperture: Fracture aperture.
+        gravity_angle: Angle by which to rotate the applied vector source field.
+
+    Returns:
+        Single-phase flow model with gravity.
+
+    """
+    params = {
+        "grid_type": "cartesian",
+        "fracture_indices": [1],
+        "meshing_arguments": {"cell_size": 0.5},
+    }
+    params.update(model_params)
+    params["material_constants"] = {
+        "solid": pp.SolidConstants(
+            {"normal_permeability": kn, "residual_aperture": aperture}
+        )
+    }
+    if dimension == 2:
+        Geometry = SquareDomainOrthogonalFractures
+    else:
+        Geometry = CubeDomainOrthogonalFractures
+
+    class Model(Geometry, SinglePhaseFlow):
+        def set_geometry(self) -> None:
+            super().set_geometry()
+            if num_nodes_mortar is None:
+                return
+
+            if dimension != 2:
+                raise NotImplementedError(
+                    "Non-matching grids are only implemented for 2d."
+                )
+
+            for intf in self.mdg.interfaces():
+                new_side_grids = {
+                    s: pp.refinement.remesh_1d(g, num_nodes=num_nodes_mortar)
+                    for s, g in intf.side_grids.items()
+                }
+
+                intf.update_mortar(new_side_grids, tol=1e-4)
+                # refine the 1d-physical grid
+                _, old_sd_1d = self.mdg.interface_to_subdomain_pair(intf)
+                new_sd_1d = pp.refinement.remesh_1d(old_sd_1d, num_nodes=num_nodes_1d)
+                new_sd_1d.compute_geometry()
+
+                self.mdg.replace_subdomains_and_interfaces({old_sd_1d: new_sd_1d})
+                intf.update_secondary(new_sd_1d, tol=1e-4)
+            self.mdg.compute_geometry()
+
+        def vector_source(
+            self, grids: list[pp.Grid] | list[pp.MortarGrid], material: str
+        ) -> pp.ad.Operator:
+            """Vector source term. Represents gravity effects.
+
+            Parameters:
+                grids: List of subdomain or interface grids where the vector source is
+                    defined.
+                material: Name of the material. Could be either "fluid" or "solid".
+
+            Returns:
+                Cell-wise nd-vector source term operator.
+
+            """
+            num_cells = int(np.sum([g.num_cells for g in grids]))
+            values = np.zeros((self.nd, num_cells))
+            # Angle of zero means force vector of [0, -1]
+            values[1] = self.fluid.convert_units(-np.cos(gravity_angle), "m*s^-2")
+            values[0] = self.fluid.convert_units(np.sin(gravity_angle), "m*s^-2")
+            source = pp.wrap_as_ad_array(values.ravel("F"), name="vector_source")
+            return source
+
+        def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+            """Boundary pressure values.
+
+            Parameters:
+                grids: List of subdomain or interface grids where the boundary pressure
+                    values are defined.
+
+            Returns:
+                Cell-wise nd-vector source term operator.
+
+            """
+            sd = boundary_grid.parent
+            b_val = np.zeros(boundary_grid.num_cells)
+            if sd.dim == self.nd and dir_val_top is not None:
+                b_val[self.domain_boundary_sides(boundary_grid).north] = dir_val_top
+            return b_val
+
+        def bc_values_darcy_flux(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+            """Darcy flux values for the Neumann boundary condition.
+
+            Parameters:
+                boundary_grid: Boundary grid to provide values for.
+
+            Returns:
+                An array with ``shape=(boundary_grid.num_cells,)`` containing the
+                volumetric Darcy flux values on the provided boundary grid. Zero unless
+                ``neu_val_top`` is not None.
+
+            """
+            vals = np.zeros(boundary_grid.num_cells)
+            if boundary_grid.parent.dim == self.nd and neu_val_top is not None:
+                cells = self.domain_boundary_sides(boundary_grid).north
+                vals[cells] = neu_val_top * boundary_grid.cell_volumes[cells]
+            return vals
+
+        def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
+            """Boundary conditions on all external boundaries.
+
+            Parameters:
+                sd: Subdomain grid on which to define boundary conditions.
+
+            Returns:
+                Boundary condition object. Dirichlet-type BC is assigned at the bottom.
+                If neu_val_top is None, Dirichlet also on top.
+
+            """
+            # Define boundary faces.
+            sides = self.domain_boundary_sides(sd).south
+            if neu_val_top is None:
+                sides += self.domain_boundary_sides(sd).north
+            # Define boundary condition on all boundary faces.
+            return pp.BoundaryCondition(sd, sides, "dir")
+
+        def darcy_flux_discretization(
+            self, subdomains: list[pp.Grid]
+        ) -> pp.ad.MpfaAd | pp.ad.TpfaAd:
+            """Discretization object for the Darcy flux term.
+
+            Parameters:
+                subdomains: List of subdomains where the Darcy flux is defined.
+
+            Returns:
+                Discretization of the Darcy flux.
+
+            """
+            if discretization_method == "mpfa":
+                return pp.ad.MpfaAd(self.darcy_keyword, subdomains)
+            elif discretization_method == "tpfa":
+                return pp.ad.TpfaAd(self.darcy_keyword, subdomains)
+            else:
+                raise ValueError(
+                    f"Unknown discretization method: {discretization_method}"
+                )
+
+    return Model(params)
+
+
+class TestMixedDimGravity:
+    """Test gravity effects in a mixed-dimensional flow model."""
+
+    def solve(self):
+        pp.run_time_dependent_model(self.model, self.model.params)
+        pressure = self.model.equation_system.get_variable_values(
+            [self.model.pressure_variable], time_step_index=0
+        )
+        return pressure
+
+    def verify_pressure(self, p_known: float = 0):
+        """Verify that the pressure of all subdomains equals p_known."""
+        pressure = self.model.equation_system.get_variable_values(
+            [self.model.pressure_variable], time_step_index=0
+        )
+        assert np.allclose(pressure, p_known, rtol=1e-3, atol=1e-3)
+
+    def verify_mortar_flux(self, u_known: float):
+        """Verify that the mortar flux of all interfaces equals u_known."""
+        flux = self.model.equation_system.get_variable_values(
+            [self.model.interface_darcy_flux_variable], time_step_index=0
+        )
+        assert np.allclose(np.abs(flux), u_known, rtol=1e-3, atol=1e-3)
+
+    def verify_hydrostatic(self, angle=0, a=1e-1):
+        """Check that the pressure profile is hydrostatic, with the adjustment
+        for the fracture.
+        Without the fracture, the profile is expected to be linear within each
+        subdomain, with a small additional jump of aperture at the fracture.
+        The full range is
+        0 (bottom) to -1- aperture (top).
+        """
+        mdg = self.model.mdg
+        sd_primary = mdg.subdomains(dim=mdg.dim_max())[0]
+        data_primary = mdg.subdomain_data(sd_primary)
+        p_primary = pp.get_solution_values(
+            name="pressure", data=data_primary, time_step_index=0
+        )
+
+        # The cells above the fracture
+        h = sd_primary.cell_centers[1]
+        ind = h > 0.5
+        p_known = -(a * ind + h) * np.cos(angle)
+        assert np.allclose(p_primary, p_known, rtol=1e-3, atol=1e-3)
+        sd_secondary = mdg.subdomains(dim=mdg.dim_max() - 1)[0]
+        data_secondary = mdg.subdomain_data(sd_secondary)
+        p_secondary = pp.get_solution_values(
+            name="pressure", data=data_secondary, time_step_index=0
+        )
+
+        # Half the additional jump is added to the fracture pressure
+        h = sd_secondary.cell_centers[1]
+        p_known = -(a / 2 + h) * np.cos(angle)
+
+        assert np.allclose(p_secondary, p_known, rtol=1e-3, atol=1e-3)
+        flux = self.model.equation_system.get_variable_values(
+            [self.model.interface_darcy_flux_variable], time_step_index=0
+        )
+        assert np.allclose(flux, 0, rtol=1e-3, atol=1e-3)
+
+    @pytest.mark.parametrize(
+        "discretization,grid_type,num_nodes_mortar,num_nodes_1d",
+        gravity_parameter_combinations,
+    )
+    def test_no_flow_neumann(
+        self, discretization, grid_type, num_nodes_mortar, num_nodes_1d
+    ):
+        """Use homogeneous Neumann boundary conditions on top Dirichlet
+        on bottom.
+
+        The pressure distribution should be hydrostatic.
+
+        """
+
+        params = {
+            "meshing_arguments": {"cell_size": 1 / 3, "cell_size_y": 1 / 2},
+            "grid_type": grid_type,
+        }
+        self.model = model_setup_gravity(
+            dimension=2,
+            model_params=params,
+            num_nodes_mortar=num_nodes_mortar,
+            num_nodes_1d=num_nodes_1d,
+            neu_val_top=0,
+            discretization_method=discretization,
+        )
+        self.solve()
+        self.verify_hydrostatic()
+        self.verify_mortar_flux(0)
+
+    @pytest.mark.parametrize(
+        "discretization,num_nodes_mortar",
+        [
+            (discretization, num_nodes_mortar)
+            for discretization in discretizations
+            for num_nodes_mortar in mortar_nodes
+        ],
+    )
+    @pytest.mark.parametrize(
+        "angle",
+        [0, np.pi / 2, np.pi],
+    )
+    def test_no_flow_rotate_gravity(self, discretization, num_nodes_mortar, angle):
+        """Rotate the angle of gravity. Neumann boundaries except Dirichlet on bottom.
+
+        There should be no flow.
+
+        This test is only run for cartesian grids, as the simplex grids violate
+        assumptions on number of cells in the 2d grid.
+
+        """
+        # The angle pi/2 requires nx = 1 for there not to be flow
+        params = {
+            "meshing_arguments": {"cell_size": 1.0, "cell_size_y": 1 / 2},
+            "grid_type": "cartesian",
+        }
+        num_nodes_1d = 2
+        self.model = model_setup_gravity(
+            2,
+            params,
+            num_nodes_mortar=num_nodes_mortar,
+            num_nodes_1d=num_nodes_1d,
+            neu_val_top=0,
+            gravity_angle=angle,
+            discretization_method=discretization,
+        )
+        self.solve()
+        if np.isclose(angle, np.pi / 2):
+            self.verify_pressure()
+        else:
+            self.verify_hydrostatic(angle)
+        self.verify_mortar_flux(0)
+
+    @pytest.mark.parametrize(
+        "discretization,grid_type,num_nodes_mortar,num_nodes_1d",
+        gravity_parameter_combinations,
+    )
+    def test_no_flow_dirichlet(
+        self, discretization, grid_type, num_nodes_mortar, num_nodes_1d
+    ):
+        """
+        Dirichlet boundary conditions, but set so that the pressure is hydrostatic,
+        and there is no flow.
+
+        """
+
+        params = {
+            "meshing_arguments": {"cell_size": 1 / 3, "cell_size_y": 1 / 2},
+            "grid_type": grid_type,
+        }
+
+        self.model = model_setup_gravity(
+            2,
+            params,
+            num_nodes_mortar=num_nodes_mortar,
+            num_nodes_1d=num_nodes_1d,
+            dir_val_top=-1.1,
+            discretization_method=discretization,
+        )
+        self.solve()
+        self.verify_hydrostatic()
+        self.verify_mortar_flux(0)
+
+    @pytest.mark.parametrize(
+        "discretization,grid_type,num_nodes_mortar,num_nodes_1d",
+        gravity_parameter_combinations,
+    )
+    def test_inflow_top(
+        self, discretization, grid_type, num_nodes_mortar, num_nodes_1d
+    ):
+        """
+        Prescribed inflow at the top. Strength of the flow counteracts gravity, so that
+        the pressure is uniform.
+        """
+        params = {
+            "meshing_arguments": {"cell_size": 1 / 2},
+            "grid_type": grid_type,
+        }
+        a = 1e-2
+        self.model = model_setup_gravity(
+            2,
+            params,
+            num_nodes_mortar=num_nodes_mortar,
+            num_nodes_1d=num_nodes_1d,
+            neu_val_top=-1,
+            aperture=a,
+            discretization_method=discretization,
+        )
+        self.solve()
+        self.verify_pressure()
+        self.verify_mortar_flux(1 / (num_nodes_mortar - 1))
+
+    @pytest.mark.parametrize(
+        "discretization,grid_type,num_nodes_mortar,num_nodes_1d",
+        gravity_parameter_combinations,
+    )
+    def test_uniform_pressure(
+        self, discretization, grid_type, num_nodes_mortar, num_nodes_1d
+    ):
+        """
+        Prescribed pressure at the top. Strength of the flow counteracts gravity, so
+        that the pressure is uniform.
+
+        The total flow should equal the gravity force (=1).
+
+        """
+        self.model = model_setup_gravity(
+            2,
+            {"grid_type": grid_type},
+            num_nodes_mortar=num_nodes_mortar,
+            num_nodes_1d=num_nodes_1d,
+            discretization_method=discretization,
+            dir_val_top=0,
+            aperture=3e-3,
+        )
+        self.solve()
+        self.verify_pressure()
+
+        self.verify_mortar_flux(1 / (num_nodes_mortar - 1))
+
+    # --3d section. See analogous methods/tests above for documentation --#
+
+    @pytest.mark.parametrize("discretization", discretizations)
+    def test_one_fracture_3d_no_flow_neumann(self, discretization):
+        self.model = model_setup_gravity(
+            3,
+            {"grid_type": "cartesian"},
+            discretization_method=discretization,
+            neu_val_top=0,
+        )
+        self.solve()
+        self.verify_hydrostatic()
+        self.verify_mortar_flux(0)
+
+    @pytest.mark.parametrize("discretization", discretizations)
+    def test_one_fracture_3d_no_flow_dirichlet(self, discretization):
+        self.model = model_setup_gravity(
+            3,
+            {"grid_type": "cartesian"},
+            discretization_method=discretization,
+            dir_val_top=-1.1,
+        )
+        self.solve()
+        self.verify_hydrostatic()
+        self.verify_mortar_flux(0)
