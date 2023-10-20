@@ -711,7 +711,7 @@ class ModelGeometry:
         # signs, and project back up to all subdomains.
         flipped_normals = flip @ primary_face_normals
         # Project to mortar grid, as a mapping from mortar to the subdomains and back
-        # again. If we are to use cell volumes from interfaces to normalize, projection
+        # again. If we are to use cell_volumes from interfaces to normalize, projection
         # must logically be integration, not average. This also means that the normals
         # have length equal to cell size on mortar grids, by analogy to face area for
         # subdomains.
