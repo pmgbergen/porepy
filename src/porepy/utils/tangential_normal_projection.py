@@ -20,8 +20,6 @@ class TangentialNormalProjection:
     """Represent a set of projections into tangent and normal vectors.
 
     The spaces are defined by the normal vector (see __init__ documentation).
-    The basis for the tangential space is arbitrary (arbitrary direction in 2d,
-    rotation angle in 3d).
 
     Parameters:
         normals: ``shape=(dim, num_vecs)``
@@ -40,7 +38,7 @@ class TangentialNormalProjection:
         """Dimension of the ambient space."""
 
         # Compute normal and tangential basis
-        basis, normal = self._decompose_vector(normals)
+        basis, normal = self._construct_local_basis(normals)
 
         basis = basis.reshape((self.dim, self.dim, self.num_vecs))
 
@@ -58,19 +56,16 @@ class TangentialNormalProjection:
         and normal components.
 
         The intended usage is to decompose a vector defined in the global coordinate
-        sytsem variable into the tangent and normal spaces of a local coordinate system.
-
-        The method can also create projection matrix based on unequal normal vectors.
-        One projection will be generated per column in self.normal. To activate this
-        behavior, set num=None.
+        system into the tangent and normal spaces of a local coordinate system. The
+        projection is constructed either, by repeating the projection matrix obtained
+        from the first (referring to the order of the normal vectors provided at
+        initialization) normal vector ``num`` times (if ``num`` is not None), or by
+        stacking the projection matrices for each normal vector that was provided at
+        initialization (if ``num`` is None). Note that in the former option, only the
+        first normal vector is used to define the normal space.
 
         Parameters:
-            num: Number of projections to be generated. Will correspond
-                to the number of cells/faces in the grid. The projection matrix will
-                have ``num * self.dim columns``. If not specified, one
-                projection will be generated per vector in ``self.normals``.
-                NOTE: If ``self.num_vecs > 1``, but num is not None, only the first
-                given normal vector will be used to generate the tangential space.
+            num: Number of projections to be generated. See above for details.
 
         Returns:
             Projection matrix as a block diagonal matrix, with block size
@@ -93,20 +88,17 @@ class TangentialNormalProjection:
     def project_tangential(self, num: Optional[int] = None) -> sps.spmatrix:
         """Define a projection matrix of a specific size onto the tangential space.
 
-        The projection is from global coordinates to the local coordinates.
-
-        The method can also create projection matrix based on unequal normal vectors.
-        One projection will be generated per column in self.normal. To activate this
-        behavior, set num=None.
+        The intended usage is to project a vector defined in the global coordinate
+        system into the tangent space of a local coordinate system. The projection is
+        constructed either, by repeating the projection matrix obtained from the first
+        (referring to the order of the normal vectors provided at initialization) normal
+        vector ``num`` times (if ``num`` is not None), or by stacking the projection
+        matrices for each normal vector that was provided at initialization (if ``num``
+        is None). Note that in the former option, only the first normal vector is used
+        to define the normal space.
 
         Parameters:
-            num (int, optional): Number of (equal) projections to be generated.
-                The projection matrix will have ``num * self.dim columns``. If not
-                specified, one projection will be generated per vector in
-                ``self.normals.``
-                NOTE: If ``self.num_vecs > 1``, but ``num`` is not ``None``,
-                only the first given normal vector will be used to generate the normal
-                space.
+            num: Number of projections to be generated. See above for details.
 
         Returns:
             Tangential projection matrix, structured as a block diagonal matrix.
@@ -136,20 +128,17 @@ class TangentialNormalProjection:
     def project_normal(self, num: Optional[int] = None) -> sps.spmatrix:
         """Define a projection matrix of a specific size onto the normal space.
 
-        The projection is from global coordinates to the local coordinates.
-
-        The method can also create projection matrix based on unequal normal vectors.
-        One projection will be generated per column in self.normal. To activate this
-        behavior, set num=None.
+        The intended usage is to project a vector defined in the global coordinate
+        system into the normal space of a local coordinate system. The projection is
+        constructed either, by repeating the projection matrix obtained from the first
+        (referring to the order of the normal vectors provided at initialization) normal
+        vector ``num`` times (if ``num`` is not None), or by stacking the projection
+        matrices for each normal vector that was provided at initialization (if ``num``
+        is None). Note that in the former option, only the first normal vector is used
+        to define the normal space.
 
         Parameters:
-            num (int, optional): Number of (equal) projections to be generated.
-                The projection matrix will have ``num * self.dim columns``. If not
-                specified, one projection will be generated per vector in
-                ``self.normals.``
-                NOTE: If ``self.num_vecs > 1``, but ``num`` is not ``None``,
-                only the first given normal vector will be used to generate the normal
-                space.
+            num: Number of projections to be generated. See above for details.
 
         Returns:
             Normal projection matrix, structured as a block diagonal matrix.
@@ -176,12 +165,14 @@ class TangentialNormalProjection:
         return remove_tangential_components * full_projection
 
     ### Helper functions below
-    def _decompose_vector(self, nc: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-        """Decompose a set of normal vectors into a basis for the tangential space
-        and the normal space.
+    def _construct_local_basis(
+        self, normal: np.ndarray
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """Construct a local basis for the tangential space and the normal space from a
+        set of normal vectors.
 
         Parameters:
-            nc: Normal vectors ``shape=(dim, num_vecs)``.
+            normal: Normal vectors ``shape=(dim, num_vecs)``.
 
         Returns:
             Basis for the tangential and normal space, and the normal vector itself.
@@ -196,23 +187,27 @@ class TangentialNormalProjection:
 
         if self.dim == 2:
             # Normalize the normal vector, just to be sure
-            normal = nc / np.linalg.norm(nc, axis=0)
-            # The tanegntial vector in 2d is deterministic up to an arbitrary sign. We
+            normal = normal / np.linalg.norm(normal, axis=0)
+            # The tangential vector in 2d is deterministic up to an arbitrary sign. We
             # choose the sign such that the vector points in the positive x-direction.
             tc1 = np.zeros_like(normal)
             negative_n1 = normal[1] < 0
             tc1[:, negative_n1] = np.vstack(
                 [-normal[1, negative_n1], normal[0, negative_n1]]
             )
-            positive_n1 = np.logical_not(negative_n1)
+            positive_n1 = normal[1] > 0
             tc1[:, positive_n1] = np.vstack(
                 [normal[1, positive_n1], -normal[0, positive_n1]]
             )
+            # If the normal vector is aligned with the x-axis, we assign a positive
+            # value along the y-axis.
+            equal_zero = normal[1] == 0
+            tc1[1, equal_zero] = 1
 
             basis = np.hstack([tc1, normal])
         else:  # self.dim == 3
             # Normalize the normal vector, just to be sure
-            normal = nc / np.linalg.norm(nc, axis=0)
+            normal = normal / np.linalg.norm(normal, axis=0)
             # In 3d, there is some freedom in choosing the tangential vectors, but it is
             # important that the definition minimize the risk for poorly conditioned
             # computations (implementer note to self: Exactly what this means is
@@ -229,8 +224,8 @@ class TangentialNormalProjection:
             # individual normal vector)
             max_dim = np.argmax(np.abs(normal), axis=0)
             # Tangent vectors, to be filled in
-            tc1 = np.zeros_like(nc)
-            tc2 = np.zeros_like(nc)
+            tc1 = np.zeros_like(normal)
+            tc2 = np.zeros_like(normal)
 
             # Loop over the dimensions, fill in all columns (individual tangent vectors)
             # that have their maximum along this dimension.
@@ -263,7 +258,7 @@ class TangentialNormalProjection:
             tc1 = tc1 / np.linalg.norm(tc1, axis=0)
             # The second tangent vector is the cross product of the normal and the
             # first tangent vector.
-            tc2 = np.cross(nc, tc1, axis=0)
+            tc2 = np.cross(normal, tc1, axis=0)
             # Normalize the second tangent vectors
             tc2 = tc2 / np.linalg.norm(tc2, axis=0)
 

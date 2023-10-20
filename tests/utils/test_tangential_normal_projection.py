@@ -34,6 +34,10 @@ import porepy as pp
         (np.array([[1, -2, -3]]).T, np.array([[0, 3, -2]]).T),
         # 3d vector, two normals
         (np.array([[1, 0, 0], [1, 1, 1]]).T, np.array([[0, 0, 2], [0, 1, -1]]).T),
+        # 3d vector, almost aligned with the z-axis
+        (np.array([[1e-15, 5e-15, np.sqrt(1 - 6e-15)]]).T, np.array([[5, -1, 0]]).T),
+        # 3d vector, two almost equal large components, one small component
+        (np.array([[1, 1 - (1e-15), 1e-15]]).T, np.array([[1e-15, 0, 1]]).T),
     ],
 )
 def test_tangential_normal_projection(normal: np.ndarray, tangent: np.ndarray):
