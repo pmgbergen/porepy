@@ -84,8 +84,8 @@ def test_tangential_normal_projection(normal: np.ndarray, tangent: np.ndarray):
     tangent = np.sqrt(3) * tangent / np.linalg.norm(tangent)
 
     # Ravel the vectors, to test the global projection matrices
-    raveled_normal = normal.ravel("f")
-    raveled_tangent = tangent.ravel("f")
+    raveled_normal = normal.ravel("F")
+    raveled_tangent = tangent.ravel("F")
 
     dim, num_vec = normal.shape
 
