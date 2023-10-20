@@ -41,7 +41,7 @@ def test_tangential_normal_projection(normal: np.ndarray, tangent: np.ndarray):
 
     The test covers:
     * Test of the local projection matrix (attribute
-        TangentialNormalProjection.projection)
+        TangentialNormalProjection._projection)
     * Test of the global projection matrices in the tangential and normal directions,
         (constructed by methods projection_normal(), project_tangential()), and the
         matrix which decomposes a vector into tangential and normal parts (method
@@ -94,7 +94,7 @@ def test_tangential_normal_projection(normal: np.ndarray, tangent: np.ndarray):
 
     # Test that the projection matrix is orthonormal
     for i in range(num_vec):
-        loc_proj = proj.projection[:, :, i]
+        loc_proj = proj._projection[:, :, i]
         for j in range(dim):
             for k in range(dim):
                 if j == k:
@@ -107,7 +107,7 @@ def test_tangential_normal_projection(normal: np.ndarray, tangent: np.ndarray):
     # projection. This tests the local projection matrix
     for i in range(num_vec):
         assert np.allclose(
-            (proj.projection[:, :, i] @ normal[:, i])[dim - 1],
+            (proj._projection[:, :, i] @ normal[:, i])[dim - 1],
             np.linalg.norm(normal[:, i]),
             rtol=1e-14,
         )
@@ -140,7 +140,7 @@ def test_tangential_normal_projection(normal: np.ndarray, tangent: np.ndarray):
     # original vector, using the local projection matrix.
     for i in range(num_vec):
         assert np.allclose(
-            np.linalg.norm((proj.projection[:, :, i] @ tangent[:, i])[: dim - 1]),
+            np.linalg.norm((proj._projection[:, :, i] @ tangent[:, i])[: dim - 1]),
             np.linalg.norm(tangent[:, i]),
             rtol=1e-14,
         )
@@ -153,7 +153,7 @@ def test_tangential_normal_projection(normal: np.ndarray, tangent: np.ndarray):
     assert np.allclose(
         np.linalg.norm(
             (proj.project_tangential() @ raveled_tangent).reshape(
-                (-1, num_vec), order="f"
+                (-1, num_vec), order="F"
             ),
             axis=0,
         ),
@@ -168,7 +168,7 @@ def test_tangential_normal_projection(normal: np.ndarray, tangent: np.ndarray):
     # Test that, when decomposed by a tangential-normal projection, the tangential
     # vector is non-zero only in the tangential direction
     decomposed_tangent = (proj.project_tangential_normal() @ raveled_tangent).reshape(
-        (-1, num_vec), order="f"
+        (-1, num_vec), order="F"
     )
     assert np.allclose(
         np.linalg.norm(decomposed_tangent[: dim - 1]),
@@ -178,7 +178,7 @@ def test_tangential_normal_projection(normal: np.ndarray, tangent: np.ndarray):
     assert np.allclose(decomposed_tangent[dim - 1], 0, rtol=1e-14)
 
     # Create a vector with both normal and tangential components
-    raveled_combined = (normal + tangent).ravel("f")
+    raveled_combined = (normal + tangent).ravel("F")
 
     # Test that the projection of the combined vector onto the tangent space is the same
     # as the projection of the tangential vector
