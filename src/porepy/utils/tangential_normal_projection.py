@@ -1,6 +1,10 @@
-"""
-Geometric projections related to the tangential and normal spaces of a set of
-vectors.
+"""Projections into tangent and normal spaces for a local coordinate system.
+
+The projections are represented by the class TangentialNormalProjection.
+
+The module also contains a function ``set_local_coordinate_projections`` that sets
+projection matrices for all grids of co-dimension 1 in a mixed-dimensional grid.
+
 """
 from __future__ import annotations
 
@@ -44,7 +48,7 @@ class TangentialNormalProjection:
         self._projection = self._invert_3d_matrix(basis)
         """Projection matrix to the local coordinate system."""
 
-        self._normals = normal
+        self.normals = normal
         """Normal vectors, ``shape=(dim, num_vecs)``."""
 
     ## Methods for genertation of projection matrices
@@ -64,7 +68,7 @@ class TangentialNormalProjection:
             num: Number of projections to be generated. Will correspond
                 to the number of cells / faces in the grid. The projection matrix will
                 have ``num * self.dim columns``. If not specified, one
-                projection will be generated per vector in ``self._normals``.
+                projection will be generated per vector in ``self.normals``.
                 NOTE: If ``self.num_vecs > 1``, but num is not None, only the first
                 given normal vector will be used to generate the tangential space.
 
@@ -77,7 +81,7 @@ class TangentialNormalProjection:
         if num is None:
             num = self._projection.shape[-1]
             data = np.array(
-                [self._projection[:, :, i].ravel("f") for i in range(num)]
+                [self._projection[:, :, i].ravel("F") for i in range(num)]
             ).ravel()
         else:
             data = np.tile(self._projection[:, :, 0].ravel(order="F"), num)
@@ -99,7 +103,7 @@ class TangentialNormalProjection:
             num (int, optional): Number of (equal) projections to be generated.
                 The projection matrix will have ``num * self.dim columns``. If not
                 specified, one projection will be generated per vector in
-                ``self._normals.``
+                ``self.normals.``
                 NOTE: If ``self.num_vecs > 1``, but ``num`` is not ``None``,
                 only the first given normal vector will be used to generate the normal
                 space.
