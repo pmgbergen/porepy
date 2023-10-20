@@ -57,7 +57,7 @@ class BoundaryGrid:
         self.dim = g.dim - 1
         """Dimension of the boundary grid."""
 
-        self.num_cells: int = int(np.sum(self._parent.tags["domain_boundary_faces"]))
+        self.num_cells: int = np.sum(self._parent.tags["domain_boundary_faces"],dtype=int)
         """Number of cells in the boundary grid.
 
         Corresponds to the number of faces on the domain boundary in the parent grid.
