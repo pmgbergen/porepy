@@ -1,7 +1,5 @@
 from __future__ import division
 
-import unittest
-
 import numpy as np
 from scipy.sparse.linalg import spsolve as sparse_solver
 
@@ -11,7 +9,7 @@ from tests.integration import _helper_test_upwind_coupling
 # ------------------------------------------------------------------------------#
 
 
-class BasicsTest(unittest.TestCase):
+class TestBasics:
     # ------------------------------------------------------------------------------#
 
     def test_upwind_coupling_2d_1d_bottom_top(self):
@@ -76,9 +74,9 @@ class BasicsTest(unittest.TestCase):
 
         rtol = 1e-15
         atol = rtol
-        self.assertTrue(np.allclose(U.todense(), U_known, rtol, atol))
-        self.assertTrue(np.allclose(rhs, rhs_known, rtol, atol))
-        self.assertTrue(np.allclose(theta, theta_known))
+        assert np.allclose(U.todense(), U_known, rtol, atol)
+        assert np.allclose(rhs, rhs_known, rtol, atol)
+        assert np.allclose(theta, theta_known)
 
     # ------------------------------------------------------------------------------#
 
@@ -145,9 +143,9 @@ class BasicsTest(unittest.TestCase):
 
         rtol = 1e-15
         atol = rtol
-        self.assertTrue(np.allclose(U.todense(), U_known, rtol, atol))
-        self.assertTrue(np.allclose(rhs, rhs_known, rtol, atol))
-        self.assertTrue(np.allclose(theta, theta_known, rtol, atol))
+        assert np.allclose(U.todense(), U_known, rtol, atol)
+        assert np.allclose(rhs, rhs_known, rtol, atol)
+        assert np.allclose(theta, theta_known, rtol, atol)
 
     # ------------------------------------------------------------------------------#
 
@@ -745,11 +743,11 @@ class BasicsTest(unittest.TestCase):
         rtol = 1e-15
         atol = rtol
 
-        self.assertTrue(np.allclose(U.todense(), U_known, rtol, atol))
-        self.assertTrue(np.allclose(rhs, rhs_known, rtol, atol))
-        self.assertTrue(np.allclose(theta, theta_known, rtol, atol))
+        assert np.allclose(U.todense(), U_known, rtol, atol)
+        assert np.allclose(rhs, rhs_known, rtol, atol)
+        assert np.allclose(theta, theta_known, rtol, atol)
 
-    #        self.assertTrue(np.allclose(deltaT, deltaT_known, rtol, atol))
+    #        assert (np.allclose(deltaT, deltaT_known, rtol, atol))
 
     # ------------------------------------------------------------------------------#
 
@@ -818,9 +816,9 @@ class BasicsTest(unittest.TestCase):
 
         rtol = 1e-15
         atol = rtol
-        self.assertTrue(np.allclose(U.todense(), U_known, rtol, atol))
-        self.assertTrue(np.allclose(rhs, rhs_known, rtol, atol))
-        self.assertTrue(np.allclose(theta, theta_known, rtol, atol))
+        assert np.allclose(U.todense(), U_known, rtol, atol)
+        assert np.allclose(rhs, rhs_known, rtol, atol)
+        assert np.allclose(theta, theta_known, rtol, atol)
 
     # ------------------------------------------------------------------------------#
 
@@ -888,9 +886,9 @@ class BasicsTest(unittest.TestCase):
 
         rtol = 1e-15
         atol = rtol
-        self.assertTrue(np.allclose(U.todense(), U_known, rtol, atol))
-        self.assertTrue(np.allclose(rhs, rhs_known, rtol, atol))
-        self.assertTrue(np.allclose(theta, theta_known, rtol, atol))
+        assert np.allclose(U.todense(), U_known, rtol, atol)
+        assert np.allclose(rhs, rhs_known, rtol, atol)
+        assert np.allclose(theta, theta_known, rtol, atol)
 
     # ------------------------------------------------------------------------------#
 
@@ -1041,9 +1039,9 @@ class BasicsTest(unittest.TestCase):
         )
         rtol = 1e-15
         atol = rtol
-        self.assertTrue(np.allclose(U.todense(), U_known, rtol, atol))
-        self.assertTrue(np.allclose(rhs, rhs_known, rtol, atol))
-        self.assertTrue(np.allclose(theta, theta_known, rtol, atol))
+        assert np.allclose(U.todense(), U_known, rtol, atol)
+        assert np.allclose(rhs, rhs_known, rtol, atol)
+        assert np.allclose(theta, theta_known, rtol, atol)
 
     # ------------------------------------------------------------------------------#
 
@@ -1184,9 +1182,9 @@ class BasicsTest(unittest.TestCase):
         rtol = 1e-8
         atol = rtol
 
-        self.assertTrue(np.allclose(M.A, M_known, rtol, atol))
-        self.assertTrue(np.allclose(rhs, rhs_known, rtol, atol))
-        self.assertTrue(np.allclose(theta, theta_known, rtol, atol))
+        assert np.allclose(M.A, M_known, rtol, atol)
+        assert np.allclose(rhs, rhs_known, rtol, atol)
+        assert np.allclose(theta, theta_known, rtol, atol)
 
     # ------------------------------------------------------------------------------#
 
@@ -1347,9 +1345,9 @@ class BasicsTest(unittest.TestCase):
 
         rtol = 1e-15
         atol = rtol
-        self.assertTrue(np.allclose(M.todense(), M_known, rtol, atol))
-        self.assertTrue(np.allclose(rhs, rhs_known, rtol, atol))
-        self.assertTrue(np.allclose(theta, theta_known, rtol, atol))
+        assert np.allclose(M.todense(), M_known, rtol, atol)
+        assert np.allclose(rhs, rhs_known, rtol, atol)
+        assert np.allclose(theta, theta_known, rtol, atol)
 
 
 # ------------------------------------------------------------------------------#
@@ -1405,8 +1403,3 @@ def add_constant_darcy_flux(mdg, upwind, flux, a):
             )
         else:
             data[pp.PARAMETERS]["transport"]["darcy_flux"] = darcy_flux_e
-
-
-# #------------------------------------------------------------------------------#
-if __name__ == "__main__":
-    unittest.main()
