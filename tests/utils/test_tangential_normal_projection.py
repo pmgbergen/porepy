@@ -69,8 +69,8 @@ def test_tangential_normal_projection(normal: np.ndarray, tangent: np.ndarray):
     construction of the projection matrix.
 
     Parameters:
-        normal (np.ndarray): Normal vectors, stored as nd x num_vec arrays tangent
-        (np.ndarray): Tangential vectors, stored as nd x num_vec arrays. Each
+        normal: Normal vectors, stored as nd x num_vec arrays tangent
+        tangent: Tangential vectors, stored as nd x num_vec arrays. Each
             tangential vector should be orthogonal to the corresponding (i.e., in the
             corresponding column) normal vector.
 
