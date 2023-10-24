@@ -57,7 +57,7 @@ class TangentialNormalProjection:
 
         The intended usage is to decompose a vector defined in the global coordinate
         system into the tangent and normal spaces of a local coordinate system. The
-        projection is constructed either, by repeating the projection matrix obtained
+        projection is constructed either by repeating the projection matrix obtained
         from the first (referring to the order of the normal vectors provided at
         initialization) normal vector ``num`` times (if ``num`` is not None), or by
         stacking the projection matrices for each normal vector that was provided at
