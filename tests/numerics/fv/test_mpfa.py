@@ -686,20 +686,15 @@ class TestRobinBoundaryCondition:
     @pytest.mark.parametrize("ny", [1, 3])  # Number of cells in y-direction
     def test_flow_left_right(self, nx, ny):
         """Dirichlet at left, Robin at right, results in flow to the right."""
-        g = pp.CartGrid([nx, ny], physdims=[1, 1])
-        g.compute_geometry()
-        k = pp.SecondOrderTensor(np.ones(g.num_cells))
+        g, k = self._grid_and_perm(nx, ny)
         robin_weight = 1.5
 
-        left = g.face_centers[0] < 1e-10
-        right = g.face_centers[0] > 1 - 1e-10
+        _, right, _, left = self._boundary_faces(g)
 
         dir_ind = np.ravel(np.argwhere(left))
         rob_ind = np.ravel(np.argwhere(right))
 
-        names = ["dir"] * len(dir_ind) + ["rob"] * len(rob_ind)
-        bnd_ind = np.hstack((dir_ind, rob_ind))
-        bnd = pp.BoundaryCondition(g, bnd_ind, names)
+        bnd = self._boundary_condition(g, dir_ind, rob_ind)
 
         p_bound = 1
         rob_bound = 0
@@ -726,20 +721,15 @@ class TestRobinBoundaryCondition:
 
         This test is similar to the previous one, but with a nonzero right hand side.
         """
-        g = pp.CartGrid([nx, ny], physdims=[1, 1])
-        g.compute_geometry()
-        k = pp.SecondOrderTensor(np.ones(g.num_cells))
+        g, k = self._grid_and_perm(nx, ny)
         robin_weight = 1.5
 
-        left = g.face_centers[0] < 1e-10
-        right = g.face_centers[0] > 1 - 1e-10
+        _, right, _, left = self._boundary_faces(g)
 
         dir_ind = np.ravel(np.argwhere(left))
         rob_ind = np.ravel(np.argwhere(right))
 
-        names = ["dir"] * len(dir_ind) + ["rob"] * len(rob_ind)
-        bnd_ind = np.hstack((dir_ind, rob_ind))
-        bnd = pp.BoundaryCondition(g, bnd_ind, names)
+        bnd = self._boundary_condition(g, dir_ind, rob_ind)
 
         p_bound = 1
         rob_bound = 1
@@ -764,20 +754,15 @@ class TestRobinBoundaryCondition:
     @pytest.mark.parametrize("ny", [1, 3])  # Number of cells in y-direction
     def test_flow_down(self, nx, ny):
         """Dirichlet at top, Robin at bottom, results in downward flow."""
-        g = pp.CartGrid([nx, ny], physdims=[1, 1])
-        g.compute_geometry()
-        k = pp.SecondOrderTensor(np.ones(g.num_cells))
+        g, k = self._grid_and_perm(nx, ny)
         robin_weight = 1.5
 
-        bot = g.face_centers[1] < 1e-10
-        top = g.face_centers[1] > 1 - 1e-10
+        bot, _, top, _ = self._boundary_faces(g)
 
         dir_ind = np.ravel(np.argwhere(top))
         rob_ind = np.ravel(np.argwhere(bot))
 
-        names = ["dir"] * len(dir_ind) + ["rob"] * len(rob_ind)
-        bnd_ind = np.hstack((dir_ind, rob_ind))
-        bnd = pp.BoundaryCondition(g, bnd_ind, names)
+        bnd = self._boundary_condition(g, dir_ind, rob_ind)
 
         p_bound = 1
         rob_bound = 1
@@ -799,22 +784,15 @@ class TestRobinBoundaryCondition:
 
     def test_no_neumann(self):
         """Dirichlet top and left, Robin bottom and right."""
-        g = pp.CartGrid([2, 2], physdims=[1, 1])
-        g.compute_geometry()
-        k = pp.SecondOrderTensor(np.ones(g.num_cells))
+        g, k = self._grid_and_perm(2, 2)
         robin_weight = 1.5
 
-        bot = g.face_centers[1] < 1e-10
-        top = g.face_centers[1] > 1 - 1e-10
-        left = g.face_centers[0] < 1e-10
-        right = g.face_centers[0] > 1 - 1e-10
+        bot, right, top, left = self._boundary_faces(g)
 
         dir_ind = np.ravel(np.argwhere(top + left))
         rob_ind = np.ravel(np.argwhere(bot + right))
 
-        names = ["dir"] * len(dir_ind) + ["rob"] * len(rob_ind)
-        bnd_ind = np.hstack((dir_ind, rob_ind))
-        bnd = pp.BoundaryCondition(g, bnd_ind, names)
+        bnd = self._boundary_condition(g, dir_ind, rob_ind)
 
         bnd.robin_weight = robin_weight * np.ones(g.num_faces)
         flux, bound_flux, *_ = pp.Mpfa("flow")._flux_discretization(
@@ -865,3 +843,22 @@ class TestRobinBoundaryCondition:
         p = np.linalg.solve(a.A, b)
         assert np.allclose(p, p_ex)
         assert np.allclose(flux * p + bound_flux * u_bound, u_ex)
+
+    def _grid_and_perm(self, nx, ny):
+        g = pp.CartGrid([nx, ny], physdims=[1, 1])
+        g.compute_geometry()
+        k = pp.SecondOrderTensor(np.ones(g.num_cells))
+        return g, k
+
+    def _boundary_faces(self, g):
+        bot = g.face_centers[1] < 1e-10
+        top = g.face_centers[1] > 1 - 1e-10
+        left = g.face_centers[0] < 1e-10
+        right = g.face_centers[0] > 1 - 1e-10
+        return bot, right, top, left
+
+    def _boundary_condition(self, g: pp.Grid, dir_ind, rob_ind):
+        names = ["dir"] * len(dir_ind) + ["rob"] * len(rob_ind)
+        bnd_ind = np.hstack((dir_ind, rob_ind))
+        bnd = pp.BoundaryCondition(g, bnd_ind, names)
+        return bnd
