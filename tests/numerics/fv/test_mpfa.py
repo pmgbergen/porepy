@@ -679,11 +679,11 @@ class TestMpfaPressureReconstructionMatrices:
         assert np.all(np.abs(P_f + np.sum(g.face_centers, axis=0)) < 1e-10)
 
 
-@pytest.mark.parametrize("nx", [1, 3])  # Number of cells in x-direction
-@pytest.mark.parametrize("ny", [1, 3])  # Number of cells in y-direction
 class TestRobinBoundaryCondition:
     """Test Robin boundary conditions."""
 
+    @pytest.mark.parametrize("nx", [1, 3])  # Number of cells in x-direction
+    @pytest.mark.parametrize("ny", [1, 3])  # Number of cells in y-direction
     def test_flow_left_right(self, nx, ny):
         """Dirichlet at left, Robin at right, results in flow to the right."""
         g = pp.CartGrid([nx, ny], physdims=[1, 1])
@@ -719,6 +719,8 @@ class TestRobinBoundaryCondition:
             u_ex,
         )
 
+    @pytest.mark.parametrize("nx", [1, 3])  # Number of cells in x-direction
+    @pytest.mark.parametrize("ny", [1, 3])  # Number of cells in y-direction
     def test_flow_nonzero_rhs(self, nx, ny):
         """Dirichlet at left, Robin at right, results in flow to the right.
 
@@ -758,6 +760,8 @@ class TestRobinBoundaryCondition:
             u_ex,
         )
 
+    @pytest.mark.parametrize("nx", [1, 3])  # Number of cells in x-direction
+    @pytest.mark.parametrize("ny", [1, 3])  # Number of cells in y-direction
     def test_flow_down(self, nx, ny):
         """Dirichlet at top, Robin at bottom, results in downward flow."""
         g = pp.CartGrid([nx, ny], physdims=[1, 1])
@@ -842,7 +846,7 @@ class TestRobinBoundaryCondition:
     def solve_robin(
         self, g, k, bnd, robin_weight, p_bound, rob_bound, dir_ind, rob_ind, p_ex, u_ex
     ):
-        """Helper function to solve the Robin problem."""
+        """Helper function to solve the Robin problem and compare to reference values."""
         bnd.robin_weight = robin_weight * np.ones(g.num_faces)
 
         flux, bound_flux, *_ = pp.Mpfa("flow")._flux_discretization(
