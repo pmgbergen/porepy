@@ -886,7 +886,7 @@ class DarcysLaw:
     bc_data_darcy_flux_key`.
 
     """
-    bc_type_darcy_flux: Callable[[pp.Grid], pp.ad.Operator]
+    bc_type_darcy_flux: Callable[[pp.Grid], pp.BoundaryCondition]
 
     create_boundary_operator: Callable[
         [str, Sequence[pp.BoundaryGrid]], pp.ad.TimeDependentDenseArray
