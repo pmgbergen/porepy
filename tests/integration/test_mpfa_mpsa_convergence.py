@@ -15,11 +15,14 @@ or in the discretization method.
 """
 from __future__ import division
 
+import abc
 import unittest
 from math import pi
+from typing import Optional
 
 import numpy as np
 import scipy.sparse.linalg
+import scipy.sparse as sps
 import sympy
 
 import porepy as pp
@@ -30,23 +33,24 @@ from porepy.utils.mcolon import mcolon
 from tests.integration import setup_grids_mpfa_mpsa_tests as setup_grids
 
 
-class TestMpfaConvergenceVaryingPerm(unittest.TestCase):
+class _MpfaSetup(abc.ABC):
+    """Helper class for tests of Mpfa on tilted 2d grids. This class provide common
+    setups, and subclasses with actual tests need to provide the analytical
+    solution, the permeability, and the right hand side.
+    """
+
+    @abc.abstractmethod
     def rhs(self, x, y, z):
-        return (
-            8.0
-            * np.pi**2
-            * np.sin(2.0 * np.pi * x)
-            * np.sin(2.0 * np.pi * y)
-            * self.permeability(x, y, z)
-            - 400.0 * np.pi * y * np.cos(2.0 * np.pi * y) * np.sin(2.0 * np.pi * x)
-            - 400.0 * np.pi * x * np.cos(2.0 * np.pi * x) * np.sin(2.0 * np.pi * y)
-        )
+        pass
 
+    @abc.abstractmethod
     def solution(self, x, y, z):
-        return np.sin(2.0 * np.pi * x) * np.sin(2.0 * np.pi * y)
+        pass
 
+    @abc.abstractmethod
     def permeability(self, x, y, z):
-        return 1.0 + 100.0 * x**2 + 100.0 * y**2
+        pass
+
 
     def add_data(self, g):
         """
@@ -81,13 +85,16 @@ class TestMpfaConvergenceVaryingPerm(unittest.TestCase):
 
     def error_p(self, g, p):
         sol = np.array([self.solution(*pt) for pt in g.cell_centers.T])
-        return np.sqrt(np.sum(np.power(np.abs(p - sol), 2) * g.cell_volumes))
+        return np.sqrt(np.sum(np.power(np.abs(p - sol), 2) * g.cell_volumes))        
 
-    def main(self, N):
+    def main(self, N, R: Optional[sps.spmatrix]=None):
+        # Set up a problem, solve it, and compute the error.
         Nx = Ny = N
 
-        # g = structured.CartGrid([Nx, Ny], [1, 1])
+        # Create grid, rotate if necessary
         g = pp.StructuredTriangleGrid([Nx, Ny], [1, 1])
+        if R is not None:
+            g.nodes = R.dot(g.nodes)
         g.compute_geometry()
 
         # Assign parameters
@@ -96,12 +103,51 @@ class TestMpfaConvergenceVaryingPerm(unittest.TestCase):
         # Choose and define the solvers
         solver = pp.Mpfa("flow")
         solver.discretize(g, data)
+<<<<<<< HEAD
         A, b_flux = solver.assemble_matrix_rhs(g, data)
         b_source = data[pp.PARAMETERS]["flow"]["source"]
+=======
+
+        # Assemble and solve
+        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][solver.keyword]
+
+        # Left hand side
+        div = pp.fvutils.scalar_divergence(g)
+        flux = matrix_dictionary[solver.flux_matrix_key]
+        A = div * flux
+
+        # Contribution from boundary conditions to the right hand side
+        bound_flux = matrix_dictionary[solver.bound_flux_matrix_key]
+        parameter_dictionary = data[pp.PARAMETERS][solver.keyword]
+
+        bc_val = parameter_dictionary["bc_values"]
+        b_flux = -div * bound_flux * bc_val        
+
+        b_source = parameter_dictionary["source"]
+>>>>>>> 42312b26b (TST: Reworked mpfa test for embedded 2d domains)
         p = scipy.sparse.linalg.spsolve(A, b_flux + b_source)
 
         diam = np.amax(g.cell_diameters())
         return diam, self.error_p(g, p)
+
+class TestMpfaConvergenceVaryingPerm(_MpfaSetup):
+    def rhs(self, x, y, z):
+        return (
+            8.0
+            * np.pi**2
+            * np.sin(2.0 * np.pi * x)
+            * np.sin(2.0 * np.pi * y)
+            * self.permeability(x, y, z)
+            - 400.0 * np.pi * y * np.cos(2.0 * np.pi * y) * np.sin(2.0 * np.pi * x)
+            - 400.0 * np.pi * x * np.cos(2.0 * np.pi * x) * np.sin(2.0 * np.pi * y)
+        )
+
+    def solution(self, x, y, z):
+        return np.sin(2.0 * np.pi * x) * np.sin(2.0 * np.pi * y)
+
+    def permeability(self, x, y, z):
+        return 1.0 + 100.0 * x**2 + 100.0 * y**2
+
 
     def test_mpfa_varying_k(self):
         diam_10, error_10 = self.main(10)
@@ -112,7 +158,7 @@ class TestMpfaConvergenceVaryingPerm(unittest.TestCase):
         assert np.isclose(order, known_order)
 
 
-class TestMpfaConvergenceVaryingPermSurface(unittest.TestCase):
+class TestMpfaConvergenceVaryingPermSurface(_MpfaSetup):
     def rhs(self, x, y, z):
         return (
             7.0 * z * (x**2 + y**2 + 1.0)
@@ -133,6 +179,7 @@ class TestMpfaConvergenceVaryingPermSurface(unittest.TestCase):
     def permeability(self, x, y, z):
         return 1.0 + x**2 + y**2
 
+<<<<<<< HEAD
     def add_data(self, g):
         """
         Define the permeability, apertures, boundary conditions
@@ -191,16 +238,19 @@ class TestMpfaConvergenceVaryingPermSurface(unittest.TestCase):
         diam = np.amax(g.cell_diameters())
         return diam, self.error_p(g, p)
 
+=======
+>>>>>>> 42312b26b (TST: Reworked mpfa test for embedded 2d domains)
     def test_mpfa_varying_k_surface(self):
-        diam_10, error_10 = self.main(10)
-        diam_20, error_20 = self.main(20)
+        R = pp.map_geometry.rotation_matrix(np.pi / 4.0, [1, 0, 0])
+        diam_10, error_10 = self.main(10, R=R)
+        diam_20, error_20 = self.main(20, R=R)
 
         known_order = 1.9956052512
         order = np.log(error_10 / error_20) / np.log(diam_10 / diam_20)
         assert np.isclose(order, known_order)
 
 
-class TestMpfaConvergenceVaryingPermSurface2(unittest.TestCase):
+class TestMpfaConvergenceVaryingPermSurface2(_MpfaSetup):
     def rhs(self, x, y, z):
         return 8.0 * z * (125.0 * x**2 + 200.0 * y**2 + 425.0 * z**2 + 2.0)
 
@@ -210,6 +260,7 @@ class TestMpfaConvergenceVaryingPermSurface2(unittest.TestCase):
     def permeability(self, x, y, z):
         return 1.0 + 100.0 * (x**2 + y**2 + z**2)
 
+<<<<<<< HEAD
     def add_data(self, g):
         """
         Define the permeability, apertures, boundary conditions
@@ -267,9 +318,12 @@ class TestMpfaConvergenceVaryingPermSurface2(unittest.TestCase):
         diam = np.amax(g.cell_diameters())
         return diam, self.error_p(g, p)
 
+=======
+>>>>>>> 42312b26b (TST: Reworked mpfa test for embedded 2d domains)
     def test_mpfa_varying_k_surface_1(self):
-        diam_10, error_10 = self.main(10)
-        diam_20, error_20 = self.main(20)
+        R = pp.map_geometry.rotation_matrix(np.pi / 2.0, [1, 0, 0])
+        diam_10, error_10 = self.main(10, R=R)
+        diam_20, error_20 = self.main(20, R=R)
 
         known_order = 1.99094280061
         order = np.log(error_10 / error_20) / np.log(diam_10 / diam_20)
