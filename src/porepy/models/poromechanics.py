@@ -17,8 +17,6 @@ from __future__ import annotations
 
 from typing import Callable, Union
 
-import numpy as np
-
 import porepy as pp
 import porepy.models.fluid_mass_balance as mass
 import porepy.models.momentum_balance as momentum
@@ -137,9 +135,6 @@ class SolutionStrategyPoromechanics(
 
     mdg: pp.MixedDimensionalGrid
     """Mixed dimensional grid."""
-
-    time_dependent_bc_values_mechanics: Callable[[list[pp.Grid]], np.ndarray]
-    """Method for time dependent boundary values for mechanics."""
 
     def set_discretization_parameters(self) -> None:
         """Set parameters for the subproblems and the combined problem."""

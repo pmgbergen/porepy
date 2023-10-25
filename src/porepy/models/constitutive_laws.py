@@ -2106,11 +2106,6 @@ class LinearElasticMechanicalStress:
     :class:`~porepy.models.momentum_balance.SolutionStrategyMomentumBalance`.
 
     """
-    bc_values_mechanics: Callable[[list[pp.Grid]], pp.ad.DenseArray]
-    """Mechanics boundary conditions. Normally defined in a mixin instance of
-    :class:`~porepy.models.fluid_mass_balance.BoundaryConditionsMomentumBalance`.
-
-    """
     displacement: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]
     """Displacement variable. Normally defined in a mixin instance of
     :class:`~porepy.models.momentum_balance.VariablesMomentumBalance`.
@@ -3150,11 +3145,6 @@ class PoroMechanicsPorosity:
     """Keyword used to identify the Darcy flux discretization. Normally set by a mixin
     instance of
     :class:`~porepy.models.fluid_mass_balance.SolutionStrategySinglePhaseFlow`.
-
-    """
-    bc_values_mechanics: Callable[[list[pp.Grid]], pp.ad.DenseArray]
-    """Mechanics boundary conditions. Normally defined in a mixin instance of
-    :class:`~porepy.models.fluid_mass_balance.BoundaryConditionsMomentumBalance`.
 
     """
     displacement: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]
