@@ -948,7 +948,7 @@ def test_parse_single_equation():
     eq_system = setup.sys_man
 
     # Represent the equation both by its string and its operator form.
-    # This could have been parametrized to the price of computational higher cost 
+    # This could have been parametrized to the price of computational higher cost
     # (Pytest assembly overhead).
     for eq in [setup.eq_all_subdomains, setup.eq_all_subdomains.name]:
         # The equation name.
