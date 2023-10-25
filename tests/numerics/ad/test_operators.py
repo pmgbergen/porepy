@@ -574,7 +574,7 @@ def test_ad_variable_evaluation():
         mdg.subdomains(dim=0)[0],
     ]
 
-    # Generate mixed-dimensional variables via the EquationManager.
+    # Generate mixed-dimensional variables via the EquationSystem.
     var_ad = eq_system.md_variable(var, subdomains)
 
     # Check equivalence between the two approaches to generation.
