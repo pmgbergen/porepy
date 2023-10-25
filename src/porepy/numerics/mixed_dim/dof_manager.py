@@ -429,7 +429,7 @@ class DofManager:
 
         This method is primarily intended used when equations are assembled with an
         Assembler object. If you use the newer Ad framework (recommended), the
-        Ad machinery, and in particular the EquationManager, can deliver subsystems in a
+        Ad machinery, and in particular the EquationSystem, can deliver subsystems in a
         better way.
 
         Parameters:
