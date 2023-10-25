@@ -159,14 +159,6 @@ class Glossary:
         name="bc_values_fourier",
     )
 
-    bc_values_mechanics: Entry = Entry(
-        type="Callable[[list[pp.Grid]], pp.ad.DenseArray]",
-        docstring="Mechanics boundary conditions. Normally defined in a mixin instance"
-        " of :class:`~porepy.models.fluid_mass_balance"
-        ".BoundaryConditionsMomentumBalance`.",
-        name="bc_values_mechanics",
-    )
-
     biot_coefficient: Entry = Entry(
         type="Callable[[list[pp.Grid]], pp.ad.Operator]",
         docstring="Biot coefficient. Normally defined in a mixin instance of "
@@ -669,14 +661,6 @@ class Glossary:
         docstring="Thermal expansion coefficient. Normally defined in a mixin class"
         " with a suitable thermal expansion definition.",
         name="thermal_expansion",
-    )
-
-    time_dependent_bc_values_mechanics: Entry = Entry(
-        type="Callable[[list[pp.Grid]], np.ndarray]",
-        docstring="Values of the mechanical boundary conditions for a time-dependent"
-        " problem. Normally set by a mixin instance of :class:`~porepy.models."
-        "poromechanics.BoundaryConditionsMechanicsTimeDependent`.",
-        name="time_dependent_bc_values_mechanics",
     )
 
     time_manager: Entry = Entry(
