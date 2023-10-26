@@ -322,29 +322,27 @@ def mdg_refinement(
 
     """
 
-    # Check that both mdg's have the same dimension
-    dim_mdg = mdg.dim_max()
-    dim_mdg_ref = mdg_ref.dim_max()
-    assert dim_mdg_ref == dim_mdg
+    # Check that both md-grids have the same dimension.
+    assert mdg_ref.dim_max() == mdg.dim_max()
 
-    # Check that both mdg's have the same number of subdomains
+    # Check that both mdgs have the same number of subdomains.
     subdomains = mdg.subdomains()
     subdomains_ref = mdg_ref.subdomains()
     assert len(subdomains) == len(subdomains_ref)
 
-    # Check that both mdg's have the same bounding box
+    # Check that both mdgs have the same bounding box.
     bmin, bmax = pp.domain.mdg_minmax_coordinates(mdg)
     bmin_ref, bmax_ref = pp.domain.mdg_minmax_coordinates(mdg_ref)
     np.testing.assert_almost_equal(bmin, bmin_ref, decimal=8)
     np.testing.assert_almost_equal(bmax, bmax_ref, decimal=8)
 
-    # Strongly check that grids refer to same domain
+    # Strongly check that grids refer to same domain.
     for i in np.arange(len(subdomains)):
         sd, sd_ref = subdomains[i], subdomains_ref[i]
         assert sd.id == sd_ref
 
         # Compute the mapping for this subdomain-pair, and assign the result to the node
-        # of the coarse mdg
+        # of the coarse mdg.
         if mode == "nested":
             mapping = structured_refinement(sd, sd_ref, point_in_poly_tol=tol)
         else:
@@ -359,13 +357,12 @@ def structured_refinement(
     """Construct a mapping between cells of a grid and its refined version.
 
     Assuming a regular and a refined mesh, where the refinement is executed by
-    splitting.
-    I.e. a cell in the refined grid is completely contained within a cell in the
-    coarse grid.
+    splitting. I.e. a cell in the refined grid is completely contained within a cell in
+    the coarse grid.
 
     .. rubric:: Acknowledgement
 
-    The code was contributed by Haakon Ervik.
+        The code was contributed by Haakon Ervik.
 
     Parameters:
         g: Coarse grid.
@@ -440,7 +437,7 @@ def structured_refinement(
     # the coordinate system to local coordinates. For example, a 2D grid embedded in 3D
     # would be "rotated" so that each coordinate is of the form (x, y, 0).
     if g.dim == 1:
-        # Rotate coarse nodes and fine cell centers to align with the x-axis
+        # Rotate coarse nodes and fine cell centers to align with the x-axis.
         tangent = pp.map_geometry.compute_tangent(nodes)
         reference = np.array([1.0, 0.0, 0.0])
         R = pp.map_geometry.project_line_matrix(nodes, tangent, reference=reference)
@@ -459,9 +456,8 @@ def structured_refinement(
         num_nodes = nodes_idx.size
 
         # 5. Step: for the appropriate grid dimension, test all cell centers not already
-        # found to be inside some other coarse cell.
-        # 'in_poly' is a boolean array that is True for the points inside and False for
-        # the points not inside.
+        # found to be inside some other coarse cell. 'in_poly' is a boolean array that
+        # is True for the points inside and False for the points not inside.
         if g.dim == 1:
             # In 1D, we use a numpy method to check which coarse cell the fine points
             # are inside.
@@ -499,7 +495,7 @@ def structured_refinement(
             logger.warning("A grid of dimension %d encountered. Skip!", g.dim)
             continue
 
-        # 6. Step: Update pointer to which cell centers to use as test points
+        # 6. Step: Update pointer to which cell centers to use as test points.
         in_poly_ids = test_cells_ptr[in_poly]  # id of cells inside this polyhedron
         # Keep only cells not inside this polyhedron
         test_cells_ptr = test_cells_ptr[~in_poly]
