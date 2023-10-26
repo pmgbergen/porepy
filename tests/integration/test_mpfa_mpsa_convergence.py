@@ -97,9 +97,7 @@ class TestMpfaConvergenceVaryingPerm(unittest.TestCase):
         solver = pp.Mpfa("flow")
         solver.discretize(g, data)
         A, b_flux = solver.assemble_matrix_rhs(g, data)
-        source_disc = pp.ScalarSource("flow")
-        source_disc.discretize(g, data)
-        _, b_source = source_disc.assemble_matrix_rhs(g, data)
+        b_source = data[pp.PARAMETERS]["flow"]["source"]
         p = scipy.sparse.linalg.spsolve(A, b_flux + b_source)
 
         diam = np.amax(g.cell_diameters())
@@ -187,9 +185,7 @@ class TestMpfaConvergenceVaryingPermSurface(unittest.TestCase):
         solver = pp.Mpfa("flow")
         solver.discretize(g, data)
         A, b_flux = solver.assemble_matrix_rhs(g, data)
-        source_disc = pp.ScalarSource("flow")
-        source_disc.discretize(g, data)
-        _, b_source = source_disc.assemble_matrix_rhs(g, data)
+        b_source = data[pp.PARAMETERS]["flow"]["source"]
         p = scipy.sparse.linalg.spsolve(A, b_flux + b_source)
 
         diam = np.amax(g.cell_diameters())
@@ -265,9 +261,7 @@ class TestMpfaConvergenceVaryingPermSurface2(unittest.TestCase):
         solver.discretize(g, data)
         A, b_flux = solver.assemble_matrix_rhs(g, data)
         solver.discretize(g, data)
-        source_disc = pp.ScalarSource("flow")
-        source_disc.discretize(g, data)
-        _, b_source = source_disc.assemble_matrix_rhs(g, data)
+        b_source = data[pp.PARAMETERS]["flow"]["source"]
         p = scipy.sparse.linalg.spsolve(A, b_flux + b_source)
 
         diam = np.amax(g.cell_diameters())

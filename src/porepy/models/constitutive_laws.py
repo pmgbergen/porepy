@@ -974,7 +974,8 @@ class DarcysLaw:
             + discr.bound_pressure_face
             @ (projection.mortar_to_primary_int @ self.interface_darcy_flux(interfaces))
             + discr.bound_pressure_face @ boundary_operator
-            + discr.vector_source @ self.vector_source(subdomains, material="fluid")
+            + discr.bound_pressure_vector_source
+            @ self.vector_source(subdomains, material="fluid")
         )
         return pressure_trace
 
@@ -1096,11 +1097,9 @@ class DarcysLaw:
             cell_volumes
             * (
                 self.normal_permeability(interfaces)
-                * normal_gradient
                 * specific_volume_intf
                 * (
-                    pressure_h
-                    - pressure_l
+                    normal_gradient * (pressure_h - pressure_l)
                     + self.interface_vector_source(interfaces, material="fluid")
                 )
             )
@@ -1172,6 +1171,7 @@ class DarcysLaw:
         projection = pp.ad.MortarProjections(
             self.mdg, subdomain_neighbors, interfaces, dim=self.nd
         )
+        # int?
         vector_source = projection.secondary_to_mortar_avg @ self.vector_source(
             subdomain_neighbors, material=material
         )
@@ -2104,11 +2104,6 @@ class LinearElasticMechanicalStress:
     """Keyword used to identify the stress discretization. Normally set by a mixin
     instance of
     :class:`~porepy.models.momentum_balance.SolutionStrategyMomentumBalance`.
-
-    """
-    bc_values_mechanics: Callable[[list[pp.Grid]], pp.ad.DenseArray]
-    """Mechanics boundary conditions. Normally defined in a mixin instance of
-    :class:`~porepy.models.fluid_mass_balance.BoundaryConditionsMomentumBalance`.
 
     """
     displacement: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]
@@ -3150,11 +3145,6 @@ class PoroMechanicsPorosity:
     """Keyword used to identify the Darcy flux discretization. Normally set by a mixin
     instance of
     :class:`~porepy.models.fluid_mass_balance.SolutionStrategySinglePhaseFlow`.
-
-    """
-    bc_values_mechanics: Callable[[list[pp.Grid]], pp.ad.DenseArray]
-    """Mechanics boundary conditions. Normally defined in a mixin instance of
-    :class:`~porepy.models.fluid_mass_balance.BoundaryConditionsMomentumBalance`.
 
     """
     displacement: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]

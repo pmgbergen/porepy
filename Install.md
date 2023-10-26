@@ -10,13 +10,9 @@ The default branch is `develop`. To get the stable (though not very frequently u
 
     git checkout master
 
-Install
+Install requirements
 
     pip install -r requirements.txt
-
-If you plan more advanced usage, also do
-
-    pip install -r requirements-dev.txt
 
 Finally to install PorePy
 
@@ -29,8 +25,7 @@ or for editable installs into the user directory:
 
 Installation of PorePy itself should be straightforward, following the instructions in Readme.md.
 
-To get the code fully working requires a few more steps, as described below. Please read the full instructions (including the part on point_in_polyhedron) before reporting an issue on installation.
-
+To get the code fully working requires a few more steps, as described below.
 
 ## Installation on Windows
 Installation on Windows is currently (Spring 2021) rather easy, following the above instructions. The dependencies should be installed  using either `conda` or the Intel python distribution and then `pip install porepy` from source. 

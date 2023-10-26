@@ -57,11 +57,12 @@ class BoundaryGrid:
         self.dim = g.dim - 1
         """Dimension of the boundary grid."""
 
-        self.num_cells: int
+        self.num_cells: int = np.sum(
+            self._parent.tags["domain_boundary_faces"], dtype=int
+        )
         """Number of cells in the boundary grid.
 
-        Will correspond to the number of faces on the domain boundary in the parent
-        grid. Initialized in :meth:`~set_projections`.
+        Corresponds to the number of faces on the domain boundary in the parent grid.
 
         """
         self._projections: sps.csr_matrix
@@ -74,7 +75,7 @@ class BoundaryGrid:
         """Cell centers of the boundary grid.
 
         Subset of the face centers of the parent grid. Initialized in
-        :meth:`~set_projections`.
+        :meth:`~compute_geometry`.
 
         """
 
@@ -82,9 +83,21 @@ class BoundaryGrid:
         """Volumes of cells of the boundary grid. Remember that boundary grid cells are
         faces of the parent grid. Thus, it stores areas of boundary faces.
 
-        Initialized in :meth:`~set_projections`.
+        Initialized in :meth:`~compute_geometry`.
 
         """
+
+    def compute_geometry(self) -> None:
+        """Compute the geometry of the boundary grid.
+
+        Compute the cell centers and volumes of the boundary grid. By default, the
+        boundary grid cell information is constructed from the domain boundary faces of
+        theparent grid.
+
+        """
+        parent_boundary = self._parent.tags["domain_boundary_faces"]
+        self.cell_centers = self._parent.face_centers[:, parent_boundary]
+        self.cell_volumes = self._parent.face_areas[parent_boundary]
 
     def set_projections(self) -> None:
         """Set projections from the parent grid and set the corresponding attributes.
@@ -95,13 +108,13 @@ class BoundaryGrid:
         the boundary grid.
 
         """
-        parent_boundary = self._parent.tags["domain_boundary_faces"]
-
-        self.num_cells = int(np.sum(parent_boundary))
-        self.cell_centers = self._parent.face_centers[:, parent_boundary]
-        self.cell_volumes = self._parent.face_areas[parent_boundary]
-
         sz = self.num_cells
+        parent_boundary = self._parent.tags["domain_boundary_faces"]
+        if not sz == np.sum(parent_boundary):
+            raise NotImplementedError(
+                "The number of boundary cells does not match the number of boundary "
+                "faces in the parent grid, as is assumed in this implementation."
+            )
         self._projections = sps.coo_matrix(
             (np.ones(sz), (np.arange(sz), np.where(parent_boundary)[0])),
             shape=(self.num_cells, self._parent.num_faces),

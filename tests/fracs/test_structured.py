@@ -104,9 +104,10 @@ def test_structured_meshing(data: dict, cart_grid: bool, perturb: bool):
     Parameters:
         data: Dictionary containing fields:
             f_set: List of fractures expected_num_grids: Number of grids in each
-            dimension expected_num_cells: Number of cells in each grid dim: Spatial
-            dimension
-        cart_grid: Whether to use Cartesian or tensor grids 
+            dimension.
+            expected_num_cells: Number of cells in each grid.
+            dim: Spatial dimension.
+        cart_grid: Whether to use Cartesian or tensor grids.
         perturb: Whether to perturb the fracture before meshing.
 
     """
