@@ -3327,7 +3327,9 @@ class PoroMechanicsPorosity:
 
         # Obtain neighbouring interfaces
         interfaces = self.subdomains_to_interfaces(subdomains, [1])
-        discr = pp.ad.BiotAd(self.stress_keyword, subdomains, self.darcy_keyword)
+        # Mock discretization (empty `discretize` method), used to access discretization
+        # matrices computed by Biot discretization.
+        discr = pp.ad.DivUAd(self.stress_keyword, subdomains, self.darcy_keyword)
         # Projections
         sd_projection = pp.ad.SubdomainProjections(subdomains, dim=self.nd)
         mortar_projection = pp.ad.MortarProjections(
@@ -3378,7 +3380,7 @@ class PoroMechanicsPorosity:
         if not all(sd.dim == self.nd for sd in subdomains):
             raise ValueError("Biot stabilization only defined in nd.")
 
-        discr = pp.ad.BiotAd(self.stress_keyword, subdomains, self.darcy_keyword)
+        discr = pp.ad.BiotStabilizationAd(self.darcy_keyword, subdomains)
         # The stabilization is based on perturbation. If pressure is used directly,
         # results will not match if the reference state is not zero, see
         # :func:`test_without_fracture` in test_poromechanics.py.
