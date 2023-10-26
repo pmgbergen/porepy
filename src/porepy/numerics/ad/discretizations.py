@@ -41,7 +41,6 @@ __all__ = [
     "BiotStabilizationAd",
     "MpfaAd",
     "TpfaAd",
-    "MassMatrixAd",
     "UpwindAd",
     "RobinCouplingAd",
     "WellCouplingAd",
@@ -232,17 +231,6 @@ class TpfaAd(Discretization):
         self.vector_source: MergedOperator
         self.bound_pressure_vector_source: MergedOperator
 
-        wrap_discretization(self, self._discretization, subdomains=subdomains)
-
-
-class MassMatrixAd(Discretization):
-    def __init__(self, keyword: str, subdomains: list[pp.Grid]) -> None:
-        self.subdomains = subdomains
-        self._discretization = pp.MassMatrix(keyword)
-        self._name = "Mass matrix"
-        self.keyword = keyword
-
-        self.mass: MergedOperator
         wrap_discretization(self, self._discretization, subdomains=subdomains)
 
 
