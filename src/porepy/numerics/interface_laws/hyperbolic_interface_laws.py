@@ -1,20 +1,14 @@
 """
 Module of coupling laws for hyperbolic equations.
 """
-from typing import Dict, Tuple
-
 import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
-import porepy.numerics.interface_laws.abstract_interface_law
-from porepy.numerics.interface_laws.abstract_interface_law import AbstractInterfaceLaw
 
 
-class UpwindCoupling(AbstractInterfaceLaw):
+class UpwindCoupling:
     def __init__(self, keyword: str) -> None:
-        super().__init__(keyword)
-
         # Keywords for accessing discretization matrices
 
         # Trace operator for the primary grid
