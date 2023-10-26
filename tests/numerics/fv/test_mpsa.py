@@ -1,4 +1,18 @@
-"""Tests for the MPSA discretization scheme."""
+"""Tests for the MPSA discretization scheme.
+
+Content:
+    - Test that the discretization matrices are correct for a partial update.
+    - Test that the discretization reproduces expected values on 2d grids.
+    - Test functionality to update the discretization.
+    - Test functionality to reconstruct the displacement at the faces.
+    - Test of methods internal to the discretization class.
+    - Test that the solution is invariant to rotations of the coordinate system in which
+        boundary conditions are specified.
+    - Test of Robin boundary conditions.
+    - Test of Neumann boundary conditions.
+    - Test that the discretization reproduces expected values on 2d grids.
+
+"""
 import numpy as np
 import pytest
 import scipy.sparse as sps
@@ -219,6 +233,10 @@ def test_partial_discretization_one_cell_at_a_time():
 
 
 class TestMpsaExactReproduction:
+    """ Test that the discretization reproduces the expected behavior for uniform
+    strain, homogeneous conditions and other cases where the method should be exact.
+    
+    """    
     def solve(
         self,
         g: pp.Grid,
@@ -1177,11 +1195,27 @@ class TestAsymmetricNeumann:
 
 
 class TestMpsaReproduceKnownValues:
+    """Test that Mpsa reproduces known values for simple cases.
+
+    The test verifies that the computed values are as expected, by comparing with a
+    hard-coded known solution. Failure to reproduce the known solution means that
+    something is wrong with the implementation. For this reason, one should be very
+    careful with changing anything in this class; in a sense, the test just is what it
+    is.
+
+    The test considers Cartesian and simplex grids in 2d, with both homogeneous and
+    heterogeneous stiffness matrix.
+
+    """
+
     def chi(self, xcoord, ycoord):
         return np.logical_and(np.greater(xcoord, 0.5), np.greater(ycoord, 0.5))
 
     def solve(self, heterogeneous: bool):
         x, y = sympy.symbols("x y")
+
+        # The analytical solutions were different for the homogeneous and heterogeneous
+        # cases, as were the grids.
         if heterogeneous:
             g = self.g_lines
             kappa = 1e-6
@@ -1193,6 +1227,7 @@ class TestMpsaReproduceKnownValues:
             ux = sympy.sin(x) * sympy.cos(y)
             uy = sympy.sin(x) * x**2
 
+        # Calculate the right hand side corresponding to the analytical solution.
         ux_f = sympy.lambdify((x, y), ux, "numpy")
         uy_f = sympy.lambdify((x, y), uy, "numpy")
         dux_x = sympy.diff(ux, x)
@@ -1211,9 +1246,9 @@ class TestMpsaReproduceKnownValues:
         rhs_x_f = sympy.lambdify((x, y), rhs_x, "numpy")
         rhs_y_f = sympy.lambdify((x, y), rhs_y, "numpy")
 
+        # Define stiffness
         char_func_cells = self.chi(g.cell_centers[0], g.cell_centers[1]) * 1.0
         mat_vec = (1 - char_func_cells) + kappa * char_func_cells
-
         k = pp.FourthOrderTensor(mat_vec, mat_vec)
 
         # Boundary conditions
@@ -1231,8 +1266,7 @@ class TestMpsaReproduceKnownValues:
             (1 - char_func_bound) + kappa * char_func_bound
         )
         bc_val = u_bound.ravel("F")
-        # Right hand side - contribution from the solution and the boundary
-        # conditions
+        # Right hand side - contribution from the solution
         xc = g.cell_centers
         rhs = (
             np.vstack((rhs_x_f(xc[0], xc[1]), rhs_y_f(xc[0], xc[1]))) * g.cell_volumes
@@ -1245,6 +1279,8 @@ class TestMpsaReproduceKnownValues:
             "bc": bc_vec,
             "inverter": "python",
             "bc_values": bc_val,
+            # NOTE: Set eta to zero. This is non-standard for simplex grids, but this
+            # was what was used to generate the reference values.
             "mpsa_eta": 0,
         }
 
@@ -1252,12 +1288,14 @@ class TestMpsaReproduceKnownValues:
             g, {}, keyword, specified_parameters=specified_data
         )
 
+        # Discretize
         discr = pp.Mpsa(keyword)
         discr.discretize(g, data)
         A, b = discr.assemble_matrix_rhs(g, data)
 
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][keyword]
 
+        # Right hand side contains both source and stress term
         u_num = spla.spsolve(A, b + rhs)
         stress_num = (
             matrix_dictionary[discr.stress_matrix_key] * u_num
