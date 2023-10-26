@@ -330,9 +330,11 @@ class _MpfaSetup(abc.ABC):
         solver = pp.Mpfa("flow")
         solver.discretize(g, data)
 
+        xc = g.cell_centers
+
         # Assemble and solve
         A, b_flux = solver.assemble_matrix_rhs(g, data)
-        b_source = parameter_dictionary["source"]
+        b_source = self.rhs(xc[0], xc[1], xc[2]) * g.cell_volumes
         # The right hand side is a combination of the source term and the boundary term.
         p = scipy.sparse.linalg.spsolve(A, b_flux + b_source)
 
