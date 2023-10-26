@@ -17,8 +17,9 @@ from __future__ import division
 
 import abc
 import unittest
+import pytest
 from math import pi
-from typing import Optional
+from typing import Optional, Literal
 
 import numpy as np
 import scipy.sparse.linalg
@@ -31,6 +32,7 @@ from porepy.numerics.fv import fvutils, mpfa, mpsa
 from porepy.params import bc, tensor
 from porepy.utils.mcolon import mcolon
 from tests.integration import setup_grids_mpfa_mpsa_tests as setup_grids
+from porepy.applications.test_utils import reference_dense_arrays
 
 
 class _MpfaSetup(abc.ABC):
@@ -482,6 +484,7 @@ class MainTester(unittest.TestCase):
 
         u_num = scipy.sparse.linalg.spsolve(a, b)
         flux_num = flux * u_num + bound_flux * u_bound
+        breakpoint()
         return u_num, flux_num
 
     def solve_system_homogeneous_elasticity(
@@ -584,6 +587,257 @@ class MainTester(unittest.TestCase):
         )
 
         return u_num, stress_num
+
+
+def create_grid_mpfa_mpsa_reproduce_known_values(
+    grid_type: Literal["cart", "simplex"]
+) -> tuple[pp.Grid, pp.Grid]:
+    # Define a characteristic function which is True in the region
+    # x > 0.5, y > 0.5
+    def chi_func(xcoord, ycoord):
+        return np.logical_and(np.greater(xcoord, 0.5), np.greater(ycoord, 0.5))
+
+    # Set random seed
+    np.random.seed(42)
+    nx = np.array([4, 4])
+    domain = np.array([1, 1])
+    if grid_type == "cart":
+        g = pp.CartGrid(nx, physdims=domain)
+    elif grid_type == "simplex":
+        g = pp.StructuredTriangleGrid(nx, physdims=domain)
+    # Perturbation rates, same notation as in setup_grids.py
+    pert = 0.5
+    dx = 0.25
+    g_nolines = setup_grids.perturb(g, pert, dx)
+    g_nolines.compute_geometry()
+
+    # Create a new grid, which will not have faces along the
+    # discontinuity perturbed
+    if grid_type == "cart":
+        g = pp.CartGrid(nx, physdims=domain)
+    elif grid_type == "simplex":
+        g = pp.StructuredTriangleGrid(nx, physdims=domain)
+
+    g.compute_geometry()
+    old_nodes = g.nodes.copy()
+    dx = np.max(domain / nx)
+    np.random.seed(42)
+    g = setup_grids.perturb(g, pert, dx)
+
+    # Characteristic function for all cell centers
+    xc = g.cell_centers
+    chi = chi_func(xc[0], xc[1])
+    # Detect faces on the discontinuity by applying g.cell_faces (this
+    # is signed, so two cells in the same region will cancel out).
+    #
+    # Note that positive values also includes boundary faces, these will
+    #  not be perturbed.
+    chi_face = np.abs(g.cell_faces * chi)
+    bnd_face = np.argwhere(chi_face > 0).squeeze(1)
+    node_ptr = g.face_nodes.indptr
+    node_ind = g.face_nodes.indices
+    # Nodes of faces on the boundary
+    bnd_nodes = node_ind[mcolon(node_ptr[bnd_face], node_ptr[bnd_face + 1])]
+    g.nodes[:, bnd_nodes] = old_nodes[:, bnd_nodes]
+    g.compute_geometry()
+    g_lines = g
+
+    return g_nolines, g_lines
+
+
+class TestMpfaReproduceKnownValues:
+    def chi(self, xcoord, ycoord):
+        return np.logical_and(np.greater(xcoord, 0.5), np.greater(ycoord, 0.5))
+
+    def solve(self, heterogeneous: bool):
+        """
+        Set up and solve a problem where
+        1) the permeability is given on the form perm = (1-chi) + chi *
+        kappa, with chi a characteristic function of a subdomain,
+        2) The solution takes the form u_full = u / ((1-chi) + chi*kappa),
+        so that the flux is independent of kappa.
+
+        Note that for this to work, some care is needed when choosing the
+        analytical solution: u must be zero on the line of the discontinuity.
+
+        Also note that self.solve_system is a sub-method of this, with a
+        single characteristic region.
+        """
+        x, y = sympy.symbols("x y")
+        if heterogeneous:
+            g = self.g_lines
+            # For some reason, the reference solution was computed with different
+            # values of kappa, thus the permeability heterogeneity, for simplex and
+            # Cartesian grids. This is awkward, but we just have to live with it.
+            if isinstance(g, pp.CartGrid):
+                kappa = 1e-6
+            else:
+                kappa = 1e6
+            u = sympy.sin(2 * pi * x) * sympy.sin(2 * pi * y)
+        else:
+            g = self.g_nolines
+            kappa = 1.0
+            u = sympy.sin(x) * sympy.cos(y)
+
+        # Compute analytical solution
+        u_f = sympy.lambdify((x, y), u, "numpy")
+        dux = sympy.diff(u, x)
+        duy = sympy.diff(u, y)
+        rhs = -sympy.diff(dux, x) - sympy.diff(duy, y)
+        rhs_f = sympy.lambdify((x, y), rhs, "numpy")
+
+        # Compute permeability
+        char_func_cells = self.chi(g.cell_centers[0], g.cell_centers[1]) * 1.0
+        perm_vec = (1 - char_func_cells) + kappa * char_func_cells
+        perm = tensor.SecondOrderTensor(perm_vec)
+
+        # The rest of the function is similar to self.solve.system, see that
+        # for comments.
+        bound_faces = g.tags["domain_boundary_faces"].nonzero()[0]
+        bc_type = bc.BoundaryCondition(g, bound_faces, ["dir"] * bound_faces.size)
+
+        discr = pp.Mpfa(keyword="flow")
+        specified_parameters = {"second_order_tensor": perm, "bc": bc_type}
+        data = pp.initialize_default_data(g, {}, "flow", specified_parameters)
+        # NB: Set eta to zero, independent of grid type. This is a non-standard choice
+        # for simplex grids, but it is necessary to reproduce the known values.
+        data[pp.PARAMETERS]["flow"]["mpfa_eta"] = 0
+        discr.discretize(g, data)
+
+        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES]["flow"]
+        bound_flux = matrix_dictionary["bound_flux"]
+        flux = matrix_dictionary["flux"]
+
+        xc = g.cell_centers
+        xf = g.face_centers
+        char_func_bound = self.chi(xf[0, bound_faces], xf[1, bound_faces]) * 1
+
+        u_bound = np.zeros(g.num_faces)
+        u_bound[bound_faces] = u_f(xf[0, bound_faces], xf[1, bound_faces]) / (
+            (1 - char_func_bound) + kappa * char_func_bound
+        )
+        data[pp.PARAMETERS]["flow"]["bc_values"] = u_bound
+
+        A, b_flux = discr.assemble_matrix_rhs(g, data)
+
+        b_rhs = rhs_f(xc[0], xc[1]) * g.cell_volumes
+
+        u_num = scipy.sparse.linalg.spsolve(A, b_flux + b_rhs)
+        flux_num = flux * u_num + bound_flux * u_bound
+        return u_num, flux_num
+
+    def solve_mpsa(self, heterogeneous: bool):
+        x, y = sympy.symbols("x y")
+        if heterogeneous:
+            g = self.g_lines
+            kappa = 1e-6
+            ux = sympy.sin(2 * pi * x) * sympy.sin(2 * pi * y)
+            uy = sympy.cos(pi * x) * (y - 0.5) ** 2
+        else:
+            g = self.g_nolines
+            kappa = 1.0
+            ux = sympy.sin(x) * sympy.cos(y)
+            uy = sympy.sin(x) * x**2
+
+        ux_f = sympy.lambdify((x, y), ux, "numpy")
+        uy_f = sympy.lambdify((x, y), uy, "numpy")
+        dux_x = sympy.diff(ux, x)
+        dux_y = sympy.diff(ux, y)
+        duy_x = sympy.diff(uy, x)
+        duy_y = sympy.diff(uy, y)
+        divu = dux_x + duy_y
+
+        sxx = 2 * dux_x + divu
+        sxy = dux_y + duy_x
+        syx = duy_x + dux_y
+        syy = 2 * duy_y + divu
+
+        sxx_f = sympy.lambdify((x, y), sxx, "numpy")
+        sxy_f = sympy.lambdify((x, y), sxy, "numpy")
+        syx_f = sympy.lambdify((x, y), syx, "numpy")
+        syy_f = sympy.lambdify((x, y), syy, "numpy")
+
+        rhs_x = sympy.diff(sxx, x) + sympy.diff(syx, y)
+        rhs_y = sympy.diff(sxy, x) + sympy.diff(syy, y)
+        rhs_x_f = sympy.lambdify((x, y), rhs_x, "numpy")
+        rhs_y_f = sympy.lambdify((x, y), rhs_y, "numpy")
+
+        char_func_cells = self.chi(g.cell_centers[0], g.cell_centers[1]) * 1.0
+        mat_vec = (1 - char_func_cells) + kappa * char_func_cells
+
+        k = tensor.FourthOrderTensor(mat_vec, mat_vec)
+
+        muc = np.ones(self.g_nolines.num_cells)
+        lambdac = muc
+        k = tensor.FourthOrderTensor(muc, lambdac)
+
+        # Boundary conditions
+        bound_faces = g.tags["domain_boundary_faces"].nonzero()[0]
+        xf = g.face_centers
+        u_bound = np.zeros((g.dim, g.num_faces))
+        u_bound[0, bound_faces] = ux_f(xf[0, bound_faces], xf[1, bound_faces])
+        u_bound[1, bound_faces] = uy_f(xf[0, bound_faces], xf[1, bound_faces])
+        bc_val = u_bound.ravel("f")
+        # Right hand side - contribution from the solution and the boundary
+        # conditions
+        xc = g.cell_centers
+        rhs = (
+            np.vstack((rhs_x_f(xc[0], xc[1]), rhs_y_f(xc[0], xc[1]))) * g.cell_volumes
+        ).ravel("F")
+
+        keyword = "mechanics"
+
+        specified_data = {
+            "fourth_order_tensor": k,
+            "bc": self.bc_vec,
+            "inverter": "python",
+            "bc_values": bc_val,
+            "source": rhs,
+            "mpsa_eta": 0,
+        }
+
+        data = pp.initialize_default_data(
+            g, {}, keyword, specified_parameters=specified_data
+        )
+
+        discr = pp.Mpsa(keyword)
+        discr.discretize(g, data)
+        A, b = discr.assemble_matrix_rhs(g, data)
+
+        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][keyword]
+
+        u_num = scipy.sparse.linalg.spsolve(A, b)
+        stress_num = (
+            matrix_dictionary[discr.stress_matrix_key] * u_num
+            + matrix_dictionary[discr.bound_stress_matrix_key] * bc_val
+        )
+        return u_num, stress_num
+
+    @pytest.mark.parametrize("grid_type", ["cart", "simplex"])
+    @pytest.mark.parametrize("heterogeneous", [True, False])
+    def test_mpfa_computed_values(self, grid_type, heterogeneous):
+        g_nolines, g_lines = create_grid_mpfa_mpsa_reproduce_known_values(grid_type)
+        self.g_nolines = g_nolines
+        self.g_lines = g_lines
+
+        u, flux = self.solve(heterogeneous)
+
+        # Fetch known values
+        if heterogeneous:
+            key = grid_type + "_heterogeneous"
+        else:
+            key = grid_type + "_homogeneous"
+
+        known_u = reference_dense_arrays.test_mpfa["TestMpfaReproduceKnownValues"][key][
+            "u"
+        ]
+        known_flux = reference_dense_arrays.test_mpfa["TestMpfaReproduceKnownValues"][
+            key
+        ]["flux"]
+
+        # Compare computed and known values
+        assert np.allclose(u, known_u)
+        assert np.allclose(flux, known_flux)
 
 
 class CartGrid2D(MainTester):
