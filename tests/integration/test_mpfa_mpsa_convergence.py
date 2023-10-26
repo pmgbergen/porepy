@@ -350,7 +350,7 @@ class MainTester(unittest.TestCase):
         data = pp.initialize_default_data(g, {}, "flow", specified_parameters)
         data[pp.PARAMETERS]["flow"]["mpfa_eta"] = 0
         discr.discretize(g, data)
-        a = discr.assemble_matrix(g, data)
+        a, _ = discr.assemble_matrix_rhs(g, data)
 
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES]["flow"]
         bound_flux = matrix_dictionary["bound_flux"]
@@ -400,7 +400,7 @@ class MainTester(unittest.TestCase):
         data = pp.initialize_default_data(g, {}, "flow", specified_parameters)
         data[pp.PARAMETERS]["flow"]["mpfa_eta"] = 0
         discr.discretize(g, data)
-        a = discr.assemble_matrix(g, data)
+        a, _ = discr.assemble_matrix_rhs(g, data)
 
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES]["flow"]
         bound_flux = matrix_dictionary["bound_flux"]
