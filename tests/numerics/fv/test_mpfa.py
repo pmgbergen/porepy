@@ -1,17 +1,22 @@
 """Tests for the MPFA discretization scheme."""
 import random
+import abc
 
+from math import pi
 import numpy as np
 import pytest
 import scipy
 import scipy.sparse as sps
 import sympy
+from typing import Optional
 
 import porepy as pp
 from porepy.applications.test_utils import common_xpfa_tests as xpfa_tests
 from porepy.applications.test_utils.partial_discretization import (
     perform_partial_discretization_specified_nodes,
 )
+from porepy.applications.test_utils import reference_dense_arrays
+
 
 """Utility methods."""
 
@@ -114,6 +119,292 @@ def test_uniform_flow_cart_2d_pert():
 
     p_diff = pr - pr_cell
     assert np.max(np.abs(p_diff)) < 1e-8
+
+
+## Test that Mpfa computes the expected values on 2d grids.
+
+
+class TestMpfaReproduceKnownValues:
+    def chi(self, xcoord, ycoord):
+        return np.logical_and(np.greater(xcoord, 0.5), np.greater(ycoord, 0.5))
+
+    def solve(self, heterogeneous: bool):
+        """
+        Set up and solve a problem where
+        1) the permeability is given on the form perm = (1-chi) + chi *
+        kappa, with chi a characteristic function of a subdomain,
+        2) The solution takes the form u_full = u / ((1-chi) + chi*kappa),
+        so that the flux is independent of kappa.
+
+        Note that for this to work, some care is needed when choosing the
+        analytical solution: u must be zero on the line of the discontinuity.
+
+        Also note that self.solve_system is a sub-method of this, with a
+        single characteristic region.
+        """
+        x, y = sympy.symbols("x y")
+        if heterogeneous:
+            g = self.g_lines
+            # For some reason, the reference solution was computed with different
+            # values of kappa, thus the permeability heterogeneity, for simplex and
+            # Cartesian grids. This is awkward, but we just have to live with it.
+            if isinstance(g, pp.CartGrid):
+                kappa = 1e-6
+            else:
+                kappa = 1e6
+            u = sympy.sin(2 * pi * x) * sympy.sin(2 * pi * y)
+        else:
+            g = self.g_nolines
+            kappa = 1.0
+            u = sympy.sin(x) * sympy.cos(y)
+
+        # Compute analytical solution
+        u_f = sympy.lambdify((x, y), u, "numpy")
+        dux = sympy.diff(u, x)
+        duy = sympy.diff(u, y)
+        rhs = -sympy.diff(dux, x) - sympy.diff(duy, y)
+        rhs_f = sympy.lambdify((x, y), rhs, "numpy")
+
+        # Compute permeability
+        char_func_cells = self.chi(g.cell_centers[0], g.cell_centers[1]) * 1.0
+        perm_vec = (1 - char_func_cells) + kappa * char_func_cells
+        perm = pp.SecondOrderTensor(perm_vec)
+
+        # The rest of the function is similar to self.solve.system, see that
+        # for comments.
+        bound_faces = g.tags["domain_boundary_faces"].nonzero()[0]
+        bc_type = pp.BoundaryCondition(g, bound_faces, ["dir"] * bound_faces.size)
+
+        discr = pp.Mpfa(keyword="flow")
+        specified_parameters = {"second_order_tensor": perm, "bc": bc_type}
+        data = pp.initialize_default_data(g, {}, "flow", specified_parameters)
+        # NB: Set eta to zero, independent of grid type. This is a non-standard choice
+        # for simplex grids, but it is necessary to reproduce the known values.
+        data[pp.PARAMETERS]["flow"]["mpfa_eta"] = 0
+        discr.discretize(g, data)
+
+        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES]["flow"]
+        bound_flux = matrix_dictionary["bound_flux"]
+        flux = matrix_dictionary["flux"]
+
+        xc = g.cell_centers
+        xf = g.face_centers
+        char_func_bound = self.chi(xf[0, bound_faces], xf[1, bound_faces]) * 1
+
+        u_bound = np.zeros(g.num_faces)
+        u_bound[bound_faces] = u_f(xf[0, bound_faces], xf[1, bound_faces]) / (
+            (1 - char_func_bound) + kappa * char_func_bound
+        )
+        data[pp.PARAMETERS]["flow"]["bc_values"] = u_bound
+
+        A, b_flux = discr.assemble_matrix_rhs(g, data)
+
+        b_rhs = rhs_f(xc[0], xc[1]) * g.cell_volumes
+
+        u_num = scipy.sparse.linalg.spsolve(A, b_flux + b_rhs)
+        flux_num = flux * u_num + bound_flux * u_bound
+        return u_num, flux_num
+
+    @pytest.mark.parametrize("grid_type", ["cart", "simplex"])
+    @pytest.mark.parametrize("heterogeneous", [True, False])
+    def test_mpfa_computed_values(self, grid_type, heterogeneous):
+        g_nolines, g_lines = xpfa_tests.create_grid_mpfa_mpsa_reproduce_known_values(
+            grid_type
+        )
+        self.g_nolines = g_nolines
+        self.g_lines = g_lines
+
+        u, flux = self.solve(heterogeneous)
+
+        # Fetch known values
+        if heterogeneous:
+            key = grid_type + "_heterogeneous"
+        else:
+            key = grid_type + "_homogeneous"
+
+        known_u = reference_dense_arrays.test_mpfa["TestMpfaReproduceKnownValues"][key][
+            "u"
+        ]
+        known_flux = reference_dense_arrays.test_mpfa["TestMpfaReproduceKnownValues"][
+            key
+        ]["flux"]
+
+        # Compare computed and known values
+        assert np.allclose(u, known_u)
+        assert np.allclose(flux, known_flux)
+
+
+## Test of expected convergence rates on 2d tilted grids
+
+
+class _MpfaSetup(abc.ABC):
+    """Helper class for tests of Mpfa on tilted 2d grids. This class provide common
+    setups, and subclasses with actual tests need to provide the analytical
+    solution, the permeability, and the right hand side.
+    """
+
+    @abc.abstractmethod
+    def rhs(self, x, y, z):
+        pass
+
+    @abc.abstractmethod
+    def solution(self, x, y, z):
+        pass
+
+    @abc.abstractmethod
+    def permeability(self, x, y, z):
+        pass
+
+    def add_data(self, g):
+        """
+        Define the permeability, apertures, boundary conditions
+        """
+        # Permeability
+        kxx = np.array([self.permeability(*pt) for pt in g.cell_centers.T])
+        perm = pp.SecondOrderTensor(kxx)
+
+        # Source term
+        source = g.cell_volumes * np.array([self.rhs(*pt) for pt in g.cell_centers.T])
+
+        # Boundaries
+        bound_faces = g.get_all_boundary_faces()
+        bound_face_centers = g.face_centers[:, bound_faces]
+
+        labels = np.array(["dir"] * bound_faces.size)
+
+        bc_val = np.zeros(g.num_faces)
+        bc_val[bound_faces] = np.array(
+            [self.solution(*pt) for pt in bound_face_centers.T]
+        )
+
+        bound = pp.BoundaryCondition(g, bound_faces, labels)
+        specified_parameters = {
+            "second_order_tensor": perm,
+            "source": source,
+            "bc": bound,
+            "bc_values": bc_val,
+        }
+        return pp.initialize_default_data(g, {}, "flow", specified_parameters)
+
+    def error_p(self, g, p):
+        sol = np.array([self.solution(*pt) for pt in g.cell_centers.T])
+        return np.sqrt(np.sum(np.power(np.abs(p - sol), 2) * g.cell_volumes))
+
+    def main(self, N, R: Optional[sps.spmatrix] = None):
+        # Set up a problem, solve it, and compute the error.
+        Nx = Ny = N
+
+        # Create grid, rotate if necessary
+        g = pp.StructuredTriangleGrid([Nx, Ny], [1, 1])
+        if R is not None:
+            g.nodes = R.dot(g.nodes)
+        g.compute_geometry()
+
+        # Assign parameters
+        data = self.add_data(g)
+
+        # Choose and define the solvers
+        solver = pp.Mpfa("flow")
+        solver.discretize(g, data)
+
+        # Assemble and solve
+        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][solver.keyword]
+
+        # Left hand side
+        div = pp.fvutils.scalar_divergence(g)
+        flux = matrix_dictionary[solver.flux_matrix_key]
+        A = div * flux
+
+        # Contribution from boundary conditions to the right hand side
+        bound_flux = matrix_dictionary[solver.bound_flux_matrix_key]
+        parameter_dictionary = data[pp.PARAMETERS][solver.keyword]
+
+        bc_val = parameter_dictionary["bc_values"]
+        b_flux = -div * bound_flux * bc_val
+
+        b_source = parameter_dictionary["source"]
+        p = scipy.sparse.linalg.spsolve(A, b_flux + b_source)
+
+        diam = np.amax(g.cell_diameters())
+        return diam, self.error_p(g, p)
+
+
+class TestMpfaConvergenceVaryingPerm(_MpfaSetup):
+    def rhs(self, x, y, z):
+        return (
+            8.0
+            * np.pi**2
+            * np.sin(2.0 * np.pi * x)
+            * np.sin(2.0 * np.pi * y)
+            * self.permeability(x, y, z)
+            - 400.0 * np.pi * y * np.cos(2.0 * np.pi * y) * np.sin(2.0 * np.pi * x)
+            - 400.0 * np.pi * x * np.cos(2.0 * np.pi * x) * np.sin(2.0 * np.pi * y)
+        )
+
+    def solution(self, x, y, z):
+        return np.sin(2.0 * np.pi * x) * np.sin(2.0 * np.pi * y)
+
+    def permeability(self, x, y, z):
+        return 1.0 + 100.0 * x**2 + 100.0 * y**2
+
+    def test_mpfa_varying_k(self):
+        diam_10, error_10 = self.main(10)
+        diam_20, error_20 = self.main(20)
+
+        known_order = 1.98916152711
+        order = np.log(error_10 / error_20) / np.log(diam_10 / diam_20)
+        assert np.isclose(order, known_order)
+
+
+class TestMpfaConvergenceVaryingPermSurface(_MpfaSetup):
+    def rhs(self, x, y, z):
+        return (
+            7.0 * z * (x**2 + y**2 + 1.0)
+            - y * (x**2 - 9.0 * z**2)
+            - 4.0 * x**2 * z
+            - (
+                8 * np.sin(np.pi * y)
+                - 4.0 * np.pi**2 * y**2 * np.sin(np.pi * y)
+                + 16.0 * np.pi * y * np.cos(np.pi * y)
+            )
+            * (x**2 / 2.0 + y**2 / 2.0 + 1.0 / 2.0)
+            - 4.0 * y**2 * (2.0 * np.sin(np.pi * y) + np.pi * y * np.cos(np.pi * y))
+        )
+
+    def solution(self, x, y, z):
+        return x**2 * z + 4.0 * y**2 * np.sin(np.pi * y) - 3.0 * z**3
+
+    def permeability(self, x, y, z):
+        return 1.0 + x**2 + y**2
+
+    def test_mpfa_varying_k_surface(self):
+        R = pp.map_geometry.rotation_matrix(np.pi / 4.0, [1, 0, 0])
+        diam_10, error_10 = self.main(10, R=R)
+        diam_20, error_20 = self.main(20, R=R)
+
+        known_order = 1.9956052512
+        order = np.log(error_10 / error_20) / np.log(diam_10 / diam_20)
+        assert np.isclose(order, known_order)
+
+
+class TestMpfaConvergenceVaryingPermSurface2(_MpfaSetup):
+    def rhs(self, x, y, z):
+        return 8.0 * z * (125.0 * x**2 + 200.0 * y**2 + 425.0 * z**2 + 2.0)
+
+    def solution(self, x, y, z):
+        return x**2 * z + 4.0 * y**2 * np.sin(np.pi * y) - 3.0 * z**3
+
+    def permeability(self, x, y, z):
+        return 1.0 + 100.0 * (x**2 + y**2 + z**2)
+
+    def test_mpfa_varying_k_surface_1(self):
+        R = pp.map_geometry.rotation_matrix(np.pi / 2.0, [1, 0, 0])
+        diam_10, error_10 = self.main(10, R=R)
+        diam_20, error_20 = self.main(20, R=R)
+
+        known_order = 1.99094280061
+        order = np.log(error_10 / error_20) / np.log(diam_10 / diam_20)
+        assert np.isclose(order, known_order)
 
 
 """Tests for periodic boundary condition implementation in MPFA."""
