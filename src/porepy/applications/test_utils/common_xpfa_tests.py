@@ -5,6 +5,7 @@ Then more specific functions related to specific tests defined both here and for
 
 """
 from typing import Literal
+
 import numpy as np
 import scipy.sparse.linalg as spla
 
@@ -83,7 +84,7 @@ def create_grid_mpfa_mpsa_reproduce_known_values(
     nx = np.array([4, 4])
     domain = np.array([1, 1])
     if grid_type == "cart":
-        g = pp.CartGrid(nx, physdims=domain)
+        g:pp.Grid = pp.CartGrid(nx, physdims=domain)
     elif grid_type == "simplex":
         g = pp.StructuredTriangleGrid(nx, physdims=domain)
     # Perturbation rates, same notation as in setup_grids.py
