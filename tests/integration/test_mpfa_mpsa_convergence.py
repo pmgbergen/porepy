@@ -51,7 +51,6 @@ class _MpfaSetup(abc.ABC):
     def permeability(self, x, y, z):
         pass
 
-
     def add_data(self, g):
         """
         Define the permeability, apertures, boundary conditions
@@ -85,9 +84,9 @@ class _MpfaSetup(abc.ABC):
 
     def error_p(self, g, p):
         sol = np.array([self.solution(*pt) for pt in g.cell_centers.T])
-        return np.sqrt(np.sum(np.power(np.abs(p - sol), 2) * g.cell_volumes))        
+        return np.sqrt(np.sum(np.power(np.abs(p - sol), 2) * g.cell_volumes))
 
-    def main(self, N, R: Optional[sps.spmatrix]=None):
+    def main(self, N, R: Optional[sps.spmatrix] = None):
         # Set up a problem, solve it, and compute the error.
         Nx = Ny = N
 
@@ -121,7 +120,7 @@ class _MpfaSetup(abc.ABC):
         parameter_dictionary = data[pp.PARAMETERS][solver.keyword]
 
         bc_val = parameter_dictionary["bc_values"]
-        b_flux = -div * bound_flux * bc_val        
+        b_flux = -div * bound_flux * bc_val
 
         b_source = parameter_dictionary["source"]
 >>>>>>> 42312b26b (TST: Reworked mpfa test for embedded 2d domains)
@@ -129,6 +128,7 @@ class _MpfaSetup(abc.ABC):
 
         diam = np.amax(g.cell_diameters())
         return diam, self.error_p(g, p)
+
 
 class TestMpfaConvergenceVaryingPerm(_MpfaSetup):
     def rhs(self, x, y, z):
@@ -147,7 +147,6 @@ class TestMpfaConvergenceVaryingPerm(_MpfaSetup):
 
     def permeability(self, x, y, z):
         return 1.0 + 100.0 * x**2 + 100.0 * y**2
-
 
     def test_mpfa_varying_k(self):
         diam_10, error_10 = self.main(10)
@@ -328,6 +327,10 @@ class TestMpfaConvergenceVaryingPermSurface2(_MpfaSetup):
         known_order = 1.99094280061
         order = np.log(error_10 / error_20) / np.log(diam_10 / diam_20)
         assert np.isclose(order, known_order)
+
+
+# Below follows convergence tests of mpfa and mpsa on 2d grids with heterogeneous
+# permeability.
 
 
 class _SolutionHomogeneousDomainFlow(object):
@@ -998,111 +1001,6 @@ class CartGrid2D(MainTester):
                 -1.65272094,
                 1.14414139,
                 1.18782153,
-            ]
-        )
-
-        assert np.isclose(u_num, u_precomp, atol=1e-10).all()
-        assert np.isclose(flux_num, flux_precomp, atol=1e-10).all()
-
-    def test_heterogeneous_kappa_1e_pos6_mpfa(self):
-        """
-        2D cartesian grid (perturbed) with permeability given as
-
-        k(x,y) = 1e6, x > 0.5, y > 0.5
-        k(x,y) = 1 otherwise
-
-        Analytical solution: sin(2 * x * pi) * sin(2 * pi * y).
-
-        Note that the analytical solution is zero along the discontinuity.
-
-        The data is created by the jupyter notebook mpfa_conv_2d. To
-        recreate data, use the following parameters:
-
-        np.random.seed(42)
-        base = 4
-        domain = np.array([1, 1])  [NOTE: base and domain together implies a
-                                    resolution dx = 0.25 as used in
-                                    perturbations in self.setUp()
-        basedim = np.array([base, base])
-        num_refs = 1
-        grid_type = 'cart' [NOTE: The script will run both Cartesian and
-                            Simplex grid, only consider the first values]
-        pert = 0.5
-        """
-        kappa = 1e6
-
-        x, y = sympy.symbols("x y")
-        u = sympy.sin(2 * pi * x) * sympy.sin(2 * pi * y)
-        an_sol = _SolutionHomogeneousDomainFlow(u, x, y)
-
-        def chi(xc, yc):
-            return np.logical_and(np.greater(xc, 0.5), np.greater(yc, 0.5))
-
-        u_num, flux_num = self.solve_system_chi_type_perm(
-            self.g_lines, self.bc, an_sol, chi, kappa
-        )
-        u_precomp = np.array(
-            [
-                3.86896239e-01,
-                5.25655435e-01,
-                -7.35593962e-01,
-                -7.20356456e-01,
-                5.13670140e-01,
-                8.14201598e-01,
-                -5.31488005e-01,
-                -4.11844753e-01,
-                -5.75653573e-01,
-                -6.28177518e-01,
-                9.38100917e-07,
-                8.71900958e-07,
-                -5.23515554e-01,
-                -7.05297017e-01,
-                5.28281641e-07,
-                5.58253234e-07,
-            ]
-        )
-        flux_precomp = np.array(
-            [
-                -1.10722384,
-                -0.42775993,
-                0.85224437,
-                -0.09453212,
-                -2.26260685,
-                -1.10152723,
-                -0.41307325,
-                1.72965213,
-                -0.07004913,
-                -0.75104724,
-                0.72531379,
-                0.2155964,
-                -1.30860082,
-                0.06961809,
-                1.61515011,
-                1.79751536,
-                0.13811229,
-                -1.23375323,
-                -0.046755,
-                1.21561606,
-                -1.62410537,
-                -1.06935512,
-                1.27398432,
-                0.82059427,
-                -0.25789075,
-                -0.41984198,
-                -0.39096356,
-                -0.29379901,
-                1.81724656,
-                0.86636152,
-                -1.02879553,
-                -1.10161239,
-                -0.11390141,
-                0.02979385,
-                0.50375061,
-                0.45562311,
-                -0.61775419,
-                -1.61027696,
-                1.21720503,
-                1.24515229,
             ]
         )
 
