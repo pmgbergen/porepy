@@ -56,6 +56,13 @@ def perturb_grid(g, rate, dx):
 def create_grid_mpfa_mpsa_reproduce_known_values(
     grid_type: Literal["cart", "simplex"]
 ) -> tuple[pp.Grid, pp.Grid]:
+    """Create grids for the tests that mpfa and mpsa reproduce known values.
+
+    The construction below is somewhat specific to the test case, and should not be
+    changed, since any change in geometry will be reflected in the solution, thus the
+    tests will fail.
+    """
+
     # Define a characteristic function which is True in the region
     # x > 0.5, y > 0.5
     def chi_func(xcoord, ycoord):
