@@ -119,7 +119,6 @@ from porepy.fracs.wells_3d import (
 
 
 # Numerics
-from porepy.numerics.discretization import VoidDiscretization
 from porepy.numerics.interface_laws.elliptic_discretization import (
     EllipticDiscretization,
 )
@@ -127,10 +126,7 @@ from porepy.numerics.interface_laws.elliptic_discretization import (
 # Control volume, elliptic
 from porepy.numerics.fv import fvutils
 from porepy.numerics.fv.mpsa import Mpsa
-from porepy.numerics.fv.fv_elliptic import (
-    FVElliptic,
-    EllipticDiscretizationZeroPermeability,
-)
+from porepy.numerics.fv.fv_elliptic import FVElliptic
 from porepy.numerics.fv.tpfa import Tpfa
 from porepy.numerics.fv.mpfa import Mpfa
 from porepy.numerics.fv.biot import Biot, GradP, DivU, BiotStabilization
@@ -144,7 +140,6 @@ from porepy.numerics.vem.vem_source import DualScalarSource
 # Finite elements, elliptic
 from porepy.numerics.fem.rt0 import RT0
 
-from porepy.numerics.interface_laws.cell_dof_face_dof_map import CellDofFaceDofMap
 from porepy.numerics.mixed_dim import assembler_filters
 from porepy.numerics.mixed_dim.dof_manager import DofManager
 from porepy.numerics.mixed_dim.assembler import Assembler
@@ -154,8 +149,6 @@ import porepy.numerics
 # Transport related
 from porepy.numerics.fv.upwind import Upwind
 from porepy.numerics.interface_laws.hyperbolic_interface_laws import UpwindCoupling
-from porepy.numerics.fv.mass_matrix import MassMatrix
-from porepy.numerics.fv.mass_matrix import InvMassMatrix
 
 # Contact mechanics
 from porepy.numerics.fracture_deformation import propagate_fracture
