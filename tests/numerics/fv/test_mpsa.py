@@ -3,11 +3,17 @@ import numpy as np
 import pytest
 import scipy.sparse as sps
 
+from math import pi
+import sympy
+import scipy.sparse.linalg as spla
 import porepy as pp
 from porepy.applications.test_utils.partial_discretization import (
     perform_partial_discretization_specified_nodes,
 )
 from porepy.grids.standard_grids.utils import unit_domain
+from porepy.applications.test_utils import reference_dense_arrays
+from porepy.applications.test_utils import common_xpfa_tests as xpfa_tests
+
 
 keyword = "mechanics"
 
@@ -1168,3 +1174,121 @@ class TestAsymmetricNeumann:
         )
         expected_igrad = self.reference_sparse_arrays["test_cart_3d"]["igrad"]
         assert np.all(np.abs(igrad - expected_igrad).A < 1e-12)
+
+
+class TestMpsaReproduceKnownValues:
+    def chi(self, xcoord, ycoord):
+        return np.logical_and(np.greater(xcoord, 0.5), np.greater(ycoord, 0.5))
+
+    def solve(self, heterogeneous: bool):
+        x, y = sympy.symbols("x y")
+        if heterogeneous:
+            g = self.g_lines
+            kappa = 1e-6
+            ux = sympy.sin(2 * pi * x) * sympy.sin(2 * pi * y)
+            uy = sympy.cos(pi * x) * (y - 0.5) ** 2
+        else:
+            g = self.g_nolines
+            kappa = 1.0
+            ux = sympy.sin(x) * sympy.cos(y)
+            uy = sympy.sin(x) * x**2
+
+        ux_f = sympy.lambdify((x, y), ux, "numpy")
+        uy_f = sympy.lambdify((x, y), uy, "numpy")
+        dux_x = sympy.diff(ux, x)
+        dux_y = sympy.diff(ux, y)
+        duy_x = sympy.diff(uy, x)
+        duy_y = sympy.diff(uy, y)
+        divu = dux_x + duy_y
+
+        sxx = 2 * dux_x + divu
+        sxy = dux_y + duy_x
+        syx = duy_x + dux_y
+        syy = 2 * duy_y + divu
+
+        rhs_x = sympy.diff(sxx, x) + sympy.diff(syx, y)
+        rhs_y = sympy.diff(sxy, x) + sympy.diff(syy, y)
+        rhs_x_f = sympy.lambdify((x, y), rhs_x, "numpy")
+        rhs_y_f = sympy.lambdify((x, y), rhs_y, "numpy")
+
+        char_func_cells = self.chi(g.cell_centers[0], g.cell_centers[1]) * 1.0
+        mat_vec = (1 - char_func_cells) + kappa * char_func_cells
+
+        k = pp.FourthOrderTensor(mat_vec, mat_vec)
+
+        # Boundary conditions
+        bound_faces = g.tags["domain_boundary_faces"].nonzero()[0]
+        bc_vec = pp.BoundaryConditionVectorial(
+            g, bound_faces, ["dir"] * bound_faces.size
+        )
+        xf = g.face_centers
+        char_func_bound = self.chi(xf[0, bound_faces], xf[1, bound_faces]) * 1
+        u_bound = np.zeros((g.dim, g.num_faces))
+        u_bound[0, bound_faces] = ux_f(xf[0, bound_faces], xf[1, bound_faces]) / (
+            (1 - char_func_bound) + kappa * char_func_bound
+        )
+        u_bound[1, bound_faces] = uy_f(xf[0, bound_faces], xf[1, bound_faces]) / (
+            (1 - char_func_bound) + kappa * char_func_bound
+        )
+        bc_val = u_bound.ravel("F")
+        # Right hand side - contribution from the solution and the boundary
+        # conditions
+        xc = g.cell_centers
+        rhs = (
+            np.vstack((rhs_x_f(xc[0], xc[1]), rhs_y_f(xc[0], xc[1]))) * g.cell_volumes
+        ).ravel("F")
+
+        keyword = "mechanics"
+
+        specified_data = {
+            "fourth_order_tensor": k,
+            "bc": bc_vec,
+            "inverter": "python",
+            "bc_values": bc_val,
+            "mpsa_eta": 0,
+        }
+
+        data = pp.initialize_default_data(
+            g, {}, keyword, specified_parameters=specified_data
+        )
+
+        discr = pp.Mpsa(keyword)
+        discr.discretize(g, data)
+        A, b = discr.assemble_matrix_rhs(g, data)
+
+        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][keyword]
+
+        u_num = spla.spsolve(A, b + rhs)
+        stress_num = (
+            matrix_dictionary[discr.stress_matrix_key] * u_num
+            + matrix_dictionary[discr.bound_stress_matrix_key] * bc_val
+        )
+        return u_num, stress_num
+
+    @pytest.mark.parametrize("grid_type", ["cart", "simplex"])
+    @pytest.mark.parametrize("heterogeneous", [True, False])
+    def test_mpsa_computed_values(self, grid_type, heterogeneous):
+        g_nolines, g_lines = xpfa_tests.create_grid_mpfa_mpsa_reproduce_known_values(
+            grid_type
+        )
+        self.g_nolines = g_nolines
+        self.g_lines = g_lines
+
+        u, flux = self.solve(heterogeneous)
+
+        # Fetch known values
+        if heterogeneous:
+            key = grid_type + "_heterogeneous"
+        else:
+            key = grid_type + "_homogeneous"
+
+        known_u = reference_dense_arrays.test_mpsa["TestMpsaReproduceKnownValues"][key][
+            "u"
+        ]
+        known_flux = reference_dense_arrays.test_mpsa["TestMpsaReproduceKnownValues"][
+            key
+        ]["stress"]
+
+        # Compare computed and known values
+        assert np.allclose(u, known_u)
+        assert np.allclose(flux, known_flux)
