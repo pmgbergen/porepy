@@ -201,7 +201,6 @@ class BasicsTest(unittest.TestCase):
         U, rhs = assembler.assemble_matrix_rhs()
 
         theta = sparse_solver(U, rhs)
-        #        deltaT = solver.cfl(gb)
         U_known = np.array(
             [
                 [
@@ -946,7 +945,6 @@ class BasicsTest(unittest.TestCase):
         U, rhs = assembler.assemble_matrix_rhs()
 
         theta = sparse_solver(U, rhs)
-        #        deltaT = solver.cfl(gb)
         (
             U_known,
             rhs_known,
