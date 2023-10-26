@@ -36,8 +36,12 @@ __all__ = [
     "Discretization",
     "BiotAd",
     "MpsaAd",
+    "GradPAd",
+    "DivUAd",
+    "BiotStabilizationAd",
     "MpfaAd",
     "TpfaAd",
+    "MassMatrixAd",
     "UpwindAd",
     "RobinCouplingAd",
     "WellCouplingAd",
@@ -149,6 +153,51 @@ class MpsaAd(Discretization):
         wrap_discretization(self, self._discretization, subdomains=subdomains)
 
 
+class GradPAd(Discretization):
+    def __init__(self, keyword: str, subdomains: list[pp.Grid]) -> None:
+        self.subdomains = subdomains
+        self._discretization = pp.GradP(keyword)
+        self._name = "GradP from Biot"
+        self.keyword = keyword
+
+        self.grad_p: MergedOperator
+
+        wrap_discretization(self, self._discretization, subdomains=subdomains)
+
+
+class DivUAd(Discretization):
+    def __init__(
+        self, keyword: str, subdomains: list[pp.Grid], mat_dict_keyword: str
+    ) -> None:
+        self.subdomains = subdomains
+        self._discretization = pp.DivU(keyword, mat_dict_keyword)
+
+        self._name = "DivU from Biot"
+        self.keyword = mat_dict_keyword
+
+        self.div_u: MergedOperator
+        self.bound_div_u: MergedOperator
+
+        wrap_discretization(
+            self,
+            self._discretization,
+            subdomains=subdomains,
+            mat_dict_key=mat_dict_keyword,
+        )
+
+
+class BiotStabilizationAd(Discretization):
+    def __init__(self, keyword: str, subdomains: list[pp.Grid]) -> None:
+        self.subdomains = subdomains
+        self._discretization = pp.BiotStabilization(keyword)
+        self._name = "Biot stabilization term"
+        self.keyword = keyword
+
+        self.stabilization: MergedOperator
+
+        wrap_discretization(self, self._discretization, subdomains=subdomains)
+
+
 ## Flow related
 
 
@@ -183,6 +232,17 @@ class TpfaAd(Discretization):
         self.vector_source: MergedOperator
         self.bound_pressure_vector_source: MergedOperator
 
+        wrap_discretization(self, self._discretization, subdomains=subdomains)
+
+
+class MassMatrixAd(Discretization):
+    def __init__(self, keyword: str, subdomains: list[pp.Grid]) -> None:
+        self.subdomains = subdomains
+        self._discretization = pp.MassMatrix(keyword)
+        self._name = "Mass matrix"
+        self.keyword = keyword
+
+        self.mass: MergedOperator
         wrap_discretization(self, self._discretization, subdomains=subdomains)
 
 
