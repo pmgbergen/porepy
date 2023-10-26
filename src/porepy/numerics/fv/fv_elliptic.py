@@ -23,25 +23,38 @@ class FVElliptic(pp.EllipticDiscretization):
         # Identify which parameters to use:
         self.keyword = keyword
 
-        # Keywords used to identify individual terms in the discretization matrix dictionary
-        # The flux discretization (transmissibility matrix)
+        # Keywords used to identify individual terms in the discretization matrix
+        # dictionary:
         self.flux_matrix_key = "flux"
-        # Discretization of boundary conditions.
+        """Key used to store flux discretization (transmissibility matrix) in the
+        discretization matrix dictionary."""
         self.bound_flux_matrix_key = "bound_flux"
-        # Contribution of cell center values in reconstruction of boundary pressures
+        """Key used to store discretization of boundary conditions in the discretization
+        matrix dictionary."""
         self.bound_pressure_cell_matrix_key = "bound_pressure_cell"
+        """Key used to store discretization of boundary conditions in the discretization
+        matrix dictionary. The matrix accounts for contribution of cell center values in
+        reconstruction of boundary pressures."""
         # Contribution of boundary values (Neumann or Dirichlet, depending on the
         # condition set on faces) in reconstruction of boundary pressures
         self.bound_pressure_face_matrix_key = "bound_pressure_face"
-        # Discretization of vector source terms (gravity)
+        """Key used to store discretization of boundary conditions in the discretization
+        matrix dictionary. The matrix accounts for contribution of boundary values
+        (Neumann or Dirichlet, depending on the condition set on faces) in
+        reconstruction of boundary pressures"""
         self.vector_source_matrix_key = "vector_source"
+        """Key used to store discretization of vector source terms (gravity) in the
+        discretization matrix dictionary."""
         self.bound_pressure_vector_source_matrix_key = "bound_pressure_vector_source"
+        """Key used to store discretization of vector source terms (gravity) in the
+        discretization matrix dictionary. The matrix accounts for contribution of
+        vector source terms in reconstruction of boundary pressures."""
 
     def ndof(self, sd: pp.Grid) -> int:
         """Return the number of degrees of freedom associated to the method.
 
-        Args:
-            sd (pp.Grid): A grid.
+        Parameters:
+            sd: A grid.
 
         Returns:
             int: The number of degrees of freedom.
@@ -49,136 +62,52 @@ class FVElliptic(pp.EllipticDiscretization):
         """
         return sd.num_cells
 
-    def extract_pressure(
-        self, sd: pp.Grid, solution_array: np.ndarray, data: dict
-    ) -> np.ndarray:
-        """Extract the pressure part of a solution.
-        The method is trivial for finite volume methods, with the pressure
-        being the only primary variable.
-
-        Args:
-            sd (pp.Grid): To which the solution array belongs.
-            solution_array (np.array): Solution for this grid obtained from
-                either a mono-dimensional or a mixed-dimensional problem.
-            data (dictionary): Data dictionary associated with the grid. Not used,
-                but included for consistency reasons.
-        Returns:
-            np.array (g.num_cells): Pressure solution vector. Will be identical
-                to solution_array.
-
-        """
-        return solution_array
-
-    def extract_flux(
-        self, sd: pp.Grid, solution_array: np.ndarray, data: dict
-    ) -> np.ndarray:
-        """Extract the flux related to a solution.
-
-        The flux is computed from the discretization and the given pressure solution.
-
-        Args:
-            sd (pp.Grid): To which the solution array belongs.
-            solution_array (np.array): Solution for this grid obtained from
-                either a mono-dimensional or a mixed-dimensional problem. Will
-                correspond to the pressure solution.
-            data (dictionary): Data dictionary associated with the grid.
-
-        Returns:
-            np.array (g.num_faces): Flux vector.
-
-        """
-        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
-        parameter_dictionary = data[pp.PARAMETERS][self.keyword]
-
-        flux = matrix_dictionary[self.flux_matrix_key].tocsr()
-        bound_flux = matrix_dictionary[self.bound_flux_matrix_key].tocsr()
-
-        bc_val = parameter_dictionary["bc_values"]
-
-        return flux * solution_array + bound_flux * bc_val
-
     def assemble_matrix_rhs(
         self, sd: pp.Grid, data: dict
     ) -> tuple[sps.spmatrix, np.ndarray]:
         """Return the matrix and right-hand side for a discretization of a second
         order elliptic equation.
 
-        Args:
-            sd (pp.Grid): Computational grid, with geometry fields computed.
-            data (dictionary): With data stored.
+        Parameters:
+            sd: Computational grid, with geometry fields computed.
+            data: With data stored.
 
         Returns:
-            scipy.sparse.csr_matrix: System matrix of this discretization. The size of
-                the matrix will depend on the specific discretization.
+            scipy.sparse.csr_matrix: System matrix of this discretization.
             np.ndarray: Right-hand side vector with representation of boundary
-                conditions. The size of the vector will depend on the discretization.
+                conditions.
 
         """
-
-        return self.assemble_matrix(sd, data), self.assemble_rhs(sd, data)
-
-    def assemble_matrix(self, sd: pp.Grid, data: dict) -> sps.spmatrix:
-        """Return the matrix for a discretization of a second order elliptic equation
-        using a FV method.
-
-        Args:
-            sd (pp.Grid): Computational grid, with geometry fields computed.
-            data (dictionary): With data stored.
-
-        Returns:
-            scipy.sparse.csr_matrix: System matrix of this discretization. The
-                size of the matrix will depend on the specific discretization.
-
-        """
+        # Dictionaries containing discretization matrices and parameters.
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
+        parameter_dictionary = data[pp.PARAMETERS][self.keyword]
+        # Extract discretization matrices.
+        flux = matrix_dictionary[self.flux_matrix_key]
+        bound_flux = matrix_dictionary[self.bound_flux_matrix_key]
 
         div = pp.fvutils.scalar_divergence(sd)
-        flux = matrix_dictionary[self.flux_matrix_key]
+
+        # Assemble matrix.
         if flux.shape[0] != sd.num_faces:
             hf2f = pp.fvutils.map_hf_2_f(nd=1, sd=sd)
             flux = hf2f * flux
+        matrix = div * flux
 
-        M = div * flux
-
-        return M
-
-    def assemble_rhs(self, sd: pp.Grid, data: dict) -> np.ndarray:
-        """Return the right-hand side for a discretization of a second order elliptic
-        equation using a finite volume method.
-
-        Args:
-            sd (Grid): Computational grid, with geometry fields computed.
-            data (dictionary): With data stored.
-
-        Returns:
-            np.ndarray: Right hand side vector with representation of boundary
-                conditions. The size of the vector will depend on the discretization.
-
-        """
-        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
-
-        bound_flux = matrix_dictionary[self.bound_flux_matrix_key]
+        # Assemble right-hand side.
         if sd.dim > 0 and bound_flux.shape[0] != sd.num_faces:
             hf2f = pp.fvutils.map_hf_2_f(nd=1, sd=sd)
             bound_flux = hf2f * bound_flux
 
-        parameter_dictionary = data[pp.PARAMETERS][self.keyword]
+        rhs = -div * bound_flux * parameter_dictionary["bc_values"]
 
-        bc_val = parameter_dictionary["bc_values"]
-
-        div = sd.cell_faces.T
-
-        val = -div * bound_flux * bc_val
-
-        # Also assemble vector sources.
-        # Discretization of the vector source term if specified
-
+        # Also assemble vector sources if discretization of the vector source term if
+        # specified.
         if "vector_source" in parameter_dictionary:
             vector_source_discr = matrix_dictionary[self.vector_source_matrix_key]
             vector_source = parameter_dictionary.get("vector_source")
-            val -= div * vector_source_discr * vector_source
+            rhs -= div * vector_source_discr * vector_source
 
-        return val
+        return matrix, rhs
 
     def assemble_int_bound_flux(
         self,
@@ -556,131 +485,3 @@ class FVElliptic(pp.EllipticDiscretization):
         """
         # Operation is void for finite volume methods
         pass
-
-
-class EllipticDiscretizationZeroPermeability(FVElliptic):
-    """Specialized discretization for domains with zero tangential permeability.
-
-    Intended usage is to impose full continuity conditions between domains of higher
-    dimensions separated by a lower-dimensional domain (think two intersecting
-    fractures), in cases where one does not want to eliminate the lower-dimensional
-    domain from the MixedDimensionalGrid. The class is designed to interact with the class
-    FluxPressureContinuity. Wider usage is possible, but be cautious.
-
-    The subclassing from FVElliptic was convenient, but other options could also have
-    worked.
-
-    NOTICE: There seems  no point in assigning this method as the higher-dimensional
-    discretization. Accordingly, the methods for assembly of interface contributions
-    from the primary side of a mortar grid are delibierately designed to fail.
-
-    """
-
-    def discretize(self, sd, data):
-        """
-        Formal discretization method - nothing to do here.
-
-        Args
-        ----------
-        g (pp.Grid): grid, or a subclass.
-        data (dict).
-
-        """
-        pass
-
-    def assemble_matrix(self, sd, data):
-        """Assemble system matrix. Will be zero matrix of appropriate size.
-
-        Args:
-            g (Grid): Computational grid, with geometry fields computed.
-            data (dictionary): With data stored.
-
-        Returns:
-            scipy.sparse.csr_matrix: Zero matrix.
-
-        """
-        return sps.csc_matrix((self.ndof(sd), self.ndof(sd)))
-
-    def assemble_rhs(self, sd, data):
-        """Assemble right hand side vector. Will be zero vector of appropriate size.
-
-        Args:
-            g (Grid): Computational grid, with geometry fields computed.
-            data (dictionary): With data stored.
-
-        Returns:
-            np.array: Zero vector.
-
-        """
-
-        return np.zeros(self.ndof(sd))
-
-    def assemble_int_bound_flux(
-        self, sd, data, data_edge, cc, matrix, rhs, self_ind, use_secondary_proj=False
-    ):
-        """Assemble the contribution from an internal boundary, manifested as a
-        flux boundary condition.
-
-        This method should not be used for the zero-permeability case; it would
-        require a flux in the higher-dimensional grid. Therefore raise an error if
-        this method is invoked.
-
-        Args:
-            g (Grid): Grid which the condition should be imposed on.
-            data (dictionary): Data dictionary for the node in the
-                mixed-dimensional grid.
-            data_edge (dictionary): Data dictionary for the edge in the
-                mixed-dimensional grid.
-            cc (block matrix, 3x3): Block matrix for the coupling condition.
-                The first and second rows and columns are identified with the
-                primary and secondary side; the third belongs to the edge variable.
-                The discretization of the relevant term is done in-place in cc.
-            matrix (block matrix 3x3): Discretization matrix for the edge and
-                the two adjacent nodes.
-            rhs (block_array 3x1): Right hand side contribution for the edge and
-                the two adjacent nodes.
-            self_ind (int): Index in cc and matrix associated with this node.
-                Should be either 1 or 2.
-            use_secondary_proj (boolean): If True, the secondary side projection operator is
-                used. Needed for periodic boundary conditions.
-
-        """
-        raise NotImplementedError(
-            """This class should not be used as a
-                                  higher-dimensional discretization"""
-        )
-
-    def assemble_int_bound_pressure_trace(
-        self, sd, data, data_edge, cc, matrix, rhs, self_ind, use_secondary_proj=False
-    ):
-        """Assemble the contribution from an internal
-        boundary, manifested as a condition on the boundary pressure.
-
-        This method should not be used for the zero-permeability case; it would
-        require a flux in the higher-dimensional grid. Therefore raise an error if
-        this method is invoked.
-
-        Args:
-            g (Grid): Grid which the condition should be imposed on.
-            data (dictionary): Data dictionary for the node in the
-                mixed-dimensional grid.
-            data_edge (dictionary): Data dictionary for the edge in the
-                mixed-dimensional grid.
-            cc (block matrix, 3x3): Block matrix for the coupling condition.
-                The first and second rows and columns are identified with the
-                primary and secondary side; the third belongs to the edge variable.
-                The discretization of the relevant term is done in-place in cc.
-            matrix (block matrix 3x3): Discretization matrix for the edge and
-                the two adjacent nodes.
-            rhs (block_array 3x1): Right hand side contribution for the edge and
-                the two adjacent nodes.
-            self_ind (int): Index in cc and matrix associated with this node.
-                Should be either 1 or 2.
-            use_secondary_proj (boolean): If True, the secondary side projection operator is
-                used. Needed for periodic boundary conditions.
-
-        """
-        raise NotImplementedError(
-            """This class should not be used as a
-                                  higher-dimensional discretization"""
-        )
