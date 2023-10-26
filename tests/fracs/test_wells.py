@@ -11,6 +11,7 @@ well implementation should also be revisited.
 
 """
 from typing import List
+import numbers
 
 import numpy as np
 import pytest
@@ -228,4 +229,4 @@ def test_add_one_well_with_matrix(get_mdg) -> None:
     assert len(well_boundaries) == 1
     for well_bg in well_boundaries:
         # num_cells is one of the attributes that are initialized lazily.
-        assert isinstance(well_bg.num_cells, np.int64)
+        assert isinstance(well_bg.num_cells, numbers.Integral)
