@@ -484,7 +484,6 @@ class MainTester(unittest.TestCase):
 
         u_num = scipy.sparse.linalg.spsolve(a, b)
         flux_num = flux * u_num + bound_flux * u_bound
-        breakpoint()
         return u_num, flux_num
 
     def solve_system_homogeneous_elasticity(
@@ -726,7 +725,38 @@ class TestMpfaReproduceKnownValues:
         flux_num = flux * u_num + bound_flux * u_bound
         return u_num, flux_num
 
-    def solve_mpsa(self, heterogeneous: bool):
+    @pytest.mark.parametrize("grid_type", ["cart", "simplex"])
+    @pytest.mark.parametrize("heterogeneous", [True, False])
+    def test_mpfa_computed_values(self, grid_type, heterogeneous):
+        g_nolines, g_lines = create_grid_mpfa_mpsa_reproduce_known_values(grid_type)
+        self.g_nolines = g_nolines
+        self.g_lines = g_lines
+
+        u, flux = self.solve(heterogeneous)
+
+        # Fetch known values
+        if heterogeneous:
+            key = grid_type + "_heterogeneous"
+        else:
+            key = grid_type + "_homogeneous"
+
+        known_u = reference_dense_arrays.test_mpfa["TestMpfaReproduceKnownValues"][key][
+            "u"
+        ]
+        known_flux = reference_dense_arrays.test_mpfa["TestMpfaReproduceKnownValues"][
+            key
+        ]["flux"]
+
+        # Compare computed and known values
+        assert np.allclose(u, known_u)
+        assert np.allclose(flux, known_flux)
+
+
+class TestMpsaReproduceKnownValues:
+    def chi(self, xcoord, ycoord):
+        return np.logical_and(np.greater(xcoord, 0.5), np.greater(ycoord, 0.5))
+
+    def solve(self, heterogeneous: bool):
         x, y = sympy.symbols("x y")
         if heterogeneous:
             g = self.g_lines
@@ -752,11 +782,6 @@ class TestMpfaReproduceKnownValues:
         syx = duy_x + dux_y
         syy = 2 * duy_y + divu
 
-        sxx_f = sympy.lambdify((x, y), sxx, "numpy")
-        sxy_f = sympy.lambdify((x, y), sxy, "numpy")
-        syx_f = sympy.lambdify((x, y), syx, "numpy")
-        syy_f = sympy.lambdify((x, y), syy, "numpy")
-
         rhs_x = sympy.diff(sxx, x) + sympy.diff(syx, y)
         rhs_y = sympy.diff(sxy, x) + sympy.diff(syy, y)
         rhs_x_f = sympy.lambdify((x, y), rhs_x, "numpy")
@@ -767,17 +792,21 @@ class TestMpfaReproduceKnownValues:
 
         k = tensor.FourthOrderTensor(mat_vec, mat_vec)
 
-        muc = np.ones(self.g_nolines.num_cells)
-        lambdac = muc
-        k = tensor.FourthOrderTensor(muc, lambdac)
-
         # Boundary conditions
         bound_faces = g.tags["domain_boundary_faces"].nonzero()[0]
+        bc_vec = bc.BoundaryConditionVectorial(
+            g, bound_faces, ["dir"] * bound_faces.size
+        )
         xf = g.face_centers
+        char_func_bound = self.chi(xf[0, bound_faces], xf[1, bound_faces]) * 1
         u_bound = np.zeros((g.dim, g.num_faces))
-        u_bound[0, bound_faces] = ux_f(xf[0, bound_faces], xf[1, bound_faces])
-        u_bound[1, bound_faces] = uy_f(xf[0, bound_faces], xf[1, bound_faces])
-        bc_val = u_bound.ravel("f")
+        u_bound[0, bound_faces] = ux_f(xf[0, bound_faces], xf[1, bound_faces]) / (
+            (1 - char_func_bound) + kappa * char_func_bound
+        )
+        u_bound[1, bound_faces] = uy_f(xf[0, bound_faces], xf[1, bound_faces]) / (
+            (1 - char_func_bound) + kappa * char_func_bound
+        )
+        bc_val = u_bound.ravel("F")
         # Right hand side - contribution from the solution and the boundary
         # conditions
         xc = g.cell_centers
@@ -789,10 +818,9 @@ class TestMpfaReproduceKnownValues:
 
         specified_data = {
             "fourth_order_tensor": k,
-            "bc": self.bc_vec,
+            "bc": bc_vec,
             "inverter": "python",
             "bc_values": bc_val,
-            "source": rhs,
             "mpsa_eta": 0,
         }
 
@@ -806,7 +834,7 @@ class TestMpfaReproduceKnownValues:
 
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][keyword]
 
-        u_num = scipy.sparse.linalg.spsolve(A, b)
+        u_num = scipy.sparse.linalg.spsolve(A, b + rhs)
         stress_num = (
             matrix_dictionary[discr.stress_matrix_key] * u_num
             + matrix_dictionary[discr.bound_stress_matrix_key] * bc_val
@@ -815,7 +843,7 @@ class TestMpfaReproduceKnownValues:
 
     @pytest.mark.parametrize("grid_type", ["cart", "simplex"])
     @pytest.mark.parametrize("heterogeneous", [True, False])
-    def test_mpfa_computed_values(self, grid_type, heterogeneous):
+    def test_mpsa_computed_values(self, grid_type, heterogeneous):
         g_nolines, g_lines = create_grid_mpfa_mpsa_reproduce_known_values(grid_type)
         self.g_nolines = g_nolines
         self.g_lines = g_lines
@@ -828,12 +856,12 @@ class TestMpfaReproduceKnownValues:
         else:
             key = grid_type + "_homogeneous"
 
-        known_u = reference_dense_arrays.test_mpfa["TestMpfaReproduceKnownValues"][key][
+        known_u = reference_dense_arrays.test_mpsa["TestMpsaReproduceKnownValues"][key][
             "u"
         ]
-        known_flux = reference_dense_arrays.test_mpfa["TestMpfaReproduceKnownValues"][
+        known_flux = reference_dense_arrays.test_mpsa["TestMpsaReproduceKnownValues"][
             key
-        ]["flux"]
+        ]["stress"]
 
         # Compare computed and known values
         assert np.allclose(u, known_u)
