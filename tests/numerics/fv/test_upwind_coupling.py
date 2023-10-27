@@ -1,8 +1,9 @@
 from __future__ import division
 
 import numpy as np
+import scipy.sparse as sps
+from scipy.sparse import coo_matrix, bmat
 from scipy.sparse.linalg import spsolve as sparse_solver
-
 import porepy as pp
 from porepy.applications.test_utils import (
     reference_dense_arrays,
@@ -62,6 +63,61 @@ class TestUpwindCoupling:
             else:
                 data[pp.PARAMETERS]["transport"]["darcy_flux"] = darcy_flux_e
 
+    def _compose_algebraic_representation(self, mdg, upwind_obj, upwind_coupling_obj):
+        """Create discretization matrix and rhs vector from mdg, upwind and
+            upwind_coupling objects.
+
+        This method essentially mimics the functionality of the antiquated assembler class
+        """
+
+        sd_hashes = [hash(sd) for sd in mdg.subdomains()]
+        intf_hashes = [hash(intf) for intf in mdg.interfaces()]
+        hashes = sd_hashes + intf_hashes
+        n_blocks = len(hashes)
+        lhs = np.empty((n_blocks, n_blocks), dtype=sps.csr_matrix)
+        rhs = np.empty(n_blocks, dtype=object)
+        for intf, data in mdg.interfaces(return_data=True):
+
+            h_sd, l_sd = mdg.interface_to_subdomain_pair(intf)
+            h_data, l_data = mdg.subdomain_data(h_sd), mdg.subdomain_data(l_sd)
+            upwind_obj.discretize(h_sd, h_data)
+            upwind_obj.discretize(l_sd, l_data)
+            upwind_coupling_obj.discretize(h_sd, l_sd, intf, h_data, l_data, data)
+
+            bmat_loc = np.empty((3, 3), dtype=sps.csr_matrix)
+            blocks = [h_sd.num_cells, l_sd.num_cells, intf.num_cells]
+            for ib, isize in enumerate(blocks):
+                for jb, jsize in enumerate(blocks):
+                    bmat_loc[ib, jb] = sps.csr_matrix((isize, jsize))
+
+            h_lhs, h_rhs = upwind_obj.assemble_matrix_rhs(h_sd, h_data)
+            l_lhs, l_rhs = upwind_obj.assemble_matrix_rhs(l_sd, l_data)
+            bmat_loc[0, 0] = h_lhs
+            bmat_loc[1, 1] = l_lhs
+            lhs_loc, rhs_loc = upwind_coupling_obj.assemble_matrix_rhs(h_sd, l_sd, intf, h_data,
+                                                                   l_data, data, bmat_loc)
+            rhs_loc[0] = h_rhs
+            rhs_loc[1] = l_rhs
+
+            # block scatter lhs and rhs
+            h_idx = hashes.index(hash(h_sd))
+            l_idx = hashes.index(hash(l_sd))
+            i_idx = hashes.index(hash(intf))
+            dest = np.array([h_idx, l_idx, i_idx])
+            for i, ib in enumerate(dest):
+                if isinstance(rhs_loc[i], np.ndarray):
+                    rhs[ib] = rhs_loc[i]
+                else:
+                    print("loc: ", rhs_loc)
+                    rhs[ib] = np.array([rhs_loc[i]])
+                for j, jb in enumerate(dest):
+                    lhs[ib, jb] = lhs_loc[i, j]
+
+        lhs = bmat(lhs)
+        rhs = np.concatenate(rhs)
+        return lhs, rhs
+
+
     def _assertion(self, lhs, rhs, theta, lhs_ref, rhs_ref, theta_ref):
         atol = rtol = 1e-15
         assert np.allclose(lhs, lhs_ref, rtol, atol)
@@ -112,12 +168,7 @@ class TestUpwindCoupling:
             pp.initialize_data(intf, data, "transport", {})
 
         self._add_constant_darcy_flux(mdg, upwind, [1, 0, 0], a)
-
-        dof_manager = pp.DofManager(mdg)
-        assembler = pp.Assembler(mdg, dof_manager)
-        assembler.discretize()
-
-        lhs, rhs = assembler.assemble_matrix_rhs()
+        lhs, rhs = self._compose_algebraic_representation(mdg, upwind, upwind_coupling)
         theta = sparse_solver(lhs, rhs)
 
         lhs_ref = reference_dense_arrays.test_upwind_coupling["test_2d_1d"]["lhs"]
@@ -169,12 +220,7 @@ class TestUpwindCoupling:
             pp.initialize_data(intf, data, "transport", {})
 
         self._add_constant_darcy_flux(mdg, upwind, [1, 0, 0], a)
-
-        dof_manager = pp.DofManager(mdg)
-        assembler = pp.Assembler(mdg, dof_manager)
-        assembler.discretize()
-
-        lhs, rhs = assembler.assemble_matrix_rhs()
+        lhs, rhs = self._compose_algebraic_representation(mdg, upwind, upwind_coupling)
         theta = sparse_solver(lhs, rhs)
 
         lhs_ref = reference_dense_arrays.test_upwind_coupling["test_3d_2d"]["lhs"]
@@ -230,12 +276,7 @@ class TestUpwindCoupling:
             pp.initialize_data(intf, data, "transport", {})
 
         self._add_constant_darcy_flux(mdg, upwind, [1, 0, 0], a)
-
-        dof_manager = pp.DofManager(mdg)
-        assembler = pp.Assembler(mdg, dof_manager)
-        assembler.discretize()
-
-        lhs, rhs = assembler.assemble_matrix_rhs()
+        lhs, rhs = self._compose_algebraic_representation(mdg, upwind, upwind_coupling)
         theta = sparse_solver(lhs, rhs)
 
         lhs_ref = reference_sparse_arrays.test_upwind_coupling["test_3d_2d_1d_0d"][

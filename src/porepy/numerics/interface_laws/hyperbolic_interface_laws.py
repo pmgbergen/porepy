@@ -118,8 +118,7 @@ class UpwindCoupling(AbstractInterfaceLaw):
                 grid
             data_secondary: dictionary which stores the data for the lower dimensional
                 grid
-            data_intf: dictionary which stores the data for the edges of the grid
-                bucket
+            data_intf: dictionary which stores the data for the edges of the mdg
             matrix: Uncoupled discretization matrix.
 
         Returns:
