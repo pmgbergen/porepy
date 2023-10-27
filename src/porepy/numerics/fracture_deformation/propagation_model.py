@@ -21,6 +21,7 @@ WARNING: This should be considered experimental code and should be used with
 from __future__ import annotations
 
 import abc
+from typing import Literal
 
 import numpy as np
 import scipy.sparse as sps
@@ -51,6 +52,8 @@ class FracturePropagation(abc.ABC):
 
     """
 
+    equation_system: pp.EquationSystem
+
     @abc.abstractmethod
     def __init__(self, mdg):
         # Abstract init, aimed at appeasing mypy. In practice, these attributes should
@@ -71,31 +74,28 @@ class FracturePropagation(abc.ABC):
         """Should return True if fractures were propagated in the previous step."""
 
     def _initialize_new_variable_values(
-        self, sd: pp.Grid, d: dict, var: str, dofs: dict[str, int]
+        self,
+        domain: pp.Grid | pp.MortarGrid,
+        d: dict,
+        var: str,
+        dofs: dict[Literal["cells", "faces", "nodes"], int],
     ) -> np.ndarray:
-        """
-        Initialize a new variable field with the right size for a new variable.
+        """Initialize a new variable field with the right size for a new variable.
 
         Only cell variables are covered, extension to face and nodes should be
         straightforward.
 
-        Parameters
-        ----------
-        sd : pp.Grid
-            Subdomain grid.
-        d : Dict
-            Data dictionary. Should contain a field cell_index_map (an sps.spmatrix)
-            which maps from old to new cell indices.
-        var : str
-            Name of variable.
-        dofs : Dict[str, int]
-            Dictionary with number of DOFs per cell (or face/node). In practice,
-            use the standard way of defining variables.
+        Parameters:
+            domain: Subdomain or interface grid.
+            d: Data dictionary. Should contain a field cell_index_map (an sps.spmatrix)
+                which maps from old to new cell indices.
+            var: Name of variable.
+            dofs: Dictionary with number of DOFs per cell (or face/node). In practice,
+                use the standard way of defining variables.
 
-        Returns
-        -------
-        vals : np.ndarray
-            Values for the new DOFs.
+        Returns:
+            vals: np.ndarray
+                Values for the new DOFs.
 
         """
         # Number of cell dofs for this variable
@@ -177,7 +177,7 @@ class FracturePropagation(abc.ABC):
                     "Have only implemented variable mapping for face dofs"
                 )
 
-            cell_dof: int = dofs.get("cells")
+            cell_dof: int = dofs["cells"]
 
             # Map old solution
             mapping = sps.kron(cell_map, sps.eye(cell_dof))
@@ -239,7 +239,7 @@ class FracturePropagation(abc.ABC):
 
             # Mapping of old variables.
             dofs = self.equation_system._variable_dof_type[var]
-            cell_dof = dofs.get("cells")
+            cell_dof = dofs["cells"]
             mapping = sps.kron(cell_map, sps.eye(cell_dof))
             x_new[self.equation_system.dofs_of([var])] = (
                 mapping * data["old_solution"][var]
@@ -248,7 +248,9 @@ class FracturePropagation(abc.ABC):
             # Index of newly formed variables.
             new_ind = self._new_dof_inds(mapping)
             # Values of newly formed variables.
-            new_vals = self._initialize_new_variable_values(domain, data, var, dofs)
+            new_vals = self._initialize_new_variable_values(
+                domain, data, var.name, dofs
+            )
             # Update newly formed variables.
             x_new[self.equation_system.dofs_of([var])[new_ind]] = new_vals
             # Purge temporary storage of old solution.
@@ -262,15 +264,11 @@ class FracturePropagation(abc.ABC):
         The new DOFs/geometric entities are those which do not correspond to an
         old entity, i.e. their row is empty in the mapping matrix.
 
-        Parameters
-        ----------
-        mapping : sps.spmatrix
-            Mapping between old and new geometric entities.
+        Parameters:
+            mapping: Mapping between old and new geometric entities.
 
-        Returns
-        -------
-        np.ndarray
-            Boolean vector of length n_new_entities, true for newly created entities.
+        Returns:
+            Boolean array of length n_new_entities, true for newly created entities.
 
         """
         # Find rows with only zeros. Can also get this information from the matrix
