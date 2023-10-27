@@ -40,9 +40,9 @@ class UpwindCoupling:
         sd_primary: pp.Grid,
         sd_secondary: pp.Grid,
         intf: pp.MortarGrid,
-        data_primary: Dict,
-        data_secondary: Dict,
-        data_intf: Dict,
+        data_primary: dict,
+        data_secondary: dict,
+        data_intf: dict,
     ) -> None:
         # First check if the grid dimensions are compatible with the implementation.
         # It is not difficult to cover the case of equal dimensions, it will require
