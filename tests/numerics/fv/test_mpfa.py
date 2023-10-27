@@ -161,7 +161,7 @@ class TestMpfaReproduceKnownValues:
         if heterogeneous:
             g = self.g_lines
             # For some reason, the reference solution was computed with different
-            # values of kappa, thus the permeability heterogeneity, for simplex and
+            # values of kappa, i.e., the permeability heterogeneity, for simplex and
             # Cartesian grids. This is awkward, but we just have to live with it.
             if isinstance(g, pp.CartGrid):
                 kappa = 1e-6
