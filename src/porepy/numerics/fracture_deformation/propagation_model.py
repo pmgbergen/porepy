@@ -52,11 +52,10 @@ class FracturePropagation(abc.ABC):
     """
 
     @abc.abstractmethod
-    def __init__(self, assembler):
+    def __init__(self, mdg):
         # Abstract init, aimed at appeasing mypy. In practice, these attributes should
         # come from combining this class with a mechanical model.
-        self.assembler = assembler
-        self.mdg = self.assembler.mdg
+        self.mdg = mdg
         self.nd = self.mdg.dim_max()
 
     @abc.abstractmethod
@@ -134,159 +133,125 @@ class FracturePropagation(abc.ABC):
         """
         # Obtain old solution vector. The values are extracted in the first two loops
         # and mapped and updated in the last two, after update_dof_count has been called.
-        for sd, data in self.mdg.subdomains(return_data=True):
-            # First check if cells and faces have been updated, by checking if index
-            # maps are available. If this is not the case, there is no need to map
-            # variables.
-            if not ("cell_index_map" in data and "face_index_map" in data):
-                continue
+        # for sd, data in self.mdg.subdomains(return_data=True):
+        # First check if cells and faces have been updated, by checking if index
+        # maps are available. If this is not the case, there is no need to map
+        # variables.
 
-            cell_map: sps.spmatrix = data["cell_index_map"]
+        # Make temporary storage for old solution.
 
-            # Make temporary storage for old solution.
-            data["old_solution"] = {}
-            for var, dofs in data[pp.PRIMARY_VARIABLES].items():
-                # Copy old solution vector values and store for next outer loop.
-                data["old_solution"][var] = x[
-                    self.assembler._dof_manager.grid_and_variable_to_dofs(sd, var)
-                ]
+        for var in self.equation_system.get_variables():
+            domain = var.domain
+            if isinstance(domain, pp.Grid):
+                # Subdomain
+                data = self.mdg.subdomain_data(domain)
+                is_subdomain = True
+            elif isinstance(domain, pp.MortarGrid):
+                # Interface
+                data = self.mdg.interface_data(domain)
+                is_subdomain = False
+            else:
+                raise ValueError("Unknown domain type for variable {}".format(var.name))
 
-                # Only cell-based dofs have been considered so far.
-                # It should not be difficult to handle other types of variables,
-                # but the need has not been there.
-                face_dof: int = dofs.get("faces", 0)
-                node_dof: int = dofs.get("nodes", 0)
-                if face_dof != 0 or node_dof != 0:
-                    raise NotImplementedError(
-                        "Have only implemented variable mapping for face dofs"
-                    )
-
-                cell_dof: int = dofs.get("cells")
-
-                # Map old solution
-                mapping = sps.kron(cell_map, sps.eye(cell_dof))
-                # New values for the new dofs.
-                new_ind = self._new_dof_inds(mapping)
-                new_vals = self._initialize_new_variable_values(sd, data, var, dofs)
-                # Loop over stored time steps. Loop on keys to avoid bad practice of
-                # changing looped quantity using items method.
-                for ind in data[pp.TIME_STEP_SOLUTIONS][var].keys():
-                    values = pp.get_solution_values(
-                        name=var, data=data, time_step_index=ind
-                    )
-                    values = mapping * values
-                    values[new_ind] = new_vals
-                    pp.set_solution_values(var, values, data, time_step_index=ind)
-
-                # Repeat for iterate:
-                for ind in data[pp.ITERATE_SOLUTIONS][var].keys():
-                    values = pp.get_solution_values(
-                        name=var, data=data, iterate_index=ind
-                    )
-                    values = mapping * values
-                    values[new_ind] = new_vals
-                    pp.set_solution_values(var, values, data, iterate_index=ind)
-
-        for intf, data in self.mdg.interfaces(return_data=True):
-            # Check if the mortar grid geometry has been updated.
             if "cell_index_map" not in data:
                 # No need to do anything
                 continue
+            if is_subdomain and "face_index_map" not in data:
+                # No need to do anything. Both maps should be present for subdomains.
+                continue
 
+            cell_map: sps.spmatrix = data["cell_index_map"]
             data["old_solution"] = {}
-            cell_map = data["cell_index_map"]
+            # Copy old solution vector values and store for next outer loop.
 
-            for var, dofs in data[pp.PRIMARY_VARIABLES].items():
-                # Copy old solution vector values.
-                data["old_solution"][var] = x[
-                    self.assembler._dof_manager.grid_and_variable_to_dofs(intf, var)
-                ]
+            data["old_solution"][var] = x[self.equation_system.dofs_of([var])]
 
-                # Only cell-based dofs have been considered so far.
-                cell_dof = dofs.get("cells")
+            # Only cell-based dofs have been considered so far.
+            # It should not be difficult to handle other types of variables,
+            # but the need has not been there.
+            dofs = self.equation_system._variable_dof_type[var]
+            face_dof: int = dofs.get("faces", 0)
+            node_dof: int = dofs.get("nodes", 0)
+            if face_dof != 0 or node_dof != 0:
+                raise NotImplementedError(
+                    "Have only implemented variable mapping for face dofs"
+                )
 
-                # Map old solution
-                mapping = sps.kron(cell_map, sps.eye(cell_dof))
-                # New values for the new dofs.
-                new_ind = self._new_dof_inds(mapping)
-                new_vals = self._initialize_new_variable_values(intf, data, var, dofs)
-                # Loop over stored time steps (one or more indexed by time). Loop on
-                # keys to avoid bad practice of changing looped quantity using items
-                # method.
-                for ind in data[pp.TIME_STEP_SOLUTIONS][var].keys():
-                    values = pp.get_solution_values(
-                        name=var, data=data, time_step_index=ind
-                    )
-                    values = mapping * values
-                    values[new_ind] = new_vals
-                    pp.set_solution_values(var, values, data, time_step_index=ind)
+            cell_dof: int = dofs.get("cells")
 
-                # Repeat for iterate.
-                for ind in data[pp.ITERATE_SOLUTIONS][var].keys():
-                    values = pp.get_solution_values(
-                        name=var, data=data, iterate_index=ind
-                    )
-                    values = mapping * values
-                    values[new_ind] = new_vals
-                    pp.set_solution_values(var, values, data, iterate_index=ind)
+            # Map old solution
+            mapping = sps.kron(cell_map, sps.eye(cell_dof))
+            # New values for the new dofs.
+            new_ind = self._new_dof_inds(mapping)
+            new_vals = self._initialize_new_variable_values(
+                domain, data, var.name, dofs
+            )
+            # Loop over stored time steps. Loop on keys to avoid bad practice of
+            # changing looped quantity using items method.
+            for ind in data[pp.TIME_STEP_SOLUTIONS][var.name].keys():
+                values = pp.get_solution_values(
+                    name=var.name, data=data, time_step_index=ind
+                )
+                values = mapping * values
+                values[new_ind] = new_vals
+                pp.set_solution_values(var.name, values, data, time_step_index=ind)
 
-        # Update the assembler's counting of dofs
-        self.assembler.update_dof_count()
+            # Repeat for iterate:
+            for ind in data[pp.ITERATE_SOLUTIONS][var.name].keys():
+                values = pp.get_solution_values(
+                    name=var.name, data=data, iterate_index=ind
+                )
+                values = mapping * values
+                values[new_ind] = new_vals
+                pp.set_solution_values(var.name, values, data, iterate_index=ind)
 
-        x_new = np.zeros(self.assembler.num_dof())
-        # For each grid-variable pair, map old solution and initialize for new DOFs.
-        for sd, data in self.mdg.subdomains(return_data=True):
-            # Check if there has been updates to this grid.
-            if not ("cell_index_map" in data and "face_index_map" in data):
-                continue
+        # Update the equation system's counting of dofs. Note that this update has no
+        # proper testing and may not cover all necessary updates of dof management. In
+        # particular, the image spaces of the equations are left untouched here.
+        self.equation_system.update_variable_num_dofs()
 
-            cell_map = data["cell_index_map"]
+        x_new = np.zeros(self.equation_system.num_dofs())
+        # For each variable, map old solution and initialize for new DOFs.
+        for var in self.equation_system.get_variables():
+            domain = var.domain
+            if isinstance(domain, pp.Grid):
+                # Subdomain
+                data = self.mdg.subdomain_data(domain)
+                is_subdomain = True
+            elif isinstance(domain, pp.MortarGrid):
+                # Interface
+                data = self.mdg.interface_data(domain)
+                is_subdomain = False
+            else:
+                raise ValueError("Unknown domain type for variable {}".format(var.name))
 
-            for var, dofs in data[pp.PRIMARY_VARIABLES].items():
-                # Update consist of two parts: First map the old solution to the new
-                # grid, second populate newly formed cells.
-
-                # Mapping of old variables.
-                cell_dof = dofs.get("cells")
-                mapping = sps.kron(cell_map, sps.eye(cell_dof))
-                x_new[
-                    self.assembler._dof_manager.grid_and_variable_to_dofs(sd, var)
-                ] = (mapping * data["old_solution"][var])
-
-                # Index of newly formed variables.
-                new_ind = self._new_dof_inds(mapping)
-                # Values of newly formed variables.
-                new_vals = self._initialize_new_variable_values(sd, data, var, dofs)
-                # Update newly formed variables.
-                x_new[
-                    self.assembler._dof_manager.grid_and_variable_to_dofs(sd, var)[
-                        new_ind
-                    ]
-                ] = new_vals
-            # Purge temporary storage of old solution.
-            del data["old_solution"]
-
-        for intf, data in self.mdg.interfaces(return_data=True):
-            # Same procedure as for subdomains, see above for comments
             if "cell_index_map" not in data:
+                # No need to do anything
+                continue
+            if is_subdomain and "face_index_map" not in data:
+                # No need to do anything. Both maps should be present for subdomains.
                 continue
 
             cell_map = data["cell_index_map"]
 
-            for var, dofs in data[pp.PRIMARY_VARIABLES].items():
-                cell_dof = dofs.get("cells")
-                mapping = sps.kron(cell_map, sps.eye(cell_dof))
-                x_new[
-                    self.assembler._dof_manager.grid_and_variable_to_dofs(intf, var)
-                ] = (mapping * data["old_solution"][var])
-                new_ind = self._new_dof_inds(mapping)
-                new_vals = self._initialize_new_variable_values(intf, data, var, dofs)
-                x_new[
-                    self.assembler._dof_manager.grid_and_variable_to_dofs(intf, var)[
-                        new_ind
-                    ]
-                ] = new_vals
+            # Update consist of two parts: First map the old solution to the new
+            # grid, second populate newly formed cells.
 
+            # Mapping of old variables.
+            dofs = self.equation_system._variable_dof_type[var]
+            cell_dof = dofs.get("cells")
+            mapping = sps.kron(cell_map, sps.eye(cell_dof))
+            x_new[self.equation_system.dofs_of([var])] = (
+                mapping * data["old_solution"][var]
+            )
+
+            # Index of newly formed variables.
+            new_ind = self._new_dof_inds(mapping)
+            # Values of newly formed variables.
+            new_vals = self._initialize_new_variable_values(domain, data, var, dofs)
+            # Update newly formed variables.
+            x_new[self.equation_system.dofs_of([var])[new_ind]] = new_vals
+            # Purge temporary storage of old solution.
             del data["old_solution"]
 
         # Store the mapped solution vector
