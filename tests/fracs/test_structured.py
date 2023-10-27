@@ -197,7 +197,7 @@ def test_structured_meshing(data: dict, cart_grid: bool, perturb: bool):
 )
 def test_g_frac_pairs(f_set: list[np.ndarray], domain_size: list, f_p_shape_true: list):
     """Test that the correct number of fracture pairs are found.
-    
+
     Parameters:
         f_set: List of fractures.
         domain_size: Size of the domain.
