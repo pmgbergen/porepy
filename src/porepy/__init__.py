@@ -117,11 +117,7 @@ from porepy.fracs.wells_3d import (
     compute_well_fracture_intersections,
 )
 
-
 # Numerics
-from porepy.numerics.interface_laws.elliptic_discretization import (
-    EllipticDiscretization,
-)
 
 # Control volume, elliptic
 from porepy.numerics.fv import fvutils
