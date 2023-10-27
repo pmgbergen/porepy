@@ -1,4 +1,4 @@
-import unittest
+"""Tests for the module split_grid in the fracs package."""
 import pytest
 
 import numpy as np
