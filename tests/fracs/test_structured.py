@@ -162,3 +162,55 @@ def test_structured_meshing(data: dict, cart_grid: bool, perturb: bool):
 
         # Reset the perturbed fracture back again.
         f_set[0] = orig_fracture
+
+
+@pytest.mark.parametrize(
+    "f_set, domain_size, f_p_shape_true",
+    [
+        (
+            [
+                np.array([[1, 3, 3, 1], [1, 1, 1, 1], [1, 1, 3, 3]]),
+                np.array([[1, 1, 1, 1], [1, 3, 3, 1], [1, 1, 3, 3]]),
+            ],
+            [3, 3, 3],
+            [0, 0, 0, 8],
+        ),
+        (
+            [
+                np.array([[0, 2, 2, 0], [1, 1, 1, 1], [0, 0, 2, 2]]),
+                np.array([[1, 1, 1, 1], [0, 2, 2, 0], [0, 0, 2, 2]]),
+            ],
+            [2, 2, 2],
+            [0, 0, 2, 8],
+        ),
+        (
+            [
+                np.array([[1, 3, 3, 1], [1, 1, 1, 1], [1, 1, 3, 3]]),
+                np.array([[1, 1, 1, 1], [1, 3, 3, 1], [1, 1, 3, 3]]),
+                np.array([[1, 3, 3, 1], [1, 1, 3, 3], [1, 1, 1, 1]]),
+            ],
+            [3, 3, 3],
+            [0, 0, 0, 12],
+        ),
+    ],
+)
+def test_g_frac_pairs(f_set: list[np.ndarray], domain_size list, f_p_shape_true: list):
+    """Test that the correct number of fracture pairs are found.
+    
+    Parameters:
+        f_set: List of fractures.
+        domain_size: Size of the domain.
+        f_p_shape_true: Number of fracture pairs in each dimension.
+
+    """
+    mdg = pp.meshing.cart_grid(f_set, domain_size)
+    mdg.compute_geometry()
+
+    # Use np.hstack as a quick way to get all grids in one array.
+    g_all = np.hstack([mdg.subdomains(dim=i) for i in range(4)])
+
+    for g in g_all:
+        f_p = g.frac_pairs
+        # Check that the correct number of fracture pairs are found
+        assert f_p.shape[1] == f_p_shape_true[g.dim]
+        assert np.allclose(g.face_centers[:, f_p[0]], g.face_centers[:, f_p[1]])
