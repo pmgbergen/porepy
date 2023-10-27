@@ -11,9 +11,7 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
-from porepy.numerics.interface_laws.elliptic_discretization import (
-    EllipticDiscretization,
-)
+from porepy.numerics.discretization import Discretization
 
 
 def project_flux(
@@ -74,7 +72,7 @@ def project_flux(
         )
 
 
-class DualElliptic(EllipticDiscretization):
+class DualElliptic(Discretization):
     """Parent class for methods based on the mixed variational form of the
     elliptic equation. The class should not be used by itself, but provides a
     sheared implementation of central methods.
