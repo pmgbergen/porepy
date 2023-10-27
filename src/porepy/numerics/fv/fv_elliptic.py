@@ -9,9 +9,10 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
+from porepy.numerics.discretization import Discretization
 
 
-class FVElliptic(pp.EllipticDiscretization):
+class FVElliptic(Discretization):
     """Superclass for finite volume discretizations of the elliptic equation.
 
     Should not be used by itself, instead use a subclass that implements an
