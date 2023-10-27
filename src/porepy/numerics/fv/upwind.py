@@ -1,20 +1,15 @@
 from __future__ import annotations
 
-from typing import Any
-
-import numpy as np
-import scipy.sparse as sps
-
-import porepy as pp
-from porepy.numerics.discretization import Discretization
-from typing import Dict, Tuple
+from typing import Any, Dict, Tuple
 
 import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
 import porepy.numerics.interface_laws.abstract_interface_law
+from porepy.numerics.discretization import Discretization
 from porepy.numerics.interface_laws.abstract_interface_law import AbstractInterfaceLaw
+
 
 class Upwind(Discretization):
     """
@@ -489,6 +484,7 @@ class Upwind(Discretization):
         if_outflow_cells.tocsr()
 
         return if_outflow_cells
+
 
 class UpwindCoupling(AbstractInterfaceLaw):
     def __init__(self, keyword: str) -> None:
