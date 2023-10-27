@@ -211,7 +211,7 @@ def test_pick_propagation_face_conforming_propagation(case):
         # ... on to the next propagation step.
 
 
-class FaceSplittingHostGrid:
+class TestFaceSplittingHostGrid:
     """Tests of splitting of faces in the higher-dimensional grid.
 
     The different tests have been written at different points in time, and could have
@@ -719,7 +719,7 @@ class PropagationCriteria:
         assert np.all(np.isclose(sifs[0], p_l["SIFs_equivalent"]))
 
 
-class VariableMappingInitializationUnderPropagation:
+class TestVariableMappingInitializationUnderPropagation:
     """Test of functionality to update variables during propagation.
 
     In reality, three features are tested: First, the mappings for cell and face variables,
@@ -780,12 +780,20 @@ class VariableMappingInitializationUnderPropagation:
         # Model used for fracture propagation
         model = MockPropagationModel({})
         model.mdg = mdg
+        equation_system = pp.EquationSystem(mdg)
+        model.equation_system = equation_system
 
+        # self,
+        # name: str,
+        # dof_info: Optional[dict[GridEntity, int]] = None,
+        # subdomains: Optional[list[pp.Grid]] = None,
+        # interfaces: Optional[list[pp.MortarGrid]] = None,
+        # tags: Optional[dict[str, Any]] = None,
         # Cell variable in 2d. Should stay constant throughout the process.
         cell_val_2d = np.random.rand(g_2d.num_cells)
 
         ## Initialize variables for all grids
-        # Cell variable in 1d. Sholud be expanded, but initial size is num_vars_2d
+        # Cell variable in 1d. Should be expanded, but initial size is num_vars_2d
         var_sz_1d = 2
         # 1d variables defined as a dict, indexed on the grid
         cell_val_1d = {g: np.random.rand(var_sz_1d) for g in g_1d}
@@ -797,7 +805,7 @@ class VariableMappingInitializationUnderPropagation:
         # Initialize the state by the known variable, and the iterate as twice that
         # value (mostly a why not)
         d = mdg.subdomain_data(g_2d)
-        d[pp.PRIMARY_VARIABLES] = {self.cv2: {"cells": 1}}
+        equation_system.create_variables(self.cv2, {"cells": 1}, [g_2d])
 
         val_sol = cell_val_2d
         val_it = 2 * cell_val_2d
@@ -807,7 +815,7 @@ class VariableMappingInitializationUnderPropagation:
 
         for g in g_1d:
             d = mdg.subdomain_data(g)
-            d[pp.PRIMARY_VARIABLES] = {self.cv1: {"cells": var_sz_1d}}
+            equation_system.create_variables(self.cv1, {"cells": var_sz_1d}, [g])
 
             val_sol = cell_val_1d[g]
             val_it = 2 * cell_val_1d[g]
@@ -822,7 +830,9 @@ class VariableMappingInitializationUnderPropagation:
             intf = mdg.subdomain_pair_to_interface((g_2d, g))
 
             d = mdg.interface_data(intf)
-            d[pp.PRIMARY_VARIABLES] = {self.mv: {"cells": var_sz_mortar}}
+            equation_system.create_variables(
+                self.mv, {"cells": var_sz_mortar}, interfaces=[intf]
+            )
 
             val_sol = cell_val_mortar[g]
             val_it = 2 * cell_val_mortar[g]
@@ -832,18 +842,16 @@ class VariableMappingInitializationUnderPropagation:
             )
             pp.set_solution_values(name=self.mv, values=val_it, data=d, iterate_index=0)
 
-        # Define assembler, thereby a dof ordering
-        dof_manager = pp.DofManager(mdg)
-        assembler = pp.Assembler(mdg, dof_manager)
-        model.assembler = assembler
-
         # Define and initialize a state vector
-        x = np.zeros(dof_manager.full_dof.sum())
-        x[dof_manager.grid_and_variable_to_dofs(g_2d, self.cv2)] = cell_val_2d
+        x = np.zeros(equation_system.num_dofs())
+        var_2d = equation_system.get_variables([self.cv2], [g_2d])
+        x[equation_system.dofs_of(var_2d)] = cell_val_2d
         for g in g_1d:
-            x[dof_manager.grid_and_variable_to_dofs(g, self.cv1)] = cell_val_1d[g]
+            var_1d = equation_system.get_variables([self.cv1], [g])
+            x[equation_system.dofs_of(var_1d)] = cell_val_1d[g]
             intf = mdg.subdomain_pair_to_interface((g_2d, g))
-            x[dof_manager.grid_and_variable_to_dofs(intf, self.mv)] = cell_val_mortar[g]
+            var_mortar = equation_system.get_variables([self.mv], [intf])
+            x[equation_system.dofs_of(var_mortar)] = cell_val_mortar[g]
 
         # Keep track of the previous values for each grid.
         # Not needed in 2d, where no updates are expected
@@ -862,10 +870,8 @@ class VariableMappingInitializationUnderPropagation:
             x_new = model._map_variables(x)
 
             # The values of the 2d cell should not change
-            assert np.all(
-                x_new[dof_manager.grid_and_variable_to_dofs(g_2d, self.cv2)]
-                == cell_val_2d
-            )
+
+            assert np.all(x_new[equation_system.dofs_of(var_2d)] == cell_val_2d)
             # Also check that pp.TIME_STEP_SOLUTIONS and ITERATES has been correctly
             # updated
             d = mdg.subdomain_data(g_2d)
@@ -884,7 +890,8 @@ class VariableMappingInitializationUnderPropagation:
                 num_new_cells = split[g].size
 
                 # mapped variable
-                x_1d = x_new[dof_manager.grid_and_variable_to_dofs(g, self.cv1)]
+                var_1d = equation_system.get_variables([self.cv1], [g])
+                x_1d = x_new[equation_system.dofs_of(var_1d)]
 
                 # Extension of the 1d grid. All values should be 42 (see propagation
                 # class)
@@ -914,12 +921,11 @@ class VariableMappingInitializationUnderPropagation:
                 # correctly, we alter the true value (add 1), and update this both in
                 # the solution vector, time step solutions and previous iterate
                 # solutions
-                x_new[dof_manager.grid_and_variable_to_dofs(g, self.cv1)] = np.r_[
+                var_1d = equation_system.get_variables([self.cv1], [g])
+                x_new[equation_system.dofs_of(var_1d)] = np.r_[
                     val_1d_prev[g], extended_1d + 1
                 ]
-                val_1d_prev[g] = x_new[
-                    dof_manager.grid_and_variable_to_dofs(g, self.cv1)
-                ]
+                val_1d_prev[g] = x_new[equation_system.dofs_of(var_1d)]
                 val_1d_iterate_prev[g] = np.r_[val_1d_iterate_prev[g], extended_1d + 1]
 
                 pp.set_solution_values(
@@ -934,7 +940,8 @@ class VariableMappingInitializationUnderPropagation:
 
                 ## Check mortar grid - see 1d case above for comments
                 intf = mdg.subdomain_pair_to_interface((g_2d, g))
-                x_mortar = x_new[dof_manager.grid_and_variable_to_dofs(intf, self.mv)]
+                var_intf = equation_system.get_variables([self.mv], [intf])
+                x_mortar = x_new[equation_system.dofs_of(var_intf)]
 
                 sz = int(np.round(val_mortar_prev[g].size / 2))
 
@@ -963,15 +970,13 @@ class VariableMappingInitializationUnderPropagation:
                     pp.get_solution_values(name=self.mv, data=d, iterate_index=0)
                     == truth_iterate
                 )
-                x_new[dof_manager.grid_and_variable_to_dofs(intf, self.mv)] = np.r_[
+                x_new[equation_system.dofs_of(var_intf)] = np.r_[
                     val_mortar_prev[g][:sz],
                     np.full(var_sz_mortar * num_new_cells, 43),
                     val_mortar_prev[g][sz : 2 * sz],
                     np.full(var_sz_mortar * num_new_cells, 43),
                 ]
-                val_mortar_prev[g] = x_new[
-                    dof_manager.grid_and_variable_to_dofs(intf, self.mv)
-                ]
+                val_mortar_prev[g] = x_new[equation_system.dofs_of(var_intf)]
                 val_mortar_iterate_prev[g] = np.r_[
                     val_mortar_iterate_prev[g][:sz],
                     np.full(var_sz_mortar * num_new_cells, 43),
