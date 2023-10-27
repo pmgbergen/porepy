@@ -1243,6 +1243,31 @@ class EquationSystem:
         else:
             raise ValueError(f"Cannot remove unknown equation {name}")
 
+    def update_variable_num_dofs(self) -> None:
+        """Update the count of degrees of freedom related to a MixedDimensionalGrid.
+
+        The method loops through the variables and updates the number of fine-scale
+        degree of freedom. The system size will be updated if the grid has changed or
+        (perhaps less realistically) a variable has had its number of dofs per grid
+        quantity changed.
+
+        """
+        for var, ind in self._variable_numbers.items():
+            # Grid quantity (grid or interface), and variable
+            grid = var.domain
+
+            dof = self._variable_dof_type[var]
+            num_dofs: int = grid.num_cells * dof.get("cells", 0)  # type: ignore
+
+            if isinstance(grid, pp.Grid):
+                # Add dofs on faces and nodes, but not on interfaces
+                num_dofs += grid.num_faces * dof.get(
+                    "faces", 0
+                ) + grid.num_nodes * dof.get("nodes", 0)
+
+            # Update local counting
+            self._variable_num_dofs[ind] = num_dofs
+
     ### System assembly and discretization ----------------------------------------------------
 
     @staticmethod
