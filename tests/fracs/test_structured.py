@@ -2,6 +2,7 @@
 import numpy as np
 import pytest
 
+import porepy as pp
 from porepy.fracs import structured
 
 
@@ -194,7 +195,7 @@ def test_structured_meshing(data: dict, cart_grid: bool, perturb: bool):
         ),
     ],
 )
-def test_g_frac_pairs(f_set: list[np.ndarray], domain_size list, f_p_shape_true: list):
+def test_g_frac_pairs(f_set: list[np.ndarray], domain_size: list, f_p_shape_true: list):
     """Test that the correct number of fracture pairs are found.
     
     Parameters:
