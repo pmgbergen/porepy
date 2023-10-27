@@ -108,7 +108,6 @@ class TestUpwindCoupling:
                 if isinstance(rhs_loc[i], np.ndarray):
                     rhs[ib] = rhs_loc[i]
                 else:
-                    print("loc: ", rhs_loc)
                     rhs[ib] = np.array([rhs_loc[i]])
                 for j, jb in enumerate(dest):
                     lhs[ib, jb] = lhs_loc[i, j]
