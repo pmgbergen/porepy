@@ -238,6 +238,16 @@ class TestUpwindDiscretization:
         self._rhs_collection = rhs_market
 
     def _construct_discretization(self, sd, test_name, bc_type, angle, vector):
+        """Set up and discretize a transport problem with upwind boundary conditions.
+
+        Parameters:
+            sd (Grid): Grid on which to discretize.
+            test_name (str): Name of the test, used to retrieve flux and rotation data.
+            bc_type (str): Type of boundary condition, either "dir" or "neu".
+            angle (float): Angle of rotation of the flow field.
+            vector (np.ndarray): Vector around which to rotate the flow field.
+
+        """
         R = pp.map_geometry.rotation_matrix(angle, vector)
         flux = self._flux_collection[test_name]
         upwind_obj = pp.Upwind()
@@ -254,6 +264,11 @@ class TestUpwindDiscretization:
         return upwind_obj, data
 
     def _compose_algebraic_representation(self, sd, upwind_obj, data):
+        """Create discretization matrix and rhs vector from upwind object and data.
+        
+        This method essentially mimics the functionality of the assemble_matrix_rhs
+        method in the upwind discretization class.
+        """
         matrix_dictionary: dict[str, sps.spmatrix] = data[pp.DISCRETIZATION_MATRICES][
             upwind_obj.keyword
         ]
@@ -358,6 +373,9 @@ class TestUpwindDiscretization:
         ],
     )
     def test_discretization(self, test_name, grid_type, bc_type, n_cells, phys_dims):
+        """Test the discretization matrix and delta_t for a single grid."""
+
+        # create grid and discretize
         angle, vector = self._rotation_data_collection[test_name]
         sd = self._create_grid(grid_type, n_cells, phys_dims, angle, vector)
         upwind_obj, data = self._construct_discretization(
