@@ -139,11 +139,6 @@ from porepy.numerics.vem.vem_source import DualScalarSource
 
 # Finite elements, elliptic
 from porepy.numerics.fem.rt0 import RT0
-
-from porepy.numerics.mixed_dim import assembler_filters
-from porepy.numerics.mixed_dim.dof_manager import DofManager
-from porepy.numerics.mixed_dim.assembler import Assembler
-
 import porepy.numerics
 
 # Transport related
