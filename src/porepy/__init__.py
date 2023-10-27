@@ -139,14 +139,6 @@ from porepy.numerics.vem.vem_source import DualScalarSource
 
 # Finite elements, elliptic
 from porepy.numerics.fem.rt0 import RT0
-
-# Mixed-dimensional discretizations and assemblers
-from porepy.numerics.interface_laws.elliptic_interface_laws import (
-    RobinCoupling,
-    FluxPressureContinuity,
-    WellCoupling,
-)
-
 import porepy.numerics
 
 # Transport related

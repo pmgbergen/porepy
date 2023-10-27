@@ -12,20 +12,53 @@ import porepy as pp
 
 
 class Mpfa(pp.FVElliptic):
+    """Implementation of the multi-point flux approximation O-method.
+
+    The method can be used directly on a single grid, by calling ``:meth:discretize``
+    followed by ``:meth:assemble_matrix_rhs``, which will produce a linear system
+    corresponding to the discretization of the second order elliptic equation, to be
+    solved for the cell center values of the pressure.
+
+    The method can also be used as a discretization method for a mixed-dimensional
+    problem, but it is recommended to do so through the Ad framework, specifically via
+    the wrapper class ``:class:porepy.numerics.ad.discretization.MpfaAd``. Likewise, the
+    Ad framework is the recommended way to use the method for multiphysics problems, on
+    both single and mixed-dimensional grids.
+
+    The discretization is stored as a set of matrices in the dictionary
+    ``data[pp.DISCRETIZATION_MATRICES][self.keyword]``, see ``:meth:discretize`` for
+    details. The most important of these are the ``flux`` matrix, which is the
+    transmissibility matrix, and the ``bound_flux`` matrix, which is the discretization
+    of the boundary conditions. Documentation on how to use these matrices to assemble a
+    linear system can be found ``:meth:assemble_matrix_rhs``. In addition, the
+    discretization provides two matrices, ``bound_pressure_cell`` and
+    ``bound_pressure_face`` that together form a reconstruction of the pressure trace at
+    boundaries (external and internal). These can be computed by calling
+
+    .. code-block:: Python
+        bc_values = ... # Boundary condition values, can be a combination of Dirichlet
+                        # and Neumann conditions
+        
+        p_cell_center = ... # Compute cell center pressures
+        bound_pressure_cell = data[pp.DISCRETIZATION_MATRICES][self.keyword][
+            self.bound_pressure_cell_matrix_key
+        ]  # Fetch the discretization matrix, see discretize() for details
+        # Do the same for bound_pressure_face
+
+        # Compute the pressure trace p_trace = bound_pressure_cell * p_cell_center +
+        bound_pressure_face * bc_values
+
+    This reconstruction can be decomposed into the value of the pressure in the cell
+    next to the boundary face, and a correction term which consists of the pressure
+    gradient dotted with the distance vector from the cell center to the boundary face.
+    The cell center pressure is contained in the first term (``bound_pressure_cell *
+    p_cell_center``), while the correction term is contained in both matrices, since
+    the gradient is determined both by cell center values and boundary values.
+
+    """
+
     def __init__(self, keyword: str) -> None:
         super(pp.Mpfa, self).__init__(keyword)
-
-    def ndof(self, sd: pp.Grid) -> int:
-        """Return the number of degrees of freedom associated to the method.
-
-        Parameters:
-            sd: A grid.
-
-        Returns:
-            The number of degrees of freedom.
-
-        """
-        return sd.num_cells
 
     def discretize(self, sd: pp.Grid, data: dict) -> None:
         """Discretize the second order elliptic equation using multi-point flux
