@@ -309,15 +309,35 @@ class _MpfaSetup(abc.ABC):
         }
         return pp.initialize_default_data(g, {}, "flow", specified_parameters)
 
-    def error_p(self, g, p):
+    def error_p(self, g: pp.Grid, p: np.ndarray) -> float:
+        """Compute the L2 error of the computed solution.
+
+        Parameters:
+            g: Grid used in the computation.
+            p: The computed solution.
+
+        Returns:
+            The L2 error.
+        """
         sol = np.array([self.solution(*pt) for pt in g.cell_centers.T])
         return np.sqrt(np.sum(np.power(np.abs(p - sol), 2) * g.cell_volumes))
 
-    def main(self, N: int, R: Optional[sps.spmatrix] = None):
-        # Set up a problem, solve it, and compute the error.
+    def main(self, N: int, R: Optional[sps.spmatrix] = None) -> tuple[float, float]:
+        """Set up and solve the problem, and compute the error.
+        
+        Parameters:
+            N: Number of cells in each direction.
+            R: Rotation matrix, if the grid is to be rotated out of the xy-plane.
+
+        Returns:
+            diam: The diameter of the grid, measured as the maximum cell diameter.
+            error: The error of the computed solution.
+
+        """
+        # Same number of cells in each direction
         Nx = Ny = N
 
-        # Create grid, rotate if necessary
+        # Create grid and rotate the geometry
         g = pp.StructuredTriangleGrid([Nx, Ny], [1, 1])
         if R is not None:
             g.nodes = R.dot(g.nodes)
@@ -338,6 +358,7 @@ class _MpfaSetup(abc.ABC):
         # The right hand side is a combination of the source term and the boundary term.
         p = scipy.sparse.linalg.spsolve(A, b_flux + b_source)
 
+        # Maximum cell diameter.
         diam = np.amax(g.cell_diameters())
         return diam, self.error_p(g, p)
 
