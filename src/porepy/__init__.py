@@ -140,13 +140,6 @@ from porepy.numerics.vem.vem_source import DualScalarSource
 # Finite elements, elliptic
 from porepy.numerics.fem.rt0 import RT0
 
-# Mixed-dimensional discretizations and assemblers
-from porepy.numerics.interface_laws.elliptic_interface_laws import (
-    RobinCoupling,
-    FluxPressureContinuity,
-    WellCoupling,
-)
-
 from porepy.numerics.mixed_dim import assembler_filters
 from porepy.numerics.mixed_dim.dof_manager import DofManager
 from porepy.numerics.mixed_dim.assembler import Assembler

@@ -42,8 +42,6 @@ __all__ = [
     "MpfaAd",
     "TpfaAd",
     "UpwindAd",
-    "RobinCouplingAd",
-    "WellCouplingAd",
     "UpwindCouplingAd",
     "DifferentiableFVAd",
 ]
@@ -245,47 +243,6 @@ class UpwindAd(Discretization):
         self.bound_transport_dir: MergedOperator
         self.bound_transport_neu: MergedOperator
         wrap_discretization(self, self._discretization, subdomains=subdomains)
-
-
-## Interface coupling discretizations
-
-
-class WellCouplingAd(Discretization):
-    def __init__(self, keyword: str, interfaces: list[pp.MortarGrid]) -> None:
-        self.interfaces = interfaces
-        self._discretization = pp.WellCoupling(keyword, primary_keyword=keyword)
-        self._name = "Well interface coupling"
-        self.keyword = keyword
-
-        self.well_discr: MergedOperator
-        self.well_vector_source: MergedOperator
-        wrap_discretization(self, self._discretization, interfaces=interfaces)
-
-    def __repr__(self) -> str:
-        s = (
-            f"Ad discretization of type {self._name}."
-            f"Defined on {len(self.interfaces)} interfaces."
-        )
-        return s
-
-
-class RobinCouplingAd(Discretization):
-    def __init__(self, keyword: str, interfaces: list[pp.MortarGrid]) -> None:
-        self.interfaces = interfaces
-        self._discretization = pp.RobinCoupling(keyword, primary_keyword=keyword)
-        self._name = "Robin interface coupling"
-        self.keyword = keyword
-
-        self.mortar_discr: MergedOperator
-        self.mortar_vector_source: MergedOperator
-        wrap_discretization(self, self._discretization, interfaces=interfaces)
-
-    def __repr__(self) -> str:
-        s = (
-            f"Ad discretization of type {self._name}."
-            f"Defined on {len(self.interfaces)} interfaces."
-        )
-        return s
 
 
 class UpwindCouplingAd(Discretization):
