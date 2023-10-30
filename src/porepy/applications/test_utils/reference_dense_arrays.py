@@ -2037,7 +2037,6 @@ _dir_inds = np.array(
 )
 test_fvutils = {"test_bound_exclusion": {"neu_inds": _neu_inds, "dir_inds": _dir_inds}}
 
-
 test_upwind_coupling_2d_1d_lhs = np.array(
     [
         [
@@ -2761,7 +2760,7 @@ test_upwind_coupling_3d_2d_1d_0d_theta = np.array(
     ]
 )
 
-test_upwind_coupling = {
+test_upwind_coupling: dict[str, dict] =  {
     "test_2d_1d": {
         "lhs": test_upwind_coupling_2d_1d_lhs,
         "rhs": test_upwind_coupling_2d_1d_rhs,
@@ -2776,4 +2775,170 @@ test_upwind_coupling = {
         "rhs": test_upwind_coupling_3d_2d_1d_0d_rhs,
         "theta": test_upwind_coupling_3d_2d_1d_0d_theta,
     },
+
+# test_partition.py
+test_partition: dict[str, dict] = {"test_cartesian_grids": {}}
+test_partition["test_cartesian_grids"]["4_10"] = {
+    "p_known": np.array(
+        [
+            [0, 0, 1, 1],
+            [0, 0, 1, 1],
+            [0, 0, 1, 1],
+            [2, 2, 3, 3],
+            [2, 2, 3, 3],
+            [2, 2, 3, 3],
+            [4, 4, 5, 5],
+            [4, 4, 5, 5],
+            [4, 4, 5, 5],
+            [4, 4, 5, 5],
+        ]
+    ).ravel("C")
+}
+test_partition["test_cartesian_grids"]["4_4_4"] = {
+    "p_known": np.array(
+        [
+            [0, 0, 1, 1],
+            [0, 0, 1, 1],
+            [2, 2, 3, 3],
+            [2, 2, 3, 3],
+            [0, 0, 1, 1],
+            [0, 0, 1, 1],
+            [2, 2, 3, 3],
+            [2, 2, 3, 3],
+            [4, 4, 5, 5],
+            [4, 4, 5, 5],
+            [6, 6, 7, 7],
+            [6, 6, 7, 7],
+            [4, 4, 5, 5],
+            [4, 4, 5, 5],
+            [6, 6, 7, 7],
+            [6, 6, 7, 7],
+        ]
+    ).ravel("C")
+}
+test_partition["test_cartesian_grids"]["6_5_4"] = {
+    "p_known": np.array(
+        [
+            0,
+            0,
+            1,
+            1,
+            2,
+            2,
+            0,
+            0,
+            1,
+            1,
+            2,
+            2,
+            3,
+            3,
+            4,
+            4,
+            5,
+            5,
+            3,
+            3,
+            4,
+            4,
+            5,
+            5,
+            3,
+            3,
+            4,
+            4,
+            5,
+            5,
+            0,
+            0,
+            1,
+            1,
+            2,
+            2,
+            0,
+            0,
+            1,
+            1,
+            2,
+            2,
+            3,
+            3,
+            4,
+            4,
+            5,
+            5,
+            3,
+            3,
+            4,
+            4,
+            5,
+            5,
+            3,
+            3,
+            4,
+            4,
+            5,
+            5,
+            6,
+            6,
+            7,
+            7,
+            8,
+            8,
+            6,
+            6,
+            7,
+            7,
+            8,
+            8,
+            9,
+            9,
+            10,
+            10,
+            11,
+            11,
+            9,
+            9,
+            10,
+            10,
+            11,
+            11,
+            9,
+            9,
+            10,
+            10,
+            11,
+            11,
+            6,
+            6,
+            7,
+            7,
+            8,
+            8,
+            6,
+            6,
+            7,
+            7,
+            8,
+            8,
+            9,
+            9,
+            10,
+            10,
+            11,
+            11,
+            9,
+            9,
+            10,
+            10,
+            11,
+            11,
+            9,
+            9,
+            10,
+            10,
+            11,
+            11,
+        ]
+    )
 }
