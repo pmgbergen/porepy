@@ -6,7 +6,7 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
-from porepy.numerics.discretization import Discretization
+from porepy.numerics.discretization import Discretization, InterfaceDiscretization
 
 
 class Upwind(Discretization):
@@ -95,17 +95,6 @@ class Upwind(Discretization):
         bc_discr_neu: sps.spmatrix = matrix_dictionary[
             self.bound_transport_neu_matrix_key
         ]
-        # Scaling with the advective flux. This is included to stay compatible with the
-        # legacy contract for this function (e.g. it should assemble the discretization
-        # matrix for the full advection problem).
-        param_dictionary: dict = data[pp.PARAMETERS][self.keyword]
-
-        # The sign of the flux field was already accounted for in discretization,
-        # see self.discretization().
-        flux_arr: np.ndarray = param_dictionary[self._flux_array_key]
-        flux_mat = sps.dia_matrix((flux_arr, 0), shape=(sd.num_faces, sd.num_faces))
-
-        div: sps.spmatrix = pp.fvutils.scalar_divergence(sd)
 
         assert bc_discr_dir.shape == bc_discr_neu.shape
         if (
@@ -424,7 +413,7 @@ class Upwind(Discretization):
         return if_outflow_cells
 
 
-class UpwindCoupling:
+class UpwindCoupling(InterfaceDiscretization):
     def __init__(self, keyword: str) -> None:
         # Keywords for accessing discretization matrices
         self.keyword = keyword
