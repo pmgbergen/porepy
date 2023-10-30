@@ -6,9 +6,7 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
-import porepy.numerics.interface_laws.abstract_interface_law
 from porepy.numerics.discretization import Discretization
-from porepy.numerics.interface_laws.abstract_interface_law import AbstractInterfaceLaw
 
 
 class Upwind(Discretization):
@@ -426,11 +424,10 @@ class Upwind(Discretization):
         return if_outflow_cells
 
 
-class UpwindCoupling(AbstractInterfaceLaw):
+class UpwindCoupling:
     def __init__(self, keyword: str) -> None:
-        super().__init__(keyword)
-
         # Keywords for accessing discretization matrices
+        self.keyword = keyword
 
         # Trace operator for the primary grid
         self.trace_primary_matrix_key = "trace"
