@@ -2760,7 +2760,7 @@ test_upwind_coupling_3d_2d_1d_0d_theta = np.array(
     ]
 )
 
-test_upwind_coupling: dict[str, dict] =  {
+test_upwind_coupling: dict[str, dict] = {
     "test_2d_1d": {
         "lhs": test_upwind_coupling_2d_1d_lhs,
         "rhs": test_upwind_coupling_2d_1d_rhs,
@@ -2775,6 +2775,7 @@ test_upwind_coupling: dict[str, dict] =  {
         "rhs": test_upwind_coupling_3d_2d_1d_0d_rhs,
         "theta": test_upwind_coupling_3d_2d_1d_0d_theta,
     },
+}
 
 # test_partition.py
 test_partition: dict[str, dict] = {"test_cartesian_grids": {}}
