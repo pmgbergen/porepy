@@ -38,7 +38,7 @@ class Mpfa(pp.FVElliptic):
     .. code-block:: Python
         bc_values = ... # Boundary condition values, can be a combination of Dirichlet
                         # and Neumann conditions
-        
+
         p_cell_center = ... # Compute cell center pressures
         bound_pressure_cell = data[pp.DISCRETIZATION_MATRICES][self.keyword][
             self.bound_pressure_cell_matrix_key
