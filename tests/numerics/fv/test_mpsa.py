@@ -13,21 +13,21 @@ Content:
     - Test that the discretization reproduces expected values on 2d grids.
 
 """
+from math import pi
+
 import numpy as np
 import pytest
 import scipy.sparse as sps
-
-from math import pi
-import sympy
 import scipy.sparse.linalg as spla
+import sympy
+
 import porepy as pp
+from porepy.applications.test_utils import common_xpfa_tests as xpfa_tests
+from porepy.applications.test_utils import reference_dense_arrays
 from porepy.applications.test_utils.partial_discretization import (
     perform_partial_discretization_specified_nodes,
 )
 from porepy.grids.standard_grids.utils import unit_domain
-from porepy.applications.test_utils import reference_dense_arrays
-from porepy.applications.test_utils import common_xpfa_tests as xpfa_tests
-
 
 keyword = "mechanics"
 
@@ -233,10 +233,11 @@ def test_partial_discretization_one_cell_at_a_time():
 
 
 class TestMpsaExactReproduction:
-    """ Test that the discretization reproduces the expected behavior for uniform
+    """Test that the discretization reproduces the expected behavior for uniform
     strain, homogeneous conditions and other cases where the method should be exact.
-    
-    """    
+
+    """
+
     def solve(
         self,
         g: pp.Grid,

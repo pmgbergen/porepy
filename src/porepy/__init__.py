@@ -160,7 +160,7 @@ import porepy.numerics
 
 # Transport related
 from porepy.numerics.fv.upwind import Upwind
-from porepy.numerics.interface_laws.hyperbolic_interface_laws import UpwindCoupling
+from porepy.numerics.fv.upwind import UpwindCoupling
 from porepy.numerics.fv.mass_matrix import MassMatrix
 from porepy.numerics.fv.mass_matrix import InvMassMatrix
 
