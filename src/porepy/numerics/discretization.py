@@ -119,4 +119,3 @@ class Discretization(abc.ABC):
 
         """
         pass
-
