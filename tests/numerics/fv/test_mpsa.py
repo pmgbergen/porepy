@@ -27,7 +27,6 @@ from porepy.applications.test_utils import reference_dense_arrays
 from porepy.applications.test_utils.partial_discretization import (
     perform_partial_discretization_specified_nodes,
 )
-from porepy.grids.standard_grids.utils import unit_domain
 
 keyword = "mechanics"
 
@@ -1064,7 +1063,9 @@ class RobinBoundTest:
         assert np.allclose(T, T_ex(np.arange(g.num_faces)).ravel("F"))
 
     def test_unstruct_tetrahedron(self):
-        network = pp.create_fracture_network([], unit_domain(3))
+        network = pp.create_fracture_network(
+            [], pp.md_grids.domains.unit_cube_domain(3)
+        )
         mesh_args = {"mesh_size_frac": 3, "mesh_size_min": 3}
         mdg = network.mesh(mesh_args)
         sd = mdg.subdomains(dim=3)[0]
