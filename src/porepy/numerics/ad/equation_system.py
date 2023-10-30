@@ -1254,7 +1254,7 @@ class EquationSystem:
         NOTE: This method is experimental and should be used with caution. After this
         method has been called, other attributes of the class that depend on the number
         of dofs (such as _equation_image_space_composition) will be outdated and should
-        be used with care. 
+        be used with care.
 
         """
         for var, ind in self._variable_numbers.items():

@@ -105,7 +105,11 @@ def test_copy_operator_tree():
     # This should not be strictly necessary - the above test should be sufficient,
     # but better safe than sorry.
     # Some boilerplate is needed before the expression can be evaluated.
-    mdg, _ = pp.grids.standard_grids.md_grids_2d.single_horizontal()
+    mdg, _ = pp.mdg_library.square_with_orthogonal_fractures(
+        "cartesian",
+        {"cell_size": 0.2},
+        fracture_indices=[1],
+    )
     eq_system = pp.ad.EquationSystem(mdg)
     eq_system.create_variables("foo", {"cells": 1}, mdg.subdomains())
     eq_system.set_variable_values(
@@ -245,7 +249,11 @@ def test_time_dependent_array():
 
     # Time-dependent arrays are defined on grids.
     # Some boilerplate is needed to define these.
-    mdg, _ = pp.grids.standard_grids.md_grids_2d.single_horizontal()
+    mdg, _ = pp.mdg_library.square_with_orthogonal_fractures(
+        "cartesian",
+        {"cell_size": 0.2},
+        fracture_indices=[1],
+    )
     for sd, sd_data in mdg.subdomains(return_data=True):
         vals_sol = np.zeros(sd.num_cells)
         pp.set_solution_values(
@@ -356,7 +364,11 @@ def test_ad_variable_creation():
     test_ad_variable_evaluation() (below).
 
     """
-    mdg, _ = pp.grids.standard_grids.md_grids_2d.single_horizontal()
+    mdg, _ = pp.mdg_library.square_with_orthogonal_fractures(
+        "cartesian",
+        {"cell_size": 0.2},
+        fracture_indices=[1],
+    )
     eq_system = pp.ad.EquationSystem(mdg)
     eq_system.create_variables("foo", {"cells": 1}, mdg.subdomains())
 
@@ -750,7 +762,11 @@ def test_time_differentiation():
     # Create a MixedDimensionalGrid with two subdomains, one interface.
     # The highest-dimensional subdomain has both a variable and a time-dependent array,
     # while the lower-dimensional subdomain has only a variable.
-    mdg, _ = pp.grids.standard_grids.md_grids_2d.single_horizontal()
+    mdg, _ = pp.mdg_library.square_with_orthogonal_fractures(
+        "cartesian",
+        {"cell_size": 0.5},
+        fracture_indices=[1],
+    )
     for sd, sd_data in mdg.subdomains(return_data=True):
         if sd.dim == mdg.dim_max():
             vals_sol_foo = -np.ones(sd.num_cells)
