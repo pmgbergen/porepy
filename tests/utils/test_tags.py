@@ -176,7 +176,11 @@ def test_face_and_node_tags_for_non_fractured_domains(g, known_faces, known_node
 
 def test_tag_2d_1d_cartesian_with_one_fracture():
     """Testing tags for 2d domain with a 1d fracture."""
-    mdg, _ = pp.md_grids_2d.single_horizontal([4, 4], simplex=False)
+    mdg, _ = pp.mdg_library.square_with_orthogonal_fractures(
+        "cartesian",
+        {"cell_size": 1 / 4},
+        fracture_indices=[1],
+    )
 
     for sd in mdg.subdomains():
         if sd.dim == 1:

@@ -95,7 +95,6 @@ from porepy.grids.simplex import StructuredTriangleGrid, StructuredTetrahedralGr
 from porepy.grids.point_grid import PointGrid
 from porepy.grids.boundary_grid import BoundaryGrid
 from porepy.grids import match_grids
-from porepy.grids.standard_grids import md_grids_2d, md_grids_3d
 from porepy.grids import grid_extrusion
 from porepy.utils import grid_utils
 from porepy.utils import adtree
@@ -217,6 +216,12 @@ from porepy.utils.default_domains import (
 )
 
 # Applications
-from porepy.applications.md_grids import model_geometries
+from porepy.applications.md_grids import (
+    model_geometries,
+    mdg_library,
+    domains,
+    fracture_sets,
+)
 from porepy.applications.boundary_conditions import model_boundary_conditions
 from porepy.applications import test_utils
+from porepy import applications

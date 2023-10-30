@@ -595,14 +595,15 @@ class TestGmshTags:
             [constraint_end_0, constraint_end_1],
         )
 
-    @pytest.mark.parametrize(
-        "mesh_args", [{"mesh_size_frac": 1}, {"mesh_size_frac": 0.25}]
-    )
-    def test_single_fracture(self, mesh_args):
+    @pytest.mark.parametrize("cell_size", [1, 0.25])
+    def test_single_fracture(self, cell_size):
         frac_start = np.array([[0.25], [0.5]])
         frac_end = np.array([[0.75], [0.5]])
-        mdg, _ = pp.md_grids_2d.single_horizontal(
-            mesh_args, x_endpoints=np.array([0.25, 0.75])
+        mdg, _ = pp.mdg_library.square_with_orthogonal_fractures(
+            "simplex",
+            meshing_args={"cell_size": cell_size},
+            fracture_indices=[1],
+            fracture_endpoints=[np.array([0.25, 0.75])],
         )
         g = mdg.subdomains(dim=2)[0]
 
