@@ -19,6 +19,7 @@ import pytest
 
 import porepy as pp
 from porepy.applications.convergence_analysis import ConvergenceAnalysis
+from porepy.applications.md_grids.mdg_library import square_with_orthogonal_fractures
 from porepy.models.fluid_mass_balance import SinglePhaseFlow
 from porepy.utils.txt_io import read_data_from_txt
 from porepy.viz.data_saving_model_mixin import VerificationDataSaving
@@ -768,9 +769,6 @@ class TestExportErrors:
 
         os.remove("error_analysis.txt")
 
-
-import porepy as pp
-from porepy.applications.md_grids.mdg_library import square_with_orthogonal_fractures
 
 @pytest.fixture(scope="module")
 def grids() -> list[pp.Grid, pp.MortarGrid]:
