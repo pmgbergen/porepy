@@ -483,9 +483,13 @@ class TestMixedDimensionalUpwind:
 
         """
 
+        # Objects such as grids and interface grids are perfectly hashable. In order to
+        # perform block scatter operations, we have compiled a list of hashes here to
+        # create an integer-based indexation map.
         sd_hashes = [hash(sd) for sd in mdg.subdomains()]
         intf_hashes = [hash(intf) for intf in mdg.interfaces()]
         hashes = sd_hashes + intf_hashes
+
         n_blocks = len(hashes)
         lhs = np.empty((n_blocks, n_blocks), dtype=sps.csr_matrix)
         rhs = np.empty(n_blocks, dtype=object)
@@ -512,7 +516,10 @@ class TestMixedDimensionalUpwind:
             rhs_loc[0] = h_rhs
             rhs_loc[1] = l_rhs
 
-            # block scatter lhs and rhs
+            # block scatter
+            # The block scatter operation takes the discretization matrix associated with
+            # each subdomain and inserts it into a sparse block structure (lhs and rhs) to
+            # construct the final algebraic representation.
             h_idx = hashes.index(hash(h_sd))
             l_idx = hashes.index(hash(l_sd))
             i_idx = hashes.index(hash(intf))
@@ -525,6 +532,7 @@ class TestMixedDimensionalUpwind:
                 for j, jb in enumerate(dest):
                     lhs[ib, jb] = lhs_loc[i, j]
 
+        # The final algebraic representation
         lhs = bmat(lhs)
         rhs = np.concatenate(rhs)
         return lhs, rhs
