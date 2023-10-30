@@ -34,9 +34,12 @@ def orthogonal_fractures_2d(
         fracture_endpoints = [np.array([0, size]), np.array([0, size])]
     # Prepare for stacking.
     fracture_endpoints = [pts.reshape((1, 2)) for pts in fracture_endpoints]
+
     constant_coords = np.array([0.5, 0.5]).reshape((1, 2)) * size
     pts = []
+    # First fracture has constant x coordinate equal to size / 2, y coordinate varies.
     pts.append(np.vstack((constant_coords, fracture_endpoints[0])))
+    # Second fracture has constant y coordinate equal to size / 2, x coordinate varies.
     pts.append(np.vstack((fracture_endpoints[1], constant_coords)))
     return [pp.LineFracture(pts[i]) for i in range(2)]
 
