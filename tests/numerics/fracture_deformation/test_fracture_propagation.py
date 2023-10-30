@@ -116,21 +116,6 @@ def retrieve_md_targets_cells_and_angles(case: int):
     return mdg, targets, angles
 
 
-def grid_2d_1d(nx=[2, 2], x_start=0, x_stop=1):
-    """
-    Make the simplest possible fractured grid: 2d unit square with one
-    horizontal fracture extending from 0 to fracture_x <= 1.
-
-    """
-    eps = 1e-10
-    assert x_stop < 1 + eps and x_stop > -eps
-    assert x_start < 1 + eps and x_stop > -eps
-
-    f = np.array([[x_start, x_stop], [0.5, 0.5]])
-    mdg = pp.meshing.cart_grid([f], nx, **{"physdims": [1, 1]})
-    return mdg
-
-
 def grid_3d_2d(nx=[2, 2, 2], x_start=0, x_stop=1):
     """
     Make the simplest possible fractured grid: 2d unit square with one
@@ -259,11 +244,31 @@ class TestFaceSplittingHostGrid:
         4 grown in two steps
         """
 
-        # Generate grid buckets
-        mdg_1 = grid_2d_1d([4, 2], 0, 0.75)
-        mdg_2 = grid_2d_1d([4, 2], 0, 0.25)
-        mdg_3 = grid_2d_1d([4, 2], 0, 0.50)
-        mdg_4 = grid_2d_1d([4, 2], 0, 0.25)
+        # Generate mixed-dimensional grids
+        mdg_1, _ = pp.mdg_library.square_with_orthogonal_fractures(
+            "cartesian",
+            {"cell_size_x": 0.25, "cell_size_y": 0.5},
+            fracture_indices=[1],
+            fracture_endpoints=[np.array([0.0, 0.75])],
+        )
+        mdg_2, _ = pp.mdg_library.square_with_orthogonal_fractures(
+            "cartesian",
+            {"cell_size_x": 0.25, "cell_size_y": 0.5},
+            fracture_indices=[1],
+            fracture_endpoints=[np.array([0.0, 0.25])],
+        )
+        mdg_3, _ = pp.mdg_library.square_with_orthogonal_fractures(
+            "cartesian",
+            {"cell_size_x": 0.25, "cell_size_y": 0.5},
+            fracture_indices=[1],
+            fracture_endpoints=[np.array([0.0, 0.5])],
+        )
+        mdg_4, _ = pp.mdg_library.square_with_orthogonal_fractures(
+            "cartesian",
+            {"cell_size_x": 0.25, "cell_size_y": 0.5},
+            fracture_indices=[1],
+            fracture_endpoints=[np.array([0.0, 0.25])],
+        )
 
         # Pick out the 1d grids in each bucket. These will be used to set which faces
         # in the 2d grid to split
@@ -717,7 +722,12 @@ class PropagationCriteria:
         if dim == 3:
             mdg = grid_3d_2d()
         else:
-            mdg = grid_2d_1d([4, 2], 0.25, 0.75)
+            mdg, _ = pp.mdg_library.square_with_orthogonal_fractures(
+                "cartesian",
+                {"cell_size_x": 0.25, "cell_size_y": 0.5},
+                fracture_indices=[1],
+                fracture_endpoints=[np.array([0.25, 0.75])],
+            )
         mdg.compute_geometry()
 
         pp.set_local_coordinate_projections(mdg)
