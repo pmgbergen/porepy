@@ -344,8 +344,8 @@ class TestGridFactory:
             "mesh_param": mesh_args,
         }
 
-        network_2d = pp.create_fracture_network(domain=unit_domain(2))
-        network_3d = pp.create_fracture_network(domain=unit_domain(3))
+        network_2d = pp.create_fracture_network(domain=pp.domains.unit_cube_domain(dimension=2))
+        network_3d = pp.create_fracture_network(domain=pp.domains.unit_cube_domain(dimension=3))
 
         for network in [network_2d, network_3d]:
             factory = pp.refinement.GridSequenceFactory(network, params)
@@ -368,7 +368,7 @@ class TestGridFactory:
 
         # Add a single fracture to the network
         fracture = pp.LineFracture(np.array([[0.3, 0.7], [0.5, 0.5]]))
-        network = pp.create_fracture_network([fracture], unit_domain(2))
+        network = pp.create_fracture_network([fracture], pp.domains.unit_cube_domain(dimension=2))
 
         params = {
             "mode": "nested",
