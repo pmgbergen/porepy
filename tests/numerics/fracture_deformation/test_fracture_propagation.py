@@ -38,7 +38,6 @@ import scipy.sparse as sps
 import porepy as pp
 from porepy.fracs.fracture_network_2d import FractureNetwork2d
 from porepy.fracs.fracture_network_3d import FractureNetwork3d
-from tests.integration import setup_mixed_dimensional_grids as setup_mdg
 from tests.test_utils import compare_arrays
 
 FractureNetwork = Union[FractureNetwork2d, FractureNetwork3d]
@@ -115,6 +114,38 @@ def retrieve_md_targets_cells_and_angles(case: int):
         ]
 
     return mdg, targets, angles
+
+
+def grid_2d_1d(nx=[2, 2], x_start=0, x_stop=1):
+    """
+    Make the simplest possible fractured grid: 2d unit square with one
+    horizontal fracture extending from 0 to fracture_x <= 1.
+
+    """
+    eps = 1e-10
+    assert x_stop < 1 + eps and x_stop > -eps
+    assert x_start < 1 + eps and x_stop > -eps
+
+    f = np.array([[x_start, x_stop], [0.5, 0.5]])
+    mdg = pp.meshing.cart_grid([f], nx, **{"physdims": [1, 1]})
+    return mdg
+
+
+def grid_3d_2d(nx=[2, 2, 2], x_start=0, x_stop=1):
+    """
+    Make the simplest possible fractured grid: 2d unit square with one
+    horizontal fracture extending from 0 to fracture_x <= 1.
+
+    """
+    eps = 1e-10
+    assert x_stop < 1 + eps and x_stop > -eps
+    assert x_start < 1 + eps and x_stop > -eps
+
+    f = np.array(
+        [[x_start, x_stop, x_stop, x_start], [0.0, 0.0, 0.5, 0.5], [0.5, 0.5, 0.5, 0.5]]
+    )
+    mdg = pp.meshing.cart_grid([f], nx, **{"physdims": [1, 1, 1]})
+    return mdg
 
 
 @pytest.mark.parametrize("case", [1, 2, 3])
@@ -229,10 +260,10 @@ class TestFaceSplittingHostGrid:
         """
 
         # Generate grid buckets
-        mdg_1 = setup_mdg.grid_2d_1d([4, 2], 0, 0.75)
-        mdg_2 = setup_mdg.grid_2d_1d([4, 2], 0, 0.25)
-        mdg_3 = setup_mdg.grid_2d_1d([4, 2], 0, 0.50)
-        mdg_4 = setup_mdg.grid_2d_1d([4, 2], 0, 0.25)
+        mdg_1 = grid_2d_1d([4, 2], 0, 0.75)
+        mdg_2 = grid_2d_1d([4, 2], 0, 0.25)
+        mdg_3 = grid_2d_1d([4, 2], 0, 0.50)
+        mdg_4 = grid_2d_1d([4, 2], 0, 0.25)
 
         # Pick out the 1d grids in each bucket. These will be used to set which faces
         # in the 2d grid to split
@@ -260,10 +291,10 @@ class TestFaceSplittingHostGrid:
         4 grown in two steps
         """
         # Make buckets
-        mdg_1 = setup_mdg.grid_3d_2d([4, 2, 2], 0, 0.75)
-        mdg_2 = setup_mdg.grid_3d_2d([4, 2, 2], 0, 0.25)
-        mdg_3 = setup_mdg.grid_3d_2d([4, 2, 2], 0, 0.50)
-        mdg_4 = setup_mdg.grid_3d_2d([4, 2, 2], 0, 0.25)
+        mdg_1 = grid_3d_2d([4, 2, 2], 0, 0.75)
+        mdg_2 = grid_3d_2d([4, 2, 2], 0, 0.25)
+        mdg_3 = grid_3d_2d([4, 2, 2], 0, 0.50)
+        mdg_4 = grid_3d_2d([4, 2, 2], 0, 0.25)
 
         # Pick out the 2d grids in each bucket. These will be used to set which faces
         # in the 3d grid to split
@@ -684,9 +715,9 @@ class PropagationCriteria:
 
     def _make_grid(self, dim):
         if dim == 3:
-            mdg = setup_mdg.grid_3d_2d()
+            mdg = grid_3d_2d()
         else:
-            mdg = setup_mdg.grid_2d_1d([4, 2], 0.25, 0.75)
+            mdg = grid_2d_1d([4, 2], 0.25, 0.75)
         mdg.compute_geometry()
 
         pp.set_local_coordinate_projections(mdg)
