@@ -6,6 +6,7 @@ The main function is :func:`~porepy.grids.coarsening.coarsen`
 from __future__ import annotations
 
 from typing import Any, Optional, Union
+import warnings
 
 import numpy as np
 import scipy.sparse as sps
@@ -50,6 +51,8 @@ def coarsen(
         ValueError: If ``method`` is not among the supported options.
 
     """
+    msg = "This functionality is deprecated and will be removed in a future version"
+    warnings.warn(msg, DeprecationWarning)
 
     if method.lower() == "by_volume":
         partition = create_aggregations(g, **method_kwargs)
@@ -107,6 +110,9 @@ def generate_coarse_grid(
             This special structure is passed by :func:`coarsen`.
 
     """
+    msg = "This functionality is deprecated and will be removed in a future version"
+    warnings.warn(msg, DeprecationWarning)
+
     if isinstance(g, grid.Grid):
         if isinstance(subdiv, dict):
             # If the subdiv is a dictionary with g as a key (this can happen if we are
