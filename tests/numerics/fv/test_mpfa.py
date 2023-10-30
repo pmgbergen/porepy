@@ -11,24 +11,23 @@ Content:
     - Gravity related tests.
 
 """
-import random
 import abc
-
+import random
 from math import pi
+from typing import Optional
+
 import numpy as np
 import pytest
 import scipy
 import scipy.sparse as sps
 import sympy
-from typing import Optional
 
 import porepy as pp
 from porepy.applications.test_utils import common_xpfa_tests as xpfa_tests
+from porepy.applications.test_utils import reference_dense_arrays
 from porepy.applications.test_utils.partial_discretization import (
     perform_partial_discretization_specified_nodes,
 )
-from porepy.applications.test_utils import reference_dense_arrays
-
 
 """Utility methods."""
 
@@ -149,6 +148,7 @@ class TestMpfaReproduceKnownValues:
     of permeability fields, homogeneous and heterogeneous.
 
     """
+
     def chi(self, xcoord, ycoord):
         return np.logical_and(np.greater(xcoord, 0.5), np.greater(ycoord, 0.5))
 
@@ -252,14 +252,14 @@ class TestMpfaReproduceKnownValues:
 
 
 class _MpfaSetup(abc.ABC):
-    """Helper class for tests of Mpfa on tilted 2d grids. 
+    """Helper class for tests of Mpfa on tilted 2d grids.
 
-    The tests verify that the convergence rate between two grids is as expected, by 
+    The tests verify that the convergence rate between two grids is as expected, by
     comparing with a hard-coded known order. Failure to reproduce the known order
     means that something is wrong with the implementation. For this reason, one should
     be very careful with changing anything in this class or its subclasses, so as not to
     break the tests.
-    
+
     This class provide common setups, and subclasses with actual tests need to provide
     the analytical solution, the permeability, and the right hand side. The actual test
     is located in child classes, which implement the abstract methods of this class, and
@@ -324,7 +324,7 @@ class _MpfaSetup(abc.ABC):
 
     def main(self, N: int, R: Optional[sps.spmatrix] = None) -> tuple[float, float]:
         """Set up and solve the problem, and compute the error.
-        
+
         Parameters:
             N: Number of cells in each direction.
             R: Rotation matrix, if the grid is to be rotated out of the xy-plane.
@@ -372,7 +372,8 @@ class TestMpfaConvergenceVaryingPerm(_MpfaSetup):
     careful with changing anything in this class; in a sense, the test just is what it
     is.
 
-    """    
+    """
+
     def rhs(self, x, y, z):
         return (
             8.0
@@ -409,7 +410,8 @@ class TestMpfaConvergenceVaryingPermSurface(_MpfaSetup):
     careful with changing anything in this class; in a sense, the test just is what it
     is.
 
-    """     
+    """
+
     def rhs(self, x, y, z):
         return (
             7.0 * z * (x**2 + y**2 + 1.0)
@@ -451,7 +453,8 @@ class TestMpfaConvergenceVaryingPermSurface2(_MpfaSetup):
     careful with changing anything in this class; in a sense, the test just is what it
     is.
 
-    """     
+    """
+
     def rhs(self, x, y, z):
         return 8.0 * z * (125.0 * x**2 + 200.0 * y**2 + 425.0 * z**2 + 2.0)
 

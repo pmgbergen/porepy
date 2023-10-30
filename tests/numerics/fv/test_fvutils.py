@@ -15,8 +15,8 @@ import pytest
 import scipy.sparse as sps
 
 import porepy as pp
-from porepy.applications.test_utils.arrays import compare_arrays
 from porepy.applications.test_utils import reference_dense_arrays
+from porepy.applications.test_utils.arrays import compare_arrays
 from porepy.numerics.fv import fvutils
 
 
