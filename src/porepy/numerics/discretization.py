@@ -119,3 +119,33 @@ class Discretization(abc.ABC):
 
         """
         pass
+
+
+class InterfaceDiscretization(abc.ABC):
+    """Superclass for all interface discretizations"""
+
+    @abc.abstractmethod
+    def discretize(
+        self,
+        sd_primary: pp.Grid,
+        sd_secondary: pp.Grid,
+        intf: pp.MortarGrid,
+        data_primary: Dict,
+        data_secondary: Dict,
+        data_intf: Dict,
+    ) -> None:
+        """Discretize the interface law and store the discretization in the
+        interface data.
+
+        The discretization matrix will be stored in the data dictionary of this
+        interface.
+
+        Parameters:
+            sd_primary: Grid of the primary domanin.
+            sd_secondary: Grid of the secondary domain.
+            data_primary: Data dictionary for the primary domain.
+            data_secondary: Data dictionary for the secondary domain.
+            data_intf: Data dictionary for the interface between the domains.
+
+        """
+        pass

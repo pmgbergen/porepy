@@ -29,6 +29,7 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
+from porepy.utils.porepy_types import discretization_type
 
 from ._ad_utils import MergedOperator, wrap_discretization
 
@@ -57,10 +58,7 @@ class Discretization(abc.ABC):
     """
 
     def __init__(self) -> None:
-        self._discretization: Union[
-            "pp.numerics.discretization.Discretization",
-            "pp.numerics.interface_laws.abstract_interface_law.AbstractInterfaceLaw",
-        ]
+        self._discretization: discretization_type
         """The discretization object, which is wrapped by this class."""
         self.mat_dict_key: str
         """Keyword for matrix storage in the data dictionary."""
