@@ -407,6 +407,23 @@ class TestUpwind:
 
 
 class TestMixedDimensionalUpwind:
+    """Test the discretization and assembly functionality of the mixed-dimensional
+    upwind discretization.
+
+    The tests are based on the the following steps:
+        1. Specify a geometry and advection field
+        2. Discretize the mixed-dimensional problem
+        3. Assemble the discretization matrix and rhs vector for the md-problem.
+        4. Compare the result to a reference solution.
+
+    There is a tacit assumption that the order of the subdomains and interfaces in the
+    md-grid is the same as the order of the subdomains and interfaces in the reference
+    solution. In the md-grid, the order is dictated by the order in which fractures
+    are specified and fed to the meshing algorithm. If this ever changes, these tests
+    may break. Violations of this assumption will manifest as the assembled matrices
+    and rhs vectors being permuted.
+
+    """
 
     """Helper function for fill up dictionaries."""
 
@@ -419,6 +436,7 @@ class TestMixedDimensionalUpwind:
         for intf, data in mdg.interfaces(return_data=True):
             sd_primary, sd_secondary = mdg.interface_to_subdomain_pair(intf)
             data[pp.PRIMARY_VARIABLES] = {"lambda_u": {"cells": 1}}
+            # Use the old Assembler-style specification of the coupling discretization
             data[pp.COUPLING_DISCRETIZATION] = {
                 variable: {
                     sd_primary: (variable, term),
@@ -430,6 +448,7 @@ class TestMixedDimensionalUpwind:
     """Helper function for adding a vector flux for faces."""
 
     def _add_constant_darcy_flux(self, mdg, upwind, flux, a):
+        # Add a constant darcy flux to the subdomains and interfaces
         for sd, data in mdg.subdomains(return_data=True):
             aperture = np.ones(sd.num_cells) * np.power(a, mdg.dim_max() - sd.dim)
             data[pp.PARAMETERS]["transport"]["darcy_flux"] = upwind.darcy_flux(
@@ -459,7 +478,9 @@ class TestMixedDimensionalUpwind:
         """Create discretization matrix and rhs vector from mdg, upwind and
             upwind_coupling objects.
 
-        This method essentially mimics the functionality of the antiquated assembler class
+        This method essentially mimics the functionality of the antiquated assembler
+        class.
+
         """
 
         sd_hashes = [hash(sd) for sd in mdg.subdomains()]
@@ -509,6 +530,11 @@ class TestMixedDimensionalUpwind:
         return lhs, rhs
 
     def _assertion(self, lhs, rhs, theta, lhs_ref, rhs_ref, theta_ref):
+        """Check that the lhs, rhs and theta are close to the reference values.
+
+        See class documentation for a comment on the order of the subdomains and
+        interfaces.
+        """
         atol = rtol = 1e-15
         assert np.allclose(lhs, lhs_ref, rtol, atol)
         assert np.allclose(rhs, rhs_ref, rtol, atol)
