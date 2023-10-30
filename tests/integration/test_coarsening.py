@@ -1,5 +1,4 @@
 import sys
-import unittest
 
 import numpy as np
 import scipy.sparse as sps
@@ -7,32 +6,28 @@ import scipy.sparse as sps
 import porepy as pp
 from porepy.grids import coarsening as co
 
-# ------------------------------------------------------------------------------#
 
-
-class BasicsTest(unittest.TestCase):
-    # ------------------------------------------------------------------------------#
-
+class TestPartitioning:
     def test_coarse_grid_2d(self):
         g = pp.CartGrid([3, 2])
         g.compute_geometry()
         co.generate_coarse_grid(g, [5, 2, 2, 5, 2, 2])
 
-        self.assertTrue(g.num_cells == 2)
-        self.assertTrue(g.num_faces == 12)
-        self.assertTrue(g.num_nodes == 11)
+        assert g.num_cells == 2
+        assert g.num_faces == 12
+        assert g.num_nodes == 11
 
         pt = np.tile(np.array([2, 1, 0]), (g.nodes.shape[1], 1)).T
         find = np.isclose(pt, g.nodes).all(axis=0)
-        self.assertTrue(find.any() == False)
+        assert find.any() == False
 
         faces_cell0, _, orient_cell0 = sps.find(g.cell_faces[:, 0])
-        self.assertTrue(np.array_equal(faces_cell0, [1, 2, 4, 5, 7, 8, 10, 11]))
-        self.assertTrue(np.array_equal(orient_cell0, [-1, 1, -1, 1, -1, -1, 1, 1]))
+        assert np.array_equal(faces_cell0, [1, 2, 4, 5, 7, 8, 10, 11])
+        assert np.array_equal(orient_cell0, [-1, 1, -1, 1, -1, -1, 1, 1])
 
         faces_cell1, _, orient_cell1 = sps.find(g.cell_faces[:, 1])
-        self.assertTrue(np.array_equal(faces_cell1, [0, 1, 3, 4, 6, 9]))
-        self.assertTrue(np.array_equal(orient_cell1, [-1, 1, -1, 1, -1, 1]))
+        assert np.array_equal(faces_cell1, [0, 1, 3, 4, 6, 9])
+        assert np.array_equal(orient_cell1, [-1, 1, -1, 1, -1, 1])
 
         known = np.array(
             [
@@ -52,38 +47,34 @@ class BasicsTest(unittest.TestCase):
         )
 
         for f in np.arange(g.num_faces):
-            self.assertTrue(
-                np.array_equal(sps.find(g.face_nodes[:, f])[0], known[f, :])
-            )
-
-    # ------------------------------------------------------------------------------#
+            assert np.array_equal(sps.find(g.face_nodes[:, f])[0], known[f, :])
 
     def test_coarse_grid_3d(self):
         g = pp.CartGrid([2, 2, 2])
         g.compute_geometry()
         co.generate_coarse_grid(g, [0, 0, 0, 0, 1, 1, 2, 2])
 
-        self.assertTrue(g.num_cells == 3)
-        self.assertTrue(g.num_faces == 30)
-        self.assertTrue(g.num_nodes == 27)
+        assert g.num_cells == 3
+        assert g.num_faces == 30
+        assert g.num_nodes == 27
 
         faces_cell0, _, orient_cell0 = sps.find(g.cell_faces[:, 0])
         known = [0, 1, 2, 3, 8, 9, 10, 11, 18, 19, 20, 21, 22, 23, 24, 25]
-        self.assertTrue(np.array_equal(faces_cell0, known))
+        assert np.array_equal(faces_cell0, known)
         known = [-1, 1, -1, 1, -1, -1, 1, 1, -1, -1, -1, -1, 1, 1, 1, 1]
-        self.assertTrue(np.array_equal(orient_cell0, known))
+        assert np.array_equal(orient_cell0, known)
 
         faces_cell1, _, orient_cell1 = sps.find(g.cell_faces[:, 1])
         known = [4, 5, 12, 13, 14, 15, 22, 23, 26, 27]
-        self.assertTrue(np.array_equal(faces_cell1, known))
+        assert np.array_equal(faces_cell1, known)
         known = [-1, 1, -1, -1, 1, 1, -1, -1, 1, 1]
-        self.assertTrue(np.array_equal(orient_cell1, known))
+        assert np.array_equal(orient_cell1, known)
 
         faces_cell2, _, orient_cell2 = sps.find(g.cell_faces[:, 2])
         known = [6, 7, 14, 15, 16, 17, 24, 25, 28, 29]
-        self.assertTrue(np.array_equal(faces_cell2, known))
+        assert np.array_equal(faces_cell2, known)
         known = [-1, 1, -1, -1, 1, 1, -1, -1, 1, 1]
-        self.assertTrue(np.array_equal(orient_cell2, known))
+        assert np.array_equal(orient_cell2, known)
 
         known = np.array(
             [
@@ -121,11 +112,7 @@ class BasicsTest(unittest.TestCase):
         )
 
         for f in np.arange(g.num_faces):
-            self.assertTrue(
-                np.array_equal(sps.find(g.face_nodes[:, f])[0], known[f, :])
-            )
-
-    # ------------------------------------------------------------------------------#
+            assert np.array_equal(sps.find(g.face_nodes[:, f])[0], known[f, :])
 
     def test_coarse_grid_2d_1d(self):
         part = np.array([0, 0, 1, 1, 2, 0, 3, 1])
@@ -140,9 +127,7 @@ class BasicsTest(unittest.TestCase):
 
         for intf in mdg.interfaces():
             faces = sps.find(intf.primary_to_mortar_int())[1]
-            self.assertTrue(np.array_equal(faces, known))
-
-    # ------------------------------------------------------------------------------#
+            assert np.array_equal(faces, known)
 
     def test_coarse_grid_2d_1d_cross(self):
         # NOTE: Since for python 2.7 and 3.5 the meshes in gridbucket may have
@@ -199,9 +184,7 @@ class BasicsTest(unittest.TestCase):
                     else:
                         raise ValueError("Grid not found")
 
-                self.assertTrue(np.array_equal(faces, known))
-
-    # ------------------------------------------------------------------------------#
+                assert np.array_equal(faces, known)
 
     def test_coarse_grid_3d_2d(self):
         f = np.array([[2.0, 2.0, 2.0, 2.0], [0.0, 2.0, 2.0, 0.0], [0.0, 0.0, 2.0, 2.0]])
@@ -221,10 +204,8 @@ class BasicsTest(unittest.TestCase):
         for intf in mdg.interfaces():
             indices, faces, _ = sps.find(intf.primary_to_mortar_int())
 
-            self.assertTrue(np.array_equal(indices, known_indices))
-            self.assertTrue(np.array_equal(faces, known))
-
-    # ------------------------------------------------------------------------------#
+            assert np.array_equal(indices, known_indices)
+            assert np.array_equal(faces, known)
 
     def test_coarse_grid_3d_2d_cross(self):
         # NOTE: Since for python 2.7 and 3.5 the meshes in gridbucket may have
@@ -644,10 +625,8 @@ class BasicsTest(unittest.TestCase):
                     else:
                         raise ValueError("Grid not found")
 
-                self.assertTrue(np.array_equal(indices, np.array(known_indices)))
-                self.assertTrue(np.array_equal(faces, np.array(known)))
-
-    # ------------------------------------------------------------------------------#
+                assert np.array_equal(indices, np.array(known_indices))
+                assert np.array_equal(faces, np.array(known))
 
     def test_create_partition_2d_cart(self):
         g = pp.CartGrid([5, 5])
@@ -657,9 +636,7 @@ class BasicsTest(unittest.TestCase):
             [0, 0, 0, 1, 1, 0, 0, 2, 1, 1, 3, 2, 2, 2, 1, 3, 3, 2, 4, 4, 3, 3, 4, 4, 4]
         )
         part = next(iter(part.values()))[1]
-        self.assertTrue(np.array_equal(part, known))
-
-    # ------------------------------------------------------------------------------#
+        assert np.array_equal(part, known)
 
     def test_create_partition_2d_tri(self):
         g = pp.StructuredTriangleGrid([3, 2])
@@ -668,9 +645,7 @@ class BasicsTest(unittest.TestCase):
         known = np.array([1, 1, 1, 0, 0, 1, 0, 2, 2, 0, 2, 2])
         known_map = np.array([4, 3, 7, 5, 11, 8, 1, 2, 10, 6, 12, 9]) - 1
         part = next(iter(part.values()))[1]
-        self.assertTrue(np.array_equal(part, known[known_map]))
-
-    # ------------------------------------------------------------------------------#
+        assert np.array_equal(part, known[known_map])
 
     def test_create_partition_2d_cart_cdepth4(self):
         g = pp.CartGrid([10, 10])
@@ -784,9 +759,7 @@ class BasicsTest(unittest.TestCase):
             - 1
         )
         part = next(iter(part.values()))[1]
-        self.assertTrue(np.array_equal(part, known))
-
-    # ------------------------------------------------------------------------------#
+        assert np.array_equal(part, known)
 
     def test_create_partition_3d_cart(self):
         g = pp.CartGrid([4, 4, 4])
@@ -864,12 +837,14 @@ class BasicsTest(unittest.TestCase):
             - 1
         )
         part = next(iter(part.values()))[1]
-        self.assertTrue(np.array_equal(part, known))
-
-    # ------------------------------------------------------------------------------#
+        assert np.array_equal(part, known)
 
     def test_create_partition_2d_1d_test0(self):
-        mdg, _ = pp.md_grids_2d.single_horizontal([2, 2], simplex=False)
+        mdg, _ = pp.mdg_library.square_with_orthogonal_fractures(
+            "cartesian",
+            meshing_args={"cell_size": 1 / 2},
+            fracture_indices=[1],
+        )
 
         part = co.create_partition(co._tpfa_matrix(mdg), mdg)
         co.generate_coarse_grid(mdg, part)
@@ -880,14 +855,15 @@ class BasicsTest(unittest.TestCase):
 
         for intf in mdg.interfaces():
             indices, faces, _ = sps.find(intf.primary_to_mortar_int())
-            self.assertTrue(np.array_equal(faces, known))
-            self.assertTrue(np.array_equal(indices, known_indices))
-
-    # ------------------------------------------------------------------------------#
+            assert np.array_equal(faces, known)
+            assert np.array_equal(indices, known_indices)
 
     def test_create_partition_2d_1d_test1(self):
-        mdg, _ = pp.md_grids_2d.single_horizontal(
-            [2, 2], x_endpoints=[0.5, 0], simplex=False
+        mdg, _ = pp.mdg_library.square_with_orthogonal_fractures(
+            "cartesian",
+            meshing_args={"cell_size": 1 / 2},
+            fracture_indices=[1],
+            fracture_endpoints=[np.array([0.5, 0.0])],
         )
         part = co.create_partition(co._tpfa_matrix(mdg), mdg)
         co.generate_coarse_grid(mdg, part)
@@ -898,19 +874,20 @@ class BasicsTest(unittest.TestCase):
 
         for intf in mdg.interfaces():
             indices, faces, _ = sps.find(intf.primary_to_mortar_int())
-            self.assertTrue(np.array_equal(faces, known))
-            self.assertTrue(np.array_equal(indices, known_indices))
-
-    # ------------------------------------------------------------------------------#
+            assert np.array_equal(faces, known)
+            assert np.array_equal(indices, known_indices)
 
     def test_create_partition_2d_1d_test2(self):
-        mdg, _ = pp.md_grids_2d.single_horizontal(
-            [2, 2], x_endpoints=[0, 0.5], simplex=False
+        mdg, _ = pp.mdg_library.square_with_orthogonal_fractures(
+            "cartesian",
+            meshing_args={"cell_size": 1 / 2},
+            fracture_indices=[1],
+            fracture_endpoints=[np.array([0.0, 0.5])],
         )
 
         seeds = co.generate_seeds(mdg)
         known_seeds = np.array([0, 2])
-        self.assertTrue(np.array_equal(seeds, known_seeds))
+        assert np.array_equal(seeds, known_seeds)
 
         part = co.create_partition(co._tpfa_matrix(mdg), mdg, seeds=seeds)
         co.generate_coarse_grid(mdg, part)
@@ -921,14 +898,15 @@ class BasicsTest(unittest.TestCase):
 
         for intf in mdg.interfaces():
             indices, faces, _ = sps.find(intf.primary_to_mortar_int())
-            self.assertTrue(np.array_equal(faces, known))
-            self.assertTrue(np.array_equal(indices, known_indices))
-
-    # ------------------------------------------------------------------------------#
+            assert np.array_equal(faces, known)
+            assert np.array_equal(indices, known_indices)
 
     def test_create_partition_2d_1d_test3(self):
-        mdg, _ = pp.md_grids_2d.single_horizontal(
-            [2, 2], x_endpoints=[0.5, 1], simplex=False
+        mdg, _ = pp.mdg_library.square_with_orthogonal_fractures(
+            "cartesian",
+            meshing_args={"cell_size": 1 / 2},
+            fracture_indices=[1],
+            fracture_endpoints=[np.array([0.5, 1.0])],
         )
 
         part = co.create_partition(co._tpfa_matrix(mdg), mdg)
@@ -940,19 +918,20 @@ class BasicsTest(unittest.TestCase):
 
         for intf in mdg.interfaces():
             indices, faces, _ = sps.find(intf.primary_to_mortar_int())
-            self.assertTrue(np.array_equal(faces, known))
-            self.assertTrue(np.array_equal(indices, known_indices))
-
-    # ------------------------------------------------------------------------------#
+            assert np.array_equal(faces, known)
+            assert np.array_equal(indices, known_indices)
 
     def test_create_partition_2d_1d_test4(self):
-        mdg, _ = pp.md_grids_2d.single_horizontal(
-            [2, 2], x_endpoints=[0.5, 1], simplex=False
+        mdg, _ = pp.mdg_library.square_with_orthogonal_fractures(
+            "cartesian",
+            meshing_args={"cell_size": 1 / 2},
+            fracture_indices=[1],
+            fracture_endpoints=[np.array([0.5, 1.0])],
         )
 
         seeds = co.generate_seeds(mdg)
         known_seeds = np.array([1, 3])
-        self.assertTrue(np.array_equal(seeds, known_seeds))
+        assert np.array_equal(seeds, known_seeds)
 
         part = co.create_partition(co._tpfa_matrix(mdg), mdg, seeds=seeds)
         co.generate_coarse_grid(mdg, part)
@@ -963,10 +942,8 @@ class BasicsTest(unittest.TestCase):
 
         for intf in mdg.interfaces():
             indices, faces, _ = sps.find(intf.primary_to_mortar_int())
-            self.assertTrue(np.array_equal(faces, known))
-            self.assertTrue(np.array_equal(indices, known_indices))
-
-    # ------------------------------------------------------------------------------#
+            assert np.array_equal(faces, known)
+            assert np.array_equal(indices, known_indices)
 
     def test_create_partition_2d_1d_cross_test5(self):
         # NOTE: Since for python 2.7 and 3.5 the meshes in gridbucket may have
@@ -1016,10 +993,8 @@ class BasicsTest(unittest.TestCase):
                     else:
                         raise ValueError("Grid not found")
 
-                self.assertTrue(np.array_equal(faces, np.array(known)))
-                self.assertTrue(np.array_equal(indices, np.array(known_indices)))
-
-    # ------------------------------------------------------------------------------#
+                assert np.array_equal(faces, np.array(known))
+                assert np.array_equal(indices, np.array(known_indices))
 
     def test_create_partition_2d_1d_cross_test6(self):
         # NOTE: Since for python 2.7 and 3.5 the meshes in gridbucket may have
@@ -1032,7 +1007,7 @@ class BasicsTest(unittest.TestCase):
 
             seeds = co.generate_seeds(mdg)
             known_seeds = np.array([8, 9, 26, 27, 13, 16, 19, 22])
-            self.assertTrue(np.array_equal(np.sort(seeds), np.sort(known_seeds)))
+            assert np.array_equal(np.sort(seeds), np.sort(known_seeds))
 
             part = co.create_partition(co._tpfa_matrix(mdg), mdg, cdepth=3, seeds=seeds)
             co.generate_coarse_grid(mdg, part)
@@ -1072,10 +1047,8 @@ class BasicsTest(unittest.TestCase):
                     else:
                         raise ValueError("Grid not found")
 
-                self.assertTrue(np.array_equal(faces, np.array(known)))
-                self.assertTrue(np.array_equal(indices, np.array(known_indices)))
-
-    # ------------------------------------------------------------------------------#
+                assert np.array_equal(faces, np.array(known))
+                assert np.array_equal(indices, np.array(known_indices))
 
     def test_create_partition_2d_1d_cross_test7(self):
         # NOTE: Since for python 2.7 and 3.5 the meshes in gridbucket may have
@@ -1089,7 +1062,7 @@ class BasicsTest(unittest.TestCase):
 
             seeds = co.generate_seeds(mdg)
             known_seeds = np.array([29, 30, 369, 370, 181, 198, 201, 218])
-            self.assertTrue(np.array_equal(np.sort(seeds), np.sort(known_seeds)))
+            assert np.array_equal(np.sort(seeds), np.sort(known_seeds))
 
             part = co.create_partition(co._tpfa_matrix(mdg), mdg, cdepth=3, seeds=seeds)
             co.generate_coarse_grid(mdg, part)
@@ -1393,11 +1366,5 @@ class BasicsTest(unittest.TestCase):
                     else:
                         raise ValueError("Grid not found")
 
-                self.assertTrue(np.array_equal(faces, np.array(known)))
-                self.assertTrue(np.array_equal(indices, np.array(known_indices)))
-
-
-# ------------------------------------------------------------------------------#
-
-if __name__ == "__main__":
-    unittest.main()
+                assert np.array_equal(faces, np.array(known))
+                assert np.array_equal(indices, np.array(known_indices))
