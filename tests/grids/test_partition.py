@@ -48,8 +48,6 @@ def test_cartesian_grids(grid_size, coarse_dims):
         [np.array([10, 4]), 4, np.array([2, 2])],
         [np.array([10, 10]), 17, np.array([4, 4])],
         [np.array([10, 10]), 19, np.array([4, 5])],
-        # The will ideally require a 5x4 grid, but the limit on two cells in
-        # the  y-direction should redirect to a 10x2.
         [np.array([100, 2]), 20, np.array([2, 10])],
         # This will seemingly require 900^1/3 ~ 10 cells in each direction, but
         # the z-dimension has only 1, thus the two other have to do 30 each. y
@@ -193,7 +191,15 @@ class TestExtractSubGrid:
         self.compare_grid_geometries(g, h, f, true_faces, true_nodes)
 
 
-class TestGrids:
+class TestExtractSubgrid:
+    """Test the extract_subgrid function.
+
+    The tests generate a grid of a given size, and extract a subgrid based on a set of
+    cell indices. The test criteria is that the extracted grid should have the
+    expected geometry, and that the expected faces and nodes are extracted.
+
+    """
+
     def compare_grid_geometries(self, g, h, sub_c, sub_f, sub_n):
         assert np.array_equal(g.nodes[:, sub_n], h.nodes)
         assert np.array_equal(g.face_areas[sub_f], h.face_areas)
@@ -264,31 +270,49 @@ class TestGrids:
         self.compare_grid_geometries(g, h, c, true_faces, true_nodes)
 
 
-class TestOverlap:
-    def test_overlap_1_layer(self):
-        g = pp.CartGrid([5, 5])
-        ci = np.array([0, 1, 5, 6])
-        ci_overlap = np.array([0, 1, 2, 5, 6, 7, 10, 11, 12])
-        assert np.array_equal(pp.partition.overlap(g, ci, 1), ci_overlap)
+class TestComputationOfOverlap:
+    """Test that the computation of the overlap of a partition is correct (function
+    partition.overlap()).
 
-    def test_overlap_2_layers(self):
+    From a grid, a partition with overlap is created based on a set of cell indices. The
+    overlap is computed, and compared to a reference value.
+
+    """
+
+    @pytest.mark.parametrize(
+        "overlap, known_indices",
+        [
+            (1, np.array([0, 1, 2, 5, 6, 7, 10, 11, 12])),
+            (2, np.array([0, 1, 2, 3, 5, 6, 7, 8, 10, 11, 12, 13, 15, 16, 17, 18])),
+        ],
+    )
+    def test_overlap(self, overlap, known_indices):
         g = pp.CartGrid([5, 5])
         ci = np.array([0, 1, 5, 6])
-        ci_overlap = np.array([0, 1, 2, 3, 5, 6, 7, 8, 10, 11, 12, 13, 15, 16, 17, 18])
-        assert np.array_equal(pp.partition.overlap(g, ci, 2), ci_overlap)
+        assert np.array_equal(pp.partition.overlap(g, ci, overlap), known_indices)
 
 
 class TestConnectivityChecker:
+    """Test the connectivity checker (function partition.grid_is_connected())."""
+
     def setup(self):
+        # Generate a grid and a partition
         g = pp.CartGrid([4, 4])
+        # The structured partitioning scheme will let the assign the lower left 2x2
+        # block (cells with indices 0, 1, 4, 5) to block 0, lower right to block 1 etc.
         p = pp.partition.partition_structured(g, coarse_dims=np.array([2, 2]))
         return g, p
 
     def test_connected(self):
+        # Generate a connected partition
         g, p = self.setup()
+        # Pick out a subset of the cells, based on the partition
         p_sub = np.r_[np.where(p == 0)[0], np.where(p == 1)[0]]
+        # Check if the grid is connected - in this case it should be
         is_connected, components = pp.partition.grid_is_connected(g, p_sub)
         assert is_connected
+        # Check that all cells are identified as belonging to the same connected
+        # component.
         assert np.array_equal(np.sort(components[0]), np.arange(8))
 
     def test_not_connected(self):
@@ -298,14 +322,14 @@ class TestConnectivityChecker:
         p_sub = np.r_[np.where(p == 0)[0], np.where(p == 3)[0]]
         is_connected, components = pp.partition.grid_is_connected(g, p_sub)
         assert not is_connected
-
-        # To test that we pick the right components, we need to map back to
-        # global indices.
+        # There should be two components
+        assert len(components) == 2
+        # Each coarse cell should be in one component
         assert np.array_equal(np.sort(p_sub[components[0]]), np.array([0, 1, 4, 5]))
-
         assert np.array_equal(np.sort(p_sub[components[1]]), np.array([10, 11, 14, 15]))
 
     def test_subgrid_connected(self):
+        # A single subgrid is connected
         g, p = self.setup()
 
         sub_g, _, _ = pp.partition.extract_subgrid(g, np.where(p == 0)[0])
@@ -314,6 +338,7 @@ class TestConnectivityChecker:
         assert np.array_equal(np.sort(components[0]), np.arange(sub_g.num_cells))
 
     def test_subgrid_not_connected(self):
+        # Generate a subgrid with two disconnected regions.
         g, p = self.setup()
 
         p_sub = np.r_[np.where(p == 0)[0], np.where(p == 3)[0]]
@@ -321,11 +346,15 @@ class TestConnectivityChecker:
         is_connected, components = pp.partition.grid_is_connected(sub_g)
         assert not is_connected
         assert np.array_equal(np.sort(p_sub[components[0]]), np.array([0, 1, 4, 5]))
-
         assert np.array_equal(np.sort(p_sub[components[1]]), np.array([10, 11, 14, 15]))
 
 
 class TestCoordinatePartitioner:
+    """Test partitioning based on coordinates, function
+    partition.partition_coordinates().
+
+    """
+
     def test_cart_grid_square(self):
         g = pp.CartGrid([4, 4])
         g.compute_geometry()
@@ -354,6 +383,12 @@ class TestCoordinatePartitioner:
 
 
 class TestPartitionGrid:
+    """Test function to partition a grid, partition.partition_grid().
+
+    From a given grid and partition, generate subgrids and check that the grids are
+    correct, as are the face and node maps.
+    """
+
     def test_identity_partitioning(self):
         # All cells are on the same grid, nothing should happen
         g = pp.CartGrid([3, 4])
@@ -375,6 +410,7 @@ class TestPartitionGrid:
         assert np.allclose(node_map_list[0], np.arange(sg.num_nodes))
 
     def test_single_cell_partitioning(self):
+        # Partition all cells into single cell grids
         g = pp.CartGrid([3, 3])
         ind = np.arange(g.num_cells)
         sub_g, face_map_list, node_map_list = pp.partition.partition_grid(g, ind)
