@@ -39,7 +39,6 @@ import porepy as pp
 from porepy.fracs.fracture_network_2d import FractureNetwork2d
 from porepy.fracs.fracture_network_3d import FractureNetwork3d
 from tests.integration import setup_mixed_dimensional_grids as setup_mdg
-from tests.integration.fracture_propagation_utils import check_equivalent_md_grids
 from tests.test_utils import compare_arrays
 
 FractureNetwork = Union[FractureNetwork2d, FractureNetwork3d]
@@ -249,7 +248,7 @@ class TestFaceSplittingHostGrid:
         pp.propagate_fracture.propagate_fractures(mdg_4, {g4: np.array([16])})
 
         # Check that the four grid buckets are equivalent
-        check_equivalent_md_grids([mdg_1, mdg_2, mdg_3, mdg_4])
+        _check_equivalent_md_grids([mdg_1, mdg_2, mdg_3, mdg_4])
 
     def test_equivalence_3d(self):
         """
@@ -280,7 +279,7 @@ class TestFaceSplittingHostGrid:
         pp.propagate_fracture.propagate_fractures(mdg_4, {g4: np.array([54])})
 
         # Check that the four grid buckets are equivalent
-        check_equivalent_md_grids([mdg_1, mdg_2, mdg_3, mdg_4])
+        _check_equivalent_md_grids([mdg_1, mdg_2, mdg_3, mdg_4])
 
     def test_two_fractures_2d(self):
         """
@@ -311,17 +310,17 @@ class TestFaceSplittingHostGrid:
         # First propagation step
         faces = {sd_1: np.array([27]), g2: np.array([32])}
         pp.propagate_fracture.propagate_fractures(mdg, faces)
-        check_equivalent_md_grids([mdg, mdg_1])
+        _check_equivalent_md_grids([mdg, mdg_1])
 
         # Second step
         faces = {sd_1: np.array([28]), g2: np.array([31])}
         pp.propagate_fracture.propagate_fractures(mdg, faces)
-        check_equivalent_md_grids([mdg, mdg_2])
+        _check_equivalent_md_grids([mdg, mdg_2])
 
         # Final step - only one of the fractures grow
         faces = {sd_1: np.array([29]), g2: np.array([], dtype=int)}
         pp.propagate_fracture.propagate_fractures(mdg, faces)
-        check_equivalent_md_grids([mdg, mdg_3])
+        _check_equivalent_md_grids([mdg, mdg_3])
 
     def test_two_propagation_steps_3d(self):
         # Starting from a fracture one cell wide, three cells long, the first step
@@ -995,3 +994,162 @@ class TestVariableMappingInitializationUnderPropagation:
                 )
 
                 x = x_new
+
+
+# Helper functions for the tests below
+
+
+def _check_equivalent_md_grids(md_grids, decimals=12):
+    """
+    Checks agreement between number of cells, faces and nodes, their
+    coordinates and the connectivity matrices cell_faces and face_nodes. Also
+    checks the face tags.
+
+    """
+    dim_h = md_grids[0].dim_max()
+    dim_l = dim_h - 1
+    num_md_grids = len(md_grids)
+    cell_maps_h, face_maps_h = [], []
+    cell_maps_l, face_maps_l = num_md_grids * [{}], num_md_grids * [{}]
+
+    # Check that all md-grids have the same number of grids in the lower dimension
+    num_grids_l: int = len(md_grids[0].subdomains(dim=dim_h - 1))
+    for mdg in md_grids:
+        assert len(mdg.subdomains(dim=dim_h - 1)) == num_grids_l
+
+    for dim in range(dim_l, dim_h + 1):
+        for target_grid in range(len(md_grids[0].subdomains(dim=dim))):
+            n_cells, n_faces, n_nodes = np.empty(0), np.empty(0), np.empty(0)
+            nodes, face_centers, cell_centers = [], [], []
+            cell_faces, face_nodes = [], []
+            for mdg in md_grids:
+                sd = mdg.subdomains(dim=dim)[target_grid]
+                n_cells = np.append(n_cells, sd.num_cells)
+                n_faces = np.append(n_faces, sd.num_faces)
+                n_nodes = np.append(n_nodes, sd.num_nodes)
+                cell_faces.append(sd.cell_faces)
+                face_nodes.append(sd.face_nodes)
+                cell_centers.append(sd.cell_centers)
+                face_centers.append(sd.face_centers)
+                nodes.append(sd.nodes)
+
+            # Check that all md-grids have the same number of cells, faces and nodes
+            assert np.unique(n_cells).size == 1
+            assert np.unique(n_faces).size == 1
+            assert np.unique(n_nodes).size == 1
+
+            # Check that the coordinates agree
+            cell_centers = np.round(cell_centers, decimals)
+            nodes = np.round(nodes, decimals)
+            face_centers = np.round(face_centers, decimals)
+            for i in range(1, num_md_grids):
+                assert np.all(
+                    pp.utils.setmembership.ismember_rows(
+                        cell_centers[0], cell_centers[i]
+                    )[0]
+                )
+                assert np.all(
+                    pp.utils.setmembership.ismember_rows(
+                        face_centers[0], face_centers[i]
+                    )[0]
+                )
+                assert np.all(
+                    pp.utils.setmembership.ismember_rows(nodes[0], nodes[i])[0]
+                )
+
+            # Now we know all nodes, faces and cells are in all grids, we map them
+            # to prepare cell_faces and face_nodes comparison
+            sd_0 = md_grids[0].subdomains(dim=dim)[target_grid]
+            for i in range(1, num_md_grids):
+                mdg = md_grids[i]
+                sd = mdg.subdomains(dim=dim)[target_grid]
+                cell_map, face_map, node_map = _make_maps(sd_0, sd, mdg.dim_max())
+                mapped_cf = sd.cell_faces[face_map][:, cell_map]
+                mapped_fn = sd.face_nodes[node_map][:, face_map]
+
+                assert np.sum(np.abs(sd_0.cell_faces) != np.abs(mapped_cf)) == 0
+                assert np.sum(np.abs(sd_0.face_nodes) != np.abs(mapped_fn)) == 0
+                if sd.dim == dim_h:
+                    face_maps_h.append(face_map)
+                    cell_maps_h.append(cell_map)
+                else:
+                    cell_maps_l[i][sd] = cell_map
+                    face_maps_l[i][sd] = face_map
+
+                # Also loop on the standard face tags to check that they are
+                # identical between the md-grids.
+                tag_keys = pp.utils.tags.standard_face_tags()
+                for key in tag_keys:
+                    assert np.all(np.isclose(sd_0.tags[key], sd.tags[key][face_map]))
+
+    # Mortar grids
+    sd_primary_0 = md_grids[0].subdomains(dim=dim_h)[0]
+    for target_grid in range(len(md_grids[0].subdomains(dim=dim_l))):
+        sd_secondary_0 = md_grids[0].subdomains(dim=dim_l)[target_grid]
+        intf_0 = md_grids[0].subdomain_pair_to_interface((sd_primary_0, sd_secondary_0))
+        proj_0 = intf_0.primary_to_mortar_int()
+        for i in range(1, num_md_grids):
+            sd_secondary_i = md_grids[i].subdomains(dim=dim_l)[target_grid]
+            sd_primary_i = md_grids[i].subdomains(dim=dim_h)[0]
+            intf_i = md_grids[i].subdomain_pair_to_interface(
+                (sd_primary_i, sd_secondary_i)
+            )
+            proj_i = intf_i.primary_to_mortar_int()
+            cm = cell_maps_l[i][sd_secondary_i]
+            cm_extended = np.append(cm, cm + cm.size)
+            fm = face_maps_h[i - 1]
+            mapped_fc = proj_i[cm_extended, :][:, fm]
+            assert np.sum(np.absolute(proj_0) - np.absolute(mapped_fc)) == 0
+    return cell_maps_h, cell_maps_l, face_maps_h, face_maps_l
+
+
+def _make_maps(g0, g1, n_digits=8, offset=0.11):
+    """
+    Given two grid with the same nodes, faces and cells, the mappings between
+    these entities are constructed. Handles non-unique nodes and faces on next
+    to fractures by exploiting neighbour information.
+    Builds maps from g1 to g0, so g1.x[x_map]=g0.x, e.g.
+    g1.tags[some_key][face_map] = g0.tags[some_key].
+    g0 Reference grid
+    g1 Other grid
+    n_digits Tolerance in rounding before coordinate comparison
+    offset: Weight determining how far the fracture neighbour nodes and faces
+    are shifted (normally away from fracture) to ensure unique coordinates.
+    """
+    cell_map = pp.utils.setmembership.ismember_rows(
+        np.around(g0.cell_centers, n_digits),
+        np.around(g1.cell_centers, n_digits),
+        sort=False,
+    )[1]
+    # Make face_centers unique by dragging them slightly away from the fracture
+
+    fc0 = g0.face_centers.copy()
+    fc1 = g1.face_centers.copy()
+    n0 = g0.nodes.copy()
+    n1 = g1.nodes.copy()
+    fi0 = g0.tags["fracture_faces"]
+    if np.any(fi0):
+        fi1 = g1.tags["fracture_faces"]
+        d0 = np.reshape(np.tile(g0.cell_faces[fi0, :].data, 3), (3, sum(fi0)))
+        fn0 = g0.face_normals[:, fi0] * d0
+        d1 = np.reshape(np.tile(g1.cell_faces[fi1, :].data, 3), (3, sum(fi1)))
+        fn1 = g1.face_normals[:, fi1] * d1
+        fc0[:, fi0] += fn0 * offset
+        fc1[:, fi1] += fn1 * offset
+        (ni0, fid0) = g0.face_nodes[:, fi0].nonzero()
+        (ni1, fid1) = g1.face_nodes[:, fi1].nonzero()
+        un, inv = np.unique(ni0, return_inverse=True)
+        for i, node in enumerate(un):
+            n0[:, node] += offset * np.mean(fn0[:, fid0[inv == i]], axis=1)
+        un, inv = np.unique(ni1, return_inverse=True)
+        for i, node in enumerate(un):
+            n1[:, node] += offset * np.mean(fn1[:, fid1[inv == i]], axis=1)
+
+    face_map = pp.utils.setmembership.ismember_rows(
+        np.around(fc0, n_digits), np.around(fc1, n_digits), sort=False
+    )[1]
+
+    node_map = pp.utils.setmembership.ismember_rows(
+        np.around(n0, n_digits), np.around(n1, n_digits), sort=False
+    )[1]
+    return cell_map, face_map, node_map
