@@ -17,7 +17,7 @@ import numpy as np
 import pytest
 
 import porepy as pp
-from porepy.grids.standard_grids.utils import unit_domain
+from porepy.applications.md_grids.domains import unit_cube_domain as unit_domain
 
 
 @pytest.fixture

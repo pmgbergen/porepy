@@ -12,7 +12,7 @@ import pytest
 import porepy as pp
 from porepy.fracs.fracture_network_2d import FractureNetwork2d
 from porepy.fracs.fracture_network_3d import FractureNetwork3d
-from porepy.grids.standard_grids.utils import unit_domain
+from porepy.applications.md_grids.domains import unit_cube_domain as unit_domain
 
 
 # Set line fracture plane fracture as fixture functions to reuse them later
