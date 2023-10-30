@@ -138,8 +138,7 @@ from porepy.numerics.fem.rt0 import RT0
 import porepy.numerics
 
 # Transport related
-from porepy.numerics.fv.upwind import Upwind
-from porepy.numerics.interface_laws.hyperbolic_interface_laws import UpwindCoupling
+from porepy.numerics.fv.upwind import Upwind, UpwindCoupling
 
 # Contact mechanics
 from porepy.numerics.fracture_deformation import propagate_fracture

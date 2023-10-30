@@ -1,5 +1,20 @@
-"""Tests for the MPFA discretization scheme."""
+"""Tests for the MPFA discretization scheme.
+
+Content:
+    - Tests on discretization stensils, including reproduction of the Laplacian
+        stencil on Cartesian grids, and of known solutions on Cartesian and simplex
+        grids.
+    - Test of expected values on 2d grids.
+    - Tests of expected convergence rates on 2d tilted grids.
+    - Tests for periodic boundary condition implementation
+    - Partial discretization tests for the MPFA discretization scheme.
+    - Gravity related tests.
+
+"""
+import abc
 import random
+from math import pi
+from typing import Optional
 
 import numpy as np
 import pytest
@@ -9,6 +24,7 @@ import sympy
 
 import porepy as pp
 from porepy.applications.test_utils import common_xpfa_tests as xpfa_tests
+from porepy.applications.test_utils import reference_dense_arrays
 from porepy.applications.test_utils.partial_discretization import (
     perform_partial_discretization_specified_nodes,
 )
@@ -114,6 +130,348 @@ def test_uniform_flow_cart_2d_pert():
 
     p_diff = pr - pr_cell
     assert np.max(np.abs(p_diff)) < 1e-8
+
+
+""" Test that Mpfa computes the expected values on 2d grids."""
+
+
+class TestMpfaReproduceKnownValues:
+    """Test that Mpfa computes the expected values on 2d grids.
+
+    The test verifies that the computed values are as expected, by comparing with a
+    hard-coded known solution. Failure to reproduce the known solution means that
+    something is wrong with the implementation. For this reason, one should be very
+    careful with changing anything in this class; in a sense, the test just is what it
+    is.
+
+    The test considers two grids, a Cartesian grid and a simplex grid, and two types
+    of permeability fields, homogeneous and heterogeneous.
+
+    """
+
+    def chi(self, xcoord, ycoord):
+        return np.logical_and(np.greater(xcoord, 0.5), np.greater(ycoord, 0.5))
+
+    def solve(self, heterogeneous: bool):
+        """Set up and solve the problem."""
+        x, y = sympy.symbols("x y")
+
+        # The analytical solutions were different for the homogeneous and heterogeneous
+        # cases, as were the grids.
+        if heterogeneous:
+            g = self.g_lines
+            # For some reason, the reference solution was computed with different
+            # values of kappa, i.e., the permeability heterogeneity, for simplex and
+            # Cartesian grids. This is awkward, but we just have to live with it.
+            if isinstance(g, pp.CartGrid):
+                kappa = 1e-6
+            else:
+                kappa = 1e6
+            u = sympy.sin(2 * pi * x) * sympy.sin(2 * pi * y)
+        else:
+            g = self.g_nolines
+            kappa = 1.0
+            u = sympy.sin(x) * sympy.cos(y)
+
+        # Compute analytical solution
+        u_f = sympy.lambdify((x, y), u, "numpy")
+        dux = sympy.diff(u, x)
+        duy = sympy.diff(u, y)
+        rhs = -sympy.diff(dux, x) - sympy.diff(duy, y)
+        rhs_f = sympy.lambdify((x, y), rhs, "numpy")
+
+        # Compute permeability
+        char_func_cells = self.chi(g.cell_centers[0], g.cell_centers[1]) * 1.0
+        perm_vec = (1 - char_func_cells) + kappa * char_func_cells
+        perm = pp.SecondOrderTensor(perm_vec)
+
+        # Boundary conditions
+        bound_faces = g.tags["domain_boundary_faces"].nonzero()[0]
+        bc_type = pp.BoundaryCondition(g, bound_faces, ["dir"] * bound_faces.size)
+
+        discr = pp.Mpfa(keyword="flow")
+        specified_parameters = {"second_order_tensor": perm, "bc": bc_type}
+        data = pp.initialize_default_data(g, {}, "flow", specified_parameters)
+        # NB: Set eta to zero, independent of grid type. This is a non-standard choice
+        # for simplex grids, but it is necessary to reproduce the known values.
+        data[pp.PARAMETERS]["flow"]["mpfa_eta"] = 0
+        discr.discretize(g, data)
+
+        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES]["flow"]
+        bound_flux = matrix_dictionary["bound_flux"]
+        flux = matrix_dictionary["flux"]
+
+        xc = g.cell_centers
+        xf = g.face_centers
+        char_func_bound = self.chi(xf[0, bound_faces], xf[1, bound_faces]) * 1
+
+        u_bound = np.zeros(g.num_faces)
+        u_bound[bound_faces] = u_f(xf[0, bound_faces], xf[1, bound_faces]) / (
+            (1 - char_func_bound) + kappa * char_func_bound
+        )
+        data[pp.PARAMETERS]["flow"]["bc_values"] = u_bound
+
+        A, b_flux = discr.assemble_matrix_rhs(g, data)
+
+        b_rhs = rhs_f(xc[0], xc[1]) * g.cell_volumes
+
+        u_num = scipy.sparse.linalg.spsolve(A, b_flux + b_rhs)
+        flux_num = flux * u_num + bound_flux * u_bound
+        return u_num, flux_num
+
+    @pytest.mark.parametrize("grid_type", ["cart", "simplex"])
+    @pytest.mark.parametrize("heterogeneous", [True, False])
+    def test_mpfa_computed_values(self, grid_type, heterogeneous):
+        g_nolines, g_lines = xpfa_tests.create_grid_mpfa_mpsa_reproduce_known_values(
+            grid_type
+        )
+        self.g_nolines = g_nolines
+        self.g_lines = g_lines
+
+        u, flux = self.solve(heterogeneous)
+
+        # Fetch known values
+        if heterogeneous:
+            key = grid_type + "_heterogeneous"
+        else:
+            key = grid_type + "_homogeneous"
+
+        known_u = reference_dense_arrays.test_mpfa["TestMpfaReproduceKnownValues"][key][
+            "u"
+        ]
+        known_flux = reference_dense_arrays.test_mpfa["TestMpfaReproduceKnownValues"][
+            key
+        ]["flux"]
+
+        # Compare computed and known values
+        assert np.allclose(u, known_u)
+        assert np.allclose(flux, known_flux)
+
+
+""" Test of expected convergence rates on 2d tilted grids."""
+
+
+class _MpfaSetup(abc.ABC):
+    """Helper class for tests of Mpfa on tilted 2d grids.
+
+    The tests verify that the convergence rate between two grids is as expected, by
+    comparing with a hard-coded known order. Failure to reproduce the known order
+    means that something is wrong with the implementation. For this reason, one should
+    be very careful with changing anything in this class or its subclasses, so as not to
+    break the tests.
+
+    This class provide common setups, and subclasses with actual tests need to provide
+    the analytical solution, the permeability, and the right hand side. The actual test
+    is located in child classes, which implement the abstract methods of this class, and
+    contain test methods.
+    """
+
+    @abc.abstractmethod
+    def rhs(self, x, y, z):
+        pass
+
+    @abc.abstractmethod
+    def solution(self, x, y, z):
+        pass
+
+    @abc.abstractmethod
+    def permeability(self, x, y, z):
+        pass
+
+    def add_data(self, g):
+        """
+        Define the permeability, apertures, boundary conditions
+        """
+        # Permeability
+        kxx = np.array([self.permeability(*pt) for pt in g.cell_centers.T])
+        perm = pp.SecondOrderTensor(kxx)
+
+        # Source term
+        source = g.cell_volumes * np.array([self.rhs(*pt) for pt in g.cell_centers.T])
+
+        # Boundaries
+        bound_faces = g.get_all_boundary_faces()
+        bound_face_centers = g.face_centers[:, bound_faces]
+
+        labels = np.array(["dir"] * bound_faces.size)
+
+        bc_val = np.zeros(g.num_faces)
+        bc_val[bound_faces] = np.array(
+            [self.solution(*pt) for pt in bound_face_centers.T]
+        )
+
+        bound = pp.BoundaryCondition(g, bound_faces, labels)
+        specified_parameters = {
+            "second_order_tensor": perm,
+            "source": source,
+            "bc": bound,
+            "bc_values": bc_val,
+        }
+        return pp.initialize_default_data(g, {}, "flow", specified_parameters)
+
+    def error_p(self, g: pp.Grid, p: np.ndarray) -> float:
+        """Compute the L2 error of the computed solution.
+
+        Parameters:
+            g: Grid used in the computation.
+            p: The computed solution.
+
+        Returns:
+            The L2 error.
+        """
+        sol = np.array([self.solution(*pt) for pt in g.cell_centers.T])
+        return np.sqrt(np.sum(np.power(np.abs(p - sol), 2) * g.cell_volumes))
+
+    def main(self, N: int, R: Optional[sps.spmatrix] = None) -> tuple[float, float]:
+        """Set up and solve the problem, and compute the error.
+
+        Parameters:
+            N: Number of cells in each direction.
+            R: Rotation matrix, if the grid is to be rotated out of the xy-plane.
+
+        Returns:
+            diam: The diameter of the grid, measured as the maximum cell diameter.
+            error: The error of the computed solution.
+
+        """
+        # Same number of cells in each direction
+        Nx = Ny = N
+
+        # Create grid and rotate the geometry
+        g = pp.StructuredTriangleGrid([Nx, Ny], [1, 1])
+        if R is not None:
+            g.nodes = R.dot(g.nodes)
+        g.compute_geometry()
+
+        # Assign parameters
+        data = self.add_data(g)
+
+        # Choose and define the solvers
+        solver = pp.Mpfa("flow")
+        solver.discretize(g, data)
+
+        xc = g.cell_centers
+
+        # Assemble and solve
+        A, b_flux = solver.assemble_matrix_rhs(g, data)
+        b_source = self.rhs(xc[0], xc[1], xc[2]) * g.cell_volumes
+        # The right hand side is a combination of the source term and the boundary term.
+        p = scipy.sparse.linalg.spsolve(A, b_flux + b_source)
+
+        # Maximum cell diameter.
+        diam = np.amax(g.cell_diameters())
+        return diam, self.error_p(g, p)
+
+
+class TestMpfaConvergenceVaryingPerm(_MpfaSetup):
+    """Test Mpfa convergence rate on a flat 2d grid with varying permeability.
+
+    The test verifies that the convergence rate between two grids is as expected, by
+    comparing with a hard-coded known order. Failure to reproduce the known order means
+    that something is wrong with the implementation. For this reason, one should be very
+    careful with changing anything in this class; in a sense, the test just is what it
+    is.
+
+    """
+
+    def rhs(self, x, y, z):
+        return (
+            8.0
+            * np.pi**2
+            * np.sin(2.0 * np.pi * x)
+            * np.sin(2.0 * np.pi * y)
+            * self.permeability(x, y, z)
+            - 400.0 * np.pi * y * np.cos(2.0 * np.pi * y) * np.sin(2.0 * np.pi * x)
+            - 400.0 * np.pi * x * np.cos(2.0 * np.pi * x) * np.sin(2.0 * np.pi * y)
+        )
+
+    def solution(self, x, y, z):
+        return np.sin(2.0 * np.pi * x) * np.sin(2.0 * np.pi * y)
+
+    def permeability(self, x, y, z):
+        return 1.0 + 100.0 * x**2 + 100.0 * y**2
+
+    def test_mpfa_varying_k(self):
+        diam_10, error_10 = self.main(10)
+        diam_20, error_20 = self.main(20)
+
+        known_order = 1.98916152711
+        order = np.log(error_10 / error_20) / np.log(diam_10 / diam_20)
+        assert np.isclose(order, known_order)
+
+
+class TestMpfaConvergenceVaryingPermSurface(_MpfaSetup):
+    """Test Mpfa convergence rate on a tilted 2d grid embedded in 3d (that is, the grid
+    in 2d, but the x, y, and z coordinates all vary) with varying permeability.
+
+    The test verifies that the convergence rate between two grids is as expected, by
+    comparing with a hard-coded known order. Failure to reproduce the known order means
+    that something is wrong with the implementation. For this reason, one should be very
+    careful with changing anything in this class; in a sense, the test just is what it
+    is.
+
+    """
+
+    def rhs(self, x, y, z):
+        return (
+            7.0 * z * (x**2 + y**2 + 1.0)
+            - y * (x**2 - 9.0 * z**2)
+            - 4.0 * x**2 * z
+            - (
+                8 * np.sin(np.pi * y)
+                - 4.0 * np.pi**2 * y**2 * np.sin(np.pi * y)
+                + 16.0 * np.pi * y * np.cos(np.pi * y)
+            )
+            * (x**2 / 2.0 + y**2 / 2.0 + 1.0 / 2.0)
+            - 4.0 * y**2 * (2.0 * np.sin(np.pi * y) + np.pi * y * np.cos(np.pi * y))
+        )
+
+    def solution(self, x, y, z):
+        return x**2 * z + 4.0 * y**2 * np.sin(np.pi * y) - 3.0 * z**3
+
+    def permeability(self, x, y, z):
+        return 1.0 + x**2 + y**2
+
+    def test_mpfa_varying_k_surface(self):
+        # Rotation matrix used to obtain the known order
+        R = pp.map_geometry.rotation_matrix(np.pi / 4.0, [1, 0, 0])
+        diam_10, error_10 = self.main(10, R=R)
+        diam_20, error_20 = self.main(20, R=R)
+
+        known_order = 1.9956052512
+        order = np.log(error_10 / error_20) / np.log(diam_10 / diam_20)
+        assert np.isclose(order, known_order)
+
+
+class TestMpfaConvergenceVaryingPermSurface2(_MpfaSetup):
+    """Test Mpfa convergence rate on a tilted 2d grid embedded in 3d (that is, the grid
+    in 2d, but the x, y, and z coordinates all vary) with varying permeability.
+
+    The test verifies that the convergence rate between two grids is as expected, by
+    comparing with a hard-coded known order. Failure to reproduce the known order means
+    that something is wrong with the implementation. For this reason, one should be very
+    careful with changing anything in this class; in a sense, the test just is what it
+    is.
+
+    """
+
+    def rhs(self, x, y, z):
+        return 8.0 * z * (125.0 * x**2 + 200.0 * y**2 + 425.0 * z**2 + 2.0)
+
+    def solution(self, x, y, z):
+        return x**2 * z + 4.0 * y**2 * np.sin(np.pi * y) - 3.0 * z**3
+
+    def permeability(self, x, y, z):
+        return 1.0 + 100.0 * (x**2 + y**2 + z**2)
+
+    def test_mpfa_varying_k_surface_1(self):
+        R = pp.map_geometry.rotation_matrix(np.pi / 2.0, [1, 0, 0])
+        diam_10, error_10 = self.main(10, R=R)
+        diam_20, error_20 = self.main(20, R=R)
+
+        known_order = 1.99094280061
+        order = np.log(error_10 / error_20) / np.log(diam_10 / diam_20)
+        assert np.isclose(order, known_order)
 
 
 """Tests for periodic boundary condition implementation in MPFA."""
