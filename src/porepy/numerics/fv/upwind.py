@@ -139,10 +139,9 @@ class Upwind(Discretization):
             self.bound_transport_neu_matrix_key
         ]
 
-        # Scaling with the advective flux.
-        # This is included to stay compatible with the legacy contract for this
-        # function (e.g. it should assemble the discretization matrix for the full
-        # advection problem).
+        # Scaling with the advective flux. This is included to stay compatible with the
+        # legacy contract for this function (e.g. it should assemble the discretization
+        # matrix for the full advection problem).
         param_dictionary: dict = data[pp.PARAMETERS][self.keyword]
 
         # The sign of the flux field was already accounted for in discretization,
@@ -260,8 +259,8 @@ class Upwind(Discretization):
 
         # We need to eliminate faces on the boundary; these will be discretized
         # separately below. On faces with Neumann conditions, boundary conditions apply
-        # for inflow; outflow faces should be assigned Dirichlet conditions.
-        # For Dirichlet, only inflow conditions are given; for outflow, we use upstream
+        # for inflow; outflow faces should be assigned Dirichlet conditions. For
+        # Dirichlet, only inflow conditions are given; for outflow, we use upstream
         # weighting (thus no need to modify the matrix we are about to build).
 
         # faces with Neumann conditions
@@ -303,24 +302,24 @@ class Upwind(Discretization):
         ).tocsr()
 
         # Boundary conditions
-        # Since the upwind discretization could be combined with a diffusion discretization
-        # in an advection-diffusion equation, treatment of boundary conditions can be a
-        # bit delicate, and the code should be used with some caution. The below
-        # implementation follows the following steps:
+        # Since the upwind discretization could be combined with a diffusion
+        # discretization in an advection-diffusion equation, treatment of boundary
+        # conditions can be a bit delicate, and the code should be used with some
+        # caution. The below implementation follows the following steps:
         #
-        # 1) On Neumann boundaries the prescribed boundary value should effectively
-        # be added to the adjacent cell, with the convention that influx (so
-        # negative boundary value) should correspond to accumulation.
-        # 2) On Dirichlet boundaries, we consider only inflow boundaries. Outflow boundaries
-        # are treated by the standard discretization.
+        # 1) On Neumann boundaries the prescribed boundary value should effectively be
+        # added to the adjacent cell, with the convention that influx (so negative
+        # boundary value) should correspond to accumulation.
+        # 2) On Dirichlet boundaries, we consider only inflow boundaries. Outflow
+        # boundaries are treated by the standard discretization.
 
-        # For Neumann faces we need to assign the sign of the divergence, to
-        # counteract multiplication with the same sign when the divergence is
-        # applied (e.g. in self.assemble_matrix).
+        # For Neumann faces we need to assign the sign of the divergence, to counteract
+        # multiplication with the same sign when the divergence is applied (e.g. in
+        # self.assemble_matrix).
         sgn_div = pp.fvutils.scalar_divergence(sd).sum(axis=0).A.squeeze()
 
-        # Need minus signs on both Neumann and Dirichlet data to ensure that accumulation
-        # follows from negative fluxes.
+        # Need minus signs on both Neumann and Dirichlet data to ensure that
+        # accumulation follows from negative fluxes.
         bc_discr_neu = sps.coo_matrix(
             (-sgn_div[neumann_ind], (neumann_ind, neumann_ind)),
             shape=(sd.num_faces, sd.num_faces),
@@ -525,9 +524,9 @@ class UpwindCoupling(AbstractInterfaceLaw):
         data_secondary: Dict,
         data_intf: Dict,
     ) -> None:
-        # First check if the grid dimensions are compatible with the implementation.
-        # It is not difficult to cover the case of equal dimensions, it will require
-        # trace operators for both grids, but it has not yet been done.
+        # First check if the grid dimensions are compatible with the implementation. It
+        # is not difficult to cover the case of equal dimensions, it will require trace
+        # operators for both grids, but it has not yet been done.
         if sd_primary.dim - sd_secondary.dim not in [1, 2]:
             raise ValueError(
                 "Implementation is only valid for grids one dimension apart."
@@ -541,11 +540,9 @@ class UpwindCoupling(AbstractInterfaceLaw):
         )
 
         # mapping from upper dim cells to faces
-        # The mortars always points from upper to lower, so we don't flip any
-        # signs.
-        # The mapping will be non-zero also for faces not adjacent to
-        # the mortar grid, however, we wil hit it with mortar projections, thus kill
-        # those elements
+        # The mortars always points from upper to lower, so we don't flip any signs. The
+        # mapping will be non-zero also for faces not adjacent to the mortar grid,
+        # however, we wil hit it with mortar projections, thus kill those elements
         inv_trace_h = np.abs(pp.fvutils.scalar_divergence(sd_primary))
         # We also need a trace-like projection from cells to faces
         trace_h = inv_trace_h.T
@@ -553,8 +550,8 @@ class UpwindCoupling(AbstractInterfaceLaw):
         matrix_dictionary[self.inv_trace_primary_matrix_key] = inv_trace_h
         matrix_dictionary[self.trace_primary_matrix_key] = trace_h
 
-        # Find upwind weighting. if flag is True we use the upper weights
-        # if flag is False we use the lower weighs
+        # Find upwind weighting. if flag is True we use the upper weights if flag is
+        # False we use the lower weighs
         flag = (lam_flux > 0).astype(float)
         not_flag = 1 - flag
 
@@ -639,8 +636,9 @@ class UpwindCoupling(AbstractInterfaceLaw):
         scaling = sps.dia_matrix((lam_flux, 0), shape=(intf.num_cells, intf.num_cells))
 
         # assemble matrices
-        # Note the sign convention: The Darcy mortar flux is positive if it goes
-        # from sd_primary to sd_secondary. Thus, a positive transport flux (assuming positive
+
+        # Note the sign convention: The Darcy mortar flux is positive if it goes from
+        # sd_primary to sd_secondary. Thus, a positive transport flux (assuming positive
         # concentration) will go out of sd_primary, into sd_secondary.
 
         # Transport out of upper equals lambda.
@@ -689,104 +687,3 @@ class UpwindCoupling(AbstractInterfaceLaw):
 
         matrix += cc
         return matrix, rhs
-
-    def cfl(
-        self,
-        sd_primary,
-        sd_secondary,
-        intf: pp.MortarGrid,
-        data_primary,
-        data_secondary,
-        data_intf,
-        d_name="mortar_solution",
-    ):
-        """
-        Return the time step according to the CFL condition.
-        Note: the vector field is assumed to be given as the normal velocity,
-        weighted with the face area, at each face.
-
-        The name of data in the input dictionary (data) are:
-        darcy_flux : array (g.num_faces)
-            Normal velocity at each face, weighted by the face area.
-
-        Parameters:
-            sd_primary: grid of higher dimension
-            sd_secondary: grid of lower dimension
-            data_primary: dictionary which stores the data for the higher dimensional
-                grid
-            data_secondary: dictionary which stores the data for the lower dimensional
-                grid
-            data: dictionary which stores the data for the edges of the grid
-                bucket
-
-        Return:
-            deltaT: time step according to CFL condition.
-
-        Note: the design of this function has not been updated according
-        to the mortar structure. Instead, intf.high_to_mortar_int.nonzero()[1]
-        is used to map the 'mortar_solution' (one flux for each mortar dof) to
-        the old darcy_flux (one flux for each sd_primary face).
-
-        """
-        # Retrieve the darcy_flux, which is mandatory
-
-        aperture_primary = data_primary["param"].get_aperture()
-        aperture_secondary = data_secondary["param"].get_aperture()
-        phi_secondary = data_secondary["param"].get_porosity()
-        darcy_flux = np.zeros(sd_primary.num_faces)
-        darcy_flux[intf.primary_to_mortar_int().nonzero()[1]] = data_intf[d_name]
-        if sd_primary.dim == sd_secondary.dim:
-            # More or less same as below, except we have cell_cells in the place
-            # of face_cells (see grid_bucket.duplicate_without_dimension).
-            phi_primary = data_primary["param"].get_porosity()
-            cells_secondary, cells_primary = data_intf["face_cells"].nonzero()
-            not_zero = ~np.isclose(np.zeros(darcy_flux.shape), darcy_flux, atol=0)
-            if not np.any(not_zero):
-                return np.Inf
-
-            diff = (
-                sd_primary.cell_centers[:, cells_primary]
-                - sd_secondary.cell_centers[:, cells_secondary]
-            )
-            dist = np.linalg.norm(diff, 2, axis=0)
-
-            # Use minimum of cell values for convenience
-            phi_secondary = phi_secondary[cells_secondary]
-            phi_primary = phi_primary[cells_primary]
-            apt_primary = aperture_primary[cells_primary]
-            apt_secondary = aperture_secondary[cells_secondary]
-            coeff = np.minimum(phi_primary, phi_secondary) * np.minimum(
-                apt_primary, apt_secondary
-            )
-            return np.amin(np.abs(np.divide(dist, darcy_flux)) * coeff)
-
-        # Recover the information for the grid-grid mapping
-        cells_secondary, faces_primary, _ = sps.find(data_intf["face_cells"])
-
-        # Detect and remove the faces which have zero in "darcy_flux"
-        not_zero = ~np.isclose(
-            np.zeros(faces_primary.size), darcy_flux[faces_primary], atol=0
-        )
-        if not np.any(not_zero):
-            return np.inf
-
-        cells_secondary = cells_secondary[not_zero]
-        faces_primary = faces_primary[not_zero]
-        # Mapping from faces_primary to cell_primary
-        cell_faces_primary = sd_primary.cell_faces.tocsr()[faces_primary, :]
-        cells_primary = cell_faces_primary.nonzero()[1][not_zero]
-        # Retrieve and map additional data
-        aperture_primary = aperture_primary[cells_primary]
-        aperture_secondary = aperture_secondary[cells_secondary]
-        phi_secondary = phi_secondary[cells_secondary]
-        # Compute discrete distance cell to face centers for the lower
-        # dimensional grid
-        dist = 0.5 * np.divide(aperture_secondary, aperture_primary)
-        # Since darcy_flux is multiplied by the aperture wighted face areas, we
-        # divide through that quantity to get velocities in [length/time]
-        velocity = np.divide(
-            darcy_flux[faces_primary],
-            sd_primary.face_areas[faces_primary] * aperture_primary,
-        )
-        # deltaT is deltaX/velocity with coefficient
-        return np.amin(np.abs(np.divide(dist, velocity)) * phi_secondary)
