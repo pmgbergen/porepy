@@ -201,9 +201,6 @@ from porepy.viz.exporter import Exporter
 from porepy.viz.plot_grid import plot_grid, save_img
 from porepy.viz.fracture_visualization import plot_fractures, plot_wells
 
-from porepy.utils import error_computation
-
-
 # Modules
 from porepy.fracs import utils as frac_utils
 from porepy.fracs import meshing, fracture_importer
