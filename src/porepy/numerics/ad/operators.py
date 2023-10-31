@@ -651,7 +651,7 @@ class Operator:
 
     def evaluate(
         self,
-        system_manager: pp.ad.EquationSystem | pp.DofManager,
+        system_manager: pp.ad.EquationSystem,
         state: Optional[np.ndarray] = None,
     ):  # TODO ensure the operator always returns an AD array
         """Evaluate the residual and Jacobian matrix for a given solution.
@@ -727,7 +727,7 @@ class Operator:
         # Initialize Ad variables with the current iterates
 
         # The size of the Jacobian matrix will always be set according to the
-        # variables found by the DofManager in the MixedDimensionalGrid.
+        # variables found by the EquationSystem.
 
         # NOTE: This implies that to derive a subsystem from the Jacobian
         # matrix of this Operator will require restricting the columns of
@@ -780,7 +780,7 @@ class Operator:
 
     def _identify_variables(
         self,
-        system_manager: pp.ad.EquationSystem | pp.DofManager,
+        system_manager: pp.ad.EquationSystem,
         var: Optional[list] = None,
     ):
         """Identify all variables in this operator."""
@@ -794,7 +794,7 @@ class Operator:
         )
 
         # 2. Get a mapping between variables (*not* only MixedDimensionalVariables) and
-        # their indices according to the DofManager. This is needed to access the
+        # their indices according to the EquationSystem. This is needed to access the
         # state of a variable when parsing the operator to numerical values using
         # forward Ad.
 
@@ -804,8 +804,8 @@ class Operator:
         prev_time = []
         prev_iter = []
         for variable in variables:
-            # Indices (in DofManager sense) of this variable. Will be built gradually
-            # for MixedDimensionalVariables, in one go for plain Variables.
+            # Indices (in EquationSystem sense) of this variable. Will be built
+            # gradually for MixedDimensionalVariables, in one go for plain Variables.
             ind_var = []
             prev_time.append(variable.prev_time)
             prev_iter.append(variable.prev_iter)

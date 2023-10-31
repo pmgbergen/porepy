@@ -761,7 +761,8 @@ def _tpfa_matrix(
     }
     data = pp.initialize_default_data(g, {}, "flow", specified_parameters)
     solver.discretize(g, data)
-    return solver.assemble_matrix(g, data)
+    flux, _ = solver.assemble_matrix_rhs(g, data)
+    return flux
 
 
 def __get_neigh(

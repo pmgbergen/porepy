@@ -7,7 +7,7 @@ import pytest
 import porepy as pp
 from porepy import intersections
 from porepy.applications.test_utils.arrays import compare_arrays
-from porepy.grids.standard_grids.utils import unit_domain
+from porepy.applications.md_grids.domains import unit_cube_domain as unit_domain
 
 
 class TestSplitIntersectingLines2D:

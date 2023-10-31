@@ -27,7 +27,7 @@ number = Union[float, int]
 
 discretization_type = Union[
     "pp.numerics.discretization.Discretization",
-    "pp.numerics.interface_laws.abstract_interface_law.AbstractInterfaceLaw",
+    "pp.numerics.discretization.InterfaceDiscretization",
 ]
 
 fracture_network = Union[
