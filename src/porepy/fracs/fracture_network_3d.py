@@ -9,8 +9,8 @@ import copy
 import csv
 import logging
 import time
-from typing import Optional, Union
 import warnings
+from typing import Optional, Union
 
 import meshio
 import networkx as nx

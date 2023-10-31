@@ -598,7 +598,6 @@ class TestMixedDimensionalUpwind:
         lhs_ref = reference_dense_arrays.test_upwind_coupling["test_2d_1d"]["lhs"]
         rhs_ref = reference_dense_arrays.test_upwind_coupling["test_2d_1d"]["rhs"]
         theta_ref = reference_dense_arrays.test_upwind_coupling["test_2d_1d"]["theta"]
-
         self._assertion(lhs.todense(), rhs, theta, lhs_ref, rhs_ref, theta_ref)
 
     """Test the case of 3d domain with 2d fractures."""

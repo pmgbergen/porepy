@@ -5,8 +5,8 @@ The main function is :func:`~porepy.grids.coarsening.coarsen`
 """
 from __future__ import annotations
 
-from typing import Any, Optional, Union
 import warnings
+from typing import Any, Optional, Union
 
 import numpy as np
 import scipy.sparse as sps
