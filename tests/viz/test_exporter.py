@@ -253,7 +253,6 @@ def test_mdg(setup: ExporterTestSetup):
         export_constants_separately=False,
     )
     save.write_vtu(["dummy_scalar", "dummy_vector", "unique_dummy_scalar"])
-    breakpoint()
 
     # Check that exported vtu files and reference files are the same.
     for appendix in ["1", "2", "mortar_1"]:
