@@ -65,6 +65,35 @@ class Biot(pp.Mpsa):
             Defaults to "bound_displacement_pressure".
 
     See also pp.Mpsa for further attributes.
+    This discretization is an extension of the pure mechanical MPSA discretization, see
+    `:class:~porepy.numerics.fv.mpsa.Mpsa` for documentation. In addition to the pure
+    mechanical discretization, this class discretizes the coupling terms between
+    mechanics and flow. Specifically, the following coupling terms are discretized:
+
+    ``data[pp.DISCRETIZATION_MATRICES][self.mechanics_keyword]["grad_p"]``:
+    Discretization of the term :math:`\\nabla p` in the mechanics part of the
+    poromechanical system.
+
+    ``data[pp.DISCRETIZATION_MATRICES][self.mechanics_keyword]["bound_displacement_pressure"]``:
+    Discretization of the pressure contribution to the boundary displacement trace
+    reconstruction in a poromechanical system, see class documentation in
+    `:class:~porepy.numerics.fv.mpsa.Mpsa` for more details.
+
+    ``data[pp.DISCRETIZATION_MATRICES][self.flow_keyword]["div_u"]``: Discretization of
+    the term :math:`\\nabla \\cdot u` in the mass balance part of the poromechanical
+    system.
+
+    ``data[pp.DISCRETIZATION_MATRICES][self.flow_keyword]["bound_div_u"]``:
+    Discretization of boundary conditions for the term :math:`\\nabla \\cdot u` in the
+    mass balance part of the poromechanical system.
+
+    ``data[pp.DISCRETIZATION_MATRICES][self.flow_keyword]["biot_stabilization"]``:
+    Numerical stabilization term (essentially extra pressure diffusion) needed to
+    stabilize the pressure discretization, see Nordbotten 2016 for a derivation.
+
+    NOTE: This class cannot be used for assembly. Use
+    :class:`~porepy.models.poromechanics.Poromechanics` instead; there one can also find
+    examples on how to use the individual discretization matrices.
 
     """
 
