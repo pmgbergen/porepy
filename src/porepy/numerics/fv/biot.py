@@ -26,7 +26,7 @@ from __future__ import annotations
 
 import logging
 from time import time
-from typing import Any, Literal, Optional
+from typing import Any, Literal
 
 import numpy as np
 import scipy.sparse as sps
@@ -40,29 +40,6 @@ logger = logging.getLogger(__name__)
 
 class Biot(pp.Mpsa):
     """Discretization class for poro-elasticity, based on MPSA.
-
-    This is a subclass of pp.Mpsa()
-
-    Attributes:
-        mechanics_keyword (str): Keyword used to identify the parameter dictionary
-            associated with the mechanics subproblem. Defaults to "mechanics".
-        flow_keyword (str): Keyword used to identify the parameter dictionary
-            associated with the flow subproblem. Defaults to "flow".
-        vector_variable (str): Name for the vector variable, used throughout the
-            discretization and solution. Defaults to "displacement".
-        scalar_variable (str): Name for the vector variable, used throughout the
-            discretization and solution. Defaults to "pressure".
-        div_u_matrix_key (str): Keyword used to identify the discretization matrix of
-            the term div(u). Defaults to "div_u".
-        bound_div_u_matrix_key (str): Keyword used to identify the discretization matrix
-            of the boundary condition for the term div(u). Defaults to "bound_div_u".
-        grad_p_matrix_key (str): Keyword used to identify the discretization matrix of
-            the term grad(p). Defaults to "grad_p".
-        stabilization_matrix_key (str): Keyword used to identify the discretization
-            matrix for the stabilization term. Defaults to "biot_stabilization".
-        bound_pressure_matrix_key (str): Keyword used to identify the discretization
-            matrix for the pressure contribution to boundary displacement reconstruction.
-            Defaults to "bound_displacement_pressure".
 
     See also pp.Mpsa for further attributes.
     This discretization is an extension of the pure mechanical MPSA discretization, see
@@ -111,11 +88,17 @@ class Biot(pp.Mpsa):
         """
         super().__init__("")
         self.mechanics_keyword = mechanics_keyword
+        """Keyword used to identify the parameter dictionary associated with the
+        mechanics subproblem."""
         self.flow_keyword = flow_keyword
+        """Keyword used to identify the parameter dictionary associated with the
+        flow subproblem."""
         # Set variable names for the vector and scalar variable, used to access
         # solutions from previous time steps
         self.vector_variable = vector_variable
+        """Name for the vector variable, used throughout the discretization and solution."""
         self.scalar_variable = scalar_variable
+        """Name for the scalar variable, used throughout the discretization and solution."""
 
         # Strings used to identify discretization matrices for various terms constructed
         # by this class. Hardcoded here to enforce a common standard.
@@ -123,18 +106,26 @@ class Biot(pp.Mpsa):
         # (GradP, DivU), the keys should perhaps have been module level constants,
         # but this would have broken with the system in other discretizaitons.
         self.div_u_matrix_key = "div_u"
+        """Keyword used to identify the discretization matrix of the term div(u)."""
         self.bound_div_u_matrix_key = "bound_div_u"
+        """Keyword used to identify the discretization matrix of the boundary condition
+        for the term div(u)."""
         self.grad_p_matrix_key = "grad_p"
+        """Keyword used to identify the discretization matrix of the term grad(p)."""
         self.stabilization_matrix_key = "biot_stabilization"
+        """Keyword used to identify the discretization matrix for the stabilization
+        term."""
         self.bound_pressure_matrix_key = "bound_displacement_pressure"
+        """Keyword used to identify the discretization matrix for the pressure
+        contribution to boundary displacement reconstruction."""
 
         self.mass_matrix_key = "mass"
 
     def ndof(self, sd: pp.Grid) -> int:
         """Return the number of degrees of freedom associated to the method.
 
-        Args:
-            sd (pp.Grid): A grid.
+        Parameters:
+            sd: A grid.
 
         Returns:
             int: The number of degrees of freedom.
@@ -147,9 +138,9 @@ class Biot(pp.Mpsa):
     ) -> tuple[sps.spmatrix, np.ndarray]:
         """Method inherited from superclass should not be used.
 
-        Args:
-            sd (pp.Grid): Grid to be discretized.
-            sd_data (dict): Data dictionary for this grid.
+        Parameters:
+            sd: Grid to be discretized.
+            sd_data: Data dictionary for this grid.
 
         Returns:
             scipy.sparse.csr_matrix: System matrix of this discretization. The size of
@@ -166,53 +157,6 @@ class Biot(pp.Mpsa):
         raise NotImplementedError(
             """This class cannot be used for assembly.
     Use :class:`~porepy.models.poromechanics.Poromechanics` instead."""
-        )
-
-    def assemble_rhs(self, sd: pp.Grid, sd_data: dict) -> np.ndarray:
-        """Return the right-hand side for a poro-elastic system.
-
-        Args:
-            sd (pp.Grid): Grid to be discretized.
-            sd_data (dict): Data dictionary for this grid.
-
-        Returns:
-            np.ndarray: Right hand side vector with representation of boundary
-                conditions. The size of the vector will depend on the discretization.
-
-        Raises:
-            NotImplementedError: If invoked. The method is included to be compatible
-                with the wider discretization class, but assembly should be handled
-                by :class:`~porepy.models.poromechanics.Poromechanics`.
-
-        """
-        raise NotImplementedError(
-            """This class cannot be used for assembly.
-    Use :class:`~porepy.models.poromechanics.Poromechanics` instead."""
-        )
-
-    def assemble_matrix(self, sd: pp.Grid, sd_data: dict) -> sps.spmatrix:
-        """Assemble the poro-elastic system matrix.
-
-        The discretization is presumed stored in the data dictionary.
-
-        Args:
-            sd (pp.Grid): Grid for discretization
-            sd_data (dictionary): Data for discretization, as well as matrices
-                with discretization of the sub-parts of the system.
-
-        Returns:
-            scipy.sparse.bmat: Block matrix with the combined MPSA/MPFA
-                discretization.
-
-        Raises:
-            NotImplementedError: If invoked. The method is included to be compatible
-                with the wider discretization class, but assembly should be handled
-                by :class:`~porepy.models.poromechanics.Poromechanics`.
-
-        """
-        raise NotImplementedError(
-            """This class cannot be used for assembly.
-                Use :class:`~porepy.models.poromechanics.Poromechanics` instead."""
         )
 
     def update_discretization(self, sd: pp.Grid, sd_data: dict):
@@ -246,9 +190,9 @@ class Biot(pp.Mpsa):
         these should specify sparse matrices that map old to new indices. If not
         provided, the cell and face bookkeeping will be assumed constant.
 
-        Args:
-            sd (pp.Grid): Grid to be rediscretized.
-            sd_data (dictionary): With discretization parameters.
+        Parameters:
+            sd: Grid to be rediscretized.
+            sd_data: With discretization parameters.
 
         """
 
@@ -355,19 +299,19 @@ class Biot(pp.Mpsa):
                     Defaults to 1.
 
             Related to numerics:
-                inverter (str): Which method to use for block inversion. See
+                inverter: Which method to use for block inversion. See
                     pp.fvutils.invert_diagonal_blocks for detail, and for default
                     options.
-                mpfa_eta (double): Location of continuity point in MPSA.
-                    Defaults to 1/3 for simplex grids, 0 otherwise.
+                mpfa_eta: Location of continuity point in MPSA. Defaults to 1/3 for
+                    simplex grids, 0 otherwise.
 
         The discretization is stored in the data dictionary, in the form of
         several matrices representing different coupling terms. For details,
         and how to combine these, see self.assemble_matrix()
 
-        Args:
-            sd (pp.Grid): Grid to be discretized.
-            sd_data (dictionary): Containing data for discretization. See above
+        Parameters:
+            sd: Grid to be discretized.
+            sd_data: Containing data for discretization. See above
                 for specification.
 
         """
@@ -798,8 +742,8 @@ class Biot(pp.Mpsa):
         """
         Consistent discretization of grad_p-term in MPSA-W method.
 
-        Args:
-            g (core.grids.grid): grid to be discretized
+        Parameters:
+            sd: grid to be discretized.
             subcell_topology: Wrapper class for numbering of subcell faces, cells
                 etc.
             alpha: Biot's coupling coefficient, given as a scalar in input
@@ -997,7 +941,7 @@ class Biot(pp.Mpsa):
         quantities. The mapping is intended for the boundary discretization of the
         displacement divergence term  (coupling term in the flow equation).
 
-        Args:
+        Parameters:
             nf (int): Number of faces in the grid
         """
         rows = np.tile(np.arange(nf), ((nd, 1))).reshape((1, nd * nf), order="F")[0]
@@ -1051,65 +995,18 @@ class Biot(pp.Mpsa):
 
     # ----------------------- Methods for post processing -------------------------
 
-    def extract_vector(
-        self,
-        sd: pp.Grid,
-        u: np.ndarray,
-        dims: Optional[np.ndarray] = None,
-        as_vector=False,
-    ) -> list[np.ndarray]:
-        """Extract displacement field from solution.
-
-        Args:
-            sd: grid, or a subclass.
-            u (np.ndarray): Solution variable, representing displacements and
-                pressure.
-            dims (list of int, optional): Which dimension to extract. If None,
-                all dimensions are returned.
-        Returns:
-            list of np.ndarray: Displacement variables in the specified
-                dimensions.
-
-        """
-        if dims is None:
-            dims = np.arange(sd.dim)
-        vals = []
-
-        inds = np.arange(0, sd.num_cells * sd.dim, sd.dim)
-
-        for d in dims:
-            vals.append(u[d + inds])
-        if as_vector:
-            return np.asarray(vals).reshape((-1, 1), order="F").tolist()
-        else:
-            return vals
-
-    def extract_scalar(self, sd: pp.Grid, u: np.ndarray) -> np.ndarray:
-        """Extract pressure field from solution.
-
-        Args:
-            sd: grid, or a subclass.
-            u (np.ndarray): Solution variable, representing displacements and
-                pressure.
-
-        Returns:
-            np.ndarray: Pressure part of solution vector.
-
-        """
-        return u[sd.dim * sd.num_cells :]
-
     def compute_flux(self, sd: pp.Grid, u: np.ndarray, sd_data: dict) -> np.ndarray:
         """Compute flux field corresponding to a solution.
 
-        Args:
-            sd: grid, or a subclass.
-            u (np.ndarray): Solution variable, representing displacements and
+        Parameters:
+            sd: Grid, or a subclass.
+            u: Solution variable, representing displacements and
                 pressure.
-            sd_data (dictionary): dictionary related to grid and problem. Should
+            sd_data: Dictionary related to grid and problem. Should
                 contain boundary discretization.
 
         Returns:
-            np.ndarray: Flux over all faces
+            np.ndarray: Fluxes over all faces.
 
         """
         flux_discr = sd_data[pp.DISCRETIZATION_MATRICES][self.flow_keyword]["flux"]
@@ -1117,19 +1014,18 @@ class Biot(pp.Mpsa):
             "bound_flux"
         ]
         bound_val = sd_data[pp.PARAMETERS][self.flow_keyword]["bc_values"]
-        p = self.extract_scalar(sd, u)
+        p = u[sd.dim * sd.num_cells :]
         flux = flux_discr * p + bound_flux * bound_val
         return flux
 
     def compute_stress(self, sd: pp.Grid, u: np.ndarray, sd_data: dict) -> np.ndarray:
         """Compute stress field corresponding to a solution.
 
-        Args:
+        Parameters:
             sd: grid, or a subclass.
-            u (np.ndarray): Solution variable, representing displacements and
-                pressure.
-            sd_data (dictionary): dictionary related to grid and problem. Should
-                contain boundary discretization.
+            u: Solution variable, representing displacements and pressure.
+            sd_data: dictionary related to grid and problem. Should contain boundary
+                discretization.
 
         Returns:
             np.ndarray, sd.dim * sd.num_faces: Stress over all faces. Stored as
@@ -1140,8 +1036,9 @@ class Biot(pp.Mpsa):
         stress_discr = matrix_dictionary["stress"]
         bound_stress = matrix_dictionary["bound_stress"]
         bound_val = sd_data[pp.PARAMETERS][self.mechanics_keyword]["bc_values"]
-        d = self.extract_vector(sd, u, as_vector=True)
-        stress = np.squeeze(stress_discr * d) + (bound_stress * bound_val)
+        d = u[: sd.dim * sd.num_cells]
+
+        stress = stress_discr * d + (bound_stress * bound_val)
         return stress
 
 
@@ -1152,9 +1049,8 @@ class GradP(Discretization):
         """Set the discretization, with the keyword used for storing various
         information associated with the discretization.
 
-        Args:
-            keyword (str): Identifier of all information used for this
-                discretization.
+        Parameters:
+            keyword: Identifier of all information used for this discretization.
 
         """
         self.keyword = keyword
@@ -1164,8 +1060,8 @@ class GradP(Discretization):
     def ndof(self, sd: pp.Grid) -> int:
         """Return the number of degrees of freedom associated to the method.
 
-        Args:
-            sd (pp.Grid): A grid.
+        Parameters:
+            sd: A grid.
 
         Returns:
             int: The number of degrees of freedom.
@@ -1176,9 +1072,9 @@ class GradP(Discretization):
     def discretize(self, sd: pp.Grid, sd_data: dict):
         """Discretize the pressure gradient term of the Biot equation.
 
-        Args:
-            sd (pp.Grid): grid, or a subclass, with geometry fields computed.
-            sd_data (dict): For entries, see above.
+        Parameters:
+            sd: grid, or a subclass, with geometry fields computed.
+            sd_data: For entries, see above.
 
         Raises:
             NotImplementedError, the discretization should be performed using the
@@ -1186,8 +1082,8 @@ class GradP(Discretization):
 
         """
         raise NotImplementedError(
-            """No discretize method implemented for the GradP
-                                  class. See the Biot class."""
+            """No discretize method implemented for the GradP class. See the Biot
+            class."""
         )
 
     def assemble_matrix_rhs(
@@ -1196,8 +1092,8 @@ class GradP(Discretization):
         """Return the matrix and right-hand side for a discretization of the pressure
         gradient term of the Biot equation.
 
-        Args:
-            sd (pp.Grid) : grid, or a subclass, with geometry fields computed.
+        Parameters:
+            sd: grid, or a subclass, with geometry fields computed.
             sd_data: dictionary to store the data. For details on necessary keywords,
                 see method discretize().
 
@@ -1207,25 +1103,8 @@ class GradP(Discretization):
             rhs: array (sd.dim * sd.num_cells) Right-hand side.
 
         """
-        return self.assemble_matrix(sd, sd_data), self.assemble_rhs(sd, sd_data)
-
-    def assemble_matrix(self, sd: pp.Grid, sd_data: dict) -> sps.spmatrix:
-        """Return the matrix and right-hand side for a discretization of the pressure
-        gradient term of the Biot equation.
-
-        Args:
-            sd (pp.Grid): Computational grid, with geometry fields computed.
-            sd_data (dictionary): With data stored.
-
-        Returns:
-            scipy.sparse.csr_matrix: System matrix of this discretization. The
-                size of the matrix will depend on the specific discretization.
-
-        Raises:
-            ValueError if the pressure gradient term has not already been discretized.
-
-        """
         mat_dict = sd_data[pp.DISCRETIZATION_MATRICES][self.keyword]
+        parameter_dictionary: dict = sd_data[pp.PARAMETERS][self.keyword]
 
         mat_key = self.grad_p_matrix_key
         if mat_key not in mat_dict.keys():
@@ -1233,50 +1112,22 @@ class GradP(Discretization):
                 """GradP class requires a pre-computed discretization to be
                              stored in the matrix dictionary."""
             )
-        div_mech = pp.fvutils.vector_divergence(sd)
-        # Put together linear system
+        div = pp.fvutils.vector_divergence(sd)
+
+        # Assemble matrix.
         if mat_dict[mat_key].shape[0] != sd.dim * sd.num_faces:
             hf2f_nd = pp.fvutils.map_hf_2_f(sd=sd)
             grad_p = hf2f_nd * mat_dict[mat_key]
         else:
             grad_p = mat_dict[mat_key]
-        return div_mech * grad_p
+        matrix = div * grad_p
 
-    def assemble_rhs(self, sd: pp.Grid, sd_data: dict) -> np.ndarray:
-        """Return the right-hand side for a discretization of the pressure gradient term.
-
-        The contribution is nonzero only for nonzero p_reference, which mainly is of
-        relevance for thermal stress on the form
-            thermal_expansion * (T-T_reference) * I.
-
-        Args:
-            sd (pp.Grid): Computational grid.
-            sd_data (dictionary): With data stored.
-
-        Returns:
-            np.ndarray: Right-hand side vector with representation of reference pressure
-                contribution.
-
-        """
-        mat_dict: dict[str, sps.spmatrix] = sd_data[pp.DISCRETIZATION_MATRICES][
-            self.keyword
-        ]
-        parameter_dictionary: dict = sd_data[pp.PARAMETERS][self.keyword]
-        # Use the same key to access the discretization matrix as the Biot class.
-        mat_key = Biot().grad_p_matrix_key
-
+        # Assemble right-hand side. The rhs contribution is the lhs discretization
+        # applied to the reference value.
         p_reference = parameter_dictionary["p_reference"]
-        div_mech = pp.fvutils.vector_divergence(sd)
-        # Account for half-face based discretization
-        if mat_dict[mat_key].shape[0] != sd.dim * sd.num_faces:
-            hf2f_nd = pp.fvutils.map_hf_2_f(sd=sd)
-            grad_p = hf2f_nd * mat_dict[mat_key]
-        else:
-            grad_p = mat_dict[mat_key]
+        rhs = div * grad_p * p_reference
 
-        # The rhs contribution is the lhs discretization applied to the reference
-        # value.
-        return div_mech * grad_p * p_reference
+        return matrix, rhs
 
 
 class DivU(Discretization):
@@ -1314,8 +1165,8 @@ class DivU(Discretization):
     def ndof(self, sd: pp.Grid):
         """Return the number of degrees of freedom associated to the method.
 
-        Args:
-            sd (pp.Grid): A grid.
+        Parameters:
+            sd: A grid.
 
         Returns:
             int: The number of degrees of freedom.
@@ -1326,9 +1177,9 @@ class DivU(Discretization):
     def discretize(self, sd: pp.Grid, sd_data: dict):
         """Discretize the displacement divergence term of the Biot equation.
 
-        Args:
-            g (pp.Grid): grid, or a subclass, with geometry fields computed.
-            sd_data (dict): For entries, see above.
+        Parameters:
+            sd: grid, or a subclass, with geometry fields computed.
+            sd_data: For entries, see above.
 
         Raises:
             NotImplementedError, the discretization should be performed using the
@@ -1345,37 +1196,20 @@ class DivU(Discretization):
         """Return the matrix and right-hand side for a discretization of the
         displacement divergence term of the Biot equation.
 
-        Args:
-            sd (pp.Grid) : grid, or a subclass, with geometry fields computed.
+        Parameters:
+            sd : grid, or a subclass, with geometry fields computed.
             sd_data: dictionary to store the data. For details on necessary keywords,
                 see method discretize()
 
         Returns:
-            matrix: sparse csr (sd.dim * g_num_cells, sd.dim * g_num_cells) Discretization
-            matrix.
+            matrix: sparse csr (sd.dim * g_num_cells, sd.dim * g_num_cells)
+                Discretization matrix.
             rhs: array (sd.dim * g_num_cells) Right-hand side.
 
         """
-        return self.assemble_matrix(sd, sd_data), self.assemble_rhs(sd, sd_data)
-
-    def assemble_matrix(self, sd: pp.Grid, sd_data: dict) -> sps.spmatrix:
-        """Return the matrix and right-hand side for a discretization of the
-        displacement divergence term of the Biot equation.
-
-        Args:
-            sd (pp.Grid): Computational grid, with geometry fields computed.
-            sd_data (dictionary): With data stored.
-
-        Returns:
-            scipy.sparse.csr_matrix: System matrix of this discretization. The
-                size of the matrix will depend on the specific discretization.
-
-        Raises:
-            ValueError if the displacement divergence term has not already been
-            discretized.
-
-        """
         matrix_dictionary = sd_data[pp.DISCRETIZATION_MATRICES][self.flow_keyword]
+        parameter_dictionary_mech = sd_data[pp.PARAMETERS][self.mechanics_keyword]
+        parameter_dictionary_flow = sd_data[pp.PARAMETERS][self.flow_keyword]
 
         mat_key = self.div_u_matrix_key
         if mat_key not in matrix_dictionary.keys():
@@ -1383,37 +1217,18 @@ class DivU(Discretization):
                 """DivU class requires a pre-computed discretization to be
                              stored in the matrix dictionary."""
             )
-        biot_alpha = sd_data[pp.PARAMETERS][self.flow_keyword]["biot_alpha"]
-        return matrix_dictionary[mat_key] * biot_alpha
+        # Assemble matrix.
+        biot_alpha = parameter_dictionary_flow["biot_alpha"]
+        matrix = matrix_dictionary[mat_key] * biot_alpha
 
-    def assemble_rhs(self, sd: pp.Grid, sd_data: dict) -> np.ndarray:
-        """Return the right-hand side for a discretization of the displacement
-        divergence term.
-
-        For the time being, we assume an IE temporal discretization.
-
-        Args:
-            sd (pp.Grid): Computational grid.
-            sd_data (dictionary): With data stored.
-
-        Returns:
-            np.ndarray: Zero right-hand side vector with representation of boundary
-                conditions.
-
-        """
-        parameter_dictionary_mech = sd_data[pp.PARAMETERS][self.mechanics_keyword]
-        parameter_dictionary_flow = sd_data[pp.PARAMETERS][self.flow_keyword]
-        matrix_dictionary = sd_data[pp.DISCRETIZATION_MATRICES][self.flow_keyword]
-
+        # Assemble right-hand side.
         # For IE and constant BCs, the boundary part cancels, as the contribution from
         # successive time steps (n and n+1) appear on the rhs with opposite signs. For
         # transient BCs, use the below with the appropriate version of d_bound_i.
         # Get bc values from mechanics
         d_bound_1 = parameter_dictionary_mech["bc_values"]
-
         d_bound_0 = parameter_dictionary_mech["bc_values_previous_timestep"]
         # and coupling parameter from flow
-        biot_alpha = parameter_dictionary_flow["biot_alpha"]
         rhs_bound = (
             -matrix_dictionary[self.bound_div_u_matrix_key]
             * (d_bound_1 - d_bound_0)
@@ -1424,10 +1239,9 @@ class DivU(Discretization):
         d_cell = pp.get_solution_values(
             name=self.variable, data=sd_data, time_step_index=0
         )
-
-        div_u = matrix_dictionary[self.div_u_matrix_key]
+        div_u = matrix_dictionary[mat_key]
         rhs_time = np.squeeze(biot_alpha * div_u * d_cell)
-        return rhs_bound + rhs_time
+        return matrix, rhs_bound + rhs_time
 
 
 class BiotStabilization(Discretization):
@@ -1449,8 +1263,8 @@ class BiotStabilization(Discretization):
     def ndof(self, sd: pp.Grid):
         """Return the number of degrees of freedom associated to the method.
 
-        Args:
-            sd (pp.Grid): A grid.
+        Parameters:
+            sd: A grid.
 
         Returns:
             int: The number of degrees of freedom.
@@ -1461,9 +1275,9 @@ class BiotStabilization(Discretization):
     def discretize(self, sd: pp.Grid, sd_data: dict):
         """Discretize the stabilization term of the Biot equation.
 
-        Args:
+        Parameters:
             g (pp.Grid): grid, or a subclass, with geometry fields computed.
-            sd_data (dict): Data dictionary.
+            sd_data: Data dictionary.
 
         Raises:
             NotImplementedError, the discretization should be performed using the
@@ -1481,10 +1295,10 @@ class BiotStabilization(Discretization):
         """Return the matrix and right-hand side for a discretization of the
         stabilization term of the Biot equation.
 
-        Args:
-            sd (pp.Grid): grid, or a subclass, with geometry fields computed.
+        Parameters:
+            sd: grid, or a subclass, with geometry fields computed.
             sd_data: dictionary to store the data. For details on necessary keywords,
-                see method discretize()
+                see method discretize().
 
         Returns:
             matrix: sparse csr (sd.dim * g.num_cells, sd.dim * sd.num_cells)
@@ -1492,51 +1306,14 @@ class BiotStabilization(Discretization):
             rhs: array (sd.dim * sd.num_cells) Right-hand side.
 
         """
-        return self.assemble_matrix(sd, sd_data), self.assemble_rhs(sd, sd_data)
-
-    def assemble_matrix(self, sd: pp.Grid, sd_data: dict) -> sps.spmatrix:
-        """Return the matrix and right-hand side for a discretization of the
-        stabilization term of the Biot equation.
-
-        Args:
-            sd (pp.Grid): Computational grid, with geometry fields computed.
-            sd_data (dictionary): With data stored.
-
-        Returns:
-            scipy.sparse.csr_matrix: System matrix of this discretization. The
-                size of the matrix will depend on the specific discretization.
-
-        Raises:
-            ValueError if the stabilization term has not already been
-            discretized.
-
-        """
-
         mat_key = self.stabilization_matrix_key
         matrix_dictionary = sd_data[pp.DISCRETIZATION_MATRICES][self.keyword]
+
         if mat_key not in matrix_dictionary.keys():
             raise ValueError(
                 """BiotStabilization class requires a pre-computed
                              discretization to be stored in the matrix dictionary."""
             )
-        return matrix_dictionary[mat_key]
-
-    def assemble_rhs(self, sd: pp.Grid, sd_data: dict) -> np.ndarray:
-        """Return the right-hand side for the stabilization part of the displacement
-        divergence term.
-
-        For the time being, we assume an IE temporal discretization.
-
-        Args:
-            sd (pp.Grid): Computational grid.
-            sd_data (dictionary): With data stored.
-
-        Returns:
-            np.ndarray: Zero right-hand side vector with representation of boundary
-                conditions.
-
-        """
-        matrix_dictionary = sd_data[pp.DISCRETIZATION_MATRICES][self.keyword]
 
         # The stabilization is the pressure contribution to the div u part of the
         # fluid mass conservation, thus needs a right-hand side in the implicit Euler
@@ -1544,10 +1321,7 @@ class BiotStabilization(Discretization):
         pressure_0 = pp.get_solution_values(
             name=self.variable, data=sd_data, time_step_index=0
         )
-        A_stability = matrix_dictionary[self.stabilization_matrix_key]
-        rhs_time = A_stability * pressure_0
+        matrix = matrix_dictionary[self.stabilization_matrix_key]
+        rhs_time = matrix * pressure_0
 
-        # The stabilization has no rhs.
-        rhs_bound = np.zeros(self.ndof(sd))
-
-        return rhs_bound + rhs_time
+        return matrix, rhs_time

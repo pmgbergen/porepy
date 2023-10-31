@@ -16,7 +16,6 @@ class Tpfa(pp.FVElliptic):
     keyword : str
         Which keyword is the solver intended flow. Will determine which data
         will be accessed (e.g. flow specific, or conductivity / heat-related).
-        See Data class for more details. Defaults to flow.
 
     """
 
@@ -66,9 +65,10 @@ class Tpfa(pp.FVElliptic):
             folk.uib.no/fciia/elliptisk.pdf. Activated by adding the entry
             Aavatsmark_transmissibilities: True   to the data dictionary.
 
-        Parametrs:
-            sd (pp.Grid): Grid with geometry fields computed.
-            data (dict): For entries, see above.
+        Parameters:
+            sd: Grid with geometry fields computed.
+            data: For entries, see above.
+
         """
         # Get the dictionaries for storage of data and discretization matrices
         parameter_dictionary = data[pp.PARAMETERS][self.keyword]
