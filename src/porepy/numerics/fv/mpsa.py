@@ -58,7 +58,7 @@ class Mpsa(Discretization):
         ]  # Fetch the discretization matrix, see discretize() for details
         # Do the same for bound_displacement_face
 
-        # Compute the displacment trace 
+        # Compute the displacment trace
         displacement_trace =
         #       bound_displacement_cell * d_cell_center +
         #       bound_displacement_face * bc_values
