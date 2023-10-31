@@ -1,6 +1,4 @@
-"""Test for the discretization of mass matrices. On mono-dimensional meshes,
-both primal- and mixed-methods are covered..
-"""
+"""Test for the discretization of mass matrices. """
 
 from typing import Union
 
@@ -24,73 +22,6 @@ def domains(index: int):
     domain_3d = pp.Domain({"xmax": 1, "ymax": 1, "zmax": 1})
     domains = [domain_2d, domain_3d]
     return domains[index]
-
-
-"""Primal-method mass matrix."""
-
-
-class TestPrimalMethodMassMatrix:
-
-    """Tuples of the kind (grid_type_idx, domain_idx)"""
-
-    test_parameters = [
-        (0, 0),
-        (0, 1),
-        (1, 0),
-        (1, 1),
-        (2, 0),
-        (2, 1),
-    ]
-
-    def create_subdomain_grid(self, grid_type_idx, domain_idx):
-        """Generates a mono-dimensional grid using pp.create_mdg"""
-        grid_type = grid_types(grid_type_idx)
-        domain: pp.Domain = domains(domain_idx)
-        meshing_args: dict = {"cell_size": 0.25}
-        fracture_network = pp.create_fracture_network([], domain)
-        mdg = pp.create_mdg(grid_type, meshing_args, fracture_network)
-        sd = mdg.subdomains(dim=mdg.dim_max())[0]
-        return sd
-
-    @pytest.mark.parametrize("grid_type_idx, domain_idx", test_parameters)
-    def test_mass_matrix(self, grid_type_idx, domain_idx):
-        sd = self.create_subdomain_grid(grid_type_idx, domain_idx)
-        phi = np.random.rand(sd.num_cells)
-        dt = 0.2
-        specified_parameters = {"time_step": dt, "mass_weight": phi}
-        data = pp.initialize_default_data(sd, {}, "flow", specified_parameters)
-
-        time_discr = pp.MassMatrix()
-        time_discr.discretize(sd, data)
-        lhs, rhs = time_discr.assemble_matrix_rhs(sd, data)
-
-        # Assert that there is no contribution into rhs
-        assert np.allclose(rhs, 0)
-
-        # Assert that the matrix is diagonal and equal geometrical measurement of each
-        # cell times a weight (porosity)
-        assert np.allclose(lhs.diagonal(), sd.cell_volumes * phi)
-        off_diag = np.where(~np.eye(lhs.shape[0], dtype=bool))
-
-        # Assert that all off diagonal terms are zero
-        assert np.allclose(lhs.A[off_diag], 0)
-
-    @pytest.mark.parametrize("grid_type_idx, domain_idx", test_parameters)
-    def test_inv_mass_matrix(self, grid_type_idx, domain_idx):
-        sd = self.create_subdomain_grid(grid_type_idx, domain_idx)
-        phi = np.random.rand(sd.num_cells)
-        dt = 0.2
-        specified_parameters = {"time_step": dt, "mass_weight": phi}
-        data = pp.initialize_default_data(sd, {}, "flow", specified_parameters)
-
-        time_discr = pp.InvMassMatrix()
-        time_discr.discretize(sd, data)
-        lhs, rhs = time_discr.assemble_matrix_rhs(sd, data)
-
-        assert np.allclose(rhs, 0)
-        assert np.allclose(lhs.diagonal(), 1 / (sd.cell_volumes * phi))
-        off_diag = np.where(~np.eye(lhs.shape[0], dtype=bool))
-        assert np.allclose(lhs.A[off_diag], 0)
 
 
 """Dual-method mass matrix."""

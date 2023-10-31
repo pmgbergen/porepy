@@ -38,8 +38,6 @@ import scipy.sparse as sps
 import porepy as pp
 from porepy.fracs.fracture_network_2d import FractureNetwork2d
 from porepy.fracs.fracture_network_3d import FractureNetwork3d
-from tests.integration import setup_mixed_dimensional_grids as setup_mdg
-from tests.integration.fracture_propagation_utils import check_equivalent_md_grids
 from tests.test_utils import compare_arrays
 
 FractureNetwork = Union[FractureNetwork2d, FractureNetwork3d]
@@ -116,6 +114,23 @@ def retrieve_md_targets_cells_and_angles(case: int):
         ]
 
     return mdg, targets, angles
+
+
+def grid_3d_2d(nx=[2, 2, 2], x_start=0, x_stop=1):
+    """
+    Make the simplest possible fractured grid: 2d unit square with one
+    horizontal fracture extending from 0 to fracture_x <= 1.
+
+    """
+    eps = 1e-10
+    assert x_stop < 1 + eps and x_stop > -eps
+    assert x_start < 1 + eps and x_stop > -eps
+
+    f = np.array(
+        [[x_start, x_stop, x_stop, x_start], [0.0, 0.0, 0.5, 0.5], [0.5, 0.5, 0.5, 0.5]]
+    )
+    mdg = pp.meshing.cart_grid([f], nx, **{"physdims": [1, 1, 1]})
+    return mdg
 
 
 @pytest.mark.parametrize("case", [1, 2, 3])
@@ -211,7 +226,7 @@ def test_pick_propagation_face_conforming_propagation(case):
         # ... on to the next propagation step.
 
 
-class FaceSplittingHostGrid:
+class TestFaceSplittingHostGrid:
     """Tests of splitting of faces in the higher-dimensional grid.
 
     The different tests have been written at different points in time, and could have
@@ -229,11 +244,31 @@ class FaceSplittingHostGrid:
         4 grown in two steps
         """
 
-        # Generate grid buckets
-        mdg_1 = setup_mdg.grid_2d_1d([4, 2], 0, 0.75)
-        mdg_2 = setup_mdg.grid_2d_1d([4, 2], 0, 0.25)
-        mdg_3 = setup_mdg.grid_2d_1d([4, 2], 0, 0.50)
-        mdg_4 = setup_mdg.grid_2d_1d([4, 2], 0, 0.25)
+        # Generate mixed-dimensional grids
+        mdg_1, _ = pp.mdg_library.square_with_orthogonal_fractures(
+            "cartesian",
+            {"cell_size_x": 0.25, "cell_size_y": 0.5},
+            fracture_indices=[1],
+            fracture_endpoints=[np.array([0.0, 0.75])],
+        )
+        mdg_2, _ = pp.mdg_library.square_with_orthogonal_fractures(
+            "cartesian",
+            {"cell_size_x": 0.25, "cell_size_y": 0.5},
+            fracture_indices=[1],
+            fracture_endpoints=[np.array([0.0, 0.25])],
+        )
+        mdg_3, _ = pp.mdg_library.square_with_orthogonal_fractures(
+            "cartesian",
+            {"cell_size_x": 0.25, "cell_size_y": 0.5},
+            fracture_indices=[1],
+            fracture_endpoints=[np.array([0.0, 0.5])],
+        )
+        mdg_4, _ = pp.mdg_library.square_with_orthogonal_fractures(
+            "cartesian",
+            {"cell_size_x": 0.25, "cell_size_y": 0.5},
+            fracture_indices=[1],
+            fracture_endpoints=[np.array([0.0, 0.25])],
+        )
 
         # Pick out the 1d grids in each bucket. These will be used to set which faces
         # in the 2d grid to split
@@ -249,7 +284,7 @@ class FaceSplittingHostGrid:
         pp.propagate_fracture.propagate_fractures(mdg_4, {g4: np.array([16])})
 
         # Check that the four grid buckets are equivalent
-        check_equivalent_md_grids([mdg_1, mdg_2, mdg_3, mdg_4])
+        _check_equivalent_md_grids([mdg_1, mdg_2, mdg_3, mdg_4])
 
     def test_equivalence_3d(self):
         """
@@ -261,10 +296,10 @@ class FaceSplittingHostGrid:
         4 grown in two steps
         """
         # Make buckets
-        mdg_1 = setup_mdg.grid_3d_2d([4, 2, 2], 0, 0.75)
-        mdg_2 = setup_mdg.grid_3d_2d([4, 2, 2], 0, 0.25)
-        mdg_3 = setup_mdg.grid_3d_2d([4, 2, 2], 0, 0.50)
-        mdg_4 = setup_mdg.grid_3d_2d([4, 2, 2], 0, 0.25)
+        mdg_1 = grid_3d_2d([4, 2, 2], 0, 0.75)
+        mdg_2 = grid_3d_2d([4, 2, 2], 0, 0.25)
+        mdg_3 = grid_3d_2d([4, 2, 2], 0, 0.50)
+        mdg_4 = grid_3d_2d([4, 2, 2], 0, 0.25)
 
         # Pick out the 2d grids in each bucket. These will be used to set which faces
         # in the 3d grid to split
@@ -280,7 +315,7 @@ class FaceSplittingHostGrid:
         pp.propagate_fracture.propagate_fractures(mdg_4, {g4: np.array([54])})
 
         # Check that the four grid buckets are equivalent
-        check_equivalent_md_grids([mdg_1, mdg_2, mdg_3, mdg_4])
+        _check_equivalent_md_grids([mdg_1, mdg_2, mdg_3, mdg_4])
 
     def test_two_fractures_2d(self):
         """
@@ -311,17 +346,17 @@ class FaceSplittingHostGrid:
         # First propagation step
         faces = {sd_1: np.array([27]), g2: np.array([32])}
         pp.propagate_fracture.propagate_fractures(mdg, faces)
-        check_equivalent_md_grids([mdg, mdg_1])
+        _check_equivalent_md_grids([mdg, mdg_1])
 
         # Second step
         faces = {sd_1: np.array([28]), g2: np.array([31])}
         pp.propagate_fracture.propagate_fractures(mdg, faces)
-        check_equivalent_md_grids([mdg, mdg_2])
+        _check_equivalent_md_grids([mdg, mdg_2])
 
         # Final step - only one of the fractures grow
         faces = {sd_1: np.array([29]), g2: np.array([], dtype=int)}
         pp.propagate_fracture.propagate_fractures(mdg, faces)
-        check_equivalent_md_grids([mdg, mdg_3])
+        _check_equivalent_md_grids([mdg, mdg_3])
 
     def test_two_propagation_steps_3d(self):
         # Starting from a fracture one cell wide, three cells long, the first step
@@ -685,9 +720,14 @@ class PropagationCriteria:
 
     def _make_grid(self, dim):
         if dim == 3:
-            mdg = setup_mdg.grid_3d_2d()
+            mdg = grid_3d_2d()
         else:
-            mdg = setup_mdg.grid_2d_1d([4, 2], 0.25, 0.75)
+            mdg, _ = pp.mdg_library.square_with_orthogonal_fractures(
+                "cartesian",
+                {"cell_size_x": 0.25, "cell_size_y": 0.5},
+                fracture_indices=[1],
+                fracture_endpoints=[np.array([0.25, 0.75])],
+            )
         mdg.compute_geometry()
 
         pp.set_local_coordinate_projections(mdg)
@@ -719,7 +759,7 @@ class PropagationCriteria:
         assert np.all(np.isclose(sifs[0], p_l["SIFs_equivalent"]))
 
 
-class VariableMappingInitializationUnderPropagation:
+class TestVariableMappingInitializationUnderPropagation:
     """Test of functionality to update variables during propagation.
 
     In reality, three features are tested: First, the mappings for cell and face variables,
@@ -780,12 +820,20 @@ class VariableMappingInitializationUnderPropagation:
         # Model used for fracture propagation
         model = MockPropagationModel({})
         model.mdg = mdg
+        equation_system = pp.EquationSystem(mdg)
+        model.equation_system = equation_system
 
+        # self,
+        # name: str,
+        # dof_info: Optional[dict[GridEntity, int]] = None,
+        # subdomains: Optional[list[pp.Grid]] = None,
+        # interfaces: Optional[list[pp.MortarGrid]] = None,
+        # tags: Optional[dict[str, Any]] = None,
         # Cell variable in 2d. Should stay constant throughout the process.
         cell_val_2d = np.random.rand(g_2d.num_cells)
 
         ## Initialize variables for all grids
-        # Cell variable in 1d. Sholud be expanded, but initial size is num_vars_2d
+        # Cell variable in 1d. Should be expanded, but initial size is num_vars_2d
         var_sz_1d = 2
         # 1d variables defined as a dict, indexed on the grid
         cell_val_1d = {g: np.random.rand(var_sz_1d) for g in g_1d}
@@ -797,7 +845,7 @@ class VariableMappingInitializationUnderPropagation:
         # Initialize the state by the known variable, and the iterate as twice that
         # value (mostly a why not)
         d = mdg.subdomain_data(g_2d)
-        d[pp.PRIMARY_VARIABLES] = {self.cv2: {"cells": 1}}
+        equation_system.create_variables(self.cv2, {"cells": 1}, [g_2d])
 
         val_sol = cell_val_2d
         val_it = 2 * cell_val_2d
@@ -807,7 +855,7 @@ class VariableMappingInitializationUnderPropagation:
 
         for g in g_1d:
             d = mdg.subdomain_data(g)
-            d[pp.PRIMARY_VARIABLES] = {self.cv1: {"cells": var_sz_1d}}
+            equation_system.create_variables(self.cv1, {"cells": var_sz_1d}, [g])
 
             val_sol = cell_val_1d[g]
             val_it = 2 * cell_val_1d[g]
@@ -822,7 +870,9 @@ class VariableMappingInitializationUnderPropagation:
             intf = mdg.subdomain_pair_to_interface((g_2d, g))
 
             d = mdg.interface_data(intf)
-            d[pp.PRIMARY_VARIABLES] = {self.mv: {"cells": var_sz_mortar}}
+            equation_system.create_variables(
+                self.mv, {"cells": var_sz_mortar}, interfaces=[intf]
+            )
 
             val_sol = cell_val_mortar[g]
             val_it = 2 * cell_val_mortar[g]
@@ -832,18 +882,16 @@ class VariableMappingInitializationUnderPropagation:
             )
             pp.set_solution_values(name=self.mv, values=val_it, data=d, iterate_index=0)
 
-        # Define assembler, thereby a dof ordering
-        dof_manager = pp.DofManager(mdg)
-        assembler = pp.Assembler(mdg, dof_manager)
-        model.assembler = assembler
-
         # Define and initialize a state vector
-        x = np.zeros(dof_manager.full_dof.sum())
-        x[dof_manager.grid_and_variable_to_dofs(g_2d, self.cv2)] = cell_val_2d
+        x = np.zeros(equation_system.num_dofs())
+        var_2d = equation_system.get_variables([self.cv2], [g_2d])
+        x[equation_system.dofs_of(var_2d)] = cell_val_2d
         for g in g_1d:
-            x[dof_manager.grid_and_variable_to_dofs(g, self.cv1)] = cell_val_1d[g]
+            var_1d = equation_system.get_variables([self.cv1], [g])
+            x[equation_system.dofs_of(var_1d)] = cell_val_1d[g]
             intf = mdg.subdomain_pair_to_interface((g_2d, g))
-            x[dof_manager.grid_and_variable_to_dofs(intf, self.mv)] = cell_val_mortar[g]
+            var_mortar = equation_system.get_variables([self.mv], [intf])
+            x[equation_system.dofs_of(var_mortar)] = cell_val_mortar[g]
 
         # Keep track of the previous values for each grid.
         # Not needed in 2d, where no updates are expected
@@ -862,10 +910,8 @@ class VariableMappingInitializationUnderPropagation:
             x_new = model._map_variables(x)
 
             # The values of the 2d cell should not change
-            assert np.all(
-                x_new[dof_manager.grid_and_variable_to_dofs(g_2d, self.cv2)]
-                == cell_val_2d
-            )
+
+            assert np.all(x_new[equation_system.dofs_of(var_2d)] == cell_val_2d)
             # Also check that pp.TIME_STEP_SOLUTIONS and ITERATES has been correctly
             # updated
             d = mdg.subdomain_data(g_2d)
@@ -884,7 +930,8 @@ class VariableMappingInitializationUnderPropagation:
                 num_new_cells = split[g].size
 
                 # mapped variable
-                x_1d = x_new[dof_manager.grid_and_variable_to_dofs(g, self.cv1)]
+                var_1d = equation_system.get_variables([self.cv1], [g])
+                x_1d = x_new[equation_system.dofs_of(var_1d)]
 
                 # Extension of the 1d grid. All values should be 42 (see propagation
                 # class)
@@ -914,12 +961,11 @@ class VariableMappingInitializationUnderPropagation:
                 # correctly, we alter the true value (add 1), and update this both in
                 # the solution vector, time step solutions and previous iterate
                 # solutions
-                x_new[dof_manager.grid_and_variable_to_dofs(g, self.cv1)] = np.r_[
+                var_1d = equation_system.get_variables([self.cv1], [g])
+                x_new[equation_system.dofs_of(var_1d)] = np.r_[
                     val_1d_prev[g], extended_1d + 1
                 ]
-                val_1d_prev[g] = x_new[
-                    dof_manager.grid_and_variable_to_dofs(g, self.cv1)
-                ]
+                val_1d_prev[g] = x_new[equation_system.dofs_of(var_1d)]
                 val_1d_iterate_prev[g] = np.r_[val_1d_iterate_prev[g], extended_1d + 1]
 
                 pp.set_solution_values(
@@ -934,7 +980,8 @@ class VariableMappingInitializationUnderPropagation:
 
                 ## Check mortar grid - see 1d case above for comments
                 intf = mdg.subdomain_pair_to_interface((g_2d, g))
-                x_mortar = x_new[dof_manager.grid_and_variable_to_dofs(intf, self.mv)]
+                var_intf = equation_system.get_variables([self.mv], [intf])
+                x_mortar = x_new[equation_system.dofs_of(var_intf)]
 
                 sz = int(np.round(val_mortar_prev[g].size / 2))
 
@@ -963,15 +1010,13 @@ class VariableMappingInitializationUnderPropagation:
                     pp.get_solution_values(name=self.mv, data=d, iterate_index=0)
                     == truth_iterate
                 )
-                x_new[dof_manager.grid_and_variable_to_dofs(intf, self.mv)] = np.r_[
+                x_new[equation_system.dofs_of(var_intf)] = np.r_[
                     val_mortar_prev[g][:sz],
                     np.full(var_sz_mortar * num_new_cells, 43),
                     val_mortar_prev[g][sz : 2 * sz],
                     np.full(var_sz_mortar * num_new_cells, 43),
                 ]
-                val_mortar_prev[g] = x_new[
-                    dof_manager.grid_and_variable_to_dofs(intf, self.mv)
-                ]
+                val_mortar_prev[g] = x_new[equation_system.dofs_of(var_intf)]
                 val_mortar_iterate_prev[g] = np.r_[
                     val_mortar_iterate_prev[g][:sz],
                     np.full(var_sz_mortar * num_new_cells, 43),
@@ -990,3 +1035,162 @@ class VariableMappingInitializationUnderPropagation:
                 )
 
                 x = x_new
+
+
+# Helper functions for the tests below
+
+
+def _check_equivalent_md_grids(md_grids, decimals=12):
+    """
+    Checks agreement between number of cells, faces and nodes, their
+    coordinates and the connectivity matrices cell_faces and face_nodes. Also
+    checks the face tags.
+
+    """
+    dim_h = md_grids[0].dim_max()
+    dim_l = dim_h - 1
+    num_md_grids = len(md_grids)
+    cell_maps_h, face_maps_h = [], []
+    cell_maps_l, face_maps_l = num_md_grids * [{}], num_md_grids * [{}]
+
+    # Check that all md-grids have the same number of grids in the lower dimension
+    num_grids_l: int = len(md_grids[0].subdomains(dim=dim_h - 1))
+    for mdg in md_grids:
+        assert len(mdg.subdomains(dim=dim_h - 1)) == num_grids_l
+
+    for dim in range(dim_l, dim_h + 1):
+        for target_grid in range(len(md_grids[0].subdomains(dim=dim))):
+            n_cells, n_faces, n_nodes = np.empty(0), np.empty(0), np.empty(0)
+            nodes, face_centers, cell_centers = [], [], []
+            cell_faces, face_nodes = [], []
+            for mdg in md_grids:
+                sd = mdg.subdomains(dim=dim)[target_grid]
+                n_cells = np.append(n_cells, sd.num_cells)
+                n_faces = np.append(n_faces, sd.num_faces)
+                n_nodes = np.append(n_nodes, sd.num_nodes)
+                cell_faces.append(sd.cell_faces)
+                face_nodes.append(sd.face_nodes)
+                cell_centers.append(sd.cell_centers)
+                face_centers.append(sd.face_centers)
+                nodes.append(sd.nodes)
+
+            # Check that all md-grids have the same number of cells, faces and nodes
+            assert np.unique(n_cells).size == 1
+            assert np.unique(n_faces).size == 1
+            assert np.unique(n_nodes).size == 1
+
+            # Check that the coordinates agree
+            cell_centers = np.round(cell_centers, decimals)
+            nodes = np.round(nodes, decimals)
+            face_centers = np.round(face_centers, decimals)
+            for i in range(1, num_md_grids):
+                assert np.all(
+                    pp.utils.setmembership.ismember_rows(
+                        cell_centers[0], cell_centers[i]
+                    )[0]
+                )
+                assert np.all(
+                    pp.utils.setmembership.ismember_rows(
+                        face_centers[0], face_centers[i]
+                    )[0]
+                )
+                assert np.all(
+                    pp.utils.setmembership.ismember_rows(nodes[0], nodes[i])[0]
+                )
+
+            # Now we know all nodes, faces and cells are in all grids, we map them
+            # to prepare cell_faces and face_nodes comparison
+            sd_0 = md_grids[0].subdomains(dim=dim)[target_grid]
+            for i in range(1, num_md_grids):
+                mdg = md_grids[i]
+                sd = mdg.subdomains(dim=dim)[target_grid]
+                cell_map, face_map, node_map = _make_maps(sd_0, sd, mdg.dim_max())
+                mapped_cf = sd.cell_faces[face_map][:, cell_map]
+                mapped_fn = sd.face_nodes[node_map][:, face_map]
+
+                assert np.sum(np.abs(sd_0.cell_faces) != np.abs(mapped_cf)) == 0
+                assert np.sum(np.abs(sd_0.face_nodes) != np.abs(mapped_fn)) == 0
+                if sd.dim == dim_h:
+                    face_maps_h.append(face_map)
+                    cell_maps_h.append(cell_map)
+                else:
+                    cell_maps_l[i][sd] = cell_map
+                    face_maps_l[i][sd] = face_map
+
+                # Also loop on the standard face tags to check that they are
+                # identical between the md-grids.
+                tag_keys = pp.utils.tags.standard_face_tags()
+                for key in tag_keys:
+                    assert np.all(np.isclose(sd_0.tags[key], sd.tags[key][face_map]))
+
+    # Mortar grids
+    sd_primary_0 = md_grids[0].subdomains(dim=dim_h)[0]
+    for target_grid in range(len(md_grids[0].subdomains(dim=dim_l))):
+        sd_secondary_0 = md_grids[0].subdomains(dim=dim_l)[target_grid]
+        intf_0 = md_grids[0].subdomain_pair_to_interface((sd_primary_0, sd_secondary_0))
+        proj_0 = intf_0.primary_to_mortar_int()
+        for i in range(1, num_md_grids):
+            sd_secondary_i = md_grids[i].subdomains(dim=dim_l)[target_grid]
+            sd_primary_i = md_grids[i].subdomains(dim=dim_h)[0]
+            intf_i = md_grids[i].subdomain_pair_to_interface(
+                (sd_primary_i, sd_secondary_i)
+            )
+            proj_i = intf_i.primary_to_mortar_int()
+            cm = cell_maps_l[i][sd_secondary_i]
+            cm_extended = np.append(cm, cm + cm.size)
+            fm = face_maps_h[i - 1]
+            mapped_fc = proj_i[cm_extended, :][:, fm]
+            assert np.sum(np.absolute(proj_0) - np.absolute(mapped_fc)) == 0
+    return cell_maps_h, cell_maps_l, face_maps_h, face_maps_l
+
+
+def _make_maps(g0, g1, n_digits=8, offset=0.11):
+    """
+    Given two grid with the same nodes, faces and cells, the mappings between
+    these entities are constructed. Handles non-unique nodes and faces on next
+    to fractures by exploiting neighbour information.
+    Builds maps from g1 to g0, so g1.x[x_map]=g0.x, e.g.
+    g1.tags[some_key][face_map] = g0.tags[some_key].
+    g0 Reference grid
+    g1 Other grid
+    n_digits Tolerance in rounding before coordinate comparison
+    offset: Weight determining how far the fracture neighbour nodes and faces
+    are shifted (normally away from fracture) to ensure unique coordinates.
+    """
+    cell_map = pp.utils.setmembership.ismember_rows(
+        np.around(g0.cell_centers, n_digits),
+        np.around(g1.cell_centers, n_digits),
+        sort=False,
+    )[1]
+    # Make face_centers unique by dragging them slightly away from the fracture
+
+    fc0 = g0.face_centers.copy()
+    fc1 = g1.face_centers.copy()
+    n0 = g0.nodes.copy()
+    n1 = g1.nodes.copy()
+    fi0 = g0.tags["fracture_faces"]
+    if np.any(fi0):
+        fi1 = g1.tags["fracture_faces"]
+        d0 = np.reshape(np.tile(g0.cell_faces[fi0, :].data, 3), (3, sum(fi0)))
+        fn0 = g0.face_normals[:, fi0] * d0
+        d1 = np.reshape(np.tile(g1.cell_faces[fi1, :].data, 3), (3, sum(fi1)))
+        fn1 = g1.face_normals[:, fi1] * d1
+        fc0[:, fi0] += fn0 * offset
+        fc1[:, fi1] += fn1 * offset
+        (ni0, fid0) = g0.face_nodes[:, fi0].nonzero()
+        (ni1, fid1) = g1.face_nodes[:, fi1].nonzero()
+        un, inv = np.unique(ni0, return_inverse=True)
+        for i, node in enumerate(un):
+            n0[:, node] += offset * np.mean(fn0[:, fid0[inv == i]], axis=1)
+        un, inv = np.unique(ni1, return_inverse=True)
+        for i, node in enumerate(un):
+            n1[:, node] += offset * np.mean(fn1[:, fid1[inv == i]], axis=1)
+
+    face_map = pp.utils.setmembership.ismember_rows(
+        np.around(fc0, n_digits), np.around(fc1, n_digits), sort=False
+    )[1]
+
+    node_map = pp.utils.setmembership.ismember_rows(
+        np.around(n0, n_digits), np.around(n1, n_digits), sort=False
+    )[1]
+    return cell_map, face_map, node_map

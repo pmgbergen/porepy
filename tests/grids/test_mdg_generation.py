@@ -17,7 +17,6 @@ import numpy as np
 import pytest
 
 import porepy as pp
-import porepy.grids.standard_grids.utils as utils
 from porepy.fracs.fracture_network_2d import FractureNetwork2d
 from porepy.fracs.fracture_network_3d import FractureNetwork3d
 
@@ -225,7 +224,8 @@ class TestMDGridGeneration:
 
         if grid_type == "simplex":
             lower_level_arguments["mesh_size_frac"] = self.cell_size()
-            utils.set_mesh_sizes(lower_level_arguments)
+            lower_level_arguments["mesh_size_bound"] = 2 * self.cell_size()
+            lower_level_arguments["mesh_size_min"] = 1 / 5 * self.cell_size()
             mdg = fracture_network.mesh(lower_level_arguments)
             return mdg
 
