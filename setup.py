@@ -19,7 +19,7 @@ long_description = read("Readme.rst")
 
 setup(
     name="porepy",
-    version="1.7.0",
+    version="1.8.0",
     license="GPL",
     keywords=["porous media simulation fractures deformable"],
     install_requires=required,
