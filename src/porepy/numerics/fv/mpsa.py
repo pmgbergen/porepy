@@ -24,7 +24,46 @@ logger = logging.getLogger(__name__)
 
 
 class Mpsa(Discretization):
-    """Implementation of the multi-point stress approximation."""
+
+    """Implementation of the Multi-point stress approximation.
+
+    The method can be used directly on a single grid, by calling ``:meth:discretize``
+    followed by ``:meth:assemble_matrix_rhs``, which will produce a linear system
+    corresponding to the discretization of the second order elliptic equation, to be
+    solved for the cell center values of the pressure.
+
+    The method can also be used as a discretization method for a mixed-dimensional
+    problem, but it is recommended to do so through the Ad framework, specifically via
+    the wrapper class ``:class:porepy.numerics.ad.discretization.MpsaAd``. Likewise, the
+    Ad framework is the recommended way to use the method for multiphysics problems, on
+    both single and mixed-dimensional grids.
+
+    The discretization is stored as a set of matrices in the dictionary
+    ``data[pp.DISCRETIZATION_MATRICES][self.keyword]``, see ``:meth:discretize`` for
+    details. The most important of these are the ``stress`` matrix, which is the
+    stiffness matrix, and the ``bound_stress`` matrix, which is the
+    discretization of the boundary conditions. Documentation on how to use these
+    matrices to assemble a linear system can be found ``:meth:assemble_matrix_rhs``. In
+    addition, the discretization provides two matrices, ``bound_displacement_cell`` and
+    ``bound_displacement_face`` that together form a reconstruction of the displacement
+    trace at boundaries (external and internal). These can be computed by calling
+
+    .. code-block:: Python
+        bc_values = ... # Boundary condition values, can be a combination of Dirichlet
+                        # and Neumann conditions
+
+        d_cell_center = ... # Compute cell center displacement
+        bound_displacement_cell = data[pp.DISCRETIZATION_MATRICES][self.keyword][
+            self.bound_displacement_cell_matrix_key
+        ]  # Fetch the discretization matrix, see discretize() for details
+        # Do the same for bound_displacement_face
+
+        # Compute the displacment trace
+        displacement_trace =
+        #       bound_displacement_cell * d_cell_center +
+        #       bound_displacement_face * bc_values
+
+    """
 
     def __init__(self, keyword: str) -> None:
         """Set the discretization, with the keyword used for storing various
