@@ -41,11 +41,11 @@ class Mpsa(Discretization):
     The discretization is stored as a set of matrices in the dictionary
     ``data[pp.DISCRETIZATION_MATRICES][self.keyword]``, see ``:meth:discretize`` for
     details. The most important of these are the ``stress`` matrix, which is the
-    transmissibility matrix, and the ``bound_stress`` matrix, which is the
+    stiffness matrix, and the ``bound_stress`` matrix, which is the
     discretization of the boundary conditions. Documentation on how to use these
     matrices to assemble a linear system can be found ``:meth:assemble_matrix_rhs``. In
     addition, the discretization provides two matrices, ``bound_displacement_cell`` and
-    ``bound_displacement_face`` that together form a reconstruction of the pressure
+    ``bound_displacement_face`` that together form a reconstruction of the displacement
     trace at boundaries (external and internal). These can be computed by calling
 
     .. code-block:: Python
@@ -53,12 +53,13 @@ class Mpsa(Discretization):
                         # and Neumann conditions
 
         d_cell_center = ... # Compute cell center displacement
-        bound_pressure_cell = data[pp.DISCRETIZATION_MATRICES][self.keyword][
+        bound_displacement_cell = data[pp.DISCRETIZATION_MATRICES][self.keyword][
             self.bound_displacement_cell_matrix_key
         ]  # Fetch the discretization matrix, see discretize() for details
         # Do the same for bound_displacement_face
 
-        # Compute the displacment trace p_trace =
+        # Compute the displacment trace 
+        displacement_trace =
         #       bound_displacement_cell * d_cell_center +
         #       bound_displacement_face * bc_values
 
