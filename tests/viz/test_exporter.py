@@ -210,8 +210,11 @@ def test_mdg(setup: ExporterTestSetup):
     """
 
     # Define grid
-    mdg, _ = pp.md_grids_2d.two_intersecting(
-        [4, 4], y_endpoints=[0.25, 0.75], simplex=False
+    mdg, _ = pp.mdg_library.square_with_orthogonal_fractures(
+        "cartesian",
+        meshing_args={"cell_size_x": 0.25, "cell_size_y": 0.25},
+        fracture_indices=[0, 1],
+        fracture_endpoints=[np.array([0.25, 0.75]), np.array([0, 1])],
     )
 
     # Define data
@@ -253,7 +256,6 @@ def test_mdg(setup: ExporterTestSetup):
         export_constants_separately=False,
     )
     save.write_vtu(["dummy_scalar", "dummy_vector", "unique_dummy_scalar"])
-
     # Check that exported vtu files and reference files are the same.
     for appendix in ["1", "2", "mortar_1"]:
         assert compare_vtu_files(
@@ -279,8 +281,11 @@ def test_import_from_pvd_mdg(setup: ExporterTestSetup, case: int):
     """
 
     # Define grid
-    mdg, _ = pp.md_grids_2d.two_intersecting(
-        [4, 4], y_endpoints=[0.25, 0.75], simplex=False
+    mdg, _ = pp.mdg_library.square_with_orthogonal_fractures(
+        "cartesian",
+        meshing_args={"cell_size_x": 0.25, "cell_size_y": 0.25},
+        fracture_indices=[0, 1],
+        fracture_endpoints=[np.array([0.25, 0.75]), np.array([0, 1])],
     )
 
     # Define exporter
@@ -355,9 +360,16 @@ def test_import_state_from_vtu_mdg(setup: ExporterTestSetup, addendum: str):
     # Test of the import routine of the Exporter for 2d mixed-dimensional grids.
     # Consistent with test_mdg.
 
+    # NOTE: In case the reference files for this test needs to be updated, the
+    # references for the two addenda ("" and "nontrivial_data_") can be identical,
+    # though they of course need to be separate files.
+
     # Define grid
-    mdg, _ = pp.md_grids_2d.two_intersecting(
-        [4, 4], y_endpoints=[0.25, 0.75], simplex=False
+    mdg, _ = pp.mdg_library.square_with_orthogonal_fractures(
+        "cartesian",
+        meshing_args={"cell_size_x": 0.25, "cell_size_y": 0.25},
+        fracture_indices=[0, 1],
+        fracture_endpoints=[np.array([0.25, 0.75]), np.array([0, 1])],
     )
 
     # Define exporter
@@ -405,8 +417,11 @@ def test_mdg_data_selection(setup: ExporterTestSetup):
     """
 
     # Define grid
-    mdg, _ = pp.md_grids_2d.two_intersecting(
-        [4, 4], y_endpoints=[0.25, 0.75], simplex=False
+    mdg, _ = pp.mdg_library.square_with_orthogonal_fractures(
+        "cartesian",
+        meshing_args={"cell_size_x": 0.25, "cell_size_y": 0.25},
+        fracture_indices=[0, 1],
+        fracture_endpoints=[np.array([0.25, 0.75]), np.array([0, 1])],
     )
 
     # Define data
