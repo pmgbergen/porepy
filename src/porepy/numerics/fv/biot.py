@@ -42,6 +42,35 @@ class Biot(pp.Mpsa):
     """Discretization class for poro-elasticity, based on MPSA.
 
     See also pp.Mpsa for further attributes.
+    This discretization is an extension of the pure mechanical MPSA discretization, see
+    `:class:~porepy.numerics.fv.mpsa.Mpsa` for documentation. In addition to the pure
+    mechanical discretization, this class discretizes the coupling terms between
+    mechanics and flow. Specifically, the following coupling terms are discretized:
+
+    ``data[pp.DISCRETIZATION_MATRICES][self.mechanics_keyword]["grad_p"]``:
+    Discretization of the term :math:`\\nabla p` in the mechanics part of the
+    poromechanical system.
+
+    ``data[pp.DISCRETIZATION_MATRICES][self.mechanics_keyword]["bound_displacement_pressure"]``:
+    Discretization of the pressure contribution to the boundary displacement trace
+    reconstruction in a poromechanical system, see class documentation in
+    `:class:~porepy.numerics.fv.mpsa.Mpsa` for more details.
+
+    ``data[pp.DISCRETIZATION_MATRICES][self.flow_keyword]["div_u"]``: Discretization of
+    the term :math:`\\nabla \\cdot u` in the mass balance part of the poromechanical
+    system.
+
+    ``data[pp.DISCRETIZATION_MATRICES][self.flow_keyword]["bound_div_u"]``:
+    Discretization of boundary conditions for the term :math:`\\nabla \\cdot u` in the
+    mass balance part of the poromechanical system.
+
+    ``data[pp.DISCRETIZATION_MATRICES][self.flow_keyword]["biot_stabilization"]``:
+    Numerical stabilization term (essentially extra pressure diffusion) needed to
+    stabilize the pressure discretization, see Nordbotten 2016 for a derivation.
+
+    NOTE: This class cannot be used for assembly. Use
+    :class:`~porepy.models.poromechanics.Poromechanics` instead; there one can also find
+    examples on how to use the individual discretization matrices.
 
     """
 
@@ -1213,147 +1242,6 @@ class DivU(Discretization):
         div_u = matrix_dictionary[mat_key]
         rhs_time = np.squeeze(biot_alpha * div_u * d_cell)
         return matrix, rhs_bound + rhs_time
-
-    def assemble_int_bound_displacement_trace(
-        self,
-        sd: pp.Grid,
-        sd_data: dict,
-        intf: pp.MortarGrid,
-        intf_data: dict,
-        grid_swap: bool,
-        cc: np.ndarray,
-        matrix: sps.spmatrix,
-        rhs: np.ndarray,
-        self_ind: int,
-    ) -> None:
-        """Assemble the contribution from the displacement mortar on an internal
-        boundary, manifested as a displacement boundary condition.
-
-        The intended use is when the internal boundary is coupled to another
-        node by an interface law. Specific usage depends on the
-        interface condition between the nodes; this method will typically be
-        used to impose the effect of the displacement mortar on the divergence term on
-        the higher-dimensional grid.
-
-        Implementations of this method will use an interplay between the grid
-        on the node and the mortar grid on the relevant edge.
-
-        Parameters:
-            sd: Grid which the condition should be imposed on.
-            sd_data: Data dictionary for the node in the mixed-dimensional grid.
-            intf_data: Data dictionary for the edge in the mixed-dimensional grid.
-            grid_swap: If True, the grid g is identified with the secondary side of the
-                mortar grid in intf_data.
-            cc (shape=(3,3)): Block matrix for the coupling condition.
-                The first and second rows and columns are identified with the
-                primary and secondary side; the third belongs to the edge variable.
-                The discretization of the relevant term is done in-place in cc.
-            matrix (shape=(3,3)): Discretization matrix for the edge and the two
-                adjacent nodes.
-            self_ind: Index in cc and matrix associated with this node.
-                Should be either 1 or 2.
-
-        """
-        if grid_swap:
-            proj = intf.mortar_to_secondary_avg(nd=sd.dim)
-        else:
-            proj = intf.mortar_to_primary_avg(nd=sd.dim)
-
-        matrix_dictionary = sd_data[pp.DISCRETIZATION_MATRICES][self.flow_keyword]
-        biot_alpha = sd_data[pp.PARAMETERS][self.flow_keyword]["biot_alpha"]
-        bound_div_u = matrix_dictionary[self.bound_div_u_matrix_key]
-
-        u_bound_previous = pp.get_solution_values(
-            name=self.mortar_variable, data=intf_data, time_step_index=0
-        )
-
-        if bound_div_u.shape[1] != proj.shape[0]:
-            raise ValueError(
-                """Inconsistent shapes. Did you define a
-            sub-face boundary condition but only a face-wise mortar?"""
-            )
-        # The mortar will act as a boundary condition for the div_u term.
-        # We assume implicit Euler in Biot, thus the div_u term appears
-        # on the rhs as div_u^{k-1}. This results in a contribution to the
-        # rhs for the coupling variable also.
-        cc[self_ind, 2] += biot_alpha * bound_div_u * proj
-        rhs[self_ind] += biot_alpha * bound_div_u * proj * u_bound_previous
-
-    def assemble_int_bound_displacement_source(
-        self, sd, sd_data, intf: pp.MortarGrid, intf_data, cc, matrix, rhs, self_ind
-    ) -> None:
-        """Assemble the contribution from the displacement mortar on an internal
-        boundary, manifested as a source term. Only the normal component of the mortar
-        displacement is considered.
-
-        The intended use is when the internal boundary is coupled to another node by an
-        interface law. Specific usage depends on the interface condition between the
-        nodes; this method will typically be used to impose the effect of the
-        displacement mortar on the divergence term on the lower-dimensional grid.
-
-        Implementations of this method will use an interplay between the grid
-        on the node and the mortar grid on the relevant edge.
-
-        Parameters:
-            sd: Grid which the condition should be imposed on.
-            sd_data: Data dictionary for the node in the
-                mixed-dimensional grid.
-            intf_data: Data dictionary for the edge in the
-                mixed-dimensional grid.
-            cc (shape=(3,3)): Block matrix for the coupling condition.
-                The first and second rows and columns are identified with the
-                primary and secondary side; the third belongs to the edge variable.
-                The discretization of the relevant term is done in-place in cc.
-            matrix (shape=(3,3)): Discretization matrix for the edge and the two
-                adjacent nodes.
-            self_ind (int): Index in cc and matrix associated with this node.
-                Should be either 0 or 1.
-
-        """
-
-        # From the mortar displacements, we want to
-        # 1) Take the jump between the two mortar sides,
-        # 2) Project to the secondary grid and
-        # 3) Extract the normal component.
-
-        # Define projections and rotations
-        nd = sd.dim + 1
-        proj = intf.mortar_to_secondary_avg(nd=nd)
-        jump_on_secondary = proj * intf.sign_of_mortar_sides(nd=nd)
-        rotation = sd_data["tangential_normal_projection"]
-
-        normal_component = rotation.project_normal(sd.num_cells)
-
-        # Obtain possibly heterogeneous biot alpha values
-        biot_alpha = sd_data[pp.PARAMETERS].expand_scalars(
-            sd.num_cells, self.flow_keyword, ["biot_alpha"]
-        )[0]
-        # Project the previous solution to the secondary grid
-        previous_displacement_values = pp.get_solution_values(
-            name=self.mortar_variable, data=intf_data, time_step_index=0
-        )
-        previous_displacement_jump_global_coord = (
-            jump_on_secondary * previous_displacement_values
-        )
-        # Rotated displacement jumps. These are in the local coordinates, on
-        # the lower-dimensional grid
-        previous_displacement_jump_normal = (
-            normal_component * previous_displacement_jump_global_coord
-        )
-        # The same procedure is applied to the unknown displacements, by assembling the
-        # jump operator, projection and normal component extraction in the coupling
-        # matrix. Finally, we integrate over the cell volume.
-        vol = sps.dia_matrix((sd.cell_volumes, 0), shape=(sd.num_cells, sd.num_cells))
-        cc[self_ind, 2] += (
-            sps.diags(biot_alpha) * vol * normal_component * jump_on_secondary
-        )
-
-        # We assume implicit Euler in Biot, thus the div_u term appears
-        # on the rhs as div_u^{k-1}. This results in a contribution to the
-        # rhs for the coupling variable also.
-        # This term is second part of (u^k - u^{k-1}) moved to
-        # the rhs, yielding the same sign as for the k term on the lhs.
-        rhs[self_ind] += sps.diags(biot_alpha) * vol * previous_displacement_jump_normal
 
 
 class BiotStabilization(Discretization):
