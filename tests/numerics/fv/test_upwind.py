@@ -553,7 +553,7 @@ class TestMixedDimensionalUpwind:
     def test_2d_1d(self):
         mdg, _ = pp.mdg_library.square_with_orthogonal_fractures(
             "cartesian",
-            {"cell_size_x": 0.5, "cell_size_y": 0.5},
+            {"cell_size": 0.5},
             fracture_indices=[0, 1],
         )
 

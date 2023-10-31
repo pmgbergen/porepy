@@ -212,7 +212,7 @@ def test_mdg(setup: ExporterTestSetup):
     # Define grid
     mdg, _ = pp.mdg_library.square_with_orthogonal_fractures(
         "cartesian",
-        meshing_args={"cell_size_x": 0.25, "cell_size_y": 0.25},
+        meshing_args={"cell_size": 0.25},
         fracture_indices=[0, 1],
         fracture_endpoints=[np.array([0.25, 0.75]), np.array([0, 1])],
     )
@@ -283,7 +283,7 @@ def test_import_from_pvd_mdg(setup: ExporterTestSetup, case: int):
     # Define grid
     mdg, _ = pp.mdg_library.square_with_orthogonal_fractures(
         "cartesian",
-        meshing_args={"cell_size_x": 0.25, "cell_size_y": 0.25},
+        meshing_args={"cell_size": 0.25},
         fracture_indices=[0, 1],
         fracture_endpoints=[np.array([0.25, 0.75]), np.array([0, 1])],
     )
@@ -367,7 +367,7 @@ def test_import_state_from_vtu_mdg(setup: ExporterTestSetup, addendum: str):
     # Define grid
     mdg, _ = pp.mdg_library.square_with_orthogonal_fractures(
         "cartesian",
-        meshing_args={"cell_size_x": 0.25, "cell_size_y": 0.25},
+        meshing_args={"cell_size": 0.25},
         fracture_indices=[0, 1],
         fracture_endpoints=[np.array([0.25, 0.75]), np.array([0, 1])],
     )
@@ -419,7 +419,7 @@ def test_mdg_data_selection(setup: ExporterTestSetup):
     # Define grid
     mdg, _ = pp.mdg_library.square_with_orthogonal_fractures(
         "cartesian",
-        meshing_args={"cell_size_x": 0.25, "cell_size_y": 0.25},
+        meshing_args={"cell_size": 0.25},
         fracture_indices=[0, 1],
         fracture_endpoints=[np.array([0.25, 0.75]), np.array([0, 1])],
     )
