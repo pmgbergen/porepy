@@ -14,7 +14,7 @@ import pytest
 import porepy as pp
 from porepy.applications.test_utils.arrays import compare_arrays
 from porepy.fracs.plane_fracture import PlaneFracture
-from porepy.grids.standard_grids.utils import unit_domain
+from porepy.applications.md_grids.domains import unit_cube_domain as unit_domain
 
 
 @pytest.mark.parametrize(

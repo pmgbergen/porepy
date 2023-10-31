@@ -9,7 +9,6 @@ import pytest
 
 import porepy as pp
 from porepy.grids.md_grid import MixedDimensionalGrid
-from porepy.grids.standard_grids import md_grids_2d, md_grids_3d
 
 # Setting a non-interactive backend that does not open new windows.
 matplotlib.use("agg")
@@ -21,9 +20,21 @@ VECTOR_VARIABLE_FACE = "vector_face"
 
 @pytest.fixture(
     params=[
-        md_grids_2d.single_horizontal(mesh_args=[5, 5], simplex=False),
-        md_grids_2d.single_vertical(simplex=True),
-        md_grids_3d.single_horizontal(mesh_args=[3, 3, 3], simplex=False),
+        pp.mdg_library.square_with_orthogonal_fractures(
+            "cartesian",
+            {"cell_size": 0.2},
+            fracture_indices=[1],  # Horizontal fracture
+        ),
+        pp.mdg_library.square_with_orthogonal_fractures(
+            "cartesian",
+            {"cell_size": 0.2},
+            fracture_indices=[0],  # Vertical fracture
+        ),
+        pp.mdg_library.cube_with_orthogonal_fractures(
+            "cartesian",
+            {"cell_size": 1 / 3},
+            fracture_indices=[2],  # Horizontal (constant z) fracture
+        ),
     ],
 )
 def mdg(request: pytest.FixtureRequest) -> pp.MixedDimensionalGrid:

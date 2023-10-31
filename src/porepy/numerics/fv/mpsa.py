@@ -24,38 +24,32 @@ logger = logging.getLogger(__name__)
 
 
 class Mpsa(Discretization):
-    """Implementation of the Multi-point stress approximation.
-
-    Attributes:
-        keyword (str): Keyword used to identify the parameter dictionary.
-            Defaults to "mechanics".
-        stress_matrix_key (str): Keyword used to identify the discretization matrix for
-            the stress. Defaults to "stress".
-        bound_stress_matrix_key (str): Keyword used to identify the discretization
-             matrix for the boundary conditions for stress. Defaults to "bound_stress".
-        bound_displacement_cell_matrix_key (str): Keyword used to identify the
-            discretization matrix for the cell center displacement contribution to
-            boundary displacement reconstrution. Defaults to "bound_displacement_cell".
-        bound_displacement_face_matrix_key (str): Keyword used to identify the
-            discretization matrix for the boundary conditions' contribution to
-            boundary displacement reconstrution. Defaults to "bound_displacement_face".
-
-    """
+    """Implementation of the multi-point stress approximation."""
 
     def __init__(self, keyword: str) -> None:
         """Set the discretization, with the keyword used for storing various
         information associated with the discretization.
 
         Paramemeters:
-            keyword (str): Identifier of all information used for this
-                discretization.
+            keyword: Identifier of all information used for this discretization.
+
         """
         self.keyword = keyword
-
+        """Keyword used to identify the parameter dictionary. Defaults to 'mechanics'."""
         self.stress_matrix_key = "stress"
+        """Keyword used to identify the discretization matrix for the stress. Defaults
+        to 'stress'."""
         self.bound_stress_matrix_key = "bound_stress"
+        """Keyword used to identify the discretization matrix for the boundary
+        conditions for stress. Defaults to 'bound_stress'."""
         self.bound_displacement_cell_matrix_key = "bound_displacement_cell"
+        """Keyword used to identify the discretization matrix for the cell center
+        displacement contribution to boundary displacement reconstrution. Defaults to
+        'bound_displacement_cell'."""
         self.bound_displacement_face_matrix_key = "bound_displacement_face"
+        """Keyword used to identify the discretization matrix for the boundary
+        conditions' contribution to boundary displacement reconstrution. Defaults to
+        'bound_displacement_face'."""
 
     def _key(self) -> str:
         """Get the keyword of this object, on a format friendly to access relevant
@@ -68,65 +62,18 @@ class Mpsa(Discretization):
         return self.keyword + "_"
 
     def ndof(self, sd: pp.Grid) -> int:
-        """
-        Return the number of degrees of freedom associated to the method.
-        In this case number of cells times dimension (stress dof).
+        """Return the number of degrees of freedom associated to the method.
 
-        Parameter
-        ---------
-        sd: grid, or a subclass.
+        In this case number of cells times dimension (displacement dof).
 
-        Return
-        ------
-        dof: the number of degrees of freedom.
+        Parameters:
+            sd: grid, or a subclass.
+
+        Returns:
+            The number of degrees of freedom.
 
         """
         return sd.dim * sd.num_cells
-
-    def extract_displacement(
-        self, sd: pp.Grid, solution_array: np.ndarray, d: dict
-    ) -> np.ndarray:
-        """Extract the displacement part of a solution.
-
-        Parameters:
-            g (grid): To which the solution array belongs.
-            solution_array (np.array): Solution for this grid.
-            d (dictionary): Data dictionary associated with the grid. Not used,
-                but included for consistency reasons.
-
-        Returns:
-            np.array (sd.num_cells): Displacement solution vector. Will be identical
-                to solution_array.
-
-        """
-        return solution_array
-
-    def extract_stress(
-        self, sd: pp.Grid, solution_array: np.ndarray, d: dict
-    ) -> np.ndarray:
-        """Extract the stress corresponding to a solution
-
-        The stress is composed of contributions from the solution variable and the
-        boundary conditions.
-
-        Parameters:
-            g (grid): To which the solution array belongs.
-            solution_array (np.array): Solution for this grid.
-            d (dictionary): Data dictionary associated with the grid.
-
-        Returns:
-            np.array (sd.num_cells): Vector of stresses on the grid faces.
-
-        """
-        matrix_dictionary = d[pp.DISCRETIZATION_MATRICES][self.keyword]
-        parameter_dictionary = d[pp.PARAMETERS][self.keyword]
-
-        stress = matrix_dictionary[self.stress_matrix_key].tocsr()
-        bound_stress = matrix_dictionary[self.bound_stress_matrix_key].tocsr()
-
-        bc_val = parameter_dictionary["bc_values"]
-
-        return stress * solution_array + bound_stress * bc_val
 
     def discretize(self, sd: pp.Grid, data: dict) -> None:
         """
@@ -165,11 +112,11 @@ class Mpsa(Discretization):
             - ``bound_flux: sps.csc_matrix (sd.dim * sd.num_faces, sd.dim *
                 sd.num_faces)`` stress discretization, face contribution
             - ``bound_displacement_cell: sps.csc_matrix (sd.dim * sd.num_faces,
-                                                     sd.dim * sd.num_cells)``
+                                                         sd.dim * sd.num_cells)``
                 Operator for reconstructing the displacement trace. Cell center
                 contribution.
             - ``bound_displacement_face: sps.csc_matrix (sd.dim * sd.num_faces,
-                                                     sd.dim * sd.num_faces)``
+                                                         sd.dim * sd.num_faces)``
                 Operator for reconstructing the displacement trace. Face contribution.
 
         Parameters:
@@ -422,7 +369,7 @@ class Mpsa(Discretization):
         self, sd: pp.Grid, data: dict
     ) -> tuple[sps.spmatrix, np.ndarray]:
         """Return the matrix and right-hand side for a discretization of a second
-        order elliptic equation using a FV method with a multi-point stress
+        order elliptic vector equation using a FV method with a multi-point stress
         approximation.
 
         Parameters:
@@ -441,64 +388,27 @@ class Mpsa(Discretization):
                 source term.
 
         """
-        return self.assemble_matrix(sd, data), self.assemble_rhs(sd, data)
-
-    def assemble_matrix(self, sd: pp.Grid, data: dict) -> sps.spmatrix:
-        """Return the matrix for a discretization of a second order elliptic vector
-        equation using a FV method.
-
-        Parameters:
-            g: Grid to be discretized.
-            data: dictionary to store the data. For details on necessary keywords,
-                see ``:meth:discretize``.
-
-        Returns
-            :obj:`~scipy.sparse.spmatrix`: ``(sd.dim * g_num_cells, sd.dim * g_num_cells)``
-
-                Discretization matrix.
-
-        """
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
+        parameter_dictionary = data[pp.PARAMETERS][self.keyword]
+
+        stress = matrix_dictionary["stress"]
+        bound_stress = matrix_dictionary["bound_stress"]
 
         div = pp.fvutils.vector_divergence(sd)
-        stress = matrix_dictionary["stress"]
+        # Assemble matrix.
         if stress.shape[0] != sd.dim * sd.num_faces:
             hf2f = pp.fvutils.map_hf_2_f(sd=sd)
             stress = hf2f * stress
-        M = div * stress
+        matrix = div * stress
 
-        return M
-
-    def assemble_rhs(self, sd: pp.Grid, data: dict) -> np.ndarray:
-        """Return the right-hand side for a discretization of a second order elliptic
-        equation using a finite volume method.
-
-        Parameters:
-            g: Grid to be discretized.
-            data: dictionary to store the data. For details on necessary keywords,
-                see ``:meth:discretize``.
-
-        Returns
-            :obj:`~np.ndarray`: ``(sd.dim * g_num_cells)``
-
-            Right-hand side which contains the boundary conditions and the vector
-            source term.
-
-        """
-        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
-
-        bound_stress = matrix_dictionary["bound_stress"]
+        # Assemble right-hand side.
         if bound_stress.shape[0] != sd.dim * sd.num_faces:
             hf2f = pp.fvutils.map_hf_2_f(sd=sd)
             bound_stress = hf2f * bound_stress
 
-        parameter_dictionary = data[pp.PARAMETERS][self.keyword]
-
         bc_val = parameter_dictionary["bc_values"]
-
-        div = pp.fvutils.vector_divergence(sd)
-
-        return -div * bound_stress * bc_val + parameter_dictionary["source"]
+        rhs = -div * bound_stress * bc_val + parameter_dictionary["source"]
+        return matrix, rhs
 
     def _stress_discretization(
         self,

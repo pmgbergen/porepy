@@ -551,7 +551,11 @@ class TestMixedDimensionalUpwind:
     """Test the case of 2d domain with 1d fractures."""
 
     def test_2d_1d(self):
-        mdg, _ = pp.md_grids_2d.two_intersecting([2, 2], simplex=False)
+        mdg, _ = pp.mdg_library.square_with_orthogonal_fractures(
+            "cartesian",
+            {"cell_size": 0.5},
+            fracture_indices=[0, 1],
+        )
 
         # define discretization
         key = "transport"
