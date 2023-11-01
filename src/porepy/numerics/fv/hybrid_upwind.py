@@ -29,6 +29,7 @@ def flux_V(
     right_restriction,
     ad,
     dynamic_viscosity,
+    mobility
 ):
     """ """
 
@@ -38,11 +39,12 @@ def flux_V(
         left_restriction,
         right_restriction,
         dynamic_viscosity,
+        mobility
     ):
         """ """
 
         mobility_upwinded = hu_utils.var_upwinded_faces(
-            pp.mobility(saturation, dynamic_viscosity),
+            mobility(saturation, dynamic_viscosity),
             total_flux_internal,
             left_restriction,
             right_restriction,
@@ -55,6 +57,7 @@ def flux_V(
         left_restriction,
         right_restriction,
         ad,
+        mobility
     ):
         """ """
 
@@ -80,6 +83,7 @@ def flux_V(
                     left_restriction,
                     right_restriction,
                     dynamic_viscosity,
+                    mobility
                 )
             )
             # I had to avoid "+=" bcs it requirs jac initialization. waiting for a better solution...
@@ -98,6 +102,7 @@ def flux_V(
         left_restriction,
         right_restriction,
         dynamic_viscosity,
+        mobility
     )
     mob_tot_V = mobility_tot_V_faces(
         saturation_list,
@@ -105,6 +110,7 @@ def flux_V(
         left_restriction,
         right_restriction,
         ad,
+        mobility
     )
     V_internal = mob_V / mob_tot_V * total_flux_internal
 
@@ -121,6 +127,7 @@ def rho_flux_V(
     right_restriction,
     ad,
     dynamic_viscosity,
+    mobility
 ):
     """ """
 
@@ -139,6 +146,7 @@ def rho_flux_V(
         right_restriction,
         ad,
         dynamic_viscosity,
+        mobility
     )
     density = mixture.get_phase(ell).mass_density(pressure)
     rho_upwinded = hu_utils.var_upwinded_faces(
@@ -148,7 +156,6 @@ def rho_flux_V(
 
     expansion = hu_utils.expansion_matrix(sd)
     rho_V = expansion @ rho_V_internal
-
     return rho_V
 
 
@@ -164,6 +171,7 @@ def flux_G(
     ad,
     dynamic_viscosity,
     dim_max,
+    mobility
 ):
     """
     TODO: consider the idea to move omega outside the flux_G, if you don't see why => it is already in the right place.
@@ -211,10 +219,11 @@ def flux_G(
         left_restriction,
         right_restriction,
         dynamic_viscosity,
+        mobility,
     ):
         """ """
         mobility_upwinded = hu_utils.var_upwinded_faces(
-            pp.mobility(saturation, dynamic_viscosity),
+            mobility(saturation, dynamic_viscosity),
             omega_ell,
             left_restriction,
             right_restriction,
@@ -227,6 +236,7 @@ def flux_G(
         omega_ell,
         left_restriction,
         right_restriction,
+        mobility,
     ):
         """ """
         if ad:
@@ -246,6 +256,7 @@ def flux_G(
                     left_restriction,
                     right_restriction,
                     dynamic_viscosity,
+                    mobility,
                 )
             )
 
@@ -273,7 +284,7 @@ def flux_G(
         g_list[phase_id] = hu_utils.g_internal_faces(
             z, rho, gravity_value, left_restriction, right_restriction
         )  # TODO: g_ell and g_m are computed twice, one in G and one in omega
-        mobility_list[phase_id] = pp.mobility(saturation, dynamic_viscosity)
+        mobility_list[phase_id] = mobility(saturation, dynamic_viscosity)
 
     for phase_id in np.arange(mixture.num_phases):
         omega_list[phase_id] = omega(
@@ -292,6 +303,7 @@ def flux_G(
         omega_list[ell],
         left_restriction,
         right_restriction,
+        mobility,
     )
 
     if ad:
@@ -312,6 +324,7 @@ def flux_G(
             left_restriction,
             right_restriction,
             dynamic_viscosity,
+            mobility,
         )  # yes, you can move it outside the loop
         mob_G_m = mobility_G_faces(
             saturation_list[m],
@@ -319,6 +332,7 @@ def flux_G(
             left_restriction,
             right_restriction,
             dynamic_viscosity,
+            mobility,
         )
         G_internal.append(mob_G_ell * mob_G_m / mob_tot_G * (g_list[m] - g_list[ell]))
 
@@ -339,6 +353,7 @@ def rho_flux_G(
     ad,
     dynamic_viscosity,
     dim_max,
+    mobility
 ):
     """ """
 
@@ -360,6 +375,7 @@ def rho_flux_G(
         ad,
         dynamic_viscosity,
         dim_max,
+        mobility
     )
     density = mixture.get_phase(ell).mass_density(pressure)
     rho_upwinded = hu_utils.var_upwinded_faces(
@@ -369,7 +385,6 @@ def rho_flux_G(
 
     expansion = hu_utils.expansion_matrix(sd)
     rho_G = expansion @ rho_G_internal
-
     return rho_G
 
 

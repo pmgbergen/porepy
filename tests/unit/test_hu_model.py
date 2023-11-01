@@ -59,8 +59,10 @@ class FunctionTotalFlux(pp.ad.operator_functions.AbstractFunction):
             "transmissibility_internal_tpfa"
         ]
         ad = True  # Sorry
-        dynamic_viscosity = 1  # Sorry
+        dynamic_viscosity = data["for_hu"]["dynamic_viscosity"]  # Sorry
         dim_max = data["for_hu"]["dim_max"]
+        mobility = data["for_hu"]["mobility"] # sorry
+        relative_permeability = data["for_hu"]["relative_permeability"] # sorry
 
         return [
             pressure,
@@ -72,6 +74,8 @@ class FunctionTotalFlux(pp.ad.operator_functions.AbstractFunction):
             ad,
             dynamic_viscosity,
             dim_max,
+            mobility,
+            relative_permeability,
         ]
 
     def get_values(self, *args_not_used: AdArray) -> np.ndarray:
@@ -107,8 +111,7 @@ class FunctionTotalFlux(pp.ad.operator_functions.AbstractFunction):
             )  # sorry
 
             args_from_dict = self.get_args_from_sd_data_dictionary(data)
-            args = np.hstack((args, args_from_dict))    
-
+            args = np.hstack((args, args_from_dict))  
 
             # print('\n\n\n before result')
             # print(subdomain)
@@ -170,7 +173,8 @@ class FunctionRhoV(pp.ad.operator_functions.AbstractFunction):
         left_restriction = data["for_hu"]["left_restriction"]
         right_restriction = data["for_hu"]["right_restriction"]
         ad = True  # Sorry
-        dynamic_viscosity = 1  # Sorry
+        dynamic_viscosity = data["for_hu"]["dynamic_viscosity"]  # Sorry
+        mobility = data["for_hu"]["mobility"]
 
         return [
             ell,
@@ -180,6 +184,7 @@ class FunctionRhoV(pp.ad.operator_functions.AbstractFunction):
             right_restriction,
             ad,
             dynamic_viscosity,
+            mobility,
         ]
 
     def get_values(self, *args_not_used: AdArray) -> np.ndarray:
@@ -248,8 +253,9 @@ class FunctionRhoG(pp.ad.operator_functions.AbstractFunction):
             "transmissibility_internal_tpfa"
         ]
         ad = True  # Sorry
-        dynamic_viscosity = 1  # Sorry
+        dynamic_viscosity = data["for_hu"]["dynamic_viscosity"]  # Sorry
         dim_max = data["for_hu"]["dim_max"]
+        mobility = data["for_hu"]["mobility"]
 
         return [
             ell,
@@ -261,6 +267,7 @@ class FunctionRhoG(pp.ad.operator_functions.AbstractFunction):
             ad,
             dynamic_viscosity,
             dim_max,
+            mobility,
         ]
 
     def get_values(self, *args_not_used: AdArray) -> np.ndarray:
@@ -455,6 +462,11 @@ class Equations(pp.BalanceEquation):
                 - discr_phase_0.bound_transport_neu @ self.bc_neu_phase_0(subdomains)
                 - discr_phase_1.bound_transport_neu @ self.bc_neu_phase_1(subdomains) ) 
 
+        # flux = ( flux_tot - flux_intf_phase_0 - flux_intf_phase_1
+        #         - discr_phase_0.bound_transport_neu @ self.bc_neu_phase_0(subdomains)
+        #         - discr_phase_1.bound_transport_neu @ self.bc_neu_phase_1(subdomains) ) 
+
+
         # sources: --------------------------------------------------------------
         projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces)
         source_phase_0 = (
@@ -576,9 +588,12 @@ class Equations(pp.BalanceEquation):
             self.ell == 0
         ):  # TODO: move the flux computation inside if (which btw could be removed) after all the bugs are fixed
             flux = flux_V_G - flux_intf_phase_0 - discr_phase_0.bound_transport_neu @ self.bc_neu_phase_0(subdomains) 
-
+            # flux = self.specific_volume(subdomains) * flux_V_G - flux_intf_phase_0 - discr_phase_0.bound_transport_neu @ self.bc_neu_phase_0(subdomains) 
+            
         else:  # self.ell == 1
             flux = flux_V_G - flux_intf_phase_1 - discr_phase_1.bound_transport_neu @ self.bc_neu_phase_1(subdomains)
+            # flux = self.specific_volume(subdomains) * flux_V_G - flux_intf_phase_1 - discr_phase_1.bound_transport_neu @ self.bc_neu_phase_1(subdomains)
+
 
         # sources: ---------------------------------------
         projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces)
@@ -691,13 +706,14 @@ class Equations(pp.BalanceEquation):
                         interfaces, material="fluid"
                     )  # gravity
 
+
         eq = self.interface_mortar_flux_phase_0(interfaces) - (
             cell_volumes
             * (
                 kn
                 * specific_volume_intf
                 * (delta_p
-                    + density_upwinded
+                    - density_upwinded
                     / normal_gradient  # Why is the density in fluid_mass_balance not here?
                     * g_term
                 )
@@ -705,10 +721,10 @@ class Equations(pp.BalanceEquation):
         )
 
         eq.set_name("interface_darcy_flux_equation_phase_0")
-        return (eq, kn, pressure_h, pressure_l, g_term)
+        return (eq, kn, pressure_h, pressure_l, density_upwinded, g_term)
 
     def interface_mortar_flux_equation_phase_0(self, interfaces: list[pp.MortarGrid]):
-        eq, _, _, _, _ = self.eq_fcn_mortar_phase_0(interfaces)
+        eq, _, _, _, _, _ = self.eq_fcn_mortar_phase_0(interfaces)
         return eq
 
     def interface_mortar_flux_equation_phase_1(self, interfaces: list[pp.MortarGrid]):
@@ -757,7 +773,7 @@ class Equations(pp.BalanceEquation):
                 * (
                     pressure_h
                     - pressure_l
-                    + density_upwinded
+                    - density_upwinded
                     / normal_gradient  # Why is here not the density in fluid_mass_balance? bcs someone wants to discretize it differently
                     * self.interface_vector_source(
                         interfaces, material="fluid"
@@ -781,7 +797,7 @@ class Equations(pp.BalanceEquation):
         discr = self.interface_ppu_discretization(interfaces, flux_array_key)
         rho_mob = phase.mass_density_operator(
             subdomains, self.pressure
-        ) * pp.tobedefined.mobility.mobility_operator(
+        ) * self.mobility_operator(
             subdomains, phase.saturation_operator, self.dynamic_viscosity
         )
 
@@ -804,7 +820,7 @@ class Equations(pp.BalanceEquation):
         discr = self.interface_ppu_discretization(interfaces, flux_array_key)
         rho_mob = phase.mass_density_operator(
             subdomains, self.pressure
-        ) * pp.tobedefined.mobility.mobility_operator(
+        ) * self.mobility_operator(
             subdomains, phase.saturation_operator, self.dynamic_viscosity
         )
 
@@ -865,101 +881,92 @@ class Equations(pp.BalanceEquation):
         """ 
         ref F17 f3 ->->
         """
+        # old version:
+        # interfaces: list[pp.MortarGrid] = self.subdomains_to_interfaces(subdomains, [1])
+        # projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1)
+        # discr: Union[pp.ad.TpfaAd, pp.ad.MpfaAd] = self.darcy_flux_discretization(
+        #     subdomains
+        # )
+
+        # mass_density_phase_0 = self.mixture.get_phase(0).mass_density_operator(subdomains, self.pressure)
+        # mass_density_phase_1 = self.mixture.get_phase(1).mass_density_operator(subdomains, self.pressure)
+
+        # rho_mob_phase_0 = mass_density_phase_0 * self.mobility_operator(subdomains, self.mixture.get_phase(0).saturation_operator, self.dynamic_viscosity)
+        # rho_mob_phase_1 = mass_density_phase_1 * self.mobility_operator(subdomains, self.mixture.get_phase(1).saturation_operator, self.dynamic_viscosity)
+        # # without upwind:
+        # # TODO
+
+        # # with upwind:
+        # epsilon = 1e-10 # avoid division by zero # TODO: NO... they shouldnt be zero
+        # discr_up_0 = self.interface_ppu_discretization(interfaces, "interface_mortar_flux_phase_0")        
+        # rho_mob_upwinded_phase_0 = self.var_upwinded_interfaces(interfaces, rho_mob_phase_0, discr_up_0)
+
+        # discr_up_1 = self.interface_ppu_discretization(interfaces, "interface_mortar_flux_phase_1")
+        # rho_mob_upwinded_phase_1 = self.var_upwinded_interfaces(interfaces, rho_mob_phase_1, discr_up_1)
+
+        # pressure_cell = ( discr.bound_pressure_cell # 0, 1 matrix ### I dont like it, Id rahter see mortart to primary here, not outside this funcion, for ex. the non zero els of pressure cell are too many and they will be kelled after
+        #     @ self.pressure(subdomains) )
+
+        # correction = (
+        #     discr.bound_pressure_face # not 0, 1 matrix, this is -1/half_transmissibilities
+        #     @ (
+        #          projection.mortar_to_primary_int # 0, 1 matrix 
+        #         @ ((
+        #         self.interface_fluid_mass_flux_phase_0(self.interface_mortar_flux_phase_0(interfaces), interfaces, self.mixture.get_phase(0), "interface_mortar_flux_phase_0") +
+        #         self.interface_fluid_mass_flux_phase_1(self.interface_mortar_flux_phase_1(interfaces), interfaces, self.mixture.get_phase(1), "interface_mortar_flux_phase_1")
+        #         ) / (rho_mob_upwinded_phase_0 + rho_mob_upwinded_phase_1 + pp.ad.Scalar(epsilon)))
+                
+        #         + self.bc_values_darcy(subdomains) # for me they are always zero 
+            
+        #         + ( (projection.mortar_to_primary_int @ rho_mob_upwinded_phase_0) 
+        #         * ( discr.vector_source # Starnoni included
+        #         @ ((self.vector_expansion(subdomains) @ mass_density_phase_0)
+        #            * self.vector_source(subdomains, material="fluid")) ) ) / (projection.mortar_to_primary_int @ rho_mob_upwinded_phase_0 + projection.mortar_to_primary_int @ rho_mob_upwinded_phase_1 + pp.ad.Scalar(epsilon))
+
+        #         + ( (projection.mortar_to_primary_int @ rho_mob_upwinded_phase_1)
+        #         * ( discr.vector_source # Starnoni included
+        #         @ ((self.vector_expansion(subdomains) @ mass_density_phase_1)
+        #            * self.vector_source(subdomains, material="fluid")) ) ) / (projection.mortar_to_primary_int @ rho_mob_upwinded_phase_0 + projection.mortar_to_primary_int @ rho_mob_upwinded_phase_1 + pp.ad.Scalar(epsilon))
+        #     )
+        # )
+
+
+
+        # new version:
         interfaces: list[pp.MortarGrid] = self.subdomains_to_interfaces(subdomains, [1])
         projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1)
-        discr: Union[pp.ad.TpfaAd, pp.ad.MpfaAd] = self.darcy_flux_discretization(
-            subdomains
-        )
+        discr: Union[pp.ad.TpfaAd, pp.ad.MpfaAd] = self.darcy_flux_discretization(subdomains) # THIS IS SUSPICIOUS...
 
+        pressure_cell = ( discr.bound_pressure_cell # 0, 1 matrix 
+            @ self.pressure(subdomains) )
+        
         mass_density_phase_0 = self.mixture.get_phase(0).mass_density_operator(subdomains, self.pressure)
         mass_density_phase_1 = self.mixture.get_phase(1).mass_density_operator(subdomains, self.pressure)
 
-        rho_mob_phase_0 = mass_density_phase_0 * pp.tobedefined.mobility.mobility_operator(subdomains, self.mixture.get_phase(0).saturation_operator, self.dynamic_viscosity)
-        rho_mob_phase_1 = mass_density_phase_1 * pp.tobedefined.mobility.mobility_operator(subdomains, self.mixture.get_phase(1).saturation_operator, self.dynamic_viscosity)
-
-        # wrong stuff:
-        # frac_faces = []
-        # tot_faces = 0
-        # for sd in self.mdg.subdomains():
-        #     print(sd)
-        #     # for i in sd.tags.keys():
-        #     #     print(i)
-        #     frac_faces.append(sd.tags["fracture_faces"]*1)
-        #     tot_faces += sd.num_faces
-            
-        # frac_faces = np.concatenate(frac_faces)
-        # rows = np.where(frac_faces)[0]
-        # cols = np.arange(np.sum(frac_faces))
-        # vals = np.ones(np.sum(frac_faces))
-        # inft_faces_to_global_faces = sp.sparse.csr_array((vals, (rows, cols)), shape=(tot_faces, np.sum(frac_faces)))
-        # # test:
-        # mario = inft_faces_to_global_faces @ np.ones(8)
-        # assert np.all( mario == frac_faces )
-
-        # trace = pp.ad.Trace(subdomains)
-        # traccia = trace.trace.evaluate(self.equation_system)
-        # lala = projection.mortar_to_primary_int.evaluate(self.equation_system)
-        # # and now compare intf_faces_to_global_faces, traccia, lala
-        # pdb.set_
-        # inft_faces_to_global_faces = pp.ad.DenseArray(inft_faces_to_global_faces) ### you sure you dont have to use projection.mortar_to_primary_int?
-
-        # without upwind:
-        # TODO
-
-        # with upwind:
-        epsilon = 1e-10 # avoid division by zero # TODO: NO... they shouldnt be zero
-        discr_up = self.interface_ppu_discretization(interfaces, "interface_mortar_flux_phase_0")
+        rho_mob_phase_0 = mass_density_phase_0 * self.mobility_operator(subdomains, self.mixture.get_phase(0).saturation_operator, self.dynamic_viscosity)
+        rho_mob_rho_phase_0 = mass_density_phase_0 * self.mobility_operator(subdomains, self.mixture.get_phase(0).saturation_operator, self.dynamic_viscosity) * mass_density_phase_0
+        rho_mob_phase_1 = mass_density_phase_1 * self.mobility_operator(subdomains, self.mixture.get_phase(1).saturation_operator, self.dynamic_viscosity)
+        rho_mob_rho_phase_1 = mass_density_phase_1 * self.mobility_operator(subdomains, self.mixture.get_phase(1).saturation_operator, self.dynamic_viscosity) * mass_density_phase_1
 
 
-        # print('\n\n\n\ninside test_hu_model.py')
-        # print(self.mdg.subdomains())
-        # print(interfaces)
-        # print('rho_mob_phase_0: ', rho_mob_phase_0.evaluate(self.equation_system))
-        # print(discr_up)
-        # pdb.set_trace()
+        discr_up_0 = self.interface_ppu_discretization(interfaces, "interface_mortar_flux_phase_0")   
+        rho_mob_upwinded_phase_0 = self.var_upwinded_interfaces(interfaces, rho_mob_phase_0, discr_up_0)
+        rho_mob_rho_upwinded_phase_0 = self.var_upwinded_interfaces(interfaces, rho_mob_rho_phase_0, discr_up_0)
 
-        
-        rho_mob_upwinded_phase_0 = self.var_upwinded_interfaces(interfaces, rho_mob_phase_0, discr_up)
+        discr_up_1 = self.interface_ppu_discretization(interfaces, "interface_mortar_flux_phase_1")
+        rho_mob_upwinded_phase_1 = self.var_upwinded_interfaces(interfaces, rho_mob_phase_1, discr_up_1)
+        rho_mob_rho_upwinded_phase_1 = self.var_upwinded_interfaces(interfaces, rho_mob_rho_phase_1, discr_up_1)
 
-        discr_up = self.interface_ppu_discretization(interfaces, "interface_mortar_flux_phase_1")
-        rho_mob_upwinded_phase_1 = self.var_upwinded_interfaces(interfaces, rho_mob_phase_1, discr_up)
+        f_0 = self.interface_fluid_mass_flux_phase_0(self.interface_mortar_flux_phase_0(interfaces), interfaces, self.mixture.get_phase(0), "interface_mortar_flux_phase_0") 
+        f_1 = self.interface_fluid_mass_flux_phase_1(self.interface_mortar_flux_phase_1(interfaces), interfaces, self.mixture.get_phase(1), "interface_mortar_flux_phase_1") 
 
-        pressure_cell = ( discr.bound_pressure_cell # 0, 1 matrix ### I dont like it, Id rahter see mortart to primary here, not outside this funcion, for ex. the non zero els of pressure cell are too many and they will be kelled after
-            @ self.pressure(subdomains) )
+        correction =  (
+           discr.bound_pressure_face @ ( projection.mortar_to_primary_int @ ( ( f_0 + f_1) / (rho_mob_upwinded_phase_0 + rho_mob_upwinded_phase_1) ) ) 
+            - discr.bound_pressure_face @ ( projection.mortar_to_primary_int @ ( ( ( rho_mob_rho_upwinded_phase_0 + rho_mob_rho_upwinded_phase_1 ) / ( rho_mob_upwinded_phase_0 + rho_mob_upwinded_phase_1 ) ) ) * ( discr.vector_source @ self.vector_source(subdomains) ) )  
+            # - projection.mortar_to_primary_int @ ( ( ( rho_mob_rho_upwinded_phase_0 + rho_mob_rho_upwinded_phase_1 ) / ( rho_mob_upwinded_phase_0 + rho_mob_upwinded_phase_1 ) ) ) * ( XXX @ self.vector_source(subdomains_vector_source) )  # third version, ref F19f2, subdomains_vector_source are fractures domains, XXX 
+            )        
 
-        correction = (
-            discr.bound_pressure_face # not 0, 1 matrix, this is -1/half_transmissibilities
-            @ (
-                 projection.mortar_to_primary_int # 0, 1 matrix 
-                @ ((
-                self.interface_fluid_mass_flux_phase_0(self.interface_mortar_flux_phase_0(interfaces), interfaces, self.mixture.get_phase(0), "interface_mortar_flux_phase_0") +
-                self.interface_fluid_mass_flux_phase_1(self.interface_mortar_flux_phase_1(interfaces), interfaces, self.mixture.get_phase(1), "interface_mortar_flux_phase_1")
-                ) / (rho_mob_upwinded_phase_0 + rho_mob_upwinded_phase_1 + pp.ad.Scalar(epsilon)))
-                
-                + self.bc_values_darcy(subdomains) # for me they are always zero 
-            
-                + ( (projection.mortar_to_primary_int @ rho_mob_upwinded_phase_0) 
-                * ( discr.vector_source # Starnoni included
-                @ ((self.vector_expansion(subdomains) @ mass_density_phase_0)
-                   * self.vector_source(subdomains, material="fluid")) ) ) / (projection.mortar_to_primary_int @ rho_mob_upwinded_phase_0 + projection.mortar_to_primary_int @ rho_mob_upwinded_phase_1 + pp.ad.Scalar(epsilon))
-
-                + ( (projection.mortar_to_primary_int @ rho_mob_upwinded_phase_1)
-                * ( discr.vector_source # Starnoni included
-                @ ((self.vector_expansion(subdomains) @ mass_density_phase_1)
-                   * self.vector_source(subdomains, material="fluid")) ) ) / (projection.mortar_to_primary_int @ rho_mob_upwinded_phase_0 + projection.mortar_to_primary_int @ rho_mob_upwinded_phase_1 + pp.ad.Scalar(epsilon))
-            )
-        )
-
-        pressure_trace = pressure_cell + correction
-
-        # ale = discr.bound_pressure_cell.evaluate(self.equation_system)
-        # gigi = self.bc_values_darcy(subdomains).evaluate(self.equation_system)
-        # mario = rho_mob_upwinded_phase_0.evaluate(self.equation_system)
-        # lucifer = inft_faces_to_global_faces.evaluate(self.equation_system)
-
-        # pdb.set_
-        print('\n\n\n\n check it. In particular check why in pp vector source is NOT multiplied by bound_pressure_face')
-
+        pressure_trace = pressure_cell + correction 
         return pressure_trace, pressure_cell, correction
 
     def pressure_trace(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
@@ -1049,7 +1056,7 @@ class Equations(pp.BalanceEquation):
     def vector_source(
         self,
         subdomains: Union[list[pp.Grid], list[pp.MortarGrid]],
-        material: str,  # phase,
+        material: str = "useless",  # phase,
     ) -> pp.ad.Operator:
         """Vector source term. Represents gravity effects"""
 
@@ -1077,8 +1084,7 @@ class Equations(pp.BalanceEquation):
 
         # # order 3. x y z cell1, x y z cell2, .... 
         source_cell = np.zeros(self.nd)
-        source_cell[self.nd-1] = -self.gravity_value 
-        print("NOT 100 SURE ABOUT THE SIGN, I DIDNT TEST IT")
+        source_cell[self.nd-1] = self.gravity_value 
 
         num_cells_tot = 0
         for sd in subdomains:
@@ -1091,9 +1097,8 @@ class Equations(pp.BalanceEquation):
         except:
             source = pp.ad.DenseArray(np.array(source)) # if frac = [], interface_vector_source calls this fcn with source = [], so np.concatenate gets mad.
             # I don't like this except because source = [] for a bug you dont see it... find a better solution
-            print('FIX THIS...')
+            print('FIX THIS...') # in pp code sometimes you see a "if len(grids) == 0: ..."
         source.set_name("vector source (gravity)")
-
         return source
 
     def interface_vector_source(
@@ -1171,8 +1176,8 @@ class BoundaryConditionsPressureMass:
                 left_boundary = np.where(sd.face_centers[0]<(0+eps))[0] # add xmin as in the tests pls
                 right_boundary = np.where(sd.face_centers[0]>(self.xmax-eps))[0] # add xmax as in the tests pls
                 vals = np.zeros(sd.num_faces)
-                vals[left_boundary] = -0*sd.face_areas[left_boundary] # inlet
-                vals[right_boundary] = 1*sd.face_areas[right_boundary] # outlet
+                vals[left_boundary] = -0.0 * sd.face_areas[left_boundary] # inlet
+                vals[right_boundary] = 0*2.0 * sd.face_areas[right_boundary] # outlet
                 bc_values.append(vals)
             
             else:
@@ -1205,8 +1210,8 @@ class BoundaryConditionsPressureMass:
                 left_boundary = np.where(sd.face_centers[0]<(0+eps))[0] # add xmin as in the tests pls
                 right_boundary = np.where(sd.face_centers[0]>(self.xmax-eps))[0]
                 vals = np.zeros(sd.num_faces)
-                vals[left_boundary] = -0.5*sd.face_areas[left_boundary] # inlet
-                vals[right_boundary] = 0*sd.face_areas[right_boundary] # outlet
+                vals[left_boundary] = -0*1.0 * sd.face_areas[left_boundary] # inlet
+                vals[right_boundary] = 0.0 * sd.face_areas[right_boundary] # outlet
                 bc_values.append(vals)
             
             else:
@@ -1349,11 +1354,11 @@ class SolutionStrategyPressureMass(pp.SolutionStrategy):
             #     "saturation", [sd]
             # )
 
-            saturation_values = 1*np.ones(sd.num_cells)
+            saturation_values = 0.0*np.ones(sd.num_cells)
             # y_max = self.size  # TODO: not 100% sure size = y_max
             saturation_values[
                 np.where(sd.cell_centers[1] >= self.ymax / 2)
-            ] = 1.  # TODO: HARDCODED for 2D
+            ] = 1.0  # TODO: HARDCODED for 2D
 
             if sd.dim == 1:
                 saturation_values = 0.8*np.ones(sd.num_cells)
@@ -1368,7 +1373,7 @@ class SolutionStrategyPressureMass(pp.SolutionStrategy):
             pressure_variable = self.pressure([sd])
 
             pressure_values = (
-                2 - 1 * sd.cell_centers[1] / y_max
+                2 - 1 * sd.cell_centers[1] / self.ymax
             )  # TODO: hardcoded for 2D
 
             self.equation_system.set_variable_values(
@@ -1416,7 +1421,7 @@ class SolutionStrategyPressureMass(pp.SolutionStrategy):
                     "bc": self.bc_type_darcy(
                         sd
                     ),  ### I don't understand this... let's fix it from errors # tpfa search for "bc" in the data discionary, .....
-                    "second_order_tensor": self.permeability_tensor(sd),
+                    "second_order_tensor": self.intrinsic_permeability_tensor(sd),
                     "ambient_dimension": self.nd,
                 },
             )
@@ -1456,17 +1461,17 @@ class SolutionStrategyPressureMass(pp.SolutionStrategy):
         num_faces = sum([sd.num_faces for sd in subdomains])
         return pp.wrap_as_ad_array(0, num_faces, "bc_values_darcy")
 
-    def permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+    def intrinsic_permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """non centra un cazzo qui, copio da constitutive_laws..."""
         size = sum(sd.num_cells for sd in subdomains)
         permeability = pp.wrap_as_ad_array(
-            self.solid.permeability(), size, name="permeability"
+            self.solid.permeability(), size, name="intrinsic_permeability"
         )
         return permeability
 
-    def permeability_tensor(self, sd: pp.Grid) -> pp.SecondOrderTensor:
+    def intrinsic_permeability_tensor(self, sd: pp.Grid) -> pp.SecondOrderTensor:
         """non centra un cazzo qui, copio da fluid_mass_balance..."""
-        permeability_ad = self.specific_volume([sd]) * self.permeability([sd])
+        permeability_ad = self.specific_volume([sd]) * self.intrinsic_permeability([sd])
         try:
             permeability = permeability_ad.evaluate(self.equation_system)
         except KeyError:
@@ -1475,6 +1480,7 @@ class SolutionStrategyPressureMass(pp.SolutionStrategy):
         if isinstance(permeability, pp.ad.AdArray):
             permeability = permeability.val
         return pp.SecondOrderTensor(permeability)
+        
 
     def discretize(self) -> None:
         """ """
@@ -1512,6 +1518,7 @@ class SolutionStrategyPressureMass(pp.SolutionStrategy):
 
             data["for_hu"]["gravity_value"] = self.gravity_value
             data["for_hu"]["ell"] = self.ell
+            data["for_hu"]["dynamic_viscosity"] = self.dynamic_viscosity
 
             if sd.dim == 0:
                 data["for_hu"]["left_restriction"] = None
@@ -1519,6 +1526,8 @@ class SolutionStrategyPressureMass(pp.SolutionStrategy):
                 data["for_hu"]["expansion_matrix"] = None
                 data["for_hu"]["transmissibility_internal_tpfa"] = None
                 data["for_hu"]["dim_max"] = None
+                data["for_hu"]["mobility"] = None
+                data["for_hu"]["relative_permeability"] = None
 
             else:
                 (
@@ -1543,6 +1552,8 @@ class SolutionStrategyPressureMass(pp.SolutionStrategy):
                 )
                 data["for_hu"]["transmissibility_internal_tpfa"] = transmissibility_internal
                 data["for_hu"]["dim_max"] = self.mdg.dim_max()
+                data["for_hu"]["mobility"] = self.mobility
+                data["for_hu"]["relative_permeability"] = self.relative_permeability
 
     # other methods not called in prepared_simulation: -------------------------------------------------
 
@@ -1556,7 +1567,7 @@ class SolutionStrategyPressureMass(pp.SolutionStrategy):
 
     def before_nonlinear_iteration(self):
         """ """
-        self.mixture.apply_constraint(self.ell)
+        # self.mixture.apply_constraint(self.ell) ### TODO: NON SERVE, TOGLI
 
         for sd, data in self.mdg.subdomains(return_data=True):
             pressure_adarray = self.pressure([sd]).evaluate(self.equation_system)
@@ -1568,7 +1579,7 @@ class SolutionStrategyPressureMass(pp.SolutionStrategy):
                 "transmissibility_internal_tpfa"
             ]  # idem...
             ad = True
-            dynamic_viscosity = 1  # Sorry
+            dynamic_viscosity = data["for_hu"]["dynamic_viscosity"]  # Sorry
             dim_max = data["for_hu"]["dim_max"]
             total_flux_internal = (
                 pp.numerics.fv.hybrid_weighted_average.total_flux_internal(
@@ -1583,6 +1594,8 @@ class SolutionStrategyPressureMass(pp.SolutionStrategy):
                     ad,
                     dynamic_viscosity,
                     dim_max,
+                    self.mobility,
+                    self.relative_permeability,
                 )
             )
             data["for_hu"]["total_flux_internal"] = (
@@ -1670,6 +1683,7 @@ class SolutionStrategyPressureMass(pp.SolutionStrategy):
 
     def after_nonlinear_iteration(self, solution_vector: np.ndarray) -> None:
         """ """
+
         self._nonlinear_iteration += 1
         self.equation_system.shift_iterate_values()
 
@@ -1725,8 +1739,9 @@ class SolutionStrategyPressureMass(pp.SolutionStrategy):
 
     def eb_after_timestep(self):
         """ """
+
         print("self.time_manager.time = ", self.time_manager.time)
-        if np.isclose(np.mod(self.time_manager.time, 0.05), 0, rtol=0, atol=1e-4) or self.time_manager.time == self.time_manager.dt:
+        # if np.isclose(np.mod(self.time_manager.time, 0.5), 0, rtol=0, atol=1e-4) or self.time_manager.time == self.time_manager.dt:
             
             #  # open the fracture:
             # for sd in self.mdg.subdomains():
@@ -1754,31 +1769,31 @@ class SolutionStrategyPressureMass(pp.SolutionStrategy):
             # self.mdg.compute_geometry()
             # pp.plot_grid(self.mdg, info="", alpha=0.1)
             
-            for sd, _ in self.mdg.subdomains(return_data=True):
-                gigi = (
-                    # self.mixture.mixture_for_subdomain(self.equation_system, sd)
-                    self.mixture.mixture_for_subdomain(sd)
-                    .get_phase(0)
-                    .saturation
-                )
-                gigi_1 = (self.mixture.mixture_for_subdomain(sd)
-                    .get_phase(1)
-                    .saturation)
+            # for sd, _ in self.mdg.subdomains(return_data=True):
+            #     gigi = (
+            #         # self.mixture.mixture_for_subdomain(self.equation_system, sd)
+            #         self.mixture.mixture_for_subdomain(sd)
+            #         .get_phase(0)
+            #         .saturation
+            #     )
+            #     gigi_1 = (self.mixture.mixture_for_subdomain(sd)
+            #         .get_phase(1)
+            #         .saturation)
         
 
-                ppp = self.equation_system.md_variable("pressure", [sd]).evaluate(
-                    self.equation_system
-                )
+            #     ppp = self.equation_system.md_variable("pressure", [sd]).evaluate(
+            #         self.equation_system
+            #     )
 
-                print("saturation = ", gigi.val)
-                print("pressure = ", ppp.val)
+            #     print("saturation = ", gigi.val)
+            #     print("pressure = ", ppp.val)
                 
-                interfaces = self.subdomains_to_interfaces(self.mdg.subdomains(), [1])
-                (eq, kn, pressure_h, pressure_l, g_term) = self.eq_fcn_mortar_phase_0(interfaces)
-                pressure_h = pressure_h.evaluate(self.equation_system).val
-                pressure_l = pressure_l.evaluate(self.equation_system).val
-                dp = pressure_h - pressure_l
-                g_term = g_term.evaluate(self.equation_system)
+            #     interfaces = self.subdomains_to_interfaces(self.mdg.subdomains(), [1])
+            #     (eq, kn, pressure_h, pressure_l, g_term) = self.eq_fcn_mortar_phase_0(interfaces)
+            #     pressure_h = pressure_h.evaluate(self.equation_system).val
+            #     pressure_l = pressure_l.evaluate(self.equation_system).val
+            #     dp = pressure_h - pressure_l
+            #     g_term = g_term.evaluate(self.equation_system)
 
                 # if sd.dim == 2:
                 #     mortar_projection = pp.ad.MortarProjections(self.mdg, [sd], interfaces, dim=1)
@@ -1794,22 +1809,22 @@ class SolutionStrategyPressureMass(pp.SolutionStrategy):
                 #     print("g_term = ", g_term)
                 #     pp.plot_grid(sd, vector_value=0.1*g_term_vect, alpha=0)
 
-                if sd.dim > 0: # otherwise plot_grid gets mad
-                    pp.plot_grid(
-                        sd,
-                        gigi.val,
-                        alpha=0.5,
-                        info="",
-                        title="saturation " + str(self.ell),
-                    )
-                    pp.plot_grid(
-                        sd,
-                        gigi_1.val,
-                        alpha=0.5,
-                        info="",
-                        title="saturation 1",
-                    )
-                    pp.plot_grid(sd, ppp.val, alpha=0.5, info="", title="pressure")
+                # if sd.dim > 0: # otherwise plot_grid gets mad
+                #     pp.plot_grid(
+                #         sd,
+                #         gigi.val,
+                #         alpha=0.5,
+                #         info="",
+                #         title="saturation " + str(self.ell),
+                #     )
+                #     pp.plot_grid(
+                #         sd,
+                #         gigi_1.val,
+                #         alpha=0.5,
+                #         info="",
+                #         title="saturation 1",
+                #     )
+                #     pp.plot_grid(sd, ppp.val, alpha=0.5, info="", title="pressure")
             
                 
 
@@ -1890,7 +1905,7 @@ class MyModelGeometry(pp.ModelGeometry):
         self.fracture_network = pp.create_fracture_network(self.fractures, self.domain)
 
         self.mdg = pp.create_mdg(
-            "cartesian",
+            "simplex",
             self.meshing_arguments(),
             self.fracture_network,
             **self.meshing_kwargs(),
@@ -1920,18 +1935,20 @@ class MyModelGeometry(pp.ModelGeometry):
 
     def set_fractures(self) -> None:
         """ """
-        frac1 = pp.LineFracture(np.array([[0.2, 0.8], [0.6, 0.6]]))
-        frac2 = pp.LineFracture(np.array([[0.2, 0.8], [0.2, 0.2]]))
-        frac3 = pp.LineFracture(np.array([[0.5, 0.5], [0.2, 0.8]]))
+        frac1 = pp.LineFracture( 1 * np.array([[0.2, 0.8], [0.6, 0.6]]) )
+        frac2 = pp.LineFracture( np.array([[0.2, 0.8], [0.2, 0.2]]) )
+        frac3 = pp.LineFracture( np.array([[0.5, 0.5], [0.2, 0.8]]) )
+
+        frac4 = pp.LineFracture( np.array([[0.2, 0.8], [0.2, 0.8]]) )
 
         # frac1 = pp.PlaneFracture(np.array([[0.2, 0.7, 0.7, 0.2],[0.2, 0.2, 0.8, 0.8],[0.5, 0.5, 0.5, 0.5]]))
-        self._fractures: list = [] #[frac1]
+        self._fractures: list = [frac1]
 
     def meshing_arguments(self) -> dict[str, float]:
         """ """
         default_meshing_args: dict[str, float] = {
-            "cell_size": 1 / self.units.m, # 0.05
-            "cell_size_fracture": 0.1 / self.units.m,
+            "cell_size": 1 * 0.2, # 0.05
+            "cell_size_fracture": 1 * 0.05,
         }
         return self.params.get("meshing_arguments", default_meshing_args)
 
@@ -1951,8 +1968,8 @@ fluid_constants = pp.FluidConstants({})
 solid_constants = pp.SolidConstants(
         {
             "porosity": 0.25,
-            "permeability": 1,
-            "normal_permeability": 1, # this does NOT include the aperture
+            "intrinsic_permeability": 1,
+            "normal_permeability": 2, # this does NOT include the aperture
             "residual_aperture": 0.1,
         }
     )
@@ -1961,7 +1978,7 @@ material_constants = {"fluid": fluid_constants, "solid": solid_constants}
 
 time_manager = pp.TimeManager(
     schedule=[0, 10],
-    dt_init=1e-2,
+    dt_init= 1 * 1e-3 ,
     constant_dt=True,
     iter_max=10,
     print_info=True,
@@ -1970,7 +1987,7 @@ time_manager = pp.TimeManager(
 params = {
     "material_constants": material_constants,
     "max_iterations": 100,
-    "nl_convergence_tol": 1e-10,
+    "nl_convergence_tol": 1e-9,
     "nl_divergence_tol": 1e5,
     "time_manager": time_manager,
 }
@@ -1985,11 +2002,15 @@ if __name__ == "__main__":
             self.gravity_value = 1  # pp.GRAVITY_ACCELERATION
             self.dynamic_viscosity = 1  # TODO: it is hardoced everywhere, you know...
             
-            self.xmax = 20
-            self.ymax = 20
-    
-    wetting_phase = pp.composite.phase.Phase(rho0=1)
-    non_wetting_phase = pp.composite.phase.Phase(rho0=0.5)
+            self.xmax = 1 * 1
+            self.ymax = 1 * 1 
+
+            self.relative_permeability = pp.tobedefined.relative_permeability.rel_perm_quadratic
+            self.mobility = pp.tobedefined.mobility.mobility(self.relative_permeability) 
+            self.mobility_operator = pp.tobedefined.mobility.mobility_operator(self.mobility)
+
+    wetting_phase = pp.composite.phase.Phase(rho0=1, beta=1e-10)
+    non_wetting_phase = pp.composite.phase.Phase(rho0=0.5, beta=1e-10)
 
     mixture = pp.Mixture()
     mixture.add([wetting_phase, non_wetting_phase])

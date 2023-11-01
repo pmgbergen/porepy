@@ -103,9 +103,6 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
 
     def before_nonlinear_iteration(self):
         """ """
-
-        self.mixture.apply_constraint(self.ell)
-
         for sd, data in self.mdg.subdomains(return_data=True):
             pressure_adarray = self.pressure([sd]).evaluate(self.equation_system)
             left_restriction = data["for_hu"]["left_restriction"]
@@ -130,13 +127,13 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
                     ad,
                     dynamic_viscosity,
                     dim_max,
+                    self.mobility,
+                    self.relative_permeability,
                 )
             )
             data["for_hu"]["total_flux_internal"] = (
                 total_flux_internal[0] + total_flux_internal[1]
             )
-
-            pdb.set_trace()
             
             data["for_hu"]["pressure_AdArray"] = self.pressure([sd]).evaluate(
                 self.equation_system
@@ -194,11 +191,8 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
         rho_V = rho_V_operator.evaluate(self.equation_system).val
         rho_G = rho_G_operator.evaluate(self.equation_system).val
 
-
         print("\nrho_V = ", rho_V)
         print("\nrho_G = ", rho_G)
-
-        pdb.set_trace()
 
         if self.case == 1: # p = [1,0], g = 0
             assert np.all(rho_V == np.array([0, 0, 0, 0, 0, 1, 0]))
@@ -218,19 +212,19 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
 
         # same with larger cell:
         if self.case == 5: # p = [1,0], g = 0
-            assert np.all(rho_V == 2*np.array([0, 0, 0, 0, 0, 1, 0]))
+            assert np.all(np.isclose(rho_V, self.x_multiplier*np.array([0, 0, 0, 0, 0, 1, 0]), rtol=0, atol=1e-14))
 
         if self.case == 6: # p = [1,0], g = 1
-            np.all(np.isclose(rho_V, 2*np.array([0, 0, 0, 0, 0, 0, 0])))  # PASSED...
+            np.all(np.isclose(rho_V, self.x_multiplier*np.array([0, 0, 0, 0, 0, 0, 0])))  # PASSED...
 
         if self.case == 7: # s = [1, 1] => G = 0
             assert np.all(
-                rho_G == 2*np.array([0, 0, 0, 0, 0, 0, 0])
+                rho_G == self.x_multiplier*np.array([0, 0, 0, 0, 0, 0, 0])
             ) # PASSED...
 
         if self.case == 8: # s = [0, 1] 
             assert np.all(np.isclose(
-                rho_G, 2*np.array([0, 0, 0, 0, 0, -0.5, 0]), rtol=0, atol=1e-3 )) # PASSED         
+                rho_G, self.x_multiplier*np.array([0, 0, 0, 0, 0, -0.5, 0]), rtol=0, atol=1e-8 )) # atol = 1e-3 if compressible    
         
         
 
@@ -278,8 +272,13 @@ class FinalModel(PartialFinalModelTest):  # I'm sorry...
         self.gravity_value = None  # pp.GRAVITY_ACCELERATION
         self.dynamic_viscosity = 1  # TODO: it is hardoced everywhere, you know...
 
-        self.case = None  
         self.xmax = None
+
+        self.relative_permeability = pp.tobedefined.relative_permeability.rel_perm_quadratic
+        self.mobility = pp.tobedefined.mobility.mobility(self.relative_permeability) 
+        self.mobility_operator = pp.tobedefined.mobility.mobility_operator(self.mobility)
+
+        self.case = None  
 
         self.pressure_values_2d = None
         self.pressure_values_1d = None
@@ -340,7 +339,9 @@ mixture.add([wetting_phase, non_wetting_phase])
 model = FinalModel(mixture, params)
 
 case = 8
+x_multiplier = 53.7
 model.case = case
+model.x_multiplier = x_multiplier
 
 if case == 1:
     model.xmax = 1
@@ -366,26 +367,28 @@ if case == 4:
     model.pressure_values_2d = np.array([0., 0.])
     model.saturation_values_2d = np.array([0., 1])
 
+
+
 if case == 5:
-    model.xmax = 2
+    model.xmax = x_multiplier * 1 # I have my problems, sorry
     model.gravity_value = 0
     model.pressure_values_2d = np.array([1., 0])
     model.saturation_values_2d = np.array([1., 1]) 
 
 if case == 6:
-    model.xmax = 2
+    model.xmax = x_multiplier * 1
     model.gravity_value = 1
     model.pressure_values_2d = np.array([1., 0])
     model.saturation_values_2d = np.array([1., 1])
 
 if case == 7:
-    model.xmax = 2
+    model.xmax = x_multiplier * 1
     model.gravity_value = 1
     model.pressure_values_2d = np.array([0., 0.])
     model.saturation_values_2d = np.array([1., 1.])
 
 if case == 8:
-    model.xmax = 2
+    model.xmax = x_multiplier * 1
     model.gravity_value = 1
     model.pressure_values_2d = np.array([0., 0.])
     model.saturation_values_2d = np.array([0., 1])

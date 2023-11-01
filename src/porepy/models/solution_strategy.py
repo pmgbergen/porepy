@@ -546,11 +546,13 @@ class SolutionStrategy(abc.ABC):
             # Enforce float to make mypy happy
             error = float(np.linalg.norm(solution)) / np.sqrt(solution.size)
 
-            # ###
-            # print("Newton has been mod")
-            # A, b = self.linear_system
-            # err_res = np.linalg.norm(b)
-            # print("----> err_res = ", err_res)
+            ### 
+            print("Newton has been mod")
+            _, b = self.linear_system
+            err_res = np.linalg.norm(b)
+            max_res = np.max(b)
+            print("----> err_res = ", err_res)
+            print("----> max_res = ", max_res)
             # error = err_res
 
             logger.info(f"Normalized residual norm: {error:.2e}")

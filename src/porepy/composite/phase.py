@@ -12,13 +12,15 @@ import pdb
 class Phase(abc.ABC):
     """ """
 
-    def __init__(self, name: str = "", rho0: float = 1) -> None:
+    def __init__(self, name: str = "", rho0: float = 1, p0: float = 1, beta: float = 1e-10) -> None:
         self._name = name
         # self._s: pp.ad.MixedDimensionalVariable = ad_system.create_variables(
         #     f"{COMPOSITIONAL_VARIABLE_SYMBOLS['phase_saturation']}_{self.name}",
         #     subdomains=ad_system.mdg.subdomains(),
         # )
         self._rho0 = rho0
+        self._p0 = p0
+        self._beta = beta
         self.apply_constraint = None
         # self._s = None
         self.equation_system = None
@@ -78,10 +80,8 @@ class Phase(abc.ABC):
             rho = self._rho0 * np.ones(p.shape)
 
         # variable density:
-        beta = 1e-5  # 5e-10
-        p0 = 1  # 1e5
         rho = self._rho0 * pp.ad.functions.exp(
-            beta * p0 * (p / p0 - 1)
+            self._beta * self._p0 * (p / self._p0 - 1)
         )  # i like dimless groups...
 
         # mass_density = (

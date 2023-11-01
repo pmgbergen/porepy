@@ -337,7 +337,7 @@ class Upwind(Discretization):
         # Expand matrix to the right number of components, and store it
         matrix_dictionary[self.bound_transport_neu_matrix_key] = sps.kron(
             bc_discr_neu, sps.eye(num_components)
-        ).tocsr()
+        ).tocsr() # you must be evil! block_diag, please!
         matrix_dictionary[self.bound_transport_dir_matrix_key] = sps.kron(
             bc_discr_dir, sps.eye(num_components)
         ).tocsr()

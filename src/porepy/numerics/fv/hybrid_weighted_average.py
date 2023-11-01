@@ -30,17 +30,26 @@ def total_flux_internal(
     ad,
     dynamic_viscosity,
     dim_max,
+    mobility,
+    permeability,
 ):
     """ """
 
-    def gamma_value():
+    def gamma_value(permeability):
         """ """
         alpha = 1  # as in the paper 2022
 
-        kr0 = pp.rel_perm_brooks_corey(saturation=1)  # TODO: is it right?
-        dd_kr_max = pp.second_derivative(
-            np.arange(0, 1, 10)
-        ).max()  # TODO: improve it...
+        kr0 = permeability(saturation=1)  # TODO: is it right?
+
+        def second_derivative(permeability, val):
+            """ sorry, I'm lazy..."""
+            h = 1e-4
+            return ( permeability(val + h) - 2*permeability(val) + permeability(val - h) ) / (h**2)
+
+
+        dd_kr_max = np.nanmax( second_derivative( permeability, 
+            np.linspace(0, 1, 10)
+        ) )  # TODO: improve it...
 
         gamma_val = alpha / kr0 * dd_kr_max
         # return pp.ad.Scalar(gamma_val, name="gamma value")
@@ -192,7 +201,7 @@ def total_flux_internal(
     g_ref_faces = g_ref_faces(
         mixture, pressure, z, gravity_value, left_restriction, right_restriction
     )
-    gamma_val = gamma_value()
+    gamma_val = gamma_value(permeability)
 
     total_flux = [None] * mixture.num_phases
 
@@ -211,10 +220,10 @@ def total_flux_internal(
             right_restriction,
             ad,
         )
-        mobility = pp.mobility(saturation_m, dynamic_viscosity)  # TODO: improve it
+        mob = mobility(saturation_m, dynamic_viscosity)  # TODO: improve it
 
         lam_WA_faces = lambda_WA_faces(
-            bet_faces, mobility, left_restriction, right_restriction
+            bet_faces, mob, left_restriction, right_restriction
         )
 
         delta_pot_faces = delta_potential_faces(
@@ -245,6 +254,8 @@ def rho_total_flux_internal(
     ad,
     dynamic_viscosity,
     dim_max,
+    mobility,
+    permeability,
 ):
     """ """
     qt = total_flux_internal(
@@ -258,6 +269,8 @@ def rho_total_flux_internal(
         ad,
         dynamic_viscosity,
         dim_max,
+        mobility,
+        permeability,
     )
 
     rho_qt = [None, None]
@@ -286,23 +299,9 @@ def rho_total_flux(
     ad,
     dynamic_viscosity,
     dim_max,
+    mobility,
+    permeability,
 ):
-    
-
-
-    # print(sd)
-    # print(mixture)
-    # print(mixture.get_phase(0).saturation.val)
-    # print(mixture.get_phase(1).saturation.val)
-    # print(pressure)
-    # print(gravity_value)
-    # print(left_restriction)
-    # print(right_restriction)
-    # print(expansion_matrix)
-    # print(transmissibility_internal_tpfa)
-    # print(ad)
-    # print(dynamic_viscosity)
-    # print(dim_max)
 
     # 0D shortcut:
     if sd.dim == 0:
@@ -322,6 +321,8 @@ def rho_total_flux(
         ad,
         dynamic_viscosity,
         dim_max,
+        mobility,
+        permeability,
     )
 
     return rho_qt
