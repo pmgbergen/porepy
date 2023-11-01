@@ -24,7 +24,7 @@ FROM porepy/base
 # Make sure we are in the home directory
 WORKDIR ${POREPY_HOME}
 # Make sure we're on the develop branch
-RUN git checkout develop
+RUN git checkout develop && git pull
 
 # Do the install
 RUN pip install -e .
