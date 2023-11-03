@@ -643,7 +643,7 @@ def model_setup_gravity(
             # Angle of zero means force vector of [0, -1]
             values[1] = self.fluid.convert_units(-np.cos(gravity_angle), "m*s^-2")
             values[0] = self.fluid.convert_units(np.sin(gravity_angle), "m*s^-2")
-            source = pp.wrap_as_ad_array(values.ravel("F"), name="vector_source")
+            source = pp.wrap_as_dense_ad_array(values.ravel("F"), name="vector_source")
             return source
 
         def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:

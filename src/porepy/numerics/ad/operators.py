@@ -1934,7 +1934,7 @@ def _ad_wrapper(
         return pp.ad.SparseArray(matrix, name)
 
 
-def wrap_as_ad_array(
+def wrap_as_dense_ad_array(
     vals: pp.number | np.ndarray,
     size: Optional[int] = None,
     name: Optional[str] = None,
@@ -1953,7 +1953,7 @@ def wrap_as_ad_array(
     return _ad_wrapper(vals, True, size=size, name=name)
 
 
-def wrap_as_ad_matrix(
+def wrap_as_sparse_ad_array(
     vals: Union[pp.number, np.ndarray],
     size: Optional[int] = None,
     name: Optional[str] = None,
