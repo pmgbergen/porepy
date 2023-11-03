@@ -82,7 +82,7 @@ class DimensionReduction:
 
         """
         if len(subdomains) == 0:
-            return pp.wrap_as_ad_array(0, size=0)
+            return pp.wrap_as_dense_ad_array(0, size=0)
         projection = pp.ad.SubdomainProjections(subdomains, dim=1)
 
         # The implementation here is not perfect, but it seems to be what is needed
@@ -94,7 +94,7 @@ class DimensionReduction:
 
         for i, sd in enumerate(subdomains):
             # First make the local aperture array.
-            a_loc = pp.wrap_as_ad_array(self.grid_aperture(sd))
+            a_loc = pp.wrap_as_dense_ad_array(self.grid_aperture(sd))
             # Expand to a global array.
             a_glob = projection.cell_prolongation([sd]) @ a_loc
             if i == 0:
@@ -125,7 +125,7 @@ class DimensionReduction:
 
         """
         if len(grids) == 0:
-            return pp.wrap_as_ad_array(0, size=0)
+            return pp.wrap_as_dense_ad_array(0, size=0)
 
         if isinstance(grids[0], pp.MortarGrid):
             # For interfaces, the specific volume is inherited from the
@@ -258,7 +258,7 @@ class DisplacementJumpAperture(DimensionReduction):
         nd_subdomains = [sd for sd in subdomains if sd.dim == self.nd]
 
         num_cells_nd_subdomains = sum([sd.num_cells for sd in nd_subdomains])
-        one = pp.wrap_as_ad_array(1, size=num_cells_nd_subdomains, name="one")
+        one = pp.wrap_as_dense_ad_array(1, size=num_cells_nd_subdomains, name="one")
         # Start with nd, where aperture is one.
         apertures = projection.cell_prolongation(nd_subdomains) @ one
 
@@ -299,7 +299,7 @@ class DisplacementJumpAperture(DimensionReduction):
                     if len(well_subdomains) > 0:
                         # Wells. Aperture is given by well radius.
                         radii = [self.grid_aperture(sd) for sd in well_subdomains]
-                        well_apertures = pp.wrap_as_ad_array(
+                        well_apertures = pp.wrap_as_dense_ad_array(
                             np.hstack(radii), name="well apertures"
                         )
                         apertures = (
@@ -382,7 +382,7 @@ class DisplacementJumpAperture(DimensionReduction):
                 nonzero = average_weights > 0
                 average_weights[nonzero] = 1 / average_weights[nonzero]
                 # Wrap as a DenseArray
-                divide_by_num_neighbors = pp.wrap_as_ad_array(
+                divide_by_num_neighbors = pp.wrap_as_dense_ad_array(
                     average_weights, name="average_weights"
                 )
 
@@ -718,7 +718,7 @@ class ConstantPermeability:
 
         """
         size = sum(sd.num_cells for sd in subdomains)
-        permeability = pp.wrap_as_ad_array(
+        permeability = pp.wrap_as_dense_ad_array(
             self.solid.permeability(), size, name="permeability"
         )
         return permeability
@@ -1140,7 +1140,7 @@ class DarcysLaw:
         """
         val = self.fluid.convert_units(0, "m*s^-2")
         size = int(np.sum([g.num_cells for g in grids]) * self.nd)
-        source = pp.wrap_as_ad_array(val, size=size, name="zero_vector_source")
+        source = pp.wrap_as_dense_ad_array(val, size=size, name="zero_vector_source")
         return source
 
     def interface_vector_source(
@@ -1287,7 +1287,7 @@ class PeacemanWellFlux:
                 h_list.append(np.array([1]))
             else:
                 h_list.append(np.power(sd.cell_volumes, 1 / sd.dim))
-        r_e = Scalar(0.2) * pp.wrap_as_ad_array(np.concatenate(h_list))
+        r_e = Scalar(0.2) * pp.wrap_as_dense_ad_array(np.concatenate(h_list))
         r_e.set_name("equivalent_well_radius")
         return r_e
 
@@ -2075,7 +2075,7 @@ class GravityForce:
         """
         val = self.fluid.convert_units(pp.GRAVITY_ACCELERATION, "m*s^-2")
         size = np.sum([g.num_cells for g in grids]).astype(int)
-        gravity = pp.wrap_as_ad_array(val, size=size, name="gravity")
+        gravity = pp.wrap_as_dense_ad_array(val, size=size, name="gravity")
         rho = getattr(self, material + "_density")(grids)
         # Gravity acts along the last coordinate direction (z in 3d, y in 2d)
 
@@ -3208,7 +3208,7 @@ class PoroMechanicsPorosity:
         projection = pp.ad.SubdomainProjections(subdomains, dim=1)
         # Constant unitary porosity in fractures and intersections
         size = sum([sd.num_cells for sd in subdomains_lower])
-        one = pp.wrap_as_ad_array(1, size=size, name="one")
+        one = pp.wrap_as_dense_ad_array(1, size=size, name="one")
         rho_nd = projection.cell_prolongation(subdomains_nd) @ self.matrix_porosity(
             subdomains_nd
         )

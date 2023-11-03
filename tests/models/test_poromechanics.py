@@ -139,7 +139,7 @@ class NonzeroFractureGapPoromechanics:
                     self.params["fracture_source_value"], "kg * s ^ -1"
                 )
                 vals.append(val * np.ones(sd.num_cells))
-        fracture_source = pp.wrap_as_ad_array(
+        fracture_source = pp.wrap_as_dense_ad_array(
             np.hstack(vals), name="fracture_fluid_source"
         )
         return internal_boundaries + fracture_source

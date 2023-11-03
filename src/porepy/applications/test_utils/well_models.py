@@ -203,5 +203,5 @@ class WellPermeability(pp.constitutive_laws.CubicLawPermeability):
 
         """
         size = sum(sd.num_cells for sd in subdomains)
-        permeability = pp.wrap_as_ad_array(1, size, name="well permeability")
+        permeability = pp.wrap_as_dense_ad_array(1, size, name="well permeability")
         return permeability
