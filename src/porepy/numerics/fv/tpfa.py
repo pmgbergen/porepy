@@ -155,6 +155,7 @@ class Tpfa(pp.FVElliptic):
 
         # Normal vectors and permeability for each face (here and there side)
         n = sd.face_normals[:, fi]
+
         # Switch signs where relevant
         n *= sgn
         perm = k.values[::, ::, ci]
@@ -183,6 +184,9 @@ class Tpfa(pp.FVElliptic):
         t = 1 / np.bincount(fi_periodic, weights=1 / t_face)
 
         transmissibility = copy.deepcopy(t)                                                     ### tmp
+
+        # print("transmissiblity (all faces) = ", transmissibility)
+        # pdb.set_trace()
 
         # Save values for use in recovery of boundary face pressures
         t_full = t.copy()

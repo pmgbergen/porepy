@@ -307,6 +307,7 @@ class UpwindCouplingAd(Discretization):
     def __init__(
         self, keyword: str, interfaces: list[pp.MortarGrid], flux_array_key='darcy_flux'
     ) -> None:
+        self.flux_array_key = flux_array_key # TMP. delete this line
         self.interfaces = interfaces
         self._discretization = pp.UpwindCoupling(keyword, flux_array_key)
         self._name = "Upwind coupling"

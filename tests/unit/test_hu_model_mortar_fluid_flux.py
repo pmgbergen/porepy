@@ -126,6 +126,8 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
                     ad,
                     dynamic_viscosity,
                     dim_max,
+                    self.mobility,
+                    self.relative_permeability,
                 )
             )
             data["for_hu"]["total_flux_internal"] = (
@@ -135,35 +137,28 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
                 self.equation_system
             )
 
-            vals = (
-                self.darcy_flux_phase_0([sd], self.mixture.get_phase(0))
-                .evaluate(self.equation_system)
-                .val
-            )
-
-            print("darcy_flux_phase_0 = ", vals)
             
-            if self.case == 100:
-                if sd.dim == 2:
-                    print("darcy_flux_phase_0 case 100 = ", self.darcy_flux_phase_0_values_2d)
-                    data[pp.PARAMETERS][self.ppu_keyword].update({"darcy_flux_phase_0": self.darcy_flux_phase_0_values_2d})
-            else:
-                data[pp.PARAMETERS][self.ppu_keyword].update({"darcy_flux_phase_0": vals})
+            # if self.case == 100:
+            #     if sd.dim == 2:
+            #         print("darcy_flux_phase_0 case 100 = ", self.darcy_flux_phase_0_values_2d)
+            #         data[pp.PARAMETERS][self.ppu_keyword].update({"darcy_flux_phase_0": self.darcy_flux_phase_0_values_2d})
+            # else:
+            #     data[pp.PARAMETERS][self.ppu_keyword].update({"darcy_flux_phase_0": vals})
 
-            vals = (
-                self.darcy_flux_phase_1([sd], self.mixture.get_phase(1))
-                .evaluate(self.equation_system)
-                .val
-            )
+            # vals = (
+            #     self.darcy_flux_phase_1([sd], self.mixture.get_phase(1))
+            #     .evaluate(self.equation_system)
+            #     .val
+            # )
 
-            print("darcy_flux_phase_1 = ", vals)
+            # print("darcy_flux_phase_1 = ", vals)
 
-            if self.case == 100:
-                if sd.dim == 2:
-                    print("darcy_flux_phase_1 case 100 = ", self.darcy_flux_phase_1_values_2d)
-                    data[pp.PARAMETERS][self.ppu_keyword].update({"darcy_flux_phase_1": self.darcy_flux_phase_1_values_2d})
-            else:
-                data[pp.PARAMETERS][self.ppu_keyword].update({"darcy_flux_phase_1": vals})
+            # if self.case == 100:
+            #     if sd.dim == 2:
+            #         print("darcy_flux_phase_1 case 100 = ", self.darcy_flux_phase_1_values_2d)
+            #         data[pp.PARAMETERS][self.ppu_keyword].update({"darcy_flux_phase_1": self.darcy_flux_phase_1_values_2d})
+            # else:
+            #     data[pp.PARAMETERS][self.ppu_keyword].update({"darcy_flux_phase_1": vals})
 
         for intf, data in self.mdg.interfaces(return_data=True, codim=1):
             vals = (
@@ -1036,6 +1031,9 @@ class FinalModelTest(PartialFinalModel):  # I'm sorry...
         self.pressure_values_2d = None
         self.pressure_values_1d = None
 
+        self.relative_permeability = pp.tobedefined.relative_permeability.rel_perm_quadratic
+        self.mobility = pp.tobedefined.mobility.mobility(self.relative_permeability) 
+        self.mobility_operator = pp.tobedefined.mobility.mobility_operator(self.mobility)
 
 
 fluid_constants = pp.FluidConstants({})
@@ -1044,7 +1042,7 @@ solid_constants = pp.SolidConstants(
         "porosity": 0.25,
         "permeability": 1,
         "normal_permeability": 1,
-        "residual_aperture": 0.1,
+        "residual_aperture": 1e-1,
     }
 )
 # material_constants = {"solid": solid_constants}
@@ -1076,7 +1074,7 @@ mixture.add([wetting_phase, non_wetting_phase])
 model = FinalModelTest(mixture, params)
 
 
-case = 1
+case = 16
 model.case = case
 
 if case == 1:  # delta p = 0, g = 1
@@ -1148,7 +1146,6 @@ if case == 8:  # delta p = -1, g = 1
 
 
 
-# TODO:
 if case == 9:  # delta p = 0, g = 1
     model.xmax = 4
     model.gravity_value = 1
@@ -1217,17 +1214,17 @@ if case == 16:  # delta p = -1, g = 1
 
 
 
-if case == 100:  # delta p = 0, g = 1
-    model.xmax = 2
-    model.gravity_value = 1
-    model.saturation_values_2d = 1 * np.array([1.0, 1, 1, 1])
-    model.saturation_values_1d = 0.5 * np.array([1.0, 1])
-    model.pressure_values_2d = 1 * np.array([1.0, 1, 1, 1])
-    model.pressure_values_1d = 1 * np.array([1.0, 1])
+    # if case == 100:  # delta p = 0, g = 1
+    #     model.xmax = 2
+    #     model.gravity_value = 1
+    #     model.saturation_values_2d = 1 * np.array([1.0, 1, 1, 1])
+    #     model.saturation_values_1d = 0.5 * np.array([1.0, 1])
+    #     model.pressure_values_2d = 1 * np.array([1.0, 1, 1, 1])
+    #     model.pressure_values_1d = 1 * np.array([1.0, 1])
 
-    model.darcy_flux_phase_0_values_2d = np.array([0.,0,0,0,0, 0,0,0,0,0, 0,0,0,0])
-    #model.darcy_flux_phase_1_values_2d = np.array([0.,0,0,0,0, 0,0,0,-1,-1, 0,0,-1,-1])
-    model.darcy_flux_phase_1_values_2d = np.ones(14)
+    #     model.darcy_flux_phase_0_values_2d = np.array([0.,0,0,0,0, 0,0,0,0,0, 0,0,0,0])
+    #     #model.darcy_flux_phase_1_values_2d = np.array([0.,0,0,0,0, 0,0,0,-1,-1, 0,0,-1,-1])
+    #     model.darcy_flux_phase_1_values_2d = np.ones(14)
 
 
 

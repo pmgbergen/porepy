@@ -11,6 +11,8 @@ from typing import Callable, Sequence, Union
 import porepy as pp
 
 import pdb
+import numpy as np
+
 
 
 class BalanceEquation:
@@ -138,6 +140,7 @@ class BalanceEquation:
         if dim == 1:
             # No need to do more for scalar problems
             return cell_volumes * self.specific_volume(grids) * integrand
+        
         else:
             # For vector problems, we need to expand the volume array from cell-wise
             # scalar values to cell-wise vectors. We do this by left multiplication with

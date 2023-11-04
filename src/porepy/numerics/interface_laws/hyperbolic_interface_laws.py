@@ -11,6 +11,9 @@ import porepy.numerics.interface_laws.abstract_interface_law
 from porepy.numerics.interface_laws.abstract_interface_law import AbstractInterfaceLaw
 
 
+import pdb
+
+
 class UpwindCoupling(AbstractInterfaceLaw):
     def __init__(self, keyword: str, flux_array_key="pick one") -> None:
         super().__init__(keyword)
@@ -80,6 +83,13 @@ class UpwindCoupling(AbstractInterfaceLaw):
 
         # Find upwind weighting. if flag is True we use the upper weights
         # if flag is False we use the lower weighs
+
+
+        # print("\nself._flux_array_key = ", self._flux_array_key)
+        # print("data_intf[pp.PARAMETERS][self.keyword][self._flux_array_key] = ", data_intf[pp.PARAMETERS][self.keyword][self._flux_array_key])
+        # print("lam_flux = ", lam_flux)
+        
+
         flag = (lam_flux > 0).astype(float)
         not_flag = 1 - flag
 

@@ -22,59 +22,6 @@ def myprint(var):
 - copied from test_hu_model.py
 """
 
-class PrimaryVariables(pp.VariableMixin):
-    """ """
-
-    def create_variables(self) -> None:
-        """ """
-        self.equation_system.create_variables(
-            self.pressure_variable,
-            subdomains=self.mdg.subdomains(),
-            tags={"si_units": "Pa"},
-        )
-
-        self.equation_system.create_variables(  # saturation is an attribute of the model, but please use mixture to take the saturation # TODO: improve it (as everything)
-            self.saturation_variable,
-            subdomains=self.mdg.subdomains(),
-            tags={"si_units": ""},
-        )
-
-        self.equation_system.create_variables(
-            self.interface_mortar_flux_phase_0_variable,
-            interfaces=self.mdg.interfaces(codim=1),
-            tags={"si_units": f"m^{self.nd} * Pa"},
-        )
-
-        self.equation_system.create_variables(
-            self.interface_mortar_flux_phase_1_variable,
-            interfaces=self.mdg.interfaces(codim=1),
-            tags={"si_units": f"m^{self.nd} * Pa"},
-        )
-
-    def pressure(self, subdomains: list[pp.Grid]) -> pp.ad.MixedDimensionalVariable:
-        p = self.equation_system.md_variable(self.pressure_variable, subdomains)
-        return p
-
-    # saturation is inside mixture
-
-    def interface_mortar_flux_phase_0(
-        self, interfaces: list[pp.MortarGrid]
-    ) -> pp.ad.MixedDimensionalVariable:
-        """ """
-        mortar_flux = self.equation_system.md_variable(
-            self.interface_mortar_flux_phase_0_variable, interfaces
-        )
-        return mortar_flux
-
-    def interface_mortar_flux_phase_1(
-        self, interfaces: list[pp.MortarGrid]
-    ) -> pp.ad.MixedDimensionalVariable:
-        """ """
-        mortar_flux = self.equation_system.md_variable(
-            self.interface_mortar_flux_phase_1_variable, interfaces
-        )
-        return mortar_flux
-
 
 class EquationsPPU(test_hu_model.Equations):
     """I dont see the point of splitting this class more than this, I prefer commented titles instead of mixin classes"""
@@ -100,7 +47,7 @@ class EquationsPPU(test_hu_model.Equations):
 
         # subdomains flux: -----------------------------------------------------------
         discr = self.ppu_discretization(subdomains, "darcy_flux_phase_0")
-        mob_rho = self.mixture.get_phase(0).mass_density_operator(subdomains, self.pressure) * pp.tobedefined.mobility.mobility_operator(subdomains, self.mixture.get_phase(0).saturation_operator, self.dynamic_viscosity)
+        mob_rho = self.mixture.get_phase(0).mass_density_operator(subdomains, self.pressure) * self.mobility_operator(subdomains, self.mixture.get_phase(0).saturation_operator, self.dynamic_viscosity)
 
         darcy_flux_phase_0 = self.darcy_flux_phase_0(subdomains, self.mixture.get_phase(0))
         interfaces = self.subdomains_to_interfaces(subdomains, [1])
@@ -113,7 +60,7 @@ class EquationsPPU(test_hu_model.Equations):
         )
     
         discr = self.ppu_discretization(subdomains, "darcy_flux_phase_1")
-        mob_rho = self.mixture.get_phase(1).mass_density_operator(subdomains, self.pressure) * pp.tobedefined.mobility.mobility_operator(
+        mob_rho = self.mixture.get_phase(1).mass_density_operator(subdomains, self.pressure) * self.mobility_operator(
             subdomains, self.mixture.get_phase(1).saturation_operator, self.dynamic_viscosity)
 
         darcy_flux_phase_1 = self.darcy_flux_phase_1(subdomains, self.mixture.get_phase(1))
@@ -230,7 +177,7 @@ class EquationsPPU(test_hu_model.Equations):
         # subdomains flux contribution: -------------------------------------
         if self.ell == 0:
             discr = self.ppu_discretization(subdomains, "darcy_flux_phase_0")
-            mob_rho = self.mixture.get_phase(0).mass_density_operator(subdomains, self.pressure) * pp.tobedefined.mobility.mobility_operator(
+            mob_rho = self.mixture.get_phase(0).mass_density_operator(subdomains, self.pressure) * self.mobility_operator(
                 subdomains, self.mixture.get_phase(0).saturation_operator, self.dynamic_viscosity)
 
             darcy_flux_phase_0 = self.darcy_flux_phase_0(subdomains, self.mixture.get_phase(0))
@@ -247,7 +194,7 @@ class EquationsPPU(test_hu_model.Equations):
 
         else: # self.ell == 1
             discr = self.ppu_discretization(subdomains, "darcy_flux_phase_1")
-            mob_rho = self.mixture.get_phase(1).mass_density_operator(subdomains, self.pressure) * pp.tobedefined.mobility.mobility_operator(
+            mob_rho = self.mixture.get_phase(1).mass_density_operator(subdomains, self.pressure) * self.mobility_operator(
                 subdomains, self.mixture.get_phase(1).saturation_operator, self.dynamic_viscosity)
 
             darcy_flux_phase_1 = self.darcy_flux_phase_1(subdomains, self.mixture.get_phase(1))
@@ -359,6 +306,14 @@ class EquationsPPU(test_hu_model.Equations):
         return eq
 
 
+    def ppu_discretization(
+        self, subdomains: list[pp.Grid], flux_array_key
+    ) -> pp.ad.UpwindAd:
+        """
+        flux_array_key =  either darcy_flux_phase_0 or darcy_flux_phase_1
+        """
+        return pp.ad.UpwindAd(self.ppu_keyword + "_" + flux_array_key, subdomains, flux_array_key)
+
 class PartialFinalModel(
     test_hu_model.PrimaryVariables,
     EquationsPPU,
@@ -381,6 +336,12 @@ if __name__ == "__main__":
             self.gravity_value = 1  # pp.GRAVITY_ACCELERATION
             self.dynamic_viscosity = 1  # TODO: it is hardoced everywhere, you know...
 
+            self.xmax = 1 * 1
+            self.ymax = 1 * 1 
+
+            self.relative_permeability = pp.tobedefined.relative_permeability.rel_perm_quadratic
+            self.mobility = pp.tobedefined.mobility.mobility(self.relative_permeability) 
+            self.mobility_operator = pp.tobedefined.mobility.mobility_operator(self.mobility)
 
     wetting_phase = pp.composite.phase.Phase(rho0=1)
     non_wetting_phase = pp.composite.phase.Phase(rho0=0.5)
