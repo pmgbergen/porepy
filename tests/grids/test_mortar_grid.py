@@ -378,7 +378,11 @@ def _create_2d_mdg(
 
     """
     # Create the new grid
-    mdg, _ = pp.md_grids_2d.single_horizontal(size, simplex=False)
+    mdg, _ = pp.mdg_library.square_with_orthogonal_fractures(
+        "cartesian",
+        meshing_args={"cell_size_x": 1 / size[0], "cell_size_y": 1 / size[1]},
+        fracture_indices=[1],
+    )
     # Fetch the interface and a projection matrix. The grid is matching, so we
     # arbitrarily use the integration projection.
     intf = mdg.interfaces()[0]

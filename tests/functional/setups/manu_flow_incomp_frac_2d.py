@@ -23,6 +23,7 @@ import sympy as sym
 
 import porepy as pp
 from porepy.applications.md_grids.domains import nd_cube_domain
+from porepy.applications.convergence_analysis import ConvergenceAnalysis
 from porepy.utils.examples_utils import VerificationUtils
 from porepy.viz.data_saving_model_mixin import VerificationDataSaving
 
@@ -139,7 +140,7 @@ class ManuIncompDataSaving(VerificationDataSaving):
         exact_matrix_pressure = exact_sol.matrix_pressure(sd_matrix)
         matrix_pressure_ad = self.pressure([sd_matrix])
         approx_matrix_pressure = matrix_pressure_ad.evaluate(self.equation_system).val
-        error_matrix_pressure = pp.error_computation.l2_error(
+        error_matrix_pressure = ConvergenceAnalysis.l2_error(
             grid=sd_matrix,
             true_array=exact_matrix_pressure,
             approx_array=approx_matrix_pressure,
@@ -151,7 +152,7 @@ class ManuIncompDataSaving(VerificationDataSaving):
         exact_matrix_flux = exact_sol.matrix_flux(sd_matrix)
         matrix_flux_ad = self.darcy_flux([sd_matrix])
         approx_matrix_flux = matrix_flux_ad.evaluate(self.equation_system).val
-        error_matrix_flux = pp.error_computation.l2_error(
+        error_matrix_flux = ConvergenceAnalysis.l2_error(
             grid=sd_matrix,
             true_array=exact_matrix_flux,
             approx_array=approx_matrix_flux,
@@ -163,7 +164,7 @@ class ManuIncompDataSaving(VerificationDataSaving):
         exact_frac_pressure = exact_sol.fracture_pressure(sd_frac)
         frac_pressure_ad = self.pressure([sd_frac])
         approx_frac_pressure = frac_pressure_ad.evaluate(self.equation_system).val
-        error_frac_pressure = pp.error_computation.l2_error(
+        error_frac_pressure = ConvergenceAnalysis.l2_error(
             grid=sd_frac,
             true_array=exact_frac_pressure,
             approx_array=approx_frac_pressure,
@@ -175,7 +176,7 @@ class ManuIncompDataSaving(VerificationDataSaving):
         exact_frac_flux = exact_sol.fracture_flux(sd_frac)
         frac_flux_ad = self.darcy_flux([sd_frac])
         approx_frac_flux = frac_flux_ad.evaluate(self.equation_system).val
-        error_frac_flux = pp.error_computation.l2_error(
+        error_frac_flux = ConvergenceAnalysis.l2_error(
             grid=sd_frac,
             true_array=exact_frac_flux,
             approx_array=approx_frac_flux,
@@ -187,7 +188,7 @@ class ManuIncompDataSaving(VerificationDataSaving):
         exact_intf_flux = exact_sol.interface_flux(intf)
         int_flux_ad = self.interface_darcy_flux([intf])
         approx_intf_flux = int_flux_ad.evaluate(self.equation_system).val
-        error_intf_flux = pp.error_computation.l2_error(
+        error_intf_flux = ConvergenceAnalysis.l2_error(
             grid=intf,
             true_array=exact_intf_flux,
             approx_array=approx_intf_flux,
@@ -727,7 +728,7 @@ class ManuIncompBalanceEquation(pp.fluid_mass_balance.MassBalanceEquations):
                 values.append(self.exact_sol.matrix_source(sd_matrix=sd))
             else:
                 values.append(self.exact_sol.fracture_source(sd_frac=sd))
-        external_sources = pp.wrap_as_ad_array(np.hstack(values))
+        external_sources = pp.wrap_as_dense_ad_array(np.hstack(values))
 
         # Add up both contributions
         source = internal_sources + external_sources

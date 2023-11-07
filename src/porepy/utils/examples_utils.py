@@ -60,13 +60,6 @@ class VerificationUtils:
     stress_keyword: str
     """Keyword for accessing the parameters of the mechanical subproblem."""
 
-    time_dependent_bc_values_mechanics: Callable[[list[pp.Grid]], np.ndarray]
-    """Values of the mechanical boundary conditions for a time-dependent problem.
-    Normally set by a mixin instance of
-    :class:`~porepy.models.poromechanics.BoundaryConditionsMechanicsTimeDependent`.
-
-    """
-
     time_manager: pp.TimeManager
     """Time manager. Normally set by an instance of a subclass of
     :class:`porepy.models.solution_strategy.SolutionStrategy`.
