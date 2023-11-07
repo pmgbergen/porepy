@@ -22,8 +22,8 @@ FROM porepy/base
 ## Download PorePy from github
 # Make sure we are in the home directory
 WORKDIR ${POREPY_HOME}
-# Make sure we're on the develop branch
-RUN git checkout main
+# Make sure we're on the main branch
+RUN git checkout main && git pull
 
 # Do the install
 RUN pip install -e .

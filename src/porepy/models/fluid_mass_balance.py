@@ -693,7 +693,7 @@ class VariablesSinglePhaseFlow(pp.VariableMixin):
         # method.
         p_ref = self.fluid.pressure()
         size = sum([sd.num_cells for sd in subdomains])
-        return pp.wrap_as_ad_array(p_ref, size, name="reference_pressure")
+        return pp.wrap_as_dense_ad_array(p_ref, size, name="reference_pressure")
 
 
 class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):

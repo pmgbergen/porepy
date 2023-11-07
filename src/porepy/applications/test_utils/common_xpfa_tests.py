@@ -4,6 +4,8 @@ Some simple for getting grid, permeability, bc object etc.
 Then more specific functions related to specific tests defined both here and for mpfa.
 
 """
+from typing import Literal
+
 import numpy as np
 import scipy.sparse.linalg as spla
 
@@ -50,6 +52,81 @@ def perturb_grid(g, rate, dx):
     if g.dim == 2:
         g.nodes[2, :] = 0
     return g
+
+
+def create_grid_mpfa_mpsa_reproduce_known_values(
+    grid_type: Literal["cart", "simplex"]
+) -> tuple[pp.Grid, pp.Grid]:
+    """Create grids for the tests that mpfa and mpsa reproduce known values.
+
+    The construction below is somewhat specific to the test case, and should not be
+    changed, since any change in geometry will be reflected in the solution, thus the
+    tests will fail.
+    """
+
+    # Define a characteristic function which is True in the region
+    # x > 0.5, y > 0.5
+    def chi_func(xcoord, ycoord):
+        return np.logical_and(np.greater(xcoord, 0.5), np.greater(ycoord, 0.5))
+
+    def perturb(h, rate, dx):
+        rand = np.vstack(
+            (np.random.rand(h.dim, h.num_nodes), np.repeat(0.0, h.num_nodes))
+        )
+        h.nodes += rate * dx * (rand - 0.5)
+        # Ensure there are no perturbations in the z-coordinate
+        if h.dim == 2:
+            h.nodes[2, :] = 0
+        return h
+
+    # Set random seed
+    np.random.seed(42)
+    nx = np.array([4, 4])
+    domain = np.array([1, 1])
+    if grid_type == "cart":
+        g: pp.Grid = pp.CartGrid(nx, physdims=domain)
+    elif grid_type == "simplex":
+        g = pp.StructuredTriangleGrid(nx, physdims=domain)
+    # Perturbation rates, same notation as in setup_grids.py
+    pert = 0.5
+    dx = 0.25
+    g_nolines = perturb(g, pert, dx)
+    g_nolines.compute_geometry()
+
+    # Create a new grid, which will not have faces along the
+    # discontinuity perturbed
+    if grid_type == "cart":
+        g = pp.CartGrid(nx, physdims=domain)
+    elif grid_type == "simplex":
+        g = pp.StructuredTriangleGrid(nx, physdims=domain)
+
+    g.compute_geometry()
+    old_nodes = g.nodes.copy()
+    dx = np.max(domain / nx)
+    np.random.seed(42)
+    g = perturb(g, pert, dx)
+
+    # Characteristic function for all cell centers
+    xc = g.cell_centers
+    chi = chi_func(xc[0], xc[1])
+    # Detect faces on the discontinuity by applying g.cell_faces (this
+    # is signed, so two cells in the same region will cancel out).
+    #
+    # Note that positive values also includes boundary faces, these will
+    #  not be perturbed.
+    chi_face = np.abs(g.cell_faces * chi)
+    bnd_face = np.argwhere(chi_face > 0).squeeze(1)
+    node_ptr = g.face_nodes.indptr
+    node_ind = g.face_nodes.indices
+    # Nodes of faces on the boundary
+    bnd_nodes = node_ind[
+        pp.utils.mcolon.mcolon(node_ptr[bnd_face], node_ptr[bnd_face + 1])
+    ]
+    g.nodes[:, bnd_nodes] = old_nodes[:, bnd_nodes]
+    g.compute_geometry()
+    g_lines = g
+
+    return g_nolines, g_lines
 
 
 """Tests for discretization stensils. Base case + periodic BCs."""

@@ -24,7 +24,7 @@ import configparser
 import warnings
 
 
-__version__ = "1.7.0"
+__version__ = "1.8.0"
 
 # Try to read the config file from the directory where python process was launched
 try:
@@ -95,7 +95,6 @@ from porepy.grids.simplex import StructuredTriangleGrid, StructuredTetrahedralGr
 from porepy.grids.point_grid import PointGrid
 from porepy.grids.boundary_grid import BoundaryGrid
 from porepy.grids import match_grids
-from porepy.grids.standard_grids import md_grids_2d, md_grids_3d
 from porepy.grids import grid_extrusion
 from porepy.utils import grid_utils
 from porepy.utils import adtree
@@ -117,24 +116,15 @@ from porepy.fracs.wells_3d import (
     compute_well_fracture_intersections,
 )
 
-
 # Numerics
-from porepy.numerics.discretization import VoidDiscretization
-from porepy.numerics.interface_laws.elliptic_discretization import (
-    EllipticDiscretization,
-)
 
 # Control volume, elliptic
 from porepy.numerics.fv import fvutils
 from porepy.numerics.fv.mpsa import Mpsa
-from porepy.numerics.fv.fv_elliptic import (
-    FVElliptic,
-    EllipticDiscretizationZeroPermeability,
-)
+from porepy.numerics.fv.fv_elliptic import FVElliptic
 from porepy.numerics.fv.tpfa import Tpfa
 from porepy.numerics.fv.mpfa import Mpfa
 from porepy.numerics.fv.biot import Biot, GradP, DivU, BiotStabilization
-from porepy.numerics.fv.source import ScalarSource
 
 # Virtual elements, elliptic
 from porepy.numerics.vem.dual_elliptic import project_flux
@@ -144,26 +134,10 @@ from porepy.numerics.vem.vem_source import DualScalarSource
 
 # Finite elements, elliptic
 from porepy.numerics.fem.rt0 import RT0
-
-# Mixed-dimensional discretizations and assemblers
-from porepy.numerics.interface_laws.elliptic_interface_laws import (
-    RobinCoupling,
-    FluxPressureContinuity,
-    WellCoupling,
-)
-
-from porepy.numerics.interface_laws.cell_dof_face_dof_map import CellDofFaceDofMap
-from porepy.numerics.mixed_dim import assembler_filters
-from porepy.numerics.mixed_dim.dof_manager import DofManager
-from porepy.numerics.mixed_dim.assembler import Assembler
-
 import porepy.numerics
 
 # Transport related
-from porepy.numerics.fv.upwind import Upwind
-from porepy.numerics.interface_laws.hyperbolic_interface_laws import UpwindCoupling
-from porepy.numerics.fv.mass_matrix import MassMatrix
-from porepy.numerics.fv.mass_matrix import InvMassMatrix
+from porepy.numerics.fv.upwind import Upwind, UpwindCoupling
 
 # Contact mechanics
 from porepy.numerics.fracture_deformation import propagate_fracture
@@ -181,7 +155,7 @@ from porepy.models.run_models import (
 
 
 from porepy.numerics import ad
-from porepy.numerics.ad.operators import wrap_as_ad_array, wrap_as_ad_matrix
+from porepy.numerics.ad.operators import wrap_as_dense_ad_array, wrap_as_sparse_ad_array
 from porepy.numerics.ad.equation_system import EquationSystem
 from porepy.numerics.ad._ad_utils import set_solution_values
 from porepy.numerics.ad._ad_utils import get_solution_values
@@ -226,9 +200,6 @@ from porepy.viz.exporter import Exporter
 from porepy.viz.plot_grid import plot_grid, save_img
 from porepy.viz.fracture_visualization import plot_fractures, plot_wells
 
-from porepy.utils import error_computation
-
-
 # Modules
 from porepy.fracs import utils as frac_utils
 from porepy.fracs import meshing, fracture_importer
@@ -242,6 +213,12 @@ from porepy.utils.default_domains import (
 )
 
 # Applications
-from porepy.applications.md_grids import model_geometries
+from porepy.applications.md_grids import (
+    model_geometries,
+    mdg_library,
+    domains,
+    fracture_sets,
+)
 from porepy.applications.boundary_conditions import model_boundary_conditions
 from porepy.applications import test_utils
+from porepy import applications
