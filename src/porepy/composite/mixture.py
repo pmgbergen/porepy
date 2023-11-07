@@ -33,8 +33,7 @@ class Mixture(abc.ABC):
 
     def get_phase(self, phase_id):
         """
-        please, for the phases, the counter starts from 1
-        please, please, it becomes a mess. So, first phase = 0, second phase = 1
+        first phase = 0, second phase = 1
         """
         return self._phases[phase_id]
 
@@ -49,13 +48,7 @@ class Mixture(abc.ABC):
         for phase in phases:
             self._phases.append(phase)
 
-    # def mixture_for_subdomain(self, equation_system, subdomain): # OLD, bugged
-    #     for phase in self.phases:
-    #         phase.equation_system = equation_system  # i think is useless, you have to set equation system before bcs you need it for saturation_operator
-    #         phase.subdomain = subdomain
-    #     return self
-    
-    def mixture_for_subdomain(self, subdomain): # NEW, even more
+    def mixture_for_subdomain(self, subdomain): 
         for phase in self.phases:
             phase.subdomain = subdomain
         return self
@@ -71,13 +64,6 @@ class Mixture(abc.ABC):
             m = 1
         else:  # ell == 1
             m = 0
-
-        # self.get_phase(ell)._s = equation_system.md_variable(
-        #     "saturation", subdomains
-        # )  ### I'm making a shallow copy of mixed dim var. TODO: check that it is ok and you are actually changing both copies
-        # self.get_phase(m)._s = pp.ad.Scalar(1, "one") - equation_system.md_variable(
-        #     "saturation", subdomains
-        # )
 
         self.get_phase(ell).apply_constraint = False
         self.get_phase(m).apply_constraint = True

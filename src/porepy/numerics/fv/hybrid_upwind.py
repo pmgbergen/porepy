@@ -29,7 +29,7 @@ def flux_V(
     right_restriction,
     ad,
     dynamic_viscosity,
-    mobility
+    mobility,
 ):
     """ """
 
@@ -39,7 +39,7 @@ def flux_V(
         left_restriction,
         right_restriction,
         dynamic_viscosity,
-        mobility
+        mobility,
     ):
         """ """
 
@@ -57,16 +57,11 @@ def flux_V(
         left_restriction,
         right_restriction,
         ad,
-        mobility
+        mobility,
     ):
         """ """
 
         if ad:
-            # mobility_tot = pp.ad.AdArray(
-            #     np.zeros(left_restriction.shape[0]),
-            #     0 * sp.sparse.eye(left_restriction.shape[0], 2 * sd.num_cells),
-            # )  # TODO: find a smart way to initialize ad vars
-
             mobility_tot = (
                 []
             )  # to initialize it you need the total number of dof, which is not a info sd related, therefore I avoid the initializazion and I append the elelnents in a list
@@ -83,10 +78,9 @@ def flux_V(
                     left_restriction,
                     right_restriction,
                     dynamic_viscosity,
-                    mobility
+                    mobility,
                 )
             )
-            # I had to avoid "+=" bcs it requirs jac initialization. waiting for a better solution...
 
         mobility_tot = sum(mobility_tot)
         return mobility_tot
@@ -102,7 +96,7 @@ def flux_V(
         left_restriction,
         right_restriction,
         dynamic_viscosity,
-        mobility
+        mobility,
     )
     mob_tot_V = mobility_tot_V_faces(
         saturation_list,
@@ -110,7 +104,7 @@ def flux_V(
         left_restriction,
         right_restriction,
         ad,
-        mobility
+        mobility,
     )
     V_internal = mob_V / mob_tot_V * total_flux_internal
 
@@ -127,14 +121,15 @@ def rho_flux_V(
     right_restriction,
     ad,
     dynamic_viscosity,
-    mobility
+    mobility,
 ):
     """ """
 
     # 0D shortcut:
     if sd.dim == 0:
-        # rho_V = pp.ad.AdArray(np.array([0]), 0*pressure.jac[0])
-        rho_V = pp.ad.AdArray(np.empty((0)), sp.sparse.csr_matrix((0, pressure.jac.shape[1])))
+        rho_V = pp.ad.AdArray(
+            np.empty((0)), sp.sparse.csr_matrix((0, pressure.jac.shape[1]))
+        )
         return rho_V
 
     V = pp.numerics.fv.hybrid_upwind.flux_V(
@@ -146,7 +141,7 @@ def rho_flux_V(
         right_restriction,
         ad,
         dynamic_viscosity,
-        mobility
+        mobility,
     )
     density = mixture.get_phase(ell).mass_density(pressure)
     rho_upwinded = hu_utils.var_upwinded_faces(
@@ -171,7 +166,7 @@ def flux_G(
     ad,
     dynamic_viscosity,
     dim_max,
-    mobility
+    mobility,
 ):
     """
     TODO: consider the idea to move omega outside the flux_G, if you don't see why => it is already in the right place.
@@ -180,14 +175,8 @@ def flux_G(
     def omega(num_phases, ell, mobilities, g, left_restriction, right_restriction, ad):
         """
         TODO: i run into some issues with pp.ad.functions.heaviside
-
-        TODO: omega_ell doenst have to be a adArray
         """
         if ad:
-            # omega_ell = pp.ad.AdArray(
-            #     np.zeros(left_restriction.shape[0]),
-            #     0 * sp.sparse.eye(left_restriction.shape[0], 2 * sd.num_cells),
-            # )  # TODO: find a better way to initialize arrays
             omega_ell = []
 
             for m in np.arange(num_phases):
@@ -240,10 +229,6 @@ def flux_G(
     ):
         """ """
         if ad:
-            # mobility_tot_G = pp.ad.AdArray(
-            #     np.zeros(left_restriction.shape[0]),
-            #     0 * sp.sparse.eye(left_restriction.shape[0], 2 * sd.num_cells),
-            # )
             mobility_tot_G = []
         else:
             mobility_tot_G = np.zeros(left_restriction.shape[0], dtype=np.complex128)
@@ -307,10 +292,6 @@ def flux_G(
     )
 
     if ad:
-        # G_internal = pp.ad.AdArray(
-        #     np.zeros(left_restriction.shape[0]),
-        #     0 * sp.sparse.eye(left_restriction.shape[0], 2 * sd.num_cells),
-        # )  # TODO: find a smart way to initialize ad vars
         G_internal = []
     else:
         G_internal = np.zeros(
@@ -353,14 +334,15 @@ def rho_flux_G(
     ad,
     dynamic_viscosity,
     dim_max,
-    mobility
+    mobility,
 ):
     """ """
 
     # 0D shortcut:
     if sd.dim == 0:
-        # rho_G = pp.ad.AdArray(np.array([0]), 0*pressure.jac[0])
-        rho_G = pp.ad.AdArray(np.empty((0)), sp.sparse.csr_matrix((0, pressure.jac.shape[1])))
+        rho_G = pp.ad.AdArray(
+            np.empty((0)), sp.sparse.csr_matrix((0, pressure.jac.shape[1]))
+        )
         return rho_G
 
     G = pp.numerics.fv.hybrid_upwind.flux_G(
@@ -375,7 +357,7 @@ def rho_flux_G(
         ad,
         dynamic_viscosity,
         dim_max,
-        mobility
+        mobility,
     )
     density = mixture.get_phase(ell).mass_density(pressure)
     rho_upwinded = hu_utils.var_upwinded_faces(
@@ -386,47 +368,6 @@ def rho_flux_G(
     expansion = hu_utils.expansion_matrix(sd)
     rho_G = expansion @ rho_G_internal
     return rho_G
-
-
-# def discretize(self, sd: pp.Grid, data: dict) -> None:
-#     """ """
-
-#     mixture = self.mixture
-#     ell = self.ell
-#     pressure = self.pressure
-#     gravity_value = self.gravity_value
-#     hu_utils.compute_transmissibility_tmp(sd, data)
-#     transmissibility_internal_tpfa = hu_utils.utils.get_transmissibility_tpfa(sd, data)
-#     left_restriction, right_restriction = hu_utils.restriction_matrices_left_right(sd)
-#     ad = True
-#     dynamic_viscosity = 1  # TODO: ...
-
-#     hybridwa = hwa.HybridWeightedAverage()
-
-#     total_flux_internal = hybridwa.total_flux()
-
-#     rho_V_G = self.rho_flux_V(
-#         sd,
-#         mixture,
-#         ell,
-#         pressure,
-#         total_flux_internal,
-#         left_restriction,
-#         right_restriction,
-#         ad,
-#         dynamic_viscosity,
-#     ) + self.rho_flux_G(
-#         sd,
-#         mixture,
-#         ell,
-#         pressure,
-#         gravity_value,
-#         left_restriction,
-#         right_restriction,
-#         transmissibility_internal_tpfa,
-#         ad,
-#         dynamic_viscosity,
-#     )
 
 
 '''

@@ -15,7 +15,7 @@ def myprint(var):
 
 
 def ndof(g: pp.Grid) -> int:
-    """TODO: is it right?"""
+    """- hardcoded for two-phase"""
     return 2 * g.num_cells
 
 
@@ -37,29 +37,29 @@ def total_flux_internal(
 
     def gamma_value(permeability):
         """ """
-        alpha = 1  # as in the paper 2022
+        alpha = 1.0  # as in the paper 2022
 
         kr0 = permeability(saturation=1)  # TODO: is it right?
 
         def second_derivative(permeability, val):
-            """ sorry, I'm lazy..."""
+            """sorry, I'm lazy..."""
             h = 1e-4
-            return ( permeability(val + h) - 2*permeability(val) + permeability(val - h) ) / (h**2)
+            return (
+                permeability(val + h) - 2 * permeability(val) + permeability(val - h)
+            ) / (h**2)
 
-
-        dd_kr_max = np.nanmax( second_derivative( permeability, 
-            np.linspace(0, 1, 10)
-        ) )  # TODO: improve it...
+        dd_kr_max = np.nanmax(
+            second_derivative(permeability, np.linspace(0, 1, 10))
+        )  # TODO: improve it...
 
         gamma_val = alpha / kr0 * dd_kr_max
-        # return pp.ad.Scalar(gamma_val, name="gamma value")
         return gamma_val
 
     def g_ref_faces(
         mixture, pressure, z, gravity_value, left_restriction, right_restriction
     ):
         """
-        harcoded for two phases
+        - harcoded for two phases
         """
         density_faces_0 = hu_utils.density_internal_faces(
             mixture.get_phase(0).saturation,
@@ -74,17 +74,7 @@ def total_flux_internal(
             right_restriction,
         )
 
-        density_max = pp.ad.maximum(
-            density_faces_0, density_faces_1
-        )  # 1 Giune 2023: np.maximum(density_faces_0, density_faces_1), eh? che è successo? non puoi usare np.maximum, ovv...
-        # density_max = maximum_operators(density_faces_0, density_faces_1)
-
-        # # OLD:
-        # g_ref = (
-        #     density_max
-        #     * gravity_value
-        #     * (left_restriction * z - right_restriction * z)
-        # )
+        density_max = pp.ad.maximum(density_faces_0, density_faces_1)
 
         g_ref = (
             density_max * gravity_value * (left_restriction @ z - right_restriction @ z)
@@ -113,7 +103,7 @@ def total_flux_internal(
         )
         delta_pot = (
             left_restriction @ pressure - right_restriction @ pressure
-        ) - g_internal_faces  # TODO: parenthesis... are they really necessary?
+        ) - g_internal_faces
         return delta_pot
 
     def beta_faces(
@@ -147,12 +137,6 @@ def total_flux_internal(
         if ad:
             tmp = -pp.ad.functions.maximum(-tmp, -1e6)
             beta_faces = 0.5 + 1 / np.pi * pp.ad.arctan(tmp * delta_pot_faces)
-            # beta_faces = pp.ad.Scalar(0.5, "zero point five") + pp.ad.Scalar(
-            #     1 / np.pi, name="one over pi"
-            # ) * arctan_operators(
-            #     tmp * delta_pot_faces
-            # )  # TODO: right?
-
         else:
             tmp = np.minimum(np.real(tmp), 1e6) + np.imag(tmp) * 1j  # TODO: improve it
             beta_faces = 0.5 + 1 / np.pi * np.arctan(tmp * delta_pot_faces)
@@ -161,15 +145,9 @@ def total_flux_internal(
 
     def lambda_WA_faces(beta_faces, mobility, left_restriction, right_restriction):
         """ """
-        # OLD:
         lambda_WA = beta_faces * (left_restriction @ mobility) + (1 - beta_faces) * (
             right_restriction @ mobility
         )
-
-        # NEW:
-        # lambda_WA = beta_faces * (left_restriction @ mobility) + (
-        #     pp.ad.Scalar(1, name="one") - beta_faces
-        # ) * (right_restriction @ mobility)
         return lambda_WA
 
     # total flux computation:
@@ -178,8 +156,9 @@ def total_flux_internal(
     if sd.dim == 0:
         total_flux = [None] * mixture.num_phases
         for m in np.arange(mixture.num_phases):
-            # total_flux[m] = pp.ad.AdArray(None, 0*pressure.jac[0])
-            total_flux[m] = pp.ad.AdArray(np.empty((0)), sp.sparse.csr_matrix((0, pressure.jac.shape[1])))
+            total_flux[m] = pp.ad.AdArray(
+                np.empty((0)), sp.sparse.csr_matrix((0, pressure.jac.shape[1]))
+            )
 
         return total_flux
 
@@ -187,16 +166,6 @@ def total_flux_internal(
         dim_max - 1
     ]  # zed is reversed to conform to the notation in paper 2022
     # pp assumes that a 2D problem lies in xy plane. I assume that g is alinged to the last axes. Therefore I need to know dim_max and I call last dimension coordinate z
-
-    # # TODO:
-    # dim_max = self.sd.dim_max()
-    # z = -self.wrap_grid_attribute(
-    #     sd.subdomains(), "cell_centers", dim_max
-    # )  # it sould be ok...x
-
-    # print("\n\n check z: -------")
-    # pdb.set_trace()
-    # TODO: projection to be added. # NO! you simply dont have to
 
     g_ref_faces = g_ref_faces(
         mixture, pressure, z, gravity_value, left_restriction, right_restriction
@@ -302,13 +271,13 @@ def rho_total_flux(
     mobility,
     permeability,
 ):
-
     # 0D shortcut:
     if sd.dim == 0:
         # rho_qt = pp.ad.AdArray(np.array([0]), 0*pressure.jac[0])
-        rho_qt = pp.ad.AdArray(np.empty((0)), sp.sparse.csr_matrix((0, pressure.jac.shape[1])))
+        rho_qt = pp.ad.AdArray(
+            np.empty((0)), sp.sparse.csr_matrix((0, pressure.jac.shape[1]))
+        )
         return rho_qt
-
 
     rho_qt = expansion_matrix @ rho_total_flux_internal(
         sd,

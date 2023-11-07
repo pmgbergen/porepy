@@ -1130,4 +1130,8 @@ if case == 16:  # delta p = -1, g = 1
     model.pressure_values_1d = 1 * np.array([1.0, 1])
 
 
+
+# MISSING TEST WITH DIFFERENT UPWIND DIRECTIONS FOR THE TWO PHASES
+
+
 pp.run_time_dependent_model(model, params)

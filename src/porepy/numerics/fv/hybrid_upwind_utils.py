@@ -69,9 +69,7 @@ def density_internal_faces(saturation, density, left_restriction, right_restrict
     s_rho = saturation * density
 
     density_internal_faces = (left_restriction @ s_rho + right_restriction @ s_rho) / (
-        left_restriction @ saturation
-        + right_restriction @ saturation
-        + 1e-10  # pp.ad.Scalar(1e-10)
+        left_restriction @ saturation + right_restriction @ saturation + 1e-10
     )  # added epsilon to avoid division by zero
     return density_internal_faces
 
@@ -80,11 +78,6 @@ def g_internal_faces(
     z, density_faces, gravity_value, left_restriction, right_restriction
 ):
     """ """
-    # # OLD:
-    # g_faces = (
-    #     density_faces * gravity_value * (left_restriction * z - right_restriction * z)
-    # )
-
     g_faces = (
         density_faces * gravity_value * (left_restriction @ z - right_restriction @ z)
     )
@@ -98,13 +91,11 @@ def compute_transmissibility_tpfa(sd, data, keyword="flow"):
 
 
 def get_transmissibility_tpfa(sd, data, keyword="flow"):
-    """ """
+    """TODO: use the matrix of transmissibilities, not the vector"""
     matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][keyword]
     div_transmissibility = matrix_dictionary["flux"]  # TODO: "flux"
     transmissibility = matrix_dictionary["transmissibility"]
     transmissibility_internal = transmissibility[sd.get_internal_faces()]
-
-    # TODO: you can always use the matrix, so do it. remark: for mpfa you can only use the matrix...
 
     return transmissibility, transmissibility_internal
 
@@ -114,23 +105,17 @@ def var_upwinded_faces(var, upwind_directions, left_restriction, right_restricti
     - works for both ad and non ad
     - var defined at cell centers
     - remark: no derivative wrt upwind direction => we use only the val if ad or real part if complex step
+    - you can use pp upwind
     """
     var_left = left_restriction @ var
     var_right = right_restriction @ var
 
-    # OLD:
     if isinstance(upwind_directions, pp.ad.AdArray):
         upwind_directions = upwind_directions.val
 
     upwind_left = np.maximum(
         0, np.heaviside(np.real(upwind_directions), 1)
-    )  # attention: I'm using only the real part
-
-    # # NEW:
-    # upwind_left = np.maximum(0, heaviside_operators.get_values(upwind_directions, 1))
-    # # Do I want to use this fcn insterad of pp.upwind?
-    # # Let's say yes, how can i get the val of the operator? with .get_values
-    # # yes, or with evaluate, or... you know, check
+    )  # attention (if complex step is used): I'm using only the real part
 
     upwind_right = (
         np.ones(upwind_directions.shape) - upwind_left
@@ -141,4 +126,4 @@ def var_upwinded_faces(var, upwind_directions, left_restriction, right_restricti
 
     var_upwinded = upwind_left_matrix @ var_left + upwind_right_matrix @ var_right
 
-    return var_upwinded  # maybe: pp.ad.SparseArray(var_upwinded) # TODO: check...
+    return var_upwinded
