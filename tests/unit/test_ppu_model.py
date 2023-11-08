@@ -158,7 +158,7 @@ class EquationsPPU(test_hu_model.Equations):
 
         source = source_phase_0 + source_phase_1
 
-        eq = self.balance_equation(
+        eq = self.balance_equation_variable_dt(
             subdomains, accumulation, flux, source, dim=1
         )  # * pp.ad.Scalar(1e6)
         eq.set_name("pressure_equation")
@@ -318,7 +318,7 @@ class EquationsPPU(test_hu_model.Equations):
             source = source_phase_1
             source.set_name("interface_fluid_mass_flux_source_phase_1")
 
-        eq = self.balance_equation(
+        eq = self.balance_equation_variable_dt(
             subdomains, accumulation, flux, source, dim=1
         )  # * pp.ad.Scalar(1e6)
         eq.set_name("mass_balance_equation")

@@ -377,12 +377,11 @@ class SolutionStrategy(abc.ABC):
         # Uniquify to save computational time, then discretize.
         unique_discr = pp.ad._ad_utils.uniquify_discretization_list(
             self.nonlinear_discretizations
-        ) 
+        )
         pp.ad._ad_utils.discretize_from_list(unique_discr, self.mdg)
         logger.info(
             "Re-discretized nonlinear terms in {} seconds".format(time.time() - tic)
         )
-    
 
     @property
     def nonlinear_discretizations(self) -> list[pp.ad._ad_utils.MergedOperator]:
@@ -546,7 +545,7 @@ class SolutionStrategy(abc.ABC):
             # Enforce float to make mypy happy
             error = float(np.linalg.norm(solution)) / np.sqrt(solution.size)
 
-            ### 
+            ###
             print("Newton has been mod")
             _, b = self.linear_system
             err_res = np.linalg.norm(b)
@@ -557,7 +556,7 @@ class SolutionStrategy(abc.ABC):
 
             logger.info(f"Normalized residual norm: {error:.2e}")
             converged = error < nl_params["nl_convergence_tol"]
-            diverged = False
+            diverged = error > nl_params["nl_divergence_tol"]  ###
 
             return error, converged, diverged
 

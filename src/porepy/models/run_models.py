@@ -80,13 +80,15 @@ def run_time_dependent_model(model, params: dict) -> None:
                 model.time_manager.dt,
             )
         )
-        # print("BEFORE solver.solve:")
 
-        _, _, iteration_counter = solver.solve(model)
-        # print(
-        #     "AFTER solver.solve --------------------------------------------------------"
-        # )
-        model.time_manager.compute_time_step(iteration_counter)
+        is_converged = False
+
+        while not is_converged:
+            error_norm, is_converged, iteration_counter = solver.solve(model)
+
+            model.time_manager.compute_time_step(is_converged, iteration_counter)
+            print("model.time_manager.dt = ", model.time_manager.dt)
+
         model.eb_after_timestep()
 
     model.after_simulation()

@@ -1,3 +1,4 @@
+import scipy as sp
 import numpy as np
 import scipy as sp
 import scipy.sparse as sps
@@ -25,7 +26,53 @@ def myprint(var):
 - TODO: normalization to reduce condition number
 - TODO: see todos in the code
 - TODO: I'd like to reactivate the complex step to see how much worse/better it is
+- TODO: fix the time, the current time is updated with initial timestep instead of current dt
+- TODO: add VariableDt to ppu
 """
+
+
+class VariableDt(pp.ad.operator_functions.AbstractFunction):
+    """ """
+
+    def __init__(
+        self,
+        equation_system,
+        subdomains,
+        time_manager,
+        name: str,
+        array_compatible: bool = True,
+    ):
+        super().__init__(None, name, array_compatible)
+        self._operation = pp.ad.operators.Operator.Operations.evaluate
+        self.ad_compatible = False
+        self.equation_system = equation_system
+        self.subdomains = subdomains
+        self.time_manager = time_manager
+        self.result_list = []
+
+    def get_args_from_sd_data_dictionary(self, data):
+        """ """
+        return
+
+    def get_values(self, *args_not_used: AdArray) -> np.ndarray:
+        """ """
+        dt = self.time_manager.dt
+        dt_list = []
+
+        for sd in self.subdomains:
+            dt_list.append(dt * np.ones(sd.num_cells))  # hardcoded for two phase flow
+        return np.concatenate(dt_list)
+
+    def get_jacobian(self, *args_not_used: AdArray) -> np.ndarray:
+        """ """
+        jac_list = []
+
+        for sd in self.subdomains:
+            jac_list.append(
+                sp.sparse.csr_matrix((sd.num_cells, self.equation_system.num_dofs()))
+            )  # hardcoded for two phase flow
+
+        return sp.sparse.vstack(jac_list)
 
 
 class FunctionTotalFlux(pp.ad.operator_functions.AbstractFunction):
@@ -355,6 +402,29 @@ class Equations(pp.BalanceEquation):
                 interface_mortar_eq_phase_1, codim_1_interfaces, {"cells": 1}
             )
 
+    def balance_equation_variable_dt(
+        self,
+        subdomains: list[pp.Grid],
+        accumulation: pp.ad.Operator,
+        surface_term: pp.ad.Operator,
+        source: pp.ad.Operator,
+        dim: int,
+    ) -> pp.ad.Operator:
+        """ """
+
+        variable_dt = VariableDt(
+            self.equation_system, subdomains, self.time_manager, name="variable_dt"
+        )
+        fake_input = self.pressure(subdomains)
+
+        derivative_accumulation = (
+            accumulation - accumulation.previous_timestep()
+        ) / variable_dt(fake_input)
+
+        div = pp.ad.Divergence(subdomains, dim=dim)
+
+        return derivative_accumulation + div @ surface_term - source
+
     # PRESSURE EQUATION: -------------------------------------------------------------------------------------------------
 
     def eq_fcn_pressure(self, subdomains):
@@ -374,7 +444,7 @@ class Equations(pp.BalanceEquation):
         fake_input = self.pressure(subdomains)
 
         accumulation = self.volume_integral(mass_density, subdomains, dim=1)
-        accumulation.set_name("fluid_mass_p_eq")
+        accumulation.set_name("accumulation_p_eq")
 
         # subdoamins flux: ---------------------------------------------------------
         rho_total_flux_operator = FunctionTotalFlux(
@@ -454,7 +524,9 @@ class Equations(pp.BalanceEquation):
 
         source = source_phase_0 + source_phase_1
 
-        eq = self.balance_equation(subdomains, accumulation, flux, source, dim=1)
+        eq = self.balance_equation_variable_dt(
+            subdomains, accumulation, flux, source, dim=1
+        )
         eq.set_name("pressure_equation")
 
         return (
@@ -488,7 +560,7 @@ class Equations(pp.BalanceEquation):
         fake_input = self.pressure(subdomains)
 
         accumulation = self.volume_integral(mass_density, subdomains, dim=1)
-        accumulation.set_name("fluid_mass_mass_eq")
+        accumulation.set_name("accumulation_mass_eq")
 
         # subdomains flux contribution: -------------------------------------
         rho_V_operator = FunctionRhoV(
@@ -583,7 +655,9 @@ class Equations(pp.BalanceEquation):
             source = source_phase_1
             source.set_name("interface_fluid_mass_flux_source_phase_1")
 
-        eq = self.balance_equation(subdomains, accumulation, flux, source, dim=1)
+        eq = self.balance_equation_variable_dt(
+            subdomains, accumulation, flux, source, dim=1
+        )
         eq.set_name("mass_balance_equation")
 
         return (
@@ -1601,9 +1675,44 @@ solid_constants = pp.SolidConstants(
 
 material_constants = {"fluid": fluid_constants, "solid": solid_constants}
 
-time_manager = pp.TimeManager(
+
+class TimeManagerPP(pp.TimeManager):
+    def compute_time_step(
+        self,
+        is_converged,
+        iterations: Optional[int] = None,
+        recompute_solution: bool = False,
+    ):
+        if self.time >= self.time_final:
+            return None
+
+        # If the time step is constant, always return that value
+        if self.is_constant:
+            # Some sanity checks
+            if self._iters is not None:
+                msg = (
+                    f"iterations '{self._iters}' has no effect if time step is "
+                    "constant."
+                )
+                warnings.warn(msg)
+            if self._recomp_sol:
+                msg = "recompute_solution=True has no effect if time step is constant."
+                warnings.warn(msg)
+
+            return self.dt_init
+
+        if is_converged:
+            self.dt = self.dt_min_max[1]
+            return
+
+        else:
+            self.dt = self.dt / 2  # TODO: add "till dt > dt_min"
+            return self.dt
+
+
+time_manager = TimeManagerPP(
     schedule=[0, 5],
-    dt_init=1 * 1e-2,
+    dt_init=1 * 1e-3,
     constant_dt=True,
     iter_max=10,
     print_info=True,

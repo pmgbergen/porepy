@@ -1,6 +1,7 @@
 import numpy as np
 from typing import Callable, Optional, Type, Literal, Sequence, Union
 import porepy as pp
+import pdb
 import test_hu_model
 
 
@@ -78,6 +79,53 @@ class SolutionStrategyTest1(test_hu_model.SolutionStrategyPressureMass):
                     "interface_mortar_flux_phase_1": np.zeros(intf.num_cells),
                 },
             )
+
+    def after_nonlinear_failure(
+        self, solution: np.ndarray, errors: float, iteration_counter: int
+    ):
+        """ """
+
+        if self._is_nonlinear_problem():
+            print("\n===========================================")
+            print(
+                "Nonlinear iterations did not converge. I'm going to reduce the time step"
+            )
+            print("===========================================")
+
+            prev_sol = self.equation_system.get_variable_values(time_step_index=0)
+
+            self.equation_system.set_variable_values(
+                values=prev_sol, additive=False, iterate_index=0
+            )
+            # print(
+            #     "pressure = ",
+            #     self.pressure(self.mdg.subdomains()).evaluate(self.equation_system).val,
+            # )
+
+            (
+                eq,
+                accumulation,
+                rho_V_operator,
+                rho_G_operator,
+                flux_V_G,
+                flux_intf_phase_0,
+                flux_intf_phase_1,
+                source_phase_0,
+                source_phase_1,
+            ) = self.eq_fcn_mass(self.mdg.subdomains())
+
+            # print(
+            #     "\naccumulation.previous_timestep() = ",
+            #     accumulation.previous_timestep().evaluate(self.equation_system),
+            # )
+
+            # for i in dir(accumulation):
+            #     print(i)
+
+            # pdb.set_trace()
+
+        else:
+            raise ValueError("Tried solving singular matrix for the linear problem.")
 
 
 class GeometryTest1(pp.ModelGeometry):
@@ -157,10 +205,30 @@ solid_constants = pp.SolidConstants(
 
 material_constants = {"fluid": fluid_constants, "solid": solid_constants}
 
-time_manager = pp.TimeManager(
+
+class TimeManagerTest1(pp.TimeManager):
+    def compute_time_step(
+        self,
+        is_converged,
+        iterations: Optional[int] = None,
+        recompute_solution: bool = False,
+    ):
+        if self.time >= self.time_final:
+            return None
+
+        if is_converged:
+            self.dt = self.dt_min_max[1]
+            return
+
+        else:
+            self.dt = self.dt / 2  # TODO: add "till dt > dt_min"
+            return self.dt
+
+
+time_manager = TimeManagerTest1(
     schedule=[0, 5],
-    dt_init=1e-1,
-    dt_min_max=[1e-3, 1e0],
+    dt_init=5e-1,
+    dt_min_max=[1e-3, 5e-1],
     constant_dt=False,
     recomp_factor=0.5,
     recomp_max=10,
@@ -171,8 +239,8 @@ time_manager = pp.TimeManager(
 params = {
     "material_constants": material_constants,
     "max_iterations": 20,
-    "nl_convergence_tol": 5e-3,
-    "nl_divergence_tol": 1e5,
+    "nl_convergence_tol": 1e-5,
+    "nl_divergence_tol": 1e0,
     "time_manager": time_manager,
 }
 

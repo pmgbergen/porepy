@@ -14,7 +14,6 @@ import pdb
 import numpy as np
 
 
-
 class BalanceEquation:
     """Generic class for vector balance equations.
 
@@ -87,16 +86,11 @@ class BalanceEquation:
 
         """
 
-        # print("\n inside balance_equation")
-
         dt_operator = pp.ad.time_derivatives.dt
-        dt = pp.ad.Scalar(self.time_manager.dt)
+        dt = pp.ad.Scalar(
+            self.time_manager.dt
+        )  # che cazzo fate...? questo rimarra costante
         div = pp.ad.Divergence(subdomains, dim=dim)
-
-        # tmp = dt_operator(accumulation, dt)
-        # tmp.evaluate(self.equation_system).val
-        # dt_operator(accumulation, dt).evaluate(self.equation_system).val
-        # pdb.set_trace()
 
         return dt_operator(accumulation, dt) + div @ surface_term - source
 
@@ -140,7 +134,7 @@ class BalanceEquation:
         if dim == 1:
             # No need to do more for scalar problems
             return cell_volumes * self.specific_volume(grids) * integrand
-        
+
         else:
             # For vector problems, we need to expand the volume array from cell-wise
             # scalar values to cell-wise vectors. We do this by left multiplication with

@@ -92,6 +92,39 @@ class SolutionStrategyTest1(test_ppu_model.SolutionStrategyPressureMassPPU):
                 },
             )
 
+    def after_nonlinear_failure(
+        self, solution: np.ndarray, errors: float, iteration_counter: int
+    ):
+        """ """
+
+        if self._is_nonlinear_problem():
+            print("\n===========================================")
+            print(
+                "Nonlinear iterations did not converge. I'm going to reduce the time step"
+            )
+            print("===========================================")
+
+            prev_sol = self.equation_system.get_variable_values(time_step_index=0)
+
+            self.equation_system.set_variable_values(
+                values=prev_sol, additive=False, iterate_index=0
+            )
+
+            (
+                eq,
+                accumulation,
+                rho_V_operator,
+                rho_G_operator,
+                flux_V_G,
+                flux_intf_phase_0,
+                flux_intf_phase_1,
+                source_phase_0,
+                source_phase_1,
+            ) = self.eq_fcn_mass(self.mdg.subdomains())
+
+        else:
+            raise ValueError("Tried solving singular matrix for the linear problem.")
+
 
 class PartialFinalModel(
     test_hu_model.PrimaryVariables,
