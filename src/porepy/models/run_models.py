@@ -64,7 +64,7 @@ def run_time_dependent_model(model, params: dict) -> None:
         model.time_manager.increase_time()
         model.time_manager.increase_time_index()
         logger.info(
-            "\nTime step {} at time {:.1e} of {:.1e} with time step {:.1e}".format(
+            "\nTime step {} at attempt time {:.1e} of {:.1e} with attempt time step {:.1e}".format(
                 model.time_manager.time_index,
                 model.time_manager.time,
                 model.time_manager.time_final,
@@ -73,21 +73,49 @@ def run_time_dependent_model(model, params: dict) -> None:
         )
 
         print(
-            "\n\n\nTime step {} at time {:.1e} of {:.1e} with time step {:.1e}".format(
-                model.time_manager.time_index,
-                model.time_manager.time,
-                model.time_manager.time_final,
-                model.time_manager.dt,
-            )
+            "\n\n\nTime step ",
+            model.time_manager.time_index,
+            " at attempt time ",
+            model.time_manager.time,
+            " of ",
+            model.time_manager.time_final,
+            " with attempt time step ",
+            model.time_manager.dt,
         )
 
         is_converged = False
 
+        time_chops = 0
+        cumulative_iteration_counter = 0
+
         while not is_converged:
             error_norm, is_converged, iteration_counter = solver.solve(model)
 
-            model.time_manager.compute_time_step(is_converged, iteration_counter)
+            if not is_converged:
+                model.time_manager.decrease_time()
+                time_chops += 1
+
+            previous_dt, dt = model.time_manager.compute_time_step(
+                is_converged, iteration_counter
+            )
             print("model.time_manager.dt = ", model.time_manager.dt)
+            print(
+                "(computed solution time) model.time_manager.time = ",
+                model.time_manager.time,
+            )
+
+            if not is_converged:
+                model.time_manager.increase_time()
+
+            cumulative_iteration_counter += iteration_counter
+
+        model.write_newton_info(
+            model.time_manager.time,
+            previous_dt,
+            time_chops,
+            cumulative_iteration_counter,
+            iteration_counter,
+        )
 
         model.eb_after_timestep()
 

@@ -22,7 +22,7 @@ def myprint(var):
 
 """
 - is it physically right to consider mu (dynamic viscosity, mu = nu/rho) constant? 
-- TODO: inside var_upwinded_interfaces there should be ..._int not avg. Doesn't matter as long as the grids are conforming.
+- TODO: not 100% sure about avg and int
 - TODO: normalization to reduce condition number
 - TODO: see todos in the code
 - TODO: I'd like to reactivate the complex step to see how much worse/better it is
@@ -877,15 +877,13 @@ class Equations(pp.BalanceEquation):
 
         var_upwinded: pp.ad.Operator = (
             discr.upwind_primary
-            @ mortar_projection.primary_to_mortar_avg  # TODO: should't it be int?
+            @ mortar_projection.primary_to_mortar_avg
             @ trace.trace
             @ advected_entity
             + discr.upwind_secondary
-            @ mortar_projection.secondary_to_mortar_avg  # TODO: should't it be int?
+            @ mortar_projection.secondary_to_mortar_avg
             @ advected_entity
         )
-
-        print("\n\n\n\n\n SHOULDN'T IT BE int ? \n\n\n\n")
 
         return var_upwinded
 
@@ -964,6 +962,7 @@ class Equations(pp.BalanceEquation):
             self.mixture.get_phase(0),
             "interface_mortar_flux_phase_0",
         )
+
         f_1 = self.interface_fluid_mass_flux_phase_1(
             self.interface_mortar_flux_phase_1(interfaces),
             interfaces,
@@ -974,12 +973,12 @@ class Equations(pp.BalanceEquation):
         correction = (
             discr.bound_pressure_face
             @ (
-                projection.mortar_to_primary_int
+                projection.mortar_to_primary_avg
                 @ ((f_0 + f_1) / (rho_mob_upwinded_phase_0 + rho_mob_upwinded_phase_1))
             )
             - discr.bound_pressure_face
             @ (
-                projection.mortar_to_primary_int
+                projection.mortar_to_primary_avg
                 @ (
                     (
                         (rho_mob_rho_upwinded_phase_0 + rho_mob_rho_upwinded_phase_1)
@@ -988,7 +987,7 @@ class Equations(pp.BalanceEquation):
                 )
                 * (discr.vector_source @ self.vector_source(subdomains))
             )
-            # - projection.mortar_to_primary_int @ ( ( ( rho_mob_rho_upwinded_phase_0 + rho_mob_rho_upwinded_phase_1 ) / ( rho_mob_upwinded_phase_0 + rho_mob_upwinded_phase_1 ) ) ) * ( XXX @ self.vector_source(subdomains_vector_source) )  # third version, ref F19f2, subdomains_vector_source are fractures domains, XXX
+            # - projection.mortar_to_primary_avg @ ( ( ( rho_mob_rho_upwinded_phase_0 + rho_mob_rho_upwinded_phase_1 ) / ( rho_mob_upwinded_phase_0 + rho_mob_upwinded_phase_1 ) ) ) * ( XXX @ self.vector_source(subdomains_vector_source) )  # third version, ref F19f2, subdomains_vector_source are fractures domains, XXX
         )
 
         pressure_trace = pressure_cell + correction
@@ -1209,6 +1208,7 @@ class SolutionStrategyPressureMass(pp.SolutionStrategy):
 
     def prepare_simulation(self) -> None:
         """ """
+        self.clean_working_directory()
 
         self.set_geometry()
 
@@ -1238,6 +1238,10 @@ class SolutionStrategyPressureMass(pp.SolutionStrategy):
         self.computations_for_hu()
 
     # methods called in prepare_simulation: ------------------------------------------------------
+
+    def clean_working_directory(self):
+        """ """
+        os.system("rm " + self.output_file_name)
 
     def set_equation_system_manager(self) -> None:
         """ """
@@ -1505,7 +1509,7 @@ class SolutionStrategyPressureMass(pp.SolutionStrategy):
 
     # def set_nonlinear_discretizations(self) -> None:
     #     """ """
-    #     super().set_nonlinear_discretizations()  # TODO: EH? It does literally nothing...!
+    #     super().set_nonlinear_discretizations() 
 
     #     # self.add_nonlinear_discretization(
     #     #     self.interface_ppu_discretization(self.mdg.interfaces()).flux,
@@ -1578,10 +1582,75 @@ class SolutionStrategyPressureMass(pp.SolutionStrategy):
 
         self._nonlinear_iteration += 1
         self.equation_system.shift_iterate_values()
-
         self.equation_system.set_variable_values(
             values=solution_vector, additive=True, iterate_index=0
         )
+
+    def after_nonlinear_convergence(
+        self, solution: np.ndarray, errors: float, iteration_counter: int
+    ) -> None:
+        """useless solution argument, that is dx of newton, not the current solution"""
+        solution = self.equation_system.get_variable_values(
+            iterate_index=0
+        )  # this is the current solution
+
+        # print("solution = ", solution)
+        # pdb.set_trace()
+
+        self.equation_system.shift_time_step_values()
+        self.equation_system.set_variable_values(
+            values=solution, time_step_index=0, additive=False
+        )
+        self.convergence_status = True
+        self.save_data_time_step()
+
+    def after_nonlinear_failure(
+        self, solution: np.ndarray, errors: float, iteration_counter: int
+    ):
+        """ """
+
+        if self._is_nonlinear_problem():
+            print("\n===========================================")
+            print(
+                "Nonlinear iterations did not converge. I'm going to reduce the time step"
+            )
+            print("===========================================")
+
+            prev_sol = self.equation_system.get_variable_values(time_step_index=0)
+
+            self.equation_system.set_variable_values(
+                values=prev_sol, additive=False, iterate_index=0
+            )
+
+        else:
+            raise ValueError("Tried solving singular matrix for the linear problem.")
+
+    def write_newton_info(
+        self,
+        time,
+        time_step,
+        time_chops,
+        cumulative_iteration_counter,
+        last_iteration_counter,
+    ):
+        """
+        time_step = dt used to reach time starting from time-dt
+        """
+        wasted_iterations = cumulative_iteration_counter - last_iteration_counter
+
+        with open(self.output_file_name, "a") as f:
+            info = np.array(
+                [
+                    time,
+                    time_step,
+                    time_chops,
+                    cumulative_iteration_counter,
+                    last_iteration_counter,
+                    wasted_iterations,
+                ]
+            )
+
+            np.savetxt(f, info.reshape(1, -1), delimiter=",")
 
     def eb_after_timestep(self):
         """ """
@@ -1640,13 +1709,13 @@ class MyModelGeometry(pp.ModelGeometry):
         frac4 = pp.LineFracture(np.array([[0.2, 0.8], [0.2, 0.8]]))
 
         # frac1 = pp.PlaneFracture(np.array([[0.2, 0.7, 0.7, 0.2],[0.2, 0.2, 0.8, 0.8],[0.5, 0.5, 0.5, 0.5]]))
-        self._fractures: list = [frac1, frac4]
+        self._fractures: list = [frac1, frac2, frac3, frac4]
 
     def meshing_arguments(self) -> dict[str, float]:
         """ """
         default_meshing_args: dict[str, float] = {
-            "cell_size": 1 * 0.2,  # 0.05
-            "cell_size_fracture": 1 * 0.05,
+            "cell_size": 1 * 0.1,  # 0.05
+            "cell_size_fracture": 1 * 0.02,
         }
         return self.params.get("meshing_arguments", default_meshing_args)
 
@@ -1668,7 +1737,7 @@ solid_constants = pp.SolidConstants(
     {
         "porosity": 0.25,
         "intrinsic_permeability": 1,
-        "normal_permeability": 1,  # this does NOT include the aperture
+        "normal_permeability": 0.1,  # this does NOT include the aperture
         "residual_aperture": 0.1,
     }
 )
@@ -1699,29 +1768,36 @@ class TimeManagerPP(pp.TimeManager):
                 msg = "recompute_solution=True has no effect if time step is constant."
                 warnings.warn(msg)
 
-            return self.dt_init
+            return (self.dt, self.dt_init)
 
         if is_converged:
+            previous_dt = self.dt
             self.dt = self.dt_min_max[1]
-            return
+            return (previous_dt, self.dt)
 
         else:
-            self.dt = self.dt / 2  # TODO: add "till dt > dt_min"
-            return self.dt
+            previous_dt = self.dt
+            self.dt = self.dt / 5  # TODO: add "till dt > dt_min"
+            return (previous_dt, self.dt)
+
+    def decrease_time(self) -> None:
+        """Decrease simulation time by the current time step."""
+        self.time -= self.dt
 
 
 time_manager = TimeManagerPP(
-    schedule=[0, 5],
-    dt_init=1 * 1e-3,
-    constant_dt=True,
-    iter_max=10,
+    schedule=[0, 50],
+    dt_init=1e0,
+    dt_min_max=[1e-5, 1e0],
+    constant_dt=False,
+    iter_max=20,
     print_info=True,
 )
 
 params = {
     "material_constants": material_constants,
-    "max_iterations": 20,
-    "nl_convergence_tol": 5e-3,
+    "max_iterations": 200,
+    "nl_convergence_tol": 1e-6,
     "nl_divergence_tol": 1e5,
     "time_manager": time_manager,
 }
@@ -1754,6 +1830,8 @@ if __name__ == "__main__":
             self.mobility_operator = pp.tobedefined.mobility.mobility_operator(
                 self.mobility
             )
+
+            self.output_file_name = "./OUTPUT_NEWTON_INFO"
 
     model = FinalModel(params)
 

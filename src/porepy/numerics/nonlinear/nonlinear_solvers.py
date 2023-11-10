@@ -56,9 +56,6 @@ class NewtonSolver:
             # Re-discretize the nonlinear term
             model.before_nonlinear_iteration()
 
-            # pdb.set_trace()
-            # model.pressure(model.mdg.subdomains()).evaluate(model.equation_system).val
-
             sol = self.iteration(model)
 
             model.after_nonlinear_iteration(sol)
@@ -66,26 +63,36 @@ class NewtonSolver:
             error_norm, is_converged, is_diverged = model.check_convergence(
                 sol, prev_sol, init_sol, self.params
             )
-            print("error_norm = ", error_norm)  ###
 
             prev_sol = sol
             errors.append(error_norm)
 
-            # print("inside solve:")
-            # print("is_diverged = ", is_diverged)
-            # print("is_converged = ", is_converged)
-            # pdb.set_trace()
-
             if is_diverged:
                 model.after_nonlinear_failure(sol, errors, iteration_counter)
             elif is_converged:
-                model.after_nonlinear_convergence(sol, errors, iteration_counter)
+                saturation_max = np.max(
+                    np.abs(model.mixture.get_phase(0).saturation.val)
+                )
+                print(
+                    "---------------------------------------- saturation_max = ",
+                    saturation_max,
+                )
+                if saturation_max > 1.0:
+                    print(
+                        "\n\nNewton converged to non-physical solution, I'm going to reduce the timestep"
+                    )
+                    is_converged = False
+                    is_diverged = True
+                    model.after_nonlinear_failure(sol, errors, iteration_counter)
+
+                else:
+                    model.after_nonlinear_convergence(sol, errors, iteration_counter)
 
             iteration_counter += 1
 
         if (
             not is_converged and not is_diverged
-        ):  # "and not is_diverged" added otherwise it calls after_nonlinear_failure twice
+        ):  # so maximum number of iterations reached # "and not is_diverged" added otherwise it calls after_nonlinear_failure twice
             model.after_nonlinear_failure(sol, errors, iteration_counter)
 
         return error_norm, is_converged, iteration_counter

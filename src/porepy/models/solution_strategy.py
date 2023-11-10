@@ -464,6 +464,8 @@ class SolutionStrategy(abc.ABC):
             iteration_counter: The number of iterations performed by the non-linear
                 solver.
 
+
+        ### what is that argument "solution"? it is delta_x of newton... why is it a input?
         """
         solution = self.equation_system.get_variable_values(iterate_index=0)
         self.equation_system.shift_time_step_values()
@@ -550,6 +552,7 @@ class SolutionStrategy(abc.ABC):
             _, b = self.linear_system
             err_res = np.linalg.norm(b)
             max_res = np.max(b)
+            print("----> error pp = ", error)
             print("----> err_res = ", err_res)
             print("----> max_res = ", max_res)
             # error = err_res

@@ -617,7 +617,6 @@ class EquationSystem:
                     raise KeyError(
                         f"No values stored for variable {name} on grid {grid}."
                     )
-                
 
         # If there are matching blocks, concatenate and return.
         if values:
@@ -713,7 +712,6 @@ class EquationSystem:
                         data[pp.TIME_STEP_SOLUTIONS][name][
                             time_step_index
                         ] = local_vec.copy()
-
 
                 # if name == "pressure":
                 #     print('=========== PRESSURE: ==========================')
@@ -1517,7 +1515,7 @@ class EquationSystem:
         _ad_utils.discretize_from_list(unique_discr, self.mdg)
 
         # for i in discr:
-        #     print(i.name) 
+        #     print(i.name)
         # pdb.set_trace()
 
     def assemble(
@@ -1625,7 +1623,6 @@ class EquationSystem:
 
             # pdb.set_trace()
 
-
             # If restriction to grid-related row blocks was made,
             # perform row slicing based on information we have obtained from parsing.
             if rows is not None:
@@ -1633,11 +1630,10 @@ class EquationSystem:
                 rhs.append(ad.val[rows])
                 block_length = len(rhs[-1])
             # If no grid-related row restriction was made, append the whole thing.
-            else:                
+            else:
                 mat.append(ad.jac)
                 rhs.append(ad.val)
                 block_length = len(ad.val)
-
 
                 # np.set_printoptions(precision=2, linewidth=700, threshold=sys.maxsize)
                 # pdb.set_trace()

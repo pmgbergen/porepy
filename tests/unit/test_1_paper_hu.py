@@ -97,32 +97,6 @@ class SolutionStrategyTest1(test_hu_model.SolutionStrategyPressureMass):
             self.equation_system.set_variable_values(
                 values=prev_sol, additive=False, iterate_index=0
             )
-            # print(
-            #     "pressure = ",
-            #     self.pressure(self.mdg.subdomains()).evaluate(self.equation_system).val,
-            # )
-
-            (
-                eq,
-                accumulation,
-                rho_V_operator,
-                rho_G_operator,
-                flux_V_G,
-                flux_intf_phase_0,
-                flux_intf_phase_1,
-                source_phase_0,
-                source_phase_1,
-            ) = self.eq_fcn_mass(self.mdg.subdomains())
-
-            # print(
-            #     "\naccumulation.previous_timestep() = ",
-            #     accumulation.previous_timestep().evaluate(self.equation_system),
-            # )
-
-            # for i in dir(accumulation):
-            #     print(i)
-
-            # pdb.set_trace()
 
         else:
             raise ValueError("Tried solving singular matrix for the linear problem.")
@@ -206,29 +180,10 @@ solid_constants = pp.SolidConstants(
 material_constants = {"fluid": fluid_constants, "solid": solid_constants}
 
 
-class TimeManagerTest1(pp.TimeManager):
-    def compute_time_step(
-        self,
-        is_converged,
-        iterations: Optional[int] = None,
-        recompute_solution: bool = False,
-    ):
-        if self.time >= self.time_final:
-            return None
-
-        if is_converged:
-            self.dt = self.dt_min_max[1]
-            return
-
-        else:
-            self.dt = self.dt / 2  # TODO: add "till dt > dt_min"
-            return self.dt
-
-
-time_manager = TimeManagerTest1(
-    schedule=[0, 5],
+time_manager = test_hu_model.TimeManagerPP(
+    schedule=[0, 50],
     dt_init=5e-1,
-    dt_min_max=[1e-3, 5e-1],
+    dt_min_max=[1e-1, 5e-1],
     constant_dt=False,
     recomp_factor=0.5,
     recomp_max=10,
@@ -272,6 +227,8 @@ if __name__ == "__main__":
             self.mobility_operator = pp.tobedefined.mobility.mobility_operator(
                 self.mobility
             )
+
+            self.output_file_name = "./OUTPUT_NEWTON_INFO"
 
     model = FinalModel(params)
 
