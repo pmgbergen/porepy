@@ -30,7 +30,7 @@ import numpy as np
 
 from .composite_utils import safe_sum
 from .flash import del_log, logger
-from .mixture import ThermodynamicState
+from .mixture import ThermodynamicState, BasicMixture
 
 __all__ = [
     "parse_xyz",
@@ -110,6 +110,30 @@ def parse_xyz(
 
 
 @numba.njit(
+    "float64[:](float64[:],float64[:,:],float64[:],UniTuple(int32, 2))",
+    fastmath=True,
+    cache=True,
+)
+def insert_xy(
+    X_gen: np.ndarray, x: np.ndarray, y: np.ndarray, npnc: tuple[int, int]
+) -> np.ndarray:
+    """Helper function to insert phase compositions and molar fractions into a generic
+    argument.
+    
+    Essentially a reverse operation for :func:`parse_xyz`, with the exception
+    that ``z`` is assumed to never be modified.
+
+    """
+    nphase, ncomp = npnc
+
+    # insert independent phase fractions
+    X_gen[-(ncomp * nphase + nphase - 1) : -ncomp * nphase] = y[1:]
+    # ravel phase compositions
+    X_gen[-ncomp * nphase :] = x.ravel()
+    return X_gen
+
+
+@numba.njit(
     "float64[:](float64[:], UniTuple(int32, 2))",
     fastmath=True,
     cache=True,
@@ -160,6 +184,90 @@ def normalize_fractions(X: np.ndarray) -> np.ndarray:
 
     """
     return (X.T / X.sum(axis=1)).T
+
+
+@numba.njit("float64(float64[:], float64[:,:])", fastmath=True, cache=True)
+def _rr_poles(y: np.ndarray, K: np.ndarray) -> float:
+    """
+    Parameters:
+        y: Phase fractions, assuming the first one belongs to the reference phase.
+        K: Matrix of K-values per independent phase (row) per component (column)
+
+    Returns:
+        A vector of length ``num_comp`` containing the denominators in the RR-equation
+        related to K-values per component.
+        Each demoninator is given by :math:`1 + \\sum_{j\\neq r} y_j (K_{ji} - 1)`.
+
+    """
+    return 1 + (K.T - 1) @ y[1:]
+    #return 1 + np.dot(y[1:], K[:, i] - 1)
+
+
+@numba.njit(
+    "float64(float64[:], float64[:,:])",
+    fastmath = True,
+    cache = True,
+)
+def _rr_binary_vle_inversion(z: np.ndarray, K: np.ndarray) -> float:
+    """Inverts the Rachford-Rice equation for the binary 2-phase case.
+
+    Parameters:
+        z: ``shape=(num_comp,)``
+
+            Vector of feed fractions.
+        K: ``shape=(num_comp,)``
+
+            Matrix of K-values per per component between vapor and liquid phase.
+
+    Returns:
+        The corresponding value of the vapor fraction.
+
+    """
+    ncomp = z.shape[0]
+    n = np.dot(1 - K, z)
+    d = 0.
+    for i in range(ncomp):
+        d += (K[i] - 1) * np.sum(np.delete(K, i) - 1) * z[i]
+
+    return n / d
+
+
+@numba.njit(
+    "float64(float64[:], float64[:], float64[:,:])",
+    cache = True,
+)
+def _rr_potential(z: np.ndarray, y: np.ndarray, K: np.ndarray) -> float:
+    """Calculates the potential according to [1] for the j-th Rachford-Rice equation.
+
+    With :math:`n_c` components, :math:`n_p` phases and :math:`R` the reference phase,
+    the potential is given by
+
+    .. math::
+
+        F = \\sum\\limits_{i} -(z_i ln(1 - (\\sum\\limits_{j\\neq R}(1 - K_{ij})y_j)))
+
+    References:
+        [1] `Okuno and Sepehrnoori (2010) <https://doi.org/10.2118/117752-PA>`_
+
+    Parameters:
+        z: ``len=n_c``
+
+            Vector of feed fractions.
+        y: ``len=n_p``
+
+            Vector of molar phase fractions.
+        K: ``shape=(n_p, n_c)``
+
+            Matrix of K-values per independent phase (row) per component (column).
+
+    Returns:
+        The value of the potential based on above formula.
+
+    """
+    return np.sum( - z * np.log(np.abs(_rr_poles(y, K))))
+    # F = [-np.log(np.abs(_rr_pole(i, y, K))) * z[i] for i in range(len(z))]
+    # return np.sum(F)
+
 
 
 # endregion
@@ -921,24 +1029,36 @@ class Flash_c:
     taking a single vector (thermodynmaic input state).
 
     Parameters:
-        npnc: ``len=2``
-
-            2-tuple containing the number of phases and number of components.
+        mixture: A mixture model containing modelled components and phases.
         eos_compiler: An EoS compiler instance required to create a
             :class:`~porepy.composite.flash_compiler.FlashCompiler`.
+
+    Raises:
+        AssertionError: If not at least 2 components are present.
+        AssertionError: If not 2 phases are modelled.
 
     """
 
     def __init__(
         self,
-        npnc: tuple[int, int],
+        mixture: BasicMixture,
         eos_compiler: EoSCompiler,
     ) -> None:
-        self.npnc: tuple[int, int] = npnc
-        """Number of phases and components, passed at instantiation."""
+        
+        nc = mixture.num_components
+        np = mixture.num_phases
 
-        # currently only 2-phase flash is supported
-        assert npnc[0] == 2, "Currently supports only 2-phase mixtures."
+        assert np == 2, "Supports only 2-phase mixtures."
+        assert nc >= 2, "Must have at least two components."
+
+        # data used in initializers
+        self._pcrits: list[float] = [comp.p_crit for comp in mixture.components]
+        self._Tcrits: list[float] = [comp.T_crit for comp in mixture.components]
+        self._vcrits: list[float] = [comp.V_crit for comp in mixture.components]
+        self._omegas: list[float] = [comp.omega for comp in mixture.components]
+
+        self.npnc: tuple[int, int] = (np, nc)
+        """Number of phases and components, passed at instantiation."""        
 
         self.eos_compiler: EoSCompiler = eos_compiler
         """Assembler and compiler of EoS-related expressions equation.
@@ -953,6 +1073,11 @@ class Flash_c:
             Literal["p-T", "p-h", "v-h"], Callable[[np.ndarray], np.ndarray]
         ] = dict()
         """Contains per flash configuration the respective Jacobian as a callable."""
+
+        self.initializers: dict[
+            Literal["p-T", "p-h", "v-h"], Callable[[np.ndarray], np.ndarray]
+        ] = dict()
+        """Contains per flash configuration the initialization procedure."""
 
         self.npipm_res: dict[
             Literal["p-T", "p-h", "v-h"], Callable[[np.ndarray], np.ndarray]
@@ -1010,6 +1135,19 @@ class Flash_c:
 
         """
 
+        self.initialization_parameters: dict[str, float | int] = {
+            'N1': 3,
+            'N2': 2,
+            'N3': 5,
+        }
+        """Numbers of iterations for initialization procedures.
+        
+        - ``'N1'``: 3. Iterations for fractions guess.
+        - ``'N2'``: 2. Iterations for state constraint (p/T update).
+        - ``'N3'``: 5. Alterations between fractions guess and  p/T update.
+        
+        """
+
         self.tolerance: float = 1e-7
         """Convergence criterion for the flash algorithm. Defaults to ``1e-7``."""
 
@@ -1053,7 +1191,7 @@ class Flash_c:
         vh_dim = ph_dim + 1 + (nphase - 1)
 
         ## Compilation start
-        logger.info(f"{del_log}Starting compilation of EoS-related functions\n")
+        logger.info(f"{del_log}Starting compilation of EoS-related functions:\n")
         logger.info(f"{del_log}Compiling residual pre-argument ..")
         prearg_res_c = self.eos_compiler.get_pre_arg_computation_res()
         logger.info(f"{del_log}Compiling Jacobian pre-argument ..")
@@ -1063,7 +1201,7 @@ class Flash_c:
         logger.info(f"{del_log}Compiling derivatives of fugacity coefficients ..")
         d_phi_c = self.eos_compiler.get_dpTX_fugacity_computation()
 
-        logger.info(f"{del_log}Starting compilation isofugacity constraints\n")
+        logger.info(f"{del_log}Starting compilation isofugacity constraints:\n")
         logger.info(f"{del_log}Compiling residual of isogucacity constraints ..")
 
         @numba.njit("float64[:](float64[:,:], float64, float64, float64[:,:])")
@@ -1166,7 +1304,7 @@ class Flash_c:
 
             return d_iso
 
-        logger.info(f"{del_log}Starting compilation of flash systems\n")
+        logger.info(f"{del_log}Starting compilation of flash systems:\n")
         logger.info(f"{del_log}Compiling p-T flash equations ..")
 
         @numba.njit("float64[:](float64[:])")
@@ -1233,6 +1371,148 @@ class Flash_c:
 
         self.reconfigure_npipm(u, eta, verbosity)
 
+        logger.info(f"{del_log}Starting compilation of initializers:\n")
+
+        p_crits = np.array(self._pcrits)
+        T_crits = np.array(self._Tcrits)
+        v_crits = np.array(self._vcrits)
+        omegas = np.array(self._omegas)
+        logger.info(f"{del_log}Compiling p-T flash initialization ..")
+
+        @numba.njit("float64[:](float64[:],int32, int32)", parallel=True)
+        def guess_fractions(X_gen: np.ndarray, N1: int, guess_K_vals: int) -> np.ndarray:
+
+            nf = X_gen.shape[0]
+            for f in numba.prange(nf):
+                xf = X_gen[f]
+                x, y, z = parse_xyz(xf, (nphase, ncomp))
+                p, T = parse_pT(xf, (nphase, ncomp))
+
+                # pseudo-critical quantities
+                T_pc = np.dot(z, T_crits)
+                p_pc = np.dot(z, p_crits)
+
+                # storage of K-values (first phase assumed reference phase)
+                K = np.zeros((nphase - 1, ncomp))
+
+                if guess_K_vals:
+                    for j in range(nphase - 1):
+                        K[j, :] = np.exp(
+                            5.37 * (1 + omegas) * (1 - T_crits / T)
+                        ) * p_crits / p + 1e-10
+                else:
+                    prearg = prearg_res_c(p, T, x)
+                    # fugacity coefficients reference phase
+                    phi_r = phi_c(prearg, 0, p, T, x[0])
+                    for j in range(1, nphase):
+                        phi_j = phi_c(prearg, j, p, T, x[j])
+                        K_jr = phi_r / phi_j
+                        K[j - 1, :] = K_jr
+
+                # starting iterations using Rachford Rice
+                for n in range(N1):
+
+                    # solving RR for molar phase fractions
+                    if nphase == 2:
+                        # only one independent phase assumed
+                        K_ = K[0]
+                        if ncomp == 2:
+                            y_ = _rr_binary_vle_inversion(z, K_)
+                        else:
+                            raise NotImplementedError(
+                                "Multicomponent RR solution not implemented."
+                            )
+                        
+                        negative = y_ < .0
+                        exceeds = y_ > 1.
+                        invalid = exceeds | negative
+
+                        # correction of invalid gas phase values
+                        if invalid:
+                            # assuming gas saturated for correction using RR potential
+                            y_test = np.array([0., 1.], dtype=np.float64)
+                            rr_pot = _rr_potential(z, y_test, K)
+                            # checking if gas is feasible
+                            t_i = _rr_poles(y_test, K)
+                            cond_1 = t_i - z >= 0.
+                            cond_2 = ...
+                            gas_feasible = np.all(cond_1) & np.all(cond_2)
+
+                            if (rr_pot > 0.):
+                                y_ = 0.
+                            elif (rr_pot < 0.) & gas_feasible:
+                                y_ = 1.
+
+                            # clearly liquid
+                            if (T < T_pc) & (p > p_pc):
+                                y_ = 0.
+                            # clearly gas
+                            elif (T > T_pc) & (p < p_pc):
+                                y_ = 1.
+
+                            # Correction based on negative flash
+                            # value of y_ must be between innermost poles
+                            K_min = np.min(K_)
+                            K_max = np.max(K_)
+                            y_1 = 1 / (1 - K_max)
+                            y_2 = 1 / (1 - K_min)
+                            if y_1 <= y_2:
+                                y_feasible = y_1 < y_ < y_2
+                            else:
+                                y_feasible = y_2 < y_ < y_1
+                            
+                            if y_feasible & negative:
+                                y_ = 0.
+                            elif y_feasible & exceeds:
+                                y_ = 1.
+
+                            # If all K-values are smaller than 1 and gas fraction is negative,
+                            # the liquid phase is clearly saturated
+                            # Vice versa, if fraction above 1 and K-values greater than 1.
+                            # the gas phase is clearly saturated
+                            if negative & np.all(K_ < 1.):
+                                y_ = 0.
+                            elif exceeds & np.all(K_ > 1.):
+                                y_ = 1.
+
+                        assert 0. <= y_ <= 1., "y fraction estimate outside bound [0, 1]."
+                        y[1] = y_
+                        y[0] = 1. - y_
+                    else:
+                        raise NotImplementedError(
+                            "Fractions guess for more than 2 phases not implemented."
+                        )
+                    
+                    # resolve compositions
+                    t = _rr_poles(y, K)
+                    x[0] = z * t  # fraction in reference phase
+                    x[1:] = K * x[0]  # fraction in indp. phases
+
+                    # update K-values if another iteration comes
+                    if n < N1 - 1:
+                        prearg = prearg_res_c(p, T, x)
+                        # fugacity coefficients reference phase
+                        phi_r = phi_c(prearg, 0, p, T, x[0])
+                        for j in range(1, nphase):
+                            phi_j = phi_c(prearg, j, p, T, x[j])
+                            K_jr = phi_r / phi_j
+                            K[j - 1, :] = K_jr
+                
+                X_gen[f] = insert_xy(xf, x, y, (nphase, ncomp))
+
+            return X_gen
+
+        logger.info(f"{del_log}Compiling p-h flash initialization ..")
+        logger.info(f"{del_log}Compiling h-v flash initialization ..")
+        logger.info(f"{del_log}Storing compiled initializers ..")
+
+        self.initializers.update(
+            {
+                'p-T': guess_fractions,
+            }
+        )
+        logger.info(f"{del_log}Compilation of initializers completed.\n")
+
     def reconfigure_npipm(
         self, u: float = 1.0, eta: float = 0.5, verbosity: int = 1
     ) -> None:
@@ -1266,7 +1546,7 @@ class Flash_c:
         u = float(u)
         eta = float(eta)
 
-        logger.info(f"{del_log}Starting compilation of NPIPM systems\n")
+        logger.info(f"{del_log}Starting compilation of NPIPM systems:\n")
         logger.info(f"{del_log}Compiling NPIPM p-T flash ..")
 
         F_pT = self.residuals["p-T"]
@@ -1461,6 +1741,7 @@ class Flash_c:
         X0: np.ndarray  # vectorized, generic flash argument
         gen_arg_dim: int  # number of required values for a flash
         result_state = ThermodynamicState()
+        init_args: tuple
 
         if p is not None and T is not None and (h is None and v is None):
             flash_type = "p-T"
@@ -1471,6 +1752,7 @@ class Flash_c:
             state_2 = T
             result_state.p = p
             result_state.T = T
+            init_args = (self.initialization_parameters['N1'], 1)
         elif p is not None and h is not None and (T is None and v is None):
             flash_type = "p-h"
             F_dim = nphase - 1 + nphase * ncomp + 1
@@ -1480,6 +1762,11 @@ class Flash_c:
             state_2 = h
             result_state.p = p
             result_state.h = h
+            init_args = (
+                self.initialization_parameters['N1'],
+                self.initialization_parameters['N2'],
+                self.initialization_parameters['N3'],
+            )
         elif v is not None and h is not None and (T is None and v is None):
             flash_type = "v-h"
             F_dim = nphase - 1 + nphase * ncomp + 2 + nphase - 1
@@ -1489,6 +1776,11 @@ class Flash_c:
             state_2 = h
             result_state.v = v
             result_state.h = h
+            init_args = (
+                self.initialization_parameters['N1'],
+                self.initialization_parameters['N2'],
+                self.initialization_parameters['N3'],
+            )
         else:
             raise NotImplementedError(
                 f"Unsupported flash with state definitions {p, T, h, v}"
@@ -1506,7 +1798,7 @@ class Flash_c:
         if initial_state is None:
             logger.info(f"{del_log}Computing initial state ..")
             start = time.time()
-
+            X0 = self.initializers[flash_type](X0, *init_args)
             end = time.time()
             logger.info(f"{del_log}Initial state computed.\n")
             t = end - start
