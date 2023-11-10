@@ -1071,7 +1071,7 @@ class DarcysLaw:
 
         # Gradient operator in the normal direction. The collapsed distance is
         # :math:`\frac{a}{2}` on either side of the fracture.
-        # We assume here that :meth:`apeture` is implemented to give a meaningful value
+        # We assume here that :meth:`aperture` is implemented to give a meaningful value
         # also for subdomains of co-dimension > 1.
         normal_gradient = pp.ad.Scalar(2) * (
             projection.secondary_to_mortar_avg @ self.aperture(subdomains) ** Scalar(-1)
