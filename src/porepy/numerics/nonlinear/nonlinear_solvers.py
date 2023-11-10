@@ -71,13 +71,19 @@ class NewtonSolver:
                 model.after_nonlinear_failure(sol, errors, iteration_counter)
             elif is_converged:
                 saturation_max = np.max(
-                    np.abs(model.mixture.get_phase(0).saturation.val)
+                    np.abs(
+                        model.mixture.get_phase(0)
+                        .saturation_operator(model.mdg.subdomains())
+                        .evaluate(model.equation_system)
+                        .val
+                    )
                 )
                 print(
                     "---------------------------------------- saturation_max = ",
                     saturation_max,
                 )
-                if saturation_max > 1.0:
+                eps = 1e-5  # let's not be too strict
+                if saturation_max > 1.0 + eps:
                     print(
                         "\n\nNewton converged to non-physical solution, I'm going to reduce the timestep"
                     )

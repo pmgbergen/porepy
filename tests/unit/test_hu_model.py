@@ -1509,7 +1509,7 @@ class SolutionStrategyPressureMass(pp.SolutionStrategy):
 
     # def set_nonlinear_discretizations(self) -> None:
     #     """ """
-    #     super().set_nonlinear_discretizations() 
+    #     super().set_nonlinear_discretizations()
 
     #     # self.add_nonlinear_discretization(
     #     #     self.interface_ppu_discretization(self.mdg.interfaces()).flux,
@@ -1796,7 +1796,7 @@ time_manager = TimeManagerPP(
 
 params = {
     "material_constants": material_constants,
-    "max_iterations": 200,
+    "max_iterations": 10,
     "nl_convergence_tol": 1e-6,
     "nl_divergence_tol": 1e5,
     "time_manager": time_manager,
