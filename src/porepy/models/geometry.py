@@ -233,7 +233,7 @@ class ModelGeometry:
                 flattened if it is not already one dimensional.
             dim: Dimensions to include for vector attributes. Intended use is to
                 limit the number of dimensions for a vector attribute, e.g. to exclude
-                the z-component of a vector attribute in 2d, to acieve compatibility
+                the z-component of a vector attribute in 2d, to achieve compatibility
                 with code which is explicitly 2d (e.g. fv discretizations).
 
         Returns:
@@ -350,7 +350,7 @@ class ModelGeometry:
 
         Example:
             For a grid with two cells, and with `i=1` and `dim=3`, the returned basis
-            will be (aftert conversion to a numpy array)
+            will be (after conversion to a numpy array)
             .. code-block:: python
                 array([[0., 0.],
                        [1., 0.],
@@ -372,7 +372,6 @@ class ModelGeometry:
             columns.
 
         Raises:
-            ValueError: If dim is smaller than the dimension of the mixed-dimensional.
             ValueError: If i is larger than dim.
 
         """
@@ -388,8 +387,6 @@ class ModelGeometry:
             dim = self.nd
 
         # Sanity checks
-        if dim > self.nd:
-            raise ValueError("Basis functions of higher dimension than the md grid")
         if i >= dim:
             raise ValueError("Basis function index out of range")
 
