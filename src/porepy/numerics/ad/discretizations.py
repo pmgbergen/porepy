@@ -373,7 +373,7 @@ class DifferentiableFVAd:
         # evaluated before this function).
 
         # The product rule applied to q = T(k(u)) * p gives
-        #   dT/dk * dk/du * p + T * dp/dp.
+        #   dT/dk * dk/du * p + T * dp.
         # The first part is rather involved and is handled inside self._transmissibility
 
         # Get hold of the underlying flux discretization.

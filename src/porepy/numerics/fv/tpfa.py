@@ -241,8 +241,8 @@ class Tpfa(pp.FVElliptic):
         # Use harmonic average of cell transmissibilities
 
         # The discretization involves the transmissibilities, multiplied with the
-        # distance between cell and face centers, and with the sgn adjustment (or else)
-        # the vector source will point in the wrong direction in certain cases.
+        # distance between cell and face centers, and with the sgn adjustment (or else
+        # the vector source will point in the wrong direction in certain cases).
         # See Starnoni et al. 2020, WRR for details.
         vals = (t[fi_periodic] * fc_cc * sgn_periodic)[:vector_source_dim].ravel("f")
 
