@@ -522,7 +522,7 @@ class BoundaryProjection:
             mat.append(mat_loc)
 
         self._projection: sps.spmatrix
-        """Projection from subdomain faces to boundary grids cells."""
+        """Projection from subdomain faces to boundary grid cells."""
         if len(mat) > 0:
             self._projection = sps.bmat([[m] for m in mat], format="csr")
         else:
