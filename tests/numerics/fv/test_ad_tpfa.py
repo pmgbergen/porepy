@@ -86,26 +86,11 @@ class AdTpfaFlow(pp.fluid_mass_balance.SinglePhaseFlow):
         # return pp.wrap_as_dense_ad_array(scaled_vals, name="permeability") + e_xy @ p
         return pp.wrap_as_dense_ad_array(np.ones(nc * tensor_dim), name="permeability")
 
-    # def tensor_permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-    #     basis = self.basis(subdomains, dim=self.nd)
-    #     nc = sum([sd.num_cells for sd in subdomains])
-
-    #     kxx = basis[0] @ (self.pressure(subdomains) @ basis[0].T)
-    #     kxy = basis[0] @ (pp.wrap_as_dense_ad_array(2, nc) @ basis[1].T)
-    #     kyx = basis[1] @ (pp.wrap_as_dense_ad_array(3, nc) @ basis[0].T)
-    #     kyy = basis[1] @ (pp.wrap_as_dense_ad_array(1, nc) @ basis[1].T)
-    #     # kzz = basis[2] @ self.pressure(subdomains) @ basis[2]
-    #     k = pp.ad.sum_operator_list([kxx, kxy, kyx, kyy])
-    #     return k
-
     def _block_diagonal_grid_property_matrix(
         self,
         domains: list[pp.Grid],
         grid_property_getter: Callable[[pp.Grid], Any],
         name: Optional[str] = None,
-        # dim_0_entity: Literal["cells", "faces"],
-        # dim_1_entity: Literal["cells", "faces"],
-        # vector_dimension: int = 1,
     ) -> sps.spmatrix:
         """Construct mapping matrix for the connectivity between two grids entities.
 
@@ -129,8 +114,7 @@ class AdTpfaFlow(pp.fluid_mass_balance.SinglePhaseFlow):
                 # second dimension being faces and cells, respectively).
                 raise NotImplementedError
             else:
-                data = self.mdg.subdomain_data(g)
-                mat_loc = grid_property_getter(g, data)
+                mat_loc = grid_property_getter(g)
             blocks.append(mat_loc)
 
         block_matrix = pp.matrix_operations.optimized_compressed_storage(
@@ -139,8 +123,8 @@ class AdTpfaFlow(pp.fluid_mass_balance.SinglePhaseFlow):
         return block_matrix
 
     def cells_to_half_faces(
-        self, subdomains: list[pp.Grid], dim: int
-    ) -> pp.ad.Operator:
+        self, subdomains: list[pp.Grid], dim: int, with_sign=False
+    ) -> sps.spmatrix:
         """Mapping from cells to half-faces.
 
         Parameters:
@@ -151,27 +135,29 @@ class AdTpfaFlow(pp.fluid_mass_balance.SinglePhaseFlow):
             Operator.
         """
 
-        def get_matrix(g: pp.Grid, data: dict) -> sps.csr_matrix:
+        def get_matrix(g: pp.Grid) -> sps.csr_matrix:
             _, ci, sgn = sps.find(g.cell_faces)
             # Repeat dim times in f order
             row_inds = np.repeat(np.arange(ci.size), dim)
             col_inds = pp.fvutils.expand_indices_nd(ci, dim)
-            vals = np.ones(col_inds.size)
+            if with_sign:
+                vals = np.repeat(sgn, dim)
+            else:
+                vals = np.ones(col_inds.size)
             mat = sps.csr_matrix(
                 (vals, (row_inds, col_inds)),
                 shape=(ci.size, g.num_cells * dim),
             )
             return mat
 
-        return self.grid_connectivity_mapping(
+        return self._block_diagonal_grid_property_matrix(
             subdomains,
             get_matrix,
-            name="cells_to_half_faces",
         )
 
     def faces_to_half_faces(
-        self, subdomains: list[pp.Grid], dim: int
-    ) -> pp.ad.Operator:
+        self, subdomains: list[pp.Grid], dim: int, with_sign=False
+    ) -> sps.spmatrix:
         """Mapping from faces to half-faces.
 
         Parameters:
@@ -182,26 +168,28 @@ class AdTpfaFlow(pp.fluid_mass_balance.SinglePhaseFlow):
             Operator.
         """
 
-        def get_matrix(g: pp.Grid, data: dict) -> sps.csr_matrix:
+        def get_matrix(g: pp.Grid) -> sps.csr_matrix:
             fi, _, sgn = sps.find(g.cell_faces)
 
             # Repeat dim times in f order
             row_inds = np.repeat(np.arange(fi.size), dim)
             col_inds = pp.fvutils.expand_indices_nd(fi, dim)
-            vals = np.ones(col_inds.size)
+            if with_sign:
+                vals = np.repeat(sgn, dim)
+            else:
+                vals = np.ones(col_inds.size)
             mat = sps.csr_matrix(
                 (vals, (row_inds, col_inds)),
                 shape=(fi.size, g.num_faces * dim),
             )
             return mat
 
-        return self.grid_connectivity_mapping(
+        return self._block_diagonal_grid_property_matrix(
             subdomains,
             get_matrix,
-            name="faces_to_half_faces",
         )
 
-    def cell_face_vectors(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+    def cell_face_vectors(self, subdomains: list[pp.Grid]) -> sps.spmatrix:
         """Distance between face centers and cell centers.
 
         Parameters:
@@ -211,22 +199,20 @@ class AdTpfaFlow(pp.fluid_mass_balance.SinglePhaseFlow):
             Operator.
         """
 
-        # def wrap_coordinates(grids, attr):
-        #     """Coordinates along diagonal of sparse ad matrix."""
-        #     vals = np.hstack([getattr(g, attr).ravel("F") for g in grids])
-        #     return pp.wrap_as_sparse_ad_array(vals, name=attr)
-
-        # x_c = wrap_coordinates(subdomains, "cell_centers")
-        # x_f = wrap_coordinates(subdomains, "face_centers")
-
         vec_dim = 3
 
-        def get_dist_vec_matrix(g: pp.Grid, data: dict) -> sps.csr_matrix:
+        def get_c_f_vec_matrix(g: pp.Grid) -> sps.csr_matrix:
+            """Construct matrix of vectors connecting cell centers and face centers."""
+
             fi, ci, sgn = sps.find(g.cell_faces)
+            # Construct vectors from cell centers to face centers.
             fc_cc = g.face_centers[:, fi] - g.cell_centers[:, ci]
             # Repeat dim times in f order
             num_hf = fi.size
+            # Each row contains vec_dim entries and corresponds to one half-face.
             row_inds = np.repeat(np.arange(num_hf), vec_dim)
+            # There are num_hf * vec_dim columns, each vec_dim-long block corresponding
+            # to one half-face.
             col_inds = pp.fvutils.expand_indices_nd(np.arange(num_hf), vec_dim)
             vals = fc_cc.ravel("F")
             mat = sps.csr_matrix(
@@ -237,12 +223,12 @@ class AdTpfaFlow(pp.fluid_mass_balance.SinglePhaseFlow):
 
         dist_vec = self._block_diagonal_grid_property_matrix(
             subdomains,
-            get_dist_vec_matrix,
+            get_c_f_vec_matrix,
         )
 
         return dist_vec
 
-    def normal_vectors(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+    def normal_vectors(self, subdomains: list[pp.Grid]) -> sps.spmatrix:
         """Normal vectors on half-faces, repeated for each dimension.
 
         Parameters:
@@ -253,7 +239,23 @@ class AdTpfaFlow(pp.fluid_mass_balance.SinglePhaseFlow):
         """
         vector_dim = 3
 
-        def get_matrix(g: pp.Grid, data: dict) -> sps.csr_matrix:
+        def get_matrix(g: pp.Grid) -> sps.csr_matrix:
+            """Construct normal vector matrix. Each vector is repeated vector_dim times.
+
+            Half-face i corresponds to rows
+                vector_dim * i:vector_dim(i+1)
+            and contains n_0^i, n_1^i, n_2^i. The column indices makes sure we hit the
+            right permeability entries. The permeability being a tensor_dim * num_cells
+            vector, we expand the cell indices to tensor_dim indices.
+
+            Parameters:
+                g: Grid.
+
+            Returns:
+                spmatrix ``(num_half_faces * vector_dim, num_cells * tensor_dim)``:
+                    Normal vector matrix.
+
+            """
             tensor_dim = vector_dim**2
             fi, ci, sgn = sps.find(g.cell_faces)
             num_hf = fi.size
@@ -273,8 +275,8 @@ class AdTpfaFlow(pp.fluid_mass_balance.SinglePhaseFlow):
             get_matrix,
         )
 
-    def cell_face_distances(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Distance between face centers and cell centers."""
+    def cell_face_distances(self, subdomains: list[pp.Grid]) -> sps.spmatrix:
+        """Scalar distance between face centers and cell centers for each half face."""
         vals = []
         for g in subdomains:
             fi, ci, sgn = sps.find(g.cell_faces)
@@ -302,74 +304,19 @@ class AdTpfaFlow(pp.fluid_mass_balance.SinglePhaseFlow):
         k_c = self._permeability(subdomains)
         n = self.normal_vectors(subdomains)
 
-        def signed_hf_to_f_matrix(g: pp.Grid, data: dict) -> sps.csr_matrix:
-            """Mapping from half-faces to faces.
-
-            Weighted by the sign of the half-face (1 for the side having outward normal,
-            -1 for the other side).
-
-            Parameters:
-                g: Grid.
-
-            Returns:
-                Mapping matrix.
-
-            """
-            dim = 1
-            fi, _, sgn = sps.find(g.cell_faces)
-            # Repeat dim times
-            col_inds = np.arange(fi.size * dim)
-            row_inds = pp.fvutils.expand_indices_nd(fi, dim)
-            vals = sgn
-            mat = sps.csr_matrix(
-                (vals, (row_inds, col_inds)),
-                shape=(g.num_faces * dim, col_inds.size),
-            )
-            return mat
-
-        def c_to_hf_matrix(g: pp.Grid, data: dict) -> sps.csr_matrix:
-            """Mapping from half-faces to faces.
-
-            Weighted by the sign of the half-face (1 for the side having outward normal,
-            -1 for the other side).
-
-            Parameters:
-                g: Grid.
-
-            Returns:
-                Mapping matrix.
-
-            """
-            dim = 1
-            fi, ci, sgn = sps.find(g.cell_faces)
-            # Repeat dim times
-            num_hf = fi.size
-            row_inds = np.arange(num_hf * dim)
-            col_inds = pp.fvutils.expand_indices_nd(ci, dim)
-            vals = np.ones(col_inds.size)
-            mat = sps.csr_matrix(
-                (vals, (row_inds, col_inds)),
-                shape=(num_hf, g.num_cells * dim),
-            )
-            return mat
-
         d_n_by_dist = sps.diags(1 / dist) * d_vec @ n
         one = pp.ad.Scalar(1)
         # t_hf = d_vec @ n @ k_hf / dist
-        t_hf_inv = one / (pp.ad.SparseArray(mat) @ k_c)
+        t_hf_inv = one / (pp.ad.SparseArray(d_n_by_dist) @ k_c)
         # Sum over half-faces to get transmissibility on faces.
         # Include sign to cancel the effect of the d_vec @ n having opposite signs on
         # the two half-faces.
-        hf_to_f_mat = self._block_diagonal_grid_property_matrix(
-            subdomains, signed_hf_to_f_matrix
-        )
+        hf_to_f_mat = self.faces_to_half_faces(subdomains, dim=1, with_sign=True).T
         T_f = one / (pp.ad.SparseArray(hf_to_f_mat) @ t_hf_inv)
 
         # Construct difference operator to get p_l - p_r on faces. First map p to half-
         # faces, then to faces with the signed matrix.
-        c_to_hf_mat = self._block_diagonal_grid_property_matrix(
-            subdomains, c_to_hf_matrix
-        )
+        c_to_hf_mat = self.cells_to_half_faces(subdomains, dim=1, with_sign=False)
         diff_p = pp.ad.SparseArray(hf_to_f_mat @ c_to_hf_mat) @ self.pressure(
             subdomains
         )
