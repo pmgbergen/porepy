@@ -60,6 +60,7 @@ def run_time_dependent_model(model, params: dict) -> None:
         solver = pp.LinearSolver(params)
 
     # Time loop
+    global_cumulative_iteration_counter = 0
     while model.time_manager.time < model.time_manager.time_final:
         model.time_manager.increase_time()
         model.time_manager.increase_time_index()
@@ -109,11 +110,14 @@ def run_time_dependent_model(model, params: dict) -> None:
 
             cumulative_iteration_counter += iteration_counter
 
+        global_cumulative_iteration_counter += cumulative_iteration_counter
+
         model.write_newton_info(
             model.time_manager.time,
             previous_dt,
             time_chops,
             cumulative_iteration_counter,
+            global_cumulative_iteration_counter,
             iteration_counter,
         )
 

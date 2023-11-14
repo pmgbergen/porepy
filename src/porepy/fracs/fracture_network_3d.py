@@ -54,7 +54,6 @@ class FractureNetwork3d(object):
         tol: float = 1e-8,
         run_checks: bool = False,
     ) -> None:
-
         # Initialize fractures as an empy list
         self.fractures = []
         """All fractures forming the network."""
@@ -248,6 +247,7 @@ class FractureNetwork3d(object):
             MixedDimensionalGrid: Mixed-dimensional mesh.
 
         """
+
         if file_name is None:
             file_name = "gmsh_frac_file.msh"
 
@@ -899,7 +899,6 @@ class FractureNetwork3d(object):
         )
 
     def _uniquify_points_and_edges(self, all_p, edges, edges_2_frac, is_boundary_edge):
-
         start_time = time.time()
         logger.info(
             """Uniquify points and edges, starting with %i points, %i
@@ -1007,7 +1006,6 @@ class FractureNetwork3d(object):
         # a simple option). When intersections are found, the global lists of
         # points and edges are updated.
         for fi in range(len(self.fractures)):
-
             logger.debug("Remove intersections from fracture %i", fi)
 
             # Identify the edges associated with this fracture
@@ -1218,7 +1216,6 @@ class FractureNetwork3d(object):
 
         """
         for fi, _ in enumerate(self.fractures):
-
             # Identify the edges associated with this fracture
             edges_loc_ind = []
             for ei, e in enumerate(edges_2_frac):
@@ -1719,7 +1716,6 @@ class FractureNetwork3d(object):
             # impact the quality, but attempts to do a sophisticated ordering
             # failed spectacularly, so we loop by edge ordering.
             while len(free_edges) > 0:
-
                 ind = free_edges.pop(0)
                 # Get information about the perspective new edge pairs
                 old_pair_ind, new_pairs, new_angles = new_pairs_and_angles(ind)
@@ -1891,7 +1887,6 @@ class FractureNetwork3d(object):
 
         # Loop over edges, and the polygons to which the edge belongs
         for e, e2f in enumerate(edges_2_frac):
-
             # Check if the polygons are on the boundary
             edge_of_domain_boundary = np.in1d(e2f, boundary_polygons)
 
@@ -2083,7 +2078,6 @@ class FractureNetwork3d(object):
         intersecting_fracs: dict[list[int]] = {}
         # Loop over all fractures
         for fi, f in enumerate(self.fractures):
-
             # Do not insert auxiliary points on domain boundaries
             if "boundary" in self.tags.keys() and self.tags["boundary"][fi]:
                 continue
@@ -2098,8 +2092,7 @@ class FractureNetwork3d(object):
             # Loop over all intersections of the fracture
             isects, is_first_isect = self.intersections_of_fracture(f)
 
-            for (i, is_first) in zip(isects, is_first_isect):
-
+            for i, is_first in zip(isects, is_first_isect):
                 # Register this intersection
                 if is_first:
                     intersections_this_fracture.append(
@@ -2176,7 +2169,6 @@ class FractureNetwork3d(object):
         }
 
         for fi, f in enumerate(self.fractures):
-
             # Do not insert auxiliary points on domain boundaries
             if "boundary" in self.tags.keys() and self.tags["boundary"][fi]:
                 continue

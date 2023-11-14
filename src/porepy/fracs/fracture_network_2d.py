@@ -21,6 +21,8 @@ from porepy.fracs.utils import linefractures_to_pts_edges, pts_edges_to_linefrac
 from .gmsh_interface import GmshData2d, GmshWriter
 from .gmsh_interface import Tags as GmshInterfaceTags
 
+import pdb
+
 logger = logging.getLogger(__name__)
 
 

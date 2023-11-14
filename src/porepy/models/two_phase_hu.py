@@ -21,13 +21,14 @@ def myprint(var):
 
 
 """
-- is it physically right to consider mu (dynamic viscosity, mu = nu/rho) constant? 
+- TODO: is it physically right to consider mu (dynamic viscosity, mu = nu/rho) constant? 
 - TODO: not 100% sure about avg and int
 - TODO: normalization to reduce condition number
 - TODO: see todos in the code
 - TODO: I'd like to reactivate the complex step to see how much worse/better it is
 - TODO: fix the time, the current time is updated with initial timestep instead of current dt
-- TODO: add VariableDt to ppu
+
+- TODO soon: there is something wrong with the scaling, Ka_0 shouldnt affects the results.
 """
 
 
@@ -1330,7 +1331,7 @@ class SolutionStrategyPressureMass(pp.SolutionStrategy):
 
             pressure_values = (
                 2 - 1 * sd.cell_centers[1] / self.ymax
-            )  # TODO: hardcoded for 2D
+            ) / self.p_0  # TODO: hardcoded for 2D
 
             self.equation_system.set_variable_values(
                 pressure_values,
@@ -1628,24 +1629,27 @@ class SolutionStrategyPressureMass(pp.SolutionStrategy):
     def write_newton_info(
         self,
         time,
-        time_step,
+        time_steps,
         time_chops,
-        cumulative_iteration_counter,
-        last_iteration_counter,
+        cumulative_iterations,
+        global_cumulative_iterations,
+        last_iterations,
     ):
         """
         time_step = dt used to reach time starting from time-dt
+        cumulative_iteration_counter = cumulative inside the timestep
         """
-        wasted_iterations = cumulative_iteration_counter - last_iteration_counter
+        wasted_iterations = cumulative_iterations - last_iterations
 
         with open(self.output_file_name, "a") as f:
             info = np.array(
                 [
                     time,
-                    time_step,
+                    time_steps,
                     time_chops,
-                    cumulative_iteration_counter,
-                    last_iteration_counter,
+                    cumulative_iterations,
+                    global_cumulative_iterations,
+                    last_iterations,
                     wasted_iterations,
                 ]
             )
@@ -1686,7 +1690,7 @@ class MyModelGeometry(pp.ModelGeometry):
 
     def set_domain(self) -> None:
         """ """
-        self.size = 1 / self.units.m
+        self.size = 1
 
         # structired square:
         # self._domain = pp.applications.md_grids.domains.nd_cube_domain(2, self.size)
@@ -1708,14 +1712,16 @@ class MyModelGeometry(pp.ModelGeometry):
 
         frac4 = pp.LineFracture(np.array([[0.2, 0.8], [0.2, 0.8]]))
 
+        frac5 = pp.LineFracture(np.array([[0.0, 0.8], [0.1, 0.3]]))
+
         # frac1 = pp.PlaneFracture(np.array([[0.2, 0.7, 0.7, 0.2],[0.2, 0.2, 0.8, 0.8],[0.5, 0.5, 0.5, 0.5]]))
-        self._fractures: list = [frac1, frac2, frac3, frac4]
+        self._fractures: list = [frac1, frac2, frac3, frac4, frac5]
 
     def meshing_arguments(self) -> dict[str, float]:
         """ """
         default_meshing_args: dict[str, float] = {
-            "cell_size": 1 * 0.1,  # 0.05
-            "cell_size_fracture": 1 * 0.02,
+            "cell_size": 0.1 / self.L_0,
+            "cell_size_fracture": 0.02 / self.L_0,
         }
         return self.params.get("meshing_arguments", default_meshing_args)
 
@@ -1732,13 +1738,34 @@ class PartialFinalModel(
     """ """
 
 
+# scaling:
+# very bad logic, improve it...
+L_0 = 1
+gravity_0 = 1
+dynamic_viscosity_0 = 1
+rho_0 = 1  # |rho_phase_0-rho_phase_1|
+p_0 = 1
+Ka_0 = 1
+u_0 = Ka_0 * p_0 / (dynamic_viscosity_0 * L_0)
+t_0 = L_0 / u_0
+
+gravity_number = Ka_0 * rho_0 * gravity_0 / (dynamic_viscosity_0 * u_0)
+
+print("\nSCALING: ======================================")
+print("u_0 = ", u_0)
+print("t_0 = ", u_0)
+print("gravity_number = ", gravity_number)
+print("pay attention: gravity number is not influenced by Ka_0 and dynamic_viscosity_0")
+print("=========================================\n")
+
+
 fluid_constants = pp.FluidConstants({})
 solid_constants = pp.SolidConstants(
     {
         "porosity": 0.25,
-        "intrinsic_permeability": 1,
-        "normal_permeability": 0.1,  # this does NOT include the aperture
-        "residual_aperture": 0.1,
+        "intrinsic_permeability": 1 / Ka_0,
+        "normal_permeability": 0.1 / Ka_0,  # this does NOT include the aperture
+        "residual_aperture": 0.1 / Ka_0,
     }
 )
 
@@ -1753,7 +1780,9 @@ class TimeManagerPP(pp.TimeManager):
         recompute_solution: bool = False,
     ):
         if self.time >= self.time_final:
-            return None
+            previous_dt = self.dt
+            self.dt = self.time_final - self.time
+            return (previous_dt, self.dt)  # wrong, it returns a negative dt
 
         # If the time step is constant, always return that value
         if self.is_constant:
@@ -1786,9 +1815,9 @@ class TimeManagerPP(pp.TimeManager):
 
 
 time_manager = TimeManagerPP(
-    schedule=[0, 50],
-    dt_init=1e0,
-    dt_min_max=[1e-5, 1e0],
+    schedule=np.array([0, 50]) / t_0,
+    dt_init=1e0 / t_0,
+    dt_min_max=np.array([1e-5, 1e0]) / t_0,
     constant_dt=False,
     iter_max=20,
     print_info=True,
@@ -1802,8 +1831,10 @@ params = {
     "time_manager": time_manager,
 }
 
-wetting_phase = pp.composite.phase.Phase(rho0=1, beta=1e-10)
-non_wetting_phase = pp.composite.phase.Phase(rho0=0.5, beta=1e-10)
+wetting_phase = pp.composite.phase.Phase(
+    rho0=1 / rho_0, p0=p_0, beta=1e-10
+)  # TODO: improve that p0, different menaing wrt rho0
+non_wetting_phase = pp.composite.phase.Phase(rho0=0.5 / rho_0, p0=p_0, beta=1e-10)
 
 mixture = pp.Mixture()
 mixture.add([wetting_phase, non_wetting_phase])
@@ -1813,15 +1844,27 @@ if __name__ == "__main__":
     class FinalModel(PartialFinalModel):
         def __init__(self, params: Optional[dict] = None):
             super().__init__(params)
+
+            # scaling values: (not all of them are actually used inside model)
+            self.L_0 = L_0
+            self.gravity_0 = gravity_0
+            self.dynamic_viscosity_0 = dynamic_viscosity_0
+            self.rho_0 = rho_0
+            self.p_0 = p_0
+            self.Ka_0 = Ka_0
+            self.t_0 = t_0
+
             self.mixture = mixture
             self.ell = 0
-            self.gravity_value = 1  # pp.GRAVITY_ACCELERATION
-            self.dynamic_viscosity = 1  # TODO: wrong place...
+            self.gravity_value = 1 / self.gravity_0  # pp.GRAVITY_ACCELERATION
+            self.dynamic_viscosity = (
+                1 / self.dynamic_viscosity_0
+            )  # TODO: wrong place...
 
-            self.xmin = 0
-            self.xmax = 1 * 1
-            self.ymin = 0
-            self.ymax = 1 * 1
+            self.xmin = 0 / self.L_0
+            self.xmax = 1 / self.L_0
+            self.ymin = 0 / self.L_0
+            self.ymax = 1 / self.L_0
 
             self.relative_permeability = (
                 pp.tobedefined.relative_permeability.rel_perm_quadratic

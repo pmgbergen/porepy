@@ -20,6 +20,9 @@ def myprint(var):
 
 
 """
+this was test_hu_model.py, renamed as /models/two_phase.py on 13/11/23
+
+
 - is it ok to consider mu (dynamic viscosity, mu = nu/rho) constant? 
 - inside var_upwinded_interfaces there should be ..._int not avg. Doesn't matter as long as the grids are conforming.
 """

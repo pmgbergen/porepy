@@ -5,7 +5,7 @@ import porepy as pp
 from typing import Callable, Optional, Type, Literal, Sequence, Union
 from porepy.numerics.ad.forward_mode import AdArray, initAdArrays
 
-import test_hu_model
+import porepy.models.two_phase_hu as two_phase_hu
 
 import os
 import sys
@@ -19,11 +19,10 @@ def myprint(var):
 
 
 """
-- copied from test_hu_model.py
 """
 
 
-class EquationsPPU(test_hu_model.Equations):
+class EquationsPPU(two_phase_hu.Equations):
     """I dont see the point of splitting this class more than this, I prefer commented titles instead of mixin classes"""
 
     # PRESSURE EQUATION: -------------------------------------------------------------------------------------------------
@@ -417,7 +416,7 @@ class EquationsPPU(test_hu_model.Equations):
         return flux
 
 
-class SolutionStrategyPressureMassPPU(test_hu_model.SolutionStrategyPressureMass):
+class SolutionStrategyPressureMassPPU(two_phase_hu.SolutionStrategyPressureMass):
     def initial_condition(self) -> None:
         """ """
         val = np.zeros(self.equation_system.num_dofs())
@@ -456,7 +455,7 @@ class SolutionStrategyPressureMassPPU(test_hu_model.SolutionStrategyPressureMass
 
             pressure_values = (
                 2 - 1 * sd.cell_centers[1] / self.ymax
-            )  # TODO: hardcoded for 2D
+            ) / self.p_0  # TODO: hardcoded for 2D
 
             self.equation_system.set_variable_values(
                 pressure_values,
@@ -590,59 +589,64 @@ class SolutionStrategyPressureMassPPU(test_hu_model.SolutionStrategyPressureMass
         self.set_discretization_parameters()
         self.rediscretize()
 
-    def after_nonlinear_iteration(self, solution_vector: np.ndarray) -> None:
-        """ """
-
-        self._nonlinear_iteration += 1
-        self.equation_system.shift_iterate_values()
-
-        self.equation_system.set_variable_values(
-            values=solution_vector, additive=True, iterate_index=0
-        )
-
-        # TEST HERE:
-
-        # subdomains = self.mdg.subdomains()
-
-        # discr_phase_0 = self.ppu_discretization(subdomains, "darcy_flux_phase_0")
-        # discr_phase_1 = self.ppu_discretization(subdomains, "darcy_flux_phase_1")
-
-        # up_matrix_0 = discr_phase_0.upwind.evaluate(self.equation_system)
-        # up_matrix_1 = discr_phase_1.upwind.evaluate(self.equation_system)
-
-        # print("\nup_matrix_0 = ", up_matrix_0)
-        # print("up_matrix_1 = ", up_matrix_1)
-
-        # pdb.set_trace()
-
 
 class PartialFinalModel(
-    test_hu_model.PrimaryVariables,
+    two_phase_hu.PrimaryVariables,
     EquationsPPU,
-    test_hu_model.ConstitutiveLawPressureMass,
-    test_hu_model.BoundaryConditionsPressureMass,
+    two_phase_hu.ConstitutiveLawPressureMass,
+    two_phase_hu.BoundaryConditionsPressureMass,
     SolutionStrategyPressureMassPPU,
-    test_hu_model.MyModelGeometry,
+    two_phase_hu.MyModelGeometry,
     pp.DataSavingMixin,
 ):
     """ """
 
 
+# scaling:
+# very bad logic, improve it...
+L_0 = 1
+gravity_0 = 1
+dynamic_viscosity_0 = 1
+rho_0 = 1  # |rho_phase_0-rho_phase_1|
+p_0 = 1
+Ka_0 = 1
+u_0 = Ka_0 * p_0 / (dynamic_viscosity_0 * L_0)
+t_0 = L_0 / u_0
+
+gravity_number = Ka_0 * rho_0 * gravity_0 / (dynamic_viscosity_0 * u_0)
+
+print("\nSCALING: ======================================")
+print("u_0 = ", u_0)
+print("t_0 = ", u_0)
+print("gravity_number = ", gravity_number)
+print("pay attention: gravity number is not influenced by Ka_0 and dynamic_viscosity_0")
+print("=========================================\n")
+
 if __name__ == "__main__":
-    mixture = test_hu_model.mixture
+    mixture = two_phase_hu.mixture
 
     class FinalModel(PartialFinalModel):
         def __init__(self, params: Optional[dict] = None):
             super().__init__(params)
+
+            # scaling values: (not all of them are actually used inside model)
+            self.L_0 = L_0
+            self.gravity_0 = gravity_0
+            self.dynamic_viscosity_0 = dynamic_viscosity_0
+            self.rho_0 = rho_0
+            self.p_0 = p_0
+            self.Ka_0 = Ka_0
+            self.t_0 = t_0
+
             self.mixture = mixture
             self.ell = 0
-            self.gravity_value = 1
-            self.dynamic_viscosity = 1
+            self.gravity_value = 1 / self.gravity_0
+            self.dynamic_viscosity = 1 / self.dynamic_viscosity_0
 
-            self.xmin = 0
-            self.xmax = 1 * 1
-            self.ymin = 0
-            self.ymax = 1 * 1
+            self.xmin = 0 / self.L_0
+            self.xmax = 1 / self.L_0
+            self.ymin = 0 / self.L_0
+            self.ymax = 1 / self.L_0
 
             self.relative_permeability = (
                 pp.tobedefined.relative_permeability.rel_perm_quadratic
@@ -652,7 +656,9 @@ if __name__ == "__main__":
                 self.mobility
             )
 
-    params = test_hu_model.params
+            self.output_file_name = "./OUTPUT_NEWTON_INFO"
+
+    params = two_phase_hu.params
     model = FinalModel(params)
 
     pp.run_time_dependent_model(model, params)

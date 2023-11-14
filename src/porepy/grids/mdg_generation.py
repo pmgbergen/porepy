@@ -13,6 +13,9 @@ import porepy as pp
 from porepy.fracs.fracture_network_2d import FractureNetwork2d
 from porepy.fracs.fracture_network_3d import FractureNetwork3d
 
+import pdb
+
+
 FractureNetwork = Union[FractureNetwork2d, FractureNetwork3d]
 
 
