@@ -50,13 +50,12 @@ mix.set_up()
 ]
 
 eos_c = PengRobinson_c(mix)
-PRC = Flash_c((2, 2), eos_c)
+PRC = Flash_c(mix, eos_c)
 
 flash = pp.composite.FlashNR(mix)
 flash.use_armijo = True
 flash.armijo_parameters["rho"] = 0.99
 flash.armijo_parameters["j_max"] = 150
-flash.armijo_parameters["return_max"] = True
 flash.newton_update_chop = 1.0
 flash.tolerance = 1e-7
 flash.max_iter = 150
