@@ -5,23 +5,19 @@ os.environ["NUMBA_CACHE_DIR"] = f"{str(os.path.dirname(__file__))}/__pycache__/"
 # os.environ['NUMBA_DEBUG_CACHE'] = str(1)
 
 import numpy as np
-
 import porepy as pp
-import time
-import matplotlib.pyplot as plt
 
 from porepy.composite.peng_robinson.eos_compiler import PengRobinson_c
 from porepy.composite.flash_c import Flash_c
 
-vec = np.ones(3)
-z = [vec * 0.99, vec * 0.01]
-p = vec * 5e6
-T = vec * 500
-verbosity = 3
 
-x_test = np.array([0.01, 5e6, 500, 0.9, 0.1, 0.2, 0.3, 0.4])
 
 chems = ["H2O", "CO2"]
+feed = [0.99, 0.01]
+p_range = [1e6, 50e6]
+T_range = [450., 700.]
+refinement = 80
+
 species = pp.composite.load_species(chems)
 comps = [
     pp.composite.peng_robinson.H2O.from_species(species[0]),
@@ -38,24 +34,77 @@ phases = [
 mix = pp.composite.NonReactiveMixture(comps, phases)
 
 mix.set_up()
+
+vec = np.ones(3)
+p = vec * 5e6
+T = vec * 500
+verbosity = 3
+z = [vec * _ for _ in feed]
 [
     mix.system.set_variable_values(val, [comp.fraction.name], 0, 0)
     for val, comp in zip(z, comps)
 ]
 
 eos_c = PengRobinson_c(mix)
-flash = Flash_c(mix, eos_c)
+flash_c = Flash_c(mix, eos_c)
 
+flash_c.armijo_parameters["rho"] = 0.99
+flash_c.armijo_parameters["j_max"] = 50
+flash_c.npipm_parameters['u2'] = 10.
+flash_c.tolerance = 1e-8
+flash_c.max_iter = 150
+
+flash_c.compile(verbosity=verbosity)
+
+result, success, num_iter = flash_c.flash(z, p = p, T= T, mode='linear', verbosity=verbosity)
+result, success, num_iter = flash_c.flash(z, p = p, T= T, mode='parallel', verbosity=verbosity)
+print("Finished test run")
+
+p_vec = np.linspace(p_range[0], p_range[1], refinement, endpoint=True, dtype=np.float64)
+T_vec = np.linspace(T_range[0], T_range[1], refinement, endpoint=True, dtype=np.float64)
+
+T_mesh, p_mesh = np.meshgrid(T_vec, p_vec)
+
+T = T_mesh.flatten()
+p = p_mesh.flatten()
+z = [np.ones(p.shape[0]) * _ for _ in feed]
+
+result, success, num_iter = flash_c.flash(z, p = p, T= T, mode='parallel', verbosity=verbosity)
+
+print(f"Succes: {np.sum(success == 0)}/ {p.shape[0]}")
+print(f"max iter: {np.sum(success == 1)}/ {p.shape[0]}")
+print(f"failure: {np.sum(success > 1)}/ {p.shape[0]}")
+
+investigate = success == 1
+
+flash = pp.composite.FlashNR(mix)
+flash.use_armijo = True
 flash.armijo_parameters["rho"] = 0.99
-flash.armijo_parameters["j_max"] = 150
-flash.tolerance = 1e-7
+flash.armijo_parameters["j_max"] = 50
+flash.armijo_parameters["return_max"] = True
+flash.npipm_parameters["u2"] = 10.0
+flash.newton_update_chop = 1.0
+flash.tolerance = 1e-8
 flash.max_iter = 150
 
-flash.compile(verbosity=verbosity)
 
-result, success, num_iter = flash.flash(z, p = p, T= T, mode='parallel', verbosity=verbosity)
-result, success, num_iter = flash.flash(z, p = p, T= T, mode='parallel', verbosity=verbosity)
+success_o, result_o = flash.flash(
+    state={'p': p[investigate], 'T': T[investigate]},
+    feed=[z_[investigate] for z_ in z],
+    eos_kwargs={"apply_smoother": True},
+    quickshot=True,
+    return_system=False,
+    verbosity=2,
+)
 
-print(success)
-print(num_iter)
-print(result)
+flash_c.max_iter = 0
+result, success, num_iter = flash_c.flash([z_[investigate] for z_ in z], p = p[investigate], T= T[investigate], mode='parallel', verbosity=verbosity)
+
+diff = result.diff(result_o)
+
+tol = 1e-3
+print('diff p', np.any(diff.p > tol))
+print('diff T', np.any(diff.T > tol))
+for j in range(2):
+    idx = diff.y[j] > tol
+    print(f'diff y_{j}', np.any(idx))

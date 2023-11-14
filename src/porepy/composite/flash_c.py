@@ -771,7 +771,7 @@ def newton(
     if np.linalg.norm(f_i) <= tol:
         success = 0  # root already found
     else:
-        for i in range(1, max_iter + 1):
+        for _ in range(max_iter):
             num_iter += 1
 
             df_i = DF(X)
@@ -1431,20 +1431,22 @@ class Flash_c:
 
             # storage of K-values (first phase assumed reference phase)
             K = np.zeros((nphase - 1, ncomp))
+            K_tol = 1e-10  # tolerance to bind K-values away from 0
 
             if guess_K_vals > 0:
                 for j in range(nphase - 1):
                     K[j, :] = (
                         np.exp(5.37 * (1 + omegas) * (1 - T_crits / T)) * p_crits / p
-                        + 1e-10
+                        + K_tol
                     )
             else:
-                prearg = prearg_res_c(p, T, x)
+                xn = normalize_fractions(x)
+                prearg = prearg_res_c(p, T, xn)
                 # fugacity coefficients reference phase
-                phi_r = phi_c(prearg, 0, p, T, x[0])
+                phi_r = phi_c(prearg, 0, p, T, xn[0])
                 for j in range(1, nphase):
-                    phi_j = phi_c(prearg, j, p, T, x[j])
-                    K_jr = phi_r / phi_j
+                    phi_j = phi_c(prearg, j, p, T, xn[j])
+                    K_jr = phi_r / phi_j + K_tol
                     K[j - 1, :] = K_jr
 
             # starting iterations using Rachford Rice
@@ -1534,12 +1536,13 @@ class Flash_c:
 
                 # update K-values if another iteration comes
                 if n < N1 - 1:
-                    prearg = prearg_res_c(p, T, x)
+                    xn = normalize_fractions(x)
+                    prearg = prearg_res_c(p, T, xn)
                     # fugacity coefficients reference phase
-                    phi_r = phi_c(prearg, 0, p, T, x[0])
+                    phi_r = phi_c(prearg, 0, p, T, xn[0])
                     for j in range(1, nphase):
-                        phi_j = phi_c(prearg, j, p, T, x[j])
-                        K_jr = phi_r / phi_j
+                        phi_j = phi_c(prearg, j, p, T, xn[j])
+                        K_jr = phi_r / phi_j + K_tol
                         K[j - 1, :] = K_jr
 
             return insert_xy(X_gen, x, y, (nphase, ncomp))
@@ -1549,6 +1552,7 @@ class Flash_c:
             """p-T initializer as a parallelized loop over all flash configurations."""
             nf = X_gen.shape[0]
             for f in numba.prange(nf):
+            # for f in range(nf):
                 X_gen[f] = guess_fractions(X_gen[f], N1, guess_K_vals)
             return X_gen
 
@@ -1810,7 +1814,7 @@ class Flash_c:
         for i, z_ in enumerate(z):
             if np.any(z_ <= 0) or np.any(z_ >= 1):
                 raise ValueError(
-                    f"Violation of strict bound (0,1) for {i + 1}-th feed fraction detected."
+                    f"Violation of strict bound (0,1) for feed fraction {i} detected."
                 )
 
         z_sum = safe_sum(z)
