@@ -54,24 +54,19 @@ class SolutionStrategyTest1(two_phase_hu.SolutionStrategyPressureMass):
         frac_normals[1] = normals[1][frac_faces]
 
         # I use only one normal and tangential bcs of straight fault
-        normal_ref = frac_normals[:, 0]  # ovv ne ho presa una a caso...
+        normal_ref = frac_normals[:, 0]  # random one, it doens't mattter
         normal_ref = normal_ref / np.sqrt(np.dot(normal_ref, normal_ref))
         tangent_ref = np.array([1, -normal_ref[0] / normal_ref[1]])
         tangent_ref = tangent_ref / np.sqrt(np.dot(tangent_ref, tangent_ref))
         return normal_ref, tangent_ref
 
+    def computations_for_deform_grid(self):
+        """ """
+
     def deform_grid(self):
         """
-        see old code...
+        basically copied from old code. It very hardcoded
         """
-
-        print("\n\n\n")
-
-        for i in dir(self.mdg):
-            print(i)
-
-        print("\n\n\n")
-
         gb = copy.deepcopy(self.mdg)
         gb_new = copy.deepcopy(self.mdg)
 
@@ -83,19 +78,11 @@ class SolutionStrategyTest1(two_phase_hu.SolutionStrategyPressureMass):
             if sd.dim == 2:
                 g_new = sd
 
-        print("\n\n\n")
-
-        for i in dir(g_new):
-            print(i)
-
-        print("\n\n\n")
-
         normal_ref, tangent_ref = self.compute_normals_tangents(g_new)
 
-        # grid deformation: ----------------------------------------------------
         mesh = g_new.nodes[[0, 1]].T
 
-        # ORIGINAL control points:
+        # ORIGINAL control points: ----------------------------------
         # boundary control points:
         boundary_ctrl_pts = g_new.nodes.T[g_new.get_boundary_nodes()][:, [0, 1]]
 
@@ -103,7 +90,8 @@ class SolutionStrategyTest1(two_phase_hu.SolutionStrategyPressureMass):
             boundary_ctrl_pts[:, 0] < (self.xmax - 1e-10)
         )[
             0
-        ]  # top, bottom, left # np.where bcs i dont like boolean indices # attento che questi indici si riferiscono al sottoinsieme boundary_ctrl_pts
+        ]  # top, bottom, left # np.where bcs i dont like boolean indices # pay attention, these indeces refer to the subset boundary_ctrl_pts
+
         boundary_ctrl_pts_displ_tr_ind = np.where(
             np.logical_and(
                 boundary_ctrl_pts[:, 0] > (self.xmax - 1e-10),
@@ -138,7 +126,7 @@ class SolutionStrategyTest1(two_phase_hu.SolutionStrategyPressureMass):
             np.logical_and(
                 boundary_ctrl_pts[:, 0] >= (self.xmax - 1e-10),
                 np.abs(boundary_ctrl_pts[:, 1] - 0.5) < (0.5 - 1e-10),
-            )  ######################################## ZEVO PUNTO CINQUE...
+            )
         )[0]
         boundary_ctrl_pts_sliding = boundary_ctrl_pts[boundary_ctrl_pts_sliding_ind]
 
@@ -147,17 +135,13 @@ class SolutionStrategyTest1(two_phase_hu.SolutionStrategyPressureMass):
         fn = g_new.face_nodes.indices
         faces_nodes = np.array([fn[::2], fn[1::2]]).T
 
-        x_intersection_upper = 0.5 - (self.x_top - 0.5) / (self.ymax - 0.5) * (
-            self.ymean - 0.5
-        )  # x-coordinate of horizon-fault intersection   ############# HARDCODED
-        # x_intersection_lower = 0.5 + (self.x_top - 0.5) / (self.ymax - 0.5) * (
-        #     self.ymean - self.strata_thick / 2 - 0.5
-        # )
+        x_intersection = self.x_intersection
+        y_intersection = self.y_intersection
 
         negative_pts_fault_ind = faces_nodes[g_new.frac_pairs[0]].flatten()  # indeces
         negative_pts_fault_ind = np.unique(
             negative_pts_fault_ind
-        )  # ? per qalche strana ragione ho degli indici ripetuti...
+        )  # ? there are repeated indeces
         negative_pts_fault_ind = negative_pts_fault_ind[negative_pts_fault_ind != 0]
         negative_pts_fault_ind = negative_pts_fault_ind[negative_pts_fault_ind != 3]
 
@@ -168,16 +152,10 @@ class SolutionStrategyTest1(two_phase_hu.SolutionStrategyPressureMass):
 
         intersection_upper_ind = np.where(
             np.logical_and(
-                np.isclose(mesh[:, 0], x_intersection_upper),
-                mesh[:, 1] == (self.ymean),
+                np.isclose(mesh[:, 0], x_intersection),
+                np.isclose(mesh[:, 1], y_intersection),
             )
         )[0]
-        # intersection_lower_ind = np.where(
-        #     np.logical_and(
-        #         np.isclose(mesh[:, 0], x_intersection_lower),
-        #         mesh[:, 1] == (self.ymean - self.strata_thick / 2),
-        #     )
-        # )[0]
 
         positive_pts_fault_ind_no_hor = positive_pts_fault_ind[
             positive_pts_fault_ind != intersection_upper_ind[0]
@@ -185,87 +163,41 @@ class SolutionStrategyTest1(two_phase_hu.SolutionStrategyPressureMass):
         positive_pts_fault_ind_no_hor = positive_pts_fault_ind[
             positive_pts_fault_ind != intersection_upper_ind[1]
         ]
-        # positive_pts_fault_ind_no_hor = positive_pts_fault_ind[
-        #     positive_pts_fault_ind != intersection_lower_ind[0]
-        # ]
-        # positive_pts_fault_ind_no_hor = positive_pts_fault_ind[
-        #     positive_pts_fault_ind != intersection_lower_ind[1]
-        # ]
 
         frac_ctrl_pts_positive = mesh[positive_pts_fault_ind_no_hor]
         frac_ctrl_pts_negative = mesh[negative_pts_fault_ind]
 
         # horizons control points:
-        horizon_face_1 = g_new.tags["auxiliary_line_1_faces"]  # lower
+        horizon_face_1 = g_new.tags["auxiliary_line_1_faces"]
 
-        # horizon_face_2 = g_new.tags["auxiliary_line_2_faces"]  # upper
         horizon_1_nodes = g_new.face_nodes * horizon_face_1
-        # horizon_2_nodes = g_new.face_nodes * horizon_face_2
         horizon_1_ctrl_pts = mesh[horizon_1_nodes]
-        # horizon_2_ctrl_pts = mesh[horizon_2_nodes]
 
         eps = 1e-8
         horizon_1_ctrl_pts_right_ind = np.where(
             np.logical_and(
-                horizon_1_ctrl_pts[:, 0] > x_intersection_upper + eps,
-                horizon_1_ctrl_pts[:, 0] < 1 - eps,
+                horizon_1_ctrl_pts[:, 0] > x_intersection + eps,
+                horizon_1_ctrl_pts[:, 0] < self.xmax - eps,
             )
         )[0]
-        # horizon_2_ctrl_pts_right_ind = np.where(
-        #     np.logical_and(
-        #         horizon_2_ctrl_pts[:, 0] > x_intersection_upper + eps,
-        #         horizon_2_ctrl_pts[:, 0] < 1 - eps,
-        #     )
-        # )[0]
-        horizon_1_ctrl_pts_left_ind = np.where(
-            np.logical_and(
-                horizon_1_ctrl_pts[:, 0] < x_intersection_upper - eps,
-                horizon_1_ctrl_pts[:, 0] > 0 + eps,
-            )
-        )[0]
-        # horizon_2_ctrl_pts_left_ind = np.where(
-        #     np.logical_and(
-        #         horizon_2_ctrl_pts[:, 0] < x_intersection_upper - eps,
-        #         horizon_2_ctrl_pts[:, 0] > 0 + eps,
-        #     )
-        # )[0]
 
         horizon_1_ctrl_pts_right = horizon_1_ctrl_pts[horizon_1_ctrl_pts_right_ind]
-        # horizon_2_ctrl_pts_right = horizon_2_ctrl_pts[horizon_2_ctrl_pts_right_ind]
         horizon_1_ctrl_pts_right = np.vstack(
             (
                 horizon_1_ctrl_pts_right,
-                np.array([x_intersection_upper, self.ymean]),
+                np.array([x_intersection, y_intersection]),
             )
-        )  # aggiungo a manina le intersezioni # <3
-        # horizon_2_ctrl_pts_right = np.vstack(
-        #     (
-        #         horizon_2_ctrl_pts_right,
-        #         np.array([x_intersection_upper, self.ymean + self.strata_thick / 2]),
-        #     )
-        # )
+        )  # intersections added manually
 
-        horizon_1_ctrl_pts_left = horizon_1_ctrl_pts[horizon_1_ctrl_pts_left_ind]
-        # horizon_2_ctrl_pts_left = horizon_2_ctrl_pts[horizon_2_ctrl_pts_left_ind]
-
-        # horizons_ctrl_pts_right = np.concatenate(
-        #     (horizon_1_ctrl_pts_right, horizon_2_ctrl_pts_right)
-        # )
         horizons_ctrl_pts_right = horizon_1_ctrl_pts_right
-
-        # horizons_ctrl_pts_left = np.concatenate(
-        #     (horizon_1_ctrl_pts_left, horizon_2_ctrl_pts_left)
-        # )
-        horizons_ctrl_pts_left = horizon_1_ctrl_pts_left
 
         # create sets of control points:
         group_displ = np.array(
             [
                 *boundary_ctrl_pts_displ,
-                *horizons_ctrl_pts_left,
                 *horizons_ctrl_pts_right,
             ]
-        )  # , *tip_ctrl_pts]) # tips are included in the boundary
+        )  # tips are included in the boundary
         group_displ_fault = np.array(
             [*frac_ctrl_pts_negative]
         )  # matter of notation? isnt frac_ctrl_pts_negative already a np.array?
@@ -292,37 +224,29 @@ class SolutionStrategyTest1(two_phase_hu.SolutionStrategyPressureMass):
             + group_sliding_fault.shape[0],
         )
 
-        # DEFORMED control points:
+        # DEFORMED control points: -----------------------------------------
         displacement_x = self.displacement_max * tangent_ref[0]
         displacement_y = self.displacement_max * tangent_ref[1]
 
         # horizons control points:
         horizon_1_ctrl_pts_right[:, 0] += displacement_x + (0 - displacement_x) / (
-            1 - x_intersection_upper
-        ) * (horizon_1_ctrl_pts_right[:, 0] - x_intersection_upper)
+            1 - x_intersection
+        ) * (horizon_1_ctrl_pts_right[:, 0] - x_intersection)
 
-        # horizon_2_ctrl_pts_right[:, 0] += displacement_x + (0 - displacement_x) / (
-        #     1 - x_intersection_upper
-        # ) * (horizon_2_ctrl_pts_right[:, 0] - x_intersection_upper)
-
-        # horizons_ctrl_pts_right = np.concatenate(
-        #     (horizon_1_ctrl_pts_right, horizon_2_ctrl_pts_right)
-        # )
         horizons_ctrl_pts_right = horizon_1_ctrl_pts_right
 
         horizons_ctrl_pts_right[:, 1] += displacement_y
 
         middle = np.array(
             [0.5, 0.5]
-        )  # don't use tips bcs they may be missing, hardcoded for simplicity
+        )  # don't use tips bcs they may be missing, hardcoded
 
         group_displ_deformed = np.array(
             [
                 *boundary_ctrl_pts_displ,
-                *horizons_ctrl_pts_left,
                 *horizons_ctrl_pts_right,
             ]
-        )  # , *tip_ctrl_pts])
+        )
         deformed_ctrl_pts = np.array(
             [
                 *group_displ_deformed,
@@ -389,21 +313,23 @@ class SolutionStrategyTest1(two_phase_hu.SolutionStrategyPressureMass):
 
         g_new.compute_geometry()
 
+        # pp.plot_grid(g_new, alpha=0)
+        # pdb.set_trace()
+
         # update the whole grid bucket: -----------------------------------------------
         gb.replace_subdomains_and_interfaces({g_old: g_new})
 
-        # rebuild mortar grid: already done in replace_grids
-        for intf, data in gb.interfaces(return_data=True):
-            # queste mappe sono state aggiornate automaticamente e non sono più l'identità come prima
-            A = intf.primary_to_mortar_int().todense()
-            B = intf.primary_to_mortar_avg().todense()
+        # rebuild mortar grid: already done in replace_grids, uncomment if you want to take a look...
+        # for intf, data in gb.interfaces(return_data=True):
+        #     # queste mappe sono state aggiornate automaticamente e non sono più l'identità come prima
+        #     A = intf.primary_to_mortar_int().todense()
+        #     B = intf.primary_to_mortar_avg().todense()
 
-            # queste invece sono rimaste identità dato che dal mortar alla faglia non mi cambia nulla
-            C = intf.secondary_to_mortar_int().todense()
-            D = intf.secondary_to_mortar_avg().todense()
-            pdb.set_trace()
+        #     # queste invece sono rimaste identità dato che dal mortar alla faglia non mi cambia nulla
+        #     C = intf.secondary_to_mortar_int().todense()
+        #     D = intf.secondary_to_mortar_avg().todense()
 
-        self.deformed_gb = gb
+        self.mdg = gb
 
     def initial_condition(self) -> None:
         """ """
@@ -524,10 +450,33 @@ class GeometryTest1(pp.ModelGeometry):
         frac1 = pp.LineFracture(
             np.array([[self.x_bottom, self.x_top], [self.ymin, self.ymax]])
         )
-        frac_constr = pp.LineFracture(
-            np.array([[self.xmin, self.xmax], [self.ymean, self.ymean]])
+
+        tangent = np.array(
+            [np.sin(self.tilt_angle), np.cos(self.tilt_angle)]
+        )  # sorry, I cant use the dedicated function because it requires the grid that i dont have yet
+        displ_x = self.displacement_max * tangent[0]
+        displ_y = self.displacement_max * tangent[1]
+
+        self.x_intersection = self.xmean - displ_x
+        self.y_intersection = self.ymean - displ_y
+
+        frac_constr_1 = pp.LineFracture(
+            np.array(
+                [
+                    [self.x_intersection, self.xmax],
+                    [
+                        self.y_intersection,
+                        self.y_intersection,
+                    ],
+                ]
+            )
         )
-        self._fractures: list = [frac1, frac_constr]
+
+        frac_constr_2 = pp.LineFracture(
+            np.array([[self.xmin, self.xmean - 0.1], [self.ymean, self.ymean]])
+        )  # -0.1 just to not touch the fracture
+
+        self._fractures: list = [frac1, frac_constr_1, frac_constr_2]
 
     def meshing_arguments(self) -> dict[str, float]:
         """ """
@@ -595,7 +544,7 @@ time_manager = two_phase_hu.TimeManagerPP(
     print_info=True,
 )
 
-meshing_kwargs = {"constraints": np.array([1])}
+meshing_kwargs = {"constraints": np.array([1, 2])}
 
 params = {
     "material_constants": material_constants,
@@ -612,47 +561,71 @@ non_wetting_phase = pp.composite.phase.Phase(rho0=0.5 / rho_0, p0=p_0, beta=1e-1
 mixture = pp.Mixture()
 mixture.add([wetting_phase, non_wetting_phase])
 
+
+class FinalModel(PartialFinalModel):
+    def __init__(self, params: Optional[dict] = None):
+        super().__init__(params)
+
+        # scaling values: (not all of them are actually used inside model)
+        self.L_0 = L_0
+        self.gravity_0 = gravity_0
+        self.dynamic_viscosity_0 = dynamic_viscosity_0
+        self.rho_0 = rho_0
+        self.p_0 = p_0
+        self.Ka_0 = Ka_0
+        self.t_0 = t_0
+
+        # problem properties:
+        self.mixture = mixture
+        self.ell = 0
+        self.gravity_value = 1.0 / self.gravity_0
+        self.dynamic_viscosity = 1.0 / self.dynamic_viscosity_0
+
+        self.xmin = 0.0 / self.L_0
+        self.xmax = 1.0 / self.L_0  # dont change it, its hardocded
+        self.ymin = 0.0 / self.L_0
+        self.ymax = 1.0 / self.L_0  # dont change it
+
+        # attributes for mesh deformation:
+        self.xmean = (self.xmax - self.xmin) / 2
+        self.ymean = (self.ymax - self.ymin) / 2
+
+        self.tilt_angle = 30 * np.pi / 180
+        self.x_bottom = (
+            self.xmean
+            - (self.ymax - self.ymin)
+            / 2
+            * np.sin(self.tilt_angle)
+            / np.cos(self.tilt_angle)
+            / self.L_0
+        )
+        self.x_top = (
+            self.xmean
+            + (self.ymax - self.ymin)
+            / 2
+            * np.sin(self.tilt_angle)
+            / np.cos(self.tilt_angle)
+            / self.L_0
+        )
+        self.displacement_max = (
+            -0.1
+        )  # it doesnt work with a positive value, but who cares...
+        self.x_intersection = None
+        self.y_intersection = None
+
+        # problem properties:
+        self.relative_permeability = (
+            pp.tobedefined.relative_permeability.rel_perm_quadratic
+        )
+        self.mobility = pp.tobedefined.mobility.mobility(self.relative_permeability)
+        self.mobility_operator = pp.tobedefined.mobility.mobility_operator(
+            self.mobility
+        )
+
+        self.output_file_name = "./OUTPUT_NEWTON_INFO"
+
+
 if __name__ == "__main__":
-
-    class FinalModel(PartialFinalModel):
-        def __init__(self, params: Optional[dict] = None):
-            super().__init__(params)
-
-            # scaling values: (not all of them are actually used inside model)
-            self.L_0 = L_0
-            self.gravity_0 = gravity_0
-            self.dynamic_viscosity_0 = dynamic_viscosity_0
-            self.rho_0 = rho_0
-            self.p_0 = p_0
-            self.Ka_0 = Ka_0
-            self.t_0 = t_0
-
-            self.mixture = mixture
-            self.ell = 0
-            self.gravity_value = 1.0 / self.gravity_0
-            self.dynamic_viscosity = 1.0 / self.dynamic_viscosity_0
-
-            self.xmin = 0.0 / self.L_0
-            self.xmax = 1.0 / self.L_0  # dont change it, its hardocded
-            self.ymin = 0.0 / self.L_0
-            self.ymax = 1.0 / self.L_0  # dont change it
-
-            self.ymean = (self.ymax - self.ymin) / 2
-            self.xmean = (self.xmax - self.xmin) / 2
-            self.x_bottom = 0.3 / self.L_0
-            self.x_top = 0.7 / self.L_0
-            self.displacement_max = 0.1
-
-            self.relative_permeability = (
-                pp.tobedefined.relative_permeability.rel_perm_quadratic
-            )
-            self.mobility = pp.tobedefined.mobility.mobility(self.relative_permeability)
-            self.mobility_operator = pp.tobedefined.mobility.mobility_operator(
-                self.mobility
-            )
-
-            self.output_file_name = "./OUTPUT_NEWTON_INFO"
-
     model = FinalModel(params)
 
     pp.run_time_dependent_model(model, params)

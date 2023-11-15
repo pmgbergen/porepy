@@ -13,6 +13,7 @@ import numpy as np
 from scipy import sparse as sps
 
 import porepy as pp
+import pdb
 
 
 class MortarSides(Enum):
@@ -96,7 +97,6 @@ class MortarGrid:
         face_duplicate_ind: Optional[np.ndarray] = None,
         tol: float = 1e-6,
     ) -> None:
-
         if dim == 3:
             raise ValueError("A mortar grid cannot be 3d")
         if not np.all([g.dim == dim for g in side_grids.values()]):
@@ -466,7 +466,6 @@ class MortarGrid:
             tol = self.tol
 
         if self.dim == 0:
-
             # retrieve the old faces and the corresponding coordinates
             _, old_faces, _ = sps.find(self._primary_to_mortar_int)
             old_nodes = g_old.face_centers[:, old_faces]
@@ -834,6 +833,7 @@ class MortarGrid:
 
         """
         row_sum = self._primary_to_mortar_int.sum(axis=1)
+
         if not (row_sum.min() > tol):
             raise ValueError("Check not satisfied for the primary grid")
 
