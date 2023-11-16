@@ -32,7 +32,7 @@ class NewtonSolver:
         iteration_counter = 0
 
         is_converged = False
-        is_diverged = False  ###
+        is_diverged = False
         prev_sol = model.equation_system.get_variable_values(time_step_index=0)
 
         init_sol = prev_sol
@@ -42,7 +42,7 @@ class NewtonSolver:
         while (
             iteration_counter <= self.params["max_iterations"]
             and not is_converged
-            and not is_diverged  ###
+            and not is_diverged
         ):
             # while True:
             print("\n NEWTON iteration_counter = ", iteration_counter)
@@ -77,16 +77,18 @@ class NewtonSolver:
                         .evaluate(model.equation_system)
                         .val
                     )
-                )
+                )  # TODO: move it inside model
                 print(
                     "---------------------------------------- saturation_max = ",
                     saturation_max,
                 )
                 eps = 1e-5  # let's not be too strict
                 if saturation_max > 1.0 + eps:
+                    # saturation > 1 should never happen if you activate clip_saturation
                     print(
                         "\n\nNewton converged to non-physical solution, I'm going to reduce the timestep"
                     )
+                    print("check clip_saturation")
                     is_converged = False
                     is_diverged = True
                     model.after_nonlinear_failure(sol, errors, iteration_counter)

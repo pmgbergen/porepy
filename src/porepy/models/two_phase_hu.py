@@ -1580,11 +1580,27 @@ class SolutionStrategyPressureMass(pp.SolutionStrategy):
 
     def after_nonlinear_iteration(self, solution_vector: np.ndarray) -> None:
         """ """
-
         self._nonlinear_iteration += 1
         self.equation_system.shift_iterate_values()
         self.equation_system.set_variable_values(
             values=solution_vector, additive=True, iterate_index=0
+        )
+        self.clip_saturation()
+
+    def clip_saturation(self):
+        """TODO: very bad implementation..."""
+        clipped_saturation = np.clip(
+            self.equation_system.get_variable_values(
+                [self.saturation_variable], iterate_index=0
+            ),
+            0,
+            1,
+        )
+        self.equation_system.set_variable_values(
+            clipped_saturation,
+            [self.saturation_variable],
+            iterate_index=0,
+            additive=False,
         )
 
     def after_nonlinear_convergence(
