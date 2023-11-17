@@ -117,26 +117,26 @@ def test_copy_operator_tree():
     )
 
     # In their initial state, all operators should have the same values
-    assert np.allclose(c.evaluate(eq_system), c_copy.evaluate(eq_system))
-    assert np.allclose(c.evaluate(eq_system), c_deepcopy.evaluate(eq_system))
+    assert np.allclose(c.evaluate_value(eq_system), c_copy.evaluate_value(eq_system))
+    assert np.allclose(c.evaluate_value(eq_system), c_deepcopy.evaluate_value(eq_system))
 
     # Increase the value of the scalar. This should have no effect, since the scalar
     # wrapps an immutable, see comment in pp.ad.Scalar
     a_val += 1
-    assert np.allclose(c.evaluate(eq_system), c_copy.evaluate(eq_system))
-    assert np.allclose(c.evaluate(eq_system), c_deepcopy.evaluate(eq_system))
+    assert np.allclose(c.evaluate_value(eq_system), c_copy.evaluate_value(eq_system))
+    assert np.allclose(c.evaluate_value(eq_system), c_deepcopy.evaluate_value(eq_system))
 
     # Increase the value of the Scalar. This will be seen by the copy, but not the
     # deepcopy.
     a._value += 1
-    assert np.allclose(c.evaluate(eq_system), c_copy.evaluate(eq_system))
-    assert not np.allclose(c.evaluate(eq_system), c_deepcopy.evaluate(eq_system))
+    assert np.allclose(c.evaluate_value(eq_system), c_copy.evaluate_value(eq_system))
+    assert not np.allclose(c.evaluate_value(eq_system), c_deepcopy.evaluate_value(eq_system))
 
     # Next increase the values in the array. This changes the shallow copy, but not the
     # deep one.
     b_arr += 1
-    assert np.allclose(c.evaluate(eq_system), c_copy.evaluate(eq_system))
-    assert not np.allclose(c.evaluate(eq_system), c_deepcopy.evaluate(eq_system))
+    assert np.allclose(c.evaluate_value(eq_system), c_copy.evaluate_value(eq_system))
+    assert not np.allclose(c.evaluate_value(eq_system), c_deepcopy.evaluate_value(eq_system))
 
 
 ## Test of pp.ad.SparseArray, pp.ad.DenseArray, pp.ad.Scalar
@@ -596,27 +596,27 @@ def test_ad_variable_evaluation():
         [eq_system.dofs_of(eq_system.get_variables([var], [g])) for g in subdomains]
     )
     assert np.allclose(
-        true_iterate[inds_var], var_ad.evaluate(eq_system, true_iterate).val
+        true_iterate[inds_var], var_ad.evaluate_value(eq_system, true_iterate)
     )
 
     # Check evaluation when no state is passed to the parser, and information must
     # instead be glued together from the MixedDimensionalGrid
-    assert np.allclose(true_iterate[inds_var], var_ad.evaluate(eq_system).val)
+    assert np.allclose(true_iterate[inds_var], var_ad.evaluate_value(eq_system))
 
     # Evaluate the equation using the double iterate
     assert np.allclose(
-        2 * true_iterate[inds_var], var_ad.evaluate(eq_system, double_iterate).val
+        2 * true_iterate[inds_var], var_ad.evaluate_value(eq_system, double_iterate)
     )
 
     # Represent the variable on the previous time step. This should be a numpy array
     prev_var_ad = var_ad.previous_timestep()
-    prev_evaluated = prev_var_ad.evaluate(eq_system)
+    prev_evaluated = prev_var_ad.evaluate_value(eq_system)
     assert isinstance(prev_evaluated, np.ndarray)
     assert np.allclose(true_state[inds_var], prev_evaluated)
 
     # Also check that state values given to the ad parser are ignored for previous
     # values
-    assert np.allclose(prev_evaluated, prev_var_ad.evaluate(eq_system, double_iterate))
+    assert np.allclose(prev_evaluated, prev_var_ad.evaluate_value(eq_system, double_iterate))
 
     ## Next, test edge variables. This should be much the same as the grid variables,
     # so the testing is less thorough.
@@ -630,7 +630,7 @@ def test_ad_variable_evaluation():
         [eq_system.dofs_of([var]) for var in variable_interfaces]
     )
     interface_values = np.hstack(
-        [var.evaluate(eq_system, true_iterate).val for var in variable_interfaces]
+        [var.evaluate_value(eq_system, true_iterate) for var in variable_interfaces]
     )
     assert np.allclose(
         true_iterate[interface_inds],
@@ -645,11 +645,11 @@ def test_ad_variable_evaluation():
     ind1 = eq_system.dofs_of(eq_system.get_variables([var], [g]))
     ind2 = eq_system.dofs_of(eq_system.get_variables([var2], [g]))
 
-    assert np.allclose(true_iterate[ind1], v1.evaluate(eq_system, true_iterate).val)
-    assert np.allclose(true_iterate[ind2], v2.evaluate(eq_system, true_iterate).val)
+    assert np.allclose(true_iterate[ind1], v1.evaluate_value(eq_system, true_iterate))
+    assert np.allclose(true_iterate[ind2], v2.evaluate_value(eq_system, true_iterate))
 
     v1_prev = v1.previous_timestep()
-    assert np.allclose(true_state[ind1], v1_prev.evaluate(eq_system, true_iterate))
+    assert np.allclose(true_state[ind1], v1_prev.evaluate_value(eq_system, true_iterate))
 
 
 @pytest.mark.parametrize(
@@ -698,7 +698,7 @@ def test_variable_combinations(grids, variables):
         data = mdg.subdomain_data(sd)
         for var in ad_vars:
             if sd == var.domain:
-                expr = var.evaluate(eq_system)
+                expr = var.evaluate_value_and_jacobian(eq_system)
                 # Check that the size of the variable is correct
                 values = pp.get_solution_values(
                     name=var.name, data=data, time_step_index=0
@@ -709,7 +709,7 @@ def test_variable_combinations(grids, variables):
 
     # Next, check that mixed-dimensional variables are handled correctly.
     for var in merged_vars:
-        expr = var.evaluate(eq_system)
+        expr = var.evaluate_value_and_jacobian(eq_system)
         vals = []
         for sub_var in var.sub_vars:
             data = mdg.subdomain_data(sub_var.domain)
@@ -744,7 +744,7 @@ def test_variable_combinations(grids, variables):
                 )
 
                 eq = eq = mv + P @ var
-                expr = eq.evaluate(eq_system)
+                expr = eq.evaluate_value_and_jacobian(eq_system)
                 # Jacobian matrix size is set according to the dof manager,
                 assert expr.jac.shape[1] == eq_system.num_dofs()
 
@@ -824,47 +824,47 @@ def test_time_differentiation():
     sd = mdg.subdomains(dim=mdg.dim_max())[0]
     var_1 = eq_system.get_variables(["foo"], [sd])[0]
     dt_var_1 = pp.ad.dt(var_1, time_step)
-    assert np.allclose(dt_var_1.evaluate(eq_system).val, 2)
+    assert np.allclose(dt_var_1.evaluate_value(eq_system), 2)
 
     # Also test the time difference function
     diff_var_1 = pp.ad.time_increment(var_1)
-    assert np.allclose(diff_var_1.evaluate(eq_system).val, 2 * ts)
+    assert np.allclose(diff_var_1.evaluate_value(eq_system), 2 * ts)
 
     # Differentiate the time dependent array residing on the subdomain
     array = pp.ad.TimeDependentDenseArray(name="bar", domains=[sd])
     dt_array = pp.ad.dt(array, time_step)
-    assert np.allclose(dt_array.evaluate(eq_system), -0.5)
+    assert np.allclose(dt_array.evaluate_value(eq_system), -0.5)
 
     # Combine the parameter array and the variable. This is a test that operators that
     # are not leaves are differentiated correctly.
     var_array = var_1 * array
     dt_var_array = pp.ad.dt(var_array, time_step)
-    assert np.allclose(dt_var_array.evaluate(eq_system).val, 2.5)
+    assert np.allclose(dt_var_array.evaluate_value(eq_system), 2.5)
     # Also test the time increment function
     diff_var_array = pp.ad.time_increment(var_array)
-    assert np.allclose(diff_var_array.evaluate(eq_system).val, 2.5 * ts)
+    assert np.allclose(diff_var_array.evaluate_value(eq_system), 2.5 * ts)
 
     # For good measure, add one more level of combination.
     var_array_2 = var_array + var_array
     dt_var_array = pp.ad.dt(var_array_2, time_step)
-    assert np.allclose(dt_var_array.evaluate(eq_system).val, 5)
+    assert np.allclose(dt_var_array.evaluate_value(eq_system), 5)
 
     # Also do a test of the mixed-dimensional variable.
     mvar = eq_system.md_variable("foo", [sd])
 
     dt_mvar = pp.ad.dt(mvar, time_step)
-    assert np.allclose(dt_mvar.evaluate(eq_system).val[: sd.num_cells], 2)
-    assert np.allclose(dt_mvar.evaluate(eq_system).val[sd.num_cells :], 0.5)
+    assert np.allclose(dt_mvar.evaluate_value(eq_system)[: sd.num_cells], 2)
+    assert np.allclose(dt_mvar.evaluate_value(eq_system)[sd.num_cells :], 0.5)
 
     # Test the time increment function
     diff_mvar = pp.ad.time_increment(mvar)
-    assert np.allclose(diff_mvar.evaluate(eq_system).val[: sd.num_cells], 2 * ts)
-    assert np.allclose(diff_mvar.evaluate(eq_system).val[sd.num_cells :], ts)
+    assert np.allclose(diff_mvar.evaluate_value(eq_system)[: sd.num_cells], 2 * ts)
+    assert np.allclose(diff_mvar.evaluate_value(eq_system)[sd.num_cells :], ts)
 
     # Make a combined operator with the mixed-dimensional variable, test this.
     dt_mvar = pp.ad.dt(mvar * mvar, time_step)
-    assert np.allclose(dt_mvar.evaluate(eq_system).val[: sd.num_cells], 4)
-    assert np.allclose(dt_mvar.evaluate(eq_system).val[sd.num_cells :], 0.5)
+    assert np.allclose(dt_mvar.evaluate_value(eq_system)[: sd.num_cells], 4)
+    assert np.allclose(dt_mvar.evaluate_value(eq_system)[sd.num_cells :], 0.5)
 
 
 def geometry_information(
@@ -1883,7 +1883,7 @@ def test_arithmetic_operations_on_ad_objects(
     if wrapped:
         try:
             expression = eval(f"v1 {op} v2")
-            val = expression.evaluate(eq_system)
+            val = expression.evaluate_value_and_jacobian(eq_system)
         except (TypeError, ValueError, NotImplementedError):
             assert not expected
             return
