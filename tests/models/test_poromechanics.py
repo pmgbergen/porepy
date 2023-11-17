@@ -225,13 +225,13 @@ def get_variables(
     sd_frac = setup.mdg.subdomains(dim=setup.nd - 1)
     jump = (
         setup.displacement_jump(sd_frac)
-        .evaluate(setup.equation_system)
-        .val.reshape(setup.nd, -1, order="F")
+        .evaluate_value(setup.equation_system)
+        .reshape(setup.nd, -1, order="F")
     )
     traction = (
         setup.contact_traction(sd_frac)
-        .evaluate(setup.equation_system)
-        .val.reshape(setup.nd, -1, order="F")
+        .evaluate_value(setup.equation_system)
+        .reshape(setup.nd, -1, order="F")
     )
     return u_vals, p_vals, p_frac, jump, traction
 
@@ -339,10 +339,10 @@ def test_without_fracture(biot_coefficient):
     sd = m.mdg.subdomains(dim=m.nd)
     u = (
         m.displacement(sd)
-        .evaluate(m.equation_system)
-        .val.reshape((m.nd, -1), order="F")
+        .evaluate_value(m.equation_system)
+        .reshape((m.nd, -1), order="F")
     )
-    p = m.pressure(sd).evaluate(m.equation_system).val
+    p = m.pressure(sd).evaluate_value(m.equation_system)
 
     # By symmetry (reasonable to expect from this grid), the average x displacement
     # should be zero
