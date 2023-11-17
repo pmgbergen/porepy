@@ -139,6 +139,6 @@ class VerificationUtils:
         )
 
         # Parse numerical value and return the minimum and maximum value
-        u_faces = u_faces_ad.evaluate(self.equation_system).val
+        u_faces = u_faces_ad.evaluate_value(self.equation_system)
 
         return u_faces
