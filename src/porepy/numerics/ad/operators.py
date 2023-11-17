@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import copy
+import numbers
 from enum import Enum
 from functools import reduce
 from itertools import count
-from typing import Any, Literal, Optional, Sequence, Union, overload, cast
+from typing import Any, Literal, Optional, Sequence, TypeAlias, Union, overload
 
 import matplotlib.pyplot as plt
 import networkx as nx
@@ -29,6 +30,8 @@ __all__ = [
     "MixedDimensionalVariable",
     "sum_operator_list",
 ]
+
+NumericType: TypeAlias = numbers.Real | np.ndarray | sps.spmatrix | AdArray
 
 
 def _get_shape(mat):
@@ -258,7 +261,7 @@ class Operator:
 
         return prev_time
 
-    def parse(self, mdg: pp.MixedDimensionalGrid) -> Any:
+    def parse(self, mdg: pp.MixedDimensionalGrid) -> NumericType:
         """Translate the operator into a numerical expression.
 
         Subclasses that represent atomic operators (leaves in a tree-representation of
@@ -276,7 +279,9 @@ class Operator:
         """
         raise NotImplementedError("This type of operator cannot be parsed right away")
 
-    def _parse_operator(self, op: Operator, mdg: pp.MixedDimensionalGrid):
+    def _parse_operator(
+        self, op: Operator, mdg: pp.MixedDimensionalGrid
+    ) -> NumericType:
         """TODO: Currently, there is no prioritization between the operations; for
         some reason, things just work. We may need to make an ordering in which the
         operations should be carried out. It seems that the strategy of putting on
@@ -649,19 +654,34 @@ class Operator:
 
     ### Operator parsing ---------------------------------------------------------------
 
-    def evaluate_value(self, system_manager, state) -> np.ndarray | sps.spmatrix:
+    def evaluate_value(
+        self, system_manager: pp.ad.EquationSystem, state: Optional[np.ndarray] = None
+    ) -> numbers.Real | np.ndarray | sps.spmatrix:
         return self.evaluate(system_manager, state=state, evaluate_jacobian=False)
 
-    def evaluate_value_and_jacobian(self, system_manager, state) -> AdArray:
-        return self.evaluate(system_manager, state=state, evaluate_jacobian=True)
-        # TODO: Casting to ad array
+    def evaluate_value_and_jacobian(
+        self, system_manager: pp.ad.EquationSystem, state: Optional[np.ndarray] = None
+    ) -> AdArray:
+        ad = self.evaluate(system_manager, state=state, evaluate_jacobian=True)
+        if isinstance(ad, numbers.Real):
+            return AdArray(ad, sps.csr_matrix((1, system_manager.num_dofs())))
+        elif isinstance(ad, np.ndarray) and len(ad.shape) == 1:
+            return AdArray(ad, sps.csr_matrix((ad.shape[0], system_manager.num_dofs())))
+        elif isinstance(ad, (sps.spmatrix, np.ndarray)):
+            # this case coverse both, dense and sparse matrices returned from
+            # discretizations f.e.
+            raise TypeError(
+                f"Operator of type {type(self)} has no definition of Jacobian."
+            )
+        else:
+            return ad
 
     def evaluate(
         self,
         system_manager: pp.ad.EquationSystem,
         state: Optional[np.ndarray] = None,
         evaluate_jacobian: bool = False,
-    ) -> np.ndarray | sps.spmatrix | AdArray:  # TODO ensure the operator always returns an AD array
+    ) -> NumericType:  # TODO ensure the operator always returns an AD array
         """Evaluate the residual and Jacobian matrix for a given solution.
 
         Parameters:
