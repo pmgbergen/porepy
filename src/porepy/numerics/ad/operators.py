@@ -649,126 +649,19 @@ class Operator:
 
     ### Operator parsing ---------------------------------------------------------------
 
-    def evaluate_value(
-        self,
-        system_manager: pp.ad.EquationSystem,
-        state: Optional[np.ndarray] = None,
-    ) -> np.ndarray:
-        """Evaluate the value of an operator.
+    def evaluate_value(self, system_manager, state) -> np.ndarray | sps.spmatrix:
+        return self.evaluate(system_manager, state=state, evaluate_jacobian=False)
 
-        For evaluation of value and Jacobian (AD forward mode), see :meth:`evaluate`.
-
-        Parameters:
-            system_manager: Used to represent the problem. Will be used
-                to parse the sub-operators that combine to form this operator.
-            state (optional): Global state vector from which the values should be taken.
-                If not provided, the solution will be pulled from the previous iterate
-                (if this exists), or alternatively from the solution at the previous
-                time step.
-
-        Returns:
-            The value of the operator as a numpy array.
-            Note that it must not necessarily be of the same size as ``state`` if given,
-            depending on the expression this operator represents.
-
-        """
-        # Get the mixed-dimensional grid used for the dof-manager.
-        mdg = system_manager.mdg
-
-        # Identify all variables in the Operator tree. This will include real variables,
-        # and representation of previous time steps and iterations.
-        (
-            variable_dofs,
-            variable_ids,
-            is_prev_time,
-            is_prev_iter,
-        ) = self._identify_variables(system_manager)
-
-        # Split variable dof indices and ids into groups of current variables (those
-        # of the current iteration step), and those from the previous time steps and
-        # iterations.
-        current_indices = []
-        current_ids = []
-        prev_indices = []
-        prev_ids = []
-        prev_iter_indices = []
-        prev_iter_ids = []
-        for ind, var_id, is_prev, is_prev_it in zip(
-            variable_dofs, variable_ids, is_prev_time, is_prev_iter
-        ):
-            if is_prev:
-                prev_indices.append(ind)
-                prev_ids.append(var_id)
-            elif is_prev_it:
-                prev_iter_indices.append(ind)
-                prev_iter_ids.append(var_id)
-            else:
-                current_indices.append(ind)
-                current_ids.append(var_id)
-
-        # Save information.
-        # IMPLEMENTATION NOTE: Storage in a separate data class could have
-        # been a more elegant option.
-        self._variable_dofs = current_indices
-        self._variable_ids = current_ids
-        self._prev_time_dofs = prev_indices
-        self._prev_time_ids = prev_ids
-        self._prev_iter_dofs = prev_iter_indices
-        self._prev_iter_ids = prev_iter_ids
-
-        # Parsing in two stages:
-        # 1. Slice global state vector to variable-specific vectors
-        # 2. Send the values throught the operator tree recursively
-
-        prev_vals = system_manager.get_variable_values(time_step_index=0)
-
-        if state is None:
-            state = system_manager.get_variable_values(iterate_index=0)
-
-        # Next, the global array must be split into variables of the right size
-        # Dictionary which maps from Ad variable ids to arrays.
-        # NOTE strictly speaking this it not AD, but simply a numpy array
-        # we use _ad though to use the same code infrastructure as for the full eval
-        self._ad: dict[int, np.ndarray] = {}
-
-        # Loop over all variables, restrict to an Ad array corresponding to
-        # this variable.
-        for var_id, dof in zip(self._variable_ids, self._variable_dofs):
-            ncol = state.size
-            nrow = np.unique(dof).size
-            # Restriction matrix from global array to variable-specific array
-            R = sps.coo_matrix(
-                (np.ones(nrow), (np.arange(nrow), dof)), shape=(nrow, ncol)
-            ).tocsr()
-            self._ad[var_id] = R @ state
-
-        # Also make mappings from the previous iteration.
-        # This is simpler, since it is only a matter of getting the residual vector
-        # correctly (not Jacobian matrix).
-
-        prev_iter_vals_list = [state[ind] for ind in self._prev_iter_dofs]
-        self._prev_iter_vals = {
-            var_id: val
-            for (var_id, val) in zip(self._prev_iter_ids, prev_iter_vals_list)
-        }
-
-        # Also make mappings from the previous time step.
-        prev_vals_list = [prev_vals[ind] for ind in self._prev_time_dofs]
-        self._prev_vals = {
-            var_id: val for (var_id, val) in zip(self._prev_time_ids, prev_vals_list)
-        }
-
-        # Parse operators. This is left to a separate function to facilitate the
-        # necessary recursion for complex operators.
-        eq = self._parse_operator(self, mdg)
-
-        return cast(np.ndarray, eq)
+    def evaluate_value_and_jacobian(self, system_manager, state) -> AdArray:
+        return self.evaluate(system_manager, state=state, evaluate_jacobian=True)
+        # TODO: Casting to ad array
 
     def evaluate(
         self,
         system_manager: pp.ad.EquationSystem,
         state: Optional[np.ndarray] = None,
-    ):  # TODO ensure the operator always returns an AD array
+        evaluate_jacobian: bool = False,
+    ) -> np.ndarray | sps.spmatrix | AdArray:  # TODO ensure the operator always returns an AD array
         """Evaluate the residual and Jacobian matrix for a given solution.
 
         Parameters:
@@ -849,7 +742,10 @@ class Operator:
         # this matrix.
 
         # First generate an Ad array (ready for forward Ad) for the full set.
-        ad_vars = initAdArrays([state])[0]
+        if evaluate_jacobian:
+            ad_vars = initAdArrays([state])[0]
+        else:
+            ad_vars = state
 
         # Next, the Ad array must be split into variables of the right size
         # (splitting impacts values and number of rows in the Jacobian, but
