@@ -7,7 +7,7 @@ import numbers
 from enum import Enum
 from functools import reduce
 from itertools import count
-from typing import Any, Literal, Optional, Sequence, TypeAlias, Union, overload
+from typing import Any, Literal, Optional, Sequence, Union, overload
 
 import matplotlib.pyplot as plt
 import networkx as nx
@@ -30,8 +30,6 @@ __all__ = [
     "MixedDimensionalVariable",
     "sum_operator_list",
 ]
-
-NumericType: TypeAlias = numbers.Real | np.ndarray | sps.spmatrix | AdArray
 
 
 def _get_shape(mat):
@@ -261,7 +259,7 @@ class Operator:
 
         return prev_time
 
-    def parse(self, mdg: pp.MixedDimensionalGrid) -> NumericType:
+    def parse(self, mdg: pp.MixedDimensionalGrid) -> Any:
         """Translate the operator into a numerical expression.
 
         Subclasses that represent atomic operators (leaves in a tree-representation of
@@ -281,7 +279,7 @@ class Operator:
 
     def _parse_operator(
         self, op: Operator, mdg: pp.MixedDimensionalGrid
-    ) -> NumericType:
+    ):
         """TODO: Currently, there is no prioritization between the operations; for
         some reason, things just work. We may need to make an ordering in which the
         operations should be carried out. It seems that the strategy of putting on
@@ -681,7 +679,7 @@ class Operator:
         system_manager: pp.ad.EquationSystem,
         state: Optional[np.ndarray] = None,
         evaluate_jacobian: bool = False,
-    ) -> NumericType:  # TODO ensure the operator always returns an AD array
+    ) -> numbers.Real | np.ndarray | sps.spmatrix | AdArray:  # TODO ensure the operator always returns an AD array
         """Evaluate the residual and Jacobian matrix for a given solution.
 
         Parameters:
