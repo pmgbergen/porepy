@@ -277,9 +277,7 @@ class Operator:
         """
         raise NotImplementedError("This type of operator cannot be parsed right away")
 
-    def _parse_operator(
-        self, op: Operator, mdg: pp.MixedDimensionalGrid
-    ):
+    def _parse_operator(self, op: Operator, mdg: pp.MixedDimensionalGrid):
         """TODO: Currently, there is no prioritization between the operations; for
         some reason, things just work. We may need to make an ordering in which the
         operations should be carried out. It seems that the strategy of putting on
@@ -662,8 +660,10 @@ class Operator:
     ) -> AdArray:
         ad = self.evaluate(system_manager, state=state, evaluate_jacobian=True)
         if isinstance(ad, numbers.Real):
-            return AdArray(ad, sps.csr_matrix((1, system_manager.num_dofs())))
-        elif isinstance(ad, np.ndarray) and len(ad.shape) == 1:
+            # AdArray requires 1D numpy array as value, not a scalar.
+            ad = np.array(ad).reshape(1)
+
+        if isinstance(ad, np.ndarray) and len(ad.shape) == 1:
             return AdArray(ad, sps.csr_matrix((ad.shape[0], system_manager.num_dofs())))
         elif isinstance(ad, (sps.spmatrix, np.ndarray)):
             # this case coverse both, dense and sparse matrices returned from
@@ -679,7 +679,9 @@ class Operator:
         system_manager: pp.ad.EquationSystem,
         state: Optional[np.ndarray] = None,
         evaluate_jacobian: bool = False,
-    ) -> numbers.Real | np.ndarray | sps.spmatrix | AdArray:  # TODO ensure the operator always returns an AD array
+    ) -> (
+        numbers.Real | np.ndarray | sps.spmatrix | AdArray
+    ):  # TODO ensure the operator always returns an AD array
         """Evaluate the residual and Jacobian matrix for a given solution.
 
         Parameters:
