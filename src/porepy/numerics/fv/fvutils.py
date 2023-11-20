@@ -355,6 +355,44 @@ def subproblems(
 ) -> Generator[
     tuple[pp.Grid, np.ndarray, np.ndarray, np.ndarray, np.ndarray], None, None
 ]:
+    """Split a grid into subgrids in preparation for discretization with limited memory
+    footprint.
+
+    The subgrids are constructructed by partititoning the grid; see comments in the code
+    for details, including information on overlap between subgrids.
+
+    Parameters:
+        sd: Grid to be partitioned.
+        max_memory: Maximum memory footprint allowed for the discretization.
+        peak_memory_estimate: Estimate of the peak memory footprint of the
+            discretization.
+
+    Yields:
+        Subgrids and topological information:
+
+        pp.Grid:
+            The subgrid to be discretized.
+
+        :obj:`~numpy.ndarray`:
+            Indices (in the global grid) of the faces to be discretized. This does not
+            include faces that are in the overlap, but not in the subgrid proper.
+
+        :obj:`~numpy.ndarray`:
+            Indices (in the global grid) of the cells contained in the subgrid (not
+            including the overlap).
+
+        :obj:`~numpy.ndarray`:
+            Indices (in the global grid) of all cells in the subgrid, including those
+            in the overlap. Represented as a numpy array, so that element i gives the
+            global index of the i-th cell in the subgrid.
+
+        :obj:`~numpy.ndarray`:
+            Indices (in the global grid) of all faces in the subgrid, including those
+            in the overlap. Represented as a numpy array, so that element i gives the
+            global index of the i-th face in the subgrid.
+
+    """
+
     if sd.dim == 0:
         # nothing realy to do here
         loc_faces = np.ones(sd.num_faces, dtype=bool)
@@ -363,7 +401,7 @@ def subproblems(
         loc2g_face = np.ones(sd.num_faces, dtype=bool)
         yield sd, loc_faces, loc_cells, loc2g_cells, loc2g_face
 
-    num_part: int = np.ceil(peak_memory_estimate / max_memory).astype(int)
+    num_part: int = 4  # np.ceil(peak_memory_estimate / max_memory).astype(int)
 
     if num_part == 1:
         yield sd, np.arange(sd.num_faces), np.arange(sd.num_cells), np.arange(
@@ -371,14 +409,27 @@ def subproblems(
         ), np.arange(sd.num_faces)
 
     else:
-        # Let partitioning module apply the best available method
+        # Since MPxA discretizations are based on interaction regions (cells in the dual
+        # grid), we need to construct the subgrids with an overlap: If a vertex is part
+        # of the subgrid proper, the overlap must be large enough that all cells that
+        # share this vertex are included in the discretization stencil. The overlap will
+        # mean that certain faces and cells will be discretized multiple times, it is
+        # the responsibility of the discretization to handle this.
+        #
+        # To construct the partitioning, we first define a partitioning with no overlap,
+        # identify the extra cells that should be included in the overlap, and then
+        # define the subgrid with overlap.
+
+        # Use the partition model to define a partitioning with no overlap. The function
+        # called will decide how to construct the partitioning, depending on the grid
+        # type, third-party software available etc.
         part: np.ndarray = pp.partition.partition(sd, num_part)
 
         # Cell-node relation
         cn: sps.csc_matrix = sd.cell_nodes()
 
-        # Loop over all partition regions, construct local problemsac, and transfer
-        # discretization to the entire active grid
+        # Loop over all partition regions, construct local grids, and information to map
+        # between local and global grids.
         for p in np.unique(part):
             # Cells in this partitioning
             cells_in_partition: np.ndarray = np.argwhere(part == p).ravel("F")
@@ -389,11 +440,13 @@ def subproblems(
             cells_in_partition_boolean = np.zeros(sd.num_cells, dtype=bool)
             cells_in_partition_boolean[cells_in_partition] = 1
 
+            # Nodes present in this partition
             nodes_in_partition: np.ndarray = np.squeeze(
                 np.where((cn * cells_in_partition_boolean) > 0)
             )
 
-            # Find computational stencil, based on the nodes in this partition
+            # Find computational stencil (cells and faces), based on the nodes in this
+            # partition
             loc_cells, loc_faces = pp.fvutils.cell_ind_for_partial_update(
                 sd, nodes=nodes_in_partition
             )
