@@ -144,6 +144,13 @@ class Mpsa(Discretization):
                 0 is used).
             - inverter (``str``): Optional. Inverter to apply for local problems.
                 Can take values 'numba' (default), or 'python'.
+            - partition_arguments (``dict``): Optional. Arguments to control the number
+                of subproblems used to discretize the grid. Can be either the target
+                maximal memory use (controlled by keyword 'max_memory' in
+                ``partition_arguments``), or the number of subproblems (keyword
+                'num_subproblems' in ``partition_arguments``). If none are given, the
+                default is to use 1e9 bytes of memory per subproblem. If both are given,
+                the maximal memory use is prioritized.
 
         matrix_dictionary will be updated with the following entries:
             - ``stress: sps.csc_matrix (sd.dim * sd.num_faces, sd.dim * sd.num_cells)``
@@ -176,7 +183,29 @@ class Mpsa(Discretization):
         inverter: Literal["python", "numba"] = parameter_dictionary.get(
             "inverter", "numba"
         )
-        max_memory: int = parameter_dictionary.get("max_memory", 1e9)
+
+        # Control of the number of subdomanis.
+        if "partition_arguments" in parameter_dictionary:
+            # If the user has specified partition arguments, use them.
+            part_arg = parameter_dictionary["partition_arguments"]
+            if "max_memory" in part_arg or "num_subproblems" not in part_arg:
+                # If max_memory is given, use it. If num_subproblems is not given, use
+                # default (which is max_memory = 1e9)
+                max_memory = part_arg.get("max_memory", 1e9)
+                # Explicitly set num_subproblems to None, to signal that it should not
+                # be used.
+                num_subproblems = None
+            else:  # Only num_subproblems is given
+                num_subproblems = part_arg["num_subproblems"]
+                # Explicitly set max_memory to None, to signal that it should not be
+                # used.
+                max_memory = None
+        else:
+            # No values are given, use default.
+            max_memory: int = 1e9
+            # Explicitly set num_subproblems to None, to signal that it should not be
+            # used.
+            num_subproblems = None
 
         # Whether to update an existing discretization, or construct a new one. If True,
         # either specified_cells, _faces or _nodes should also be given, or else a full
@@ -232,7 +261,12 @@ class Mpsa(Discretization):
         # Loop over all partition regions, construct local problems, and transfer
         # discretization to the entire active grid.
         for reg_i, (sub_g, faces_in_subgrid, _, l2g_cells, l2g_faces) in enumerate(
-            pp.fvutils.subproblems(active_grid, max_memory, peak_memory_estimate)
+            pp.fvutils.subproblems(
+                active_grid,
+                peak_memory_estimate,
+                max_memory=max_memory,
+                num_subproblems=num_subproblems,
+            )
         ):
             # The partitioning into subgrids is done with an overlap (see
             # fvutils.subproblems for a description). Cells and faces in the overlap
