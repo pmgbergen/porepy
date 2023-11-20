@@ -818,3 +818,113 @@ class XpfaBoundaryPressureTests:
 
         bound_p = self.boundary_pressure(p, bc_val, data)
         assert np.allclose(bound_p[bf], bc_val[bf])
+
+
+def test_split_discretization_into_subproblems(
+    discr_class: Literal[pp.Mpfa, pp.Mpsa, pp.Biot]
+):
+    """Test that the discretization matrices produced by Xpfa are the same if they
+    are split into subproblems or not.
+
+    The test is designed to be run with all three discretization classes, Mpfa, Mpsa and
+    Biot. This leads to a bit of boilerplate for the two former classes (e.g., we define
+    a FourthOrderTensor when testing Mpfa), but it is worth it, since it allows us to
+    reuse the test for all three classes.
+
+    Failure of this test indicates that the gradual discretization, by means of
+    constructing subdomains, is not working. Provided that the standard tests for
+    discretizing do not fail, a likely reason for the failure is that something has
+    changed in the extraction of subgrids, including the construction of mappings
+    between local and global grids; see the individual discretization classes for
+    details.
+
+    """
+
+    # Define keywords
+    if isinstance(discr_class, pp.Mpfa):
+        # Pick the keyword set for the flow problem, set a default for the mechanics.
+        flow_keyword = discr_class.keyword
+        mechanics_keyword = "mechanics"
+    elif isinstance(discr_class, pp.Mpsa):
+        # Pick the keyword set for the mechanics problem, set a default for the flow.
+        flow_keyword = "flow"
+        mechanics_keyword = discr_class.keyword
+    elif isinstance(discr_class, pp.Biot):
+        # Both keywords are set for Biot.
+        flow_keyword = discr_class.flow_keyword
+        mechanics_keyword = discr_class.mechanics_keyword
+
+    # Consider four different grids; this should be enough to cover all cases. The size
+    # of the grids are a bit random here, what we really want is to allow a division
+    # into subgrids that include an overlap, but also cells on each side which is not
+    # part of the overlap.
+    #
+    # Note: While it is tempting to use parametrization for this loop over grids, EK
+    # found no easy way to do that which also allows for calling this test from a
+    # shallow test wrapper which is unique to each discretization class (we could have
+    # used the same parametrization on each of the wrappers, but that would have been a
+    # bit messy).
+    grid_list = [
+        pp.CartGrid([4, 2]),
+        pp.CartGrid([4, 2, 2]),
+        pp.StructuredTriangleGrid([4, 2]),
+        pp.StructuredTetrahedralGrid([4, 2, 2]),
+    ]
+
+    # Loop over the grids, discretize twice (with different data dictionaries): Once
+    # wiht an enforced splitting into subdomains, once with no such splitting.
+    for g in grid_list:
+        g.compute_geometry()
+        nc = g.num_cells
+
+        # Give boundary conditions and tensors for both types of physics. We may only
+        # use one of them (unless Biot), but the overhead should be minimal.
+        bc_flow = pp.BoundaryCondition(g)
+        bc_mechanics = pp.BoundaryConditionVectorial(g)
+        flow_tensor = pp.SecondOrderTensor(np.ones(nc))
+        mechanics_tensor = pp.FourthOrderTensor(np.ones(nc), np.ones(nc))
+
+        # Set up a data dictionary that will split the discretization into two.
+        data_partition = {
+            pp.PARAMETERS: {
+                flow_keyword: {
+                    "bc": bc_flow,
+                    "second_order_tensor": flow_tensor,
+                    "partition_arguments": {"num_subproblems": 2},
+                },
+                mechanics_keyword: {
+                    "bc": bc_mechanics,
+                    "fourth_order_tensor": mechanics_tensor,
+                    "partition_arguments": {"num_subproblems": 2},
+                },
+            },
+            pp.DISCRETIZATION_MATRICES: {flow_keyword: {}, mechanics_keyword: {}},
+        }
+        # Discretize
+        discr_class.discretize(g, data_partition)
+
+        # Set up a data dictionary that will not split the discretization into two.
+        data_no_partition = {
+            pp.PARAMETERS: {
+                flow_keyword: {"bc": bc_flow, "second_order_tensor": flow_tensor},
+                mechanics_keyword: {
+                    "bc": bc_mechanics,
+                    "fourth_order_tensor": mechanics_tensor,
+                },
+            },
+            pp.DISCRETIZATION_MATRICES: {flow_keyword: {}, mechanics_keyword: {}},
+        }
+        # Discretize
+        discr_class.discretize(g, data_no_partition)
+
+        # Compare the discretization matrices. We should have the same matrices for both
+        # types of physics, and for all individual matrices.
+        for key in [flow_keyword, mechanics_keyword]:
+            for mat_key in data_partition[pp.DISCRETIZATION_MATRICES][key]:
+                assert np.allclose(
+                    (
+                        data_partition[pp.DISCRETIZATION_MATRICES][key][mat_key]
+                        - data_no_partition[pp.DISCRETIZATION_MATRICES][key][mat_key]
+                    ).A,
+                    0,
+                )
