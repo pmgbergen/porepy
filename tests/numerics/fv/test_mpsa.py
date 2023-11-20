@@ -405,6 +405,17 @@ class TestMpsaExactReproduction:
                 assert np.all(np.sum(traction_2d[:, fid] * sgn, axis=1) < 1e-10)
 
 
+def test_split_discretization_into_parts():
+    """Test that the discretization matrices are correct if the domain is split into
+    subdomains.
+
+    This test is just a shallow wrapper around the common test function for the XPFA
+    discretization.
+    """
+    discr = pp.Mpsa("mechanics")
+    xpfa_tests.test_split_discretization_into_subproblems(discr)
+
+
 class TestUpdateMpsaDiscretization(TestMpsaExactReproduction):
     """
     Class for testing updating the discretization, including the reconstruction
