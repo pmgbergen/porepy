@@ -211,8 +211,17 @@ class Mpsa(Discretization):
         nf = active_grid.num_faces
         nc = active_grid.num_cells
 
+        # To limit the memory need of discretization, we will split the discretization
+        # into sub-problems, discretize these separately, and glue together the results.
+        # This procedure requires some bookkeeping, in particular to keep track of how
+        # many times a face has been discretized (faces may be shared between subgrids,
+        # thus discretized multiple times).
+        faces_in_subgrid_accum = []
+        # Find an estimate of the peak memory need. This is used to decide how many
+        # subproblems to split the discretization into.
+        peak_memory_estimate = self._estimate_peak_memory_mpsa(active_grid)
         # Empty matrices for stress, bound_stress and boundary displacement
-        # reconstruction. Will be expanded as we go.
+        # reconstruction. These will be expanded as we go.
         # Implementation note: It should be relatively straightforward to estimate the
         # memory need of stress (face_nodes -> node_cells -> unique).
         active_stress = sps.csr_matrix((nf * nd, nc * nd))
@@ -220,14 +229,30 @@ class Mpsa(Discretization):
         active_bound_displacement_cell = sps.csr_matrix((nf * nd, nc * nd))
         active_bound_displacement_face = sps.csr_matrix((nf * nd, nf * nd))
 
-        # Find an estimate of the peak memory need
-        peak_memory_estimate = self._estimate_peak_memory_mpsa(active_grid)
-
         # Loop over all partition regions, construct local problems, and transfer
         # discretization to the entire active grid.
         for reg_i, (sub_g, faces_in_subgrid, _, l2g_cells, l2g_faces) in enumerate(
             pp.fvutils.subproblems(active_grid, max_memory, peak_memory_estimate)
         ):
+            # The partitioning into subgrids is done with an overlap (see
+            # fvutils.subproblems for a description). Cells and faces in the overlap
+            # will have a wrong discretization in one of two ways: Those faces that are
+            # strictly in the overlap should not be included in the current
+            # sub-discretization (their will be in the interior of a different
+            # subdomain). This contribution will be deleted locally, below. Faces that
+            # are on the boundary between two subgrids will be discretized twice. This
+            # will be handled by dividing the discretization by two. We cannot know
+            # which faces are on the boundary (or perhaps we could, but that would
+            # require more advanced bookkeeping), so we count the number of times a face
+            # has been discretized, and divide by that number at the end (after having
+            # iterated over all subdomains).
+            #
+            # Take note of which faces are discretized in this subgrid. Note that this
+            # needs to use faces_in_subgrid, not l2g_faces, since the latter contains
+            # faces in the overlap.
+            faces_in_subgrid_accum.append(faces_in_subgrid)
+
+            # Start timer for subproblem
             tic = time()
 
             # Copy stiffness tensor, and restrict to local cells.
@@ -285,6 +310,23 @@ class Mpsa(Discretization):
             )
             logger.info(f"Done with subproblem {reg_i}. Elapsed time {time() - tic}")
 
+        # Divide by the number of times a face has been discretized. This is necessary
+        # to avoid double counting of faces on the boundary between subproblems. Note
+        # that this is done before mapping from the active to the full grid, since the
+        # subgrids (thus face map) was computed on the active grid..
+        num_face_repetitions = np.tile(
+            np.bincount(np.concatenate(faces_in_subgrid_accum)), (nd, 1)
+        ).ravel("F")
+        scaling = sps.dia_matrix(
+            (1.0 / num_face_repetitions, 0),
+            shape=(nf * nd, nf * nd),
+        )
+        # All the discretization matrices must be updated.
+        active_stress = scaling @ active_stress
+        active_bound_stress = scaling @ active_bound_stress
+        active_bound_displacement_cell = scaling @ active_bound_displacement_cell
+        active_bound_displacement_face = scaling @ active_bound_displacement_face
+
         # We have reached the end of the discretization, what remains is to map the
         # discretization back from the active grid to the entire grid
         face_map, cell_map = pp.fvutils.map_subgrid_to_grid(
@@ -301,6 +343,7 @@ class Mpsa(Discretization):
             face_map * active_bound_displacement_face * face_map.transpose()
         )
 
+        # Eliminate contribution from faces that were not designated as active.
         eliminate_faces = np.setdiff1d(np.arange(sd.num_faces), active_faces)
         pp.fvutils.remove_nonlocal_contribution(
             eliminate_faces,
