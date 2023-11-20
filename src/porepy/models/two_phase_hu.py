@@ -1224,6 +1224,7 @@ class SolutionStrategyPressureMass(pp.SolutionStrategy):
         self.create_variables()
 
         self.initial_condition()
+        self.compute_mass()
 
         self.reset_state_from_file()
         self.set_equations()
@@ -1243,6 +1244,7 @@ class SolutionStrategyPressureMass(pp.SolutionStrategy):
     def clean_working_directory(self):
         """ """
         os.system("rm " + self.output_file_name)
+        os.system("rm " + self.mass_output_file_name)
 
     def set_equation_system_manager(self) -> None:
         """ """
@@ -1672,9 +1674,32 @@ class SolutionStrategyPressureMass(pp.SolutionStrategy):
 
             np.savetxt(f, info.reshape(1, -1), delimiter=",")
 
-    def eb_after_timestep(self):
+    def compute_mass(self):
         """ """
-        pass
+        subdomains = self.mdg.subdomains()
+        saturation_phase_0 = self.mixture.get_phase(0).saturation_operator(subdomains)
+        volumes = self.specific_volume(subdomains) * self.wrap_grid_attribute(
+            subdomains, "cell_volumes", dim=1
+        )
+        density_phase_0 = self.mixture.get_phase(0).mass_density_operator(
+            subdomains, self.pressure
+        )
+        phi = self.porosity(subdomains)
+
+        mass_cells = volumes * phi * saturation_phase_0 * density_phase_0
+        mass_cells_phase_0 = mass_cells.evaluate(self.equation_system).val
+
+        mass_tot_phase_0 = np.sum(mass_cells_phase_0)
+
+        with open(self.mass_output_file_name, "a") as f:
+            info = np.array([self.time_manager.time, mass_tot_phase_0])
+
+            np.savetxt(f, info.reshape(1, -1), delimiter=",")
+
+    def eb_after_timestep(self):
+        """used for plots, tests, and more"""
+
+        self.compute_mass()
 
 
 class MyModelGeometry(pp.ModelGeometry):
@@ -1731,7 +1756,7 @@ class MyModelGeometry(pp.ModelGeometry):
         frac5 = pp.LineFracture(np.array([[0.0, 0.8], [0.1, 0.3]]))
 
         # frac1 = pp.PlaneFracture(np.array([[0.2, 0.7, 0.7, 0.2],[0.2, 0.2, 0.8, 0.8],[0.5, 0.5, 0.5, 0.5]]))
-        self._fractures: list = [frac1, frac2, frac3, frac4, frac5]
+        self._fractures: list = [] #frac1, frac2, frac3, frac4, frac5]
 
     def meshing_arguments(self) -> dict[str, float]:
         """ """
@@ -1891,6 +1916,7 @@ if __name__ == "__main__":
             )
 
             self.output_file_name = "./OUTPUT_NEWTON_INFO"
+            self.mass_output_file_name = "./MASS_OVER_TIME"
 
     model = FinalModel(params)
 
