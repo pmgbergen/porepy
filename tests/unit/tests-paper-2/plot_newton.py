@@ -71,9 +71,9 @@ plt.rcParams.update(params)
 matplotlib.rcParams["axes.linewidth"] = 1.5
 
 fig, ax_1 = plt.subplots()
+
 for label in ax_1.get_xticklabels() + ax_1.get_yticklabels():
     label.set_fontsize(fontsize)
-
 
 ax_1.plot(
     time_ppu,

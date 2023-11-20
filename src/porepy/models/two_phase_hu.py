@@ -29,6 +29,9 @@ def myprint(var):
 - TODO: fix the time, the current time is updated with initial timestep instead of current dt
 
 - TODO soon: there is something wrong with the scaling, Ka_0 shouldnt affects the results.
+
+NOTE:
+- two strategies are implemented to ensure S in [0,1]: cplipping and timestep chopping
 """
 
 
@@ -1756,7 +1759,7 @@ class MyModelGeometry(pp.ModelGeometry):
         frac5 = pp.LineFracture(np.array([[0.0, 0.8], [0.1, 0.3]]))
 
         # frac1 = pp.PlaneFracture(np.array([[0.2, 0.7, 0.7, 0.2],[0.2, 0.2, 0.8, 0.8],[0.5, 0.5, 0.5, 0.5]]))
-        self._fractures: list = [] #frac1, frac2, frac3, frac4, frac5]
+        self._fractures: list = []  # frac1, frac2, frac3, frac4, frac5]
 
     def meshing_arguments(self) -> dict[str, float]:
         """ """
@@ -1779,38 +1782,40 @@ class PartialFinalModel(
     """ """
 
 
-# scaling:
-# very bad logic, improve it...
-L_0 = 1
-gravity_0 = 1
-dynamic_viscosity_0 = 1
-rho_0 = 1  # |rho_phase_0-rho_phase_1|
-p_0 = 1
-Ka_0 = 1
-u_0 = Ka_0 * p_0 / (dynamic_viscosity_0 * L_0)
-t_0 = L_0 / u_0
+if __name__ == "__main__":
+    # scaling:
+    # very bad logic, improve it...
+    L_0 = 1
+    gravity_0 = 1
+    dynamic_viscosity_0 = 1
+    rho_0 = 1  # |rho_phase_0-rho_phase_1|
+    p_0 = 1
+    Ka_0 = 1
+    u_0 = Ka_0 * p_0 / (dynamic_viscosity_0 * L_0)
+    t_0 = L_0 / u_0
 
-gravity_number = Ka_0 * rho_0 * gravity_0 / (dynamic_viscosity_0 * u_0)
+    gravity_number = Ka_0 * rho_0 * gravity_0 / (dynamic_viscosity_0 * u_0)
 
-print("\nSCALING: ======================================")
-print("u_0 = ", u_0)
-print("t_0 = ", u_0)
-print("gravity_number = ", gravity_number)
-print("pay attention: gravity number is not influenced by Ka_0 and dynamic_viscosity_0")
-print("=========================================\n")
+    print("\nSCALING: ======================================")
+    print("u_0 = ", u_0)
+    print("t_0 = ", u_0)
+    print("gravity_number = ", gravity_number)
+    print(
+        "pay attention: gravity number is not influenced by Ka_0 and dynamic_viscosity_0"
+    )
+    print("=========================================\n")
 
+    fluid_constants = pp.FluidConstants({})
+    solid_constants = pp.SolidConstants(
+        {
+            "porosity": 0.25,
+            "intrinsic_permeability": 1 / Ka_0,
+            "normal_permeability": 0.1 / Ka_0,  # this does NOT include the aperture
+            "residual_aperture": 0.1 / Ka_0,
+        }
+    )
 
-fluid_constants = pp.FluidConstants({})
-solid_constants = pp.SolidConstants(
-    {
-        "porosity": 0.25,
-        "intrinsic_permeability": 1 / Ka_0,
-        "normal_permeability": 0.1 / Ka_0,  # this does NOT include the aperture
-        "residual_aperture": 0.1 / Ka_0,
-    }
-)
-
-material_constants = {"fluid": fluid_constants, "solid": solid_constants}
+    material_constants = {"fluid": fluid_constants, "solid": solid_constants}
 
 
 class TimeManagerPP(pp.TimeManager):
@@ -1855,30 +1860,31 @@ class TimeManagerPP(pp.TimeManager):
         self.time -= self.dt
 
 
-time_manager = TimeManagerPP(
-    schedule=np.array([0, 50]) / t_0,
-    dt_init=1e0 / t_0,
-    dt_min_max=np.array([1e-5, 1e0]) / t_0,
-    constant_dt=False,
-    iter_max=20,
-    print_info=True,
-)
+if __name__ == "__main__":
+    time_manager = TimeManagerPP(
+        schedule=np.array([0, 50]) / t_0,
+        dt_init=1e0 / t_0,
+        dt_min_max=np.array([1e-5, 1e0]) / t_0,
+        constant_dt=False,
+        iter_max=20,
+        print_info=True,
+    )
 
-params = {
-    "material_constants": material_constants,
-    "max_iterations": 10,
-    "nl_convergence_tol": 1e-6,
-    "nl_divergence_tol": 1e5,
-    "time_manager": time_manager,
-}
+    params = {
+        "material_constants": material_constants,
+        "max_iterations": 10,
+        "nl_convergence_tol": 1e-6,
+        "nl_divergence_tol": 1e5,
+        "time_manager": time_manager,
+    }
 
-wetting_phase = pp.composite.phase.Phase(
-    rho0=1 / rho_0, p0=p_0, beta=1e-10
-)  # TODO: improve that p0, different menaing wrt rho0
-non_wetting_phase = pp.composite.phase.Phase(rho0=0.5 / rho_0, p0=p_0, beta=1e-10)
+    wetting_phase = pp.composite.phase.Phase(
+        rho0=1 / rho_0, p0=p_0, beta=1e-10
+    )  # TODO: improve that p0, different menaing wrt rho0
+    non_wetting_phase = pp.composite.phase.Phase(rho0=0.5 / rho_0, p0=p_0, beta=1e-10)
 
-mixture = pp.Mixture()
-mixture.add([wetting_phase, non_wetting_phase])
+    mixture = pp.Mixture()
+    mixture.add([wetting_phase, non_wetting_phase])
 
 if __name__ == "__main__":
 
