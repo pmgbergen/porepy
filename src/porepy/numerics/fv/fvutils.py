@@ -351,7 +351,10 @@ def find_active_indices(
 
 
 def subproblems(
-    sd: pp.Grid, max_memory: int, peak_memory_estimate: int
+    sd: pp.Grid,
+    peak_memory_estimate: int,
+    max_memory: Optional[int] = None,
+    num_subproblems: Optional[int] = None,
 ) -> Generator[
     tuple[pp.Grid, np.ndarray, np.ndarray, np.ndarray, np.ndarray], None, None
 ]:
@@ -363,9 +366,16 @@ def subproblems(
 
     Parameters:
         sd: Grid to be partitioned.
-        max_memory: Maximum memory footprint allowed for the discretization.
         peak_memory_estimate: Estimate of the peak memory footprint of the
             discretization.
+        max_memory: Maximum memory footprint allowed for the discretization.
+        num_subproblems: Number of subproblems to construct.
+
+        At least one of max_memory and num_subproblems must be given. If both are given,
+        max_memory will be used.
+
+    Raises:
+        ValueError: If neither max_memory nor num_subproblems are given.
 
     Yields:
         Subgrids and topological information:
@@ -401,7 +411,12 @@ def subproblems(
         loc2g_face = np.ones(sd.num_faces, dtype=bool)
         yield sd, loc_faces, loc_cells, loc2g_cells, loc2g_face
 
-    num_part: int = 4  # np.ceil(peak_memory_estimate / max_memory).astype(int)
+    if max_memory is not None:
+        num_part: int = np.ceil(peak_memory_estimate / max_memory).astype(int)
+    elif num_subproblems is not None:
+        num_part = num_subproblems
+    else:
+        raise ValueError("Either max_memory or num_subproblems must be given")
 
     if num_part == 1:
         yield sd, np.arange(sd.num_faces), np.arange(sd.num_cells), np.arange(
