@@ -185,27 +185,9 @@ class Mpsa(Discretization):
         )
 
         # Control of the number of subdomanis.
-        if "partition_arguments" in parameter_dictionary:
-            # If the user has specified partition arguments, use them.
-            part_arg = parameter_dictionary["partition_arguments"]
-            if "max_memory" in part_arg or "num_subproblems" not in part_arg:
-                # If max_memory is given, use it. If num_subproblems is not given, use
-                # default (which is max_memory = 1e9)
-                max_memory = part_arg.get("max_memory", 1e9)
-                # Explicitly set num_subproblems to None, to signal that it should not
-                # be used.
-                num_subproblems = None
-            else:  # Only num_subproblems is given
-                num_subproblems = part_arg["num_subproblems"]
-                # Explicitly set max_memory to None, to signal that it should not be
-                # used.
-                max_memory = None
-        else:
-            # No values are given, use default.
-            max_memory: int = 1e9
-            # Explicitly set num_subproblems to None, to signal that it should not be
-            # used.
-            num_subproblems = None
+        max_memory, num_subproblems = pp.fvutils.parse_partition_arguments(
+            parameter_dictionary.get("partition_arguments", {})
+        )
 
         # Whether to update an existing discretization, or construct a new one. If True,
         # either specified_cells, _faces or _nodes should also be given, or else a full
@@ -347,7 +329,7 @@ class Mpsa(Discretization):
         # Divide by the number of times a face has been discretized. This is necessary
         # to avoid double counting of faces on the boundary between subproblems. Note
         # that this is done before mapping from the active to the full grid, since the
-        # subgrids (thus face map) was computed on the active grid..
+        # subgrids (thus face map) was computed on the active grid.
         num_face_repetitions = np.tile(
             np.bincount(np.concatenate(faces_in_subgrid_accum)), (nd, 1)
         ).ravel("F")

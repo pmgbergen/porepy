@@ -350,6 +350,61 @@ def find_active_indices(
     return active_cells, active_faces
 
 
+def parse_partition_arguments(
+    partition_arguments: Optional[dict[str, float]] = None
+) -> tuple[float | None, float | None]:
+    """Parse arguments related to the splitting of discretization into subproblems.
+
+    Parameters:
+        parameter_dictionary (dict): Parameters, potentially containing fields
+            "max_memory" and "num_subproblems".
+
+    Returns:
+        Values to be used in the partitioning of the grid. One of the values will be
+        numerical, the other will be None; it is up to the calling method to use the
+        former to define a partitioning.
+
+
+        float | None: Maximum memory footprint allowed for the discretization. If
+            ``partition_arguments`` has a key ``max_memory``, this value will be
+            returned. If ``partition_arguments`` is ``None``, the default value of 1e9
+            will be returned. If ``partition_arguments`` does not have a key
+            ``max_memory``, but has a key ``num_subproblems``, the value will be set to
+            ``None``.
+
+        float | None: The number of subproblems to construct. If ``partition_arguments``
+            has a key ``num_subproblems``, but no key ``max_memory``, the value will be
+            returned. In all other cases, the value will be set to ``None``.
+
+    """
+
+    # Control of the number of subdomanis.
+    if partition_arguments is not None:
+        if (
+            "max_memory" in partition_arguments
+            or "num_subproblems" not in partition_arguments
+        ):
+            # If max_memory is given, use it. If num_subproblems is not given, use
+            # default (which is max_memory = 1e9)
+            max_memory = partition_arguments.get("max_memory", 1e9)
+            # Explicitly set num_subproblems to None, to signal that it should not
+            # be used.
+            num_subproblems = None
+        else:  # Only num_subproblems is given
+            num_subproblems = partition_arguments["num_subproblems"]
+            # Explicitly set max_memory to None, to signal that it should not be
+            # used.
+            max_memory = None
+    else:
+        # No values are given, use default.
+        max_memory: int = 1e9
+        # Explicitly set num_subproblems to None, to signal that it should not be
+        # used.
+        num_subproblems = None
+
+    return max_memory, num_subproblems
+
+
 def subproblems(
     sd: pp.Grid,
     peak_memory_estimate: int,
