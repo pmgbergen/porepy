@@ -1220,3 +1220,17 @@ class TestRobinBoundaryCondition:
         bnd_ind = np.hstack((dir_ind, rob_ind))
         bnd = pp.BoundaryCondition(g, bnd_ind, names)
         return bnd
+
+
+def test_split_discretization_into_parts():
+    """Test that the discretization matrices are correct if the domain is split into
+    subdomains.
+
+    This test is just a shallow wrapper around the common test function for the XPFA
+    discretization.
+    """
+    discr = pp.Mpfa("flow")
+    xpfa_tests.test_split_discretization_into_subproblems(discr)
+
+
+test_split_discretization_into_parts()
