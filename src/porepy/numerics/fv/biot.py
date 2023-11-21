@@ -318,8 +318,8 @@ class Biot(pp.Mpsa):
         these, see self.assemble_matrix()
 
         Parameters:
-            sd: Grid to be discretized. sd_data: Containing data for discretization. See
-                above for specification.
+            sd: Grid to be discretized.
+            sd_data: Containing data for discretization. See above for specification.
 
         """
         parameter_dictionary: dict[str, Any] = sd_data[pp.PARAMETERS][
