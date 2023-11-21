@@ -31,4 +31,4 @@ For the more experienced user, some more specific tutorials are also available:
 13. [Benchmark simulation](./benchmark_simulation.ipynb) defines a problem from [this benchmark study](https://doi.org/10.1016/j.advwatres.2017.10.036) and also illustrates some ways of modifying a simulation model.
 14. [Mandel's problem](./mandels_problem.ipynb) shows how to set up and run the Mandel's consolidation problem based on the Biot equations of poroelasticity. 
 15. [Flux discretizations](./flux_discretizations.ipynb) shows different discretization methods available for diffusive fluxes. These are used for Darcy's law for fluid fluxes in a mass balance equation. 
-16. [Stress discretization](./stress_discretization.ipynb) describes the discretization method used for the vector version of tutorial #14, which arises in the linear elastisity equations.
+16. [Stress discretization](./stress_discretization.ipynb) describes the discretization method used for the vector version of tutorial #15, which arises in the linear elastisity equations.
