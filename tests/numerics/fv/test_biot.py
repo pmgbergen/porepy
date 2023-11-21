@@ -6,6 +6,7 @@ import porepy as pp
 from porepy.applications.test_utils.partial_discretization import (
     perform_partial_discretization_specified_nodes,
 )
+from porepy.applications.test_utils import common_xpfa_tests as xpfa_tests
 
 
 @pytest.fixture
@@ -152,3 +153,15 @@ def test_partial_discretization_specified_nodes(
         # zero and check that the rest is zero.
         pp.fvutils.remove_nonlocal_contribution(active_cells, 1, partial)
         assert np.allclose(partial.data, 0)
+
+
+def test_split_discretization_into_parts():
+    """Test that the discretization matrices are correct if the domain is split into
+    subdomains.
+
+    This test is just a shallow wrapper around the common test function for the XPFA
+    discretization.
+    """
+    # Keywords for flow and mechanics is automatically set in Biot
+    discr = pp.Biot(mechanics_keyword="mechanics", flow_keyword="flow")
+    xpfa_tests.test_split_discretization_into_subproblems(discr)
