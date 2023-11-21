@@ -351,8 +351,8 @@ def find_active_indices(
 
 
 def parse_partition_arguments(
-    partition_arguments: Optional[dict[str, float]] = None
-) -> tuple[float | None, float | None]:
+    partition_arguments: Optional[dict[str, int]] = None
+) -> tuple[int | None, int | None]:
     """Parse arguments related to the splitting of discretization into subproblems.
 
     Parameters:
@@ -365,14 +365,14 @@ def parse_partition_arguments(
         former to define a partitioning.
 
 
-        float | None: Maximum memory footprint allowed for the discretization. If
+        int | None: Maximum memory footprint allowed for the discretization. If
             ``partition_arguments`` has a key ``max_memory``, this value will be
             returned. If ``partition_arguments`` is ``None``, the default value of 1e9
             will be returned. If ``partition_arguments`` does not have a key
             ``max_memory``, but has a key ``num_subproblems``, the value will be set to
             ``None``.
 
-        float | None: The number of subproblems to construct. If ``partition_arguments``
+        int | None: The number of subproblems to construct. If ``partition_arguments``
             has a key ``num_subproblems``, but no key ``max_memory``, the value will be
             returned. In all other cases, the value will be set to ``None``.
 
@@ -385,8 +385,9 @@ def parse_partition_arguments(
             or "num_subproblems" not in partition_arguments
         ):
             # If max_memory is given, use it. If num_subproblems is not given, use
-            # default (which is max_memory = 1e9)
-            max_memory = partition_arguments.get("max_memory", 1e9)
+            # default (which is max_memory = 1e9). Cast to int to avoid problems with
+            # mypy.
+            max_memory = int(partition_arguments.get("max_memory", 1e9))
             # Explicitly set num_subproblems to None, to signal that it should not
             # be used.
             num_subproblems = None
@@ -396,8 +397,8 @@ def parse_partition_arguments(
             # used.
             max_memory = None
     else:
-        # No values are given, use default.
-        max_memory: int = 1e9
+        # No values are given, use default. Cast to int to avoid problems with mypy.
+        max_memory = int(1e9)
         # Explicitly set num_subproblems to None, to signal that it should not be
         # used.
         num_subproblems = None
