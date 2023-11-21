@@ -162,6 +162,5 @@ def test_split_discretization_into_parts():
     This test is just a shallow wrapper around the common test function for the XPFA
     discretization.
     """
-    # Keywords for flow and mechanics is automatically set in Biot
     discr = pp.Biot(mechanics_keyword="mechanics", flow_keyword="flow")
     xpfa_tests.test_split_discretization_into_subproblems(discr)
