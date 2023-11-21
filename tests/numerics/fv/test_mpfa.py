@@ -1231,6 +1231,3 @@ def test_split_discretization_into_parts():
     """
     discr = pp.Mpfa("flow")
     xpfa_tests.test_split_discretization_into_subproblems(discr)
-
-
-test_split_discretization_into_parts()
