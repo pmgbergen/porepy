@@ -4,7 +4,7 @@ Some simple for getting grid, permeability, bc object etc.
 Then more specific functions related to specific tests defined both here and for mpfa.
 
 """
-from typing import Literal
+from typing import Literal, Union
 
 import numpy as np
 import scipy.sparse.linalg as spla
@@ -821,7 +821,7 @@ class XpfaBoundaryPressureTests:
 
 
 def test_split_discretization_into_subproblems(
-    discr_class: Literal[pp.Mpfa, pp.Mpsa, pp.Biot]
+    discr_class: Union[pp.Mpfa, pp.Mpsa, pp.Biot]
 ):
     """Test that the discretization matrices produced by Xpfa are the same if they
     are split into subproblems or not.
@@ -866,10 +866,10 @@ def test_split_discretization_into_subproblems(
     # used the same parametrization on each of the wrappers, but that would have been a
     # bit messy).
     grid_list = [
-        pp.CartGrid([4, 2]),
-        pp.CartGrid([4, 2, 2]),
-        pp.StructuredTriangleGrid([4, 2]),
-        pp.StructuredTetrahedralGrid([4, 2, 2]),
+        pp.CartGrid(np.array([4, 2])),
+        pp.CartGrid(np.array([4, 2, 2])),
+        pp.StructuredTriangleGrid(np.array([4, 2])),
+        pp.StructuredTetrahedralGrid(np.array([4, 2, 2])),
     ]
 
     # Loop over the grids, discretize twice (with different data dictionaries): Once
@@ -919,11 +919,17 @@ def test_split_discretization_into_subproblems(
         # Compare the discretization matrices. We should have the same matrices for both
         # types of physics, and for all individual matrices.
         for key in [flow_keyword, mechanics_keyword]:
-            for mat_key in data_partition[pp.DISCRETIZATION_MATRICES][key]:
+            for mat_key in data_partition[pp.DISCRETIZATION_MATRICES][
+                key
+            ]:  # type: ignore[index]
                 assert np.allclose(
                     (
-                        data_partition[pp.DISCRETIZATION_MATRICES][key][mat_key]
-                        - data_no_partition[pp.DISCRETIZATION_MATRICES][key][mat_key]
+                        data_partition[pp.DISCRETIZATION_MATRICES][
+                            key  # type: ignore[index]
+                        ][mat_key]
+                        - data_no_partition[pp.DISCRETIZATION_MATRICES][
+                            key  # type: ignore[index]
+                        ][mat_key]
                     ).A,
                     0,
                 )
