@@ -659,6 +659,8 @@ class Operator:
         self, system_manager: pp.ad.EquationSystem, state: Optional[np.ndarray] = None
     ) -> AdArray:
         ad = self.evaluate(system_manager, state=state, evaluate_jacobian=True)
+
+        # Casting the result to AdArray or raising an error.
         if isinstance(ad, numbers.Real):
             # AdArray requires 1D numpy array as value, not a scalar.
             ad = np.array(ad).reshape(1)
@@ -681,7 +683,7 @@ class Operator:
         evaluate_jacobian: bool = False,
     ) -> (
         numbers.Real | np.ndarray | sps.spmatrix | AdArray
-    ):  # TODO ensure the operator always returns an AD array
+    ):
         """Evaluate the residual and Jacobian matrix for a given solution.
 
         Parameters:

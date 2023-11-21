@@ -1446,8 +1446,7 @@ class ThermalConductivityLTE:
         # Since thermal conductivity is used as a discretization parameter, it has to be
         # evaluated before the discretization matrices are computed.
         try:
-            phi.evaluate_value_and_jacobian(self.equation_system)
-            assert False  # TODO check if above change is okay
+            phi.evaluate_value(self.equation_system)
         except KeyError:
             # We assume this means that the porosity includes a discretization matrix
             # for div_u which has not yet been computed.
