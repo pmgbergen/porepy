@@ -118,25 +118,33 @@ def test_copy_operator_tree():
 
     # In their initial state, all operators should have the same values
     assert np.allclose(c.evaluate_value(eq_system), c_copy.evaluate_value(eq_system))
-    assert np.allclose(c.evaluate_value(eq_system), c_deepcopy.evaluate_value(eq_system))
+    assert np.allclose(
+        c.evaluate_value(eq_system), c_deepcopy.evaluate_value(eq_system)
+    )
 
     # Increase the value of the scalar. This should have no effect, since the scalar
     # wrapps an immutable, see comment in pp.ad.Scalar
     a_val += 1
     assert np.allclose(c.evaluate_value(eq_system), c_copy.evaluate_value(eq_system))
-    assert np.allclose(c.evaluate_value(eq_system), c_deepcopy.evaluate_value(eq_system))
+    assert np.allclose(
+        c.evaluate_value(eq_system), c_deepcopy.evaluate_value(eq_system)
+    )
 
     # Increase the value of the Scalar. This will be seen by the copy, but not the
     # deepcopy.
     a._value += 1
     assert np.allclose(c.evaluate_value(eq_system), c_copy.evaluate_value(eq_system))
-    assert not np.allclose(c.evaluate_value(eq_system), c_deepcopy.evaluate_value(eq_system))
+    assert not np.allclose(
+        c.evaluate_value(eq_system), c_deepcopy.evaluate_value(eq_system)
+    )
 
     # Next increase the values in the array. This changes the shallow copy, but not the
     # deep one.
     b_arr += 1
     assert np.allclose(c.evaluate_value(eq_system), c_copy.evaluate_value(eq_system))
-    assert not np.allclose(c.evaluate_value(eq_system), c_deepcopy.evaluate_value(eq_system))
+    assert not np.allclose(
+        c.evaluate_value(eq_system), c_deepcopy.evaluate_value(eq_system)
+    )
 
 
 ## Test of pp.ad.SparseArray, pp.ad.DenseArray, pp.ad.Scalar
@@ -616,7 +624,9 @@ def test_ad_variable_evaluation():
 
     # Also check that state values given to the ad parser are ignored for previous
     # values
-    assert np.allclose(prev_evaluated, prev_var_ad.evaluate_value(eq_system, double_iterate))
+    assert np.allclose(
+        prev_evaluated, prev_var_ad.evaluate_value(eq_system, double_iterate)
+    )
 
     ## Next, test edge variables. This should be much the same as the grid variables,
     # so the testing is less thorough.
@@ -649,7 +659,9 @@ def test_ad_variable_evaluation():
     assert np.allclose(true_iterate[ind2], v2.evaluate_value(eq_system, true_iterate))
 
     v1_prev = v1.previous_timestep()
-    assert np.allclose(true_state[ind1], v1_prev.evaluate_value(eq_system, true_iterate))
+    assert np.allclose(
+        true_state[ind1], v1_prev.evaluate_value(eq_system, true_iterate)
+    )
 
 
 @pytest.mark.parametrize(
@@ -1883,7 +1895,14 @@ def test_arithmetic_operations_on_ad_objects(
     if wrapped:
         try:
             expression = eval(f"v1 {op} v2")
-            val = expression.evaluate_value_and_jacobian(eq_system)
+
+            # The expected value is of a numeric type if no AdArrays are included in the
+            # expression, otherwise AdArray. `evaluate_value_and_jacobian` always
+            # returns an AdArray, whereas `evaluate_value` returns a numeric type.
+            if var_1 == "ad" or var_2 == "ad":
+                val = expression.evaluate_value_and_jacobian(eq_system)
+            else:
+                val = expression.evaluate_value(eq_system)
         except (TypeError, ValueError, NotImplementedError):
             assert not expected
             return
