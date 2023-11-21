@@ -845,14 +845,15 @@ def test_split_discretization_into_subproblems(
         # Pick the keyword set for the flow problem, set a default for the mechanics.
         flow_keyword = discr_class.keyword
         mechanics_keyword = "mechanics"
+    elif isinstance(discr_class, pp.Biot):
+        # Both keywords are set for Biot. We need to deal with this before the Mpsa
+        # case, since Biot is a subclass of Mpsa.
+        flow_keyword = discr_class.flow_keyword
+        mechanics_keyword = discr_class.mechanics_keyword
     elif isinstance(discr_class, pp.Mpsa):
         # Pick the keyword set for the mechanics problem, set a default for the flow.
         flow_keyword = "flow"
         mechanics_keyword = discr_class.keyword
-    elif isinstance(discr_class, pp.Biot):
-        # Both keywords are set for Biot.
-        flow_keyword = discr_class.flow_keyword
-        mechanics_keyword = discr_class.mechanics_keyword
 
     # Consider four different grids; this should be enough to cover all cases. The size
     # of the grids are a bit random here, what we really want is to allow a division
@@ -877,26 +878,27 @@ def test_split_discretization_into_subproblems(
         g.compute_geometry()
         nc = g.num_cells
 
-        # Give boundary conditions and tensors for both types of physics. We may only
-        # use one of them (unless Biot), but the overhead should be minimal.
-        bc_flow = pp.BoundaryCondition(g)
-        bc_mechanics = pp.BoundaryConditionVectorial(g)
-        flow_tensor = pp.SecondOrderTensor(np.ones(nc))
-        mechanics_tensor = pp.FourthOrderTensor(np.ones(nc), np.ones(nc))
+        # Parameter dictionaries for the two types of physics, can be common for both
+        # the partitioned and non-partitioned schemes. Give boundary conditions and
+        # tensors for both types of physics; although we may only use one of them
+        # (unless Biot), but the overhead should be minimal.
+        flow_param = {
+            "bc": pp.BoundaryCondition(g),
+            "second_order_tensor": pp.SecondOrderTensor(np.ones(nc)),
+            "partition_arguments": {"num_subproblems": 2},
+        }
+        mechanics_param = {
+            "bc": pp.BoundaryConditionVectorial(g),
+            "fourth_order_tensor": pp.FourthOrderTensor(np.ones(nc), np.ones(nc)),
+            "partition_arguments": {"num_subproblems": 2},
+            "biot_alpha": 1,
+        }
 
         # Set up a data dictionary that will split the discretization into two.
         data_partition = {
             pp.PARAMETERS: {
-                flow_keyword: {
-                    "bc": bc_flow,
-                    "second_order_tensor": flow_tensor,
-                    "partition_arguments": {"num_subproblems": 2},
-                },
-                mechanics_keyword: {
-                    "bc": bc_mechanics,
-                    "fourth_order_tensor": mechanics_tensor,
-                    "partition_arguments": {"num_subproblems": 2},
-                },
+                flow_keyword: flow_param,
+                mechanics_keyword: mechanics_param,
             },
             pp.DISCRETIZATION_MATRICES: {flow_keyword: {}, mechanics_keyword: {}},
         }
@@ -906,11 +908,8 @@ def test_split_discretization_into_subproblems(
         # Set up a data dictionary that will not split the discretization into two.
         data_no_partition = {
             pp.PARAMETERS: {
-                flow_keyword: {"bc": bc_flow, "second_order_tensor": flow_tensor},
-                mechanics_keyword: {
-                    "bc": bc_mechanics,
-                    "fourth_order_tensor": mechanics_tensor,
-                },
+                flow_keyword: flow_param,
+                mechanics_keyword: mechanics_param,
             },
             pp.DISCRETIZATION_MATRICES: {flow_keyword: {}, mechanics_keyword: {}},
         }
