@@ -823,7 +823,7 @@ class XpfaBoundaryPressureTests:
 def test_split_discretization_into_subproblems(
     discr_class: Union[pp.Mpfa, pp.Mpsa, pp.Biot]
 ):
-    """Test that the discretization matrices produced by Xpfa are the same if they
+    """Test that the discretization matrices produced by Mpxa are the same if they
     are split into subproblems or not.
 
     The test is designed to be run with all three discretization classes, Mpfa, Mpsa and
@@ -832,7 +832,7 @@ def test_split_discretization_into_subproblems(
     reuse the test for all three classes.
 
     Failure of this test indicates that the gradual discretization, by means of
-    constructing subdomains, is not working. Provided that the standard tests for
+    constructing subgrids, is not working. Provided that the standard tests for
     discretizing do not fail, a likely reason for the failure is that something has
     changed in the extraction of subgrids, including the construction of mappings
     between local and global grids; see the individual discretization classes for

@@ -417,7 +417,7 @@ def subproblems(
     """Split a grid into subgrids in preparation for discretization with limited memory
     footprint.
 
-    The subgrids are constructructed by partititoning the grid; see comments in the code
+    The subgrids are constructed by partititoning the grid; see comments in the code
     for details, including information on overlap between subgrids.
 
     Parameters:
