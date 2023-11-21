@@ -885,12 +885,10 @@ def test_split_discretization_into_subproblems(
         flow_param = {
             "bc": pp.BoundaryCondition(g),
             "second_order_tensor": pp.SecondOrderTensor(np.ones(nc)),
-            "partition_arguments": {"num_subproblems": 2},
         }
         mechanics_param = {
             "bc": pp.BoundaryConditionVectorial(g),
             "fourth_order_tensor": pp.FourthOrderTensor(np.ones(nc), np.ones(nc)),
-            "partition_arguments": {"num_subproblems": 2},
             "biot_alpha": 1,
         }
 
@@ -902,10 +900,17 @@ def test_split_discretization_into_subproblems(
             },
             pp.DISCRETIZATION_MATRICES: {flow_keyword: {}, mechanics_keyword: {}},
         }
+        data_partition[pp.PARAMETERS][flow_keyword]["partition_arguments"] = {
+            "num_subproblems": 2
+        }
+        data_partition[pp.PARAMETERS][mechanics_keyword]["partition_arguments"] = {
+            "num_subproblems": 2
+        }
         # Discretize
         discr_class.discretize(g, data_partition)
 
         # Set up a data dictionary that will not split the discretization into two.
+
         data_no_partition = {
             pp.PARAMETERS: {
                 flow_keyword: flow_param,
