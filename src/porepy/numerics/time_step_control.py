@@ -208,6 +208,7 @@ class TimeManager:
         recomp_factor: float = 0.5,
         recomp_max: int = 10,
         print_info: bool = False,
+        folder_name: str = "visualization",  ###
     ) -> None:
         schedule = np.array(schedule)
         # Sanity checks for schedule
@@ -389,6 +390,8 @@ class TimeManager:
         # Keep track of recomputed solutions and current number of iterations
         self._recomp_sol: bool = False
         self._iters: Union[int, None] = None
+
+        self.folder_name = folder_name
 
     def __repr__(self) -> str:
         s = "Time-stepping control object with attributes:\n"
@@ -695,7 +698,7 @@ class TimeManager:
         )
 
         # Storing as json
-        default_path = Path("visualization") / Path("times.json")
+        default_path = Path(self.folder_name) / Path("times.json")
         out_file = open(path if path is not None else default_path, "w")
         json.dump({"time": self.time_history, "dt": self.dt_history}, out_file)
         out_file.close()

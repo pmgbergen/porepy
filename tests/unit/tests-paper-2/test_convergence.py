@@ -8,6 +8,51 @@ import porepy.models.two_phase_hu as two_phase_hu
 
 
 class SolutionStrategyTest1(two_phase_hu.SolutionStrategyPressureMass):
+    # def __init__(self, params: Optional[dict] = None):
+    #     """Initialize the solution strategy.
+
+    #     Parameters:
+    #         params: Parameters for the solution strategy. Defaults to
+    #             None.
+
+    #     """
+    #     if params is None:
+    #         params = {}
+
+    #     default_params = {
+    #         "folder_name": "visualization",
+    #         "file_name": "data",
+    #         "linear_solver": "pypardiso",
+    #     }
+
+    #     default_params.update(params)
+
+    #     self.params = default_params
+
+    #     self.convergence_status: bool = False
+
+    #     self._nonlinear_iteration: int = 0
+    #     self._nonlinear_discretizations: list[pp.ad._ad_utils.MergedOperator] = []
+
+    #     self.units: pp.Units = params.get("units", pp.Units())
+
+    #     self.time_manager = params.get(
+    #         "time_manager",
+    #         pp.TimeManager(schedule=[0, 1], dt_init=1, constant_dt=True),
+    #     )
+
+    #     self.restart_options: dict = params.get(
+    #         "restart_options",
+    #         {
+    #             "restart": False,
+    #             "pvd_file": None,
+    #             "is_mdg_pvd": False,
+    #             "vtu_files": None,
+    #             "times_file": None,
+    #             "time_index": -1,
+    #         },
+    #     )
+
     def prepare_simulation(self) -> None:
         """ """
         self.clean_working_directory()
@@ -135,6 +180,16 @@ class SolutionStrategyTest1(two_phase_hu.SolutionStrategyPressureMass):
         sd_id = 0  # not used, just remember that it might be useful to order the grids without using operators
 
         for sd_ref, sd in zip(self.mdg_ref.subdomains(), self.mdg.subdomains()):
+            if sd_ref.dim == 2:
+                mapping_matrix_2d = pp.match_grids.match_2d(sd_ref, sd, tol, "averaged")
+                sp.sparse.save_npz(
+                    self.root_path + "mapping_matrix_2d_" + str(self.cell_size),
+                    mapping_matrix_2d,
+                )
+                np.save(
+                    self.root_path + "volumes_2d_" + str(self.cell_size),
+                    sd.cell_volumes,
+                )
             if sd_ref.dim == 1:
                 # mapping_matrix_1d = pp.match_grids.match_1d(new_sd, old_sd, tol, "averaged")
                 mapping_matrix_1d = pp.match_grids.match_1d(sd_ref, sd, tol, "averaged")
@@ -148,17 +203,6 @@ class SolutionStrategyTest1(two_phase_hu.SolutionStrategyPressureMass):
                     sd.cell_volumes,
                 )
 
-            if sd_ref.dim == 2:
-                mapping_matrix_2d = pp.match_grids.match_2d(sd_ref, sd, tol, "averaged")
-                sp.sparse.save_npz(
-                    self.root_path + "mapping_matrix_2d_" + str(self.cell_size),
-                    mapping_matrix_2d,
-                )
-                np.savetxt(
-                    self.root_path + "volumes_2d_" + str(self.cell_size),
-                    sd.cell_volumes,
-                )
-
             sd_id += 1
 
         pressure = (
@@ -169,9 +213,25 @@ class SolutionStrategyTest1(two_phase_hu.SolutionStrategyPressureMass):
             .saturation_operator(self.mdg.subdomains())
             .evaluate(self.equation_system)
         ).val
+        mortar_phase_0 = (
+            self.interface_mortar_flux_phase_0(self.mdg.interfaces())
+            .evaluate(self.equation_system)
+            .val
+        )
+        mortar_phase_1 = (
+            self.interface_mortar_flux_phase_1(self.mdg.interfaces())
+            .evaluate(self.equation_system)
+            .val
+        )
 
-        np.savetxt(self.root_path + "pressure_" + str(self.cell_size), pressure)
-        np.savetxt(self.root_path + "saturation_" + str(self.cell_size), saturation)
+        np.save(self.root_path + "pressure_" + str(self.cell_size), pressure)
+        np.save(self.root_path + "saturation_" + str(self.cell_size), saturation)
+        np.savetxt(
+            self.root_path + "mortar_phase_0_" + str(self.cell_size), mortar_phase_0
+        )
+        np.savetxt(
+            self.root_path + "mortar_phase_1_" + str(self.cell_size), mortar_phase_1
+        )
 
         np.savetxt(
             self.root_path + "variable_num_dofs_" + str(self.cell_size),
@@ -392,7 +452,7 @@ if __name__ == "__main__":
             self.output_file_name = self.root_path + "OUTPUT_NEWTON_INFO"
             self.mass_output_file_name = self.root_path + "MASS_OVER_TIME"
 
-    cell_sizes = np.array([0.2, 0.1, 0.05, 0.025, 0.005])  # last one is the ref value
+    cell_sizes = np.array([0.2, 0.1, 0.05, 0.025])  # last one is the ref value
     np.savetxt("./convergence_results/cell_sizes", cell_sizes)
 
     for cell_size in cell_sizes:
@@ -401,6 +461,9 @@ if __name__ == "__main__":
             cell_size,
             "==========================================",
         )
+
+        folder_name = "convergence_results/visualization_" + str(cell_size)
+
         time_manager = two_phase_hu.TimeManagerPP(
             schedule=np.array([0, 1e-2]) / t_0,
             dt_init=1e-2 / t_0,
@@ -410,6 +473,7 @@ if __name__ == "__main__":
             recomp_max=10,
             iter_max=10,
             print_info=True,
+            folder_name=folder_name,
         )
 
         params = {
@@ -418,6 +482,7 @@ if __name__ == "__main__":
             "nl_convergence_tol": 1e-5,
             "nl_divergence_tol": 1e0,
             "time_manager": time_manager,
+            "folder_name": folder_name,
         }
 
         model = FinalModel(params)

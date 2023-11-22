@@ -90,11 +90,6 @@ class SolutionStrategy(abc.ABC):
             "linear_solver": "pypardiso",
         }
 
-        # print("\n\n inside __init__")
-        # print("params = ", params)
-        # so far params contans boh of the entire model, it is not the data dictionary associated to a sd
-        # pdb.set_trace()
-
         default_params.update(params)
 
         self.params = default_params
