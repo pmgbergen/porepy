@@ -901,14 +901,11 @@ def test_split_discretization_into_subproblems(
             pp.DISCRETIZATION_MATRICES: {flow_keyword: {}, mechanics_keyword: {}},
         }
         data_partition[pp.PARAMETERS][flow_keyword][  # type: ignore[index]
-            "partition_arguments"] = {
-            "num_subproblems": 2
-        }
-        data_partition[pp.PARAMETERS][mechanics_keyword][   # type: ignore[index]
             "partition_arguments"
-        ] = {
-            "num_subproblems": 2
-        }
+        ] = {"num_subproblems": 2}
+        data_partition[pp.PARAMETERS][mechanics_keyword][  # type: ignore[index]
+            "partition_arguments"
+        ] = {"num_subproblems": 2}
         # Discretize
         discr_class.discretize(g, data_partition)
 
