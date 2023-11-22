@@ -28,6 +28,7 @@ from typing import Callable, Literal, Optional, Sequence
 import numba
 import numpy as np
 
+from ._core import NUMBA_CACHE
 from .composite_utils import safe_sum
 from .flash import del_log, logger
 from .mixture import BasicMixture, ThermodynamicState
@@ -47,7 +48,7 @@ __all__ = [
 @numba.njit(
     "Tuple((float64[:,:], float64[:], float64[:]))(float64[:], UniTuple(int32, 2))",
     fastmath=True,
-    cache=True,
+    cache=NUMBA_CACHE,
 )
 def parse_xyz(
     X_gen: np.ndarray, npnc: tuple[int, int]
@@ -112,7 +113,7 @@ def parse_xyz(
 @numba.njit(
     "float64[:](float64[:],float64[:,:],float64[:],UniTuple(int32, 2))",
     fastmath=True,
-    cache=True,
+    cache=NUMBA_CACHE,
 )
 def insert_xy(
     X_gen: np.ndarray, x: np.ndarray, y: np.ndarray, npnc: tuple[int, int]
@@ -136,7 +137,7 @@ def insert_xy(
 @numba.njit(
     "float64[:](float64[:], UniTuple(int32, 2))",
     fastmath=True,
-    cache=True,
+    cache=NUMBA_CACHE,
 )
 def parse_pT(X_gen: np.ndarray, npnc: tuple[int, int]) -> np.ndarray:
     """Helper function extracing pressure and temperature from a generic
@@ -163,7 +164,7 @@ def parse_pT(X_gen: np.ndarray, npnc: tuple[int, int]) -> np.ndarray:
     return X_gen[-(ncomp * nphase + nphase - 1) - 2 : -(ncomp * nphase + nphase - 1)]
 
 
-@numba.njit("float64[:,:](float64[:,:])", fastmath=True, cache=True)
+@numba.njit("float64[:,:](float64[:,:])", fastmath=True, cache=NUMBA_CACHE)
 def normalize_fractions(X: np.ndarray) -> np.ndarray:
     """Takes a matrix of phase compositions (rows - phase, columns - component)
     and normalizes the fractions.
@@ -186,7 +187,47 @@ def normalize_fractions(X: np.ndarray) -> np.ndarray:
     return (X.T / X.sum(axis=1)).T
 
 
-@numba.njit("float64[:](float64[:], float64[:,:])", fastmath=True, cache=True)
+@numba.njit(
+    "float64[:](float64[:], float64[:])",
+    fastmath=True,
+    cache=NUMBA_CACHE,
+)
+def extended_compositional_derivatives(df_dxn: np.ndarray, x: np.ndarray) -> np.ndarray:
+    """Expands the derivatives of a scalar function :math:`f(p, T, x_n)`, assuming
+    the its derivatives are given w.r.t. to the normalized fractions
+    (see :func:`normalize_fractions`).
+
+    Expansion is conducted by simply applying the chain rule to :math:`f(x_n(x))`.
+
+    Intended use is for thermodynamic properties given by :class:`EoSCompiler`, which
+    are given as functions with above signature.
+
+    Parameters:
+        df_dxn: ``shape=(2 + num_components,)``
+
+            The gradient of a scalar function w.r.t. to pressure, temperature and
+            normalized fractions in a phase.
+        x: ``shape=(num_components,)``
+
+            The extended fractions for a phase.
+
+    Returns:
+        An array with the same shape as ``df_dxn`` where the chain rule was applied.
+
+    """
+    df_dx = df_dxn.copy()  # deep copy to avoid messing with values
+    ncomp = x.shape[0]
+    # constructing the derivatives of xn_ij = x_ij / (sum_k x_kj)
+    x_sum = np.sum(x)
+    dxn = np.eye(ncomp) / x_sum - np.outer(x, np.ones(ncomp)) / (x_sum**2)
+    # dxn = np.eye(ncomp) / x_sum - np.column_stack([x] * ncomp) / (x_sum ** 2)
+    # assuming derivatives w.r.t. normalized fractions are in the last num_comp elements
+    df_dx[-ncomp:] = df_dx[-ncomp:].dot(dxn)
+
+    return df_dx
+
+
+@numba.njit("float64[:](float64[:], float64[:,:])", fastmath=True, cache=NUMBA_CACHE)
 def _rr_poles(y: np.ndarray, K: np.ndarray) -> np.ndarray:
     """
     Parameters:
@@ -206,7 +247,7 @@ def _rr_poles(y: np.ndarray, K: np.ndarray) -> np.ndarray:
 @numba.njit(
     "float64(float64[:], float64[:])",
     fastmath=True,
-    cache=True,
+    cache=NUMBA_CACHE,
 )
 def _rr_binary_vle_inversion(z: np.ndarray, K: np.ndarray) -> float:
     """Inverts the Rachford-Rice equation for the binary 2-phase case.
@@ -234,7 +275,7 @@ def _rr_binary_vle_inversion(z: np.ndarray, K: np.ndarray) -> float:
 
 @numba.njit(
     "float64(float64[:], float64[:], float64[:,:])",
-    cache=True,
+    cache=NUMBA_CACHE,
 )
 def _rr_potential(z: np.ndarray, y: np.ndarray, K: np.ndarray) -> float:
     """Calculates the potential according to [1] for the j-th Rachford-Rice equation.
@@ -276,7 +317,7 @@ def _rr_potential(z: np.ndarray, y: np.ndarray, K: np.ndarray) -> float:
 @numba.njit(
     "float64[:](float64[:,:], float64[:], float64[:])",
     fastmath=True,
-    cache=True,
+    cache=NUMBA_CACHE,
 )
 def mass_conservation_res(x: np.ndarray, y: np.ndarray, z: np.ndarray) -> np.ndarray:
     r"""Assembles the residual of the mass conservation equations.
@@ -312,18 +353,14 @@ def mass_conservation_res(x: np.ndarray, y: np.ndarray, z: np.ndarray) -> np.nda
         except the first one (in ``z``).
 
     """
-    res = np.empty(z.shape[0] - 1, dtype=np.float64)
-
-    for i in range(1, z.shape[0]):
-        res[i - 1] = z[i] - np.sum(y * x[:, i])
-
-    return res
+    # excluding mass consercation for 1st component
+    return (z - np.dot(y, x))[1:]
 
 
 @numba.njit(
     "float64[:,:](float64[:,:], float64[:])",
     fastmath=True,
-    cache=True,
+    cache=NUMBA_CACHE,
 )
 def mass_conservation_jac(x: np.ndarray, y: np.ndarray) -> np.ndarray:
     """Returns the Jacobian of the residual described in
@@ -358,11 +395,11 @@ def mass_conservation_jac(x: np.ndarray, y: np.ndarray) -> np.ndarray:
         jac[i, nphase + i :: nphase] = y  # nphase -1 + i + 1 to skip ref component
 
     # -1 because of z - z(x,y) = 0
-    # and above is d z(x,y) / d[y, x]
+    # and above is dz(x,y) / dyx
     return (-1) * jac
 
 
-@numba.njit("float64[:](float64[:,:], float64[:])", fastmath=True, cache=True)
+@numba.njit("float64[:](float64[:,:], float64[:])", fastmath=True, cache=NUMBA_CACHE)
 def complementary_conditions_res(x: np.ndarray, y: np.ndarray) -> np.ndarray:
     r"""Assembles the residual of the complementary conditions.
 
@@ -393,15 +430,10 @@ def complementary_conditions_res(x: np.ndarray, y: np.ndarray) -> np.ndarray:
         condition per phase.
 
     """
-    nphase = y.shape[0]
-    ccs = np.empty(nphase, dtype=np.float64)
-    for j in range(nphase):
-        ccs[j] = y[j] * (1.0 - np.sum(x[j]))
-
-    return ccs
+    return y * (1 - np.sum(x, axis=1))
 
 
-@numba.njit("float64[:,:](float64[:,:], float64[:])", fastmath=True, cache=True)
+@numba.njit("float64[:,:](float64[:,:], float64[:])", fastmath=True, cache=NUMBA_CACHE)
 def complementary_conditions_jac(x: np.ndarray, y: np.ndarray) -> np.ndarray:
     """Returns the Jacobian of the residual described in
     :func:`complementary_conditions_res`
@@ -441,7 +473,7 @@ def complementary_conditions_jac(x: np.ndarray, y: np.ndarray) -> np.ndarray:
 @numba.njit(
     "float64(float64[:], float64[:], float64, float64, float64, float64)",
     fastmath=True,
-    cache=True,
+    cache=NUMBA_CACHE,
 )
 def slack_equation_res(
     v: np.ndarray, w: np.ndarray, nu: float, u1: float, u2: float, eta: float
@@ -480,7 +512,7 @@ def slack_equation_res(
     v = v.copy()
     w = w.copy()
     v[v > 0.0] = 0.0
-    v[w > 0.0] = 0.0
+    w[w > 0.0] = 0.0
 
     # penalization of negativity
     res = 0.5 * u2 * (np.sum(v**2) + np.sum(w**2))
@@ -498,7 +530,7 @@ def slack_equation_res(
 @numba.njit(
     "float64[:](float64[:], float64[:], float64, float64, float64, float64)",
     fastmath=True,
-    cache=True,
+    cache=NUMBA_CACHE,
 )
 def slack_equation_jac(
     v: np.ndarray, w: np.ndarray, nu: float, u1: float, u2: float, eta: float
@@ -551,7 +583,7 @@ def slack_equation_jac(
     "Tuple((float64[:,:], float64[:]))"
     + "(float64[:], float64[:,:], float64[:], float64, UniTuple(int32, 2))",
     fastmath=True,
-    cache=True,
+    cache=NUMBA_CACHE,
 )
 def npipm_regularization(
     X: np.ndarray, A: np.ndarray, b: np.ndarray, u1: float, npnc: tuple[int, int]
@@ -575,21 +607,16 @@ def npipm_regularization(
     nphase, ncomp = npnc
     x, y, _ = parse_xyz(X[:-1], npnc)
 
-    reg = 0.0
-    for j in range(nphase):
-        # summation of complementarity conditions
-        reg += y[j] * (1 - np.sum(x[j]))
-
+    # summation of complementarity conditions
+    reg = np.sum(y * (1 - np.sum(x, axis=1)))
+    # positive part with penalty factor
     reg = 0.0 if reg < 0 else reg
     reg *= u1 / ncomp**2
 
     # subtract all relaxed complementary conditions multiplied with reg from the slack equation
     b[-1] = b[-1] - reg * np.sum(b[-(nphase + 1) : -1])
     # do the same for respective rows in the Jacobian
-    for j in range(nphase):
-        # +2 to skip slack equation and because j start with 0
-        v = A[-(j + 2)] * reg
-        A[-1] = A[-1] - v
+    A[-1] = A[-1] - reg * np.sum(A[-(nphase + 1) : -1], axis=0)
 
     return A, b
 
@@ -597,7 +624,7 @@ def npipm_regularization(
 @numba.njit(
     "float64[:,:](float64[:,:], UniTuple(int32, 2))",
     fastmath=True,
-    cache=True,
+    cache=NUMBA_CACHE,
 )
 def initialize_npipm_nu(X_gen: np.ndarray, npnc: tuple[int, int]) -> np.ndarray:
     """Computes an initial guess for the slack variable :math:`\\nu` in the NPIPM.
@@ -641,14 +668,14 @@ def initialize_npipm_nu(X_gen: np.ndarray, npnc: tuple[int, int]) -> np.ndarray:
 # region Methods related to the numerical solution strategy
 
 
-@numba.njit("float64(float64[:])", fastmath=True, cache=True)
+@numba.njit("float64(float64[:])", fastmath=True, cache=NUMBA_CACHE)
 def l2_potential(vec: np.ndarray) -> float:
     return np.sum(vec * vec) / 2.0
 
 
 @numba.njit(  # TODO type signature once typing for functions is available
     fastmath=True,
-    cache=True,
+    cache=NUMBA_CACHE,
 )
 def Armijo_line_search(
     Xk: np.ndarray,
@@ -707,7 +734,7 @@ def Armijo_line_search(
 
 
 @numba.njit(  # TODO same as for Armijo signature
-    cache=True,
+    cache=NUMBA_CACHE,
 )
 def newton(
     X_0: np.ndarray,
@@ -774,7 +801,6 @@ def newton(
         for _ in range(max_iter):
             num_iter += 1
 
-            df_i = DF(X)
             try:
                 df_i = DF(X)
             except:
@@ -813,7 +839,7 @@ def newton(
 
 @numba.njit(
     parallel=True,
-    cache=True,
+    cache=NUMBA_CACHE,
 )
 def parallel_newton(
     X0: np.ndarray,
@@ -872,7 +898,7 @@ def parallel_newton(
 
 
 @numba.njit(
-    cache=True,
+    cache=NUMBA_CACHE,
 )
 def linear_newton(
     X0: np.ndarray,
@@ -928,7 +954,7 @@ class EoSCompiler(abc.ABC):
     Respective functions must be assembled and compiled by a child class with a specific
     EoS.
 
-    The compiled functions are expected to have the following signature:
+    The compiled functions are expected to a specific signature (see below).
 
     ``(prearg: np.ndarray, phase_index: int, p: float, T: float, xn: numpy.ndarray)``
 
@@ -957,13 +983,24 @@ class EoSCompiler(abc.ABC):
 
     The ``prearg`` for the Jacobian will be fed to the functions representing
     derivatives of thermodynamic quantities
-    (e.g. derivative fugacity coefficients w.r.t. p, T, X).
+    (e.g. derivative fugacity coefficients w.r.t. p, T, X),
+    **additionally** to the ``prearc`` for residuals.
 
-    The ``prearg`` for the residual will be passed to thermodynamic quantities without
-    derivation.
+    I.e., the signature of functions representing derivatives is expected to be
+
+    ``(prearg_res: np.ndarray, prearg_jac: np.ndarray,
+    phase_index: int, p: float, T: float, xn: numpy.ndarray)``,
+
+    whereas the signature of functions representing values only is expected to be
+
+    ``(prearg: np.ndarray, phase_index: int, p: float, T: float, xn: numpy.ndarray)``
 
     """
 
+    # TODO what is more efficient, just one pre-arg having everything?
+    # Or splitting for computations for residuals, since it does not need derivatives?
+    # 1. Armijo line search evaluated often, need only residual
+    # 2. On the other hand, residual pre-arg is evaluated twice, for residual and jac
     @abc.abstractmethod
     def get_pre_arg_computation_res(
         self,
@@ -1018,7 +1055,7 @@ class EoSCompiler(abc.ABC):
     @abc.abstractmethod
     def get_dpTX_fugacity_computation(
         self,
-    ) -> Callable[[np.ndarray, int, float, float, np.ndarray], np.ndarray]:
+    ) -> Callable[[np.ndarray, np.ndarray, int, float, float, np.ndarray], np.ndarray]:
         """Abstract assembler for compiled computations of the derivative of fugacity
         coefficients.
 
@@ -1031,6 +1068,7 @@ class EoSCompiler(abc.ABC):
         Returns:
             A NJIT-ed function taking
 
+            - the pre-argument for the residual,
             - the pre-argument for the Jacobian,
             - the phase index,
             - pressure value,
@@ -1251,11 +1289,14 @@ class Flash_c:
 
         logger.info(f"{del_log}Compiling residual of isogucacity constraints ..")
 
-        @numba.njit("float64[:](float64[:,:], float64, float64, float64[:,:])")
+        @numba.njit(
+            "float64[:](float64[:,:], float64, float64, float64[:,:], float64[:,:])"
+        )
         def isofug_constr_c(
-            prearg_res: np.ndarray,
+            prearg: np.ndarray,
             p: float,
             T: float,
+            X: np.ndarray,
             Xn: np.ndarray,
         ):
             """Helper function to assemble the isofugacity constraint.
@@ -1265,12 +1306,13 @@ class Flash_c:
             """
             isofug = np.empty(ncomp * (nphase - 1), dtype=np.float64)
 
-            phi_r = phi_c(prearg_res, 0, p, T, Xn[0])
+            phi_r = phi_c(prearg, 0, p, T, Xn[0])
 
             for j in range(1, nphase):
-                phi_j = phi_c(prearg_res, j, p, T, Xn[j])
+                phi_j = phi_c(prearg, j, p, T, Xn[j])
                 # isofugacity constraint between phase j and phase r
-                isofug[(j - 1) * ncomp : j * ncomp] = Xn[j] * phi_j - Xn[0] * phi_r
+                # NOTE fugacities are evaluated with normalized fractions
+                isofug[(j - 1) * ncomp : j * ncomp] = X[j] * phi_j - X[0] * phi_r
 
             return isofug
 
@@ -1278,7 +1320,8 @@ class Flash_c:
 
         @numba.njit(
             "float64[:,:]"
-            + "(float64[:,:], float64[:,:], int32, float64, float64, float64[:])",
+            + "(float64[:,:], float64[:,:],"
+            + "int32, float64, float64, float64[:], float64[:])",
         )
         def d_isofug_block_j(
             prearg_res: np.ndarray,
@@ -1286,33 +1329,38 @@ class Flash_c:
             j: int,
             p: float,
             T: float,
+            X: np.ndarray,
             Xn: np.ndarray,
         ):
             """Helper function to construct a block representing the derivative
             of x_ij * phi_ij for all i as a matrix, with i row index.
             This is constructed for a given phase j.
             """
-            # derivatives w.r.t. p, T, all compositions, A, B, Z
-            dx_phi_j = np.zeros((ncomp, 2 + ncomp))
 
             phi_j = phi_c(prearg_res, j, p, T, Xn)
-            d_phi_j = d_phi_c(prearg_jac, j, p, T, Xn)
+            d_phi_j = d_phi_c(prearg_res, prearg_jac, j, p, T, Xn)
+            # NOTE phi depends on normalized fractions
+            # extending derivatives from normalized fractions to extended ones
+            for i in range(ncomp):
+                d_phi_j[i] = extended_compositional_derivatives(d_phi_j[i], X)
 
-            # product rule d(x * phi) = dx * phi + x * dphi
-            # dx is is identity
-            dx_phi_j[:, 2:] = np.diag(phi_j)
-            d_xphi_j = dx_phi_j + (d_phi_j.T * Xn).T
+            # product rule: x * dphi
+            d_xphi_j = (d_phi_j.T * X).T
+            # + phi * dx  (minding the first two columns which contain the p-T derivs)
+            d_xphi_j[:, 2:] += np.diag(phi_j)
 
             return d_xphi_j
 
         @numba.njit(
-            "float64[:,:](float64[:,:], float64[:, :], float64, float64, float64[:,:])"
+            "float64[:,:](float64[:,:], float64[:, :],"
+            + "float64, float64, float64[:,:], float64[:,:])"
         )
         def d_isofug_constr_c(
             prearg_res: np.ndarray,
             prearg_jac: np.ndarray,
             p: float,
             T: float,
+            X: np.ndarray,
             Xn: np.ndarray,
         ):
             """Helper function to assemble the derivative of the isofugacity constraints
@@ -1327,23 +1375,22 @@ class Flash_c:
             d_iso = np.zeros((ncomp * (nphase - 1), 2 + ncomp * nphase))
 
             # creating derivative parts involving the reference phase
-            d_xphi_r = d_isofug_block_j(prearg_res, prearg_jac, 0, p, T, Xn[0])
+            d_xphi_r = d_isofug_block_j(prearg_res, prearg_jac, 0, p, T, X[0], Xn[0])
 
             for j in range(1, nphase):
                 # construct the same as above for other phases
-                d_xphi_j = d_isofug_block_j(prearg_res, prearg_jac, 1, p, T, Xn[j])
+                d_xphi_j = d_isofug_block_j(
+                    prearg_res, prearg_jac, 1, p, T, X[j], Xn[j]
+                )
 
-                # filling in the relevant blocks
-                # remember: d(x_ij * phi_ij - x_ir * phi_ir)
-                # hence every row-block contains (-1)* d_xphi_r
                 # p, T derivative
                 d_iso[(j - 1) * ncomp : j * ncomp, :2] = (
                     d_xphi_j[:, :2] - d_xphi_r[:, :2]
                 )
+                # remember: d(x_ij * phi_ij - x_ir * phi_ir)
+                # hence every row-block contains (-1)* d_xphi_r
                 # derivative w.r.t. fractions in reference phase
-                d_iso[(j - 1) * ncomp : j * ncomp, 2 : 2 + ncomp] = (-1) * d_xphi_r[
-                    :, 2:
-                ]
+                d_iso[(j - 1) * ncomp : j * ncomp, 2 : 2 + ncomp] = -d_xphi_r[:, 2:]
                 # derivatives w.r.t. fractions in independent phase j
                 d_iso[
                     (j - 1) * ncomp : j * ncomp, 2 + j * ncomp : 2 + (j + 1) * ncomp
@@ -1370,7 +1417,7 @@ class Flash_c:
             prearg = prearg_res_c(p, T, xn)
 
             res[ncomp - 1 : ncomp - 1 + ncomp * (nphase - 1)] = isofug_constr_c(
-                prearg, p, T, xn
+                prearg, p, T, x, xn
             )
 
             return res
@@ -1394,7 +1441,7 @@ class Flash_c:
 
             jac[
                 ncomp - 1 : ncomp - 1 + ncomp * (nphase - 1), nphase - 1 :
-            ] = d_isofug_constr_c(prearg_res, prearg_jac, p, T, xn)[:, 2:]
+            ] = d_isofug_constr_c(prearg_res, prearg_jac, p, T, x, xn)[:, 2:]
 
             return jac
 
@@ -1462,6 +1509,9 @@ class Flash_c:
                             "Multicomponent RR solution not implemented."
                         )
 
+                    # copy the original value s.t. different corrections
+                    # do not interfer with eachother
+                    # _y = float(y_)
                     negative = y_ < 0.0
                     exceeds = y_ > 1.0
                     invalid = exceeds | negative
@@ -1495,19 +1545,19 @@ class Flash_c:
 
                         # Correction based on negative flash
                         # value of y_ must be between innermost poles
-                        K_min = np.min(K_)
-                        K_max = np.max(K_)
-                        y_1 = 1 / (1 - K_max)
-                        y_2 = 1 / (1 - K_min)
-                        if y_1 <= y_2:
-                            y_feasible = y_1 < y_ < y_2
-                        else:
-                            y_feasible = y_2 < y_ < y_1
+                        # K_min = np.min(K_)
+                        # K_max = np.max(K_)
+                        # y_1 = 1 / (1 - K_max)
+                        # y_2 = 1 / (1 - K_min)
+                        # if y_1 <= y_2:
+                        #     y_feasible = y_1 < _y < y_2
+                        # else:
+                        #     y_feasible = y_2 < _y < y_1
 
-                        if y_feasible & negative:
-                            y_ = 0.0
-                        elif y_feasible & exceeds:
-                            y_ = 1.0
+                        # if y_feasible & negative:
+                        #     y_ = 0.0
+                        # elif y_feasible & exceeds:
+                        #     y_ = 1.0
 
                         # If all K-values are smaller than 1 and gas fraction is negative,
                         # the liquid phase is clearly saturated
@@ -1552,7 +1602,7 @@ class Flash_c:
             """p-T initializer as a parallelized loop over all flash configurations."""
             nf = X_gen.shape[0]
             for f in numba.prange(nf):
-            # for f in range(nf):
+                # for f in range(nf):
                 X_gen[f] = guess_fractions(X_gen[f], N1, guess_K_vals)
             return X_gen
 

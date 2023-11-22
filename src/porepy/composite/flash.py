@@ -143,7 +143,7 @@ class FlashSystemNR(ThermodynamicState):
         # NPIPM parameters
         self._eta: float = 0.0
         self._u: float = 0.0
-        self._u2: float = 0.
+        self._u2: float = 0.0
         self._uses_npipm: bool = False
 
         # flags for which constraints to assemble
@@ -170,7 +170,7 @@ class FlashSystemNR(ThermodynamicState):
             self._num_vars += 1  # slack variable is independent
             self._eta = npipm.get("eta", 0.5)
             self._u = npipm.get("u", 1.0)
-            self._u2 = npipm.get('u2', 1.)
+            self._u2 = npipm.get("u2", 1.0)
             self._uses_npipm = True
 
             # assembling slack variable
@@ -424,7 +424,9 @@ class FlashSystemNR(ThermodynamicState):
         )
         # reg = safe_sum(reg) * 4
 
-        f = self._eta * nu + nu * nu + (self._u2 * negativity_penalty + dot_part) / 2  # + reg / 2
+        f = (
+            self._eta * nu + nu * nu + (self._u2 * negativity_penalty + dot_part) / 2
+        )  # + reg / 2
         return f
 
     @property

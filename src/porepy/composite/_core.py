@@ -19,6 +19,22 @@ __all__ = [
     "T_REF",
 ]
 
+
+NUMBA_CACHE: bool = False
+"""Flag to instruct the numba compiler to cache (!and use cached!) functions.
+
+This might cause some confusion in the developing process due to some lack in numba's
+caching functionality.
+(Does not recognize changes in nested functions and hence does not trigger
+re-compilation)
+
+Use with care.
+
+See Also:
+    https://numba.readthedocs.io/en/stable/user/jit.html#cache
+
+"""
+
 R_IDEAL: float = 8.31446261815324
 """Universal molar gas constant.
 
