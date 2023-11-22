@@ -1,7 +1,7 @@
-import os
+# import os
 
 # os.environ["PYDEVD_WARN_SLOW_RESOLVE_TIMEOUT"] = "30"
-os.environ["NUMBA_CACHE_DIR"] = f"{str(os.path.dirname(__file__))}/__pycache__/"
+# os.environ["NUMBA_CACHE_DIR"] = f"{str(os.path.dirname(__file__))}/__pycache__/"
 # os.environ['NUMBA_DEBUG_CACHE'] = str(1)
 
 import numpy as np
@@ -35,9 +35,9 @@ mix = pp.composite.NonReactiveMixture(comps, phases)
 
 mix.set_up()
 
-vec = np.ones(3)
-p = vec * 5e6
-T = vec * 500
+vec = np.ones(1)
+p = vec * 1e6
+T = vec * 453.16455696
 verbosity = 3
 z = [vec * _ for _ in feed]
 [
@@ -76,35 +76,38 @@ print(f"max iter: {np.sum(success == 1)}/ {p.shape[0]}")
 print(f"failure: {np.sum(success > 1)}/ {p.shape[0]}")
 
 investigate = success == 1
+print("Investigate p-T:")
+print(p[investigate])
+print(T[investigate])
 
-flash = pp.composite.FlashNR(mix)
-flash.use_armijo = True
-flash.armijo_parameters["rho"] = 0.99
-flash.armijo_parameters["j_max"] = 50
-flash.armijo_parameters["return_max"] = True
-flash.npipm_parameters["u2"] = 10.0
-flash.newton_update_chop = 1.0
-flash.tolerance = 1e-8
-flash.max_iter = 150
+# flash = pp.composite.FlashNR(mix)
+# flash.use_armijo = True
+# flash.armijo_parameters["rho"] = 0.99
+# flash.armijo_parameters["j_max"] = 50
+# flash.armijo_parameters["return_max"] = True
+# flash.npipm_parameters["u2"] = 10.0
+# flash.newton_update_chop = 1.0
+# flash.tolerance = 1e-8
+# flash.max_iter = 150
 
 
-success_o, result_o = flash.flash(
-    state={'p': p[investigate], 'T': T[investigate]},
-    feed=[z_[investigate] for z_ in z],
-    eos_kwargs={"apply_smoother": True},
-    quickshot=True,
-    return_system=False,
-    verbosity=2,
-)
+# success_o, result_o = flash.flash(
+#     state={'p': p[investigate], 'T': T[investigate]},
+#     feed=[z_[investigate] for z_ in z],
+#     eos_kwargs={"apply_smoother": True},
+#     quickshot=True,
+#     return_system=False,
+#     verbosity=2,
+# )
 
-flash_c.max_iter = 0
-result, success, num_iter = flash_c.flash([z_[investigate] for z_ in z], p = p[investigate], T= T[investigate], mode='parallel', verbosity=verbosity)
+# flash_c.max_iter = 0
+# result, success, num_iter = flash_c.flash([z_[investigate] for z_ in z], p = p[investigate], T= T[investigate], mode='parallel', verbosity=verbosity)
 
-diff = result.diff(result_o)
+# diff = result.diff(result_o)
 
-tol = 1e-3
-print('diff p', np.any(diff.p > tol))
-print('diff T', np.any(diff.T > tol))
-for j in range(2):
-    idx = diff.y[j] > tol
-    print(f'diff y_{j}', np.any(idx))
+# tol = 1e-3
+# print('diff p', np.any(diff.p > tol))
+# print('diff T', np.any(diff.T > tol))
+# for j in range(2):
+#     idx = diff.y[j] > tol
+#     print(f'diff y_{j}', np.any(idx))

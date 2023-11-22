@@ -85,13 +85,13 @@ class VanDerWaals:
 
     @staticmethod
     def cohesion_s(
-        X: list[NumericType], a: list[NumericType], bip: list[list[NumericType]]
+        X: list[sm.Expr], a: list[sm.Expr], bip: list[list[sm.Expr]]
     ) -> NumericType:
         """Symbolic implementation for the mixing rule for the cohesion term."""
 
         nc = len(X)  # number of components
 
-        a_parts: list[NumericType] = []
+        a_parts: list[sm.Expr] = []
 
         # mixture matrix is symmetric, sum over all entries in upper triangle
         # multiply off-diagonal elements with 2

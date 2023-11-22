@@ -78,6 +78,7 @@ import sympy as sp
 import porepy as pp
 
 from .._core import COMPOSITIONAL_VARIABLE_SYMBOLS as SYMBOLS
+from .._core import NUMBA_CACHE
 from ..flash_c import EoSCompiler
 from .eos import (
     A_CRIT,
@@ -100,7 +101,7 @@ from .mixing import VanDerWaals
 
 _STATIC_FAST_COMPILE_ARGS: dict[str, Any] = {
     "fastmath": True,
-    "cache": True,
+    "cache": NUMBA_CACHE,
 }
 
 
@@ -520,13 +521,13 @@ critical_line_u = numba.vectorize(
     [numba.float64(numba.float64)],
     nopython=True,
     fastmath=True,
-    cache=True,
+    cache=NUMBA_CACHE,
 )(critical_line_c)
 """Numpy-universal version of :func:`critical_line_c`."""
 
 
 widom_line_c: Callable[[float], float] = numba.njit(
-    "float64(float64)", fastmath=True, cache=True
+    "float64(float64)", fastmath=True, cache=NUMBA_CACHE
 )(widom_line)
 """NJIT-ed version of :func:`widom_line`.
 
@@ -539,7 +540,7 @@ widom_line_u = numba.vectorize(
     [numba.float64(numba.float64)],
     nopython=True,
     fastmath=True,
-    cache=True,
+    cache=NUMBA_CACHE,
 )(widom_line_c)
 """Numpy-universal version of :func:`widom_line_c`."""
 
@@ -557,7 +558,7 @@ point_to_line_distance_c = numba.njit(
             numba.types.Array(numba.float64, 1, "C", readonly=False),
         ),
     ],
-    cache=True,  # NOTE no fastmath because of sqrt and abs for small numbers
+    cache=NUMBA_CACHE,  # NOTE no fastmath because of sqrt and abs for small numbers
 )(point_to_line_distance)
 """NJIT-ed version of :func:`point_to_line_distance`.
 
@@ -758,7 +759,7 @@ Z_three_i_c: Callable[[float, float], float] = _compile_Z(Z_three_i_e)
 d_Z_three_i_c: Callable[[float, float], np.ndarray] = _compile_Z_diffs(d_Z_three_i_e)
 
 
-@numba.njit("int8(int8, float64, float64, float64)", cache=True, fastmath=True)
+@numba.njit("int8(int8, float64, float64, float64)", cache=NUMBA_CACHE, fastmath=True)
 def is_real_root(gaslike: int, A: float, B: float, eps: float = 1e-14) -> int:
     """Checks if a configuration of gas-like flag, cohesion and covolume would
     lead to an real root.
@@ -800,7 +801,7 @@ def is_real_root(gaslike: int, A: float, B: float, eps: float = 1e-14) -> int:
 # must be done for Z_c, d_Z_c and compile_Z_mix, compile_d_Z_mix
 @numba.njit(
     # "float64(int8, float64, float64, float64, float64, float64)",
-    cache=True,
+    cache=NUMBA_CACHE,
 )
 def Z_c(
     gaslike: int,
@@ -1001,7 +1002,7 @@ def Z_c(
     "(),(),(),(),(),()->()",
     target="parallel",
     nopython=True,
-    cache=True,
+    cache=NUMBA_CACHE,
 )
 def _Z_u(
     gaslike,
@@ -1037,7 +1038,7 @@ def Z_u(
 
 @numba.njit(
     # "float64[:](int8, float64, float64, float64, float64, float64)",
-    cache=True,
+    cache=NUMBA_CACHE,
 )
 def d_Z_c(
     gaslike: int,
@@ -1204,7 +1205,7 @@ def d_Z_c(
     "(),(),(),(),(),(),(m)->(m)",
     target="parallel",
     nopython=True,
-    cache=True,
+    cache=NUMBA_CACHE,
 )
 def _d_Z_u(
     gaslike,
@@ -1597,30 +1598,23 @@ class PengRobinson_c(EoSCompiler):
         nphase, ncomp = self._mpmc
         gaslike = self._gaslike
 
-        A_c = self._cfuncs["A"]
-        B_c = self._cfuncs["B"]
-        Z_c = self._cfuncs["Z"]
-
         dA_c = self._cfuncs["d_A"]
         dB_c = self._cfuncs["d_B"]
         dZ_c = self._cfuncs["d_Z"]
 
-        # number of derivatives for A, B, Z
+        # number of derivatives for A, B, Z (p, T, and per fraction)
         d = 2 + ncomp
 
         @numba.njit("float64[:,:](float64, float64, float64[:,:])")
         def pre_arg_jac_c(p: float, T: float, XN: np.ndarray) -> np.ndarray:
-            # the pre-arg for the jacobian contains, besided A, B, Z, also their
-            # derivatives w.r.t. p, T, and the composition in that phase.
-            pre_arg = np.empty((nphase, 3 + 3 * d), dtype=np.float64)
+            # the pre-arg for the jacobian contains the derivatives of A, B, Z
+            # w.r.t. p, T, and the composition in that phase.
+            pre_arg = np.empty((nphase, 3 * d), dtype=np.float64)
 
             for j in range(nphase):
-                pre_arg[j, 0] = A_c(p, T, XN[j])
-                pre_arg[j, 1] = B_c(p, T, XN[j])
-                pre_arg[j, 2] = Z_c(gaslike[j], p, T, XN[j])
-                pre_arg[j, 3 : 3 + d] = dA_c(p, T, XN[j])
-                pre_arg[j, 3 + d : 3 + 2 * d] = dB_c(p, T, XN[j])
-                pre_arg[j, 3 + 2 * d : 3 + 3 * d] = dZ_c(gaslike[j], p, T, XN[j])
+                pre_arg[j, 0:d] = dA_c(p, T, XN[j])
+                pre_arg[j, d : 2 * d] = dB_c(p, T, XN[j])
+                pre_arg[j, 2 * d : 3 * d] = dZ_c(gaslike[j], p, T, XN[j])
 
             return pre_arg
 
@@ -1642,24 +1636,31 @@ class PengRobinson_c(EoSCompiler):
 
     def get_dpTX_fugacity_computation(
         self,
-    ) -> Callable[[np.ndarray, int, float, float, np.ndarray], np.ndarray]:
+    ) -> Callable[[np.ndarray, np.ndarray, int, float, float, np.ndarray], np.ndarray]:
         d_phi_c = self._cfuncs["d_phi"]
         _, ncomp = self._mpmc
         # number of derivatives for A, B, Z
         d = 2 + ncomp
 
-        @numba.njit("float64[:,:](float64[:,:], int32, float64, float64, float64[:])")
+        @numba.njit(
+            "float64[:,:](float64[:,:], float64[:,:], int32, float64, float64, float64[:])"
+        )
         def d_phi_mix_c(
-            prearg_jac: np.ndarray, j: int, p: float, T: float, xn: np.ndarray
+            prearg_res: np.ndarray,
+            prearg_jac: np.ndarray,
+            j: int,
+            p: float,
+            T: float,
+            xn: np.ndarray,
         ) -> np.ndarray:
             # computation of phis dependent on A_j, B_j, Z_j
             d_phis = d_phi_c(
-                p, T, xn, prearg_jac[j, 0], prearg_jac[j, 1], prearg_jac[j, 2]
+                p, T, xn, prearg_res[j, 0], prearg_res[j, 1], prearg_res[j, 2]
             )
             # derivatives of A_j, B_j, Z_j w.r.t. p, T, and X_j
-            dA = prearg_jac[j, 3 : 3 + d]
-            dB = prearg_jac[j, 3 + d : 3 + 2 * d]
-            dZ = prearg_jac[j, 3 + 2 * d : 3 + 3 * d]
+            dA = prearg_jac[j, 0:d]
+            dB = prearg_jac[j, d : 2 * d]
+            dZ = prearg_jac[j, 2 * d : 3 * d]
             # expansion of derivatives
             return (
                 d_phis[:, :-3]
