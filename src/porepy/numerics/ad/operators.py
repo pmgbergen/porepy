@@ -680,7 +680,7 @@ class Operator:
         self,
         system_manager: pp.ad.EquationSystem,
         state: Optional[np.ndarray] = None,
-        evaluate_jacobian: bool = False,
+        evaluate_jacobian: bool = True,
     ) -> (
         numbers.Real | np.ndarray | sps.spmatrix | AdArray
     ):
