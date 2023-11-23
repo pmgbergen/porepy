@@ -56,9 +56,10 @@ flash_c.max_iter = 150
 
 flash_c.compile(verbosity=verbosity)
 
+print('---\n Test runs...')
 result, success, num_iter = flash_c.flash(z, p = p, T= T, mode='linear', verbosity=verbosity)
 result, success, num_iter = flash_c.flash(z, p = p, T= T, mode='parallel', verbosity=verbosity)
-print("Finished test run")
+print("---")
 
 p_vec = np.linspace(p_range[0], p_range[1], refinement, endpoint=True, dtype=np.float64)
 T_vec = np.linspace(T_range[0], T_range[1], refinement, endpoint=True, dtype=np.float64)
@@ -71,9 +72,7 @@ z = [np.ones(p.shape[0]) * _ for _ in feed]
 
 result, success, num_iter = flash_c.flash(z, p = p, T= T, mode='parallel', verbosity=verbosity)
 
-print(f"Succes: {np.sum(success == 0)}/ {p.shape[0]}")
-print(f"max iter: {np.sum(success == 1)}/ {p.shape[0]}")
-print(f"failure: {np.sum(success > 1)}/ {p.shape[0]}")
+flash_c.print_last_stats()
 
 investigate = success == 1
 print("Investigate p-T:")
