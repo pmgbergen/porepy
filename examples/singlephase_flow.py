@@ -33,52 +33,21 @@ from porepy.models.fluid_mass_balance import BoundaryConditionsSinglePhaseFlow
 import argparse
 
 argParser = argparse.ArgumentParser()
-argParser.add_argument("-c", "--cell-size", type=float, help="Set the maximum size of the cell for simplex grid")
+argParser.add_argument(
+    "-c",
+    "--cell-size",
+    type=float,
+    help="Set the maximum size of the cell for simplex grid",
+)
 args = argParser.parse_args()
 
-class ModifiedGeometry:
-    def set_domain(self) -> None:
-        """Defining a two-dimensional square domain with sidelength 2."""
-        size = self.solid.convert_units(1, "m")
-        self._domain = nd_cube_domain(2, size)
 
+class ModifiedGeometry(pp.model_geometries.SquareDomainOrthogonalFractures):
     def set_fractures(self) -> None:
-        """Setting a network of fractures"""
-        # Define each individual fracture, collect into a list. This is a network made of 10 fractures, some
-        # of them will be highly permeable, some other will not.
-        frac1 = pp.LineFracture(self.solid.convert_units(np.array([[0.0500, 0.2200],[0.4160, 0.0624]]),"m"))
-        frac2 = pp.LineFracture(self.solid.convert_units(np.array([[0.0500, 0.2500],[0.2750, 0.1350]]),"m"))
-        frac3 = pp.LineFracture(self.solid.convert_units(np.array([[0.1500, 0.6300],[0.4500, 0.0900]]),"m"))
-        frac4 = pp.LineFracture(self.solid.convert_units(np.array([[0.1500, 0.4000],[0.9167, 0.5000]]),"m"))
-        frac5 = pp.LineFracture(self.solid.convert_units(np.array([[0.6500, 0.849723],[0.8333, 0.167625]]),"m"))
-        frac6 = pp.LineFracture(self.solid.convert_units(np.array([[0.7000, 0.849723],[0.2350, 0.167625]]),"m"))
-        frac7 = pp.LineFracture(self.solid.convert_units(np.array([[0.6000, 0.8500],[0.3800, 0.2675]]),"m"))
-        frac8 = pp.LineFracture(self.solid.convert_units(np.array([[0.3500, 0.8000],[0.9714, 0.7143]]),"m"))
-        frac9 = pp.LineFracture(self.solid.convert_units(np.array([[0.7500, 0.9500],[0.9574, 0.8155]]),"m"))
-        frac10 = pp.LineFracture(self.solid.convert_units(np.array([[0.1500, 0.4000],[0.8363, 0.9727]]),"m"))
-        fractures = [frac1, frac2, frac3, frac4, frac5, frac6, frac7, frac8, frac9, frac10]
-        # Define a fracture network in 2d
-        self._fractures = fractures
-        
-    def grid_type(self) -> str:
-        """Choosing the grid type for our domain.
+        """Setting a network of fractures."""
+        self._fractures = pp.fracture_sets.benchmark_2d_case_3(self.domain_size)
 
-        As we have a set of non-oriented fracture we cannot use a cartesian grid. We override this method 
-        to assign a simplex grid instead.
 
-        """
-        return self.params.get("grid_type", "simplex")
-
-    def meshing_arguments(self) -> dict:
-        """Meshing arguments for md-grid creation.
-
-        Here we determine the cell size. This is passed to the script on launch.
-
-        """
-        cell_size = self.solid.convert_units(args.cell_size, "m")
-        mesh_args: dict[str, float] = {"cell_size": cell_size}
-        return mesh_args
-        
 class ModifiedBC(BoundaryConditionsSinglePhaseFlow):
     def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         """Assign dirichlet to the west and east boundaries. The rest are Neumann by default."""
@@ -95,36 +64,39 @@ class ModifiedBC(BoundaryConditionsSinglePhaseFlow):
         values[bounds.east] = self.fluid.convert_units(1, "Pa")
         return values
 
+
 class ConstantPermeability:
     def permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        permvec = self.params['permeability_vector']
+        permvec = self.params["permeability_vector"]  # Consider moving here.
         size = sum(sd.num_cells for sd in subdomains)
         if len(subdomains) > 0:
             for sd in subdomains:
                 if sd.frac_num >= 0:
-                    # print("On fracture "+str(sd.frac_num)+" given permeability "+str(permvec[sd.frac_num]))
                     permeability = pp.wrap_as_dense_ad_array(
                         permvec[sd.frac_num], size, name="permeability"
                     )
                 else:
-                    # print("On fracture "+str(sd.frac_num)+" given permeability "+str(self.solid.permeability()))
                     permeability = pp.wrap_as_dense_ad_array(
-                        self.solid.permeability(), size, name="permeability")
+                        self.solid.permeability(), size, name="permeability"
+                    )
         else:
             permeability = pp.wrap_as_dense_ad_array(
-               self.solid.permeability(), size, name="permeability"
-           )
+                self.solid.permeability(), size, name="permeability"
+            )
         return permeability
+
     def normal_permeability(self, interfaces: list[pp.MortarGrid]) -> pp.ad.Operator:
         # temporary storage for the values
         tmp_array = []
-        HIGH_PERM_VALUE = self.params['HIGH_PERM_VALUE']
-        LOW_PERM_VALUE = self.params['LOW_PERM_VALUE']
-        list_of_fracture_indexes_with_high_permeability = self.params['highperm_fractures']
+        HIGH_PERM_VALUE = self.params["HIGH_PERM_VALUE"]
+        LOW_PERM_VALUE = self.params["LOW_PERM_VALUE"]
+        list_of_fracture_indexes_with_high_permeability = self.params[
+            "highperm_fractures"
+        ]
         for intf in interfaces:
-        # Make a numpy array of ones, one element per cell in the interface grid
-            e = np.ones(intf.num_cells) 
-        # Get hold of the fracture subdomain
+            # Make a numpy array of ones, one element per cell in the interface grid
+            e = np.ones(intf.num_cells)
+            # Get hold of the fracture subdomain
             sd_high, sd_low = self.mdg.interface_to_subdomain_pair(intf)
             if intf.dim == 1:
                 if sd_low.frac_num in list_of_fracture_indexes_with_high_permeability:
@@ -140,27 +112,39 @@ class ConstantPermeability:
                     tmp_array.append(LOW_PERM_VALUE[1] * e)
         # tmp_array is a list of numpy arrays, but we need to convert it to a single array of type pp.ad.Operator:
         # First convert to a single numpy array, then wrap it into the right format.
-        single_array = pp.wrap_as_dense_ad_array(np.hstack(tmp_array), name='normal_permeability_array')
-  
+        single_array = pp.wrap_as_dense_ad_array(
+            np.hstack(tmp_array), name="normal_permeability_array"
+        )
+
         return single_array
 
+
 class SinglePhaseFlowManyFractures(
-    ModifiedGeometry,
-    ConstantPermeability,
-    ModifiedBC,
-    SinglePhaseFlow):
+    ModifiedGeometry, ConstantPermeability, ModifiedBC, SinglePhaseFlow
+):
     """Including the fracture network."""
-    ...      
+
+    ...
 
 
-fluid_constants = pp.FluidConstants({"viscosity": 1.0, "permeability" : 1.0}) 
-solid_constants = pp.SolidConstants({"normal_permeability" : 1.0})
-material_constants = {"fluid": fluid_constants, "solid" : solid_constants}
-params = {"material_constants": material_constants, 
-          "permeability_vector": 2.0*np.array([1,1,1,1e-8,1e-8,1,1,1,1,1]), # multiplication by two to counteract interface law
-          "HIGH_PERM_VALUE": np.array([2.0e8,2e4]), 
-          "LOW_PERM_VALUE" : np.array([2.0,4/(1e4+1e-4)]),
-          "highperm_fractures" : [0, 1, 2, 5, 6, 7, 8, 9] }
+params = {
+    "permeability_vector": 2.0
+    * np.array(
+        [1, 1, 1, 1e-8, 1e-8, 1, 1, 1, 1, 1]
+    ),  # multiplication by two to counteract interface law
+    "HIGH_PERM_VALUE": np.array([2.0e8, 2e4]),
+    "LOW_PERM_VALUE": np.array([2.0, 4 / (1e4 + 1e-4)]),
+    "highperm_fractures": [0, 1, 2, 5, 6, 7, 8, 9],
+    "meshing_arguments": {"cell_size": 0.1},
+    "grid_type": "simplex",
+}
 model = SinglePhaseFlowManyFractures(params)
-pp.run_stationary_model(model,params)
-pp.plot_grid(model.mdg, "pressure", figsize=(10, 8), linewidth=0.25, title="Pressure distribution", plot_2d=True)
+pp.run_stationary_model(model, params)
+pp.plot_grid(
+    model.mdg,
+    "pressure",
+    figsize=(10, 8),
+    linewidth=0.25,
+    title="Pressure distribution",
+    plot_2d=True,
+)
