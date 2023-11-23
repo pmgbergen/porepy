@@ -2,6 +2,7 @@
 approximation scheme. The implementation resides in the class Tpfa.
 
 """
+from __future__ import annotations
 from typing import Any, Callable, Literal, Optional
 import numpy as np
 import scipy.sparse as sps
@@ -265,6 +266,36 @@ class Tpfa(pp.FVElliptic):
 
 
 class DifferentiableTpfa:
+    def __init__(
+        self,
+        subdomains,
+        boundary_grids,
+        mdg,
+        # diffusivity_tensor: Optional[Callable[[list[pp.Grid]], pp.ad.Operator]],
+        # bc_value_key: Literal["bc_values_darcy_flux", "bc_values_fourier_flux"],
+    ):
+        """TODO: Decide if this is right signature and attribute set. If yes, change
+        method signatures and use self.subdomains etc.
+        """
+        self.subdomains = subdomains
+        self.boundary_grids = boundary_grids
+        self.mdg = mdg
+        # self.diffusivity_tensor = diffusivity_tensor
+        # self.bc_value_key = bc_value_key
+        """Doesn't need to be fixed as a Literal, but feels safer for now"""
+
+    def boundary_filters(self, subdomains, boundaries, name):
+        dir_filter = pp.ad.TimeDependentDenseArray(
+            name=(name + "_filter_dir"), domains=self.boundary_grids
+        )
+        neu_filter = pp.ad.TimeDependentDenseArray(
+            name=(name + "_filter_neu"), domains=self.boundary_grids
+        )
+        proj = pp.ad.BoundaryProjection(
+            self.mdg, self.subdomains, dim=1
+        ).boundary_to_subdomain
+        return proj @ dir_filter, proj @ neu_filter
+
     def _block_diagonal_grid_property_matrix(
         self,
         domains: list[pp.Grid],
@@ -368,6 +399,117 @@ class DifferentiableTpfa:
             get_matrix,
         )
 
+    def half_face_map(
+        self,
+        subdomains: list[pp.Grid],
+        from_entity: Literal["cells", "faces", "half_faces"] = "half_faces",
+        to_entity: Literal["cells", "faces", "half_faces"] = "half_faces",
+        dimensions: tuple[int, int] = (1, 1),
+        with_sign: bool = False,
+    ) -> sps.spmatrix:
+        """Mapping between half-faces and cells or faces.
+
+        Parameters:
+            subdomains: List of grids.
+            from_entity: Entity to map from.
+            to_entity: Entity to map to.
+            dimensions: Dimensions of the entities.
+            with_sign: Whether to include sign in the mapping.
+
+        Returns:
+            spmatrix ``(num_{from_entity} * dimensions[0], num_{to_entity} * dimensions[1])``:
+                Mapping matrix.
+
+        """
+
+        def get_matrix(g: pp.Grid) -> sps.csr_matrix:
+            fi, ci, sgn = sps.find(g.cell_faces)
+
+            indices = []
+            sizes = []
+            for name in [to_entity, from_entity]:
+                if name == "cells":
+                    indices.append(ci)
+                    sizes.append(g.num_cells)
+                elif name == "faces":
+                    indices.append(fi)
+                    sizes.append(g.num_faces)
+                elif name == "half_faces":
+                    indices.append(np.arange(fi.size))
+                    sizes.append(fi.size)
+                else:
+                    raise ValueError(f"Unknown entity {name}.")
+
+            # Divide dimensions to know how many time to repeat rows and columns,
+            # respectively. Ceil is used to treat the lower of the two dimensions as 1.
+            repeat_row_inds = np.ceil(dimensions[1] / dimensions[0]).astype(int)
+            repeat_col_inds = np.ceil(dimensions[0] / dimensions[1]).astype(int)
+
+            # Check that the dimensions are compatible. One of the dimensions must be a
+            # multiple of the other.
+            assert (
+                dimensions[0] % dimensions[1] == 0 or dimensions[1] % dimensions[0] == 0
+            )
+            rows_simple = pp.fvutils.expand_indices_nd(
+                np.repeat(indices[0], repeat_row_inds), dimensions[0]
+            )
+            cols_simple = pp.fvutils.expand_indices_nd(
+                np.repeat(indices[1], repeat_col_inds), dimensions[1]
+            )
+            if dimensions[0] == dimensions[1]:
+                # In the case dim[1] = 1, the repeat/expand is redundant, but it does no
+                # harm.
+                rows = pp.fvutils.expand_indices_nd(indices[0], dimensions[0])
+                cols = pp.fvutils.expand_indices_nd(indices[1], dimensions[1])
+
+            elif dimensions[0] > dimensions[1]:
+                # Matrix multiplication is an expansion from dim[1] to dim[0]. We repeat
+                # the column indices dim[0] / dim[1] times. This allows dim[0] > dim[1] >
+                # 1, i.e. expanding a dim[1] vector to a dim[0] vector.
+                repeat = int(dimensions[0] / dimensions[1])
+                assert dimensions[0] % dimensions[1] == 0
+                rows = pp.fvutils.expand_indices_nd(indices[0], dimensions[0])
+                cols = pp.fvutils.expand_indices_nd(
+                    np.repeat(indices[1], repeat), dimensions[1]
+                )
+                if with_sign:
+                    vals = np.repeat(sgn, dimensions[1])
+                else:
+                    vals = np.ones(cols.size)
+            else:
+                # Matrix multiplication is a reduction from dim[1] to dim[0]. We expand
+                # the row indices dim[1] / dim[0] times and then expand. This allows
+                # dim[1] > dim[0] > 1, i.e. collapsing a dim[1] vector to a dim[0] vector.
+                repeat = int(dimensions[1] / dimensions[0])
+                assert dimensions[1] % dimensions[0] == 0
+                rows = pp.fvutils.expand_indices_nd(
+                    np.repeat(indices[0], repeat), dimensions[0]
+                )
+                cols = pp.fvutils.expand_indices_nd(indices[1], dimensions[1])
+                if with_sign:
+                    vals = np.repeat(sgn, repeat)
+                else:
+                    vals = np.ones(cols.size)
+            assert np.allclose(rows_simple, rows)
+            assert np.allclose(cols_simple, cols)
+            if with_sign:
+                vals = np.repeat(sgn, max(dimensions))
+            else:
+                vals = np.ones(cols.size)
+            mat = sps.csr_matrix(
+                (vals, (rows, cols)),
+                shape=(
+                    sizes[0] * dimensions[0],
+                    sizes[1] * dimensions[1],
+                ),
+            )
+            return mat
+
+        return self._block_diagonal_grid_property_matrix(
+            subdomains,
+            get_matrix,
+        )
+
     def cell_face_vectors(self, subdomains: list[pp.Grid]) -> sps.spmatrix:
         """Distance between face centers and cell centers.
 
@@ -454,7 +596,7 @@ class DifferentiableTpfa:
             get_matrix,
         )
 
-    def cell_face_distances(self, subdomains: list[pp.Grid]) -> sps.spmatrix:
+    def cell_face_distances(self, subdomains: list[pp.Grid]) -> np.ndarray:
         """Scalar distance between face centers and cell centers for each half face."""
         vals = []
         for g in subdomains:
@@ -463,11 +605,10 @@ class DifferentiableTpfa:
             vals.append(np.power(fc_cc, 2).sum(axis=0))
         return np.hstack(vals)
 
-    def half_face_transmissibilities(
+    def half_face_transmissibility_matrices(
         self,
         subdomains: list[pp.Grid],
-        diffusivity_tensor: Callable[[list[pp.Grid]], pp.ad.Operator],
-    ) -> pp.ad.Operator:
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Transmissibilities for each half-face."""
         # Half-face transmissibilities are computed as
         # t_hf = d_vec @ n @ k_hf / dist
@@ -475,37 +616,34 @@ class DifferentiableTpfa:
         # n: Normal vector on half-faces shape=(3 x num_half_faces,9 x num_half_faces)
         # d_vec: Vectors cell centers and face centers shape=(num_half_faces, 3 x num_half_faces)
         # dist: Distance between cell centers and face centers shape=(num_half_faces,)
-        d_vec = self.cell_face_vectors(subdomains)
-        dist = self.cell_face_distances(subdomains)
-        k_c = diffusivity_tensor(subdomains)
+
+        # Normal vectors, each row contains a normal vector. Matrix shape =
+        # (3 * n_hf, 9 * n_hf). Multiplying k_c by this ammounts to half-face-wise
+        # inner product between the normal vector and the diffusivity tensor, with each
+        # resulting vector having shape (3,), hence the 3 in the first dimension.
         n = self.normal_vectors(subdomains)
+        # Face-cell vectors, each row contains a distance vector for a half-face.
+        # Matrix shape = (n_hf, 3 * n_hf). Multiplying (n @ k_c) by this matrix ammounts
+        # to half-face-wise inner products as above.
+        d_vec = self.cell_face_vectors(subdomains)
+        # Face-cell distances, scalar for each half-face
+        dist = self.cell_face_distances(subdomains)
+        return n, d_vec, dist
 
-        d_n_by_dist = sps.diags(1 / dist) * d_vec @ n
-        one = pp.ad.Scalar(1)
-        # t_hf = d_vec @ n @ k_hf / dist
-        t_hf = pp.ad.SparseArray(d_n_by_dist) @ k_c
-        return t_hf
+    def face_pairing_from_cell_array(self, subdomains: list[pp.Grid]) -> sps.spmatrix:
+        """Mapping from cell to face pairs.
 
-    def face_transmissibilities(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Transmissibilities for each face."""
-        t_hf_inv = pp.ad.Scalar(1) / self.half_face_transmissibilities(subdomains)
-        # Sum over half-faces to get transmissibility on faces.
-        # Include sign to cancel the effect of the d_vec @ n having opposite signs on
-        # the two half-faces.
-        hf_to_f_mat = self.faces_to_half_faces(subdomains, dim=1, with_sign=True).T
-        T_f = one / (pp.ad.SparseArray(hf_to_f_mat) @ t_hf_inv)
-        return T_f
+        Intended usage: Given a vector of cell values of the potential u, multiply with
+        this matrix to get u_l - u_r on faces. Includes the "half" pairing on
+        boundaries.
 
-    def face_pairing_from_cell_vector(
-        self, subdomains: list[pp.Grid]
-    ) -> pp.ad.Operator:
-        """Mapping from cell to face pairs."""
+        """
 
         # Construct difference operator to get p_l - p_r on faces. First map p to half-
         # faces, then to faces with the signed matrix.
         c_to_hf_mat = self.cells_to_half_faces(subdomains, dim=1, with_sign=False)
         hf_to_f_mat = self.faces_to_half_faces(subdomains, dim=1, with_sign=True).T
-        diff_p = pp.ad.SparseArray(hf_to_f_mat @ c_to_hf_mat)
+        return hf_to_f_mat @ c_to_hf_mat
 
     def boundary_sign(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Sign of boundary faces. TODO: Consider alternative implementation."""
@@ -516,3 +654,30 @@ class DifferentiableTpfa:
         one_vec = np.ones(hf_to_f_mat.shape[1])
         bnd_sgn = pp.ad.DenseArray(hf_to_f_mat @ one_vec)
         return bnd_sgn
+
+    def nd_to_3d(
+        self, subdomains: list[pp.Grid], nd: int, entity="cells"
+    ) -> sps.spmatrix:
+        """Expand a vector from nd to 3d.
+
+        Intended usage: Expand vector source, defined as a nd vector (because mpfa
+        discretization is performed in nd), to a 3d vector (because tpfa, specifically
+        this version, is implemented in 3d).
+
+        """
+
+        def get_matrix(g: pp.Grid) -> sps.csr_matrix:
+            num = getattr(g, f"num_{entity}")
+            rows = np.concatenate([np.arange(i, num * 3, 3) for i in range(nd)])
+            cols = np.concatenate([np.arange(i, num * nd, nd) for i in range(nd)])
+            vals = np.ones(cols.size)
+            mat = sps.csr_matrix(
+                (vals, (rows, cols)),
+                shape=(num * 3, num * nd),
+            )
+            return mat
+
+        return self._block_diagonal_grid_property_matrix(
+            subdomains,
+            get_matrix,
+        )

@@ -1026,7 +1026,7 @@ class DarcysLaw:
             dirichlet_operator=self.pressure,
             neumann_operator=self.darcy_flux,
             bc_type=self.bc_type_darcy_flux,
-            name="bc_values_darcy",
+            name="bc_values_darcy_flux",
         )
 
         discr: Union[pp.ad.TpfaAd, pp.ad.MpfaAd] = self.darcy_flux_discretization(
@@ -1059,6 +1059,8 @@ class DarcysLaw:
             Operator representing the Darcy flux equation on the interfaces.
 
         """
+        if len(interfaces) == 0:
+            return pp.wrap_as_dense_ad_array(0, size=0)
         subdomains = self.interfaces_to_subdomains(interfaces)
 
         projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1)
