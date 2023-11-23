@@ -653,12 +653,12 @@ class Operator:
     def evaluate_value(
         self, system_manager: pp.ad.EquationSystem, state: Optional[np.ndarray] = None
     ) -> numbers.Real | np.ndarray | sps.spmatrix:
-        return self.evaluate(system_manager, state=state, evaluate_jacobian=False)
+        return self._evaluate(system_manager, state=state, evaluate_jacobian=False)
 
     def evaluate_value_and_jacobian(
         self, system_manager: pp.ad.EquationSystem, state: Optional[np.ndarray] = None
     ) -> AdArray:
-        ad = self.evaluate(system_manager, state=state, evaluate_jacobian=True)
+        ad = self._evaluate(system_manager, state=state, evaluate_jacobian=True)
 
         # Casting the result to AdArray or raising an error.
         if isinstance(ad, numbers.Real):
@@ -675,8 +675,16 @@ class Operator:
             )
         else:
             return ad
-
+        
     def evaluate(
+        self,
+        system_manager: pp.ad.EquationSystem,
+        state: Optional[np.ndarray] = None,
+    ):
+        raise ValueError('`evaluate` is deprecated. Use `evaluate_value` or '
+                         '`evaluate_value_and_jacobian` instead.')
+
+    def _evaluate(
         self,
         system_manager: pp.ad.EquationSystem,
         state: Optional[np.ndarray] = None,
@@ -764,10 +772,12 @@ class Operator:
         # this matrix.
 
         # First generate an Ad array (ready for forward Ad) for the full set.
+        # If the Jacobian is not requested, this step is skipped.
+        vars: AdArray | np.ndarray
         if evaluate_jacobian:
-            ad_vars = initAdArrays([state])[0]
+            vars = initAdArrays([state])[0]
         else:
-            ad_vars = state
+            vars = state
 
         # Next, the Ad array must be split into variables of the right size
         # (splitting impacts values and number of rows in the Jacobian, but
@@ -787,7 +797,7 @@ class Operator:
             R = sps.coo_matrix(
                 (np.ones(nrow), (np.arange(nrow), dof)), shape=(nrow, ncol)
             ).tocsr()
-            self._ad[var_id] = R @ ad_vars
+            self._ad[var_id] = R @ vars
 
         # Also make mappings from the previous iteration.
         # This is simpler, since it is only a matter of getting the residual vector

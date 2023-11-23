@@ -1895,14 +1895,7 @@ def test_arithmetic_operations_on_ad_objects(
     if wrapped:
         try:
             expression = eval(f"v1 {op} v2")
-
-            # The expected value is of a numeric type if no AdArrays are included in the
-            # expression, otherwise AdArray. `evaluate_value_and_jacobian` always
-            # returns an AdArray, whereas `evaluate_value` returns a numeric type.
-            if var_1 == "ad" or var_2 == "ad":
-                val = expression.evaluate_value_and_jacobian(eq_system)
-            else:
-                val = expression.evaluate_value(eq_system)
+            val = expression._evaluate(eq_system)
         except (TypeError, ValueError, NotImplementedError):
             assert not expected
             return
