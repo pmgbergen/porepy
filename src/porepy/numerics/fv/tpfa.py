@@ -332,73 +332,6 @@ class DifferentiableTpfa:
         )
         return block_matrix
 
-    def cells_to_half_faces(
-        self, subdomains: list[pp.Grid], dim: int, with_sign=False
-    ) -> sps.spmatrix:
-        """Mapping from cells to half-faces.
-
-        Parameters:
-            subdomains: List of grids.
-            dim: Dimension of the half-faces.
-
-        Returns:
-            Operator.
-        """
-
-        def get_matrix(g: pp.Grid) -> sps.csr_matrix:
-            _, ci, sgn = sps.find(g.cell_faces)
-            # Repeat dim times in f order
-            row_inds = np.repeat(np.arange(ci.size), dim)
-            col_inds = pp.fvutils.expand_indices_nd(ci, dim)
-            if with_sign:
-                vals = np.repeat(sgn, dim)
-            else:
-                vals = np.ones(col_inds.size)
-            mat = sps.csr_matrix(
-                (vals, (row_inds, col_inds)),
-                shape=(ci.size, g.num_cells * dim),
-            )
-            return mat
-
-        return self._block_diagonal_grid_property_matrix(
-            subdomains,
-            get_matrix,
-        )
-
-    def faces_to_half_faces(
-        self, subdomains: list[pp.Grid], dim: int, with_sign=False
-    ) -> sps.spmatrix:
-        """Mapping from faces to half-faces.
-
-        Parameters:
-            subdomains: List of grids.
-            dim: Dimension of the half-faces.
-
-        Returns:
-            Operator.
-        """
-
-        def get_matrix(g: pp.Grid) -> sps.csr_matrix:
-            fi, _, sgn = sps.find(g.cell_faces)
-
-            # Repeat dim times in f order
-            row_inds = np.repeat(np.arange(fi.size), dim)
-            col_inds = pp.fvutils.expand_indices_nd(fi, dim)
-            if with_sign:
-                vals = np.repeat(sgn, dim)
-            else:
-                vals = np.ones(col_inds.size)
-            mat = sps.csr_matrix(
-                (vals, (row_inds, col_inds)),
-                shape=(fi.size, g.num_faces * dim),
-            )
-            return mat
-
-        return self._block_diagonal_grid_property_matrix(
-            subdomains,
-            get_matrix,
-        )
-
     def half_face_map(
         self,
         subdomains: list[pp.Grid],
@@ -456,6 +389,8 @@ class DifferentiableTpfa:
             cols_simple = pp.fvutils.expand_indices_nd(
                 np.repeat(indices[1], repeat_col_inds), dimensions[1]
             )
+            # I believe the following is a less elegant implementation of the above.
+            # If the above is correct, this should be removed. See assert below.
             if dimensions[0] == dimensions[1]:
                 # In the case dim[1] = 1, the repeat/expand is redundant, but it does no
                 # harm.
@@ -493,6 +428,7 @@ class DifferentiableTpfa:
             assert np.allclose(rows_simple, rows)
             assert np.allclose(cols_simple, cols)
             if with_sign:
+                # TODO: Check logic here.
                 vals = np.repeat(sgn, max(dimensions))
             else:
                 vals = np.ones(cols.size)
@@ -641,8 +577,8 @@ class DifferentiableTpfa:
 
         # Construct difference operator to get p_l - p_r on faces. First map p to half-
         # faces, then to faces with the signed matrix.
-        c_to_hf_mat = self.cells_to_half_faces(subdomains, dim=1, with_sign=False)
-        hf_to_f_mat = self.faces_to_half_faces(subdomains, dim=1, with_sign=True).T
+        c_to_hf_mat = self.half_face_map(subdomains, to_entity="cells")
+        hf_to_f_mat = self.half_face_map(subdomains, to_entity="faces", with_sign=True)
         return hf_to_f_mat @ c_to_hf_mat
 
     def boundary_sign(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
@@ -650,7 +586,7 @@ class DifferentiableTpfa:
         # Construct sign vector on boundary from the signed hf_to_f_mat. The following
         # pairing of signs from half faces to faces works because there's only one half
         # face at each boundary face. Internally, the sign contributions cancel.
-        hf_to_f_mat = self.faces_to_half_faces(subdomains, dim=1, with_sign=True).T
+        hf_to_f_mat = self.half_face_map(subdomains, to_entity="faces", with_sign=True)
         one_vec = np.ones(hf_to_f_mat.shape[1])
         bnd_sgn = pp.ad.DenseArray(hf_to_f_mat @ one_vec)
         return bnd_sgn
