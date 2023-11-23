@@ -176,14 +176,11 @@ def test_advection_or_diffusion_dominated(fluid_vals, solid_vals):
         # Total advected matrix energy: (bc_val=1) * specific_heat * (time=1 s) * (total
         # influx =grad * dp * k=1/2*k)
         sds = setup.mdg.subdomains(dim=2)
-        total_energy = (
-            setup.volume_integral(
-                setup.total_internal_energy(sds),
-                sds,
-                dim=1,
-            )
-            .evaluate_value(setup.equation_system)
-        )
+        total_energy = setup.volume_integral(
+            setup.total_internal_energy(sds),
+            sds,
+            dim=1,
+        ).evaluate_value(setup.equation_system)
         expected = setup.fluid.specific_heat_capacity() * setup.solid.permeability() / 2
         assert np.allclose(np.sum(total_energy), expected, rtol=1e-3)
 
@@ -295,13 +292,12 @@ def test_energy_conservation():
     # u and h should be close with our setup
     assert np.isclose(u_val, h_val, rtol=1e-3)
     well_intf = setup.mdg.interfaces(codim=2)
-    well_enthalpy_flux = (
-        setup.well_enthalpy_flux(well_intf).evaluate_value(setup.equation_system)
+    well_enthalpy_flux = setup.well_enthalpy_flux(well_intf).evaluate_value(
+        setup.equation_system
     )
     well_fluid_flux = setup.well_flux(well_intf).evaluate_value(setup.equation_system)
-    h_well = (
-        setup.fluid_enthalpy(setup.mdg.subdomains(dim=0))
-        .evaluate_value(setup.equation_system)
+    h_well = setup.fluid_enthalpy(setup.mdg.subdomains(dim=0)).evaluate_value(
+        setup.equation_system
     )
     # The well enthalpy flux should be equal to well enthalpy times well fluid flux
     assert np.isclose(well_enthalpy_flux, h_well * well_fluid_flux, rtol=1e-10)
