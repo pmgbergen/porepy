@@ -7,7 +7,7 @@ labels = [
     'numba-compiled\nparallelization',
 ]
 
-minimize_times = np.array([5760, 1204.0572671890259, 4.295958995819092])
+minimize_times = np.array([5760, 1204.0572671890259, 0.10272908210754395])
 init_times = np.array([0., 0., 0.005086660385131836])
 total_times = init_times + minimize_times
 minimize_times[:2] = 0.
@@ -34,7 +34,7 @@ ax.set_xticklabels(labels)
 xticks = x + dimw / 2
 ax.text(xticks[0] , total_times[0] + 50, f"~{np.ceil(total_times[0])}")
 ax.text(xticks[1] , total_times[1] + 10, f"~{np.ceil(total_times[1])}")
-ax.text(xticks[2] - 0.25, total_times[2] + 10, f"{0.005} + {4.296}")
+ax.text(xticks[2] - 0.25, total_times[2] + 10, f"{0.005} + {0.103}")
 
 ax.set_yscale('log')
 ax.set_title("Comparison of computational times\n6400 p-T flash problems\n2 phases, 2 components")

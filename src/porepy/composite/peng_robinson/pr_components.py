@@ -128,9 +128,9 @@ class H2O(Component_PR):
         """
         return (
             self.cp1 * (T - T_REF)
-            + self.cp2 / 2 * (pp.ad.power(T, 2) - T_REF**2)
-            + self.cp3 / 3 * (pp.ad.power(T, 3) - T_REF**3)
-            + self.cp4 / 4 * (pp.ad.power(T, 4) - T_REF**4)
+            + self.cp2 / 2 * (T**2 - T_REF**2)
+            + self.cp3 / 3 * (T**3 - T_REF**3)
+            + self.cp4 / 4 * (T**4 - T_REF**4)
         )
 
 
@@ -152,9 +152,9 @@ class CO2(Component_PR):
         """
         return (
             self.cp1 * (T - T_REF)
-            + self.cp2 / 2 * (pp.ad.power(T, 2) - T_REF**2)
-            + self.cp3 / 3 * (pp.ad.power(T, 3) - T_REF**3)
-            + self.cp4 / 4 * (pp.ad.power(T, 4) - T_REF**4)
+            + self.cp2 / 2 * (T**2 - T_REF**2)
+            + self.cp3 / 3 * (T**3 - T_REF**3)
+            + self.cp4 / 4 * (T**4 - T_REF**4)
         )
 
 
@@ -176,8 +176,8 @@ class H2S(Component_PR):
         """
         return R_IDEAL * (
             self.cp1 * (T - T_REF)
-            + self.cp2 / 2 * (pp.ad.power(T, 2) - T_REF**2)
-            - self.cp3 * (pp.ad.power(T, -1) - T_REF ** (-1))
+            + self.cp2 / 2 * (T**2 - T_REF**2)
+            - self.cp3 * (T ** (-1) - T_REF ** (-1))
         )
 
 
@@ -215,8 +215,8 @@ class N2(Component_PR):
         """
         return R_IDEAL * (
             self.cp1 * (T - T_REF)
-            + self.cp2 / 2 * (pp.ad.power(T, 2) - T_REF**2)
-            - self.cp3 * (pp.ad.power(T, -1) - T_REF ** (-1))
+            + self.cp2 / 2 * (T**2 - T_REF**2)
+            - self.cp3 * (T ** (-1) - T_REF ** (-1))
         )
 
 
