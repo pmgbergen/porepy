@@ -29,8 +29,8 @@ import numba
 import numpy as np
 
 from ._core import NUMBA_CACHE
+from .composite_utils import COMPOSITE_LOGGER as logger
 from .composite_utils import safe_sum
-from .flash import del_log, logger
 from .mixture import BasicMixture, ThermodynamicState
 
 __all__ = [
@@ -42,7 +42,13 @@ __all__ = [
 ]
 
 
+_import_start = time.time()
+
+
 # region Helper methods
+
+
+logger.debug(f"(import composite/flash_c.py) Compiling parsers ..\n")
 
 
 @numba.njit(
@@ -347,6 +353,9 @@ def _rr_potential(z: np.ndarray, y: np.ndarray, K: np.ndarray) -> float:
 # region General flash equation independent of flash type and EoS
 
 
+logger.debug(f"(import composite/flash_c.py) Compiling shared flash equations ..\n")
+
+
 @numba.njit(
     "float64[:](float64[:,:], float64[:], float64[:])",
     fastmath=True,
@@ -503,6 +512,9 @@ def complementary_conditions_jac(x: np.ndarray, y: np.ndarray) -> np.ndarray:
 
 # endregion
 # region NPIPM related functions
+
+
+logger.debug(f"(import composite/flash_c.py) Compiling NPIPM methods ..\n")
 
 
 @numba.njit(
@@ -794,6 +806,9 @@ def npipm_extend_and_regularize_jac(
 
 # endregion
 # region Methods related to the numerical solution strategy
+
+
+logger.debug(f"(import composite/flash_c.py) Compiling numerical methods ..\n")
 
 
 @numba.njit(  # TODO type signature once typing for functions is available
@@ -1476,12 +1491,12 @@ class Flash_c:
         # TODO fill up missing quantities in result state if any
         return result_state
 
-    def print_last_stats(self):
+    def log_last_stats(self):
         """Prints statistics found in :attr:`last_flash_stats` in the console."""
-        print("---\nLast flash stats:")
+        logger.warn("--- Last flash stats:\n")
         for k, v in self.last_flash_stats.items():
-            print(f"\t{k}: {v}")
-        print("---")
+            logger.warn(f"---\t{k}: {v}\n")
+        print("")
 
     def compile(self, verbosity: int = 1) -> None:
         """Triggers the assembly and compilation of equilibrium equations, including
@@ -1514,6 +1529,7 @@ class Flash_c:
             logger.setLevel(logging.WARNING)
 
         nphase, ncomp = self.npnc
+        tol = self.tolerance
 
         ## dimension of flash systems, excluding NPIPM
         # number of equations for the pT system
@@ -1528,20 +1544,24 @@ class Flash_c:
         vh_dim = ph_dim + 1 + (nphase - 1)
 
         ## Compilation start
-        logger.info(f"{del_log}Compiling residual pre-argument ..")
+        logger.info(
+            f"Starting flash compilation (phases: {nphase}, components: {ncomp}):\n"
+        )
+        _start = time.time()
+        logger.debug("Compiling residual pre-argument ..\n")
         prearg_res_c = self.eos_compiler.get_pre_arg_function_res()
-        logger.info(f"{del_log}Compiling Jacobian pre-argument ..")
+        logger.debug("Compiling Jacobian pre-argument ..\n")
         prearg_jac_c = self.eos_compiler.get_pre_arg_function_jac()
-        logger.info(f"{del_log}Compiling fugacity coefficient function ..")
+        logger.debug("Compiling fugacity coefficient function ..\n")
         phi_c = self.eos_compiler.get_fugacity_function()
-        logger.info(f"{del_log}Compiling derivatives of fugacity coefficients ..")
+        logger.debug("Compiling derivatives of fugacity coefficients ..\n")
         d_phi_c = self.eos_compiler.get_dpTX_fugacity_function()
-        logger.info(f"{del_log}Compiling enthalpy function ..")
+        logger.debug("Compiling enthalpy function ..\n")
         h_c = self.eos_compiler.get_enthalpy_function()
-        logger.info(f"{del_log}Compiling derivative of enthalpy function ..")
+        logger.debug("Compiling derivative of enthalpy function ..\n")
         d_h_c = self.eos_compiler.get_dpTX_enthalpy_function()
 
-        logger.info(f"{del_log}Compiling residual of isogucacity constraints ..")
+        logger.debug("Compiling residual of isogucacity constraints ..\n")
 
         @numba.njit(
             "float64[:](float64[:,:], float64, float64, float64[:,:], float64[:,:])"
@@ -1570,7 +1590,7 @@ class Flash_c:
 
             return isofug
 
-        logger.info(f"{del_log}Compiling Jacobian of isogucacity constraints ..")
+        logger.debug("Compiling Jacobian of isogucacity constraints ..\n")
 
         @numba.njit(
             "float64[:,:]"
@@ -1650,7 +1670,7 @@ class Flash_c:
 
             return d_iso
 
-        logger.info(f"{del_log}Compiling residual of enthalpy constraints ..")
+        logger.debug("Compiling residual of enthalpy constraints ..\n")
 
         @numba.njit(
             "float64(float64[:,:], float64, float64, float64, float64[:], float64[:,:])"
@@ -1736,7 +1756,7 @@ class Flash_c:
                 h_constr_jac /= h
             return -h_constr_jac
 
-        logger.info(f"{del_log}Compiling p-T flash ..")
+        logger.debug("Compiling p-T flash ..\n")
 
         @numba.njit("float64[:](float64[:])")
         def F_pT(X_gen: np.ndarray) -> np.ndarray:
@@ -1783,7 +1803,7 @@ class Flash_c:
 
             return jac
 
-        logger.info(f"{del_log}Compiling p-h flash ..")
+        logger.debug("Compiling p-h flash ..\n")
 
         @numba.njit("float64[:](float64[:])")
         def F_ph(X_gen: np.ndarray) -> np.ndarray:
@@ -1840,7 +1860,7 @@ class Flash_c:
 
             return jac
 
-        logger.info(f"{del_log}Storing compiled equations ..")
+        logger.debug("Storing compiled equations ..\n")
 
         self.residuals.update(
             {
@@ -1861,7 +1881,7 @@ class Flash_c:
         v_crits = np.array(self._vcrits)
         omegas = np.array(self._omegas)
 
-        logger.info(f"{del_log}Compiling p-T initialization ..")
+        logger.debug("Compiling p-T initialization ..\n")
 
         @numba.njit("float64[:](float64[:],int32, int32)")
         def guess_fractions(
@@ -2005,19 +2025,49 @@ class Flash_c:
                 X_gen[f] = guess_fractions(X_gen[f], N1, guess_K_vals)
             return X_gen
 
-        logger.info(f"{del_log}Compiling p-h initialization ..")
+        logger.debug("Compiling p-h initialization ..\n")
 
-        # @numba.njit("float64[:](float64[:], int32)")
+        @numba.njit("float64[:](float64[:], int32)")
         def update_T_guess(X_gen: np.ndarray, N2: int) -> np.ndarray:
             """Updating T guess by iterating on h-constr w.r.t. T using Newton and some
             corrections"""
+            x, y, _ = parse_xyz(X_gen, (nphase, ncomp))
+            p, h, T = parse_phT(X_gen, (nphase, ncomp))
+            xn = normalize_fractions(x)
 
+            for _ in range(N2):
+                prearg_res = prearg_res_c(p, T, xn)
+                prearg_jac = prearg_jac_c(p, T, xn)
+
+                h_constr_res = h_constr_res_c(prearg_res, p, h, T, y, xn)
+                if np.abs(h_constr_res) < tol:
+                    break
+                else:
+                    dT_h_constr = h_constr_jac_c(
+                        prearg_res, prearg_jac, p, h, T, y, x, xn
+                    )[
+                        1
+                    ]  # T-derivative
+                    dT = 0 - h_constr_res / dT_h_constr  # Newton iteration
+
+                    # corrections to unfeasible updates because of decoupling
+                    if np.abs(dT) > T:
+                        dT = 0.1 * T * np.sign(dT)
+                    dT *= 1 - np.abs(dT) / T
+                    # TODO this correction is only valid for VLE
+                    if h_constr_res > 0 and y[1] > 1e-3:
+                        dT *= 0.4
+                    T += dT
+
+            # inserting the updated T in the generic thd argument
+            # Minding the order z, state_1, state_2, (s),(p),(T), y, x
+            X_gen[-(nphase - 1 + nphase * ncomp + 1)] = T
             return X_gen
 
-        # @numba.njit(
-        #     "float64[:,:](float64[:,:], int32, int32, int32, float64)",
-        #     parallel=True,
-        # )
+        @numba.njit(
+            "float64[:,:](float64[:,:], int32, int32, int32, float64)",
+            parallel=True,
+        )
         def ph_initializer(
             X_gen: np.ndarray, N1: int, N2: int, N3: int, eps: float
         ) -> np.ndarray:
@@ -2034,6 +2084,7 @@ class Flash_c:
                     xf = update_T_guess(xf, N2)
                     xf = guess_fractions(xf, N1, 0)
 
+                    # abort if residual already small enough
                     res = F_ph(xf)
                     if np.linalg.norm(res) <= eps:
                         break
@@ -2041,8 +2092,7 @@ class Flash_c:
                 X_gen[f] = xf
             return X_gen
 
-        logger.info(f"{del_log}Compiling h-v flash initialization ..")
-        logger.info(f"{del_log}Storing compiled initializers ..")
+        logger.debug("Compiling h-v flash initialization ..\n")
 
         self.initializers.update(
             {
@@ -2050,7 +2100,11 @@ class Flash_c:
                 "p-h": ph_initializer,
             }
         )
-        logger.info(f"{del_log}Flash compilation completed.\n")
+
+        _end = time.time()
+        logger.info(
+            f"Flash compilation completed (elapsed time: {_end - _start}(s)).\n\n"
+        )
 
         self.reconfigure_npipm(
             self.npipm_parameters["eta"],
@@ -2093,7 +2147,9 @@ class Flash_c:
         u2 = float(u2)
         eta = float(eta)
 
-        logger.info(f"{del_log}Compiling NPIPM p-T flash ..")
+        logger.info(f"Starting NPIPM compilation (eta={eta}, u1={u1}, u2={u2}):\n")
+        _start = time.time()
+        logger.debug("Compiling NPIPM p-T flash ..\n")
 
         F_pT = self.residuals["p-T"]
         DF_pT = self.jacobians["p-T"]
@@ -2112,7 +2168,7 @@ class Flash_c:
             x, y, _ = parse_xyz(X_thd, npnc)
             return npipm_extend_and_regularize_jac(DF_pT(X_thd), y, x, nu, u1, u2, eta)
 
-        logger.info(f"{del_log}Compiling NPIPM p-h flash ..")
+        logger.debug("Compiling NPIPM p-h flash ..\n")
 
         F_ph = self.residuals["p-h"]
         DF_ph = self.jacobians["p-h"]
@@ -2130,8 +2186,6 @@ class Flash_c:
             nu = X[-1]
             x, y, _ = parse_xyz(X_thd, npnc)
             return npipm_extend_and_regularize_jac(DF_ph(X_thd), y, x, nu, u1, u2, eta)
-
-        logger.info(f"{del_log}Storing compiled equations ..")
 
         self.npipm_residuals.update(
             {
@@ -2155,7 +2209,10 @@ class Flash_c:
             }
         )
 
-        logger.info(f"{del_log}NPIPM compilation completed.\n")
+        _end = time.time()
+        logger.info(
+            f"NPIPM compilation completed (elapsed time: {_end - _start} (s)).\n\n"
+        )
 
     def flash(
         self,
@@ -2316,9 +2373,9 @@ class Flash_c:
                 f"Unsupported flash with state definitions {p, T, h, v}"
             )
 
-        logger.info(f"{del_log}Determined flash type: {flash_type}\n")
+        logger.info(f"Determined flash type: {flash_type}\n")
 
-        logger.debug(f"{del_log}Assembling generic flash arguments ..")
+        logger.debug("Assembling generic flash arguments ..")
         X0 = np.zeros((NF, gen_arg_dim))
         for i, z_i in enumerate(z):
             X0[:, i] = z_i
@@ -2326,18 +2383,16 @@ class Flash_c:
         X0[:, ncomp] = state_2
 
         if initial_state is None:
-            logger.info(f"{del_log}Computing initial state ..")
+            logger.info("Computing initial state ..")
             start = time.time()
             # exclude NPIPM variable (last column) from initialization
             X0[:, :-1] = self.initializers[flash_type](X0[:, :-1], *init_args)
             end = time.time()
-            logger.info(f"{del_log}Initial state computed.\n")
             init_time = end - start
-            logger.debug(f"Elapsed time (s): {init_time}\n")
-
+            logger.info(f"Initial state computed (elapsed time: {init_time} (s)).\n")
         else:
             init_time = 0.0
-            logger.debug(f"{del_log}Parsing initial state ..")
+            logger.info("Parsing initial state ..")
             # parsing phase compositions and molar fractions
             for j in range(nphase):
                 # values for molar phase fractions except for reference phase
@@ -2360,7 +2415,7 @@ class Flash_c:
 
             # parsing molar phsae fractions
 
-        logger.info(f"{del_log}Computing initial guess for slack variable ..")
+        logger.info("Computing initial guess for slack variable ..")
         X0 = initialize_npipm_nu(X0, (nphase, ncomp))
 
         F = self.npipm_residuals[flash_type]
@@ -2374,7 +2429,7 @@ class Flash_c:
             self.armijo_parameters["j_max"],
         )
 
-        logger.info(f"{del_log}Solving ..")
+        logger.info("Solving ..\n")
         start = time.time()
         if mode == "linear":
             results, success, num_iter = linear_newton(X0, F, DF, *solver_args)
@@ -2383,9 +2438,8 @@ class Flash_c:
         else:
             raise ValueError(f"Unknown mode of compuation {mode}")
         end = time.time()
-        logger.info(f"{del_log}Flash computations done.\n")
         minim_time = end - start
-        logger.debug(f"Elapsed time (s): {minim_time}\n")
+        logger.info(f"{flash_type} flash done (elapsed time: {minim_time} (s)).\n\n")
 
         self.last_flash_stats = {
             "type": flash_type,
@@ -2396,10 +2450,21 @@ class Flash_c:
             "num_failure": int(np.sum(success == 2) + np.sum(success == 3)),
             "num_diverged": int(np.sum(success == 4)),
         }
+        if verbosity >= 2:
+            self.log_last_stats()
 
-        logger.debug(f"{del_log}Parsing and returning results.\n")
         return (
             self._parse_and_complete_results(results, result_state, flash_type),
             success,
             num_iter,
         )
+
+
+_import_end = time.time()
+
+logger.debug(
+    "(import composite/flash_c.py)"
+    + f" Done (elapsed time: {_import_end - _import_start} (s)).\n\n"
+)
+
+del _import_start, _import_end

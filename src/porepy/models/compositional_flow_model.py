@@ -15,7 +15,7 @@ import scipy.sparse as sps
 
 import porepy as pp
 from porepy.composite.component import Component, Compound
-from porepy.composite.flash import del_log, logger
+from porepy.composite.flash import logger
 
 
 class CompositionalFlowModel:
@@ -359,7 +359,7 @@ class CompositionalFlowModel:
         feed = [np.ones(1) * self.inflow_boundary_feed[i] for i in range(len(comps))]
         # boundary molalities
         comps[0].compute_molalities(np.ones(1) * self.inflow_boundary_solute_feed[0], store=True)
-        logger.info(f"{del_log}Computing inflow boundary equilibrium ...\n")
+        logger.info(f"Computing inflow boundary equilibrium ...\n")
         _, boundary_state = self.flash.flash(
             state={"p": p, "T": T},
             feed=feed,
@@ -397,7 +397,7 @@ class CompositionalFlowModel:
             p = np.ones(1) * self.injection_pressure * self.pressure_scale
             T = np.ones(1) * self.injection_temperature
             feed = [np.ones(1) * self.injection_feed[i] for i in range(len(comps))]
-            logger.info(f"{del_log}Computing injection equilibrium ...\n")
+            logger.info(f"Computing injection equilibrium ...\n")
             _, injection_state = self.flash.flash(
                 state={"p": p, "T": T},
                 feed=feed,
@@ -965,7 +965,7 @@ class CompositionalFlowModel:
 
         if success in [0]:
             logger.info(
-                f"{del_log}.. Newton iteration {self._nonlinear_iteration}:"
+                f".. Newton iteration {self._nonlinear_iteration}:"
                 + " Flash succeeded. Updating values .."
             )
             T = state.T
@@ -989,7 +989,7 @@ class CompositionalFlowModel:
                     )
 
             logger.info(
-                f"{del_log}.. Newton iteration {self._nonlinear_iteration}:"
+                f".. Newton iteration {self._nonlinear_iteration}:"
                 + " Flash succeeded. Computing properties .."
             )
 
@@ -1011,13 +1011,13 @@ class CompositionalFlowModel:
                 variables=self._system_vars, iterate_index=0
             )
             logger.warn(
-                f"{del_log}.. Newton iteration {self._nonlinear_iteration}:"
+                f".. Newton iteration {self._nonlinear_iteration}:"
                 + " Flash failed."
             )
             return False, x
 
         logger.info(
-            f"{del_log}.. Newton iteration {self._nonlinear_iteration}:"
+            f".. Newton iteration {self._nonlinear_iteration}:"
             + " Re-discretizing upwind .."
         )
         # Advective flux upwinding based on latest pressure values
@@ -1097,7 +1097,7 @@ class CompositionalFlowModel:
             time_step_index=0,
         )
         logger.info(
-            f"{del_log}.. Newton iteration {self._nonlinear_iteration}:"
+            f".. Newton iteration {self._nonlinear_iteration}:"
             + " exporting state"
         )
         self._export()
@@ -1105,7 +1105,7 @@ class CompositionalFlowModel:
     def after_newton_failure(self, update_vector: np.ndarray) -> None:
         """Reset iterate state to previous time step."""
         logger.info(
-            f"{del_log}.. Newton iteration {self._nonlinear_iteration}:"
+            f".. Newton iteration {self._nonlinear_iteration}:"
             + "FAILED. Re-setting iterate to previous timestep."
         )
         X = self.ad_system.get_variable_values(
@@ -1119,7 +1119,7 @@ class CompositionalFlowModel:
 
     def after_simulation(self) -> None:
         """Writes PVD file."""
-        logger.info(f"{del_log}Simulation finished. Writing PVD\n")
+        logger.info(f"Simulation finished. Writing PVD\n")
         self._exporter.write_pvd()
 
     def assemble_and_solve_linear_system(self, tol: float) -> np.ndarray:
@@ -1146,11 +1146,11 @@ class CompositionalFlowModel:
 
         res = np.linalg.norm(np.hstack([b_p, b_s]))
         logger.info(
-            f"{del_log}.. Newton iteration {self._nonlinear_iteration}: res = {res}"
+            f".. Newton iteration {self._nonlinear_iteration}: res = {res}"
         )
         if res < tol:
             logger.info(
-                f"{del_log}.. Newton iteration {self._nonlinear_iteration}: converged"
+                f".. Newton iteration {self._nonlinear_iteration}: converged"
             )
             self.converged = True
             x = self.ad_system.get_variable_values(

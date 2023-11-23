@@ -1,7 +1,7 @@
 from datetime import datetime
 
 import porepy as pp
-from porepy.models.compositional_flow_model import del_log, logger
+from porepy.models.compositional_flow_model import logger
 
 timestamp = datetime.now().strftime("%Y_%m_%d__%H_%M")
 file_name = "cf_test"  # + timestamp

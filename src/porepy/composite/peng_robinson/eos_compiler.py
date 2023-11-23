@@ -69,6 +69,8 @@ The following standard names are used for thermodynamic quantities:
 """
 from __future__ import annotations
 
+import logging
+import time
 from typing import Any, Callable
 
 import numba
@@ -79,6 +81,7 @@ import porepy as pp
 
 from .._core import COMPOSITIONAL_VARIABLE_SYMBOLS as SYMBOLS
 from .._core import NUMBA_CACHE, R_IDEAL
+from ..composite_utils import COMPOSITE_LOGGER as logger
 from ..composite_utils import safe_sum
 from ..flash_c import EoSCompiler
 from .eos import (
@@ -106,7 +109,13 @@ _STATIC_FAST_COMPILE_ARGS: dict[str, Any] = {
 }
 
 
+_import_start = time.time()
+
+
 # region Functions related to the characteristic polynomial and its roots
+
+
+logger.debug("(import peng_robinson/eos_compilter.py) Compiling cubic polynomial ..\n")
 
 
 coef0_c: Callable[[float, float], float] = numba.njit(
@@ -508,6 +517,10 @@ def ext_root_scl(Z: sp.Expr, B: sp.Symbol) -> sp.Expr:
 # endregion
 # region Functions related to the A-B space
 
+logger.debug(
+    "(import peng_robinson/eos_compilter.py) Compiling A-B space functions ..\n"
+)
+
 critical_line_c: Callable[[float], float] = numba.njit(
     "float64(float64)", **_STATIC_FAST_COMPILE_ARGS
 )(critical_line)
@@ -608,6 +621,10 @@ polynomial."""
 
 # Symbolic expressions for roots
 
+logger.debug(
+    "(import peng_robinson/eos_compilter.py) Assembling symbolic polynomial roots ..\n"
+)
+
 Z_triple_e: sp.Expr = triple_root(A_s, B_s)
 d_Z_triple_e: list[sp.Expr] = [Z_triple_e.diff(_) for _ in _AB_arg]
 
@@ -696,6 +713,11 @@ def _compile_Z(
     )
     return numba.njit("float64(float64, float64)", cache=False, fastmath=fastmath)(f)
 
+
+logger.debug(
+    "(import peng_robinson/eos_compilter.py)"
+    + " Compiling generalized compressibility factor ..\n"
+)
 
 Z_triple_c: Callable[[float, float], float] = _compile_Z(Z_triple_e, fastmath=True)
 d_Z_triple_c: Callable[[float, float], np.ndarray] = _compile_Z_diffs(
@@ -1202,7 +1224,7 @@ def d_Z_c(
 
 
 @numba.guvectorize(
-    ["void(int8, float64, float64, float64, float64, float64, float64[:], float64[:])"],
+    ["void(int8,float64,float64,float64,float64,float64,float64[:],float64[:])"],
     "(),(),(),(),(),(),(m)->(m)",
     target="parallel",
     nopython=True,
@@ -1600,7 +1622,9 @@ class PengRobinson_c(EoSCompiler):
     """Class providing compiled computations of thermodynamic quantities for the
     Peng-Robinson EoS."""
 
-    def __init__(self, mixture: pp.composite.NonReactiveMixture) -> None:
+    def __init__(
+        self, mixture: pp.composite.NonReactiveMixture, verbosity: int = 0
+    ) -> None:
         self.symbolic: PengRobinson_s = PengRobinson_s(mixture)
 
         self._gaslike: tuple[int] = tuple(
@@ -1610,6 +1634,21 @@ class PengRobinson_c(EoSCompiler):
 
         self._cfuncs: dict[str, Callable] = dict()
         """A collection of internally required, compiled callables"""
+
+        # setting logging verbosity
+        if verbosity == 1:
+            logger.setLevel(logging.INFO)
+        elif verbosity >= 2:
+            logger.setLevel(logging.DEBUG)
+        else:
+            logger.setLevel(logging.WARNING)
+
+        nphase, ncomp = self._npnc
+        logger.info(
+            f"Starting EoS compilation (phases: {nphase}, components: {ncomp}):\n"
+        )
+        _start = time.time()
+        logger.debug("(EoS) Compiling coterms ..\n")
 
         B_c = numba.njit(
             "float64(float64, float64, float64[:])",
@@ -1626,6 +1665,7 @@ class PengRobinson_c(EoSCompiler):
         # no fastmath because of sqrt
         d_A_c = _compile_coterms_derivatives(self.symbolic.A_e, self.symbolic.thd_arg)
 
+        logger.debug("(EoS) Compiling compressibility factor ..\n")
         Z_mix_c = compile_Z_mix(A_c, B_c)
         d_Z_mix_c = compile_d_Z_mix(A_c, B_c, d_A_c, d_B_c)
 
@@ -1638,12 +1678,14 @@ class PengRobinson_c(EoSCompiler):
             Z_s,
         ]
 
+        logger.debug("(EoS) Compiling fugacity coefficients ..\n")
         phi_c = _compile_fugacities(self.symbolic.phi_e, ext_thd_arg)
 
         d_phi_c = numba.njit(
             "float64[:,:](float64, float64, float64[:], float64, float64, float64)"
         )(sp.lambdify(ext_thd_arg, self.symbolic.d_phi_e))
 
+        logger.debug("(EoS) Compiling spec. mol. mixture enthalpy computation ..\n")
         h_dep_c = numba.njit(
             "float64(float64, float64, float64[:], float64, float64, float64)"
         )(sp.lambdify(ext_thd_arg, self.symbolic.h_dep_e))
@@ -1675,6 +1717,12 @@ class PengRobinson_c(EoSCompiler):
                 "d_h_dep": d_h_dep_c,
                 "d_h_ideal": d_h_ideal_c,
             }
+        )
+        logger.debug("(EoS) Compiling generalzied u-funcs ..\n")
+
+        _end = time.time()
+        logger.info(
+            f"EoS compilation compleded (elapsed time: {_end - _start} (s)).\n\n"
         )
 
     def get_pre_arg_function_res(
@@ -1819,3 +1867,13 @@ class PengRobinson_c(EoSCompiler):
             return d_h_ideal + d_h_dep
 
         return d_h_c
+
+
+_import_end = time.time()
+
+logger.debug(
+    "(import peng_robinson/eos_compilter.py)"
+    + f" Done (elapsed time: {_import_end - _import_start} (s)).\n\n"
+)
+
+del _import_start, _import_end
