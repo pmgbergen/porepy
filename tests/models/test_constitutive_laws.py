@@ -418,5 +418,7 @@ def test_dimension_reduction_values(
     aperture = setup.aperture(subdomains).evaluate_value(setup.equation_system)
     assert np.allclose(aperture.data, expected[0])
     for grids, expected_value in zip([subdomains, interfaces], expected[1:]):
-        specific_volume = setup.specific_volume(grids).evaluate_value(setup.equation_system)
+        specific_volume = setup.specific_volume(grids).evaluate_value(
+            setup.equation_system
+        )
         assert np.allclose(specific_volume.data, expected_value)

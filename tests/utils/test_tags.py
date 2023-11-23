@@ -237,7 +237,7 @@ def test_tags_2d_1d_cartesian_with_crossing_fractures():
         "cartesian",
         meshing_args={"cell_size_x": 0.25, "cell_size_y": 0.25},
         fracture_indices=[0, 1],
-        fracture_endpoints=[np.array([0.25, 0.75]), np.array([0, 1])]
+        fracture_endpoints=[np.array([0.25, 0.75]), np.array([0, 1])],
     )
 
     for sd in mdg.subdomains():

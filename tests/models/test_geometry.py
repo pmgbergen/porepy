@@ -530,7 +530,9 @@ def test_basis_normal_tangential_components(
     assert np.allclose((known_normal_component - normal_component).data, 0)
 
     # For the tangential component, the expected value depends on dimension.
-    tangential_component = geometry.tangential_component(subdomains).evaluate_value(eq_sys)
+    tangential_component = geometry.tangential_component(subdomains).evaluate_value(
+        eq_sys
+    )
     if dim == 2:
         # Here we need [(0, 0), (1, 2), (2, 4), ...] to be non-zero
         rows_tangential_component = np.arange(num_subdomain_cells)

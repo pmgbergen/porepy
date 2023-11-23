@@ -675,23 +675,23 @@ class Operator:
             )
         else:
             return ad
-        
+
     def evaluate(
         self,
         system_manager: pp.ad.EquationSystem,
         state: Optional[np.ndarray] = None,
     ):
-        raise ValueError('`evaluate` is deprecated. Use `evaluate_value` or '
-                         '`evaluate_value_and_jacobian` instead.')
+        raise ValueError(
+            "`evaluate` is deprecated. Use `evaluate_value` or "
+            "`evaluate_value_and_jacobian` instead."
+        )
 
     def _evaluate(
         self,
         system_manager: pp.ad.EquationSystem,
         state: Optional[np.ndarray] = None,
         evaluate_jacobian: bool = True,
-    ) -> (
-        numbers.Real | np.ndarray | sps.spmatrix | AdArray
-    ):
+    ) -> numbers.Real | np.ndarray | sps.spmatrix | AdArray:
         """Evaluate the residual and Jacobian matrix for a given solution.
 
         Parameters:
