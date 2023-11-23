@@ -78,7 +78,8 @@ import sympy as sp
 import porepy as pp
 
 from .._core import COMPOSITIONAL_VARIABLE_SYMBOLS as SYMBOLS
-from .._core import NUMBA_CACHE
+from .._core import NUMBA_CACHE, R_IDEAL
+from ..composite_utils import safe_sum
 from ..flash_c import EoSCompiler
 from .eos import (
     A_CRIT,
@@ -1452,11 +1453,47 @@ class PengRobinson_s:
         self.d_phi_e: sp.Matrix = self.phi_e.jacobian(
             [self.p, self.T] + self.x_in_j + [A_s, B_s, Z_s]
         )
-        """The symbolic Jacobian of :attr:`phi_e`."""
+        """The symbolic Jacobian of :attr:`phi_e` w.r.t. to thermodynamic arguments and
+        :data:`A_s`, :data:`B_s`, :data:`Z_s`"""
+        # endregion
+
+        # region Enthalpy
+
+        dT_A_e: sp.Expr = self.A_e.diff(self.T)
+
+        self.h_dep_e: sp.Expr = (R_IDEAL / np.sqrt(8)) * (
+            dT_A_e * self.T**2 + A_s * self.T
+        ) / B_s * sp.ln(
+            (Z_s + (1 + np.sqrt(2)) * B_s) / (Z_s + (1 - np.sqrt(2)) * B_s)
+        ) + R_IDEAL * self.T * (
+            Z_s - 1
+        )
+        """Symbolic expression for departure enthalpy."""
+
+        self.d_h_dep_e: list[sp.Expr] = [
+            self.h_dep_e.diff(_)
+            for _ in [self.p, self.T] + self.x_in_j + [A_s, B_s, Z_s]
+        ]
+        """Symbolic gradient of :attr:`h_dep_e` w.r.t. to thermodynamic arguments and
+        :data:`A_s`, :data:`B_s`, :data:`Z_s`"""
+
+        self.h_ideal_e: sp.Expr = safe_sum(
+            [
+                x * comp.h_ideal(self.p, self.T)
+                for x, comp in zip(self.x_in_j, mixture.components)
+            ]
+        )
+        """Symbolic expression for the ideal enthalpy."""
+
+        self.d_h_ideal_e: sp.Expr = [
+            self.h_ideal_e.diff(_) for _ in [self.p, self.T] + self.x_in_j
+        ]
+        """Symbolic gradient of :attr:`h_ideal_e` w.r.t. to thermodynamic arguments."""
+
         # endregion
 
 
-def _compile_coterms_diffs(
+def _compile_coterms_derivatives(
     expr: sp.Expr,
     thd_arg: tuple[sp.Symbol, sp.Symbol, list[sp.Symbol]],
     fastmath: bool = False,
@@ -1508,6 +1545,57 @@ def _compile_fugacities(
     return inner
 
 
+def _compile_thd_function_derivatives(
+    thd_df: sp.Expr,
+    thd_arg: tuple[sp.Symbol, sp.Symbol, list[sp.Symbol]],
+) -> Callable[[float, float, np.ndarray], np.ndarray]:
+    """Helper function to compile the gradient of a thermodynamic function.
+
+    Functions are supposed to take pressure, temperature and a vector of
+    fractions as arguments.
+
+    This helper function ensures that the return value is wrapped in an array, and not
+    a list (as by default returned when using sympy.lambdify).
+
+    """
+    df = numba.njit(sp.lambdify(thd_arg, thd_df))
+
+    @numba.njit(
+        "float64[:](float64, float64, float64[:])",
+    )
+    def inner(p_, T_, X_):
+        return np.array(df(p_, T_, X_), dtype=np.float64)
+
+    return inner
+
+
+def _compile_extended_thd_function_derivatives(
+    ext_thd_df: sp.Expr,
+    ext_thd_arg: tuple[
+        sp.Symbol, sp.Symbol, list[sp.Symbol], sp.Symbol, sp.Symbol, sp.Symbol
+    ],
+) -> Callable[[float, float, np.ndarray, float, float, float], np.ndarray]:
+    """Helper function to compile the gradient of an extended thermodynamic function.
+
+    Functions are supposed to take pressure, temperature, a vector of
+    fractions, and the EoS specific terms cohesion, covolume and
+    compressibility factor as arguments.
+
+    This helper function ensures that the return value is wrapped in an array, and not
+    a list (as by default returned when using sympy.lambdify).
+
+    """
+    df = numba.njit(sp.lambdify(ext_thd_arg, ext_thd_df))
+
+    @numba.njit(
+        "float64[:](float64, float64, float64[:], float64, float64, float64)",
+    )
+    def inner(p_, T_, X_, A_, B_, Z_):
+        return np.array(df(p_, T_, X_, A_, B_, Z_), dtype=np.float64)
+
+    return inner
+
+
 class PengRobinson_c(EoSCompiler):
     """Class providing compiled computations of thermodynamic quantities for the
     Peng-Robinson EoS."""
@@ -1518,7 +1606,7 @@ class PengRobinson_c(EoSCompiler):
         self._gaslike: tuple[int] = tuple(
             [int(phase.gaslike) for phase in mixture.phases]
         )
-        self._mpmc: tuple[int, int] = (mixture.num_phases, mixture.num_components)
+        self._npnc: tuple[int, int] = (mixture.num_phases, mixture.num_components)
 
         self._cfuncs: dict[str, Callable] = dict()
         """A collection of internally required, compiled callables"""
@@ -1528,7 +1616,7 @@ class PengRobinson_c(EoSCompiler):
             fastmath=True,
         )(sp.lambdify(self.symbolic.thd_arg, self.symbolic.B_e))
 
-        d_B_c = _compile_coterms_diffs(
+        d_B_c = _compile_coterms_derivatives(
             self.symbolic.B_e, self.symbolic.thd_arg, fastmath=True
         )
 
@@ -1536,12 +1624,12 @@ class PengRobinson_c(EoSCompiler):
             "float64(float64, float64, float64[:])",
         )(sp.lambdify(self.symbolic.thd_arg, self.symbolic.A_e))
         # no fastmath because of sqrt
-        d_A_c = _compile_coterms_diffs(self.symbolic.A_e, self.symbolic.thd_arg)
+        d_A_c = _compile_coterms_derivatives(self.symbolic.A_e, self.symbolic.thd_arg)
 
         Z_mix_c = compile_Z_mix(A_c, B_c)
         d_Z_mix_c = compile_d_Z_mix(A_c, B_c, d_A_c, d_B_c)
 
-        phi_arg = [
+        ext_thd_arg = [
             self.symbolic.p,
             self.symbolic.T,
             self.symbolic.x_in_j,
@@ -1550,11 +1638,27 @@ class PengRobinson_c(EoSCompiler):
             Z_s,
         ]
 
-        phi_c = _compile_fugacities(self.symbolic.phi_e, phi_arg)
+        phi_c = _compile_fugacities(self.symbolic.phi_e, ext_thd_arg)
 
         d_phi_c = numba.njit(
             "float64[:,:](float64, float64, float64[:], float64, float64, float64)"
-        )(sp.lambdify(phi_arg, self.symbolic.d_phi_e))
+        )(sp.lambdify(ext_thd_arg, self.symbolic.d_phi_e))
+
+        h_dep_c = numba.njit(
+            "float64(float64, float64, float64[:], float64, float64, float64)"
+        )(sp.lambdify(ext_thd_arg, self.symbolic.h_dep_e))
+
+        h_ideal_c = numba.njit("float64(float64, float64, float64[:])")(
+            sp.lambdify(self.symbolic.thd_arg, self.symbolic.h_ideal_e)
+        )
+
+        d_h_dep_c = _compile_extended_thd_function_derivatives(
+            self.symbolic.d_h_dep_e, ext_thd_arg
+        )
+
+        d_h_ideal_c = _compile_thd_function_derivatives(
+            self.symbolic.d_h_ideal_e, self.symbolic.thd_arg
+        )
 
         self._cfuncs.update(
             {
@@ -1566,13 +1670,17 @@ class PengRobinson_c(EoSCompiler):
                 "d_Z": d_Z_mix_c,
                 "phi": phi_c,
                 "d_phi": d_phi_c,
+                "h_dep": h_dep_c,
+                "h_ideal": h_ideal_c,
+                "d_h_dep": d_h_dep_c,
+                "d_h_ideal": d_h_ideal_c,
             }
         )
 
-    def get_pre_arg_computation_res(
+    def get_pre_arg_function_res(
         self,
     ) -> Callable[[float, float, np.ndarray], np.ndarray]:
-        nphase, _ = self._mpmc
+        nphase, _ = self._npnc
         gaslike = self._gaslike
 
         A_c = self._cfuncs["A"]
@@ -1592,10 +1700,10 @@ class PengRobinson_c(EoSCompiler):
 
         return pre_arg_res_c
 
-    def get_pre_arg_computation_jac(
+    def get_pre_arg_function_jac(
         self,
     ) -> Callable[[float, float, np.ndarray], np.ndarray]:
-        nphase, ncomp = self._mpmc
+        nphase, ncomp = self._npnc
         gaslike = self._gaslike
 
         dA_c = self._cfuncs["d_A"]
@@ -1620,48 +1728,45 @@ class PengRobinson_c(EoSCompiler):
 
         return pre_arg_jac_c
 
-    def get_fugacity_computation(
+    def get_fugacity_function(
         self,
-    ) -> Callable[[np.ndarray, int, float, float, np.ndarray], np.ndarray]:
+    ) -> Callable[[np.ndarray, float, float, np.ndarray], np.ndarray]:
         phi_c = self._cfuncs["phi"]
-        _, ncomp = self._mpmc
+        _, ncomp = self._npnc
 
-        @numba.njit("float64[:](float64[:,:], int32, float64, float64, float64[:])")
+        @numba.njit("float64[:](float64[:], float64, float64, float64[:])")
         def phi_mix_c(
-            prearg: np.ndarray, j: int, p: float, T: float, xn: np.ndarray
+            prearg: np.ndarray, p: float, T: float, xn: np.ndarray
         ) -> np.ndarray:
-            return phi_c(p, T, xn, prearg[j, 0], prearg[j, 1], prearg[j, 2])
+            return phi_c(p, T, xn, prearg[0], prearg[1], prearg[2])
 
         return phi_mix_c
 
-    def get_dpTX_fugacity_computation(
+    def get_dpTX_fugacity_function(
         self,
-    ) -> Callable[[np.ndarray, np.ndarray, int, float, float, np.ndarray], np.ndarray]:
+    ) -> Callable[[np.ndarray, np.ndarray, float, float, np.ndarray], np.ndarray]:
         d_phi_c = self._cfuncs["d_phi"]
-        _, ncomp = self._mpmc
+        _, ncomp = self._npnc
         # number of derivatives for A, B, Z
         d = 2 + ncomp
 
         @numba.njit(
-            "float64[:,:](float64[:,:], float64[:,:], int32, float64, float64, float64[:])"
+            "float64[:,:](float64[:], float64[:], float64, float64, float64[:])"
         )
         def d_phi_mix_c(
             prearg_res: np.ndarray,
             prearg_jac: np.ndarray,
-            j: int,
             p: float,
             T: float,
             xn: np.ndarray,
         ) -> np.ndarray:
             # computation of phis dependent on A_j, B_j, Z_j
-            d_phis = d_phi_c(
-                p, T, xn, prearg_res[j, 0], prearg_res[j, 1], prearg_res[j, 2]
-            )
+            d_phis = d_phi_c(p, T, xn, prearg_res[0], prearg_res[1], prearg_res[2])
             # derivatives of A_j, B_j, Z_j w.r.t. p, T, and X_j
-            dA = prearg_jac[j, 0:d]
-            dB = prearg_jac[j, d : 2 * d]
-            dZ = prearg_jac[j, 2 * d : 3 * d]
-            # expansion of derivatives
+            dA = prearg_jac[0:d]
+            dB = prearg_jac[d : 2 * d]
+            dZ = prearg_jac[2 * d : 3 * d]
+            # expansion of derivatives (chain rule)
             return (
                 d_phis[:, :-3]
                 + np.outer(d_phis[:, -3], dA)
@@ -1670,3 +1775,47 @@ class PengRobinson_c(EoSCompiler):
             )
 
         return d_phi_mix_c
+
+    def get_enthalpy_function(
+        self,
+    ) -> Callable[[np.ndarray, float, float, np.ndarray], float]:
+        h_dep_c = self._cfuncs["h_dep"]
+        h_ideal_c = self._cfuncs["h_ideal"]
+
+        @numba.njit("float64(float64[:], float64, float64, float64[:])")
+        def h_c(prearg: np.ndarray, p: float, T: float, xn: np.ndarray) -> np.ndarray:
+            return h_ideal_c(p, T, xn) + h_dep_c(
+                p, T, xn, prearg[0], prearg[1], prearg[2]
+            )
+
+        return h_c
+
+    def get_dpTX_enthalpy_function(
+        self,
+    ) -> Callable[[np.ndarray, np.ndarray, float, float, np.ndarray], np.ndarray]:
+        _, ncomp = self._npnc
+        d = 2 + ncomp
+        d_h_dep_c = self._cfuncs["d_h_dep"]
+        d_h_ideal_c = self._cfuncs["d_h_ideal"]
+
+        @numba.njit("float64[:](float64[:], float64[:], float64, float64, float64[:])")
+        def d_h_c(
+            prearg_res: np.ndarray,
+            prearg_jac: np.ndarray,
+            p: float,
+            T: float,
+            xn: np.ndarray,
+        ) -> np.ndarray:
+            d_h_ideal = d_h_ideal_c(p, T, xn)
+            d_h_dep = d_h_dep_c(p, T, xn, prearg_res[0], prearg_res[1], prearg_res[2])
+            # derivatives of A_j, B_j, Z_j w.r.t. p, T, and X_j
+            dA = prearg_jac[0:d]
+            dB = prearg_jac[d : 2 * d]
+            dZ = prearg_jac[2 * d : 3 * d]
+            # expansion of derivatives of departure enthalpy (chain rule)
+            d_h_dep = (
+                d_h_dep[:-3] + d_h_dep[-3] * dA + d_h_dep[-2] * dB + d_h_dep[-1] * dZ
+            )
+            return d_h_ideal + d_h_dep
+
+        return d_h_c
