@@ -5,6 +5,7 @@ The subpackage is built around the assumptions made here.
 from __future__ import annotations
 
 import abc
+import logging
 from typing import Any, Sequence
 
 import numpy as np
@@ -19,7 +20,21 @@ __all__ = [
     "normalize_fractions",
     "CompositionalSingleton",
     "AdProperty",
+    "COMPOSITE_LOGGER",
 ]
+
+
+_del_log = "\r" + " " * 120 + "\r"
+_logger = logging.getLogger(__name__)
+_loghandler = logging.StreamHandler()
+_loghandler.terminator = ""
+# formatter = logging.Formatter(_del_log + '%(asctime)s : %(message)s')
+_logformatter = logging.Formatter("%(del_log)s%(asctime)s : %(message)s")
+_loghandler.setFormatter(_logformatter)
+_logger.setLevel(logging.WARNING)
+_logger.addHandler(_loghandler)
+
+COMPOSITE_LOGGER = logging.LoggerAdapter(_logger, {"del_log": _del_log})
 
 
 def truncexp(var):

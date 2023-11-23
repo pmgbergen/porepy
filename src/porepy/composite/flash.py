@@ -20,19 +20,13 @@ from ._core import (
     rachford_rice_potential,
     rachford_rice_vle_inversion,
 )
+from .composite_utils import COMPOSITE_LOGGER as logger
 from .composite_utils import safe_sum
 from .heuristics import K_val_Wilson
 from .mixture import NonReactiveMixture, ThermodynamicState
 from .phase import PhaseProperties
 
 __all__ = ["FlashSystemNR", "FlashNR"]
-
-logger = logging.getLogger(__name__)
-log_handler = logging.StreamHandler()
-log_handler.terminator = ""
-logger.addHandler(log_handler)
-
-del_log = "\r" + " " * 100 + "\r"
 
 
 def _pos(var: NumericType) -> NumericType:
@@ -1150,20 +1144,20 @@ class FlashNR:
         )
 
         if quickshot:
-            logger.info(f"{del_log}Returning initial guess (quickshot).\n")
+            logger.info("Returning initial guess (quickshot).\n")
             if return_system:
                 return 3, flash_system
             else:
                 return 3, flash_system.export_state()
 
         # Perform Newton iterations with above F(x)
-        logger.debug(f"{del_log}Initial state:\n{flash_system.export_state()}\n")
-        logger.info(f"{del_log}Starting iterations ...")
+        logger.debug(f"Initial state:\n{flash_system.export_state()}\n")
+        logger.info("Starting iterations ...")
         success, iter_final, solution = self._newton_iterations(
             X_0=flash_system.state,
             F=flash_system,
         )
-        logger.debug(f"{del_log}Post-processing ...")
+        logger.debug("Post-processing ...")
         flash_system.state = solution
         flash_system.evaluate_dependent_states()
 
@@ -1873,7 +1867,7 @@ class FlashNR:
         pot_j = b_k_pot
         rho_j = rho
 
-        msg = f"{del_log}Flash iteration {newton_iter}: res = {np.sqrt(b_k_pot)}"
+        msg = "Flash iteration {newton_iter}: res = {np.sqrt(b_k_pot)}"
 
         logger.info(f"{msg} ; Armijo search potential: {b_k_pot}")
 
@@ -1968,7 +1962,7 @@ class FlashNR:
         res_norm = np.linalg.norm(F_k.val)
         # if residual is already small enough
         if res_norm <= self.tolerance:
-            logger.info(f"{del_log}Flash iteration 0: success")
+            logger.info("Flash iteration 0: success")
             success = 0
             iter_final = i
         else:
@@ -1981,9 +1975,7 @@ class FlashNR:
                 if np.any(np.isnan(check)) or np.any(np.isinf(check)):
                     iter_final = i
                     success = 2
-                    logger.warn(
-                        f"{del_log}Flash iteration {iter_final}: divergence detected!\n"
-                    )
+                    logger.warn("Flash iteration {iter_final}: divergence detected!\n")
                     break
 
                 if self.use_armijo:
@@ -1995,12 +1987,12 @@ class FlashNR:
 
                 F_k = F(X_k, True)
                 res_norm = np.linalg.norm(F_k.val)
-                logger.info(f"{del_log}Flash iteration {i}: res = {res_norm}")
+                logger.info("Flash iteration {i}: res = {res_norm}")
                 # in case of convergence
                 if res_norm <= self.tolerance:
                     # counting necessary number of iterations
                     iter_final = i
-                    logger.info(f"{del_log}Flash iteration {iter_final}: success")
+                    logger.info("Flash iteration {iter_final}: success")
                     success = 0
                     break
             else:

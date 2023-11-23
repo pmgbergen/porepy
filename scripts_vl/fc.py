@@ -3,14 +3,15 @@
 # os.environ["PYDEVD_WARN_SLOW_RESOLVE_TIMEOUT"] = "30"
 # os.environ["NUMBA_CACHE_DIR"] = f"{str(os.path.dirname(__file__))}/__pycache__/"
 # os.environ['NUMBA_DEBUG_CACHE'] = str(1)
-
+import logging
 import numpy as np
 import porepy as pp
 
+from porepy.composite.composite_utils import COMPOSITE_LOGGER as logger
+logger.setLevel(logging.DEBUG)
 from porepy.composite.peng_robinson.eos_compiler import PengRobinson_c
 from porepy.composite.flash_c import Flash_c
-
-
+logger.setLevel(logging.WARNING)
 
 chems = ["H2O", "CO2"]
 feed = [0.99, 0.01]
@@ -38,14 +39,14 @@ mix.set_up()
 vec = np.ones(1)
 p = vec * 1e6
 T = vec * 453.16455696
-verbosity = 3
+verbosity = 2
 z = [vec * _ for _ in feed]
 [
     mix.system.set_variable_values(val, [comp.fraction.name], 0, 0)
     for val, comp in zip(z, comps)
 ]
 
-eos_c = PengRobinson_c(mix)
+eos_c = PengRobinson_c(mix, verbosity=verbosity)
 flash_c = Flash_c(mix, eos_c)
 
 flash_c.armijo_parameters["rho"] = 0.99
@@ -56,10 +57,10 @@ flash_c.max_iter = 150
 
 flash_c.compile(verbosity=verbosity)
 
-print('---\n Test runs...')
+print('--- Test runs ')
 result, success, num_iter = flash_c.flash(z, p = p, T= T, mode='linear', verbosity=verbosity)
 result, success, num_iter = flash_c.flash(z, p = p, T= T, mode='parallel', verbosity=verbosity)
-print("---")
+print("---\n")
 
 p_vec = np.linspace(p_range[0], p_range[1], refinement, endpoint=True, dtype=np.float64)
 T_vec = np.linspace(T_range[0], T_range[1], refinement, endpoint=True, dtype=np.float64)
@@ -71,8 +72,6 @@ p = p_mesh.flatten()
 z = [np.ones(p.shape[0]) * _ for _ in feed]
 
 result, success, num_iter = flash_c.flash(z, p = p, T= T, mode='parallel', verbosity=verbosity)
-
-flash_c.print_last_stats()
 
 investigate = success == 1
 print("Investigate p-T:")
