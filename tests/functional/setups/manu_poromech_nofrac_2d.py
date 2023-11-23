@@ -160,7 +160,7 @@ class ManuPoroMechDataSaving(VerificationDataSaving):
         # Collect data
         exact_pressure = self.exact_sol.pressure(sd=sd, time=t)
         pressure_ad = self.pressure([sd])
-        approx_pressure = pressure_ad.evaluate_value(self.equation_system)
+        approx_pressure = pressure_ad.value(self.equation_system)
         error_pressure = ConvergenceAnalysis.l2_error(
             grid=sd,
             true_array=exact_pressure,
@@ -172,7 +172,7 @@ class ManuPoroMechDataSaving(VerificationDataSaving):
 
         exact_displacement = self.exact_sol.displacement(sd=sd, time=t)
         displacement_ad = self.displacement([sd])
-        approx_displacement = displacement_ad.evaluate_value(self.equation_system)
+        approx_displacement = displacement_ad.value(self.equation_system)
         error_displacement = ConvergenceAnalysis.l2_error(
             grid=sd,
             true_array=exact_displacement,
@@ -184,7 +184,7 @@ class ManuPoroMechDataSaving(VerificationDataSaving):
 
         exact_flux = self.exact_sol.darcy_flux(sd=sd, time=t)
         flux_ad = self.darcy_flux([sd])
-        approx_flux = flux_ad.evaluate_value(self.equation_system)
+        approx_flux = flux_ad.value(self.equation_system)
         error_flux = ConvergenceAnalysis.l2_error(
             grid=sd,
             true_array=exact_flux,
@@ -196,7 +196,7 @@ class ManuPoroMechDataSaving(VerificationDataSaving):
 
         exact_force = self.exact_sol.poroelastic_force(sd=sd, time=t)
         force_ad = self.stress([sd])
-        approx_force = force_ad.evaluate_value(self.equation_system)
+        approx_force = force_ad.value(self.equation_system)
         error_force = ConvergenceAnalysis.l2_error(
             grid=sd,
             true_array=exact_force,

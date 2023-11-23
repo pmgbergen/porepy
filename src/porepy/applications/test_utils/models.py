@@ -268,7 +268,7 @@ def compare_scaled_model_quantities(
                 setup.mdg, method, domain_dimension=dim
             )
             # Convert back to SI units.
-            value = method(domains).evaluate_value(setup.equation_system)
+            value = method(domains).value(setup.equation_system)
             values.append(setup.fluid.convert_units(value, method_unit, to_si=True))
         compare_values(values[0], values[1], cell_wise=cell_wise)
 

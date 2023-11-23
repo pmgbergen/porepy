@@ -139,6 +139,6 @@ class VerificationUtils:
         )
 
         # Parse numerical value and return the minimum and maximum value
-        u_faces = u_faces_ad.evaluate_value(self.equation_system)
+        u_faces = u_faces_ad.value(self.equation_system)
         assert isinstance(u_faces, np.ndarray)
         return u_faces

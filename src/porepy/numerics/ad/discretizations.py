@@ -376,7 +376,7 @@ class DifferentiableFVAd:
         # The first part is rather involved and is handled inside self._transmissibility
 
         # Get hold of the underlying flux discretization.
-        base_flux = self._discretization.flux.evaluate_value(self.equation_system)
+        base_flux = self._discretization.flux.value(self.equation_system)
         assert isinstance(base_flux, np.ndarray)
 
         # The Jacobian matrix should have the same size as the base.
@@ -387,18 +387,18 @@ class DifferentiableFVAd:
         # grid information in arrays as a preprocessing step, but that seems not to be
         # worth the effort. However, to avoid evaluating the permeability function
         # multiple times, we precompute it here
-        global_permeability = self._perm_function(
-            self.subdomains
-        ).evaluate_value_and_jacobian(self.equation_system)
+        global_permeability = self._perm_function(self.subdomains).value_and_jacobian(
+            self.equation_system
+        )
         sd: pp.Grid
         for sd in self.subdomains:
             transmissibility_jac, _ = self._transmissibility(sd, global_permeability)
 
             params = self.mdg.subdomain_data(sd)[pp.PARAMETERS][self.keyword]
             # Potential for this grid
-            cells_of_grid = self._subdomain_projections.cell_restriction(
-                [sd]
-            ).evaluate_value(self.equation_system)
+            cells_of_grid = self._subdomain_projections.cell_restriction([sd]).value(
+                self.equation_system
+            )
             potential_value = cells_of_grid * potential.val
 
             # Create matrix and multiply into Jacobian
@@ -441,7 +441,7 @@ class DifferentiableFVAd:
             # Prolong this Jacobian to the full set of faces and add.
             face_prolongation = self._subdomain_projections.face_prolongation(
                 [sd]
-            ).evaluate_value(self.equation_system)
+            ).value(self.equation_system)
             flux_jac += face_prolongation * grad_p_jac
             flux_jac += face_prolongation * jac_bound
 
@@ -497,10 +497,8 @@ class DifferentiableFVAd:
         # The first part is rather involved.
 
         # Get hold of the underlying flux discretization.
-        base_bound_pressure_face = (
-            self._discretization.bound_pressure_face.evaluate_value(
-                self.equation_system
-            )
+        base_bound_pressure_face = self._discretization.bound_pressure_face.value(
+            self.equation_system
         )
         assert isinstance(base_bound_pressure_face, np.ndarray)
         # The Jacobian matrix should have the same size as the base.
@@ -515,9 +513,9 @@ class DifferentiableFVAd:
         # grid information in arrays as a preprocessing step, but that seems not to be
         # worth the effort. However, to avoid evaluating the permeability function
         # multiple times, we precompute it here
-        global_permeability = self._perm_function(
-            self.subdomains
-        ).evaluate_value_and_jacobian(self.equation_system)
+        global_permeability = self._perm_function(self.subdomains).value_and_jacobian(
+            self.equation_system
+        )
 
         sd: pp.Grid
         for sd in self.subdomains:
@@ -538,7 +536,7 @@ class DifferentiableFVAd:
             jac_bound_pressure_face = d_face2boundp_d_t * transmissibility_jac
 
             # Prolong this Jacobian to the full set of faces and add.
-            face_prolongation = projections.face_prolongation([sd]).evaluate_value(
+            face_prolongation = projections.face_prolongation([sd]).value(
                 self.equation_system
             )
             bound_pressure_face_jac += face_prolongation * jac_bound_pressure_face
@@ -641,9 +639,9 @@ class DifferentiableFVAd:
         # mode, working with ad.DenseArrays.
         # Then, map the computed permeability to the faces (distinguishing between
         # the left and right sides of the face).
-        cells_of_grid = self._subdomain_projections.cell_restriction(
-            [g]
-        ).evaluate_value(self.equation_system)
+        cells_of_grid = self._subdomain_projections.cell_restriction([g]).value(
+            self.equation_system
+        )
         k_one_sided = cell_2_one_sided_face * cells_of_grid * global_permeability
 
         # Multiply the permeability (and its derivatives with respect to potential,

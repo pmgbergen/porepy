@@ -650,12 +650,12 @@ class Operator:
 
     ### Operator parsing ---------------------------------------------------------------
 
-    def evaluate_value(
+    def value(
         self, system_manager: pp.ad.EquationSystem, state: Optional[np.ndarray] = None
     ) -> numbers.Real | np.ndarray | sps.spmatrix:
         return self._evaluate(system_manager, state=state, evaluate_jacobian=False)
 
-    def evaluate_value_and_jacobian(
+    def value_and_jacobian(
         self, system_manager: pp.ad.EquationSystem, state: Optional[np.ndarray] = None
     ) -> AdArray:
         ad = self._evaluate(system_manager, state=state, evaluate_jacobian=True)
@@ -682,8 +682,7 @@ class Operator:
         state: Optional[np.ndarray] = None,
     ):
         raise ValueError(
-            "`evaluate` is deprecated. Use `evaluate_value` or "
-            "`evaluate_value_and_jacobian` instead."
+            "`evaluate` is deprecated. Use `value` or " "`value_and_jacobian` instead."
         )
 
     def _evaluate(

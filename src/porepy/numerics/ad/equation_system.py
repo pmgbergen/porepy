@@ -1619,7 +1619,7 @@ class EquationSystem:
         for equ_name, rows in equ_blocks.items():
             # This will raise a key error if the equation name is unknown.
             eq = self._equations[equ_name]
-            ad = eq.evaluate_value_and_jacobian(self, state)
+            ad = eq.value_and_jacobian(self, state)
 
             # If restriction to grid-related row blocks was made,
             # perform row slicing based on information we have obtained from parsing.
