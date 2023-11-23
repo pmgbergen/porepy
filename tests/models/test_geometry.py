@@ -195,7 +195,7 @@ def test_wrap_grid_attributes(
             # Get hold of the wrapped attribute and the wrapping.
             wrapped_value = geometry.wrap_grid_attribute(
                 grids, attr, dim=dim  # type: ignore[call-args]
-            ).evaluate_value(eq_system)
+            ).value(eq_system)
 
             # Check that the wrapped attribute is a matrix
             assert isinstance(wrapped_value, np.ndarray)
@@ -299,7 +299,7 @@ def test_internal_boundary_normal_to_outwards(
 
     # Get hold of the matrix to be tested, parse it to numerical format.
     sign_switcher = geometry.internal_boundary_normal_to_outwards(subdomains, dim=dim)
-    mat = sign_switcher.evaluate_value(eq_sys)
+    mat = sign_switcher.value(eq_sys)
 
     # Check that the wrapped attribute is a matrix
     assert isinstance(mat, sps.spmatrix)
@@ -366,7 +366,7 @@ def test_outwards_normals(geometry_class: type[pp.ModelGeometry], num_fracs) -> 
     # First check the method to compute
     interfaces = geometry.mdg.interfaces()
     normal_op = geometry.outwards_internal_boundary_normals(interfaces, unitary=True)
-    normals = normal_op.evaluate_value(eq_sys)
+    normals = normal_op.value(eq_sys)
 
     # The result should be a dense array
     assert isinstance(normals, np.ndarray)
@@ -388,7 +388,7 @@ def test_outwards_normals(geometry_class: type[pp.ModelGeometry], num_fracs) -> 
     normal_op_not_unitary = geometry.outwards_internal_boundary_normals(
         interfaces, unitary=False
     )
-    normals_not_unitary = normal_op_not_unitary.evaluate_value(eq_sys)
+    normals_not_unitary = normal_op_not_unitary.value(eq_sys)
     normals_reshaped_not_unitary = np.reshape(normals_not_unitary, (dim, -1), order="F")
 
     volumes = np.hstack([intf.cell_volumes for intf in interfaces])
@@ -427,7 +427,7 @@ def test_outwards_normals(geometry_class: type[pp.ModelGeometry], num_fracs) -> 
 
     # Left multiply with the normal operator; in essense this extracts the normal vector
     # (in the geometric sense) as a vector (in the algebraic sense).
-    product = (normal_op * dim_vec).evaluate_value(eq_sys)
+    product = (normal_op * dim_vec).value(eq_sys)
     assert product.shape == (size,)
 
     # Each vector should have unit length, as is checked by by the lines below.
@@ -447,7 +447,7 @@ def test_outwards_normals(geometry_class: type[pp.ModelGeometry], num_fracs) -> 
     inner_op = nd_to_scalar_sum * (normal_op * dim_vec)
 
     # The two operations should give the same result
-    assert np.allclose(inner_op.evaluate_value(eq_sys), dot_product)
+    assert np.allclose(inner_op.value(eq_sys), dot_product)
 
 
 @pytest.mark.parametrize("geometry_class", geometry_list)
@@ -488,9 +488,9 @@ def test_basis_normal_tangential_components(
     for basis_dim in range(dim + 1):
         for i in range(basis_dim):
             # Consider both subdomains and interfaces here, since the method allows it.
-            e_i = geometry.e_i(
-                subdomains + interfaces, i=i, dim=basis_dim
-            ).evaluate_value(eq_sys)
+            e_i = geometry.e_i(subdomains + interfaces, i=i, dim=basis_dim).value(
+                eq_sys
+            )
             # Expected values
             rows = np.arange(i, num_cells_total * basis_dim, basis_dim)
             cols = np.arange(num_cells_total)
@@ -504,15 +504,15 @@ def test_basis_normal_tangential_components(
             if basis_dim == dim:
                 # the dimension of the basis vector space is not specified, the value
                 # should be the same as for basis_dim = dim
-                e_None = geometry.e_i(
-                    subdomains + interfaces, i=i, dim=dim
-                ).evaluate_value(eq_sys)
+                e_None = geometry.e_i(subdomains + interfaces, i=i, dim=dim).value(
+                    eq_sys
+                )
                 assert np.allclose((e_None - e_i).data, 0)
 
     # Next, test the methods to extract normal and tangential components.
     # The normal component is straightforward, the tangential component requires a bit
     # of work to deal with the difference between 2d and 3d.
-    normal_component = geometry.normal_component(subdomains).evaluate_value(eq_sys)
+    normal_component = geometry.normal_component(subdomains).value(eq_sys)
 
     # The normal component should, for each row, have 1 in the column corresponding to
     # the normal component, so [(0, dim-1), (1, 2*dim-1), ...)] should be non-zero.
@@ -530,9 +530,7 @@ def test_basis_normal_tangential_components(
     assert np.allclose((known_normal_component - normal_component).data, 0)
 
     # For the tangential component, the expected value depends on dimension.
-    tangential_component = geometry.tangential_component(subdomains).evaluate_value(
-        eq_sys
-    )
+    tangential_component = geometry.tangential_component(subdomains).value(eq_sys)
     if dim == 2:
         # Here we need [(0, 0), (1, 2), (2, 4), ...] to be non-zero
         rows_tangential_component = np.arange(num_subdomain_cells)

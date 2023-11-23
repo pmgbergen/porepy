@@ -375,9 +375,9 @@ class DisplacementJumpAperture(DimensionReduction):
                 # Average weights are the number of cells in the parent subdomains
                 # contributing to each intersection cells.
                 average_weights = np.ravel(
-                    parent_cells_to_intersection_cells.evaluate_value(
-                        self.equation_system
-                    ).sum(axis=1)
+                    parent_cells_to_intersection_cells.value(self.equation_system).sum(
+                        axis=1
+                    )
                 )
                 nonzero = average_weights > 0
                 average_weights[nonzero] = 1 / average_weights[nonzero]
@@ -1446,7 +1446,7 @@ class ThermalConductivityLTE:
         # Since thermal conductivity is used as a discretization parameter, it has to be
         # evaluated before the discretization matrices are computed.
         try:
-            phi.evaluate_value(self.equation_system)
+            phi.value(self.equation_system)
         except KeyError:
             # We assume this means that the porosity includes a discretization matrix
             # for div_u which has not yet been computed.
@@ -2870,7 +2870,7 @@ class BartonBandis:
         # If the maximum closure is zero, the Barton-Bandis model is not valid in the
         # case of zero normal traction. In this case, we return an empty operator.
         #  If the maximum closure is negative, an error is raised.
-        val = maximum_closure.evaluate_value(self.equation_system)
+        val = maximum_closure.value(self.equation_system)
         if np.any(val == 0):
             return Scalar(0)
         elif np.any(val < 0):
@@ -2971,7 +2971,7 @@ class FractureGap(BartonBandis, ShearDilation):
         val = (
             self.reference_fracture_gap(subdomains)
             - self.maximum_fracture_closure(subdomains)
-        ).evaluate_value(self.equation_system)
+        ).value(self.equation_system)
 
         if np.any(val < 0):
             msg = (

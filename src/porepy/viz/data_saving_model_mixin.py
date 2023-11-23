@@ -122,9 +122,7 @@ class DataSavingMixin:
             Array of values for the quantity, scaled to SI units.
 
         """
-        vals_scaled = getattr(self, method_name)([grid]).evaluate_value(
-            self.equation_system
-        )
+        vals_scaled = getattr(self, method_name)([grid]).value(self.equation_system)
         vals = self.fluid.convert_units(vals_scaled, units, to_si=True)
         return vals
 
