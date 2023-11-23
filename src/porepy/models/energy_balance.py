@@ -975,6 +975,7 @@ class SolutionStrategyEnergyBalance(pp.SolutionStrategy):
         """
         conductivity_ad = self.specific_volume([sd]) * self.thermal_conductivity([sd])
         conductivity = conductivity_ad.evaluate_value(self.equation_system)
+        assert isinstance(conductivity, np.ndarray)
         return pp.SecondOrderTensor(conductivity)
 
     def initial_condition(self) -> None:

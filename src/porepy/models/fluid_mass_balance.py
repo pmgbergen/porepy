@@ -871,6 +871,7 @@ class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
             permeability = self.solid.permeability() * np.ones(sd.num_cells) * volume
 
         # TODO: Safeguard against negative permeability?
+        assert isinstance(permeability, np.ndarray)
         return pp.SecondOrderTensor(permeability)
 
     def before_nonlinear_iteration(self):
@@ -885,7 +886,9 @@ class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
             data[pp.PARAMETERS][self.mobility_keyword].update({"darcy_flux": vals})
 
         for intf, data in self.mdg.interfaces(return_data=True, codim=1):
-            vals = self.interface_darcy_flux([intf]).evaluate_value(self.equation_system)
+            vals = self.interface_darcy_flux([intf]).evaluate_value(
+                self.equation_system
+            )
             data[pp.PARAMETERS][self.mobility_keyword].update({"darcy_flux": vals})
         for intf, data in self.mdg.interfaces(return_data=True, codim=2):
             vals = self.well_flux([intf]).evaluate_value(self.equation_system)

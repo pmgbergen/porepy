@@ -377,18 +377,19 @@ class DifferentiableFVAd:
 
         # Get hold of the underlying flux discretization.
         base_flux = self._discretization.flux.evaluate_value(self.equation_system)
+        assert isinstance(base_flux, np.ndarray)
 
         # The Jacobian matrix should have the same size as the base.
-        flux_jac = sps.csr_matrix((base_flux.shape[0], equation_system.num_dofs()))
+        flux_jac = sps.csr_matrix((base_flux.shape[0], self.equation_system.num_dofs()))
 
         # The differentiation of transmissibilities with respect to permeability is
         # implemented as a loop over all subdomains. It could be possible to gather all
         # grid information in arrays as a preprocessing step, but that seems not to be
         # worth the effort. However, to avoid evaluating the permeability function
         # multiple times, we precompute it here
-        global_permeability = self._perm_function(self.subdomains).evaluate_value(
-            equation_system
-        )
+        global_permeability = self._perm_function(
+            self.subdomains
+        ).evaluate_value_and_jacobian(self.equation_system)
         sd: pp.Grid
         for sd in self.subdomains:
             transmissibility_jac, _ = self._transmissibility(sd, global_permeability)
@@ -496,9 +497,12 @@ class DifferentiableFVAd:
         # The first part is rather involved.
 
         # Get hold of the underlying flux discretization.
-        base_bound_pressure_face = self._discretization.bound_pressure_face.evaluate_value(
-            self.equation_system
+        base_bound_pressure_face = (
+            self._discretization.bound_pressure_face.evaluate_value(
+                self.equation_system
+            )
         )
+        assert isinstance(base_bound_pressure_face, np.ndarray)
         # The Jacobian matrix should have the same size as the base.
         bound_pressure_face_jac = sps.csr_matrix(
             (base_bound_pressure_face.shape[0], self.equation_system.num_dofs())
@@ -511,9 +515,9 @@ class DifferentiableFVAd:
         # grid information in arrays as a preprocessing step, but that seems not to be
         # worth the effort. However, to avoid evaluating the permeability function
         # multiple times, we precompute it here
-        global_permeability = self._perm_function(self.subdomains).evaluate_value(
-            self.equation_system
-        )
+        global_permeability = self._perm_function(
+            self.subdomains
+        ).evaluate_value_and_jacobian(self.equation_system)
 
         sd: pp.Grid
         for sd in self.subdomains:
@@ -637,9 +641,9 @@ class DifferentiableFVAd:
         # mode, working with ad.DenseArrays.
         # Then, map the computed permeability to the faces (distinguishing between
         # the left and right sides of the face).
-        cells_of_grid = self._subdomain_projections.cell_restriction([g]).evaluate_value(
-            self.equation_system
-        )
+        cells_of_grid = self._subdomain_projections.cell_restriction(
+            [g]
+        ).evaluate_value(self.equation_system)
         k_one_sided = cell_2_one_sided_face * cells_of_grid * global_permeability
 
         # Multiply the permeability (and its derivatives with respect to potential,
