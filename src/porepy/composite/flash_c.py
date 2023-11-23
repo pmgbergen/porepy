@@ -23,7 +23,7 @@ from __future__ import annotations
 import abc
 import logging
 import time
-from typing import Callable, Literal, Optional, Sequence
+from typing import Any, Callable, Literal, Optional, Sequence
 
 import numba
 import numpy as np
@@ -1415,6 +1415,22 @@ class Flash_c:
         self.max_iter: int = 100
         """Maximal number of iterations for the flash algorithms. Defaults to 100."""
 
+        self.last_flash_stats: dict[str, Any] = dict()
+        """Contains some information about the last flash procedure called.
+
+        - ``'type'``: String. Type of the flash (p-T, p-h,...)
+        - ``'init_time'``: Float. Real time taken to compute initial guess in seconds.
+        - ``'minim_time'``: Float. Real time taken to solve the minimization problem in
+          seconds.
+        - ``'num_flash'``: Int. Number of flash problems solved (if vectorized input)
+        - ``'num_max_iter'``: Int. Number of flash procedures which reached the
+          prescribed number of iterations.
+        - ``'num_failure'``: Int. Number of failed flash procedures
+          (failure in evaluation of residual or Jacobian).
+        - ``'num_diverged'``: Int. Number of flash procedures which diverged.
+
+        """
+
     def _parse_and_complete_results(
         self, results: np.ndarray, result_state: ThermodynamicState, flash_type: str
     ) -> ThermodynamicState:
@@ -1459,6 +1475,13 @@ class Flash_c:
 
         # TODO fill up missing quantities in result state if any
         return result_state
+
+    def print_last_stats(self):
+        """Prints statistics found in :attr:`last_flash_stats` in the console."""
+        print("---\nLast flash stats:")
+        for k, v in self.last_flash_stats.items():
+            print(f"\t{k}: {v}")
+        print("---")
 
     def compile(self, verbosity: int = 1) -> None:
         """Triggers the assembly and compilation of equilibrium equations, including
@@ -2309,9 +2332,11 @@ class Flash_c:
             X0[:, :-1] = self.initializers[flash_type](X0[:, :-1], *init_args)
             end = time.time()
             logger.info(f"{del_log}Initial state computed.\n")
-            t = end - start
-            logger.debug(f"Elapsed time (s): {t}\n")
+            init_time = end - start
+            logger.debug(f"Elapsed time (s): {init_time}\n")
+
         else:
+            init_time = 0.0
             logger.debug(f"{del_log}Parsing initial state ..")
             # parsing phase compositions and molar fractions
             for j in range(nphase):
@@ -2359,8 +2384,18 @@ class Flash_c:
             raise ValueError(f"Unknown mode of compuation {mode}")
         end = time.time()
         logger.info(f"{del_log}Flash computations done.\n")
-        t = end - start
-        logger.debug(f"Elapsed time (s): {t}\n")
+        minim_time = end - start
+        logger.debug(f"Elapsed time (s): {minim_time}\n")
+
+        self.last_flash_stats = {
+            "type": flash_type,
+            "init_time": init_time,
+            "minim_time": minim_time,
+            "num_flash": NF,
+            "num_max_iter": int(np.sum(success == 1)),
+            "num_failure": int(np.sum(success == 2) + np.sum(success == 3)),
+            "num_diverged": int(np.sum(success == 4)),
+        }
 
         logger.debug(f"{del_log}Parsing and returning results.\n")
         return (
