@@ -82,72 +82,241 @@ class AdTpfaFlow(pp.fluid_mass_balance.SinglePhaseFlow):
         all_vals[self.nd + 1 :: tensor_dim] = 0.1 * (np.arange(nc) + 1)
         scaled_vals = self.solid.convert_units(all_vals, "m^2")
         e_xy = self.e_i(subdomains, i=1, dim=tensor_dim)
+        e_yy = self.e_i(subdomains, i=4, dim=tensor_dim)
         p = self.pressure(subdomains)
-        # return pp.wrap_as_dense_ad_array(scaled_vals, name="permeability") + e_xy @ p
-        return pp.wrap_as_dense_ad_array(np.ones(nc * tensor_dim), name="permeability")
+        return (
+            pp.wrap_as_dense_ad_array(scaled_vals, name="permeability")
+            + e_xy @ p
+            + pp.ad.Scalar(2) * e_yy @ p
+        )
+        # return pp.wrap_as_dense_ad_array(np.ones(nc * tensor_dim), name="permeability")
 
-    def tpfa_ad(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """TPFA discretization.
+    def diffusive_flux(
+        self,
+        domains: pp.SubdomainsOrBoundaries,
+        diffusivity_tensor: Callable[[list[pp.Grid]], pp.ad.Operator],
+    ) -> pp.ad.Operator:
+        """Discretization of Darcy's law.
+
+
 
         Parameters:
-            subdomains: List of grids.
+            domains: List of domains where the Darcy flux is defined.
+
+        Raises:
+            ValueError if the domains are a mixture of grids and boundary grids.
 
         Returns:
-            Operator.
+            Face-wise Darcy flux in cubic meters per second.
+
         """
-        discr = pp.numerics.fv.tpfa.DifferentiableTpfa(self.mdg, subdomains=subdomains)
 
-        T_f = discr.face_transmissibilities(subdomains)
-        diff_p = discr.face_pairing_from_cell_vector(subdomains) @ self.pressure(
-            subdomains
+        if len(domains) == 0 or all([isinstance(g, pp.BoundaryGrid) for g in domains]):
+            # Note: in case of the empty subdomain list, the time dependent array is
+            # still returned. Otherwise, this method produces an infinite recursion
+            # loop. It does not affect real computations anyhow.
+            return self.create_boundary_operator(  # type: ignore[call-arg]
+                name=self.bc_data_darcy_flux_key,
+                domains=domains,
+            )
+
+        interfaces: list[pp.MortarGrid] = self.subdomains_to_interfaces(domains, [1])
+        intf_projection = pp.ad.MortarProjections(self.mdg, domains, interfaces, dim=1)
+
+        boundary_grids = self.subdomains_to_boundary_grids(domains)
+
+        diff_discr = pp.numerics.fv.tpfa.DifferentiableTpfa(
+            domains,
+            boundary_grids,
+            self.mdg,
         )
-
-        # Boundaries. From tpfa.py we have that:
-        # - Neu faces should be
-        #       zero in T_f
-        #       equal sgn in T_bf. Sgn is cancelled by divergence in
-        #            div @ (T_bf * bc_vals),
-        #       thus ensuring outfluxes are always positive.
-        # - Dir should be
-        #       unchanged in T_f
-        #       copied to T_bf with weight -sgn.
-
-        # Preparation. Get boundary grids and filters.
-        boundary_grids = self.subdomains_to_boundary_grids(subdomains)
-
-        name = "bc_values_darcy_flux"
-        dir_filter = pp.ad.TimeDependentDenseArray(
-            name=(name + "_filter_dir"), domains=boundary_grids
-        )
-        neu_filter = pp.ad.TimeDependentDenseArray(
-            name=(name + "_filter_neu"), domains=boundary_grids
-        )
-        proj = pp.ad.BoundaryProjection(self.mdg, subdomains=subdomains, dim=1)
-
-        bnd_sgn = discr.boundary_sign(subdomains)
-        # Neu values in T_bf = bnd_sgn.
-        neu_bnd = proj.boundary_to_subdomain @ neu_filter * bnd_sgn
-        # Dir values in T_bf = -bnd_sgn * T_f
-        dir_bnd = (proj.boundary_to_subdomain @ dir_filter) * (-bnd_sgn * T_f)
-
+        # Construct half-face transmissbilities t_hf = 1 / / dist * d_vec @ n @ k_c.
+        # Cell-wise diffusivity tensor, shape = (9 * n_cells,)
+        k_c = diffusivity_tensor(domains)
+        n, d_vec, dist = diff_discr.half_face_transmissibility_matrices(domains)
+        # Compose half-face transmissibilities
+        d_n_by_dist = sps.diags(1 / dist) * d_vec @ n
+        one = pp.ad.Scalar(1)
+        t_hf_inv = one / (pp.ad.SparseArray(d_n_by_dist) @ k_c)
+        # Compose full-face transmissibilities
+        # Sum over half-faces to get transmissibility on faces.
+        # Include sign to cancel the effect of the d_vec @ n having opposite signs on
+        # the two half-faces.
+        hf_to_f = diff_discr.half_face_map(domains, to_entity="faces", with_sign=True)
+        t_f_full = one / (pp.ad.SparseArray(hf_to_f) @ t_hf_inv)
         # Delete neu values in T_f, i.e. keep all non-neu values.
-        T_f = (pp.ad.Scalar(1) - proj.boundary_to_subdomain @ neu_filter) * T_f
+        dir_filter, neu_filter = diff_discr.boundary_filters(
+            domains, boundary_grids, "bc_values_darcy_flux"
+        )
+        # Keep t_f_full for now, to be used in the pressure reconstruction.
+        t_f = (one - neu_filter) * t_f_full
+
+        # Boundaries
+        bnd_sgn = diff_discr.boundary_sign(domains)
+        # Neu values in T_bf = bnd_sgn.
+        neu_bnd = neu_filter * bnd_sgn
+        # Dir values in T_bf = -bnd_sgn * T_f
+        dir_bnd = dir_filter * (-bnd_sgn * t_f)
+        t_bnd = neu_bnd + dir_bnd
+
+        # Vector source fc_cc is (nhf, nd*nhf)
+        # hf2f @ fc_cc @ [(f2hf3d @ t_f) * 3dc2hf3d @ vec_source_3d]
+        #
+        # For compatibility with mpsa, vector source is defined as a cell-wise nd
+        # vector. As this discretization is in 3d, expand.
+        cells_nd_to_hf_3d = diff_discr.half_face_map(
+            domains, from_entity="cells", with_sign=False, dimensions=(3, 3)
+        ) @ diff_discr.nd_to_3d(domains, self.nd)
+        source_3d = pp.ad.SparseArray(cells_nd_to_hf_3d) @ self.vector_source(
+            domains, material="fluid"
+        )
+        f_to_hf_3d = diff_discr.half_face_map(
+            domains, from_entity="faces", with_sign=True, dimensions=(3, 1)
+        )
+        vector_source = pp.ad.SparseArray(hf_to_f @ d_vec) @ (
+            (pp.ad.SparseArray(f_to_hf_3d) @ t_f) * source_3d
+        )
+
+        pressure_difference = pp.ad.SparseArray(
+            diff_discr.face_pairing_from_cell_array(domains)
+        ) @ self.pressure(domains)
 
         # Get boundary condition values
+        boundary_operator = self._combine_boundary_operators(  # type: ignore[call-arg]
+            subdomains=domains,
+            dirichlet_operator=self.pressure,
+            neumann_operator=self.darcy_flux,
+            bc_type=self.bc_type_darcy_flux,
+            name="bc_values_darcy_flux",
+        )
+        base_discr = self.darcy_flux_discretization(domains)
+        if isinstance(base_discr, pp.ad.MpfaAd):
+
+            def f(T_f, p_diff, p):
+                val = base_discr.flux.parse(self.mdg) @ p.val
+                jac = base_discr.flux.parse(self.mdg) @ p.jac
+                if hasattr(T_f, "jac"):
+                    # Trick to get the correct shape of the jacobian. See the diagvec_mul methods.
+                    jac += sps.diags(p_diff.val) @ T_f.jac
+                return pp.ad.AdArray(val, jac)
+
+            def g(vector_source_diff, vector_source_param):
+                val = base_discr.vector_source @ vector_source_param
+                jac = # how to get the correct shape?
+                if hasattr(vector_source_diff, "jac"):
+                    val += vector_source_diff.jac @ vector_source_param.val
+                return pp.ad.AdArray(val, jac)
+
+            flux_p = pp.ad.Function(f, "differentiable_mpfa")(
+                t_f, pressure_difference, self.pressure(domains)
+            )
+            vector_source = pp.ad.Function(g, "differentiable_mpfa_vector_source")(
+                vector_source, self.vector_source(domains, material="fluid")
+            )
+        else:
+            flux_p = t_f * pressure_difference
+        # self.set_discretization_parameters()
+        # self.discretize()
+        # flux_p.evaluate(self.equation_system)
+        flux: pp.ad.Operator = (
+            flux_p  # discr.flux @ self.pressure(domains)
+            + t_bnd
+            @ (
+                boundary_operator
+                + intf_projection.mortar_to_primary_int
+                @ self.interface_darcy_flux(interfaces)
+            )
+            + base_discr.vector_source @ self.vector_source(domains, material="fluid")
+        )
+
+        # Development debugging. TODO: Remove
+        # Compose equation
+
+
+        # div = pp.ad.Divergence(domains)
+        # eq = div @ ((T_f * pressure_difference) + bc_contr)
+        # system = eq.evaluate(self.equation_system)
+        # dp = sps.linalg.spsolve(system.jac, -system.val)
+        return flux
+
+    def pressure_trace(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Pressure on the subdomain boundaries.
+
+        Parameters:
+            subdomains: List of subdomains where the pressure is defined.
+
+        Returns:
+            Pressure on the subdomain boundaries. Parsing the operator will return a
+            face-wise array.
+
+        """
+        interfaces: list[pp.MortarGrid] = self.subdomains_to_interfaces(subdomains, [1])
+        projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1)
+        base_discr: Union[pp.ad.TpfaAd, pp.ad.MpfaAd] = self.darcy_flux_discretization(
+            subdomains
+        )
+        p: pp.ad.MixedDimensionalVariable = self.pressure(subdomains)
+
         boundary_operator = self._combine_boundary_operators(  # type: ignore[call-arg]
             subdomains=subdomains,
             dirichlet_operator=self.pressure,
             neumann_operator=self.darcy_flux,
             bc_type=self.bc_type_darcy_flux,
-            name=name,
+            name="bc_values_darcy",
         )
-        bc_contr = (dir_bnd + neu_bnd) * boundary_operator
-        # Compose equation
-        div = pp.ad.Divergence(subdomains)
-        eq = div @ ((T_f * diff_p) + bc_contr)
-        system = eq.evaluate(self.equation_system)
-        dp = sps.linalg.spsolve(system.jac, -system.val)
-        return d_vec.T @ k_hf @ d_vec / dist
+
+        # Construct differentiable bound_pressure_face. Note that much of the following
+        # code is copied from the diffusive_flux method. TODO: Refactor?
+
+        # Construct half-face transmissbilities t_hf = 1 / / dist * d_vec @ n @ k_c.
+        # Cell-wise diffusivity tensor, shape = (9 * n_cells,)
+        k_c = self._permeability(subdomains)
+        boundary_grids = self.subdomains_to_boundary_grids(subdomains)
+        diff_discr = pp.numerics.fv.tpfa.DifferentiableTpfa(
+            subdomains,
+            boundary_grids,
+            self.mdg,
+        )
+        n, d_vec, dist = diff_discr.half_face_transmissibility_matrices(subdomains)
+        # Compose half-face transmissibilities
+        d_n_by_dist = sps.diags(1 / dist) * d_vec @ n
+        one = pp.ad.Scalar(1)
+        t_hf_inv = one / (pp.ad.SparseArray(d_n_by_dist) @ k_c)
+        # Compose full-face transmissibilities
+        # Sum over half-faces to get transmissibility on faces.
+        # Include sign to cancel the effect of the d_vec @ n having opposite signs on
+        # the two half-faces.
+        hf_to_f = diff_discr.half_face_map(
+            subdomains, to_entity="faces", with_sign=True
+        )
+        t_f_full = one / (pp.ad.SparseArray(hf_to_f) @ t_hf_inv)
+        dir_filter, neu_filter = diff_discr.boundary_filters(
+            subdomains, boundary_grids, "bc_values_darcy_flux"
+        )
+        # Face contribution to boundary pressure is 1 on Dirichlet faces, -1/t_f_full on
+        # Neumann faces (see Tpfa.discretize).
+        bound_pressure_face = dir_filter - neu_filter * (one / t_f_full)
+
+        if isinstance(base_discr, pp.ad.MpfaAd):
+
+            def f(bound_pressure_face):
+                val = base_discr.bound_pressure_face
+                jac = bound_pressure_face.jac
+                return pp.ad.AdArray(val, jac)
+
+            bound_pressure_face = pp.ad.Function(f, "differentiable_mpfa")(
+                bound_pressure_face
+            )
+
+        pressure_trace = (
+            base_discr.bound_pressure_cell @ p  # independent of k
+            + bound_pressure_face  # dependens on k
+            * (projection.mortar_to_primary_int @ self.interface_darcy_flux(interfaces))
+            + bound_pressure_face * boundary_operator
+            + base_discr.bound_pressure_vector_source  # independent of k
+            @ self.vector_source(subdomains, material="fluid")
+        )
+        return pressure_trace
 
     def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
         """Boundary condition values for Darcy flux.
@@ -185,10 +354,26 @@ class AdTpfaFlow(pp.fluid_mass_balance.SinglePhaseFlow):
         # Define boundary condition on faces
         return pp.BoundaryCondition(sd, domain_sides.north + domain_sides.south, "dir")
 
+    def darcy_flux_discretization(self, subdomains: list[pp.Grid]) -> pp.ad.MpfaAd:
+        """Discretization object for the Darcy flux term.
+
+        Parameters:
+            subdomains: List of subdomains where the Darcy flux is defined.
+
+        Returns:
+            Discretization of the Darcy flux.
+
+        """
+        # TODO: The ad.Discretizations may be purged altogether. Their current function
+        # is very similar to the ad.Geometry in that both basically wrap numpy/scipy
+        # arrays in ad arrays and collect them in a block matrix. This similarity could
+        # possibly be exploited. Revisit at some point.
+        return pp.ad.MpfaAd(self.darcy_keyword, subdomains)
+
 
 m = AdTpfaFlow({})
 m.prepare_simulation()
-o = m.tpfa_ad(m.mdg.subdomains())
+o = m.diffusive_flux(m.mdg.subdomains(), m._permeability)
 t = o.evaluate(m.equation_system)
 
 # %%
