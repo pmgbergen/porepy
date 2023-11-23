@@ -271,8 +271,10 @@ def _rr_poles(y: np.ndarray, K: np.ndarray) -> np.ndarray:
         Each demoninator is given by :math:`1 + \\sum_{j\\neq r} y_j (K_{ji} - 1)`.
 
     """
-    return 1 + (K.T - 1) @ y[1:]
-    # return 1 + np.dot(y[1:], K[:, i] - 1)
+    # tensordot is the fastes option for non-contigous arrays,
+    # but currently unsupported by numba TODO
+    # return 1 + np.tensordot(K.T - 1, y[1:], axes=1)
+    return 1 + (K.T - 1) @ y[1:]  # K-values given for each independent phase
 
 
 @numba.njit(
@@ -384,7 +386,9 @@ def mass_conservation_res(x: np.ndarray, y: np.ndarray, z: np.ndarray) -> np.nda
         except the first one (in ``z``).
 
     """
-    # excluding mass consercation for 1st component
+    # tensordot is the fastes option for non-contigous arrays,
+    # but currently unsupported by numba TODO
+    # return (z - np.tensordot(y, x, axes=1))[1:]
     return (z - np.dot(y, x))[1:]
 
 
@@ -1307,7 +1311,7 @@ class Flash_c:
         self._omegas: list[float] = [comp.omega for comp in mixture.components]
 
         self.npnc: tuple[int, int] = (np, nc)
-        """Number of phases and components, passed at instantiation."""
+        """Number of phases and components present in mixture."""
 
         self.eos_compiler: EoSCompiler = eos_compiler
         """Assembler and compiler of EoS-related expressions equation.
@@ -1328,7 +1332,7 @@ class Flash_c:
         ] = dict()
         """Contains per flash configuration the initialization procedure."""
 
-        self.npipm_res: dict[
+        self.npipm_residuals: dict[
             Literal["p-T", "p-h", "v-h"], Callable[[np.ndarray], np.ndarray]
         ] = dict()
         """Contains per flash configuration the residual of extended flash system.
@@ -1341,7 +1345,7 @@ class Flash_c:
 
         """
 
-        self.npipm_jac: dict[
+        self.npipm_jacobians: dict[
             Literal["p-T", "p-h", "v-h"], Callable[[np.ndarray], np.ndarray]
         ] = dict()
         """Contains per flash configuration the Jacobian of extended flash system.
@@ -2023,33 +2027,34 @@ class Flash_c:
                 "p-h": ph_initializer,
             }
         )
-        logger.info(f"{del_log}Compilation completed.\n")
+        logger.info(f"{del_log}Flash compilation completed.\n")
 
         self.reconfigure_npipm(
+            self.npipm_parameters["eta"],
             self.npipm_parameters["u1"],
             self.npipm_parameters["u2"],
-            self.npipm_parameters["eta"],
             verbosity,
         )
 
     def reconfigure_npipm(
-        self, u1: float = 1.0, u2: float = 1.0, eta: float = 0.5, verbosity: int = 1
+        self, eta: float, u1: float, u2: float, verbosity: int = 1
     ) -> None:
-        """Re-compiles the NPIPM slack equation using updated parameters ``u, eta``.
+        """Re-compiles the NPIPM slack equation using updated parameters
+        ``u1, u2, eta``.
 
-        For more information on ``u`` and ``eta``, see :func:`slack_equation_res`.
-
-        Default values ``u=1, eta=0.5`` are used in the first compilation
-        while calling :meth:`compile`.
+        For more information on parameters, see :func:`slack_equation_res`.
 
         Note:
-            The user must recompile the system with ``u,eta`` being quasi-static in
-            order to be able to call the system with a single argument
-            (slack variable appended thermodynamic state) for the numerical
-            methods to work.
-            Passing ``u`` and ``eta`` as separate arguments is quite cumbersome
-            with the current state of numba and the approach of having a single-argument
-            callables which represents residuals and Jacobian.
+            The user must recompile the system when changing the parameters because the
+            flash systems in NPIPM are presented as a callable with thermodynamic
+            parameters and variables in a single input argument.
+
+            This design choice was made in order to simplify the signature of the
+            used numerical methods (Newton and Armijo line search).
+
+            We could make the NPIPM parameters part of the input argument.
+            This would enlarge the the input unnecessarily and make the parsing of
+            thermodynamic arguments more cumbersome.
 
         """
         # setting logging verbosity
@@ -2103,19 +2108,27 @@ class Flash_c:
             x, y, _ = parse_xyz(X_thd, npnc)
             return npipm_extend_and_regularize_jac(DF_ph(X_thd), y, x, nu, u1, u2, eta)
 
-        logger.info(f"{del_log}Storing compiled flash equations ..")
+        logger.info(f"{del_log}Storing compiled equations ..")
 
-        self.npipm_res.update(
+        self.npipm_residuals.update(
             {
                 "p-T": F_npipm_pT,
                 "p-h": F_npipm_ph,
             }
         )
 
-        self.npipm_jac.update(
+        self.npipm_jacobians.update(
             {
                 "p-T": DF_npipm_pT,
                 "p-h": DF_npipm_ph,
+            }
+        )
+
+        self.npipm_parameters.update(
+            {
+                "eta": eta,
+                "u1": u1,
+                "u2": u2,
             }
         )
 
@@ -2325,8 +2338,8 @@ class Flash_c:
         logger.info(f"{del_log}Computing initial guess for slack variable ..")
         X0 = initialize_npipm_nu(X0, (nphase, ncomp))
 
-        F = self.npipm_res[flash_type]
-        DF = self.npipm_jac[flash_type]
+        F = self.npipm_residuals[flash_type]
+        DF = self.npipm_jacobians[flash_type]
         solver_args = (
             F_dim,
             self.tolerance,
