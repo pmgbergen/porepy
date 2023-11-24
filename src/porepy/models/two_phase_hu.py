@@ -1219,6 +1219,7 @@ class SolutionStrategyPressureMass(pp.SolutionStrategy):
         self.initialize_data_saving()
 
         self.set_materials()
+
         self.set_equation_system_manager()
 
         self.add_equation_system_to_phases()
@@ -1770,54 +1771,6 @@ class MyModelGeometry(pp.ModelGeometry):
         return self.params.get("meshing_arguments", default_meshing_args)
 
 
-class PartialFinalModel(
-    PrimaryVariables,
-    Equations,
-    ConstitutiveLawPressureMass,
-    BoundaryConditionsPressureMass,
-    SolutionStrategyPressureMass,
-    MyModelGeometry,
-    pp.DataSavingMixin,
-):
-    """ """
-
-
-if __name__ == "__main__":
-    # scaling:
-    # very bad logic, improve it...
-    L_0 = 1
-    gravity_0 = 1
-    dynamic_viscosity_0 = 1
-    rho_0 = 1  # |rho_phase_0-rho_phase_1|
-    p_0 = 1
-    Ka_0 = 1
-    u_0 = Ka_0 * p_0 / (dynamic_viscosity_0 * L_0)
-    t_0 = L_0 / u_0
-
-    gravity_number = Ka_0 * rho_0 * gravity_0 / (dynamic_viscosity_0 * u_0)
-
-    print("\nSCALING: ======================================")
-    print("u_0 = ", u_0)
-    print("t_0 = ", u_0)
-    print("gravity_number = ", gravity_number)
-    print(
-        "pay attention: gravity number is not influenced by Ka_0 and dynamic_viscosity_0"
-    )
-    print("=========================================\n")
-
-    fluid_constants = pp.FluidConstants({})
-    solid_constants = pp.SolidConstants(
-        {
-            "porosity": 0.25,
-            "intrinsic_permeability": 1 / Ka_0,
-            "normal_permeability": 0.1 / Ka_0,  # this does NOT include the aperture
-            "residual_aperture": 0.1 / Ka_0,
-        }
-    )
-
-    material_constants = {"fluid": fluid_constants, "solid": solid_constants}
-
-
 class TimeManagerPP(pp.TimeManager):
     def compute_time_step(
         self,
@@ -1860,7 +1813,53 @@ class TimeManagerPP(pp.TimeManager):
         self.time -= self.dt
 
 
+class PartialFinalModel(
+    PrimaryVariables,
+    Equations,
+    ConstitutiveLawPressureMass,
+    BoundaryConditionsPressureMass,
+    SolutionStrategyPressureMass,
+    MyModelGeometry,
+    pp.DataSavingMixin,
+):
+    """ """
+
+
 if __name__ == "__main__":
+    # Scaling:
+    # there something conceptually wrong, scaling should be unrelated to units and easy to modify. Should be part of the model but with the current structure of the code it's too complex
+    L_0 = 1
+    gravity_0 = 1
+    dynamic_viscosity_0 = 1
+    rho_0 = 1  # |rho_phase_0-rho_phase_1|
+    p_0 = 1
+    Ka_0 = 1
+    u_0 = Ka_0 * p_0 / (dynamic_viscosity_0 * L_0)
+    t_0 = L_0 / u_0
+
+    gravity_number = Ka_0 * rho_0 * gravity_0 / (dynamic_viscosity_0 * u_0)
+
+    print("\nSCALING: ======================================")
+    print("u_0 = ", u_0)
+    print("t_0 = ", u_0)
+    print("gravity_number = ", gravity_number)
+    print(
+        "pay attention: gravity number is not influenced by Ka_0 and dynamic_viscosity_0"
+    )
+    print("=========================================\n")
+
+    fluid_constants = pp.FluidConstants({})
+    solid_constants = pp.SolidConstants(
+        {
+            "porosity": 0.25,
+            "intrinsic_permeability": 1 / Ka_0,
+            "normal_permeability": 0.1 / Ka_0,  # this does NOT include the aperture
+            "residual_aperture": 0.1 / Ka_0,
+        }
+    )
+
+    material_constants = {"fluid": fluid_constants, "solid": solid_constants}
+
     time_manager = TimeManagerPP(
         schedule=np.array([0, 50]) / t_0,
         dt_init=1e0 / t_0,
@@ -1885,8 +1884,6 @@ if __name__ == "__main__":
 
     mixture = pp.Mixture()
     mixture.add([wetting_phase, non_wetting_phase])
-
-if __name__ == "__main__":
 
     class FinalModel(PartialFinalModel):
         def __init__(self, params: Optional[dict] = None):

@@ -349,6 +349,7 @@ class SolutionStrategy(abc.ABC):
 
         # Loop over all constants objects (fluid, solid), and set units.
         for name, const in constants.items():
+            pdb.set_trace()
             # Check that the object is of the correct type
             assert isinstance(const, pp.models.material_constants.MaterialConstants)
             # Impose the units passed to initialization of the model.

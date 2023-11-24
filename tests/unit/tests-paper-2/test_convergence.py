@@ -113,7 +113,8 @@ class SolutionStrategyTest1(two_phase_hu.SolutionStrategyPressureMass):
             )
 
             saturation_values = 0.0 * np.ones(sd.num_cells)
-            saturation_values[np.where(sd.cell_centers[1] >= self.ymax / 2)] = 1.0
+            # saturation_values[np.where(sd.cell_centers[1] >= self.ymax / 2)] = 1.0
+            saturation_values = 1 - 1 * sd.cell_centers[1] / self.ymax
 
             if sd.dim == 1:
                 saturation_values = 0.5 * np.ones(sd.num_cells)
@@ -175,13 +176,17 @@ class SolutionStrategyTest1(two_phase_hu.SolutionStrategyPressureMass):
         hardcoded for two grids only
         """
 
+        print("\n\n\n\n\n inside after_simulation")
+
         tol = 1e-6
 
         sd_id = 0  # not used, just remember that it might be useful to order the grids without using operators
 
         for sd_ref, sd in zip(self.mdg_ref.subdomains(), self.mdg.subdomains()):
             if sd_ref.dim == 2:
-                mapping_matrix_2d = pp.match_grids.match_2d(sd_ref, sd, tol, "averaged")
+                mapping_matrix_2d = pp.match_grids.match_2d(
+                    sd_ref, sd, tol, "averaged"
+                )  # this takes long time!
                 sp.sparse.save_npz(
                     self.root_path + "mapping_matrix_2d_" + str(self.cell_size),
                     mapping_matrix_2d,
@@ -319,8 +324,39 @@ class GeometryConvergence(pp.ModelGeometry):
 
     def set_fractures(self) -> None:
         """ """
-        frac1 = pp.LineFracture(np.array([[0.0, 1.0], [0.5, 0.5]]))
-        self._fractures: list = [frac1]
+        frac1 = pp.LineFracture(
+            np.array([[self.x_bottom, self.x_top], [self.ymin, self.ymax]])
+        )
+
+        tangent = np.array(
+            [np.sin(self.tilt_angle), np.cos(self.tilt_angle)]
+        )  # sorry, I cant use the dedicated function because it requires the grid that i dont have yet
+        displ_x = self.displacement_max * tangent[0]
+        displ_y = self.displacement_max * tangent[1]
+
+        self.x_intersection = self.xmean - displ_x
+        self.y_intersection = self.ymean - displ_y
+
+        frac_constr_1 = pp.LineFracture(
+            np.array(
+                [
+                    [self.x_intersection, self.xmax],
+                    [
+                        self.y_intersection,
+                        self.y_intersection,
+                    ],
+                ]
+            )
+        )
+
+        frac_constr_2 = pp.LineFracture(
+            np.array([[self.xmin, self.xmean - 0.1], [self.ymean, self.ymean]])
+        )  # -0.1 just to not touch the fracture
+
+        self._fractures: list = [
+            frac_constr_1,
+            frac_constr_2,
+        ]  # [frac1, frac_constr_1, frac_constr_2]
 
     def meshing_arguments_ref(self) -> dict[str, float]:
         """ """
@@ -440,6 +476,30 @@ if __name__ == "__main__":
             self.ymin = 0.0 / self.L_0
             self.ymax = 1.0 / self.L_0
 
+            self.xmean = (self.xmax - self.xmin) / 2
+            self.ymean = (self.ymax - self.ymin) / 2
+
+            self.tilt_angle = 30 * np.pi / 180
+            self.x_bottom = (
+                self.xmean
+                - (self.ymax - self.ymin)
+                / 2
+                * np.sin(self.tilt_angle)
+                / np.cos(self.tilt_angle)
+                / self.L_0
+            )
+            self.x_top = (
+                self.xmean
+                + (self.ymax - self.ymin)
+                / 2
+                * np.sin(self.tilt_angle)
+                / np.cos(self.tilt_angle)
+                / self.L_0
+            )
+            self.displacement_max = (
+                -0.0
+            )  # it doesnt work with a positive value, but who cares...
+
             self.relative_permeability = (
                 pp.tobedefined.relative_permeability.rel_perm_quadratic
             )
@@ -452,7 +512,9 @@ if __name__ == "__main__":
             self.output_file_name = self.root_path + "OUTPUT_NEWTON_INFO"
             self.mass_output_file_name = self.root_path + "MASS_OVER_TIME"
 
-    cell_sizes = np.array([0.2, 0.1, 0.05, 0.025])  # last one is the ref value
+    cell_sizes = np.array(
+        [0.4, 0.2, 0.1, 0.05, 0.025, 0.005]
+    )  # last one is the ref value
     np.savetxt("./convergence_results/cell_sizes", cell_sizes)
 
     for cell_size in cell_sizes:
@@ -476,6 +538,7 @@ if __name__ == "__main__":
             folder_name=folder_name,
         )
 
+        meshing_kwargs = {"constraints": np.array([0, 1])}
         params = {
             "material_constants": material_constants,
             "max_iterations": 20,
@@ -483,6 +546,7 @@ if __name__ == "__main__":
             "nl_divergence_tol": 1e0,
             "time_manager": time_manager,
             "folder_name": folder_name,
+            "meshing_kwargs": meshing_kwargs,
         }
 
         model = FinalModel(params)

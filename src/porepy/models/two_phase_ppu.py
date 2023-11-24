@@ -602,28 +602,36 @@ class PartialFinalModel(
     """ """
 
 
-# scaling:
-# very bad logic, improve it...
-L_0 = 1
-gravity_0 = 1
-dynamic_viscosity_0 = 1
-rho_0 = 1  # |rho_phase_0-rho_phase_1|
-p_0 = 1
-Ka_0 = 1
-u_0 = Ka_0 * p_0 / (dynamic_viscosity_0 * L_0)
-t_0 = L_0 / u_0
-
-gravity_number = Ka_0 * rho_0 * gravity_0 / (dynamic_viscosity_0 * u_0)
-
-print("\nSCALING: ======================================")
-print("u_0 = ", u_0)
-print("t_0 = ", u_0)
-print("gravity_number = ", gravity_number)
-print("pay attention: gravity number is not influenced by Ka_0 and dynamic_viscosity_0")
-print("=========================================\n")
-
 if __name__ == "__main__":
-    mixture = two_phase_hu.mixture
+    # scaling:
+    # very bad logic, improve it...
+    L_0 = 1
+    gravity_0 = 1
+    dynamic_viscosity_0 = 1
+    rho_0 = 1  # |rho_phase_0-rho_phase_1|
+    p_0 = 1
+    Ka_0 = 1
+    u_0 = Ka_0 * p_0 / (dynamic_viscosity_0 * L_0)
+    t_0 = L_0 / u_0
+
+    gravity_number = Ka_0 * rho_0 * gravity_0 / (dynamic_viscosity_0 * u_0)
+
+    print("\nSCALING: ======================================")
+    print("u_0 = ", u_0)
+    print("t_0 = ", u_0)
+    print("gravity_number = ", gravity_number)
+    print(
+        "pay attention: gravity number is not influenced by Ka_0 and dynamic_viscosity_0"
+    )
+    print("=========================================\n")
+
+    wetting_phase = pp.composite.phase.Phase(
+        rho0=1 / rho_0, p0=p_0, beta=1e-10
+    )  # TODO: improve that p0, different menaing wrt rho0
+    non_wetting_phase = pp.composite.phase.Phase(rho0=0.5 / rho_0, p0=p_0, beta=1e-10)
+
+    mixture = pp.Mixture()
+    mixture.add([wetting_phase, non_wetting_phase])
 
     class FinalModel(PartialFinalModel):
         def __init__(self, params: Optional[dict] = None):
@@ -657,6 +665,7 @@ if __name__ == "__main__":
             )
 
             self.output_file_name = "./OUTPUT_NEWTON_INFO"
+            self.mass_output_file_name = "./MASS_OVER_TIME"
 
     params = two_phase_hu.params
     model = FinalModel(params)

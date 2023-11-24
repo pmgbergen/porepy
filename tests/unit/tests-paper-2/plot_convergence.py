@@ -22,6 +22,7 @@ err_list_mortar_1 = np.array([])
 # fine (ref): ------------------------------------------------------
 cell_size = cell_sizes[-1]
 variable_num_dofs = np.loadtxt(root_path + "variable_num_dofs_" + str(cell_size))
+
 volumes_2d_ref = np.load(
     root_path + "volumes_2d_" + str(cell_size) + ".npy", allow_pickle=True
 )
@@ -30,7 +31,9 @@ volumes_mortar = np.concatenate((volumes_1d_ref, volumes_1d_ref))
 
 id_2d = np.arange(variable_num_dofs[0], dtype=np.int32)  # HARDCODED
 id_1d = np.arange(
-    variable_num_dofs[0], variable_num_dofs[0] + variable_num_dofs[1], dtype=np.int32
+    variable_num_dofs[0],
+    variable_num_dofs[0] + variable_num_dofs[1],
+    dtype=np.int32,
 )  # HARDCODED
 
 pressure = np.load(root_path + "pressure_" + str(cell_size) + ".npy", allow_pickle=True)
@@ -41,8 +44,8 @@ mortar_phase_0_ref = np.loadtxt(root_path + "mortar_phase_0_" + str(cell_size))
 mortar_phase_1_ref = np.loadtxt(root_path + "mortar_phase_1_" + str(cell_size))
 
 pressure_2d_ref = pressure[id_2d]
-pressure_1d_ref = pressure[id_1d]
 saturation_2d_ref = saturation[id_2d]
+pressure_1d_ref = pressure[id_1d]
 saturation_1d_ref = saturation[id_1d]
 
 for cell_size in cell_sizes[:-1]:
