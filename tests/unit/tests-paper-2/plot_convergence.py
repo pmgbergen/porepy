@@ -9,65 +9,35 @@ import pdb
 
 os.system("clear")
 
-root_path = "./convergence_results/"
-cell_sizes = np.loadtxt(root_path + "cell_sizes")  # last one is the ref
-err_list_p_2d = np.array([])
-err_list_p_1d = np.array([])
-err_list_s_2d = np.array([])
-err_list_s_1d = np.array([])
-err_list_mortar_0 = np.array([])
-err_list_mortar_1 = np.array([])
+# root_paths = [
+#     "./case_1/slanted_hu_Kn0.1/convergence_results/",
+#     "./case_1/slanted_ppu_Kn0.1/convergence_results/",
+# ]
+root_paths = [
+    "./case_1/non-conforming/slanted_hu_Kn0.1/convergence_results/",
+    "./case_1/non-conforming/slanted_ppu_Kn0.1/convergence_results/",
+]
+
+err_list_p_2d = [np.array([])] * 2
+err_list_p_1d = [np.array([])] * 2
+err_list_s_2d = [np.array([])] * 2
+err_list_s_1d = [np.array([])] * 2
+err_list_mortar_0 = [np.array([])] * 2
+err_list_mortar_1 = [np.array([])] * 2
 
 
-# fine (ref): ------------------------------------------------------
-cell_size = cell_sizes[-1]
-variable_num_dofs = np.loadtxt(root_path + "variable_num_dofs_" + str(cell_size))
+for index, root_path in enumerate(root_paths):
+    cell_sizes = np.loadtxt(root_path + "cell_sizes")  # last one is the ref
 
-volumes_2d_ref = np.load(
-    root_path + "volumes_2d_" + str(cell_size) + ".npy", allow_pickle=True
-)
-volumes_1d_ref = np.loadtxt(root_path + "volumes_1d_" + str(cell_size))
-volumes_mortar = np.concatenate((volumes_1d_ref, volumes_1d_ref))
-
-id_2d = np.arange(variable_num_dofs[0], dtype=np.int32)  # HARDCODED
-id_1d = np.arange(
-    variable_num_dofs[0],
-    variable_num_dofs[0] + variable_num_dofs[1],
-    dtype=np.int32,
-)  # HARDCODED
-
-pressure = np.load(root_path + "pressure_" + str(cell_size) + ".npy", allow_pickle=True)
-saturation = np.load(
-    root_path + "saturation_" + str(cell_size) + ".npy", allow_pickle=True
-)
-mortar_phase_0_ref = np.loadtxt(root_path + "mortar_phase_0_" + str(cell_size))
-mortar_phase_1_ref = np.loadtxt(root_path + "mortar_phase_1_" + str(cell_size))
-
-pressure_2d_ref = pressure[id_2d]
-saturation_2d_ref = saturation[id_2d]
-pressure_1d_ref = pressure[id_1d]
-saturation_1d_ref = saturation[id_1d]
-
-for cell_size in cell_sizes[:-1]:
-    # coarse: --------------------------------------------------------
+    # fine (ref): ------------------------------------------------------
+    cell_size = cell_sizes[-1]
     variable_num_dofs = np.loadtxt(root_path + "variable_num_dofs_" + str(cell_size))
 
-    coarse_to_fine_2d = sp.sparse.load_npz(
-        root_path + "mapping_matrix_2d_" + str(cell_size) + ".npz"
+    volumes_2d_ref = np.load(
+        root_path + "volumes_2d_" + str(cell_size) + ".npy", allow_pickle=True
     )
-    coarse_to_fine_1d = sp.sparse.load_npz(
-        root_path + "mapping_matrix_1d_" + str(cell_size) + ".npz"
-    )  #
-
-    coarse_to_fine_intf = sp.sparse.kron(
-        sp.sparse.eye(2), coarse_to_fine_1d
-    )  # sorry, I want to use kron...
-    # intf is conforming with 1d
-
-    pressure = np.load(root_path + "pressure_" + str(cell_size) + ".npy")
-    saturation = np.load(root_path + "saturation_" + str(cell_size) + ".npy")
-    mortar_phase_0 = np.loadtxt(root_path + "mortar_phase_0_" + str(cell_size))
-    mortar_phase_1 = np.loadtxt(root_path + "mortar_phase_1_" + str(cell_size))
+    volumes_1d_ref = np.loadtxt(root_path + "volumes_1d_" + str(cell_size))
+    volumes_mortar = np.concatenate((volumes_1d_ref, volumes_1d_ref))
 
     id_2d = np.arange(variable_num_dofs[0], dtype=np.int32)  # HARDCODED
     id_1d = np.arange(
@@ -76,43 +46,88 @@ for cell_size in cell_sizes[:-1]:
         dtype=np.int32,
     )  # HARDCODED
 
-    pressure_2d_proj = coarse_to_fine_2d @ pressure[id_2d]
-    pressure_1d_proj = coarse_to_fine_1d @ pressure[id_1d]
-    saturation_2d_proj = coarse_to_fine_2d @ saturation[id_2d]
-    saturation_1d_proj = coarse_to_fine_1d @ saturation[id_1d]
-    mortar_phase_0_proj = coarse_to_fine_intf @ mortar_phase_0
-    mortar_phase_1_proj = coarse_to_fine_intf @ mortar_phase_1
+    pressure = np.load(
+        root_path + "pressure_" + str(cell_size) + ".npy", allow_pickle=True
+    )
+    saturation = np.load(
+        root_path + "saturation_" + str(cell_size) + ".npy", allow_pickle=True
+    )
+    mortar_phase_0_ref = np.loadtxt(root_path + "mortar_phase_0_" + str(cell_size))
+    mortar_phase_1_ref = np.loadtxt(root_path + "mortar_phase_1_" + str(cell_size))
 
-    err_p_2d = np.linalg.norm(
-        (pressure_2d_proj - pressure_2d_ref) * volumes_2d_ref, ord=2
-    ) / np.linalg.norm(pressure_2d_ref * volumes_2d_ref, ord=2)
+    pressure_2d_ref = pressure[id_2d]
+    saturation_2d_ref = saturation[id_2d]
+    pressure_1d_ref = pressure[id_1d]
+    saturation_1d_ref = saturation[id_1d]
 
-    err_p_1d = np.linalg.norm(
-        (pressure_1d_proj - pressure_1d_ref) * volumes_1d_ref, ord=2
-    ) / np.linalg.norm(pressure_1d_ref * volumes_1d_ref, ord=2)
+    for cell_size in cell_sizes[:-1]:
+        # coarse: --------------------------------------------------------
+        variable_num_dofs = np.loadtxt(
+            root_path + "variable_num_dofs_" + str(cell_size)
+        )
 
-    err_s_2d = np.linalg.norm(
-        (saturation_2d_proj - saturation_2d_ref) * volumes_2d_ref, ord=2
-    ) / np.linalg.norm(saturation_2d_ref * volumes_2d_ref, ord=2)
+        coarse_to_fine_2d = sp.sparse.load_npz(
+            root_path + "mapping_matrix_2d_" + str(cell_size) + ".npz"
+        )
+        coarse_to_fine_1d = sp.sparse.load_npz(
+            root_path + "mapping_matrix_1d_" + str(cell_size) + ".npz"
+        )  #
 
-    err_s_1d = np.linalg.norm(
-        (saturation_1d_proj - saturation_1d_ref) * volumes_1d_ref, ord=2
-    ) / np.linalg.norm(saturation_1d_ref * volumes_1d_ref, ord=2)
+        coarse_to_fine_intf = sp.sparse.kron(
+            sp.sparse.eye(2), coarse_to_fine_1d
+        )  # sorry, I want to use kron...
+        # intf is conforming with 1d
 
-    err_mortar_0 = np.linalg.norm(
-        (mortar_phase_0_proj - mortar_phase_0_ref) * volumes_mortar, ord=2
-    ) / np.linalg.norm(mortar_phase_0_ref * volumes_mortar, ord=2)
+        pressure = np.load(root_path + "pressure_" + str(cell_size) + ".npy")
+        saturation = np.load(root_path + "saturation_" + str(cell_size) + ".npy")
+        mortar_phase_0 = np.loadtxt(root_path + "mortar_phase_0_" + str(cell_size))
+        mortar_phase_1 = np.loadtxt(root_path + "mortar_phase_1_" + str(cell_size))
 
-    err_mortar_1 = np.linalg.norm(
-        (mortar_phase_1_proj - mortar_phase_1_ref) * volumes_mortar, ord=2
-    ) / np.linalg.norm(mortar_phase_1_ref * volumes_mortar, ord=2)
+        id_2d = np.arange(variable_num_dofs[0], dtype=np.int32)  # HARDCODED
+        id_1d = np.arange(
+            variable_num_dofs[0],
+            variable_num_dofs[0] + variable_num_dofs[1],
+            dtype=np.int32,
+        )  # HARDCODED
 
-    err_list_p_2d = np.append(err_list_p_2d, err_p_2d)
-    err_list_p_1d = np.append(err_list_p_1d, err_p_1d)
-    err_list_s_2d = np.append(err_list_s_2d, err_s_2d)
-    err_list_s_1d = np.append(err_list_s_1d, err_s_1d)
-    err_list_mortar_0 = np.append(err_list_mortar_0, err_mortar_0)
-    err_list_mortar_1 = np.append(err_list_mortar_1, err_mortar_1)
+        pressure_2d_proj = coarse_to_fine_2d @ pressure[id_2d]
+        pressure_1d_proj = coarse_to_fine_1d @ pressure[id_1d]
+        saturation_2d_proj = coarse_to_fine_2d @ saturation[id_2d]
+        saturation_1d_proj = coarse_to_fine_1d @ saturation[id_1d]
+
+        mortar_phase_0_proj = coarse_to_fine_intf @ mortar_phase_0
+        mortar_phase_1_proj = coarse_to_fine_intf @ mortar_phase_1
+
+        err_p_2d = np.linalg.norm(
+            (pressure_2d_proj - pressure_2d_ref) * volumes_2d_ref, ord=2
+        ) / np.linalg.norm(pressure_2d_ref * volumes_2d_ref, ord=2)
+
+        err_p_1d = np.linalg.norm(
+            (pressure_1d_proj - pressure_1d_ref) * volumes_1d_ref, ord=2
+        ) / np.linalg.norm(pressure_1d_ref * volumes_1d_ref, ord=2)
+
+        err_s_2d = np.linalg.norm(
+            (saturation_2d_proj - saturation_2d_ref) * volumes_2d_ref, ord=2
+        ) / np.linalg.norm(saturation_2d_ref * volumes_2d_ref, ord=2)
+
+        err_s_1d = np.linalg.norm(
+            (saturation_1d_proj - saturation_1d_ref) * volumes_1d_ref, ord=2
+        ) / np.linalg.norm(saturation_1d_ref * volumes_1d_ref, ord=2)
+
+        err_mortar_0 = np.linalg.norm(
+            (mortar_phase_0_proj - mortar_phase_0_ref) * volumes_mortar, ord=2
+        ) / np.linalg.norm(mortar_phase_0_ref * volumes_mortar, ord=2)
+
+        err_mortar_1 = np.linalg.norm(
+            (mortar_phase_1_proj - mortar_phase_1_ref) * volumes_mortar, ord=2
+        ) / np.linalg.norm(mortar_phase_1_ref * volumes_mortar, ord=2)
+
+        err_list_p_2d[index] = np.append(err_list_p_2d[index], err_p_2d)
+        err_list_p_1d[index] = np.append(err_list_p_1d[index], err_p_1d)
+        err_list_s_2d[index] = np.append(err_list_s_2d[index], err_s_2d)
+        err_list_s_1d[index] = np.append(err_list_s_1d[index], err_s_1d)
+        err_list_mortar_0[index] = np.append(err_list_mortar_0[index], err_mortar_0)
+        err_list_mortar_1[index] = np.append(err_list_mortar_1[index], err_mortar_1)
 
 ######################################################
 
@@ -122,7 +137,8 @@ my_blu = [0.1, 0.1, 0.8]
 
 x_ticks = np.linspace(cell_sizes[0], cell_sizes[-2], 3)
 
-save_folder = root_path
+# save_folder = "./case_1/slanted_ppu_hu_"
+save_folder = "./case_1/non-conforming/slanted_ppu_hu_"
 
 #####################################################
 
@@ -162,7 +178,15 @@ for name, val in items:
 
     ax_1.loglog(
         cell_sizes[:-1],
-        val,
+        val[0],
+        label=name,
+        linestyle="-",
+        color=[0, 0, 0],
+        marker="",
+    )
+    ax_1.loglog(
+        cell_sizes[:-1],
+        val[1],
         label=name,
         linestyle="-",
         color=[0, 0, 0],
@@ -183,7 +207,7 @@ for name, val in items:
     ax_1.grid(linestyle="--", alpha=0.5)
 
     plt.savefig(
-        save_folder + "/convergence_" + name + ".pdf",
+        save_folder + "convergence_" + name + ".pdf",
         dpi=150,
         bbox_inches="tight",
         pad_inches=0.2,
@@ -213,7 +237,7 @@ for name, val in items:
         bbox_to_anchor=(-0.1, -0.65),
     )
 
-    filename = save_folder + "/convergence_" + name + "_legend.pdf"
+    filename = save_folder + "convergence_" + name + "_legend.pdf"
     fig.savefig(filename, bbox_inches="tight")
     plt.gcf().clear()
 

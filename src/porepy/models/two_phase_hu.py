@@ -1562,6 +1562,9 @@ class SolutionStrategyPressureMass(pp.SolutionStrategy):
                 self.equation_system
             )
 
+            if sd.dim == 2:
+                self.flip_flop()
+
         for intf, data in self.mdg.interfaces(return_data=True, codim=1):
             vals = (
                 self.interface_mortar_flux_phase_0([intf])
@@ -1677,6 +1680,13 @@ class SolutionStrategyPressureMass(pp.SolutionStrategy):
             )
 
             np.savetxt(f, info.reshape(1, -1), delimiter=",")
+
+    def flip_flop(self):
+        """ """
+        # sign(qt)
+        # sign(omega)
+        # count numner of change of signs
+        # save it
 
     def compute_mass(self):
         """ """

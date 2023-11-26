@@ -79,8 +79,8 @@ class SolutionStrategyTest1(two_phase_hu.SolutionStrategyPressureMass):
             # saturation_values[np.where(sd.cell_centers[1] >= self.ymax / 2)] = 1.0
             saturation_values = 1.0 - 1 * sd.cell_centers[1] / self.ymax
 
-            if sd.dim == 1:
-                saturation_values = 0.5 * np.ones(sd.num_cells)
+            # if sd.dim == 1:
+            #     saturation_values = 0.5 * np.ones(sd.num_cells)
 
             self.equation_system.set_variable_values(
                 saturation_values,
@@ -282,9 +282,13 @@ class GeometryConvergence(pp.ModelGeometry):
         )
 
         frac_constr_2 = pp.LineFracture(
-            np.array([[self.xmin, self.xmean - 0.1], [self.ymean, self.ymean]])
-        )  # -0.1 just to not touch the fracture
-
+            np.array(
+                [
+                    [self.xmin, self.xmean],
+                    [self.ymean, self.ymean],
+                ]
+            )
+        )  # -0.1 just to not touch the fracture # Removed
         self._fractures: list = [frac1, frac_constr_1, frac_constr_2]
 
     def meshing_arguments_ref(self) -> dict[str, float]:
@@ -408,7 +412,7 @@ if __name__ == "__main__":
                 / self.L_0
             )
             self.displacement_max = (
-                -0.1
+                -0.0
             )  # it doesnt work with a positive value, but who cares...
 
             self.relative_permeability = (
@@ -427,10 +431,11 @@ if __name__ == "__main__":
                 + str(Kn)
                 + "/convergence_results/"
             )
+
             self.output_file_name = self.root_path + "OUTPUT_NEWTON_INFO"
             self.mass_output_file_name = self.root_path + "MASS_OVER_TIME"
 
-    cell_sizes = np.array([0.4, 0.2, 0.1, 0.01])  # last one is the ref value
+    cell_sizes = np.array([0.4, 0.2, 0.1, 0.025])  # last one is the ref value
 
     # os.system("mkdir -p ./case_1/slanted_hu_Kn" + str(Kn) + "/convergence_results")
     os.system(
@@ -457,6 +462,12 @@ if __name__ == "__main__":
             "==========================================",
         )
 
+        # folder_name = (
+        #     "./case_1/slanted_hu_Kn"
+        #     + str(Kn)
+        #     + "/convergence_results/visualization_"
+        #     + str(cell_size)
+        # )
         folder_name = (
             "./case_1/non-conforming/slanted_hu_Kn"
             + str(Kn)
@@ -465,8 +476,8 @@ if __name__ == "__main__":
         )
 
         time_manager = two_phase_hu.TimeManagerPP(
-            schedule=np.array([0, 1e-3]) / t_0,
-            dt_init=1e-3 / t_0,
+            schedule=np.array([0, 1e-4]) / t_0,
+            dt_init=1e-4 / t_0,
             dt_min_max=np.array([1e-4, 1e-3]) / t_0,
             constant_dt=False,
             recomp_factor=0.5,

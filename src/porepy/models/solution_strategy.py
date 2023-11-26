@@ -522,6 +522,7 @@ class SolutionStrategy(abc.ABC):
                 this method.
 
         """
+
         if not self._is_nonlinear_problem():
             # At least for the default direct solver, scipy.sparse.linalg.spsolve, no
             # error (but a warning) is raised for singular matrices, but a nan solution
@@ -543,8 +544,6 @@ class SolutionStrategy(abc.ABC):
             # Enforce float to make mypy happy
             error = float(np.linalg.norm(solution)) / np.sqrt(solution.size)
 
-            ###
-            print("Newton has been mod")
             _, b = self.linear_system
             err_res = np.linalg.norm(b)
             max_res = np.max(b)
@@ -606,13 +605,7 @@ class SolutionStrategy(abc.ABC):
 
         """
 
-        # np.set_printoptions(precision=3, threshold=sys.maxsize, linewidth=300)
-
         A, b = self.linear_system
-
-        # np.set_printoptions(precision=5, threshold=sys.maxsize, linewidth=300)
-        # print("\n A = ", A.todense())
-        # pdb.set_trace()
 
         t_0 = time.time()
         logger.debug(f"Max element in A {np.max(np.abs(A)):.2e}")
@@ -622,6 +615,7 @@ class SolutionStrategy(abc.ABC):
         )
 
         solver = self.linear_solver
+
         if solver == "pypardiso":
             # This is the default option which is invoked unless explicitly overridden
             # by the user. We need to check if the pypardiso package is available.
