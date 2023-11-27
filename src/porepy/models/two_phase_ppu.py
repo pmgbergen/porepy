@@ -3,6 +3,7 @@ import scipy as sp
 import porepy as pp
 
 from typing import Callable, Optional, Type, Literal, Sequence, Union
+from types import NoneType
 from porepy.numerics.ad.forward_mode import AdArray, initAdArrays
 
 import porepy.models.two_phase_hu as two_phase_hu
@@ -354,7 +355,9 @@ class EquationsPPU(two_phase_hu.Equations):
         return pp.ad.MpfaAd(self.darcy_keyword, subdomains)
 
     def darcy_flux_phase_0(self, subdomains: list[pp.Grid], phase) -> pp.ad.Operator:
-        """ """
+        """
+        - TODO: why the heck is there a phase as input
+        """
         interfaces: list[pp.MortarGrid] = self.subdomains_to_interfaces(subdomains, [1])
         projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1)
         discr: Union[pp.ad.TpfaAd, pp.ad.MpfaAd] = self.darcy_flux_discretization(
@@ -589,6 +592,42 @@ class SolutionStrategyPressureMassPPU(two_phase_hu.SolutionStrategyPressureMass)
         self.set_discretization_parameters()
         self.rediscretize()
 
+    def flip_flop(self):
+        """ """
+        for sd in self.mdg.subdomains():
+            if sd.dim == 2:
+                darcy_phase_0 = (
+                    self.darcy_flux_phase_0([sd], self.mixture.get_phase(0))
+                    .evaluate(self.equation_system)
+                    .val
+                )
+                darcy_phase_1 = (
+                    self.darcy_flux_phase_1([sd], self.mixture.get_phase(1))
+                    .evaluate(self.equation_system)
+                    .val
+                )
+
+                sign_darcy_phase_0 = np.sign(darcy_phase_0)
+                sign_darcy_phase_1 = np.sign(darcy_phase_1)
+
+                if type(self.sign_darcy_phase_0_prev) == NoneType:
+                    self.sign_darcy_phase_0_prev = sign_darcy_phase_0
+
+                if type(self.sign_darcy_phase_1_prev) == NoneType:
+                    self.sign_darcy_phase_1_prev = sign_darcy_phase_1
+
+                number_flips_darcy_phase_0 = np.sum(
+                    np.not_equal(self.sign_darcy_phase_0_prev, sign_darcy_phase_0)
+                )
+
+                number_flips_darcy_phase_1 = np.sum(
+                    np.not_equal(self.sign_darcy_phase_1_prev, sign_darcy_phase_1)
+                )
+
+        return np.array([sign_darcy_phase_0, sign_darcy_phase_1]), np.array(
+            [number_flips_darcy_phase_0, number_flips_darcy_phase_1]
+        )
+
 
 class PartialFinalModel(
     two_phase_hu.PrimaryVariables,
@@ -624,6 +663,35 @@ if __name__ == "__main__":
         "pay attention: gravity number is not influenced by Ka_0 and dynamic_viscosity_0"
     )
     print("=========================================\n")
+
+    fluid_constants = pp.FluidConstants({})
+    solid_constants = pp.SolidConstants(
+        {
+            "porosity": 0.25,
+            "intrinsic_permeability": 1 / Ka_0,
+            "normal_permeability": 0.1 / Ka_0,  # this does NOT include the aperture
+            "residual_aperture": 0.1 / Ka_0,
+        }
+    )
+
+    material_constants = {"fluid": fluid_constants, "solid": solid_constants}
+
+    time_manager = two_phase_hu.TimeManagerPP(
+        schedule=np.array([0, 50]) / t_0,
+        dt_init=1e0 / t_0,
+        dt_min_max=np.array([1e-5, 1e0]) / t_0,
+        constant_dt=False,
+        iter_max=20,
+        print_info=True,
+    )
+
+    params = {
+        "material_constants": material_constants,
+        "max_iterations": 10,
+        "nl_convergence_tol": 1e-6,
+        "nl_divergence_tol": 1e5,
+        "time_manager": time_manager,
+    }
 
     wetting_phase = pp.composite.phase.Phase(
         rho0=1 / rho_0, p0=p_0, beta=1e-10
@@ -664,10 +732,13 @@ if __name__ == "__main__":
                 self.mobility
             )
 
-            self.output_file_name = "./OUTPUT_NEWTON_INFO"
-            self.mass_output_file_name = "./MASS_OVER_TIME"
+            self.sign_darcy_phase_0_prev = None
+            self.sign_darcy_phase_1_prev = None
 
-    params = two_phase_hu.params
+            self.output_file_name = "./OUTPUT_NEWTON_INFO_PPU"
+            self.mass_output_file_name = "./MASS_OVER_TIME_PPU"
+            self.flips_file_name = "./FLIPS_PPU"
+
     model = FinalModel(params)
 
     pp.run_time_dependent_model(model, params)

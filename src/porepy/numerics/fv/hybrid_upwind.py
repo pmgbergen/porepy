@@ -1,6 +1,7 @@
 import numpy as np
 import scipy as sp
 import porepy as pp
+from typing import List, Union
 from . import hybrid_upwind_utils as hu_utils
 from . import hybrid_weighted_average as hwa
 import copy
@@ -172,7 +173,9 @@ def flux_G(
     TODO: consider the idea to move omega outside the flux_G, if you don't see why => it is already in the right place.
     """
 
-    def omega(num_phases, ell, mobilities, g, left_restriction, right_restriction, ad):
+    def omega(
+        num_phases, ell, mobilities, g, left_restriction, right_restriction, ad
+    ) -> Union[pp.ad.AdArray, np.ndarray]:
         """
         TODO: i run into some issues with pp.ad.functions.heaviside
         """
@@ -368,6 +371,31 @@ def rho_flux_G(
     expansion = hu_utils.expansion_matrix(sd)
     rho_G = expansion @ rho_G_internal
     return rho_G
+
+
+def omega(
+    num_phases, ell, mobilities, g, left_restriction, right_restriction, ad
+) -> pp.ad.AdArray:
+    """
+    copied from flux G. Need it in model to compute number of flips.
+    """
+    if ad:
+        omega_ell = []
+
+        for m in np.arange(num_phases):
+            omega_ell.append(
+                (
+                    (left_restriction @ mobilities[m])
+                    * pp.ad.functions.heaviside(-g[m] + g[ell])
+                    + (right_restriction @ mobilities[m])
+                    * pp.ad.functions.heaviside(g[m] - g[ell])
+                )
+                * (g[m] - g[ell])
+            )
+
+        omega_ell = sum(omega_ell)
+
+    return omega_ell
 
 
 '''

@@ -39,6 +39,9 @@ class NewtonSolver:
         errors = []
         error_norm = 1
 
+        initial_dirs, _ = model.flip_flop()
+        cumulative_flips = np.array([0, 0])
+
         while (
             iteration_counter <= self.params["max_iterations"]
             and not is_converged
@@ -57,6 +60,9 @@ class NewtonSolver:
             model.before_nonlinear_iteration()
 
             sol = self.iteration(model)
+
+            dirs, flips = model.flip_flop()
+            cumulative_flips += flips
 
             model.after_nonlinear_iteration(sol)
 
@@ -103,7 +109,9 @@ class NewtonSolver:
         ):  # so maximum number of iterations reached # "and not is_diverged" added otherwise it calls after_nonlinear_failure twice
             model.after_nonlinear_failure(sol, errors, iteration_counter)
 
-        return error_norm, is_converged, iteration_counter
+        cumulative_flips -= np.sum(np.not_equal(initial_dirs, dirs), axis=1)
+
+        return error_norm, is_converged, iteration_counter, cumulative_flips
 
     def iteration(self, model) -> np.ndarray:
         """A single nonlinear iteration.

@@ -2,6 +2,7 @@ import scipy as sp
 import numpy as np
 import scipy as sp
 import scipy.sparse as sps
+from types import NoneType
 import porepy as pp
 
 from typing import Callable, Optional, Type, Literal, Sequence, Union
@@ -1249,6 +1250,7 @@ class SolutionStrategyPressureMass(pp.SolutionStrategy):
         """ """
         os.system("rm " + self.output_file_name)
         os.system("rm " + self.mass_output_file_name)
+        os.system("rm " + self.flips_file_name)
 
     def set_equation_system_manager(self) -> None:
         """ """
@@ -1562,9 +1564,6 @@ class SolutionStrategyPressureMass(pp.SolutionStrategy):
                 self.equation_system
             )
 
-            if sd.dim == 2:
-                self.flip_flop()
-
         for intf, data in self.mdg.interfaces(return_data=True, codim=1):
             vals = (
                 self.interface_mortar_flux_phase_0([intf])
@@ -1682,11 +1681,112 @@ class SolutionStrategyPressureMass(pp.SolutionStrategy):
             np.savetxt(f, info.reshape(1, -1), delimiter=",")
 
     def flip_flop(self):
-        """ """
-        # sign(qt)
-        # sign(omega)
-        # count numner of change of signs
-        # save it
+        """very inefficient, i want to make this function as much independent as possible"""
+
+        for sd, data in self.mdg.subdomains(return_data=True):
+            if sd.dim == 2:  # for simplicity...
+                # total flux flips:
+                pressure_adarray = self.pressure([sd]).evaluate(self.equation_system)
+                left_restriction = data["for_hu"]["left_restriction"]
+                right_restriction = data["for_hu"]["right_restriction"]
+                transmissibility_internal_tpfa = data["for_hu"][
+                    "transmissibility_internal_tpfa"
+                ]
+                ad = True
+                dynamic_viscosity = data["for_hu"]["dynamic_viscosity"]
+                dim_max = data["for_hu"]["dim_max"]
+                total_flux_internal = (
+                    pp.numerics.fv.hybrid_weighted_average.total_flux_internal(
+                        sd,
+                        self.mixture.mixture_for_subdomain(sd),
+                        pressure_adarray,
+                        self.gravity_value,
+                        left_restriction,
+                        right_restriction,
+                        transmissibility_internal_tpfa,
+                        ad,
+                        dynamic_viscosity,
+                        dim_max,
+                        self.mobility,
+                        self.relative_permeability,
+                    )
+                )
+                sign_total_flux_internal = np.sign(
+                    total_flux_internal[0].val + total_flux_internal[1].val
+                )
+                if (
+                    type(self.sign_total_flux_internal_prev) == NoneType
+                ):  # first iteration after initial condition
+                    self.sign_total_flux_internal_prev = sign_total_flux_internal
+
+                number_flips_qt = np.sum(
+                    np.not_equal(
+                        self.sign_total_flux_internal_prev, sign_total_flux_internal
+                    )
+                )
+
+                self.sign_total_flux_internal_prev = sign_total_flux_internal
+
+                # omega flips:
+                z = -sd.cell_centers[dim_max - 1]
+
+                saturation_list = [None] * self.mixture.num_phases
+                g_list = [None] * self.mixture.num_phases
+                mobility_list = [None] * self.mixture.num_phases
+
+                for phase_id in np.arange(self.mixture.num_phases):
+                    saturation = self.mixture.get_phase(phase_id).saturation
+                    saturation_list[phase_id] = saturation
+                    rho = self.mixture.get_phase(phase_id).mass_density(
+                        self.pressure([sd]).evaluate(self.equation_system).val
+                    )
+                    rho = pp.hu_utils.density_internal_faces(
+                        saturation, rho, left_restriction, right_restriction
+                    )
+                    g_list[phase_id] = pp.hu_utils.g_internal_faces(
+                        z, rho, self.gravity_value, left_restriction, right_restriction
+                    )
+                    mobility_list[phase_id] = self.mobility(
+                        saturation, dynamic_viscosity
+                    )
+
+                omega = pp.omega(  # SOMETHING LIKE THIS
+                    self.mixture.num_phases,
+                    self.ell,
+                    mobility_list,
+                    g_list,
+                    left_restriction,
+                    right_restriction,
+                    ad,
+                )
+
+                sign_omega = np.sign(omega.val)
+
+                if type(self.sign_omega_prev) == NoneType:
+                    self.sign_omega_prev = sign_omega
+
+                number_flips_omega = np.sum(
+                    np.not_equal(self.sign_omega_prev, sign_omega)
+                )
+
+                self.sign_omega_prev = sign_omega
+
+        return np.array([sign_total_flux_internal, sign_omega]), np.array(
+            [number_flips_qt, number_flips_omega]
+        )
+
+    def save_flip_flop(self, time, cumulative_flips, global_cumulative_flips):
+        """
+        number_flips: np.ndarray. number_flips.shape = (2,) number of flips for each upwind direction, only two dirs
+        """
+        with open(self.flips_file_name, "a") as f:
+            np.savetxt(
+                f,
+                np.array([time, *cumulative_flips, *global_cumulative_flips]).reshape(
+                    1, -1
+                ),
+                delimiter=",",
+            )
 
     def compute_mass(self):
         """ """
@@ -1928,8 +2028,12 @@ if __name__ == "__main__":
                 self.mobility
             )
 
-            self.output_file_name = "./OUTPUT_NEWTON_INFO"
-            self.mass_output_file_name = "./MASS_OVER_TIME"
+            self.sign_total_flux_internal_prev = None
+            self.sign_omega_prev = None
+
+            self.output_file_name = "./OUTPUT_NEWTON_INFO_HU"
+            self.mass_output_file_name = "./MASS_OVER_TIME_HU"
+            self.flips_file_name = "./FLIPS_HU"
 
     model = FinalModel(params)
 

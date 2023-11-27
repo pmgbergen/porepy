@@ -423,6 +423,9 @@ if __name__ == "__main__":
                 self.mobility
             )
 
+            self.sign_total_flux_internal_prev = None
+            self.sign_omega_prev = None
+
             # self.root_path = (
             #     "./case_1/slanted_hu_Kn" + str(Kn) + "/convergence_results/"
             # )
@@ -434,6 +437,7 @@ if __name__ == "__main__":
 
             self.output_file_name = self.root_path + "OUTPUT_NEWTON_INFO"
             self.mass_output_file_name = self.root_path + "MASS_OVER_TIME"
+            self.flips_file_name = self.root_path + "FLIPS"
 
     cell_sizes = np.array([0.4, 0.2, 0.1, 0.025])  # last one is the ref value
 

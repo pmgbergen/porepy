@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import logging
 from typing import Union
+import numpy as np
 
 import porepy as pp
 
@@ -61,6 +62,8 @@ def run_time_dependent_model(model, params: dict) -> None:
 
     # Time loop
     global_cumulative_iteration_counter = 0
+    global_cumulative_flips = np.array([0, 0])
+
     while model.time_manager.time < model.time_manager.time_final:
         model.time_manager.increase_time()
         model.time_manager.increase_time_index()
@@ -88,9 +91,10 @@ def run_time_dependent_model(model, params: dict) -> None:
 
         time_chops = 0
         cumulative_iteration_counter = 0
+        cumulative_flips = np.array([0, 0])
 
         while not is_converged:
-            error_norm, is_converged, iteration_counter = solver.solve(model)
+            error_norm, is_converged, iteration_counter, flips = solver.solve(model)
 
             if not is_converged:
                 model.time_manager.decrease_time()
@@ -109,8 +113,10 @@ def run_time_dependent_model(model, params: dict) -> None:
                 model.time_manager.increase_time()
 
             cumulative_iteration_counter += iteration_counter
+            cumulative_flips += flips
 
         global_cumulative_iteration_counter += cumulative_iteration_counter
+        global_cumulative_flips += cumulative_flips
 
         model.write_newton_info(
             model.time_manager.time,
@@ -119,6 +125,10 @@ def run_time_dependent_model(model, params: dict) -> None:
             cumulative_iteration_counter,
             global_cumulative_iteration_counter,
             iteration_counter,
+        )
+
+        model.save_flip_flop(
+            model.time_manager.time, cumulative_flips, global_cumulative_flips
         )
 
         model.eb_after_timestep()
