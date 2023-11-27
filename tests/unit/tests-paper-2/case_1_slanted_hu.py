@@ -7,9 +7,6 @@ import pdb
 import porepy.models.two_phase_hu as two_phase_hu
 
 """
-- permeable k = 10, impermeable k = 0.1
-- non conforming displacement_max = -0.1, only for permeable fracture
-- 
 
 """
 
@@ -19,7 +16,6 @@ class SolutionStrategyTest1(two_phase_hu.SolutionStrategyPressureMass):
         """ """
         self.clean_working_directory()
 
-        self.set_geometry(mdg_ref=True)
         self.set_geometry(mdg_ref=False)
 
         self.initialize_data_saving()
@@ -130,80 +126,6 @@ class SolutionStrategyTest1(two_phase_hu.SolutionStrategyPressureMass):
                 },
             )
 
-    def after_simulation(self) -> None:
-        """
-        old = coarse
-        new = fine, ref
-        goal: have variables on fine grid
-
-        hardcoded for two grids only
-        """
-
-        tol = 1e-6
-
-        sd_id = 0  # not used, just remember that it might be useful to order the grids without using operators
-
-        for sd_ref, sd in zip(self.mdg_ref.subdomains(), self.mdg.subdomains()):
-            if sd_ref.dim == 2:
-                mapping_matrix_2d = pp.match_grids.match_2d(
-                    sd_ref, sd, tol, "averaged"
-                )  # this takes long time!
-                sp.sparse.save_npz(
-                    self.root_path + "mapping_matrix_2d_" + str(self.cell_size),
-                    mapping_matrix_2d,
-                )
-                np.save(
-                    self.root_path + "volumes_2d_" + str(self.cell_size),
-                    sd.cell_volumes,
-                )
-            if sd_ref.dim == 1:
-                # mapping_matrix_1d = pp.match_grids.match_1d(new_sd, old_sd, tol, "averaged")
-                mapping_matrix_1d = pp.match_grids.match_1d(sd_ref, sd, tol, "averaged")
-                sp.sparse.save_npz(
-                    self.root_path + "mapping_matrix_1d_" + str(self.cell_size),
-                    mapping_matrix_1d,
-                )
-
-                np.savetxt(
-                    self.root_path + "volumes_1d_" + str(self.cell_size),
-                    sd.cell_volumes,
-                )
-
-            sd_id += 1
-
-        pressure = (
-            self.pressure(self.mdg.subdomains()).evaluate(self.equation_system).val
-        )
-        saturation = (
-            self.mixture.get_phase(0)
-            .saturation_operator(self.mdg.subdomains())
-            .evaluate(self.equation_system)
-        ).val
-        mortar_phase_0 = (
-            self.interface_mortar_flux_phase_0(self.mdg.interfaces())
-            .evaluate(self.equation_system)
-            .val
-        )
-        mortar_phase_1 = (
-            self.interface_mortar_flux_phase_1(self.mdg.interfaces())
-            .evaluate(self.equation_system)
-            .val
-        )
-
-        np.save(self.root_path + "pressure_" + str(self.cell_size), pressure)
-        np.save(self.root_path + "saturation_" + str(self.cell_size), saturation)
-        np.savetxt(
-            self.root_path + "mortar_phase_0_" + str(self.cell_size), mortar_phase_0
-        )
-        np.savetxt(
-            self.root_path + "mortar_phase_1_" + str(self.cell_size), mortar_phase_1
-        )
-
-        np.savetxt(
-            self.root_path + "variable_num_dofs_" + str(self.cell_size),
-            self.equation_system._variable_num_dofs,
-        )
-
 
 class GeometryConvergence(pp.ModelGeometry):
     def set_geometry(self, mdg_ref=False) -> None:
@@ -290,14 +212,6 @@ class GeometryConvergence(pp.ModelGeometry):
             )
         )  # -0.1 just to not touch the fracture # Removed
         self._fractures: list = [frac1, frac_constr_1, frac_constr_2]
-
-    def meshing_arguments_ref(self) -> dict[str, float]:
-        """ """
-        default_meshing_args: dict[str, float] = {
-            "cell_size": self.cell_size_ref / self.L_0,
-            "cell_size_fracture": self.cell_size_ref / self.L_0,
-        }
-        return self.params.get("meshing_arguments", default_meshing_args)
 
     def meshing_arguments(self) -> dict[str, float]:
         """ """
@@ -426,84 +340,42 @@ if __name__ == "__main__":
             self.sign_total_flux_internal_prev = None
             self.sign_omega_prev = None
 
-            # self.root_path = (
-            #     "./case_1/slanted_hu_Kn" + str(Kn) + "/convergence_results/"
-            # )
-            self.root_path = (
-                "./case_1/non-conforming/slanted_hu_Kn"
-                + str(Kn)
-                + "/convergence_results/"
-            )
+            self.root_path = "./case_1/slanted_hu_Kn" + str(Kn) + "/"
 
             self.output_file_name = self.root_path + "OUTPUT_NEWTON_INFO"
             self.mass_output_file_name = self.root_path + "MASS_OVER_TIME"
             self.flips_file_name = self.root_path + "FLIPS"
 
-    cell_sizes = np.array([0.4, 0.2, 0.1, 0.025])  # last one is the ref value
+    cell_size = 0.2
 
-    # os.system("mkdir -p ./case_1/slanted_hu_Kn" + str(Kn) + "/convergence_results")
-    os.system(
-        "mkdir -p ./case_1/non-conforming/slanted_hu_Kn"
-        + str(Kn)
-        + "/convergence_results"
+    os.system("mkdir -p ./case_1/slanted_hu_Kn" + str(Kn))
+
+    folder_name = "./case_1/slanted_hu_Kn" + str(Kn) + "/visualization"
+
+    time_manager = two_phase_hu.TimeManagerPP(
+        schedule=np.array([0, 1]) / t_0,
+        dt_init=1e-1 / t_0,
+        dt_min_max=np.array([1e-4, 1e-1]) / t_0,
+        constant_dt=False,
+        recomp_factor=0.5,
+        recomp_max=10,
+        iter_max=10,
+        print_info=True,
+        folder_name=folder_name,
     )
 
-    # np.savetxt(
-    #     "./case_1/slanted_hu_Kn" + str(Kn) + "/convergence_results/cell_sizes",
-    #     cell_sizes,
-    # )
-    np.savetxt(
-        "./case_1/non-conforming/slanted_hu_Kn"
-        + str(Kn)
-        + "/convergence_results/cell_sizes",
-        cell_sizes,
-    )
+    meshing_kwargs = {"constraints": np.array([1, 2])}
+    params = {
+        "material_constants": material_constants,
+        "max_iterations": 20,
+        "nl_convergence_tol": 1e-6,
+        "nl_divergence_tol": 1e0,
+        "time_manager": time_manager,
+        "folder_name": folder_name,
+        "meshing_kwargs": meshing_kwargs,
+    }
 
-    for cell_size in cell_sizes:
-        print(
-            "\n\n\ncell_size = ",
-            cell_size,
-            "==========================================",
-        )
+    model = FinalModel(params)
+    model.cell_size = cell_size
 
-        # folder_name = (
-        #     "./case_1/slanted_hu_Kn"
-        #     + str(Kn)
-        #     + "/convergence_results/visualization_"
-        #     + str(cell_size)
-        # )
-        folder_name = (
-            "./case_1/non-conforming/slanted_hu_Kn"
-            + str(Kn)
-            + "/convergence_results/visualization_"
-            + str(cell_size)
-        )
-
-        time_manager = two_phase_hu.TimeManagerPP(
-            schedule=np.array([0, 1e-4]) / t_0,
-            dt_init=1e-4 / t_0,
-            dt_min_max=np.array([1e-4, 1e-3]) / t_0,
-            constant_dt=False,
-            recomp_factor=0.5,
-            recomp_max=10,
-            iter_max=10,
-            print_info=True,
-            folder_name=folder_name,
-        )
-
-        meshing_kwargs = {"constraints": np.array([1, 2])}
-        params = {
-            "material_constants": material_constants,
-            "max_iterations": 20,
-            "nl_convergence_tol": 1e-6,
-            "nl_divergence_tol": 1e0,
-            "time_manager": time_manager,
-            "folder_name": folder_name,
-            "meshing_kwargs": meshing_kwargs,
-        }
-
-        model = FinalModel(params)
-        model.cell_size = cell_size
-        model.cell_size_ref = cell_sizes[-1]
-
-        pp.run_time_dependent_model(model, params)
+    pp.run_time_dependent_model(model, params)
