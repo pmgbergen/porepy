@@ -586,11 +586,11 @@ class DifferentiableTpfa:
             vals.append(np.power(fc_cc, 2).sum(axis=0))
         return np.hstack(vals)
 
-    def half_face_transmissibility_matrices(
+    def half_face_geometry_matrices(
         self,
         subdomains: list[pp.Grid],
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-        """Transmissibilities for each half-face."""
+        """Matrices describing the geometry in terms of half-faces."""
         # Half-face transmissibilities are computed as
         # t_hf = d_vec @ n @ k_hf / dist
         # k_hf: Permeability on half-faces shape=(9 x num_half_faces,)
