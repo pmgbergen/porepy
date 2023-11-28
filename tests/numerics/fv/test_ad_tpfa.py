@@ -123,27 +123,15 @@ class AdTpfaFlow(pp.fluid_mass_balance.SinglePhaseFlow):
         interfaces: list[pp.MortarGrid] = self.subdomains_to_interfaces(domains, [1])
         intf_projection = pp.ad.MortarProjections(self.mdg, domains, interfaces, dim=1)
 
-        boundary_grids = self.subdomains_to_boundary_grids(domains)
-
-        diff_discr = pp.numerics.fv.tpfa.DifferentiableTpfa(
-            domains,
+        (
+            t_f_full,
+            diff_discr,
             boundary_grids,
-            self.mdg,
-        )
-        # Construct half-face transmissbilities t_hf = 1 / / dist * d_vec @ n @ k_c.
-        # Cell-wise diffusivity tensor, shape = (9 * n_cells,)
-        k_c = diffusivity_tensor(domains)
-        n, d_vec, dist = diff_discr.half_face_transmissibility_matrices(domains)
-        # Compose half-face transmissibilities
-        d_n_by_dist = sps.diags(1 / dist) * d_vec @ n
+            hf_to_f,
+            d_vec,
+        ) = self._transmissibility_matrix(domains)
+
         one = pp.ad.Scalar(1)
-        t_hf_inv = one / (pp.ad.SparseArray(d_n_by_dist) @ k_c)
-        # Compose full-face transmissibilities
-        # Sum over half-faces to get transmissibility on faces.
-        # Include sign to cancel the effect of the d_vec @ n having opposite signs on
-        # the two half-faces.
-        hf_to_f = diff_discr.half_face_map(domains, to_entity="faces", with_sign=True)
-        t_f_full = one / (pp.ad.SparseArray(hf_to_f) @ t_hf_inv)
 
         # Delete neu values in T_f, i.e. keep all non-neu values.
         dir_filter, neu_filter = diff_discr.boundary_filters(
@@ -248,6 +236,31 @@ class AdTpfaFlow(pp.fluid_mass_balance.SinglePhaseFlow):
         # dp = sps.linalg.spsolve(system.jac, -system.val)
         return flux
 
+    def _transmissibility_matrix(self, subdomains: list[pp.Grid]):
+        # Construct half-face transmissbilities t_hf = 1 / / dist * d_vec @ n @ k_c.
+        # Cell-wise diffusivity tensor, shape = (9 * n_cells,)
+        k_c = self._permeability(subdomains)
+        boundary_grids = self.subdomains_to_boundary_grids(subdomains)
+        diff_discr = pp.numerics.fv.tpfa.DifferentiableTpfa(
+            subdomains,
+            boundary_grids,
+            self.mdg,
+        )
+        n, d_vec, dist = diff_discr.half_face_geometry_matrices(subdomains)
+        # Compose half-face transmissibilities
+        d_n_by_dist = sps.diags(1 / dist) * d_vec @ n
+        one = pp.ad.Scalar(1)
+        t_hf_inv = one / (pp.ad.SparseArray(d_n_by_dist) @ k_c)
+        # Compose full-face transmissibilities
+        # Sum over half-faces to get transmissibility on faces.
+        # Include sign to cancel the effect of the d_vec @ n having opposite signs on
+        # the two half-faces.
+        hf_to_f = diff_discr.half_face_map(
+            subdomains, to_entity="faces", with_sign=True
+        )
+        t_f_full = one / (pp.ad.SparseArray(hf_to_f) @ t_hf_inv)
+        return t_f_full, diff_discr, boundary_grids, hf_to_f, d_vec
+
     def pressure_trace(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Pressure on the subdomain boundaries.
 
@@ -276,32 +289,8 @@ class AdTpfaFlow(pp.fluid_mass_balance.SinglePhaseFlow):
 
         # Construct differentiable bound_pressure_face. Note that much of the following
         # code is copied from the diffusive_flux method. TODO: Refactor?
+        t_f_full, *_ = self._transmissibility_matrix(subdomains)
 
-        # Construct half-face transmissbilities t_hf = 1 / / dist * d_vec @ n @ k_c.
-        # Cell-wise diffusivity tensor, shape = (9 * n_cells,)
-        k_c = self._permeability(subdomains)
-        boundary_grids = self.subdomains_to_boundary_grids(subdomains)
-        diff_discr = pp.numerics.fv.tpfa.DifferentiableTpfa(
-            subdomains,
-            boundary_grids,
-            self.mdg,
-        )
-        n, d_vec, dist = diff_discr.half_face_transmissibility_matrices(subdomains)
-        # Compose half-face transmissibilities
-        d_n_by_dist = sps.diags(1 / dist) * d_vec @ n
-        one = pp.ad.Scalar(1)
-        t_hf_inv = one / (pp.ad.SparseArray(d_n_by_dist) @ k_c)
-        # Compose full-face transmissibilities
-        # Sum over half-faces to get transmissibility on faces.
-        # Include sign to cancel the effect of the d_vec @ n having opposite signs on
-        # the two half-faces.
-        hf_to_f = diff_discr.half_face_map(
-            subdomains, to_entity="faces", with_sign=True
-        )
-        t_f_full = one / (pp.ad.SparseArray(hf_to_f) @ t_hf_inv)
-        dir_filter, neu_filter = diff_discr.boundary_filters(
-            subdomains, boundary_grids, "bc_values_darcy_flux"
-        )
         # Face contribution to boundary pressure is 1 on Dirichlet faces, -1/t_f_full on
         # Neumann faces (see Tpfa.discretize).
         bound_pressure_face = dir_filter - neu_filter * (one / t_f_full)
