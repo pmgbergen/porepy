@@ -144,6 +144,7 @@ class AdTpfaFlow(pp.fluid_mass_balance.SinglePhaseFlow):
         # the two half-faces.
         hf_to_f = diff_discr.half_face_map(domains, to_entity="faces", with_sign=True)
         t_f_full = one / (pp.ad.SparseArray(hf_to_f) @ t_hf_inv)
+
         # Delete neu values in T_f, i.e. keep all non-neu values.
         dir_filter, neu_filter = diff_discr.boundary_filters(
             domains, boundary_grids, "bc_values_darcy_flux"
@@ -151,19 +152,22 @@ class AdTpfaFlow(pp.fluid_mass_balance.SinglePhaseFlow):
         # Keep t_f_full for now, to be used in the pressure reconstruction.
         t_f = (one - neu_filter) * t_f_full
 
-        # Boundaries
+        # Sign of boundary faces.
         bnd_sgn = diff_discr.boundary_sign(domains)
-        # Neu values in T_bf = bnd_sgn.
+        # Discretization of boundary conditions: On Neumann faces, we will simply add
+        # the flux, with a sign change if the normal vector is pointing inwards.
         neu_bnd = neu_filter * bnd_sgn
-        # Dir values in T_bf = -bnd_sgn * T_f
+        # On Dirichlet faces, the assigned Dirichlet value corresponds to a flux of
+        # magnitude t_f. EK TODO: Why minus sign?
         dir_bnd = dir_filter * (-bnd_sgn * t_f)
         t_bnd = neu_bnd + dir_bnd
 
-        # Vector source fc_cc is (nhf, nd*nhf)
-        # hf2f @ fc_cc @ [(f2hf3d @ t_f) * 3dc2hf3d @ vec_source_3d]
+        # Vector source fc_cc is (nhf, nd*nhf) hf2f @ fc_cc @ [(f2hf3d @ t_f) * 3dc2hf3d
+        # @ vec_source_3d]
         #
-        # For compatibility with mpsa, vector source is defined as a cell-wise nd
-        # vector. As this discretization is in 3d, expand.
+        # EK: Not sure about mpsa in the next sattement, but some sort of compatability
+        # requirement is needed. For compatibility with mpsa, vector source is defined
+        # as a cell-wise nd vector. As this discretization is in 3d, expand.
         cells_nd_to_hf_3d = diff_discr.half_face_map(
             domains, from_entity="cells", with_sign=False, dimensions=(3, 3)
         ) @ diff_discr.nd_to_3d(domains, self.nd)
@@ -173,6 +177,12 @@ class AdTpfaFlow(pp.fluid_mass_balance.SinglePhaseFlow):
         f_to_hf_3d = diff_discr.half_face_map(
             domains, from_entity="faces", with_sign=True, dimensions=(3, 1)
         )
+        # hf_to_f is constructed with signs. This compensates for the distances of the
+        # two half-faces in d_vec having opposite signs (they both run from cell center
+        # to face center).
+        #
+        # EK: Can we be sure that the full distance vector points in the right
+        # direction?
         vector_source = pp.ad.SparseArray(hf_to_f @ d_vec) @ (
             (pp.ad.SparseArray(f_to_hf_3d) @ t_f) * source_3d
         )
@@ -202,7 +212,7 @@ class AdTpfaFlow(pp.fluid_mass_balance.SinglePhaseFlow):
 
             def g(vector_source_diff, vector_source_param):
                 val = base_discr.vector_source @ vector_source_param
-                jac = # how to get the correct shape?
+                #   jac = # how to get the correct shape?
                 if hasattr(vector_source_diff, "jac"):
                     val += vector_source_diff.jac @ vector_source_param.val
                 return pp.ad.AdArray(val, jac)
@@ -231,7 +241,6 @@ class AdTpfaFlow(pp.fluid_mass_balance.SinglePhaseFlow):
 
         # Development debugging. TODO: Remove
         # Compose equation
-
 
         # div = pp.ad.Divergence(domains)
         # eq = div @ ((T_f * pressure_difference) + bc_contr)
@@ -373,6 +382,9 @@ class AdTpfaFlow(pp.fluid_mass_balance.SinglePhaseFlow):
 
 m = AdTpfaFlow({})
 m.prepare_simulation()
+g = m.mdg.subdomains()[0]
+g.nodes[:2, 0] += 0.1
+g.compute_geometry()
 o = m.diffusive_flux(m.mdg.subdomains(), m._permeability)
 t = o.evaluate(m.equation_system)
 
