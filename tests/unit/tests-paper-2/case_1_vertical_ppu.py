@@ -135,10 +135,6 @@ class SolutionStrategyTest1(two_phase_ppu.SolutionStrategyPressureMassPPU):
                 },
             )
 
-    def after_simulation(self) -> None:
-        """ """
-        return
-
 
 class GeometryConvergence(pp.ModelGeometry):
     def set_geometry(self, mdg_ref=False) -> None:
@@ -248,11 +244,13 @@ if __name__ == "__main__":
     print("=========================================\n")
 
     fluid_constants = pp.FluidConstants({})
+
+    Kn = 0.1
     solid_constants = pp.SolidConstants(
         {
             "porosity": 0.25,
             "intrinsic_permeability": 1.0 / Ka_0,
-            "normal_permeability": 1.0 / Ka_0,
+            "normal_permeability": Kn / Ka_0,
             "residual_aperture": 0.1 / L_0,
         }
     )
@@ -303,15 +301,20 @@ if __name__ == "__main__":
                 self.mobility
             )
 
-            self.root_path = "./case_1/vertical_ppu/"
+            self.number_upwind_dirs = 2
+            self.sign_darcy_phase_0_prev = None
+            self.sign_darcy_phase_1_prev = None
+
+            self.root_path = "./case_1/vertical_ppu_Kn" + str(Kn) + "/"
             self.output_file_name = self.root_path + "OUTPUT_NEWTON_INFO"
             self.mass_output_file_name = self.root_path + "MASS_OVER_TIME"
+            self.flips_file_name = self.root_path + "FLIPS"
 
-    os.system("mkdir -p ./case_1/vertical_ppu/")
-    folder_name = "./case_1/vertical_ppu/visualization"
+    os.system("mkdir -p ./case_1/vertical_ppu_Kn" + str(Kn) + "/")
+    folder_name = "./case_1/vertical_ppu_Kn" + str(Kn) + "/visualization"
 
     time_manager = two_phase_hu.TimeManagerPP(
-        schedule=np.array([0, 4]) / t_0,
+        schedule=np.array([0, 10]) / t_0,
         dt_init=1e-1 / t_0,
         dt_min_max=np.array([1e-3, 1e-1]) / t_0,
         constant_dt=False,

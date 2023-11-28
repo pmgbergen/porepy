@@ -28,8 +28,15 @@ def load_output_newton(filename):
 # output_file_ppu = "./visualization_test_0_ppu/OUTPUT_NEWTON_INFO"
 # output_file_hu = "./visualization_test_0_hu/OUTPUT_NEWTON_INFO"
 
-output_file_ppu = "./case_1/slanted_ppu_Kn0.1/OUTPUT_NEWTON_INFO"
-output_file_hu = "./case_1/slanted_hu_Kn0.1//OUTPUT_NEWTON_INFO"
+# output_file_ppu = "./case_1/slanted_ppu_Kn0.1/OUTPUT_NEWTON_INFO"
+# output_file_hu = "./case_1/slanted_hu_Kn0.1//OUTPUT_NEWTON_INFO"
+
+output_file_ppu = "./case_1/horizontal_ppu_Kn0.1/OUTPUT_NEWTON_INFO"
+output_file_hu = "./case_1/horizontal_hu_Kn0.1//OUTPUT_NEWTON_INFO"
+
+# output_file_ppu = "./case_1/vertical_ppu_Kn0.1/OUTPUT_NEWTON_INFO"
+# output_file_hu = "./case_1/vertical_hu_Kn0.1//OUTPUT_NEWTON_INFO"
+
 
 fontsize = 28
 my_orange = "darkorange"
@@ -98,7 +105,9 @@ ax_1.set_xticks(x_ticks)
 ax_1.grid(linestyle="--", alpha=0.5)
 
 plt.savefig(
-    save_folder + "/slanted_ppu_hu_global_cumulative.pdf",
+    # save_folder + "/slanted_ppu_hu_global_cumulative.pdf",
+    save_folder + "/horizontal_ppu_hu_global_cumulative.pdf",
+    # save_folder + "/vertical_ppu_hu_global_cumulative.pdf",
     dpi=150,
     bbox_inches="tight",
     pad_inches=0.2,
@@ -126,7 +135,9 @@ ax.legend(
     bbox_to_anchor=(-0.1, -0.65),
 )
 
-filename = save_folder + "/slanted_ppu_hu_global_cumulative" + "_legend.pdf"
+# filename = save_folder + "/slanted_ppu_hu_global_cumulative" + "_legend.pdf"
+filename = save_folder + "/horizontal_ppu_hu_global_cumulative" + "_legend.pdf"
+# filename = save_folder + "/vertical_ppu_hu_global_cumulative" + "_legend.pdf"
 fig.savefig(filename, bbox_inches="tight")
 plt.gcf().clear()
 
