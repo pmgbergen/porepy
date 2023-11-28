@@ -73,8 +73,8 @@ class SolutionStrategyTest1(two_phase_hu.SolutionStrategyPressureMass):
             )
 
             saturation_values = 0.0 * np.ones(sd.num_cells)
-            # saturation_values[np.where(sd.cell_centers[1] >= self.ymax / 2)] = 1.0
-            saturation_values = 1 - 1 * sd.cell_centers[1] / self.ymax
+            saturation_values[np.where(sd.cell_centers[1] >= self.ymax / 2)] = 1.0
+            # saturation_values = 1 - 1 * sd.cell_centers[1] / self.ymax
 
             if sd.dim == 1:
                 saturation_values = 0.5 * np.ones(sd.num_cells)
@@ -278,8 +278,8 @@ class GeometryConvergence(pp.ModelGeometry):
         )
 
         frac_constr_2 = pp.LineFracture(
-            np.array([[self.xmin, self.xmean - 0.1], [self.ymean, self.ymean]])
-        )  # -0.1 just to not touch the fracture
+            np.array([[self.xmin, self.xmean], [self.ymean, self.ymean]])
+        )
 
         self._fractures: list = [
             frac_constr_1,
@@ -417,14 +417,24 @@ if __name__ == "__main__":
                 self.mobility
             )
 
-            self.root_path = "./convergence_results/"
+            self.number_upwind_dirs = 3
+            self.sign_total_flux_internal_prev = None
+            self.sign_omega_0_prev = None
+            self.sign_omega_1_prev = None
+
+            # self.root_path = "./case_0/hu/convergence_results/"
+            self.root_path = "./case_0/hu/convergence_results-disc/"
             self.output_file_name = self.root_path + "OUTPUT_NEWTON_INFO"
             self.mass_output_file_name = self.root_path + "MASS_OVER_TIME"
+            self.flips_file_name = self.root_path + "FLIPS"
 
-    cell_sizes = np.array(
-        [0.4, 0.2, 0.1, 0.05, 0.025, 0.005]
-    )  # last one is the ref value
-    np.savetxt("./convergence_results/cell_sizes", cell_sizes)
+    cell_sizes = np.array([0.2, 0.1, 0.05, 0.01])  # last one is the ref value
+
+    # os.system("mkdir -p ./case_0/hu/convergence_results")
+    os.system("mkdir -p ./case_0/hu/convergence_results-disc")
+
+    # np.savetxt("./case_0/hu/convergence_results/cell_sizes", cell_sizes)
+    np.savetxt("./case_0/hu/convergence_results-disc/cell_sizes", cell_sizes)
 
     for cell_size in cell_sizes:
         print(
@@ -433,12 +443,15 @@ if __name__ == "__main__":
             "==========================================",
         )
 
-        folder_name = "convergence_results/visualization_" + str(cell_size)
+        # folder_name = "./case_0/hu/convergence_results/visualization_" + str(cell_size)
+        folder_name = "./case_0/hu/convergence_results-disc/visualization_" + str(
+            cell_size
+        )
 
         time_manager = two_phase_hu.TimeManagerPP(
-            schedule=np.array([0, 1e-2]) / t_0,
-            dt_init=1e-2 / t_0,
-            dt_min_max=np.array([1e-3, 1e-2]) / t_0,
+            schedule=np.array([0, 1e-4]) / t_0,
+            dt_init=1e-4 / t_0,
+            dt_min_max=np.array([1e-4, 1e-3]) / t_0,
             constant_dt=False,
             recomp_factor=0.5,
             recomp_max=10,

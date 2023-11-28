@@ -62,7 +62,7 @@ def run_time_dependent_model(model, params: dict) -> None:
 
     # Time loop
     global_cumulative_iteration_counter = 0
-    global_cumulative_flips = np.array([0, 0])
+    global_cumulative_flips = np.zeros(model.number_upwind_dirs)
 
     while model.time_manager.time < model.time_manager.time_final:
         model.time_manager.increase_time()
@@ -91,7 +91,7 @@ def run_time_dependent_model(model, params: dict) -> None:
 
         time_chops = 0
         cumulative_iteration_counter = 0
-        cumulative_flips = np.array([0, 0])
+        cumulative_flips = np.zeros(model.number_upwind_dirs)
 
         while not is_converged:
             error_norm, is_converged, iteration_counter, flips = solver.solve(model)

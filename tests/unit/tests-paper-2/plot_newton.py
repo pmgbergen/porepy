@@ -25,19 +25,19 @@ def load_output_newton(filename):
 
 #####################################################
 
-# output_file_hu = "./visualization_test_0_hu/OUTPUT_NEWTON_INFO"
 # output_file_ppu = "./visualization_test_0_ppu/OUTPUT_NEWTON_INFO"
+# output_file_hu = "./visualization_test_0_hu/OUTPUT_NEWTON_INFO"
 
-output_file_hu = "./visualization-test-1-hu/OUTPUT_NEWTON_INFO"
-output_file_ppu = "./visualization-test-1-ppu/OUTPUT_NEWTON_INFO"
+output_file_ppu = "./case_1/slanted_ppu_Kn0.1/OUTPUT_NEWTON_INFO"
+output_file_hu = "./case_1/slanted_hu_Kn0.1//OUTPUT_NEWTON_INFO"
 
 fontsize = 28
 my_orange = "darkorange"
 my_blu = [0.1, 0.1, 0.8]
 
-x_ticks = np.array([0, 10, 20, 30, 40, 50])
+x_ticks = np.array([0, 2, 4, 6, 8, 10])
 
-save_folder = "./"
+save_folder = "./case_1"
 
 
 #####################################################
@@ -98,7 +98,7 @@ ax_1.set_xticks(x_ticks)
 ax_1.grid(linestyle="--", alpha=0.5)
 
 plt.savefig(
-    save_folder + "/global_cumulative.pdf",
+    save_folder + "/slanted_ppu_hu_global_cumulative.pdf",
     dpi=150,
     bbox_inches="tight",
     pad_inches=0.2,
@@ -126,15 +126,11 @@ ax.legend(
     bbox_to_anchor=(-0.1, -0.65),
 )
 
-filename = save_folder + "/global_cumulative" + "_legend.pdf"
+filename = save_folder + "/slanted_ppu_hu_global_cumulative" + "_legend.pdf"
 fig.savefig(filename, bbox_inches="tight")
 plt.gcf().clear()
 
 os.system("pdfcrop --margins '0 -800 0 0' " + filename + " " + filename)
 os.system("pdfcrop " + filename + " " + filename)
 
-
-pdb.set_trace()
-
-
-print("\n\n\nDone!")
+print("\nDone!")

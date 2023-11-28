@@ -40,7 +40,7 @@ class NewtonSolver:
         error_norm = 1
 
         initial_dirs, _ = model.flip_flop()
-        cumulative_flips = np.array([0, 0])
+        cumulative_flips = np.zeros(model.number_upwind_dirs)
 
         while (
             iteration_counter <= self.params["max_iterations"]

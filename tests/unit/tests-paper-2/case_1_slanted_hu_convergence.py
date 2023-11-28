@@ -2,7 +2,10 @@ import scipy as sp
 import numpy as np
 from typing import Callable, Optional, Type, Literal, Sequence, Union
 import porepy as pp
+import pygem
 import os
+import copy
+
 import pdb
 import porepy.models.two_phase_hu as two_phase_hu
 
@@ -423,41 +426,43 @@ if __name__ == "__main__":
                 self.mobility
             )
 
+            self.number_upwind_dirs = 3
             self.sign_total_flux_internal_prev = None
-            self.sign_omega_prev = None
+            self.sign_omega_0_prev = None
+            self.sign_omega_1_prev = None
 
-            # self.root_path = (
-            #     "./case_1/slanted_hu_Kn" + str(Kn) + "/convergence_results/"
-            # )
             self.root_path = (
-                "./case_1/non-conforming/slanted_hu_Kn"
-                + str(Kn)
-                + "/convergence_results/"
+                "./case_1/slanted_hu_Kn" + str(Kn) + "/convergence_results/"
             )
+            # self.root_path = (
+            #     "./case_1/non-conforming/slanted_hu_Kn"
+            #     + str(Kn)
+            #     + "/convergence_results/"
+            # )
 
             self.output_file_name = self.root_path + "OUTPUT_NEWTON_INFO"
             self.mass_output_file_name = self.root_path + "MASS_OVER_TIME"
             self.flips_file_name = self.root_path + "FLIPS"
 
-    cell_sizes = np.array([0.4, 0.2, 0.1, 0.025])  # last one is the ref value
+    cell_sizes = np.array([0.2, 0.1, 0.05, 0.02])  # last one is the ref value
 
-    # os.system("mkdir -p ./case_1/slanted_hu_Kn" + str(Kn) + "/convergence_results")
-    os.system(
-        "mkdir -p ./case_1/non-conforming/slanted_hu_Kn"
-        + str(Kn)
-        + "/convergence_results"
-    )
-
-    # np.savetxt(
-    #     "./case_1/slanted_hu_Kn" + str(Kn) + "/convergence_results/cell_sizes",
-    #     cell_sizes,
+    os.system("mkdir -p ./case_1/slanted_hu_Kn" + str(Kn) + "/convergence_results")
+    # os.system(
+    #     "mkdir -p ./case_1/non-conforming/slanted_hu_Kn"
+    #     + str(Kn)
+    #     + "/convergence_results"
     # )
+
     np.savetxt(
-        "./case_1/non-conforming/slanted_hu_Kn"
-        + str(Kn)
-        + "/convergence_results/cell_sizes",
+        "./case_1/slanted_hu_Kn" + str(Kn) + "/convergence_results/cell_sizes",
         cell_sizes,
     )
+    # np.savetxt(
+    #     "./case_1/non-conforming/slanted_hu_Kn"
+    #     + str(Kn)
+    #     + "/convergence_results/cell_sizes",
+    #     cell_sizes,
+    # )
 
     for cell_size in cell_sizes:
         print(
@@ -466,18 +471,18 @@ if __name__ == "__main__":
             "==========================================",
         )
 
-        # folder_name = (
-        #     "./case_1/slanted_hu_Kn"
-        #     + str(Kn)
-        #     + "/convergence_results/visualization_"
-        #     + str(cell_size)
-        # )
         folder_name = (
-            "./case_1/non-conforming/slanted_hu_Kn"
+            "./case_1/slanted_hu_Kn"
             + str(Kn)
             + "/convergence_results/visualization_"
             + str(cell_size)
         )
+        # folder_name = (
+        #     "./case_1/non-conforming/slanted_hu_Kn"
+        #     + str(Kn)
+        #     + "/convergence_results/visualization_"
+        #     + str(cell_size)
+        # )
 
         time_manager = two_phase_hu.TimeManagerPP(
             schedule=np.array([0, 1e-4]) / t_0,

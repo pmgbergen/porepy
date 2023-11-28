@@ -1727,7 +1727,7 @@ class SolutionStrategyPressureMass(pp.SolutionStrategy):
 
                 self.sign_total_flux_internal_prev = sign_total_flux_internal
 
-                # omega flips:
+                # omega_0 flips:
                 z = -sd.cell_centers[dim_max - 1]
 
                 saturation_list = [None] * self.mixture.num_phases
@@ -1750,9 +1750,9 @@ class SolutionStrategyPressureMass(pp.SolutionStrategy):
                         saturation, dynamic_viscosity
                     )
 
-                omega = pp.omega(  # SOMETHING LIKE THIS
+                omega_0 = pp.omega( 
                     self.mixture.num_phases,
-                    self.ell,
+                    0,
                     mobility_list,
                     g_list,
                     left_restriction,
@@ -1760,19 +1760,42 @@ class SolutionStrategyPressureMass(pp.SolutionStrategy):
                     ad,
                 )
 
-                sign_omega = np.sign(omega.val)
+                sign_omega_0 = np.sign(omega_0.val)
 
-                if type(self.sign_omega_prev) == NoneType:
-                    self.sign_omega_prev = sign_omega
+                if type(self.sign_omega_0_prev) == NoneType:
+                    self.sign_omega_0_prev = sign_omega_0
 
-                number_flips_omega = np.sum(
-                    np.not_equal(self.sign_omega_prev, sign_omega)
+                number_flips_omega_0 = np.sum(
+                    np.not_equal(self.sign_omega_0_prev, sign_omega_0)
                 )
 
-                self.sign_omega_prev = sign_omega
+                self.sign_omega_0_prev = sign_omega_0
 
-        return np.array([sign_total_flux_internal, sign_omega]), np.array(
-            [number_flips_qt, number_flips_omega]
+                # omega_1 flips
+                omega_1 = pp.omega( 
+                    self.mixture.num_phases,
+                    1,
+                    mobility_list,
+                    g_list,
+                    left_restriction,
+                    right_restriction,
+                    ad,
+                )
+
+                sign_omega_1 = np.sign(omega_1.val)
+
+                if type(self.sign_omega_1_prev) == NoneType:
+                    self.sign_omega_1_prev = sign_omega_1
+
+                number_flips_omega_1 = np.sum(
+                    np.not_equal(self.sign_omega_1_prev, sign_omega_1)
+                )
+
+                self.sign_omega_1_prev = sign_omega_1
+
+
+        return np.array([sign_total_flux_internal, sign_omega_0, sign_omega_1]), np.array(
+            [number_flips_qt, number_flips_omega_0, number_flips_omega_1]
         )
 
     def save_flip_flop(self, time, cumulative_flips, global_cumulative_flips):
@@ -2028,8 +2051,12 @@ if __name__ == "__main__":
                 self.mobility
             )
 
+            self.number_upwind_dirs = (
+                3  # used in run_models and nonlinear_solvers to initialize arrays
+            )
             self.sign_total_flux_internal_prev = None
-            self.sign_omega_prev = None
+            self.sign_omega_0_prev = None
+            self.sign_omega_1_prev = None
 
             self.output_file_name = "./OUTPUT_NEWTON_INFO_HU"
             self.mass_output_file_name = "./MASS_OVER_TIME_HU"

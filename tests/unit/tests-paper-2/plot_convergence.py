@@ -9,14 +9,14 @@ import pdb
 
 os.system("clear")
 
-# root_paths = [
-#     "./case_1/slanted_hu_Kn0.1/convergence_results/",
-#     "./case_1/slanted_ppu_Kn0.1/convergence_results/",
-# ]
 root_paths = [
-    "./case_1/non-conforming/slanted_hu_Kn0.1/convergence_results/",
-    "./case_1/non-conforming/slanted_ppu_Kn0.1/convergence_results/",
+    "./case_1/slanted_hu_Kn0.1/convergence_results/",
+    "./case_1/slanted_ppu_Kn0.1/convergence_results/",
 ]
+# root_paths = [
+#     "./case_1/non-conforming/slanted_hu_Kn0.1/convergence_results/",
+#     "./case_1/non-conforming/slanted_ppu_Kn0.1/convergence_results/",
+# ]
 
 err_list_p_2d = [np.array([])] * 2
 err_list_p_1d = [np.array([])] * 2
@@ -137,8 +137,8 @@ my_blu = [0.1, 0.1, 0.8]
 
 x_ticks = np.linspace(cell_sizes[0], cell_sizes[-2], 3)
 
-# save_folder = "./case_1/slanted_ppu_hu_"
-save_folder = "./case_1/non-conforming/slanted_ppu_hu_"
+save_folder = "./case_1/slanted_ppu_hu_"
+# save_folder = "./case_1/non-conforming/slanted_ppu_hu_"
 
 #####################################################
 
