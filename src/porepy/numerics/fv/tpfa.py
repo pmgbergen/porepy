@@ -346,7 +346,7 @@ class DifferentiableTpfa:
             subdomains: List of grids.
             from_entity: Entity to map from.
             to_entity: Entity to map to.
-            dimensions: Dimensions of the entities.
+            dimensions: Dimensions of the to and from entities. EK: Verify order
             with_sign: Whether to include sign in the mapping.
 
         Returns:
@@ -373,8 +373,10 @@ class DifferentiableTpfa:
                 else:
                     raise ValueError(f"Unknown entity {name}.")
 
-            # Divide dimensions to know how many time to repeat rows and columns,
-            # respectively. Ceil is used to treat the lower of the two dimensions as 1.
+            # If the dimensions of the from and to entities are unequal, we need to
+            # repeat the indices of the lowest dimension to match the highest dimension.
+            # Find the ratio between the dimensions to know how many times to repeat.
+            # Ceil is used to treat the lower of the two dimensions as 1.
             repeat_row_inds = np.ceil(dimensions[1] / dimensions[0]).astype(int)
             repeat_col_inds = np.ceil(dimensions[0] / dimensions[1]).astype(int)
 
@@ -383,14 +385,23 @@ class DifferentiableTpfa:
             assert (
                 dimensions[0] % dimensions[1] == 0 or dimensions[1] % dimensions[0] == 0
             )
+            # Expand the indices, with the following logic (for rows): First repeat the
+            # row indices to match the size of columns (the from entity). Then expand
+            # these indices to account for the dimenison of the to entity
+            # (dimensions[0]). The latter assigns rows[indices 0:dimensions[0]] to the
+            # first face etc. The logic for the columns is the same.
             rows_simple = pp.fvutils.expand_indices_nd(
                 np.repeat(indices[0], repeat_row_inds), dimensions[0]
             )
             cols_simple = pp.fvutils.expand_indices_nd(
                 np.repeat(indices[1], repeat_col_inds), dimensions[1]
             )
-            # I believe the following is a less elegant implementation of the above.
-            # If the above is correct, this should be removed. See assert below.
+
+            # I believe the following is a less elegant implementation of the above. If
+            # the above is correct, this should be removed. See assert below.
+            #
+            # EK partly note to self: This makes sense, I'll skip comments in the below
+            # if-else.
             if dimensions[0] == dimensions[1]:
                 # In the case dim[1] = 1, the repeat/expand is redundant, but it does no
                 # harm.
@@ -428,7 +439,9 @@ class DifferentiableTpfa:
             assert np.allclose(rows_simple, rows)
             assert np.allclose(cols_simple, cols)
             if with_sign:
-                # TODO: Check logic here.
+                # The sign must be repeated as many times as the row and column indices
+                # were repeated and expanded. This will equal the maximum of the two
+                # dimensions.
                 vals = np.repeat(sgn, max(dimensions))
             else:
                 vals = np.ones(cols.size)
@@ -459,22 +472,35 @@ class DifferentiableTpfa:
         vec_dim = 3
 
         def get_c_f_vec_matrix(g: pp.Grid) -> sps.csr_matrix:
-            """Construct matrix of vectors connecting cell centers and face centers."""
+            """Construct matrix of vectors connecting cell centers and face centers.
 
-            fi, ci, sgn = sps.find(g.cell_faces)
+            Parameters:
+                g: Grid.
+
+            Returns:
+                spmatrix ``(num_half_faces, num_half_faces * vec_dim)``:
+                    Matrix of vectors connecting cell centers and face centers.
+
+            """
+
+            # Find the cell and face indices for each half-face, identified by the
+            # elements in the cell_faces, that is, the divergence matrix.
+            fi, ci, _ = sps.find(g.cell_faces)
+            num_hf = fi.size
+
             # Construct vectors from cell centers to face centers.
             fc_cc = g.face_centers[:, fi] - g.cell_centers[:, ci]
-            # Repeat dim times in f order
-            num_hf = fi.size
+
             # Each row contains vec_dim entries and corresponds to one half-face.
             row_inds = np.repeat(np.arange(num_hf), vec_dim)
             # There are num_hf * vec_dim columns, each vec_dim-long block corresponding
             # to one half-face.
             col_inds = pp.fvutils.expand_indices_nd(np.arange(num_hf), vec_dim)
+            # Fortran order to get the first vec_dim entries to correspond to the first
+            # half-face, etc.
             vals = fc_cc.ravel("F")
             mat = sps.csr_matrix(
-                (vals, (row_inds, col_inds)),
-                shape=(num_hf, num_hf * vec_dim),
+                (vals, (row_inds, col_inds)), shape=(num_hf, num_hf * vec_dim)
             )
             return mat
 
@@ -500,7 +526,7 @@ class DifferentiableTpfa:
             """Construct normal vector matrix. Each vector is repeated vector_dim times.
 
             Half-face i corresponds to rows
-                vector_dim * i:vector_dim(i+1)
+                vector_dim * i:vector_dim * (i+1)
             and contains n_0^i, n_1^i, n_2^i. The column indices makes sure we hit the
             right permeability entries. The permeability being a tensor_dim * num_cells
             vector, we expand the cell indices to tensor_dim indices.
@@ -513,17 +539,29 @@ class DifferentiableTpfa:
                     Normal vector matrix.
 
             """
+            # Bookkeeping
             tensor_dim = vector_dim**2
             fi, ci, sgn = sps.find(g.cell_faces)
             num_hf = fi.size
             n = g.face_normals
+            # There are vector_dim * num_hf rows (each half-face has vector_dim rows
+            # associated with it, to accommodate one vector per half face). Each row
+            # again has vector_dim entries to fit one normal vector (this is achieved by
+            # the call to repeat).
             row_inds = np.repeat(np.arange(num_hf * vector_dim), vector_dim)
+            # The columns must be expanded to tensor_dim to hit the right permeability
+            # entries (ex: cell 0 has permeability entries 0, 1, 2, 3, 4, 5, 6, 7, 8,
+            # so the indices belonging to cell 1 start at 9, etc.). This is achieved by
+            # the call to expand_indices_nd.
             col_inds = pp.fvutils.expand_indices_nd(ci, tensor_dim)
+            # Make vector_dim copies of each normal vector, ravelling in Fortran order
+            # to get the right order of elements.
             repeat_fi = np.repeat(fi, vector_dim)
             vals = n[:, repeat_fi].ravel("F")
+            # Construct the matrix.
             mat = sps.csr_matrix(
                 (vals, (row_inds, col_inds)),
-                shape=(num_hf * vector_dim, g.num_cells * vector_dim**2),
+                shape=(num_hf * vector_dim, g.num_cells * tensor_dim),
             )
             return mat
 
@@ -536,6 +574,8 @@ class DifferentiableTpfa:
         """Scalar distance between face centers and cell centers for each half face."""
         vals = []
         for g in subdomains:
+            # TODO: Check if the repeated computation of fi, ci, sgn is a problem. If
+            # so, cache.
             fi, ci, sgn = sps.find(g.cell_faces)
             fc_cc = g.face_centers[:, fi] - g.cell_centers[:, ci]
             vals.append(np.power(fc_cc, 2).sum(axis=0))
@@ -577,7 +617,9 @@ class DifferentiableTpfa:
 
         # Construct difference operator to get p_l - p_r on faces. First map p to half-
         # faces, then to faces with the signed matrix.
-        c_to_hf_mat = self.half_face_map(subdomains, to_entity="cells")
+        c_to_hf_mat = self.half_face_map(
+            subdomains, to_entity="half_faces", from_entity="cells"
+        )
         hf_to_f_mat = self.half_face_map(subdomains, to_entity="faces", with_sign=True)
         return hf_to_f_mat @ c_to_hf_mat
 
@@ -589,6 +631,36 @@ class DifferentiableTpfa:
         hf_to_f_mat = self.half_face_map(subdomains, to_entity="faces", with_sign=True)
         one_vec = np.ones(hf_to_f_mat.shape[1])
         bnd_sgn = pp.ad.DenseArray(hf_to_f_mat @ one_vec)
+
+        # EK: Alternative implementation which does not use the half_face_map method.
+        # This may be slightly more efficient (though not in a significant way), and
+        # involve different kinds of hokus pokus. I'm not sure what is the best.
+        alt_sgn = []
+        for sd in subdomains:
+            # Signs on all half faces. fi will contain the indices of all internal faces
+            # twice (one for each side).
+            fi, _, sgn = sps.find(sd.cell_faces)
+            # Obtain a map to uniquify the face indices. This will also sort the indices.
+            _, fi_ind = np.unique(fi, return_index=True)
+            # Get the unique signs, ordered according to the unique (sorted) face
+            # indices.
+            sgn_unique = sgn[fi_ind]
+            # Interior faces are those that are not domain boundary faces or fracture
+            # faces.
+            is_int = np.logical_not(
+                np.logical_or(
+                    sd.tags["domain_boundary_faces"], sd.tags["fracture_faces"]
+                )
+            )
+            # Set signs on interior faces to zero.
+            sgn_unique[is_int] = 0
+            #
+            alt_sgn.append(sgn_unique)
+        alt_sgn = np.hstack(alt_sgn)
+        # Check that the two implementations give the same result.
+        # TODO: Delete one of the implementations.
+        assert np.allclose(bnd_sgn._values, alt_sgn)
+
         return bnd_sgn
 
     def nd_to_3d(
