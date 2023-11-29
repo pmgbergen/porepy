@@ -153,40 +153,35 @@ class AdTpfaFlow(pp.fluid_mass_balance.SinglePhaseFlow):
         # Vector source fc_cc is (nhf, nd*nhf) hf2f @ fc_cc @ [(f2hf3d @ t_f) * 3dc2hf3d
         # @ vec_source_3d]
         #
-        # EK: Not sure about mpsa in the next sattement, but some sort of compatability
+        # EK: Not sure about mpsa in the next sentence, but some sort of compatability
         # requirement is needed. For compatibility with mpsa, vector source is defined
         # as a cell-wise nd vector. As this discretization is in 3d, expand.
-        cells_nd_to_hf_3d = diff_discr.half_face_map(
+        cells_nd_to_3d = diff_discr.nd_to_3d(domains, self.nd)
+        cells_to_hf_3d = diff_discr.half_face_map(
             domains, from_entity="cells", with_sign=False, dimensions=(3, 3)
-        ) @ diff_discr.nd_to_3d(domains, self.nd)
-        source_3d = pp.ad.SparseArray(cells_nd_to_hf_3d) @ self.vector_source(
-            domains, material="fluid"
         )
-        f_to_hf_3d = diff_discr.half_face_map(
-            domains, from_entity="faces", with_sign=True, dimensions=(3, 1)
+
+        # The constitutive law for the vector source
+        vector_source_cells = self.vector_source(domains, material="fluid")
+
+        # Build a mapping for the cell-wise vector source, unravelled from the right:
+        # First, map the vector source from nd to 3d. Second, map from cells to
+        # half-faces. Third, project the vector source onto the vector from cell center
+        # to half-face center (this is the vector which Tpfa uses as a proxy for the
+        # full gradient, see comments above). As the rows of d_vec have length equal to
+        # the distance, this compensates for the distance in the denominator of the
+        # half-face transmissibility. Fourth, map from half-faces to faces, using a
+        # mapping with signs, thereby taking the difference between the two vector
+        # sources.
+        vector_source_c_to_f = pp.ad.SparseArray(
+            hf_to_f @ d_vec @ cells_to_hf_3d @ cells_nd_to_3d
         )
-        # hf_to_f is constructed with signs. This compensates for the distances of the
-        # two half-faces in d_vec having opposite signs (they both run from cell center
-        # to face center).
-        #
-        # EK: Can we be sure that the full distance vector points in the right
-        # direction?
-        vector_source = pp.ad.SparseArray(hf_to_f @ d_vec) @ (
-            (pp.ad.SparseArray(f_to_hf_3d) @ t_f) * source_3d
-        )
+        vector_source_difference = vector_source_c_to_f @ vector_source_cells
 
         pressure_difference = pp.ad.SparseArray(
             diff_discr.face_pairing_from_cell_array(domains)
         ) @ self.pressure(domains)
 
-        # Get boundary condition values
-        boundary_operator = self._combine_boundary_operators(  # type: ignore[call-arg]
-            subdomains=domains,
-            dirichlet_operator=self.pressure,
-            neumann_operator=self.darcy_flux,
-            bc_type=self.bc_type_darcy_flux,
-            name="bc_values_darcy_flux",
-        )
         base_discr = self.darcy_flux_discretization(domains)
         if isinstance(base_discr, pp.ad.MpfaAd):
 
@@ -201,17 +196,17 @@ class AdTpfaFlow(pp.fluid_mass_balance.SinglePhaseFlow):
                     jac += sps.diags(p_diff.val) @ T_f.jac
                 return pp.ad.AdArray(val, jac)
 
-            def g(vector_source_diff, vector_source_param):
+            def g(T_f, vs_diff, vs):
                 # Take the differential of the vector source term.
                 #
                 # vector_source_param is an operator which, at the time of evaluation,
                 # will be either a numpy or an AdArray (ex: a gravity term with a
                 # constant and variable density, respectively).
-                if isinstance(vector_source_param, pp.ad.AdArray):
-                    vs_val = vector_source_param.val
-                    jac = vector_source_param.jac
-                elif isinstance(vector_source_param, np.ndarray):
-                    vs_val = vector_source_param
+                if isinstance(vs, pp.ad.AdArray):
+                    vs_val = vs.val
+                    jac = vs.jac
+                elif isinstance(vs, np.ndarray):
+                    vs_val = vs
                     num_rows = vs_val.size
                     num_cols = self.equation_system.num_dofs()
                     jac = sps.csr_matrix((num_rows, num_cols))
@@ -224,25 +219,42 @@ class AdTpfaFlow(pp.fluid_mass_balance.SinglePhaseFlow):
 
                 val = base_discr.vector_source.parse(self.mdg) @ vs_val
                 jac = base_discr.vector_source.parse(self.mdg) @ jac
-                if hasattr(vector_source_diff, "jac"):
+
+                if hasattr(T_f, "jac"):
+                    if isinstance(vs_diff, pp.ad.AdArray):
+                        vs_diff_val = vs_diff.val
+                    elif isinstance(vs_diff, np.ndarray):
+                        vs_diff_val = vs_diff
+
                     # EK: This does not seem right
-                    val += vector_source_diff.jac @ vector_source_param.val
+                    jac += sps.diags(vs_diff_val) @ T_f.jac
                 return pp.ad.AdArray(val, jac)
 
             flux_p = pp.ad.Function(f, "differentiable_mpfa")(
                 t_f, pressure_difference, self.pressure(domains)
             )
             vector_source_d = pp.ad.Function(g, "differentiable_mpfa_vector_source")(
-                vector_source, self.vector_source(domains, material="fluid")
+                t_f, vector_source_difference, vector_source_cells
             )
+
         else:
             flux_p = t_f * pressure_difference
+            vector_source_d = t_f * vector_source_difference
+
         self.set_discretization_parameters()
         self.discretize()
         flux_p.evaluate(self.equation_system)
-        vector_source.evaluate(self.equation_system)
+        vector_source_d.evaluate(self.equation_system)
         vector_source_d.evaluate(self.equation_system)
 
+        # Get boundary condition values
+        boundary_operator = self._combine_boundary_operators(  # type: ignore[call-arg]
+            subdomains=domains,
+            dirichlet_operator=self.pressure,
+            neumann_operator=self.darcy_flux,
+            bc_type=self.bc_type_darcy_flux,
+            name="bc_values_darcy_flux",
+        )
         bound_flux = t_bnd * (
             boundary_operator
             + intf_projection.mortar_to_primary_int
@@ -261,7 +273,7 @@ class AdTpfaFlow(pp.fluid_mass_balance.SinglePhaseFlow):
                 + intf_projection.mortar_to_primary_int
                 @ self.interface_darcy_flux(interfaces)
             )
-            + base_discr.vector_source @ self.vector_source(domains, material="fluid")
+            + vector_source_d
         )
 
         # Development debugging. TODO: Remove
