@@ -191,6 +191,9 @@ class AdTpfaFlow(pp.fluid_mass_balance.SinglePhaseFlow):
         if isinstance(base_discr, pp.ad.MpfaAd):
 
             def f(T_f, p_diff, p):
+                # We know that base_discr.flux is a sparse matrix, so we can call parse
+                # directly. At the time of evaluation, p will be an AdArray, thus we can
+                # access its val and jac attributes.
                 val = base_discr.flux.parse(self.mdg) @ p.val
                 jac = base_discr.flux.parse(self.mdg) @ p.jac
                 if hasattr(T_f, "jac"):
@@ -199,27 +202,61 @@ class AdTpfaFlow(pp.fluid_mass_balance.SinglePhaseFlow):
                 return pp.ad.AdArray(val, jac)
 
             def g(vector_source_diff, vector_source_param):
-                val = base_discr.vector_source @ vector_source_param
-                #   jac = # how to get the correct shape?
+                # Take the differential of the vector source term.
+                #
+                # vector_source_param is an operator which, at the time of evaluation,
+                # will be either a numpy or an AdArray (ex: a gravity term with a
+                # constant and variable density, respectively).
+                if isinstance(vector_source_param, pp.ad.AdArray):
+                    vs_val = vector_source_param.val
+                    jac = vector_source_param.jac
+                elif isinstance(vector_source_param, np.ndarray):
+                    vs_val = vector_source_param
+                    num_rows = vs_val.size
+                    num_cols = self.equation_system.num_dofs()
+                    jac = sps.csr_matrix((num_rows, num_cols))
+                else:
+                    # EK is not really sure about this (can it be a scalar?), but
+                    # raising an error should uncover any such cases.
+                    raise ValueError(
+                        "vector_source_param must be an AdArray or numpy array"
+                    )
+
+                val = base_discr.vector_source.parse(self.mdg) @ vs_val
+                jac = base_discr.vector_source.parse(self.mdg) @ jac
                 if hasattr(vector_source_diff, "jac"):
+                    # EK: This does not seem right
                     val += vector_source_diff.jac @ vector_source_param.val
                 return pp.ad.AdArray(val, jac)
 
             flux_p = pp.ad.Function(f, "differentiable_mpfa")(
                 t_f, pressure_difference, self.pressure(domains)
             )
-            vector_source = pp.ad.Function(g, "differentiable_mpfa_vector_source")(
+            vector_source_d = pp.ad.Function(g, "differentiable_mpfa_vector_source")(
                 vector_source, self.vector_source(domains, material="fluid")
             )
         else:
             flux_p = t_f * pressure_difference
-        # self.set_discretization_parameters()
-        # self.discretize()
-        # flux_p.evaluate(self.equation_system)
+        self.set_discretization_parameters()
+        self.discretize()
+        flux_p.evaluate(self.equation_system)
+        vector_source.evaluate(self.equation_system)
+        vector_source_d.evaluate(self.equation_system)
+
+        bound_flux = t_bnd * (
+            boundary_operator
+            + intf_projection.mortar_to_primary_int
+            @ self.interface_darcy_flux(interfaces)
+        )
+        vector_flux = base_discr.vector_source @ self.vector_source(
+            domains, material="fluid"
+        )
+
         flux: pp.ad.Operator = (
             flux_p  # discr.flux @ self.pressure(domains)
             + t_bnd
-            @ (
+            * (  # t_bnd will evaluate to an AdArray, which should be multiplied
+                # elementwise with the boundary condition.
                 boundary_operator
                 + intf_projection.mortar_to_primary_int
                 @ self.interface_darcy_flux(interfaces)
@@ -259,6 +296,7 @@ class AdTpfaFlow(pp.fluid_mass_balance.SinglePhaseFlow):
             subdomains, to_entity="faces", with_sign=True
         )
         t_f_full = one / (pp.ad.SparseArray(hf_to_f) @ t_hf_inv)
+        t_f_full.set_name("transmissibility matrix")
         return t_f_full, diff_discr, boundary_grids, hf_to_f, d_vec
 
     def pressure_trace(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
@@ -274,9 +312,8 @@ class AdTpfaFlow(pp.fluid_mass_balance.SinglePhaseFlow):
         """
         interfaces: list[pp.MortarGrid] = self.subdomains_to_interfaces(subdomains, [1])
         projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1)
-        base_discr: Union[pp.ad.TpfaAd, pp.ad.MpfaAd] = self.darcy_flux_discretization(
-            subdomains
-        )
+
+        # TODO: Consider the case of a different variable (temperature)?
         p: pp.ad.MixedDimensionalVariable = self.pressure(subdomains)
 
         boundary_operator = self._combine_boundary_operators(  # type: ignore[call-arg]
@@ -286,10 +323,13 @@ class AdTpfaFlow(pp.fluid_mass_balance.SinglePhaseFlow):
             bc_type=self.bc_type_darcy_flux,
             name="bc_values_darcy",
         )
-
-        # Construct differentiable bound_pressure_face. Note that much of the following
-        # code is copied from the diffusive_flux method. TODO: Refactor?
-        t_f_full, *_ = self._transmissibility_matrix(subdomains)
+        base_discr = self.darcy_flux_discretization(domains)
+        # Obtain the transmissibilities in operator form. Ignore other outputs.
+        (t_f_full, _, boundary_grids) = self._transmissibility_matrix(subdomains)
+        one = pp.ad.Scalar(1)
+        dir_filter, neu_filter = diff_discr.boundary_filters(
+            subdomains, boundary_grids, "bc_values_darcy_flux"
+        )
 
         # Face contribution to boundary pressure is 1 on Dirichlet faces, -1/t_f_full on
         # Neumann faces (see Tpfa.discretize).
@@ -374,6 +414,10 @@ m.prepare_simulation()
 g = m.mdg.subdomains()[0]
 g.nodes[:2, 0] += 0.1
 g.compute_geometry()
+m.set_discretization_parameters()
+m.discretize()
+
+
 o = m.diffusive_flux(m.mdg.subdomains(), m._permeability)
 t = o.evaluate(m.equation_system)
 
