@@ -320,15 +320,25 @@ class SolutionStrategyTest1(two_phase_hu.SolutionStrategyPressureMass):
         gb.replace_subdomains_and_interfaces({g_old: g_new})
 
         # rebuild mortar grid: already done in replace_grids, uncomment if you want to take a look...
-        # for intf, data in gb.interfaces(return_data=True):
-        #     # queste mappe sono state aggiornate automaticamente e non sono più l'identità come prima
-        #     A = intf.primary_to_mortar_int().todense()
-        #     B = intf.primary_to_mortar_avg().todense()
+        for intf, data in gb.interfaces(return_data=True):
+            # queste mappe sono state aggiornate automaticamente e non sono più l'identità come prima
+            A = intf.primary_to_mortar_int().todense()
+            B = intf.primary_to_mortar_avg().todense()
 
-        #     # queste invece sono rimaste identità dato che dal mortar alla faglia non mi cambia nulla
-        #     C = intf.secondary_to_mortar_int().todense()
-        #     D = intf.secondary_to_mortar_avg().todense()
+            # queste invece sono rimaste identità dato che dal mortar alla faglia non mi cambia nulla
+            C = intf.secondary_to_mortar_int().todense()
+            D = intf.secondary_to_mortar_avg().todense()
 
+        for intf, data in self.mdg.interfaces(return_data=True):
+            # queste mappe sono state aggiornate automaticamente e non sono più l'identità come prima
+            A2 = intf.primary_to_mortar_int().todense()
+            B2 = intf.primary_to_mortar_avg().todense()
+
+            # queste invece sono rimaste identità dato che dal mortar alla faglia non mi cambia nulla
+            C2 = intf.secondary_to_mortar_int().todense()
+            D2 = intf.secondary_to_mortar_avg().todense()
+
+        pdb.set_trace()
         self.mdg = gb
 
     def initial_condition(self) -> None:
@@ -622,7 +632,15 @@ class FinalModel(PartialFinalModel):
             self.mobility
         )
 
-        self.output_file_name = "./OUTPUT_NEWTON_INFO"
+        self.number_upwind_dirs = 3
+        self.sign_total_flux_internal_prev = None
+        self.sign_omega_0_prev = None
+        self.sign_omega_1_prev = None
+
+        self.root_path = "./"
+        self.output_file_name = self.root_path + "OUTPUT_NEWTON_INFO"
+        self.mass_output_file_name = self.root_path + "MASS_OVER_TIME"
+        self.flips_file_name = self.root_path + "FLIPS"
 
 
 if __name__ == "__main__":

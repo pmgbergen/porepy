@@ -296,8 +296,8 @@ class SolidConstants(MaterialConstants):
             "friction_coefficient": 1,
             "lame_lambda": 1,
             "maximum_fracture_closure": 0,
-            "normal_permeability": 1,
-            "permeability": 1,
+            "normal_permeability": 1,  ###########################à
+            "permeability": 1,  ###################
             "porosity": 0.1,
             "residual_aperture": 0.1,
             "shear_modulus": 1,

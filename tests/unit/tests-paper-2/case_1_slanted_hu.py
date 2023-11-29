@@ -19,7 +19,7 @@ class SolutionStrategyTest1(two_phase_hu.SolutionStrategyPressureMass):
         self.clean_working_directory()
 
         self.set_geometry(mdg_ref=False)
-        # self.deform_grid()
+        self.deform_grid()
 
         self.initialize_data_saving()
 
@@ -87,9 +87,7 @@ class SolutionStrategyTest1(two_phase_hu.SolutionStrategyPressureMass):
             if sd.dim == 2:
                 g_old = sd
 
-        for sd in gb_new.subdomains():
-            if sd.dim == 2:
-                g_new = sd
+        g_new = gb_new.subdomains(dim=2)[0]
 
         normal_ref, tangent_ref = self.compute_normals_tangents(g_new)
 
@@ -330,17 +328,23 @@ class SolutionStrategyTest1(two_phase_hu.SolutionStrategyPressureMass):
         # pdb.set_trace()
 
         # update the whole grid bucket: -----------------------------------------------
+
         gb.replace_subdomains_and_interfaces({g_old: g_new})
 
-        # rebuild mortar grid: already done in replace_grids, uncomment if you want to take a look...
-        # for intf, data in gb.interfaces(return_data=True):
-        #     # queste mappe sono state aggiornate automaticamente e non sono più l'identità come prima
-        #     A = intf.primary_to_mortar_int().todense()
-        #     B = intf.primary_to_mortar_avg().todense()
+        # gb.compute_geometry()
 
-        #     # queste invece sono rimaste identità dato che dal mortar alla faglia non mi cambia nulla
-        #     C = intf.secondary_to_mortar_int().todense()
-        #     D = intf.secondary_to_mortar_avg().todense()
+        # rebuild mortar grid: already done in replace_grids, uncomment if you want to take a look...
+        for intf, data in gb.interfaces(return_data=True):
+            # queste mappe sono state aggiornate automaticamente e non sono più l'identità come prima
+            A = intf.primary_to_mortar_int().todense()
+            B = intf.primary_to_mortar_avg().todense()
+
+            # queste invece sono rimaste identità dato che dal mortar alla faglia non mi cambia nulla
+            C = intf.secondary_to_mortar_int().todense()
+            D = intf.secondary_to_mortar_avg().todense()
+
+        pp.plot_grid(self.mdg, alpha=0)
+        pdb.set_trace()
 
         self.mdg = gb
 
@@ -486,7 +490,7 @@ class GeometryConvergence(pp.ModelGeometry):
         frac_constr_1 = pp.LineFracture(
             np.array(
                 [
-                    [self.x_intersection, self.xmax],
+                    [self.x_intersection + 0.0, self.xmax],
                     [
                         self.y_intersection,
                         self.y_intersection,
@@ -498,7 +502,7 @@ class GeometryConvergence(pp.ModelGeometry):
         frac_constr_2 = pp.LineFracture(
             np.array(
                 [
-                    [self.xmin, self.xmean],
+                    [self.xmin, self.xmean - 0.0],
                     [self.ymean, self.ymean],
                 ]
             )
@@ -551,7 +555,7 @@ if __name__ == "__main__":
 
     fluid_constants = pp.FluidConstants({})
 
-    Kn = 0.1
+    Kn = 10.0
     solid_constants = pp.SolidConstants(
         {
             "porosity": 0.25,
@@ -617,7 +621,7 @@ if __name__ == "__main__":
                 / np.cos(self.tilt_angle)
                 / self.L_0
             )
-            self.displacement_max = -0.0
+            self.displacement_max = -0.1
 
             self.relative_permeability = (
                 pp.tobedefined.relative_permeability.rel_perm_quadratic
@@ -632,20 +636,20 @@ if __name__ == "__main__":
             self.sign_omega_0_prev = None
             self.sign_omega_1_prev = None
 
-            self.root_path = "./case_1/slanted_hu_Kn" + str(Kn) + "/"
-            # self.root_path = "./case_1/slanted_hu_Kn" + str(Kn) + "/non-conforming/"
+            # self.root_path = "./case_1/slanted_hu_Kn" + str(Kn) + "/"
+            self.root_path = "./case_1/slanted_hu_Kn" + str(Kn) + "/non-conforming/"
 
             self.output_file_name = self.root_path + "OUTPUT_NEWTON_INFO"
             self.mass_output_file_name = self.root_path + "MASS_OVER_TIME"
             self.flips_file_name = self.root_path + "FLIPS"
 
-    cell_size = 0.05
+    cell_size = 0.1
 
-    os.system("mkdir -p ./case_1/slanted_hu_Kn" + str(Kn))
-    # os.system("mkdir -p ./case_1/slanted_hu_Kn" + str(Kn) + "/non-conforming")
+    # os.system("mkdir -p ./case_1/slanted_hu_Kn" + str(Kn))
+    os.system("mkdir -p ./case_1/slanted_hu_Kn" + str(Kn) + "/non-conforming")
 
-    folder_name = "./case_1/slanted_hu_Kn" + str(Kn) + "/visualization"
-    # folder_name = "./case_1/slanted_hu_Kn" + str(Kn) + "/non-conforming/visualization"
+    # folder_name = "./case_1/slanted_hu_Kn" + str(Kn) + "/visualization"
+    folder_name = "./case_1/slanted_hu_Kn" + str(Kn) + "/non-conforming/visualization"
 
     time_manager = two_phase_hu.TimeManagerPP(
         schedule=np.array([0, 10]) / t_0,

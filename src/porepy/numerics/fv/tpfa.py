@@ -7,8 +7,8 @@ import scipy.sparse as sps
 
 import porepy as pp
 
-import copy ###
-import pdb ###
+import copy  ###
+import pdb  ###
 
 
 class Tpfa(pp.FVElliptic):
@@ -183,14 +183,14 @@ class Tpfa(pp.FVElliptic):
         # Return harmonic average. Note that we here use fi_mat to count indices.               ### famous fi_mat...
         t = 1 / np.bincount(fi_periodic, weights=1 / t_face)
 
-        transmissibility = copy.deepcopy(t)                                                     ### tmp
+        transmissibility = copy.deepcopy(t)  ### tmp
 
         # print("transmissiblity (all faces) = ", transmissibility)
         # pdb.set_trace()
 
         # Save values for use in recovery of boundary face pressures
         t_full = t.copy()
-        
+
         # For primal-like discretizations like the TPFA, internal boundaries
         # are handled by assigning Neumann conditions.
         is_dir = np.logical_and(bnd.is_dir, np.logical_not(bnd.is_internal))
@@ -218,7 +218,7 @@ class Tpfa(pp.FVElliptic):
         ).tocsr()
 
         # Store the matrix in the right dictionary:
-        matrix_dictionary["transmissibility"] = transmissibility   ###
+        matrix_dictionary["transmissibility"] = transmissibility  ###
         matrix_dictionary[self.flux_matrix_key] = flux
         matrix_dictionary[self.bound_flux_matrix_key] = bound_flux
 
@@ -229,7 +229,9 @@ class Tpfa(pp.FVElliptic):
         # On Dirichlet faces, simply recover boundary condition
         v_face[bnd.is_dir] = 1
         # On Neumann faces, use half-transmissibilities
-        v_face[bnd.is_neu] = -1 / t_full[bnd.is_neu] ### i guess t_full = t contains armonic ave if not neu and half transmissibility if neu
+        v_face[bnd.is_neu] = (
+            -1 / t_full[bnd.is_neu]
+        )  ### i guess t_full = t contains armonic ave if not neu and half transmissibility if neu
         v_cell[bnd.is_neu[fi]] = 1
 
         bound_pressure_cell = sps.coo_matrix(
@@ -271,6 +273,3 @@ class Tpfa(pp.FVElliptic):
         matrix_dictionary[
             self.bound_pressure_vector_source_matrix_key
         ] = bound_pressure_vector_source
-
-
-    

@@ -724,7 +724,7 @@ class Equations(pp.BalanceEquation):
             discr,
         )
 
-        kn = pp.ad.Scalar(self.solid.normal_permeability()) * normal_gradient
+        kn = self.normal_perm(interfaces) * normal_gradient
 
         delta_p = pressure_h - pressure_l
         g_term = self.interface_vector_source(interfaces, material="fluid")
@@ -779,11 +779,12 @@ class Equations(pp.BalanceEquation):
             discr,
         )
 
+        kn = self.normal_perm(interfaces) * normal_gradient
+
         eq = self.interface_mortar_flux_phase_1(interfaces) - (
             cell_volumes
             * (
-                pp.ad.Scalar(self.solid.normal_permeability())
-                * normal_gradient
+                kn
                 * specific_volume_intf
                 * (
                     pressure_h
@@ -1446,6 +1447,10 @@ class SolutionStrategyPressureMass(pp.SolutionStrategy):
             permeability = permeability.val
         return pp.SecondOrderTensor(permeability)
 
+    def normal_perm(self, interfaces):
+        """ """
+        return pp.ad.Scalar(self.solid.normal_permeability())
+
     def discretize(self) -> None:
         """ """
         self.equation_system.discretize()
@@ -1619,9 +1624,6 @@ class SolutionStrategyPressureMass(pp.SolutionStrategy):
             iterate_index=0
         )  # this is the current solution
 
-        # print("solution = ", solution)
-        # pdb.set_trace()
-
         self.equation_system.shift_time_step_values()
         self.equation_system.set_variable_values(
             values=solution, time_step_index=0, additive=False
@@ -1750,7 +1752,7 @@ class SolutionStrategyPressureMass(pp.SolutionStrategy):
                         saturation, dynamic_viscosity
                     )
 
-                omega_0 = pp.omega( 
+                omega_0 = pp.omega(
                     self.mixture.num_phases,
                     0,
                     mobility_list,
@@ -1772,7 +1774,7 @@ class SolutionStrategyPressureMass(pp.SolutionStrategy):
                 self.sign_omega_0_prev = sign_omega_0
 
                 # omega_1 flips
-                omega_1 = pp.omega( 
+                omega_1 = pp.omega(
                     self.mixture.num_phases,
                     1,
                     mobility_list,
@@ -1793,10 +1795,9 @@ class SolutionStrategyPressureMass(pp.SolutionStrategy):
 
                 self.sign_omega_1_prev = sign_omega_1
 
-
-        return np.array([sign_total_flux_internal, sign_omega_0, sign_omega_1]), np.array(
-            [number_flips_qt, number_flips_omega_0, number_flips_omega_1]
-        )
+        return np.array(
+            [sign_total_flux_internal, sign_omega_0, sign_omega_1]
+        ), np.array([number_flips_qt, number_flips_omega_0, number_flips_omega_1])
 
     def save_flip_flop(self, time, cumulative_flips, global_cumulative_flips):
         """
