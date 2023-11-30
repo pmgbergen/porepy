@@ -15,7 +15,6 @@ from typing import Optional, Union
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
-import scipy.sparse as sps
 from matplotlib.collections import PolyCollection
 from matplotlib.patches import FancyArrowPatch
 from mpl_toolkits.mplot3d import proj3d

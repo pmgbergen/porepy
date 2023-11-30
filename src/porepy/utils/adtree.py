@@ -65,7 +65,6 @@ intersect the given one.
 from typing import Any, List, Optional, Tuple
 
 import numpy as np
-from scipy import sparse as sps
 
 import porepy as pp
 from porepy.utils.array_operations import sparse_array_to_row_col_data
