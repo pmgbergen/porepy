@@ -14,7 +14,7 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
-from porepy.utils.porepy_types import GridLike
+from porepy.utils.porepy_types import GridLike, GridLikeSequence
 
 from . import _ad_utils
 from .forward_mode import AdArray, initAdArrays
@@ -66,6 +66,12 @@ class Operator:
     """
 
     class Operations(Enum):
+        """Object representing all supported operations by the operator class.
+
+        Used to construct the operator tree and identify Operator.Operations.
+
+        """
+
         void = "void"
         add = "add"
         sub = "sub"
@@ -80,33 +86,28 @@ class Operator:
         pow = "pow"
         rpow = "rpow"
 
-    """Object representing all supported operations by the operator class.
-
-    Used to construct the operator tree and identify Operator.Operations.
-
-    """
-
     def __init__(
         self,
         name: Optional[str] = None,
-        subdomains: Optional[list[pp.Grid]] = None,
-        interfaces: Optional[list[pp.MortarGrid]] = None,
+        domains: Optional[GridLikeSequence] = None,
         operation: Optional[Operator.Operations] = None,
         children: Optional[Sequence[Operator]] = None,
     ) -> None:
-        self.interfaces: list[pp.MortarGrid] = [] if interfaces is None else interfaces
-        """List of interfaces on which the operator is defined, passed at instantiation.
-
-        Will be empty for operators not associated with specific interfaces.
-
-        """
-
-        self.subdomains: list[pp.Grid] = [] if subdomains is None else subdomains
-        """List of subdomains on which the operator is defined, passed at instantiation.
-
-        Will be empty for operators not associated with specific subdomains.
-
-        """
+        if domains is None:
+            domains = []
+        self._domains: GridLikeSequence = domains
+        self._domain_type: Literal["subdomains", "interfaces", "boundary grids"]
+        if all([isinstance(d, pp.Grid) for d in domains]):
+            self._domain_type = "subdomains"
+        elif all([isinstance(d, pp.MortarGrid) for d in domains]):
+            self._domain_type = "interfaces"
+        elif all([isinstance(d, pp.BoundaryGrid) for d in domains]):
+            self._domain_type = "boundary grids"
+        else:
+            raise ValueError(
+                "An operator must be associated with either"
+                " interfaces, subdomains or boundary grids."
+            )
 
         self.children: Sequence[Operator]
         """List of children, other AD operators.
@@ -126,6 +127,34 @@ class Operator:
         self._name = name if name is not None else ""
 
     @property
+    def interfaces(self):
+        """List of interfaces on which the operator is defined, passed at instantiation.
+
+        Will be empty for operators not associated with specific interfaces.
+
+        """
+        return self._domains if self._domain_type == "interfaces" else []
+
+    @property
+    def subdomains(self):
+        """List of subdomains on which the operator is defined, passed at instantiation.
+
+        Will be empty for operators not associated with specific subdomains.
+
+        """
+        return self._domains if self._domain_type == "subdomains" else []
+
+    @property
+    def domain_type(self) -> Literal["subdomains", "interfaces", "boundary grids"]:
+        """Type of domains where the operator is defined."""
+        return self._domain_type
+
+    @property
+    def domains(self) -> GridLikeSequence:
+        """List of domains where the operator is defined."""
+        return self._domains
+
+    @property
     def name(self) -> str:
         """The name given to this variable."""
         return self._name
@@ -141,34 +170,6 @@ class Operator:
         """
         self.children = [] if children is None else children
         self.operation = Operator.Operations.void if operation is None else operation
-
-    def _set_subdomains_or_interfaces(
-        self,
-        subdomains: Optional[list[pp.Grid]] = None,
-        interfaces: Optional[list[pp.MortarGrid]] = None,
-    ) -> None:
-        """For operators which are defined for either subdomains or interfaces but not both.
-
-        Check that exactly one of subdomains and interfaces is given and assign to the
-        operator. The unspecified grid-like type will also be set as an attribute, i.e.
-        either op.subdomains or op.interfaces is an empty list, while the other is a
-        list with len>0.
-
-        Parameters:
-            subdomains (optional list of subdomains): The subdomain list.
-            interfaces (optional list of tuples of subdomains): The interface list.
-
-        """
-        if subdomains is None:
-            subdomains = []
-        if interfaces is None:
-            interfaces = []
-
-        if len(subdomains) > 0 and len(interfaces) > 0:
-            raise ValueError("Operator defined on both subdomains and interfaces.")
-
-        self.subdomains = subdomains
-        self.interfaces = interfaces
 
     def is_leaf(self) -> bool:
         """Check if this operator is a leaf in the tree-representation of an expression.
@@ -239,16 +240,13 @@ class Operator:
                     # Recursive call to fix the subtree.
                     new_children.append(_traverse_tree(child))
 
-                # Use the same lists of subdomains and interfaces as in the old operator,
-                # with empty lists if these are not present.
-                subdomains = getattr(op, "subdomains", [])
-                interfaces = getattr(op, "interfaces", [])
+                # Use the same lists of domains as in the old operator.
+                domains = op.domains
 
                 # Create new operator from the tree.
                 new_op = Operator(
-                    name=op._name,
-                    subdomains=subdomains,
-                    interfaces=interfaces,
+                    name=op.name,
+                    domains=domains,
                     operation=op.operation,
                     children=new_children,
                 )
@@ -653,7 +651,7 @@ class Operator:
 
     def evaluate(
         self,
-        system_manager: pp.ad.EquationSystem | pp.DofManager,
+        system_manager: pp.ad.EquationSystem,
         state: Optional[np.ndarray] = None,
     ):  # TODO ensure the operator always returns an AD array
         """Evaluate the residual and Jacobian matrix for a given solution.
@@ -729,7 +727,7 @@ class Operator:
         # Initialize Ad variables with the current iterates
 
         # The size of the Jacobian matrix will always be set according to the
-        # variables found by the DofManager in the MixedDimensionalGrid.
+        # variables found by the EquationSystem.
 
         # NOTE: This implies that to derive a subsystem from the Jacobian
         # matrix of this Operator will require restricting the columns of
@@ -782,7 +780,7 @@ class Operator:
 
     def _identify_variables(
         self,
-        system_manager: pp.ad.EquationSystem | pp.DofManager,
+        system_manager: pp.ad.EquationSystem,
         var: Optional[list] = None,
     ):
         """Identify all variables in this operator."""
@@ -796,7 +794,7 @@ class Operator:
         )
 
         # 2. Get a mapping between variables (*not* only MixedDimensionalVariables) and
-        # their indices according to the DofManager. This is needed to access the
+        # their indices according to the EquationSystem. This is needed to access the
         # state of a variable when parsing the operator to numerical values using
         # forward Ad.
 
@@ -806,8 +804,8 @@ class Operator:
         prev_time = []
         prev_iter = []
         for variable in variables:
-            # Indices (in DofManager sense) of this variable. Will be built gradually
-            # for MixedDimensionalVariables, in one go for plain Variables.
+            # Indices (in EquationSystem sense) of this variable. Will be built
+            # gradually for MixedDimensionalVariables, in one go for plain Variables.
             ind_var = []
             prev_time.append(variable.prev_time)
             prev_iter.append(variable.prev_iter)
@@ -1170,7 +1168,7 @@ class Operator:
 class SparseArray(Operator):
     """Ad representation of a sparse matrix.
 
-    For dense matrices, use :class:`Array` instead.
+    For dense matrices, use :class:`DenseArray` instead.
 
     This is a shallow wrapper around the real matrix; it is needed to combine the matrix
     with other types of Ad objects.
@@ -1295,7 +1293,7 @@ class DenseArray(Operator):
         return self._values
 
 
-class TimeDependentDenseArray(DenseArray):
+class TimeDependentDenseArray(Operator):
     """An Ad-wrapper around a time-dependent numpy array.
 
     The array is tied to a MixedDimensionalGrid, and is distributed among the data
@@ -1332,41 +1330,9 @@ class TimeDependentDenseArray(DenseArray):
     def __init__(
         self,
         name: str,
-        subdomains: Optional[list[pp.Grid]] = None,
-        interfaces: Optional[list[pp.MortarGrid]] = None,
+        domains: GridLikeSequence,
         previous_timestep: bool = False,
     ):
-        self._name: str = name
-
-        if subdomains is None:
-            subdomains = []
-        if interfaces is None:
-            interfaces = []
-
-        if len(interfaces) > 0 and len(subdomains) > 0:
-            raise ValueError(
-                "A time dependent array must be associated with either"
-                " interfaces or subdomains, not both."
-            )
-
-        # Store subdomains and interfaces.
-        self.subdomains = subdomains
-        self.interfaces = interfaces
-
-        self._grids: Sequence[GridLike]
-        self._is_interface_array: bool
-
-        # Shorthand access to subdomain or interface grids:
-        if len(interfaces) == 0:
-            # Appease mypy
-            assert all([isinstance(sd, pp.Grid) for sd in subdomains])
-            self._grids = subdomains
-            self._is_interface_array = False
-        else:
-            assert all([isinstance(intf, pp.MortarGrid) for intf in interfaces])
-            self._grids = interfaces
-            self._is_interface_array = True
-
         self.prev_time: bool = previous_timestep
         """If True, the array will be evaluated using ``data[pp.TIME_STEP_SOLUTIONS]``
         (data being the data dictionaries for subdomains and interfaces).
@@ -1375,7 +1341,7 @@ class TimeDependentDenseArray(DenseArray):
 
         """
 
-        self._initialize_children()
+        super().__init__(name=name, domains=domains)
 
     def previous_timestep(self) -> TimeDependentDenseArray:
         """
@@ -1383,14 +1349,9 @@ class TimeDependentDenseArray(DenseArray):
             This array represented at the previous time step.
 
         """
-        if self._is_interface_array:
-            return TimeDependentDenseArray(
-                self._name, interfaces=self.interfaces, previous_timestep=True
-            )
-        else:
-            return TimeDependentDenseArray(
-                self._name, subdomains=self.subdomains, previous_timestep=True
-            )
+        return TimeDependentDenseArray(
+            name=self._name, domains=self._domains, previous_timestep=True
+        )
 
     def parse(self, mdg: pp.MixedDimensionalGrid) -> np.ndarray:
         """Convert this array into numerical values.
@@ -1409,19 +1370,28 @@ class TimeDependentDenseArray(DenseArray):
 
         """
         vals = []
-        for g in self._grids:
-            if self._is_interface_array:
-                # Appease mypy
-                assert isinstance(g, pp.MortarGrid)
-                data = mdg.interface_data(g)
-            else:
+        for g in self._domains:
+            if self._domain_type == "subdomains":
                 assert isinstance(g, pp.Grid)
                 data = mdg.subdomain_data(g)
-
-            if self.prev_time:
-                vals.append(data[pp.TIME_STEP_SOLUTIONS][self._name][0])
+            elif self._domain_type == "interfaces":
+                assert isinstance(g, pp.MortarGrid)
+                data = mdg.interface_data(g)
+            elif self._domain_type == "boundary grids":
+                assert isinstance(g, pp.BoundaryGrid)
+                data = mdg.boundary_grid_data(g)
             else:
-                vals.append(data[pp.ITERATE_SOLUTIONS][self._name][0])
+                raise ValueError(f"Unknown grid type: {self._domain_type}.")
+            if self.prev_time:
+                vals.append(
+                    pp.get_solution_values(
+                        name=self._name, data=data, time_step_index=0
+                    )
+                )
+            else:
+                vals.append(
+                    pp.get_solution_values(name=self._name, data=data, iterate_index=0)
+                )
 
         if len(vals) > 0:
             # Normal case: concatenate the values from all grids
@@ -1431,16 +1401,10 @@ class TimeDependentDenseArray(DenseArray):
             return np.empty(0, dtype=float)
 
     def __repr__(self) -> str:
-        s = f"Wrapped time-dependent array with name {self._name}.\n"
-
-        if self._is_interface_array:
-            s += f"Defined on {len(self._grids)} interfaces.\n"
-        else:
-            s += f"Defined on {len(self._grids)} subdomains.\n"
-
-        if self.prev_time:
-            s += "Evaluated at the previous time step."
-        return s
+        return (
+            f"Wrapped time-dependent array with name {self._name}.\n"
+            f"Defined on {len(self._domains)} {self._domain_type}.\n"
+        )
 
 
 class Scalar(Operator):
@@ -1541,7 +1505,12 @@ class Variable(Operator):
         previous_timestep: bool = False,
         previous_iteration: bool = False,
     ) -> None:
-        super().__init__(name=name)
+        # Block a mypy warning here: Domain is known to be GridLike (grid, mortar grid,
+        # or boundary grid), thus the below wrapping in a list gives a list of GridLike,
+        # but the super constructor expects a sequence of grids, sequence or mortar
+        # grids etc. Mypy makes a difference, but the additional entropy needed to
+        # circumvent the warning is not worth it.
+        super().__init__(name=name, domains=[domain])  # type: ignore [arg-type]
 
         ### PUBLIC
 
@@ -1567,13 +1536,8 @@ class Variable(Operator):
         :meth:`Variable.previous_iteration` to keep a link to the original variable.
         """
 
-        # overwrite properties set by the parent constructor
-        if isinstance(domain, pp.MortarGrid):
-            self.interfaces = [domain]
-        elif isinstance(domain, pp.Grid):
-            self.subdomains = [domain]
-        else:
-            raise ValueError("Variable domain must be either a grid or mortar grid.")
+        if self._domain_type == "boundary grids":
+            raise NotImplementedError("Variables on boundaries are not supported.")
 
         ### PRIVATE
         # domain
@@ -1602,12 +1566,13 @@ class Variable(Operator):
         if isinstance(self.domain, pp.MortarGrid):
             # This is a mortar grid. Assume that there are only cell dofs
             return self.domain.num_cells * self._cells
-        else:
+        if isinstance(self.domain, pp.Grid):
             return (
                 self.domain.num_cells * self._cells
                 + self.domain.num_faces * self._faces
                 + self.domain.num_nodes * self._nodes
             )
+        raise ValueError()
 
     def set_name(self, name: str) -> None:
         """
@@ -1767,6 +1732,13 @@ class MixedDimensionalVariable(Variable):
         # assigned to a problem where the grid happened not to have any fractures.
         self._no_variables = len(variables) == 0
 
+        # It should be defined in the parent class, but we do not call super().__init__
+        # Mypy complains that we do not know that all variables have the same type of
+        # domain. While formally correct, this should be picked up in other places so we
+        # ignore the warning here.
+        self._domains = [
+            var.domains[0] for var in variables  # type: ignore[assignment]
+        ]
         # Take the name from the first variable.
         if self._no_variables:
             self._name = "no_sub_variables"
@@ -1962,7 +1934,7 @@ def _ad_wrapper(
         return pp.ad.SparseArray(matrix, name)
 
 
-def wrap_as_ad_array(
+def wrap_as_dense_ad_array(
     vals: pp.number | np.ndarray,
     size: Optional[int] = None,
     name: Optional[str] = None,
@@ -1981,7 +1953,7 @@ def wrap_as_ad_array(
     return _ad_wrapper(vals, True, size=size, name=name)
 
 
-def wrap_as_ad_matrix(
+def wrap_as_sparse_ad_array(
     vals: Union[pp.number, np.ndarray],
     size: Optional[int] = None,
     name: Optional[str] = None,

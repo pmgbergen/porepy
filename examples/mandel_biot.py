@@ -34,7 +34,9 @@ import scipy.sparse as sps
 import porepy as pp
 import porepy.models.fluid_mass_balance as mass
 import porepy.models.poromechanics as poromechanics
+import porepy.models.momentum_balance as momentum_balance
 from porepy.models.derived_models.biot import BiotPoromechanics
+from porepy.applications.convergence_analysis import ConvergenceAnalysis
 from porepy.utils.examples_utils import VerificationUtils
 from porepy.viz.data_saving_model_mixin import VerificationDataSaving
 
@@ -173,7 +175,7 @@ class MandelDataSaving(VerificationDataSaving):
         exact_pressure = self.exact_sol.pressure(sd, t)
         pressure_ad = self.pressure([sd])
         approx_pressure = pressure_ad.evaluate(self.equation_system).val
-        error_pressure = pp.error_computation.l2_error(
+        error_pressure = ConvergenceAnalysis.l2_error(
             grid=sd,
             true_array=exact_pressure,
             approx_array=approx_pressure,
@@ -185,7 +187,7 @@ class MandelDataSaving(VerificationDataSaving):
         exact_displacement = self.exact_sol.displacement(sd, t)
         displacement_ad = self.displacement([sd])
         approx_displacement = displacement_ad.evaluate(self.equation_system).val
-        error_displacement = pp.error_computation.l2_error(
+        error_displacement = ConvergenceAnalysis.l2_error(
             grid=sd,
             true_array=exact_displacement,
             approx_array=approx_displacement,
@@ -198,7 +200,7 @@ class MandelDataSaving(VerificationDataSaving):
         flux_ad = self.darcy_flux([sd])
         mobility = 1 / self.fluid.viscosity()
         approx_flux = mobility * flux_ad.evaluate(self.equation_system).val
-        error_flux = pp.error_computation.l2_error(
+        error_flux = ConvergenceAnalysis.l2_error(
             grid=sd,
             true_array=exact_flux,
             approx_array=approx_flux,
@@ -210,7 +212,7 @@ class MandelDataSaving(VerificationDataSaving):
         exact_force = self.exact_sol.poroelastic_force(sd, t)
         force_ad = self.stress([sd])
         approx_force = force_ad.evaluate(self.equation_system).val
-        error_force = pp.error_computation.l2_error(
+        error_force = ConvergenceAnalysis.l2_error(
             grid=sd,
             true_array=exact_force,
             approx_array=approx_force,
@@ -1255,37 +1257,13 @@ class MandelGeometry(pp.ModelGeometry):
 
 # -----> Boundary conditions
 class MandelBoundaryConditionsMechanicsTimeDependent(
-    poromechanics.BoundaryConditionsMechanicsTimeDependent,
+    momentum_balance.BoundaryConditionsMomentumBalance,
 ):
-    domain_boundary_sides: Callable[[pp.Grid], pp.domain.DomainSides]
-    """Boundary sides of the domain. Normally defined in a mixin instance of
-    :class:`~porepy.models.geometry.ModelGeometry`.
-
-    """
-
     exact_sol: MandelExactSolution
     """Exact solution object."""
 
-    mdg: pp.MixedDimensionalGrid
-    """Mixed-dimensional grid for the current model. Normally defined in a mixin
-    instance of :class:`~porepy.models.geometry.ModelGeometry`.
-
-    """
-
     params: dict
     """Parameter dictionary of the verification setup."""
-
-    stress_keyword: str
-    """Keyword for accessing the parameters of the mechanical subproblem."""
-
-    time_manager: pp.TimeManager
-    """Time manager. Normally set by an instance of a subclass of
-    :class:`porepy.models.solution_strategy.SolutionStrategy`.
-
-    """
-
-    units: pp.Units
-    """Units object, containing the scaling of base magnitudes."""
 
     def vertical_load(self):
         """Retrieve and scale applied force.
@@ -1335,9 +1313,7 @@ class MandelBoundaryConditionsMechanicsTimeDependent(
 
         return bc
 
-    def time_dependent_bc_values_mechanics(
-        self, subdomains: list[pp.Grid]
-    ) -> np.ndarray:
+    def bc_values_displacement(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
         """Boundary values for mechanics.
 
         Parameters:
@@ -1348,11 +1324,12 @@ class MandelBoundaryConditionsMechanicsTimeDependent(
             the North side of the domain.
 
         """
-        bc_vals = super().time_dependent_bc_values_mechanics(subdomains)
+        bc_vals = super().bc_values_displacement(boundary_grid)
 
-        sd = subdomains[0]
-        sides = self.domain_boundary_sides(sd)
-        yf_north = sd.face_centers[1][sides.north]
+        sides = self.domain_boundary_sides(boundary_grid)
+        # Cells of the boundary grid are faces of the parent subdomain.
+        face_centers = boundary_grid.cell_centers
+        yf_north = face_centers[1, sides.north]
 
         t = self.time_manager.time  # scaled [s]
         uy_north_bc = self.exact_sol.vertical_displacement_profile(yf_north, t)
@@ -1368,8 +1345,8 @@ class MandelBoundaryConditionsSinglePhaseFlow(mass.BoundaryConditionsSinglePhase
 
     """
 
-    def bc_type_darcy(self, sd: pp.Grid) -> pp.BoundaryCondition:
-        """Define boundary condition types for the flow subproblem.
+    def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        """Define boundary condition types for the Darcy flux.
 
         All sides are set as Neumann, except the East side, which is Dirichlet.
 

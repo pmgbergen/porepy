@@ -9,6 +9,7 @@ import copy
 import csv
 import logging
 import time
+import warnings
 from typing import Optional, Union
 
 import meshio
@@ -160,6 +161,9 @@ class FractureNetwork3d(object):
             fracture: Plane fracture to be added.
 
         """
+        msg = "This functionality is deprecated and will be removed in a future version"
+        warnings.warn(msg, DeprecationWarning)
+
         ind = np.array([f.index for f in self.fractures])
 
         if ind.size > 0:
@@ -1304,6 +1308,9 @@ class FractureNetwork3d(object):
             fractures associated to each point.
 
         """
+        msg = "This functionality is deprecated and will be removed in a future version"
+        warnings.warn(msg, DeprecationWarning)
+
         fracs_of_points = []
         pts = np.atleast_1d(np.asarray(pts))
         for i in pts:
@@ -1346,6 +1353,9 @@ class FractureNetwork3d(object):
             If ``(a, b)`` is a member, ``(b, a)`` will not be.
 
         """
+        msg = "This functionality is deprecated and will be removed in a future version"
+        warnings.warn(msg, DeprecationWarning)
+
         c_points = []
 
         pt = self.decomposition["points"]
@@ -2890,6 +2900,9 @@ class FractureNetwork3d(object):
                     p_2d, np.zeros(p_2d.shape[1]))))``.
 
         """
+        msg = "This functionality is deprecated and will be removed in a future version"
+        warnings.warn(msg, DeprecationWarning)
+
         isect = self.intersections_of_fracture(frac_num)
 
         frac = self.fractures[frac_num]

@@ -198,9 +198,11 @@ class ConformingFracturePropagation(FracturePropagation):
         parameters_primary: dict[str, Any] = data_primary[pp.PARAMETERS][
             self.mechanics_parameter_key  # type: ignore
         ]
-        u_j: np.ndarray = data_intf[pp.ITERATE_SOLUTIONS][
-            self.mortar_displacement_variable  # type: ignore
-        ][0]
+        u_j: np.ndarray = pp.get_solution_values(
+            name=self.mortar_displacement_variable,  # type: ignore
+            data=data_intf,
+            iterate_index=0,
+        )
 
         # Only operate on tips
         tip_faces = sd_secondary.tags["tip_faces"].nonzero()[0]

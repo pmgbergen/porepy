@@ -17,9 +17,9 @@ def plot_fractures(
     edges: np.ndarray,
     domain: Optional[pp.Domain] = None,
     colortag: Optional[np.ndarray] = None,
-    ax: mpl.axis.Axis = None,
+    ax: Optional[mpl.axes.Axes] = None,
     **kwargs
-) -> mpl.axis.Axis:
+) -> mpl.axes.Axes:
     """
     Plot 2d fractures as lines in a domain.
 
@@ -163,14 +163,13 @@ def plot_fractures(
         ax.set_aspect("equal", adjustable="box")
 
     if kwargs.get("axis", "on") == "on":
-        ax.axis(
-            [
-                domain.bounding_box["xmin"],
-                domain.bounding_box["xmax"],
-                domain.bounding_box["ymin"],
-                domain.bounding_box["ymax"],
-            ]
+        box_data: tuple[float, float, float, float] = (
+            domain.bounding_box["xmin"],
+            domain.bounding_box["xmax"],
+            domain.bounding_box["ymin"],
+            domain.bounding_box["ymax"],
         )
+        ax.axis(box_data)
 
     else:
         ax.axis("off")
@@ -225,14 +224,13 @@ def plot_wells(
 
     # Setup figure and plot the domain
     plt.figure(kwargs.get("fig_id", 1))
-    plt.axis(
-        [
-            d.bounding_box["xmin"],
-            d.bounding_box["xmax"],
-            d.bounding_box["ymin"],
-            d.bounding_box["ymax"],
-        ]
+    box_data: tuple[float, float, float, float] = (
+        d.bounding_box["xmin"],
+        d.bounding_box["xmax"],
+        d.bounding_box["ymin"],
+        d.bounding_box["ymax"],
     )
+    plt.axis(box_data)
     plt.plot(
         [
             d.bounding_box["xmin"],

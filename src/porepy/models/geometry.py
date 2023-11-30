@@ -203,6 +203,21 @@ class ModelGeometry:
                     subdomains.append(sd)
         return self.mdg.sort_subdomains(subdomains)
 
+    def subdomains_to_boundary_grids(
+        self, subdomains: Sequence[pp.Grid]
+    ) -> Sequence[pp.BoundaryGrid]:
+        """Boundary grids of subdomains.
+
+        Parameters:
+            subdomains: List of subdomains for which to find boundary grids.
+
+        Returns:
+            List of boundary grids associated with the provided subdomains.
+
+        """
+        boundary_grids = [self.mdg.subdomain_to_boundary_grid(sd) for sd in subdomains]
+        return [bg for bg in boundary_grids if bg is not None]
+
     def wrap_grid_attribute(
         self,
         grids: Sequence[pp.GridLike],
@@ -505,7 +520,7 @@ class ModelGeometry:
         return proj
 
     def domain_boundary_sides(
-        self, sd: pp.Grid, tol: Optional[float] = 1e-10
+        self, domain: pp.Grid | pp.BoundaryGrid, tol: Optional[float] = 1e-10
     ) -> pp.domain.DomainSides:
         """Obtain indices of the faces lying on the sides of the domain boundaries.
 
@@ -514,8 +529,9 @@ class ModelGeometry:
         provided `tol` is tuned accordingly.
 
         Parameters:
-            sd: Subdomain grid.
-            tol: Tolerance used to determine whether a face center lies on a boundary side.
+            domain: Subdomain or boundary grid.
+            tol: Tolerance used to determine whether a face center lies on a boundary
+                side.
 
         Returns:
             NamedTuple containing the domain boundary sides. Available attributes are:
@@ -542,23 +558,39 @@ class ModelGeometry:
                 assert all(north_by_index == north_by_name)
 
         """
+        if isinstance(domain, pp.Grid):
+            # bc_type_* methods ... require working with subdomains
+
+            face_centers = domain.face_centers
+            num_faces = domain.num_faces
+            all_bf = domain.get_boundary_faces()
+        elif isinstance(domain, pp.BoundaryGrid):
+            # Cells of the boundary grid are faces of the parent subdomain.
+            face_centers = domain.cell_centers
+            num_faces = domain.num_cells
+            all_bf = np.arange(num_faces)
+        else:
+            raise ValueError(
+                "Domain must be either Grid or BoundaryGrid. Provided:", domain
+            )
+
         # Get domain boundary sides
         box = copy.deepcopy(self.domain.bounding_box)
-        east = np.abs(box["xmax"] - sd.face_centers[0]) <= tol
-        west = np.abs(box["xmin"] - sd.face_centers[0]) <= tol
+
+        east = np.abs(box["xmax"] - face_centers[0]) <= tol
+        west = np.abs(box["xmin"] - face_centers[0]) <= tol
         if self.mdg.dim_max() == 1:
-            north = np.zeros(sd.num_faces, dtype=bool)
+            north = np.zeros(num_faces, dtype=bool)
             south = north.copy()
         else:
-            north = np.abs(box["ymax"] - sd.face_centers[1]) <= tol
-            south = np.abs(box["ymin"] - sd.face_centers[1]) <= tol
+            north = np.abs(box["ymax"] - face_centers[1]) <= tol
+            south = np.abs(box["ymin"] - face_centers[1]) <= tol
         if self.mdg.dim_max() < 3:
-            top = np.zeros(sd.num_faces, dtype=bool)
+            top = np.zeros(num_faces, dtype=bool)
             bottom = top.copy()
         else:
-            top = np.abs(box["zmax"] - sd.face_centers[2]) <= tol
-            bottom = np.abs(box["zmin"] - sd.face_centers[2]) <= tol
-        all_bf = sd.get_boundary_faces()
+            top = np.abs(box["zmax"] - face_centers[2]) <= tol
+            bottom = np.abs(box["zmin"] - face_centers[2]) <= tol
 
         # Create a namedtuple to store the arrays
         domain_sides = pp.domain.DomainSides(
@@ -679,8 +711,11 @@ class ModelGeometry:
         # signs, and project back up to all subdomains.
         flipped_normals = flip @ primary_face_normals
         # Project to mortar grid, as a mapping from mortar to the subdomains and back
-        # again.
-        outwards_normals = mortar_projection.primary_to_mortar_avg @ flipped_normals
+        # again. If we are to use cell_volumes from interfaces to normalize, projection
+        # must logically be integration, not average. This also means that the normals
+        # have length equal to cell_volume on mortar grids, by analogy to face_area for
+        # subdomains.
+        outwards_normals = mortar_projection.primary_to_mortar_int @ flipped_normals
         outwards_normals.set_name("outwards_internal_boundary_normals")
 
         # Normalize by face area if requested.

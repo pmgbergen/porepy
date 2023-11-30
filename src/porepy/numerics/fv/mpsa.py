@@ -24,21 +24,44 @@ logger = logging.getLogger(__name__)
 
 
 class Mpsa(Discretization):
+
     """Implementation of the Multi-point stress approximation.
 
-    Attributes:
-        keyword (str): Keyword used to identify the parameter dictionary.
-            Defaults to "mechanics".
-        stress_matrix_key (str): Keyword used to identify the discretization matrix for
-            the stress. Defaults to "stress".
-        bound_stress_matrix_key (str): Keyword used to identify the discretization
-             matrix for the boundary conditions for stress. Defaults to "bound_stress".
-        bound_displacement_cell_matrix_key (str): Keyword used to identify the
-            discretization matrix for the cell center displacement contribution to
-            boundary displacement reconstrution. Defaults to "bound_displacement_cell".
-        bound_displacement_face_matrix_key (str): Keyword used to identify the
-            discretization matrix for the boundary conditions' contribution to
-            boundary displacement reconstrution. Defaults to "bound_displacement_face".
+    The method can be used directly on a single grid, by calling ``:meth:discretize``
+    followed by ``:meth:assemble_matrix_rhs``, which will produce a linear system
+    corresponding to the discretization of the second order elliptic equation, to be
+    solved for the cell center values of the pressure.
+
+    The method can also be used as a discretization method for a mixed-dimensional
+    problem, but it is recommended to do so through the Ad framework, specifically via
+    the wrapper class ``:class:porepy.numerics.ad.discretization.MpsaAd``. Likewise, the
+    Ad framework is the recommended way to use the method for multiphysics problems, on
+    both single and mixed-dimensional grids.
+
+    The discretization is stored as a set of matrices in the dictionary
+    ``data[pp.DISCRETIZATION_MATRICES][self.keyword]``, see ``:meth:discretize`` for
+    details. The most important of these are the ``stress`` matrix, which is the
+    stiffness matrix, and the ``bound_stress`` matrix, which is the
+    discretization of the boundary conditions. Documentation on how to use these
+    matrices to assemble a linear system can be found ``:meth:assemble_matrix_rhs``. In
+    addition, the discretization provides two matrices, ``bound_displacement_cell`` and
+    ``bound_displacement_face`` that together form a reconstruction of the displacement
+    trace at boundaries (external and internal). These can be computed by calling
+
+    .. code-block:: Python
+        bc_values = ... # Boundary condition values, can be a combination of Dirichlet
+                        # and Neumann conditions
+
+        d_cell_center = ... # Compute cell center displacement
+        bound_displacement_cell = data[pp.DISCRETIZATION_MATRICES][self.keyword][
+            self.bound_displacement_cell_matrix_key
+        ]  # Fetch the discretization matrix, see discretize() for details
+        # Do the same for bound_displacement_face
+
+        # Compute the displacment trace
+        displacement_trace =
+        #       bound_displacement_cell * d_cell_center +
+        #       bound_displacement_face * bc_values
 
     """
 
@@ -47,15 +70,25 @@ class Mpsa(Discretization):
         information associated with the discretization.
 
         Paramemeters:
-            keyword (str): Identifier of all information used for this
-                discretization.
+            keyword: Identifier of all information used for this discretization.
+
         """
         self.keyword = keyword
-
+        """Keyword used to identify the parameter dictionary. Defaults to 'mechanics'."""
         self.stress_matrix_key = "stress"
+        """Keyword used to identify the discretization matrix for the stress. Defaults
+        to 'stress'."""
         self.bound_stress_matrix_key = "bound_stress"
+        """Keyword used to identify the discretization matrix for the boundary
+        conditions for stress. Defaults to 'bound_stress'."""
         self.bound_displacement_cell_matrix_key = "bound_displacement_cell"
+        """Keyword used to identify the discretization matrix for the cell center
+        displacement contribution to boundary displacement reconstrution. Defaults to
+        'bound_displacement_cell'."""
         self.bound_displacement_face_matrix_key = "bound_displacement_face"
+        """Keyword used to identify the discretization matrix for the boundary
+        conditions' contribution to boundary displacement reconstrution. Defaults to
+        'bound_displacement_face'."""
 
     def _key(self) -> str:
         """Get the keyword of this object, on a format friendly to access relevant
@@ -68,65 +101,18 @@ class Mpsa(Discretization):
         return self.keyword + "_"
 
     def ndof(self, sd: pp.Grid) -> int:
-        """
-        Return the number of degrees of freedom associated to the method.
-        In this case number of cells times dimension (stress dof).
+        """Return the number of degrees of freedom associated to the method.
 
-        Parameter
-        ---------
-        sd: grid, or a subclass.
+        In this case number of cells times dimension (displacement dof).
 
-        Return
-        ------
-        dof: the number of degrees of freedom.
+        Parameters:
+            sd: grid, or a subclass.
+
+        Returns:
+            The number of degrees of freedom.
 
         """
         return sd.dim * sd.num_cells
-
-    def extract_displacement(
-        self, sd: pp.Grid, solution_array: np.ndarray, d: dict
-    ) -> np.ndarray:
-        """Extract the displacement part of a solution.
-
-        Parameters:
-            g (grid): To which the solution array belongs.
-            solution_array (np.array): Solution for this grid.
-            d (dictionary): Data dictionary associated with the grid. Not used,
-                but included for consistency reasons.
-
-        Returns:
-            np.array (sd.num_cells): Displacement solution vector. Will be identical
-                to solution_array.
-
-        """
-        return solution_array
-
-    def extract_stress(
-        self, sd: pp.Grid, solution_array: np.ndarray, d: dict
-    ) -> np.ndarray:
-        """Extract the stress corresponding to a solution
-
-        The stress is composed of contributions from the solution variable and the
-        boundary conditions.
-
-        Parameters:
-            g (grid): To which the solution array belongs.
-            solution_array (np.array): Solution for this grid.
-            d (dictionary): Data dictionary associated with the grid.
-
-        Returns:
-            np.array (sd.num_cells): Vector of stresses on the grid faces.
-
-        """
-        matrix_dictionary = d[pp.DISCRETIZATION_MATRICES][self.keyword]
-        parameter_dictionary = d[pp.PARAMETERS][self.keyword]
-
-        stress = matrix_dictionary[self.stress_matrix_key].tocsr()
-        bound_stress = matrix_dictionary[self.bound_stress_matrix_key].tocsr()
-
-        bc_val = parameter_dictionary["bc_values"]
-
-        return stress * solution_array + bound_stress * bc_val
 
     def discretize(self, sd: pp.Grid, data: dict) -> None:
         """
@@ -158,6 +144,13 @@ class Mpsa(Discretization):
                 0 is used).
             - inverter (``str``): Optional. Inverter to apply for local problems.
                 Can take values 'numba' (default), or 'python'.
+            - partition_arguments (``dict``): Optional. Arguments to control the number
+                of subproblems used to discretize the grid. Can be either the target
+                maximal memory use (controlled by keyword 'max_memory' in
+                ``partition_arguments``), or the number of subproblems (keyword
+                'num_subproblems' in ``partition_arguments``). If none are given, the
+                default is to use 1e9 bytes of memory per subproblem. If both are given,
+                the maximal memory use is prioritized.
 
         matrix_dictionary will be updated with the following entries:
             - ``stress: sps.csc_matrix (sd.dim * sd.num_faces, sd.dim * sd.num_cells)``
@@ -165,11 +158,11 @@ class Mpsa(Discretization):
             - ``bound_flux: sps.csc_matrix (sd.dim * sd.num_faces, sd.dim *
                 sd.num_faces)`` stress discretization, face contribution
             - ``bound_displacement_cell: sps.csc_matrix (sd.dim * sd.num_faces,
-                                                     sd.dim * sd.num_cells)``
+                                                         sd.dim * sd.num_cells)``
                 Operator for reconstructing the displacement trace. Cell center
                 contribution.
             - ``bound_displacement_face: sps.csc_matrix (sd.dim * sd.num_faces,
-                                                     sd.dim * sd.num_faces)``
+                                                         sd.dim * sd.num_faces)``
                 Operator for reconstructing the displacement trace. Face contribution.
 
         Parameters:
@@ -190,7 +183,11 @@ class Mpsa(Discretization):
         inverter: Literal["python", "numba"] = parameter_dictionary.get(
             "inverter", "numba"
         )
-        max_memory: int = parameter_dictionary.get("max_memory", 1e9)
+
+        # Control of the number of subdomanis.
+        max_memory, num_subproblems = pp.fvutils.parse_partition_arguments(
+            parameter_dictionary.get("partition_arguments", {})
+        )
 
         # Whether to update an existing discretization, or construct a new one. If True,
         # either specified_cells, _faces or _nodes should also be given, or else a full
@@ -225,8 +222,17 @@ class Mpsa(Discretization):
         nf = active_grid.num_faces
         nc = active_grid.num_cells
 
+        # To limit the memory need of discretization, we will split the discretization
+        # into sub-problems, discretize these separately, and glue together the results.
+        # This procedure requires some bookkeeping, in particular to keep track of how
+        # many times a face has been discretized (faces may be shared between subgrids,
+        # thus discretized multiple times).
+        faces_in_subgrid_accum = []
+        # Find an estimate of the peak memory need. This is used to decide how many
+        # subproblems to split the discretization into.
+        peak_memory_estimate = self._estimate_peak_memory_mpsa(active_grid)
         # Empty matrices for stress, bound_stress and boundary displacement
-        # reconstruction. Will be expanded as we go.
+        # reconstruction. These will be expanded as we go.
         # Implementation note: It should be relatively straightforward to estimate the
         # memory need of stress (face_nodes -> node_cells -> unique).
         active_stress = sps.csr_matrix((nf * nd, nc * nd))
@@ -234,14 +240,35 @@ class Mpsa(Discretization):
         active_bound_displacement_cell = sps.csr_matrix((nf * nd, nc * nd))
         active_bound_displacement_face = sps.csr_matrix((nf * nd, nf * nd))
 
-        # Find an estimate of the peak memory need
-        peak_memory_estimate = self._estimate_peak_memory_mpsa(active_grid)
-
         # Loop over all partition regions, construct local problems, and transfer
         # discretization to the entire active grid.
         for reg_i, (sub_g, faces_in_subgrid, _, l2g_cells, l2g_faces) in enumerate(
-            pp.fvutils.subproblems(active_grid, max_memory, peak_memory_estimate)
+            pp.fvutils.subproblems(
+                active_grid,
+                peak_memory_estimate,
+                max_memory=max_memory,
+                num_subproblems=num_subproblems,
+            )
         ):
+            # The partitioning into subgrids is done with an overlap (see
+            # fvutils.subproblems for a description). Cells and faces in the overlap
+            # will have a wrong discretization in one of two ways: Those faces that are
+            # strictly in the overlap should not be included in the current
+            # sub-discretization (their will be in the interior of a different
+            # subdomain). This contribution will be deleted locally, below. Faces that
+            # are on the boundary between two subgrids will be discretized twice. This
+            # will be handled by dividing the discretization by two. We cannot know
+            # which faces are on the boundary (or perhaps we could, but that would
+            # require more advanced bookkeeping), so we count the number of times a face
+            # has been discretized, and divide by that number at the end (after having
+            # iterated over all subdomains).
+            #
+            # Take note of which faces are discretized in this subgrid. Note that this
+            # needs to use faces_in_subgrid, not l2g_faces, since the latter contains
+            # faces in the overlap.
+            faces_in_subgrid_accum.append(faces_in_subgrid)
+
+            # Start timer for subproblem
             tic = time()
 
             # Copy stiffness tensor, and restrict to local cells.
@@ -261,7 +288,7 @@ class Mpsa(Discretization):
                 loc_bound_stress,
                 loc_bound_displacement_cell,
                 loc_bound_displacement_face,
-            ) = self._stress_disrcetization(
+            ) = self._stress_discretization(
                 sub_g, loc_c, loc_bnd, eta=eta, inverter=inverter, hf_eta=hf_eta
             )
 
@@ -299,6 +326,23 @@ class Mpsa(Discretization):
             )
             logger.info(f"Done with subproblem {reg_i}. Elapsed time {time() - tic}")
 
+        # Divide by the number of times a face has been discretized. This is necessary
+        # to avoid double counting of faces on the boundary between subproblems. Note
+        # that this is done before mapping from the active to the full grid, since the
+        # subgrids (thus face map) was computed on the active grid.
+        num_face_repetitions = np.tile(
+            np.bincount(np.concatenate(faces_in_subgrid_accum)), (nd, 1)
+        ).ravel("F")
+        scaling = sps.dia_matrix(
+            (1.0 / num_face_repetitions, 0),
+            shape=(nf * nd, nf * nd),
+        )
+        # All the discretization matrices must be updated.
+        active_stress = scaling @ active_stress
+        active_bound_stress = scaling @ active_bound_stress
+        active_bound_displacement_cell = scaling @ active_bound_displacement_cell
+        active_bound_displacement_face = scaling @ active_bound_displacement_face
+
         # We have reached the end of the discretization, what remains is to map the
         # discretization back from the active grid to the entire grid
         face_map, cell_map = pp.fvutils.map_subgrid_to_grid(
@@ -315,6 +359,7 @@ class Mpsa(Discretization):
             face_map * active_bound_displacement_face * face_map.transpose()
         )
 
+        # Eliminate contribution from faces that were not designated as active.
         eliminate_faces = np.setdiff1d(np.arange(sd.num_faces), active_faces)
         pp.fvutils.remove_nonlocal_contribution(
             eliminate_faces,
@@ -422,7 +467,7 @@ class Mpsa(Discretization):
         self, sd: pp.Grid, data: dict
     ) -> tuple[sps.spmatrix, np.ndarray]:
         """Return the matrix and right-hand side for a discretization of a second
-        order elliptic equation using a FV method with a multi-point stress
+        order elliptic vector equation using a FV method with a multi-point stress
         approximation.
 
         Parameters:
@@ -441,66 +486,29 @@ class Mpsa(Discretization):
                 source term.
 
         """
-        return self.assemble_matrix(sd, data), self.assemble_rhs(sd, data)
-
-    def assemble_matrix(self, sd: pp.Grid, data: dict) -> sps.spmatrix:
-        """Return the matrix for a discretization of a second order elliptic vector
-        equation using a FV method.
-
-        Parameters:
-            g: Grid to be discretized.
-            data: dictionary to store the data. For details on necessary keywords,
-                see ``:meth:discretize``.
-
-        Returns
-            :obj:`~scipy.sparse.spmatrix`: ``(sd.dim * g_num_cells, sd.dim * g_num_cells)``
-
-                Discretization matrix.
-
-        """
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
+        parameter_dictionary = data[pp.PARAMETERS][self.keyword]
+
+        stress = matrix_dictionary["stress"]
+        bound_stress = matrix_dictionary["bound_stress"]
 
         div = pp.fvutils.vector_divergence(sd)
-        stress = matrix_dictionary["stress"]
+        # Assemble matrix.
         if stress.shape[0] != sd.dim * sd.num_faces:
             hf2f = pp.fvutils.map_hf_2_f(sd=sd)
             stress = hf2f * stress
-        M = div * stress
+        matrix = div * stress
 
-        return M
-
-    def assemble_rhs(self, sd: pp.Grid, data: dict) -> np.ndarray:
-        """Return the right-hand side for a discretization of a second order elliptic
-        equation using a finite volume method.
-
-        Parameters:
-            g: Grid to be discretized.
-            data: dictionary to store the data. For details on necessary keywords,
-                see ``:meth:discretize``.
-
-        Returns
-            :obj:`~np.ndarray`: ``(sd.dim * g_num_cells)``
-
-            Right-hand side which contains the boundary conditions and the vector
-            source term.
-
-        """
-        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
-
-        bound_stress = matrix_dictionary["bound_stress"]
+        # Assemble right-hand side.
         if bound_stress.shape[0] != sd.dim * sd.num_faces:
             hf2f = pp.fvutils.map_hf_2_f(sd=sd)
             bound_stress = hf2f * bound_stress
 
-        parameter_dictionary = data[pp.PARAMETERS][self.keyword]
-
         bc_val = parameter_dictionary["bc_values"]
+        rhs = -div * bound_stress * bc_val + parameter_dictionary["source"]
+        return matrix, rhs
 
-        div = pp.fvutils.vector_divergence(sd)
-
-        return -div * bound_stress * bc_val + parameter_dictionary["source"]
-
-    def _stress_disrcetization(
+    def _stress_discretization(
         self,
         sd: pp.Grid,
         constit: pp.FourthOrderTensor,

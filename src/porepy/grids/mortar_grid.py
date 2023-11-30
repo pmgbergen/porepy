@@ -13,6 +13,7 @@ import numpy as np
 from scipy import sparse as sps
 
 import porepy as pp
+from porepy.numerics.linalg.matrix_operations import sparse_kronecker_product
 
 
 class MortarSides(Enum):
@@ -576,7 +577,7 @@ class MortarGrid:
             ``shape=(nd*g_primary.num_faces, nd*mortar_grid.num_cells)``.
 
         """
-        return self._convert_to_vector_variable(self._primary_to_mortar_int, nd)
+        return sparse_kronecker_product(self._primary_to_mortar_int, nd)
 
     def secondary_to_mortar_int(self, nd: int = 1) -> sps.spmatrix:
         """Project values from cells on the secondary side to the mortar, by summing
@@ -599,7 +600,7 @@ class MortarGrid:
             ``shape=(nd*g_secondary.num_cells, nd*mortar_grid.num_cells)``.
 
         """
-        return self._convert_to_vector_variable(self._secondary_to_mortar_int, nd)
+        return sparse_kronecker_product(self._secondary_to_mortar_int, nd)
 
     def primary_to_mortar_avg(self, nd: int = 1) -> sps.spmatrix:
         """Project values from faces of primary to the mortar, by averaging quantities
@@ -623,7 +624,7 @@ class MortarGrid:
             ``shape=(nd*g_primary.num_faces, nd*mortar_grid.num_cells)``.
 
         """
-        return self._convert_to_vector_variable(self._primary_to_mortar_avg, nd)
+        return sparse_kronecker_product(self._primary_to_mortar_avg, nd)
 
     def secondary_to_mortar_avg(self, nd: int = 1) -> sps.spmatrix:
         """Project values from cells at the secondary to the mortar, by averaging
@@ -647,7 +648,7 @@ class MortarGrid:
             ``shape=(nd*g_secondary.num_cells, nd*mortar_grid.num_cells)``.
 
         """
-        return self._convert_to_vector_variable(self._secondary_to_mortar_avg, nd)
+        return sparse_kronecker_product(self._secondary_to_mortar_avg, nd)
 
     def mortar_to_primary_int(self, nd: int = 1) -> sps.spmatrix:
         """Project values from the mortar to faces of primary, by summing quantities
@@ -670,7 +671,7 @@ class MortarGrid:
             ``shape=(nd*mortar_grid.num_cells, nd*g_primary.num_faces)``.
 
         """
-        return self._convert_to_vector_variable(self._mortar_to_primary_int, nd)
+        return sparse_kronecker_product(self._mortar_to_primary_int, nd)
 
     def mortar_to_secondary_int(self, nd: int = 1) -> sps.spmatrix:
         """Project values from the mortar to cells at the secondary, by summing
@@ -694,7 +695,7 @@ class MortarGrid:
 
 
         """
-        return self._convert_to_vector_variable(self._mortar_to_secondary_int, nd)
+        return sparse_kronecker_product(self._mortar_to_secondary_int, nd)
 
     def mortar_to_primary_avg(self, nd: int = 1) -> sps.spmatrix:
         """Project values from the mortar to faces of primary, by averaging quantities
@@ -718,7 +719,7 @@ class MortarGrid:
             ``shape=(nd*mortar_grid.num_cells, nd*g_primary.num_faces)``.
 
         """
-        return self._convert_to_vector_variable(self._mortar_to_primary_avg, nd)
+        return sparse_kronecker_product(self._mortar_to_primary_avg, nd)
 
     def mortar_to_secondary_avg(self, nd: int = 1) -> sps.spmatrix:
         """Project values from the mortar to secondary, by averaging quantities from the
@@ -742,21 +743,7 @@ class MortarGrid:
             ``shape=(nd*mortar_grid.num_cells, nd*g_secondary.num_faces)``.
 
         """
-        return self._convert_to_vector_variable(self._mortar_to_secondary_avg, nd)
-
-    def _convert_to_vector_variable(
-        self, matrix: sps.spmatrix, nd: int
-    ) -> sps.spmatrix:
-        """Convert the scalar projection to a vector quantity. If the prescribed
-        dimension is 1 (default for all the above methods), the projection matrix will
-        in effect not be altered.
-
-        """
-        if nd == 1:
-            # No need to do expansion for 1d variables.
-            return matrix
-        else:
-            return sps.kron(matrix, sps.eye(nd)).tocsc()
+        return sparse_kronecker_product(self._mortar_to_secondary_avg, nd)
 
     def sign_of_mortar_sides(self, nd: int = 1) -> sps.spmatrix:
         """Assign positive or negative weight to the two sides of a mortar grid.

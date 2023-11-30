@@ -15,16 +15,13 @@ with open("requirements.txt") as f:
     required = f.read().splitlines()
 
 
-long_description = read("Readme.rst")
-
 setup(
     name="porepy",
-    version="1.7.0",
+    version="1.8.0",
     license="GPL",
     keywords=["porous media simulation fractures deformable"],
     install_requires=required,
     description="Simulation tool for fractured and deformable porous media",
-    long_description=long_description,
     maintainer="Eirik Keilegavlen",
     maintainer_email="Eirik.Keilegavlen@uib.no",
     platforms=["Linux", "Windows", "Mac OS-X"],

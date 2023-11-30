@@ -23,6 +23,7 @@ import sympy as sym
 
 import porepy as pp
 from porepy.applications.md_grids.domains import nd_cube_domain
+from porepy.applications.convergence_analysis import ConvergenceAnalysis
 from porepy.utils.examples_utils import VerificationUtils
 from porepy.viz.data_saving_model_mixin import VerificationDataSaving
 
@@ -139,7 +140,7 @@ class ManuIncompDataSaving(VerificationDataSaving):
         exact_matrix_pressure = exact_sol.matrix_pressure(sd_matrix)
         matrix_pressure_ad = self.pressure([sd_matrix])
         approx_matrix_pressure = matrix_pressure_ad.evaluate(self.equation_system).val
-        error_matrix_pressure = pp.error_computation.l2_error(
+        error_matrix_pressure = ConvergenceAnalysis.l2_error(
             grid=sd_matrix,
             true_array=exact_matrix_pressure,
             approx_array=approx_matrix_pressure,
@@ -151,7 +152,7 @@ class ManuIncompDataSaving(VerificationDataSaving):
         exact_matrix_flux = exact_sol.matrix_flux(sd_matrix)
         matrix_flux_ad = self.darcy_flux([sd_matrix])
         approx_matrix_flux = matrix_flux_ad.evaluate(self.equation_system).val
-        error_matrix_flux = pp.error_computation.l2_error(
+        error_matrix_flux = ConvergenceAnalysis.l2_error(
             grid=sd_matrix,
             true_array=exact_matrix_flux,
             approx_array=approx_matrix_flux,
@@ -163,7 +164,7 @@ class ManuIncompDataSaving(VerificationDataSaving):
         exact_frac_pressure = exact_sol.fracture_pressure(sd_frac)
         frac_pressure_ad = self.pressure([sd_frac])
         approx_frac_pressure = frac_pressure_ad.evaluate(self.equation_system).val
-        error_frac_pressure = pp.error_computation.l2_error(
+        error_frac_pressure = ConvergenceAnalysis.l2_error(
             grid=sd_frac,
             true_array=exact_frac_pressure,
             approx_array=approx_frac_pressure,
@@ -175,7 +176,7 @@ class ManuIncompDataSaving(VerificationDataSaving):
         exact_frac_flux = exact_sol.fracture_flux(sd_frac)
         frac_flux_ad = self.darcy_flux([sd_frac])
         approx_frac_flux = frac_flux_ad.evaluate(self.equation_system).val
-        error_frac_flux = pp.error_computation.l2_error(
+        error_frac_flux = ConvergenceAnalysis.l2_error(
             grid=sd_frac,
             true_array=exact_frac_flux,
             approx_array=approx_frac_flux,
@@ -187,7 +188,7 @@ class ManuIncompDataSaving(VerificationDataSaving):
         exact_intf_flux = exact_sol.interface_flux(intf)
         int_flux_ad = self.interface_darcy_flux([intf])
         approx_intf_flux = int_flux_ad.evaluate(self.equation_system).val
-        error_intf_flux = pp.error_computation.l2_error(
+        error_intf_flux = ConvergenceAnalysis.l2_error(
             grid=intf,
             true_array=exact_intf_flux,
             approx_array=approx_intf_flux,
@@ -517,37 +518,34 @@ class ManuIncompExactSolution2d:
 
         return lmbda_cc
 
-    def boundary_values(self, sd_matrix: pp.Grid) -> np.ndarray:
+    def boundary_values(self, boundary_grid_matrix: pp.BoundaryGrid) -> np.ndarray:
         """Exact pressure at the boundary faces.
 
         Parameters:
-            sd_matrix: Matrix grid.
+            boundary_grid_matrix: Matrix boundary grid.
 
         Returns:
-            Array of ``shape=(sd_matrix.num_faces, )`` with the exact pressure values
-            at the exterior boundary faces.
+            Array of ``shape=(boundary_grid_matrix.num_cells, )`` with the exact
+            pressure values at the exterior boundary faces.
 
         """
         # Symbolic variables
         x, y = sym.symbols("x y")
 
         # Get list of face indices
-        fc = sd_matrix.face_centers
+        fc = boundary_grid_matrix.cell_centers
         bot = fc[1] < 0.25
         mid = (fc[1] >= 0.25) & (fc[1] <= 0.75)
         top = fc[1] > 0.75
         face_idx = [bot, mid, top]
 
-        # Boundary faces
-        bc_faces = sd_matrix.get_boundary_faces()
-
         # Lambdify expression
         p_fun = [sym.lambdify((x, y), p, "numpy") for p in self.p_matrix]
 
         # Boundary pressures
-        p_bf = np.zeros(sd_matrix.num_faces)
+        p_bf = np.zeros(boundary_grid_matrix.num_cells)
         for p, idx in zip(p_fun, face_idx):
-            p_bf[bc_faces] += p(fc[0], fc[1])[bc_faces] * idx[bc_faces]
+            p_bf += p(fc[0], fc[1]) * idx
 
         return p_bf
 
@@ -669,19 +667,15 @@ class SingleEmbeddedVerticalLineFracture:
 
 
 # -----> Boundary conditions
-class ManuIncompBoundaryConditions:
+class ManuIncompBoundaryConditions(
+    pp.fluid_mass_balance.BoundaryConditionsSinglePhaseFlow
+):
     """Set boundary conditions for the simulation model."""
-
-    domain_boundary_sides: Callable[[pp.Grid], pp.domain.DomainSides]
-    """Utility function to access the domain boundary sides."""
 
     exact_sol: ManuIncompExactSolution2d
     """Exact solution object."""
 
-    mdg: pp.MixedDimensionalGrid
-    """Mixed-dimensional grid."""
-
-    def bc_type_darcy(self, sd: pp.Grid) -> pp.BoundaryCondition:
+    def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         """Set boundary condition type."""
         if sd.dim == self.mdg.dim_max():  # Dirichlet for the matrix
             boundary_faces = self.domain_boundary_sides(sd).all_bf
@@ -690,17 +684,21 @@ class ManuIncompBoundaryConditions:
             boundary_faces = self.domain_boundary_sides(sd).all_bf
             return pp.BoundaryCondition(sd, boundary_faces, "neu")
 
-    def bc_values_darcy(self, subdomains: list[pp.Grid]) -> pp.ad.DenseArray:
-        """Set boundary condition values."""
-        values = []
-        for sd in subdomains:
-            boundary_faces = self.domain_boundary_sides(sd).all_bf
-            val_loc = np.zeros(sd.num_faces)
-            if sd.dim == self.mdg.dim_max():
-                exact_bc = self.exact_sol.boundary_values(sd_matrix=sd)
-                val_loc[boundary_faces] = exact_bc[boundary_faces]
-            values.append(val_loc)
-        return pp.wrap_as_ad_array(np.hstack(values), name="bc_values_darcy")
+    def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+        """Analytical boundary condition values for Darcy flux.
+
+        Parameters:
+            boundary_grid: Boundary grid for which to define boundary conditions.
+
+        Returns:
+            Boundary condition values array.
+
+        """
+        vals = np.zeros(boundary_grid.num_cells)
+        if boundary_grid.dim == (self.mdg.dim_max() - 1):
+            # Dirichlet for matrix
+            vals[:] = self.exact_sol.boundary_values(boundary_grid_matrix=boundary_grid)
+        return vals
 
 
 # -----> Balance equations
@@ -730,7 +728,7 @@ class ManuIncompBalanceEquation(pp.fluid_mass_balance.MassBalanceEquations):
                 values.append(self.exact_sol.matrix_source(sd_matrix=sd))
             else:
                 values.append(self.exact_sol.fracture_source(sd_frac=sd))
-        external_sources = pp.wrap_as_ad_array(np.hstack(values))
+        external_sources = pp.wrap_as_dense_ad_array(np.hstack(values))
 
         # Add up both contributions
         source = internal_sources + external_sources

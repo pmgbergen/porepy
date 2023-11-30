@@ -16,7 +16,7 @@ Notes:
 from __future__ import annotations
 
 import logging
-from typing import Callable, Optional, Union
+from typing import Callable, Optional, Sequence, Union, cast
 
 import numpy as np
 
@@ -51,15 +51,15 @@ class MassBalanceEquations(pp.BalanceEquation):
     defining the solution strategy.
 
     """
-    fluid_density: Callable[[list[pp.Grid]], pp.ad.Operator]
+    fluid_density: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     """Fluid density. Defined in a mixin class with a suitable constitutive relation.
     """
-    porosity: Callable[[list[pp.Grid]], pp.ad.Operator]
+    porosity: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     """Porosity of the rock. Normally provided by a mixin instance of
     :class:`~porepy.models.constitutive_laws.ConstantPorosity` or a subclass thereof.
 
     """
-    mobility: Callable[[list[pp.Grid]], pp.ad.Operator]
+    mobility: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     """Fluid mobility. Normally provided by a mixin instance of
     :class:`~porepy.models.constitutive_laws.FluidMobility`.
 
@@ -74,11 +74,6 @@ class MassBalanceEquations(pp.BalanceEquation):
     ]
     """Discretization of the fluid mobility on internal boundaries. Normally provided
     by a mixin instance of :class:`~porepy.models.constitutive_laws.FluidMobility`.
-
-    """
-    bc_values_mobrho: Callable[[list[pp.Grid]], pp.ad.DenseArray]
-    """Mobility times density boundary conditions. Normally defined in a mixin instance
-    of :class:`~porepy.models.fluid_mass_balance.BoundaryConditionsSinglePhaseFlow`.
 
     """
     advective_flux: Callable[
@@ -131,6 +126,25 @@ class MassBalanceEquations(pp.BalanceEquation):
     :class:`~porepy.models.constitutive_laws.AdvectiveFlux`.
 
     """
+    create_boundary_operator: Callable[
+        [str, Sequence[pp.BoundaryGrid]], pp.ad.TimeDependentDenseArray
+    ]
+
+    bc_data_fluid_flux_key: str
+
+    bc_type_fluid_flux: Callable[[pp.Grid], pp.BoundaryCondition]
+
+    _combine_boundary_operators: Callable[
+        [
+            Sequence[pp.Grid],
+            Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
+            Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
+            Callable[[pp.Grid], pp.BoundaryCondition],
+            str,
+            int,
+        ],
+        pp.ad.Operator,
+    ]
 
     def set_equations(self):
         """Set the equations for the mass balance problem.
@@ -195,24 +209,68 @@ class MassBalanceEquations(pp.BalanceEquation):
         mass.set_name("fluid_mass")
         return mass
 
-    def fluid_flux(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Fluid flux.
-
-        Darcy flux times density and mobility.
+    def mobility_rho(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+        """Fluid density times mobility.
 
         Parameters:
-            subdomains: List of subdomains.
+            domains: List of grids to define the operator on.
+                Returns a variable-independent representation of boundary conditions if
+                called using a list of boundary grids.
+
+        Returns:
+            Operator representing the fluid density times mobility.
+
+        """
+        return self.fluid_density(domains) * self.mobility(domains)
+
+    def fluid_flux(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+        """Fluid flux as Darcy flux times density and mobility.
+
+        Note:
+            The advected entity in the fluid flux is given by :meth:`mobility_rho`.
+            When using upwinding, Dirichlet-type data for pressure and temperature
+            must also be provided on the Neumann-boundary when there is
+            an in-flux into the domain.
+            The advected entity must provide values on the boundary in this case, since
+            the upstream value of it is on the boundary.
+
+        Parameters:
+            domains: List of subdomains or boundary grids.
+
+        Raises:
+            ValueError: If the domains are not all grids or all boundary grids.
 
         Returns:
             Operator representing the fluid flux.
 
         """
-        discr = self.mobility_discretization(subdomains)
-        mob_rho = self.fluid_density(subdomains) * self.mobility(subdomains)
+        if len(domains) == 0 or all(isinstance(d, pp.BoundaryGrid) for d in domains):
+            # Note: in case of the empty subdomain list, the time dependent array is
+            # still returned. Otherwise, this method produces an infinite recursion
+            # loop. It does not affect real computations anyhow.
+            return self.create_boundary_operator(  # type: ignore[call-arg]
+                name=self.bc_data_fluid_flux_key, domains=domains
+            )
 
-        bc_values = self.bc_values_mobrho(subdomains)
+        # Verify that the domains are subdomains.
+        if not all(isinstance(d, pp.Grid) for d in domains):
+            raise ValueError("domains must consist entirely of subdomains.")
+        # Now we can cast the domains
+        domains = cast(list[pp.Grid], domains)
+
+        discr = self.mobility_discretization(domains)
+        mob_rho = self.mobility_rho(domains)
+
+        # )
+        boundary_operator = self._combine_boundary_operators(  # type: ignore[call-arg]
+            subdomains=domains,
+            dirichlet_operator=self.mobility_rho,
+            neumann_operator=self.fluid_flux,
+            bc_type=self.bc_type_fluid_flux,
+            name="bc_values_fluid_flux",
+        )
         flux = self.advective_flux(
-            subdomains, mob_rho, discr, bc_values, self.interface_fluid_flux
+            domains, mob_rho, discr, boundary_operator, self.interface_fluid_flux
         )
         flux.set_name("fluid_flux")
         return flux
@@ -341,20 +399,10 @@ class ConstitutiveLawsSinglePhaseFlow(
 
     """
 
-    pass
 
-
-class BoundaryConditionsSinglePhaseFlow:
+class BoundaryConditionsSinglePhaseFlow(pp.BoundaryConditionMixin):
     """Boundary conditions for single-phase flow."""
 
-    domain_boundary_sides: Callable[
-        [pp.Grid],
-        pp.domain.DomainSides,
-    ]
-    """Boundary sides of the domain. Normally defined in a mixin instance of
-    :class:`~porepy.models.geometry.ModelGeometry`.
-
-    """
     fluid: pp.FluidConstants
     """Fluid constant object that takes care of scaling of fluid-related quantities.
     Normally, this is set by a mixin of instance
@@ -362,14 +410,23 @@ class BoundaryConditionsSinglePhaseFlow:
 
     """
 
-    def bc_type_darcy(self, sd: pp.Grid) -> pp.BoundaryCondition:
-        """Dirichlet conditions on all external boundaries.
+    bc_data_fluid_flux_key: str = "fluid_flux"
+    bc_data_darcy_flux_key: str = "darcy_flux"
+    """Name of the boundary data for the Neuman boundary condition."""
+    pressure_variable: str
+    """Name of the pressure variable."""
+    pressure: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
+    darcy_flux: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
+
+    def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        """Boundary conditions on all external boundaries.
 
         Parameters:
             sd: Subdomain grid on which to define boundary conditions.
 
         Returns:
-            Boundary condition object.
+            Boundary condition object. Per default Dirichlet-type BC are assigned,
+            requiring pressure values on the bonudary.
 
         """
         # Define boundary faces.
@@ -377,14 +434,14 @@ class BoundaryConditionsSinglePhaseFlow:
         # Define boundary condition on all boundary faces.
         return pp.BoundaryCondition(sd, boundary_faces, "dir")
 
-    def bc_type_mobrho(self, sd: pp.Grid) -> pp.BoundaryCondition:
-        """Dirichlet conditions on all external boundaries.
+    def bc_type_fluid_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        """Boundary conditions on all external boundaries.
 
         Parameters:
             sd: Subdomain grid on which to define boundary conditions.
 
         Returns:
-            Boundary condition object.
+            Boundary condition object. Per default Dirichlet-type BC are assigned.
 
         """
         # Define boundary faces.
@@ -392,63 +449,83 @@ class BoundaryConditionsSinglePhaseFlow:
         # Define boundary condition on all boundary faces.
         return pp.BoundaryCondition(sd, boundary_faces, "dir")
 
-    def bc_values_darcy(self, subdomains: list[pp.Grid]) -> pp.ad.DenseArray:
-        """Boundary condition values for the Darcy flux.
+    def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+        """Pressure values for the Dirichlet boundary condition.
+
+        These values are used for quantities relying on Dirichlet data for pressure on
+        the boundary, such as mobility, density or Darcy flux.
+
+        Important:
+            Override this method to provide custom Dirichlet boundary data for pressure,
+            per boundary grid as a numpy array with numerical values.
 
         Parameters:
-            subdomains: List of subdomains.
+            boundary_grid: Boundary grid to provide values for.
 
         Returns:
-            Ad array representing the boundary condition values for the Darcy flux.
+            An array with ``shape(boundary_grid.num_cells,)`` containing the pressure
+            values on the provided boundary grid.
 
         """
-        num_faces = sum([sd.num_faces for sd in subdomains])
-        # Ignore typing error below, the parameter in _ad_wrapper forces it to be an
-        # Array.
-        return pp.wrap_as_ad_array(0, num_faces, "bc_values_darcy")
+        return self.fluid.pressure() * np.ones(boundary_grid.num_cells)
 
-    def bc_values_mobrho(self, subdomains: list[pp.Grid]) -> pp.ad.DenseArray:
-        """Boundary condition values for the mobility times density.
+    def bc_values_darcy_flux(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+        """**Volumetric** Darcy flux values for the Neumann boundary condition.
 
-        Units for Dirichlet: kg * m^-3 * Pa^-1 * s^-1
+        These values are used on the boundaries where Neumann data for the
+        volumetric Darcy :math:`\\mathbf{K}\\nabla p` flux are required.
 
-        Parameters:
-            Value is tricky if ..math:
-                mobility = \\rho / \\mu
-            with \rho and \mu being functions of p (or other variables), since variables
-            are not defined at the boundary. This may lead to inconsistency between
-            boundary conditions for Darcy flux and mobility. For now, we assume that the
-            mobility is constant. TODO: Better solution. Could involve defining boundary
-            grids.
+        Important:
+            Override this method to provide custom Neumann data for the flux,
+            per boundary grid as a numpy array with numerical values.
 
         Parameters:
-            subdomains: List of subdomains.
+            boundary_grid: Boundary grid to provide values for.
 
         Returns:
-            Array with boundary values for the mobility.
+            An array with ``shape=(boundary_grid.num_cells,)`` containing the volumetric
+            Darcy flux values on the provided boundary grid.
 
         """
-        # List for all subdomains
-        bc_values: list[np.ndarray] = []
+        return np.zeros(boundary_grid.num_cells)
 
-        # Loop over subdomains to collect boundary values
-        for sd in subdomains:
-            # Get density and viscosity values on boundary faces applying trace to
-            # interior values.
-            # Define boundary faces.
-            boundary_faces = self.domain_boundary_sides(sd).all_bf
-            # Append to list of boundary values
-            vals = np.zeros(sd.num_faces)
-            vals[boundary_faces] = self.fluid.density() / self.fluid.viscosity()
-            bc_values.append(vals)
+    def bc_values_fluid_flux(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+        r"""**Mass** flux values on the Neumann boundary.
 
-        # Concatenate to single array and wrap as ad.DenseArray
-        # We have forced the type of bc_values_array to be an ad.DenseArray, but mypy does
-        # not recognize this. We therefore ignore the typing error.
-        bc_values_array: pp.ad.DenseArray = pp.wrap_as_ad_array(  # type: ignore
-            np.hstack(bc_values), name="bc_values_mobility"
+        These values are used on the boundaries where `self.bc_type_fluid_flux` is
+        Neumann.
+
+        These values are used on the boundary for
+        :math:`\frac{\rho}{\mu} \mathbf{K} \nabla p` where Neumann data is required for
+        the whole expression.
+
+        Important:
+            Override this method to provide custom Neumann data for the flux,
+            per boundary grid as a numpy array with numerical values.
+
+        Parameters:
+            boundary_grid: Boundary grid to provide values for.
+
+        Returns:
+            An array with ``shape=(boundary_grid.num_cells,)`` containing the mass
+            fluid flux values on the provided boundary grid.
+
+        """
+        return np.zeros(boundary_grid.num_cells)
+
+    def update_all_boundary_conditions(self) -> None:
+        """Set values for the pressure and the darcy flux on boundaries."""
+        super().update_all_boundary_conditions()
+
+        self.update_boundary_condition(
+            name=self.pressure_variable, function=self.bc_values_pressure
         )
-        return bc_values_array
+        self.update_boundary_condition(
+            name=self.bc_data_darcy_flux_key, function=self.bc_values_darcy_flux
+        )
+        self.update_boundary_condition(
+            name=self.bc_data_fluid_flux_key, function=self.bc_values_fluid_flux
+        )
 
 
 class VariablesSinglePhaseFlow(pp.VariableMixin):
@@ -502,6 +579,13 @@ class VariablesSinglePhaseFlow(pp.VariableMixin):
     :class:`~porepy.models.fluid_mass_balance.SolutionStrategySinglePhaseFlow`.
 
     """
+    create_boundary_operator: Callable[
+        [str, Sequence[pp.BoundaryGrid]], pp.ad.TimeDependentDenseArray
+    ]
+    """Boundary conditions wrapped as an operator. Defined in
+    :class:`~porepy.models.boundary_condition.BoundaryConditionMixin`.
+
+    """
     nd: int
     """Number of spatial dimensions. Normally defined in a mixin of instance
     :class:`~porepy.models.geometry.ModelGeometry`.
@@ -534,9 +618,31 @@ class VariablesSinglePhaseFlow(pp.VariableMixin):
             tags={"si_units": f"m^{self.nd} * Pa"},
         )
 
-    def pressure(self, subdomains: list[pp.Grid]) -> pp.ad.MixedDimensionalVariable:
-        p = self.equation_system.md_variable(self.pressure_variable, subdomains)
-        return p
+    def pressure(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+        """Pressure term. Either a primary variable if subdomains are provided a
+        boundary condition operator if boundary grids are provided.
+
+        Parameters:
+            domains: List of subdomains or boundary grids.
+
+        Raises:
+            ValueError: If the grids are not all subdomains or all boundary grids.
+
+        Returns:
+            Operator representing the pressure.
+
+        """
+        if len(domains) > 0 and isinstance(domains[0], pp.BoundaryGrid):
+            return self.create_boundary_operator(
+                name=self.pressure_variable, domains=domains  # type: ignore[call-arg]
+            )
+        # Check that all domains are subdomains.
+        if not all(isinstance(g, pp.Grid) for g in domains):
+            raise ValueError("grids must consist entirely of subdomains.")
+        # Now we can cast the grids
+        domains = cast(list[pp.Grid], domains)
+
+        return self.equation_system.md_variable(self.pressure_variable, domains)
 
     def interface_darcy_flux(
         self, interfaces: list[pp.MortarGrid]
@@ -587,7 +693,7 @@ class VariablesSinglePhaseFlow(pp.VariableMixin):
         # method.
         p_ref = self.fluid.pressure()
         size = sum([sd.num_cells for sd in subdomains])
-        return pp.wrap_as_ad_array(p_ref, size, name="reference_pressure")
+        return pp.wrap_as_dense_ad_array(p_ref, size, name="reference_pressure")
 
 
 class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
@@ -625,13 +731,13 @@ class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
     :class:`porepy.models.geometry.ModelGeometry`.
 
     """
-    bc_type_darcy: Callable[[pp.Grid], pp.BoundaryCondition]
+    bc_type_darcy_flux: Callable[[pp.Grid], pp.BoundaryCondition]
     """Function that returns the boundary condition type for the Darcy flux. Normally
     provided by a mixin instance of
     :class:`~porepy.models.fluid_mass_balance.BoundaryConditionsSinglePhaseFlow`.
 
     """
-    bc_type_mobrho: Callable[[pp.Grid], pp.BoundaryCondition]
+    bc_type_fluid_flux: Callable[[pp.Grid], pp.BoundaryCondition]
     """Function that returns the boundary condition type for the advective flux.
     Normally provided by a mixin instance of
     :class:`~porepy.models.fluid_mass_balance.BoundaryConditionsSinglePhaseFlow`.
@@ -718,7 +824,7 @@ class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
                 data,
                 self.darcy_keyword,
                 {
-                    "bc": self.bc_type_darcy(sd),
+                    "bc": self.bc_type_darcy_flux(sd),
                     "second_order_tensor": self.permeability_tensor(sd),
                     "ambient_dimension": self.nd,
                 },
@@ -728,7 +834,7 @@ class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
                 data,
                 self.mobility_keyword,
                 {
-                    "bc": self.bc_type_mobrho(sd),
+                    "bc": self.bc_type_fluid_flux(sd),
                 },
             )
 

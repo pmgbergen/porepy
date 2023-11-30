@@ -468,7 +468,7 @@ def extract_subgrid(
     fn_sub, unique_nodes = _extract_submatrix(g.face_nodes.tocsc(), unique_faces)
 
     # Append information on subgrid extraction to the new grid's history
-    history = list(g.name)
+    history = [g.name]
     history.append("Extract subgrid")
 
     # Construct new grid.

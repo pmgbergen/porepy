@@ -423,14 +423,6 @@ class EquationSystem:
             if var.name == name and var.domain in grids:
                 raise KeyError(f"Variable {name} already defined on {var.domain}.")
 
-        def initialize_data_with_key(data: dict, key: str) -> None:
-            """Prepare storage structure for values in data dictionary if not already
-            prepared."""
-            if key not in data:
-                data[key] = {}
-            if name not in data[key]:
-                data[key][name] = {}
-
         for grid in grids:
             if subdomains:
                 assert isinstance(grid, pp.Grid)  # mypy
@@ -439,13 +431,18 @@ class EquationSystem:
                 # Register boundary grid data for the subdomain if applicable.
                 if (bg := self.mdg.subdomain_to_boundary_grid(grid)) is not None:
                     bg_data = self.mdg.boundary_grid_data(bg)
-                    initialize_data_with_key(data=bg_data, key=pp.TIME_STEP_SOLUTIONS)
+                    for key in [pp.TIME_STEP_SOLUTIONS, pp.ITERATE_SOLUTIONS]:
+                        if key not in data:
+                            bg_data[key] = {}
             else:
                 assert isinstance(grid, pp.MortarGrid)  # mypy
                 data = self.mdg.interface_data(grid)
 
-            initialize_data_with_key(data=data, key=pp.TIME_STEP_SOLUTIONS)
-            initialize_data_with_key(data=data, key=pp.ITERATE_SOLUTIONS)
+            for key in [pp.TIME_STEP_SOLUTIONS, pp.ITERATE_SOLUTIONS]:
+                if key not in data:
+                    data[key] = {}
+                if name not in data[key]:
+                    data[key][name] = {}
 
             # Create grid variable.
             new_variable = Variable(name, dof_info, domain=grid, tags=tags)
@@ -1246,6 +1243,36 @@ class EquationSystem:
         else:
             raise ValueError(f"Cannot remove unknown equation {name}")
 
+    def update_variable_num_dofs(self) -> None:
+        """Update the count of degrees of freedom related to a MixedDimensionalGrid.
+
+        The method loops through the variables and updates the number of fine-scale
+        degree of freedom. The system size will be updated if the grid has changed or
+        (perhaps less realistically) a variable has had its number of dofs per grid
+        quantity changed.
+
+        NOTE: This method is experimental and should be used with caution. After this
+        method has been called, other attributes of the class that depend on the number
+        of dofs (such as _equation_image_space_composition) will be outdated and should
+        be used with care.
+
+        """
+        for var, ind in self._variable_numbers.items():
+            # Grid quantity (grid or interface), and variable
+            grid = var.domain
+
+            dof = self._variable_dof_type[var]
+            num_dofs: int = grid.num_cells * dof.get("cells", 0)  # type: ignore
+
+            if isinstance(grid, pp.Grid):
+                # Add dofs on faces and nodes, but not on interfaces
+                num_dofs += grid.num_faces * dof.get(
+                    "faces", 0
+                ) + grid.num_nodes * dof.get("nodes", 0)
+
+            # Update local counting
+            self._variable_num_dofs[ind] = num_dofs
+
     ### System assembly and discretization ----------------------------------------------------
 
     @staticmethod
@@ -1946,65 +1973,3 @@ class EquationSystem:
             s += "\n\t".join(eq_names) + "\n"
 
         return s
-
-
-# Utility functions
-
-
-def set_solution_values(
-    name: str,
-    values: np.ndarray,
-    data: dict,
-    time_step_index: Optional[int] = None,
-    iterate_index: Optional[int] = None,
-    additive: bool = False,
-) -> None:
-    """Utility function for setting values to ``pp.TIME_STEP_SOLUTIONS`` and/or
-    ``pp.ITERATE_SOLUTIONS`` in data dictionary.
-
-    Parameters:
-        name: Name of the quantity that is to be assigned values.
-        values: The values that are set in the data dictionary.
-        data: Data dictionary corresponding to the subdomain or interface in question.
-        time_step_index (optional): Determines the key of where ``values`` are to be
-            stored in ``data[pp.TIME_STEP_SOLUTIONS][name]``. 0 means it is the most
-            recent set of values, 1 means the one time step back in time, 2 is two time
-            steps back, and so on.
-        iterate_index (optional): Determines the key of where ``values`` are to be
-            stored in ``data[pp.ITERATE_SOLUTIONS][name]``. 0 means it is the most
-            recent set of values, 1 means the values one iteration back in time, 2 is
-            two iterations back, and so on.
-        additive: Flag to decide whether the values already stored in the data
-            dictionary should be added to or overwritten.
-
-    Raises:
-        ValueError: If neither of ``time_step_index`` or ``iterate_index`` have been
-        assigned a non-None value.
-
-    """
-    if time_step_index is None and iterate_index is None:
-        raise ValueError(
-            "At least one of time_step_index and iterate_index needs to be different"
-            " from None"
-        )
-
-    if not additive:
-        if time_step_index is not None:
-            if pp.TIME_STEP_SOLUTIONS not in data:
-                data[pp.TIME_STEP_SOLUTIONS] = {}
-            if name not in data[pp.TIME_STEP_SOLUTIONS]:
-                data[pp.TIME_STEP_SOLUTIONS][name] = {}
-            data[pp.TIME_STEP_SOLUTIONS][name][time_step_index] = values.copy()
-
-        if iterate_index is not None:
-            if pp.ITERATE_SOLUTIONS not in data:
-                data[pp.ITERATE_SOLUTIONS] = {}
-            if name not in data[pp.ITERATE_SOLUTIONS]:
-                data[pp.ITERATE_SOLUTIONS][name] = {}
-            data[pp.ITERATE_SOLUTIONS][name][iterate_index] = values.copy()
-    else:
-        if time_step_index is not None:
-            data[pp.TIME_STEP_SOLUTIONS][name][time_step_index] += values
-
-        if iterate_index is not None:
-            data[pp.ITERATE_SOLUTIONS][name][iterate_index] += values

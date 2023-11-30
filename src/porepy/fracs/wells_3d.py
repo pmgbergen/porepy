@@ -429,6 +429,7 @@ class WellNetwork3d:
                 sd_w.nodes = points_subline.copy()
                 sd_w.compute_geometry()
                 mdg.add_subdomains(sd_w)
+
                 sd_w.well_num = well_num
                 sd_w.name += " well " + str(well_num)
                 sd_w.tags["parent_well_index"] = w.index
@@ -477,6 +478,13 @@ class WellNetwork3d:
                 sd_w.tags["tip_faces"][endp_inds] = endp_tip_tags
                 sd_w.tags["fracture_faces"][endp_inds] = endp_frac_tags
 
+                # Properly initalize the newly generated boundary grid.
+                if (bg_w := mdg.subdomain_to_boundary_grid(sd_w)) is not None:
+                    # Overwrite number of cells. This was initialized wrongly before
+                    # sd_w.tags["domain_boundary_faces"] was set.
+                    bg_w.num_cells = np.sum(boundary)
+                    bg_w.set_projections()
+                    bg_w.compute_geometry()
                 # Reset the points for next iteration/subline.
                 points_subline = np.empty((3, 0))
                 subline_endpoint_inds = [inds_seg[1]]

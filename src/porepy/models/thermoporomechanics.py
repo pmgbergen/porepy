@@ -1,4 +1,4 @@
-"""Coupling of energy, mass and momentum balance to obtain thermoporomechanics equations.
+r"""Coupling of energy, mass and momentum balance to obtain thermoporomechanics equations.
 
 The module only contains what is needed for the coupling, the three individual subproblems
 are defined elsewhere.
@@ -9,10 +9,12 @@ additional :math:`\alpha\nabla\cdot\mathbf{u}` term, while the stress is modifie
 include isotropic pressure and temperature terms :math:`\alpha p \mathbf{I}+ \beta T
 \mathbf{I}`.
 
-Suggested references (TODO: add more, e.g. Inga's in prep, ppV2):
+References:
+
     - Coussy, 2004, https://doi.org/10.1002/0470092718.
     - Garipov and Hui, 2019, https://doi.org/10.1016/j.ijrmms.2019.104075.
     - Stefansson et al, 2021, https://doi.org/10.1016/j.cma.2021.114122
+    - TODO: add more, e.g. Inga's in prep, ppV2
 
 """
 from __future__ import annotations
@@ -24,7 +26,6 @@ import porepy as pp
 from . import energy_balance as energy
 from . import fluid_mass_balance as mass
 from . import momentum_balance as momentum
-from . import poromechanics
 
 
 class ConstitutiveLawsThermoporomechanics(
@@ -120,7 +121,7 @@ class VariablesThermoporomechanics(
 class BoundaryConditionsThermoporomechanics(
     energy.BoundaryConditionsEnergyBalance,
     mass.BoundaryConditionsSinglePhaseFlow,
-    poromechanics.BoundaryConditionsMechanicsTimeDependent,
+    momentum.BoundaryConditionsMomentumBalance,
 ):
     """Combines energy, mass and momentum balance boundary conditions.
 
@@ -133,7 +134,6 @@ class BoundaryConditionsThermoporomechanics(
 
 
 class SolutionStrategyThermoporomechanics(
-    poromechanics.SolutionStrategyTimeDependentBCs,
     energy.SolutionStrategyEnergyBalance,
     mass.SolutionStrategySinglePhaseFlow,
     momentum.SolutionStrategyMomentumBalance,
