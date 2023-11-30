@@ -670,8 +670,9 @@ class Operator:
         elif isinstance(ad, (sps.spmatrix, np.ndarray)):
             # this case coverse both, dense and sparse matrices returned from
             # discretizations f.e.
-            raise TypeError(
-                f"Operator of type {type(self)} has no definition of Jacobian."
+            raise NotImplementedError(
+                f"The Jacobian of {type(ad)} is not implemented because it is "
+                "multidimensional"
             )
         else:
             return ad
