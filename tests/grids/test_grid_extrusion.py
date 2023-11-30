@@ -4,7 +4,7 @@ mixed-dimensional cases."""
 import numpy as np
 import pytest
 import scipy.sparse as sps
-
+from porepy.utils.array_operations import sparse_array_to_row_col_data
 import porepy as pp
 
 
@@ -634,7 +634,7 @@ def test_extrusion_with_single_fracture():
     )
 
     ## Check that the + and - sides of the extruded mortar grid are correct
-    extruded_faces, _, sgn = sps.find(
+    extruded_faces, _, sgn = sparse_array_to_row_col_data(
         intf_new.mortar_to_primary_int() * intf_new.sign_of_mortar_sides()
     )
     # Get the extruded cells next to the mortar grid. Same ordering as extruded_faces

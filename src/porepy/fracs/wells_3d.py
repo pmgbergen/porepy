@@ -22,6 +22,7 @@ import scipy.sparse as sps
 
 import porepy as pp
 from porepy.fracs.fracture_network_3d import FractureNetwork3d
+from porepy.utils.array_operations import sparse_array_to_row_col_data
 
 # Module-wide logger
 logger = logging.getLogger(__name__)
@@ -621,11 +622,11 @@ def compute_well_rock_matrix_intersections(
         )
 
     # Operate on the rock matrix grid.
-    faces, cells, _ = sps.find(sd_max.cell_faces.tocsc())
+    faces, cells, _ = sparse_array_to_row_col_data(sd_max.cell_faces.tocsc())
     cells_order = np.argsort(cells)  # type: ignore
     faces = faces[cells_order]
 
-    nodes, *_ = sps.find(sd_max.face_nodes)
+    nodes, *_ = sparse_array_to_row_col_data(sd_max.face_nodes)
     indptr = sd_max.face_nodes.indptr
 
     # Loop on all the well grids.

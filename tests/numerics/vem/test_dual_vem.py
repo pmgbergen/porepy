@@ -7,6 +7,7 @@
 import numpy as np
 import pytest
 import scipy.sparse as sps
+from porepy.utils.array_operations import sparse_array_to_row_col_data
 
 import porepy as pp
 
@@ -406,7 +407,7 @@ class TestMVEMDiscretization:
 
         # np.savetxt('matrix.txt', M.todense(), delimiter=',', newline='],\n[')
         M_known = matrix_for_test_dual_vem_2d_iso_simplex_mixed_bc()
-        M_ijv = np.vstack(sps.find(M))
+        M_ijv = np.vstack(sparse_array_to_row_col_data(M))
         assert np.allclose(M_ijv, M_known)
 
     def test_1d_R1_R3_isotropic_permeability(self):

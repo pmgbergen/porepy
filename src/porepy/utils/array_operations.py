@@ -5,6 +5,7 @@ ndarrays.
 from __future__ import annotations
 
 import numpy as np
+from scipy import sparse as sps
 from scipy.spatial import KDTree
 
 
@@ -260,3 +261,10 @@ def intersect_sets(
     a_in_b[ia] = True
 
     return ia_unique, ib_unique, a_in_b, intersection
+
+
+def sparse_array_to_row_col_data(A):
+    A = sps.coo_matrix(A, copy=True)
+    return A.row, A.col, A.data
+    # nz_mask = A.data != 0
+    # return A.row[nz_mask], A.col[nz_mask], A.data[nz_mask]

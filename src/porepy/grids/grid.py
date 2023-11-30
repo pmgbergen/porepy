@@ -24,6 +24,7 @@ from scipy import sparse as sps
 
 import porepy as pp
 from porepy.utils import mcolon, tags
+from porepy.utils.array_operations import sparse_array_to_row_col_data
 
 
 class Grid:
@@ -403,7 +404,7 @@ class Grid:
         def nrm(u):
             return np.sqrt(u[0] * u[0] + u[1] * u[1] + u[2] * u[2])
 
-        [fi, ci, val] = sps.find(self.cell_faces)
+        [fi, ci, val] = sparse_array_to_row_col_data(self.cell_faces)
         _, idx = np.unique(fi, return_index=True)
         sgn = val[idx]
         fc = self.face_centers[:, fi[idx]]
@@ -455,7 +456,7 @@ class Grid:
         self.face_centers = 0.5 * self.nodes * np.abs(fn_orient)
 
         # Compute the temporary cell centers as average of the cell nodes
-        faceno, cellno, cf_orient = sps.find(self.cell_faces)
+        faceno, cellno, cf_orient = sparse_array_to_row_col_data(self.cell_faces)
         cx = np.bincount(cellno, weights=self.face_centers[0, faceno])
         cy = np.bincount(cellno, weights=self.face_centers[1, faceno])
         cz = np.bincount(cellno, weights=self.face_centers[2, faceno])
@@ -986,7 +987,7 @@ class Grid:
         IA = np.argsort(faces)
         IC = np.argsort(IA)
 
-        fi, ci, sgn = sps.find(self.cell_faces[faces[IA], :])
+        fi, ci, sgn = sparse_array_to_row_col_data(self.cell_faces[faces[IA], :])
         if fi.size != faces.size:
             raise ValueError("sign of internal faces does not make sense")
 

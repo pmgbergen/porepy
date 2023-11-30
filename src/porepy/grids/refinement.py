@@ -21,6 +21,7 @@ from porepy.fracs.fracture_network_3d import FractureNetwork3d
 from porepy.grids.grid import Grid
 from porepy.grids.simplex import TriangleGrid
 from porepy.grids.structured import TensorGrid
+from porepy.utils.array_operations import sparse_array_to_row_col_data
 
 logger = logging.getLogger(__name__)
 
@@ -86,7 +87,7 @@ def refine_grid_1d(g: pp.Grid, ratio: int = 2) -> pp.Grid:
 
     # Cell-node relation
     cell_nodes = g.cell_nodes()
-    nodes, cells, _ = sps.find(cell_nodes)
+    nodes, cells, _ = sparse_array_to_row_col_data(cell_nodes)
 
     # Every cell will contribute (ratio - 1) new nodes
     num_new_nodes = (ratio - 1) * g.num_cells + g.num_nodes

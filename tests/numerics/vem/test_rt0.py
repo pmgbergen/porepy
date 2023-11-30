@@ -8,6 +8,7 @@ import scipy.sparse as sps
 
 import porepy as pp
 from porepy.applications.test_utils.arrays import compare_arrays
+from porepy.utils.array_operations import sparse_array_to_row_col_data
 
 """Test collections for RT0 discretization"""
 
@@ -338,7 +339,7 @@ class TestRaviartThomasDiscretization:
         assert np.allclose(p, p_ex)
         assert np.allclose(P0u, P0u_ex)
 
-        M_ijv = np.vstack(sps.find(M))
+        M_ijv = np.vstack(sparse_array_to_row_col_data(M))
 
         M_ijv_known = np.array(
             [

@@ -9,7 +9,7 @@ import pickle
 import numpy as np
 import pytest
 import scipy.sparse as sps
-
+from porepy.utils.array_operations import sparse_array_to_row_col_data
 import porepy as pp
 from porepy.applications.test_utils import reference_dense_arrays
 from porepy.grids import simplex, structured
@@ -653,7 +653,7 @@ def test_boundary_grid():
 
     assert proj.shape == (8, 12)
 
-    rows, cols, _ = sps.find(proj)
+    rows, cols, _ = sparse_array_to_row_col_data(proj)
     assert np.allclose(np.sort(rows), np.arange(8))
     # Hardcoded values based on the known ordering of faces in a Cartesian grid
     assert np.allclose(np.sort(cols), np.array([0, 2, 3, 5, 6, 7, 10, 11]))

@@ -27,6 +27,7 @@ from porepy.applications.test_utils import reference_dense_arrays
 from porepy.applications.test_utils.partial_discretization import (
     perform_partial_discretization_specified_nodes,
 )
+from porepy.utils.array_operations import sparse_array_to_row_col_data
 
 keyword = "mechanics"
 
@@ -401,7 +402,7 @@ class TestMpsaExactReproduction:
             _, traction = self.solve(g, bound, bc_values, constit)
             traction_2d = traction.reshape((g.dim, -1), order="F")
             for cell in range(g.num_cells):
-                fid, _, sgn = sps.find(g.cell_faces[:, cell])
+                fid, _, sgn = sparse_array_to_row_col_data(g.cell_faces[:, cell])
                 assert np.all(np.sum(traction_2d[:, fid] * sgn, axis=1) < 1e-10)
 
 

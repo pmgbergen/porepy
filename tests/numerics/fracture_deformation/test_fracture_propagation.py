@@ -34,7 +34,7 @@ from typing import List, Union
 import numpy as np
 import pytest
 import scipy.sparse as sps
-
+from porepy.utils.array_operations import sparse_array_to_row_col_data
 import porepy as pp
 from porepy.fracs.fracture_network_2d import FractureNetwork2d
 from porepy.fracs.fracture_network_3d import FractureNetwork3d
@@ -211,7 +211,7 @@ def test_pick_propagation_face_conforming_propagation(case):
             model._pick_propagation_faces(
                 sd_primary, sd_frac, data_primary, data_frac, intf_data
             )
-            _, face, _ = sps.find(intf_data["propagation_face_map"])
+            _, face, _ = sparse_array_to_row_col_data(intf_data["propagation_face_map"])
 
             # This is the test, the targets and the identified faces should be the same
             assert np.all(np.sort(face) == np.sort(step_target[sd_frac]))

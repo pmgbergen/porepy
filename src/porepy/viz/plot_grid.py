@@ -22,6 +22,7 @@ from mpl_toolkits.mplot3d import proj3d
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
 import porepy as pp
+from porepy.utils.array_operations import sparse_array_to_row_col_data
 
 
 def plot_grid(
@@ -628,7 +629,7 @@ def _plot_sd_1d(
     """
     # Fetch nodes and cells
     cell_nodes = sd.cell_nodes()
-    nodes, cells, _ = sps.find(cell_nodes)
+    nodes, cells, _ = sparse_array_to_row_col_data(cell_nodes)
 
     # Define the coloring of cells. If a color map is provided, use that.
     # Otherwise, use a fixed color.
@@ -690,8 +691,8 @@ def _plot_sd_2d(
             cells: boolean array with length number of cells. Only plot cells c
                    where cells[c]=True
     """
-    faces, _, _ = sps.find(sd.cell_faces)
-    nodes, _, _ = sps.find(sd.face_nodes)
+    faces, _, _ = sparse_array_to_row_col_data(sd.cell_faces)
+    nodes, _, _ = sparse_array_to_row_col_data(sd.face_nodes)
 
     # Define the coloring of cells. If a color map is provided, use that.
     # Otherwise, use a fixed color.
@@ -761,8 +762,8 @@ def _plot_sd_3d(sd: pp.Grid, ax: mpl.axes.Axes, **kwargs) -> None:
         ax (matplotlib axes): axes
         kwargs (optional): Keyword arguments:
     """
-    faces_cells, cells, _ = sps.find(sd.cell_faces)
-    nodes_faces, faces, _ = sps.find(sd.face_nodes)
+    faces_cells, cells, _ = sparse_array_to_row_col_data(sd.cell_faces)
+    nodes_faces, faces, _ = sparse_array_to_row_col_data(sd.face_nodes)
 
     # Use trivial cell values (not relevant here)
     cell_value = np.zeros(sd.num_cells)

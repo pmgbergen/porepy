@@ -12,6 +12,7 @@ import scipy.sparse as sps
 
 import porepy as pp
 from porepy.numerics.discretization import Discretization
+from porepy.utils.array_operations import sparse_array_to_row_col_data
 
 
 def project_flux(
@@ -264,7 +265,7 @@ class DualElliptic(Discretization):
                 "Periodic boundary conditions are not implemented for DualElliptic"
             )
 
-        faces, _, sign = sps.find(sd.cell_faces)
+        faces, _, sign = sparse_array_to_row_col_data(sd.cell_faces)
         sign = sign[np.unique(faces, return_index=True)[1]]
 
         if np.any(is_dir):
@@ -364,7 +365,7 @@ class DualElliptic(Discretization):
         sd: pp.Grid, intf: pp.MortarGrid, hat_E_int: sps.csc_matrix
     ) -> sps.csr_matrix:
         # Recover the information for the grid-grid mapping
-        faces_h, cells_h, sign_h = sps.find(sd.cell_faces)
+        faces_h, cells_h, sign_h = sparse_array_to_row_col_data(sd.cell_faces)
         ind_faces_h = np.unique(faces_h, return_index=True)[1]
         cells_h = cells_h[ind_faces_h]
         sign_h = sign_h[ind_faces_h]

@@ -27,7 +27,7 @@ from typing import Literal, Union
 import numpy as np
 import pytest
 import scipy.sparse as sps
-
+from porepy.utils.array_operations import sparse_array_to_row_col_data
 import porepy as pp
 
 AdType = Union[float, np.ndarray, sps.spmatrix, pp.ad.AdArray]
@@ -1033,19 +1033,19 @@ def test_mortar_projections(mdg, scalar):
 
     f0 = np.hstack(
         (
-            sps.find(intf01.mortar_to_primary_int(nd=proj_dim))[0],
-            sps.find(intf02.mortar_to_primary_int(nd=proj_dim))[0],
+            sparse_array_to_row_col_data(intf01.mortar_to_primary_int(nd=proj_dim))[0],
+            sparse_array_to_row_col_data(intf02.mortar_to_primary_int(nd=proj_dim))[0],
         )
     )
-    f1 = sps.find(intf13.mortar_to_primary_int(nd=proj_dim))[0]
-    f2 = sps.find(intf23.mortar_to_primary_int(nd=proj_dim))[0]
+    f1 = sparse_array_to_row_col_data(intf13.mortar_to_primary_int(nd=proj_dim))[0]
+    f2 = sparse_array_to_row_col_data(intf23.mortar_to_primary_int(nd=proj_dim))[0]
 
-    c1 = sps.find(intf01.mortar_to_secondary_int(nd=proj_dim))[0]
-    c2 = sps.find(intf02.mortar_to_secondary_int(nd=proj_dim))[0]
+    c1 = sparse_array_to_row_col_data(intf01.mortar_to_secondary_int(nd=proj_dim))[0]
+    c2 = sparse_array_to_row_col_data(intf02.mortar_to_secondary_int(nd=proj_dim))[0]
     c3 = np.hstack(
         (
-            sps.find(intf13.mortar_to_secondary_int(nd=proj_dim))[0],
-            sps.find(intf23.mortar_to_secondary_int(nd=proj_dim))[0],
+            sparse_array_to_row_col_data(intf13.mortar_to_secondary_int(nd=proj_dim))[0],
+            sparse_array_to_row_col_data(intf23.mortar_to_secondary_int(nd=proj_dim))[0],
         )
     )
 
