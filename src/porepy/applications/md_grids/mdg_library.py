@@ -142,7 +142,7 @@ def seven_fractures_one_L_intersection(
     return mdg, fracture_network
 
 
-def benchmark_2d_case_3(
+def benchmark_regular_2d(
     meshing_args: dict, is_coarse: bool = False, **meshing_kwargs
 ) -> tuple[pp.MixedDimensionalGrid, FractureNetwork2d]:
     """
@@ -162,7 +162,7 @@ def benchmark_2d_case_3(
 
     """
     domain = domains.nd_cube_domain(2, 1)
-    fractures = fracture_sets.benchmark_2d_case_3()
+    fractures = fracture_sets.benchmark_regular_2d_fractures()
     # Cast to FractureNetwork2d to avoid ambiguity leading to mypy errors
     fracture_network = cast(
         FractureNetwork2d, pp.create_fracture_network(fractures, domain)
