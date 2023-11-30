@@ -12,9 +12,9 @@ import numpy as np
 import pytest
 
 import porepy as pp
+from porepy.applications.md_grids.domains import unit_cube_domain as unit_domain
 from porepy.applications.test_utils.arrays import compare_arrays
 from porepy.fracs.plane_fracture import PlaneFracture
-from porepy.applications.md_grids.domains import unit_cube_domain as unit_domain
 
 
 @pytest.mark.parametrize(

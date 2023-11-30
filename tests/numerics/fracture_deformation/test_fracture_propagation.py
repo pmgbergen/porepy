@@ -34,10 +34,11 @@ from typing import List, Union
 import numpy as np
 import pytest
 import scipy.sparse as sps
-from porepy.utils.array_operations import sparse_array_to_row_col_data
+
 import porepy as pp
 from porepy.fracs.fracture_network_2d import FractureNetwork2d
 from porepy.fracs.fracture_network_3d import FractureNetwork3d
+from porepy.utils.array_operations import sparse_array_to_row_col_data
 from tests.test_utils import compare_arrays
 
 FractureNetwork = Union[FractureNetwork2d, FractureNetwork3d]

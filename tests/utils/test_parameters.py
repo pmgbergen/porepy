@@ -3,9 +3,8 @@
 
 
 """
-import pytest
-
 import numpy as np
+import pytest
 
 import porepy as pp
 import porepy.params.parameter_dictionaries as dicts

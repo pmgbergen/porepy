@@ -9,11 +9,12 @@ import pickle
 import numpy as np
 import pytest
 import scipy.sparse as sps
-from porepy.utils.array_operations import sparse_array_to_row_col_data
+
 import porepy as pp
 from porepy.applications.test_utils import reference_dense_arrays
 from porepy.grids import simplex, structured
 from porepy.utils import setmembership
+from porepy.utils.array_operations import sparse_array_to_row_col_data
 
 
 @pytest.mark.parametrize(

@@ -1,11 +1,12 @@
-import sys
 import inspect
+import sys
 
 import numpy as np
 import scipy.sparse as sps
-from porepy.utils.array_operations import sparse_array_to_row_col_data
+
 import porepy as pp
 from porepy.grids import coarsening as co
+from porepy.utils.array_operations import sparse_array_to_row_col_data
 
 
 class TestPartitioning:

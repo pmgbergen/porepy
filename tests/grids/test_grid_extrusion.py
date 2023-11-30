@@ -4,8 +4,9 @@ mixed-dimensional cases."""
 import numpy as np
 import pytest
 import scipy.sparse as sps
-from porepy.utils.array_operations import sparse_array_to_row_col_data
+
 import porepy as pp
+from porepy.utils.array_operations import sparse_array_to_row_col_data
 
 
 def check_cell_map(cell_map, g, nz):
