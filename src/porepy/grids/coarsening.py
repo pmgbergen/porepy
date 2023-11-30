@@ -434,7 +434,7 @@ def create_partition(
     # If two neighbors are coarse, eliminate one of them without touching the
     # seeds
     c2c = np.abs(A) > 0
-    c2c_rows, _, _ = sparse_array_to_row_col_data(c2c)
+    c2c_rows, _, _ = sparse_array_to_row_col_data(c2c.transpose())
 
     pairs = np.empty((0, 2), dtype=int)
     for idx, it in enumerate(np.where(is_coarse)[0]):

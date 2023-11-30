@@ -42,17 +42,19 @@ class TestPartitioning:
                 [4, 7],
                 [5, 8],
                 [6, 10],
-                [0, 1],
-                [1, 2],
-                [2, 3],
-                [7, 8],
-                [8, 9],
-                [9, 10],
+                [1, 0],
+                [2, 1],
+                [3, 2],
+                [8, 7],
+                [9, 8],
+                [10, 9],
             ]
         )
 
         for f in np.arange(g.num_faces):
-            assert np.array_equal(sparse_array_to_row_col_data(g.face_nodes[:, f])[0], known[f, :])
+            assert np.array_equal(
+                sparse_array_to_row_col_data(g.face_nodes[:, f])[0], known[f, :]
+            )
 
     def test_coarse_grid_3d(self):
         g = pp.CartGrid([2, 2, 2])
@@ -83,7 +85,9 @@ class TestPartitioning:
 
         reference = self.reference()["face_nodes"]
         for f in np.arange(g.num_faces):
-            assert np.array_equal(sparse_array_to_row_col_data(g.face_nodes[:, f])[0], reference[f, :])
+            assert np.array_equal(
+                sparse_array_to_row_col_data(g.face_nodes[:, f])[0], reference[f, :]
+            )
 
     def test_coarse_grid_2d_1d(self):
         part = np.array([0, 0, 1, 1, 2, 0, 3, 1])
@@ -173,7 +177,9 @@ class TestPartitioning:
         known = np.array([1, 4, 7, 10, 44, 45, 46, 47])
 
         for intf in mdg.interfaces():
-            indices, faces, _ = sparse_array_to_row_col_data(intf.primary_to_mortar_int())
+            indices, faces, _ = sparse_array_to_row_col_data(
+                intf.primary_to_mortar_int()
+            )
 
             assert np.array_equal(indices, known_indices)
             assert np.array_equal(faces, known)
@@ -207,12 +213,14 @@ class TestPartitioning:
 
             # Test
             for intf in mdg.interfaces():
-                indices, faces, _ = sparse_array_to_row_col_data(intf.primary_to_mortar_int())
+                indices, faces, _ = sparse_array_to_row_col_data(
+                    intf.primary_to_mortar_int()
+                )
                 sd_primary, sd_secondary = mdg.interface_to_subdomain_pair(intf)
 
                 if sd_primary.dim == 2 and sd_secondary.dim == 1:
-                    reference_indices = [3, 2, 1, 0, 7, 6, 5, 4]
-                    reference_faces = [2, 7, 12, 17, 40, 41, 42, 43]
+                    reference_indices = [0, 1, 2, 3, 4, 5, 6, 7]
+                    reference_faces = [17, 12, 7, 2, 43, 42, 41, 40]
 
                 if sd_primary.dim == 3 and sd_secondary.dim == 2:
                     if np.allclose(sd_secondary.cell_centers, cell_centers_1):
@@ -279,7 +287,9 @@ class TestPartitioning:
         known = np.array([6, 7, 10, 11])
 
         for intf in mdg.interfaces():
-            indices, faces, _ = sparse_array_to_row_col_data(intf.primary_to_mortar_int())
+            indices, faces, _ = sparse_array_to_row_col_data(
+                intf.primary_to_mortar_int()
+            )
             assert np.array_equal(faces, known)
             assert np.array_equal(indices, known_indices)
 
@@ -298,7 +308,9 @@ class TestPartitioning:
         known = np.array([6, 9])
 
         for intf in mdg.interfaces():
-            indices, faces, _ = sparse_array_to_row_col_data(intf.primary_to_mortar_int())
+            indices, faces, _ = sparse_array_to_row_col_data(
+                intf.primary_to_mortar_int()
+            )
             assert np.array_equal(faces, known)
             assert np.array_equal(indices, known_indices)
 
@@ -322,7 +334,9 @@ class TestPartitioning:
         known = np.array([6, 10])
 
         for intf in mdg.interfaces():
-            indices, faces, _ = sparse_array_to_row_col_data(intf.primary_to_mortar_int())
+            indices, faces, _ = sparse_array_to_row_col_data(
+                intf.primary_to_mortar_int()
+            )
             assert np.array_equal(faces, known)
             assert np.array_equal(indices, known_indices)
 
@@ -342,7 +356,9 @@ class TestPartitioning:
         known = np.array([6, 9])
 
         for intf in mdg.interfaces():
-            indices, faces, _ = sparse_array_to_row_col_data(intf.primary_to_mortar_int())
+            indices, faces, _ = sparse_array_to_row_col_data(
+                intf.primary_to_mortar_int()
+            )
             assert np.array_equal(faces, known)
             assert np.array_equal(indices, known_indices)
 
@@ -366,7 +382,9 @@ class TestPartitioning:
         known = np.array([7, 10])
 
         for intf in mdg.interfaces():
-            indices, faces, _ = sparse_array_to_row_col_data(intf.primary_to_mortar_int())
+            indices, faces, _ = sparse_array_to_row_col_data(
+                intf.primary_to_mortar_int()
+            )
             assert np.array_equal(faces, known)
             assert np.array_equal(indices, known_indices)
 
@@ -399,7 +417,9 @@ class TestPartitioning:
 
             # Test
             for intf in mdg.interfaces():
-                indices, faces, _ = sparse_array_to_row_col_data(intf.primary_to_mortar_int())
+                indices, faces, _ = sparse_array_to_row_col_data(
+                    intf.primary_to_mortar_int()
+                )
                 sd_primary, sd_secondary = mdg.interface_to_subdomain_pair(intf)
 
                 if sd_primary.dim == 1 and sd_secondary.dim == 0:
@@ -456,7 +476,9 @@ class TestPartitioning:
             for intf in mdg.interfaces():
                 sd_primary, sd_secondary = mdg.interface_to_subdomain_pair(intf)
 
-                indices, faces, _ = sparse_array_to_row_col_data(intf.primary_to_mortar_int())
+                indices, faces, _ = sparse_array_to_row_col_data(
+                    intf.primary_to_mortar_int()
+                )
 
                 if sd_secondary.dim == 0 and sd_primary.dim == 1:
                     known = [2, 5]
