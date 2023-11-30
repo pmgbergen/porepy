@@ -285,10 +285,11 @@ class Biot(pp.Mpsa):
         NOTE: This function does *not* discretize purely flow-related terms (Darcy flow
         and compressibility).
 
-        The parameters needed for the discretization are stored in the
-        dictionary sd_data, which should contain the following mandatory keywords:
+        The parameters needed for the discretization are stored in the dictionary
+        sd_data, which should contain the following mandatory keywords:
 
-            Related to mechanics equation (in sd_data[pp.PARAMETERS][self.mechanics_keyword]):
+            Related to mechanics equation (in
+            sd_data[pp.PARAMETERS][self.mechanics_keyword]):
                 fourth_order_tensor: Fourth order tensor representing elastic moduli.
                 bc: BoundaryCondition object for mechanics equation.
                     Used in mpsa.
@@ -299,20 +300,26 @@ class Biot(pp.Mpsa):
                     Defaults to 1.
 
             Related to numerics:
-                inverter: Which method to use for block inversion. See
+                - inverter (``str``): Which method to use for block inversion. See
                     pp.fvutils.invert_diagonal_blocks for detail, and for default
                     options.
-                mpfa_eta: Location of continuity point in MPSA. Defaults to 1/3 for
-                    simplex grids, 0 otherwise.
+                - mpfa_eta (``float``): Location of continuity point in MPSA. Defaults
+                    to 1/3 for simplex grids, 0 otherwise.
+                - partition_arguments (``dict``): Arguments to control the number
+                    of subproblems used to discretize the grid. Can be either the target
+                    maximal memory use (controlled by keyword 'max_memory' in
+                    ``partition_arguments``), or the number of subproblems (keyword
+                    'num_subproblems' in ``partition_arguments``). If none are given,
+                    the default is to use 1e9 bytes of memory per subproblem. If both
+                    are given, the maximal memory use is prioritized.
 
-        The discretization is stored in the data dictionary, in the form of
-        several matrices representing different coupling terms. For details,
-        and how to combine these, see self.assemble_matrix()
+        The discretization is stored in the data dictionary, in the form of several
+        matrices representing different coupling terms. For details, and how to combine
+        these, see self.assemble_matrix()
 
         Parameters:
             sd: Grid to be discretized.
-            sd_data: Containing data for discretization. See above
-                for specification.
+            sd_data: Containing data for discretization. See above for specification.
 
         """
         parameter_dictionary: dict[str, Any] = sd_data[pp.PARAMETERS][
@@ -334,7 +341,10 @@ class Biot(pp.Mpsa):
 
         alpha: float = parameter_dictionary["biot_alpha"]
 
-        max_memory: int = parameter_dictionary.get("max_memory", 1e9)
+        # Control of the number of subdomanis.
+        max_memory, num_subproblems = pp.fvutils.parse_partition_arguments(
+            parameter_dictionary.get("partition_arguments", {})
+        )
 
         # Whether to update an existing discretization, or construct a new one.
         # If True, either specified_cells, _faces or _nodes should also be given, or
@@ -369,8 +379,18 @@ class Biot(pp.Mpsa):
         nf = active_grid.num_faces
         nc = active_grid.num_cells
 
-        # There are quite a few items to keep track of, but then the discretization
-        # does quite a few different things
+        # To limit the memory need of discretization, we will split the discretization
+        # into sub-problems, discretize these separately, and glue together the results.
+        # This procedure requires some bookkeeping, in particular to keep track of how
+        # many times a face has been discretized (faces may be shared between subgrids,
+        # thus discretized multiple times).
+        faces_in_subgrid_accum = []
+        # Find an estimate of the peak memory need. This is used to decide how many
+        # subproblems to split the discretization into.
+        peak_memory_estimate = self._estimate_peak_memory_mpsa(active_grid)
+
+        # Holders for discretizations. There are quite a few items to keep track of, but
+        # then the discretization does quite a few different things
         active_stress = sps.csr_matrix((nf * nd, nc * nd))
         active_bound_stress = sps.csr_matrix((nf * nd, nf * nd))
         active_grad_p = sps.csr_matrix((nf * nd, nc))
@@ -381,17 +401,40 @@ class Biot(pp.Mpsa):
         active_bound_displacement_face = sps.csr_matrix((nf * nd, nf * nd))
         active_bound_displacement_pressure = sps.csr_matrix((nf * nd, nc))
 
-        # Find an estimate of the peak memory need
-        peak_memory_estimate = self._estimate_peak_memory_mpsa(active_grid)
-
         # Loop over all partition regions, construct local problems, and transfer
         # discretization to the entire active grid
-        for (
-            reg_i,
-            (sub_sd, faces_in_subgrid, cells_in_subgrid, l2g_cells, l2g_faces),
+        for reg_i, (
+            sub_sd,
+            faces_in_subgrid,
+            cells_in_subgrid,
+            l2g_cells,
+            l2g_faces,
         ) in enumerate(
-            pp.fvutils.subproblems(active_grid, max_memory, peak_memory_estimate)
+            pp.fvutils.subproblems(
+                active_grid,
+                peak_memory_estimate,
+                max_memory=max_memory,
+                num_subproblems=num_subproblems,
+            )
         ):
+            # The partitioning into subgrids is done with an overlap (see
+            # fvutils.subproblems for a description). Cells and faces in the overlap
+            # will have a wrong discretization in one of two ways: Those faces that are
+            # strictly in the overlap should not be included in the current
+            # sub-discretization (their will be in the interior of a different
+            # subdomain). This contribution will be deleted locally, below. Faces that
+            # are on the boundary between two subgrids will be discretized twice. This
+            # will be handled by dividing the discretization by two. We cannot know
+            # which faces are on the boundary (or perhaps we could, but that would
+            # require more advanced bookkeeping), so we count the number of times a face
+            # has been discretized, and divide by that number at the end (after having
+            # iterated over all subdomains).
+            #
+            # Take note of which faces are discretized in this subgrid. Note that this
+            # needs to use faces_in_subgrid, not l2g_faces, since the latter contains
+            # faces in the overlap.
+            faces_in_subgrid_accum.append(faces_in_subgrid)
+
             tic = time()
             # Copy stiffness tensor, and restrict to local cells
             loc_c: pp.FourthOrderTensor = self._constit_for_subgrid(
@@ -482,6 +525,35 @@ class Biot(pp.Mpsa):
             )
             logger.info(f"Done with subproblem {reg_i}. Elapsed time {time() - tic}")
             # Done with this subdomain, move on to the next one
+
+        # Divide by the number of times a face has been discretized. This is necessary
+        # to avoid double counting of faces on the boundary between subproblems. Note
+        # that this is done before mapping from the active to the full grid, since the
+        # subgrids (thus face map) was computed on the active grid.
+        #
+        # IMPLEMENTATION NOTE: With the current implementation, this scaling is only
+        # needed for the vector quantities, that is, not for the stabilization and div_u
+        # terms. This is because the latter are computed cell-wise rather than
+        # face-wise, and it so happens that this is sufficient to avoid double counting.
+        # If we ever change the implementation (e.g., when introducing tensor Biot
+        # coefficients), it is likely the scaling will be needed also for the scalar
+        # terms.
+        num_face_repetitions_vector = np.tile(
+            np.bincount(np.concatenate(faces_in_subgrid_accum)), (nd, 1)
+        ).ravel("F")
+        scaling_vector = sps.dia_matrix(
+            (1.0 / num_face_repetitions_vector, 0), shape=(nf * nd, nf * nd)
+        )
+
+        # Vector fields
+        active_stress = scaling_vector @ active_stress
+        active_bound_stress = scaling_vector @ active_bound_stress
+        active_bound_displacement_cell = scaling_vector @ active_bound_displacement_cell
+        active_bound_displacement_face = scaling_vector @ active_bound_displacement_face
+        active_grad_p = scaling_vector @ active_grad_p
+        active_bound_displacement_pressure = (
+            scaling_vector @ active_bound_displacement_pressure
+        )
 
         # We are done with the discretization. What remains is to map the computed
         # matrices back from the active grid to the full one.
