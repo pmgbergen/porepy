@@ -48,6 +48,12 @@ class SolutionStrategyTest1(two_phase_hu.SolutionStrategyPressureMass):
 
         self.computations_for_hu()
 
+        print("\n\n\n")
+        print(self.mdg)
+        for sd, data in self.mdg.subdomains(return_data=True):
+            print(sd)
+        pdb.set_trace()
+
     def clean_working_directory(self):
         """ """
         os.system("rm " + self.output_file_name)
@@ -83,246 +89,246 @@ class SolutionStrategyTest1(two_phase_hu.SolutionStrategyPressureMass):
         gb = copy.deepcopy(self.mdg)
         gb_new = copy.deepcopy(self.mdg)
 
-        for sd in gb.subdomains():
-            if sd.dim == 2:
-                g_old = sd
-
+        g_old = gb.subdomains(dim=2)[0]
         g_new = gb_new.subdomains(dim=2)[0]
 
-        normal_ref, tangent_ref = self.compute_normals_tangents(g_new)
+        # normal_ref, tangent_ref = self.compute_normals_tangents(g_new)
 
-        mesh = g_new.nodes[[0, 1]].T
+        # mesh = g_new.nodes[[0, 1]].T
 
-        # ORIGINAL control points: ----------------------------------
-        # boundary control points:
-        boundary_ctrl_pts = g_new.nodes.T[g_new.get_boundary_nodes()][:, [0, 1]]
+        # # ORIGINAL control points: ----------------------------------
+        # # boundary control points:
+        # boundary_ctrl_pts = g_new.nodes.T[g_new.get_boundary_nodes()][:, [0, 1]]
 
-        boundary_ctrl_pts_displ_tbl_ind = np.where(
-            boundary_ctrl_pts[:, 0] < (self.xmax - 1e-10)
-        )[
-            0
-        ]  # top, bottom, left # np.where bcs i dont like boolean indices # pay attention, these indeces refer to the subset boundary_ctrl_pts
+        # boundary_ctrl_pts_displ_tbl_ind = np.where(
+        #     boundary_ctrl_pts[:, 0] < (self.xmax - 1e-10)
+        # )[
+        #     0
+        # ]  # top, bottom, left # np.where bcs i dont like boolean indices # pay attention, these indeces refer to the subset boundary_ctrl_pts
 
-        boundary_ctrl_pts_displ_tr_ind = np.where(
-            np.logical_and(
-                boundary_ctrl_pts[:, 0] > (self.xmax - 1e-10),
-                boundary_ctrl_pts[:, 1] > (self.ymax - 1e-10),
-            )
-        )[
-            0
-        ]  # top-right point
-        boundary_ctrl_pts_displ_br_ind = np.where(
-            np.logical_and(
-                boundary_ctrl_pts[:, 0] > (self.xmax - 1e-10),
-                boundary_ctrl_pts[:, 1] < (self.ymin + 1e-10),
-            )
-        )[
-            0
-        ]  # bottom-right point
+        # boundary_ctrl_pts_displ_tr_ind = np.where(
+        #     np.logical_and(
+        #         boundary_ctrl_pts[:, 0] > (self.xmax - 1e-10),
+        #         boundary_ctrl_pts[:, 1] > (self.ymax - 1e-10),
+        #     )
+        # )[
+        #     0
+        # ]  # top-right point
+        # boundary_ctrl_pts_displ_br_ind = np.where(
+        #     np.logical_and(
+        #         boundary_ctrl_pts[:, 0] > (self.xmax - 1e-10),
+        #         boundary_ctrl_pts[:, 1] < (self.ymin + 1e-10),
+        #     )
+        # )[
+        #     0
+        # ]  # bottom-right point
 
-        boundary_ctrl_pts_displ = boundary_ctrl_pts[
-            np.hstack(
-                (
-                    boundary_ctrl_pts_displ_tbl_ind,
-                    boundary_ctrl_pts_displ_tr_ind,
-                    boundary_ctrl_pts_displ_br_ind,
-                )
-            )
-        ]
-        boundary_ctrl_pts_displ = boundary_ctrl_pts_displ[
-            np.r_[1, 3, np.arange(4, len(boundary_ctrl_pts_displ))]
-        ]  # remove fault extremes
+        # boundary_ctrl_pts_displ = boundary_ctrl_pts[
+        #     np.hstack(
+        #         (
+        #             boundary_ctrl_pts_displ_tbl_ind,
+        #             boundary_ctrl_pts_displ_tr_ind,
+        #             boundary_ctrl_pts_displ_br_ind,
+        #         )
+        #     )
+        # ]
+        # boundary_ctrl_pts_displ = boundary_ctrl_pts_displ[
+        #     np.r_[1, 3, np.arange(4, len(boundary_ctrl_pts_displ))]
+        # ]  # remove fault extremes
 
-        boundary_ctrl_pts_sliding_ind = np.where(
-            np.logical_and(
-                boundary_ctrl_pts[:, 0] >= (self.xmax - 1e-10),
-                np.abs(boundary_ctrl_pts[:, 1] - 0.5) < (0.5 - 1e-10),
-            )
-        )[0]
-        boundary_ctrl_pts_sliding = boundary_ctrl_pts[boundary_ctrl_pts_sliding_ind]
+        # boundary_ctrl_pts_sliding_ind = np.where(
+        #     np.logical_and(
+        #         boundary_ctrl_pts[:, 0] >= (self.xmax - 1e-10),
+        #         np.abs(boundary_ctrl_pts[:, 1] - 0.5) < (0.5 - 1e-10),
+        #     )
+        # )[0]
+        # boundary_ctrl_pts_sliding = boundary_ctrl_pts[boundary_ctrl_pts_sliding_ind]
 
-        # fracture/fault control points:
-        # find nodes on each side of the fracture:
-        fn = g_new.face_nodes.indices
-        faces_nodes = np.array([fn[::2], fn[1::2]]).T
+        # # fracture/fault control points:
+        # # find nodes on each side of the fracture:
+        # fn = g_new.face_nodes.indices
+        # faces_nodes = np.array([fn[::2], fn[1::2]]).T
 
-        x_intersection = self.x_intersection
-        y_intersection = self.y_intersection
+        # x_intersection = self.x_intersection
+        # y_intersection = self.y_intersection
 
-        negative_pts_fault_ind = faces_nodes[g_new.frac_pairs[0]].flatten()  # indeces
-        negative_pts_fault_ind = np.unique(
-            negative_pts_fault_ind
-        )  # ? there are repeated indeces
-        negative_pts_fault_ind = negative_pts_fault_ind[negative_pts_fault_ind != 0]
-        negative_pts_fault_ind = negative_pts_fault_ind[negative_pts_fault_ind != 3]
+        # negative_pts_fault_ind = faces_nodes[g_new.frac_pairs[0]].flatten()  # indeces
+        # negative_pts_fault_ind = np.unique(
+        #     negative_pts_fault_ind
+        # )  # ? there are repeated indeces
+        # negative_pts_fault_ind = negative_pts_fault_ind[negative_pts_fault_ind != 0]
+        # negative_pts_fault_ind = negative_pts_fault_ind[negative_pts_fault_ind != 3]
 
-        positive_pts_fault_ind = faces_nodes[g_new.frac_pairs[1]].flatten()  # indeces
-        positive_pts_fault_ind = np.unique(positive_pts_fault_ind)  # ? vedi spra
-        positive_pts_fault_ind = positive_pts_fault_ind[positive_pts_fault_ind != 1]
-        positive_pts_fault_ind = positive_pts_fault_ind[positive_pts_fault_ind != 2]
+        # positive_pts_fault_ind = faces_nodes[g_new.frac_pairs[1]].flatten()  # indeces
+        # positive_pts_fault_ind = np.unique(positive_pts_fault_ind)  # ? vedi spra
+        # positive_pts_fault_ind = positive_pts_fault_ind[positive_pts_fault_ind != 1]
+        # positive_pts_fault_ind = positive_pts_fault_ind[positive_pts_fault_ind != 2]
 
-        intersection_upper_ind = np.where(
-            np.logical_and(
-                np.isclose(mesh[:, 0], x_intersection),
-                np.isclose(mesh[:, 1], y_intersection),
-            )
-        )[0]
+        # intersection_upper_ind = np.where(
+        #     np.logical_and(
+        #         np.isclose(mesh[:, 0], x_intersection),
+        #         np.isclose(mesh[:, 1], y_intersection),
+        #     )
+        # )[0]
 
-        positive_pts_fault_ind_no_hor = positive_pts_fault_ind[
-            positive_pts_fault_ind != intersection_upper_ind[0]
-        ]
-        positive_pts_fault_ind_no_hor = positive_pts_fault_ind[
-            positive_pts_fault_ind != intersection_upper_ind[1]
-        ]
+        # # positive_pts_fault_ind_no_hor = positive_pts_fault_ind[
+        # #     positive_pts_fault_ind != intersection_upper_ind[0]
+        # # ]
 
-        frac_ctrl_pts_positive = mesh[positive_pts_fault_ind_no_hor]
-        frac_ctrl_pts_negative = mesh[negative_pts_fault_ind]
+        # # positive_pts_fault_ind_no_hor = positive_pts_fault_ind[
+        # #     positive_pts_fault_ind != intersection_upper_ind[1]
+        # # ]
 
-        # horizons control points:
-        horizon_face_1 = g_new.tags["auxiliary_line_1_faces"]
+        # positive_pts_fault_ind_no_hor = positive_pts_fault_ind
 
-        horizon_1_nodes = g_new.face_nodes * horizon_face_1
-        horizon_1_ctrl_pts = mesh[horizon_1_nodes]
+        # frac_ctrl_pts_positive = mesh[positive_pts_fault_ind_no_hor]
+        # frac_ctrl_pts_negative = mesh[negative_pts_fault_ind]
 
-        eps = 1e-8
-        horizon_1_ctrl_pts_right_ind = np.where(
-            np.logical_and(
-                horizon_1_ctrl_pts[:, 0] > x_intersection + eps,
-                horizon_1_ctrl_pts[:, 0] < self.xmax - eps,
-            )
-        )[0]
+        # # horizons control points:
+        # horizon_face_1 = g_new.tags["auxiliary_line_1_faces"]
 
-        horizon_1_ctrl_pts_right = horizon_1_ctrl_pts[horizon_1_ctrl_pts_right_ind]
-        horizon_1_ctrl_pts_right = np.vstack(
-            (
-                horizon_1_ctrl_pts_right,
-                np.array([x_intersection, y_intersection]),
-            )
-        )  # intersections added manually
+        # horizon_1_nodes = g_new.face_nodes * horizon_face_1
+        # horizon_1_ctrl_pts = mesh[horizon_1_nodes]
 
-        horizons_ctrl_pts_right = horizon_1_ctrl_pts_right
+        # eps = 1e-8
+        # horizon_1_ctrl_pts_right_ind = np.where(
+        #     np.logical_and(
+        #         horizon_1_ctrl_pts[:, 0] > x_intersection + eps,
+        #         horizon_1_ctrl_pts[:, 0] < self.xmax - eps,
+        #     )
+        # )[0]
 
-        # create sets of control points:
-        group_displ = np.array(
-            [
-                *boundary_ctrl_pts_displ,
-                *horizons_ctrl_pts_right,
-            ]
-        )  # tips are included in the boundary
-        group_displ_fault = np.array(
-            [*frac_ctrl_pts_negative]
-        )  # matter of notation? isnt frac_ctrl_pts_negative already a np.array?
-        group_sliding = np.array([*boundary_ctrl_pts_sliding])
-        group_sliding_fault = np.array([*frac_ctrl_pts_positive])
+        # horizon_1_ctrl_pts_right = horizon_1_ctrl_pts[horizon_1_ctrl_pts_right_ind]
+        # horizon_1_ctrl_pts_right = np.vstack(
+        #     (
+        #         horizon_1_ctrl_pts_right,
+        #         np.array([x_intersection, y_intersection]),
+        #     )
+        # )  # intersections added manually
 
-        original_ctrl_pts = np.array(
-            [*group_displ, *group_displ_fault, *group_sliding, *group_sliding_fault]
-        )
+        # horizons_ctrl_pts_right = horizon_1_ctrl_pts_right
 
-        S_displ = np.arange(0, group_displ.shape[0])  # ctrl pts id is arbitrary
-        S_displ_fault = np.arange(
-            group_displ.shape[0], group_displ.shape[0] + group_displ_fault.shape[0]
-        )
-        S_sliding = np.arange(
-            group_displ.shape[0] + group_displ_fault.shape[0],
-            group_displ.shape[0] + group_displ_fault.shape[0] + group_sliding.shape[0],
-        )
-        S_sliding_fault = np.arange(
-            group_displ.shape[0] + group_displ_fault.shape[0] + group_sliding.shape[0],
-            group_displ.shape[0]
-            + group_displ_fault.shape[0]
-            + group_sliding.shape[0]
-            + group_sliding_fault.shape[0],
-        )
+        # # create sets of control points:
+        # group_displ = np.array(
+        #     [
+        #         *boundary_ctrl_pts_displ,
+        #         *horizons_ctrl_pts_right,
+        #     ]
+        # )  # tips are included in the boundary
+        # group_displ_fault = np.array(
+        #     [*frac_ctrl_pts_negative]
+        # )  # matter of notation? isnt frac_ctrl_pts_negative already a np.array?
+        # group_sliding = np.array([*boundary_ctrl_pts_sliding])
+        # group_sliding_fault = np.array([*frac_ctrl_pts_positive])
 
-        # DEFORMED control points: -----------------------------------------
-        displacement_x = self.displacement_max * tangent_ref[0]
-        displacement_y = self.displacement_max * tangent_ref[1]
+        # original_ctrl_pts = np.array(
+        #     [*group_displ, *group_displ_fault, *group_sliding, *group_sliding_fault]
+        # )
 
-        # horizons control points:
-        horizon_1_ctrl_pts_right[:, 0] += displacement_x + (0 - displacement_x) / (
-            1 - x_intersection
-        ) * (horizon_1_ctrl_pts_right[:, 0] - x_intersection)
+        # S_displ = np.arange(0, group_displ.shape[0])  # ctrl pts id is arbitrary
+        # S_displ_fault = np.arange(
+        #     group_displ.shape[0], group_displ.shape[0] + group_displ_fault.shape[0]
+        # )
+        # S_sliding = np.arange(
+        #     group_displ.shape[0] + group_displ_fault.shape[0],
+        #     group_displ.shape[0] + group_displ_fault.shape[0] + group_sliding.shape[0],
+        # )
+        # S_sliding_fault = np.arange(
+        #     group_displ.shape[0] + group_displ_fault.shape[0] + group_sliding.shape[0],
+        #     group_displ.shape[0]
+        #     + group_displ_fault.shape[0]
+        #     + group_sliding.shape[0]
+        #     + group_sliding_fault.shape[0],
+        # )
 
-        horizons_ctrl_pts_right = horizon_1_ctrl_pts_right
+        # # DEFORMED control points: -----------------------------------------
+        # displacement_x = self.displacement_max * tangent_ref[0]
+        # displacement_y = self.displacement_max * tangent_ref[1]
 
-        horizons_ctrl_pts_right[:, 1] += displacement_y
+        # # horizons control points:
+        # horizon_1_ctrl_pts_right[:, 0] += displacement_x + (0 - displacement_x) / (
+        #     1 - x_intersection
+        # ) * (horizon_1_ctrl_pts_right[:, 0] - x_intersection)
 
-        middle = np.array(
-            [0.5, 0.5]
-        )  # don't use tips bcs they may be missing, hardcoded
+        # horizons_ctrl_pts_right = horizon_1_ctrl_pts_right
 
-        group_displ_deformed = np.array(
-            [
-                *boundary_ctrl_pts_displ,
-                *horizons_ctrl_pts_right,
-            ]
-        )
-        deformed_ctrl_pts = np.array(
-            [
-                *group_displ_deformed,
-                *group_displ_fault,
-                *group_sliding,
-                *group_sliding_fault,
-            ]
-        )
+        # horizons_ctrl_pts_right[:, 1] += displacement_y
 
-        # Sets of nodes (NOT control points) in or not in fault, required for evaluation influence matrix:
-        S_nodes_fault = np.where(g_new.tags["fracture_nodes"] == True)[0]
-        S_nodes_fault = S_nodes_fault[S_nodes_fault != 0]
-        S_nodes_fault = S_nodes_fault[S_nodes_fault != 1]
-        S_nodes_fault = S_nodes_fault[S_nodes_fault != 2]
-        S_nodes_fault = S_nodes_fault[S_nodes_fault != 3]
-        S_nodes_not_fault = np.setdiff1d(np.arange(g_new.num_nodes), S_nodes_fault)
+        # middle = np.array(
+        #     [0.5, 0.5]
+        # )  # don't use tips bcs they may be missing, hardcoded
 
-        # generate rbf class:
-        rbf = pygem.RBF(
-            original_ctrl_pts=original_ctrl_pts,
-            deformed_ctrl_pts=deformed_ctrl_pts,
-            S_displ=S_displ,
-            S_displ_fault=S_displ_fault,
-            S_sliding=S_sliding,
-            S_sliding_fault=S_sliding_fault,
-            normals=[np.array([-1, 0]), normal_ref],
-            tangents={"non_fault": [np.array([0, 1])], "fault": [tangent_ref]},
-            x_ref=middle,
-            S_nodes_not_fault=S_nodes_not_fault,
-            S_nodes_fault=S_nodes_fault,
-            func="polyharmonic_spline",
-            radius=0.2,
-            influence="linear_1",
-        )
+        # group_displ_deformed = np.array(
+        #     [
+        #         *boundary_ctrl_pts_displ,
+        #         *horizons_ctrl_pts_right,
+        #     ]
+        # )
+        # deformed_ctrl_pts = np.array(
+        #     [
+        #         *group_displ_deformed,
+        #         *group_displ_fault,
+        #         *group_sliding,
+        #         *group_sliding_fault,
+        #     ]
+        # )
 
-        # sides of nodes and ctrl pts:
-        side_nodes = rbf.side_function(
-            mesh,
-            normals=normal_ref,
-            x_refs=middle,
-            positive_pts_fault_ind=positive_pts_fault_ind,
-        )
-        positive_ctrl_pts_fault_ind = np.arange(
-            group_displ.shape[0] + group_displ_fault.shape[0] + group_sliding.shape[0],
-            group_displ.shape[0]
-            + group_displ_fault.shape[0]
-            + group_sliding.shape[0]
-            + group_sliding_fault.shape[0],
-        )
-        side_ctrl_pts = rbf.side_function(
-            original_ctrl_pts,
-            normals=normal_ref,
-            x_refs=middle,
-            positive_pts_fault_ind=positive_ctrl_pts_fault_ind,
-        )
+        # # Sets of nodes (NOT control points) in or not in fault, required for evaluation influence matrix:
+        # S_nodes_fault = np.where(g_new.tags["fracture_nodes"] == True)[0]
+        # S_nodes_fault = S_nodes_fault[S_nodes_fault != 0]
+        # S_nodes_fault = S_nodes_fault[S_nodes_fault != 1]
+        # S_nodes_fault = S_nodes_fault[S_nodes_fault != 2]
+        # S_nodes_fault = S_nodes_fault[S_nodes_fault != 3]
+        # S_nodes_not_fault = np.setdiff1d(np.arange(g_new.num_nodes), S_nodes_fault)
 
-        # apply deformation:
-        move, _ = rbf(mesh, side_nodes, side_ctrl_pts)
+        # # generate rbf class:
+        # rbf = pygem.RBF(
+        #     original_ctrl_pts=original_ctrl_pts,
+        #     deformed_ctrl_pts=deformed_ctrl_pts,
+        #     S_displ=S_displ,
+        #     S_displ_fault=S_displ_fault,
+        #     S_sliding=S_sliding,
+        #     S_sliding_fault=S_sliding_fault,
+        #     normals=[np.array([-1, 0]), normal_ref],
+        #     tangents={"non_fault": [np.array([0, 1])], "fault": [tangent_ref]},
+        #     x_ref=middle,
+        #     S_nodes_not_fault=S_nodes_not_fault,
+        #     S_nodes_fault=S_nodes_fault,
+        #     func="polyharmonic_spline",
+        #     radius=0.2,
+        #     influence="linear_1",
+        # )
 
-        # update the porepy mesh:
-        move = move.T
-        g_new.nodes[0] += move[0]
-        g_new.nodes[1] += move[1]
+        # # sides of nodes and ctrl pts:
+        # side_nodes = rbf.side_function(
+        #     mesh,
+        #     normals=normal_ref,
+        #     x_refs=middle,
+        #     positive_pts_fault_ind=positive_pts_fault_ind,
+        # )
+        # positive_ctrl_pts_fault_ind = np.arange(
+        #     group_displ.shape[0] + group_displ_fault.shape[0] + group_sliding.shape[0],
+        #     group_displ.shape[0]
+        #     + group_displ_fault.shape[0]
+        #     + group_sliding.shape[0]
+        #     + group_sliding_fault.shape[0],
+        # )
+        # side_ctrl_pts = rbf.side_function(
+        #     original_ctrl_pts,
+        #     normals=normal_ref,
+        #     x_refs=middle,
+        #     positive_pts_fault_ind=positive_ctrl_pts_fault_ind,
+        # )
 
-        g_new.compute_geometry()
+        # # apply deformation:
+        # move, _ = rbf(mesh, side_nodes, side_ctrl_pts)
+
+        # # update the porepy mesh:
+        # move = move.T
+        # g_new.nodes[0] += move[0]
+        # g_new.nodes[1] += move[1]
+
+        # g_new.compute_geometry()
 
         # pp.plot_grid(g_new, alpha=0)
         # pdb.set_trace()
@@ -333,17 +339,19 @@ class SolutionStrategyTest1(two_phase_hu.SolutionStrategyPressureMass):
 
         # gb.compute_geometry()
 
-        # rebuild mortar grid: already done in replace_grids, uncomment if you want to take a look...
-        for intf, data in gb.interfaces(return_data=True):
-            # queste mappe sono state aggiornate automaticamente e non sono più l'identità come prima
-            A = intf.primary_to_mortar_int().todense()
-            B = intf.primary_to_mortar_avg().todense()
+        # # rebuild mortar grid: already done in replace_grids, uncomment if you want to take a look...
+        # for intf, data in gb.interfaces(return_data=True):
+        #     # queste mappe sono state aggiornate automaticamente e non sono più l'identità come prima
+        #     A = intf.primary_to_mortar_int().todense()
+        #     B = intf.primary_to_mortar_avg().todense()
 
-            # queste invece sono rimaste identità dato che dal mortar alla faglia non mi cambia nulla
-            C = intf.secondary_to_mortar_int().todense()
-            D = intf.secondary_to_mortar_avg().todense()
+        #     # queste invece sono rimaste identità dato che dal mortar alla faglia non mi cambia nulla
+        #     C = intf.secondary_to_mortar_int().todense()
+        #     D = intf.secondary_to_mortar_avg().todense()
 
         pp.plot_grid(self.mdg, alpha=0)
+        pp.plot_grid(gb, alpha=0)
+
         pdb.set_trace()
 
         self.mdg = gb
@@ -490,7 +498,7 @@ class GeometryConvergence(pp.ModelGeometry):
         frac_constr_1 = pp.LineFracture(
             np.array(
                 [
-                    [self.x_intersection + 0.0, self.xmax],
+                    [self.x_intersection + 0.1, self.xmax],
                     [
                         self.y_intersection,
                         self.y_intersection,
@@ -502,7 +510,7 @@ class GeometryConvergence(pp.ModelGeometry):
         frac_constr_2 = pp.LineFracture(
             np.array(
                 [
-                    [self.xmin, self.xmean - 0.0],
+                    [self.xmin, self.xmean - 0.1],
                     [self.ymean, self.ymean],
                 ]
             )
@@ -621,7 +629,7 @@ if __name__ == "__main__":
                 / np.cos(self.tilt_angle)
                 / self.L_0
             )
-            self.displacement_max = -0.1
+            self.displacement_max = -0.0
 
             self.relative_permeability = (
                 pp.tobedefined.relative_permeability.rel_perm_quadratic

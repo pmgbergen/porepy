@@ -1,7 +1,7 @@
 import numpy as np
 import scipy as sp
 import porepy as pp
-from typing import List, Union
+from typing import List, Union, Callable
 from . import hybrid_upwind_utils as hu_utils
 from . import hybrid_weighted_average as hwa
 import copy
@@ -18,20 +18,21 @@ def myprint(var):
 """
 - procedurally paradigm is adopted
 - I haven't specified "internal" to all the interal variables
+- complex step was implemented along with ad. Results showed same accuracy even in presence of discontinuities. Never compared the time efficiency.
 """
 
 
 def flux_V(
-    sd,
-    mixture,
-    ell,
-    total_flux_internal,
-    left_restriction,
-    right_restriction,
-    ad,
-    dynamic_viscosity,
-    mobility,
-):
+    sd: pp.Grid,
+    mixture: pp.Mixture,
+    ell: int,
+    total_flux_internal: pp.ad.AdArray,
+    left_restriction: sp.sparse.spmatrix,
+    right_restriction: sp.sparse.spmatrix,
+    ad: bool,
+    dynamic_viscosity: float,
+    mobility: Callable,
+) -> pp.ad.AdArray:
     """ """
 
     def mobility_V_faces(
@@ -41,7 +42,7 @@ def flux_V(
         right_restriction,
         dynamic_viscosity,
         mobility,
-    ):
+    ) -> pp.ad.AdArray:
         """ """
 
         mobility_upwinded = hu_utils.var_upwinded_faces(
@@ -59,7 +60,7 @@ def flux_V(
         right_restriction,
         ad,
         mobility,
-    ):
+    ) -> pp.ad.AdArray:
         """ """
 
         if ad:
@@ -123,7 +124,7 @@ def rho_flux_V(
     ad,
     dynamic_viscosity,
     mobility,
-):
+) -> pp.ad.AdArray:
     """ """
 
     # 0D shortcut:
@@ -156,21 +157,22 @@ def rho_flux_V(
 
 
 def flux_G(
-    sd,
-    mixture,
-    ell,
-    pressure,
-    gravity_value,
-    left_restriction,
-    right_restriction,
+    sd: pp.Grid,
+    mixture: pp.Mixture,
+    ell: int,
+    pressure: pp.ad.AdArray,
+    gravity_value: float,
+    left_restriction: sp.sparse.spmatrix,
+    right_restriction: sp.sparse.spmatrix,
     transmissibility_internal_tpfa,
-    ad,
-    dynamic_viscosity,
-    dim_max,
-    mobility,
-):
+    ad: bool,
+    dynamic_viscosity: np.ndarray,
+    dim_max: int,
+    mobility: Callable,
+) -> pp.ad.AdArray:
     """
     TODO: consider the idea to move omega outside the flux_G, if you don't see why => it is already in the right place.
+    TODO: transmissibility_internal_tpfa should be a matrix...
     """
 
     def omega(
@@ -212,7 +214,7 @@ def flux_G(
         right_restriction,
         dynamic_viscosity,
         mobility,
-    ):
+    ) -> pp.ad.AdArray:
         """ """
         mobility_upwinded = hu_utils.var_upwinded_faces(
             mobility(saturation, dynamic_viscosity),
@@ -229,7 +231,7 @@ def flux_G(
         left_restriction,
         right_restriction,
         mobility,
-    ):
+    ) -> pp.ad.AdArray:
         """ """
         if ad:
             mobility_tot_G = []
@@ -301,15 +303,15 @@ def flux_G(
             left_restriction.shape[0], dtype=np.complex128
         )  # TODO: improve it
 
+    mob_G_ell = mobility_G_faces(
+        saturation_list[ell],
+        omega_list[ell],
+        left_restriction,
+        right_restriction,
+        dynamic_viscosity,
+        mobility,
+    )
     for m in np.arange(mixture.num_phases):
-        mob_G_ell = mobility_G_faces(
-            saturation_list[ell],
-            omega_list[ell],
-            left_restriction,
-            right_restriction,
-            dynamic_viscosity,
-            mobility,
-        )  # yes, you can move it outside the loop
         mob_G_m = mobility_G_faces(
             saturation_list[m],
             omega_list[m],
@@ -338,7 +340,7 @@ def rho_flux_G(
     dynamic_viscosity,
     dim_max,
     mobility,
-):
+) -> pp.ad.AdArray:
     """ """
 
     # 0D shortcut:

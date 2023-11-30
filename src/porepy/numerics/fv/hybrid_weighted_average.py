@@ -20,18 +20,18 @@ def ndof(g: pp.Grid) -> int:
 
 
 def total_flux_internal(
-    sd,
-    mixture,
-    pressure,
-    gravity_value,
-    left_restriction,
-    right_restriction,
-    transmissibility_internal_tpfa,
-    ad,
-    dynamic_viscosity,
-    dim_max,
-    mobility,
-    permeability,
+    sd: pp.Grid,
+    mixture: pp.Mixture,
+    pressure: pp.ad.AdArray,
+    gravity_value: float,
+    left_restriction: sp.sparse.spmatrix,
+    right_restriction: sp.sparse.spmatrix,
+    transmissibility_internal_tpfa: np.ndarray,
+    ad: bool,
+    dynamic_viscosity: float,
+    dim_max: int,
+    mobility: Callable,
+    permeability: Callable,
 ):
     """ """
 
