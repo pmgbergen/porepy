@@ -1534,10 +1534,13 @@ def _expected_value(
             )
             return pp.ad.AdArray(val, jac)
         elif op == "@":
-            # Array @ 2.0, which in pratice is Array * 2.0
-            val = np.array([12, 30, 48])
-            jac = sps.csr_matrix(np.array([[2, 4, 6], [8, 10, 12], [14, 16, 18]]))
-            return pp.ad.AdArray(val, jac)
+            # We disallow this operation due to the following reason: The only case in
+            # which it is convenient to use the @ operator for the scalars is a generic
+            # operator that can accept everything: scalars, ndarrays and sparse
+            # matrices. However, we do not know any cases where one operator can be both
+            # a scalar or ndarray AND a matrix. This choice will be reconsidered if a
+            # reasonable example is found.
+            return False
 
     elif isinstance(var_1, float) and isinstance(var_2, pp.ad.AdArray):
         if op == "+":
@@ -1584,10 +1587,8 @@ def _expected_value(
             )
             return pp.ad.AdArray(val, jac)
         elif op == "@":
-            # 2.0 @ Array, which in pratice is 2.0 * Array
-            val = np.array([12, 30, 48])
-            jac = sps.csr_matrix(np.array([[2, 4, 6], [8, 10, 12], [14, 16, 18]]))
-            return pp.ad.AdArray(val, jac)
+            # Note: See the comment for the case AdArray @ scalar.
+            return False
 
     elif isinstance(var_1, pp.ad.AdArray) and isinstance(var_2, np.ndarray):
         # Recall that the numpy array has values np.array([1, 2, 3])
@@ -1894,3 +1895,20 @@ def test_arithmetic_operations_on_ad_objects(
 
     # Compare numerical values between evaluated and expected outcomes.
     _compare(val, expected)
+
+    # Finally, we test that the methods `value_and_jacobian` and `value` produce the
+    # same result. If the expected value is multidimensional, the Jacobian is not
+    # implemented.
+    try:
+        multidimensional = len(expected.shape) > 1
+    except AttributeError:
+        multidimensional = False
+
+    if wrapped:
+        if not multidimensional:
+            val_jac = expression.value_and_jacobian(eq_system)
+            val = expression.value(eq_system)
+            assert np.all(val_jac.val == val)
+        else:
+            with pytest.raises(NotImplementedError):
+                expression.value_and_jacobian(eq_system)
