@@ -860,7 +860,7 @@ def sparse_kronecker_product(matrix: sps.spmatrix, nd: int) -> sps.spmatrix:
 # columns is a common operation.
 def sparse_array_to_row_col_data(
     A: sps.sparse,
-) -> tuple(np.ndarray, np.ndarray, np.ndarray):
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
     Function to retrieve indices and values of the a matrix.
 
@@ -877,4 +877,3 @@ def sparse_array_to_row_col_data(
     A = sps.coo_matrix(A, copy=True)
     matrix_data = (A.row, A.col, A.data)
     return matrix_data
-

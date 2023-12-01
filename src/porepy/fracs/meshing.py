@@ -17,8 +17,8 @@ import porepy as pp
 from porepy.fracs import split_grid, structured
 from porepy.grids import mortar_grid
 from porepy.grids.md_grid import MixedDimensionalGrid
-from porepy.utils import mcolon
 from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_data
+from porepy.utils import mcolon
 
 logger = logging.getLogger(__name__)
 

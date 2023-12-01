@@ -13,8 +13,10 @@ import numpy as np
 from scipy import sparse as sps
 
 import porepy as pp
-from porepy.numerics.linalg.matrix_operations import sparse_kronecker_product
-from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_data
+from porepy.numerics.linalg.matrix_operations import (
+    sparse_array_to_row_col_data,
+    sparse_kronecker_product,
+)
 
 
 class MortarSides(Enum):
