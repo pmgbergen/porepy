@@ -663,7 +663,7 @@ class Operator:
         # Casting the result to AdArray or raising an error.
         if isinstance(ad, numbers.Real):
             # AdArray requires 1D numpy array as value, not a scalar.
-            ad = np.array(ad).reshape(1)
+            ad = np.array([ad])
 
         if isinstance(ad, np.ndarray) and len(ad.shape) == 1:
             return AdArray(ad, sps.csr_matrix((ad.shape[0], system_manager.num_dofs())))
