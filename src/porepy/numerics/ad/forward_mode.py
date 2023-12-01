@@ -56,7 +56,7 @@ class AdArray:
         be handled and maintained, the scalar must be a float.
       * Numpy arrays are assumed to be 1d and have the same size as the ``AdArray``.
         Numpy arrays can be used for any operation except matrix multiplication.
-        *When adding, subtracting or multiplying a numpy array and an AdArray, the
+        When adding, subtracting or multiplying a numpy array and an AdArray, the
         AdArray should be placed first, so, DO: AdArray + numpy.array,
         DO NOT: numpy.array + AdArray. The latter will give erratic behavior, see
         https://stackoverflow.com/a/6129099.
