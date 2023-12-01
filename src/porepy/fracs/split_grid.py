@@ -744,8 +744,9 @@ def duplicate_nodes(g: pp.Grid, nodes: np.ndarray, offset: float) -> int:
         # Data for this block ends with the first column that belongs to the next
         # block. Note that we only search from the start index of this block,
         # and use this as an offset (saves time).
-        col_group_end = col_group_start + np.argmax(
-            sorted_cols[col_group_start:] == block_start[bi + 1]
+        col_group_end = int(
+            col_group_start
+            + np.argmax(sorted_cols[col_group_start:] == block_start[bi + 1])
         )
         # Special case for the last iteration: the last element in block_start has
         # value one higher than the number of rows, thus the equality above is never

@@ -355,10 +355,10 @@ def _extrude_2d(
     # sign in the cell-face relation, so that the generated normal vector points out of
     # the cell with cf-value 1.
     # This requires a sorting of the nodes for each cell
-    for ci in range(nc_2d):
+    for idx in range(nc_2d):
         # Node indices of this 2d cell
-        start = cn_2d.indptr[ci]
-        stop = cn_2d.indptr[ci + 1]
+        start = cn_2d.indptr[idx]
+        stop = cn_2d.indptr[idx + 1]
         ni = cn_ind_2d[start:stop]
 
         coord = g.nodes[:2, ni]
@@ -366,7 +366,7 @@ def _extrude_2d(
         # IMPLEMENTATION NOTE: this probably assumes convexity of the 2d cell.
         sort_ind = pp.utils.sort_points.sort_point_plane(
             np.vstack((coord, np.zeros(coord.shape[1]))),
-            g.cell_centers[:, ci].reshape((-1, 1)),
+            g.cell_centers[:, idx].reshape((-1, 1)),
         )
         # Indices that sort the nodes. The sort function contains a rotation, which
         # implies that it is unknown whether the ordering is cw or ccw. If the sorted
