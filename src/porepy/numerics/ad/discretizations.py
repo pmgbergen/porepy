@@ -377,7 +377,7 @@ class DifferentiableFVAd:
 
         # Get hold of the underlying flux discretization.
         base_flux = self._discretization.flux.value(self.equation_system)
-        assert isinstance(base_flux, np.ndarray)
+        assert isinstance(base_flux, sps.spmatrix)
 
         # The Jacobian matrix should have the same size as the base.
         flux_jac = sps.csr_matrix((base_flux.shape[0], self.equation_system.num_dofs()))
