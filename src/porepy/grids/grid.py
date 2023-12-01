@@ -24,7 +24,7 @@ from scipy import sparse as sps
 
 import porepy as pp
 from porepy.utils import mcolon, tags
-from porepy.utils.array_operations import sparse_array_to_row_col_data
+from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_data
 
 
 class Grid:

@@ -14,7 +14,7 @@ import porepy as pp
 from porepy.applications.test_utils import reference_dense_arrays
 from porepy.grids import simplex, structured
 from porepy.utils import setmembership
-from porepy.utils.array_operations import sparse_array_to_row_col_data
+from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_data
 
 
 @pytest.mark.parametrize(

@@ -27,7 +27,7 @@ from porepy.applications.test_utils import reference_dense_arrays
 from porepy.applications.test_utils.partial_discretization import (
     perform_partial_discretization_specified_nodes,
 )
-from porepy.utils.array_operations import sparse_array_to_row_col_data
+from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_data
 
 keyword = "mechanics"
 

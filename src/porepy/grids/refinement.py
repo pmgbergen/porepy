@@ -21,7 +21,7 @@ from porepy.fracs.fracture_network_3d import FractureNetwork3d
 from porepy.grids.grid import Grid
 from porepy.grids.simplex import TriangleGrid
 from porepy.grids.structured import TensorGrid
-from porepy.utils.array_operations import sparse_array_to_row_col_data
+from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_data
 
 logger = logging.getLogger(__name__)
 

@@ -21,7 +21,7 @@ from mpl_toolkits.mplot3d import proj3d
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
 import porepy as pp
-from porepy.utils.array_operations import sparse_array_to_row_col_data
+from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_data
 
 
 def plot_grid(

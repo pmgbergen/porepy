@@ -15,7 +15,7 @@ import numpy as np
 
 import porepy as pp
 from porepy.fracs.fracture_network_3d import FractureNetwork3d
-from porepy.utils.array_operations import sparse_array_to_row_col_data
+from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_data
 
 from . import msh_2_grid
 from .gmsh_interface import Tags

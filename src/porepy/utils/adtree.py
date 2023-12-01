@@ -67,7 +67,7 @@ from typing import Any, List, Optional, Tuple
 import numpy as np
 
 import porepy as pp
-from porepy.utils.array_operations import sparse_array_to_row_col_data
+from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_data
 
 
 class ADTNode:

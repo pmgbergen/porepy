@@ -7,7 +7,7 @@ import scipy.sparse as sps
 
 import porepy as pp
 from porepy.numerics.discretization import Discretization, InterfaceDiscretization
-from porepy.utils.array_operations import sparse_array_to_row_col_data
+from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_data
 
 
 class Upwind(Discretization):
