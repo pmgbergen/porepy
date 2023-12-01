@@ -3,6 +3,7 @@ import scipy.sparse as sps
 
 import porepy as pp
 from porepy.numerics.vem.dual_elliptic import DualElliptic
+from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_data
 
 
 class RT0(DualElliptic):
@@ -61,7 +62,7 @@ class RT0(DualElliptic):
         # Retrieve the permeability
         k = parameter_dictionary["second_order_tensor"]
 
-        faces, cells, sign = sps.find(sd.cell_faces)
+        faces, cells, sign = sparse_array_to_row_col_data(sd.cell_faces)
         index = np.argsort(cells)
         faces, sign = faces[index], sign[index]
 
@@ -263,7 +264,7 @@ class RT0(DualElliptic):
         if not (data.get(self.cell_face_to_opposite_node, None) is None or recompute):
             return
 
-        faces, cells, _ = sps.find(sd.cell_faces)
+        faces, cells, _ = sparse_array_to_row_col_data(sd.cell_faces)
         faces = faces[np.argsort(cells)]
 
         # initialize the map

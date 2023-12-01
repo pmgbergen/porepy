@@ -20,6 +20,7 @@ import scipy.sparse as sps
 
 import porepy as pp
 from porepy.grids import mortar_grid
+from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_data
 
 
 def extrude_grid_bucket(
@@ -94,7 +95,7 @@ def extrude_grid_bucket(
 
         # cells (in low-dim grid) and faces in high-dim grid that define the same
         # geometric quantity
-        cells, faces, _ = sps.find(face_cells_old)
+        cells, faces, _ = sparse_array_to_row_col_data(face_cells_old)
 
         # Cell-map for the low-dimensional grid, face-map for the high-dim
         cell_map = g_map[sd_secondary].cell_map
@@ -290,7 +291,7 @@ def _extrude_2d(
     # columns in fn_layer.
 
     # Faces, cells and values of the 2d cell-face map
-    [fi, ci, sgn] = sps.find(g.cell_faces)
+    [fi, ci, sgn] = sparse_array_to_row_col_data(g.cell_faces)
     # Only consider each face once
     _, idx = np.unique(fi, return_index=True)
 

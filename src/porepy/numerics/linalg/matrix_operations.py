@@ -853,3 +853,28 @@ def sparse_kronecker_product(matrix: sps.spmatrix, nd: int) -> sps.spmatrix:
         return matrix
     else:
         return sps.kron(matrix, sps.eye(nd)).tocsc()
+
+
+# PorePy extensively uses sparse arrays. An example of a common application of sparse
+# representation of topology graphs. In this context, retrieving the indexes of rows and
+# columns is a common operation.
+def sparse_array_to_row_col_data(
+    A: sps.sparse,
+) -> tuple(np.ndarray, np.ndarray, np.ndarray):
+    """
+    Function to retrieve indices and values of the a matrix.
+
+    Parameter
+    ---------
+    A : A sparse matrix
+
+    Return
+    ------
+    matrix_data : triplet of rows, columns, and values.
+
+
+    """
+    A = sps.coo_matrix(A, copy=True)
+    matrix_data = (A.row, A.col, A.data)
+    return matrix_data
+
