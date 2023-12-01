@@ -123,22 +123,23 @@ class AdTpfaFlow(pp.fluid_mass_balance.SinglePhaseFlow):
         interfaces: list[pp.MortarGrid] = self.subdomains_to_interfaces(domains, [1])
         intf_projection = pp.ad.MortarProjections(self.mdg, domains, interfaces, dim=1)
 
+        # Compute the transmissibility matrix, see the called function for details. Also
+        # obtain various helper objects.
         (
-            t_f_full,
+            t_f,
             diff_discr,
             boundary_grids,
             hf_to_f,
             d_vec,
         ) = self._transmissibility_matrix(domains)
 
+        # Treatment of boundary conditions.
         one = pp.ad.Scalar(1)
-
-        # Delete neu values in T_f, i.e. keep all non-neu values.
         dir_filter, neu_filter = diff_discr.boundary_filters(
             domains, boundary_grids, "bc_values_darcy_flux"
         )
-        # Keep t_f_full for now, to be used in the pressure reconstruction.
-        t_f = (one - neu_filter) * t_f_full
+        # Delete neu values in T_f, i.e. keep all non-neu values.
+        t_f = (one - neu_filter) * t_f
 
         # Sign of boundary faces.
         bnd_sgn = diff_discr.boundary_sign(domains)
@@ -150,62 +151,109 @@ class AdTpfaFlow(pp.fluid_mass_balance.SinglePhaseFlow):
         dir_bnd = dir_filter * (-bnd_sgn * t_f)
         t_bnd = neu_bnd + dir_bnd
 
-        # Vector source fc_cc is (nhf, nd*nhf) hf2f @ fc_cc @ [(f2hf3d @ t_f) * 3dc2hf3d
-        # @ vec_source_3d]
+        # Discretization of vector source: TODO: Consider moving to a separate method.
         #
-        # EK: Not sure about mpsa in the next sentence, but some sort of compatability
-        # requirement is needed. For compatibility with mpsa, vector source is defined
-        # as a cell-wise nd vector. As this discretization is in 3d, expand.
+        # The flux through a face with normal vector n_j, as seen from cell i, driven by
+        # a vector source v_i in cell i, is given by
+        #
+        #   q_j = n_j^T K_i v_i
+        #
+        # A Tpfa-style discretization of this term will apply harmonic averaging of the
+        # permeabilities (see function _transmissibility_matrix), and multiply with the
+        # difference in vector source between the two cells. We have already computed
+        # the transmissibility matrix, which computes the product of the permeability
+        # tensor, the normal vector and a unit vector from cell to face center. To
+        # convert this to a discretizaiton for the vector source, we first need to
+        # project the vector source onto the unit vector from cell to face center.
+        # Second, the vector source should be scaled by the distance from cell to face
+        # center. This can be seen as compensating for the distance in the denominator
+        # of the half-face transmissibility, or as converting the vector source into a
+        # potential-like quantity before applying the flux calculation.
+
+        # The vector source can be 2d or 3d, but the geometry, thus discretization, is
+        # always 3d, thus we need to map from nd to 3d.
         cells_nd_to_3d = diff_discr.nd_to_3d(domains, self.nd)
+        # Mapping from cells to half-faces of 3d quantities.
         cells_to_hf_3d = diff_discr.half_face_map(
             domains, from_entity="cells", with_sign=False, dimensions=(3, 3)
         )
-
-        # The constitutive law for the vector source
-        vector_source_cells = self.vector_source(domains, material="fluid")
 
         # Build a mapping for the cell-wise vector source, unravelled from the right:
         # First, map the vector source from nd to 3d. Second, map from cells to
         # half-faces. Third, project the vector source onto the vector from cell center
         # to half-face center (this is the vector which Tpfa uses as a proxy for the
-        # full gradient, see comments above). As the rows of d_vec have length equal to
-        # the distance, this compensates for the distance in the denominator of the
-        # half-face transmissibility. Fourth, map from half-faces to faces, using a
-        # mapping with signs, thereby taking the difference between the two vector
-        # sources.
+        # full gradient, see comments in the method _transmissibility_matrix). As the
+        # rows of d_vec have length equal to the distance, this compensates for the
+        # distance in the denominator of the half-face transmissibility. Fourth, map
+        # from half-faces to faces, using a mapping with signs, thereby taking the
+        # difference between the two vector sources.
         vector_source_c_to_f = pp.ad.SparseArray(
             hf_to_f @ d_vec @ cells_to_hf_3d @ cells_nd_to_3d
         )
-        vector_source_difference = vector_source_c_to_f @ vector_source_cells
 
+        # Fetch the constitutive law for the vector source.
+        vector_source_cells = self.vector_source(domains, material="fluid")
+
+        # Compute the difference in pressure and vector source between the two cells on
+        # the sides of each face.
         pressure_difference = pp.ad.SparseArray(
             diff_discr.face_pairing_from_cell_array(domains)
         ) @ self.pressure(domains)
+        vector_source_difference = vector_source_c_to_f @ vector_source_cells
 
+        # Fetch the discretization of the Darcy flux
         base_discr = self.darcy_flux_discretization(domains)
-        if isinstance(base_discr, pp.ad.MpfaAd):
 
-            def f(T_f, p_diff, p):
+        # Compose the discretization of the Darcy flux q = T(k(u)) * p, (where the k(u)
+        # dependency can be replaced by other primary variables. The chain rule gives
+        #
+        #  dT = p * (dT/du) * du + T dp
+        #
+        # A similar expression holds for the vector source term. If the base
+        # discretization (which calculates T in the above equation) is Tpfa, the full
+        # expression will be obtained by the Ad machinery and there is no need for
+        # special treatment. If the base discretization is Mpfa, we need to mix this
+        # T-matrix with the the Tpfa-style approximation of dT/du, as is done in the
+        # below if-statement.
+        if isinstance(base_discr, pp.ad.MpfaAd):
+            # To obtain a mixture of Tpfa and Mpfa, we utilize pp.ad.Function, one for
+            # the flux and one for the vector source. Keep in mind that these functions
+            # will be evaluated in forward mode, so that the inputs are not
+            # Ad-operators, but numerical values.
+
+            def flux_discretization(T_f, p_diff, p):
+                # Take the differential of the product between the transmissibility
+                # matrix and the pressure difference.
+
                 # We know that base_discr.flux is a sparse matrix, so we can call parse
                 # directly. At the time of evaluation, p will be an AdArray, thus we can
                 # access its val and jac attributes.
                 val = base_discr.flux.parse(self.mdg) @ p.val
                 jac = base_discr.flux.parse(self.mdg) @ p.jac
+
                 if hasattr(T_f, "jac"):
-                    # Trick to get the correct shape of the jacobian. See the diagvec_mul methods.
+                    # Add the contribution to the Jacobian matrix from the derivative of
+                    # the transmissibility matrix times the pressure difference. To see
+                    # why this is correct, it may be useful to consider the flux over a
+                    # single face (corresponding to one row in the Jacobian matrix).
                     jac += sps.diags(p_diff.val) @ T_f.jac
+
                 return pp.ad.AdArray(val, jac)
 
-            def g(T_f, vs_diff, vs):
-                # Take the differential of the vector source term.
-                #
-                # vector_source_param is an operator which, at the time of evaluation,
-                # will be either a numpy or an AdArray (ex: a gravity term with a
-                # constant and variable density, respectively).
+            def vector_source_discretization(T_f, vs_diff, vs):
+                # Take the differential of the flux associated with the vector source
+                # term.
+
+                # The vector source (vs) is an operator which, at the time of
+                # evaluation, will be either a numpy or an AdArray (ex: a gravity term
+                # with a constant and variable density, respectively). Thus an if-else
+                # is needed to get hold of its value and Jacobian.
                 if isinstance(vs, pp.ad.AdArray):
                     vs_val = vs.val
                     jac = vs.jac
                 elif isinstance(vs, np.ndarray):
+                    # The value is a numpy array, thus the Jacobian should be a zero
+                    # matrix of the right size.
                     vs_val = vs
                     num_rows = vs_val.size
                     num_cols = self.equation_system.num_dofs()
@@ -217,35 +265,39 @@ class AdTpfaFlow(pp.fluid_mass_balance.SinglePhaseFlow):
                         "vector_source_param must be an AdArray or numpy array"
                     )
 
+                # The value of the vector source discretization is a simple product.
                 val = base_discr.vector_source.parse(self.mdg) @ vs_val
+                # The contribution from differentiating the vector source term to the
+                # Jacobian of the flux.
                 jac = base_discr.vector_source.parse(self.mdg) @ jac
 
                 if hasattr(T_f, "jac"):
+                    # At the time of evaluation, the difference in the vector source is
+                    # either an AdArray or a numpy array. We anyhow need to get hold of
+                    # its value.
                     if isinstance(vs_diff, pp.ad.AdArray):
                         vs_diff_val = vs_diff.val
                     elif isinstance(vs_diff, np.ndarray):
                         vs_diff_val = vs_diff
 
-                    # EK: This does not seem right
+                    # Add the contribution to the Jacobian matrix from the derivative of
+                    # the transmissibility matrix times the vector source difference.
                     jac += sps.diags(vs_diff_val) @ T_f.jac
+
                 return pp.ad.AdArray(val, jac)
 
-            flux_p = pp.ad.Function(f, "differentiable_mpfa")(
+            flux_p = pp.ad.Function(flux_discretization, "differentiable_mpfa")(
                 t_f, pressure_difference, self.pressure(domains)
             )
-            vector_source_d = pp.ad.Function(g, "differentiable_mpfa_vector_source")(
-                t_f, vector_source_difference, vector_source_cells
-            )
+            vector_source_d = pp.ad.Function(
+                vector_source_discretization, "differentiable_mpfa_vector_source"
+            )(t_f, vector_source_difference, vector_source_cells)
 
         else:
+            # The base discretization is Tpfa, so we can rely on the Ad machinery to
+            # compose the full expression.
             flux_p = t_f * pressure_difference
             vector_source_d = t_f * vector_source_difference
-
-        self.set_discretization_parameters()
-        self.discretize()
-        flux_p.evaluate(self.equation_system)
-        vector_source_d.evaluate(self.equation_system)
-        vector_source_d.evaluate(self.equation_system)
 
         # Get boundary condition values
         boundary_operator = self._combine_boundary_operators(  # type: ignore[call-arg]
@@ -255,20 +307,14 @@ class AdTpfaFlow(pp.fluid_mass_balance.SinglePhaseFlow):
             bc_type=self.bc_type_darcy_flux,
             name="bc_values_darcy_flux",
         )
-        bound_flux = t_bnd * (
-            boundary_operator
-            + intf_projection.mortar_to_primary_int
-            @ self.interface_darcy_flux(interfaces)
-        )
-        vector_flux = base_discr.vector_source @ self.vector_source(
-            domains, material="fluid"
-        )
 
+        # Compose the full discretization of the Darcy flux, which consists of three
+        # terms: The flux due to pressure differences, the flux due to boundary
+        # conditions, and the flux due to the vector source.
         flux: pp.ad.Operator = (
             flux_p  # discr.flux @ self.pressure(domains)
             + t_bnd
-            * (  # t_bnd will evaluate to an AdArray, which should be multiplied
-                # elementwise with the boundary condition.
+            * (
                 boundary_operator
                 + intf_projection.mortar_to_primary_int
                 @ self.interface_darcy_flux(interfaces)
@@ -276,30 +322,66 @@ class AdTpfaFlow(pp.fluid_mass_balance.SinglePhaseFlow):
             + vector_source_d
         )
 
-        # Development debugging. TODO: Remove
-        # Compose equation
-
-        # div = pp.ad.Divergence(domains)
-        # eq = div @ ((T_f * pressure_difference) + bc_contr)
-        # system = eq.evaluate(self.equation_system)
-        # dp = sps.linalg.spsolve(system.jac, -system.val)
         return flux
 
     def _transmissibility_matrix(self, subdomains: list[pp.Grid]):
-        # Construct half-face transmissbilities t_hf = 1 / / dist * d_vec @ n @ k_c.
-        # Cell-wise diffusivity tensor, shape = (9 * n_cells,)
+        """Compute the Tpfa transmissibility matrix for a list of subdomains."""
+        # In Tpfa, the Darcy flux through a face with normal vector n_j, as seen from
+        # cell i, is given by (subscripts indicate face or cell index)
+        #
+        #    q_j = n_j^T K_i e_ij (p_i - p_j) / dist_ij
+        #
+        # Here, K_i is the permeability tensor in cell i, e_ij is the unit vector from
+        # cell i to face j, and dist_ij is the distance between the cell center and the
+        # face center. Comparing with the continuous formulation, we see that the
+        # pressure gradient is approximated by the pressure difference, divided by
+        # distance, in the direction between cell and face centers. Writing out the
+        # expression for the half-face transmissibility
+        #
+        #    t = n_r^T K_rs e_s / dist
+        #
+        # Here, subscripts indicate (Cartesian) dimensions, the summation convention is
+        # applied, and dist again represent the distance from cell to face center. (EK:
+        # the change of meaning of subscript is unfortunate, but it is very important to
+        # understand the how the components of the permeability tensor and the normal
+        # and distance vectors are multiplied.) This formulation can be reformulated to
+        #
+        #   t = n_r^T e_s K_rs / dist
+        #
+        # where the point is that, by right multiplying the permeability tensor, this
+        # can be represented as an Ad operator (which upon parsing will be an AdArray
+        # which only can be right multiplied). The below code implements this
+        # formulation. The full transmissibility matrix is obtained by taking the
+        # harmonic mean of the two half-face transmissibilities on each face.
+
+        # The cell-wise permeability tensor is represented as an Ad operator which
+        # evaluates to an AdArray with 9 * n_cells entries.
         k_c = self._permeability(subdomains)
+
+        # Create the helper discretization object, which will be used to generate
+        # grid-related quantities and mappings.
         boundary_grids = self.subdomains_to_boundary_grids(subdomains)
         diff_discr = pp.numerics.fv.tpfa.DifferentiableTpfa(
             subdomains,
             boundary_grids,
             self.mdg,
         )
+
+        # Get the normal vector, vector from cell center to face center (d_vec), and
+        # distance from cell center to face center (dist) for each half-face.
         n, d_vec, dist = diff_discr.half_face_geometry_matrices(subdomains)
-        # Compose half-face transmissibilities
+
+        # Compose the geometric part of the half-face transmissibilities. Note that
+        # dividing d_vec by dist essentially form a unit vector from cell to face
+        # center.
         d_n_by_dist = sps.diags(1 / dist) * d_vec @ n
+
+        # Form the full half-face transmissibilities, and take its reciprocal, preparing
+        # for a harmonic mean between the two half-face transmissibilities on ecah side
+        # of a face.
         one = pp.ad.Scalar(1)
         t_hf_inv = one / (pp.ad.SparseArray(d_n_by_dist) @ k_c)
+
         # Compose full-face transmissibilities
         # Sum over half-faces to get transmissibility on faces.
         # Include sign to cancel the effect of the d_vec @ n having opposite signs on
@@ -307,6 +389,7 @@ class AdTpfaFlow(pp.fluid_mass_balance.SinglePhaseFlow):
         hf_to_f = diff_discr.half_face_map(
             subdomains, to_entity="faces", with_sign=True
         )
+        # Take the harmonic mean of the two half-face transmissibilities.
         t_f_full = one / (pp.ad.SparseArray(hf_to_f) @ t_hf_inv)
         t_f_full.set_name("transmissibility matrix")
         return t_f_full, diff_discr, boundary_grids, hf_to_f, d_vec
@@ -337,7 +420,7 @@ class AdTpfaFlow(pp.fluid_mass_balance.SinglePhaseFlow):
         )
         base_discr = self.darcy_flux_discretization(domains)
         # Obtain the transmissibilities in operator form. Ignore other outputs.
-        (t_f_full, _, boundary_grids) = self._transmissibility_matrix(subdomains)
+        t_f_full, _, boundary_grids = self._transmissibility_matrix(subdomains)
         one = pp.ad.Scalar(1)
         dir_filter, neu_filter = diff_discr.boundary_filters(
             subdomains, boundary_grids, "bc_values_darcy_flux"
