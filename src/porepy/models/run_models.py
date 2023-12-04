@@ -47,8 +47,11 @@ def run_time_dependent_model(model, params: dict) -> None:
         params: Parameters related to the solution procedure. # Why not just set these
             as e.g. model.solution_parameters.
 
+    - TODO: run_time_dependent_model is not versatile enough. improve it. but i'm lazy.
+
     """
-    print("run_time_dependent_model has been mod")
+    print("\n\n\nrun_time_dependent_model has been mod")
+
     # Assign parameters, variables and discretizations. Discretize time-indepedent terms
     if params.get("prepare_simulation", True):
         model.prepare_simulation()

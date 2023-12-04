@@ -17,8 +17,9 @@ def myprint(var):
 
 """
 - procedurally paradigm is adopted
+- hu works only on internal faces, boundary condistions (only homogeneous neumann so far) are applied somewhere else in the model
 - I haven't specified "internal" to all the interal variables
-- complex step was implemented along with ad. Results showed same accuracy even in presence of discontinuities. Never compared the time efficiency.
+- complex step was implemented along with ad. Results showed same accuracy even across discontinuities. Never compared the time efficiency.
 """
 
 
@@ -179,7 +180,7 @@ def flux_G(
         num_phases, ell, mobilities, g, left_restriction, right_restriction, ad
     ) -> Union[pp.ad.AdArray, np.ndarray]:
         """
-        TODO: i run into some issues with pp.ad.functions.heaviside
+        TODO: i run into some issues with pp.ad.functions.heaviside. # 1/12/23: ? old comment? ignore it?
         """
         if ad:
             omega_ell = []

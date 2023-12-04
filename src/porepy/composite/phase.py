@@ -6,13 +6,18 @@ import porepy as pp
 
 import pdb
 
-# then, i guess, pressure_phase = p +- capillary(saturation_phase)
+
+"""
+TODO: the setting of a subdomain is weird, did so to be compliant with both hu and operator. Find a better solution
+"""
 
 
 class Phase(abc.ABC):
     """ """
 
-    def __init__(self, name: str = "", rho0: float = 1, p0: float = 1, beta: float = 1e-10) -> None:
+    def __init__(
+        self, name: str = "", rho0: float = 1, p0: float = 1, beta: float = 1e-10
+    ) -> None:
         self._name = name
         self._rho0 = rho0
         self._p0 = p0
@@ -27,11 +32,11 @@ class Phase(abc.ABC):
         return self._name
 
     @property
-    def saturation(self):
+    def saturation(self) -> pp.ad.AdArray:
         s = self.saturation_operator([self.subdomain]).evaluate(self.equation_system)
         return s
 
-    def saturation_operator(self, subdomains: list[pp.Grid]):
+    def saturation_operator(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """ """
         if self.apply_constraint:
             s = pp.ad.Scalar(1, "one") - self.equation_system.md_variable(
@@ -43,26 +48,14 @@ class Phase(abc.ABC):
 
     # Physical properties: ----------------------------------------------------------------
 
-    def mass_density(self, p): #, vector_dim=False, sds_dof=False): 
-        """
-        | Math. Dimension:        scalar
-        | Phys. Dimension:        [kg / m^3]
-        Note:
-        Parameters:
-            p: Pressure.
-            T: Temperature.
-        Returns:
+    def mass_density(self, p: pp.ad.AdArray) -> pp.ad.AdArray:
+        """ """
 
-        better to redefine this method case by case, consider it an example
-        """
-
-        # constant density:
-        if isinstance(p, pp.ad.AdArray):
-            rho = self._rho0 * pp.ad.AdArray(
-                np.ones(p.val.shape), 0 * p.jac
-            )  # TODO: is it right?
-        else:
-            rho = self._rho0 * np.ones(p.shape)
+        # # constant density:
+        # if isinstance(p, pp.ad.AdArray):
+        #     rho = self._rho0 * pp.ad.AdArray(np.ones(p.val.shape), 0 * p.jac)
+        # else:
+        #     rho = self._rho0 * np.ones(p.shape)
 
         # variable density:
         rho = self._rho0 * pp.ad.functions.exp(
@@ -71,13 +64,13 @@ class Phase(abc.ABC):
 
         return rho
 
-    def mass_density_operator(self, subdomains, pressure): #, vector_dim=False):
-        """
-        see pressure(rho) in consitutive laws
-        """
+    def mass_density_operator(
+        self, subdomains: list[pp.Grid], pressure: pp.ad.Operator
+    ) -> pp.ad.Operator:
+        """ """
 
         p = pressure(subdomains)
         mass_rho_operator = pp.ad.Function(self.mass_density, "mass_density_operator")
-        rho = mass_rho_operator(p) # old
+        rho = mass_rho_operator(p)
 
         return rho

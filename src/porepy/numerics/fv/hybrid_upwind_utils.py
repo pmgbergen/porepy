@@ -8,7 +8,7 @@ import pdb
 heaviside_operators = pp.ad.Function(pp.ad.heaviside, "heviside_for_operators")
 
 
-def expansion_matrix(sd):
+def expansion_matrix(sd: pp.Grid) -> sp.sparse.spmatrix:
     """
     from internal faces set to all faces set
     TODO: change the name
@@ -24,16 +24,17 @@ def expansion_matrix(sd):
     return expansion
 
 
-def restriction_matrices_left_right(sd):
+def restriction_matrices_left_right(sd: pp.Grid) -> sp.sparse.spmatrix:
     """
     remark: with ad you have to use matrices instead of working with indices
     TODO: PAY ATTENTION: there are two logical operation in the same function (improve it):
             get internal set of faces and compute left and right restriction of internal set
     TODO: this function was essentially copied from email. Improve it if possible.
+    TODO: use one matrix like: restriction = restriction_left + restiction_right
 
     var_left = left_restriction @ var
     var_left.shape = (len(sd.get_internal_faces()),)
-    var.shape = (sd.num_faces,) # you mean, sd.num_cells, right?
+    var.shape = (sd.num_cells)
     """
 
     internal_faces = sd.get_internal_faces()
@@ -64,7 +65,12 @@ def restriction_matrices_left_right(sd):
     return left_restriction, right_restriction
 
 
-def density_internal_faces(saturation, density, left_restriction, right_restriction):
+def density_internal_faces(
+    saturation: pp.ad.AdArray,
+    density: pp.ad.AdArray,
+    left_restriction: sp.sparse.spmatrix,
+    right_restriction: sp.sparse.spmatrix,
+) -> pp.ad.AdArray:
     """ """
     s_rho = saturation * density
 
@@ -75,22 +81,29 @@ def density_internal_faces(saturation, density, left_restriction, right_restrict
 
 
 def g_internal_faces(
-    z, density_faces, gravity_value, left_restriction, right_restriction
-):
+    z: np.ndarray,
+    density_faces: pp.ad.AdArray,
+    gravity_value: float,
+    left_restriction: sp.sparse.spmatrix,
+    right_restriction: sp.sparse.spmatrix,
+) -> pp.ad.AdArray:
     """ """
+
     g_faces = (
         density_faces * gravity_value * (left_restriction @ z - right_restriction @ z)
     )
     return g_faces
 
 
-def compute_transmissibility_tpfa(sd, data, keyword="flow"):
+def compute_transmissibility_tpfa(sd: pp.Grid, data: dict, keyword="flow") -> None:
     """ """
     discr = pp.Tpfa(keyword)
     discr.discretize(sd, data)
 
 
-def get_transmissibility_tpfa(sd, data, keyword="flow"):
+def get_transmissibility_tpfa(
+    sd: pp.Grid, data: dict, keyword="flow"
+) -> (np.ndarray, np.ndarray):
     """TODO: use the matrix of transmissibilities, not the vector"""
     matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][keyword]
     div_transmissibility = matrix_dictionary["flux"]  # TODO: "flux"
@@ -100,13 +113,19 @@ def get_transmissibility_tpfa(sd, data, keyword="flow"):
     return transmissibility, transmissibility_internal
 
 
-def var_upwinded_faces(var, upwind_directions, left_restriction, right_restriction):
+def var_upwinded_faces(
+    var: pp.ad.AdArray,
+    upwind_directions: pp.ad.AdArray,
+    left_restriction: sp.sparse.spmatrix,
+    right_restriction: sp.sparse.spmatrix,
+) -> pp.ad.AdArray:
     """
     - works for both ad and non ad
     - var defined at cell centers
     - remark: no derivative wrt upwind direction => we use only the val if ad or real part if complex step
     - you can use pp upwind
     """
+
     var_left = left_restriction @ var
     var_right = right_restriction @ var
 

@@ -32,7 +32,7 @@ def total_flux_internal(
     dim_max: int,
     mobility: Callable,
     permeability: Callable,
-):
+) -> pp.ad.AdArray:
     """ """
 
     def gamma_value(permeability):
@@ -56,7 +56,12 @@ def total_flux_internal(
         return gamma_val
 
     def g_ref_faces(
-        mixture, pressure, z, gravity_value, left_restriction, right_restriction
+        mixture: pp.Mixture,
+        pressure: pp.ad.AdArray,
+        z: np.ndarray,
+        gravity_value: float,
+        left_restriction: sp.sparse.spmatrix,
+        right_restriction: sp.sparse.spmatrix,
     ):
         """
         - harcoded for two phases
