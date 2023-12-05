@@ -593,11 +593,14 @@ def _add_info(sd: pp.Grid, info: str, ax: mpl.axes.Axes, **kwargs) -> None:
         _quiver(sd, sd.face_normals * 0.4, ax, **kwargs)
 
 
-def _plot_sd_0d(sd: pp.Grid, cell_value, ax: mpl.axes.Axes, **kwargs) -> None:
+def _plot_sd_0d(
+    sd: pp.Grid, cell_value: np.ndarray | None, ax: mpl.axes.Axes, **kwargs
+) -> None:
     """Plot the 0d grid g as a circle on the axis ax.
 
     Parameters:
         sd: 0d subdomain
+        cell_value: cell values
         ax: axes
         kwargs (optional): Keyword arguments
             pointsize (float): defining the size of the marker.
@@ -627,10 +630,9 @@ def _plot_sd_0d(sd: pp.Grid, cell_value, ax: mpl.axes.Axes, **kwargs) -> None:
 
 
 def _plot_sd_1d(
-    sd: pp.Grid, cell_value: np.ndarray, ax: mpl.axes.Axes, **kwargs
+    sd: pp.Grid, cell_value: np.ndarray | None, ax: mpl.axes.Axes, **kwargs
 ) -> None:
-    """
-    Plot the 1d grid g to the axis ax, with cell_value represented by the cell coloring.
+    """Plot an 1d grid to the axis ax, with cell_value represented by the cell coloring.
 
     Parameters:
         sd: 1d subdomain
@@ -639,8 +641,9 @@ def _plot_sd_1d(
         kwargs (optional): Keyword arguments
             color_map: Limits of the cell value color axis.
             alpha: Transparency of the plot.
-            cells: boolean array with length number of cells. Only plot cells c
-                   where cells[c]=True
+            cells: boolean array with length number of cells. Only plot cells c where
+                cells[c]=True.
+
     """
     # Fetch nodes and cells
     cell_nodes = sd.cell_nodes()
@@ -688,9 +691,10 @@ def _plot_sd_1d(
             ax.add_collection3d(poly)  # type: ignore[attr-defined]
 
 
-def _plot_sd_2d(sd: pp.Grid, cell_value: np.ndarray, ax: mpl.axes.Axes, **kwargs):
-    """
-    Plot the 2d grid g to the axis ax, with cell_value represented by the cell coloring.
+def _plot_sd_2d(
+    sd: pp.Grid, cell_value: np.ndarray | None, ax: mpl.axes.Axes, **kwargs
+):
+    """Plot a 2d grid to the axis ax, with cell_value represented by cell coloring.
 
     Parameters:
         sd: 2d subdomain
@@ -701,8 +705,9 @@ def _plot_sd_2d(sd: pp.Grid, cell_value: np.ndarray, ax: mpl.axes.Axes, **kwargs
             linewidth: Width of faces in 2d and edges in 3d.
             rgb: Color map weights. Defaults to [1, 0, 0].
             alpha: Transparency of the plot.
-            cells: boolean array with length number of cells. Only plot cells c
-                   where cells[c]=True
+            cells: boolean array with length number of cells. Only plot cells c where
+                cells[c]=True.
+
     """
     faces, _, _ = sps.find(sd.cell_faces)
     nodes, _, _ = sps.find(sd.face_nodes)
@@ -767,13 +772,18 @@ def _plot_sd_2d(sd: pp.Grid, cell_value: np.ndarray, ax: mpl.axes.Axes, **kwargs
 
 
 def _plot_sd_3d(sd: pp.Grid, ax: mpl.axes.Axes, **kwargs) -> None:
-    """
-    Plot the 3d subdomain to the axis ax.
+    """Plot the 3d subdomain to the axis ax.
 
     Parameters:
         sd: 3d subdomain
         ax: axes
         kwargs: Keyword arguments:
+            linewidth: Width of faces in 2d and edges in 3d.
+            rgb: Color map weights. Defaults to [1, 0, 0].
+            alpha: Transparency of the plot.
+            cells: boolean array with length number of cells. Only plot cells c where
+                cells[c]=True.
+
     """
     faces_cells, cells, _ = sps.find(sd.cell_faces)
     nodes_faces, faces, _ = sps.find(sd.face_nodes)
