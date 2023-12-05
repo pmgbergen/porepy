@@ -1,11 +1,11 @@
-"""
-Module for PorePy's plotting functionality for (mixed-dimensional grids) built on matplotlib.
+"""Module for PorePy's plotting functionality for (mixed-dimensional grids) built on
+matplotlib.
 
 The functionality provided covers plotting of grids in 0 to 3 dimensions. Data may be
-represented by cell-wise colors or cell- or face-wise vector arrows.
-The module is quite useful for simple visualization purposes. For more advanced
-visualization, especially in 3d, we recommend exporting the information to vtu using the
-exporter module found in this folder.
+represented by cell-wise colors or cell- or face-wise vector arrows. The module is quite
+useful for simple visualization purposes. For more advanced visualization, especially in
+3d, we recommend exporting the information to vtu using the exporter module found in
+this folder.
 """
 from __future__ import annotations
 
@@ -31,29 +31,26 @@ def plot_grid(
     info: Optional[str] = None,
     **kwargs,
 ) -> None:
-    """
-    Plot the (possibly mixed-dimensional) grid with data in a 3d framework.
+    """Plot the (possibly mixed-dimensional) grid with data in a 3d framework.
 
-    It is possible to add the cell ids at the cells centers (info option 'c'),
-    the face ids at the face centers (info option 'f'), the node ids at the node
-    (info option 'n'), and the normal at the face (info option 'o'). If info is
-    set to 'all' all the information are displayed.
+    It is possible to add the cell ids at the cells centers (info option 'c'), the face
+    ids at the face centers (info option 'f'), the node ids at the node (info option
+    'n'), and the normal at the face (info option 'o'). If info is set to 'all' all the
+    information are displayed.
 
-    Args:
-        grid (pp.Grid or pp.MixedDimensionalGrid): subdomain or mixed-dimensional grid.
-        cell_value (str or array, optional) if g is a single grid then cell scalar field to be
-            represented (only 1d and 2d). If g is a mixed-dimensional grid the name (key)
-            of the scalar field.
-        vector_value: (optional) if g is a single grid then vector scalar field to be
-            represented (only 1d and 2d). If g is a mixed-dimensional grid the name (key)
-            of the vector field.
-        info: (optional) add extra information to the plot. C, F, and N add cell, face and
-            node numbers, respectively. O gives a plot of the face normals. See the funtion
+    Parameters:
+        grid: subdomain or mixed-dimensional grid.
+        cell_value: if grid is a single grid, cell_value is a cell scalar field to
+            be represented (only 1d and 2d). If grid is a mixed-dimensional grid,
+            cell_value is the name (key) of the scalar field as a string.
+        vector_value: Same as cell_value, but for vector fields.
+        info: add extra information to the plot. C, F, and N add cell, face and node
+            numbers, respectively. O gives a plot of the face normals. See the funtion
             add_info.
-        kwargs (optional): Keyword arguments:
+        kwargs: Keyword arguments:
             alpha: transparency of cells (2d) and faces (3d)
-            cells: boolean array with length number of cells. Only plot cells c
-                where cells[c]=True. Not valid for a MixedDimensionalGrid.
+            cells: boolean array with length number of cells. Only plot cells c where
+            cells[c]=True. Not valid for a MixedDimensionalGrid.
 
     Example:
     # if grid is a single grid:
@@ -86,24 +83,21 @@ def save_img(
     info: Optional[str] = None,
     **kwargs,
 ) -> None:
-    """
-    Plot and save the grid in a 3d framework.
+    """Plot and save the grid in a 3d framework.
 
-    It is possible to add the cell ids at the cells centers (info option 'c'),
-    the face ids at the face centers (info option 'f'), the node ids at the node
-    (info option 'n'), and the normal at the face (info option 'o'). If info is
-    set to 'all' all the informations are displayed.
+    It is possible to add the cell ids at the cells centers (info option 'c'), the face
+    ids at the face centers (info option 'f'), the node ids at the node (info option
+    'n'), and the normal at the face (info option 'o'). If info is set to 'all' all the
+    informations are displayed.
 
-    Args:
+    Parameters:
         name: the name of the file
-        grid (pp.Grid or pp.MixedDimensionalGrid): subdomain or mixed-dimensional grid.
-        cell_value (array or string, optional): if g is a single grid then cell scalar
-            field to be represented (only 1d and 2d). If g is a mixed-dimensional grid
-            the name (key) of the scalar field.
-        vector_value (array or string, optional): if grid is a single grid then
-            vector scalar field to be represented (only 1d and 2d). If grid is a
-            mixed-dimensional grid the name (key) of the vector field.
-        kwargs (optional): Keyword arguments:
+        grid: subdomain or mixed-dimensional grid.
+        cell_value: if grid is a single grid, cell_value is a cell scalar field to
+            be represented (only 1d and 2d). If grid is a mixed-dimensional grid,
+            cell_value is the name (key) of the scalar field as a string.
+        vector_value: Same as cell_value, but for vector fields.
+        kwargs: Keyword arguments:
             info: add extra information to the plot, see plot_grid.
             alpha: transparency of cells (2d) and faces (3d)
 
@@ -122,33 +116,35 @@ def save_img(
 
 def plot_sd(
     sd: pp.Grid,
-    cell_value: Optional[np.ndarray],
-    vector_value: Optional[np.ndarray],
-    info: Optional[str],
+    cell_value: Optional[np.ndarray] = None,
+    vector_value: Optional[np.ndarray] = None,
+    info: Optional[str] = None,
     **kwargs,
 ) -> None:
-    """
-    Plot data on a subdomain and provided data.
+    """Plot data on a subdomain and provided data.
 
-    Args:
-        sd (pp.Grid): Subdomain
-        cell_value (np.ndarray): cell-wise scalar values, will be represented by the color
-        of the cells.
-        vector_value (np.ndarray): vector values, one 3d vector for each cell or for each
-            face (see the _quiver function).
-        info (str, optional): Which geometry information to display, see add_info.
-        kwargs (optional): Keyword arguments:
+    Parameters:
+        sd: Subdomain
+        cell_value: cell-wise scalar values, will be represented by the color of the
+            cells.
+        vector_value: vector values, one 3d vector for each cell or for each face (see
+            the _quiver function).
+        info: Which geometry information to display, see add_info.
+        kwargs: Keyword arguments:
             fig_size: Size of figure.
             fig_num: The number of the figure.
-            color_map: Limits of the cell value color axis.
+            fracturewidth_1d: Width of fractures in 1d.
+            color_map: Color map as str or matplotlib color map. Defaults to jet.
+            color_map_limits: Limits of the cell value color axis.
             if_plot: Boolean flag determining whether the plot is shown or not.
             plot_2d: Boolean flag determining wheter the plit is showed in 2d or 3d.
             pointsize: Size of points marking 0d grids.
             linewidth: Width of faces in 2d and edges in 3d.
             rgb: Color map weights. Defaults to [1, 0, 0].
             alpha: Transparency of the plot.
-            cells: boolean array with length number of cells. Only plot cells c
-                   where cells[c]=True
+            cells: boolean array with length number of cells. Only plot cells c where
+                cells[c]=True
+
     """
     # Initialize figure with correct size.
     fig_size = kwargs.get("fig_size", None)
@@ -169,11 +165,11 @@ def plot_sd(
 
     # Determine the color map (based on min and max values if not provided externally)
     if cell_value is not None and sd.dim != 3:
-        if kwargs.get("color_map"):
-            extr_value = kwargs["color_map"]
+        if kwargs.get("color_map_limits"):
+            extr_value = kwargs["color_map_limits"]
         else:
             extr_value = np.array([np.amin(cell_value), np.amax(cell_value)])
-        kwargs["color_map"] = _color_map(extr_value)
+        kwargs["color_map"] = _color_map(extr_value, kwargs.get("color_map", "jet"))
 
     # Plot the grid and data
     _plot_sd_xd(sd, cell_value, vector_value, ax, **kwargs)
@@ -211,31 +207,33 @@ def plot_sd(
 
 def plot_mdg(
     mdg: pp.MixedDimensionalGrid,
-    cell_value: Optional[str],
-    vector_value: Optional[str],
+    cell_value: Optional[str] = None,
+    vector_value: Optional[str] = None,
     info: Optional[str] = None,
     **kwargs,
 ) -> None:
-    """
-    Plot a mixed-dimensional grid and selected data.
+    """Plot a mixed-dimensional grid and selected data.
 
-    Args:
-        mdg (pp.MixedDimensionalGrid): Mixed-dimensional grid
-        cell_value (str): key to scalar cell values, will be represented by the color
-        of the cells.
-        vector_value (str): key to vector cell or face values.
-        info (str, optional): Which geometry information to display, see add_info.
-        kwargs (optional): Keyword arguments:
+    Parameters:
+        mdg: Mixed-dimensional grid
+        cell_value: key to scalar cell values, will be represented by the color of the
+            cells.
+        vector_value: key to vector cell or face values.
+        info: Which geometry information to display, see add_info.
+        kwargs: Keyword arguments:
             fig_size: Size of figure.
             fig_num: The number of the figure.
-            color_map: Limits of the cell value color axis.
+            fracturewidth_1d: Width of fractures in 1d.
+            color_map: Color map as str or matplotlib color map. Defaults to jet.
+            color_map_limits: Limits of the cell value color axis.
             rgb: Color map weights. Defaults to [1, 0, 0].
             if_plot: Boolean flag determining whether the plot is shown or not.
             pointsize: Size of points marking 0d grids.
             linewidth: Width of faces in 2d and edges in 3d.
             alpha: Transparency of the plot.
-            cells: boolean array with length number of cells. Only plot cells c
-                   where cells[c]=True
+            cells: boolean array with length number of cells. Only plot cells c where
+                cells[c]=True
+
     """
     # Initialize figure with correct size
     fig_size = kwargs.get("fig_size", None)
@@ -258,8 +256,8 @@ def plot_mdg(
     # Define color map (based on min and max value of the cell value if none externally
     # provided)
     if cell_value is not None and mdg.dim_max() != 3:
-        if kwargs.get("color_map"):
-            extr_value = kwargs["color_map"]
+        if kwargs.get("color_map_limits"):
+            extr_value = kwargs["color_map_limits"]
         else:
             extr_value = np.array([np.inf, -np.inf])
             for _, sd_data in mdg.subdomains(return_data=True):
@@ -274,7 +272,7 @@ def plot_mdg(
                     np.amax(values),
                     extr_value[1],
                 )
-        kwargs["color_map"] = _color_map(extr_value)
+        kwargs["color_map"] = _color_map(extr_value, kwargs.get("color_map", "jet"))
 
     # Plot each subdomain separately
     for index, (sd, sd_data) in enumerate(mdg.subdomains(return_data=True)):
@@ -349,9 +347,7 @@ def plot_mdg(
 
 
 class _Arrow3D(FancyArrowPatch):
-    """
-    Arrow representation intended for visualization of vector quantities.
-    """
+    """Arrow representation intended for visualization of vector quantities."""
 
     def __init__(
         self,
@@ -363,16 +359,16 @@ class _Arrow3D(FancyArrowPatch):
     ):
         """
         Each arrow comes with head and tail points, denoting their start and end points.
-        Provide the coordinates of both vertices as xs, ys and zs, each a list of the head
-        and tail values.
+        Provide the coordinates of both vertices as xs, ys and zs, each a list of the
+        head and tail values.
 
-        Args:
-            xs (list of np.ndarray): two-element list of x-coordinates of head and tail points
-            ys (list of np.ndarray): two-element list of y-coordinates of head and tail points
-            zs (list of np.ndarray): two-element list of z-coordinates of head and tail points
+        Parameters:
+            xs: two-element list of x-coordinates of head and tail points
+            ys: two-element list of y-coordinates of head and tail points
+            zs: two-element list of z-coordinates of head and tail points
             # FIXME be more precise
-            args (optional): Arguments
-            kwargs (optional): Keyword arguments for FancyArrowPatch
+            args: Arguments
+            kwargs: Keyword arguments for FancyArrowPatch
 
         """
         # Setup an empty arrow using the base class
@@ -394,10 +390,11 @@ class _Arrow3D(FancyArrowPatch):
     def draw(self, renderer) -> None:
         """Draw arrows using the given renderer.
 
-        Args:
+        Parameters:
             renderer: Renderer
         """
-        # Render the 3d coordinates of the arrows as preparation for plotting in the 2d plane.
+        # Render the 3d coordinates of the arrows as preparation for plotting in the 2d
+        # plane.
         xs3d, ys3d, zs3d = self._verts3d
         axes_M = self.axes.M  # type: ignore[union-attr]
         xs, ys, zs = proj3d.proj_transform(xs3d, ys3d, zs3d, axes_M)
@@ -408,21 +405,21 @@ class _Arrow3D(FancyArrowPatch):
 
 
 def _quiver(sd: pp.Grid, vector_value: np.ndarray, ax: mpl.axes.Axes, **kwargs) -> None:
-    """
-    Draws arrows representing vectors.
+    """Draws arrows representing vectors.
 
-    Args:
-        sd (pp.Grid): subdomain.
-        vector_value (np.ndarray): 3 x n, where n equals either the number of faces or number
-            of cells of the grids. Defines the starting point of the plotted vectors.
-        ax (matplotlib axis): The axis to which the arrows will be added.
+    Parameters:
+        sd: subdomain.
+        vector_value: 3 x n, where n equals either the number of faces or number of
+            cells of the grids. Defines the starting point of the plotted vectors.
+        ax: The axis to which the arrows will be added.
         kwargs (optional): Keyword arguments:
             vector_scale: Scale factor to adjust length of the vectors.
             linewidth: Width of the plotted vectors.
 
     Raises:
-        ValueError if the shape of vector_value does not conform with the number of faces
-        and cells.
+        ValueError if the shape of vector_value does not conform with the number of
+        faces and cells.
+
     """
     # Define the origin of arrows as face or cell centers. For this,
     # use the shape of the vector values to determine whether the data is
@@ -466,25 +463,27 @@ def _quiver(sd: pp.Grid, vector_value: np.ndarray, ax: mpl.axes.Axes, **kwargs) 
 
 def _plot_sd_xd(
     sd: pp.Grid,
-    cell_value: Optional[np.ndarray],
-    vector_value: Optional[np.ndarray],
+    cell_value: np.ndarray | None,
+    vector_value: np.ndarray | None,
     ax: mpl.axes.Axes,
     **kwargs,
 ) -> None:
-    """
-    Wrapper function to plot subdomain of arbitrary dimension. In 1d and 2d, the cell_value
-    is represented by cell color. vector_value is shown as as arrows.
+    """Wrapper function to plot subdomain of arbitrary dimension.
 
-    Args:
-        sd (pp.Grid): subdomain
-        cell_value (np.ndarray): scalar cell data
-        vector_value (np.ndarray, optional): vector cell or face data
-        ax (matplotlib axis): axis
-        kwargs (optional): Keyword arguments, see in the respective routines.
+    In 1d and 2d, the cell_value is represented by cell color. vector_value is shown as
+    as arrows.
+
+    Parameters:
+        sd: subdomain
+        cell_value: scalar cell data. If None, no scalar data is plotted.
+        vector_value: vector cell or face data. If None, no vector data is plotted.
+        ax: axis
+        kwargs: Keyword arguments, see in the respective routines.
+
     """
     # Plot scalar data
     if sd.dim == 0:
-        _plot_sd_0d(sd, ax, **kwargs)
+        _plot_sd_0d(sd, cell_value, ax, **kwargs)
     elif sd.dim == 1:
         _plot_sd_1d(sd, cell_value, ax, **kwargs)
     elif sd.dim == 2:
@@ -500,11 +499,11 @@ def _plot_sd_xd(
 def _lim(
     nodes: np.ndarray,
 ) -> tuple[tuple[float, float], tuple[float, float], tuple[float, float]]:
-    """
-    Extracts the x, y and z limits of a node array.
+    """Extracts the x, y and z limits of a node array.
 
-    Args:
-        nodes (np.ndarray): 3d node array
+    Parameters:
+        nodes: 3d node array.
+
     """
     # Determine min and max values for each compononent of all coordinates
     x: tuple[float, float] = (np.amin(nodes[0, :]), np.amax(nodes[0, :]))
@@ -515,15 +514,15 @@ def _lim(
 
 
 def _color_map(
-    extr_value: np.ndarray, cmap_type: str = "jet"
+    extr_value: np.ndarray, cmap_type: str | None = None
 ) -> "mpl.cm.ScalarMappable":
-    """
-    Constructs a color map and sets the extremal values of the value range.
+    """Constructs a color map and sets the extremal values of the value range.
 
-    Args:
-        extr_value (np.ndarray): two-element iterable object containing min and
-            max values used as limits of the color map
-        cmap_type (str): keyword
+    Parameters:
+        extr_value: two-element iterable object containing min and max values used as
+            limits of the color map.
+        cmap_type: keyword
+
     """
     cmap = plt.get_cmap(cmap_type)
     scalar_map = mpl.cm.ScalarMappable(cmap=cmap)
@@ -533,28 +532,28 @@ def _color_map(
 
 
 def _add_info(sd: pp.Grid, info: str, ax: mpl.axes.Axes, **kwargs) -> None:
-    """
-    Adds information on numbering of geometry information of the grid g to ax.
+    """Adds information on numbering of geometry information of the grid g to ax.
 
     For each of the flags "C", "N" and "F" that are present in info, the cell, node and
     face numbers will be displayed at the corresponding cell centers, nodes and face
-    centers, respectively. If "O" is present, the face normals are printed. If info is "ALL",
-    all options are considered.
+    centers, respectively. If "O" is present, the face normals are printed. If info is
+    "ALL", all options are considered.
 
-    Args:
-        sd (pp.Grid): subdomain
-        info (str): extra information to the plot. C, F, and N add cell, face and
-            node numbers, respectively. O gives a plot of the face normals.
-        ax (matplotlib axis): axis
-        kwargs (optional): Keyword arguments used in _quiver.
+    Parameters:
+        sd: subdomain
+        info: extra information to the plot. C, F, and N add cell, face and node
+            numbers, respectively. O gives a plot of the face normals.
+        ax: axis
+        kwargs: Keyword arguments used in _quiver.
+
     """
 
     def _disp(i: int, p: np.ndarray, c, m):
         """Add single scatter plot to ax.
 
-        Args:
-            i (int): integer identifier to be added at given position
-            p (np.ndarray): position
+        Parameters:
+            i: integer identifier to be added at given position
+            p: position
             c: color
             m: marker
         """
@@ -564,7 +563,7 @@ def _add_info(sd: pp.Grid, info: str, ax: mpl.axes.Axes, **kwargs) -> None:
     def _disp_loop(v: np.ndarray, c, m):
         """Loop over disp.
 
-        Args:
+        Parameters:
             v: positions
             c: color
             m: marker
@@ -594,32 +593,49 @@ def _add_info(sd: pp.Grid, info: str, ax: mpl.axes.Axes, **kwargs) -> None:
         _quiver(sd, sd.face_normals * 0.4, ax, **kwargs)
 
 
-def _plot_sd_0d(sd: pp.Grid, ax: mpl.axes.Axes, **kwargs) -> None:
-    """
-    Plot the 0d grid g as a circle on the axis ax.
+def _plot_sd_0d(sd: pp.Grid, cell_value, ax: mpl.axes.Axes, **kwargs) -> None:
+    """Plot the 0d grid g as a circle on the axis ax.
 
-    Args:
-        sd (pp.Grid): 0d subdomain
-        ax (matplotlib axes): axes
+    Parameters:
+        sd: 0d subdomain
+        ax: axes
         kwargs (optional): Keyword arguments
-            pointsize (float): defining the size of the marker
+            pointsize (float): defining the size of the marker.
+
     """
-    dim = 2 if kwargs.get("plot_2d", False) else 3
-    ax.scatter(
-        *sd.nodes[:dim, :], color="k", marker="o", s=kwargs.get("pointsize", 1)
-    )  # type: ignore[misc]
+    if cell_value is None or "color_map" not in kwargs:
+        color = "k"
+    else:
+        color = kwargs["color_map"].to_rgba(cell_value)
+    if kwargs.get("plot_2d", False):
+        ax.scatter(
+            sd.cell_centers[0, :],
+            sd.cell_centers[1, :],
+            color=color,
+            marker="o",
+            s=kwargs.get("pointsize", 1),
+        )  # type: ignore[misc]
+    else:
+        ax.scatter(
+            sd.cell_centers[0, :],
+            sd.cell_centers[1, :],
+            sd.cell_centers[2, :],
+            color=color,
+            marker="o",
+            s=kwargs.get("pointsize", 1),
+        )  # type: ignore[misc]
 
 
 def _plot_sd_1d(
-    sd: pp.Grid, cell_value: Optional[np.ndarray], ax: mpl.axes.Axes, **kwargs
+    sd: pp.Grid, cell_value: np.ndarray, ax: mpl.axes.Axes, **kwargs
 ) -> None:
     """
     Plot the 1d grid g to the axis ax, with cell_value represented by the cell coloring.
 
-    Args:
-        sd (pp.Grid): 1d subdomain
-        cell_value (np.ndarray): cell values
-        ax (matplotlib axes): axes
+    Parameters:
+        sd: 1d subdomain
+        cell_value: cell values
+        ax: axes
         kwargs (optional): Keyword arguments
             color_map: Limits of the cell value color axis.
             alpha: Transparency of the plot.
@@ -661,7 +677,7 @@ def _plot_sd_1d(
         loc = slice(cell_nodes.indptr[c], cell_nodes.indptr[c + 1])
         ptsId = nodes[loc]
         pts = sd.nodes[:, ptsId]
-        linewidth = kwargs.get("linewidth", 1)
+        linewidth = kwargs.get("fracturewidth_1d", 1)
         if kwargs.get("plot_2d", False):
             poly = PolyCollection([pts[:2, :].T], linewidth=linewidth)
             poly.set_edgecolor(_color_edge(cell_value[c]))
@@ -672,16 +688,14 @@ def _plot_sd_1d(
             ax.add_collection3d(poly)  # type: ignore[attr-defined]
 
 
-def _plot_sd_2d(
-    sd: pp.Grid, cell_value: Optional[np.ndarray], ax: mpl.axes.Axes, **kwargs
-):
+def _plot_sd_2d(sd: pp.Grid, cell_value: np.ndarray, ax: mpl.axes.Axes, **kwargs):
     """
     Plot the 2d grid g to the axis ax, with cell_value represented by the cell coloring.
 
-    Args:
-        sd (pp.Grid): 2d subdomain
-        cell_value (np.ndarray): cell values
-        ax (matplotlib axes): axes
+    Parameters:
+        sd: 2d subdomain
+        cell_value: cell values
+        ax: axes
         kwargs (optional): Keyword arguments:
             color_map: Limits of the cell value color axis.
             linewidth: Width of faces in 2d and edges in 3d.
@@ -756,10 +770,10 @@ def _plot_sd_3d(sd: pp.Grid, ax: mpl.axes.Axes, **kwargs) -> None:
     """
     Plot the 3d subdomain to the axis ax.
 
-    Args:
-        sd (pp.Grid): 3d subdomain
-        ax (matplotlib axes): axes
-        kwargs (optional): Keyword arguments:
+    Parameters:
+        sd: 3d subdomain
+        ax: axes
+        kwargs: Keyword arguments:
     """
     faces_cells, cells, _ = sps.find(sd.cell_faces)
     nodes_faces, faces, _ = sps.find(sd.face_nodes)
