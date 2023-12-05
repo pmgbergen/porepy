@@ -65,7 +65,7 @@ def orthogonal_fractures_3d(size: pp.number) -> list[pp.PlaneFracture]:
     return [pp.PlaneFracture(pts[i]) for i in range(3)]
 
 
-def benchmark_regular_2d_fractures(size: pp.number = 1) -> list[pp.LineFracture]:
+def benchmark_2d_case_1(size: pp.number = 1) -> list[pp.LineFracture]:
     """Return a list of regular fractures as used in case 1 of the 2d benchmark study by
     Flemisch et al. 2018.
 
