@@ -72,11 +72,13 @@ def density_internal_faces(
     right_restriction: sp.sparse.spmatrix,
 ) -> pp.ad.AdArray:
     """ """
-    s_rho = saturation * density
+    saturation = saturation + 1e-10  # i'm adding a small error, but it's small...
 
+    s_rho = saturation * density
     density_internal_faces = (left_restriction @ s_rho + right_restriction @ s_rho) / (
-        left_restriction @ saturation + right_restriction @ saturation + 1e-10
-    )  # added epsilon to avoid division by zero
+        left_restriction @ saturation + right_restriction @ saturation  # + 1e-10
+    )
+
     return density_internal_faces
 
 
@@ -92,6 +94,7 @@ def g_internal_faces(
     g_faces = (
         density_faces * gravity_value * (left_restriction @ z - right_restriction @ z)
     )
+
     return g_faces
 
 

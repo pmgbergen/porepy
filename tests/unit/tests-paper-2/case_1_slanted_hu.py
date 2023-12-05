@@ -19,7 +19,7 @@ class SolutionStrategyTest1(two_phase_hu.SolutionStrategyPressureMass):
         self.clean_working_directory()
 
         self.set_geometry(mdg_ref=False)
-        # self.deform_grid()
+        self.deform_grid()
 
         self.initialize_data_saving()
 
@@ -84,8 +84,11 @@ class SolutionStrategyTest1(two_phase_hu.SolutionStrategyPressureMass):
         gb = copy.deepcopy(self.mdg)
         gb_new = copy.deepcopy(self.mdg)
 
-        g_old = gb.subdomains(dim=2)[0]
-        g_new = gb_new.subdomains(dim=2)[0]
+        # g_old = gb.subdomains(dim=2)[0]
+        # g_new = gb_new.subdomains(dim=2)[0]
+
+        g_old = self.mdg.subdomains(dim=2)[0]
+        g_new = g_old.copy()
 
         # normal_ref, tangent_ref = self.compute_normals_tangents(g_new)
 
@@ -330,7 +333,7 @@ class SolutionStrategyTest1(two_phase_hu.SolutionStrategyPressureMass):
 
         # update the whole grid bucket: -----------------------------------------------
 
-        gb.replace_subdomains_and_interfaces({g_old: g_new})
+        self.mdg.replace_subdomains_and_interfaces({g_old: g_new})
 
         # gb.compute_geometry()
 
@@ -347,7 +350,7 @@ class SolutionStrategyTest1(two_phase_hu.SolutionStrategyPressureMass):
         pp.plot_grid(self.mdg, alpha=0)
         pp.plot_grid(gb, alpha=0)
 
-        self.mdg = gb
+        # self.mdg = gb
 
     def initial_condition(self) -> None:
         """ """
@@ -637,8 +640,8 @@ if __name__ == "__main__":
             self.sign_omega_0_prev = None
             self.sign_omega_1_prev = None
 
-            self.root_path = "./case_1/slanted_hu_Kn" + str(Kn) + "/"
-            # self.root_path = "./case_1/slanted_hu_Kn" + str(Kn) + "/non-conforming/"
+            # self.root_path = "./case_1/slanted_hu_Kn" + str(Kn) + "/"
+            self.root_path = "./case_1/slanted_hu_Kn" + str(Kn) + "/non-conforming/"
 
             self.output_file_name = self.root_path + "OUTPUT_NEWTON_INFO"
             self.mass_output_file_name = self.root_path + "MASS_OVER_TIME"
@@ -647,13 +650,14 @@ if __name__ == "__main__":
 
     cell_size = 0.1
 
-    os.system("mkdir -p ./case_1/slanted_hu_Kn" + str(Kn))
-    # os.system("mkdir -p ./case_1/slanted_hu_Kn" + str(Kn) + "/non-conforming")
+    # os.system("mkdir -p ./case_1/slanted_hu_Kn" + str(Kn))
+    os.system("mkdir -p ./case_1/slanted_hu_Kn" + str(Kn) + "/non-conforming")
 
-    os.system("mkdir -p ./case_1/slanted_hu_Kn" + str(Kn) + "/BETA")
+    # os.system("mkdir -p ./case_1/slanted_hu_Kn" + str(Kn) + "/BETA")
+    os.system("mkdir -p ./case_1/slanted_hu_Kn" + str(Kn) + "/non-conforming/BETA")
 
-    folder_name = "./case_1/slanted_hu_Kn" + str(Kn) + "/visualization"
-    # folder_name = "./case_1/slanted_hu_Kn" + str(Kn) + "/non-conforming/visualization"
+    # folder_name = "./case_1/slanted_hu_Kn" + str(Kn) + "/visualization"
+    folder_name = "./case_1/slanted_hu_Kn" + str(Kn) + "/non-conforming/visualization"
 
     time_manager = two_phase_hu.TimeManagerPP(
         schedule=np.array([0, 10]) / t_0,

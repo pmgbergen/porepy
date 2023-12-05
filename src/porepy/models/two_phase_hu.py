@@ -1911,7 +1911,7 @@ class SolutionStrategyPressureMass(pp.SolutionStrategy):
             left_restriction @ pressure - right_restriction @ pressure
         ) - g_internal_faces
 
-        tmp = gamma_val / (g_ref + c_faces_ref + 1e-8)
+        tmp = gamma_val / (pp.ad.abs(g_ref) + c_faces_ref + 1e-8)
 
         tmp = -pp.ad.functions.maximum(-tmp, -1e6)
 
@@ -1926,6 +1926,7 @@ class SolutionStrategyPressureMass(pp.SolutionStrategy):
                     time * np.ones(beta_faces.shape[0]).reshape(1, -1),
                     coordinates,
                     beta_faces.reshape(1, -1),
+                    delta_pot_faces.val.reshape(1, -1),
                 ]
             )
             np.savetxt(f, info.T)

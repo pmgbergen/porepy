@@ -381,7 +381,7 @@ class EquationsPPU(two_phase_hu.Equations):
             - discr.vector_source
             @ (
                 rho  ### VECTOR source, not scalar source
-                * self.vector_source(subdomains, material="fluid")
+                * self.vector_source(subdomains)
             )  # NOTE: mass_density not upwinded
         )
 
@@ -409,9 +409,7 @@ class EquationsPPU(two_phase_hu.Equations):
                 @ self.interface_mortar_flux_phase_1(interfaces)
             )
             - discr.vector_source
-            @ (
-                rho * self.vector_source(subdomains, material="fluid")
-            )  # NOTE: mass_density not upwinded
+            @ (rho * self.vector_source(subdomains))  # NOTE: mass_density not upwinded
         )
 
         flux.set_name("darcy_flux_phase_1")
@@ -627,6 +625,11 @@ class SolutionStrategyPressureMassPPU(two_phase_hu.SolutionStrategyPressureMass)
         return np.array([sign_darcy_phase_0, sign_darcy_phase_1]), np.array(
             [number_flips_darcy_phase_0, number_flips_darcy_phase_1]
         )
+
+    def eb_after_timestep(self):
+        """used for plots, tests, and more"""
+
+        self.compute_mass()
 
 
 class PartialFinalModel(

@@ -309,7 +309,7 @@ if __name__ == "__main__":
     folder_name = "./case_1/horizontal_ppu_Kn" + str(Kn) + "/" "visualization"
 
     time_manager = two_phase_hu.TimeManagerPP(
-        schedule=np.array([0, 10]) / t_0,
+        schedule=np.array([0, 15]) / t_0,
         dt_init=1e-1 / t_0,
         dt_min_max=np.array([1e-3, 1e-1]) / t_0,
         constant_dt=False,

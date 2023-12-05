@@ -292,12 +292,14 @@ if __name__ == "__main__":
             self.output_file_name = self.root_path + "OUTPUT_NEWTON_INFO"
             self.mass_output_file_name = self.root_path + "MASS_OVER_TIME"
             self.flips_file_name = self.root_path + "FLIPS"
+            self.beta_file_name = self.root_path + "BETA/BETA"
 
     os.system("mkdir -p ./case_1/horizontal_hu_Kn" + str(Kn) + "/")
+    os.system("mkdir -p ./case_1/horizontal_hu_Kn" + str(Kn) + "/BETA")
     folder_name = "./case_1/horizontal_hu_Kn" + str(Kn) + "/" + "visualization"
 
     time_manager = two_phase_hu.TimeManagerPP(
-        schedule=np.array([0, 10]) / t_0,
+        schedule=np.array([0, 15]) / t_0,
         dt_init=1e-1 / t_0,
         dt_min_max=np.array([1e-3, 1e-1]) / t_0,
         constant_dt=False,
