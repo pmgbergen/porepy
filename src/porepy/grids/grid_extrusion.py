@@ -291,7 +291,7 @@ def _extrude_2d(
     # columns in fn_layer.
 
     # Faces, cells and values of the 2d cell-face map
-    [fi, ci, sgn] = sparse_array_to_row_col_data(g.cell_faces)
+    fi, ci, sgn = sparse_array_to_row_col_data(g.cell_faces)
     # Only consider each face once
     _, idx = np.unique(fi, return_index=True)
 

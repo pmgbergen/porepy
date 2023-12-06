@@ -404,7 +404,7 @@ class Grid:
         def nrm(u):
             return np.sqrt(u[0] * u[0] + u[1] * u[1] + u[2] * u[2])
 
-        [fi, ci, val] = sparse_array_to_row_col_data(self.cell_faces)
+        fi, ci, val = sparse_array_to_row_col_data(self.cell_faces)
         _, idx = np.unique(fi, return_index=True)
         sgn = val[idx]
         fc = self.face_centers[:, fi[idx]]
