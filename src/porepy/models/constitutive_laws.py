@@ -812,6 +812,10 @@ class DimensionDependentPermeability(ConstantPermeability):
     def intersection_permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Permeability of intersections.
 
+        Note that as permeability is not meaningful in 0d domains, this method will only 
+        impact the permeability of 1d intersection lines.
+
+
         Parameters:
             subdomains: List of subdomains.
 
