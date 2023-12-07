@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import copy
-import numbers
 from enum import Enum
 from functools import reduce
 from itertools import count
@@ -652,7 +651,7 @@ class Operator:
 
     def value(
         self, system_manager: pp.ad.EquationSystem, state: Optional[np.ndarray] = None
-    ) -> numbers.Real | np.ndarray | sps.spmatrix:
+    ) -> pp.number | np.ndarray | sps.spmatrix:
         return self._evaluate(system_manager, state=state, evaluate_jacobian=False)
 
     def value_and_jacobian(
@@ -661,7 +660,9 @@ class Operator:
         ad = self._evaluate(system_manager, state=state, evaluate_jacobian=True)
 
         # Casting the result to AdArray or raising an error.
-        if isinstance(ad, numbers.Real):
+        # It's better to set pp.number here, but isinstance requires a tuple, not Union.
+        # This should be reconsidered when pp.number is replaced with numbers.Real
+        if isinstance(ad, (int, float)):
             # AdArray requires 1D numpy array as value, not a scalar.
             ad = np.array([ad])
 
@@ -683,7 +684,7 @@ class Operator:
         state: Optional[np.ndarray] = None,
     ):
         raise ValueError(
-            "`evaluate` is deprecated. Use `value` or " "`value_and_jacobian` instead."
+            "`evaluate` is deprecated. Use `value` or `value_and_jacobian` instead."
         )
 
     def _evaluate(
@@ -691,7 +692,7 @@ class Operator:
         system_manager: pp.ad.EquationSystem,
         state: Optional[np.ndarray] = None,
         evaluate_jacobian: bool = True,
-    ) -> numbers.Real | np.ndarray | sps.spmatrix | AdArray:
+    ) -> pp.number | np.ndarray | sps.spmatrix | AdArray:
         """Evaluate the residual and Jacobian matrix for a given solution.
 
         Parameters:
