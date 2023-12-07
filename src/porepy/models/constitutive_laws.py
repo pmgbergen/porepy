@@ -829,7 +829,15 @@ class DimensionDependentPermeability(ConstantPermeability):
 
 
 class CubicLawPermeability(DimensionDependentPermeability):
-    """Cubic law permeability for fractures and intersections."""
+    """Cubic law permeability for fractures and intersections.
+
+    The cubic law is derived from the Navier-Stokes equations, and is valid for
+    laminar flow under the so-called parallel plate assumption. This gives a cubic
+    relationship between the volumetric flow rate and the pressure drop. Note that in
+    PorePy, the permeability is multiplied by the aperture to yield a transmissivity,
+    thus the permeability is proportional to the square of the aperture.
+
+    """
 
     equation_system: pp.ad.EquationSystem
     """EquationSystem object for the current model. Solution strategies are normally
@@ -855,7 +863,7 @@ class CubicLawPermeability(DimensionDependentPermeability):
     """
 
     def cubic_law_permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Cubic law permeability for fractures (or intersections).
+        """Cubic law permeability for fractures or intersections.
 
         Parameters:
             subdomains: List of subdomains.
