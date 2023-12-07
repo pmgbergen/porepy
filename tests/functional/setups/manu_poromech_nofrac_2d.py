@@ -58,8 +58,8 @@ import porepy as pp
 import porepy.models.fluid_mass_balance as mass
 import porepy.models.momentum_balance as momentum
 import porepy.models.poromechanics as poromechanics
-from porepy.applications.md_grids.domains import nd_cube_domain
 from porepy.applications.convergence_analysis import ConvergenceAnalysis
+from porepy.applications.md_grids.domains import nd_cube_domain
 from porepy.utils.examples_utils import VerificationUtils
 from porepy.viz.data_saving_model_mixin import VerificationDataSaving
 

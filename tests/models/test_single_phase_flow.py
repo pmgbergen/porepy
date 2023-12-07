@@ -24,8 +24,8 @@ import scipy.sparse as sps
 
 import porepy as pp
 from porepy.applications.md_grids.model_geometries import (
-    SquareDomainOrthogonalFractures,
     CubeDomainOrthogonalFractures,
+    SquareDomainOrthogonalFractures,
 )
 from porepy.applications.test_utils import models, well_models
 from porepy.models.fluid_mass_balance import SinglePhaseFlow

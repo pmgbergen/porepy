@@ -10,9 +10,9 @@ import numpy as np
 import pytest
 
 import porepy as pp
+from porepy.applications.md_grids.domains import unit_cube_domain as unit_domain
 from porepy.fracs.fracture_network_2d import FractureNetwork2d
 from porepy.fracs.fracture_network_3d import FractureNetwork3d
-from porepy.applications.md_grids.domains import unit_cube_domain as unit_domain
 
 
 # Set line fracture plane fracture as fixture functions to reuse them later

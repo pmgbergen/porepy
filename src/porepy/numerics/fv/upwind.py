@@ -7,6 +7,7 @@ import scipy.sparse as sps
 
 import porepy as pp
 from porepy.numerics.discretization import Discretization, InterfaceDiscretization
+from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_data
 
 
 class Upwind(Discretization):
@@ -294,7 +295,7 @@ class Upwind(Discretization):
         darcy_flux = parameter_dictionary[d_name]
         phi = parameter_dictionary["mass_weight"]
 
-        faces, cells, _ = sps.find(sd.cell_faces)
+        faces, cells, _ = sparse_array_to_row_col_data(sd.cell_faces)
 
         # Detect and remove the faces which have zero in darcy_flux
         not_zero = ~np.isclose(np.zeros(faces.size), darcy_flux[faces], atol=0)
@@ -334,7 +335,7 @@ class Upwind(Discretization):
             face_apertures = np.ones(sd.num_faces)
         else:
             face_apertures = abs(sd.cell_faces) * cell_apertures
-            r, _, _ = sps.find(sd.cell_faces)
+            r, _, _ = sparse_array_to_row_col_data(sd.cell_faces)
             face_apertures = face_apertures / np.bincount(r)
 
         beta = np.asarray(beta)
