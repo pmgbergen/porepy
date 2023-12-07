@@ -4,7 +4,6 @@ interfaces between two subdomains in the mixed-dimensional sense.
 """
 from __future__ import annotations
 
-import warnings
 from enum import Enum
 from itertools import count
 from typing import Generator, Optional, Union
@@ -783,9 +782,6 @@ class MortarGrid:
         """
         nc = self.num_cells
         if self.num_sides() == 1:
-            warnings.warn(
-                "Is it really meaningful to ask for signs of a one sided mortar grid?"
-            )
             return sps.dia_matrix((np.ones(nc * nd), 0), shape=(nd * nc, nd * nc))
         elif self.num_sides() == 2:
             # By the ordering of the mortar cells, we know that all cells on the one

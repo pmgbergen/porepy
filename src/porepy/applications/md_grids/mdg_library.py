@@ -162,7 +162,7 @@ def benchmark_regular_2d(
 
     """
     domain = domains.nd_cube_domain(2, 1)
-    fractures = fracture_sets.benchmark_regular_2d_fractures()
+    fractures = fracture_sets.benchmark_2d_case_1()
     # Cast to FractureNetwork2d to avoid ambiguity leading to mypy errors
     fracture_network = cast(
         FractureNetwork2d, pp.create_fracture_network(fractures, domain)
