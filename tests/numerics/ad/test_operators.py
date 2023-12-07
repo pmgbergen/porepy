@@ -1003,7 +1003,10 @@ def test_subdomain_projections(mdg, scalar):
 def test_mortar_projections(mdg, scalar):
     # Test of mortar projections between mortar grids and standard subdomain grids.
 
+    # Define the dimension of the field being projected
     proj_dim = 1 if scalar else mdg.dim_max()
+
+    # Collect geometrical and grid objects
     n_cells, n_faces, n_mortar_cells = geometry_information(mdg, proj_dim)
 
     g0 = mdg.subdomains(dim=2)[0]
@@ -1016,20 +1019,12 @@ def test_mortar_projections(mdg, scalar):
     intf13 = mdg.subdomain_pair_to_interface((g1, g3))
     intf23 = mdg.subdomain_pair_to_interface((g2, g3))
 
-    ########
-    # First test projection between all grids and all interfaces
-    subdomains = [g0, g1, g2, g3]
-    interfaces = [intf01, intf02, intf13, intf23]
-
-    proj = pp.ad.MortarProjections(
-        subdomains=subdomains, interfaces=interfaces, mdg=mdg, dim=proj_dim
-    )
-
+    # Compute reference projection matrices
     face_start = proj_dim * np.cumsum(
-        np.hstack((0, np.array([g.num_faces for g in subdomains])))
+        np.hstack((0, np.array([g.num_faces for g in mdg.subdomains()])))
     )
     cell_start = proj_dim * np.cumsum(
-        np.hstack((0, np.array([g.num_cells for g in subdomains])))
+        np.hstack((0, np.array([g.num_cells for g in mdg.subdomains()])))
     )
     mortar_start = proj_dim * np.cumsum(
         np.hstack((0, np.array([m.num_cells for m in mdg.interfaces()])))
@@ -1098,25 +1093,30 @@ def test_mortar_projections(mdg, scalar):
         shape=(n_faces, n_mortar_cells),
     ).tocsr()
 
-    assert _compare_matrices(proj_known_higher, proj.mortar_to_primary_int)
-    assert _compare_matrices(proj_known_higher, proj.mortar_to_primary_avg)
-    assert _compare_matrices(proj_known_higher.T, proj.primary_to_mortar_int)
-    assert _compare_matrices(proj_known_higher.T, proj.primary_to_mortar_avg)
-
     proj_known_lower = sps.coo_matrix(
         (np.ones(n_mortar_cells), (cell_ixd, mort_ixd)), shape=(n_cells, n_mortar_cells)
     ).tocsr()
-    assert _compare_matrices(proj_known_lower, proj.mortar_to_secondary_int)
 
     # Also test block matrices for the sign of mortar projections.
     # This is a diagonal matrix with first -1, then 1.
     # If this test fails, something is fundamentally wrong.
     vals = np.array([])
-    for intf in interfaces:
+    for intf in mdg.interfaces():
         sz = int(np.round(intf.num_cells / 2) * proj_dim)
         vals = np.hstack((vals, -np.ones(sz), np.ones(sz)))
 
     known_sgn_mat = sps.dia_matrix((vals, 0), shape=(n_mortar_cells, n_mortar_cells))
+
+    # Compute the object being tested
+    proj = pp.ad.MortarProjections(
+        subdomains=mdg.subdomains(), interfaces=mdg.interfaces(), mdg=mdg, dim=proj_dim
+    )
+
+    assert _compare_matrices(proj_known_higher, proj.mortar_to_primary_int)
+    assert _compare_matrices(proj_known_higher, proj.mortar_to_primary_avg)
+    assert _compare_matrices(proj_known_higher.T, proj.primary_to_mortar_int)
+    assert _compare_matrices(proj_known_higher.T, proj.primary_to_mortar_avg)
+    assert _compare_matrices(proj_known_lower, proj.mortar_to_secondary_int)
     assert _compare_matrices(known_sgn_mat, proj.sign_of_mortar_sides)
 
 
