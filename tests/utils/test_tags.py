@@ -10,8 +10,8 @@ import numpy as np
 import pytest
 
 import porepy as pp
-from porepy.fracs import meshing
 from porepy.applications.test_utils import reference_dense_arrays
+from porepy.fracs import meshing
 
 
 def _compare_tip_nodes(g, known_tips):

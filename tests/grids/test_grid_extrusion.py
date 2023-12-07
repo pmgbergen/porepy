@@ -6,6 +6,7 @@ import pytest
 import scipy.sparse as sps
 
 import porepy as pp
+from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_data
 
 
 def check_cell_map(cell_map, g, nz):
@@ -634,7 +635,7 @@ def test_extrusion_with_single_fracture():
     )
 
     ## Check that the + and - sides of the extruded mortar grid are correct
-    extruded_faces, _, sgn = sps.find(
+    extruded_faces, _, sgn = sparse_array_to_row_col_data(
         intf_new.mortar_to_primary_int() * intf_new.sign_of_mortar_sides()
     )
     # Get the extruded cells next to the mortar grid. Same ordering as extruded_faces

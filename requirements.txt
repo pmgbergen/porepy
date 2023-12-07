@@ -6,7 +6,7 @@ networkx
 numba >= 0.57
 numpy
 requests
-scipy <= 1.10
+scipy
 seaborn
 shapely
 six
