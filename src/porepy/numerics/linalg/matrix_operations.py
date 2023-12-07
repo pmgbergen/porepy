@@ -856,7 +856,7 @@ def sparse_kronecker_product(matrix: sps.spmatrix, nd: int) -> sps.spmatrix:
 
 
 def sparse_array_to_row_col_data(
-    A: sps.sparse,
+    A: sps.sparse, remove_nz: Optional[bool] = False
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Function to retrieve indices and values of the a matrix.
 
@@ -865,10 +865,18 @@ def sparse_array_to_row_col_data(
 
             A sparse matrix.
 
+        remove_nz:
+
+            Optional directive for removing explicit zeros.
+
     Returns:
         A triplet of rows, columns, and values.
 
     """
+
     mat_copy = sps.coo_matrix(A, copy=True)
-    matrix_data = (mat_copy.row, mat_copy.col, mat_copy.data)
-    return matrix_data
+    if remove_nz:
+        nz_mask = mat_copy.data != 0
+        return (mat_copy.row[nz_mask], mat_copy.col[nz_mask], mat_copy.data[nz_mask])
+    else:
+        return (mat_copy.row, mat_copy.col, mat_copy.data)

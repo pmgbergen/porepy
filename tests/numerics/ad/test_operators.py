@@ -999,7 +999,7 @@ def test_subdomain_projections(mdg, scalar):
 
 
 @pytest.mark.integtest
-@pytest.mark.parametrize("scalar", [True])  # TODO: fix the case for False
+@pytest.mark.parametrize("scalar", [True, False])
 def test_mortar_projections(mdg, scalar):
     # Test of mortar projections between mortar grids and standard subdomain grids.
 
@@ -1025,41 +1025,77 @@ def test_mortar_projections(mdg, scalar):
         subdomains=subdomains, interfaces=interfaces, mdg=mdg, dim=proj_dim
     )
 
+    face_start = proj_dim * np.cumsum(
+        np.hstack((0, np.array([g.num_faces for g in subdomains])))
+    )
     cell_start = proj_dim * np.cumsum(
         np.hstack((0, np.array([g.num_cells for g in subdomains])))
     )
-    face_start = proj_dim * np.cumsum(
-        np.hstack((0, np.array([g.num_faces for g in subdomains])))
+    mortar_start = proj_dim * np.cumsum(
+        np.hstack((0, np.array([m.num_cells for m in mdg.interfaces()])))
     )
 
     f0 = np.hstack(
         (
-            sparse_array_to_row_col_data(intf01.mortar_to_primary_int(nd=proj_dim))[0],
-            sparse_array_to_row_col_data(intf02.mortar_to_primary_int(nd=proj_dim))[0],
+            sparse_array_to_row_col_data(
+                intf01.mortar_to_primary_int(nd=proj_dim), True
+            )[0],
+            sparse_array_to_row_col_data(
+                intf02.mortar_to_primary_int(nd=proj_dim), True
+            )[0],
         )
     )
-    f1 = sparse_array_to_row_col_data(intf13.mortar_to_primary_int(nd=proj_dim))[0]
-    f2 = sparse_array_to_row_col_data(intf23.mortar_to_primary_int(nd=proj_dim))[0]
+    f1 = sparse_array_to_row_col_data(intf13.mortar_to_primary_int(nd=proj_dim), True)[
+        0
+    ]
+    f2 = sparse_array_to_row_col_data(intf23.mortar_to_primary_int(nd=proj_dim), True)[
+        0
+    ]
 
-    c1 = sparse_array_to_row_col_data(intf01.mortar_to_secondary_int(nd=proj_dim))[0]
-    c2 = sparse_array_to_row_col_data(intf02.mortar_to_secondary_int(nd=proj_dim))[0]
-    c3 = np.hstack(
+    c0 = sparse_array_to_row_col_data(
+        intf01.mortar_to_secondary_int(nd=proj_dim), True
+    )[0]
+    c1 = sparse_array_to_row_col_data(
+        intf02.mortar_to_secondary_int(nd=proj_dim), True
+    )[0]
+    c2 = np.hstack(
         (
-            sparse_array_to_row_col_data(intf13.mortar_to_secondary_int(nd=proj_dim))[
-                0
-            ],
-            sparse_array_to_row_col_data(intf23.mortar_to_secondary_int(nd=proj_dim))[
-                0
-            ],
+            sparse_array_to_row_col_data(
+                intf13.mortar_to_secondary_int(nd=proj_dim), True
+            )[0],
+            sparse_array_to_row_col_data(
+                intf23.mortar_to_secondary_int(nd=proj_dim), True
+            )[0],
         )
     )
 
-    rows_higher = np.hstack((f0, f1 + face_start[1], f2 + face_start[2]))
-    cols_higher = np.arange(n_mortar_cells)
-    data = np.ones(n_mortar_cells)
+    m0 = sparse_array_to_row_col_data(
+        intf01.mortar_to_secondary_int(nd=proj_dim), True
+    )[1]
+    m1 = sparse_array_to_row_col_data(
+        intf02.mortar_to_secondary_int(nd=proj_dim), True
+    )[1]
+    m2 = sparse_array_to_row_col_data(
+        intf13.mortar_to_secondary_int(nd=proj_dim), True
+    )[1]
+    m3 = sparse_array_to_row_col_data(
+        intf23.mortar_to_secondary_int(nd=proj_dim), True
+    )[1]
+
+    # collect destination indexes
+    face_ixd = np.hstack(
+        tuple([f_idx + face_start[i] for i, f_idx in enumerate([f0, f1, f2])])
+    )
+    cell_ixd = np.hstack(
+        tuple([c_idx + cell_start[i + 1] for i, c_idx in enumerate([c0, c1, c2])])
+    )
+    mort_ixd = np.hstack(
+        tuple([m_idx + mortar_start[i] for i, m_idx in enumerate([m0, m1, m2, m3])])
+    )
 
     proj_known_higher = sps.coo_matrix(
-        (data, (rows_higher, cols_higher)), shape=(n_faces, n_mortar_cells)
+        (np.ones(n_mortar_cells), (face_ixd, np.arange(n_mortar_cells))),
+        shape=(n_faces, n_mortar_cells),
     ).tocsr()
 
     assert _compare_matrices(proj_known_higher, proj.mortar_to_primary_int)
@@ -1067,12 +1103,8 @@ def test_mortar_projections(mdg, scalar):
     assert _compare_matrices(proj_known_higher.T, proj.primary_to_mortar_int)
     assert _compare_matrices(proj_known_higher.T, proj.primary_to_mortar_avg)
 
-    rows_lower = np.hstack((c1 + cell_start[1], c2 + cell_start[2], c3 + cell_start[3]))
-    cols_lower = np.array([0, 2, 1, 3, 4, 6, 5, 7, 8, 9, 10, 11], dtype=np.int32)
-    data = np.ones(n_mortar_cells)
-
     proj_known_lower = sps.coo_matrix(
-        (data, (rows_lower, cols_lower)), shape=(n_cells, n_mortar_cells)
+        (np.ones(n_mortar_cells), (cell_ixd, mort_ixd)), shape=(n_cells, n_mortar_cells)
     ).tocsr()
     assert _compare_matrices(proj_known_lower, proj.mortar_to_secondary_int)
 
