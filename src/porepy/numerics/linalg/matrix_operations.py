@@ -861,13 +861,9 @@ def sparse_array_to_row_col_data(
     """Function to retrieve indices and values of a matrix.
 
     Parameters:
-        A:
+        A: A sparse matrix.
 
-            A sparse matrix.
-
-        remove_nz:
-
-            Optional directive for removing explicit zeros.
+        remove_nz: Optional directive for removing explicit zeros.
 
     Returns:
         A triplet of rows, columns, and values.
