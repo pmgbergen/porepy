@@ -20,6 +20,7 @@ import scipy.sparse as sps
 
 import porepy as pp
 from porepy.grids import mortar_grid
+from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_data
 
 
 def extrude_grid_bucket(
@@ -94,7 +95,7 @@ def extrude_grid_bucket(
 
         # cells (in low-dim grid) and faces in high-dim grid that define the same
         # geometric quantity
-        cells, faces, _ = sps.find(face_cells_old)
+        cells, faces, _ = sparse_array_to_row_col_data(face_cells_old)
 
         # Cell-map for the low-dimensional grid, face-map for the high-dim
         cell_map = g_map[sd_secondary].cell_map
@@ -290,7 +291,7 @@ def _extrude_2d(
     # columns in fn_layer.
 
     # Faces, cells and values of the 2d cell-face map
-    [fi, ci, sgn] = sps.find(g.cell_faces)
+    fi, ci, sgn = sparse_array_to_row_col_data(g.cell_faces)
     # Only consider each face once
     _, idx = np.unique(fi, return_index=True)
 
@@ -354,10 +355,10 @@ def _extrude_2d(
     # sign in the cell-face relation, so that the generated normal vector points out of
     # the cell with cf-value 1.
     # This requires a sorting of the nodes for each cell
-    for ci in range(nc_2d):
+    for idx in range(nc_2d):
         # Node indices of this 2d cell
-        start = cn_2d.indptr[ci]
-        stop = cn_2d.indptr[ci + 1]
+        start = cn_2d.indptr[idx]
+        stop = cn_2d.indptr[idx + 1]
         ni = cn_ind_2d[start:stop]
 
         coord = g.nodes[:2, ni]
@@ -365,7 +366,7 @@ def _extrude_2d(
         # IMPLEMENTATION NOTE: this probably assumes convexity of the 2d cell.
         sort_ind = pp.utils.sort_points.sort_point_plane(
             np.vstack((coord, np.zeros(coord.shape[1]))),
-            g.cell_centers[:, ci].reshape((-1, 1)),
+            g.cell_centers[:, idx].reshape((-1, 1)),
         )
         # Indices that sort the nodes. The sort function contains a rotation, which
         # implies that it is unknown whether the ordering is cw or ccw. If the sorted

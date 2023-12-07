@@ -65,9 +65,9 @@ intersect the given one.
 from typing import Any, List, Optional, Tuple
 
 import numpy as np
-from scipy import sparse as sps
 
 import porepy as pp
+from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_data
 
 
 class ADTNode:
@@ -359,7 +359,7 @@ class ADTree:
         self.g = g
         # Get the geometrical information cell-to-nodes
         g_cell_nodes = self.g.cell_nodes()
-        g_nodes, g_cells, _ = sps.find(g_cell_nodes)
+        g_nodes, g_cells, _ = sparse_array_to_row_col_data(g_cell_nodes)
 
         # select which cells to add to the tree
         if only_cells is not None:
