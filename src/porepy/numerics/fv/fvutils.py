@@ -14,6 +14,7 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
+from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_data
 
 
 class SubcellTopology:
@@ -1210,7 +1211,7 @@ def partial_update_discretization(
 
     # Find the faces next to the active faces. All these may be updated (depending on
     # the type of discretizations present).
-    _, cells, _ = sps.find(sd.cell_faces[active_faces])
+    _, cells, _ = sparse_array_to_row_col_data(sd.cell_faces[active_faces])
     active_cells = np.unique(cells)
     passive_cells = np.setdiff1d(np.arange(sd.num_cells), active_cells)
 

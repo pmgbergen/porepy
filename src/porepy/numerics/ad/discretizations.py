@@ -29,6 +29,7 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
+from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_data
 from porepy.utils.porepy_types import discretization_type
 
 from ._ad_utils import MergedOperator, wrap_discretization
@@ -558,7 +559,7 @@ class DifferentiableFVAd:
                     n = num_face_cell_pairs = g.num_face * 2 (two cells per face),
             while fc_cc.shape = (3, n).
         """
-        fi, ci, sgn = sps.find(g.cell_faces)
+        fi, ci, sgn = sparse_array_to_row_col_data(g.cell_faces)
 
         # Distance from face center to cell center
         fc_cc = g.face_centers[::, fi] - g.cell_centers[::, ci]

@@ -30,7 +30,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import scipy.optimize as opt
 import scipy.sparse as sps
-
+from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_data
 import porepy as pp
 import porepy.models.fluid_mass_balance as mass
 import porepy.models.poromechanics as poromechanics
@@ -1043,7 +1043,9 @@ class MandelUtils(VerificationUtils):
         nx = sd.face_normals[0]
         sides = self.domain_boundary_sides(sd)
         south_cells = self.south_cells()
-        faces_of_south_cells = sps.find(sd.cell_faces.T[south_cells])[1]
+        faces_of_south_cells = sparse_array_to_row_col_data(
+            sd.cell_faces.T[south_cells]
+        )[1]
         south_faces = np.where(sides.south)[0]
         int_faces_of_south_cells = np.setdiff1d(faces_of_south_cells, south_faces)
 
