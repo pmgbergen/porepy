@@ -500,11 +500,12 @@ class DifferentiableFVAd:
         base_bound_pressure_face = self._discretization.bound_pressure_face.value(
             self.equation_system
         )
-        # NOTE: This assertion will most likely break, the expected type should be sps.spmatrix.
-        # While the assertion could have been changed, this would lead to an error further below.
-        # This reflects that the current implementation is incomplete, thus the code should only
-        # be used with extreme caution. A reimplementation of the method with differentiable
-        # Tpfa is under way, thus fixing the current implementation has not been prioritized.
+        # NOTE: This assertion will most likely break, the expected type should be
+        # sps.spmatrix. While the assertion could have been changed, this would lead to
+        # an error further below. This reflects that the current implementation is
+        # incomplete, thus the code should only be used with extreme caution.
+        # A reimplementation of the method with differentiable Tpfa is under way, thus
+        # fixing the current implementation has not been prioritized.
         assert isinstance(base_bound_pressure_face, np.ndarray)
         # The Jacobian matrix should have the same size as the base.
         bound_pressure_face_jac = sps.csr_matrix(
