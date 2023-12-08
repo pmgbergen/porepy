@@ -863,17 +863,15 @@ class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
         """
         permeability_ad = self.specific_volume([sd]) * self.permeability([sd])
         try:
-            permeability = permeability_ad.evaluate(self.equation_system)
+            permeability = permeability_ad.value(self.equation_system)
         except KeyError:
             # If the permeability depends on an not yet computed discretization matrix,
             # fall back on reference value
-            volume = self.specific_volume([sd]).evaluate(self.equation_system)
+            volume = self.specific_volume([sd]).value(self.equation_system)
             permeability = self.solid.permeability() * np.ones(sd.num_cells) * volume
-        # The result may be an AdArray, in which case we need to extract the
-        # underlying array.
-        if isinstance(permeability, pp.ad.AdArray):
-            permeability = permeability.val
+
         # TODO: Safeguard against negative permeability?
+        assert isinstance(permeability, np.ndarray)
         return pp.SecondOrderTensor(permeability)
 
     def before_nonlinear_iteration(self):
@@ -884,14 +882,14 @@ class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
         """
         # Update parameters *before* the discretization matrices are re-computed.
         for sd, data in self.mdg.subdomains(return_data=True):
-            vals = self.darcy_flux([sd]).evaluate(self.equation_system).val
+            vals = self.darcy_flux([sd]).value(self.equation_system)
             data[pp.PARAMETERS][self.mobility_keyword].update({"darcy_flux": vals})
 
         for intf, data in self.mdg.interfaces(return_data=True, codim=1):
-            vals = self.interface_darcy_flux([intf]).evaluate(self.equation_system).val
+            vals = self.interface_darcy_flux([intf]).value(self.equation_system)
             data[pp.PARAMETERS][self.mobility_keyword].update({"darcy_flux": vals})
         for intf, data in self.mdg.interfaces(return_data=True, codim=2):
-            vals = self.well_flux([intf]).evaluate(self.equation_system).val
+            vals = self.well_flux([intf]).value(self.equation_system)
             data[pp.PARAMETERS][self.mobility_keyword].update({"darcy_flux": vals})
 
         super().before_nonlinear_iteration()

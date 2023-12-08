@@ -974,11 +974,8 @@ class SolutionStrategyEnergyBalance(pp.SolutionStrategy):
 
         """
         conductivity_ad = self.specific_volume([sd]) * self.thermal_conductivity([sd])
-        conductivity = conductivity_ad.evaluate(self.equation_system)
-        # The result may be an AdArray, in which case we need to extract the
-        # underlying array.
-        if isinstance(conductivity, pp.ad.AdArray):
-            conductivity = conductivity.val
+        conductivity = conductivity_ad.value(self.equation_system)
+        assert isinstance(conductivity, np.ndarray)
         return pp.SecondOrderTensor(conductivity)
 
     def initial_condition(self) -> None:
@@ -1005,15 +1002,16 @@ class SolutionStrategyEnergyBalance(pp.SolutionStrategy):
 
         """
         # Update parameters *before* the discretization matrices are re-computed.
+        equation_system = self.equation_system
         for sd, data in self.mdg.subdomains(return_data=True):
-            vals = self.darcy_flux([sd]).evaluate(self.equation_system).val
+            vals = self.darcy_flux([sd]).value(equation_system)
             data[pp.PARAMETERS][self.enthalpy_keyword].update({"darcy_flux": vals})
 
         for intf, data in self.mdg.interfaces(return_data=True, codim=1):
-            vals = self.interface_darcy_flux([intf]).evaluate(self.equation_system).val
+            vals = self.interface_darcy_flux([intf]).value(equation_system)
             data[pp.PARAMETERS][self.enthalpy_keyword].update({"darcy_flux": vals})
         for intf, data in self.mdg.interfaces(return_data=True, codim=2):
-            vals = self.well_flux([intf]).evaluate(self.equation_system).val
+            vals = self.well_flux([intf]).value(equation_system)
             data[pp.PARAMETERS][self.enthalpy_keyword].update({"darcy_flux": vals})
 
         super().before_nonlinear_iteration()

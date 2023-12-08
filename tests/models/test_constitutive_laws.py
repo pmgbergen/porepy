@@ -168,7 +168,7 @@ def test_parse_constitutive_laws(
     # method combining terms and factors of the wrong size etc. This could be a problem
     # with the constitutive law, or it could signify that something has changed in the
     # Ad machinery which makes the evaluation of the operator fail.
-    op.evaluate(setup.equation_system)
+    op.value_and_jacobian(setup.equation_system)
 
 
 # Shorthand for values with many digits. Used to compute expected values in the tests.
@@ -367,9 +367,7 @@ def test_evaluated_values(
     # method combining terms and factors of the wrong size etc. This could be a problem
     # with the constitutive law, or it could signify that something has changed in the
     # Ad machinery which makes the evaluation of the operator fail.
-    val = op.evaluate(setup.equation_system)
-    if isinstance(val, pp.ad.AdArray):
-        val = val.val
+    val = op.value(setup.equation_system)
     # Strict tolerance. We know analytical expected values, and some of the
     # perturbations are small relative to
     assert np.allclose(val, expected, rtol=1e-8, atol=1e-10)
@@ -417,12 +415,8 @@ def test_dimension_reduction_values(
     subdomains = setup.mdg.subdomains(dim=domain_dimension)
     interfaces = setup.mdg.interfaces(dim=domain_dimension)
     # Check aperture and specific volume values
-    aperture = setup.aperture(subdomains).evaluate(setup.equation_system)
-    if isinstance(aperture, pp.ad.AdArray):
-        aperture = aperture.val
+    aperture = setup.aperture(subdomains).value(setup.equation_system)
     assert np.allclose(aperture.data, expected[0])
     for grids, expected_value in zip([subdomains, interfaces], expected[1:]):
-        specific_volume = setup.specific_volume(grids).evaluate(setup.equation_system)
-        if isinstance(specific_volume, pp.ad.AdArray):
-            specific_volume = specific_volume.val
+        specific_volume = setup.specific_volume(grids).value(setup.equation_system)
         assert np.allclose(specific_volume.data, expected_value)
