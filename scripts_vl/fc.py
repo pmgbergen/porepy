@@ -55,6 +55,7 @@ flash_c.npipm_parameters['u2'] = 10.
 flash_c.tolerance = 1e-8
 flash_c.max_iter = 150
 
+eos_c.compile(verbosity=verbosity)
 flash_c.compile(verbosity=verbosity)
 
 print('--- Test runs ')

@@ -6,22 +6,23 @@ from dataclasses import dataclass, field
 from typing import Sequence
 
 import numpy as np
-import scipy.sparse as sps
 import pypardiso
+import scipy.sparse as sps
 
+from .composite_utils import safe_sum
 
 __all__ = [
-    'ExtensiveState',
-    'IntensiveState',
-    'PhaseProperties',
-    'FluidState',
+    "ExtensiveState",
+    "IntensiveState",
+    "PhaseState",
+    "FluidState",
 ]
 
 
 @dataclass
 class IntensiveState:
     """Dataclass for storing intensive thermodynamic properties of a fluid mixture.
-    
+
     Storage is intended to be in array format for usage in flow and transport, where
     the vectorized format reflects the degrees of freedom on a grid.
 
@@ -30,7 +31,7 @@ class IntensiveState:
     - pressure [Pa]
     - temperature [K]
     - overall molar fraction per fluid component [-]
-    
+
     """
 
     p: np.ndarray = np.zeros(1)
@@ -59,7 +60,7 @@ class ExtensiveState:
 
     - specific molar enthalpy [J / mol]
     - specific molar density [mol / m^3]
-    - specific molar volume [m^3 / mol] 
+    - specific molar volume [m^3 / mol]
 
     """
 
@@ -91,14 +92,8 @@ class PhaseState(ExtensiveState):
 
     """
 
-    gaslike: bool = False
-    """Flag indicating if the phase is gas-like (True) or liquid-like (False).
-
-    The flag is not supposed to change once set.
-
-    Default is False.
-
-    """
+    phasetype: int = 0
+    """Type of the phase. Defaults to 0 (liquid)."""
 
     x: Sequence[np.ndarray] = field(default_factory=lambda: [np.zeros(1)])
     """(Relative) molar fractions for each component in this phase.
@@ -108,6 +103,9 @@ class PhaseState(ExtensiveState):
     Default is a list of zeros.
 
     """
+
+    phis: Sequence[np.ndarray] = field(default_factory=lambda: [np.zeros(1)])
+    """Fugacity coefficients per component in this phase. Default is a list of zeros."""
 
     dh: Sequence[np.ndarray] = field(default_factory=lambda: [np.zeros(1)])
     """Derivatives of the specific molar enthalpy with respect to pressure, temperature
@@ -129,6 +127,16 @@ class PhaseState(ExtensiveState):
 
     """
 
+    dphis: Sequence[Sequence[np.ndarray]] = field(
+        default_factory=lambda: [np.zeros((1, 1))]
+    )
+    """Derivatives of fugacity coefficients per component in this phase.
+
+    The elements themselves are sequences, containing derivatives with respect to
+    pressure, temperature and fractions.
+
+    Default is a list of zero 2D-arrays."""
+
     @property
     def drho(self) -> Sequence[np.ndarray]:
         """Derivatives of the specific molar volume, expressed as the reciprocal
@@ -137,14 +145,15 @@ class PhaseState(ExtensiveState):
         The chainrule is applied to compute ``drho`` from ``d(1/v)``.
 
         """
-        outer = - 1 / self.v**2
+        outer = -1 / self.v**2
         return [outer * dv for dv in self.dv]
 
     @property
     def x_norm(self) -> Sequence[np.ndarray]:
         """Normalized values of fractions found in :attr:`x`."""
-        x_sum = sum(self.x)
+        x_sum = safe_sum(self.x)
         return [x / x_sum for x in self.x]
+
 
 @dataclass
 class FluidState(IntensiveState, ExtensiveState):
@@ -323,3 +332,16 @@ class FluidState(IntensiveState, ExtensiveState):
                     s[j] = saturations[j * num_vals : (j + 1) * num_vals]
 
         self.sat = s
+
+    def evaluate_extensive_state(self) -> None:
+        """Evaluates the mixture properties based on the currently stored phase
+        properties, molar phase fractions and volumetric phase fractions.
+
+        Stores them in the respective field.
+
+        """
+
+        self.h = safe_sum([y * state.h for y, state in zip(self.y, self.phases)])
+        self.v = 1 / safe_sum(
+            [s * state.rho for s, state in zip(self.sat, self.phases)]
+        )

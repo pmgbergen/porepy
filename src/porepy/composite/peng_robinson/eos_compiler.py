@@ -1625,15 +1625,12 @@ class PengRobinson_c(EoSCompiler):
     def __init__(
         self, mixture: pp.composite.NonReactiveMixture, verbosity: int = 0
     ) -> None:
-        self.symbolic: PengRobinson_s = PengRobinson_s(mixture)
-
-        self._gaslike: tuple[int] = tuple(
-            [int(phase.gaslike) for phase in mixture.phases]
-        )
-        self._npnc: tuple[int, int] = (mixture.num_phases, mixture.num_components)
+        super().__init__(mixture)
 
         self._cfuncs: dict[str, Callable] = dict()
         """A collection of internally required, compiled callables"""
+
+        self.symbolic: PengRobinson_s = PengRobinson_s(mixture)
 
         # setting logging verbosity
         if verbosity == 1:
@@ -1643,7 +1640,7 @@ class PengRobinson_c(EoSCompiler):
         else:
             logger.setLevel(logging.WARNING)
 
-        nphase, ncomp = self._npnc
+        nphase, ncomp = self.npnc
         logger.info(
             f"Starting EoS compilation (phases: {nphase}, components: {ncomp}):\n"
         )
@@ -1725,52 +1722,49 @@ class PengRobinson_c(EoSCompiler):
             f"EoS compilation compleded (elapsed time: {_end - _start} (s)).\n\n"
         )
 
-    def get_pre_arg_function_res(
+    def get_prearg_for_properties(
         self,
     ) -> Callable[[float, float, np.ndarray], np.ndarray]:
-        nphase, _ = self._npnc
-        gaslike = self._gaslike
+        nphase, _ = self.npnc
 
         A_c = self._cfuncs["A"]
         B_c = self._cfuncs["B"]
         Z_c = self._cfuncs["Z"]
 
-        @numba.njit("float64[:,:](float64, float64, float64[:,:])")
-        def pre_arg_res_c(p: float, T: float, XN: np.ndarray) -> np.ndarray:
-            pre_arg = np.empty((nphase, 3), dtype=np.float64)
+        @numba.njit("float64[:](int32, float64, float64, float64[:])")
+        def pre_arg_res_c(
+            phasetype: int, p: float, T: float, xn: np.ndarray
+        ) -> np.ndarray:
+            pre_arg = np.empty((3,), dtype=np.float64)
 
-            for j in range(nphase):
-                pre_arg[j, 0] = A_c(p, T, XN[j])
-                pre_arg[j, 1] = B_c(p, T, XN[j])
-                pre_arg[j, 2] = Z_c(gaslike[j], p, T, XN[j])
+            pre_arg[0] = A_c(p, T, xn)
+            pre_arg[1] = B_c(p, T, xn)
+            pre_arg[2] = Z_c(phasetype, p, T, xn)
 
             return pre_arg
 
         return pre_arg_res_c
 
-    def get_pre_arg_function_jac(
+    def get_prearg_for_derivatives(
         self,
     ) -> Callable[[float, float, np.ndarray], np.ndarray]:
-        nphase, ncomp = self._npnc
-        gaslike = self._gaslike
-
         dA_c = self._cfuncs["d_A"]
         dB_c = self._cfuncs["d_B"]
         dZ_c = self._cfuncs["d_Z"]
+        # number of derivatives for A, B, Z (p, T, and per component fraction)
+        d = 2 + self.npnc[1]
 
-        # number of derivatives for A, B, Z (p, T, and per fraction)
-        d = 2 + ncomp
-
-        @numba.njit("float64[:,:](float64, float64, float64[:,:])")
-        def pre_arg_jac_c(p: float, T: float, XN: np.ndarray) -> np.ndarray:
+        @numba.njit("float64[:](int32, float64, float64, float64[:])")
+        def pre_arg_jac_c(
+            phasetype: int, p: float, T: float, xn: np.ndarray
+        ) -> np.ndarray:
             # the pre-arg for the jacobian contains the derivatives of A, B, Z
-            # w.r.t. p, T, and the composition in that phase.
-            pre_arg = np.empty((nphase, 3 * d), dtype=np.float64)
+            # w.r.t. p, T, and fractions.
+            pre_arg = np.empty((3 * d,), dtype=np.float64)
 
-            for j in range(nphase):
-                pre_arg[j, 0:d] = dA_c(p, T, XN[j])
-                pre_arg[j, d : 2 * d] = dB_c(p, T, XN[j])
-                pre_arg[j, 2 * d : 3 * d] = dZ_c(gaslike[j], p, T, XN[j])
+            pre_arg[0:d] = dA_c(p, T, xn)
+            pre_arg[d : 2 * d] = dB_c(p, T, xn)
+            pre_arg[2 * d : 3 * d] = dZ_c(phasetype, p, T, xn)
 
             return pre_arg
 
@@ -1780,7 +1774,6 @@ class PengRobinson_c(EoSCompiler):
         self,
     ) -> Callable[[np.ndarray, float, float, np.ndarray], np.ndarray]:
         phi_c = self._cfuncs["phi"]
-        _, ncomp = self._npnc
 
         @numba.njit("float64[:](float64[:], float64, float64, float64[:])")
         def phi_mix_c(
@@ -1794,7 +1787,7 @@ class PengRobinson_c(EoSCompiler):
         self,
     ) -> Callable[[np.ndarray, np.ndarray, float, float, np.ndarray], np.ndarray]:
         d_phi_c = self._cfuncs["d_phi"]
-        _, ncomp = self._npnc
+        _, ncomp = self.npnc
         # number of derivatives for A, B, Z
         d = 2 + ncomp
 
@@ -1841,7 +1834,7 @@ class PengRobinson_c(EoSCompiler):
     def get_dpTX_enthalpy_function(
         self,
     ) -> Callable[[np.ndarray, np.ndarray, float, float, np.ndarray], np.ndarray]:
-        _, ncomp = self._npnc
+        _, ncomp = self.npnc
         d = 2 + ncomp
         d_h_dep_c = self._cfuncs["d_h_dep"]
         d_h_ideal_c = self._cfuncs["d_h_ideal"]
