@@ -94,8 +94,8 @@ def test_2d_single_fracture(solid_vals, north_displacement):
 
     # Check that the displacement jump and traction are as expected
     sd_frac = setup.mdg.subdomains(dim=setup.nd - 1)
-    jump = setup.displacement_jump(sd_frac).evaluate(setup.equation_system).val
-    traction = setup.contact_traction(sd_frac).evaluate(setup.equation_system).val
+    jump = setup.displacement_jump(sd_frac).value(setup.equation_system)
+    traction = setup.contact_traction(sd_frac).value(setup.equation_system)
     if north_displacement > 0:
         # Normal component of displacement jump should be positive
         assert np.all(jump[setup.nd - 1 :: setup.nd] > 0)
