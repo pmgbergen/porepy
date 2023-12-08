@@ -31,7 +31,8 @@ import numpy as np
 from ._core import NUMBA_CACHE
 from .composite_utils import COMPOSITE_LOGGER as logger
 from .composite_utils import safe_sum
-from .mixture import BasicMixture, ThermodynamicState
+from .mixture import BasicMixture
+from .states import FluidState, PhaseState
 
 __all__ = [
     "parse_xyz",
@@ -1105,72 +1106,145 @@ class EoSCompiler(abc.ABC):
 
     The function for the ``prearg`` computation must have the signature:
 
-    ``(p: float, T: float, XN: np.ndarray)``
+    ``(phasetype: int, p: float, T: float, xn: np.ndarray)``
 
-    where ``XN`` contains **all** normalized compositions,
-    stored row-wose per phase as a matrix.
+    where ``xn`` contains normalized fractions,
 
-    There are two ``prearg`` computations: One for the residual, one for the Jacobian
-    of the flash system.
+    There are two ``prearg`` computations: One for property values, one for the
+    derivatives.
 
-    The ``prearg`` for the Jacobian will be fed to the functions representing
+    The ``prearg`` for the derivatives will be fed to the functions representing
     derivatives of thermodynamic quantities
     (e.g. derivative fugacity coefficients w.r.t. p, T, X),
-    **additionally** to the ``prearc`` for residuals.
+    **additionally** to the ``prearg`` for residuals.
 
     I.e., the signature of functions representing derivatives is expected to be
 
     ``(prearg_res: np.ndarray, prearg_jac: np.ndarray,
-    p: float, T: float, xn: numpy.ndarray)``,
+    p: float, T: float, xn: np.ndarray)``,
 
     whereas the signature of functions representing values only is expected to be
 
-    ``(prearg: np.ndarray, p: float, T: float, xn: numpy.ndarray)``
+    ``(prearg: np.ndarray, p: float, T: float, xn: np.ndarray)``
+
+    Important:
+        Functions compiled in the abstract methods can be stored in :attr:`funcs`
+        to be re-used in the compilation of generalized ufuncs for fast evaluation of
+        properties. See :meth:`compile` and :attr:`gufuncs`.
+
+        If stored, the functions will be accessed to compile efficient, vectorized
+        computations of thermodynamic quantities, otherwise the respective
+        ``get_*``-method will be called again.
 
     """
+
+    def __init__(self, mixture: BasicMixture) -> None:
+        super().__init__()
+
+        self.npnc: tuple[int, int] = (mixture.num_phases, mixture.num_components)
+        """A 2-tuple containing the number of phases and components contained in
+        ``mixture``."""
+
+        self.funcs: dict[str, Optional[Callable]] = {
+            "prearg_val": None,
+            "prearg_jac": None,
+            "phi": None,
+            "d_phi": None,
+            "h": None,
+            "d_h": None,
+            "v": None,
+            "d_v": None,
+            "rho": None,
+            "d_rho": None,
+        }
+        """Dictionary for storing functions which are compiled in various
+        ``get_*`` methods.
+
+        Accessed during :meth:`compile` to create vectorized functions, which
+        in return are stored in :attr:`gufuncs`.
+
+        Keywords for storage are:
+
+        - ``'prearg_res'``: Function compiled by :meth:`get_pre_arg_function_res`
+        - ``'prearg_jac'``: Function compiled by :meth:`get_pre_arg_function_jac`
+        - ``'phi'``: Function compiled by :meth:`get_fugacity_function`
+        - ``'d_phi'``: Function compiled by :meth:`get_dpTX_fugacity_function`
+        - ``'h'``: Function compiled by :meth:`get_enthalpy_function`
+        - ``'d_h'``: Function compiled by :meth:`get_dpTX_enthalpy_function`
+        - ``'v'``: Function compiled by :meth:`get_volume_function`
+        - ``'d_v'``: Function compiled by :meth:`get_dpTX_volume_function`
+        - ``'rho'``: Function compiled by :meth:`get_density_function`
+        - ``'d_rho'``: Function compiled by :meth:`get_dpTX_density_function`
+
+        """
+
+        self.gufuncs: dict[
+            str,
+            Optional[Callable[[int, np.ndarray, np.ndarray, np.ndarray], np.ndarray]],
+        ] = {
+            "phi": None,
+            "d_phi": None,
+            "h": None,
+            "d_h": None,
+            "v": None,
+            "d_v": None,
+            "rho": None,
+            "d_rho": None,
+        }
+        """Storage of generalized functions for computing thermodynamic properties.
+
+        Note that for technical reasons, there is no pre-argument computation and each
+        function will compute the pre-argument on its own. TODO
+
+        The functions are created when calling :meth:`compile`.
+
+        The purpose of these functions is a fast evaluation of properties which
+
+        1. are secondary in the flash (evaluated after convergence)
+        2. which need to be evaluated for multiple values states for example on a grid
+           in flow and transport.
+
+        Important:
+            Every generalized function has the following signature:
+
+            1. integer representing the phase type
+            2. 1D-array for pressure values
+            3. 1D-array for temperature values
+            4. 2D- array containing column-wise fractions per component
+
+            The number of rows in pressure, temperature and fraction values must be the
+            same.
+
+        """
 
     # TODO what is more efficient, just one pre-arg having everything?
     # Or splitting for computations for residuals, since it does not need derivatives?
     # 1. Armijo line search evaluated often, need only residual
     # 2. On the other hand, residual pre-arg is evaluated twice, for residual and jac
     @abc.abstractmethod
-    def get_pre_arg_function_res(
+    def get_prearg_for_properties(
         self,
-    ) -> Callable[[float, float, np.ndarray], np.ndarray]:
+    ) -> Callable[[int, float, float, np.ndarray], np.ndarray]:
         """Abstract function for obtaining the compiled computation of the pre-argument
-        for the residual.
-
-        Important:
-            The returned array must be of ``shape=(num_phases,n)``, where each row is
-            dedicated to a phase of that index.
-            The first row must be dedicated to the reference phase.
-
-            When evaluating some function for a phase ``j`` only the ``j``-th row
-            is passed as the pre-argument (not the whole 2-D array).
+        for the evaluation of thermodynamic properties.
 
         Returns:
-            A NJIT-ed function taking values for pressure, temperature and normalized
-            phase compositions for all phases as a matrix, and returning a
-            ``num_comp x n`` array.
-            Rows of the matrix will be passed to phase-related evaluations of
-            thermodynamic functions.
+            A NJIT-ed function with signature
+            ``(phasetype: int, p: float, T: float, xn: np.ndarray)``.
 
         """
         pass
 
     @abc.abstractmethod
-    def get_pre_arg_function_jac(
+    def get_prearg_for_derivatives(
         self,
-    ) -> Callable[[float, float, np.ndarray], np.ndarray]:
+    ) -> Callable[[int, float, float, np.ndarray], np.ndarray]:
         """Abstract function for obtaining the compiled computation of the pre-argument
-        for the Jacobian.
+        for the evaluation of derivatives of thermodynamic properties.
 
         Returns:
-            A NJIT-ed function taking values for pressure, temperature and normalized
-            phase compositions for all phases as a matrix, and returning a
-            ``num_comp x n`` array.
-            Rows of the matrix will be passed to phase-related evaluation of
-            derivatives of thermodynamic functions.
+            A NJIT-ed function with signature
+            ``(phasetype: int, p: float, T: float, xn: np.ndarray)``.
 
         """
         pass
@@ -1265,6 +1339,254 @@ class EoSCompiler(abc.ABC):
         """
         pass
 
+    @abc.abstractmethod
+    def get_volume_function(
+        self,
+    ) -> Callable[[np.ndarray, float, float, np.ndarray], float]:
+        """Abstract assembler for compiled computations of the specific molar volume.
+
+        Returns:
+            A NJIT-ed function taking
+
+            - a row of the pre-argument for the residual,
+            - pressure value,
+            - temperature value,
+            - an array of normalized fractions of components in the phase,
+
+            and returning a volume value.
+
+        """
+        pass
+
+    @abc.abstractmethod
+    def get_dpTX_volume_function(
+        self,
+    ) -> Callable[[np.ndarray, np.ndarray, float, float, np.ndarray], np.ndarray]:
+        """Abstract assembler for compiled computations of the derivative of the
+        volume function for a phase.
+
+        Returns:
+            A NJIT-ed function taking
+
+            - a row of the pre-argument for the residual,
+            - a row of the pre-argument for the Jacobian,
+            - pressure value,
+            - temperature value,
+            - an array of normalized fractions of components in a phase,
+
+            and returning an array of derivatives of the volume with
+            ``shape=(2 + num_comp,)``., where the columns indicate the
+            derivatives w.r.t. to pressure, temperature and fractions.
+
+        """
+        pass
+
+    def get_density_function(
+        self,
+    ) -> Callable[[np.ndarray, float, float, np.ndarray], float]:
+        """Assembler for compiled computations of the specific molar density.
+
+        The density is computed as the reciprocal of the return value of
+        :meth:`get_volume_function`.
+
+        Note:
+            This function is compiled faster, if the volume function has already been
+            compiled and stored in :attr:`funcs`.
+
+        Returns:
+            A NJIT-ed function taking
+
+            - a row of the pre-argument for the residual,
+            - pressure value,
+            - temperature value,
+            - an array of normalized fractions of components in the phase,
+
+            and returning a volume value.
+
+        """
+        v_c = self.funcs.get("v", None)
+        if v_c is None:
+            v_c = self.get_volume_function()
+
+        @numba.njit("float64(float64[:], float64, float64, float64[:])")
+        def rho_c(prearg: np.ndarray, p: float, T: float, xn: np.ndarray) -> np.ndarray:
+            return 1.0 / v_c(prearg, p, T, xn)
+
+        return rho_c
+
+    def get_dpTX_density_function(
+        self,
+    ) -> Callable[[np.ndarray, np.ndarray, float, float, np.ndarray], np.ndarray]:
+        """Assembler for compiled computations of the derivative of the
+        density function for a phase.
+
+        Density is expressed as the reciprocal of volume.
+        Hence the computations utilize :meth:`get_volume_function`,
+        :meth:`get_dpTX_volume_function` and the chain-rule to compute the derivatives.
+
+        Note:
+            This function is compiled faster, if the volume function and its deritvative
+            have already been compiled and stored in :attr:`funcs`.
+
+        Returns:
+            A NJIT-ed function taking
+
+            - a row of the pre-argument for the residual,
+            - a row of the pre-argument for the Jacobian,
+            - pressure value,
+            - temperature value,
+            - an array of normalized fractions of components in a phase,
+
+            and returning an array of derivatives of the density with
+            ``shape=(2 + num_comp,)``., where the columns indicate the
+            derivatives w.r.t. to pressure, temperature and fractions.
+
+        """
+        v_c = self.funcs.get("v", None)
+        if v_c is None:
+            v_c = self.get_volume_function()
+
+        dv_c = self.funcs.get("dv", None)
+        if dv_c is None:
+            dv_c = self.get_dpTX_volume_function()
+
+        @numba.njit("float64[:](float64[:], float64[:], float64, float64, float64[:])")
+        def drho_c(
+            prearg_res: np.ndarray,
+            prearg_jac: np.ndarray,
+            p: float,
+            T: float,
+            xn: np.ndarray,
+        ) -> np.ndarray:
+            v = v_c(prearg_res, p, T, xn)
+            dv = dv_c(prearg_res, prearg_jac, p, T, xn)
+            # chain rule: drho = d(1 / v) = - 1 / v**2 * dv
+            return -dv / v**2
+
+        return drho_c
+
+    def compile(self, verbosity: int = 1) -> None:
+        """Compiles vectorized functions for properties, depending on phase type,
+        pressure, temperature and fractions.
+
+        Accesses :attr:`funcs` to find functions for element-wise computations.
+        If not found, calls various ``get_*`` methods to create them and stores them
+        in :attr:`funcs`.
+
+        Parameters:
+            verbosity: ``default=1``
+
+                Enable progress logs. Set to zero to disable.
+
+        """
+
+        # setting logging verbosity
+        if verbosity == 1:
+            logger.setLevel(logging.INFO)
+        elif verbosity >= 2:
+            logger.setLevel(logging.DEBUG)
+        else:
+            logger.setLevel(logging.WARNING)
+
+        # Getting element-wise computations
+        logger.info(f"Compiling element-wise computations ..\n")
+
+        # region Element-wise computations
+        prearg_val_c = self.funcs.get("prearg_val", None)
+        if prearg_val_c is None:
+            logger.debug("Compiling residual pre-argument ..\n")
+            prearg_val_c = self.get_prearg_for_properties()
+            self.funcs["prearg_val"] = prearg_val_c
+
+        prearg_jac_c = self.funcs.get("prearg_jac", None)
+        if prearg_jac_c is None:
+            logger.debug("Compiling Jacobian pre-argument ..\n")
+            prearg_jac_c = self.get_prearg_for_derivatives()
+            self.funcs["prearg_jac"] = prearg_jac_c
+
+        phi_c = self.funcs.get("phi", None)
+        if phi_c is None:
+            logger.debug("Compiling fugacity coefficient function ..\n")
+            phi_c = self.get_fugacity_function()
+            self.funcs["phi"] = phi_c
+
+        d_phi_c = self.funcs.get("d_phi", None)
+        if d_phi_c is None:
+            logger.debug("Compiling derivatives of fugacity coefficients ..\n")
+            d_phi_c = self.get_dpTX_fugacity_function()
+            self.funcs["d_phi"] = d_phi_c
+
+        h_c = self.funcs.get("h", None)
+        if h_c is None:
+            logger.debug("Compiling enthalpy function ..\n")
+            h_c = self.get_enthalpy_function()
+            self.funcs["h"] = h_c
+
+        d_h_c = self.funcs.get("d_h", None)
+        if d_h_c is None:
+            logger.debug("Compiling derivative of enthalpy function ..\n")
+            d_h_c = self.get_dpTX_enthalpy_function()
+            self.funcs["d_h"] = d_h_c
+
+        v_c = self.funcs.get("v", None)
+        if v_c is None:
+            logger.debug("Compiling volume function ..\n")
+            v_c = self.get_volume_function()
+            self.funcs["v"] = v_c
+
+        d_v_c = self.funcs.get("d_v", None)
+        if d_v_c is None:
+            logger.debug("Compiling derivative of volume function ..\n")
+            d_v_c = self.get_dpTX_volume_function()
+            self.funcs["d_v"] = d_v_c
+
+        rho_c = self.funcs.get("rho", None)
+        if rho_c is None:
+            logger.debug("Compiling density function ..\n")
+            rho_c = self.get_density_function()
+            self.funcs["rho"] = rho_c
+
+        d_rho_c = self.funcs.get("d_rho", None)
+        if d_rho_c is None:
+            logger.debug("Compiling derivative of density function ..\n")
+            d_rho_c = self.get_dpTX_density_function()
+            self.funcs["d_rho"] = d_rho_c
+        # endregion
+
+        logger.info(f"Compiling vectorized functions computations ..\n")
+
+        # region vectorized computations
+
+        # endregion
+
+    def compute_phase_state(
+        self, phasetype: int, p: np.ndarray, T: np.ndarray, xn: np.ndarray
+    ) -> PhaseState:
+        """Convenience function to compute the properties of a phase with vectorized
+        input.
+
+        This method must only be called after the vectorized computations have been
+        compiled (see :meth:`compile`).
+
+        Parameters:
+            phasetype: Type of phase (passed to pre-arg computation).
+            p: ``shape=(m,)``
+
+                Pressure values.
+            T: ``shape=(m,)``
+
+                Temperature values.
+            xn: ``shape=(num_comp, m)``
+
+                Normalized fractions per component (row-wise).
+
+        Returns:
+            A complete datastructure containing values for thermodynamic phase
+            properties and their derivatives.
+
+        """
+        # TODO
+
 
 class Flash_c:
     """A class providing efficient unified flash calculations using numba-compiled
@@ -1321,9 +1643,15 @@ class Flash_c:
 
         # data used in initializers
         self._pcrits: list[float] = [comp.p_crit for comp in mixture.components]
+        """A list containing critical pressures per component in ``mixture``."""
         self._Tcrits: list[float] = [comp.T_crit for comp in mixture.components]
+        """A list containing critical temperatures per component in ``mixture``."""
         self._vcrits: list[float] = [comp.V_crit for comp in mixture.components]
+        """A list containing critical volumes per component in ``mixture``."""
         self._omegas: list[float] = [comp.omega for comp in mixture.components]
+        """A list containing acentric factors per component in ``mixture``."""
+        self._phasetypes: list[int] = [phase.type for phase in mixture.phases]
+        """A list containing the phase types per phase in ``mixture``."""
 
         self.npnc: tuple[int, int] = (np, nc)
         """Number of phases and components present in mixture."""
@@ -1447,8 +1775,10 @@ class Flash_c:
         """
 
     def _parse_and_complete_results(
-        self, results: np.ndarray, result_state: ThermodynamicState, flash_type: str
-    ) -> ThermodynamicState:
+        self,
+        results: np.ndarray,
+        state_input: dict[str, np.ndarray],
+    ) -> FluidState:
         """Helper function to fill a result state with the results from the flash.
 
         Modifies and returns the passed result state structur containing flash
@@ -1456,39 +1786,65 @@ class Flash_c:
 
         Also, fills up secondary expressions for respective flash type.
 
+        Sequences of quantities associated with phases, components or derivatives are
+        stored as 2D arrays for convenience (row-wise per phase/component/derivative).
+
         """
         nphase, ncomp = self.npnc
 
         # Parsing phase compositions and molar phsae fractions
-        y = [0.0] * nphase
-        X = [[0.0] * ncomp for _ in range(nphase)]
+        result_state = FluidState(**state_input)
+        y: list[np.ndarray] = list()
+        x: list[np.ndarray] = list()
         for j in range(nphase):
-            # values for molar phase fractions except for reference phase
+            # values for molar phase fractions of independent phases
             if j < nphase - 1:
-                y[j + 1] = results[:, -(1 + nphase * ncomp + nphase - 1) + j]
+                y.append(results[:, -(1 + nphase * ncomp + nphase - 1) + j])
             # composition of phase j
+            x_j = list()
             for i in range(ncomp):
-                X[j][i] = results[:, -(1 + (nphase - j) * ncomp) + i]
-        # reference phase
-        y[0] = 1 - sum(y)
+                x_j.append(results[:, -(1 + (nphase - j) * ncomp) + i])
+            x.append(np.array(x_j))
 
-        result_state.y = y
-        result_state.X = X
-        # If T is unknown, get provided guess for T
-        if "T" not in flash_type:
+        result_state.y = np.vstack([1 - safe_sum(y), np.array(y)])
+
+        # If T is unknown, it is always the last unknown before molar fractions
+        if "T" not in state_input:
             result_state.T = results[:, -(1 + ncomp * nphase + nphase - 1 + 1)]
-        # If p is unknown, get provided guess for p and saturations
-        if "p" not in flash_type:
-            result_state.p = results[:, -(1 + ncomp * nphase + nphase - 1 + 2)]
-            s = [0.0] * nphase
-            for j in range(nphase - 1):
-                s[j + 1] = results[
-                    :, -(1 + ncomp * nphase + nphase - 1 + 2 + nphase - 1 + j)
-                ]
-            s[0] = 1 - sum(s)
-            result_state.s = s
 
-        # TODO fill up missing quantities in result state if any
+        # If v is a defined value, we fetch pressure and saturations
+        if "v" in state_input:
+            # If T is additionally unknown to p, p is the second last quantity before
+            # molar fractions
+            if "T" not in state_input:
+                p_pos = 1 + ncomp * nphase + nphase - 1 + 2
+            else:
+                p_pos = 1 + ncomp * nphase + nphase - 1 + 1
+
+            result_state.p = results[:, -p_pos]
+
+            # saturations are stored before pressure (for independent phases)
+            s: list[np.ndarray] = list()
+            for j in range(nphase - 1):
+                s.append(results[:, -(p_pos + nphase - 1 + j)])
+            result_state.sat = [1 - safe_sum(s)] + s
+
+        # Computing states for each phase after filling p, T and x
+        result_state.phases = list()
+        for j in range(nphase):
+            result_state.phases.append(
+                self.eos_compiler.compute_phase_state(
+                    self._phasetypes[j], result_state.p, result_state.T, x[j]
+                )
+            )
+
+        # if v not defined, evaluate saturations based on rho and y
+        if "v" not in state_input:
+            result_state.evaluate_saturations()
+        result_state.sat = np.array(result_state.sat)
+        # evaluate extensive properties of the fluid mixture
+        result_state.evaluate_extensive_state()
+
         return result_state
 
     def log_last_stats(self):
@@ -1530,6 +1886,7 @@ class Flash_c:
 
         nphase, ncomp = self.npnc
         tol = self.tolerance
+        phasetypes = self._phasetypes
 
         ## dimension of flash systems, excluding NPIPM
         # number of equations for the pT system
@@ -1548,18 +1905,30 @@ class Flash_c:
             f"Starting flash compilation (phases: {nphase}, components: {ncomp}):\n"
         )
         _start = time.time()
-        logger.debug("Compiling residual pre-argument ..\n")
-        prearg_res_c = self.eos_compiler.get_pre_arg_function_res()
-        logger.debug("Compiling Jacobian pre-argument ..\n")
-        prearg_jac_c = self.eos_compiler.get_pre_arg_function_jac()
-        logger.debug("Compiling fugacity coefficient function ..\n")
-        phi_c = self.eos_compiler.get_fugacity_function()
-        logger.debug("Compiling derivatives of fugacity coefficients ..\n")
-        d_phi_c = self.eos_compiler.get_dpTX_fugacity_function()
-        logger.debug("Compiling enthalpy function ..\n")
-        h_c = self.eos_compiler.get_enthalpy_function()
-        logger.debug("Compiling derivative of enthalpy function ..\n")
-        d_h_c = self.eos_compiler.get_dpTX_enthalpy_function()
+        prearg_val_c = self.eos_compiler.funcs.get("prearg_val", None)
+        if prearg_val_c is None:
+            logger.debug("Compiling residual pre-argument ..\n")
+            prearg_val_c = self.eos_compiler.get_prearg_for_properties()
+        prearg_jac_c = self.eos_compiler.funcs.get("prearg_jac", None)
+        if prearg_jac_c is None:
+            logger.debug("Compiling Jacobian pre-argument ..\n")
+            prearg_jac_c = self.eos_compiler.get_prearg_for_derivatives()
+        phi_c = self.eos_compiler.funcs.get("phi", None)
+        if phi_c is None:
+            logger.debug("Compiling fugacity coefficient function ..\n")
+            phi_c = self.eos_compiler.get_fugacity_function()
+        d_phi_c = self.eos_compiler.funcs.get("d_phi", None)
+        if d_phi_c is None:
+            logger.debug("Compiling derivatives of fugacity coefficients ..\n")
+            d_phi_c = self.eos_compiler.get_dpTX_fugacity_function()
+        h_c = self.eos_compiler.funcs.get("h", None)
+        if h_c is None:
+            logger.debug("Compiling enthalpy function ..\n")
+            h_c = self.eos_compiler.get_enthalpy_function()
+        d_h_c = self.eos_compiler.funcs.get("d_h", None)
+        if d_h_c is None:
+            logger.debug("Compiling derivative of enthalpy function ..\n")
+            d_h_c = self.eos_compiler.get_dpTX_enthalpy_function()
 
         logger.debug("Compiling residual of isogucacity constraints ..\n")
 
@@ -1772,7 +2141,9 @@ class Flash_c:
 
             # EoS specific computations
             xn = normalize_fractions(x)
-            prearg = prearg_res_c(p, T, xn)
+            prearg = np.array(
+                [prearg_val_c(phasetypes[j], p, T, xn[j]) for j in range(nphase)]
+            )
 
             res[ncomp - 1 : ncomp - 1 + ncomp * (nphase - 1)] = isofug_constr_c(
                 prearg, p, T, x, xn
@@ -1794,8 +2165,12 @@ class Flash_c:
 
             # EoS specific computations
             xn = normalize_fractions(x)
-            prearg_res = prearg_res_c(p, T, xn)
-            prearg_jac = prearg_jac_c(p, T, xn)
+            prearg_res = np.array(
+                [prearg_val_c(phasetypes[j], p, T, xn[j]) for j in range(nphase)]
+            )
+            prearg_jac = np.array(
+                [prearg_jac_c(phasetypes[j], p, T, xn[j]) for j in range(nphase)]
+            )
 
             jac[
                 ncomp - 1 : ncomp - 1 + ncomp * (nphase - 1), nphase - 1 :
@@ -1820,7 +2195,9 @@ class Flash_c:
 
             # EoS specific computations
             xn = normalize_fractions(x)
-            prearg = prearg_res_c(p, T, xn)
+            prearg = np.array(
+                [prearg_val_c(phasetypes[j], p, T, xn[j]) for j in range(nphase)]
+            )
 
             res[ncomp - 1 : ncomp - 1 + ncomp * (nphase - 1)] = isofug_constr_c(
                 prearg, p, T, x, xn
@@ -1844,8 +2221,12 @@ class Flash_c:
 
             # EoS specific computations
             xn = normalize_fractions(x)
-            prearg_res = prearg_res_c(p, T, xn)
-            prearg_jac = prearg_jac_c(p, T, xn)
+            prearg_res = np.array(
+                [prearg_val_c(phasetypes[j], p, T, xn[j]) for j in range(nphase)]
+            )
+            prearg_jac = np.array(
+                [prearg_jac_c(phasetypes[j], p, T, xn[j]) for j in range(nphase)]
+            )
 
             d_iso = d_isofug_constr_c(prearg_res, prearg_jac, p, T, x, xn)
 
@@ -1907,7 +2288,9 @@ class Flash_c:
                     )
             else:
                 xn = normalize_fractions(x)
-                prearg = prearg_res_c(p, T, xn)
+                prearg = np.array(
+                    [prearg_val_c(phasetypes[j], p, T, xn[j]) for j in range(nphase)]
+                )
                 # fugacity coefficients reference phase
                 phi_r = phi_c(prearg[0], p, T, xn[0])
                 for j in range(1, nphase):
@@ -2006,7 +2389,12 @@ class Flash_c:
                 # update K-values if another iteration comes
                 if n < N1 - 1:
                     xn = normalize_fractions(x)
-                    prearg = prearg_res_c(p, T, xn)
+                    prearg = np.array(
+                        [
+                            prearg_val_c(phasetypes[j], p, T, xn[j])
+                            for j in range(nphase)
+                        ]
+                    )
                     # fugacity coefficients reference phase
                     phi_r = phi_c(prearg[0], p, T, xn[0])
                     for j in range(1, nphase):
@@ -2036,8 +2424,12 @@ class Flash_c:
             xn = normalize_fractions(x)
 
             for _ in range(N2):
-                prearg_res = prearg_res_c(p, T, xn)
-                prearg_jac = prearg_jac_c(p, T, xn)
+                prearg_res = np.array(
+                    [prearg_val_c(phasetypes[j], p, T, xn[j]) for j in range(nphase)]
+                )
+                prearg_jac = np.array(
+                    [prearg_jac_c(phasetypes[j], p, T, xn[j]) for j in range(nphase)]
+                )
 
                 h_constr_res = h_constr_res_c(prearg_res, p, h, T, y, xn)
                 if np.abs(h_constr_res) < tol:
@@ -2221,10 +2613,10 @@ class Flash_c:
         T: Optional[np.ndarray] = None,
         h: Optional[np.ndarray] = None,
         v: Optional[np.ndarray] = None,
-        initial_state: Optional[ThermodynamicState] = None,
+        initial_state: Optional[FluidState] = None,
         mode: Literal["linear", "parallel"] = "linear",
         verbosity: int = 0,
-    ) -> tuple[ThermodynamicState, np.ndarray, np.ndarray]:
+    ) -> tuple[FluidState, np.ndarray, np.ndarray]:
         """Performes the flash for given feed fractions and state definition.
 
         Exactly 2 thermodynamic state must be defined in terms of ``p, T, h`` or ``v``
@@ -2286,7 +2678,15 @@ class Flash_c:
         Returns:
             A 3-tuple containing the results, success flags and number of iterations as
             returned by :func:`newton`.
-            The results are stored in a thermodynamic state structure.
+            The results are stored in a fluid state structure.
+
+            Important:
+                If the equilibrium state is not defined in terms of pressure or
+                temperature, the resulting volume or enthalpy values of the fluid might
+                differ slightly from the input values, due to precision and convergence
+                criterion.
+                Extensive properties are always returned in terms of the computed
+                pressure or temperature.
 
         """
         # setting logging verbosity
@@ -2325,7 +2725,6 @@ class Flash_c:
         NF: int  # number of vectorized target states
         X0: np.ndarray  # vectorized, generic flash argument
         gen_arg_dim: int  # number of required values for a flash
-        result_state = ThermodynamicState(z=[1 - z_sum] + list(z))
         init_args: tuple  # Parameters for initialization procedure
 
         if p is not None and T is not None and (h is None and v is None):
@@ -2335,8 +2734,6 @@ class Flash_c:
             gen_arg_dim = ncomp - 1 + 2 + F_dim
             state_1 = p
             state_2 = T
-            result_state.p = p
-            result_state.T = T
             init_args = (self.initialization_parameters["N1"], 1)
         elif p is not None and h is not None and (T is None and v is None):
             flash_type = "p-h"
@@ -2345,8 +2742,6 @@ class Flash_c:
             gen_arg_dim = ncomp - 1 + 2 + 1 + F_dim
             state_1 = p
             state_2 = h
-            result_state.p = p
-            result_state.h = h
             init_args = (
                 self.initialization_parameters["N1"],
                 self.initialization_parameters["N2"],
@@ -2360,8 +2755,6 @@ class Flash_c:
             gen_arg_dim = ncomp - 1 + 2 + nphase - 1 + 2 + F_dim
             state_1 = v
             state_2 = h
-            result_state.v = v
-            result_state.h = h
             init_args = (
                 self.initialization_parameters["N1"],
                 self.initialization_parameters["N2"],
@@ -2400,18 +2793,24 @@ class Flash_c:
                     X0[:, -(1 + nphase * ncomp + nphase - 1 + j)] = initial_state.y[j]
                 # composition of phase j
                 for i in range(ncomp):
-                    X0[:, -(1 + (nphase - j) * ncomp + i)] = initial_state.X[j][i]
+                    X0[:, -(1 + (nphase - j) * ncomp + i)] = initial_state.phases[j].x[
+                        i
+                    ]
 
             # If T is unknown, get provided guess for T
             if "T" not in flash_type:
                 X0[:, -(1 + ncomp * nphase + nphase - 1 + 1)] = initial_state.T
-            # If p is unknown, get provided guess for p and saturations
-            if "p" not in flash_type:
-                X0[:, -(1 + ncomp * nphase + nphase - 1 + 2)] = initial_state.p
+            # If v is given, get provided guess for p and saturations
+            if "v" in flash_type:
+                # If T is additionally unknown to p, p is the second last quantity before
+                # molar fractions
+                if "T" not in flash_type:
+                    p_pos = 1 + ncomp * nphase + nphase - 1 + 2
+                else:
+                    p_pos = 1 + ncomp * nphase + nphase - 1 + 1
+                X0[:, -p_pos] = initial_state.p
                 for j in range(nphase - 1):
-                    X0[
-                        :, -(1 + ncomp * nphase + nphase - 1 + 2 + nphase - 1 + j)
-                    ] = initial_state.s[j]
+                    X0[:, -(p_pos + nphase - 1 + j)] = initial_state.sat[j]
 
             # parsing molar phsae fractions
 
@@ -2453,8 +2852,14 @@ class Flash_c:
         if verbosity >= 2:
             self.log_last_stats()
 
+        z_ = X0[:, : ncomp - 1].T
+        state_input = {
+            "z": np.vstack([1 - np.sum(z_, axis=0), z_]),
+            flash_type[0]: X0[:, ncomp - 1],
+            flash_type[2]: X0[:, ncomp],
+        }
         return (
-            self._parse_and_complete_results(results, result_state, flash_type),
+            self._parse_and_complete_results(results, state_input),
             success,
             num_iter,
         )

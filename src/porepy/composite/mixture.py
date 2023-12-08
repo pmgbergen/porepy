@@ -546,7 +546,7 @@ class BasicMixture:
             if phase.name not in doubles:
                 doubles.append(phase.name)
                 # add phase
-                if phase.gaslike:
+                if phase.type == 1:
                     gaslike_phases.append(phase)
                 else:
                     other_phases.append(phase)

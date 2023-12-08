@@ -431,9 +431,15 @@ class Phase:
         return self._name
 
     @property
-    def gaslike(self) -> bool:
-        """Flag passed to the EoS, declaring the phase as gas-like or liquid-like."""
-        return self.eos.gaslike
+    def type(self) -> int:
+        """Integer indicating the physical type of the phase.
+
+        - ``0``: liquid-like
+        - ``1``: gas-like
+        - ``>1``: open for further development.
+
+        """
+        return int(self.eos.gaslike)
 
     @property
     def num_components(self) -> int:

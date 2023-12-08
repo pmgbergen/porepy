@@ -1032,7 +1032,7 @@ class FlashNR:
         # getting gas-phase index
         gas_phase_index: Optional[int] = None
         for j, phase in enumerate(self.mixture.phases):
-            if phase.gaslike:  # there is only one gas-like phase
+            if phase.type == 1:  # there is only one gas-like phase
                 gas_phase_index = j
 
         thd_state: ThermodynamicState
