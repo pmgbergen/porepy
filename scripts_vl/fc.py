@@ -9,7 +9,7 @@ import porepy as pp
 
 from porepy.composite.composite_utils import COMPOSITE_LOGGER as logger
 logger.setLevel(logging.DEBUG)
-from porepy.composite.peng_robinson.eos_compiler import PengRobinsonCompiler
+from porepy.composite.peng_robinson.eos_c import PengRobinsonCompiler
 from porepy.composite.flash_c import Flash_c
 logger.setLevel(logging.WARNING)
 

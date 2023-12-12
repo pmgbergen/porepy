@@ -252,8 +252,8 @@ class EoSCompiler(abc.ABC):
     1. One or two pre-arguments (vectors)
     2. ``p``: The pressure value.
     3. ``T``: The temperature value.
-    4 ``xn``: An array with ``shape=(num_comp,)`` containing the normalized fractions
-      per component of a phase.
+    4. ``xn``: An array with ``shape=(num_comp,)`` containing the normalized fractions
+       per component of a phase.
 
     The purpose of the ``prearg`` is efficiency.
     Many EoS have computions of some coterms or compressibility factors f.e.,
@@ -390,7 +390,8 @@ class EoSCompiler(abc.ABC):
 
         Returns:
             A NJIT-ed function with signature
-            ``(phasetype: int, p: float, T: float, xn: np.ndarray)``.
+            ``(phasetype: int, p: float, T: float, xn: np.ndarray)``
+            returning a 1D array.
 
         """
         pass
@@ -404,7 +405,8 @@ class EoSCompiler(abc.ABC):
 
         Returns:
             A NJIT-ed function with signature
-            ``(phasetype: int, p: float, T: float, xn: np.ndarray)``.
+            ``(phasetype: int, p: float, T: float, xn: np.ndarray)``
+            returning a 1D array.
 
         """
         pass
@@ -418,10 +420,10 @@ class EoSCompiler(abc.ABC):
         Returns:
             A NJIT-ed function taking
 
-            - a row of the pre-argument for the residual,
+            - pre-argument for values (1D-array),
             - pressure value,
             - temperature value,
-            - an array of normalized fractions of components in a phase,
+            - an 1D-array of normalized fractions of components in a phase,
 
             and returning an array of fugacity coefficients with ``shape=(num_comp,)``.
 
@@ -444,15 +446,15 @@ class EoSCompiler(abc.ABC):
         Returns:
             A NJIT-ed function taking
 
-            - a row of the pre-argument for the residual,
-            - a row of the pre-argument for the Jacobian,
+            - pre-argument for values (1D-array),
+            - pre-argument for derivatives (1D-array),
             - pressure value,
             - temperature value,
-            - an array of normalized fractions of components of a phase,
+            - an 1D-array of normalized fractions of components of a phase,
 
             and returning an array of derivatives of fugacity coefficients with
-            ``shape=(num_comp, 2 + num_comp)``., where the columns indicate the
-            derivatives w.r.t. to pressure, temperature and fractions.
+            ``shape=(num_comp, 2 + num_comp)``., where containing the derivatives w.r.t.
+            pressure, temperature and fractions (columns), for each component (row).
 
         """
         pass
@@ -466,10 +468,10 @@ class EoSCompiler(abc.ABC):
         Returns:
             A NJIT-ed function taking
 
-            - a row of the pre-argument for the residual,
+            - pre-argument for values (1D-array),
             - pressure value,
             - temperature value,
-            - an array of normalized fractions of components in the phase,
+            - an 1D-array of normalized fractions of components of a phase,
 
             and returning an enthalpy value.
 
@@ -486,15 +488,15 @@ class EoSCompiler(abc.ABC):
         Returns:
             A NJIT-ed function taking
 
-            - a row of the pre-argument for the residual,
-            - a row of the pre-argument for the Jacobian,
+            - pre-argument for values (1D-array),
+            - pre-argument for derivatives (1D-array),
             - pressure value,
             - temperature value,
-            - an array of normalized fractions of components in a phase,
+            - an 1D-array of normalized fractions of components of a phase,
 
             and returning an array of derivatives of the enthalpy with
-            ``shape=(2 + num_comp,)``., where the columns indicate the
-            derivatives w.r.t. to pressure, temperature and fractions.
+            ``shape=(2 + num_comp,)``., containing the derivatives w.r.t.
+            pressure, temperature and fractions.
 
         """
         pass
@@ -508,10 +510,10 @@ class EoSCompiler(abc.ABC):
         Returns:
             A NJIT-ed function taking
 
-            - a row of the pre-argument for the residual,
+            - pre-argument for values (1D-array),
             - pressure value,
             - temperature value,
-            - an array of normalized fractions of components in the phase,
+            - an 1D-array of normalized fractions of components of a phase,
 
             and returning a volume value.
 
@@ -528,15 +530,15 @@ class EoSCompiler(abc.ABC):
         Returns:
             A NJIT-ed function taking
 
-            - a row of the pre-argument for the residual,
-            - a row of the pre-argument for the Jacobian,
+            - pre-argument for values (1D-array),
+            - pre-argument for derivatives (1D-array),
             - pressure value,
             - temperature value,
-            - an array of normalized fractions of components in a phase,
+            - an 1D-array of normalized fractions of components of a phase,
 
             and returning an array of derivatives of the volume with
-            ``shape=(2 + num_comp,)``., where the columns indicate the
-            derivatives w.r.t. to pressure, temperature and fractions.
+            ``shape=(2 + num_comp,)``., containing the derivatives w.r.t.
+            pressure, temperature and fractions.
 
         """
         pass
@@ -556,10 +558,10 @@ class EoSCompiler(abc.ABC):
         Returns:
             A NJIT-ed function taking
 
-            - a row of the pre-argument for the residual,
+            - pre-argument for values (1D-array),
             - pressure value,
             - temperature value,
-            - an array of normalized fractions of components in the phase,
+            - an 1D-array of normalized fractions of components of a phase,
 
             and returning a volume value.
 
@@ -568,7 +570,7 @@ class EoSCompiler(abc.ABC):
         if v_c is None:
             v_c = self.get_volume_function()
 
-        @numba.njit("float64(float64[:], float64, float64, float64[:])")
+        @numba.njit("float64(float64[:],float64,float64,float64[:])")
         def rho_c(prearg: np.ndarray, p: float, T: float, xn: np.ndarray) -> np.ndarray:
             return 1.0 / v_c(prearg, p, T, xn)
 
@@ -591,15 +593,15 @@ class EoSCompiler(abc.ABC):
         Returns:
             A NJIT-ed function taking
 
-            - a row of the pre-argument for the residual,
-            - a row of the pre-argument for the Jacobian,
+            - pre-argument for values (1D-array),
+            - pre-argument for derivatives (1D-array),
             - pressure value,
             - temperature value,
-            - an array of normalized fractions of components in a phase,
+            - an 1D-array of normalized fractions of components of a phase,
 
             and returning an array of derivatives of the density with
-            ``shape=(2 + num_comp,)``., where the columns indicate the
-            derivatives w.r.t. to pressure, temperature and fractions.
+            ``shape=(2 + num_comp,)``., containing the derivatives w.r.t.
+            pressure, temperature and fractions.
 
         """
         v_c = self.funcs.get("v", None)
@@ -610,7 +612,7 @@ class EoSCompiler(abc.ABC):
         if dv_c is None:
             dv_c = self.get_dpTX_volume_function()
 
-        @numba.njit("float64[:](float64[:], float64[:], float64, float64, float64[:])")
+        @numba.njit("float64[:](float64[:],float64[:],float64,float64,float64[:])")
         def drho_c(
             prearg_res: np.ndarray,
             prearg_jac: np.ndarray,
@@ -626,7 +628,7 @@ class EoSCompiler(abc.ABC):
         return drho_c
 
     def compile(self, verbosity: int = 1) -> None:
-        """Compiles vectorized functions for properties, depending on phase type,
+        """Compiles vectorized functions for properties, depending on pre-arguments,
         pressure, temperature and fractions.
 
         Accesses :attr:`funcs` to find functions for element-wise computations.
@@ -652,9 +654,9 @@ class EoSCompiler(abc.ABC):
         else:
             logger.setLevel(logging.WARNING)
 
-        # Getting element-wise computations
         logger.info(f"Compiling element-wise computations ..\n")
         _start = time.time()
+
         # region Element-wise computations
         prearg_val_c = self.funcs.get("prearg_val", None)
         if prearg_val_c is None:
@@ -753,7 +755,7 @@ class EoSCompiler(abc.ABC):
         self.gufuncs.update(
             {
                 "prearg_val": prearg_val_v,
-                "prearg_res": prearg_jac_v,
+                "prearg_jac": prearg_jac_v,
                 "phi": phi_v,
                 "d_phi": d_phi_v,
                 "h": h_v,
@@ -796,8 +798,7 @@ class EoSCompiler(abc.ABC):
             x: ``shape=(num_comp, N)``
 
                 Extended fractions per component (row-wise).
-
-                They will be normalized before computing properties
+                They will be normalized before computing properties.
 
                 Derivatives of properties w.r.t. to normalized fractions will be
                 extended to derivatives w.r.t. to extended fractions.
@@ -806,7 +807,8 @@ class EoSCompiler(abc.ABC):
             A complete datastructure containing values for thermodynamic phase
             properties and their derivatives.
 
-            All sequential data types are storred as arrays.
+            All sequential data fields are storred as arrays, with the sequence
+            reflected in the first dimension.
 
         """
         prearg_val_v = self.gufuncs["prearg_val"]
@@ -823,6 +825,8 @@ class EoSCompiler(abc.ABC):
             x = np.array(x)
         x_sum = np.sum(x, axis=0)
         xn = np.array([x_i / x_sum for x_i in x])
+
+        ncomp, _ = x.shape
 
         prearg_val = prearg_val_v(phasetype, p, T, xn)
         prearg_jac = prearg_jac_v(phasetype, p, T, xn)
@@ -843,8 +847,10 @@ class EoSCompiler(abc.ABC):
         )
 
         # Extending derivatives to extended fractions
-        state.dphis = extended_compositional_derivatives_v(state.dphis, x)
         state.dh = extended_compositional_derivatives_v(state.dh, x)
         state.dv = extended_compositional_derivatives_v(state.dv, x)
+        for i in range(ncomp):
+            # TODO check if this is indexed correctly
+            state.dphis[i] = extended_compositional_derivatives_v(state.dphis[i], x)
 
         return state
