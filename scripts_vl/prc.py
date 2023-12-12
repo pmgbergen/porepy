@@ -16,7 +16,7 @@ from typing import Callable
 
 from porepy.composite import safe_sum
 
-from porepy.composite.peng_robinson.eos_compiler import PengRobinson_c
+from porepy.composite.peng_robinson.eos_compiler import PengRobinsonCompiler
 from porepy.composite.flash_c import parse_xyz, Flash_c
 
 vec = np.ones(1)
@@ -49,7 +49,7 @@ mix.set_up()
     for val, comp in zip(z, comps)
 ]
 
-eos_c = PengRobinson_c(mix)
+eos_c = PengRobinsonCompiler(mix)
 PRC = Flash_c(mix, eos_c)
 
 flash = pp.composite.FlashNR(mix)

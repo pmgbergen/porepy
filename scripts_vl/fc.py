@@ -9,7 +9,7 @@ import porepy as pp
 
 from porepy.composite.composite_utils import COMPOSITE_LOGGER as logger
 logger.setLevel(logging.DEBUG)
-from porepy.composite.peng_robinson.eos_compiler import PengRobinson_c
+from porepy.composite.peng_robinson.eos_compiler import PengRobinsonCompiler
 from porepy.composite.flash_c import Flash_c
 logger.setLevel(logging.WARNING)
 
@@ -46,7 +46,7 @@ z = [vec * _ for _ in feed]
     for val, comp in zip(z, comps)
 ]
 
-eos_c = PengRobinson_c(mix, verbosity=verbosity)
+eos_c = PengRobinsonCompiler(mix, verbosity=verbosity)
 flash_c = Flash_c(mix, eos_c)
 
 flash_c.armijo_parameters["rho"] = 0.99

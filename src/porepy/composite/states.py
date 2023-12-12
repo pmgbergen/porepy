@@ -169,6 +169,12 @@ class FluidState(IntensiveState, ExtensiveState):
     - volumetric phase fractions (saturations) [-]
     - molar phase fractions [-]
 
+    Contrary to :class:`PhaseState`, this dataclass does not support derivatives of
+    extensive properties on a mixture-level.
+    Since the derivatives w.r.t. to molar or volumetric phase fractions are trivially
+    the respective property of the phase, this can be done easily by the user without
+    having the same values stored at two different places.
+
     """
 
     y: Sequence[np.ndarray] = field(default_factory=lambda: [np.zeros(1)])

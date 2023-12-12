@@ -83,7 +83,7 @@ from .._core import COMPOSITIONAL_VARIABLE_SYMBOLS as SYMBOLS
 from .._core import NUMBA_CACHE, R_IDEAL
 from ..composite_utils import COMPOSITE_LOGGER as logger
 from ..composite_utils import safe_sum
-from ..flash_c import EoSCompiler
+from ..eos_compiler import EoSCompiler
 from .eos import (
     A_CRIT,
     B_CRIT,
@@ -1507,10 +1507,22 @@ class PengRobinson_s:
         )
         """Symbolic expression for the ideal enthalpy."""
 
-        self.d_h_ideal_e: sp.Expr = [
+        self.d_h_ideal_e: list[sp.Expr] = [
             self.h_ideal_e.diff(_) for _ in [self.p, self.T] + self.x_in_j
         ]
         """Symbolic gradient of :attr:`h_ideal_e` w.r.t. to thermodynamic arguments."""
+
+        # endregion
+
+        # region Volume
+
+        self.v_e: sp.Expr = Z_s * self.p * R_IDEAL / self.T
+        """Symbolic expression for specific volume, depending on pressure, temperature
+        and compressibility factor."""
+
+        self.d_v_e: list[sp.Expr] = [self.v_e.diff(_) for _ in [self.p, self.T, Z_s]]
+        """Symbolic gradient of :attr:`v_e` w.r.t. pressure, temperature and
+        compressibility factor."""
 
         # endregion
 
@@ -1618,7 +1630,7 @@ def _compile_extended_thd_function_derivatives(
     return inner
 
 
-class PengRobinson_c(EoSCompiler):
+class PengRobinsonCompiler(EoSCompiler):
     """Class providing compiled computations of thermodynamic quantities for the
     Peng-Robinson EoS."""
 
@@ -1683,6 +1695,7 @@ class PengRobinson_c(EoSCompiler):
         )(sp.lambdify(ext_thd_arg, self.symbolic.d_phi_e))
 
         logger.debug("(EoS) Compiling spec. mol. mixture enthalpy computation ..\n")
+
         h_dep_c = numba.njit(
             "float64(float64, float64, float64[:], float64, float64, float64)"
         )(sp.lambdify(ext_thd_arg, self.symbolic.h_dep_e))
@@ -1699,6 +1712,23 @@ class PengRobinson_c(EoSCompiler):
             self.symbolic.d_h_ideal_e, self.symbolic.thd_arg
         )
 
+        logger.debug("(EoS) Compiling spec. mol. volume computation ..\n")
+
+        v_c = numba.njit(
+            "float64(float64,float64,float64)",
+            fastmath=True,
+        )(sp.lambdify([self.symbolic.p, self.symbolic.T, Z_s], self.symbolic.v_e))
+
+        d_v_c_inner = numba.njit(
+            sp.lambdify([self.symbolic.p, self.symbolic.T, Z_s], self.symbolic.d_v_e)
+        )
+
+        @numba.njit(
+            "float64[:](float64, float64, float64)",
+        )
+        def d_v_c(p_: float, T_: float, Z_: float) -> np.ndarray:
+            return np.array(d_v_c_inner(p_, T_, Z_), dtype=np.float64)
+
         self._cfuncs.update(
             {
                 "A": A_c,
@@ -1713,6 +1743,8 @@ class PengRobinson_c(EoSCompiler):
                 "h_ideal": h_ideal_c,
                 "d_h_dep": d_h_dep_c,
                 "d_h_ideal": d_h_ideal_c,
+                "v": v_c,
+                "d_v": d_v_c,
             }
         )
         logger.debug("(EoS) Compiling generalzied u-funcs ..\n")
@@ -1722,7 +1754,7 @@ class PengRobinson_c(EoSCompiler):
             f"EoS compilation compleded (elapsed time: {_end - _start} (s)).\n\n"
         )
 
-    def get_prearg_for_properties(
+    def get_prearg_for_values(
         self,
     ) -> Callable[[float, float, np.ndarray], np.ndarray]:
         nphase, _ = self.npnc
@@ -1732,18 +1764,18 @@ class PengRobinson_c(EoSCompiler):
         Z_c = self._cfuncs["Z"]
 
         @numba.njit("float64[:](int32, float64, float64, float64[:])")
-        def pre_arg_res_c(
+        def prearg_val_c(
             phasetype: int, p: float, T: float, xn: np.ndarray
         ) -> np.ndarray:
-            pre_arg = np.empty((3,), dtype=np.float64)
+            prearg = np.empty((3,), dtype=np.float64)
 
-            pre_arg[0] = A_c(p, T, xn)
-            pre_arg[1] = B_c(p, T, xn)
-            pre_arg[2] = Z_c(phasetype, p, T, xn)
+            prearg[0] = A_c(p, T, xn)
+            prearg[1] = B_c(p, T, xn)
+            prearg[2] = Z_c(phasetype, p, T, xn)
 
-            return pre_arg
+            return prearg
 
-        return pre_arg_res_c
+        return prearg_val_c
 
     def get_prearg_for_derivatives(
         self,
@@ -1755,20 +1787,20 @@ class PengRobinson_c(EoSCompiler):
         d = 2 + self.npnc[1]
 
         @numba.njit("float64[:](int32, float64, float64, float64[:])")
-        def pre_arg_jac_c(
+        def prearg_jac_c(
             phasetype: int, p: float, T: float, xn: np.ndarray
         ) -> np.ndarray:
             # the pre-arg for the jacobian contains the derivatives of A, B, Z
             # w.r.t. p, T, and fractions.
-            pre_arg = np.empty((3 * d,), dtype=np.float64)
+            prearg = np.empty((3 * d,), dtype=np.float64)
 
-            pre_arg[0:d] = dA_c(p, T, xn)
-            pre_arg[d : 2 * d] = dB_c(p, T, xn)
-            pre_arg[2 * d : 3 * d] = dZ_c(phasetype, p, T, xn)
+            prearg[0:d] = dA_c(p, T, xn)
+            prearg[d : 2 * d] = dB_c(p, T, xn)
+            prearg[2 * d : 3 * d] = dZ_c(phasetype, p, T, xn)
 
-            return pre_arg
+            return prearg
 
-        return pre_arg_jac_c
+        return prearg_jac_c
 
     def get_fugacity_function(
         self,
@@ -1795,14 +1827,14 @@ class PengRobinson_c(EoSCompiler):
             "float64[:,:](float64[:], float64[:], float64, float64, float64[:])"
         )
         def d_phi_mix_c(
-            prearg_res: np.ndarray,
+            prearg_val: np.ndarray,
             prearg_jac: np.ndarray,
             p: float,
             T: float,
             xn: np.ndarray,
         ) -> np.ndarray:
             # computation of phis dependent on A_j, B_j, Z_j
-            d_phis = d_phi_c(p, T, xn, prearg_res[0], prearg_res[1], prearg_res[2])
+            d_phis = d_phi_c(p, T, xn, prearg_val[0], prearg_val[1], prearg_val[2])
             # derivatives of A_j, B_j, Z_j w.r.t. p, T, and X_j
             dA = prearg_jac[0:d]
             dB = prearg_jac[d : 2 * d]
@@ -1841,14 +1873,14 @@ class PengRobinson_c(EoSCompiler):
 
         @numba.njit("float64[:](float64[:], float64[:], float64, float64, float64[:])")
         def d_h_c(
-            prearg_res: np.ndarray,
+            prearg_val: np.ndarray,
             prearg_jac: np.ndarray,
             p: float,
             T: float,
             xn: np.ndarray,
         ) -> np.ndarray:
             d_h_ideal = d_h_ideal_c(p, T, xn)
-            d_h_dep = d_h_dep_c(p, T, xn, prearg_res[0], prearg_res[1], prearg_res[2])
+            d_h_dep = d_h_dep_c(p, T, xn, prearg_val[0], prearg_val[1], prearg_val[2])
             # derivatives of A_j, B_j, Z_j w.r.t. p, T, and X_j
             dA = prearg_jac[0:d]
             dB = prearg_jac[d : 2 * d]
@@ -1860,6 +1892,42 @@ class PengRobinson_c(EoSCompiler):
             return d_h_ideal + d_h_dep
 
         return d_h_c
+
+    def get_volume_function(
+        self,
+    ) -> Callable[[np.ndarray, float, float, np.ndarray], float]:
+        v_c_ = self._cfuncs["v"]
+
+        @numba.njit("float64(float64[:], float64, float64, float64[:])")
+        def v_c(prearg: np.ndarray, p: float, T: float, xn: np.ndarray) -> np.ndarray:
+            return v_c_(p, T, prearg[2])
+
+        return v_c
+
+    def get_dpTX_volume_function(
+        self,
+    ) -> Callable[[np.ndarray, np.ndarray, float, float, np.ndarray], np.ndarray]:
+        _, ncomp = self.npnc
+        d = 2 + ncomp
+        d_v_c_ = self._cfuncs["d_v"]
+
+        @numba.njit("float64[:](float64[:], float64[:], float64, float64, float64[:])")
+        def d_v_c(
+            prearg_val: np.ndarray,
+            prearg_jac: np.ndarray,
+            p: float,
+            T: float,
+            xn: np.ndarray,
+        ) -> np.ndarray:
+            d_v_ = d_v_c_(p, T, prearg_val[2])
+            # derivatives of Z_j w.r.t. p, T, and X_j
+            dZ = prearg_jac[2 * d : 3 * d]
+            # expansion of derivatives of enthalpy (chain rule)
+            d_v = d_v_[-1] * dZ
+            d_v[:2] += d_v[:2]  # contribution of p, T derivatives
+            return d_v
+
+        return d_v_c
 
 
 _import_end = time.time()
