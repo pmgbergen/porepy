@@ -223,7 +223,7 @@ class AbstractEoS(abc.ABC):
 class Phase:
     """Base class for phases in a multiphase multicomponent mixture.
 
-    The term 'phase' includes both, states of matter and general fields.
+    The term 'phase' as used here refers to physical states of matter.
     A phase is identified by the (time-dependent) region/volume it occupies (saturation)
     and the (molar) fraction of mass belonging to this phase.
 

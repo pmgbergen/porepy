@@ -87,8 +87,8 @@ class PhaseState(ExtensiveState):
     2. temperature,
     3. ``dx`` for each component
 
-    The state of a phase is additionally characterized by a flag indiciating if it is
-    a gas-like phase, and the values of fractions per component.
+    The state of a phase is additionally characterized by an integer representing the
+    phase type, and the values of fractions per component.
 
     """
 
@@ -96,7 +96,9 @@ class PhaseState(ExtensiveState):
     """Type of the phase. Defaults to 0 (liquid)."""
 
     x: Sequence[np.ndarray] = field(default_factory=lambda: [np.zeros(1)])
-    """(Relative) molar fractions for each component in this phase.
+    """Extended molar fractions for each component.
+
+    Fractions of components in a phase are relative to the moles in a phase.
 
     The first one is assumed to belong to the reference component.
 
@@ -149,7 +151,7 @@ class PhaseState(ExtensiveState):
         return [outer * dv for dv in self.dv]
 
     @property
-    def x_norm(self) -> Sequence[np.ndarray]:
+    def xn(self) -> Sequence[np.ndarray]:
         """Normalized values of fractions found in :attr:`x`."""
         x_sum = safe_sum(self.x)
         return [x / x_sum for x in self.x]
@@ -163,6 +165,10 @@ class FluidState(IntensiveState, ExtensiveState):
     This is a collection of intensive and extensive states of the fluid,
     as well as a collection of :class:`PhaseState` isntances characterizing individual
     phases.
+
+    Important:
+        The first phase is always assumed to be the reference phase.
+        I.e., its fractional values are usually dependent by unity of fractions.
 
     The complete fluid state includes additionally:
 
@@ -178,26 +184,14 @@ class FluidState(IntensiveState, ExtensiveState):
     """
 
     y: Sequence[np.ndarray] = field(default_factory=lambda: [np.zeros(1)])
-    """Molar phase fractions for each phase in :attr:`phases`.
-
-    The first one is assumed to be the reference phase.
-
-    """
+    """Molar phase fractions for each phase in :attr:`phases`."""
 
     sat: Sequence[np.ndarray] = field(default_factory=lambda: [np.zeros(1)])
-    """Saturation for each phase in :attr:`phases`.
-
-    The first one is assumed to be the reference phase.
-
-    """
+    """Saturation for each phase in :attr:`phases`."""
 
     phases: Sequence[PhaseState] = field(default_factory=lambda: [PhaseState()])
     """A collection of phase state descriptions for phases anticipated in the fluid
-    mixture.
-
-    The first one is assumed to be the reference phase.
-
-    """
+    mixture."""
 
     def evaluate_saturations(self, eps: float = 1e-10) -> None:
         """Calculates the values for volumetric phase fractions from stored
@@ -343,7 +337,7 @@ class FluidState(IntensiveState, ExtensiveState):
         """Evaluates the mixture properties based on the currently stored phase
         properties, molar phase fractions and volumetric phase fractions.
 
-        Stores them in the respective field.
+        Stores them in the respective attribute found in :class:`ExtensiveState`.
 
         """
 
