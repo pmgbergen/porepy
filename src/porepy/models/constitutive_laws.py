@@ -1011,8 +1011,8 @@ class DarcysLaw:
         # Check that the domains are grids.
         if not all([isinstance(g, pp.Grid) for g in domains]):
             raise ValueError(
-                """Argument domains a mixture of grids and
-                                boundary grids"""
+                """Argument `domains` should either be a list of grids or a list of
+                boundary grids."""
             )
         # By now we know that subdomains is a list of grids, so we can cast it as such
         # (in the typing sense).
@@ -1026,7 +1026,7 @@ class DarcysLaw:
             dirichlet_operator=self.pressure,
             neumann_operator=self.darcy_flux,
             bc_type=self.bc_type_darcy_flux,
-            name="bc_values_darcy_flux",
+            name="bc_values_" + self.bc_data_darcy_flux_key,
         )
 
         discr: Union[pp.ad.TpfaAd, pp.ad.MpfaAd] = self.darcy_flux_discretization(

@@ -266,33 +266,16 @@ class Tpfa(pp.FVElliptic):
 
 
 class DifferentiableTpfa:
-    def __init__(
-        self,
-        subdomains,
-        boundary_grids,
-        mdg,
-        # diffusivity_tensor: Optional[Callable[[list[pp.Grid]], pp.ad.Operator]],
-        # bc_value_key: Literal["bc_values_darcy_flux", "bc_values_fourier_flux"],
-    ):
-        """TODO: Decide if this is right signature and attribute set. If yes, change
-        method signatures and use self.subdomains etc.
-        """
-        self.subdomains = subdomains
-        self.boundary_grids = boundary_grids
-        self.mdg = mdg
-        # self.diffusivity_tensor = diffusivity_tensor
-        # self.bc_value_key = bc_value_key
-        """Doesn't need to be fixed as a Literal, but feels safer for now"""
-
-    def boundary_filters(self, subdomains, boundaries, name):
+    def boundary_filters(self, mdg, boundary_grids, name):
+        """TODO: Method could/should be moved to a more general location."""
         dir_filter = pp.ad.TimeDependentDenseArray(
-            name=(name + "_filter_dir"), domains=self.boundary_grids
+            name=(name + "_filter_dir"), domains=boundary_grids
         )
         neu_filter = pp.ad.TimeDependentDenseArray(
-            name=(name + "_filter_neu"), domains=self.boundary_grids
+            name=(name + "_filter_neu"), domains=boundary_grids
         )
         proj = pp.ad.BoundaryProjection(
-            self.mdg, self.subdomains, dim=1
+            mdg, self.subdomains, dim=1
         ).boundary_to_subdomain
         return proj @ dir_filter, proj @ neu_filter
 
