@@ -150,7 +150,7 @@ class AdTpfaFlux:
         # Treatment of boundary conditions.
         one = pp.ad.Scalar(1)
         dir_filter, neu_filter = diff_discr.boundary_filters(
-            self.mdg, boundary_grids, "bc_values_" + flux_name
+            self.mdg, domains, boundary_grids, "bc_values_" + flux_name
         )
         # Delete neu values in T_f, i.e. keep all non-neu values.
         t_f = (one - neu_filter) * t_f
@@ -447,13 +447,9 @@ class AdTpfaFlux:
         one = pp.ad.Scalar(1)
         # BC filters for Dirichlet and Neumann faces.
 
-        diff_discr = pp.numerics.fv.tpfa.DifferentiableTpfa(
-            subdomains,
-            boundary_grids,
-            self.mdg,
-        )
+        diff_discr = pp.numerics.fv.tpfa.DifferentiableTpfa()
         dir_filter, neu_filter = diff_discr.boundary_filters(
-            self.mdg, boundary_grids, "bc_values_" + flux_name
+            self.mdg, subdomains, boundary_grids, "bc_values_" + flux_name
         )
 
         # Face contribution to boundary potential is 1 on Dirichlet faces, -1/t_f_full
@@ -506,7 +502,6 @@ class AdDarcyFlux(AdTpfaFlux):
         flux = self.diffusive_flux(
             domains, self.pressure, self._permeability, "darcy_flux"
         )
-        flux.set_name("Differentiable Darcy flux")
         return flux
 
     def pressure_trace(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
@@ -622,9 +617,12 @@ g.nodes[:2, 0] += 0.1
 g.compute_geometry()
 m.set_discretization_parameters()
 m.discretize()
+dummy = m.darcy_flux_discretization(m.mdg.subdomains()).flux
+dummy.discretize(m.mdg)
 
 
-o = m.diffusive_flux(m.mdg.subdomains(), m._permeability)
+o = m.darcy_flux(m.mdg.subdomains())
 t = o.evaluate(m.equation_system)
-
+p = m.pressure_trace(m.mdg.subdomains())
+pt = p.evaluate(m.equation_system)
 # %%
