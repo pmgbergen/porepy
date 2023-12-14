@@ -266,7 +266,7 @@ class Tpfa(pp.FVElliptic):
 
 
 class DifferentiableTpfa:
-    def boundary_filters(self, mdg, boundary_grids, name):
+    def boundary_filters(self, mdg, subdomains, boundary_grids, name):
         """TODO: Method could/should be moved to a more general location."""
         dir_filter = pp.ad.TimeDependentDenseArray(
             name=(name + "_filter_dir"), domains=boundary_grids
@@ -274,9 +274,7 @@ class DifferentiableTpfa:
         neu_filter = pp.ad.TimeDependentDenseArray(
             name=(name + "_filter_neu"), domains=boundary_grids
         )
-        proj = pp.ad.BoundaryProjection(
-            mdg, self.subdomains, dim=1
-        ).boundary_to_subdomain
+        proj = pp.ad.BoundaryProjection(mdg, subdomains, dim=1).boundary_to_subdomain
         return proj @ dir_filter, proj @ neu_filter
 
     def _block_diagonal_grid_property_matrix(
