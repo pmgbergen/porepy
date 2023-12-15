@@ -649,11 +649,50 @@ class Operator:
 
     ### Operator parsing ---------------------------------------------------------------
 
+    def value(
+        self, system_manager: pp.ad.EquationSystem, state: Optional[np.ndarray] = None
+    ) -> pp.number | np.ndarray | sps.spmatrix:
+        return self._evaluate(system_manager, state=state, evaluate_jacobian=False)
+
+    def value_and_jacobian(
+        self, system_manager: pp.ad.EquationSystem, state: Optional[np.ndarray] = None
+    ) -> AdArray:
+        ad = self._evaluate(system_manager, state=state, evaluate_jacobian=True)
+
+        # Casting the result to AdArray or raising an error.
+        # It's better to set pp.number here, but isinstance requires a tuple, not Union.
+        # This should be reconsidered when pp.number is replaced with numbers.Real
+        if isinstance(ad, (int, float)):
+            # AdArray requires 1D numpy array as value, not a scalar.
+            ad = np.array([ad])
+
+        if isinstance(ad, np.ndarray) and len(ad.shape) == 1:
+            return AdArray(ad, sps.csr_matrix((ad.shape[0], system_manager.num_dofs())))
+        elif isinstance(ad, (sps.spmatrix, np.ndarray)):
+            # this case coverse both, dense and sparse matrices returned from
+            # discretizations f.e.
+            raise NotImplementedError(
+                f"The Jacobian of {type(ad)} is not implemented because it is "
+                "multidimensional"
+            )
+        else:
+            return ad
+
     def evaluate(
         self,
         system_manager: pp.ad.EquationSystem,
         state: Optional[np.ndarray] = None,
-    ):  # TODO ensure the operator always returns an AD array
+    ):
+        raise ValueError(
+            "`evaluate` is deprecated. Use `value` or `value_and_jacobian` instead."
+        )
+
+    def _evaluate(
+        self,
+        system_manager: pp.ad.EquationSystem,
+        state: Optional[np.ndarray] = None,
+        evaluate_jacobian: bool = True,
+    ) -> pp.number | np.ndarray | sps.spmatrix | AdArray:
         """Evaluate the residual and Jacobian matrix for a given solution.
 
         Parameters:
@@ -734,7 +773,12 @@ class Operator:
         # this matrix.
 
         # First generate an Ad array (ready for forward Ad) for the full set.
-        ad_vars = initAdArrays([state])[0]
+        # If the Jacobian is not requested, this step is skipped.
+        vars: AdArray | np.ndarray
+        if evaluate_jacobian:
+            vars = initAdArrays([state])[0]
+        else:
+            vars = state
 
         # Next, the Ad array must be split into variables of the right size
         # (splitting impacts values and number of rows in the Jacobian, but
@@ -754,7 +798,7 @@ class Operator:
             R = sps.coo_matrix(
                 (np.ones(nrow), (np.arange(nrow), dof)), shape=(nrow, ncol)
             ).tocsr()
-            self._ad[var_id] = R @ ad_vars
+            self._ad[var_id] = R @ vars
 
         # Also make mappings from the previous iteration.
         # This is simpler, since it is only a matter of getting the residual vector
@@ -898,7 +942,7 @@ class Operator:
                             var_list.append(sub_var)
             return var_list
 
-    ### Special methods -----------------------------------------------------------------------
+    ### Special methods ----------------------------------------------------------------
 
     def __str__(self) -> str:
         return self._name if self._name is not None else ""

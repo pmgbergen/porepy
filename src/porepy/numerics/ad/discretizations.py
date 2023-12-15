@@ -29,6 +29,7 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
+from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_data
 from porepy.utils.porepy_types import discretization_type
 
 from ._ad_utils import MergedOperator, wrap_discretization
@@ -376,7 +377,8 @@ class DifferentiableFVAd:
         # The first part is rather involved and is handled inside self._transmissibility
 
         # Get hold of the underlying flux discretization.
-        base_flux = self._discretization.flux.evaluate(self.equation_system)
+        base_flux = self._discretization.flux.value(self.equation_system)
+        assert isinstance(base_flux, sps.spmatrix)
 
         # The Jacobian matrix should have the same size as the base.
         flux_jac = sps.csr_matrix((base_flux.shape[0], self.equation_system.num_dofs()))
@@ -386,7 +388,7 @@ class DifferentiableFVAd:
         # grid information in arrays as a preprocessing step, but that seems not to be
         # worth the effort. However, to avoid evaluating the permeability function
         # multiple times, we precompute it here
-        global_permeability = self._perm_function(self.subdomains).evaluate(
+        global_permeability = self._perm_function(self.subdomains).value_and_jacobian(
             self.equation_system
         )
         sd: pp.Grid
@@ -395,7 +397,7 @@ class DifferentiableFVAd:
 
             params = self.mdg.subdomain_data(sd)[pp.PARAMETERS][self.keyword]
             # Potential for this grid
-            cells_of_grid = self._subdomain_projections.cell_restriction([sd]).evaluate(
+            cells_of_grid = self._subdomain_projections.cell_restriction([sd]).value(
                 self.equation_system
             )
             potential_value = cells_of_grid * potential.val
@@ -440,7 +442,7 @@ class DifferentiableFVAd:
             # Prolong this Jacobian to the full set of faces and add.
             face_prolongation = self._subdomain_projections.face_prolongation(
                 [sd]
-            ).evaluate(self.equation_system)
+            ).value(self.equation_system)
             flux_jac += face_prolongation * grad_p_jac
             flux_jac += face_prolongation * jac_bound
 
@@ -496,9 +498,16 @@ class DifferentiableFVAd:
         # The first part is rather involved.
 
         # Get hold of the underlying flux discretization.
-        base_bound_pressure_face = self._discretization.bound_pressure_face.evaluate(
+        base_bound_pressure_face = self._discretization.bound_pressure_face.value(
             self.equation_system
         )
+        # NOTE: This assertion will most likely break, the expected type should be
+        # sps.spmatrix. While the assertion could have been changed, this would lead to
+        # an error further below. This reflects that the current implementation is
+        # incomplete, thus the code should only be used with extreme caution.
+        # A reimplementation of the method with differentiable Tpfa is under way, thus
+        # fixing the current implementation has not been prioritized.
+        assert isinstance(base_bound_pressure_face, np.ndarray)
         # The Jacobian matrix should have the same size as the base.
         bound_pressure_face_jac = sps.csr_matrix(
             (base_bound_pressure_face.shape[0], self.equation_system.num_dofs())
@@ -511,7 +520,7 @@ class DifferentiableFVAd:
         # grid information in arrays as a preprocessing step, but that seems not to be
         # worth the effort. However, to avoid evaluating the permeability function
         # multiple times, we precompute it here
-        global_permeability = self._perm_function(self.subdomains).evaluate(
+        global_permeability = self._perm_function(self.subdomains).value_and_jacobian(
             self.equation_system
         )
 
@@ -534,7 +543,7 @@ class DifferentiableFVAd:
             jac_bound_pressure_face = d_face2boundp_d_t * transmissibility_jac
 
             # Prolong this Jacobian to the full set of faces and add.
-            face_prolongation = projections.face_prolongation([sd]).evaluate(
+            face_prolongation = projections.face_prolongation([sd]).value(
                 self.equation_system
             )
             bound_pressure_face_jac += face_prolongation * jac_bound_pressure_face
@@ -558,7 +567,7 @@ class DifferentiableFVAd:
                     n = num_face_cell_pairs = g.num_face * 2 (two cells per face),
             while fc_cc.shape = (3, n).
         """
-        fi, ci, sgn = sps.find(g.cell_faces)
+        fi, ci, sgn = sparse_array_to_row_col_data(g.cell_faces)
 
         # Distance from face center to cell center
         fc_cc = g.face_centers[::, fi] - g.cell_centers[::, ci]
@@ -637,7 +646,7 @@ class DifferentiableFVAd:
         # mode, working with ad.DenseArrays.
         # Then, map the computed permeability to the faces (distinguishing between
         # the left and right sides of the face).
-        cells_of_grid = self._subdomain_projections.cell_restriction([g]).evaluate(
+        cells_of_grid = self._subdomain_projections.cell_restriction([g]).value(
             self.equation_system
         )
         k_one_sided = cell_2_one_sided_face * cells_of_grid * global_permeability

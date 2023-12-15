@@ -8,6 +8,7 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
+from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_data
 
 
 class Tpfa(pp.FVElliptic):
@@ -101,7 +102,7 @@ class Tpfa(pp.FVElliptic):
         k = parameter_dictionary["second_order_tensor"]
         bnd = parameter_dictionary["bc"]
 
-        fi_g, ci_g, sgn_g = sps.find(sd.cell_faces)
+        fi_g, ci_g, sgn_g = sparse_array_to_row_col_data(sd.cell_faces)
 
         # fi_g and ci_g now defines the geometric (grid) mapping from subfaces to cells.
         # The cell with index ci_g[i] has the face with index fi_g[i].
@@ -116,8 +117,12 @@ class Tpfa(pp.FVElliptic):
             fi_left = np.array([], dtype=int)
             fi_right = np.array([], dtype=int)
         # We find the left(right)_face -> left(right)_cell mapping
-        left_sfi, ci_left, left_sgn = sps.find(sd.cell_faces[fi_left])
-        right_sfi, ci_right, right_sgn = sps.find(sd.cell_faces[fi_right])
+        left_sfi, ci_left, left_sgn = sparse_array_to_row_col_data(
+            sd.cell_faces[fi_left]
+        )
+        right_sfi, ci_right, right_sgn = sparse_array_to_row_col_data(
+            sd.cell_faces[fi_right]
+        )
 
         # Sort subface indices to not lose left to right periodic mapping
         # I.e., fi_left[i] maps to fi_right[i]

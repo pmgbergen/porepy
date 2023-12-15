@@ -30,7 +30,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import scipy.optimize as opt
 import scipy.sparse as sps
-
+from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_data
 import porepy as pp
 import porepy.models.fluid_mass_balance as mass
 import porepy.models.poromechanics as poromechanics
@@ -174,7 +174,7 @@ class MandelDataSaving(VerificationDataSaving):
         # Collect data
         exact_pressure = self.exact_sol.pressure(sd, t)
         pressure_ad = self.pressure([sd])
-        approx_pressure = pressure_ad.evaluate(self.equation_system).val
+        approx_pressure = pressure_ad.value(self.equation_system)
         error_pressure = ConvergenceAnalysis.l2_error(
             grid=sd,
             true_array=exact_pressure,
@@ -186,7 +186,7 @@ class MandelDataSaving(VerificationDataSaving):
 
         exact_displacement = self.exact_sol.displacement(sd, t)
         displacement_ad = self.displacement([sd])
-        approx_displacement = displacement_ad.evaluate(self.equation_system).val
+        approx_displacement = displacement_ad.value(self.equation_system)
         error_displacement = ConvergenceAnalysis.l2_error(
             grid=sd,
             true_array=exact_displacement,
@@ -199,7 +199,7 @@ class MandelDataSaving(VerificationDataSaving):
         exact_flux = self.exact_sol.flux(sd, t)
         flux_ad = self.darcy_flux([sd])
         mobility = 1 / self.fluid.viscosity()
-        approx_flux = mobility * flux_ad.evaluate(self.equation_system).val
+        approx_flux = mobility * flux_ad.value(self.equation_system)
         error_flux = ConvergenceAnalysis.l2_error(
             grid=sd,
             true_array=exact_flux,
@@ -211,7 +211,7 @@ class MandelDataSaving(VerificationDataSaving):
 
         exact_force = self.exact_sol.poroelastic_force(sd, t)
         force_ad = self.stress([sd])
-        approx_force = force_ad.evaluate(self.equation_system).val
+        approx_force = force_ad.value(self.equation_system)
         error_force = ConvergenceAnalysis.l2_error(
             grid=sd,
             true_array=exact_force,
@@ -1043,7 +1043,9 @@ class MandelUtils(VerificationUtils):
         nx = sd.face_normals[0]
         sides = self.domain_boundary_sides(sd)
         south_cells = self.south_cells()
-        faces_of_south_cells = sps.find(sd.cell_faces.T[south_cells])[1]
+        faces_of_south_cells = sparse_array_to_row_col_data(
+            sd.cell_faces.T[south_cells]
+        )[1]
         south_faces = np.where(sides.south)[0]
         int_faces_of_south_cells = np.setdiff1d(faces_of_south_cells, south_faces)
 

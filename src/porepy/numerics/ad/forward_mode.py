@@ -51,15 +51,15 @@ class AdArray:
     The class implements methods for arithmetic operations with floats, numpy arrays,
     scipy sparse matrices, and other ``AdArrays``. For these operations, the following
     general rules apply:
-      * Scalars can be used for any arithmetic operation. As a convenience measure to
-        limit the number of cases that mest be handled and maintained, the scalar must
-        be a float.
+      * Scalars can be used for any arithmetic operation except matrix multiplication (
+        the @ operator). As a convenience measure to limit the number of cases that must
+        be handled and maintained, the scalar must be a float.
       * Numpy arrays are assumed to be 1d and have the same size as the ``AdArray``.
-        Numpy arrays can be used for any operation except matrix multiplication (the @
-        operator). *When adding, subtracting or multiplying a numpy array and an
-        AdArray, the AdArray should be placed first, so, DO: AdArray + numpy.array,
+        Numpy arrays can be used for any operation except matrix multiplication.
+        When adding, subtracting or multiplying a numpy array and an AdArray, the
+        AdArray should be placed first, so, DO: AdArray + numpy.array,
         DO NOT: numpy.array + AdArray. The latter will give erratic behavior, see
-        https://stackoverflow.com/a/6129099. Similarly, do not try to take
+        https://stackoverflow.com/a/6129099.
       * Scipy matrices can only be used for matrix-vector products (the @ operator), and
         then only for left multiplication. While right multiplication could technically
         work, depending on the size of the matrix, this is not the way the Ad framework
@@ -468,7 +468,7 @@ class AdArray:
             raise ValueError(f"Unknown type {type(other)} for AdArray division.")
 
     def __matmul__(self, other: AdType) -> AdArray:
-        """Do a matrix multiplication between this AdArray and another object.
+        """The operation `AdArray @ Anything` is disallowed.
 
         Parameters:
             other: An object which should be right multiplied with this AdArray. See
@@ -480,10 +480,7 @@ class AdArray:
 
         """
 
-        if isinstance(other, (int, float)):
-            return self.__mul__(float(other))
-
-        elif isinstance(other, (np.ndarray, pp.ad.AdArray)):
+        if isinstance(other, (int, float, np.ndarray, pp.ad.AdArray)):
             raise ValueError(
                 """Cannot perform matrix multiplication between an AdArray and a"""
                 f""" {type(other)}."""
@@ -509,13 +506,10 @@ class AdArray:
                 function.
 
         Returns:
-            An AdArray which represents ``other`` @ ``self`` elementwise.
+            An AdArray which represents ``other`` @ ``self``.
 
         """
-        if isinstance(other, (int, float)):
-            return self.__mul__(float(other))
-
-        if isinstance(other, (np.ndarray, AdArray)):
+        if isinstance(other, (int, float, np.ndarray, AdArray)):
             raise ValueError(
                 """Cannot perform matrix multiplication between an AdArray and a"""
                 f""" {type(other)}."""

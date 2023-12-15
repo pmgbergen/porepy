@@ -17,6 +17,7 @@ import porepy as pp
 from porepy.fracs import split_grid, structured
 from porepy.grids import mortar_grid
 from porepy.grids.md_grid import MixedDimensionalGrid
+from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_data
 from porepy.utils import mcolon
 
 logger = logging.getLogger(__name__)
@@ -252,7 +253,7 @@ def _tag_faces(grids, check_highest_dim=True):
         fn_h = g_h.face_nodes[:, bnd_faces].tocsr()
 
         # Nodes on the boundary
-        bnd_nodes, _, _ = sps.find(fn_h)
+        bnd_nodes, _, _ = sparse_array_to_row_col_data(fn_h)
 
         # Boundary nodes of g_h in terms of global indices
         bnd_nodes_glb = g_h.global_point_ind[np.unique(bnd_nodes)]

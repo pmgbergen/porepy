@@ -375,9 +375,9 @@ class DisplacementJumpAperture(DimensionReduction):
                 # Average weights are the number of cells in the parent subdomains
                 # contributing to each intersection cells.
                 average_weights = np.ravel(
-                    parent_cells_to_intersection_cells.evaluate(
-                        self.equation_system
-                    ).sum(axis=1)
+                    parent_cells_to_intersection_cells.value(self.equation_system).sum(
+                        axis=1
+                    )
                 )
                 nonzero = average_weights > 0
                 average_weights[nonzero] = 1 / average_weights[nonzero]
@@ -742,8 +742,102 @@ class ConstantPermeability:
         return Scalar(self.solid.normal_permeability())
 
 
-class CubicLawPermeability(ConstantPermeability):
-    """Cubic law permeability for fractures and intersections."""
+class DimensionDependentPermeability(ConstantPermeability):
+    """Permeability depending on subdomain dimension.
+
+    The use of sub-methods allows convenient code reuse if the permeability
+    for one of the subdomain sets is changed.
+
+    """
+
+    nd: int
+    """Ambient dimension of the problem. Normally set by a mixin instance of
+    :class:`porepy.models.geometry.ModelGeometry`.
+
+    """
+
+    def permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Permeability [m^2].
+
+        This function combines the permeability of the matrix, fractures and
+        intersections.
+
+        Parameters:
+            subdomains: List of subdomains.
+
+        Returns:
+            Cell-wise permeability values.
+
+        """
+        projection = pp.ad.SubdomainProjections(subdomains, dim=1)
+        matrix = [sd for sd in subdomains if sd.dim == self.nd]
+        fractures: list[pp.Grid] = [sd for sd in subdomains if sd.dim == self.nd - 1]
+        intersections: list[pp.Grid] = [sd for sd in subdomains if sd.dim < self.nd - 1]
+
+        permeability = (
+            projection.cell_prolongation(matrix) @ self.matrix_permeability(matrix)
+            + projection.cell_prolongation(fractures)
+            @ self.fracture_permeability(fractures)
+            + projection.cell_prolongation(intersections)
+            @ self.intersection_permeability(intersections)
+        )
+        return permeability
+
+    def matrix_permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Permeability of the matrix.
+
+        Parameters:
+            subdomains: List of subdomains.
+
+        Returns:
+            Cell-wise permeability operator.
+
+        """
+        return super().permeability(subdomains)
+
+    def fracture_permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Permeability of fractures.
+
+        Parameters:
+            subdomains: List of subdomains.
+
+        Returns:
+            Cell-wise permeability operator.
+
+        """
+        size = sum(sd.num_cells for sd in subdomains)
+        permeability = pp.wrap_as_dense_ad_array(1, size, name="permeability")
+        return permeability
+
+    def intersection_permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Permeability of intersections.
+
+        Note that as permeability is not meaningful in 0d domains, this method will only
+        impact the tangential permeability of 1d intersection lines.
+
+
+        Parameters:
+            subdomains: List of subdomains.
+
+        Returns:
+            Cell-wise permeability operator.
+
+        """
+        size = sum(sd.num_cells for sd in subdomains)
+        permeability = pp.wrap_as_dense_ad_array(1, size, name="permeability")
+        return permeability
+
+
+class CubicLawPermeability(DimensionDependentPermeability):
+    """Cubic law permeability for fractures and intersections.
+
+    The cubic law is derived from the Navier-Stokes equations, and is valid for
+    laminar flow under the so-called parallel plate assumption. This gives a cubic
+    relationship between the volumetric flow rate and the pressure drop. Note that in
+    PorePy, the permeability is multiplied by the aperture to yield a transmissivity,
+    thus the permeability is proportional to the square of the aperture.
+
+    """
 
     equation_system: pp.ad.EquationSystem
     """EquationSystem object for the current model. Solution strategies are normally
@@ -768,37 +862,8 @@ class CubicLawPermeability(ConstantPermeability):
 
     """
 
-    def permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Permeability [m^2].
-
-        This function combines a matrix permeability with a cubic law permeability for
-        fractures and intersections. The combination entails projection between the two
-        subdomain subsets and all subdomains.
-
-        Parameters:
-            subdomains: List of subdomains.
-
-        Returns:
-            Cell-wise permeability values.
-
-        """
-        projection = pp.ad.SubdomainProjections(subdomains, dim=1)
-        matrix = [sd for sd in subdomains if sd.dim == self.nd]
-        fractures_and_intersections: list[pp.Grid] = [
-            sd for sd in subdomains if sd.dim < self.nd
-        ]
-
-        permeability = projection.cell_prolongation(matrix) @ self.matrix_permeability(
-            matrix
-        ) + projection.cell_prolongation(
-            fractures_and_intersections
-        ) @ self.cubic_law_permeability(
-            fractures_and_intersections
-        )
-        return permeability
-
     def cubic_law_permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Cubic law permeability for fractures (or intersections).
+        """Cubic law permeability for fractures or intersections.
 
         Parameters:
             subdomains: List of subdomains.
@@ -812,8 +877,8 @@ class CubicLawPermeability(ConstantPermeability):
 
         return perm
 
-    def matrix_permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Permeability of the matrix.
+    def fracture_permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Permeability of the fractures.
 
         Parameters:
             subdomains: List of subdomains.
@@ -822,7 +887,19 @@ class CubicLawPermeability(ConstantPermeability):
             Cell-wise permeability operator.
 
         """
-        return super().permeability(subdomains)
+        return self.cubic_law_permeability(subdomains)
+
+    def intersection_permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Permeability of the intersections.
+
+        Parameters:
+            subdomains: List of subdomains.
+
+        Returns:
+            Cell-wise permeability operator.
+
+        """
+        return self.cubic_law_permeability(subdomains)
 
 
 class DarcysLaw:
@@ -1448,7 +1525,7 @@ class ThermalConductivityLTE:
         # Since thermal conductivity is used as a discretization parameter, it has to be
         # evaluated before the discretization matrices are computed.
         try:
-            phi.evaluate(self.equation_system)
+            phi.value(self.equation_system)
         except KeyError:
             # We assume this means that the porosity includes a discretization matrix
             # for div_u which has not yet been computed.
@@ -2872,20 +2949,10 @@ class BartonBandis:
         # If the maximum closure is zero, the Barton-Bandis model is not valid in the
         # case of zero normal traction. In this case, we return an empty operator.
         #  If the maximum closure is negative, an error is raised.
-        val = maximum_closure.evaluate(self.equation_system)
-        if (
-            (isinstance(val, (float, int)) and val == 0)
-            or (isinstance(val, np.ndarray) and np.any(val == 0))
-            or isinstance(val, pp.ad.AdArray)
-            and np.any(val.val == 0)
-        ):
+        val = maximum_closure.value(self.equation_system)
+        if np.any(val == 0):
             return Scalar(0)
-        elif (
-            (isinstance(val, (float, int)) and val < 0)
-            or (isinstance(val, np.ndarray) and np.any(val < 0))
-            or isinstance(val, pp.ad.AdArray)
-            and np.any(val.val < 0)
-        ):
+        elif np.any(val < 0):
             raise ValueError("The maximum closure must be non-negative.")
 
         nd_vec_to_normal = self.normal_component(subdomains)
@@ -2983,13 +3050,9 @@ class FractureGap(BartonBandis, ShearDilation):
         val = (
             self.reference_fracture_gap(subdomains)
             - self.maximum_fracture_closure(subdomains)
-        ).evaluate(self.equation_system)
+        ).value(self.equation_system)
 
-        if (
-            (isinstance(val, (float, int)) and val < 0)
-            or (isinstance(val, np.ndarray) and np.any(val < 0))
-            or (isinstance(val, pp.ad.AdArray) and np.any(val.val < 0))
-        ):
+        if np.any(val < 0):
             msg = (
                 "The reference fracture gap must be larger"
                 " than the maximum fracture closure."

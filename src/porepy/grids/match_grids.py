@@ -16,6 +16,7 @@ from typing_extensions import Literal
 
 import porepy as pp
 from porepy.grids.structured import TensorGrid
+from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_data
 from porepy.utils.setmembership import ismember_rows, unique_columns_tol
 
 logger = logging.getLogger(__name__)
@@ -285,7 +286,7 @@ def match_grids_along_1d_mortar(
         # Find cells of faces, specified by face indices fi.
         # It is assumed that fi is on the boundary, e.g. there is a single
         # cell for each element in fi.
-        f, ci, _ = sps.find(g.cell_faces[fi])
+        f, ci, _ = sparse_array_to_row_col_data(g.cell_faces[fi])
         if f.size != fi.size:
             raise ValueError("We assume fi are boundary faces")
 
@@ -349,7 +350,9 @@ def match_grids_along_1d_mortar(
 
     # First create a virtual 1d grid along the line, using nodes from the old grid
     # Identify faces in the old grid that is on the boundary
-    _, faces_on_boundary_old, _ = sps.find(mg._primary_to_mortar_int)
+    _, faces_on_boundary_old, _ = sparse_array_to_row_col_data(
+        mg._primary_to_mortar_int
+    )
     # Find the nodes of those faces
     nodes_on_boundary_old = nodes_of_faces(g_old, faces_on_boundary_old)
     nodes_1d_old = g_old.nodes[:, nodes_on_boundary_old]
