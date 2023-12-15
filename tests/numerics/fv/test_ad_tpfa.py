@@ -663,7 +663,7 @@ class TestAdTpfaFlow(
                 time_step_index=0,
             )
 
-    def _permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+    def _epermeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Non-constant permeability tensor. Depends on pressure."""
         nc = sum([sd.num_cells for sd in subdomains])
         # K is a second order tensor having nd^2 entries per cell. 3d:
@@ -751,7 +751,7 @@ dummy.discretize(m.mdg)
 
 
 o = m.darcy_flux(m.mdg.subdomains())
-t = o.evaluate(m.equation_system)
+t = o.value_and_jacobian(m.equation_system)
 p = m.pressure_trace(m.mdg.subdomains())
-pt = p.evaluate(m.equation_system)
+pt = p.value_and_jacobian(m.equation_system)
 # %%
