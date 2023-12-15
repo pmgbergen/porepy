@@ -481,7 +481,7 @@ class AdTpfaFlux:
                 # The value is the standard product of the matrix and boundary values.
                 # Use external_bc (both Dirichlet and Neumann) since both enter into the
                 # pressure trace reconstruction.
-                val = base_term @ (internal_flux.val + external_flux)
+                val = base_term @ (internal_flux.val + external_bc)
                 # The Jacobian matrix has one term corresponding to the standard (e.g.,
                 # non-differentiable FV) discretization. No need to add the external
                 # boundary values, as they should not be differentiated.
@@ -511,7 +511,9 @@ class AdTpfaFlux:
         else:
             # The base discretization is Tpfa, so we can rely on the Ad machinery to
             # compose the full expression.
-            bound_pressure_face_neu = base_discr.bound_pressure_face * projected_flux
+            bound_pressure_face_neu = (
+                base_discr.bound_pressure_face @ projected_internal_flux
+            )
 
         pressure_trace = (
             base_discr.bound_pressure_cell @ potential(subdomains)  # independent of k
