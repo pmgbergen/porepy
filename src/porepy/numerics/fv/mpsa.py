@@ -282,6 +282,53 @@ class Mpsa(Discretization):
                 active_bound, sub_g, l2g_faces
             )
 
+            # Eta can either be a scalar or a vector. If a vector valued eta is passed,
+            # it will have a length equal to the number of subfaces in the entire grid.
+            # If the grid is partitioned into subgrids, we need to adjust the length of
+            # eta to match the subfaces of the subgrid.
+            if isinstance(eta, np.ndarray):
+                # First finding how many subfaces each face is divided into
+                sub_g_subcelltopology = pp.fvutils.SubcellTopology(sub_g)
+                no_unique_subfaces = len(sub_g_subcelltopology.subfno_unique)
+                no_faces = sub_g.cell_faces.shape[0]
+                multiplier = int(no_unique_subfaces / no_faces)
+
+                # Initialize array for the global subface indices
+                global_subgrid_subface_indices = np.zeros(
+                    len(l2g_faces) * multiplier, dtype=int
+                )
+
+                # If all faces are divided into n subfaces, the subfaces will be
+                # numerated as follows: Each face index should be represented n times
+                # and multiplied by n. The 2nd, 3rd to n-th representation of the face
+                # index should have 1, 2, ..., n-1 added to them, respectively. Then you
+                # have the subface indexing.
+
+                # Examples:
+                # * If you have the face indices [1, 4, 5] divided into 2 subfaces each.
+                #   Subface indices are the following: [2, 3, 8, 9, 10, 11].
+                # * If you have face indices [1, 4, 5] and they are divided into 3
+                #   subfaces, then subface indices are the following: [3, 4, 5, 12, 13,
+                #   14, 15, 16, 17]
+
+                # Initializing a counter for the indexing and looping through all the
+                # global face indices
+                counter = 0
+                for element in l2g_faces:
+                    indices = np.arange(counter, counter + multiplier)
+
+                    # Filling the array with the corresponding subface indices
+                    global_subgrid_subface_indices[
+                        indices
+                    ] = element * multiplier + np.arange(multiplier)
+                    counter += multiplier
+
+                loc_eta = np.array([eta[i] for i in global_subgrid_subface_indices])
+
+            # Non-array eta suggests eta is scalar. Thus no changes happen to eta.
+            else:
+                loc_eta = eta
+
             # Discretization of sub-problem
             (
                 loc_stress,
@@ -289,7 +336,7 @@ class Mpsa(Discretization):
                 loc_bound_displacement_cell,
                 loc_bound_displacement_face,
             ) = self._stress_discretization(
-                sub_g, loc_c, loc_bnd, eta=eta, inverter=inverter, hf_eta=hf_eta
+                sub_g, loc_c, loc_bnd, eta=loc_eta, inverter=inverter, hf_eta=hf_eta
             )
 
             # Eliminate contribution from faces already discretized (the dual grids /
