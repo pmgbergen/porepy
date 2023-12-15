@@ -242,8 +242,9 @@ class AdTpfaFlux:
                 # We know that base_discr.flux is a sparse matrix, so we can call parse
                 # directly. At the time of evaluation, p will be an AdArray, thus we can
                 # access its val and jac attributes.
-                val = base_discr.flux.parse(self.mdg) @ p.val
-                jac = base_discr.flux.parse(self.mdg) @ p.jac
+                base_flux = base_discr.flux.parse(self.mdg)
+                val = base_flux @ p.val
+                jac = base_flux @ p.jac
 
                 if hasattr(T_f, "jac"):
                     # Add the contribution to the Jacobian matrix from the derivative of
@@ -457,26 +458,69 @@ class AdTpfaFlux:
         # "bound_potential_face" to be consistent with the base discretization.
         bound_pressure_face = dir_filter - neu_filter * (one / t_f_full)
 
-        if isinstance(base_discr, pp.ad.MpfaAd):
+        # Project the interface flux to the primary grid, preparing for discretization
+        # on internal boundaries.
+        projected_internal_flux = projection.mortar_to_primary_int @ getattr(
+            self, "interface_" + flux_name
+        )(interfaces)
 
-            def b_p_f(bound_pressure_face):
-                val = base_discr.bound_pressure_face
-                jac = bound_pressure_face.jac
+        if isinstance(base_discr, pp.ad.MpfaAd):
+            # Approximate the derivative of the transmissibility matrix with respect to
+            # permeability by a Tpfa-style discretization.
+            def bound_pressure_discretization(
+                bound_pressure_face, internal_flux, external_bc
+            ):
+                # Take the differential of the product between the matrix for pressure
+                # trace reconstruction and internal and external boundary conditions.
+
+                # We know that base_discr.bound_pressure_face is a sparse matrix, so we
+                # can call parse directly. At the time of evaluation, internal_flux will
+                # be an AdArray, thus we can access its val and jac attributes, while
+                # external_flux is a numpy array.
+                base_term = base_discr.bound_pressure_face.parse(self.mdg)
+                # The value is the standard product of the matrix and boundary values.
+                # Use external_bc (both Dirichlet and Neumann) since both enter into the
+                # pressure trace reconstruction.
+                val = base_term @ (internal_flux.val + external_flux)
+                # The Jacobian matrix has one term corresponding to the standard (e.g.,
+                # non-differentiable FV) discretization. No need to add the external
+                # boundary values, as they should not be differentiated.
+                jac = base_term @ internal_flux.jac
+
+                if hasattr(bound_pressure_face, "jac"):
+                    # If the permeability, thus the pressure reconstruction operator,
+                    # has a Jacobian, add its contribution. For external Dirichlet
+                    # boundaries, the Jacobian is zero (the element is constant 1), thus
+                    # these faces give no contribution. There will be a contribution
+                    # from external Neumann boundaries, as well as from internal
+                    # boundaries (which are always Neumann).
+                    jac += (
+                        sps.diags(internal_flux.val + external_bc)
+                        @ bound_pressure_face.jac
+                    )
+
                 return pp.ad.AdArray(val, jac)
 
-            bound_pressure_face = pp.ad.Function(b_p_f, "differentiable_mpfa")(
-                bound_pressure_face
+            bound_pressure_face_neu = pp.ad.Function(
+                bound_pressure_discretization, "differentiable_mpfa"
+            )(
+                bound_pressure_face,
+                projected_internal_flux,
+                boundary_operator,
             )
+        else:
+            # The base discretization is Tpfa, so we can rely on the Ad machinery to
+            # compose the full expression.
+            bound_pressure_face_neu = base_discr.bound_pressure_face * projected_flux
 
         pressure_trace = (
             base_discr.bound_pressure_cell @ potential(subdomains)  # independent of k
-            + bound_pressure_face  # dependens on k
-            * (
-                projection.mortar_to_primary_int
-                @ getattr(self, "interface_" + flux_name)(interfaces)
-            )
+            # Contribution from internal boundaries, depends on k
+            + bound_pressure_face_neu
+            # Contribution from external boundaries, independent of k
             + bound_pressure_face * boundary_operator
-            + base_discr.bound_pressure_vector_source  # independent of k
+            # the vector source is independent of k
+            + base_discr.bound_pressure_vector_source
             @ self.vector_source(subdomains, material="fluid")
         )
         return pressure_trace
@@ -522,7 +566,90 @@ class AdDarcyFlux(AdTpfaFlux):
         return pressure_trace
 
 
-class TestAdTpfaFlow(AdDarcyFlux, pp.fluid_mass_balance.SinglePhaseFlow):
+class UnitTestAdTpfaFlux(AdTpfaFlux, pp.fluid_mass_balance.SinglePhaseFlow):
+    def initial_condition(self):
+        super().initial_condition()
+        for sd, data in self.mdg.subdomains(return_data=True):
+            pp.set_solution_values(
+                name=self.pressure_variable,
+                values=np.array([2, 3]),
+                data=data,
+                iterate_index=0,
+                time_step_index=0,
+            )
+
+    def _set_grid(self):
+        g = pp.CartGrid([2, 1])
+        g.nodes = np.array(
+            [[0, 0, 0], [2, 0, 0], [3, 0, 0], [0, 1, 0], [1, 2, 0], [3, 1, 0]]
+        ).T
+        g.compute_geometry()
+        g.face_centers[0, 3] = 1.5
+        g.cell_centers = np.array([[1, 0.5, 0], [2.5, 0.5, 0]]).T
+
+        mdg = pp.MixedDimensionalGrid()
+        mdg.add_subdomains([g])
+        self.mdg = mdg
+
+    def prepare_simulation(self):
+        super().prepare_simulation()
+
+        self._set_grid()
+        self.discretize(self.mdg)
+
+    def _permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Non-constant permeability tensor. Depends on pressure."""
+        nc = sum([sd.num_cells for sd in subdomains])
+        # K is a second order tensor having nd^2 entries per cell. 3d:
+        # Kxx, Kxy, Kxz, Kyx, Kyy, Kyz, Kzx, Kzy, Kzz
+        # 0  , 1  , 2  , 3  , 4  , 5  , 6  , 7  , 8
+        # 2d:
+        # Kxx, Kxy, Kyx, Kyy
+        # 0  , 1  , 2  , 3
+        tensor_dim = 3**2
+
+        # Set constant component of the permeability
+        all_vals = np.zeros(nc * tensor_dim, dtype=float)
+        all_vals[0] = 1
+        all_vals[4] = 2
+        all_vals[8] = 1
+        all_vals[9] = 2
+        all_vals[10] = 1
+        all_vals[12] = 1
+        all_vals[13] = 3
+        all_vals[17] = 1
+
+        cell_0_projection = pp.ad.Matrix(sps.csr_matrix(np.array([[1, 0], [0, 0]])))
+        cell_1_projection = pp.ad.Matrix(sps.csr_matrix(np.array([[0, 0], [0, 1]])))
+
+        e_xx = self.e_i(subdomains, i=0, dim=tensor_dim)
+        e_xy = self.e_i(subdomains, i=1, dim=tensor_dim)
+        e_yx = self.e_i(subdomains, i=3, dim=tensor_dim)
+        e_yy = self.e_i(subdomains, i=4, dim=tensor_dim)
+        p = self.pressure(subdomains)
+
+        # Non-constant component of the permeability in cell 0
+        cell_0_permeability = (
+            e_xx @ cell_0_projection @ p + e_yy @ cell_0_projection @ p**2
+        )
+        # Non-constant component of the permeability in cell 1
+        cell_1_permeability = (
+            pp.ad.Scalar(2) * e_xx @ cell_1_projection @ p**2
+            + pp.ad.Scalar(3) * e_yy @ cell_1_projection @ p**2
+        )
+
+        return (
+            pp.wrap_as_dense_ad_array(all_vals, name="Constant_permeability_component")
+            + cell_0_permeability
+            + cell_1_permeability
+        )
+
+
+class TestAdTpfaFlow(
+    AdDarcyFlux,
+    pp.model_geometries.SquareDomainOrthogonalFractures,
+    pp.fluid_mass_balance.SinglePhaseFlow,
+):
     def initial_condition(self):
         super().initial_condition()
         for sd, data in self.mdg.subdomains(return_data=True):
