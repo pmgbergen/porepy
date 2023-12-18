@@ -687,7 +687,7 @@ def model_setup_gravity(
 
             """
             b_val = np.zeros(boundary_grid.num_cells)
-            if boundary_grid.dim == (self.nd + 1) and dir_val_top is not None:
+            if boundary_grid.dim == (self.nd - 1) and dir_val_top is not None:
                 b_val[self._bound_sides(boundary_grid)[1]] = dir_val_top
             return b_val
 
