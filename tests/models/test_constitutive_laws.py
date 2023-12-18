@@ -24,6 +24,9 @@ import pytest
 import porepy as pp
 import porepy.models.constitutive_laws as c_l
 from porepy.applications.test_utils import models
+from porepy.applications.test_utils.reference_dense_arrays import (
+    test_constitutive_laws as reference_dense_arrays,
+)
 
 solid_values = pp.solid_values.granite
 solid_values.update(
@@ -191,8 +194,10 @@ bulk = lbda + 2 / 3 * mu
         (
             models.MassAndEnergyBalance,
             "thermal_conductivity",
-            # Porosity weighted average of the solid and fluid thermal conductivities
-            (1 - 1.3e-2) * 3.1 + 1.3e-2 * 0.5975,
+            # Porosity weighted average of the solid and fluid thermal conductivities.
+            # Expand to format for an isotropic second order tensor.
+            ((1 - 1.3e-2) * 3.1 + 1.3e-2 * 0.5975)
+            * reference_dense_arrays["isotropic_second_order_tensor"],
             None,
         ),
         (
@@ -261,27 +266,30 @@ bulk = lbda + 2 / 3 * mu
         ),
         (
             # Tets permeability for the matrix domain. Should give the matrix
-            # permeability
+            # permeability. 9 * (nc = 32) entries of isotropic permeability.
             models._add_mixin(c_l.CubicLawPermeability, models.MassBalance),
             "permeability",
-            5.0e-18,
+            5.0e-18 * reference_dense_arrays["isotropic_second_order_tensor"][: 9 * 32],
             2,
         ),
         (
-            # Test the permeability for a fracture domain. This should be computed
-            # by the cubic law (i.e., aperture squared by 12, an aditional aperture
-            # scaling to get the transmissivity is taken care of elsewhere).
+            # Test the permeability for a fracture domain. This should be computed by
+            # the cubic law (i.e., aperture squared by 12, an aditional aperture scaling
+            # to get the transmissivity is taken care of elsewhere). 9 * (nc = 6) entries
+            # of isotropic permeability.
             models._add_mixin(c_l.CubicLawPermeability, models.MassBalance),
             "permeability",
-            0.01**2 / 12,
+            0.01**2
+            / 12
+            * reference_dense_arrays["isotropic_second_order_tensor"][: 9 * 6],
             1,
         ),
         (
             # Test the permeability for an intersection. The reasoning is the same as
-            # for the 1-d domain.
+            # for the 1-d domain. 9 entries of isotropic permeability.
             models._add_mixin(c_l.CubicLawPermeability, models.MassBalance),
             "permeability",
-            0.01**2 / 12,
+            0.01**2 / 12 * np.array([1, 0, 0, 0, 1, 0, 0, 0, 1]),
             0,
         ),
     ],

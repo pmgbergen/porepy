@@ -7945,3 +7945,11 @@ _partition = (
 test_coarsening["test_create_partition_3d_cart"] = {
     "partition": _partition,
 }
+# test_constitutive_laws.py
+_diagonal_entries = np.zeros((9, 39))
+_diagonal_entries[0, :] = 1.0
+_diagonal_entries[4, :] = 1.0
+_diagonal_entries[8, :] = 1.0
+test_constitutive_laws: dict[str, dict] = {
+        "isotropic_second_order_tensor": _diagonal_entries.ravel("F"),
+}
