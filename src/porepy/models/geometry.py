@@ -331,7 +331,6 @@ class ModelGeometry:
         # is used as a mixin, and the need to add type-ignore[call-arg] on use of this
         # method.
 
-        assert dim <= self.nd, "Basis functions of higher dimension than the md grid"
         # Collect the basis functions for each dimension
         basis: list[pp.ad.SparseArray] = []
         for i in range(dim):
@@ -364,8 +363,8 @@ class ModelGeometry:
 
         Parameters:
             grids: List of grids on which the basis vector is defined.
-            dim: Dimension of the functions.
             i: Index of the basis function. Note: Counts from 0.
+            dim: Dimension of the functions.
 
         Returns:
             pp.ad.SparseArray: Ad representation of a matrix with the basis functions as

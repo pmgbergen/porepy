@@ -948,7 +948,11 @@ class SolutionStrategyEnergyBalance(pp.SolutionStrategy):
                 self.fourier_keyword,
                 {
                     "bc": self.bc_type_fourier_flux(sd),
-                    "second_order_tensor": self.thermal_conductivity_tensor(sd),
+                    "second_order_tensor": self.operator_to_SecondOrderTensor(
+                        sd,
+                        self.thermal_conductivity([sd]),
+                        self.fluid.thermal_conductivity(),
+                    ),
                     "ambient_dimension": self.nd,
                 },
             )
@@ -960,23 +964,6 @@ class SolutionStrategyEnergyBalance(pp.SolutionStrategy):
                     "bc": self.bc_type_enthalpy_flux(sd),
                 },
             )
-
-    def thermal_conductivity_tensor(self, sd: pp.Grid) -> pp.SecondOrderTensor:
-        """Convert ad conductivity to :class:`~pp.params.tensor.SecondOrderTensor`.
-
-        Override this method if the conductivity is anisotropic.
-
-        Parameters:
-            sd: Subdomain for which the conductivity is requested.
-
-        Returns:
-            Thermal conductivity tensor.
-
-        """
-        conductivity_ad = self.specific_volume([sd]) * self.thermal_conductivity([sd])
-        conductivity = conductivity_ad.value(self.equation_system)
-        assert isinstance(conductivity, np.ndarray)
-        return pp.SecondOrderTensor(conductivity)
 
     def initial_condition(self) -> None:
         """Add darcy flux to discretization parameter dictionaries."""
