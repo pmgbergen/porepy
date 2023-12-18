@@ -688,7 +688,86 @@ class ConstantViscosity:
         return Scalar(self.fluid.viscosity(), "viscosity")
 
 
-class ConstantPermeability:
+class SecondOrderTensorUtils:
+    basis: Callable[[Sequence[pp.GridLike], int], list[pp.ad.SparseArray]]
+    """Basis for the local coordinate system. Normally set by a mixin instance of
+    :class:`porepy.models.geometry.ModelGeometry`.
+
+    """
+
+    def isotropic_second_order_tensor(
+        self, subdomains: list[pp.Grid], permeability: pp.ad.Operator
+    ) -> pp.ad.Operator:
+        """Isotropic permeability [m^2].
+
+        Parameters:
+            permeability: Permeability, scalar per cell.
+
+        Returns:
+            3d isotropic permeability, with nonzero values on the diagonal (for the
+            dimensions of the problem) and zero values elsewhere. K is a second order
+            tensor having 3^2 entries per cell, represented as an array of length 9*nc.
+            The values are ordered as
+                Kxx, Kxy, Kxz, Kyx, Kyy, Kyz, Kzx, Kzy, Kzz
+
+        """
+        if len(subdomains) == 0:
+            return pp.wrap_as_dense_ad_array(0, size=0)
+        basis = self.basis(subdomains, 9)
+        diagonal_indices = [0, 4, 8]
+        permeability = pp.ad.sum_operator_list(
+            [basis[i] @ permeability for i in diagonal_indices]
+        )
+        permeability.set_name("isotropic_second_order_tensor")
+        return permeability
+
+    def operator_to_SecondOrderTensor(
+        self,
+        sd: pp.Grid,
+        operator: pp.ad.Operator,
+        fallback_value: number,
+    ) -> np.ndarray:
+        """Convert Ad operator to dense array.
+
+        Parameters:
+            sd: Subdomain where the operator is defined.
+            operator: Operator to convert.
+
+        Returns:
+            Dense array representation of the operator.
+
+        """
+        # Evaluate as 9 x num_cells array
+        volume = self.specific_volume([sd]).value(self.equation_system)
+        try:
+            permeability = operator.value(self.equation_system)
+        except KeyError:
+            # If the permeability depends on an not yet computed discretization matrix,
+            # fall back on reference value.
+            permeability = fallback_value * np.ones(sd.num_cells) * volume
+            return pp.SecondOrderTensor(permeability)
+        val = operator.value(self.equation_system).reshape(9, -1, order="F")
+        # SecondOrderTensor's constructor expects up to six entries: kxx, kyy, kzz,
+        # kxy, kxz, kyz. These correspond to entries 0, 4, 8, 1, 2, 5 in the 9 x
+        # num_cells array.
+        diagonal_indices = [0, 4, 8]
+        tensor_components = [val[i] for i in diagonal_indices]
+        # Check is performed that the operator is indeed symmetric.
+        off_diagonal_indices = [1, 2, 5]
+        other_indices = [3, 6, 7]
+        for i, j in zip(off_diagonal_indices, other_indices):
+            # val_i = basis[i].value(self.equation_system).T @ val
+            # val_j = basis[j].value(self.equation_system).T @ val
+            if not np.allclose(val[i], val[j]):
+                raise ValueError(f"Operator is not symmetric for indices {i} and {j}.")
+            tensor_components.append(val[i])
+
+        # Scale by specific volume
+        args = [a * volume for a in tensor_components]
+        return pp.SecondOrderTensor(*args)
+
+
+class ConstantPermeability(SecondOrderTensorUtils):
     """A spatially homogeneous permeability field."""
 
     solid: pp.SolidConstants
@@ -722,7 +801,7 @@ class ConstantPermeability:
         permeability = pp.wrap_as_dense_ad_array(
             self.solid.permeability(), size, name="permeability"
         )
-        return permeability
+        return self.isotropic_second_order_tensor(subdomains, permeability)
 
     def normal_permeability(self, interfaces: list[pp.MortarGrid]) -> pp.ad.Operator:
         """Normal permeability [m^2].
@@ -770,7 +849,7 @@ class DimensionDependentPermeability(ConstantPermeability):
             Cell-wise permeability values.
 
         """
-        projection = pp.ad.SubdomainProjections(subdomains, dim=1)
+        projection = pp.ad.SubdomainProjections(subdomains, dim=9)
         matrix = [sd for sd in subdomains if sd.dim == self.nd]
         fractures: list[pp.Grid] = [sd for sd in subdomains if sd.dim == self.nd - 1]
         intersections: list[pp.Grid] = [sd for sd in subdomains if sd.dim < self.nd - 1]
@@ -808,7 +887,7 @@ class DimensionDependentPermeability(ConstantPermeability):
         """
         size = sum(sd.num_cells for sd in subdomains)
         permeability = pp.wrap_as_dense_ad_array(1, size, name="permeability")
-        return permeability
+        return self.isotropic_second_order_tensor(subdomains, permeability)
 
     def intersection_permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Permeability of intersections.
@@ -826,7 +905,7 @@ class DimensionDependentPermeability(ConstantPermeability):
         """
         size = sum(sd.num_cells for sd in subdomains)
         permeability = pp.wrap_as_dense_ad_array(1, size, name="permeability")
-        return permeability
+        return self.isotropic_second_order_tensor(subdomains, permeability)
 
 
 class CubicLawPermeability(DimensionDependentPermeability):
@@ -874,9 +953,8 @@ class CubicLawPermeability(DimensionDependentPermeability):
 
         """
         aperture = self.aperture(subdomains)
-        perm = (aperture ** Scalar(2)) / Scalar(12)
-
-        return perm
+        permeability = (aperture ** Scalar(2)) / Scalar(12)
+        return self.isotropic_second_order_tensor(subdomains, permeability)
 
     def fracture_permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Permeability of the fractures.
@@ -1145,8 +1223,6 @@ class DarcysLaw:
             Operator representing the Darcy flux equation on the interfaces.
 
         """
-        if len(interfaces) == 0:
-            return pp.wrap_as_dense_ad_array(0, size=0)
         subdomains = self.interfaces_to_subdomains(interfaces)
 
         projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1)
@@ -1563,8 +1639,13 @@ class AdTpfaFlux:
         # harmonic mean of the two half-face transmissibilities on each face.
 
         # The cell-wise permeability tensor is represented as an Ad operator which
-        # evaluates to an AdArray with 9 * n_cells entries.
-        k_c = diffusivity_tensor(subdomains)
+        # evaluates to an AdArray with 9 * n_cells entries. Also scale with specific
+        # volume.
+        basis = self.basis(subdomains, dim=9)
+        volumes = pp.ad.sum_operator_list(
+            [e @ self.specific_volume(subdomains) for e in basis]
+        )
+        k_c = volumes * diffusivity_tensor(subdomains)
 
         # Create the helper discretization object, which will be used to generate
         # grid-related quantities and mappings.
@@ -1823,10 +1904,13 @@ class PeacemanWellFlux:
         r_e = self.equivalent_well_radius(subdomains)
 
         f_log = pp.ad.Function(pp.ad.functions.log, "log_function_Piecmann")
+        isotropic_permeability = self.e_i(subdomains, i=0, dim=9).T @ self.permeability(
+            subdomains
+        )  # TODO: Enforce/check assumption?
         well_index = (
             pp.ad.Scalar(2 * np.pi)
             * projection.primary_to_mortar_avg
-            @ (self.permeability(subdomains) / (f_log(r_e / r_w) + skin_factor))
+            @ (isotropic_permeability / (f_log(r_e / r_w) + skin_factor))
         )
         eq: pp.ad.Operator = self.well_flux(interfaces) - self.volume_integral(
             well_index, interfaces, 1
@@ -1943,7 +2027,7 @@ class ThermalExpansion:
         return Scalar(val, "solid_thermal_expansion")
 
 
-class ThermalConductivityLTE:
+class ThermalConductivityLTE(SecondOrderTensorUtils):
     """Thermal conductivity in the local thermal equilibrium approximation."""
 
     fluid: pp.FluidConstants
@@ -2028,12 +2112,15 @@ class ThermalConductivityLTE:
         except KeyError:
             # We assume this means that the porosity includes a discretization matrix
             # for div_u which has not yet been computed.
+
             phi = self.reference_porosity(subdomains)
+        if isinstance(phi, Scalar):
+            size = sum([sd.num_cells for sd in subdomains])
+            phi = phi * pp.wrap_as_dense_ad_array(1, size)
         conductivity = phi * self.fluid_thermal_conductivity(subdomains) + (
             Scalar(1) - phi
         ) * self.solid_thermal_conductivity(subdomains)
-
-        return conductivity
+        return self.isotropic_second_order_tensor(subdomains, conductivity)
 
     def normal_thermal_conductivity(
         self, interfaces: list[pp.MortarGrid]
