@@ -41,6 +41,7 @@ class ConstitutiveLawsThermoporomechanics(
     pp.constitutive_laws.FouriersLaw,
     pp.constitutive_laws.ThermalConductivityLTE,
     # Fluid mass balance subproblem
+    pp.constitutive_laws.ZeroGravityForce,
     pp.constitutive_laws.DarcysLaw,
     pp.constitutive_laws.DimensionReduction,
     pp.constitutive_laws.AdvectiveFlux,
