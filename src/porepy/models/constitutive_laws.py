@@ -1020,6 +1020,14 @@ class DarcysLaw:
     :class:`~porepy.models.constitutive_laws.DimensionReduction` or a subclass thereof.
 
     """
+    volume_integral: Callable[
+        [pp.ad.Operator, Sequence[pp.Grid] | Sequence["pp.MortarGrid"], int],
+        pp.ad.Operator,
+    ]
+    """Integration over cell volumes, implemented in
+    :class:`pp.models.abstract_equations.BalanceEquation`.
+
+    """
 
     def pressure_trace(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Pressure on the subdomain boundaries.
@@ -1053,7 +1061,7 @@ class DarcysLaw:
             @ (projection.mortar_to_primary_int @ self.interface_darcy_flux(interfaces))
             + discr.bound_pressure_face @ boundary_operator
             + discr.bound_pressure_vector_source
-            @ self.vector_source(subdomains, material="fluid")
+            @ self.vector_source_darcy_flux(subdomains)
         )
         return pressure_trace
 
@@ -1118,7 +1126,7 @@ class DarcysLaw:
                 + intf_projection.mortar_to_primary_int
                 @ self.interface_darcy_flux(interfaces)
             )
-            + discr.vector_source @ self.vector_source(domains, material="fluid")
+            + discr.vector_source @ self.vector_source_darcy_flux(domains)
         )
         flux.set_name("Darcy_flux")
         return flux
@@ -1143,12 +1151,6 @@ class DarcysLaw:
 
         projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1)
 
-        # Ignore mypy complaint about unexpected keyword arguments.
-        cell_volumes = self.wrap_grid_attribute(
-            interfaces, "cell_volumes", dim=1  # type: ignore[call-arg]
-        )
-        trace = pp.ad.Trace(subdomains, dim=1)
-
         # Gradient operator in the normal direction. The collapsed distance is
         # :math:`\frac{a}{2}` on either side of the fracture.
         # We assume here that :meth:`aperture` is implemented to give a meaningful value
@@ -1160,31 +1162,17 @@ class DarcysLaw:
 
         # Project the two pressures to the interface and multiply with the normal
         # diffusivity.
-        # The cell volumes are scaled in two stages:
-        # The term cell_volumes carries the volume of the cells in the mortar grids,
-        # while the volume scaling from reduced dimensions is picked from the
-        # specific volumes of the higher dimension (variable `specific_volume`)
-        # and projected to the interface via a trace operator.
         pressure_l = projection.secondary_to_mortar_avg @ self.pressure(subdomains)
         pressure_h = projection.primary_to_mortar_avg @ self.pressure_trace(subdomains)
-        specific_volume_intf = (
-            projection.primary_to_mortar_avg
-            @ trace.trace
-            @ self.specific_volume(subdomains)
-        )
-        specific_volume_intf.set_name("specific_volume_at_interfaces")
-        eq = self.interface_darcy_flux(interfaces) - (
-            cell_volumes
+        eq = self.interface_darcy_flux(interfaces) - self.volume_integral(
+            self.normal_permeability(interfaces)
             * (
-                self.normal_permeability(interfaces)
-                * specific_volume_intf
-                * (
-                    normal_gradient * (pressure_h - pressure_l)
-                    + self.interface_vector_source(interfaces, material="fluid")
-                )
-            )
+                normal_gradient * (pressure_h - pressure_l)
+                + self.interface_vector_source_darcy_flux(interfaces)
+            ),
+            interfaces,
+            1,
         )
-
         eq.set_name("interface_darcy_flux_equation")
         return eq
 
@@ -1204,27 +1192,23 @@ class DarcysLaw:
         # possibly be exploited. Revisit at some point.
         return pp.ad.MpfaAd(self.darcy_keyword, subdomains)
 
-    def vector_source(
-        self, grids: Union[list[pp.Grid], list[pp.MortarGrid]], material: str
+    def vector_source_darcy_flux(
+        self, grids: Union[list[pp.Grid], list[pp.MortarGrid]]
     ) -> pp.ad.Operator:
         """Vector source term. Represents gravity effects.
 
         Parameters:
             grids: List of subdomain or interface grids where the vector source is
                 defined.
-            material: Name of the material. Could be either "fluid" or "solid".
 
         Returns:
             Cell-wise nd-vector source term operator.
 
         """
-        val = self.fluid.convert_units(0, "m*s^-2")
-        size = int(np.sum([g.num_cells for g in grids]) * self.nd)
-        source = pp.wrap_as_dense_ad_array(val, size=size, name="zero_vector_source")
-        return source
+        return self.gravity_force(grids, "fluid")
 
-    def interface_vector_source(
-        self, interfaces: list[pp.MortarGrid], material: str
+    def interface_vector_source_darcy_flux(
+        self, interfaces: list[pp.MortarGrid]
     ) -> pp.ad.Operator:
         """Interface vector source term.
 
@@ -1251,9 +1235,10 @@ class DarcysLaw:
         projection = pp.ad.MortarProjections(
             self.mdg, subdomain_neighbors, interfaces, dim=self.nd
         )
-        # int?
-        vector_source = projection.secondary_to_mortar_avg @ self.vector_source(
-            subdomain_neighbors, material=material
+        # int? @EK
+        vector_source = (
+            projection.secondary_to_mortar_avg
+            @ self.vector_source_darcy_flux(subdomain_neighbors)
         )
         # Make dot product with vector source in two steps. First multiply the vector
         # source with a matrix (though the formal mypy type is Operator, the matrix is
@@ -1290,7 +1275,7 @@ class AdTpfaFlux:
     - potential_trace: Discretization of the potential on the subdomain boundaries. This
         method should be called by the overriding method (pressure_trace,
         temperature_trace etc).
-    - todo: vector_source_darcy_flux: Discretization of the vector source term (gravity).
+    - TODO: vector_source_darcy_flux: Discretization of the vector source term (gravity).
 
     Note: This class implicitly assumes conventions on naming of methods and BC values
     keys. Specifically, the BC values keys are assumed to be of the form
@@ -1405,7 +1390,7 @@ class AdTpfaFlux:
         )
 
         # Fetch the constitutive law for the vector source.
-        vector_source_cells = self.vector_source(domains, material="fluid")  # TODO
+        vector_source_cells = getattr(self, "vector_source_" + flux_name)(domains)
 
         # Compute the difference in pressure and vector source between the two cells on
         # the sides of each face.
@@ -1722,12 +1707,12 @@ class AdTpfaFlux:
             + bound_pressure_face * boundary_operator
             # the vector source is independent of k
             + base_discr.bound_pressure_vector_source
-            @ self.vector_source(subdomains, material="fluid")
+            @ getattr(self, "vector_source_" + flux_name)(subdomains)
         )
         return pressure_trace
 
 
-class AdDarcyFlux(AdTpfaFlux, DarcyFlux):
+class AdDarcyFlux(AdTpfaFlux, DarcysLaw):
     """Adaptive discretization of the Darcy flux from generic adaptive flux class."""
 
     def _permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
@@ -1794,7 +1779,8 @@ class PeacemanWellFlux:
     """
 
     volume_integral: Callable[
-        [pp.ad.Operator, Union[list[pp.Grid], list[pp.MortarGrid]], int], pp.ad.Operator
+        [pp.ad.Operator, Sequence[pp.Grid] | Sequence["pp.MortarGrid"], int],
+        pp.ad.Operator,
     ]
     """Integration over cell volumes, implemented in
     :class:`pp.models.abstract_equations.BalanceEquation`.
@@ -2068,8 +2054,7 @@ class ThermalConductivityLTE:
 class FouriersLaw:
     """This class could be refactored to reuse for other diffusive fluxes. It's somewhat
     cumbersome, though, since potential, discretization, and boundary conditions all
-    need to be passed around. Also, gravity effects are not included, as opposed to the
-    Darcy flux (see that class).
+    need to be passed around.
     """
 
     subdomains_to_interfaces: Callable[[list[pp.Grid], list[int]], list[pp.MortarGrid]]
@@ -2154,6 +2139,14 @@ class FouriersLaw:
     :class:`~porepy.models.constitutive_laws.DimensionReduction` or a subclass thereof.
 
     """
+    volume_integral: Callable[
+        [pp.ad.Operator, Sequence[pp.Grid] | Sequence["pp.MortarGrid"], int],
+        pp.ad.Operator,
+    ]
+    """Integration over cell volumes, implemented in
+    :class:`pp.models.abstract_equations.BalanceEquation`.
+
+    """
 
     def temperature_trace(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Temperature on the subdomain boundaries.
@@ -2196,6 +2189,8 @@ class FouriersLaw:
                 @ self.interface_fourier_flux(interfaces)
             )
             + discr.bound_pressure_face @ boundary_operator_fourier
+            + discr.bound_pressure_vector_source
+            @ self.vector_source_fourier_flux(subdomains)
         )
         return temperature_trace
 
@@ -2235,13 +2230,15 @@ class FouriersLaw:
             name="bc_values_fourier",
         )
 
-        # As opposed to darcy_flux in :class:`DarcyFluxFV`, the gravity term is not
-        # included here.
-        flux: pp.ad.Operator = discr.flux @ self.temperature(
-            subdomains
-        ) + discr.bound_flux @ (
-            boundary_operator_fourier
-            + projection.mortar_to_primary_int @ self.interface_fourier_flux(interfaces)
+        flux: pp.ad.Operator = (
+            discr.flux @ self.temperature(subdomains)
+            + discr.bound_flux
+            @ (
+                boundary_operator_fourier
+                + projection.mortar_to_primary_int
+                @ self.interface_fourier_flux(interfaces)
+            )
+            + discr.vector_source @ self.vector_source_fourier_flux(subdomains)
         )
         flux.set_name("Fourier_flux")
         return flux
@@ -2262,13 +2259,6 @@ class FouriersLaw:
 
         projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1)
 
-        # Ignore mypy complaint about unexpected keyword arguments.
-        cell_volumes = self.wrap_grid_attribute(
-            interfaces, "cell_volumes", dim=1  # type: ignore[call-arg]
-        )
-        specific_volume = self.specific_volume(subdomains)
-        trace = pp.ad.Trace(subdomains, dim=1)
-
         # Gradient operator in the normal direction. The collapsed distance is
         # :math:`\frac{a}{2}` on either side of the fracture.
         normal_gradient = pp.ad.Scalar(2) * (
@@ -2280,24 +2270,60 @@ class FouriersLaw:
         # conductivity.
         # See comments in :meth:`interface_darcy_flux_equation` for more information on
         # the terms in the below equation.
-        eq = self.interface_fourier_flux(interfaces) - (
-            cell_volumes
+        temperature_h = projection.primary_to_mortar_avg @ self.temperature_trace(
+            subdomains
+        )
+        temperature_l = projection.secondary_to_mortar_avg @ self.temperature(
+            subdomains
+        )
+        eq = self.interface_fourier_flux(interfaces) - self.volume_integral(
+            self.normal_thermal_conductivity(interfaces)
             * (
-                self.normal_thermal_conductivity(interfaces)
-                * (
-                    normal_gradient
-                    * (projection.primary_to_mortar_avg @ trace.trace @ specific_volume)
-                    * (
-                        projection.primary_to_mortar_avg
-                        @ self.temperature_trace(subdomains)
-                        - projection.secondary_to_mortar_avg
-                        @ self.temperature(subdomains)
-                    )
-                )
-            )
+                normal_gradient * (temperature_h - temperature_l)
+                + self.interface_vector_source_fourier_flux(interfaces)
+            ),
+            interfaces,
+            1,
         )
         eq.set_name("interface_fourier_flux_equation")
         return eq
+
+    def vector_source_fourier_flux(
+        self, grids: Union[list[pp.Grid], list[pp.MortarGrid]]
+    ) -> pp.ad.Operator:
+        """Vector source term. Zero for Fourier flux.
+
+        Parameters:
+            grids: List of subdomain or interface grids where the vector source is
+                defined.
+
+        Returns:
+            Cell-wise nd-vector source term operator.
+
+        """
+        val = self.fluid.convert_units(0, "m*s^-2")  # TODO: Fix units
+        size = int(np.sum([g.num_cells for g in grids]) * self.nd)
+        source = pp.wrap_as_dense_ad_array(val, size=size, name="zero_vector_source")
+        return source
+
+    def interface_vector_source_fourier_flux(
+        self, interfaces: list[pp.MortarGrid]
+    ) -> pp.ad.Operator:
+        """Vector source term. Zero for Fourier flux.
+
+        Corresponds to the inner product of a nd vector source with normal vectors.
+
+        Parameters:
+            interfaces: List of interface grids where the vector source is defined.
+
+        Returns:
+            Cell-wise nd-vector source term operator.
+
+        """
+        val = self.fluid.convert_units(0, "m*s^-2")  # TODO: Fix units
+        size = int(np.sum([g.num_cells for g in interfaces]))
+        source = pp.wrap_as_dense_ad_array(val, size=size, name="zero_vector_source")
+        return source
 
     def fourier_flux_discretization(self, subdomains: list[pp.Grid]) -> pp.ad.MpfaAd:
         """Fourier flux discretization.
@@ -2650,11 +2676,7 @@ class GravityForce:
         grids: Union[list[pp.Grid], list[pp.MortarGrid]],
         material: Literal["fluid", "solid"],
     ) -> pp.ad.Operator:
-        """Vector source term on either subdomains or interfaces.
-
-        Represents gravity effects. EK: Let's discuss how to name/think about this term.
-        Note that it appears slightly differently in a flux and a force/momentum
-        balance.
+        """Gravity force term on either subdomains or interfaces.
 
         Parameters:
             grids: List of subdomain or interface grids where the vector source is
@@ -2662,22 +2684,61 @@ class GravityForce:
             material: Name of the material. Could be either "fluid" or "solid".
 
         Returns:
-            Cell-wise nd-vector source term operator.
+            Cell-wise nd-vector representing the gravity force.
 
         """
         val = self.fluid.convert_units(pp.GRAVITY_ACCELERATION, "m*s^-2")
         size = np.sum([g.num_cells for g in grids]).astype(int)
         gravity = pp.wrap_as_dense_ad_array(val, size=size, name="gravity")
         rho = getattr(self, material + "_density")(grids)
-        # Gravity acts along the last coordinate direction (z in 3d, y in 2d)
 
-        # Ignore type error, can't get mypy to understand keyword-only arguments in
-        # mixin
+        # Gravity acts along the last coordinate direction (z in 3d, y in 2d). Ignore
+        # type error, can't get mypy to understand keyword-only arguments in mixin.
         e_n = self.e_i(grids, i=self.nd - 1, dim=self.nd)  # type: ignore[call-arg]
         # e_n is a matrix, thus we need @ for it.
-        source = Scalar(-1) * e_n @ (rho * gravity)
-        source.set_name("gravity_force")
-        return source
+        gravity = Scalar(-1) * e_n @ (rho * gravity)
+        gravity.set_name("gravity_force")
+        return gravity
+
+
+class ZeroGravityForce:
+    """Zero gravity force.
+
+    To be used in fluid fluxes and as body force in the force/momentum balance equation.
+
+    """
+
+    fluid: pp.FluidConstants
+    """Fluid constant object that takes care of scaling of fluid-related quantities.
+    Normally, this is set by a mixin of instance
+    :class:`~porepy.models.solution_strategy.SolutionStrategy`.
+
+    """
+
+    nd: int
+    """Ambient dimension of the problem. Normally set by a mixin instance of
+    :class:`~porepy.models.geometry.ModelGeometry`.
+
+    """
+
+    def gravity_force(
+        self,
+        grids: Union[list[pp.Grid], list[pp.MortarGrid]],
+        material: Literal["fluid", "solid"],
+    ) -> pp.ad.Operator:
+        """Gravity force term on either subdomains or interfaces.
+
+        Parameters:
+            grids: List of subdomain or interface grids where the vector source is
+                defined.
+            material: Name of the material. Could be either "fluid" or "solid".
+
+        Returns:
+            Cell-wise nd-vector representing the gravity force.
+
+        """
+        size = int(np.sum([g.num_cells for g in grids]) * self.nd)
+        return pp.wrap_as_dense_ad_array(0, size=size, name="zero_vector_source")
 
 
 class LinearElasticMechanicalStress:

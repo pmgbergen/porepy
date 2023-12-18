@@ -373,6 +373,7 @@ class MassBalanceEquations(pp.BalanceEquation):
 
 
 class ConstitutiveLawsSinglePhaseFlow(
+    pp.constitutive_laws.ZeroGravityForce,
     pp.constitutive_laws.DarcysLaw,
     pp.constitutive_laws.PeacemanWellFlux,
     pp.constitutive_laws.DimensionReduction,
