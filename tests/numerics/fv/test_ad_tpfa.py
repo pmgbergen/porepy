@@ -244,3 +244,126 @@
 # p = m.pressure_trace(m.mdg.subdomains())
 # pt = p.value_and_jacobian(m.equation_system)
 # %%
+class UnitTestAdTpfaFlux(AdTpfaFlux, pp.fluid_mass_balance.SinglePhaseFlow):
+    def initial_condition(self):
+        super().initial_condition()
+        for sd, data in self.mdg.subdomains(return_data=True):
+            pp.set_solution_values(
+                name=self.pressure_variable,
+                values=np.array([2, 3]),
+                data=data,
+                iterate_index=0,
+                time_step_index=0,
+            )
+
+    def _set_grid(self):
+        g = pp.CartGrid([2, 1])
+        g.nodes = np.array(
+            [[0, 0, 0], [2, 0, 0], [3, 0, 0], [0, 1, 0], [1, 2, 0], [3, 1, 0]]
+        ).T
+        g.compute_geometry()
+        g.face_centers[0, 3] = 1.5
+        g.cell_centers = np.array([[1, 0.5, 0], [2.5, 0.5, 0]]).T
+
+        mdg = pp.MixedDimensionalGrid()
+        mdg.add_subdomains([g])
+        self.mdg = mdg
+
+    def prepare_simulation(self):
+        super().prepare_simulation()
+
+        self._set_grid()
+        self.discretize(self.mdg)
+
+    def _permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Non-constant permeability tensor. Depends on pressure."""
+        nc = sum([sd.num_cells for sd in subdomains])
+        # K is a second order tensor having nd^2 entries per cell. 3d:
+        # Kxx, Kxy, Kxz, Kyx, Kyy, Kyz, Kzx, Kzy, Kzz
+        # 0  , 1  , 2  , 3  , 4  , 5  , 6  , 7  , 8
+        # 2d:
+        # Kxx, Kxy, Kyx, Kyy
+        # 0  , 1  , 2  , 3
+        tensor_dim = 3**2
+
+        # Set constant component of the permeability
+        all_vals = np.zeros(nc * tensor_dim, dtype=float)
+        all_vals[0] = 1
+        all_vals[4] = 2
+        all_vals[8] = 1
+        all_vals[9] = 2
+        all_vals[10] = 1
+        all_vals[12] = 1
+        all_vals[13] = 3
+        all_vals[17] = 1
+
+        cell_0_projection = pp.ad.Matrix(sps.csr_matrix(np.array([[1, 0], [0, 0]])))
+        cell_1_projection = pp.ad.Matrix(sps.csr_matrix(np.array([[0, 0], [0, 1]])))
+
+        e_xx = self.e_i(subdomains, i=0, dim=tensor_dim)
+        e_xy = self.e_i(subdomains, i=1, dim=tensor_dim)
+        e_yx = self.e_i(subdomains, i=3, dim=tensor_dim)
+        e_yy = self.e_i(subdomains, i=4, dim=tensor_dim)
+        p = self.pressure(subdomains)
+
+        # Non-constant component of the permeability in cell 0
+        cell_0_permeability = (
+            e_xx @ cell_0_projection @ p + e_yy @ cell_0_projection @ p**2
+        )
+        # Non-constant component of the permeability in cell 1
+        cell_1_permeability = (
+            pp.ad.Scalar(2) * e_xx @ cell_1_projection @ p**2
+            + pp.ad.Scalar(3) * e_yy @ cell_1_projection @ p**2
+        )
+
+        return (
+            pp.wrap_as_dense_ad_array(all_vals, name="Constant_permeability_component")
+            + cell_0_permeability
+            + cell_1_permeability
+        )
+
+    def test_transmissibility_calculation(self, vector_source: bool = False):
+        face_indices = np.array([0, 2, 3, 5, 6])
+        cell_indices = np.array([0, 1, 0, 0, 1])
+
+        g = self.mdg.subdomains()[0]
+
+        pressure = self.pressure(self.mdg.subdomains()).value(self.equation_system)
+
+        k0 = np.array([[1 + pressure[0], 0], [0, 2 + pressure[0] ** 2]])
+        k1 = np.array(
+            [
+                [2 + pressure[1] ** 2, 1 + pressure[1] ** 2],
+                [1 + pressure[1] ** 2, 3 + pressure[1] ** 2],
+            ]
+        )
+        permeability = [k0, k1]
+
+        k0_diff = np.array([[1, 0], [0, 2 * pressure[0]]])
+        k1_diff = 2 * pressure[1] * np.ones((2, 2))
+        permeability_diff = [k0_diff, k1_diff]
+
+        computed_flux = darcy_flux(self.mdg).value_and_jacobian(self.equation_system)
+
+        for fi, ci in zip(face_indices, cell_indices):
+            n = g.face_normals[:2, fi]
+            fc = g.face_centers[:2, fi]
+            cc = g.cell_centers[:2, ci]
+            p = pressure[ci]
+            k = permeability[ci]
+            k_diff = permeability_diff[ci]
+
+            fc_cc = np.reshape(fc - cc, (2, 1))
+
+            fc_cc_dist = np.linalg.norm(fc_cc)
+
+            trm = -np.dot(n, np.dot(k, fc_cc) / np.power(fc_cc_dist, 2))
+            trm_diff = -np.dot(n, np.dot(k_diff, fc_cc) / np.power(fc_cc_dist, 2))
+
+            assert np.isclose(tmp * p, computed_flux.val[fi])
+
+            diff = trm + trm_diff * p
+            assert np.isclose(diff, computed_flux.jac[fi, ci])
+
+            other_ci = 1 if ci == 0 else 0
+            assert np.isclose(computed_flux.jac[fi, other_ci], 0)
