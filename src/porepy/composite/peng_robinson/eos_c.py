@@ -46,7 +46,6 @@ from typing import Any, Callable
 
 import numba
 import numpy as np
-import sympy as sp
 
 import porepy as pp
 
@@ -59,34 +58,31 @@ from .eos_s import (
     B_CRIT_LINE_POINTS,
     S_CRIT_LINE_POINTS,
     W_LINE_POINTS,
-    A_s,
-    B_s,
     PengRobinsonSymbolic,
-    Z_double_g_e,
-    Z_double_l_e,
-    Z_ext_scg_e,
-    Z_ext_scl_e,
-    Z_ext_sub_e,
-    Z_one_e,
-    Z_s,
-    Z_three_g_e,
-    Z_three_i_e,
-    Z_three_l_e,
-    Z_triple_e,
+    Z_double_g_f,
+    Z_double_l_f,
+    Z_ext_scg_f,
+    Z_ext_scl_f,
+    Z_ext_sub_f,
+    Z_one_f,
+    Z_three_g_f,
+    Z_three_i_f,
+    Z_three_l_f,
+    Z_triple_f,
     coeff_0,
     coeff_1,
     coeff_2,
     critical_line,
-    d_Z_double_g_e,
-    d_Z_double_l_e,
-    d_Z_ext_scg_e,
-    d_Z_ext_scl_e,
-    d_Z_ext_sub_e,
-    d_Z_one_e,
-    d_Z_three_g_e,
-    d_Z_three_i_e,
-    d_Z_three_l_e,
-    d_Z_triple_e,
+    d_Z_double_g_f,
+    d_Z_double_l_f,
+    d_Z_ext_scg_f,
+    d_Z_ext_scl_f,
+    d_Z_ext_sub_f,
+    d_Z_one_f,
+    d_Z_three_g_f,
+    d_Z_three_i_f,
+    d_Z_three_l_f,
+    d_Z_triple_f,
     discriminant,
     point_to_line_distance,
     widom_line,
@@ -352,122 +348,81 @@ Important:
 # see https://github.com/sympy/sympy/issues/18432
 # https://github.com/numba/numba/issues/5128
 def _compile_d_Z(
-    d_Z_: list[sp.Expr], fastmath: bool = False, lambdify_mod: Any = None
+    d_Z_: Callable[[float, float], list[float]], fastmath: bool = False
 ) -> Callable[[float, float], np.ndarray]:
     """Helper function to wrap derivatives of compressibility factors into arrays.
 
     Parameters:
-        d_Z_: Symbolic expression of derivative of root,
-            dependent on symbols for A and B.
+        d_Z_: Callable of derivative of root, dependent on two floats
+            (cohesion and covolume).
         fastmath: for numba (use only for simple expressions)
-        lambdify_mod: module argument for :func:`sympy.lambdify`
 
     Returns:
         NJIT-compiled function with signature ``(float64, float64) -> float64[:]``.
 
     """
-
-    f = (
-        sp.lambdify([A_s, B_s], d_Z_)
-        if lambdify_mod is None
-        else sp.lambdify([A_s, B_s], d_Z_, lambdify_mod)
-    )
-    f_ = numba.njit(f, cache=False, fastmath=fastmath)
+    # make internal function, and external which wraps list into array
+    f = numba.njit(d_Z_, cache=False, fastmath=fastmath)
 
     @numba.njit("float64[:](float64, float64)", cache=False, fastmath=fastmath)
     def inner(a, b):
-        return np.array(f_(a, b), dtype=np.float64)
+        return np.array(f(a, b), dtype=np.float64)
 
     return inner
 
 
 def _compile_Z(
-    Z_: sp.Expr, fastmath: bool = False, lambdify_mod: Any = None
+    Z_: Callable[[float, float], float], fastmath: bool = False
 ) -> Callable[[float, float], float]:
     """Helper function to compile expressions representing compressibility factors as
     roots.
 
     Parameters:
-        Z_: Symbolic expression for root, dependent on symbols for A and B.
+        Z_: Callable for root calculation, dependent on two floats
+            (cohesion and covolume).
         fastmath: for numba (use only for simple expressions)
-        lambdify_mod: module argument for :func:`sympy.lambdify`
 
     Returns:
         NJIT-compiled function with signature ``(float64, float64) -> float64``.
 
     """
-    f = (
-        sp.lambdify([A_s, B_s], Z_)
-        if lambdify_mod is None
-        else sp.lambdify([A_s, B_s], Z_, lambdify_mod)
-    )
-    return numba.njit("float64(float64, float64)", cache=False, fastmath=fastmath)(f)
+    return numba.njit("float64(float64, float64)", cache=False, fastmath=fastmath)(Z_)
 
 
 logger.debug(f"{_import_msg} Compiling generalized compressibility factor ..\n")
 
 
-Z_triple_c: Callable[[float, float], float] = _compile_Z(Z_triple_e, fastmath=True)
+Z_triple_c: Callable[[float, float], float] = _compile_Z(Z_triple_f, fastmath=True)
 d_Z_triple_c: Callable[[float, float], np.ndarray] = _compile_d_Z(
-    d_Z_triple_e, fastmath=True
+    d_Z_triple_f, fastmath=True
 )
 
-# because piecewise and to provide numeric evaluation of custom cubic root
-_module_one_root = [{"_cbrt": np.cbrt}, "math"]
+Z_one_c: Callable[[float, float], float] = _compile_Z(Z_one_f)
+d_Z_one_c: Callable[[float, float], np.ndarray] = _compile_d_Z(d_Z_one_f)
 
-Z_one_c: Callable[[float, float], float] = _compile_Z(
-    Z_one_e, lambdify_mod=_module_one_root
-)
-d_Z_one_c: Callable[[float, float], np.ndarray] = _compile_d_Z(
-    d_Z_one_e, lambdify_mod=_module_one_root
-)
+Z_ext_sub_c: Callable[[float, float], float] = _compile_Z(Z_ext_sub_f)
+d_Z_ext_sub_c: Callable[[float, float], np.ndarray] = _compile_d_Z(d_Z_ext_sub_f)
 
-Z_ext_sub_c: Callable[[float, float], float] = _compile_Z(
-    Z_ext_sub_e, lambdify_mod=_module_one_root
-)
-d_Z_ext_sub_c: Callable[[float, float], np.ndarray] = _compile_d_Z(
-    d_Z_ext_sub_e, lambdify_mod=_module_one_root
-)
+Z_ext_scg_c: Callable[[float, float], float] = _compile_Z(Z_ext_scg_f)
+d_Z_ext_scg_c: Callable[[float, float], np.ndarray] = _compile_d_Z(d_Z_ext_scg_f)
 
-Z_ext_scg_c: Callable[[float, float], float] = _compile_Z(
-    Z_ext_scg_e, lambdify_mod=_module_one_root
-)
-d_Z_ext_scg_c: Callable[[float, float], np.ndarray] = _compile_d_Z(
-    d_Z_ext_scg_e, lambdify_mod=_module_one_root
-)
+Z_ext_scl_c: Callable[[float, float], float] = _compile_Z(Z_ext_scl_f)
+d_Z_ext_scl_c: Callable[[float, float], np.ndarray] = _compile_d_Z(d_Z_ext_scl_f)
 
-Z_ext_scl_c: Callable[[float, float], float] = _compile_Z(
-    Z_ext_scl_e, lambdify_mod=_module_one_root
-)
-d_Z_ext_scl_c: Callable[[float, float], np.ndarray] = _compile_d_Z(
-    d_Z_ext_scl_e, lambdify_mod=_module_one_root
-)
+Z_double_g_c: Callable[[float, float], float] = _compile_Z(Z_double_g_f)
+d_Z_double_g_c: Callable[[float, float], np.ndarray] = _compile_d_Z(d_Z_double_g_f)
 
-# because piece-wise
-_module_double_root = "math"
+Z_double_l_c: Callable[[float, float], float] = _compile_Z(Z_double_l_f)
+d_Z_double_l_c: Callable[[float, float], np.ndarray] = _compile_d_Z(d_Z_double_l_f)
 
-Z_double_g_c: Callable[[float, float], float] = _compile_Z(
-    Z_double_g_e, lambdify_mod=_module_double_root
-)
-d_Z_double_g_c: Callable[[float, float], np.ndarray] = _compile_d_Z(
-    d_Z_double_g_e, lambdify_mod=_module_double_root
-)
+Z_three_g_c: Callable[[float, float], float] = _compile_Z(Z_three_g_f)
+d_Z_three_g_c: Callable[[float, float], np.ndarray] = _compile_d_Z(d_Z_three_g_f)
 
-Z_double_l_c: Callable[[float, float], float] = _compile_Z(
-    Z_double_l_e, lambdify_mod=_module_double_root
-)
-d_Z_double_l_c: Callable[[float, float], np.ndarray] = _compile_d_Z(
-    d_Z_double_l_e, lambdify_mod=_module_double_root
-)
+Z_three_l_c: Callable[[float, float], float] = _compile_Z(Z_three_l_f)
+d_Z_three_l_c: Callable[[float, float], np.ndarray] = _compile_d_Z(d_Z_three_l_f)
 
-Z_three_g_c: Callable[[float, float], float] = _compile_Z(Z_three_g_e)
-d_Z_three_g_c: Callable[[float, float], np.ndarray] = _compile_d_Z(d_Z_three_g_e)
-
-Z_three_l_c: Callable[[float, float], float] = _compile_Z(Z_three_l_e)
-d_Z_three_l_c: Callable[[float, float], np.ndarray] = _compile_d_Z(d_Z_three_l_e)
-
-Z_three_i_c: Callable[[float, float], float] = _compile_Z(Z_three_i_e)
-d_Z_three_i_c: Callable[[float, float], np.ndarray] = _compile_d_Z(d_Z_three_i_e)
+Z_three_i_c: Callable[[float, float], float] = _compile_Z(Z_three_i_f)
+d_Z_three_i_c: Callable[[float, float], np.ndarray] = _compile_d_Z(d_Z_three_i_f)
 
 
 @numba.njit("int8(int8, float64, float64, float64)", cache=NUMBA_CACHE, fastmath=True)
@@ -1062,47 +1017,14 @@ def compile_d_Z_mix(
 # endregion
 
 
-def _compile_coterms_derivatives(
-    expr: sp.Expr,
-    thd_arg: tuple[sp.Symbol, sp.Symbol, list[sp.Symbol]],
-    fastmath: bool = False,
-) -> Callable[[float, float, np.ndarray], np.ndarray]:
-    """Helper function to compile the derivatives of A and B.
-
-    Includes differentiating, wrapping into an array and a compilation with a proper
-    signature.
-
-    Note:
-        No caching since functions are mixture dependent
-
-    """
-    diff = [expr.diff(thd_arg[0]), expr.diff(thd_arg[1])] + [
-        expr.diff(_) for _ in thd_arg[2]
-    ]
-    diff_c = numba.njit(sp.lambdify(thd_arg, diff), fastmath=fastmath)
-
-    @numba.njit("float64[:](float64, float64, float64[:])", fastmath=fastmath)
-    def inner(
-        p_,
-        T_,
-        X_,
-    ):
-        return np.array(diff_c(p_, T_, X_), dtype=np.float64)
-
-    return inner
-
-
 def _compile_fugacities(
-    phis: sp.Matrix,
-    phi_arg: tuple[
-        sp.Symbol, sp.Symbol, list[sp.Symbol], sp.Symbol, sp.Symbol, sp.Symbol
-    ],
+    phis: Callable[[float, float, np.ndarray, float, float, float], np.ndarray],
 ) -> Callable[[float, float, np.ndarray, float, float, float], np.ndarray]:
     """Helper function to compile the vector of fugacity coefficients.
 
     It needs an additional reduction of shape from ``(num_comp, 1)`` to ``(num_comp,)``
     because of the usage of a symbolic, vector-valued function."""
-    f = numba.njit(sp.lambdify(phi_arg, phis))
+    f = numba.njit(phis)
 
     @numba.njit(
         "float64[:](float64, float64, float64[:], float64, float64, float64)",
@@ -1115,8 +1037,8 @@ def _compile_fugacities(
 
 
 def _compile_thd_function_derivatives(
-    thd_df: sp.Expr,
-    thd_arg: tuple[sp.Symbol, sp.Symbol, list[sp.Symbol]],
+    thd_df: Callable[[float, float, np.ndarray], list[float]],
+    fastmath: bool = False,
 ) -> Callable[[float, float, np.ndarray], np.ndarray]:
     """Helper function to compile the gradient of a thermodynamic function.
 
@@ -1126,11 +1048,14 @@ def _compile_thd_function_derivatives(
     This helper function ensures that the return value is wrapped in an array, and not
     a list (as by default returned when using sympy.lambdify).
 
+    It also enforces a signature ``(float64, float64, float64[:]) -> float64[:]``
+
     """
-    df = numba.njit(sp.lambdify(thd_arg, thd_df))
+    df = numba.njit(thd_df, fastmath=fastmath)
 
     @numba.njit(
         "float64[:](float64, float64, float64[:])",
+        fastmath=fastmath,
     )
     def inner(p_, T_, X_):
         return np.array(df(p_, T_, X_), dtype=np.float64)
@@ -1139,10 +1064,7 @@ def _compile_thd_function_derivatives(
 
 
 def _compile_extended_thd_function_derivatives(
-    ext_thd_df: sp.Expr,
-    ext_thd_arg: tuple[
-        sp.Symbol, sp.Symbol, list[sp.Symbol], sp.Symbol, sp.Symbol, sp.Symbol
-    ],
+    ext_thd_df: Callable[[float, float, np.ndarray, float, float, float], list[float]],
 ) -> Callable[[float, float, np.ndarray, float, float, float], np.ndarray]:
     """Helper function to compile the gradient of an extended thermodynamic function.
 
@@ -1153,14 +1075,39 @@ def _compile_extended_thd_function_derivatives(
     This helper function ensures that the return value is wrapped in an array, and not
     a list (as by default returned when using sympy.lambdify).
 
+    It also enforces a signature
+    ``(float64, float64, float64[:], float64, float64, float64) -> float64[:]``
+
     """
-    df = numba.njit(sp.lambdify(ext_thd_arg, ext_thd_df))
+    df = numba.njit(ext_thd_df)
 
     @numba.njit(
         "float64[:](float64, float64, float64[:], float64, float64, float64)",
     )
     def inner(p_, T_, X_, A_, B_, Z_):
         return np.array(df(p_, T_, X_, A_, B_, Z_), dtype=np.float64)
+
+    return inner
+
+
+def _compile_volume_derivative(
+    dv: Callable[[float, float, float], list[float]]
+) -> Callable[[float, float, float], np.ndarray]:
+    """Helper function to compile the gradient of the specific volume.
+
+    Required to wrap the result in an array.
+
+    It also enforces a signature ``(float64, float64, float64) -> float64[:]``.
+
+    """
+
+    dv_ = numba.njit(
+        fastmath=True,
+    )(dv)
+
+    @numba.njit("float64[:](float64,float64,float64)")
+    def inner(p_, T_, Z_):
+        return np.array(dv_(p_, T_, Z_), dtype=np.float64)
 
     return inner
 
@@ -1197,74 +1144,48 @@ class PengRobinsonCompiler(EoSCompiler):
         B_c = numba.njit(
             "float64(float64, float64, float64[:])",
             fastmath=True,
-        )(sp.lambdify(self.symbolic.thd_arg, self.symbolic.B_e))
+        )(self.symbolic.B_f)
 
-        d_B_c = _compile_coterms_derivatives(
-            self.symbolic.B_e, self.symbolic.thd_arg, fastmath=True
-        )
+        d_B_c = _compile_thd_function_derivatives(self.symbolic.d_B_f, fastmath=True)
 
         A_c = numba.njit(
             "float64(float64, float64, float64[:])",
-        )(sp.lambdify(self.symbolic.thd_arg, self.symbolic.A_e))
+        )(self.symbolic.A_f)
         # no fastmath because of sqrt
-        d_A_c = _compile_coterms_derivatives(self.symbolic.A_e, self.symbolic.thd_arg)
+        d_A_c = _compile_thd_function_derivatives(self.symbolic.d_A_f)
 
         logger.debug("(EoS) Compiling compressibility factor ..\n")
         Z_mix_c = compile_Z_mix(A_c, B_c)
         d_Z_mix_c = compile_d_Z_mix(A_c, B_c, d_A_c, d_B_c)
 
-        ext_thd_arg = [
-            self.symbolic.p_s,
-            self.symbolic.T_s,
-            self.symbolic.x_in_j,
-            A_s,
-            B_s,
-            Z_s,
-        ]
-
         logger.debug("(EoS) Compiling fugacity coefficients ..\n")
-        phi_c = _compile_fugacities(self.symbolic.phi_e, ext_thd_arg)
+        phi_c = _compile_fugacities(self.symbolic.phi_f)
 
         d_phi_c = numba.njit(
             "float64[:,:](float64, float64, float64[:], float64, float64, float64)"
-        )(sp.lambdify(ext_thd_arg, self.symbolic.d_phi_e))
+        )(self.symbolic.d_phi_f)
 
         logger.debug("(EoS) Compiling spec. mol. mixture enthalpy computation ..\n")
 
         h_dep_c = numba.njit(
             "float64(float64, float64, float64[:], float64, float64, float64)"
-        )(sp.lambdify(ext_thd_arg, self.symbolic.h_dep_e))
+        )(self.symbolic.h_dep_f)
 
         h_ideal_c = numba.njit("float64(float64, float64, float64[:])")(
-            sp.lambdify(self.symbolic.thd_arg, self.symbolic.h_ideal_e)
+            self.symbolic.h_ideal_f
         )
 
-        d_h_dep_c = _compile_extended_thd_function_derivatives(
-            self.symbolic.d_h_dep_e, ext_thd_arg
-        )
-
-        d_h_ideal_c = _compile_thd_function_derivatives(
-            self.symbolic.d_h_ideal_e, self.symbolic.thd_arg
-        )
+        d_h_dep_c = _compile_extended_thd_function_derivatives(self.symbolic.d_h_dep_f)
+        d_h_ideal_c = _compile_thd_function_derivatives(self.symbolic.d_h_ideal_f)
 
         logger.debug("(EoS) Compiling spec. mol. volume computation ..\n")
 
         v_c = numba.njit(
             "float64(float64,float64,float64)",
             fastmath=True,
-        )(sp.lambdify([self.symbolic.p_s, self.symbolic.T_s, Z_s], self.symbolic.v_e))
+        )(self.symbolic.v_f)
 
-        d_v_c_inner = numba.njit(
-            sp.lambdify(
-                [self.symbolic.p_s, self.symbolic.T_s, Z_s], self.symbolic.d_v_e
-            )
-        )
-
-        @numba.njit(
-            "float64[:](float64, float64, float64)",
-        )
-        def d_v_c(p_: float, T_: float, Z_: float) -> np.ndarray:
-            return np.array(d_v_c_inner(p_, T_, Z_), dtype=np.float64)
+        d_v_c = _compile_volume_derivative(self.symbolic.d_v_f)
 
         self._cfuncs.update(
             {
@@ -1284,7 +1205,6 @@ class PengRobinsonCompiler(EoSCompiler):
                 "d_v": d_v_c,
             }
         )
-        logger.debug("(EoS) Compiling generalzied u-funcs ..\n")
 
         _end = time.time()
         logger.info(

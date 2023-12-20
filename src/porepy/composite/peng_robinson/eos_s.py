@@ -600,6 +600,75 @@ d_Z_three_i_e: list[sp.Expr] = [Z_three_i_e.diff(A_s), Z_three_i_e.diff(B_s)]
 # endregion
 
 
+# region Lambdified functions for roots depending on A and B
+
+
+Z_triple_f: Callable[[float, float], float] = sp.lambdify([A_s, B_s], Z_triple_e)
+d_Z_triple_f: Callable[[float, float], list[float]] = sp.lambdify(
+    [A_s, B_s], d_Z_triple_e
+)
+
+Z_three_g_f: Callable[[float, float], float] = sp.lambdify([A_s, B_s], Z_three_g_e)
+d_Z_three_g_f: Callable[[float, float], list[float]] = sp.lambdify(
+    [A_s, B_s], d_Z_three_g_e
+)
+Z_three_l_f: Callable[[float, float], float] = sp.lambdify([A_s, B_s], Z_three_l_e)
+d_Z_three_l_f: Callable[[float, float], list[float]] = sp.lambdify(
+    [A_s, B_s], d_Z_three_l_e
+)
+Z_three_i_f: Callable[[float, float], float] = sp.lambdify([A_s, B_s], Z_three_i_e)
+d_Z_three_i_f: Callable[[float, float], list[float]] = sp.lambdify(
+    [A_s, B_s], d_Z_three_i_e
+)
+
+# because piecewise and to provide numeric evaluation of custom cubic root
+_module_one_root = [{"_cbrt": np.cbrt}, "math"]
+
+Z_one_f: Callable[[float, float], float] = sp.lambdify(
+    [A_s, B_s], Z_one_e, modules=_module_one_root
+)
+d_Z_one_f: Callable[[float, float], list[float]] = sp.lambdify(
+    [A_s, B_s], d_Z_one_e, modules=_module_one_root
+)
+
+Z_ext_sub_f: Callable[[float, float], float] = sp.lambdify(
+    [A_s, B_s], Z_ext_sub_e, modules=_module_one_root
+)
+d_Z_ext_sub_f: Callable[[float, float], list[float]] = sp.lambdify(
+    [A_s, B_s], d_Z_ext_sub_e, modules=_module_one_root
+)
+Z_ext_scg_f: Callable[[float, float], float] = sp.lambdify(
+    [A_s, B_s], Z_ext_scg_e, modules=_module_one_root
+)
+d_Z_ext_scg_f: Callable[[float, float], list[float]] = sp.lambdify(
+    [A_s, B_s], d_Z_ext_scg_e, modules=_module_one_root
+)
+Z_ext_scl_f: Callable[[float, float], float] = sp.lambdify(
+    [A_s, B_s], Z_ext_scl_e, modules=_module_one_root
+)
+d_Z_ext_scl_f: Callable[[float, float], list[float]] = sp.lambdify(
+    [A_s, B_s], d_Z_ext_scl_e, modules=_module_one_root
+)
+
+# because piece-wise
+_module_double_root = "math"
+
+Z_double_g_f: Callable[[float, float], float] = sp.lambdify(
+    [A_s, B_s], Z_double_g_e, modules=_module_double_root
+)
+d_Z_double_g_f: Callable[[float, float], list[float]] = sp.lambdify(
+    [A_s, B_s], d_Z_double_g_e, modules=_module_double_root
+)
+Z_double_l_f: Callable[[float, float], float] = sp.lambdify(
+    [A_s, B_s], Z_double_l_e, modules=_module_double_root
+)
+d_Z_double_l_f: Callable[[float, float], list[float]] = sp.lambdify(
+    [A_s, B_s], d_Z_double_l_e, modules=_module_double_root
+)
+
+# endregion
+
+
 def VanDerWaals_covolume(X: Sequence[Any], b: Sequence[Any]) -> Any:
     r"""
     Parameters:
@@ -660,8 +729,17 @@ def VanDerWaals_cohesion(
 
 
 class PengRobinsonSymbolic:
-    """Symbolic representation of some thermodynamic quantities using the
-    Peng-Robinson EoS."""
+    """A class providing functions for thermodynamic properties using the Peng-Robinson
+    EoS, based on a symbolic representation using ``sympy``.
+
+    Note:
+        The functions are generated using :func:`sympy.lambdify` and are *sourceless*.
+
+    Parameters:
+        mixture: A mixture model containing ``num_comp`` components which are compatible
+            with the Peng-Robinson EoS.
+
+    """
 
     def __init__(self, mixture: BasicMixture) -> None:
         self.p_s: sp.Symbol = sp.Symbol(str(SYMBOLS["pressure"]))
@@ -677,31 +755,120 @@ class PengRobinsonSymbolic:
         Length is equal to number of components, because every component is asssumed
         present in every phase in the unified setting."""
 
-        self.thd_arg = [self.p_s, self.T_s, self.x_in_j]
+        self.thd_arg: tuple[sp.Symbol, sp.Symbol, list[sp.Symbol]] = (
+            self.p_s,
+            self.T_s,
+            self.x_in_j,
+        )
         """General representation of the thermodynamic argument:
-        a pressure value, a temperature value, and a sequence of fractional values."""
+
+        1. a pressure value,
+        2. a temperature value,
+        3. an array of fractions per component.
+
+        """
+
+        self.ext_thd_arg = [self.p_s, self.T_s, self.x_in_j, A_s, B_s, Z_s]
+        """Extended thermodynamic argument (see :attr:`thd_arg`).
+
+        The extended arguments includes:
+
+        4. mixed non-dimensional cohesion,
+        5. mixed non-dimensional covolume,
+        6. compressibility factor.
+
+        The computation and dependencies have to be split by introducing additional
+        dependencies due to their complexity (compilability and efficiency).
+
+        """
+
+        self.A_f: Callable[[float, float, np.ndarray], float]
+        """Function evaluating the non-dimensional cohesion depending on
+        :attr:`thd_arg`."""
+
+        self.d_A_f: Callable[[float, float, np.ndarray], list[float]]
+        """Gradient of :attr:`A_f` returning a list of floats of length
+        ``2 + num_comp``."""
+
+        self.B_f: Callable[[float, float, np.ndarray], float]
+        """Function evaluating the non-dimensional covolume depending on
+        :attr:`thd_arg`t."""
+
+        self.d_B_f: Callable[[float, float, np.ndarray], list[float]]
+        """Gradient of :attr:`B_f` returning a list of floats of length
+        ``2 + num_comp``."""
+
+        self.phi_f: Callable[
+            [float, float, np.ndarray, float, float, float], np.ndarray
+        ]
+        """Vector-valued function computing fugacity coefficients per component.
+
+        It depends on :attr:`ext_thd_arg` because of its complexity."""
+
+        self.d_phi_f: Callable[
+            [float, float, np.ndarray, float, float, float], np.ndarray
+        ]
+        """Jacobian of :attr:`phi_f`, w.r.t. all dependencies.
+
+        The Jacobian is of shape ``(num_comp, 2 + num_comp + 3)``."""
+
+        self.h_dep_f: Callable[[float, float, np.ndarray, float, float, float], float]
+        """Function evaluating the departure enthalpy depending on
+        :attr:`ext_thd_arg`."""
+
+        self.d_h_dep_f: Callable[
+            [float, float, np.ndarray, float, float, float], list[float]
+        ]
+        """Gradient of :attr:`h_dep_f` returning a list of floats of length
+        ``2 + num_comp + 3``."""
+
+        self.h_ideal_f: Callable[[float, float, np.ndarray], float]
+        """Function evaluating the ideal enthalpy depending on :attr:`thd_arg`."""
+
+        self.d_h_ideal_f: Callable[[float, float, np.ndarray], list[float]]
+        """Gradient of attr:`h_ideal_f` returning a list of floats of length
+        ``2 + num_comp``."""
+
+        self.v_f: Callable[[float, float, float], float]
+        """Function evaluating the specific molar volume dependent on
+
+        1. pressure,
+        2. temperature,
+        3. compressibility factor.
+
+        """
+
+        self.d_v_f: Callable[[float, float, float], list[float]]
+        """Gradient of :attr:`v_f` returning a list of floats of length ``3``."""
 
         # region coterms
-        # covolume per component
-        self.b_i_crit: list[float] = [
+
+        b_i_crit: list[float] = [
             B_CRIT * (R_IDEAL * comp.T_crit) / comp.p_crit
             for comp in mixture.components
         ]
         """List of critical covolumes per component"""
 
         # mixed covolume
-        self.b_e: sp.Expr = VanDerWaals_covolume(self.x_in_j, self.b_i_crit)
+        b_e: sp.Expr = VanDerWaals_covolume(self.x_in_j, b_i_crit)
         """Mixed covolume according to the Van der Waals mixing rule."""
-        # non-dimensional covolume
-        self.B_e: sp.Expr = self.b_e * self.p_s / (R_IDEAL * self.T_s)
+        B_e: sp.Expr = b_e * self.p_s / (R_IDEAL * self.T_s)
         """Non-dimensional, mixed covolume created using :attr:`b_e`"""
+        d_B_e: list[sp.Expr] = [
+            B_e.diff(self.thd_arg[0]),
+            B_e.diff(self.thd_arg[1]),
+        ] + [B_e.diff(x) for x in self.x_in_j]
+        """Derivatives of :attr:`B_e` w.r.t. pressure, temperature and phase
+        compositions."""
 
+        self.B_f = sp.lambdify(self.thd_arg, B_e)
+        self.d_B_f = sp.lambdify(self.thd_arg, d_B_e)
         # cohesion
 
         # TODO this is not safe. Special BIP implementations are not reliably sympy
         # compatible as of now
 
-        self.a_i_crit: list[float] = [
+        a_i_crit: list[float] = [
             A_CRIT * (R_IDEAL**2 * comp.T_crit**2) / comp.p_crit
             for comp in mixture.components
         ]
@@ -710,31 +877,42 @@ class PengRobinsonSymbolic:
         ki: list[float] = [
             self.a_correction_weight(comp.omega) for comp in mixture.components
         ]
+        """List of corrective weights per cohesion of components."""
         a_i_correction_e: list[sp.Expr] = [
             1 + k * (1 - sp.sqrt(self.T_s / comp.T_crit))
             for k, comp in zip(ki, mixture.components)
         ]
+        """Corrective term in component cohesions (per component)."""
 
-        self.ai_e: list[sp.Expr] = [
-            a * corr**2 for a, corr in zip(self.a_i_crit, a_i_correction_e)
+        ai_e: list[sp.Expr] = [
+            a * corr**2 for a, corr in zip(a_i_crit, a_i_correction_e)
         ]
         """List of cohesion values per component, including a correction involving
         the critical temperature and acentric factor."""
 
-        self.a_e: sp.Expr = VanDerWaals_cohesion(
-            self.x_in_j, self.ai_e, self._compute_bips(mixture)
+        a_e: sp.Expr = VanDerWaals_cohesion(
+            self.x_in_j, ai_e, self._compute_bips(mixture)
         )
         """Mixed cohesion according to the Van der Waals mixing rule."""
-        self.A_e: sp.Expr = self.a_e * self.p_s / (R_IDEAL**2 * self.T_s**2)
+        A_e: sp.Expr = a_e * self.p_s / (R_IDEAL**2 * self.T_s**2)
         """Non-dimensional, mixed cohesion created using :attr:`b_e`"""
+        d_A_e: list[sp.Expr] = [
+            A_e.diff(self.thd_arg[0]),
+            A_e.diff(self.thd_arg[1]),
+        ] + [A_e.diff(x) for x in self.x_in_j]
+        """Derivatives of :attr:`B_e` w.r.t. pressure, temperature and phase
+        compositions."""
+
+        self.A_f = sp.lambdify(self.thd_arg, A_e)
+        self.d_A_f = sp.lambdify(self.thd_arg, d_A_e)
         # endregion
 
         # region Fugacity coefficients
         phi_i_e: list[sp.Expr] = []
 
         for i in range(mixture.num_components):
-            B_i_e = self.b_i_crit[i] * self.p_s / (R_IDEAL * self.T_s)
-            dXi_A_e = self.A_e.diff(self.x_in_j[i])
+            B_i_e = b_i_crit[i] * self.p_s / (R_IDEAL * self.T_s)
+            dXi_A_e = A_e.diff(self.x_in_j[i])
             log_phi_i = (
                 B_i_e / B_s * (Z_s - 1)
                 - sp.ln(Z_s - B_s)
@@ -747,7 +925,7 @@ class PengRobinsonSymbolic:
             # no truncation and usage of exp
             phi_i_e.append(sp.exp(log_phi_i))
 
-        self.phi_e: sp.Matrix = sp.Matrix(phi_i_e)
+        phi_e: sp.Matrix = sp.Matrix(phi_i_e)
         """A vector-valued symbolic expression containing fugacity coefficients per
         component.
 
@@ -756,18 +934,21 @@ class PengRobinsonSymbolic:
             This is not parallelizable with numba.
 
         """
-        self.d_phi_e: sp.Matrix = self.phi_e.jacobian(
+        d_phi_e: sp.Matrix = phi_e.jacobian(
             [self.p_s, self.T_s] + self.x_in_j + [A_s, B_s, Z_s]
         )
-        """The symbolic Jacobian of :attr:`phi_e` w.r.t. to thermodynamic arguments and
+        """The symbolic Jacobian of ``phi_e`` w.r.t. to thermodynamic arguments and
         :data:`A_s`, :data:`B_s`, :data:`Z_s`"""
+
+        self.phi_f = sp.lambdify(self.ext_thd_arg, phi_e)
+        self.d_phi_f = sp.lambdify(self.ext_thd_arg, d_phi_e)
         # endregion
 
         # region Enthalpy
 
-        dT_A_e: sp.Expr = self.A_e.diff(self.T_s)
+        dT_A_e: sp.Expr = A_e.diff(self.T_s)
 
-        self.h_dep_e: sp.Expr = (R_IDEAL / np.sqrt(8)) * (
+        h_dep_e: sp.Expr = (R_IDEAL / np.sqrt(8)) * (
             dT_A_e * self.T_s**2 + A_s * self.T_s
         ) / B_s * sp.ln(
             (Z_s + (1 + np.sqrt(2)) * B_s) / (Z_s + (1 - np.sqrt(2)) * B_s)
@@ -776,14 +957,14 @@ class PengRobinsonSymbolic:
         )
         """Symbolic expression for departure enthalpy."""
 
-        self.d_h_dep_e: list[sp.Expr] = [
-            self.h_dep_e.diff(_)
+        d_h_dep_e: list[sp.Expr] = [
+            h_dep_e.diff(_)
             for _ in [self.p_s, self.T_s] + self.x_in_j + [A_s, B_s, Z_s]
         ]
         """Symbolic gradient of :attr:`h_dep_e` w.r.t. to thermodynamic arguments and
         :data:`A_s`, :data:`B_s`, :data:`Z_s`"""
 
-        self.h_ideal_e: sp.Expr = safe_sum(
+        h_ideal_e: sp.Expr = safe_sum(
             [
                 x * comp.h_ideal(self.p_s, self.T_s)
                 for x, comp in zip(self.x_in_j, mixture.components)
@@ -791,25 +972,29 @@ class PengRobinsonSymbolic:
         )
         """Symbolic expression for the ideal enthalpy."""
 
-        self.d_h_ideal_e: list[sp.Expr] = [
-            self.h_ideal_e.diff(_) for _ in [self.p_s, self.T_s] + self.x_in_j
+        d_h_ideal_e: list[sp.Expr] = [
+            h_ideal_e.diff(_) for _ in [self.p_s, self.T_s] + self.x_in_j
         ]
         """Symbolic gradient of :attr:`h_ideal_e` w.r.t. to thermodynamic arguments."""
 
+        self.h_dep_f = sp.lambdify(self.ext_thd_arg, h_dep_e)
+        self.d_h_dep_f = sp.lambdify(self.ext_thd_arg, d_h_dep_e)
+        self.h_ideal_f = sp.lambdify(self.thd_arg, h_ideal_e)
+        self.d_h_ideal_f = sp.lambdify(self.thd_arg, d_h_ideal_e)
         # endregion
 
         # region Volume
 
-        self.v_e: sp.Expr = Z_s * self.p_s * R_IDEAL / self.T_s
+        v_e: sp.Expr = Z_s * self.p_s * R_IDEAL / self.T_s
         """Symbolic expression for specific volume, depending on pressure, temperature
         and compressibility factor."""
 
-        self.d_v_e: list[sp.Expr] = [
-            self.v_e.diff(_) for _ in [self.p_s, self.T_s, Z_s]
-        ]
+        d_v_e: list[sp.Expr] = [v_e.diff(_) for _ in [self.p_s, self.T_s, Z_s]]
         """Symbolic gradient of :attr:`v_e` w.r.t. pressure, temperature and
         compressibility factor."""
 
+        self.v_f = sp.lambdify([self.p_s, self.T_s, Z_s], v_e)
+        self.d_v_f = sp.lambdify([self.p_s, self.T_s, Z_s], d_v_e)
         # endregion
 
     def _compute_bips(self, mixture: BasicMixture) -> Sequence[Sequence[Any]]:
