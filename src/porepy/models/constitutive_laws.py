@@ -1796,22 +1796,6 @@ class AdTpfaFlux:
 class AdDarcyFlux(AdTpfaFlux, DarcysLaw):
     """Adaptive discretization of the Darcy flux from generic adaptive flux class."""
 
-    def _permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """K is a second order tensor having nd^2 entries per cell.
-
-        3d:
-        Kxx, Kxy, Kxz, Kyx, Kyy, Kyz, Kzx, Kzy, Kzz
-        0  , 1  , 2  , 3  , 4  , 5  , 6  , 7  , 8
-        2d:
-        Kxx, Kxy, Kyx, Kyy
-        0  , 1  , 2  , 3
-        """
-
-        nc = sum([sd.num_cells for sd in subdomains])
-        tensor_dim = 3**2
-        vals = self.solid.permeability() * np.ones(nc * tensor_dim)
-        return pp.wrap_as_dense_ad_array(vals, name="Flattened permeability")
-
     def darcy_flux(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
         """Discretization of Darcy's law.
 
@@ -1827,7 +1811,7 @@ class AdDarcyFlux(AdTpfaFlux, DarcysLaw):
 
         """
         flux = self.diffusive_flux(
-            domains, self.pressure, self._permeability, "darcy_flux"
+            domains, self.pressure, self.permeability, "darcy_flux"
         )
         return flux
 
@@ -1843,7 +1827,7 @@ class AdDarcyFlux(AdTpfaFlux, DarcysLaw):
 
         """
         pressure_trace = self.potential_trace(
-            domains, self.pressure, self._permeability, "darcy_flux"
+            domains, self.pressure, self.permeability, "darcy_flux"
         )
         pressure_trace.set_name("Differentiable pressure trace")
         return pressure_trace

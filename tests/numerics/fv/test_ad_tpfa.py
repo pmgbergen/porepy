@@ -87,7 +87,7 @@
 #         self._set_grid()
 #         self.discretize(self.mdg)
 
-#     def _permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+#     def permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
 #         """Non-constant permeability tensor. Depends on pressure."""
 #         nc = sum([sd.num_cells for sd in subdomains])
 #         # K is a second order tensor having nd^2 entries per cell. 3d:
@@ -151,7 +151,7 @@
 #                 time_step_index=0,
 #             )
 
-#     def _permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+#     def permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
 #         """Non-constant permeability tensor. Depends on pressure."""
 #         nc = sum([sd.num_cells for sd in subdomains])
 #         # K is a second order tensor having nd^2 entries per cell. 3d:
@@ -233,7 +233,8 @@
 # g.nodes[:2, 0] += 0.1
 # g.compute_geometry()
 # m.set_discretization_parameters()
-# m.discretize()
+# m.discretize()  # This is needed to set up the discretization matrices. TODO: Fix in
+# # the models.
 # dummy = m.darcy_flux_discretization(m.mdg.subdomains()).flux
 # dummy.discretize(m.mdg)
 
