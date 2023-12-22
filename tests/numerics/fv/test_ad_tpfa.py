@@ -272,8 +272,13 @@ class UnitTestAdTpfaFlux(
 
     def discretize(self):
         super().discretize()
+        # Trick to compute the discretization matrices for the Darcy flux. This is done
+        # automatically inside the constituitve laws if an Mpfa discretization is used,
+        # but not for tpfa. In the latter case, the full discretization is computed as
+        # part of the construction of Diff-Tpfa, and there is usually no need for a
+        # separate construction of the transmissibility matrix. However, in this test we
+        # will need it, so we force the computation here.
         dummy = self.darcy_flux_discretization(self.mdg.subdomains()).flux
-
         dummy.discretize(self.mdg)
 
     def set_geometry(self):
@@ -361,7 +366,10 @@ class UnitTestAdTpfaFlux(
             Discretization of the Darcy flux.
 
         """
-        return pp.ad.TpfaAd(self.darcy_keyword, subdomains)
+        if self.params["base_discr"] == "tpfa":
+            return pp.ad.TpfaAd(self.darcy_keyword, subdomains)
+        else:
+            return pp.ad.MpfaAd(self.darcy_keyword, subdomains)
 
     def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         """Boundary conditions on all external boundaries.
@@ -385,9 +393,11 @@ class UnitTestAdTpfaFlux(
         return pp.BoundaryCondition(sd, boundary_faces, bc_type)
 
 
-def test_transmissibility_calculation(model, vector_source: bool = False):
-    # Note to self: Make face 4 a Neumann face, test it.
-    # Special test of (the internal) face 1
+def test_transmissibility_calculation(vector_source: bool = False, base_discr="tpfa"):
+    # TODO: Parametrization of base_discr = ["tpfa", "mpfa"]
+    model = UnitTestAdTpfaFlux({"base_discr": base_discr})
+    model.prepare_simulation()
+
     face_indices = np.array([0, 2, 3, 5, 6])
     cell_indices = np.array([0, 1, 0, 0, 1])
 
@@ -415,7 +425,7 @@ def test_transmissibility_calculation(model, vector_source: bool = False):
     div = g.cell_faces.T
 
     data = model.mdg.subdomain_data(model.mdg.subdomains()[0])
-    #  tpfa_flux = data[pp.DISCRETIZATION_MATRICES][model.darcy_keyword]["flux"]
+    base_flux = data[pp.DISCRETIZATION_MATRICES][model.darcy_keyword]["flux"]
 
     def _compute_half_transmissibility_and_derivative(fi, ci):
         # Helper function to compute the half transmissibility (from cell center to
@@ -442,13 +452,19 @@ def test_transmissibility_calculation(model, vector_source: bool = False):
         # this test only considers the numerical value of the transmissibility. The
         # effect of the sign change is tested elsewhere.
         trm, trm_diff = _compute_half_transmissibility_and_derivative(fi, ci)
-        assert np.isclose(trm * p, computed_flux.val[fi])
 
-        diff = trm + trm_diff * p
-        assert np.isclose(diff, computed_flux.jac[fi, ci])
+        if base_discr == "tpfa":
+            # If the base discretization is TPFA, we can directly compare the computed
+            # flux with the calculated transmissibility times the pressure. This cannot
+            # be done for mpfa, since 'trm' is a representation of the tpfa
+            # transmissibility, not the mpfa one.
+            assert np.isclose(trm * p, computed_flux.val[fi])
 
-        other_ci = 1 if ci == 0 else 0
-        assert np.isclose(computed_flux.jac[fi, other_ci], 0)
+        # Fetch the transmissibility from the base discretization.
+        diff = base_flux[fi].A.ravel()
+        # Add tpfa-style contribution from the derivative of the transmissibility.
+        diff[ci] += trm_diff * p
+        assert np.allclose(diff, computed_flux.jac[fi].A.ravel())
 
     # On Neumann faces, the computed flux should be zero, as should the the
     # transmissibility
@@ -472,8 +488,8 @@ def test_transmissibility_calculation(model, vector_source: bool = False):
     # the situation where a positive pressure difference leads to a negative flux.
     p_diff = (p1 - p0) * div[1, fi]
 
-    # The transmissibility is the harmonic mean of the two transmissibilities
-    trm_full = trm_0 * trm_1 / (trm_0 + trm_1)
+    # Fetch the transmissibility from the base discretization.
+    trm_full = base_flux[fi].A.ravel()
     # The derivative of the full transmissibility with respect to the two cell center
     # pressures, by the product rule.
     trm_diff_p0 = (
@@ -484,16 +500,17 @@ def test_transmissibility_calculation(model, vector_source: bool = False):
         trm_diff_1 * trm_0 / (trm_0 + trm_1)
         - trm_1 * trm_0 * trm_diff_1 / (trm_0 + trm_1) ** 2
     )
-
-    assert np.isclose(trm_full * p_diff, computed_flux.val[fi])
+    if base_discr == "tpfa":
+        # If the base discretization is TPFA, we can directly compare the computed flux
+        # with the calculated transmissibility times the pressure. This cannot be done
+        # for mpfa, since 'trm' is a representation of the tpfa transmissibility, not
+        # the mpfa one.
+        assert np.isclose(trm_full.dot([p0, p1]), computed_flux.val[fi])
 
     trm_diff = np.array(
-        [trm_full + trm_diff_p0 * p_diff, -trm_full - trm_diff_p1 * p_diff]
+        [trm_full[0] + trm_diff_p0 * p_diff, trm_full[1] - trm_diff_p1 * p_diff]
     ).ravel()
     assert np.allclose(trm_diff, computed_flux.jac[fi].A)
 
 
-model = UnitTestAdTpfaFlux({})
-model.prepare_simulation()
-
-test_transmissibility_calculation(model)
+test_transmissibility_calculation()
