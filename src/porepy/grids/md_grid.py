@@ -647,7 +647,7 @@ class MixedDimensionalGrid:
         # update the mixed-dimensional considering the new grids instead of the old one.
         if sd_map is not None:
             for sd_old, sd_new in sd_map.items():
-
+               # breakpoint()
                 # Update the subdomain data
                 data = self._subdomain_data[sd_old]
                 self._subdomain_data[sd_new] = data
@@ -658,7 +658,7 @@ class MixedDimensionalGrid:
                     # Get the subdomain pair of the interface - we need to replace the
                     # relevant item.
                     sd_pair = self.interface_to_subdomain_pair(intf)
-
+                    
                     # If we find a hit, overwrite the old interface information.
                     if sd_pair[0] == sd_old:
                         self._interface_to_subdomains[intf] = (sd_new, sd_pair[1])

@@ -836,7 +836,7 @@ class MortarGrid:
         row_sum = self._primary_to_mortar_int.sum(axis=1)
         if not (row_sum.min() > tol):
             raise ValueError("Check not satisfied for the primary grid")
-
+        
         row_sum = self._secondary_to_mortar_int.sum(axis=1)
         if not (row_sum.min() > tol):
             raise ValueError("Check not satisfied for the secondary grid")
