@@ -302,6 +302,9 @@ class DifferentiableTpfa:
         Returns:
             Mapping matrix.
         """
+        if len(domains) == 0:
+            return sps.csr_matrix((0, 0))
+
         blocks = []
         for g in domains:
             if g.dim == 0:
@@ -558,6 +561,9 @@ class DifferentiableTpfa:
 
     def cell_face_distances(self, subdomains: list[pp.Grid]) -> np.ndarray:
         """Scalar distance between face centers and cell centers for each half face."""
+        if len(subdomains) == 0:
+            return np.array([])
+
         vals = []
         for g in subdomains:
             # TODO: Check if the repeated computation of fi, ci, sgn is a problem. If
