@@ -1561,9 +1561,21 @@ class AdTpfaFlux:
 
                 return pp.ad.AdArray(val, jac)
 
+            # Define the Ad function for the flux
             flux_p = pp.ad.Function(flux_discretization, "differentiable_mpfa")(
                 t_f, potential_difference, potential(domains)
             )
+            # As the base discretization is only invoked inside a function, and then
+            # only by the parse()-method, that is, not on operator form, it will not be
+            # found in the search for discretization schemes in the operator tree
+            # (implemented in the Operator class), and therefore, it will not actually
+            # be discretized. To circumvent this problem, we artifically add a term that
+            # involves the base discretization on operator form, and multiply it by zero
+            # to avoid it having any real impact on the equation. This is certainly an
+            # ugly hack, but it will have to do for now.
+            flux_p = flux_p + 0 * base_discr.flux @ potential(domains)
+
+            # Define the Ad function for the vector source
             vector_source_d = pp.ad.Function(
                 vector_source_discretization, "differentiable_mpfa_vector_source"
             )(t_f, vector_source_difference, vector_source_cells)
