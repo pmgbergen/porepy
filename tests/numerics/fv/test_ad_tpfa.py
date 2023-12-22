@@ -274,7 +274,7 @@ class UnitTestAdTpfaFlux(
         super().discretize()
         dummy = self.darcy_flux_discretization(self.mdg.subdomains()).flux
 
-    #  dummy.discretize(self.mdg)
+        dummy.discretize(self.mdg)
 
     def set_geometry(self):
         # Create the geometry through domain amd fracture set.
@@ -382,7 +382,7 @@ class UnitTestAdTpfaFlux(
         bc_type[hit] = "neu"
 
         # Define boundary condition on all boundary faces.
-        return pp.BoundaryCondition(sd, boundary_faces, "dir")
+        return pp.BoundaryCondition(sd, boundary_faces, bc_type)
 
 
 def test_transmissibility_calculation(model, vector_source: bool = False):
@@ -415,14 +415,14 @@ def test_transmissibility_calculation(model, vector_source: bool = False):
     div = g.cell_faces.T
 
     data = model.mdg.subdomain_data(model.mdg.subdomains()[0])
-    tpfa_flux = data[pp.DISCRETIZATION_MATRICES][model.darcy_keyword]["flux"]
+    #  tpfa_flux = data[pp.DISCRETIZATION_MATRICES][model.darcy_keyword]["flux"]
 
-    # Test flux calculation on boundary faces
-    for fi, ci in zip(face_indices, cell_indices):
+    def _compute_half_transmissibility_and_derivative(fi, ci):
+        # Helper function to compute the half transmissibility (from cell center to
+        # face) and its derivative for a single face-cell pair.
         n = g.face_normals[:2, fi]
         fc = g.face_centers[:2, fi]
         cc = g.cell_centers[:2, ci]
-        p = pressure[ci]
         k = permeability[ci]
         k_diff = permeability_diff[ci]
 
@@ -432,7 +432,16 @@ def test_transmissibility_calculation(model, vector_source: bool = False):
 
         trm = np.dot(n, np.dot(k, fc_cc) / np.power(fc_cc_dist, 2))
         trm_diff = np.dot(n, np.dot(k_diff, fc_cc) / np.power(fc_cc_dist, 2))
+        return trm, trm_diff
 
+    # Test flux calculation on boundary faces
+    for fi, ci in zip(face_indices, cell_indices):
+        p = pressure[ci]
+        # Get half transmissibility and its derivative. There is no need to account for
+        # sign changes (to reflect the direction of the normal vector of the face), as
+        # this test only considers the numerical value of the transmissibility. The
+        # effect of the sign change is tested elsewhere.
+        trm, trm_diff = _compute_half_transmissibility_and_derivative(fi, ci)
         assert np.isclose(trm * p, computed_flux.val[fi])
 
         diff = trm + trm_diff * p
@@ -441,8 +450,47 @@ def test_transmissibility_calculation(model, vector_source: bool = False):
         other_ci = 1 if ci == 0 else 0
         assert np.isclose(computed_flux.jac[fi, other_ci], 0)
 
-    # On Neumann faces, the transmissibility should be zero
+    # On Neumann faces, the computed flux should be zero, as should the the
+    # transmissibility
     assert computed_flux.val[model._neumann_face] == 0
+    assert np.allclose(computed_flux.jac[model._neumann_face].A, 0)
+
+    # Test flux calculation on internal face. This is a bit more involved, as we need to
+    # compute the harmonic mean of the two transmissibilities and its derivative.
+    fi = 1
+    trm_0, trm_diff_0 = _compute_half_transmissibility_and_derivative(fi, 0)
+    trm_1, trm_diff_1 = _compute_half_transmissibility_and_derivative(fi, 1)
+    p0 = pressure[0]
+    p1 = pressure[1]
+
+    # Here we need to account for the sign change of the transmissibility.
+    trm_0 *= div[0, fi]
+    trm_1 *= div[1, fi]
+    # Take the pressure difference between the two cells. Multiply with the sign of the
+    # divergence for this face, to account for the direction of the normal vector (if
+    # the normal vector is pointing into cell 1, div[1, fi] will be -1, thus we avoid
+    # the situation where a positive pressure difference leads to a negative flux.
+    p_diff = (p1 - p0) * div[1, fi]
+
+    # The transmissibility is the harmonic mean of the two transmissibilities
+    trm_full = trm_0 * trm_1 / (trm_0 + trm_1)
+    # The derivative of the full transmissibility with respect to the two cell center
+    # pressures, by the product rule.
+    trm_diff_p0 = (
+        trm_diff_0 * trm_1 / (trm_0 + trm_1)
+        - trm_0 * trm_1 * trm_diff_0 / (trm_0 + trm_1) ** 2
+    )
+    trm_diff_p1 = (
+        trm_diff_1 * trm_0 / (trm_0 + trm_1)
+        - trm_1 * trm_0 * trm_diff_1 / (trm_0 + trm_1) ** 2
+    )
+
+    assert np.isclose(trm_full * p_diff, computed_flux.val[fi])
+
+    trm_diff = np.array(
+        [trm_full + trm_diff_p0 * p_diff, -trm_full - trm_diff_p1 * p_diff]
+    ).ravel()
+    assert np.allclose(trm_diff, computed_flux.jac[fi].A)
 
 
 model = UnitTestAdTpfaFlux({})
