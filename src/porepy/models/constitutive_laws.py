@@ -1573,7 +1573,7 @@ class AdTpfaFlux:
             # involves the base discretization on operator form, and multiply it by zero
             # to avoid it having any real impact on the equation. This is certainly an
             # ugly hack, but it will have to do for now.
-            flux_p = flux_p + 0 * base_discr.flux @ potential(domains)
+            flux_p = flux_p + pp.ad.Scalar(0) * base_discr.flux @ potential(domains)
 
             # Define the Ad function for the vector source
             vector_source_d = pp.ad.Function(
