@@ -1,8 +1,9 @@
 # %%
-# import numpy as np
-# import scipy.sparse as sps
+import numpy as np
+import scipy.sparse as sps
 
-# import porepy as pp
+import porepy as pp
+
 # import pytest
 
 
@@ -244,19 +245,44 @@
 # p = m.pressure_trace(m.mdg.subdomains())
 # pt = p.value_and_jacobian(m.equation_system)
 # %%
-class UnitTestAdTpfaFlux(AdTpfaFlux, pp.fluid_mass_balance.SinglePhaseFlow):
+class UnitTestAdTpfaFlux(
+    pp.constitutive_laws.AdDarcyFlux, pp.fluid_mass_balance.SinglePhaseFlow
+):
+    """
+
+    Notes for debugging:
+        - Set the pressure to a constant value in the initial condition to test only the
+          constant permeability component.
+    """
+
+    def __init__(self, params):
+        super().__init__(params)
+        self._neumann_face = 4
+
     def initial_condition(self):
         super().initial_condition()
         for sd, data in self.mdg.subdomains(return_data=True):
             pp.set_solution_values(
                 name=self.pressure_variable,
-                values=np.array([2, 3]),
+                values=np.array([2, 3], dtype=float),
                 data=data,
                 iterate_index=0,
                 time_step_index=0,
             )
 
-    def _set_grid(self):
+    def discretize(self):
+        super().discretize()
+        dummy = self.darcy_flux_discretization(self.mdg.subdomains()).flux
+
+    #  dummy.discretize(self.mdg)
+
+    def set_geometry(self):
+        # Create the geometry through domain amd fracture set.
+        self.set_domain()
+        self.set_fractures()
+        # Create a fracture network.
+        self.fracture_network = pp.create_fracture_network(self.fractures, self.domain)
+
         g = pp.CartGrid([2, 1])
         g.nodes = np.array(
             [[0, 0, 0], [2, 0, 0], [3, 0, 0], [0, 1, 0], [1, 2, 0], [3, 1, 0]]
@@ -267,23 +293,20 @@ class UnitTestAdTpfaFlux(AdTpfaFlux, pp.fluid_mass_balance.SinglePhaseFlow):
 
         mdg = pp.MixedDimensionalGrid()
         mdg.add_subdomains([g])
+        mdg.set_boundary_grid_projections()
         self.mdg = mdg
+        self.nd = 2
+        self.set_well_network()
 
-    def prepare_simulation(self):
-        super().prepare_simulation()
-
-        self._set_grid()
-        self.discretize(self.mdg)
-
-    def _permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+    def permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Non-constant permeability tensor. Depends on pressure."""
+        if len(subdomains) == 0:
+            return pp.wrap_as_dense_ad_array(0, size=0)
+
         nc = sum([sd.num_cells for sd in subdomains])
         # K is a second order tensor having nd^2 entries per cell. 3d:
         # Kxx, Kxy, Kxz, Kyx, Kyy, Kyz, Kzx, Kzy, Kzz
         # 0  , 1  , 2  , 3  , 4  , 5  , 6  , 7  , 8
-        # 2d:
-        # Kxx, Kxy, Kyx, Kyy
-        # 0  , 1  , 2  , 3
         tensor_dim = 3**2
 
         # Set constant component of the permeability
@@ -297,8 +320,12 @@ class UnitTestAdTpfaFlux(AdTpfaFlux, pp.fluid_mass_balance.SinglePhaseFlow):
         all_vals[13] = 3
         all_vals[17] = 1
 
-        cell_0_projection = pp.ad.Matrix(sps.csr_matrix(np.array([[1, 0], [0, 0]])))
-        cell_1_projection = pp.ad.Matrix(sps.csr_matrix(np.array([[0, 0], [0, 1]])))
+        cell_0_projection = pp.ad.SparseArray(
+            sps.csr_matrix(np.array([[1, 0], [0, 0]]))
+        )
+        cell_1_projection = pp.ad.SparseArray(
+            sps.csr_matrix(np.array([[0, 0], [0, 1]]))
+        )
 
         e_xx = self.e_i(subdomains, i=0, dim=tensor_dim)
         e_xy = self.e_i(subdomains, i=1, dim=tensor_dim)
@@ -313,6 +340,8 @@ class UnitTestAdTpfaFlux(AdTpfaFlux, pp.fluid_mass_balance.SinglePhaseFlow):
         # Non-constant component of the permeability in cell 1
         cell_1_permeability = (
             pp.ad.Scalar(2) * e_xx @ cell_1_projection @ p**2
+            + e_xy @ cell_1_projection @ p
+            + e_yx @ cell_1_projection @ p
             + pp.ad.Scalar(3) * e_yy @ cell_1_projection @ p**2
         )
 
@@ -322,48 +351,101 @@ class UnitTestAdTpfaFlux(AdTpfaFlux, pp.fluid_mass_balance.SinglePhaseFlow):
             + cell_1_permeability
         )
 
-    def test_transmissibility_calculation(self, vector_source: bool = False):
-        face_indices = np.array([0, 2, 3, 5, 6])
-        cell_indices = np.array([0, 1, 0, 0, 1])
+    def darcy_flux_discretization(self, subdomains: list[pp.Grid]) -> pp.ad.MpfaAd:
+        """Discretization object for the Darcy flux term.
 
-        g = self.mdg.subdomains()[0]
+        Parameters:
+            subdomains: List of subdomains where the Darcy flux is defined.
 
-        pressure = self.pressure(self.mdg.subdomains()).value(self.equation_system)
+        Returns:
+            Discretization of the Darcy flux.
 
-        k0 = np.array([[1 + pressure[0], 0], [0, 2 + pressure[0] ** 2]])
-        k1 = np.array(
-            [
-                [2 + pressure[1] ** 2, 1 + pressure[1] ** 2],
-                [1 + pressure[1] ** 2, 3 + pressure[1] ** 2],
-            ]
-        )
-        permeability = [k0, k1]
+        """
+        return pp.ad.TpfaAd(self.darcy_keyword, subdomains)
 
-        k0_diff = np.array([[1, 0], [0, 2 * pressure[0]]])
-        k1_diff = 2 * pressure[1] * np.ones((2, 2))
-        permeability_diff = [k0_diff, k1_diff]
+    def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        """Boundary conditions on all external boundaries.
 
-        computed_flux = darcy_flux(self.mdg).value_and_jacobian(self.equation_system)
+        Parameters:
+            sd: Subdomain grid on which to define boundary conditions.
 
-        for fi, ci in zip(face_indices, cell_indices):
-            n = g.face_normals[:2, fi]
-            fc = g.face_centers[:2, fi]
-            cc = g.cell_centers[:2, ci]
-            p = pressure[ci]
-            k = permeability[ci]
-            k_diff = permeability_diff[ci]
+        Returns:
+            Boundary condition object. Per default Dirichlet-type BC are assigned,
+            requiring pressure values on the bonudary.
 
-            fc_cc = np.reshape(fc - cc, (2, 1))
+        """
+        # Define boundary faces.
+        boundary_faces = self.domain_boundary_sides(sd).all_bf
+        bc_type = ["dir"] * boundary_faces.size
 
-            fc_cc_dist = np.linalg.norm(fc_cc)
+        hit = np.where(boundary_faces == self._neumann_face)[0][0]
+        bc_type[hit] = "neu"
 
-            trm = -np.dot(n, np.dot(k, fc_cc) / np.power(fc_cc_dist, 2))
-            trm_diff = -np.dot(n, np.dot(k_diff, fc_cc) / np.power(fc_cc_dist, 2))
+        # Define boundary condition on all boundary faces.
+        return pp.BoundaryCondition(sd, boundary_faces, "dir")
 
-            assert np.isclose(tmp * p, computed_flux.val[fi])
 
-            diff = trm + trm_diff * p
-            assert np.isclose(diff, computed_flux.jac[fi, ci])
+def test_transmissibility_calculation(model, vector_source: bool = False):
+    # Note to self: Make face 4 a Neumann face, test it.
+    # Special test of (the internal) face 1
+    face_indices = np.array([0, 2, 3, 5, 6])
+    cell_indices = np.array([0, 1, 0, 0, 1])
 
-            other_ci = 1 if ci == 0 else 0
-            assert np.isclose(computed_flux.jac[fi, other_ci], 0)
+    g = model.mdg.subdomains()[0]
+
+    pressure = model.pressure(model.mdg.subdomains()).value(model.equation_system)
+
+    k0 = np.array([[1 + pressure[0], 0], [0, 2 + pressure[0] ** 2]])
+    k1 = np.array(
+        [
+            [2 + 2 * pressure[1] ** 2, 1 + pressure[1] ** 2],
+            [1 + pressure[1] ** 2, 3 + 3 * pressure[1] ** 2],
+        ]
+    )
+    permeability = [k0, k1]
+
+    k0_diff = np.array([[1, 0], [0, 2 * pressure[0]]])
+    k1_diff = 2 * pressure[1] * np.array([[2, 1], [1, 3]])
+    permeability_diff = [k0_diff, k1_diff]
+
+    computed_flux = model.darcy_flux(model.mdg.subdomains()).value_and_jacobian(
+        model.equation_system
+    )
+
+    div = g.cell_faces.T
+
+    data = model.mdg.subdomain_data(model.mdg.subdomains()[0])
+    tpfa_flux = data[pp.DISCRETIZATION_MATRICES][model.darcy_keyword]["flux"]
+
+    # Test flux calculation on boundary faces
+    for fi, ci in zip(face_indices, cell_indices):
+        n = g.face_normals[:2, fi]
+        fc = g.face_centers[:2, fi]
+        cc = g.cell_centers[:2, ci]
+        p = pressure[ci]
+        k = permeability[ci]
+        k_diff = permeability_diff[ci]
+
+        fc_cc = np.reshape(fc - cc, (2, 1))
+
+        fc_cc_dist = np.linalg.norm(fc_cc)
+
+        trm = np.dot(n, np.dot(k, fc_cc) / np.power(fc_cc_dist, 2))
+        trm_diff = np.dot(n, np.dot(k_diff, fc_cc) / np.power(fc_cc_dist, 2))
+
+        assert np.isclose(trm * p, computed_flux.val[fi])
+
+        diff = trm + trm_diff * p
+        assert np.isclose(diff, computed_flux.jac[fi, ci])
+
+        other_ci = 1 if ci == 0 else 0
+        assert np.isclose(computed_flux.jac[fi, other_ci], 0)
+
+    # On Neumann faces, the transmissibility should be zero
+    assert computed_flux.val[model._neumann_face] == 0
+
+
+model = UnitTestAdTpfaFlux({})
+model.prepare_simulation()
+
+test_transmissibility_calculation(model)
