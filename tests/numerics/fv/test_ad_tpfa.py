@@ -258,6 +258,9 @@ class UnitTestAdTpfaFlux(
     def __init__(self, params):
         super().__init__(params)
         self._neumann_face = 4
+        self._neumann_flux = 1529
+        self._nonzero_dirichlet_face = 5
+        self._dirichlet_pressure = 1683
 
     def initial_condition(self):
         super().initial_condition()
@@ -304,7 +307,11 @@ class UnitTestAdTpfaFlux(
         self.set_well_network()
 
     def permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Non-constant permeability tensor. Depends on pressure."""
+        """Non-constant permeability tensor. Depends on pressure.
+
+        NOTE: *Do not* change this code without also updating the permeability in the
+        test function.
+        """
         if len(subdomains) == 0:
             return pp.wrap_as_dense_ad_array(0, size=0)
 
@@ -392,6 +399,53 @@ class UnitTestAdTpfaFlux(
         # Define boundary condition on all boundary faces.
         return pp.BoundaryCondition(sd, boundary_faces, bc_type)
 
+    def bc_values_darcy_flux(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+        """Boundary condition values for the fluid mass flux.
+
+        Dirichlet boundary conditions are defined on the north and south boundaries,
+        with a constant value equal to the fluid's reference pressure (which will be 0
+        by default).
+
+        Parameters:
+            boundary_grid: Boundary grid for which to define boundary conditions.
+
+        Returns:
+            Boundary condition values array.
+
+        """
+        vals_loc = np.zeros(boundary_grid.num_cells)
+
+        neumann_face_boundary = (
+            boundary_grid.projection()[:, self._neumann_face].tocsc().indices[0]
+        )
+        vals_loc[neumann_face_boundary] = self._neumann_flux
+        return vals_loc
+
+    def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+        """Boundary condition values for Darcy flux.
+
+        Dirichlet boundary conditions are defined on the north and south boundaries,
+        with a constant value equal to the fluid's reference pressure (which will be 0
+        by default).
+
+        Parameters:
+            boundary_grid: Boundary grid for which to define boundary conditions.
+
+        Returns:
+            Boundary condition values array.
+
+        """
+        vals_loc = np.zeros(boundary_grid.num_cells)
+
+        dirichlet_face_boundary = (
+            boundary_grid.projection()[:, self._nonzero_dirichlet_face]
+            .tocsc()
+            .indices[0]
+        )
+
+        vals_loc[dirichlet_face_boundary] = self._dirichlet_pressure
+        return vals_loc
+
 
 def test_transmissibility_calculation(vector_source: bool = False, base_discr="tpfa"):
     # TODO: Parametrization of base_discr = ["tpfa", "mpfa"]
@@ -405,6 +459,8 @@ def test_transmissibility_calculation(vector_source: bool = False, base_discr="t
 
     pressure = model.pressure(model.mdg.subdomains()).value(model.equation_system)
 
+    # The permeability and its derivative. *DO NOT* change this code without also
+    # updating the permeability in the model class UnitTestAdTpfaFlux.
     k0 = np.array([[1 + pressure[0], 0], [0, 2 + pressure[0] ** 2]])
     k1 = np.array(
         [
@@ -456,19 +512,35 @@ def test_transmissibility_calculation(vector_source: bool = False, base_discr="t
         if base_discr == "tpfa":
             # If the base discretization is TPFA, we can directly compare the computed
             # flux with the calculated transmissibility times the pressure. This cannot
-            # be done for mpfa, since 'trm' is a representation of the tpfa
-            # transmissibility, not the mpfa one.
-            assert np.isclose(trm * p, computed_flux.val[fi])
+            # be done for MPFA, since 'trm' is a representation of the tpfa
+            # transmissibility, not the MPFA one.
+            flux = trm * p
+            if fi == model._nonzero_dirichlet_face:
+                # If the face is assigned a non-zero Dirichlet value, we need to include
+                # the contribution from the Dirichlet value.
+                flux -= trm * model._dirichlet_pressure
+
+            assert np.isclose(flux, computed_flux.val[fi])
 
         # Fetch the transmissibility from the base discretization.
         diff = base_flux[fi].A.ravel()
         # Add tpfa-style contribution from the derivative of the transmissibility.
         diff[ci] += trm_diff * p
+
+        if fi == model._nonzero_dirichlet_face:
+            # If the face is assigned a non-zero Dirichlet value, the derivative of the
+            # transmissibility will pick up a term that scales with the Dirichlet
+            # value. The minus sign corresponds to the minus sign in the discretization.
+            diff[ci] -= trm_diff * model._dirichlet_pressure
+
         assert np.allclose(diff, computed_flux.jac[fi].A.ravel())
 
-    # On Neumann faces, the computed flux should be zero, as should the the
-    # transmissibility
-    assert computed_flux.val[model._neumann_face] == 0
+    # On Neumann faces, the computed flux should equal the boundary condition. The
+    # derivative should be zero.
+    assert (
+        computed_flux.val[model._neumann_face]
+        == model._neumann_flux * div[1, model._neumann_face]
+    )
     assert np.allclose(computed_flux.jac[model._neumann_face].A, 0)
 
     # Test flux calculation on internal face. This is a bit more involved, as we need to
@@ -512,5 +584,57 @@ def test_transmissibility_calculation(vector_source: bool = False, base_discr="t
     ).ravel()
     assert np.allclose(trm_diff, computed_flux.jac[fi].A)
 
+    ####
+    # Test the potential trace calculation
+    potential_trace = model.potential_trace(
+        model.mdg.subdomains(), model.pressure, model.permeability, "darcy_flux"
+    ).value_and_jacobian(model.equation_system)
+    # Base discretization matrix.
+    base_bound_pressure_cell = data[pp.DISCRETIZATION_MATRICES][model.darcy_keyword][
+        "bound_pressure_cell"
+    ]
+
+    # On a Neumann face, the TPFA reconstruction of the potential at the face should be
+    # the flux divided by the transmissibility.
+    trm, trm_diff = _compute_half_transmissibility_and_derivative(
+        model._neumann_face, 1
+    )
+    # The potential difference between the face and the adjacent cell, and its
+    # derivative.
+    dp = 1 / trm
+    dp_diff = -1 * trm_diff / trm**2
+
+    if base_discr == "tpfa":
+        # For TPFA we can verify that the potential trace is reconstructed correctly.
+        # For MPFA this check is not straightforward, as the potential trace
+        # reconstruction involves other cells and boundary conditions on other faces.
+        # Still, also for MPFA the present check gives a validation of the part of the
+        # discretization that relates to the differentiable permeability.
+        assert np.isclose(
+            potential_trace.val[model._neumann_face], p1 + dp * model._neumann_flux
+        )
+
+    # Check the derivative of the potential trace reconstruction: Fetch the cell
+    # contribution from the base discretization.
+    cell_contribution = base_bound_pressure_cell[model._neumann_face].A.ravel()
+    # For the cell next to the Neumann face, there is an extra contribution from the
+    # derivative of the transmissibility.
+    cell_contribution[ci] += dp_diff * model._neumann_flux
+
+    assert np.allclose(potential_trace.jac[model._neumann_face].A, cell_contribution)
+
+    # On a Dirichlet face, the potential trace should be equal to the Dirichlet value.
+    assert np.isclose(
+        potential_trace.val[model._nonzero_dirichlet_face], model._dirichlet_pressure
+    )
+    # The derivative of the potential trace with respect to the pressure should be zero,
+    # as the potential trace is constant.
+    assert np.allclose(
+        potential_trace.jac[model._nonzero_dirichlet_face].A, 0, atol=1e-15
+    )
+
 
 test_transmissibility_calculation()
+# NEXT STEPS:
+# 1. Pressure trace, using the same setup. It should be sufficient to consider two faces, likely nos 4 and 5 (Neumann and Dirichlet, respectively)
+# 2. Vector source, as an on-off term. I need to think about how to implement the truth here.
