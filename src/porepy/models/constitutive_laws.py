@@ -1733,7 +1733,7 @@ class AdTpfaFlux:
         # Face contribution to boundary potential is 1 on Dirichlet faces, -1/t_f_full
         # on Neumann faces (see Tpfa.discretize). Named "bound_pressure_face" and not
         # "bound_potential_face" to be consistent with the base discretization.
-        bound_pressure_face = dir_filter - neu_filter * (one / t_f_full)
+        bound_pressure_face_discr = dir_filter - neu_filter * (one / t_f_full)
 
         # Project the interface flux to the primary grid, preparing for discretization
         # on internal boundaries.
@@ -1778,26 +1778,39 @@ class AdTpfaFlux:
 
                 return pp.ad.AdArray(val, jac)
 
-            bound_pressure_face_neu = pp.ad.Function(
+            boundary_value_contribution = pp.ad.Function(
                 bound_pressure_discretization, "differentiable_mpfa"
             )(
-                bound_pressure_face,
+                bound_pressure_face_discr,
                 projected_internal_flux,
                 boundary_operator,
             )
+            # As the base discretization is only invoked inside a function, and then
+            # only by the parse()-method, that is, not on operator form, it will not be
+            # found in the search for discretization schemes in the operator tree
+            # (implemented in the Operator class), and therefore, it will not actually
+            # be discretized. To circumvent this problem, we artifically add a term that
+            # involves the base discretization on operator form, and multiply it by zero
+            # to avoid it having any real impact on the equation. This is certainly an
+            # ugly hack, but it will have to do for now.
+            # TODO: Do we need this trick here, or is it sufficient to do so in the
+            # diffusive flux method?
+            boundary_value_contribution = boundary_value_contribution + pp.ad.Scalar(
+                0
+            ) * base_discr.flux @ potential(domains)
+
         else:
             # The base discretization is Tpfa, so we can rely on the Ad machinery to
-            # compose the full expression.
-            bound_pressure_face_neu = (
-                base_discr.bound_pressure_face @ projected_internal_flux
+            # compose the discretization, treating internal and external boundaries
+            # equally.
+            boundary_value_contribution = bound_pressure_face_discr * (
+                projected_internal_flux + boundary_operator
             )
 
         pressure_trace = (
             base_discr.bound_pressure_cell @ potential(subdomains)  # independent of k
-            # Contribution from internal boundaries, depends on k
-            + bound_pressure_face_neu
-            # Contribution from external boundaries, independent of k
-            + bound_pressure_face * boundary_operator
+            # Contribution from boundaries.
+            + boundary_value_contribution
             # the vector source is independent of k
             + base_discr.bound_pressure_vector_source
             @ getattr(self, "vector_source_" + flux_name)(subdomains)
