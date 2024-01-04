@@ -306,6 +306,14 @@ class UnitTestAdTpfaFlux(
         self.nd = 2
         self.set_well_network()
 
+    def _cell_projection(self, cell_id: int) -> sps.csr_matrix:
+        if cell_id == 0:
+            return pp.ad.SparseArray(sps.csr_matrix(np.array([[1, 0], [0, 0]])))
+        elif cell_id == 1:
+            return pp.ad.SparseArray(sps.csr_matrix(np.array([[0, 0], [0, 1]])))
+        else:
+            raise ValueError(f"Cell id {cell_id} is not valid.")
+
     def permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Non-constant permeability tensor. Depends on pressure.
 
@@ -332,18 +340,14 @@ class UnitTestAdTpfaFlux(
         all_vals[13] = 3
         all_vals[17] = 1
 
-        cell_0_projection = pp.ad.SparseArray(
-            sps.csr_matrix(np.array([[1, 0], [0, 0]]))
-        )
-        cell_1_projection = pp.ad.SparseArray(
-            sps.csr_matrix(np.array([[0, 0], [0, 1]]))
-        )
-
         e_xx = self.e_i(subdomains, i=0, dim=tensor_dim)
         e_xy = self.e_i(subdomains, i=1, dim=tensor_dim)
         e_yx = self.e_i(subdomains, i=3, dim=tensor_dim)
         e_yy = self.e_i(subdomains, i=4, dim=tensor_dim)
         p = self.pressure(subdomains)
+
+        cell_0_projection = self._cell_projection(0)
+        cell_1_projection = self._cell_projection(1)
 
         # Non-constant component of the permeability in cell 0
         cell_0_permeability = (
@@ -362,6 +366,21 @@ class UnitTestAdTpfaFlux(
             + cell_0_permeability
             + cell_1_permeability
         )
+
+    def vector_source_darcy_flux(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Vector source term for the Darcy flux.
+
+        Parameters:
+            subdomains: List of subdomains where the Darcy flux is defined.
+
+        Returns:
+            Vector source term for the Darcy flux.
+
+        """
+        arr = self.params["vector_source"]
+
+        v = pp.wrap_as_dense_ad_array(arr, name="Vector_source")
+        return v
 
     def darcy_flux_discretization(self, subdomains: list[pp.Grid]) -> pp.ad.MpfaAd:
         """Discretization object for the Darcy flux term.
@@ -447,9 +466,39 @@ class UnitTestAdTpfaFlux(
         return vals_loc
 
 
-def test_transmissibility_calculation(vector_source: bool = False, base_discr="tpfa"):
+def test_transmissibility_calculation(
+    vector_source: bool = True, base_discr: str = "tpfa"
+):
     # TODO: Parametrization of base_discr = ["tpfa", "mpfa"]
-    model = UnitTestAdTpfaFlux({"base_discr": base_discr})
+    """
+    Description of relevant aspects tested for individual faces:
+    0: Dirichlet face, diagonal permeability, normal vector aligned with x-axis
+    1: Internal face.
+    2: Dirichlet face, full-tensor permeability, normal vector aligned with x-axis
+    3: Dirichlet face, diagonal permeability, normal vector aligned with y-axis
+    4: Neumann face, non-zero BC value. Full-tensor permeability, normal vector aligned
+         with y-axis.
+    5: Dirichlet face, non-zero BC value. Diagonal permeability, normal vector with x
+       and y components.
+    6: Dirichlet face. Full-tensor permeability, normal vector with x and y components.
+
+
+    """
+
+    if vector_source:
+        vector_source_array = np.array([1, 2, 3, 5])
+        vector_source_diff = vector_source_array[[2, 3]] - vector_source_array[[0, 1]]
+    else:
+        vector_source_array = np.zeros(4)
+        vector_source_diff = np.zeros(2)
+
+    model_params = {
+        "base_discr": base_discr,
+        "vector_source": vector_source_array,
+    }
+
+    model = UnitTestAdTpfaFlux(model_params)
+
     model.prepare_simulation()
 
     face_indices = np.array([0, 2, 3, 5, 6])
@@ -480,10 +529,16 @@ def test_transmissibility_calculation(vector_source: bool = False, base_discr="t
 
     div = g.cell_faces.T
 
+    # Base discretization matrices for the flux and the vector source.
     data = model.mdg.subdomain_data(model.mdg.subdomains()[0])
     base_flux = data[pp.DISCRETIZATION_MATRICES][model.darcy_keyword]["flux"]
+    base_vector_source = data[pp.DISCRETIZATION_MATRICES][model.darcy_keyword][
+        "vector_source"
+    ]
 
-    def _compute_half_transmissibility_and_derivative(fi, ci):
+    def _compute_half_transmissibility_and_derivative(
+        fi: int, ci: int
+    ) -> tuple[float, float]:
         # Helper function to compute the half transmissibility (from cell center to
         # face) and its derivative for a single face-cell pair.
         n = g.face_normals[:2, fi]
@@ -500,6 +555,19 @@ def test_transmissibility_calculation(vector_source: bool = False, base_discr="t
         trm_diff = np.dot(n, np.dot(k_diff, fc_cc) / np.power(fc_cc_dist, 2))
         return trm, trm_diff
 
+    def _project_vector_source(fi: int, ci: int) -> np.ndarray:
+        # Helper function to project the vector source term onto the vector from cell
+        # center to face center.
+        if ci == 0:
+            vs_cell = vector_source_array[[0, 1]]
+        elif ci == 1:
+            vs_cell = vector_source_array[[2, 3]]
+        fc_cc = g.face_centers[:2, fi] - g.cell_centers[:2, ci]
+
+        projected_vs = np.dot(fc_cc, vs_cell)
+
+        return projected_vs
+
     # Test flux calculation on boundary faces
     for fi, ci in zip(face_indices, cell_indices):
         p = pressure[ci]
@@ -508,6 +576,10 @@ def test_transmissibility_calculation(vector_source: bool = False, base_discr="t
         # this test only considers the numerical value of the transmissibility. The
         # effect of the sign change is tested elsewhere.
         trm, trm_diff = _compute_half_transmissibility_and_derivative(fi, ci)
+
+        # Project the vector source term onto the vector from cell center to face
+        # center.
+        projected_vs = _project_vector_source(fi, ci)
 
         if base_discr == "tpfa":
             # If the base discretization is TPFA, we can directly compare the computed
@@ -520,6 +592,27 @@ def test_transmissibility_calculation(vector_source: bool = False, base_discr="t
                 # the contribution from the Dirichlet value.
                 flux -= trm * model._dirichlet_pressure
 
+            # If a vector source is present, the flux will be modified by the vector
+            # source term.
+            flux_without_vs = flux[0]
+            flux += projected_vs * trm
+
+            # Sanity check: The computed vector source flux, using the logic of the
+            # implementation of differentiable TPFA should equal the flux computed
+            # using the standard TPFA discretization.
+            vector_source_flux = base_vector_source[fi] * vector_source_array
+            assert np.isclose(projected_vs * trm, vector_source_flux)
+
+            # Sanity check on the direction of the vector source term: A vector source
+            # pointing in the same direction as the vector from cell center to face
+            # center should give an increased flux in that direction. This will manifest
+            # as an increase in the flux if the normal vector points out of the cell,
+            # and a decrease otherwise.
+            sgn_vs = np.sign(projected_vs * div[ci, fi])
+            if sgn_vs > 0:
+                assert flux > flux_without_vs
+            elif sgn_vs < 0:
+                assert flux < flux_without_vs
             assert np.isclose(flux, computed_flux.val[fi])
 
         # Fetch the transmissibility from the base discretization.
@@ -532,6 +625,8 @@ def test_transmissibility_calculation(vector_source: bool = False, base_discr="t
             # transmissibility will pick up a term that scales with the Dirichlet
             # value. The minus sign corresponds to the minus sign in the discretization.
             diff[ci] -= trm_diff * model._dirichlet_pressure
+
+        diff[ci] += projected_vs * trm_diff
 
         assert np.allclose(diff, computed_flux.jac[fi].A.ravel())
 
@@ -560,6 +655,14 @@ def test_transmissibility_calculation(vector_source: bool = False, base_discr="t
     # the situation where a positive pressure difference leads to a negative flux.
     p_diff = (p1 - p0) * div[1, fi]
 
+    # We also need a difference in the vector source term. This must be projected onto
+    # the vector from cell to face center for the respective cell.
+    projected_vs_0 = _project_vector_source(fi, 0)
+    projected_vs_1 = _project_vector_source(fi, 1)
+    # Vector source difference. See comment related to p_diff for an explanation of the
+    # divergence factor.
+    vs_diff = (projected_vs_1 - projected_vs_0) * div[1, fi]
+
     # Fetch the transmissibility from the base discretization.
     trm_full = base_flux[fi].A.ravel()
     # The derivative of the full transmissibility with respect to the two cell center
@@ -577,21 +680,31 @@ def test_transmissibility_calculation(vector_source: bool = False, base_discr="t
         # with the calculated transmissibility times the pressure. This cannot be done
         # for mpfa, since 'trm' is a representation of the tpfa transmissibility, not
         # the mpfa one.
-        assert np.isclose(trm_full.dot([p0, p1]), computed_flux.val[fi])
+        flux = trm_full.dot([p0, p1]) + base_vector_source[fi] * vector_source_array
+
+        assert np.isclose(flux, computed_flux.val[fi])
 
     trm_diff = np.array(
         [trm_full[0] + trm_diff_p0 * p_diff, trm_full[1] - trm_diff_p1 * p_diff]
     ).ravel()
-    assert np.allclose(trm_diff, computed_flux.jac[fi].A)
+    vector_source_diff = np.array(
+        [trm_diff_p0 * vs_diff, -trm_diff_p1 * vs_diff]
+    ).ravel()
+    assert np.allclose(trm_diff + vector_source_diff, computed_flux.jac[fi].A)
 
     ####
     # Test the potential trace calculation
     potential_trace = model.potential_trace(
         model.mdg.subdomains(), model.pressure, model.permeability, "darcy_flux"
     ).value_and_jacobian(model.equation_system)
-    # Base discretization matrix.
+
+    # Base discretization matrix for the potential trace reconstruction, and for the
+    # contribution from the vector source term.
     base_bound_pressure_cell = data[pp.DISCRETIZATION_MATRICES][model.darcy_keyword][
         "bound_pressure_cell"
+    ]
+    base_vector_source_bound = data[pp.DISCRETIZATION_MATRICES][model.darcy_keyword][
+        "bound_pressure_vector_source"
     ]
 
     # On a Neumann face, the TPFA reconstruction of the potential at the face should be
@@ -610,8 +723,16 @@ def test_transmissibility_calculation(vector_source: bool = False, base_discr="t
         # reconstruction involves other cells and boundary conditions on other faces.
         # Still, also for MPFA the present check gives a validation of the part of the
         # discretization that relates to the differentiable permeability.
+
+        # The reconstruction of the potential trace consists of three terms: 1) The
+        # pressure in the adjacent cell, 2) a pressure difference between the cell and
+        # the face which drives the given flux, and 3) a contribution from the vector
+        # source term.
         assert np.isclose(
-            potential_trace.val[model._neumann_face], p1 + dp * model._neumann_flux
+            potential_trace.val[model._neumann_face],
+            p1
+            + dp * model._neumann_flux
+            + (base_vector_source_bound[model._neumann_face] * vector_source_array)[0],
         )
 
     # Check the derivative of the potential trace reconstruction: Fetch the cell
@@ -635,6 +756,3 @@ def test_transmissibility_calculation(vector_source: bool = False, base_discr="t
 
 
 test_transmissibility_calculation()
-# NEXT STEPS:
-# 1. Pressure trace, using the same setup. It should be sufficient to consider two faces, likely nos 4 and 5 (Neumann and Dirichlet, respectively)
-# 2. Vector source, as an on-off term. I need to think about how to implement the truth here.
