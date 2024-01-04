@@ -1,4 +1,6 @@
 # %%
+import pytest
+
 import numpy as np
 import scipy.sparse as sps
 
@@ -466,11 +468,14 @@ class UnitTestAdTpfaFlux(
         return vals_loc
 
 
-def test_transmissibility_calculation(
-    vector_source: bool = True, base_discr: str = "tpfa"
-):
-    # TODO: Parametrization of base_discr = ["tpfa", "mpfa"]
-    """
+@pytest.mark.parametrize("vector_source", [True, False])
+@pytest.mark.parametrize("base_discr", ["tpfa", "mpfa"])
+def test_transmissibility_calculation(vector_source: bool, base_discr: str):
+    """Unit test for the calculation of differentiable tpfa transmissibilities.
+
+    The function tests both the calculation of the transmissibility (and its derivative)
+    and the calculation of the potential trace on a face.
+
     Description of relevant aspects tested for individual faces:
     0: Dirichlet face, diagonal permeability, normal vector aligned with x-axis
     1: Internal face.
@@ -482,6 +487,10 @@ def test_transmissibility_calculation(
        and y components.
     6: Dirichlet face. Full-tensor permeability, normal vector with x and y components.
 
+    Parameters:
+        vector_source: If True, a vector source term will be included in the
+            discretization. Else, the vector source term will be zero.
+        base_discr: The base discretization to use. Either 'tpfa' or 'mpfa'.
 
     """
 
@@ -753,6 +762,3 @@ def test_transmissibility_calculation(
     assert np.allclose(
         potential_trace.jac[model._nonzero_dirichlet_face].A, 0, atol=1e-15
     )
-
-
-test_transmissibility_calculation()
