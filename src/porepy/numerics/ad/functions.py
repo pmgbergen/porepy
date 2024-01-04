@@ -20,7 +20,7 @@ Examples:
 """
 from __future__ import annotations
 
-from typing import Callable, TypeVar, Union, overload
+from typing import Callable, TypeVar
 
 import numpy as np
 import scipy.sparse as sps
@@ -402,19 +402,7 @@ def maximum(var_0: FloatType, var_1: FloatType) -> FloatType:
     return AdArray(max_val, max_jac)
 
 
-@overload
-def characteristic_function(tol: float, var: np.ndarray | float) -> np.ndarray:
-    ...
-
-
-@overload
-def characteristic_function(tol: float, var: AdArray) -> AdArray:
-    ...
-
-
-def characteristic_function(
-    tol: float, var: Union[AdArray, np.ndarray, float]
-) -> np.ndarray | AdArray:
+def characteristic_function(tol: float, var: FloatType) -> FloatType:
     """Characteristic function of an ad variable.
 
     Returns 1 if ``var.val`` is within absolute tolerance = ``tol`` of zero.
@@ -433,9 +421,9 @@ def characteristic_function(
 
     """
     if not isinstance(var, AdArray):
-        return np.isclose(var, 0, atol=tol)
+        return np.isclose(var, 0, atol=tol).astype(float)
     vals = np.zeros(var.val.size)
     zero_inds = np.isclose(var.val, 0, atol=tol)
-    vals[zero_inds] = 1
+    vals[zero_inds] = 1.0
     jac = sps.csr_matrix(var.jac.shape)
     return AdArray(vals, jac)
