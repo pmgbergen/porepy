@@ -1500,9 +1500,14 @@ class AdTpfaFlux:
                 # matrix and the pressure difference.
 
                 # We know that base_discr.flux is a sparse matrix, so we can call parse
-                # directly. At the time of evaluation, p will be an AdArray, thus we can
-                # access its val and jac attributes.
+                # directly.
                 base_flux = base_discr.flux.parse(self.mdg)
+                # If the function has been called using .value, p is a numpy array and
+                # we pass only the value.
+                if not isinstance(p, pp.ad.AdArray):
+                    return base_flux @ p
+                # Otherwise, at the time of evaluation, p will be an AdArray, thus we
+                # can access its val and jac attributes.
                 val = base_flux @ p.val
                 jac = base_flux @ p.jac
 
@@ -1516,6 +1521,8 @@ class AdTpfaFlux:
                 return pp.ad.AdArray(val, jac)
 
             def vector_source_discretization(T_f, vs_diff, vs):
+                # TODO: What happens if called with .value? @EK Also: Typing of these
+                # local functions.
                 # Take the differential of the flux associated with the vector source
                 # term.
 
@@ -1756,6 +1763,14 @@ class AdTpfaFlux:
                 # external_flux is a numpy array.
                 base_term = base_discr.bound_pressure_face.parse(self.mdg)
                 # The value is the standard product of the matrix and boundary values.
+
+                # If the function has been called using .value, p is a numpy
+                # array and we pass only the value.
+                if not isinstance(internal_flux, pp.ad.AdArray):
+                    return base_term @ (internal_flux + external_bc)
+                # Otherwise, at the time of evaluation, p will be an AdArray, thus we can
+                # access its val and jac attributes.
+
                 # Use external_bc (both Dirichlet and Neumann) since both enter into the
                 # pressure trace reconstruction.
                 val = base_term @ (internal_flux.val + external_bc)
