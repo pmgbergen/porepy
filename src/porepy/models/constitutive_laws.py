@@ -1797,7 +1797,7 @@ class AdTpfaFlux:
             # diffusive flux method?
             boundary_value_contribution = boundary_value_contribution + pp.ad.Scalar(
                 0
-            ) * base_discr.flux @ potential(domains)
+            ) * base_discr.flux @ potential(subdomains)
 
         else:
             # The base discretization is Tpfa, so we can rely on the Ad machinery to
