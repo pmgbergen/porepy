@@ -6,6 +6,11 @@ import scipy.sparse as sps
 
 import porepy as pp
 
+from porepy.applications.md_grids.model_geometries import (
+    SquareDomainOrthogonalFractures,
+)
+
+
 # import pytest
 
 
@@ -762,3 +767,68 @@ def test_transmissibility_calculation(vector_source: bool, base_discr: str):
     assert np.allclose(
         potential_trace.jac[model._nonzero_dirichlet_face].A, 0, atol=1e-15
     )
+
+
+class PoromechanicalTestDiffTpfa(
+    SquareDomainOrthogonalFractures, pp.poromechanics.Poromechanics
+):
+    def __init__(self, params):
+        params = {
+            "fracture_indices": [1],
+            "grid_type": "cartesian",
+            "meshing_arguments": {"cell_size_x": 0.5, "cell_size_y": 0.5},
+        }
+
+        super().__init__(params)
+
+    def initial_condition(self):
+        super().initial_condition()
+
+        intf = self.mdg.interfaces()[0]
+
+        g_2d, g_1d = self.mdg.subdomains()
+
+        proj_high = intf.mortar_to_primary_int()
+        proj_low = intf.mortar_to_secondary_int()
+
+        mortar_to_high_cell = np.abs(g_2d.cell_faces.T @ proj_high)
+
+        cell_2d, cell_mortar_high, _ = sps.find(mortar_to_high_cell)
+        cell_1d, cell_mortar_low, _ = sps.find(proj_low)
+
+        u_2d_x = np.array([0, 0, 0, 1])
+        u_2d_y = np.array([-1, -1, 1, 1])
+
+        u_mortar_x = mortar_to_high_cell.T @ u_2d_x
+        u_mortar_y = mortar_to_high_cell.T @ u_2d_y
+
+        u_mortar = np.vstack([u_mortar_x, u_mortar_y]).ravel("F")
+
+        mortar_var = self.equation_system.get_variables(
+            [self.interface_displacement_variable]
+        )
+
+        self.equation_system.set_variable_values(
+            u_mortar, [self.interface_displacement_variable], iterate_index=0
+        )
+
+
+model = PoromechanicalTestDiffTpfa({})
+model.prepare_simulation()
+model.discretize()
+model.assemble_linear_system()
+A, b = model.linear_system
+
+eq_sys = model.equation_system
+
+intf = model.mdg.interfaces()[0]
+
+g_2d, g_1d = model.mdg.subdomains()
+
+rows = eq_sys._equation_image_space_composition["mass_balance_equation"][g_1d]
+cols = eq_sys.dofs_of([model.interface_displacement_variable])
+
+A[rows][:, cols].A
+
+
+assert False
