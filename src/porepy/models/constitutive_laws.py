@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from functools import partial
-from typing import Callable, Literal, Optional, Sequence, Union, cast
+from typing import Callable, Literal, Optional, Sequence, Union, cast, TypeVar
 
 import numpy as np
 import scipy.sparse as sps
@@ -11,6 +11,8 @@ import porepy as pp
 
 number = pp.number
 Scalar = pp.ad.Scalar
+
+ArrayType = TypeVar("ArrayType", pp.ad.AdArray, np.ndarray)
 
 
 class DimensionReduction:
@@ -1495,7 +1497,9 @@ class AdTpfaFlux:
             # will be evaluated in forward mode, so that the inputs are not
             # Ad-operators, but numerical values.
 
-            def flux_discretization(T_f, p_diff, p):
+            def flux_discretization(
+                T_f: ArrayType, p_diff: ArrayType, p: ArrayType
+            ) -> ArrayType:
                 # Take the differential of the product between the transmissibility
                 # matrix and the pressure difference.
 
@@ -1520,48 +1524,63 @@ class AdTpfaFlux:
 
                 return pp.ad.AdArray(val, jac)
 
-            def vector_source_discretization(T_f, vs_diff, vs):
-                # TODO: What happens if called with .value? @EK Also: Typing of these
-                # local functions.
+            def vector_source_discretization(
+                T_f: ArrayType, vs_diff: ArrayType, vs: ArrayType
+            ) -> ArrayType:
                 # Take the differential of the flux associated with the vector source
                 # term.
 
-                # The vector source (vs) is an operator which, at the time of
-                # evaluation, will be either a numpy or an AdArray (ex: a gravity term
-                # with a constant and variable density, respectively). Thus an if-else
-                # is needed to get hold of its value and Jacobian.
-                if isinstance(vs, pp.ad.AdArray):
-                    vs_val = vs.val
-                    jac = vs.jac
-                elif isinstance(vs, np.ndarray):
-                    # The value is a numpy array, thus the Jacobian should be a zero
-                    # matrix of the right size.
+                # We know that base_discr.vector_source is a sparse matrix, so we can
+                # call parse directly.
+                base_discr_vector_source = base_discr.vector_source.parse(self.mdg)
+
+                # Composing the full expression for the vector source term is a bit
+                # tricky, as any of the three arguments may be either a numpy array or
+                # an AdArray. We need to handle all combinations of these cases.
+                #
+                # First, we check if any of the arguments are numpy arrays, which would
+                # correspond to the case where the Operator is evaluated using .value().
+                # In this case, we simply return the product of the base discretization
+                # with the vector source.
+                if (
+                    isinstance(T_f, np.ndarray)
+                    and isinstance(vs, np.ndarray)
+                    and isinstance(vs_diff, np.ndarray)
+                ):
+                    # The value is a numpy array, and we simply return the product with
+                    # the base discretization.
+                    return base_discr_vector_source @ vs
+
+                # We now know that the return value should be an AdArray, and we need to
+                # compute the Jacobian as well as the value. However, the type of vs
+                # (thus vs_diff) can still be either numpy array or AdArray: The former
+                # corresponds to a constant vector source, the latter to a vector source
+                # that depends on the primary variable (e.g., a non-constant density in
+                # a gravity term). We need to unify these cases:
+                if isinstance(vs, np.ndarray):
+                    # If this is broken, something really weird is going on.
+                    assert isinstance(vs_diff, np.ndarray)
                     vs_val = vs
+                    vs_diff_val = vs_diff
+
                     num_rows = vs_val.size
                     num_cols = self.equation_system.num_dofs()
-                    jac = sps.csr_matrix((num_rows, num_cols))
+                    vs_jac = sps.csr_matrix((num_rows, num_cols))
                 else:
-                    # EK is not really sure about this (can it be a scalar?), but
-                    # raising an error should uncover any such cases.
-                    raise ValueError(
-                        "vector_source_param must be an AdArray or numpy array"
-                    )
+                    # The value is an AdArray, and we can access its val and jac
+                    # attributes.
+                    vs_val = vs.val
+                    vs_diff_val = vs_diff.val
+                    vs_jac = vs.jac
 
-                # The value of the vector source discretization is a simple product.
-                val = base_discr.vector_source.parse(self.mdg) @ vs_val
+                # The value is an AdArray, and we need to compute the Jacobian as well
+                # as the value.
+                val = base_discr_vector_source @ vs_val
                 # The contribution from differentiating the vector source term to the
                 # Jacobian of the flux.
-                jac = base_discr.vector_source.parse(self.mdg) @ jac
+                jac = base_discr.vector_source.parse(self.mdg) @ vs_jac
 
                 if hasattr(T_f, "jac"):
-                    # At the time of evaluation, the difference in the vector source is
-                    # either an AdArray or a numpy array. We anyhow need to get hold of
-                    # its value.
-                    if isinstance(vs_diff, pp.ad.AdArray):
-                        vs_diff_val = vs_diff.val
-                    elif isinstance(vs_diff, np.ndarray):
-                        vs_diff_val = vs_diff
-
                     # Add the contribution to the Jacobian matrix from the derivative of
                     # the transmissibility matrix times the vector source difference.
                     jac += sps.diags(vs_diff_val) @ T_f.jac
@@ -1752,8 +1771,10 @@ class AdTpfaFlux:
             # Approximate the derivative of the transmissibility matrix with respect to
             # permeability by a Tpfa-style discretization.
             def bound_pressure_discretization(
-                bound_pressure_face, internal_flux, external_bc
-            ):
+                bound_pressure_face: ArrayType,
+                internal_flux: ArrayType,
+                external_bc: np.ndarray,
+            ) -> ArrayType:
                 # Take the differential of the product between the matrix for pressure
                 # trace reconstruction and internal and external boundary conditions.
 
@@ -1768,6 +1789,7 @@ class AdTpfaFlux:
                 # array and we pass only the value.
                 if not isinstance(internal_flux, pp.ad.AdArray):
                     return base_term @ (internal_flux + external_bc)
+
                 # Otherwise, at the time of evaluation, p will be an AdArray, thus we can
                 # access its val and jac attributes.
 
