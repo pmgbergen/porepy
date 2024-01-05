@@ -770,8 +770,15 @@ def test_transmissibility_calculation(vector_source: bool, base_discr: str):
 
 
 class PoromechanicalTestDiffTpfa(
-    SquareDomainOrthogonalFractures, pp.poromechanics.Poromechanics
+    SquareDomainOrthogonalFractures,
+    pp.constitutive_laws.CubicLawPermeability,
+    pp.constitutive_laws.AdDarcyFlux,
+    pp.poromechanics.Poromechanics,
 ):
+    """Helper class to test the derivative of the Darcy flux with respect to the mortar
+    displacement.
+    """
+
     def __init__(self, params):
         params = {
             "fracture_indices": [1],
@@ -782,53 +789,145 @@ class PoromechanicalTestDiffTpfa(
         super().__init__(params)
 
     def initial_condition(self):
+        """Set the initial condition for the problem.
+
+        The interface displacement is non-zero in the y-direction to trigger a non-zero
+        contribution from the derivative of the permeability with respect to the mortar
+        displacement.
+        """
         super().initial_condition()
 
+        # Fetch the mortar interface and the subdomains.
         intf = self.mdg.interfaces()[0]
-
         g_2d, g_1d = self.mdg.subdomains()
 
+        # Projection from the mortar to the primary grid, and directly from the mortar
+        # cells to the high-dimensional cells. The latter uses an np.abs to avoid issues
+        # with + and - in g.cell_faces.
         proj_high = intf.mortar_to_primary_int()
-        proj_low = intf.mortar_to_secondary_int()
-
         mortar_to_high_cell = np.abs(g_2d.cell_faces.T @ proj_high)
 
-        cell_2d, cell_mortar_high, _ = sps.find(mortar_to_high_cell)
-        cell_1d, cell_mortar_low, _ = sps.find(proj_low)
-
-        u_2d_x = np.array([0, 0, 0, 1])
-        u_2d_y = np.array([-1, -1, 1, 1])
-
+        # Set the mortar displacement, firs using the ordering of the 2d cells
+        u_2d_x = np.array([0, 0, 0, 0])
+        u_2d_y = np.array([0, 0, 1, 1])
+        # .. and then map down to the mortar cells.
         u_mortar_x = mortar_to_high_cell.T @ u_2d_x
         u_mortar_y = mortar_to_high_cell.T @ u_2d_y
 
+        # Define the full mortar displacement vector and set it in the equation system.
         u_mortar = np.vstack([u_mortar_x, u_mortar_y]).ravel("F")
-
         mortar_var = self.equation_system.get_variables(
             [self.interface_displacement_variable]
         )
-
         self.equation_system.set_variable_values(
             u_mortar, [self.interface_displacement_variable], iterate_index=0
         )
 
+        # Store the y-component of the mortar displacement, using a Cartesian ordering
+        # of the mortar cells (i.e., the same as the ordering of the 2d cells).
+        self.u_mortar = u_2d_y
 
-model = PoromechanicalTestDiffTpfa({})
-model.prepare_simulation()
-model.discretize()
-model.assemble_linear_system()
-A, b = model.linear_system
+        # Fetch the global dof of the mortar displacement in the y-direction.
+        dof_u_mortar_y = self.equation_system.dofs_of(
+            [self.interface_displacement_variable]
+        )[1::2]
+        # Reorder the global dof to match the ordering of the 2d cells, and store it
+        r, *_ = sps.find(mortar_to_high_cell)
+        self.global_dof_u_mortar_y = dof_u_mortar_y[r]
 
-eq_sys = model.equation_system
+        # Set the pressure variable in the 1d domain: The pressure is 2 in the leftmost
+        # fracture cell, 0 in the rightmost fracture cell. This should give a flux
+        # pointing to the right.
+        if np.diff(g_1d.cell_centers[0])[0] > 0:
+            p_1d = np.array([2, 0])
+        else:
+            p_1d = np.array([0, 2])
 
-intf = model.mdg.interfaces()[0]
-
-g_2d, g_1d = model.mdg.subdomains()
-
-rows = eq_sys._equation_image_space_composition["mass_balance_equation"][g_1d]
-cols = eq_sys.dofs_of([model.interface_displacement_variable])
-
-A[rows][:, cols].A
+        p_1d_var = self.equation_system.get_variables(
+            [self.pressure_variable], grids=[g_1d]
+        )
+        self.equation_system.set_variable_values(p_1d, p_1d_var, iterate_index=0)
+        self.p_1d = p_1d
 
 
-assert False
+def test_derivative_darcy_flux_wrt_mortar_displacement():
+    """Test the derivative of the Darcy flux with respect to the mortar displacement.
+
+    The test is done for a 2d domain with a single fracture, and a 1d domain with two
+    cells. The mortar displacement is set to a constant value in the x-direction, but
+    varying value in the y-direction. The permeability is given by the cubic law, and
+    the derivative of the permeability with respect to the mortar displacement is
+    non-zero.
+
+    The test checks that the derivative of the Darcy flux with respect to the mortar
+    displacement is correctly computed.
+    """
+
+    # Set up and discretize model
+    model = PoromechanicalTestDiffTpfa({})
+    model.prepare_simulation()
+    model.discretize()
+
+    # Fetch the mortar interface and the 1d subdomain.
+    intf = model.mdg.interfaces()[0]
+    _, g_1d = model.mdg.subdomains()
+
+    # Get the y-component of the mortar displacement, ordered in the same way as the 2d
+    # cells, that is
+    #   2, 3
+    #   0, 1
+    # Thus the jumps in the mortar displacement are cell 3 - cell 2, and cell 1 - cell
+    # 0.
+    u_m = model.u_mortar
+
+    # The permeability is given by the cubic law, calculate this and its derivative.
+    resid_ap = model.residual_aperture([g_1d]).value(model.equation_system)
+    k_0 = ((u_m[2] - u_m[0]) + resid_ap) ** 3 / 12
+    k_1 = (u_m[3] - u_m[1] + resid_ap) ** 3 / 12
+
+    # Derivative of the permeability with respect to the mortar displacement
+    dk0_du2 = (u_m[2] - u_m[0] + resid_ap) ** 2 / 4
+    dk0_du0 = -((u_m[2] - u_m[0] + resid_ap) ** 2) / 4
+    dk1_du3 = (u_m[3] - u_m[1] + resid_ap) ** 2 / 4
+    dk1_du1 = -((u_m[3] - u_m[1] + resid_ap) ** 2) / 4
+
+    # Calculate the transmissibility. First, get the distance between the cell center and
+    # the face center (will be equal on the two sides of the face).
+    dist = np.abs(g_1d.face_centers[0, 1] - g_1d.cell_centers[0, 0])
+
+    # Half transmissibility
+    trm_0 = k_0 / dist
+    trm_1 = k_1 / dist
+
+    # The transmissibility is the harmonic mean of the two half transmissibilities.
+    trm = trm_0 * trm_1 / (trm_0 + trm_1)
+
+    # The derivative of the transmissibility with respect to the mortar displacement is
+    # given by the chain rule (a warm thanks to copilot):
+    dtrm_du0 = (dk0_du0 / dist) * trm_1 / (trm_0 + trm_1) - trm_0 * trm_1 * dk0_du0 / (
+        dist * (trm_0 + trm_1) ** 2
+    )
+    dtrm_du2 = (dk0_du2 / dist) * trm_1 / (trm_0 + trm_1) - trm_0 * trm_1 * dk0_du2 / (
+        dist * (trm_0 + trm_1) ** 2
+    )
+    dtrm_du1 = (dk1_du1 / dist) * trm_0 / (trm_0 + trm_1) - trm_0 * trm_1 * dk1_du1 / (
+        dist * (trm_0 + trm_1) ** 2
+    )
+    dtrm_du3 = (dk1_du3 / dist) * trm_0 / (trm_0 + trm_1) - trm_0 * trm_1 * dk1_du3 / (
+        dist * (trm_0 + trm_1) ** 2
+    )
+
+    # We also need the pressure difference. Multiply with the sign of the divergence to
+    # account for the direction of the normal vector.
+    dp = (model.p_1d[1] - model.p_1d[0]) * g_1d.cell_faces[1, 1]
+
+    # Finally, the true values that should be compared with the discretization.
+    true_derivatives = dp * np.array([dtrm_du0, dtrm_du1, dtrm_du2, dtrm_du3])
+
+    # The computed flux
+    computed_flux = model.darcy_flux([g_1d]).value_and_jacobian(model.equation_system)
+    # Pick out the middle face, and only those faces that are associated with the mortar
+    # displacement in the y-direction.
+    dt_du_computed = computed_flux.jac[1, model.global_dof_u_mortar_y].A.ravel()
+
+    assert np.allclose(dt_du_computed, true_derivatives)
