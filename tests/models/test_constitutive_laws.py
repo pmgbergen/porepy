@@ -178,6 +178,7 @@ def test_parse_constitutive_laws(
 lbda = pp.solid_values.granite["lame_lambda"]
 mu = pp.solid_values.granite["shear_modulus"]
 bulk = lbda + 2 / 3 * mu
+reference_arrays = reference_dense_arrays["test_evaluated_values"]
 
 
 @pytest.mark.parametrize(
@@ -197,7 +198,7 @@ bulk = lbda + 2 / 3 * mu
             # Porosity weighted average of the solid and fluid thermal conductivities.
             # Expand to format for an isotropic second order tensor.
             ((1 - 1.3e-2) * 3.1 + 1.3e-2 * 0.5975)
-            * reference_dense_arrays["isotropic_second_order_tensor"],
+            * reference_arrays["isotropic_second_order_tensor"],
             None,
         ),
         (
@@ -269,7 +270,7 @@ bulk = lbda + 2 / 3 * mu
             # permeability. 9 * (nc = 32) entries of isotropic permeability.
             models._add_mixin(c_l.CubicLawPermeability, models.MassBalance),
             "permeability",
-            5.0e-18 * reference_dense_arrays["isotropic_second_order_tensor"][: 9 * 32],
+            5.0e-18 * reference_arrays["isotropic_second_order_tensor"][: 9 * 32],
             2,
         ),
         (
@@ -279,9 +280,7 @@ bulk = lbda + 2 / 3 * mu
             # of isotropic permeability.
             models._add_mixin(c_l.CubicLawPermeability, models.MassBalance),
             "permeability",
-            0.01**2
-            / 12
-            * reference_dense_arrays["isotropic_second_order_tensor"][: 9 * 6],
+            0.01**2 / 12 * reference_arrays["isotropic_second_order_tensor"][: 9 * 6],
             1,
         ),
         (

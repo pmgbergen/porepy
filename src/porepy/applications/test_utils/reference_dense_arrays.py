@@ -7951,5 +7951,7 @@ _diagonal_entries[0, :] = 1.0
 _diagonal_entries[4, :] = 1.0
 _diagonal_entries[8, :] = 1.0
 test_constitutive_laws: dict[str, dict] = {
+    "test_evaluated_values": {
         "isotropic_second_order_tensor": _diagonal_entries.ravel("F"),
+    }
 }

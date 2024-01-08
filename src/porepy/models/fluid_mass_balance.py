@@ -756,6 +756,15 @@ class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
     by a mixin instance of :class:`~porepy.models.constitutive_laws.FluidMobility`.
 
     """
+    operator_to_SecondOrderTensor: Callable[
+        [pp.Grid, pp.ad.Operator, pp.number], pp.SecondOrderTensor
+    ]
+    """Function that returns a SecondOrderTensor provided a method returning
+    permeability as a Operator. Normally provided by a mixin instance of
+    :class:`~porepy.models.constitutive_laws.SecondOrderTensorUtils`.
+
+    """
+
 
     def __init__(self, params: Optional[dict] = None) -> None:
         super().__init__(params)
