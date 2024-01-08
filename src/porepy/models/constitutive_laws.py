@@ -1749,17 +1749,22 @@ class AdTpfaFlux:
         # Obtain the transmissibilities in operator form. Ignore other outputs.
         t_f_full, *_ = self._transmissibility_matrix(subdomains, diffusivity_tensor)
         one = pp.ad.Scalar(1)
-        # BC filters for Dirichlet and Neumann faces.
 
+        # BC filters for Dirichlet and Neumann faces.
         diff_discr = pp.numerics.fv.tpfa.DifferentiableTpfa()
         dir_filter, neu_filter = diff_discr.boundary_filters(
             self.mdg, subdomains, boundary_grids, "bc_values_" + flux_name
         )
+        # Also a separate filter for internal boundaries, which are always Neumann.
+        internal_boundary_filter = diff_discr.internal_boundary_filter(subdomains)
 
         # Face contribution to boundary potential is 1 on Dirichlet faces, -1/t_f_full
-        # on Neumann faces (see Tpfa.discretize). Named "bound_pressure_face" and not
-        # "bound_potential_face" to be consistent with the base discretization.
-        bound_pressure_face_discr = dir_filter - neu_filter * (one / t_f_full)
+        # on Neumann faces (both external and internal - see Tpfa.discretize). Named
+        # "bound_pressure_face" and not "bound_potential_face" to be consistent with the
+        # base discretization.
+        bound_pressure_face_discr = dir_filter - (
+            neu_filter + internal_boundary_filter
+        ) * (one / t_f_full)
 
         # Project the interface flux to the primary grid, preparing for discretization
         # on internal boundaries.
