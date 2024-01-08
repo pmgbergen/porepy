@@ -277,7 +277,7 @@ class DifferentiableTpfa:
         subdomains: list[pp.Grid],
         boundary_grids: list[pp.BoundaryGrid],
         name: str,
-    ) -> pp.ad.Operator:
+    ) -> tuple[pp.ad.Operator, pp.ad.Operator]:
         """Filters for Dirichlet and Neumann boundary conditions.
 
         TODO: Method could/should be moved to a more general location.
@@ -315,7 +315,7 @@ class DifferentiableTpfa:
         for sd in subdomains:
             is_internal.append(sd.tags["fracture_faces"])
         return pp.wrap_as_dense_ad_array(
-            np.hstack(is_internal), "internal_boundary_filter"
+            np.hstack(is_internal), name="internal_boundary_filter"
         )
 
     def _block_diagonal_grid_property_matrix(
@@ -618,7 +618,8 @@ class DifferentiableTpfa:
         # t_hf = d_vec @ n @ k_hf / dist
         # k_hf: Permeability on half-faces shape=(9 x num_half_faces,)
         # n: Normal vector on half-faces shape=(3 x num_half_faces,9 x num_half_faces)
-        # d_vec: Vectors cell centers and face centers shape=(num_half_faces, 3 x num_half_faces)
+        # d_vec: Vectors cell centers and face centers shape=(num_half_faces,
+        # 3 x num_half_faces)
         # dist: Distance between cell centers and face centers shape=(num_half_faces,)
 
         # Normal vectors, each row contains a normal vector. Matrix shape =
@@ -663,7 +664,7 @@ class DifferentiableTpfa:
         # EK: Alternative implementation which does not use the half_face_map method.
         # This may be slightly more efficient (though not in a significant way), and
         # involve different kinds of hokus pokus. I'm not sure what is the best.
-        alt_sgn = []
+        alt_sgn: list[np.ndarray] = []
         for sd in subdomains:
             # Signs on all half faces. fi will contain the indices of all internal faces
             # twice (one for each side).
@@ -682,12 +683,10 @@ class DifferentiableTpfa:
             )
             # Set signs on interior faces to zero.
             sgn_unique[is_int] = 0
-            #
             alt_sgn.append(sgn_unique)
-        alt_sgn = np.hstack(alt_sgn)
         # Check that the two implementations give the same result.
         # TODO: Delete one of the implementations.
-        assert np.allclose(bnd_sgn._values, alt_sgn)
+        assert np.allclose(bnd_sgn._values, np.hstack(alt_sgn))
 
         return bnd_sgn
 

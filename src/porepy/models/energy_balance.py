@@ -897,6 +897,14 @@ class SolutionStrategyEnergyBalance(pp.SolutionStrategy):
     :class:`~porepy.models.constitutive_laws.EnthalpyFromTemperature`.
 
     """
+    operator_to_SecondOrderTensor: Callable[
+        [pp.Grid, pp.ad.Operator, pp.number], pp.SecondOrderTensor
+    ]
+    """Function that returns a SecondOrderTensor provided a method returning
+    permeability as a Operator. Normally provided by a mixin instance of
+    :class:`~porepy.models.constitutive_laws.SecondOrderTensorUtils`.
+
+    """
 
     def __init__(self, params: Optional[dict] = None) -> None:
         # Generic solution strategy initialization in pp.SolutionStrategy and specific
