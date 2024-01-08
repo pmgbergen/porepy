@@ -271,8 +271,27 @@ class Tpfa(pp.FVElliptic):
 
 
 class DifferentiableTpfa:
-    def boundary_filters(self, mdg, subdomains, boundary_grids, name):
-        """TODO: Method could/should be moved to a more general location."""
+    def boundary_filters(
+        self,
+        mdg: pp.MixedDimensionalGrid,
+        subdomains: list[pp.Grid],
+        boundary_grids: list[pp.BoundaryGrid],
+        name: str,
+    ) -> pp.ad.Operator:
+        """Filters for Dirichlet and Neumann boundary conditions.
+
+        TODO: Method could/should be moved to a more general location.
+
+        Parameters:
+            mdg: Mixed-dimensional grid.
+            subdomains: List of grids.
+            boundary_grids: List of boundary grids.
+            name: Name of the operator.
+
+        Returns:
+            Tuple of Dirichlet and Neumann boundary filters.
+
+        """
         dir_filter = pp.ad.TimeDependentDenseArray(
             name=(name + "_filter_dir"), domains=boundary_grids
         )
@@ -281,6 +300,23 @@ class DifferentiableTpfa:
         )
         proj = pp.ad.BoundaryProjection(mdg, subdomains, dim=1).boundary_to_subdomain
         return proj @ dir_filter, proj @ neu_filter
+
+    def internal_boundary_filter(self, subdomains: list[pp.Grid]) -> pp.ad.DenseArray:
+        """Helper method to construct a dense array that filters out everything but
+        internal boundaries.
+
+        Parameters:
+            subdomains: List of grids.
+
+        Returns:
+            DenseArray representation of the internal boundary filter.
+        """
+        is_internal = []
+        for sd in subdomains:
+            is_internal.append(sd.tags["fracture_faces"])
+        return pp.wrap_as_dense_ad_array(
+            np.hstack(is_internal), "internal_boundary_filter"
+        )
 
     def _block_diagonal_grid_property_matrix(
         self,
