@@ -567,19 +567,21 @@ def invert_diagonal_blocks(
         -------
         inv_a inverse matrix
         """
-        v = np.zeros(np.sum(np.square(sz)))
-        p1 = 0
-        p2 = 0
-        for b in range(sz.size):
-            n = sz[b]
-            n2 = n * n
-            i = p1 + np.arange(n + 1)
-            # Picking out the sub-matrices here takes a lot of time.
-            v[p2 + np.arange(n2)] = np.linalg.inv(
-                a[i[0] : i[-1], i[0] : i[-1]].A
-            ).ravel()
-            p1 = p1 + n
-            p2 = p2 + n2
+
+        row, col = a.nonzero()
+        idx_blocks = np.add.accumulate([0] + list(sz))
+        idx_nnz = np.searchsorted(row, idx_blocks)
+
+        def sub_block(ib):
+            lr = row[idx_nnz[ib] : idx_nnz[ib + 1]] - idx_blocks[ib]
+            lc = col[idx_nnz[ib] : idx_nnz[ib + 1]] - idx_blocks[ib]
+            dense_block = np.zeros((sz[ib], sz[ib]))
+            dense_block[lr, lc] = a.data[idx_nnz[ib] : idx_nnz[ib + 1]]
+            return dense_block
+
+        iterator_blocks = map(sub_block, range(sz.size))
+        iterator_block_inverses = map(np.linalg.inv, iterator_blocks)
+        v = np.concatenate(list(map(np.ravel, iterator_block_inverses)))
         return v
 
     def invert_diagonal_blocks_numba(a: sps.csr_matrix, size: np.ndarray) -> np.ndarray:
