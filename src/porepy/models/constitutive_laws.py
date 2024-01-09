@@ -1455,7 +1455,7 @@ class AdTpfaFlux:
 
     def diffusive_flux(
         self,
-        domains: list[pp.Grid] | list[pp.MortarGrid],
+        domains: pp.SubdomainsOrBoundaries,
         potential: Callable[[list[pp.Grid]], pp.ad.Operator],
         diffusivity_tensor: Callable[[list[pp.Grid]], pp.ad.Operator],
         flux_name: str,
