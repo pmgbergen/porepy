@@ -104,7 +104,7 @@ class MomentumBalanceEquations(pp.BalanceEquation):
     defining the solution strategy.
 
     """
-    gravity_force: Callable[[list[pp.Grid], str], pp.ad.Operator]
+    gravity_force: Callable[[list[pp.Grid] | list[pp.MortarGrid], str], pp.ad.Operator]
     """Gravity force. Normally provided by a mixin instance of
     :class:`~porepy.models.constitutive_laws.GravityForce` or
     :class:`~porepy.models.constitutive_laws.ZeroGravityForce`.
