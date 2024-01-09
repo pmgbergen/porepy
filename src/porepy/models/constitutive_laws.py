@@ -696,6 +696,18 @@ class SecondOrderTensorUtils:
     :class:`porepy.models.geometry.ModelGeometry`.
 
     """
+    specific_volume: Callable[
+        [Union[list[pp.Grid], list[pp.MortarGrid]]], pp.ad.Operator
+    ]
+    """Function that returns the specific volume of a subdomain. Normally provided by a
+    mixin of instance :class:`~porepy.models.constitutive_laws.DimensionReduction`.
+
+    """
+    equation_system: pp.ad.EquationSystem
+    """EquationSystem object for the current model. Solution strategies are normally
+    defined in a mixin class.
+
+    """
 
     def isotropic_second_order_tensor(
         self, subdomains: list[pp.Grid], permeability: pp.ad.Operator
@@ -728,7 +740,7 @@ class SecondOrderTensorUtils:
         sd: pp.Grid,
         operator: pp.ad.Operator,
         fallback_value: number,
-    ) -> np.ndarray:
+    ) -> pp.SecondOrderTensor:
         """Convert Ad operator to dense array.
 
         Parameters:
@@ -748,7 +760,16 @@ class SecondOrderTensorUtils:
             # fall back on reference value.
             permeability = fallback_value * np.ones(sd.num_cells) * volume
             return pp.SecondOrderTensor(permeability)
-        val = operator.value(self.equation_system).reshape(9, -1, order="F")
+        evaluated_value = operator.value(self.equation_system)
+        if not isinstance(evaluated_value, np.ndarray):
+            # Raise error rather than cast for verbosity of function which is not
+            # directly exposed to the user, but depends on a frequently user-defined
+            # quantity (the tensor being converted).
+            raise ValueError(
+                f"Operator {operator.name} has type {type(evaluated_value)}, "
+                f"expected numpy array for conversion to SecondOrderTensor."
+            )
+        val = evaluated_value.reshape(9, -1, order="F")
         # SecondOrderTensor's constructor expects up to six entries: kxx, kyy, kzz,
         # kxy, kxz, kyz. These correspond to entries 0, 4, 8, 1, 2, 5 in the 9 x
         # num_cells array.
@@ -758,8 +779,6 @@ class SecondOrderTensorUtils:
         off_diagonal_indices = [1, 2, 5]
         other_indices = [3, 6, 7]
         for i, j in zip(off_diagonal_indices, other_indices):
-            # val_i = basis[i].value(self.equation_system).T @ val
-            # val_j = basis[j].value(self.equation_system).T @ val
             if not np.allclose(val[i], val[j]):
                 raise ValueError(f"Operator is not symmetric for indices {i} and {j}.")
             tensor_components.append(val[i])
@@ -1101,11 +1120,19 @@ class DarcysLaw:
 
     """
     volume_integral: Callable[
-        [pp.ad.Operator, Sequence[pp.Grid] | Sequence["pp.MortarGrid"], int],
+        [pp.ad.Operator, Sequence[pp.Grid] | Sequence[pp.MortarGrid], int],
         pp.ad.Operator,
     ]
     """Integration over cell volumes, implemented in
     :class:`pp.models.abstract_equations.BalanceEquation`.
+
+    """
+    gravity_force: Callable[
+        [Union[list[pp.Grid], list[pp.MortarGrid]], str], pp.ad.Operator
+    ]
+    """Gravity force. Normally provided by a mixin instance of
+    :class:`~porepy.models.constitutive_laws.GravityForce` or
+    :class:`~porepy.models.constitutive_laws.ZeroGravityForce`.
 
     """
 
@@ -1360,14 +1387,75 @@ class AdTpfaFlux:
     "bc_values_" + flux_name, where flux_name is the name of the flux (e.g. "darcy_flux"
     or "fourier_flux"). The same goes for "inteface_" + flux_name and flux_name +
     "_discretization". These conventions are used to simplify the implementation of
-    these methods. TODO: Consider making this more explicit. Also, marvel at the fact
-    that this comment was largely written by a computer (including half of the
-    last sentence).
+    these methods. TODO: Consider making this more explicit.
+
+    """
+
+    create_boundary_operator: Callable[
+        [str, Sequence[pp.BoundaryGrid]], pp.ad.TimeDependentDenseArray
+    ]
+    """Boundary conditions wrapped as an operator. Defined in
+    :class:`~porepy.models.boundary_condition.BoundaryConditionMixin`.
+
+    """
+    subdomains_to_interfaces: Callable[[list[pp.Grid], list[int]], list[pp.MortarGrid]]
+    """Map from subdomains to the adjacent interfaces. Normally defined in a mixin
+    instance of :class:`~porepy.models.geometry.ModelGeometry`.
+
+    """
+
+    subdomains_to_boundary_grids: Callable[
+        [Sequence[pp.Grid]], Sequence[pp.BoundaryGrid]
+    ]
+    """Function that maps a sequence of subdomains to a sequence of boundary grids.
+    Normally defined in a mixin instance of
+    :class:`~porepy.models.geometry.ModelGeometry`.
+
+    """
+    mdg: pp.MixedDimensionalGrid
+    """Mixed dimensional grid for the current model. Normally defined in a mixin
+    instance of :class:`~porepy.models.geometry.ModelGeometry`.
+
+    """
+    nd: int
+    """Number of spatial dimensions. Normally defined in a mixin instance of
+    :class:`~porepy.models.geometry.ModelGeometry`.
+
+    """
+    _combine_boundary_operators: Callable[
+        [
+            Sequence[pp.Grid],
+            Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
+            Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
+            Callable[[pp.Grid], pp.BoundaryCondition],
+            str,
+            int,
+        ],
+        pp.ad.Operator,
+    ]
+    """Combine Dirichlet and Neumann boundary conditions. Normally defined in a mixin
+    instance of :class:`~porepy.models.boundary_condition.BoundaryConditionMixin`.
+
+    """
+    basis: Callable[[Sequence[pp.GridLike], int], list[pp.ad.SparseArray]]
+    """Basis for the local coordinate system. Normally set by a mixin instance of
+    :class:`porepy.models.geometry.ModelGeometry`.
+
+    """
+    specific_volume: Callable[
+        [Union[list[pp.Grid], list[pp.MortarGrid]]], pp.ad.Operator
+    ]
+
+    """Function that returns the specific volume of a subdomain or interface.
+
+    Normally provided by a mixin of instance
+    :class:`~porepy.models.constitutive_laws.DimensionReduction`.
+
     """
 
     def diffusive_flux(
         self,
-        domains: pp.SubdomainsOrBoundaries,
+        domains: list[pp.Grid] | list[pp.MortarGrid],
         potential: Callable[[list[pp.Grid]], pp.ad.Operator],
         diffusivity_tensor: Callable[[list[pp.Grid]], pp.ad.Operator],
         flux_name: str,
@@ -1396,8 +1484,17 @@ class AdTpfaFlux:
                 name=flux_name,
                 domains=domains,
             )
+        # Check that the subdomains are grids.
+        if not all([isinstance(g, pp.Grid) for g in domains]):
+            raise ValueError(
+                """Argument subdomains a mixture of grids and boundary grids."""
+            )
+
+        domains = cast(list[pp.Grid], domains)
         boundary_grids = self.subdomains_to_boundary_grids(domains)
-        interfaces: list[pp.MortarGrid] = self.subdomains_to_interfaces(domains, [1])
+        interfaces: Sequence[pp.MortarGrid] = self.subdomains_to_interfaces(
+            domains, [1]
+        )
         intf_projection = pp.ad.MortarProjections(self.mdg, domains, interfaces, dim=1)
 
         # Compute the transmissibility matrix, see the called function for details. Also
@@ -1679,7 +1776,7 @@ class AdTpfaFlux:
         # The cell-wise permeability tensor is represented as an Ad operator which
         # evaluates to an AdArray with 9 * n_cells entries. Also scale with specific
         # volume.
-        basis = self.basis(subdomains, dim=9)
+        basis = self.basis(subdomains, dim=9)  # type: ignore[call-arg]
         volumes = pp.ad.sum_operator_list(
             [e @ self.specific_volume(subdomains) for e in basis]
         )
@@ -1863,6 +1960,12 @@ class AdTpfaFlux:
 class AdDarcyFlux(AdTpfaFlux, DarcysLaw):
     """Adaptive discretization of the Darcy flux from generic adaptive flux class."""
 
+    permeability: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Function that returns the permeability of a subdomain. Normally provided by a
+    mixin class with a suitable permeability definition.
+
+    """
+
     def darcy_flux(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
         """Discretization of Darcy's law.
 
@@ -1882,7 +1985,7 @@ class AdDarcyFlux(AdTpfaFlux, DarcysLaw):
         )
         return flux
 
-    def pressure_trace(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+    def pressure_trace(self, domains: list[pp.Grid]) -> pp.ad.Operator:
         """Pressure on the subdomain boundaries.
 
         Parameters:
@@ -1936,6 +2039,15 @@ class PeacemanWellFlux:
     mixin class with a suitable permeability definition.
 
     """
+    e_i: Callable[
+        [Union[list[pp.Grid], list[pp.MortarGrid]], int, int], pp.ad.SparseArray
+    ]
+    """Function that returns the unit vector in the i-th direction.
+
+    Normally provided by a mixin of instance
+    :class:`~porepy.models.geometry.ModelGeometry`.
+
+    """
 
     def well_flux_equation(self, interfaces: list[pp.MortarGrid]) -> pp.ad.Operator:
         """Equation for well fluxes.
@@ -1955,9 +2067,8 @@ class PeacemanWellFlux:
         r_e = self.equivalent_well_radius(subdomains)
 
         f_log = pp.ad.Function(pp.ad.functions.log, "log_function_Piecmann")
-        isotropic_permeability = self.e_i(subdomains, i=0, dim=9).T @ self.permeability(
-            subdomains
-        )  # TODO: Enforce/check assumption?
+        e_i = self.e_i(subdomains, i=0, dim=9).T  # type: ignore[call-arg]
+        isotropic_permeability = e_i @ self.permeability(subdomains)
         well_index = (
             pp.ad.Scalar(2 * np.pi)
             * projection.primary_to_mortar_avg
@@ -2240,6 +2351,11 @@ class FouriersLaw:
 
     """
     bc_type_fourier_flux: Callable[[pp.Grid], pp.ad.Operator]
+    """Function that returns the boundary condition type for the Fourier flux. Normally
+    defined in a mixin instance of
+    :class:`~porepy.models.fluid_mass_balance.BoundaryConditionsEnergyBalance`.
+
+    """
 
     _combine_boundary_operators: Callable[
         [
@@ -2283,6 +2399,14 @@ class FouriersLaw:
     ]
     """Integration over cell volumes, implemented in
     :class:`pp.models.abstract_equations.BalanceEquation`.
+
+    """
+    nd: int
+    """Number of spatial dimensions."""
+    fluid: pp.FluidConstants
+    """Fluid constant object that takes care of scaling of fluid-related quantities.
+    Normally, this is set by a mixin of instance
+    :class:`~porepy.models.solution_strategy.SolutionStrategy`.
 
     """
 
@@ -2985,8 +3109,7 @@ class LinearElasticMechanicalStress:
         # Check that the subdomains are grids.
         if not all([isinstance(g, pp.Grid) for g in domains]):
             raise ValueError(
-                """Argument subdomains a mixture of grids and
-                                boundary grids"""
+                """Argument subdomains a mixture of grids and boundary grids"""
             )
         # By now we know that subdomains is a list of grids, so we can cast it as such
         # (in the typing sense).
