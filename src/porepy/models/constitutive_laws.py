@@ -718,10 +718,9 @@ class SecondOrderTensorUtils:
             permeability: Permeability, scalar per cell.
 
         Returns:
-            3d isotropic permeability, with nonzero values on the diagonal (for the
-            dimensions of the problem) and zero values elsewhere. K is a second order
-            tensor having 3^2 entries per cell, represented as an array of length 9*nc.
-            The values are ordered as
+            3d isotropic permeability, with nonzero values on the diagonal and zero
+            values elsewhere. K is a second order tensor having 3^2 entries per cell,
+            represented as an array of length 9*nc. The values are ordered as
                 Kxx, Kxy, Kxz, Kyx, Kyy, Kyz, Kzx, Kzy, Kzz
 
         """
@@ -741,14 +740,14 @@ class SecondOrderTensorUtils:
         operator: pp.ad.Operator,
         fallback_value: number,
     ) -> pp.SecondOrderTensor:
-        """Convert Ad operator to dense array.
+        """Convert Ad operator to PorePy tensor representation.
 
         Parameters:
             sd: Subdomain where the operator is defined.
             operator: Operator to convert.
 
         Returns:
-            Dense array representation of the operator.
+            SecondOrderTensor representation of the operator.
 
         """
         # Evaluate as 9 x num_cells array
@@ -775,7 +774,7 @@ class SecondOrderTensorUtils:
         # num_cells array.
         diagonal_indices = [0, 4, 8]
         tensor_components = [val[i] for i in diagonal_indices]
-        # Check is performed that the operator is indeed symmetric.
+        # Check that the operator is indeed symmetric.
         off_diagonal_indices = [1, 2, 5]
         other_indices = [3, 6, 7]
         for i, j in zip(off_diagonal_indices, other_indices):
@@ -1291,10 +1290,6 @@ class DarcysLaw:
             Discretization of the Darcy flux.
 
         """
-        # TODO: The ad.Discretizations may be purged altogether. Their current function
-        # is very similar to the ad.Geometry in that both basically wrap numpy/scipy
-        # arrays in ad arrays and collect them in a block matrix. This similarity could
-        # possibly be exploited. Revisit at some point.
         return pp.ad.MpfaAd(self.darcy_keyword, subdomains)
 
     def vector_source_darcy_flux(
@@ -1380,14 +1375,13 @@ class AdTpfaFlux:
     - potential_trace: Discretization of the potential on the subdomain boundaries. This
         method should be called by the overriding method (pressure_trace,
         temperature_trace etc).
-    - TODO: vector_source_darcy_flux: Discretization of the vector source term (gravity).
 
-    Note: This class implicitly assumes conventions on naming of methods and BC values
-    keys. Specifically, the BC values keys are assumed to be of the form
-    "bc_values_" + flux_name, where flux_name is the name of the flux (e.g. "darcy_flux"
-    or "fourier_flux"). The same goes for "inteface_" + flux_name and flux_name +
+    Note: This class implicitly assumes conventions on naming of methods and BC value
+    keys. Specifically, the BC values keys are assumed to be of the form "bc_values_" +
+    flux_name, where flux_name is the name of the flux (e.g. "darcy_flux" or
+    "fourier_flux"). The same goes for "inteface_" + flux_name and flux_name +
     "_discretization". These conventions are used to simplify the implementation of
-    these methods. TODO: Consider making this more explicit.
+    the class' methods. TODO: Consider making this more explicit.
 
     """
 
@@ -1477,9 +1471,9 @@ class AdTpfaFlux:
         """
 
         if len(domains) == 0 or all([isinstance(g, pp.BoundaryGrid) for g in domains]):
-            # Note: in case of the empty subdomain list, the time dependent array is
+            # Note: in case of an empty subdomain list, the time dependent array is
             # still returned. Otherwise, this method produces an infinite recursion
-            # loop. It does not affect real computations anyhow.
+            # loop. It does not affect real computations.
             return self.create_boundary_operator(  # type: ignore[call-arg]
                 name=flux_name,
                 domains=domains,
@@ -1524,7 +1518,7 @@ class AdTpfaFlux:
         dir_bnd = dir_filter * (-bnd_sgn * t_f)
         t_bnd = neu_bnd + dir_bnd
 
-        # Discretization of vector source: TODO: Consider moving to a separate method.
+        # Discretization of vector source:
         #
         # The flux through a face with normal vector n_j, as seen from cell i, driven by
         # a vector source v_i in cell i, is given by
@@ -1734,7 +1728,7 @@ class AdTpfaFlux:
             )
 
         pressure_trace = (
-            base_discr.bound_pressure_cell @ potential(subdomains)  # independent of k
+            base_discr.bound_pressure_cell @ potential(subdomains)
             # Contribution from boundaries.
             + boundary_value_contribution
             # the vector source is independent of k
@@ -1771,8 +1765,8 @@ class AdTpfaFlux:
         # Here, subscripts indicate (Cartesian) dimensions, the summation convention is
         # applied, and dist again represent the distance from cell to face center. (EK:
         # the change of meaning of subscript is unfortunate, but it is very important to
-        # understand the how the components of the permeability tensor and the normal
-        # and distance vectors are multiplied.) This formulation can be reformulated to
+        # understand how the components of the permeability tensor and the normal and
+        # distance vectors are multiplied.) This formulation can be reformulated to
         #
         #   t = n_r^T e_s K_rs / dist
         #
@@ -1800,11 +1794,11 @@ class AdTpfaFlux:
         n, d_vec, dist = diff_discr.half_face_geometry_matrices(subdomains)
 
         # Compose the geometric part of the half-face transmissibilities. Note that
-        # dividing d_vec by dist essentially form a unit vector from cell to face
+        # dividing d_vec by dist essentially forms a unit vector from cell to face
         # center.
         d_n_by_dist = sps.diags(1 / dist) * d_vec @ n
 
-        # Form the full half-face transmissibilities, and take its reciprocal, preparing
+        # Form the full half-face transmissibilities and take its reciprocal, preparing
         # for a harmonic mean between the two half-face transmissibilities on ecah side
         # of a face.
         one = pp.ad.Scalar(1)
@@ -1825,7 +1819,7 @@ class AdTpfaFlux:
     def __mpfa_flux_discretization(
         self, base_discr: pp.ad.MpfaAd, T_f: ArrayType, p_diff: ArrayType, p: ArrayType
     ) -> ArrayType:
-        """Take the differential of the flux associated with the pressure difference.
+        """Take the differential of the flux associated with the potential difference.
 
         The method is used for an Mpfa base discretization, where a direct computation
         of the Jacobian is not possible.
@@ -1833,13 +1827,13 @@ class AdTpfaFlux:
         Parameters:
             base_discr: Base discretization of the flux.
             T_f: Transmissibility matrix.
-            p_diff: Difference in pressure between the two cells on either side of the
+            p_diff: Difference in potential between the two cells on either side of the
                 face.
-            p: Pressure.
+            p: Potential.
 
         Returns:
             AdArray with value and Jacobian matrix representing the flux associated with
-                the pressure difference.
+                the potential difference.
 
         """
         # NOTE:  Keep in mind that these functions will be evaluated in forward mode, so
@@ -2120,6 +2114,7 @@ class PeacemanWellFlux:
 
         f_log = pp.ad.Function(pp.ad.functions.log, "log_function_Piecmann")
         e_i = self.e_i(subdomains, i=0, dim=9).T  # type: ignore[call-arg]
+        # We assume isotropic permeability and extract xx component.
         isotropic_permeability = e_i @ self.permeability(subdomains)
         well_index = (
             pp.ad.Scalar(2 * np.pi)
@@ -3161,7 +3156,7 @@ class LinearElasticMechanicalStress:
         # Check that the subdomains are grids.
         if not all([isinstance(g, pp.Grid) for g in domains]):
             raise ValueError(
-                """Argument subdomains a mixture of grids and boundary grids"""
+                """Argument subdomains a mixture of grids and boundary grids."""
             )
         # By now we know that subdomains is a list of grids, so we can cast it as such
         # (in the typing sense).
