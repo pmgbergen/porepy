@@ -425,54 +425,13 @@ class DifferentiableTpfa:
             # these indices to account for the dimenison of the to entity
             # (dimensions[0]). The latter assigns rows[indices 0:dimensions[0]] to the
             # first face etc. The logic for the columns is the same.
-            rows_simple = pp.fvutils.expand_indices_nd(
+            rows = pp.fvutils.expand_indices_nd(
                 np.repeat(indices[0], repeat_row_inds), dimensions[0]
             )
-            cols_simple = pp.fvutils.expand_indices_nd(
+            cols = pp.fvutils.expand_indices_nd(
                 np.repeat(indices[1], repeat_col_inds), dimensions[1]
             )
 
-            # I believe the following is a less elegant implementation of the above. If
-            # the above is correct, this should be removed. See assert below.
-            #
-            # EK partly note to self: This makes sense, I'll skip comments in the below
-            # if-else.
-            if dimensions[0] == dimensions[1]:
-                # In the case dim[1] = 1, the repeat/expand is redundant, but it does no
-                # harm.
-                rows = pp.fvutils.expand_indices_nd(indices[0], dimensions[0])
-                cols = pp.fvutils.expand_indices_nd(indices[1], dimensions[1])
-
-            elif dimensions[0] > dimensions[1]:
-                # Matrix multiplication is an expansion from dim[1] to dim[0]. We repeat
-                # the column indices dim[0] / dim[1] times. This allows dim[0] > dim[1] >
-                # 1, i.e. expanding a dim[1] vector to a dim[0] vector.
-                repeat = int(dimensions[0] / dimensions[1])
-                assert dimensions[0] % dimensions[1] == 0
-                rows = pp.fvutils.expand_indices_nd(indices[0], dimensions[0])
-                cols = pp.fvutils.expand_indices_nd(
-                    np.repeat(indices[1], repeat), dimensions[1]
-                )
-                if with_sign:
-                    vals = np.repeat(sgn, dimensions[1])
-                else:
-                    vals = np.ones(cols.size)
-            else:
-                # Matrix multiplication is a reduction from dim[1] to dim[0]. We expand
-                # the row indices dim[1] / dim[0] times and then expand. This allows
-                # dim[1] > dim[0] > 1, i.e. collapsing a dim[1] vector to a dim[0] vector.
-                repeat = int(dimensions[1] / dimensions[0])
-                assert dimensions[1] % dimensions[0] == 0
-                rows = pp.fvutils.expand_indices_nd(
-                    np.repeat(indices[0], repeat), dimensions[0]
-                )
-                cols = pp.fvutils.expand_indices_nd(indices[1], dimensions[1])
-                if with_sign:
-                    vals = np.repeat(sgn, repeat)
-                else:
-                    vals = np.ones(cols.size)
-            assert np.allclose(rows_simple, rows)
-            assert np.allclose(cols_simple, cols)
             if with_sign:
                 # The sign must be repeated as many times as the row and column indices
                 # were repeated and expanded. This will equal the maximum of the two
