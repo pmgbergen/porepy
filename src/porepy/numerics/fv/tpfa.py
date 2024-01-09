@@ -3,7 +3,9 @@ approximation scheme. The implementation resides in the class Tpfa.
 
 """
 from __future__ import annotations
-from typing import Any, Callable, Literal, Optional, Sequence
+
+from typing import Any, Callable, Literal, Sequence
+
 import numpy as np
 import scipy.sparse as sps
 

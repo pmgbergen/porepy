@@ -23,13 +23,8 @@ Example:
 from __future__ import annotations
 
 import abc
-from typing import Callable, Tuple, Union
-
-import numpy as np
-import scipy.sparse as sps
 
 import porepy as pp
-from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_data
 from porepy.utils.porepy_types import discretization_type
 
 from ._ad_utils import MergedOperator, wrap_discretization
@@ -45,7 +40,6 @@ __all__ = [
     "TpfaAd",
     "UpwindAd",
     "UpwindCouplingAd",
-    "DifferentiableFVAd",
 ]
 
 

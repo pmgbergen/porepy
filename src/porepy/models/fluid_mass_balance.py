@@ -765,7 +765,6 @@ class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
 
     """
 
-
     def __init__(self, params: Optional[dict] = None) -> None:
         super().__init__(params)
 
