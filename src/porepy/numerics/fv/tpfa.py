@@ -61,8 +61,8 @@ class Tpfa(pp.FVElliptic):
             bound_pressure_face: sps.csc_matrix (sd.num_faces, sd.num_faces)
                 Operator for reconstructing the pressure trace. Face contribution
             vector_source: sps.csc_matrix (sd.num_faces)
-                discretization of flux due to vector source, e.g. gravity. Face contribution.
-                Active only if vector_source = True, and only for 1D.
+                discretization of flux due to vector source, e.g. gravity. Face
+                contribution. Active only if vector_source = True, and only for 1D.
 
         Hidden option (intended as "advanced" option that one should normally not
         care about):
@@ -143,12 +143,12 @@ class Tpfa(pp.FVElliptic):
         # that ci_left[i] is connected to ci_right[i] over the face fi_left (face of
         # ci_left[i]) and fi_right[i] (face of ci_right[i]).
         #
-        # Next, we add connection between the left cells and right faces (and vice versa).
-        # The flux over the periodic boundary face is defined equivalently to the
-        # flux over an internal face: flux_left = T_left * (p_left - p_right).
-        # The term T_left * p_left is already included in fi_g and ci_g, but we need
-        # to add the second term T_left * (-p_right). Equivalently for flux_right.
-        # f_mat and c_mat defines the indices of these entries in the flux matrix.
+        # Next, we add connection between the left cells and right faces (and vice
+        # versa). The flux over the periodic boundary face is defined equivalently to
+        # the flux over an internal face: flux_left = T_left * (p_left - p_right). The
+        # term T_left * p_left is already included in fi_g and ci_g, but we need to add
+        # the second term T_left * (-p_right). Equivalently for flux_right. f_mat and
+        # c_mat defines the indices of these entries in the flux matrix.
         fi_periodic = np.hstack((fi_g, fi_left, fi_right))
         ci_periodic = np.hstack((ci_g, ci_right, ci_left))
         sgn_periodic = np.hstack((sgn_g, -left_sgn, -right_sgn))
@@ -240,14 +240,13 @@ class Tpfa(pp.FVElliptic):
         matrix_dictionary[self.bound_pressure_cell_matrix_key] = bound_pressure_cell
         matrix_dictionary[self.bound_pressure_face_matrix_key] = bound_pressure_face
 
-        # Discretization of vector source
-        # e.g. gravity in Darcy's law
+        # Discretization of vector source, e.g. gravity in Darcy's law.
         # Use harmonic average of cell transmissibilities
 
         # The discretization involves the transmissibilities, multiplied with the
         # distance between cell and face centers, and with the sgn adjustment (or else
-        # the vector source will point in the wrong direction in certain cases).
-        # See Starnoni et al. 2020, WRR for details.
+        # the vector source will point in the wrong direction in certain cases). See
+        # Starnoni et al. 2020, WRR for details.
         vals = (t[fi_periodic] * fc_cc * sgn_periodic)[:vector_source_dim].ravel("f")
 
         # Rows and cols are given by fi / ci, expanded to account for the vector source
@@ -259,9 +258,9 @@ class Tpfa(pp.FVElliptic):
 
         matrix_dictionary[self.vector_source_matrix_key] = vector_source
 
-        # Gravity contribution to pressure reconstruction
-        # The pressure difference is computed as the dot product between the
-        # vector source and the distance vector from cell to face centers.
+        # Gravity contribution to pressure reconstruction.
+        # The pressure difference is computed as the dot product between the vector
+        # source and the distance vector from cell to face centers.
         vals = np.zeros((vector_source_dim, fi.size))
         vals[:, bnd.is_neu[fi]] = fc_cc[:vector_source_dim, bnd.is_neu[fi]]
         bound_pressure_vector_source = sps.coo_matrix(
@@ -339,7 +338,7 @@ class DifferentiableTpfa:
         """Construct mapping matrix for the connectivity between two grids entities.
 
         The mapping matrix is a block diagonal matrix where each block contains 1 where
-        the two entities are connected, and 0 otherwise.
+        the two entities are connected and 0 otherwise.
 
         Parameters:
             domains: List of grids.
@@ -527,7 +526,8 @@ class DifferentiableTpfa:
 
             Half-face i corresponds to rows
                 vector_dim * i:vector_dim * (i+1)
-            and contains n_0^i, n_1^i, n_2^i. The column indices makes sure we hit the
+            and contains n_0^i, n_1^i, n_2^i, with subscripts indicating x, y and z
+            components of the normal vector. The column indices makes sure we hit the
             right permeability entries. The permeability being a tensor_dim * num_cells
             vector, we expand the cell indices to tensor_dim indices.
 
@@ -587,7 +587,7 @@ class DifferentiableTpfa:
         for g in subdomains:
             # TODO: Check if the repeated computation of fi, ci, sgn is a problem. If
             # so, cache.
-            fi, ci, sgn = sps.find(g.cell_faces)
+            fi, ci, _ = sps.find(g.cell_faces)
             fc_cc = g.face_centers[:, fi] - g.cell_centers[:, ci]
             vals.append(np.power(fc_cc, 2).sum(axis=0))
         return np.hstack(vals)

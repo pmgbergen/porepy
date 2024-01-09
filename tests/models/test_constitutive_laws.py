@@ -276,8 +276,8 @@ reference_arrays = reference_dense_arrays["test_evaluated_values"]
         (
             # Test the permeability for a fracture domain. This should be computed by
             # the cubic law (i.e., aperture squared by 12, an aditional aperture scaling
-            # to get the transmissivity is taken care of elsewhere). 9 * (nc = 6) entries
-            # of isotropic permeability.
+            # to get the transmissivity is taken care of elsewhere). 9 * (nc = 6)
+            # entries of isotropic permeability.
             models._add_mixin(c_l.CubicLawPermeability, models.MassBalance),
             "permeability",
             0.01**2 / 12 * reference_arrays["isotropic_second_order_tensor"][: 9 * 6],
