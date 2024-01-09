@@ -271,6 +271,14 @@ class Tpfa(pp.FVElliptic):
 
 
 class DifferentiableTpfa:
+    """Helper class for constructing differentiable operators for the TPFA scheme.
+
+    This is really a container class for methods that are needed to construct the
+    discretization. The actual discretization is considered a constitutive law, and can
+    be found in that part of the code.
+
+    """
+
     def boundary_filters(
         self,
         mdg: pp.MixedDimensionalGrid,
@@ -279,8 +287,6 @@ class DifferentiableTpfa:
         name: str,
     ) -> tuple[pp.ad.Operator, pp.ad.Operator]:
         """Filters for Dirichlet and Neumann boundary conditions.
-
-        TODO: Method could/should be moved to a more general location.
 
         Parameters:
             mdg: Mixed-dimensional grid.
@@ -302,27 +308,31 @@ class DifferentiableTpfa:
         return proj @ dir_filter, proj @ neu_filter
 
     def internal_boundary_filter(self, subdomains: list[pp.Grid]) -> pp.ad.DenseArray:
-        """Helper method to construct a dense array that filters out everything but
-        internal boundaries.
+        """Construct a dense array that filters out everything but internal boundaries.
 
         Parameters:
             subdomains: List of grids.
 
         Returns:
             DenseArray representation of the internal boundary filter.
+
         """
         is_internal = []
         for sd in subdomains:
             is_internal.append(sd.tags["fracture_faces"])
+        if len(is_internal) == 0:
+            fracture_faces = np.array([], dtype=int)
+        else:
+            fracture_faces = np.hstack(is_internal)
+
         return pp.wrap_as_dense_ad_array(
-            np.hstack(is_internal), name="internal_boundary_filter"
+            fracture_faces, name="internal_boundary_filter"
         )
 
     def _block_diagonal_grid_property_matrix(
         self,
         domains: list[pp.Grid],
         grid_property_getter: Callable[[pp.Grid], Any],
-        name: Optional[str] = None,
     ) -> sps.spmatrix:
         """Construct mapping matrix for the connectivity between two grids entities.
 
@@ -333,7 +343,6 @@ class DifferentiableTpfa:
             domains: List of grids.
             grid_property_getter: Function that returns the property of the grid that
                 should be used for the mapping.
-            name: Name of the operator.
 
         Returns:
             Mapping matrix.
@@ -375,7 +384,8 @@ class DifferentiableTpfa:
             with_sign: Whether to include sign in the mapping.
 
         Returns:
-            spmatrix ``(num_{from_entity} * dimensions[0], num_{to_entity} * dimensions[1])``:
+            spmatrix ``(num_{from_entity} * dimensions[0],
+                        num_{to_entity} * dimensions[1])``:
                 Mapping matrix.
 
         """
@@ -484,14 +494,16 @@ class DifferentiableTpfa:
             get_matrix,
         )
 
-    def cell_face_vectors(self, subdomains: list[pp.Grid]) -> sps.spmatrix:
+    def _cell_face_vectors(self, subdomains: list[pp.Grid]) -> sps.spmatrix:
         """Distance between face centers and cell centers.
 
         Parameters:
             subdomains: List of grids.
 
         Returns:
-            Operator.
+            Distance matrix. See documentation of method half_face_geometry_matrices
+                for details.
+
         """
 
         vec_dim = 3
@@ -536,14 +548,16 @@ class DifferentiableTpfa:
 
         return dist_vec
 
-    def normal_vectors(self, subdomains: list[pp.Grid]) -> sps.spmatrix:
+    def _normal_vectors(self, subdomains: list[pp.Grid]) -> sps.spmatrix:
         """Normal vectors on half-faces, repeated for each dimension.
 
         Parameters:
             subdomains: List of grids.
 
         Returns:
-            Operator.
+            Matrix of normal vectors. See documentation of function
+                half_face_geometry_matrices for details.
+
         """
         vector_dim = 3
 
@@ -595,8 +609,16 @@ class DifferentiableTpfa:
             get_matrix,
         )
 
-    def cell_face_distances(self, subdomains: list[pp.Grid]) -> np.ndarray:
-        """Scalar distance between face centers and cell centers for each half face."""
+    def _cell_face_distances(self, subdomains: list[pp.Grid]) -> np.ndarray:
+        """Scalar distance between face centers and cell centers for each half face.
+
+        Parameters:
+            subdomains: List of grids.
+
+        Returns:
+            Array of distances. See documentation of function
+                half_face_geometry_matrices for details.
+        """
         if len(subdomains) == 0:
             return np.array([])
 
@@ -612,8 +634,24 @@ class DifferentiableTpfa:
     def half_face_geometry_matrices(
         self,
         subdomains: list[pp.Grid],
-    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-        """Matrices describing the geometry in terms of half-faces."""
+    ) -> tuple[np.ndarray, sps.spmatrix, np.ndarray]:
+        """Get matrices describing the geometry in terms of half-faces.
+
+        Parameters:
+            subdomains: List of grids.
+
+        Returns:
+            Tuple:
+                n ``shape=(3 x num_half_faces,9 x num_half_faces)``:
+                    Normal vector on half-faces.
+                d_vec: ``shape=(num_half_faces, 3 x num_half_faces)``:
+                    Vectors between cell centers and face centers.
+                dist, ``shape=(num_half_faces,)``:
+                    Distance between cell centers and face centers.
+
+                See documentation in the implementation for details.
+
+        """
         # Half-face transmissibilities are computed as
         # t_hf = d_vec @ n @ k_hf / dist
         # k_hf: Permeability on half-faces shape=(9 x num_half_faces,)
@@ -626,13 +664,16 @@ class DifferentiableTpfa:
         # (3 * n_hf, 9 * n_hf). Multiplying k_c by this ammounts to half-face-wise
         # inner product between the normal vector and the diffusivity tensor, with each
         # resulting vector having shape (3,), hence the 3 in the first dimension.
-        n = self.normal_vectors(subdomains)
+        n = self._normal_vectors(subdomains)
+
         # Face-cell vectors, each row contains a distance vector for a half-face.
         # Matrix shape = (n_hf, 3 * n_hf). Multiplying (n @ k_c) by this matrix ammounts
         # to half-face-wise inner products as above.
-        d_vec = self.cell_face_vectors(subdomains)
+        d_vec = self._cell_face_vectors(subdomains)
+
         # Face-cell distances, scalar for each half-face
-        dist = self.cell_face_distances(subdomains)
+        dist = self._cell_face_distances(subdomains)
+
         return n, d_vec, dist
 
     def face_pairing_from_cell_array(self, subdomains: list[pp.Grid]) -> sps.spmatrix:
@@ -642,8 +683,13 @@ class DifferentiableTpfa:
         this matrix to get u_l - u_r on faces. Includes the "half" pairing on
         boundaries.
 
-        """
+        Parameters:
+            subdomains: List of grids.
 
+        Returns:
+            Mapping matrix.
+
+        """
         # Construct difference operator to get p_l - p_r on faces. First map p to half-
         # faces, then to faces with the signed matrix.
         c_to_hf_mat = self.half_face_map(
@@ -653,18 +699,16 @@ class DifferentiableTpfa:
         return hf_to_f_mat @ c_to_hf_mat
 
     def boundary_sign(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Sign of boundary faces. TODO: Consider alternative implementation."""
-        # Construct sign vector on boundary from the signed hf_to_f_mat. The following
-        # pairing of signs from half faces to faces works because there's only one half
-        # face at each boundary face. Internally, the sign contributions cancel.
-        hf_to_f_mat = self.half_face_map(subdomains, to_entity="faces", with_sign=True)
-        one_vec = np.ones(hf_to_f_mat.shape[1])
-        bnd_sgn = pp.ad.DenseArray(hf_to_f_mat @ one_vec)
+        """Get operator defining the sign of boundary faces.
 
-        # EK: Alternative implementation which does not use the half_face_map method.
-        # This may be slightly more efficient (though not in a significant way), and
-        # involve different kinds of hokus pokus. I'm not sure what is the best.
-        alt_sgn: list[np.ndarray] = []
+        Parameters:
+            subdomains: List of grids.
+
+        Returns:
+            Array of signs.
+
+        """
+        bnd_sgn: list[np.ndarray] = []
         for sd in subdomains:
             # Signs on all half faces. fi will contain the indices of all internal faces
             # twice (one for each side).
@@ -683,21 +727,29 @@ class DifferentiableTpfa:
             )
             # Set signs on interior faces to zero.
             sgn_unique[is_int] = 0
-            alt_sgn.append(sgn_unique)
-        # Check that the two implementations give the same result.
-        # TODO: Delete one of the implementations.
-        assert np.allclose(bnd_sgn._values, np.hstack(alt_sgn))
+            bnd_sgn.append(sgn_unique)
 
-        return bnd_sgn
+        return pp.wrap_as_dense_ad_array(np.hstack(bnd_sgn), name="boundary_sign")
 
     def nd_to_3d(
-        self, subdomains: list[pp.Grid], nd: int, entity="cells"
+        self,
+        subdomains: list[pp.Grid],
+        nd: int,
+        entity: Literal["cells", "faces", "nodes"] = "cells",
     ) -> sps.spmatrix:
         """Expand a vector from nd to 3d.
 
         Intended usage: Expand vector source, defined as a nd vector (because mpfa
         discretization is performed in nd), to a 3d vector (because tpfa, specifically
         this version, is implemented in 3d).
+
+        Parameters:
+            subdomains: List of grids.
+            nd: Dimension of the vector source.
+            entity: Entity to expand.
+
+        Returns:
+            Mapping matrix.
 
         """
 
