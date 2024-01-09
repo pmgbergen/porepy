@@ -3,7 +3,7 @@ approximation scheme. The implementation resides in the class Tpfa.
 
 """
 from __future__ import annotations
-from typing import Any, Callable, Literal, Optional
+from typing import Any, Callable, Literal, Optional, Sequence
 import numpy as np
 import scipy.sparse as sps
 
@@ -274,8 +274,8 @@ class DifferentiableTpfa:
     def boundary_filters(
         self,
         mdg: pp.MixedDimensionalGrid,
-        subdomains: list[pp.Grid],
-        boundary_grids: list[pp.BoundaryGrid],
+        subdomains: Sequence[pp.Grid],
+        boundary_grids: Sequence[pp.BoundaryGrid],
         name: str,
     ) -> tuple[pp.ad.Operator, pp.ad.Operator]:
         """Filters for Dirichlet and Neumann boundary conditions.
