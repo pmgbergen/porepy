@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from functools import partial
-from typing import Callable, Literal, Optional, Sequence, Union, cast, TypeVar
+from typing import Callable, Literal, Optional, Sequence, TypeVar, Union, cast
 
 import numpy as np
 import scipy.sparse as sps
