@@ -1504,7 +1504,7 @@ class AdTpfaFlux:
             diff_discr,
             hf_to_f,
             d_vec,
-        ) = self._transmissibility_matrix(domains, diffusivity_tensor)
+        ) = self.__transmissibility_matrix(domains, diffusivity_tensor)
 
         # Treatment of boundary conditions.
         one = pp.ad.Scalar(1)
@@ -1520,7 +1520,7 @@ class AdTpfaFlux:
         # the flux, with a sign change if the normal vector is pointing inwards.
         neu_bnd = neu_filter * bnd_sgn
         # On Dirichlet faces, the assigned Dirichlet value corresponds to a flux of
-        # magnitude t_f. EK TODO: Why minus sign?
+        # magnitude t_f.
         dir_bnd = dir_filter * (-bnd_sgn * t_f)
         t_bnd = neu_bnd + dir_bnd
 
@@ -1532,7 +1532,7 @@ class AdTpfaFlux:
         #   q_j = n_j^T K_i v_i
         #
         # A Tpfa-style discretization of this term will apply harmonic averaging of the
-        # permeabilities (see function _transmissibility_matrix), and multiply with the
+        # permeabilities (see function __transmissibility_matrix), and multiply with the
         # difference in vector source between the two cells. We have already computed
         # the transmissibility matrix, which computes the product of the permeability
         # tensor, the normal vector and a unit vector from cell to face center. To
@@ -1555,7 +1555,7 @@ class AdTpfaFlux:
         # First, map the vector source from nd to 3d. Second, map from cells to
         # half-faces. Third, project the vector source onto the vector from cell center
         # to half-face center (this is the vector which Tpfa uses as a proxy for the
-        # full gradient, see comments in the method _transmissibility_matrix). As the
+        # full gradient, see comments in the method __transmissibility_matrix). As the
         # rows of d_vec have length equal to the distance, this compensates for the
         # distance in the denominator of the half-face transmissibility. Fourth, map
         # from half-faces to faces, using a mapping with signs, thereby taking the
@@ -1590,104 +1590,13 @@ class AdTpfaFlux:
         # below if-statement.
         if isinstance(base_discr, pp.ad.MpfaAd):
             # To obtain a mixture of Tpfa and Mpfa, we utilize pp.ad.Function, one for
-            # the flux and one for the vector source. Keep in mind that these functions
-            # will be evaluated in forward mode, so that the inputs are not
-            # Ad-operators, but numerical values.
-
-            def flux_discretization(
-                T_f: ArrayType, p_diff: ArrayType, p: ArrayType
-            ) -> ArrayType:
-                # Take the differential of the product between the transmissibility
-                # matrix and the pressure difference.
-
-                # We know that base_discr.flux is a sparse matrix, so we can call parse
-                # directly.
-                base_flux = base_discr.flux.parse(self.mdg)
-                # If the function has been called using .value, p is a numpy array and
-                # we pass only the value.
-                if not isinstance(p, pp.ad.AdArray):
-                    return base_flux @ p
-                # Otherwise, at the time of evaluation, p will be an AdArray, thus we
-                # can access its val and jac attributes.
-                val = base_flux @ p.val
-                jac = base_flux @ p.jac
-
-                if hasattr(T_f, "jac"):
-                    # Add the contribution to the Jacobian matrix from the derivative of
-                    # the transmissibility matrix times the pressure difference. To see
-                    # why this is correct, it may be useful to consider the flux over a
-                    # single face (corresponding to one row in the Jacobian matrix).
-                    jac += sps.diags(p_diff.val) @ T_f.jac
-
-                return pp.ad.AdArray(val, jac)
-
-            def vector_source_discretization(
-                T_f: ArrayType, vs_diff: ArrayType, vs: ArrayType
-            ) -> ArrayType:
-                # Take the differential of the flux associated with the vector source
-                # term.
-
-                # We know that base_discr.vector_source is a sparse matrix, so we can
-                # call parse directly.
-                base_discr_vector_source = base_discr.vector_source.parse(self.mdg)
-
-                # Composing the full expression for the vector source term is a bit
-                # tricky, as any of the three arguments may be either a numpy array or
-                # an AdArray. We need to handle all combinations of these cases.
-                #
-                # First, we check if any of the arguments are numpy arrays, which would
-                # correspond to the case where the Operator is evaluated using .value().
-                # In this case, we simply return the product of the base discretization
-                # with the vector source.
-                if (
-                    isinstance(T_f, np.ndarray)
-                    and isinstance(vs, np.ndarray)
-                    and isinstance(vs_diff, np.ndarray)
-                ):
-                    # The value is a numpy array, and we simply return the product with
-                    # the base discretization.
-                    return base_discr_vector_source @ vs
-
-                # We now know that the return value should be an AdArray, and we need to
-                # compute the Jacobian as well as the value. However, the type of vs
-                # (thus vs_diff) can still be either numpy array or AdArray: The former
-                # corresponds to a constant vector source, the latter to a vector source
-                # that depends on the primary variable (e.g., a non-constant density in
-                # a gravity term). We need to unify these cases:
-                if isinstance(vs, np.ndarray):
-                    # If this is broken, something really weird is going on.
-                    assert isinstance(vs_diff, np.ndarray)
-                    vs_val = vs
-                    vs_diff_val = vs_diff
-
-                    num_rows = vs_val.size
-                    num_cols = self.equation_system.num_dofs()
-                    vs_jac = sps.csr_matrix((num_rows, num_cols))
-                else:
-                    # The value is an AdArray, and we can access its val and jac
-                    # attributes.
-                    vs_val = vs.val
-                    vs_diff_val = vs_diff.val
-                    vs_jac = vs.jac
-
-                # The value is an AdArray, and we need to compute the Jacobian as well
-                # as the value.
-                val = base_discr_vector_source @ vs_val
-                # The contribution from differentiating the vector source term to the
-                # Jacobian of the flux.
-                jac = base_discr.vector_source.parse(self.mdg) @ vs_jac
-
-                if hasattr(T_f, "jac"):
-                    # Add the contribution to the Jacobian matrix from the derivative of
-                    # the transmissibility matrix times the vector source difference.
-                    jac += sps.diags(vs_diff_val) @ T_f.jac
-
-                return pp.ad.AdArray(val, jac)
+            # the flux and one for the vector source.
 
             # Define the Ad function for the flux
-            flux_p = pp.ad.Function(flux_discretization, "differentiable_mpfa")(
-                t_f, potential_difference, potential(domains)
-            )
+            flux_p = pp.ad.Function(
+                partial(self.__mpfa_flux_discretization, base_discr),
+                "differentiable_mpfa",
+            )(t_f, potential_difference, potential(domains))
             # As the base discretization is only invoked inside a function, and then
             # only by the parse()-method, that is, not on operator form, it will not be
             # found in the search for discretization schemes in the operator tree
@@ -1700,7 +1609,8 @@ class AdTpfaFlux:
 
             # Define the Ad function for the vector source
             vector_source_d = pp.ad.Function(
-                vector_source_discretization, "differentiable_mpfa_vector_source"
+                partial(self.__mpfa_vector_source_discretization, base_discr),
+                "differentiable_mpfa_vector_source",
             )(t_f, vector_source_difference, vector_source_cells)
 
         else:
@@ -1734,7 +1644,106 @@ class AdTpfaFlux:
         flux.set_name("Differentiable diffusive flux")
         return flux
 
-    def _transmissibility_matrix(
+    def potential_trace(
+        self,
+        subdomains: list[pp.Grid],
+        potential: Callable[[list[pp.Grid]], pp.ad.Operator],
+        diffusivity_tensor: Callable[[list[pp.Grid]], pp.ad.Operator],
+        flux_name: str,
+    ) -> pp.ad.Operator:
+        """Pressure on the subdomain boundaries.
+
+        Parameters:
+            subdomains: List of subdomains where the pressure is defined.
+
+        Returns:
+            Pressure on the subdomain boundaries. Parsing the operator will return a
+            face-wise array.
+
+        """
+        interfaces: list[pp.MortarGrid] = self.subdomains_to_interfaces(subdomains, [1])
+        boundary_grids = self.subdomains_to_boundary_grids(subdomains)
+
+        projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1)
+
+        boundary_operator = self._combine_boundary_operators(  # type: ignore[call-arg]
+            subdomains=subdomains,
+            dirichlet_operator=potential,
+            neumann_operator=getattr(self, flux_name),
+            bc_type=getattr(self, "bc_type_" + flux_name),
+            name="bc_values_" + flux_name,
+        )
+        base_discr = getattr(self, flux_name + "_discretization")(subdomains)
+        # Obtain the transmissibilities in operator form. Ignore other outputs.
+        t_f_full, *_ = self.__transmissibility_matrix(subdomains, diffusivity_tensor)
+        one = pp.ad.Scalar(1)
+
+        # BC filters for Dirichlet and Neumann faces.
+        diff_discr = pp.numerics.fv.tpfa.DifferentiableTpfa()
+        dir_filter, neu_filter = diff_discr.boundary_filters(
+            self.mdg, subdomains, boundary_grids, "bc_values_" + flux_name
+        )
+        # Also a separate filter for internal boundaries, which are always Neumann.
+        internal_boundary_filter = diff_discr.internal_boundary_filter(subdomains)
+
+        # Face contribution to boundary potential is 1 on Dirichlet faces, -1/t_f_full
+        # on Neumann faces (both external and internal - see Tpfa.discretize). Named
+        # "bound_pressure_face" and not "bound_potential_face" to be consistent with the
+        # base discretization.
+        bound_pressure_face_discr = dir_filter - (
+            neu_filter + internal_boundary_filter
+        ) * (one / t_f_full)
+
+        # Project the interface flux to the primary grid, preparing for discretization
+        # on internal boundaries.
+        projected_internal_flux = projection.mortar_to_primary_int @ getattr(
+            self, "interface_" + flux_name
+        )(interfaces)
+
+        if isinstance(base_discr, pp.ad.MpfaAd):
+            # Approximate the derivative of the transmissibility matrix with respect to
+            # permeability by a Tpfa-style discretization.
+            boundary_value_contribution = pp.ad.Function(
+                partial(self.__mpfa_bound_pressure_discretization, base_discr),
+                "differentiable_mpfa",
+            )(
+                bound_pressure_face_discr,
+                projected_internal_flux,
+                boundary_operator,
+            )
+            # As the base discretization is only invoked inside a function, and then
+            # only by the parse()-method, that is, not on operator form, it will not be
+            # found in the search for discretization schemes in the operator tree
+            # (implemented in the Operator class), and therefore, it will not actually
+            # be discretized. To circumvent this problem, we artifically add a term that
+            # involves the base discretization on operator form, and multiply it by zero
+            # to avoid it having any real impact on the equation. This is certainly an
+            # ugly hack, but it will have to do for now.
+            # TODO: Do we need this trick here, or is it sufficient to do so in the
+            # diffusive flux method?
+            boundary_value_contribution = boundary_value_contribution + pp.ad.Scalar(
+                0
+            ) * base_discr.flux @ potential(subdomains)
+
+        else:
+            # The base discretization is Tpfa, so we can rely on the Ad machinery to
+            # compose the discretization, treating internal and external boundaries
+            # equally.
+            boundary_value_contribution = bound_pressure_face_discr * (
+                projected_internal_flux + boundary_operator
+            )
+
+        pressure_trace = (
+            base_discr.bound_pressure_cell @ potential(subdomains)  # independent of k
+            # Contribution from boundaries.
+            + boundary_value_contribution
+            # the vector source is independent of k
+            + base_discr.bound_pressure_vector_source
+            @ getattr(self, "vector_source_" + flux_name)(subdomains)
+        )
+        return pressure_trace
+
+    def __transmissibility_matrix(
         self,
         subdomains: list[pp.Grid],
         diffusivity_tensor: Callable[[list[pp.Grid]], pp.ad.Operator],
@@ -1813,148 +1822,191 @@ class AdTpfaFlux:
         t_f_full.set_name("transmissibility matrix")
         return t_f_full, diff_discr, hf_to_f, d_vec
 
-    def potential_trace(
-        self,
-        subdomains: list[pp.Grid],
-        potential: Callable[[list[pp.Grid]], pp.ad.Operator],
-        diffusivity_tensor: Callable[[list[pp.Grid]], pp.ad.Operator],
-        flux_name: str,
-    ) -> pp.ad.Operator:
-        """Pressure on the subdomain boundaries.
+    def __mpfa_flux_discretization(
+        self, base_discr: pp.ad.MpfaAd, T_f: ArrayType, p_diff: ArrayType, p: ArrayType
+    ) -> ArrayType:
+        """Take the differential of the flux associated with the pressure difference.
+
+        The method is used for an Mpfa base discretization, where a direct computation
+        of the Jacobian is not possible.
 
         Parameters:
-            subdomains: List of subdomains where the pressure is defined.
+            base_discr: Base discretization of the flux.
+            T_f: Transmissibility matrix.
+            p_diff: Difference in pressure between the two cells on either side of the
+                face.
+            p: Pressure.
 
         Returns:
-            Pressure on the subdomain boundaries. Parsing the operator will return a
-            face-wise array.
+            AdArray with value and Jacobian matrix representing the flux associated with
+                the pressure difference.
 
         """
-        interfaces: list[pp.MortarGrid] = self.subdomains_to_interfaces(subdomains, [1])
-        boundary_grids = self.subdomains_to_boundary_grids(subdomains)
+        # NOTE:  Keep in mind that these functions will be evaluated in forward mode, so
+        # that the inputs are not Ad-operators, but numerical values.
 
-        projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1)
+        # We know that base_discr.flux is a sparse matrix, so we can call parse
+        # directly.
+        base_flux = base_discr.flux.parse(self.mdg)
+        # If the function has been called using .value, p is a numpy array and we pass
+        # only the value.
+        if not isinstance(p, pp.ad.AdArray):
+            return base_flux @ p
+        # Otherwise, at the time of evaluation, p will be an AdArray, thus we can access
+        # its val and jac attributes.
+        val = base_flux @ p.val
+        jac = base_flux @ p.jac
 
-        boundary_operator = self._combine_boundary_operators(  # type: ignore[call-arg]
-            subdomains=subdomains,
-            dirichlet_operator=potential,
-            neumann_operator=getattr(self, flux_name),
-            bc_type=getattr(self, "bc_type_" + flux_name),
-            name="bc_values_" + flux_name,
-        )
-        base_discr = getattr(self, flux_name + "_discretization")(subdomains)
-        # Obtain the transmissibilities in operator form. Ignore other outputs.
-        t_f_full, *_ = self._transmissibility_matrix(subdomains, diffusivity_tensor)
-        one = pp.ad.Scalar(1)
+        if hasattr(T_f, "jac"):
+            # Add the contribution to the Jacobian matrix from the derivative of the
+            # transmissibility matrix times the pressure difference. To see why this is
+            # correct, it may be useful to consider the flux over a single face
+            # (corresponding to one row in the Jacobian matrix).
+            jac += sps.diags(p_diff.val) @ T_f.jac
 
-        # BC filters for Dirichlet and Neumann faces.
-        diff_discr = pp.numerics.fv.tpfa.DifferentiableTpfa()
-        dir_filter, neu_filter = diff_discr.boundary_filters(
-            self.mdg, subdomains, boundary_grids, "bc_values_" + flux_name
-        )
-        # Also a separate filter for internal boundaries, which are always Neumann.
-        internal_boundary_filter = diff_discr.internal_boundary_filter(subdomains)
+        return pp.ad.AdArray(val, jac)
 
-        # Face contribution to boundary potential is 1 on Dirichlet faces, -1/t_f_full
-        # on Neumann faces (both external and internal - see Tpfa.discretize). Named
-        # "bound_pressure_face" and not "bound_potential_face" to be consistent with the
-        # base discretization.
-        bound_pressure_face_discr = dir_filter - (
-            neu_filter + internal_boundary_filter
-        ) * (one / t_f_full)
+    def __mpfa_vector_source_discretization(
+        self,
+        base_discr: pp.ad.MpfaAd,
+        T_f: ArrayType,
+        vs_diff: ArrayType,
+        vs: ArrayType,
+    ) -> ArrayType:
+        """Take the differential of the flux associated with the vector source term.
 
-        # Project the interface flux to the primary grid, preparing for discretization
-        # on internal boundaries.
-        projected_internal_flux = projection.mortar_to_primary_int @ getattr(
-            self, "interface_" + flux_name
-        )(interfaces)
+        The method is used for an Mpfa base discretization, where a direct computation
+        of the Jacobian is not possible.
 
-        if isinstance(base_discr, pp.ad.MpfaAd):
-            # Approximate the derivative of the transmissibility matrix with respect to
-            # permeability by a Tpfa-style discretization.
-            def bound_pressure_discretization(
-                bound_pressure_face: ArrayType,
-                internal_flux: ArrayType,
-                external_bc: np.ndarray,
-            ) -> ArrayType:
-                # Take the differential of the product between the matrix for pressure
-                # trace reconstruction and internal and external boundary conditions.
+        Parameters:
+            base_discr: Base discretization of the vector source.
+            T_f: Transmissibility matrix.
+            vs_diff: Difference in vector source between the two cells on either side of
+                the face.
+            vs: Vector source.
 
-                # We know that base_discr.bound_pressure_face is a sparse matrix, so we
-                # can call parse directly. At the time of evaluation, internal_flux will
-                # be an AdArray, thus we can access its val and jac attributes, while
-                # external_flux is a numpy array.
-                base_term = base_discr.bound_pressure_face.parse(self.mdg)
-                # The value is the standard product of the matrix and boundary values.
+        Returns:
+            AdArray with value and Jacobian matrix representing the flux associated with
+            the vector source.
 
-                # If the function has been called using .value, p is a numpy
-                # array and we pass only the value.
-                if not isinstance(internal_flux, pp.ad.AdArray):
-                    return base_term @ (internal_flux + external_bc)
+        """
+        # NOTE:  Keep in mind that these functions will be evaluated in forward mode, so
+        # that the inputs are not Ad-operators, but numerical values.
 
-                # Otherwise, at the time of evaluation, p will be an AdArray, thus we can
-                # access its val and jac attributes.
+        # We know that base_discr.vector_source is a sparse matrix, so we can call parse
+        # directly.
+        base_discr_vector_source = base_discr.vector_source.parse(self.mdg)
 
-                # Use external_bc (both Dirichlet and Neumann) since both enter into the
-                # pressure trace reconstruction.
-                val = base_term @ (internal_flux.val + external_bc)
-                # The Jacobian matrix has one term corresponding to the standard (e.g.,
-                # non-differentiable FV) discretization. No need to add the external
-                # boundary values, as they should not be differentiated.
-                jac = base_term @ internal_flux.jac
+        # Composing the full expression for the vector source term is a bit tricky, as
+        # any of the three arguments may be either a numpy array or an AdArray. We need
+        # to handle all combinations of these cases.
+        #
+        # First, we check if any of the arguments are numpy arrays, which would
+        # correspond to the case where the Operator is evaluated using .value(). In this
+        # case, we simply return the product of the base discretization with the vector
+        # source.
+        if (
+            isinstance(T_f, np.ndarray)
+            and isinstance(vs, np.ndarray)
+            and isinstance(vs_diff, np.ndarray)
+        ):
+            # The value is a numpy array, and we simply return the product with the base
+            # discretization.
+            return base_discr_vector_source @ vs
 
-                if hasattr(bound_pressure_face, "jac"):
-                    # If the permeability, thus the pressure reconstruction operator,
-                    # has a Jacobian, add its contribution. For external Dirichlet
-                    # boundaries, the Jacobian is zero (the element is constant 1), thus
-                    # these faces give no contribution. There will be a contribution
-                    # from external Neumann boundaries, as well as from internal
-                    # boundaries (which are always Neumann).
-                    jac += (
-                        sps.diags(internal_flux.val + external_bc)
-                        @ bound_pressure_face.jac
-                    )
+        # We now know that the return value should be an AdArray, and we need to compute
+        # the Jacobian as well as the value. However, the type of vs (thus vs_diff) can
+        # still be either numpy array or AdArray: The former corresponds to a constant
+        # vector source, the latter to a vector source that depends on the primary
+        # variable (e.g., a non-constant density in a gravity term). We need to unify
+        # these cases:
+        if isinstance(vs, np.ndarray):
+            # If this is broken, something really weird is going on.
+            assert isinstance(vs_diff, np.ndarray)
+            vs_val = vs
+            vs_diff_val = vs_diff
 
-                return pp.ad.AdArray(val, jac)
-
-            boundary_value_contribution = pp.ad.Function(
-                bound_pressure_discretization, "differentiable_mpfa"
-            )(
-                bound_pressure_face_discr,
-                projected_internal_flux,
-                boundary_operator,
-            )
-            # As the base discretization is only invoked inside a function, and then
-            # only by the parse()-method, that is, not on operator form, it will not be
-            # found in the search for discretization schemes in the operator tree
-            # (implemented in the Operator class), and therefore, it will not actually
-            # be discretized. To circumvent this problem, we artifically add a term that
-            # involves the base discretization on operator form, and multiply it by zero
-            # to avoid it having any real impact on the equation. This is certainly an
-            # ugly hack, but it will have to do for now.
-            # TODO: Do we need this trick here, or is it sufficient to do so in the
-            # diffusive flux method?
-            boundary_value_contribution = boundary_value_contribution + pp.ad.Scalar(
-                0
-            ) * base_discr.flux @ potential(subdomains)
-
+            num_rows = vs_val.size
+            num_cols = self.equation_system.num_dofs()
+            vs_jac = sps.csr_matrix((num_rows, num_cols))
         else:
-            # The base discretization is Tpfa, so we can rely on the Ad machinery to
-            # compose the discretization, treating internal and external boundaries
-            # equally.
-            boundary_value_contribution = bound_pressure_face_discr * (
-                projected_internal_flux + boundary_operator
-            )
+            # The value is an AdArray, and we can access its val and jac attributes.
+            vs_val = vs.val
+            vs_diff_val = vs_diff.val
+            vs_jac = vs.jac
 
-        pressure_trace = (
-            base_discr.bound_pressure_cell @ potential(subdomains)  # independent of k
-            # Contribution from boundaries.
-            + boundary_value_contribution
-            # the vector source is independent of k
-            + base_discr.bound_pressure_vector_source
-            @ getattr(self, "vector_source_" + flux_name)(subdomains)
-        )
-        return pressure_trace
+        # The value is an AdArray, and we need to compute the Jacobian as well as the
+        # value.
+        val = base_discr_vector_source @ vs_val
+        # The contribution from differentiating the vector source term to the Jacobian
+        # of the flux.
+        jac = base_discr.vector_source.parse(self.mdg) @ vs_jac
+
+        if hasattr(T_f, "jac"):
+            # Add the contribution to the Jacobian matrix from the derivative of the
+            # transmissibility matrix times the vector source difference.
+            jac += sps.diags(vs_diff_val) @ T_f.jac
+
+        return pp.ad.AdArray(val, jac)
+
+    def __mpfa_bound_pressure_discretization(
+        self,
+        base_discr: pp.ad.MpfaAd,
+        bound_pressure_face: ArrayType,
+        internal_flux: ArrayType,
+        external_bc: np.ndarray,
+    ) -> ArrayType:
+        """Take the differential of the product between the matrix for pressure trace
+        reconstruction and internal and external boundary conditions.
+
+        Parameters:
+            base_discr: Base discretization of the pressure trace.
+            bound_pressure_face: Pressure trace discretization, computed with
+                differentiable tpfa.
+            internal_flux: Interface fluxes.
+            external_bc: External boundary conditions.
+
+        Returns:
+            AdArray with value and Jacobian matrix representing the reconstructed
+                pressure trace.
+
+        """
+        # NOTE:  Keep in mind that these functions will be evaluated in forward mode, so
+        # that the inputs are not Ad-operators, but numerical values.
+
+        # We know that base_discr.bound_pressure_face is a sparse matrix, so we can call
+        # parse directly. At the time of evaluation, internal_flux will be an AdArray,
+        # thus we can access its val and jac attributes, while external_flux is a numpy
+        # array.
+        base_term = base_discr.bound_pressure_face.parse(self.mdg)
+        # The value is the standard product of the matrix and boundary values.
+
+        # If the function has been called using .value, p is a numpy array and we pass
+        # only the value.
+        if not isinstance(internal_flux, pp.ad.AdArray):
+            return base_term @ (internal_flux + external_bc)
+
+        # Otherwise, at the time of evaluation, p will be an AdArray, thus we can access
+        # its val and jac attributes.
+
+        # Use external_bc (both Dirichlet and Neumann) since both enter into the
+        # pressure trace reconstruction.
+        val = base_term @ (internal_flux.val + external_bc)
+        # The Jacobian matrix has one term corresponding to the standard (e.g.,
+        # non-differentiable FV) discretization. No need to add the external boundary
+        # values, as they should not be differentiated.
+        jac = base_term @ internal_flux.jac
+
+        if hasattr(bound_pressure_face, "jac"):
+            # If the permeability, thus the pressure reconstruction operator, has a
+            # Jacobian, add its contribution. For external Dirichlet boundaries, the
+            # Jacobian is zero (the element is constant 1), thus these faces give no
+            # contribution. There will be a contribution from external Neumann
+            # boundaries, as well as from internal boundaries (which are always
+            # Neumann).
+            jac += sps.diags(internal_flux.val + external_bc) @ bound_pressure_face.jac
+
+        return pp.ad.AdArray(val, jac)
 
 
 class AdDarcyFlux(AdTpfaFlux, DarcysLaw):
