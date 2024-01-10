@@ -1127,7 +1127,8 @@ class DarcysLaw:
 
     """
     gravity_force: Callable[
-        [Union[list[pp.Grid], list[pp.MortarGrid]], str], pp.ad.Operator
+        [Union[list[pp.Grid], list[pp.MortarGrid]], Literal["fluid", "solid"]],
+        pp.ad.Operator,
     ]
     """Gravity force. Normally provided by a mixin instance of
     :class:`~porepy.models.constitutive_laws.GravityForce` or
