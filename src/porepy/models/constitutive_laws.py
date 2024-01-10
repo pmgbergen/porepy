@@ -1599,15 +1599,6 @@ class AdTpfaFlux:
                 partial(self.__mpfa_flux_discretization, base_discr),
                 "differentiable_mpfa",
             )(t_f, potential_difference, potential(domains))
-            # As the base discretization is only invoked inside a function, and then
-            # only by the parse()-method, that is, not on operator form, it will not be
-            # found in the search for discretization schemes in the operator tree
-            # (implemented in the Operator class), and therefore, it will not actually
-            # be discretized. To circumvent this problem, we artifically add a term that
-            # involves the base discretization on operator form, and multiply it by zero
-            # to avoid it having any real impact on the equation. This is certainly an
-            # ugly hack, but it will have to do for now.
-            flux_p = flux_p + pp.ad.Scalar(0) * base_discr.flux @ potential(domains)
 
             # Define the Ad function for the vector source
             vector_source_d = pp.ad.Function(
@@ -1620,6 +1611,16 @@ class AdTpfaFlux:
             # compose the full expression.
             flux_p = t_f * potential_difference
             vector_source_d = t_f * vector_source_difference
+
+        # As the base discretization is only invoked inside a function, and then only by
+        # the parse()-method, that is, not on operator form, it will not be found in the
+        # search for discretization schemes in the operator tree (implemented in the
+        # Operator class), and therefore, it will not actually be discretized. To
+        # circumvent this problem, we artifically add a term that involves the base
+        # discretization on operator form, and multiply it by zero to avoid it having
+        # any real impact on the equation. This is certainly an ugly hack, but it will
+        # have to do for now.
+        flux_p = flux_p + pp.ad.Scalar(0) * base_discr.flux @ potential(domains)
 
         # Get boundary condition values
         boundary_operator = self._combine_boundary_operators(  # type: ignore[call-arg]
@@ -1713,19 +1714,6 @@ class AdTpfaFlux:
                 projected_internal_flux,
                 boundary_operator,
             )
-            # As the base discretization is only invoked inside a function, and then
-            # only by the parse()-method, that is, not on operator form, it will not be
-            # found in the search for discretization schemes in the operator tree
-            # (implemented in the Operator class), and therefore, it will not actually
-            # be discretized. To circumvent this problem, we artifically add a term that
-            # involves the base discretization on operator form, and multiply it by zero
-            # to avoid it having any real impact on the equation. This is certainly an
-            # ugly hack, but it will have to do for now.
-            # TODO: Do we need this trick here, or is it sufficient to do so in the
-            # diffusive flux method?
-            boundary_value_contribution = boundary_value_contribution + pp.ad.Scalar(
-                0
-            ) * base_discr.flux @ potential(subdomains)
 
         else:
             # The base discretization is Tpfa, so we can rely on the Ad machinery to
@@ -1734,6 +1722,20 @@ class AdTpfaFlux:
             boundary_value_contribution = bound_pressure_face_discr * (
                 projected_internal_flux + boundary_operator
             )
+
+        # As the base discretization is only invoked inside a function, and then only by
+        # the parse()-method, that is, not on operator form, it will not be found in the
+        # search for discretization schemes in the operator tree (implemented in the
+        # Operator class), and therefore, it will not actually be discretized. To
+        # circumvent this problem, we artifically add a term that involves the base
+        # discretization on operator form, and multiply it by zero to avoid it having
+        # any real impact on the equation. This is certainly an ugly hack, but it will
+        # have to do for now.
+        # TODO: Do we need this trick here, or is it sufficient to do so in the
+        # diffusive flux method?
+        boundary_value_contribution = boundary_value_contribution + pp.ad.Scalar(
+            0
+        ) * base_discr.flux @ potential(subdomains)
 
         pressure_trace = (
             base_discr.bound_pressure_cell @ potential(subdomains)
