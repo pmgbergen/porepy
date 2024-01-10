@@ -7,11 +7,33 @@ import porepy as pp
 
 from porepy.applications.md_grids.model_geometries import (
     SquareDomainOrthogonalFractures,
+    CubeDomainOrthogonalFractures,
 )
 
 
+class _SetDarcyFlux:
+    """Helper class with a method to set the Darcy flux variable."""
+
+    def darcy_flux_discretization(self, subdomains: list[pp.Grid]) -> pp.ad.MpfaAd:
+        """Discretization object for the Darcy flux term.
+
+        Parameters:
+            subdomains: List of subdomains where the Darcy flux is defined.
+
+        Returns:
+            Discretization of the Darcy flux.
+
+        """
+        if self.params["base_discr"] == "tpfa":
+            return pp.ad.TpfaAd(self.darcy_keyword, subdomains)
+        else:
+            return pp.ad.MpfaAd(self.darcy_keyword, subdomains)
+
+
 class UnitTestAdTpfaFlux(
-    pp.constitutive_laws.AdDarcyFlux, pp.fluid_mass_balance.SinglePhaseFlow
+    pp.constitutive_laws.AdDarcyFlux,
+    _SetDarcyFlux,
+    pp.fluid_mass_balance.SinglePhaseFlow,
 ):
     """
 
@@ -135,21 +157,6 @@ class UnitTestAdTpfaFlux(
 
         v = pp.wrap_as_dense_ad_array(arr, name="Vector_source")
         return v
-
-    def darcy_flux_discretization(self, subdomains: list[pp.Grid]) -> pp.ad.MpfaAd:
-        """Discretization object for the Darcy flux term.
-
-        Parameters:
-            subdomains: List of subdomains where the Darcy flux is defined.
-
-        Returns:
-            Discretization of the Darcy flux.
-
-        """
-        if self.params["base_discr"] == "tpfa":
-            return pp.ad.TpfaAd(self.darcy_keyword, subdomains)
-        else:
-            return pp.ad.MpfaAd(self.darcy_keyword, subdomains)
 
     def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         """Boundary conditions on all external boundaries.
@@ -516,9 +523,107 @@ def test_transmissibility_calculation(vector_source: bool, base_discr: str):
     )
 
 
+class TestDiffTpfaGridsOfAllDimensions(
+    CubeDomainOrthogonalFractures,
+    _SetDarcyFlux,
+    pp.constitutive_laws.CubicLawPermeability,
+    pp.constitutive_laws.AdDarcyFlux,
+    pp.fluid_mass_balance.SinglePhaseFlow,
+):
+    """Helper class to test that the methods for differentiating diffusive fluxes and
+    potential reconstructions work on grids of all dimensions.
+    """
+
+    def __init__(self, params):
+        params.update(
+            {
+                "fracture_indices": [0, 1, 2],
+            }
+        )
+        if params["grid_type"] == "cartesian":
+            params["meshing_arguments"] = {"cell_size": 0.5}
+        else:  # Simplex
+            params["mesh_args"] = {"mesh_size_frac": 0.5, "mesh_size_min": 0.5}
+
+        super().__init__(params)
+
+    def permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Non-constant permeability tensor, the y-component depends on pressure."""
+        if len(subdomains) == 0:
+            return pp.wrap_as_dense_ad_array(0, size=0)
+
+        nc = sum([sd.num_cells for sd in subdomains])
+        # K is a second order tensor having nd^2 entries per cell. 3d:
+        # Kxx, Kxy, Kxz, Kyx, Kyy, Kyz, Kzx, Kzy, Kzz
+        # 0  , 1  , 2  , 3  , 4  , 5  , 6  , 7  , 8
+        tensor_dim = 3**2
+
+        # Set constant component of the permeability - isotropic unit tensor
+        all_vals = np.zeros(nc * tensor_dim, dtype=float)
+        all_vals[0::tensor_dim] = 1
+        all_vals[4::tensor_dim] = 1
+        all_vals[8::tensor_dim] = 1
+
+        # Basis vector for the yy-component
+        e_yy = self.e_i(subdomains, i=4, dim=tensor_dim)
+
+        return (
+            pp.wrap_as_dense_ad_array(all_vals, name="Constant_permeability_component")
+            + e_yy @ self.pressure(subdomains) ** 2
+        )
+
+    def initial_condition(self):
+        """Set a random initial condition, to avoid the trivial case of a constant
+        permeability tensor and trivial pressure and interface flux fields.
+        """
+        super().initial_condition()
+        num_dofs = self.equation_system.num_dofs()
+        values = np.random.rand(num_dofs)
+        self.equation_system.set_variable_values(values, iterate_index=0)
+
+
+@pytest.mark.parametrize("base_discr", ["tpfa", "mpfa"])
+@pytest.mark.parametrize("grid_type", ["cartesian", "simplex"])
+def test_diff_tpfa_on_grid_with_all_dimensions(base_discr: str, grid_type: str):
+    """Test that the methods for differentiating diffusive fluxes and potential
+    reconstructions work on grids of all dimensions.
+
+    The method verifies that the methods can be called, and the resulting operators can
+    be parsed, without raising exceptions. Also, the size and shape of the computed
+    quantities are verified. The actual elements in the value vector and Jacobian matrix
+    are not checked.
+
+    """
+    model = TestDiffTpfaGridsOfAllDimensions(
+        {"base_discr": "tpfa", "grid_type": grid_type}
+    )
+    model.prepare_simulation()
+
+    num_faces = sum([sd.num_faces for sd in model.mdg.subdomains()])
+    num_cells = sum([sd.num_cells for sd in model.mdg.subdomains()])
+    num_dofs = model.equation_system.num_dofs()
+
+    darcy_flux = model.darcy_flux(model.mdg.subdomains())
+    darcy_value = darcy_flux.value(model.equation_system)
+    assert darcy_value.size == num_faces
+
+    darcy_jac = darcy_flux.value_and_jacobian(model.equation_system).jac
+    assert darcy_jac.shape == (num_faces, num_dofs)
+
+    potential_trace = model.potential_trace(
+        model.mdg.subdomains(), model.pressure, model.permeability, "darcy_flux"
+    )
+    potential_value = potential_trace.value(model.equation_system)
+    assert potential_value.size == num_faces
+
+    potential_jac = potential_trace.value_and_jacobian(model.equation_system).jac
+    assert potential_jac.shape == (num_faces, num_dofs)
+
+
 class PoromechanicalTestDiffTpfa(
     SquareDomainOrthogonalFractures,
     pp.constitutive_laws.CubicLawPermeability,
+    _SetDarcyFlux,
     pp.constitutive_laws.AdDarcyFlux,
     pp.poromechanics.Poromechanics,
 ):
@@ -641,21 +746,6 @@ class PoromechanicalTestDiffTpfa(
             [self.interface_darcy_flux_variable]
         )
         self.global_p_2d_ind = self.equation_system.dofs_of(p_2d_var)
-
-    def darcy_flux_discretization(self, subdomains: list[pp.Grid]) -> pp.ad.MpfaAd:
-        """Discretization object for the Darcy flux term.
-
-        Parameters:
-            subdomains: List of subdomains where the Darcy flux is defined.
-
-        Returns:
-            Discretization of the Darcy flux.
-
-        """
-        if self.params["base_discr"] == "tpfa":
-            return pp.ad.TpfaAd(self.darcy_keyword, subdomains)
-        else:
-            return pp.ad.MpfaAd(self.darcy_keyword, subdomains)
 
 
 @pytest.mark.parametrize("base_discr", ["tpfa", "mpfa"])
