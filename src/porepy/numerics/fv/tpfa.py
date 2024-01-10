@@ -353,13 +353,7 @@ class DifferentiableTpfa:
 
         blocks = []
         for g in domains:
-            if g.dim == 0:
-                # 0d subdomains have no faces, so the projection might not exist.
-                # TODO: Implement this with proper handling of special cases (first and
-                # second dimension being faces and cells, respectively).
-                raise NotImplementedError
-            else:
-                mat_loc = grid_property_getter(g)
+            mat_loc = grid_property_getter(g)
             blocks.append(mat_loc)
 
         block_matrix = pp.matrix_operations.optimized_compressed_storage(
