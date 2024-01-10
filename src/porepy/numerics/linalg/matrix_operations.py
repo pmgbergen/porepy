@@ -604,10 +604,10 @@ def invert_diagonal_blocks(
         # Maps retrieve_block to indexation
         iterator_blocks = map(retrieve_block, range(sz.size))
 
-        # Maps np.linalg.inv to blocks
+        # Maps linalg.inv to blocks
         iterator_block_inverses = map(np.linalg.inv, iterator_blocks)
 
-        # Maps np.ravel to block_inverses, perform the actual computation and concatenate
+        # Maps ravel to block_inverses, performs the actual computation and concatenates
         v = np.concatenate(list(map(np.ravel, iterator_block_inverses)))
         return v
 
