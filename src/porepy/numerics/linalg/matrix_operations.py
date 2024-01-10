@@ -568,11 +568,12 @@ def invert_diagonal_blocks(
         inv_a inverse matrix
         """
 
+        if not sps.isspmatrix_csr(a):
+            raise TypeError("Sparse array type not implemented: ", type(a))
+
         row, col = a.nonzero()
         idx_blocks = np.cumsum([0] + list(sz))
         idx_nnz = np.searchsorted(row, idx_blocks)
-        if not sps.isspmatrix_csr(a):
-            raise TypeError("Sparse array type not implemented: ", type(a))
 
         def sub_block(ib):
             lr = row[idx_nnz[ib] : idx_nnz[ib + 1]] - idx_blocks[ib]
