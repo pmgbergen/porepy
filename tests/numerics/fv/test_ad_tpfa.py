@@ -690,7 +690,7 @@ class PoromechanicalTestDiffTpfa(
 
         # Set the mortar displacement, firs using the ordering of the 2d cells
         u_2d_x = np.array([0, 0, 0, 0])
-        u_2d_y = np.array([0, 0, 1, 1])
+        u_2d_y = np.array([0, 0, 1, 2])
         # .. and then map down to the mortar cells.
         u_mortar_x = mortar_to_high_cell.T @ u_2d_x
         u_mortar_y = mortar_to_high_cell.T @ u_2d_y
@@ -831,8 +831,11 @@ def test_derivatives_darcy_flux_potential_trace(base_discr: str):
     # The computed flux
     computed_flux = model.darcy_flux([g_1d]).value_and_jacobian(model.equation_system)
     # Pick out the middle face, and only those faces that are associated with the mortar
-    # displacement in the y-direction.
-    dt_du_computed = computed_flux.jac[1, model.global_dof_u_mortar_y].A.ravel()
+    # displacement in the y-direction. The column indices must also be reordered to
+    # match the ordering of the 2d cells (which was used to set 'true_derivatives').
+    dt_du_computed = computed_flux.jac[
+        1, (model.mortar_to_high_cell @ model.global_dof_u_mortar_y).astype(int)
+    ].A.ravel()
 
     assert np.allclose(dt_du_computed, true_derivatives)
 
@@ -907,3 +910,6 @@ def test_derivatives_darcy_flux_potential_trace(base_discr: str):
     # elements that are essentially zero; EK would not have been surprised if that
     # turned out to be needed for Mpfa, but it seems to work without.
     assert potential_trace.jac[fracture_faces_cart_ordering].data.size == 8
+
+
+test_derivatives_darcy_flux_potential_trace("tpfa")
