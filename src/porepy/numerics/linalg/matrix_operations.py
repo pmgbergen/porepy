@@ -570,11 +570,8 @@ def invert_diagonal_blocks(
 
         row, col = a.nonzero()
         idx_blocks = np.cumsum([0] + list(sz))
-        if sps.isspmatrix_csr(a):
-            idx_nnz = np.searchsorted(row, idx_blocks)
-        elif sps.isspmatrix_csc(a):
-            idx_nnz = np.searchsorted(col, idx_blocks)
-        else:
+        idx_nnz = np.searchsorted(row, idx_blocks)
+        if not sps.isspmatrix_csr(a):
             raise TypeError("Sparse array type not implemented: ", type(a))
 
         def sub_block(ib):
@@ -701,15 +698,15 @@ def invert_diagonal_blocks(
 
     # Remove blocks of size 0
     s = s[s > 0]
-    # Variable to check if we have tried and failed with numba
-    if method == "numba" or method is None:
+    # Select python vectorized function
+    if method == "python" or method is None:
+        inv_vals = invert_diagonal_blocks_python(mat, s)
+    # Select numba function
+    elif method == "numba":
         try:
             inv_vals = invert_diagonal_blocks_numba(mat, s)
         except np.linalg.LinAlgError:
             raise ValueError("Error in inversion of local linear systems")
-    # Variable to check if we should fall back on python
-    elif method == "python":
-        inv_vals = invert_diagonal_blocks_python(mat, s)
     else:
         raise ValueError(f"Unknown type of block inverter {method}")
     ia = block_diag_matrix(inv_vals, s)
