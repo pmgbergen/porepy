@@ -629,8 +629,7 @@ def invert_diagonal_blocks(
             import numba
         except ImportError:
             raise ImportError("Numba not available on the system")
-        # Sort matrix storage before pulling indices and data
-        a.sorted_indices()
+
         ptr = a.indptr
         indices = a.indices
         dat = a.data
