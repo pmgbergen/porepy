@@ -555,9 +555,6 @@ def invert_diagonal_blocks(
         """
         Invert block diagonal matrix using pure python code.
 
-        The implementation is slow for large matrices, consider to use the
-        numba-accelerated method invert_invert_diagagonal_blocks_numba instead
-
         Parameters
         ----------
         a: sps.crs-matrix, to be inverted
@@ -568,22 +565,49 @@ def invert_diagonal_blocks(
         inv_a inverse matrix
         """
 
+        # This function only supports CSR format.
         if not sps.isspmatrix_csr(a):
             raise TypeError("Sparse array type not implemented: ", type(a))
 
+        # Retrieve global indices.
         row, col = a.nonzero()
+
+        # Since blocks should be squared, this statement construct global block indices
         idx_blocks = np.cumsum([0] + list(sz))
+
+        # Maps block indexation to non-zero indexation
         idx_nnz = np.searchsorted(row, idx_blocks)
 
-        def sub_block(ib):
+        # Helper function for retrieving blocks
+        def retrieve_block(ib: int) -> np.ndarray:
+            """
+            Parameters
+            ----------
+            id: the block index
+
+            Returns
+            -------
+            dense_block: the dense block
+            """
+
+            # Initialize block
+            dense_block = np.zeros((sz[ib], sz[ib]))
+
+            # Build local from global indexation by subtracting the stride idx_blocks[ib]
             lr = row[idx_nnz[ib] : idx_nnz[ib + 1]] - idx_blocks[ib]
             lc = col[idx_nnz[ib] : idx_nnz[ib + 1]] - idx_blocks[ib]
-            dense_block = np.zeros((sz[ib], sz[ib]))
+
+            # Loopless assignment of nonzero entries
             dense_block[lr, lc] = a.data[idx_nnz[ib] : idx_nnz[ib + 1]]
             return dense_block
 
-        iterator_blocks = map(sub_block, range(sz.size))
+        # Maps retrieve_block to indexation
+        iterator_blocks = map(retrieve_block, range(sz.size))
+
+        # Maps np.linalg.inv to blocks
         iterator_block_inverses = map(np.linalg.inv, iterator_blocks)
+
+        # Maps np.ravel to block_inverses, perform the actual computation and concatenate
         v = np.concatenate(list(map(np.ravel, iterator_block_inverses)))
         return v
 
@@ -591,9 +615,6 @@ def invert_diagonal_blocks(
         """
         Invert block diagonal matrix by invoking numba acceleration of a simple
         for-loop based algorithm.
-
-        This approach should be more efficient than the related method
-        invert_diagonal_blocks_python for larger problems.
 
         Parameters
         ----------
