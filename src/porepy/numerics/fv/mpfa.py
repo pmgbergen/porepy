@@ -86,7 +86,7 @@ class Mpfa(pp.FVElliptic):
             - mpfa_eta (``float``): Optional. Range [0, 1). Location of pressure
                 continuity point. If not given, porepy tries to set an optimal value.
             - mpfa_inverter (``str``): Optional. Inverter to apply for local problems.
-                Can take values 'numba' (default), or 'python'.
+                Can take values 'python' (default), or 'numba'.
             - partition_arguments (``dict``): Optional. Arguments to control the number
                 of subproblems used to discretize the grid. Can be either the target
                 maximal memory use (controlled by keyword 'max_memory' in
@@ -151,7 +151,7 @@ class Mpfa(pp.FVElliptic):
 
         eta: Optional[float] = parameter_dictionary.get("mpfa_eta", None)
         inverter: Literal["numba", "python"] = parameter_dictionary.get(
-            "mpfa_inverter", "numba"
+            "mpfa_inverter", "python"
         )
 
         # Control of the number of subdomanis.
@@ -574,7 +574,7 @@ class Mpfa(pp.FVElliptic):
         sd: pp.Grid,
         k: pp.SecondOrderTensor,
         bnd: pp.BoundaryCondition,
-        inverter: Literal["python", "numba"],
+        inverter: Optional[Literal["python", "numba"]] = None,
         ambient_dimension: Optional[int] = None,
         eta: Optional[float] = None,
     ) -> tuple[
