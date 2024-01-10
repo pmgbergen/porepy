@@ -280,7 +280,7 @@ class DifferentiableTpfa:
 
     """
 
-    def boundary_filters(
+    def external_boundary_filters(
         self,
         mdg: pp.MixedDimensionalGrid,
         subdomains: Sequence[pp.Grid],
@@ -579,14 +579,13 @@ class DifferentiableTpfa:
         Returns:
             Array of distances. See documentation of function
                 half_face_geometry_matrices for details.
+
         """
         if len(subdomains) == 0:
             return np.array([])
 
         vals = []
         for g in subdomains:
-            # TODO: Check if the repeated computation of fi, ci, sgn is a problem. If
-            # so, cache.
             fi, ci, _ = sps.find(g.cell_faces)
             fc_cc = g.face_centers[:, fi] - g.cell_centers[:, ci]
             vals.append(np.power(fc_cc, 2).sum(axis=0))

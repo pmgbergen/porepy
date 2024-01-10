@@ -1376,12 +1376,13 @@ class AdTpfaFlux:
         method should be called by the overriding method (pressure_trace,
         temperature_trace etc).
 
-    Note: This class implicitly assumes conventions on naming of methods and BC value
-    keys. Specifically, the BC values keys are assumed to be of the form "bc_values_" +
-    flux_name, where flux_name is the name of the flux (e.g. "darcy_flux" or
-    "fourier_flux"). The same goes for "inteface_" + flux_name and flux_name +
-    "_discretization". These conventions are used to simplify the implementation of
-    the class' methods. TODO: Consider making this more explicit.
+    Note:
+        This class implicitly assumes conventions on naming of methods and BC value
+        keys. Specifically, the BC values keys are assumed to be of the form
+        "bc_values_" + flux_name, where flux_name is the name of the flux (e.g.
+        "darcy_flux" or "fourier_flux"). The same goes for "inteface_" + flux_name and
+        flux_name + "_discretization". These conventions are used to simplify the
+        implementation of the class' methods. TODO: Consider making this more explicit.
 
     """
 
@@ -1439,7 +1440,6 @@ class AdTpfaFlux:
     specific_volume: Callable[
         [Union[list[pp.Grid], list[pp.MortarGrid]]], pp.ad.Operator
     ]
-
     """Function that returns the specific volume of a subdomain or interface.
 
     Normally provided by a mixin of instance
@@ -1469,6 +1469,12 @@ class AdTpfaFlux:
             Face-wise integrated flux.
 
         """
+        # NOTE (relevant for debugging): The returned derivative of the transmissibility
+        # is of the form
+        #   dp * dT/d(psi)    (psi is a primary variable)
+        # where dp is the pressure difference across the face. Experience has shown that
+        # the dp factor is easily overlooked when comparing a computed and a 'known'
+        # value, resulting in frustration.
 
         if len(domains) == 0 or all([isinstance(g, pp.BoundaryGrid) for g in domains]):
             # Note: in case of an empty subdomain list, the time dependent array is
@@ -1502,7 +1508,7 @@ class AdTpfaFlux:
 
         # Treatment of boundary conditions.
         one = pp.ad.Scalar(1)
-        dir_filter, neu_filter = diff_discr.boundary_filters(
+        dir_filter, neu_filter = diff_discr.external_boundary_filters(
             self.mdg, domains, boundary_grids, "bc_values_" + flux_name
         )
         # Delete neu values in T_f, i.e. keep all non-neu values.
@@ -1513,8 +1519,10 @@ class AdTpfaFlux:
         # Discretization of boundary conditions: On Neumann faces, we will simply add
         # the flux, with a sign change if the normal vector is pointing inwards.
         neu_bnd = neu_filter * bnd_sgn
-        # On Dirichlet faces, the assigned Dirichlet value corresponds to a flux of
-        # magnitude t_f.
+        # On Dirichlet faces, an assigned Dirichlet value (assuming zero potential in
+        # the cell adjacent to the face) will induce a flux proportional to t_f. (The
+        # actual flux through the face is found by adding the contribution from the cell
+        # center potential, this is taken care of).
         dir_bnd = dir_filter * (-bnd_sgn * t_f)
         t_bnd = neu_bnd + dir_bnd
 
@@ -1674,7 +1682,7 @@ class AdTpfaFlux:
 
         # BC filters for Dirichlet and Neumann faces.
         diff_discr = pp.numerics.fv.tpfa.DifferentiableTpfa()
-        dir_filter, neu_filter = diff_discr.boundary_filters(
+        dir_filter, neu_filter = diff_discr.external_boundary_filters(
             self.mdg, subdomains, boundary_grids, "bc_values_" + flux_name
         )
         # Also a separate filter for internal boundaries, which are always Neumann.
@@ -1819,14 +1827,19 @@ class AdTpfaFlux:
     def __mpfa_flux_discretization(
         self, base_discr: pp.ad.MpfaAd, T_f: ArrayType, p_diff: ArrayType, p: ArrayType
     ) -> ArrayType:
-        """Take the differential of the flux associated with the potential difference.
+        """Approximate the product rule for the expression d(T_MPFA * p), where T_MPFA
+        is the transmissibility matrix for an Mpfa discretization.
 
-        The method is used for an Mpfa base discretization, where a direct computation
-        of the Jacobian is not possible.
+        The approximation is taken as
+
+            d(T_MPFA * p) ~ T_MPFA * dp + p_diff * d(T_TPFA)
+
+        where, for a single face, p_diff is the difference in pressure between the two
+        cells on either side of the face - the method self.diffusive_flux() for
+        further explanation.
 
         Parameters:
-            base_discr: Base discretization of the flux.
-            T_f: Transmissibility matrix.
+            base_discr: Base discretization of the flux. T_f: Transmissibility matrix.
             p_diff: Difference in potential between the two cells on either side of the
                 face.
             p: Potential.
@@ -1836,8 +1849,8 @@ class AdTpfaFlux:
                 the potential difference.
 
         """
-        # NOTE:  Keep in mind that these functions will be evaluated in forward mode, so
-        # that the inputs are not Ad-operators, but numerical values.
+        # NOTE: Keep in mind that this functions will be evaluated in forward mode, thus
+        # the inputs are not Ad-operators, but numerical values.
 
         # We know that base_discr.flux is a sparse matrix, so we can call parse
         # directly.
@@ -1867,10 +1880,17 @@ class AdTpfaFlux:
         vs_diff: ArrayType,
         vs: ArrayType,
     ) -> ArrayType:
-        """Take the differential of the flux associated with the vector source term.
+        """Approximate the product rule for the expression d(VS_MPFA * vs), where
+        VS_MPFA is the Mpfa discretization of the vector source, and vs is the vector
+        source.
 
-        The method is used for an Mpfa base discretization, where a direct computation
-        of the Jacobian is not possible.
+         The approximation is taken as
+
+            d(VS_MPFA * vs) ~ VS_MPFA * d(vs) + vs_diff * d(VS_TPFA)
+
+        where, for a single face, vs_diff is the difference in vector source between
+        the two cells on either side of the face, see the method self.diffusive_flux()
+        for further explanation.
 
         Parameters:
             base_discr: Base discretization of the vector source.
@@ -1884,8 +1904,8 @@ class AdTpfaFlux:
             the vector source.
 
         """
-        # NOTE:  Keep in mind that these functions will be evaluated in forward mode, so
-        # that the inputs are not Ad-operators, but numerical values.
+        # NOTE: Keep in mind that this functions will be evaluated in forward mode, thus
+        # the inputs are not Ad-operators, but numerical values.
 
         # We know that base_discr.vector_source is a sparse matrix, so we can call parse
         # directly.
@@ -1950,23 +1970,32 @@ class AdTpfaFlux:
         internal_flux: ArrayType,
         external_bc: np.ndarray,
     ) -> ArrayType:
-        """Take the differential of the product between the matrix for pressure trace
-        reconstruction and internal and external boundary conditions.
+        """Approximate the product rule for the expression d(PT_MPFA * bc), where
+        PT_MPFA is the Mpfa discretization of the potential trace reconstruction, and bc
+        represents boundary conditions (internal and external).
+
+        The approximation is taken as
+
+            d(PT_MPFA * bc) ~ PT_MPFA * d(bc) + bc * d(PT_TPFA)
+
+        where, for a single face, bc is the boundary condition value, and d(bc) is the
+        differential of the boundary condition value. The latter will be non-zero *only*
+        for internal boundaries (where it will typically represent the derivative of
+        an interface flux).
 
         Parameters:
-            base_discr: Base discretization of the pressure trace.
-            bound_pressure_face: Pressure trace discretization, computed with
+            base_discr: Base discretization of the pressure trace. bound_pressure_face:
+            Pressure trace discretization, computed with
                 differentiable tpfa.
-            internal_flux: Interface fluxes.
-            external_bc: External boundary conditions.
+            internal_flux: Interface fluxes. external_bc: External boundary conditions.
 
         Returns:
             AdArray with value and Jacobian matrix representing the reconstructed
                 pressure trace.
 
         """
-        # NOTE:  Keep in mind that these functions will be evaluated in forward mode, so
-        # that the inputs are not Ad-operators, but numerical values.
+        # NOTE: Keep in mind that this functions will be evaluated in forward mode, thus
+        # the inputs are not Ad-operators, but numerical values.
 
         # We know that base_discr.bound_pressure_face is a sparse matrix, so we can call
         # parse directly. At the time of evaluation, internal_flux will be an AdArray,

@@ -38,17 +38,6 @@ class UnitTestAdTpfaFlux(
                 time_step_index=0,
             )
 
-    def discretize(self):
-        super().discretize()
-        # Trick to compute the discretization matrices for the Darcy flux. This is done
-        # automatically inside the constituitve laws if an Mpfa discretization is used,
-        # but not for tpfa. In the latter case, the full discretization is computed as
-        # part of the construction of Diff-Tpfa, and there is usually no need for a
-        # separate construction of the transmissibility matrix. However, in this test we
-        # will need it, so we force the computation here.
-        dummy = self.darcy_flux_discretization(self.mdg.subdomains()).flux
-        dummy.discretize(self.mdg)
-
     def set_geometry(self):
         # Create the geometry through domain amd fracture set.
         self.set_domain()
@@ -670,7 +659,7 @@ class PoromechanicalTestDiffTpfa(
 
 
 @pytest.mark.parametrize("base_discr", ["tpfa", "mpfa"])
-def test_derivative_darcy_flux_wrt_mortar_displacement(base_discr: str):
+def test_derivatives_darcy_flux_potential_trace(base_discr: str):
     """Test the derivative of the Darcy flux with respect to the mortar displacement,
     and of the potential reconstruciton with respect to the interface flux.
 
