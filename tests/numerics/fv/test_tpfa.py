@@ -749,13 +749,8 @@ class WithDiffTpfa(
         all_vals[4::tensor_dim] = 1
         all_vals[8::tensor_dim] = 1
 
-        # Basis vector for the yy-component
-        e_yy = self.e_i(subdomains, i=4, dim=tensor_dim)
-
         return pp.wrap_as_dense_ad_array(
             all_vals, name="Constant_permeability_component"
-        ) + e_yy @ self.pressure(subdomains) * pp.ad.Scalar(
-            0  # Note the 0 here
         )
 
 

@@ -2016,10 +2016,9 @@ class AdTpfaFlux:
         # Otherwise, at the time of evaluation, internal_flux will be an AdArray, thus
         # we can access its val and jac attributes.
 
-        # EK: Testing on a case with no internal boundaries revealed a case where the
-        # external_bc was an AdArray. The precise reason for this is not clear (it could
-        # be a straightforward result of the rules of parsing), but to cover all cases,
-        # we do a if-else here.
+        # EK: Testing revealed a case where the external_bc was an AdArray. The precise
+        # reason for this is not clear (it could be a straightforward result of the
+        # rules of parsing), but to cover all cases, we do a if-else here.
         if isinstance(external_bc, pp.ad.AdArray):
             external_bc_val = external_bc.val
         else:
