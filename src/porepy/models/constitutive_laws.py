@@ -1971,7 +1971,7 @@ class AdTpfaFlux:
         base_discr: pp.ad.MpfaAd,
         bound_pressure_face: ArrayType,
         internal_flux: ArrayType,
-        external_bc: np.ndarray,
+        external_bc: ArrayType,
     ) -> ArrayType:
         """Approximate the product rule for the expression d(PT_MPFA * bc), where
         PT_MPFA is the Mpfa discretization of the potential trace reconstruction, and bc
@@ -1990,7 +1990,8 @@ class AdTpfaFlux:
             base_discr: Base discretization of the pressure trace. bound_pressure_face:
             Pressure trace discretization, computed with
                 differentiable tpfa.
-            internal_flux: Interface fluxes. external_bc: External boundary conditions.
+            internal_flux: Interface fluxes.
+            external_bc: External boundary conditions.
 
         Returns:
             AdArray with value and Jacobian matrix representing the reconstructed
@@ -2012,12 +2013,21 @@ class AdTpfaFlux:
         if not isinstance(internal_flux, pp.ad.AdArray):
             return base_term @ (internal_flux + external_bc)
 
-        # Otherwise, at the time of evaluation, p will be an AdArray, thus we can access
-        # its val and jac attributes.
+        # Otherwise, at the time of evaluation, internal_flux will be an AdArray, thus
+        # we can access its val and jac attributes.
+
+        # EK: Testing on a case with no internal boundaries revealed a case where the
+        # external_bc was an AdArray. The precise reason for this is not clear (it could
+        # be a straightforward result of the rules of parsing), but to cover all cases,
+        # we do a if-else here.
+        if isinstance(external_bc, pp.ad.AdArray):
+            external_bc_val = external_bc.val
+        else:
+            external_bc_val = external_bc
 
         # Use external_bc (both Dirichlet and Neumann) since both enter into the
         # pressure trace reconstruction.
-        val = base_term @ (internal_flux.val + external_bc)
+        val = base_term @ (internal_flux.val + external_bc_val)
         # The Jacobian matrix has one term corresponding to the standard (e.g.,
         # non-differentiable FV) discretization. No need to add the external boundary
         # values, as they should not be differentiated.
@@ -2030,7 +2040,9 @@ class AdTpfaFlux:
             # contribution. There will be a contribution from external Neumann
             # boundaries, as well as from internal boundaries (which are always
             # Neumann).
-            jac += sps.diags(internal_flux.val + external_bc) @ bound_pressure_face.jac
+            jac += (
+                sps.diags(internal_flux.val + external_bc_val) @ bound_pressure_face.jac
+            )
 
         return pp.ad.AdArray(val, jac)
 
