@@ -418,8 +418,9 @@ class DifferentiableTpfa:
             # Expand the indices, with the following logic (for rows): First repeat the
             # row indices to match the size of columns (the from entity). Then expand
             # these indices to account for the dimenison of the to entity
-            # (dimensions[0]). The latter assigns rows[indices 0:dimensions[0]] to the
-            # first face etc. The logic for the columns is the same.
+            # (dimensions[0]). The latter assigns rows[indices[0]:indices[0] +
+            # dimensions[0]] to the first face etc. The logic for the columns is the
+            # same.
             rows = pp.fvutils.expand_indices_nd(
                 np.repeat(indices[0], repeat_row_inds), dimensions[0]
             )
