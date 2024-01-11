@@ -701,3 +701,82 @@ def test_diff_tpfa_on_grid_with_all_dimensions(base_discr: str, grid_type: str):
 
     potential_jac = potential_trace.value_and_jacobian(model.equation_system).jac
     assert potential_jac.shape == (num_faces, num_dofs)
+
+
+# Test that a standard discretization and a differentiable discretization give the same
+# linear system for a constant permeability.
+
+
+class WithoutDiffTpfa(
+    _SetDarcyFlux,
+    pp.fluid_mass_balance.SinglePhaseFlow,
+):
+    """Helper class to test that the methods for differentiating diffusive fluxes and
+    potential reconstructions work on grids of all dimensions.
+    """
+
+    def initial_condition(self):
+        """Set a random initial condition, to avoid the trivial case of a constant
+        pressure.
+        """
+        super().initial_condition()
+        num_dofs = self.equation_system.num_dofs()
+        np.random.seed(42)
+        values = np.random.rand(num_dofs)
+        self.equation_system.set_variable_values(values, iterate_index=0)
+
+
+class WithDiffTpfa(
+    pp.constitutive_laws.AdDarcyFlux,
+    WithoutDiffTpfa,
+):
+    """Helper class to test that the methods for differentiating diffusive fluxes and
+    potential reconstructions work on grids of all dimensions.
+    """
+
+    def permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Constant permeability tensor: The y-component has a pressure dependency,
+        but this is multiplied by zero.
+        """
+        if len(subdomains) == 0:
+            return pp.wrap_as_dense_ad_array(0, size=0)
+
+        nc = sum([sd.num_cells for sd in subdomains])
+        tensor_dim = 3**2
+
+        all_vals = np.zeros(nc * tensor_dim, dtype=float)
+        all_vals[0::tensor_dim] = 1
+        all_vals[4::tensor_dim] = 1
+        all_vals[8::tensor_dim] = 1
+
+        # Basis vector for the yy-component
+        e_yy = self.e_i(subdomains, i=4, dim=tensor_dim)
+
+        return pp.wrap_as_dense_ad_array(
+            all_vals, name="Constant_permeability_component"
+        ) + e_yy @ self.pressure(subdomains) * pp.ad.Scalar(
+            0  # Note the 0 here
+        )
+
+
+@pytest.mark.parametrize("base_discr", ["tpfa", "mpfa"])
+def test_diff_tpfa_and_standard_tpfa_give_same_linear_system(base_discr: str):
+    """Discretize the same problem with a standard TPFA discretization and a
+    differentiable TPFA discretization, where the latter also has a constant
+    permeability, but given on 'differentiable form'. The Jacobian matrix and the
+    residual vectors should be the same.
+    """
+    model_without_diff = WithoutDiffTpfa({"base_discr": base_discr})
+    model_with_diff = WithDiffTpfa({"base_discr": base_discr})
+
+    matrix, vector = [], []
+
+    for mod in [model_without_diff, model_with_diff]:
+        mod.prepare_simulation()
+        mod.assemble_linear_system()
+
+        matrix.append(mod.linear_system[0])
+        vector.append(mod.linear_system[1])
+
+    assert np.allclose(matrix[0].A, matrix[1].A)
+    assert np.allclose(vector[0], vector[1])
