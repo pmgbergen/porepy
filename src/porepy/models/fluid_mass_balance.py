@@ -373,6 +373,7 @@ class MassBalanceEquations(pp.BalanceEquation):
 
 
 class ConstitutiveLawsSinglePhaseFlow(
+    pp.constitutive_laws.ZeroGravityForce,
     pp.constitutive_laws.DarcysLaw,
     pp.constitutive_laws.PeacemanWellFlux,
     pp.constitutive_laws.DimensionReduction,
@@ -755,6 +756,14 @@ class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
     by a mixin instance of :class:`~porepy.models.constitutive_laws.FluidMobility`.
 
     """
+    operator_to_SecondOrderTensor: Callable[
+        [pp.Grid, pp.ad.Operator, pp.number], pp.SecondOrderTensor
+    ]
+    """Function that returns a SecondOrderTensor provided a method returning
+    permeability as a Operator. Normally provided by a mixin instance of
+    :class:`~porepy.models.constitutive_laws.SecondOrderTensorUtils`.
+
+    """
 
     def __init__(self, params: Optional[dict] = None) -> None:
         super().__init__(params)
@@ -825,7 +834,9 @@ class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
                 self.darcy_keyword,
                 {
                     "bc": self.bc_type_darcy_flux(sd),
-                    "second_order_tensor": self.permeability_tensor(sd),
+                    "second_order_tensor": self.operator_to_SecondOrderTensor(
+                        sd, self.permeability([sd]), self.solid.permeability()
+                    ),
                     "ambient_dimension": self.nd,
                 },
             )
@@ -848,31 +859,6 @@ class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
                     "ambient_dimension": self.nd,
                 },
             )
-
-    def permeability_tensor(self, sd: pp.Grid) -> pp.SecondOrderTensor:
-        """Convert ad permeability to :class:`~pp.params.tensor.SecondOrderTensor`.
-
-        Override this method if the permeability is anisotropic.
-
-        Parameters:
-            sd: Subdomain for which the permeability is requested.
-
-        Returns:
-            Permeability tensor.
-
-        """
-        permeability_ad = self.specific_volume([sd]) * self.permeability([sd])
-        try:
-            permeability = permeability_ad.value(self.equation_system)
-        except KeyError:
-            # If the permeability depends on an not yet computed discretization matrix,
-            # fall back on reference value
-            volume = self.specific_volume([sd]).value(self.equation_system)
-            permeability = self.solid.permeability() * np.ones(sd.num_cells) * volume
-
-        # TODO: Safeguard against negative permeability?
-        assert isinstance(permeability, np.ndarray)
-        return pp.SecondOrderTensor(permeability)
 
     def before_nonlinear_iteration(self):
         """

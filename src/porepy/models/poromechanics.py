@@ -29,6 +29,7 @@ class ConstitutiveLawsPoromechanics(
     pp.constitutive_laws.PressureStress,
     pp.constitutive_laws.PoroMechanicsPorosity,
     # Fluid mass balance subproblem
+    pp.constitutive_laws.ZeroGravityForce,
     pp.constitutive_laws.DarcysLaw,
     pp.constitutive_laws.DimensionReduction,
     pp.constitutive_laws.AdvectiveFlux,
