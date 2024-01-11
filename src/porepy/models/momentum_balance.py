@@ -104,6 +104,12 @@ class MomentumBalanceEquations(pp.BalanceEquation):
     defining the solution strategy.
 
     """
+    gravity_force: Callable[[list[pp.Grid] | list[pp.MortarGrid], str], pp.ad.Operator]
+    """Gravity force. Normally provided by a mixin instance of
+    :class:`~porepy.models.constitutive_laws.GravityForce` or
+    :class:`~porepy.models.constitutive_laws.ZeroGravityForce`.
+
+    """
 
     def set_equations(self) -> None:
         """Set equations for the subdomains and interfaces.
@@ -445,13 +451,11 @@ class MomentumBalanceEquations(pp.BalanceEquation):
             Operator for the body force.
 
         """
-        num_cells = sum([sd.num_cells for sd in subdomains])
-        vals = np.zeros(num_cells * self.nd)
-        source = pp.ad.DenseArray(vals, "body_force")
-        return source
+        return self.gravity_force(subdomains, "solid")
 
 
 class ConstitutiveLawsMomentumBalance(
+    constitutive_laws.ZeroGravityForce,
     constitutive_laws.LinearElasticSolid,
     constitutive_laws.FractureGap,
     constitutive_laws.FrictionBound,

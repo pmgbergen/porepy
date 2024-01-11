@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 
 from porepy.geometry import half_space
-from tests import test_utils
+from porepy.applications.test_utils.arrays import compare_arrays
 
 
 def test_one_half_space():
@@ -319,4 +319,4 @@ def test_vertexes_convex_domain(normals, x, known_vertexes):
     # Test of function to get vertexes of convex polygons.
     # Test cases (parametrized) cover 2d and 3d domains.
     vertexes = half_space.vertexes_of_convex_domain(normals, x)
-    assert test_utils.compare_arrays(vertexes, known_vertexes)
+    assert compare_arrays(vertexes, known_vertexes)
