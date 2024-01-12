@@ -383,4 +383,4 @@ def test_parse_equations(
     # indicate that something is wrong with the way the conservation law combines
     # terms and factors (e.g., grids, parameters, variables, other methods etc.) to form
     # an Ad operator object.
-    setup.equation_system.assemble_subsystem({equation_name: domains})
+    setup.equation_system.assemble({equation_name: domains})

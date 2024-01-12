@@ -4,7 +4,7 @@ using the AD framework.
 """
 from __future__ import annotations
 
-from typing import Any, Callable, Literal, Optional, Sequence, Union
+from typing import Any, Callable, Literal, Optional, Sequence, Union, overload
 
 import numpy as np
 import scipy.sparse as sps
@@ -1523,37 +1523,33 @@ class EquationSystem:
         unique_discr = _ad_utils.uniquify_discretization_list(discr)
         _ad_utils.discretize_from_list(unique_discr, self.mdg)
 
+    @overload
     def assemble(
         self,
-        state: Optional[np.ndarray] = None,
-    ) -> tuple[sps.spmatrix, np.ndarray]:
-        """Assemble Jacobian matrix and residual vector of the whole system.
-
-        This is a shallow wrapper of :meth:`assemble_subsystem`. Here, the subsystem is
-        the complete set of equations, variables and grids.
-
-        Parameters:
-            state (optional): see :meth:`assemble_subsystem`. Defaults to None.
-
-        Returns:
-            Tuple containing
-                sps.spmatrix: Jacobian matrix corresponding to the targeted state.
-                The ordering of the equations (rows) is determined by the order the
-                equations were added. The DOFs (columns) are ordered according to the
-                global order.
-
-                np.ndarray: Residual vector corresponding to the targeted state, scaled
-                by -1 (moved to rhs).
-
-        """
-        return self.assemble_subsystem(state=state)
-
-    def assemble_subsystem(
-        self,
+        evaluate_jacobian: Literal[True] = True,  # TODO: Consider parameter order
         equations: Optional[EquationList | EquationRestriction] = None,
         variables: Optional[VariableList] = None,
         state: Optional[np.ndarray] = None,
     ) -> tuple[sps.spmatrix, np.ndarray]:
+        ...
+
+    @overload
+    def assemble(
+        self,
+        evaluate_jacobian: Literal[False],
+        equations: Optional[EquationList | EquationRestriction] = None,
+        variables: Optional[VariableList] = None,
+        state: Optional[np.ndarray] = None,
+    ) -> np.ndarray:
+        ...
+
+    def assemble(
+        self,
+        evaluate_jacobian: bool = True,
+        equations: Optional[EquationList | EquationRestriction] = None,
+        variables: Optional[VariableList] = None,
+        state: Optional[np.ndarray] = None,
+    ) -> tuple[sps.spmatrix, np.ndarray] | np.ndarray:
         """Assemble Jacobian matrix and residual vector using a specified subset of
         equations, variables and grids.
 
@@ -1561,11 +1557,11 @@ class EquationSystem:
         included will simply be sliced out.
 
         Note:
-            The ordering of columns in the returned system are defined by the global
-            DOF order. The row blocks are in the same order as equations were added to
-            this system. If an equation is defined on multiple grids, the respective
-            row-block is internally ordered as given by the mixed-dimensional grid
-            (for sd in subdomains, for intf in interfaces).
+            The ordering of columns in the returned system are defined by the global DOF
+            order. The row blocks are in the same order as equations were added to this
+            system. If an equation is defined on multiple grids, the respective
+            row-block is internally ordered as given by the mixed-dimensional grid (for
+            sd in subdomains, for intf in interfaces).
 
             The columns of the subsystem are assumed to be properly defined by
             ``variables``, otherwise a matrix of shape ``(M,)`` is returned. This
@@ -1573,6 +1569,8 @@ class EquationSystem:
             :class:`EquationSystem`.
 
         Parameters:
+            evaluate_jacobian: Whether to evaluate and return the Jacobian matrix.
+                Defaults to True.
             equations (optional): a subset of equations to which the subsystem should be
                 restricted. If not provided (None), all equations known to this
                 :class:`EquationSystem` will be included.
@@ -1592,6 +1590,11 @@ class EquationSystem:
 
                 spmatrix: (Part of the) Jacobian matrix corresponding to the targeted
                 variable state, for the specified equations and variables.
+                ndarray: Residual vector corresponding to the targeted variable state,
+                for the specified equations. Scaled with -1 (moved to rhs).
+
+            or, if ``evaluate_jacobian`` is False,
+
                 ndarray: Residual vector corresponding to the targeted variable state,
                 for the specified equations. Scaled with -1 (moved to rhs).
 
@@ -1619,6 +1622,14 @@ class EquationSystem:
         for equ_name, rows in equ_blocks.items():
             # This will raise a key error if the equation name is unknown.
             eq = self._equations[equ_name]
+            if not evaluate_jacobian:
+                val = eq.value(self, state)
+                if rows is not None:
+                    rhs.append(val[rows])
+                else:
+                    rhs.append(val)
+
+                continue
             ad = eq.value_and_jacobian(self, state)
 
             # If restriction to grid-related row blocks was made,
@@ -1643,13 +1654,17 @@ class EquationSystem:
             if block_length > 0:
                 ind_start = block_indices[-1] + 1
         # Concatenate results equation-wise.
-        if len(mat) > 0:
-            A = sps.vstack(mat, format="csr")
+        if len(rhs) > 0:
+            if evaluate_jacobian:
+                A = sps.vstack(mat, format="csr")
             rhs_cat = np.concatenate(rhs)
         else:
             # Special case if the restriction produced an empty system.
             A = sps.csr_matrix((0, self.num_dofs()))
             rhs_cat = np.empty(0)
+
+        if not evaluate_jacobian:
+            return -rhs_cat
 
         # Slice out the columns belonging to the requested subsets of variables and
         # grid-related column blocks by using the transposed projection to respective
@@ -1717,7 +1732,7 @@ class EquationSystem:
                 column-sense.
             inverter (optional): callable object to compute the inverse of the matrix
                 :math:`A_{ss}`. By default, the scipy direct sparse inverter is used.
-            state (optional): see :meth:`assemble_subsystem`. Defaults to None.
+            state (optional): see :meth:`assemble`. Defaults to None.
 
         Returns:
             Tuple containing
@@ -1791,7 +1806,7 @@ class EquationSystem:
         # Excluded local primary blocks are stored as top rows in the secondary block.
         for name in self._equations:
             if name in primary_equation_names:
-                A_temp, b_temp = self.assemble_subsystem(equations=[name], state=state)
+                A_temp, b_temp = self.assemble(equations=[name], state=state)
                 idx_p = primary_rows[name]
                 # Check if a grid filter was applied for that equation
                 if idx_p is not None:
@@ -1822,7 +1837,7 @@ class EquationSystem:
             # Secondary equations (those not explicitly given as being primary) are
             # assembled wholesale to the secondary block.
             if name in secondary_equation_names:
-                A_temp, b_temp = self.assemble_subsystem(equations=[name], state=state)
+                A_temp, b_temp = self.assemble(equations=[name], state=state)
                 A_sec.append(A_temp)
                 b_sec.append(b_temp)
 
