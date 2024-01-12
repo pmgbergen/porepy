@@ -1137,10 +1137,11 @@ def test_assemble(setup, equation_variables):
         var_names = []
     variables = [var for var in setup.sys_man.variables if var.name in var_names]
 
+    A_sub, b_sub = sys_man.assemble(equations=eq_names, variables=var_names)
     b_sub_only_rhs = sys_man.assemble(
         evaluate_jacobian=False, equations=eq_names, variables=var_names
-    )  # TODO: Consider assembled_equation_indices in this case.
-    A_sub, b_sub = sys_man.assemble(equations=eq_names, variables=var_names)
+    )
+    
     # Check that the residual vector is the same regardless of whether the Jacobian
     # is evaluated or not.
     assert np.allclose(b_sub, b_sub_only_rhs)
