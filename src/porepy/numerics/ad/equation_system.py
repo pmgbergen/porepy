@@ -1526,7 +1526,7 @@ class EquationSystem:
     @overload
     def assemble(
         self,
-        evaluate_jacobian: Literal[True] = True,  # TODO: Consider parameter order
+        evaluate_jacobian: Literal[True] = True,
         equations: Optional[EquationList | EquationRestriction] = None,
         variables: Optional[VariableList] = None,
         state: Optional[np.ndarray] = None,
@@ -1622,14 +1622,18 @@ class EquationSystem:
         for equ_name, rows in equ_blocks.items():
             # This will raise a key error if the equation name is unknown.
             eq = self._equations[equ_name]
+
             if not evaluate_jacobian:
-                val = eq.value(self, state)
+                # Evaluate the residual vector only. Enforce that the result is a numpy
+                # array.
+                val = np.asarray(eq.value(self, state))
                 if rows is not None:
                     rhs.append(val[rows])
                 else:
                     rhs.append(val)
-
+                # Go to the next equation
                 continue
+
             ad = eq.value_and_jacobian(self, state)
 
             # If restriction to grid-related row blocks was made,
