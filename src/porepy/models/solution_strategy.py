@@ -556,7 +556,7 @@ class SolutionStrategy(abc.ABC):
         """
         t_0 = time.time()
         self.linear_system = self.equation_system.assemble()
-        logger.debug(f"Assembled linear system in {t_0-time.time():.2e} seconds.")
+        logger.debug(f"Assembled linear system in {time.time()-t_0:.2e} seconds.")
 
     def solve_linear_system(self) -> np.ndarray:
         """Solve linear system.
