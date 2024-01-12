@@ -131,7 +131,10 @@ class EquationSystem:
         """Contains the row indices in the last assembled (sub-) system for a given
         equation name (key).
 
-        This dictionary changes with every call to any assemble-method.
+        This dictionary changes with every call to any assemble-method, provided the
+        method is invoked to assemble *both* Jacobian matrix *and* the residual vector
+        (argument ``evaluate_jacobian=True``) If only the residual vector is assembled,
+        the indices is not updated.
         """
 
         ### PRIVATE
@@ -1614,7 +1617,11 @@ class EquationSystem:
 
         # Keep track of DOFs for each equation/block
         ind_start = 0
-        self.assembled_equation_indices = dict()
+
+        # Store the indices of the assembled equations only if the Jacobian is
+        # requested.
+        if evaluate_jacobian:
+            self.assembled_equation_indices = dict()
 
         # Iterate over equations, assemble.
         # Also keep track of the row indices of each equation, and store it in
