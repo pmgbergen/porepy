@@ -53,6 +53,7 @@ class SolutionStrategyTest1(two_phase_ppu.SolutionStrategyPressureMassPPU):
         """ """
         os.system("rm " + self.output_file_name)
         os.system("rm " + self.mass_output_file_name)
+        os.system("rm " + self.flips_file_name)
 
     def initial_condition(self) -> None:
         """ """
@@ -134,6 +135,23 @@ class SolutionStrategyTest1(two_phase_ppu.SolutionStrategyPressureMassPPU):
                     "interface_mortar_flux_phase_1": np.zeros(intf.num_cells),
                 },
             )
+
+    def intrinsic_permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """ """
+
+        sd = subdomains[0]
+
+        if len(subdomains) > 1:
+            print("\n\n\n check intrinsic_permeability")
+            raise NotImplementedError
+
+        if sd.id in [1]:
+            permeability = pp.ad.DenseArray(10.0 * np.ones(sd.num_cells))
+        else:
+            permeability = pp.ad.DenseArray(1.0 * np.ones(sd.num_cells))
+
+        permeability.set_name("intrinsic_permeability")
+        return permeability
 
 
 class GeometryConvergence(pp.ModelGeometry):
@@ -245,11 +263,11 @@ if __name__ == "__main__":
 
     fluid_constants = pp.FluidConstants({})
 
-    Kn = 0.1
+    Kn = 10.0
     solid_constants = pp.SolidConstants(
         {
             "porosity": 0.25,
-            "intrinsic_permeability": 1.0 / Ka_0,
+            "intrinsic_permeability": None,
             "normal_permeability": Kn / Ka_0,
             "residual_aperture": 0.1 / L_0,
         }
@@ -314,7 +332,7 @@ if __name__ == "__main__":
     folder_name = "./case_1/vertical_ppu_Kn" + str(Kn) + "/visualization"
 
     time_manager = two_phase_hu.TimeManagerPP(
-        schedule=np.array([0, 10]) / t_0,
+        schedule=np.array([0, 5]) / t_0,
         dt_init=1e-1 / t_0,
         dt_min_max=np.array([1e-3, 1e-1]) / t_0,
         constant_dt=False,

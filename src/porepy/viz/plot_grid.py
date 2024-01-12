@@ -205,6 +205,13 @@ def plot_sd(
     if kwargs.get("color_map"):
         fig.colorbar(kwargs["color_map"])
 
+    extra_pts = kwargs.get("extra_pts")
+    if not type(extra_pts) == type(None):  ###
+        s = kwargs.get("size", None)
+        if type(s) == type(None):
+            s = 100
+        ax.scatter(extra_pts.T[0], extra_pts.T[1], extra_pts.T[2], c="r", s=s)
+
     # Draw and potentially show the plot.
     plt.draw()
     if kwargs.get("if_plot", True):

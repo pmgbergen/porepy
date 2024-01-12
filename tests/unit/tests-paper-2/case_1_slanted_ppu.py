@@ -498,7 +498,7 @@ class GeometryConvergence(pp.ModelGeometry):
         frac_constr_1 = pp.LineFracture(
             np.array(
                 [
-                    [self.x_intersection, self.xmax],
+                    [self.x_intersection + 0.07, self.xmax],
                     [
                         self.y_intersection,
                         self.y_intersection,
@@ -508,7 +508,7 @@ class GeometryConvergence(pp.ModelGeometry):
         )
 
         frac_constr_2 = pp.LineFracture(
-            np.array([[self.xmin, self.xmean], [self.ymean, self.ymean]])
+            np.array([[self.xmin, self.xmean - 0.07], [self.ymean, self.ymean]])
         )
 
         self._fractures: list = [frac1, frac_constr_1, frac_constr_2]
@@ -639,8 +639,8 @@ if __name__ == "__main__":
             self.sign_darcy_phase_0_prev = None
             self.sign_darcy_phase_1_prev = None
 
-            self.root_path = "./case_1/slanted_ppu_Kn" + str(Kn) + "/"
-            # self.root_path = "./case_1/slanted_ppu_Kn" + str(Kn) + "/non-conforming/"
+            # self.root_path = "./case_1/slanted_ppu_Kn" + str(Kn) + "/"
+            self.root_path = "./case_1/slanted_ppu_Kn" + str(Kn) + "/non-conforming/"
 
             self.output_file_name = self.root_path + "OUTPUT_NEWTON_INFO"
             self.mass_output_file_name = self.root_path + "MASS_OVER_TIME"
@@ -648,11 +648,11 @@ if __name__ == "__main__":
 
     cell_size = 0.05
 
-    os.system("mkdir -p ./case_1/slanted_ppu_Kn" + str(Kn))
-    # os.system("mkdir -p ./case_1/slanted_ppu_Kn" + str(Kn) + "/non-conforming")
+    # os.system("mkdir -p ./case_1/slanted_ppu_Kn" + str(Kn))
+    os.system("mkdir -p ./case_1/slanted_ppu_Kn" + str(Kn) + "/non-conforming")
 
-    folder_name = "./case_1/slanted_ppu_Kn" + str(Kn) + "/visualization"
-    # folder_name = "./case_1/slanted_ppu_Kn" + str(Kn) + "/non-conforming/visualization"
+    # folder_name = "./case_1/slanted_ppu_Kn" + str(Kn) + "/visualization"
+    folder_name = "./case_1/slanted_ppu_Kn" + str(Kn) + "/non-conforming/visualization"
 
     time_manager = two_phase_hu.TimeManagerPP(
         schedule=np.array([0, 10]) / t_0,

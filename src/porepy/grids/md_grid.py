@@ -12,6 +12,8 @@ from scipy import sparse as sps
 import porepy as pp
 from porepy.grids import mortar_grid
 
+import pdb
+
 
 class MixedDimensionalGrid:
     """Container for the hierarchy of grids formed by fractures and their intersections
@@ -113,7 +115,6 @@ class MixedDimensionalGrid:
                 data_list.append(data)
         sort_ind = self.argsort_grids(subdomains)
 
-
         # subdomains.reverse() ############
         # data_list.reverse()
 
@@ -190,7 +191,6 @@ class MixedDimensionalGrid:
                 interfaces.append(intf)
                 data_list.append(data)
 
-    
         # interfaces.reverse() #######
         # data_list.reverse()
 
@@ -648,6 +648,7 @@ class MixedDimensionalGrid:
                 Geometric tolerance used when updating mortar projections.
 
         """
+
         # The operation is carried out in three steps:
         # 1) Update the mortar grid. This will also update projections to and from the
         #    mortar grids so that they are valid for the new mortar grid, but not with
@@ -689,9 +690,11 @@ class MixedDimensionalGrid:
                     # If we find a hit, overwrite the old interface information.
                     if sd_pair[0] == sd_old:
                         self._interface_to_subdomains[intf] = (sd_new, sd_pair[1])
+
                         # We know this is the primary subdomain for this interface,
                         # update mortar projections.
                         intf.update_primary(sd_new, sd_old, tol)
+
                     elif sd_pair[1] == sd_old:
                         self._interface_to_subdomains[intf] = (sd_pair[0], sd_new)
                         # This is the secondary subdomain for the interface.

@@ -56,6 +56,8 @@ class SolutionStrategyTest1(two_phase_hu.SolutionStrategyPressureMass):
         """ """
         os.system("rm " + self.output_file_name)
         os.system("rm " + self.mass_output_file_name)
+        os.system("rm " + self.flips_file_name)
+        os.system("rm " + self.beta_file_name)
         # os.system("rm -r " + self.root_path)
         # os.system("mkdir " + self.root_path)
 
@@ -443,6 +445,7 @@ if __name__ == "__main__":
             self.output_file_name = self.root_path + "OUTPUT_NEWTON_INFO"
             self.mass_output_file_name = self.root_path + "MASS_OVER_TIME"
             self.flips_file_name = self.root_path + "FLIPS"
+            self.beta_file_name = self.root_path + "BETA/BETA"
 
     cell_sizes = np.array([0.2, 0.1, 0.05, 0.02])  # last one is the ref value
 
@@ -452,6 +455,8 @@ if __name__ == "__main__":
     #     + str(Kn)
     #     + "/convergence_results"
     # )
+
+    os.system("mkdir -p ./case_1/slanted_hu_Kn" + str(Kn) + "/convergence_results/BETA")
 
     np.savetxt(
         "./case_1/slanted_hu_Kn" + str(Kn) + "/convergence_results/cell_sizes",

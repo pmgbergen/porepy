@@ -18,6 +18,8 @@ import porepy as pp
 from porepy.grids.structured import TensorGrid
 from porepy.utils.setmembership import ismember_rows, unique_columns_tol
 
+import pdb
+
 logger = logging.getLogger(__name__)
 
 
@@ -106,6 +108,10 @@ def match_1d(
     return sps.coo_matrix(
         (weights, (new_g_ind, old_g_ind)), shape=(new_g.num_cells, old_g.num_cells)
     ).tocsr()
+
+    # return sps.csr_matrix(
+    #     (weights, (old_g_ind, new_g_ind))
+    # )  ### OLD version was this
 
 
 def match_2d(
@@ -258,6 +264,9 @@ def match_grids_along_1d_mortar(
         Mapping from the new to the old grid.
 
     """
+
+    # print("\n\n inside match_grids_along_1d_mortar")
+
     # IMPLEMENTATION NOTE: Contrary to the related methods match_1d/match_2d, the
     # scaling argument is not permitted to be None in this function. This is by design,
     # it is less clear how to realize such a scaling in this case.
@@ -326,12 +335,15 @@ def match_grids_along_1d_mortar(
         fn = g_2d.face_nodes.indices.reshape((g_2d.dim, g_2d.num_faces), order="F")
         # Reduce to faces along segment
         fn_loc = fn[:, loc_faces]
+
         # Mapping from global (2d) indices to the local indices used in 1d grid. This
         # also account for a sorting of the nodes, so that the nodes.
         ind_map = np.zeros(g_2d.num_faces, dtype=int)
         ind_map[loc_nodes] = np.arange(loc_nodes.size)
+
         # Face-node in local indices
         fn_loc = ind_map[fn_loc]
+
         # Handle special case
         if loc_faces.size == 1:
             fn_loc = fn_loc.reshape((2, 1))
@@ -341,6 +353,7 @@ def match_grids_along_1d_mortar(
 
         # Find cell index of each face
         ismem, ind = ismember_rows(fn_loc, cn)
+
         # Quality check, the grids should be conforming
         if not np.all(ismem):
             raise ValueError
@@ -392,10 +405,16 @@ def match_grids_along_1d_mortar(
     # errors, in particular for badly shaped cells.
     nodes_new = g_new.nodes
 
+    nodes_1d_new = g_new.nodes[:, nodes_on_boundary_old]  ###
+    g_aux_new, _ = create_1d_from_nodes(nodes_1d_new)  ###
+    start_new = g_aux_new.nodes[:, 0]  ###
+    end_new = g_aux_new.nodes[:, -1]  ###
+
     # Represent the 1d line by its start and end point, as pulled from the old 1d grid
     # (known coordinates).
     # Find distance from the nodes to the line defined by the mortar grid.
-    dist, _ = pp.distances.points_segments(nodes_new, start, end)
+    # dist, _ = pp.distances.points_segments(nodes_new, start, end)
+    dist, _ = pp.distances.points_segments(nodes_new, start_new, end_new)  ###
     # Look for points in the new grid with a small distance to the line.
     hit = np.argwhere(dist.ravel() < tol).reshape((1, -1))[0]
 
@@ -432,7 +451,6 @@ def match_grids_along_1d_mortar(
     matrix = sps.coo_matrix((g_old.num_faces, g_new.num_faces))
 
     for so, sn in zip(both_sides_old, both_sides_new):
-
         if len(sn) == 0 or len(so) == 0:
             # EK: Not sure how this would happen
             continue
@@ -462,6 +480,9 @@ def match_grids_along_1d_mortar(
             shape=(n_loc_new, g_new.num_faces),
         )
 
+        # print("\nface_map_old = ", face_map_old)
+        # print("\nface_map_new = ", face_map_new)
+
         # Map from faces along segment in old to new grid. Consists of three stages:
         # faces in old to cells in 1d version of old, between 1d cells in old and new,
         # cells in new to faces in new
@@ -478,6 +499,8 @@ def match_grids_along_1d_mortar(
         # new to the old grid).
         between_cells = match_1d(g_aux_old, g_aux_new, tol, scaling)
 
+        # print("\nbetween_cells = ", between_cells)
+
         # From faces to cell in new grid
         rows = face_to_cell_map(
             g_new, g_aux_new, loc_faces_new, loc_nodes_new[sort_ind_new]
@@ -487,13 +510,24 @@ def match_grids_along_1d_mortar(
 
         # Composite mapping from faces in new 2d grid to faces in old 2d grid.
         # Only faces on the boundary of the 1d grid.
-        face_map_segment = face_to_cell_old * between_cells * face_to_cell_new
+        face_map_segment = face_to_cell_old.T * between_cells * face_to_cell_new
 
         # Extend face-map to go from all faces in the new grid to all faces in the
         # old one.
         face_map = face_map_old.T * face_map_segment * face_map_new
 
         matrix += face_map
+
+        # print("\nPorepy New ============================")
+        # print("so = ", so)
+        # print("sn = ", sn)
+        # print("face_map_old.T = ", face_map_old.T)
+        # print("face_map_segment = ", face_map_segment)
+        # print("face_map_new = ", face_map_new)
+
+        # print("matrix = ", matrix)
+
+        # pdb.set_trace()
 
     return matrix.tocsr()
 
@@ -665,7 +699,6 @@ def structured_refinement(
 
     # 4. Step: Loop through every coarse cell
     for st, nd in nodes_of_cell_ptr:
-
         nodes_idx = cell_nodes.indices[st:nd]
         num_nodes = nodes_idx.size
 

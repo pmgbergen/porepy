@@ -50,6 +50,8 @@ class SolutionStrategyTest1(two_phase_hu.SolutionStrategyPressureMass):
         """ """
         os.system("rm " + self.output_file_name)
         os.system("rm " + self.mass_output_file_name)
+        os.system("rm " + self.flips_file_name)
+        os.system("rm " + self.beta_file_name)
 
     def initial_condition(self) -> None:
         """ """

@@ -7,6 +7,8 @@ import numpy as np
 import porepy as pp
 from porepy.fracs.utils import pts_edges_to_linefractures
 
+import pdb
+
 
 def network_3d_from_csv(
     file_name: str, has_domain: bool = True, tol: float = 1e-4, **kwargs
@@ -232,6 +234,7 @@ def network_2d_from_csv(
 
     # Extract the data from the csv file
     data = np.genfromtxt(f_name, **npargs)
+
     # Shortcut if no data is loaded
     if data.size == 0:
         # we still consider the possibility that a domain is given

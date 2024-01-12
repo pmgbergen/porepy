@@ -9,8 +9,11 @@ import pdb
 
 os.system("clear")
 
+root_path = "./case_0/ppu/convergence_results/"
+# root_path = "./case_0/ppu/convergence_results-disc/"
+
 # root_path = "./case_0/hu/convergence_results/"
-root_path = "./case_0/hu/convergence_results-disc/"
+# root_path = "./case_0/hu/convergence_results-disc/"
 
 cell_sizes = np.loadtxt(root_path + "cell_sizes")  # last one is the ref
 err_list_p_2d = np.array([])

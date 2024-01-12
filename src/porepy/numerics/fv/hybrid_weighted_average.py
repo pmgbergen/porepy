@@ -110,31 +110,6 @@ def total_flux_internal(
             left_restriction @ pressure - right_restriction @ pressure
         ) - g_internal_faces
 
-        # print(
-        #     np.concatenate(
-        #         (
-        #             (
-        #                 left_restriction @ pressure - right_restriction @ pressure
-        #             ).val.reshape(1, -1),
-        #             np.arange(17).reshape(1, -1),
-        #         ),
-        #         axis=0,
-        #     ).T
-        # )
-
-        # print(
-        #     np.concatenate(
-        #         (g_internal_faces.val.reshape(1, -1), np.arange(17).reshape(1, -1)),
-        #         axis=0,
-        #     ).T
-        # )
-
-        # print(
-        #     np.concatenate(
-        #         (delta_pot.val.reshape(1, -1), np.arange(17).reshape(1, -1)), axis=0
-        #     ).T
-        # )
-
         return delta_pot
 
     def beta_faces(
@@ -171,15 +146,6 @@ def total_flux_internal(
         else:
             tmp = np.minimum(np.real(tmp), 1e6) + np.imag(tmp) * 1j  # TODO: improve it
             beta_faces = 0.5 + 1 / np.pi * np.arctan(tmp * delta_pot_faces)
-
-        # print(
-        #     "beta_faces = ",
-        #     np.concatenate(
-        #         (beta_faces.val.reshape(1, -1), np.arange(17).reshape(1, -1)), axis=0
-        #     ).T,
-        # )
-
-        # pdb.set_trace()
 
         return beta_faces
 

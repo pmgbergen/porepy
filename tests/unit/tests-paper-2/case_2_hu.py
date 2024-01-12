@@ -137,12 +137,33 @@ class SolutionStrategyTest1(two_phase_hu.SolutionStrategyPressureMass):
 
         sd = subdomains[0]
 
+        # if sd.dim == 0:
+        #     extra_pts = sd.cell_centers.T
+        # else:
+        #     extra_pts = sd.nodes.T
+
+        # print("\n\n\n id = ", sd.id)
+        # sd_2d = self.mdg.subdomains(dim=2)[0]
+        # pp.plot_grid(sd_2d, extra_pts=extra_pts, alpha=0)
+
         if len(subdomains) > 1:
             print("\n\n\n check intrinsic_permeability")
             raise NotImplementedError
 
-        if sd.id in [5, 6, 7, 9, 18]:
-            permeability = pp.ad.DenseArray(1e-5 * np.ones(sd.num_cells))
+        if sd.id in [
+            7,
+            6,
+            10,
+            19,
+            8,
+        ]:  # 1D
+            permeability = pp.ad.DenseArray(1e-2 * np.ones(sd.num_cells))
+        elif sd.id in [22, 24, 25, 23]:  # 0D
+            # print("\n\n\n\n mmmm i'm not sure i need it... why am i applying this val?")
+            # pdb.set_trace()
+            permeability = pp.ad.DenseArray(
+                1e-2 * np.ones(sd.num_cells)
+            )  # do i need it?
         else:
             permeability = pp.ad.DenseArray(1e2 * np.ones(sd.num_cells))
 
@@ -152,25 +173,109 @@ class SolutionStrategyTest1(two_phase_hu.SolutionStrategyPressureMass):
     def normal_perm(self, interfaces) -> pp.ad.Operator:
         """ """
 
-        subdomains = self.interfaces_to_subdomains(interfaces)
+        perm = [None] * len(interfaces)
 
-        perm = [None] * len(subdomains)
+        for id_intf, intf in enumerate(interfaces):
+            # print("\n\n\n id = ", intf.id)
+            # sd_2d = self.mdg.subdomains(dim=2)[0]
+            # pp.plot_grid(sd_2d, extra_pts=intf.cell_centers.T, alpha=0)
 
-        for id_sd, sd in enumerate(self.mdg.subdomains()):
-            if sd.id in [5, 6, 7, 9, 18]:
-                perm[id_sd] = 1e-5 * np.ones([sd.num_cells])
+            if intf.id in [
+                5,
+                6,
+                7,
+                18,
+                9,
+            ]:  # 1D interfaces
+                perm[id_intf] = 1e-2 * np.ones([intf.num_cells])
+
+            elif intf.id in [
+                24,
+                25,
+                26,
+                27,
+                28,
+                29,
+                30,
+                31,
+                33,
+                34,
+                36,
+                38,
+                39,
+                40,
+            ]:  # 0D interfaces
+                perm[id_intf] = 2 / (1 / 1e-2 + 1 / 1e2) * np.ones([intf.num_cells])
+
             else:
-                perm[id_sd] = 1e2 * np.ones([sd.num_cells])
+                perm[id_intf] = 1e2 * np.ones([intf.num_cells])
 
-        perm = pp.ad.DenseArray(np.concatenate(perm))
+        norm_perm = pp.ad.DenseArray(np.concatenate(perm))
 
-        projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1)
-        trace = pp.ad.Trace(subdomains, dim=1)
-        norm_perm = projection.primary_to_mortar_avg @ trace.trace @ perm
         return norm_perm
 
+    def after_nonlinear_iteration(self, solution_vector: np.ndarray) -> None:
+        """ """
+        self._nonlinear_iteration += 1
+        self.equation_system.shift_iterate_values()
+        self.equation_system.set_variable_values(
+            values=solution_vector, additive=True, iterate_index=0
+        )
+        self.clip_saturation()
 
-class GeometryConvergence(pp.ModelGeometry):
+        # (
+        #     eq,
+        #     kn,
+        #     pressure_h,
+        #     pressure_l,
+        #     density_upwinded,
+        #     g_term,
+        # ) = self.eq_fcn_mortar_phase_0(self.mdg.interfaces())
+
+        # np.set_printoptions(precision=16)
+        # kn = kn.evaluate(self.equation_system)
+        # print("\nkn = ", kn)
+        # pdb.set_trace()
+
+    def set_discretization_parameters(self) -> None:
+        """ """
+        for sd, data in self.mdg.subdomains(return_data=True):
+            # np.set_printoptions(precision=16)
+            # print("Ka = ", self.intrinsic_permeability_tensor(sd).values)
+            # pdb.set_trace()
+
+            pp.initialize_data(
+                sd,
+                data,
+                self.darcy_keyword,
+                {
+                    "bc": self.bc_type_darcy(sd),
+                    "second_order_tensor": self.intrinsic_permeability_tensor(sd),
+                    "ambient_dimension": self.nd,
+                },
+            )
+
+            pp.initialize_data(
+                sd,
+                data,
+                self.ppu_keyword,
+                {
+                    "bc": self.bc_type_darcy(sd),
+                },
+            )
+
+        for intf, intf_data in self.mdg.interfaces(return_data=True, codim=1):
+            pp.initialize_data(
+                intf,
+                intf_data,
+                self.darcy_keyword,
+                {
+                    "ambient_dimension": self.nd,
+                },
+            )
+
+
+class GeometryCase2(pp.ModelGeometry):
     def set_geometry(self, mdg_ref=False) -> None:
         """ """
 
@@ -227,7 +332,7 @@ class PartialFinalModel(
     two_phase_hu.ConstitutiveLawPressureMass,
     two_phase_hu.BoundaryConditionsPressureMass,
     SolutionStrategyTest1,
-    GeometryConvergence,
+    GeometryCase2,
     pp.DataSavingMixin,
 ):
     """ """
@@ -262,7 +367,7 @@ if __name__ == "__main__":
             "porosity": 0.25,
             "intrinsic_permeability": None,
             "normal_permeability": None,
-            "residual_aperture": 0.1 / L_0,
+            "residual_aperture": 1e-2 / L_0,
         }
     )
 
@@ -315,19 +420,21 @@ if __name__ == "__main__":
             self.sign_omega_0_prev = None
             self.sign_omega_1_prev = None
 
-            self.root_path = "./case_2/"
+            self.root_path = "./case_2/hu/"
 
             self.output_file_name = self.root_path + "OUTPUT_NEWTON_INFO"
             self.mass_output_file_name = self.root_path + "MASS_OVER_TIME"
             self.flips_file_name = self.root_path + "FLIPS"
+            self.beta_file_name = self.root_path + "BETA/BETA"
 
-    os.system("mkdir -p ./case_2")
-    folder_name = "./case_2/visualization"
+    os.system("mkdir -p ./case_2/hu/")
+    os.system("mkdir -p ./case_2/hu/BETA")
+    folder_name = "./case_2/hu/visualization"
 
     time_manager = two_phase_hu.TimeManagerPP(
-        schedule=np.array([0, 10]) / t_0,
-        dt_init=1e-1 / t_0,
-        dt_min_max=np.array([1e-3, 1e-1]) / t_0,
+        schedule=np.array([0, 0.05]) / t_0,
+        dt_init=2e-3 / t_0,
+        dt_min_max=np.array([1e-5, 2e-3]) / t_0,
         constant_dt=False,
         recomp_factor=0.5,
         recomp_max=10,
@@ -336,11 +443,11 @@ if __name__ == "__main__":
         folder_name=folder_name,
     )
 
-    meshing_kwargs = {"constraints": np.array([1, 2])}
+    meshing_kwargs = {"constraints": np.array([20])}
     params = {
         "material_constants": material_constants,
         "max_iterations": 20,
-        "nl_convergence_tol": 1e-6,
+        "nl_convergence_tol": 1e-5,
         "nl_divergence_tol": 1e0,
         "time_manager": time_manager,
         "folder_name": folder_name,

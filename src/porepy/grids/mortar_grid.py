@@ -404,6 +404,7 @@ class MortarGrid:
                 # more than once.
                 mat_avg = pp.match_grids.match_1d(g, new_g, tol, scaling="averaged")
                 mat_int = pp.match_grids.match_1d(g, new_g, tol, scaling="integrated")
+
             elif self.dim == 2:
                 mat_avg = pp.match_grids.match_2d(g, new_g, tol, scaling="averaged")
                 mat_int = pp.match_grids.match_2d(g, new_g, tol, scaling="integrated")
@@ -458,6 +459,9 @@ class MortarGrid:
                 been implemented yet).
 
         """
+
+        # print("\n\n inside update_primary: ---------")
+
         # IMPLEMENTATION NOTE: The signature of this method is different from
         # update_secondary(), since the latter must also take care of for the side
         # grids.
@@ -502,13 +506,16 @@ class MortarGrid:
             split_matrix_int = pp.match_grids.match_grids_along_1d_mortar(
                 self, g_new, g_old, tol, scaling="integrated"
             )
-
         else:  # should be mg.dim == 2
             # It should be possible to use essentially the same approach as in 1d,
             # but this is not yet covered.
             raise NotImplementedError("Have not yet implemented this.")
 
         # Update mappings to and from the primary grid
+
+        # print("\n\nthere already is a mistake")
+        # pdb.set_trace()
+
         self._primary_to_mortar_int = self._primary_to_mortar_int * split_matrix_int
         self._primary_to_mortar_avg = self._primary_to_mortar_avg * split_matrix_avg
 

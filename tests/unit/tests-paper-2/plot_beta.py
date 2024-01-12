@@ -10,17 +10,26 @@ import pdb
 
 os.system("clear")
 
-times = np.around(np.loadtxt("./case_1/horizontal_hu_Kn0.1/BETA/BETA_TIME"), decimals=6)
-# times = np.around(np.loadtxt("./case_1/slanted_hu_Kn10.0/BETA/BETA_TIME"), decimals=6)
+# times = np.around(np.loadtxt("./case_1/horizontal_hu_Kn0.1/BETA/BETA_TIME"), decimals=6)
+# times = np.around(np.loadtxt("./case_1/vertical_hu_Kn10.0/BETA/BETA_TIME"), decimals=6)
+# times = np.around(np.loadtxt("./case_1/slanted_hu_Kn0.1/BETA/BETA_TIME"), decimals=6)
+# times = np.around(
+#     np.loadtxt("./case_1/slanted_hu_Kn0.1/non-conforming/BETA/BETA_TIME"), decimals=6
+# )
 # times = np.around(np.loadtxt("./case_1/horizontal_hu_beta/BETA/BETA_TIME"), decimals=6)
+times = np.around(np.loadtxt("./case_2/hu/BETA/BETA_TIME"), decimals=6)
+
 
 for time in times:
     print("\ntime = ", time, " ----------------------")
 
     #####################################################
-    root_name = "./case_1/horizontal_hu_Kn0.1/BETA"
-    # root_name = "./case_1/slanted_hu_Kn10.0/BETA"
+    # root_name = "./case_1/horizontal_hu_Kn0.1/BETA"
+    # root_name = "./case_1/vertical_hu_Kn10.0/BETA"
+    # root_name = "./case_1/slanted_hu_Kn0.1/BETA"
+    # root_name = "./case_1/slanted_hu_Kn0.1/non-conforming/BETA"
     # root_name = "./case_1/horizontal_hu_beta/BETA"
+    root_name = "./case_2/hu/BETA"
 
     output_file = root_name + "/BETA_" + str(time)
 

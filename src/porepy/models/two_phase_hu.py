@@ -1800,15 +1800,21 @@ class SolutionStrategyPressureMass(pp.SolutionStrategy):
         global_cumulative_flips: np.ndarray,
     ) -> None:
         """
+        time: there is something wrong, called time_manager here
         cumulative_flip: number of flips for each upwind direction inside the timestep (cumulative bcs of the time chopping)
         global_cumulative_flips: cumulative number of flips for each upwind dir for initial time to time
         """
+
         with open(self.flips_file_name, "a") as f:
             np.savetxt(
                 f,
-                np.array([time, *cumulative_flips, *global_cumulative_flips]).reshape(
-                    1, -1
-                ),
+                np.array(
+                    [
+                        self.time_manager.time,
+                        *cumulative_flips,
+                        *global_cumulative_flips,
+                    ]
+                ).reshape(1, -1),
                 delimiter=",",
             )
 
@@ -2062,7 +2068,7 @@ class TimeManagerPP(pp.TimeManager):
 
         else:
             previous_dt = self.dt
-            self.dt = self.dt / 5  # TODO: add "till dt > dt_min"
+            self.dt = self.dt / 2  # TODO: add "till dt > dt_min"
             return (previous_dt, self.dt)
 
     def decrease_time(self) -> None:
