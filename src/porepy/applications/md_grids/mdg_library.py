@@ -14,6 +14,8 @@ import porepy as pp
 from porepy.fracs.fracture_network_2d import FractureNetwork2d
 from porepy.fracs.fracture_network_3d import FractureNetwork3d
 
+from pathlib import Path
+
 from . import domains, fracture_sets
 
 
@@ -172,3 +174,53 @@ def benchmark_regular_2d(
     if is_coarse:
         pp.coarsening.coarsen(mdg, "by_volume")
     return mdg, fracture_network
+
+
+def benchmark_3d_case_3(
+        refinement_level: Literal[0, 1, 2, 3] = 0,
+        ) -> pp.MixedDimensionalGrid:
+    """
+    Create a mixed-dimensional grid for the geometry of case 3 from [1].
+
+    Note:
+        The mixed-dimensional grid is created by reading a `geo` file, so there is no
+        direct way of prescribing meshing arguments.
+
+    Reference:
+        Berre, I., Boon, W. M., Flemisch, B., Fumagalli, A., Gläser, D., Keilegavlen,
+        E., ... & Zulian, P. (2021). Verification benchmarks for single-phase flow in
+        three-dimensional fractured porous media. Advances in Water Resources, 147,
+        103759.
+
+    Parameters:
+        refinement_level: An integer denoting the level of refinement. Use `0` to
+            generate a mixed-dimensional grid with approximately 30K 2D cells,
+            `1` for 140K 2D cells, `2` for 350K cells, and `3` for 500K cells.
+            Default is `0`.
+
+    Returns:
+        Mixed-dimensional grid.
+
+    """
+    # Get directory pointing to the `geo` file
+    abs_path = Path(__file__)
+    benchmark_path = abs_path.parent / Path("geo_library") / Path("benchmark_3d_case_3")
+    if refinement_level == 0:
+        full_path = benchmark_path / Path("mesh30k.geo")
+    elif refinement_level == 1:
+        full_path = benchmark_path / Path("mesh140k.geo")
+    elif refinement_level == 2:
+        full_path = benchmark_path / Path("mesh350k.geo")
+    elif refinement_level == 3:
+        full_path = benchmark_path / Path("mesh500k.geo")
+    else:
+        raise NotImplementedError("Refinement level not available.")
+
+    # Create mixed-dimensional grid
+    mdg = pp.fracture_importer.dfm_from_gmsh(str(full_path), dim=3)
+
+    # In-situ weak test
+    assert (mdg.dim_max() == 3) and (mdg.dim_min() == 1)
+    assert (len(mdg.subdomains()) == 16) and (len(mdg.interfaces()) == 22)
+
+    return mdg
