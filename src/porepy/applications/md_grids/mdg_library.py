@@ -6,6 +6,7 @@ Mainly for use in tests. Other usage should be covered by the model_geometries.
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Literal, Optional, cast
 
 import numpy as np
@@ -13,8 +14,6 @@ import numpy as np
 import porepy as pp
 from porepy.fracs.fracture_network_2d import FractureNetwork2d
 from porepy.fracs.fracture_network_3d import FractureNetwork3d
-
-from pathlib import Path
 
 from . import domains, fracture_sets
 
@@ -177,8 +176,8 @@ def benchmark_regular_2d(
 
 
 def benchmark_3d_case_3(
-        refinement_level: Literal[0, 1, 2, 3] = 0,
-        ) -> pp.MixedDimensionalGrid:
+    refinement_level: Literal[0, 1, 2, 3] = 0,
+) -> pp.MixedDimensionalGrid:
     """
     Create a mixed-dimensional grid for the geometry of case 3 from [1].
 
