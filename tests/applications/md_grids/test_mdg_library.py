@@ -2,7 +2,7 @@
 Some of these tests are sensitive to meshing or node ordering. If this turns out to
 cause problems, we deactivate the corresponding asserts.
 """
-
+import pytest
 import numpy as np
 
 import porepy as pp
@@ -163,7 +163,7 @@ def test_benchmark_3d_case_3(refinement_level):
     # (keyword "refinement_level" in the benchmark function set to {0, 1, 2, 3}). The
     # expectation is that this will continue to be the case, and if not, that the
     # generation will fail for all refinement levels, for the same reason.
-    mdg = pp.mdg_library.benchmark_3d_case_3(refinement_level)
+    mdg, _ = pp.mdg_library.benchmark_3d_case_3(refinement_level)
 
     # Weak tests
     assert (mdg.dim_max() == 3) and (mdg.dim_min() == 1)
