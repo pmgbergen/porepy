@@ -207,7 +207,9 @@ def benchmark_3d_case_3(
 
     # Get directory pointing to the `geo` file
     abs_path = Path(__file__)
-    benchmark_path = abs_path.parent / Path("geo_library") / Path("benchmark_3d_case_3")
+    benchmark_path = (
+        abs_path.parent / Path("gmsh_file_library") / Path("benchmark_3d_case_3")
+    )
     num_cells = [30, 140, 350, 500][refinement_level]
     full_path = benchmark_path / Path(f"mesh{num_cells}k.geo")
 
