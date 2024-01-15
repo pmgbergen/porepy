@@ -208,7 +208,7 @@ class Mpsa(Discretization):
             sd, active_cells
         )
         # Constitutive law and boundary condition for the active grid
-        active_constit: pp.FourthOrderTensor = self._constit_for_subgrid(
+        active_constit: pp.FourthOrderTensor = fvutils.restrict_fourth_order_tensor_to_subgrid(
             constit, active_cells
         )
 
@@ -272,7 +272,7 @@ class Mpsa(Discretization):
             tic = time()
 
             # Copy stiffness tensor, and restrict to local cells.
-            loc_c: pp.FourthOrderTensor = self._constit_for_subgrid(
+            loc_c: pp.FourthOrderTensor = fvutils.restrict_fourth_order_tensor_to_subgrid(
                 active_constit, l2g_cells
             )
 
@@ -2030,25 +2030,3 @@ class Mpsa(Discretization):
 
         return sub_bc
 
-    def _constit_for_subgrid(
-        self, constit: pp.FourthOrderTensor, loc_cells: np.ndarray
-    ) -> pp.FourthOrderTensor:
-        """Extract a constitutive law for a subgrid of the original grid.
-
-        Parameters:
-            constit: Constitutive law for the original grid.
-            loc_cells: Index of cells of the original grid from which the new
-                constitutive law should be picked.
-
-        Returns:
-            New constitutive law aimed at a smaller grid.
-
-        """
-        # Copy stiffness tensor, and restrict to local cells
-        loc_c = constit.copy()
-        loc_c.values = loc_c.values[::, ::, loc_cells]
-        # Also restrict the lambda and mu fields; we will copy the stiffness tensors
-        # later.
-        loc_c.lmbda = loc_c.lmbda[loc_cells]
-        loc_c.mu = loc_c.mu[loc_cells]
-        return loc_c

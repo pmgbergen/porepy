@@ -340,7 +340,11 @@ class Biot(pp.Mpsa):
             "inverter", "numba"
         )
 
-        alpha: float = parameter_dictionary["biot_alpha"]
+        alpha_input: float | pp.SecondOrderTensor = parameter_dictionary["biot_alpha"]
+        if isinstance(alpha_input, (float, int)):
+            alpha = pp.SecondOrderTensor(alpha_input * np.ones(sd.num_cells))
+        else:
+            alpha = alpha_input
 
         # Control of the number of subdomanis.
         max_memory, num_subproblems = pp.fvutils.parse_partition_arguments(
@@ -366,8 +370,11 @@ class Biot(pp.Mpsa):
             sd, active_cells
         )
         # Constitutive law and boundary condition for the active grid
-        active_constit: pp.FourthOrderTensor = self._constit_for_subgrid(
-            constit, active_cells
+        active_constit: pp.FourthOrderTensor = (
+            pp.fvutils.restrict_fourth_order_tensor_to_subgrid(constit, active_cells)
+        )
+        active_alpha: pp.SecondOrderTensor = (
+            pp.fvutils.restrict_second_order_tensor_to_subgrid(alpha, active_cells)
         )
 
         # Extract the relevant part of the boundary condition
@@ -438,8 +445,16 @@ class Biot(pp.Mpsa):
 
             tic = time()
             # Copy stiffness tensor, and restrict to local cells
-            loc_c: pp.FourthOrderTensor = self._constit_for_subgrid(
-                active_constit, l2g_cells
+            loc_c: pp.FourthOrderTensor = (
+                pp.fvutils.restrict_fourth_order_tensor_to_subgrid(
+                    active_constit, l2g_cells
+                )
+            )
+            # Copy Biot coefficient, and restrict to local cells
+            loc_alpha: pp.SecondOrderTensor = (
+                pp.fvutils.restrict_second_order_tensor_to_subgrid(
+                    active_alpha, l2g_cells
+                )
             )
 
             # Boundary conditions are slightly more complex. Find local faces
@@ -667,7 +682,7 @@ class Biot(pp.Mpsa):
         sd: pp.Grid,
         constit: pp.FourthOrderTensor,
         bound_mech: pp.BoundaryConditionVectorial,
-        alpha: float,
+        alpha: pp.SecondOrderTensor,
         eta: float,
         inverter: Literal["python", "numba"],
         hf_output: bool = False,
@@ -746,7 +761,7 @@ class Biot(pp.Mpsa):
             rhs_bound = rhs_bound * hf2f.T
 
         # trace of strain matrix
-        div = self._subcell_gradient_to_cell_scalar(sd, cell_node_blocks)
+        div = self._subcell_gradient_to_cell_scalar(sd, cell_node_blocks, alpha, igrad)
         div_u = div * igrad * rhs_cells
 
         # The boundary discretization of the div_u term is represented directly
@@ -809,7 +824,7 @@ class Biot(pp.Mpsa):
         self,
         sd: pp.Grid,
         subcell_topology: pp.fvutils.SubcellTopology,
-        alpha: float,
+        alpha: pp.SecondOrderTensor,
         bound_exclusion: pp.fvutils.ExcludeBoundaries,
     ) -> tuple[sps.spmatrix, sps.spmatrix]:
         """
@@ -871,15 +886,9 @@ class Biot(pp.Mpsa):
         num_subfno = subcell_topology.num_subfno
 
         # Step 1
-
-        # The implementation is valid for tensor Biot coefficients, but for the
-        # moment, we only allow for scalar inputs.
-        # Take Biot's alpha as a tensor
-        alpha_tensor = pp.SecondOrderTensor(alpha * np.ones(sd.num_cells))
-
         if nd == 2:
-            alpha_tensor.values = np.delete(alpha_tensor.values, (2), axis=0)
-            alpha_tensor.values = np.delete(alpha_tensor.values, (2), axis=1)
+            alpha.values = np.delete(alpha.values, (2), axis=0)
+            alpha.values = np.delete(alpha.values, (2), axis=1)
 
         # Obtain normal_vector * alpha, pairings of cells and nodes (which together
         # uniquely define sub-cells, and thus index for gradients)
@@ -887,7 +896,7 @@ class Biot(pp.Mpsa):
             nAlpha_grad,
             cell_node_blocks,
             sub_cell_index,
-        ) = pp.fvutils.scalar_tensor_vector_prod(sd, alpha_tensor, subcell_topology)
+        ) = pp.fvutils.scalar_tensor_vector_prod(sd, alpha, subcell_topology)
         # transfer nAlpha to a subface-based quantity by pairing expressions on the
         # two sides of the subface
         unique_nAlpha_grad = subcell_topology.pair_over_subfaces(nAlpha_grad)
@@ -1024,7 +1033,11 @@ class Biot(pp.Mpsa):
         return sps.coo_matrix((vals, (rows, cols))).tocsr()
 
     def _subcell_gradient_to_cell_scalar(
-        self, sd: pp.Grid, cell_node_blocks: np.ndarray
+        self,
+        sd: pp.Grid,
+        cell_node_blocks: np.ndarray,
+        alpha: pp.SecondOrderTensor,
+        igrad,
     ) -> sps.spmatrix:
         """Create a mapping from sub-cell gradients to cell-wise traces of the gradient
         operator. The mapping is intended for the discretization of the term div(u)
@@ -1036,20 +1049,57 @@ class Biot(pp.Mpsa):
         nd = sd.dim
         if nd == 2:
             trace = np.array([0, 3])
+
         elif nd == 3:
             trace = np.array([0, 4, 8])
 
+        inds = np.arange(nd**2)
+
         # Sub-cell wise trace of strain tensor: One row per sub-cell
-        row, col = np.meshgrid(np.arange(cell_node_blocks.shape[1]), trace)
+
+        row, col = np.meshgrid(np.arange(cell_node_blocks.shape[1]), inds)
         # Adjust the columns to hit each sub-cell
         incr = np.cumsum(nd**2 * np.ones(cell_node_blocks.shape[1])) - nd**2
         col += incr.astype("int32")
+
+        # Distribute the values of the alpha tensor to the subcells by using
+        # cell_node_blocks. For 2d grids, also drop the z-components of the alpha tensor.
+        # NOTE: This assumes that for a 2d grid, the grid is located in the xy-plane.
+        # This is a tacit assumption throughout the Biot and Mpsa implementations (but
+        # not mpfa, see the use of a rotation matrix in that module).
+        subcell_alpha_values = alpha.values[:nd, :nd, cell_node_blocks[0]]
+
+        # Reorder the elements of the subcell_alpha_values (which is a 3-tensor), so
+        # that the elements of the alpha tensor are ordered as (in 2d, the 3d extension
+        # is the natural one; also subscripts give x and y index, superscript refers to
+        # the ordering of cells in subcell_alpha_values)
+        #
+        #   [alpha_11^0, alpha_12^0, alpha_21^0, alpha_22^0, alpha_11^1, ...]
+        #
+        # To understand the below code, it is useful to consider the following example:
+        #
+        # >> a = np.arange(24).reshape((2, 3, 4))
+        # >> a[:, :, 0]
+        #    array([[ 0,  4,  8],
+        #           [12, 16, 20]])
+        # >> a[:, :, 1]
+        #    array([[ 1,  5,  9],
+        #           [13, 17, 21]])
+        # >> a.swapaxes(2, 1).swapaxes(1, 0).ravel()
+        #    array([ 0,  4,  8, 12, 16, 20,  1,  5,  9, 13, 17, 21,  2,  6, 10, 14, 18,
+        #           22,  3,  7, 11, 15, 19, 23])
+        #
+        # In other words, this just works.
+        subcell_alpha_reordered = (
+            subcell_alpha_values.swapaxes(2, 1).swapaxes(1, 0).ravel()
+        )
 
         # Integrate the trace over the sub-cell, that is, distribute the cell
         # volumes equally over the sub-cells
         num_cell_nodes = sd.num_cell_nodes()
         cell_vol = sd.cell_volumes / num_cell_nodes
-        val = np.tile(cell_vol[cell_node_blocks[0]], (nd, 1))
+        factor = np.repeat(cell_vol[cell_node_blocks[0]], nd**2)
+        val = factor * subcell_alpha_reordered
         # and we have our mapping from vector to scalar values on sub-cells
         vector_2_scalar = sps.coo_matrix(
             (val.ravel("F"), (row.ravel("F"), col.ravel("F")))
