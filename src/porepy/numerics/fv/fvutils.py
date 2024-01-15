@@ -1750,3 +1750,45 @@ def partial_discretization(
     pp.matrix_operations.zero_rows(data[kw2], affected_faces)
     data[kw1] += trm
     data[kw2] += bound_flux
+
+def restrict_fourth_order_tensor_to_subgrid(
+    constit: pp.FourthOrderTensor, loc_cells: np.ndarray
+) -> pp.FourthOrderTensor:
+    """Extract a constitutive law for a subgrid of the original grid.
+
+    Parameters:
+        constit: Constitutive law for the original grid.
+        loc_cells: Index of cells of the original grid from which the new constitutive
+            law should be picked.
+
+    Returns:
+        New constitutive law aimed at a smaller grid.
+
+    """
+    # Copy stiffness tensor, and restrict to local cells
+    loc_c = constit.copy()
+    loc_c.values = loc_c.values[::, ::, loc_cells]
+    # Also restrict the lambda and mu fields; we will copy the stiffness tensors
+    # later.
+    loc_c.lmbda = loc_c.lmbda[loc_cells]
+    loc_c.mu = loc_c.mu[loc_cells]
+    return loc_c
+
+
+def restrict_second_order_tensor_to_subgrid(
+    K: pp.SecondOrderTensor, loc_cells: np.ndarray
+) -> pp.SecondOrderTensor:
+    """Extract the permeability tensor for a subgrid.
+
+    Parameters:
+        K: Permeability tensor for the full grid.
+        loc_cells: Indices of the cells in the subgrid.
+
+    Returns:
+        Permeability tensor for the subgrid.
+
+    """
+    # Copy stiffness tensor, and restrict to local cells
+    loc_K = K.copy()
+    loc_K.values = loc_K.values[::, ::, loc_cells]
+    return loc_K

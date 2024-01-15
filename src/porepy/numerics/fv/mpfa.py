@@ -178,8 +178,8 @@ class Mpfa(pp.FVElliptic):
                 sd, active_cells
             )
             # Constitutive law and boundary condition for the active grid.
-            active_constit: pp.SecondOrderTensor = self._constit_for_subgrid(
-                k, active_cells
+            active_constit: pp.SecondOrderTensor = (
+                fvutils.restrict_second_order_tensor_to_subgrid(k, active_cells)
             )
 
             # Extract the relevant part of the boundary condition.
@@ -258,7 +258,7 @@ class Mpfa(pp.FVElliptic):
             faces_in_subgrid_accum.append(faces_in_subgrid)
 
             # Copy permeability tensor, and restrict to local cells
-            loc_c: pp.SecondOrderTensor = self._constit_for_subgrid(
+            loc_c: pp.SecondOrderTensor = pp.fvutils.restrict_second_order_tensor_to_subgrid(
                 active_constit, l2g_cells
             )
 
@@ -1616,24 +1616,6 @@ class Mpfa(pp.FVElliptic):
         sub_bc.basis = bc.basis[face_map]
 
         return sub_bc
-
-    def _constit_for_subgrid(
-        self, K: pp.SecondOrderTensor, loc_cells: np.ndarray
-    ) -> pp.SecondOrderTensor:
-        """Extract the permeability tensor for a subgrid.
-
-        Parameters:
-            K: Permeability tensor for the full grid.
-            loc_cells: Indices of the cells in the subgrid.
-
-        Returns:
-            Permeability tensor for the subgrid.
-
-        """
-        # Copy stiffness tensor, and restrict to local cells
-        loc_K = K.copy()
-        loc_K.values = loc_K.values[::, ::, loc_cells]
-        return loc_K
 
 
 def reconstruct_presssure(
