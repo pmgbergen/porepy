@@ -177,7 +177,7 @@ def benchmark_regular_2d(
 
 def benchmark_3d_case_3(
     refinement_level: Literal[0, 1, 2, 3] = 0,
-) -> pp.MixedDimensionalGrid:
+) -> tuple[pp.MixedDimensionalGrid, pp.FractureNetwork3d]:
     """
     Create a mixed-dimensional grid for the geometry of case 3 from [1].
 
@@ -198,7 +198,7 @@ def benchmark_3d_case_3(
             Default is `0`.
 
     Returns:
-        Mixed-dimensional grid for the given refinement level.
+        Mixed-dimensional grid for the given refinement level, and the fracture network.
 
     """
     # Sanity check on input argument
@@ -214,4 +214,8 @@ def benchmark_3d_case_3(
     # Create mixed-dimensional grid
     mdg = pp.fracture_importer.dfm_from_gmsh(str(full_path), dim=3)
 
-    return mdg
+    # Also import fracture network
+    fracture_network_path = benchmark_path / Path("fracture_network.csv")
+    network = pp.fracture_importer.network_3d_from_csv(str(fracture_network_path))
+
+    return mdg, network
