@@ -939,7 +939,7 @@ class MixedDimensionalGrid:
                 f"in total {num_cells} cells and {num_nodes} nodes. \n"
             )
 
-        s += f"Total number of interfaces: {self.num_subdomains()}\n"
+        s += f"Total number of interfaces: {self.num_interfaces()}\n"
         for dim in range(self.dim_max(), self.dim_min(), -1):
             num_e = 0
             nc = 0
