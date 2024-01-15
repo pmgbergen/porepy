@@ -186,34 +186,30 @@ def benchmark_3d_case_3(
         direct way of prescribing meshing arguments.
 
     Reference:
-        Berre, I., Boon, W. M., Flemisch, B., Fumagalli, A., Gläser, D., Keilegavlen,
+        [1] Berre, I., Boon, W. M., Flemisch, B., Fumagalli, A., Gläser, D., Keilegavlen,
         E., ... & Zulian, P. (2021). Verification benchmarks for single-phase flow in
         three-dimensional fractured porous media. Advances in Water Resources, 147,
         103759.
 
     Parameters:
         refinement_level: An integer denoting the level of refinement. Use `0` to
-            generate a mixed-dimensional grid with approximately 30K 2D cells,
-            `1` for 140K 2D cells, `2` for 350K cells, and `3` for 500K cells.
+            generate a mixed-dimensional grid with approximately 30K 3D cells,
+            `1` for 140K 3D cells, `2` for 350K 3D cells, and `3` for 500K 3D cells.
             Default is `0`.
 
     Returns:
-        Mixed-dimensional grid.
+        Mixed-dimensional grid for the given refinement level.
 
     """
+    # Sanity check on input argument
+    if refinement_level not in [0, 1, 2, 3]:
+        raise NotImplementedError("Refinement level not available.")
+
     # Get directory pointing to the `geo` file
     abs_path = Path(__file__)
     benchmark_path = abs_path.parent / Path("geo_library") / Path("benchmark_3d_case_3")
-    if refinement_level == 0:
-        full_path = benchmark_path / Path("mesh30k.geo")
-    elif refinement_level == 1:
-        full_path = benchmark_path / Path("mesh140k.geo")
-    elif refinement_level == 2:
-        full_path = benchmark_path / Path("mesh350k.geo")
-    elif refinement_level == 3:
-        full_path = benchmark_path / Path("mesh500k.geo")
-    else:
-        raise NotImplementedError("Refinement level not available.")
+    num_cells = [30, 140, 350, 500][refinement_level]
+    full_path = benchmark_path / Path(f"mesh{num_cells}k.geo")
 
     # Create mixed-dimensional grid
     mdg = pp.fracture_importer.dfm_from_gmsh(str(full_path), dim=3)
