@@ -652,11 +652,42 @@ class Operator:
     def value(
         self, system_manager: pp.ad.EquationSystem, state: Optional[np.ndarray] = None
     ) -> pp.number | np.ndarray | sps.spmatrix:
+        """Evaluate the residual for a given solution.
+
+        Parameters:
+            system_manager: Used to represent the problem. Will be used to parse the
+                sub-operators that combine to form this operator.
+            state (optional): Solution vector for which the residual and its derivatives
+                should be formed. If not provided, the solution will be pulled from the
+                previous iterate (if this exists), or alternatively from the solution at
+                the previous time step.
+
+        Returns:
+            A representation of the residual in form of a number, numpy array or sparse
+            matrix.
+
+        """
         return self._evaluate(system_manager, state=state, evaluate_jacobian=False)
 
     def value_and_jacobian(
         self, system_manager: pp.ad.EquationSystem, state: Optional[np.ndarray] = None
     ) -> AdArray:
+        """Evaluate the residual and Jacobian matrix for a given solution.
+
+        Parameters:
+            system_manager: Used to represent the problem. Will be used to parse the
+                sub-operators that combine to form this operator.
+            state (optional): Solution vector for which the residual and its derivatives
+                should be formed. If not provided, the solution will be pulled from the
+                previous iterate (if this exists), or alternatively from the solution at
+                the previous time step.
+
+        Returns:
+            A representation of the residual and Jacobian in form of an AD Array.
+            Note that the Jacobian matrix need not be invertible, or even square;
+            this depends on the operator.
+
+        """
         ad = self._evaluate(system_manager, state=state, evaluate_jacobian=True)
 
         # Casting the result to AdArray or raising an error.
@@ -696,17 +727,17 @@ class Operator:
         """Evaluate the residual and Jacobian matrix for a given solution.
 
         Parameters:
-            system_manager: Used to represent the problem. Will be used
-                to parse the sub-operators that combine to form this operator.
-            state (optional): Solution vector for which the residual and its
-                derivatives should be formed. If not provided, the solution will be
-                pulled from the previous iterate (if this exists), or alternatively from
-                the solution at the previous time step.
+            system_manager: Used to represent the problem. Will be used to parse the
+                sub-operators that combine to form this operator.
+            state (optional): Solution vector for which the residual and its derivatives
+                should be formed. If not provided, the solution will be pulled from the
+                previous iterate (if this exists), or alternatively from the solution at
+                the previous time step.
 
         Returns:
             A representation of the residual and Jacobian in form of an AD Array.
-            Note that the Jacobian matrix need not be invertible, or even square;
-            this depends on the operator.
+            Note that the Jacobian matrix need not be invertible, or even square; this
+            depends on the operator.
 
         """
         # Get the mixed-dimensional grid used for the dof-manager.

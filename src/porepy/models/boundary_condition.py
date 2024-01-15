@@ -36,6 +36,11 @@ class BoundaryConditionMixin:
     subdomains_to_boundary_grids: Callable[
         [Sequence[pp.Grid]], Sequence[pp.BoundaryGrid]
     ]
+    """Function that maps a sequence of subdomains to a sequence of boundary grids.
+    Normally defined in a mixin instance of
+    :class:`~porepy.models.geometry.ModelGeometry`.
+
+    """
 
     units: "pp.Units"
     """Units object, containing the scaling of base magnitudes."""
