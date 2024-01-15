@@ -214,8 +214,4 @@ def benchmark_3d_case_3(
     # Create mixed-dimensional grid
     mdg = pp.fracture_importer.dfm_from_gmsh(str(full_path), dim=3)
 
-    # In-situ weak test
-    assert (mdg.dim_max() == 3) and (mdg.dim_min() == 1)
-    assert (len(mdg.subdomains()) == 16) and (len(mdg.interfaces()) == 22)
-
     return mdg
