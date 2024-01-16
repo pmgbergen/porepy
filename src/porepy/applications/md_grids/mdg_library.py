@@ -129,7 +129,13 @@ def seven_fractures_one_L_intersection(
             :meth:`~porepy.grids.mdg_generation.create_mdg`.
 
     Returns:
-        Mixed-dimensional grid and fracture network.
+        Tuple containing a:
+
+            :obj:`~pp.MixedDimensionalGrid`:
+                The grid, constructed from the meshing arguments.
+
+            :obj:`~pp.FractureNetwork2d`:
+                The fracture network.
 
     """
     domain = pp.Domain(bounding_box={"xmin": 0, "ymin": 0, "xmax": 2, "ymax": 1})
@@ -159,7 +165,13 @@ def benchmark_regular_2d(
             :meth:`~porepy.grids.mdg_generation.create_mdg`.
 
     Returns:
-        Mixed-dimensional grid and fracture network.
+        Tuple containing a:
+
+            :obj:`~pp.MixedDimensionalGrid`:
+                The grid, constructed from the meshing arguments.
+
+            :obj:`~pp.FractureNetwork2d`:
+                The fracture network.
 
     """
     domain = domains.nd_cube_domain(2, 1)
@@ -198,7 +210,13 @@ def benchmark_3d_case_3(
             Default is `0`.
 
     Returns:
-        Mixed-dimensional grid for the given refinement level, and the fracture network.
+        Tuple containing a:
+
+            :obj:`~pp.MixedDimensionalGrid`:
+                The grid for the specified refinement level.
+
+            :obj:`~pp.FractureNetwork3d`:
+                The fracture network.
 
     """
     # Sanity check on input argument
