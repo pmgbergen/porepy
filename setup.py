@@ -24,7 +24,7 @@ setup(
     platforms=["Linux", "Windows", "Mac OS-X"],
     package_data={
         "porepy": ["py.typed"],
-        "porepy.src.porepy.applications.md_grids.gmsh_file_library": ["*.csv", "*.geo"],
+        "porepy.applications.md_grids.gmsh_file_library": ["**/*.csv", "**/*.geo"],
     },
     packages=find_packages("src"),
     package_dir={"": "src"},
