@@ -1,8 +1,5 @@
-#!/usr/bin/env python
-
 import os.path
 from glob import glob
-from os.path import basename, splitext
 
 from setuptools import find_packages, setup
 
@@ -25,7 +22,10 @@ setup(
     maintainer="Eirik Keilegavlen",
     maintainer_email="Eirik.Keilegavlen@uib.no",
     platforms=["Linux", "Windows", "Mac OS-X"],
-    package_data={"porepy": ["py.typed"]},
+    package_data={
+        "porepy": ["py.typed"],
+        "porepy.src.porepy.applications.md_grids.gmsh_file_library": ["*.csv", "*.geo"],
+    },
     packages=find_packages("src"),
     package_dir={"": "src"},
     py_modules=[
