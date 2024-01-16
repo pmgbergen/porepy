@@ -189,7 +189,7 @@ def benchmark_regular_2d(
 
 def benchmark_3d_case_3(
     refinement_level: Literal[0, 1, 2, 3] = 0,
-) -> tuple[pp.MixedDimensionalGrid, pp.FractureNetwork3d]:
+) -> tuple[pp.MixedDimensionalGrid, FractureNetwork3d]:
     """
     Create a mixed-dimensional grid for the geometry of case 3 from [1].
 
