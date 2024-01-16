@@ -10,6 +10,8 @@ import os
 
 os.system("clear")
 
+THIS IS A TRY 
+
 
 def myprint(var):
     print("\n" + var + " = ", eval(var))
