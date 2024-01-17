@@ -23,8 +23,11 @@ setup(
     maintainer_email="Eirik.Keilegavlen@uib.no",
     platforms=["Linux", "Windows", "Mac OS-X"],
     package_data={
-        "porepy": ["py.typed", "**/*.csv", "**/*.geo"],
-        # "porepy.applications.md_grids.gmsh_file_library": ["**/*.csv", "**/*.geo"],
+        "porepy": [
+            "py.typed",
+            "applications/md_grids/gmsh_file_library/**/*.csv",
+            "applications/md_grids/gmsh_file_library/**/*.geo",
+        ],
     },
     packages=find_packages("src"),
     package_dir={"": "src"},
