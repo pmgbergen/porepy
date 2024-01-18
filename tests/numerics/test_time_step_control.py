@@ -348,6 +348,29 @@ class TestParameterInputs:
             )
         assert msg in str(excinfo.value)
 
+    @pytest.mark.parametrize("num_time_steps", [10, 20])
+    def test_number_time_steps(self, num_time_steps):
+        """An error should be reaised it the number of performed time steps should differ
+        from the effective definition via the time step size."""
+        time_manager = pp.TimeManager(
+            schedule=[0.0, 1.0],
+            dt_init=1.0 / num_time_steps,
+            constant_dt=True,
+        )
+
+        params = {
+            "time_manager": time_manager,
+            "suppress_export": True,
+        }
+
+        from porepy.models.momentum_balance import MomentumBalance
+
+        model = MomentumBalance(params)
+        pp.run_time_dependent_model(model, params)
+        performed_time_steps = model.time_manager.time_index
+
+        assert performed_time_steps == num_time_steps
+
 
 class TestTimeControl:
     """The following tests are written to check the overall behavior of the time-stepping
