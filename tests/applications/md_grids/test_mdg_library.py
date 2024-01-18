@@ -2,7 +2,7 @@
 Some of these tests are sensitive to meshing or node ordering. If this turns out to
 cause problems, we deactivate the corresponding asserts.
 """
-
+import pytest
 import numpy as np
 
 import porepy as pp
@@ -47,10 +47,12 @@ class TestMixedDimensionalGrids:
     def check_intersections(self, n_intersections):
         assert len(self.mdg.subdomains(dim=0)) == n_intersections
 
-    def check_domain(self, x_length, y_length):
+    def check_domain(self, x_length, y_length, z_length=None):
         bbox = self.domain.bounding_box
         assert np.isclose(x_length, bbox["xmax"] - bbox["xmin"])
         assert np.isclose(y_length, bbox["ymax"] - bbox["ymin"])
+        if z_length is not None:
+            assert np.isclose(z_length, bbox["zmax"] - bbox["zmin"])
 
     def test_single_horizontal_2d_custom_values(self):
         """
@@ -138,3 +140,31 @@ class TestMixedDimensionalGrids:
         self.check_fractures(7, [2, 2, 8, 3, 8, 5, 4])
         self.check_intersections(1)
         self.check_domain(2, 1)
+
+
+@pytest.mark.parametrize(
+    "refinement_level",
+    [
+        0,
+        pytest.param(1, marks=pytest.mark.skipped),
+        pytest.param(2, marks=pytest.mark.skipped),
+        pytest.param(3, marks=pytest.mark.skipped),
+    ],
+)
+def test_benchmark_3d_case_3(refinement_level):
+    """Test the mdg generator for the regular case of the benchmark study.
+
+    By default verify only that the coarsest grid can be generated, to limit the
+    computational time.
+
+    """
+    # For reference: In January 2024 (in connection with GH PR #1096), EK verified that
+    # the benchmark grid could be generated with all supported refinement levels
+    # (keyword "refinement_level" in the benchmark function set to {0, 1, 2, 3}). The
+    # expectation is that this will continue to be the case, and if not, that the
+    # generation will fail for all refinement levels, for the same reason.
+    mdg, _ = pp.mdg_library.benchmark_3d_case_3(refinement_level)
+
+    # Weak tests
+    assert (mdg.dim_max() == 3) and (mdg.dim_min() == 1)
+    assert (len(mdg.subdomains()) == 16) and (len(mdg.interfaces()) == 22)
