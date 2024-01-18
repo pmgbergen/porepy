@@ -32,12 +32,23 @@ from .composite_utils import COMPOSITE_LOGGER as logger
 from .composite_utils import safe_sum
 from .eos_compiler import EoSCompiler, extended_compositional_derivatives
 from .mixture import BasicMixture
+from .npipm_c import (
+    convert_param_dict,
+    initialize_npipm_nu,
+    linear_solver,
+    parallel_solver,
+)
 from .states import FluidState
+from .utils_c import (
+    insert_xy,
+    normalize_fractions,
+    parse_pT,
+    parse_sat,
+    parse_target_state,
+    parse_xyz,
+)
 
 __all__ = [
-    "parse_xyz",
-    "parse_pT",
-    "normalize_fractions",
     "Flash_c",
 ]
 
@@ -48,183 +59,7 @@ _import_start = time.time()
 # region Helper methods
 
 
-logger.debug(f"(import composite/flash_c.py) Compiling parsers ..\n")
-
-
-@numba.njit(
-    "Tuple((float64[:,:], float64[:], float64[:]))(float64[:], UniTuple(int32, 2))",
-    fastmath=True,
-    cache=NUMBA_CACHE,
-)
-def parse_xyz(
-    X_gen: np.ndarray, npnc: tuple[int, int]
-) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Helper function to parse the fractions from a generic argument.
-
-    NJIT-ed function with signature
-    ``(float64[:], UniTuple(int32, 2)) -> Tuple(float64[:,:], float64[:], float64[:])``.
-
-    The feed fractions are always the first ``num_comp - 1`` entries
-    (feed per component except reference component).
-
-    The phase compositions are always the last ``num_phase * num_comp`` entries,
-    orderered per phase per component (phase-major order),
-    with phase and component order as given by the mixture model.
-
-    the ``num_phase - 1`` entries before the phase compositions, are always
-    the independent molar phase fractions.
-
-    Important:
-        This method also computes the feed fraction of the reference component and the
-        molar fraction of the reference phase.
-        Hence it returns 2 values not found in ``X_gen``.
-
-        The computed values are always the first ones in the respective vector.
-
-    Parameters:
-        X_gen: Generic argument for a flash system.
-        npnc: 2-tuple containing information about number of phases and components
-            (``num_phase`` and ``num_comp``).
-            This information is required for pre-compilation of a mixture-independent
-            function.
-
-    Returns:
-        A 3-tuple containing
-
-        1. Phase compositions as a matrix with shape ``(num_phase, num_comp)``
-        2. Molar phase fractions as an array with shape ``(num_phase,)``
-        3. Feed fractions as an array with shape ``(num_comp,)``
-
-    """
-    nphase, ncomp = npnc
-    # feed fraction per component, except reference component
-    Z = np.empty(ncomp, dtype=np.float64)
-    Z[1:] = X_gen[: ncomp - 1]
-    Z[0] = 1.0 - np.sum(Z[1:])
-    # phase compositions
-    X = X_gen[-ncomp * nphase :].copy()  # must copy to be able to reshape
-    # matrix:
-    # rows have compositions per phase,
-    # columns have compositions related to a component
-    X = X.reshape((nphase, ncomp))
-    # phase fractions, -1 because fraction of ref phase is eliminated and not part of
-    # the generic argument
-    Y = np.empty(nphase, dtype=np.float64)
-    Y[1:] = X_gen[-(ncomp * nphase + nphase - 1) : -ncomp * nphase]
-    Y[0] = 1.0 - np.sum(Y[1:])
-
-    return X, Y, Z
-
-
-@numba.njit(
-    "float64[:](float64[:],float64[:,:],float64[:],UniTuple(int32, 2))",
-    fastmath=True,
-    cache=NUMBA_CACHE,
-)
-def insert_xy(
-    X_gen: np.ndarray, x: np.ndarray, y: np.ndarray, npnc: tuple[int, int]
-) -> np.ndarray:
-    """Helper function to insert phase compositions and molar fractions into a generic
-    argument.
-
-    Essentially a reverse operation for :func:`parse_xyz`, with the exception
-    that ``z`` is assumed to never be modified.
-
-    """
-    nphase, ncomp = npnc
-
-    # insert independent phase fractions
-    X_gen[-(ncomp * nphase + nphase - 1) : -ncomp * nphase] = y[1:]
-    # ravel phase compositions
-    X_gen[-ncomp * nphase :] = x.ravel()
-    return X_gen
-
-
-@numba.njit(
-    "float64[:](float64[:], UniTuple(int32, 2))",
-    fastmath=True,
-    cache=NUMBA_CACHE,
-)
-def parse_pT(X_gen: np.ndarray, npnc: tuple[int, int]) -> np.ndarray:
-    """Helper function extracing pressure and temperature from a generic
-    argument for the p-T flash.
-
-    NJIT-ed function with signature
-    ``(float64[:], UniTuple(int32, 2)) -> float64[:]``.
-
-    Pressure and temperature are the last two values before the independent molar phase
-    fractions (``num_phase - 1``) and the phase compositions (``num_phase * num_comp``).
-
-    Parameters:
-        X_gen: Generic argument for a flash system.
-        npnc: 2-tuple containing information about number of phases and components
-            (``num_phase`` and ``num_comp``).
-            This information is required for pre-compilation of a mixture-independent
-            function.
-
-    Returns:
-        An array with shape ``(2,)``.
-
-    """
-    nphase, ncomp = npnc
-    return X_gen[-(ncomp * nphase + nphase - 1) - 2 : -(ncomp * nphase + nphase - 1)]
-
-
-@numba.njit(
-    "float64[:](float64[:], UniTuple(int32, 2))",
-    fastmath=True,
-    cache=NUMBA_CACHE,
-)
-def parse_phT(X_gen: np.ndarray, npnc: tuple[int, int]) -> np.ndarray:
-    """Helper function extracing pressure, target enthalpy and temperature from a
-    generic argument for the p-h flash.
-
-    NJIT-ed function with signature
-    ``(float64[:], UniTuple(int32, 2)) -> float64[:]``.
-
-    Pressure and enthalpy are the last two values before temperature,
-    the independent molar phase fractions (``num_phase - 1``)
-    and the phase compositions (``num_phase * num_comp``).
-
-    Parameters:
-        X_gen: Generic argument for a flash system.
-        npnc: 2-tuple containing information about number of phases and components
-            (``num_phase`` and ``num_comp``).
-            This information is required for pre-compilation of a mixture-independent
-            function.
-
-    Returns:
-        An array with shape ``(3,)``.
-
-    """
-    nphase, ncomp = npnc
-    return X_gen[-(ncomp * nphase + nphase - 1) - 3 : -(ncomp * nphase + nphase - 1)]
-
-
-@numba.njit("float64[:,:](float64[:,:])", fastmath=True, cache=NUMBA_CACHE)
-def normalize_fractions(X: np.ndarray) -> np.ndarray:
-    """Takes a matrix of phase compositions (rows - phase, columns - component)
-    and normalizes the fractions.
-
-    Meaning it divides each matrix element by the sum of respective row.
-
-    NJIT-ed function with signature ``(float64[:,:]) -> float64[:,:]``.
-
-    Parameters:
-        X: ``shape=(num_phases, num_components)``
-
-            A matrix of phase compositions, containing per row the (extended)
-            fractions per component.
-
-    Returns:
-        A normalized version of ``X``, with the normalization performed row-wise
-        (phase-wise).
-
-    """
-    return (X.T / X.sum(axis=1)).T
-
-
-@numba.njit("float64[:](float64[:], float64[:,:])", fastmath=True, cache=NUMBA_CACHE)
+@numba.njit("float64[:](float64[:],float64[:,:])", fastmath=True, cache=True)
 def _rr_poles(y: np.ndarray, K: np.ndarray) -> np.ndarray:
     """
     Parameters:
@@ -243,11 +78,7 @@ def _rr_poles(y: np.ndarray, K: np.ndarray) -> np.ndarray:
     return 1 + (K.T - 1) @ y[1:]  # K-values given for each independent phase
 
 
-@numba.njit(
-    "float64(float64[:], float64[:])",
-    fastmath=True,
-    cache=NUMBA_CACHE,
-)
+@numba.njit("float64(float64[:],float64[:])", fastmath=True, cache=True)
 def _rr_binary_vle_inversion(z: np.ndarray, K: np.ndarray) -> float:
     """Inverts the Rachford-Rice equation for the binary 2-phase case.
 
@@ -272,10 +103,8 @@ def _rr_binary_vle_inversion(z: np.ndarray, K: np.ndarray) -> float:
     return n / np.sum(d)
 
 
-@numba.njit(
-    "float64(float64[:], float64[:], float64[:,:])",
-    cache=NUMBA_CACHE,
-)
+# NOTE default caching not true because of dependency
+@numba.njit("float64(float64[:],float64[:],float64[:,:])", cache=NUMBA_CACHE)
 def _rr_potential(z: np.ndarray, y: np.ndarray, K: np.ndarray) -> float:
     """Calculates the potential according to [1] for the j-th Rachford-Rice equation.
 
@@ -316,11 +145,7 @@ def _rr_potential(z: np.ndarray, y: np.ndarray, K: np.ndarray) -> float:
 logger.debug(f"(import composite/flash_c.py) Compiling shared flash equations ..\n")
 
 
-@numba.njit(
-    "float64[:](float64[:,:], float64[:], float64[:])",
-    fastmath=True,
-    cache=NUMBA_CACHE,
-)
+@numba.njit("float64[:](float64[:,:],float64[:],float64[:])", fastmath=True, cache=True)
 def mass_conservation_res(x: np.ndarray, y: np.ndarray, z: np.ndarray) -> np.ndarray:
     r"""Assembles the residual of the mass conservation equations.
 
@@ -361,11 +186,7 @@ def mass_conservation_res(x: np.ndarray, y: np.ndarray, z: np.ndarray) -> np.nda
     return (z - np.dot(y, x))[1:]
 
 
-@numba.njit(
-    "float64[:,:](float64[:,:], float64[:])",
-    fastmath=True,
-    cache=NUMBA_CACHE,
-)
+@numba.njit("float64[:,:](float64[:,:],float64[:])", fastmath=True, cache=True)
 def mass_conservation_jac(x: np.ndarray, y: np.ndarray) -> np.ndarray:
     """Returns the Jacobian of the residual described in
     :func:`mass_conservation_res`
@@ -403,7 +224,7 @@ def mass_conservation_jac(x: np.ndarray, y: np.ndarray) -> np.ndarray:
     return (-1) * jac
 
 
-@numba.njit("float64[:](float64[:,:], float64[:])", fastmath=True, cache=NUMBA_CACHE)
+@numba.njit("float64[:](float64[:,:],float64[:])", fastmath=True, cache=True)
 def complementary_conditions_res(x: np.ndarray, y: np.ndarray) -> np.ndarray:
     r"""Assembles the residual of the complementary conditions.
 
@@ -437,7 +258,7 @@ def complementary_conditions_res(x: np.ndarray, y: np.ndarray) -> np.ndarray:
     return y * (1 - np.sum(x, axis=1))
 
 
-@numba.njit("float64[:,:](float64[:,:], float64[:])", fastmath=True, cache=NUMBA_CACHE)
+@numba.njit("float64[:,:](float64[:,:],float64[:])", fastmath=True, cache=True)
 def complementary_conditions_jac(x: np.ndarray, y: np.ndarray) -> np.ndarray:
     """Returns the Jacobian of the residual described in
     :func:`complementary_conditions_res`
@@ -468,571 +289,6 @@ def complementary_conditions_jac(x: np.ndarray, y: np.ndarray) -> np.ndarray:
         d_ccs[j, nphase - 1 + j * ncomp : nphase - 1 + (j + 1) * ncomp] = y[j] * (-1)
 
     return d_ccs
-
-
-# endregion
-# region NPIPM related functions
-
-
-logger.debug(f"(import composite/flash_c.py) Compiling NPIPM methods ..\n")
-
-
-@numba.njit(
-    "float64(float64[:], float64[:], float64, float64, float64, float64)",
-    fastmath=True,
-    cache=NUMBA_CACHE,
-)
-def slack_equation_res(
-    v: np.ndarray, w: np.ndarray, nu: float, u1: float, u2: float, eta: float
-) -> float:
-    r"""Implementation of the residual of the slack equation for the non-parametric
-    interior point method.
-
-    .. math::
-
-        \frac{1}{2}\left( \lVert v^{-}\rVert^2 + \lVert w^{-}\rVert^2 +
-        \frac{u}{n_p}\left(\langle v, w \rangle^{+}\right)^2 \right) +
-        \eta\nu + \nu^2 = 0
-
-    Parameters:
-        v: ``shape=(num_phase,)``
-
-            Vector containing phase fractions.
-        w: ``shape=(num_phase,)``
-
-            Vector containing the unity of phase compositions per phase.
-        nu: Value of slack variable.
-        u1: Parameter to tune the penalty for violation of complementarity.
-        u2: Parameter to tune the penalty for violation of negativity.
-        eta: Parameter for steepness of decline of slack variable.
-
-    Returns:
-        The evaluation of above equation.
-
-    """
-
-    nphase = v.shape[0]
-    # dot = np.dot(v, w)  # numba performance warning
-    dot = np.sum(v * w)
-
-    # copy because of modifications for negative and positive
-    v = v.copy()
-    w = w.copy()
-    v[v > 0.0] = 0.0
-    w[w > 0.0] = 0.0
-
-    # penalization of negativity
-    res = 0.5 * u2 * (np.sum(v**2) + np.sum(w**2))
-
-    # penalization of violation of complementarity
-    dot = 0.0 if dot < 0.0 else dot
-    res += 0.5 * dot**2 * u1 / nphase
-
-    # decline of slack variable
-    res += eta * nu + nu**2
-
-    return res
-
-
-@numba.njit(
-    "float64[:](float64[:], float64[:], float64, float64, float64, float64)",
-    fastmath=True,
-    cache=NUMBA_CACHE,
-)
-def slack_equation_jac(
-    v: np.ndarray, w: np.ndarray, nu: float, u1: float, u2: float, eta: float
-) -> float:
-    """Implementation of the gradient of the slack equation for the non-parametric
-    interior point method (see :func:`slack_equation_res`).
-
-    Parameters:
-        v: ``shape=(num_phase,)``
-
-            Vector containing phase fractions.
-        w: ``shape=(num_phase,)``
-
-            Vector containing the unity of phase compositions per phase.
-        nu: Value of slack variable.
-        u1: Parameter to tune the penalty for violation of complementarity.
-        u2: Parameter to tune the penalty for violation of negativity.
-        eta: Parameter for steepness of decline of slack variable.
-
-    Returns:
-        The gradient of the slcak equation with derivatives w.r.t. all elements in
-        ``v``, ``w`` and ``nu``, with ``shape=(2 * num_phase + 1,)``.
-
-    """
-
-    nphase = v.shape[0]
-
-    jac = np.zeros(2 * nphase + 1, dtype=np.float64)
-
-    dot = np.sum(v * w)
-
-    # derivatives of pos() and neg()
-    dirac_dot = 1.0 if dot > 0.0 else 0.0  # dirac for positivity of dotproduct
-    dirac_v = (v < 0.0).astype(np.float64)  # dirac for negativity in v, elementwise
-    dirac_w = (w < 0.0).astype(np.float64)  # same for w
-
-    d_dot_outer = 2 * u1 / nphase**2 * dot * dirac_dot
-
-    # derivatives w.r.t. to elements in v
-    jac[:nphase] = u2 * dirac_v * v + d_dot_outer * w
-    jac[nphase : 2 * nphase] = u2 * dirac_w * w + d_dot_outer * v
-
-    # derivative w.r.t. nu
-    jac[-1] = eta + 2 * nu
-
-    return jac
-
-
-@numba.njit(
-    "float64[:,:](float64[:,:], UniTuple(int32, 2))",
-    fastmath=True,
-    cache=NUMBA_CACHE,
-)
-def initialize_npipm_nu(X_gen: np.ndarray, npnc: tuple[int, int]) -> np.ndarray:
-    """Computes an initial guess for the slack variable :math:`\\nu` in the NPIPM.
-
-    Parameters:
-        X: Generic argument for the flash.
-        npnc: ``len=2``
-
-            2-tuple containing the number of phases and number of components
-
-    Returns:
-        ``X_gen`` with the last column containing initial values of :math:`\\nu` based
-        on the fractional values found in ``X_gen``.
-
-    """
-    nphase, ncomp = npnc
-    nu = np.zeros(X_gen.shape[0])
-
-    # contribution from dependent phase
-    nu = (
-        1 - np.sum(X_gen[:, -(ncomp * nphase + nphase) : -(ncomp * nphase + 1)], axis=1)
-    ) * (
-        1
-        - np.sum(X_gen[:, -(ncomp * nphase + 1) : -(ncomp * (nphase - 1) + 1)], axis=1)
-    )
-
-    # contribution from independent phases
-    for j in range(nphase - 1):
-        y_j = X_gen[:, -(ncomp * nphase + nphase) + j]
-        x_j = X_gen[
-            :,
-            -(ncomp * (nphase - 1) + 1) : -(ncomp * (nphase - 1) + 1) + (j + 1) * ncomp,
-        ]
-        nu += y_j * (1 - np.sum(x_j, axis=1))
-
-    X_gen[:, -1] = nu / nphase
-    return X_gen
-
-
-@numba.njit(
-    "float64[:](float64[:],float64[:],float64[:,:],float64,float64,float64,float64)",
-    fastmath=True,
-    cache=NUMBA_CACHE,
-)
-def npipm_extend_and_regularize_res(
-    f_res: np.ndarray,
-    y: np.ndarray,
-    x: np.ndarray,
-    nu: float,
-    u1: float,
-    u2: float,
-    eta: float,
-) -> np.ndarray:
-    """Helper function to append the residual of the slack equation to an
-    already computed flash residual.
-
-    Important:
-        This function assumes that the last ``num_phases`` entries correspond to the
-        residual values of the complementarity conditions.
-
-    Parameters:
-        f_res: A vector representing the residual of any flash system.
-        y: ``shape=(num_phases,)``
-
-            Vector of molar phase fractions.
-
-        x: ``shape=(num_phases, num_comp)``
-
-            Matrix of extended phase compositions,
-            per phase (row) per component (column).
-        nu: Value of slack variable.
-        u1: See :func:`slack_equation_res`.
-        u2: See :func:`slack_equation_res`.
-        eta: See :func:`slack_equation_res`.
-
-    """
-    nphase = x.shape[0]
-
-    # couple complementary conditions with nu
-    f_res[-nphase:] -= nu
-
-    # NPIPM equation
-    unity_j = 1.0 - np.sum(x, axis=1)
-    slack = slack_equation_res(y, unity_j, nu, u1, u2, eta)
-
-    # NPIPM system has one equation more at end
-    f_npipm = np.zeros(f_res.shape[0] + 1)
-    f_npipm[:-1] = f_res
-    f_npipm[-1] = slack
-
-    # regularization
-    # summation of complementarity conditions
-    reg = np.sum(y * (1 - np.sum(x, axis=1)))
-    # positive part with penalty factor
-    reg = 0.0 if reg < 0 else reg
-    reg *= u1 / nphase**2
-    # subtract complementarity conditions multiplied with regularization factor from
-    # slack equation residual
-    f_npipm[-1] = f_npipm[-1] - reg * np.sum(f_npipm[-(nphase + 1) : -1])
-
-    return f_npipm
-
-
-@numba.njit(
-    "float64[:,:]"
-    + "(float64[:,:],float64[:],float64[:,:],float64,float64,float64,float64)",
-    fastmath=True,
-    cache=NUMBA_CACHE,
-)
-def npipm_extend_and_regularize_jac(
-    f_jac: np.ndarray,
-    y: np.ndarray,
-    x: np.ndarray,
-    nu: float,
-    u1: float,
-    u2: float,
-    eta: float,
-) -> np.ndarray:
-    """Helper function to append the gradient of the slack equation to an already
-    computed flash system Jacobian as its last row.
-
-    Analogous to :func:`npipm_extend_res`.
-
-    """
-    nphase, ncomp = x.shape
-    # NPIPM matrix has one row and one column more
-    df_npipm = np.zeros((f_jac.shape[0] + 1, f_jac.shape[1] + 1))
-    df_npipm[:-1, :-1] = f_jac
-    # relaxed complementary conditions read as y * (1 - sum x) - nu
-    # add the -1 for the derivative w.r.t. nu
-    df_npipm[-(nphase + 1) : -1, -1] = np.ones(nphase) * (-1)
-
-    unity_j = 1.0 - np.sum(x, axis=1)
-    d_slack = slack_equation_jac(y, unity_j, nu, u1, u2, eta)
-    # d slack has derivatives w.r.t. y_j and w_j
-    # d w_j must be expanded since w_j = 1 - sum x_j
-    # d y_0 must be expanded since reference phase is eliminated by unity
-    expand_yr = np.ones(nphase - 1) * (-1)
-    expand_x_in_j = np.ones(ncomp) * (-1)
-
-    # expansion of y_0 and cut of redundant value
-    d_slack[1 : nphase - 1] += d_slack[0] * expand_yr
-    d_slack = d_slack[1:]
-
-    # expand it also to include possibly other derivatives
-    d_slack_expanded = np.zeros(df_npipm.shape[1])
-    # last derivative is w.r.t. nu
-    d_slack_expanded[-1] = d_slack[-1]
-
-    for j in range(nphase):
-        # derivatives w.r.t. x_ij, +2 because nu must be skipped and j starts with 0
-        vec = expand_x_in_j * d_slack[-(j + 2)]
-        d_slack_expanded[-(1 + (j + 1) * ncomp) : -(1 + j * ncomp)] = vec
-
-    # derivatives w.r.t y_j. j != r
-    d_slack_expanded[
-        -(1 + nphase * ncomp + nphase - 1) : -(1 + nphase * ncomp)
-    ] = d_slack[: nphase - 1]
-
-    df_npipm[-1] = d_slack_expanded
-
-    # regularization
-    # summation of complementarity conditions
-    reg = np.sum(y * (1 - np.sum(x, axis=1)))
-    # positive part with penalty factor
-    reg = 0.0 if reg < 0 else reg
-    reg *= u1 / nphase**2
-    # subtract complementarity conditions multiplied with regularization factor from
-    # slack equation
-    df_npipm[-1] = df_npipm[-1] - reg * np.sum(df_npipm[-(nphase + 1) : -1], axis=0)
-
-    return df_npipm
-
-
-# endregion
-# region Methods related to the numerical solution strategy
-
-
-logger.debug(f"(import composite/flash_c.py) Compiling numerical methods ..\n")
-
-
-@numba.njit(  # TODO type signature once typing for functions is available
-    fastmath=True,
-    cache=NUMBA_CACHE,
-)
-def Armijo_line_search(
-    Xk: np.ndarray,
-    dXk: np.ndarray,
-    F: Callable[[np.ndarray], np.ndarray],
-    rho_0: float,
-    kappa: float,
-    j_max: int,
-) -> float:
-    r"""Armijo line search to be used inside Newton.
-
-    Uses the L2-potential to find a minimizing step size.
-
-    Parameters:
-        Xk: Current Newton iterate.
-        dXk: New update obtained from Newton.
-        F: Callable to evaluate the residual.
-            Must be compatible with ``Xk + dXk`` as argument.
-        rho_0: ``(0, 1)``
-
-            First step-size.
-        kappa: ``(0, 0.5)``
-
-            Slope for the line search.
-        j_max: Maximal number of line search iterations.
-
-
-    Returns:
-        A step size :math:`\rho` minimizing
-        :math:`\frac{1}{2}\lVert F(X_k + \rho dX_k)\rVert^2`.
-
-    """
-
-    # evaluation of the potential as is
-    fk = F(Xk)
-    potk = np.sum(fk * fk) / 2.0
-    rho_j = rho_0
-    # kappa = 0.4
-    # j_max = 150
-
-    for j in range(1, j_max + 1):
-        rho_j = rho_j**j
-
-        try:
-            fk_j = F(Xk + rho_j * dXk)
-        except:
-            continue
-
-        potk_j = np.sum(fk_j * fk_j) / 2.0
-
-        if potk_j <= (1 - 2 * kappa * rho_j) * potk:
-            return rho_j
-
-    # return max
-    return rho_j
-
-
-@numba.njit(  # TODO same as for Armijo signature
-    cache=NUMBA_CACHE,
-)
-def newton(
-    X_0: np.ndarray,
-    F: Callable[[np.ndarray], np.ndarray],
-    DF: Callable[[np.ndarray], np.ndarray],
-    F_dim: int,
-    tol: float,
-    max_iter: int,
-    rho_0: float,
-    kappa: float,
-    j_max: int,
-) -> tuple[np.ndarray, int, int]:
-    """Compiled Newton with Armijo line search and NPIPM regularization.
-
-    Intended use is for the unified flash problem.
-
-    Parameters:
-        X_0: Initial guess.
-        F: Callable representing the residual. Must be callable with ``X0``.
-        DF: Callable representing the Jacobian. Must be callable with ``X0``.
-        F_dim: Dimension of system (number of equations and unknowns). Not necessarily
-            equal to length of ``X_0``, since flash system arguments contain parameters
-            such as state definitions.
-            The last ``F_dim`` elements of ``X_0`` are treated as variables, where as
-            the rest is left untouched.
-        tol: Residual tolerance as stopping criterion.
-        max_iter: Maximal number of iterations.
-        npnc: ``len=2``
-
-            2-tuple containing the number of phases and number of flashes in the flash
-            problem.
-        u1: See :func:`slack_equation_res`. Required for regularization.
-        rho_0: See :func:`Armijo_line_search`.
-        kappa: See :func:`Armijo_line_search`.
-        j_max: See :func:`Armijo_line_search`.
-
-    Returns:
-        A 3-tuple containing
-
-        1. the result of the Newton algorithm,
-        2. a success flag
-            - 0: success
-            - 1: max iter reached
-            - 2: failure in the evaluation of the residual
-            - 3: failure in the evaluation of the Jacobian
-            - 4: NAN or infty detected in update (aborted)
-        3. final number of perfored iterations
-
-        If the success flag indicates failure, the last iterate state of the unknown
-        is returned.
-
-    """
-    # default return values
-    num_iter = 0
-    success = 1
-
-    X = X_0.copy()
-    DX = np.zeros_like(X_0)
-
-    try:
-        f_i = F(X)
-    except:
-        return X, 2, num_iter
-
-    if np.linalg.norm(f_i) <= tol:
-        success = 0  # root already found
-    else:
-        for _ in range(max_iter):
-            num_iter += 1
-
-            try:
-                df_i = DF(X)
-            except:
-                success = 3
-                break
-
-            # df_i, f_i = npipm_regularization(X, df_i, f_i, u1, npnc)
-            dx = np.linalg.solve(df_i, -f_i)
-
-            if np.any(np.isnan(dx)) or np.any(np.isinf(dx)):
-                success = 4
-                break
-
-            # X contains also parameters (p, T, z_i, ...)
-            # exactly ncomp - 1 feed fractions and 2 state definitions (p-T, p-h, ...)
-            # for broadcasting insert solution into new vector
-            DX[-F_dim:] = dx
-
-            s = Armijo_line_search(X, DX, F, rho_0, kappa, j_max)
-
-            X = X + s * DX
-
-            try:
-                f_i = F(X)
-            except:
-                success = 2
-                break
-
-            if np.linalg.norm(f_i) <= tol:
-                success = 0
-                break
-
-    return X, success, num_iter
-
-
-@numba.njit(
-    parallel=True,
-    cache=NUMBA_CACHE,
-)
-def parallel_newton(
-    X0: np.ndarray,
-    F: Callable[[np.ndarray], np.ndarray],
-    DF: Callable[[np.ndarray], np.ndarray],
-    F_dim: int,
-    tol: float,
-    max_iter: int,
-    rho_0: float,
-    kappa: float,
-    j_max: int,
-) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Parallel Newton, assuming each row in ``X0`` is a starting point to find a root
-    of ``F``.
-
-    Numba-parallelized loop over all rows in ``X0``, calling
-    :func:`newton` for each row.
-
-    For an explanation of all parameters, see :func:`newton`.
-
-    Note:
-        ``X0`` can contain parameters for the evaluation of ``F``.
-        Therefore the dimension of the image of ``F`` must be defined by passing
-        ``F_dim``.
-        I.e., ``len(F(X0[i])) == F_dim`` and ``DF(X0[i]).shape == (F_dim, F_dim)``.
-
-    Returns:
-        The same as :func:`newton` in vectorized form, containing the results per
-        row in ``X0``.
-
-        Note however, that the returned results contain only the actual results,
-        not the whole, generic flash argument given in ``X0``.
-        More precisely, the first ``num_comp - 1 + 2`` elements per row are assumed to
-        contain flash specifications in terms of feed fractions and thermodynamic state.
-        Hence they are not duplicated and returned to safe memory.
-
-    """
-
-    N = X0.shape[0]
-
-    result = np.empty((N, F_dim))
-    num_iter = np.empty(N, dtype=np.int32)
-    converged = np.empty(N, dtype=np.int32)
-
-    for n in numba.prange(N):
-        res_i, conv_i, n_i = newton(
-            X0[n], F, DF, F_dim, tol, max_iter, rho_0, kappa, j_max
-        )
-        converged[n] = conv_i
-        num_iter[n] = n_i
-        result[n] = res_i[-F_dim:]
-
-    return result, converged, num_iter
-
-
-@numba.njit(
-    cache=NUMBA_CACHE,
-)
-def linear_newton(
-    X0: np.ndarray,
-    F: Callable[[np.ndarray], np.ndarray],
-    DF: Callable[[np.ndarray], np.ndarray],
-    F_dim: int,
-    tol: float,
-    max_iter: int,
-    rho_0: float,
-    kappa: float,
-    j_max: int,
-) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Does the same as :func:`parallel_newton`, only the loop over the rows of ``X0``
-    is not parallelized, but executed in a classical loop.
-
-    Intended use is for smaller amount of flash problems, where the parallelization
-    would produce a certain overhead in the initialization.
-
-    """
-
-    N = X0.shape[0]
-
-    result = np.empty((N, F_dim))
-    num_iter = np.empty(N, dtype=np.int32)
-    converged = np.empty(N, dtype=np.int32)
-
-    for n in range(N):
-        res_i, conv_i, n_i = newton(
-            X0[n], F, DF, F_dim, tol, max_iter, rho_0, kappa, j_max
-        )
-        converged[n] = conv_i
-        num_iter[n] = n_i
-        result[n] = res_i[-F_dim:]
-
-    return result, converged, num_iter
 
 
 # endregion
@@ -1070,10 +326,6 @@ class Flash_c:
 
     Multiple flash problems can be solved in parallel by passing vectorized state
     definitions.
-
-    The NPIPM approach is parametrizable. Each re-confugration requires a re-compilation
-    since the system of equations must be presented as a vector-valued function
-    taking a single vector (thermodynmaic input state).
 
     Parameters:
         mixture: A mixture model containing modelled components and phases.
@@ -1130,32 +382,6 @@ class Flash_c:
             Literal["p-T", "p-h", "v-h"], Callable[[np.ndarray], np.ndarray]
         ] = dict()
         """Contains per flash configuration the initialization procedure."""
-
-        self.npipm_residuals: dict[
-            Literal["p-T", "p-h", "v-h"], Callable[[np.ndarray], np.ndarray]
-        ] = dict()
-        """Contains per flash configuration the residual of extended flash system.
-
-        The extended flash system included the NPIPM slack equation, and hence an
-        additional dependency on the slack variable :math:`\\nu`.
-
-        The evaluation calls internally respective functions from :attr:`residuals`.
-        The resulting array has one element more.
-
-        """
-
-        self.npipm_jacobians: dict[
-            Literal["p-T", "p-h", "v-h"], Callable[[np.ndarray], np.ndarray]
-        ] = dict()
-        """Contains per flash configuration the Jacobian of extended flash system.
-
-        The extended flash system included the NPIPM slack equation, and hence an
-        additional dependency on the slack variable :math:`\\nu`.
-
-        The evaluation calls internally respective functions from :attr:`jacobians`.
-        The resulting matrix hase one row and one column more.
-
-        """
 
         self.npipm_parameters: dict[str, float] = {
             "eta": 0.5,
@@ -1386,6 +612,15 @@ class Flash_c:
             logger.debug("Compiling derivative of enthalpy function ..\n")
             d_h_c = self.eos_compiler.get_dpTX_enthalpy_function()
 
+        rho_c = self.eos_compiler.funcs.get("rho", None)
+        if rho_c is None:
+            logger.debug("Compiling density function ..\n")
+            rho_c = self.eos_compiler.get_density_function()
+        d_rho_c = self.eos_compiler.funcs.get("d_rho", None)
+        if d_rho_c is None:
+            logger.debug("Compiling derivative of density function ..\n")
+            d_rho_c = self.eos_compiler.get_dpTX_density_function()
+
         logger.debug("Compiling residual of isogucacity constraints ..\n")
 
         @numba.njit(
@@ -1525,6 +760,8 @@ class Flash_c:
 
             return h_constr_res
 
+        logger.debug("Compiling Jacobian of enthalpy constraints ..\n")
+
         @numba.njit(
             "float64[:]"
             + "(float64[:,:],float64[:,:],float64,float64,float64,"
@@ -1581,6 +818,138 @@ class Flash_c:
                 h_constr_jac /= h
             return -h_constr_jac
 
+        logger.debug("Compiling residual of volume constraints ..\n")
+
+        @numba.njit(
+            "float64[:]"
+            + "(float64[:,:],float64,float64,float64,"
+            + "float64[:],float64[:],float64[:,:])"
+        )
+        def v_constr_res_c(
+            prearg: np.ndarray,
+            v: float,
+            p: float,
+            T: float,
+            sat: np.ndarray,
+            y: np.ndarray,
+            xn: np.ndarray,
+        ) -> np.ndarray:
+            """Helper function to evaluate the residual of the volume constraint,
+            including the phase fraction relations."""
+
+            rho_j = np.array([rho_c(prearg[j], p, T, xn[j]) for j in range(nphase)])
+            rho_mix = np.dot(sat, rho_j)
+
+            res = np.empty(nphase, dtype=np.float64)
+            # volume constraint
+            res[0] = v * rho_mix - 1
+            # nphase - 1 phase fraction relations
+            res[1:] = (y - sat * rho_j / rho_mix)[1:]
+
+            return res
+
+        logger.debug("Compiling Jacobian of volume constraints ..\n")
+
+        @numba.njit(
+            "float64[:,:]"
+            + "(float64[:,:],float64[:,:],float64,float64,float64,"
+            + "float64[:],float64[:],float64[:,:],float64[:,:])"
+        )
+        def v_constr_jac_c(
+            prearg_res: np.ndarray,
+            prearg_jac: np.ndarray,
+            v: float,
+            p: float,
+            T: float,
+            sat: np.ndarray,
+            y: np.ndarray,
+            x: np.ndarray,
+            xn: np.ndarray,
+        ) -> np.ndarray:
+            """Helper function to compute the Jacobian of the volume constraint and
+            phase fraction relations.
+            Returns derivatives w.r.t. sat, p, T, y, and x."""
+
+            rho_j = np.array([rho_c(prearg_res[j], p, T, xn[j]) for j in range(nphase)])
+            d_rho_j = np.array(
+                [
+                    extended_compositional_derivatives(
+                        d_rho_c(prearg_res[j], prearg_jac[j], p, T, xn[j]), x[j]
+                    )
+                    for j in range(nphase)
+                ]
+            )
+            rho_mix = np.dot(sat, rho_j)
+
+            # rho_mix = sum_i s_i * rho_i
+            dpT_rho_mix = np.sum([sat[j] * d_rho_j[j, :2] for j in range(nphase)])
+
+            # 1 volume constraint, nphase-1 phase fraction relations, all derivatives
+            jac = np.zeros((nphase, 2 * nphase + ncomp * nphase), dtype=np.float64)
+
+            # derivatives of volume constraint w.r.t. independent s_j
+            # s_r = 1 - sum_j!=r s_j
+            # and v * (sum_i s_i * rho_i) - 1 = 0
+            jac[0, : nphase - 1] = rho_j[1:] - rho_j[0]
+            # derivatives of volume constraint w.r.t. p and T
+            jac[0, nphase - 1 : nphase + 1] = dpT_rho_mix
+            # derivatives of v constr w.r.t. x_r
+            jac[0, 2 * nphase : 2 * nphase + ncomp] = sat[0] * d_rho_j[0, 2:]
+
+            for j in range(1, nphase):
+                # derivatives volume constr w.r.t. x_j for independent phases
+                jac[0, 2 * nphase + j * ncomp : 2 * nphase + (j + 1) * ncomp] = (
+                    sat[j] * d_rho_j[j, 2:]
+                )
+
+                # outer derivative of rho_j * dpTx(1 / rho_mix)
+                outer_j = -rho_j[j] / rho_mix**2
+
+                # derivatives of phase fraction relations for each independent phase.
+                # y_j - sat_j * rho_j / (sum_i s_i * rho_i)
+                # First, derivatives w.r.t. saturations
+                # With s_0 = 1 - sum_(i > 0) s_i it holds for k > 0
+                # ds_k (s_j rho_j / (sum_i s_i * rho_i)) =
+                # delta_kj * rho_j / (sum_i s_i * rho_i)
+                # + s_j * (- rho_j / (sum_i s_i * rho_i)^2 * (rho_k - rho_0))
+                jac[j, : nphase - 1] = outer_j * (rho_j[1:] - rho_j[0])
+                jac[j, j - 1] += rho_j[j] / rho_mix
+
+                # derivatives of phase fraction relations w.r.t. p, T
+                # With s_0 = 1 - sum_(i > 0) s_i and rho_mix = sum_i s_i * rho_i
+                # dpt (rho_j(p, T) / rho_mix) =
+                # dpt(rho_j(p,T)) / rho_mix
+                # + rho_j * (-1 / rho_mix^2 * dpt(rho_mix))
+                jac[j, nphase - 1 : nphase + 1] = sat[j] * (
+                    d_rho_j[j, :2] / rho_mix + outer_j * dpT_rho_mix
+                )
+
+                # derivatives of phase fraction relation w.r.t. x_ik
+                # for all phases k, and j > 0
+                # dx_ik (rho_j(x_ij) / rho_mix) =
+                # delta_kj * (dx_ik(rho_j(x_ij)) / rho_mix)
+                # + rho_j * (-1 / rho_mix^2 * (
+                #   dx_ik(sum_l s_l rho_l(x_il)))
+                # )
+                for k in range(nphase):
+                    jac[j, 2 * nphase + k * ncomp : 2 * nphase + (k + 1) * ncomp] = (
+                        sat[j] * outer_j * sat[k] * d_rho_j[k, 2:]
+                    )
+                    if k == j:
+                        jac[
+                            j, 2 * nphase + k * ncomp : 2 * nphase + (k + 1) * ncomp
+                        ] += (sat[j] * d_rho_j[k, 2:] / rho_mix)
+
+            # volume constraint is scaled with target volume
+            jac[0] *= v
+
+            # multiply fraction relations with -1 because y_j (-) s_j rho_j / rho_mix
+            jac[1:] *= -1
+            # derivatives of phase fraction relations w.r.t. independent y_j
+            jac[1:, nphase + 1 : 2 * nphase] = np.eye(nphase - 1)
+
+            return jac
+
         logger.debug("Compiling p-T flash ..\n")
 
         @numba.njit("float64[:](float64[:])")
@@ -1612,7 +981,7 @@ class Flash_c:
             x, y, _ = parse_xyz(X_gen, (nphase, ncomp))
             p, T = parse_pT(X_gen, (nphase, ncomp))
 
-            # declare Jacobian or proper dimension
+            # declare Jacobian of proper dimension
             jac = np.zeros((pT_dim, pT_dim), dtype=np.float64)
 
             jac[: ncomp - 1] = mass_conservation_jac(x, y)
@@ -1639,7 +1008,8 @@ class Flash_c:
         @numba.njit("float64[:](float64[:])")
         def F_ph(X_gen: np.ndarray) -> np.ndarray:
             x, y, z = parse_xyz(X_gen, (nphase, ncomp))
-            p, h, T = parse_phT(X_gen, (nphase, ncomp))
+            h, p = parse_target_state(X_gen, (nphase, ncomp))
+            _, T = parse_pT(X_gen, (nphase, ncomp))
 
             # declare residual array of proper dimension
             res = np.empty(ph_dim, dtype=np.float64)
@@ -1666,9 +1036,10 @@ class Flash_c:
         @numba.njit("float64[:,:](float64[:])")
         def DF_ph(X_gen: np.ndarray) -> np.ndarray:
             x, y, _ = parse_xyz(X_gen, (nphase, ncomp))
-            p, h, T = parse_phT(X_gen, (nphase, ncomp))
+            h, p = parse_target_state(X_gen, (nphase, ncomp))
+            _, T = parse_pT(X_gen, (nphase, ncomp))
 
-            # declare Jacobian or proper dimension
+            # declare Jacobian of proper dimension
             jac = np.zeros((ph_dim, ph_dim), dtype=np.float64)
 
             jac[: ncomp - 1, 1:] = mass_conservation_jac(x, y)
@@ -1697,12 +1068,97 @@ class Flash_c:
 
             return jac
 
+        logger.debug("Compiling v-h flash ..\n")
+
+        @numba.njit("float64[:](float64[:])")
+        def F_vh(X_gen: np.ndarray) -> np.ndarray:
+            x, y, z = parse_xyz(X_gen, (nphase, ncomp))
+            v, h = parse_target_state(X_gen, (nphase, ncomp))
+            p, T = parse_pT(X_gen, (nphase, ncomp))
+            sat = parse_sat(X_gen, (nphase, ncomp))
+
+            # declare residual array of proper dimension
+            res = np.empty(vh_dim, dtype=np.float64)
+
+            res[: ncomp - 1] = mass_conservation_res(x, y, z)
+
+            # complementarity always last for NPIPM to work
+            res[-nphase:] = complementary_conditions_res(x, y)
+
+            # EoS specific computations
+            xn = normalize_fractions(x)
+            prearg = np.array(
+                [prearg_val_c(phasetypes[j], p, T, xn[j]) for j in range(nphase)]
+            )
+
+            res[ncomp - 1 : ncomp - 1 + ncomp * (nphase - 1)] = isofug_constr_c(
+                prearg, p, T, x, xn
+            )
+
+            # state constraints always after isofug and befor complementary cond.
+            # h constraint
+            res[ncomp - 1 + ncomp * (nphase - 1)] = h_constr_res_c(
+                prearg, p, h, T, y, xn
+            )
+            # v constraint including closure for saturations (rho y_j = rho_j s_j)
+            res[ncomp + ncomp * (nphase - 1) : -nphase] = v_constr_res_c(
+                prearg, v, p, T, sat, y, xn
+            )
+
+            return res
+
+        @numba.njit("float64[:,:](float64[:])")
+        def DF_vh(X_gen: np.ndarray) -> np.ndarray:
+            x, y, _ = parse_xyz(X_gen, (nphase, ncomp))
+            v, h = parse_target_state(X_gen, (nphase, ncomp))
+            p, T = parse_pT(X_gen, (nphase, ncomp))
+            sat = parse_sat(X_gen, (nphase, ncomp))
+
+            # declare Jacobian of proper dimension
+            jac = np.zeros((vh_dim, vh_dim), dtype=np.float64)
+
+            jac[: ncomp - 1, nphase + 1 :] = mass_conservation_jac(x, y)
+            # last nphase equations are always complementary conditions
+            jac[-nphase:, nphase + 1 :] = complementary_conditions_jac(x, y)
+
+            # EoS specific computations
+            xn = normalize_fractions(x)
+            prearg_res = np.array(
+                [prearg_val_c(phasetypes[j], p, T, xn[j]) for j in range(nphase)]
+            )
+            prearg_jac = np.array(
+                [prearg_jac_c(phasetypes[j], p, T, xn[j]) for j in range(nphase)]
+            )
+
+            # isofugacity constraints
+            d_iso = d_isofug_constr_c(prearg_res, prearg_jac, p, T, x, xn)
+            # derivatives w.r.t. p, T
+            jac[
+                ncomp - 1 : ncomp - 1 + ncomp * (nphase - 1), nphase - 1 : nphase + 1
+            ] = d_iso[:, :2]
+            # derivatives w.r.t. x
+            jac[ncomp - 1 : ncomp - 1 + ncomp * (nphase - 1), 2 * nphase :] = d_iso[
+                :, 2:
+            ]
+
+            # enthalpy constraint
+            d_h_constr = h_constr_jac_c(prearg_res, prearg_jac, p, h, T, y, x, xn)
+            jac[ncomp - 1 + ncomp * (nphase - 1), nphase - 1 :] = d_h_constr
+
+            # volume constraint
+            jac[ncomp + ncomp * (nphase - 1) : -nphase] = v_constr_jac_c(
+                prearg_res, prearg_jac, v, p, T, sat, y, x, xn
+            )
+
+            return jac
+
         logger.debug("Storing compiled equations ..\n")
 
         self.residuals.update(
             {
                 "p-T": F_pT,
                 "p-h": F_ph,
+                "v-h": F_vh,
             }
         )
 
@@ -1710,6 +1166,7 @@ class Flash_c:
             {
                 "p-T": DF_pT,
                 "p-h": DF_ph,
+                "v-h": DF_vh,
             }
         )
 
@@ -1876,7 +1333,8 @@ class Flash_c:
             """Updating T guess by iterating on h-constr w.r.t. T using Newton and some
             corrections"""
             x, y, _ = parse_xyz(X_gen, (nphase, ncomp))
-            p, h, T = parse_phT(X_gen, (nphase, ncomp))
+            p, T = parse_pT(X_gen, (nphase, ncomp))
+            h, _ = parse_target_state(X_gen, (nphase, ncomp))
             xn = normalize_fractions(x)
 
             for _ in range(N2):
@@ -1952,114 +1410,6 @@ class Flash_c:
         _end = time.time()
         logger.info(
             f"Flash compilation completed (elapsed time: {_end - _start}(s)).\n\n"
-        )
-
-        self.reconfigure_npipm(
-            self.npipm_parameters["eta"],
-            self.npipm_parameters["u1"],
-            self.npipm_parameters["u2"],
-            verbosity,
-        )
-
-    def reconfigure_npipm(
-        self, eta: float, u1: float, u2: float, verbosity: int = 1
-    ) -> None:
-        """Re-compiles the NPIPM slack equation using updated parameters
-        ``u1, u2, eta``.
-
-        For more information on parameters, see :func:`slack_equation_res`.
-
-        Note:
-            The user must recompile the system when changing the parameters because the
-            flash systems in NPIPM are presented as a callable with thermodynamic
-            parameters and variables in a single input argument.
-
-            This design choice was made in order to simplify the signature of the
-            used numerical methods (Newton and Armijo line search).
-
-            We could make the NPIPM parameters part of the input argument.
-            This would enlarge the the input unnecessarily and make the parsing of
-            thermodynamic arguments more cumbersome.
-
-        """
-        # setting logging verbosity
-        if verbosity == 1:
-            logger.setLevel(logging.INFO)
-        elif verbosity >= 2:
-            logger.setLevel(logging.DEBUG)
-        else:
-            logger.setLevel(logging.WARNING)
-
-        npnc = self.npnc
-        u1 = float(u1)
-        u2 = float(u2)
-        eta = float(eta)
-
-        logger.info(f"Starting NPIPM compilation (eta={eta}, u1={u1}, u2={u2}):\n")
-        _start = time.time()
-        logger.debug("Compiling NPIPM p-T flash ..\n")
-
-        F_pT = self.residuals["p-T"]
-        DF_pT = self.jacobians["p-T"]
-
-        @numba.njit("float64[:](float64[:])")
-        def F_npipm_pT(X: np.ndarray) -> np.ndarray:
-            X_thd = X[:-1]
-            nu = X[-1]
-            x, y, _ = parse_xyz(X_thd, npnc)
-            return npipm_extend_and_regularize_res(F_pT(X_thd), y, x, nu, u1, u2, eta)
-
-        @numba.njit("float64[:,:](float64[:])")
-        def DF_npipm_pT(X: np.ndarray) -> np.ndarray:
-            X_thd = X[:-1]
-            nu = X[-1]
-            x, y, _ = parse_xyz(X_thd, npnc)
-            return npipm_extend_and_regularize_jac(DF_pT(X_thd), y, x, nu, u1, u2, eta)
-
-        logger.debug("Compiling NPIPM p-h flash ..\n")
-
-        F_ph = self.residuals["p-h"]
-        DF_ph = self.jacobians["p-h"]
-
-        @numba.njit("float64[:](float64[:])")
-        def F_npipm_ph(X: np.ndarray) -> np.ndarray:
-            X_thd = X[:-1]
-            nu = X[-1]
-            x, y, _ = parse_xyz(X_thd, npnc)
-            return npipm_extend_and_regularize_res(F_ph(X_thd), y, x, nu, u1, u2, eta)
-
-        @numba.njit("float64[:,:](float64[:])")
-        def DF_npipm_ph(X: np.ndarray) -> np.ndarray:
-            X_thd = X[:-1]
-            nu = X[-1]
-            x, y, _ = parse_xyz(X_thd, npnc)
-            return npipm_extend_and_regularize_jac(DF_ph(X_thd), y, x, nu, u1, u2, eta)
-
-        self.npipm_residuals.update(
-            {
-                "p-T": F_npipm_pT,
-                "p-h": F_npipm_ph,
-            }
-        )
-
-        self.npipm_jacobians.update(
-            {
-                "p-T": DF_npipm_pT,
-                "p-h": DF_npipm_ph,
-            }
-        )
-
-        self.npipm_parameters.update(
-            {
-                "eta": eta,
-                "u1": u1,
-                "u2": u2,
-            }
-        )
-
-        _end = time.time()
-        logger.info(
-            f"NPIPM compilation completed (elapsed time: {_end - _start} (s)).\n\n"
         )
 
     def flash(
@@ -2177,7 +1527,7 @@ class Flash_c:
             raise ValueError(f"Expecting at least {ncomp - 1} feed fractions.")
 
         flash_type: Literal["p-T", "p-h", "v-h"]
-        F_dim: int  # Dimension of flash system (unknowns & equations including NPIPM)
+        f_dim: int  # Dimension of flash system (unknowns & equations including NPIPM)
         NF: int  # number of vectorized target states
         X0: np.ndarray  # vectorized, generic flash argument
         gen_arg_dim: int  # number of required values for a flash
@@ -2185,19 +1535,19 @@ class Flash_c:
 
         if p is not None and T is not None and (h is None and v is None):
             flash_type = "p-T"
-            F_dim = nphase - 1 + nphase * ncomp + 1
+            f_dim = nphase - 1 + nphase * ncomp + 1
             NF = (z_sum + p + T).shape[0]
-            gen_arg_dim = ncomp - 1 + 2 + F_dim
+            gen_arg_dim = ncomp - 1 + 2 + f_dim
             state_1 = p
             state_2 = T
             init_args = (self.initialization_parameters["N1"], 1)
         elif p is not None and h is not None and (T is None and v is None):
             flash_type = "p-h"
-            F_dim = nphase - 1 + nphase * ncomp + 1 + 1
+            f_dim = nphase - 1 + nphase * ncomp + 1 + 1
             NF = (z_sum + p + h).shape[0]
-            gen_arg_dim = ncomp - 1 + 2 + 1 + F_dim
-            state_1 = p
-            state_2 = h
+            gen_arg_dim = ncomp - 1 + 2 + 1 + f_dim
+            state_1 = h
+            state_2 = p
             init_args = (
                 self.initialization_parameters["N1"],
                 self.initialization_parameters["N2"],
@@ -2206,9 +1556,9 @@ class Flash_c:
             )
         elif v is not None and h is not None and (T is None and v is None):
             flash_type = "v-h"
-            F_dim = nphase - 1 + nphase * ncomp + 2 + nphase - 1 + 1
+            f_dim = nphase - 1 + nphase * ncomp + 2 + nphase - 1 + 1
             NF = (z_sum + p + h).shape[0]
-            gen_arg_dim = ncomp - 1 + 2 + nphase - 1 + 2 + F_dim
+            gen_arg_dim = ncomp - 1 + 2 + nphase - 1 + 2 + f_dim
             state_1 = v
             state_2 = h
             init_args = (
@@ -2273,23 +1623,30 @@ class Flash_c:
         logger.info("Computing initial guess for slack variable ..")
         X0 = initialize_npipm_nu(X0, (nphase, ncomp))
 
-        F = self.npipm_residuals[flash_type]
-        DF = self.npipm_jacobians[flash_type]
-        solver_args = (
-            F_dim,
-            self.tolerance,
-            self.max_iter,
-            self.armijo_parameters["rho"],
-            self.armijo_parameters["kappa"],
-            self.armijo_parameters["j_max"],
+        F = self.residuals[flash_type]
+        DF = self.jacobians[flash_type]
+        solver_params = convert_param_dict(
+            {
+                "f_dim": f_dim,
+                "num_phase": nphase,
+                "num_comp": ncomp,
+                "tol": self.tolerance,
+                "max_iter": self.max_iter,
+                "rho": self.armijo_parameters["rho"],
+                "kappa": self.armijo_parameters["kappa"],
+                "j_max": self.armijo_parameters["j_max"],
+                "u1": self.npipm_parameters["u1"],
+                "u2": self.npipm_parameters["u2"],
+                "eta": self.npipm_parameters["eta"],
+            }
         )
 
         logger.info("Solving ..\n")
         start = time.time()
         if mode == "linear":
-            results, success, num_iter = linear_newton(X0, F, DF, *solver_args)
+            results, success, num_iter = linear_solver(X0, F, DF, solver_params)
         elif mode == "parallel":
-            results, success, num_iter = parallel_newton(X0, F, DF, *solver_args)
+            results, success, num_iter = parallel_solver(X0, F, DF, solver_params)
         else:
             raise ValueError(f"Unknown mode of compuation {mode}")
         end = time.time()

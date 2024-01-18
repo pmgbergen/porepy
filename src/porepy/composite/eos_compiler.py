@@ -608,7 +608,7 @@ class EoSCompiler(abc.ABC):
         if v_c is None:
             v_c = self.get_volume_function()
 
-        dv_c = self.funcs.get("dv", None)
+        dv_c = self.funcs.get("d_v", None)
         if dv_c is None:
             dv_c = self.get_dpTX_volume_function()
 
