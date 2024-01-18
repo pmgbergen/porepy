@@ -208,7 +208,7 @@ class Mpsa(Discretization):
             sd, active_cells
         )
         # Constitutive law and boundary condition for the active grid
-        active_constit: pp.FourthOrderTensor = fvutils.restrict_fourth_order_tensor_to_subgrid(
+        active_constit: pp.FourthOrderTensor = pp.fvutils.restrict_fourth_order_tensor_to_subgrid(
             constit, active_cells
         )
 
@@ -272,7 +272,7 @@ class Mpsa(Discretization):
             tic = time()
 
             # Copy stiffness tensor, and restrict to local cells.
-            loc_c: pp.FourthOrderTensor = fvutils.restrict_fourth_order_tensor_to_subgrid(
+            loc_c: pp.FourthOrderTensor = pp.fvutils.restrict_fourth_order_tensor_to_subgrid(
                 active_constit, l2g_cells
             )
 

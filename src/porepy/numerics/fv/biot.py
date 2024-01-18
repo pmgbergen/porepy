@@ -340,11 +340,16 @@ class Biot(pp.Mpsa):
             "inverter", "numba"
         )
 
-        alpha_input: float | pp.SecondOrderTensor = parameter_dictionary["biot_alpha"]
-        if isinstance(alpha_input, (float, int)):
-            alpha = pp.SecondOrderTensor(alpha_input * np.ones(sd.num_cells))
-        else:
-            alpha = alpha_input
+        scalar_vector_mappings: dict = parameter_dictionary["scalar_vector_mappings"]
+        scalar_vector_keys: list[str] = list(scalar_vector_mappings.keys())
+
+        alpha: dict[str, pp.SecondOrderTensor] = {}
+
+        for key, alpha_input in scalar_vector_mappings.items():
+            if isinstance(alpha_input, (float, int)):
+                alpha[key] = pp.SecondOrderTensor(alpha_input * np.ones(sd.num_cells))
+            else:
+                alpha[key] = alpha_input
 
         # Control of the number of subdomanis.
         max_memory, num_subproblems = pp.fvutils.parse_partition_arguments(
@@ -373,9 +378,11 @@ class Biot(pp.Mpsa):
         active_constit: pp.FourthOrderTensor = (
             pp.fvutils.restrict_fourth_order_tensor_to_subgrid(constit, active_cells)
         )
-        active_alpha: pp.SecondOrderTensor = (
-            pp.fvutils.restrict_second_order_tensor_to_subgrid(alpha, active_cells)
-        )
+        active_alpha: dict[str, pp.SecondOrderTensor] = {}
+        for key, val in alpha.items():
+            active_alpha[key] = pp.fvutils.restrict_second_order_tensor_to_subgrid(
+                alpha[key], active_cells
+            )
 
         # Extract the relevant part of the boundary condition
         active_bound: pp.BoundaryConditionVectorial = self._bc_for_subgrid(
@@ -401,13 +408,25 @@ class Biot(pp.Mpsa):
         # then the discretization does quite a few different things
         active_stress = sps.csr_matrix((nf * nd, nc * nd))
         active_bound_stress = sps.csr_matrix((nf * nd, nf * nd))
-        active_grad_p = sps.csr_matrix((nf * nd, nc))
-        active_div_u = sps.csr_matrix((nc, nc * nd))
-        active_bound_div_u = sps.csr_matrix((nc, nf * nd))
-        active_stabilization = sps.csr_matrix((nc, nc))
+
         active_bound_displacement_cell = sps.csr_matrix((nf * nd, nc * nd))
         active_bound_displacement_face = sps.csr_matrix((nf * nd, nf * nd))
         active_bound_displacement_pressure = sps.csr_matrix((nf * nd, nc))
+
+        active_grad_p, active_div_u, active_bound_div_u, active_stabilization = (
+            {},
+            {},
+            {},
+            {},
+        )
+        for key in scalar_vector_keys:
+            active_grad_p[key] = sps.csr_matrix((nf * nd, nc))
+            active_div_u[key] = sps.csr_matrix((nc, nc * nd))
+            active_bound_div_u[key] = sps.csr_matrix((nc, nf * nd))
+            active_stabilization[key] = sps.csr_matrix((nc, nc))
+
+        def matrices_from_dict(d: dict) -> list:
+            return [mat for mat in d.values()]
 
         # Loop over all partition regions, construct local problems, and transfer
         # discretization to the entire active grid
@@ -451,11 +470,11 @@ class Biot(pp.Mpsa):
                 )
             )
             # Copy Biot coefficient, and restrict to local cells
-            loc_alpha: pp.SecondOrderTensor = (
-                pp.fvutils.restrict_second_order_tensor_to_subgrid(
-                    active_alpha, l2g_cells
+            loc_alpha = {}
+            for key in active_alpha:
+                loc_alpha[key] = pp.fvutils.restrict_second_order_tensor_to_subgrid(
+                    active_alpha[key], l2g_cells
                 )
-            )
 
             # Boundary conditions are slightly more complex. Find local faces
             # that are on the global boundary.
@@ -492,7 +511,7 @@ class Biot(pp.Mpsa):
                 loc_bound_stress,
                 loc_bound_displacement_cell,
                 loc_bound_displacement_face,
-                loc_grad_p,
+                *matrices_from_dict(loc_grad_p),
                 loc_bound_displacement_pressure,
             )
 
@@ -500,7 +519,11 @@ class Biot(pp.Mpsa):
                 np.logical_not(np.in1d(l2g_cells, cells_in_subgrid))
             )[0]
             pp.fvutils.remove_nonlocal_contribution(
-                eliminate_cell, 1, loc_div_u, loc_bound_div_u, loc_biot_stab
+                eliminate_cell,
+                1,
+                *matrices_from_dict(loc_div_u),
+                *matrices_from_dict(loc_bound_div_u),
+                *matrices_from_dict(loc_biot_stab),
             )
 
             # Next, transfer discretization matrices from the local to the active grid
@@ -526,15 +549,19 @@ class Biot(pp.Mpsa):
                 face_map_vec * loc_bound_displacement_face * face_map_vec.transpose()
             )
 
-            active_stabilization += (
-                cell_map_scalar.transpose() * loc_biot_stab * cell_map_scalar
-            )
-
-            active_grad_p += face_map_vec * loc_grad_p * cell_map_scalar
-            active_div_u += cell_map_scalar.transpose() * loc_div_u * cell_map_vec
-            active_bound_div_u += (
-                cell_map_scalar.transpose() * loc_bound_div_u * face_map_vec.transpose()
-            )
+            for key in scalar_vector_keys:
+                active_grad_p[key] += face_map_vec * loc_grad_p[key] * cell_map_scalar
+                active_div_u[key] += (
+                    cell_map_scalar.transpose() * loc_div_u[key] * cell_map_vec
+                )
+                active_bound_div_u[key] += (
+                    cell_map_scalar.transpose()
+                    * loc_bound_div_u[key]
+                    * face_map_vec.transpose()
+                )
+                active_stabilization[key] += (
+                    cell_map_scalar.transpose() * loc_biot_stab[key] * cell_map_scalar
+                )
 
             active_bound_displacement_pressure += (
                 face_map_vec * loc_bound_displacement_pressure * cell_map_scalar
@@ -566,10 +593,11 @@ class Biot(pp.Mpsa):
         active_bound_stress = scaling_vector @ active_bound_stress
         active_bound_displacement_cell = scaling_vector @ active_bound_displacement_cell
         active_bound_displacement_face = scaling_vector @ active_bound_displacement_face
-        active_grad_p = scaling_vector @ active_grad_p
         active_bound_displacement_pressure = (
             scaling_vector @ active_bound_displacement_pressure
         )
+        for key in scalar_vector_keys:
+            active_grad_p[key] = scaling_vector @ active_grad_p[key]
 
         # We are done with the discretization. What remains is to map the computed
         # matrices back from the active grid to the full one.
@@ -591,15 +619,23 @@ class Biot(pp.Mpsa):
             face_map_vec * active_bound_displacement_face * face_map_vec.transpose()
         )
 
-        stabilization = (
-            cell_map_scalar.transpose() * active_stabilization * cell_map_scalar
-        ).tocsr()
+        grad_p, div_u, bound_div_u, stabilization = {}, {}, {}, {}
 
-        grad_p = face_map_vec * active_grad_p * cell_map_scalar
-        div_u = (cell_map_scalar.transpose() * active_div_u * cell_map_vec).tocsr()
-        bound_div_u = (
-            cell_map_scalar.transpose() * active_bound_div_u * face_map_vec.transpose()
-        ).tocsr()
+        for key in scalar_vector_keys:
+            grad_p[key] = face_map_vec * active_grad_p[key] * cell_map_scalar
+            div_u[key] = (
+                cell_map_scalar.transpose() * active_div_u[key] * cell_map_vec
+            ).tocsr()
+            bound_div_u[key] = (
+                cell_map_scalar.transpose()
+                * active_bound_div_u[key]
+                * face_map_vec.transpose()
+            ).tocsr()
+            stabilization[key] = (
+                cell_map_scalar.transpose()
+                * active_stabilization[key]
+                * cell_map_scalar
+            ).tocsr()
 
         bound_displacement_pressure = (
             face_map_vec * active_bound_displacement_pressure * cell_map_scalar
@@ -614,7 +650,7 @@ class Biot(pp.Mpsa):
             bound_stress,
             bound_displacement_cell,
             bound_displacement_face,
-            grad_p,
+            *matrices_from_dict(grad_p),
             bound_displacement_pressure,
         )
 
@@ -628,10 +664,15 @@ class Biot(pp.Mpsa):
         update_cell_ind = np.where(tmp * af_vec)[0]
         eliminate_cells = np.setdiff1d(np.arange(sd.num_cells), update_cell_ind)
         pp.fvutils.remove_nonlocal_contribution(
-            eliminate_cells, 1, div_u, bound_div_u, stabilization
+            eliminate_cells,
+            1,
+            *matrices_from_dict(div_u),
+            *matrices_from_dict(bound_div_u),
+            *matrices_from_dict(stabilization),
         )
 
         # Either update the discretization scheme, or store the full one
+
         if update:
             # The faces to be updated are given by active_faces
             update_face_ind = pp.fvutils.expand_indices_nd(active_faces, sd.dim)
@@ -642,47 +683,54 @@ class Biot(pp.Mpsa):
             matrices_m[self.bound_stress_matrix_key][update_face_ind] = bound_stress[
                 update_face_ind
             ]
-            matrices_f[self.div_u_matrix_key][update_cell_ind] = div_u[update_cell_ind]
-            matrices_f[self.bound_div_u_matrix_key][update_cell_ind] = bound_div_u[
-                update_cell_ind
-            ]
-            matrices_m[self.grad_p_matrix_key][update_face_ind] = grad_p[
+            for key in scalar_vector_keys:
+                key_str = f"_{key}"
+                matrices_f[self.div_u_matrix_key + key_str][update_cell_ind] = div_u[
+                    key
+                ][update_cell_ind]
+                matrices_f[self.bound_div_u_matrix_key + key_str][
+                    update_cell_ind
+                ] = bound_div_u[key][update_cell_ind]
+                matrices_m[self.grad_p_matrix_key + key_str][update_face_ind] = grad_p[
+                    key
+                ][update_face_ind]
+                matrices_f[self.stabilization_matrix_key + key_str][
+                    update_cell_ind
+                ] = stabilization[key][update_cell_ind]
+
+            matrices_m[self.bound_displacement_cell_matrix_key][
                 update_face_ind
-            ]
-            matrices_f[self.stabilization_matrix_key][update_cell_ind] = stabilization[
-                update_cell_ind
-            ]
-            matrices_m[self.bound_displacement_cell_matrix_key][update_face_ind] = (
-                bound_displacement_cell[update_face_ind]
-            )
-            matrices_m[self.bound_displacement_face_matrix_key][update_face_ind] = (
-                bound_displacement_face[update_face_ind]
-            )
-            matrices_m[self.bound_pressure_matrix_key][update_face_ind] = (
-                bound_displacement_pressure[update_face_ind]
-            )
+            ] = bound_displacement_cell[update_face_ind]
+            matrices_m[self.bound_displacement_face_matrix_key][
+                update_face_ind
+            ] = bound_displacement_face[update_face_ind]
+            matrices_m[self.bound_pressure_matrix_key][
+                update_face_ind
+            ] = bound_displacement_pressure[update_face_ind]
         else:
             matrices_m[self.stress_matrix_key] = stress
             matrices_m[self.bound_stress_matrix_key] = bound_stress
-            matrices_m[self.grad_p_matrix_key] = grad_p
-            matrices_m[self.bound_displacement_cell_matrix_key] = (
-                bound_displacement_cell
-            )
-            matrices_m[self.bound_displacement_face_matrix_key] = (
-                bound_displacement_face
-            )
+            matrices_m[
+                self.bound_displacement_cell_matrix_key
+            ] = bound_displacement_cell
+            matrices_m[
+                self.bound_displacement_face_matrix_key
+            ] = bound_displacement_face
             matrices_m[self.bound_pressure_matrix_key] = bound_displacement_pressure
 
-            matrices_f[self.div_u_matrix_key] = div_u
-            matrices_f[self.bound_div_u_matrix_key] = bound_div_u
-            matrices_f[self.stabilization_matrix_key] = stabilization
+            for key in scalar_vector_keys:
+                key_str = f"_{key}"
+                matrices_m[self.grad_p_matrix_key + key_str] = grad_p[key]
+                matrices_f[self.div_u_matrix_key + key_str] = div_u[key]
+                matrices_f[self.bound_div_u_matrix_key + key_str] = bound_div_u[key]
+                matrices_f[self.stabilization_matrix_key + key_str] = stabilization[key]
 
     def _local_discretization(
         self,
         sd: pp.Grid,
         constit: pp.FourthOrderTensor,
         bound_mech: pp.BoundaryConditionVectorial,
-        alpha: pp.SecondOrderTensor,
+        alpha: list[pp.SecondOrderTensor],
         eta: float,
         inverter: Literal["python", "numba"],
         hf_output: bool = False,
@@ -760,29 +808,33 @@ class Biot(pp.Mpsa):
             stress = hf2f * stress
             rhs_bound = rhs_bound * hf2f.T
 
-        # trace of strain matrix
-        div = self._subcell_gradient_to_cell_scalar(sd, cell_node_blocks, alpha, igrad)
-        div_u = div * igrad * rhs_cells
-
         # The boundary discretization of the div_u term is represented directly
         # on the cells, instead of going via the faces.
-        bound_div_u = div * igrad * rhs_bound
+        grad_p, bound_div_u, div_u, stabilization = {}, {}, {}, {}
+        for key in alpha:
+            # trace of strain matrix
+            div = self._subcell_gradient_to_cell_scalar(
+                sd, cell_node_blocks, alpha[key], igrad
+            )
+            div_u[key] = div * igrad * rhs_cells
+            bound_div_u[key] = div * igrad * rhs_bound
 
-        # Call discretization of grad_p-term
-        rhs_jumps, grad_p_face = self._create_rhs_grad_p(
-            sd, subcell_topology, alpha, bound_exclusion_mech
-        )
+            # Call discretization of grad_p-term
+            rhs_jumps, grad_p_face = self._create_rhs_grad_p(
+                sd, subcell_topology, alpha[key], bound_exclusion_mech
+            )
 
-        if hf_output:
-            # If boundary conditions are given on subfaces we keep the subface
-            # discretization
-            grad_p = hook * igrad * rhs_jumps + grad_p_face
-        else:
-            # otherwise, we map it to faces
-            grad_p = hf2f * (hook * igrad * rhs_jumps + grad_p_face)
+            if hf_output:
+                # If boundary conditions are given on subfaces we keep the subface
+                # discretization
+                raise NotImplementedError("This should be deprecated")
+            else:
+                # otherwise, we map it to faces
+                for key in alpha:
+                    grad_p[key] = hf2f * (hook * igrad * rhs_jumps + grad_p_face)
 
-        # consistency term for the flow equation
-        stabilization = div * igrad * rhs_jumps
+            # consistency term for the flow equation
+            stabilization[key] = div * igrad * rhs_jumps
 
         # We obtain the reconstruction of displacements. This is equivalent as for
         # mpsa, but we get a contribution from the pressures.
@@ -1076,7 +1128,8 @@ class Biot(pp.Mpsa):
         #
         #   [alpha_11^0, alpha_12^0, alpha_21^0, alpha_22^0, alpha_11^1, ...]
         #
-        # To understand the below code, it is useful to consider the following example:
+        # To understand (or perhaps better, to accept) the below code, it is useful to
+        # consider the following example:
         #
         # >> a = np.arange(24).reshape((2, 3, 4))
         # >> a[:, :, 0]
@@ -1085,11 +1138,15 @@ class Biot(pp.Mpsa):
         # >> a[:, :, 1]
         #    array([[ 1,  5,  9],
         #           [13, 17, 21]])
+        #
+        # The goal is to run through the elements of a[:, :, 0], then a[:, :, 1] etc.
+        # Some trial and error showed that the following works:
+        #
         # >> a.swapaxes(2, 1).swapaxes(1, 0).ravel()
         #    array([ 0,  4,  8, 12, 16, 20,  1,  5,  9, 13, 17, 21,  2,  6, 10, 14, 18,
         #           22,  3,  7, 11, 15, 19, 23])
         #
-        # In other words, this just works.
+        # Fingers crossed we never need to revisit this part.
         subcell_alpha_reordered = (
             subcell_alpha_values.swapaxes(2, 1).swapaxes(1, 0).ravel()
         )
