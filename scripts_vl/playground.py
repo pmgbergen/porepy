@@ -1,5 +1,37 @@
 import numba
-from typing import Callable
+import numpy as np
+from typing import Callable, Optional
+
+from numba.core import types
+from numba.typed import Dict
+
+# @numba.njit('float64[:](float64[:],DictType(unicode_type, float64))')
+@numba.njit
+def f(x: np.ndarray, p: Optional[dict[str, float]] = Dict.empty(
+    key_type=types.unicode_type,
+    value_type=types.float64,
+)) -> np.ndarray:
+    x_ = x.copy()
+    if p is not None:
+        for k, v in p.items():
+            x_ = x_ + float(v)
+
+    return x_
+
+x = np.array([1,2,3], dtype=np.float64)
+p = Dict.empty(
+    key_type=types.unicode_type,
+    value_type=types.float64,
+)
+p['a'] = 4.
+p['b'] = 5.
+
+print(f(x, p))
+p['c'] = 6.
+p['d'] = 7.
+# print(f(x))
+print(f(x, p))
+print(f(x, {1: 1, 2: 2.}))
 
 class Foo:
 

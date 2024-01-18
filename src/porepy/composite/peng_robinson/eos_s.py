@@ -863,10 +863,6 @@ class PengRobinsonSymbolic:
 
         self.B_f = sp.lambdify(self.thd_arg, B_e)
         self.d_B_f = sp.lambdify(self.thd_arg, d_B_e)
-        # cohesion
-
-        # TODO this is not safe. Special BIP implementations are not reliably sympy
-        # compatible as of now
 
         a_i_crit: list[float] = [
             A_CRIT * (R_IDEAL**2 * comp.T_crit**2) / comp.p_crit

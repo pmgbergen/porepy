@@ -17,7 +17,8 @@ from typing import Callable
 from porepy.composite import safe_sum
 
 from porepy.composite.peng_robinson.eos_c import PengRobinsonCompiler
-from porepy.composite.flash_c import parse_xyz, Flash_c
+from porepy.composite.flash_c import Flash_c
+from porepy.composite.utils_c import parse_xyz
 
 vec = np.ones(1)
 z = [vec * 0.99, vec * 0.01]
