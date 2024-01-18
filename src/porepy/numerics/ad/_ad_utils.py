@@ -51,53 +51,78 @@ def concatenate_ad_arrays(ad_arrays: list[AdArray], axis=0):
 
 
 def wrap_discretization(
-    obj,
-    discr,
+    obj: pp.ad.Discretization,
+    discr: pp.numerics.disrcetization.Discretization,
     subdomains: Optional[list[pp.Grid]] = None,
     interfaces: Optional[list[pp.MortarGrid]] = None,
     mat_dict_key: Optional[str] = None,
-    mat_dict_grids=None,
 ):
-    """Convert a discretization to its AD equivalent."""
+    """Convert a discretization to its AD equivalent.
+    
+    For a (non-ad) discretization object ``D`` of type ``discr``, this function will
+    identify all attributes of the form ``"foo_matrix_key"`` and create a corresponding
+    attribute "foo" in the AD discretization ``obj``. Thus, after the call to this
+    method, ``obj.foo`` will represent the discretization matrix for the term ``foo``.
+    
+    For example: If ``D`` is an instance of ``Mpfa`` (which has an attribute
+    ``flux_matrix_key``), then ``obj.flux`` will be an instance of ``MpfaAd``, and
+    this function equips ``obj`` with the attribute ``obj.flux``.
+
+    Parameters:
+        obj: An AD discretization object.
+        discr: A non-AD discretization object.
+        subdomains: List of grids on which the discretization is defined.
+        interfaces: List of interfaces on which the discretization is defined.
+
+        Either subdomains or interfaces must be provided, but not both.
+
+        mat_dict_key: Keyword for matrix storage in the data dictionary. If not
+            specified, the keyword of the discretization (the one used to identify
+            where parameters are stored) will be used.
+
+    """
     domains: pp.GridLikeSequence
     if subdomains is None:
-        assert isinstance(interfaces, list)
+        # This is an interface discretization
+        if interfaces is None:
+            raise ValueError("Either subdomains or interfaces must be provided")
+        if not isinstance(interfaces, list):
+            raise ValueError("Interfaces must be a list")
+        
         domains = interfaces
-    else:
-        assert isinstance(subdomains, list)
-        assert interfaces is None
+    elif interfaces is None:
+        # This is a subdomain discretization
+        if not isinstance(subdomains, list):
+            raise ValueError("Subdomains must be a list")
         domains = subdomains
-
-    key_set = []
-    # Loop over all discretizations, identify all attributes that ends with
-    # "_matrix_key". These will be taken as discretizations (they are discretization
-    # matrices for specific terms, to be).
+    else:
+        raise ValueError("Either subdomains or interfaces must be provided, not both")        
 
     if mat_dict_key is None:
         mat_dict_key = discr.keyword
 
-    if mat_dict_grids is None:
-        if interfaces is None:
-            mat_dict_grids = subdomains
-        else:
-            mat_dict_grids = interfaces
-
+    # Loop over all discretizations, identify all attributes that ends with
+    # "_matrix_key". These will be taken as discretizations (they are discretization
+    # matrices for specific terms, to be).
+    key_set = []
     for s in dir(discr):
         if s.endswith("_matrix_key"):
             key = s[:-11]
             key_set.append(key)
 
-    # Make a merged discretization for each of the identified terms.
-    # If some keys are not shared by all values in grid_discr, errors will result.
+    # Make a merged discretization for each of the identified terms. 
     for key in key_set:
+        # Create the merged operator that represents this discretization matrix
         op = MergedOperator(
             discr=discr,
             key=key,
             mat_dict_key=mat_dict_key,
-            mat_dict_grids=mat_dict_grids,
             domains=domains,
         )
+        # Set the keyword for this discretization - this is where the parse method will
+        # go into a data dictionary and fetch the discretization matrix
         setattr(op, "keyword", mat_dict_key)
+        # Set the merged operator as an attribute of the AD discretization
         setattr(obj, key, op)
 
 
@@ -330,7 +355,6 @@ class MergedOperator(operators.Operator):
         discr: pp.discretization_type,
         key: str,
         mat_dict_key: str,
-        mat_dict_grids,
         domains: Optional[pp.GridLikeSequence] = None,
     ) -> None:
         """Initiate a merged discretization.
@@ -340,10 +364,8 @@ class MergedOperator(operators.Operator):
                 discretization is applied, and the actual Discretization objects.
             key: Keyword that identifies this discretization matrix, e.g.
                 for a class with an attribute foo_matrix_key, the key will be foo.
-            mat_dict_key: Keyword used to access discretization matrices, if this
-                is not the same as the keyword of the discretization. The only known
-                case where this is necessary is for Mpfa applied to Biot's equations.
-            mat_dict_grids: EK, could this be a list of grid-likes?
+            mat_dict_key: Keyword used to access discretization matrices.
+            domains: Domains on which the discretization is defined.
 
         """
         name = discr.__class__.__name__
@@ -354,7 +376,7 @@ class MergedOperator(operators.Operator):
 
         # Special field to access matrix dictionary for Biot
         self.mat_dict_key = mat_dict_key
-        self.mat_dict_grids = mat_dict_grids
+        self.domain = domains
 
         self.keyword: Optional[str] = None
 
@@ -368,12 +390,12 @@ class MergedOperator(operators.Operator):
     def __str__(self) -> str:
         return f"{self._name}({self.mat_dict_key}).{self.key}"
 
-    def parse(self, mdg):
+    def parse(self, mdg: pp.MixedDimensionalGrid) -> sps.spmatrix:
         """Convert a merged operator into a sparse matrix by concatenating
         discretization matrices.
 
         Parameters:
-            mdg (pp.MixedDimensionalGrid): Mixed-dimensional grid.
+            mdg: Mixed-dimensional grid.
 
         Returns:
             sps.spmatrix: The merged discretization matrices for the associated matrix.
@@ -383,15 +405,15 @@ class MergedOperator(operators.Operator):
         # Data structure for matrices
         mat = []
 
-        if len(self.mat_dict_grids) == 0:
-            # The underlying discretization is constructed on an empty grid list, quite
-            # likely on a mixed-dimensional grid containing no mortar subdomains.
-            # We can return an empty matrix.
+        if len(self.domains) == 0:
+            # The underlying discretization is constructed on an empty grid list, for
+            # instance on a mixed-dimensional grid containing no mortar subdomains. We
+            # can return an empty matrix.
             return sps.csc_matrix((0, 0))
 
         # Loop over all grid-discretization combinations, get hold of the discretization
         # matrix for this grid quantity
-        for g in self.mat_dict_grids:
+        for g in self.domains:
             # Get data dictionary for either grid or interface
             if isinstance(g, pp.MortarGrid):
                 data = mdg.interface_data(g)
@@ -408,23 +430,9 @@ class MergedOperator(operators.Operator):
             mat.append(mat_dict[mat_key])
 
         if all([isinstance(m, np.ndarray) for m in mat]):
-            if all([m.ndim == 1 for m in mat]):
-                # This is a vector (may happen e.g. for right-hand side terms that are
-                # stored as discretization matrices, as may happen for non-linear terms)
-                return np.hstack(mat)
-            elif all([m.ndim == 2 for m in mat]):
-                # Variant of the first case
-                if all([m.shape[0] == 1 for m in mat]):
-                    return np.hstack(mat).ravel()
+            # TODO: EK is almost sure this never happens, but leave this check for now
+            raise NotImplementedError("")
 
-                elif all([m.shape[1] == 1 for m in mat]):
-                    return np.vstack(mat).ravel()
-            else:
-                # This should correspond to a 2d array. In principle, it should be
-                # possible to concatenate arrays in the right direction, provided they
-                # have coinciding shapes. However, the use case is not clear, so we
-                # raise an error, and rethink if we ever get here.
-                raise NotImplementedError("")
         else:
-            # This is a standard term; wrap it in a diagonal sparse matrix
+            # This is a standard discretization; wrap it in a diagonal sparse matrix
             return sps.block_diag(mat, format="csr")
