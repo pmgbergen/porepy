@@ -10,15 +10,13 @@ from typing import Callable, Optional, Sequence
 import numba
 import numpy as np
 
-from ._core import NUMBA_CACHE
 from .composite_utils import COMPOSITE_LOGGER as logger
 from .mixture import BasicMixture
 from .states import PhaseState
+from .utils_c import extended_compositional_derivatives_v
 
 __all__ = [
     "EoSCompiler",
-    "extended_compositional_derivatives",
-    "extended_compositional_derivatives_v",
 ]
 
 
@@ -154,84 +152,6 @@ def _compile_vectorized_property_derivatives(
         return vals
 
     return inner
-
-
-@numba.njit(
-    "float64[:](float64[:], float64[:])",
-    fastmath=True,
-    cache=NUMBA_CACHE,
-)
-def extended_compositional_derivatives(df_dxn: np.ndarray, x: np.ndarray) -> np.ndarray:
-    """Expands the derivatives of a scalar function :math:`f(p, T, x_n)`, assuming
-    the its derivatives are given w.r.t. to the normalized fractions
-    (see :func:`normalize_fractions`).
-
-    Expansion is conducted by simply applying the chain rule to :math:`f(x_n(x))`.
-
-    Intended use is for thermodynamic properties given by :class:`EoSCompiler`, which
-    are given as functions with above signature.
-
-    Parameters:
-        df_dxn: ``shape=(2 + num_components,)``
-
-            The gradient of a scalar function w.r.t. to pressure, temperature and
-            normalized fractions in a phase.
-        x: ``shape=(num_components,)``
-
-            The extended fractions for a phase.
-
-    Returns:
-        An array with the same shape as ``df_dxn`` where the chain rule was applied.
-
-    """
-    assert len(df_dxn) >= len(x), "Dimension mismatch (number of derivatives)."
-    df_dx = df_dxn.copy()  # deep copy to avoid messing with values
-    ncomp = x.shape[0]
-    # constructing the derivatives of xn_ij = x_ij / (sum_k x_kj)
-    x_sum = np.sum(x)
-    dxn = np.eye(ncomp) / x_sum - np.outer(x, np.ones(ncomp)) / (x_sum**2)
-    # dxn = np.eye(ncomp) / x_sum - np.column_stack([x] * ncomp) / (x_sum ** 2)
-    # assuming derivatives w.r.t. normalized fractions are in the last num_comp elements
-    df_dx[-ncomp:] = df_dx[-ncomp:].dot(dxn)
-
-    return df_dx
-
-
-# TODO this can be turned into a numpy universal function to collapse to single function
-@numba.njit(
-    "float64[:,:](float64[:,:],float64[:,:])",
-    parallel=True,
-    fastmath=True,
-    cache=NUMBA_CACHE,
-)
-def extended_compositional_derivatives_v(
-    df_dxn: np.ndarray, x: np.ndarray
-) -> np.ndarray:
-    """Same as :func:`extended_compositional_derivatives`, only efficiently vectorized.
-
-    Parameters:
-        df_dxn: ``shape=(2 + num_components, M)``
-
-            The gradient of a scalar function w.r.t. to pressure, temperature and
-            normalized fractions in a phase.
-
-            The derivatives are expected to be given row-wise.
-
-        x: ``shape=(num_components, M)``
-
-            The extended fractions for a phase (row-wise).
-
-    Returns:
-        An array with the same shape as ``df_dxn`` where the chain rule was applied.
-
-    """
-    assert df_dxn.shape[1] == x.shape[1], "Dimension mismatch (values)."
-    assert df_dxn.shape[0] >= x.shape[0], "Dimension mismatch (number of derivatives)."
-    df_dx = np.empty_like(df_dxn)
-    _, N = x.shape
-    for i in numba.prange(N):
-        df_dx[:, i] = extended_compositional_derivatives(df_dxn[:, i], x[:, i])
-    return df_dx
 
 
 class EoSCompiler(abc.ABC):

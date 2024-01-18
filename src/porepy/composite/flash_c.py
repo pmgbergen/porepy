@@ -30,7 +30,7 @@ import numpy as np
 from ._core import NUMBA_CACHE
 from .composite_utils import COMPOSITE_LOGGER as logger
 from .composite_utils import safe_sum
-from .eos_compiler import EoSCompiler, extended_compositional_derivatives
+from .eos_compiler import EoSCompiler
 from .mixture import BasicMixture
 from .npipm_c import (
     convert_param_dict,
@@ -40,6 +40,7 @@ from .npipm_c import (
 )
 from .states import FluidState
 from .utils_c import (
+    extended_compositional_derivatives,
     insert_xy,
     normalize_fractions,
     parse_pT,
@@ -1546,8 +1547,8 @@ class Flash_c:
             f_dim = nphase - 1 + nphase * ncomp + 1 + 1
             NF = (z_sum + p + h).shape[0]
             gen_arg_dim = ncomp - 1 + 2 + 1 + f_dim
-            state_1 = h
-            state_2 = p
+            state_1 = p
+            state_2 = h
             init_args = (
                 self.initialization_parameters["N1"],
                 self.initialization_parameters["N2"],
@@ -1578,8 +1579,12 @@ class Flash_c:
         X0 = np.zeros((NF, gen_arg_dim))
         for i, z_i in enumerate(z):
             X0[:, i] = z_i
-        X0[:, ncomp - 1] = state_1
-        X0[:, ncomp] = state_2
+        if flash_type == "p-h":  # revert order because of usage order in gen arg (pTyx)
+            X0[:, ncomp - 1] = state_2
+            X0[:, ncomp] = state_1
+        else:
+            X0[:, ncomp - 1] = state_1
+            X0[:, ncomp] = state_2
 
         if initial_state is None:
             logger.info("Computing initial state ..")
@@ -1608,8 +1613,8 @@ class Flash_c:
                 X0[:, -(1 + ncomp * nphase + nphase - 1 + 1)] = initial_state.T
             # If v is given, get provided guess for p and saturations
             if "v" in flash_type:
-                # If T is additionally unknown to p, p is the second last quantity before
-                # molar fractions
+                # If T is additionally unknown to p, p is the second last quantity
+                # before molar fractions
                 if "T" not in flash_type:
                     p_pos = 1 + ncomp * nphase + nphase - 1 + 2
                 else:
