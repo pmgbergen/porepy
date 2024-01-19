@@ -77,10 +77,8 @@ class Biot(pp.Mpsa):
 
     def __init__(
         self,
+        coupling_keywords: list[str],
         mechanics_keyword: str = "mechanics",
-        flow_keyword: str = "flow",
-        vector_variable: str = "displacement",
-        scalar_variable: str = "pressure",
     ) -> None:
         """Set the two keywords.
 
@@ -88,18 +86,14 @@ class Biot(pp.Mpsa):
         matrices.
         """
         super().__init__("")
+
+        self.coupling_keywords = coupling_keywords
+        """Keyword used to identify the parameter dictionary associated with the
+        coupled subproblems (e.g., flow or thermal problems)."""
+
         self.mechanics_keyword = mechanics_keyword
         """Keyword used to identify the parameter dictionary associated with the
         mechanics subproblem."""
-        self.flow_keyword = flow_keyword
-        """Keyword used to identify the parameter dictionary associated with the
-        flow subproblem."""
-        # Set variable names for the vector and scalar variable, used to access
-        # solutions from previous time steps
-        self.vector_variable = vector_variable
-        """Name for the vector variable, used throughout the discretization and solution."""
-        self.scalar_variable = scalar_variable
-        """Name for the scalar variable, used throughout the discretization and solution."""
 
         # Strings used to identify discretization matrices for various terms constructed
         # by this class. Hardcoded here to enforce a common standard.
@@ -326,12 +320,7 @@ class Biot(pp.Mpsa):
         parameter_dictionary: dict[str, Any] = sd_data[pp.PARAMETERS][
             self.mechanics_keyword
         ]
-        matrices_m: dict[str, sps.spmatrix] = sd_data[pp.DISCRETIZATION_MATRICES][
-            self.mechanics_keyword
-        ]
-        matrices_f: dict[str, sps.spmatrix] = sd_data[pp.DISCRETIZATION_MATRICES][
-            self.flow_keyword
-        ]
+
         bound: pp.BoundaryConditionVectorial = parameter_dictionary["bc"]
         constit: pp.FourthOrderTensor = parameter_dictionary["fourth_order_tensor"]
 
@@ -340,12 +329,15 @@ class Biot(pp.Mpsa):
             "inverter", "numba"
         )
 
+
         scalar_vector_mappings: dict = parameter_dictionary["scalar_vector_mappings"]
         scalar_vector_keys: list[str] = list(scalar_vector_mappings.keys())
 
         alpha: dict[str, pp.SecondOrderTensor] = {}
 
-        for key, alpha_input in scalar_vector_mappings.items():
+        for key in self.coupling_keywords:
+            # TODO: Revisit 'biot_coupling_coefficient
+            alpha_input = sd_data[pp.PARAMETERS][key]['biot_coupling_coefficient']
             if isinstance(alpha_input, (float, int)):
                 alpha[key] = pp.SecondOrderTensor(alpha_input * np.ones(sd.num_cells))
             else:
@@ -419,7 +411,7 @@ class Biot(pp.Mpsa):
             {},
             {},
         )
-        for key in scalar_vector_keys:
+        for key in self.coupling_keywords:
             active_grad_p[key] = sps.csr_matrix((nf * nd, nc))
             active_div_u[key] = sps.csr_matrix((nc, nc * nd))
             active_bound_div_u[key] = sps.csr_matrix((nc, nf * nd))
@@ -549,7 +541,7 @@ class Biot(pp.Mpsa):
                 face_map_vec * loc_bound_displacement_face * face_map_vec.transpose()
             )
 
-            for key in scalar_vector_keys:
+            for key in self.coupling_keywords:
                 active_grad_p[key] += face_map_vec * loc_grad_p[key] * cell_map_scalar
                 active_div_u[key] += (
                     cell_map_scalar.transpose() * loc_div_u[key] * cell_map_vec
@@ -596,7 +588,7 @@ class Biot(pp.Mpsa):
         active_bound_displacement_pressure = (
             scaling_vector @ active_bound_displacement_pressure
         )
-        for key in scalar_vector_keys:
+        for key in self.couple_keywords:
             active_grad_p[key] = scaling_vector @ active_grad_p[key]
 
         # We are done with the discretization. What remains is to map the computed
@@ -621,7 +613,7 @@ class Biot(pp.Mpsa):
 
         grad_p, div_u, bound_div_u, stabilization = {}, {}, {}, {}
 
-        for key in scalar_vector_keys:
+        for key in self.coupling_keywords:
             grad_p[key] = face_map_vec * active_grad_p[key] * cell_map_scalar
             div_u[key] = (
                 cell_map_scalar.transpose() * active_div_u[key] * cell_map_vec
@@ -672,6 +664,8 @@ class Biot(pp.Mpsa):
         )
 
         # Either update the discretization scheme, or store the full one
+        matrices: dict[str, dict] = sd_data[pp.DISCRETIZATION_MATRICES]
+        matrices_m: dict[str, sps.spmatrix] = matrices[self.mechanics_keyword]
 
         if update:
             # The faces to be updated are given by active_faces
@@ -683,18 +677,17 @@ class Biot(pp.Mpsa):
             matrices_m[self.bound_stress_matrix_key][update_face_ind] = bound_stress[
                 update_face_ind
             ]
-            for key in scalar_vector_keys:
-                key_str = f"_{key}"
-                matrices_f[self.div_u_matrix_key + key_str][update_cell_ind] = div_u[
+            for key in self.cooupling_keywords:
+                matrices[key][self.div_u_matrix_key][update_cell_ind] = div_u[
                     key
                 ][update_cell_ind]
-                matrices_f[self.bound_div_u_matrix_key + key_str][
+                matrices[key][self.bound_div_u_matrix_key][
                     update_cell_ind
                 ] = bound_div_u[key][update_cell_ind]
-                matrices_m[self.grad_p_matrix_key + key_str][update_face_ind] = grad_p[
+                matrices[key][self.grad_p_matrix_key][update_face_ind] = grad_p[
                     key
                 ][update_face_ind]
-                matrices_f[self.stabilization_matrix_key + key_str][
+                matrices[key][self.stabilization_matrix_key][
                     update_cell_ind
                 ] = stabilization[key][update_cell_ind]
 
@@ -718,12 +711,11 @@ class Biot(pp.Mpsa):
             ] = bound_displacement_face
             matrices_m[self.bound_pressure_matrix_key] = bound_displacement_pressure
 
-            for key in scalar_vector_keys:
-                key_str = f"_{key}"
-                matrices_m[self.grad_p_matrix_key + key_str] = grad_p[key]
-                matrices_f[self.div_u_matrix_key + key_str] = div_u[key]
-                matrices_f[self.bound_div_u_matrix_key + key_str] = bound_div_u[key]
-                matrices_f[self.stabilization_matrix_key + key_str] = stabilization[key]
+            for key in self.coupling_keywords:
+                matrices[key][self.grad_p_matrix_key] = grad_p[key]
+                matrices[key][self.div_u_matrix_key] = div_u[key]
+                matrices[key][self.bound_div_u_matrix_key] = bound_div_u[key]
+                matrices[key][self.stabilization_matrix_key] = stabilization[key]
 
     def _local_discretization(
         self,
