@@ -9,6 +9,7 @@ else:
 import porepy as pp
 from porepy.fracs.fracture_network_3d import FractureNetwork3d
 
+
 def case1(
     refinement: Optional[Literal[0, 1, 2]] = None, only_network: Optional[bool] = False
 ) -> Union[pp.MixedDimensionalGrid, FractureNetwork3d]:
@@ -102,7 +103,9 @@ def case3(
             str(directory / Path("benchmark_3d_case_3.csv"))
         )
 
-    if refinement == 0:
+    if refinement == -1:
+        file_name = directory / Path("mesh_coarse.geo")
+    elif refinement == 0:
         file_name = directory / Path("mesh30k.geo")
     elif refinement == 1:
         file_name = directory / Path("mesh140k.geo")
@@ -111,7 +114,9 @@ def case3(
     elif refinement == 3:
         file_name = directory / Path("mesh500k.geo")
     else:
-        raise ValueError(f"Expected refinement level 0, 1, 2 or 3, got {refinement}")
+        raise ValueError(
+            f"Expected refinement level -1, 0, 1, 2 or 3, got {refinement}"
+        )
 
     return pp.fracture_importer.dfm_from_gmsh(str(file_name), 3)
 

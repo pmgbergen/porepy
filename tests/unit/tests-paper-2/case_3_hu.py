@@ -6,8 +6,9 @@ import pygem
 import copy
 import os
 import pdb
+import warnings
 import porepy.models.two_phase_hu as two_phase_hu
-from case_3.flow_benchmark_3d import _flow_3d  ##########################
+from case_3.flow_benchmark_3d import _flow_3d
 
 """
 
@@ -54,8 +55,6 @@ class SolutionStrategyTest1(two_phase_hu.SolutionStrategyPressureMass):
         os.system("rm " + self.mass_output_file_name)
         os.system("rm " + self.flips_file_name)
         os.system("rm " + self.beta_file_name)
-        # os.system("rm -r " + self.root_path)
-        # os.system("mkdir " + self.root_path)
 
     def initial_condition(self) -> None:
         """ """
@@ -77,8 +76,7 @@ class SolutionStrategyTest1(two_phase_hu.SolutionStrategyPressureMass):
             )
 
             saturation_values = 0.0 * np.ones(sd.num_cells)
-            saturation_values[np.where(sd.cell_centers[1] >= self.ymax / 2)] = 1.0
-            # saturation_values = 1.0 - 1 * sd.cell_centers[1] / self.ymax
+            saturation_values[np.where(sd.cell_centers[2] >= self.zmax / 2)] = 1.0
 
             # if sd.dim == 1:
             #     saturation_values = 0.5 * np.ones(sd.num_cells)
@@ -92,7 +90,7 @@ class SolutionStrategyTest1(two_phase_hu.SolutionStrategyPressureMass):
 
             pressure_variable = self.pressure([sd])
 
-            pressure_values = (2 - 1 * sd.cell_centers[1] / self.ymax) / self.p_0
+            pressure_values = (2 - 1 * sd.cell_centers[2] / self.zmax) / self.p_0
 
             self.equation_system.set_variable_values(
                 pressure_values,
@@ -131,6 +129,10 @@ class SolutionStrategyTest1(two_phase_hu.SolutionStrategyPressureMass):
                 },
             )
 
+
+class ConstitutiveLawCase3(
+    pp.constitutive_laws.DimensionReduction,
+):
     def intrinsic_permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """for some reason subdoamins is always a single domain"""
 
@@ -150,19 +152,14 @@ class SolutionStrategyTest1(two_phase_hu.SolutionStrategyPressureMass):
             raise NotImplementedError
 
         if sd.dim == 3:
-            permeability = pp.ad.DenseArray(
-                1e2 * np.ones(sd.num_cells)
-            )  # TODO: write right values
+            permeability = pp.ad.DenseArray(1e0 * np.ones(sd.num_cells))
         elif sd.dim == 2:
-            permeability = pp.ad.DenseArray(1e-2 * np.ones(sd.num_cells))
-        elif sd.dim == 1:  # 1D
-            permeability = pp.ad.DenseArray(1e-2 * np.ones(sd.num_cells))
+            permeability = pp.ad.DenseArray(1e2 * np.ones(sd.num_cells))
+        elif sd.dim == 1:
+            permeability = pp.ad.DenseArray(1e0 * np.ones(sd.num_cells))
         else:  # 0D
-            # print("\n\n\n\n mmmm i'm not sure i need it... why am i applying this val?")
-            # pdb.set_trace()
-            permeability = pp.ad.DenseArray(
-                1e-2 * np.ones(sd.num_cells)
-            )  # do i need it?
+            warnings.warn("setting intrinsic permeability to 0D grid")
+            permeability = pp.ad.DenseArray(np.ones(sd.num_cells))  # do i need it?
 
         permeability.set_name("intrinsic_permeability")
         return permeability
@@ -178,19 +175,35 @@ class SolutionStrategyTest1(two_phase_hu.SolutionStrategyPressureMass):
             # pp.plot_grid(sd_2d, extra_pts=intf.cell_centers.T, alpha=0)
 
             if intf.dim == 2:
-                perm[id_intf] = 1e-2 * np.ones(
-                    [intf.num_cells]
-                )  # TODO: write right values
+                perm[id_intf] = 2e6 * np.ones([intf.num_cells])
 
             elif intf.dim == 1:
-                perm[id_intf] = 2 / (1 / 1e-2 + 1 / 1e2) * np.ones([intf.num_cells])
+                perm[id_intf] = 2e4 * np.ones([intf.num_cells])
 
             else:  # 0D
-                perm[id_intf] = 2 / (1 / 1e-2 + 1 / 1e2) * np.ones([intf.num_cells])
+                warnings.warn("setting normal permeability to 0D interface")
+                perm[id_intf] = np.ones([intf.num_cells])
 
         norm_perm = pp.ad.DenseArray(np.concatenate(perm))
 
         return norm_perm
+
+    def porosity(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """ """
+        phi = [None] * len(subdomains)
+
+        for index, sd in enumerate(subdomains):
+            if sd.dim == 3:
+                phi[index] = 2e-1 * np.ones([sd.num_cells])
+            if sd.dim == 2:
+                phi[index] = 2e-1 * np.ones([sd.num_cells])
+            if sd.dim == 1:
+                phi[index] = 2e-1 * np.ones([sd.num_cells])
+            if sd.dim == 0:
+                warnings.warn("setting porosity to 0D grid")
+                phi[index] = 2e-1 * np.ones([sd.num_cells])
+
+        return pp.ad.DenseArray(np.concatenate(phi))
 
     def after_nonlinear_iteration(self, solution_vector: np.ndarray) -> None:
         """ """
@@ -201,27 +214,9 @@ class SolutionStrategyTest1(two_phase_hu.SolutionStrategyPressureMass):
         )
         self.clip_saturation()
 
-        # (
-        #     eq,
-        #     kn,
-        #     pressure_h,
-        #     pressure_l,
-        #     density_upwinded,
-        #     g_term,
-        # ) = self.eq_fcn_mortar_phase_0(self.mdg.interfaces())
-
-        # np.set_printoptions(precision=16)
-        # kn = kn.evaluate(self.equation_system)
-        # print("\nkn = ", kn)
-        # pdb.set_trace()
-
     def set_discretization_parameters(self) -> None:
         """ """
         for sd, data in self.mdg.subdomains(return_data=True):
-            # np.set_printoptions(precision=16)
-            # print("Ka = ", self.intrinsic_permeability_tensor(sd).values)
-            # pdb.set_trace()
-
             pp.initialize_data(
                 sd,
                 data,
@@ -258,11 +253,19 @@ class GeometryCase3(pp.ModelGeometry):
         """ """
         self.set_domain()
 
-        self.mdg = _flow_3d.case3(refinement=0)
+        self.mdg = _flow_3d.case3(refinement=-1)
 
-        # exporter = pp.Exporter(self.mdg, "mdg_I_hope", "./case_3/")
-        # exporter.write_pvd()
-        # exporter.write_vtu()
+        # rotation:
+        R = pp.map_geometry.rotation_matrix(np.pi / 2, np.array([1, 0, 0]))
+
+        for sd in self.mdg.subdomains():
+            sd.nodes = R @ sd.nodes
+
+        self.mdg.compute_geometry()
+
+        exporter = pp.Exporter(self.mdg, "mdg_I_hope", "./case_3/")
+        exporter.write_pvd()
+        exporter.write_vtu()
 
         # where are 1D and 0D grids?
 
@@ -287,7 +290,7 @@ class GeometryCase3(pp.ModelGeometry):
 class PartialFinalModel(
     two_phase_hu.PrimaryVariables,
     two_phase_hu.Equations,
-    two_phase_hu.ConstitutiveLawPressureMass,
+    ConstitutiveLawCase3,
     two_phase_hu.BoundaryConditionsPressureMass,
     SolutionStrategyTest1,
     GeometryCase3,
@@ -322,7 +325,7 @@ if __name__ == "__main__":
     fluid_constants = pp.FluidConstants({})
     solid_constants = pp.SolidConstants(
         {
-            "porosity": 0.25,
+            "porosity": None,
             "intrinsic_permeability": None,
             "normal_permeability": None,
             "residual_aperture": 1e-2 / L_0,

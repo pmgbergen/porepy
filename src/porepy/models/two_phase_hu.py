@@ -30,6 +30,7 @@ def myprint(var):
 - TODO: fix the timestep, the simulation ends after final time
 - TODO: params is a mess, it contains keys about physics and numerics used by model and newton solver. Can't I write everything directly into the model?
 - TODO: the scaling how it is implemented now is a mess. There should be a method inside the model that takes care of the scaling. I don't like units
+- TODO: major review of the interaction run_time_dependent_simulation-Newton-model
 
 - TODO SOON: there is something wrong with the scaling, Ka_0 shouldnt affects the results
 
@@ -1676,11 +1677,11 @@ class SolutionStrategyPressureMass(pp.SolutionStrategy):
 
             np.savetxt(f, info.reshape(1, -1), delimiter=",")
 
-    def flip_flop(self):
+    def flip_flop(self, dim_to_check):
         """very inefficient, i want to make this function as independent as possible"""
 
         for sd, data in self.mdg.subdomains(return_data=True):
-            if sd.dim == 2:  # for simplicity...
+            if sd.dim == dim_to_check:  # for simplicity...
                 # total flux flips:
                 pressure_adarray = self.pressure([sd]).evaluate(self.equation_system)
                 left_restriction = data["for_hu"]["left_restriction"]

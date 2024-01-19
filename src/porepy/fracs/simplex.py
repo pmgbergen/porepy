@@ -11,6 +11,8 @@ import numpy as np
 from . import msh_2_grid
 from .gmsh_interface import PhysicalNames
 
+import pdb
+
 logger = logging.getLogger(__name__)
 
 

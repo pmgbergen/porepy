@@ -39,7 +39,7 @@ class NewtonSolver:
         errors = []
         error_norm = 1
 
-        initial_dirs, _ = model.flip_flop()
+        initial_dirs, _ = model.flip_flop(dim_to_check=model.mdg.dim_max())
         cumulative_flips = np.zeros(model.number_upwind_dirs)
 
         while (
@@ -61,7 +61,7 @@ class NewtonSolver:
 
             sol = self.iteration(model)
 
-            dirs, flips = model.flip_flop()
+            dirs, flips = model.flip_flop(dim_to_check=model.mdg.dim_max())
             cumulative_flips += flips
 
             model.after_nonlinear_iteration(sol)
