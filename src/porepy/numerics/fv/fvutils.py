@@ -621,9 +621,9 @@ def adjust_eta_length(eta: np.ndarray, sub_sd: pp.Grid, l2g_faces: np.ndarray):
     num_nodes_per_face = np.diff(sub_sd.face_nodes.tocsc().indptr)
     # Verify that all faces have equally many nodes
     assert np.unique(num_nodes_per_face).size == 1
-    num_nodes_per_face = np.unique(num_nodes_per_face)[0]
+    expansion_index = num_nodes_per_face[0]
 
-    indices = expand_indices_nd(l2g_faces, num_nodes_per_face)
+    indices = expand_indices_nd(l2g_faces, expansion_index)
     loc_eta = np.array([eta[i] for i in indices])
     return loc_eta
 
