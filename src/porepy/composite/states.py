@@ -6,10 +6,9 @@ from dataclasses import dataclass, field
 from typing import Sequence
 
 import numpy as np
-import pypardiso
-import scipy.sparse as sps
 
 from .composite_utils import safe_sum
+from .utils_c import compute_saturations, compute_saturations_v
 
 __all__ = [
     "ExtensiveState",
@@ -207,131 +206,18 @@ class FluidState(IntensiveState, ExtensiveState):
 
         """
 
-        num_phases = len(self.y)
-        densities = [state.rho for state in self.phases]
-        assert num_phases == len(
-            densities
-        ), "Need equal amount of phases and molar phase fractionsfractions"
-
-        num_vals = len(self.y[0])
-
-        s: list[np.ndarray] = [np.zeros(num_vals) for _ in range(num_phases)]
-
-        if num_phases == 1:
-            s[0] = np.ones(num_vals)
+        if not isinstance(self.y, np.ndarray):
+            y = np.array(self.y)
         else:
-            if num_phases == 2:
-                # 2-phase saturation evaluation can be done analytically
-                rho_1, rho_2 = densities
-                y_1, y_2 = self.y
+            y = self.y
 
-                s_1 = np.zeros_like(y_1)
-                s_2 = np.zeros_like(y_2)
+        rho = np.array([phase.rho for phase in self.phases])
+        assert y.shape == rho.shape, "Mismatch in values for fractions and densities."
 
-                phase_1_saturated = (y_1 > 1 - eps) & (y_1 < 1 + eps)
-                phase_2_saturated = (y_2 > 1 - eps) & (y_2 < 1 + eps)
-                idx = ~phase_2_saturated
-                y2_idx = y_2[idx]
-                rho1_idx = rho_1[idx]
-                rho2_idx = rho_2[idx]
-                s_1[idx] = 1.0 / (1.0 + y2_idx / (1.0 - y2_idx) * rho1_idx / rho2_idx)
-                s_1[phase_1_saturated] = 1.0
-                s_1[phase_2_saturated] = 0.0
-
-                idx = ~phase_1_saturated
-                y1_idx = y_1[idx]
-                rho1_idx = rho_1[idx]
-                rho2_idx = rho_2[idx]
-                s_2[idx] = 1.0 / (1.0 + y1_idx / (1.0 - y1_idx) * rho2_idx / rho1_idx)
-                s_2[phase_1_saturated] = 0.0
-                s_2[phase_2_saturated] = 1.0
-
-                s[0] = s_1
-                s[1] = s_2
-            else:
-                # More than 2 phases requires the inversion of the matrix given by
-                # phase fraction relations
-                mats = list()
-
-                # list of indicators per phase, where the phase is fully saturated
-                saturated = list()
-                # where one phase is saturated, the other vanish
-                vanished = [np.zeros(num_vals, dtype=bool) for _ in range(num_phases)]
-
-                for j2 in range(num_phases):
-                    # get the DOFS where one phase is fully saturated
-                    # TODO check sensitivity of this
-                    saturated_j = (self.y[j2] > 1 - eps) & (self.y[j2] < 1 + eps)
-                    saturated.append(saturated_j)
-                    # store information that other phases vanish at these DOFs
-                    for j2 in range(num_phases):
-                        if j2 != j2:
-                            # where phase j is saturated, phase j2 vanishes
-                            # logical OR acts cumulatively
-                            vanished[j2] = vanished[j2] | saturated_j
-
-                # stacked indicator which DOFs
-                saturated = np.hstack(saturated)
-                # staacked indicator which DOFs vanish
-                vanished = np.hstack(vanished)
-                # all other DOFs are in multiphase regions
-                multiphase = ~(saturated | vanished)
-
-                # construct the matrix for saturation flash
-                # first loop, per block row (equation per phase)
-                for j in range(num_phases):
-                    mats_row = list()
-                    # second loop, per block column (block per phase per equation)
-                    for j2 in range(num_phases):
-                        # diagonal values are zero
-                        # This matrix is just a placeholder
-                        if j == j2:
-                            mats.append(sps.diags([np.zeros(num_vals)]))
-                        # diagonals of blocks which are not on the main diagonal,
-                        # are non-zero
-                        else:
-                            d = 1 - self.y[j]
-                            # to avoid a division by zero error, we set it to one
-                            # this is arbitrary, but respective matrix entries are
-                            # sliced out since they correspond to cells where one phase
-                            # is saturated,
-                            # i.e. the respective saturation is 1., the other 0.
-                            d[d == 0.0] = 1.0
-                            diag = 1.0 + densities[j2] / densities[j] * self.y[j] / d
-                            mats_row.append(sps.diags([diag]))
-
-                    # row-block per phase fraction relation
-                    mats.append(sps.hstack(mats_row, format="csr"))
-
-                # Stack matrices per equation on each other
-                # This matrix corresponds to the vector of stacked saturations per phase
-                mat = sps.vstack(mats, format="csr")
-                # TODO Matrix has large band width
-
-                # projection matrix to DOFs in multiphase region
-                # start with identity in CSR format
-                projection: sps.spmatrix = sps.diags([np.ones(len(multiphase))]).tocsr()
-                # slice image of canonical projection out of identity
-                projection = projection[multiphase]
-                projection_transposed = projection.transpose()
-
-                # get sliced system
-                rhs = projection * np.ones(num_vals * num_phases)
-                mat = projection * mat * projection_transposed
-
-                s = pypardiso.spsolve(mat, rhs)
-
-                # prolongate the values from the multiphase region to global DOFs
-                saturations = projection_transposed * s
-                # set values where phases are saturated or have vanished
-                saturations[saturated] = 1.0
-                saturations[vanished] = 0.0
-
-                # distribute results to the saturation variables
-                for j in range(num_phases):
-                    s[j] = saturations[j * num_vals : (j + 1) * num_vals]
-
-        self.sat = s
+        if len(y.shape) == 1:
+            self.sat = compute_saturations(y, rho, eps).reshape((y.shape[0], 1))
+        else:
+            self.sat = compute_saturations_v(y, rho, eps)
 
     def evaluate_extensive_state(self) -> None:
         """Evaluates the mixture properties based on the currently stored phase

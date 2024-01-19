@@ -120,7 +120,7 @@ def insert_xy(
     return X_gen
 
 
-@numba.njit("float64[:](float64[:],UniTuple(int32,2))", fastmath=True, cache=True)
+@numba.njit("float64[:](float64[:],UniTuple(int32,2))", cache=True)
 def parse_pT(X_gen: np.ndarray, npnc: tuple[int, int]) -> np.ndarray:
     """Helper function extracing pressure and temperature from a generic
     argument for the p-T flash.
@@ -144,6 +144,21 @@ def parse_pT(X_gen: np.ndarray, npnc: tuple[int, int]) -> np.ndarray:
     """
     nphase, ncomp = npnc
     return X_gen[-(ncomp * nphase + nphase - 1) - 2 : -(ncomp * nphase + nphase - 1)]
+
+
+@numba.njit("float64[:](float64[:],float64,float64,UniTuple(int32,2))", cache=True)
+def insert_pT(
+    X_gen: np.ndarray, p: float, T: float, npnc: tuple[int, int]
+) -> np.ndarray:
+    """Helper function to insert pressure and temperature into a generic argument.
+
+    Essentially a reverse operation for :func:`parse_pT`.
+
+    """
+    nphase, ncomp = npnc
+    X_gen[-(ncomp * nphase + nphase - 1 + 2)] = p
+    X_gen[-(ncomp * nphase + nphase - 1 + 1)] = T
+    return X_gen
 
 
 @numba.njit("float64[:](float64[:],UniTuple(int32,2))", fastmath=True, cache=True)
@@ -206,6 +221,18 @@ def parse_sat(X_gen: np.ndarray, npnc: tuple[int, int]) -> np.ndarray:
     sat = np.empty(nphase, dtype=np.float64)
     sat[1:] = X_gen[ncomp + 1 : ncomp + 1 + nphase - 1]
     sat[0] = 1.0 - np.sum(sat[1:])
+    return sat
+
+
+@numba.njit("float64[:](float64[:],float64[:],UniTuple(int32,2))", cache=True)
+def insert_sat(X_gen: np.ndarray, sat: np.ndarray, npnc: tuple[int, int]) -> np.ndarray:
+    """Helper function to insert phase saturations into a generic argument.
+
+    Essentially a reverse operation for :func:`parse_sat`.
+
+    """
+    _, ncomp = npnc
+    X_gen[ncomp + 2 : 2 * ncomp] = sat
     return sat
 
 
@@ -311,6 +338,116 @@ def extended_compositional_derivatives_v(
     for i in numba.prange(N):
         df_dx[:, i] = extended_compositional_derivatives(df_dxn[:, i], x[:, i])
     return df_dx
+
+
+@numba.njit("float64[:](float64[:],float64[:],float64)", fastmath=True, cache=True)
+def compute_saturations(y: np.ndarray, rho: np.ndarray, eps: float) -> np.ndarray:
+    r"""Computes the saturation values by solving the phase fraction relations of form
+
+    .. math::
+
+        \left(\sum_k s_k \rho_k\right) y_j - \rho_j s_j = 0~,~ \sum_k s_k - 1 = 0~.
+
+    Parameters:
+        y: ``shape=(num_phase,)``
+
+            A vector of molar phase fractions, assuming the first value belongs to the
+            reference phase.
+        rho: ``shape=(num_phase,)``
+
+            A vector of phase densities, corresponding to ``y``. Must be of same length
+            as ``y``.
+        eps: A small number to determin saturated phases (``y_j > 1- eps``).
+
+    Raises:
+        AssertionError: If ``y`` and ``rho`` are of unequal shape.
+        AssertionError: If more than one phase is saturated.
+        AssertionError: If the computed saturations violate the unity constraint.
+
+    Returns:
+        A vector of analogous shape (and phase order) containing saturation values.
+
+    """
+    assert y.shape == rho.shape, "Mismatch in given numbers of fractions and densities."
+    nphase = y.shape[0]
+
+    s = np.zeros_like(y)
+
+    if nphase == 1:
+        s = np.ones(1)
+    else:
+        # if any phase is saturated
+        saturated = y >= 1.0 - eps
+        # sanity check that only one phase is saturated
+        assert saturated.sum() == 1, "More than 1 phase saturated."
+
+        # 2-phase saturation evaluation can be done analytically
+        if nphase == 2:
+            if np.any(saturated):
+                s[saturated] = 1.0
+            # if no phase is saturated, solve equations.
+            else:
+                # s_1 = 1. / (1. - (y_1 + 1) / y_1 * rho_1 / rho_2)
+                # same with additional y_1 + y_2 - 1 = 0
+                s[0] = 1.0 / (1.0 + y[1] / (1 - y[1]) * rho[0] / rho[1])
+                s[1] = 1.0 - s[0]
+        # More than 2 phases requires the inversion of the matrix given by
+        # phase fraction relations
+        else:
+            if np.any(saturated):
+                s[saturated] = 1.0
+            else:
+                not_vanished = y > eps
+                # per logic, there can't be a saturated phase, i.e. at least 2 present
+                y_ = y[not_vanished]
+                rho_ = rho[not_vanished]
+
+                n = y_.shape[0]
+                # solve j=1..n equations (sum_k s_k rho_k) y_j - s_j rho_j = 0
+                # where in each equation, s_j is replaced by 1 - sum_k!=j s_k
+                rhs = np.ones(n, dtype=np.float64)
+                mat = np.array(
+                    [1.0 - rho_ / rho_[j] * y_[j] / (1 - y_[j]) for j in range(n)],
+                    dtype=np.float64,
+                )
+                np.fill_diagonal(mat, 0.0)
+
+                s_ = np.linalg.solve(mat, rhs)
+                s[not_vanished] = s_
+
+    # sanity check of results, should not happen.
+    assert s.sum() <= 1.0 + eps, "Computed saturations violate unity constraint."
+    return s
+
+
+@numba.njit(
+    "float64[:,:](float64[:,:],float64[:,:],float64)",
+    parallel=True,
+    fastmath=True,
+    cache=NUMBA_CACHE,
+)
+def compute_saturations_v(y: np.ndarray, rho: np.ndarray, eps: float) -> np.ndarray:
+    """Parallelized form of :func:`compute_saturations` for vectorized input.
+
+    Parameters:
+        y: ``shape=(num_phase, N)``
+
+            Matrix containing row-wise molar phase fractions per phase.
+        rho: ``shape=(num_phase, N)``
+
+            Same for densities.
+        eps: Same as for non-parallelized version.
+
+    Returns:
+        An array with ``shape=(num_phase, N)`` containing row-wise saturation values per
+        phase.
+
+    """
+    assert y.shape == rho.shape, "Mismatch in given numbers of fractions and densities."
+    s = np.empty_like(y)
+    for n in numba.prange(y.shape[1]):
+        s[:, n] = compute_saturations(y[:, n], rho[:, n], eps)
+    return s
 
 
 _import_end = time.time()
