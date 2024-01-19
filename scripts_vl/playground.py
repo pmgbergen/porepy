@@ -5,6 +5,19 @@ from typing import Callable, Optional
 from numba.core import types
 from numba.typed import Dict
 
+@numba.njit('float64[:](float64[:],optional(float64))')
+def g(x, e = 1e-8):
+    a = np.array([False, False, False], dtype=np.bool_)
+    s = a.sum()
+    if s == 1:
+        print("check")
+    else:
+        print("fail")
+    return x + e
+
+print(g(np.ones(3), 2.))
+print(g(np.ones(3), 2.))
+
 # @numba.njit('float64[:](float64[:],DictType(unicode_type, float64))')
 @numba.njit
 def f(x: np.ndarray, p: Optional[dict[str, float]] = Dict.empty(
