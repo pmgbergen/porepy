@@ -18,7 +18,6 @@ import scipy.sparse as sps
 
 import porepy as pp
 from porepy.numerics.discretization import Discretization
-from porepy.numerics.fv import fvutils
 
 # Module-wide logger
 logger = logging.getLogger(__name__)
@@ -287,7 +286,7 @@ class Mpsa(Discretization):
             # its length should be adjusted to match the number of subfaces in the
             # partitioned subgrid.
             if isinstance(eta, np.ndarray):
-                loc_eta = fvutils.adjust_eta_length(
+                loc_eta = pp.fvutils.adjust_eta_length(
                     eta=eta, sub_sd=sub_g, l2g_faces=l2g_faces
                 )
 

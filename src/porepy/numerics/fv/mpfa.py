@@ -9,7 +9,6 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
-from porepy.numerics.fv import fvutils
 
 
 class Mpfa(pp.FVElliptic):
@@ -272,7 +271,7 @@ class Mpfa(pp.FVElliptic):
             # its length should be adjusted to match the number of subfaces in the
             # partitioned subgrid.
             if isinstance(eta, np.ndarray):
-                loc_eta = fvutils.adjust_eta_length(
+                loc_eta = pp.fvutils.adjust_eta_length(
                     eta=eta, sub_sd=sub_sd, l2g_faces=l2g_faces
                 )
 
