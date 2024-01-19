@@ -595,7 +595,9 @@ def expand_indices_incr(ind, dim, increment):
     return ind_new
 
 
-def adjust_eta_length(eta: np.ndarray, sub_sd: pp.Grid, l2g_faces: np.ndarray):
+def adjust_eta_length(
+    eta: np.ndarray, sub_sd: pp.Grid, l2g_faces: np.ndarray
+) -> np.ndarray:
     """Adjusts length of vector valued eta for problems partitioned into subproblems.
 
     Eta can either be a scalar or a vector. If a vector valued eta is passed, it will
@@ -616,8 +618,7 @@ def adjust_eta_length(eta: np.ndarray, sub_sd: pp.Grid, l2g_faces: np.ndarray):
         partitioning.
 
     """
-    # Use information in the sparse formatting to find the number of nodes
-    # per face
+    # Use information in the sparse formatting to find the number of nodes per face
     num_nodes_per_face = np.diff(sub_sd.face_nodes.tocsc().indptr)
     # Verify that all faces have equally many nodes
     assert np.unique(num_nodes_per_face).size == 1
