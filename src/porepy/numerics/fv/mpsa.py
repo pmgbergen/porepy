@@ -282,6 +282,18 @@ class Mpsa(Discretization):
                 active_bound, sub_g, l2g_faces
             )
 
+            # Eta can either be a scalar or a vector. If a vector valued eta is passed,
+            # its length should be adjusted to match the number of subfaces in the
+            # partitioned subgrid.
+            if isinstance(eta, np.ndarray):
+                loc_eta = pp.fvutils.adjust_eta_length(
+                    eta=eta, sub_sd=sub_g, l2g_faces=l2g_faces
+                )
+
+            # Non-array eta suggests eta is scalar. Thus no changes happen to eta.
+            else:
+                loc_eta = eta
+
             # Discretization of sub-problem
             (
                 loc_stress,
@@ -289,7 +301,7 @@ class Mpsa(Discretization):
                 loc_bound_displacement_cell,
                 loc_bound_displacement_face,
             ) = self._stress_discretization(
-                sub_g, loc_c, loc_bnd, eta=eta, inverter=inverter, hf_eta=hf_eta
+                sub_g, loc_c, loc_bnd, eta=loc_eta, inverter=inverter, hf_eta=hf_eta
             )
 
             # Eliminate contribution from faces already discretized (the dual grids /
