@@ -1819,10 +1819,10 @@ class SolutionStrategyPressureMass(pp.SolutionStrategy):
                 delimiter=",",
             )
 
-    def beta_faces_model(self):
+    def beta_faces_model(self, dim_to_check):
         """as flip_flop, very inefficient implementation, I want this method to be independent"""
 
-        out = self.mdg.subdomains(return_data=True, dim=2)[0]
+        out = self.mdg.subdomains(return_data=True, dim=dim_to_check)[0]
         sd = out[0]
         data = out[1]
 
@@ -1967,7 +1967,7 @@ class SolutionStrategyPressureMass(pp.SolutionStrategy):
         """used for plots, tests, and more"""
 
         self.compute_mass()
-        self.beta_faces_model()
+        self.beta_faces_model(dim_to_check=self.mdg.dim_max())
 
 
 class MyModelGeometry(pp.ModelGeometry):

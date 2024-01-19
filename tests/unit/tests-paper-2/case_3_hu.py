@@ -179,7 +179,6 @@ class ConstitutiveLawCase3(
 
             elif intf.dim == 1:
                 perm[id_intf] = 2e4 * np.ones([intf.num_cells])
-
             else:  # 0D
                 warnings.warn("setting normal permeability to 0D interface")
                 perm[id_intf] = np.ones([intf.num_cells])
@@ -263,9 +262,9 @@ class GeometryCase3(pp.ModelGeometry):
 
         self.mdg.compute_geometry()
 
-        exporter = pp.Exporter(self.mdg, "mdg_I_hope", "./case_3/")
-        exporter.write_pvd()
-        exporter.write_vtu()
+        # exporter = pp.Exporter(self.mdg, "mdg_I_hope", "./case_3/")
+        # exporter.write_pvd()
+        # exporter.write_vtu()
 
         # where are 1D and 0D grids?
 
@@ -395,9 +394,9 @@ if __name__ == "__main__":
     folder_name = "./case_3/hu/visualization"
 
     time_manager = two_phase_hu.TimeManagerPP(
-        schedule=np.array([0, 0.1]) / t_0,
-        dt_init=2e-3 / t_0,
-        dt_min_max=np.array([1e-5, 2e-3]) / t_0,
+        schedule=np.array([0, 1]) / t_0,
+        dt_init=5e-3 / t_0,
+        dt_min_max=np.array([1e-5, 5e-3]) / t_0,
         constant_dt=False,
         recomp_factor=0.5,
         recomp_max=10,
@@ -411,7 +410,7 @@ if __name__ == "__main__":
         "material_constants": material_constants,
         "max_iterations": 20,
         "nl_convergence_tol": 1e-6,
-        "nl_divergence_tol": 1e0,
+        "nl_divergence_tol": 1e5,
         "time_manager": time_manager,
         "folder_name": folder_name,
         "meshing_kwargs": meshing_kwargs,
