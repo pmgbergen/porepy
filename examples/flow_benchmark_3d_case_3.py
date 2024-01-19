@@ -2,7 +2,7 @@
 This module contains the implementation of Case 3 from the 3D flow benchmark [1].
 
 Note:
-    The class `Benchmark3dCase3Model` admits the keyword `refinement_level`,
+    The class `FlowBenchmark3dCase3Model` admits the keyword `refinement_level`,
     which can take values 0, 1, 2, 3, to control the mesh refinement level. Level `0`
     contains approximately 30K three-dimensional cells, level `1` contains 140K
     three-dimensional cells, level `2` contains 350K three-dimensional cells,
@@ -122,16 +122,4 @@ class FlowBenchmark3dCase3Model(  # type:ignore[misc]
     FlowBenchmark3dCase3BoundaryConditions,
     pp.fluid_mass_balance.SinglePhaseFlow,
 ):
-    """Mixer class for case 3 from 3D flow benchmark."""
-
-
-# %% Runner
-model = FlowBenchmark3dCase3Model({"material_constants": {"solid": solid_constants}})
-pp.run_time_dependent_model(model, {})
-pressure_norm = np.linalg.norm(
-    model.pressure(model.mdg.subdomains()).value(model.equation_system)
-)
-
-# %%
-print("Pressure norm", pressure_norm)
-np.testing.assert_allclose(pressure_norm, 13.337947636587648)
+    """Mixer class for case 3 from the 3d flow benchmark."""
