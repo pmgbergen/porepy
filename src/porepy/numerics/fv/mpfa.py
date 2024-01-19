@@ -266,11 +266,25 @@ class Mpfa(pp.FVElliptic):
             loc_bnd: pp.BoundaryCondition = self._bc_for_subgrid(
                 active_bound, sub_sd, l2g_faces, active_grid
             )
+
+            # Eta can either be a scalar or a vector. If a vector valued eta is passed,
+            # its length should be adjusted to match the number of subfaces in the
+            # partitioned subgrid.
+            if isinstance(eta, np.ndarray):
+                loc_eta = pp.fvutils.adjust_eta_length(
+                    eta=eta, sub_sd=sub_sd, l2g_faces=l2g_faces
+                )
+
+            # Non-array eta suggests eta is scalar. Thus no changes happen to eta.
+            else:
+                loc_eta = eta
+
+            # Discretization of sub-problem
             discr_fields = self._flux_discretization(
                 sub_sd,
                 loc_c,
                 loc_bnd,
-                eta=eta,
+                eta=loc_eta,
                 inverter=inverter,
                 ambient_dimension=vector_source_dim,
             )
@@ -1569,7 +1583,7 @@ class Mpfa(pp.FVElliptic):
         whether the implementation is sufficiently general to be put there.
 
         Parameters:
-            sub_g (pp.Grid): Grid for which the new condition applies. Is
+            sub_sd (pp.Grid): Grid for which the new condition applies. Is
                 assumed to be a subgrid of the grid to initialize this object.
             face_map (np.ndarray): Index of faces of the original grid from
                 which the new conditions should be picked.
