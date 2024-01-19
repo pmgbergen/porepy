@@ -2,11 +2,11 @@
 This module contains the implementation of Case 3 from the 3D flow benchmark [1].
 
 Note:
-    The class `FlowBenchmark3dCase3Model` admits the keyword `refinement_level`,
-    which can take values 0, 1, 2, 3, to control the mesh refinement level. Level `0`
-    contains approximately 30K three-dimensional cells, level `1` contains 140K
-    three-dimensional cells, level `2` contains 350K three-dimensional cells,
-    and level `3` contains 500K three-dimensional cells.
+    The class `FlowBenchmark3dCase3Model` admits the parameter keyword
+    `refinement_level`, which can take values 0, 1, 2, 3, to control the mesh refinement
+    level. Level `0` contains approximately 30K three-dimensional cells, level `1`
+    contains 140K three-dimensional cells, level `2` contains 350K three-dimensional
+    cells, and level `3` contains 500K three-dimensional cells.
 
 References:
     [1] Berre, I., Boon, W. M., Flemisch, B., Fumagalli, A., Gläser, D., Keilegavlen,
@@ -33,21 +33,21 @@ solid_constants = pp.SolidConstants(
 
 
 class FlowBenchmark3dCase3Geometry(pp.ModelGeometry):
-    """Define Geometry as"""
+    """Define Geometry as specified in Section 5.3 of the benchmark study [1]."""
 
     params: dict
     """User-defined model parameters."""
 
     def set_geometry(self) -> None:
-        """Read geometry from the `geo` files associated to the benchmark."""
+        """Create mixed-dimensional grid and fracture network."""
 
-        # Create mixed-dimensional grid and fracture network
+        # Create mixed-dimensional grid and fracture network.
         self.mdg, self.fracture_network = benchmark_3d_case_3(
             refinement_level=self.params.get("refinement_level", 0)
         )
         self.nd: int = self.mdg.dim_max()
 
-        # Obtain domain and fracture list directly from the fracture network
+        # Obtain domain and fracture list directly from the fracture network.
         self._domain = self.fracture_network.domain
         self._fractures = self.fracture_network.fractures
 
@@ -56,7 +56,7 @@ class FlowBenchmark3dCase3Geometry(pp.ModelGeometry):
 
         self.set_well_network()
         if len(self.well_network.wells) > 0:
-            # Compute intersections
+            # Compute intersections.
             assert isinstance(self.fracture_network, FractureNetwork3d)
             pp.compute_well_fracture_intersections(
                 self.well_network, self.fracture_network
@@ -68,14 +68,30 @@ class FlowBenchmark3dCase3Geometry(pp.ModelGeometry):
 
 class FlowBenchmark3dCase3Permeability(DimensionDependentPermeability):
     def fracture_permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Constant fracture permeability"""
+        """Constant fracture permeability.
+
+        Parameters:
+            subdomains: List of subdomains.
+
+        Returns:
+            Operator representing the permeability.
+
+        """
         size = sum(sd.num_cells for sd in subdomains)
         val = self.solid.convert_units(1e4, "m^2")
         permeability = pp.wrap_as_dense_ad_array(val, size, name="permeability")
         return self.isotropic_second_order_tensor(subdomains, permeability)
 
     def intersection_permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Constant intersection permeability"""
+        """Constant intersection permeability.
+
+        Parameters:
+            subdomains: List of subdomains.
+
+        Returns:
+            Operator representing the permeability.
+
+        """
         size = sum(sd.num_cells for sd in subdomains)
         val = self.solid.convert_units(1e4, "m^2")
         permeability = pp.wrap_as_dense_ad_array(val, size, name="permeability")
@@ -88,24 +104,25 @@ class FlowBenchmark3dCase3BoundaryConditions:
     domain_boundary_sides: Callable
 
     def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
-        """Assign Dirichlet to top North and bottom North parts of the boundary."""
-        # Retrieve boundary sides
+        """Assign Dirichlet to the top and bottom  part of the north (y=y_max)
+        boundary."""
+        # Retrieve boundary sides.
         bounds = self.domain_boundary_sides(sd)
-        # Get Dirichlet faces
+        # Get Dirichlet faces.
         dir_faces = np.zeros(sd.num_faces, dtype=bool)
         north_top_dir_cells = sd.face_centers[2][bounds.north] > (2 / 3)
         north_bottom_dir_faces = sd.face_centers[2][bounds.north] < (1 / 3)
         dir_faces[bounds.north] = north_top_dir_cells + north_bottom_dir_faces
-        # Assign boundary conditions, the rest are Neumann by default
+        # Assign boundary conditions, the rest are Neumann by default.
         bc = pp.BoundaryCondition(sd, dir_faces, "dir")
         return bc
 
     def bc_values_darcy_flux(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
-        """Assign non-zero Darcy flux to the middle South boundary."""
-        # Retrieve boundary sides and cell centers
+        """Assign non-zero Darcy flux to the middle south (y=y_min) boundary."""
+        # Retrieve boundary sides and cell centers.
         bounds = self.domain_boundary_sides(boundary_grid)
         cc = boundary_grid.cell_centers
-        # Get inlet faces
+        # Get inlet faces.
         inlet_faces = np.zeros(boundary_grid.num_cells, dtype=bool)
         inlet_faces[bounds.south] = (cc[2][bounds.south] < (2 / 3)) & (
             cc[2][bounds.south] > (1 / 3)
