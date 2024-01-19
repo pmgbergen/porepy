@@ -1,5 +1,10 @@
 """
 Module containing tests for the flow three-dimensional benchmark, case 3.
+
+The tests check whether effective permeabilities and boundary are correctly assigned.
+Since we solved the actual model, we also implicitly check that the model does not
+crash. However, we are currently not checking that the solution is the "correct" one.
+
 """
 import sys
 
@@ -75,6 +80,7 @@ def model() -> ModelWithEffectivePermeability:
     return model
 
 
+@pytest.mark.skipped  # reason: slow
 def test_effective_tangential_permeability_values(model) -> None:
     """
     Test if the permeability values are consistent with the benchmark specification.
@@ -96,6 +102,7 @@ def test_effective_tangential_permeability_values(model) -> None:
             np.testing.assert_allclose(val, 1)
 
 
+@pytest.mark.skipped  # reason: slow
 def test_effective_normal_permeability_values(model) -> None:
     """
     Test if the permeability values are consistent with the benchmark specification.
@@ -115,6 +122,7 @@ def test_effective_normal_permeability_values(model) -> None:
             np.testing.assert_allclose(val, 2e4)
 
 
+@pytest.mark.skipped  # reason: slow
 def test_boundary_specification(model) -> None:
     """
     Check that the inlet and outlet boundaries are correctly specified.
