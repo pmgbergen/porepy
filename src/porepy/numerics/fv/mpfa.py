@@ -9,6 +9,7 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
+from porepy.numerics.fv import fvutils
 
 
 class Mpfa(pp.FVElliptic):
@@ -268,47 +269,12 @@ class Mpfa(pp.FVElliptic):
             )
 
             # Eta can either be a scalar or a vector. If a vector valued eta is passed,
-            # it will have a length equal to the number of subfaces in the entire grid.
-            # If the grid is partitioned into subgrids, we need to adjust the length of
-            # eta to match the subfaces of the subgrid.
+            # its length should be adjusted to match the number of subfaces in the
+            # partitioned subgrid.
             if isinstance(eta, np.ndarray):
-                # First finding how many subfaces each face is divided into
-                sub_sd_subcelltopology = pp.fvutils.SubcellTopology(sub_sd)
-                no_unique_subfaces = len(sub_sd_subcelltopology.subfno_unique)
-                no_faces = sub_sd.cell_faces.shape[0]
-                multiplier = int(no_unique_subfaces / no_faces)
-
-                # Initialize array for the global subface indices
-                global_subgrid_subface_indices = np.zeros(
-                    len(l2g_faces) * multiplier, dtype=int
+                loc_eta = fvutils.adjust_eta_length(
+                    eta=eta, sub_sd=sub_sd, l2g_faces=l2g_faces
                 )
-
-                # If all faces are divided into n subfaces, the subfaces will be
-                # numerated as follows: Each face index should be represented n times
-                # and multiplied by n. The 2nd, 3rd to n-th representation of the face
-                # index should have 1, 2, ..., n-1 added to them, respectively. Then you
-                # have the subface indexing.
-
-                # Examples:
-                # * If you have the face indices [1, 4, 5] divided into 2 subfaces each.
-                #   Subface indices are the following: [2, 3, 8, 9, 10, 11].
-                # * If you have face indices [1, 4, 5] and they are divided into 3
-                #   subfaces, then subface indices are the following: [3, 4, 5, 12, 13,
-                #   14, 15, 16, 17]
-
-                # Initializing a counter for the indexing and looping through all the
-                # global face indices
-                counter = 0
-                for element in l2g_faces:
-                    indices = np.arange(counter, counter + multiplier)
-
-                    # Filling the array with the corresponding subface indices
-                    global_subgrid_subface_indices[
-                        indices
-                    ] = element * multiplier + np.arange(multiplier)
-                    counter += multiplier
-
-                loc_eta = np.array([eta[i] for i in global_subgrid_subface_indices])
 
             # Non-array eta suggests eta is scalar. Thus no changes happen to eta.
             else:
