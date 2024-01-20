@@ -132,7 +132,7 @@ class _SetFluxDiscretizations:
 
 
 class UnitTestAdTpfaFlux(
-    pp.constitutive_laws.AdDarcyFlux,
+    pp.constitutive_laws.DarcysLawAd,
     _SetFluxDiscretizations,
     pp.fluid_mass_balance.SinglePhaseFlow,
 ):
@@ -628,7 +628,7 @@ class TestDiffTpfaGridsOfAllDimensions(
     CubeDomainOrthogonalFractures,
     _SetFluxDiscretizations,
     pp.constitutive_laws.CubicLawPermeability,
-    pp.constitutive_laws.AdDarcyFlux,
+    pp.constitutive_laws.DarcysLawAd,
     pp.fluid_mass_balance.SinglePhaseFlow,
 ):
     """Helper class to test that the methods for differentiating diffusive fluxes and
@@ -745,7 +745,7 @@ class WithoutDiffTpfa(
 
 
 class WithDiffTpfa(
-    pp.constitutive_laws.AdDarcyFlux,
+    pp.constitutive_laws.DarcysLawAd,
     WithoutDiffTpfa,
 ):
     """Helper class to test that the methods for differentiating diffusive fluxes and

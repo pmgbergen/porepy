@@ -2046,7 +2046,7 @@ class AdTpfaFlux:
         return pp.ad.AdArray(val, jac)
 
 
-class AdDarcyFlux(AdTpfaFlux, DarcysLaw):
+class DarcysLawAd(AdTpfaFlux, DarcysLaw):
     """Adaptive discretization of the Darcy flux from generic adaptive flux class."""
 
     permeability: Callable[[list[pp.Grid]], pp.ad.Operator]
@@ -2689,7 +2689,7 @@ class FouriersLaw:
         return pp.ad.MpfaAd(self.fourier_keyword, subdomains)
 
 
-class AdFouriersLaw(AdTpfaFlux, FouriersLaw):
+class FouriersLawAd(AdTpfaFlux, FouriersLaw):
     """Adaptive discretization of the Fourier flux from generic adaptive flux class."""
 
     thermal_conductivity: Callable[[list[pp.Grid]], pp.ad.Operator]
