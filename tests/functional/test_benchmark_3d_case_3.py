@@ -117,8 +117,9 @@ def model() -> ModelWithEffectivePermeability:
 def test_effective_tangential_permeability_values(model) -> None:
     """Test if the permeability values are consistent with the benchmark specification.
 
-    The values are specified in Table 5 from [1]. We expect a value of normal
-    permeability = 2E6 for 2d interfaces, and 2e4 for 1d interfaces.
+    The values are specified in Table 5 from [1]. We expect a value of effective
+    tangential permeability = 1 for the 3d subdomain, 1e2 for the fractures, and 1.0
+    for the fracture intersections.
 
     Parameters:
         model: ModelWithEffectivePermeability
