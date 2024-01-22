@@ -981,7 +981,7 @@ class PengRobinsonSymbolic:
 
         # region Volume
 
-        v_e: sp.Expr = Z_s * self.p_s * R_IDEAL / self.T_s
+        v_e: sp.Expr = Z_s * self.T_s * R_IDEAL / self.p_s
         """Symbolic expression for specific volume, depending on pressure, temperature
         and compressibility factor."""
 
@@ -1011,7 +1011,7 @@ class PengRobinsonSymbolic:
 
         """
 
-        components: list[Component_PR] = list[mixture.components]  # type: ignore
+        components: list[Component_PR] = [_ for _ in mixture.components]  # type: ignore
         ncomp = mixture.num_components
 
         # BIP matrix, must be of shape = (ncomp, ncomp) at the end

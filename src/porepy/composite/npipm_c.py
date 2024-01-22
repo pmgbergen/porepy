@@ -14,7 +14,7 @@ from numba.typed import Dict as nbdict
 
 from ._core import NUMBA_CACHE
 from .composite_utils import COMPOSITE_LOGGER as logger
-from .flash_c import parse_xyz
+from .utils_c import parse_xyz
 
 SOLVER_PARAMS = dict[
     Literal[
@@ -250,9 +250,6 @@ def _npipm_extend_and_regularize_res(
     f_res: np.ndarray,
     X: np.ndarray,
     npnc: tuple[int, int],
-    y: np.ndarray,
-    x: np.ndarray,
-    nu: float,
     u1: float,
     u2: float,
     eta: float,
@@ -561,8 +558,8 @@ def parallel_solver(
     kappa = float(solver_params["kappa"])
     j_max = int(solver_params["j_max"])
     u1 = float(solver_params["u1"])
-    u2 = int(solver_params["u2"])
-    eta = int(solver_params["eta"])
+    u2 = float(solver_params["u2"])
+    eta = float(solver_params["eta"])
 
     # alocating return values
     N = X0.shape[0]
@@ -600,15 +597,15 @@ def linear_solver(
 
     # extracting solver parameters
     f_dim = int(solver_params["f_dim"])
-    npnc = (int(solver_params["num_phases"]), int(solver_params["num_comps"]))
+    npnc = (int(solver_params["num_phase"]), int(solver_params["num_comp"]))
     tol = float(solver_params["tol"])
     max_iter = int(solver_params["max_iter"])
     rho = float(solver_params["rho"])
     kappa = float(solver_params["kappa"])
     j_max = int(solver_params["j_max"])
     u1 = float(solver_params["u1"])
-    u2 = int(solver_params["u2"])
-    eta = int(solver_params["eta"])
+    u2 = float(solver_params["u2"])
+    eta = float(solver_params["eta"])
 
     # alocating return values
     N = X0.shape[0]

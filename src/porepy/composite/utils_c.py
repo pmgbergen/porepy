@@ -379,7 +379,8 @@ def compute_saturations(y: np.ndarray, rho: np.ndarray, eps: float) -> np.ndarra
         # if any phase is saturated
         saturated = y >= 1.0 - eps
         # sanity check that only one phase is saturated
-        assert saturated.sum() == 1, "More than 1 phase saturated."
+        if np.any(saturated):
+            assert saturated.sum() == 1, "More than 1 phase saturated."
 
         # 2-phase saturation evaluation can be done analytically
         if nphase == 2:
@@ -406,10 +407,9 @@ def compute_saturations(y: np.ndarray, rho: np.ndarray, eps: float) -> np.ndarra
                 # solve j=1..n equations (sum_k s_k rho_k) y_j - s_j rho_j = 0
                 # where in each equation, s_j is replaced by 1 - sum_k!=j s_k
                 rhs = np.ones(n, dtype=np.float64)
-                mat = np.array(
-                    [1.0 - rho_ / rho_[j] * y_[j] / (1 - y_[j]) for j in range(n)],
-                    dtype=np.float64,
-                )
+                mat = np.empty((n, n), dtype=np.float64)
+                for j in range(n):
+                    mat[j] = 1.0 - rho_ / rho_[j] * y_[j] / (1.0 - y_[j])
                 np.fill_diagonal(mat, 0.0)
 
                 s_ = np.linalg.solve(mat, rhs)

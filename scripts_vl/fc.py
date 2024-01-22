@@ -15,9 +15,6 @@ logger.setLevel(logging.WARNING)
 
 chems = ["H2O", "CO2"]
 feed = [0.99, 0.01]
-p_range = [1e6, 50e6]
-T_range = [450., 700.]
-refinement = 80
 
 species = pp.composite.load_species(chems)
 comps = [
@@ -37,14 +34,7 @@ mix = pp.composite.NonReactiveMixture(comps, phases)
 mix.set_up()
 
 vec = np.ones(1)
-p = vec * 1e6
-T = vec * 453.16455696
 verbosity = 2
-z = [vec * _ for _ in feed]
-[
-    mix.system.set_variable_values(val, [comp.fraction.name], 0, 0)
-    for val, comp in zip(z, comps)
-]
 
 eos_c = PengRobinsonCompiler(mix, verbosity=verbosity)
 flash_c = Flash_c(mix, eos_c)
@@ -52,16 +42,36 @@ flash_c = Flash_c(mix, eos_c)
 flash_c.armijo_parameters["rho"] = 0.99
 flash_c.armijo_parameters["j_max"] = 50
 flash_c.npipm_parameters['u2'] = 10.
-flash_c.tolerance = 1e-8
+flash_c.tolerance = 1e-7
 flash_c.max_iter = 150
 
 eos_c.compile(verbosity=verbosity)
 flash_c.compile(verbosity=verbosity)
 
+z = [vec * _ for _ in feed]
+# test p-T
+p = vec * 1e6
+T = vec * 450.
 print('--- Test runs ')
-result, success, num_iter = flash_c.flash(z, p = p, T= T, mode='linear', verbosity=verbosity)
 result, success, num_iter = flash_c.flash(z, p = p, T= T, mode='parallel', verbosity=verbosity)
+result, success, num_iter = flash_c.flash(z, p = p, T= T, mode='linear', verbosity=verbosity)
 print("---\n")
+
+# test p-h
+p = vec * 1e6
+h = vec * 7335.055860939756
+result, success, num_iter = flash_c.flash(z, p=p, h=h, verbosity=verbosity)
+
+# test v-h
+v = vec * 3.267067077646246e-05
+h = vec * (-18911.557739855507)
+result, success, num_iter = flash_c.flash(z, h=h, v=v, verbosity=verbosity)
+
+
+# parallel p-T test
+p_range = [1e6, 50e6]
+T_range = [450., 700.]
+refinement = 80
 
 p_vec = np.linspace(p_range[0], p_range[1], refinement, endpoint=True, dtype=np.float64)
 T_vec = np.linspace(T_range[0], T_range[1], refinement, endpoint=True, dtype=np.float64)

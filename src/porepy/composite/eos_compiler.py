@@ -88,12 +88,20 @@ def _compile_vectorized_fugacity_coeff_derivatives(
         "float64[:,:,:](float64[:,:],float64[:,:],float64[:],float64[:],float64[:,:])",
         parallel=True,
     )
-    def inner(prearg: np.ndarray, p: np.ndarray, T: np.ndarray, xn: np.ndarray):
+    def inner(
+        prearg_res: np.ndarray,
+        prearg_jac: np.ndarray,
+        p: np.ndarray,
+        T: np.ndarray,
+        xn: np.ndarray,
+    ):
         ncomp, N = xn.shape
         ndiffs = ncomp + 2
         d_phis = np.empty((ncomp, ndiffs, N))
         for i in numba.prange(N):
-            d_phis[:, :, i] = d_phi_c(prearg[i], p[i], T[i], xn[:, i])
+            d_phis[:, :, i] = d_phi_c(
+                prearg_res[i], prearg_jac[i], p[i], T[i], xn[:, i]
+            )
         return d_phis
 
     return inner
