@@ -15,9 +15,14 @@ def g(x, e = 1e-8):
         print("fail")
     return x + e
 
-print(g(np.ones(3), 2.))
-print(g(np.ones(3), 2.))
+@numba.njit('float64[:,:]()')
+def d():
+    d_ = [np.ones(3, dtype=np.float64) for _ in range(3)]
+    return np.array(d_, dtype=np.float64)
 
+print(g(np.ones(3), 2.))
+print(g(np.ones(3), 2.))
+print(d())
 # @numba.njit('float64[:](float64[:],DictType(unicode_type, float64))')
 @numba.njit
 def f(x: np.ndarray, p: Optional[dict[str, float]] = Dict.empty(

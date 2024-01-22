@@ -389,7 +389,7 @@ def _compile_Z(
     return numba.njit("float64(float64, float64)", cache=False, fastmath=fastmath)(Z_)
 
 
-logger.debug(f"{_import_msg} Compiling generalized compressibility factor ..\n")
+logger.debug(f"{_import_msg} Compiling solution formulae ..\n")
 
 
 Z_triple_c: Callable[[float, float], float] = _compile_Z(Z_triple_f, fastmath=True)
@@ -423,6 +423,9 @@ d_Z_three_l_c: Callable[[float, float], np.ndarray] = _compile_d_Z(d_Z_three_l_f
 
 Z_three_i_c: Callable[[float, float], float] = _compile_Z(Z_three_i_f)
 d_Z_three_i_c: Callable[[float, float], np.ndarray] = _compile_d_Z(d_Z_three_i_f)
+
+
+logger.debug(f"{_import_msg} Compiling general compressibility factor ..\n")
 
 
 @numba.njit("int8(int8, float64, float64, float64)", cache=NUMBA_CACHE, fastmath=True)

@@ -33,11 +33,11 @@ class IntensiveState:
 
     """
 
-    p: np.ndarray = np.zeros(1)
+    p: np.ndarray = field(default_factory=lambda: np.zeros(1))
     """Pressure values. As of now, an equal pressure across all phases is assumed at
     equilibrium. Default is zero."""
 
-    T: np.ndarray = np.zeros(1)
+    T: np.ndarray = field(default_factory=lambda: np.zeros(1))
     """Temperature values. As of now, an equal temperatue across all phases is assumed
     at equilibrium. Default is zero."""
 
@@ -63,10 +63,10 @@ class ExtensiveState:
 
     """
 
-    h: np.ndarray = np.zeros(1)
+    h: np.ndarray = field(default_factory=lambda: np.zeros(1))
     """Specific molar enthalpy. Default is zero."""
 
-    v: np.ndarray = np.ones(1)
+    v: np.ndarray = field(default_factory=lambda: np.zeros(1))
     """Specific molar volume. Default is one."""
 
     @property
