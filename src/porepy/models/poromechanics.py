@@ -141,6 +141,21 @@ class SolutionStrategyPoromechanics(
     mdg: pp.MixedDimensionalGrid
     """Mixed dimensional grid."""
 
+    def __init__(self, params: Optional[dict] = None) -> None:
+        """Initialize the solution strategy.
+
+        Parameters:
+            params: Dictionary of parameters.
+
+        """
+        # Initialize the solution strategy for the fluid mass balance subproblem.
+        mass.SolutionStrategySinglePhaseFlow.__init__(self, params=params)
+        # Initialize the solution strategy for the momentum balance subproblem.
+        momentum.SolutionStrategyMomentumBalance.__init__(self, params=params)
+
+        self.biot_coefficient_key = "biot_alpha"
+        """Keyword for the Biot coefficient."""
+
     def set_discretization_parameters(self) -> None:
         """Set parameters for the subproblems and the combined problem."""
         # Set parameters for the subproblems.
