@@ -13,8 +13,11 @@ from porepy.composite.peng_robinson.eos_c import PengRobinsonCompiler
 from porepy.composite.flash_c import Flash_c
 logger.setLevel(logging.WARNING)
 
+vec = np.ones(1)
+verbosity = 2
 chems = ["H2O", "CO2"]
 feed = [0.99, 0.01]
+z = [vec * _ for _ in feed]
 
 species = pp.composite.load_species(chems)
 comps = [
@@ -33,38 +36,58 @@ mix = pp.composite.NonReactiveMixture(comps, phases)
 
 mix.set_up()
 
-vec = np.ones(1)
-verbosity = 2
-
 eos_c = PengRobinsonCompiler(mix, verbosity=verbosity)
 flash_c = Flash_c(mix, eos_c)
-
-flash_c.armijo_parameters["rho"] = 0.99
-flash_c.armijo_parameters["j_max"] = 50
-flash_c.npipm_parameters['u2'] = 10.
-flash_c.tolerance = 1e-7
+flash_c.tolerance = 1e-8
 flash_c.max_iter = 150
 
 eos_c.compile(verbosity=verbosity)
 flash_c.compile(verbosity=verbosity)
 
-z = [vec * _ for _ in feed]
+
 # test p-T
 p = vec * 1e6
 T = vec * 450.
 print('--- Test runs ')
-result, success, num_iter = flash_c.flash(z, p = p, T= T, mode='parallel', verbosity=verbosity)
+flash_c.armijo_parameters["rho"] = 0.99
+flash_c.armijo_parameters["kappa"] = 0.4
+flash_c.armijo_parameters["j_max"] = 50
+flash_c.npipm_parameters['u1'] = 1.
+flash_c.npipm_parameters['u2'] = 10.
+flash_c.npipm_parameters['eta'] = 0.5
+flash_c.initialization_parameters['N1'] = 3
+flash_c.initialization_parameters['N2'] = 1
+flash_c.initialization_parameters['N3'] = 5
+# result, success, num_iter = flash_c.flash(z, p = p, T= T, mode='parallel', verbosity=verbosity)
 result, success, num_iter = flash_c.flash(z, p = p, T= T, mode='linear', verbosity=verbosity)
 print("---\n")
 
 # test p-h
 p = vec * 1e6
 h = vec * 7335.055860939756
+flash_c.armijo_parameters["rho"] = 0.99
+flash_c.armijo_parameters["kappa"] = 0.4
+flash_c.armijo_parameters["j_max"] = 30
+flash_c.npipm_parameters['u1'] = 1.
+flash_c.npipm_parameters['u2'] = 1.
+flash_c.npipm_parameters['eta'] = 0.5
+flash_c.initialization_parameters['N1'] = 3
+flash_c.initialization_parameters['N2'] = 1
+flash_c.initialization_parameters['N3'] = 5
 result, success, num_iter = flash_c.flash(z, p=p, h=h, verbosity=verbosity)
 
 # test v-h
 v = vec * 3.267067077646246e-05
 h = vec * (-18911.557739855507)
+flash_c.armijo_parameters["rho"] = 0.9
+flash_c.armijo_parameters["kappa"] = 0.4
+flash_c.armijo_parameters["j_max"] = 150
+flash_c.npipm_parameters['u1'] = 1.
+flash_c.npipm_parameters['u2'] = 10.
+flash_c.npipm_parameters['eta'] = 0.5
+flash_c.initialization_parameters['N1'] = 2
+flash_c.initialization_parameters['N2'] = 2
+flash_c.initialization_parameters['N3'] = 7
 result, success, num_iter = flash_c.flash(z, h=h, v=v, verbosity=verbosity)
 
 

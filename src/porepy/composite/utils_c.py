@@ -233,7 +233,7 @@ def insert_sat(X_gen: np.ndarray, sat: np.ndarray, npnc: tuple[int, int]) -> np.
     """
     _, ncomp = npnc
     X_gen[ncomp + 2 : 2 * ncomp] = sat
-    return sat
+    return X_gen
 
 
 # endregion
