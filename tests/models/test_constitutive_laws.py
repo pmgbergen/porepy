@@ -436,7 +436,7 @@ def test_dimension_reduction_values(
 class PoromechanicalTestDiffTpfa(
     SquareDomainOrthogonalFractures,
     pp.constitutive_laws.CubicLawPermeability,
-    pp.constitutive_laws.AdDarcyFlux,
+    pp.constitutive_laws.DarcysLawAd,
     pp.poromechanics.Poromechanics,
 ):
     """Helper class to test the derivative of the Darcy flux with respect to the mortar
