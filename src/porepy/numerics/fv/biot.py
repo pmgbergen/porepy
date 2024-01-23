@@ -48,11 +48,11 @@ class Biot(pp.Mpsa):
     mechanical discretization, this class discretizes the coupling terms between
     mechanics and flow. Specifically, the following coupling terms are discretized:
 
-    ``data[pp.DISCRETIZATION_MATRICES][self.mechanics_keyword]["grad_p"]``:
+    ``data[pp.DISCRETIZATION_MATRICES][self.keyword]["grad_p"]``:
     Discretization of the term :math:`\\nabla p` in the mechanics part of the
     poromechanical system.
 
-    ``data[pp.DISCRETIZATION_MATRICES][self.mechanics_keyword]["bound_displacement_pressure"]``:
+    ``data[pp.DISCRETIZATION_MATRICES][self.keyword]["bound_displacement_pressure"]``:
     Discretization of the pressure contribution to the boundary displacement trace
     reconstruction in a poromechanical system, see class documentation in
     `:class:~porepy.numerics.fv.mpsa.Mpsa` for more details.
@@ -78,7 +78,7 @@ class Biot(pp.Mpsa):
     def __init__(
         self,
         coupling_keywords: list[str],
-        mechanics_keyword: str = "mechanics",
+        keyword: str = "mechanics",
     ) -> None:
         """Set the two keywords.
 
@@ -90,8 +90,7 @@ class Biot(pp.Mpsa):
         self.coupling_keywords = coupling_keywords
         """Keyword used to identify the parameter dictionary associated with the
         coupled subproblems (e.g., flow or thermal problems)."""
-
-        self.mechanics_keyword = mechanics_keyword
+        self.keyword = keyword
         """Keyword used to identify the parameter dictionary associated with the
         mechanics subproblem."""
 
@@ -206,7 +205,7 @@ class Biot(pp.Mpsa):
         # for mpfa and mpsa, due to the multi-physics structure of the discretization.
 
         # Matrices computed by self._discretized_mech, but associtated with self.flow_keyword.
-        # These are moved to the self.mechanics_keyword matrix dictionary, and will then be
+        # These are moved to the self.keyword matrix dictionary, and will then be
         # moved back again at the end of this function
         mech_in_flow = [
             self.div_u_matrix_key,
@@ -215,7 +214,7 @@ class Biot(pp.Mpsa):
         ]
         for key in mech_in_flow:
             mat = sd_data[pp.DISCRETIZATION_MATRICES][self.flow_keyword].pop(key)
-            sd_data[pp.DISCRETIZATION_MATRICES][self.mechanics_keyword][key] = mat
+            sd_data[pp.DISCRETIZATION_MATRICES][self.keyword][key] = mat
 
         # Dump discretization of mass term - this will be fully rediscretized below
         sd_data[pp.DISCRETIZATION_MATRICES][self.flow_keyword].pop(
@@ -260,7 +259,7 @@ class Biot(pp.Mpsa):
         pp.fvutils.partial_update_discretization(
             sd,
             sd_data,
-            self.mechanics_keyword,
+            self.keyword,
             self.discretize,
             dim=sd.dim,
             scalar_cell_right=scalar_cell_right,
@@ -272,7 +271,7 @@ class Biot(pp.Mpsa):
         )
         # Remove the mech_in_flow matrices from the mechanics dictionary
         for key in mech_in_flow:
-            sd_data[pp.DISCRETIZATION_MATRICES][self.mechanics_keyword].pop(key, None)
+            sd_data[pp.DISCRETIZATION_MATRICES][self.keyword].pop(key, None)
 
     def discretize(self, sd: pp.Grid, sd_data: dict) -> None:
         """Discretize the mechanics terms in a poromechanical system.
@@ -284,7 +283,7 @@ class Biot(pp.Mpsa):
         sd_data, which should contain the following mandatory keywords:
 
             Related to mechanics equation (in
-            sd_data[pp.PARAMETERS][self.mechanics_keyword]):
+            sd_data[pp.PARAMETERS][self.keyword]):
                 fourth_order_tensor: Fourth order tensor representing elastic moduli.
                 bc: BoundaryCondition object for mechanics equation.
                     Used in mpsa.
@@ -318,7 +317,7 @@ class Biot(pp.Mpsa):
 
         """
         parameter_dictionary: dict[str, Any] = sd_data[pp.PARAMETERS][
-            self.mechanics_keyword
+            self.keyword
         ]
 
         bound: pp.BoundaryConditionVectorial = parameter_dictionary["bc"]
@@ -665,7 +664,7 @@ class Biot(pp.Mpsa):
 
         # Either update the discretization scheme, or store the full one
         matrices: dict[str, dict] = sd_data[pp.DISCRETIZATION_MATRICES]
-        matrices_m: dict[str, sps.spmatrix] = matrices[self.mechanics_keyword]
+        matrices_m: dict[str, sps.spmatrix] = matrices[self.keyword]
 
         if update:
             # The faces to be updated are given by active_faces
@@ -1204,10 +1203,10 @@ class Biot(pp.Mpsa):
                 all stress values on the first face, then the second etc.
 
         """
-        matrix_dictionary = sd_data[pp.DISCRETIZATION_MATRICES][self.mechanics_keyword]
+        matrix_dictionary = sd_data[pp.DISCRETIZATION_MATRICES][self.keyword]
         stress_discr = matrix_dictionary["stress"]
         bound_stress = matrix_dictionary["bound_stress"]
-        bound_val = sd_data[pp.PARAMETERS][self.mechanics_keyword]["bc_values"]
+        bound_val = sd_data[pp.PARAMETERS][self.keyword]["bc_values"]
         d = u[: sd.dim * sd.num_cells]
 
         stress = stress_discr * d + (bound_stress * bound_val)
@@ -1321,11 +1320,12 @@ class DivU(Discretization):
         the DivU term (displacements), not the scalar variable.
         """
         self.flow_keyword = flow_keyword
-        self.mechanics_keyword = mechanics_keyword
+        self.keyword = mechanics_keyword
 
         # Use the same key to access the discretization matrix as the Biot class.
-        self.div_u_matrix_key = Biot().div_u_matrix_key
-        self.bound_div_u_matrix_key = Biot().bound_div_u_matrix_key
+        biot_discr = Biot(coupling_keywords=[flow_keyword], mechanics_keyword=mechanics_keyword)
+        self.div_u_matrix_key = biot_discr.div_u_matrix_key
+        self.bound_div_u_matrix_key = biot_discr.bound_div_u_matrix_key
         # We also need to specify the names of the displacement variables on the node
         # and adjacent edges.
         # Set variable name for the vector variable (displacement).
@@ -1380,7 +1380,7 @@ class DivU(Discretization):
 
         """
         matrix_dictionary = sd_data[pp.DISCRETIZATION_MATRICES][self.flow_keyword]
-        parameter_dictionary_mech = sd_data[pp.PARAMETERS][self.mechanics_keyword]
+        parameter_dictionary_mech = sd_data[pp.PARAMETERS][self.keyword]
         parameter_dictionary_flow = sd_data[pp.PARAMETERS][self.flow_keyword]
 
         mat_key = self.div_u_matrix_key
