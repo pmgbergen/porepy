@@ -747,6 +747,7 @@ class WithoutDiffTpfa(
 
 class WithDiffTpfa(
     pp.constitutive_laws.DarcysLawAd,
+    pp.constitutive_laws.FouriersLawAd,
     WithoutDiffTpfa,
 ):
     """Helper class to test that the methods for differentiating diffusive fluxes and
