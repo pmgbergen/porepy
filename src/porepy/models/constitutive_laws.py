@@ -4442,7 +4442,7 @@ class PoroMechanicsPorosity:
         interfaces = self.subdomains_to_interfaces(subdomains, [1])
         # Mock discretization (empty `discretize` method), used to access discretization
         # matrices computed by Biot discretization.
-        discr = pp.ad.DivUAd(self.stress_keyword, subdomains, self.darcy_keyword)
+        discr = pp.ad.BiotAd(self.stress_keyword, subdomains, [self.darcy_keyword]        )
         # Projections
         sd_projection = pp.ad.SubdomainProjections(subdomains, dim=self.nd)
         mortar_projection = pp.ad.MortarProjections(
@@ -4459,9 +4459,9 @@ class PoroMechanicsPorosity:
         )
 
         # Compose operator.
-        div_u_integrated = discr.div_u @ self.displacement(
+        div_u_integrated = discr.div_u('flow') @ self.displacement(
             subdomains
-        ) + discr.bound_div_u @ (
+        ) + discr.bound_div_u('flow') @ (
             boundary_operator
             + sd_projection.face_restriction(subdomains)
             @ mortar_projection.mortar_to_primary_avg
