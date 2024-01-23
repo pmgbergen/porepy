@@ -377,9 +377,7 @@ def _npipm_extend_and_regularize_jac(
 logger.debug(f"(import composite/npipm_c.py) Compiling numerical methods ..\n")
 
 
-@numba.njit(
-    cache=NUMBA_CACHE,
-)
+@numba.njit(cache=NUMBA_CACHE)
 def _solver(
     X_0: np.ndarray,
     F: Callable[[np.ndarray], np.ndarray],
@@ -502,17 +500,15 @@ def _solver(
                 success = 2
                 break
 
-            if np.linalg.norm(f_i) / res_0 <= tol:
+            if np.linalg.norm(f_i) <= tol:
+                # if np.linalg.norm(f_i) / res_0 <= tol:
                 success = 0
                 break
 
     return X, success, num_iter
 
 
-@numba.njit(
-    parallel=True,
-    cache=NUMBA_CACHE,
-)
+@numba.njit(parallel=True, cache=NUMBA_CACHE)
 def parallel_solver(
     X0: np.ndarray,
     F: Callable[[np.ndarray], np.ndarray],
@@ -578,9 +574,7 @@ def parallel_solver(
     return result, converged, num_iter
 
 
-@numba.njit(
-    cache=NUMBA_CACHE,
-)
+@numba.njit(cache=NUMBA_CACHE)
 def linear_solver(
     X0: np.ndarray,
     F: Callable[[np.ndarray], np.ndarray],

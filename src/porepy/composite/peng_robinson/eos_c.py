@@ -1129,6 +1129,10 @@ class PengRobinsonCompiler(EoSCompiler):
 
         self.symbolic: PengRobinsonSymbolic = PengRobinsonSymbolic(mixture)
 
+    def compile(self, verbosity: int = 1) -> None:
+        """Child method compiles essential functions from symbolic part before calling
+        the parent class compiler"""
+
         # setting logging verbosity
         if verbosity == 1:
             logger.setLevel(logging.INFO)
@@ -1148,9 +1152,7 @@ class PengRobinsonCompiler(EoSCompiler):
             "float64(float64, float64, float64[:])",
             fastmath=True,
         )(self.symbolic.B_f)
-
         d_B_c = _compile_thd_function_derivatives(self.symbolic.d_B_f, fastmath=True)
-
         A_c = numba.njit(
             "float64(float64, float64, float64[:])",
         )(self.symbolic.A_f)
@@ -1163,7 +1165,6 @@ class PengRobinsonCompiler(EoSCompiler):
 
         logger.debug("(EoS) Compiling fugacity coefficients ..\n")
         phi_c = _compile_fugacities(self.symbolic.phi_f)
-
         d_phi_c = numba.njit(
             "float64[:,:](float64, float64, float64[:], float64, float64, float64)"
         )(self.symbolic.d_phi_f)
@@ -1173,11 +1174,9 @@ class PengRobinsonCompiler(EoSCompiler):
         h_dep_c = numba.njit(
             "float64(float64, float64, float64[:], float64, float64, float64)"
         )(self.symbolic.h_dep_f)
-
         h_ideal_c = numba.njit("float64(float64, float64, float64[:])")(
             self.symbolic.h_ideal_f
         )
-
         d_h_dep_c = _compile_extended_thd_function_derivatives(self.symbolic.d_h_dep_f)
         d_h_ideal_c = _compile_thd_function_derivatives(self.symbolic.d_h_ideal_f)
 
@@ -1187,7 +1186,6 @@ class PengRobinsonCompiler(EoSCompiler):
             "float64(float64,float64,float64)",
             fastmath=True,
         )(self.symbolic.v_f)
-
         d_v_c = _compile_volume_derivative(self.symbolic.d_v_f)
 
         self._cfuncs.update(
@@ -1210,9 +1208,9 @@ class PengRobinsonCompiler(EoSCompiler):
         )
 
         _end = time.time()
-        logger.info(
-            f"EoS compilation compleded (elapsed time: {_end - _start} (s)).\n\n"
-        )
+        logger.info(f"EoS compilation compleded (elapsed time: {_end - _start} (s)).\n")
+
+        return super().compile(verbosity)
 
     def get_prearg_for_values(
         self,

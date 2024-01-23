@@ -647,37 +647,40 @@ class EoSCompiler(abc.ABC):
             self.funcs["d_rho"] = d_rho_c
         # endregion
 
-        logger.info(f"Compiling vectorized functions computations ..\n")
+        N = 10
+        n = 0
+        logger.info(f"Compiling vectorized functions computations {n}/{N} ..")
 
         # region vectorized computations
-        logger.debug("Compiling vectorized pre-argument for values ..\n")
+        n += 1
+        logger.info(f"Compiling vectorized functions computations {n}/{N} ..")
         prearg_val_v = _compile_vectorized_prearg(prearg_val_c)
-
-        logger.debug("Compiling vectorized pre-argument for derivatives ..\n")
+        n += 1
+        logger.info(f"Compiling vectorized functions computations {n}/{N} ..")
         prearg_jac_v = _compile_vectorized_prearg(prearg_jac_c)
-
-        logger.debug("Compiling vectorized fugacity coefficient computations ..\n")
+        n += 1
+        logger.info(f"Compiling vectorized functions computations {n}/{N} ..")
         phi_v = _compile_vectorized_fugacity_coeffs(phi_c)
-
-        logger.debug("Compiling vectorized fug. coeff. derivative computations ..\n")
+        n += 1
+        logger.info(f"Compiling vectorized functions computations {n}/{N} ..")
         d_phi_v = _compile_vectorized_fugacity_coeff_derivatives(d_phi_c)
-
-        logger.debug("Compiling vectorized enthalpy computations ..\n")
+        n += 1
+        logger.info(f"Compiling vectorized functions computations {n}/{N} ..")
         h_v = _compile_vectorized_property(h_c)
-
-        logger.debug("Compiling vectorized enthalpy derivative computations ..\n")
+        n += 1
+        logger.info(f"Compiling vectorized functions computations {n}/{N} ..")
         d_h_v = _compile_vectorized_property_derivatives(d_h_c)
-
-        logger.debug("Compiling vectorized volume computations ..\n")
+        n += 1
+        logger.info(f"Compiling vectorized functions computations {n}/{N} ..")
         v_v = _compile_vectorized_property(v_c)
-
-        logger.debug("Compiling vectorized volume derivative computations ..\n")
+        n += 1
+        logger.info(f"Compiling vectorized functions computations {n}/{N} ..")
         d_v_v = _compile_vectorized_property_derivatives(d_v_c)
-
-        logger.debug("Compiling vectorized density computations ..\n")
+        n += 1
+        logger.info(f"Compiling vectorized functions computations {n}/{N} ..")
         rho_v = _compile_vectorized_property(rho_c)
-
-        logger.debug("Compiling vectorized density derivative computations ..\n")
+        n += 1
+        logger.info(f"Compiling vectorized functions computations {n}/{N} ..\n")
         d_rho_v = _compile_vectorized_property_derivatives(d_rho_c)
 
         self.gufuncs.update(
