@@ -98,7 +98,9 @@ class TestTpfaBoundaryPressure(xpfa_tests.XpfaBoundaryPressureTests):
 class _SetFluxDiscretizations:
     """Helper class with a method to set the Darcy flux variable."""
 
-    def darcy_flux_discretization(self, subdomains: list[pp.Grid]) -> pp.ad.MpfaAd:
+    def darcy_flux_discretization(
+        self, subdomains: list[pp.Grid]
+    ) -> pp.ad.MpfaAd | pp.ad.TpfaAd:
         """Discretization object for the Darcy flux term.
 
         Parameters:
@@ -115,7 +117,7 @@ class _SetFluxDiscretizations:
 
     def fourier_flux_discretization(
         self, subdomains: list[pp.Grid]
-    ) -> pp.ad.UpwindCouplingAd:
+    ) -> pp.ad.MpfaAd | pp.ad.TpfaAd:
         """Discretization object for the Fourier flux term.
 
         Parameters:
@@ -126,9 +128,9 @@ class _SetFluxDiscretizations:
 
         """
         if self.params["base_discr"] == "tpfa":
-            return pp.ad.TpfaAd(self.darcy_keyword, subdomains)
+            return pp.ad.TpfaAd(self.fourier_keyword, subdomains)
         else:
-            return pp.ad.MpfaAd(self.darcy_keyword, subdomains)
+            return pp.ad.MpfaAd(self.fourier_keyword, subdomains)
 
 
 class UnitTestAdTpfaFlux(
@@ -701,7 +703,6 @@ def test_diff_tpfa_on_grid_with_all_dimensions(base_discr: str, grid_type: str):
     model.prepare_simulation()
 
     num_faces = sum([sd.num_faces for sd in model.mdg.subdomains()])
-    num_cells = sum([sd.num_cells for sd in model.mdg.subdomains()])
     num_dofs = model.equation_system.num_dofs()
 
     darcy_flux = model.darcy_flux(model.mdg.subdomains())
