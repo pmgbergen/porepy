@@ -6,7 +6,9 @@ from __future__ import annotations
 
 import abc
 import logging
-from typing import Any, Sequence
+import time
+from collections.abc import Mapping
+from typing import Any, Callable, Optional, Sequence
 
 import numpy as np
 
@@ -34,7 +36,52 @@ _loghandler.setFormatter(_logformatter)
 _logger.setLevel(logging.WARNING)
 _logger.addHandler(_loghandler)
 
-COMPOSITE_LOGGER = logging.LoggerAdapter(_logger, {"del_log": _del_log})
+
+class _CompositeLogger(logging.LoggerAdapter):
+    def __init__(self, logger: Any, extra: Mapping[str, object] | None = None) -> None:
+        super().__init__(logger, extra)
+
+        self._prog_msg: str = ""
+        self._prog_N: int = 0
+        self._prog_n: int = 0
+        self._prog_log: Callable
+        self._prog_start: Optional[float] = None
+
+    def start_progress_log(self, base_msg: str, N: int, verbosity: int = 1) -> None:
+        assert self._prog_start is None, "Last progress log not completed."
+        # setting logging verbosity
+        if verbosity == 1:
+            self._prog_log = self.info
+        elif verbosity >= 2:
+            self._prog_log = self.debug
+        else:
+            self._prog_log = self.warning
+
+        self._prog_N = N
+        self._prog_n = 0
+        self._prog_msg = base_msg
+
+        msg = f"{base_msg} 0/{N} (starting) .."
+        self._prog_log(msg)
+        self._prog_start = time.time()
+
+    def progress(self, msg: Optional[str] = None) -> None:
+        assert self._prog_start is not None, "No progress log started"
+        self._prog_n += 1
+        out = f"{self._prog_msg} ({msg})" if msg is not None else f"{self._prog_msg}"
+        if self._prog_n == self._prog_N:
+            end = time.time()
+            out += (
+                f" {self._prog_n}/{self._prog_N} "
+                + f"(completed; elapsed time: {end - self._prog_start} (s))\n"
+            )
+            self._prog_start = None
+        else:
+            out += f" {self._prog_n}/{self._prog_N} .."
+        self._prog_log(out)
+
+
+COMPOSITE_LOGGER = _CompositeLogger(_logger, {"del_log": _del_log})
 
 
 def truncexp(var):

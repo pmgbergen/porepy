@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import abc
 import logging
-import time
 from typing import Callable, Optional, Sequence
 
 import numba
@@ -582,106 +581,102 @@ class EoSCompiler(abc.ABC):
         else:
             logger.setLevel(logging.WARNING)
 
-        logger.info(f"Compiling element-wise computations ..\n")
-        _start = time.time()
+        logger.start_progress_log("Compiling property functions", 10)
 
         # region Element-wise computations
         prearg_val_c = self.funcs.get("prearg_val", None)
         if prearg_val_c is None:
-            logger.debug("Compiling residual pre-argument ..\n")
             prearg_val_c = self.get_prearg_for_values()
             self.funcs["prearg_val"] = prearg_val_c
+        logger.progress()
 
         prearg_jac_c = self.funcs.get("prearg_jac", None)
         if prearg_jac_c is None:
-            logger.debug("Compiling Jacobian pre-argument ..\n")
             prearg_jac_c = self.get_prearg_for_derivatives()
             self.funcs["prearg_jac"] = prearg_jac_c
+        logger.progress()
 
         phi_c = self.funcs.get("phi", None)
         if phi_c is None:
-            logger.debug("Compiling fugacity coefficient function ..\n")
             phi_c = self.get_fugacity_function()
             self.funcs["phi"] = phi_c
+        logger.progress()
 
         d_phi_c = self.funcs.get("d_phi", None)
         if d_phi_c is None:
-            logger.debug("Compiling derivatives of fugacity coefficients ..\n")
             d_phi_c = self.get_dpTX_fugacity_function()
             self.funcs["d_phi"] = d_phi_c
+        logger.progress()
 
         h_c = self.funcs.get("h", None)
         if h_c is None:
-            logger.debug("Compiling enthalpy function ..\n")
             h_c = self.get_enthalpy_function()
             self.funcs["h"] = h_c
+        logger.progress()
 
         d_h_c = self.funcs.get("d_h", None)
         if d_h_c is None:
-            logger.debug("Compiling derivative of enthalpy function ..\n")
             d_h_c = self.get_dpTX_enthalpy_function()
             self.funcs["d_h"] = d_h_c
+        logger.progress()
 
         v_c = self.funcs.get("v", None)
         if v_c is None:
-            logger.debug("Compiling volume function ..\n")
             v_c = self.get_volume_function()
             self.funcs["v"] = v_c
+        logger.progress()
 
         d_v_c = self.funcs.get("d_v", None)
         if d_v_c is None:
-            logger.debug("Compiling derivative of volume function ..\n")
             d_v_c = self.get_dpTX_volume_function()
             self.funcs["d_v"] = d_v_c
+        logger.progress()
 
         rho_c = self.funcs.get("rho", None)
         if rho_c is None:
-            logger.debug("Compiling density function ..\n")
             rho_c = self.get_density_function()
             self.funcs["rho"] = rho_c
+        logger.progress()
 
         d_rho_c = self.funcs.get("d_rho", None)
         if d_rho_c is None:
-            logger.debug("Compiling derivative of density function ..\n")
             d_rho_c = self.get_dpTX_density_function()
             self.funcs["d_rho"] = d_rho_c
+        logger.progress()
         # endregion
 
-        N = 10
-        n = 0
-        logger.info(f"Compiling vectorized functions computations {n}/{N} ..")
+        logger.start_progress_log("Compiling vectorized functions", 10)
 
         # region vectorized computations
-        n += 1
-        logger.info(f"Compiling vectorized functions computations {n}/{N} ..")
         prearg_val_v = _compile_vectorized_prearg(prearg_val_c)
-        n += 1
-        logger.info(f"Compiling vectorized functions computations {n}/{N} ..")
+        logger.progress()
+
         prearg_jac_v = _compile_vectorized_prearg(prearg_jac_c)
-        n += 1
-        logger.info(f"Compiling vectorized functions computations {n}/{N} ..")
+        logger.progress()
+
         phi_v = _compile_vectorized_fugacity_coeffs(phi_c)
-        n += 1
-        logger.info(f"Compiling vectorized functions computations {n}/{N} ..")
+        logger.progress()
+
         d_phi_v = _compile_vectorized_fugacity_coeff_derivatives(d_phi_c)
-        n += 1
-        logger.info(f"Compiling vectorized functions computations {n}/{N} ..")
+        logger.progress()
+
         h_v = _compile_vectorized_property(h_c)
-        n += 1
-        logger.info(f"Compiling vectorized functions computations {n}/{N} ..")
+        logger.progress()
+
         d_h_v = _compile_vectorized_property_derivatives(d_h_c)
-        n += 1
-        logger.info(f"Compiling vectorized functions computations {n}/{N} ..")
+        logger.progress()
+
         v_v = _compile_vectorized_property(v_c)
-        n += 1
-        logger.info(f"Compiling vectorized functions computations {n}/{N} ..")
+        logger.progress()
+
         d_v_v = _compile_vectorized_property_derivatives(d_v_c)
-        n += 1
-        logger.info(f"Compiling vectorized functions computations {n}/{N} ..")
+        logger.progress()
+
         rho_v = _compile_vectorized_property(rho_c)
-        n += 1
-        logger.info(f"Compiling vectorized functions computations {n}/{N} ..\n")
+        logger.progress()
+
         d_rho_v = _compile_vectorized_property_derivatives(d_rho_c)
+        logger.progress()
 
         self.gufuncs.update(
             {
@@ -698,12 +693,6 @@ class EoSCompiler(abc.ABC):
             }
         )
         # endregion
-
-        _end = time.time()
-        logger.info(
-            "Compilation of property computations completed"
-            + f" (elapsed time: {_end - _start}(s)).\n\n"
-        )
 
     def compute_phase_state(
         self,
