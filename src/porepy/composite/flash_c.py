@@ -616,43 +616,31 @@ class Flash_c:
         # additional equations volume constraint and density constraints
         vh_dim = ph_dim + 1 + (nphase - 1)
 
-        ## Compilation start
-        logger.info(
-            f"Starting flash compilation (phases: {nphase}, components: {ncomp}):\n"
-        )
-        _start = time.time()
+        logger.start_progress_log("Compiling flash equations", 17)
+
         prearg_val_c = self.eos_compiler.funcs.get("prearg_val", None)
         if prearg_val_c is None:
-            logger.debug("Compiling residual pre-argument ..\n")
             prearg_val_c = self.eos_compiler.get_prearg_for_values()
         prearg_jac_c = self.eos_compiler.funcs.get("prearg_jac", None)
         if prearg_jac_c is None:
-            logger.debug("Compiling Jacobian pre-argument ..\n")
             prearg_jac_c = self.eos_compiler.get_prearg_for_derivatives()
         phi_c = self.eos_compiler.funcs.get("phi", None)
         if phi_c is None:
-            logger.debug("Compiling fugacity coefficient function ..\n")
             phi_c = self.eos_compiler.get_fugacity_function()
         d_phi_c = self.eos_compiler.funcs.get("d_phi", None)
         if d_phi_c is None:
-            logger.debug("Compiling derivatives of fugacity coefficients ..\n")
             d_phi_c = self.eos_compiler.get_dpTX_fugacity_function()
         h_c = self.eos_compiler.funcs.get("h", None)
         if h_c is None:
-            logger.debug("Compiling enthalpy function ..\n")
             h_c = self.eos_compiler.get_enthalpy_function()
         d_h_c = self.eos_compiler.funcs.get("d_h", None)
         if d_h_c is None:
-            logger.debug("Compiling derivative of enthalpy function ..\n")
             d_h_c = self.eos_compiler.get_dpTX_enthalpy_function()
-
         rho_c = self.eos_compiler.funcs.get("rho", None)
         if rho_c is None:
-            logger.debug("Compiling density function ..\n")
             rho_c = self.eos_compiler.get_density_function()
         d_rho_c = self.eos_compiler.funcs.get("d_rho", None)
         if d_rho_c is None:
-            logger.debug("Compiling derivative of density function ..\n")
             d_rho_c = self.eos_compiler.get_dpTX_density_function()
 
         @numba.njit("float64[:,:](float64,float64,float64[:,:])")
@@ -678,7 +666,7 @@ class Flash_c:
                 prearg[j] = prearg_jac_c(phasetypes[j], p, T, xn[j])
             return prearg
 
-        logger.debug("Compiling isogucacity constraints ..\n")
+        logger.progress("EoS functions")
 
         @numba.njit(
             "float64[:](float64[:,:], float64, float64, float64[:,:], float64[:,:])"
@@ -706,6 +694,8 @@ class Flash_c:
                 isofug[(j - 1) * ncomp : j * ncomp] = X[j] * phi_j - X[0] * phi_r
 
             return isofug
+
+        logger.progress("isofugacity constraints")
 
         @numba.njit(
             "float64[:,:](float64[:],float64[:],float64,float64,float64[:],float64[:])",
@@ -736,6 +726,8 @@ class Flash_c:
             d_xphi_j[:, 2:] += np.diag(phi_j)
 
             return d_xphi_j
+
+        logger.progress("isofugacity constraints")
 
         @numba.njit(
             "float64[:,:](float64[:,:],float64[:, :],"
@@ -784,7 +776,7 @@ class Flash_c:
 
             return d_iso
 
-        logger.debug("Compiling enthalpy constraint ..\n")
+        logger.progress("isofugacity constraints")
 
         @numba.njit(
             "float64(float64[:,:],float64,float64,float64,float64[:],float64[:,:])"
@@ -812,6 +804,8 @@ class Flash_c:
             h_constr_res /= h
 
             return h_constr_res / T**2
+
+        logger.progress("enthalpy constraint")
 
         @numba.njit(
             "float64[:]"
@@ -882,7 +876,7 @@ class Flash_c:
 
             return h_constr_jac
 
-        logger.debug("Compiling volume constraints ..\n")
+        logger.progress("enthalpy constraint")
 
         @numba.njit(
             "float64[:]"
@@ -903,7 +897,7 @@ class Flash_c:
             rho_j = np.empty(nphase, dtype=np.float64)
             for j in range(nphase):
                 rho_j[j] = rho_c(prearg[j], p, T, xn[j])
-            rho_mix = np.dot(sat, rho_j)
+            rho_mix = (sat * rho_j).sum()
 
             res = np.empty(nphase, dtype=np.float64)
             # volume constraint
@@ -912,6 +906,8 @@ class Flash_c:
             res[1:] = (y - sat * rho_j / rho_mix)[1:]
 
             return res
+
+        logger.progress("volume constraints")
 
         @numba.njit(
             "float64[:,:]"
@@ -944,7 +940,7 @@ class Flash_c:
                 dpT_rho_mix += sat[j] * d_rho_j[j, :2]
 
             # rho_mix = sum_i s_i * rho_i
-            rho_mix = np.dot(sat, rho_j)
+            rho_mix = (sat * rho_j).sum()
 
             # 1 volume constraint, nphase-1 phase fraction relations, all derivatives
             jac = np.zeros((nphase, 2 * nphase + ncomp * nphase), dtype=np.float64)
@@ -1012,7 +1008,7 @@ class Flash_c:
 
             return jac
 
-        logger.debug("Compiling p-T flash ..\n")
+        logger.progress("volume constraints")
 
         @numba.njit("float64[:](float64[:])")
         def F_pT(X_gen: np.ndarray) -> np.ndarray:
@@ -1035,6 +1031,8 @@ class Flash_c:
             )
 
             return res
+
+        logger.progress("p-T flash")
 
         @numba.njit("float64[:,:](float64[:])")
         def DF_pT(X_gen: np.ndarray) -> np.ndarray:
@@ -1059,7 +1057,7 @@ class Flash_c:
 
             return jac
 
-        logger.debug("Compiling p-h flash ..\n")
+        logger.progress("p-T flash")
 
         @numba.njit("float64[:](float64[:])")
         def F_ph(X_gen: np.ndarray) -> np.ndarray:
@@ -1086,6 +1084,8 @@ class Flash_c:
             res[-(nphase + 1)] = h_constr_res_c(prearg, p, h, T, y, xn)
 
             return res
+
+        logger.progress("p-h flash")
 
         @numba.njit("float64[:,:](float64[:])")
         def DF_ph(X_gen: np.ndarray) -> np.ndarray:
@@ -1118,7 +1118,7 @@ class Flash_c:
 
             return jac
 
-        logger.debug("Compiling v-h flash ..\n")
+        logger.progress("p-h flash")
 
         @numba.njit("float64[:](float64[:])")
         def F_vh(X_gen: np.ndarray) -> np.ndarray:
@@ -1154,6 +1154,8 @@ class Flash_c:
             )
 
             return res
+
+        logger.progress("v-h flash")
 
         @numba.njit("float64[:,:](float64[:])")
         def DF_vh(X_gen: np.ndarray) -> np.ndarray:
@@ -1196,6 +1198,8 @@ class Flash_c:
 
             return jac
 
+        logger.progress("v-h flash")
+
         self.residuals.update(
             {
                 "p-T": F_pT,
@@ -1216,8 +1220,6 @@ class Flash_c:
         T_crits = np.array(self._Tcrits)
         v_crits = np.array(self._vcrits)
         omegas = np.array(self._omegas)
-
-        logger.debug("Compiling p-T initialization ..\n")
 
         @numba.njit("float64[:](float64[:],int32,int32)")
         def guess_fractions(
@@ -1361,7 +1363,7 @@ class Flash_c:
                 X_gen[f] = guess_fractions(X_gen[f], N1, guess_K_vals)
             return X_gen
 
-        logger.debug("Compiling p-h initialization ..\n")
+        logger.progress("p-T initialization")
 
         @numba.njit("float64[:](float64[:],int32)")
         def update_T_guess(X_gen: np.ndarray, N2: int) -> np.ndarray:
@@ -1434,7 +1436,7 @@ class Flash_c:
                 X_gen[f] = xf
             return X_gen
 
-        logger.debug("Compiling h-v flash initialization ..\n")
+        logger.progress("p-h initialization")
 
         @numba.njit("float64[:](float64[:],int32)")
         def update_pT_guess(X_gen: np.ndarray, N2: int) -> np.ndarray:
@@ -1468,8 +1470,8 @@ class Flash_c:
                     h_j[j] = h_c(prearg_res[j], p, T, xn[j])
 
                 sat = compute_saturations(y, rho_j, 1e-10)
-                v_mix = 1.0 / np.dot(rho_j, sat)
-                h_mix = np.dot(h_j, y)
+                v_mix = 1.0 / (sat * rho_j).sum()
+                h_mix = (y * h_j).sum()
 
                 res[0] = 1 - h_mix / h
                 res[1:] = v_constr_res_c(prearg_res, v, p, T, sat, y, xn)
@@ -1601,17 +1603,14 @@ class Flash_c:
 
             return X_gen
 
+        logger.progress("v-h initialization")
+
         self.initializers.update(
             {
                 "p-T": pT_initializer,
                 "p-h": ph_initializer,
                 "v-h": vh_initializer,
             }
-        )
-
-        _end = time.time()
-        logger.info(
-            f"Flash compilation completed (elapsed time: {_end - _start}(s)).\n\n"
         )
 
     def _update_solver_params(self, f_dim: int) -> None:

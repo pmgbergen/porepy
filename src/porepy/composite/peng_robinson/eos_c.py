@@ -1141,52 +1141,55 @@ class PengRobinsonCompiler(EoSCompiler):
         else:
             logger.setLevel(logging.WARNING)
 
-        nphase, ncomp = self.npnc
-        logger.info(
-            f"Starting EoS compilation (phases: {nphase}, components: {ncomp}):\n"
-        )
-        _start = time.time()
-        logger.debug("(EoS) Compiling coterms ..\n")
+        logger.start_progress_log("Compiling symbolic functions", 14)
 
         B_c = numba.njit(
             "float64(float64, float64, float64[:])",
             fastmath=True,
         )(self.symbolic.B_f)
+        logger.progress()
         d_B_c = _compile_thd_function_derivatives(self.symbolic.d_B_f, fastmath=True)
+        logger.progress()
         A_c = numba.njit(
             "float64(float64, float64, float64[:])",
         )(self.symbolic.A_f)
+        logger.progress()
         # no fastmath because of sqrt
         d_A_c = _compile_thd_function_derivatives(self.symbolic.d_A_f)
+        logger.progress()
 
-        logger.debug("(EoS) Compiling compressibility factor ..\n")
         Z_mix_c = compile_Z_mix(A_c, B_c)
+        logger.progress()
         d_Z_mix_c = compile_d_Z_mix(A_c, B_c, d_A_c, d_B_c)
+        logger.progress()
 
-        logger.debug("(EoS) Compiling fugacity coefficients ..\n")
         phi_c = _compile_fugacities(self.symbolic.phi_f)
+        logger.progress()
         d_phi_c = numba.njit(
             "float64[:,:](float64, float64, float64[:], float64, float64, float64)"
         )(self.symbolic.d_phi_f)
-
-        logger.debug("(EoS) Compiling spec. mol. mixture enthalpy computation ..\n")
+        logger.progress()
 
         h_dep_c = numba.njit(
             "float64(float64, float64, float64[:], float64, float64, float64)"
         )(self.symbolic.h_dep_f)
+        logger.progress()
         h_ideal_c = numba.njit("float64(float64, float64, float64[:])")(
             self.symbolic.h_ideal_f
         )
+        logger.progress()
         d_h_dep_c = _compile_extended_thd_function_derivatives(self.symbolic.d_h_dep_f)
+        logger.progress()
         d_h_ideal_c = _compile_thd_function_derivatives(self.symbolic.d_h_ideal_f)
-
-        logger.debug("(EoS) Compiling spec. mol. volume computation ..\n")
+        logger.progress()
 
         v_c = numba.njit(
             "float64(float64,float64,float64)",
             fastmath=True,
         )(self.symbolic.v_f)
+        logger.progress()
         d_v_c = _compile_volume_derivative(self.symbolic.d_v_f)
+        logger.progress()
 
         self._cfuncs.update(
             {
@@ -1206,9 +1209,6 @@ class PengRobinsonCompiler(EoSCompiler):
                 "d_v": d_v_c,
             }
         )
-
-        _end = time.time()
-        logger.info(f"EoS compilation compleded (elapsed time: {_end - _start} (s)).\n")
 
         return super().compile(verbosity)
 
