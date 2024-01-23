@@ -401,14 +401,12 @@ def _validate_args(
         domain: Union[pp.Domain, None] = _retrieve_domain_instance(fracture_network)
         if dim == 2:
             assert isinstance(fracture_network, FractureNetwork2d)
-            _, edges_deleted = fracture_network.impose_external_boundary(domain)
-            sz = edges_deleted.size
+            _, fractures_deleted = fracture_network.impose_external_boundary(domain)
         elif dim == 3:
             assert isinstance(fracture_network, FractureNetwork3d)
-            fractures_deleted = fracture_network.impose_external_boundary(domain)
-            # Take note of deleted fractures
-            sz = fractures_deleted.size
-        if sz > 0:
+            _, fractures_deleted = fracture_network.impose_external_boundary(domain)
+        # Take note of deleted fractures
+        if (sz := fractures_deleted.size) > 0:
             # It seems most likely that this is an undesired effect (for a
             # Cartesian geomtetry it should be possible to make sure the
             # fractures are within the domain), but we cannot rule out that the

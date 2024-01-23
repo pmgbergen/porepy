@@ -112,7 +112,9 @@ def test_impose_external_boundary(points_expected):
     expected_num_fractures = points_expected["expected_num_fractures"]
     fracture = pp.PlaneFracture(points, check_convexity=False)
     network = pp.create_fracture_network([fracture])
-    network.impose_external_boundary(unit_domain(3))
+    fractures_kept, fractures_deleted = network.impose_external_boundary(unit_domain(3))
+    assert len(fractures_kept) == expected_num_fractures
+    assert len(fractures_deleted) == 1 - expected_num_fractures
     assert len(network.fractures) == (6 + expected_num_fractures)
     p_comp = network.fractures[0].pts
     if expected_points := points_expected.get("expected_points", None):
