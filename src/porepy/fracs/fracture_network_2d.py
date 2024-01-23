@@ -841,12 +841,12 @@ class FractureNetwork2d:
 
                 :obj:`numpy.ndarray`:
 
-                    Array containing the indices of the edges that have been kept.
+                    Array containing the indices of the fractures that have been kept.
 
                 :obj:`numpy.ndarray`:
 
-                    Array containing the indices of the edges that have been deleted,
-                    since they were outside the bounding box.
+                    Array containing the indices of the fractures that have been
+                    deleted, since they were outside the bounding box.
 
         """
 
