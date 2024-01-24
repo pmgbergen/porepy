@@ -15,7 +15,6 @@ from porepy.applications.test_utils import common_xpfa_tests as xpfa_tests
 from porepy.applications.md_grids.model_geometries import (
     CubeDomainOrthogonalFractures,
 )
-from porepy.numerics.ad.operators import Operator
 from porepy.applications.md_grids import model_geometries
 from porepy.applications.test_utils import well_models
 
@@ -874,13 +873,13 @@ def test_flux_potential_trace_on_tips_and_internal_boundaries(base_discr: str):
         darcy_flux = model.darcy_flux([sd]).value_and_jacobian(model.equation_system)
         assert np.allclose(darcy_flux.jac[bc_darcy.is_neu].data, 0)
 
-        bc_fourier = data[pp.PARAMETERS][model.darcy_keyword]["bc"]
+        bc_fourier = data[pp.PARAMETERS][model.fourier_keyword]["bc"]
         fourier_flux = model.fourier_flux([sd]).value_and_jacobian(
             model.equation_system
         )
         assert np.allclose(fourier_flux.jac[bc_fourier.is_neu].data, 0)
 
-        # The potential trace should be equal to the pressure in the adjacent cell on
+        # The potential trace should be equal to the potential in the adjacent cell on
         # fracture tip faces (but not on internal nor external boundaries, where
         # boundary conditions may change the boundary value).
 
