@@ -2,10 +2,11 @@
 This module contains functionality for testing the flow benchmarks implementations.
 """
 
-import porepy as pp
+from typing import Callable, Union
+
 import numpy as np
 
-from typing import Callable, Union
+import porepy as pp
 
 
 class EffectivePermeability:
@@ -48,9 +49,9 @@ class EffectivePermeability:
     """
 
     normal_permeability: Callable[[list[pp.MortarGrid]], pp.ad.Operator]
-    """Nomral permeability. Normally definied in a mixin instance of 
+    """Nomral permeability. Normally definied in a mixin instance of
     :class:`~porepy.models.constituve_laws.ConstantPermeability` or a subclass thereof.
-    
+
     """
 
     def effective_tangential_permeability(
