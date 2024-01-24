@@ -27,6 +27,9 @@ from porepy.applications.md_grids.fracture_sets import benchmark_2d_case_3
 from porepy.models.constitutive_laws import DimensionDependentPermeability
 
 
+solid_constants = pp.SolidConstants({"residual_aperture": 1e-4})
+
+
 class FlowBenchmark2dCase3Geometry:
     """Geometry specification."""
 
