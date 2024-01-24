@@ -28,10 +28,15 @@ class FluxDiscretization:
             Discretization of the Darcy flux.
 
         """
-        if self.params["darcy_flux_discretization"] == "mpfa":
+        scheme = self.params.get("darcy_flux_discretization", "mpfa")
+        if scheme.lower() == "mpfa":
             return pp.ad.MpfaAd(self.darcy_keyword, subdomains)
-        else:
+        elif scheme.lower() == "tpfa":
             return pp.ad.TpfaAd(self.darcy_keyword, subdomains)
+        else:
+            msg = f"{scheme} is not a valid Darcy flux discretization scheme. "
+            msg += "Use either 'tpfa' or 'mpfa'."
+            raise NotImplementedError(msg)
 
     def fourier_flux_discretization(
         self, subdomains: list[pp.Grid]
@@ -45,7 +50,13 @@ class FluxDiscretization:
             Discretization of the Fourier flux.
 
         """
-        if self.params["fourier_flux_discretization"] == "mpfa":
+        scheme = self.params.get("fourier_flux_discretization", "mpfa")
+        if scheme.lower() == "mpfa":
             return pp.ad.MpfaAd(self.fourier_keyword, subdomains)
-        else:
+        elif scheme.lower() == "tpfa":
             return pp.ad.TpfaAd(self.fourier_keyword, subdomains)
+        else:
+            msg = f"{scheme} is not a valid Fourier flux discretization scheme. "
+            msg += "Use either 'tpfa' or 'mpfa'."
+            raise NotImplementedError(msg)
+
