@@ -338,8 +338,8 @@ class ThermoporomechanicsWell(
         return mesh_sizes
 
 
-def test_poromechanics():
-    """Test that the poromechanics model runs without errors."""
+def test_thermoporomechanics_well():
+    """Test that the thermoporomechanics model runs without errors."""
     # These parameters hopefully yield a relatively easy problem
     params = {
         "fracture_indices": [2],
