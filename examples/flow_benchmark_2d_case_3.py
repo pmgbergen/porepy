@@ -26,7 +26,6 @@ from porepy.applications.discretizations.flux_discretization import FluxDiscreti
 from porepy.applications.md_grids.fracture_sets import benchmark_2d_case_3
 from porepy.models.constitutive_laws import DimensionDependentPermeability
 
-
 solid_constants = pp.SolidConstants({"residual_aperture": 1e-4})
 
 
