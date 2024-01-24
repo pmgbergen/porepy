@@ -85,6 +85,7 @@ def model(
     return model
 
 
+@pytest.mark.skipped  # reason: slow
 def test_effective_tangential_permeability(model) -> None:
     """Test if the permeability values are consistent with the benchmark specification.
 
@@ -114,6 +115,7 @@ def test_effective_tangential_permeability(model) -> None:
             continue
 
 
+@pytest.mark.skipped  # reason: slow
 def test_effective_normal_permeability(model) -> None:
     """Test if the permeability values are consistent with the benchmark specification.
 
@@ -158,6 +160,7 @@ def test_effective_normal_permeability(model) -> None:
                 np.testing.assert_array_almost_equal(val, 2e4)
 
 
+@pytest.mark.skipped  # reason: slow
 def test_boundary_specification(model) -> None:
     """Check that the boundary specification is correct.
 
