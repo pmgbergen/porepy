@@ -1510,8 +1510,8 @@ class AdTpfaFlux:
         # Treatment of boundary conditions.
         one = pp.ad.Scalar(1)
         # Obtain filters that lett pass external boundary faces (divided into Dirichlet
-        # and Neumann faces) and internal boundary faces (faces between subdomains),
-        # an tip faces (on immersed tips of domains).
+        # and Neumann faces), internal boundary faces (faces between subdomains), and
+        # tip faces (on immersed tips of domains).
         external_dir_filter, external_neu_filter = diff_discr.external_boundary_filters(
             self.mdg, domains, boundary_grids, "bc_values_" + flux_name
         )
