@@ -986,8 +986,8 @@ class PengRobinsonSymbolic:
         and compressibility factor."""
 
         d_v_e: list[sp.Expr] = [v_e.diff(_) for _ in [self.p_s, self.T_s, Z_s]]
-        """Symbolic gradient of :attr:`v_e` w.r.t. pressure, temperature and
-        compressibility factor."""
+        """Symbolic gradient of specific volume, depending on pressure, temperature
+        and compressibility factor."""
 
         self.v_f = sp.lambdify([self.p_s, self.T_s, Z_s], v_e)
         self.d_v_f = sp.lambdify([self.p_s, self.T_s, Z_s], d_v_e)

@@ -7,19 +7,22 @@ Warning:
 """
 from __future__ import annotations
 
+import os
 import pathlib
 import sys
-import os
 import time
+import logging
 
 import numpy as np
 
-import porepy as pp
+from porepy.composite.composite_utils import COMPOSITE_LOGGER as logger
 
 # adding script path to find relevant moduls
 sys.path.append(str(pathlib.Path(__file__).parent.resolve()))
 
 from _config import (
+    GEO_DATA_PATH,
+    GEO_THERMO_DATA_PATH,
     HV_FLASH_DATA_PATH,
     HV_ISOBAR,
     HV_ISOBAR_DATA_PATH,
@@ -32,20 +35,28 @@ from _config import (
     P_LIMITS_ISOTHERMS,
     PH_FLASH_DATA_PATH,
     PT_FLASH_DATA_PATH,
-    SPECIES,
     T_HEADER,
     THERMO_DATA_PATH,
+    EXAMPLE_2_flash_type,
     RESOLUTION_hv,
     RESOLUTION_ph,
+    calculate_example_2_thermo,
     calculate_porepy_data,
-    calculate_thermo_pT_data,
+    calculate_example_1_thermo,
     h_HEADER,
-    logger,
     p_HEADER,
+    path,
     read_data_column,
     v_HEADER,
     write_results,
-    path,
+    create_mixture,
+    SPECIES,
+    SPECIES_geo,
+    GEO_P_LIMITS,
+    GEO_H_LIMITS,
+    GEO_T_LIMITS,
+    RESOLUTION_geo,
+    create_mixture_geo,
 )
 
 # Flags for which data should be computed, to avoid long waiting for re-computations
@@ -53,57 +64,50 @@ COMPUTE_THERMO_DATA = True
 COMPUTE_PT_DATA = True
 COMPUTE_PH_DATA = True
 COMPUTE_HV_DATA = True
+COMPUTE_GEO_THERMO_DATA = False
+COMPUTE_GEO_DATA = False
 
 if __name__ == "__main__":
 
+    logger.setLevel(logging.INFO)
+
     total_time_start = time.time()
 
-    logger.info("Fetching constant parameters ..\n")
-    species = pp.composite.load_species(SPECIES)
+    compile_start = time.time()
+    mix, flash = create_mixture(verbosity=2)
+    mix_2, flash_2 = create_mixture_geo(verbosity=2)
+    compile_end = time.time()
 
-    comps = [
-        pp.composite.peng_robinson.H2O.from_species(species[0]),
-        pp.composite.peng_robinson.CO2.from_species(species[1]),
-    ]
-    eos = pp.composite.peng_robinson.PengRobinson(True)
-    eos.components = comps
-    logger.info("Name\tT_crit\tp_crit\tomega\n")
-    for c in comps:
-        logger.info(f"{c.name}\t{c.T_crit}\t{c.p_crit}\t{c.omega}\n")
-    logger.info("Binary interaction parameters:\n")
-    bip = pp.composite.peng_robinson.load_bip(
-        comps[0].CASr_number, comps[1].CASr_number
-    )
-    logger.info(f"{comps[0].name} - {comps[1].name}: {bip}\n")
+    logger.warning(f"2-2 mixture created and compiled in {compile_end - compile_start} seconds.\n")
 
     data_path = f"{path()}/data/"
     if not os.path.isdir(data_path):
-        logger.info("Creating data directory ..\n")
+        logger.info("Creating data directory ..")
         os.mkdir(data_path)
 
     if COMPUTE_THERMO_DATA:
-        logger.info("Starting thermo calculations ..\n")
+        logger.info("Starting thermo calculations ..")
         start_time = time.time()
-        results = calculate_thermo_pT_data()
+        results = calculate_example_1_thermo()
         end_time = time.time()
-        logger.info(f"Finished thermo calculations ({end_time - start_time} seconds).")
+        logger.info(f"Finished thermo calculations ({end_time - start_time} seconds).\n")
         write_results(THERMO_DATA_PATH, results)
 
     if COMPUTE_PT_DATA:
         logger.info("Reading p-T data for PorePy flash ..")
         p_points = read_data_column(THERMO_DATA_PATH, p_HEADER)
         T_points = read_data_column(THERMO_DATA_PATH, T_HEADER)
-        logger.info("Starting PorePy p-T-calculations ..\n")
+        logger.info("Starting PorePy p-T-calculations ..")
         start_time = time.time()
-        results = calculate_porepy_data(p_points, T_points, "p-T", quickshot=False)
+        results = calculate_porepy_data(p_points, T_points, "p-T", SPECIES, flash)
         end_time = time.time()
         logger.info(
-            f"Finished PorePy p-T-calculations ({end_time - start_time} seconds)."
+            f"Finished PorePy p-T-calculations ({end_time - start_time} seconds).\n"
         )
         write_results(PT_FLASH_DATA_PATH, results)
 
     if COMPUTE_PH_DATA:
-        logger.info("Starting PorePy p-T calculations along isotherms ..\n")
+        logger.info("Starting PorePy p-T calculations along isotherms ..")
         start_time = time.time()
         p_points = list()
         T_points = list()
@@ -118,25 +122,28 @@ if __name__ == "__main__":
             for p in p_:
                 T_points.append(T)
                 p_points.append(p)
-        results = calculate_porepy_data(p_points, T_points, "p-T", quickshot=False)
+        results = calculate_porepy_data(
+            np.array(p_points), np.array(T_points), "p-T", SPECIES, flash
+        )
         end_time = time.time()
         logger.info(
-            f"Finished isotherm-calculations ({end_time - start_time} seconds)."
+            f"Finished isotherm-calculations ({end_time - start_time} seconds).\n"
         )
         write_results(ISOTHERM_DATA_PATH, results)
 
         logger.info("Reading p-h data for isothermal flash ..")
         p_points = read_data_column(ISOTHERM_DATA_PATH, p_HEADER)
         h_points = read_data_column(ISOTHERM_DATA_PATH, h_HEADER)
-        logger.info("Starting PorePy p-h calculations along isotherms ..\n")
+        logger.info("Starting PorePy p-h calculations along isotherms ..")
         start_time = time.time()
-        results = calculate_porepy_data(p_points, h_points, "p-h", quickshot=False)
+        results = calculate_porepy_data(
+            np.array(p_points), np.array(h_points), "p-h", SPECIES, flash)
         end_time = time.time()
-        logger.info(f"Finished p-h-calculations ({end_time - start_time} seconds).")
+        logger.info(f"Finished p-h-calculations ({end_time - start_time} seconds).\n")
         write_results(PH_FLASH_DATA_PATH, results)
 
     if COMPUTE_HV_DATA:
-        logger.info("Starting PorePy p-T calculations along isobar and isotherm ..\n")
+        logger.info("Starting PorePy p-T calculations along isobar and isotherm ..")
         start_time = time.time()
         p_points = list()
         T_points = list()
@@ -150,9 +157,11 @@ if __name__ == "__main__":
         for T in T_:
             T_points.append(T)
             p_points.append(HV_ISOBAR)
-        results = calculate_porepy_data(p_points, T_points, "p-T", quickshot=False)
+        results = calculate_porepy_data(
+            np.array(p_points), np.array(T_points), "p-T", SPECIES, flash
+        )
         end_time = time.time()
-        logger.info(f"Finished isobar-calculations ({end_time - start_time} seconds).")
+        logger.info(f"Finished isobar-calculations ({end_time - start_time} seconds).\n")
         write_results(HV_ISOBAR_DATA_PATH, results)
 
         start_time = time.time()
@@ -168,14 +177,16 @@ if __name__ == "__main__":
         for p in p_:
             T_points.append(HV_ISOTHERM)
             p_points.append(p)
-        results = calculate_porepy_data(p_points, T_points, "p-T", quickshot=False)
+        results = calculate_porepy_data(
+            np.array(p_points), np.array(T_points), "p-T", SPECIES, flash
+        )
         end_time = time.time()
         logger.info(
-            f"Finished isotherm-calculations ({end_time - start_time} seconds)."
+            f"Finished isotherm-calculations ({end_time - start_time} seconds).\m"
         )
         write_results(HV_ISOTHERM_DATA_PATH, results)
 
-        logger.info("Starting PorePy h-v calculations ..\n")
+        logger.info("Starting PorePy h-v calculations ..")
         h1 = read_data_column(HV_ISOBAR_DATA_PATH, h_HEADER)
         v1 = read_data_column(HV_ISOBAR_DATA_PATH, v_HEADER)
         h2 = read_data_column(HV_ISOTHERM_DATA_PATH, h_HEADER)
@@ -183,10 +194,54 @@ if __name__ == "__main__":
         h_points = h1 + h2
         v_points = v1 + v2
         start_time = time.time()
-        results = calculate_porepy_data(h_points, v_points, "h-v", quickshot=False)
+        results = calculate_porepy_data(
+            np.array(v_points), np.array(h_points), "v-h", SPECIES, flash
+        )
         end_time = time.time()
-        logger.info(f"Finished p-h-calculations ({end_time - start_time} seconds).")
+        logger.info(f"Finished p-h-calculations ({end_time - start_time} seconds).\n")
         write_results(HV_FLASH_DATA_PATH, results)
 
+    if COMPUTE_GEO_THERMO_DATA:
+        logger.info("Starting thermo calculations for geothermal fluid ..")
+
+        start_time = time.time()
+        results = calculate_example_2_thermo(EXAMPLE_2_flash_type)
+        end_time = time.time()
+        logger.info(f"Finished thermo calculations ({end_time - start_time} seconds).\n")
+        write_results(GEO_THERMO_DATA_PATH, results)
+
+    if COMPUTE_GEO_DATA:
+        logger.info("Starting PorePy calculations for geothermal fluid ..")
+        p_ = np.linspace(
+            GEO_P_LIMITS[0],
+            GEO_P_LIMITS[1],
+            RESOLUTION_geo,
+            endpoint=True,
+            dtype=float,
+        )
+
+        if EXAMPLE_2_flash_type == "p-h":
+            x_ = np.linspace(
+                GEO_H_LIMITS[0],
+                GEO_H_LIMITS[1],
+                RESOLUTION_geo,
+                endpoint=True,
+                dtype=float,
+            )
+        elif EXAMPLE_2_flash_type == "p-T":
+            x_ = np.linspace(
+                GEO_T_LIMITS[0],
+                GEO_T_LIMITS[1],
+                RESOLUTION_geo,
+                endpoint=True,
+                dtype=float,
+        )
+        x, p = np.meshgrid(x_, p_)
+        start_time = time.time()
+        results = calculate_porepy_data(p.flat, x.flat, SPECIES_geo, EXAMPLE_2_flash_type, flash_2)
+        end_time = time.time()
+        logger.info(f"Finished {EXAMPLE_2_flash_type}-calculations ({end_time - start_time} seconds).\n")
+        write_results(GEO_DATA_PATH, results)
+
     total_time_end = time.time()
-    logger.info(f"Data computed (total {total_time_end - total_time_start} seconds)")
+    logger.info(f"Data computed (total {total_time_end - total_time_start} seconds)\n")

@@ -7,10 +7,6 @@ import logging
 import pathlib
 import sys
 import time
-from ctypes import c_double, c_uint8
-from multiprocessing import Array, Pool, Process, Queue, RawArray
-from multiprocessing.pool import AsyncResult
-from typing import Any
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -44,6 +40,8 @@ NA_COL = batlow_map(0.0)  # color for not available data
 LIQ_COL = batlow_map(0.25)  # color for liquid phase
 MPHASE_COL = batlow_map(0.5)  # color for multi-phase region
 GAS_COL = batlow_map(0.75)  # color for gas phase
+GLL_COL = batlow_map(0.875)
+LL_COL = batlow_map(0.375)
 GAS_COL_2 = batlow_map(1.0)  # Additional color for gas phase (Widom extension)
 WHITE_COL = (1, 1, 1, 1)
 BLACK_COL = (0, 0, 0, 1)
@@ -58,15 +56,18 @@ CALCULATION_MODE: int = 3
 SPECIES: list[str] = ["H2O", "CO2"]
 FEED: list[float] = [0.99, 0.01]
 
+SPECIES_geo: list[str] = ["H2O", "CO2", "H2S", "N2"]
+FEED_geo: list[float] = [0.8, 0.05, 0.1, 0.05]
+
 # pressure and temperature limits for p-T calculations
 P_LIMITS: list[float] = [1e6, 50e6]  # [Pa]
 T_LIMITS: list[float] = [450.0, 700.0]  # [K]
 # resolution of p-T limits
-RESOLUTION_pT: int = 50
+RESOLUTION_pT: int = 80
 
 # temperature values for isotherms for p-h calculations
 # more refined around critical temperature of water, up to critical pressure of water
-ISOTHERMS: list[float] = [500.0, 550.0, 600, 645.0, 647.14, 650.0]
+ISOTHERMS: list[float] = [500.0, 550.0, 600, 640.0, 647.14, 650.0]
 P_LIMITS_ISOTHERMS: list[float] = [1e6, 23000000.0]
 # pressure resolution along isotherms
 RESOLUTION_ph: int = 20
@@ -79,7 +80,15 @@ HV_ISOTHERM_P_LIMITS: list[float] = [5e6, 15e6]
 # pressure and temperature resolution for isobar and isotherm for h-v flash
 RESOLUTION_hv: int = 10
 
-# Limits for A and B when plotting te roots
+# Pressure and enthalpy limits for multi-component, geothermal fluid example
+GEO_P_LIMITS: list[float] = [22e6, 27e6]  # [Pa]
+# GEO_H_LIMITS: list[float] = [-15e3, 15e3]  # [kJ]
+GEO_H_LIMITS: list[float] = [-15e3, 8e3]  # [kJ]
+GEO_T_LIMITS: list[float] = [500, 820]
+EXAMPLE_2_flash_type: str = "p-h"  # p-T or p-h
+RESOLUTION_geo: int = 40
+
+# Limits for A and B when plotting the roots
 A_LIMITS: list[float] = [0, 2 * pp.composite.peng_robinson.A_CRIT]
 B_LIMITS: list[float] = [0, 2 * pp.composite.peng_robinson.B_CRIT]
 RESOLUTION_AB: int = 300
@@ -91,8 +100,11 @@ WIDOM_LINE: list[np.ndarray] = [
 ]
 
 # Scaling for plots
-PRESSURE_SCALE: float = 1e-6  # to MPa
+PRESSURE_SCALE: float = 1e-6  # Pa to MPa
 PRESSURE_SCALE_NAME: str = "MPa"
+# scaling of pressure or temperature for plots for second example
+X_SCALE: float = 1e-3 if EXAMPLE_2_flash_type == "p-h" else 1.0  # J to kJ for p-h
+X_SCALE_NAME: str = "kJ"
 
 # paths to where results should be stored
 THERMO_DATA_PATH: str = "data/thermodata.csv"  # storing results from therm
@@ -108,6 +120,10 @@ HV_ISOBAR_DATA_PATH: str = (
     "data/flash_hv_isobar.csv"  # storing p-T results on isobar for h-v flash
 )
 HV_FLASH_DATA_PATH: str = "data/flash_hv.csv"  # storing h-v results from porepy
+GEO_DATA_PATH: str = "data/flash_geo.csv"  # storing p-h results for geothermal model
+GEO_THERMO_DATA_PATH: str = (
+    "data/thermo_geo.csv"  # storing thermo results for geothermal model
+)
 FIG_PATH: str = "figs/"  # path to folder containing plots
 
 NUM_COMP: int = len(SPECIES)  # number of components
@@ -124,7 +140,9 @@ phases_HEADER: str = "phase-split"
 p_HEADER: str = "p [Pa]"
 T_HEADER: str = "T [K]"
 h_HEADER: str = "h [J/mol]"
+h_mix_HEADER: str = "h mix [J/mol]"
 v_HEADER: str = "v [m^3]"
+v_mix_HEADER: str = "v mix [m^3]"
 gas_satur_HEADER: str = "s"
 liq_satur_HEADER: str = [f"s_L{j}" for j in range(1, NUM_COMP + 1)]
 gas_frac_HEADER: str = "y"
@@ -135,6 +153,13 @@ composition_HEADER: dict[str, dict[str, str]] = dict(
 compressibility_HEADER: dict[str, str] = dict([(f"{j}", f"Z_{j}") for j in PHASES])
 fugacity_HEADER: dict[str, dict[str, str]] = dict(
     [(i, dict([(f"{j}", f"phi_{i}_{j}") for j in PHASES])) for i in SPECIES]
+)
+
+composition_HEADER_geo: dict[str, dict[str, str]] = dict(
+    [(i, dict([(f"{j}", f"x_{i}_{j}") for j in PHASES])) for i in SPECIES_geo]
+)
+fugacity_HEADER_geo: dict[str, dict[str, str]] = dict(
+    [(i, dict([(f"{j}", f"phi_{i}_{j}") for j in PHASES])) for i in SPECIES_geo]
 )
 
 # Number of physical CPU cores.
@@ -248,9 +273,9 @@ def write_results(filename: str, results: dict[str, list]):
     logger.info(f"{del_log}Writing result data: done\n")
 
 
-def _thermo_init() -> FlashVLN:
+def _thermo_init(species=SPECIES) -> FlashVLN:
     """Helper function to initiate the thermo flash."""
-    constants, properties = ChemicalConstantsPackage.from_IDs(SPECIES)
+    constants, properties = ChemicalConstantsPackage.from_IDs(species)
     kijs = IPDB.get_ip_asymmetric_matrix("ChemSep PR", constants.CASs, "kij")
     eos_kwargs = {
         "Pcs": constants.Pcs,
@@ -268,14 +293,16 @@ def _thermo_init() -> FlashVLN:
             eos_kwargs=eos_kwargs,
             HeatCapacityGases=properties.HeatCapacityGases,
         )
-        for _ in range(NUM_COMP)
+        for _ in range(len(species))
     ]
     flasher = FlashVLN(constants, properties, liquids=LIQs, gas=GAS)
 
     return flasher
 
 
-def _init_empty_results() -> dict[str, list]:
+def _init_empty_results(
+    species=SPECIES, comp_header=composition_HEADER, fug_header=fugacity_HEADER
+) -> dict[str, list]:
     """Initiate and return an results dict with proper headers as needed for the
     comparison."""
     results: dict[str, list] = {
@@ -293,12 +320,8 @@ def _init_empty_results() -> dict[str, list]:
     results.update({gas_frac_HEADER: list()})
     results.update(dict([(liq_frac_HEADER[i], list()) for i in range(NUM_COMP)]))
     results.update(dict([(compressibility_HEADER[j], list()) for j in PHASES]))
-    results.update(
-        dict([(composition_HEADER[i][j], list()) for j in PHASES for i in SPECIES])
-    )
-    results.update(
-        dict([(fugacity_HEADER[i][j], list()) for j in PHASES for i in SPECIES])
-    )
+    results.update(dict([(comp_header[i][j], list()) for j in PHASES for i in species]))
+    results.update(dict([(fug_header[i][j], list()) for j in PHASES for i in species]))
 
     return results
 
@@ -471,16 +494,18 @@ def _thermo_parse_result(state) -> dict:
     return out
 
 
-def _failed_entry() -> dict[str]:
+def _failed_entry(
+    species=SPECIES, comp_header=composition_HEADER, fug_header=fugacity_HEADER
+) -> dict[str]:
     """Create a row-entry for failed flashes."""
-    failed: dict = _init_empty_results()
+    failed: dict = _init_empty_results(species, comp_header, fug_header)
     for k in failed.keys():
         failed[k] = NAN_ENTRY
     failed[success_HEADER] = 2
     return failed
 
 
-def calculate_thermo_pT_data() -> dict[str, list]:
+def calculate_example_1_thermo() -> dict[str, list]:
     """Uses thermo to perform the p-T flash for various pressure and temperature ranges.
 
     Returns a dictionary containing per header (name of some property) respective values
@@ -488,7 +513,7 @@ def calculate_thermo_pT_data() -> dict[str, list]:
 
     """
 
-    flasher = _thermo_init()
+    flasher = _thermo_init(SPECIES)
     results = _init_empty_results()
 
     p_points = np.linspace(P_LIMITS[0], P_LIMITS[1], num=RESOLUTION_pT).tolist()
@@ -516,7 +541,6 @@ def calculate_thermo_pT_data() -> dict[str, list]:
                 parsed[T_HEADER] = T
                 for head, val in parsed.items():
                     results[head].append(val)
-                print(f"\rFlash: {f_count}/{f_num} done", end="", flush=True)
                 logger.info(f"{del_log}Thermo p-T-flash: {f_count}/{f_num}")
                 f_count += 1
     logger.info(f"{del_log}Thermo p-T-flash: done\n")
@@ -524,130 +548,119 @@ def calculate_thermo_pT_data() -> dict[str, list]:
     return results
 
 
-def _access_shared_objects(
-    shared_arrays: list[tuple[Array, Any]], progress_queue: Queue
-):
-    """Helper function to be called by subprocesses to provide access to shared-memory
-    objects.
+def calculate_example_2_thermo(flash_type: str = "p-h") -> dict[str, list]:
+    """Uses thermo to perform the p-T flash for various pressure and temperature ranges.
 
-    ``sharred_arrays`` must be a list of tuples, where the first entry is the
-    shared array object and the second entry its data type (as a C-type).
+    Returns a dictionary containing per header (name of some property) respective values
+    per p-T point.
 
     """
-    global arrays_loc, progress_queue_loc
-    progress_queue_loc = progress_queue
-    arrays_loc = [vec for vec, _ in shared_arrays]
 
+    flasher = _thermo_init(SPECIES_geo)
+    results = _init_empty_results(
+        SPECIES_geo, composition_HEADER_geo, fugacity_HEADER_geo
+    )
 
-def _array_headers() -> list[str]:
-    """Returns a list of header (names) for arrays created for the parallel flash."""
-    headers = [
-        success_HEADER,
-        num_iter_HEADER,
-        conditioning_HEADER,
-        p_HEADER,
-        T_HEADER,
-        h_HEADER,
-        v_HEADER,
-        gas_satur_HEADER,
-        gas_frac_HEADER,
-        compressibility_HEADER[PHASES[0]],
-        compressibility_HEADER[PHASES[1]],
-    ]
-    for i in SPECIES:
-        for j in PHASES[:2]:
-            headers += [composition_HEADER[i][j]]
-    for i in SPECIES:
-        for j in PHASES[:2]:
-            headers += [fugacity_HEADER[i][j]]
-    return headers
+    p_points = np.linspace(
+        GEO_P_LIMITS[0],
+        GEO_P_LIMITS[1],
+        RESOLUTION_geo,
+        endpoint=True,
+        dtype=float,
+    ).tolist()
 
+    if flash_type == "p-h":
+        x_points = np.linspace(
+            GEO_H_LIMITS[0],
+            GEO_H_LIMITS[1],
+            RESOLUTION_geo,
+            endpoint=True,
+            dtype=float,
+        ).tolist()
+    elif flash_type == "p-T":
+        x_points = np.linspace(
+            GEO_T_LIMITS[0],
+            GEO_T_LIMITS[1],
+            RESOLUTION_geo,
+            endpoint=True,
+            dtype=float,
+        ).tolist()
+    else:
+        raise ValueError("Only p-T or p-h flash supported for this example.")
 
-def _create_shared_arrays(size: int) -> list[tuple[Array, Any]]:
-    """Creates shared memory arrays for the parallelized flash and returns a list of
-    tuples with arrays and their data types as entries.
+    # p_points, x_points = _test_range_geo(np.array(p_points), np.array(x_points))
+    # p_points = p_points.tolist()
+    # x_points = x_points.tolist()
+    f_num = len(x_points) * len(p_points)
+    f_count = 1
 
-    Important:
-        The order here in the list determines for which quantities they are used.
-        The same order is assumed in the parallelized flash.
-        It must not be messed with.
+    for X in x_points:
+        for P in p_points:
+            try:
+                if flash_type == "p-T":
+                    state = flasher.flash(P=P, T=X, zs=FEED_geo)
+                else:
+                    state = flasher.flash(P=P, H=X, zs=FEED_geo)
+            except Exception:
+                logger.warn(
+                    f"\nThermo {flash_type} flash failed for p, x = ({P}, {X})\n"
+                )
+                parsed = _failed_entry(
+                    SPECIES_geo, composition_HEADER_geo, fugacity_HEADER_geo
+                )
+            else:
+                # parsed = _thermo_parse_result(state)
+                parsed = _failed_entry(
+                    SPECIES_geo, composition_HEADER_geo, fugacity_HEADER_geo
+                )
+                parsed[success_HEADER] = 0
+                # in the p-T flash, we use the thermo enthalpy also as target enthalpy
+                if flash_type == "p-h":
+                    parsed[T_HEADER] = state.T
+                else:
+                    parsed[h_HEADER] = state.H()
+                parsed[gas_frac_HEADER] = float(state.VF)
+                ph = ""
+                pc = state.phase_count
+                if (0.0 < state.VF <= 1.0) and state.gas is not None:
+                    ph += "G"
+                    if pc > 1:
+                        for _ in range(pc - 1):
+                            ph += "L"
 
-        The order corresponds to the order returned by ``get_result_headers``.
+                    # parsing gas phase composition
+                    for i, s in enumerate(SPECIES_geo):
+                        parsed[composition_HEADER_geo[s][PHASES[0]]] = state.gas.zs[i]
+                else:
+                    for _ in range(pc):
+                        ph += "L"
+                # parsing liquid phase (one expected)
+                if state.VF < 1.0:
+                    if len(state.liquids) == 1:
+                        for i, s in enumerate(SPECIES_geo):
+                            parsed[
+                                composition_HEADER_geo[s][PHASES[1]]
+                            ] = state.liquids[0].zs[i]
 
-    ``size`` determines the size of the allocated arrays. It must be equal the number
-    of flashes performed in parallel.
+                parsed[phases_HEADER] = ph
+                parsed[num_iter_HEADER] = 0
+            finally:
+                parsed[p_HEADER] = P
+                if flash_type == "p-h":
+                    parsed[h_HEADER] = X
+                else:
+                    parsed[T_HEADER] = X
+                for head, val in parsed.items():
+                    results[head].append(val)
+                logger.info(f"{del_log}Thermo {flash_type}-flash: {f_count}/{f_num}")
+                f_count += 1
+    logger.info(f"{del_log}Thermo p-T-flash: done\n")
 
-    """
-    shared_arrays: list[tuple[Array, Any]] = list()
-
-    INT_PRECISION = c_uint8
-    FLOAT_PRECISION = c_double
-
-    def _double_array():
-        return RawArray(typecode_or_type=FLOAT_PRECISION, size_or_initializer=size)
-
-    def _uint_array():
-        return RawArray(typecode_or_type=INT_PRECISION, size_or_initializer=size)
-
-    # array to store the success flag
-    success = _uint_array()
-    shared_arrays.append((success, INT_PRECISION))
-    # integer array to store the number of iterations necessary
-    num_iter = _uint_array()
-    shared_arrays.append((num_iter, INT_PRECISION))
-    # array storing the condition number of the array at the beginning (initial guess)
-    cond_start = _double_array()
-    shared_arrays.append((cond_start, FLOAT_PRECISION))
-    # arrays containing pressure, temperature, enthalpies and volume
-    p = _double_array()
-    shared_arrays.append((p, FLOAT_PRECISION))
-    T = _double_array()
-    shared_arrays.append((T, FLOAT_PRECISION))
-    h = _double_array()
-    shared_arrays.append((h, FLOAT_PRECISION))
-    v = _double_array()
-    shared_arrays.append((v, FLOAT_PRECISION))
-    # array containing the vapor fraction
-    s = _double_array()
-    shared_arrays.append((s, FLOAT_PRECISION))
-    y = _double_array()
-    shared_arrays.append((y, FLOAT_PRECISION))
-    # arrays containing the phase compressibility factors
-    for _ in range(2):
-        Z = _double_array()
-        shared_arrays.append((Z, FLOAT_PRECISION))
-    # arrays containing the phase composition
-    for _ in SPECIES:
-        for _ in PHASES[:2]:
-            x = _double_array()
-            shared_arrays.append((x, FLOAT_PRECISION))
-    # arrays containing the fugacities
-    for _ in SPECIES:
-        for _ in PHASES[:2]:
-            phi = _double_array()
-            shared_arrays.append((phi, FLOAT_PRECISION))
-
-    return shared_arrays
-
-
-def _progress_counter(q: Queue, NC: int, flash_result: AsyncResult):
-    """A function sharing a Queue object with other processes, which receives
-    the index of all finished flashes. This function finishes when all indices
-    where received."""
-    progress_array = Array(typecode_or_type=c_uint8, size_or_initializer=NC)
-
-    while True:
-        i = q.get()
-        progress_array[i] = 1
-        progress = int(sum(progress_array))
-        logger.info(f"{del_log}Parallel flash: {progress}/{NC}")
-        if progress == NC:
-            break
+    return results
 
 
 def create_mixture(
-    num_vals: int,
-    flash_type: str,
+    verbosity: int,
 ) -> tuple[pp.composite.NonReactiveMixture, pp.composite.FlashNR]:
     """Returns instances of the modelled mixture and flash using PorePy's framework.
 
@@ -662,8 +675,13 @@ def create_mixture(
 
     """
 
-    species = pp.composite.load_species(SPECIES)
+    from porepy.composite.composite_utils import COMPOSITE_LOGGER as logger
+    logger.setLevel(logging.DEBUG)
+    from porepy.composite.peng_robinson.eos_c import PengRobinsonCompiler
+    from porepy.composite.flash_c import Flash_c
+    logger.setLevel(logging.WARNING)
 
+    species = pp.composite.load_species(SPECIES)
     comps = [
         pp.composite.peng_robinson.H2O.from_species(species[0]),
         pp.composite.peng_robinson.CO2.from_species(species[1]),
@@ -673,214 +691,83 @@ def create_mixture(
         pp.composite.Phase(
             pp.composite.peng_robinson.PengRobinson(gaslike=False), name="L"
         ),
-        pp.composite.Phase(
-            pp.composite.peng_robinson.PengRobinson(gaslike=True), name="G"
-        ),
+        pp.composite.Phase(pp.composite.peng_robinson.PengRobinson(gaslike=True), name="G"),
     ]
 
     mix = pp.composite.NonReactiveMixture(comps, phases)
 
-    mix.set_up(num_vals=num_vals)
+    mix.set_up()
 
-    # instantiating Flasher, without auxiliary variables V and W
-    flash = pp.composite.FlashNR(mix)
-    flash.use_armijo = True
-    flash.armijo_parameters["rho"] = 0.99
-    flash.armijo_parameters["j_max"] = 70
-    flash.armijo_parameters["return_max"] = True
-    flash.newton_update_chop = 1.0
-    flash.tolerance = 1e-5
+    eos = PengRobinsonCompiler(mix, verbosity=verbosity)
+    flash = Flash_c(mix, eos)
+    flash.tolerance = 1e-8
     flash.max_iter = 150
 
-    if flash_type == "h-v":
-        flash.armijo_parameters["rho"] = 0.9
-        flash.armijo_parameters["j_max"] = 150
+    eos.compile(verbosity=verbosity)
+    flash.compile(verbosity=verbosity)
+
+    # instantiating Flasher, without auxiliary variables V and W
+    flash.armijo_parameters["rho"] = 0.99
+    flash.armijo_parameters["kappa"] = 0.4
+    flash.armijo_parameters["j_max"] = 50
+    flash.npipm_parameters['u1'] = 1.
+    flash.npipm_parameters['u2'] = 10.
+    flash.npipm_parameters['eta'] = 0.5
+    flash.initialization_parameters['N1'] = 3
+    flash.initialization_parameters['N2'] = 1
+    flash.initialization_parameters['N3'] = 5
 
     return mix, flash
 
 
-def _porepy_parse_state(state: pp.composite.ThermodynamicState) -> dict:
-    """Function to parse the resulting state after a porepy flash into a structure
-    ready for writing to csv.
+def create_mixture_geo(
+    verbosity: int,
+) -> tuple[pp.composite.NonReactiveMixture, pp.composite.FlashNR]:
+    """Analogon to ''create_mixture'' for geothermal fluid misture."""
 
-    Only meant for states with 1 value per state function.
+    from porepy.composite.composite_utils import COMPOSITE_LOGGER as logger
+    logger.setLevel(logging.DEBUG)
+    from porepy.composite.peng_robinson.eos_c import PengRobinsonCompiler
+    from porepy.composite.flash_c import Flash_c
+    logger.setLevel(logging.WARNING)
 
-    Parses only fractional variables and phase split.
+    species = pp.composite.load_species(SPECIES_geo)
 
-    """
-    out = _init_empty_results()
-    for k in out.keys():
-        out[k] = NAN_ENTRY
+    comps = [
+        pp.composite.peng_robinson.H2O.from_species(species[0]),
+        pp.composite.peng_robinson.CO2.from_species(species[1]),
+        pp.composite.peng_robinson.H2S.from_species(species[2]),
+        pp.composite.peng_robinson.N2.from_species(species[3]),
+    ]
 
-    y = state.y[1][0]
-    if y >= 1:
-        out[phases_HEADER] = "G"
-    elif y <= 0:
-        out[phases_HEADER] = "L"
-    else:
-        out[phases_HEADER] = "GL"
-    out[gas_frac_HEADER] = y
-    out[liq_frac_HEADER[0]] = 1 - y
+    phases = [
+        pp.composite.Phase(
+            pp.composite.peng_robinson.PengRobinson(gaslike=False), name="L"
+        ),
+        pp.composite.Phase(pp.composite.peng_robinson.PengRobinson(gaslike=True), name="G"),
+    ]
 
-    s = state.s[1][0]
-    out[gas_satur_HEADER] = s
-    out[liq_satur_HEADER[0]] = 1 - s
+    mix = pp.composite.NonReactiveMixture(comps, phases)
 
-    # liquid phase composition
-    for i, s in enumerate(SPECIES):
-        x_ij = state.X[0][i][0]
-        out[composition_HEADER[s][PHASES[1]]] = x_ij
-    # gas phase composition
-    for i, s in enumerate(SPECIES):
-        x_ij = state.X[1][i][0]
-        out[composition_HEADER[s][PHASES[0]]] = x_ij
+    mix.set_up()
 
-    return out
+    eos = PengRobinsonCompiler(mix, verbosity=verbosity)
+    flash = Flash_c(mix, eos)
+    flash.tolerance = 1e-8
+    flash.max_iter = 150
 
+    eos.compile(verbosity=verbosity)
+    flash.compile(verbosity=verbosity)
 
-def _parallel_porepy_flash(args):
-    """Performs a flash (including modelling) and stores the results in shared
-    memory.
-
-    ``args`` must be a tuple containing the index where the results should be stored,
-    the defined state points, flash-type string and quickshot bool.
-
-    Warning:
-        There are some unresolved issues with parallel subprocesses if
-        numpy/scipy/pypardiso throw errors or warnings. It causes the respective
-        subprocess unable to join, despite finishing all flashes.
-
-    """
-
-    i, state_1, state_2, flash_type, quickshot = args
-    msg = (i, state_1, state_2)
-
-    # accessing shared memory
-    global arrays_loc, progress_queue_loc
-    (
-        success_arr,
-        num_iter_arr,
-        cond_arr,
-        p_arr,
-        T_arr,
-        h_arr,
-        v_arr,
-        s_arr,
-        y_arr,
-        Z_G_arr,
-        Z_L_arr,
-        x_h2o_G_arr,
-        x_h2o_L_arr,
-        x_co2_G_arr,
-        x_co2_L_arr,
-        phi_h2o_G_arr,
-        phi_h2o_L_arr,
-        phi_co2_G_arr,
-        phi_co2_L_arr,
-    ) = arrays_loc
-
-    mix, flash = create_mixture(1, flash_type)
-    feed = [np.ones(1) * z for z in FEED]
-
-    # Default entries are FAILURE
-    success_arr[i] = 2
-    num_iter_arr[i] = 0
-    cond_arr[i] = NAN_ENTRY
-    p_arr[i] = NAN_ENTRY
-    T_arr[i] = NAN_ENTRY
-    h_arr[i] = NAN_ENTRY
-    v_arr[i] = NAN_ENTRY
-    s_arr[i] = NAN_ENTRY
-    y_arr[i] = NAN_ENTRY
-    Z_L_arr[i] = NAN_ENTRY
-    Z_G_arr[i] = NAN_ENTRY
-    x_h2o_G_arr[i] = NAN_ENTRY
-    x_h2o_L_arr[i] = NAN_ENTRY
-    x_co2_G_arr[i] = NAN_ENTRY
-    x_co2_L_arr[i] = NAN_ENTRY
-    phi_h2o_G_arr[i] = NAN_ENTRY
-    phi_h2o_L_arr[i] = NAN_ENTRY
-    phi_co2_G_arr[i] = NAN_ENTRY
-    phi_co2_L_arr[i] = NAN_ENTRY
-
-    if flash_type == "p-T":
-        state_input = {"p": np.array([state_1]), "T": np.array([state_2])}
-    elif flash_type == "p-h":
-        state_input = {"p": np.array([state_1]), "h": np.array([state_2])}
-    elif flash_type == "h-v":
-        state_input = {"h": np.array([state_1]), "v": np.array([state_2])}
-
-    try:
-        success_, state = flash.flash(
-            state=state_input,
-            feed=feed,
-            eos_kwargs={"apply_smoother": True},
-            quickshot=quickshot,
-            return_system=True,
-        )
-    except Exception as err:  # if Flasher fails, flag as failed
-        logger.warn(f"\nParallel {flash_type} flash crashed at {msg}\n{str(err)}\n")
-    else:
-        success_arr[i] = success_
-        if success_ == 2:
-            logger.warn(f"\nParallel {flash_type} diverged at {msg}\n")
-        else:
-            if success_ == 1:
-                logger.warn(
-                    f"\nParallel {flash_type} stopped after max iter at {msg}\n"
-                )
-            try:
-                cn = np.linalg.cond(state(with_derivatives=True).jac.todense())
-            except:
-                logger.warn(
-                    f"\nParallel {flash_type} failed to compute condition number at "
-                    + f"{msg} (exit code = {success_})\n"
-                )
-                cn = NAN_ENTRY
-
-            cond_arr[i] = cn
-            if quickshot:
-                num_iter_arr[i] = 0
-            else:
-                num_iter_arr[i] = flash.history[-1]["iterations"]
-
-            state = state.export_state()
-
-            p_arr[i] = state.p[0]
-            T_arr[i] = state.T[0]
-            h_arr[i] = state.h[0]
-            v_arr[i] = state.v[0]
-
-            s_arr[i] = state.s[1][0]
-            y_arr[i] = state.y[1][0]
-            x_h2o_L_arr[i] = state.X[0][0][0]
-            x_h2o_G_arr[i] = state.X[1][0][0]
-            x_co2_L_arr[i] = state.X[0][1][0]
-            x_co2_G_arr[i] = state.X[1][1][0]
-            props = mix.compute_properties(state.p, state.T, state.X, store=False)
-            Z_L_arr[i] = props[0].Z[0]
-            Z_G_arr[i] = props[1].Z[0]
-            phi_h2o_L_arr[i] = props[0].phis[0][0]
-            phi_co2_L_arr[i] = props[0].phis[1][0]
-            phi_h2o_G_arr[i] = props[1].phis[0][0]
-            phi_co2_G_arr[i] = props[1].phis[1][0]
-
-    # to ensure proper mapping between state args (just in case something goes wrong)
-    if flash_type == "p-T":
-        p_arr[i] = state_1
-        T_arr[i] = state_2
-    elif flash_type == "p-h":
-        p_arr[i] = state_1
-        h_arr[i] = state_2
-    elif flash_type == "h-v":
-        h_arr[i] = state_1
-        v_arr[i] = state_2
-
-    progress_queue_loc.put(i, block=False)
+    return mix, flash
 
 
 def calculate_porepy_data(
-    state_1: list[float], state_2: list[float], flash_type: str, quickshot: bool = False
+    state_1: list[float],
+    state_2: list[float],
+    species: list[str],
+    flash_type: str,
+    flash,
 ) -> dict:
     """Performs the PorePy flash for given pressure-temperature points and
     returns a result structure similar to that of the thermo computation.
@@ -888,160 +775,118 @@ def calculate_porepy_data(
     If ``quickshot`` is True, returns the results from the initial guess."""
 
     results = _init_empty_results()
-    nf = len(state_1)
 
-    if CALCULATION_MODE == 1:  # point-wise flash
-        v = np.ones(1)
-        logger.info(
-            f"PorePy {flash_type}-flash: initializing point-wise calculations .."
-        )
-        mix, flash = create_mixture(1, flash_type)
-        feed = [v * z for z in FEED]
+    if flash_type == 'p-T':
+        flash.armijo_parameters["rho"] = 0.99
+        flash.armijo_parameters["kappa"] = 0.4
+        flash.armijo_parameters["j_max"] = 50
+        flash.npipm_parameters['u1'] = 1.
+        flash.npipm_parameters['u2'] = 10.
+        flash.npipm_parameters['eta'] = 0.5
+        flash.initialization_parameters['N1'] = 3
+        flash.initialization_parameters['N2'] = 1
+        flash.initialization_parameters['N3'] = 5
 
-        for f, xy in enumerate(zip(state_1, state_2)):
-            if flash_type == "p-T":
-                state_input = {"p": np.array([xy[0]]), "T": np.array([xy[1]])}
-            elif flash_type == "p-h":
-                state_input = {"p": np.array([xy[0]]), "h": np.array([xy[1]])}
-            elif flash_type == "h-v":
-                state_input = {"h": np.array([xy[0]]), "v": np.array([xy[1]])}
+        equilibrium = {
+            'z': FEED,
+            'p': state_1,
+            'T': state_2, 
+        }
+    elif flash_type == 'p-h':
+        flash.armijo_parameters["rho"] = 0.99
+        flash.armijo_parameters["kappa"] = 0.4
+        flash.armijo_parameters["j_max"] = 30
+        flash.npipm_parameters['u1'] = 1.
+        flash.npipm_parameters['u2'] = 1.
+        flash.npipm_parameters['eta'] = 0.5
+        flash.initialization_parameters['N1'] = 3
+        flash.initialization_parameters['N2'] = 1
+        flash.initialization_parameters['N3'] = 5
 
-            try:
-                success, state = flash.flash(
-                    state=state_input,
-                    feed=feed,
-                    eos_kwargs={"apply_smoother": True},
-                    quickshot=quickshot,
-                    return_system=True,
-                )
-            except Exception as err:
-                logger.warn(
-                    f"\nPorePy {flash_type} flash crashed at ({f}, {xy})\n{str(err)}\n"
-                )
-                res = _failed_entry()
-            else:
-                if success == 2:
-                    logger.warn(
-                        f"\nPorePy {flash_type} flash diverged at ({f}, {xy})\n"
-                    )
-                else:
-                    if success == 1:
-                        logger.warn(
-                            f"\nPorePy {flash_type} stopped after max iter at ({f}, {xy})\n"
-                        )
+        equilibrium = {
+            'z': FEED,
+            'p': state_1,
+            'h': state_2, 
+        }
+    elif flash_type == 'v-h':
+        flash.armijo_parameters["rho"] = 0.9
+        flash.armijo_parameters["kappa"] = 0.4
+        flash.armijo_parameters["j_max"] = 150
+        flash.npipm_parameters['u1'] = 1.
+        flash.npipm_parameters['u2'] = 10.
+        flash.npipm_parameters['eta'] = 0.5
+        flash.initialization_parameters['N1'] = 2
+        flash.initialization_parameters['N2'] = 2
+        flash.initialization_parameters['N3'] = 7
 
-                    try:
-                        cn = np.linalg.cond(state(with_derivatives=True).jac.todense())
-                    except Exception:
-                        logger.warn(
-                            f"\nPorepy {flash_type} failed to compute condition number"
-                            + f" at ({f}, {xy}) (exit code = {success})\n"
-                        )
-                        cn = NAN_ENTRY
-                    else:
-                        cn = float(cn)
-
-                    state = state.export_state()
-                    res = _porepy_parse_state(state)
-
-                    res[success_HEADER] = success
-                    res[conditioning_HEADER] = cn
-
-                    if quickshot:
-                        res[num_iter_HEADER] = 0
-                    else:
-                        res[num_iter_HEADER] = int(flash.history[-1]["iterations"])
-
-                    res[p_HEADER] = state.p[0]
-                    res[T_HEADER] = state.T[0]
-                    res[h_HEADER] = state.h[0]
-                    res[v_HEADER] = state.v[0]
-
-                    props = mix.compute_properties(
-                        state.p, state.T, state.X, store=False
-                    )
-
-                    res[compressibility_HEADER[PHASES[1]]] = props[0].Z[0]
-                    for i, s in enumerate(SPECIES):
-                        res[fugacity_HEADER[s][PHASES[1]]] = props[0].phis[i][0]
-                    res[compressibility_HEADER[PHASES[0]]] = props[1].Z[0]
-                    for i, s in enumerate(SPECIES):
-                        res[fugacity_HEADER[s][PHASES[0]]] = props[1].phis[i][0]
-
-            # to ensure proper mapping between state args
-            if flash_type == "p-T":
-                res[p_HEADER] = xy[0]
-                res[T_HEADER] = xy[1]
-            elif flash_type == "p-h":
-                res[p_HEADER] = xy[0]
-                res[h_HEADER] = xy[1]
-            elif flash_type == "h-v":
-                res[h_HEADER] = xy[0]
-                res[v_HEADER] = xy[1]
-
-            for key, val in res.items():
-                results[key].append(val)
-
-            logger.info(f"{del_log}PorePy {flash_type} flash: {f+1} / {nf} ..")
-
-    elif CALCULATION_MODE == 2:  # vectorized flash
-        pass
-    elif CALCULATION_MODE == 3:  # parallelized flash
-
-        args = [
-            (i, x, y, flash_type, quickshot)
-            for i, x, y in zip(np.arange(nf), state_1, state_2)
-        ]
-        shared_arrays = _create_shared_arrays(nf)
-        logger.info(f"Parallel {flash_type} flash: starting ..")
-        start_time = time.time()
-        prog_q = Queue(maxsize=nf)
-        with Pool(
-            processes=NUM_PHYS_CPU_CORS + 1,
-            initargs=(shared_arrays, prog_q),
-            initializer=_access_shared_objects,
-        ) as pool:
-
-            prog_process = Process(
-                target=_progress_counter, args=(prog_q, nf, None), daemon=True
-            )
-            prog_process.start()
-
-            chunksize = np.array(
-                [NUM_PHYS_CPU_CORS, RESOLUTION_hv, RESOLUTION_ph, RESOLUTION_pT]
-            ).min()
-            result = pool.map_async(_parallel_porepy_flash, args, chunksize=chunksize)
-
-            # Wait for some time and see if processes terminate as they should
-            # we terminate if the processes for some case could not finish
-            result.wait(60 * 60 * 5)
-            if result.ready():
-                prog_process.join(5)
-                if prog_process.exitcode != 0:
-                    prog_process.terminate()
-                pool.close()
-            else:
-                prog_process.terminate()
-                logger.warn(f"\nParallel {flash_type} flash: terminated\n")
-                pool.close()
-                pool.terminate()
-            pool.join()
-
-        end_time = time.time()
-        logger.info(
-            f"\nParallel {flash_type} flash: finished after {end_time - start_time} seconds.\n"
-        )
-
-        result_vecs = [
-            list(np.frombuffer(vec, dtype=dtype))
-            # list(np.frombuffer(vec.get_obj(), dtype=dtype))  # For Array (synchronized)
-            for vec, dtype in shared_arrays
-        ]
-        results = dict(
-            [(header, vec) for header, vec in zip(_array_headers(), result_vecs)]
-        )
+        equilibrium = {
+            'z': FEED,
+            'v': state_1,
+            'h': state_2, 
+        }
     else:
-        raise ValueError(f"Unknown flash calculation mode {CALCULATION_MODE}.")
+        raise NotImplementedError(f'Unknown flash type {flash_type}')
+    
+    out, success, num_iter = flash.flash(**equilibrium, mode='parallel', verbosity=2)
+
+    results[success_HEADER] = success
+    results[num_iter_HEADER] = num_iter
+
+    results[p_HEADER] = out.p
+    results[T_HEADER] = out.T
+
+    # to ensure proper mapping between state args
+    if flash_type == "p-T":
+        results[p_HEADER] = state_1
+        results[T_HEADER] = state_2
+        results[h_HEADER] = out.h
+        results[v_HEADER] = out.v
+        results[h_mix_HEADER] = out.h
+        results[v_mix_HEADER] = out.v
+    elif flash_type == "p-h":
+        results[p_HEADER] = state_1
+        results[T_HEADER] = out.T
+        results[h_HEADER] = state_2
+        results[v_HEADER] = out.v
+        results[h_mix_HEADER] = out.h
+        results[v_mix_HEADER] = out.v
+    elif flash_type == "h-v":
+        results[p_HEADER] = out.P
+        results[T_HEADER] = out.T
+        results[h_HEADER] = state_1
+        results[v_HEADER] = state_2
+        results[h_mix_HEADER] = out.h
+        results[v_mix_HEADER] = out.V
+
+    y = out.y[1]
+    phases = np.array(['GL'] * y.shape[0])
+    phases[y >= 1] = 'G'
+    phases[y <= 0] = 'L'
+    results[phases_HEADER] = phases
+    out[gas_frac_HEADER] = y
+    out[liq_frac_HEADER[0]] = 1 - y
+
+    s = out.s[1]
+    out[gas_satur_HEADER] = s
+    out[liq_satur_HEADER[0]] = 1 - s
+
+    # liquid phase
+    if species == SPECIES:
+        ch = composition_HEADER
+        fh = fugacity_HEADER
+    elif species == SPECIES_geo:
+        ch = composition_HEADER_geo
+        fh = fugacity_HEADER_geo
+
+    for i, s in enumerate(species):
+        out[ch[s][PHASES[1]]] = out.phases[1].x[i]
+        out[fh[s][PHASES[1]]] = out.phases[1].phis[i]
+    # gas phase
+    for i, s in enumerate(species):
+        out[ch[s][PHASES[0]]] = out.phases[0].x[i]
+        out[fh[s][PHASES[0]]] = out.phases[0].phis[i]
+
+    # TODO condition numbers and compressibility factors
 
     return results
 
@@ -1085,7 +930,7 @@ def plot_max_iter_reached(
         return [], []
 
 
-def plot_phase_split_pT(
+def plot_phase_split_GL(
     axis: plt.Axes,
     p: np.ndarray,
     T: np.ndarray,
@@ -1132,8 +977,8 @@ def plot_abs_error_pT(
 
 
 def _plot_critical_line(axis: plt.Axes, A_mesh: np.ndarray):
-    A_CRIT = pp.composite.peng_robinson.A_CRIT
-    B_CRIT = pp.composite.peng_robinson.B_CRIT
+    A_CRIT = pp.composite.peng_robinson.PengRobinsonEoS.A_CRIT
+    B_CRIT = pp.composite.peng_robinson.PengRobinsonEoS.B_CRIT
     slope = B_CRIT / A_CRIT
     x_vals = np.sort(np.unique(A_mesh.flatten()))
     x_vals = x_vals[x_vals <= A_CRIT]
@@ -1147,11 +992,11 @@ def _plot_critical_line(axis: plt.Axes, A_mesh: np.ndarray):
 
 def _plot_Widom_line(axis: plt.Axes, A_mesh: np.ndarray, B_mesh: np.ndarray):
     """Plots the approximation of the Widom-line."""
-    A_CRIT = pp.composite.peng_robinson.A_CRIT
-    B_CRIT = pp.composite.peng_robinson.B_CRIT
+    A_CRIT = pp.composite.peng_robinson.PengRobinsonEoS.A_CRIT
+    B_CRIT = pp.composite.peng_robinson.PengRobinsonEoS.B_CRIT
     x_vals = np.sort(np.unique(A_mesh.flatten()))
     x_vals = x_vals[x_vals >= A_CRIT]
-    y_vals = pp.composite.peng_robinson.widom_line(x_vals)
+    y_vals = pp.composite.peng_robinson.PengRobinsonEoS.Widom_line(x_vals)
     cap = y_vals <= B_mesh.max()
     y_vals = y_vals[cap]
     x_vals = x_vals[cap]
@@ -1179,9 +1024,7 @@ def plot_root_regions(
 ):
     """A discrete plot for plotting the root cases."""
     # cmap = mpl.colors.ListedColormap(["yellow", "green", "blue", "indigo"])
-    cmap = mpl.colors.ListedColormap(
-        np.array([GREY_COL, WHITE_COL, NA_COL, MPHASE_COL])
-    )
+    cmap = mpl.colors.ListedColormap(np.array([WHITE_COL, MPHASE_COL]))
     img = axis.pcolormesh(
         A_mesh,
         B_mesh,
@@ -1194,7 +1037,7 @@ def plot_root_regions(
     imgs_c, legs_c = _plot_critical_line(axis, A_mesh)
 
     violated = (liq_root <= B_mesh) & (
-        B_mesh >= pp.composite.peng_robinson.critical_line(A_mesh)
+        B_mesh >= pp.composite.peng_robinson.PengRobinsonEoS.critical_line(A_mesh)
     )
     if np.any(violated):
         mr = np.ma.array(regions, mask=np.logical_not(violated))
@@ -1295,3 +1138,46 @@ def plot_hv_iso(
     img_y = axis.plot(x, y_err, "-D", color="black", markersize=marker_size)[0]
 
     return [img_p, img_s, img_T, img_y], ["p err", "s err", "T err", "y err"]
+
+
+def plot_phase_split_GnL(
+    axis: plt.Axes,
+    p: np.ndarray,
+    T: np.ndarray,
+    split: np.ndarray,
+) -> figure.Figure:
+    """Plots a phase split figure across a range of pressure and temperature values."""
+
+    cmap = mpl.colors.ListedColormap(
+        np.array([NA_COL, LIQ_COL, MPHASE_COL, GAS_COL, LL_COL, GLL_COL])
+    )
+    img = axis.pcolormesh(
+        T,
+        p * PRESSURE_SCALE,
+        split,
+        cmap=cmap,
+        vmin=0,
+        vmax=5,
+        shading="nearest",  # gouraud
+    )
+
+    return img
+
+
+def plot_conjugate_x_for_px_flash(
+    axis: plt.Axes,
+    p: np.ndarray,
+    x: np.ndarray,
+    conjugate_x: np.ndarray,
+):
+    """Color mesh plot for temperature values in the p-h space."""
+
+    img = axis.pcolormesh(
+        x * X_SCALE,
+        p * PRESSURE_SCALE,
+        conjugate_x,
+        cmap=batlow_map,
+        shading="nearest",
+    )
+
+    return img
