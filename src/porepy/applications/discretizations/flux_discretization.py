@@ -59,4 +59,3 @@ class FluxDiscretization:
             msg = f"{scheme} is not a valid Fourier flux discretization scheme. "
             msg += "Use either 'tpfa' or 'mpfa'."
             raise NotImplementedError(msg)
-
