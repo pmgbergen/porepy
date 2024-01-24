@@ -9,6 +9,72 @@ import numpy as np
 import porepy as pp
 
 
+class BoundaryConditionsMassDirWestEast(pp.BoundaryConditionMixin):
+    """Boundary conditions for the flow problem.
+
+    Dirichlet boundary conditions are defined on the west and east boundaries. Some
+    of the default values may be changed directly through attributes of the class.
+
+    The domain can be 2d or 3d.
+
+    Usage: two-dimensional flow benchmark models.
+
+    """
+
+    fluid: pp.FluidConstants
+
+    def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        """Boundary condition type for Darcy flux.
+
+        Dirichlet boundary conditions are defined on the north and south boundaries.
+
+        Parameters:
+            sd: Subdomain for which to define boundary conditions.
+
+        Returns:
+            bc: Boundary condition object.
+
+        """
+        domain_sides = self.domain_boundary_sides(sd)
+        # Define boundary condition on faces
+        return pp.BoundaryCondition(sd, domain_sides.west + domain_sides.east, "dir")
+
+    def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+        """Boundary condition values for Darcy flux.
+
+        Dirichlet boundary conditions are defined on the west and east boundaries,
+        with a constant value equal to the fluid's reference pressure (which will be 0
+        by default).
+
+        Parameters:
+            boundary_grid: Boundary grid for which to define boundary conditions.
+
+        Returns:
+            Boundary condition values array.
+
+        """
+        domain_sides = self.domain_boundary_sides(boundary_grid)
+        vals_loc = np.zeros(boundary_grid.num_cells)
+        vals_loc[domain_sides.west + domain_sides.east] = self.fluid.pressure()
+        return vals_loc
+
+    def bc_type_fluid_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        """Boundary condition type for the density-mobility product.
+
+        Dirichlet boundary conditions are defined on the west and east boundaries.
+
+        Parameters:
+            sd: Subdomain for which to define boundary conditions.
+
+        Returns:
+            bc: Boundary condition object.
+
+        """
+        domain_sides = self.domain_boundary_sides(sd)
+        # Define boundary condition on faces
+        return pp.BoundaryCondition(sd, domain_sides.west + domain_sides.east, "dir")
+
+
 class BoundaryConditionsMassDirNorthSouth(pp.BoundaryConditionMixin):
     """Boundary conditions for the flow problem.
 
