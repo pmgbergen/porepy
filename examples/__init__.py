@@ -9,4 +9,6 @@ The simulation setups serve the following purposes:
     - Use in run scripts and development
     - Promotion of specific test cases (e.g. benchmarks)
 
+In the interest of manageable maintenance, the examples are actively curated and the
+acceptance criteria for new examples are relatively strict.
 """
