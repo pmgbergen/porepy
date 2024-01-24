@@ -24,6 +24,7 @@ sys.path.append("../..")
 
 from examples.flow_benchmark_3d_case_3 import FlowBenchmark3dCase3Model, solid_constants
 from porepy.applications.test_utils.benchmarks import EffectivePermeability
+from typing import Literal
 
 
 class ModelWithEffectivePermeability(
@@ -33,16 +34,29 @@ class ModelWithEffectivePermeability(
     """Model with functionality to calculate effective permeabilities."""
 
 
+@pytest.fixture(scope="module", params=["tpfa", "mpfa"])
+def flux_discretization(request) -> Literal["tpfa", "mpfa"]:
+    return request.param
+
+
 @pytest.fixture(scope="module")
-def model() -> ModelWithEffectivePermeability:
+def model(
+    flux_discretization: Literal["tpfa", "mpfa"]
+) -> ModelWithEffectivePermeability:
     """Run the benchmark model with the coarsest mesh resolution.
+
+    Parameters:
+        flux_discretization: Either 'tpfa' or 'mpfa'
 
     Returns:
         The solved model, an instance of `ModelWithEffectivePermeability`.
 
     """
     model = ModelWithEffectivePermeability(
-        {"material_constants": {"solid": solid_constants}}
+        {
+            "material_constants": {"solid": solid_constants},
+            "flux_discretization": flux_discretization,
+        }
     )
     pp.run_time_dependent_model(model, {})
     return model
