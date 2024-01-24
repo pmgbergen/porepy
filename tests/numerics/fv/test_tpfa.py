@@ -94,45 +94,6 @@ class TestTpfaBoundaryPressure(xpfa_tests.XpfaBoundaryPressureTests):
 
 # Tests for differentiable TPFA
 
-
-class _SetFluxDiscretizations:
-    """Helper class with a method to set the Darcy flux variable."""
-
-    def darcy_flux_discretization(
-        self, subdomains: list[pp.Grid]
-    ) -> pp.ad.MpfaAd | pp.ad.TpfaAd:
-        """Discretization object for the Darcy flux term.
-
-        Parameters:
-            subdomains: List of subdomains where the Darcy flux is defined.
-
-        Returns:
-            Discretization of the Darcy flux.
-
-        """
-        if self.params["base_discr"] == "tpfa":
-            return pp.ad.TpfaAd(self.darcy_keyword, subdomains)
-        else:
-            return pp.ad.MpfaAd(self.darcy_keyword, subdomains)
-
-    def fourier_flux_discretization(
-        self, subdomains: list[pp.Grid]
-    ) -> pp.ad.MpfaAd | pp.ad.TpfaAd:
-        """Discretization object for the Fourier flux term.
-
-        Parameters:
-            interfaces: List of mortar grids where the Fourier flux is defined.
-
-        Returns:
-            Discretization of the Fourier flux.
-
-        """
-        if self.params["base_discr"] == "tpfa":
-            return pp.ad.TpfaAd(self.fourier_keyword, subdomains)
-        else:
-            return pp.ad.MpfaAd(self.fourier_keyword, subdomains)
-
-
 class UnitTestAdTpfaFlux(
     pp.constitutive_laws.DarcysLawAd,
     _SetFluxDiscretizations,
