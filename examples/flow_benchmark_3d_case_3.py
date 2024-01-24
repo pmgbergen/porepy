@@ -23,6 +23,7 @@ import porepy as pp
 from porepy.applications.md_grids.mdg_library import benchmark_3d_case_3
 from porepy.fracs.fracture_network_3d import FractureNetwork3d
 from porepy.models.constitutive_laws import DimensionDependentPermeability
+from porepy.applications.discretizations.flux_discretization import FluxDiscretization
 
 solid_constants = pp.SolidConstants(
     {
@@ -134,6 +135,7 @@ class FlowBenchmark3dCase3BoundaryConditions:
 
 
 class FlowBenchmark3dCase3Model(  # type:ignore[misc]
+    FluxDiscretization,
     FlowBenchmark3dCase3Geometry,
     FlowBenchmark3dCase3Permeability,
     FlowBenchmark3dCase3BoundaryConditions,
