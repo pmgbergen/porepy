@@ -557,6 +557,18 @@ class Flash_c:
 
         return result_state
 
+    def _update_solver_params(self, f_dim: int) -> None:
+        """Helper function to update the numba-typed solver parameter dict."""
+        self._solver_params["f_dim"] = float(f_dim)
+        self._solver_params["tol"] = self.tolerance
+        self._solver_params["max_iter"] = float(self.max_iter)
+        self._solver_params["rho"] = self.armijo_parameters["rho"]
+        self._solver_params["kappa"] = self.armijo_parameters["kappa"]
+        self._solver_params["j_max"] = float(self.armijo_parameters["j_max"])
+        self._solver_params["u1"] = self.npipm_parameters["u1"]
+        self._solver_params["u2"] = self.npipm_parameters["u2"]
+        self._solver_params["eta"] = self.npipm_parameters["eta"]
+
     def log_last_stats(self):
         """Prints statistics found in :attr:`last_flash_stats` in the console."""
         logger.warn("--- Last flash stats:\n")
@@ -596,8 +608,8 @@ class Flash_c:
 
         nphase, ncomp = self.npnc
         npnc = self.npnc
-        tol = self.tolerance
         phasetypes = self._phasetypes
+
         if 1 in phasetypes:
             # NOTE only 1 expected (first)
             gas_index = phasetypes.tolist().index(1)
@@ -802,8 +814,9 @@ class Flash_c:
 
             # for better conditioning, normalize enthalpy constraint
             h_constr_res /= h
+            # h_constr_res /= T**2
 
-            return h_constr_res / T**2
+            return h_constr_res
 
         logger.progress("enthalpy constraint")
 
@@ -930,7 +943,7 @@ class Flash_c:
 
             rho_j = np.empty(nphase, dtype=np.float64)
             d_rho_j = np.empty((nphase, 2 + ncomp), dtype=np.float64)
-            dpT_rho_mix = np.empty(2, dtype=np.float64)
+            dpT_rho_mix = np.zeros(2, dtype=np.float64)
 
             for j in range(nphase):
                 rho_j[j] = rho_c(prearg_res[j], p, T, xn[j])
@@ -970,7 +983,7 @@ class Flash_c:
                 # ds_k (s_j rho_j / (sum_i s_i * rho_i)) =
                 # delta_kj * rho_j / (sum_i s_i * rho_i)
                 # + s_j * (- rho_j / (sum_i s_i * rho_i)^2 * (rho_k - rho_0))
-                jac[j, : nphase - 1] = outer_j * (rho_j[1:] - rho_j[0])
+                jac[j, : nphase - 1] = sat[j] * outer_j * (rho_j[1:] - rho_j[0])
                 jac[j, j - 1] += rho_j[j] / rho_mix
 
                 # derivatives of phase fraction relations w.r.t. p, T
@@ -1081,7 +1094,7 @@ class Flash_c:
                 prearg, p, T, x, xn
             )
             # state constraints always after isofug and befor complementary cond.
-            res[-(nphase + 1)] = h_constr_res_c(prearg, p, h, T, y, xn)
+            res[-(nphase + 1)] = h_constr_res_c(prearg, p, h, T, y, xn) / T**2
 
             return res
 
@@ -1113,6 +1126,9 @@ class Flash_c:
             jac[ncomp - 1 : ncomp - 1 + ncomp * (nphase - 1), nphase:] = d_iso[:, 2:]
 
             d_h_constr = h_constr_jac_c(prearg_res, prearg_jac, p, h, T, y, x, xn)
+
+            d_h_constr /= T**2
+            d_h_constr[1] += 2.0 / T**3 * h_constr_res_c(prearg_res, p, h, T, y, xn)
             jac[-(nphase + 1), 0] = d_h_constr[1]
             jac[-(nphase + 1), 1:] = d_h_constr[2:]
 
@@ -1145,8 +1161,8 @@ class Flash_c:
 
             # state constraints always after isofug and befor complementary cond.
             # h constraint
-            res[ncomp - 1 + ncomp * (nphase - 1)] = h_constr_res_c(
-                prearg, p, h, T, y, xn
+            res[ncomp - 1 + ncomp * (nphase - 1)] = (
+                h_constr_res_c(prearg, p, h, T, y, xn) / T**2
             )
             # v constraint including closure for saturations (rho y_j = rho_j s_j)
             res[ncomp + ncomp * (nphase - 1) : -nphase] = v_constr_res_c(
@@ -1189,6 +1205,8 @@ class Flash_c:
 
             # enthalpy constraint
             d_h_constr = h_constr_jac_c(prearg_res, prearg_jac, p, h, T, y, x, xn)
+            d_h_constr /= T**2
+            d_h_constr[1] += 2.0 / T**3 * h_constr_res_c(prearg_res, p, h, T, y, xn)
             jac[ncomp - 1 + ncomp * (nphase - 1), nphase - 1 :] = d_h_constr
 
             # volume constraint
@@ -1261,7 +1279,7 @@ class Flash_c:
                     K_ = K[0]
                     if ncomp == 2:
                         y_ = _rr_binary_vle_inversion(z, K_)
-                    else:
+                    else:  # TODO  efficient BRENT method (scipy.optimize.brentq)
                         raise NotImplementedError(
                             "Multicomponent RR solution not implemented."
                         )
@@ -1365,8 +1383,8 @@ class Flash_c:
 
         logger.progress("p-T initialization")
 
-        @numba.njit("float64[:](float64[:],int32)")
-        def update_T_guess(X_gen: np.ndarray, N2: int) -> np.ndarray:
+        @numba.njit("float64[:](float64[:],int32,float64)")
+        def update_T_guess(X_gen: np.ndarray, N2: int, eps: float) -> np.ndarray:
             """Updating T guess by iterating on h-constr w.r.t. T using Newton and some
             corrections"""
             x, y, _ = parse_xyz(X_gen, npnc)
@@ -1386,12 +1404,9 @@ class Flash_c:
                 # h_constr_res = h_constr_res_c(prearg_res, p, h, T, y, xn)
                 h_mix = (h_j * y).sum()
                 h_constr_res = 1 - h_mix / h
-                if np.abs(h_constr_res) < tol:
+                if np.abs(h_constr_res) < eps:
                     break
                 else:
-                    # dT_h_constr = h_constr_jac_c(
-                    #     prearg_res, prearg_jac, p, h, T, y, x, xn
-                    # )[1]
                     dT_h_constr = -(dT_h_j * y).sum() / h
                     dT = 0 - h_constr_res / dT_h_constr  # Newton iteration
 
@@ -1426,25 +1441,25 @@ class Flash_c:
                 xf = guess_fractions(xf, N1, 1)
 
                 for _ in range(N3):
-                    xf = update_T_guess(xf, N2)
+                    xf = update_T_guess(xf, N2, eps)
                     xf = guess_fractions(xf, N1, 0)
 
                     # abort if residual already small enough
-                    # if np.linalg.norm(F_ph(xf)) <= eps:
-                    #     break
+                    if np.linalg.norm(F_ph(xf)) <= eps:
+                        break
 
                 X_gen[f] = xf
             return X_gen
 
         logger.progress("p-h initialization")
 
-        @numba.njit("float64[:](float64[:],int32)")
-        def update_pT_guess(X_gen: np.ndarray, N2: int) -> np.ndarray:
+        @numba.njit("float64[:](float64[:],int32,float64)")
+        def update_pT_guess(X_gen: np.ndarray, N2: int, eps: float) -> np.ndarray:
             """Helper function to update p-T guess for v-h flash by solving respective
             equations using Newton and some corrections."""
 
             res = np.empty(nphase + 1)
-            jac = np.empty((nphase + 1, nphase + 1))
+            jac = np.zeros((nphase + 1, nphase + 1))
 
             x, y, _ = parse_xyz(X_gen, npnc)
             xn = normalize_fractions(x)
@@ -1473,7 +1488,7 @@ class Flash_c:
                 v_mix = 1.0 / (sat * rho_j).sum()
                 h_mix = (y * h_j).sum()
 
-                res[0] = 1 - h_mix / h
+                res[0] = h_constr_res_c(prearg_res, p, h, T, y, xn)
                 res[1:] = v_constr_res_c(prearg_res, v, p, T, sat, y, xn)
 
                 jac[0, nphase - 1 :] = h_constr_jac_c(
@@ -1483,7 +1498,7 @@ class Flash_c:
                     :, : nphase + 1
                 ]
 
-                if np.linalg.norm(res) <= 2e-2:
+                if np.linalg.norm(res) <= eps:
                     break
                 else:
                     dspT = np.linalg.solve(jac, -res)
@@ -1516,9 +1531,15 @@ class Flash_c:
                     # increase p significantly
                     if y_g >= 1.0 and v_mix > v:
                         p_ = p * (2 - fp)
-                    # correction for liquid-like mixtures, increase p if h too low
-                    if y_g < 1e1 and h_mix < h:
-                        p_ = p * 1.1
+                    # correction for liquid-like mixtures, h is very sensitive to p
+                    # because h = u + pv, v small (liquid)
+                    # then cancel the update
+                    if y_g < 1e-1 and h_mix < h and p_ > p:
+                        p_ = p
+                    #     if p_ > 0.:
+                    #         p_ *= 1.1
+                    #     else:  # if for some reason negative, kick up
+                    #         p_ = p * 1.1
 
                     p = p_
                     T = T_
@@ -1581,7 +1602,7 @@ class Flash_c:
 
                 for _ in range(N3):
                     # p-T update
-                    xf = update_pT_guess(xf, N2)
+                    xf = update_pT_guess(xf, N2, eps)
                     xf = guess_fractions(xf, N1, 0)
 
                     # abort if residual already small enough
@@ -1612,18 +1633,6 @@ class Flash_c:
                 "v-h": vh_initializer,
             }
         )
-
-    def _update_solver_params(self, f_dim: int) -> None:
-        """Helper function to update the numba-typed solver parameter dict."""
-        self._solver_params["f_dim"] = float(f_dim)
-        self._solver_params["tol"] = self.tolerance
-        self._solver_params["max_iter"] = float(self.max_iter)
-        self._solver_params["rho"] = self.armijo_parameters["rho"]
-        self._solver_params["kappa"] = self.armijo_parameters["kappa"]
-        self._solver_params["j_max"] = float(self.armijo_parameters["j_max"])
-        self._solver_params["u1"] = self.npipm_parameters["u1"]
-        self._solver_params["u2"] = self.npipm_parameters["u2"]
-        self._solver_params["eta"] = self.npipm_parameters["eta"]
 
     def flash(
         self,

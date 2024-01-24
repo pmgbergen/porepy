@@ -439,15 +439,16 @@ def _solver(
 
     X = X_0.copy()
     DX = np.zeros_like(X_0)
+    DX_prev = DX.copy()
 
     try:
         f_i = _npipm_extend_and_regularize_res(F(X[:-1]), X, npnc, u1, u2, eta)
     except:
         return X, 2, num_iter
 
-    res_0 = np.linalg.norm(f_i)
+    res_k = np.linalg.norm(f_i)
 
-    if res_0 <= tol:
+    if res_k <= tol:
         success = 0  # root already found
     else:
         for _ in range(max_iter):
@@ -477,7 +478,7 @@ def _solver(
             rho_j = rho
 
             for j in range(1, j_max + 1):
-                rho_j = rho_j**j
+                rho_j = rho**j
 
                 try:
                     X_i_j = X + rho_j * DX
@@ -487,20 +488,29 @@ def _solver(
                 except:
                     continue
 
-                potk_j = np.sum(f_i_j * f_i_j) / 2.0
+                pot_i_j = np.sum(f_i_j * f_i_j) / 2.0
 
-                if potk_j <= (1 - 2 * kappa * rho_j) * pot_i:
+                if pot_i_j <= (1 - 2 * kappa * rho_j) * pot_i:
                     break
 
-            X = X + rho_j * DX
+            # heavy ball momentum descend (for cases where Armijo is small)
+            # weight -> 1, DX -> 0 as solution is approached
+            if rho_j < rho ** (j_max / 2):
+                # scale with previous update to avoid large over-shooting
+                delta_heavy = 1 / (1 + np.linalg.norm(DX_prev))
+            else:
+                delta_heavy = 0.0
+            X = X + rho_j * DX + delta_heavy * DX_prev
+            DX_prev = DX
 
             try:
                 f_i = _npipm_extend_and_regularize_res(F(X[:-1]), X, npnc, u1, u2, eta)
+                res_k = np.linalg.norm(f_i)
             except:
                 success = 2
                 break
 
-            if np.linalg.norm(f_i) <= tol:
+            if res_k <= tol:
                 # if np.linalg.norm(f_i) / res_0 <= tol:
                 success = 0
                 break

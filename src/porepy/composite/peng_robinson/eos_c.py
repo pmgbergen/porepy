@@ -389,40 +389,51 @@ def _compile_Z(
     return numba.njit("float64(float64, float64)", cache=False, fastmath=fastmath)(Z_)
 
 
-logger.debug(f"{_import_msg} Compiling solution formulae ..\n")
+logger.start_progress_log(f"{_import_msg} Compiling comp. factor formulae", 20, 2)
 
 
 Z_triple_c: Callable[[float, float], float] = _compile_Z(Z_triple_f, fastmath=True)
+logger.progress()
 d_Z_triple_c: Callable[[float, float], np.ndarray] = _compile_d_Z(
     d_Z_triple_f, fastmath=True
 )
-
+logger.progress()
 Z_one_c: Callable[[float, float], float] = _compile_Z(Z_one_f)
+logger.progress()
 d_Z_one_c: Callable[[float, float], np.ndarray] = _compile_d_Z(d_Z_one_f)
-
+logger.progress()
 Z_ext_sub_c: Callable[[float, float], float] = _compile_Z(Z_ext_sub_f)
+logger.progress()
 d_Z_ext_sub_c: Callable[[float, float], np.ndarray] = _compile_d_Z(d_Z_ext_sub_f)
-
+logger.progress()
 Z_ext_scg_c: Callable[[float, float], float] = _compile_Z(Z_ext_scg_f)
+logger.progress()
 d_Z_ext_scg_c: Callable[[float, float], np.ndarray] = _compile_d_Z(d_Z_ext_scg_f)
-
+logger.progress()
 Z_ext_scl_c: Callable[[float, float], float] = _compile_Z(Z_ext_scl_f)
+logger.progress()
 d_Z_ext_scl_c: Callable[[float, float], np.ndarray] = _compile_d_Z(d_Z_ext_scl_f)
-
+logger.progress()
 Z_double_g_c: Callable[[float, float], float] = _compile_Z(Z_double_g_f)
+logger.progress()
 d_Z_double_g_c: Callable[[float, float], np.ndarray] = _compile_d_Z(d_Z_double_g_f)
-
+logger.progress()
 Z_double_l_c: Callable[[float, float], float] = _compile_Z(Z_double_l_f)
+logger.progress()
 d_Z_double_l_c: Callable[[float, float], np.ndarray] = _compile_d_Z(d_Z_double_l_f)
-
+logger.progress()
 Z_three_g_c: Callable[[float, float], float] = _compile_Z(Z_three_g_f)
+logger.progress()
 d_Z_three_g_c: Callable[[float, float], np.ndarray] = _compile_d_Z(d_Z_three_g_f)
-
+logger.progress()
 Z_three_l_c: Callable[[float, float], float] = _compile_Z(Z_three_l_f)
+logger.progress()
 d_Z_three_l_c: Callable[[float, float], np.ndarray] = _compile_d_Z(d_Z_three_l_f)
-
+logger.progress()
 Z_three_i_c: Callable[[float, float], float] = _compile_Z(Z_three_i_f)
+logger.progress()
 d_Z_three_i_c: Callable[[float, float], np.ndarray] = _compile_d_Z(d_Z_three_i_f)
+logger.progress()
 
 
 logger.debug(f"{_import_msg} Compiling general compressibility factor ..\n")
@@ -1375,7 +1386,7 @@ class PengRobinsonCompiler(EoSCompiler):
             d_v_ = d_v_c_(p, T, prearg_val[2])
             # derivatives of Z_j w.r.t. p, T, and X_j
             dZ = prearg_jac[2 * d : 3 * d]
-            # expansion of derivatives of enthalpy (chain rule)
+            # expansion of derivatives (chain rule)
             d_v = d_v_[-1] * dZ
             d_v[:2] += d_v[:2]  # contribution of p, T derivatives
             return d_v
