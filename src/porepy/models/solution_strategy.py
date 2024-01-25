@@ -11,7 +11,7 @@ import logging
 import time
 import warnings
 from pathlib import Path
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Optional, Union
 
 import numpy as np
 import scipy.sparse as sps
@@ -449,7 +449,9 @@ class SolutionStrategy(abc.ABC):
             values=solution, time_step_index=0, additive=False
         )
         self.convergence_status = True
-        self.save_data_time_step()
+
+        times_to_export = self.params.get("times_to_export", "none")
+        self.export_solution(times_to_export=times_to_export)
 
     def after_nonlinear_failure(
         self, solution: np.ndarray, errors: float, iteration_counter: int
@@ -635,3 +637,22 @@ class SolutionStrategy(abc.ABC):
 
         """
         self.update_all_boundary_conditions()
+
+    def export_solution(self, times_to_export: Union[str, np.ndarray]) -> None:
+        """Method for exporting only specified solutions.
+
+        Parameters:
+            times_to_export: Contains information about which, if any, solution time
+                steps should be exported. It may hold the value "all", "none" or an
+                array of specified time step indices.
+
+        """
+        if type(times_to_export) is np.ndarray:
+            if self.time_manager.time_index in times_to_export:
+                self.save_data_time_step()
+        elif times_to_export == "all":
+            self.save_data_time_step()
+        elif times_to_export == "none":
+            pass
+        else:
+            raise ValueError("Invalid specification of times_to_export.")
