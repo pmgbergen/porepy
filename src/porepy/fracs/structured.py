@@ -204,7 +204,11 @@ def _create_lower_dim_grids_3d(
 
     # Create 2D grids
     for fi, f in enumerate(fracs):
-        assert np.all(f.shape == (3, 4)), "fractures must have shape [3,4]"
+        assert np.all(f.shape == (3, 4)), (
+            "Fracture is set by an array of the edge points of shape (3, 4), "
+            f"Passed array has shape: {f.shape}. Could it be because of trimming the "
+            "part of the fracture outside the bounding box?"
+        )
         is_xy_frac = np.allclose(f[2, 0], f[2])
         is_xz_frac = np.allclose(f[1, 0], f[1])
         is_yz_frac = np.allclose(f[0, 0], f[0])
