@@ -44,10 +44,10 @@ import numpy as np
 
 import porepy as pp
 import porepy.models.fluid_mass_balance as mass
-import porepy.models.poromechanics as poromechanics
 import porepy.models.momentum_balance as mechanics
-from porepy.models.derived_models.biot import BiotPoromechanics
+import porepy.models.poromechanics as poromechanics
 from porepy.applications.convergence_analysis import ConvergenceAnalysis
+from porepy.models.derived_models.biot import BiotPoromechanics
 from porepy.utils.examples_utils import VerificationUtils
 from porepy.viz.data_saving_model_mixin import VerificationDataSaving
 

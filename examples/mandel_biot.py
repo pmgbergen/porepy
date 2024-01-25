@@ -29,14 +29,14 @@ import matplotlib.colors as mcolors  # type: ignore
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy.optimize as opt
-import scipy.sparse as sps
-from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_data
+
 import porepy as pp
 import porepy.models.fluid_mass_balance as mass
-import porepy.models.poromechanics as poromechanics
 import porepy.models.momentum_balance as momentum_balance
-from porepy.models.derived_models.biot import BiotPoromechanics
+import porepy.models.poromechanics as poromechanics
 from porepy.applications.convergence_analysis import ConvergenceAnalysis
+from porepy.models.derived_models.biot import BiotPoromechanics
+from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_data
 from porepy.utils.examples_utils import VerificationUtils
 from porepy.viz.data_saving_model_mixin import VerificationDataSaving
 

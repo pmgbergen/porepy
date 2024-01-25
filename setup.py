@@ -4,6 +4,18 @@ from glob import glob
 from setuptools import find_packages, setup
 
 
+# Defining porepy source packages and a map (subpackage) - directory
+src_packages = find_packages("src")
+package_dir = dict(
+    [(p, f'src/{p.replace(".", "/")}') for p in src_packages]
+)
+
+# Adding the examples as a subpackage and adding its directory (not found in src)
+packages = src_packages + ['porepy.examples'] 
+package_dir['porepy.examples'] = 'examples'
+
+
+
 def read(fname):
     return open(os.path.join(os.path.dirname(__file__), fname)).read()
 
@@ -29,8 +41,8 @@ setup(
             "applications/md_grids/gmsh_file_library/**/*.geo",
         ],
     },
-    packages=find_packages("src"),
-    package_dir={"": "src"},
+    packages=packages,
+    package_dir=package_dir,
     py_modules=[
         os.path.splitext(os.path.basename(path))[0] for path in glob("src/*.py")
     ],
