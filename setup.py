@@ -1,23 +1,17 @@
-import os.path
-from glob import glob
+"""Set-up file for PorePy for installations usins ``pip install .``"""
 
+# import os
+# from glob import glob
 from setuptools import find_packages, setup
 
-
-# Defining porepy source packages and a map (subpackage) - directory
+# Defining porepy source packages and a map
+# (subpackage) -> directory (relative to setup.py)
 src_packages = find_packages("src")
-package_dir = dict(
-    [(p, f'src/{p.replace(".", "/")}') for p in src_packages]
-)
+package_dir = dict([(p, f'src/{p.replace(".", "/")}') for p in src_packages])
 
 # Adding the examples as a subpackage and adding its directory (not found in src)
-packages = src_packages + ['porepy.examples'] 
-package_dir['porepy.examples'] = 'examples'
-
-
-
-def read(fname):
-    return open(os.path.join(os.path.dirname(__file__), fname)).read()
+packages = src_packages + ["porepy.examples"]
+package_dir["porepy.examples"] = "examples"
 
 
 with open("requirements.txt") as f:
@@ -26,6 +20,7 @@ with open("requirements.txt") as f:
 
 setup(
     name="porepy",
+    url="https://github.com/pmgbergen/porepy",
     version="1.8.0",
     license="GPL",
     keywords=["porous media simulation fractures deformable"],
@@ -43,8 +38,10 @@ setup(
     },
     packages=packages,
     package_dir=package_dir,
-    py_modules=[
-        os.path.splitext(os.path.basename(path))[0] for path in glob("src/*.py")
-    ],
+    # NOTE this is left for future reference: Relevant when unpackaged py-files are
+    # added to src/ (free-standing modules)
+    # py_modules=[
+    #     os.path.splitext(os.path.basename(path))[0] for path in glob("src/*.py")
+    # ],
     zip_safe=False,
 )
