@@ -350,8 +350,9 @@ class TestParameterInputs:
 
     @pytest.mark.parametrize("num_time_steps", [10, 20])
     def test_number_time_steps(self, num_time_steps):
-        """An error should be reaised it the number of performed time steps should differ
-        from the effective definition via the time step size."""
+        """An error should be realised if the number of performed time steps should differ
+        from the effective definition via the time step size. Implicitly, this test also
+        tests whether the time manager correctly detects final times."""
         time_manager = pp.TimeManager(
             schedule=[0.0, 1.0],
             dt_init=1.0 / num_time_steps,
