@@ -2046,7 +2046,7 @@ class AdTpfaFlux:
         return pp.ad.AdArray(val, jac)
 
 
-class AdDarcyFlux(AdTpfaFlux, DarcysLaw):
+class DarcysLawAd(AdTpfaFlux, DarcysLaw):
     """Adaptive discretization of the Darcy flux from generic adaptive flux class."""
 
     permeability: Callable[[list[pp.Grid]], pp.ad.Operator]
@@ -2364,7 +2364,6 @@ class ThermalConductivityLTE(SecondOrderTensorUtils):
         except KeyError:
             # We assume this means that the porosity includes a discretization matrix
             # for div_u which has not yet been computed.
-
             phi = self.reference_porosity(subdomains)
         if isinstance(phi, Scalar):
             size = sum([sd.num_cells for sd in subdomains])
@@ -2688,6 +2687,54 @@ class FouriersLaw:
 
         """
         return pp.ad.MpfaAd(self.fourier_keyword, subdomains)
+
+
+class FouriersLawAd(AdTpfaFlux, FouriersLaw):
+    """Adaptive discretization of the Fourier flux from generic adaptive flux class."""
+
+    thermal_conductivity: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Function that returns the thermal conductivity of a subdomain. Provided by a
+    mixin class of instance
+    :class:`~porepy.models.constitutive_laws.ThermalConductivityLTE` or a subclass
+    thereof.
+
+    """
+
+    def fourier_flux(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+        """Discretization of Fourier's law.
+
+
+        Parameters:
+            domains: List of domains where the Fourier flux is defined.
+
+        Raises:
+            ValueError if the domains are a mixture of grids and boundary grids.
+
+        Returns:
+            Operator representing face-wise Fourier flux.
+
+        """
+        flux = self.diffusive_flux(
+            domains, self.temperature, self.thermal_conductivity, "fourier_flux"
+        )
+        return flux
+
+    def temperature_trace(self, domains: list[pp.Grid]) -> pp.ad.Operator:
+        """Temperature on the subdomain boundaries.
+
+        Parameters:
+            subdomains: List of subdomains where the temperature is defined.
+
+        Returns:
+            Temperature on the subdomain boundaries. Parsing the operator will return a
+            face-wise array.
+
+        """
+        temperature_trace = self.potential_trace(
+            domains, self.temperature, self.thermal_conductivity, "fourier_flux"
+        )
+        temperature_trace.set_name("Differentiable temperature trace")
+        return temperature_trace
 
 
 class AdvectiveFlux:

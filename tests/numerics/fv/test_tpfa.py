@@ -15,6 +15,7 @@ from porepy.applications.test_utils import common_xpfa_tests as xpfa_tests
 from porepy.applications.md_grids.model_geometries import (
     CubeDomainOrthogonalFractures,
 )
+from porepy.numerics.ad.operators import Operator
 
 """Local utility functions."""
 
@@ -94,10 +95,12 @@ class TestTpfaBoundaryPressure(xpfa_tests.XpfaBoundaryPressureTests):
 # Tests for differentiable TPFA
 
 
-class _SetDarcyFlux:
+class _SetFluxDiscretizations:
     """Helper class with a method to set the Darcy flux variable."""
 
-    def darcy_flux_discretization(self, subdomains: list[pp.Grid]) -> pp.ad.MpfaAd:
+    def darcy_flux_discretization(
+        self, subdomains: list[pp.Grid]
+    ) -> pp.ad.MpfaAd | pp.ad.TpfaAd:
         """Discretization object for the Darcy flux term.
 
         Parameters:
@@ -112,10 +115,27 @@ class _SetDarcyFlux:
         else:
             return pp.ad.MpfaAd(self.darcy_keyword, subdomains)
 
+    def fourier_flux_discretization(
+        self, subdomains: list[pp.Grid]
+    ) -> pp.ad.MpfaAd | pp.ad.TpfaAd:
+        """Discretization object for the Fourier flux term.
+
+        Parameters:
+            interfaces: List of mortar grids where the Fourier flux is defined.
+
+        Returns:
+            Discretization of the Fourier flux.
+
+        """
+        if self.params["base_discr"] == "tpfa":
+            return pp.ad.TpfaAd(self.fourier_keyword, subdomains)
+        else:
+            return pp.ad.MpfaAd(self.fourier_keyword, subdomains)
+
 
 class UnitTestAdTpfaFlux(
-    pp.constitutive_laws.AdDarcyFlux,
-    _SetDarcyFlux,
+    pp.constitutive_laws.DarcysLawAd,
+    _SetFluxDiscretizations,
     pp.fluid_mass_balance.SinglePhaseFlow,
 ):
     """
@@ -608,9 +628,9 @@ def test_transmissibility_calculation(vector_source: bool, base_discr: str):
 
 class TestDiffTpfaGridsOfAllDimensions(
     CubeDomainOrthogonalFractures,
-    _SetDarcyFlux,
+    _SetFluxDiscretizations,
     pp.constitutive_laws.CubicLawPermeability,
-    pp.constitutive_laws.AdDarcyFlux,
+    pp.constitutive_laws.DarcysLawAd,
     pp.fluid_mass_balance.SinglePhaseFlow,
 ):
     """Helper class to test that the methods for differentiating diffusive fluxes and
@@ -683,7 +703,6 @@ def test_diff_tpfa_on_grid_with_all_dimensions(base_discr: str, grid_type: str):
     model.prepare_simulation()
 
     num_faces = sum([sd.num_faces for sd in model.mdg.subdomains()])
-    num_cells = sum([sd.num_cells for sd in model.mdg.subdomains()])
     num_dofs = model.equation_system.num_dofs()
 
     darcy_flux = model.darcy_flux(model.mdg.subdomains())
@@ -708,8 +727,8 @@ def test_diff_tpfa_on_grid_with_all_dimensions(base_discr: str, grid_type: str):
 
 
 class WithoutDiffTpfa(
-    _SetDarcyFlux,
-    pp.fluid_mass_balance.SinglePhaseFlow,
+    _SetFluxDiscretizations,
+    pp.mass_and_energy_balance.MassAndEnergyBalance,
 ):
     """Helper class to test that the methods for differentiating diffusive fluxes and
     potential reconstructions work on grids of all dimensions.
@@ -727,17 +746,19 @@ class WithoutDiffTpfa(
 
 
 class WithDiffTpfa(
-    pp.constitutive_laws.AdDarcyFlux,
+    pp.constitutive_laws.DarcysLawAd,
+    pp.constitutive_laws.FouriersLawAd,
     WithoutDiffTpfa,
 ):
     """Helper class to test that the methods for differentiating diffusive fluxes and
     potential reconstructions work on grids of all dimensions.
+
+    We use the default thermal conductivity, which should be constant (in fact same as
+    permeability as defined below).
     """
 
     def permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Constant permeability tensor: The y-component has a pressure dependency,
-        but this is multiplied by zero.
-        """
+        """Constant permeability tensor."""
         if len(subdomains) == 0:
             return pp.wrap_as_dense_ad_array(0, size=0)
 

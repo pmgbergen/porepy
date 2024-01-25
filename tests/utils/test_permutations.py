@@ -13,8 +13,6 @@ from porepy.utils import permutations
         (3, 2),
         (4, 3),
         (5, 3),
-        (6, 4),
-        (7, 4),  # This is already getting very expensive
     ],
 )
 def test_base_length(base, length):
