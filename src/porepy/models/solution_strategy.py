@@ -450,7 +450,7 @@ class SolutionStrategy(abc.ABC):
         )
         self.convergence_status = True
 
-        times_to_export = self.params.get("times_to_export", "none")
+        times_to_export = self.params.get("times_to_export", "all")
         self.export_solution(times_to_export=times_to_export)
 
     def after_nonlinear_failure(
