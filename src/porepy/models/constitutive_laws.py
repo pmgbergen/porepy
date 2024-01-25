@@ -1700,9 +1700,6 @@ class AdTpfaFlux:
         )
         # Also a separate filter for internal boundaries, which are always Neumann.
         internal_boundary_filter = diff_discr.internal_boundary_filter(subdomains)
-        # And a filter for tip faces, which are also Neumann, but where the flux is
-        # known to be zero (by assumptions embedded in the modeling framework).
-        tip_filter = diff_discr.tip_filter(subdomains)
 
         # Face contribution to boundary potential is 1 on Dirichlet faces, -1/t_f_full
         # on Neumann faces (both external and internal - see Tpfa.discretize). Named
@@ -1711,8 +1708,6 @@ class AdTpfaFlux:
         bound_pressure_face_discr = dir_filter - (
             neu_filter + internal_boundary_filter
         ) * (one / t_f_full)
-        # On tip faces, the face contribution to the boundary potential is zero.
-        bound_pressure_face_discr = bound_pressure_face_discr * (one - tip_filter)
 
         # Project the interface flux to the primary grid, preparing for discretization
         # on internal boundaries.
