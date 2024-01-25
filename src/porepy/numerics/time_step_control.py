@@ -404,6 +404,15 @@ class TimeManager:
 
         return s
 
+    def final_time_reached(self) -> bool:
+        """Check whether the time manager has reached the end of the schedule.
+
+        Returns:
+            Whether the final time has reached or been overstepped.
+
+        """
+        return self.time > self.time_final or np.isclose(self.time, self.time_final)
+
     def compute_time_step(
         self, iterations: Optional[int] = None, recompute_solution: bool = False
     ) -> Union[float, None]:
@@ -431,7 +440,7 @@ class TimeManager:
         self._iters = iterations
 
         # First, check if we reach final simulation time
-        if self.time >= self.time_final:
+        if self.final_time_reached():
             return None
 
         # If the time step is constant, always return that value
