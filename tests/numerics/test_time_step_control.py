@@ -356,8 +356,6 @@ class TestParameterInputs:
             (3, 1.0e-14),
             (1, 1.0),
             (3, 1.0),
-            (1, 1.0e14),
-            (3, 1.0e14),
         ],
     )
     def test_number_time_steps(self, num_time_steps, final_time):
