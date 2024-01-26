@@ -1248,7 +1248,7 @@ class PengRobinsonCompiler(EoSCompiler):
         dB_c = self._cfuncs["d_B"]
         dZ_c = self._cfuncs["d_Z"]
         # number of derivatives for A, B, Z (p, T, and per component fraction)
-        d = 2 + self._nc[1]
+        d = 2 + self._nc
 
         @numba.njit("float64[:](int32, float64, float64, float64[:])")
         def prearg_jac_c(
@@ -1284,7 +1284,7 @@ class PengRobinsonCompiler(EoSCompiler):
     ) -> Callable[[np.ndarray, np.ndarray, float, float, np.ndarray], np.ndarray]:
         d_phi_c = self._cfuncs["d_phi"]
         # number of derivatives
-        d = 2 + self._nc[1]
+        d = 2 + self._nc
 
         @numba.njit(
             "float64[:,:](float64[:], float64[:], float64, float64, float64[:])"
@@ -1329,7 +1329,7 @@ class PengRobinsonCompiler(EoSCompiler):
     def get_dpTX_enthalpy_function(
         self,
     ) -> Callable[[np.ndarray, np.ndarray, float, float, np.ndarray], np.ndarray]:
-        d = 2 + self._nc[1]
+        d = 2 + self._nc
         d_h_dep_c = self._cfuncs["d_h_dep"]
         d_h_ideal_c = self._cfuncs["d_h_ideal"]
 
@@ -1369,7 +1369,7 @@ class PengRobinsonCompiler(EoSCompiler):
     def get_dpTX_volume_function(
         self,
     ) -> Callable[[np.ndarray, np.ndarray, float, float, np.ndarray], np.ndarray]:
-        d = 2 + self._nc[1]
+        d = 2 + self._nc
         d_v_c_ = self._cfuncs["d_v"]
 
         @numba.njit("float64[:](float64[:], float64[:], float64, float64, float64[:])")

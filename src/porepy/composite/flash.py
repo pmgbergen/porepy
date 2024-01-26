@@ -19,13 +19,38 @@ from ._core import R_IDEAL
 from .base import Mixture
 from .composite_utils import COMPOSITE_LOGGER as logger
 from .composite_utils import safe_sum, trunclog
-from .heuristics import K_val_Wilson
 from .peng_robinson.eos import PhaseProperties, ThermodynamicState
 
 __all__ = ["FlashSystemNR", "FlashNR"]
 
 
 DeprecationWarning("The module porepy.composite.flash is deprecated.")
+
+
+def K_val_Wilson(
+    p: NumericType,
+    p_c: NumericType,
+    T: NumericType,
+    T_c: NumericType,
+    acentric_factor: NumericType,
+) -> NumericType:
+    """Calculates an estimation of the K-value for a component defined by its
+    critical properties and acentric factor.
+
+    Parameters:
+        p: Pressure.
+        p_c: Critical pressure of a component.
+        T: Temperature.
+        T_c: Critical temperature of a component.
+        acentric_factor: The acentric factor of the component.
+
+    Returns:
+        The K-value estimation.
+
+    """
+    K = pp.ad.exp(5.37 * (1 + acentric_factor) * (1 - T_c / T)) * p_c / p
+    # K = pp.ad.power(K, 1./3.)
+    return K
 
 
 def _rr_pole(i: int, y: list[NumericType], K: list[list[NumericType]]) -> NumericType:

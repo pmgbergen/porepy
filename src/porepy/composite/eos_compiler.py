@@ -228,7 +228,7 @@ class EoSCompiler(abc.ABC):
     def __init__(self, components: Sequence[Component]) -> None:
         super().__init__()
 
-        self._nc: tuple[int, int] = (int(len(components)), int(len(components)))
+        self._nc: int = len(components)
         """Number of components passed at instantiation."""
 
         self.funcs: dict[str, Optional[Callable]] = {

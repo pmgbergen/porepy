@@ -465,6 +465,16 @@ def _solver(
                 success = 3
                 break
 
+            # Need this test otherwise np.linalg.solve raises an error.
+            if (
+                np.any(np.isnan(f_i))
+                or np.any(np.isinf(f_i))
+                # or np.any(np.isnan(df_i))
+                # or np.any(np.isinf(df_i))
+            ):
+                success = 4
+                break
+
             dx = np.linalg.solve(df_i, -f_i)
 
             if np.any(np.isnan(dx)) or np.any(np.isinf(dx)):
