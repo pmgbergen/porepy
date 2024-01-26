@@ -56,9 +56,31 @@ flash_c.npipm_parameters['eta'] = 0.5
 flash_c.initialization_parameters['N1'] = 3
 flash_c.initialization_parameters['N2'] = 1
 flash_c.initialization_parameters['N3'] = 5
-# result, success, num_iter = flash_c.flash(z, p = p, T= T, mode='parallel', verbosity=verbosity)
 result, success, num_iter = flash_c.flash(z, p = p, T= T, mode='linear', verbosity=verbosity)
+
+result, success, num_iter = flash_c.flash(z, p = p, T= T, mode='parallel', verbosity=verbosity)
+p_range = [1e6, 50e6]
+T_range = [450., 700.]
+refinement = 80
+
+p_vec = np.linspace(p_range[0], p_range[1], refinement, endpoint=True, dtype=np.float64)
+T_vec = np.linspace(T_range[0], T_range[1], refinement, endpoint=True, dtype=np.float64)
+
+T_mesh, p_mesh = np.meshgrid(T_vec, p_vec)
+
+T = T_mesh.flatten()
+p = p_mesh.flatten()
+
+result, success, num_iter = flash_c.flash(
+    [np.ones(p.shape[0]) * _ for _ in feed],
+    p = p,
+    T= T,
+    mode='parallel',
+    verbosity=verbosity
+)
 print("---\n")
+
+X = np.array([0.01, 1e6, T[0], 0.147, 0.99, 0.01 , 0.0006, 0.9, 0.])
 
 # test p-h
 p = vec * 1e6
