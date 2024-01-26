@@ -579,7 +579,11 @@ class Flash_c:
         msg += "\n"
         logger.warn(msg)
 
-    def compile(self, verbosity: int = 1) -> None:
+    def compile(
+        self,
+        verbosity: int = 1,
+        precompile_solvers: bool = False,
+    ) -> None:
         """Triggers the assembly and compilation of equilibrium equations, including
         the NPIPM approach.
 
@@ -599,6 +603,10 @@ class Flash_c:
             verbosity: ``default=1``
 
                 Enable progress logs. Set to zero to disable.
+            precompile_solvers: ``default=False``
+
+                Highly invasive flag to hack into numba and pre-compile solvers for
+                compiled flash systems.
 
         """
         # setting logging verbosity
@@ -1636,6 +1644,39 @@ class Flash_c:
                 "v-h": vh_initializer,
             }
         )
+
+        if precompile_solvers:
+            logger.start_progress_log("Pre-compiling solvers", 6)
+
+            try:
+                # pre compile for p-T flash
+                gen_arg_dim = ncomp + 1 + pT_dim
+                X = np.ones((1, gen_arg_dim))
+                self._update_solver_params(pT_dim + 1)
+                linear_solver._compile_for_args(X, F_pT, DF_pT, self._solver_params)
+                logger.progress()
+                parallel_solver._compile_for_args(X, F_pT, DF_pT, self._solver_params)
+                logger.progress()
+
+                # pre compile for p-h flash
+                gen_arg_dim = ncomp + 1 + ph_dim
+                X = np.ones((1, gen_arg_dim))
+                self._update_solver_params(ph_dim + 1)
+                linear_solver._compile_for_args(X, F_ph, DF_ph, self._solver_params)
+                logger.progress()
+                parallel_solver._compile_for_args(X, F_ph, DF_ph, self._solver_params)
+                logger.progress()
+
+                # pre-compile for v-h flash
+                gen_arg_dim = ncomp + 1 + vh_dim
+                X = np.ones((1, gen_arg_dim))
+                self._update_solver_params(vh_dim + 1)
+                linear_solver._compile_for_args(X, F_vh, DF_vh, self._solver_params)
+                logger.progress()
+                parallel_solver._compile_for_args(X, F_vh, DF_vh, self._solver_params)
+                logger.progress()
+            except:
+                logger.abort_progress()
 
     def flash(
         self,

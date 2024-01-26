@@ -380,7 +380,48 @@ def _npipm_extend_and_regularize_jac(
 logger.debug(f"(import composite/npipm_c.py) Compiling numerical methods ..\n")
 
 
-@numba.njit(cache=NUMBA_CACHE)
+@numba.njit("float64[:](float64[:])")
+def _dummy_res(x: np.ndarray):
+    return x.copy()
+
+
+@numba.njit("float64[:,:](float64[:])")
+def _dummy_jac(x: np.ndarray):
+    return np.diag(x)
+
+
+_dummy_dict = nbdict.empty(key_type=nbtypes.unicode_type, value_type=nbtypes.float64)
+_dummy_dict["f_dim"] = 5.0
+_dummy_dict["num_phase"] = 2.0
+_dummy_dict["num_comp"] = 2.0
+_dummy_dict["tol"] = 1e-8
+_dummy_dict["max_iter"] = 150.0
+_dummy_dict["rho"] = 0.99
+_dummy_dict["kappa"] = 0.4
+_dummy_dict["j_max"] = 50.0
+_dummy_dict["u1"] = 1.0
+_dummy_dict["u2"] = 10.0
+_dummy_dict["eta"] = 0.5
+
+
+@numba.njit(
+    # numba.types.Tuple((numba.float64[:],numba.int32,numba.int32))(
+    #     numba.float64[:],
+    #     numba.typeof(_dummy_res),
+    #     numba.typeof(_dummy_jac),
+    #     numba.int32,
+    #     numba.types.UniTuple(numba.int32,2),
+    #     numba.float64,
+    #     numba.int32,
+    #     numba.float64,
+    #     numba.float64,
+    #     numba.int32,
+    #     numba.float64,
+    #     numba.float64,
+    #     numba.float64,
+    # ),
+    cache=NUMBA_CACHE
+)
 def _solver(
     X_0: np.ndarray,
     F: Callable[[np.ndarray], np.ndarray],
@@ -531,7 +572,16 @@ def _solver(
     return X, success, num_iter
 
 
-@numba.njit(parallel=True, cache=NUMBA_CACHE)
+@numba.njit(
+    # numba.types.Tuple((numba.float64[:,:],numba.int32[:],numba.int32[:]))(
+    #     numba.float64[:,:],
+    #     numba.typeof(_dummy_res),
+    #     numba.typeof(_dummy_jac),
+    #     numba.typeof(_dummy_dict),
+    # ),
+    parallel=True,
+    cache=NUMBA_CACHE,
+)
 def parallel_solver(
     X0: np.ndarray,
     F: Callable[[np.ndarray], np.ndarray],
@@ -597,7 +647,15 @@ def parallel_solver(
     return result, converged, num_iter
 
 
-@numba.njit(cache=NUMBA_CACHE)
+@numba.njit(
+    # numba.types.Tuple((numba.float64[:,:],numba.int32[:],numba.int32[:]))(
+    #     numba.float64[:,:],
+    #     numba.typeof(_dummy_res),
+    #     numba.typeof(_dummy_jac),
+    #     numba.typeof(_dummy_dict),
+    # ),
+    cache=NUMBA_CACHE
+)
 def linear_solver(
     X0: np.ndarray,
     F: Callable[[np.ndarray], np.ndarray],
