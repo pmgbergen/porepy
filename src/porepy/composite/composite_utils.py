@@ -79,6 +79,14 @@ class _CompositeLogger(logging.LoggerAdapter):
             out += f" {self._prog_n}/{self._prog_N} .."
         self._prog_log(out)
 
+    def abort_progress(self) -> None:
+        """Aborts the current progressive log"""
+        out = f"ABORTED {self._prog_msg}"
+        end = time.time()
+        out += f"(elapsed time: {end - self._prog_start} (s))\n"
+        self._prog_start = None
+        self._prog_log(out)
+
 
 COMPOSITE_LOGGER = _CompositeLogger(_logger, {"del_log": _del_log})
 
