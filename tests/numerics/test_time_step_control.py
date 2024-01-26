@@ -352,10 +352,10 @@ class TestParameterInputs:
     @pytest.mark.parametrize(
         "num_time_steps, final_time",
         [
-            (1, 1.0e-14),
             (3, 1.0e-14),
-            (1, 1.0),
+            (7, 1.0e-14),
             (3, 1.0),
+            (10, 1.0),
         ],
     )
     def test_number_time_steps(self, num_time_steps, final_time):
