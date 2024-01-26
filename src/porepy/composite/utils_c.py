@@ -303,7 +303,7 @@ def extended_compositional_derivatives(df_dxn: np.ndarray, x: np.ndarray) -> np.
 
 
 # TODO this can be turned into a numpy universal function to collapse to single function
-# TODO cache dependency on base function
+# NOTE This cache is dependent on changes in the base function
 @numba.njit(
     "float64[:,:](float64[:,:],float64[:,:])",
     parallel=True,
@@ -420,6 +420,7 @@ def compute_saturations(y: np.ndarray, rho: np.ndarray, eps: float) -> np.ndarra
     return s
 
 
+# NOTE this cache is dependent on changes in the base function
 @numba.njit(
     "float64[:,:](float64[:,:],float64[:,:],float64)",
     parallel=True,

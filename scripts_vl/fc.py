@@ -25,18 +25,16 @@ comps = [
     pp.composite.peng_robinson.CO2.from_species(species[1]),
 ]
 
+eos_c = PengRobinsonCompiler(comps)
+
 phases = [
-    pp.composite.Phase(
-        pp.composite.peng_robinson.PengRobinson(gaslike=False), name="L"
-    ),
-    pp.composite.Phase(pp.composite.peng_robinson.PengRobinson(gaslike=True), name="G"),
+    pp.composite.Phase(eos_c, 0, "L"),
+    pp.composite.Phase(eos_c, 1, 'G'),
 ]
 
-mix = pp.composite.NonReactiveMixture(comps, phases)
+mix = pp.composite.Mixture(comps, phases)
+# mix.set_up()
 
-mix.set_up()
-
-eos_c = PengRobinsonCompiler(mix, verbosity=verbosity)
 flash_c = Flash_c(mix, eos_c)
 flash_c.tolerance = 1e-8
 flash_c.max_iter = 150

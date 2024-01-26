@@ -14,7 +14,7 @@ import pypardiso
 import scipy.sparse as sps
 
 import porepy as pp
-from porepy.composite.component import Component, Compound
+from porepy.composite.base import Component, Compound
 from porepy.composite.flash import logger
 
 
