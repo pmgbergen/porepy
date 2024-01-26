@@ -9,8 +9,8 @@ from typing import Callable, Optional, Sequence
 import numba
 import numpy as np
 
+from .base import Component
 from .composite_utils import COMPOSITE_LOGGER as logger
-from .mixture import BasicMixture
 from .states import PhaseState
 from .utils_c import extended_compositional_derivatives_v
 
@@ -218,14 +218,18 @@ class EoSCompiler(abc.ABC):
         computations of thermodynamic quantities, otherwise the respective
         ``get_*``-method will be called again.
 
+    Parameters:
+        components: Sequence of components for which the EoS should be compiled.
+            The class :class:`~porepy.composite.base.Component` is used as a storage for
+            physical properties, the only relevant information for the EoS.
+
     """
 
-    def __init__(self, mixture: BasicMixture) -> None:
+    def __init__(self, components: Sequence[Component]) -> None:
         super().__init__()
 
-        self.npnc: tuple[int, int] = (mixture.num_phases, mixture.num_components)
-        """A 2-tuple containing the number of phases and components contained in
-        ``mixture``."""
+        self._nc: tuple[int, int] = (int(len(components)), int(len(components)))
+        """Number of components passed at instantiation."""
 
         self.funcs: dict[str, Optional[Callable]] = {
             "prearg_val": None,

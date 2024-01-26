@@ -1,5 +1,6 @@
-"""This module contains utility functions and data for the composite subpackage.
-The subpackage is built around the assumptions made here.
+"""This module contains utility functions for the composite subpackage.
+
+It also contains some older code kept until ready for removal.
 
 """
 from __future__ import annotations
@@ -19,8 +20,6 @@ __all__ = [
     "safe_sum",
     "truncexp",
     "trunclog",
-    "normalize_fractions",
-    "CompositionalSingleton",
     "AdProperty",
     "COMPOSITE_LOGGER",
 ]
@@ -121,30 +120,6 @@ def safe_sum(x: Sequence[Any]) -> Any:
         return sum_
     else:
         return 0
-
-
-def normalize_fractions(X: list[NumericType]) -> list[NumericType]:
-    """AD-sensitive normalization of a family of fractions.
-
-    If the derivative is present, this normalization ensures that only the values
-    are normalized.
-
-    Parameters:
-        X: A family of quantities, such that ``sum(X) == 1`` should be True.
-
-    Returns:
-        Same quantities, but normalized. If the quantities are AD-Arrays, their
-        derivative is not affected.
-
-    """
-    s = safe_sum(X)
-    # s = s.val if isinstance(s, pp.ad.AdArray) else s
-    # X_n = [
-    #     pp.ad.AdArray(x.val / s, x.jac) if isinstance(x, pp.ad.AdArray) else x / s
-    #     for x in X
-    # ]
-    # return X_n
-    return [x_ / s for x_ in X]
 
 
 class CompositionalSingleton(abc.ABCMeta):

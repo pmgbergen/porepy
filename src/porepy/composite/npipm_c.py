@@ -241,6 +241,7 @@ def initialize_npipm_nu(X_gen: np.ndarray, npnc: tuple[int, int]) -> np.ndarray:
     return X_gen
 
 
+# NOTE The cache is dependent on another function
 @numba.njit(
     "float64[:](float64[:],float64[:],UniTuple(int32, 2),float64,float64,float64)",
     fastmath=True,
@@ -293,6 +294,7 @@ def _npipm_extend_and_regularize_res(
     return f_npipm
 
 
+# NOTE The cache is dependent on another function
 @numba.njit(
     "float64[:,:]"
     + "(float64[:,:],float64[:],UniTuple(int32, 2),float64,float64,float64)",
@@ -371,6 +373,7 @@ def _npipm_extend_and_regularize_jac(
 
 # TODO below solver methods need a static signature, once typing for functions as
 # arguments is available in numba
+# NOTE functions should be cached once this is available
 # region Methods related to the numerical solution strategy
 
 

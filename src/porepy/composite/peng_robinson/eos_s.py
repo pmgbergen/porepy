@@ -67,9 +67,8 @@ from .._core import COMPOSITIONAL_VARIABLE_SYMBOLS as SYMBOLS
 from .._core import R_IDEAL
 from ..composite_utils import COMPOSITE_LOGGER as logger
 from ..composite_utils import safe_sum
-from ..mixture import BasicMixture
 from .pr_bip import load_bip
-from .pr_components import Component_PR
+from .pr_components import ComponentPR
 
 A_CRIT: float = (
     1
@@ -736,20 +735,21 @@ class PengRobinsonSymbolic:
         The functions are generated using :func:`sympy.lambdify` and are *sourceless*.
 
     Parameters:
-        mixture: A mixture model containing ``num_comp`` components which are compatible
+        components: A sequence of ``num_comp`` components which are compatible
             with the Peng-Robinson EoS.
 
     """
 
-    def __init__(self, mixture: BasicMixture) -> None:
+    def __init__(self, components: Sequence[ComponentPR]) -> None:
         self.p_s: sp.Symbol = sp.Symbol(str(SYMBOLS["pressure"]))
         """Symbolic representation fo pressure."""
+
         self.T_s: sp.Symbol = sp.Symbol(str(SYMBOLS["temperature"]))
         """Symbolic representation fo temperature."""
 
         self.x_in_j: list[sp.Symbol] = [
             sp.Symbol(f"{SYMBOLS['phase_composition']}_{comp.name}_j")
-            for comp in mixture.components
+            for comp in components
         ]
         """List of phase composition fractions associated with a phase.
         Length is equal to number of components, because every component is asssumed
@@ -844,8 +844,7 @@ class PengRobinsonSymbolic:
         # region coterms
 
         b_i_crit: list[float] = [
-            B_CRIT * (R_IDEAL * comp.T_crit) / comp.p_crit
-            for comp in mixture.components
+            B_CRIT * (R_IDEAL * comp.T_crit) / comp.p_crit for comp in components
         ]
         """List of critical covolumes per component"""
 
@@ -866,17 +865,15 @@ class PengRobinsonSymbolic:
 
         a_i_crit: list[float] = [
             A_CRIT * (R_IDEAL**2 * comp.T_crit**2) / comp.p_crit
-            for comp in mixture.components
+            for comp in components
         ]
         """List of critical cohesion values per component."""
 
-        ki: list[float] = [
-            self.a_correction_weight(comp.omega) for comp in mixture.components
-        ]
+        ki: list[float] = [self.a_correction_weight(comp.omega) for comp in components]
         """List of corrective weights per cohesion of components."""
         a_i_correction_e: list[sp.Expr] = [
             1 + k * (1 - sp.sqrt(self.T_s / comp.T_crit))
-            for k, comp in zip(ki, mixture.components)
+            for k, comp in zip(ki, components)
         ]
         """Corrective term in component cohesions (per component)."""
 
@@ -887,7 +884,7 @@ class PengRobinsonSymbolic:
         the critical temperature and acentric factor."""
 
         a_e: sp.Expr = VanDerWaals_cohesion(
-            self.x_in_j, ai_e, self._compute_bips(mixture)
+            self.x_in_j, ai_e, self._compute_bips(components)
         )
         """Mixed cohesion according to the Van der Waals mixing rule."""
         A_e: sp.Expr = a_e * self.p_s / (R_IDEAL**2 * self.T_s**2)
@@ -906,7 +903,7 @@ class PengRobinsonSymbolic:
         # region Fugacity coefficients
         phi_i_e: list[sp.Expr] = []
 
-        for i in range(mixture.num_components):
+        for i in range(len(components)):
             B_i_e = b_i_crit[i] * self.p_s / (R_IDEAL * self.T_s)
             dXi_A_e = A_e.diff(self.x_in_j[i])
             log_phi_i = (
@@ -963,7 +960,7 @@ class PengRobinsonSymbolic:
         h_ideal_e: sp.Expr = safe_sum(
             [
                 x * comp.h_ideal(self.p_s, self.T_s)
-                for x, comp in zip(self.x_in_j, mixture.components)
+                for x, comp in zip(self.x_in_j, components)
             ]
         )
         """Symbolic expression for the ideal enthalpy."""
@@ -993,14 +990,16 @@ class PengRobinsonSymbolic:
         self.d_v_f = sp.lambdify([self.p_s, self.T_s, Z_s], d_v_e)
         # endregion
 
-    def _compute_bips(self, mixture: BasicMixture) -> Sequence[Sequence[Any]]:
+    def _compute_bips(
+        self, components: Sequence[ComponentPR]
+    ) -> Sequence[Sequence[Any]]:
         """Helper method to load the binary interaction parameters.
 
         TODO: Call to custom bips in PR package needs to be generalized to be able to
         handle a symbolic temperature as input.
 
         Parameters:
-            mixture: Mixture passed at instantiation
+            components: A sequence of Peng-Robinson compatible components.
 
         Returns:
             A list of lists (2D-array-like), where per components ``i`` and ``j`` the
@@ -1011,8 +1010,7 @@ class PengRobinsonSymbolic:
 
         """
 
-        components: list[Component_PR] = [_ for _ in mixture.components]  # type: ignore
-        ncomp = mixture.num_components
+        ncomp = len(components)
 
         # BIP matrix, must be of shape = (ncomp, ncomp) at the end
         bips: list[list[Any]] = []

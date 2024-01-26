@@ -1,4 +1,6 @@
-"""This module contains functionality to solve the equilibrium problem numerically."""
+"""DEPRACATED.
+
+This module contains functionality to solve the equilibrium problem numerically."""
 from __future__ import annotations
 
 import logging
@@ -13,20 +15,216 @@ import scipy.sparse as sps
 import porepy as pp
 from porepy.numerics.ad.operator_functions import NumericType
 
-from ._core import (
-    R_IDEAL,
-    _rr_pole,
-    rachford_rice_feasible_region,
-    rachford_rice_potential,
-    rachford_rice_vle_inversion,
-)
+from ._core import R_IDEAL
+from .base import Mixture
 from .composite_utils import COMPOSITE_LOGGER as logger
-from .composite_utils import safe_sum
+from .composite_utils import safe_sum, trunclog
 from .heuristics import K_val_Wilson
-from .mixture import NonReactiveMixture, ThermodynamicState
-from .phase import PhaseProperties
+from .peng_robinson.eos import PhaseProperties, ThermodynamicState
 
 __all__ = ["FlashSystemNR", "FlashNR"]
+
+
+DeprecationWarning("The module porepy.composite.flash is deprecated.")
+
+
+def _rr_pole(i: int, y: list[NumericType], K: list[list[NumericType]]) -> NumericType:
+    """Calculates the i-th denominator in the Rachford-Rice equation.
+
+    With :math:`n_c` components, :math:`n_p` phases and :math:`R` the reference phase,
+    the i-th denominator is given by
+
+    .. math::
+
+        t_i(y) = 1 - (\\sum\\limits_{j\\neq R}(1 - K_{ij})y_j)
+
+    Parameters:
+        i: Index of component. Used to access values in ``K``.
+        y: ``len=(n_p-1)``
+
+            List of phase fractions, excluding the reference phase fraction
+        K: ``shape=(n_p, n_c)``
+
+            A matrix-like structure or nested list, containing the K-value for component
+            ``i`` in phase ``j`` by ``K[j][i]``.
+
+    Returns:
+        The expression for the denominator.
+
+    """
+    # multiplication is sensitive between numpy arrays and AdArrays...
+    t = [
+        y[j] * (K[j][i] - 1)
+        if isinstance(y[j], pp.ad.AdArray)
+        else (K[j][i] - 1) * y[j]
+        for j in range(len(y))
+    ]
+
+    return 1 + safe_sum(t)
+
+
+def rachford_rice_equation(
+    j: int, z: list[NumericType], y: list[NumericType], K: list[list[NumericType]]
+) -> NumericType:
+    """Assembles and returns the residual of the j-th Rachford-Rice equations.
+
+    With :math:`n_c` components, :math:`n_p` phases and :math:`R` the reference phase,
+    the j-th equation is given by
+
+    .. math::
+
+        f_j(y) = \\sum\\limits_{i=1}^{n_c}
+        \\frac{(1-K_{ij})z_i}{1 - \\sum\\limits_{j\\neq R}(1 - K_{ij})y_j}
+
+    Parameters:
+        j: Index of phase. Used to access values in ``y`` and ``K``.
+        z: ``len=n_c``
+
+            List of overall component fractions.
+        y: ``len=(n_p-1)``
+
+            List of phase fractions, excluding the reference phase fraction.
+        K: ``shape=(n_p, n_c)``
+
+            A matrix-like structure or nested list, containing the K-value for component
+            ``i`` in phase ``j`` by ``K[j][i]``.
+
+    Returns:
+        The residual of the j-th Rachford-Rice equation.
+
+    """
+    assert len(y) >= 1, "No phase fractions given."
+    assert len(z) >= 1, "No overall component fractions given."
+
+    f = [_rr_pole(i, y, K) ** (-1) * (K[j][i] - 1) * z[i] for i in range(len(z))]
+
+    return safe_sum(f)
+
+
+def rachford_rice_potential(
+    z: list[NumericType], y: list[NumericType], K: list[list[NumericType]]
+) -> NumericType:
+    """Calculates the potential according to [1] for the j-th Rachford-Rice equation.
+
+    With :math:`n_c` components, :math:`n_p` phases and :math:`R` the reference phase,
+    the potential is given by
+
+    .. math::
+
+        F = \\sum\\limits_{i} -(z_i ln(1 - (\\sum\\limits_{j\\neq R}(1 - K_{ij})y_j)))
+
+    References:
+        [1] `Okuno and Sepehrnoori (2010) <https://doi.org/10.2118/117752-PA>`_
+
+    Parameters:
+        z: ``len=n_c``
+
+            List of overall component fractions.
+        y: ``len=(n_p-1)``
+
+            List of phase fractions, excluding the reference phase fraction.
+        K: ``shape=(n_p, n_c)``
+
+            A matrix-like structure or nested list, containing the K-value for component
+            ``i`` in phase ``j`` by ``K[j][i]``.
+
+    Returns:
+        The value of the potential based on above formula.
+
+    """
+    F = [-trunclog(pp.ad.abs(_rr_pole(i, y, K)), 1e-6) * z[i] for i in range(len(z))]
+    return safe_sum(F)
+
+
+def rachford_rice_vle_inversion(
+    z: list[NumericType], K: list[NumericType]
+) -> NumericType:
+    """Computes the inversion of the Rachford-Rice equation for vapor-liquid equilibria.
+
+    The solution obtained is the vapor fraction.
+
+    .. math::
+
+        f_j(y) = \\sum\\limits_{i=1}^{n_c}
+        \\frac{(1-K_{ij})z_i}{1 - \\sum\\limits_{j\\neq R}(1 - K_{ij})y_j}
+
+        y = \\frac{(n_c -1)\\sum_i (1-K_i)z_i}{\\sum_i \\sum_{j\\neq i} (1-K_i)z_i K_j}
+
+
+    With ``i,j = 1 .. n_c`` being component indices.
+
+    Parameters:
+        z: ``len=n_c``
+
+            List of overall component fractions.
+        K: ``len=n_c``
+
+            K-values for the VLE-equilibrium.
+
+    Returns:
+        The vapor fraction ``y`` according to above formula.
+
+    """
+    # number of components
+    nc = len(z)
+    # numerator
+    n = (nc - 1) * safe_sum([(1 - K[i]) * z[i] for i in range(nc)])
+    # denominator
+    d = safe_sum(
+        [
+            (K[i] - 1) * safe_sum([(K[j] - 1) for j in range(nc) if j != i]) * z[i]
+            for i in range(nc)
+        ]
+    )
+    return n / d
+
+
+def rachford_rice_feasible_region(
+    z: list[NumericType], y: list[NumericType], K: list[list[NumericType]]
+) -> np.ndarray:
+    """Checks the feasibility of computed y in terms of poles in the domain for the
+    Rachford-Rice Equations.
+
+    For more details see eq. 10 in [1].
+
+    References:
+        [1] `Okuno and Sepehrnoori (2010) <https://doi.org/10.2118/117752-PA>`_
+
+    Parameters:
+        z: ``len=n_c``
+
+            List of overall component fractions.
+        y: ``len=(n_p-1)``
+
+            List of phase fractions, excluding the reference phase fraction.
+        K: ``shape=(n_p, n_c)``
+
+            A matrix-like structure or nested list, containing the K-value for component
+            ``i`` in phase ``j`` by ``K[j][i]``.
+
+    """
+    # # alternative implementation by Omar
+    # t_vals = 1 + Y * (np.array(K) - 1.0)
+    # cond_1 = np.array([t - z_c[i].val for i, t in enumerate(t_vals)]) > 0
+    # cond_2 = (
+    #     np.array([t - K[i] * z_c[i].val for i, t in enumerate(t_vals)]) > 0
+    # )
+    # return np.all(np.logical_and(cond_1, cond_2), axis=0)
+
+    nc = len(z)
+    nph = len(y)
+    all_conditions = list()
+
+    for i in range(nc):
+        t_i = _rr_pole(i, y, K)
+        cond_1 = t_i - z[i] >= 0
+        cond_2 = list()
+        for j in range(nph):
+            cond_2.append(t_i - K[j][i] * z[i] >= 0)
+        cond_2 = np.all(np.array(cond_2), axis=0)
+        all_conditions.append(cond_1 & cond_2)
+
+    return np.all(np.array(all_conditions), axis=0)
 
 
 def _pos(var: NumericType) -> NumericType:
@@ -108,7 +306,7 @@ class FlashSystemNR(ThermodynamicState):
 
     def __init__(
         self,
-        mixture: NonReactiveMixture,
+        mixture: Mixture,
         num_vals: int,
         flash_type: str,
         eos_kwargs: dict,
@@ -195,7 +393,7 @@ class FlashSystemNR(ThermodynamicState):
                         [self.s[j].jac, empty_block], format="csr"
                     )
 
-        self.mixture: NonReactiveMixture = mixture
+        self.mixture: Mixture = mixture
         """Passed at instantiation."""
         self.eos_kwargs: dict = eos_kwargs
         """Passed at instantiation."""
@@ -776,13 +974,13 @@ class FlashNR:
 
     """
 
-    def __init__(self, mixture: NonReactiveMixture) -> None:
+    def __init__(self, mixture: Mixture) -> None:
         ### PUBLIC
 
         # currently only 2-phase flash is supported
         assert mixture.num_phases == 2, "Currently supports only 2-phase mixtures."
 
-        self.mixture: NonReactiveMixture = mixture
+        self.mixture: Mixture = mixture
         """The mixture class passed at instantiation."""
 
         self.history: list[dict[str, Any]] = list()

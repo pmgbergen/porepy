@@ -28,10 +28,10 @@ import numba
 import numpy as np
 
 from ._core import NUMBA_CACHE, R_IDEAL
+from .base import Mixture
 from .composite_utils import COMPOSITE_LOGGER as logger
 from .composite_utils import safe_sum
 from .eos_compiler import EoSCompiler
-from .mixture import BasicMixture
 from .npipm_c import (
     convert_param_dict,
     initialize_npipm_nu,
@@ -52,9 +52,7 @@ from .utils_c import (
     parse_xyz,
 )
 
-__all__ = [
-    "Flash_c",
-]
+__all__ = ["Flash_c"]
 
 
 _import_start = time.time()
@@ -107,8 +105,11 @@ def _rr_binary_vle_inversion(z: np.ndarray, K: np.ndarray) -> float:
     return n / np.sum(d)
 
 
-# NOTE default caching not true because of dependency
-@numba.njit("float64(float64[:],float64[:],float64[:,:])", cache=NUMBA_CACHE)
+# NOTE This cache is dependeont on another function
+@numba.njit(
+    "float64(float64[:],float64[:],float64[:,:])",
+    cache=NUMBA_CACHE,
+)
 def _rr_potential(z: np.ndarray, y: np.ndarray, K: np.ndarray) -> float:
     """Calculates the potential according to [1] for the j-th Rachford-Rice equation.
 
@@ -143,6 +144,7 @@ def _rr_potential(z: np.ndarray, y: np.ndarray, K: np.ndarray) -> float:
 
 
 # endregion
+
 # region General flash equation independent of flash type and EoS
 
 
@@ -344,7 +346,7 @@ class Flash_c:
 
     def __init__(
         self,
-        mixture: BasicMixture,
+        mixture: Mixture,
         eos_compiler: EoSCompiler,
     ) -> None:
         ncomp = mixture.num_components
@@ -569,12 +571,13 @@ class Flash_c:
         self._solver_params["u2"] = self.npipm_parameters["u2"]
         self._solver_params["eta"] = self.npipm_parameters["eta"]
 
-    def log_last_stats(self):
+    def log_last_flash(self):
         """Prints statistics found in :attr:`last_flash_stats` in the console."""
-        logger.warn("--- Last flash stats:\n")
+        msg = "Last flash overview:\n"
         for k, v in self.last_flash_stats.items():
-            logger.warn(f"---\t{k}: {v}\n")
-        print("")
+            msg += f"---\t{k}: {v}\n"
+        msg += "\n"
+        logger.warn(msg)
 
     def compile(self, verbosity: int = 1) -> None:
         """Triggers the assembly and compilation of equilibrium equations, including
@@ -1883,7 +1886,7 @@ class Flash_c:
             "num_diverged": int(np.sum(success == 4)),
         }
         if verbosity >= 2:
-            self.log_last_stats()
+            self.log_last_flash()
 
         return (
             self._parse_and_complete_results(results, equilibrium_state),

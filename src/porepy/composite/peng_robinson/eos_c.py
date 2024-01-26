@@ -47,8 +47,6 @@ from typing import Any, Callable
 import numba
 import numpy as np
 
-import porepy as pp
-
 from .._core import NUMBA_CACHE
 from ..composite_utils import COMPOSITE_LOGGER as logger
 from ..eos_compiler import EoSCompiler
@@ -87,6 +85,7 @@ from .eos_s import (
     point_to_line_distance,
     widom_line,
 )
+from .pr_components import ComponentPR
 
 _STATIC_FAST_COMPILE_ARGS: dict[str, Any] = {
     "fastmath": True,
@@ -1130,15 +1129,13 @@ class PengRobinsonCompiler(EoSCompiler):
     """Class providing compiled computations of thermodynamic quantities for the
     Peng-Robinson EoS."""
 
-    def __init__(
-        self, mixture: pp.composite.NonReactiveMixture, verbosity: int = 0
-    ) -> None:
-        super().__init__(mixture)
+    def __init__(self, components: list[ComponentPR]) -> None:
+        super().__init__(components)
 
         self._cfuncs: dict[str, Callable] = dict()
         """A collection of internally required, compiled callables"""
 
-        self.symbolic: PengRobinsonSymbolic = PengRobinsonSymbolic(mixture)
+        self.symbolic: PengRobinsonSymbolic = PengRobinsonSymbolic(components)
 
     def compile(self, verbosity: int = 1) -> None:
         """Child method compiles essential functions from symbolic part before calling
@@ -1251,7 +1248,7 @@ class PengRobinsonCompiler(EoSCompiler):
         dB_c = self._cfuncs["d_B"]
         dZ_c = self._cfuncs["d_Z"]
         # number of derivatives for A, B, Z (p, T, and per component fraction)
-        d = 2 + self.npnc[1]
+        d = 2 + self._nc[1]
 
         @numba.njit("float64[:](int32, float64, float64, float64[:])")
         def prearg_jac_c(
@@ -1287,7 +1284,7 @@ class PengRobinsonCompiler(EoSCompiler):
     ) -> Callable[[np.ndarray, np.ndarray, float, float, np.ndarray], np.ndarray]:
         d_phi_c = self._cfuncs["d_phi"]
         # number of derivatives
-        d = 2 + self.npnc[1]
+        d = 2 + self._nc[1]
 
         @numba.njit(
             "float64[:,:](float64[:], float64[:], float64, float64, float64[:])"
@@ -1332,7 +1329,7 @@ class PengRobinsonCompiler(EoSCompiler):
     def get_dpTX_enthalpy_function(
         self,
     ) -> Callable[[np.ndarray, np.ndarray, float, float, np.ndarray], np.ndarray]:
-        d = 2 + self.npnc[1]
+        d = 2 + self._nc[1]
         d_h_dep_c = self._cfuncs["d_h_dep"]
         d_h_ideal_c = self._cfuncs["d_h_ideal"]
 
@@ -1372,7 +1369,7 @@ class PengRobinsonCompiler(EoSCompiler):
     def get_dpTX_volume_function(
         self,
     ) -> Callable[[np.ndarray, np.ndarray, float, float, np.ndarray], np.ndarray]:
-        d = 2 + self.npnc[1]
+        d = 2 + self._nc[1]
         d_v_c_ = self._cfuncs["d_v"]
 
         @numba.njit("float64[:](float64[:], float64[:], float64, float64, float64[:])")
@@ -1401,3 +1398,84 @@ logger.debug(
 )
 
 del _import_start, _import_end, _import_msg
+
+
+class _PR_Compiler_tests:
+    """Collection of older code for testing the compiled functions."""
+
+    def test_compiled_functions(self, tol: float = 1e-12, n: int = 100000):
+        """Performs some tests on assembled functions.
+
+        Warning:
+            This triggers numba's just-in-time compilation!
+
+            I.e., the execution of this function takes a considerable amount of time.
+
+        Warning:
+            This method raises AssertionErrors if any test failes.
+
+        Parameters:
+            tol: ``default=1e-12``
+
+                Tolerance for numerical zero.
+            n: ``default=100000``
+
+                Number for testing of vectorized computations.
+
+        """
+
+        ncomp = ...
+
+        p_1 = 1.0
+        T_1 = 1.0
+        X0 = np.array([0.0] * ncomp)
+
+        A_c = self.cfuncs["A"]
+        d_A_c = self.cfuncs["d_A"]
+        B_c = self.cfuncs["B"]
+        d_B_c = self.cfuncs["d_B"]
+        Z_c = self.cfuncs["Z"]
+        d_Z_c = self.cfuncs["d_Z"]
+
+        Z_double_g_c = self._Z_cfuncs["double-root-gas"]
+        d_Z_double_g_c = self._Z_cfuncs["d-double-root-gas"]
+        Z_double_l_c = self._Z_cfuncs["double-root-liq"]
+        d_Z_double_l_c = self._Z_cfuncs["d-double-root-liq"]
+
+        # if compositions are zero, A and B are zero
+        assert (
+            B_c(p_1, T_1, X0) < tol
+        ), "Value-test of compiled call to non-dimensional covolume failed."
+        assert (
+            A_c(p_1, T_1, X0) < tol
+        ), "Value-test of compiled call to non-dimensional cohesion failed."
+
+        # if A,B are zero, this should give the double-root case
+        z_test_g = Z_c(True, p_1, T_1, X0, eps=1e-14, smooth_e=0.0, smooth_3=0.0)
+        z_test_l = Z_c(False, p_1, T_1, X0, eps=1e-14, smooth_e=0.0, smooth_3=0.0)
+        assert (
+            np.abs(z_test_g - Z_double_g_c(0.0, 0.0)) < tol
+        ), "Value-test for compiled, gas-like compressibility factor failed."
+        assert (
+            np.abs(z_test_l - Z_double_l_c(0.0, 0.0)) < tol
+        ), "Value-test for compiled, liquid-like compressibility factor failed."
+
+        d_z_test_g = d_Z_c(True, p_1, T_1, X0, eps=1e-14, smooth_e=0.0, smooth_3=0.0)
+        d_z_test_l = d_Z_c(False, p_1, T_1, X0, eps=1e-14, smooth_e=0.0, smooth_3=0.0)
+        da_ = d_A_c(p_1, T_1, X0)
+        db_ = d_B_c(p_1, T_1, X0)
+        dzg_ = d_Z_double_g_c(0.0, 0.0)
+        dzl_ = d_Z_double_l_c(0.0, 0.0)
+        dzg_ = dzg_[0] * da_ + dzg_[1] * db_
+        dzl_ = dzl_[0] * da_ + dzl_[1] * db_
+        assert (
+            np.linalg.norm(d_z_test_g - dzg_) < tol
+        ), "Derivative-test for compiled, gas-like compressibility factor failed."
+        assert (
+            np.linalg.norm(d_z_test_l - dzl_) < tol
+        ), "Derivative-test for compiled, liquid-like compressibility factor failed."
+
+        # p = np.random.rand(n) * 1e6 + 1
+        # T = np.random.rand(n) * 1e2 + 1
+        # X = np.random.rand(n, 2)
+        # X = normalize_fractions(X)

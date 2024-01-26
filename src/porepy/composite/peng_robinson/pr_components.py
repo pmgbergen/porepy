@@ -18,11 +18,11 @@ import porepy as pp
 from porepy.numerics.ad.operator_functions import NumericType
 
 from .._core import R_IDEAL, T_REF
+from ..base import Component, Compound
 from ..chem_interface import load_species
-from ..component import Component, Compound
 
 __all__ = [
-    "Component_PR",
+    "ComponentPR",
     "H2O",
     "CO2",
     "H2S",
@@ -31,7 +31,7 @@ __all__ = [
 ]
 
 
-class Component_PR(Component):
+class ComponentPR(Component):
     """Intermediate abstraction layer for (fluid) components in a Peng-Robinson mixture.
 
     Serves for the abstraction of some EoS-specific quantities
@@ -109,7 +109,7 @@ class Component_PR(Component):
         """
 
 
-class H2O(Component_PR):
+class H2O(ComponentPR):
     """Component representing water as a fluid for the Peng-Robinson EoS."""
 
     cp1: float = 32.2
@@ -134,7 +134,7 @@ class H2O(Component_PR):
         )
 
 
-class CO2(Component_PR):
+class CO2(ComponentPR):
     """Component representing carbon dioxide as a fluid for the Peng-Robinson EoS."""
 
     cp1: float = 19.795
@@ -158,7 +158,7 @@ class CO2(Component_PR):
         )
 
 
-class H2S(Component_PR):
+class H2S(ComponentPR):
     """Component representing hydrogen sulfide as a fluid for the Peng-Robinson EoS."""
 
     cp1: float = 3.931
@@ -181,7 +181,7 @@ class H2S(Component_PR):
         )
 
 
-class N2(Component_PR):
+class N2(ComponentPR):
     """Component representing nitrogen as a fluid for the Peng-Robinson EoS.
 
     There is a questionable implementations for BIP between water and nitrogen.

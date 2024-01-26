@@ -1,11 +1,14 @@
-"""This module contains a class implementing the Peng-Robinson EoS for either
+"""DEPRACATED.
+
+This module contains a class implementing the Peng-Robinson EoS for either
 a liquid- or gas-like phase."""
 from __future__ import annotations
 
+import abc
 import logging
 import numbers
-from dataclasses import dataclass
-from typing import Any, Callable, Literal
+from dataclasses import dataclass, field
+from typing import Any, Callable, Literal, Optional
 
 import numpy as np
 import scipy.sparse as sps
@@ -14,11 +17,10 @@ import porepy as pp
 from porepy.numerics.ad.operator_functions import NumericType
 
 from .._core import R_IDEAL
+from ..base import Component
 from ..composite_utils import safe_sum, truncexp, trunclog
-from ..phase import AbstractEoS, PhaseProperties
-from .mixing import VanDerWaals
 from .pr_bip import load_bip
-from .pr_components import Component_PR
+from .pr_components import ComponentPR
 
 __all__ = [
     "PhaseProperties_cubic",
@@ -31,6 +33,709 @@ __all__ = [
 ]
 
 logger = logging.getLogger(__name__)
+
+DeprecationWarning("The module porepy.composite.peng_robinson.eos is deprecated.")
+
+
+@dataclass
+class ThermodynamicState:
+    """Data class for storing the thermodynamic state of a mixture..
+
+    The name of the attributes ``p, T, X`` is designed such that they can be used
+    as keyword arguments for
+
+    1. :meth:`~porepy.composite.phase.AbstractEoS.compute`,
+    2. :meth:`~porepy.composite.phase.Phase.compute_properties` and
+    3. :meth:`~porepy.composite.mixture.BasicMixture.compute_properties`,
+
+    and should not be meddled with (especially capital ``X``).
+
+    Important:
+        Upon inheritance, always provide default values for :meth:`initialize` to work.
+
+    """
+
+    p: NumericType = 0.0
+    """Pressure."""
+
+    T: NumericType = 0.0
+    """Temperature."""
+
+    h: NumericType = 0.0
+    """Specific molar enthalpy of the mixture."""
+
+    v: NumericType = 0.0
+    """Molar volume of the mixture."""
+
+    rho: NumericType = 0.0
+    """Molar density of the mixture.
+
+    As of now, density is always considered a secondary expression and never an
+    independent variable.
+
+    """
+
+    z: list[NumericType] = field(default_factory=lambda: [])
+    """Feed fractions per component. The first fraction is always the feed fraction of
+    the reference component."""
+
+    y: list[NumericType] = field(default_factory=lambda: [])
+    """Phase fractions per phase. The first fraction is always the phase fraction of the
+    reference phase."""
+
+    s: list[NumericType] = field(default_factory=lambda: [])
+    """Volume fractions (saturations) per phase. The first fraction is always the phase
+    saturation of the reference phase."""
+
+    X: list[list[NumericType]] = field(default_factory=lambda: [[]])
+    """Phase compositions per phase (outer list) per component in phase (inner list)."""
+
+    def __str__(self) -> str:
+        """Returns a string representation of the stored state values."""
+        vals = self.values()
+        nc = len(self.z)
+        np = len(self.y)
+
+        msg = f"Thermodynamic state with {nc} components and {np} phases:\n"
+        msg += f"\nIntensive state:\n\tPressure: {vals.p}\n\tTemperature: {vals.T}"
+        for i, z in enumerate(vals.z):
+            msg += f"\n\tFeed fraction {i}: {z}"
+        for j, y in enumerate(vals.y):
+            msg += f"\n\tPhase fraction {j}: {y}"
+        for j, s in enumerate(vals.s):
+            msg += f"\n\tPhase saturation {j}: {s}"
+        for j in range(np):
+            msg += f"\n\tComposition phase {j}:"
+            for i in range(nc):
+                msg += f"\n\t\t Component {i}: {vals.X[j][i]}"
+        msg += (
+            f"\nExtensive state:\n\tSpec. Enthalpy: {vals.h}"
+            + f"\n\tMol. Density: {vals.rho}\n\tMol. Volume: {vals.v}"
+        )
+
+        return msg
+
+    def diff(self, other: ThermodynamicState) -> ThermodynamicState:
+        """Returns a state containing the absolute difference between this instance
+        and another state.
+
+        The difference is calculated per state function and fraction and uses only
+        values (no derivatives, if any is given as an AD-array).
+
+        Parameters:
+            other: The other thermodynamic state.
+
+        Returns:
+            A new data class instance containing absolute difference values.
+
+        """
+        sv = self.values()
+        ov = other.values()
+
+        p = np.abs(sv.p - ov.p)
+        T = np.abs(sv.T - ov.T)
+        h = np.abs(sv.h - ov.h)
+        v = np.abs(sv.v - ov.v)
+        rho = np.abs(sv.rho - ov.rho)
+        z = [np.abs(sz - oz) for sz, oz in zip(sv.z, ov.z)]
+        y = [np.abs(sy - oy) for sy, oy in zip(sv.y, ov.y)]
+        s = [np.abs(ss - os) for ss, os in zip(sv.s, ov.s)]
+        X = [[np.abs(sx - ox) for sx, ox in zip(Xs, Xo)] for Xs, Xo in zip(sv.X, ov.X)]
+
+        return ThermodynamicState(p=p, T=T, h=h, v=v, rho=rho, z=z, y=y, s=s, X=X)
+
+    def values(self) -> ThermodynamicState:
+        """Returns a derivative-free state in case any state function is stored as
+        an :class:`~porepy.numerics.ad.forward_mode.AdArray`."""
+
+        p = self.p.val if isinstance(self.p, pp.ad.AdArray) else self.p
+        T = self.T.val if isinstance(self.T, pp.ad.AdArray) else self.T
+        h = self.h.val if isinstance(self.h, pp.ad.AdArray) else self.h
+        v = self.v.val if isinstance(self.v, pp.ad.AdArray) else self.v
+        rho = self.rho.val if isinstance(self.rho, pp.ad.AdArray) else self.rho
+        z = [z.val if isinstance(z, pp.ad.AdArray) else z for z in self.z]
+        y = [y.val if isinstance(y, pp.ad.AdArray) else y for y in self.y]
+        s = [s.val if isinstance(s, pp.ad.AdArray) else s for s in self.s]
+        X = [
+            [x.val if isinstance(x, pp.ad.AdArray) else x for x in x_j]
+            for x_j in self.X
+        ]
+
+        return ThermodynamicState(p=p, T=T, h=h, v=v, rho=rho, z=z, y=y, s=s, X=X)
+
+    @classmethod
+    def initialize(
+        cls,
+        num_comp: int = 1,
+        num_phases: int = 1,
+        num_vals: int = 1,
+        as_ad: bool = False,
+        is_independent: Optional[
+            list[Literal["p", "T", "z_r", "z_i", "s_r", "s_i", "y_r"]]
+        ] = None,
+        values_from: Optional[ThermodynamicState] = None,
+    ) -> ThermodynamicState:
+        """Initializes a thermodynamic state with zero values, based on given
+        configurations.
+
+        If the AD format with derivatives is requested, the order of derivatives is
+        as follows:
+
+        1. (optional) pressure
+        2. (optional) temperature
+        3. (optional) feed fractions as ordered in :attr:`z`
+        4. (optional) phase saturations as ordered in :attr:`vf`
+        5. phase fractions as ordered in :attr:`y`
+        6. phase compositions as ordered in :attr:`X`
+
+           .. math::
+
+               (x_{00},\\dots,x_{0, num_comp},\\dots, x_{num_phases, num_comp})
+
+        Note:
+            The default arguments are such that a derivative-free state for a p-T flash
+            (fixed pressure, temperature, feed) with eliminated reference phase fraction
+            is created.
+
+        Parameters:
+            num_comp: ``default=1``
+
+                Number of components. Must be at least 1.
+            num_phases: ``default=1``
+
+                Number of phases. Must be at least 1.
+
+                Important:
+                    For the case of 1 phase, the phase fraction will never have a
+                    derivative.
+
+            num_vals: ``default=1``
+
+                Number of values per state function. States can be vectorized using
+                numpy.
+            as_ad: ``default=False``
+
+                If True, the values are initialized as
+                :class:`~porepy.numerics.ad.forward_mode.AdArray` instances, with
+                proper derivatives in csr format.
+
+                If False, the values are initialized as numpy arrays with length
+                ``num_vals``.
+            is_independent: ``default=None``
+
+                Some additional states can be marked as independent, meaning they are
+                considered as variables and have unity as its derivative
+                (hence increasing the whole Jacobian, if Ad arrays are requested)
+
+                States which can be marked as independent include
+
+                - ``'p'``: pressure
+                - ``'T'``: temperature
+                - ``'z_r'``: reference component (feed) fraction
+                - ``'z_i'``: feed fractions of other components
+                - ``'s_r'``: reference phase saturation
+                - ``'s_i'``: saturations of other phases
+                - ``'y_r'``: reference phase fraction
+
+                Phase compositions :attr:`X` and other phase fractions are **always**
+                considered independent.
+            values_from: ``default=None``
+
+                If another state structure is passed, copy the values.
+                Assumes the other state structure has values **only**
+                (no derivatives in form of AD-arrays).
+
+        Raises:
+            ValueError: If an unsupported state is requested in ``is_independent``.
+            AssertionError: If ``num_comp,num_vals < 1`` or ``num_phases<2``.
+
+        Returns:
+            A state data structure with above configurations
+
+        """
+
+        assert num_phases >= 1, "Number of phases must be at least 1."
+        assert num_comp >= 1, "Number of components must be at least 1."
+        assert num_vals >= 1, "Number of values per state must be at least 1."
+
+        indp = num_phases - 1  # number of independent phases
+
+        if values_from:
+            p = values_from.p
+            T = values_from.T
+            h = values_from.h
+            v = values_from.v
+            rho = values_from.rho
+            z = [values_from.z[i] for i in range(num_comp)]
+            y = [values_from.y[j] for j in range(num_phases)]
+            s = [values_from.s[j] for j in range(num_phases)]
+            X = [
+                [values_from.X[j][i] for i in range(num_comp)]
+                for j in range(num_phases)
+            ]
+        else:
+            vec = np.zeros(num_vals)  # default zero values
+            # default state
+            p = vec.copy()
+            T = vec.copy()
+            h = vec.copy()
+            v = vec.copy()
+            rho = vec.copy()
+            z = [vec.copy() for _ in range(num_comp)]
+            y = [vec.copy() for _ in range(num_phases)]
+            s = [vec.copy() for _ in range(num_phases)]
+            X = [[vec.copy() for _ in range(num_comp)] for _ in range(num_phases)]
+
+        # update state with derivatives if requested
+        if as_ad:
+            # identity derivative per independent state
+            id_block = sps.identity(num_vals, dtype=float, format="lil")
+            # determining the number of column blocks per independent state
+            # defaults to phase compositions and independent phase fractions
+            N_default = num_comp * num_phases + indp
+
+            # The default global matrices are always created
+            jac_glob_d = sps.lil_matrix((num_vals, N_default * num_vals))
+            y_jacs: list[sps.lil_matrix] = list()
+            X_jacs: list[list[sps.lil_matrix]] = list()
+            # number of columns belonging to independent phases
+            n_p = (indp) * num_vals
+            # dependent phase composition
+            X_jacs.append(list())
+            for i in range(num_comp):
+                jac_x_0i = jac_glob_d.copy()
+                jac_x_0i[:, n_p + i * num_vals : n_p + (i + 1) * num_vals] = id_block
+                X_jacs[-1].append(jac_x_0i)
+            # update the column number based on reference phase composition vals
+            n_p += num_comp * num_vals
+            for j in range(indp):
+                jac_y_j = jac_glob_d.copy()
+                jac_y_j[:, j * num_vals : (j + 1) * num_vals] = id_block
+                y_jacs.append(jac_y_j)
+                X_jacs.append(list())
+                for i in range(num_comp):
+                    jac_x_ji = jac_glob_d.copy()
+                    jac_x_ji[
+                        :, n_p + i * num_vals : n_p + (i + 1) * num_vals
+                    ] = id_block
+                    X_jacs[-1].append(jac_x_ji)
+
+            # reference phase fraction is dependent by unity
+            if len(y_jacs) > 0:
+                y = [pp.ad.AdArray(y[0], -1 * safe_sum(y_jacs))] + [
+                    pp.ad.AdArray(y[j + 1], y_jacs[j]) for j in range(indp)
+                ]
+            X = [
+                [pp.ad.AdArray(X[j][i], X_jacs[j][i]) for i in range(num_comp)]
+                for j in range(num_phases)
+            ]
+
+            if is_independent:
+                # Number of blocks with new independent vars
+                N = N_default
+                # make unique
+                is_independent = list(set(is_independent))
+                for i in is_independent:
+                    # adding blocks per independent feed fraction if requested
+                    if i == "z_i":
+                        N += num_comp - 1
+                    # Adding blocks per independent phase saturation
+                    elif i == "s_i":
+                        N += num_phases - 1
+                    # adding other blocks per independent state
+                    elif i in ["p", "T", "y_r", "z_r", "s_r"]:
+                        N += 1
+                    else:
+                        raise ValueError(f"Independent state {i} not supported.")
+
+                # number of column blocks to pre-append to existing states
+                N_new = N - N_default
+                pre_block = sps.lil_matrix((num_vals, num_vals * N_new))
+
+                # update derivatives of independent phases
+                for j in range(1, num_phases):
+                    y[j].jac = sps.hstack([pre_block, y[j].jac])
+                # update derivative of reference phase
+                if indp > 0:
+                    y[0].jac = sps.hstack([pre_block, y[0].jac])
+                else:
+                    y[0] = pp.ad.AdArray(y[0], pre_block.copy())
+
+                # update derivatives of phase compositions
+                for j in range(num_phases):
+                    for i in range(num_comp):
+                        X[j][i].jac = sps.hstack([pre_block, X[j][i].jac])
+
+                # Global Jacobian for new, independent states
+                jac_glob = sps.lil_matrix((num_vals, N * num_vals))
+                # occupied column indices, counted from right to left
+                occupied = (num_comp * num_phases + indp) * num_vals
+
+                # update derivative of reference phase fraction if requested
+                if "y_r" in is_independent and not indp:
+                    jac_y_r = jac_glob.copy()
+                    jac_y_r[:, -(occupied + num_vals) : -occupied] = id_block
+                    y[0] = pp.ad.AdArray(y[0], jac_y_r)
+                    occupied += num_vals  # update occupied
+
+                # construct derivatives w.r.t to saturations of independent phases
+                jac_s_0_dep = None
+                if "s_i" in is_independent and indp:
+                    jac_s_0_dep = jac_glob.copy()
+                    for j in range(indp):
+                        jac_s_i = jac_glob.copy()
+                        jac_s_i[:, -(occupied + num_vals) : -occupied] = id_block
+                        jac_s_0_dep = jac_s_0_dep - jac_s_i
+                        s[indp - j] = pp.ad.AdArray(s[indp - j], jac_s_i)
+                        occupied += num_vals  # update occupied
+                if "s_r" in is_independent and not indp:
+                    jac_s_0 = jac_glob.copy()
+                    jac_s_0[:, -(occupied + num_vals) : -occupied] = id_block
+                    s[0] = pp.ad.AdArray(s[0], jac_s_i)
+                    occupied += num_vals  # update occupied
+                # eliminate reference saturation by unity
+                elif jac_s_0_dep is not None:
+                    s[0] = pp.ad.AdArray(s[0], jac_s_0_dep)
+
+                # construct derivatives w.r.t. feed fractions
+                if "z_i" in is_independent:
+                    for i in range(num_comp - 1):
+                        jac_z_i = jac_glob.copy()
+                        jac_z_i[:, -(occupied + num_vals) : -occupied] = id_block
+                        z[num_comp - 1 - i] = pp.ad.AdArray(
+                            z[num_comp - 1 - i], jac_z_i
+                        )
+                        occupied += num_vals
+
+                # construct derivative w.r.t. reference feed fraction
+                if "z_r" in is_independent:
+                    jac_z_r = jac_glob.copy()
+                    jac_z_r[:, -(occupied + num_vals) : -occupied] = id_block
+                    z[0] = pp.ad.AdArray(z[0], jac_z_r)
+                    occupied += num_vals
+
+                # construct derivatives for states which are not given as list
+                # in reverse order, right to left
+                modified_quantities: list[NumericType] = list()
+                for key, quantity in zip(["T", "p"], [T, p]):
+                    # modify quantity if requested
+                    if key in is_independent:
+                        jac_q = jac_glob.copy()
+                        jac_q[:, -(occupied + num_vals) : -occupied] = id_block
+                        quantity = pp.ad.AdArray(quantity, jac_q)
+                        occupied += num_vals
+                    modified_quantities.append(quantity)
+                T, p = modified_quantities
+
+        return cls(p=p, T=T, h=h, v=v, rho=rho, z=z, y=y, s=s, X=X)
+
+
+@dataclass(frozen=True)
+class PhaseProperties:
+    """Basic data class for general phase properties, relevant for this framework.
+
+    Use this dataclass to extend the list of relevant phase properties for a specific
+    equation of state.
+
+    """
+
+    rho: NumericType
+    """Molar density ``[mol / m^3]``."""
+
+    rho_mass: NumericType
+    """Mass density ``[kg / m^3]``."""
+
+    v: NumericType
+    """Molar volume ``[m^3 / mol]``."""
+
+    h_ideal: NumericType
+    """Specific ideal enthalpy ``[J / mol / K]``, which is a sum of ideal enthalpies of
+    components weighed with their fraction. """
+
+    h_dep: NumericType
+    """Specific departure enthalpy ``[J / mol / K]``."""
+
+    h: NumericType
+    """Specific enthalpy ``[J / mol / K]``, a sum of :attr:`h_ideal` and :attr:`h_dep`.
+    """
+
+    phis: list[NumericType]
+    """Fugacity coefficients per component, ordered as compositional fractions."""
+
+    kappa: NumericType
+    """Thermal conductivity ``[W / m / K]``."""
+
+    mu: NumericType
+    """Dynamic molar viscosity ``[mol / m / s]``."""
+
+
+class VanDerWaals:
+    """A  class providing functions representing mixing rules according to
+    Van der Waals.
+
+    This class is purely a container class to provide a namespace.
+
+    """
+
+    @staticmethod
+    def cohesion(
+        X: list[NumericType],
+        a: list[NumericType],
+        dT_a: list[NumericType],
+        bip: list[list[NumericType]],
+        dT_bip: list[list[NumericType]],
+    ) -> tuple[NumericType, NumericType]:
+        """
+        Note:
+            The reason why the cohesion and its temperature-derivative are returned
+            together is because of efficiency and the similarity of the code.
+
+        Parameters:
+            X: A list of fractions.
+            a: A list of component cohesion values, with the same length and order as
+                ``X``.
+            dT_a: A list of temperature-derivatives of component cohesion values,
+                with the same length as ``X``.
+            bip: A nested list or matrix-like structure, such that ``bip[i][j]`` is the
+                binary interaction parameter between components ``i`` and ``j``,
+                where the indices run over the enumeration of ``X`` and ``a``.
+
+                The matrix-like structure is expected to be symmetric.
+            dT_bip: Same as ``bip``, holding only the temperature-derivative of the
+                binary interaction parameters.
+
+        Returns:
+            The mixture cohesion and its temperature-derivative,
+            according to Van der Waals.
+
+        """
+        nc = len(X)  # number of components
+
+        a_parts: list[NumericType] = []
+        dT_a_parts: list[NumericType] = []
+
+        # mixture matrix is symmetric, sum over all entries in upper triangle
+        # multiply off-diagonal elements with 2
+        for i in range(nc):
+            a_parts.append(X[i] ** 2 * a[i])
+            dT_a_parts.append(X[i] ** 2 * dT_a[i])
+            for j in range(i + 1, nc):
+                x_ij = X[i] * X[j]
+                a_ij_ = pp.ad.sqrt(a[i] * a[j])
+                delta_ij = 1 - bip[i][j]
+
+                a_ij = a_ij_ * delta_ij
+                dT_a_ij = (
+                    pp.ad.power(a[i] * a[j], -1 / 2)
+                    / 2
+                    * (dT_a[i] * a[j] + a[i] * dT_a[j])
+                    * delta_ij
+                    - a_ij_ * dT_bip[i][j]
+                )
+
+                # off-diagonal elements appear always twice due to symmetry
+                a_parts.append(2.0 * x_ij * a_ij)
+                dT_a_parts.append(2.0 * x_ij * dT_a_ij)
+
+        return safe_sum(a_parts), safe_sum(dT_a_parts)
+
+    @staticmethod
+    def dXi_cohesion(
+        X: list[NumericType], a: list[NumericType], bip: list[list[NumericType]], i: int
+    ) -> NumericType:
+        """
+        Parameters:
+            X: A list of fractions.
+            a: A list of component cohesion values, with the same length and order as
+                ``X``.
+            bip: A nested list or matrix-like structure, such that ``bip[i][j]`` is the
+                binary interaction parameter between components ``i`` and ``j``,
+                where the indices run over the enumeration of ``X`` and ``a``.
+
+                The matrix-like structure is expected to be symmetric.
+            i: An index for ``X``.
+
+        Returns:
+            The derivative of the mixture cohesion w.r.t to ``X[i]``
+        """
+        return 2.0 * safe_sum(
+            [X[j] * pp.ad.sqrt(a[i] * a[j]) * (1 - bip[i][j]) for j in range(len(X))]
+        )
+
+    @staticmethod
+    def covolume(X: list[NumericType], b: list[NumericType]) -> NumericType:
+        """
+        Parameters:
+            X: A list of fractions.
+            b: A list of component covolume values, with the same length and order as
+                ``X``.
+
+        Returns:
+            The mixture covolume according to Van der Waals.
+
+        """
+        return safe_sum([x_i * b_i for x_i, b_i in zip(X, b)])
+
+
+class AbstractEoS(abc.ABC):
+    """Abstract class representing an equation of state.
+
+    Child classes have to implement the method :meth:`compute` which must return
+    relevant :class:`PhaseProperties` using a specific EoS.
+
+    The purpose of this class is the abstraction of the property computations, as well
+    as providing the necessary information about the supercritical state and the
+    extended state in the unified setting.
+
+    Parameters:
+        gaslike: A bool indicating if the EoS is represents a gas-like state.
+
+            Since in general there can only be one gas-phase, this flag must be
+            provided.
+        *args: In case of inheritance.
+        **kwargs: In case of inheritance.
+
+    """
+
+    def __init__(self, gaslike: bool, *args, **kwargs) -> None:
+        super().__init__()
+
+        self._components: list[Component] = list()
+        """Private container for components with species data. See :meth:`components`.
+        """
+
+        self.is_supercritical: np.ndarray = np.array([], dtype=bool)
+        """A boolean array flagging if the mixture became super-critical.
+
+        In vectorized computations, the results are stored component-wise.
+
+        Important:
+            It is unclear, what the meaning of super-critical phases is using this EoS
+            and values in this phase region should be used with suspicion.
+
+        """
+
+        self.is_extended: np.ndarray = np.array([], dtype=bool)
+        """A boolean array flagging if an extended state is computed in the unified
+        setting.
+
+        In vectorized computations, the results are stored component-wise.
+
+        Important:
+            Extended states are un-physical in general.
+
+        """
+
+        self.gaslike: bool = bool(gaslike)
+        """Flag passed at instantiation indicating if gas state or not."""
+
+    @property
+    def components(self) -> list[Component]:
+        """A list of (compatible) components, which hold relevant chemical data.
+
+        A setter is provided, which concrete EoS can overwrite to perform one-time
+        computations, if any.
+
+        Important:
+            This attribute is set by a the setter of :meth:`Phase.components`,
+            and should not be meddled with.
+
+            The order in this list is crucial for computations involving fractions.
+
+            Order of passed fractions must coincide with the order of components
+            passed here.
+
+            **This is a design choice**.
+            Alternatively, component-related parameters and
+            functions can be passed during instantiation, which would render the
+            signature of the constructor quite hideous.
+
+        Parameters:
+            components: A list of component for the EoS containing species data.
+
+        """
+        return self._components
+
+    @components.setter
+    def components(self, components: list[Component]) -> None:
+        # deep copy
+        self._components = [c for c in components]
+
+    @abc.abstractmethod
+    def compute(
+        self,
+        p: NumericType,
+        T: NumericType,
+        X: list[NumericType],
+        **kwargs,
+    ) -> PhaseProperties:
+        """Abstract method for computing all thermodynamic properties based on the
+        passed, thermodynamic state.
+
+        Warning:
+            ``p``, ``T``, ``*X`` have a union type, meaning the results will be of
+            the same. When mixing numpy arrays, porepy's Ad arrays and numbers,
+            the user must make sure there will be no compatibility issues.
+
+            This method is not supposed to be used with AD Operator instances.
+
+        Important:
+            This method must update :attr:`is_supercritical` and :attr:`is_extended`.
+
+        Parameters:
+            p: Pressure
+            T: Temperature
+            X: ``len=num_components``
+
+                (Normalized) Fractions to be used in the computation.
+            **kwargs: Any options necessary for specific computations can be passed as
+                keyword arguments.
+
+        Returns:
+            A dataclass containing the basic phase properties. The basic properties
+            include those, which are required for the reminder of the framework to
+            function as intended.
+
+        """
+        raise NotImplementedError("Call to abstract method.")
+
+    def get_h_ideal(
+        self, p: NumericType, T: NumericType, X: list[NumericType]
+    ) -> NumericType:
+        """
+        Parameters:
+            p: Pressure.
+            T: Temperature.
+            X: ``len=num_components``
+
+                (Normalized) Fraction per component to be used in the computation,
+                ordered as in :attr:`components`.
+
+        Returns:
+            The ideal part of the enthalpy, which is a sum of ideal component enthalpies
+            weighed with their fraction.
+
+        """
+        return safe_sum([x * comp.h_ideal(p, T) for x, comp in zip(X, self.components)])
+
+    def get_rho_mass(self, rho_mol: NumericType, X: list[NumericType]) -> NumericType:
+        """
+        Parameters:
+            rho_mol: Molar density resulting from :meth:`compute`.
+            X: ``len=num_components``
+
+                (Normalized) Fraction per component to be used in the computation,
+                ordered as in :attr:`components`.
+
+        Returns:
+            The mass density, which is the molar density multiplied with the sum of
+            fractions weighed with component molar masses.
+
+        """
+        return rho_mol * safe_sum(
+            [x * comp.molar_mass for x, comp in zip(X, self.components)]
+        )
+
 
 A_CRIT: float = (
     1
@@ -543,7 +1248,7 @@ class PengRobinson(AbstractEoS):
             )
 
     @property
-    def components(self) -> list[Component_PR]:
+    def components(self) -> list[ComponentPR]:
         """The child class setter calculates EoS specific values per set component.
 
         Values like critical cohesion and covolume values, corrective parameters and
@@ -573,7 +1278,7 @@ class PengRobinson(AbstractEoS):
         return AbstractEoS.components.fget(self)
 
     @components.setter
-    def components(self, components: list[Component_PR]) -> None:
+    def components(self, components: list[ComponentPR]) -> None:
         a_crits: list[float] = list()
         bs: list[float] = list()
         a_cors: list[float] = list()
