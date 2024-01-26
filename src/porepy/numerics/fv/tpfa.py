@@ -330,6 +330,34 @@ class DifferentiableTpfa:
             fracture_faces, name="internal_boundary_filter"
         )
 
+    def tip_filter(self, subdomains: list[pp.Grid]) -> pp.ad.DenseArray:
+        """Construct a dense array that filters out everything but faces on immersed
+        tips.
+
+        Parameters:
+            subdomains: List of grids.
+
+        Returns:
+            DenseArray representation of the internal boundary filter.
+
+        """
+        is_tip = []
+        for sd in subdomains:
+            # Find faces that are tagged as tip faces, but exclude those that are also
+            # tagged as domain boundary faces.
+            is_tip.append(
+                np.logical_and(
+                    sd.tags["tip_faces"],
+                    np.logical_not(sd.tags["domain_boundary_faces"]),
+                )
+            )
+        if len(is_tip) == 0:
+            tip_faces = np.array([], dtype=int)
+        else:
+            tip_faces = np.hstack(is_tip)
+
+        return pp.wrap_as_dense_ad_array(tip_faces, name="tip_filter")
+
     def _block_diagonal_grid_property_matrix(
         self,
         domains: list[pp.Grid],

@@ -15,7 +15,9 @@ from porepy.applications.test_utils import common_xpfa_tests as xpfa_tests
 from porepy.applications.md_grids.model_geometries import (
     CubeDomainOrthogonalFractures,
 )
-from porepy.numerics.ad.operators import Operator
+from porepy.applications.md_grids import model_geometries
+from porepy.applications.test_utils import well_models
+
 
 """Local utility functions."""
 
@@ -796,3 +798,109 @@ def test_diff_tpfa_and_standard_tpfa_give_same_linear_system(base_discr: str):
 
     assert np.allclose(matrix[0].A, matrix[1].A)
     assert np.allclose(vector[0], vector[1])
+
+
+class TestDiffTpfaFractureTipsInternalBoundaries(
+    model_geometries.OrthogonalFractures3d,
+    well_models.OneVerticalWell,
+    well_models.BoundaryConditionsWellSetup,
+    _SetFluxDiscretizations,
+    pp.constitutive_laws.DarcysLawAd,
+    pp.constitutive_laws.FouriersLawAd,
+    pp.mass_and_energy_balance.MassAndEnergyBalance,
+):
+    """Helper class to test that the methods for differentiating diffusive fluxes and
+    potential reconstructions work as intended on fracture tips and internal boundaries.
+
+    The model geometry consists of two fractures: One extending to the boundary, one
+    that is immersed in the domain. The model also includes a well which intersects
+    with one of the fractures.
+    """
+
+    def __init__(self, params):
+        # From the default fractures, use one with a constant z-coordinate.
+        params.update({"fracture_indices": [2]})
+        super().__init__(params)
+
+    def set_fractures(self) -> None:
+        """In addition to the default fracture (which extends to the boundary), we add
+        one fracture that is fully immersed in the domain.
+        """
+        super().set_fractures()
+
+        # Add a fracture that is immersed in the domain, to test the discretization of
+        # the Darcy flux on a fracture that is not on the boundary.
+        frac = pp.PlaneFracture(
+            np.array([[0.3, 0.3, 0.3, 0.3], [0.2, 0.8, 0.8, 0.2], [0.2, 0.2, 0.8, 0.8]])
+        )
+        self._fractures.append(frac)
+
+    def initial_condition(self):
+        """Set a random initial condition, to avoid the trivial case of a constant
+        pressure hiding difficulties.
+        """
+        super().initial_condition()
+        num_dofs = self.equation_system.num_dofs()
+        np.random.seed(42)
+        values = np.random.rand(num_dofs)
+        self.equation_system.set_variable_values(values, iterate_index=0)
+
+
+@pytest.mark.parametrize("base_discr", ["tpfa", "mpfa"])
+def test_flux_potential_trace_on_tips_and_internal_boundaries(base_discr: str):
+    """Test that the flux and potential trace can be computed on fracture tips and
+    internal boundaries.
+
+    Both Darcy and Fourier fluxes are tested.
+
+    For the fluxes, we test that the Jacobian matrix is zero on the Neumann faces (which
+    include fracture tips, internal boundaries, and any external boundaries that are
+    assigned a Neumann boundary condition). On tips we also test that the potential
+    trace is equal to the pressure in the adjacent cell.
+
+    """
+    model = TestDiffTpfaFractureTipsInternalBoundaries({"base_discr": base_discr})
+    model.prepare_simulation()
+
+    mdg = model.mdg
+
+    for sd in mdg.subdomains():
+        data = mdg.subdomain_data(sd)
+
+        # For both Darcy and Fourier flux, check that the Jacobian matrix is zero on
+        # Neumann faces.
+        bc_darcy = data[pp.PARAMETERS][model.darcy_keyword]["bc"]
+        darcy_flux = model.darcy_flux([sd]).value_and_jacobian(model.equation_system)
+        assert np.allclose(darcy_flux.jac[bc_darcy.is_neu].data, 0)
+
+        bc_fourier = data[pp.PARAMETERS][model.fourier_keyword]["bc"]
+        fourier_flux = model.fourier_flux([sd]).value_and_jacobian(
+            model.equation_system
+        )
+        assert np.allclose(fourier_flux.jac[bc_fourier.is_neu].data, 0)
+
+        # The potential trace should be equal to the potential in the adjacent cell on
+        # fracture tip faces (but not on internal nor external boundaries, where
+        # boundary conditions may change the boundary value).
+
+        # Get the indices of the fracture tip faces and that of the adjacent cell.
+        tip_faces = np.where(
+            np.logical_and(
+                sd.tags["tip_faces"], np.logical_not(sd.tags["domain_boundary_faces"])
+            )
+        )[0]
+        _, tip_cells = sd.signs_and_cells_of_boundary_faces(tip_faces)
+
+        # Check that the pressure trace is equal to the pressure in the adjacent cell.
+        pressure_trace = model.potential_trace(
+            [sd], model.pressure, model.permeability, "darcy_flux"
+        ).value(model.equation_system)
+        p = model.pressure([sd]).value(model.equation_system)
+        assert np.allclose(pressure_trace[tip_faces], p[tip_cells])
+        # Check that the temperature trace is equal to the temperature in the adjacent
+        # cell.
+        temperature_trace = model.potential_trace(
+            [sd], model.temperature, model.thermal_conductivity, "fourier_flux"
+        ).value(model.equation_system)
+        T = model.temperature([sd]).value(model.equation_system)
+        assert np.allclose(temperature_trace[tip_faces], T[tip_cells])
