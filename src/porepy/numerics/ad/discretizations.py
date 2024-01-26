@@ -125,7 +125,6 @@ class BiotAd(Discretization):
             obj=self,
             discr=self._discretization,
             subdomains=subdomains,
-            coupling_keywords=coupling_keywords,
             coupling_terms=coupling_terms,
         )
 
