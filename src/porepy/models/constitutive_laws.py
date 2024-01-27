@@ -1172,11 +1172,11 @@ class DarcysLaw:
         )
 
         pressure_trace = (
-            discr.bound_pressure_cell @ p
-            + discr.bound_pressure_face
+            discr.bound_pressure_cell() @ p
+            + discr.bound_pressure_face()
             @ (projection.mortar_to_primary_int @ self.interface_darcy_flux(interfaces))
-            + discr.bound_pressure_face @ boundary_operator
-            + discr.bound_pressure_vector_source
+            + discr.bound_pressure_face() @ boundary_operator
+            + discr.bound_pressure_vector_source()
             @ self.vector_source_darcy_flux(subdomains)
         )
         return pressure_trace
@@ -1235,14 +1235,14 @@ class DarcysLaw:
             domains
         )
         flux: pp.ad.Operator = (
-            discr.flux @ self.pressure(domains)
-            + discr.bound_flux
+            discr.flux() @ self.pressure(domains)
+            + discr.bound_flux()
             @ (
                 boundary_operator
                 + intf_projection.mortar_to_primary_int
                 @ self.interface_darcy_flux(interfaces)
             )
-            + discr.vector_source @ self.vector_source_darcy_flux(domains)
+            + discr.vector_source() @ self.vector_source_darcy_flux(domains)
         )
         flux.set_name("Darcy_flux")
         return flux
@@ -1641,7 +1641,7 @@ class AdTpfaFlux:
         # discretization on operator form, and multiply it by zero to avoid it having
         # any real impact on the equation. This is certainly an ugly hack, but it will
         # have to do for now.
-        flux_p = flux_p + pp.ad.Scalar(0) * base_discr.flux @ potential(domains)
+        flux_p = flux_p + pp.ad.Scalar(0) * base_discr.flux() @ potential(domains)
 
         # Get boundary condition values
         boundary_operator = self._combine_boundary_operators(  # type: ignore[call-arg]
@@ -1756,10 +1756,10 @@ class AdTpfaFlux:
         # diffusive flux method?
         boundary_value_contribution = boundary_value_contribution + pp.ad.Scalar(
             0
-        ) * base_discr.flux @ potential(subdomains)
+        ) * base_discr.flux() @ potential(subdomains)
 
         pressure_trace = (
-            base_discr.bound_pressure_cell @ potential(subdomains)
+            base_discr.bound_pressure_cell() @ potential(subdomains)
             # Contribution from boundaries.
             + boundary_value_contribution
             # the vector source is independent of k
@@ -1877,7 +1877,7 @@ class AdTpfaFlux:
 
         # We know that base_discr.flux is a sparse matrix, so we can call parse
         # directly.
-        base_flux = base_discr.flux.parse(self.mdg)
+        base_flux = base_discr.flux().parse(self.mdg)
         # If the function has been called using .value, p is a numpy array and we pass
         # only the value.
         if not isinstance(p, pp.ad.AdArray):
@@ -1977,7 +1977,7 @@ class AdTpfaFlux:
         val = base_discr_vector_source @ vs_val
         # The contribution from differentiating the vector source term to the Jacobian
         # of the flux.
-        jac = base_discr.vector_source.parse(self.mdg) @ vs_jac
+        jac = base_discr.vector_source().parse(self.mdg) @ vs_jac
 
         if hasattr(T_f, "jac"):
             # Add the contribution to the Jacobian matrix from the derivative of the
@@ -2025,7 +2025,7 @@ class AdTpfaFlux:
         # parse directly. At the time of evaluation, internal_flux will be an AdArray,
         # thus we can access its val and jac attributes, while external_flux is a numpy
         # array.
-        base_term = base_discr.bound_pressure_face.parse(self.mdg)
+        base_term = base_discr.bound_pressure_face().parse(self.mdg)
         # The value is the standard product of the matrix and boundary values.
 
         # If the function has been called using .value, p is a numpy array and we pass
@@ -2591,14 +2591,14 @@ class FouriersLaw:
         # We know t is a variable, since method is called on subdomains, not boundaries.
         t = cast(pp.ad.MixedDimensionalVariable, self.temperature(subdomains))
         temperature_trace = (
-            discr.bound_pressure_cell @ t  # "pressure" is a legacy misnomer
-            + discr.bound_pressure_face
+            discr.bound_pressure_cell() @ t  # "pressure" is a legacy misnomer
+            + discr.bound_pressure_face()
             @ (
                 projection.mortar_to_primary_int
                 @ self.interface_fourier_flux(interfaces)
             )
-            + discr.bound_pressure_face @ boundary_operator_fourier
-            + discr.bound_pressure_vector_source
+            + discr.bound_pressure_face() @ boundary_operator_fourier
+            + discr.bound_pressure_vector_source()
             @ self.vector_source_fourier_flux(subdomains)
         )
         return temperature_trace
@@ -2640,14 +2640,14 @@ class FouriersLaw:
         )
 
         flux: pp.ad.Operator = (
-            discr.flux @ self.temperature(subdomains)
-            + discr.bound_flux
+            discr.flux() @ self.temperature(subdomains)
+            + discr.bound_flux()
             @ (
                 boundary_operator_fourier
                 + projection.mortar_to_primary_int
                 @ self.interface_fourier_flux(interfaces)
             )
-            + discr.vector_source @ self.vector_source_fourier_flux(subdomains)
+            + discr.vector_source() @ self.vector_source_fourier_flux(subdomains)
         )
         flux.set_name("Fourier_flux")
         return flux
@@ -2865,14 +2865,14 @@ class AdvectiveFlux:
             self.mdg, subdomains, interfaces, dim=1
         )
         flux: pp.ad.Operator = (
-            darcy_flux * (discr.upwind @ advected_entity)
-            - discr.bound_transport_dir @ (darcy_flux * bc_values)
+            darcy_flux * (discr.upwind() @ advected_entity)
+            - discr.bound_transport_dir() @ (darcy_flux * bc_values)
             # Advective flux coming from lower-dimensional subdomains
-            - discr.bound_transport_neu @ bc_values
+            - discr.bound_transport_neu() @ bc_values
         )
         if interface_flux is not None:
             flux -= (
-                discr.bound_transport_neu
+                discr.bound_transport_neu()
                 @ mortar_projection.mortar_to_primary_int
                 @ interface_flux(interfaces)
             )
@@ -2912,11 +2912,11 @@ class AdvectiveFlux:
         # Project the two advected entities to the interface and multiply with upstream
         # weights and the interface Darcy flux.
         interface_flux: pp.ad.Operator = self.interface_darcy_flux(interfaces) * (
-            discr.upwind_primary
+            discr.upwind_primary()
             @ mortar_projection.primary_to_mortar_avg
             @ trace.trace
             @ advected_entity
-            + discr.upwind_secondary
+            + discr.upwind_secondary()
             @ mortar_projection.secondary_to_mortar_avg
             @ advected_entity
         )
@@ -2951,10 +2951,10 @@ class AdvectiveFlux:
         # Project the two advected entities to the interface and multiply with upstream
         # weights and the interface Darcy flux.
         interface_flux: pp.ad.Operator = self.well_flux(interfaces) * (
-            discr.upwind_primary
+            discr.upwind_primary()
             @ mortar_projection.primary_to_mortar_avg
             @ advected_entity
-            + discr.upwind_secondary
+            + discr.upwind_secondary()
             @ mortar_projection.secondary_to_mortar_avg
             @ advected_entity
         )
@@ -3356,9 +3356,9 @@ class LinearElasticMechanicalStress:
         # subdomains, and let these act as Dirichlet boundary conditions on the
         # subdomains.
         stress = (
-            discr.stress @ self.displacement(domains)
-            + discr.bound_stress @ boundary_operator
-            + discr.bound_stress
+            discr.stress() @ self.displacement(domains)
+            + discr.bound_stress() @ boundary_operator
+            + discr.bound_stress()
             @ proj.mortar_to_primary_avg
             @ self.interface_displacement(interfaces)
         )
@@ -3505,10 +3505,10 @@ class PressureStress(LinearElasticMechanicalStress):
         # The stress is simply found by the grad_p operator, multiplied with the
         # pressure perturbation.
         stress: pp.ad.Operator = (
-            discr.grad_p @ self.pressure(subdomains)
+            discr.grad_p(self.darcy_keyword) @ self.pressure(subdomains)
             # The reference pressure is only defined on sd_primary, thus there is no
             # need for a subdomain projection.
-            - discr.grad_p @ self.reference_pressure(subdomains)
+            - discr.grad_p(self.darcy_keyword) @ self.reference_pressure(subdomains)
         )
         stress.set_name("pressure_stress")
         return stress
@@ -3679,8 +3679,8 @@ class ThermoPressureStress(PressureStress):
             * k
             / alpha
             * (
-                discr.grad_p @ self.temperature(subdomains)
-                - discr.grad_p @ self.reference_temperature(subdomains)
+                discr.grad_p(self.darcy_keyword) @ self.temperature(subdomains)
+                - discr.grad_p(self.darcy_keyword) @ self.reference_temperature(subdomains)
             )
         )
         stress.set_name("thermal_stress")
@@ -4459,9 +4459,9 @@ class PoroMechanicsPorosity:
         )
 
         # Compose operator.
-        div_u_integrated = discr.div_u('flow') @ self.displacement(
+        div_u_integrated = discr.div_u(self.darcy_keyword) @ self.displacement(
             subdomains
-        ) + discr.bound_div_u('flow') @ (
+        ) + discr.bound_div_u(self.darcy_keyword) @ (
             boundary_operator
             + sd_projection.face_restriction(subdomains)
             @ mortar_projection.mortar_to_primary_avg
@@ -4493,7 +4493,7 @@ class PoroMechanicsPorosity:
         if not all(sd.dim == self.nd for sd in subdomains):
             raise ValueError("Biot stabilization only defined in nd.")
 
-        discr  = pp.ad.BiotAd(self.stress_keyword, subdomains, [])
+        discr  = pp.ad.BiotAd(self.stress_keyword, subdomains)
 
         #discr = pp.ad.BiotStabilizationAd(self.darcy_keyword, subdomains)
         # The stabilization is based on perturbation. If pressure is used directly,
