@@ -77,7 +77,6 @@ class Biot(pp.Mpsa):
 
     def __init__(
         self,
-        coupling_keywords: list[str],
         keyword: str = "mechanics",
     ) -> None:
         """Set the two keywords.
@@ -87,9 +86,6 @@ class Biot(pp.Mpsa):
         """
         super().__init__("")
 
-        self.coupling_keywords = coupling_keywords
-        """Keyword used to identify the parameter dictionary associated with the
-        coupled subproblems (e.g., flow or thermal problems)."""
         self.keyword = keyword
         """Keyword used to identify the parameter dictionary associated with the
         mechanics subproblem."""
@@ -328,15 +324,13 @@ class Biot(pp.Mpsa):
             "inverter", "numba"
         )
 
-
         scalar_vector_mappings: dict = parameter_dictionary["scalar_vector_mappings"]
-        scalar_vector_keys: list[str] = list(scalar_vector_mappings.keys())
+        coupling_keywords: list[str] = list(scalar_vector_mappings.keys())
 
         alpha: dict[str, pp.SecondOrderTensor] = {}
 
-        for key in self.coupling_keywords:
+        for key, alpha_input in scalar_vector_mappings.items():
             # TODO: Revisit 'biot_coupling_coefficient
-            alpha_input = sd_data[pp.PARAMETERS][key]['biot_coupling_coefficient']
             if isinstance(alpha_input, (float, int)):
                 alpha[key] = pp.SecondOrderTensor(alpha_input * np.ones(sd.num_cells))
             else:
@@ -410,7 +404,7 @@ class Biot(pp.Mpsa):
             {},
             {},
         )
-        for key in self.coupling_keywords:
+        for key in coupling_keywords:
             active_grad_p[key] = sps.csr_matrix((nf * nd, nc))
             active_div_u[key] = sps.csr_matrix((nc, nc * nd))
             active_bound_div_u[key] = sps.csr_matrix((nc, nf * nd))
@@ -540,7 +534,7 @@ class Biot(pp.Mpsa):
                 face_map_vec * loc_bound_displacement_face * face_map_vec.transpose()
             )
 
-            for key in self.coupling_keywords:
+            for key in coupling_keywords:
                 active_grad_p[key] += face_map_vec * loc_grad_p[key] * cell_map_scalar
                 active_div_u[key] += (
                     cell_map_scalar.transpose() * loc_div_u[key] * cell_map_vec
@@ -587,7 +581,7 @@ class Biot(pp.Mpsa):
         active_bound_displacement_pressure = (
             scaling_vector @ active_bound_displacement_pressure
         )
-        for key in self.couple_keywords:
+        for key in coupling_keywords:
             active_grad_p[key] = scaling_vector @ active_grad_p[key]
 
         # We are done with the discretization. What remains is to map the computed
@@ -612,7 +606,7 @@ class Biot(pp.Mpsa):
 
         grad_p, div_u, bound_div_u, stabilization = {}, {}, {}, {}
 
-        for key in self.coupling_keywords:
+        for key in coupling_keywords:
             grad_p[key] = face_map_vec * active_grad_p[key] * cell_map_scalar
             div_u[key] = (
                 cell_map_scalar.transpose() * active_div_u[key] * cell_map_vec
@@ -710,7 +704,7 @@ class Biot(pp.Mpsa):
             ] = bound_displacement_face
             matrices_m[self.bound_pressure_matrix_key] = bound_displacement_pressure
 
-            for key in self.coupling_keywords:
+            for key in coupling_keywords:
                 matrices[key][self.grad_p_matrix_key] = grad_p[key]
                 matrices[key][self.div_u_matrix_key] = div_u[key]
                 matrices[key][self.bound_div_u_matrix_key] = bound_div_u[key]
@@ -1323,7 +1317,7 @@ class DivU(Discretization):
         self.keyword = mechanics_keyword
 
         # Use the same key to access the discretization matrix as the Biot class.
-        biot_discr = Biot(coupling_keywords=[flow_keyword], mechanics_keyword=mechanics_keyword)
+        biot_discr = Biot(mechanics_keyword=mechanics_keyword)
         self.div_u_matrix_key = biot_discr.div_u_matrix_key
         self.bound_div_u_matrix_key = biot_discr.bound_div_u_matrix_key
         # We also need to specify the names of the displacement variables on the node
@@ -1430,7 +1424,7 @@ class BiotStabilization(Discretization):
         self.variable = variable
 
         # Use same keyword as in Biot class
-        self.stabilization_matrix_key = Biot().stabilization_matrix_key
+        self.stabilization_matrix_key = Biot([]).stabilization_matrix_key
 
     def ndof(self, sd: pp.Grid):
         """Return the number of degrees of freedom associated to the method.
