@@ -491,6 +491,7 @@ def match_grids_along_1d_mortar(
         # Only faces on the boundary of the 1d grid.
         face_map_segment = face_to_cell_old.T * between_cells * face_to_cell_new
 
+        #
         # Extend face-map to go from all faces in the new grid to all faces in the
         # old one.
         face_map = face_map_old.T * face_map_segment * face_map_new
