@@ -15,7 +15,7 @@ from case_3.flow_benchmark_3d import _flow_3d
 """
 
 
-class SolutionStrategyTest1(two_phase_hu.SolutionStrategyPressureMass):
+class SolutionStrategyCase3(two_phase_hu.SolutionStrategyPressureMass):
     def prepare_simulation(self) -> None:
         """ """
         self.clean_working_directory()
@@ -45,7 +45,7 @@ class SolutionStrategyTest1(two_phase_hu.SolutionStrategyPressureMass):
         self._initialize_linear_solver()
         self.set_nonlinear_discretizations()
 
-        self.save_data_time_step()  # it is in pp.viz.data_saving_model_mixin
+        self.save_data_time_step()
 
         self.computations_for_hu()
 
@@ -129,6 +129,24 @@ class SolutionStrategyTest1(two_phase_hu.SolutionStrategyPressureMass):
                 },
             )
 
+    # def after_nonlinear_iteration(self, solution_vector: np.ndarray) -> None:
+    #     """ """
+    #     self._nonlinear_iteration += 1
+    #     self.equation_system.shift_iterate_values()
+    #     self.equation_system.set_variable_values(
+    #         values=solution_vector, additive=True, iterate_index=0
+    #     )
+    #     self.clip_saturation()
+
+    #     # for sd in self.mdg.subdomains():
+    #     #     print("sd.dim = ", sd.dim)
+
+    #     np.set_printoptions(precision=16)
+    #     a = self.aperture(self.mdg.subdomains())
+    #     a = a.evaluate(self.equation_system)
+    #     print("a = ", a)
+    #     pdb.set_trace()
+
 
 class ConstitutiveLawCase3(
     pp.constitutive_laws.DimensionReduction,
@@ -204,47 +222,14 @@ class ConstitutiveLawCase3(
 
         return pp.ad.DenseArray(np.concatenate(phi))
 
-    def after_nonlinear_iteration(self, solution_vector: np.ndarray) -> None:
+    def grid_aperture(self, sd: pp.Grid) -> np.ndarray:
         """ """
-        self._nonlinear_iteration += 1
-        self.equation_system.shift_iterate_values()
-        self.equation_system.set_variable_values(
-            values=solution_vector, additive=True, iterate_index=0
-        )
-        self.clip_saturation()
-
-    def set_discretization_parameters(self) -> None:
-        """ """
-        for sd, data in self.mdg.subdomains(return_data=True):
-            pp.initialize_data(
-                sd,
-                data,
-                self.darcy_keyword,
-                {
-                    "bc": self.bc_type_darcy(sd),
-                    "second_order_tensor": self.intrinsic_permeability_tensor(sd),
-                    "ambient_dimension": self.nd,
-                },
-            )
-
-            pp.initialize_data(
-                sd,
-                data,
-                self.ppu_keyword,
-                {
-                    "bc": self.bc_type_darcy(sd),
-                },
-            )
-
-        for intf, intf_data in self.mdg.interfaces(return_data=True, codim=1):
-            pp.initialize_data(
-                intf,
-                intf_data,
-                self.darcy_keyword,
-                {
-                    "ambient_dimension": self.nd,
-                },
-            )
+        aperture = np.ones(sd.num_cells)
+        residual_aperture_by_dim = [1.0, 1e-4, 1e-2, 1.0]  # 0D, 1D, 2D, 3D
+        if sd.dim == 0:
+            warnings.warn("setting residual aperture to 0D grid")
+        aperture = residual_aperture_by_dim[sd.dim] * aperture
+        return aperture
 
 
 class GeometryCase3(pp.ModelGeometry):
@@ -291,7 +276,7 @@ class PartialFinalModel(
     two_phase_hu.Equations,
     ConstitutiveLawCase3,
     two_phase_hu.BoundaryConditionsPressureMass,
-    SolutionStrategyTest1,
+    SolutionStrategyCase3,
     GeometryCase3,
     pp.DataSavingMixin,
 ):
@@ -327,7 +312,7 @@ if __name__ == "__main__":
             "porosity": None,
             "intrinsic_permeability": None,
             "normal_permeability": None,
-            "residual_aperture": 1e-2 / L_0,
+            "residual_aperture": None,
         }
     )
 
@@ -343,10 +328,8 @@ if __name__ == "__main__":
         def __init__(self, params: Optional[dict] = None):
             super().__init__(params)
 
-            self.mdg_ref = None  # fine mesh
-            self.mdg = None  # coarse mesh
+            self.mdg = None
             self.cell_size = None
-            self.cell_size_ref = None
 
             # scaling values: (not all of them are actually used inside model)
             self.L_0 = L_0
@@ -394,9 +377,9 @@ if __name__ == "__main__":
     folder_name = "./case_3/hu/visualization"
 
     time_manager = two_phase_hu.TimeManagerPP(
-        schedule=np.array([0, 1]) / t_0,
-        dt_init=5e-3 / t_0,
-        dt_min_max=np.array([1e-5, 5e-3]) / t_0,
+        schedule=np.array([0, 5]) / t_0,
+        dt_init=2e-3 / t_0,
+        dt_min_max=np.array([1e-5, 2e-3]) / t_0,
         constant_dt=False,
         recomp_factor=0.5,
         recomp_max=10,

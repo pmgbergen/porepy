@@ -3,7 +3,6 @@ import scipy as sp
 import porepy as pp
 
 from typing import Callable, Optional, Type, Literal, Sequence, Union
-from types import NoneType
 from porepy.numerics.ad.forward_mode import AdArray, initAdArrays
 
 import porepy.models.two_phase_hu as two_phase_hu
@@ -590,10 +589,10 @@ class SolutionStrategyPressureMassPPU(two_phase_hu.SolutionStrategyPressureMass)
         self.set_discretization_parameters()
         self.rediscretize()
 
-    def flip_flop(self):
+    def flip_flop(self, dim_to_check):
         """ """
         for sd in self.mdg.subdomains():
-            if sd.dim == 2:
+            if sd.dim == dim_to_check:
                 darcy_phase_0 = (
                     self.darcy_flux_phase_0([sd], self.mixture.get_phase(0))
                     .evaluate(self.equation_system)
@@ -608,10 +607,10 @@ class SolutionStrategyPressureMassPPU(two_phase_hu.SolutionStrategyPressureMass)
                 sign_darcy_phase_0 = np.sign(darcy_phase_0)
                 sign_darcy_phase_1 = np.sign(darcy_phase_1)
 
-                if type(self.sign_darcy_phase_0_prev) == NoneType:
+                if self.sign_darcy_phase_0_prev is None:
                     self.sign_darcy_phase_0_prev = sign_darcy_phase_0
 
-                if type(self.sign_darcy_phase_1_prev) == NoneType:
+                if self.sign_darcy_phase_1_prev is None:
                     self.sign_darcy_phase_1_prev = sign_darcy_phase_1
 
                 number_flips_darcy_phase_0 = np.sum(

@@ -288,6 +288,7 @@ class DisplacementJumpAperture(DimensionReduction):
                 f_max = pp.ad.Function(pp.ad.maximum, "maximum_function")
 
                 a_ref = self.residual_aperture(subdomains_of_dim)
+                
                 apertures_of_dim = f_max(normal_jump + a_ref, a_ref)
                 apertures_of_dim.set_name("aperture_maximum_function")
                 apertures = (

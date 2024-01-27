@@ -2,7 +2,8 @@ import scipy as sp
 import numpy as np
 import scipy as sp
 import scipy.sparse as sps
-from types import NoneType
+
+# from types import NoneType # NoneType not present in 3.0 < python < 3.10
 import porepy as pp
 
 from typing import Callable, Optional, Type, Literal, Sequence, Union
@@ -1712,7 +1713,7 @@ class SolutionStrategyPressureMass(pp.SolutionStrategy):
                     total_flux_internal[0].val + total_flux_internal[1].val
                 )
                 if (
-                    type(self.sign_total_flux_internal_prev) == NoneType
+                    self.sign_total_flux_internal_prev is None
                 ):  # first iteration after initial condition
                     self.sign_total_flux_internal_prev = sign_total_flux_internal
 
@@ -1759,7 +1760,7 @@ class SolutionStrategyPressureMass(pp.SolutionStrategy):
 
                 sign_omega_0 = np.sign(omega_0.val)
 
-                if type(self.sign_omega_0_prev) == NoneType:
+                if self.sign_omega_0_prev is None:
                     self.sign_omega_0_prev = sign_omega_0
 
                 number_flips_omega_0 = np.sum(
@@ -1781,7 +1782,7 @@ class SolutionStrategyPressureMass(pp.SolutionStrategy):
 
                 sign_omega_1 = np.sign(omega_1.val)
 
-                if type(self.sign_omega_1_prev) == NoneType:
+                if self.sign_omega_1_prev is None:
                     self.sign_omega_1_prev = sign_omega_1
 
                 number_flips_omega_1 = np.sum(
