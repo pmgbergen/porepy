@@ -95,10 +95,10 @@ class BiotAd(Discretization):
     """
 
     def __init__(
-        self, keyword: str, subdomains: list[pp.Grid], coupling_keywords: list[str]
+        self, keyword: str, subdomains: list[pp.Grid]
     ) -> None:
         self.subdomains = subdomains
-        self._discretization = pp.Biot(coupling_keywords, keyword)
+        self._discretization = pp.Biot(keyword)
         self._name = "BiotMpsa"
 
         self.keyword = keyword
