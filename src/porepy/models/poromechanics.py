@@ -184,7 +184,7 @@ class SolutionStrategyPoromechanics(
         # of the diffusive flux in subdomains where the aperture changes.
         subdomains = [sd for sd in self.mdg.subdomains() if sd.dim < self.nd]
         self.add_nonlinear_discretization(
-            self.darcy_flux_discretization(subdomains).flux,
+            self.darcy_flux_discretization(subdomains).flux(),
         )
 
 
