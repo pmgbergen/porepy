@@ -192,12 +192,12 @@ class SolutionStrategyThermoporomechanics(
         # of the diffusive flux in subdomains where the aperture changes.
         subdomains = [sd for sd in self.mdg.subdomains() if sd.dim < self.nd]
         self.add_nonlinear_discretization(
-            self.darcy_flux_discretization(subdomains).flux,
+            self.darcy_flux_discretization(subdomains).flux(),
         )
         # Aperture and porosity changes render thermal conductivity variable. This
         # requires a re-discretization of the diffusive flux.
         self.add_nonlinear_discretization(
-            self.fourier_flux_discretization(self.mdg.subdomains()).flux,
+            self.fourier_flux_discretization(self.mdg.subdomains()).flux(),
         )
 
 
