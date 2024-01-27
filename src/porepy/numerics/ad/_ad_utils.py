@@ -169,14 +169,14 @@ def wrap_discretization(
             operators[discretization_key].update({phys_key: op})
 
 
-    def outer(discr_list, keyword):
+    def outer(discr_list):
         # Helper function for creating methods for coupling terms - it turned out that
         # this step was necessary to assign the discretization as a method to the
         # object.
-        def set_discr(keyword):
+        def set_discr():
             # From the list of discretizations, return the one corresponding to the
             # provided keyword.
-            return discr_list[keyword]
+            return list(discr_list.values())[0]
         return set_discr
 
     def get_merged_operator(discr_keyword):
@@ -202,7 +202,7 @@ def wrap_discretization(
         else:
             # This is a standard term, we can just return the discretization for the
             # main physics keyword.
-            func = lambda: list(discretization_list.values())[0]
+            func = outer(discretization_list)
         
         # Assign the discretization as a method to the object.
         setattr(obj, key, func)
@@ -236,7 +236,9 @@ def uniquify_discretization_list(
         # Get the class of the underlying discretization, so MpfaAd will return Mpfa.
         cls = discr._discr.__class__
         # Parameter keyword for this discretization
-        param_keyword = discr._physics_key
+        param_keyword = discr._discr.keyword
+        if isinstance(discr._discr, pp.Biot):
+            debug = []
 
         # This discretization-keyword combination
         key = (cls, param_keyword)
@@ -452,7 +454,7 @@ class MergedOperator(operators.Operator):
         name = discr.__class__.__name__
         super().__init__(name=name, domains=domains)
 
-        self._discretization_matrix_key = physics_key
+        self._discretization_matrix_key = discretization_matrix_key
         self._discr = discr
         
         self._physics_key = physics_key
@@ -466,7 +468,7 @@ class MergedOperator(operators.Operator):
         return s
 
     def __str__(self) -> str:
-        return f"{self._name}({self._physics_key}).{self._matrix_key}"
+        return f"{self._name}({self._physics_key}).{self._discretization_matrix_key}"
 
     def parse(self, mdg: pp.MixedDimensionalGrid) -> sps.spmatrix:
         """Convert a merged operator into a sparse matrix by concatenating
