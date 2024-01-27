@@ -234,9 +234,9 @@ def uniquify_discretization_list(
     cls_key_covered = []
     for discr in all_discr:
         # Get the class of the underlying discretization, so MpfaAd will return Mpfa.
-        cls = discr.discr.__class__
+        cls = discr._discr.__class__
         # Parameter keyword for this discretization
-        param_keyword = discr.keyword
+        param_keyword = discr._physics_key
 
         # This discretization-keyword combination
         key = (cls, param_keyword)
@@ -255,7 +255,7 @@ def uniquify_discretization_list(
                     unique_discr_grids[d].append(e)
         else:
             # Take note we have now encountered this discretization and parameter keyword.
-            cls_obj_map[cls] = discr.discr
+            cls_obj_map[cls] = discr._discr
             cls_key_covered.append(key)
 
             # Add new discretization with associated list of subdomains.
@@ -264,7 +264,7 @@ def uniquify_discretization_list(
             # the key-discr combination is encountered a second time and the
             # code enters the if part of this if-else).
             grid_likes = discr.subdomains.copy() + discr.interfaces.copy()
-            unique_discr_grids[discr.discr] = grid_likes
+            unique_discr_grids[discr._discr] = grid_likes
 
     return unique_discr_grids
 
