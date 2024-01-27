@@ -924,6 +924,10 @@ class Biot(pp.Mpsa):
 
         # Step 1
         if nd == 2:
+            # For 2d, we need to remove the z-component of alpha to ensure that the
+            # tensor has as many components as there are spatial dimensions. Do this on
+            # a copy to avoid changing the input.
+            alpha = alpha.copy()
             alpha.values = np.delete(alpha.values, (2), axis=0)
             alpha.values = np.delete(alpha.values, (2), axis=1)
 
