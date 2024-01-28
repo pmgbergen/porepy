@@ -22,6 +22,8 @@ def myprint(var):
 
 
 """
+OLD TEST
+
 """
 
 class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMass):

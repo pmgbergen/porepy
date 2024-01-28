@@ -22,7 +22,10 @@ def myprint(var):
 
 
 """
+OLD TEST
+
 """
+
 
 class BoundaryConditionsPressureMassTest:
     def bc_neu_phase_0(self, subdomains: list[pp.Grid]) -> pp.ad.DenseArray:
@@ -33,15 +36,21 @@ class BoundaryConditionsPressureMassTest:
         for sd in subdomains:
             if sd.dim == self.nd:
                 boundary_faces = self.domain_boundary_sides(sd).all_bf
-                
+
                 eps = 1e-6
-                left_boundary = np.where(sd.face_centers[0]<(0+eps))[0] # add xmin as in the tests pls
-                right_boundary = np.where(sd.face_centers[0]>(self.xmax-eps))[0] 
+                left_boundary = np.where(sd.face_centers[0] < (0 + eps))[
+                    0
+                ]  # add xmin as in the tests pls
+                right_boundary = np.where(sd.face_centers[0] > (self.xmax - eps))[0]
                 vals = np.zeros(sd.num_faces)
-                vals[left_boundary] = self.neu_val_left_phase_0 * sd.face_areas[left_boundary] # inlet
-                vals[right_boundary] = self.neu_val_right_phase_0 * sd.face_areas[right_boundary] # outlet
+                vals[left_boundary] = (
+                    self.neu_val_left_phase_0 * sd.face_areas[left_boundary]
+                )  # inlet
+                vals[right_boundary] = (
+                    self.neu_val_right_phase_0 * sd.face_areas[right_boundary]
+                )  # outlet
                 bc_values.append(vals)
-            
+
             else:
                 boundary_faces = self.domain_boundary_sides(sd).all_bf
 
@@ -50,32 +59,36 @@ class BoundaryConditionsPressureMassTest:
                     boundary_faces
                 ] = 0  # change this if you want different bc val # pay attention, there is a mistake in calance eq, take a look...
                 bc_values.append(vals)
-
 
         bc_values_array: pp.ad.DenseArray = pp.wrap_as_ad_array(
             np.hstack(bc_values), name="bc_values_flux"
         )
 
         return bc_values_array
-    
+
     def bc_neu_phase_1(self, subdomains: list[pp.Grid]) -> pp.ad.DenseArray:
-        """
-        """
+        """ """
 
         bc_values: list[np.ndarray] = []
 
         for sd in subdomains:
             if sd.dim == self.nd:
                 boundary_faces = self.domain_boundary_sides(sd).all_bf
-                
+
                 eps = 1e-6
-                left_boundary = np.where(sd.face_centers[0]<(0+eps))[0] # add xmin as in the tests pls
-                right_boundary = np.where(sd.face_centers[0]>(self.xmax-eps))[0]
+                left_boundary = np.where(sd.face_centers[0] < (0 + eps))[
+                    0
+                ]  # add xmin as in the tests pls
+                right_boundary = np.where(sd.face_centers[0] > (self.xmax - eps))[0]
                 vals = np.zeros(sd.num_faces)
-                vals[left_boundary] = self.neu_val_left_phase_1 * sd.face_areas[left_boundary] # inlet
-                vals[right_boundary] = self.neu_val_right_phase_1 * sd.face_areas[right_boundary] # outlet
+                vals[left_boundary] = (
+                    self.neu_val_left_phase_1 * sd.face_areas[left_boundary]
+                )  # inlet
+                vals[right_boundary] = (
+                    self.neu_val_right_phase_1 * sd.face_areas[right_boundary]
+                )  # outlet
                 bc_values.append(vals)
-            
+
             else:
                 boundary_faces = self.domain_boundary_sides(sd).all_bf
 
@@ -84,7 +97,6 @@ class BoundaryConditionsPressureMassTest:
                     boundary_faces
                 ] = 0  # change this if you want different bc val # pay attention, there is a mistake in calance eq, take a look...
                 bc_values.append(vals)
-
 
         bc_values_array: pp.ad.DenseArray = pp.wrap_as_ad_array(
             np.hstack(bc_values), name="bc_values_flux"
@@ -94,7 +106,6 @@ class BoundaryConditionsPressureMassTest:
 
 
 class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMass):
-   
     def initial_condition(self) -> None:
         """ """
         val = np.zeros(self.equation_system.num_dofs())
@@ -113,7 +124,6 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
                 .get_phase(self.ell)
                 .saturation_operator([sd])
             )
-
 
             saturation_values = self.saturation_values_2d
 
@@ -164,13 +174,13 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
                 },
             )
 
-          
     def eb_after_timestep(self):
         """ """
         print("self.time_manager.time = ", self.time_manager.time)
-        if np.isclose(np.mod(self.time_manager.time, 0.05), 0, rtol=0, atol=1e-4) or self.time_manager.time == self.time_manager.dt:
-            
-            
+        if (
+            np.isclose(np.mod(self.time_manager.time, 0.05), 0, rtol=0, atol=1e-4)
+            or self.time_manager.time == self.time_manager.dt
+        ):
             for sd, _ in self.mdg.subdomains(return_data=True):
                 gigi = (
                     # self.mixture.mixture_for_subdomain(self.equation_system, sd)
@@ -178,10 +188,7 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
                     .get_phase(0)
                     .saturation
                 )
-                gigi_1 = (self.mixture.mixture_for_subdomain(sd)
-                    .get_phase(1)
-                    .saturation)
-        
+                gigi_1 = self.mixture.mixture_for_subdomain(sd).get_phase(1).saturation
 
                 ppp = self.equation_system.md_variable("pressure", [sd]).evaluate(
                     self.equation_system
@@ -189,9 +196,8 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
 
                 print("saturation = ", gigi.val)
                 # print("pressure = ", ppp.val)
-                
-                
-                if sd.dim > 0: # otherwise plot_grid gets mad
+
+                if sd.dim > 0:  # otherwise plot_grid gets mad
                     pp.plot_grid(
                         sd,
                         gigi.val,
@@ -208,124 +214,143 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
                     # )
                     # pp.plot_grid(sd, ppp.val, alpha=0.5, info="", title="pressure")
 
-
         # TEST: ---------------------------------------------------------------------------
 
         if self.case == 4:
-            for subdomain in self.mdg.subdomains(): # again, where is "get subdomain"?
+            for subdomain in self.mdg.subdomains():  # again, where is "get subdomain"?
                 if subdomain.dim == 2:
                     sd = subdomain
-            
 
-            ff0 = - self.neu_val_left_phase_0 # inlet boundary condition
-            delta_m_ex_phase_0 = ff0 * self.time_manager.dt_init # I assume dt is correct
+            ff0 = -self.neu_val_left_phase_0  # inlet boundary condition
+            delta_m_ex_phase_0 = (
+                ff0 * self.time_manager.dt_init
+            )  # I assume dt is correct
 
-            m_old_phase_0 = 2 * ( 0.25 * 1 * 1 * 0.5 ) 
-            m_new_phase_0 = np.sum( sd.cell_volumes * self.solid.porosity() * self.mixture.get_phase(0).mass_density( self.pressure([sd]).evaluate(self.equation_system).val ) * self.mixture.get_phase(0).saturation.val ) 
+            m_old_phase_0 = 2 * (0.25 * 1 * 1 * 0.5)
+            m_new_phase_0 = np.sum(
+                sd.cell_volumes
+                * self.solid.porosity()
+                * self.mixture.get_phase(0).mass_density(
+                    self.pressure([sd]).evaluate(self.equation_system).val
+                )
+                * self.mixture.get_phase(0).saturation.val
+            )
             delta_m_phase_0 = m_new_phase_0 - m_old_phase_0
 
             print("\ndelta_m_ex_phase_0 = ", delta_m_ex_phase_0)
             print("delta_m_phase_0 = ", delta_m_phase_0)
 
-            assert np.isclose( delta_m_phase_0, delta_m_ex_phase_0, rtol=0, atol=1e-10 )
-        
+            assert np.isclose(delta_m_phase_0, delta_m_ex_phase_0, rtol=0, atol=1e-10)
+
         if self.case == 5:
-            for subdomain in self.mdg.subdomains(): # again, where is "get subdomain"?
+            for subdomain in self.mdg.subdomains():  # again, where is "get subdomain"?
                 if subdomain.dim == 2:
                     sd = subdomain
-            
 
-            ff0 = - self.neu_val_left_phase_0 # inlet boundary condition
-            delta_m_ex_phase_0 = ff0 * self.time_manager.dt_init # I assume dt is correct
+            ff0 = -self.neu_val_left_phase_0  # inlet boundary condition
+            delta_m_ex_phase_0 = (
+                ff0 * self.time_manager.dt_init
+            )  # I assume dt is correct
 
-            m_old_phase_0 = 2 * ( 0.25 * 1 * 1 * 0.5 ) 
-            m_new_phase_0 = np.sum( sd.cell_volumes * self.solid.porosity() * self.mixture.get_phase(0).mass_density( self.pressure([sd]).evaluate(self.equation_system).val ) * self.mixture.get_phase(0).saturation.val ) 
+            m_old_phase_0 = 2 * (0.25 * 1 * 1 * 0.5)
+            m_new_phase_0 = np.sum(
+                sd.cell_volumes
+                * self.solid.porosity()
+                * self.mixture.get_phase(0).mass_density(
+                    self.pressure([sd]).evaluate(self.equation_system).val
+                )
+                * self.mixture.get_phase(0).saturation.val
+            )
             delta_m_phase_0 = m_new_phase_0 - m_old_phase_0
 
             print("\ndelta_m_ex_phase_0 = ", delta_m_ex_phase_0)
             print("delta_m_phase_0 = ", delta_m_phase_0)
 
-            assert np.isclose( delta_m_phase_0, delta_m_ex_phase_0, rtol=0, atol=1e-10 )
-        
+            assert np.isclose(delta_m_phase_0, delta_m_ex_phase_0, rtol=0, atol=1e-10)
 
         if self.case == 6:
-            for subdomain in self.mdg.subdomains(): # again, where is "get subdomain"?
+            for subdomain in self.mdg.subdomains():  # again, where is "get subdomain"?
                 if subdomain.dim == 2:
                     sd = subdomain
-            
 
-            ff0 = -2 * self.neu_val_left_phase_0 # inlet boundary condition
-            delta_m_ex_phase_0 = ff0 * self.time_manager.dt_init # I assume dt is correct
+            ff0 = -2 * self.neu_val_left_phase_0  # inlet boundary condition
+            delta_m_ex_phase_0 = (
+                ff0 * self.time_manager.dt_init
+            )  # I assume dt is correct
 
-            m_old_phase_0 = 2 * ( 0.25 * 1 * 1 * 0.5 ) 
-            m_new_phase_0 = np.sum( sd.cell_volumes * self.solid.porosity() * self.mixture.get_phase(0).mass_density( self.pressure([sd]).evaluate(self.equation_system).val ) * self.mixture.get_phase(0).saturation.val ) 
+            m_old_phase_0 = 2 * (0.25 * 1 * 1 * 0.5)
+            m_new_phase_0 = np.sum(
+                sd.cell_volumes
+                * self.solid.porosity()
+                * self.mixture.get_phase(0).mass_density(
+                    self.pressure([sd]).evaluate(self.equation_system).val
+                )
+                * self.mixture.get_phase(0).saturation.val
+            )
             delta_m_phase_0 = m_new_phase_0 - m_old_phase_0
 
             print("\ndelta_m_ex_phase_0 = ", delta_m_ex_phase_0)
             print("delta_m_phase_0 = ", delta_m_phase_0)
 
-            assert np.isclose( delta_m_phase_0, delta_m_ex_phase_0, rtol=0, atol=1e-10 )
-        
+            assert np.isclose(delta_m_phase_0, delta_m_ex_phase_0, rtol=0, atol=1e-10)
 
         if self.case == 7:
-            for subdomain in self.mdg.subdomains(): # again, where is "get subdomain"?
+            for subdomain in self.mdg.subdomains():  # again, where is "get subdomain"?
                 if subdomain.dim == 2:
                     sd = subdomain
-            
 
-            ff0 = -2 * self.neu_val_left_phase_0 # inlet boundary condition
-            delta_m_ex_phase_0 = ff0 * self.time_manager.dt_init # I assume dt is correct
+            ff0 = -2 * self.neu_val_left_phase_0  # inlet boundary condition
+            delta_m_ex_phase_0 = (
+                ff0 * self.time_manager.dt_init
+            )  # I assume dt is correct
 
-            m_old_phase_0 = 2 * ( 0.25 * 1 * 1 * 0.5 ) 
-            m_new_phase_0 = np.sum( sd.cell_volumes * self.solid.porosity() * self.mixture.get_phase(0).mass_density( self.pressure([sd]).evaluate(self.equation_system).val ) * self.mixture.get_phase(0).saturation.val ) 
+            m_old_phase_0 = 2 * (0.25 * 1 * 1 * 0.5)
+            m_new_phase_0 = np.sum(
+                sd.cell_volumes
+                * self.solid.porosity()
+                * self.mixture.get_phase(0).mass_density(
+                    self.pressure([sd]).evaluate(self.equation_system).val
+                )
+                * self.mixture.get_phase(0).saturation.val
+            )
             delta_m_phase_0 = m_new_phase_0 - m_old_phase_0
 
             print("\ndelta_m_ex_phase_0 = ", delta_m_ex_phase_0)
             print("delta_m_phase_0 = ", delta_m_phase_0)
 
-            assert np.isclose( delta_m_phase_0, delta_m_ex_phase_0, rtol=0, atol=1e-10 )
-        
+            assert np.isclose(delta_m_phase_0, delta_m_ex_phase_0, rtol=0, atol=1e-10)
 
         if self.case == 8:
-            for subdomain in self.mdg.subdomains(): # again, where is "get subdomain"?
+            for subdomain in self.mdg.subdomains():  # again, where is "get subdomain"?
                 if subdomain.dim == 2:
                     sd = subdomain
-            
 
-            ff0 = -self.neu_val_left_phase_0 # inlet boundary condition
-            delta_m_ex_phase_0 = ff0 * self.time_manager.dt_init # I assume dt is correct
+            ff0 = -self.neu_val_left_phase_0  # inlet boundary condition
+            delta_m_ex_phase_0 = (
+                ff0 * self.time_manager.dt_init
+            )  # I assume dt is correct
 
-            m_old_phase_0 = 2 * ( 0.25 * 1 * 1 * 0.5 ) 
-            m_new_phase_0 = np.sum( sd.cell_volumes * self.solid.porosity() * self.mixture.get_phase(0).mass_density( self.pressure([sd]).evaluate(self.equation_system).val ) * self.mixture.get_phase(0).saturation.val ) 
+            m_old_phase_0 = 2 * (0.25 * 1 * 1 * 0.5)
+            m_new_phase_0 = np.sum(
+                sd.cell_volumes
+                * self.solid.porosity()
+                * self.mixture.get_phase(0).mass_density(
+                    self.pressure([sd]).evaluate(self.equation_system).val
+                )
+                * self.mixture.get_phase(0).saturation.val
+            )
             delta_m_phase_0 = m_new_phase_0 - m_old_phase_0
 
             print("\ndelta_m_ex_phase_0 = ", delta_m_ex_phase_0)
             print("delta_m_phase_0 = ", delta_m_phase_0)
 
-            assert np.isclose( delta_m_phase_0, delta_m_ex_phase_0, rtol=0, atol=1e-10 )
-        
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+            assert np.isclose(delta_m_phase_0, delta_m_ex_phase_0, rtol=0, atol=1e-10)
 
         print("\n\n\n TEST PASSED ----------------------------------------")
 
         pdb.set_trace()
 
-             
+
 class MyModelGeometry(pp.ModelGeometry):
     def set_geometry(self) -> None:
         """ """
@@ -361,17 +386,22 @@ class MyModelGeometry(pp.ModelGeometry):
         # self._domain = pp.applications.md_grids.domains.nd_cube_domain(2, self.size)
 
         # unstructred unit square:
-        bounding_box = {"xmin": 0, "xmax": self.xmax, "ymin": 0, "ymax": self.ymax} #, "zmin": 0, "zmax": 1}
+        bounding_box = {
+            "xmin": 0,
+            "xmax": self.xmax,
+            "ymin": 0,
+            "ymax": self.ymax,
+        }  # , "zmin": 0, "zmax": 1}
         self._domain = pp.Domain(bounding_box=bounding_box)
 
     def set_fractures(self) -> None:
         """ """
-        self._fractures: list = [] #[frac1]
+        self._fractures: list = []  # [frac1]
 
     def meshing_arguments(self) -> dict[str, float]:
         """ """
         default_meshing_args: dict[str, float] = {
-            "cell_size": 1 / self.units.m, # 0.05
+            "cell_size": 1 / self.units.m,  # 0.05
             "cell_size_fracture": 0.1 / self.units.m,
         }
         return self.params.get("meshing_arguments", default_meshing_args)
@@ -388,15 +418,16 @@ class PartialFinalModel(
 ):
     """ """
 
+
 fluid_constants = pp.FluidConstants({})
 solid_constants = pp.SolidConstants(
-        {
-            "porosity": 0.25,
-            "permeability": 1,
-            "normal_permeability": 1, # this does NOT include the aperture
-            "residual_aperture": 0.1,
-        }
-    )
+    {
+        "porosity": 0.25,
+        "permeability": 1,
+        "normal_permeability": 1,  # this does NOT include the aperture
+        "residual_aperture": 0.1,
+    }
+)
 # material_constants = {"solid": solid_constants}
 material_constants = {"fluid": fluid_constants, "solid": solid_constants}
 
@@ -417,15 +448,14 @@ params = {
 }
 
 
-
 class FinalModelNeu(PartialFinalModel):  # I'm sorry...
     def __init__(self, mixture, params: Optional[dict] = None):
         super().__init__(params)
         self.mixture = mixture
-        self.ell = 0  
-        self.gravity_value = 1  
-        self.dynamic_viscosity = 1 
-        
+        self.ell = 0
+        self.gravity_value = 1
+        self.dynamic_viscosity = 1
+
         self.case = None
         self.xmax = None
         self.ymax = None
@@ -437,142 +467,140 @@ class FinalModelNeu(PartialFinalModel):  # I'm sorry...
         self.neu_val_left_phase_1 = None
         self.neu_val_right_phase_1 = None
 
+
 wetting_phase = pp.composite.phase.Phase(rho0=1)
 non_wetting_phase = pp.composite.phase.Phase(rho0=0.5)
 
 mixture = pp.Mixture()
 mixture.add([wetting_phase, non_wetting_phase])
 
-model = FinalModelNeu(mixture, params) # why... add it directly as attribute: model.mixture = mixture
+model = FinalModelNeu(
+    mixture, params
+)  # why... add it directly as attribute: model.mixture = mixture
 
 
-case = 4 # cases 1,2,3 only graphical. cases 4,5,... realt tests
+case = 4  # cases 1,2,3 only graphical. cases 4,5,... realt tests
 model.case = case
 
 # inlet < 1
 # outlet > 1
 
 
-
-'''
+"""
 NOTE: 
 - newton converges to a non-physical solution for high dt. IT CONVERGES. Sometimes.
 - missing tests at successive timesteps
 
 
-'''
-
+"""
 
 
 if case == 1:
     model.xmax = 2
     model.ymax = 1
     model.gravity_value = 1
-    model.saturation_values_2d = 1 * np.ones(model.xmax * model.ymax) # dont hate me, please, I have my issues...
+    model.saturation_values_2d = 1 * np.ones(
+        model.xmax * model.ymax
+    )  # dont hate me, please, I have my issues...
     # model.pressure_values_2d = 1 * np.ones(model.xmax * model.ymax)
 
-    model.neu_val_left_phase_0  = 0 
-    model.neu_val_right_phase_0 = 0 
-    model.neu_val_left_phase_1  = 0 
+    model.neu_val_left_phase_0 = 0
+    model.neu_val_right_phase_0 = 0
+    model.neu_val_left_phase_1 = 0
     model.neu_val_right_phase_1 = 0
-    
+
     # model.time_manager.dt_init = 1e-2 # YOU WISH! Why can't I modify the timestep after the creation of the time manager?
 
-if case == 2:  
+if case == 2:
     model.xmax = 2
     model.ymax = 1
     model.gravity_value = 0
-    model.saturation_values_2d = 1 * np.ones(model.xmax * model.ymax) 
+    model.saturation_values_2d = 1 * np.ones(model.xmax * model.ymax)
     model.pressure_values_2d = 1 * np.ones(model.xmax * model.ymax)
 
-    model.neu_val_left_phase_0  = 0 
-    model.neu_val_right_phase_0 = 1 
-    model.neu_val_left_phase_1  = -1 
-    model.neu_val_right_phase_1 = 0 
+    model.neu_val_left_phase_0 = 0
+    model.neu_val_right_phase_0 = 1
+    model.neu_val_left_phase_1 = -1
+    model.neu_val_right_phase_1 = 0
 
-if case == 3:  
+if case == 3:
     model.xmax = 3
     model.ymax = 1
     model.gravity_value = 0
-    model.saturation_values_2d = 1 * np.ones(model.xmax * model.ymax) 
+    model.saturation_values_2d = 1 * np.ones(model.xmax * model.ymax)
     model.pressure_values_2d = 1 * np.ones(model.xmax * model.ymax)
 
-    model.neu_val_left_phase_0  = -1 # immetto fase presente
-    model.neu_val_right_phase_0 = 0 
-    model.neu_val_left_phase_1  = 1 # tolgo quella assente
-    model.neu_val_right_phase_1 = 0 
+    model.neu_val_left_phase_0 = -1  # immetto fase presente
+    model.neu_val_right_phase_0 = 0
+    model.neu_val_left_phase_1 = 1  # tolgo quella assente
+    model.neu_val_right_phase_1 = 0
 
     # ottengo valori non fisici, esattamente come ci si aspetta, E NON SI PROPAGANO
 
 
-
-
-
-
-if case == 4: # horizontal
+if case == 4:  # horizontal
     model.xmax = 2
     model.ymax = 1
     model.gravity_value = 1
-    model.saturation_values_2d = 0.5 * np.ones(model.xmax * model.ymax) 
+    model.saturation_values_2d = 0.5 * np.ones(model.xmax * model.ymax)
     model.pressure_values_2d = 1 * np.ones(model.xmax * model.ymax)
 
-    model.neu_val_left_phase_0  = -1.0
-    model.neu_val_right_phase_0 = 0 
-    model.neu_val_left_phase_1  = 0
+    model.neu_val_left_phase_0 = -1.0
+    model.neu_val_right_phase_0 = 0
+    model.neu_val_left_phase_1 = 0
     model.neu_val_right_phase_1 = 1.0
 
 
-if case == 5: # horizontal
+if case == 5:  # horizontal
     model.xmax = 2
     model.ymax = 1
     model.gravity_value = 0
-    model.saturation_values_2d = 0.5 * np.ones(model.xmax * model.ymax) 
+    model.saturation_values_2d = 0.5 * np.ones(model.xmax * model.ymax)
     model.pressure_values_2d = 1 * np.ones(model.xmax * model.ymax)
 
-    model.neu_val_left_phase_0  = -1.0
-    model.neu_val_right_phase_0 = 0 
-    model.neu_val_left_phase_1  = 0
+    model.neu_val_left_phase_0 = -1.0
+    model.neu_val_right_phase_0 = 0
+    model.neu_val_left_phase_1 = 0
     model.neu_val_right_phase_1 = 1.0
 
 
-if case == 6: # vertical
+if case == 6:  # vertical
     model.xmax = 1
     model.ymax = 2
     model.gravity_value = 1
-    model.saturation_values_2d = 0.5 * np.ones(model.xmax * model.ymax) 
+    model.saturation_values_2d = 0.5 * np.ones(model.xmax * model.ymax)
     model.pressure_values_2d = 1 * np.ones(model.xmax * model.ymax)
 
-    model.neu_val_left_phase_0  = -1.0
-    model.neu_val_right_phase_0 = 0 
-    model.neu_val_left_phase_1  = 0
+    model.neu_val_left_phase_0 = -1.0
+    model.neu_val_right_phase_0 = 0
+    model.neu_val_left_phase_1 = 0
     model.neu_val_right_phase_1 = 1
 
 
-if case == 7: # vertical
+if case == 7:  # vertical
     model.xmax = 1
     model.ymax = 2
     model.gravity_value = 0
-    model.saturation_values_2d = 0.5 * np.ones(model.xmax * model.ymax) 
+    model.saturation_values_2d = 0.5 * np.ones(model.xmax * model.ymax)
     model.pressure_values_2d = 1 * np.ones(model.xmax * model.ymax)
 
-    model.neu_val_left_phase_0  = -1.0
-    model.neu_val_right_phase_0 = 0 
-    model.neu_val_left_phase_1  = 0
+    model.neu_val_left_phase_0 = -1.0
+    model.neu_val_right_phase_0 = 0
+    model.neu_val_left_phase_1 = 0
     model.neu_val_right_phase_1 = 1
 
 
-if case == 8: # not physical
+if case == 8:  # not physical
     model.xmax = 2
     model.ymax = 1
     model.gravity_value = 0
-    model.saturation_values_2d = 0.5 * np.ones(model.xmax * model.ymax) 
+    model.saturation_values_2d = 0.5 * np.ones(model.xmax * model.ymax)
     model.pressure_values_2d = 1 * np.ones(model.xmax * model.ymax)
 
-    model.neu_val_left_phase_0  = -1.0
-    model.neu_val_right_phase_0 = 0 
-    model.neu_val_left_phase_1  = 0
+    model.neu_val_left_phase_0 = -1.0
+    model.neu_val_right_phase_0 = 0
+    model.neu_val_left_phase_1 = 0
     model.neu_val_right_phase_1 = 0
-
 
 
 pp.run_time_dependent_model(model, params)

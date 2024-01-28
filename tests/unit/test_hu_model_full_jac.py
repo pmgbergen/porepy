@@ -17,13 +17,14 @@ os.system("clear")
 
 
 """
+OLD TEST
+
 NOTE: 
 - test copied from test_hu, so see comments there
 - accumulation and sources = 0
 - g = 1
 - p = [1,0]
 - constant density
-(- come negli altri test, ci potrebbero esser problemi con la mixture che non ho proprio capito)
 
 """
 

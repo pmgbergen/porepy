@@ -3,13 +3,13 @@ import numpy as np
 import scipy as sp
 import scipy.sparse as sps
 
-# from types import NoneType # NoneType not present in 3.0 < python < 3.10
 import porepy as pp
 
 from typing import Callable, Optional, Type, Literal, Sequence, Union
 from porepy.numerics.ad.forward_mode import AdArray, initAdArrays
 
 import copy
+import warnings
 
 import os
 import sys
@@ -23,20 +23,15 @@ def myprint(var):
 
 
 """
-- TODO: is it physically right to consider mu (dynamic viscosity, mu = nu/rho) constant? 
-- TODO: not 100% sure about avg and int
 - TODO: normalization to reduce condition number
 - TODO: see todos in the code
 - TODO: I'd like to reactivate the complex step to see how much worse/better it is
 - TODO: fix the timestep, the simulation ends after final time
-- TODO: params is a mess, it contains keys about physics and numerics used by model and newton solver. Can't I write everything directly into the model?
+- TODO: params is a mess, it contains keys about physics and numerics used by model and newton solver. Isnt it better to write everything strainght into the model?
 - TODO: the scaling how it is implemented now is a mess. There should be a method inside the model that takes care of the scaling. I don't like units
 - TODO: major review of the interaction run_time_dependent_simulation-Newton-model
 
-- TODO SOON: there is something wrong with the scaling, Ka_0 shouldnt affects the results
-
-NOTE:
-- two strategies are implemented to ensure S in [0,1]: cplipping and timestep chopping
+- NOTE: two strategies are implemented to ensure S in [0,1]: clipping and timestep chopping
 """
 
 
@@ -550,7 +545,7 @@ class Equations(pp.BalanceEquation):
             source,
         )
 
-    def pressure_equation(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+    def pressure_equation(self, subdomains: list[pp.Grid]) -> pp.ad.Operator: # need this for tests
         eq, _, _, _, _, _, _, _, _ = self.eq_fcn_pressure(subdomains)
         return eq
 
@@ -1432,7 +1427,7 @@ class SolutionStrategyPressureMass(pp.SolutionStrategy):
         return pp.wrap_as_ad_array(0, num_faces, "bc_values_darcy")
 
     def intrinsic_permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """TODO: wrong place, move it"""
+        """TODO: wrong place, move it into constitutive laws"""
         size = sum(sd.num_cells for sd in subdomains)
         permeability = pp.wrap_as_ad_array(
             self.solid.permeability(), size, name="intrinsic_permeability"
@@ -1440,7 +1435,7 @@ class SolutionStrategyPressureMass(pp.SolutionStrategy):
         return permeability
 
     def intrinsic_permeability_tensor(self, sd: pp.Grid) -> pp.SecondOrderTensor:
-        """TODO: wrong place, move it"""
+        """TODO: wrong place, move it into constitutive laws"""
         permeability_ad = self.specific_volume([sd]) * self.intrinsic_permeability([sd])
         try:
             permeability = permeability_ad.evaluate(self.equation_system)
@@ -1452,7 +1447,7 @@ class SolutionStrategyPressureMass(pp.SolutionStrategy):
         return pp.SecondOrderTensor(permeability)
 
     def normal_perm(self, interfaces):
-        """ """
+        """TODO: wrong place, move it into constitutive laws"""
         return pp.ad.Scalar(self.solid.normal_permeability())
 
     def discretize(self) -> None:
@@ -1635,7 +1630,7 @@ class SolutionStrategyPressureMass(pp.SolutionStrategy):
         if self._is_nonlinear_problem():
             print("\n===========================================")
             print(
-                "Nonlinear iterations did not converge. I'm going to reduce the time step"
+                "Nonlinear iterations did not converge. The time step is going to be reduced"
             )
             print("===========================================")
 
@@ -1834,7 +1829,7 @@ class SolutionStrategyPressureMass(pp.SolutionStrategy):
             """ """
             alpha = 1.0  # as in the paper 2022
 
-            kr0 = permeability(saturation=1)  # TODO: is it right?
+            kr0 = permeability(saturation=1)
 
             def second_derivative(permeability, val):
                 """sorry, I'm lazy..."""
@@ -2165,7 +2160,7 @@ if __name__ == "__main__":
 
             self.mixture = mixture
             self.ell = 0
-            self.gravity_value = 1 / self.gravity_0  # pp.GRAVITY_ACCELERATION
+            self.gravity_value = 1 / self.gravity_0
             self.dynamic_viscosity = (
                 1 / self.dynamic_viscosity_0
             )  # TODO: wrong place...

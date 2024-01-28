@@ -23,11 +23,11 @@ def myprint(var):
 
 
 class EquationsPPU(two_phase_hu.Equations):
-    """I dont see the point of splitting this class more than this, I prefer commented titles instead of mixin classes"""
+    """"""
 
     # PRESSURE EQUATION: -------------------------------------------------------------------------------------------------
 
-    def eq_fcn_pressure(self, subdomains):  # I suck in python. I need this for tests.
+    def eq_fcn_pressure(self, subdomains):
         # accumulation term: ------------------------------
         mass_density_phase_0 = self.mixture.get_phase(0).mass_density_operator(
             subdomains, self.pressure
@@ -180,7 +180,7 @@ class EquationsPPU(two_phase_hu.Equations):
 
     # MASS BALANCE: ----------------------------------------------------------------------------------------------------------------
 
-    def eq_fcn_mass(self, subdomains):  # I suck in python. I need this for tests.
+    def eq_fcn_mass(self, subdomains):
         # accumulation term: ------------------------------------------------
         mass_density = (
             self.porosity(subdomains)
@@ -355,7 +355,7 @@ class EquationsPPU(two_phase_hu.Equations):
 
     def darcy_flux_phase_0(self, subdomains: list[pp.Grid], phase) -> pp.ad.Operator:
         """
-        - TODO: why the heck is there a phase as input
+        - TODO: why is there a phase as input
         """
         interfaces: list[pp.MortarGrid] = self.subdomains_to_interfaces(subdomains, [1])
         projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1)
@@ -378,10 +378,7 @@ class EquationsPPU(two_phase_hu.Equations):
                 @ self.interface_mortar_flux_phase_0(interfaces)
             )
             - discr.vector_source
-            @ (
-                rho  ### VECTOR source, not scalar source
-                * self.vector_source(subdomains)
-            )  # NOTE: mass_density not upwinded
+            @ (rho * self.vector_source(subdomains))  # NOTE: mass_density not upwinded
         )
 
         flux.set_name("darcy_flux_phase_0")
@@ -645,7 +642,6 @@ class PartialFinalModel(
 
 if __name__ == "__main__":
     # scaling:
-    # very bad logic, improve it...
     L_0 = 1
     gravity_0 = 1
     dynamic_viscosity_0 = 1
@@ -695,9 +691,7 @@ if __name__ == "__main__":
         "time_manager": time_manager,
     }
 
-    wetting_phase = pp.composite.phase.Phase(
-        rho0=1 / rho_0, p0=p_0, beta=1e-10
-    )  # TODO: improve that p0, different menaing wrt rho0
+    wetting_phase = pp.composite.phase.Phase(rho0=1 / rho_0, p0=p_0, beta=1e-10)
     non_wetting_phase = pp.composite.phase.Phase(rho0=0.5 / rho_0, p0=p_0, beta=1e-10)
 
     mixture = pp.Mixture()

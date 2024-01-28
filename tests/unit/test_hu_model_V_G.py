@@ -16,9 +16,11 @@ import pdb
 
 os.system("clear")
 
-"""
 
 """
+OLD TEST
+"""
+
 
 class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMass):
     def initial_condition(self) -> None:
@@ -87,11 +89,7 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
             )
 
         for sd in self.mdg.subdomains():
-            gigi = (
-                self.mixture.mixture_for_subdomain(sd)
-                .get_phase(0)
-                .saturation
-            )
+            gigi = self.mixture.mixture_for_subdomain(sd).get_phase(0).saturation
             print("saturation = ", gigi.val)
             pp.plot_grid(
                 sd,
@@ -134,7 +132,7 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
             data["for_hu"]["total_flux_internal"] = (
                 total_flux_internal[0] + total_flux_internal[1]
             )
-            
+
             data["for_hu"]["pressure_AdArray"] = self.pressure([sd]).evaluate(
                 self.equation_system
             )
@@ -194,43 +192,58 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
         print("\nrho_V = ", rho_V)
         print("\nrho_G = ", rho_G)
 
-        if self.case == 1: # p = [1,0], g = 0
+        if self.case == 1:  # p = [1,0], g = 0
             assert np.all(rho_V == np.array([0, 0, 0, 0, 0, 1, 0]))
 
-        if self.case == 2: # p = [1,0], g = 1
-            np.all(np.isclose(rho_V, np.array([0, 0, 0, 0, 0, 0, 0])))  # IF COMPRESSIBLE I GET A SMALL VALUE OF THE SAME ORDER OF MAGNITUDE OF COMPRESSIBIITY
+        if self.case == 2:  # p = [1,0], g = 1
+            np.all(
+                np.isclose(rho_V, np.array([0, 0, 0, 0, 0, 0, 0]))
+            )  # IF COMPRESSIBLE I GET A SMALL VALUE OF THE SAME ORDER OF MAGNITUDE OF COMPRESSIBIITY
 
-        if self.case == 3: # s = [1, 1] => G = 0
+        if self.case == 3:  # s = [1, 1] => G = 0
             assert np.all(
                 rho_G == np.array([0, 0, 0, 0, 0, 0, 0])
-            ) # PASSED. IF COMPRESSIBLE I GET A SMALL VALUE OF THE SAME ORDER OF MAGNITUDE OF COMPRESSIBIITY
+            )  # PASSED. IF COMPRESSIBLE I GET A SMALL VALUE OF THE SAME ORDER OF MAGNITUDE OF COMPRESSIBIITY
 
-        if self.case == 4: # s = [0, 1] 
-            assert np.all(np.isclose(
-                rho_G, np.array([0, 0, 0, 0, 0, -0.5, 0]), rtol=0, atol=1e-3 )) # PASSED. if compressible not exaclty -0.5
-
+        if self.case == 4:  # s = [0, 1]
+            assert np.all(
+                np.isclose(rho_G, np.array([0, 0, 0, 0, 0, -0.5, 0]), rtol=0, atol=1e-3)
+            )  # PASSED. if compressible not exaclty -0.5
 
         # same with larger cell:
-        if self.case == 5: # p = [1,0], g = 0
-            assert np.all(np.isclose(rho_V, self.x_multiplier*np.array([0, 0, 0, 0, 0, 1, 0]), rtol=0, atol=1e-14))
-
-        if self.case == 6: # p = [1,0], g = 1
-            np.all(np.isclose(rho_V, self.x_multiplier*np.array([0, 0, 0, 0, 0, 0, 0])))  # PASSED...
-
-        if self.case == 7: # s = [1, 1] => G = 0
+        if self.case == 5:  # p = [1,0], g = 0
             assert np.all(
-                rho_G == self.x_multiplier*np.array([0, 0, 0, 0, 0, 0, 0])
-            ) # PASSED...
+                np.isclose(
+                    rho_V,
+                    self.x_multiplier * np.array([0, 0, 0, 0, 0, 1, 0]),
+                    rtol=0,
+                    atol=1e-14,
+                )
+            )
 
-        if self.case == 8: # s = [0, 1] 
-            assert np.all(np.isclose(
-                rho_G, self.x_multiplier*np.array([0, 0, 0, 0, 0, -0.5, 0]), rtol=0, atol=1e-8 )) # atol = 1e-3 if compressible    
-        
-        
+        if self.case == 6:  # p = [1,0], g = 1
+            np.all(
+                np.isclose(rho_V, self.x_multiplier * np.array([0, 0, 0, 0, 0, 0, 0]))
+            )  # PASSED...
+
+        if self.case == 7:  # s = [1, 1] => G = 0
+            assert np.all(
+                rho_G == self.x_multiplier * np.array([0, 0, 0, 0, 0, 0, 0])
+            )  # PASSED...
+
+        if self.case == 8:  # s = [0, 1]
+            assert np.all(
+                np.isclose(
+                    rho_G,
+                    self.x_multiplier * np.array([0, 0, 0, 0, 0, -0.5, 0]),
+                    rtol=0,
+                    atol=1e-8,
+                )
+            )  # atol = 1e-3 if compressible
 
         print("\n\n TEST PASSED ------------------- ")
         pdb.set_trace()
-        
+
         self.set_discretization_parameters()
         self.rediscretize()
 
@@ -239,7 +252,7 @@ class MyModelGeometryTest(pp.ModelGeometry):
     def set_geometry(self) -> None:
         """ """
         nxny = np.array([1, 2])
-        physical_dim = {'xmin':0, "xmax":self.xmax, 'ymin':0, 'ymax':2}
+        physical_dim = {"xmin": 0, "xmax": self.xmax, "ymin": 0, "ymax": 2}
         sd = pp.CartGrid(nxny, physical_dim)
 
         self.mdg = pp.MixedDimensionalGrid()
@@ -274,18 +287,21 @@ class FinalModel(PartialFinalModelTest):  # I'm sorry...
 
         self.xmax = None
 
-        self.relative_permeability = pp.tobedefined.relative_permeability.rel_perm_quadratic
-        self.mobility = pp.tobedefined.mobility.mobility(self.relative_permeability) 
-        self.mobility_operator = pp.tobedefined.mobility.mobility_operator(self.mobility)
+        self.relative_permeability = (
+            pp.tobedefined.relative_permeability.rel_perm_quadratic
+        )
+        self.mobility = pp.tobedefined.mobility.mobility(self.relative_permeability)
+        self.mobility_operator = pp.tobedefined.mobility.mobility_operator(
+            self.mobility
+        )
 
-        self.case = None  
+        self.case = None
 
         self.pressure_values_2d = None
         self.pressure_values_1d = None
 
         self.saturation_values_2d = None
         self.saturation_values_1d = None
-
 
 
 fluid_constants = pp.FluidConstants({})
@@ -346,54 +362,51 @@ model.x_multiplier = x_multiplier
 if case == 1:
     model.xmax = 1
     model.gravity_value = 0
-    model.pressure_values_2d = np.array([1., 0])
-    model.saturation_values_2d = np.array([1., 1]) 
+    model.pressure_values_2d = np.array([1.0, 0])
+    model.saturation_values_2d = np.array([1.0, 1])
 
 if case == 2:
     model.xmax = 1
     model.gravity_value = 1
-    model.pressure_values_2d = np.array([1., 0])
-    model.saturation_values_2d = np.array([1., 1])
+    model.pressure_values_2d = np.array([1.0, 0])
+    model.saturation_values_2d = np.array([1.0, 1])
 
 if case == 3:
     model.xmax = 1
     model.gravity_value = 1
-    model.pressure_values_2d = np.array([0., 0.])
-    model.saturation_values_2d = np.array([1., 1.])
+    model.pressure_values_2d = np.array([0.0, 0.0])
+    model.saturation_values_2d = np.array([1.0, 1.0])
 
 if case == 4:
     model.xmax = 1
     model.gravity_value = 1
-    model.pressure_values_2d = np.array([0., 0.])
-    model.saturation_values_2d = np.array([0., 1])
-
+    model.pressure_values_2d = np.array([0.0, 0.0])
+    model.saturation_values_2d = np.array([0.0, 1])
 
 
 if case == 5:
-    model.xmax = x_multiplier * 1 # I have my problems, sorry
+    model.xmax = x_multiplier * 1  # I have my problems, sorry
     model.gravity_value = 0
-    model.pressure_values_2d = np.array([1., 0])
-    model.saturation_values_2d = np.array([1., 1]) 
+    model.pressure_values_2d = np.array([1.0, 0])
+    model.saturation_values_2d = np.array([1.0, 1])
 
 if case == 6:
     model.xmax = x_multiplier * 1
     model.gravity_value = 1
-    model.pressure_values_2d = np.array([1., 0])
-    model.saturation_values_2d = np.array([1., 1])
+    model.pressure_values_2d = np.array([1.0, 0])
+    model.saturation_values_2d = np.array([1.0, 1])
 
 if case == 7:
     model.xmax = x_multiplier * 1
     model.gravity_value = 1
-    model.pressure_values_2d = np.array([0., 0.])
-    model.saturation_values_2d = np.array([1., 1.])
+    model.pressure_values_2d = np.array([0.0, 0.0])
+    model.saturation_values_2d = np.array([1.0, 1.0])
 
 if case == 8:
     model.xmax = x_multiplier * 1
     model.gravity_value = 1
-    model.pressure_values_2d = np.array([0., 0.])
-    model.saturation_values_2d = np.array([0., 1])
-
-
+    model.pressure_values_2d = np.array([0.0, 0.0])
+    model.saturation_values_2d = np.array([0.0, 1])
 
 
 pp.run_time_dependent_model(model, params)

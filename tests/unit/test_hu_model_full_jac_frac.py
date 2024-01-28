@@ -17,7 +17,7 @@ os.system("clear")
 
 
 """
-NOTE: 
+OLD TEST
 
 """
 
@@ -135,8 +135,9 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
         """ """
 
         self.mixture.apply_constraint(
-            self.ell) #, self.equation_system, self.mdg.subdomains())
-        
+            self.ell
+        )  # , self.equation_system, self.mdg.subdomains())
+
         for sd, data in self.mdg.subdomains(return_data=True):
             pressure_adarray = self.pressure([sd]).evaluate(self.equation_system)
             left_restriction = data["for_hu"]["left_restriction"]
@@ -149,20 +150,18 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
             ad = True
             dynamic_viscosity = 1  # Sorry
             dim_max = data["for_hu"]["dim_max"]
-            total_flux_internal = (
-                pp.numerics.fv.hybrid_weighted_average.total_flux_internal(
-                    sd,
-                    # self.mixture.mixture_for_subdomain(self.equation_system, sd),
-                    self.mixture.mixture_for_subdomain(sd),
-                    pressure_adarray,
-                    self.gravity_value,
-                    left_restriction,
-                    right_restriction,
-                    transmissibility_internal_tpfa,
-                    ad,
-                    dynamic_viscosity,
-                    dim_max,
-                )
+            total_flux_internal = pp.numerics.fv.hybrid_weighted_average.total_flux_internal(
+                sd,
+                # self.mixture.mixture_for_subdomain(self.equation_system, sd),
+                self.mixture.mixture_for_subdomain(sd),
+                pressure_adarray,
+                self.gravity_value,
+                left_restriction,
+                right_restriction,
+                transmissibility_internal_tpfa,
+                ad,
+                dynamic_viscosity,
+                dim_max,
             )
             data["for_hu"]["total_flux_internal"] = (
                 total_flux_internal[0] + total_flux_internal[1]
@@ -207,7 +206,6 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
         # TEST SECTION: --------------------------------------------------------------
 
         pp.plot_grid(self.mdg, info="c", alpha=0)
-
 
         sss = self.mixture.get_phase(0).saturation
         ppp = self.pressure(self.mdg.subdomains()).evaluate(self.equation_system)

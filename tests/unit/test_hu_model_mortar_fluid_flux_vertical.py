@@ -20,11 +20,12 @@ def myprint(var):
 
 
 """
+OLD TEST
+
 """
 
 
 class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMass):
-    
     def initial_condition(self) -> None:
         """ """
         val = np.zeros(self.equation_system.num_dofs())
@@ -96,10 +97,10 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
     def before_nonlinear_iteration(self):
         """ """
 
-        pp.plot_grid(self.mdg, info='c', alpha=0)
+        pp.plot_grid(self.mdg, info="c", alpha=0)
 
         self.mixture.apply_constraint(self.ell)
-        
+
         for sd, data in self.mdg.subdomains(return_data=True):
             pressure_adarray = self.pressure([sd]).evaluate(self.equation_system)
             left_restriction = data["for_hu"]["left_restriction"]
@@ -263,16 +264,14 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
             print("fluid_flux_phase_0 = ", fluid_flux_phase_0)
             print("fluid_flux_phase_1 = ", fluid_flux_phase_1)
 
-
             eq, kn, pressure_h, pressure_l, g_term = self.eq_fcn_mortar_phase_0([intf])
             pressure_h = pressure_h.evaluate(self.equation_system).val
             pressure_l = pressure_l.evaluate(self.equation_system).val
             g_term = g_term.evaluate(self.equation_system)
             print("\nkn = ", kn)
-            print('\npressure_h = ', pressure_h)
+            print("\npressure_h = ", pressure_h)
             print("\npressure_l = ", pressure_l)
             print("\ng_term = ", g_term)
-
 
             pdb.set_trace()
 
@@ -282,13 +281,13 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
 
                 assert np.all(
                     np.isclose(
-                        mortar_phase_0, np.array([0,0,0,0]), rtol=0, atol=1e-10
+                        mortar_phase_0, np.array([0, 0, 0, 0]), rtol=0, atol=1e-10
                     )
                 )
                 assert np.all(
                     np.isclose(
                         fluid_flux_phase_0,
-                        rho_mob_phase_0 * np.array([0,0,0,0]),
+                        rho_mob_phase_0 * np.array([0, 0, 0, 0]),
                         rtol=0,
                         atol=1e-10,
                     )
@@ -297,7 +296,7 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
                 assert np.all(
                     np.isclose(
                         mortar_phase_1,
-                        np.array([0,0,0,0]),
+                        np.array([0, 0, 0, 0]),
                         rtol=0,
                         atol=1e-10,
                     )
@@ -305,7 +304,7 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
                 assert np.all(
                     np.isclose(
                         fluid_flux_phase_1,
-                        rho_mob_phase_1 * np.array([0,0,0,0]),
+                        rho_mob_phase_1 * np.array([0, 0, 0, 0]),
                         rtol=0,
                         atol=1e-10,
                     )
@@ -317,13 +316,13 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
 
                 assert np.all(
                     np.isclose(
-                        mortar_phase_0, np.array([0,0,0,0]), rtol=0, atol=1e-10
+                        mortar_phase_0, np.array([0, 0, 0, 0]), rtol=0, atol=1e-10
                     )
                 )
                 assert np.all(
                     np.isclose(
                         fluid_flux_phase_0,
-                        rho_mob_phase_0 * np.array([0,0,0,0]),
+                        rho_mob_phase_0 * np.array([0, 0, 0, 0]),
                         rtol=0,
                         atol=1e-10,
                     )
@@ -332,7 +331,7 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
                 assert np.all(
                     np.isclose(
                         mortar_phase_1,
-                        np.array([0,0,0,0]),
+                        np.array([0, 0, 0, 0]),
                         rtol=0,
                         atol=1e-10,
                     )
@@ -340,7 +339,7 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
                 assert np.all(
                     np.isclose(
                         fluid_flux_phase_1,
-                        rho_mob_phase_1 * np.array([0,0,0,0]),
+                        rho_mob_phase_1 * np.array([0, 0, 0, 0]),
                         rtol=0,
                         atol=1e-10,
                     )
@@ -568,24 +567,19 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
                     )
                 )
 
-
-
-
-
-
             if self.case == 9:  # delta p = 0, g = 1, s0=0
                 rho_mob_phase_0 = 0
                 rho_mob_phase_1 = 0.5
 
                 assert np.all(
                     np.isclose(
-                        mortar_phase_0, 2*np.array([1, 1, -1, -1]), rtol=0, atol=1e-10
+                        mortar_phase_0, 2 * np.array([1, 1, -1, -1]), rtol=0, atol=1e-10
                     )
                 )
                 assert np.all(
                     np.isclose(
                         fluid_flux_phase_0,
-                        2*rho_mob_phase_0 * np.array([1, 1, -1, -1]),
+                        2 * rho_mob_phase_0 * np.array([1, 1, -1, -1]),
                         rtol=0,
                         atol=1e-10,
                     )
@@ -594,7 +588,7 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
                 assert np.all(
                     np.isclose(
                         mortar_phase_1,
-                        2*np.array([0.5, 0.5, -0.5, -0.5]),
+                        2 * np.array([0.5, 0.5, -0.5, -0.5]),
                         rtol=0,
                         atol=1e-10,
                     )
@@ -602,7 +596,7 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
                 assert np.all(
                     np.isclose(
                         fluid_flux_phase_1,
-                        2*rho_mob_phase_1 * np.array([0.5, 0.5, -0.5, -0.5]),
+                        2 * rho_mob_phase_1 * np.array([0.5, 0.5, -0.5, -0.5]),
                         rtol=0,
                         atol=1e-10,
                     )
@@ -614,13 +608,13 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
 
                 assert np.all(
                     np.isclose(
-                        mortar_phase_0, 2*np.array([1, 1, -1, -1]), rtol=0, atol=1e-10
+                        mortar_phase_0, 2 * np.array([1, 1, -1, -1]), rtol=0, atol=1e-10
                     )
                 )
                 assert np.all(
                     np.isclose(
                         fluid_flux_phase_0,
-                        2*rho_mob_phase_0 * np.array([1, 1, -1, -1]),
+                        2 * rho_mob_phase_0 * np.array([1, 1, -1, -1]),
                         rtol=0,
                         atol=1e-10,
                     )
@@ -629,7 +623,7 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
                 assert np.all(
                     np.isclose(
                         mortar_phase_1,
-                        2*np.array([0.5, 0.5, -0.5, -0.5]),
+                        2 * np.array([0.5, 0.5, -0.5, -0.5]),
                         rtol=0,
                         atol=1e-10,
                     )
@@ -637,7 +631,7 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
                 assert np.all(
                     np.isclose(
                         fluid_flux_phase_1,
-                        2*rho_mob_phase_1 * np.array([0.5, 0.5, -0.5, -0.5]),
+                        2 * rho_mob_phase_1 * np.array([0.5, 0.5, -0.5, -0.5]),
                         rtol=0,
                         atol=1e-10,
                     )
@@ -649,13 +643,16 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
 
                 assert np.all(
                     np.isclose(
-                        mortar_phase_0, 2*np.array([20, 20, 20, 20]), rtol=0, atol=1e-10
+                        mortar_phase_0,
+                        2 * np.array([20, 20, 20, 20]),
+                        rtol=0,
+                        atol=1e-10,
                     )
                 )
                 assert np.all(
                     np.isclose(
                         fluid_flux_phase_0,
-                        2*rho_mob_phase_0 * np.array([20, 20, 20, 20]),
+                        2 * rho_mob_phase_0 * np.array([20, 20, 20, 20]),
                         rtol=0,
                         atol=1e-10,
                     )
@@ -664,7 +661,7 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
                 assert np.all(
                     np.isclose(
                         mortar_phase_1,
-                        2*np.array([20, 20, 20, 20]),
+                        2 * np.array([20, 20, 20, 20]),
                         rtol=0,
                         atol=1e-10,
                     )
@@ -672,7 +669,7 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
                 assert np.all(
                     np.isclose(
                         fluid_flux_phase_1,
-                        2*rho_mob_phase_1 * np.array([20, 20, 20, 20]),
+                        2 * rho_mob_phase_1 * np.array([20, 20, 20, 20]),
                         rtol=0,
                         atol=1e-10,
                     )
@@ -684,13 +681,16 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
 
                 assert np.all(
                     np.isclose(
-                        mortar_phase_0, 2*np.array([20, 20, 20, 20]), rtol=0, atol=1e-10
+                        mortar_phase_0,
+                        2 * np.array([20, 20, 20, 20]),
+                        rtol=0,
+                        atol=1e-10,
                     )
                 )
                 assert np.all(
                     np.isclose(
                         fluid_flux_phase_0,
-                        2*rho_mob_phase_0 * np.array([20, 20, 20, 20]),
+                        2 * rho_mob_phase_0 * np.array([20, 20, 20, 20]),
                         rtol=0,
                         atol=1e-10,
                     )
@@ -699,7 +699,7 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
                 assert np.all(
                     np.isclose(
                         mortar_phase_1,
-                        2*np.array([20, 20, 20, 20]),
+                        2 * np.array([20, 20, 20, 20]),
                         rtol=0,
                         atol=1e-10,
                     )
@@ -707,7 +707,7 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
                 assert np.all(
                     np.isclose(
                         fluid_flux_phase_1,
-                        2*rho_mob_phase_1 * np.array([20, 20, 20, 20]),
+                        2 * rho_mob_phase_1 * np.array([20, 20, 20, 20]),
                         rtol=0,
                         atol=1e-10,
                     )
@@ -720,7 +720,7 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
                 assert np.all(
                     np.isclose(
                         mortar_phase_0,
-                        2*np.array([-20, -20, -20, -20]),
+                        2 * np.array([-20, -20, -20, -20]),
                         rtol=0,
                         atol=1e-10,
                     )
@@ -728,7 +728,7 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
                 assert np.all(
                     np.isclose(
                         fluid_flux_phase_0,
-                        2*rho_mob_phase_0 * np.array([-20, -20, -20, -20]),
+                        2 * rho_mob_phase_0 * np.array([-20, -20, -20, -20]),
                         rtol=0,
                         atol=1e-10,
                     )
@@ -737,7 +737,7 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
                 assert np.all(
                     np.isclose(
                         mortar_phase_1,
-                        2*np.array([-20, -20, -20, -20]),
+                        2 * np.array([-20, -20, -20, -20]),
                         rtol=0,
                         atol=1e-10,
                     )
@@ -745,7 +745,7 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
                 assert np.all(
                     np.isclose(
                         fluid_flux_phase_1,
-                        2*rho_mob_phase_1 * np.array([-20, -20, -20, -20]),
+                        2 * rho_mob_phase_1 * np.array([-20, -20, -20, -20]),
                         rtol=0,
                         atol=1e-10,
                     )
@@ -758,7 +758,7 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
                 assert np.all(
                     np.isclose(
                         mortar_phase_0,
-                        2*np.array([21, 21, 19, 19]),
+                        2 * np.array([21, 21, 19, 19]),
                         rtol=0,
                         atol=1e-10,
                     )
@@ -766,7 +766,7 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
                 assert np.all(
                     np.isclose(
                         fluid_flux_phase_0,
-                        2*rho_mob_phase_0 * np.array([21, 21, 19, 19]),
+                        2 * rho_mob_phase_0 * np.array([21, 21, 19, 19]),
                         rtol=0,
                         atol=1e-10,
                     )
@@ -775,7 +775,7 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
                 assert np.all(
                     np.isclose(
                         mortar_phase_1,
-                        2*np.array([20.5, 20.5, 19.5, 19.5]),
+                        2 * np.array([20.5, 20.5, 19.5, 19.5]),
                         rtol=0,
                         atol=1e-10,
                     )
@@ -783,7 +783,7 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
                 assert np.all(
                     np.isclose(
                         fluid_flux_phase_1,
-                        2*rho_mob_phase_1 * np.array([20.5, 20.5, 19.5, 19.5]),
+                        2 * rho_mob_phase_1 * np.array([20.5, 20.5, 19.5, 19.5]),
                         rtol=0,
                         atol=1e-10,
                     )
@@ -796,7 +796,7 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
                 assert np.all(
                     np.isclose(
                         mortar_phase_0,
-                        2*np.array([21, 21, 19, 19]),
+                        2 * np.array([21, 21, 19, 19]),
                         rtol=0,
                         atol=1e-10,
                     )
@@ -804,7 +804,7 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
                 assert np.all(
                     np.isclose(
                         fluid_flux_phase_0,
-                        2*rho_mob_phase_0 * np.array([21, 21, 19, 19]),
+                        2 * rho_mob_phase_0 * np.array([21, 21, 19, 19]),
                         rtol=0,
                         atol=1e-10,
                     )
@@ -813,7 +813,7 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
                 assert np.all(
                     np.isclose(
                         mortar_phase_1,
-                        2*np.array([20.5, 20.5, 19.5, 19.5]),
+                        2 * np.array([20.5, 20.5, 19.5, 19.5]),
                         rtol=0,
                         atol=1e-10,
                     )
@@ -821,7 +821,7 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
                 assert np.all(
                     np.isclose(
                         fluid_flux_phase_1,
-                        2*rho_mob_phase_1 * np.array([20.5, 20.5, 19.5, 19.5]),
+                        2 * rho_mob_phase_1 * np.array([20.5, 20.5, 19.5, 19.5]),
                         rtol=0,
                         atol=1e-10,
                     )
@@ -834,7 +834,7 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
                 assert np.all(
                     np.isclose(
                         mortar_phase_0,
-                       2* np.array([-19, -19, -21, -21]),
+                        2 * np.array([-19, -19, -21, -21]),
                         rtol=0,
                         atol=1e-10,
                     )
@@ -842,7 +842,7 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
                 assert np.all(
                     np.isclose(
                         fluid_flux_phase_0,
-                       2* rho_mob_phase_0 * np.array([-19, -19, -21, -21]),
+                        2 * rho_mob_phase_0 * np.array([-19, -19, -21, -21]),
                         rtol=0,
                         atol=1e-10,
                     )
@@ -851,7 +851,7 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
                 assert np.all(
                     np.isclose(
                         mortar_phase_1,
-                        2*np.array([-19.5, -19.5, -20.5, -20.5]),
+                        2 * np.array([-19.5, -19.5, -20.5, -20.5]),
                         rtol=0,
                         atol=1e-10,
                     )
@@ -859,13 +859,11 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
                 assert np.all(
                     np.isclose(
                         fluid_flux_phase_1,
-                        2*rho_mob_phase_1 * np.array([-19.5, -19.5, -20.5, -20.5]),
+                        2 * rho_mob_phase_1 * np.array([-19.5, -19.5, -20.5, -20.5]),
                         rtol=0,
                         atol=1e-10,
                     )
                 )
-
-            
 
             print("\n\n\n TEST PASSED ----------------------------------------")
             pdb.set_trace()
@@ -897,16 +895,17 @@ class MyModelGeometryTest(test_hu_model.MyModelGeometry):
     def set_fractures(self) -> None:
         """ """
         frac1 = pp.LineFracture(np.array([[1, 1], [0, self.ymax]]))
-        self._fractures: list = [frac1] #, frac2]
+        self._fractures: list = [frac1]  # , frac2]
 
     def meshing_arguments(self) -> dict[str, float]:
         """ """
         default_meshing_args: dict[str, float] = {
-            "cell_size_x": 1.,
-            "cell_size_y": self.ymax/2-0.1,
-            "cell_size_fracture": 1.,
+            "cell_size_x": 1.0,
+            "cell_size_y": self.ymax / 2 - 0.1,
+            "cell_size_fracture": 1.0,
         }
         return self.params.get("meshing_arguments", default_meshing_args)
+
 
 class ConstantDensityPhase(pp.Phase):
     """ """
@@ -993,7 +992,7 @@ model = FinalModelTest(mixture, params)
 case = 1
 model.case = case
 
-print('FATTI SOLO CASO 1 E 2')
+print("FATTI SOLO CASO 1 E 2")
 
 if case == 1:  # delta p = 0, g = 1
     model.ymax = 2
@@ -1061,8 +1060,6 @@ if case == 8:  # delta p = -1, g = 1
     model.pressure_values_1d = 1 * np.array([1.0, 1])
 
 
-
-
 # TODO:
 if case == 9:  # delta p = 0, g = 1
     model.ymax = 4
@@ -1128,7 +1125,6 @@ if case == 16:  # delta p = -1, g = 1
     model.saturation_values_1d = 1 * np.array([1.0, 1])
     model.pressure_values_2d = 0 * np.array([1.0, 1, 1, 1])
     model.pressure_values_1d = 1 * np.array([1.0, 1])
-
 
 
 # MISSING TEST WITH DIFFERENT UPWIND DIRECTIONS FOR THE TWO PHASES

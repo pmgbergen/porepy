@@ -20,6 +20,7 @@ def myprint(var):
 
 
 """
+OLD TEST
 
 TODO: todo... but it is useless now bcs the error is at the boundaries and darcy is zero at boundaries...
 
@@ -28,7 +29,6 @@ TODO: todo... but it is useless now bcs the error is at the boundaries and darcy
 
 
 class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMass):
-    
     def initial_condition(self) -> None:
         """ """
         val = np.zeros(self.equation_system.num_dofs())
@@ -100,7 +100,7 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
     def before_nonlinear_iteration(self):
         """ """
         self.mixture.apply_constraint(self.ell)
-        
+
         for sd, data in self.mdg.subdomains(return_data=True):
             pressure_adarray = self.pressure([sd]).evaluate(self.equation_system)
             left_restriction = data["for_hu"]["left_restriction"]
@@ -141,13 +141,20 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
             )
 
             print("darcy_flux_phase_0 = ", vals)
-            
+
             if self.case == 100:
                 if sd.dim == 2:
-                    print("darcy_flux_phase_0 case 100 = ", self.darcy_flux_phase_0_values_2d)
-                    data[pp.PARAMETERS][self.ppu_keyword].update({"darcy_flux_phase_0": self.darcy_flux_phase_0_values_2d})
+                    print(
+                        "darcy_flux_phase_0 case 100 = ",
+                        self.darcy_flux_phase_0_values_2d,
+                    )
+                    data[pp.PARAMETERS][self.ppu_keyword].update(
+                        {"darcy_flux_phase_0": self.darcy_flux_phase_0_values_2d}
+                    )
             else:
-                data[pp.PARAMETERS][self.ppu_keyword].update({"darcy_flux_phase_0": vals})
+                data[pp.PARAMETERS][self.ppu_keyword].update(
+                    {"darcy_flux_phase_0": vals}
+                )
 
             vals = (
                 self.darcy_flux_phase_1([sd], self.mixture.get_phase(1))
@@ -159,10 +166,17 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
 
             if self.case == 100:
                 if sd.dim == 2:
-                    print("darcy_flux_phase_1 case 100 = ", self.darcy_flux_phase_1_values_2d)
-                    data[pp.PARAMETERS][self.ppu_keyword].update({"darcy_flux_phase_1": self.darcy_flux_phase_1_values_2d})
+                    print(
+                        "darcy_flux_phase_1 case 100 = ",
+                        self.darcy_flux_phase_1_values_2d,
+                    )
+                    data[pp.PARAMETERS][self.ppu_keyword].update(
+                        {"darcy_flux_phase_1": self.darcy_flux_phase_1_values_2d}
+                    )
             else:
-                data[pp.PARAMETERS][self.ppu_keyword].update({"darcy_flux_phase_1": vals})
+                data[pp.PARAMETERS][self.ppu_keyword].update(
+                    {"darcy_flux_phase_1": vals}
+                )
 
         for intf, data in self.mdg.interfaces(return_data=True, codim=1):
             vals = (
@@ -220,19 +234,27 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
         #         )  # REMARK: mortar are positive from higer to lower, they do NOT respect the face normals
         #         pdb.set_trace()
 
-        for sd,data in self.mdg.subdomains(return_data=True):
+        for sd, data in self.mdg.subdomains(return_data=True):
             if sd.dim == 2:
-
                 discr = self.darcy_flux_discretization([sd])
                 T_starnoni = discr.vector_source.evaluate(self.equation_system)
                 print(T_starnoni.todense())
 
                 normals = sd.face_normals
-                darcy_phase_0 = data[pp.PARAMETERS][self.ppu_keyword]["darcy_flux_phase_0"] * normals # DO NOT FORGET that this it integrated normal darcy flux, not the vector darcy velocity
-                darcy_phase_1 = data[pp.PARAMETERS][self.ppu_keyword]["darcy_flux_phase_1"] * normals
-                pp.plot_grid(sd, vector_value=0.5 * darcy_phase_0, alpha=0, title="darcy_phase_0")
-                pp.plot_grid(sd, vector_value=0.5 * darcy_phase_1, alpha=0, title="darcy_phase_1")
-                
+                darcy_phase_0 = (
+                    data[pp.PARAMETERS][self.ppu_keyword]["darcy_flux_phase_0"]
+                    * normals
+                )  # DO NOT FORGET that this it integrated normal darcy flux, not the vector darcy velocity
+                darcy_phase_1 = (
+                    data[pp.PARAMETERS][self.ppu_keyword]["darcy_flux_phase_1"]
+                    * normals
+                )
+                pp.plot_grid(
+                    sd, vector_value=0.5 * darcy_phase_0, alpha=0, title="darcy_phase_0"
+                )
+                pp.plot_grid(
+                    sd, vector_value=0.5 * darcy_phase_1, alpha=0, title="darcy_phase_1"
+                )
 
         print("\n\n")
         print("\ndarcy_phase_0", darcy_phase_0)
@@ -240,21 +262,17 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
         pdb.set_trace()
 
         if self.case == 1:  # delta p = 0, g = 1, s0=0
-                assert np.all(
-                    np.isclose(
-                        darcy_phase_0, 0*darcy_phase_0, rtol=0, atol=1e-10
-                    )
+            assert np.all(
+                np.isclose(darcy_phase_0, 0 * darcy_phase_0, rtol=0, atol=1e-10)
+            )
+            assert np.all(
+                np.isclose(
+                    darcy_phase_1,
+                    np.array([0, 0, 0, 0, 0, 0, 0, 0, -1, -1, 0, 0, 1, 1]),
+                    rtol=0,
+                    atol=1e-10,
                 )
-                assert np.all(
-                    np.isclose(
-                        darcy_phase_1,
-                        np.array([0,0,0,0,0, 0,0,0,-1,-1, 0,0,1,1]),
-                        rtol=0,
-                        atol=1e-10,
-                    )
-                )
-
-            
+            )
 
         print("\n\n\n TEST PASSED ----------------------------------------")
         pdb.set_trace()
@@ -286,16 +304,17 @@ class MyModelGeometryTest(test_hu_model.MyModelGeometry):
     def set_fractures(self) -> None:
         """ """
         frac1 = pp.LineFracture(np.array([[0, self.xmax], [1, 1]]))
-        self._fractures: list = [frac1] #, frac2]
+        self._fractures: list = [frac1]  # , frac2]
 
     def meshing_arguments(self) -> dict[str, float]:
         """ """
         default_meshing_args: dict[str, float] = {
-            "cell_size_x": self.xmax/2-0.1,
-            "cell_size_y": 1.,
-            "cell_size_fracture": 1.,
+            "cell_size_x": self.xmax / 2 - 0.1,
+            "cell_size_y": 1.0,
+            "cell_size_fracture": 1.0,
         }
         return self.params.get("meshing_arguments", default_meshing_args)
+
 
 class ConstantDensityPhase(pp.Phase):
     """ """
@@ -385,7 +404,7 @@ model.case = case
 if case == 1:  # delta p = 0, g = 1
     model.xmax = 2
     model.gravity_value = 1
-    model.saturation_values_2d = 0 * np.array([1.0, 1, 1, 1]) # whatever...
+    model.saturation_values_2d = 0 * np.array([1.0, 1, 1, 1])  # whatever...
     model.saturation_values_1d = 0 * np.array([1.0, 1])
     model.pressure_values_2d = 1 * np.array([1.0, 1, 1, 1])
     model.pressure_values_1d = 1 * np.array([1.0, 1])
@@ -446,8 +465,6 @@ if case == 8:  # delta p = -1, g = 1
     model.saturation_values_1d = 1 * np.array([1.0, 1])
     model.pressure_values_2d = 0 * np.array([1.0, 1, 1, 1])
     model.pressure_values_1d = 1 * np.array([1.0, 1])
-
-
 
 
 # TODO:
@@ -518,7 +535,6 @@ if case == 16:  # delta p = -1, g = 1
     model.pressure_values_1d = 1 * np.array([1.0, 1])
 
 
-
 if case == 100:  # delta p = 0, g = 1
     model.xmax = 2
     model.gravity_value = 1
@@ -527,11 +543,11 @@ if case == 100:  # delta p = 0, g = 1
     model.pressure_values_2d = 1 * np.array([1.0, 1, 1, 1])
     model.pressure_values_1d = 1 * np.array([1.0, 1])
 
-    model.darcy_flux_phase_0_values_2d = np.array([0.,0,0,0,0, 0,0,0,0,0, 0,0,0,0])
-    #model.darcy_flux_phase_1_values_2d = np.array([0.,0,0,0,0, 0,0,0,-1,-1, 0,0,-1,-1])
+    model.darcy_flux_phase_0_values_2d = np.array(
+        [0.0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    )
+    # model.darcy_flux_phase_1_values_2d = np.array([0.,0,0,0,0, 0,0,0,-1,-1, 0,0,-1,-1])
     model.darcy_flux_phase_1_values_2d = np.ones(14)
-
-
 
 
 pp.run_time_dependent_model(model, params)

@@ -16,8 +16,9 @@ import pdb
 os.system("clear")
 
 """
-
+OLD TEST
 """
+
 
 class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMass):
     def initial_condition(self) -> None:
@@ -86,11 +87,7 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
             )
 
         for sd in self.mdg.subdomains():
-            gigi = (
-                self.mixture.mixture_for_subdomain(sd)
-                .get_phase(0)
-                .saturation
-            )
+            gigi = self.mixture.mixture_for_subdomain(sd).get_phase(0).saturation
             print("saturation = ", gigi.val)
             pp.plot_grid(
                 sd,
@@ -200,38 +197,32 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
 
         pdb.set_trace()
 
-        if self.case == 1: # p = [1,0], g = 0
+        if self.case == 1:  # p = [1,0], g = 0
             assert np.all(rho_V == np.array([0, 1, 0]))
 
-        if self.case == 2: # p = [1,0], g = 1
-            np.all(np.isclose(rho_V, np.array([0, 0, 0]))) 
+        if self.case == 2:  # p = [1,0], g = 1
+            np.all(np.isclose(rho_V, np.array([0, 0, 0])))
 
-        if self.case == 3: # s = [1, 1] => G = 0
-            assert np.all(
-                rho_G == np.array([0, 0, 0])
-            ) 
+        if self.case == 3:  # s = [1, 1] => G = 0
+            assert np.all(rho_G == np.array([0, 0, 0]))
 
-        if self.case == 4: # s = [0, 1] 
-            assert np.all(np.isclose(
-                rho_G, np.array([ 0, -0.5, 0]), rtol=0, atol=1e-3 )) 
-
+        if self.case == 4:  # s = [0, 1]
+            assert np.all(np.isclose(rho_G, np.array([0, -0.5, 0]), rtol=0, atol=1e-3))
 
         # same with larger cell:
-        if self.case == 5: # p = [1,0], g = 0
-            assert np.all(rho_V == 2*np.array([0, 1, 0]))
+        if self.case == 5:  # p = [1,0], g = 0
+            assert np.all(rho_V == 2 * np.array([0, 1, 0]))
 
-        if self.case == 6: # p = [1,0], g = 1
-            np.all(np.isclose(rho_V, 2*np.array([0, 0, 0]))) 
+        if self.case == 6:  # p = [1,0], g = 1
+            np.all(np.isclose(rho_V, 2 * np.array([0, 0, 0])))
 
-        if self.case == 7: # s = [1, 1] => G = 0
+        if self.case == 7:  # s = [1, 1] => G = 0
+            assert np.all(rho_G == 2 * np.array([0, 0, 0]))
+
+        if self.case == 8:  # s = [0, 1]
             assert np.all(
-                rho_G == 2*np.array([0, 0, 0])
+                np.isclose(rho_G, 2 * np.array([0, -0.5, 0]), rtol=0, atol=1e-3)
             )
-
-        if self.case == 8: # s = [0, 1] 
-            assert np.all(np.isclose(
-                rho_G, 2*np.array([0, -0.5, 0]), rtol=0, atol=1e-3 ))          
-        
 
         print("\n\n TEST PASSED ------------------- ")
 
@@ -244,8 +235,8 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
 class MyModelGeometryTest(pp.ModelGeometry):
     def set_geometry(self) -> None:
         nx = np.array([2])
-        physical_dim = {'xmin':0, "xmax":2*self.xmax}
-        sd = pp.CartGrid(nx) #, physical_dim)
+        physical_dim = {"xmin": 0, "xmax": 2 * self.xmax}
+        sd = pp.CartGrid(nx)  # , physical_dim)
         self.mdg = pp.MixedDimensionalGrid()
         self.mdg._subdomain_data = {sd: {}}
         self.mdg.compute_geometry()
@@ -255,11 +246,14 @@ class MyModelGeometryTest(pp.ModelGeometry):
         self.nd: int = self.mdg.dim_max()
 
         # fake:
-        self._domain = pp.Domain(bounding_box={'xmin':0, "xmax":self.xmax, 'ymin':0, 'ymax':2})
+        self._domain = pp.Domain(
+            bounding_box={"xmin": 0, "xmax": self.xmax, "ymin": 0, "ymax": 2}
+        )
 
 
 class ConstantDensityPhase(pp.Phase):
     """ """
+
     def mass_density(self, p):
         """ """
         if isinstance(p, pp.ad.AdArray):
@@ -288,10 +282,10 @@ class FinalModel(PartialFinalModelTest):  # I'm sorry...
         super().__init__(params)
         self.mixture = mixture
         self.ell = 0  # 0 = wetting, 1 = non-wetting
-        self.gravity_value = None 
-        self.dynamic_viscosity = 1 
+        self.gravity_value = None
+        self.dynamic_viscosity = 1
 
-        self.case = None  
+        self.case = None
         self.xmax = None
 
         self.pressure_values_2d = None
@@ -299,7 +293,6 @@ class FinalModel(PartialFinalModelTest):  # I'm sorry...
 
         self.saturation_values_2d = None
         self.saturation_values_1d = None
-
 
 
 fluid_constants = pp.FluidConstants({})
@@ -335,7 +328,7 @@ non_wetting_phase = ConstantDensityPhase(rho0=0.5)
 mixture = pp.Mixture()
 mixture.add([wetting_phase, non_wetting_phase])
 
-model = FinalModel(mixture, params) 
+model = FinalModel(mixture, params)
 
 case = 4
 print("\n\nI'm not able to change the geometry in 1D... run only test 1 to 4")
@@ -343,50 +336,50 @@ print("\n\nI'm not able to change the geometry in 1D... run only test 1 to 4")
 if case == 1:
     model.xmax = 1
     model.gravity_value = 0
-    model.pressure_values_1d = np.array([1., 0])
-    model.saturation_values_1d = np.array([1., 1]) 
+    model.pressure_values_1d = np.array([1.0, 0])
+    model.saturation_values_1d = np.array([1.0, 1])
 
 if case == 2:
     model.xmax = 1
     model.gravity_value = 1
-    model.pressure_values_1d = np.array([1., 0])
-    model.saturation_values_1d = np.array([1., 1])
+    model.pressure_values_1d = np.array([1.0, 0])
+    model.saturation_values_1d = np.array([1.0, 1])
 
 if case == 3:
     model.xmax = 1
     model.gravity_value = 1
-    model.pressure_values_1d = np.array([0., 0.])
-    model.saturation_values_1d = np.array([1., 1.])
+    model.pressure_values_1d = np.array([0.0, 0.0])
+    model.saturation_values_1d = np.array([1.0, 1.0])
 
 if case == 4:
     model.xmax = 1
     model.gravity_value = 1
-    model.pressure_values_1d = np.array([0., 0.])
-    model.saturation_values_1d = np.array([0., 1])
+    model.pressure_values_1d = np.array([0.0, 0.0])
+    model.saturation_values_1d = np.array([0.0, 1])
 
 if case == 5:
     model.xmax = 2
     model.gravity_value = 0
-    model.pressure_values_1d = np.array([1., 0])
-    model.saturation_values_1d = np.array([1., 1]) 
+    model.pressure_values_1d = np.array([1.0, 0])
+    model.saturation_values_1d = np.array([1.0, 1])
 
 if case == 6:
     model.xmax = 2
     model.gravity_value = 1
-    model.pressure_values_1d = np.array([1., 0])
-    model.saturation_values_1d = np.array([1., 1])
+    model.pressure_values_1d = np.array([1.0, 0])
+    model.saturation_values_1d = np.array([1.0, 1])
 
 if case == 7:
     model.xmax = 2
     model.gravity_value = 1
-    model.pressure_values_1d = np.array([0., 0.])
-    model.saturation_values_1d = np.array([1., 1.])
+    model.pressure_values_1d = np.array([0.0, 0.0])
+    model.saturation_values_1d = np.array([1.0, 1.0])
 
 if case == 8:
     model.xmax = 2
     model.gravity_value = 1
-    model.pressure_values_1d = np.array([0., 0.])
-    model.saturation_values_1d = np.array([0., 1])
+    model.pressure_values_1d = np.array([0.0, 0.0])
+    model.saturation_values_1d = np.array([0.0, 1])
 
 
 pp.run_time_dependent_model(model, params)

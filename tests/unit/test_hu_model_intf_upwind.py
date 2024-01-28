@@ -20,14 +20,13 @@ def myprint(var):
 
 
 """
-
+OLD TEST
 
 
 """
 
 
 class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMass):
-    
     def initial_condition(self) -> None:
         """ """
         val = np.zeros(self.equation_system.num_dofs())
@@ -102,7 +101,7 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
         print("\n\n\n\n\n before nonlinear iter --------------------------------- ")
 
         self.mixture.apply_constraint(self.ell)
-        
+
         for sd, data in self.mdg.subdomains(return_data=True):
             pressure_adarray = self.pressure([sd]).evaluate(self.equation_system)
             left_restriction = data["for_hu"]["left_restriction"]
@@ -150,9 +149,11 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
             )
             data[pp.PARAMETERS][self.ppu_keyword].update({"darcy_flux_phase_1": vals})
 
-        for intf, data in self.mdg.interfaces(return_data=True, codim=1):            
+        for intf, data in self.mdg.interfaces(return_data=True, codim=1):
             vals_phase_0 = self.interface_mortar_flux_phase_0_values
-            data[pp.PARAMETERS][self.ppu_keyword].update({"interface_mortar_flux_phase_0": vals_phase_0})
+            data[pp.PARAMETERS][self.ppu_keyword].update(
+                {"interface_mortar_flux_phase_0": vals_phase_0}
+            )
 
             vals_phase_1 = self.interface_mortar_flux_phase_1_values
             data[pp.PARAMETERS][self.ppu_keyword].update(
@@ -196,26 +197,37 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
         #         )  # REMARK: mortar are positive from higer to lower, they do NOT respect the face normals
         #         pdb.set_trace()
 
-        
         # for intf, data in self.mdg.interfaces(return_data=True):
-
 
         subdomains = self.mdg.subdomains()
         if True:
             intf = self.subdomains_to_interfaces(subdomains, [1])
-            discr_phase_0 = self.interface_ppu_discretization(intf, "interface_mortar_flux_phase_0")
-            discr_phase_1 = self.interface_ppu_discretization(intf, "interface_mortar_flux_phase_1")
-        
-            if self.case == 1: #
-                mass_density_phase_0 = self.mixture.get_phase(0).mass_density_operator(subdomains, self.pressure)    
-                rho_mob_phase_0 = mass_density_phase_0 * pp.tobedefined.mobility.mobility_operator(subdomains, self.mixture.get_phase(0).saturation_operator, self.dynamic_viscosity)
-            
-                foo_upwinded = self.var_upwinded_interfaces(intf, self.foo, discr_phase_0).evaluate(self.equation_system)
+            discr_phase_0 = self.interface_ppu_discretization(
+                intf, "interface_mortar_flux_phase_0"
+            )
+            discr_phase_1 = self.interface_ppu_discretization(
+                intf, "interface_mortar_flux_phase_1"
+            )
+
+            if self.case == 1:  #
+                mass_density_phase_0 = self.mixture.get_phase(0).mass_density_operator(
+                    subdomains, self.pressure
+                )
+                rho_mob_phase_0 = (
+                    mass_density_phase_0
+                    * pp.tobedefined.mobility.mobility_operator(
+                        subdomains,
+                        self.mixture.get_phase(0).saturation_operator,
+                        self.dynamic_viscosity,
+                    )
+                )
+
+                foo_upwinded = self.var_upwinded_interfaces(
+                    intf, self.foo, discr_phase_0
+                ).evaluate(self.equation_system)
                 print("\nfoo_upwinded = ", foo_upwinded)
 
-                assert np.all(foo_upwinded == np.array([3., 3, 1, 1]))
-
-            
+                assert np.all(foo_upwinded == np.array([3.0, 3, 1, 1]))
 
         print("\n\n\n TEST PASSED ----------------------------------------")
         pdb.set_trace()
@@ -247,16 +259,17 @@ class MyModelGeometryTest(test_hu_model.MyModelGeometry):
     def set_fractures(self) -> None:
         """ """
         frac1 = pp.LineFracture(np.array([[0, self.xmax], [1, 1]]))
-        self._fractures: list = [frac1] #, frac2]
+        self._fractures: list = [frac1]  # , frac2]
 
     def meshing_arguments(self) -> dict[str, float]:
         """ """
         default_meshing_args: dict[str, float] = {
-            "cell_size_x": self.xmax/2-0.1,
-            "cell_size_y": 1.,
-            "cell_size_fracture": 1.,
+            "cell_size_x": self.xmax / 2 - 0.1,
+            "cell_size_y": 1.0,
+            "cell_size_fracture": 1.0,
         }
         return self.params.get("meshing_arguments", default_meshing_args)
+
 
 class ConstantDensityPhase(pp.Phase):
     """ """
@@ -340,21 +353,21 @@ mixture.add([wetting_phase, non_wetting_phase])
 model = FinalModelTest(mixture, params)
 
 
-case = 1 # TODO: all the others
+case = 1  # TODO: all the others
 model.case = case
 
 if case == 1:  # delta p = 0, g = 1
     # I'm actuallynot using these
     model.xmax = 1
     model.gravity_value = 1
-    model.saturation_values_2d = 0 * np.array([1.0, 1, 1, 1]) 
+    model.saturation_values_2d = 0 * np.array([1.0, 1, 1, 1])
     model.saturation_values_1d = 0 * np.array([1.0, 1])
     model.pressure_values_2d = 1 * np.array([1.0, 1, 1, 1])
     model.pressure_values_1d = 1 * np.array([1.0, 1])
 
-    model.foo = pp.ad.DenseArray(np.array([1., 1, 2, 2, 3, 3]))
-    model.interface_mortar_flux_phase_0_values = np.array([-1., -1, 1, 1])
-    model.interface_mortar_flux_phase_1_values = np.array([-1., -1, 1, 1])
+    model.foo = pp.ad.DenseArray(np.array([1.0, 1, 2, 2, 3, 3]))
+    model.interface_mortar_flux_phase_0_values = np.array([-1.0, -1, 1, 1])
+    model.interface_mortar_flux_phase_1_values = np.array([-1.0, -1, 1, 1])
 
 if case == 2:  # delta p = 0, g = 1
     model.xmax = 2
@@ -412,8 +425,6 @@ if case == 8:  # delta p = -1, g = 1
     model.saturation_values_1d = 1 * np.array([1.0, 1])
     model.pressure_values_2d = 0 * np.array([1.0, 1, 1, 1])
     model.pressure_values_1d = 1 * np.array([1.0, 1])
-
-
 
 
 if case == 9:  # delta p = 0, g = 1
@@ -483,7 +494,6 @@ if case == 16:  # delta p = -1, g = 1
     model.pressure_values_1d = 1 * np.array([1.0, 1])
 
 
-
 if case == 100:  # delta p = 0, g = 1
     model.xmax = 2
     model.gravity_value = 1
@@ -492,11 +502,11 @@ if case == 100:  # delta p = 0, g = 1
     model.pressure_values_2d = 1 * np.array([1.0, 1, 1, 1])
     model.pressure_values_1d = 1 * np.array([1.0, 1])
 
-    model.darcy_flux_phase_0_values_2d = np.array([0.,0,0,0,0, 0,0,0,0,0, 0,0,0,0])
-    #model.darcy_flux_phase_1_values_2d = np.array([0.,0,0,0,0, 0,0,0,-1,-1, 0,0,-1,-1])
+    model.darcy_flux_phase_0_values_2d = np.array(
+        [0.0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    )
+    # model.darcy_flux_phase_1_values_2d = np.array([0.,0,0,0,0, 0,0,0,-1,-1, 0,0,-1,-1])
     model.darcy_flux_phase_1_values_2d = np.ones(14)
-
-
 
 
 pp.run_time_dependent_model(model, params)

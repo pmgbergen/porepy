@@ -17,9 +17,9 @@ os.system("clear")
 
 
 """
-NOTE: 
-
+OLD TEST
 """
+
 
 class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMass):
     def initial_condition(self) -> None:
@@ -93,10 +93,11 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
     def before_nonlinear_iteration(self):
         """ """
 
-        print('\n\n         ------- inside before_nonlinear_iteration: ---------- ')
+        print("\n\n         ------- inside before_nonlinear_iteration: ---------- ")
         self.mixture.apply_constraint(
-            self.ell) #, self.equation_system, self.mdg.subdomains())
-        
+            self.ell
+        )  # , self.equation_system, self.mdg.subdomains())
+
         for sd, data in self.mdg.subdomains(return_data=True):
             pressure_adarray = self.pressure([sd]).evaluate(self.equation_system)
             left_restriction = data["for_hu"]["left_restriction"]
@@ -167,46 +168,43 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
 
         pp.plot_grid(self.mdg, info="c", alpha=0)
 
-
         # PRESSURE EQUATION:
 
-        ( eq,
-        accumulation,
-        flux_tot,
-        flux_intf_phase_0,
-        flux_intf_phase_1,
-        flux,
-        source_phase_0,
-        source_phase_1,
-        source, ) = self.eq_fcn_pressure(self.mdg.subdomains())
-        
+        (
+            eq,
+            accumulation,
+            flux_tot,
+            flux_intf_phase_0,
+            flux_intf_phase_1,
+            flux,
+            source_phase_0,
+            source_phase_1,
+            source,
+        ) = self.eq_fcn_pressure(self.mdg.subdomains())
+
         dt_operator = pp.ad.time_derivatives.dt
         dt = pp.ad.Scalar(self.time_manager.dt)
         div = pp.ad.Divergence(self.mdg.subdomains(), dim=1)
 
-        acc = ( dt_operator(accumulation, dt) ).evaluate(self.equation_system)
-        div_flux_tot = ( div @ flux_tot ).evaluate(self.equation_system)
-        div_flux_intf_phase_0 = ( div @ flux_intf_phase_0 ).evaluate(self.equation_system)
-        div_flux_intf_phase_1 = ( div @ flux_intf_phase_1 ).evaluate(self.equation_system)
-        div_flux = ( div @ flux  ).evaluate(self.equation_system)
+        acc = (dt_operator(accumulation, dt)).evaluate(self.equation_system)
+        div_flux_tot = (div @ flux_tot).evaluate(self.equation_system)
+        div_flux_intf_phase_0 = (div @ flux_intf_phase_0).evaluate(self.equation_system)
+        div_flux_intf_phase_1 = (div @ flux_intf_phase_1).evaluate(self.equation_system)
+        div_flux = (div @ flux).evaluate(self.equation_system)
 
-
-        print('are you checking the values after the first newton iter?')
-        # Remember to check the values after the first Newton iter, otherwise you use the initializazion values, so lambda = 0 
+        print("are you checking the values after the first newton iter?")
+        # Remember to check the values after the first Newton iter, otherwise you use the initializazion values, so lambda = 0
         # np.set_printoptions(precision=4, threshold=sys.maxsize, linewidth=700)
-        
 
         # if you want, evaluate the following only after the first newton iter
         # A, b = self.linear_system
         # x = np.linalg.solve(A.todense(),b)
         # print('\n x = ', x)
-        pdb.set_trace() 
+        pdb.set_trace()
 
-
-        # MASS BALANCE: 
+        # MASS BALANCE:
         # TODO
 
-        
         for sd, _ in self.mdg.subdomains(return_data=True):
             gigi = (
                 # self.mixture.mixture_for_subdomain(self.equation_system, sd)
@@ -231,29 +229,25 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
             )
             pp.plot_grid(sd, ppp.val, alpha=0.5, info="", title="pressure")
 
-
-
-
-
         self.set_discretization_parameters()
         self.rediscretize()
 
-
     def after_nonlinear_iteration(self, solution_vector: np.ndarray) -> None:
         """ """
-        print('\n\n             ----------- inside_after_nonlinear_iteration: ---------------')
+        print(
+            "\n\n             ----------- inside_after_nonlinear_iteration: ---------------"
+        )
         self._nonlinear_iteration += 1
         self.equation_system.shift_iterate_values()
 
         self.equation_system.set_variable_values(
             values=solution_vector, additive=True, iterate_index=0
         )
-    
+
         A, b = self.linear_system
-        x = np.linalg.solve(A.todense(),b)
-        print('\n x = ', x)
+        x = np.linalg.solve(A.todense(), b)
+        print("\n x = ", x)
         pdb.set_trace()
-        
 
 
 class MyModelGeometryTest(pp.ModelGeometry):
@@ -355,8 +349,8 @@ model = FinalModel(mixture, params)
 
 model.saturation_values_2d = np.array([0.8, 0.7])
 model.saturation_values_1d = np.array([0.6])
-model.pressure_values_2d = np.array([1., 2])
-model.pressure_values_1d = np.array([0.])
+model.pressure_values_2d = np.array([1.0, 2])
+model.pressure_values_1d = np.array([0.0])
 
 
 pp.run_time_dependent_model(model, params)

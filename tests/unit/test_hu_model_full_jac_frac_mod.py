@@ -17,7 +17,7 @@ os.system("clear")
 
 
 """
-NOTE: 
+OLD TEST
 
 """
 
@@ -136,8 +136,8 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
         """ """
 
         self.mixture.apply_constraint(
-            self.ell) #, self.equation_system, self.mdg.subdomains() )
-        
+            self.ell
+        )  # , self.equation_system, self.mdg.subdomains() )
 
         for sd, data in self.mdg.subdomains(return_data=True):
             pressure_adarray = self.pressure([sd]).evaluate(self.equation_system)
@@ -151,20 +151,18 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
             ad = True
             dynamic_viscosity = 1  # Sorry
             dim_max = data["for_hu"]["dim_max"]
-            total_flux_internal = (
-                pp.numerics.fv.hybrid_weighted_average.total_flux_internal(
-                    sd,
-                    # self.mixture.mixture_for_subdomain(self.equation_system, sd),
-                    self.mixture.mixture_for_subdomain(sd),
-                    pressure_adarray,
-                    self.gravity_value,
-                    left_restriction,
-                    right_restriction,
-                    transmissibility_internal_tpfa,
-                    ad,
-                    dynamic_viscosity,
-                    dim_max,
-                )
+            total_flux_internal = pp.numerics.fv.hybrid_weighted_average.total_flux_internal(
+                sd,
+                # self.mixture.mixture_for_subdomain(self.equation_system, sd),
+                self.mixture.mixture_for_subdomain(sd),
+                pressure_adarray,
+                self.gravity_value,
+                left_restriction,
+                right_restriction,
+                transmissibility_internal_tpfa,
+                ad,
+                dynamic_viscosity,
+                dim_max,
             )
             data["for_hu"]["total_flux_internal"] = (
                 total_flux_internal[0] + total_flux_internal[1]
@@ -214,7 +212,7 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
         A_ad = self.linear_system[0].todense()
         np.set_printoptions(precision=2, linewidth=700, threshold=sys.maxsize)
 
-        sub_A_ad = A_ad[:, [4, 7, 17, 20]] # cells 2d grid around fracture
+        sub_A_ad = A_ad[:, [4, 7, 17, 20]]  # cells 2d grid around fracture
 
         A_frac = A_ad[:, [13, 28]]
         print("sub_A_ad = ", sub_A_ad)
@@ -334,7 +332,7 @@ model = FinalModel(mixture, params)
 
 model.saturation_values_2d = np.array([5, 8, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1])
 model.saturation_values_1d = np.array([0.55])
-model.pressure_values_2d = 1*np.array(
+model.pressure_values_2d = 1 * np.array(
     [5.6, 562, 16, 63, 68, 22, 6.6, 69, 776, 16, 636, 6.69]
 )
 model.pressure_values_1d = np.array([3695.0])

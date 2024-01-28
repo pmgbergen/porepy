@@ -7,12 +7,16 @@ import pdb
 
 os.system("clear")
 
+"""
+old tests regarding the hybrid upwind before its integration into the model 
+
+"""
+
 
 def myprint(var):
     print("\n" + var + " = ", eval(var))
 
 
-# official tests: ----------------------------------------------------------------------------
 print("\n\nTESTS: -------------------\n")
 
 
@@ -280,7 +284,7 @@ def test_total_flux_null(ad):
 def test_total_flux_jac():
     """
     TODO: redo this test, no analitical solutoin
-    Remark: same jacobians with wetting_saturation = np.array([0.7, 0.9]). I dont kno the analytical solution
+    Remark: same jacobians with wetting_saturation = np.array([0.7, 0.9]). I dont know the analytical solution
     """
     nx = 1
     ny = 2
@@ -889,30 +893,15 @@ test_upwind_direction_V_G_3x3()
 print("ufficial tests passed")
 
 print("\n\n dont forget that these tests do not check everything\n\n")
-"""
-ex:
-            if ad:
-                tmp = -pp.ad.functions.maximum(-tmp, -1e6)  # TODO: improve it
-                beta_faces = 0.5 + 1 / np.pi * pp.ad.functions.arctan(
-                    tmp * delta_pot_faces
-                )
-the sign of tmp isnt goes unnoticed
-"""
 
 
 ###################################################################################################################
 #
 ###################################################################################################################
-#
-#
-#
-#
-#
-#
+
 # solve one iteration: ---------------------------------------------------------------------
 
 do_this_section = False
-
 
 np.set_printoptions(precision=2, linewidth=150)
 
@@ -1094,9 +1083,6 @@ if do_this_section:
         + str(mixture.get_phase(1).mass_density(pressure).val),
     )
 
-    #
-    #
-    #
     # let's try newton: --------------------------------------------------
     gravity_value = 1  # 9.81
     ell = 1  # 0 = wetting phase, 1 = non-wetting phase
@@ -1163,363 +1149,3 @@ if do_this_section:
             #     title="saturation " + str(m) + " = " + str(1 - sol[1].val),
             # )
         initial_guess = sol
-
-    # #
-    # #
-    # #
-    # # HU discretization: -------------------------------------------------------------
-    # delta_t = 1
-
-    # hu = pp.HybridUpwind()
-
-    # ad = True
-    # A, b = hu.assemble_matrix_rhs_ad(
-    #     sd, data, mixture, pressure, ell, gravity_value, bc_val, ad
-    # )
-
-    # np.set_printoptions(precision=3, linewidth=150)
-    # myprint("A")
-    # myprint("b")
-    # myprint("np.linalg.det(A)")
-    # myprint("np.linalg.cond(A)")
-    # eigenvalues, _ = np.linalg.eig(A)
-    # myprint("eigenvalues")
-
-    # pdb.set_trace()
-
-    # # tmp:
-    # def jacobian_mass(sd, porosity):
-    #     """tmp"""
-    #     volumes = sd.cell_volumes
-
-    #     jacobian_mass_balance = np.diag(porosity * volumes)
-    #     jacobian = np.zeros(A.shape)
-    #     jacobian[
-    #         sd.num_cells : 2 * sd.num_cells, sd.num_cells : 2 * sd.num_cells
-    #     ] = jacobian_mass_balance  # hardcoded
-
-    #     return jacobian
-
-    # jacobian_mass = jacobian_mass(sd, porosity)
-
-    # A_full = A + delta_t * jacobian_mass
-    # myprint("np.linalg.det(A_full)")
-    # myprint("np.linalg.cond(A_full)")
-    # eigenvalues_full, _ = np.linalg.eig(A_full)
-    # myprint("eigenvalues_full")
-
-    # print("\n\n dont forget mass matrices")
-
-    pdb.set_trace()
-#
-#
-#
-#
-#
-#
-#
-
-
-# unofficial tests: ---------------------------------------------------------------------------------------------------------
-print("\n\nUNOFFICIAL TESTS: ---------------------\n")
-
-do_unofficial_tests = False
-
-if do_unofficial_tests:
-    ad = True
-
-    x_max = nx = 4
-    y_max = ny = 4
-    sd = pp.CartGrid(np.array([nx, ny]))
-    sd.compute_geometry()
-    # pp.plot_grid(sd, vector_value=0.3*sd.face_normals, info='cfn', alpha=0)
-
-    # TEST 1: horizontal stratification, stable/unstable initial conditions --------------------------------------------------------------------------------------
-    print("\n unofficial test 1: ---------------------")
-    """
-    - grad P = 0, g = 1. upwind is as expected for different g_ref (thus different ratio centered/upwind discr method)
-    - both for unstable and stable ic 
-    - the norm 1 for rho0 = 1 and 2 for rho0 = 2, ok
-    - ovv, no qt across vertical faces
-
-    - grad P ~=, g = 0. qt is constant and respects the grad directions as expected. 
-    - both for unstable and stable ic
-    - the norm 1 for rho0 = 1 and 2 for rho0 = 2, ok (remember that delta z and delta p are = 1)
-
-    - pressure = -sd.cell_centers[1] and gravity_value = 0.5 or 1. Some fluxes are null (1e-9), as expected.
-
-    - checked also vertical stratification but it is meaningless
-    """
-
-    data = pp.initialize_default_data(grid=sd, data={}, parameter_type="flow")
-
-    pressure_val = 1 * np.ones(sd.num_cells)
-    # pressure_val = -sd.cell_centers[1]  # just to have a gradient
-
-    wetting_phase = pp.Phase(rho0=1)
-    non_wetting_phase = pp.Phase(rho0=2)
-
-    wetting_saturation_val = 0 * np.ones(sd.num_cells)
-    wetting_saturation_val[np.where(sd.cell_centers[1] >= y_max / 2)] = 1.0
-
-    primary_vars = pp.ad.initAdArrays([pressure_val, wetting_saturation_val])
-    pressure = primary_vars[0]
-    wetting_phase._s = primary_vars[1]
-    non_wetting_phase._s = (
-        1 - primary_vars[1]
-    )  # the constraint is applied here. TODO: not clear... improve it
-
-    mixture = pp.Mixture()
-    mixture.add([wetting_phase, non_wetting_phase])
-
-    gravity_value = 1
-
-    hu = pp.HybridUpwind()
-    L, R = hu.restriction_matrices_left_right(sd)
-    hu.compute_transmissibility_tpfa(sd, data)
-    _, transmissibility_internal_tpfa = hu.get_transmissibility_tpfa(sd, data)
-
-    qt_internal = hu.total_flux(
-        sd, mixture, pressure, gravity_value, L, R, transmissibility_internal_tpfa, ad
-    )
-
-    E = hu.expansion_matrix(sd)
-
-    qt = E @ qt_internal
-    myprint("qt.val")
-
-    # plots:
-    pp.plot_grid(
-        sd,
-        np.real(mixture.get_phase(0).saturation.val),
-        title="saturation 0, density = "
-        + str(mixture.get_phase(0).mass_density(pressure).val),
-    )
-    pp.plot_grid(
-        sd,
-        np.real(mixture.get_phase(1).saturation.val),
-        title="saturation 1, density = "
-        + str(mixture.get_phase(1).mass_density(pressure).val),
-    )
-
-    qt_vector = sd.face_normals * qt.val
-    pp.plot_grid(
-        sd,
-        vector_value=0.5 * np.real(qt_vector),
-        alpha=0,
-        title="total flux",
-        zlim=(-1, 1),
-    )
-
-    pdb.set_trace()
-
-    #
-    #
-    #
-    #
-    #
-    #
-    #
-    # TEST 2: V flux --------------------------------------------------------------------------------------
-    print("\nunofficial test 2: --------------")
-    """
-    ell = 0
-    grad P = 0, gravity_value = 1, the directions are ok, values not checked
-    grad P = 1, gravity_value = 0, the directions are ok, values not checked
-
-    ell = 1
-    grad P = 0, gravity_value = 1, the directions are ok, values not checked
-    grad P = 1, gravity_value = 0, the directions are ok, values not checked
-
-    """
-    print("\n\n\n")
-
-    ell = 0
-
-    flux_v = hu.rho_flux_V(
-        sd,
-        mixture,
-        ell,
-        pressure,
-        qt_internal,
-        cell_left_internal_id,
-        cell_right_internal_id,
-    )
-    myprint("flux_v")
-
-    # plots:
-    flux_v_vector = sd.face_normals * flux_v
-    pp.plot_grid(
-        sd,
-        vector_value=np.real(flux_v_vector),
-        alpha=0,
-        title="flux V of phase " + str(ell),
-        zlim=(-1, 1),
-    )
-
-    # TEST 3: G flux --------------------------------------------------------------------------------------
-    print("\nunofficial test 3: ---------------------")
-    """
-    - when the phases are completely separeted G is zero, right? either lambda_ell(S=0,1)*lambda_m(S=0,1) = 0, or g_ell-g_m = 0 
-
-    - with saturations = 0.1, 0.9 the flux directions is right. I havent checked anything more.
-
-    """
-    print("\n\n\n")
-
-    flux_g = hu.rho_flux_G(
-        sd,
-        mixture,
-        ell,
-        pressure,
-        gravity_value,
-        cell_left_internal_id,
-        cell_right_internal_id,
-        transmissibility_internal_tpfa,
-    )
-    myprint("flux_g")
-
-    # plots:
-    flux_g_vector = sd.face_normals * flux_g
-    pp.plot_grid(
-        sd,
-        vector_value=np.real(flux_g_vector),
-        alpha=0,
-        title="flux G of phase " + str(ell),
-        zlim=(-1, 1),
-    )
-
-    # pdb.set_trace()
-
-    """
-    TODO: 
-    - horizontal pressure gradient 
-    - simplex grid
-    - better test...
-    - find a way to check omega, G, ...
-    - ell is defined when you define the mixture. Which pahse is the primary varible is up to you. The link between ell and primary is not evident. 
-
-    - I dont like the input.                                                        #
-    - Do I like more an integer index to indentify each phase? Yes, I do.           # DONE
-    - Inside the code it's not clear what is primary variable and what is not.       #
-    - same for contraints  
-    """
-
-
-print("\nDone!")
-
-#
-#
-#
-#
-################################################################################################
-# TRASH:
-################################################################################################
-"""
-# training: #################################################################################################
-do_this_section = False
-if do_this_section:
-    x_max = nx = 3
-    y_max = ny = 2
-    sd = pp.StructuredTriangleGrid(np.array([nx, ny]))
-    sd.compute_geometry()
-    # pp.plot_grid(sd, vector_value=0.2*sd.face_normals, info='cfn', alpha=0)
-
-    # the following should be the cell_face_map of your notes
-    # yes, it is.
-    myprint("sd.num_nodes")
-    myprint("sd.num_faces")
-    cell_faces = np.array(sd.cell_faces.todense())
-    myprint("cell_faces.shape")
-
-    myprint("cell_faces.sum(axis=0)")  # sum elemnts in columns
-    myprint("cell_faces.sum(axis=1)")  # sum elements in rows
-
-    myprint("sd.get_all_boundary_faces()")
-    myprint("sum(np.abs(cell_faces.sum(axis=1)))")
-    assert len(sd.get_all_boundary_faces()) == int(sum(np.abs(cell_faces.sum(axis=1))))
-
-    # right = 1 # see below
-    # left = -1
-
-    cell_faces_right = 1 * (cell_faces > 0)  # find a better way
-    cell_faces_left = 1 * (cell_faces < 0)  # find a better way
-    dummy_cell_var_1 = np.arange(sd.num_cells)  # = cell index
-    dummy_cell_var_2 = np.zeros(sd.num_cells)
-    dummy_cell_var_2[np.where(sd.cell_centers[0] > x_max / 2)] = 1
-    right_state = cell_faces_right @ dummy_cell_var_1
-    left_state = cell_faces_left @ dummy_cell_var_1
-
-    myprint(
-        "np.vstack((np.arange(sd.num_faces), right_state)).T"
-    )  # pay attention on the zeros...
-    myprint(
-        "np.vstack((np.arange(sd.num_faces), left_state)).T"
-    )  # pay attention on the zeros...
-    # it is the opposite (ovv it doesnt make any difference):
-    # right = -1
-    # left = 1
-    # mmm see also below
-
-    myprint("sd.cell_face_as_dense()")
-    # cell_faces_right = sd.cell_face_as_dense()
-    # cell_faces_left = sd.cell_face_as_dense()
-
-    # SPLIT INTERNAL/BOUNDARY FACES
-    internal_faces = sd.get_internal_faces()
-    boundary_faces = sd.get_all_boundary_faces()
-
-    cell_faces_internal_left = sd.cell_face_as_dense()[
-        0, internal_faces
-    ]  # this is correct (inevitably...), right is positve and left is negative
-    cell_faces_internal_right = sd.cell_face_as_dense()[1, internal_faces]
-
-    myprint("cell_faces_internal_left")
-    myprint("cell_faces_internal_right")
-
-    cell_left_internal = cell_faces_internal_left  # they are already the left cells
-    cell_right_internal = cell_faces_internal_right  # idem
-
-    cell_left_internal_id = cell_left_internal  # they are the same
-    cell_right_internal_id = cell_right_internal  # idem
-
-    myprint("np.vstack((internal_faces, cell_left_internal)).T")
-    myprint(
-        "np.vstack((internal_faces, cell_right_internal)).T"
-    )  # this is fine, but do you really want to work with index subsets? Sure?
-
-    # METHOD NUMBER 1: use indeces
-    dummy_left_1 = dummy_cell_var_2[cell_left_internal_id]
-    dummy_right_1 = dummy_cell_var_2[cell_right_internal_id]
-
-    # METHOD NUMBER 2: map from cell array to internal left or right
-    cell_face_internal_left_matrix = np.zeros(
-        (cell_left_internal_id.shape[0], sd.num_cells)
-    )  # initialization
-    cell_face_internal_left_matrix[
-        np.arange(cell_left_internal_id.shape[0]), cell_left_internal_id
-    ] = 1
-    cell_face_internal_right_matrix = np.zeros(
-        (cell_right_internal_id.shape[0], sd.num_cells)
-    )  # initialization
-    cell_face_internal_right_matrix[
-        np.arange(cell_right_internal_id.shape[0]), cell_right_internal_id
-    ] = 1
-
-    dummy_left_2 = cell_face_internal_left_matrix @ dummy_cell_var_2
-    dummy_right_2 = cell_face_internal_right_matrix @ dummy_cell_var_2
-
-    # Subsets are tricky: try to remove them
-    # TODO
-
-    dummy_bc_val = np.zeros(sd.num_faces)
-    dummy_bc_val[sd.get_boundary_faces()] = 1
-    face_cell = sd.cell_faces.T.todense()
-
-    # DENSITIES:
-    dummy_S1 = 0.5 * np.ones(sd.num_cells)
-    dummy_S1[np.where(sd.cell_centers[0] > x_max / 2)] = 0.5
-    dummy_rho1 = np.ones(sd.num_cells)
-    dummy_rho1[np.where(sd.cell_centers[0] > x_max / 2)] = 2
-
-"""

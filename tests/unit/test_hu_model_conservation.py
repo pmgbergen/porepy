@@ -16,11 +16,12 @@ import pdb
 os.system("clear")
 
 """
+OLD TEST
+
+
 NOTE: 
 - the idea is to solve the stationary equations by setting the accumulation ther by zero
 - test after one timestep that the flux is zero
-- I'm using both equaitons from test_hu_model and test_hu_model_conservation. I need to run one time iteration and check the flux. NOT ANYMORWE
-
 I'm not able to run a stationary simulation
 
 """
@@ -101,11 +102,7 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
             )
 
         for sd in self.mdg.subdomains():
-            gigi = (
-                self.mixture.mixture_for_subdomain(sd)
-                .get_phase(0)
-                .saturation
-            )
+            gigi = self.mixture.mixture_for_subdomain(sd).get_phase(0).saturation
             print("saturation = ", gigi.val)
             pp.plot_grid(
                 sd,
@@ -117,7 +114,7 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
 
     def before_nonlinear_iteration(self):
         """ """
-        print('\n\n --------- inside before_nonlinear_iteration: -----------')
+        print("\n\n --------- inside before_nonlinear_iteration: -----------")
 
         self.mixture.apply_constraint(self.ell)
 
@@ -187,14 +184,12 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
                 {"interface_mortar_flux_phase_1": vals}
             )
 
-
-
         # check the conservation equation, the sum of the three terms must be zero. If not, see what happens.
         # this is done before Nweton iter, so values at previoes iter are taken.
 
         dt_operator = pp.ad.time_derivatives.dt
         dt = pp.ad.Scalar(self.time_manager.dt)
-                
+
         # PRESSURE EQ: ----------------
         (
             eq,
@@ -208,26 +203,34 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
             source,
         ) = self.eq_fcn_pressure(self.mdg.subdomains())
 
-        print('2D:')
-        accumulation_pressure = dt_operator(accumulation, dt).evaluate(self.equation_system).val[7]
+        print("2D:")
+        accumulation_pressure = (
+            dt_operator(accumulation, dt).evaluate(self.equation_system).val[7]
+        )
         net_flux_pressure = flux.evaluate(self.equation_system).val[[8, 9, 19, 24]]
-        net_flux_pressure = net_flux_pressure[0] - net_flux_pressure[1] + net_flux_pressure[2] - net_flux_pressure[3]
+        net_flux_pressure = (
+            net_flux_pressure[0]
+            - net_flux_pressure[1]
+            + net_flux_pressure[2]
+            - net_flux_pressure[3]
+        )
         source_pressure = source.evaluate(self.equation_system).val[7]
-        
+
         print("accumulation pressure cell 7 = ", accumulation_pressure)
         print("net_flux_pressure cell 7     = ", net_flux_pressure)
         print("source pressure cell 7       = ", source_pressure)
 
-        print('1D:') # cell 1 frac = 11 global ref
-        accumulation_pressure = dt_operator(accumulation, dt).evaluate(self.equation_system).val[11]
+        print("1D:")  # cell 1 frac = 11 global ref
+        accumulation_pressure = (
+            dt_operator(accumulation, dt).evaluate(self.equation_system).val[11]
+        )
         net_flux_pressure = flux.evaluate(self.equation_system).val[[31, 32]]
         net_flux_pressure = net_flux_pressure[0] - net_flux_pressure[1]
         source_pressure = source.evaluate(self.equation_system).val[11]
-        
+
         print("accumulation pressure cell 1 = ", accumulation_pressure)
         print("net_flux_pressure cell 1     = ", net_flux_pressure)
         print("source pressure cell 1       = ", source_pressure)
-
 
         # MASS BALANCE: ---------------
         (
@@ -243,10 +246,14 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
         ) = self.eq_fcn_mass(self.mdg.subdomains())
 
         print("2D:")
-        accumulation_mass = dt_operator(accumulation, dt).evaluate(self.equation_system).val[7]
-        net_flux_mass = flux_V_G - flux_intf_phase_0 # ell = 0
+        accumulation_mass = (
+            dt_operator(accumulation, dt).evaluate(self.equation_system).val[7]
+        )
+        net_flux_mass = flux_V_G - flux_intf_phase_0  # ell = 0
         net_flux_mass = net_flux_mass.evaluate(self.equation_system).val[[8, 9, 19, 24]]
-        net_flux_mass = net_flux_mass[0] - net_flux_mass[1] + net_flux_mass[2] - net_flux_mass[3]
+        net_flux_mass = (
+            net_flux_mass[0] - net_flux_mass[1] + net_flux_mass[2] - net_flux_mass[3]
+        )
         source_mass = source_phase_0.evaluate(self.equation_system).val[7]
 
         print("accumulation mass cell 7 = ", accumulation_mass)
@@ -254,8 +261,10 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
         print("source mass cell 7       = ", source_mass)
 
         print("1D:")
-        accumulation_mass = dt_operator(accumulation, dt).evaluate(self.equation_system).val[11]
-        net_flux_mass = flux_V_G - flux_intf_phase_0 # ell = 0
+        accumulation_mass = (
+            dt_operator(accumulation, dt).evaluate(self.equation_system).val[11]
+        )
+        net_flux_mass = flux_V_G - flux_intf_phase_0  # ell = 0
         net_flux_mass = net_flux_mass.evaluate(self.equation_system).val[[31, 32]]
         net_flux_mass = net_flux_mass[0] - net_flux_mass[1]
         source_mass = source_phase_0.evaluate(self.equation_system).val[11]
@@ -266,10 +275,10 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
 
         self.set_discretization_parameters()
         self.rediscretize()
-        
+
     def eb_after_timestep(self):
         """ """
-        print('\n\n -------------- inside eb_after_timestep: -------------------')
+        print("\n\n -------------- inside eb_after_timestep: -------------------")
 
         # TEST SECTION: ---------------------------------------------------------
 
@@ -289,10 +298,9 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
         #         normals = sd.face_normals
         #         pp.plot_grid(
         #             sd, vector_value=0.5 * normals, info='f', alpha=0
-        #         ) 
-                
+        #         )
 
-        # for sd in self.mdg.subdomains(): 
+        # for sd in self.mdg.subdomains():
         #     if sd.dim == 2:
         #         gigi = (
         #             self.mixture.mixture_for_subdomain(sd)
@@ -326,44 +334,60 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
             source,
         ) = self.eq_fcn_pressure(self.mdg.subdomains())
 
-        print('2D:')
+        print("2D:")
         accumulation_pressure = (
-            dt_operator(accumulation, dt)
-            .evaluate(self.equation_system)
-            .val
+            dt_operator(accumulation, dt).evaluate(self.equation_system).val
         )[7]
-        
+
         flux_cell_7_pressure = flux_pressure.evaluate(self.equation_system).val[
             [8, 9, 19, 24]
         ]  # see the plot for the indeces... # at the end of this vector there are the fluxes in the fracture
-        net_flux_pressure = flux_cell_7_pressure[0] - flux_cell_7_pressure[1] + flux_cell_7_pressure[2] - flux_cell_7_pressure[3] 
-        
+        net_flux_pressure = (
+            flux_cell_7_pressure[0]
+            - flux_cell_7_pressure[1]
+            + flux_cell_7_pressure[2]
+            - flux_cell_7_pressure[3]
+        )
+
         # print(div.evaluate(self.equation_system)) # 2D: 8-1, 9+1, 19-1, 24+1. # 1D: 31-1, 32+1
-        assert net_flux_pressure == -(div @ flux_pressure).evaluate(self.equation_system).val[7]
+        assert (
+            net_flux_pressure
+            == -(div @ flux_pressure).evaluate(self.equation_system).val[7]
+        )
         print("minus? I'm confused...")
 
         source_pressure = source.evaluate(self.equation_system).val[7]
-        print("no time derivative acc cell 7 = ", accumulation.evaluate(self.equation_system).val[7])
-        print("accumulation pressure cell 7  = ", accumulation_pressure
+        print(
+            "no time derivative acc cell 7 = ",
+            accumulation.evaluate(self.equation_system).val[7],
+        )
+        print(
+            "accumulation pressure cell 7  = ", accumulation_pressure
         )  # I think it's zero because it is set to zero. DON'T THINK, CHECK.
         print("net_flux pressure             = ", net_flux_pressure)
         print("source_pressure cell 7        = ", source_pressure)
 
-        print('1D:')
+        print("1D:")
         accumulation_pressure = (
-            dt_operator(accumulation, dt)
-            .evaluate(self.equation_system)
-            .val
+            dt_operator(accumulation, dt).evaluate(self.equation_system).val
         )[11]
-        
-        flux_cell_7_pressure = flux_pressure.evaluate(self.equation_system).val[[31, 32]]  
+
+        flux_cell_7_pressure = flux_pressure.evaluate(self.equation_system).val[
+            [31, 32]
+        ]
         net_flux_pressure = flux_cell_7_pressure[0] - flux_cell_7_pressure[1]
-        
-        assert net_flux_pressure == -(div @ flux_pressure).evaluate(self.equation_system).val[11]
+
+        assert (
+            net_flux_pressure
+            == -(div @ flux_pressure).evaluate(self.equation_system).val[11]
+        )
 
         source_pressure = source.evaluate(self.equation_system).val[11]
 
-        print("no time derivative acc cell 11 = ", accumulation.evaluate(self.equation_system).val[11])
+        print(
+            "no time derivative acc cell 11 = ",
+            accumulation.evaluate(self.equation_system).val[11],
+        )
         print("accumulation pressure cell 11  = ", accumulation_pressure)
         print("net_flux pressure cell 11      = ", net_flux_pressure)
         print("source_pressure cell 7         = ", source_pressure)
@@ -382,45 +406,59 @@ class SolutionStrategyPressureMassTest(test_hu_model.SolutionStrategyPressureMas
         ) = self.eq_fcn_mass(self.mdg.subdomains())
 
         print("2D:")
-        accumulation_mass = dt_operator(accumulation, dt).evaluate(
-            self.equation_system
-        ).val[7]
+        accumulation_mass = (
+            dt_operator(accumulation, dt).evaluate(self.equation_system).val[7]
+        )
 
         flux_mass_op = flux_V_G - flux_intf_phase_0
-        flux_mass =  flux_mass_op.evaluate(self.equation_system).val
+        flux_mass = flux_mass_op.evaluate(self.equation_system).val
         # conservation cell 7
-        flux_cell_7_mass = flux_mass[
-            [8, 9, 19, 24]
-        ]  # see the plot for the indeces...
-        net_flux_mass = flux_cell_7_mass[0] - flux_cell_7_mass[1] + flux_cell_7_mass[2] - flux_cell_7_mass[3]
-        assert net_flux_mass == -(div @ flux_mass_op).evaluate(self.equation_system).val[7]        
+        flux_cell_7_mass = flux_mass[[8, 9, 19, 24]]  # see the plot for the indeces...
+        net_flux_mass = (
+            flux_cell_7_mass[0]
+            - flux_cell_7_mass[1]
+            + flux_cell_7_mass[2]
+            - flux_cell_7_mass[3]
+        )
+        assert (
+            net_flux_mass == -(div @ flux_mass_op).evaluate(self.equation_system).val[7]
+        )
 
         source_mass = source_phase_0.evaluate(self.equation_system).val[7]
 
-        print("no time derivative acc cell 7 = ", accumulation.evaluate(self.equation_system).val[7])
+        print(
+            "no time derivative acc cell 7 = ",
+            accumulation.evaluate(self.equation_system).val[7],
+        )
         print("accumulation mass cell 7      = ", accumulation_mass)
         print("net_flux mass cell 11         = ", net_flux_mass)
         print("source_mass cell 7            = ", source_mass)
 
         print("1D:")
-        accumulation_mass = dt_operator(accumulation, dt).evaluate(
-            self.equation_system
-        ).val[11]
+        accumulation_mass = (
+            dt_operator(accumulation, dt).evaluate(self.equation_system).val[11]
+        )
 
         flux_mass_op = flux_V_G - flux_intf_phase_0
-        flux_mass =  flux_mass_op.evaluate(self.equation_system).val
+        flux_mass = flux_mass_op.evaluate(self.equation_system).val
         flux_cell_7_mass = flux_mass[[31, 32]]
         net_flux_mass = flux_cell_7_mass[0] - flux_cell_7_mass[1]
 
-        assert net_flux_mass == -(div @ flux_mass_op).evaluate(self.equation_system).val[11]        
+        assert (
+            net_flux_mass
+            == -(div @ flux_mass_op).evaluate(self.equation_system).val[11]
+        )
 
         source_mass = source_phase_0.evaluate(self.equation_system).val[11]
 
-        print("no time derivative acc cell 11 = ", accumulation.evaluate(self.equation_system).val[11])
+        print(
+            "no time derivative acc cell 11 = ",
+            accumulation.evaluate(self.equation_system).val[11],
+        )
         print("accumulation mass cell 11      = ", accumulation_mass)
         print("net_flux mass cell 11          = ", net_flux_mass)
         print("source_mass cell 11            = ", source_mass)
-        
+
         pdb.set_trace()
         if self.case == 1:
             print("case 1")

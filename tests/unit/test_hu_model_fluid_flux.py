@@ -16,6 +16,8 @@ import pdb
 os.system("clear")
 
 """
+OLD TEST
+
 - I check that the interface (noun "interface" missing everywhere) fluid flux of the non-present phase is actually zero
 - test after one, or more, timesteps. Density is constant. It shouldn't conferge but id does, sometimes..?
 """
