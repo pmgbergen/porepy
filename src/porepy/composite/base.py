@@ -14,9 +14,8 @@ The hierarchy is as follows:
 1. :class:`Component`:
    A phase-changing representation of a species involving some physical constants
    Additionally, this class represents a variable quantity in the equilibrium
-   problem. It can appear in multiple phases.
-   It also has abstract thermodynamic properties, which need to be
-   implemented for each component based on some experimental data.
+   problem. It can appear in multiple phases and has a fraction of the overall mass
+   associated with it.
 2. :class:`Compound`:
    Additionally to being a variable quantity, this class has other species
    with related solute fractions functioning as parameters for thermodynamic
@@ -24,14 +23,25 @@ The hierarchy is as follows:
    They might nevertheless be transportable by f.e. a coupled flow problem.
 3. :class:`Phase`:
    An object representing a physical phase like gas-phase or a liquid-phase.
+   A phase can contain multiple phase-changing components and the modeller must set
+   those explicitly (see :attr:`Phase.components`).
+   Components in a phase are characterized by their fraction of mass
+   (:attr:`Phase.fraction_of`), relative to the
+   fraction of mass in a phase (:attr:`Phase.fraction`).
+   Components have additionally an fugacity coefficient in a phase
+   (:attr:`Phase.fugacity_of`)
    In the unified setting, all phases contain every modelled component.
-   They must ergo provide representations of that component's fraction in a phase and
-   it's fugacity.
-   The phase has also physical properties (like density) which come into play when
-   formulating the phase.
+
+   The phase has also physical properties (like density and enthalpy) which come into
+   play when formulating more complex equilibrium models coupled with flow & transport.
 4. :class:`Mixture`:
     A basic representation of a mixture which is a collection of anticipated phases and
-    present components. The overall fraction of a component must never be zero.
+    present components.
+
+    It puts phases and components into context and assignes fractional unknowns.
+    The mixture expects the overall fraction of a component (:attr:`Component.fraction`)
+    to never be zero. Otherwise a smaller mixture can be modelled.
+
     Serves as a managing instance and provides functionalities to formulate the flash
     equations using PorePy's AD framework.
 
@@ -47,9 +57,9 @@ import numpy as np
 import porepy as pp
 from porepy.numerics.ad.operator_functions import NumericType
 
-from ._core import COMPOSITIONAL_VARIABLE_SYMBOLS, R_IDEAL
+from ._core import COMPOSITIONAL_VARIABLE_SYMBOLS, P_REF, R_IDEAL, T_REF
 from .chem_species import ChemicalSpecies, FluidSpecies
-from .composite_utils import AdProperty, safe_sum
+from .composite_utils import PropertyFunction, safe_sum
 from .states import FluidState, PhaseState
 
 __all__ = [
@@ -63,12 +73,11 @@ __all__ = [
 class Component(abc.ABC, FluidSpecies):
     """Abstract base class for components modelled inside a mixture.
 
-    Components are chemical species which possibly go through phase transitions and
-    appear in multiple phases.
-    They represent a genuine component in the flash problem.
-
-    Provides a variable representing the molar fraction of this component
-    (feed fraction), cell-wise in a computational domain.
+    Components are chemical species inside a mixture, which possibly go through phase
+    transitions and appear in multiple :class:`Phase`.
+    A component is identified by the (time-dependent) fraction of total mass belonging
+    to the component. The fraction is assigned by an mixture instance, once the it has
+    been added to a mixture.
 
     Note:
         Rather than instantiating a component directly, it is easier to use the
@@ -97,10 +106,14 @@ class Component(abc.ABC, FluidSpecies):
         - Math. Dimension:        scalar
         - Phys. Dimension:        [%] fractional
 
-        The overall fraction is always considered constant in the flash problem,
-        but possible a primary variable in other physics.
+        Note:
+            Feed fractions are constant in non-reactive mixtures, since there the number
+            of moles of a species is assumed to be constant.
 
-        This attribute is assigned by a mixture instance, when this component is added.
+            Nevertheless, they are instantiated as variables for coupling with flow
+            and transport, and for future development.
+
+        It is available once :meth:`Mixture.set_up_ad` is performed.
 
         If the component is assigned as the reference component, this is a dependent
         operator. Otherwise it is a variable.
@@ -390,9 +403,8 @@ class Phase:
     A phase is identified by the (time-dependent) region/volume it occupies (saturation)
     and the (molar) fraction of mass belonging to this phase.
 
-    Phases have physical properties, dependent on pressure, temperature and component
-    fractions.
-    Modelled components can be accessed by iterating over a phase.
+    Phases have physical properties, dependent on pressure, temperature and composition.
+    Modelled components can be set and accessed using :attr:`components`.
 
     Thermodynamic phase properties relevant for flow and flash problems are stored as
     AD-compatible objects, whose values can be written and accessed directly.
@@ -448,10 +460,24 @@ class Phase:
         type: int,
         name: str,
     ) -> None:
-        self._components: list[Component] = []
-        """Private list of present components (see :meth:`components`)."""
-
         ### PUBLIC
+
+        self.components: Sequence[Component]
+        """A sequence of all components modelled in this phase.
+
+        Important:
+            In principle, the user has to manually set which components are in which
+            phase.
+
+            This influences the operators created during :meth:`Mixture.set_up_ad`.
+
+            Models in the unified setting
+            (see :class:`~porepy.composite.equilibrium_models.MixtureUNR`) set all
+            components to be present in every phase by default.
+
+        Once set, it should not be modified. Avoid multiple occurences of components.
+
+        """
 
         self.eos: pp.composite.EoSCompiler = eos
         """The EoS passed at instantiation."""
@@ -462,31 +488,33 @@ class Phase:
         self.name: str = str(name)
         """Name given to the phase at instantiation."""
 
-        self.density: AdProperty = AdProperty(f"phase-density-{self.name}")
+        self.density: PropertyFunction
         """Molar density of this phase.
 
         - Math. Dimension:        scalar
         - Phys. Dimension:        [mol / m^3]
 
-
         This is an AD-compatible representation, whose value is computed using
         :meth:`compute_properties`.
 
+        It is available once :meth:`Mixture.set_up_ad` is performed.
+
         """
 
-        self.volume: AdProperty = AdProperty(f"phase-volume-{self.name}")
+        self.volume: PropertyFunction
         """Molar volume of this phase.
 
         - Math. Dimension:        scalar
         - Phys. Dimension:        [m^3 / mol]
 
-
         This is an AD-compatible representation, whose value is computed using
         :meth:`compute_properties`.
 
+        It is available once :meth:`Mixture.set_up_ad` is performed.
+
         """
 
-        self.enthalpy: AdProperty = AdProperty(f"phase-enthalpy-{self.name}")
+        self.enthalpy: PropertyFunction
         """Specific molar enthalpy of this phase.
 
         - Math. Dimension:        scalar
@@ -495,9 +523,11 @@ class Phase:
         This is an AD-compatible representation, whose value is computed using
         :meth:`compute_properties`.
 
+        It is available once :meth:`Mixture.set_up_ad` is performed.
+
         """
 
-        self.viscosity: AdProperty = AdProperty(f"phase-viscosity-{self.name}")
+        self.viscosity: PropertyFunction
         """Dynamic molar viscosity of this phase.
 
         - Math. Dimension:        scalar
@@ -506,9 +536,11 @@ class Phase:
         This is an AD-compatible representation, whose value is computed using
         :meth:`compute_properties`.
 
+        It is available once :meth:`Mixture.set_up_ad` is performed.
+
         """
 
-        self.conductivity: AdProperty = AdProperty(f"phase-conductivity-{self.name}")
+        self.conductivity: PropertyFunction
         """Thermal conductivity of this phase.
 
         - Math. Dimension:    2nd-order tensor
@@ -517,19 +549,20 @@ class Phase:
         This is an AD-compatible representation, whose value is computed using
         :meth:`compute_properties`.
 
+        It is available once :meth:`Mixture.set_up_ad` is performed.
+
         """
 
-        self.fugacity_of: dict[Component, AdProperty] = dict()
+        self.fugacity_of: dict[Component, PropertyFunction]
         """A map of fugacity coefficients for each present component (key).
 
         - Math. Dimension:    scalar
         - Phys. Dimension:    [Pa]
 
-        The properties are set, once the components are set for this phase using
-        :meth:`components`.
-
-        This is an AD-compatible representation, whose values are computed using
+        This is an AD-compatible representation, whose value is computed using
         :meth:`compute_properties`.
+
+        It is available once :meth:`Mixture.set_up_ad` is performed.
 
         """
 
@@ -541,7 +574,7 @@ class Phase:
         - Math. Dimension:        scalar
         - Phys. Dimension:        [-] fractional
 
-        This attribute is assigned by a mixture instance, when this phase is added.
+        It is available once :meth:`Mixture.set_up_ad` is performed.
 
         If the phase is assigned as the reference phase, this is a dependent operator.
         Otherwise it is a variable.
@@ -556,26 +589,25 @@ class Phase:
         - Math. Dimension:        scalar
         - Phys. Dimension:        [-] fractional
 
-        This attribute is assigned by a mixture instance, when this phase is added.
+        It is available once :meth:`Mixture.set_up_ad` is performed.
 
         If the phase is assigned as the reference phase, this is a dependent operator.
         Otherwise it is a variable.
 
         """
 
-        self.fraction_of: dict[Component, pp.ad.MixedDimensionalVariable] = dict()
+        self.fraction_of: dict[Component, pp.ad.MixedDimensionalVariable]
         """A dictionary containing the composition variable for each component (key).
 
-        The fractions are created by a mixture instance, when this phase is added.
+        It is available once :meth:`Mixture.set_up_ad` is performed.
 
         """
 
-        self.normalized_fraction_of: dict[Component, pp.ad.Operator] = dict()
+        self.normalized_fraction_of: dict[Component, pp.ad.Operator]
         """A dictionary containing operators representing normalized fractions per
         component (key) based on variables in :attr:`fraction_of`.
 
-        The operators are created, once the components are set for this phase using
-        :meth:`components`.
+        It is available once :meth:`Mixture.set_up_ad` is performed.
 
         """
 
@@ -597,75 +629,8 @@ class Phase:
 
     @property
     def num_components(self) -> int:
-        """Number of added components."""
-        return len(self._components)
-
-    @property
-    def components(self) -> list[Component]:
-        """A container for all components modelled in this phase.
-
-        Important:
-            The user does not need to set the components directly in a phase.
-            The mixture class sets the components of every phase in the unified setting.
-            Manipulate with care once the mixture is set up.
-
-            By setting components, previous references to fugiacities and fractions of
-            components are dereferenced.
-
-        Warning:
-            Components in a phase should only be set once!
-
-            There is a lose end in the framework, variables once created can not be
-            deleted and are for always in the global DOF order.
-
-        Parameters:
-            components: List of components to be modelled in this phase.
-
-        """
-        # deep copy list
-        return [c for c in self._components]
-
-    @components.setter
-    def components(self, components: list[Component]) -> None:
-        self._components = list()
-        self.fugacity_of = dict()
-        self.fraction_of = dict()
-        self.normalized_fraction_of = dict()
-        # to avoid double setting
-        added_components = list()
-        for comp in components:
-            # check if already added
-            if comp.name in added_components:
-                continue
-
-            added_components.append(comp.name)
-            self._components.append(comp)
-
-            # create fugacity operatpr
-            fug_i = AdProperty(f"fugacity-of-{comp.name}-in-{self.name}")
-            self.fugacity_of.update({comp: fug_i})
-
-    @overload
-    def compute_properties(
-        self,
-        p: np.ndarray,
-        T: np.ndarray,
-        xn: Sequence[np.ndarray],
-        store: Literal[True] = True,
-    ) -> None:
-        # Typing overload for default return value: None, properties are stored
-        ...
-
-    @overload
-    def compute_properties(
-        self,
-        p: np.ndarray,
-        T: np.ndarray,
-        xn: Sequence[np.ndarray],
-        store: Literal[False] = False,
-    ) -> PhaseState:
-        # Typing overload for default return value: Properties are returned
-        ...
+        """Number of set components."""
+        return len(self.components)
 
     def compute_properties(
         self,
@@ -673,40 +638,50 @@ class Phase:
         T: np.ndarray,
         xn: Sequence[np.ndarray],
         store: bool = True,
-    ) -> PhaseState | None:
+    ) -> PhaseState:
         """Convenience method to compute the phase properties using the underlying EoS
         and store the values in the respective AD operator.
 
         Parameters:
-            p: Pressure.
-            T: Temperature.
-            xn: ``len=num_components``
+            p: ``shape=(N,)``
+
+                Pressure.
+            T: ``shape=(N,)``
+
+                Temperature.
+            xn: ``shape=(num_components, N)``
 
                 (Normalized) Component fractions in this phase.
                 The number of values must correspond to the number expected by the
                 underlying EoS.
             store: ``default=True``
 
-                A flag to store the computed values in the respective attributes
+                A flag to store the computed values in the respective operators
                 representing thermodynamic properties.
 
         Returns:
-            If ``store=False``, returns the computed properties.
+            A data structure containing the phase properties in numerical format.
 
         """
         state = self.eos.compute_phase_state(self.type, p, T, xn)
 
         if store:
             self.density.value = state.rho
+            self.density.derivatives = state.drho
             self.volume.value = state.v
-            self.viscosity.value = state.mu
-            self.conductivity.value = state.kappa
+            self.volume.derivatives = state.dv
             self.enthalpy.value = state.h
+            self.enthalpy.derivatives = state.dh
+
+            # TODO missing models
+            self.viscosity.value = 1.0
+            self.conductivity.value = 1.0
 
             for i, comp in enumerate(self):
                 self.fugacity_of[comp].value = state.phis[i]
-        else:
-            return state
+                self.fugacity_of[comp].derivatives = state.dphis[i]
+
+        return state
 
 
 class Mixture:
@@ -798,12 +773,38 @@ class Mixture:
         """The fluid is present in each cell and each state function has one DOF per
         cell. This is calculated during :meth:`set_up_ad`."""
 
+        self._p: pp.ad.MixedDimensionalVariable
+        """Reference to the pressure variable on which phase properties depend."""
+
+        self._T: pp.ad.MixedDimensionalVariable
+        """Reference to the Temperature variable on which phase properties depend."""
+
         ### PUBLIC
 
         self.system: pp.ad.EquationSystem
         """The AD-system set during :meth:`set_up_ad`.
 
         This attribute is not available prior to that.
+
+        """
+
+        self.feed_fraction_variables: list[str]
+        """A list of names of feed fraction variables per present components.
+
+        This list is created in :meth:`set_up_ad`.
+
+        """
+
+        self.saturation_variables: list[str]
+        """A list of names of saturation variables, which are unknowns in the
+        equilibrium problem.
+
+        Note:
+            Saturations are only relevant in equilibrium problems involving the volume
+            of the mixtures.
+            Otherwise they can be calculated in a post-processing step.
+
+        This list is created in :meth:`set_up_ad`.
 
         """
 
@@ -820,37 +821,9 @@ class Mixture:
 
         """
 
-        self.saturation_variables: list[str]
-        """A list of names of saturation variables, which are unknowns in the
-        equilibrium problem.
-
-        Note:
-            Saturations are only relevant in equilibrium problems involving the volume
-            of the mixtures.
-            Otherwise they can be calculated a posterior.
-
-        This list is created in :meth:`set_up_ad`.
-
-        """
-
-        self.feed_fraction_variables: list[str]
-        """A list of names of feed fraction variables per present components.
-
-        Note:
-            Feed fractions are constant in non-reactive mixtures, since there the number
-            of moles of a species is assumed to be constant.
-
-        This list is created in :meth:`set_up_ad`.
-
-        """
-
-        self.solute_fraction_variables: dict[Compound, list[str]] = dict()
+        self.solute_fraction_variables: dict[Compound, list[str]]
         """A dictionary containing per compound (key) names of solute fractions
         for each solute in that compound.
-
-        Note:
-            Solute fractions are assumed constant in non-reactive mixtures.
-            They are not used anywhere in the flash by default.
 
         This map is created in :meth:`set_up_ad`.
 
@@ -993,15 +966,17 @@ class Mixture:
     def set_up_ad(
         self,
         ad_system: Optional[pp.ad.EquationSystem] = None,
-        subdomains: list[pp.Grid] = None,
+        subdomains: Optional[list[pp.Grid]] = None,
+        p: Optional[pp.ad.MixedDimensionalVariable] = None,
+        T: Optional[pp.ad.MixedDimensionalVariable] = None,
         eliminate_ref_phase: bool = True,
         eliminate_ref_feed_fraction: bool = True,
     ) -> list[pp.Grid]:
-        """Basic set-up of mixture.
+        """Basic set-up of mixture for PorePy's AD framework.
 
         This creates the fractional variables in the phase-equilibrium problem.
 
-        The following AD operators are created (with 0-values, if variable):
+        The following AD variables are created (with 0-values, if variable):
 
         - :attr:`Component.fraction`
         - attr:`Phase.fractions` (variables, except for ref. phase if eliminated).
@@ -1009,6 +984,13 @@ class Mixture:
         - :attr:`Phase.fraction_of` (variables for each components).
         - :attr:`Phase.normalized_fraction_of`
           (expressions dependent on :attr:`Phase.fraction_of` for each phase).
+
+        After creating the variables, it creates pressure-, temperature- and
+        composition-dependent properties for each modelled :class:`Phase` in AD form.
+
+        Warning:
+            The set-up should be performed only once, since variables are introduced
+            into the AD system.
 
         Parameters:
             ad_system: ``default=None``
@@ -1031,6 +1013,14 @@ class Mixture:
                     All components and phases are present in each subdomain-cell.
                     Their fractions are introduced as cell-wise, scalar unknowns.
 
+            p: ``default=None``
+
+                The pressure variable. Must be given when ``ad_system`` is passed by the
+                user.
+            T: ``default=None``
+
+                The temperature variable. Must be given when ``ad_system`` is passed by
+                the user.
             eliminate_reference_phase: ``default=True``
 
                 An optional flag to eliminate reference phase variables from the
@@ -1068,7 +1058,35 @@ class Mixture:
 
             ad_system = pp.ad.EquationSystem(mdg)
             domains = mdg.subdomains()
+
+            # creating pressure and temperature operators
+            name = "mixture-pressure"
+            var = ad_system.create_variables(name=name, subdomains=domains)
+            ad_system.set_variable_values(
+                np.ones(1) * P_REF,
+                variables=[name],
+                iterate_index=0,
+                time_step_index=0,
+            )
+            self._p = var
+            name = "mixture-temperature"
+            var = ad_system.create_variables(name=name, subdomains=domains)
+            ad_system.set_variable_values(
+                np.ones(1) * T_REF,
+                variables=[name],
+                iterate_index=0,
+                time_step_index=0,
+            )
+            self._T = var
         else:
+            assert isinstance(
+                p, pp.ad.Operator
+            ), "Must provide pressure operator if 'ad_system' is passed."
+            assert isinstance(
+                T, pp.ad.Operator
+            ), "Must provide temperature operator if 'ad_system' is passed."
+            self._p = p
+            self._T = T
             if subdomains is None:
                 domains = ad_system.mdg.subdomains()
             else:
@@ -1083,30 +1101,17 @@ class Mixture:
         self.feed_fraction_variables = list()
         self.solute_fraction_variables = dict()
 
-        if eliminate_ref_feed_fraction:
-            z_R: pp.ad.Operator = 1.0 - safe_sum(
-                [c.fraction for c in self.components if c != self.reference_component]
-            )  # type: ignore
-            z_R.set_name("ref-component-fraction-by-unity")
-            self.reference_component.fraction = z_R
-        else:
-            name = (
-                f"{COMPOSITIONAL_VARIABLE_SYMBOLS['component_fraction']}"
-                + f"_{self.reference_component.name}"
-            )
-            self.reference_component.fraction = self._instantiate_frac_var(
-                ad_system, name, domains
-            )
-            self.feed_fraction_variables.append(name)
-
+        var_names = list()
         for comp in self.components:
-            if comp != self.reference_component:
+            if comp == self.reference_component and eliminate_ref_feed_fraction:
+                name = None
+            else:
                 name = (
                     f"{COMPOSITIONAL_VARIABLE_SYMBOLS['component_fraction']}"
                     + f"_{comp.name}"
                 )
                 comp.fraction = self._instantiate_frac_var(ad_system, name, domains)
-                self.feed_fraction_variables.append(name)
+            var_names.append(name)
 
             if isinstance(comp, Compound):
                 self.solute_fraction_variables[comp] = list()
@@ -1120,62 +1125,65 @@ class Mixture:
                     )
                     self.solute_fraction_variables[comp].append(name)
 
+        if eliminate_ref_feed_fraction:
+            z_R: pp.ad.Operator = 1.0 - safe_sum(
+                [c.fraction for c in self.components if c != self.reference_component]
+            )  # type: ignore
+            z_R.set_name("ref-component-fraction-by-unity")
+            self.reference_component.fraction = z_R
+            var_names = [n for n in var_names if n is not None]
+        self.feed_fraction_variables = var_names
+
         ## Second, create all saturations and molar phase fractions.
-        # adding all components to every phase, according to unified procedure
-        # this dereferences nay previously set lists
-        for phase in self.phases:
-            phase.components = list(self.components)
         self.saturation_variables = list()
         self.molar_fraction_variables = list()
 
-        if self.reference_phase_eliminated:
+        # saturations
+        var_names = list()
+        for phase in self.phases:
+            if phase == self.reference_phase and eliminate_ref_phase:
+                name = None
+            else:
+                name = (
+                    f"{COMPOSITIONAL_VARIABLE_SYMBOLS['phase_saturation']}_{phase.name}"
+                )
+                phase.saturation = self._instantiate_frac_var(ad_system, name, domains)
+            var_names.append(name)
+        if eliminate_ref_phase:
             s_R: pp.ad.Operator = 1.0 - safe_sum(
                 [p.saturation for p in self.phases if p != self.reference_phase]
             )  # type: ignore
             s_R.set_name("ref-phase-saturation-by-unity")
             self.reference_phase.saturation = s_R
+            var_names = [n for n in var_names if n is not None]
+        self.saturation_variables = var_names
 
+        # molar phase fractions
+        var_names = list()
+        for phase in self.phases:
+            if phase == self.reference_phase and eliminate_ref_phase:
+                name = None
+            else:
+                name = (
+                    f"{COMPOSITIONAL_VARIABLE_SYMBOLS['phase_fraction']}_{phase.name}"
+                )
+                phase.fraction = self._instantiate_frac_var(ad_system, name, domains)
+            var_names.append(name)
+        if eliminate_ref_phase:
             y_R: pp.ad.Operator = 1.0 - safe_sum(
                 [p.fraction for p in self.phases if p != self.reference_phase]
             )  # type: ignore
             y_R.set_name("ref-phase-fraction-by-unity")
             self.reference_phase.fraction = y_R
-        else:
-            name = (
-                f"{COMPOSITIONAL_VARIABLE_SYMBOLS['phase_saturation']}"
-                + f"_{self.reference_phase.name}"
-            )
-            self.reference_phase.saturation = self._instantiate_frac_var(
-                ad_system, name, domains
-            )
-            self.saturation_variables.append(name)
-
-            name = (
-                f"{COMPOSITIONAL_VARIABLE_SYMBOLS['phase_fraction']}"
-                + f"_{self.reference_phase.name}"
-            )
-            self.reference_phase.fraction = self._instantiate_frac_var(
-                ad_system, name, domains
-            )
-            self.molar_fraction_variables.append(name)
-
-        for phase in self.phases:
-            if phase != self.reference_phase:
-                name = (
-                    f"{COMPOSITIONAL_VARIABLE_SYMBOLS['phase_saturation']}_{phase.name}"
-                )
-                phase.saturation = self._instantiate_frac_var(ad_system, name, domains)
-                self.saturation_variables.append(name)
-
-                name = (
-                    f"{COMPOSITIONAL_VARIABLE_SYMBOLS['phase_fraction']}_{phase.name}"
-                )
-                phase.fraction = self._instantiate_frac_var(ad_system, name, domains)
-                self.molar_fraction_variables.append(name)
+            var_names = [n for n in var_names if n is not None]
+        self.molar_fraction_variables += var_names
 
         ## Third, create all phase composition varaiables per phase per component
+        # and set the components in each phase as per unified procedure
+        var_names = list()
         for phase in self.phases:
-            for comp in self.components:
+            phase.fraction_of = dict()
+            for comp in phase.components:
                 name = (
                     f"{COMPOSITIONAL_VARIABLE_SYMBOLS['phase_composition']}"
                     + f"_{comp.name}_{phase.name}"
@@ -1183,18 +1191,44 @@ class Mixture:
                 phase.fraction_of.update(
                     {comp: self._instantiate_frac_var(ad_system, name, domains)}
                 )
-                self.molar_fraction_variables.append(name)
+                var_names.append(name)
+        self.molar_fraction_variables += var_names
 
         ## Fifth, create operators representing normalized fractions
         for phase in self.phases:
+            phase.normalized_fraction_of = dict()
             sum_j: pp.ad.Operator = safe_sum(
                 list(phase.fraction_of.values())
             )  # type: ignore
-            for comp in self.components:
+            for comp in phase.components:
                 name = f"{phase.fraction_of[comp].name}_normalized"
                 x_ij_n = phase.fraction_of[comp] / sum_j
                 x_ij_n.set_name(name)
                 phase.normalized_fraction_of.update({comp: x_ij_n})
+
+        ### Creating operators representing phase properties
+        for phase in self.phases:
+            x_j = tuple(phase.fraction_of.values())
+            phase.density = PropertyFunction(f"phase-density-{phase.name}")(
+                self._p, self._T, *x_j
+            )
+            phase.volume = PropertyFunction(f"phase-volume-{phase.name}")(
+                self._p, self._T, *x_j
+            )
+            phase.enthalpy = PropertyFunction(f"phase-enthalpy-{phase.name}")(
+                self._p, self._T, *x_j
+            )
+            phase.viscosity = PropertyFunction(f"phase-viscosity-{phase.name}")(
+                self._p, self._T, *x_j
+            )
+            phase.conductivity = PropertyFunction(f"phase-conductivity-{phase.name}")(
+                self._p, self._T, *x_j
+            )
+            phase.fugacity_of = dict()
+            for comp in phase.components:
+                phase.fugacity_of[comp] = PropertyFunction(
+                    f"fugacity-of-{comp.name}-in-{phase.name}"
+                )(self._p, self._T, *x_j)
 
         ### Creating mixture properties
         ## First, mixture density
@@ -1218,9 +1252,9 @@ class Mixture:
     @overload
     def compute_properties(
         self,
-        p: NumericType,
-        T: NumericType,
-        xn: Sequence[Sequence[NumericType]],
+        p: np.ndarray,
+        T: np.ndarray,
+        xn: Sequence[Sequence[np.ndarray]],
         store: Literal[True] = True,
     ) -> None:
         # Typing overload for default return value: None, properties are stored
@@ -1243,16 +1277,20 @@ class Mixture:
         T: np.ndarray,
         xn: Sequence[Sequence[np.ndarray]],
         store: bool = True,
-    ) -> list[PhaseState] | None:
+    ) -> list[PhaseState]:
         """Convenience function to evaluate and optionally store the physical
         properties of all phases in the mixture.
 
         See :meth:`Phase.compute_properties` for more.
 
         Parameters:
-            p: Pressure.
-            T: Temperature.
-            X: ``shape=(num_phases, num_components)``
+            p: ``shape=(N,)``
+
+                Pressure.
+            T: ``shape=(N,)``
+
+                Temperature.
+            X: ``shape=(num_phases, num_components, N)``
 
                 A nested sequence containing for each phase a sub-sequence of
                 (normalized) component fractions in that phase.
@@ -1266,8 +1304,7 @@ class Mixture:
             x_j = xn[j]
             props = phase.compute_properties(p, T, x_j, store=store)
             results.append(props)
-        if not store:
-            return results
+        return results
 
     def fractional_state_from_vector(
         self,

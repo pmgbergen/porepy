@@ -12,6 +12,7 @@ from collections.abc import Mapping
 from typing import Any, Callable, Optional, Sequence
 
 import numpy as np
+import scipy.sparse as sps
 
 import porepy as pp
 from porepy.numerics.ad.operator_functions import NumericType
@@ -202,3 +203,77 @@ class AdProperty(pp.ad.Operator):
     def parse(self, mdg: pp.MixedDimensionalGrid) -> NumericType:
         """Returns the value assigned to this operator."""
         return self.value
+
+
+class PropertyFunction(pp.ad.AbstractFunction):
+    """A function whose values and derivatives must be filled by the user.
+
+    Values and derivatives are not assigned at instantiation.
+
+    This function is **not** meant to be used inside nested functions, but to depend
+    on genuine :class:`~porepy.numerics.ad.operators.Variable` and
+    :class:`~porepy.numerics.ad.operators.MixedDimensionalVariable` instances.
+    I.e., the AD representation has an identity block in its derivatives.
+
+    The assumption of identity blocks in derivatives is used to fill in the derivative
+    values in the right place of resulting AD array.
+
+    The Jacobian of the first argument is used as reference to determine the shape.
+
+    Parameters:
+        name: A name assigned to this function.
+
+    """
+
+    def __init__(self, name: str) -> None:
+        self.value: np.ndarray
+        """Value of the filler function."""
+
+        self.derivatives: Optional[Sequence[np.ndarray]] = None
+        """Values of derivatives per dependency. Defaults to None."""
+
+        def func(*args: Sequence[pp.ad.AdArray]) -> pp.ad.AdArray:
+            """Inner function filling provided values and and derivatives."""
+
+            if self.derivatives is None or len(args) == 0:
+                return self.value
+            else:
+                num_args = len(args)
+                assert num_args == len(
+                    self.derivatives
+                ), "Not enough derivatives provided."
+
+                idx = args[0].jac.nonzero()
+                shape = args[0].jac.shape()
+                assert (
+                    idx[0].shape == self.derivatives[0].shape
+                ), "Mismatch in derivative values for argument 1."
+                jac = sps.coo_matrix((self.derivatives[0], idx), shape=shape)
+
+                for i in range(1, num_args):
+                    idx = args[i].jac.nonzero()
+                    assert (
+                        args[i].jac.shape == shape
+                    ), "Mismatch in shapes of Jacobians of arguments."
+                    assert (
+                        idx[0].shape == self.derivatives[i].shape
+                    ), f"Mismatch in shape of derivatives for argument {i + 1}."
+                    jac += sps.coo_matrix((self.derivatives[i], idx), shape=shape)
+
+                return pp.ad.AdArray(self.value, jac.tocsr())
+
+        super().__init__(func, name, False, True)
+
+        self.ad_compatible = True
+
+    def __call__(
+        self, *args: Sequence[pp.ad.Variable | pp.ad.MixedDimensionalVariable]
+    ) -> pp.ad.Operator:
+        """Performs an input validation when assembling the operator function:
+        All arguments must be instances of
+        :class:`~porepy.numerics.ad.operators.Variable`.
+        """
+        for i, arg in enumerate(args):
+            if not isinstance(arg, pp.ad.Variable):  # covers md-vars by inheritance
+                raise TypeError(f"Argument {i + 1} not a variable.")
+        return super().__call__(*args)

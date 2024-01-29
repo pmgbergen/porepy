@@ -1,4 +1,4 @@
-"""A module containing equilibrium formulations for mixtures using PorePy's AD framework
+"""A module containing models for mixtures using PorePy's AD framework
 to define first-order conditions for equilibrium.
 
 """
@@ -57,10 +57,13 @@ class MixtureUNR(Mixture):
 
     It models the following equations using PorePy's AD framework.
 
-    - Static mass constraints (fixed feed fractions)
+    - Static mass constraints (feed fractions assumed constant)
     - Equilibrium equations formulated with respect to the reference phase
       (isofugacity constraints).
     - Complementary conditions for phase fractions using the unified framework.
+
+    Ensures on top that every phase has every component set, according to the unified
+    setting.
 
     Note:
         If the reference phase is eliminated, above set equations is a closed model for
@@ -84,6 +87,11 @@ class MixtureUNR(Mixture):
 
     def __init__(self, components: list[Component], phases: list[Phase]) -> None:
         super().__init__(components, phases)
+
+        # unified assumption, every component has every phase
+        comps = [c for c in self.components]
+        for phase in phases:
+            phase.components = comps
 
         self.mass_constraints: dict[Component, pp.ad.Operator]
         """A map containing mass constraints per components (key), except for the
@@ -148,7 +156,9 @@ class MixtureUNR(Mixture):
     def set_up_ad(
         self,
         ad_system: Optional[pp.ad.EquationSystem] = None,
-        subdomains: list[pp.Grid] = None,
+        subdomains: Optional[list[pp.Grid]] = None,
+        p: Optional[pp.ad.MixedDimensionalVariable] = None,
+        T: Optional[pp.ad.MixedDimensionalVariable] = None,
         eliminate_ref_phase: bool = True,
         eliminate_ref_feed_fraction: bool = True,
         semismooth_complementarity: bool = True,
@@ -162,9 +172,6 @@ class MixtureUNR(Mixture):
         - equilibrium equations (:attr:`equilibrium_equations`)
         - complementary conditions (:attr:`complementary_conditions`)
 
-        The equations are introduced into :attr:`system`.
-        Names of set equations are stored :attr:`equations`.
-
         Parameters:
             semismooth_complementarity: ``default=True``
 
@@ -175,6 +182,8 @@ class MixtureUNR(Mixture):
         domains = super().set_up_ad(
             ad_system=ad_system,
             subdomains=subdomains,
+            p=p,
+            T=T,
             eliminate_ref_phase=eliminate_ref_phase,
             eliminate_ref_feed_fraction=eliminate_ref_feed_fraction,
         )
