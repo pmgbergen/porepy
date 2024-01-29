@@ -665,11 +665,8 @@ class MixedDimensionalGrid:
 
     def compute_geometry(self) -> None:
         """Compute geometric quantities for each contained grid."""
-        for sd in self.subdomains():
-            sd.compute_geometry()
-
-        for intf in self.interfaces():
-            intf.compute_geometry()
+        for g in self.subdomains() + self.interfaces() + self.boundaries():
+            g.compute_geometry()
 
     def set_boundary_grid_projections(self) -> None:
         """Set projections to the boundary grids.
@@ -786,6 +783,8 @@ class MixedDimensionalGrid:
                 bg_new = pp.BoundaryGrid(sd_new)
                 self._boundary_grid_data[bg_new] = self._boundary_grid_data[bg_old]
                 self._subdomain_to_boundary_grid[sd_new] = bg_new
+                # Compute the projections to the new boundary grid.
+                bg_new.set_projections()
                 del self._boundary_grid_data[bg_old]
                 del self._subdomain_to_boundary_grid[sd_old]
 
@@ -940,7 +939,7 @@ class MixedDimensionalGrid:
                 f"in total {num_cells} cells and {num_nodes} nodes. \n"
             )
 
-        s += f"Total number of interfaces: {self.num_subdomains()}\n"
+        s += f"Total number of interfaces: {self.num_interfaces()}\n"
         for dim in range(self.dim_max(), self.dim_min(), -1):
             num_e = 0
             nc = 0

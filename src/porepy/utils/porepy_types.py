@@ -1,21 +1,33 @@
 """
 Defines types commonly used in PorePy.
 """
-from typing import Union
+from typing import Sequence, Union
 
 import porepy as pp
 
-all = ["number", "GridLike", "discretization_type", "fracture_network"]
+__all__ = [
+    "number",
+    "GridLike",
+    "GridLikeSequence",
+    "SubdomainsOrBoundaries",
+    "discretization_type",
+    "fracture_network",
+]
 
-GridLike = Union["pp.Grid", "pp.MortarGrid"]
+GridLike = Union["pp.Grid", "pp.MortarGrid", "pp.BoundaryGrid"]
 """Type for grids and mortar grids."""
+SubdomainsOrBoundaries = Sequence["pp.Grid"] | Sequence["pp.BoundaryGrid"]
+"""Type for sequence of subdomains or sequence of boundary grids."""
+
+GridLikeSequence = SubdomainsOrBoundaries | Sequence["pp.MortarGrid"]
+"""Type for sequence of any kind of grids, but not a mixture of them."""
 
 number = Union[float, int]
 """Type for numbers."""
 
 discretization_type = Union[
     "pp.numerics.discretization.Discretization",
-    "pp.numerics.interface_laws.abstract_interface_law.AbstractInterfaceLaw",
+    "pp.numerics.discretization.InterfaceDiscretization",
 ]
 
 fracture_network = Union[

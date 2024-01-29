@@ -1,8 +1,5 @@
-#!/usr/bin/env python
-
 import os.path
 from glob import glob
-from os.path import basename, splitext
 
 from setuptools import find_packages, setup
 
@@ -15,20 +12,23 @@ with open("requirements.txt") as f:
     required = f.read().splitlines()
 
 
-long_description = read("Readme.rst")
-
 setup(
     name="porepy",
-    version="1.7.0",
+    version="1.8.0",
     license="GPL",
     keywords=["porous media simulation fractures deformable"],
     install_requires=required,
     description="Simulation tool for fractured and deformable porous media",
-    long_description=long_description,
     maintainer="Eirik Keilegavlen",
     maintainer_email="Eirik.Keilegavlen@uib.no",
     platforms=["Linux", "Windows", "Mac OS-X"],
-    package_data={"porepy": ["py.typed"]},
+    package_data={
+        "porepy": [
+            "py.typed",
+            "applications/md_grids/gmsh_file_library/**/*.csv",
+            "applications/md_grids/gmsh_file_library/**/*.geo",
+        ],
+    },
     packages=find_packages("src"),
     package_dir={"": "src"},
     py_modules=[

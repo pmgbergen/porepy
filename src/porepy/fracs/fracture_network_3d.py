@@ -9,6 +9,7 @@ import copy
 import csv
 import logging
 import time
+import warnings
 from typing import Optional, Union
 
 import meshio
@@ -160,6 +161,9 @@ class FractureNetwork3d(object):
             fracture: Plane fracture to be added.
 
         """
+        msg = "This functionality is deprecated and will be removed in a future version"
+        warnings.warn(msg, DeprecationWarning)
+
         ind = np.array([f.index for f in self.fractures])
 
         if ind.size > 0:
@@ -1304,6 +1308,9 @@ class FractureNetwork3d(object):
             fractures associated to each point.
 
         """
+        msg = "This functionality is deprecated and will be removed in a future version"
+        warnings.warn(msg, DeprecationWarning)
+
         fracs_of_points = []
         pts = np.atleast_1d(np.asarray(pts))
         for i in pts:
@@ -1346,6 +1353,9 @@ class FractureNetwork3d(object):
             If ``(a, b)`` is a member, ``(b, a)`` will not be.
 
         """
+        msg = "This functionality is deprecated and will be removed in a future version"
+        warnings.warn(msg, DeprecationWarning)
+
         c_points = []
 
         pt = self.decomposition["points"]
@@ -1517,7 +1527,7 @@ class FractureNetwork3d(object):
         area_threshold: float = 1e-4,
         clear_gmsh: bool = True,
         finalize_gmsh: bool = True,
-    ) -> np.ndarray:
+    ) -> tuple[np.ndarray, np.ndarray]:
         """Set an external boundary for the contained plane fractures.
 
         If no domain is provided, a box will be fitted outside the fracture network.
@@ -1569,10 +1579,18 @@ class FractureNetwork3d(object):
                 passed to this method.
 
         Returns:
-            Mapping from old to new fractures, referring to the fractures in
-            :attr:`fractures` before and after imposing the external boundary. The
-            mapping does not account for the boundary fractures added to the
-            end of the fracture array (if ``keep_box=True``).
+            Tuple with two elements.
+
+                :obj:`numpy.ndarray`:
+
+                    Array containing the indices of the fractures that have been kept.
+                    The array does not account for the boundary fractures added to the
+                    end of the fracture array (if ``keep_box=True``).
+
+                :obj:`numpy.ndarray`:
+
+                    Array containing the indices of the fractures that have been
+                    deleted, since they were outside the bounding box.
 
         """
         if domain is None and not self.fractures:
@@ -2000,7 +2018,7 @@ class FractureNetwork3d(object):
         self.tags["boundary"] = boundary_tags
 
         self._reindex_fractures()
-        return ind_map
+        return ind_map, delete_frac
 
     def _classify_edges(
         self,
@@ -2890,6 +2908,9 @@ class FractureNetwork3d(object):
                     p_2d, np.zeros(p_2d.shape[1]))))``.
 
         """
+        msg = "This functionality is deprecated and will be removed in a future version"
+        warnings.warn(msg, DeprecationWarning)
+
         isect = self.intersections_of_fracture(frac_num)
 
         frac = self.fractures[frac_num]

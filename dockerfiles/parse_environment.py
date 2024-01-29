@@ -28,6 +28,7 @@ import yaml
 # the original file are overridden), others set default
 # values if not provided.
 
+
 # Source: https://stackoverflow.com/questions/3232943/update-value-of-a-nested-dictionary-of-varying-depth
 def forced_update(orig: Dict, mandatory: Dict) -> Dict:
     for k, v in mandatory.items():

@@ -6,11 +6,23 @@ networkx
 numba >= 0.57
 numpy
 requests
-scipy <= 1.10
+scipy
+seaborn
 shapely
 six
 sympy
 typing_extensions
+<<<<<<< HEAD
 thermo
 chemicals
 psutil
+=======
+black == 23.*
+deepdiff
+flake8
+isort
+mypy
+pytest >= 4.6
+pytest-cov
+pytest-runner
+>>>>>>> develop

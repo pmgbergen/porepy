@@ -4,7 +4,7 @@ defined here are mainly wrappers that constructs Ad matrices based on grid infor
 """
 from __future__ import annotations
 
-from typing import Optional
+from typing import Optional, Sequence
 
 import numpy as np
 import scipy.sparse as sps
@@ -14,6 +14,7 @@ import porepy as pp
 from .operators import Operator, SparseArray
 
 __all__ = [
+    "BoundaryProjection",
     "MortarProjections",
     "Divergence",
     "Trace",
@@ -21,7 +22,7 @@ __all__ = [
 ]
 
 
-class SubdomainProjections(Operator):
+class SubdomainProjections:
     """Wrapper class for generating projection to and from subdomains.
 
     One use case in when variables are defined on only some subdomains.
@@ -34,7 +35,7 @@ class SubdomainProjections(Operator):
 
     def __init__(
         self,
-        subdomains: list[pp.Grid],
+        subdomains: Sequence[pp.Grid],
         dim: int = 1,
     ) -> None:
         """Construct subdomain restrictions and prolongations for a set of subdomains.
@@ -186,7 +187,7 @@ class SubdomainProjections(Operator):
         return "Argument should be a subdomain grid or a list of subdomain grids"
 
 
-class MortarProjections(Operator):
+class MortarProjections:
     """Wrapper class to generate projections to and from MortarGrids.
 
     Attributes:
@@ -223,8 +224,8 @@ class MortarProjections(Operator):
     def __init__(
         self,
         mdg: pp.MixedDimensionalGrid,
-        subdomains: list[pp.Grid],
-        interfaces: list[pp.MortarGrid],
+        subdomains: Sequence[pp.Grid],
+        interfaces: Sequence[pp.MortarGrid],
         dim: int = 1,
     ) -> None:
         """Construct mortar projection object.
@@ -497,16 +498,11 @@ class MortarProjections(Operator):
         return s
 
 
-class BoundaryProjection(Operator):
-    """A projection operator between boundary grids and subdomains.
-
-    NOTE: This is WIP. The projections have not yet been used to formulate equations,
-    thus it is not clear whether the design is optimal, or if changes are needed.
-
-    """
+class BoundaryProjection:
+    """A projection operator between boundary grids and subdomains."""
 
     def __init__(
-        self, mdg: pp.MixedDimensionalGrid, subdomains: list[pp.Grid], dim: int = 1
+        self, mdg: pp.MixedDimensionalGrid, subdomains: Sequence[pp.Grid], dim: int = 1
     ) -> None:
         _, face_projections = _subgrid_projections(subdomains, dim)
 
@@ -518,23 +514,33 @@ class BoundaryProjection(Operator):
             if sd.dim > 0:
                 bg = mdg.subdomain_to_boundary_grid(sd)
                 if bg is not None:
-                    mat_loc = sps.kron(bg.projection, sps.eye(dim))
+                    mat_loc = bg.projection(dim)
                     mat_loc = mat_loc * face_projections[sd].T
             else:
                 # The subdomain has no faces, so the projection does not exist.
                 mat_loc = sps.csr_matrix((0, tot_num_faces))
             mat.append(mat_loc)
-        self._projection: sps.spmatrix = sps.bmat([[m] for m in mat], format="csr")
-        """Projection from subdomain faces to boundary grids cells."""
 
-    def subdomain_to_boundary(self) -> sps.spmatrix:
-        return self._projection
+        self._projection: sps.spmatrix
+        """Projection from subdomain faces to boundary grid cells."""
+        if len(mat) > 0:
+            self._projection = sps.bmat([[m] for m in mat], format="csr")
+        else:
+            self._projection = sps.csr_matrix((0, 0))
 
-    def boundary_to_subdomain(self) -> sps.spmatrix:
-        return self._projection.transpose().tocsc()
+    @property
+    def subdomain_to_boundary(self) -> Operator:
+        return SparseArray(self._projection, name="subdomains to boundaries projection")
+
+    @property
+    def boundary_to_subdomain(self) -> Operator:
+        return SparseArray(
+            self._projection.transpose().tocsc(),
+            name="boundaries to subdomains projection",
+        )
 
 
-class Trace(Operator):
+class Trace:
     """Wrapper class for Ad representations of trace operators and their inverse,
     that is, mappings between grid cells and faces.
 
@@ -565,10 +571,9 @@ class Trace(Operator):
             name: Name of the operator. Default is None.
 
         """
-        super().__init__(name=name)
-
-        self.grids = subdomains
+        self.subdomains: list[pp.Grid] = subdomains
         self.dim: int = dim
+        self._name: Optional[str] = name
         self._is_scalar: bool = dim == 1
         self._num_grids: int = len(subdomains)
 
@@ -644,7 +649,7 @@ class Divergence(Operator):
             name: Name to be assigned to the operator. Default is None.
 
         """
-        super().__init__(subdomains=subdomains, name=name)
+        super().__init__(domains=subdomains, name=name)
 
         self.dim: int = dim
 
@@ -694,7 +699,7 @@ class Divergence(Operator):
 
 
 def _subgrid_projections(
-    subdomains: list[pp.Grid], dim: int
+    subdomains: Sequence[pp.Grid], dim: int
 ) -> tuple[dict[pp.Grid, sps.spmatrix], dict[pp.Grid, sps.spmatrix]]:
     """Construct prolongation matrices from individual subdomains to a set of subdomains.
 
