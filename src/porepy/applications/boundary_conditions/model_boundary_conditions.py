@@ -15,9 +15,7 @@ class BoundaryConditionsMassDirWestEast(pp.BoundaryConditionMixin):
     Dirichlet boundary conditions are defined on the west and east boundaries. Some
     of the default values may be changed directly through attributes of the class.
 
-    The domain can be 2d or 3d.
-
-    Usage: two-dimensional flow benchmark models.
+    The domain can be 1d, 2d or 3d.
 
     """
 
@@ -54,9 +52,9 @@ class BoundaryConditionsMassDirWestEast(pp.BoundaryConditionMixin):
 
         """
         domain_sides = self.domain_boundary_sides(boundary_grid)
-        vals_loc = np.zeros(boundary_grid.num_cells)
-        vals_loc[domain_sides.west + domain_sides.east] = self.fluid.pressure()
-        return vals_loc
+        values = np.zeros(boundary_grid.num_cells)
+        values[domain_sides.west + domain_sides.east] = self.fluid.pressure()
+        return values
 
     def bc_type_fluid_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         """Boundary condition type for the density-mobility product.
@@ -82,9 +80,6 @@ class BoundaryConditionsMassDirNorthSouth(pp.BoundaryConditionMixin):
     of the default values may be changed directly through attributes of the class.
 
     The domain can be 2d or 3d.
-
-    Usage: tests for models defining equations for any subset of the thermoporomechanics
-    problem.
 
     """
 
@@ -121,9 +116,9 @@ class BoundaryConditionsMassDirNorthSouth(pp.BoundaryConditionMixin):
 
         """
         domain_sides = self.domain_boundary_sides(boundary_grid)
-        vals_loc = np.zeros(boundary_grid.num_cells)
-        vals_loc[domain_sides.north + domain_sides.south] = self.fluid.pressure()
-        return vals_loc
+        values = np.zeros(boundary_grid.num_cells)
+        values[domain_sides.north + domain_sides.south] = self.fluid.pressure()
+        return values
 
     def bc_type_fluid_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         """Boundary condition type for the density-mobility product.

@@ -145,6 +145,7 @@ class FlowBenchmark2dCase3Permeability(DimensionDependentPermeability):
                     if sd.dim == intf.dim + 1
                 ]
                 unique_fracture_permeabilities = np.unique(fracture_permeabilities)
+                # Compute val as harmonic mean of the fracture permeabilities.
                 val = unique_fracture_permeabilities.size / np.sum(
                     1 / unique_fracture_permeabilities
                 )
