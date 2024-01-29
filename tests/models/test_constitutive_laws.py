@@ -31,6 +31,8 @@ from porepy.applications.test_utils.reference_dense_arrays import (
 from porepy.applications.md_grids.model_geometries import (
     SquareDomainOrthogonalFractures,
 )
+from porepy.applications.discretizations.flux_discretization import FluxDiscretization
+
 
 solid_values = pp.solid_values.granite
 solid_values.update(
@@ -434,6 +436,7 @@ def test_dimension_reduction_values(
 
 
 class PoromechanicalTestDiffTpfa(
+    FluxDiscretization,
     SquareDomainOrthogonalFractures,
     pp.constitutive_laws.CubicLawPermeability,
     pp.constitutive_laws.DarcysLawAd,
@@ -559,21 +562,6 @@ class PoromechanicalTestDiffTpfa(
         )
         self.global_p_2d_ind = self.equation_system.dofs_of(p_2d_var)
 
-    def darcy_flux_discretization(self, subdomains: list[pp.Grid]) -> pp.ad.MpfaAd:
-        """Discretization object for the Darcy flux term.
-
-        Parameters:
-            subdomains: List of subdomains where the Darcy flux is defined.
-
-        Returns:
-            Discretization of the Darcy flux.
-
-        """
-        if self.params["base_discr"] == "tpfa":
-            return pp.ad.TpfaAd(self.darcy_keyword, subdomains)
-        else:
-            return pp.ad.MpfaAd(self.darcy_keyword, subdomains)
-
 
 @pytest.mark.parametrize("base_discr", ["tpfa", "mpfa"])
 def test_derivatives_darcy_flux_potential_trace(base_discr: str):
@@ -596,7 +584,7 @@ def test_derivatives_darcy_flux_potential_trace(base_discr: str):
     """
 
     # Set up and discretize model
-    model = PoromechanicalTestDiffTpfa({"base_discr": base_discr})
+    model = PoromechanicalTestDiffTpfa({"darcy_flux_discretization": base_discr})
     model.prepare_simulation()
     model.discretize()
 

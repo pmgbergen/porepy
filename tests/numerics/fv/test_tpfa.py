@@ -12,6 +12,8 @@ import numpy as np
 import porepy as pp
 
 from porepy.applications.test_utils import common_xpfa_tests as xpfa_tests
+from porepy.applications.discretizations.flux_discretization import FluxDiscretization
+
 from porepy.applications.md_grids.model_geometries import (
     CubeDomainOrthogonalFractures,
 )
@@ -94,9 +96,10 @@ class TestTpfaBoundaryPressure(xpfa_tests.XpfaBoundaryPressureTests):
 
 # Tests for differentiable TPFA
 
+
 class UnitTestAdTpfaFlux(
     pp.constitutive_laws.DarcysLawAd,
-    _SetFluxDiscretizations,
+    FluxDiscretization,
     pp.fluid_mass_balance.SinglePhaseFlow,
 ):
     """
@@ -325,7 +328,7 @@ def test_transmissibility_calculation(vector_source: bool, base_discr: str):
         vector_source_diff = np.zeros(2)
 
     model_params = {
-        "base_discr": base_discr,
+        "darcy_flux_discretization": base_discr,
         "vector_source": vector_source_array,
     }
 
@@ -589,7 +592,7 @@ def test_transmissibility_calculation(vector_source: bool, base_discr: str):
 
 class TestDiffTpfaGridsOfAllDimensions(
     CubeDomainOrthogonalFractures,
-    _SetFluxDiscretizations,
+    FluxDiscretization,
     pp.constitutive_laws.CubicLawPermeability,
     pp.constitutive_laws.DarcysLawAd,
     pp.fluid_mass_balance.SinglePhaseFlow,
@@ -661,6 +664,7 @@ def test_diff_tpfa_on_grid_with_all_dimensions(base_discr: str, grid_type: str):
     model = TestDiffTpfaGridsOfAllDimensions(
         {"base_discr": "tpfa", "grid_type": grid_type}
     )
+    dflkj
     model.prepare_simulation()
 
     num_faces = sum([sd.num_faces for sd in model.mdg.subdomains()])
@@ -688,7 +692,7 @@ def test_diff_tpfa_on_grid_with_all_dimensions(base_discr: str, grid_type: str):
 
 
 class WithoutDiffTpfa(
-    _SetFluxDiscretizations,
+    FluxDiscretization,
     pp.mass_and_energy_balance.MassAndEnergyBalance,
 ):
     """Helper class to test that the methods for differentiating diffusive fluxes and
@@ -743,8 +747,12 @@ def test_diff_tpfa_and_standard_tpfa_give_same_linear_system(base_discr: str):
     permeability, but given on 'differentiable form'. The Jacobian matrix and the
     residual vectors should be the same.
     """
-    model_without_diff = WithoutDiffTpfa({"base_discr": base_discr})
-    model_with_diff = WithDiffTpfa({"base_discr": base_discr})
+    params = {
+        "darcy_flux_discretization": base_discr,
+        "fourier_flux_discretization": base_discr,
+    }
+    model_without_diff = WithoutDiffTpfa(params.copy())
+    model_with_diff = WithDiffTpfa(params)
 
     matrix, vector = [], []
 
