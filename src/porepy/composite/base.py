@@ -697,14 +697,14 @@ class Phase:
         state = self.eos.compute_phase_state(self.type, p, T, xn)
 
         if store:
-            self.density.value = props.rho
-            self.volume.value = props.v
-            self.viscosity.value = props.mu
-            self.conductivity.value = props.kappa
-            self.enthalpy.value = props.h
+            self.density.value = state.rho
+            self.volume.value = state.v
+            self.viscosity.value = state.mu
+            self.conductivity.value = state.kappa
+            self.enthalpy.value = state.h
 
             for i, comp in enumerate(self):
-                self.fugacity_of[comp].value = props.phis[i]
+                self.fugacity_of[comp].value = state.phis[i]
         else:
             return state
 
@@ -796,12 +796,12 @@ class Mixture:
 
         self._num_cells: int
         """The fluid is present in each cell and each state function has one DOF per
-        cell. This is calculated during :meth:`set_up`."""
+        cell. This is calculated during :meth:`set_up_ad`."""
 
         ### PUBLIC
 
         self.system: pp.ad.EquationSystem
-        """The AD-system set during :meth:`set_up`.
+        """The AD-system set during :meth:`set_up_ad`.
 
         This attribute is not available prior to that.
 
@@ -816,7 +816,7 @@ class Mixture:
         - phase fractions
         - phase compositions
 
-        This list is created in :meth:`set_up`.
+        This list is created in :meth:`set_up_ad`.
 
         """
 
@@ -829,7 +829,7 @@ class Mixture:
             of the mixtures.
             Otherwise they can be calculated a posterior.
 
-        This list is created in :meth:`set_up`.
+        This list is created in :meth:`set_up_ad`.
 
         """
 
@@ -840,7 +840,7 @@ class Mixture:
             Feed fractions are constant in non-reactive mixtures, since there the number
             of moles of a species is assumed to be constant.
 
-        This list is created in :meth:`set_up`.
+        This list is created in :meth:`set_up_ad`.
 
         """
 
@@ -852,7 +852,7 @@ class Mixture:
             Solute fractions are assumed constant in non-reactive mixtures.
             They are not used anywhere in the flash by default.
 
-        This map is created in :meth:`set_up`.
+        This map is created in :meth:`set_up_ad`.
 
         """
 
@@ -861,7 +861,7 @@ class Mixture:
         :attr:`~porepy.composite.phase.Phase.enthalpy` weighed with
         :attr:`~porepy.composite.phase.Phase.fraction` for each phase.
 
-        This operator is created in :meth:`set_up`.
+        This operator is created in :meth:`set_up_ad`.
 
         """
 
@@ -870,7 +870,7 @@ class Mixture:
         :attr:`~porepy.composite.phase.Phase.density` weighed with
         :attr:`~porepy.composite.phase.Phase.saturation`.
 
-        This operator is created in :meth:`set_up`.
+        This operator is created in :meth:`set_up_ad`.
 
         """
 
@@ -878,7 +878,7 @@ class Mixture:
         """An operator representing the mixture volume as a reciprocal of
         :attr:`density`.
 
-        This operator is created in :meth:`set_up`.
+        This operator is created in :meth:`set_up_ad`.
 
         """
 
@@ -990,7 +990,7 @@ class Mixture:
         )
         return var
 
-    def set_up(
+    def set_up_ad(
         self,
         ad_system: Optional[pp.ad.EquationSystem] = None,
         subdomains: list[pp.Grid] = None,
