@@ -19,6 +19,8 @@ from thermo.interaction_parameters import IPDB
 
 import porepy as pp
 
+from porepy.composite.peng_robinson.eos_c import PengRobinsonCompiler
+
 sys.path.append(str(pathlib.Path(__file__).parent.resolve()))
 
 from batlow import cm_data as batlow_data
@@ -661,7 +663,7 @@ def calculate_example_2_thermo(flash_type: str = "p-h") -> dict[str, list]:
 
 def create_mixture(
     verbosity: int,
-) -> tuple[pp.composite.NonReactiveMixture, pp.composite.FlashNR]:
+) -> tuple[pp.composite.Mixture, pp.composite.Flash_c]:
     """Returns instances of the modelled mixture and flash using PorePy's framework.
 
     ``num_vals`` is an integer indicating how many DOFs per state function are set.
@@ -687,18 +689,15 @@ def create_mixture(
         pp.composite.peng_robinson.CO2.from_species(species[1]),
     ]
 
+    eos = PengRobinsonCompiler(comps)
+
     phases = [
-        pp.composite.Phase(
-            pp.composite.peng_robinson.PengRobinson(gaslike=False), name="L"
-        ),
-        pp.composite.Phase(pp.composite.peng_robinson.PengRobinson(gaslike=True), name="G"),
+        pp.composite.Phase(eos, 0, 'L'),
+        pp.composite.Phase(eos, 0, 'G'),
     ]
 
-    mix = pp.composite.NonReactiveMixture(comps, phases)
+    mix = pp.composite.Mixture(comps, phases)
 
-    mix.set_up()
-
-    eos = PengRobinsonCompiler(mix, verbosity=verbosity)
     flash = Flash_c(mix, eos)
     flash.tolerance = 1e-8
     flash.max_iter = 150
@@ -740,18 +739,15 @@ def create_mixture_geo(
         pp.composite.peng_robinson.N2.from_species(species[3]),
     ]
 
+    eos = PengRobinsonCompiler(comps)
+
     phases = [
-        pp.composite.Phase(
-            pp.composite.peng_robinson.PengRobinson(gaslike=False), name="L"
-        ),
-        pp.composite.Phase(pp.composite.peng_robinson.PengRobinson(gaslike=True), name="G"),
+        pp.composite.Phase(eos, 0, 'L'),
+        pp.composite.Phase(eos, 0, 'G'),
     ]
 
-    mix = pp.composite.NonReactiveMixture(comps, phases)
+    mix = pp.composite.Mixture(comps, phases)
 
-    mix.set_up()
-
-    eos = PengRobinsonCompiler(mix, verbosity=verbosity)
     flash = Flash_c(mix, eos)
     flash.tolerance = 1e-8
     flash.max_iter = 150
@@ -767,7 +763,7 @@ def calculate_porepy_data(
     state_2: list[float],
     species: list[str],
     flash_type: str,
-    flash,
+    flash: pp.composite.Flash_c,
 ) -> dict:
     """Performs the PorePy flash for given pressure-temperature points and
     returns a result structure similar to that of the thermo computation.

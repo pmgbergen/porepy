@@ -97,7 +97,7 @@ class MixtureUNR(Mixture):
         - :math:`y` : Phase :attr:`~porepy.composite.base.Phase.fraction`
         - :math:`x` : Phase :attr:`~porepy.composite.base.Phase.fraction_of` component
 
-        This operator is created in :meth:`set_up`.
+        This operator is created in :meth:`set_up_ad`.
 
         """
 
@@ -119,7 +119,7 @@ class MixtureUNR(Mixture):
         - :math:`\\varphi` : Phase :attr:`~porepy.composite.base.Phase.fugacity_of`
           component
 
-        This dictionary is filled in :meth:`set_up`.
+        This dictionary is filled in :meth:`set_up_ad`.
 
         """
 
@@ -139,13 +139,13 @@ class MixtureUNR(Mixture):
         through unity.
 
         Complementary conditions are either given as is, or in semi-smooth form
-        (see this class' :meth:`set_up`).
+        (see this class' :meth:`set_up_ad`).
 
-        This dictionary is filled in :meth:`set_up`.
+        This dictionary is filled in :meth:`set_up_ad`.
 
         """
 
-    def set_up(
+    def set_up_ad(
         self,
         ad_system: Optional[pp.ad.EquationSystem] = None,
         subdomains: list[pp.Grid] = None,
@@ -172,7 +172,7 @@ class MixtureUNR(Mixture):
                 min-function (see :attr:`complementary_conditions`).
 
         """
-        domains = super().set_up(
+        domains = super().set_up_ad(
             ad_system=ad_system,
             subdomains=subdomains,
             eliminate_ref_phase=eliminate_ref_phase,
