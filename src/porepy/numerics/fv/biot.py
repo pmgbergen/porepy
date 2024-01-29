@@ -670,19 +670,15 @@ class Biot(pp.Mpsa):
             matrices_m[self.bound_stress_matrix_key][update_face_ind] = bound_stress[
                 update_face_ind
             ]
-            for key in self.cooupling_keywords:
-                matrices[key][self.div_u_matrix_key][update_cell_ind] = div_u[
-                    key
-                ][update_cell_ind]
-                matrices[key][self.bound_div_u_matrix_key][
-                    update_cell_ind
-                ] = bound_div_u[key][update_cell_ind]
-                matrices[key][self.grad_p_matrix_key][update_face_ind] = grad_p[
-                    key
-                ][update_face_ind]
-                matrices[key][self.stabilization_matrix_key][
-                    update_cell_ind
-                ] = stabilization[key][update_cell_ind]
+            
+            matrices_m[self.div_u_matrix_key][update_cell_ind] = div_u[update_cell_ind]
+            matrices_m[self.bound_div_u_matrix_key][
+                update_cell_ind
+            ] = bound_div_u[update_cell_ind]
+            matrices_m[self.grad_p_matrix_key][update_face_ind] = grad_p[update_face_ind]
+            matrices_m[self.stabilization_matrix_key][
+                update_cell_ind
+            ] = stabilization[update_cell_ind]
 
             matrices_m[self.bound_displacement_cell_matrix_key][
                 update_face_ind
@@ -703,12 +699,10 @@ class Biot(pp.Mpsa):
                 self.bound_displacement_face_matrix_key
             ] = bound_displacement_face
             matrices_m[self.bound_pressure_matrix_key] = bound_displacement_pressure
-
-            for key in coupling_keywords:
-                matrices[key][self.grad_p_matrix_key] = grad_p[key]
-                matrices[key][self.div_u_matrix_key] = div_u[key]
-                matrices[key][self.bound_div_u_matrix_key] = bound_div_u[key]
-                matrices[key][self.stabilization_matrix_key] = stabilization[key]
+            matrices_m[self.grad_p_matrix_key] = grad_p
+            matrices_m[self.div_u_matrix_key] = div_u
+            matrices_m[self.bound_div_u_matrix_key] = bound_div_u
+            matrices_m[self.stabilization_matrix_key] = stabilization
 
     def _local_discretization(
         self,
