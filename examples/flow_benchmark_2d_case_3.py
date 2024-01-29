@@ -23,21 +23,20 @@ from porepy.applications.boundary_conditions.model_boundary_conditions import (
     BoundaryConditionsMassDirWestEast,
 )
 from porepy.applications.discretizations.flux_discretization import FluxDiscretization
-from porepy.applications.md_grids.fracture_sets import benchmark_2d_case_3
 from porepy.models.constitutive_laws import DimensionDependentPermeability
 
 solid_constants = pp.SolidConstants({"residual_aperture": 1e-4})
 
 
-class FlowBenchmark2dCase3Geometry:
+class Geometry:
     """Geometry specification."""
 
     def set_fractures(self) -> None:
         """Setting a fracture list from the fracture set library."""
-        self._fractures = benchmark_2d_case_3()
+        self._fractures = pp.applications.md_grids.fracture_sets.benchmark_2d_case_3()
 
 
-class FlowBenchmark2dCase3aBoundaryConditions(BoundaryConditionsMassDirNorthSouth):
+class Case3aBoundaryConditions(BoundaryConditionsMassDirNorthSouth):
     """Boundary conditions for Case 3a, flow from top to bottom."""
 
     def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
@@ -49,7 +48,7 @@ class FlowBenchmark2dCase3aBoundaryConditions(BoundaryConditionsMassDirNorthSout
         return values
 
 
-class FlowBenchmark2dCase3bBoundaryConditions(BoundaryConditionsMassDirWestEast):
+class Case3bBoundaryConditions(BoundaryConditionsMassDirWestEast):
     """Boundary conditions for Case 3b, flow from left to right."""
 
     def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
@@ -61,7 +60,7 @@ class FlowBenchmark2dCase3bBoundaryConditions(BoundaryConditionsMassDirWestEast)
         return values
 
 
-class FlowBenchmark2dCase3Permeability(DimensionDependentPermeability):
+class Permeability(DimensionDependentPermeability):
     """Tangential and normal permeability specification."""
 
     mdg: pp.MixedDimensionalGrid
@@ -159,9 +158,9 @@ class FlowBenchmark2dCase3Permeability(DimensionDependentPermeability):
 
 class FlowBenchmark2dCase3aModel(  # type:ignore[misc]
     FluxDiscretization,
-    FlowBenchmark2dCase3Geometry,
-    FlowBenchmark2dCase3Permeability,
-    FlowBenchmark2dCase3aBoundaryConditions,
+    Geometry,
+    Permeability,
+    Case3aBoundaryConditions,
     pp.fluid_mass_balance.SinglePhaseFlow,
 ):
     """Mixer class for case 3a (top-to-bottom flow) from the 2d flow benchmark."""
@@ -169,9 +168,9 @@ class FlowBenchmark2dCase3aModel(  # type:ignore[misc]
 
 class FlowBenchmark2dCase3bModel(  # type:ignore[misc]
     FluxDiscretization,
-    FlowBenchmark2dCase3Geometry,
-    FlowBenchmark2dCase3Permeability,
-    FlowBenchmark2dCase3bBoundaryConditions,
+    Geometry,
+    Permeability,
+    Case3bBoundaryConditions,
     pp.fluid_mass_balance.SinglePhaseFlow,
 ):
     """Mixer class for case 3b (left-to-right flow) from the 2d flow benchmark."""
