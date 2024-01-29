@@ -495,7 +495,7 @@ class SemiSmoothMin(AbstractFunction):
 
 ### FUNCTION DECORATOR -----------------------------------------------------------------
 
-NumericType = Union[numbers.Real, np.ndarray, AdArray]
+NumericType = Union[pp.number, np.ndarray, AdArray]
 
 
 def admethod(
