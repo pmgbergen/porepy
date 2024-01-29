@@ -401,14 +401,12 @@ def _validate_args(
         domain: Union[pp.Domain, None] = _retrieve_domain_instance(fracture_network)
         if dim == 2:
             assert isinstance(fracture_network, FractureNetwork2d)
-            _, edges_deleted = fracture_network.impose_external_boundary(domain)
-            sz = edges_deleted.size
+            _, fractures_deleted = fracture_network.impose_external_boundary(domain)
         elif dim == 3:
             assert isinstance(fracture_network, FractureNetwork3d)
-            fractures_deleted = fracture_network.impose_external_boundary(domain)
-            # Take note of deleted fractures
-            sz = fractures_deleted.size
-        if sz > 0:
+            _, fractures_deleted = fracture_network.impose_external_boundary(domain)
+        # Take note of deleted fractures
+        if (sz := fractures_deleted.size) > 0:
             # It seems most likely that this is an undesired effect (for a
             # Cartesian geomtetry it should be possible to make sure the
             # fractures are within the domain), but we cannot rule out that the
@@ -533,22 +531,44 @@ def _preprocess_cartesian_args(
 
     # If provided compute all the information from cell_size
     nx_cells: list[int] = [-1 for i in range(domain.dim)]
+    n_x: int = -1
+    n_y: int = -1
+    n_z: int = -1
 
     # if provided overwrite information in x-direction
     if cell_size_x is not None:
-        n_x: int = round((xmax - xmin) / cell_size_x)
+        n_x = round((xmax - xmin) / cell_size_x)
+        if np.abs((xmax - xmin)) - cell_size_x < 0.0:
+            warnings.warn(
+                "In the x-direction, cell_size_x is greater than the domain. The domain "
+                "size is used instead."
+            )
+            n_x = int(np.max([round((xmax - xmin) / cell_size_x), 1]))
         nx_cells[0] = n_x
 
     # if provided overwrite information in y-direction
     if cell_size_y is not None:
-        n_y: int = round((ymax - ymin) / cell_size_y)
+        n_y = round((ymax - ymin) / cell_size_y)
+        if np.abs((ymax - ymin)) - cell_size_y < 0.0:
+            warnings.warn(
+                "In the y-direction, cell_size_y is greater than the domain. The domain "
+                "size is used instead."
+            )
+            n_y = int(np.max([round((ymax - ymin) / cell_size_y), 1]))
         nx_cells[1] = n_y
 
     # if provided overwrite information in z-direction
     if cell_size_z is not None and domain.dim == 3:
         zmin: float = domain.bounding_box["zmin"]
         zmax: float = domain.bounding_box["zmax"]
-        n_z: int = round((zmax - zmin) / cell_size_z)
+
+        n_z = round((zmax - zmin) / cell_size_z)
+        if np.abs((zmax - zmin)) - cell_size_z < 0.0:
+            warnings.warn(
+                "In the z-direction, cell_size_z is greater than the domain. The domain "
+                "size is used instead."
+            )
+            n_z = int(np.max([round((zmax - zmin) / cell_size_z), 1]))
         nx_cells[2] = n_z
 
     # Remove duplicate keys
@@ -589,11 +609,27 @@ def _preprocess_tensor_grid_args(
     ymax: float = domain.bounding_box["ymax"]
 
     cell_size: Optional[float] = meshing_args.get("cell_size", None)
+    n_x: int = -1
+    n_y: int = -1
+    n_z: int = -1
 
     # If provided compute all the information from cell_size
     if cell_size is not None:
-        n_x: int = round((xmax - xmin) / cell_size) + 1
-        n_y: int = round((ymax - ymin) / cell_size) + 1
+        n_x = round((xmax - xmin) / cell_size) + 1
+        if np.abs((xmax - xmin)) - cell_size < 0.0:
+            warnings.warn(
+                "In the x-direction, cell_size is greater than the domain. The domain "
+                "size is used instead."
+            )
+            n_x = int(np.max([round((xmax - xmin) / cell_size), 1])) + 1
+
+        n_y = round((ymax - ymin) / cell_size) + 1
+        if np.abs((ymax - ymin)) - cell_size < 0.0:
+            warnings.warn(
+                "In the y-direction, cell_size is greater than the domain. The domain "
+                "size is used instead."
+            )
+            n_y = int(np.max([round((ymax - ymin) / cell_size), 1])) + 1
 
         x_pts = np.linspace(xmin, xmax, num=n_x)
         y_pts = np.linspace(ymin, ymax, num=n_y)
@@ -601,7 +637,14 @@ def _preprocess_tensor_grid_args(
         if domain.dim == 3:
             zmin: float = domain.bounding_box["zmin"]
             zmax: float = domain.bounding_box["zmax"]
-            n_z: int = round((zmax - zmin) / cell_size) + 1
+
+            n_z = round((zmax - zmin) / cell_size) + 1
+            if np.abs((zmax - zmin)) - cell_size < 0.0:
+                warnings.warn(
+                    "In the z-direction, cell_size is greater than the domain. The domain "
+                    "size is used instead."
+                )
+                n_z = int(np.max([round((zmax - zmin) / cell_size), 1])) + 1
             z_pts = np.linspace(zmin, zmax, num=n_z)
 
     x_pts = meshing_args.get("x_pts", x_pts)

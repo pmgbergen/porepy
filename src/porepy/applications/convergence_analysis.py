@@ -1,6 +1,7 @@
 """Module containing a class for performing spatio-temporal convergence analysis."""
 from __future__ import annotations
 
+import logging
 import warnings
 from copy import deepcopy
 from typing import Literal, Optional, Union
@@ -10,6 +11,8 @@ from scipy import stats
 
 import porepy as pp
 from porepy.utils.txt_io import TxtData, export_data_to_txt
+
+logger = logging.getLogger(__name__)
 
 
 class ConvergenceAnalysis:
@@ -466,3 +469,69 @@ class ConvergenceAnalysis:
 
         """
         return "%2.2e"
+
+    @staticmethod
+    def l2_error(
+        grid: pp.GridLike,
+        true_array: np.ndarray,
+        approx_array: np.ndarray,
+        is_scalar: bool,
+        is_cc: bool,
+        relative: bool = False,
+    ) -> pp.number:
+        """Compute discrete L2-error as given in [1].
+
+        It is possible to compute the absolute error (default) or the relative error.
+
+        Raises:
+            NotImplementedError if a mortar grid is given and ``is_cc=False``.
+            ZeroDivisionError if the denominator in the relative error is zero.
+
+        Parameters:
+            grid: Either a subdomain grid or a mortar grid.
+            true_array: Array containing the true values of a given variable.
+            approx_array: Array containing the approximate values of a given variable.
+            is_scalar: Whether the variable is a scalar quantity. Use ``False`` for
+                vector quantities. For example, ``is_scalar=True`` for pressure, whereas
+                ``is_scalar=False`` for displacement.
+            is_cc: Whether the variable is associated to cell centers. Use ``False``
+                for variables associated to face centers. For example, ``is_cc=True``
+                for pressures, whereas ``is_scalar=False`` for subdomain fluxes.
+            relative: Compute the relative error (if True) or the absolute error (if False).
+
+        Returns:
+            Discrete L2-error between the true and approximated arrays.
+
+        References:
+
+            - [1] Nordbotten, J. M. (2016). Stable cell-centered finite volume
+              discretization for Biot equations. SIAM Journal on Numerical Analysis,
+              54(2), 942-968.
+
+        """
+        # Sanity check
+        if isinstance(grid, pp.MortarGrid) and not is_cc:
+            raise NotImplementedError("Interface variables can only be cell-centered.")
+
+        # Obtain proper measure, e.g., cell volumes for cell-centered quantities and face
+        # areas for face-centered quantities.
+        if is_cc:
+            meas = grid.cell_volumes
+        else:
+            assert isinstance(grid, pp.Grid)  # to please mypy
+            meas = grid.face_areas
+
+        if not is_scalar:
+            meas = meas.repeat(grid.dim)
+
+        # Obtain numerator and denominator to determine the error.
+        numerator = np.sqrt(np.sum(meas * np.abs(true_array - approx_array) ** 2))
+        denominator = (
+            np.sqrt(np.sum(meas * np.abs(true_array) ** 2)) if relative else 1.0
+        )
+
+        # Deal with the case when the denominator is zero when computing the relative error.
+        if np.isclose(denominator, 0):
+            raise ZeroDivisionError("Attempted division by zero.")
+
+        return numerator / denominator

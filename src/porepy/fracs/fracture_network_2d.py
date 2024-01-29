@@ -5,6 +5,7 @@ import copy
 import csv
 import logging
 import time
+import warnings
 from typing import Optional, Union
 
 import meshio
@@ -840,12 +841,12 @@ class FractureNetwork2d:
 
                 :obj:`numpy.ndarray`:
 
-                    Array containing the indices of the edges that have been kept.
+                    Array containing the indices of the fractures that have been kept.
 
                 :obj:`numpy.ndarray`:
 
-                    Array containing the indices of the edges that have been deleted,
-                    since they were outside the bounding box.
+                    Array containing the indices of the fractures that have been
+                    deleted, since they were outside the bounding box.
 
         """
 
@@ -1440,6 +1441,9 @@ class FractureNetwork2d:
                 Coordinates of the end points of the fractures.
 
         """
+        msg = "This functionality is deprecated and will be removed in a future version"
+        warnings.warn(msg, DeprecationWarning)
+
         return self.start_points(frac_index), self.end_points(frac_index)
 
     def length(
@@ -1464,6 +1468,9 @@ class FractureNetwork2d:
             each fracture.
 
         """
+        msg = "This functionality is deprecated and will be removed in a future version"
+        warnings.warn(msg, DeprecationWarning)
+
         if frac_index is None:
             frac_index = np.arange(self.num_frac())
         frac_index = np.asarray(frac_index)
@@ -1496,6 +1503,9 @@ class FractureNetwork2d:
             interval :math:`(0, \\pi)`.
 
         """
+        msg = "This functionality is deprecated and will be removed in a future version"
+        warnings.warn(msg, DeprecationWarning)
+
         if frac_index is None:
             frac_index = np.arange(self.num_frac())
         frac_index = np.asarray(frac_index)
@@ -1540,6 +1550,9 @@ class FractureNetwork2d:
             coordinates of the centers of the fracture set.
 
         """
+        msg = "This functionality is deprecated and will be removed in a future version"
+        warnings.warn(msg, DeprecationWarning)
+
         if pts is None:
             pts = self._pts
         if edges is None:
@@ -1573,6 +1586,9 @@ class FractureNetwork2d:
             Measure of the bounding box.
 
         """
+        msg = "This functionality is deprecated and will be removed in a future version"
+        warnings.warn(msg, DeprecationWarning)
+
         if bounding_box is None:
             if self.domain is not None:
                 box = self.domain.bounding_box

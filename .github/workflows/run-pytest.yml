@@ -55,8 +55,8 @@ jobs:
         # Cache the full python environment, this is more efficient than just caching pip
         # https://blog.allenai.org/python-caching-in-github-actions-e9452698e98d
         path: ${{ env.pythonLocation }}
-        # Hash both ordinary requirements and those specific for developmnet.
-        key: ${{ env.pythonLocation }}-${{ hashFiles('setup.py') }}-${{ hashFiles('**/requirements.txt', '**/requirements-dev.txt') }}
+        # Hash requirements.
+        key: ${{ env.pythonLocation }}-${{ hashFiles('setup.py') }}-${{ hashFiles('**/requirements.txt') }}
 
     - name: Install external libraries
       run: |
@@ -73,25 +73,11 @@ jobs:
         # https://blog.allenai.org/python-caching-in-github-actions-e9452698e98d
         pip install --upgrade --upgrade-strategy eager -r requirements.txt
 
-    - name: Install requirements-dev
-      run: |
-        pip install --upgrade --upgrade-strategy eager -r requirements-dev.txt        
-
     - name: Install PorePy
       run: |
         pip install .
         pip freeze       
 
-    - name: unit tests
+    - name: Run tests
       if: ${{always()}}
-      run: pytest tests/unit
-
-    - name: integration tests
-      if: ${{always()}}
-      run: pytest tests/integration
-
-    - name: functional tests
-      if: ${{always()}}
-      run: pytest tests/functional
-
-
+      run: pytest tests -m "not tutorials"

@@ -38,6 +38,7 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
+from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_data
 
 from .propagation_model import FracturePropagation
 
@@ -145,7 +146,9 @@ class ConformingFracturePropagation(FracturePropagation):
 
             if data_intf["propagation_face_map"].data.size > 0:
                 # Find the faces in the lower-dimensional grid to split.
-                _, col, _ = sps.find(data_intf["propagation_face_map"])
+                _, col, _ = sparse_array_to_row_col_data(
+                    data_intf["propagation_face_map"]
+                )
                 face_list.update({sd_secondary: col})
 
                 # We have propagated (at least) one fracture in this step
@@ -198,9 +201,11 @@ class ConformingFracturePropagation(FracturePropagation):
         parameters_primary: dict[str, Any] = data_primary[pp.PARAMETERS][
             self.mechanics_parameter_key  # type: ignore
         ]
-        u_j: np.ndarray = data_intf[pp.ITERATE_SOLUTIONS][
-            self.mortar_displacement_variable  # type: ignore
-        ][0]
+        u_j: np.ndarray = pp.get_solution_values(
+            name=self.mortar_displacement_variable,  # type: ignore
+            data=data_intf,
+            iterate_index=0,
+        )
 
         # Only operate on tips
         tip_faces = sd_secondary.tags["tip_faces"].nonzero()[0]
@@ -486,7 +491,9 @@ class ConformingFracturePropagation(FracturePropagation):
 
         # Find the edges in lower-dimensional grid to be split. For 2d problems (1d
         # fractures) this will be a node, in 3d, this is two nodes.
-        nodes_secondary, *_ = sps.find(sd_secondary.face_nodes[:, faces_secondary])
+        nodes_secondary, *_ = sparse_array_to_row_col_data(
+            sd_secondary.face_nodes[:, faces_secondary]
+        )
 
         # Obtain the global index of all nodes.
         # NOTE: For algorithms that introduce new geometric points (not including points that

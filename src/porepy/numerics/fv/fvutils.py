@@ -14,6 +14,7 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
+from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_data
 
 
 class SubcellTopology:
@@ -350,11 +351,115 @@ def find_active_indices(
     return active_cells, active_faces
 
 
+def parse_partition_arguments(
+    partition_arguments: Optional[dict[str, int]] = None
+) -> tuple[int | None, int | None]:
+    """Parse arguments related to the splitting of discretization into subproblems.
+
+    Parameters:
+        parameter_dictionary (dict): Parameters, potentially containing fields
+            "max_memory" and "num_subproblems".
+
+    Returns:
+        Values to be used in the partitioning of the grid. One of the values will be
+        numerical, the other will be None; it is up to the calling method to use the
+        former to define a partitioning.
+
+
+        int | None: Maximum memory footprint allowed for the discretization. If
+            ``partition_arguments`` has a key ``max_memory``, this value will be
+            returned. If ``partition_arguments`` is ``None``, the default value of 1e9
+            will be returned. If ``partition_arguments`` does not have a key
+            ``max_memory``, but has a key ``num_subproblems``, the value will be set to
+            ``None``.
+
+        int | None: The number of subproblems to construct. If ``partition_arguments``
+            has a key ``num_subproblems``, but no key ``max_memory``, the value will be
+            returned. In all other cases, the value will be set to ``None``.
+
+    """
+
+    # Control of the number of subdomanis.
+    if partition_arguments is not None:
+        if (
+            "max_memory" in partition_arguments
+            or "num_subproblems" not in partition_arguments
+        ):
+            # If max_memory is given, use it. If num_subproblems is not given, use
+            # default (which is max_memory = 1e9). Cast to int to avoid problems with
+            # mypy.
+            max_memory = int(partition_arguments.get("max_memory", 1e9))
+            # Explicitly set num_subproblems to None, to signal that it should not
+            # be used.
+            num_subproblems = None
+        else:  # Only num_subproblems is given
+            num_subproblems = partition_arguments["num_subproblems"]
+            # Explicitly set max_memory to None, to signal that it should not be
+            # used.
+            max_memory = None
+    else:
+        # No values are given, use default. Cast to int to avoid problems with mypy.
+        max_memory = int(1e9)
+        # Explicitly set num_subproblems to None, to signal that it should not be
+        # used.
+        num_subproblems = None
+
+    return max_memory, num_subproblems
+
+
 def subproblems(
-    sd: pp.Grid, max_memory: int, peak_memory_estimate: int
+    sd: pp.Grid,
+    peak_memory_estimate: int,
+    max_memory: Optional[int] = None,
+    num_subproblems: Optional[int] = None,
 ) -> Generator[
     tuple[pp.Grid, np.ndarray, np.ndarray, np.ndarray, np.ndarray], None, None
 ]:
+    """Split a grid into subgrids in preparation for discretization with limited memory
+    footprint.
+
+    The subgrids are constructed by partititoning the grid; see comments in the code
+    for details, including information on overlap between subgrids.
+
+    Parameters:
+        sd: Grid to be partitioned.
+        peak_memory_estimate: Estimate of the peak memory footprint of the
+            discretization.
+        max_memory: Maximum memory footprint allowed for the discretization.
+        num_subproblems: Number of subproblems to construct.
+
+        At least one of max_memory and num_subproblems must be given. If both are given,
+        max_memory will be used.
+
+    Raises:
+        ValueError: If neither max_memory nor num_subproblems are given.
+
+    Yields:
+        Subgrids and topological information:
+
+        pp.Grid:
+            The subgrid to be discretized.
+
+        :obj:`~numpy.ndarray`:
+            Indices (in the global grid) of the faces to be discretized. This does not
+            include faces that are in the overlap, but not in the subgrid proper.
+
+        :obj:`~numpy.ndarray`:
+            Indices (in the global grid) of the cells contained in the subgrid (not
+            including the overlap).
+
+        :obj:`~numpy.ndarray`:
+            Indices (in the global grid) of all cells in the subgrid, including those
+            in the overlap. Represented as a numpy array, so that element i gives the
+            global index of the i-th cell in the subgrid.
+
+        :obj:`~numpy.ndarray`:
+            Indices (in the global grid) of all faces in the subgrid, including those
+            in the overlap. Represented as a numpy array, so that element i gives the
+            global index of the i-th face in the subgrid.
+
+    """
+
     if sd.dim == 0:
         # nothing realy to do here
         loc_faces = np.ones(sd.num_faces, dtype=bool)
@@ -363,7 +468,12 @@ def subproblems(
         loc2g_face = np.ones(sd.num_faces, dtype=bool)
         yield sd, loc_faces, loc_cells, loc2g_cells, loc2g_face
 
-    num_part: int = np.ceil(peak_memory_estimate / max_memory).astype(int)
+    if max_memory is not None:
+        num_part: int = np.ceil(peak_memory_estimate / max_memory).astype(int)
+    elif num_subproblems is not None:
+        num_part = num_subproblems
+    else:
+        raise ValueError("Either max_memory or num_subproblems must be given")
 
     if num_part == 1:
         yield sd, np.arange(sd.num_faces), np.arange(sd.num_cells), np.arange(
@@ -371,14 +481,27 @@ def subproblems(
         ), np.arange(sd.num_faces)
 
     else:
-        # Let partitioning module apply the best available method
+        # Since MPxA discretizations are based on interaction regions (cells in the dual
+        # grid), we need to construct the subgrids with an overlap: If a vertex is part
+        # of the subgrid proper, the overlap must be large enough that all cells that
+        # share this vertex are included in the discretization stencil. The overlap will
+        # mean that certain faces and cells will be discretized multiple times, it is
+        # the responsibility of the discretization to handle this.
+        #
+        # To construct the partitioning, we first define a partitioning with no overlap,
+        # identify the extra cells that should be included in the overlap, and then
+        # define the subgrid with overlap.
+
+        # Use the partition model to define a partitioning with no overlap. The function
+        # called will decide how to construct the partitioning, depending on the grid
+        # type, third-party software available etc.
         part: np.ndarray = pp.partition.partition(sd, num_part)
 
         # Cell-node relation
         cn: sps.csc_matrix = sd.cell_nodes()
 
-        # Loop over all partition regions, construct local problemsac, and transfer
-        # discretization to the entire active grid
+        # Loop over all partition regions, construct local grids, and information to map
+        # between local and global grids.
         for p in np.unique(part):
             # Cells in this partitioning
             cells_in_partition: np.ndarray = np.argwhere(part == p).ravel("F")
@@ -389,11 +512,13 @@ def subproblems(
             cells_in_partition_boolean = np.zeros(sd.num_cells, dtype=bool)
             cells_in_partition_boolean[cells_in_partition] = 1
 
+            # Nodes present in this partition
             nodes_in_partition: np.ndarray = np.squeeze(
                 np.where((cn * cells_in_partition_boolean) > 0)
             )
 
-            # Find computational stencil, based on the nodes in this partition
+            # Find computational stencil (cells and faces), based on the nodes in this
+            # partition
             loc_cells, loc_faces = pp.fvutils.cell_ind_for_partial_update(
                 sd, nodes=nodes_in_partition
             )
@@ -468,6 +593,40 @@ def expand_indices_incr(ind, dim, increment):
     # Back to row vector
     ind_new = ind_incr.reshape(-1, order="F")
     return ind_new
+
+
+def adjust_eta_length(
+    eta: np.ndarray, sub_sd: pp.Grid, l2g_faces: np.ndarray
+) -> np.ndarray:
+    """Adjusts length of vector valued eta for problems partitioned into subproblems.
+
+    Eta can either be a scalar or a vector. If a vector valued eta is passed, it will
+    have a length equal to the number of subfaces in the entire grid. If the grid is
+    partitioned into subgrids, we need to adjust the length of eta to match the subfaces
+    of the subgrid.
+
+    Parameters:
+        eta: MPFA/MPSA-eta.
+        sub_sd: A subgrid of the domain. Eta is adjusted according to the subfaces in
+            sub_sd.
+        l2g_faces: Indices (in the global grid) of all faces in the subgrid. Represented
+            as a numpy array, so that element i gives the global index of the i-th face
+            in the subgrid.
+
+    Returns:
+        An array of eta values corresponding to a grid that arises from from domain
+        partitioning.
+
+    """
+    # Use information in the sparse formatting to find the number of nodes per face
+    num_nodes_per_face = np.diff(sub_sd.face_nodes.tocsc().indptr)
+    # Verify that all faces have equally many nodes
+    assert np.unique(num_nodes_per_face).size == 1
+    expansion_index = num_nodes_per_face[0]
+
+    indices = expand_indices_nd(l2g_faces, expansion_index)
+    loc_eta = np.array([eta[i] for i in indices])
+    return loc_eta
 
 
 def map_hf_2_f(fno=None, subfno=None, nd=None, sd=None):
@@ -1086,7 +1245,7 @@ def partial_update_discretization(
 
     # Find the faces next to the active faces. All these may be updated (depending on
     # the type of discretizations present).
-    _, cells, _ = sps.find(sd.cell_faces[active_faces])
+    _, cells, _ = sparse_array_to_row_col_data(sd.cell_faces[active_faces])
     active_cells = np.unique(cells)
     passive_cells = np.setdiff1d(np.arange(sd.num_cells), active_cells)
 

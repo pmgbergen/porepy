@@ -555,9 +555,6 @@ def invert_diagonal_blocks(
         """
         Invert block diagonal matrix using pure python code.
 
-        The implementation is slow for large matrices, consider to use the
-        numba-accelerated method invert_invert_diagagonal_blocks_numba instead
-
         Parameters
         ----------
         a: sps.crs-matrix, to be inverted
@@ -567,28 +564,57 @@ def invert_diagonal_blocks(
         -------
         inv_a inverse matrix
         """
-        v = np.zeros(np.sum(np.square(sz)))
-        p1 = 0
-        p2 = 0
-        for b in range(sz.size):
-            n = sz[b]
-            n2 = n * n
-            i = p1 + np.arange(n + 1)
-            # Picking out the sub-matrices here takes a lot of time.
-            v[p2 + np.arange(n2)] = np.linalg.inv(
-                a[i[0] : i[-1], i[0] : i[-1]].A
-            ).ravel()
-            p1 = p1 + n
-            p2 = p2 + n2
+
+        # This function only supports CSR format.
+        if not sps.isspmatrix_csr(a):
+            raise TypeError("Sparse array type not implemented: ", type(a))
+
+        # Retrieve global indices.
+        row, col = a.nonzero()
+
+        # Since blocks should be squared, this statement construct global block indices
+        idx_blocks = np.cumsum([0] + list(sz))
+
+        # Maps block indexation to non-zero indexation
+        idx_nnz = np.searchsorted(row, idx_blocks)
+
+        # Helper function for retrieving blocks
+        def retrieve_block(ib: int) -> np.ndarray:
+            """
+            Parameters
+            ----------
+            id: the block index
+
+            Returns
+            -------
+            dense_block: the dense block
+            """
+
+            # Initialize block
+            dense_block = np.zeros((sz[ib], sz[ib]))
+
+            # Build local from global indexation by subtracting the stride idx_blocks[ib]
+            lr = row[idx_nnz[ib] : idx_nnz[ib + 1]] - idx_blocks[ib]
+            lc = col[idx_nnz[ib] : idx_nnz[ib + 1]] - idx_blocks[ib]
+
+            # Loopless assignment of nonzero entries
+            dense_block[lr, lc] = a.data[idx_nnz[ib] : idx_nnz[ib + 1]]
+            return dense_block
+
+        # Maps retrieve_block to indexation
+        iterator_blocks = map(retrieve_block, range(sz.size))
+
+        # Maps linalg.inv to blocks
+        iterator_block_inverses = map(np.linalg.inv, iterator_blocks)
+
+        # Maps ravel to block_inverses, performs the actual computation and concatenates
+        v = np.concatenate(list(map(np.ravel, iterator_block_inverses)))
         return v
 
     def invert_diagonal_blocks_numba(a: sps.csr_matrix, size: np.ndarray) -> np.ndarray:
         """
         Invert block diagonal matrix by invoking numba acceleration of a simple
         for-loop based algorithm.
-
-        This approach should be more efficient than the related method
-        invert_diagonal_blocks_python for larger problems.
 
         Parameters
         ----------
@@ -603,8 +629,7 @@ def invert_diagonal_blocks(
             import numba
         except ImportError:
             raise ImportError("Numba not available on the system")
-        # Sort matrix storage before pulling indices and data
-        a.sorted_indices()
+
         ptr = a.indptr
         indices = a.indices
         dat = a.data
@@ -694,15 +719,15 @@ def invert_diagonal_blocks(
 
     # Remove blocks of size 0
     s = s[s > 0]
-    # Variable to check if we have tried and failed with numba
-    if method == "numba" or method is None:
+    # Select python vectorized function
+    if method == "python" or method is None:
+        inv_vals = invert_diagonal_blocks_python(mat, s)
+    # Select numba function
+    elif method == "numba":
         try:
             inv_vals = invert_diagonal_blocks_numba(mat, s)
         except np.linalg.LinAlgError:
             raise ValueError("Error in inversion of local linear systems")
-    # Variable to check if we should fall back on python
-    elif method == "python":
-        inv_vals = invert_diagonal_blocks_python(mat, s)
     else:
         raise ValueError(f"Unknown type of block inverter {method}")
     ia = block_diag_matrix(inv_vals, s)
@@ -834,3 +859,45 @@ def rldecode(A: np.ndarray, n: np.ndarray) -> np.ndarray:
     j[i[1:-1:]] = 1
     B = A[np.cumsum(j)]
     return B
+
+
+def sparse_kronecker_product(matrix: sps.spmatrix, nd: int) -> sps.spmatrix:
+    """Convert the scalar projection to a vector quantity.
+
+    Used to expand projection matrices from scalar versions to a form applicable for
+    projection of nd-vector quantities.
+
+    Parameters:
+        matrix: Matrix to be expanded using a Kronecker product.
+        nd: The dimension to which matrix is expanded. If the prescribed dimension
+            is 1, the projection matrix is returned without changes.
+
+    """
+    if nd == 1:
+        # No need to do expansion for 1d variables.
+        return matrix
+    else:
+        return sps.kron(matrix, sps.eye(nd)).tocsc()
+
+
+def sparse_array_to_row_col_data(
+    A: sps.sparse, remove_nz: Optional[bool] = False
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Function to retrieve indices and values of a matrix.
+
+    Parameters:
+        A: A sparse matrix.
+
+        remove_nz: Optional directive for removing explicit zeros.
+
+    Returns:
+        A triplet of rows, columns, and values.
+
+    """
+
+    mat_copy = sps.coo_matrix(A, copy=True)
+    if remove_nz:
+        nz_mask = mat_copy.data != 0
+        return (mat_copy.row[nz_mask], mat_copy.col[nz_mask], mat_copy.data[nz_mask])
+    else:
+        return (mat_copy.row, mat_copy.col, mat_copy.data)

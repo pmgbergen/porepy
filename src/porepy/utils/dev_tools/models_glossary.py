@@ -96,36 +96,36 @@ class Glossary:
         name="basis",
     )
 
-    bc_type_darcy: Entry = Entry(
+    bc_type_darcy_flux: Entry = Entry(
         type="Callable[[pp.Grid], pp.BoundaryCondition]",
         docstring="Function that returns the boundary condition type for the Darcy"
         " flux. Normally provided by a mixin instance of :class:`~porepy.models."
         "fluid_mass_balance.BoundaryConditionsSinglePhaseFlow`.",
-        name="bc_type_darcy",
+        name="bc_type_darcy_flux",
     )
 
-    bc_type_enthalpy: Entry = Entry(
+    bc_type_enthalpy_flux: Entry = Entry(
         type="Callable[[pp.Grid], pp.ad.DenseArray]",
         docstring="Function that returns the boundary condition type for the enthalpy"
         " flux. Normally defined in a mixin instance of :class:`~porepy.models."
         "fluid_mass_balance.BoundaryConditionsEnergyBalance`.",
-        name="bc_type_enthalpy",
+        name="bc_type_enthalpy_flux",
     )
 
-    bc_type_fourier: Entry = Entry(
+    bc_type_fourier_flux: Entry = Entry(
         type="Callable[[pp.Grid], pp.ad.DenseArray]",
         docstring="Function that returns the boundary condition type for the Fourier"
         " flux. Normally defined in a mixin instance of :class:`~porepy.models."
         "fluid_mass_balance.BoundaryConditionsEnergyBalance`.",
-        name="bc_type_fourier",
+        name="bc_type_fourier_flux",
     )
 
-    bc_type_mobrho: Entry = Entry(
+    bc_type_fluid_flux: Entry = Entry(
         type="Callable[[pp.Grid], pp.BoundaryCondition]",
         docstring="Function that returns the boundary condition type for the advective"
         " flux. Normally provided by a mixin instance of :class:`~porepy.models."
         "fluid_mass_balance.BoundaryConditionsSinglePhaseFlow`.",
-        name="bc_type_mobrho",
+        name="bc_type_fluid_flux",
     )
 
     bc_type_mechanics: Entry = Entry(
@@ -136,12 +136,12 @@ class Glossary:
         name="bc_type_mechanics",
     )
 
-    bc_values_darcy: Entry = Entry(
-        type="Callable[[list[pp.Grid]], pp.ad.DenseArray]",
+    bc_values_darcy_flux: Entry = Entry(
+        type="Callable[[pp.BoundaryGrid], np.ndarray]",
         docstring="Darcy flux boundary conditions. Normally defined in a mixin instance"
         " of :class:`~porepy.models.fluid_mass_balance"
         ".BoundaryConditionsSinglePhaseFlow`.",
-        name="bc_values_darcy",
+        name="bc_values_darcy_flux",
     )
 
     bc_values_enthalpy_flux: Entry = Entry(
@@ -157,22 +157,6 @@ class Glossary:
         docstring="Fourier flux boundary conditions. Normally defined in a mixin"
         " instance of :class:`~porepy.models.fluid_mass_balance.BoundaryCondition.",
         name="bc_values_fourier",
-    )
-
-    bc_values_mechanics: Entry = Entry(
-        type="Callable[[list[pp.Grid]], pp.ad.DenseArray]",
-        docstring="Mechanics boundary conditions. Normally defined in a mixin instance"
-        " of :class:`~porepy.models.fluid_mass_balance"
-        ".BoundaryConditionsMomentumBalance`.",
-        name="bc_values_mechanics",
-    )
-
-    bc_values_mobrho: Entry = Entry(
-        type="Callable[[list[pp.Grid]], pp.ad.DenseArray]",
-        docstring="Mobility times density boundary conditions. Normally defined in a"
-        " mixin instance of :class:`~porepy.models.fluid_mass_balance"
-        ".BoundaryConditionsSinglePhaseFlow`.",
-        name="bc_values_mobrho",
     )
 
     biot_coefficient: Entry = Entry(
@@ -677,14 +661,6 @@ class Glossary:
         docstring="Thermal expansion coefficient. Normally defined in a mixin class"
         " with a suitable thermal expansion definition.",
         name="thermal_expansion",
-    )
-
-    time_dependent_bc_values_mechanics: Entry = Entry(
-        type="Callable[[list[pp.Grid]], np.ndarray]",
-        docstring="Values of the mechanical boundary conditions for a time-dependent"
-        " problem. Normally set by a mixin instance of :class:`~porepy.models."
-        "poromechanics.BoundaryConditionsMechanicsTimeDependent`.",
-        name="time_dependent_bc_values_mechanics",
     )
 
     time_manager: Entry = Entry(

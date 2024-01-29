@@ -11,16 +11,15 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
-from porepy.numerics.interface_laws.elliptic_discretization import (
-    EllipticDiscretization,
-)
+from porepy.numerics.discretization import Discretization
+from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_data
 
 
 def project_flux(
     mdg: pp.MixedDimensionalGrid,
     discr,
     flux: str,
-    P0_flux: np.ndarray,
+    P0_flux: str,
     mortar_key: str = "mortar_solution",
 ) -> None:
     """
@@ -41,7 +40,9 @@ def project_flux(
     for sd, data in mdg.subdomains(return_data=True):
         # we need to recover the flux from the mortar variable before
         # the projection, only lower dimensional edges need to be considered.
-        edge_flux = np.zeros(data[pp.TIME_STEP_SOLUTIONS][flux][0].size)
+        edge_flux = np.zeros(
+            pp.get_solution_values(name=flux, data=data, time_step_index=0).size
+        )
         faces = sd.tags["fracture_faces"]
         if np.any(faces):
             # recover the sign of the flux, since the mortar is assumed
@@ -60,18 +61,19 @@ def project_flux(
                 # problem
                 # edge_flux += sign * g_m.mortar_to_primary_int() *
                 # d_e[pp.TIME_STEP_SOLUTIONS][mortar_key][0]
-                edge_flux += (
-                    sign
-                    * intf.primary_to_mortar_avg().T
-                    * data_intf[pp.TIME_STEP_SOLUTIONS][mortar_key][0]
+                mortar_values = pp.get_solution_values(
+                    name=mortar_key, data=data_intf, time_step_index=0
                 )
+                edge_flux += sign * intf.primary_to_mortar_avg().T * mortar_values
 
-        data[pp.TIME_STEP_SOLUTIONS][P0_flux][0] = discr.project_flux(
-            sd, edge_flux + data[pp.TIME_STEP_SOLUTIONS][flux][0], data
+        flux_values = pp.get_solution_values(name=flux, data=data, time_step_index=0)
+        discr_projected_flux = discr.project_flux(sd, edge_flux + flux_values, data)
+        pp.set_solution_values(
+            name=P0_flux, values=discr_projected_flux, data=data, time_step_index=0
         )
 
 
-class DualElliptic(EllipticDiscretization):
+class DualElliptic(Discretization):
     """Parent class for methods based on the mixed variational form of the
     elliptic equation. The class should not be used by itself, but provides a
     sheared implementation of central methods.
@@ -263,7 +265,7 @@ class DualElliptic(EllipticDiscretization):
                 "Periodic boundary conditions are not implemented for DualElliptic"
             )
 
-        faces, _, sign = sps.find(sd.cell_faces)
+        faces, _, sign = sparse_array_to_row_col_data(sd.cell_faces)
         sign = sign[np.unique(faces, return_index=True)[1]]
 
         if np.any(is_dir):
@@ -363,7 +365,7 @@ class DualElliptic(EllipticDiscretization):
         sd: pp.Grid, intf: pp.MortarGrid, hat_E_int: sps.csc_matrix
     ) -> sps.csr_matrix:
         # Recover the information for the grid-grid mapping
-        faces_h, cells_h, sign_h = sps.find(sd.cell_faces)
+        faces_h, cells_h, sign_h = sparse_array_to_row_col_data(sd.cell_faces)
         ind_faces_h = np.unique(faces_h, return_index=True)[1]
         cells_h = cells_h[ind_faces_h]
         sign_h = sign_h[ind_faces_h]
