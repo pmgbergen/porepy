@@ -2,14 +2,17 @@
 from __future__ import annotations
 
 from functools import partial
-from typing import Callable, Literal, Optional, Sequence, Union, cast
+from typing import Callable, Literal, Optional, Sequence, TypeVar, Union, cast
 
 import numpy as np
+import scipy.sparse as sps
 
 import porepy as pp
 
 number = pp.number
 Scalar = pp.ad.Scalar
+
+ArrayType = TypeVar("ArrayType", pp.ad.AdArray, np.ndarray)
 
 
 class DimensionReduction:
@@ -687,7 +690,104 @@ class ConstantViscosity:
         return Scalar(self.fluid.viscosity(), "viscosity")
 
 
-class ConstantPermeability:
+class SecondOrderTensorUtils:
+    basis: Callable[[Sequence[pp.GridLike], int], list[pp.ad.SparseArray]]
+    """Basis for the local coordinate system. Normally set by a mixin instance of
+    :class:`porepy.models.geometry.ModelGeometry`.
+
+    """
+    specific_volume: Callable[
+        [Union[list[pp.Grid], list[pp.MortarGrid]]], pp.ad.Operator
+    ]
+    """Function that returns the specific volume of a subdomain. Normally provided by a
+    mixin of instance :class:`~porepy.models.constitutive_laws.DimensionReduction`.
+
+    """
+    equation_system: pp.ad.EquationSystem
+    """EquationSystem object for the current model. Solution strategies are normally
+    defined in a mixin class.
+
+    """
+
+    def isotropic_second_order_tensor(
+        self, subdomains: list[pp.Grid], permeability: pp.ad.Operator
+    ) -> pp.ad.Operator:
+        """Isotropic permeability [m^2].
+
+        Parameters:
+            permeability: Permeability, scalar per cell.
+
+        Returns:
+            3d isotropic permeability, with nonzero values on the diagonal and zero
+            values elsewhere. K is a second order tensor having 3^2 entries per cell,
+            represented as an array of length 9*nc. The values are ordered as
+                Kxx, Kxy, Kxz, Kyx, Kyy, Kyz, Kzx, Kzy, Kzz
+
+        """
+        if len(subdomains) == 0:
+            return pp.wrap_as_dense_ad_array(0, size=0)
+        basis = self.basis(subdomains, 9)
+        diagonal_indices = [0, 4, 8]
+        permeability = pp.ad.sum_operator_list(
+            [basis[i] @ permeability for i in diagonal_indices]
+        )
+        permeability.set_name("isotropic_second_order_tensor")
+        return permeability
+
+    def operator_to_SecondOrderTensor(
+        self,
+        sd: pp.Grid,
+        operator: pp.ad.Operator,
+        fallback_value: number,
+    ) -> pp.SecondOrderTensor:
+        """Convert Ad operator to PorePy tensor representation.
+
+        Parameters:
+            sd: Subdomain where the operator is defined.
+            operator: Operator to convert.
+
+        Returns:
+            SecondOrderTensor representation of the operator.
+
+        """
+        # Evaluate as 9 x num_cells array
+        volume = self.specific_volume([sd]).value(self.equation_system)
+        try:
+            permeability = operator.value(self.equation_system)
+        except KeyError:
+            # If the permeability depends on an not yet computed discretization matrix,
+            # fall back on reference value.
+            permeability = fallback_value * np.ones(sd.num_cells) * volume
+            return pp.SecondOrderTensor(permeability)
+        evaluated_value = operator.value(self.equation_system)
+        if not isinstance(evaluated_value, np.ndarray):
+            # Raise error rather than cast for verbosity of function which is not
+            # directly exposed to the user, but depends on a frequently user-defined
+            # quantity (the tensor being converted).
+            raise ValueError(
+                f"Operator {operator.name} has type {type(evaluated_value)}, "
+                f"expected numpy array for conversion to SecondOrderTensor."
+            )
+        val = evaluated_value.reshape(9, -1, order="F")
+        # SecondOrderTensor's constructor expects up to six entries: kxx, kyy, kzz,
+        # kxy, kxz, kyz. These correspond to entries 0, 4, 8, 1, 2, 5 in the 9 x
+        # num_cells array.
+        diagonal_indices = [0, 4, 8]
+        tensor_components = [val[i] for i in diagonal_indices]
+        # Check that the operator is indeed symmetric.
+        off_diagonal_indices = [1, 2, 5]
+        other_indices = [3, 6, 7]
+        for i, j in zip(off_diagonal_indices, other_indices):
+            if not np.allclose(val[i], val[j]):
+                raise ValueError(f"Operator is not symmetric for indices {i} and {j}.")
+            tensor_components.append(val[i])
+
+        # Scale by specific volume
+        args = [a * volume for a in tensor_components]
+        return pp.SecondOrderTensor(*args)
+
+
+class ConstantPermeability(SecondOrderTensorUtils):
     """A spatially homogeneous permeability field."""
 
     solid: pp.SolidConstants
@@ -721,7 +821,7 @@ class ConstantPermeability:
         permeability = pp.wrap_as_dense_ad_array(
             self.solid.permeability(), size, name="permeability"
         )
-        return permeability
+        return self.isotropic_second_order_tensor(subdomains, permeability)
 
     def normal_permeability(self, interfaces: list[pp.MortarGrid]) -> pp.ad.Operator:
         """Normal permeability [m^2].
@@ -769,7 +869,7 @@ class DimensionDependentPermeability(ConstantPermeability):
             Cell-wise permeability values.
 
         """
-        projection = pp.ad.SubdomainProjections(subdomains, dim=1)
+        projection = pp.ad.SubdomainProjections(subdomains, dim=9)
         matrix = [sd for sd in subdomains if sd.dim == self.nd]
         fractures: list[pp.Grid] = [sd for sd in subdomains if sd.dim == self.nd - 1]
         intersections: list[pp.Grid] = [sd for sd in subdomains if sd.dim < self.nd - 1]
@@ -807,7 +907,7 @@ class DimensionDependentPermeability(ConstantPermeability):
         """
         size = sum(sd.num_cells for sd in subdomains)
         permeability = pp.wrap_as_dense_ad_array(1, size, name="permeability")
-        return permeability
+        return self.isotropic_second_order_tensor(subdomains, permeability)
 
     def intersection_permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Permeability of intersections.
@@ -825,7 +925,7 @@ class DimensionDependentPermeability(ConstantPermeability):
         """
         size = sum(sd.num_cells for sd in subdomains)
         permeability = pp.wrap_as_dense_ad_array(1, size, name="permeability")
-        return permeability
+        return self.isotropic_second_order_tensor(subdomains, permeability)
 
 
 class CubicLawPermeability(DimensionDependentPermeability):
@@ -873,9 +973,8 @@ class CubicLawPermeability(DimensionDependentPermeability):
 
         """
         aperture = self.aperture(subdomains)
-        perm = (aperture ** Scalar(2)) / Scalar(12)
-
-        return perm
+        permeability = (aperture ** Scalar(2)) / Scalar(12)
+        return self.isotropic_second_order_tensor(subdomains, permeability)
 
     def fracture_permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Permeability of the fractures.
@@ -1019,6 +1118,23 @@ class DarcysLaw:
     :class:`~porepy.models.constitutive_laws.DimensionReduction` or a subclass thereof.
 
     """
+    volume_integral: Callable[
+        [pp.ad.Operator, Sequence[pp.Grid] | Sequence[pp.MortarGrid], int],
+        pp.ad.Operator,
+    ]
+    """Integration over cell volumes, implemented in
+    :class:`pp.models.abstract_equations.BalanceEquation`.
+
+    """
+    gravity_force: Callable[
+        [Union[list[pp.Grid], list[pp.MortarGrid]], Literal["fluid", "solid"]],
+        pp.ad.Operator,
+    ]
+    """Gravity force. Normally provided by a mixin instance of
+    :class:`~porepy.models.constitutive_laws.GravityForce` or
+    :class:`~porepy.models.constitutive_laws.ZeroGravityForce`.
+
+    """
 
     def pressure_trace(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Pressure on the subdomain boundaries.
@@ -1052,7 +1168,7 @@ class DarcysLaw:
             @ (projection.mortar_to_primary_int @ self.interface_darcy_flux(interfaces))
             + discr.bound_pressure_face @ boundary_operator
             + discr.bound_pressure_vector_source
-            @ self.vector_source(subdomains, material="fluid")
+            @ self.vector_source_darcy_flux(subdomains)
         )
         return pressure_trace
 
@@ -1088,8 +1204,8 @@ class DarcysLaw:
         # Check that the domains are grids.
         if not all([isinstance(g, pp.Grid) for g in domains]):
             raise ValueError(
-                """Argument domains a mixture of grids and
-                                boundary grids"""
+                """Argument `domains` should either be a list of grids or a list of
+                boundary grids."""
             )
         # By now we know that subdomains is a list of grids, so we can cast it as such
         # (in the typing sense).
@@ -1103,7 +1219,7 @@ class DarcysLaw:
             dirichlet_operator=self.pressure,
             neumann_operator=self.darcy_flux,
             bc_type=self.bc_type_darcy_flux,
-            name="bc_values_darcy",
+            name="bc_values_" + self.bc_data_darcy_flux_key,
         )
 
         discr: Union[pp.ad.TpfaAd, pp.ad.MpfaAd] = self.darcy_flux_discretization(
@@ -1117,7 +1233,7 @@ class DarcysLaw:
                 + intf_projection.mortar_to_primary_int
                 @ self.interface_darcy_flux(interfaces)
             )
-            + discr.vector_source @ self.vector_source(domains, material="fluid")
+            + discr.vector_source @ self.vector_source_darcy_flux(domains)
         )
         flux.set_name("Darcy_flux")
         return flux
@@ -1140,12 +1256,6 @@ class DarcysLaw:
 
         projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1)
 
-        # Ignore mypy complaint about unexpected keyword arguments.
-        cell_volumes = self.wrap_grid_attribute(
-            interfaces, "cell_volumes", dim=1  # type: ignore[call-arg]
-        )
-        trace = pp.ad.Trace(subdomains, dim=1)
-
         # Gradient operator in the normal direction. The collapsed distance is
         # :math:`\frac{a}{2}` on either side of the fracture.
         # We assume here that :meth:`aperture` is implemented to give a meaningful value
@@ -1157,31 +1267,17 @@ class DarcysLaw:
 
         # Project the two pressures to the interface and multiply with the normal
         # diffusivity.
-        # The cell volumes are scaled in two stages:
-        # The term cell_volumes carries the volume of the cells in the mortar grids,
-        # while the volume scaling from reduced dimensions is picked from the
-        # specific volumes of the higher dimension (variable `specific_volume`)
-        # and projected to the interface via a trace operator.
         pressure_l = projection.secondary_to_mortar_avg @ self.pressure(subdomains)
         pressure_h = projection.primary_to_mortar_avg @ self.pressure_trace(subdomains)
-        specific_volume_intf = (
-            projection.primary_to_mortar_avg
-            @ trace.trace
-            @ self.specific_volume(subdomains)
-        )
-        specific_volume_intf.set_name("specific_volume_at_interfaces")
-        eq = self.interface_darcy_flux(interfaces) - (
-            cell_volumes
+        eq = self.interface_darcy_flux(interfaces) - self.volume_integral(
+            self.normal_permeability(interfaces)
             * (
-                self.normal_permeability(interfaces)
-                * specific_volume_intf
-                * (
-                    normal_gradient * (pressure_h - pressure_l)
-                    + self.interface_vector_source(interfaces, material="fluid")
-                )
-            )
+                normal_gradient * (pressure_h - pressure_l)
+                + self.interface_vector_source_darcy_flux(interfaces)
+            ),
+            interfaces,
+            1,
         )
-
         eq.set_name("interface_darcy_flux_equation")
         return eq
 
@@ -1195,33 +1291,25 @@ class DarcysLaw:
             Discretization of the Darcy flux.
 
         """
-        # TODO: The ad.Discretizations may be purged altogether. Their current function
-        # is very similar to the ad.Geometry in that both basically wrap numpy/scipy
-        # arrays in ad arrays and collect them in a block matrix. This similarity could
-        # possibly be exploited. Revisit at some point.
         return pp.ad.MpfaAd(self.darcy_keyword, subdomains)
 
-    def vector_source(
-        self, grids: Union[list[pp.Grid], list[pp.MortarGrid]], material: str
+    def vector_source_darcy_flux(
+        self, grids: Union[list[pp.Grid], list[pp.MortarGrid]]
     ) -> pp.ad.Operator:
         """Vector source term. Represents gravity effects.
 
         Parameters:
             grids: List of subdomain or interface grids where the vector source is
                 defined.
-            material: Name of the material. Could be either "fluid" or "solid".
 
         Returns:
             Cell-wise nd-vector source term operator.
 
         """
-        val = self.fluid.convert_units(0, "m*s^-2")
-        size = int(np.sum([g.num_cells for g in grids]) * self.nd)
-        source = pp.wrap_as_dense_ad_array(val, size=size, name="zero_vector_source")
-        return source
+        return self.gravity_force(grids, "fluid")
 
-    def interface_vector_source(
-        self, interfaces: list[pp.MortarGrid], material: str
+    def interface_vector_source_darcy_flux(
+        self, interfaces: list[pp.MortarGrid]
     ) -> pp.ad.Operator:
         """Interface vector source term.
 
@@ -1248,9 +1336,10 @@ class DarcysLaw:
         projection = pp.ad.MortarProjections(
             self.mdg, subdomain_neighbors, interfaces, dim=self.nd
         )
-        # int?
-        vector_source = projection.secondary_to_mortar_avg @ self.vector_source(
-            subdomain_neighbors, material=material
+        # int? @EK
+        vector_source = (
+            projection.secondary_to_mortar_avg
+            @ self.vector_source_darcy_flux(subdomain_neighbors)
         )
         # Make dot product with vector source in two steps. First multiply the vector
         # source with a matrix (though the formal mypy type is Operator, the matrix is
@@ -1268,6 +1357,752 @@ class DarcysLaw:
         return dot_product
 
 
+class AdTpfaFlux:
+    """Differentiable discretization of a diffusive flux.
+
+    The diffusive flux is given by
+
+        q = - K (grad p - g)
+
+    where K is the diffusivity tensor and p is the primary variable/potential. In the
+    case of Darcy's law, the diffusivity tensor is the permeability tensor and the
+    primary variable is the pressure. The implementation is agnostic to this, and can be
+    used for other constitutive laws as well (e.g. Fourier's law).
+
+    To use for a specific constitutive law, the following methods must be used when
+    overriding specific methods:
+    - diffusive_flux: Discretization of the diffusive flux. This method should be called
+        by the overriding method (darcy_flux, fourier_flux etc).
+    - potential_trace: Discretization of the potential on the subdomain boundaries. This
+        method should be called by the overriding method (pressure_trace,
+        temperature_trace etc).
+
+    Note:
+        This class implicitly assumes conventions on naming of methods and BC value
+        keys. Specifically, the BC values keys are assumed to be of the form
+        "bc_values_" + flux_name, where flux_name is the name of the flux (e.g.
+        "darcy_flux" or "fourier_flux"). The same goes for "inteface_" + flux_name and
+        flux_name + "_discretization". These conventions are used to simplify the
+        implementation of the class' methods. TODO: Consider making this more explicit.
+
+    """
+
+    create_boundary_operator: Callable[
+        [str, Sequence[pp.BoundaryGrid]], pp.ad.TimeDependentDenseArray
+    ]
+    """Boundary conditions wrapped as an operator. Defined in
+    :class:`~porepy.models.boundary_condition.BoundaryConditionMixin`.
+
+    """
+    subdomains_to_interfaces: Callable[[list[pp.Grid], list[int]], list[pp.MortarGrid]]
+    """Map from subdomains to the adjacent interfaces. Normally defined in a mixin
+    instance of :class:`~porepy.models.geometry.ModelGeometry`.
+
+    """
+
+    subdomains_to_boundary_grids: Callable[
+        [Sequence[pp.Grid]], Sequence[pp.BoundaryGrid]
+    ]
+    """Function that maps a sequence of subdomains to a sequence of boundary grids.
+    Normally defined in a mixin instance of
+    :class:`~porepy.models.geometry.ModelGeometry`.
+
+    """
+    mdg: pp.MixedDimensionalGrid
+    """Mixed dimensional grid for the current model. Normally defined in a mixin
+    instance of :class:`~porepy.models.geometry.ModelGeometry`.
+
+    """
+    nd: int
+    """Number of spatial dimensions. Normally defined in a mixin instance of
+    :class:`~porepy.models.geometry.ModelGeometry`.
+
+    """
+    _combine_boundary_operators: Callable[
+        [
+            Sequence[pp.Grid],
+            Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
+            Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
+            Callable[[pp.Grid], pp.BoundaryCondition],
+            str,
+            int,
+        ],
+        pp.ad.Operator,
+    ]
+    """Combine Dirichlet and Neumann boundary conditions. Normally defined in a mixin
+    instance of :class:`~porepy.models.boundary_condition.BoundaryConditionMixin`.
+
+    """
+    basis: Callable[[Sequence[pp.GridLike], int], list[pp.ad.SparseArray]]
+    """Basis for the local coordinate system. Normally set by a mixin instance of
+    :class:`porepy.models.geometry.ModelGeometry`.
+
+    """
+    specific_volume: Callable[
+        [Union[list[pp.Grid], list[pp.MortarGrid]]], pp.ad.Operator
+    ]
+    """Function that returns the specific volume of a subdomain or interface.
+
+    Normally provided by a mixin of instance
+    :class:`~porepy.models.constitutive_laws.DimensionReduction`.
+
+    """
+
+    def diffusive_flux(
+        self,
+        domains: pp.SubdomainsOrBoundaries,
+        potential: Callable[[list[pp.Grid]], pp.ad.Operator],
+        diffusivity_tensor: Callable[[list[pp.Grid]], pp.ad.Operator],
+        flux_name: str,
+    ) -> pp.ad.Operator:
+        """Discretization of a diffusive constitutive law.
+
+        Parameters:
+            domains: List of domains where the flux is defined.
+            diffusivity_tensor: Function returning the diffusivity tensor as an Ad
+                operator. For Darcy's and Fourier's law, this is the permeability and
+                thermal conductivity, respectively.
+
+        Raises:
+            ValueError if the domains are a mixture of grids and boundary grids.
+
+        Returns:
+            Face-wise integrated flux.
+
+        """
+        # NOTE (relevant for debugging): The returned derivative of the transmissibility
+        # is of the form
+        #   dp * dT/d(psi)    (psi is a primary variable)
+        # where dp is the pressure difference across the face. Experience has shown that
+        # the dp factor is easily overlooked when comparing a computed and a 'known'
+        # value, resulting in frustration.
+
+        if len(domains) == 0 or all([isinstance(g, pp.BoundaryGrid) for g in domains]):
+            # Note: in case of an empty subdomain list, the time dependent array is
+            # still returned. Otherwise, this method produces an infinite recursion
+            # loop. It does not affect real computations.
+            return self.create_boundary_operator(  # type: ignore[call-arg]
+                name=flux_name,
+                domains=domains,
+            )
+        # Check that the subdomains are grids.
+        if not all([isinstance(g, pp.Grid) for g in domains]):
+            raise ValueError(
+                """Argument subdomains a mixture of grids and boundary grids."""
+            )
+
+        domains = cast(list[pp.Grid], domains)
+        boundary_grids = self.subdomains_to_boundary_grids(domains)
+        interfaces: Sequence[pp.MortarGrid] = self.subdomains_to_interfaces(
+            domains, [1]
+        )
+        intf_projection = pp.ad.MortarProjections(self.mdg, domains, interfaces, dim=1)
+
+        # Compute the transmissibility matrix, see the called function for details. Also
+        # obtain various helper objects.
+        (
+            t_f,
+            diff_discr,
+            hf_to_f,
+            d_vec,
+        ) = self.__transmissibility_matrix(domains, diffusivity_tensor)
+
+        # Treatment of boundary conditions.
+        one = pp.ad.Scalar(1)
+        # Obtain filters that lett pass external boundary faces (divided into Dirichlet
+        # and Neumann faces), internal boundary faces (faces between subdomains), and
+        # tip faces (on immersed tips of domains).
+        external_dir_filter, external_neu_filter = diff_discr.external_boundary_filters(
+            self.mdg, domains, boundary_grids, "bc_values_" + flux_name
+        )
+        internal_boundary_filter = diff_discr.internal_boundary_filter(domains)
+        tip_filter = diff_discr.tip_filter(domains)
+
+        # The Tpfa transmissibility of a face with a Neumann condition is zero. Thus
+        # eliminate the transmissibilities on external Neumann faces, as well as on
+        # internal boundaries and tip faces, both of which by assumption are assigned
+        # Neumann conditions.
+        t_f = (
+            one - (external_neu_filter + internal_boundary_filter + tip_filter)
+        ) * t_f
+
+        # Sign of boundary faces.
+        bnd_sgn = diff_discr.boundary_sign(domains)
+        # Discretization of boundary conditions: On Neumann faces, we will simply add
+        # the flux, with a sign change if the normal vector is pointing inwards.
+        neu_bnd = external_neu_filter * bnd_sgn
+        # On Dirichlet faces, an assigned Dirichlet value (assuming zero potential in
+        # the cell adjacent to the face) will induce a flux proportional to t_f. (The
+        # actual flux through the face is found by adding the contribution from the cell
+        # center potential, this is taken care of).
+        dir_bnd = external_dir_filter * (-bnd_sgn * t_f)
+        t_bnd = neu_bnd + dir_bnd
+
+        # Discretization of vector source:
+        #
+        # The flux through a face with normal vector n_j, as seen from cell i, driven by
+        # a vector source v_i in cell i, is given by
+        #
+        #   q_j = n_j^T K_i v_i
+        #
+        # A Tpfa-style discretization of this term will apply harmonic averaging of the
+        # permeabilities (see function __transmissibility_matrix), and multiply with the
+        # difference in vector source between the two cells. We have already computed
+        # the transmissibility matrix, which computes the product of the permeability
+        # tensor, the normal vector and a unit vector from cell to face center. To
+        # convert this to a discretizaiton for the vector source, we first need to
+        # project the vector source onto the unit vector from cell to face center.
+        # Second, the vector source should be scaled by the distance from cell to face
+        # center. This can be seen as compensating for the distance in the denominator
+        # of the half-face transmissibility, or as converting the vector source into a
+        # potential-like quantity before applying the flux calculation.
+
+        # The vector source can be 2d or 3d, but the geometry, thus discretization, is
+        # always 3d, thus we need to map from nd to 3d.
+        cells_nd_to_3d = diff_discr.nd_to_3d(domains, self.nd)
+        # Mapping from cells to half-faces of 3d quantities.
+        cells_to_hf_3d = diff_discr.half_face_map(
+            domains, from_entity="cells", with_sign=False, dimensions=(3, 3)
+        )
+
+        # Build a mapping for the cell-wise vector source, unravelled from the right:
+        # First, map the vector source from nd to 3d. Second, map from cells to
+        # half-faces. Third, project the vector source onto the vector from cell center
+        # to half-face center (this is the vector which Tpfa uses as a proxy for the
+        # full gradient, see comments in the method __transmissibility_matrix). As the
+        # rows of d_vec have length equal to the distance, this compensates for the
+        # distance in the denominator of the half-face transmissibility. Fourth, map
+        # from half-faces to faces, using a mapping with signs, thereby taking the
+        # difference between the two vector sources.
+        vector_source_c_to_f = pp.ad.SparseArray(
+            hf_to_f @ d_vec @ cells_to_hf_3d @ cells_nd_to_3d
+        )
+
+        # Fetch the constitutive law for the vector source.
+        vector_source_cells = getattr(self, "vector_source_" + flux_name)(domains)
+
+        # Compute the difference in pressure and vector source between the two cells on
+        # the sides of each face.
+        potential_difference = pp.ad.SparseArray(
+            diff_discr.face_pairing_from_cell_array(domains)
+        ) @ potential(domains)
+        vector_source_difference = vector_source_c_to_f @ vector_source_cells
+
+        # Fetch the discretization of the Darcy flux
+        base_discr = getattr(self, flux_name + "_discretization")(domains)
+
+        # Compose the discretization of the Darcy flux q = T(k(u)) * p, (where the k(u)
+        # dependency can be replaced by other primary variables. The chain rule gives
+        #
+        #  dT = p * (dT/du) * du + T dp
+        #
+        # A similar expression holds for the vector source term. If the base
+        # discretization (which calculates T in the above equation) is Tpfa, the full
+        # expression will be obtained by the Ad machinery and there is no need for
+        # special treatment. If the base discretization is Mpfa, we need to mix this
+        # T-matrix with the the Tpfa-style approximation of dT/du, as is done in the
+        # below if-statement.
+        if isinstance(base_discr, pp.ad.MpfaAd):
+            # To obtain a mixture of Tpfa and Mpfa, we utilize pp.ad.Function, one for
+            # the flux and one for the vector source.
+
+            # Define the Ad function for the flux
+            flux_p = pp.ad.Function(
+                partial(self.__mpfa_flux_discretization, base_discr),
+                "differentiable_mpfa",
+            )(t_f, potential_difference, potential(domains))
+
+            # Define the Ad function for the vector source
+            vector_source_d = pp.ad.Function(
+                partial(self.__mpfa_vector_source_discretization, base_discr),
+                "differentiable_mpfa_vector_source",
+            )(t_f, vector_source_difference, vector_source_cells)
+
+        else:
+            # The base discretization is Tpfa, so we can rely on the Ad machinery to
+            # compose the full expression.
+            flux_p = t_f * potential_difference
+            vector_source_d = t_f * vector_source_difference
+
+        # As the base discretization is only invoked inside a function, and then only by
+        # the parse()-method, that is, not on operator form, it will not be found in the
+        # search for discretization schemes in the operator tree (implemented in the
+        # Operator class), and therefore, it will not actually be discretized. To
+        # circumvent this problem, we artifically add a term that involves the base
+        # discretization on operator form, and multiply it by zero to avoid it having
+        # any real impact on the equation. This is certainly an ugly hack, but it will
+        # have to do for now.
+        flux_p = flux_p + pp.ad.Scalar(0) * base_discr.flux @ potential(domains)
+
+        # Get boundary condition values
+        boundary_operator = self._combine_boundary_operators(  # type: ignore[call-arg]
+            subdomains=domains,
+            dirichlet_operator=potential,
+            neumann_operator=getattr(self, flux_name),
+            bc_type=getattr(self, "bc_type_" + flux_name),
+            name="bc_values_" + flux_name,
+        )
+
+        # Compose the full discretization of the Darcy flux, which consists of three
+        # terms: The flux due to pressure differences, the flux due to boundary
+        # conditions, and the flux due to the vector source.
+        flux: pp.ad.Operator = (
+            flux_p
+            + t_bnd
+            * (
+                boundary_operator
+                + intf_projection.mortar_to_primary_int
+                @ getattr(self, "interface_" + flux_name)(interfaces)
+            )
+            + vector_source_d
+        )
+        flux.set_name("Differentiable diffusive flux")
+        return flux
+
+    def potential_trace(
+        self,
+        subdomains: list[pp.Grid],
+        potential: Callable[[list[pp.Grid]], pp.ad.Operator],
+        diffusivity_tensor: Callable[[list[pp.Grid]], pp.ad.Operator],
+        flux_name: str,
+    ) -> pp.ad.Operator:
+        """Pressure on the subdomain boundaries.
+
+        Parameters:
+            subdomains: List of subdomains where the pressure is defined.
+
+        Returns:
+            Pressure on the subdomain boundaries. Parsing the operator will return a
+            face-wise array.
+
+        """
+        interfaces: list[pp.MortarGrid] = self.subdomains_to_interfaces(subdomains, [1])
+        boundary_grids = self.subdomains_to_boundary_grids(subdomains)
+
+        projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1)
+
+        boundary_operator = self._combine_boundary_operators(  # type: ignore[call-arg]
+            subdomains=subdomains,
+            dirichlet_operator=potential,
+            neumann_operator=getattr(self, flux_name),
+            bc_type=getattr(self, "bc_type_" + flux_name),
+            name="bc_values_" + flux_name,
+        )
+        base_discr = getattr(self, flux_name + "_discretization")(subdomains)
+        # Obtain the transmissibilities in operator form. Ignore other outputs.
+        t_f_full, *_ = self.__transmissibility_matrix(subdomains, diffusivity_tensor)
+        one = pp.ad.Scalar(1)
+
+        # BC filters for Dirichlet and Neumann faces.
+        diff_discr = pp.numerics.fv.tpfa.DifferentiableTpfa()
+        dir_filter, neu_filter = diff_discr.external_boundary_filters(
+            self.mdg, subdomains, boundary_grids, "bc_values_" + flux_name
+        )
+        # Also a separate filter for internal boundaries, which are always Neumann.
+        internal_boundary_filter = diff_discr.internal_boundary_filter(subdomains)
+
+        # Face contribution to boundary potential is 1 on Dirichlet faces, -1/t_f_full
+        # on Neumann faces (both external and internal - see Tpfa.discretize). Named
+        # "bound_pressure_face" and not "bound_potential_face" to be consistent with the
+        # base discretization.
+        bound_pressure_face_discr = dir_filter - (
+            neu_filter + internal_boundary_filter
+        ) * (one / t_f_full)
+
+        # Project the interface flux to the primary grid, preparing for discretization
+        # on internal boundaries.
+        projected_internal_flux = projection.mortar_to_primary_int @ getattr(
+            self, "interface_" + flux_name
+        )(interfaces)
+
+        if isinstance(base_discr, pp.ad.MpfaAd):
+            # Approximate the derivative of the transmissibility matrix with respect to
+            # permeability by a Tpfa-style discretization.
+            boundary_value_contribution = pp.ad.Function(
+                partial(self.__mpfa_bound_pressure_discretization, base_discr),
+                "differentiable_mpfa",
+            )(
+                bound_pressure_face_discr,
+                projected_internal_flux,
+                boundary_operator,
+            )
+
+        else:
+            # The base discretization is Tpfa, so we can rely on the Ad machinery to
+            # compose the discretization, treating internal and external boundaries
+            # equally.
+            boundary_value_contribution = bound_pressure_face_discr * (
+                projected_internal_flux + boundary_operator
+            )
+
+        # As the base discretization is only invoked inside a function, and then only by
+        # the parse()-method, that is, not on operator form, it will not be found in the
+        # search for discretization schemes in the operator tree (implemented in the
+        # Operator class), and therefore, it will not actually be discretized. To
+        # circumvent this problem, we artifically add a term that involves the base
+        # discretization on operator form, and multiply it by zero to avoid it having
+        # any real impact on the equation. This is certainly an ugly hack, but it will
+        # have to do for now.
+        # TODO: Do we need this trick here, or is it sufficient to do so in the
+        # diffusive flux method?
+        boundary_value_contribution = boundary_value_contribution + pp.ad.Scalar(
+            0
+        ) * base_discr.flux @ potential(subdomains)
+
+        pressure_trace = (
+            base_discr.bound_pressure_cell @ potential(subdomains)
+            # Contribution from boundaries.
+            + boundary_value_contribution
+            # the vector source is independent of k
+            + base_discr.bound_pressure_vector_source
+            @ getattr(self, "vector_source_" + flux_name)(subdomains)
+        )
+        return pressure_trace
+
+    def __transmissibility_matrix(
+        self,
+        subdomains: list[pp.Grid],
+        diffusivity_tensor: Callable[[list[pp.Grid]], pp.ad.Operator],
+    ) -> tuple[
+        pp.ad.Operator,
+        pp.numerics.fv.tpfa.DifferentiableTpfa,
+        sps.spmatrix,
+        sps.spmatrix,
+    ]:
+        """Compute the Tpfa transmissibility matrix for a list of subdomains."""
+        # In Tpfa, the Darcy flux through a face with normal vector n_j, as seen from
+        # cell i, is given by (subscripts indicate face or cell index)
+        #
+        #    q_j = n_j^T K_i e_ij (p_i - p_j) / dist_ij
+        #
+        # Here, K_i is the permeability tensor in cell i, e_ij is the unit vector from
+        # cell i to face j, and dist_ij is the distance between the cell center and the
+        # face center. Comparing with the continuous formulation, we see that the
+        # pressure gradient is approximated by the pressure difference, divided by
+        # distance, in the direction between cell and face centers. Writing out the
+        # expression for the half-face transmissibility
+        #
+        #    t = n_r^T K_rs e_s / dist
+        #
+        # Here, subscripts indicate (Cartesian) dimensions, the summation convention is
+        # applied, and dist again represent the distance from cell to face center. (EK:
+        # the change of meaning of subscript is unfortunate, but it is very important to
+        # understand how the components of the permeability tensor and the normal and
+        # distance vectors are multiplied.) This formulation can be reformulated to
+        #
+        #   t = n_r^T e_s K_rs / dist
+        #
+        # where the point is that, by right multiplying the permeability tensor, this
+        # can be represented as an Ad operator (which upon parsing will be an AdArray
+        # which only can be right multiplied). The below code implements this
+        # formulation. The full transmissibility matrix is obtained by taking the
+        # harmonic mean of the two half-face transmissibilities on each face.
+
+        # The cell-wise permeability tensor is represented as an Ad operator which
+        # evaluates to an AdArray with 9 * n_cells entries. Also scale with specific
+        # volume.
+        basis = self.basis(subdomains, dim=9)  # type: ignore[call-arg]
+        volumes = pp.ad.sum_operator_list(
+            [e @ self.specific_volume(subdomains) for e in basis]
+        )
+        k_c = volumes * diffusivity_tensor(subdomains)
+
+        # Create the helper discretization object, which will be used to generate
+        # grid-related quantities and mappings.
+        diff_discr = pp.numerics.fv.tpfa.DifferentiableTpfa()
+
+        # Get the normal vector, vector from cell center to face center (d_vec), and
+        # distance from cell center to face center (dist) for each half-face.
+        n, d_vec, dist = diff_discr.half_face_geometry_matrices(subdomains)
+
+        # Compose the geometric part of the half-face transmissibilities. Note that
+        # dividing d_vec by dist essentially forms a unit vector from cell to face
+        # center.
+        d_n_by_dist = sps.diags(1 / dist) * d_vec @ n
+
+        # Form the full half-face transmissibilities and take its reciprocal, preparing
+        # for a harmonic mean between the two half-face transmissibilities on ecah side
+        # of a face.
+        one = pp.ad.Scalar(1)
+        t_hf_inv = one / (pp.ad.SparseArray(d_n_by_dist) @ k_c)
+
+        # Compose full-face transmissibilities
+        # Sum over half-faces to get transmissibility on faces.
+        # Include sign to cancel the effect of the d_vec @ n having opposite signs on
+        # the two half-faces.
+        hf_to_f = diff_discr.half_face_map(
+            subdomains, to_entity="faces", with_sign=True
+        )
+        # Take the harmonic mean of the two half-face transmissibilities.
+        t_f_full = one / (pp.ad.SparseArray(hf_to_f) @ t_hf_inv)
+        t_f_full.set_name("transmissibility matrix")
+        return t_f_full, diff_discr, hf_to_f, d_vec
+
+    def __mpfa_flux_discretization(
+        self, base_discr: pp.ad.MpfaAd, T_f: ArrayType, p_diff: ArrayType, p: ArrayType
+    ) -> ArrayType:
+        """Approximate the product rule for the expression d(T_MPFA * p), where T_MPFA
+        is the transmissibility matrix for an Mpfa discretization.
+
+        The approximation is taken as
+
+            d(T_MPFA * p) ~ T_MPFA * dp + p_diff * d(T_TPFA)
+
+        where, for a single face, p_diff is the difference in pressure between the two
+        cells on either side of the face - the method self.diffusive_flux() for
+        further explanation.
+
+        Parameters:
+            base_discr: Base discretization of the flux. T_f: Transmissibility matrix.
+            p_diff: Difference in potential between the two cells on either side of the
+                face.
+            p: Potential.
+
+        Returns:
+            AdArray with value and Jacobian matrix representing the flux associated with
+                the potential difference.
+
+        """
+        # NOTE: Keep in mind that this functions will be evaluated in forward mode, thus
+        # the inputs are not Ad-operators, but numerical values.
+
+        # We know that base_discr.flux is a sparse matrix, so we can call parse
+        # directly.
+        base_flux = base_discr.flux.parse(self.mdg)
+        # If the function has been called using .value, p is a numpy array and we pass
+        # only the value.
+        if not isinstance(p, pp.ad.AdArray):
+            return base_flux @ p
+        # Otherwise, at the time of evaluation, p will be an AdArray, thus we can access
+        # its val and jac attributes.
+        val = base_flux @ p.val
+        jac = base_flux @ p.jac
+
+        if hasattr(T_f, "jac"):
+            # Add the contribution to the Jacobian matrix from the derivative of the
+            # transmissibility matrix times the pressure difference. To see why this is
+            # correct, it may be useful to consider the flux over a single face
+            # (corresponding to one row in the Jacobian matrix).
+            jac += sps.diags(p_diff.val) @ T_f.jac
+
+        return pp.ad.AdArray(val, jac)
+
+    def __mpfa_vector_source_discretization(
+        self,
+        base_discr: pp.ad.MpfaAd,
+        T_f: ArrayType,
+        vs_diff: ArrayType,
+        vs: ArrayType,
+    ) -> ArrayType:
+        """Approximate the product rule for the expression d(VS_MPFA * vs), where
+        VS_MPFA is the Mpfa discretization of the vector source, and vs is the vector
+        source.
+
+         The approximation is taken as
+
+            d(VS_MPFA * vs) ~ VS_MPFA * d(vs) + vs_diff * d(VS_TPFA)
+
+        where, for a single face, vs_diff is the difference in vector source between
+        the two cells on either side of the face, see the method self.diffusive_flux()
+        for further explanation.
+
+        Parameters:
+            base_discr: Base discretization of the vector source.
+            T_f: Transmissibility matrix.
+            vs_diff: Difference in vector source between the two cells on either side of
+                the face.
+            vs: Vector source.
+
+        Returns:
+            AdArray with value and Jacobian matrix representing the flux associated with
+            the vector source.
+
+        """
+        # NOTE: Keep in mind that this functions will be evaluated in forward mode, thus
+        # the inputs are not Ad-operators, but numerical values.
+
+        # We know that base_discr.vector_source is a sparse matrix, so we can call parse
+        # directly.
+        base_discr_vector_source = base_discr.vector_source.parse(self.mdg)
+
+        # Composing the full expression for the vector source term is a bit tricky, as
+        # any of the three arguments may be either a numpy array or an AdArray. We need
+        # to handle all combinations of these cases.
+        #
+        # First, we check if any of the arguments are numpy arrays, which would
+        # correspond to the case where the Operator is evaluated using .value(). In this
+        # case, we simply return the product of the base discretization with the vector
+        # source.
+        if (
+            isinstance(T_f, np.ndarray)
+            and isinstance(vs, np.ndarray)
+            and isinstance(vs_diff, np.ndarray)
+        ):
+            # The value is a numpy array, and we simply return the product with the base
+            # discretization.
+            return base_discr_vector_source @ vs
+
+        # We now know that the return value should be an AdArray, and we need to compute
+        # the Jacobian as well as the value. However, the type of vs (thus vs_diff) can
+        # still be either numpy array or AdArray: The former corresponds to a constant
+        # vector source, the latter to a vector source that depends on the primary
+        # variable (e.g., a non-constant density in a gravity term). We need to unify
+        # these cases:
+        if isinstance(vs, np.ndarray):
+            # If this is broken, something really weird is going on.
+            assert isinstance(vs_diff, np.ndarray)
+            vs_val = vs
+            vs_diff_val = vs_diff
+
+            num_rows = vs_val.size
+            num_cols = self.equation_system.num_dofs()
+            vs_jac = sps.csr_matrix((num_rows, num_cols))
+        else:
+            # The value is an AdArray, and we can access its val and jac attributes.
+            vs_val = vs.val
+            vs_diff_val = vs_diff.val
+            vs_jac = vs.jac
+
+        # The value is an AdArray, and we need to compute the Jacobian as well as the
+        # value.
+        val = base_discr_vector_source @ vs_val
+        # The contribution from differentiating the vector source term to the Jacobian
+        # of the flux.
+        jac = base_discr.vector_source.parse(self.mdg) @ vs_jac
+
+        if hasattr(T_f, "jac"):
+            # Add the contribution to the Jacobian matrix from the derivative of the
+            # transmissibility matrix times the vector source difference.
+            jac += sps.diags(vs_diff_val) @ T_f.jac
+
+        return pp.ad.AdArray(val, jac)
+
+    def __mpfa_bound_pressure_discretization(
+        self,
+        base_discr: pp.ad.MpfaAd,
+        bound_pressure_face: ArrayType,
+        internal_flux: ArrayType,
+        external_bc: ArrayType,
+    ) -> ArrayType:
+        """Approximate the product rule for the expression d(PT_MPFA * bc), where
+        PT_MPFA is the Mpfa discretization of the potential trace reconstruction, and bc
+        represents boundary conditions (internal and external).
+
+        The approximation is taken as
+
+            d(PT_MPFA * bc) ~ PT_MPFA * d(bc) + bc * d(PT_TPFA)
+
+        where, for a single face, bc is the boundary condition value, and d(bc) is the
+        differential of the boundary condition value. The latter will be non-zero *only*
+        for internal boundaries (where it will typically represent the derivative of
+        an interface flux).
+
+        Parameters:
+            base_discr: Base discretization of the pressure trace. bound_pressure_face:
+            Pressure trace discretization, computed with
+                differentiable tpfa.
+            internal_flux: Interface fluxes.
+            external_bc: External boundary conditions.
+
+        Returns:
+            AdArray with value and Jacobian matrix representing the reconstructed
+                pressure trace.
+
+        """
+        # NOTE: Keep in mind that this functions will be evaluated in forward mode, thus
+        # the inputs are not Ad-operators, but numerical values.
+
+        # We know that base_discr.bound_pressure_face is a sparse matrix, so we can call
+        # parse directly. At the time of evaluation, internal_flux will be an AdArray,
+        # thus we can access its val and jac attributes, while external_flux is a numpy
+        # array.
+        base_term = base_discr.bound_pressure_face.parse(self.mdg)
+        # The value is the standard product of the matrix and boundary values.
+
+        # If the function has been called using .value, p is a numpy array and we pass
+        # only the value.
+        if not isinstance(internal_flux, pp.ad.AdArray):
+            return base_term @ (internal_flux + external_bc)
+
+        # Otherwise, at the time of evaluation, internal_flux will be an AdArray, thus
+        # we can access its val and jac attributes.
+
+        # EK: Testing revealed a case where the external_bc was an AdArray. The precise
+        # reason for this is not clear (it could be a straightforward result of the
+        # rules of parsing), but to cover all cases, we do a if-else here.
+        if isinstance(external_bc, pp.ad.AdArray):
+            external_bc_val = external_bc.val
+        else:
+            external_bc_val = external_bc
+
+        # Use external_bc (both Dirichlet and Neumann) since both enter into the
+        # pressure trace reconstruction.
+        val = base_term @ (internal_flux.val + external_bc_val)
+        # The Jacobian matrix has one term corresponding to the standard (e.g.,
+        # non-differentiable FV) discretization. No need to add the external boundary
+        # values, as they should not be differentiated.
+        jac = base_term @ internal_flux.jac
+
+        if hasattr(bound_pressure_face, "jac"):
+            # If the permeability, thus the pressure reconstruction operator, has a
+            # Jacobian, add its contribution. For external Dirichlet boundaries, the
+            # Jacobian is zero (the element is constant 1), thus these faces give no
+            # contribution. There will be a contribution from external Neumann
+            # boundaries, as well as from internal boundaries (which are always
+            # Neumann).
+            jac += (
+                sps.diags(internal_flux.val + external_bc_val) @ bound_pressure_face.jac
+            )
+
+        return pp.ad.AdArray(val, jac)
+
+
+class DarcysLawAd(AdTpfaFlux, DarcysLaw):
+    """Adaptive discretization of the Darcy flux from generic adaptive flux class."""
+
+    permeability: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Function that returns the permeability of a subdomain. Normally provided by a
+    mixin class with a suitable permeability definition.
+
+    """
+
+    def darcy_flux(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+        """Discretization of Darcy's law.
+
+
+        Parameters:
+            domains: List of domains where the Darcy flux is defined.
+
+        Raises:
+            ValueError if the domains are a mixture of grids and boundary grids.
+
+        Returns:
+            Face-wise Darcy flux in cubic meters per second.
+
+        """
+        flux = self.diffusive_flux(
+            domains, self.pressure, self.permeability, "darcy_flux"
+        )
+        return flux
+
+    def pressure_trace(self, domains: list[pp.Grid]) -> pp.ad.Operator:
+        """Pressure on the subdomain boundaries.
+
+        Parameters:
+            subdomains: List of subdomains where the pressure is defined.
+
+        Returns:
+            Pressure on the subdomain boundaries. Parsing the operator will return a
+            face-wise array.
+
+        """
+        pressure_trace = self.potential_trace(
+            domains, self.pressure, self.permeability, "darcy_flux"
+        )
+        pressure_trace.set_name("Differentiable pressure trace")
+        return pressure_trace
+
+
 class PeacemanWellFlux:
     """Well fluxes.
 
@@ -1279,7 +2114,8 @@ class PeacemanWellFlux:
     """
 
     volume_integral: Callable[
-        [pp.ad.Operator, Union[list[pp.Grid], list[pp.MortarGrid]], int], pp.ad.Operator
+        [pp.ad.Operator, Sequence[pp.Grid] | Sequence["pp.MortarGrid"], int],
+        pp.ad.Operator,
     ]
     """Integration over cell volumes, implemented in
     :class:`pp.models.abstract_equations.BalanceEquation`.
@@ -1303,6 +2139,15 @@ class PeacemanWellFlux:
     mixin class with a suitable permeability definition.
 
     """
+    e_i: Callable[
+        [Union[list[pp.Grid], list[pp.MortarGrid]], int, int], pp.ad.SparseArray
+    ]
+    """Function that returns the unit vector in the i-th direction.
+
+    Normally provided by a mixin of instance
+    :class:`~porepy.models.geometry.ModelGeometry`.
+
+    """
 
     def well_flux_equation(self, interfaces: list[pp.MortarGrid]) -> pp.ad.Operator:
         """Equation for well fluxes.
@@ -1322,10 +2167,13 @@ class PeacemanWellFlux:
         r_e = self.equivalent_well_radius(subdomains)
 
         f_log = pp.ad.Function(pp.ad.functions.log, "log_function_Piecmann")
+        e_i = self.e_i(subdomains, i=0, dim=9).T  # type: ignore[call-arg]
+        # We assume isotropic permeability and extract xx component.
+        isotropic_permeability = e_i @ self.permeability(subdomains)
         well_index = (
             pp.ad.Scalar(2 * np.pi)
             * projection.primary_to_mortar_avg
-            @ (self.permeability(subdomains) / (f_log(r_e / r_w) + skin_factor))
+            @ (isotropic_permeability / (f_log(r_e / r_w) + skin_factor))
         )
         eq: pp.ad.Operator = self.well_flux(interfaces) - self.volume_integral(
             well_index, interfaces, 1
@@ -1442,7 +2290,7 @@ class ThermalExpansion:
         return Scalar(val, "solid_thermal_expansion")
 
 
-class ThermalConductivityLTE:
+class ThermalConductivityLTE(SecondOrderTensorUtils):
     """Thermal conductivity in the local thermal equilibrium approximation."""
 
     fluid: pp.FluidConstants
@@ -1528,11 +2376,13 @@ class ThermalConductivityLTE:
             # We assume this means that the porosity includes a discretization matrix
             # for div_u which has not yet been computed.
             phi = self.reference_porosity(subdomains)
+        if isinstance(phi, Scalar):
+            size = sum([sd.num_cells for sd in subdomains])
+            phi = phi * pp.wrap_as_dense_ad_array(1, size)
         conductivity = phi * self.fluid_thermal_conductivity(subdomains) + (
             Scalar(1) - phi
         ) * self.solid_thermal_conductivity(subdomains)
-
-        return conductivity
+        return self.isotropic_second_order_tensor(subdomains, conductivity)
 
     def normal_thermal_conductivity(
         self, interfaces: list[pp.MortarGrid]
@@ -1553,8 +2403,7 @@ class ThermalConductivityLTE:
 class FouriersLaw:
     """This class could be refactored to reuse for other diffusive fluxes. It's somewhat
     cumbersome, though, since potential, discretization, and boundary conditions all
-    need to be passed around. Also, gravity effects are not included, as opposed to the
-    Darcy flux (see that class).
+    need to be passed around.
     """
 
     subdomains_to_interfaces: Callable[[list[pp.Grid], list[int]], list[pp.MortarGrid]]
@@ -1602,6 +2451,11 @@ class FouriersLaw:
 
     """
     bc_type_fourier_flux: Callable[[pp.Grid], pp.ad.Operator]
+    """Function that returns the boundary condition type for the Fourier flux. Normally
+    defined in a mixin instance of
+    :class:`~porepy.models.fluid_mass_balance.BoundaryConditionsEnergyBalance`.
+
+    """
 
     _combine_boundary_operators: Callable[
         [
@@ -1637,6 +2491,22 @@ class FouriersLaw:
     aperture: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Aperture. Normally defined in a mixin instance of
     :class:`~porepy.models.constitutive_laws.DimensionReduction` or a subclass thereof.
+
+    """
+    volume_integral: Callable[
+        [pp.ad.Operator, Sequence[pp.Grid] | Sequence["pp.MortarGrid"], int],
+        pp.ad.Operator,
+    ]
+    """Integration over cell volumes, implemented in
+    :class:`pp.models.abstract_equations.BalanceEquation`.
+
+    """
+    nd: int
+    """Number of spatial dimensions."""
+    fluid: pp.FluidConstants
+    """Fluid constant object that takes care of scaling of fluid-related quantities.
+    Normally, this is set by a mixin of instance
+    :class:`~porepy.models.solution_strategy.SolutionStrategy`.
 
     """
 
@@ -1681,6 +2551,8 @@ class FouriersLaw:
                 @ self.interface_fourier_flux(interfaces)
             )
             + discr.bound_pressure_face @ boundary_operator_fourier
+            + discr.bound_pressure_vector_source
+            @ self.vector_source_fourier_flux(subdomains)
         )
         return temperature_trace
 
@@ -1720,13 +2592,15 @@ class FouriersLaw:
             name="bc_values_fourier",
         )
 
-        # As opposed to darcy_flux in :class:`DarcyFluxFV`, the gravity term is not
-        # included here.
-        flux: pp.ad.Operator = discr.flux @ self.temperature(
-            subdomains
-        ) + discr.bound_flux @ (
-            boundary_operator_fourier
-            + projection.mortar_to_primary_int @ self.interface_fourier_flux(interfaces)
+        flux: pp.ad.Operator = (
+            discr.flux @ self.temperature(subdomains)
+            + discr.bound_flux
+            @ (
+                boundary_operator_fourier
+                + projection.mortar_to_primary_int
+                @ self.interface_fourier_flux(interfaces)
+            )
+            + discr.vector_source @ self.vector_source_fourier_flux(subdomains)
         )
         flux.set_name("Fourier_flux")
         return flux
@@ -1747,13 +2621,6 @@ class FouriersLaw:
 
         projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1)
 
-        # Ignore mypy complaint about unexpected keyword arguments.
-        cell_volumes = self.wrap_grid_attribute(
-            interfaces, "cell_volumes", dim=1  # type: ignore[call-arg]
-        )
-        specific_volume = self.specific_volume(subdomains)
-        trace = pp.ad.Trace(subdomains, dim=1)
-
         # Gradient operator in the normal direction. The collapsed distance is
         # :math:`\frac{a}{2}` on either side of the fracture.
         normal_gradient = pp.ad.Scalar(2) * (
@@ -1765,24 +2632,60 @@ class FouriersLaw:
         # conductivity.
         # See comments in :meth:`interface_darcy_flux_equation` for more information on
         # the terms in the below equation.
-        eq = self.interface_fourier_flux(interfaces) - (
-            cell_volumes
+        temperature_h = projection.primary_to_mortar_avg @ self.temperature_trace(
+            subdomains
+        )
+        temperature_l = projection.secondary_to_mortar_avg @ self.temperature(
+            subdomains
+        )
+        eq = self.interface_fourier_flux(interfaces) - self.volume_integral(
+            self.normal_thermal_conductivity(interfaces)
             * (
-                self.normal_thermal_conductivity(interfaces)
-                * (
-                    normal_gradient
-                    * (projection.primary_to_mortar_avg @ trace.trace @ specific_volume)
-                    * (
-                        projection.primary_to_mortar_avg
-                        @ self.temperature_trace(subdomains)
-                        - projection.secondary_to_mortar_avg
-                        @ self.temperature(subdomains)
-                    )
-                )
-            )
+                normal_gradient * (temperature_h - temperature_l)
+                + self.interface_vector_source_fourier_flux(interfaces)
+            ),
+            interfaces,
+            1,
         )
         eq.set_name("interface_fourier_flux_equation")
         return eq
+
+    def vector_source_fourier_flux(
+        self, grids: Union[list[pp.Grid], list[pp.MortarGrid]]
+    ) -> pp.ad.Operator:
+        """Vector source term. Zero for Fourier flux.
+
+        Parameters:
+            grids: List of subdomain or interface grids where the vector source is
+                defined.
+
+        Returns:
+            Cell-wise nd-vector source term operator.
+
+        """
+        val = self.fluid.convert_units(0, "m*s^-2")  # TODO: Fix units
+        size = int(np.sum([g.num_cells for g in grids]) * self.nd)
+        source = pp.wrap_as_dense_ad_array(val, size=size, name="zero_vector_source")
+        return source
+
+    def interface_vector_source_fourier_flux(
+        self, interfaces: list[pp.MortarGrid]
+    ) -> pp.ad.Operator:
+        """Vector source term. Zero for Fourier flux.
+
+        Corresponds to the inner product of a nd vector source with normal vectors.
+
+        Parameters:
+            interfaces: List of interface grids where the vector source is defined.
+
+        Returns:
+            Cell-wise nd-vector source term operator.
+
+        """
+        val = self.fluid.convert_units(0, "m*s^-2")  # TODO: Fix units
+        size = int(np.sum([g.num_cells for g in interfaces]))
+        source = pp.wrap_as_dense_ad_array(val, size=size, name="zero_vector_source")
+        return source
 
     def fourier_flux_discretization(self, subdomains: list[pp.Grid]) -> pp.ad.MpfaAd:
         """Fourier flux discretization.
@@ -1795,6 +2698,54 @@ class FouriersLaw:
 
         """
         return pp.ad.MpfaAd(self.fourier_keyword, subdomains)
+
+
+class FouriersLawAd(AdTpfaFlux, FouriersLaw):
+    """Adaptive discretization of the Fourier flux from generic adaptive flux class."""
+
+    thermal_conductivity: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Function that returns the thermal conductivity of a subdomain. Provided by a
+    mixin class of instance
+    :class:`~porepy.models.constitutive_laws.ThermalConductivityLTE` or a subclass
+    thereof.
+
+    """
+
+    def fourier_flux(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+        """Discretization of Fourier's law.
+
+
+        Parameters:
+            domains: List of domains where the Fourier flux is defined.
+
+        Raises:
+            ValueError if the domains are a mixture of grids and boundary grids.
+
+        Returns:
+            Operator representing face-wise Fourier flux.
+
+        """
+        flux = self.diffusive_flux(
+            domains, self.temperature, self.thermal_conductivity, "fourier_flux"
+        )
+        return flux
+
+    def temperature_trace(self, domains: list[pp.Grid]) -> pp.ad.Operator:
+        """Temperature on the subdomain boundaries.
+
+        Parameters:
+            subdomains: List of subdomains where the temperature is defined.
+
+        Returns:
+            Temperature on the subdomain boundaries. Parsing the operator will return a
+            face-wise array.
+
+        """
+        temperature_trace = self.potential_trace(
+            domains, self.temperature, self.thermal_conductivity, "fourier_flux"
+        )
+        temperature_trace.set_name("Differentiable temperature trace")
+        return temperature_trace
 
 
 class AdvectiveFlux:
@@ -2135,11 +3086,7 @@ class GravityForce:
         grids: Union[list[pp.Grid], list[pp.MortarGrid]],
         material: Literal["fluid", "solid"],
     ) -> pp.ad.Operator:
-        """Vector source term on either subdomains or interfaces.
-
-        Represents gravity effects. EK: Let's discuss how to name/think about this term.
-        Note that it appears slightly differently in a flux and a force/momentum
-        balance.
+        """Gravity force term on either subdomains or interfaces.
 
         Parameters:
             grids: List of subdomain or interface grids where the vector source is
@@ -2147,22 +3094,61 @@ class GravityForce:
             material: Name of the material. Could be either "fluid" or "solid".
 
         Returns:
-            Cell-wise nd-vector source term operator.
+            Cell-wise nd-vector representing the gravity force.
 
         """
         val = self.fluid.convert_units(pp.GRAVITY_ACCELERATION, "m*s^-2")
         size = np.sum([g.num_cells for g in grids]).astype(int)
         gravity = pp.wrap_as_dense_ad_array(val, size=size, name="gravity")
         rho = getattr(self, material + "_density")(grids)
-        # Gravity acts along the last coordinate direction (z in 3d, y in 2d)
 
-        # Ignore type error, can't get mypy to understand keyword-only arguments in
-        # mixin
+        # Gravity acts along the last coordinate direction (z in 3d, y in 2d). Ignore
+        # type error, can't get mypy to understand keyword-only arguments in mixin.
         e_n = self.e_i(grids, i=self.nd - 1, dim=self.nd)  # type: ignore[call-arg]
         # e_n is a matrix, thus we need @ for it.
-        source = Scalar(-1) * e_n @ (rho * gravity)
-        source.set_name("gravity_force")
-        return source
+        gravity = Scalar(-1) * e_n @ (rho * gravity)
+        gravity.set_name("gravity_force")
+        return gravity
+
+
+class ZeroGravityForce:
+    """Zero gravity force.
+
+    To be used in fluid fluxes and as body force in the force/momentum balance equation.
+
+    """
+
+    fluid: pp.FluidConstants
+    """Fluid constant object that takes care of scaling of fluid-related quantities.
+    Normally, this is set by a mixin of instance
+    :class:`~porepy.models.solution_strategy.SolutionStrategy`.
+
+    """
+
+    nd: int
+    """Ambient dimension of the problem. Normally set by a mixin instance of
+    :class:`~porepy.models.geometry.ModelGeometry`.
+
+    """
+
+    def gravity_force(
+        self,
+        grids: Union[list[pp.Grid], list[pp.MortarGrid]],
+        material: Literal["fluid", "solid"],
+    ) -> pp.ad.Operator:
+        """Gravity force term on either subdomains or interfaces.
+
+        Parameters:
+            grids: List of subdomain or interface grids where the vector source is
+                defined.
+            material: Name of the material. Could be either "fluid" or "solid".
+
+        Returns:
+            Cell-wise nd-vector representing the gravity force.
+
+        """
+        size = int(np.sum([g.num_cells for g in grids]) * self.nd)
+        return pp.wrap_as_dense_ad_array(0, size=size, name="zero_vector_source")
 
 
 class LinearElasticMechanicalStress:
@@ -2271,8 +3257,7 @@ class LinearElasticMechanicalStress:
         # Check that the subdomains are grids.
         if not all([isinstance(g, pp.Grid) for g in domains]):
             raise ValueError(
-                """Argument subdomains a mixture of grids and
-                                boundary grids"""
+                """Argument subdomains a mixture of grids and boundary grids."""
             )
         # By now we know that subdomains is a list of grids, so we can cast it as such
         # (in the typing sense).

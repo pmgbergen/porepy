@@ -86,7 +86,7 @@ class Mpfa(pp.FVElliptic):
             - mpfa_eta (``float``): Optional. Range [0, 1). Location of pressure
                 continuity point. If not given, porepy tries to set an optimal value.
             - mpfa_inverter (``str``): Optional. Inverter to apply for local problems.
-                Can take values 'numba' (default), or 'python'.
+                Can take values 'python' (default), or 'numba'.
             - partition_arguments (``dict``): Optional. Arguments to control the number
                 of subproblems used to discretize the grid. Can be either the target
                 maximal memory use (controlled by keyword 'max_memory' in
@@ -151,7 +151,7 @@ class Mpfa(pp.FVElliptic):
 
         eta: Optional[float] = parameter_dictionary.get("mpfa_eta", None)
         inverter: Literal["numba", "python"] = parameter_dictionary.get(
-            "mpfa_inverter", "numba"
+            "mpfa_inverter", "python"
         )
 
         # Control of the number of subdomanis.
@@ -266,11 +266,25 @@ class Mpfa(pp.FVElliptic):
             loc_bnd: pp.BoundaryCondition = self._bc_for_subgrid(
                 active_bound, sub_sd, l2g_faces, active_grid
             )
+
+            # Eta can either be a scalar or a vector. If a vector valued eta is passed,
+            # its length should be adjusted to match the number of subfaces in the
+            # partitioned subgrid.
+            if isinstance(eta, np.ndarray):
+                loc_eta = pp.fvutils.adjust_eta_length(
+                    eta=eta, sub_sd=sub_sd, l2g_faces=l2g_faces
+                )
+
+            # Non-array eta suggests eta is scalar. Thus no changes happen to eta.
+            else:
+                loc_eta = eta
+
+            # Discretization of sub-problem
             discr_fields = self._flux_discretization(
                 sub_sd,
                 loc_c,
                 loc_bnd,
-                eta=eta,
+                eta=loc_eta,
                 inverter=inverter,
                 ambient_dimension=vector_source_dim,
             )
@@ -574,7 +588,7 @@ class Mpfa(pp.FVElliptic):
         sd: pp.Grid,
         k: pp.SecondOrderTensor,
         bnd: pp.BoundaryCondition,
-        inverter: Literal["python", "numba"],
+        inverter: Optional[Literal["python", "numba"]] = None,
         ambient_dimension: Optional[int] = None,
         eta: Optional[float] = None,
     ) -> tuple[
@@ -1569,7 +1583,7 @@ class Mpfa(pp.FVElliptic):
         whether the implementation is sufficiently general to be put there.
 
         Parameters:
-            sub_g (pp.Grid): Grid for which the new condition applies. Is
+            sub_sd (pp.Grid): Grid for which the new condition applies. Is
                 assumed to be a subgrid of the grid to initialize this object.
             face_map (np.ndarray): Index of faces of the original grid from
                 which the new conditions should be picked.

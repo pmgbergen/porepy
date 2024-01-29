@@ -595,6 +595,40 @@ def expand_indices_incr(ind, dim, increment):
     return ind_new
 
 
+def adjust_eta_length(
+    eta: np.ndarray, sub_sd: pp.Grid, l2g_faces: np.ndarray
+) -> np.ndarray:
+    """Adjusts length of vector valued eta for problems partitioned into subproblems.
+
+    Eta can either be a scalar or a vector. If a vector valued eta is passed, it will
+    have a length equal to the number of subfaces in the entire grid. If the grid is
+    partitioned into subgrids, we need to adjust the length of eta to match the subfaces
+    of the subgrid.
+
+    Parameters:
+        eta: MPFA/MPSA-eta.
+        sub_sd: A subgrid of the domain. Eta is adjusted according to the subfaces in
+            sub_sd.
+        l2g_faces: Indices (in the global grid) of all faces in the subgrid. Represented
+            as a numpy array, so that element i gives the global index of the i-th face
+            in the subgrid.
+
+    Returns:
+        An array of eta values corresponding to a grid that arises from from domain
+        partitioning.
+
+    """
+    # Use information in the sparse formatting to find the number of nodes per face
+    num_nodes_per_face = np.diff(sub_sd.face_nodes.tocsc().indptr)
+    # Verify that all faces have equally many nodes
+    assert np.unique(num_nodes_per_face).size == 1
+    expansion_index = num_nodes_per_face[0]
+
+    indices = expand_indices_nd(l2g_faces, expansion_index)
+    loc_eta = np.array([eta[i] for i in indices])
+    return loc_eta
+
+
 def map_hf_2_f(fno=None, subfno=None, nd=None, sd=None):
     """
     Create mapping from half-faces to faces for vector problems.

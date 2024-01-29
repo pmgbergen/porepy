@@ -286,6 +286,7 @@ def test_tested_vs_testable_methods_single_phase_flow(
         ("interface_darcy_flux_equation", 5e9, None),
         ("interface_fluid_flux", 1.00803209e-06, None),
         ("interface_flux_equation", 5e9, None),
+        ("interface_vector_source_darcy_flux", 0, None),
         (
             "mass_balance_equation",
             np.array(
@@ -541,7 +542,7 @@ gravity_parameter_combinations = [
         grid_type == "simplex"
         and (discretization_method == "tpfa" or num_nodes_mortar != num_nodes_1d)
     )
-]
+]  # Skip some of these in quick tests, @EK?
 
 
 def model_setup_gravity(
@@ -582,7 +583,7 @@ def model_setup_gravity(
     """
     params = {
         "grid_type": "cartesian",
-        "fracture_indices": [1],
+        "fracture_indices": [-1],  # Constant y and z coordinates in 2d and 3d, resp.
         "meshing_arguments": {"cell_size": 0.5},
     }
     params.update(model_params)
@@ -596,7 +597,7 @@ def model_setup_gravity(
     else:
         Geometry = CubeDomainOrthogonalFractures
 
-    class Model(Geometry, SinglePhaseFlow):
+    class Model(Geometry, pp.constitutive_laws.GravityForce, SinglePhaseFlow):
         def set_geometry(self) -> None:
             super().set_geometry()
             if num_nodes_mortar is None:
@@ -623,7 +624,7 @@ def model_setup_gravity(
                 intf.update_secondary(new_sd_1d, tol=1e-4)
             self.mdg.compute_geometry()
 
-        def vector_source(
+        def gravity_force(
             self, grids: list[pp.Grid] | list[pp.MortarGrid], material: str
         ) -> pp.ad.Operator:
             """Vector source term. Represents gravity effects.
@@ -637,13 +638,42 @@ def model_setup_gravity(
                 Cell-wise nd-vector source term operator.
 
             """
+            if np.isclose(gravity_angle, 0):
+                # Normalize by the GravityForce class' default value.
+                default = (
+                    self.fluid.convert_units(pp.GRAVITY_ACCELERATION, "m*s^-2")
+                    * self.fluid.density()
+                )
+                return super().gravity_force(grids, material) / default
             num_cells = int(np.sum([g.num_cells for g in grids]))
             values = np.zeros((self.nd, num_cells))
             # Angle of zero means force vector of [0, -1]
             values[1] = self.fluid.convert_units(-np.cos(gravity_angle), "m*s^-2")
             values[0] = self.fluid.convert_units(np.sin(gravity_angle), "m*s^-2")
-            source = pp.wrap_as_dense_ad_array(values.ravel("F"), name="vector_source")
+            source = pp.wrap_as_dense_ad_array(values.ravel("F"), name="gravity force")
             return source
+
+        def _bound_sides(
+            self,
+            grid: pp.Grid | pp.BoundaryGrid,
+        ) -> tuple[np.ndarray, np.ndarray]:
+            """Return the sides of the grid where tailored BCs are applied.
+
+            Parameters:
+                grid: Grid to provide boundary sides for.
+
+            Returns:
+                Tuple of arrays with the indices of the sides where the tailored BCs
+                are applied. First one will always have Dirichlet BCs, second one will
+                have Neumann BCs if neu_val_top is not None. Nonzero values are assigned
+                to the top boundary.
+
+            """
+            sides = self.domain_boundary_sides(grid)
+            if self.nd == 2:
+                return sides.south, sides.north
+            else:
+                return sides.bottom, sides.top
 
         def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
             """Boundary pressure values.
@@ -656,10 +686,9 @@ def model_setup_gravity(
                 Cell-wise nd-vector source term operator.
 
             """
-            sd = boundary_grid.parent
             b_val = np.zeros(boundary_grid.num_cells)
-            if sd.dim == self.nd and dir_val_top is not None:
-                b_val[self.domain_boundary_sides(boundary_grid).north] = dir_val_top
+            if boundary_grid.dim == (self.nd - 1) and dir_val_top is not None:
+                b_val[self._bound_sides(boundary_grid)[1]] = dir_val_top
             return b_val
 
         def bc_values_darcy_flux(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
@@ -676,7 +705,7 @@ def model_setup_gravity(
             """
             vals = np.zeros(boundary_grid.num_cells)
             if boundary_grid.parent.dim == self.nd and neu_val_top is not None:
-                cells = self.domain_boundary_sides(boundary_grid).north
+                cells = self._bound_sides(boundary_grid)[1]
                 vals[cells] = neu_val_top * boundary_grid.cell_volumes[cells]
             return vals
 
@@ -692,9 +721,9 @@ def model_setup_gravity(
 
             """
             # Define boundary faces.
-            sides = self.domain_boundary_sides(sd).south
+            sides = self._bound_sides(sd)[0]
             if neu_val_top is None:
-                sides += self.domain_boundary_sides(sd).north
+                sides += self._bound_sides(sd)[1]
             # Define boundary condition on all boundary faces.
             return pp.BoundaryCondition(sd, sides, "dir")
 
@@ -762,7 +791,8 @@ class TestMixedDimGravity:
         )
 
         # The cells above the fracture
-        h = sd_primary.cell_centers[1]
+        vertical_dim = self.model.nd - 1
+        h = sd_primary.cell_centers[vertical_dim]
         ind = h > 0.5
         p_known = -(a * ind + h) * np.cos(angle)
         assert np.allclose(p_primary, p_known, rtol=1e-3, atol=1e-3)
@@ -773,7 +803,7 @@ class TestMixedDimGravity:
         )
 
         # Half the additional jump is added to the fracture pressure
-        h = sd_secondary.cell_centers[1]
+        h = sd_secondary.cell_centers[vertical_dim]
         p_known = -(a / 2 + h) * np.cos(angle)
 
         assert np.allclose(p_secondary, p_known, rtol=1e-3, atol=1e-3)

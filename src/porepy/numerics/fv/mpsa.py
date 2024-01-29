@@ -143,7 +143,7 @@ class Mpsa(Discretization):
                 value. This value is set to all subfaces, except the boundary (where,
                 0 is used).
             - inverter (``str``): Optional. Inverter to apply for local problems.
-                Can take values 'numba' (default), or 'python'.
+                Can take values 'python' (default), or 'numba'.
             - partition_arguments (``dict``): Optional. Arguments to control the number
                 of subproblems used to discretize the grid. Can be either the target
                 maximal memory use (controlled by keyword 'max_memory' in
@@ -181,7 +181,7 @@ class Mpsa(Discretization):
         hf_eta: Optional[float] = parameter_dictionary.get("reconstruction_eta", None)
 
         inverter: Literal["python", "numba"] = parameter_dictionary.get(
-            "inverter", "numba"
+            "inverter", "python"
         )
 
         # Control of the number of subdomanis.
@@ -282,6 +282,18 @@ class Mpsa(Discretization):
                 active_bound, sub_g, l2g_faces
             )
 
+            # Eta can either be a scalar or a vector. If a vector valued eta is passed,
+            # its length should be adjusted to match the number of subfaces in the
+            # partitioned subgrid.
+            if isinstance(eta, np.ndarray):
+                loc_eta = pp.fvutils.adjust_eta_length(
+                    eta=eta, sub_sd=sub_g, l2g_faces=l2g_faces
+                )
+
+            # Non-array eta suggests eta is scalar. Thus no changes happen to eta.
+            else:
+                loc_eta = eta
+
             # Discretization of sub-problem
             (
                 loc_stress,
@@ -289,7 +301,7 @@ class Mpsa(Discretization):
                 loc_bound_displacement_cell,
                 loc_bound_displacement_face,
             ) = self._stress_discretization(
-                sub_g, loc_c, loc_bnd, eta=eta, inverter=inverter, hf_eta=hf_eta
+                sub_g, loc_c, loc_bnd, eta=loc_eta, inverter=inverter, hf_eta=hf_eta
             )
 
             # Eliminate contribution from faces already discretized (the dual grids /
@@ -514,7 +526,7 @@ class Mpsa(Discretization):
         constit: pp.FourthOrderTensor,
         bound: pp.BoundaryConditionVectorial,
         eta: Optional[float] = None,
-        inverter: Literal["numba", "python"] = "numba",
+        inverter: Optional[Literal["python", "numba"]] = None,
         hf_disp: bool = False,
         hf_eta: Optional[float] = None,
     ) -> tuple[sps.spmatrix, sps.spmatrix, sps.spmatrix, sps.spmatrix]:
@@ -577,7 +589,7 @@ class Mpsa(Discretization):
             eta: Parameter controlling continuity of displacement. If None, a default
                 value will be used, adapted to the grid type.
             inverter: Method to be used for inversion of local systems. Options are
-                'numba' (default) and 'python'.
+                'python' and 'numba'.
             hf_disp: If True, the displacement will be represented by subface values
                 instead of cell values. This is not recommended, but kept for the time
                 being for legacy reasons.
@@ -768,7 +780,7 @@ class Mpsa(Discretization):
         subcell_topology: pp.fvutils.SubcellTopology,
         bound_exclusion: pp.fvutils.ExcludeBoundaries,
         eta: float,
-        inverter: Literal["python", "numba"],
+        inverter: Optional[Literal["python", "numba"]] = None,
     ) -> tuple[sps.spmatrix, sps.spmatrix, np.ndarray]:
         """
         This is the function where the real discretization takes place. It contains
@@ -1639,7 +1651,7 @@ class Mpsa(Discretization):
         nno_unique: np.ndarray,
         bound_exclusion: pp.fvutils.ExcludeBoundaries,
         nd: int,
-        inverter: str,
+        inverter: Optional[str] = None,
     ) -> sps.spmatrix:
         """Invert local system to compute the subcell gradient operator.
 

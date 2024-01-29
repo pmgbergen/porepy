@@ -13,7 +13,6 @@ from __future__ import annotations
 from typing import Optional, Union
 
 import numpy as np
-import scipy as sp
 import scipy.sparse as sps
 
 from porepy.grids.grid import Grid
@@ -148,10 +147,10 @@ class TensorGrid(Grid):
         num_faces = num_faces
         num_nodes = num_nodes
 
-        x_coord, y_coord = sp.meshgrid(nodes_x, nodes_y)
+        x_coord, y_coord = np.meshgrid(nodes_x, nodes_y)
 
         nodes = np.vstack(
-            (x_coord.flatten(), y_coord.flatten(), np.zeros(x_coord.size))
+            (x_coord.ravel(order="C"), y_coord.ravel(order="C"), np.zeros(x_coord.size))
         )
 
         # Face nodes

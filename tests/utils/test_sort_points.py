@@ -3,7 +3,7 @@ import numpy as np
 import pytest
 
 from porepy.utils import sort_points
-from tests import test_utils
+from porepy.applications.test_utils.arrays import compare_arrays
 
 
 @pytest.mark.parametrize(
@@ -61,7 +61,7 @@ def test_not_circular(points, target_lines, target_sort_idx):
 )
 def test_not_circular_permuted(points, target_lines, target_sort_idx):
     sp, sort_idx = sort_points.sort_point_pairs(points, is_circular=False)
-    assert test_utils.compare_arrays(sp, target_lines)
+    assert compare_arrays(sp, target_lines)
     assert np.allclose(target_sort_idx, sort_idx)
 
 
@@ -90,7 +90,7 @@ def test_not_circular_permuted(points, target_lines, target_sort_idx):
 )
 def test_sort_points_in_plane(points, center, target_ordering):
     sp = sort_points.sort_point_plane(points, center)
-    assert test_utils.compare_arrays(sp, target_ordering)
+    assert compare_arrays(sp, target_ordering)
 
 
 @pytest.mark.parametrize(
