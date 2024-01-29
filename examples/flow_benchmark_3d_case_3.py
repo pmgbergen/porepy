@@ -33,7 +33,7 @@ solid_constants = pp.SolidConstants(
 )
 
 
-class FlowBenchmark3dCase3Geometry(pp.ModelGeometry):
+class Geometry(pp.ModelGeometry):
     """Define Geometry as specified in Section 5.3 of the benchmark study [1]."""
 
     params: dict
@@ -67,7 +67,7 @@ class FlowBenchmark3dCase3Geometry(pp.ModelGeometry):
             self.well_network.mesh(self.mdg)
 
 
-class FlowBenchmark3dCase3Permeability(DimensionDependentPermeability):
+class Permeability(DimensionDependentPermeability):
     def fracture_permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Constant fracture permeability.
 
@@ -99,7 +99,7 @@ class FlowBenchmark3dCase3Permeability(DimensionDependentPermeability):
         return self.isotropic_second_order_tensor(subdomains, permeability)
 
 
-class FlowBenchmark3dCase3BoundaryConditions:
+class BoundaryConditions:
     """Define inlet and outlet boundary conditions as specified by the benchmark."""
 
     domain_boundary_sides: Callable
@@ -136,9 +136,9 @@ class FlowBenchmark3dCase3BoundaryConditions:
 
 class FlowBenchmark3dCase3Model(  # type:ignore[misc]
     FluxDiscretization,
-    FlowBenchmark3dCase3Geometry,
-    FlowBenchmark3dCase3Permeability,
-    FlowBenchmark3dCase3BoundaryConditions,
+    Geometry,
+    Permeability,
+    BoundaryConditions,
     pp.fluid_mass_balance.SinglePhaseFlow,
 ):
     """Mixer class for case 3 from the 3d flow benchmark."""
