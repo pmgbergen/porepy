@@ -1,6 +1,5 @@
 """This module contains functions for computations relating to half spaces."""
 import numpy as np
-from scipy import optimize
 from scipy.spatial import HalfspaceIntersection
 
 
@@ -168,6 +167,8 @@ def vertexes_of_convex_domain(A: np.ndarray, b: np.ndarray) -> np.ndarray:
         Vertexes of a convex domain.
 
     """
+    import scipy.optimize as opt
+
     b = b.reshape((-1, 1))
 
     # First, find an interior point of the half space. For this we could have used
@@ -178,7 +179,7 @@ def vertexes_of_convex_domain(A: np.ndarray, b: np.ndarray) -> np.ndarray:
     # point in the middle (somehow defined) of the domain.
     fun = lambda x: np.linalg.norm(A.dot(x.reshape((-1, 1))) + b)
     # Use scipy optimization to find an interior point to the half space.
-    interior_point = optimize.minimize(fun, np.zeros(A.shape[1])).x
+    interior_point = opt.minimize(fun, np.zeros(A.shape[1])).x
 
     # Set up constraints on the format that scipy.spatial HalfspaceIntersection
     # expects

@@ -3,7 +3,6 @@ from __future__ import annotations
 
 from typing import Optional
 
-import networkx as nx
 import numpy as np
 from scipy import sparse as sps
 
@@ -651,6 +650,8 @@ def duplicate_nodes(g: pp.Grid, nodes: np.ndarray, offset: float) -> int:
         The number of added nodes.
 
     """
+    import networkx as nx
+
     # In the case of a non-zero offset (presumably intended for visualization),
     # use a (somewhat slow) legacy implementation which can handle this.
     if offset != 0:
