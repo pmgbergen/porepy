@@ -662,9 +662,8 @@ def test_diff_tpfa_on_grid_with_all_dimensions(base_discr: str, grid_type: str):
 
     """
     model = TestDiffTpfaGridsOfAllDimensions(
-        {"base_discr": "tpfa", "grid_type": grid_type}
+        {"darcy_flux_discretization": base_discr, "grid_type": grid_type}
     )
-    dflkj
     model.prepare_simulation()
 
     num_faces = sum([sd.num_faces for sd in model.mdg.subdomains()])
