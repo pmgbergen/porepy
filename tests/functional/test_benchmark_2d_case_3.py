@@ -1,9 +1,10 @@
 """
-Module containing tests for the flow two-dimensional benchmark, case 3 from [1].
+Module containing tests for cases 3a and 3b from the 2d benchmark study [1].
 
-The tests check whether effective permeabilities and boundary are correctly assigned.
-Since we solved the actual model, we also implicitly check that the model does not
-crash. However, we are currently not checking that the solution is the "correct" one.
+The tests check whether effective permeabilities and boundary conditions are correctly
+assigned. Since we solved the actual model, we also implicitly check that the model does
+not crash. However, we are currently not checking that the solution is the "correct"
+one.
 
 Reference:
     - [1] Flemisch, B., Berre, I., Boon, W., Fumagalli, A., Schwenck, N., Scotti, A.,
@@ -132,7 +133,7 @@ def test_effective_normal_permeability(model) -> None:
     0d blocking interfaces are the ones intersecting at least one blocking fracture.
 
     Parameters:
-      model: A solved instance of Model3aWithEffectivePermeability or
+        model: A solved instance of Model3aWithEffectivePermeability or
             Model3bWithEffectivePermeability.
 
     """
@@ -179,7 +180,7 @@ def test_boundary_specification(model) -> None:
         south_side = model.domain_boundary_sides(bg).south
         south_val = data_bg["iterate_solutions"]["pressure"][0][south_side]
         np.testing.assert_array_almost_equal(south_val, 1)
-    else:
+    elif isinstance(model, Model3bWithEffectivePermeability):
         # West boundary
         west_side = model.domain_boundary_sides(bg).west
         west_val = data_bg["iterate_solutions"]["pressure"][0][west_side]
@@ -188,3 +189,5 @@ def test_boundary_specification(model) -> None:
         east_side = model.domain_boundary_sides(bg).east
         east_val = data_bg["iterate_solutions"]["pressure"][0][east_side]
         np.testing.assert_array_almost_equal(east_val, 1)
+    else:
+        raise ValueError("Model not recognized.")
