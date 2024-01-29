@@ -169,7 +169,7 @@ def wrap_discretization(
             operators[discretization_key].update({phys_key: op})
 
 
-    def outer(discr_list):
+    def from_single(discr_list):
         # Helper function for creating methods for coupling terms - it turned out that
         # this step was necessary to assign the discretization as a method to the
         # object.
@@ -179,13 +179,24 @@ def wrap_discretization(
             return list(discr_list.values())[0]
         return set_discr
 
+    def from_coupled(discr_list):
+        # Helper function for creating methods for coupling terms - it turned out that
+        # this step was necessary to assign the discretization as a method to the
+        # object.
+        def set_discr(keyword):
+            # From the list of discretizations, return the one corresponding to the
+            # provided keyword.
+            return discr_list[keyword]
+        return set_discr
+
     def get_merged_operator(discr_keyword):
-        def get_discr(physics_keyword):
+        def get_discr(inner_physics_key):
             # Return the discretization matrix for the provided physics keyword.
             op = MergedOperator(
                 discr=discr,
                 discretization_matrix_key=discr_keyword,
-                physics_key=physics_keyword,
+                physics_key=discr.keyword,
+                inner_physics_key=inner_physics_key,
                 domains=domains,
             )
             return op
@@ -202,7 +213,7 @@ def wrap_discretization(
         else:
             # This is a standard term, we can just return the discretization for the
             # main physics keyword.
-            func = outer(discretization_list)
+            func = from_single(discretization_list)
         
         # Assign the discretization as a method to the object.
         setattr(obj, key, func)
@@ -438,6 +449,7 @@ class MergedOperator(operators.Operator):
         discr: pp.discretization_type,
         discretization_matrix_key: str,
         physics_key: str,
+        inner_physics_key: Optional[str] = None,
         domains: Optional[pp.GridLikeSequence] = None,
     ) -> None:
         """Initiate a merged discretization.
@@ -458,6 +470,7 @@ class MergedOperator(operators.Operator):
         self._discr = discr
         
         self._physics_key = physics_key
+        self._inner_physics_key = inner_physics_key
         self.domain = domains
 
     def __repr__(self) -> str:
@@ -507,7 +520,11 @@ class MergedOperator(operators.Operator):
             # Get the submatrix for the right discretization
             key = self._discretization_matrix_key
             mat_key = getattr(self._discr, key + "_matrix_key")
-            mat.append(mat_dict[mat_key])
+            if self._inner_physics_key is not None:
+                local_mat = mat_dict[mat_key][self._inner_physics_key]
+            else:
+                local_mat = mat_dict[mat_key]
+            mat.append(local_mat)
 
         if all([isinstance(m, np.ndarray) for m in mat]):
             # TODO: EK is almost sure this never happens, but leave this check for now
