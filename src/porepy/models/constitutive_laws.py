@@ -3505,10 +3505,10 @@ class PressureStress(LinearElasticMechanicalStress):
         # The stress is simply found by the grad_p operator, multiplied with the
         # pressure perturbation.
         stress: pp.ad.Operator = (
-            discr.grad_p(self.darcy_keyword) @ self.pressure(subdomains)
+            discr.grad_p(self.pressure_variable) @ self.pressure(subdomains)
             # The reference pressure is only defined on sd_primary, thus there is no
             # need for a subdomain projection.
-            - discr.grad_p(self.darcy_keyword) @ self.reference_pressure(subdomains)
+            - discr.grad_p(self.pressure_variable) @ self.reference_pressure(subdomains)
         )
         stress.set_name("pressure_stress")
         return stress
@@ -3679,8 +3679,8 @@ class ThermoPressureStress(PressureStress):
             * k
             / alpha
             * (
-                discr.grad_p(self.darcy_keyword) @ self.temperature(subdomains)
-                - discr.grad_p(self.darcy_keyword) @ self.reference_temperature(subdomains)
+                discr.grad_p(self.pressure_variable) @ self.temperature(subdomains)
+                - discr.grad_p(self.pressure_variable) @ self.reference_temperature(subdomains)
             )
         )
         stress.set_name("thermal_stress")
@@ -4459,9 +4459,9 @@ class PoroMechanicsPorosity:
         )
 
         # Compose operator.
-        div_u_integrated = discr.div_u(self.darcy_keyword) @ self.displacement(
+        div_u_integrated = discr.div_u(self.pressure_variable) @ self.displacement(
             subdomains
-        ) + discr.bound_div_u(self.darcy_keyword) @ (
+        ) + discr.bound_div_u(self.pressure_variable) @ (
             boundary_operator
             + sd_projection.face_restriction(subdomains)
             @ mortar_projection.mortar_to_primary_avg
@@ -4500,7 +4500,7 @@ class PoroMechanicsPorosity:
         # results will not match if the reference state is not zero, see
         # :func:`test_without_fracture` in test_poromechanics.py.
         dp = self.perturbation_from_reference("pressure", subdomains)
-        stabilization_integrated = discr.stabilization(self.darcy_keyword) @ dp
+        stabilization_integrated = discr.stabilization(self.pressure_variable) @ dp
 
         # Divide by cell volumes to counteract integration.
         # The stabilization discretization contains a volume integral. Since the
