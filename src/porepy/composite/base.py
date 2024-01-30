@@ -1249,28 +1249,6 @@ class Mixture:
 
         return domains
 
-    @overload
-    def compute_properties(
-        self,
-        p: np.ndarray,
-        T: np.ndarray,
-        xn: Sequence[Sequence[np.ndarray]],
-        store: Literal[True] = True,
-    ) -> None:
-        # Typing overload for default return value: None, properties are stored
-        ...
-
-    @overload
-    def compute_properties(
-        self,
-        p: np.ndarray,
-        T: np.ndarray,
-        xn: Sequence[Sequence[np.ndarray]],
-        store: Literal[False] = False,
-    ) -> list[PhaseState]:
-        # Typing overload for default return value: Properties are returned
-        ...
-
     def compute_properties(
         self,
         p: np.ndarray,
