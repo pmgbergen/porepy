@@ -628,7 +628,7 @@ def test_transmissibility_calculation(vector_source: bool, base_discr: str):
     )
 
 
-class TestDiffTpfaGridsOfAllDimensions(
+class DiffTpfaGridsOfAllDimensions(
     CubeDomainOrthogonalFractures,
     _SetFluxDiscretizations,
     pp.constitutive_laws.CubicLawPermeability,
@@ -699,7 +699,7 @@ def test_diff_tpfa_on_grid_with_all_dimensions(base_discr: str, grid_type: str):
     are not checked.
 
     """
-    model = TestDiffTpfaGridsOfAllDimensions(
+    model = DiffTpfaGridsOfAllDimensions(
         {"base_discr": "tpfa", "grid_type": grid_type}
     )
     model.prepare_simulation()
@@ -800,7 +800,7 @@ def test_diff_tpfa_and_standard_tpfa_give_same_linear_system(base_discr: str):
     assert np.allclose(vector[0], vector[1])
 
 
-class TestDiffTpfaFractureTipsInternalBoundaries(
+class DiffTpfaFractureTipsInternalBoundaries(
     model_geometries.OrthogonalFractures3d,
     well_models.OneVerticalWell,
     well_models.BoundaryConditionsWellSetup,
@@ -859,7 +859,7 @@ def test_flux_potential_trace_on_tips_and_internal_boundaries(base_discr: str):
     trace is equal to the pressure in the adjacent cell.
 
     """
-    model = TestDiffTpfaFractureTipsInternalBoundaries({"base_discr": base_discr})
+    model = DiffTpfaFractureTipsInternalBoundaries({"base_discr": base_discr})
     model.prepare_simulation()
 
     mdg = model.mdg
