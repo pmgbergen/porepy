@@ -17,7 +17,6 @@ from porepy.applications.discretizations.flux_discretization import FluxDiscreti
 from porepy.applications.md_grids.model_geometries import (
     CubeDomainOrthogonalFractures,
 )
-from porepy.numerics.ad.operators import Operator
 
 """Local utility functions."""
 
