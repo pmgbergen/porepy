@@ -850,7 +850,6 @@ class BoundaryConditionsMomentumBalance(pp.BoundaryConditionMixin):
     def bc_type_mechanics(self, sd: pp.Grid) -> pp.BoundaryConditionVectorial:
         """Define type of boundary conditions.
 
-
         Parameters:
             sd: Subdomain grid.
 
