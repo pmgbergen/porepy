@@ -165,7 +165,9 @@ class MomentumBalanceEquations(pp.BalanceEquation):
         # acceleration - stress = body_force. The balance_equation method will *add* the
         # surface term (stress), so we need to multiply by -1.
         stress = pp.ad.Scalar(-1) * self.stress(subdomains)
-        body_force = self.body_force(subdomains)
+        body_force = self.volume_integral(
+            self.body_force(subdomains), subdomains, self.nd
+        )
         equation = self.balance_equation(
             subdomains, accumulation, stress, body_force, dim=self.nd
         )
