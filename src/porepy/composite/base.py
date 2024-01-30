@@ -45,6 +45,10 @@ The hierarchy is as follows:
     Serves as a managing instance and provides functionalities to formulate the flash
     equations using PorePy's AD framework.
 
+Note:
+    Phases are meant to be based on an Equation of State.
+    A basic interface for such an equation of state is defined by :class:`AbstractEoS`.
+
 """
 from __future__ import annotations
 
@@ -65,6 +69,7 @@ from .states import FluidState, PhaseState
 __all__ = [
     "Component",
     "Compound",
+    "AbstractEoS",
     "Phase",
     "Mixture",
 ]
@@ -396,6 +401,49 @@ class Compound(Component):
         return [1 - safe_sum(X)] + X
 
 
+class AbstractEoS(abc.ABC):
+    """Abstract EoS class defining the interface between thermodynamic input
+    and resulting structure containing thermodynamic properties of a phase.
+
+    Component properties required for computations can be extracted in the constructor.
+
+    Parameters:
+        components: A sequence of components for which the EoS is instantiated.
+
+    """
+
+    def __init__(self, components: Sequence[Component]) -> None:
+        self._nc: int = len(components)
+        """Number of components passed at instantiation."""
+
+    @abc.abstractmethod
+    def compute_phase_state(
+        self, phase_type: int, p: np.ndarray, T: np.ndarray, xn: Sequence[np.ndarray]
+    ) -> PhaseState:
+        """ "Abstract method to compute the properties of a phase based on pressure,
+        temperature and a sequence of (normalized) fractions for each component passed
+        at instantiation.
+
+        Parameters:
+            phase_type: See :attr:`Phase.type`
+            p: ``shape=(N,)``
+
+                Pressure values.
+            T:``shape=(N,)``
+
+                Temperature values.
+            xn: ``shape=(num_comp, N)``
+
+                Normalized fractions per component.
+
+        Returns:
+            A datastructure containing all relevant phase properties and their
+            derivatives.
+
+        """
+        ...
+
+
 class Phase:
     """Base class for phases in a multiphase multicomponent mixture.
 
@@ -456,7 +504,7 @@ class Phase:
 
     def __init__(
         self,
-        eos: pp.composite.EoSCompiler,
+        eos: AbstractEoS,
         type: int,
         name: str,
     ) -> None:
@@ -479,7 +527,7 @@ class Phase:
 
         """
 
-        self.eos: pp.composite.EoSCompiler = eos
+        self.eos: AbstractEoS = eos
         """The EoS passed at instantiation."""
 
         self.type: int = int(type)
@@ -673,9 +721,10 @@ class Phase:
             self.enthalpy.value = state.h
             self.enthalpy.derivatives = state.dh
 
-            # TODO missing models
-            self.viscosity.value = 1.0
-            self.conductivity.value = 1.0
+            self.viscosity.value = state.mu
+            self.viscosity.derivatives = state.dmu
+            self.conductivity.value = state.kappa
+            self.conductivity.derivatives = state.dkappa
 
             for i, comp in enumerate(self):
                 self.fugacity_of[comp].value = state.phis[i]
