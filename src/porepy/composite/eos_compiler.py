@@ -9,7 +9,7 @@ from typing import Callable, Optional, Sequence
 import numba
 import numpy as np
 
-from .base import Component
+from .base import AbstractEoS, Component
 from .composite_utils import COMPOSITE_LOGGER as logger
 from .states import PhaseState
 from .utils_c import extended_compositional_derivatives_v
@@ -161,7 +161,7 @@ def _compile_vectorized_property_derivatives(
     return inner
 
 
-class EoSCompiler(abc.ABC):
+class EoSCompiler(AbstractEoS):
     """Abstract base class for EoS specific compilation using numba.
 
     The :class:`EoSCompiler` needs functions computing
@@ -226,10 +226,7 @@ class EoSCompiler(abc.ABC):
     """
 
     def __init__(self, components: Sequence[Component]) -> None:
-        super().__init__()
-
-        self._nc: int = len(components)
-        """Number of components passed at instantiation."""
+        super().__init__(components)
 
         self.funcs: dict[str, Optional[Callable]] = {
             "prearg_val": None,
@@ -474,6 +471,90 @@ class EoSCompiler(abc.ABC):
         """
         pass
 
+    @abc.abstractmethod
+    def get_viscosity_function(
+        self,
+    ) -> Callable[[np.ndarray, float, float, np.ndarray], float]:
+        """Abstract assembler for compiled computations of the dynamic molar viscosity.
+
+        Returns:
+            A NJIT-ed function taking
+
+            - pre-argument for values (1D-array),
+            - pressure value,
+            - temperature value,
+            - an 1D-array of normalized fractions of components of a phase,
+
+            and returning a viscosity value.
+
+        """
+        pass
+
+    @abc.abstractmethod
+    def get_dpTX_viscosity_function(
+        self,
+    ) -> Callable[[np.ndarray, np.ndarray, float, float, np.ndarray], np.ndarray]:
+        """Abstract assembler for compiled computations of the derivative of the
+        viscosity function for a phase.
+
+        Returns:
+            A NJIT-ed function taking
+
+            - pre-argument for values (1D-array),
+            - pre-argument for derivatives (1D-array),
+            - pressure value,
+            - temperature value,
+            - an 1D-array of normalized fractions of components of a phase,
+
+            and returning an array of derivatives of the viscosity with
+            ``shape=(2 + num_comp,)``., containing the derivatives w.r.t.
+            pressure, temperature and fractions.
+
+        """
+        pass
+
+    @abc.abstractmethod
+    def get_conductivity_function(
+        self,
+    ) -> Callable[[np.ndarray, float, float, np.ndarray], float]:
+        """Abstract assembler for compiled computations of the thermal conductivity.
+
+        Returns:
+            A NJIT-ed function taking
+
+            - pre-argument for values (1D-array),
+            - pressure value,
+            - temperature value,
+            - an 1D-array of normalized fractions of components of a phase,
+
+            and returning a conductivity value.
+
+        """
+        pass
+
+    @abc.abstractmethod
+    def get_dpTX_conductivity_function(
+        self,
+    ) -> Callable[[np.ndarray, np.ndarray, float, float, np.ndarray], np.ndarray]:
+        """Abstract assembler for compiled computations of the derivative of the
+        conductivity function for a phase.
+
+        Returns:
+            A NJIT-ed function taking
+
+            - pre-argument for values (1D-array),
+            - pre-argument for derivatives (1D-array),
+            - pressure value,
+            - temperature value,
+            - an 1D-array of normalized fractions of components of a phase,
+
+            and returning an array of derivatives of the conductivity with
+            ``shape=(2 + num_comp,)``., containing the derivatives w.r.t.
+            pressure, temperature and fractions.
+
+        """
+        pass
+
     def get_density_function(
         self,
     ) -> Callable[[np.ndarray, float, float, np.ndarray], float]:
@@ -585,7 +666,7 @@ class EoSCompiler(abc.ABC):
         else:
             logger.setLevel(logging.WARNING)
 
-        logger.start_progress_log("Compiling property functions", 10)
+        logger.start_progress_log("Compiling property functions", 14)
 
         # region Element-wise computations
         prearg_val_c = self.funcs.get("prearg_val", None)
@@ -647,9 +728,33 @@ class EoSCompiler(abc.ABC):
             d_rho_c = self.get_dpTX_density_function()
             self.funcs["d_rho"] = d_rho_c
         logger.progress()
+
+        mu_c = self.funcs.get("mu", None)
+        if mu_c is None:
+            mu_c = self.get_viscosity_function()
+            self.funcs["mu"] = mu_c
+        logger.progress()
+
+        d_mu_c = self.funcs.get("d_mu", None)
+        if d_mu_c is None:
+            d_mu_c = self.get_dpTX_viscosity_function()
+            self.funcs["d_mu"] = d_mu_c
+        logger.progress()
+
+        kappa_c = self.funcs.get("kappa", None)
+        if kappa_c is None:
+            kappa_c = self.get_conductivity_function()
+            self.funcs["kappa"] = kappa_c
+        logger.progress()
+
+        d_kappa_c = self.funcs.get("d_kappa", None)
+        if d_kappa_c is None:
+            d_kappa_c = self.get_dpTX_conductivity_function()
+            self.funcs["d_kappa"] = d_kappa_c
+        logger.progress()
         # endregion
 
-        logger.start_progress_log("Compiling vectorized functions", 10)
+        logger.start_progress_log("Compiling vectorized functions", 14)
 
         # region vectorized computations
         prearg_val_v = _compile_vectorized_prearg(prearg_val_c)
@@ -682,6 +787,18 @@ class EoSCompiler(abc.ABC):
         d_rho_v = _compile_vectorized_property_derivatives(d_rho_c)
         logger.progress()
 
+        mu_v = _compile_vectorized_property(mu_c)
+        logger.progress()
+
+        d_mu_v = _compile_vectorized_property_derivatives(d_mu_c)
+        logger.progress()
+
+        kappa_v = _compile_vectorized_property(kappa_c)
+        logger.progress()
+
+        d_kappa_v = _compile_vectorized_property_derivatives(d_kappa_c)
+        logger.progress()
+
         self.gufuncs.update(
             {
                 "prearg_val": prearg_val_v,
@@ -694,6 +811,10 @@ class EoSCompiler(abc.ABC):
                 "d_v": d_v_v,
                 "rho": rho_v,
                 "d_rho": d_rho_v,
+                "mu": mu_v,
+                "d_mu": d_mu_v,
+                "kappa": kappa_v,
+                "d_kappa": d_kappa_v,
             }
         )
         # endregion
@@ -705,10 +826,7 @@ class EoSCompiler(abc.ABC):
         T: np.ndarray,
         x: Sequence[np.ndarray],
     ) -> PhaseState:
-        """Convenience function to compute the properties of a phase with vectorized
-        input.
-
-        This method must only be called after the vectorized computations have been
+        """This method must only be called after the vectorized computations have been
         compiled (see :meth:`compile`).
 
         Parameters:
@@ -735,14 +853,6 @@ class EoSCompiler(abc.ABC):
             reflected in the first dimension.
 
         """
-        prearg_val_v = self.gufuncs["prearg_val"]
-        prearg_jac_v = self.gufuncs["prearg_jac"]
-        phi_v = self.gufuncs["phi"]
-        d_phi_v = self.gufuncs["d_phi"]
-        h_v = self.gufuncs["h"]
-        d_h_v = self.gufuncs["d_h"]
-        v_v = self.gufuncs["v"]
-        d_v_v = self.gufuncs["d_v"]
 
         # normalization of fractions for computing properties
         if not isinstance(x, np.ndarray):
@@ -752,27 +862,33 @@ class EoSCompiler(abc.ABC):
 
         ncomp, _ = x.shape
 
-        prearg_val = prearg_val_v(phasetype, p, T, xn)
-        prearg_jac = prearg_jac_v(phasetype, p, T, xn)
+        prearg_val = self.gufuncs["prearg_val"](phasetype, p, T, xn)
+        prearg_jac = self.gufuncs["prearg_jac"](phasetype, p, T, xn)
 
         state = PhaseState(
             phasetype=phasetype,
             x=x,
-            h=h_v(prearg_val, p, T, xn),
-            v=v_v(prearg_val, p, T, xn),
+            h=self.gufuncs["h"](prearg_val, p, T, xn),
+            v=self.gufuncs["v"](prearg_val, p, T, xn),
             # shape = (num_comp, num_vals), sequence per component
-            phis=phi_v(prearg_val, p, T, xn),
+            phis=self.gufuncs["phi"](prearg_val, p, T, xn),
             # shape = (num_diffs, num_vals), sequence per derivative
-            dh=d_h_v(prearg_val, prearg_jac, p, T, xn),
+            dh=self.gufuncs["d_h"](prearg_val, prearg_jac, p, T, xn),
             # shape = (num_diffs, num_vals), sequence per derivative
-            dv=d_v_v(prearg_val, prearg_jac, p, T, xn),
+            dv=self.gufuncs["d_v"](prearg_val, prearg_jac, p, T, xn),
             # shape = (num_comp, num_diffs, num_vals)
-            dphis=d_phi_v(prearg_val, prearg_jac, p, T, xn),
+            dphis=self.gufuncs["d_phi"](prearg_val, prearg_jac, p, T, xn),
+            mu=self.gufuncs["mu"](prearg_val, p, T, xn),
+            dmu=self.gufuncs["d_mu"](prearg_val, prearg_jac, p, T, xn),
+            kappa=self.gufuncs["kappa"](prearg_val, p, T, xn),
+            dkappa=self.gufuncs["d_kappa"](prearg_val, prearg_jac, p, T, xn),
         )
 
         # Extending derivatives to extended fractions
         state.dh = extended_compositional_derivatives_v(state.dh, x)
         state.dv = extended_compositional_derivatives_v(state.dv, x)
+        state.dmu = extended_compositional_derivatives_v(state.dmu, x)
+        state.dkappa = extended_compositional_derivatives_v(state.dkappa, x)
         for i in range(ncomp):
             # TODO check if this is indexed correctly
             state.dphis[i] = extended_compositional_derivatives_v(state.dphis[i], x)

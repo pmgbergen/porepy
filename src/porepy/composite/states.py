@@ -138,6 +138,32 @@ class PhaseState(ExtensiveState):
 
     Default is a list of zero 2D-arrays."""
 
+    mu: np.ndarray = field(default_factory=lambda: np.zeros(1))
+    """Dynamic molar viscosity. Default is 0."""
+
+    dmu: Sequence = field(default_factory=lambda: [np.zeros(1)])
+    """Derivatives of the dynamic molar viscosity w.r.t. pressure, temperature and
+    each ``x`` in :attr:`x`.
+
+    The length of ``dmu`` is ``2 + len(x)``.
+
+    Default is a list of zeros.
+
+    """
+
+    kappa: np.ndarray = field(default_factory=lambda: np.zeros(1))
+    """Thermal conductivity. Default is 0."""
+
+    dkappa: Sequence = field(default_factory=lambda: [np.zeros(1)])
+    """Derivatives of the thermal conductivity w.r.t. pressure, temperature and
+    each ``x`` in :attr:`x`.
+
+    The length of ``dkappa`` is ``2 + len(x)``.
+
+    Default is a list of zeros.
+
+    """
+
     @property
     def drho(self) -> Sequence[np.ndarray]:
         """Derivatives of the specific molar volume, expressed as the reciprocal

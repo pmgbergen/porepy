@@ -39,7 +39,6 @@ from . import (
     chem_species,
     composite_utils,
     eos_compiler,
-    equilibrium_models,
     flash_c,
     peng_robinson,
     states,
@@ -50,7 +49,6 @@ from .chem_interface import *
 from .chem_species import *
 from .composite_utils import *
 from .eos_compiler import *
-from .equilibrium_models import *
 from .flash_c import *
 from .states import *
 
@@ -61,5 +59,4 @@ __all__.extend(base.__all__)
 __all__.extend(composite_utils.__all__)
 __all__.extend(flash_c.__all__)
 __all__.extend(states.__all__)
-__all__.extend(equilibrium_models.__all__)
 __all__.extend(eos_compiler.__all__)

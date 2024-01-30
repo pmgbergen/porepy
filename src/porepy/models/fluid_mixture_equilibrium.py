@@ -115,7 +115,7 @@ class MixtureMixin:
 
     def get_phase_configuration(
         self, components: Sequence[ppc.Component]
-    ) -> Sequence[tuple[ppc.EoSCompiler, int, str]]:
+    ) -> Sequence[tuple[ppc.AbstractEoS, int, str]]:
         """Method to return a configuration of modelled phases.
 
         Must return the instance of used EoS, the phase type (integer) and a name
@@ -261,9 +261,9 @@ class EquilibriumMixin:
             equ = self.mixture_volume_constraint(v)
             self.equation_system.set_equation(equ, subdomains, {"cells": 1})
 
-            self.set_mass_relations_for_phases()
+            self.set_density_relations_for_phases()
 
-    def set_mass_relations_for_phases(self) -> None:
+    def set_density_relations_for_phases(self) -> None:
         """Introduced the mass relations for phases into the AD system.
 
         This method is separated, because it has another meaning when coupling the
@@ -287,7 +287,7 @@ class EquilibriumMixin:
         for phase in self.fluid_mixture.phases:
             if phase == rphase and self.eliminate_reference_phase:
                 continue
-            equ = self.mass_relation_for_phase(phase)
+            equ = self.density_relation_for_phase(phase)
             self.equation_system.set_equation(equ, subdomains, {"cells": 1})
 
     def mass_constraint_for_component(self, component: ppc.Component) -> pp.ad.Operator:
@@ -471,7 +471,7 @@ class EquilibriumMixin:
         equ.set_name("mixture-volume-constraint")
         return equ
 
-    def mass_relation_for_phase(self, phase: ppc.Phase) -> pp.ad.Operator:
+    def density_relation_for_phase(self, phase: ppc.Phase) -> pp.ad.Operator:
         """Constructs a local mass relation based on a relation between mixture
         density, saturated phase density and phase fractions.
 
@@ -512,5 +512,5 @@ class EquilibriumMixin:
                 phase.fraction * self.fluid_mixture.density
                 - phase.saturation * phase.density
             )
-        equ.set_name(f"phase-mass-relation-{phase.name}")
+        equ.set_name(f"density-relation-{phase.name}")
         return equ

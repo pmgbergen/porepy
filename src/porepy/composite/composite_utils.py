@@ -15,7 +15,7 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
-from porepy.numerics.ad.operator_functions import NumericType
+from porepy.numerics.ad.operator_functions import NumericType, AbstractFunction
 
 __all__ = [
     "safe_sum",
@@ -205,7 +205,7 @@ class AdProperty(pp.ad.Operator):
         return self.value
 
 
-class PropertyFunction(pp.ad.AbstractFunction):
+class PropertyFunction(AbstractFunction):
     """A function whose values and derivatives must be filled by the user.
 
     Values and derivatives are not assigned at instantiation.

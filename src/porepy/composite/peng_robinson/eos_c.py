@@ -46,6 +46,7 @@ from typing import Any, Callable
 
 import numba
 import numpy as np
+from numpy import ndarray
 
 from .._core import NUMBA_CACHE
 from ..composite_utils import COMPOSITE_LOGGER as logger
@@ -1389,6 +1390,57 @@ class PengRobinsonCompiler(EoSCompiler):
             return d_v
 
         return d_v_c
+
+    # TODO need models for below functions
+    def get_viscosity_function(
+        self,
+    ) -> Callable[[ndarray, float, float, ndarray], float]:
+        @numba.njit("float64(float64[:], float64, float64, float64[:])")
+        def mu_c(prearg: np.ndarray, p: float, T: float, xn: np.ndarray) -> np.ndarray:
+            return 1.0
+
+        return mu_c
+
+    def get_dpTX_viscosity_function(
+        self,
+    ) -> Callable[[ndarray, float, float, ndarray], np.ndarray]:
+        @numba.njit("float64[:](float64[:], float64[:], float64, float64, float64[:])")
+        def dmu_c(
+            prearg_val: np.ndarray,
+            prearg_jac: np.ndarray,
+            p: float,
+            T: float,
+            xn: np.ndarray,
+        ) -> np.ndarray:
+            return np.zeros(2 + xn.shape[0], dtype=np.float64)
+
+        return dmu_c
+
+    def get_conductivity_function(
+        self,
+    ) -> Callable[[ndarray, float, float, ndarray], float]:
+        @numba.njit("float64(float64[:], float64, float64, float64[:])")
+        def kappa_c(
+            prearg: np.ndarray, p: float, T: float, xn: np.ndarray
+        ) -> np.ndarray:
+            return 1.0
+
+        return kappa_c
+
+    def get_dpTX_conductivity_function(
+        self,
+    ) -> Callable[[ndarray, float, float, ndarray], np.ndarray]:
+        @numba.njit("float64[:](float64[:], float64[:], float64, float64, float64[:])")
+        def d_kappa_c(
+            prearg_val: np.ndarray,
+            prearg_jac: np.ndarray,
+            p: float,
+            T: float,
+            xn: np.ndarray,
+        ) -> np.ndarray:
+            return np.zeros(2 + xn.shape[0], dtype=np.float64)
+
+        return d_kappa_c
 
 
 _import_end = time.time()

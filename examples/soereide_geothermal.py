@@ -16,11 +16,10 @@ from typing import Sequence
 
 import porepy as pp
 import porepy.composite as ppc
-from porepy.composite.base import Component
-from porepy.composite.eos_compiler import EoSCompiler
 
-from porepy.models.fluid_mixture_equilibrium import MixtureMixin, EquilibriumMixin
 from porepy.composite.peng_robinson.eos_c import PengRobinsonCompiler
+from porepy.models.fluid_mixture_equilibrium import MixtureMixin
+from porepy.models.compositional_balance import CompositionalFlow
 
 
 class SoereideMixture(MixtureMixin):
@@ -28,7 +27,7 @@ class SoereideMixture(MixtureMixin):
     NaCl brine with CO2, H2S and N2.
 
     """
-    def get_components(self) -> Sequence[Component]:
+    def get_components(self) -> Sequence[ppc.Component]:
 
         chems = ["H2O", "CO2"]
         species = ppc.load_species(chems)
@@ -39,8 +38,8 @@ class SoereideMixture(MixtureMixin):
         return components
 
     def get_phase_configuration(
-        self, components: Sequence[Component]
-    ) -> Sequence[tuple[EoSCompiler, int, str]]:
+        self, components: Sequence[ppc.Component]
+    ) -> Sequence[tuple[ppc.EoSCompiler, int, str]]:
         # This takes some time
         eos = PengRobinsonCompiler(components)
         return [(eos, 0, 'liq'), (eos, 1, 'gas')]
@@ -48,8 +47,25 @@ class SoereideMixture(MixtureMixin):
 
 class GeothermalFlow(
     SoereideMixture,
-    EquilibriumMixin,
-    pp.ModelGeometry,
-    pp.DataSavingMixin,
+    CompositionalFlow,
 ):
     """Geothermal flow using a fluid defined by the Soereide model."""
+
+time_manager = pp.TimeManager(
+    schedule=[0, 0.3, 0.6],
+    dt_init=1e-4,
+    constant_dt=False,
+    iter_max=50,
+    print_info=True,
+)
+
+params = {
+    'eliminate_reference_phase' : True,
+    'eliminate_reference_component' : True,
+    'normalize_state_constraints' : True,
+    'use_semismooth_complementarity' : True,
+    'time_manager' : time_manager,
+}
+model = GeothermalFlow(params)
+pp.run_time_dependent_model(model, params)
+pp.plot_grid(model.mdg, "pressure", figsize=(10, 8), plot_2d=True)
