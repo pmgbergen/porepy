@@ -113,7 +113,7 @@ class FractureNetwork2d:
         This will include intersection points identified.
         """
 
-        # -----> Logging
+        # Logging
         if self.fractures is not None:
             logger.info("Generated empty fracture set")
         elif self._pts is not None and self._edges is not None:
@@ -1098,7 +1098,6 @@ class FractureNetwork2d:
 
     """
     End of methods related to meshing
-    ---------------------------------
     """
 
     def constrain_to_domain(
@@ -1268,7 +1267,7 @@ class FractureNetwork2d:
 
         return fn
 
-    # --------- Utility functions below here
+    # Utility functions below here
 
     def num_frac(self) -> int:
         """
