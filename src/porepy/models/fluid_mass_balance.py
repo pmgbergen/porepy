@@ -129,10 +129,14 @@ class MassBalanceEquations(pp.BalanceEquation):
     create_boundary_operator: Callable[
         [str, Sequence[pp.BoundaryGrid]], pp.ad.TimeDependentDenseArray
     ]
-
+    """See :class:`~porepy.models.boundary_condition.BoundaryConditionMixin`.
+    """
     bc_data_fluid_flux_key: str
-
+    """See :class:`BoundaryConditionsSinglePhaseFlow`.
+    """
     bc_type_fluid_flux: Callable[[pp.Grid], pp.BoundaryCondition]
+    """See :class:`BoundaryConditionsSinglePhaseFlow`.
+    """
 
     _combine_boundary_operators: Callable[
         [

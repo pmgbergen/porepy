@@ -1,25 +1,310 @@
 """Module defining basic equatios for fluid flow with multiple componens/species."""
 from __future__ import annotations
 
-from typing import Optional
+from typing import Callable, Optional, cast
 
 import porepy as pp
+import porepy.composite as ppc
 
+from . import fluid_mass_balance as mass
+from . import mass_and_energy_balance as mass_energy
 from .fluid_mixture_equilibrium import EquilibriumMixin, MixtureMixin
 
 
+class DiscretizationsCompositionalFlow:
+    """Mixin class defining which discretization is to be used for the magnitude of
+    terms in the compositional flow and transport model.
+
+    The flexibility is required due to the varying mathematical nature of the pressure
+    equation, energy balance and transport equations.
+
+    They also need all separate instances of the discretization objects to avoid
+    false storage access.
+
+    """
+
+    total_mobility_keyword: str
+    """See :attr:`SolutionStrategyCompositionalFlow.total_mobility_keyword`"""
+
+    def total_mobility_discretization(
+        self, subdomains: list[pp.Grid]
+    ) -> pp.ad.UpwindAd:
+        """Discretization of the total fluid mobility in the total mass balance on the
+        subdomains.
+        (non-linear weight in the Darcy flux in the pressure equation)
+
+        Uses Upwinding. Overwrite for to use a different discretization.
+
+        Parameters:
+            subdomains: List of subdomains.
+
+        Returns:
+            Discretization of the fluid mobility.
+
+        """
+        return pp.ad.UpwindAd(self.total_mobility_keyword, subdomains)
+
+    def interface_total_mobility_discretization(
+        self, interfaces: list[pp.MortarGrid]
+    ) -> pp.ad.UpwindCouplingAd:
+        """Discretization of the total fluid mobility in the total mass balance on the
+        interfaces.
+
+        Uses upwinding, i.e. it choses the upstream value based on the interface flux.
+
+        Parameters:
+            interfaces: List of interface grids.
+
+        Returns:
+            Discretization for the interface mobility.
+
+        """
+        return pp.ad.UpwindCouplingAd(self.total_mobility_keyword, interfaces)
+
+
+class TotalMassBalanceEquation(mass.MassBalanceEquations):
+    """Mixed-dimensional balance of total mass in a fluid mixture.
+
+    Also referred to as *pressure equation*
+
+    Balance equation for all subdomains and Darcy-type flux relation on all interfaces
+    of codimension one and Peaceman flux relation on interfaces of codimension two
+    (well-fracture intersections).
+
+    Note:
+        This is a sophisticated version of
+        :class:`~porepy.models.fluid_mass_balance.MassBalanceEquation` where the
+        non-linear weights in the flux term stem from a multiphase, multicomponent
+        mixture.
+
+        There is room for unification and recycling of code.
+
+    """
+
+    fluid_mixture: ppc.Mixture
+    """A mixture containing all modelled phases and components, and required fluid
+    properties as a combination of phase properties. Usually defined in a mixin class
+    defining the mixture."""
+
+    relative_permeability: Callable[[pp.ad.Operator], pp.ad.Operator]
+    """See :meth:`ConstitutiveLawsCompositionalFlow.relative_permeability`."""
+
+    total_mobility_discretization: Callable[[list[pp.Grid]], pp.ad.UpwindAd]
+    """See :attr:`DiscretizationsCompositionalFlow.total_mobility_discretization`"""
+
+    interface_total_mobility_discretization: Callable[
+        [list[pp.MortarGrid]], pp.ad.UpwindCouplingAd
+    ]
+    """See
+    :attr:`DiscretizationsCompositionalFlow.interface_total_mobility_discretization`"""
+
+    bc_data_total_mobility_key: str
+    """See :attr:`BoundaryConditionsCompositionalFlow.bc_data_total_mobility_key`"""
+
+    def mass_balance_equation(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """The inherited method gives another name to the equation, because there are
+        multiple mass balances in the compositional setting."""
+        eq = super().mass_balance_equation(subdomains)
+        eq.set_name("total_mass_balance_equation")
+        return eq
+
+    def fluid_mass(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Analogous to
+        :meth:`~porepy.models.fluid_mass_balance.MassBalanceEquations.fluid_mass`
+        with the only difference that :attr:`~porepy.composite.base.Mixture.density`,
+        which by procedure is defined using the pressure, temperature and fractions on
+        all subdomains."""
+        mass_density = self.fluid_mixture.density * self.porosity(subdomains)
+        mass = self.volume_integral(mass_density, subdomains, dim=1)
+        mass.set_name("total_fluid_mass")
+        return mass
+
+    def fluid_flux(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+        """A modified fluid flux, where the advected entity (total mobility) accounts
+        for all phases in the mixture.
+
+        See :meth:`total_mobility`.
+
+        It also accounts for custom choices of mobility discretizations (see
+        :class:`DiscretizationsCompositionalFlow`).
+
+        """
+        if len(domains) == 0 or all(isinstance(d, pp.BoundaryGrid) for d in domains):
+            # Note: in case of the empty subdomain list, the time dependent array is
+            # still returned. Otherwise, this method produces an infinite recursion
+            # loop. It does not affect real computations anyhow.
+            return self.create_boundary_operator(  # type: ignore[call-arg]
+                name=self.bc_data_fluid_flux_key, domains=domains
+            )
+
+        # Verify that the domains are subdomains.
+        if not all(isinstance(d, pp.Grid) for d in domains):
+            raise ValueError(
+                "Domains must consist entirely of subdomains for the fluid flux."
+            )
+        # Now we can cast the domains
+        domains = cast(list[pp.Grid], domains)
+
+        discr = self.total_mobility_discretization(domains)
+        weight = self.total_mobility(domains)
+
+        boundary_operator = self._combine_boundary_operators(  # type: ignore[call-arg]
+            subdomains=domains,
+            dirichlet_operator=self.total_mobility,
+            neumann_operator=self.fluid_flux,
+            bc_type=self.bc_type_fluid_flux,
+            name="bc_values_total_fluid_flux",
+        )
+        flux = self.advective_flux(
+            domains, weight, discr, boundary_operator, self.interface_fluid_flux
+        )
+        flux.set_name("total_fluid_flux")
+        return flux
+
+    def total_mobility(
+        self, domains: list[pp.SubdomainsOrBoundaries]
+    ) -> pp.ad.Operator:
+        r"""Returns the non-linear weight in the advective flux, assuming the mixture is
+        defined on all subdomains.
+
+        Parameters:
+            subdomains: All subdomains in the md-grid or respective boundary grids.
+
+        Returns:
+            An operator representing
+
+            .. math::
+
+                \sum_j  / \mu_j \dfrac{\rho(p, T, x_j) k_r(s_j)}{\mu_j},
+
+            which is the advected mass in the total mass balance equation.
+
+            If boundary grids are passed, this returns a boundary operator whose values
+            must be updated based on the boundary data for primary variables.
+
+        """
+        if len(domains) == 0 or all(isinstance(d, pp.BoundaryGrid) for d in domains):
+            # Note: in case of the empty subdomain list, the time dependent array is
+            # still returned. Otherwise, this method produces an infinite recursion
+            # loop. It does not affect real computations anyhow.
+            return self.create_boundary_operator(  # type: ignore[call-arg]
+                name=self.bc_data_total_mobility_key, domains=domains
+            )
+
+        # Verify that the domains are subdomains.
+        if not all(isinstance(d, pp.Grid) for d in domains):
+            raise ValueError(
+                "Domains must consist entirely of subdomains for the total mobility."
+            )
+        # Now we can cast the domains
+        domains = cast(list[pp.Grid], domains)
+        weight = pp.ad.sum_operator_list(
+            [
+                phase.density
+                / phase.viscosity
+                * self.relative_permeability(phase.saturation)
+                for phase in self.fluid_mixture.phases
+            ],
+            "total_mobility",
+        )
+
+        return weight
+
+    def interface_fluid_flux(self, interfaces: list[pp.MortarGrid]) -> pp.ad.Operator:
+        """Analogous to :meth:`fluid_flux` this accounts for the modified weight
+        :meth:`total_mobility` and a customizable discretization
+        (see
+        :meth:`DiscretizationsCompositionalFlow.interface_total_mobility_discretization`
+        )."""
+        subdomains = self.interfaces_to_subdomains(interfaces)
+        discr = self.interface_total_mobility_discretization(interfaces)
+        weight = self.total_mobility(subdomains)
+        flux = self.interface_advective_flux(interfaces, weight, discr)
+        flux.set_name("interface_fluid_flux")
+        return flux
+
+    def well_fluid_flux(self, interfaces: list[pp.MortarGrid]) -> pp.ad.Operator:
+        """Modifications analogous to :meth:`interface_fluid_flux`."""
+        subdomains = self.interfaces_to_subdomains(interfaces)
+        discr = self.interface_total_mobility_discretization(interfaces)
+        mob_rho = self.total_mobility(subdomains)
+        # Call to constitutive law for advective fluxes.
+        flux: pp.ad.Operator = self.well_advective_flux(interfaces, mob_rho, discr)
+        flux.set_name("well_fluid_flux")
+        return flux
+
+
 class EquationsCompositionalFlow(
+    TotalMassBalanceEquation,
+    TotalEnergyBalanceEquation,
+    ComponentMassBalanceEquations,
     EquilibriumMixin,
 ):
-
     def set_equations(self):
+        TotalMassBalanceEquation.set_equations(self)
         EquilibriumMixin.set_equations(self)
-        if 'v' not in self.equilibrium_type:
+        if "v" not in self.equilibrium_type:
             EquilibriumMixin.set_density_relations_for_phases(self)
 
 
+class VariablesCompositionalFlow(mass_energy.VariablesFluidMassAndEnergy):
+    """Extension of the standard variables pressure and temperature by an additional
+    variable, the transported enthalpy."""
+
+    enthalpy_variable: str
+    """See :attr:`SolutionStrategyCompositionalFlow.enthalpy_variable`."""
+
+    def create_variables(self) -> None:
+        """Set the variables for the fluid mass and energy balance problem.
+
+        Call both parent classes' set_variables methods.
+
+        """
+        # pressure and temperature. This covers also the interface variables for
+        # Fourier flux, Darcy flux and enthalpy flux.
+        mass_energy.VariablesFluidMassAndEnergy.create_variables(self)
+
+        self.equation_system.create_variables(
+            self.enthalpy_variable,
+            subdomains=self.mdg.subdomains(),
+            tags={"si_units": "J"},
+        )
+
+    def enthalpy(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+        """Representation of the enthalpy as an AD-Operator.
+
+        Parameters:
+            domains: List of subdomains or list of boundary grids.
+
+        Raises:
+            ValueError: If the passed sequence of domains does not consist entirely
+                of instances of boundary grid.
+
+        Returns:
+            A mixed-dimensional variable representing the enthalpy, if called with a
+            list of subdomains.
+
+            If called with a list of boundary grids, returns an operator representing
+            boundary values.
+
+        """
+        if len(domains) > 0 and all([isinstance(g, pp.BoundaryGrid) for g in domains]):
+            return self.create_boundary_operator(
+                name=self.enthalpy_variable, domains=domains  # type: ignore[call-arg]
+            )
+
+        # Check that the domains are grids.
+        if not all([isinstance(g, pp.Grid) for g in domains]):
+            raise ValueError(
+                """Argument domains a mixture of subdomain and boundary grids"""
+            )
+
+        domains = cast(list[pp.Grid], domains)
+
+        return self.equation_system.md_variable(self.enthalpy_variable, domains)
+
+
 class ConstitutiveLawsCompositionalFlow(
-    EquilibriumMixin,
     pp.constitutive_laws.ZeroGravityForce,
     pp.constitutive_laws.ConstantSolidDensity,
     pp.constitutive_laws.FouriersLaw,
@@ -36,8 +321,45 @@ class ConstitutiveLawsCompositionalFlow(
     Other constitutive laws for the compositional flow treat (as of now) only
     Darcy's law, Fourier's law, and constant matrix parameters."""
 
+    def relative_permeability(self, saturation: pp.ad.Operator) -> pp.ad.Operator:
+        """Constitutive law implementing the relative permeability.
 
-class SolutionStrategyCompositionalFlow(pp.SolutionStrategy):
+        This basic implementation implements the quadratic law :math:`s_j^2` for a phase
+        :math:`j`. Overwrite for something else.
+
+        Parameters:
+            saturation: Operator representing the saturation of a phase.
+
+        Returns:
+            ``saturation ** 2``.
+
+        """
+        return saturation**2
+
+
+class BoundaryConditionsCompositionalFlow(
+    mass_energy.BoundaryConditionsFluidMassAndEnergy,
+):
+    """Mixin treating boundary conditions for the compositional flow.
+
+    Atop of inheriting the treatment for single phase flow (which is exploited for the
+    total mass balance) and the energy balance (total energy balance), this class has
+    a treatment for BC for component mass balances."""
+
+    bc_data_total_mobility_key: str = "bc_data_total_mobility"
+    """Key for the (time-dependent) BC data for the total mobility in the pressure
+    equation.
+
+    Note that this data is not set, but computed by the algorithm based on BC data for
+    primary and secondary variables.
+
+    """
+
+
+# TODO overwrite methods for iterations, initial conditions, bc update, ...
+class SolutionStrategyCompositionalFlow(
+    mass_energy.SolutionStrategyFluidMassAndEnergy,
+):
     """Solution strategy for compositional flow.
 
     The initialization parameters can contain the following entries:
@@ -87,13 +409,21 @@ class SolutionStrategyCompositionalFlow(pp.SolutionStrategy):
         in the equilibrium problem. As a consequence the equilibrium problem
         can be solved locally using a semi-smooth Newton algorithm."""
 
+        self.enthalpy_variable: str = "enthalpy"
+        """Primary variable in the compositional flow model, denoting the total,
+        transported (specific molar) enthalpy of the fluid mixture."""
+
+        self.total_mobility_keyword: str = "total_mobility"
+        """Keyword for storing the discretization parameters and matrices of the
+        discretization for the total mobility in the pressure equation."""
+
 
 class CompositionalFlow(  # type: ignore[misc]
     MixtureMixin,
-    MassBalanceEquations,
-    VariablesSinglePhaseFlow,
+    EquationsCompositionalFlow,
+    VariablesCompositionalFlow,
     ConstitutiveLawsCompositionalFlow,
-    BoundaryConditionsSinglePhaseFlow,
+    BoundaryConditionsCompositionalFlow,
     SolutionStrategyCompositionalFlow,
     pp.ModelGeometry,
     pp.DataSavingMixin,
@@ -150,3 +480,5 @@ class CompositionalFlow(  # type: ignore[misc]
                 ...
 
     """
+
+    pass
