@@ -153,3 +153,140 @@ def test_unit_conversion(units, uy_north):
     compare_scaled_model_quantities(
         setup_0, setup_1, secondary_variables, secondary_units, domain_dimensions
     )
+
+
+class LithostaticModel(
+    pp.constitutive_laws.GravityForce, pp.momentum_balance.MomentumBalance
+):
+    """Model class to test the computation of lithostatic stress.
+
+    The model sets up a column where the lateral sides (x-direction for 2d, x and y for
+    3d) cannot move in the lateral plane, but is free to move in the vertical direction.
+    The top boundary is free to move in all directions, and the bottom boundary is
+    clamped. The test measures the vertical displacement and compares it to the
+    analytical solution; moreover, it checks that the stress at the bottom of the
+    column matches the weight of the column.
+
+    """
+
+    def __init__(self, params):
+        super().__init__(params)
+
+    def set_domain(self):
+        """The domain is a column of height 10, with a non-trivial cross section."""
+        if self.params["dim"] == 2:
+            domain = {"xmin": 0, "xmax": 42, "ymin": 0, "ymax": 10}
+        elif self.params["dim"] == 3:
+            domain = {
+                "xmin": 0,
+                "xmax": 0.42,
+                "ymin": 0,
+                "ymax": 0.42,
+                "zmin": 0,
+                "zmax": 10,
+            }
+
+        self._domain = pp.Domain(domain)
+
+    def meshing_arguments(self):
+        # A single cell in the x and (for 3d) y direction. 100 cells in the z direction.
+        if self.params["dim"] == 2:
+            default_meshing_args: dict[str, float] = {
+                "cell_size_x": 42.0,
+                "cell_size_y": 0.4,
+            }
+        elif self.params["dim"] == 3:
+            default_meshing_args: dict[str, float] = {
+                "cell_size_x": 0.42,
+                "cell_size_y": 0.42,
+                "cell_size_z": 0.4,
+            }
+        return default_meshing_args
+
+    def bc_type_mechanics(self, sd: pp.Grid) -> pp.BoundaryConditionVectorial:
+        """Lateral sides: No motion in the x-direction (xy-plane for 3d), free motion in the
+        vertical direction. Bottom: No motion. Top: Free motion.
+
+        """
+        # Define boundary faces.
+        boundary_faces = self.domain_boundary_sides(sd).all_bf
+        bc = pp.BoundaryConditionVectorial(sd, boundary_faces, "dir")
+        domain_sides = self.domain_boundary_sides(sd)
+
+        if self.nd == 2:
+            lateral_sides = np.logical_or.reduce((domain_sides.east, domain_sides.west))
+            top_side = domain_sides.north
+        elif self.nd == 3:
+            lateral_sides = np.logical_or.reduce(
+                (
+                    domain_sides.east,
+                    domain_sides.west,
+                    domain_sides.north,
+                    domain_sides.south,
+                )
+            )
+            top_side = domain_sides.top
+
+        bc.is_neu[self.nd - 1, lateral_sides] = True
+        bc.is_dir[self.nd - 1, lateral_sides] = False
+        bc.is_neu[:, top_side] = True
+        bc.is_dir[:, top_side] = False
+
+        return bc
+
+
+@pytest.mark.parametrize("dim", [2, 3])
+def test_lithostatic(dim: int):
+    """Test that the solution is qualitatively sound.
+
+    Parameters:
+        solid_vals (dict): Dictionary with keys as those in :class:`pp.SolidConstants`
+            and corresponding values.
+        north_displacement (float): Value of displacement on the north boundary.
+        expected_x_y (tuple): Expected values of the displacement in the x and y.
+            directions. The values are used to infer sign of displacement solution.
+
+    """
+    # Create model and run simulation
+    model = LithostaticModel({"dim": dim, "suppress_export": True})
+    pp.run_stationary_model(model, {})
+
+    # Check that the pressure is linear
+    sd = model.mdg.subdomains(dim=model.nd)[0]
+    # Fetch the displacement variable and convert it to an model.nd x model.num_cells
+    # array.
+    var = model.equation_system.get_variables([model.displacement_variable], [sd])
+    vals = model.equation_system.get_variable_values(variables=var, time_step_index=0)
+    vals = vals.reshape((model.nd, -1), order="F")
+
+    # Analytical displacement.
+    g = model.solid.convert_units(pp.GRAVITY_ACCELERATION, "m * s^-2")
+    rho = model.solid.convert_units(model.solid.density(), "kg * m^-3")
+    data = model.mdg.subdomain_data(sd)
+    stiffness = data[pp.PARAMETERS][model.stress_keyword]["fourth_order_tensor"]
+    E = 2 * stiffness.mu[0] + stiffness.lmbda[0]
+    z_max = sd.nodes[model.nd - 1].max()
+    z = sd.cell_centers[model.nd - 1]
+    u_z = -rho * g / E * (z_max * z - z**2 / 2)
+
+    for i in range(model.nd - 1):
+        assert np.allclose(vals[i], 0)
+    # EK, note for future reference (e.g., debugging): The difference between the
+    # computed and analytical vertical displacement is uniform throughout the domain.
+    # For reference, its value in 3d, with a grid size of 0.1 in the z-direction of
+    # maginute and with a domain height of 10 is 0.0040861. Refining the grid with one
+    # order of magnitude, seems to reduce the error by precisely (?) two orders of
+    # magnitude. It is unclear to EK whether this is significant or not.
+    assert np.allclose(vals[model.nd - 1], u_z, 7e-2)
+
+    # Computed stress at the bottom of the domain.
+    computed_stress = (
+        model.stress([sd])
+        .value(model.equation_system)
+        .reshape((model.nd, -1), order="F")
+    )
+    bottom_face = np.where(model.domain_boundary_sides(sd).bottom)[0]
+    bottom_traction = computed_stress[model.nd - 1, bottom_face]
+    # The stress at the bottom of the domain should be equal to the weight of the
+    # column.
+    assert np.allclose(bottom_traction, -rho * g * sd.cell_volumes.sum())
