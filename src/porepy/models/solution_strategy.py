@@ -451,7 +451,7 @@ class SolutionStrategy(abc.ABC):
         self.convergence_status = True
 
         times_to_export = self.params.get("times_to_export", None)
-        self.export_solution(times_to_export=times_to_export)
+        self.export_solution(times_to_export=times_to_export)  # type: ignore
 
     def after_nonlinear_failure(
         self, solution: np.ndarray, errors: float, iteration_counter: int
@@ -647,7 +647,7 @@ class SolutionStrategy(abc.ABC):
                 exported. Empty lists/arrays means that no time steps are exported.
 
         """
-        if times_to_export == None:
+        if times_to_export is None:
             self.save_data_time_step()
         elif isinstance(times_to_export, list) or isinstance(
             times_to_export, np.ndarray
