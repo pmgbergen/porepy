@@ -1,5 +1,4 @@
-"""
-This module contains the implementation of Case 1 from the 2D flow benchmark [1].
+"""This module contains the implementation of Case 1 from the 2D flow benchmark [1].
 
 Note:
     We provide the two variants of this benchmark, i.e., Case 1a (conductiv fractures)
@@ -13,13 +12,44 @@ References:
       media. Advances in Water Resources, 111, 239-258.
 
 """
+from typing import Callable, Union
+
 import numpy as np
 
 import porepy as pp
 from porepy.applications.discretizations.flux_discretization import FluxDiscretization
 from porepy.models.constitutive_laws import DimensionDependentPermeability
 
-solid_constants = pp.SolidConstants({"residual_aperture": 1e-4})
+
+class FractureSolidConstants(pp.SolidConstants):
+    """Solid constants tailored to the current model."""
+
+    @property
+    def default_constants(self):
+        """Add the additional parameter `fracture_permeability`."""
+        constants = super().default_constants
+        constants.update({"fracture_permeability": 1.0})
+        return constants
+
+    def fracture_permeability(self) -> float:
+        """Permeability of fractures [m^2]."""
+        return self.convert_units(self.constants["fracture_permeability"], "m^2")
+
+
+solid_constants_conductive_fractures = FractureSolidConstants(
+    {
+        "residual_aperture": 1e-4,
+        "fracture_permeability": 1e4,
+        "normal_permeability": 1e4,
+    }
+)
+solid_constants_blocking_fractures = FractureSolidConstants(
+    {
+        "residual_aperture": 1e-4,
+        "fracture_permeability": 1e-4,
+        "normal_permeability": 1e-4,
+    }
+)
 
 
 class Geometry:
@@ -34,6 +64,32 @@ class BoundaryConditions:
     """Boundary conditions for Case 1 of the 2D flow benchmark.
 
     Inflow on west (left) and prescribed pressure on east (right).
+
+    """
+
+    domain_boundary_sides: Callable[[pp.Grid | pp.BoundaryGrid], pp.domain.DomainSides]
+    """Boundary sides of the domain. Defined by a mixin instance of
+    :class:`~porepy.models.geometry.ModelGeometry`.
+
+    """
+    fluid: pp.FluidConstants
+    """Fluid constant object that takes care of scaling of fluid-related quantities.
+    Normally, this is set by a mixin of instance
+    :class:`~porepy.models.solution_strategy.SolutionStrategy`.
+
+    """
+    specific_volume: Callable[
+        [Union[list[pp.Grid], list[pp.MortarGrid]]], pp.ad.Operator
+    ]
+    """Function that returns the specific volume of a subdomain or interface.
+
+    Normally provided by a mixin of instance
+    :class:`~porepy.models.constitutive_laws.DimensionReduction`.
+
+    """
+    equation_system: pp.ad.EquationSystem
+    """EquationSystem object for the current model. Normally defined in a mixin class
+    defining the solution strategy.
 
     """
 
@@ -86,6 +142,16 @@ class Permeability(DimensionDependentPermeability):
 
     """
 
+    params: dict
+    """Dictionary of parameters."""
+    solid: FractureSolidConstants
+    """Solid constant object that takes care of scaling of solid-related quantities.
+
+    Tailored to the current model with the additional parameter
+    `fracture_permeability`.
+
+    """
+
     def fracture_permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Permeability of fractures.
 
@@ -97,9 +163,8 @@ class Permeability(DimensionDependentPermeability):
 
         """
         size = sum([sd.num_cells for sd in subdomains])
-        val = self.params.get("fracture_permeability", 1e-4)
         permeability = pp.wrap_as_dense_ad_array(
-            self.solid.convert_units(val, "m^2"), size
+            self.solid.fracture_permeability(), size, name="fracture permeability"
         )
         return self.isotropic_second_order_tensor(subdomains, permeability)
 
