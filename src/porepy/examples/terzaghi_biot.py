@@ -399,7 +399,9 @@ class TerzaghiUtils(VerificationUtils):
     # ---> Methods related to plotting
     def plot_results(self) -> None:
         """Plotting the results."""
-        cmap = mcolors.ListedColormap(plt.cm.tab20.colors[: len(self.results)])
+        cmap = mcolors.ListedColormap(
+            plt.cm.tab20.colors[: len(self.results)]  # type:ignore [attr-defined]
+        )
         self._pressure_plot(color_map=cmap)
         self._consolidation_degree_plot(color_map=cmap)
 
@@ -421,12 +423,12 @@ class TerzaghiUtils(VerificationUtils):
             ax.plot(
                 self.nondim_pressure(self.exact_sol.pressure(y=y_ex, t=t)),
                 self.nondim_length(y_ex),
-                color=color_map.colors[idx],
+                color=color_map.colors[idx],  # type:ignore [index]
             )
             ax.plot(
                 self.nondim_pressure(np.array(result.approx_pressure)),
                 nondim_vertical_coo,
-                color=color_map.colors[idx],
+                color=color_map.colors[idx],  # type:ignore [index]
                 linewidth=0,
                 marker=".",
                 markersize=8,
@@ -434,7 +436,7 @@ class TerzaghiUtils(VerificationUtils):
             ax.plot(
                 [],
                 [],
-                color=color_map.colors[idx],
+                color=color_map.colors[idx],  # type:ignore [index]
                 linewidth=0,
                 marker="s",
                 markersize=12,
@@ -474,12 +476,15 @@ class TerzaghiUtils(VerificationUtils):
 
         fig, ax = plt.subplots(figsize=(9, 8))
         ax.semilogx(
-            nondim_t_ex, exact_consolidation, color=color_map.colors[0], label="Exact"
+            nondim_t_ex,
+            exact_consolidation,
+            color=color_map.colors[0],  # type:ignore [index]
+            label="Exact",
         )
         ax.semilogx(
             nondim_t,
             numerical_consolidation,
-            color=color_map.colors[0],
+            color=color_map.colors[0],  # type:ignore [index]
             linewidth=0,
             marker=".",
             markersize=12,
