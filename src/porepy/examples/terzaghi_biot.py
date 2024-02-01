@@ -36,7 +36,7 @@ References:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Callable
+from typing import Callable, cast
 
 import matplotlib.colors as mcolors  # type: ignore
 import matplotlib.pyplot as plt
@@ -44,10 +44,10 @@ import numpy as np
 
 import porepy as pp
 import porepy.models.fluid_mass_balance as mass
-import porepy.models.poromechanics as poromechanics
 import porepy.models.momentum_balance as mechanics
-from porepy.models.derived_models.biot import BiotPoromechanics
+import porepy.models.poromechanics as poromechanics
 from porepy.applications.convergence_analysis import ConvergenceAnalysis
+from porepy.models.derived_models.biot import BiotPoromechanics
 from porepy.utils.examples_utils import VerificationUtils
 from porepy.viz.data_saving_model_mixin import VerificationDataSaving
 
@@ -158,7 +158,7 @@ class TerzaghiDataSaving(VerificationDataSaving):
         error_pressure = ConvergenceAnalysis.l2_error(
             grid=sd,
             true_array=exact_pressure,
-            approx_array=approx_pressure,
+            approx_array=cast(np.ndarray, approx_pressure),
             is_scalar=True,
             is_cc=True,
             relative=True,
@@ -175,8 +175,8 @@ class TerzaghiDataSaving(VerificationDataSaving):
 
         # Store collected data in data class
         collected_data = TerzaghiSaveData(
-            approx_displacement=approx_displacement,
-            approx_pressure=approx_pressure,
+            approx_displacement=cast(np.ndarray, approx_displacement),
+            approx_pressure=cast(np.ndarray, approx_pressure),
             error_pressure=error_pressure,
             exact_pressure=exact_pressure,
             approx_consolidation_degree=approx_consolidation_degree,
@@ -399,7 +399,9 @@ class TerzaghiUtils(VerificationUtils):
     # ---> Methods related to plotting
     def plot_results(self) -> None:
         """Plotting the results."""
-        cmap = mcolors.ListedColormap(plt.cm.tab20.colors[: len(self.results)])
+        cmap = mcolors.ListedColormap(
+            plt.cm.tab20.colors[: len(self.results)]  # type:ignore [attr-defined]
+        )
         self._pressure_plot(color_map=cmap)
         self._consolidation_degree_plot(color_map=cmap)
 
@@ -421,12 +423,12 @@ class TerzaghiUtils(VerificationUtils):
             ax.plot(
                 self.nondim_pressure(self.exact_sol.pressure(y=y_ex, t=t)),
                 self.nondim_length(y_ex),
-                color=color_map.colors[idx],
+                color=color_map.colors[idx],  # type:ignore [index]
             )
             ax.plot(
                 self.nondim_pressure(np.array(result.approx_pressure)),
                 nondim_vertical_coo,
-                color=color_map.colors[idx],
+                color=color_map.colors[idx],  # type:ignore [index]
                 linewidth=0,
                 marker=".",
                 markersize=8,
@@ -434,7 +436,7 @@ class TerzaghiUtils(VerificationUtils):
             ax.plot(
                 [],
                 [],
-                color=color_map.colors[idx],
+                color=color_map.colors[idx],  # type:ignore [index]
                 linewidth=0,
                 marker="s",
                 markersize=12,
@@ -474,12 +476,15 @@ class TerzaghiUtils(VerificationUtils):
 
         fig, ax = plt.subplots(figsize=(9, 8))
         ax.semilogx(
-            nondim_t_ex, exact_consolidation, color=color_map.colors[0], label="Exact"
+            nondim_t_ex,
+            exact_consolidation,
+            color=color_map.colors[0],  # type:ignore [index]
+            label="Exact",
         )
         ax.semilogx(
             nondim_t,
             numerical_consolidation,
-            color=color_map.colors[0],
+            color=color_map.colors[0],  # type:ignore [index]
             linewidth=0,
             marker=".",
             markersize=12,
