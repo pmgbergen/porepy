@@ -12,17 +12,15 @@ Reference:
       103759. https://doi.org/10.1016/j.advwatres.2020.103759
 
 """
-import sys
-
 import numpy as np
 import pytest
 
 import porepy as pp
 
-# Append the top PorePy folder to the path, to allow for imports of the examples folder
-sys.path.append("../..")
-
-from examples.flow_benchmark_3d_case_3 import FlowBenchmark3dCase3Model, solid_constants
+from porepy.examples.flow_benchmark_3d_case_3 import (
+    FlowBenchmark3dCase3Model,
+    solid_constants
+)
 
 
 class ModelWithEffectivePermeability(FlowBenchmark3dCase3Model):
