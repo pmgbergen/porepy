@@ -97,7 +97,7 @@ class BoundaryConditions:
         """Pressure value of 1 Pa on east side."""
         bounds = self.domain_boundary_sides(boundary_grid)
         values = np.zeros(boundary_grid.num_cells)
-        values[bounds.west] = self.fluid.convert_units(1, "Pa")
+        values[bounds.east] = self.fluid.convert_units(1, "Pa")
         return values
 
     def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
