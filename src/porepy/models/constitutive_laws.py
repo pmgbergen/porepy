@@ -3094,7 +3094,7 @@ class GravityForce:
             material: Name of the material. Could be either "fluid" or "solid".
 
         Returns:
-            Cell-wise nd-vector representing the gravity force [kg*s^-2*m^-(nd-1)].
+            Cell-wise nd-vector representing the gravity force [kg*s^-2*m^-2].
 
         """
         val = self.fluid.convert_units(pp.GRAVITY_ACCELERATION, "m*s^-2")
