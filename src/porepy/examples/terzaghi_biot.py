@@ -36,7 +36,7 @@ References:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Callable
+from typing import Callable, cast
 
 import matplotlib.colors as mcolors  # type: ignore
 import matplotlib.pyplot as plt
@@ -158,7 +158,7 @@ class TerzaghiDataSaving(VerificationDataSaving):
         error_pressure = ConvergenceAnalysis.l2_error(
             grid=sd,
             true_array=exact_pressure,
-            approx_array=approx_pressure,
+            approx_array=cast(np.ndarray, approx_pressure),
             is_scalar=True,
             is_cc=True,
             relative=True,
@@ -175,8 +175,8 @@ class TerzaghiDataSaving(VerificationDataSaving):
 
         # Store collected data in data class
         collected_data = TerzaghiSaveData(
-            approx_displacement=approx_displacement,
-            approx_pressure=approx_pressure,
+            approx_displacement=cast(np.ndarray, approx_displacement),
+            approx_pressure=cast(np.ndarray, approx_pressure),
             error_pressure=error_pressure,
             exact_pressure=exact_pressure,
             approx_consolidation_degree=approx_consolidation_degree,

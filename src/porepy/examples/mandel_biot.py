@@ -23,7 +23,7 @@ References:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Callable, Literal, Union
+from typing import Callable, Literal, Union, cast
 
 import matplotlib.colors as mcolors  # type: ignore
 import matplotlib.pyplot as plt
@@ -178,7 +178,7 @@ class MandelDataSaving(VerificationDataSaving):
         error_pressure = ConvergenceAnalysis.l2_error(
             grid=sd,
             true_array=exact_pressure,
-            approx_array=approx_pressure,
+            approx_array=cast(np.ndarray, approx_pressure),
             is_scalar=True,
             is_cc=True,
             relative=True,
@@ -190,7 +190,7 @@ class MandelDataSaving(VerificationDataSaving):
         error_displacement = ConvergenceAnalysis.l2_error(
             grid=sd,
             true_array=exact_displacement,
-            approx_array=approx_displacement,
+            approx_array=cast(np.ndarray, approx_displacement),
             is_scalar=False,
             is_cc=True,
             relative=True,
@@ -203,7 +203,7 @@ class MandelDataSaving(VerificationDataSaving):
         error_flux = ConvergenceAnalysis.l2_error(
             grid=sd,
             true_array=exact_flux,
-            approx_array=approx_flux,
+            approx_array=cast(np.ndarray, approx_flux),
             is_scalar=True,
             is_cc=False,
             relative=True,
@@ -215,7 +215,7 @@ class MandelDataSaving(VerificationDataSaving):
         error_force = ConvergenceAnalysis.l2_error(
             grid=sd,
             true_array=exact_force,
-            approx_array=approx_force,
+            approx_array=cast(np.ndarray, approx_force),
             is_scalar=False,
             is_cc=False,
             relative=True,
@@ -237,10 +237,10 @@ class MandelDataSaving(VerificationDataSaving):
         # Store collected data in data class
         collected_data = MandelSaveData(
             approx_consolidation_degree=approx_consolidation_degree,
-            approx_displacement=approx_displacement,
-            approx_flux=approx_flux,
-            approx_force=approx_force,
-            approx_pressure=approx_pressure,
+            approx_displacement=cast(np.ndarray, approx_displacement),
+            approx_flux=cast(np.ndarray, approx_flux),
+            approx_force=cast(np.ndarray, approx_force),
+            approx_pressure=cast(np.ndarray, approx_pressure),
             error_consolidation_degree=error_consolidation_degree,
             error_displacement=error_displacement,
             error_flux=error_flux,
