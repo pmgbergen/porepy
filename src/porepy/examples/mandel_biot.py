@@ -639,7 +639,7 @@ class MandelUtils(VerificationUtils):
     domain: pp.Domain
     """Domain specification. Set by an instance of :class:`~MandelGeometry`."""
 
-    domain_boundary_sides: Callable[[pp.Grid], pp.domain.DomainSides]
+    domain_boundary_sides: Callable[[pp.Grid | pp.BoundaryGrid], pp.domain.DomainSides]
     """Boundary sides of the domain. Defined by a mixin instance of
     :class:`~porepy.models.geometry.ModelGeometry`.
 
@@ -1341,7 +1341,7 @@ class MandelBoundaryConditionsMechanicsTimeDependent(
 
 
 class MandelBoundaryConditionsSinglePhaseFlow(mass.BoundaryConditionsSinglePhaseFlow):
-    domain_boundary_sides: Callable[[pp.Grid], pp.domain.DomainSides]
+    domain_boundary_sides: Callable[[pp.Grid | pp.BoundaryGrid], pp.domain.DomainSides]
     """Boundary sides of the domain. Normally defined in a mixin instance of
     :class:`~porepy.models.geometry.ModelGeometry`.
 
