@@ -9,7 +9,6 @@ import warnings
 from typing import Optional, Union
 
 import meshio
-import networkx
 import numpy as np
 
 import porepy as pp
@@ -114,7 +113,7 @@ class FractureNetwork2d:
         This will include intersection points identified.
         """
 
-        # -----> Logging
+        # Logging
         if self.fractures is not None:
             logger.info("Generated empty fracture set")
         elif self._pts is not None and self._edges is not None:
@@ -1099,7 +1098,6 @@ class FractureNetwork2d:
 
     """
     End of methods related to meshing
-    ---------------------------------
     """
 
     def constrain_to_domain(
@@ -1269,54 +1267,7 @@ class FractureNetwork2d:
 
         return fn
 
-    # --------- Methods for analysis of the fracture set
-
-    def as_graph(
-        self, split_intersections: bool = True
-    ) -> Union[networkx.Graph, tuple[networkx.Graph, FractureNetwork2d]]:
-        """Represent the fracture set as a graph, using the networkx data structure.
-
-        By default, the fractures will first be split into non-intersecting branches.
-
-        Parameters:
-            split_intersections: ``default=True``
-
-                Flag if the network should be split into non-intersecting branches
-                before invoking the graph representation.
-
-        Returns:
-            Graph representation of the network, using the networkx data structure,
-            and if ``split_intersections=True``, also the fracture network,
-            split into non-intersecting branches.
-
-        """
-        if split_intersections:
-            # FIXME: The method split_intersections() does not exist. EK: Suggestions?
-            split_network = self.split_intersections()  # type: ignore[attr-defined]
-            pts = split_network._pts
-            edges = split_network._edges
-        else:
-            edges = self._edges
-            pts = self._pts
-
-        import networkx as nx
-
-        G = nx.Graph()
-        for pi in range(pts.shape[1]):
-            G.add_node(pi, coordinate=pts[:, pi])
-
-        for ei in range(edges.shape[1]):
-            tags = {}
-            for key, value in split_network.tags.items():
-                tags[key] = value[ei]
-            G.add_edge(edges[0, ei], edges[1, ei], labels=tags)
-
-        if split_intersections:
-            return G, split_network
-        else:
-            return G
-
-    # --------- Utility functions below here
+    # Utility functions below here
 
     def num_frac(self) -> int:
         """

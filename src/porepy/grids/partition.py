@@ -973,7 +973,7 @@ def grid_is_connected(
             component.
 
     """
-    import networkx
+    import networkx as nx
 
     # If no cell indices are specified, we use them all.
     if cell_ind is None:
@@ -988,13 +988,13 @@ def grid_is_connected(
     c2c = c2c.tocsr()[cell_ind, :].tocsc()[:, cell_ind]
 
     # Represent the connections as a networkx graph and check for connectivity
-    graph = networkx.from_scipy_sparse_array(c2c)
-    is_connected = networkx.is_connected(graph)
+    graph = nx.from_scipy_sparse_array(c2c)
+    is_connected = nx.is_connected(graph)
 
     # Get the connected components of the network.
     # networkx gives a generator that produce sets of node indices. Use this to define a
     # list of numpy arrays.
-    component_generator = networkx.connected_components(graph)
+    component_generator = nx.connected_components(graph)
     components = [np.array(list(i)) for i in component_generator]
 
     return is_connected, components

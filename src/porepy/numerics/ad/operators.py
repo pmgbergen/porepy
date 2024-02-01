@@ -8,8 +8,6 @@ from functools import reduce
 from itertools import count
 from typing import Any, Literal, Optional, Sequence, Union, overload
 
-import matplotlib.pyplot as plt
-import networkx as nx
 import numpy as np
 import scipy.sparse as sps
 
@@ -588,6 +586,9 @@ class Operator:
 
     def viz(self):
         """Draws a visualization of the operator tree that has this operator as its root."""
+        import matplotlib.pyplot as plt
+        import networkx as nx
+
         G = nx.Graph()
 
         def parse_subgraph(node: Operator):

@@ -23,20 +23,20 @@ References:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Callable, Literal, Union
+from typing import Callable, Literal, Union, cast
 
 import matplotlib.colors as mcolors  # type: ignore
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy.optimize as opt
-import scipy.sparse as sps
-from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_data
+
 import porepy as pp
 import porepy.models.fluid_mass_balance as mass
-import porepy.models.poromechanics as poromechanics
 import porepy.models.momentum_balance as momentum_balance
-from porepy.models.derived_models.biot import BiotPoromechanics
+import porepy.models.poromechanics as poromechanics
 from porepy.applications.convergence_analysis import ConvergenceAnalysis
+from porepy.models.derived_models.biot import BiotPoromechanics
+from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_data
 from porepy.utils.examples_utils import VerificationUtils
 from porepy.viz.data_saving_model_mixin import VerificationDataSaving
 
@@ -178,7 +178,7 @@ class MandelDataSaving(VerificationDataSaving):
         error_pressure = ConvergenceAnalysis.l2_error(
             grid=sd,
             true_array=exact_pressure,
-            approx_array=approx_pressure,
+            approx_array=cast(np.ndarray, approx_pressure),
             is_scalar=True,
             is_cc=True,
             relative=True,
@@ -190,7 +190,7 @@ class MandelDataSaving(VerificationDataSaving):
         error_displacement = ConvergenceAnalysis.l2_error(
             grid=sd,
             true_array=exact_displacement,
-            approx_array=approx_displacement,
+            approx_array=cast(np.ndarray, approx_displacement),
             is_scalar=False,
             is_cc=True,
             relative=True,
@@ -203,7 +203,7 @@ class MandelDataSaving(VerificationDataSaving):
         error_flux = ConvergenceAnalysis.l2_error(
             grid=sd,
             true_array=exact_flux,
-            approx_array=approx_flux,
+            approx_array=cast(np.ndarray, approx_flux),
             is_scalar=True,
             is_cc=False,
             relative=True,
@@ -215,7 +215,7 @@ class MandelDataSaving(VerificationDataSaving):
         error_force = ConvergenceAnalysis.l2_error(
             grid=sd,
             true_array=exact_force,
-            approx_array=approx_force,
+            approx_array=cast(np.ndarray, approx_force),
             is_scalar=False,
             is_cc=False,
             relative=True,
@@ -237,10 +237,10 @@ class MandelDataSaving(VerificationDataSaving):
         # Store collected data in data class
         collected_data = MandelSaveData(
             approx_consolidation_degree=approx_consolidation_degree,
-            approx_displacement=approx_displacement,
-            approx_flux=approx_flux,
-            approx_force=approx_force,
-            approx_pressure=approx_pressure,
+            approx_displacement=cast(np.ndarray, approx_displacement),
+            approx_flux=cast(np.ndarray, approx_flux),
+            approx_force=cast(np.ndarray, approx_force),
+            approx_pressure=cast(np.ndarray, approx_pressure),
             error_consolidation_degree=error_consolidation_degree,
             error_displacement=error_displacement,
             error_flux=error_flux,
@@ -907,12 +907,12 @@ class MandelUtils(VerificationUtils):
                 self.nondim_pressure(
                     self.exact_sol.pressure_profile(x_ex, result.time)
                 ),
-                color=color_map.colors[idx],
+                color=color_map.colors[idx],  # type:ignore [index]
             )
             ax.plot(
                 self.nondim_x(xc[south_cells]),
                 self.nondim_pressure(result.approx_pressure[south_cells]),
-                color=color_map.colors[idx],
+                color=color_map.colors[idx],  # type:ignore [index]
                 linewidth=0,
                 marker=".",
                 markersize=8,
@@ -920,7 +920,7 @@ class MandelUtils(VerificationUtils):
             ax.plot(
                 [],
                 [],
-                color=color_map.colors[idx],
+                color=color_map.colors[idx],  # type:ignore [index]
                 linewidth=0,
                 marker="s",
                 markersize=12,
@@ -954,12 +954,12 @@ class MandelUtils(VerificationUtils):
                 self.nondim_x(
                     self.exact_sol.horizontal_displacement_profile(x_ex, result.time)
                 ),
-                color=color_map.colors[idx],
+                color=color_map.colors[idx],  # type:ignore [index]
             )
             ax.plot(
                 self.nondim_x(xc[south_cells]),
                 self.nondim_x(result.approx_displacement[::2][south_cells]),
-                color=color_map.colors[idx],
+                color=color_map.colors[idx],  # type:ignore [index]
                 linewidth=0,
                 marker=".",
                 markersize=8,
@@ -967,7 +967,7 @@ class MandelUtils(VerificationUtils):
             ax.plot(
                 [],
                 [],
-                color=color_map.colors[idx],
+                color=color_map.colors[idx],  # type:ignore [index]
                 linewidth=0,
                 marker="s",
                 markersize=12,
@@ -1003,12 +1003,12 @@ class MandelUtils(VerificationUtils):
                 self.nondim_y(
                     self.exact_sol.vertical_displacement_profile(y_ex, result.time)
                 ),
-                color=color_map.colors[idx],
+                color=color_map.colors[idx],  # type:ignore [index]
             )
             ax.plot(
                 self.nondim_y(yc[east_cells]),
                 self.nondim_y(result.approx_displacement[1::2][east_cells]),
-                color=color_map.colors[idx],
+                color=color_map.colors[idx],  # type:ignore [index]
                 linewidth=0,
                 marker=".",
                 markersize=8,
@@ -1016,7 +1016,7 @@ class MandelUtils(VerificationUtils):
             ax.plot(
                 [],
                 [],
-                color=color_map.colors[idx],
+                color=color_map.colors[idx],  # type:ignore [index]
                 linewidth=0,
                 marker="s",
                 markersize=12,
@@ -1059,7 +1059,7 @@ class MandelUtils(VerificationUtils):
                 self.nondim_flux(
                     self.exact_sol.horizontal_velocity_profile(x_ex, result.time)
                 ),
-                color=color_map.colors[idx],
+                color=color_map.colors[idx],  # type:ignore [index]
             )
             ax.plot(
                 self.nondim_x(xf[int_faces_of_south_cells]),
@@ -1067,7 +1067,7 @@ class MandelUtils(VerificationUtils):
                     result.approx_flux[int_faces_of_south_cells]
                     / nx[int_faces_of_south_cells]
                 ),
-                color=color_map.colors[idx],
+                color=color_map.colors[idx],  # type:ignore [index]
                 linewidth=0,
                 marker=".",
                 markersize=8,
@@ -1075,7 +1075,7 @@ class MandelUtils(VerificationUtils):
             ax.plot(
                 [],
                 [],
-                color=color_map.colors[idx],
+                color=color_map.colors[idx],  # type:ignore [index]
                 linewidth=0,
                 marker="s",
                 markersize=12,
@@ -1116,14 +1116,14 @@ class MandelUtils(VerificationUtils):
                 self.nondim_pressure(
                     self.exact_sol.vertical_stress_profile(x_ex, result.time)
                 ),
-                color=color_map.colors[idx],
+                color=color_map.colors[idx],  # type:ignore [index]
             )
             ax.plot(
                 self.nondim_x(xf[south_faces]),
                 self.nondim_pressure(
                     result.approx_force[1 :: sd.dim][south_faces] / ny[south_faces]
                 ),
-                color=color_map.colors[idx],
+                color=color_map.colors[idx],  # type:ignore [index]
                 linewidth=0,
                 marker=".",
                 markersize=8,
@@ -1131,7 +1131,7 @@ class MandelUtils(VerificationUtils):
             ax.plot(
                 [],
                 [],
-                color=color_map.colors[idx],
+                color=color_map.colors[idx],  # type:ignore [index]
                 linewidth=0,
                 marker="s",
                 markersize=12,

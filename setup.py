@@ -1,11 +1,5 @@
-import os.path
-from glob import glob
-
+"""Set-up file for PorePy for installations usins ``pip install .``"""
 from setuptools import find_packages, setup
-
-
-def read(fname):
-    return open(os.path.join(os.path.dirname(__file__), fname)).read()
 
 
 with open("requirements.txt") as f:
@@ -14,6 +8,7 @@ with open("requirements.txt") as f:
 
 setup(
     name="porepy",
+    url="https://github.com/pmgbergen/porepy",
     version="1.8.0",
     license="GPL",
     keywords=["porous media simulation fractures deformable"],
@@ -31,8 +26,5 @@ setup(
     },
     packages=find_packages("src"),
     package_dir={"": "src"},
-    py_modules=[
-        os.path.splitext(os.path.basename(path))[0] for path in glob("src/*.py")
-    ],
     zip_safe=False,
 )
