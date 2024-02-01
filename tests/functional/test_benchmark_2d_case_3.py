@@ -12,17 +12,13 @@ Reference:
       media. Advances in Water Resources, 111, 239-258.
 
 """
-import sys
-
 import numpy as np
 import pytest
 
 import porepy as pp
 
-# Append the top PorePy folder to the path, to allow for imports of the examples folder
-sys.path.append("../..")
 
-from examples.flow_benchmark_2d_case_3 import (
+from porepy.examples.flow_benchmark_2d_case_3 import (
     FlowBenchmark2dCase3aModel,
     FlowBenchmark2dCase3bModel,
     solid_constants,
