@@ -13,7 +13,6 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 
 import meshio
 import numpy as np
-from deepdiff import DeepDiff
 
 import porepy as pp
 
@@ -339,6 +338,8 @@ class Exporter:
                 corresponding grid.
 
         """
+        import meshio
+        from deepdiff import DeepDiff
 
         # Aux. method: Inverse of _to_vector_format, used to define vector-ranged values
         def _from_vector_format(

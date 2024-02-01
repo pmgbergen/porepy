@@ -1,5 +1,5 @@
 import numpy as np
-import scipy as sp
+from scipy.linalg import lstsq
 
 
 class AndersonAcceleration:
@@ -52,7 +52,7 @@ class AndersonAcceleration:
             self._Gk[:, col] = gk - self._gkm1
 
             # Solve least squares problem
-            lstsq_solution = sp.linalg.lstsq(self._Fk[:, 0:mk], fk)
+            lstsq_solution = lstsq(self._Fk[:, 0:mk], fk)
             gamma_k = lstsq_solution[0]
             # Do the mixing
             xkp1 = gk - np.dot(self._Gk[:, 0:mk], gamma_k)

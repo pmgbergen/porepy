@@ -13,7 +13,6 @@ import warnings
 from typing import Optional, Union
 
 import meshio
-import networkx as nx
 import numpy as np
 from scipy.spatial import ConvexHull
 
@@ -1593,6 +1592,8 @@ class FractureNetwork3d(object):
                     deleted, since they were outside the bounding box.
 
         """
+        import networkx as nx
+
         if domain is None and not self.fractures:
             # Cannot automatically calculate external boundary for non-fractured grids.
             raise ValueError(
