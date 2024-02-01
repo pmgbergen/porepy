@@ -714,7 +714,6 @@ class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
     specific_volume: Callable[
         [Union[list[pp.Grid], list[pp.MortarGrid]]], pp.ad.Operator
     ]
-
     """Function that returns the specific volume of a subdomain or interface.
 
     Normally provided by a mixin of instance
