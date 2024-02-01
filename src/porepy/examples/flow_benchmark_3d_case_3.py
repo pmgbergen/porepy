@@ -15,7 +15,7 @@ References:
         103759.
 
 """
-from typing import Callable
+from typing import Callable, cast
 
 import numpy as np
 
@@ -48,7 +48,7 @@ class FlowBenchmark3dCase3Geometry(pp.ModelGeometry):
         self.nd: int = self.mdg.dim_max()
 
         # Obtain domain and fracture list directly from the fracture network.
-        self._domain = self.fracture_network.domain
+        self._domain = cast(pp.Domain, self.fracture_network.domain)
         self._fractures = self.fracture_network.fractures
 
         # Create projections between local and global coordinates for fracture grids.
