@@ -1,17 +1,5 @@
 """Set-up file for PorePy for installations usins ``pip install .``"""
-
-# import os
-# from glob import glob
 from setuptools import find_packages, setup
-
-# Defining porepy source packages and a map
-# (subpackage) -> directory (relative to setup.py)
-src_packages = find_packages("src")
-package_dir = dict([(p, f'src/{p.replace(".", "/")}') for p in src_packages])
-
-# Adding the examples as a subpackage and adding its directory (not found in src)
-packages = src_packages + ["porepy.examples"]
-package_dir["porepy.examples"] = "examples"
 
 
 with open("requirements.txt") as f:
@@ -36,12 +24,7 @@ setup(
             "applications/md_grids/gmsh_file_library/**/*.geo",
         ],
     },
-    packages=packages,
-    package_dir=package_dir,
-    # NOTE this is left for future reference: Relevant when unpackaged py-files are
-    # added to src/ (free-standing modules)
-    # py_modules=[
-    #     os.path.splitext(os.path.basename(path))[0] for path in glob("src/*.py")
-    # ],
+    packages=find_packages("src"),
+    package_dir={"": "src"},
     zip_safe=False,
 )
