@@ -450,7 +450,7 @@ class SolutionStrategy(abc.ABC):
         )
         self.convergence_status = True
 
-        times_to_export = self.params.get("times_to_export", "all")
+        times_to_export = self.params.get("times_to_export", None)
         self.export_solution(times_to_export=times_to_export)
 
     def after_nonlinear_failure(
@@ -638,21 +638,21 @@ class SolutionStrategy(abc.ABC):
         """
         self.update_all_boundary_conditions()
 
-    def export_solution(self, times_to_export: Union[str, np.ndarray]) -> None:
+    def export_solution(self, times_to_export: Union[list, np.ndarray, None]) -> None:
         """Method for exporting only specified solutions.
 
         Parameters:
             times_to_export: Contains information about which, if any, solution time
-                steps should be exported. It may hold the value "all", "none" or an
-                array of specified time step indices.
+                steps should be exported. If times_to_export is None, all time steps are
+                exported. Empty lists/arrays means that no time steps are exported.
 
         """
-        if type(times_to_export) is np.ndarray:
-            if self.time_manager.time_index in times_to_export:
-                self.save_data_time_step()
-        elif times_to_export == "all":
+        if times_to_export == None:
             self.save_data_time_step()
-        elif times_to_export == "none":
-            pass
+        elif isinstance(times_to_export, list) or isinstance(
+            times_to_export, np.ndarray
+        ):
+            if np.any(np.isclose(self.time_manager.time, times_to_export)):
+                self.save_data_time_step()
         else:
-            raise ValueError("Invalid specification of times_to_export.")
+            raise ValueError("Invalid specification for times to export.")
