@@ -159,6 +159,8 @@ class TimeManager:
         allowable
             number of consecutive recomputation attempts.
         print_info. Whether to print on-the-fly time-stepping information or not.
+        rtol: Relative tolerance parameter for float point equality.
+        atol: Absolute tolerance parameter for float point equality.
 
     Example:
         # The following is an example on how to initialize a time-stepping object
@@ -206,6 +208,8 @@ class TimeManager:
         recomp_factor: float = 0.5,
         recomp_max: int = 10,
         print_info: bool = False,
+        rtol: float = 1e-10,
+        atol: float = 1e-16,
     ) -> None:
         schedule = np.array(schedule)
         # Sanity checks for schedule
@@ -223,6 +227,9 @@ class TimeManager:
             raise ValueError(
                 "Initial time step cannot be larger than final simulation time."
             )
+
+        self.rtol = rtol
+        self.atol = atol
 
         # If dt_min_max is not given, set dt_min=0.001*final_time and
         # dt_max=0.1*final_time
@@ -319,13 +326,11 @@ class TimeManager:
             # If the time step is constant, check that the scheduled times and the time
             # step are compatible. See documentation of ``schedule``.
             sim_times = np.arange(schedule[0], schedule[-1] + dt_init, dt_init)
-            compat_rtol = 1e-05
-            compat_atol = 1e-08
             is_compatible = self.is_schedule_in_simulated_times(
                 schedule,
                 sim_times,
-                rtol=compat_rtol,
-                atol=compat_atol,
+                rtol=self.rtol,
+                atol=self.atol,
             )
             if not is_compatible:
                 msg = (
@@ -404,6 +409,17 @@ class TimeManager:
 
         return s
 
+    def final_time_reached(self) -> bool:
+        """Check whether the time manager has reached the end of the schedule.
+
+        Returns:
+            Whether the final time has reached or been overstepped.
+
+        """
+        return self.time > self.time_final or np.isclose(
+            self.time, self.time_final, rtol=self.rtol, atol=self.atol
+        )
+
     def compute_time_step(
         self, iterations: Optional[int] = None, recompute_solution: bool = False
     ) -> Union[float, None]:
@@ -431,7 +447,7 @@ class TimeManager:
         self._iters = iterations
 
         # First, check if we reach final simulation time
-        if self.time >= self.time_final:
+        if self.final_time_reached():
             return None
 
         # If the time step is constant, always return that value
@@ -639,8 +655,8 @@ class TimeManager:
     def is_schedule_in_simulated_times(
         schedule: np.ndarray,
         sim_times: np.ndarray,
-        rtol: float = 1e-05,
-        atol: float = 1e-08,
+        rtol: float = 1e-10,
+        atol: float = 1e-16,
     ) -> bool:
         """Checks if ``schedule`` is a proper subset of ``sim_times`` for given
            tolerances
