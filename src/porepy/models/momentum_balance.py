@@ -166,7 +166,7 @@ class MomentumBalanceEquations(pp.BalanceEquation):
         # surface term (stress), so we need to multiply by -1.
         stress = pp.ad.Scalar(-1) * self.stress(subdomains)
         body_force = self.body_force(subdomains)
-        
+
         equation = self.balance_equation(
             subdomains, accumulation, stress, body_force, dim=self.nd
         )
@@ -443,16 +443,16 @@ class MomentumBalanceEquations(pp.BalanceEquation):
     def body_force(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Body force integrated over the subdomain cells.
 
-        FIXME: See FluidMassBalanceEquations.fluid_source.
-
         Parameters:
             subdomains: List of subdomains where the body force is defined.
 
         Returns:
-            Operator for the body force.
+            Operator for the body force [kg*m*s^-2].
 
         """
-        return self.volume_integral(self.gravity_force(subdomains, "solid"), subdomains, dim=self.nd)
+        return self.volume_integral(
+            self.gravity_force(subdomains, "solid"), subdomains, dim=self.nd
+        )
 
 
 class ConstitutiveLawsMomentumBalance(
