@@ -772,7 +772,7 @@ class DiffTpfaFractureTipsInternalBoundaries(
     model_geometries.OrthogonalFractures3d,
     well_models.OneVerticalWell,
     well_models.BoundaryConditionsWellSetup,
-    _SetFluxDiscretizations,
+    FluxDiscretization,
     pp.constitutive_laws.DarcysLawAd,
     pp.constitutive_laws.FouriersLawAd,
     pp.mass_and_energy_balance.MassAndEnergyBalance,
