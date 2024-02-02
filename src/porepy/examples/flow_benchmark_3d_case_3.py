@@ -121,8 +121,9 @@ class BoundaryConditions:
             cc[2][bounds.south] > (1 / 3)
         )
         # Assign unitary flow. Negative since fluid is entering into the domain.
+        val = self.fluid.convert_units(-1, "m * s^-1")
         values = np.zeros(boundary_grid.num_cells)
-        values[inlet_faces] = -1 * boundary_grid.cell_volumes[inlet_faces]
+        values[inlet_faces] = val * boundary_grid.cell_volumes[inlet_faces]
         return values
 
 
