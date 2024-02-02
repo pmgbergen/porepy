@@ -60,7 +60,7 @@ class EffectivePermeability:
         """Retrieves the effective tangential permeability, see Eq. 6a from [1].
 
         This method implicitly assumes that, in each subdomain, the effective
-        tangential permeability can be fully represented by one scalar per cell.
+        tangential permeability is isotropic.
 
         The effective tangential permeability is the permeability tensor multiplied
         by the specific volume. PorePy "transforms" the intrinsic permeability into
@@ -68,8 +68,7 @@ class EffectivePermeability:
         the mixin class `~porepy.models.constitutive_laws.SecondOrderTensorUtils`.
 
         Parameters:
-            subdomains: list of pp.Grid
-                List of subdomain grids.
+            subdomains: List of subdomain grids for which the permeability is fetched.
 
         Returns:
             Wrapped ad operator containing the effective tangential permeabilities
@@ -98,8 +97,7 @@ class EffectivePermeability:
         jump in the continuous interface law.
 
         Parameters:
-            interfaces: List of pp.MortarGrid
-                List of interface grids.
+            interfaces: List of mortar grids where the normal permeability is computed.
 
         Returns:
             Wrapped ad operator containing the effective normal permeabilities for the
