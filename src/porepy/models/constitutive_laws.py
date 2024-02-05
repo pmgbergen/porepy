@@ -788,7 +788,7 @@ class SecondOrderTensorUtils:
         return pp.SecondOrderTensor(*args)
 
 
-class ConstantPermeability(SecondOrderTensorUtils):
+class ConstantPermeability:
     """A spatially homogeneous permeability field."""
 
     solid: pp.SolidConstants
@@ -2058,7 +2058,7 @@ class AdTpfaFlux:
         return pp.ad.AdArray(val, jac)
 
 
-class DarcysLawAd(AdTpfaFlux, DarcysLaw):
+class DarcysLawAd(AdTpfaFlux):
     """Adaptive discretization of the Darcy flux from generic adaptive flux class."""
 
     permeability: Callable[[list[pp.Grid]], pp.ad.Operator]
@@ -2291,7 +2291,7 @@ class ThermalExpansion:
         return Scalar(val, "solid_thermal_expansion")
 
 
-class ThermalConductivityLTE(SecondOrderTensorUtils):
+class ThermalConductivityLTE:
     """Thermal conductivity in the local thermal equilibrium approximation."""
 
     fluid: pp.FluidConstants

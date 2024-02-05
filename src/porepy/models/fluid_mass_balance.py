@@ -379,6 +379,7 @@ class ConstitutiveLawsSinglePhaseFlow(
     pp.constitutive_laws.AdvectiveFlux,
     pp.constitutive_laws.ConstantPorosity,
     pp.constitutive_laws.ConstantPermeability,
+    pp.constitutive_laws.SecondOrderTensorUtils,
     pp.constitutive_laws.FluidDensityFromPressure,
     pp.constitutive_laws.ConstantViscosity,
     pp.constitutive_laws.FluidMobility,
