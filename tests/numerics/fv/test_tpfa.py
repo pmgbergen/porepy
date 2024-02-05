@@ -12,6 +12,8 @@ import numpy as np
 import porepy as pp
 
 from porepy.applications.test_utils import common_xpfa_tests as xpfa_tests
+from porepy.applications.discretizations.flux_discretization import FluxDiscretization
+
 from porepy.applications.md_grids.model_geometries import (
     CubeDomainOrthogonalFractures,
 )
@@ -97,47 +99,9 @@ class TestTpfaBoundaryPressure(xpfa_tests.XpfaBoundaryPressureTests):
 # Tests for differentiable TPFA
 
 
-class _SetFluxDiscretizations:
-    """Helper class with a method to set the Darcy flux variable."""
-
-    def darcy_flux_discretization(
-        self, subdomains: list[pp.Grid]
-    ) -> pp.ad.MpfaAd | pp.ad.TpfaAd:
-        """Discretization object for the Darcy flux term.
-
-        Parameters:
-            subdomains: List of subdomains where the Darcy flux is defined.
-
-        Returns:
-            Discretization of the Darcy flux.
-
-        """
-        if self.params["base_discr"] == "tpfa":
-            return pp.ad.TpfaAd(self.darcy_keyword, subdomains)
-        else:
-            return pp.ad.MpfaAd(self.darcy_keyword, subdomains)
-
-    def fourier_flux_discretization(
-        self, subdomains: list[pp.Grid]
-    ) -> pp.ad.MpfaAd | pp.ad.TpfaAd:
-        """Discretization object for the Fourier flux term.
-
-        Parameters:
-            interfaces: List of mortar grids where the Fourier flux is defined.
-
-        Returns:
-            Discretization of the Fourier flux.
-
-        """
-        if self.params["base_discr"] == "tpfa":
-            return pp.ad.TpfaAd(self.fourier_keyword, subdomains)
-        else:
-            return pp.ad.MpfaAd(self.fourier_keyword, subdomains)
-
-
 class UnitTestAdTpfaFlux(
     pp.constitutive_laws.DarcysLawAd,
-    _SetFluxDiscretizations,
+    FluxDiscretization,
     pp.fluid_mass_balance.SinglePhaseFlow,
 ):
     """
@@ -366,7 +330,7 @@ def test_transmissibility_calculation(vector_source: bool, base_discr: str):
         vector_source_diff = np.zeros(2)
 
     model_params = {
-        "base_discr": base_discr,
+        "darcy_flux_discretization": base_discr,
         "vector_source": vector_source_array,
     }
 
@@ -630,7 +594,7 @@ def test_transmissibility_calculation(vector_source: bool, base_discr: str):
 
 class DiffTpfaGridsOfAllDimensions(
     CubeDomainOrthogonalFractures,
-    _SetFluxDiscretizations,
+    FluxDiscretization,
     pp.constitutive_laws.CubicLawPermeability,
     pp.constitutive_laws.DarcysLawAd,
     pp.fluid_mass_balance.SinglePhaseFlow,
@@ -700,7 +664,7 @@ def test_diff_tpfa_on_grid_with_all_dimensions(base_discr: str, grid_type: str):
 
     """
     model = DiffTpfaGridsOfAllDimensions(
-        {"base_discr": "tpfa", "grid_type": grid_type}
+        {"darcy_flux_discretization": base_discr, "grid_type": grid_type}
     )
     model.prepare_simulation()
 
@@ -729,7 +693,7 @@ def test_diff_tpfa_on_grid_with_all_dimensions(base_discr: str, grid_type: str):
 
 
 class WithoutDiffTpfa(
-    _SetFluxDiscretizations,
+    FluxDiscretization,
     pp.mass_and_energy_balance.MassAndEnergyBalance,
 ):
     """Helper class to test that the methods for differentiating diffusive fluxes and
@@ -784,8 +748,12 @@ def test_diff_tpfa_and_standard_tpfa_give_same_linear_system(base_discr: str):
     permeability, but given on 'differentiable form'. The Jacobian matrix and the
     residual vectors should be the same.
     """
-    model_without_diff = WithoutDiffTpfa({"base_discr": base_discr})
-    model_with_diff = WithDiffTpfa({"base_discr": base_discr})
+    params = {
+        "darcy_flux_discretization": base_discr,
+        "fourier_flux_discretization": base_discr,
+    }
+    model_without_diff = WithoutDiffTpfa(params.copy())
+    model_with_diff = WithDiffTpfa(params)
 
     matrix, vector = [], []
 
@@ -804,7 +772,7 @@ class DiffTpfaFractureTipsInternalBoundaries(
     model_geometries.OrthogonalFractures3d,
     well_models.OneVerticalWell,
     well_models.BoundaryConditionsWellSetup,
-    _SetFluxDiscretizations,
+    FluxDiscretization,
     pp.constitutive_laws.DarcysLawAd,
     pp.constitutive_laws.FouriersLawAd,
     pp.mass_and_energy_balance.MassAndEnergyBalance,

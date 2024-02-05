@@ -20,19 +20,24 @@ from typing import Callable, cast
 import numpy as np
 
 import porepy as pp
+from porepy.applications.discretizations.flux_discretization import FluxDiscretization
 from porepy.applications.md_grids.mdg_library import benchmark_3d_case_3
+from porepy.examples.flow_benchmark_2d_case_1 import (
+    FractureSolidConstants,
+    Permeability,
+)
 from porepy.fracs.fracture_network_3d import FractureNetwork3d
-from porepy.models.constitutive_laws import DimensionDependentPermeability
 
-solid_constants = pp.SolidConstants(
+solid_constants = FractureSolidConstants(
     {
         "residual_aperture": 1e-2,
         "normal_permeability": 1e4,
+        "fracture_permeability": 1e4,
     }
 )
 
 
-class FlowBenchmark3dCase3Geometry(pp.ModelGeometry):
+class Geometry(pp.ModelGeometry):
     """Define Geometry as specified in Section 5.3 of the benchmark study [1]."""
 
     params: dict
@@ -66,22 +71,7 @@ class FlowBenchmark3dCase3Geometry(pp.ModelGeometry):
             self.well_network.mesh(self.mdg)
 
 
-class FlowBenchmark3dCase3Permeability(DimensionDependentPermeability):
-    def fracture_permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Constant fracture permeability.
-
-        Parameters:
-            subdomains: List of subdomains.
-
-        Returns:
-            Operator representing the permeability.
-
-        """
-        size = sum(sd.num_cells for sd in subdomains)
-        val = self.solid.convert_units(1e4, "m^2")
-        permeability = pp.wrap_as_dense_ad_array(val, size, name="permeability")
-        return self.isotropic_second_order_tensor(subdomains, permeability)
-
+class IntersectionPermeability(Permeability):
     def intersection_permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Constant intersection permeability.
 
@@ -93,15 +83,29 @@ class FlowBenchmark3dCase3Permeability(DimensionDependentPermeability):
 
         """
         size = sum(sd.num_cells for sd in subdomains)
-        val = self.solid.convert_units(1e4, "m^2")
-        permeability = pp.wrap_as_dense_ad_array(val, size, name="permeability")
+        # Use `fracture_permeability` as intersection permeability under the assumption
+        # that they are equal. This is valid in the current benchmark case.
+        permeability = pp.wrap_as_dense_ad_array(
+            self.solid.fracture_permeability(), size, name="intersection permeability"
+        )
         return self.isotropic_second_order_tensor(subdomains, permeability)
 
 
-class FlowBenchmark3dCase3BoundaryConditions:
+class BoundaryConditions:
     """Define inlet and outlet boundary conditions as specified by the benchmark."""
 
-    domain_boundary_sides: Callable
+    fluid: pp.FluidConstants
+    """Fluid constant object that takes care of scaling of fluid-related quantities.
+    Normally, this is set by a mixin of instance
+    :class:`~porepy.models.solution_strategy.SolutionStrategy`.
+
+    """
+
+    domain_boundary_sides: Callable[[pp.Grid | pp.BoundaryGrid], pp.domain.DomainSides]
+    """Boundary sides of the domain. Defined by a mixin instance of
+    :class:`~porepy.models.geometry.ModelGeometry`.
+
+    """
 
     def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         """Assign Dirichlet to the top and bottom  part of the north (y=y_max)
@@ -128,15 +132,17 @@ class FlowBenchmark3dCase3BoundaryConditions:
             cc[2][bounds.south] > (1 / 3)
         )
         # Assign unitary flow. Negative since fluid is entering into the domain.
+        val = self.fluid.convert_units(-1, "m * s^-1")
         values = np.zeros(boundary_grid.num_cells)
-        values[inlet_faces] = -1 * boundary_grid.cell_volumes[inlet_faces]
+        values[inlet_faces] = val * boundary_grid.cell_volumes[inlet_faces]
         return values
 
 
 class FlowBenchmark3dCase3Model(  # type:ignore[misc]
-    FlowBenchmark3dCase3Geometry,
-    FlowBenchmark3dCase3Permeability,
-    FlowBenchmark3dCase3BoundaryConditions,
+    FluxDiscretization,
+    Geometry,
+    IntersectionPermeability,
+    BoundaryConditions,
     pp.fluid_mass_balance.SinglePhaseFlow,
 ):
     """Mixer class for case 3 from the 3d flow benchmark."""

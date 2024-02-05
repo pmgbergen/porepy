@@ -28,6 +28,7 @@ from porepy.applications.md_grids.model_geometries import (
     SquareDomainOrthogonalFractures,
 )
 from porepy.applications.test_utils import models, well_models
+from porepy.applications.discretizations.flux_discretization import FluxDiscretization
 from porepy.models.fluid_mass_balance import SinglePhaseFlow
 
 
@@ -585,6 +586,7 @@ def model_setup_gravity(
         "grid_type": "cartesian",
         "fracture_indices": [-1],  # Constant y and z coordinates in 2d and 3d, resp.
         "meshing_arguments": {"cell_size": 0.5},
+        "darcy_flux_discretization": discretization_method,
     }
     params.update(model_params)
     params["material_constants"] = {
@@ -597,7 +599,9 @@ def model_setup_gravity(
     else:
         Geometry = CubeDomainOrthogonalFractures
 
-    class Model(Geometry, pp.constitutive_laws.GravityForce, SinglePhaseFlow):
+    class Model(
+        Geometry, pp.constitutive_laws.GravityForce, SinglePhaseFlow, FluxDiscretization
+    ):
         def set_geometry(self) -> None:
             super().set_geometry()
             if num_nodes_mortar is None:
@@ -726,27 +730,6 @@ def model_setup_gravity(
                 sides += self._bound_sides(sd)[1]
             # Define boundary condition on all boundary faces.
             return pp.BoundaryCondition(sd, sides, "dir")
-
-        def darcy_flux_discretization(
-            self, subdomains: list[pp.Grid]
-        ) -> pp.ad.MpfaAd | pp.ad.TpfaAd:
-            """Discretization object for the Darcy flux term.
-
-            Parameters:
-                subdomains: List of subdomains where the Darcy flux is defined.
-
-            Returns:
-                Discretization of the Darcy flux.
-
-            """
-            if discretization_method == "mpfa":
-                return pp.ad.MpfaAd(self.darcy_keyword, subdomains)
-            elif discretization_method == "tpfa":
-                return pp.ad.TpfaAd(self.darcy_keyword, subdomains)
-            else:
-                raise ValueError(
-                    f"Unknown discretization method: {discretization_method}"
-                )
 
     return Model(params)
 
