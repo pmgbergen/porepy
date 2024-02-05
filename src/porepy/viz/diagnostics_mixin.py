@@ -23,17 +23,6 @@ from porepy.grids.mortar_grid import MortarGrid
 from porepy.numerics.ad.equation_system import EquationSystem
 from porepy.numerics.ad.operators import Variable
 
-# Seaborn is a visualization library based on Matplotlib. It allows for building nice
-# figures. Seaborn library is not one of the dependencies of PorePy. Thus, it might not
-# be present on the user's device. In this case, Python raises ImportError exception.
-try:
-    # MyPy is not happy with Seaborn since it's not typed. We silence this warning.
-    import seaborn as sns  # type: ignore[import]
-except ImportError:
-    _IS_SEABORN_AVAILABLE: bool = False
-else:
-    _IS_SEABORN_AVAILABLE = True
-
 logger = logging.getLogger(__name__)
 
 
@@ -193,11 +182,6 @@ class DiagnosticsMixin:
         if "max" in default_handlers:
             active_handlers["max"] = get_max
 
-        if not _IS_SEABORN_AVAILABLE:
-            logger.warning(
-                "Plotting the diagnostics image requires seaborn package."
-                ' Run "pip install seaborn". Falling back to text mode.'
-            )
         # Determining the block indices and collecting the submatrices.
         equation_data = self._equations_data(
             grouping=grouping_, add_grid_info=add_grid_info
@@ -252,6 +236,20 @@ class DiagnosticsMixin:
             **kwargs: Passed to Seaborn.
 
         """
+        # Importing here to avoid the cost of importing Seaborn if it's not used.
+        # Seaborn is a visualization library based on Matplotlib. It allows for building
+        # nice figures. Seaborn library is not one of the dependencies of PorePy. Thus,
+        # it might not be present on the user's device. In this case, Python raises
+        # ImportError exception.
+        try:
+            # MyPy is not happy with Seaborn since it's not typed. We silence this
+            # warning.
+            import seaborn as sns  # type: ignore[import]
+        except ImportError:
+            _IS_SEABORN_AVAILABLE: bool = False
+        else:
+            _IS_SEABORN_AVAILABLE = True
+
         row_names: list[str] = []
         col_names: list[str] = []
 

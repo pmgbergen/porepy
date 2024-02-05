@@ -6,7 +6,6 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 
 import meshio
-from deepdiff import DeepDiff
 
 # Data structure for defining paths
 PathLike = str | Path
@@ -37,6 +36,9 @@ def compare_vtu_files(
         Boolean. True iff files are identical.
 
     """
+
+    from deepdiff import DeepDiff
+
     if overwrite:
         shutil.copy(test_file, reference_file)
         return True
