@@ -1,4 +1,4 @@
-""" Contains class for storing data / parameters associated with a grid.
+r""" Contains class for storing data / parameters associated with a grid.
 
 At present, the Parameters class is a simple wrapper around a dictionary.
 
