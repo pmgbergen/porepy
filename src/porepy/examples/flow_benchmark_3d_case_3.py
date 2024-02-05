@@ -15,6 +15,7 @@ References:
         103759.
 
 """
+
 from typing import Callable, cast
 
 import numpy as np

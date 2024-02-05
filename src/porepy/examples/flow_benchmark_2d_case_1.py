@@ -11,6 +11,7 @@ References:
       media. Advances in Water Resources, 111, 239-258.
 
 """
+
 from typing import Callable, Union
 
 import numpy as np

@@ -33,6 +33,7 @@ References:
     - [3] Verruijt, A. (2017). An Introduction to Soil Mechanics (Vol. 30). Springer.
 
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass

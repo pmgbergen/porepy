@@ -1,6 +1,7 @@
 """
 Module containing a mixin class to prescribe FV flux discretization schemes in models.
 """
+
 import porepy as pp
 
 
