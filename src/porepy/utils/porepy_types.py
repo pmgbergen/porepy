@@ -1,6 +1,7 @@
 """
 Defines types commonly used in PorePy.
 """
+
 from typing import Sequence, Union
 
 import porepy as pp

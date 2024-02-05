@@ -15,6 +15,7 @@ The main method in this module is :func:`partition`, which is a wrapper for all
 available methods.
 
 """
+
 from __future__ import annotations
 
 import warnings

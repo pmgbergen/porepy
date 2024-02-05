@@ -3,6 +3,7 @@
 The model relies heavily on functions in the computational geometry library.
 
 """
+
 from __future__ import annotations
 
 import copy
@@ -552,13 +553,13 @@ class FractureNetwork3d(object):
         # Special tag for intersection between fracture and constraint. These are not
         # needed in the gmsh postprocessing (will not produce 0d grids), but it can
         # be useful to mark them for other purposes (EK: DFM upscaling)
-        point_tags[
-            fracture_constraint_intersection
-        ] = GmshInterfaceTags.FRACTURE_CONSTRAINT_INTERSECTION_POINT.value
+        point_tags[fracture_constraint_intersection] = (
+            GmshInterfaceTags.FRACTURE_CONSTRAINT_INTERSECTION_POINT.value
+        )
 
-        point_tags[
-            fracture_and_boundary_points
-        ] = GmshInterfaceTags.FRACTURE_BOUNDARY_POINT.value
+        point_tags[fracture_and_boundary_points] = (
+            GmshInterfaceTags.FRACTURE_BOUNDARY_POINT.value
+        )
 
         # We're done! Hurrah!
 
@@ -589,9 +590,9 @@ class FractureNetwork3d(object):
             physical_points[pi] = GmshInterfaceTags.FRACTURE_BOUNDARY_POINT
 
         for pi in fracture_constraint_intersection:
-            physical_points[
-                pi
-            ] = GmshInterfaceTags.FRACTURE_CONSTRAINT_INTERSECTION_POINT
+            physical_points[pi] = (
+                GmshInterfaceTags.FRACTURE_CONSTRAINT_INTERSECTION_POINT
+            )
 
         for pi in boundary_points:
             physical_points[pi] = GmshInterfaceTags.DOMAIN_BOUNDARY_POINT
@@ -2156,9 +2157,9 @@ class FractureNetwork3d(object):
                     # boundary
                     edge_tags[e] = GmshInterfaceTags.DOMAIN_BOUNDARY_LINE.value
                     # The points of this edge are also associated with the boundary
-                    point_tags[
-                        edges[:, e]
-                    ] = GmshInterfaceTags.DOMAIN_BOUNDARY_POINT.value
+                    point_tags[edges[:, e]] = (
+                        GmshInterfaceTags.DOMAIN_BOUNDARY_POINT.value
+                    )
                 else:
                     # The edge is associated with at least one fracture. Still,
                     # if it is also the edge of at least one boundary point, we will
@@ -2172,16 +2173,16 @@ class FractureNetwork3d(object):
                     # The line is on the boundary
                     if on_one_domain_edge:
                         edge_tags[e] = GmshInterfaceTags.DOMAIN_BOUNDARY_LINE.value
-                        point_tags[
-                            edges[:, e]
-                        ] = GmshInterfaceTags.DOMAIN_BOUNDARY_POINT.value
+                        point_tags[edges[:, e]] = (
+                            GmshInterfaceTags.DOMAIN_BOUNDARY_POINT.value
+                        )
                     else:
                         # The edge is an intersection between a fracture and a boundary
                         # polygon
                         edge_tags[e] = GmshInterfaceTags.FRACTURE_BOUNDARY_LINE.value
-                        point_tags[
-                            edges[:, e]
-                        ] = GmshInterfaceTags.FRACTURE_BOUNDARY_POINT.value
+                        point_tags[edges[:, e]] = (
+                            GmshInterfaceTags.FRACTURE_BOUNDARY_POINT.value
+                        )
             else:
                 # This is not an edge on the domain boundary, and the tag assigned in
                 # in self._classify_edges() is still valid: It is either a fracture

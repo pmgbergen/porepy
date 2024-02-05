@@ -1,4 +1,5 @@
 """This module contains functions for computations relating to half spaces."""
+
 import numpy as np
 from scipy import optimize
 from scipy.spatial import HalfspaceIntersection

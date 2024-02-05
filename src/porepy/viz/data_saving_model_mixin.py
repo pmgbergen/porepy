@@ -6,6 +6,7 @@ We provide basic Exporter functionality, but the user is free to override and ex
 this class to suit their needs. This could include, e.g., saving data to a database,
 or to a file format other than vtu.
 """
+
 from __future__ import annotations
 
 from pathlib import Path

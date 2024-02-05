@@ -3,6 +3,7 @@
 The main function is :func:`~porepy.grids.coarsening.coarsen`
 (see there for more information).
 """
+
 from __future__ import annotations
 
 import warnings

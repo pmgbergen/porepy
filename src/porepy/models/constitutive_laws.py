@@ -1,4 +1,5 @@
 """Library of constitutive equations."""
+
 from __future__ import annotations
 
 from functools import partial

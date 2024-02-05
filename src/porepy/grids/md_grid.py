@@ -2,6 +2,7 @@
 intersections along with a surrounding matrix in the form of a mixed-dimensional grid.
 
 """
+
 from __future__ import annotations
 
 from typing import Any, Callable, Iterable, Literal, Optional, Union, overload

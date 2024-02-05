@@ -2,6 +2,7 @@
 The tensor module contains classes for second and fourth order tensors, intended e.g.
 for representation of permeability and stiffness, respectively.
 """
+
 from __future__ import annotations
 
 from typing import Optional

@@ -1,4 +1,5 @@
 """ Module contains the abstract superclass for all discretizations."""
+
 import abc
 from typing import Dict, Union
 
