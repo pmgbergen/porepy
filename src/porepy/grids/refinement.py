@@ -4,6 +4,7 @@ It furthermore contains classes to define sequences of refined grids, and a fact
 class to generate sets of refined grids.
 
 """
+
 from __future__ import annotations
 
 import abc

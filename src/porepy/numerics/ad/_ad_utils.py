@@ -24,6 +24,7 @@ Classes:
         discretization or a set of AD discretizations.
 
 """
+
 from __future__ import annotations
 
 from abc import ABCMeta

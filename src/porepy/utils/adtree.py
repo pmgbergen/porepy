@@ -62,6 +62,7 @@ A search in the tree gives a list of all possible nodes that may
 intersect the given one.
 
 """
+
 from typing import Any, List, Optional, Tuple
 
 import numpy as np

@@ -1,4 +1,5 @@
 """Module containing a mixin class for reusing methods in verification setups."""
+
 from __future__ import annotations
 
 from typing import Callable, Sequence

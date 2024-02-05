@@ -2,6 +2,7 @@
 Module contains common functionalities for discretization based on the mixed
 variational formulation.
 """
+
 from __future__ import annotations
 
 from typing import Optional

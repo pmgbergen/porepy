@@ -6,6 +6,7 @@ The module also contains a function ``set_local_coordinate_projections`` that se
 projection matrices for all grids of co-dimension 1 in a mixed-dimensional grid.
 
 """
+
 from __future__ import annotations
 
 from typing import Optional

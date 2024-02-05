@@ -8,6 +8,7 @@ corresponding functions found in the
 developed by SINTEF ICT.
 
 """
+
 from __future__ import annotations
 
 from typing import Optional, Union

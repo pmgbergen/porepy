@@ -28,6 +28,7 @@ Literature:
     Richard et al. 2005: Theoretical crack path prediction
 
 """
+
 from __future__ import annotations
 
 import logging

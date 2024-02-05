@@ -1,4 +1,5 @@
 """Utility methods for setting up models for testing."""
+
 from __future__ import annotations
 
 import inspect
@@ -36,8 +37,7 @@ class NoPhysics(  # type: ignore[misc]
 class MassBalance(  # type: ignore[misc]
     RectangularDomainThreeFractures,
     pp.fluid_mass_balance.SinglePhaseFlow,
-):
-    ...
+): ...
 
 
 class MomentumBalance(  # type: ignore[misc]

@@ -11,6 +11,7 @@ See documentation of class :class:`Grid` for further details.
     2016.
 
 """
+
 from __future__ import annotations
 
 import copy

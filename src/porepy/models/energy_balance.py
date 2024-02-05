@@ -10,6 +10,7 @@ as would be consistent with the other models. However, the class is included in 
 models, notably :class:`~porepy.models.mass_and_energy_balance.MassAndEnergyBalance`.
 
 """
+
 from __future__ import annotations
 
 from typing import Callable, Optional, Sequence, Union, cast

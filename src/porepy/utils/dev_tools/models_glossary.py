@@ -32,6 +32,7 @@ Examples:
         pp.Glossary().print_all_entries()
 
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, fields
