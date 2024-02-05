@@ -170,7 +170,7 @@ class Glossary:
     bulk_modulus: Entry = Entry(
         type="Callable[[list[pp.Grid]], pp.ad.Operator]",
         docstring="Bulk modulus. Normally defined in a mixin instance of"
-        " :class:`~porepy.models.constitutive_laws.LinearElasticSolid`.",
+        " :class:`~porepy.models.constitutive_laws.ElasticModuli`.",
         name="bulk_modulus",
     )
 
@@ -621,7 +621,7 @@ class Glossary:
         type="Callable[[pp.Grid], pp.FourthOrderTensor]",
         docstring="Function that returns the stiffness tensor of a subdomain. Normally"
         " provided by a mixin of instance"
-        " :class:`~porepy.models.constitutive_laws.LinearElasticSolid`.",
+        " :class:`~porepy.models.constitutive_laws.ElasticModuli`.",
         name="stiffness_tensor",
     )
 
