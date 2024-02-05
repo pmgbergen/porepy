@@ -20,6 +20,7 @@ References:
       Comput Geosci 25, 243–265 (2021).
 
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
