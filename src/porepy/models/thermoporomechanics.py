@@ -39,6 +39,7 @@ class ConstitutiveLawsThermoporomechanics(
     pp.constitutive_laws.FluidDensityFromPressureAndTemperature,
     # Energy subproblem
     pp.constitutive_laws.SecondOrderTensorUtils,
+    pp.constitutive_laws.SpecificHeatCapacities,
     pp.constitutive_laws.EnthalpyFromTemperature,
     pp.constitutive_laws.FouriersLaw,
     pp.constitutive_laws.ThermalConductivityLTE,
@@ -52,7 +53,9 @@ class ConstitutiveLawsThermoporomechanics(
     pp.constitutive_laws.ConstantPermeability,
     pp.constitutive_laws.ConstantViscosity,
     # Mechanical subproblem
-    pp.constitutive_laws.LinearElasticSolid,
+    pp.constitutive_laws.ElasticModuli,
+    pp.constitutive_laws.LinearElasticMechanicalStress,
+    pp.constitutive_laws.ConstantSolidDensity,
     pp.constitutive_laws.FractureGap,
     pp.constitutive_laws.FrictionBound,
 ):

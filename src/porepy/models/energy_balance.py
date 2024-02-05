@@ -680,6 +680,7 @@ class VariablesEnergyBalance:
 
 
 class ConstitutiveLawsEnergyBalance(
+    pp.constitutive_laws.SpecificHeatCapacities,
     pp.constitutive_laws.EnthalpyFromTemperature,
     pp.constitutive_laws.SecondOrderTensorUtils,
     pp.constitutive_laws.FouriersLaw,

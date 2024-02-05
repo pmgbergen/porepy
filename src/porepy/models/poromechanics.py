@@ -41,7 +41,9 @@ class ConstitutiveLawsPoromechanics(
     pp.constitutive_laws.FluidDensityFromPressure,
     pp.constitutive_laws.ConstantViscosity,
     # Mechanical subproblem
-    pp.constitutive_laws.LinearElasticSolid,
+    pp.constitutive_laws.ElasticModuli,
+    pp.constitutive_laws.LinearElasticMechanicalStress,
+    pp.constitutive_laws.ConstantSolidDensity,
     pp.constitutive_laws.FractureGap,
     pp.constitutive_laws.FrictionBound,
 ):
