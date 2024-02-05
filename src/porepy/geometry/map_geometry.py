@@ -1,4 +1,5 @@
 """Collection of functions related to geometry mappings, rotations etc."""
+
 from __future__ import annotations
 
 from typing import Any, Optional

@@ -4,6 +4,7 @@ The module serves as the only necessary entry point to create a grid. It will th
 wrap interface to different mesh generators, pass options to the generators etc.
 
 """
+
 from __future__ import annotations
 
 import logging

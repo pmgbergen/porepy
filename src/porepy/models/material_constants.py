@@ -9,6 +9,7 @@ which are the ones used internally in the simulation. The conversion hopefully r
 problems with scaling/rounding errors and condition numbers.
 
 """
+
 from __future__ import annotations
 
 from typing import Optional, Union, overload
@@ -70,8 +71,7 @@ class MaterialConstants:
     @overload
     def convert_units(
         self, value: number, units: str, to_si: Optional[bool] = False
-    ) -> number:
-        ...
+    ) -> number: ...
 
     @overload
     def convert_units(
@@ -79,8 +79,7 @@ class MaterialConstants:
         value: np.ndarray,
         units: str,
         to_si: Optional[bool] = False,
-    ) -> np.ndarray:
-        ...
+    ) -> np.ndarray: ...
 
     def convert_units(
         self,

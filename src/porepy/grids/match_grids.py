@@ -7,6 +7,7 @@ mixed-dimensional grid. It is called mostly inside
 That is, the methods herein should as a rule not be invoked directly.
 
 """
+
 import logging
 from typing import Optional
 
