@@ -283,7 +283,9 @@ def heaviside_smooth(var, eps: float = 1e-3):
     """
     if isinstance(var, AdArray):
         val = 0.5 * (1 + 2 * np.pi ** (-1) * np.arctan(var.val * eps ** (-1)))
-        jac = var._diagvec_mul_jac(np.pi ** (-1) * eps * (eps**2 + var.val**2) ** (-1))
+        jac = var._diagvec_mul_jac(
+            np.pi ** (-1) * eps * (eps**2 + var.val**2) ** (-1)
+        )
         return AdArray(val, jac)
     else:
         return 0.5 * (1 + 2 * np.pi ** (-1) * np.arctan(var * eps ** (-1)))

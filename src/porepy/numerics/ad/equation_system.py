@@ -257,9 +257,9 @@ class EquationSystem:
                 new_equation_system._variables.append(variable)
 
                 # Update variable numbers in subsystem.
-                new_equation_system._variable_dof_type[variable] = (
-                    self._variable_dof_type[variable]
-                )
+                new_equation_system._variable_dof_type[
+                    variable
+                ] = self._variable_dof_type[variable]
 
                 # Create dofs in subsystem.
                 new_equation_system._append_dofs(variable)
@@ -1534,7 +1534,8 @@ class EquationSystem:
         equations: Optional[EquationList | EquationRestriction] = None,
         variables: Optional[VariableList] = None,
         state: Optional[np.ndarray] = None,
-    ) -> tuple[sps.spmatrix, np.ndarray]: ...
+    ) -> tuple[sps.spmatrix, np.ndarray]:
+        ...
 
     @overload
     def assemble(
@@ -1543,7 +1544,8 @@ class EquationSystem:
         equations: Optional[EquationList | EquationRestriction] = None,
         variables: Optional[VariableList] = None,
         state: Optional[np.ndarray] = None,
-    ) -> np.ndarray: ...
+    ) -> np.ndarray:
+        ...
 
     def assemble(
         self,

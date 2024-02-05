@@ -637,25 +637,25 @@ class Biot(pp.Mpsa):
             matrices_f[self.stabilization_matrix_key][update_cell_ind] = stabilization[
                 update_cell_ind
             ]
-            matrices_m[self.bound_displacement_cell_matrix_key][update_face_ind] = (
-                bound_displacement_cell[update_face_ind]
-            )
-            matrices_m[self.bound_displacement_face_matrix_key][update_face_ind] = (
-                bound_displacement_face[update_face_ind]
-            )
-            matrices_m[self.bound_pressure_matrix_key][update_face_ind] = (
-                bound_displacement_pressure[update_face_ind]
-            )
+            matrices_m[self.bound_displacement_cell_matrix_key][
+                update_face_ind
+            ] = bound_displacement_cell[update_face_ind]
+            matrices_m[self.bound_displacement_face_matrix_key][
+                update_face_ind
+            ] = bound_displacement_face[update_face_ind]
+            matrices_m[self.bound_pressure_matrix_key][
+                update_face_ind
+            ] = bound_displacement_pressure[update_face_ind]
         else:
             matrices_m[self.stress_matrix_key] = stress
             matrices_m[self.bound_stress_matrix_key] = bound_stress
             matrices_m[self.grad_p_matrix_key] = grad_p
-            matrices_m[self.bound_displacement_cell_matrix_key] = (
-                bound_displacement_cell
-            )
-            matrices_m[self.bound_displacement_face_matrix_key] = (
-                bound_displacement_face
-            )
+            matrices_m[
+                self.bound_displacement_cell_matrix_key
+            ] = bound_displacement_cell
+            matrices_m[
+                self.bound_displacement_face_matrix_key
+            ] = bound_displacement_face
             matrices_m[self.bound_pressure_matrix_key] = bound_displacement_pressure
 
             matrices_f[self.div_u_matrix_key] = div_u
