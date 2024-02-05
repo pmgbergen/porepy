@@ -4,6 +4,7 @@ Module with implementation of the mixed virtual element method.
 The main class is MVEM.
 
 """
+
 from __future__ import annotations
 
 import numpy as np

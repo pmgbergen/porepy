@@ -76,7 +76,6 @@ References:
 
 """
 
-
 import porepy as pp
 from porepy.models.poromechanics import (
     ConstitutiveLawsPoromechanics,
@@ -99,13 +98,11 @@ class ConstitutiveLawsBiot(
     pp.constitutive_laws.SpecificStorage,
     pp.constitutive_laws.BiotPoroMechanicsPorosity,
     ConstitutiveLawsPoromechanics,
-):
-    ...
+): ...
 
 
 class BiotPoromechanics(  # type: ignore[misc]
     ConstitutiveLawsBiot,
     SolutionStrategyBiot,
     Poromechanics,
-):
-    ...
+): ...

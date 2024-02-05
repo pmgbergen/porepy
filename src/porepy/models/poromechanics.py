@@ -13,6 +13,7 @@ Suggested references (TODO: add more, e.g. Inga's in prep):
     - Garipov and Hui, 2019, https://doi.org/10.1016/j.ijrmms.2019.104075.
 
 """
+
 from __future__ import annotations
 
 from typing import Callable, Union

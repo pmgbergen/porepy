@@ -2,6 +2,7 @@
 interfaces between two subdomains in the mixed-dimensional sense.
 
 """
+
 from __future__ import annotations
 
 from enum import Enum

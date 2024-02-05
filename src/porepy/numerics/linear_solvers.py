@@ -5,6 +5,7 @@ setup object has its own system to assemble and solve the system; this
 is just a wrapper around that, mostly for compliance with the nonlinear
 case, see numerics.nonlinear.nonlinear_solvers.
 """
+
 from __future__ import annotations
 
 from typing import Optional

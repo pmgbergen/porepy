@@ -1,5 +1,6 @@
 """ Functions to sort points and edges belonging to geometric objects.
 """
+
 from __future__ import annotations
 
 from typing import Optional

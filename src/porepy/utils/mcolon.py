@@ -6,6 +6,7 @@ Acknowledgements:
     by SINTEF ICT, see www.sintef.no/projectweb/mrst/ .
 
 """
+
 import numpy as np
 
 

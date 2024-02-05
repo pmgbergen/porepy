@@ -76,9 +76,9 @@ class DiagnosticsMixin:
 
     def run_diagnostics(
         self,
-        grouping: GridGroupingType
-        | Literal["dense", "subdomains", "interfaces"]
-        | None = None,
+        grouping: (
+            GridGroupingType | Literal["dense", "subdomains", "interfaces"] | None
+        ) = None,
         default_handlers: Sequence[Literal["cond", "max"]] = ("max",),
         additional_handlers: Optional[dict[str, SubmatrixHandlerType]] = None,
     ) -> DiagnosticsData:

@@ -4,6 +4,7 @@ This class is a modified version of relevant parts of AbstractModel.
 In the future, it may be possible to merge the two classes. For now, we
 keep them separate, to avoid breaking existing code (legacy models).
 """
+
 from __future__ import annotations
 
 import abc

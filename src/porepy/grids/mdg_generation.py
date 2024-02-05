@@ -2,6 +2,7 @@
 Module containing a function to generate mixed-dimensional grids (mdg). It encapsulates
 different lower-level mdg generation.
 """
+
 from __future__ import annotations
 
 import inspect

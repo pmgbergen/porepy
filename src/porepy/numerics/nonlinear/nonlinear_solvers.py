@@ -3,6 +3,7 @@ Nonlinear solvers to be used with model classes.
 Implemented classes
     NewtonSolver
 """
+
 import logging
 
 import numpy as np
