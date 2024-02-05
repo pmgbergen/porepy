@@ -1025,7 +1025,7 @@ class DarcysLaw:
     instance of :class:`~porepy.models.geometry.ModelGeometry`.
 
     """
-    pressure: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]
+    pressure: Callable[[pp.SubdomainsOrBoundaries], pp.ad.MixedDimensionalVariable]
     """Pressure variable. Normally defined in a mixin instance of
     :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`.
 
@@ -2073,7 +2073,7 @@ class DarcysLawAd(AdTpfaFlux):
     mixin class with a suitable permeability definition.
 
     """
-    pressure: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]
+    pressure: Callable[[pp.SubdomainsOrBoundaries], pp.ad.MixedDimensionalVariable]
     """Pressure variable. Normally defined in a mixin instance of
     :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`.
 
@@ -2136,7 +2136,7 @@ class PeacemanWellFlux:
     """
     mdg: pp.MixedDimensionalGrid
     """Mixed-dimensional grid."""
-    pressure: Callable[[list[pp.Grid]], pp.ad.Operator]
+    pressure: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     """Pressure variable."""
     well_flux: Callable[[list[pp.MortarGrid]], pp.ad.MixedDimensionalVariable]
     """Well flux variable."""
@@ -2436,7 +2436,7 @@ class FouriersLaw:
     instance of :class:`~porepy.models.geometry.ModelGeometry`.
 
     """
-    temperature: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]
+    temperature: Callable[[pp.SubdomainsOrBoundaries], pp.ad.MixedDimensionalVariable]
     """Temperature variable. Normally defined in a mixin instance of
     :class:`~porepy.models.energy_balance.VariablesEnergyBalance`.
 
@@ -2730,7 +2730,7 @@ class FouriersLawAd(AdTpfaFlux):
     thereof.
 
     """
-    temperature: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]
+    temperature: Callable[[pp.SubdomainsOrBoundaries], pp.ad.MixedDimensionalVariable]
     """Temperature variable. Normally defined in a mixin instance of
     :class:`~porepy.models.energy_balance.VariablesEnergyBalance`.
 
@@ -2987,7 +2987,7 @@ class EnthalpyFromTemperature:
     reference temperature.
     """
 
-    temperature: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]
+    temperature: Callable[[pp.SubdomainsOrBoundaries], pp.ad.MixedDimensionalVariable]
     """Temperature variable. Normally defined in a mixin instance of
     :class:`~porepy.models.energy_balance.VariablesEnergyBalance`.
 
@@ -3413,12 +3413,12 @@ class PressureStress(LinearElasticMechanicalStress):
     :class:`porepy.models.geometry.ModelGeometry`.
 
     """
-    pressure: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]
+    pressure: Callable[[pp.SubdomainsOrBoundaries], pp.ad.MixedDimensionalVariable]
     """Pressure variable. Normally defined in a mixin instance of
     :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`.
 
     """
-    reference_pressure: Callable[[list[pp.Grid]], pp.ad.Operator]
+    reference_pressure: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     """Reference pressure. Normally defined in a mixin instance of
     :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`.
 
@@ -3581,12 +3581,12 @@ class ThermoPressureStress(PressureStress):
 
     """
 
-    temperature: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]
+    temperature: Callable[[pp.SubdomainsOrBoundaries], pp.ad.MixedDimensionalVariable]
     """Temperature variable. Normally defined in a mixin instance of
     :class:`~porepy.models.energy_balance.VariablesEnergyBalance`.
 
     """
-    reference_temperature: Callable[[list[pp.Grid]], pp.ad.Operator]
+    reference_temperature: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     """Reference temperature. Normally defined in a mixin instance of
     :class:`~porepy.models.energy_balance.VariablesEnergyBalance`.
 
@@ -4244,7 +4244,7 @@ class PoroMechanicsPorosity:
     :class:`~porepy.models.momentum_balance.VariablesMomentumBalance`.
 
     """
-    pressure: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]
+    pressure: Callable[[pp.SubdomainsOrBoundaries], pp.ad.MixedDimensionalVariable]
     """Pressure variable. Normally defined in a mixin instance of
     :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`.
 
