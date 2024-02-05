@@ -1160,7 +1160,8 @@ class DarcysLaw:
         discr: Union[pp.ad.TpfaAd, pp.ad.MpfaAd] = self.darcy_flux_discretization(
             subdomains
         )
-        p: pp.ad.MixedDimensionalVariable = self.pressure(subdomains)
+        # We know p is variable, since called on subdomains, not boundaries.
+        p = cast(pp.ad.MixedDimensionalVariable, self.pressure(subdomains))
 
         boundary_operator = self._combine_boundary_operators(  # type: ignore[call-arg]
             subdomains=subdomains,
@@ -2561,8 +2562,8 @@ class FouriersLaw:
                 name="bc_values_fourier",
             )
         )
-
-        t: pp.ad.MixedDimensionalVariable = self.temperature(subdomains)
+        # We know t is a variable, since method is called on subdomains, not boundaries.
+        t = cast(pp.ad.MixedDimensionalVariable, self.temperature(subdomains))
         temperature_trace = (
             discr.bound_pressure_cell @ t  # "pressure" is a legacy misnomer
             + discr.bound_pressure_face
