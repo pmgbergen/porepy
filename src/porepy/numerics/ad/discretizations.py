@@ -20,6 +20,7 @@ Example:
     It is assumed that the actual action of discretization (creation of the
     discretization matrices) is performed before the operator tree is parsed.
 """
+
 from __future__ import annotations
 
 import abc

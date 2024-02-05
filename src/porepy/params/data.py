@@ -1,4 +1,4 @@
-""" Contains class for storing data / parameters associated with a grid.
+r""" Contains class for storing data / parameters associated with a grid.
 
 At present, the Parameters class is a simple wrapper around a dictionary.
 
@@ -68,6 +68,7 @@ whereas data such as BC values are stored similarly to in the Parameters class, 
 ``data[pp.TIME_STEP_SOLUTIONS][keyword]["bc_values"]``.
 
 """
+
 from __future__ import annotations
 
 import numbers

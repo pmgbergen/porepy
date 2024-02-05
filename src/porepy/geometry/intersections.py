@@ -1,4 +1,5 @@
 """Module with functions for computing intersections between geometric objects."""
+
 from __future__ import annotations
 
 import logging

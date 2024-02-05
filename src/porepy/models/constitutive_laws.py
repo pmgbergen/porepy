@@ -1,4 +1,5 @@
 """Library of constitutive equations."""
+
 from __future__ import annotations
 
 from functools import partial
@@ -435,15 +436,15 @@ class FluidDensityFromPressure:
     """
 
     def fluid_compressibility(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Fluid compressibility [1/Pa].
+        """Fluid compressibility.
 
         Parameters:
             subdomains: List of subdomain grids. Not used in this implementation, but
                 included for compatibility with other implementations.
 
         Returns:
-            The constant compressibility of the fluid, represented as an Ad operator.
-            The value is taken from the fluid constants.
+            The constant compressibility of the fluid [Pa^-1], represented as an Ad
+            operator. The value is taken from the fluid constants.
 
         """
         return Scalar(self.fluid.compressibility(), "fluid_compressibility")
@@ -465,7 +466,7 @@ class FluidDensityFromPressure:
             subdomains: List of subdomain grids.
 
         Returns:
-            Fluid density as a function of pressure.
+            Fluid density as a function of pressure [kg*m^-3].
 
         """
         # The reference density is taken from the fluid constants..
@@ -3094,7 +3095,7 @@ class GravityForce:
             material: Name of the material. Could be either "fluid" or "solid".
 
         Returns:
-            Cell-wise nd-vector representing the gravity force.
+            Cell-wise nd-vector representing the gravity force [kg*s^-2*m^-2].
 
         """
         val = self.fluid.convert_units(pp.GRAVITY_ACCELERATION, "m*s^-2")
@@ -3847,7 +3848,7 @@ class ShearDilation:
 
 
 class BartonBandis:
-    """Implementation of the Barton-Bandis model for elastic fracture normal
+    r"""Implementation of the Barton-Bandis model for elastic fracture normal
     deformation.
 
     The Barton-Bandis model represents a non-linear elastic deformation in the normal
@@ -4091,7 +4092,7 @@ class SpecificStorage:
     """
 
     def specific_storage(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Specific storage [1/Pa], i.e. inverse of the Biot modulus.
+        r"""Specific storage [1/Pa], i.e. inverse of the Biot modulus.
 
         The specific storage :math:`S_\varepsilon` can also be obtained from more
         fundamental quantities, i.e., :math:`S_\varepsilon = (\alpha - \phi_0) K_d^{
@@ -4139,7 +4140,7 @@ class ConstantPorosity:
 
 
 class PoroMechanicsPorosity:
-    """Porosity for poromechanical models.
+    r"""Porosity for poromechanical models.
 
     Note:
         For legacy reasons, the discretization matrices for the

@@ -5,6 +5,7 @@ The module contains the following functions:
     time_increment: Find the time increment of an operator tree.
 
 """
+
 from __future__ import annotations
 
 import porepy as pp

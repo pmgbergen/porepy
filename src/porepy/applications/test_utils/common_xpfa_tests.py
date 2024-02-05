@@ -4,6 +4,7 @@ Some simple for getting grid, permeability, bc object etc.
 Then more specific functions related to specific tests defined both here and for mpfa.
 
 """
+
 from typing import Literal, Union
 
 import numpy as np

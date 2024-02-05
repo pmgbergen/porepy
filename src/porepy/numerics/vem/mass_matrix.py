@@ -18,6 +18,7 @@ self._key() + "mixed_mass" or self._key() + "inv_mixed_mass".
 The corresponding (null) rhs vectors are stored as
 self._key() + "bound_mixed_mass" or self._key() + "bound_inv_mixed_mass", respectively.
 """
+
 from __future__ import annotations
 
 import numpy as np
