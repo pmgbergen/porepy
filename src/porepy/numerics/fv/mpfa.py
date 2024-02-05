@@ -141,9 +141,9 @@ class Mpfa(pp.FVElliptic):
             matrix_dictionary[self.vector_source_matrix_key] = sps.csc_matrix(
                 (sd.num_faces, sd.num_cells * vector_source_dim)
             )
-            matrix_dictionary[
-                self.bound_pressure_vector_source_matrix_key
-            ] = sps.csc_matrix((sd.num_faces, sd.num_cells * vector_source_dim))
+            matrix_dictionary[self.bound_pressure_vector_source_matrix_key] = (
+                sps.csc_matrix((sd.num_faces, sd.num_cells * vector_source_dim))
+            )
             # Done
             return
 
@@ -471,19 +471,19 @@ class Mpfa(pp.FVElliptic):
             matrix_dictionary[self.flux_matrix_key][active_faces] = flux_glob[
                 active_faces
             ]
-            matrix_dictionary[self.bound_flux_matrix_key][
-                active_faces
-            ] = bound_flux_glob[active_faces]
-            matrix_dictionary[self.bound_pressure_cell_matrix_key][
-                active_faces
-            ] = bound_pressure_cell_glob[active_faces]
-            matrix_dictionary[self.bound_pressure_face_matrix_key][
-                active_faces
-            ] = bound_pressure_face_glob[active_faces]
+            matrix_dictionary[self.bound_flux_matrix_key][active_faces] = (
+                bound_flux_glob[active_faces]
+            )
+            matrix_dictionary[self.bound_pressure_cell_matrix_key][active_faces] = (
+                bound_pressure_cell_glob[active_faces]
+            )
+            matrix_dictionary[self.bound_pressure_face_matrix_key][active_faces] = (
+                bound_pressure_face_glob[active_faces]
+            )
 
-            matrix_dictionary[self.vector_source_matrix_key][
-                active_faces
-            ] = vector_source_glob[active_faces]
+            matrix_dictionary[self.vector_source_matrix_key][active_faces] = (
+                vector_source_glob[active_faces]
+            )
             matrix_dictionary[self.bound_pressure_vector_source_matrix_key][
                 active_faces
             ] = bound_pressure_vector_source_glob[active_faces]
@@ -491,16 +491,16 @@ class Mpfa(pp.FVElliptic):
         else:
             matrix_dictionary[self.flux_matrix_key] = flux_glob
             matrix_dictionary[self.bound_flux_matrix_key] = bound_flux_glob
-            matrix_dictionary[
-                self.bound_pressure_cell_matrix_key
-            ] = bound_pressure_cell_glob
-            matrix_dictionary[
-                self.bound_pressure_face_matrix_key
-            ] = bound_pressure_face_glob
+            matrix_dictionary[self.bound_pressure_cell_matrix_key] = (
+                bound_pressure_cell_glob
+            )
+            matrix_dictionary[self.bound_pressure_face_matrix_key] = (
+                bound_pressure_face_glob
+            )
             matrix_dictionary[self.vector_source_matrix_key] = vector_source_glob
-            matrix_dictionary[
-                self.bound_pressure_vector_source_matrix_key
-            ] = bound_pressure_vector_source_glob
+            matrix_dictionary[self.bound_pressure_vector_source_matrix_key] = (
+                bound_pressure_vector_source_glob
+            )
 
     def update_discretization(self, sd: pp.Grid, data: dict) -> None:
         """Update discretization.
