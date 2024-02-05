@@ -30,8 +30,8 @@ jobs:
     # https://help.github.com/en/actions/language-and-framework-guides/using-python-with-github-actions#specifying-a-python-version
     strategy:
       matrix:
-        # Run the tests only on the latest supported Python version (currently 3.10).
-        python-version:  ["3.11", "3.12"]
+        # Run the tests only on the latest supported Python version.
+        python-version:  ["3.12"]
       # Complete all versions in matrix even if one fails.
       fail-fast: false
 
@@ -73,6 +73,7 @@ jobs:
         # Install requirements, using eager updates to avoid stalled dependencies due to caching
         # https://blog.allenai.org/python-caching-in-github-actions-e9452698e98d
         pip install --upgrade --upgrade-strategy eager -r requirements.txt
+        pip freeze
 
     # Run black, isort, flake8, and mypy.
     # Note that since these are static checks, we have not installed PorePy.
