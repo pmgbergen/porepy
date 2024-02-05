@@ -1,4 +1,4 @@
-"""
+r"""
 Model class for poromechanical equations under the Biot assumptions [1, 2, 3].
 
 This class can be seen as a subset of the full poromechanical system of equations,

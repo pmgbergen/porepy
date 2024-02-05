@@ -1051,7 +1051,7 @@ def _sort_sub_list(
 
 
 def _find_cell_color(g: pp.Grid, cells: np.ndarray) -> np.ndarray:
-    """Color the cells depending on the cell connections.
+    r"""Color the cells depending on the cell connections.
 
     Each group of cells that are connected (either directly by a shared face or
     through a series of shared faces of many cells) is are given different colors.
