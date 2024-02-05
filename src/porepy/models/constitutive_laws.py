@@ -798,6 +798,13 @@ class ConstantPermeability:
     :class:`~porepy.models.solution_strategy.SolutionStrategy`.
 
     """
+    isotropic_second_order_tensor: Callable[
+        [list[pp.Grid], pp.ad.Operator], pp.ad.Operator
+    ]
+    """Basis for the local coordinate system. Normally set by a mixin instance of
+    :class:`porepy.models.constitutive_laws.SecondOrderTensorUtils`.
+
+    """
 
     def permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Permeability [m^2].
@@ -2066,6 +2073,11 @@ class DarcysLawAd(AdTpfaFlux):
     mixin class with a suitable permeability definition.
 
     """
+    pressure: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]
+    """Pressure variable. Normally defined in a mixin instance of
+    :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`.
+
+    """
 
     def darcy_flux(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
         """Discretization of Darcy's law.
@@ -2324,6 +2336,13 @@ class ThermalConductivityLTE:
     interfaces_to_subdomains: Callable[[list[pp.MortarGrid]], list[pp.Grid]]
     """Map from interfaces to the adjacent subdomains. Normally defined in a mixin
     instance of :class:`~porepy.models.geometry.ModelGeometry`.
+
+    """
+    isotropic_second_order_tensor: Callable[
+        [list[pp.Grid], pp.ad.Operator], pp.ad.Operator
+    ]
+    """Basis for the local coordinate system. Normally set by a mixin instance of
+    :class:`porepy.models.constitutive_laws.SecondOrderTensorUtils`.
 
     """
 
@@ -2701,7 +2720,7 @@ class FouriersLaw:
         return pp.ad.MpfaAd(self.fourier_keyword, subdomains)
 
 
-class FouriersLawAd(AdTpfaFlux, FouriersLaw):
+class FouriersLawAd(AdTpfaFlux):
     """Adaptive discretization of the Fourier flux from generic adaptive flux class."""
 
     thermal_conductivity: Callable[[list[pp.Grid]], pp.ad.Operator]
@@ -2709,6 +2728,11 @@ class FouriersLawAd(AdTpfaFlux, FouriersLaw):
     mixin class of instance
     :class:`~porepy.models.constitutive_laws.ThermalConductivityLTE` or a subclass
     thereof.
+
+    """
+    temperature: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]
+    """Temperature variable. Normally defined in a mixin instance of
+    :class:`~porepy.models.energy_balance.VariablesEnergyBalance`.
 
     """
 
@@ -2926,15 +2950,15 @@ class SpecificHeatCapacities:
     """
 
     def fluid_specific_heat_capacity(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Fluid specific heat capacity [J/kg/K].
+        """Fluid specific heat capacity.
 
         Parameters:
             subdomains: List of subdomains. Not used, but included for consistency with
                 other implementations.
 
         Returns:
-            Operator representing the fluid specific heat capacity. The value is picked
-            from the fluid constants.
+            Operator representing the fluid specific heat capacity  [J/kg/K]. The value
+            is picked from the fluid constants.
 
         """
         return Scalar(
@@ -2958,7 +2982,7 @@ class SpecificHeatCapacities:
         )
 
 
-class EnthalpyFromTemperature(SpecificHeatCapacities):
+class EnthalpyFromTemperature:
     """Class for representing the ethalpy, computed from the perturbation from a
     reference temperature.
     """
@@ -2980,9 +3004,21 @@ class EnthalpyFromTemperature(SpecificHeatCapacities):
     :class:`~porepy.models.fluid_mass_balance.SolutionStrategyEnergyBalance`.
 
     """
+    fluid_specific_heat_capacity: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Function that returns the specific heat capacity of the fluid. Normally
+    provided by a mixin of instance
+    :class:`~porepy.constitutive_laws.SpecificHeatCapacities`.
+
+    """
+    solid_specific_heat_capacity: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Function that returns the specific heat capacity of the solid. Normally
+    provided by a mixin of instance
+    :class:`~porepy.constitutive_laws.SpecificHeatCapacities`.
+
+    """
 
     def fluid_enthalpy(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Fluid enthalpy [J*kg^-1*m^-nd].
+        """Fluid enthalpy.
 
         The enthalpy is computed as a perturbation from a reference temperature as
         .. math::
@@ -2992,7 +3028,7 @@ class EnthalpyFromTemperature(SpecificHeatCapacities):
             subdomains: List of subdomains.
 
         Returns:
-            Operator representing the fluid enthalpy.
+            Operator representing the fluid enthalpy [J*kg^-1*m^-nd].
 
         """
         c = self.fluid_specific_heat_capacity(subdomains)
@@ -3562,7 +3598,7 @@ class ThermoPressureStress(PressureStress):
     """
     bulk_modulus: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Bulk modulus. Normally defined in a mixin instance of
-    :class:`~porepy.models.constitutive_laws.LinearElasticSolid`.
+    :class:`~porepy.models.constitutive_laws.ElasticModuli`.
 
     """
     solid_thermal_expansion: Callable[[list[pp.Grid]], pp.ad.Operator]
@@ -3645,7 +3681,7 @@ class ConstantSolidDensity:
         return Scalar(self.solid.density(), "solid_density")
 
 
-class LinearElasticSolid(LinearElasticMechanicalStress, ConstantSolidDensity):
+class ElasticModuli:
     """Linear elastic properties of a solid.
 
     Includes "primary" stiffness parameters (lame_lambda, shear_modulus) and "secondary"
@@ -4181,7 +4217,7 @@ class PoroMechanicsPorosity:
     """
     bulk_modulus: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Bulk modulus. Normally defined in a mixin instance of
-    :class:`~porepy.models.constitutive_laws.LinearElasticSolid`.
+    :class:`~porepy.models.constitutive_laws.ElasticModuli`.
 
     """
     stress_keyword: str
