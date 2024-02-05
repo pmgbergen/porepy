@@ -3884,7 +3884,7 @@ class ShearDilation:
 
 
 class BartonBandis:
-    """Implementation of the Barton-Bandis model for elastic fracture normal
+    r"""Implementation of the Barton-Bandis model for elastic fracture normal
     deformation.
 
     The Barton-Bandis model represents a non-linear elastic deformation in the normal
@@ -4128,7 +4128,7 @@ class SpecificStorage:
     """
 
     def specific_storage(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Specific storage [1/Pa], i.e. inverse of the Biot modulus.
+        r"""Specific storage [1/Pa], i.e. inverse of the Biot modulus.
 
         The specific storage :math:`S_\varepsilon` can also be obtained from more
         fundamental quantities, i.e., :math:`S_\varepsilon = (\alpha - \phi_0) K_d^{
@@ -4176,7 +4176,7 @@ class ConstantPorosity:
 
 
 class PoroMechanicsPorosity:
-    """Porosity for poromechanical models.
+    r"""Porosity for poromechanical models.
 
     Note:
         For legacy reasons, the discretization matrices for the

@@ -1,4 +1,4 @@
-""" Module containing the implementation of an alternating digital tree (ADT)
+r""" Module containing the implementation of an alternating digital tree (ADT)
 for 3D geometric searching and intersection problems.
 
 See the following works: 10.1002/nme.1620310102 and 10.1201/9781420050349 section 14.
