@@ -387,24 +387,24 @@ class Mpsa(Discretization):
             matrix_dictionary[self.stress_matrix_key][update_ind] = stress_glob[
                 update_ind
             ]
-            matrix_dictionary[self.bound_stress_matrix_key][
-                update_ind
-            ] = bound_stress_glob[update_ind]
-            matrix_dictionary[self.bound_displacement_cell_matrix_key][
-                update_ind
-            ] = bound_displacement_cell_glob[update_ind]
-            matrix_dictionary[self.bound_displacement_face_matrix_key][
-                update_ind
-            ] = bound_displacement_face_glob[update_ind]
+            matrix_dictionary[self.bound_stress_matrix_key][update_ind] = (
+                bound_stress_glob[update_ind]
+            )
+            matrix_dictionary[self.bound_displacement_cell_matrix_key][update_ind] = (
+                bound_displacement_cell_glob[update_ind]
+            )
+            matrix_dictionary[self.bound_displacement_face_matrix_key][update_ind] = (
+                bound_displacement_face_glob[update_ind]
+            )
         else:
             matrix_dictionary[self.stress_matrix_key] = stress_glob
             matrix_dictionary[self.bound_stress_matrix_key] = bound_stress_glob
-            matrix_dictionary[
-                self.bound_displacement_cell_matrix_key
-            ] = bound_displacement_cell_glob
-            matrix_dictionary[
-                self.bound_displacement_face_matrix_key
-            ] = bound_displacement_face_glob
+            matrix_dictionary[self.bound_displacement_cell_matrix_key] = (
+                bound_displacement_cell_glob
+            )
+            matrix_dictionary[self.bound_displacement_face_matrix_key] = (
+                bound_displacement_face_glob
+            )
 
     def update_discretization(self, sd: pp.Grid, data: dict) -> None:
         """Update discretization.
