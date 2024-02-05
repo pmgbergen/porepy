@@ -326,10 +326,9 @@ class MassBalanceEquations(pp.BalanceEquation):
         return flux
 
     def fluid_source(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Fluid source term.
+        """Fluid source term integrated over the subdomain cells.
 
-        Includes
-
+        Includes:
             - external sources
             - interface flow from neighboring subdomains of higher dimension.
             - well flow from neighboring subdomains of lower and higher dimension.
@@ -343,7 +342,7 @@ class MassBalanceEquations(pp.BalanceEquation):
             subdomains: List of subdomains.
 
         Returns:
-            Operator representing the source term.
+            Operator representing the source term [kg/s].
 
         """
         # Interdimensional fluxes manifest as source terms in lower-dimensional
