@@ -1025,7 +1025,7 @@ class DarcysLaw:
     instance of :class:`~porepy.models.geometry.ModelGeometry`.
 
     """
-    pressure: Callable[[pp.SubdomainsOrBoundaries], pp.ad.MixedDimensionalVariable]
+    pressure: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     """Pressure variable. Normally defined in a mixin instance of
     :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`.
 
@@ -2073,7 +2073,7 @@ class DarcysLawAd(AdTpfaFlux):
     mixin class with a suitable permeability definition.
 
     """
-    pressure: Callable[[pp.SubdomainsOrBoundaries], pp.ad.MixedDimensionalVariable]
+    pressure: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     """Pressure variable. Normally defined in a mixin instance of
     :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`.
 
@@ -2436,7 +2436,7 @@ class FouriersLaw:
     instance of :class:`~porepy.models.geometry.ModelGeometry`.
 
     """
-    temperature: Callable[[pp.SubdomainsOrBoundaries], pp.ad.MixedDimensionalVariable]
+    temperature: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     """Temperature variable. Normally defined in a mixin instance of
     :class:`~porepy.models.energy_balance.VariablesEnergyBalance`.
 
@@ -2730,7 +2730,7 @@ class FouriersLawAd(AdTpfaFlux):
     thereof.
 
     """
-    temperature: Callable[[pp.SubdomainsOrBoundaries], pp.ad.MixedDimensionalVariable]
+    temperature: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     """Temperature variable. Normally defined in a mixin instance of
     :class:`~porepy.models.energy_balance.VariablesEnergyBalance`.
 
@@ -2987,7 +2987,7 @@ class EnthalpyFromTemperature:
     reference temperature.
     """
 
-    temperature: Callable[[pp.SubdomainsOrBoundaries], pp.ad.MixedDimensionalVariable]
+    temperature: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     """Temperature variable. Normally defined in a mixin instance of
     :class:`~porepy.models.energy_balance.VariablesEnergyBalance`.
 
@@ -3413,7 +3413,7 @@ class PressureStress(LinearElasticMechanicalStress):
     :class:`porepy.models.geometry.ModelGeometry`.
 
     """
-    pressure: Callable[[pp.SubdomainsOrBoundaries], pp.ad.MixedDimensionalVariable]
+    pressure: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     """Pressure variable. Normally defined in a mixin instance of
     :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`.
 
@@ -3581,7 +3581,7 @@ class ThermoPressureStress(PressureStress):
 
     """
 
-    temperature: Callable[[pp.SubdomainsOrBoundaries], pp.ad.MixedDimensionalVariable]
+    temperature: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     """Temperature variable. Normally defined in a mixin instance of
     :class:`~porepy.models.energy_balance.VariablesEnergyBalance`.
 
@@ -4244,7 +4244,7 @@ class PoroMechanicsPorosity:
     :class:`~porepy.models.momentum_balance.VariablesMomentumBalance`.
 
     """
-    pressure: Callable[[pp.SubdomainsOrBoundaries], pp.ad.MixedDimensionalVariable]
+    pressure: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     """Pressure variable. Normally defined in a mixin instance of
     :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`.
 
