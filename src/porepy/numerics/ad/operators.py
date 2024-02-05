@@ -619,9 +619,9 @@ class Operator:
         Expression - it is now done here to accommodate updates (?) and
 
         """
-        unique_discretizations: dict[
-            pp.discretization_type, list[GridLike]
-        ] = self._identify_discretizations()
+        unique_discretizations: dict[pp.discretization_type, list[GridLike]] = (
+            self._identify_discretizations()
+        )
         _ad_utils.discretize_from_list(unique_discretizations, mdg)
 
     def _identify_discretizations(
@@ -1972,8 +1972,7 @@ def _ad_wrapper(
     as_array: Literal[True],
     size: Optional[int] = None,
     name: Optional[str] = None,
-) -> DenseArray:
-    ...
+) -> DenseArray: ...
 
 
 def _ad_wrapper(
