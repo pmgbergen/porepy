@@ -1,4 +1,4 @@
-"""Coupling of mass and momentum balance to obtain poromechanics equations.
+r"""Coupling of mass and momentum balance to obtain poromechanics equations.
 
 The module only contains what is needed for the coupling, the two individual subproblems
 are defined elsewhere.

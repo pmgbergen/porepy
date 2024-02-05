@@ -583,7 +583,7 @@ class ConformingFracturePropagation(FracturePropagation):
         projection: pp.TangentialNormalProjection,
         faces: np.ndarray,
     ) -> np.ndarray:
-        """
+        r"""
         Construct local bases for tip faces of a fracture.
 
         Note: The orientation of a 2d basis may be found by
