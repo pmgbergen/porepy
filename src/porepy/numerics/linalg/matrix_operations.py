@@ -603,13 +603,16 @@ def invert_diagonal_blocks(
             return dense_block
 
         # Maps retrieve_block to indexation
-        iterator_blocks = map(retrieve_block, range(sz.size))
+        iterator_dense_blocks = map(retrieve_block, range(sz.size))
 
         # Maps linalg.inv to blocks
-        iterator_block_inverses = map(np.linalg.inv, iterator_blocks)
+        iterator_block_inverses = map(np.linalg.inv, iterator_dense_blocks)
 
-        # Maps ravel to block_inverses, performs the actual computation and concatenates
-        v = np.concatenate(list(map(np.ravel, iterator_block_inverses)))
+        # Maps ravel to block_inverses
+        iterator_block_ravel = map(np.ravel, iterator_block_inverses)
+
+        # Performs the actual computation and concatenates
+        v = np.concatenate(np.fromiter(iterator_block_ravel, dtype=np.ndarray))
         return v
 
     def invert_diagonal_blocks_numba(a: sps.csr_matrix, size: np.ndarray) -> np.ndarray:
