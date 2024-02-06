@@ -818,10 +818,6 @@ class Mixture:
         assert len(self._components) > 1, "At least 2 components required."
         assert len(self._phases) > 1, "At least 2 phases required."
 
-        self._num_cells: int
-        """The fluid is present in each cell and each state function has one DOF per
-        cell. This is calculated during :meth:`set_up_ad`."""
-
         self._p: pp.ad.MixedDimensionalVariable
         """Reference to the pressure variable on which phase properties depend."""
 
@@ -1003,12 +999,10 @@ class Mixture:
         STATE and ITERATE are set to zero.
 
         """
-        var = ad_system.create_variables(name=name, subdomains=subdomains)
-        ad_system.set_variable_values(
-            np.zeros(self._num_cells),
-            variables=[name],
-            iterate_index=0,
-            time_step_index=0,
+        var = ad_system.create_variables(
+            name=name,
+            subdomains=subdomains,
+            tags = {'si_units': '-'},
         )
         return var
 
@@ -1142,7 +1136,6 @@ class Mixture:
                 domains = [sd for sd in subdomains if sd in ad_system.mdg.subdomains()]
 
         self.system = ad_system
-        self._num_cells = int(sum([sd.num_cells for sd in domains]))
         self.reference_phase_eliminated = bool(eliminate_ref_phase)
 
         ### Creating fractional variables.

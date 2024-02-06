@@ -12,6 +12,7 @@ import porepy.composite as ppc
 from . import energy_balance as energy
 from . import fluid_mass_balance as mass
 from . import mass_and_energy_balance as mass_energy
+from .constitutive_laws import FouriersLaw
 from .fluid_mixture_equilibrium import EquilibriumMixin, MixtureMixin
 
 
@@ -26,28 +27,24 @@ class DiscretizationsCompositionalFlow:
     false storage access.
 
     Every discretization should be handled by this class, except the discretization for
-    the Darcy flux. That one is generally handled by the respective constitutive law.
+    the Darcy flux and Fourier flux.
+    Those are handled by the respective constitutive laws.
 
     """
 
-    total_mobility_keyword: str
-    """See :attr:`SolutionStrategyCompositionalFlow.total_mobility_keyword`."""
+    mobility_keyword: str
+    """See :attr:`~porepy.models.fluid_mass_balance.SolutionStrategySinglePhaseFlow.
+    mobility_keyword`."""
 
     component_mobility_keyword: Callable[[ppc.Component], str]
     """See :meth:`SolutionStrategyCompositionalFlow.component_mobility_keyword`."""
 
-    total_enthalpy_mobility_keyword: str
-    """See :attr:`SolutionStrategyCompositionalFlow.total_enthalpy_mobility_keyword`"""
-
-    fourier_keyword: str
-    """Keyword used to identify the Fourier flux discretization. Normally set by a mixin
-    instance of
-    :class:`~porepy.models.fluid_mass_balance.SolutionStrategyEnergyBalance`.
-
-    """
+    enthalpy_keyword: str
+    """See :attr:`~porepy.models.energy_balance.SolutionStrategyEnergyBalance.
+    enthalpy_keyword`."""
 
     def total_mobility_discretization(
-        self, subdomains: list[pp.Grid]
+        self, subdomains: Sequence[pp.Grid]
     ) -> pp.ad.UpwindAd:
         """Discretization of the total fluid mobility in the total mass balance on the
         subdomains.
@@ -60,10 +57,10 @@ class DiscretizationsCompositionalFlow:
             Discretization of the fluid mobility.
 
         """
-        return pp.ad.UpwindAd(self.total_mobility_keyword, subdomains)
+        return pp.ad.UpwindAd(self.mobility_keyword, subdomains)
 
     def interface_total_mobility_discretization(
-        self, interfaces: list[pp.MortarGrid]
+        self, interfaces: Sequence[pp.MortarGrid]
     ) -> pp.ad.UpwindCouplingAd:
         """Analogous to :meth:`total_mobility_discretization` on interfaces.
 
@@ -74,7 +71,7 @@ class DiscretizationsCompositionalFlow:
             Discretization for the interface mobility.
 
         """
-        return pp.ad.UpwindCouplingAd(self.total_mobility_keyword, interfaces)
+        return pp.ad.UpwindCouplingAd(self.mobility_keyword, interfaces)
 
     def enthalpy_mobility_discretization(
         self, subdomains: Sequence[pp.Grid]
@@ -89,10 +86,10 @@ class DiscretizationsCompositionalFlow:
             Discretization of the enthalpy mobility.
 
         """
-        return pp.ad.UpwindAd(self.total_enthalpy_mobility_keyword, subdomains)
+        return pp.ad.UpwindAd(self.enthalpy_keyword, subdomains)
 
     def interface_enthalpy_mobility_discretization(
-        self, interfaces: list[pp.MortarGrid]
+        self, interfaces: Sequence[pp.MortarGrid]
     ) -> pp.ad.UpwindCouplingAd:
         """Analogous to :meth:`enthalpy_mobility_discretization` on interfaces.
 
@@ -103,48 +100,7 @@ class DiscretizationsCompositionalFlow:
             Discretization for the interface enthalpy mobility.
 
         """
-        return pp.ad.UpwindCouplingAd(self.total_enthalpy_mobility_keyword, interfaces)
-
-    def fourier_flux_discretization(self, subdomains: list[pp.Grid]) -> pp.ad.MpfaAd:
-        """Fourier flux discretization.
-
-        Parameters:
-            subdomains: List of subdomains where the Fourier flux is defined.
-
-        Returns:
-            Discretization object for the Fourier flux.
-
-        """
-        return pp.ad.MpfaAd(self.fourier_keyword, subdomains)
-
-    def conductivity_discretization(
-        self, subdomains: Sequence[pp.Grid]
-    ) -> pp.ad.UpwindAd:
-        """Discretization of the non-linear weight in the Fourier flux in the energy
-        balance on the subdomains.
-
-        Parameters:
-            subdomains: List of subdomains.
-
-        Returns:
-            Discretization of the total conductivity.
-
-        """
-        return pp.ad.UpwindAd(self.fourier_keyword, subdomains)
-
-    def interface_conductivity_discretization(
-        self, interfaces: list[pp.MortarGrid]
-    ) -> pp.ad.UpwindCouplingAd:
-        """Analogous to :meth:`conductivity_discretization` on interfaces
-
-        Parameters:
-            subdomains: List of interfaces.
-
-        Returns:
-            Discretization of the total conductivity on interfaces.
-
-        """
-        return pp.ad.UpwindCouplingAd(self.fourier_keyword, interfaces)
+        return pp.ad.UpwindCouplingAd(self.enthalpy_keyword, interfaces)
 
     def component_mobility_discretization(
         self, component: ppc.Component, subdomains: Sequence[pp.Grid]
@@ -181,24 +137,16 @@ class DiscretizationsCompositionalFlow:
         )
 
 
-class FouriersLawCF:
+class FouriersLawCF(FouriersLaw):
     """Fourier's law in the compositional flow setting.
 
-    Implements the Fourier flux and relevant expressions using a temperature variable
-    and properties of the fluid mixture.
-
-    """
-
-    mdg: pp.MixedDimensionalGrid
-    """Mixed dimensional grid for the current model. Normally defined in a mixin
-    instance of :class:`~porepy.models.geometry.ModelGeometry`.
+    Atop the parent class methods, it provides means to compute the conductivity of a
+    fluid mixture.
 
     """
 
     fluid_mixture: ppc.Mixture
-    """A mixture containing all modelled phases and components, and required fluid
-    properties as a combination of phase properties. Usually defined in a mixin class
-    defining the mixture."""
+    """See :class:`~porepy.models.fluid_mixture_equilibrium.MixtureMixin`."""
 
     solid: pp.SolidConstants
     """Solid constant object that takes care of scaling of solid-related quantities.
@@ -212,54 +160,8 @@ class FouriersLawCF:
 
     """
 
-    temperature: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]
-    """Temperature variable. Normally defined in a mixin instance of
-    :class:`~porepy.models.energy_balance.VariablesEnergyBalance`."""
-    interface_temperature_flux: Callable[
-        [list[pp.MortarGrid]], pp.ad.MixedDimensionalVariable
-    ]
-    """Fourier flux variable on interfaces. Normally defined in a mixin instance of
-   :class:`~porepy.models.energy_balance.VariablesEnergyBalance`.
-
-    """
-
-    fourier_flux_discretization: Callable[[Sequence[pp.Grid]], pp.ad.MpfaAd]
-    """See :class:`DiscretizationsCompositionalFlow`."""
-    conductivity_discretization: Callable[[Sequence[pp.Grid]], pp.ad.UpwindAd]
-    """See :class:`DiscretizationsCompositionalFlow`."""
-    interface_conductivity_discretization: Callable[
-        [Sequence[pp.MortarGrid]], pp.ad.UpwindCouplingAd
-    ]
-    """See :class:`DiscretizationsCompositionalFlow`."""
-
-    bc_data_temperature_flux_key: str
-    """See :class:`BoundaryConditionsCompositonalFlow`.
-    """
-    bc_type_temperature_flux: Callable[[pp.Grid], pp.ad.Operator]
-    """See :class:`BoundaryConditionsCompositonalFlow`.
-    """
-
-    bc_data_fourier_flux_key: str
-    """See :class:`~porepy.models.fluid_mass_balance.BoundaryConditionsEnergyBalance`.
-    """
-    bc_type_fourier_flux: Callable[[pp.Grid], pp.ad.Operator]
-    """See :class:`~porepy.models.fluid_mass_balance.BoundaryConditionsEnergyBalance`.
-    """
-
     bc_data_conductivity_key: str
     """See :attr:`BoundaryConditionsCompositionalFlow.bc_data_conductivity_key`"""
-
-    _combine_boundary_operators: Callable[
-        [
-            Sequence[pp.Grid],
-            Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
-            Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
-            Callable[[pp.Grid], pp.BoundaryCondition],
-            str,
-            int,
-        ],
-        pp.ad.Operator,
-    ]
 
     create_boundary_operator: Callable[
         [str, Sequence[pp.BoundaryGrid]], pp.ad.TimeDependentDenseArray
@@ -268,30 +170,7 @@ class FouriersLawCF:
     :class:`~porepy.models.boundary_condition.BoundaryConditionMixin`.
 
     """
-    subdomains_to_interfaces: Callable[[list[pp.Grid], list[int]], list[pp.MortarGrid]]
-    """Map from subdomains to the adjacent interfaces. Normally defined in a mixin
-    instance of :class:`~porepy.models.geometry.ModelGeometry`.
 
-    """
-    interfaces_to_subdomains: Callable[[list[pp.MortarGrid]], list[pp.Grid]]
-    """Map from interfaces to the adjacent subdomains. Normally defined in a mixin
-    instance of :class:`~porepy.models.geometry.ModelGeometry`.
-
-    """
-
-    aperture: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Aperture. Normally defined in a mixin instance of
-    :class:`~porepy.models.constitutive_laws.DimensionReduction` or a subclass thereof.
-
-    """
-    volume_integral: Callable[
-        [pp.ad.Operator, Sequence[pp.Grid] | Sequence["pp.MortarGrid"], int],
-        pp.ad.Operator,
-    ]
-    """Integration over cell volumes, implemented in
-    :class:`pp.models.abstract_equations.BalanceEquation`.
-
-    """
     nd: int
     """Number of spatial dimensions."""
 
@@ -316,9 +195,10 @@ class FouriersLawCF:
             # Note: in case of the empty subdomain list, the time dependent array is
             # still returned. Otherwise, this method produces an infinite recursion
             # loop. It does not affect real computations anyhow.
-            return self.create_boundary_operator(  # type: ignore[call-arg]
-                name=self.bc_data_conductivity_key, domains=domains
-            )
+            assert False, "Fluid thermal conductivity accessed on boundary"
+            # return self.create_boundary_operator(  # type: ignore[call-arg]
+            #     name=self.bc_data_conductivity_key, domains=domains
+            # )
 
         # Verify that the domains are subdomains.
         if not all(isinstance(d, pp.Grid) for d in domains):
@@ -353,7 +233,9 @@ class FouriersLawCF:
             self.solid.thermal_conductivity(), "solid_thermal_conductivity"
         )
 
-    def total_conductivity(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+    def thermal_conductivity(
+        self, domains: pp.SubdomainsOrBoundaries
+    ) -> pp.ad.Operator:
         """Thermal conductivity [m^2].
 
         The thermal conductivity is computed as the porosity-weighted average of the
@@ -392,255 +274,13 @@ class FouriersLawCF:
             Operator representing normal thermal conductivity on the interfaces.
 
         """
-        val = self.fluid.normal_thermal_conductivity()
-        return pp.ad.Scalar(val, "normal_thermal_conductivity")
-
-    def temperature_trace(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Temperature on the subdomain boundaries.
-
-        .. note::
-            The below implementation assumes the heat flux is discretized with a finite
-            volume method (either Tpfa or Mpfa). Other discretizations may be possible,
-            but would likely require a modification of this (and several other) methods.
-
-        Parameters:
-            subdomains: List of subdomains where the temperature is defined.
-
-        Returns:
-            Temperature on the subdomain boundaries. Parsing the operator will return a
-            face-wise array.
-
-        """
-        interfaces: list[pp.MortarGrid] = self.subdomains_to_interfaces(subdomains, [1])
-        projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1)
-        discr = self.fourier_flux_discretization(subdomains)
-
-        boundary_operator_fourier = (
-            self._combine_boundary_operators(  # type: ignore[call-arg]
-                subdomains=subdomains,
-                dirichlet_operator=self.temperature,
-                neumann_operator=self.temperature_flux,
-                bc_type=self.bc_type_fourier_flux,
-                name="bc_values_fourier",
-            )
-        )
-
-        temperature_trace = (
-            # "pressure" is a legacy misnomer
-            discr.bound_pressure_cell @ self.temperature(subdomains)
-            + discr.bound_pressure_face
-            @ (
-                projection.mortar_to_primary_int
-                @ self.interface_temperature_flux(interfaces)
-            )
-            + discr.bound_pressure_face @ boundary_operator_fourier
-            + discr.bound_pressure_vector_source
-            @ self.vector_source_fourier_flux(subdomains)
-        )
-        return temperature_trace
-
-    def temperature_flux(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
-        """Discrete temperature flux on subdomains.
-
-        This is the basic discretization of :mat::`\\grad T` in the md-setting, without
-        weighing by conductivity.
-
-        Parameters:
-            domains: List of subdomains or boundary grids, where the temperature flux is
-                defined.
-
-        Returns:
-            An Ad-operator representing the temperature flux on the subdomains.
-
-        """
-
-        if len(domains) == 0 or isinstance(domains[0], pp.BoundaryGrid):
-            # Given Neumann data prescribed for Fourier flux on boundary.
-            return self.create_boundary_operator(  # type: ignore[call-arg]
-                name=self.bc_data_temperature_flux_key, domains=domains
-            )
-
-        interfaces: list[pp.MortarGrid] = self.subdomains_to_interfaces(domains, [1])
-        projection = pp.ad.MortarProjections(self.mdg, domains, interfaces, dim=1)
-        discr = self.fourier_flux_discretization(domains)
-
-        boundary_operator_fourier = self._combine_boundary_operators(  # type: ignore[call-arg]
-            subdomains=domains,
-            dirichlet_operator=self.temperature,
-            neumann_operator=self.temperature_flux,
-            bc_type=self.bc_type_temperature_flux,
-            name="bc_values_temperature",
-        )
-
-        flux: pp.ad.Operator = (
-            discr.flux @ self.temperature(domains)
-            + discr.bound_flux
-            @ (
-                boundary_operator_fourier
-                + projection.mortar_to_primary_int
-                @ self.interface_temperature_flux(interfaces)
-            )
-            + discr.vector_source @ self.vector_source_fourier_flux(domains)
-        )
-        flux.set_name("temperature_flux")
-        return flux
-
-    def fourier_flux(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
-        """Full Fourier flux term including :meth:`temperature_flux` and the total
-        conductivity.
-
-        Parameters:
-            subdomains: List of subdomains where the Fourier flux is defined.
-
-        Returns:
-            An Ad-operator representing the fourier flux on the subdomains.
-
-        """
-        if len(domains) == 0 or all(isinstance(d, pp.BoundaryGrid) for d in domains):
-            # Note: in case of the empty subdomain list, the time dependent array is
-            # still returned. Otherwise, this method produces an infinite recursion
-            # loop. It does not affect real computations anyhow.
-            return self.create_boundary_operator(  # type: ignore[call-arg]
-                name=self.bc_data_fourier_flux_key, domains=domains
-            )
-
-        # Verify that the domains are subdomains.
-        if not all(isinstance(d, pp.Grid) for d in domains):
-            raise ValueError(
-                "Domains must consist entirely of subdomains for the fluid flux."
-            )
-        # Now we can cast the domains
-        domains = cast(list[pp.Grid], domains)
-        temperature_flux = self.temperature_flux(domains)
-        interfaces = self.subdomains_to_interfaces(domains, [1])
-        mortar_projection = pp.ad.MortarProjections(
-            self.mdg, domains, interfaces, dim=1
-        )
-
-        discr = self.conductivity_discretization(domains)
-        weight = self.total_conductivity(domains)
-
-        boundary_operator = self._combine_boundary_operators(  # type: ignore[call-arg]
-            subdomains=domains,
-            dirichlet_operator=self.total_conductivity,
-            neumann_operator=self.fourier_flux,
-            bc_type=self.bc_type_fourier_flux,
-            name="bc_values_fourier_flux",
-        )
-
-        flux: pp.ad.Operator = (
-            temperature_flux * (discr.upwind @ weight)
-            - discr.bound_transport_dir @ (temperature_flux * boundary_operator)
-            - discr.bound_transport_neu @ boundary_operator
-        )
-
-        # interface fourier flux
-        intf_discr = self.interface_conductivity_discretization(interfaces)
-
-        flux -= (
-            discr.bound_transport_neu
-            @ mortar_projection.mortar_to_primary_int
-            @ self.interface_fourier_flux(interfaces, weight, intf_discr)
-        )
-
-        return flux
-
-    def interface_fourier_flux(
-        self,
-        interfaces: list[pp.MortarGrid],
-        total_conductivity: pp.ad.Operator,
-        discr: pp.ad.UpwindCouplingAd,
-    ) -> pp.ad.Operator:
-        """Interface fourier flux based on the temperature flux variable and the
-        total conductivity on the interface.
-
-        Note:
-            Implementarion is tailored to UpwindCouplingAd.
-
-        Parameters:
-            interfaces: List of interface grids.
-            advected_entity: Operator representing the total conductivity.
-            discr: Discretization for the total conductivity.
-
-        Returns:
-            Operator representing the Fourier flux on the interfaces.
-
-        """
-        subdomains = self.interfaces_to_subdomains(interfaces)
-        mortar_projection = pp.ad.MortarProjections(
-            self.mdg, subdomains, interfaces, dim=1
-        )
-        trace = pp.ad.Trace(subdomains)
-        interface_flux = self.interface_temperature_flux(interfaces) * (
-            discr.upwind_primary
-            @ mortar_projection.primary_to_mortar_avg
-            @ trace.trace
-            @ total_conductivity
-            + discr.upwind_secondary
-            @ mortar_projection.secondary_to_mortar_avg
-            @ total_conductivity
-        )
-        return interface_flux
-
-    def interface_fourier_flux_equation(
-        self, interfaces: list[pp.MortarGrid]
-    ) -> pp.ad.Operator:
-        """Discrete Fourier flux on interfaces.
-
-        Parameters:
-            interfaces: List of interface grids.
-
-        Returns:
-            Operator representing the Fourier flux equation on the interfaces.
-
-        """
-        subdomains = self.interfaces_to_subdomains(interfaces)
-        projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1)
-
-        # Gradient operator in the normal direction. The collapsed distance is
-        # :math:`\frac{a}{2}` on either side of the fracture.
-        normal_gradient = pp.ad.Scalar(2) * (
-            projection.secondary_to_mortar_avg
-            @ (self.aperture(subdomains) ** pp.ad.Scalar(-1))
-        )
-        normal_gradient.set_name("normal_gradient")
-
-        # Project the two temperatures to the interface and multiply with the normal
-        # conductivity.
-        # See comments in :meth:`interface_darcy_flux_equation` for more information on
-        # the terms in the below equation.
-        temperature_h = projection.primary_to_mortar_avg @ self.temperature_trace(
-            subdomains
-        )
-        temperature_l = projection.secondary_to_mortar_avg @ self.temperature(
-            subdomains
-        )
-        eq = self.interface_temperature_flux(interfaces) - self.volume_integral(
-            self.normal_thermal_conductivity(interfaces)
-            * (
-                normal_gradient * (temperature_h - temperature_l)
-                + self.interface_vector_source_fourier_flux(interfaces)
-            ),
-            interfaces,
-            1,
-        )
-        eq.set_name("interface_fourier_flux_equation")
-        return eq
+        # TODO model for normal thermal conductivity of the mixture.
+        return pp.ad.Scalar(1.0, "normal_thermal_conductivity")
 
     def vector_source_fourier_flux(
         self, grids: list[pp.Grid] | list[pp.MortarGrid]
     ) -> pp.ad.Operator:
-        """Vector source term. Zero for Fourier flux.
-
-        Parameters:
-            grids: List of subdomain or interface grids where the vector source is
-                defined.
-
-        Returns:
-            Cell-wise nd-vector source term operator.
-
-        """
-        # val = self.fluid.convert_units(0, "m*s^-2")
+        """Overriding to eliminate access to non-existent fluid constant mixin."""
         val = 0.0
         size = int(np.sum([g.num_cells for g in grids]) * self.nd)
         source = pp.wrap_as_dense_ad_array(val, size=size, name="zero_vector_source")
@@ -649,18 +289,7 @@ class FouriersLawCF:
     def interface_vector_source_fourier_flux(
         self, interfaces: list[pp.MortarGrid]
     ) -> pp.ad.Operator:
-        """Vector source term. Zero for Fourier flux.
-
-        Corresponds to the inner product of a nd vector source with normal vectors.
-
-        Parameters:
-            interfaces: List of interface grids where the vector source is defined.
-
-        Returns:
-            Cell-wise nd-vector source term operator.
-
-        """
-        # val = self.fluid.convert_units(0, "m*s^-2")
+        """Overriding to eliminate access to non-existent fluid constant mixin."""
         val = 0.0
         size = int(np.sum([g.num_cells for g in interfaces]))
         source = pp.wrap_as_dense_ad_array(val, size=size, name="zero_vector_source")
@@ -687,9 +316,7 @@ class TotalMassBalanceEquation(mass.MassBalanceEquations):
     """
 
     fluid_mixture: ppc.Mixture
-    """A mixture containing all modelled phases and components, and required fluid
-    properties as a combination of phase properties. Usually defined in a mixin class
-    defining the mixture."""
+    """See :class:`~porepy.models.fluid_mixture_equilibrium.MixtureMixin`."""
 
     relative_permeability: Callable[[pp.ad.Operator], pp.ad.Operator]
     """See :meth:`ConstitutiveLawsCompositionalFlow.relative_permeability`."""
@@ -848,9 +475,7 @@ class TotalEnergyBalanceEquation(energy.EnergyBalanceEquations):
     """
 
     fluid_mixture: ppc.Mixture
-    """A mixture containing all modelled phases and components, and required fluid
-    properties as a combination of phase properties. Usually defined in a mixin class
-    defining the mixture."""
+    """See :class:`~porepy.models.fluid_mixture_equilibrium.MixtureMixin`."""
 
     pressure: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]
     """Pressure variable. Normally defined in a mixin instance of
@@ -862,9 +487,6 @@ class TotalEnergyBalanceEquation(energy.EnergyBalanceEquations):
     :class:`~VariablesCompositionalFlow.enthalpy`.
 
     """
-
-    interface_fourier_flux_equation: Callable[[Sequence[pp.MortarGrid]], pp.ad.Operator]
-    """See :meth:`FouriersLawCF.interface_fourier_flux_equation`."""
 
     porosity: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     """Porosity of the rock. Normally provided by a mixin instance of
@@ -888,8 +510,6 @@ class TotalEnergyBalanceEquation(energy.EnergyBalanceEquations):
     instance of :class:`~porepy.models.constitutive_laws.AdvectiveFlux`.
 
     """
-    fourier_flux: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """See :meth:`FouriersLawCF.fourier_flux`."""
 
     enthalpy_mobility_discretization: Callable[[list[pp.Grid]], pp.ad.UpwindAd]
     """See :class:`DiscretizationsCompositionalFlow`."""
@@ -1064,9 +684,7 @@ class ComponentMassBalanceEquations(mass.MassBalanceEquations):
     """
 
     fluid_mixture: ppc.Mixture
-    """A mixture containing all modelled phases and components, and required fluid
-    properties as a combination of phase properties. Usually defined in a mixin class
-    defining the mixture."""
+    """See :class:`~porepy.models.fluid_mixture_equilibrium.MixtureMixin`."""
 
     relative_permeability: Callable[[pp.ad.Operator], pp.ad.Operator]
     """See :meth:`ConstitutiveLawsCompositionalFlow.relative_permeability`."""
@@ -1384,25 +1002,30 @@ class VariablesCompositionalFlow(mass_energy.VariablesFluidMassAndEnergy):
     enthalpy_variable: str
     """See :attr:`SolutionStrategyCompositionalFlow.enthalpy_variable`."""
 
-    interface_temperature_flux_variable: str
-    """See :attr:`SolutionStrategyCompositionalFlow.interface_temperature_flux_variable`
-    ."""
+    set_mixture: Callable
+    """See :meth:`~porepy.models.fluid_mixture_equilibrium.MixtureMixin.set_mixture`."""
 
     def create_variables(self) -> None:
         """Set the variables for the fluid mass and energy balance problem.
 
-        Call both parent classes' set_variables methods.
+        1. Sets up the pressure variables (domains, interfaces, wells)
+        2. Sets up the energy related variables
+        3. Creates the transported enthalpy variable
+        4. Sets up the fluid mixture and creates all compositional variables
 
         """
         # pressure and temperature. This covers also the interface variables for
         # Fourier flux, Darcy flux and enthalpy flux.
-        mass_energy.VariablesFluidMassAndEnergy.create_variables(self)
+        super().create_variables()
 
+        # enthalpy variable
         self.equation_system.create_variables(
             self.enthalpy_variable,
             subdomains=self.mdg.subdomains(),
             tags={"si_units": "J"},
         )
+        # compositional variables
+        self.set_mixture()
 
     def enthalpy(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
         """Representation of the enthalpy as an AD-Operator.
@@ -1436,23 +1059,6 @@ class VariablesCompositionalFlow(mass_energy.VariablesFluidMassAndEnergy):
         domains = cast(list[pp.Grid], domains)
 
         return self.equation_system.md_variable(self.enthalpy_variable, domains)
-
-    def interface_temperature_flux(
-        self, interfaces: list[pp.MortarGrid]
-    ) -> pp.ad.MixedDimensionalVariable:
-        """Interface temperature flux.
-
-        Parameters:
-            interfaces: List of interface grids.
-
-        Returns:
-            Variable representing the interface temperature flux.
-
-        """
-        flux = self.equation_system.md_variable(
-            self.interface_temperature_flux_variable, interfaces
-        )
-        return flux
 
 
 class ConstitutiveLawsCompositionalFlow(
@@ -1503,23 +1109,22 @@ class BoundaryConditionsCompositionalFlow(
     """
 
     bc_data_total_mobility_key: str = "bc_data_total_mobility"
-    """Key for the (time-dependent) BC data for the total mobility in the pressure
-    equation.
+    """Key for the (time-dependent) Dirichlet BC data for the total mobility in the
+    pressure equation.
 
     Note that this data must be computed in the solution strategy.
 
     """
     bc_data_enthalpy_mobility_key: str = "bc_data_enthalpy_mobility"
-    """Key for the (time-dependent) BC data for the non-linear weight in the enthalpy
-    flux in the total energy balance.
+    """Key for the (time-dependent) Dirichlet BC data for the non-linear weight in the
+    enthalpy flux in the total energy balance.
 
     Note that this data must be computed in the solution strategy.
 
     """
-
     bc_data_conductivity_key: str = "bc_data_fluid_conductivity"
-    """Key for storing the (time-dependent) BC data for the fluid conductivity on the
-    boundary.
+    """Key for storing the (time-dependent) Dirichlet BC data for the fluid conductivity
+    on the boundary.
 
     It is part of the total conductivity, the non-linear weight in the Fourier flux.
 
@@ -1527,39 +1132,14 @@ class BoundaryConditionsCompositionalFlow(
 
     """
 
-    bc_data_fourier_flux_key: str = "fourier_flux"
-    """Keyword for the storage of Neumann-type boundary conditions for the temperature
-    flux.
-
-    Note that this data must be computed in the solution strategy.
-
-    """
-
-    def bc_type_temperature_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
-        """Boundary conditions on all external boundaries for the temperature flux
-        in the energy equation.
-
-        Parameters:
-            sd: Subdomain grid on which to define boundary conditions.
-
-        Returns:
-            Boundary condition object. Per default Dirichlet-type BC are assigned,
-            requiring temperature values on the bonudary.
-
-        """
-        # Define boundary faces.
-        boundary_faces = self.domain_boundary_sides(sd).all_bf
-        # Define boundary condition on all boundary faces.
-        return pp.BoundaryCondition(sd, boundary_faces, "dir")
-
     def bc_data_component_mobility_key(self, component: ppc.Component) -> str:
         """
         Parameters:
             component: A fluid component in the mixture with a mass balance equation.
 
         Returns:
-            The key for storing (time-dependent) BC data for the mobility in the
-            components mass balance.
+            The key for storing (time-dependent) Dirichlet BC data for the mobility in
+            the component's mass balance.
 
             Note that this data must be computed in the solution strategy.
 
@@ -1567,24 +1147,49 @@ class BoundaryConditionsCompositionalFlow(
         return f"bc_data_mobility_{component.name}"
 
     def bc_data_component_flux_key(self, component: ppc.Component) -> str:
-        """
+        """Replaces :attr:`~porepy.models.fluid_mass_balance.
+        BoundaryConditionsSinglePhaseFlow.bc_data_fluid_flux_key` to access the
+        Neumann data of the advective flux in a components's mas balance.
+
         Parameters:
             component: A fluid component in the mixture with a mass balance equation.
 
         Returns:
-            The key for storing (time-dependent) BC data for the advective flux in the
-            components mass balance.
+            The key for storing (time-dependent) Neumann BC data for the advective flux
+            in the components mass balance.
 
             Note that this data must be computed in the solution strategy.
 
         """
         return f"bc_data_component_flux_{component.name}"
 
+    def bc_values_component_flux(
+        self, component: ppc.Component, boundary_grid: pp.BoundaryGrid
+    ) -> np.ndarray:
+        r"""Replaces :meth:`~porepy.models.fluid_mass_balance.
+        BoundaryConditionsSinglePhaseFlow.bc_values_fluid_flux` to compute the
+        Neumann data of the advective flux in a components's mas balance.
+
+        Important:
+            Override this method to provide custom Neumann data for the flux,
+            per boundary grid as a numpy array with numerical values.
+
+        Parameters:
+            boundary_grid: Boundary grid to provide values for.
+
+        Returns:
+            An array with ``shape=(boundary_grid.num_cells,)`` containing the mass
+            fluid flux values on the provided boundary grid.
+
+        """
+        return np.zeros(boundary_grid.num_cells)
+
     def bc_type_component_flux(
         self, component: ppc.Component, grid: pp.Grid
     ) -> pp.BoundaryCondition:
-        """Boundary conditions on all external boundaries for a component's mass
-        balance.
+        """Replaces :meth:`~porepy.models.fluid_mass_balance.
+        BoundaryConditionsSinglePhaseFlow.bc_type_fluid_flux` in a component's mass
+        balance
 
         Parameters:
             component: A transportable fluid component in the mixture.
@@ -1625,6 +1230,39 @@ class SolutionStrategyCompositionalFlow(
 
     """
 
+    fluid_mixture: ppc.Mixture
+    """See :class:`~porepy.models.fluid_mixture_equilibrium.MixtureMixin`."""
+
+    bc_type_component_flux: Callable[[ppc.Component, pp.Grid], pp.BoundaryCondition]
+    """See :meth:`BoundaryConditionsCompositionalFlow.bc_type_component_flux`."""
+
+    thermal_conductivity: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """See :meth:`FouriersLawCF.thermal_conductivity`."""
+
+    total_mobility_discretization: Callable[[Sequence[pp.Grid]], pp.ad.UpwindAd]
+    """See :class:`DiscretizationsCompositionalFlow`."""
+    interface_total_mobility_discretization: Callable[
+        [Sequence[pp.MortarGrid]], pp.ad.UpwindCouplingAd
+    ]
+    """See :class:`DiscretizationsCompositionalFlow`."""
+    enthalpy_mobility_discretization: Callable[[Sequence[pp.Grid]], pp.ad.UpwindAd]
+    """See :class:`DiscretizationsCompositionalFlow`."""
+    interface_enthalpy_mobility_discretization: Callable[
+        [Sequence[pp.MortarGrid]], pp.ad.UpwindCouplingAd
+    ]
+    """See :class:`DiscretizationsCompositionalFlow`."""
+    fourier_flux_discretization: Callable[[Sequence[pp.Grid]], pp.ad.MpfaAd]
+    """See :meth:`~porepy.models.constitutive_laws.FouriersLaw.
+    fourier_flux_discretization`"""
+    component_mobility_discretization: Callable[
+        [ppc.Component, Sequence[pp.Grid]], pp.ad.UpwindAd
+    ]
+    """See :class:`DiscretizationsCompositionalFlow`."""
+    interface_component_mobility_discretization: Callable[
+        [ppc.Component, Sequence[pp.MortarGrid]], pp.ad.UpwindCouplingAd
+    ]
+    """See :class:`DiscretizationsCompositionalFlow`."""
+
     def __init__(self, params: Optional[dict] = None) -> None:
         super().__init__(params)
 
@@ -1657,17 +1295,7 @@ class SolutionStrategyCompositionalFlow(
         """Primary variable in the compositional flow model, denoting the total,
         transported (specific molar) enthalpy of the fluid mixture."""
 
-        self.interface_temperature_flux_variable: str = "interface_temperature_flux"
-        """Name of the primary variable representing the temperature flux on interfaces
-        of codimension one."""
-
-        self.total_mobility_keyword: str = "total_mobility"
-        """Keyword for storing the discretization parameters and matrices of the
-        discretization for the total mobility in the pressure equation."""
-
-        self.total_enthalpy_mobility_keyword: str = "enthalpy_mobility"
-        """Keyword for storing the discretization parameters and matrices of the
-        discretization for the non-linear weight in the enthalpy flux."""
+        self._domainprojection: pp.ad.SubdomainProjections(self.mdg.subdomains())
 
     def component_mobility_keyword(self, component: ppc.Component) -> str:
         """
@@ -1680,6 +1308,124 @@ class SolutionStrategyCompositionalFlow(
 
         """
         return f"mobility_{component.name}"
+
+    def initial_condition(self) -> None:
+        """Initiates additionally zero fluxes for the component mobilities."""
+        super().initial_condition()
+
+        for component in self.fluid_mixture.components:
+            for sd, data in self.mdg.subdomains(return_data=True):
+                pp.initialize_data(
+                    sd,
+                    data,
+                    self.component_mobility_keyword(component),
+                    {"darcy_flux": np.zeros(sd.num_faces)},
+                )
+            for intf, data in self.mdg.interfaces(return_data=True):
+                pp.initialize_data(
+                    intf,
+                    data,
+                    self.component_mobility_keyword(component),
+                    {"darcy_flux": np.zeros(intf.num_cells)},
+                )
+
+    def set_discretization_parameters(self) -> None:
+        """Sets the discretization parameters, minding the custom Fourier law."""
+        # First, discretizations in single phase flow, which is used for pressure equ.
+        mass.SolutionStrategySinglePhaseFlow.set_discretization_parameters(self)
+
+        subdomains = self.mdg.subdomains()
+        conducivity = self.thermal_conductivity(subdomains).value(self.equation_system)
+        projection = pp.ad.SubdomainProjections(subdomains)
+
+        # Second, discretizations in the energy equation. Slightly different due to
+        # FouriersLawCF and access to conductivity of fluid mixture.
+        for sd, data in self.mdg.subdomains(return_data=True):
+            pp.initialize_data(
+                sd,
+                data,
+                self.fourier_keyword,
+                {
+                    "bc": self.bc_type_fourier_flux(sd),
+                    "second_order_tensor": pp.SecondOrderTensor(
+                        projection.cell_restriction([sd]) * conducivity
+                    ),
+                    "ambient_dimension": self.nd,
+                },
+            )
+            pp.initialize_data(
+                sd,
+                data,
+                self.enthalpy_keyword,
+                {
+                    "bc": self.bc_type_enthalpy_flux(sd),
+                },
+            )
+
+        # Third, discretization parameters for mobility term in component mass balances
+        for component in self.fluid_mixture.components:
+            for sd, data in self.mdg.subdomains(return_data=True):
+                pp.initialize_data(
+                    sd,
+                    data,
+                    self.component_mobility_keyword(component),
+                    {
+                        "bc": self.bc_type_component_flux(component, sd),
+                    },
+                )
+
+    def set_nonlinear_discretizations(self) -> None:
+        """Overwrites parent methods to point to discretizations in
+        :class:`DiscretizationsCompositionalFlow`.
+
+        Adds additionally the MPF discretization of the Fourier flux to the set
+        of non-linear discretizations which need to be re-discretized in every
+        iteration.
+
+        Note:
+            Re-discretizing the MPFA for the conductive flux might be expensive. TODO
+
+        """
+        subdomains = self.mdg.subdomains()
+        interfaces = self.mdg.interfaces()
+
+        # Upwind of total mobility in pressure equation
+        self.add_nonlinear_discretization(
+            self.total_mobility_discretization(subdomains).upwind,
+        )
+        self.add_nonlinear_discretization(
+            self.interface_total_mobility_discretization(interfaces).flux,
+        )
+
+        # Upwind of enthalpy mobility in energy equation
+        self.add_nonlinear_discretization(
+            self.enthalpy_mobility_discretization(subdomains).upwind,
+        )
+        self.add_nonlinear_discretization(
+            self.interface_enthalpy_mobility_discretization(interfaces).flux,
+        )
+
+        # MPFA of Fourier flux, which dpends on the conductivity tensor.
+        self.add_nonlinear_discretization(
+            self.fourier_flux_discretization(subdomains),  # TODO really everything?
+        )
+
+        # Upwinding of mobilities in component balance equations
+        for component in self.fluid_mixture.components:
+            if (
+                component == self.fluid_mixture.reference_component
+                and self.eliminate_reference_component
+            ):
+                continue
+
+            self.add_nonlinear_discretization(
+                self.component_mobility_discretization(component, subdomains).upwind,
+            )
+            self.add_nonlinear_discretization(
+                self.interface_component_mobility_discretization(
+                    component, interfaces
+                ).flux,
+            )
 
 
 class CompositionalFlow(  # type: ignore[misc]
