@@ -1,6 +1,8 @@
 """Module defining basic equatios for fluid flow with multiple componens/species."""
 from __future__ import annotations
 
+import logging
+import time
 from functools import partial
 from typing import Callable, Optional, Sequence, cast
 
@@ -12,8 +14,9 @@ import porepy.composite as ppc
 from . import energy_balance as energy
 from . import fluid_mass_balance as mass
 from . import mass_and_energy_balance as mass_energy
-from .constitutive_laws import FouriersLaw
 from .fluid_mixture_equilibrium import EquilibriumMixin, MixtureMixin
+
+logger = logging.getLogger(__name__)
 
 
 class DiscretizationsCompositionalFlow:
@@ -137,7 +140,7 @@ class DiscretizationsCompositionalFlow:
         )
 
 
-class FouriersLawCF(FouriersLaw):
+class FouriersLawCF(pp.constitutive_laws.FouriersLaw):
     """Fourier's law in the compositional flow setting.
 
     Atop the parent class methods, it provides means to compute the conductivity of a
@@ -1238,6 +1241,16 @@ class SolutionStrategyCompositionalFlow(
 
     thermal_conductivity: Callable[[list[pp.Grid]], pp.ad.Operator]
     """See :meth:`FouriersLawCF.thermal_conductivity`."""
+    darcy_flux: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
+    """See :meth:`~porepy.models.constitutive_laws.DarcysLaw.darcy_flux`."""
+    interface_darcy_flux: Callable[
+        [list[pp.MortarGrid]], pp.ad.MixedDimensionalVariable
+    ]
+    """See :meth:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow.
+    interface_darcy_flux`."""
+    well_flux: Callable[[list[pp.MortarGrid]], pp.ad.MixedDimensionalVariable]
+    """See :meth:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow.
+    well_flux`."""
 
     total_mobility_discretization: Callable[[Sequence[pp.Grid]], pp.ad.UpwindAd]
     """See :class:`DiscretizationsCompositionalFlow`."""
@@ -1426,6 +1439,95 @@ class SolutionStrategyCompositionalFlow(
                     component, interfaces
                 ).flux,
             )
+
+    def before_nonlinear_iteration(self) -> None:
+        """Overwrites parent methods to perform the p-h flash as a predictor step.
+
+        Subsequently it computes the fluxes for various Upwind discretiztions
+        (without calling the parent methods of mass and energy though, to save time).
+
+        Finally, it calles the base class' method to update discretization parameters
+        and to re-discretize.
+
+        """
+        # TODO perform flash
+
+        for sd, data in self.mdg.subdomains(return_data=True):
+            # Computing Darcy flux and updating it in the mobility dicts for pressure
+            # and energy equtaion
+            vals = self.darcy_flux([sd]).value(self.equation_system)
+            data[pp.PARAMETERS][self.mobility_keyword].update({"darcy_flux": vals})
+            data[pp.PARAMETERS][self.enthalpy_keyword].update({"darcy_flux": vals})
+            # Updating the flux in the mobility dicts in each mass balance equation
+            for component in self.fluid_mixture.components:
+                if (
+                    component == self.fluid_mixture.reference_component
+                    and self.eliminate_reference_component
+                ):
+                    continue
+                data[pp.PARAMETERS][self.component_mobility_keyword(component)].update(
+                    {"darcy_flux": vals}
+                )
+        for intf, data in self.mdg.interfaces(return_data=True, codim=1):
+            # Computing the darcy flux in fractures (given by variable)
+            vals = self.interface_darcy_flux([intf]).value(self.equation_system)
+            data[pp.PARAMETERS][self.mobility_keyword].update({"darcy_flux": vals})
+            data[pp.PARAMETERS][self.enthalpy_keyword].update({"darcy_flux": vals})
+            # Updating the flux in the mobility dicts in each mass balance equation
+            for component in self.fluid_mixture.components:
+                if (
+                    component == self.fluid_mixture.reference_component
+                    and self.eliminate_reference_component
+                ):
+                    continue
+                data[pp.PARAMETERS][self.component_mobility_keyword(component)].update(
+                    {"darcy_flux": vals}
+                )
+        for intf, data in self.mdg.interfaces(return_data=True, codim=2):
+            # Computing the darcy flux in wells (given by variable)
+            vals = self.well_flux([intf]).value(self.equation_system)
+            data[pp.PARAMETERS][self.mobility_keyword].update({"darcy_flux": vals})
+            data[pp.PARAMETERS][self.enthalpy_keyword].update({"darcy_flux": vals})
+            # Updating the flux in the mobility dicts in each mass balance equation
+            for component in self.fluid_mixture.components:
+                if (
+                    component == self.fluid_mixture.reference_component
+                    and self.eliminate_reference_component
+                ):
+                    continue
+                data[pp.PARAMETERS][self.component_mobility_keyword(component)].update(
+                    {"darcy_flux": vals}
+                )
+
+        # Call to base class method to update discr. parameters and re-discretize
+        pp.SolutionStrategy.before_nonlinear_loop(self)
+
+    def after_nonlinear_iteration(self, solution_vector: np.ndarray) -> None:
+        """Expands the Schur complement using ``solution_vector``, to include secondary
+        variables."""
+
+        global_solution_vector = ...  # TODO
+        super().after_nonlinear_iteration(global_solution_vector)
+
+    def assemble_linear_system(self) -> None:
+        """Assemble the linearized system and store it in :attr:`linear_system`.
+
+        This method performs a Schur complement elimination.
+
+        Primary variables are pressure, enthalpy and overall feed fractions,
+        as well as the interface fluxes (Darcy and Fourier)
+        Primary equations are the pressure equation, energy equation and component mass
+        balance equations, as well as the interface equations for the interface fluxes.
+
+        Secondary variables are the remaining molar fractions, saturations and
+        temperature.
+        Secondary equations are all flash equations, including the phase density
+        relations.
+
+        """
+        t_0 = time.time()
+        self.linear_system = ...  # TODO
+        logger.debug(f"Assembled linear system in {time.time() - t_0:.2e} seconds.")
 
 
 class CompositionalFlow(  # type: ignore[misc]
