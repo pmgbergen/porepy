@@ -724,7 +724,7 @@ class EquationSystem:
         # Last sanity check if the vector was properly sized, or if it was too large.
         # This imposes a theoretically unnecessary restriction on the input argument
         # since we only require a vector of at least this size.
-        assert dof_end == values.size
+        # assert dof_end == values.size
 
     def shift_time_step_values(
         self,

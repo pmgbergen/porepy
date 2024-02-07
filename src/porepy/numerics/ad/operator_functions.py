@@ -8,8 +8,9 @@ specified operator function type.
 from __future__ import annotations
 
 import abc
+import numbers
 from functools import partial
-from typing import Callable, Optional, Type
+from typing import Callable, Optional, Type, Union
 
 import numpy as np
 import scipy.sparse as sps
@@ -20,14 +21,15 @@ from porepy.numerics.ad.forward_mode import AdArray
 from .operators import Operator
 
 __all__ = [
+    "admethod",
     "Function",
     "ConstantFunction",
     "DiagonalJacobianFunction",
     "InterpolatedFunction",
-    "ADmethod",
+    "SemiSmoothMin",
 ]
 
-### BASE CLASSES ------------------------------------------------------------------------------
+### BASE CLASSES -----------------------------------------------------------------------
 
 
 class AbstractFunction(Operator):
@@ -228,7 +230,7 @@ class AbstractJacobianFunction(AbstractFunction):
             return np.array([self.func(*vals_i) for vals_i in zip(*vals)])
 
 
-### CONCRETE IMPLEMENTATIONS ------------------------------------------------------------------
+### CONCRETE IMPLEMENTATIONS -----------------------------------------------------------
 
 
 class Function(AbstractFunction):
@@ -337,14 +339,14 @@ class DiagonalJacobianFunction(AbstractJacobianFunction):
 
         """
         # the Jacobian of a (Merged) Variable is already a properly sized block identity
-        jac = args[0].jac * self._multipliers[0]
+        jac = args[0].jac * self._multipliers[0] if isinstance(args[0], AdArray) else 0
 
         # summing identity blocks for each dependency
         if len(args) > 1:
             # TODO think about exception handling in case not enough
             # L-values were provided initially
             for arg, L in zip(args[1:], self._multipliers[1:]):
-                jac += arg.jac * L
+                jac += arg.jac * L if isinstance(arg, AdArray) else 0
 
         return jac
 
@@ -435,70 +437,331 @@ class InterpolatedFunction(AbstractFunction):
         return jac
 
 
-### FUNCTION DECORATOR ------------------------------------------------------------------------
+class SemiSmoothMin(AbstractFunction):
+    """Function representing the semi-smooth ``min(-,-)``-function for two operators.
+
+    The evaluation of the derivative (and function-values) follows basically an
+    active-set-strategy.
+
+    The active set is defined by the those DOFs, where operator 1 has (strictly) larger values.
+    On the active set, the values correspond to the values of operator 2.
+    On the inactive set, the values correspond to the values of operator 1.
+
+    The Jacobian is chosen from elements of the B-sub-differential.
+    On the active set, the derivatives of operator 2 are chosen.
+    On the inactive set, the derivatives of operator 1 are chosen.
+
+    In a multi-dimensional setting this corresponds to selecting respective rows of each
+    sub-differential and inserting them in the final Jacobian.
+
+    Parameters:
+        op1: first AD Operator, representing the first argument to the min-function.
+        op1: second AD Operator, representing the second argument to the min-function.
+
+    """
+
+    def __init__(self):
+        name = f"semi-smooth MIN operator"
+        # dummy function, not supposed to be used
+
+        def func(x, y):
+            return x if x < y else y
+
+        super().__init__(func, name, False, False)
+
+        self.ad_compatible = False
+
+    def get_values(self, *args: AdArray) -> np.ndarray:
+        # this will throw an error if more than two arguments were passed
+        op1, op2 = args
+        # active set choice
+        active_set = (op1.val - op2.val) > 0.0
+        # default/inactive vals
+        vals = op1.val.copy()
+        # replace vals on active set
+        vals[active_set] = op2.val[active_set]
+        return vals
+
+    def get_jacobian(self, *args: AdArray) -> sps.spmatrix:
+        # this will throw an error if more than two arguments were passed
+        op1, op2 = args
+        # active set choice
+        active_set = (op1.val - op2.val) > 0.0
+        # default/inactive choice (lil format for faster assembly)
+        jac = op1.jac.copy()
+        # replace (active set) rows with the differential from the other operator
+        jac[active_set] = op2.jac[active_set]
+        return jac.tocsr()
 
 
-class ADmethod:
-    """(Decorator) Class for methods representing e.g., physical properties.
-    The decorated function is expected to take scalars/vectors and return a scalar/vector.
+### FUNCTION DECORATOR -----------------------------------------------------------------
 
-    The return value will be an AD operator of a type passed to the decorator.
+NumericType = Union[pp.number, np.ndarray, AdArray]
+
+
+def admethod(
+    func: Optional[Callable] = None,
+    ad_ftype: Type[AbstractFunction] = Function,
+    ad_fkwargs: dict = {},
+) -> Callable[[Callable], ADMethod] | ADMethod:
+    """Decorator to be used for class methods and functions to turn them into
+    AD operator functions if they receive AD operators as input arguments.
+
+    Note:
+        This function serves as a factory for :class:`ADMethod` instances, which
+        will replace the decorated function.
+
+        The process between decorations with ``@admethod`` and ``@admethod(...)`` are
+        slightly different. See examples below and documentation of :class:`ADMethod`.
 
     Examples:
+
+        .. rubric:: Example 1
+
+        Here we demonstrate how to use this function, with and without a call during
+        decoration.
+
+        Without a call, the default arguments are used to create a
+        :class:`Function` factory using :class:`ADMethod`.
+
         .. code:: python
 
             import porepy as pp
 
-            # decorating class methods
-            class IdealGas:
+            @admethod
+            def dummy_rel_perm(saturation):
+                return saturation * saturation
 
-                @ADmethod(ad_operator=pp.ad.DiagonalJacobianFunction,
-                        operators_args={"multipliers"=[1,1]})
-                def density(self, p: float, T: float) -> float:
-                    return p/T
+        During execution time,
+        above example code will call ``admethod`` with the function ``dummy_rel_perm``
+        passed as argument ``func``.
+        ``dummy_rel_perm`` will then be replaced with an instance of :class:`ADMethod`,
+        which creates :class:`Function`
+        instances and calls them everytime the argument ``saturation`` is
+        an AD operator.
+        So calling ``dummy_rel_perm`` with e.g.,
+        a :class:`~porepy.numerics.ad.operators.Variable` will return another AD
+        operator, equivalent to the syntax.
 
-            # decorating function
-            @ADmethod(ad_operator=pp.ad.Function)
-            def dummy_rel_perm(s):
-                return s**2
+        >>> pp.ad.Function(dummy_rel_perm, name='')(saturation)
 
-        With above code, the density of an instance of ``IdealGas`` can be called using
-        :class:`~porepy.numerics.ad.operators.MergedVariable` representing
-        pressure and temperature.
-        Analogously, ``dummy_rel_perm`` can be called with one representing the saturation.
+        If ``saturation`` is not an AD operator, but any other numerical format
+        accepted by :class:`ADMethod`, then ``dummy_rel_perm`` is callable like usual
+        and will immediatly return the value ``saturation * saturation``.
+
+        .. rubric:: Example 2
+
+        For using other operator functions besides :class:`Function`, you can use
+        this function with a call during decoration:
+
+        .. code:: python
+
+            @admethod(
+                ad_ftype=pp.ad.DiagonalJacobianFunction, ad_fkwargs={'multipliers'=[2]}
+            )
+            def dummy_rel_perm(saturation):
+                return saturation * saturation
+
+        This will give the same result as in above example, only that calls with
+        AD operators will not perform a call to :class:`Function`, but to
+        :class:`DiagonalJacobianFunction`.
+        ``ad_fkwargs`` will be used as arguments in the instantiation of
+        :class:`DiagonalJacobianFunction`.
+
+        Warning:
+            When decorating with a call to ``admethod``, the arguments
+            ``ad_ftype`` and ``ad_fkwargs`` must be given as keyword arguments.
+
+        .. rubric:: Example 3
+
+        Consider a decorated function taking two arguments
+
+        .. code:: python
+
+            @admethod
+            def mutiply(x, y):
+                return x * y
+
+        As seen above, here the multiplication will be wrapped into an
+        :class:`Function`.
+
+        We can compute cheap partial derivatives w.r.t. ``y``, if we let ``y`` be an
+        :class:`~porepy.numerics.ad.forward_mode.AdArray` and ``x`` some other
+        numeric format.
+        ``y`` can either be a simple ``AdArray`` with ``val=...`` and
+        ``jac=numpy.array([0, 1])``,
+        or a :class:`~porepy.numerics.ad.operators.Variable`,
+        which wrapps above construction.
+
+        >>> x = 3
+        >>> y = pp.ad.Variable(...)
+        >>> dy = multiply(x, y).evaluate(...)
+
+        ``dy`` will in effectively be an expression multiplying the constant value of
+        ``x`` with the ``AdArray`` representing ``y``, hence a partial derivative.
+
+        .. rubric:: Example 4
+
+        As of now, this decorator is compatible with Python's
+        :obj:`classmethod`, :obj:`staticmethod` and :obj:`~abc.abstractmethod`.
+
+        In combination with other decorators, make sure to use ``admethod`` as the
+        outermost/topmost decorator.
+
+        .. code:: python
+
+            import abc
+            import porepy as pp
+
+            class Foo(abc.ABC):
+
+                @pp.ad.admethod
+                @classmethod  # staticmethod
+                @abc.abstractmethod
+                def bar():
+                    ...
 
     Note:
-        If used as decorator WITHOUT explicit instantiation, the instantiation will be
-        done implicitly with above default arguments (that's how Python decorators work).
+        **When to use this.**
+
+        When dealing with complex heuristic laws implemented as functions,
+        this decorator enables the user to evaluate the function as usual if
+        the input args are not AD operators.
+
+        But if one wants to use the AD framework, it is often very bad for performance
+        reasons to implement the heuristic law directly with AD operators, due to
+        the possibly large operator tree and expensive recursion in the evaluation.
+
+        This function aims for feeding the heuristic law directly with instances of
+        :class:`~porepy.numerics.ad.forward.AdArray`, using the framework provided
+        by AD operator functions. It reduces the heuristic law to a single evaluation
+        process in the final operator tree.
+
+        Another obvious benefit is, that this approach does not produce any overhead if
+        the decorated function is called without AD arguments, but nevertheless
+        enabling the user to use both worlds in a flexible way.
 
     Parameters:
-        func: decorated function object
-        ad_function_type: type reference to an AD operator function to be instantiated.
-            When instantiated, that instance will effectively replace ``func``.
-        operator_kwargs: keyword arguments to be passed when instantiating an operator
+        func: ``default=None``
+
+            Reference to the decorated function.
+        ad_ftype: ``default=:class:`Function``
+
+            A type of AD operator function
+            (see :class:`AbstractFunction`) which should replace the decorated function
+            if it is called with AD Operators as arguments.
+        ad_fkwargs: ``default={}``
+
+            A dictionary containing keyword arguments for the
+            instantiation of the AD operator function of type ``ad_ftype``.
+
+    Returns:
+        An instance of :class:`ADMethod` mimicing the decorated function and capable
+        of taking AD operators  and\or other numeric formats as arguments.
+
+    """
+
+    if func is None:
+        # Here the first call to admethod was done in the decoration.
+        # Meaning we must return a callable which will in the next call take the
+        # decorated function as input.
+        def admethod_(func_):
+            # allow for compatibility with abstractmethod decorator
+            decorated = ADMethod(func_, ad_ftype=ad_ftype, ad_fkwargs=ad_fkwargs)
+            if hasattr(func_, "__isabstractmethod__"):
+                setattr(decorated, "__isabstractmethod__", func_.__isabstractmethod__)
+            return decorated
+
+        return admethod_
+    else:
+        # Here admethod was used in the decorator without call.
+        # This means that the first call to admethod contains the reference to the
+        # decorated function.
+
+        # allow for compatibility with abstractmethod decorator
+        decorated = ADMethod(func, ad_ftype=ad_ftype, ad_fkwargs=ad_fkwargs)
+        if hasattr(func, "__isabstractmethod__"):
+            setattr(decorated, "__isabstractmethod__", func.__isabstractmethod__)
+        return decorated
+
+
+class ADMethod:
+    """(Decorator) Class for methods/functions taking numerical values and
+    returning numerical values, e.g. physical properties or heuristic laws.
+
+    The decorated function is expected to take
+
+    - real numbers ,
+    - :obj:`~numpy.ndarray` or
+    - :class:`~porepy.numerics.ad.forward_mode.AdArray`,
+
+    and return one of above.
+
+    Note:
+        In this context, instances of :class:`~porepy.numerics.ad.forward_mode.AdArray`
+        are treated as *numerical* values, whereas instances of
+        :class:`~porepy.numerics.ad.operator.Operator` are treated as AD operators.
+
+    Important:
+        As of now, the framework for AD Operator functions treats only arguments,
+        not keyword arguments.
+
+        Therefore, this decorator is restricted to functions which take only positional
+        arguments.
+
+    The decorated function will be able to take
+    :class:`~porepy.numerics.ad.operator.Operator`-instances as arguments and return
+    another operator if done so.
+
+    As soon as a single function argument is recognized to be an AD operator,
+    a call to the decorated function will return an operator which needs to be
+    evaluated using :meth:`~porepy.numerics.ad.operator.Operator.evaluate`.
+
+    Otherwise the call will instantly pass the arguments to respective function and
+    return its respective return values, if successful.
+
+    In the case of AD operators as arguments,
+    the return value will be an AD operator of the type passed to the decorator.
+
+    Note:
+        For full flexibility in the decoration, the user should resort to using
+        the factory :func:`admethod` (see examples therein).
+
+        The argument ``func`` is not optional, due to the creation of instances of this
+        class being outsourced to :func:`admethod` for clarity reasons.
+
+        For more information about how references to decorated functions are handled in
+        Python, check Python's official docs.
+
+    Parameters:
+        func: Decorated function object.
+        ad_ftype: Type reference to an AD operator function to be instantiated
+            during a call with AD operator arguments.
+        ad_fkwargs: Keyword arguments to be passed when instantiating an operator
             of type ``ad_function_type``.
 
     """
 
     def __init__(
         self,
-        func: Optional[Callable] = None,
-        ad_function_type: Type[AbstractFunction] = Function,
-        operator_kwargs: dict = {},
+        func: Callable,  # : Optional[Callable] = None
+        ad_ftype: Type[AbstractFunction] = Function,
+        ad_fkwargs: dict = {},
     ) -> None:
         # reference to decorated function object
-        self._func = func
+        self._func: Callable = func
         # mark if decoration without explicit call to constructor
         self._explicit_init = func is None
-        # reference to instance, to which the decorated bound method belongs, if any
-        # if this remains None, then an unbound method was decorated
+        # Reference to object, to which the decorated bound method belongs, if any.
+        # If this remains None, then an unbound method was decorated
         self._bound_to: Optional[object] = None
+        self._bound_to_type: Optional[object] = None
         # reference to operator type which should wrap the decorated method
-        self._ad_func_type = ad_function_type
+        self._ad_ftype = ad_ftype
         # keyword arguments for call to constructor of operator type
-        self._op_kwargs = operator_kwargs
+        self._op_kwargs = ad_fkwargs
 
-    def __call__(self, *args, **kwargs) -> ADmethod | pp.ad.Operator:
+    def __call__(self, *args, **kwargs) -> NumericType | Operator:
         """Wrapper factory.
         The decorated object is wrapped and/or evaluated here.
 
@@ -508,56 +771,120 @@ class ADmethod:
         If bound to a class instance, the wrapper will include a partial function, where
         the instance of the class was already passed beforehand.
 
-        Note:
-            If the decorator was explicitly instantiated during decoration,
-            that instance will effectively be replaced by another decorator instance created
-            here in the call.
-            It is expected that the the call will follow the instantiation immediately when
-            used as a decorator, hence properly dereferencing the original instance.
-            If used differently or if another reference is saved between explicit instantiation
-            and call, this is a potential memory leak.
+        If called with non-AD-operator ``args`` and ``kwargs``, it returns the
+        return value of the decorated function in its respective format.
+
+        Parameters:
+            *args: Arguments for the call to the decorated function.
+            **kwargs: Keyword arguments for the call.
+
+        Returns:
+            A call to this class will be treated as a call to the decorated function.
+
+            Meaning, if numerical values are passed, the function is evaluated
+            and its return value returned.
+
+            If the function call is performed using AD Operator instances,
+            the respective AD Operator function defined by instantiation argument
+            ``ad_ftype`` is instantied and a call is performed using the arguments.
 
         """
-        # If decorated without explicit init, the function is passed during a call to
-        # the decorator as first argument.
-        if self._func is None:
-            self._func = args[0]
-
         # If an explicit init was made, mimic a non-explicit init to get an object with
         # the descriptor protocol.
-        if self._explicit_init:
-            return ADmethod(
-                func=self._func,
-                ad_function_type=self._ad_func_type,
-                operator_kwargs=self._op_kwargs,
-            )
-
+        # If decorated without explicit init, the function is passed during a call to
+        # the decorator as first argument.
         # Without an explicit init, the first decorator itself replaces the decorated
         # function. This results in a call to ADmethod.__call__ instead of
         # a call to the decorated function
+        # NOTE: Below code is used for including a factory in this class
+        # but we are currently outsourcing the factory to admethod.
+
+        # if self._func is None:
+        #     self._func = args[0]
+
+        # if self._explicit_init:
+        #     return ADMethod(
+        #         func=self._func,
+        #         ad_ftype=self._ad_func_type,
+        #         ad_fkwargs=self._op_kwargs,
+        #     )
+
+        # Make sure proper assignment of callable was made
+        assert self._func is not None
 
         # when calling the decorator, distinguish between bound method call
-        # ('args' contains 'self' of the decorated instance) and an unbound function call
+        # ('args' contains 'self' or 'cls' of the decorated instance as first argument)
+        # and an unbound function call
         # (whatever 'args' and 'kwargs' contain, we pass it to the wrapper)
-        if self._bound_to is None:
-            wrapped_function = self.ad_wrapper(*args, **kwargs)
-        elif self._bound_to == args[0]:
-            wrapped_function = self.ad_wrapper(*args[1:], **kwargs)
+        if self._bound_to == args[0] or self._bound_to_type == args[0]:
+            # extract args which are neither 'self' nor 'cls'
+            call_args = args[1:]
+
+            # If bound, we use a partial evaluation of a bound function.
+            # If the method was decorated with staticmethod, there is no partial eval.
+            if isinstance(self._func, staticmethod):
+                decorated_func = self._func.__func__
+
+            # If the method was decorated with classmethod, make a partial eval using
+            # type of the binding object.
+            elif isinstance(self._func, classmethod):
+                assert self._bound_to_type is not None
+                decorated_func = partial(self._func.__func__, self._bound_to_type)
+
+            # If the method is a regular instance method, make a partial eval using
+            # the binding object itself.
+            else:
+                assert self._bound_to is not None
+                decorated_func = partial(self._func, self._bound_to)
+
+        # If unbound, we take the decorated function as is
+        elif self._bound_to is None and self._bound_to_type is None:
+            call_args = args
+            decorated_func = self._func
+        # Else something went wrong. This could happen if someone uses this class
+        # in a hacky way
         else:
             raise ValueError(
-                "Calling bound decorator "
+                "Calling bound ADMethod instance\n\t"
                 + str(self)
-                + " with unknown instance "
+                + "\nwith unknown owner\n\t"
                 + str(args[0])
-                + "\n This decorator is bound to "
+                + "\nThis decorator is bound to\n\t"
                 + str(self._bound_to)
             )
 
-        return wrapped_function
+        # TODO: As of now, this decorator will NEVER turn functions without arguments
+        # into AD operators, necessitating some additional work for that.
 
-    def __get__(self, binding_instance: object, binding_type: type) -> Callable:
-        """
-        Descriptor protocol.
+        # If any argument is an AD operator,
+        # wrap the decorated method into an AD operator function
+        # and perform a call to it.
+        if self._check_if_arguments_ad(call_args, kwargs):
+            # wrapping non-AD-operator arguments into AD for compatibility
+            call_args, call_kwargs = self._wrap_into_ad(call_args, kwargs)
+
+            # If name not explicitely set, give a default name to indicate origin
+            if "name" not in self._op_kwargs.keys():
+                name = "ADmethod-"
+                name += (
+                    str(self._ad_ftype.__qualname__)
+                    + "-decorating-"
+                    + str(self._func.__qualname__)
+                )
+                self._op_kwargs.update({"name": name})
+
+            # calling the operator function
+            ad_function = self._ad_ftype(func=decorated_func, **self._op_kwargs)
+            # calling operator function with given arguments and returning
+            return ad_function(*call_args, **call_kwargs)
+
+        # If no argument is an AD operator,
+        # we evaluate the function directly and return whatever is returned.
+        else:
+            return decorated_func(*call_args, **kwargs)
+
+    def __get__(self, instance_: object, type_: type) -> Callable:
+        """Descriptor protocol.
 
         If this ADmethod decorates a class method (and effectively replaces it), it will
         be bound to the class instance, similar to bound methods.
@@ -566,8 +893,8 @@ class ADmethod:
         instance, this getter is called and returns a partially evaluated call to this
         instance instead.
         By calling this instance this way, we can save a reference to the `self`
-        argument of the decorated class method and pass it as an argument to the
-        decorated method.
+        (or 'cls') argument of the decorated class method and
+        pass it as an argument to the decorated method.
 
         The reason why this is necessary is due to the fact, that class methods
         are always passed in unbound form to the decorator when the code is
@@ -576,49 +903,162 @@ class ADmethod:
         methods)
 
         Parameters:
-            binding_instance: instance, whose method has been decorated by this class.
-            binding_type: type instance of the decorated method's class/owner.
+            instance_: Instance, whose method has been decorated by this class and which
+                is being accessed through the instance.
+            type_: Object (f.e. class type) which has the decorated method in its
+                directory
+
+        Returns:
+            A partially evaluated call to this instance with the binding instance
+            as the first argument.
 
         """
-        # Save a reference to the binding instance
-        self._bound_to = binding_instance
-        # A partial call to the decorator is returned, not the decorator itself.
-        # This will trigger the function evaluation.
-        return partial(self.__call__, binding_instance)
 
-    def ad_wrapper(self, *args, **kwargs) -> Operator:
-        """Actual wrapper function.
-        Constructs the necessary AD-Operator class wrapping the decorated callable
-        and performs the evaluation/call.
+        # If the decorated function is called using a binding instance of a class
+        # ('self' in the decorated function)
+        # perform a partial evaluation with 'self' as the first argument
+        if instance_ is not None:
+            # Save a reference to the binding instance
+            # and to type of the instance, in case a classmethod was called
+            self._bound_to = instance_
+            self._bound_to_type = type_
+            return partial(self.__call__, instance_)
+
+        # If the decorated function is a member of a class (static or class method)
+        # ('cls' in class methods)
+        # perform a partial evaluation with 'cls' as the first argument
+        elif isinstance(type_, type):
+            # Save a reference to the binding type only
+            # This happens if class methods are called without instantiation of
+            # respective class
+            self._bound_to_type = None
+            self._bound_to_type = type_
+            return partial(self.__call__, type_)
+
+        # Else raise error? Descriptor protocoll probably never called without
+        # instance or owner
+        # TODO VL: As far as I know only 'self' and 'cls' are the two *behind-the-scene*
+        # arguments for bound methods.
+        else:
+            self._bound_to = None
+            self._bound_to_type = None
+            return self.__call__
+
+    def _check_if_arguments_ad(self, arguments: tuple, kwarguments: dict) -> bool:
+        """Auxiliary function to check if a call to the AD method was done using
+        arguments in AD operator form.
 
         Parameters:
-            *args: arguments for the call to the wrapping AD operator function
-            **kwargs: keyword argument for the call to the wrapping Ad operator function
+            arguments: A tuple containing all the arguments in the function call.
+            kwarguments: A dictionary containing the keyword-arguments in the function
+                call.
+
+        Raises:
+            TypeError: If any argument is not a real number, a :obj:`~numpy.ndarray` or
+                :class:`~porepy.numerics.ad.forward_mode.AdArray`,
+                besides AD Operators.
+
+        Returns:
+            True, if any argument or keyword-argument-value is an instance of
+            :class:`~porepy.numerics.ad.operator.Operator`.
+
+            False, if they are (real) numbers or numpy arrays.
 
         """
-        # Make sure proper assignment of callable was made
-        assert self._func is not None
+        faulty_args = []
+        faulty_kwargs = dict()
+        has_ad_argument = False
 
-        # extra safety measure to ensure a bound call is done to the right binding instance.
-        # We pass only the binding instance referenced in the descriptor protocol.
-        if self._bound_to is None:
-            operator_func = self._func
-        else:
-            # partial evaluation of a bound function,
-            # since the AD operator has no reference to binding instance
-            operator_func = partial(self._func, self._bound_to)
+        # checking arguments
+        # if any is encountered, True is returned
+        # TODO VL: The check for faulty arguments can be removed it wrapping is not
+        # necessary. See comment about discussion with EK in _wrap_into_ad
+        for arg in arguments:
+            if isinstance(arg, (numbers.Real, np.ndarray, AdArray)):
+                pass  # acceptable arguments
+            elif isinstance(arg, Operator):
+                has_ad_argument = True  # flag call as AD
+            else:
+                faulty_args.append(arg)
 
-        # Resulting AD operator has a special name to mark its origin
-        if "name" not in self._op_kwargs.keys():
-            name = "ADmethod-"
-            name += (
-                str(self._ad_func_type.__qualname__)
-                + "-decorating-"
-                + str(self._func.__qualname__)
-            )
-            self._op_kwargs.update({"name": name})
+        for kw, arg in kwarguments.items():
+            if isinstance(arg, (numbers.Real, np.ndarray, AdArray)):
+                pass  # acceptable arguments
+            elif isinstance(arg, Operator):
+                has_ad_argument = True  # flag call as AD
+            else:
+                faulty_kwargs.update({kw: arg})
 
-        # calling the operator
-        wrapping_operator = self._ad_func_type(func=operator_func, **self._op_kwargs)
+        if faulty_args or faulty_kwargs:
+            msg = "Unsupported argument types:\n"
+            for arg in faulty_args:
+                msg += f"\t{str(type(arg))}\n"
+            for kw, arg in faulty_kwargs.items():
+                msg += f"'{kw}': {str(type(arg))}"
 
-        return wrapping_operator(*args, **kwargs)
+            raise TypeError(msg)
+
+        return has_ad_argument
+
+    def _wrap_into_ad(self, call_args: tuple, call_kwargs: dict) -> tuple[tuple, dict]:
+        """Auxiliary function wrapping real numbers and numpy arrays into
+        :class:`~porepy.numerics.ad.operators.Scalar` and
+        :class:`~porepy.numerics.ad.operators.Array` respectively.
+
+        This step is necessary, since as of now the AD framework treats call arguments
+        for AD Operator functions as childer (other AD Operators) which must have
+        :meth:`~porepy.numerics.ad.operators.Operator.parse` defined.
+
+        Note:
+            Instances of :class:`~porepy.numerics.ad.forward_mode.AdArray` and
+            :class:`~porepy.numerics.ad.operators.Operator` need no wrapping and are
+            not processed.
+
+        Parameters:
+            call_args: Arguments for the call to the decorated function
+            call_kwargs: Keyword arguments for the call to the decorated function.
+
+        Returns:
+            Above (order-preserving) structure,
+            where individual arguments and keyword-argument-values are wrapped in
+            an AD operator if necessary.
+
+        """
+        wrapped_call_args = list()
+        wrapped_call_kwargs = dict()
+
+        # TODO VL: This wrapping is NOT necessary if we change Operator.evaluate
+        # s.t. it returns AdArray with jac=0 for scalars and numpy arrays for instance.
+        # Discuss with EK
+
+        for arg in call_args:
+            # wrap real numbers into AD scalars
+            if isinstance(arg, numbers.Real):
+                wrapped_call_args.append(pp.ad.Scalar(arg))
+            # wrap np arrays into AD arrays
+            elif isinstance(arg, np.ndarray):
+                wrapped_call_args.append(pp.ad.Array(arg))
+            # custom AdArray and operator instances are left as is
+            elif isinstance(arg, (AdArray, Operator)):
+                wrapped_call_args.append(arg)
+            # anything else will raise an error, but this should not happen
+            # due to the previous call to _check_if_arguments_ad
+            else:
+                raise TypeError("This should not happen.")
+
+        for kw, arg in call_kwargs.items():
+            # wrap real numbers into AD scalars
+            if isinstance(arg, numbers.Real):
+                wrapped_call_kwargs.update({kw: pp.ad.Scalar(arg)})
+            # wrap np arrays into AD arrays
+            elif isinstance(arg, np.ndarray):
+                wrapped_call_kwargs.update({kw: pp.ad.Array(arg)})
+            # custom AdArray and operator instances are left as is
+            elif isinstance(arg, (AdArray, Operator)):
+                wrapped_call_kwargs.update({kw: arg})
+            # anything else will raise an error, but this should not happen
+            # due to the previous call to _check_if_arguments_ad
+            else:
+                raise TypeError("This should not happen.")
+
+        return tuple(wrapped_call_args), wrapped_call_kwargs
