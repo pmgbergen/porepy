@@ -466,7 +466,7 @@ class FluidDensityFromPressure:
             subdomains: List of subdomain grids.
 
         Returns:
-            Fluid density as a function of pressure [kg*m^-3].
+            Fluid density as a function of pressure [kg * m^-3].
 
         """
         # The reference density is taken from the fluid constants..
@@ -634,7 +634,7 @@ class FluidMobility:
             subdomains: List of subdomains.
 
         Returns:
-            Operator representing the mobility.
+            Operator representing the mobility [m * s * kg^-1].
 
         """
         return pp.ad.Scalar(1) / self.fluid_viscosity(subdomains)
@@ -677,15 +677,15 @@ class ConstantViscosity:
     """
 
     def fluid_viscosity(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Fluid viscosity [Pa s].
+        """Fluid viscosity .
 
         Parameters:
             subdomains: List of subdomain grids. Not used in this implementation, but
                 included for compatibility with other implementations.
 
         Returns:
-            Operator for fluid viscosity, represented as an Ad operator. The value is
-            picked from the fluid constants.
+            Operator for fluid viscosity [Pa * s], represented as an Ad operator. The
+            value is picked from the fluid constants.
 
         """
         return Scalar(self.fluid.viscosity(), "viscosity")
@@ -2166,6 +2166,8 @@ class PeacemanWellFlux:
     def well_flux_equation(self, interfaces: list[pp.MortarGrid]) -> pp.ad.Operator:
         """Equation for well fluxes.
 
+        The equation has units [kg * m^2 * s^-2].
+
         Parameters:
             interfaces: List of interfaces where the well fluxes are defined.
 
@@ -2181,17 +2183,22 @@ class PeacemanWellFlux:
         r_e = self.equivalent_well_radius(subdomains)
 
         f_log = pp.ad.Function(pp.ad.functions.log, "log_function_Piecmann")
-        e_i = self.e_i(subdomains, i=0, dim=9).T  # type: ignore[call-arg]
+
         # We assume isotropic permeability and extract xx component.
+        e_i = self.e_i(subdomains, i=0, dim=9).T  # type: ignore[call-arg]
+
+        # To get a transmissivity, we multiply the permeability with the specific
+        # volume of the fracture.
         isotropic_permeability = e_i @ self.permeability(subdomains)
+        specific_volume = self.specific_volume(subdomains)
+        transmissivity = isotropic_permeability * specific_volume
+
         well_index = (
             pp.ad.Scalar(2 * np.pi)
             * projection.primary_to_mortar_avg
-            @ (isotropic_permeability / (f_log(r_e / r_w) + skin_factor))
+            @ (transmissivity / (f_log(r_e / r_w) + skin_factor))
         )
-        eq: pp.ad.Operator = self.well_flux(interfaces) - self.volume_integral(
-            well_index, interfaces, 1
-        ) * (
+        eq: pp.ad.Operator = self.well_flux(interfaces) - well_index * (
             projection.primary_to_mortar_avg @ self.pressure(subdomains)
             - projection.secondary_to_mortar_avg @ self.pressure(subdomains)
         )
@@ -2205,7 +2212,7 @@ class PeacemanWellFlux:
             subdomains: List of subdomains.
 
         Returns:
-            Cell-wise equivalent radius operator.
+            Cell-wise equivalent radius operator [m].
 
         """
         # Implementational note: The computation of equivalent radius is highly
@@ -2237,7 +2244,7 @@ class PeacemanWellFlux:
             interfaces: List of interfaces.
 
         Returns:
-            Skin factor operator.
+            Skin factor operator [-].
 
         """
         skin_factor = pp.ad.Scalar(self.solid.skin_factor())
@@ -2251,7 +2258,7 @@ class PeacemanWellFlux:
             subdomains: List of subdomains.
 
         Returns:
-            Cell-wise well radius operator.
+            Cell-wise well radius operator [m].
 
         """
         r_w = pp.ad.Scalar(self.solid.well_radius())
@@ -2916,6 +2923,7 @@ class AdvectiveFlux:
 
         Returns:
             Operator representing the advective flux on the interfaces.
+
         """
         subdomains = self.interfaces_to_subdomains(interfaces)
         mortar_projection = pp.ad.MortarProjections(
