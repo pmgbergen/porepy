@@ -218,7 +218,7 @@ class MassBalanceEquations(pp.BalanceEquation):
                 called using a list of boundary grids.
 
         Returns:
-            Operator representing the fluid density times mobility.
+            Operator representing the fluid density times mobility [s * m^-2].
 
         """
         return self.fluid_density(domains) * self.mobility(domains)
@@ -314,7 +314,7 @@ class MassBalanceEquations(pp.BalanceEquation):
             interfaces: List of interface grids.
 
         Returns:
-            Operator representing the interface fluid flux.
+            Operator representing the interface fluid flux [kg * s^-1].
 
         """
         subdomains = self.interfaces_to_subdomains(interfaces)
@@ -342,7 +342,7 @@ class MassBalanceEquations(pp.BalanceEquation):
             subdomains: List of subdomains.
 
         Returns:
-            Operator representing the source term [kg/s].
+            Operator representing the source term [kg * s^-1].
 
         """
         # Interdimensional fluxes manifest as source terms in lower-dimensional
@@ -630,7 +630,7 @@ class VariablesSinglePhaseFlow(pp.VariableMixin):
             ValueError: If the grids are not all subdomains or all boundary grids.
 
         Returns:
-            Operator representing the pressure.
+            Operator representing the pressure [Pa].
 
         """
         if len(domains) > 0 and isinstance(domains[0], pp.BoundaryGrid):
@@ -650,11 +650,13 @@ class VariablesSinglePhaseFlow(pp.VariableMixin):
     ) -> pp.ad.MixedDimensionalVariable:
         """Interface Darcy flux.
 
+        Integrated over faces in the mortar grid.
+
         Parameters:
             interfaces: List of interface grids.
 
         Returns:
-            Variable representing the interface Darcy flux.
+            Variable representing the interface Darcy flux [kg * m^2 * s^-2].
 
         """
         flux = self.equation_system.md_variable(
@@ -665,13 +667,13 @@ class VariablesSinglePhaseFlow(pp.VariableMixin):
     def well_flux(
         self, interfaces: list[pp.MortarGrid]
     ) -> pp.ad.MixedDimensionalVariable:
-        """Well flux.
+        """Variable for the volumetric well flux.
 
         Parameters:
             interfaces: List of interface grids.
 
         Returns:
-            Variable representing the well flux.
+            Variable representing the Darcy-like well flux [kg * m^2 * s^-2].
 
         """
         flux = self.equation_system.md_variable(self.well_flux_variable, interfaces)
@@ -684,7 +686,7 @@ class VariablesSinglePhaseFlow(pp.VariableMixin):
             subdomains: List of subdomains.
 
         Returns:
-            Operator representing the reference pressure.
+            Operator representing the reference pressure [Pa].
 
         """
         # TODO: Confirm that this is the right place for this method. # IS: Definitely
