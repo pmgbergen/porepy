@@ -4,7 +4,7 @@ from __future__ import annotations
 import logging
 import time
 from functools import partial
-from typing import Callable, Optional, Sequence, cast
+from typing import Callable, Literal, Optional, Sequence, cast
 
 import numpy as np
 
@@ -14,7 +14,6 @@ import porepy.composite as ppc
 from . import energy_balance as energy
 from . import fluid_mass_balance as mass
 from . import mass_and_energy_balance as mass_energy
-from .fluid_mixture_equilibrium import EquilibriumMixin, MixtureMixin
 
 logger = logging.getLogger(__name__)
 
@@ -149,7 +148,7 @@ class FouriersLawCF(pp.constitutive_laws.FouriersLaw):
     """
 
     fluid_mixture: ppc.Mixture
-    """See :class:`~porepy.models.fluid_mixture_equilibrium.MixtureMixin`."""
+    """See :class:`~porepy.composite.composite_mixins.MixtureMixin`."""
 
     solid: pp.SolidConstants
     """Solid constant object that takes care of scaling of solid-related quantities.
@@ -319,7 +318,7 @@ class TotalMassBalanceEquation(mass.MassBalanceEquations):
     """
 
     fluid_mixture: ppc.Mixture
-    """See :class:`~porepy.models.fluid_mixture_equilibrium.MixtureMixin`."""
+    """See :class:`~porepy.composite.composite_mixins.MixtureMixin`."""
 
     relative_permeability: Callable[[pp.ad.Operator], pp.ad.Operator]
     """See :meth:`ConstitutiveLawsCompositionalFlow.relative_permeability`."""
@@ -478,7 +477,7 @@ class TotalEnergyBalanceEquation(energy.EnergyBalanceEquations):
     """
 
     fluid_mixture: ppc.Mixture
-    """See :class:`~porepy.models.fluid_mixture_equilibrium.MixtureMixin`."""
+    """See :class:`~porepy.composite.composite_mixins.MixtureMixin`."""
 
     pressure: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]
     """Pressure variable. Normally defined in a mixin instance of
@@ -687,7 +686,7 @@ class ComponentMassBalanceEquations(mass.MassBalanceEquations):
     """
 
     fluid_mixture: ppc.Mixture
-    """See :class:`~porepy.models.fluid_mixture_equilibrium.MixtureMixin`."""
+    """See :class:`~porepy.composite.composite_mixins.MixtureMixin`."""
 
     relative_permeability: Callable[[pp.ad.Operator], pp.ad.Operator]
     """See :meth:`ConstitutiveLawsCompositionalFlow.relative_permeability`."""
@@ -987,15 +986,15 @@ class EquationsCompositionalFlow(
     TotalMassBalanceEquation,
     TotalEnergyBalanceEquation,
     ComponentMassBalanceEquations,
-    EquilibriumMixin,
+    ppc.EquilibriumEquationsMixin,
 ):
     def set_equations(self):
         TotalMassBalanceEquation.set_equations(self)
         TotalEnergyBalanceEquation.set_equations(self)
         ComponentMassBalanceEquations.set_equations(self)
-        EquilibriumMixin.set_equations(self)
+        ppc.EquilibriumEquationsMixin.set_equations(self)
         if "v" not in self.equilibrium_type:
-            EquilibriumMixin.set_density_relations_for_phases(self)
+            ppc.EquilibriumEquationsMixin.set_density_relations_for_phases(self)
 
 
 class VariablesCompositionalFlow(mass_energy.VariablesFluidMassAndEnergy):
@@ -1006,7 +1005,7 @@ class VariablesCompositionalFlow(mass_energy.VariablesFluidMassAndEnergy):
     """See :attr:`SolutionStrategyCompositionalFlow.enthalpy_variable`."""
 
     set_mixture: Callable
-    """See :meth:`~porepy.models.fluid_mixture_equilibrium.MixtureMixin.set_mixture`."""
+    """See :meth:`~porepy.composite.composite_mixins.MixtureMixin.set_mixture`."""
 
     def create_variables(self) -> None:
         """Set the variables for the fluid mass and energy balance problem.
@@ -1233,8 +1232,12 @@ class SolutionStrategyCompositionalFlow(
 
     """
 
+    equilibrium_type: Literal["p-T", "p-h", "v-h"]
+    """See :attr:`~porepy.composite.composite_mixins.EquilibriumEquationsMixin.
+    equilibrium_type`."""
+
     fluid_mixture: ppc.Mixture
-    """See :class:`~porepy.models.fluid_mixture_equilibrium.MixtureMixin`."""
+    """See :class:`~porepy.composite.composite_mixins.MixtureMixin`."""
 
     bc_type_component_flux: Callable[[ppc.Component, pp.Grid], pp.BoundaryCondition]
     """See :meth:`BoundaryConditionsCompositionalFlow.bc_type_component_flux`."""
@@ -1275,6 +1278,19 @@ class SolutionStrategyCompositionalFlow(
         [ppc.Component, Sequence[pp.MortarGrid]], pp.ad.UpwindCouplingAd
     ]
     """See :class:`DiscretizationsCompositionalFlow`."""
+
+    equilibriate_fluid: Callable[
+        [Optional[np.ndarray]], tuple[ppc.FluidState, np.ndarray]
+    ]
+    """Defined by a FlashMixin instance."""
+    postprocess_failures: Callable[[ppc.FluidState, np.ndarray], ppc.FluidState]
+    """Defined by a FlashMixin instance."""
+
+    temperature_variable: str
+    """Defined in the solutions strategy for the energy balance."""
+
+    pressure_variable: str
+    """Defined in the solutions strategy for the single phase flow."""
 
     def __init__(self, params: Optional[dict] = None) -> None:
         super().__init__(params)
@@ -1450,7 +1466,28 @@ class SolutionStrategyCompositionalFlow(
         and to re-discretize.
 
         """
-        # TODO perform flash
+
+        # Flashing the mixture as a predictor step
+        state = self.postprocess_failures(*self.equilibriate_fluid(None))
+
+        # Setting equilibrium values for fractional variables
+        for j, phase in enumerate(self.fluid_mixture.phases):
+            self.equation_system.set_variable_values(
+                state.sat[j], [phase.saturation.name], iterate_index=0
+            )
+            self.equation_system.set_variable_values(
+                state.y[j], [phase.fraction.name], iterate_index=0
+            )
+
+        # setting Temperature and pressure values, depending on equilibrium definition
+        if "T" not in self.equilibrium_type:
+            self.equation_system.set_variable_values(
+                state.T, [self.temperature_variable], iterate_index=0
+            )
+        if "p" not in self.equilibrium_type:
+            self.equation_system.set_variable_values(
+                state.p, [self.pressure_variable], iterate_index=0
+            )
 
         for sd, data in self.mdg.subdomains(return_data=True):
             # Computing Darcy flux and updating it in the mobility dicts for pressure
@@ -1531,7 +1568,8 @@ class SolutionStrategyCompositionalFlow(
 
 
 class CompositionalFlow(  # type: ignore[misc]
-    MixtureMixin,
+    ppc.MixtureMixin,
+    ppc.FlashMixin,
     EquationsCompositionalFlow,
     VariablesCompositionalFlow,
     ConstitutiveLawsCompositionalFlow,

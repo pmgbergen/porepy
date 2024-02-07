@@ -663,7 +663,7 @@ def calculate_example_2_thermo(flash_type: str = "p-h") -> dict[str, list]:
 
 def create_mixture(
     verbosity: int,
-) -> tuple[pp.composite.Mixture, pp.composite.Flash_c]:
+) -> tuple[pp.composite.Mixture, pp.composite.CompiledUnifiedFlash]:
     """Returns instances of the modelled mixture and flash using PorePy's framework.
 
     ``num_vals`` is an integer indicating how many DOFs per state function are set.
@@ -680,7 +680,7 @@ def create_mixture(
     from porepy.composite.composite_utils import COMPOSITE_LOGGER as logger
     logger.setLevel(logging.DEBUG)
     from porepy.composite.peng_robinson.eos_c import PengRobinsonCompiler
-    from porepy.composite.flash_c import Flash_c
+    from porepy.composite.flash_c import CompiledUnifiedFlash
     logger.setLevel(logging.WARNING)
 
     species = pp.composite.load_species(SPECIES)
@@ -698,7 +698,7 @@ def create_mixture(
 
     mix = pp.composite.Mixture(comps, phases)
 
-    flash = Flash_c(mix, eos)
+    flash = CompiledUnifiedFlash(mix, eos)
     flash.tolerance = 1e-8
     flash.max_iter = 150
 
@@ -727,7 +727,7 @@ def create_mixture_geo(
     from porepy.composite.composite_utils import COMPOSITE_LOGGER as logger
     logger.setLevel(logging.DEBUG)
     from porepy.composite.peng_robinson.eos_c import PengRobinsonCompiler
-    from porepy.composite.flash_c import Flash_c
+    from porepy.composite.flash_c import CompiledUnifiedFlash
     logger.setLevel(logging.WARNING)
 
     species = pp.composite.load_species(SPECIES_geo)
@@ -748,7 +748,7 @@ def create_mixture_geo(
 
     mix = pp.composite.Mixture(comps, phases)
 
-    flash = Flash_c(mix, eos)
+    flash = CompiledUnifiedFlash(mix, eos)
     flash.tolerance = 1e-8
     flash.max_iter = 150
 
@@ -763,7 +763,7 @@ def calculate_porepy_data(
     state_2: list[float],
     species: list[str],
     flash_type: str,
-    flash: pp.composite.Flash_c,
+    flash: pp.composite.CompiledUnifiedFlash,
 ) -> dict:
     """Performs the PorePy flash for given pressure-temperature points and
     returns a result structure similar to that of the thermo computation.
@@ -823,7 +823,7 @@ def calculate_porepy_data(
     else:
         raise NotImplementedError(f'Unknown flash type {flash_type}')
     
-    out, success, num_iter = flash.flash(**equilibrium, mode='parallel', verbosity=2)
+    out, success, num_iter = flash.flash(**equilibrium, params={'mode': 'parallel', 'verbosity': 2})
 
     results[success_HEADER] = success
     results[num_iter_HEADER] = num_iter

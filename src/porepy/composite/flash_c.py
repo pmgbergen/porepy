@@ -22,7 +22,7 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Any, Callable, Literal, Optional, Sequence
+from typing import Callable, Literal, Optional, Sequence
 
 import numba
 import numpy as np
@@ -32,6 +32,7 @@ from .base import Mixture
 from .composite_utils import COMPOSITE_LOGGER as logger
 from .composite_utils import safe_sum
 from .eos_compiler import EoSCompiler
+from .flash import Flash
 from .npipm_c import (
     convert_param_dict,
     initialize_npipm_nu,
@@ -52,7 +53,7 @@ from .utils_c import (
     parse_xyz,
 )
 
-__all__ = ["Flash_c"]
+__all__ = ["CompiledUnifiedFlash"]
 
 
 _import_start = time.time()
@@ -300,7 +301,7 @@ def complementary_conditions_jac(x: np.ndarray, y: np.ndarray) -> np.ndarray:
 # endregion
 
 
-class Flash_c:
+class CompiledUnifiedFlash(Flash):
     """A class providing efficient unified flash calculations using numba-compiled
     functions.
 
@@ -349,11 +350,13 @@ class Flash_c:
         mixture: Mixture,
         eos_compiler: EoSCompiler,
     ) -> None:
-        ncomp = mixture.num_components
-        nphase = mixture.num_phases
+        super().__init__(mixture)
 
-        assert nphase == 2, "Supports only 2-phase mixtures."
-        assert ncomp >= 2, "Must have at least two components."
+        assert self.npnc[0] == 2, "Supports only 2-phase mixtures."
+        assert self.npnc[1] >= 2, "Must have at least two components."
+        assert set(self.nc_per_phase) == set(
+            [self.npnc[1]]
+        ), "Supports only unified mixtures (all components in all phases)."
 
         # data used in initializers
         self._pcrits: list[float] = [comp.p_crit for comp in mixture.components]
@@ -368,9 +371,6 @@ class Flash_c:
             [phase.type for phase in mixture.phases], dtype=np.int32
         )
         """An array containing the phase types per phase in ``mixture``."""
-
-        self.npnc: tuple[int, int] = (nphase, ncomp)
-        """Number of phases and components present in mixture."""
 
         self.eos_compiler: EoSCompiler = eos_compiler
         """Assembler and compiler of EoS-related expressions equation.
@@ -442,33 +442,11 @@ class Flash_c:
 
         """
 
-        self.tolerance: float = 1e-8
-        """Convergence criterion for the flash algorithm. Defaults to ``1e-8``."""
-
-        self.max_iter: int = 150
-        """Maximal number of iterations for the flash algorithms. Defaults to 150."""
-
-        self.last_flash_stats: dict[str, Any] = dict()
-        """Contains some information about the last flash procedure called.
-
-        - ``'type'``: String. Type of the flash (p-T, p-h,...)
-        - ``'init_time'``: Float. Real time taken to compute initial guess in seconds.
-        - ``'minim_time'``: Float. Real time taken to solve the minimization problem in
-          seconds.
-        - ``'num_flash'``: Int. Number of flash problems solved (if vectorized input)
-        - ``'num_max_iter'``: Int. Number of flash procedures which reached the
-          prescribed number of iterations.
-        - ``'num_failure'``: Int. Number of failed flash procedures
-          (failure in evaluation of residual or Jacobian).
-        - ``'num_diverged'``: Int. Number of flash procedures which diverged.
-
-        """
-
         self._solver_params: dict = convert_param_dict(
             {
                 "f_dim": 1,
-                "num_phase": nphase,
-                "num_comp": ncomp,
+                "num_phase": self.npnc[0],
+                "num_comp": self.npnc[1],
                 "tol": self.tolerance,
                 "max_iter": self.max_iter,
                 "rho": self.armijo_parameters["rho"],
@@ -489,11 +467,12 @@ class Flash_c:
     def _parse_and_complete_results(
         self,
         results: np.ndarray,
-        state_input: dict[str, np.ndarray],
+        flash_type: Literal["p-T", "p-h", "v-h"],
+        fluid_state: FluidState,
     ) -> FluidState:
-        """Helper function to fill a result state with the results from the flash.
+        """Helper function to fill a fluid state with the results from the flash.
 
-        Modifies and returns the passed result state structur containing flash
+        Modifies and returns the passed state structur containing flash
         specifications.
 
         Also, fills up secondary expressions for respective flash type.
@@ -505,7 +484,6 @@ class Flash_c:
         nphase, ncomp = self.npnc
 
         # Parsing phase compositions and molar phsae fractions
-        result_state = FluidState(**state_input)
         y: list[np.ndarray] = list()
         x: list[np.ndarray] = list()
         for j in range(nphase):
@@ -518,46 +496,48 @@ class Flash_c:
                 x_j.append(results[:, -(1 + (nphase - j) * ncomp) + i])
             x.append(np.array(x_j))
 
-        result_state.y = np.vstack([1 - safe_sum(y), np.array(y)])
+        fluid_state.y = np.vstack([1 - safe_sum(y), np.array(y)])
 
         # If T is unknown, it is always the last unknown before molar fractions
-        if "T" not in state_input:
-            result_state.T = results[:, -(1 + ncomp * nphase + nphase - 1 + 1)]
+        if "T" not in flash_type:
+            fluid_state.T = results[:, -(1 + ncomp * nphase + nphase - 1 + 1)]
 
         # If v is a defined value, we fetch pressure and saturations
-        if "v" in state_input:
+        if "v" in flash_type:
             # If T is additionally unknown to p, p is the second last quantity before
             # molar fractions
-            if "T" not in state_input:
+            if "T" not in flash_type:
                 p_pos = 1 + ncomp * nphase + nphase - 1 + 2
             else:
                 p_pos = 1 + ncomp * nphase + nphase - 1 + 1
 
-            result_state.p = results[:, -p_pos]
+            fluid_state.p = results[:, -p_pos]
 
             # saturations are stored before pressure (for independent phases)
             s: list[np.ndarray] = list()
             for j in range(nphase - 1):
                 s.append(results[:, -(p_pos + nphase - 1 + j)])
-            result_state.sat = [1 - safe_sum(s)] + s
+            fluid_state.sat = [1 - safe_sum(s)] + s
 
         # Computing states for each phase after filling p, T and x
-        result_state.phases = list()
+        fluid_state.phases = list()
         for j in range(nphase):
-            result_state.phases.append(
+            fluid_state.phases.append(
                 self.eos_compiler.compute_phase_state(
-                    self._phasetypes[j], result_state.p, result_state.T, x[j]
+                    self._phasetypes[j], fluid_state.p, fluid_state.T, x[j]
                 )
             )
 
         # if v not defined, evaluate saturations based on rho and y
-        if "v" not in state_input:
-            result_state.evaluate_saturations()
-        result_state.sat = np.array(result_state.sat)
+        if "v" not in flash_type:
+            fluid_state.evaluate_saturations()
+        # Convert sequence to 2D array (sequence of row vectors)
+        if not isinstance(fluid_state.sat, np.ndarray):
+            fluid_state.sat = np.array(fluid_state.sat)
         # evaluate extensive properties of the fluid mixture
-        result_state.evaluate_extensive_state()
+        fluid_state.evaluate_extensive_state()
 
-        return result_state
+        return fluid_state
 
     def _update_solver_params(self, f_dim: int) -> None:
         """Helper function to update the numba-typed solver parameter dict."""
@@ -570,14 +550,6 @@ class Flash_c:
         self._solver_params["u1"] = self.npipm_parameters["u1"]
         self._solver_params["u2"] = self.npipm_parameters["u2"]
         self._solver_params["eta"] = self.npipm_parameters["eta"]
-
-    def log_last_flash(self):
-        """Prints statistics found in :attr:`last_flash_stats` in the console."""
-        msg = "Last flash overview:\n"
-        for k, v in self.last_flash_stats.items():
-            msg += f"---\t{k}: {v}\n"
-        msg += "\n"
-        logger.warn(msg)
 
     def compile(
         self,
@@ -1686,81 +1658,43 @@ class Flash_c:
         h: Optional[np.ndarray] = None,
         v: Optional[np.ndarray] = None,
         initial_state: Optional[FluidState] = None,
-        mode: Literal["linear", "parallel"] = "linear",
-        verbosity: int = 0,
+        params: dict = dict(),
     ) -> tuple[FluidState, np.ndarray, np.ndarray]:
         """Performes the flash for given feed fractions and state definition.
 
-        Exactly 2 thermodynamic state must be defined in terms of ``p, T, h`` or ``v``
-        for an equilibrium problem to be well-defined.
+        Assumes the first fraction
 
-        One state must relate to pressure or volume.
-        The other to temperature or energy.
-
-        Supported combination:
+        Supported equilibrium definitions:
 
         - p-T
         - p-h
         - v-h
 
-        Parameters:
-            z: ``len=num_comp - 1``
+        Supported parameters:
 
-                A squence of feed fractions per component, except reference component.
-            p: Pressure at equilibrium.
-            T: Temperature at equilibrium.
-            h: Specific enthalpy of the mixture at equilibrium,
-            v: Specific volume of the mixture at equilibrium,
-            initial_state: ``default=None``
+        - ``'mode'``: Mode of solving the equilibrium problems for multiple state
+          definitions given by vectorized input.
 
-                If not given, an initial guess is computed for the unknowns of the flash
-                type.
+          - ``'linear'``: A classical loop over state defintions (row-wise).
+          - ``'parallel'``: A parallelized loop, intended for larger amounts of
+            problems.
 
-                If given, it must have at least values for phase fractions and
-                compositions.
-                Molar phase fraction for reference phase **must not** be provided.
+            Defaults to ``'linear'``.
+        - ``'verbosity'``: For logging information about progress.
 
-                It must have additionally values for temperature, for
-                a state definition where temperature is not known at equilibrium.
+          Note that as of now, there is no support for logs during solution procedures
+          in the loop since compiled code is exectuded.
 
-                It must have additionally values for pressure and saturations, for
-                state definitions where pressure is not known at equilibrium.
-                Saturation for reference phase **must not** be provided.
-            mode: ``default='linear'``
-
-                Mode of solving the equilibrium problems for multiple state definitions
-                given by arrays.
-
-                - ``'linear'``: A classical loop over state defintions (row-wise).
-                - ``'parallel'``: A parallelized loop, intended for larger amounts of
-                  problems.
-
-            verbosity: ``default=0``
-
-                For logging information about progress. Note that as of now, there is
-                no support for logs during solution procedures in the loop since
-                compiled code is exectuded.
+          Defaults to 0.
 
         Raises:
-            ValueError: If an insufficient amount of feed fractions is passed or they
-                violate the unity constraint.
-            NotImplementedError: If an unsupported combination of insufficient number of
+            NotImplementedError: If an unsupported combination or insufficient number of
                 of thermodynamic states is passed.
 
-        Returns:
-            A 3-tuple containing the results, success flags and number of iterations as
-            returned by :func:`newton`.
-            The results are stored in a fluid state structure.
-
-            Important:
-                If the equilibrium state is not defined in terms of pressure or
-                temperature, the resulting volume or enthalpy values of the fluid might
-                differ slightly from the input values, due to precision and convergence
-                criterion.
-                Extensive properties are always returned in terms of the computed
-                pressure or temperature.
-
         """
+        mode = params.get("mode", "linear")
+        assert mode in ["linear", "parallel"], f"Unsupported mode {mode}."
+        verbosity = params.get("verbosity", 0)
         # setting logging verbosity
         if verbosity == 1:
             logger.setLevel(logging.INFO)
@@ -1770,94 +1704,57 @@ class Flash_c:
             logger.setLevel(logging.WARNING)
 
         nphase, ncomp = self.npnc
+        fluid_state, flash_type, f_dim, NF = self.parse_flash_input(
+            z, p, T, h, v, initial_state
+        )
 
-        for i, z_ in enumerate(z):
-            if np.any(z_ <= 0) or np.any(z_ >= 1):
-                raise ValueError(
-                    f"Violation of strict bound (0,1) for feed fraction {i} detected."
-                )
-
-        z_sum = safe_sum(z)
-        if len(z) == ncomp - 1:
-            if not np.all(z_sum < 1.0):
-                raise ValueError(
-                    f"{ncomp - 1} ({ncomp}) feed fractions violate unity constraint."
-                )
-        elif len(z) == ncomp:
-            if not np.all(z_sum == 1.0):
-                raise ValueError(
-                    f"{ncomp} ({ncomp}) feed fractions violate unity constraint."
-                )
-            z = z[1:]
-        else:
-            raise ValueError(f"Expecting at least {ncomp - 1} feed fractions.")
-
-        flash_type: Literal["p-T", "p-h", "v-h"]
-        f_dim: int  # Dimension of flash system (unknowns & equations including NPIPM)
-        NF: int  # number of vectorized target states
-        init_args: tuple  # Parameters for initialization procedure
-
-        if p is not None and T is not None and (h is None and v is None):
-            flash_type = "p-T"
-            f_dim = nphase - 1 + nphase * ncomp + 1
-            NF = (z_sum + p + T).shape[0]
-            state_1 = p
-            state_2 = T
-            init_args = (self.initialization_parameters["N1"], 1)
-        elif p is not None and h is not None and (T is None and v is None):
-            flash_type = "p-h"
-            f_dim = nphase - 1 + nphase * ncomp + 1 + 1
-            NF = (z_sum + p + h).shape[0]
-            state_1 = p
-            state_2 = h
-            init_args = (
-                self.initialization_parameters["N1"],
-                self.initialization_parameters["N2"],
-                self.initialization_parameters["N3"],
-                self.initialization_parameters["eps"],
-            )
-        elif v is not None and h is not None and (T is None and p is None):
-            flash_type = "v-h"
-            f_dim = nphase - 1 + nphase * ncomp + 2 + nphase - 1 + 1
-            NF = (z_sum + v + h).shape[0]
-            state_1 = v
-            state_2 = h
-            init_args = (
-                self.initialization_parameters["N1"],
-                self.initialization_parameters["N2"],
-                self.initialization_parameters["N3"],
-                self.initialization_parameters["eps"],
-            )
-        else:
-            raise NotImplementedError(
-                f"Unsupported flash with state definitions {p, T, h, v}"
-            )
-
+        assert flash_type in [
+            "p-T",
+            "p-h",
+            "v-h",
+        ], f"Unsupported flash type {flash_type}"
         logger.info(f"Determined flash type: {flash_type}\n")
 
-        logger.debug("Assembling generic flash arguments ..")
-        # generic argument dimension (including num_comp -1 feed fractions and 2 states)
+        # Because of NPIPM, we have an additiona slack variable
+        f_dim += 1
+        # the generic argument has additional ncomp - 1 feed fractions and 2 states
         gen_arg_dim = ncomp + 1 + f_dim
         # vectorized, generic flash argument
         X0 = np.zeros((NF, gen_arg_dim))
-        for i, z_i in enumerate(z):
-            X0[:, i] = z_i
-        if flash_type == "p-h":  # revert order because of order in gen arg (pTyx)
-            X0[:, ncomp - 1] = state_2
-            X0[:, ncomp] = state_1
-            equilibrium_state = {
-                flash_type[2]: X0[:, ncomp - 1],
-                flash_type[0]: X0[:, ncomp],
-            }
+
+        # Filling the feed fractions into X0
+        i = 0
+        for i_, _ in enumerate(fluid_state.z):
+            if i_ == self._ref_component_idx:
+                continue
+            X0[i, :] = fluid_state.z[i]
+            i += 1
+        # Filling the fixed state values in X0, getting initialization args
+        if flash_type == "p-T":
+            X0[:, ncomp - 1] = fluid_state.p
+            X0[:, ncomp] = fluid_state.T
+            init_args = (self.initialization_parameters["N1"], 1)
+        elif flash_type == "p-h":
+            # has a reverse order of states, because of parse_pT
+            X0[:, ncomp - 1] = fluid_state.h
+            X0[:, ncomp] = fluid_state.p
+            init_args = (
+                self.initialization_parameters["N1"],
+                self.initialization_parameters["N2"],
+                self.initialization_parameters["N3"],
+                self.initialization_parameters["eps"],
+            )
+        elif flash_type == "v-h":
+            X0[:, ncomp - 1] = fluid_state.v
+            X0[:, ncomp] = fluid_state.h
+            init_args = (
+                self.initialization_parameters["N1"],
+                self.initialization_parameters["N2"],
+                self.initialization_parameters["N3"],
+                self.initialization_parameters["eps"],
+            )
         else:
-            X0[:, ncomp - 1] = state_1
-            X0[:, ncomp] = state_2
-            equilibrium_state = {
-                flash_type[0]: X0[:, ncomp - 1],
-                flash_type[2]: X0[:, ncomp],
-            }
-        z_ = X0[:, : ncomp - 1].T
-        equilibrium_state["z"] = np.vstack([1 - np.sum(z_, axis=0), z_])
+            assert False, "Missing logic"
 
         if initial_state is None:
             logger.info("Computing initial state ..")
@@ -1868,22 +1765,20 @@ class Flash_c:
             init_time = end - start
             logger.info(f"Initial state computed (elapsed time: {init_time} (s)).\n")
         else:
-            init_time = 0.0
-            logger.info("Parsing initial state ..")
             # parsing phase compositions and molar fractions
+            idx = 0
             for j in range(nphase):
                 # values for molar phase fractions except for reference phase
-                if j < nphase - 1:
-                    X0[:, -(1 + nphase * ncomp + nphase - 1 + j)] = initial_state.y[j]
+                if j != self._ref_phase_idx:
+                    X0[:, -(1 + nphase * ncomp + nphase - 1 + idx)] = fluid_state.y[j]
+                    idx += 1
                 # composition of phase j
                 for i in range(ncomp):
-                    X0[:, -(1 + (nphase - j) * ncomp + i)] = initial_state.phases[j].x[
-                        i
-                    ]
+                    X0[:, -(1 + (nphase - j) * ncomp + i)] = fluid_state.phases[j].x[i]
 
             # If T is unknown, get provided guess for T
             if "T" not in flash_type:
-                X0[:, -(1 + ncomp * nphase + nphase - 1 + 1)] = initial_state.T
+                X0[:, -(1 + ncomp * nphase + nphase - 1 + 1)] = fluid_state.T
             # If v is given, get provided guess for p and saturations
             if "v" in flash_type:
                 # If T is additionally unknown to p, p is the second last quantity
@@ -1892,11 +1787,13 @@ class Flash_c:
                     p_pos = 1 + ncomp * nphase + nphase - 1 + 2
                 else:
                     p_pos = 1 + ncomp * nphase + nphase - 1 + 1
-                X0[:, -p_pos] = initial_state.p
+                X0[:, -p_pos] = fluid_state.p
+                # parsing saturation values except for reference phase
+                idx = 0
                 for j in range(nphase - 1):
-                    X0[:, -(p_pos + nphase - 1 + j)] = initial_state.sat[j]
-
-            # parsing molar phsae fractions
+                    if j != self._ref_phase_idx:
+                        X0[:, -(p_pos + nphase - 1 + idx)] = fluid_state.sat[j]
+                        idx += 1
 
         logger.info("Computing initial guess for slack variable ..")
         X0 = initialize_npipm_nu(X0, self.npnc)
@@ -1909,10 +1806,8 @@ class Flash_c:
         start = time.time()
         if mode == "linear":
             results, success, num_iter = linear_solver(X0, F, DF, self._solver_params)
-        elif mode == "parallel":
+        else:  # parallel, by logic only this
             results, success, num_iter = parallel_solver(X0, F, DF, self._solver_params)
-        else:
-            raise ValueError(f"Unknown mode of compuation {mode}")
         end = time.time()
         minim_time = end - start
         logger.info(f"{flash_type} flash done (elapsed time: {minim_time} (s)).\n\n")
@@ -1930,7 +1825,7 @@ class Flash_c:
             self.log_last_flash()
 
         return (
-            self._parse_and_complete_results(results, equilibrium_state),
+            self._parse_and_complete_results(results, flash_type, fluid_state),
             success,
             num_iter,
         )
