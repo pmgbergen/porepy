@@ -15,7 +15,7 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
-from porepy.numerics.ad.operator_functions import NumericType, AbstractFunction
+from porepy.numerics.ad.operator_functions import AbstractFunction, NumericType
 
 __all__ = [
     "safe_sum",

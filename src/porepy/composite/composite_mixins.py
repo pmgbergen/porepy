@@ -6,15 +6,20 @@ from __future__ import annotations
 
 from typing import Any, Callable, Literal, Optional, Sequence
 
-import porepy as pp
-import porepy.composite as ppc
+import numpy as np
 
-from ..composite.composite_utils import safe_sum
+import porepy as pp
+
+from .base import AbstractEoS, Component, Mixture, Phase
+from .composite_utils import safe_sum
+from .flash import Flash
+from .states import FluidState, PhaseState
 
 __all__ = [
     "evaluate_homogenous_constraint",
     "MixtureMixin",
-    "EquilibriumMixin",
+    "EquilibriumEquationsMixin",
+    "FlashMixin",
 ]
 
 
@@ -67,7 +72,7 @@ class MixtureMixin:
     pressure: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]
     temperature: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]
 
-    fluid_mixture: ppc.Mixture
+    fluid_mixture: Mixture
     """The fluid mixture set by this class during :meth:`set_mixture`."""
 
     eliminate_reference_phase: bool
@@ -87,14 +92,14 @@ class MixtureMixin:
         T = self.temperature(subdomains)
 
         components = self.get_components()
-        phases: list[ppc.Phase] = list()
+        phases: list[Phase] = list()
         for config in self.get_phase_configuration():
             eos, type_, name = config
-            phases.append(ppc.Phase(eos, type_, name))
+            phases.append(Phase(eos, type_, name))
 
         self.set_components_in_phases(components, phases)
 
-        self.fluid_mixture = ppc.Mixture(components, phases)
+        self.fluid_mixture = Mixture(components, phases)
         self.fluid_mixture.set_up_ad(
             self.equation_system,
             subdomains,
@@ -104,7 +109,7 @@ class MixtureMixin:
             self.eliminate_reference_component,
         )
 
-    def get_components(self) -> Sequence[ppc.Component]:
+    def get_components(self) -> Sequence[Component]:
         """Method to return a list of modelled components.
 
         Raises:
@@ -114,8 +119,8 @@ class MixtureMixin:
         raise NotImplementedError("No components defined in mixture mixin.")
 
     def get_phase_configuration(
-        self, components: Sequence[ppc.Component]
-    ) -> Sequence[tuple[ppc.AbstractEoS, int, str]]:
+        self, components: Sequence[Component]
+    ) -> Sequence[tuple[AbstractEoS, int, str]]:
         """Method to return a configuration of modelled phases.
 
         Must return the instance of used EoS, the phase type (integer) and a name
@@ -140,7 +145,7 @@ class MixtureMixin:
         raise NotImplementedError("No phases configured in mixture mixin.")
 
     def set_components_in_phases(
-        self, components: Sequence[ppc.Component], phases: Sequence[ppc.Phase]
+        self, components: Sequence[Component], phases: Sequence[Phase]
     ) -> None:
         """Method to implement a strategy for which components are added to which phase.
 
@@ -158,7 +163,7 @@ class MixtureMixin:
             phase.components = components
 
 
-class EquilibriumMixin:
+class EquilibriumEquationsMixin:
     """Basic class introducing the fluid phase equilibrium equations into the model."""
 
     mdg: pp.MixedDimensionalGrid
@@ -169,7 +174,7 @@ class EquilibriumMixin:
     """EquationSystem object for the current model. Normally defined in a mixin class
     defining the solution strategy."""
 
-    fluid_mixture: ppc.Mixture
+    fluid_mixture: Mixture
     """A mixture containing all modelled phases and components, and required fluid
     properties as a combination of phase properties. Usually defined in a mixin class
     defining the mixture."""
@@ -177,7 +182,7 @@ class EquilibriumMixin:
     enthalpy: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]
     volume: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]
 
-    equilibrium_type: Literal["p-T", "p-h", "v-h"]
+    equilibrium_type: Literal["p-T", "p-h", "v-h"] = "p-h"
     """A string denoting the two state functions which are assumed constant at
     equilibrium. Usually defined in the solution strategy."""
 
@@ -290,7 +295,7 @@ class EquilibriumMixin:
             equ = self.density_relation_for_phase(phase)
             self.equation_system.set_equation(equ, subdomains, {"cells": 1})
 
-    def mass_constraint_for_component(self, component: ppc.Component) -> pp.ad.Operator:
+    def mass_constraint_for_component(self, component: Component) -> pp.ad.Operator:
         """Constructs the local mass constraint for a component :math:`i`.
 
         .. math::
@@ -325,7 +330,7 @@ class EquilibriumMixin:
         equ.set_name(f"mass-constraint-{component.name}")
         return equ
 
-    def complementarity_condition_for_phase(self, phase: ppc.Phase) -> pp.ad.Operator:
+    def complementarity_condition_for_phase(self, phase: Phase) -> pp.ad.Operator:
         """Constructs the complementarity condition for a given phase.
 
         .. math::
@@ -362,7 +367,7 @@ class EquilibriumMixin:
         return equ
 
     def isofugacity_constraint_for_component_in_phase(
-        self, component: ppc.Component, phase: ppc.Phase
+        self, component: Component, phase: Phase
     ) -> pp.ad.Operator:
         """Construct the local isofugacity constraint for a component between a given
         phase and the reference phase.
@@ -471,7 +476,7 @@ class EquilibriumMixin:
         equ.set_name("mixture-volume-constraint")
         return equ
 
-    def density_relation_for_phase(self, phase: ppc.Phase) -> pp.ad.Operator:
+    def density_relation_for_phase(self, phase: Phase) -> pp.ad.Operator:
         """Constructs a local mass relation based on a relation between mixture
         density, saturated phase density and phase fractions.
 
@@ -514,3 +519,223 @@ class EquilibriumMixin:
             )
         equ.set_name(f"density-relation-{phase.name}")
         return equ
+
+    def fractional_state_from_vector(
+        self,
+        state: Optional[np.ndarray] = None,
+    ) -> FluidState:
+        """Uses the AD framework to create a fluid state from currently stored values of
+        fractions.
+
+        Convenience function to get the values for fractions in iterative procedures.
+
+        Evaluates:
+
+        1. Overall fractions per component
+        2. Molar fractions per phase
+        3. Volumetric fractions per phase (saturations)
+        4. Extended fractions per phase per component
+
+        Parameters:
+            state: ``default=None``
+
+                Argument for the evaluation methods of the AD framework.
+                Can be used to assemble a fluid state from an alternative global vector
+                of unknowns.
+
+        Returns:
+            A partially filled fluid state data structure containing the above
+            fractional values.
+
+        """
+
+        z = np.array(
+            [
+                component.fraction.value(self.equation_system, state)
+                for component in self.fluid_mixture.components
+            ]
+        )
+
+        y = np.array(
+            [
+                phase.fraction.value(self.equation_system, state)
+                for phase in self.fluid_mixture.phases
+            ]
+        )
+
+        sat = np.array(
+            [
+                phase.saturation.value(self.equation_system, state)
+                for phase in self.fluid_mixture.phases
+            ]
+        )
+
+        x = [
+            np.array(
+                [
+                    phase.fraction_of[component].value(self.equation_system, state)
+                    for component in self.fluid_mixture.components
+                ]
+            )
+            for phase in self.fluid_mixture.phases
+        ]
+
+        return FluidState(
+            z=z,
+            y=y,
+            sat=sat,
+            phases=[PhaseState(x=x_) for x_ in x],
+        )
+
+
+class FlashMixin:
+    """Mixin class to introduce the flash procedure into the solution strategy.
+
+    Main ideas of the FlashMixin:
+
+    1. Instantiation of Flash object and make it available for other mixins.
+    2. Convenience methods to equilibriate the fluid.
+    3. Abstraction to enable customization.
+
+    """
+
+    mdg: pp.MixedDimensionalGrid
+    """Mixed dimensional grid for the current model. Usually defined in a mixin class
+    defining the geometry."""
+
+    equation_system: pp.ad.EquationSystem
+    """EquationSystem object for the current model. Normally defined in a mixin class
+    defining the solution strategy."""
+
+    fluid_mixture: Mixture
+    """See :class:`MixtureMixin`."""
+
+    equilibrium_type: Literal["p-T", "p-h", "v-h"]
+    """See :attr:`EquilibriumEquationsMixin.equilibrium_type`."""
+
+    flash: Flash
+    """A flasher object able to compute the fluid phase equilibrium for a mixture
+    defined in the mixture mixin.
+
+    This object should be created here during :meth:`set_up_flasher`.
+
+    """
+
+    fractional_state_from_vector: Callable[[Optional[np.ndarray]], FluidState]
+    """See :meth:`~.EquilibriumEquationsMixin.fractional_state_from_vector`"""
+
+    pressure: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
+    """See :meth:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow.pressure`.
+    """
+    temperature: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
+    """See :meth:`~porepy.models.energy_balance.VariablesEnergyBalance.temperature`.
+    """
+    enthalpy: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
+    """See
+    :meth:`~porepy.models.compositional_balance.VariablesCompositionalFlow.enthalpy`."""
+
+    def set_up_flasher(self) -> None:
+        """Method to introduce the flash class, if any.
+
+        To be called after the fluid was defined and set up.
+
+        """
+        raise NotImplementedError("No flash set-up implemented.")
+
+    def equilibriate_fluid(
+        self, state: Optional[np.ndarray] = None
+    ) -> tuple[FluidState, np.ndarray]:
+        """Convenience method to assemble the state of the fluid based on a global
+        vector and to equilibriate it using the flasher.
+
+        This method is called in
+        :meth:`~porepy.models.compositional_balance.SolutionStrategyCompositionalFlow.
+        before_nonlinear_iteration` to use the flash as a predictor during nonlinear
+        iterations.
+
+        Parameters:
+            state: ``default=None``
+
+                Global state vector to be passed to the Ad framework when evaluating the
+                current state (fractions, pressure, temperature, enthalpy,..)
+
+        Returns:
+            The equilibriated state of the fluid and an indicator where the flash was
+            successful (or not).
+
+            For more information on the `success`-indicators, see respective flash
+            object.
+
+        """
+        # Extracting the current, iterative state to use as initial guess for the flash
+        subdomains = self.mdg.subdomains()
+        fluid_state = self.fractional_state_from_vector(state)
+        fluid_state.p = self.pressure(subdomains).value(self.equation_system, state)
+        fluid_state.T = self.temperature(subdomains).value(self.equation_system, state)
+        fluid_state.h = self.enthalpy(subdomains).value(self.equation_system, state)
+        fluid_state.v = self.fluid_mixture.volume.value(self.equation_system, state)
+
+        if self.equilibrium_type == "p-T":
+            p = self.pressure(subdomains).value(self.equation_system, state)
+            T = self.temperature(subdomains).value(self.equation_system, state)
+            result_state, succes, _ = self.flash.flash(
+                z=fluid_state.z,
+                p=p,
+                T=T,
+                initial_state=fluid_state,
+            )
+        elif self.equilibrium_type == "p-h":
+            p = self.pressure(subdomains).value(self.equation_system, state)
+            h = self.enthalpy(subdomains).value(self.equation_system, state)
+            # initial guess for T from iterate
+            fluid_state.T = self.temperature(subdomains).value(
+                self.equation_system, state
+            )
+            result_state, succes, _ = self.flash.flash(
+                z=fluid_state.z,
+                p=p,
+                h=h,
+                initial_state=fluid_state,
+            )
+        elif self.equilibrium_type == "v-h":
+            # TODO change v to the right volume based on domain
+            v = self.fluid_mixture.volume.value(self.equation_system, state)
+            h = self.enthalpy(subdomains).value(self.equation_system, state)
+            # initial guess for T, p from iterate, saturations already contained
+            fluid_state.T = self.temperature(subdomains).value(
+                self.equation_system, state
+            )
+            fluid_state.p = self.pressure(subdomains).value(self.equation_system, state)
+            result_state, succes, _ = self.flash.flash(
+                z=fluid_state.z,
+                v=v,
+                h=h,
+                initial_state=fluid_state,
+            )
+        else:
+            raise NotImplementedError(
+                f"Equilibriation not implemented for type {self.equilibrium_type}"
+            )
+
+        return result_state, succes
+
+    def postprocess_failures(
+        self, fluid_state: FluidState, success: np.ndarray
+    ) -> FluidState:
+        """A method called after :meth:`equilibriate_fluid` to post-process failures if
+        any.
+
+        Parameters:
+            fluid_state: Fluid state returned from :meth:`equilibriate_fluid`.
+            success: Success flags returned along the fluid state.
+
+        Returns:
+            A final fluid state, with treatment of values where the flash did not
+            succeed.
+
+        """
+        # nothing to do if everything successful
+        if np.all(success == 0):
+            return fluid_state
+        else:
+            NotImplementedError("No flash postprocessing implemented.")

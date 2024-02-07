@@ -10,7 +10,7 @@ import porepy as pp
 from porepy.composite.composite_utils import COMPOSITE_LOGGER as logger
 logger.setLevel(logging.DEBUG)
 from porepy.composite.peng_robinson.eos_c import PengRobinsonCompiler
-from porepy.composite.flash_c import Flash_c
+from porepy.composite.flash_c import CompiledUnifiedFlash
 logger.setLevel(logging.WARNING)
 
 vec = np.ones(1)
@@ -35,7 +35,7 @@ phases = [
 mix = pp.composite.Mixture(comps, phases)
 # mix.set_up()
 
-flash_c = Flash_c(mix, eos_c)
+flash_c = CompiledUnifiedFlash(mix, eos_c)
 flash_c.tolerance = 1e-8
 flash_c.max_iter = 150
 
@@ -55,9 +55,9 @@ flash_c.npipm_parameters['eta'] = 0.5
 flash_c.initialization_parameters['N1'] = 3
 flash_c.initialization_parameters['N2'] = 1
 flash_c.initialization_parameters['N3'] = 5
-result, success, num_iter = flash_c.flash(z, p = p, T= T, mode='linear', verbosity=verbosity)
+result, success, num_iter = flash_c.flash(z, p = p, T= T, params={'mode': 'linear', 'verbosity': verbosity})
 
-result, success, num_iter = flash_c.flash(z, p = p, T= T, mode='parallel', verbosity=verbosity)
+result, success, num_iter = flash_c.flash(z, p = p, T= T, params={'mode': 'parallel', 'verbosity': verbosity})
 p_range = [1e6, 50e6]
 T_range = [450., 700.]
 refinement = 80
@@ -74,8 +74,7 @@ result, success, num_iter = flash_c.flash(
     [np.ones(p.shape[0]) * _ for _ in feed],
     p = p,
     T= T,
-    mode='parallel',
-    verbosity=verbosity
+    params={'mode': 'parallel', 'verbosity': verbosity}
 )
 print("---\n")
 
@@ -93,7 +92,7 @@ flash_c.npipm_parameters['eta'] = 0.5
 flash_c.initialization_parameters['N1'] = 3
 flash_c.initialization_parameters['N2'] = 1
 flash_c.initialization_parameters['N3'] = 5
-result, success, num_iter = flash_c.flash(z, p=p, h=h, verbosity=verbosity)
+result, success, num_iter = flash_c.flash(z, p=p, h=h, params={'mode': 'linear', 'verbosity': verbosity})
 
 # test v-h
 v = vec * 3.267067077646246e-05
@@ -107,6 +106,6 @@ flash_c.npipm_parameters['eta'] = 0.5
 flash_c.initialization_parameters['N1'] = 2
 flash_c.initialization_parameters['N2'] = 2
 flash_c.initialization_parameters['N3'] = 7
-result, success, num_iter = flash_c.flash(z, h=h, v=v, verbosity=verbosity)
+result, success, num_iter = flash_c.flash(z, h=h, v=v, params={'mode': 'linear', 'verbosity': verbosity})
 
 print("Done")

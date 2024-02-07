@@ -64,7 +64,7 @@ from porepy.numerics.ad.operator_functions import NumericType
 from ._core import COMPOSITIONAL_VARIABLE_SYMBOLS, P_REF, R_IDEAL, T_REF
 from .chem_species import ChemicalSpecies, FluidSpecies
 from .composite_utils import PropertyFunction, safe_sum
-from .states import FluidState, PhaseState
+from .states import PhaseState
 
 __all__ = [
     "Component",
@@ -1002,7 +1002,7 @@ class Mixture:
         var = ad_system.create_variables(
             name=name,
             subdomains=subdomains,
-            tags = {'si_units': '-'},
+            tags={"si_units": "-"},
         )
         return var
 
@@ -1325,53 +1325,3 @@ class Mixture:
             props = phase.compute_properties(p, T, x_j, store=store)
             results.append(props)
         return results
-
-    def fractional_state_from_vector(
-        self,
-        state: Optional[np.ndarray] = None,
-    ) -> FluidState:
-        """Uses the AD framework the currently stored values of fractions.
-
-        Convenience function to get the values for fractions in iterative procedures.
-
-        Evaluates:
-
-        1. Overall fractions per component
-        2. Molar fractions per phase
-        3. Volumetric fractions per phase (saturations)
-        4. Extended fractions per phase per component
-
-        Parameters:
-            state: ``default=None``
-
-                Argument for the evaluation methods of the AD framework.
-                Can be used to assemble a fluid state from an alternative global vector
-                of unknowns.
-
-        Returns:
-            A partially filled fluid state data structure containing the above
-            fractional values.
-
-        """
-
-        z = np.array(
-            [c.fraction.evaluate(self.system, state).val for c in self.components]
-        )
-
-        y = np.array([p.fraction.evaluate(self.system, state).val for p in self.phases])
-
-        sat = np.array(
-            [p.saturation.evaluate(self.system, state).val for p in self.phases]
-        )
-
-        x = [
-            np.array(
-                [
-                    p.fraction_of[c].evaluate(self.system, state).val
-                    for c in self.components
-                ]
-            )
-            for p in self.phases
-        ]
-
-        return FluidState(z=z, y=y, sat=sat, phases=[PhaseState(x=x_) for x_ in x])
