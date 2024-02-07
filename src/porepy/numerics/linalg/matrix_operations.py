@@ -582,7 +582,8 @@ def invert_diagonal_blocks(
 
         # Helper function for retrieving, invert, ravel and concatenate a block
         v = np.zeros(idx_inv_blocks[-1])
-        def operate_on_block(ib: int) -> np.ndarray:
+
+        def operate_on_block(ib: int):
             """
             Parameters
             ----------
@@ -592,22 +593,28 @@ def invert_diagonal_blocks(
 
             # Initialize block
             dense_block = np.zeros((sz[ib], sz[ib]))
-            lr = row[idx_nnz[ib]: idx_nnz[ib + 1]]
-            lc = col[idx_nnz[ib]: idx_nnz[ib + 1]]
-            ld = a.data[idx_nnz[ib]: idx_nnz[ib + 1]]
+            lr = row[idx_nnz[ib] : idx_nnz[ib + 1]]
+            lc = col[idx_nnz[ib] : idx_nnz[ib + 1]]
+            ld = a.data[idx_nnz[ib] : idx_nnz[ib + 1]]
             idx_shift = idx_blocks[ib]
-            dense_block[lr-idx_shift, lc-idx_shift] = ld
-            v[idx_inv_blocks[ib]:idx_inv_blocks[ib + 1]] = np.ravel(np.linalg.inv(dense_block))
+            dense_block[lr - idx_shift, lc - idx_shift] = ld
+            v[idx_inv_blocks[ib] : idx_inv_blocks[ib + 1]] = np.ravel(
+                np.linalg.inv(dense_block)
+            )
 
         # np.fromiter
         np.fromiter(map(operate_on_block, range(sz.size)), dtype=np.ndarray)
 
         # dask
-        # lazy_eval_ravelled_block_inverses = [dask.delayed(operate_on_block)(ib) for ib in range(sz.size)]
+        # lazy_eval_ravelled_block_inverses = [
+        #     dask.delayed(operate_on_block)(ib) for ib in range(sz.size)
+        # ]
         # dask.compute(*lazy_eval_ravelled_block_inverses)
         return v
 
-    def invert_diagonal_blocks_numba_compact(a: sps.csr_matrix, size: np.ndarray) -> np.ndarray:
+    def invert_diagonal_blocks_numba_compact(
+        a: sps.csr_matrix, size: np.ndarray
+    ) -> np.ndarray:
         """
         Invert block diagonal matrix by invoking numba acceleration of a simple
         for-loop based algorithm.
@@ -641,21 +648,31 @@ def invert_diagonal_blocks(
         idx_nnz = np.searchsorted(row, idx_blocks)
 
         # Just in time compilation
-        @njit("f8[:](f8[:],i4[:],i4[:],i8[:],i8[:],i8[:],i8[:])", cache=True, parallel=True)
-        def inv_compiled_function(data, row, col, sz, idx_nnz, idx_blocks, idx_inv_blocks):
+        @njit(
+            "f8[:](f8[:],i4[:],i4[:],i8[:],i8[:],i8[:],i8[:])",
+            cache=True,
+            parallel=True,
+        )
+        def inv_compiled_function(
+            data, row, col, sz, idx_nnz, idx_blocks, idx_inv_blocks
+        ):
             v = np.zeros(idx_inv_blocks[-1])
             for ib in prange(sz.size):
                 dense_block = np.zeros((sz[ib], sz[ib]))
-                lrow = row[idx_nnz[ib]: idx_nnz[ib + 1]]
-                lcol = col[idx_nnz[ib]: idx_nnz[ib + 1]]
-                ldat = data[idx_nnz[ib]: idx_nnz[ib + 1]]
+                lrow = row[idx_nnz[ib] : idx_nnz[ib + 1]]
+                lcol = col[idx_nnz[ib] : idx_nnz[ib + 1]]
+                ldat = data[idx_nnz[ib] : idx_nnz[ib + 1]]
                 idx_shift = idx_blocks[ib]
                 for i in range(len(ldat)):
-                    dense_block[lrow[i]-idx_shift,lcol[i]-idx_shift] = ldat[i]
-                v[idx_inv_blocks[ib]:idx_inv_blocks[ib + 1]] = np.ravel(np.linalg.inv(dense_block))
+                    dense_block[lrow[i] - idx_shift, lcol[i] - idx_shift] = ldat[i]
+                v[idx_inv_blocks[ib] : idx_inv_blocks[ib + 1]] = np.ravel(
+                    np.linalg.inv(dense_block)
+                )
             return v
 
-        v = inv_compiled_function(a.data, row, col, size, idx_nnz, idx_blocks, idx_inv_blocks)
+        v = inv_compiled_function(
+            a.data, row, col, size, idx_nnz, idx_blocks, idx_inv_blocks
+        )
         return v
 
     def invert_diagonal_blocks_numba(a: sps.csr_matrix, size: np.ndarray) -> np.ndarray:
