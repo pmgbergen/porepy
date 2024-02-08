@@ -6,6 +6,7 @@ We provide basic Exporter functionality, but the user is free to override and ex
 this class to suit their needs. This could include, e.g., saving data to a database,
 or to a file format other than vtu.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -44,16 +45,35 @@ class DataSavingMixin:
 
     def save_data_time_step(self) -> None:
         """Export the model state at a given time step, and log time."""
-        if not self.suppress_export:
-            self.exporter.write_vtu(self.data_to_export(), time_dependent=True)
-            if self.restart_options.get("restart", False):
-                # For a pvd file addressing all time steps (before and after restart
-                # time), resume based on restart input pvd file through append.
-                pvd_file = self.restart_options["pvd_file"]
-                self.exporter.write_pvd(append=True, from_pvd_file=pvd_file)
-            else:
-                self.exporter.write_pvd()
-            self.time_manager.write_time_information()
+
+        # Fetching the desired times to export
+        times_to_export = self.params.get("times_to_export", None)
+        if times_to_export is None:
+            # Export all time steps if times are not specified.
+            do_export = True
+        else:
+            # If times are specified, export should only occur if the current time is in
+            # the list of times to export.
+            do_export = np.any(np.isclose(self.time_manager.time, times_to_export))
+
+        # The suppress_export property takes presedence over all other criteria, hence
+        # check that last.
+        do_export = do_export and not self.suppress_export
+
+        if do_export:
+            self.write_pvd_and_vtu()
+
+    def write_pvd_and_vtu(self):
+        """Helper function for writing the .vtu and .pvd files and time information."""
+        self.exporter.write_vtu(self.data_to_export(), time_dependent=True)
+        if self.restart_options.get("restart", False):
+            # For a pvd file addressing all time steps (before and after restart
+            # time), resume based on restart input pvd file through append.
+            pvd_file = self.restart_options["pvd_file"]
+            self.exporter.write_pvd(append=True, from_pvd_file=pvd_file)
+        else:
+            self.exporter.write_pvd()
+        self.time_manager.write_time_information()
 
     def data_to_export(self) -> list[DataInput]:
         """Return data to be exported.
