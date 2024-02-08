@@ -20,6 +20,7 @@ __all__ = [
     "MixtureMixin",
     "EquilibriumEquationsMixin",
     "FlashMixin",
+    "SecondaryExpressionsMixin",
 ]
 
 
@@ -61,30 +62,26 @@ def evaluate_homogenous_constraint(
 class MixtureMixin:
     """Mixin class for modelling a mixture."""
 
-    mdg: pp.MixedDimensionalGrid
-    """Mixed dimensional grid for the current model. Usually defined in a mixin class
-    defining the geometry."""
-
-    equation_system: pp.ad.EquationSystem
-    """EquationSystem object for the current model. Normally defined in a mixin class
-    defining the solution strategy."""
-
-    pressure: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]
-    temperature: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]
-
     fluid_mixture: Mixture
     """The fluid mixture set by this class during :meth:`set_mixture`."""
 
-    eliminate_reference_phase: bool
-    """A flag indicating whether the molar phase fraction and saturation of the
-    reference phase should be eliminated by unity or not. Usually defined in a mixin
-    class for the solution strategy."""
+    mdg: pp.MixedDimensionalGrid
+    """Provided by: class:`MixtureMixin`."""
+    equation_system: pp.ad.EquationSystem
+    """Provided by :class:`~porepy.models.solution_strategy.SolutionStrategy`."""
 
+    pressure: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]
+    """Provided by :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`.
+    """
+    temperature: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]
+    """Provided by :class:`~porepy.models.energy_balance.VariablesEnergyBalance`."""
+
+    eliminate_reference_phase: bool
+    """Provided by
+    :class:`~porepy.models.compositional_balance.SolutionStrategyCompositionalFlow`."""
     eliminate_reference_component: bool
-    """A flag indicating whether the overall fraction of the reference component should
-    be eliminated by unity. Also, if eliminated, the local mass constraint for the
-    reference component is not constructed. Usually defined in the mixin class
-    for the solution strategy."""
+    """Provided by
+    :class:`~porepy.models.compositional_balance.SolutionStrategyCompositionalFlow`."""
 
     def set_mixture(self) -> None:
         subdomains = self.mdg.subdomains()
@@ -154,6 +151,10 @@ class MixtureMixin:
 
         Overwrite to do otherwise.
 
+        Important:
+            This defines how many unknowns are introduced into the system (fractions
+            of a component in a phase).
+
         Parameters:
             components: The list of components modelled by :meth:`get_components`.
             phases: The list of phases modelled by :meth:`get_phases`.
@@ -163,49 +164,282 @@ class MixtureMixin:
             phase.components = components
 
 
+class SecondaryExpressionsMixin:
+    """Base class for introducing secondary expressions into the compositional flow
+    formulation.
+
+    By default, expressions relating phase molar fractions and saturations via densities
+    are always included (see :meth:`density_relation_for_phase`).
+
+    Examples:
+        If no equilibrium is defined, the user needs to implement expressions for
+        phase densities, phase enthalpies or compositional fractions if they are
+        introduced.
+
+        If the user wants a fractional flow formulation (f.e. mobilities are unknowns),
+        the user has to introduce laws for them as algebraic equations (cell-wise).
+
+    """
+
+    fluid_mixture: Mixture
+    """Provided by: class:`MixtureMixin`."""
+
+    mdg: pp.MixedDimensionalGrid
+    """Provided by :class:`~porepy.models.geometry.ModelGeometry`."""
+    equation_system: pp.ad.EquationSystem
+    """Provided by :class:`~porepy.models.solution_strategy.SolutionStrategy`."""
+
+    normalize_state_constraints: bool
+    """Provided by
+    :class:`~porepy.models.compositional_balance.SolutionStrategyCompositionalFlow`."""
+    eliminate_reference_phase: bool
+    """Provided by
+    :class:`~porepy.models.compositional_balance.SolutionStrategyCompositionalFlow`."""
+
+    def get_secondary_equation_names(self) -> list[str]:
+        """Returns a list of secondary equations introduced by this mixin.
+
+        The base method returns the names of density relations, since they are included
+        by default.
+
+        Important:
+            Override this method and append names of additionally included, secondary
+            equations in :meth:`set_secondary_equations`.
+
+        """
+        names: list[str] = list()
+        rphase = self.fluid_mixture.reference_phase
+        # names of density relations
+        for phase in self.fluid_mixture.phases:
+            if phase == rphase and self.eliminate_reference_phase:
+                continue
+            names.append(f"density-relation-{phase.name}")
+        return names
+
+    def set_secondary_equations(self) -> None:
+        """Override this method to set secondary expressions in equation form
+
+        .. math::
+
+            f(x) = 0
+
+        by setting the left-hand side as an equation in the Ad framework.
+
+        """
+
+    def set_density_relations_for_phases(self) -> None:
+        """Introduced the mass relations for phases into the AD system.
+
+        This method is separated, because it has another meaning when coupling the
+        equilibrium problem with flow and transport.
+
+        In multiphase flow in porous media, saturations must always be provided.
+        Hense even if there are no isochoric specifications in the flash, the model
+        necessarily introduced the saturations as unknowns.
+
+        The mass relations per phase close the system, by relating molar phase fractions
+        to saturations. Hence rendering the system solvable.
+
+        Important:
+            Isochoric equilibrium specifiation include these relations by default.
+            Hence do not call this method in that case, otherwise the equations are
+            introduced twice.
+
+        """
+        rphase = self.fluid_mixture.reference_phase
+        subdomains = self.mdg.subdomains()
+        for phase in self.fluid_mixture.phases:
+            if phase == rphase and self.eliminate_reference_phase:
+                continue
+            equ = self.density_relation_for_phase(phase)
+            self.equation_system.set_equation(equ, subdomains, {"cells": 1})
+
+    def density_relation_for_phase(self, phase: Phase) -> pp.ad.Operator:
+        """Constructs a local mass relation based on a relation between mixture
+        density, saturated phase density and phase fractions.
+
+        For a phase :math:`j` it holds:
+
+        .. math::
+
+            y_j \\rho - s_j \\rho_j = 0~,~
+            y_j - s_j \\dfrac{\\rho_j}{rho} = 0
+
+        with the mixture density :math:`\\rho = \\sum_k s_k \\rho_k`, assuming
+        :math:`\\rho_k` is the density of a phase when saturated.
+
+        - :math:`y` : Phase :attr:`~porepy.composite.base.Phase.fraction`
+        - :math:`s` : Phase :attr:`~porepy.composite.base.Phase.saturation`
+
+        The relation based on phase fractions is required for isochoric
+        equilibrium specificiations, which have both saturations and molar fractions as
+        unknowns.
+
+        Parameters:
+            phase: A phase for which the constraint should be assembled.
+
+        Returns:
+            The left-hand side of above equations.
+
+            If normalization of state constraints is set in the solution strategy,
+            it returns the normalized form.
+
+        """
+        if self.normalize_state_constraints:
+            equ = (
+                phase.fraction
+                - phase.saturation * phase.density / self.fluid_mixture.density
+            )
+        else:
+            equ = (
+                phase.fraction * self.fluid_mixture.density
+                - phase.saturation * phase.density
+            )
+        equ.set_name(f"density-relation-{phase.name}")
+        return equ
+
+
 class EquilibriumEquationsMixin:
     """Basic class introducing the fluid phase equilibrium equations into the model."""
 
+    create_compositional_fractions: bool
+    """**IMPORTANT**
+
+    A flag indicates whether (extended) fractions of components in phases should
+    be created or not. This must be True, if :attr:`equilibrium_type` is not None.
+
+    Important:
+        The user **must** inherit this class and set a value explictly.
+
+    If True and ``equilibrium_type == None``, the user must provide secondary
+    expressions for the fractional variables to close the system.
+
+    Note:
+        Molar fractions of phases (:attr:`~porepy.composite.base.Phase.fraction`) are
+        always created, as well as saturations
+        (:attr:`~porepy.composite.base.Phase.saturation`).
+
+        This is due to the definition of a mixture properties as a sum of partial
+        phase properties weighed with respective fractions.
+
+        Secondary equations, relating molar fractions and saturations via densities, are
+        always included in the compositional flow equation.
+
+    """
+
+    equilibrium_type: Optional[Literal["p-T", "p-h", "v-h"]]
+    """**IMPORTANT**
+
+    A string denoting the two state functions which are assumed constant at
+    equilibrium.
+
+    Important:
+        The user **must** inherit this class and set a value explictly.
+
+    If set to ``None``, the framework assumes there are no equilibrium calculations,
+    hence there are **no equilibrium equations** and **no equilibriation of the fluid**.
+
+    Also, **no fractions of components in phases** are created as unknowns
+    (see :attr:`~porepy.composite.base.Phase.fraction_of`).
+
+    The user must in this case provide secondary equations which provide expressions for
+    the unknowns in the equilibrium:
+
+    Examples:
+        If no equilibrium is defined, there are dangling variables which need a
+        definition or a constitutive law.
+
+        These include:
+
+        1. Temperature
+           :meth:`~porepy.models.energy_balance.VariablesEnergyBalance.temperature`
+        2. Phase saturations :attr:`~porepy.composite.base.Phase.saturation`
+        3. Optionally molar fractions of components in phases
+           :attr:`~porepy.composite.base.Phase.fraction_of` if
+           :attr:`create_compositional_fractions` is True.
+
+        Note that secondary expressions relating molar phase fractions and saturations
+        via densities are always included.
+
+    """
+
     mdg: pp.MixedDimensionalGrid
-    """Mixed dimensional grid for the current model. Usually defined in a mixin class
-    defining the geometry."""
-
+    """Provided by :class:`~porepy.models.geometry.ModelGeometry`."""
     equation_system: pp.ad.EquationSystem
-    """EquationSystem object for the current model. Normally defined in a mixin class
-    defining the solution strategy."""
-
+    """Provided by :class:`~porepy.models.solution_strategy.SolutionStrategy`."""
     fluid_mixture: Mixture
-    """A mixture containing all modelled phases and components, and required fluid
-    properties as a combination of phase properties. Usually defined in a mixin class
-    defining the mixture."""
+    """Provided by :class:`MixtureMixin`."""
 
     enthalpy: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]
+    """Provided by
+    :class:`~porepy.models.compositional_balance.VariablesCompositionalFlow`."""
     volume: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]
-
-    equilibrium_type: Literal["p-T", "p-h", "v-h"] = "p-h"
-    """A string denoting the two state functions which are assumed constant at
-    equilibrium. Usually defined in the solution strategy."""
+    """TODO Not covered so far."""
 
     eliminate_reference_component: bool
-    """A flag indicating whether the overall fraction of the reference component should
-    be eliminated by unity. Also, if eliminated, the local mass constraint for the
-    reference component is not constructed. Usually defined in the mixin class
-    for the solution strategy."""
-
+    """Provided by
+    :class:`~porepy.models.compositional_balance.SolutionStrategyCompositionalFlow`."""
     eliminate_reference_phase: bool
-    """A flag indicating whether the molar phase fraction and saturation of the
-    reference phase should be eliminated by unity or not. Usually defined in a mixin
-    class for the solution strategy."""
-
+    """Provided by
+    :class:`~porepy.models.compositional_balance.SolutionStrategyCompositionalFlow`."""
     use_semismooth_complementarity: bool
-    """Flag indicating whether the complementarity conditions for each phase should be
-    assembled in semi-smooth form using a :math:`\\min` operator. Usually defined
-    in the solution strategy."""
-
+    """Provided by
+    :class:`~porepy.models.compositional_balance.SolutionStrategyCompositionalFlow`."""
     normalize_state_constraints: bool
-    """A flag indicating whether the (local) equilibrium equations representing
-    constraints of some state function should be normalized with the target value.
-    Usually defined in the solution strategy."""
+    """Provided by
+    :class:`~porepy.models.compositional_balance.SolutionStrategyCompositionalFlow`."""
+
+    def get_equilibrium_equation_names(self) -> list[str]:
+        """Get a list of equation names introduced into the AD framework by this class
+        depending on :attr:`equilibrium_type`.
+
+        Returns an empty list if ``equilibrium_type==None``.
+
+        """
+        names: list[str] = list()
+        if self.equilibrium_type is not None:
+            # local mass conservation names
+            for component in self.fluid_mixture.components:
+                # skip for reference component if eliminated
+                if (
+                    component == self.fluid_mixture.reference_component
+                    and self.eliminate_reference_component
+                ):
+                    continue
+
+                names.append(f"mass-constraint-{component.name}")
+
+            rphase = self.fluid_mixture.reference_phase
+            for phase in self.fluid_mixture.phases:
+                # complementary conditions
+                if self.use_semismooth_complementarity:
+                    names.append(f"semismooth-complementary-condition-{phase.name}")
+                else:
+                    names.append(f"complementary-condition-{phase.name}")
+
+                # isofugacity constraints
+                if phase == rphase:
+                    continue
+
+                for component in self.fluid_mixture.components:
+                    if not (
+                        component in phase.components and component in rphase.components
+                    ):
+                        continue
+
+                    names.append(
+                        f"isofugacity-constraint-"
+                        + f"{component.name}-{phase.name}-{rphase.name}"
+                    )
+
+            # equatiosn constraining the thermodynamic state
+            if self.equilibrium_type == "p-h":
+                names.append("mixture-enthalpy-constraint")
+            if self.equilibrium_type == "v-h":
+                names.append("mixture-enthalpy-constraint")
+                names.append("mixture-volume-constraint")
+
+        return names
 
     def set_equations(self) -> None:
         """Introduced the local equilibrium equations into the AD framework.
@@ -264,35 +498,6 @@ class EquilibriumEquationsMixin:
             equ = self.mixture_enthalpy_constraint(h)
             self.equation_system.set_equation(equ, subdomains, {"cells": 1})
             equ = self.mixture_volume_constraint(v)
-            self.equation_system.set_equation(equ, subdomains, {"cells": 1})
-
-            self.set_density_relations_for_phases()
-
-    def set_density_relations_for_phases(self) -> None:
-        """Introduced the mass relations for phases into the AD system.
-
-        This method is separated, because it has another meaning when coupling the
-        equilibrium problem with flow and transport.
-
-        In multiphase flow in porous media, saturations must always be provided.
-        Hense even if there are no isochoric specifications in the flash, the model
-        necessarily introduced the saturations as unknowns.
-
-        The mass relations per phase close the system, by relating molar phase fractions
-        to saturations. Hence rendering the system solvable.
-
-        Important:
-            Isochoric equilibrium specifiation include these relations by default.
-            Hence do not call this method in that case, otherwise the equations are
-            introduced twice.
-
-        """
-        rphase = self.fluid_mixture.reference_phase
-        subdomains = self.mdg.subdomains()
-        for phase in self.fluid_mixture.phases:
-            if phase == rphase and self.eliminate_reference_phase:
-                continue
-            equ = self.density_relation_for_phase(phase)
             self.equation_system.set_equation(equ, subdomains, {"cells": 1})
 
     def mass_constraint_for_component(self, component: Component) -> pp.ad.Operator:
@@ -476,50 +681,6 @@ class EquilibriumEquationsMixin:
         equ.set_name("mixture-volume-constraint")
         return equ
 
-    def density_relation_for_phase(self, phase: Phase) -> pp.ad.Operator:
-        """Constructs a local mass relation based on a relation between mixture
-        density, saturated phase density and phase fractions.
-
-        For a phase :math:`j` it holds:
-
-        .. math::
-
-            y_j \\rho - s_j \\rho_j = 0~,~
-            y_j - s_j \\dfrac{\\rho_j}{rho} = 0
-
-        with the mixture density :math:`\\rho = \\sum_k s_k \\rho_k`, assuming
-        :math:`\\rho_k` is the density of a phase when saturated.
-
-        - :math:`y` : Phase :attr:`~porepy.composite.base.Phase.fraction`
-        - :math:`s` : Phase :attr:`~porepy.composite.base.Phase.saturation`
-
-        The relation based on phase fractions is required for isochoric
-        equilibrium specificiations, which have both saturations and molar fractions as
-        unknowns.
-
-        Parameters:
-            phase: A phase for which the constraint should be assembled.
-
-        Returns:
-            The left-hand side of above equations.
-
-            If normalization of state constraints is set in the solution strategy,
-            it returns the normalized form.
-
-        """
-        if self.normalize_state_constraints:
-            equ = (
-                phase.fraction
-                - phase.saturation * phase.density / self.fluid_mixture.density
-            )
-        else:
-            equ = (
-                phase.fraction * self.fluid_mixture.density
-                - phase.saturation * phase.density
-            )
-        equ.set_name(f"density-relation-{phase.name}")
-        return equ
-
     def fractional_state_from_vector(
         self,
         state: Optional[np.ndarray] = None,
@@ -599,20 +760,6 @@ class FlashMixin:
 
     """
 
-    mdg: pp.MixedDimensionalGrid
-    """Mixed dimensional grid for the current model. Usually defined in a mixin class
-    defining the geometry."""
-
-    equation_system: pp.ad.EquationSystem
-    """EquationSystem object for the current model. Normally defined in a mixin class
-    defining the solution strategy."""
-
-    fluid_mixture: Mixture
-    """See :class:`MixtureMixin`."""
-
-    equilibrium_type: Literal["p-T", "p-h", "v-h"]
-    """See :attr:`EquilibriumEquationsMixin.equilibrium_type`."""
-
     flash: Flash
     """A flasher object able to compute the fluid phase equilibrium for a mixture
     defined in the mixture mixin.
@@ -621,26 +768,38 @@ class FlashMixin:
 
     """
 
+    mdg: pp.MixedDimensionalGrid
+    """Provided by :class:`~porepy.models.geometry.ModelGeometry`."""
+    equation_system: pp.ad.EquationSystem
+    """Provided by :class:`~porepy.models.solution_strategy.SolutionStrategy`."""
+    fluid_mixture: Mixture
+    """Provided by :class:`MixtureMixin`."""
+
+    equilibrium_type: Optional[Literal["p-T", "p-h", "v-h"]]
+    """Provided by :class:`EquilibriumEquationsMixin`."""
+
     fractional_state_from_vector: Callable[[Optional[np.ndarray]], FluidState]
-    """See :meth:`~.EquilibriumEquationsMixin.fractional_state_from_vector`"""
+    """Provided by :class:`EquilibriumEquationsMixin`."""
 
     pressure: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
-    """See :meth:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow.pressure`.
+    """Provided by :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`.
     """
     temperature: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
-    """See :meth:`~porepy.models.energy_balance.VariablesEnergyBalance.temperature`.
-    """
+    """Provided by :class:`~porepy.models.energy_balance.VariablesEnergyBalance`."""
     enthalpy: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
-    """See
-    :meth:`~porepy.models.compositional_balance.VariablesCompositionalFlow.enthalpy`."""
+    """Provided by
+    :class:`~porepy.models.compositional_balance.VariablesCompositionalFlow`."""
 
     def set_up_flasher(self) -> None:
-        """Method to introduce the flash class, if any.
+        """Method to introduce the flash class, if an equilibrium is defined.
 
-        To be called after the fluid was defined and set up.
+        This method is called by the solution strategy after the model is set up.
 
         """
-        raise NotImplementedError("No flash set-up implemented.")
+        if self.equilibrium_type is not None:
+            raise NotImplementedError(
+                f"No flash set-up implemented for {self.equilibrium_type} equilibrium."
+            )
 
     def equilibriate_fluid(
         self, state: Optional[np.ndarray] = None
@@ -714,7 +873,7 @@ class FlashMixin:
             )
         else:
             raise NotImplementedError(
-                f"Equilibriation not implemented for type {self.equilibrium_type}"
+                f"Equilibriation not implemented for {self.equilibrium_type} flash."
             )
 
         return result_state, succes

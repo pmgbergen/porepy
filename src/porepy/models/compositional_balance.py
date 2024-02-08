@@ -35,15 +35,13 @@ class DiscretizationsCompositionalFlow:
     """
 
     mobility_keyword: str
-    """See :attr:`~porepy.models.fluid_mass_balance.SolutionStrategySinglePhaseFlow.
-    mobility_keyword`."""
-
+    """Provided by
+    :class:`~porepy.models.fluid_mass_balance.SolutionStrategySinglePhaseFlow`."""
     component_mobility_keyword: Callable[[ppc.Component], str]
-    """See :meth:`SolutionStrategyCompositionalFlow.component_mobility_keyword`."""
-
+    """Provided by :class:`SolutionStrategyCompositionalFlow`."""
     enthalpy_keyword: str
-    """See :attr:`~porepy.models.energy_balance.SolutionStrategyEnergyBalance.
-    enthalpy_keyword`."""
+    """Provided by :class:`~porepy.models.energy_balance.SolutionStrategyEnergyBalance`.
+    """
 
     def total_mobility_discretization(
         self, subdomains: Sequence[pp.Grid]
@@ -148,33 +146,25 @@ class FouriersLawCF(pp.constitutive_laws.FouriersLaw):
     """
 
     fluid_mixture: ppc.Mixture
-    """See :class:`~porepy.composite.composite_mixins.MixtureMixin`."""
+    """Provided by :class:`~porepy.composite.composite_mixins.MixtureMixin`."""
 
     solid: pp.SolidConstants
-    """Solid constant object that takes care of scaling of solid-related quantities.
-    Normally, this is set by a mixin of instance
-    :class:`~porepy.models.solution_strategy.SolutionStrategy`.
-
-    """
+    """Provided by
+    :class:`~porepy.models.solution_strategy.SolutionStrategy`."""
     porosity: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Porosity of the rock. Normally provided by a mixin instance of
-    :class:`~porepy.models.constitutive_laws.ConstantPorosity` or a subclass thereof.
-
-    """
+    """Provided by
+    :class:`~porepy.models.constitutive_laws.ConstantPorosity` or a subclass thereof."""
 
     bc_data_conductivity_key: str
-    """See :attr:`BoundaryConditionsCompositionalFlow.bc_data_conductivity_key`"""
+    """Provided by :class:`BoundaryConditionsCompositionalFlow`"""
 
     create_boundary_operator: Callable[
         [str, Sequence[pp.BoundaryGrid]], pp.ad.TimeDependentDenseArray
     ]
-    """Boundary conditions wrapped as an operator. Defined in
-    :class:`~porepy.models.boundary_condition.BoundaryConditionMixin`.
-
-    """
+    """Provided by :class:`~porepy.models.boundary_condition.BoundaryConditionMixin`."""
 
     nd: int
-    """Number of spatial dimensions."""
+    """Provided by :class:`~porepy.models.geometry.ModelGeometry`."""
 
     def fluid_thermal_conductivity(
         self, domains: pp.SubdomainsOrBoundaries
@@ -276,8 +266,18 @@ class FouriersLawCF(pp.constitutive_laws.FouriersLaw):
             Operator representing normal thermal conductivity on the interfaces.
 
         """
-        # TODO model for normal thermal conductivity of the mixture.
-        return pp.ad.Scalar(1.0, "normal_thermal_conductivity")
+        subdomains = self.interfaces_to_subdomains(interfaces)
+
+        projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1)
+
+        # this is a constitutive law based on Banshoya 2023
+        normal_conductivity = pp.ad.Scalar(2) * (
+            projection.secondary_to_mortar_avg @ (
+                self.fluid_thermal_conductivity(subdomains) / self.aperture(subdomains)
+            )
+        )
+        normal_conductivity.set_name("norma_thermal_conductivity")
+        return normal_conductivity
 
     def vector_source_fourier_flux(
         self, grids: list[pp.Grid] | list[pp.MortarGrid]
@@ -318,22 +318,21 @@ class TotalMassBalanceEquation(mass.MassBalanceEquations):
     """
 
     fluid_mixture: ppc.Mixture
-    """See :class:`~porepy.composite.composite_mixins.MixtureMixin`."""
+    """Provided by :class:`~porepy.composite.composite_mixins.MixtureMixin`."""
 
     relative_permeability: Callable[[pp.ad.Operator], pp.ad.Operator]
-    """See :meth:`ConstitutiveLawsCompositionalFlow.relative_permeability`."""
+    """Provided by :class:`ConstitutiveLawsCompositionalFlow`."""
 
     total_mobility_discretization: Callable[[list[pp.Grid]], pp.ad.UpwindAd]
-    """See :attr:`DiscretizationsCompositionalFlow.total_mobility_discretization`"""
+    """Provided by :class:`DiscretizationsCompositionalFlow`"""
 
     interface_total_mobility_discretization: Callable[
         [list[pp.MortarGrid]], pp.ad.UpwindCouplingAd
     ]
-    """See
-    :attr:`DiscretizationsCompositionalFlow.interface_total_mobility_discretization`"""
+    """Provided by :class:`DiscretizationsCompositionalFlow`"""
 
     bc_data_total_mobility_key: str
-    """See :attr:`BoundaryConditionsCompositionalFlow.bc_data_total_mobility_key`"""
+    """Provided by :class:`BoundaryConditionsCompositionalFlow`."""
 
     def mass_balance_equation(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """The inherited method gives another name to the equation, because there are
@@ -477,26 +476,19 @@ class TotalEnergyBalanceEquation(energy.EnergyBalanceEquations):
     """
 
     fluid_mixture: ppc.Mixture
-    """See :class:`~porepy.composite.composite_mixins.MixtureMixin`."""
+    """Provided by :class:`~porepy.composite.composite_mixins.MixtureMixin`."""
 
     pressure: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]
-    """Pressure variable. Normally defined in a mixin instance of
-    :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`.
-
+    """Provided by :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`.
     """
     enthalpy: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]
-    """Enthalpy variable. Normally defined in a mixin instance of
-    :class:`~VariablesCompositionalFlow.enthalpy`.
-
-    """
+    """Provided by :class:`~VariablesCompositionalFlow`."""
 
     porosity: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
-    """Porosity of the rock. Normally provided by a mixin instance of
-    :class:`~porepy.models.constitutive_laws.ConstantPorosity` or a subclass thereof.
-
-    """
+    """Provided by :class:`~porepy.models.constitutive_laws.ConstantPorosity` or a
+    subclass thereof."""
     relative_permeability: Callable[[pp.ad.Operator], pp.ad.Operator]
-    """See :meth:`ConstitutiveLawsCompositionalFlow.relative_permeability`."""
+    """Provided by :class:`ConstitutiveLawsCompositionalFlow`."""
 
     advective_flux: Callable[
         [
@@ -508,26 +500,25 @@ class TotalEnergyBalanceEquation(energy.EnergyBalanceEquations):
         ],
         pp.ad.Operator,
     ]
-    """Ad operator representing the advective flux. Normally provided by a mixin
-    instance of :class:`~porepy.models.constitutive_laws.AdvectiveFlux`.
-
-    """
+    """Provided by :class:`~porepy.models.constitutive_laws.AdvectiveFlux`."""
 
     enthalpy_mobility_discretization: Callable[[list[pp.Grid]], pp.ad.UpwindAd]
-    """See :class:`DiscretizationsCompositionalFlow`."""
+    """Provided by :class:`DiscretizationsCompositionalFlow`."""
     interface_enthalpy_mobility_discretization: Callable[
         [list[pp.MortarGrid]], pp.ad.UpwindCouplingAd
     ]
-    """See :class:`DiscretizationsCompositionalFlow`."""
+    """Provided by :class:`DiscretizationsCompositionalFlow`."""
 
     bc_type_enthalpy_flux: Callable[[pp.Grid], pp.BoundaryCondition]
-    """See boundary conditions mixin for energy balance."""
+    """Provided by
+    :class:`~porepy.models.energy_balance.BoundaryConditionsEnergyBalance`."""
 
     bc_data_enthalpy_flux_key: str
-    """See boundary conditions mixin for energy balance."""
+    """Provided by
+    :class:`~porepy.models.energy_balance.BoundaryConditionsEnergyBalance`."""
 
     bc_data_enthalpy_mobility_key: str
-    """See :attr:`BoundaryConditionsCompositionalFlow.bc_data_enthalpy_mobility_key`."""
+    """Provided by :class:`BoundaryConditionsCompositionalFlow`."""
 
     def fluid_internal_energy(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Overwrites the parent method to use the fluix mixture density and the primary
@@ -686,34 +677,29 @@ class ComponentMassBalanceEquations(mass.MassBalanceEquations):
     """
 
     fluid_mixture: ppc.Mixture
-    """See :class:`~porepy.composite.composite_mixins.MixtureMixin`."""
+    """Provided by :class:`~porepy.composite.composite_mixins.MixtureMixin`."""
 
     relative_permeability: Callable[[pp.ad.Operator], pp.ad.Operator]
-    """See :meth:`ConstitutiveLawsCompositionalFlow.relative_permeability`."""
+    """Provided by :class:`ConstitutiveLawsCompositionalFlow`."""
 
     component_mobility_discretization: Callable[
         [ppc.Component, list[pp.Grid]], pp.ad.UpwindAd
     ]
-    """See :meth:`DiscretizationsCompositionalFlow.component_mobility_discretization`.
-    """
+    """Provided by :class:`DiscretizationsCompositionalFlow`."""
     interface_component_mobility_discretization: Callable[
         [ppc.Component, list[pp.MortarGrid]], pp.ad.UpwindCouplingAd
     ]
-    """See :meth:`DiscretizationsCompositionalFlow.
-    interface_component_mobility_discretization`.
-    """
+    """Provided by :class:`DiscretizationsCompositionalFlow`."""
 
     eliminate_reference_component: bool
-    """See :attr:`SolutionStrategyCompositionalFlow.eliminate_reference_component`."""
+    """Provided by :class:`SolutionStrategyCompositionalFlow`."""
 
     bc_data_component_mobility_key: Callable[[ppc.Component], str]
-    """See :meth:`BoundaryConditionsCompositionalFlow.bc_data_component_mobility_key`.
-    """
+    """Provided by :class:`BoundaryConditionsCompositionalFlow`."""
     bc_data_component_flux_key: Callable[[ppc.Component], str]
-    """See :meth:`BoundaryConditionsCompositionalFlow.bc_data_component_flux_key`.
-    """
+    """Provided by :class:`BoundaryConditionsCompositionalFlow`."""
     bc_type_component_flux: Callable[[ppc.Component, pp.Grid], pp.BoundaryCondition]
-    """See :meth:`BoundaryConditionsCompositionalFlow.bc_type_component_flux`."""
+    """Provided by :class:`BoundaryConditionsCompositionalFlow`."""
 
     def set_equations(self):
         """Set the equations for the mass balance problem.
@@ -986,26 +972,60 @@ class EquationsCompositionalFlow(
     TotalMassBalanceEquation,
     TotalEnergyBalanceEquation,
     ComponentMassBalanceEquations,
+    ppc.SecondaryExpressionsMixin,
     ppc.EquilibriumEquationsMixin,
 ):
+    set_secondary_equations: Callable[[], None]
+    """Provided by :class:`~porepy.composite.composite_mixins.SecondaryExpressionsMixin`
+    or a childe class inheriting from it.
+    """
+
+    def get_all_secondary_equation_names(self) -> list[str]:
+        """Returns a complete list of secondary equations introduced by the
+        compositional framework.
+
+        These include the equilibrium equations (if any), the density relations and
+        custom secondary expressions (if any).
+
+        """
+        return ppc.EquilibriumEquationsMixin.get_equilibrium_equation_names(
+            self
+        ) + ppc.SecondaryExpressionsMixin.get_secondary_equation_names(self)
+
     def set_equations(self):
         TotalMassBalanceEquation.set_equations(self)
         TotalEnergyBalanceEquation.set_equations(self)
         ComponentMassBalanceEquations.set_equations(self)
-        ppc.EquilibriumEquationsMixin.set_equations(self)
-        if "v" not in self.equilibrium_type:
-            ppc.EquilibriumEquationsMixin.set_density_relations_for_phases(self)
+
+        # If an equilibrium is defined, introduce the equations as a block of secondary
+        # equations
+        if self.equilibrium_type is not None:
+            ppc.EquilibriumEquationsMixin.set_equations(self)
+
+        # density relations are always defined and the same, hence we use the base class
+        ppc.SecondaryExpressionsMixin.set_density_relations_for_phases(self)
+
+        # This might be custom by an inherited class, hence we use the mixin
+        self.set_secondary_equations()
 
 
 class VariablesCompositionalFlow(mass_energy.VariablesFluidMassAndEnergy):
     """Extension of the standard variables pressure and temperature by an additional
     variable, the transported enthalpy."""
 
-    enthalpy_variable: str
-    """See :attr:`SolutionStrategyCompositionalFlow.enthalpy_variable`."""
+    equilibrium_type: Optional[Literal["p-T", "p-h", "v-h"]]
+    """Provided by :class:`~porepy.composite.composite_mixins.EquilibriumEquationsMixin`
+    ."""
 
-    set_mixture: Callable
-    """See :meth:`~porepy.composite.composite_mixins.MixtureMixin.set_mixture`."""
+    create_compositional_fractions: bool
+    """Provided by :class:`~porepy.composite.composite_mixins.EquilibriumEquationsMixin`
+    ."""
+
+    enthalpy_variable: str
+    """Provided by :class:`SolutionStrategyCompositionalFlow`."""
+
+    set_mixture: Callable[[], None]
+    """Provided by :class:`~porepy.composite.composite_mixins.MixtureMixin`."""
 
     def create_variables(self) -> None:
         """Set the variables for the fluid mass and energy balance problem.
@@ -1027,6 +1047,23 @@ class VariablesCompositionalFlow(mass_energy.VariablesFluidMassAndEnergy):
             tags={"si_units": "J"},
         )
         # compositional variables
+
+        if (
+            self.equilibrium_type is not None
+            and self.create_compositional_fractions is False
+        ):
+            raise ValueError(
+                f"Conflicting model set-up: No fractional variables requested but"
+                + f" {self.equilibrium_type} equilibrium included."
+            )
+        elif (
+            self.equilibrium_type is None
+            and self.create_compositional_fractions is True
+        ):
+            raise Warning(
+                "Unusual model set-up: Fractiona variables requested but no"
+                + " equilibrium system requested. Check secondary equations."
+            )
         self.set_mixture()
 
     def enthalpy(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
@@ -1233,64 +1270,65 @@ class SolutionStrategyCompositionalFlow(
     """
 
     equilibrium_type: Literal["p-T", "p-h", "v-h"]
-    """See :attr:`~porepy.composite.composite_mixins.EquilibriumEquationsMixin.
-    equilibrium_type`."""
+    """Provided by :class:`~porepy.composite.composite_mixins.EquilibriumEquationsMixin`
+    ."""
 
     fluid_mixture: ppc.Mixture
-    """See :class:`~porepy.composite.composite_mixins.MixtureMixin`."""
+    """Provided by :class:`~porepy.composite.composite_mixins.MixtureMixin`."""
 
     bc_type_component_flux: Callable[[ppc.Component, pp.Grid], pp.BoundaryCondition]
-    """See :meth:`BoundaryConditionsCompositionalFlow.bc_type_component_flux`."""
+    """Provided by :class:`BoundaryConditionsCompositionalFlow`."""
 
     thermal_conductivity: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """See :meth:`FouriersLawCF.thermal_conductivity`."""
+    """Provided by :class:`FouriersLawCF`."""
     darcy_flux: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
-    """See :meth:`~porepy.models.constitutive_laws.DarcysLaw.darcy_flux`."""
+    """Provided by :class:`~porepy.models.constitutive_laws.DarcysLaw`."""
     interface_darcy_flux: Callable[
         [list[pp.MortarGrid]], pp.ad.MixedDimensionalVariable
     ]
-    """See :meth:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow.
-    interface_darcy_flux`."""
+    """Provided by :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`.
+    """
     well_flux: Callable[[list[pp.MortarGrid]], pp.ad.MixedDimensionalVariable]
-    """See :meth:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow.
-    well_flux`."""
+    """Provided by :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`.
+    """
 
     total_mobility_discretization: Callable[[Sequence[pp.Grid]], pp.ad.UpwindAd]
-    """See :class:`DiscretizationsCompositionalFlow`."""
+    """Provided by :class:`DiscretizationsCompositionalFlow`."""
     interface_total_mobility_discretization: Callable[
         [Sequence[pp.MortarGrid]], pp.ad.UpwindCouplingAd
     ]
-    """See :class:`DiscretizationsCompositionalFlow`."""
+    """Provided by :class:`DiscretizationsCompositionalFlow`."""
     enthalpy_mobility_discretization: Callable[[Sequence[pp.Grid]], pp.ad.UpwindAd]
-    """See :class:`DiscretizationsCompositionalFlow`."""
+    """Provided by :class:`DiscretizationsCompositionalFlow`."""
     interface_enthalpy_mobility_discretization: Callable[
         [Sequence[pp.MortarGrid]], pp.ad.UpwindCouplingAd
     ]
-    """See :class:`DiscretizationsCompositionalFlow`."""
+    """Provided by :class:`DiscretizationsCompositionalFlow`."""
     fourier_flux_discretization: Callable[[Sequence[pp.Grid]], pp.ad.MpfaAd]
-    """See :meth:`~porepy.models.constitutive_laws.FouriersLaw.
-    fourier_flux_discretization`"""
+    """Provided by :class:`~porepy.models.constitutive_laws.FouriersLaw`."""
     component_mobility_discretization: Callable[
         [ppc.Component, Sequence[pp.Grid]], pp.ad.UpwindAd
     ]
-    """See :class:`DiscretizationsCompositionalFlow`."""
+    """Provided by :class:`DiscretizationsCompositionalFlow`."""
     interface_component_mobility_discretization: Callable[
         [ppc.Component, Sequence[pp.MortarGrid]], pp.ad.UpwindCouplingAd
     ]
-    """See :class:`DiscretizationsCompositionalFlow`."""
+    """Provided by :class:`DiscretizationsCompositionalFlow`."""
 
     equilibriate_fluid: Callable[
         [Optional[np.ndarray]], tuple[ppc.FluidState, np.ndarray]
     ]
-    """Defined by a FlashMixin instance."""
+    """Provided by :class:`~porepy.composite.composite_mixins.FlashMixin`."""
     postprocess_failures: Callable[[ppc.FluidState, np.ndarray], ppc.FluidState]
-    """Defined by a FlashMixin instance."""
+    """Provided by :class:`~porepy.composite.composite_mixins.FlashMixin`."""
+    set_up_flasher: Callable[[], None]
+    """Provided by :class:`~porepy.composite.composite_mixins.FlashMixin`."""
 
     temperature_variable: str
-    """Defined in the solutions strategy for the energy balance."""
-
+    """Provided by :class:`~porepy.energy_balance.SolutionStrategyEnergyBalance`."""
     pressure_variable: str
-    """Defined in the solutions strategy for the single phase flow."""
+    """Provided by :class:~porepy.fluid_mass_balance.SolutionStrategySinglePhaseFlow`.
+    """
 
     def __init__(self, params: Optional[dict] = None) -> None:
         super().__init__(params)
@@ -1337,6 +1375,17 @@ class SolutionStrategyCompositionalFlow(
 
         """
         return f"mobility_{component.name}"
+
+    def prepare_simulation(self) -> None:
+        """Additionally to the basic preparations, this method sets up the flash class
+        and computes the initial equilibrium, as well as the equilibrium on the
+        boundary (to populate respective non-linear weights and their boundary
+        operators)."""
+        super().prepare_simulation()
+
+        # Set the flash if an equilibrium system is defined
+        if self.equilibrium_type is not None:
+            self.set_up_flasher()
 
     def initial_condition(self) -> None:
         """Initiates additionally zero fluxes for the component mobilities."""
@@ -1467,27 +1516,28 @@ class SolutionStrategyCompositionalFlow(
 
         """
 
-        # Flashing the mixture as a predictor step
-        state = self.postprocess_failures(*self.equilibriate_fluid(None))
+        # Flashing the mixture as a predictor step, if equilibrium defined
+        if self.equilibrium_type is not None:
+            state = self.postprocess_failures(*self.equilibriate_fluid(None))
 
-        # Setting equilibrium values for fractional variables
-        for j, phase in enumerate(self.fluid_mixture.phases):
-            self.equation_system.set_variable_values(
-                state.sat[j], [phase.saturation.name], iterate_index=0
-            )
-            self.equation_system.set_variable_values(
-                state.y[j], [phase.fraction.name], iterate_index=0
-            )
+            # Setting equilibrium values for fractional variables
+            for j, phase in enumerate(self.fluid_mixture.phases):
+                self.equation_system.set_variable_values(
+                    state.sat[j], [phase.saturation.name], iterate_index=0
+                )
+                self.equation_system.set_variable_values(
+                    state.y[j], [phase.fraction.name], iterate_index=0
+                )
 
-        # setting Temperature and pressure values, depending on equilibrium definition
-        if "T" not in self.equilibrium_type:
-            self.equation_system.set_variable_values(
-                state.T, [self.temperature_variable], iterate_index=0
-            )
-        if "p" not in self.equilibrium_type:
-            self.equation_system.set_variable_values(
-                state.p, [self.pressure_variable], iterate_index=0
-            )
+            # setting Temperature and pressure values, depending on equilibrium definition
+            if "T" not in self.equilibrium_type:
+                self.equation_system.set_variable_values(
+                    state.T, [self.temperature_variable], iterate_index=0
+                )
+            if "p" not in self.equilibrium_type:
+                self.equation_system.set_variable_values(
+                    state.p, [self.pressure_variable], iterate_index=0
+                )
 
         for sd, data in self.mdg.subdomains(return_data=True):
             # Computing Darcy flux and updating it in the mobility dicts for pressure
