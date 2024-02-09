@@ -686,8 +686,8 @@ def invert_diagonal_blocks(
                 )
 
         for idxs in idx_collection.values():
-            set_num_threads(1)
-            set_parallel_chunksize(idxs.size)
+            # set_num_threads(1)
+            # set_parallel_chunksize(idxs.size)
             inv_compiled_function(
                 v, a.data, row, col, size, idxs, idx_nnz, idx_blocks, idx_inv_blocks
             )
