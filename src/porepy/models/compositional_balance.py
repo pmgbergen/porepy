@@ -469,7 +469,9 @@ class TotalMassBalanceEquation(pp.BalanceEquation):
         with the only difference that :attr:`~porepy.composite.base.Mixture.density`,
         which by procedure is defined using the pressure, temperature and fractions on
         all subdomains."""
-        mass_density = self.fluid_mixture.density * self.porosity(subdomains)
+        mass_density = self.fluid_mixture.density(subdomains) * self.porosity(
+            subdomains
+        )
         mass = self.volume_integral(mass_density, subdomains, dim=1)
         mass.set_name("total_fluid_mass")
         return mass
@@ -572,7 +574,7 @@ class TotalEnergyBalanceEquation(energy.EnergyBalanceEquations):
         """Overwrites the parent method to use the fluix mixture density and the primary
         unknown enthalpy."""
         energy = (
-            self.fluid_mixture.density * self.enthalpy(subdomains)
+            self.fluid_mixture.density(subdomains) * self.enthalpy(subdomains)
             - self.pressure(subdomains)
         ) * self.porosity(subdomains)
         energy.set_name("fluid_mixture_internal_energy")
@@ -814,7 +816,7 @@ class ComponentMassBalanceEquations(mass.MassBalanceEquations):
         """
         mass_density = (
             self.porosity(subdomains)
-            * self.fluid_mixture.density
+            * self.fluid_mixture.density(subdomains)
             * component.fraction(subdomains)
         )
         mass = self.volume_integral(mass_density, subdomains, dim=1)
