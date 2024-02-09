@@ -616,12 +616,6 @@ def invert_diagonal_blocks(
         # np.fromiter
         for idxs in idx_collection.values():
             np.fromiter(map(operate_on_block, idxs), dtype=np.ndarray)
-
-        # dask
-        # lazy_eval_ravelled_block_inverses = [
-        #     dask.delayed(operate_on_block)(ib) for ib in range(sz.size)
-        # ]
-        # dask.compute(*lazy_eval_ravelled_block_inverses)
         return v
 
     def invert_diagonal_blocks_numba_compact(
@@ -644,7 +638,7 @@ def invert_diagonal_blocks(
             from multiprocessing import cpu_count
             from numba import njit, prange, set_num_threads, set_parallel_chunksize
             # generally n_cores > n_threads
-            set_num_threads(2)
+            set_num_threads(1)
             set_parallel_chunksize(cpu_count())
         except ImportError:
             raise ImportError("Numba not available on the system")
@@ -664,11 +658,6 @@ def invert_diagonal_blocks(
         idx_nnz = np.searchsorted(row, idx_blocks)
         v = np.zeros(idx_inv_blocks[-1])
 
-        # max_s = np.max(sz)
-        # min_s = np.min(sz)
-        # mean_s= np.mean(sz)
-        #
-        # print("max_s,min_s,mean_s: ", (max_s,min_s,mean_s))
         unique = np.unique(size)
 
         # Collect indexes by block size
@@ -723,7 +712,7 @@ def invert_diagonal_blocks(
             from multiprocessing import cpu_count
             from numba import njit, prange, set_num_threads, set_parallel_chunksize
             # generally n_cores > n_threads
-            set_num_threads(2)
+            set_num_threads(1)
             set_parallel_chunksize(cpu_count())
         except ImportError:
             raise ImportError("Numba not available on the system")
