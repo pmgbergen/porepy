@@ -637,9 +637,7 @@ def invert_diagonal_blocks(
         try:
             from multiprocessing import cpu_count
             from numba import njit, prange, set_num_threads, set_parallel_chunksize
-            # generally n_cores > n_threads
-            set_num_threads(1)
-            set_parallel_chunksize(cpu_count())
+
         except ImportError:
             raise ImportError("Numba not available on the system")
 
@@ -688,6 +686,8 @@ def invert_diagonal_blocks(
                 )
 
         for idxs in idx_collection.values():
+            set_num_threads(1)
+            set_parallel_chunksize(idxs.size)
             inv_compiled_function(
                 v, a.data, row, col, size, idxs, idx_nnz, idx_blocks, idx_inv_blocks
             )
@@ -710,10 +710,7 @@ def invert_diagonal_blocks(
         """
         try:
             from multiprocessing import cpu_count
-            from numba import njit, prange, set_num_threads, set_parallel_chunksize
-            # generally n_cores > n_threads
-            set_num_threads(1)
-            set_parallel_chunksize(cpu_count())
+            from numba import njit, prange
         except ImportError:
             raise ImportError("Numba not available on the system")
 
