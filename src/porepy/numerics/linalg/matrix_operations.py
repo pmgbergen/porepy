@@ -644,7 +644,7 @@ def invert_diagonal_blocks(
             from multiprocessing import cpu_count
             from numba import njit, prange, set_num_threads, set_parallel_chunksize
             # generally n_cores > n_threads
-            set_num_threads(int(cpu_count()/cpu_count()))
+            set_num_threads(int(cpu_count()/2))
             set_parallel_chunksize(cpu_count())
         except ImportError:
             raise ImportError("Numba not available on the system")
@@ -720,7 +720,11 @@ def invert_diagonal_blocks(
         ia: inverse of a
         """
         try:
-            import numba
+            from multiprocessing import cpu_count
+            from numba import njit, prange, set_num_threads, set_parallel_chunksize
+            # generally n_cores > n_threads
+            set_num_threads(int(cpu_count()/2))
+            set_parallel_chunksize(cpu_count())
         except ImportError:
             raise ImportError("Numba not available on the system")
 
@@ -729,7 +733,7 @@ def invert_diagonal_blocks(
         dat = a.data
 
         # Just in time compilation
-        @numba.njit("f8[:](i4[:],i4[:],f8[:],i8[:])", cache=True, parallel=True)
+        @njit("f8[:](i4[:],i4[:],f8[:],i8[:])", cache=True, parallel=True)
         def inv_python(indptr, ind, data, sz):
             """
             Invert block matrices by explicitly forming local matrices. The code
@@ -775,7 +779,7 @@ def invert_diagonal_blocks(
 
             # Loop over all blocks. Do this in parallel, this has shown significant
             # speedups by numba.
-            for iter1 in numba.prange(sz.size):
+            for iter1 in prange(sz.size):
                 n = sz[iter1]
 
                 loc_mat = np.zeros((n, n))
