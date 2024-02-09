@@ -13,6 +13,7 @@ from typing_extensions import Literal
 from porepy.utils.mcolon import mcolon
 import time
 
+
 def zero_columns(A: sps.csc_matrix, cols: np.ndarray) -> None:
     """
     Function to zero out columns in matrix A. Note that this function does not
@@ -604,12 +605,12 @@ def invert_diagonal_blocks(
 
             # Initialize block
             dense_block = np.zeros((size[ib], size[ib]))
-            lr = row[idx_nnz[ib]: idx_nnz[ib + 1]]
-            lc = col[idx_nnz[ib]: idx_nnz[ib + 1]]
-            ld = a.data[idx_nnz[ib]: idx_nnz[ib + 1]]
+            lr = row[idx_nnz[ib] : idx_nnz[ib + 1]]
+            lc = col[idx_nnz[ib] : idx_nnz[ib + 1]]
+            ld = a.data[idx_nnz[ib] : idx_nnz[ib + 1]]
             idx_shift = idx_blocks[ib]
             dense_block[lr - idx_shift, lc - idx_shift] = ld
-            v[idx_inv_blocks[ib]: idx_inv_blocks[ib + 1]] = np.ravel(
+            v[idx_inv_blocks[ib] : idx_inv_blocks[ib + 1]] = np.ravel(
                 np.linalg.inv(dense_block)
             )
 
@@ -636,7 +637,7 @@ def invert_diagonal_blocks(
         """
         try:
             from multiprocessing import cpu_count
-            from numba import njit, prange, set_num_threads, set_parallel_chunksize
+            from numba import njit, prange
 
         except ImportError:
             raise ImportError("Numba not available on the system")
@@ -665,29 +666,28 @@ def invert_diagonal_blocks(
 
         @njit(
             "(f8[:],f8[:],i4[:],i4[:],i8[:],i8[:],i8[:],i8[:],i8[:])",
+            nogil=True,
             cache=True,
             parallel=True,
         )
         def inv_compiled_function(
-                v, data, row, col, sz, idxs, idx_nnz, idx_blocks, idx_inv_blocks
+            v, data, row, col, sz, idxs, idx_nnz, idx_blocks, idx_inv_blocks
         ):
 
             for idx in prange(idxs.size):
                 ib = idxs[idx]
                 dense_block = np.zeros((sz[ib], sz[ib]))
-                lrow = row[idx_nnz[ib]: idx_nnz[ib + 1]]
-                lcol = col[idx_nnz[ib]: idx_nnz[ib + 1]]
-                ldat = data[idx_nnz[ib]: idx_nnz[ib + 1]]
+                lrow = row[idx_nnz[ib] : idx_nnz[ib + 1]]
+                lcol = col[idx_nnz[ib] : idx_nnz[ib + 1]]
+                ldat = data[idx_nnz[ib] : idx_nnz[ib + 1]]
                 idx_shift = idx_blocks[ib]
                 for i in range(len(ldat)):
                     dense_block[lrow[i] - idx_shift, lcol[i] - idx_shift] = ldat[i]
-                v[idx_inv_blocks[ib]: idx_inv_blocks[ib + 1]] = np.ravel(
+                v[idx_inv_blocks[ib] : idx_inv_blocks[ib + 1]] = np.ravel(
                     np.linalg.inv(dense_block)
                 )
 
         for idxs in idx_collection.values():
-            # set_num_threads(1)
-            # set_parallel_chunksize(idxs.size)
             inv_compiled_function(
                 v, a.data, row, col, size, idxs, idx_nnz, idx_blocks, idx_inv_blocks
             )
@@ -719,7 +719,7 @@ def invert_diagonal_blocks(
         dat = a.data
 
         # Just in time compilation
-        @njit("f8[:](i4[:],i4[:],f8[:],i8[:])", cache=True, parallel=True)
+        @njit("f8[:](i4[:],i4[:],f8[:],i8[:])", nogil=True, cache=True, parallel=True)
         def inv_python(indptr, ind, data, sz):
             """
             Invert block matrices by explicitly forming local matrices. The code
