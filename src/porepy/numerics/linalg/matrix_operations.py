@@ -11,7 +11,7 @@ import scipy.sparse as sps
 from typing_extensions import Literal
 
 from porepy.utils.mcolon import mcolon
-
+import time
 
 def zero_columns(A: sps.csc_matrix, cols: np.ndarray) -> None:
     """
@@ -552,14 +552,14 @@ def invert_diagonal_blocks(
 
     """
 
-    def invert_diagonal_blocks_python(a: sps.spmatrix, sz: np.ndarray) -> np.ndarray:
+    def invert_diagonal_blocks_python(a: sps.spmatrix, size: np.ndarray) -> np.ndarray:
         """
         Invert block diagonal matrix using pure python code.
 
         Parameters
         ----------
         a: sps.crs-matrix, to be inverted
-        sz: size of the individual blocks
+        size: size of the individual blocks
 
         Returns
         -------
@@ -574,14 +574,25 @@ def invert_diagonal_blocks(
         row, col = a.nonzero()
 
         # Since blocks should be squared, this statement construct global block indices
-        idx_blocks = np.cumsum([0] + list(sz))
-        idx_inv_blocks = np.cumsum([0] + list(sz * sz))
+        idx_blocks = np.cumsum([0] + list(size))
+        idx_inv_blocks = np.cumsum([0] + list(size * size))
 
         # Maps block indexation to non-zero indexation
         idx_nnz = np.searchsorted(row, idx_blocks)
 
         # Helper function for retrieving, invert, ravel and concatenate a block
         v = np.zeros(idx_inv_blocks[-1])
+
+        max_s = np.max(size)
+        min_s = np.min(size)
+        mean_s = np.mean(size)
+        print("max_s,min_s,mean_s: ", (max_s, min_s, mean_s))
+        unique = np.unique(size)
+
+        # Collect indexes by block size
+        idx_collection = {}
+        for bsize in np.flip(unique):
+            idx_collection[bsize] = np.where(size == bsize)[0]
 
         def operate_on_block(ib: int):
             """
@@ -592,18 +603,19 @@ def invert_diagonal_blocks(
             """
 
             # Initialize block
-            dense_block = np.zeros((sz[ib], sz[ib]))
-            lr = row[idx_nnz[ib] : idx_nnz[ib + 1]]
-            lc = col[idx_nnz[ib] : idx_nnz[ib + 1]]
-            ld = a.data[idx_nnz[ib] : idx_nnz[ib + 1]]
+            dense_block = np.zeros((size[ib], size[ib]))
+            lr = row[idx_nnz[ib]: idx_nnz[ib + 1]]
+            lc = col[idx_nnz[ib]: idx_nnz[ib + 1]]
+            ld = a.data[idx_nnz[ib]: idx_nnz[ib + 1]]
             idx_shift = idx_blocks[ib]
             dense_block[lr - idx_shift, lc - idx_shift] = ld
-            v[idx_inv_blocks[ib] : idx_inv_blocks[ib + 1]] = np.ravel(
+            v[idx_inv_blocks[ib]: idx_inv_blocks[ib + 1]] = np.ravel(
                 np.linalg.inv(dense_block)
             )
 
         # np.fromiter
-        np.fromiter(map(operate_on_block, range(sz.size)), dtype=np.ndarray)
+        for idxs in idx_collection.values():
+            np.fromiter(map(operate_on_block, idxs), dtype=np.ndarray)
 
         # dask
         # lazy_eval_ravelled_block_inverses = [
@@ -629,7 +641,11 @@ def invert_diagonal_blocks(
         ia: inverse of a
         """
         try:
-            from numba import njit, prange
+            from multiprocessing import cpu_count
+            from numba import njit, prange, set_num_threads, set_parallel_chunksize
+            # generally n_cores > n_threads
+            set_num_threads(int(cpu_count()/cpu_count()))
+            set_parallel_chunksize(cpu_count())
         except ImportError:
             raise ImportError("Numba not available on the system")
 
@@ -646,33 +662,47 @@ def invert_diagonal_blocks(
 
         # Maps block indexation to non-zero indexation
         idx_nnz = np.searchsorted(row, idx_blocks)
+        v = np.zeros(idx_inv_blocks[-1])
 
-        # Just in time compilation
+        # max_s = np.max(sz)
+        # min_s = np.min(sz)
+        # mean_s= np.mean(sz)
+        #
+        # print("max_s,min_s,mean_s: ", (max_s,min_s,mean_s))
+        unique = np.unique(size)
+
+        # Collect indexes by block size
+        idx_collection = {}
+        for bsize in np.flip(unique):
+            idx_collection[bsize] = np.where(size == bsize)[0]
+
         @njit(
-            "f8[:](f8[:],i4[:],i4[:],i8[:],i8[:],i8[:],i8[:])",
+            "(f8[:],f8[:],i4[:],i4[:],i8[:],i8[:],i8[:],i8[:],i8[:])",
             cache=True,
             parallel=True,
         )
         def inv_compiled_function(
-            data, row, col, sz, idx_nnz, idx_blocks, idx_inv_blocks
+                v, data, row, col, sz, idxs, idx_nnz, idx_blocks, idx_inv_blocks
         ):
-            v = np.zeros(idx_inv_blocks[-1])
-            for ib in prange(sz.size):
+
+            for idx in prange(idxs.size):
+                ib = idxs[idx]
                 dense_block = np.zeros((sz[ib], sz[ib]))
-                lrow = row[idx_nnz[ib] : idx_nnz[ib + 1]]
-                lcol = col[idx_nnz[ib] : idx_nnz[ib + 1]]
-                ldat = data[idx_nnz[ib] : idx_nnz[ib + 1]]
+                lrow = row[idx_nnz[ib]: idx_nnz[ib + 1]]
+                lcol = col[idx_nnz[ib]: idx_nnz[ib + 1]]
+                ldat = data[idx_nnz[ib]: idx_nnz[ib + 1]]
                 idx_shift = idx_blocks[ib]
                 for i in range(len(ldat)):
                     dense_block[lrow[i] - idx_shift, lcol[i] - idx_shift] = ldat[i]
-                v[idx_inv_blocks[ib] : idx_inv_blocks[ib + 1]] = np.ravel(
+                v[idx_inv_blocks[ib]: idx_inv_blocks[ib + 1]] = np.ravel(
                     np.linalg.inv(dense_block)
                 )
-            return v
 
-        v = inv_compiled_function(
-            a.data, row, col, size, idx_nnz, idx_blocks, idx_inv_blocks
-        )
+        for idxs in idx_collection.values():
+            inv_compiled_function(
+                v, a.data, row, col, size, idxs, idx_nnz, idx_blocks, idx_inv_blocks
+            )
+
         return v
 
     def invert_diagonal_blocks_numba(a: sps.csr_matrix, size: np.ndarray) -> np.ndarray:
@@ -785,7 +815,19 @@ def invert_diagonal_blocks(
     s = s[s > 0]
     # Select python vectorized function
     if method == "python" or method is None:
+        tb = time.time()
         inv_vals = invert_diagonal_blocks_python(mat, s)
+        te = time.time()
+        print("Elapsed time python: ", te - tb)
+        tb = time.time()
+        inv_valsc = invert_diagonal_blocks_numba(mat, s)
+        te = time.time()
+        print("Elapsed time numba: ", te - tb)
+        tb = time.time()
+        inv_valscc = invert_diagonal_blocks_numba_compact(mat, s)
+        te = time.time()
+        print("Elapsed time numba compact: ", te - tb)
+        aka = 0
     # Select numba function
     elif method == "numba":
         try:
