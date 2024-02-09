@@ -9,20 +9,19 @@ import abc
 import logging
 import time
 from collections.abc import Mapping
-from typing import Any, Callable, Optional, Sequence
+from typing import Any, Callable, Optional, Sequence, cast
 
 import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
-from porepy.numerics.ad.operator_functions import AbstractFunction, NumericType
 
 __all__ = [
     "safe_sum",
     "truncexp",
     "trunclog",
-    "AdProperty",
     "COMPOSITE_LOGGER",
+    "DomainProperty",
 ]
 
 
@@ -191,89 +190,267 @@ class CompositionalSingleton(abc.ABCMeta):
         return new_instance
 
 
-class AdProperty(pp.ad.Operator):
-    """A leaf-operator returning an assigned value whenever it is parsed."""
+class DomainProperty:
+    """A representation of some dependent quantity on a set of subdomains and their
+    boundary grids.
 
-    def __init__(self, name: str = "") -> None:
-        super().__init__(name=name)
+    This is meant for terms where the evaluation is done elsewhere and then stored.
 
-        self.value: NumericType = 0.0
-        """The numerical value of this operator."""
+    The property can depend on other operators. It is treated as a function, where the
+    other operators are evaluated as children, and their values are passed to a
+    place-holder function, which returns the values stored here.
 
-    def parse(self, mdg: pp.MixedDimensionalGrid) -> NumericType:
-        """Returns the value assigned to this operator."""
-        return self.value
-
-
-class PropertyFunction(AbstractFunction):
-    """A function whose values and derivatives must be filled by the user.
-
-    Values and derivatives are not assigned at instantiation.
-
-    This function is **not** meant to be used inside nested functions, but to depend
-    on genuine :class:`~porepy.numerics.ad.operators.Variable` and
-    :class:`~porepy.numerics.ad.operators.MixedDimensionalVariable` instances.
-    I.e., the AD representation has an identity block in its derivatives.
-
-    The assumption of identity blocks in derivatives is used to fill in the derivative
-    values in the right place of resulting AD array.
-
-    The Jacobian of the first argument is used as reference to determine the shape.
+    The place holder functions can be modified upon inheritance.
 
     Parameters:
-        name: A name assigned to this function.
+        name: Assigned name of the property.
+        subdomains: A sequence of subdomains on which the property is defined.
+        boundaries: A sequence of boundary grids corresponding to ``subdomains``.
+        *dependencies: Callables/ constructors for independent variables on which the
+            expression depends. Their order is should be reflected in the assigned
+            :meth:`derivatives`.
+
+            They should be defined on ``subdomains`` and have boundary values on
+            respective boundary grids.
 
     """
 
-    def __init__(self, name: str) -> None:
-        self.value: np.ndarray
-        """Value of the filler function."""
+    def __init__(
+        self,
+        name: str,
+        subdomains: Sequence[pp.Grid],
+        boundaries: Sequence[pp.BoundaryGrid],
+        *dependencies: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator],
+    ) -> None:
+        assert len(set(subdomains)) == len(subdomains), "Must pass unique subdomains."
+        assert len(set(boundaries)) == len(boundaries), "Must pass unique subdomains."
+        assert len(subdomains) > 0, "A property must be defined on a subdomain."
+        assert len(boundaries) > 0, "A property must be defined on boundaries."
 
-        self.derivatives: Optional[Sequence[np.ndarray]] = None
-        """Values of derivatives per dependency. Defaults to None."""
+        self._subdomains: Sequence[pp.Grid] = subdomains
+        self._boundaries: Sequence[pp.BoundaryGrid] = boundaries
+        self._name: str = name
+        self._dependencies = dependencies
 
-        def func(*args: Sequence[pp.ad.AdArray]) -> pp.ad.AdArray:
+        self._nc_subdomains: int = sum([grid.num_cells for grid in self._subdomains])
+        """Number of subdomain cells."""
+        self._nc_boundaries: int = sum([grid.num_cells for grid in boundaries])
+        self._nd: int = len(dependencies)
+        """See :meth:`nd`"""
+        self._value = np.zeros(self._nc_subdomains)
+        """See :meth:`value`."""
+        self._derivatives = np.array(
+            [np.zeros(self._nc_subdomains) for _ in range(self._nd)]
+        )
+        """See :meth:`derivatives`."""
+        self._boundary_value = np.zeros(self._nc_boundaries)
+        """See :meth:`boundary_value`"""
+
+    def __call__(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+        """Call this operator on a subset of subdomains to get a property restricted
+        to the passed subdomains.
+
+        The resulting operator is a function-evaluations fetching the values and
+        derivatives from the "mother object" and simply restricting them onto the target
+        subdomains.
+
+        If ``subdomains`` contains all subdomains in the md-grid passed at
+        instantiation, this method returns this instance itself.
+
+        Parameters:
+            domains: A subset of domains passed at instantiation.
+
+        Raises:
+            AssertionError: If unknown, or no, or mixed types of domains are passed.
+
+        """
+        # sanity check
+        assert len(domains) > 0, "Cannot access property without defining domain."
+        assert all(
+            [isinstance(d, domains[0]) for d in domains]
+        ), "Cannot access property with mixed domain types."
+
+        if isinstance(domains[0], pp.BoundaryGrid):
+            assert all(
+                [d in self._boundaries for d in domains]
+            ), "Property accessed on unknown boundary."
+
+            children = [child(list(self._boundaries)) for child in self._dependencies]
+            op = pp.ad.Function(
+                func=self.boundary_function(), name=f"bc_values_{self._name}"
+            )(*children)
+
+            if len(domains) == len(self._boundaries):  # return without restriction
+                return op
+            else:  # restrict to (by logic) smaller subdomain
+                raise NotImplementedError(
+                    "Restriction of properties on subset of boundaries not implemented."
+                )
+
+        elif isinstance(domains[0], pp.Grid):
+            assert all(
+                [d in self._subdomains for d in domains]
+            ), "Property accessed on unknown subdomains."
+
+            children = [child(list(self._subdomains)) for child in self._dependencies]
+            op = pp.ad.Function(func=self.subdomain_function(), name=self._name)(
+                *children
+            )
+
+            if len(domains) == len(self._subdomains):  # return without restriction
+                return op
+            else:  # restrict to (by logic) smaller subdomain
+                restriction = pp.ad.SubdomainProjections(
+                    list(self._subdomains)
+                ).cell_restriction(list(domains))
+                op = restriction @ op
+                op.set_name(f"domain_restricted_{self._name}")
+                return op
+        else:
+            raise ValueError(
+                f"Properties are not defined on grids of type {type(domains[0])}"
+            )
+
+    def subdomain_function(
+        self,
+    ) -> Callable[[*pp.ad.AdArray], pp.ad.AdArray | np.ndarray]:
+        """Returns a function which represents the property on the subdomains.
+
+        It is consistent with the derivatives with the children passed at instantiation.
+
+        For values and derivatives, the assigned :meth:`value` and :meth:`derivatives`
+        are used.
+
+        """
+
+        def func(*args: pp.ad.AdArray) -> pp.ad.AdArray | np.ndarray:
             """Inner function filling provided values and and derivatives."""
-
-            if self.derivatives is None or len(args) == 0:
-                return self.value
-            else:
-                num_args = len(args)
-                assert num_args == len(
-                    self.derivatives
-                ), "Not enough derivatives provided."
-
-                idx = args[0].jac.nonzero()
+            n = len(args)
+            if n == 0 and self.nd == 0:  # case with no dependency
+                self.value
+            elif n == self.nd:  # case with dependency
+                idx = cast(tuple[np.ndarray, np.ndarray], args[0].jac.nonzero())
                 shape = args[0].jac.shape()
+                # number of derivatives per dependency must be equal to the total number
+                # of values
+                assert (
+                    idx[0].shape == self.value.shape
+                ), "Mismatch in shape of derivatives for arg 1."
                 assert (
                     idx[0].shape == self.derivatives[0].shape
-                ), "Mismatch in derivative values for argument 1."
+                ), "Mismatch in shape of provided derivatives for arg 1."
                 jac = sps.coo_matrix((self.derivatives[0], idx), shape=shape)
 
-                for i in range(1, num_args):
-                    idx = args[i].jac.nonzero()
+                for i in range(1, len(args)):
+                    idx = cast(tuple[np.ndarray, np.ndarray], args[i].jac.nonzero())
+                    # checks consistency with number of values
                     assert (
-                        args[i].jac.shape == shape
-                    ), "Mismatch in shapes of Jacobians of arguments."
+                        idx[0].shape == self.value.shape
+                    ), f"Mismatch in shape of derivatives for arg {i + 1}"
                     assert (
                         idx[0].shape == self.derivatives[i].shape
-                    ), f"Mismatch in shape of derivatives for argument {i + 1}."
+                    ), f"Mismatch in shape of provided derivatives for arg {i + 1}."
                     jac += sps.coo_matrix((self.derivatives[i], idx), shape=shape)
 
                 return pp.ad.AdArray(self.value, jac.tocsr())
+            else:
+                raise ValueError(
+                    f"Subdomain function of property {self._name} requires {self._nd}"
+                    + f" argument, {n} given."
+                )
 
-        super().__init__(func, name, False, True)
+        return func
 
-        self.ad_compatible = True
+    def boundary_function(self) -> Callable[[*pp.ad.AdArray | np.ndarray], np.ndarray]:
+        """Returns a function which represents the property on the boundaries.
 
-    def __call__(
-        self, *args: Sequence[pp.ad.Variable | pp.ad.MixedDimensionalVariable]
-    ) -> pp.ad.Operator:
-        """Performs an input validation when assembling the operator function:
-        All arguments must be instances of
-        :class:`~porepy.numerics.ad.operators.Variable`.
+        As of now, properties on boundaries pass return only the boundary value, no
+        derivatives.
+
+        To stored values are accessed using :meth:`boundary_value`
+
         """
-        for i, arg in enumerate(args):
-            if not isinstance(arg, pp.ad.Variable):  # covers md-vars by inheritance
-                raise TypeError(f"Argument {i + 1} not a variable.")
-        return super().__call__(*args)
+
+        def func(*args: pp.ad.AdArray) -> np.ndarray:
+            """Inner function returning the stored boundary values."""
+            return self.boundary_value
+
+        return func
+
+    @property
+    def nd(self) -> int:
+        """Number of first order dependencies of this operator.
+
+        Given by the number of unique variables in the operator tree.
+
+        This determines the number of required :meth:`derivatives`.
+
+        """
+        return self._nd
+
+    @property
+    def value(self) -> np.ndarray:
+        """The value of this property given by an array with values in each subdomain
+        cell.
+
+        Parameters:
+            val: ``shape=(num_cells,)``
+
+                A new value to be set.
+
+        Raises:
+            ValueError: If the size of the value mismatches what is expected.
+
+        """
+        return self._value
+
+    @value.setter
+    def value(self, val) -> None:
+        self._value[:] = val  # let numpy handle the broadcasting errors
+
+    @property
+    def derivatives(self) -> Sequence[np.ndarray]:
+        """The derivatives of this property, w.r.t. to its first-order dependencies.
+
+        This is a sequence of length :meth:`nd` where each element is an array with
+        ``shape=(num_cells,)``.
+
+        Important:
+            The order of derivatives should reflect the order of dependencies
+            passed at instantiation.
+
+        Parameters:
+            val: The new derivatives values.
+
+        Raises:
+            ValueError: If an insufficient number of derivatives is passed.
+
+        """
+        self._derivatives
+
+    @derivatives.setter
+    def derivatives(self, val: Sequence[np.ndarray]) -> None:
+        if len(val) != self._nd:
+            raise ValueError(f"{len(val)} derivatives provided, {self._nd} required.")
+        for i in range(self._nd):
+            self._derivatives[i, :] = val[i]  # stored as np array to ensure proper size
+
+    @property
+    def boundary_value(self) -> np.ndarray:
+        """The value of this property on the boundary, given by an array with values in
+        each boundary grid cell.
+
+        Parameters:
+            val: ``shape=(num_boundary_cells,)``
+
+                A new value to be set.
+
+        Raises:
+            ValueError: If the size of the value mismatches what is expected.
+
+        """
+        return self._value
+
+    @boundary_value.setter
+    def boundary_value(self, val) -> None:
+        self._boundary_value[:] = val  # let numpy handle the broadcasting errors
