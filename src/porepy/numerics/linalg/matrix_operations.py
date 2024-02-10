@@ -654,26 +654,26 @@ def invert_diagonal_blocks(
         # Construction of low complexity data
 
         # Indices for block positions, ravelled inverse block positions and nonzeros
-        idx_blocks = np.cumsum([0] + list(size))
-        idx_inv_blocks = np.cumsum([0] + list(size * size))
-        idx_nnz = np.searchsorted(a.indices, idx_blocks)
+        idx_blocks = np.cumsum([0] + list(size)).astype(np.int32)
+        idx_inv_blocks = np.cumsum([0] + list(size * size)).astype(np.int32)
+        idx_nnz = np.searchsorted(a.indices, idx_blocks).astype(np.int32)
 
         # Retrieve global indices
         if sps.isspmatrix_csr(a):
-            cols = a.indices
+            cols = a.indices.astype(np.int32)
             row_reps = a.indptr[1:a.indptr.size] - a.indptr[0:a.indptr.size - 1]
-            rows = np.repeat(np.arange(a.shape[0], dtype=np.int32), row_reps)
+            rows = np.repeat(np.arange(a.shape[0], dtype=np.int32), row_reps).astype(np.int32)
         else:
-            rows = a.indices
+            rows = a.indices.astype(np.int32)
             col_reps = a.indptr[1:a.indptr.size] - a.indptr[0:a.indptr.size - 1]
-            cols = np.repeat(np.arange(a.shape[0], dtype=np.int32), col_reps)
+            cols = np.repeat(np.arange(a.shape[0], dtype=np.int32), col_reps).astype(np.int32)
 
         # Nonzero entries
         data = a.data
 
         # Note that np.unique is slow for large data
         # Present block sizes.
-        unique_sizes = np.ascontiguousarray(np.flip(np.sort(list(set(size.tolist())))))
+        unique_sizes = np.ascontiguousarray(np.flip(np.sort(list(set(size.tolist()))))).astype(np.int32)
 
         # ravelled values of the inverse
         v = np.zeros(idx_inv_blocks[-1])
@@ -681,7 +681,7 @@ def invert_diagonal_blocks(
         print("numba compact:: time for auxiliary structures", te-tb)
 
         @njit(
-            "(f8[::1],f8[::1],i4[::1],i4[::1],i8[::1],i8[::1],i8[::1],i8[::1])",
+            "(f8[::1],f8[::1],i4[::1],i4[::1],i4[::1],i4[::1],i4[::1],i4[::1])",
             cache=True,
             parallel=True,
         )
