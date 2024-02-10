@@ -648,18 +648,12 @@ def invert_diagonal_blocks(
         indptr = a.indptr
         sz = size.astype(np.int32)
 
-        # Note that np.unique is slow for large data
-        # Present block sizes.
-        unique_sizes = np.ascontiguousarray(
-            np.flip(np.sort(list(set(size.tolist()))))
-        ).astype(np.int32)
-
         @njit(
-            "f8[::1](b1,f8[::1],i4[::1],i4[::1],i4[::1],i4[::1])",
+            "f8[::1](b1,f8[::1],i4[::1],i4[::1],i4[::1])",
             cache=True,
             parallel=True,
         )
-        def inv_compiled_function(is_csr_q, data, indices, indptr, unique_sizes, sz):
+        def inv_compiled_function(is_csr_q, data, indices, indptr, sz):
 
             # Construction of low complexity data
             # Indices for block positions, ravelled inverse block positions and nonzeros
@@ -686,25 +680,22 @@ def invert_diagonal_blocks(
             # ravelled values of the inverse
             v = np.zeros(idx_inv_blocks[-1])
 
-            for igroup in range(unique_sizes.size):
-                idxs = np.where(size == unique_sizes[igroup])[0]  # (time ok)
-                for idx in prange(idxs.size):
-                    ib = idxs[idx]
-                    dense_block = np.zeros((size[ib], size[ib]))
-                    idx_shift = idx_blocks[ib]  # (time ok)
-                    lrow = rows[idx_nnz[ib] : idx_nnz[ib + 1]]
-                    lcol = cols[idx_nnz[ib] : idx_nnz[ib + 1]]
-                    ldat = data[idx_nnz[ib] : idx_nnz[ib + 1]]  # (time ok)
-                    for i in range(len(ldat)):
-                        dense_block[lrow[i] - idx_shift, lcol[i] - idx_shift] = ldat[
-                            i
-                        ]  # (time ok)
-                    v_range = np.arange(idx_inv_blocks[ib], idx_inv_blocks[ib + 1])
-                    lv = np.ravel(np.linalg.inv(dense_block))
-                    v[v_range] = lv
+            for ib in prange(sz.size):
+                dense_block = np.zeros((sz[ib], sz[ib]))
+                idx_shift = idx_blocks[ib]  # (time ok)
+                lrow = rows[idx_nnz[ib] : idx_nnz[ib + 1]]
+                lcol = cols[idx_nnz[ib] : idx_nnz[ib + 1]]
+                ldat = data[idx_nnz[ib] : idx_nnz[ib + 1]]  # (time ok)
+                for i in range(len(ldat)):
+                    dense_block[lrow[i] - idx_shift, lcol[i] - idx_shift] = ldat[
+                        i
+                    ]  # (time ok)
+                v_range = np.arange(idx_inv_blocks[ib], idx_inv_blocks[ib + 1])
+                lv = np.ravel(np.linalg.inv(dense_block))
+                v[v_range] = lv
             return v
 
-        v = inv_compiled_function(is_csr_q, data, indices, indptr, unique_sizes, sz)
+        v = inv_compiled_function(is_csr_q, data, indices, indptr, sz)
         return v
 
     def invert_diagonal_blocks_numba_old(
