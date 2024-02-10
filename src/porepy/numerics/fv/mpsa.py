@@ -181,7 +181,7 @@ class Mpsa(Discretization):
         hf_eta: Optional[float] = parameter_dictionary.get("reconstruction_eta", None)
 
         inverter: Literal["python", "numba"] = parameter_dictionary.get(
-            "inverter", "python"
+            "inverter", "numba"
         )
 
         # Control of the number of subdomanis.
