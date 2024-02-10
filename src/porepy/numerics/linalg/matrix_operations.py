@@ -657,6 +657,7 @@ def invert_diagonal_blocks(
         idx_blocks = np.cumsum([0] + list(size)).astype(np.int32)
         idx_inv_blocks = np.cumsum([0] + list(size * size)).astype(np.int32)
         idx_nnz = np.searchsorted(a.indices, idx_blocks).astype(np.int32)
+        sz = size.astype(np.int32)
 
         # Retrieve global indices
         if sps.isspmatrix_csr(a):
@@ -706,7 +707,7 @@ def invert_diagonal_blocks(
 
         tb = timer()
         inv_compiled_function(
-            v, a.data, rows, cols, size, unique_sizes, idx_blocks, idx_inv_blocks
+            v, a.data, rows, cols, sz, unique_sizes, idx_blocks, idx_inv_blocks
         )
         te = timer()
         print("numba compact:: time for inv_compiled_function call: ", te-tb)
