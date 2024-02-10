@@ -641,29 +641,12 @@ def invert_diagonal_blocks(
         if not (sps.isspmatrix_csr(a) or sps.isspmatrix_csc(a)):
             raise TypeError("Sparse array type not implemented: ", type(a))
 
-        # Construction of low complexity data
-        # Indices for block positions, ravelled inverse block positions and nonzeros
-        idx_blocks = np.cumsum([0] + list(size)).astype(np.int32)
-        idx_inv_blocks = np.cumsum([0] + list(size * size)).astype(np.int32)
-        idx_nnz = np.searchsorted(a.indices, idx_blocks).astype(np.int32)
-        sz = size.astype(np.int32)
-
-        # Retrieve global indices
-        if sps.isspmatrix_csr(a):
-            cols = a.indices.astype(np.int32)
-            row_reps = a.indptr[1 : a.indptr.size] - a.indptr[0 : a.indptr.size - 1]
-            rows = np.repeat(np.arange(a.shape[0], dtype=np.int32), row_reps).astype(
-                np.int32
-            )
-        else:
-            rows = a.indices.astype(np.int32)
-            col_reps = a.indptr[1 : a.indptr.size] - a.indptr[0 : a.indptr.size - 1]
-            cols = np.repeat(np.arange(a.shape[0], dtype=np.int32), col_reps).astype(
-                np.int32
-            )
-
-        # Nonzero entries
+        is_csr_q = sps.isspmatrix_csr(a)
+        # Matrix arrays
         data = a.data
+        indices = a.indices
+        indptr = a.indptr
+        sz = size.astype(np.int32)
 
         # Note that np.unique is slow for large data
         # Present block sizes.
@@ -671,17 +654,37 @@ def invert_diagonal_blocks(
             np.flip(np.sort(list(set(size.tolist()))))
         ).astype(np.int32)
 
-        # ravelled values of the inverse
-        v = np.zeros(idx_inv_blocks[-1])
-
         @njit(
-            "(f8[::1],f8[::1],i4[::1],i4[::1],i4[::1],i4[::1],i4[::1],i4[::1])",
+            "f8[::1](b1,f8[::1],i4[::1],i4[::1],i4[::1],i4[::1])",
             cache=True,
             parallel=True,
         )
-        def inv_compiled_function(
-            v, data, rows, cols, sz, unique_sizes, idx_blocks, idx_inv_blocks
-        ):
+        def inv_compiled_function(is_csr_q, data, indices, indptr, unique_sizes, sz):
+
+            # Construction of low complexity data
+            # Indices for block positions, ravelled inverse block positions and nonzeros
+            idx_blocks = np.concatenate((np.array([0]), np.cumsum(sz))).astype(np.int32)
+            idx_inv_blocks = np.concatenate(
+                (np.array([0]), np.cumsum(np.square(sz)))
+            ).astype(np.int32)
+            idx_nnz = np.searchsorted(indices, idx_blocks).astype(np.int32)
+
+            # Retrieve global indices
+            if is_csr_q:
+                cols = indices.astype(np.int32)
+                row_reps = indptr[1 : indptr.size] - indptr[0 : indptr.size - 1]
+                rows = np.repeat(
+                    np.arange(idx_blocks[-1], dtype=np.int32), row_reps
+                ).astype(np.int32)
+            else:
+                rows = indices.astype(np.int32)
+                col_reps = indptr[1 : indptr.size] - indptr[0 : indptr.size - 1]
+                cols = np.repeat(
+                    np.arange(idx_blocks[-1], dtype=np.int32), col_reps
+                ).astype(np.int32)
+
+            # ravelled values of the inverse
+            v = np.zeros(idx_inv_blocks[-1])
 
             for igroup in range(unique_sizes.size):
                 idxs = np.where(size == unique_sizes[igroup])[0]  # (time ok)
@@ -699,10 +702,9 @@ def invert_diagonal_blocks(
                     v_range = np.arange(idx_inv_blocks[ib], idx_inv_blocks[ib + 1])
                     lv = np.ravel(np.linalg.inv(dense_block))
                     v[v_range] = lv
+            return v
 
-        inv_compiled_function(
-            v, data, rows, cols, sz, unique_sizes, idx_blocks, idx_inv_blocks
-        )
+        v = inv_compiled_function(is_csr_q, data, indices, indptr, unique_sizes, sz)
         return v
 
     def invert_diagonal_blocks_numba_old(
