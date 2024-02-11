@@ -610,10 +610,10 @@ def invert_diagonal_blocks(
 
             dense_block = np.zeros((size[ib], size[ib]))
             idx_shift = idx_blocks[ib]  # (time ok)
-            lrow = rows[idx_nnz[ib] : idx_nnz[ib + 1]] - idx_shift
-            lcol = cols[idx_nnz[ib] : idx_nnz[ib + 1]] - idx_shift
-            ldat = data[idx_nnz[ib] : idx_nnz[ib + 1]]  # (time ok)
-            dense_block[lrow, lcol] = ldat
+            l_row = rows[idx_nnz[ib] : idx_nnz[ib + 1]] - idx_shift
+            l_col = cols[idx_nnz[ib] : idx_nnz[ib + 1]] - idx_shift
+            l_dat = data[idx_nnz[ib] : idx_nnz[ib + 1]]  # (time ok)
+            dense_block[l_row, l_col] = l_dat
             v_range = np.arange(idx_inv_blocks[ib], idx_inv_blocks[ib + 1])
             lv = np.ravel(np.linalg.inv(dense_block))
             v[v_range] = lv
@@ -646,7 +646,7 @@ def invert_diagonal_blocks(
         data = a.data
         indices = a.indices
         indptr = a.indptr
-        sz = size.astype(np.int32)
+        sz = np.insert(size, 0, 0).astype(np.int32)
 
         @njit(
             "f8[::1](b1,f8[::1],i4[::1],i4[::1],i4[::1])",
@@ -657,42 +657,43 @@ def invert_diagonal_blocks(
 
             # Construction of low complexity data
             # Indices for block positions, ravelled inverse block positions and nonzeros
-            idx_blocks = np.concatenate((np.array([0]), np.cumsum(sz))).astype(np.int32)
-            idx_inv_blocks = np.concatenate(
-                (np.array([0]), np.cumsum(np.square(sz)))
-            ).astype(np.int32)
+            idx_blocks = np.cumsum(sz).astype(np.int32)
+            idx_inv_blocks = np.cumsum(np.square(sz)).astype(np.int32)
             idx_nnz = np.searchsorted(indices, idx_blocks).astype(np.int32)
 
             # Retrieve global indices
             if is_csr_q:
                 cols = indices.astype(np.int32)
                 row_reps = indptr[1 : indptr.size] - indptr[0 : indptr.size - 1]
-                rows = np.repeat(
-                    np.arange(idx_blocks[-1], dtype=np.int32), row_reps
-                ).astype(np.int32)
             else:
                 rows = indices.astype(np.int32)
                 col_reps = indptr[1 : indptr.size] - indptr[0 : indptr.size - 1]
-                cols = np.repeat(
-                    np.arange(idx_blocks[-1], dtype=np.int32), col_reps
-                ).astype(np.int32)
 
             # ravelled values of the inverse
             v = np.zeros(idx_inv_blocks[-1])
 
-            for ib in prange(sz.size):
-                dense_block = np.zeros((sz[ib], sz[ib]))
-                idx_shift = idx_blocks[ib]  # (time ok)
-                lrow = rows[idx_nnz[ib] : idx_nnz[ib + 1]]
-                lcol = cols[idx_nnz[ib] : idx_nnz[ib + 1]]
-                ldat = data[idx_nnz[ib] : idx_nnz[ib + 1]]  # (time ok)
-                for i in range(len(ldat)):
-                    dense_block[lrow[i] - idx_shift, lcol[i] - idx_shift] = ldat[
-                        i
-                    ]  # (time ok)
-                v_range = np.arange(idx_inv_blocks[ib], idx_inv_blocks[ib + 1])
+            for ib in prange(sz.size - 1):
+                dense_block = np.zeros((sz[ib + 1], sz[ib + 1]))
+                idx_shift = idx_blocks[ib]
+                idx_block = idx_blocks[np.array([ib, ib + 1])]
+                if is_csr_q:
+                    l_row = np.repeat(
+                        np.arange(idx_block[0], idx_block[1], dtype=np.int32),
+                        row_reps[idx_block[0] : idx_block[1]],
+                    ).astype(np.int32)
+                    l_col = cols[idx_nnz[ib] : idx_nnz[ib + 1]]
+                else:
+                    l_row = rows[idx_nnz[ib] : idx_nnz[ib + 1]]
+                    l_col = np.repeat(
+                        np.arange(idx_block[0], idx_block[1], dtype=np.int32),
+                        col_reps[idx_block[0] : idx_block[1]],
+                    ).astype(np.int32)
+
+                l_dat = data[idx_nnz[ib] : idx_nnz[ib + 1]]
+                for i in range(len(l_dat)):
+                    dense_block[l_row[i] - idx_shift, l_col[i] - idx_shift] = l_dat[i]
                 lv = np.ravel(np.linalg.inv(dense_block))
-                v[v_range] = lv
+                v[idx_inv_blocks[ib] : idx_inv_blocks[ib + 1]] = lv
             return v
 
         v = inv_compiled_function(is_csr_q, data, indices, indptr, sz)
