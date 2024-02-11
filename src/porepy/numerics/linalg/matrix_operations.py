@@ -845,10 +845,10 @@ def block_diag_matrix(vals: np.ndarray, sz: np.ndarray) -> sps.spmatrix:
     -------
     sps.csr matrix
     """
-    row, _ = block_diag_index(sz)
+    indices, _ = block_diag_index(sz)
     # This line recovers starting indices of the rows.
     indptr = np.hstack((np.zeros(1), np.cumsum(rldecode(sz, sz)))).astype("int32")
-    return sps.csr_matrix((vals, row, indptr))
+    return sps.csr_matrix((vals, indices, indptr))
 
 
 def block_diag_index(
@@ -877,6 +877,15 @@ def block_diag_index(
     """
     if n is None:
         n = m
+        idx_blocks = np.cumsum([0] + list(n))
+        retireve_indices = lambda ib: np.tile(  # type: ignore[call-overload]
+            np.arange(idx_blocks[ib], idx_blocks[ib + 1]), n[ib]
+        )
+        i = np.concatenate(
+            np.fromiter(map(retireve_indices, range(n.size)), dtype=np.ndarray)
+        )
+        return i, i
+
     start = np.hstack((np.zeros(1, dtype="int"), m))
     pos = np.cumsum(start)
     p1 = pos[0:-1]
