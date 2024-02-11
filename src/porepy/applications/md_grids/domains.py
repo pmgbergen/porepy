@@ -7,7 +7,7 @@ import numpy as np
 import porepy as pp
 
 
-def nd_cube_domain(dimension: Literal[2, 3], size=pp.number) -> pp.Domain:
+def nd_cube_domain(dimension: Literal[2, 3], size: pp.number) -> pp.Domain:
     """Return a domain extending from 0 to `size` in all dimensions.
 
     Parameters:
