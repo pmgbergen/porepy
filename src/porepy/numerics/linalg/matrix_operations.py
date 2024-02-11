@@ -9,6 +9,7 @@ from typing import Optional, Union
 
 import numpy as np
 import scipy.sparse as sps
+from scipy.sparse import block_diag
 from typing_extensions import Literal
 
 from porepy.utils.mcolon import mcolon
@@ -551,7 +552,7 @@ def invert_diagonal_blocks(
 
     Returns
     -------
-    imat: Inverse matrix
+    inv_mat : sps.csr or sps.csc inverse matrix
 
     Raises
     -------
@@ -571,7 +572,7 @@ def invert_diagonal_blocks(
 
         Returns
         -------
-        inv_a inverse matrix
+        inv_a : block diagonal sparse inverse matrix
         """
 
         # This function only supports CSR anc CSC format.
@@ -605,7 +606,6 @@ def invert_diagonal_blocks(
             Parameters
             ----------
             ib: the block index
-
             """
 
             dense_block = np.zeros((size[ib], size[ib]))
@@ -620,7 +620,30 @@ def invert_diagonal_blocks(
 
         # np.fromiter
         np.fromiter(map(operate_on_block, range(size.size)), dtype=np.ndarray)
-        return v
+
+        def retireve_block(ib: int):
+            """
+            Parameters
+            ----------
+            ib: the block index
+
+            Returns
+            -------
+            block_inverse: the dense block inverse
+            """
+
+            v_range = np.arange(idx_inv_blocks[ib], idx_inv_blocks[ib + 1])
+            block_inverse = np.reshape(v[v_range], (size[ib], size[ib]))
+            return block_inverse
+
+        seqence_block_inverses = list(map(retireve_block, range(size.size)))
+        inv_a_block_diga_mat = block_diag(seqence_block_inverses)
+
+        if sps.isspmatrix_csr(a):
+            inv_a = inv_a_block_diga_mat.tocsr()
+        else:
+            inv_a = inv_a_block_diga_mat.tocsc()
+        return inv_a
 
     def invert_diagonal_blocks_numba(a: sps.csr_matrix, size: np.ndarray) -> np.ndarray:
         """
@@ -634,7 +657,7 @@ def invert_diagonal_blocks(
 
         Returns
         -------
-        ia: inverse of a
+        inv_a : block diagonal sparse inverse matrix
         """
 
         # This function only supports CSR anc CSC format.
@@ -697,7 +720,32 @@ def invert_diagonal_blocks(
             return v
 
         v = inv_compiled_function(is_csr_q, data, indices, indptr, sz)
-        return v
+
+        idx_inv_blocks = np.cumsum(np.square(sz)).astype(np.int32)
+
+        def retireve_block(ib: int):
+            """
+            Parameters
+            ----------
+            ib: the block index
+
+            Returns
+            -------
+            block_inverse: the dense block inverse
+            """
+
+            v_range = np.arange(idx_inv_blocks[ib], idx_inv_blocks[ib + 1])
+            block_inverse = np.reshape(v[v_range], (size[ib], size[ib]))
+            return block_inverse
+
+        seqence_block_inverses = list(map(retireve_block, range(size.size)))
+        inv_a_block_diga_mat = block_diag(seqence_block_inverses)
+
+        if sps.isspmatrix_csr(a):
+            inv_a = inv_a_block_diga_mat.tocsr()
+        else:
+            inv_a = inv_a_block_diga_mat.tocsc()
+        return inv_a
 
     def invert_diagonal_blocks_numba_old(
         a: sps.csr_matrix, size: np.ndarray
@@ -713,7 +761,7 @@ def invert_diagonal_blocks(
 
         Returns
         -------
-        ia: inverse of a
+        inv_a : block diagonal sparse inverse matrix
         """
 
         # This function only supports CSR format.
@@ -805,14 +853,39 @@ def invert_diagonal_blocks(
             return inv_vals
 
         v = inv_python(ptr, indices, dat, size)
-        return v
+
+        idx_inv_blocks = np.cumsum(np.square(size)).astype(np.int32)
+
+        def retireve_block(ib: int):
+            """
+            Parameters
+            ----------
+            ib: the block index
+
+            Returns
+            -------
+            block_inverse: the dense block inverse
+            """
+
+            v_range = np.arange(idx_inv_blocks[ib], idx_inv_blocks[ib + 1])
+            block_inverse = np.reshape(v[v_range], (size[ib], size[ib]))
+            return block_inverse
+
+        seqence_block_inverses = list(map(retireve_block, range(size.size)))
+        inv_a_block_diga_mat = block_diag(seqence_block_inverses)
+
+        if sps.isspmatrix_csr(a):
+            inv_a = inv_a_block_diga_mat.tocsr()
+        else:
+            inv_a = inv_a_block_diga_mat.tocsc()
+        return inv_a
 
     # Remove blocks of size 0
     s = s[s > 0]
     # Select numba function
     if (method == "numba" or method is None) and numba_available:
         try:
-            inv_vals = invert_diagonal_blocks_numba(mat, s)
+            inv_mat = invert_diagonal_blocks_python(mat, s)
         except np.linalg.LinAlgError:
             raise ValueError("Error in inversion of local linear systems")
     # Select python vectorized function
@@ -825,11 +898,11 @@ def invert_diagonal_blocks(
             warnings.warn(
                 "Numba is not available falling back to python inverter.", UserWarning
             )
-        inv_vals = invert_diagonal_blocks_python(mat, s)
+        inv_mat = invert_diagonal_blocks_python(mat, s)
     else:
         raise ValueError(f"Unknown type of block inverter {method}")
-    ia = block_diag_matrix(inv_vals, s)
-    return ia
+
+    return inv_mat
 
 
 def block_diag_matrix(vals: np.ndarray, sz: np.ndarray) -> sps.spmatrix:
