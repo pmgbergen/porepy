@@ -847,8 +847,9 @@ def block_diag_matrix(vals: np.ndarray, sz: np.ndarray) -> sps.spmatrix:
     """
     indices = block_diag_index(sz)
     # This line recovers starting indices of the rows.
-    indptr = np.hstack((np.zeros(1), np.cumsum(rldecode(sz, sz)))).astype("int32")
-    return sps.csr_matrix((vals, indices, indptr))
+    indptr = np.hstack((np.zeros(1), np.cumsum(rldecode(sz, sz)))).astype(np.int32)
+    n = np.sum(sz)
+    return sps.csr_matrix((vals, indices, indptr), shape=(n, n))
 
 
 def block_diag_index(
@@ -876,14 +877,19 @@ def block_diag_index(
 
     """
     if n is None:
-        n = m.astype(np.int32)
-        idx_blocks = np.cumsum([0] + list(n)).astype(np.int32)
-        retireve_indices = lambda ib: np.tile(  # type: ignore[call-overload]
-            np.arange(idx_blocks[ib], idx_blocks[ib + 1]), n[ib]
-        ).astype(np.int32)
-        i = np.concatenate(
-            np.fromiter(map(retireve_indices, range(n.size)), dtype=np.ndarray)
-        )
+        n = np.insert(m, 0, 0).astype(np.int32)
+        idx_blocks = np.cumsum(n, dtype=np.int32)
+        idx_inv_blocks = np.cumsum(np.square(n), dtype=np.int32)
+        i = np.zeros(idx_inv_blocks[-1], dtype=np.int32)
+
+        def retireve_indices(ib):
+            i[idx_inv_blocks[ib] : idx_inv_blocks[ib + 1]] = (
+                np.tile(  # type: ignore[call-overload]
+                    np.arange(idx_blocks[ib], idx_blocks[ib + 1]), n[ib + 1]
+                ).astype(np.int32)
+            )
+
+        np.fromiter(map(retireve_indices, range(n.size - 1)), dtype=np.ndarray)
         return i
 
     start = np.hstack((np.zeros(1, dtype="int"), m))
