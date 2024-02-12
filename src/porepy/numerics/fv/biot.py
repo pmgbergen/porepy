@@ -559,13 +559,10 @@ class Biot(pp.Mpsa):
         # that this is done before mapping from the active to the full grid, since the
         # subgrids (thus face map) was computed on the active grid.
         #
-        # IMPLEMENTATION NOTE: With the current implementation, this scaling is only
-        # needed for the vector quantities, that is, not for the stabilization and div_u
-        # terms. This is because the latter are computed cell-wise rather than
-        # face-wise, and it so happens that this is sufficient to avoid double counting.
-        # If we ever change the implementation (e.g., when introducing tensor Biot
-        # coefficients), it is likely the scaling will be needed also for the scalar
-        # terms.
+        # IMPLEMENTATION NOTE: This scaling is only needed for the vector quantities,
+        # that is, not for the stabilization and div_u terms. The latter are computed
+        # cell-wise rather than face-wise, and will only discretized once, even for
+        # cells next to subdomain boundaries.
         num_face_repetitions_vector = np.tile(
             np.bincount(np.concatenate(faces_in_subgrid_accum)), (nd, 1)
         ).ravel("F")
@@ -604,8 +601,8 @@ class Biot(pp.Mpsa):
             face_map_vec * active_bound_displacement_face * face_map_vec.transpose()
         )
 
+        # Update coupling terms, stored as dictionaries
         grad_p, div_u, bound_div_u, stabilization = {}, {}, {}, {}
-
         for key in coupling_keywords:
             grad_p[key] = face_map_vec * active_grad_p[key] * cell_map_scalar
             div_u[key] = (
@@ -809,8 +806,7 @@ class Biot(pp.Mpsa):
                 raise NotImplementedError("This should be deprecated")
             else:
                 # otherwise, we map it to faces
-                for key in alpha:
-                    grad_p[key] = hf2f * (hook * igrad * rhs_jumps + grad_p_face)
+                grad_p[key] = hf2f * (hook * igrad * rhs_jumps + grad_p_face)
 
             # consistency term for the flow equation
             stabilization[key] = div * igrad * rhs_jumps
@@ -849,8 +845,6 @@ class Biot(pp.Mpsa):
             disp_pressure,
         )
 
-        # Add discretizations to data
-
     def _create_rhs_grad_p(
         self,
         sd: pp.Grid,
@@ -858,65 +852,50 @@ class Biot(pp.Mpsa):
         alpha: pp.SecondOrderTensor,
         bound_exclusion: pp.fvutils.ExcludeBoundaries,
     ) -> tuple[sps.spmatrix, sps.spmatrix]:
-        """
-        Consistent discretization of grad_p-term in MPSA-W method.
+        """Consistent discretization of grad_p-term in MPSA-W method.
 
         Parameters:
             sd: grid to be discretized.
             subcell_topology: Wrapper class for numbering of subcell faces, cells
                 etc.
-            alpha: Biot's coupling coefficient, given as a scalar in input
+            alpha: Biot's coupling coefficient, given as a tensor.
             bound_exclusion: Object that can eliminate faces related to boundary
                 conditions.
 
         Returns:
-            scipy.sparse.csr_matrix (shape num_subcells * dim, num_cells):
-            discretization of the jumps in [n alpha p] term,
-            ready to be multiplied with inverse gradient
-            scipy.sparse.csr_matrix (shape num_subfaces * dim, num_cells):
+            scipy.sparse.csr_matrix ``shape: (num_subcells * dim, num_cells)``:
+                discretization of the jumps in [n alpha p] term, ready to be multiplied
+                with inverse gradient
+            scipy.sparse.csr_matrix, ``shape (num_subfaces * dim, num_cells)``:
                 discretization of the force on the face due to cell-centre
                 pressure from a unique side.
 
         """
-        """
-        Method properties and implementation details.
-        Basis functions, namely 'stress' and 'bound_stress', for the displacement
-        discretization are obtained as in standard MPSA-W method.
-        Pressure is represented as forces in the cells.
-        However, jumps in pressure forces over a cell face act as force
-        imbalance, and thus induce additional displacement gradients in the sub-cells.
-        An additional system is set up, which applies non-zero conditions to the
-        traction continuity equation. This can be expressed as a linear system on the form
-
-            (i)   A * grad_u            = I
-            (ii)  B * grad_u + C * u_cc = 0
-            (iii) 0            D * u_cc = 0
-
-        Thus (i)-(iii) can be inverted to express the additional displacement gradients
-        due to imbalance in pressure forces as in terms of the cell center variables.
-        Thus we can compute the basis functions 'grad_p_jumps' on the sub-cells.
-        To ensure traction continuity, as soon as a convention is chosen for what side
-        the force evaluation should be considered on, an additional term, called
-        'grad_p_face', is added to the full force. This latter term represents the force
-        due to cell-center pressure acting on the face from the chosen side.
-        The pair subfno_unique-unique_subfno gives the side convention.
-        The full force on the face is therefore given by
-
-        t = stress * u + bound_stress * u_b + alpha * (grad_p_jumps + grad_p_face) * p
-
-        The strategy is as follows.
-        1. compute product normal_vector * alpha and get a map for vector problems
-        2. assemble r.h.s. for the new linear system, needed for the term 'grad_p_jumps'
-        3. compute term 'grad_p_face'
-        """
-
+        # Background/motivation: In the extension of MPSA from pure elasticity to
+        # poroelasticity (or thermoelasticity etc.), the consistent discretization of
+        # the pressure force, represented as ``alpha p`` where ``alpha`` is a 2-tensor
+        # consists of two terms (to see this, see sections 3 and 4 in Nordbotten 2016 -
+        # but be aware a careful read will be needed): First, the pressure force is
+        # computed on a face as ``n\dot (alpha p)`` where n is the normal vector; this
+        # is the variable grad_p_face below. Second, imbalances in the pressure force
+        # between neighboring cells give rise to local mechanical deformation, which
+        # again induce stresses; this is variable rhs_jumps below.  The discretization
+        # of the first of these terms is computed in this helper method, while for the
+        # second, we construct a rhs-matrix (in the parlance of the Mpsa implementation)
+        # that will be multiplied with the inverse deformation gradient elsewhere.
+        #
+        # The implementation is divided into three main steps:
+        # 1. compute product normal_vector * alpha and get a map for vector problems
+        # 2. assemble r.h.s. for the new linear system, needed for the term
+        #    'rhs_jumps'
+        # 3. compute term 'grad_p_face'
+        
+        # Step 1: Compute normal vectors * alpha
         nd = sd.dim
-
         num_subhfno = subcell_topology.subhfno.size
         num_subfno_unique = subcell_topology.num_subfno_unique
         num_subfno = subcell_topology.num_subfno
 
-        # Step 1
         if nd == 2:
             # For 2d, we need to remove the z-component of alpha to ensure that the
             # tensor has as many components as there are spatial dimensions. Do this on
@@ -925,117 +904,87 @@ class Biot(pp.Mpsa):
             alpha.values = np.delete(alpha.values, (2), axis=0)
             alpha.values = np.delete(alpha.values, (2), axis=1)
 
-        # Obtain normal_vector * alpha, pairings of cells and nodes (which together
-        # uniquely define sub-cells, and thus index for gradients)
+        # Obtain normal_vector * alpha. nAlpha_grad will have separate rows for each
+        # sub-halfface, that is, the right and left side of an internal face will be
+        # assigned separate rows.
         (
             nAlpha_grad,
             cell_node_blocks,
             sub_cell_index,
         ) = pp.fvutils.scalar_tensor_vector_prod(sd, alpha, subcell_topology)
-        # transfer nAlpha to a subface-based quantity by pairing expressions on the
-        # two sides of the subface
+        # Transfer nAlpha to a subface-based quantity by pairing expressions on the two
+        # sides of the subface. That is, for internal faces, the elements corresponding
+        # to the left and right side of the face will be put on the same row.
         unique_nAlpha_grad = subcell_topology.pair_over_subfaces(nAlpha_grad)
 
-        # convenience method for reshaping nAlpha from face-based
-        # to component-based. This is to build a block diagonal sparse matrix
-        # compatible with igrad * rhs_units, that is first all x-component, then y, and z
-
-        def map_tensor(mat, nd, ind):
-            newmat = mat[:, ind[0]]
-
-            for i in range(1, nd):
-                this_dim = mat[:, ind[i]]
-                newmat = sps.block_diag([newmat, this_dim])
-
-            return newmat
+        def component_wise_ordering(mat: sps.spmatrix, nd: int, ind: np.ndarray) -> sps.spmatrix:
+            # Convenience method for reshaping nAlpha from face-based to
+            # component-based. This is to build a block diagonal sparse matrix
+            # compatible with igrad * rhs_units, that is first all x-component, then y,
+            # and z
+            return sps.block_diag([mat[:, ind[i]] for i in range(nd)], format='csr')
 
         # Reshape nAlpha component-wise
-        nAlpha_grad = map_tensor(nAlpha_grad, nd, sub_cell_index)
-        unique_nAlpha_grad = map_tensor(unique_nAlpha_grad, nd, sub_cell_index)
+        nAlpha_grad = component_wise_ordering(nAlpha_grad, nd, sub_cell_index)
+        unique_nAlpha_grad = component_wise_ordering(unique_nAlpha_grad, nd, sub_cell_index)
 
-        # Step 2
+        # Step 2: Compute rhs_jumps. This term represents the force imbalance caused by
+        # the cell center pressures in the adjacent cells. The goal of the next lines is
+        # to construct a right-hand side term that can be multiplied with the inverse
+        # gradient (elsewhere) to obtain the mechanical deformation. The imbalance is
+        # calculated from the terms unique_nAlpha_grad, which gives a pressure force on
+        # the subfaces as a function of cell center pressures. To be compatible with the
+        # wider discretization approach, unique_nAlpha_grad must 1) be reordered to
+        # match the ordering of the local equations, and 2) be multiplied with a
+        # mapping from cell center pressures to subface forces.
 
-        # The pressure term in the traction continuity equation is discretized
-        # as a force on the faces. The right-hand side is thus formed of the
-        # unit vector.
+        # Construct a mapping from the ordering of unique_nAlpha_grad to the ordering of
+        # the local equations. To that end, recall the ordering of the local equations
+        # (see self._local_discretization()):
+        # i) stress equilibrium for the internal subfaces.
+        # ii) the stress equilibrium for the Neumann subfaces.
+        # iii) the Robin subfaces.
+        # iv) the displacement continuity on both internal and external subfaces.
 
-        def build_rhs_units_single_dimension(dim):
-            # EK: Can we skip argument dim?
-            vals = np.ones(num_subfno_unique)
-            ind = subcell_topology.subfno_unique
-            mat = sps.coo_matrix(
-                (vals, (ind, ind)), shape=(num_subfno_unique, num_subfno_unique)
-            )
-            return mat
+        # Construct a diagonal matrix with the same number of rows as
+        # unique_nAlpha_grad. We will pick out rows corresponding to faces in the
+        # interior, and various types of boundary conditions, and construct the
+        # requested mapping.
+        sz = nd * num_subfno_unique
+        rhs_units = sps.dia_matrix((np.ones(sz), 0), shape=(sz,sz))
 
-        rhs_units = build_rhs_units_single_dimension(0)
-
-        for i in range(1, nd):
-            this_dim = build_rhs_units_single_dimension(i)
-            rhs_units = sps.block_diag([rhs_units, this_dim])
-
-        # We get the sign of the subfaces. This will be needed for the boundary
-        # faces if the normal vector points inn. This is because boundary
-        # conditions always are set as if the normals point out.
-        sgn = sd.cell_faces[
-            subcell_topology.fno_unique, subcell_topology.cno_unique
-        ].A.ravel("F")
-        # NOTE: For some reason one should not multiply with the sign, but I don't
-        # understand why. It should not matter much for the Biot alpha term since
-        # by construction the biot_alpha_jumps and biot_alpha_force will cancel for
-        # Neumann boundaries. We keep the sign matrix as an Identity matrix to remember
-        # where it should be multiplied:
-        sgn_nd = np.tile(np.abs(sgn), (sd.dim, 1))
-
-        # In the local systems the coordinates are C ordered (first all x, then all y,
-        # etc.), while they are ordered as F (first x,y,z of subface 1 then x,y,z of
-        # subface 2) elsewhere. If there is a problem with the stabilization or the
-        # boundary, this might be the place to start debugging. The fno_unique
-        # and cno_unique is chosen such that the face normal of fno points out of cno
-        # for internal faces, thus, sgn_diag_F/C will only flip the sign at the boundary.
-        sgn_diag_F = sps.diags(sgn_nd.ravel("F"))
-        sgn_diag_C = sps.diags(sgn_nd.ravel("C"))
-
-        # Recall the ordering of the local equations:
-        # First stress equilibrium for the internal subfaces.
-        # Then the stress equilibrium for the Neumann subfaces.
-        # Then the Robin subfaces.
-        # And last, the displacement continuity on both internal and external subfaces.
+        # Divide into internal and external faces. On internal faces there is no need to
+        # account for the sign of the normal vector - this is encoded in nAlpha_grad.
         rhs_int = bound_exclusion.exclude_boundary(rhs_units)
-        rhs_neu = bound_exclusion.keep_neumann(sgn_diag_C * rhs_units)
-        rhs_rob = bound_exclusion.keep_robin(sgn_diag_C * rhs_units)
+        rhs_neu = bound_exclusion.keep_neumann(rhs_units)
+        rhs_rob = bound_exclusion.keep_robin(rhs_units)
 
         num_dir_subface = (
             bound_exclusion.exclude_neu_rob.shape[1]
             - bound_exclusion.exclude_neu_rob.shape[0]
         )
-
         # No right-hand side for cell displacement equations.
-        rhs_units_displ_var = sps.coo_matrix(
+        rhs_units_displ_var = sps.csr_matrix(
             (nd * num_subfno - num_dir_subface, num_subfno_unique * nd)
         )
 
-        # We get a plus because the -n * I * alpha * p term is moved over to the rhs
-        # in the local systems
-        rhs_units = sps.vstack([rhs_int, rhs_neu, rhs_rob, rhs_units_displ_var])
+        # The row mapping
+        row_mapping = sps.vstack([rhs_int, rhs_neu, rhs_rob, rhs_units_displ_var])
 
-        del rhs_units_displ_var
-
-        # Output should be on cell-level (not sub-cell)
+        # Mapping from scalar cell values (e.g., the pressure as a potential) to subcell
+        # vector quantities (pressure as a force on subcells).
         sc2c = pp.fvutils.cell_scalar_to_subcell_vector(
             sd.dim, sub_cell_index, cell_node_blocks[0]
         )
+        # The representation of unique_nAlpha_grad, ready to be multiplied with the
+        # inverse gradient.
+        rhs_jumps = row_mapping * unique_nAlpha_grad * sc2c
 
-        # prepare for computation of imbalance coefficients,
-        # that is jumps in cell-centers pressures, ready to be
-        # multiplied with inverse gradients
-        rhs_jumps = rhs_units * unique_nAlpha_grad * sc2c
-
-        # Step 3
-
-        # mapping from subface to unique subface for vector problems.
-        # This mapping gives the convention from which side
-        # the force should be evaluated on.
+        # Step 3: Compute grad_p_face. This term represents the force on the face due to
+        # cell-centre pressure from a unique side. To that end, construct a mapping that
+        # keeps all boundary faces, but only one side of the internal faces. Note that
+        # this mapping acts on nAlpha_grad, not unique_nAlpha_grad, that is a row
+        # contains only the force on one side of the face.
         vals = np.ones(num_subfno_unique * nd)
         rows = pp.fvutils.expand_indices_nd(subcell_topology.subfno_unique, nd)
         cols = pp.fvutils.expand_indices_incr(
@@ -1043,13 +992,10 @@ class Biot(pp.Mpsa):
         )
         map_unique_subfno = sps.coo_matrix(
             (vals, (rows, cols)), shape=(num_subfno_unique * nd, num_subhfno * nd)
-        )
-
-        del vals, rows, cols
+        ).tocsr()
 
         # Prepare for computation of -grad_p_face term
-        # Note that sgn_diag_F might only flip the boundary signs. See comment above.
-        grad_p_face = -sgn_diag_F * map_unique_subfno * nAlpha_grad * sc2c
+        grad_p_face = - map_unique_subfno * nAlpha_grad * sc2c
 
         return rhs_jumps, grad_p_face
 
