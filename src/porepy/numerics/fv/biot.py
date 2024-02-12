@@ -1102,54 +1102,6 @@ class Biot(pp.Mpsa):
         div = div_op * vector_2_scalar
         return div
 
-    # ----------------------- Methods for post processing -------------------------
-
-    def compute_flux(self, sd: pp.Grid, u: np.ndarray, sd_data: dict) -> np.ndarray:
-        """Compute flux field corresponding to a solution.
-
-        Parameters:
-            sd: Grid, or a subclass.
-            u: Solution variable, representing displacements and
-                pressure.
-            sd_data: Dictionary related to grid and problem. Should
-                contain boundary discretization.
-
-        Returns:
-            np.ndarray: Fluxes over all faces.
-
-        """
-        flux_discr = sd_data[pp.DISCRETIZATION_MATRICES][self.flow_keyword]["flux"]
-        bound_flux = sd_data[pp.DISCRETIZATION_MATRICES][self.flow_keyword][
-            "bound_flux"
-        ]
-        bound_val = sd_data[pp.PARAMETERS][self.flow_keyword]["bc_values"]
-        p = u[sd.dim * sd.num_cells :]
-        flux = flux_discr * p + bound_flux * bound_val
-        return flux
-
-    def compute_stress(self, sd: pp.Grid, u: np.ndarray, sd_data: dict) -> np.ndarray:
-        """Compute stress field corresponding to a solution.
-
-        Parameters:
-            sd: grid, or a subclass.
-            u: Solution variable, representing displacements and pressure.
-            sd_data: dictionary related to grid and problem. Should contain boundary
-                discretization.
-
-        Returns:
-            np.ndarray, sd.dim * sd.num_faces: Stress over all faces. Stored as
-                all stress values on the first face, then the second etc.
-
-        """
-        matrix_dictionary = sd_data[pp.DISCRETIZATION_MATRICES][self.keyword]
-        stress_discr = matrix_dictionary["stress"]
-        bound_stress = matrix_dictionary["bound_stress"]
-        bound_val = sd_data[pp.PARAMETERS][self.keyword]["bc_values"]
-        d = u[: sd.dim * sd.num_cells]
-
-        stress = stress_discr * d + (bound_stress * bound_val)
-        return stress
-
 
 class GradP(Discretization):
     """Class for the pressure gradient term of the Biot equation."""
