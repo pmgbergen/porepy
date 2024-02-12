@@ -614,14 +614,14 @@ def invert_diagonal_blocks(
             l_col = cols[idx_nnz[ib] : idx_nnz[ib + 1]] - idx_shift
             l_dat = data[idx_nnz[ib] : idx_nnz[ib + 1]]  # (time ok)
             dense_block[l_row, l_col] = l_dat
-            v_range = np.arange(idx_inv_blocks[ib], idx_inv_blocks[ib + 1])
-            lv = np.ravel(np.linalg.inv(dense_block))
-            v[v_range] = lv
+            lv = np.linalg.inv(dense_block).flat
+            v[idx_inv_blocks[ib] : idx_inv_blocks[ib + 1]] = lv
 
         # np.fromiter
         np.fromiter(map(operate_on_block, range(size.size)), dtype=np.ndarray)
         return v
 
+    # @profile
     def invert_diagonal_blocks_numba(a: sps.csr_matrix, size: np.ndarray) -> np.ndarray:
         """
         Invert block diagonal matrix by invoking numba acceleration of a simple
@@ -883,11 +883,10 @@ def block_diag_index(
         i = np.zeros(idx_inv_blocks[-1], dtype=np.int32)
 
         def retireve_indices(ib):
-            i[idx_inv_blocks[ib] : idx_inv_blocks[ib + 1]] = (
-                np.tile(  # type: ignore[call-overload]
-                    np.arange(idx_blocks[ib], idx_blocks[ib + 1]), n[ib + 1]
-                ).astype(np.int32)
-            )
+            i_range = np.arange(idx_blocks[ib], idx_blocks[ib + 1])
+            i[idx_inv_blocks[ib] : idx_inv_blocks[ib + 1]] = np.broadcast_to(
+                i_range, (n[ib + 1], n[ib + 1])
+            ).flat
 
         np.fromiter(map(retireve_indices, range(n.size - 1)), dtype=np.ndarray)
         return i
