@@ -656,16 +656,16 @@ def invert_diagonal_blocks(
 
             # Construction of low complexity data
             # Indices for block positions, ravelled inverse block positions and nonzeros
-            idx_blocks = np.cumsum(sz).astype(np.int32)
-            idx_inv_blocks = np.cumsum(np.square(sz)).astype(np.int32)
-            idx_nnz = np.searchsorted(indices, idx_blocks).astype(np.int32)
+            idx_blocks = np.cumsum(sz)
+            idx_inv_blocks = np.cumsum(np.square(sz))
+            idx_nnz = np.searchsorted(indices, idx_blocks)
 
             # Retrieve global indices
             if is_csr_q:
-                cols = indices.astype(np.int32)
+                cols = indices
                 row_reps = indptr[1 : indptr.size] - indptr[0 : indptr.size - 1]
             else:
-                rows = indices.astype(np.int32)
+                rows = indices
                 col_reps = indptr[1 : indptr.size] - indptr[0 : indptr.size - 1]
 
             # ravelled values of the inverse
@@ -677,16 +677,16 @@ def invert_diagonal_blocks(
                 idx_block = idx_blocks[np.array([ib, ib + 1])]
                 if is_csr_q:
                     l_row = np.repeat(
-                        np.arange(idx_block[0], idx_block[1], dtype=np.int32),
+                        np.arange(idx_block[0], idx_block[1]),
                         row_reps[idx_block[0] : idx_block[1]],
-                    ).astype(np.int32)
+                    )
                     l_col = cols[idx_nnz[ib] : idx_nnz[ib + 1]]
                 else:
                     l_row = rows[idx_nnz[ib] : idx_nnz[ib + 1]]
                     l_col = np.repeat(
-                        np.arange(idx_block[0], idx_block[1], dtype=np.int32),
+                        np.arange(idx_block[0], idx_block[1]),
                         col_reps[idx_block[0] : idx_block[1]],
-                    ).astype(np.int32)
+                    )
 
                 l_dat = data[idx_nnz[ib] : idx_nnz[ib + 1]]
                 for i in range(len(l_dat)):
