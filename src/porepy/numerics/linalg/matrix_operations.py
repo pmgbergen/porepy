@@ -608,14 +608,17 @@ def invert_diagonal_blocks(
 
             """
 
-            dense_block = np.zeros((size[ib], size[ib]))
+            flat_block = v[idx_inv_blocks[ib] : idx_inv_blocks[ib + 1]]
             idx_shift = idx_blocks[ib]  # (time ok)
             l_row = rows[idx_nnz[ib] : idx_nnz[ib + 1]] - idx_shift
             l_col = cols[idx_nnz[ib] : idx_nnz[ib + 1]] - idx_shift
             l_dat = data[idx_nnz[ib] : idx_nnz[ib + 1]]  # (time ok)
-            dense_block[l_row, l_col] = l_dat
-            lv = np.linalg.inv(dense_block).flat
-            v[idx_inv_blocks[ib] : idx_inv_blocks[ib + 1]] = lv
+            sequence_ij = l_row * size[ib] + l_col
+            flat_block[sequence_ij] = l_dat
+            dense_block = np.reshape(flat_block, (size[ib], size[ib]))
+            v[idx_inv_blocks[ib] : idx_inv_blocks[ib + 1]] = np.linalg.inv(
+                dense_block
+            ).flat
 
         # np.fromiter
         np.fromiter(map(operate_on_block, range(size.size)), dtype=np.ndarray)
@@ -672,27 +675,34 @@ def invert_diagonal_blocks(
             v = np.zeros(idx_inv_blocks[-1])
 
             for ib in prange(sz.size - 1):
-                dense_block = np.zeros((sz[ib + 1], sz[ib + 1]))
+                flat_block = v[idx_inv_blocks[ib] : idx_inv_blocks[ib + 1]]
                 idx_shift = idx_blocks[ib]
                 idx_block = idx_blocks[np.array([ib, ib + 1])]
                 if is_csr_q:
-                    l_row = np.repeat(
-                        np.arange(idx_block[0], idx_block[1]),
-                        row_reps[idx_block[0] : idx_block[1]],
-                    ).astype(np.int32)
-                    l_col = cols[idx_nnz[ib] : idx_nnz[ib + 1]]
+                    l_row = (
+                        np.repeat(
+                            np.arange(idx_block[0], idx_block[1]),
+                            row_reps[idx_block[0] : idx_block[1]],
+                        ).astype(np.int32)
+                        - idx_shift
+                    )
+                    l_col = cols[idx_nnz[ib] : idx_nnz[ib + 1]] - idx_shift
                 else:
-                    l_row = rows[idx_nnz[ib] : idx_nnz[ib + 1]]
-                    l_col = np.repeat(
-                        np.arange(idx_block[0], idx_block[1]),
-                        col_reps[idx_block[0] : idx_block[1]],
-                    ).astype(np.int32)
-
+                    l_row = rows[idx_nnz[ib] : idx_nnz[ib + 1]] - idx_shift
+                    l_col = (
+                        np.repeat(
+                            np.arange(idx_block[0], idx_block[1]),
+                            col_reps[idx_block[0] : idx_block[1]],
+                        ).astype(np.int32)
+                        - idx_shift
+                    )
                 l_dat = data[idx_nnz[ib] : idx_nnz[ib + 1]]
-                for i in range(len(l_dat)):
-                    dense_block[l_row[i] - idx_shift, l_col[i] - idx_shift] = l_dat[i]
-                lv = np.ravel(np.linalg.inv(dense_block))
-                v[idx_inv_blocks[ib] : idx_inv_blocks[ib + 1]] = lv
+                sequence_ij = l_row * sz[ib + 1] + l_col
+                flat_block[sequence_ij] = l_dat
+                dense_block = np.reshape(flat_block, (sz[ib + 1], sz[ib + 1]))
+                v[idx_inv_blocks[ib] : idx_inv_blocks[ib + 1]] = np.ravel(
+                    np.linalg.inv(dense_block)
+                )
             return v
 
         v = inv_compiled_function(is_csr_q, data, indices, indptr, sz)
@@ -879,13 +889,13 @@ def block_diag_index(
         n = np.insert(m, 0, 0).astype(np.int32)
         idx_blocks = np.cumsum(n, dtype=np.int32)
         idx_inv_blocks = np.cumsum(np.square(n), dtype=np.int32)
-        i = np.zeros(idx_inv_blocks[-1], dtype=np.int32)
+        i = np.zeros(idx_inv_blocks[-1], dtype=np.int32, order="C")
 
         def retireve_indices(ib):
             i_range = np.arange(idx_blocks[ib], idx_blocks[ib + 1])
-            i[idx_inv_blocks[ib] : idx_inv_blocks[ib + 1]] = np.broadcast_to(
-                i_range, (n[ib + 1], n[ib + 1])
-            ).flat
+            i_val = np.empty((n[ib + 1], *i_range.shape), i_range.dtype)
+            np.copyto(i_val, i_range)
+            i[idx_inv_blocks[ib] : idx_inv_blocks[ib + 1]] = i_val.flat
 
         np.fromiter(map(retireve_indices, range(n.size - 1)), dtype=np.ndarray)
         return i
