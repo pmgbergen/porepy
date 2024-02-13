@@ -970,7 +970,7 @@ class ExcludeBoundaries:
             col = np.tile(np.arange(self.num_subfno * self.nd), (1, self.nd)).ravel()
 
             return sps.coo_matrix(
-                (data, (row, col)),
+                (data, (row.astype(np.int32), col.astype(np.int32))),
                 shape=(self.num_subfno * self.nd, self.num_subfno * self.nd),
             ).tocsr()
         else:
@@ -987,29 +987,28 @@ class ExcludeBoundaries:
             [[0, 1, 0, 0],
               [0, 0, 0, 1]]
         """
-        col = np.argwhere(np.logical_not(ids))
-        row = np.arange(col.size)
+        col = np.argwhere(np.logical_not(ids)).astype(np.int32)
+        row = np.arange(col.size).astype(np.int32)
         return sps.coo_matrix(
             (np.ones(row.size, dtype=bool), (row, col.ravel("C"))),
             shape=(row.size, self.num_subfno),
         ).tocsr()
 
     def _exclude_matrix_xyz(self, ids):
-        col_x = np.argwhere([not it for it in ids[0]])
-
-        col_y = np.argwhere([not it for it in ids[1]])
+        col_x = np.flatnonzero(np.logical_not(ids[0]))
+        col_y = np.flatnonzero(np.logical_not(ids[1]))
         col_y += self.num_subfno
 
         col_neu = np.append(col_x, [col_y])
 
         if self.nd == 3:
-            col_z = np.argwhere([not it for it in ids[2]])
+            col_z = np.flatnonzero(np.logical_not(ids[2]))
             col_z += 2 * self.num_subfno
             col_neu = np.append(col_neu, [col_z])
 
-        row_neu = np.arange(col_neu.size)
+        row_neu = np.arange(col_neu.size,dtype=np.int32)
         exclude_nd = sps.coo_matrix(
-            (np.ones(row_neu.size), (row_neu, col_neu.ravel("C"))),
+            (np.ones(row_neu.size), (row_neu, col_neu.ravel("C").astype(np.int32))),
             shape=(row_neu.size, self.nd * self.num_subfno),
         ).tocsr()
 
