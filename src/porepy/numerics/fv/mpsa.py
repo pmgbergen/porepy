@@ -1492,7 +1492,6 @@ class Mpsa(Discretization):
         casym -= csym
         return csym, casym
 
-    # @profile
     def _tensor_vector_prod(
         self,
         sd: pp.Grid,

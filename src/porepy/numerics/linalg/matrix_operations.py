@@ -621,7 +621,6 @@ def invert_diagonal_blocks(
         np.fromiter(map(operate_on_block, range(size.size)), dtype=np.ndarray)
         return v
 
-    # @profile
     def invert_diagonal_blocks_numba(a: sps.csr_matrix, size: np.ndarray) -> np.ndarray:
         """
         Invert block diagonal matrix by invoking numba acceleration of a simple

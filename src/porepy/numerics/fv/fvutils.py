@@ -1006,7 +1006,7 @@ class ExcludeBoundaries:
             col_z += 2 * self.num_subfno
             col_neu = np.append(col_neu, [col_z])
 
-        row_neu = np.arange(col_neu.size,dtype=np.int32)
+        row_neu = np.arange(col_neu.size, dtype=np.int32)
         exclude_nd = sps.coo_matrix(
             (np.ones(row_neu.size), (row_neu, col_neu.ravel("C").astype(np.int32))),
             shape=(row_neu.size, self.nd * self.num_subfno),
