@@ -679,14 +679,14 @@ def invert_diagonal_blocks(
                     l_row = np.repeat(
                         np.arange(idx_block[0], idx_block[1]),
                         row_reps[idx_block[0] : idx_block[1]],
-                    )
+                    ).astype(np.int32)
                     l_col = cols[idx_nnz[ib] : idx_nnz[ib + 1]]
                 else:
                     l_row = rows[idx_nnz[ib] : idx_nnz[ib + 1]]
                     l_col = np.repeat(
                         np.arange(idx_block[0], idx_block[1]),
                         col_reps[idx_block[0] : idx_block[1]],
-                    )
+                    ).astype(np.int32)
 
                 l_dat = data[idx_nnz[ib] : idx_nnz[ib + 1]]
                 for i in range(len(l_dat)):
