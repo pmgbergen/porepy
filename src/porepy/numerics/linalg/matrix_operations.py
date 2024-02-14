@@ -566,25 +566,25 @@ def invert_diagonal_blocks(
 
         Parameters
         ----------
-        a : block diagonal sparse matrix
+        a : Block diagonal sparse matrix
         size : Size of individual blocks
 
         Returns
         -------
-        inv_a inverse matrix
+        inv_a: Flattened nonzero values of the inverse matrix
         """
 
         # This function only supports CSR anc CSC format.
         if not (sps.isspmatrix_csr(a) or sps.isspmatrix_csc(a)):
             raise TypeError("Sparse array type not implemented: ", type(a))
 
-        # Construction of low complexity data
-        # Indices for block positions, ravelled inverse block positions and nonzeros
+        # Construction of simple data structures (low complexity)
+        # Indices for block positions, flattened inverse block positions and nonzeros
         idx_blocks = np.cumsum([0] + list(size))
         idx_inv_blocks = np.cumsum([0] + list(size * size))
         idx_nnz = np.searchsorted(a.indices, idx_blocks)
 
-        # Retrieve global indices
+        # Retrieve global indices (low complexity)
         if sps.isspmatrix_csr(a):
             cols = a.indices
             row_reps = a.indptr[1 : a.indptr.size] - a.indptr[0 : a.indptr.size - 1]
@@ -597,8 +597,8 @@ def invert_diagonal_blocks(
         # Nonzero entries
         data = a.data
 
-        # ravelled values of the inverse
-        v = np.zeros(idx_inv_blocks[-1])
+        # flattened nonzero values of the dense inverse
+        inv_a = np.zeros(idx_inv_blocks[-1])
 
         def operate_on_block(ib: int):
             """
@@ -608,35 +608,35 @@ def invert_diagonal_blocks(
 
             """
 
-            flat_block = v[idx_inv_blocks[ib] : idx_inv_blocks[ib + 1]]
-            idx_shift = idx_blocks[ib]  # (time ok)
+            flat_block = inv_a[idx_inv_blocks[ib] : idx_inv_blocks[ib + 1]]
+            idx_shift = idx_blocks[ib]
             l_row = rows[idx_nnz[ib] : idx_nnz[ib + 1]] - idx_shift
             l_col = cols[idx_nnz[ib] : idx_nnz[ib + 1]] - idx_shift
-            l_dat = data[idx_nnz[ib] : idx_nnz[ib + 1]]  # (time ok)
+            l_dat = data[idx_nnz[ib] : idx_nnz[ib + 1]]
             sequence_ij = l_row * size[ib] + l_col
             flat_block[sequence_ij] = l_dat
             dense_block = np.reshape(flat_block, (size[ib], size[ib]))
-            v[idx_inv_blocks[ib] : idx_inv_blocks[ib + 1]] = np.linalg.inv(
+            inv_a[idx_inv_blocks[ib] : idx_inv_blocks[ib + 1]] = np.linalg.inv(
                 dense_block
             ).flat
 
-        # np.fromiter
+        # Trigger computations from np.fromiter
         np.fromiter(map(operate_on_block, range(size.size)), dtype=np.ndarray)
-        return v
+        return inv_a
 
     def invert_diagonal_blocks_numba(a: sps.csr_matrix, size: np.ndarray) -> np.ndarray:
         """
-        Invert block diagonal matrix by invoking numba acceleration of a simple
-        for-loop based algorithm.
+        Invert block diagonal matrix by invoking numba prange. of a simple
+        This can be seen as the parallel function fo the python inverter.
 
         Parameters
         ----------
-        a : block diagonal sparse matrix
+        a : Block diagonal sparse matrix
         size : Size of individual blocks
 
         Returns
         -------
-        ia: inverse of a
+        inv_a: Flattened nonzero values of the inverse matrix
         """
 
         # This function only supports CSR anc CSC format.
@@ -648,6 +648,8 @@ def invert_diagonal_blocks(
         data = a.data
         indices = a.indices
         indptr = a.indptr
+
+        # Extended block sizes structure
         sz = np.insert(size, 0, 0).astype(np.int32)
 
         @njit(
@@ -657,13 +659,13 @@ def invert_diagonal_blocks(
         )
         def inv_compiled_function(is_csr_q, data, indices, indptr, sz):
 
-            # Construction of low complexity data
-            # Indices for block positions, ravelled inverse block positions and nonzeros
+            # Construction of simple data structures (low complexity)
+            # Indices for block positions, flattened inverse block positions and nonzeros
             idx_blocks = np.cumsum(sz)
             idx_inv_blocks = np.cumsum(np.square(sz))
             idx_nnz = np.searchsorted(indices, idx_blocks)
 
-            # Retrieve global indices
+            # Retrieve global indices (low complexity)
             if is_csr_q:
                 cols = indices
                 row_reps = indptr[1 : indptr.size] - indptr[0 : indptr.size - 1]
@@ -671,7 +673,8 @@ def invert_diagonal_blocks(
                 rows = indices
                 col_reps = indptr[1 : indptr.size] - indptr[0 : indptr.size - 1]
 
-            # ravelled values of the inverse
+            # flattened nonzero values of the dense inverse (low complexity)
+            # Numba np.zeros support ensures v is a contiguous array (C-contiguous)
             v = np.zeros(idx_inv_blocks[-1])
 
             for ib in prange(sz.size - 1):
@@ -705,8 +708,8 @@ def invert_diagonal_blocks(
                 )
             return v
 
-        v = inv_compiled_function(is_csr_q, data, indices, indptr, sz)
-        return v
+        inv_a = inv_compiled_function(is_csr_q, data, indices, indptr, sz)
+        return inv_a
 
     def invert_diagonal_blocks_numba_old(
         a: sps.csr_matrix, size: np.ndarray
@@ -722,7 +725,7 @@ def invert_diagonal_blocks(
 
         Returns
         -------
-        ia: inverse of a
+        inv_a: Flattened nonzero values of the inverse matrix
         """
 
         # This function only supports CSR format.
@@ -813,8 +816,8 @@ def invert_diagonal_blocks(
 
             return inv_vals
 
-        v = inv_python(ptr, indices, dat, size)
-        return v
+        inv_a = inv_python(ptr, indices, dat, size)
+        return inv_a
 
     # Remove blocks of size 0
     s = s[s > 0]
@@ -885,19 +888,26 @@ def block_diag_index(
         n - ndarray, dimension 1, defaults to m
 
     """
+    # Case for squared but irregular block sizes
     if n is None:
+        # Construction of auxiliary structures (low complexity)
         n = np.insert(m, 0, 0).astype(np.int32)
         idx_blocks = np.cumsum(n, dtype=np.int32)
         idx_inv_blocks = np.cumsum(np.square(n), dtype=np.int32)
         i = np.zeros(idx_inv_blocks[-1], dtype=np.int32, order="C")
 
-        def retireve_indices(ib):
+        def retrieve_indices(ib):
             i_range = np.arange(idx_blocks[ib], idx_blocks[ib + 1])
+            # this two step operations is one of the fastest way to:
+            # duplicate an array n-times and concatenate the duplicates in a flattened
+            # structure
             i_val = np.empty((n[ib + 1], *i_range.shape), i_range.dtype)
             np.copyto(i_val, i_range)
+            # Finally assign values
             i[idx_inv_blocks[ib] : idx_inv_blocks[ib + 1]] = i_val.flat
 
-        np.fromiter(map(retireve_indices, range(n.size - 1)), dtype=np.ndarray)
+        # Trigger computations from np.fromiter
+        np.fromiter(map(retrieve_indices, range(n.size - 1)), dtype=np.ndarray)
         return i
 
     start = np.hstack((np.zeros(1, dtype="int"), m))
