@@ -2312,7 +2312,7 @@ class ThermalExpansion:
         val = self.fluid.thermal_expansion()
         return Scalar(val, "fluid_thermal_expansion")
 
-    def solid_thermal_expansion(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+    def solid_thermal_expansion_coefficient(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Thermal expansion of the solid [1/K].
 
         Parameters:
@@ -2320,11 +2320,26 @@ class ThermalExpansion:
 
         Returns:
             Thermal expansion of the fluid, represented as an Ad operator. The value is
-            constant for all subdomains.
+                constant for all subdomains.
 
         """
         val = self.solid.thermal_expansion()
         return Scalar(val, "solid_thermal_expansion")
+
+    def solid_expansion_tensor(self, subdomains: pp.Grid) -> pp.SecondOrderTensor:
+        """Thermo-mechanical coupling tensor.
+
+        Parameters:
+            subdomains: Subdomains where the thermo-mechanical coupling tensor is
+                defined.
+
+        Returns:
+            Thermo-mechanical coupling tensor operator.
+
+        """
+        size = sum(sd.num_cells for sd in subdomains)
+        val = self.solid.thermal_expansion()
+        tensor = pp.SecondOrderTensor(val * np.ones(size))
 
 
 class ThermalConductivityLTE:
@@ -3662,22 +3677,20 @@ class ThermoPressureStress(PressureStress):
                 raise ValueError("Subdomains must be of dimension nd - 1.")
 
         discr = pp.ad.BiotAd(self.stress_keyword, subdomains)
+        # TODO: We need to check that these scalings are correct
         alpha = self.biot_coefficient(subdomains)
-        beta = self.solid_thermal_expansion(subdomains)
         k = self.bulk_modulus(subdomains)
 
         # Check that both are scalar. Else, the scaling may not be correct.
         assert isinstance(alpha, pp.ad.Scalar)
-        assert isinstance(beta, pp.ad.Scalar)
         # The thermal stress should be multiplied by beta and k. Divide by alpha to
         # cancel that factor from the discretization matrix.
         stress: pp.ad.Operator = (
-            beta
-            * k
+            k
             / alpha
             * (
-                discr.grad_p(self.pressure_variable) @ self.temperature(subdomains)
-                - discr.grad_p(self.pressure_variable) @ self.reference_temperature(subdomains)
+                discr.grad_p(self.temperature_variable) @ self.temperature(subdomains)
+                - discr.grad_p(self.temperature_variable) @ self.reference_temperature(subdomains)
             )
         )
         stress.set_name("thermal_stress")
@@ -4160,6 +4173,38 @@ class BiotCoefficient:
             self.solid.biot_coefficient(), size, name="biot_tensor"
         )
         return self.isotropic_second_order_tensor(subdomains, biot_tensor)
+
+class ThermoMechanicalCoupling:
+    """Class to set the thermo-mechanical coupling coefficient and tensor.
+    
+    @IS: The methods herein need to be essentially what they are, but naming, placement,
+    etc. etc. should be discussed and possibly changed.
+    """
+    def thermo_mechanical_coupling_coefficient(self, subdomains: pp.Grid) -> pp.ad.Operator:
+        """Thermo-mechanical coupling coefficient.
+
+        Parameters:
+            subdomains: List of subdomains where the thermo-mechanical coupling coefficient is defined.
+
+        Returns:
+            Thermo-mechanical coupling coefficient operator.
+
+        """
+        return Scalar(self.solid.thermal_expansion(), "thermal_expansion")
+
+    def thermo_mechanical_coupling_tensor(self, subdomains: pp.Grid) -> pp.SecondOrderTensor:
+        """Thermo-mechanical coupling tensor.
+
+        Parameters:
+            subdomains: List of subdomains where the thermo-mechanical coupling tensor is defined.
+
+        Returns:
+            Thermo-mechanical coupling tensor operator.
+
+        """
+        size = sum(sd.num_cells for sd in subdomains)
+        val = self.solid.thermal_expansion()
+        tensor = pp.SecondOrderTensor(val * np.ones(size))
 
 class SpecificStorage:
     """Specific storage."""

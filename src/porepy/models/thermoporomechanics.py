@@ -179,7 +179,7 @@ class SolutionStrategyThermoporomechanics(
                 data,
                 self.stress_keyword,
                 {
-                    "biot_alpha": self.solid.biot_coefficient(),  # TODO: Rename in Biot
+                    "scalar_vector_mappings": {self.temperature_variable(): self.solid_expansion_tensor([sd])}
                 },
             )
 
