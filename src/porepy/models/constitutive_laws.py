@@ -4120,7 +4120,7 @@ class FractureGap(BartonBandis, ShearDilation):
 
 
 class BiotCoefficient:
-    """Biot coefficient."""
+    """Biot coefficient and tensor."""
 
     solid: pp.SolidConstants
     """Solid constant object that takes care of scaling of solid-related quantities.
@@ -4141,6 +4141,25 @@ class BiotCoefficient:
         """
         return Scalar(self.solid.biot_coefficient(), "biot_coefficient")
 
+    def biot_tensor(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Biot tensor.
+
+        Parameters:
+            subdomains: List of subdomains where the Biot tensor is defined.
+
+        Returns:
+            Biot tensor operator.
+
+        Returns:
+            Cell-wise Biot isotropic tensor. The value is set equal to the Biot
+                coefficient in the solid constants.
+
+        """
+        size = sum(sd.num_cells for sd in subdomains)
+        biot_tensor = pp.wrap_as_dense_ad_array(
+            self.solid.biot_coefficient(), size, name="biot_tensor"
+        )
+        return self.isotropic_second_order_tensor(subdomains, biot_tensor)
 
 class SpecificStorage:
     """Specific storage."""
