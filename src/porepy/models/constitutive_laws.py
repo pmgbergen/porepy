@@ -818,9 +818,6 @@ class ConstantPermeability:
         Parameters:
             subdomains: Subdomains where the permeability is defined.
 
-        Raises:
-            ValueError: If more than one subdomain is provided.
-
         Returns:
             Cell-wise permeability tensor. The value is picked from the solid constants.
 
