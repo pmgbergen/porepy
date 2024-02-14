@@ -4411,9 +4411,11 @@ class PoroMechanicsPorosity:
             matrix porosity. Scaling with Biot's coefficient is already included.
 
         """
-        alpha = self.biot_coefficient(subdomains)
-        div_u = self.displacement_divergence(subdomains)
-        div_u_contribution = alpha * div_u
+        # Implementation note: Scaling of the displacement divergence with Biot's
+        # tensor (in the form of a double dot product) is already included in the
+        # discretization of the displacement divergence. Therefore, no additional
+        # scaling is needed here.
+        div_u_contribution = self.displacement_divergence(subdomains)
         div_u_contribution.set_name("Porosity change from displacement")
         return div_u_contribution
 
@@ -4423,8 +4425,9 @@ class PoroMechanicsPorosity:
     ) -> pp.ad.Operator:
         """Divergence of displacement [-].
 
-        This is div(u). Note that opposed to old implementation, the temporal is not
-        included here. Rather, it is handled by :meth:`pp.ad.dt`.
+        This is ``alpha : grad(u)`` where ``alpha`` is the Biot tensor and ``u`` is
+        the displacement. If the tensor is isotropic, the expression simplifies to
+        ``alpha * div(u)``, where ``alpha`` can be interpreted as a scalar.
 
         Parameters:
             subdomains: List of subdomains where the divergence is defined.
