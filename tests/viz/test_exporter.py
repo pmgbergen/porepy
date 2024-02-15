@@ -635,9 +635,7 @@ def test_rescaled_export(setup: ExporterTestSetup):
         model = TailoredThermoporomechanics(params=params)
         pp.run_time_dependent_model(model, {})
 
-    # units_scaled = pp.Units(m=3.14, kg=42.0, K=3.79)
-    # units_scaled = pp.Units(kg=20, K=100)
-    units_scaled = pp.Units(m=10)
+    units_scaled = pp.Units(m=3.14, kg=42.0, K=3.79)
     units_unscaled = pp.Units()
     scaled_prefix = "scaled"
     unscaled_prefix = "unscaled"
@@ -652,11 +650,10 @@ def test_rescaled_export(setup: ExporterTestSetup):
             continue
         file_name_unscaled = f"{unscaled_prefix}{file_name_scaled[6:]}"
         if file_name_scaled.endswith("vtu"):
-            # BUG: Thermal mortar variables are 10 times larger for the scaled model.
             assert compare_vtu_files(
                 test_file=folder_path / file_name_scaled,
                 reference_file=folder_path / file_name_unscaled,
             ), f"Files don't match: {file_name_scaled} and {file_name_unscaled}"
             num_vtk_tested += 1
 
-            assert num_vtk_tested > 0
+    assert num_vtk_tested > 0, 'No VTU files were tested.'
