@@ -564,17 +564,17 @@ class VariablesEnergyBalance:
         self.equation_system.create_variables(
             self.interface_fourier_flux_variable,
             interfaces=self.mdg.interfaces(codim=1),
-            tags={"si_units": f"W * m^{self.nd-3}"},
+            tags={"si_units": f"W * m^{self.nd - 3}"},
         )
         self.equation_system.create_variables(
             self.interface_enthalpy_flux_variable,
             interfaces=self.mdg.interfaces(codim=1),
-            tags={"si_units": f"W * m^{self.nd-3}"},
+            tags={"si_units": f"W * m^{self.nd - 3}"},
         )
         self.equation_system.create_variables(
             self.well_enthalpy_flux_variable,
             interfaces=self.mdg.interfaces(codim=2),
-            tags={"si_units": f"W * m^{self.nd-3}"},
+            tags={"si_units": f"W * m^{self.nd - 3}"},
         )
 
     def temperature(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
