@@ -162,14 +162,24 @@ class SolutionStrategyPoromechanics(
         super().set_discretization_parameters()
 
         for sd, data in self.mdg.subdomains(dim=self.nd, return_data=True):
-            pp.initialize_data(
-                sd,
-                data,
-                self.stress_keyword,
-                {
-                    "scalar_vector_mappings": {self.pressure_variable(): self.biot_tensor([sd])},
-                },
-            )
+            if self.stress_keyword in data[pp.PARAMETERS]:
+                # Set the Biot coefficient.
+                scalar_vector_mappings = data[pp.PARAMETERS][self.stress_keyword].get(
+                    "scalar_vector_mappings", {}
+                )
+                scalar_vector_mappings[self.pressure_variable] = self.biot_tensor([sd])
+                data[pp.PARAMETERS][self.stress_keyword][
+                    "scalar_vector_mappings"
+                ] = scalar_vector_mappings
+            else:
+                pp.initialize_data(
+                    sd,
+                    data,
+                    self.stress_keyword,
+                    {
+                        "scalar_vector_mappings": {self.pressure_variable: self.biot_tensor([sd])},
+                    },
+                )
 
     def _is_nonlinear_problem(self) -> bool:
         """The coupled problem is nonlinear."""
