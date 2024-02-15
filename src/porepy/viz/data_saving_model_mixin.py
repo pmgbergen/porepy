@@ -54,7 +54,9 @@ class DataSavingMixin:
         else:
             # If times are specified, export should only occur if the current time is in
             # the list of times to export.
-            do_export = np.any(np.isclose(self.time_manager.time, times_to_export))
+            do_export = bool(
+                np.any(np.isclose(self.time_manager.time, times_to_export))
+            )
 
         # The suppress_export property takes presedence over all other criteria, hence
         # check that last.
