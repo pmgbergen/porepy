@@ -1,4 +1,4 @@
-"""Coupling of mass and momentum balance to obtain poromechanics equations.
+r"""Coupling of mass and momentum balance to obtain poromechanics equations.
 
 The module only contains what is needed for the coupling, the two individual subproblems
 are defined elsewhere.
@@ -13,6 +13,7 @@ Suggested references (TODO: add more, e.g. Inga's in prep):
     - Garipov and Hui, 2019, https://doi.org/10.1016/j.ijrmms.2019.104075.
 
 """
+
 from __future__ import annotations
 
 from typing import Callable, Union
@@ -30,6 +31,7 @@ class ConstitutiveLawsPoromechanics(
     pp.constitutive_laws.PoroMechanicsPorosity,
     # Fluid mass balance subproblem
     pp.constitutive_laws.ZeroGravityForce,
+    pp.constitutive_laws.SecondOrderTensorUtils,
     pp.constitutive_laws.DarcysLaw,
     pp.constitutive_laws.DimensionReduction,
     pp.constitutive_laws.AdvectiveFlux,
@@ -39,7 +41,9 @@ class ConstitutiveLawsPoromechanics(
     pp.constitutive_laws.FluidDensityFromPressure,
     pp.constitutive_laws.ConstantViscosity,
     # Mechanical subproblem
-    pp.constitutive_laws.LinearElasticSolid,
+    pp.constitutive_laws.ElasticModuli,
+    pp.constitutive_laws.LinearElasticMechanicalStress,
+    pp.constitutive_laws.ConstantSolidDensity,
     pp.constitutive_laws.FractureGap,
     pp.constitutive_laws.FrictionBound,
 ):

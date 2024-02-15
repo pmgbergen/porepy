@@ -2,6 +2,7 @@
 intersections along with a surrounding matrix in the form of a mixed-dimensional grid.
 
 """
+
 from __future__ import annotations
 
 from typing import Any, Callable, Iterable, Literal, Optional, Union, overload
@@ -948,11 +949,11 @@ class MixedDimensionalGrid:
                 nc += mg.num_cells
 
             s += (
-                f"{num_e} interfaces between grids of dimension {dim} and {dim-1} with"
-                f" in total {nc} cells.\n"
+                f"{num_e} interfaces between grids of dimension {dim} and {dim - 1}"
+                f" with in total {nc} cells.\n"
             )
             for mg in self.interfaces(dim=dim - 2, codim=2):
-                s += f"Interface between grids of dimension {dim} and {dim-2} with"
+                s += f"Interface between grids of dimension {dim} and {dim - 2} with"
                 s += f" {mg.num_cells} cells.\n"
         return s
 
@@ -961,7 +962,7 @@ class MixedDimensionalGrid:
         about dimension, involved grids and their topological information."""
 
         s = (
-            f"Mixed-dimensional grid containing {self.num_subdomains() } grids and "
+            f"Mixed-dimensional grid containing {self.num_subdomains()} grids and "
             f"{self.num_interfaces()} interfaces.\n"
             f"Maximum dimension present: {self.dim_max()} \n"
             f"Minimum dimension present: {self.dim_min()} \n"
@@ -985,7 +986,7 @@ class MixedDimensionalGrid:
 
                 s += (
                     f"{num_intf} interfaces between grids of dimension {dim} and"
-                    f" {dim-1} with in total {num_intf_cells} mortar cells.\n"
+                    f" {dim - 1} with in total {num_intf_cells} mortar cells.\n"
                 )
                 num_intf_codim_2 = 0
                 num_intf_cells_codim_2 = 0
@@ -995,7 +996,7 @@ class MixedDimensionalGrid:
                 if num_intf_codim_2 > 0:
                     s += (
                         f"{num_intf_codim_2} interfaces between grids of dimension"
-                        f" {dim} and {dim-2} with in total {num_intf_cells_codim_2}"
+                        f" {dim} and {dim - 2} with in total {num_intf_cells_codim_2}"
                         f" mortar cells.\n"
                     )
 

@@ -2,6 +2,7 @@
 Module for data IO from and to vtu format via meshio.
 
 """
+
 from __future__ import annotations
 
 import os
@@ -13,7 +14,6 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 
 import meshio
 import numpy as np
-from deepdiff import DeepDiff
 
 import porepy as pp
 
@@ -339,6 +339,8 @@ class Exporter:
                 corresponding grid.
 
         """
+        import meshio
+        from deepdiff import DeepDiff
 
         # Aux. method: Inverse of _to_vector_format, used to define vector-ranged values
         def _from_vector_format(

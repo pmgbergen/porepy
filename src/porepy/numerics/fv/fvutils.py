@@ -6,6 +6,7 @@ for MPxA discertizations, however, due to the somewhat intricate inheritance rel
 between these methods, the current structure with multiple auxiliary methods emerged.
 
 """
+
 from __future__ import annotations
 
 from typing import Any, Callable, Generator, Optional

@@ -4,6 +4,7 @@ This can be thought of as a module for backend utility functions, as opposed to 
 frontend functions found in :mod:`~porepy.fracs.utils`.
 
 """
+
 from __future__ import annotations
 
 import warnings
@@ -206,9 +207,9 @@ def determine_mesh_size(
                     pts_id_loc = np.array([pt1_id_loc, pt2_id_loc])
                     pos_min = np.argmin(dist_extra[pts_id])
                     pos_max = np.argmax(dist_extra[pts_id])
-                    dist_matrix[
-                        pts_id_loc[pos_min], pts_id_loc[pos_max]
-                    ] = np.linalg.norm(pt1 - pt2)
+                    dist_matrix[pts_id_loc[pos_min], pts_id_loc[pos_max]] = (
+                        np.linalg.norm(pt1 - pt2)
+                    )
 
             to_remove_loc = np.any(dist_matrix < mesh_matrix, axis=0)
             to_remove = np.r_[to_remove, mask[to_remove_loc]]

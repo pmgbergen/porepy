@@ -21,6 +21,7 @@ Content
        it to a gmsh model. Can also mesh.
 
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass

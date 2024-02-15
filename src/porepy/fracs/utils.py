@@ -1,5 +1,6 @@
 """This module contains (frontend) utility functions related to fractures and their
 meshing. """
+
 from __future__ import annotations
 
 import logging

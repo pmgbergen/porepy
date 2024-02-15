@@ -1,5 +1,6 @@
 """ Implementation of wrappers for Ad representations of several operators.
 """
+
 from __future__ import annotations
 
 import copy
@@ -8,8 +9,6 @@ from functools import reduce
 from itertools import count
 from typing import Any, Literal, Optional, Sequence, Union, overload
 
-import matplotlib.pyplot as plt
-import networkx as nx
 import numpy as np
 import scipy.sparse as sps
 
@@ -588,6 +587,9 @@ class Operator:
 
     def viz(self):
         """Draws a visualization of the operator tree that has this operator as its root."""
+        import matplotlib.pyplot as plt
+        import networkx as nx
+
         G = nx.Graph()
 
         def parse_subgraph(node: Operator):
@@ -617,9 +619,9 @@ class Operator:
         Expression - it is now done here to accommodate updates (?) and
 
         """
-        unique_discretizations: dict[
-            pp.discretization_type, list[GridLike]
-        ] = self._identify_discretizations()
+        unique_discretizations: dict[pp.discretization_type, list[GridLike]] = (
+            self._identify_discretizations()
+        )
         _ad_utils.discretize_from_list(unique_discretizations, mdg)
 
     def _identify_discretizations(
@@ -1970,8 +1972,7 @@ def _ad_wrapper(
     as_array: Literal[True],
     size: Optional[int] = None,
     name: Optional[str] = None,
-) -> DenseArray:
-    ...
+) -> DenseArray: ...
 
 
 def _ad_wrapper(

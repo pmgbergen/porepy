@@ -4,6 +4,7 @@ Contains:
     - BalanceEquation: Base class for vector and scalar balance equations.
     - VariableMixin: Base class for variables.
 """
+
 from __future__ import annotations
 
 from typing import Callable, Sequence, Union

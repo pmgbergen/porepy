@@ -10,6 +10,7 @@ The two functions performing above are
 - :func:`extrude_grid`.
 
 """
+
 from __future__ import annotations
 
 from collections import namedtuple

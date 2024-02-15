@@ -10,6 +10,7 @@ as would be consistent with the other models. However, the class is included in 
 models, notably :class:`~porepy.models.mass_and_energy_balance.MassAndEnergyBalance`.
 
 """
+
 from __future__ import annotations
 
 from typing import Callable, Optional, Sequence, Union, cast
@@ -679,7 +680,9 @@ class VariablesEnergyBalance:
 
 
 class ConstitutiveLawsEnergyBalance(
+    pp.constitutive_laws.SpecificHeatCapacities,
     pp.constitutive_laws.EnthalpyFromTemperature,
+    pp.constitutive_laws.SecondOrderTensorUtils,
     pp.constitutive_laws.FouriersLaw,
     pp.constitutive_laws.ThermalConductivityLTE,
     pp.constitutive_laws.DimensionReduction,
