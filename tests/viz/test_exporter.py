@@ -596,6 +596,12 @@ class TailoredThermoporomechanics(
 
 
 def test_rescaled_export(setup: ExporterTestSetup):
+    """The test exports the scaled and unscaled versions of the same simulation and
+    checks whether the output is the same. The output of the scaled model should be
+    rescaled back to the SI units.
+
+    """
+
     def run_simulation_save_results(units: pp.Units, file_name: str):
         nontrivial_solid = {
             "biot_coefficient": 0.47,  # [-]
@@ -653,7 +659,7 @@ def test_rescaled_export(setup: ExporterTestSetup):
             assert compare_vtu_files(
                 test_file=folder_path / file_name_scaled,
                 reference_file=folder_path / file_name_unscaled,
-            ), f"Files don't match: {file_name_scaled} and {file_name_unscaled}"
+            ), f"Files don't match: {file_name_scaled} and {file_name_unscaled}."
             num_vtk_tested += 1
 
     assert num_vtk_tested > 0, 'No VTU files were tested.'
