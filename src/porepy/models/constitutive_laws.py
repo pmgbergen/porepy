@@ -4154,7 +4154,7 @@ class BiotCoefficient:
         """
         return Scalar(self.solid.biot_coefficient(), "biot_coefficient")
 
-    def biot_tensor(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+    def biot_tensor(self, subdomains: list[pp.Grid]) -> pp.SecondOrderTensor:
         """Biot tensor.
 
         Parameters:
@@ -4169,10 +4169,9 @@ class BiotCoefficient:
 
         """
         size = sum(sd.num_cells for sd in subdomains)
-        biot_tensor = pp.wrap_as_dense_ad_array(
-            self.solid.biot_coefficient(), size, name="biot_tensor"
-        )
-        return self.isotropic_second_order_tensor(subdomains, biot_tensor)
+        value = self.solid.biot_coefficient()
+        pp.SecondOrderTensor(value * np.ones(size))
+
 
 class ThermoMechanicalCoupling:
     """Class to set the thermo-mechanical coupling coefficient and tensor.
