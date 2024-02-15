@@ -1,4 +1,5 @@
 """ This module contains functions to run stationary and time-dependent models."""
+
 from __future__ import annotations
 
 import logging
@@ -103,7 +104,7 @@ def run_time_dependent_model(model, params: dict) -> None:
 
     # Progressbars turned off or tqdm not installed:
     if not params.get("progressbars", False) or not _IS_TQDM_AVAILABLE:
-        while model.time_manager.time < model.time_manager.time_final:
+        while not model.time_manager.final_time_reached():
             time_step()
 
     # Progressbars turned on:

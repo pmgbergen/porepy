@@ -14,7 +14,6 @@ We consider two functional tests:
 """
 from __future__ import annotations
 
-import sys
 from collections import namedtuple
 
 import numpy as np
@@ -22,10 +21,7 @@ import pytest
 
 import porepy as pp
 
-# Append the top PorePy folder to the path, to allow for imports of the examples folder
-sys.path.append("../..")
-
-from examples.mandel_biot import (
+from porepy.examples.mandel_biot import (
     MandelSaveData,
     MandelSetup,
     mandel_fluid_constants,

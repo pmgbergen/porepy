@@ -1,4 +1,5 @@
 """Module for creating standard domain dictionaries."""
+
 from typing import Dict, Sequence, Union
 
 

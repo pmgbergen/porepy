@@ -18,6 +18,7 @@ import numpy as np
 import pytest
 
 import porepy as pp
+from porepy.models.fluid_mass_balance import SinglePhaseFlow
 
 
 class TestParameterInputs:
@@ -347,6 +348,36 @@ class TestParameterInputs:
                 recomp_max=recomp_max,
             )
         assert msg in str(excinfo.value)
+
+    @pytest.mark.parametrize(
+        "num_time_steps, final_time",
+        [
+            (3, 1.0e-14),
+            (7, 1.0e-14),
+            (3, 1.0),
+            (10, 1.0),
+        ],
+    )
+    def test_number_time_steps(self, num_time_steps, final_time):
+        """An error should be realised if the number of performed time steps should differ
+        from the effective definition via the time step size. Implicitly, this test also
+        tests whether the time manager correctly detects final times."""
+        time_manager = pp.TimeManager(
+            schedule=[0.0, final_time],
+            dt_init=final_time / num_time_steps,
+            constant_dt=True,
+        )
+
+        params = {
+            "time_manager": time_manager,
+            "suppress_export": True,
+        }
+
+        model = SinglePhaseFlow(params)
+        pp.run_time_dependent_model(model, params)
+        performed_time_steps = model.time_manager.time_index
+
+        assert performed_time_steps == num_time_steps
 
 
 class TestTimeControl:

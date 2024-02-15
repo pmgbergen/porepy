@@ -7,6 +7,7 @@ mixed-dimensional grid. It is called mostly inside
 That is, the methods herein should as a rule not be invoked directly.
 
 """
+
 import logging
 from typing import Optional
 
@@ -489,7 +490,7 @@ def match_grids_along_1d_mortar(
 
         # Composite mapping from faces in new 2d grid to faces in old 2d grid.
         # Only faces on the boundary of the 1d grid.
-        face_map_segment = face_to_cell_old * between_cells * face_to_cell_new
+        face_map_segment = face_to_cell_old.T * between_cells * face_to_cell_new
 
         # Extend face-map to go from all faces in the new grid to all faces in the
         # old one.

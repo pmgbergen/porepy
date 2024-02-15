@@ -558,7 +558,7 @@ class SolutionStrategy(abc.ABC):
         """
         t_0 = time.time()
         self.linear_system = self.equation_system.assemble()
-        logger.debug(f"Assembled linear system in {time.time()-t_0:.2e} seconds.")
+        logger.debug(f"Assembled linear system in {time.time() - t_0:.2e} seconds.")
 
     def solve_linear_system(self) -> np.ndarray:
         """Solve linear system.
@@ -608,7 +608,7 @@ class SolutionStrategy(abc.ABC):
             raise ValueError(
                 f"AbstractModel does not know how to apply the linear solver {solver}"
             )
-        logger.info(f"Solved linear system in {time.time()-t_0:.2e} seconds.")
+        logger.info(f"Solved linear system in {time.time() - t_0:.2e} seconds.")
 
         return np.atleast_1d(x)
 

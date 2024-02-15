@@ -8,6 +8,7 @@ to.
 Underscores/private names are used for auxiliary variables not intended to be used
 outside this file. These variables may be overwritten multiple times inside this file.
 """
+
 import numpy as np
 import scipy.sparse as sps
 

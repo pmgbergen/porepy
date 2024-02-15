@@ -115,7 +115,7 @@ class DataSavingMixin:
                         sd,
                         "specific_volume",
                         self._evaluate_and_scale(
-                            sd, "specific_volume", f"m^{self.nd-sd.dim}"
+                            sd, "specific_volume", f"m^{self.nd - sd.dim}"
                         ),
                     )
                 )

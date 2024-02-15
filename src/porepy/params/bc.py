@@ -4,6 +4,7 @@ Classes representing of boundary conditions.
 The classes identify faces of a grid which have Dirichlet, Neumann and Robin type
 boundary conditions. There is one class for scalar problems and one for nd-vectors.
 """
+
 from __future__ import annotations
 
 import warnings

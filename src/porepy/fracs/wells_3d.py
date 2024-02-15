@@ -12,6 +12,7 @@ mixed-dimensional grid by
         well_network.mesh(mdg)
 
 """
+
 from __future__ import annotations
 
 import logging

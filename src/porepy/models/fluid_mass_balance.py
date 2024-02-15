@@ -326,10 +326,9 @@ class MassBalanceEquations(pp.BalanceEquation):
         return flux
 
     def fluid_source(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Fluid source term.
+        """Fluid source term integrated over the subdomain cells.
 
-        Includes
-
+        Includes:
             - external sources
             - interface flow from neighboring subdomains of higher dimension.
             - well flow from neighboring subdomains of lower and higher dimension.
@@ -343,7 +342,7 @@ class MassBalanceEquations(pp.BalanceEquation):
             subdomains: List of subdomains.
 
         Returns:
-            Operator representing the source term.
+            Operator representing the source term [kg/s].
 
         """
         # Interdimensional fluxes manifest as source terms in lower-dimensional
@@ -380,6 +379,7 @@ class ConstitutiveLawsSinglePhaseFlow(
     pp.constitutive_laws.AdvectiveFlux,
     pp.constitutive_laws.ConstantPorosity,
     pp.constitutive_laws.ConstantPermeability,
+    pp.constitutive_laws.SecondOrderTensorUtils,
     pp.constitutive_laws.FluidDensityFromPressure,
     pp.constitutive_laws.ConstantViscosity,
     pp.constitutive_laws.FluidMobility,
@@ -714,7 +714,6 @@ class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
     specific_volume: Callable[
         [Union[list[pp.Grid], list[pp.MortarGrid]]], pp.ad.Operator
     ]
-
     """Function that returns the specific volume of a subdomain or interface.
 
     Normally provided by a mixin of instance
