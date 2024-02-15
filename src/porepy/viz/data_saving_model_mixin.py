@@ -65,7 +65,7 @@ class DataSavingMixin:
         if do_export:
             self.write_pvd_and_vtu()
 
-    def write_pvd_and_vtu(self):
+    def write_pvd_and_vtu(self) -> None:
         """Helper function for writing the .vtu and .pvd files and time information."""
         self.exporter.write_vtu(self.data_to_export(), time_dependent=True)
         if self.restart_options.get("restart", False):
