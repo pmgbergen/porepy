@@ -2326,7 +2326,7 @@ class ThermalExpansion:
         val = self.solid.thermal_expansion()
         return Scalar(val, "solid_thermal_expansion")
 
-    def solid_expansion_tensor(self, subdomains: pp.Grid) -> pp.SecondOrderTensor:
+    def solid_thermal_expansion_tensor(self, subdomains: pp.Grid) -> pp.SecondOrderTensor:
         """Thermo-mechanical coupling tensor.
 
         Parameters:
@@ -2339,7 +2339,7 @@ class ThermalExpansion:
         """
         size = sum(sd.num_cells for sd in subdomains)
         val = self.solid.thermal_expansion()
-        tensor = pp.SecondOrderTensor(val * np.ones(size))
+        return pp.SecondOrderTensor(val * np.ones(size))
 
 
 class ThermalConductivityLTE:
@@ -4170,7 +4170,7 @@ class BiotCoefficient:
         """
         size = sum(sd.num_cells for sd in subdomains)
         value = self.solid.biot_coefficient()
-        pp.SecondOrderTensor(value * np.ones(size))
+        return pp.SecondOrderTensor(value * np.ones(size))
 
 
 class ThermoMechanicalCoupling:
@@ -4682,7 +4682,7 @@ class ThermoPoroMechanicsPorosity(PoroMechanicsPorosity):
             raise ValueError("Subdomains must be of dimension nd.")
         dtemperature = self.perturbation_from_reference("temperature", subdomains)
         phi_ref = self.reference_porosity(subdomains)
-        beta = self.solid_thermal_expansion(subdomains)
+        beta = self.solid_thermal_expansion_coefficient(subdomains)
         alpha = self.biot_coefficient(subdomains)
         # TODO: Figure out why * is needed here, but not in
         # porosity_change_from_pressure.
