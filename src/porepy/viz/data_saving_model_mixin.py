@@ -64,10 +64,6 @@ class DataSavingMixin:
                 np.any(np.isclose(self.time_manager.time, times_to_export))
             )
 
-        # The suppress_export property takes presedence over all other criteria, hence
-        # check that last.
-        do_export = do_export and not self.suppress_export
-
         if do_export:
             self.write_pvd_and_vtu()
 
@@ -242,11 +238,6 @@ class DataSavingMixin:
         self.time_manager.load_time_information(times_file)
         self.time_manager.set_from_history(time_index)
         self.exporter._time_step_counter = time_index
-
-    @property
-    def suppress_export(self) -> bool:
-        """Suppress export of data to file."""
-        return self.params.get("suppress_export", False)
 
 
 class VerificationDataSaving(DataSavingMixin):

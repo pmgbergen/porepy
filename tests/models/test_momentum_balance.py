@@ -1,6 +1,7 @@
 """Tests for model variables.
 
 """
+
 from __future__ import annotations
 
 import copy
@@ -45,7 +46,7 @@ def test_2d_single_fracture(solid_vals, north_displacement):
     # Instantiate constants and store in params.
     solid = pp.SolidConstants(solid_vals)
     params = {
-        "suppress_export": True,  # Suppress output for tests
+        "times_to_export": [],  # Suppress output for tests
         "material_constants": {"solid": solid},
         "uy_north": north_displacement,
     }
@@ -124,7 +125,7 @@ def test_unit_conversion(units, uy_north):
     """
 
     params = {
-        "suppress_export": True,  # Suppress output for tests
+        "times_to_export": [],  # Suppress output for tests
         "fracture_indices": [0, 1],
         "cartesian": True,
         "uy_north": uy_north,
@@ -248,7 +249,7 @@ def test_lithostatic(dim: int):
 
     """
     # Create model and run simulation
-    model = LithostaticModel({"dim": dim, "suppress_export": True})
+    model = LithostaticModel({"dim": dim, "times_to_export": []})
     pp.run_stationary_model(model, {})
 
     # Check that the pressure is linear

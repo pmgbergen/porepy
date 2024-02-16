@@ -3,6 +3,7 @@
 TODO: This test should be updated along the lines of test_single_phase_flow.py.
 
 """
+
 from __future__ import annotations
 
 import copy
@@ -139,7 +140,7 @@ def test_advection_or_diffusion_dominated(fluid_vals, solid_vals):
     fluid = pp.FluidConstants(fluid_vals)
     solid = pp.SolidConstants(solid_vals)
     params = {
-        "suppress_export": True,  # Suppress output for tests
+        "times_to_export": [],  # Suppress output for tests
         "material_constants": {"fluid": fluid, "solid": solid},
     }
 
@@ -199,7 +200,7 @@ def test_unit_conversion(units):
             :class:`~pp.models.material_constants.MaterialConstants`.
 
     """
-    params = {"suppress_export": True, "fracture_indices": [0, 1], "cartesian": True}
+    params = {"times_to_export": [], "fracture_indices": [0, 1], "cartesian": True}
     # Create model and run simulation
     reference_params = copy.deepcopy(params)
     reference_params["file_name"] = "unit_conversion_reference"

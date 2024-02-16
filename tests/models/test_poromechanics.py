@@ -5,6 +5,7 @@ This is needed to avoid degenerate mass balance equation in fracture.
 
 TODO: Clean up.
 """
+
 from __future__ import annotations
 
 import copy
@@ -177,7 +178,7 @@ def create_fractured_setup(solid_vals, fluid_vals, uy_north):
     fluid = pp.FluidConstants(fluid_vals)
 
     params = {
-        "suppress_export": True,  # Suppress output for tests
+        "times_to_export": [],  # Suppress output for tests
         "material_constants": {"solid": solid, "fluid": fluid},
         "uy_north": uy_north,
         "max_iterations": 20,
@@ -478,7 +479,7 @@ def test_unit_conversion(units):
     """
 
     params = {
-        "suppress_export": True,  # Suppress output for tests
+        "times_to_export": [],  # Suppress output for tests
         "num_fracs": 1,
         "cartesian": True,
         "uy_north": 0.1,
