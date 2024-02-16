@@ -416,7 +416,7 @@ def test_unit_conversion(units):
         """Single phase flow model in a domain with two intersecting fractures."""
 
     params = {
-        "suppress_export": True,  # Suppress output for tests
+        "times_to_export": [],  # Suppress output for tests
         "fracture_indices": [0, 1],
         "cartesian": True,
     }
