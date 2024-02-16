@@ -44,7 +44,13 @@ class DataSavingMixin:
     """Number of spatial dimensions for the simulation."""
 
     def save_data_time_step(self) -> None:
-        """Export the model state at a given time step, and log time."""
+        """Export the model state at a given time step, and log time.
+        The options for exporting times are:
+            * None: All time steps are exported
+            * list: Export if time is in the list. If the list is empty, then no times
+              are exported.
+
+        """
 
         # Fetching the desired times to export
         times_to_export = self.params.get("times_to_export", None)
