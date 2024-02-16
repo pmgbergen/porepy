@@ -5,56 +5,19 @@ The following is covered:
 
 """
 
-import porepy as pp
 import numpy as np
 
+import porepy as pp
 from porepy.models.momentum_balance import MomentumBalance
+from porepy.applications.md_grids.model_geometries import (
+    SquareDomainOrthogonalFractures,
+)
 
 import pytest
 
 
-class DataSavingModelMixinSetup(MomentumBalance):
+class DataSavingModelMixinSetup(SquareDomainOrthogonalFractures, MomentumBalance):
     """Model setup for testing."""
-
-    def nd_rect_domain(self, x, y) -> pp.Domain:
-        box: dict[str, pp.number] = {"xmin": 0, "xmax": x}
-
-        box.update({"ymin": 0, "ymax": y})
-
-        return pp.Domain(box)
-
-    def set_domain(self) -> None:
-        x = 1.0 / self.units.m
-        y = 1.0 / self.units.m
-        self._domain = self.nd_rect_domain(x, y)
-
-    def meshing_arguments(self) -> dict:
-        mesh_args: dict[str, float] = {"cell_size": 0.1 / self.units.m}
-        return mesh_args
-
-    def bc_type_mechanics(self, sd: pp.Grid) -> pp.BoundaryConditionVectorial:
-        bounds = self.domain_boundary_sides(sd)
-        bc = pp.BoundaryConditionVectorial(
-            sd,
-            bounds.all_bf,
-            "dir",
-        )
-        return bc
-
-    def bc_values_displacement(self, bg: pp.BoundaryGrid) -> np.ndarray:
-        values = np.zeros((self.nd, bg.num_cells))
-        bounds = self.domain_boundary_sides(bg)
-
-        t = self.time_manager.time
-
-        displacement_values = np.zeros((self.nd, bg.num_cells))
-
-        # Time dependent sine Dirichlet condition
-        values[1][bounds.west] += np.ones(
-            len(displacement_values[0][bounds.west])
-        ) * np.sin(t)
-
-        return values.ravel("F")
 
     def write_pvd_and_vtu(self) -> None:
         """Logger for the times that are exported.
@@ -103,7 +66,7 @@ def test_export_chosen_times(times_to_export):
 
     # The actual test of exported times based on the log stored in model.exported_times:
     if times_to_export is None:
-        scheduled_times = np.linspace(0.0, tf, time_steps + 1)
-        assert len(model.exported_times) == len(scheduled_times)
-    elif isinstance(times_to_export, list):
-        assert np.all(np.isclose(model.exported_times, np.sort(times_to_export)))
+        times_to_export = np.linspace(0.0, tf, time_steps + 1)
+        assert np.allclose(model.exported_times, times_to_export)
+    else:
+        assert np.allclose(model.exported_times, np.sort(times_to_export))
