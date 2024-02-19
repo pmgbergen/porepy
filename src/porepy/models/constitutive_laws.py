@@ -2127,12 +2127,11 @@ class PeacemanWellFlux:
 
     """
 
-    volume_integral: Callable[
-        [pp.ad.Operator, Sequence[pp.Grid] | Sequence["pp.MortarGrid"], int],
-        pp.ad.Operator,
+    specific_volume: Callable[
+        [Union[list[pp.Grid], list[pp.MortarGrid]]], pp.ad.Operator
     ]
-    """Integration over cell volumes, implemented in
-    :class:`pp.models.abstract_equations.BalanceEquation`.
+    """Specific volume. Normally defined in a mixin instance of
+    :class:`~porepy.models.constitutive_laws.DimensionReduction` or a subclass thereof.
 
     """
     mdg: pp.MixedDimensionalGrid
@@ -2164,15 +2163,17 @@ class PeacemanWellFlux:
     """
 
     def well_flux_equation(self, interfaces: list[pp.MortarGrid]) -> pp.ad.Operator:
-        """Equation for well fluxes.
+        """Equation relating the well flux to the difference between well and formation
+        pressure.
 
-        The equation has units [kg * m^2 * s^-2].
+        For details, see Lie: An introduction to reservoir simulation using MATLAB/GNU
+        Octave, 2019, Section 4.3.
 
         Parameters:
             interfaces: List of interfaces where the well fluxes are defined.
 
         Returns:
-            Cell-wise well flux operator.
+            Cell-wise well flux operator, units [kg * m^{nd-1} * s^-2].
 
         """
 
@@ -2189,21 +2190,20 @@ class PeacemanWellFlux:
 
         # To get a transmissivity, we multiply the permeability with the length of the
         # well within one cell. For a 0d-2d coupling, this will be the aperture of the
-        # 2d fracture cell; in practice the number can be obtained by multiplying with
-        # the specific volume, or by taking a volume integral over the mortar cell
-        # (which will incorporate the specific volume of the higher-dimensional
-        # neighbor, that is, the fracture). For a 1d-3d coupling, we will need the
-        # length of the well within the 3d cell (see the MRST book, p.128, for comments
-        # regarding deviated wells). Again, this could be obtained by a volume integral
-        # over the mortar cell; however, as 1d-3d couplings have not yet been
-        # implemented, we will raise an error in this case.
+        # 2d fracture cell; in practice the number is obtained by multiplying with the
+        # specific volume of the mortar cell (which will incorporate the specific volume
+        # of the higher-dimensional neighbor, that is, the fracture). For a 1d-3d
+        # coupling, we will need the length of the well within the 3d cell (see the MRST
+        # book, p.128, for comments regarding deviated wells). Again, this could be
+        # obtained by a volume integral over the mortar cell; however, as 1d-3d
+        # couplings have not yet been implemented, we will raise an error in this case.
         if any([sd.dim == 3 for sd in subdomains]):
             raise NotImplementedError(
                 "The 1d-3d coupling has not yet been implemented. "
             )
 
         isotropic_permeability = e_i @ self.permeability(subdomains)
-        specific_volume = self.specific_volume(subdomains)
+        specific_volume = self.specific_volume(interfaces)
         transmissivity = isotropic_permeability * specific_volume
 
         well_index = (
