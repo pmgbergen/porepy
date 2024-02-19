@@ -526,7 +526,7 @@ class PoromechanicsWell(
         return mesh_sizes
 
 
-def test_poromechanics():
+def test_poromechanics_well():
     """Test that the poromechanics model runs without errors."""
     # These parameters hopefully yield a relatively easy problem
     params = {
