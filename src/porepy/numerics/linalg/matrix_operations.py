@@ -661,9 +661,9 @@ def invert_diagonal_blocks(
 
             # Construction of simple data structures (low complexity)
             # Indices for block positions, flattened inverse block positions and nonzeros
-            idx_blocks = np.cumsum(sz)
-            idx_inv_blocks = np.cumsum(np.square(sz))
-            idx_nnz = np.searchsorted(indices, idx_blocks)
+            idx_blocks = np.cumsum(sz).astype(np.int32)
+            idx_inv_blocks = np.cumsum(np.square(sz)).astype(np.int32)
+            idx_nnz = np.searchsorted(indices, idx_blocks).astype(np.int32)
 
             # Retrieve global indices (low complexity)
             if is_csr_q:
@@ -678,7 +678,8 @@ def invert_diagonal_blocks(
             v = np.zeros(idx_inv_blocks[-1])
 
             for ib in prange(sz.size - 1):
-                flat_block = v[idx_inv_blocks[ib] : idx_inv_blocks[ib + 1]]
+                v_range = np.arange(idx_inv_blocks[ib], idx_inv_blocks[ib + 1])
+                flat_block = v[v_range]
                 idx_shift = idx_blocks[ib]
                 idx_block = idx_blocks[np.array([ib, ib + 1])]
                 if is_csr_q:
@@ -699,13 +700,12 @@ def invert_diagonal_blocks(
                         ).astype(np.int32)
                         - idx_shift
                     )
-                l_dat = data[idx_nnz[ib] : idx_nnz[ib + 1]]
                 sequence_ij = l_row * sz[ib + 1] + l_col
-                flat_block[sequence_ij] = l_dat
-                dense_block = np.reshape(flat_block, (sz[ib + 1], sz[ib + 1]))
-                v[idx_inv_blocks[ib] : idx_inv_blocks[ib + 1]] = np.ravel(
-                    np.linalg.inv(dense_block)
+                flat_block[sequence_ij] = np.take(
+                    data, np.arange(idx_nnz[ib], idx_nnz[ib + 1])
                 )
+                dense_block = np.reshape(flat_block, (sz[ib + 1], sz[ib + 1]))
+                v[v_range] = np.ravel(np.linalg.inv(dense_block))
             return v
 
         inv_a = inv_compiled_function(is_csr_q, data, indices, indptr, sz)
