@@ -450,6 +450,7 @@ class SolutionStrategy(abc.ABC):
             values=solution, time_step_index=0, additive=False
         )
         self.convergence_status = True
+
         self.save_data_time_step()
 
     def after_nonlinear_failure(
