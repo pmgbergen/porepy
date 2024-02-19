@@ -370,7 +370,7 @@ class TestParameterInputs:
 
         params = {
             "time_manager": time_manager,
-            "suppress_export": True,
+            "times_to_export": [],
         }
 
         model = SinglePhaseFlow(params)

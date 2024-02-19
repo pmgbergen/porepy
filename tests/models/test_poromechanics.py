@@ -5,6 +5,7 @@ This is needed to avoid degenerate mass balance equation in fracture.
 
 TODO: Clean up.
 """
+
 from __future__ import annotations
 
 import copy
@@ -54,7 +55,7 @@ class NonzeroFractureGapPoromechanics:
         sd, sd_data = self.mdg.subdomains(return_data=True)[0]
         # Initial displacement.
         if len(self.mdg.subdomains()) > 1:
-            top_cells = sd.cell_centers[1] > 0.5
+            top_cells = sd.cell_centers[1] > self.fluid.convert_units(0.5, "m")
             vals = np.zeros((self.nd, sd.num_cells))
             vals[1, top_cells] = self.fluid.convert_units(0.042, "m")
             self.equation_system.set_variable_values(
@@ -177,7 +178,7 @@ def create_fractured_setup(solid_vals, fluid_vals, uy_north):
     fluid = pp.FluidConstants(fluid_vals)
 
     params = {
-        "suppress_export": True,  # Suppress output for tests
+        "times_to_export": [],  # Suppress output for tests
         "material_constants": {"solid": solid, "fluid": fluid},
         "uy_north": uy_north,
         "max_iterations": 20,
@@ -478,7 +479,7 @@ def test_unit_conversion(units):
     """
 
     params = {
-        "suppress_export": True,  # Suppress output for tests
+        "times_to_export": [],  # Suppress output for tests
         "num_fracs": 1,
         "cartesian": True,
         "uy_north": 0.1,
