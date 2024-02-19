@@ -2127,11 +2127,12 @@ class PeacemanWellFlux:
 
     """
 
-    specific_volume: Callable[
-        [Union[list[pp.Grid], list[pp.MortarGrid]]], pp.ad.Operator
+    volume_integral: Callable[
+        [pp.ad.Operator, Sequence[pp.Grid] | Sequence["pp.MortarGrid"], int],
+        pp.ad.Operator,
     ]
-    """Specific volume. Normally defined in a mixin instance of
-    :class:`~porepy.models.constitutive_laws.DimensionReduction` or a subclass thereof.
+    """Integration over cell volumes, implemented in
+    :class:`pp.models.abstract_equations.BalanceEquation`.
 
     """
     mdg: pp.MixedDimensionalGrid
@@ -2203,13 +2204,13 @@ class PeacemanWellFlux:
             )
 
         isotropic_permeability = e_i @ self.permeability(subdomains)
-        specific_volume = self.specific_volume(interfaces)
-        transmissivity = isotropic_permeability * specific_volume
 
-        well_index = (
+        well_index = self.volume_integral(
             pp.ad.Scalar(2 * np.pi)
             * projection.primary_to_mortar_avg
-            @ (transmissivity / (f_log(r_e / r_w) + skin_factor))
+            @ (isotropic_permeability / (f_log(r_e / r_w) + skin_factor)),
+            interfaces,
+            1,
         )
         eq: pp.ad.Operator = self.well_flux(interfaces) - well_index * (
             projection.primary_to_mortar_avg @ self.pressure(subdomains)
