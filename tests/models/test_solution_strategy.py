@@ -17,6 +17,7 @@ We test:
     achieved for the test approach in test_single_phase_flow.py.
 
 """
+
 from __future__ import annotations
 
 import copy
@@ -51,7 +52,7 @@ def create_restart_model(
     params = fractured_setup.params
 
     # Enable exporting
-    params["suppress_export"] = False
+    params["times_to_export"] = None
 
     # Add time stepping to the setup
     params["time_manager"] = pp.TimeManager(
