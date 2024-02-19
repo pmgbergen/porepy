@@ -612,9 +612,8 @@ def invert_diagonal_blocks(
             idx_shift = idx_blocks[ib]
             l_row = rows[idx_nnz[ib] : idx_nnz[ib + 1]] - idx_shift
             l_col = cols[idx_nnz[ib] : idx_nnz[ib + 1]] - idx_shift
-            l_dat = data[idx_nnz[ib] : idx_nnz[ib + 1]]
             sequence_ij = l_row * size[ib] + l_col
-            flat_block[sequence_ij] = l_dat
+            flat_block[sequence_ij] = data[idx_nnz[ib] : idx_nnz[ib + 1]]
             dense_block = np.reshape(flat_block, (size[ib], size[ib]))
             inv_a[idx_inv_blocks[ib] : idx_inv_blocks[ib + 1]] = np.linalg.inv(
                 dense_block
@@ -701,9 +700,7 @@ def invert_diagonal_blocks(
                         - idx_shift
                     )
                 sequence_ij = l_row * sz[ib + 1] + l_col
-                flat_block[sequence_ij] = np.take(
-                    data, np.arange(idx_nnz[ib], idx_nnz[ib + 1])
-                )
+                flat_block[sequence_ij] = data[idx_nnz[ib] : idx_nnz[ib + 1]]
                 dense_block = np.reshape(flat_block, (sz[ib + 1], sz[ib + 1]))
                 v[v_range] = np.ravel(np.linalg.inv(dense_block))
             return v
