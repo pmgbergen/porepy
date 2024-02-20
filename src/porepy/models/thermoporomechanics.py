@@ -187,7 +187,6 @@ class SolutionStrategyThermoporomechanics(
                 data[pp.PARAMETERS][self.stress_keyword][
                     "scalar_vector_mappings"
                 ] = scalar_vector_mappings
-                breakpoint()
             else:
                 pp.initialize_data(
                     sd,
@@ -197,7 +196,6 @@ class SolutionStrategyThermoporomechanics(
                         "scalar_vector_mappings": {self.temperature_variable: self.solid_thermal_expansion_tensor([sd])}
                     },
                 )
-                breakpoint()
 
     def set_nonlinear_discretizations(self) -> None:
         """Collect discretizations for nonlinear terms."""
