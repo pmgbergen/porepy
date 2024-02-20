@@ -466,7 +466,7 @@ class FluidDensityFromPressure:
             subdomains: List of subdomain grids.
 
         Returns:
-            Fluid density as a function of pressure [kg*m^-3].
+            Fluid density as a function of pressure [kg * m^-3].
 
         """
         # The reference density is taken from the fluid constants..
@@ -634,7 +634,7 @@ class FluidMobility:
             subdomains: List of subdomains.
 
         Returns:
-            Operator representing the mobility.
+            Operator representing the mobility [m * s * kg^-1].
 
         """
         return pp.ad.Scalar(1) / self.fluid_viscosity(subdomains)
@@ -677,15 +677,15 @@ class ConstantViscosity:
     """
 
     def fluid_viscosity(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Fluid viscosity [Pa s].
+        """Fluid viscosity .
 
         Parameters:
             subdomains: List of subdomain grids. Not used in this implementation, but
                 included for compatibility with other implementations.
 
         Returns:
-            Operator for fluid viscosity, represented as an Ad operator. The value is
-            picked from the fluid constants.
+            Operator for fluid viscosity [Pa * s], represented as an Ad operator. The
+            value is picked from the fluid constants.
 
         """
         return Scalar(self.fluid.viscosity(), "viscosity")
@@ -2164,13 +2164,17 @@ class PeacemanWellFlux:
     """
 
     def well_flux_equation(self, interfaces: list[pp.MortarGrid]) -> pp.ad.Operator:
-        """Equation for well fluxes.
+        """Equation relating the well flux to the difference between well and formation
+        pressure.
+
+        For details, see Lie: An introduction to reservoir simulation using MATLAB/GNU
+        Octave, 2019, Section 4.3.
 
         Parameters:
             interfaces: List of interfaces where the well fluxes are defined.
 
         Returns:
-            Cell-wise well flux operator.
+            Cell-wise well flux operator, units [kg * m^{nd-1} * s^-2].
 
         """
 
@@ -2181,17 +2185,39 @@ class PeacemanWellFlux:
         r_e = self.equivalent_well_radius(subdomains)
 
         f_log = pp.ad.Function(pp.ad.functions.log, "log_function_Piecmann")
-        e_i = self.e_i(subdomains, i=0, dim=9).T  # type: ignore[call-arg]
+
         # We assume isotropic permeability and extract xx component.
+        e_i = self.e_i(subdomains, i=0, dim=9).T  # type: ignore[call-arg]
+
+        # To get a transmissivity, we multiply the permeability with the length of the
+        # well within one cell. For a 0d-2d coupling, this will be the aperture of the
+        # 2d fracture cell; in practice the number is obtained by multiplying with the
+        # specific volume of the mortar cell (which will incorporate the specific volume
+        # of the higher-dimensional neighbor, that is, the fracture). For a 1d-3d
+        # coupling, we will need the length of the well within the 3d cell (see the MRST
+        # book, p.128, for comments regarding deviated wells). Again, this could be
+        # obtained by a volume integral over the mortar cell; however, as 1d-3d
+        # couplings have not yet been implemented, we will raise an error in this case.
+        if any([sd.dim == 3 for sd in subdomains]):
+            raise NotImplementedError(
+                "The 1d-3d coupling has not yet been implemented. "
+            )
+        elif any([sd.dim == 1 for sd in subdomains]):
+            # This is a 1d-2d (or 1d-1d) coupling, for which the Peaceman model is
+            # not applicable.
+            # TODO: Revisit when we implement 1d-3d coupling.
+            raise ValueError("The Peaceman model assumes a coupling of codimension 2")
+
         isotropic_permeability = e_i @ self.permeability(subdomains)
-        well_index = (
+
+        well_index = self.volume_integral(
             pp.ad.Scalar(2 * np.pi)
             * projection.primary_to_mortar_avg
-            @ (isotropic_permeability / (f_log(r_e / r_w) + skin_factor))
+            @ (isotropic_permeability / (f_log(r_e / r_w) + skin_factor)),
+            interfaces,
+            1,
         )
-        eq: pp.ad.Operator = self.well_flux(interfaces) - self.volume_integral(
-            well_index, interfaces, 1
-        ) * (
+        eq: pp.ad.Operator = self.well_flux(interfaces) - well_index * (
             projection.primary_to_mortar_avg @ self.pressure(subdomains)
             - projection.secondary_to_mortar_avg @ self.pressure(subdomains)
         )
@@ -2205,7 +2231,7 @@ class PeacemanWellFlux:
             subdomains: List of subdomains.
 
         Returns:
-            Cell-wise equivalent radius operator.
+            Cell-wise equivalent radius operator [m].
 
         """
         # Implementational note: The computation of equivalent radius is highly
@@ -2237,7 +2263,7 @@ class PeacemanWellFlux:
             interfaces: List of interfaces.
 
         Returns:
-            Skin factor operator.
+            Skin factor operator [-].
 
         """
         skin_factor = pp.ad.Scalar(self.solid.skin_factor())
@@ -2251,7 +2277,7 @@ class PeacemanWellFlux:
             subdomains: List of subdomains.
 
         Returns:
-            Cell-wise well radius operator.
+            Cell-wise well radius operator [m].
 
         """
         r_w = pp.ad.Scalar(self.solid.well_radius())
@@ -2916,6 +2942,7 @@ class AdvectiveFlux:
 
         Returns:
             Operator representing the advective flux on the interfaces.
+
         """
         subdomains = self.interfaces_to_subdomains(interfaces)
         mortar_projection = pp.ad.MortarProjections(
