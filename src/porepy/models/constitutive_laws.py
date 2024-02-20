@@ -2206,7 +2206,7 @@ class PeacemanWellFlux:
             # This is a 1d-2d (or 1d-1d) coupling, for which the Peaceman model is
             # not applicable.
             # TODO: Revisit when we implement 1d-3d coupling.
-            raise("The Peaceman model assumes a coupling of codimension 2")
+            raise ValueError("The Peaceman model assumes a coupling of codimension 2")
 
         isotropic_permeability = e_i @ self.permeability(subdomains)
 
