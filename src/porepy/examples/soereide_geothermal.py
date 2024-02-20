@@ -13,7 +13,7 @@ References:
 """
 from __future__ import annotations
 
-from typing import Sequence
+from typing import Sequence, cast
 
 import numpy as np
 
@@ -22,10 +22,9 @@ import porepy.composite as ppc
 from porepy.applications.md_grids.domains import nd_cube_domain
 from porepy.composite.peng_robinson.eos_c import PengRobinsonCompiler
 from porepy.models.compositional_balance import CompositionalFlow
-from porepy.models.fluid_mixture_equilibrium import MixtureMixin
 
 
-class SoereideMixture(MixtureMixin):
+class SoereideMixture(ppc.MixtureMixin):
     """Model fluid using the Soereide mixture, a Peng-Robinson based EoS for
     NaCl brine with CO2, H2S and N2.
 
@@ -46,6 +45,35 @@ class SoereideMixture(MixtureMixin):
         # This takes some time
         eos = PengRobinsonCompiler(components)
         return [(eos, 0, "liq"), (eos, 1, "gas")]
+
+
+class EquilibriumMixin(ppc.EquilibriumEquationsMixin):
+    """Defines the p-h flash as the target equilibrium system."""
+
+    equilibrium_type = "p-h"
+    """Introducing the equilibrium problem in the form of a p-h flash."""
+
+    create_compositional_fractions = True
+    """Must create fractions for equilibrium problem."""
+
+
+class CompiledFlash(ppc.FlashMixin):
+    """Sets the compiled flash as the flash class, consistent with the EoS."""
+
+    def set_up_flasher(self) -> None:
+        eos = self.fluid_mixture.reference_phase.eos
+        eos = cast(PengRobinsonCompiler, eos)  # cast type
+
+        flash = ppc.CompiledUnifiedFlash(self.fluid_mixture, eos)
+
+        # Compiling the flash and the EoS
+        eos.compile(verbosity=2)
+        flash.compile(verbosity=2, precompile_solvers=True)
+
+        # NOTE There is place to configure the solver here
+
+        # Setting the attribute of the mixin
+        self.flash = flash
 
 
 class ModelGeometry:
@@ -73,9 +101,12 @@ class ModelGeometry:
 class GeothermalFlow(
     ModelGeometry,
     SoereideMixture,
+    EquilibriumMixin,
+    CompiledFlash,
     CompositionalFlow,
 ):
-    """Geothermal flow using a fluid defined by the Soereide model."""
+    """Geothermal flow using a fluid defined by the Soereide model and the compiled
+    flash."""
 
 
 time_manager = pp.TimeManager(
