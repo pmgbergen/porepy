@@ -4161,38 +4161,6 @@ class BiotCoefficient:
         return pp.SecondOrderTensor(value * np.ones(size))
 
 
-class ThermoMechanicalCoupling:
-    """Class to set the thermo-mechanical coupling coefficient and tensor.
-    
-    @IS: The methods herein need to be essentially what they are, but naming, placement,
-    etc. etc. should be discussed and possibly changed.
-    """
-    def thermo_mechanical_coupling_coefficient(self, subdomains: pp.Grid) -> pp.ad.Operator:
-        """Thermo-mechanical coupling coefficient.
-
-        Parameters:
-            subdomains: List of subdomains where the thermo-mechanical coupling coefficient is defined.
-
-        Returns:
-            Thermo-mechanical coupling coefficient operator.
-
-        """
-        return Scalar(self.solid.thermal_expansion(), "thermal_expansion")
-
-    def thermo_mechanical_coupling_tensor(self, subdomains: pp.Grid) -> pp.SecondOrderTensor:
-        """Thermo-mechanical coupling tensor.
-
-        Parameters:
-            subdomains: List of subdomains where the thermo-mechanical coupling tensor is defined.
-
-        Returns:
-            Thermo-mechanical coupling tensor operator.
-
-        """
-        size = sum(sd.num_cells for sd in subdomains)
-        val = self.solid.thermal_expansion()
-        tensor = pp.SecondOrderTensor(val * np.ones(size))
-
 class SpecificStorage:
     """Specific storage."""
 
