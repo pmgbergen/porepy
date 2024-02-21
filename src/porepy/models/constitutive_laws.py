@@ -3677,22 +3677,10 @@ class ThermoPressureStress(PressureStress):
                 raise ValueError("Subdomains must be of dimension nd - 1.")
 
         discr = pp.ad.BiotAd(self.stress_keyword, subdomains)
-        # TODO: We need to check that these scalings are correct
-        alpha = self.biot_coefficient(subdomains)
-        k = self.bulk_modulus(subdomains)
-
-        # Check that both are scalar. Else, the scaling may not be correct.
-        assert isinstance(alpha, pp.ad.Scalar)
-        # The thermal stress should be multiplied by beta and k. Divide by alpha to
-        # cancel that factor from the discretization matrix.
         stress: pp.ad.Operator = (
-            k
-            / alpha
-            * (
                 discr.grad_p(self.temperature_variable) @ self.temperature(subdomains)
                 - discr.grad_p(self.temperature_variable) @ self.reference_temperature(subdomains)
             )
-        )
         stress.set_name("thermal_stress")
         return stress
 
