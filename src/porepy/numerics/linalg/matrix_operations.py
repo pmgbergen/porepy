@@ -533,7 +533,7 @@ def _csx_matrix_from_blocks(
 
 def invert_diagonal_blocks(
     mat: sps.spmatrix, s: np.ndarray, method: Optional[str] = None
-) -> sps.spmatrix:
+) -> Union[sps.csr, sps.csc]:
     """
     Invert block diagonal matrix.
 
@@ -580,19 +580,30 @@ def invert_diagonal_blocks(
 
         # Construction of simple data structures (low complexity)
         # Indices for block positions, flattened inverse block positions and nonzeros
+        # Expanded block positions
         idx_blocks = np.cumsum([0] + list(size))
+        # Expanded nonzero positions for flattened inverse blocks
         idx_inv_blocks = np.cumsum([0] + list(size * size))
+        # Nonzero positions for the given matrix data (i.e. a.data)
         idx_nnz = np.searchsorted(a.indices, idx_blocks)
 
         # Retrieve global indices (low complexity)
         if sps.isspmatrix_csr(a):
+            # cols are in fact a.indices
             cols = a.indices
+            # row_reps is a structure containing the number of repetitions for a row
             row_reps = a.indptr[1 : a.indptr.size] - a.indptr[0 : a.indptr.size - 1]
+            # rows are in fact a vector of global indices, i.e.
+            # row_i repeated row_reps[i] times
             rows = np.repeat(np.arange(a.shape[0], dtype=np.int32), row_reps)
         else:
+            # rows are in fact a.indices
             rows = a.indices
+            # col_reps is a structure containing the number of repetitions for a column
             col_reps = a.indptr[1 : a.indptr.size] - a.indptr[0 : a.indptr.size - 1]
-            cols = np.repeat(np.arange(a.shape[0], dtype=np.int32), col_reps)
+            # cols are in fact a vector of global indices, i.e.
+            # col_j repeated col_reps[j] times
+            cols = np.repeat(np.arange(a.shape[1], dtype=np.int32), col_reps)
 
         # Nonzero entries
         data = a.data
@@ -602,19 +613,31 @@ def invert_diagonal_blocks(
 
         def operate_on_block(ib: int):
             """
+            Retrieve, invert, and assign dense block inverse values.
+
             Parameters
             ----------
             ib: the block index
 
             """
 
+            # To avoid creation of new data
+            # this line retrieves nnz for the block with index ib
             flat_block = inv_a[idx_inv_blocks[ib] : idx_inv_blocks[ib + 1]]
+
+            # Retrieve global block position
             idx_shift = idx_blocks[ib]
+            # Transform from global to local rows positions
             l_row = rows[idx_nnz[ib] : idx_nnz[ib + 1]] - idx_shift
+            # Transform from global to local cols positions
             l_col = cols[idx_nnz[ib] : idx_nnz[ib + 1]] - idx_shift
+            # Construct flattened local positions (major order of non-zeros)
             sequence_ij = l_row * size[ib] + l_col
+            # Assigning flattened positions directly from the matrix data (a.data)
             flat_block[sequence_ij] = data[idx_nnz[ib] : idx_nnz[ib + 1]]
+            # Reshape flattened block to squared dense block of size[ib]
             dense_block = np.reshape(flat_block, (size[ib], size[ib]))
+            # Perform inversion and assigning values from a 1-D iterator (ndarray.flat)
             inv_a[idx_inv_blocks[ib] : idx_inv_blocks[ib + 1]] = np.linalg.inv(
                 dense_block
             ).flat
@@ -625,8 +648,8 @@ def invert_diagonal_blocks(
 
     def invert_diagonal_blocks_numba(a: sps.csr_matrix, size: np.ndarray) -> np.ndarray:
         """
-        Invert block diagonal matrix by invoking numba prange. of a simple
-        This can be seen as the parallel function fo the python inverter.
+        It is the parallel function of the Python inverter.  Using numba support and a
+        single call to numba.prange, parallelization is achieved.
 
         Parameters
         ----------
@@ -643,7 +666,7 @@ def invert_diagonal_blocks(
             raise TypeError("Sparse array type not implemented: ", type(a))
 
         is_csr_q = sps.isspmatrix_csr(a)
-        # Matrix arrays
+        # Matrix information
         data = a.data
         indices = a.indices
         indptr = a.indptr
@@ -660,8 +683,11 @@ def invert_diagonal_blocks(
 
             # Construction of simple data structures (low complexity)
             # Indices for block positions, flattened inverse block positions and nonzeros
+            # Expanded block positions
             idx_blocks = np.cumsum(sz).astype(np.int32)
+            # Expanded nonzero positions for flattened inverse blocks
             idx_inv_blocks = np.cumsum(np.square(sz)).astype(np.int32)
+            # Nonzero positions for the given matrix data (i.e. a.data)
             idx_nnz = np.searchsorted(indices, idx_blocks).astype(np.int32)
 
             # Retrieve global indices (low complexity)
@@ -679,8 +705,11 @@ def invert_diagonal_blocks(
             for ib in prange(sz.size - 1):
                 v_range = np.arange(idx_inv_blocks[ib], idx_inv_blocks[ib + 1])
                 flat_block = v[v_range]
+                # Retrieve global block position
                 idx_shift = idx_blocks[ib]
                 idx_block = idx_blocks[np.array([ib, ib + 1])]
+
+                # Transform from global to local rows and cols positions
                 if is_csr_q:
                     l_row = (
                         np.repeat(
@@ -699,9 +728,13 @@ def invert_diagonal_blocks(
                         ).astype(np.int32)
                         - idx_shift
                     )
+                # Construct flattened local positions (major order of non-zeros)
                 sequence_ij = l_row * sz[ib + 1] + l_col
+                # Assigning flattened positions directly from the matrix data (a.data)
                 flat_block[sequence_ij] = data[idx_nnz[ib] : idx_nnz[ib + 1]]
+                # Reshape flattened block to squared dense block of size[ib]
                 dense_block = np.reshape(flat_block, (sz[ib + 1], sz[ib + 1]))
+                # Perform inversion and assigning values from a 1-D ravelled array
                 v[v_range] = np.ravel(np.linalg.inv(dense_block))
             return v
 
