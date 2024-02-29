@@ -3,8 +3,10 @@
 The main function is :func:`~porepy.grids.coarsening.coarsen`
 (see there for more information).
 """
+
 from __future__ import annotations
 
+import warnings
 from typing import Any, Optional, Union
 
 import numpy as np
@@ -12,6 +14,7 @@ import scipy.sparse as sps
 
 import porepy as pp
 from porepy.grids import grid
+from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_data
 from porepy.utils import accumarray, grid_utils, mcolon, setmembership, tags
 
 
@@ -50,6 +53,8 @@ def coarsen(
         ValueError: If ``method`` is not among the supported options.
 
     """
+    msg = "This functionality is deprecated and will be removed in a future version"
+    warnings.warn(msg, DeprecationWarning)
 
     if method.lower() == "by_volume":
         partition = create_aggregations(g, **method_kwargs)
@@ -107,6 +112,9 @@ def generate_coarse_grid(
             This special structure is passed by :func:`coarsen`.
 
     """
+    msg = "This functionality is deprecated and will be removed in a future version"
+    warnings.warn(msg, DeprecationWarning)
+
     if isinstance(g, grid.Grid):
         if isinstance(subdiv, dict):
             # If the subdiv is a dictionary with g as a key (this can happen if we are
@@ -166,14 +174,14 @@ def generate_seeds(mdg: Union[pp.Grid, pp.MixedDimensionalGrid]) -> np.ndarray:
 
     # Extract the higher dimensional grid
     g_h = mdg.subdomains(dim=mdg.dim_max())[0]
-    g_h_faces, g_h_cells, _ = sps.find(g_h.cell_faces)
+    g_h_faces, g_h_cells, _ = sparse_array_to_row_col_data(g_h.cell_faces)
 
     # Extract the 1-codimensional grids
     gs = mdg.subdomains(dim=mdg.dim_max() - 1)
 
     for g in gs:
         tips = np.where(g.tags["tip_faces"])[0]
-        faces, cells, _ = sps.find(g.cell_faces)
+        faces, cells, _ = sparse_array_to_row_col_data(g.cell_faces)
         index = np.in1d(faces, tips).nonzero()[0]
         cells = np.unique(cells[index])
 
@@ -184,7 +192,7 @@ def generate_seeds(mdg: Union[pp.Grid, pp.MixedDimensionalGrid]) -> np.ndarray:
         # this is the old face_cells mapping
         face_cells = secondary_to_mortar.T * primary_to_mortar
 
-        interf_cells, interf_faces, _ = sps.find(face_cells)
+        interf_cells, interf_faces, _ = sparse_array_to_row_col_data(face_cells)
         index = np.in1d(interf_cells, cells).nonzero()[0]
         index = np.in1d(g_h_faces, interf_faces[index]).nonzero()[0]
         seeds = np.concatenate((seeds, g_h_cells[index]))
@@ -427,7 +435,7 @@ def create_partition(
     # If two neighbors are coarse, eliminate one of them without touching the
     # seeds
     c2c = np.abs(A) > 0
-    c2c_rows, _, _ = sps.find(c2c)
+    c2c_rows, _, _ = sparse_array_to_row_col_data(c2c.transpose())
 
     pairs = np.empty((0, 2), dtype=int)
     for idx, it in enumerate(np.where(is_coarse)[0]):
@@ -574,7 +582,9 @@ def _generate_coarse_grid_single(
         cell_centers[:, cellId] = np.average(g.cell_centers[:, cells_old], axis=1)
 
         # reconstruct the cell_faces mapping
-        faces_old, _, orient_old = sps.find(g.cell_faces[:, cells_old])
+        faces_old, _, orient_old = sparse_array_to_row_col_data(
+            g.cell_faces[:, cells_old]
+        )
         mask = np.ones(faces_old.size, dtype=bool)
         mask[np.unique(faces_old, return_index=True)[1]] = False
         # extract the indexes of the internal edges, to be discared
@@ -755,7 +765,8 @@ def _tpfa_matrix(
     }
     data = pp.initialize_default_data(g, {}, "flow", specified_parameters)
     solver.discretize(g, data)
-    return solver.assemble_matrix(g, data)
+    flux, _ = solver.assemble_matrix_rhs(g, data)
+    return flux
 
 
 def __get_neigh(

@@ -3,13 +3,13 @@
 That is, manifolds of dimension 2 embedded in 3D.
 
 """
+
 from __future__ import annotations
 
 from typing import Optional, Union
 
 import numpy as np
 from numpy.typing import ArrayLike
-from sympy.geometry import Point, Polygon
 
 import porepy as pp
 from porepy.utils import setmembership
@@ -232,7 +232,9 @@ class PlaneFracture(Fracture):
     def compute_normal(self) -> np.ndarray:
         return pp.map_geometry.compute_normal(self.pts)[:, None]
 
-    def as_sympy_polygon(self, pts: Optional[np.ndarray] = None) -> Polygon:
+    # EK: Removed typing of return type, since this would necessitate an import of the
+    # full sympy module during import of PorePy, which is not desirable.
+    def as_sympy_polygon(self, pts: Optional[np.ndarray] = None):
         """Represent polygon as a sympy object.
 
         Parameters:
@@ -244,6 +246,7 @@ class PlaneFracture(Fracture):
             Sympy Representation of the polygon formed by ``pts``.
 
         """
+        from sympy.geometry import Point, Polygon
 
         if pts is None:
             pts = self.pts

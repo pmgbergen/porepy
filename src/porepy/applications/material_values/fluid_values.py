@@ -31,10 +31,10 @@ conductivity between 290K (16.85C) and 295K (21.85C).
 """
 
 water = {
-    "compressibility": 0.4559 * 1e-9,  # [Pa^-1], isentropic compressibility
+    "compressibility": 4.559 * 1e-10,  # [Pa^-1], isentropic compressibility
     "density": 998.2,  # [kg m^-3]
     "specific_heat_capacity": 4182.0,  # [J kg^-1 K^-1], isochoric specific heat
     "thermal_conductivity": 0.5975,  # [kg m^-3]
-    "thermal_expansion": 0.0002068,  # [K^-1]
-    "viscosity": 0.001002,  # [Pa s], absolute viscosity
+    "thermal_expansion": 2.068e-4,  # [K^-1]
+    "viscosity": 1.002e-3,  # [Pa s], absolute viscosity
 }

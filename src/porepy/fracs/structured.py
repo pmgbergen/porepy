@@ -7,15 +7,16 @@ Todo:
     module private.
 
 """
+
 from __future__ import annotations
 
 from typing import Optional
 
 import numpy as np
-import scipy.sparse as sps
 
 import porepy as pp
 from porepy.fracs.fracture_network_3d import FractureNetwork3d
+from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_data
 
 from . import msh_2_grid
 from .gmsh_interface import Tags
@@ -204,7 +205,11 @@ def _create_lower_dim_grids_3d(
 
     # Create 2D grids
     for fi, f in enumerate(fracs):
-        assert np.all(f.shape == (3, 4)), "fractures must have shape [3,4]"
+        assert np.all(f.shape == (3, 4)), (
+            "Fracture is set by an array of the edge points of shape (3, 4), "
+            f"Passed array has shape: {f.shape}. Could it be because of trimming the "
+            "part of the fracture outside the bounding box?"
+        )
         is_xy_frac = np.allclose(f[2, 0], f[2])
         is_xz_frac = np.allclose(f[1, 0], f[1])
         is_yz_frac = np.allclose(f[0, 0], f[0])
@@ -262,7 +267,7 @@ def _create_lower_dim_grids_3d(
             ),
         )
         f_tag = f_tag.ravel()
-        nodes = sps.find(g_3d.face_nodes[:, f_tag])[0]
+        nodes = sparse_array_to_row_col_data(g_3d.face_nodes[:, f_tag])[0]
         nodes = np.unique(nodes)
         loc_coord = g_3d.nodes[:, nodes]
         g = _create_embedded_2d_grid(loc_coord, nodes)

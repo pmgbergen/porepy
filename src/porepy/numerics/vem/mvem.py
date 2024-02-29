@@ -4,12 +4,14 @@ Module with implementation of the mixed virtual element method.
 The main class is MVEM.
 
 """
+
 from __future__ import annotations
 
 import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
+from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_data
 from porepy.numerics.vem.dual_elliptic import DualElliptic
 
 
@@ -72,7 +74,7 @@ class MVEM(DualElliptic):
         # Identity tensor for vector source computation
         identity = pp.SecondOrderTensor(kxx=np.ones(sd.num_cells))
 
-        faces, cells, sign = sps.find(sd.cell_faces)
+        faces, cells, sign = sparse_array_to_row_col_data(sd.cell_faces)
         index = np.argsort(cells)
         faces, sign = faces[index], sign[index]
 
@@ -259,7 +261,7 @@ class MVEM(DualElliptic):
         sd: grid, or a subclass.
         u : array (sd.num_faces) velocity at each face.
         """
-        faces, cells, sign = sps.find(sd.cell_faces)
+        faces, cells, sign = sparse_array_to_row_col_data(sd.cell_faces)
         index = np.argsort(cells)
         faces, sign = faces[index], sign[index]
 

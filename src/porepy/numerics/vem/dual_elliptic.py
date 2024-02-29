@@ -2,6 +2,7 @@
 Module contains common functionalities for discretization based on the mixed
 variational formulation.
 """
+
 from __future__ import annotations
 
 from typing import Optional
@@ -11,9 +12,8 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
-from porepy.numerics.interface_laws.elliptic_discretization import (
-    EllipticDiscretization,
-)
+from porepy.numerics.discretization import Discretization
+from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_data
 
 
 def project_flux(
@@ -74,7 +74,7 @@ def project_flux(
         )
 
 
-class DualElliptic(EllipticDiscretization):
+class DualElliptic(Discretization):
     """Parent class for methods based on the mixed variational form of the
     elliptic equation. The class should not be used by itself, but provides a
     sheared implementation of central methods.
@@ -266,7 +266,7 @@ class DualElliptic(EllipticDiscretization):
                 "Periodic boundary conditions are not implemented for DualElliptic"
             )
 
-        faces, _, sign = sps.find(sd.cell_faces)
+        faces, _, sign = sparse_array_to_row_col_data(sd.cell_faces)
         sign = sign[np.unique(faces, return_index=True)[1]]
 
         if np.any(is_dir):
@@ -366,7 +366,7 @@ class DualElliptic(EllipticDiscretization):
         sd: pp.Grid, intf: pp.MortarGrid, hat_E_int: sps.csc_matrix
     ) -> sps.csr_matrix:
         # Recover the information for the grid-grid mapping
-        faces_h, cells_h, sign_h = sps.find(sd.cell_faces)
+        faces_h, cells_h, sign_h = sparse_array_to_row_col_data(sd.cell_faces)
         ind_faces_h = np.unique(faces_h, return_index=True)[1]
         cells_h = cells_h[ind_faces_h]
         sign_h = sign_h[ind_faces_h]

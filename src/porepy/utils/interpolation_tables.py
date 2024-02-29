@@ -20,6 +20,7 @@ Both classes use piecewise linear interpolation of functions, and piecewise
 constant approximations of derivatives.
 
 """
+
 from __future__ import annotations
 
 import itertools

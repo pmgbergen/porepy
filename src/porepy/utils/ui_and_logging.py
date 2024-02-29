@@ -1,5 +1,6 @@
 """This module contains functionality to make the progress bars work correctly with
 logging."""
+
 from __future__ import annotations
 
 import logging
@@ -16,7 +17,7 @@ try:
         _get_first_found_console_logging_handler,
     )
 except ImportError:
-    std_tqdm = None
+    std_tqdm = None  # type: ignore
 
 
 @contextmanager

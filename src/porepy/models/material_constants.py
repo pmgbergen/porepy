@@ -9,6 +9,7 @@ which are the ones used internally in the simulation. The conversion hopefully r
 problems with scaling/rounding errors and condition numbers.
 
 """
+
 from __future__ import annotations
 
 from typing import Optional, Union, overload
@@ -70,8 +71,7 @@ class MaterialConstants:
     @overload
     def convert_units(
         self, value: number, units: str, to_si: Optional[bool] = False
-    ) -> number:
-        ...
+    ) -> number: ...
 
     @overload
     def convert_units(
@@ -79,8 +79,7 @@ class MaterialConstants:
         value: np.ndarray,
         units: str,
         to_si: Optional[bool] = False,
-    ) -> np.ndarray:
-        ...
+    ) -> np.ndarray: ...
 
     def convert_units(
         self,
@@ -135,6 +134,20 @@ class MaterialConstants:
                 value /= factor
         return value
 
+    def verify_constants(self, user_constants, default_constants):
+        """Verify that the user has specified valid constants.
+
+        Raises:
+            ValueError: If the user has specified invalid constants.
+
+        """
+        if user_constants is None:
+            return
+        # Identify any keys in constants that are not in default_constants
+        invalid_keys = set(user_constants.keys()) - set(default_constants.keys())
+        if invalid_keys:
+            raise ValueError(f"Invalid keys in constants: {invalid_keys}. ")
+
 
 class FluidConstants(MaterialConstants):
     """
@@ -162,6 +175,20 @@ class FluidConstants(MaterialConstants):
     """
 
     def __init__(self, constants: Optional[dict[str, number]] = None):
+        default_constants = self.default_constants
+        self.verify_constants(constants, default_constants)
+        if constants is not None:
+            default_constants.update(constants)
+        super().__init__(default_constants)
+
+    @property
+    def default_constants(self) -> dict[str, number]:
+        """Default constants of the material.
+
+        Returns:
+            Dictionary of constants.
+
+        """
         # Default values, sorted alphabetically
         default_constants: dict[str, number] = {
             "compressibility": 0,
@@ -174,9 +201,7 @@ class FluidConstants(MaterialConstants):
             "thermal_expansion": 0,
             "viscosity": 1,
         }
-        if constants is not None:
-            default_constants.update(constants)
-        super().__init__(default_constants)
+        return default_constants
 
     def compressibility(self) -> number:
         """Compressibility [1/Pa].
@@ -287,6 +312,20 @@ class SolidConstants(MaterialConstants):
     """
 
     def __init__(self, constants: Optional[dict] = None):
+        default_constants = self.default_constants
+        self.verify_constants(constants, default_constants)
+        if constants is not None:
+            default_constants.update(constants)
+        super().__init__(default_constants)
+
+    @property
+    def default_constants(self) -> dict[str, number]:
+        """Default constants of the material.
+
+        Returns:
+            Dictionary of constants.
+
+        """
         # Default values, sorted alphabetically
         default_constants = {
             "biot_coefficient": 1,
@@ -310,10 +349,7 @@ class SolidConstants(MaterialConstants):
             "thermal_expansion": 0,
             "well_radius": 0.1,
         }
-
-        if constants is not None:
-            default_constants.update(constants)
-        super().__init__(default_constants)
+        return default_constants
 
     def biot_coefficient(self) -> number:
         """Biot coefficient [-].

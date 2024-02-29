@@ -1,5 +1,6 @@
 """This module contains functions for (boolean) inquiries about geometric objects,
 and relations between objects."""
+
 from __future__ import annotations
 
 from typing import Optional, Union

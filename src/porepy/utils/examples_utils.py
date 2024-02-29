@@ -1,7 +1,8 @@
 """Module containing a mixin class for reusing methods in verification setups."""
+
 from __future__ import annotations
 
-from typing import Callable
+from typing import Callable, Sequence
 
 import numpy as np
 
@@ -60,13 +61,6 @@ class VerificationUtils:
     stress_keyword: str
     """Keyword for accessing the parameters of the mechanical subproblem."""
 
-    time_dependent_bc_values_mechanics: Callable[[list[pp.Grid]], np.ndarray]
-    """Values of the mechanical boundary conditions for a time-dependent problem.
-    Normally set by a mixin instance of
-    :class:`~porepy.models.poromechanics.BoundaryConditionsMechanicsTimeDependent`.
-
-    """
-
     time_manager: pp.TimeManager
     """Time manager. Normally set by an instance of a subclass of
     :class:`porepy.models.solution_strategy.SolutionStrategy`.
@@ -75,6 +69,26 @@ class VerificationUtils:
 
     units: pp.Units
     """Units object, containing the scaling of base magnitudes."""
+
+    nd: int
+
+    bc_type_mechanics: Callable[[pp.BoundaryGrid], np.ndarray]
+
+    mechanical_stress: Callable[
+        [pp.SubdomainsOrBoundaries], pp.ad.MixedDimensionalVariable
+    ]
+
+    _combine_boundary_operators: Callable[
+        [
+            Sequence[pp.Grid],
+            Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
+            Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
+            Callable[[pp.Grid], pp.BoundaryCondition],
+            str,
+            int,
+        ],
+        pp.ad.Operator,
+    ]
 
     def face_displacement(self, sd: pp.Grid) -> np.ndarray:
         """Project the displacement vector onto the faces.
@@ -107,7 +121,14 @@ class VerificationUtils:
         discr_poromech = pp.ad.BiotAd(self.stress_keyword, [sd])
 
         # Boundary conditions
-        bc = pp.wrap_as_ad_array(self.time_dependent_bc_values_mechanics([sd]))
+        bc = self._combine_boundary_operators(  # type: ignore [call-arg]
+            subdomains=[sd],
+            dirichlet_operator=self.displacement,
+            neumann_operator=self.mechanical_stress,
+            bc_type=self.bc_type_mechanics,
+            dim=self.nd,
+            name="bc_values_mechanics",
+        )
 
         # Compute the pseudo-trace of the displacement
         # Note that this is not the real trace, as this only holds for particular
@@ -119,6 +140,6 @@ class VerificationUtils:
         )
 
         # Parse numerical value and return the minimum and maximum value
-        u_faces = u_faces_ad.evaluate(self.equation_system).val
-
+        u_faces = u_faces_ad.value(self.equation_system)
+        assert isinstance(u_faces, np.ndarray)
         return u_faces

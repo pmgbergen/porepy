@@ -6,9 +6,17 @@ networkx
 numba >= 0.57
 numpy
 requests
-scipy <= 1.10
+scipy
 seaborn
 shapely
 six
 sympy
 typing_extensions
+black == 24.*
+deepdiff
+flake8
+isort
+mypy
+pytest >= 4.6
+pytest-cov
+pytest-runner

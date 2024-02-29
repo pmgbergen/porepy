@@ -1,9 +1,11 @@
 """Module contains various utility functions for working with grids.
 """
+
 import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
+from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_data
 
 
 def switch_sign_if_inwards_normal(
@@ -73,8 +75,8 @@ def star_shape_cell_centers(g: "pp.Grid", as_nan: bool = False) -> np.ndarray:
         return g.cell_centers
 
     # retrieve the faces and nodes
-    faces, _, sgn = sps.find(g.cell_faces)
-    nodes, _, _ = sps.find(g.face_nodes)
+    faces, _, sgn = sparse_array_to_row_col_data(g.cell_faces)
+    nodes, _, _ = sparse_array_to_row_col_data(g.face_nodes)
 
     # Shift the nodes close to the origin to avoid numerical problems when coordinates are
     # too big

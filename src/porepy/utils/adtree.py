@@ -1,4 +1,4 @@
-""" Module containing the implementation of an alternating digital tree (ADT)
+r""" Module containing the implementation of an alternating digital tree (ADT)
 for 3D geometric searching and intersection problems.
 
 See the following works: 10.1002/nme.1620310102 and 10.1201/9781420050349 section 14.
@@ -62,12 +62,13 @@ A search in the tree gives a list of all possible nodes that may
 intersect the given one.
 
 """
+
 from typing import Any, List, Optional, Tuple
 
 import numpy as np
-from scipy import sparse as sps
 
 import porepy as pp
+from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_data
 
 
 class ADTNode:
@@ -359,7 +360,7 @@ class ADTree:
         self.g = g
         # Get the geometrical information cell-to-nodes
         g_cell_nodes = self.g.cell_nodes()
-        g_nodes, g_cells, _ = sps.find(g_cell_nodes)
+        g_nodes, g_cells, _ = sparse_array_to_row_col_data(g_cell_nodes)
 
         # select which cells to add to the tree
         if only_cells is not None:

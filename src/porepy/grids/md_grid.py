@@ -2,6 +2,7 @@
 intersections along with a surrounding matrix in the form of a mixed-dimensional grid.
 
 """
+
 from __future__ import annotations
 
 from typing import Any, Callable, Iterable, Literal, Optional, Union, overload
@@ -665,11 +666,8 @@ class MixedDimensionalGrid:
 
     def compute_geometry(self) -> None:
         """Compute geometric quantities for each contained grid."""
-        for sd in self.subdomains():
-            sd.compute_geometry()
-
-        for intf in self.interfaces():
-            intf.compute_geometry()
+        for g in self.subdomains() + self.interfaces() + self.boundaries():
+            g.compute_geometry()
 
     def set_boundary_grid_projections(self) -> None:
         """Set projections to the boundary grids.
@@ -786,6 +784,8 @@ class MixedDimensionalGrid:
                 bg_new = pp.BoundaryGrid(sd_new)
                 self._boundary_grid_data[bg_new] = self._boundary_grid_data[bg_old]
                 self._subdomain_to_boundary_grid[sd_new] = bg_new
+                # Compute the projections to the new boundary grid.
+                bg_new.set_projections()
                 del self._boundary_grid_data[bg_old]
                 del self._subdomain_to_boundary_grid[sd_old]
 
@@ -940,7 +940,7 @@ class MixedDimensionalGrid:
                 f"in total {num_cells} cells and {num_nodes} nodes. \n"
             )
 
-        s += f"Total number of interfaces: {self.num_subdomains()}\n"
+        s += f"Total number of interfaces: {self.num_interfaces()}\n"
         for dim in range(self.dim_max(), self.dim_min(), -1):
             num_e = 0
             nc = 0
@@ -949,11 +949,11 @@ class MixedDimensionalGrid:
                 nc += mg.num_cells
 
             s += (
-                f"{num_e} interfaces between grids of dimension {dim} and {dim-1} with"
-                f" in total {nc} cells.\n"
+                f"{num_e} interfaces between grids of dimension {dim} and {dim - 1}"
+                f" with in total {nc} cells.\n"
             )
             for mg in self.interfaces(dim=dim - 2, codim=2):
-                s += f"Interface between grids of dimension {dim} and {dim-2} with"
+                s += f"Interface between grids of dimension {dim} and {dim - 2} with"
                 s += f" {mg.num_cells} cells.\n"
         return s
 
@@ -962,7 +962,7 @@ class MixedDimensionalGrid:
         about dimension, involved grids and their topological information."""
 
         s = (
-            f"Mixed-dimensional grid containing {self.num_subdomains() } grids and "
+            f"Mixed-dimensional grid containing {self.num_subdomains()} grids and "
             f"{self.num_interfaces()} interfaces.\n"
             f"Maximum dimension present: {self.dim_max()} \n"
             f"Minimum dimension present: {self.dim_min()} \n"
@@ -986,7 +986,7 @@ class MixedDimensionalGrid:
 
                 s += (
                     f"{num_intf} interfaces between grids of dimension {dim} and"
-                    f" {dim-1} with in total {num_intf_cells} mortar cells.\n"
+                    f" {dim - 1} with in total {num_intf_cells} mortar cells.\n"
                 )
                 num_intf_codim_2 = 0
                 num_intf_cells_codim_2 = 0
@@ -996,7 +996,7 @@ class MixedDimensionalGrid:
                 if num_intf_codim_2 > 0:
                     s += (
                         f"{num_intf_codim_2} interfaces between grids of dimension"
-                        f" {dim} and {dim-2} with in total {num_intf_cells_codim_2}"
+                        f" {dim} and {dim - 2} with in total {num_intf_cells_codim_2}"
                         f" mortar cells.\n"
                     )
 

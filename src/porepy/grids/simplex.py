@@ -7,6 +7,7 @@ functions found in the `Matlab Reservoir Simulation Toolbox (MRST)
 <www.sintef.no/projectweb/mrst/>`_ developed by SINTEF ICT.
 
 """
+
 from typing import Optional
 
 import numpy as np

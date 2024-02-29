@@ -4,6 +4,7 @@ This class is a modified version of relevant parts of AbstractModel.
 In the future, it may be possible to merge the two classes. For now, we
 keep them separate, to avoid breaking existing code (legacy models).
 """
+
 from __future__ import annotations
 
 import abc
@@ -67,6 +68,11 @@ class SolutionStrategy(abc.ABC):
     :class:`~porepy.viz.exporter.Exporter`.
 
     """
+    update_all_boundary_conditions: Callable[[], None]
+    """Set the values of the boundary conditions for the new time step.
+    Defined in :class:`~porepy.models.abstract_equations.BoundaryConditionsMixin`.
+
+    """
 
     def __init__(self, params: Optional[dict] = None):
         """Initialize the solution strategy.
@@ -109,7 +115,7 @@ class SolutionStrategy(abc.ABC):
         :class:`~porepy.models.geometry.ModelGeometry`.
 
         """
-        self.domain: pp.Domain
+        self._domain: pp.Domain
         """Box-shaped domain. Will normally be set by a mixin instance of
         :class:`~porepy.models.geometry.ModelGeometry`.
 
@@ -221,7 +227,6 @@ class SolutionStrategy(abc.ABC):
         the permeability, the porosity, etc.
 
         """
-        pass
 
     def initial_condition(self) -> None:
         """Set the initial condition for the problem.
@@ -239,6 +244,14 @@ class SolutionStrategy(abc.ABC):
 
         for iterate_index in self.iterate_indices:
             self.equation_system.set_variable_values(val, iterate_index=iterate_index)
+
+        # Initialize time dependent ad arrays, including those for boundary values.
+        self.update_time_dependent_ad_arrays()
+
+    @property
+    def domain(self) -> pp.Domain:
+        """Domain of the problem."""
+        return self._domain
 
     @property
     def time_step_indices(self) -> np.ndarray:
@@ -290,6 +303,8 @@ class SolutionStrategy(abc.ABC):
             self.equation_system.set_variable_values(
                 vals, iterate_index=0, time_step_index=0
             )
+            # Update the boundary conditions to both the time step and iterate solution.
+            self.update_time_dependent_ad_arrays()
 
     def set_materials(self):
         """Set material parameters.
@@ -372,7 +387,6 @@ class SolutionStrategy(abc.ABC):
         be used to set the list of nonlinear discretizations.
 
         """
-        pass
 
     def before_nonlinear_loop(self) -> None:
         """Method to be called before entering the non-linear solver, thus at the start
@@ -385,6 +399,8 @@ class SolutionStrategy(abc.ABC):
         self._nonlinear_iteration = 0
         # Update time step size.
         self.ad_time_step.set_value(self.time_manager.dt)
+        # Update the boundary conditions to both the time step and iterate solution.
+        self.update_time_dependent_ad_arrays()
 
     def before_nonlinear_iteration(self) -> None:
         """Method to be called at the start of every non-linear iteration.
@@ -435,6 +451,7 @@ class SolutionStrategy(abc.ABC):
             values=solution, time_step_index=0, additive=False
         )
         self.convergence_status = True
+
         self.save_data_time_step()
 
     def after_nonlinear_failure(
@@ -579,7 +596,7 @@ class SolutionStrategy(abc.ABC):
         """
         t_0 = time.time()
         self.linear_system = self.equation_system.assemble()
-        logger.debug(f"Assembled linear system in {t_0-time.time():.2e} seconds.")
+        logger.debug(f"Assembled linear system in {time.time() - t_0:.2e} seconds.")
 
     def solve_linear_system(self) -> np.ndarray:
         """Solve linear system.
@@ -629,7 +646,7 @@ class SolutionStrategy(abc.ABC):
             raise ValueError(
                 f"AbstractModel does not know how to apply the linear solver {solver}"
             )
-        logger.info(f"Solved linear system in {time.time()-t_0:.2e} seconds.")
+        logger.info(f"Solved linear system in {time.time() - t_0:.2e} seconds.")
 
         return np.atleast_1d(x)
 
@@ -650,14 +667,11 @@ class SolutionStrategy(abc.ABC):
         """
         return True
 
-    def update_time_dependent_ad_arrays(self, initial: bool) -> None:
-        """Update the time dependent arrays for the mechanics boundary conditions.
+    def update_time_dependent_ad_arrays(self) -> None:
+        """Update the time dependent arrays before a new time step.
 
-        Parameters:
-            initial: If True, the array generating method is called for both the stored
-                time steps and the stored iterates. If False, the array generating
-                method is called only for the iterate, and the time step solution is
-                updated by copying the iterate.
+        The base implementation updates those for the boundary condition values.
+        Override it to update other model-specific time dependent arrays.
 
         """
-        pass
+        self.update_all_boundary_conditions()

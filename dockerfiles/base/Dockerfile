@@ -6,7 +6,7 @@
 
 # Base the Docker image on the official Python image.
 # For more information, please refer to https://aka.ms/vscode-docker-python
-FROM python:3.11-slim
+FROM python:3.12-slim
 
 
 # Keeps Python from generating .pyc files in the container
@@ -41,7 +41,6 @@ RUN pip install pypardiso
 
 # Install dependencies
 RUN pip install -r ./requirements.txt
-RUN pip install -r ./requirements-dev.txt
 
 # Move back to code directory
 WORKDIR ${HOME}

@@ -28,6 +28,7 @@ Literature:
     Richard et al. 2005: Theoretical crack path prediction
 
 """
+
 from __future__ import annotations
 
 import logging
@@ -38,6 +39,7 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
+from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_data
 
 from .propagation_model import FracturePropagation
 
@@ -145,7 +147,9 @@ class ConformingFracturePropagation(FracturePropagation):
 
             if data_intf["propagation_face_map"].data.size > 0:
                 # Find the faces in the lower-dimensional grid to split.
-                _, col, _ = sps.find(data_intf["propagation_face_map"])
+                _, col, _ = sparse_array_to_row_col_data(
+                    data_intf["propagation_face_map"]
+                )
                 face_list.update({sd_secondary: col})
 
                 # We have propagated (at least) one fracture in this step
@@ -488,7 +492,9 @@ class ConformingFracturePropagation(FracturePropagation):
 
         # Find the edges in lower-dimensional grid to be split. For 2d problems (1d
         # fractures) this will be a node, in 3d, this is two nodes.
-        nodes_secondary, *_ = sps.find(sd_secondary.face_nodes[:, faces_secondary])
+        nodes_secondary, *_ = sparse_array_to_row_col_data(
+            sd_secondary.face_nodes[:, faces_secondary]
+        )
 
         # Obtain the global index of all nodes.
         # NOTE: For algorithms that introduce new geometric points (not including points that
@@ -577,7 +583,7 @@ class ConformingFracturePropagation(FracturePropagation):
         projection: pp.TangentialNormalProjection,
         faces: np.ndarray,
     ) -> np.ndarray:
-        """
+        r"""
         Construct local bases for tip faces of a fracture.
 
         Note: The orientation of a 2d basis may be found by

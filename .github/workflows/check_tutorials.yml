@@ -30,7 +30,7 @@ jobs:
     strategy:
       matrix:
         # Only check the latest version of 
-        python-version:  ["3.11"]
+        python-version:  ["3.11", "3.12"]
       # Complete all versions in matrix even if one fails.
       fail-fast: false
 
@@ -74,10 +74,6 @@ jobs:
         # https://blog.allenai.org/python-caching-in-github-actions-e9452698e98d
         pip install --upgrade --upgrade-strategy eager -r requirements.txt
 
-    - name: Install requirements-dev
-      run: |
-        pip install --upgrade --upgrade-strategy eager -r requirements-dev.txt        
-
     - name: Install jupyter
       run: |
         pip install jupyter 
@@ -89,4 +85,4 @@ jobs:
 
     - name: Check tutorials
       if: ${{always()}}
-      run: pytest tests/regression
+      run: pytest tests -m tutorials
