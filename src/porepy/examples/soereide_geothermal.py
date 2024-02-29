@@ -24,7 +24,7 @@ from porepy.composite.peng_robinson.eos_c import PengRobinsonCompiler
 from porepy.models.compositional_balance import CompositionalFlow
 
 
-class SoereideMixture(ppc.MixtureMixin):
+class SoereideMixture(ppc.FluidMixtureMixin):
     """Model fluid using the Soereide mixture, a Peng-Robinson based EoS for
     NaCl brine with CO2, H2S and N2.
 
@@ -46,15 +46,6 @@ class SoereideMixture(ppc.MixtureMixin):
         eos = PengRobinsonCompiler(components)
         return [(eos, 0, "liq"), (eos, 1, "gas")]
 
-
-class EquilibriumMixin(ppc.EquilibriumEquationsMixin):
-    """Defines the p-h flash as the target equilibrium system."""
-
-    equilibrium_type = "p-h"
-    """Introducing the equilibrium problem in the form of a p-h flash."""
-
-    create_compositional_fractions = True
-    """Must create fractions for equilibrium problem."""
 
 
 class CompiledFlash(ppc.FlashMixin):
@@ -101,7 +92,6 @@ class ModelGeometry:
 class GeothermalFlow(
     ModelGeometry,
     SoereideMixture,
-    EquilibriumMixin,
     CompiledFlash,
     CompositionalFlow,
 ):
@@ -117,11 +107,17 @@ time_manager = pp.TimeManager(
     print_info=True,
 )
 
+# Model setup:
+# eliminate reference phase fractions  and reference component.
+# Target equilibrium is in terms of pressure and enthalpy.
+# extended fractions are create because of equilibrium definition.
 params = {
     "eliminate_reference_phase": True,
     "eliminate_reference_component": True,
     "normalize_state_constraints": True,
     "use_semismooth_complementarity": True,
+    "equilibrium_type": 'p-h',
+    "has_extended_fractions": True,
     "time_manager": time_manager,
 }
 model = GeothermalFlow(params)

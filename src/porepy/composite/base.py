@@ -103,7 +103,7 @@ class Component(abc.ABC, FluidSpecies):
         )
 
         # creating the overall molar fraction variable
-        self.fraction: Callable[[Sequence[pp.Grid]], pp.ad.Operator]
+        self.fraction: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
         """Overall fraction, or feed fraction, for this component.
 
         It indicates how many of the total moles belong to this component (cell-wise).
@@ -235,7 +235,7 @@ class Compound(Component):
         """
 
         self.solute_fraction_of: dict[
-            ChemicalSpecies, Callable[[Sequence[pp.Grid]], pp.ad.Operator]
+            ChemicalSpecies, Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
         ] = dict()
         """A dictionary containing per solute (key) the relative fraction of it
         in this compound.
