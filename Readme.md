@@ -29,7 +29,6 @@ and
     docker pull porepy/stable
 
 Instructions to install from source can be found [here](https://github.com/pmgbergen/porepy/blob/develop/Install.md).
-Note that there are a few simple but non-obvious steps in the installation, so please read the entire document before sending questions.
 
 PorePy is developed under Python >=3.10.
 
@@ -43,8 +42,8 @@ If you use PorePy in your research, we ask you to cite the following publication
 Keilegavlen, E., Berge, R., Fumagalli, A., Starnoni, M., Stefansson, I., Varela, J., & Berre, I. PorePy: an open-source software for simulation of multiphysics processes in fractured porous media. Computational Geosciences,  25, 243–265 (2021), [doi:10.1007/s10596-020-10002-5](https://doi.org/10.1007/s10596-020-10002-5)
 
 
-# Problems
-Create an [issue](https://github.com/pmgbergen/porepy/issues)
+# Contributions
+For guidelines on how to contribute to PorePy, see [here](./CONTRIBUTING.md)
 
 # License
 See [license md](./LICENSE.md).

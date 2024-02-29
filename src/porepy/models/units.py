@@ -3,6 +3,7 @@ Utility class for conversion between different units.
 
 This is part of a system for setting the units of measurement of a problem.
 """
+
 from __future__ import annotations
 
 import numpy as np

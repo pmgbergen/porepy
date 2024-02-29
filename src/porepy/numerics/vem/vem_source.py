@@ -5,6 +5,7 @@ sd.num_faces, that is, to those rows in the saddle point system that represents
 conservation.
 
 """
+
 from __future__ import annotations
 
 import numpy as np

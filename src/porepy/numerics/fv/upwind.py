@@ -1,19 +1,18 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Dict, Tuple
 
 import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
-from porepy.numerics.discretization import Discretization
+from porepy.numerics.discretization import Discretization, InterfaceDiscretization
+from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_data
 
 
 class Upwind(Discretization):
-    """
-    Discretize a hyperbolic transport equation using a single point upstream
+    """Discretize a hyperbolic transport equation using a single point upstream
     weighting scheme.
-
 
     """
 
@@ -33,13 +32,11 @@ class Upwind(Discretization):
         Return the number of degrees of freedom associated to the method.
         In this case number of cells (concentration dof).
 
-        Parameter
-        ---------
-        sd: grid, or a subclass.
+        Parameters:
+            sd: grid, or a subclass.
 
-        Return
-        ------
-        dof: the number of degrees of freedom.
+        Returns:
+            The number of degrees of freedom.
 
         """
         return sd.num_cells
@@ -54,8 +51,8 @@ class Upwind(Discretization):
         the advective flux field.
 
         Parameters:
-            g (Grid): Computational grid, with geometry fields computed.
-            data (dictionary): With data stored.
+            sd: Computational grid, with geometry fields computed.
+            data: With data stored.
 
         Returns:
             scipy.sparse.csr_matrix: System matrix of this discretization.
@@ -64,35 +61,18 @@ class Upwind(Discretization):
                 conditions. The size of the vector will depend on the discretization.
 
         """
-        return self.assemble_matrix(sd, data), self.assemble_rhs(sd, data)
-
-    def assemble_matrix(self, sd: pp.Grid, data: dict) -> sps.spmatrix:
-        """Return the matrix for an upwind discretization of a linear transport
-        problem.
-
-        To stay true with a legacy format, the assembled system includes scaling with
-        the advective flux field.
-
-        Parameters:
-            g (Grid): Computational grid, with geometry fields computed.
-            data (dictionary): With data stored.
-
-        Returns:
-            scipy.sparse.csr_matrix: System matrix of this discretization.
-                Size: sd.num_cells x sd.num_cells.
-
-        """
         matrix_dictionary: dict[str, sps.spmatrix] = data[pp.DISCRETIZATION_MATRICES][
             self.keyword
         ]
+        parameter_dictionary: dict[str, Any] = data[pp.PARAMETERS][self.keyword]
+
         upwind = matrix_dictionary[self.upwind_matrix_key]
 
         # Scaling with the advective flux.
         # This is included to stay compatible with the legacy contract for this
         # function (e.g. it should assemble the discretization matrix for the full
         # advection problem).
-        param_dictionary: dict = data[pp.PARAMETERS][self.keyword]
-        flux_arr = param_dictionary[self._flux_array_key]
+        flux_arr = parameter_dictionary[self._flux_array_key]
         flux_mat = sps.dia_matrix((flux_arr, 0), shape=(sd.num_faces, sd.num_faces))
 
         div: sps.spmatrix = pp.fvutils.scalar_divergence(sd)
@@ -106,29 +86,9 @@ class Upwind(Discretization):
                                 supported in Ad mode.
                             """
             )
-        return div * flux_mat * upwind
+        matrix = div * flux_mat * upwind
 
-    def assemble_rhs(self, sd: pp.Grid, data: dict) -> np.ndarray:
-        """Return the right-hand side for an upwind discretization of a linear
-        transport problem.
-
-        To stay true with a legacy format, the assembled system includes scaling with
-        the advective flux field.
-
-        Parameters:
-            g (Grid): Computational grid, with geometry fields computed.
-            data (dictionary): With data stored.
-
-        Returns:
-            np.ndarray: Right hand side vector with representation of boundary
-                conditions. The size of the vector will depend on the discretization.
-
-        """
-        parameter_dictionary: dict[str, Any] = data[pp.PARAMETERS][self.keyword]
-        matrix_dictionary: dict[str, sps.spmatrix] = data[pp.DISCRETIZATION_MATRICES][
-            self.keyword
-        ]
-
+        # Assemble right-hand side.
         bc_values: np.ndarray = parameter_dictionary["bc_values"]
         bc_discr_dir: sps.spmatrix = matrix_dictionary[
             self.bound_transport_dir_matrix_key
@@ -137,18 +97,6 @@ class Upwind(Discretization):
             self.bound_transport_neu_matrix_key
         ]
 
-        # Scaling with the advective flux.
-        # This is included to stay compatible with the legacy contract for this
-        # function (e.g. it should assemble the discretization matrix for the full
-        # advection problem).
-        param_dictionary: dict = data[pp.PARAMETERS][self.keyword]
-
-        # The sign of the flux field was already accounted for in discretization,
-        # see self.discretization().
-        flux_arr: np.ndarray = param_dictionary[self._flux_array_key]
-        flux_mat = sps.dia_matrix((flux_arr, 0), shape=(sd.num_faces, sd.num_faces))
-
-        div: sps.spmatrix = pp.fvutils.scalar_divergence(sd)
         assert bc_discr_dir.shape == bc_discr_neu.shape
         if (
             div.shape[1] != bc_discr_dir.shape[0]
@@ -157,12 +105,12 @@ class Upwind(Discretization):
             # It should not be difficult to fix this, however it requires some thinking
             # on data format for boundary conditions for systems of equations.
             raise ValueError(
-                """Dimension mismatch in assembly of rhs term.
-                                Be aware that upwinding with multiple components is only
-                                supported in Ad mode.
-                            """
+                """Dimension mismatch in assembly of rhs term. Be aware that upwinding
+                with multiple components is only supported in Ad mode.
+                """
             )
-        return div * (bc_discr_neu + bc_discr_dir * flux_mat) * bc_values
+        rhs = div * (bc_discr_neu + bc_discr_dir * flux_mat) * bc_values
+        return matrix, rhs
 
     def discretize(self, sd: pp.Grid, data: dict) -> None:
         """Return the matrix and righ-hand side for an upstream discretization based on
@@ -187,33 +135,18 @@ class Upwind(Discretization):
         num_components (int, optional): Number of components to be advected. Defaults
             to 1.
 
-        Parameters
-        ----------
-        g : grid, or a subclass, with geometry fields computed.
-        data: dictionary to store the data.
+        Parameters:
+            sd: grid, or a subclass, with geometry fields computed.
+            data: dictionary to store the data.
 
-        Return
-        ------
-        matrix: sparse csr (sd.num_cells, g_num_cells)
+        Returns:
+            sparse csr (sd.num_cells, g_num_cells)
+
             Upwind matrix obtained from the discretization.
-        rhs: array (g_num_cells)
+            array (g_num_cells)
+
             Right-hand side which contains the boundary conditions.
 
-        Examples
-        --------
-        data = {'darcy_flux': u, 'bc': bnd, 'bc_val': bnd_val}
-        advect = upwind.Upwind()
-        U, rhs = advect.matrix_rhs(g, data)
-
-        data = {'deltaT': advect.cfl(g, data)}
-        M, _ = mass.MassMatrix().matrix_rhs(g, data)
-
-        M_minus_U = M - U
-        invM = mass.MassMatrix().inv(M)
-
-        # Loop over the time
-        for i in np.arange( N ):
-            conc = invM.dot((M_minus_U).dot(conc) + rhs)
         """
 
         parameter_dictionary: dict[str, Any] = data[pp.PARAMETERS][self.keyword]
@@ -258,8 +191,8 @@ class Upwind(Discretization):
 
         # We need to eliminate faces on the boundary; these will be discretized
         # separately below. On faces with Neumann conditions, boundary conditions apply
-        # for inflow; outflow faces should be assigned Dirichlet conditions.
-        # For Dirichlet, only inflow conditions are given; for outflow, we use upstream
+        # for inflow; outflow faces should be assigned Dirichlet conditions. For
+        # Dirichlet, only inflow conditions are given; for outflow, we use upstream
         # weighting (thus no need to modify the matrix we are about to build).
 
         # faces with Neumann conditions
@@ -301,24 +234,24 @@ class Upwind(Discretization):
         ).tocsr()
 
         # Boundary conditions
-        # Since the upwind discretization could be combined with a diffusion discretization
-        # in an advection-diffusion equation, treatment of boundary conditions can be a
-        # bit delicate, and the code should be used with some caution. The below
-        # implementation follows the following steps:
+        # Since the upwind discretization could be combined with a diffusion
+        # discretization in an advection-diffusion equation, treatment of boundary
+        # conditions can be a bit delicate, and the code should be used with some
+        # caution. The below implementation follows the following steps:
         #
-        # 1) On Neumann boundaries the prescribed boundary value should effectively
-        # be added to the adjacent cell, with the convention that influx (so
-        # negative boundary value) should correspond to accumulation.
-        # 2) On Dirichlet boundaries, we consider only inflow boundaries. Outflow boundaries
-        # are treated by the standard discretization.
+        # 1) On Neumann boundaries the prescribed boundary value should effectively be
+        # added to the adjacent cell, with the convention that influx (so negative
+        # boundary value) should correspond to accumulation.
+        # 2) On Dirichlet boundaries, we consider only inflow boundaries. Outflow
+        # boundaries are treated by the standard discretization.
 
-        # For Neumann faces we need to assign the sign of the divergence, to
-        # counteract multiplication with the same sign when the divergence is
-        # applied (e.g. in self.assemble_matrix).
+        # For Neumann faces we need to assign the sign of the divergence, to counteract
+        # multiplication with the same sign when the divergence is applied (e.g. in
+        # self.assemble_matrix).
         sgn_div = pp.fvutils.scalar_divergence(sd).sum(axis=0).A.squeeze()
 
-        # Need minus signs on both Neumann and Dirichlet data to ensure that accumulation
-        # follows from negative fluxes.
+        # Need minus signs on both Neumann and Dirichlet data to ensure that
+        # accumulation follows from negative fluxes.
         bc_discr_neu = sps.coo_matrix(
             (-sgn_div[neumann_ind], (neumann_ind, neumann_ind)),
             shape=(sd.num_faces, sd.num_faces),
@@ -343,18 +276,16 @@ class Upwind(Discretization):
         weighted with the face area, at each face.
 
         The name of data in the input dictionary (data) are:
-        darcy_flux : array (sd.num_faces)
+        darcy_flux: array (sd.num_faces)
             Normal velocity at each face, weighted by the face area.
 
-        Parameters
-        ----------
-        g : grid, or a subclass, with geometry fields computed.
-        data: dictionary to store the data.
-        d_name: (string) keyword for dischagre file in data dictionary
+        Parameters:
+            g: grid, or a subclass, with geometry fields computed.
+            data: dictionary to store the data.
+            d_name: keyword for discharge entry in data dictionary
 
-        Return
-        ------
-        deltaT: time step according to CFL condition.
+        Returns:
+            Time step according to CFL condition.
 
         """
         if sd.dim == 0:
@@ -364,7 +295,7 @@ class Upwind(Discretization):
         darcy_flux = parameter_dictionary[d_name]
         phi = parameter_dictionary["mass_weight"]
 
-        faces, cells, _ = sps.find(sd.cell_faces)
+        faces, cells, _ = sparse_array_to_row_col_data(sd.cell_faces)
 
         # Detect and remove the faces which have zero in darcy_flux
         not_zero = ~np.isclose(np.zeros(faces.size), darcy_flux[faces], atol=0)
@@ -389,23 +320,22 @@ class Upwind(Discretization):
         Return the normal component of the velocity, for each face, weighted by
         the face area and aperture.
 
-        Parameters
-        ----------
-        g : grid, or a subclass, with geometry fields computed.
-        beta: (3x1) array which represents the constant velocity.
-        cell_apertures: (sd.num_faces) array of apertures
+        Parameters:
+            g: grid, or a subclass, with geometry fields computed.
+            beta: (3x1) array which represents the constant velocity.
+            cell_apertures: (sd.num_faces) array of apertures
 
-        Return
-        ------
-        darcy_flux : array (sd.num_faces)
-            Normal velocity at each face, weighted by the face area.
+        Returns:
+            array (sd.num_faces)
+
+                Normal velocity at each face, weighted by the face area.
 
         """
         if cell_apertures is None:
             face_apertures = np.ones(sd.num_faces)
         else:
             face_apertures = abs(sd.cell_faces) * cell_apertures
-            r, _, _ = sps.find(sd.cell_faces)
+            r, _, _ = sparse_array_to_row_col_data(sd.cell_faces)
             face_apertures = face_apertures / np.bincount(r)
 
         beta = np.asarray(beta)
@@ -422,63 +352,205 @@ class Upwind(Discretization):
             [np.dot(n, a * beta) for n, a in zip(sd.face_normals.T, face_apertures)]
         )
 
-    def outflow(self, sd: pp.Grid, data: dict, d_name="darcy_flux"):
-        if sd.dim == 0:
-            return sps.csr_matrix([0])
 
-        parameter_dictionary = data[pp.PARAMETERS][self.keyword]
-        darcy_flux = parameter_dictionary[d_name]
-        bc = parameter_dictionary["bc"]
-        bc_val = parameter_dictionary["bc_values"]
+class UpwindCoupling(InterfaceDiscretization):
+    def __init__(self, keyword: str) -> None:
+        # Keywords for accessing discretization matrices
+        self.keyword = keyword
 
-        has_bc = not (bc is None or bc_val is None)
+        # Trace operator for the primary grid
+        self.trace_primary_matrix_key = "trace"
+        # Inverse trace operator (face -> cell)
+        self.inv_trace_primary_matrix_key = "inv_trace"
+        # Matrix for filtering upwind values from the primary grid
+        self.upwind_primary_matrix_key = "upwind_primary"
+        # Matrix for filtering upwind values from the secondary grid
+        self.upwind_secondary_matrix_key = "upwind_secondary"
+        # Matrix that carries the fluxes
+        self.flux_matrix_key = "flux"
+        # Discretization of the mortar variable
+        self.mortar_discr_matrix_key = "mortar_discr"
 
-        # Compute the face flux respect to the real direction of the normals
-        indices = sd.cell_faces.indices
-        flow_faces = sd.cell_faces.copy()
-        flow_faces.data *= darcy_flux[indices]
+        self._flux_array_key = "darcy_flux"
 
-        # Retrieve the faces boundary and their numeration in the flow_faces
-        # We need to impose no-flow for the inflow faces without boundary
-        # condition
-        mask = np.unique(indices, return_index=True)[1]
-        bc_neu = sd.tags["domain_boundary_faces"].nonzero()[0]
+    def key(self) -> str:
+        return self.keyword + "_"
 
-        if has_bc:
-            # If boundary conditions are imposed remove the faces from this
-            # procedure.
-            bc_dir = np.where(bc.is_dir)[0]
-            bc_neu = np.setdiff1d(bc_neu, bc_dir, assume_unique=True)
-            bc_dir = mask[bc_dir]
+    def discretization_key(self):
+        return self.key() + pp.DISCRETIZATION
 
-            # Remove Dirichlet inflow
-            inflow = flow_faces.copy()
+    def ndof(self, intf: pp.MortarGrid) -> int:
+        return intf.num_cells
 
-            inflow.data[bc_dir] = inflow.data[bc_dir].clip(max=0)
-            flow_faces.data[bc_dir] = flow_faces.data[bc_dir].clip(min=0)
+    def discretize(
+        self,
+        sd_primary: pp.Grid,
+        sd_secondary: pp.Grid,
+        intf: pp.MortarGrid,
+        data_primary: Dict,
+        data_secondary: Dict,
+        data_intf: Dict,
+    ) -> None:
+        # First check if the grid dimensions are compatible with the implementation. It
+        # is not difficult to cover the case of equal dimensions, it will require trace
+        # operators for both grids, but it has not yet been done.
+        if sd_primary.dim - sd_secondary.dim not in [1, 2]:
+            raise ValueError(
+                "Implementation is only valid for grids one dimension apart."
+            )
 
-        # Remove all Neumann
-        bc_neu = mask[bc_neu]
-        flow_faces.data[bc_neu] = 0
+        matrix_dictionary = data_intf[pp.DISCRETIZATION_MATRICES][self.keyword]
 
-        # Determine the outflow faces
-        if_faces = flow_faces.copy()
-        if_faces.data = np.sign(if_faces.data)
-
-        outflow_faces = if_faces.indices[if_faces.data > 0]
-        domain_boundary_faces = sd.tags["domain_boundary_faces"].nonzero()[0]
-        outflow_faces = np.intersect1d(
-            outflow_faces, domain_boundary_faces, assume_unique=True
+        # Normal component of the velocity from the higher dimensional grid
+        lam_flux: np.ndarray = np.sign(
+            data_intf[pp.PARAMETERS][self.keyword][self._flux_array_key]
         )
 
-        # va tutto bene se ho neumann omogeneo
-        # gli outflow sono positivi
+        # mapping from upper dim cells to faces
+        # The mortars always points from upper to lower, so we don't flip any signs. The
+        # mapping will be non-zero also for faces not adjacent to the mortar grid,
+        # however, we wil hit it with mortar projections, thus kill those elements
+        inv_trace_h = np.abs(pp.fvutils.scalar_divergence(sd_primary))
+        # We also need a trace-like projection from cells to faces
+        trace_h = inv_trace_h.T
 
-        if_outflow_faces = if_faces.copy()
-        if_outflow_faces.data[:] = 0
-        if_outflow_faces.data[np.in1d(if_faces.indices, outflow_faces)] = 1
+        matrix_dictionary[self.inv_trace_primary_matrix_key] = inv_trace_h
+        matrix_dictionary[self.trace_primary_matrix_key] = trace_h
 
-        if_outflow_cells = if_outflow_faces.transpose() * flow_faces
-        if_outflow_cells.tocsr()
+        # Find upwind weighting. if flag is True we use the upper weights if flag is
+        # False we use the lower weighs
+        flag = (lam_flux > 0).astype(float)
+        not_flag = 1 - flag
 
-        return if_outflow_cells
+        # Discretizations are the flux, but masked so that only the upstream direction
+        # is hit.
+        upwind_from_primary = sps.diags(flag)
+        upwind_from_secondary = sps.diags(not_flag)
+
+        flux = sps.diags(lam_flux)
+
+        matrix_dictionary[self.upwind_primary_matrix_key] = upwind_from_primary
+        matrix_dictionary[self.upwind_secondary_matrix_key] = upwind_from_secondary
+        matrix_dictionary[self.flux_matrix_key] = flux
+
+        # Identity matrix, to represent the mortar variable itself
+        matrix_dictionary[self.mortar_discr_matrix_key] = sps.eye(intf.num_cells)
+
+    def assemble_matrix_rhs(
+        self,
+        sd_primary: pp.Grid,
+        sd_secondary: pp.Grid,
+        intf: pp.MortarGrid,
+        data_primary: Dict,
+        data_secondary: Dict,
+        data_intf,
+        matrix: sps.spmatrix,
+    ) -> Tuple[sps.spmatrix, np.ndarray]:
+        """
+        Construct the matrix (and right-hand side) for the coupling conditions.
+        Note: the right-hand side is not implemented now.
+
+        Parameters:
+            sd_primary: grid of higher dimension
+            sd_secondary: grid of lower dimension
+            data_primary: dictionary which stores the data for the higher dimensional
+                grid
+            data_secondary: dictionary which stores the data for the lower dimensional
+                grid
+            data_intf: dictionary which stores the data for the edges of the mdg
+            matrix: Uncoupled discretization matrix.
+
+        Returns:
+            cc: block matrix which store the contribution of the coupling
+                condition. See the abstract coupling class for a more detailed
+                description.
+
+        """
+
+        matrix_dictionary: Dict[str, sps.spmatrix] = data_intf[
+            pp.DISCRETIZATION_MATRICES
+        ][self.keyword]
+        # Retrieve the number of degrees of both grids
+        # Create the block matrix for the contributions
+
+        # We know the number of dofs from the primary and secondary side from their
+        # discretizations
+        dof = np.array([matrix[0, 0].shape[1], matrix[1, 1].shape[1], intf.num_cells])
+        cc = np.array([sps.coo_matrix((i, j)) for i in dof for j in dof])
+        cc = cc.reshape((3, 3))
+
+        # Trace operator for higher-dimensional grid
+        trace_primary: sps.spmatrix = matrix_dictionary[self.trace_primary_matrix_key]
+        # Associate faces on the higher-dimensional grid with cells
+        inv_trace_primary: sps.spmatrix = matrix_dictionary[
+            self.inv_trace_primary_matrix_key
+        ]
+
+        # Upwind operators
+        upwind_primary: sps.spmatrix = matrix_dictionary[self.upwind_primary_matrix_key]
+        upwind_secondary: sps.spmatrix = matrix_dictionary[
+            self.upwind_secondary_matrix_key
+        ]
+        flux: sps.spmatrix = matrix_dictionary[self.flux_matrix_key]
+
+        # The mortar variable itself.
+        mortar_discr: sps.spmatrix = matrix_dictionary[self.mortar_discr_matrix_key]
+
+        # The advective flux
+        lam_flux: np.ndarray = np.abs(
+            data_intf[pp.PARAMETERS][self.keyword][self._flux_array_key]
+        )
+        scaling = sps.dia_matrix((lam_flux, 0), shape=(intf.num_cells, intf.num_cells))
+
+        # assemble matrices
+
+        # Note the sign convention: The Darcy mortar flux is positive if it goes from
+        # sd_primary to sd_secondary. Thus, a positive transport flux (assuming positive
+        # concentration) will go out of sd_primary, into sd_secondary.
+
+        # Transport out of upper equals lambda.
+        # Use integrated projection operator; the flux is an extensive quantity
+        cc[0, 2] = inv_trace_primary * intf.mortar_to_primary_int()
+
+        # transport out of lower is -lambda
+        cc[1, 2] = -intf.mortar_to_secondary_int()
+
+        # Discretisation of mortars
+        # If fluid flux(lam_flux) is positive we use the upper value as weight,
+        # i.e., T_primaryat * fluid_flux = lambda.
+        # We set cc[2, 0] = T_primaryat * fluid_flux
+        # Use averaged projection operator for an intensive quantity
+        cc[2, 0] = (
+            scaling
+            * flux
+            * upwind_primary
+            * intf.primary_to_mortar_avg()
+            * trace_primary
+        )
+
+        # If fluid flux is negative we use the lower value as weight,
+        # i.e., T_check * fluid_flux = lambda.
+        # we set cc[2, 1] = T_check * fluid_flux
+        # Use averaged projection operator for an intensive quantity
+        cc[2, 1] = scaling * flux * upwind_secondary * intf.secondary_to_mortar_avg()
+
+        # The rhs of T * fluid_flux = lambda
+        # Recover the information for the grid-grid mapping
+        cc[2, 2] = -mortar_discr
+
+        if sd_primary == sd_secondary:
+            # All contributions to be returned to the same block of the
+            # global matrix in this case
+            cc = np.array([np.sum(cc, axis=(0, 1))])
+
+        # rhs is zero
+        rhs = np.array(
+            [np.zeros(dof[0]), np.zeros(dof[1]), np.zeros(dof[2])], dtype=object
+        )
+        if rhs.ndim == 2:
+            # Special case if all elements in dof are 1, numpy interprets the
+            # definition of rhs a bit special then.
+            rhs = rhs.ravel()
+
+        matrix += cc
+        return matrix, rhs

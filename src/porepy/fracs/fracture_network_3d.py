@@ -3,16 +3,17 @@
 The model relies heavily on functions in the computational geometry library.
 
 """
+
 from __future__ import annotations
 
 import copy
 import csv
 import logging
 import time
+import warnings
 from typing import Optional, Union
 
 import meshio
-import networkx as nx
 import numpy as np
 from scipy.spatial import ConvexHull
 
@@ -160,6 +161,9 @@ class FractureNetwork3d(object):
             fracture: Plane fracture to be added.
 
         """
+        msg = "This functionality is deprecated and will be removed in a future version"
+        warnings.warn(msg, DeprecationWarning)
+
         ind = np.array([f.index for f in self.fractures])
 
         if ind.size > 0:
@@ -548,13 +552,13 @@ class FractureNetwork3d(object):
         # Special tag for intersection between fracture and constraint. These are not
         # needed in the gmsh postprocessing (will not produce 0d grids), but it can
         # be useful to mark them for other purposes (EK: DFM upscaling)
-        point_tags[
-            fracture_constraint_intersection
-        ] = GmshInterfaceTags.FRACTURE_CONSTRAINT_INTERSECTION_POINT.value
+        point_tags[fracture_constraint_intersection] = (
+            GmshInterfaceTags.FRACTURE_CONSTRAINT_INTERSECTION_POINT.value
+        )
 
-        point_tags[
-            fracture_and_boundary_points
-        ] = GmshInterfaceTags.FRACTURE_BOUNDARY_POINT.value
+        point_tags[fracture_and_boundary_points] = (
+            GmshInterfaceTags.FRACTURE_BOUNDARY_POINT.value
+        )
 
         # We're done! Hurrah!
 
@@ -585,9 +589,9 @@ class FractureNetwork3d(object):
             physical_points[pi] = GmshInterfaceTags.FRACTURE_BOUNDARY_POINT
 
         for pi in fracture_constraint_intersection:
-            physical_points[
-                pi
-            ] = GmshInterfaceTags.FRACTURE_CONSTRAINT_INTERSECTION_POINT
+            physical_points[pi] = (
+                GmshInterfaceTags.FRACTURE_CONSTRAINT_INTERSECTION_POINT
+            )
 
         for pi in boundary_points:
             physical_points[pi] = GmshInterfaceTags.DOMAIN_BOUNDARY_POINT
@@ -1304,6 +1308,9 @@ class FractureNetwork3d(object):
             fractures associated to each point.
 
         """
+        msg = "This functionality is deprecated and will be removed in a future version"
+        warnings.warn(msg, DeprecationWarning)
+
         fracs_of_points = []
         pts = np.atleast_1d(np.asarray(pts))
         for i in pts:
@@ -1346,6 +1353,9 @@ class FractureNetwork3d(object):
             If ``(a, b)`` is a member, ``(b, a)`` will not be.
 
         """
+        msg = "This functionality is deprecated and will be removed in a future version"
+        warnings.warn(msg, DeprecationWarning)
+
         c_points = []
 
         pt = self.decomposition["points"]
@@ -1517,7 +1527,7 @@ class FractureNetwork3d(object):
         area_threshold: float = 1e-4,
         clear_gmsh: bool = True,
         finalize_gmsh: bool = True,
-    ) -> np.ndarray:
+    ) -> tuple[np.ndarray, np.ndarray]:
         """Set an external boundary for the contained plane fractures.
 
         If no domain is provided, a box will be fitted outside the fracture network.
@@ -1569,12 +1579,22 @@ class FractureNetwork3d(object):
                 passed to this method.
 
         Returns:
-            Mapping from old to new fractures, referring to the fractures in
-            :attr:`fractures` before and after imposing the external boundary. The
-            mapping does not account for the boundary fractures added to the
-            end of the fracture array (if ``keep_box=True``).
+            Tuple with two elements.
+
+                :obj:`numpy.ndarray`:
+
+                    Array containing the indices of the fractures that have been kept.
+                    The array does not account for the boundary fractures added to the
+                    end of the fracture array (if ``keep_box=True``).
+
+                :obj:`numpy.ndarray`:
+
+                    Array containing the indices of the fractures that have been
+                    deleted, since they were outside the bounding box.
 
         """
+        import networkx as nx
+
         if domain is None and not self.fractures:
             # Cannot automatically calculate external boundary for non-fractured grids.
             raise ValueError(
@@ -2000,7 +2020,7 @@ class FractureNetwork3d(object):
         self.tags["boundary"] = boundary_tags
 
         self._reindex_fractures()
-        return ind_map
+        return ind_map, delete_frac
 
     def _classify_edges(
         self,
@@ -2138,9 +2158,9 @@ class FractureNetwork3d(object):
                     # boundary
                     edge_tags[e] = GmshInterfaceTags.DOMAIN_BOUNDARY_LINE.value
                     # The points of this edge are also associated with the boundary
-                    point_tags[
-                        edges[:, e]
-                    ] = GmshInterfaceTags.DOMAIN_BOUNDARY_POINT.value
+                    point_tags[edges[:, e]] = (
+                        GmshInterfaceTags.DOMAIN_BOUNDARY_POINT.value
+                    )
                 else:
                     # The edge is associated with at least one fracture. Still,
                     # if it is also the edge of at least one boundary point, we will
@@ -2154,16 +2174,16 @@ class FractureNetwork3d(object):
                     # The line is on the boundary
                     if on_one_domain_edge:
                         edge_tags[e] = GmshInterfaceTags.DOMAIN_BOUNDARY_LINE.value
-                        point_tags[
-                            edges[:, e]
-                        ] = GmshInterfaceTags.DOMAIN_BOUNDARY_POINT.value
+                        point_tags[edges[:, e]] = (
+                            GmshInterfaceTags.DOMAIN_BOUNDARY_POINT.value
+                        )
                     else:
                         # The edge is an intersection between a fracture and a boundary
                         # polygon
                         edge_tags[e] = GmshInterfaceTags.FRACTURE_BOUNDARY_LINE.value
-                        point_tags[
-                            edges[:, e]
-                        ] = GmshInterfaceTags.FRACTURE_BOUNDARY_POINT.value
+                        point_tags[edges[:, e]] = (
+                            GmshInterfaceTags.FRACTURE_BOUNDARY_POINT.value
+                        )
             else:
                 # This is not an edge on the domain boundary, and the tag assigned in
                 # in self._classify_edges() is still valid: It is either a fracture
@@ -2890,6 +2910,9 @@ class FractureNetwork3d(object):
                     p_2d, np.zeros(p_2d.shape[1]))))``.
 
         """
+        msg = "This functionality is deprecated and will be removed in a future version"
+        warnings.warn(msg, DeprecationWarning)
+
         isect = self.intersections_of_fracture(frac_num)
 
         frac = self.fractures[frac_num]

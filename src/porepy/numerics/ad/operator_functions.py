@@ -4,6 +4,7 @@ Contains also a decorator class for callables, which transforms them automatical
 specified operator function type.
 
 """
+
 from __future__ import annotations
 
 import abc
