@@ -91,9 +91,7 @@ class BiotAd(Discretization):
 
     """
 
-    def __init__(
-        self, keyword: str, subdomains: list[pp.Grid]
-    ) -> None:
+    def __init__(self, keyword: str, subdomains: list[pp.Grid]) -> None:
         self.subdomains = subdomains
         self._discretization = pp.Biot(keyword)
         self._name = "BiotMpsa"
@@ -116,7 +114,13 @@ class BiotAd(Discretization):
 
         # The following are keywords used to identify the coupling terms constructed
         # by a Biot discretization.
-        coupling_terms = ['div_u', 'bound_div_u', 'grad_p', 'bound_pressure', 'stabilization']
+        coupling_terms = [
+            "div_u",
+            "bound_div_u",
+            "grad_p",
+            "bound_pressure",
+            "stabilization",
+        ]
 
         wrap_discretization(
             obj=self,
@@ -143,6 +147,7 @@ class MpsaAd(Discretization):
         self.bound_displacement_face: MergedOperator
 
         wrap_discretization(self, self._discretization, subdomains=subdomains)
+
 
 ## Flow related
 

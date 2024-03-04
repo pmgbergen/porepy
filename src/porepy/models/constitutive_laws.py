@@ -2312,7 +2312,9 @@ class ThermalExpansion:
         val = self.fluid.thermal_expansion()
         return Scalar(val, "fluid_thermal_expansion")
 
-    def solid_thermal_expansion_coefficient(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+    def solid_thermal_expansion_coefficient(
+        self, subdomains: list[pp.Grid]
+    ) -> pp.ad.Operator:
         """Thermal expansion of the solid [1/K].
 
         Parameters:
@@ -2326,7 +2328,9 @@ class ThermalExpansion:
         val = self.solid.thermal_expansion()
         return Scalar(val, "solid_thermal_expansion")
 
-    def solid_thermal_expansion_tensor(self, subdomains: pp.Grid) -> pp.SecondOrderTensor:
+    def solid_thermal_expansion_tensor(
+        self, subdomains: pp.Grid
+    ) -> pp.SecondOrderTensor:
         """Thermo-mechanical coupling tensor.
 
         Parameters:
@@ -3677,10 +3681,13 @@ class ThermoPressureStress(PressureStress):
                 raise ValueError("Subdomains must be of dimension nd - 1.")
 
         discr = pp.ad.BiotAd(self.stress_keyword, subdomains)
-        stress: pp.ad.Operator = (
-                discr.grad_p(self.temperature_variable) @ self.temperature(subdomains)
-                - discr.grad_p(self.temperature_variable) @ self.reference_temperature(subdomains)
-            )
+        stress: pp.ad.Operator = discr.grad_p(
+            self.temperature_variable
+        ) @ self.temperature(subdomains) - discr.grad_p(
+            self.temperature_variable
+        ) @ self.reference_temperature(
+            subdomains
+        )
         stress.set_name("thermal_stress")
         return stress
 
@@ -4496,7 +4503,9 @@ class PoroMechanicsPorosity:
         div_u.set_name("div_u")
         return div_u
 
-    def biot_stabilization(self, subdomains: list[pp.Grid], variable_name: str) -> pp.ad.Operator:
+    def biot_stabilization(
+        self, subdomains: list[pp.Grid], variable_name: str
+    ) -> pp.ad.Operator:
         """Consistency term for Biot-type discretizations.
 
         This function returns a diffusion-type term that is needed to ensure an
@@ -4516,9 +4525,9 @@ class PoroMechanicsPorosity:
         if not all(sd.dim == self.nd for sd in subdomains):
             raise ValueError("Biot stabilization only defined in nd.")
 
-        discr  = pp.ad.BiotAd(self.stress_keyword, subdomains)
+        discr = pp.ad.BiotAd(self.stress_keyword, subdomains)
 
-        #discr = pp.ad.BiotStabilizationAd(self.darcy_keyword, subdomains)
+        # discr = pp.ad.BiotStabilizationAd(self.darcy_keyword, subdomains)
         # The stabilization is based on perturbation. If pressure is used directly,
         # results will not match if the reference state is not zero, see
         # :func:`test_without_fracture` in test_poromechanics.py.
@@ -4646,6 +4655,10 @@ class ThermoPoroMechanicsPorosity(PoroMechanicsPorosity):
         alpha = self.biot_coefficient(subdomains)
         # TODO: Figure out why * is needed here, but not in
         # porosity_change_from_pressure.
-        phi = Scalar(-1) * (alpha - phi_ref) * beta * dtemperature + self.biot_stabilization(subdomains, self.temperature_variable)
+        phi = Scalar(-1) * (
+            alpha - phi_ref
+        ) * beta * dtemperature + self.biot_stabilization(
+            subdomains, self.temperature_variable
+        )
         phi.set_name("Porosity change from temperature")
         return phi

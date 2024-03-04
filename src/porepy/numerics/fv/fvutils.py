@@ -1751,6 +1751,7 @@ def partial_discretization(
     data[kw1] += trm
     data[kw2] += bound_flux
 
+
 def restrict_fourth_order_tensor_to_subgrid(
     constit: pp.FourthOrderTensor, loc_cells: np.ndarray
 ) -> pp.FourthOrderTensor:
