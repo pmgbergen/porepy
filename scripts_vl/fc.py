@@ -55,9 +55,9 @@ flash_c.npipm_parameters['eta'] = 0.5
 flash_c.initialization_parameters['N1'] = 3
 flash_c.initialization_parameters['N2'] = 1
 flash_c.initialization_parameters['N3'] = 5
-result, success, num_iter = flash_c.flash(z, p = p, T= T, params={'mode': 'linear', 'verbosity': verbosity})
+result, success, num_iter = flash_c.flash(z, p = p, T= T, parameters={'mode': 'linear', 'verbosity': verbosity})
 
-result, success, num_iter = flash_c.flash(z, p = p, T= T, params={'mode': 'parallel', 'verbosity': verbosity})
+result, success, num_iter = flash_c.flash(z, p = p, T= T, parameters={'mode': 'parallel', 'verbosity': verbosity})
 p_range = [1e6, 50e6]
 T_range = [450., 700.]
 refinement = 80
@@ -74,7 +74,7 @@ result, success, num_iter = flash_c.flash(
     [np.ones(p.shape[0]) * _ for _ in feed],
     p = p,
     T= T,
-    params={'mode': 'parallel', 'verbosity': verbosity}
+    parameters={'mode': 'parallel', 'verbosity': verbosity}
 )
 print("---\n")
 
@@ -92,7 +92,7 @@ flash_c.npipm_parameters['eta'] = 0.5
 flash_c.initialization_parameters['N1'] = 3
 flash_c.initialization_parameters['N2'] = 1
 flash_c.initialization_parameters['N3'] = 5
-result, success, num_iter = flash_c.flash(z, p=p, h=h, params={'mode': 'linear', 'verbosity': verbosity})
+result, success, num_iter = flash_c.flash(z, p=p, h=h, parameters={'mode': 'linear', 'verbosity': verbosity})
 
 # test v-h
 v = vec * 3.267067077646246e-05
@@ -106,6 +106,6 @@ flash_c.npipm_parameters['eta'] = 0.5
 flash_c.initialization_parameters['N1'] = 2
 flash_c.initialization_parameters['N2'] = 2
 flash_c.initialization_parameters['N3'] = 7
-result, success, num_iter = flash_c.flash(z, h=h, v=v, params={'mode': 'linear', 'verbosity': verbosity})
+result, success, num_iter = flash_c.flash(z, h=h, v=v, parameters={'mode': 'linear', 'verbosity': verbosity})
 
 print("Done")

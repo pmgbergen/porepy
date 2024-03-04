@@ -1658,7 +1658,7 @@ class CompiledUnifiedFlash(Flash):
         h: Optional[np.ndarray] = None,
         v: Optional[np.ndarray] = None,
         initial_state: Optional[FluidState] = None,
-        params: dict = dict(),
+        parameters: dict = dict(),
     ) -> tuple[FluidState, np.ndarray, np.ndarray]:
         """Performes the flash for given feed fractions and state definition.
 
@@ -1692,9 +1692,9 @@ class CompiledUnifiedFlash(Flash):
                 of thermodynamic states is passed.
 
         """
-        mode = params.get("mode", "linear")
+        mode = parameters.get("mode", "linear")
         assert mode in ["linear", "parallel"], f"Unsupported mode {mode}."
-        verbosity = params.get("verbosity", 0)
+        verbosity = parameters.get("verbosity", 0)
         # setting logging verbosity
         if verbosity == 1:
             logger.setLevel(logging.INFO)

@@ -823,7 +823,7 @@ def calculate_porepy_data(
     else:
         raise NotImplementedError(f'Unknown flash type {flash_type}')
     
-    out, success, num_iter = flash.flash(**equilibrium, params={'mode': 'parallel', 'verbosity': 2})
+    out, success, num_iter = flash.flash(**equilibrium, parameters={'mode': 'parallel', 'verbosity': 2})
 
     results[success_HEADER] = success
     results[num_iter_HEADER] = num_iter

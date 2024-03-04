@@ -111,11 +111,13 @@ time_manager = pp.TimeManager(
 # eliminate reference phase fractions  and reference component.
 # Target equilibrium is in terms of pressure and enthalpy.
 # extended fractions are create because of equilibrium definition.
+# BC are constant and the boundary equilibrium needs to be computed only once.
 params = {
     "eliminate_reference_phase": True,
     "eliminate_reference_component": True,
     "normalize_state_constraints": True,
     "use_semismooth_complementarity": True,
+    "has_time_dependent_boundary_equilibrium": False,
     "equilibrium_type": 'p-h',
     "has_extended_fractions": True,
     "time_manager": time_manager,

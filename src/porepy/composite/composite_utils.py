@@ -262,7 +262,7 @@ class SecondaryExpression:
         else:
             self._boundaries = None
 
-        self._name: str = name
+        self.name: str = name
         """Name passed at instantiation. Used to name resulting operators."""
         self._dependencies = dependencies
         """Sequence of callable first order dependencies. Called when constructing
@@ -314,7 +314,7 @@ class SecondaryExpression:
                 [d in self._boundaries for d in domains]
             ), "Property accessed on unknown boundary."
 
-            return pp.ad.TimeDependentDenseArray(self._name, domains)
+            return pp.ad.TimeDependentDenseArray(self.name, domains)
 
         elif isinstance(domains[0], pp.Grid):
             assert all(
@@ -322,7 +322,7 @@ class SecondaryExpression:
             ), "Property accessed on unknown subdomains."
 
             children = [child(domains) for child in self._dependencies]
-            op = pp.ad.Function(func=self.subdomain_function(domains), name=self._name)(
+            op = pp.ad.Function(func=self.subdomain_function(domains), name=self.name)(
                 *children
             )
 
@@ -331,7 +331,7 @@ class SecondaryExpression:
                     list(self._domains)
                 ).cell_restriction(list(domains))
                 op = restriction @ op
-                op.set_name(f"domain_restricted_{self._name}")
+                op.set_name(f"domain_restricted_{self.name}")
             return op
         else:
             raise ValueError(
@@ -399,7 +399,7 @@ class SecondaryExpression:
                 return pp.ad.AdArray(value, jac.tocsr())
             else:
                 raise ValueError(
-                    f"Subdomain function of expression {self._name} requires"
+                    f"Subdomain function of expression {self.name} requires"
                     + f" {self.ndep} arguments, {n} given."
                 )
 
