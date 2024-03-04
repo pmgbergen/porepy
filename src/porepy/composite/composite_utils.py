@@ -9,7 +9,7 @@ import abc
 import logging
 import time
 from collections.abc import Mapping
-from typing import Any, Callable, Optional, Sequence, cast
+from typing import Any, Callable, Optional, Sequence, Tuple, cast
 
 import numpy as np
 import scipy.sparse as sps
@@ -21,7 +21,7 @@ __all__ = [
     "truncexp",
     "trunclog",
     "COMPOSITE_LOGGER",
-    "DomainProperty",
+    "SecondaryExpression",
 ]
 
 
@@ -190,61 +190,100 @@ class CompositionalSingleton(abc.ABCMeta):
         return new_instance
 
 
-class DomainProperty:
-    """A representation of some dependent quantity on a set of subdomains and their
+class SecondaryExpression:
+    """A **cell-wise** representation of some dependent quantity on a set of domains
     boundary grids.
 
     This is meant for terms where the evaluation is done elsewhere and then stored.
 
-    The property can depend on other operators. It is treated as a function, where the
-    other operators are evaluated as children, and their values are passed to a
-    place-holder function, which returns the values stored here.
+    **On subdomains:**
 
+    The operator can depend on other operators. It is treated as a function, where the
+    other operators are evaluated as children, and their values are passed to a
+    place-holder function, which returns the values stored here (see operator functions
+    in PorePy's Ad).
     The place holder functions can be modified upon inheritance.
 
+    **On boundary grids:**
+
+    The class creates a
+    :class:`~porepy.numerics.ad.opeators.TimeDependentDenseArray` using its given
+    name and the boundar grids passed to the call.
+    Boundary values must hence be updated like any other term in the model framework.
+    They are not stored in the class, but in the data dictionaries using the
+    expression's name as key
+
+    When calling this expression on a (sub-) set of domains on which it is defined,
+    it creates AD compatible representations of this expression, using the operator
+    function framework on subdomains and time-dependent dense arrays on boundaries.
+
+    Note:
+        Future work might add support for interfaces.
+        The restriction from the total set of domains to a subset when calling this
+        expression can be optimized.
+
     Parameters:
-        name: Assigned name of the property.
-        subdomains: A sequence of subdomains on which the property is defined.
-        boundaries: A sequence of boundary grids corresponding to ``subdomains``.
+        name: Assigned name of the expression.
+        domains: A sequence of subdomains or interfaces on which the expression is
+            defined.
+        boundaries: ``default=None``
+
+            A sequence of boundary grids on which the secondary expression is defined.
         *dependencies: Callables/ constructors for independent variables on which the
-            expression depends. Their order is should be reflected in the assigned
+            expression depends. Their order is reflected in the assigned
             :meth:`derivatives`.
 
-            They should be defined on ``subdomains`` and have boundary values on
-            respective boundary grids.
+            They should be defined on ``domains`` and have boundary values on
+            respective boundary grids stored in the boundary grid data dictionaries.
 
     """
 
     def __init__(
         self,
         name: str,
-        subdomains: Sequence[pp.Grid],
-        boundaries: Sequence[pp.BoundaryGrid],
+        domains: Sequence[pp.Grid] | Sequence[pp.MortarGrid],
+        boundaries: Optional[Sequence[pp.BoundaryGrid]] = None,
         *dependencies: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator],
     ) -> None:
-        assert len(set(subdomains)) == len(subdomains), "Must pass unique subdomains."
-        assert len(set(boundaries)) == len(boundaries), "Must pass unique subdomains."
-        assert len(subdomains) > 0, "A property must be defined on a subdomain."
-        assert len(boundaries) > 0, "A property must be defined on boundaries."
+        # some checks on proper usage
+        assert len(domains) > 0, "A property must be defined on at least one domain."
+        assert all(
+            [isinstance(d, type(domains[0])) for d in domains]
+        ), "Secondary expression cannot be defined on mixed types of domains."
 
-        self._subdomains: Sequence[pp.Grid] = subdomains
-        self._boundaries: Sequence[pp.BoundaryGrid] = boundaries
+        self._domains: Sequence[pp.Grid] | Sequence[pp.MortarGrid] = domains
+
+        self._boundaries: Optional[Sequence[pp.BoundaryGrid]]
+        if boundaries is not None:
+            assert all(
+                [isinstance(d, pp.BoundaryGrid) for d in boundaries]
+            ), "Expexting only boundary grids for argument `boundaries`."
+            self._boundaries = boundaries
+        else:
+            self._boundaries = None
+
         self._name: str = name
+        """Name passed at instantiation. Used to name resulting operators."""
         self._dependencies = dependencies
+        """Sequence of callable first order dependencies. Called when constructing
+        operators on domains."""
 
-        self._nc_subdomains: int = sum([grid.num_cells for grid in self._subdomains])
-        """Number of subdomain cells."""
-        self._nc_boundaries: int = sum([grid.num_cells for grid in boundaries])
-        self._nd: int = len(dependencies)
+        self._ndep: int = len(dependencies)
         """See :meth:`nd`"""
-        self._value = np.zeros(self._nc_subdomains)
-        """See :meth:`value`."""
-        self._derivatives = np.array(
-            [np.zeros(self._nc_subdomains) for _ in range(self._nd)]
+        self._values_on_domains: dict[pp.Grid | pp.MortarGrid, np.ndarray] = dict(
+            [(d, np.zeros(d.num_cells)) for d in self._domains]
         )
-        """See :meth:`derivatives`."""
-        self._boundary_value = np.zeros(self._nc_boundaries)
-        """See :meth:`boundary_value`"""
+        """Values stored per single domain on which the expression is defined."""
+        self._derivatives_on_domains: dict[
+            pp.Grid | pp.MortarGrid, Sequence[np.ndarray]
+        ] = dict(
+            [
+                (d, np.array([np.zeros(d.num_cells) for _ in range(self._ndep)]))
+                for d in self._domains
+            ]
+        )
+        """Values of derivatives stored per single domain on which the expression is
+        defined."""
 
     def __call__(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
         """Call this operator on a subset of subdomains to get a property restricted
@@ -265,120 +304,109 @@ class DomainProperty:
 
         """
         # sanity check
-        assert len(domains) > 0, "Cannot access property without defining domain."
+        assert len(domains) > 0, "Cannot call expression without defining domain."
         assert all(
             [isinstance(d, domains[0]) for d in domains]
-        ), "Cannot access property with mixed domain types."
+        ), "Cannot call expresion with mixed domain types."
 
         if isinstance(domains[0], pp.BoundaryGrid):
             assert all(
                 [d in self._boundaries for d in domains]
             ), "Property accessed on unknown boundary."
 
-            children = [child(list(self._boundaries)) for child in self._dependencies]
-            op = pp.ad.Function(
-                func=self.boundary_function(), name=f"bc_values_{self._name}"
-            )(*children)
-
-            if len(domains) == len(self._boundaries):  # return without restriction
-                return op
-            else:  # restrict to (by logic) smaller subdomain
-                raise NotImplementedError(
-                    "Restriction of properties on subset of boundaries not implemented."
-                )
+            return pp.ad.TimeDependentDenseArray(self._name, domains)
 
         elif isinstance(domains[0], pp.Grid):
             assert all(
-                [d in self._subdomains for d in domains]
+                [d in self._domains for d in domains]
             ), "Property accessed on unknown subdomains."
 
-            children = [child(list(self._subdomains)) for child in self._dependencies]
-            op = pp.ad.Function(func=self.subdomain_function(), name=self._name)(
+            children = [child(domains) for child in self._dependencies]
+            op = pp.ad.Function(func=self.subdomain_function(domains), name=self._name)(
                 *children
             )
 
-            if len(domains) == len(self._subdomains):  # return without restriction
-                return op
-            else:  # restrict to (by logic) smaller subdomain
+            if len(domains) < len(self._domains):  # restrition (by logic)
                 restriction = pp.ad.SubdomainProjections(
-                    list(self._subdomains)
+                    list(self._domains)
                 ).cell_restriction(list(domains))
                 op = restriction @ op
                 op.set_name(f"domain_restricted_{self._name}")
-                return op
+            return op
         else:
             raise ValueError(
                 f"Properties are not defined on grids of type {type(domains[0])}"
             )
 
     def subdomain_function(
-        self,
-    ) -> Callable[[*pp.ad.AdArray], pp.ad.AdArray | np.ndarray]:
-        """Returns a function which represents the property on the subdomains.
+        self, domains: Sequence[pp.Grid] | Sequence[pp.MortarGrid]
+    ) -> Callable[[Tuple[pp.ad.AdArray, ...]], pp.ad.AdArray | np.ndarray]:
+        """Returns a function which represents the expression on the ``domains``.
 
-        It is consistent with the derivatives with the children passed at instantiation.
+        The function takes numerical values of the dependencies passed at instantiation
+        and returns the stored values on the requested ``domains``.
 
-        For values and derivatives, the assigned :meth:`value` and :meth:`derivatives`
-        are used.
+        This includes the derivatives in Ad form.
+
+        Parameters:
+            domains: A sequence of subdomains or interfaces, on which the numerical
+                function should be defined.
+
+        Raises:
+            ValueError: If ``domains`` contains grid not passed at instantiation.
 
         """
+        if not all([d in self._domains for d in domains]):
+            raise ValueError("Function requested on unknown domains.")
 
         def func(*args: pp.ad.AdArray) -> pp.ad.AdArray | np.ndarray:
             """Inner function filling provided values and and derivatives."""
             n = len(args)
-            if n == 0 and self.nd == 0:  # case with no dependency
-                self.value
-            elif n == self.nd:  # case with dependency
+            value = np.hstack([self._values_on_domains[d] for d in domains])
+            if n == 0 and self.ndep == 0:  # case with no dependency
+                return value
+            elif n == self.ndep:  # case with dependency
                 idx = cast(tuple[np.ndarray, np.ndarray], args[0].jac.nonzero())
                 shape = args[0].jac.shape()
+
+                # derivative values for first dependency
+                d_0 = np.hstack([self._derivatives_on_domains[d][0] for d in domains])
                 # number of derivatives per dependency must be equal to the total number
                 # of values
                 assert (
-                    idx[0].shape == self.value.shape
+                    idx[0].shape == value.shape
                 ), "Mismatch in shape of derivatives for arg 1."
                 assert (
-                    idx[0].shape == self.derivatives[0].shape
+                    idx[0].shape == d_0.shape
                 ), "Mismatch in shape of provided derivatives for arg 1."
-                jac = sps.coo_matrix((self.derivatives[0], idx), shape=shape)
+                jac = sps.coo_matrix((d_0, idx), shape=shape)
 
                 for i in range(1, len(args)):
                     idx = cast(tuple[np.ndarray, np.ndarray], args[i].jac.nonzero())
+                    # derivatives w.r.t. to i-th dependency
+                    d_i = np.hstack(
+                        [self._derivatives_on_domains[d][i] for d in domains]
+                    )
                     # checks consistency with number of values
                     assert (
-                        idx[0].shape == self.value.shape
+                        idx[0].shape == value.shape
                     ), f"Mismatch in shape of derivatives for arg {i + 1}"
                     assert (
-                        idx[0].shape == self.derivatives[i].shape
+                        idx[0].shape == d_i.shape
                     ), f"Mismatch in shape of provided derivatives for arg {i + 1}."
-                    jac += sps.coo_matrix((self.derivatives[i], idx), shape=shape)
+                    jac += sps.coo_matrix((d_i, idx), shape=shape)
 
-                return pp.ad.AdArray(self.value, jac.tocsr())
+                return pp.ad.AdArray(value, jac.tocsr())
             else:
                 raise ValueError(
-                    f"Subdomain function of property {self._name} requires {self._nd}"
-                    + f" argument, {n} given."
+                    f"Subdomain function of expression {self._name} requires"
+                    + f" {self.ndep} arguments, {n} given."
                 )
 
         return func
 
-    def boundary_function(self) -> Callable[[*pp.ad.AdArray | np.ndarray], np.ndarray]:
-        """Returns a function which represents the property on the boundaries.
-
-        As of now, properties on boundaries pass return only the boundary value, no
-        derivatives.
-
-        To stored values are accessed using :meth:`boundary_value`
-
-        """
-
-        def func(*args: pp.ad.AdArray) -> np.ndarray:
-            """Inner function returning the stored boundary values."""
-            return self.boundary_value
-
-        return func
-
     @property
-    def nd(self) -> int:
+    def ndep(self) -> int:
         """Number of first order dependencies of this operator.
 
         Given by the number of unique variables in the operator tree.
@@ -386,12 +414,14 @@ class DomainProperty:
         This determines the number of required :meth:`derivatives`.
 
         """
-        return self._nd
+        return self._ndep
 
     @property
     def value(self) -> np.ndarray:
-        """The value of this property given by an array with values in each subdomain
-        cell.
+        """The global value of this expression given by an array with values in each
+        subdomain cell.
+
+        The setter is for convenience to set the values on all domains of definition.
 
         Parameters:
             val: ``shape=(num_cells,)``
@@ -402,18 +432,49 @@ class DomainProperty:
             ValueError: If the size of the value mismatches what is expected.
 
         """
-        return self._value
+        return np.hstack([v for _, v in self._values_on_domains.items()])
 
     @value.setter
-    def value(self, val) -> None:
-        self._value[:] = val  # let numpy handle the broadcasting errors
+    def value(self, val: np.ndarray) -> None:
+        idx = 0
+        for d in self._domains:
+            nc_d = d.num_cells
+            self.set_value_on_domain(d, val[idx : idx + nc_d])
+            idx += nc_d
+
+    def set_value_on_domain(
+        self, domain: pp.Grid | pp.MortarGrid, value: np.ndarray
+    ) -> None:
+        """Set the value of the secondary expression on an individual domain.
+
+        Parameters:
+            domain: One of the grids passed at instantiation.
+            value: Cell-wise value of the expression on ``domain``.
+
+        Raises:
+            ValueError: If ``domain`` not among the domains of defintion
+            ValueError: If ``value.shape != (domain.num_cells)``.
+
+        """
+        if domain not in self._domains:
+            raise ValueError(f"Unknown domain {domain}")
+
+        shape = (domain.num_cells,)
+        if value.shape != shape:
+            raise ValueError(f"Values must be of shape {shape}, got {value.shape}.")
+
+        self._values_on_domains[domain] = value
 
     @property
     def derivatives(self) -> Sequence[np.ndarray]:
-        """The derivatives of this property, w.r.t. to its first-order dependencies.
+        """The global derivatives of this expression, w.r.t. to its first-order
+        dependencies on all domains of definition.
 
-        This is a sequence of length :meth:`nd` where each element is an array with
-        ``shape=(num_cells,)``.
+        This is a sequence of length :meth:`ndep` where each element is an array with
+        ``shape=(num_cells,)``, with ``num_cells`` being the total number of cells.
+
+        The setter is for convenience to set the derivative values on all domains of
+        definition.
 
         Important:
             The order of derivatives should reflect the order of dependencies
@@ -426,31 +487,55 @@ class DomainProperty:
             ValueError: If an insufficient number of derivatives is passed.
 
         """
-        self._derivatives
+        return np.array(
+            [
+                np.hstack([v[i] for _, v in self._derivatives_on_domains.items()])
+                for i in range(self.ndep)
+            ]
+        )
 
     @derivatives.setter
     def derivatives(self, val: Sequence[np.ndarray]) -> None:
-        if len(val) != self._nd:
-            raise ValueError(f"{len(val)} derivatives provided, {self._nd} required.")
-        for i in range(self._nd):
-            self._derivatives[i, :] = val[i]  # stored as np array to ensure proper size
+        if len(val) != self.ndep:
+            raise ValueError(f"{len(val)} derivatives provided, {self.ndep} required.")
 
-    @property
-    def boundary_value(self) -> np.ndarray:
-        """The value of this property on the boundary, given by an array with values in
-        each boundary grid cell.
+        for d in self._domains:
+            idx = 0
+            nc_d = d.num_cells
+            d_vals = []
+            for i in range(self.ndep):
+                d_vals.append(val[i][idx : idx + nc_d])
+            idx += nc_d
+            self.set_derivatives_on_domain(d, np.array(d_vals))
+
+    def set_derivatives_on_domain(
+        self, domain: pp.Grid | pp.MortarGrid, value: Sequence[np.ndarray]
+    ) -> None:
+        """Set the value the derivatives w.r.t. the first-order dependencies on an
+        individual domain.
+
+        Analogous to :meth:`set_value_on_domain`.
 
         Parameters:
-            val: ``shape=(num_boundary_cells,)``
+            domain: One of the grids passed at instantiation.
+            value: ``shape=(ndep, domain.num_cells)``
 
-                A new value to be set.
+                The derivatives values, row-wise for dependencies, column-wise for cells
+                in ``domain``.
 
         Raises:
-            ValueError: If the size of the value mismatches what is expected.
+            ValueError: If ``domain`` not among the domains of defintion
+            ValueError: If ``value.shape != (ndep, domain.num_cells)``.
 
         """
-        return self._value
+        if domain not in self._domains:
+            raise ValueError(f"Unknown domain {domain}")
 
-    @boundary_value.setter
-    def boundary_value(self, val) -> None:
-        self._boundary_value[:] = val  # let numpy handle the broadcasting errors
+        # convert to array for simple shape comparison
+        # this raises an error if different amoung of values per dependency is given
+        shape = (self.ndep, domain.num_cells)
+        value_ = np.array(value) if not isinstance(value, np.ndarray) else value
+        if value_.shape != shape:
+            raise ValueError(f"Values must be of shape {shape}, got {value_.shape}.")
+
+        self._derivatives_on_domains[domain] = value_

@@ -1467,8 +1467,6 @@ class SolutionStrategyCompositionalFlow(
         """Primary variable in the compositional flow model, denoting the total,
         transported (specific molar) enthalpy of the fluid mixture."""
 
-        self._domainprojection: pp.ad.SubdomainProjections(self.mdg.subdomains())
-
     def prepare_simulation(self) -> None:
         """Introduces some additional elements in between steps performed by the parent
         method.
