@@ -4366,7 +4366,7 @@ class PoroMechanicsPorosity:
             self.reference_porosity(subdomains)
             + self.porosity_change_from_pressure(subdomains)
             + self.porosity_change_from_displacement(subdomains)
-            + self.biot_stabilization(subdomains)
+            + self.biot_stabilization(subdomains, self.pressure_variable)
         )
         phi.set_name("Stabilized matrix porosity")
 
@@ -4496,10 +4496,14 @@ class PoroMechanicsPorosity:
         div_u.set_name("div_u")
         return div_u
 
-    def biot_stabilization(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Biot stabilization term.
+    def biot_stabilization(self, subdomains: list[pp.Grid], variable_name: str) -> pp.ad.Operator:
+        """Consistency term for Biot-type discretizations.
 
-        TODO: Determine if this is the correct place to include stabilization.
+        This function returns a diffusion-type term that is needed to ensure an
+        MPSA-type discretization of poromechanics (or
+        thermomechanics/thermoporomechanics) is stable in the limit of vanishing time
+        steps and permeability. The term arises naturally from the MPSA discretization,
+        see Nordbotten 2016 (SIAM) for details.
 
         Parameters:
             subdomains: List of subdomains where the stabilization is defined.
@@ -4518,8 +4522,8 @@ class PoroMechanicsPorosity:
         # The stabilization is based on perturbation. If pressure is used directly,
         # results will not match if the reference state is not zero, see
         # :func:`test_without_fracture` in test_poromechanics.py.
-        dp = self.perturbation_from_reference("pressure", subdomains)
-        stabilization_integrated = discr.stabilization(self.pressure_variable) @ dp
+        dp = self.perturbation_from_reference(variable_name, subdomains)
+        stabilization_integrated = discr.stabilization(variable_name) @ dp
 
         # Divide by cell volumes to counteract integration.
         # The stabilization discretization contains a volume integral. Since the
@@ -4642,6 +4646,6 @@ class ThermoPoroMechanicsPorosity(PoroMechanicsPorosity):
         alpha = self.biot_coefficient(subdomains)
         # TODO: Figure out why * is needed here, but not in
         # porosity_change_from_pressure.
-        phi = Scalar(-1) * (alpha - phi_ref) * beta * dtemperature
+        phi = Scalar(-1) * (alpha - phi_ref) * beta * dtemperature + self.biot_stabilization(subdomains, self.temperature_variable)
         phi.set_name("Porosity change from temperature")
         return phi
