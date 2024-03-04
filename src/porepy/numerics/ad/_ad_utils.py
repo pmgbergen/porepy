@@ -37,6 +37,7 @@ import porepy as pp
 
 from . import operators
 from .forward_mode import AdArray
+from porepy.numerics.discretization import Discretization, InterfaceDiscretization
 
 
 def concatenate_ad_arrays(ad_arrays: list[AdArray], axis=0):
@@ -52,7 +53,7 @@ def concatenate_ad_arrays(ad_arrays: list[AdArray], axis=0):
 
 def wrap_discretization(
     obj: pp.ad.Discretization,
-    discr: pp.numerics.disrcetization.Discretization,
+    discr: Discretization | InterfaceDiscretization,
     subdomains: Optional[list[pp.Grid]] = None,
     interfaces: Optional[list[pp.MortarGrid]] = None,
     coupling_terms: Optional[list[str]] = None,
@@ -61,23 +62,21 @@ def wrap_discretization(
 
     For a (non-ad) discretization object ``D`` of type ``discr``, this function will
     identify all attributes of the form ``"foo_matrix_key"`` and create a corresponding
-    attribute "foo" in the AD discretization ``obj``. Thus, after the call to this
-    method, ``obj.foo`` will represent the discretization matrix for the term ``foo``.
+    method "foo" in the AD discretization ``obj``. Thus, after the call to this method,
+    ``obj.foo()`` will represent the discretization matrix for the term ``foo``.
 
     For example: If ``D`` is an instance of ``Mpfa`` (which has an attribute
-    ``flux_matrix_key``), then ``obj.flux`` will be an instance of ``MpfaAd``, and
-    this function equips ``obj`` with the method ``obj.flux()``. This method will
-    return the discretization matrix for the flux term, for the parameter keyword
-    associated with ``obj``.
-    NOTE: For discretizations that involve coupling terms (the only known example is
-    Biot), the coupling terms are treated differently, see description of the
+    ``flux_matrix_key``), then ``obj`` will be an instance of ``MpfaAd``, and this
+    function equips ``obj`` with the method ``obj.flux()``. This method will return the
+    discretization matrix for the flux term, for the parameter keyword associated with
+    ``obj``. NOTE: For discretizations that involve coupling terms (the only known
+    example is Biot), the coupling terms are treated differently, see description of the
     coupling_keywords and coupling_terms arguments below.
 
     Parameters:
-        obj: An AD discretization object.
-        discr: A non-AD discretization object.
-        subdomains: List of grids on which the discretization is defined.
-        interfaces: List of interfaces on which the discretization is defined.
+        obj: An AD discretization object. discr: A non-AD discretization object.
+        subdomains: List of grids on which the discretization is defined. interfaces:
+        List of interfaces on which the discretization is defined.
 
         Either subdomains or interfaces must be provided, but not both.
 
@@ -140,10 +139,10 @@ def wrap_discretization(
 
     # Storage for which MergedOperator instances are associated with which terms *and*
     # (for coupling terms) which physics keywords.
-    operators: list[str, list[str]] = {}
+    operators: dict[str, dict[str, MergedOperator]] = {}
 
-    # Loop over all identified terms, identify relevant physics keywords and create a
-    # MergedOperator instance for each combination of term and physics keyword.
+    # Loop over all identified terms, assign a MergedOperator to non-coupling terms,
+    # while postponing the treatment of coupling terms.
     for discretization_key in discretization_term_key:
 
         operators[discretization_key] = {}
@@ -152,45 +151,30 @@ def wrap_discretization(
         # default option is that the only keyword is that of the base discretization
         # class.
         if discretization_key in coupling_terms:
+            # This is a coupling term, which will receive special treatment below.
             continue
-            physics_keys = coupling_keywords
         else:
-            physics_keys = [discr.keyword]
-
-        # Create the merged operator that represents this discretization matrix
-        for phys_key in physics_keys:
+            # Create the merged operator that represents this discretization matrix
             op = MergedOperator(
                 discr=discr,
                 discretization_matrix_key=discretization_key,
-                physics_key=phys_key,
+                physics_key=discr.keyword,
                 domains=domains,
             )
             # Store the new
-            operators[discretization_key].update({phys_key: op})
+            operators[discretization_key].update({discr.keyword: op})
 
     def from_single(discr_list):
-        # Helper function for creating methods for coupling terms - it turned out that
-        # this step was necessary to assign the discretization as a method to the
-        # object.
-        def set_discr():
+        # Helper function for creating methods for a standard term.
+        def get_discr():
             # From the list of discretizations, return the one corresponding to the
             # provided keyword.
             return list(discr_list.values())[0]
 
-        return set_discr
-
-    def from_coupled(discr_list):
-        # Helper function for creating methods for coupling terms - it turned out that
-        # this step was necessary to assign the discretization as a method to the
-        # object.
-        def set_discr(keyword):
-            # From the list of discretizations, return the one corresponding to the
-            # provided keyword.
-            return discr_list[keyword]
-
-        return set_discr
+        return get_discr
 
     def get_merged_operator(discr_keyword):
+        # Helper function for creating a merged operator for a coupling term.
         def get_discr(inner_physics_key):
             # Return the discretization matrix for the provided physics keyword.
             op = MergedOperator(
@@ -208,12 +192,10 @@ def wrap_discretization(
         if key in coupling_terms:
             # This is a coupling term, we need to create a method for this term that
             # returns the discretization for the provided physics keyword.
-            # func = outer(discretization_list, key)
             func = get_merged_operator(key)
-            debug = []
         else:
-            # This is a standard term, we can just return the discretization for the
-            # main physics keyword.
+            # This is a standard term. It turned out that it was necessary to assign the
+            # discretization as a method to the object via a function.
             func = from_single(discretization_list)
 
         # Assign the discretization as a method to the object.
@@ -250,8 +232,6 @@ def uniquify_discretization_list(
         cls = discr._discr.__class__
         # Parameter keyword for this discretization
         param_keyword = discr._discr.keyword
-        if isinstance(discr._discr, pp.Biot):
-            debug = []
 
         # This discretization-keyword combination
         key = (cls, param_keyword)
@@ -477,9 +457,11 @@ class MergedOperator(operators.Operator):
 
     def __repr__(self) -> str:
         if len(self.interfaces) == 0:
-            s = f"Operator with key {self._discretization_matrix_key} defined on {len(self.subdomains)} subdomains"
+            s = f"Operator with key {self._discretization_matrix_key} defined on "
+            s += f"{len(self.subdomains)} subdomains"
         else:
-            s = f"Operator with key {self._discretization_matrix_key} defined on {len(self.interfaces)} edges"
+            s = f"Operator with key {self._discretization_matrix_key} defined on "
+            s += f"{len(self.interfaces)} edges"
         return s
 
     def __str__(self) -> str:
@@ -512,8 +494,11 @@ class MergedOperator(operators.Operator):
             # Get data dictionary for either grid or interface
             if isinstance(g, pp.MortarGrid):
                 data = mdg.interface_data(g)
-            else:
+            elif isinstance(g, pp.Grid):
                 data = mdg.subdomain_data(g)
+            else:
+                s = "Did not expect a discretization defined on a BoundaryGrid"
+                raise ValueError(s)
 
             mat_dict: dict[str, sps.spmatrix] = data[  # type: ignore
                 pp.DISCRETIZATION_MATRICES
