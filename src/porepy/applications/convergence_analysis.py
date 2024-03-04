@@ -358,7 +358,7 @@ class ConvergenceAnalysis:
         ooc_dict: dict[str, float] = {}
         for idx, name in enumerate(names):
             slope, *_ = stats.linregress(x_vals_filtered, y_vals_filtered[idx])
-            ooc_name = "ooc_" + name.lstrip("error_")  # strip the prefix "error_"
+            ooc_name = "ooc_" + name.removeprefix("error_")  # strip the prefix "error_"
             ooc_dict[ooc_name] = slope
 
         return ooc_dict
