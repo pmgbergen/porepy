@@ -13,7 +13,7 @@ import porepy as pp
 from ._core import COMPOSITIONAL_VARIABLE_SYMBOLS as symbols
 from .base import AbstractEoS, Component, Compound, Mixture, Phase
 from .chem_species import ChemicalSpecies
-from .composite_utils import DomainProperty, safe_sum
+from .composite_utils import SecondaryExpression, safe_sum
 from .flash import Flash
 from .states import FluidState, PhaseState
 
@@ -676,7 +676,8 @@ class FluidMixtureMixin:
     This base class is designed to accomodate the most general formulation of the
     compositional flow paired with local equilibrium equations.
 
-    Properties of phases (:class:`~porepy.composite.composite_utils.DomainProperty`)
+    Properties of phases
+    (:class:`~porepy.composite.composite_utils.SecondaryExpression`)
     are such that the solution strategy can populate values depending on whether flash
     calculations are performed or secondary expressions evaluated.
 
@@ -874,7 +875,7 @@ class FluidMixtureMixin:
         self, phase: Phase
     ) -> Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]:
         """This base method returns the phase density as a
-        :class:`~porepy.composite.composite_utils.DomainProperty` on all subdomains
+        :class:`~porepy.composite.composite_utils.SecondaryExpression` on all subdomains
         and boundaries.
 
         It is an operator which is populated by the solution strategy, depending on how
@@ -887,7 +888,7 @@ class FluidMixtureMixin:
         subdomains = self.mdg.subdomains()
         boundaries = self.mdg.boundaries()
         x_j = tuple(phase.fraction_of.values())
-        return DomainProperty(
+        return SecondaryExpression(
             f"phase-volume-{phase.name}",
             subdomains,
             boundaries,
@@ -904,7 +905,7 @@ class FluidMixtureMixin:
         subdomains = self.mdg.subdomains()
         boundaries = self.mdg.boundaries()
         x_j = tuple(phase.fraction_of.values())
-        return DomainProperty(
+        return SecondaryExpression(
             f"phase-density-{phase.name}",
             subdomains,
             boundaries,
@@ -921,7 +922,7 @@ class FluidMixtureMixin:
         subdomains = self.mdg.subdomains()
         boundaries = self.mdg.boundaries()
         x_j = tuple(phase.fraction_of.values())
-        return DomainProperty(
+        return SecondaryExpression(
             f"phase-enthalpy-{phase.name}",
             subdomains,
             boundaries,
@@ -938,7 +939,7 @@ class FluidMixtureMixin:
         subdomains = self.mdg.subdomains()
         boundaries = self.mdg.boundaries()
         x_j = tuple(phase.fraction_of.values())
-        return DomainProperty(
+        return SecondaryExpression(
             f"phase-viscosity-{phase.name}",
             subdomains,
             boundaries,
@@ -955,7 +956,7 @@ class FluidMixtureMixin:
         subdomains = self.mdg.subdomains()
         boundaries = self.mdg.boundaries()
         x_j = tuple(phase.fraction_of.values())
-        return DomainProperty(
+        return SecondaryExpression(
             f"phase-conductivity-{phase.name}",
             subdomains,
             boundaries,
@@ -972,7 +973,7 @@ class FluidMixtureMixin:
         subdomains = self.mdg.subdomains()
         boundaries = self.mdg.boundaries()
         x_j = tuple(phase.fraction_of.values())
-        return DomainProperty(
+        return SecondaryExpression(
             f"fugacity-of-{component.name}-in-{phase.name}",
             subdomains,
             boundaries,
