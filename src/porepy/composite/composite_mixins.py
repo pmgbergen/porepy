@@ -96,7 +96,7 @@ class CompositeVariables(pp.VariableMixin):
     :class:`~porepy.models.compositional_balance.SolutionStrategyCompositionalFlow`."""
     has_extended_fractions: bool
     """Provided by
-    :class:`~porepy.models.composite_balance.SolutionStrategyCompositionalFlow`."""
+    :class:`~porepy.models.compositional_balance.SolutionStrategyCompositionalFlow`."""
 
     _component_fraction_variables: list[str]
     """Created during :meth:`create_variables`."""
@@ -1493,6 +1493,9 @@ class FlashMixin:
 
     """
 
+    flash_params: dict = dict()
+    """The dictionary to be passed to a flash algorithm, whenever it is called."""
+
     mdg: pp.MixedDimensionalGrid
     """Provided by :class:`~porepy.models.geometry.ModelGeometry`."""
     equation_system: pp.ad.EquationSystem
@@ -1570,6 +1573,7 @@ class FlashMixin:
                 p=p,
                 T=T,
                 initial_state=fluid_state,
+                parameters=self.flash_params,
             )
         elif self.equilibrium_type == "p-h":
             p = self.pressure(subdomains).value(self.equation_system, state)
@@ -1583,6 +1587,7 @@ class FlashMixin:
                 p=p,
                 h=h,
                 initial_state=fluid_state,
+                parameters=self.flash_params,
             )
         elif self.equilibrium_type == "v-h":
             v = self.volume(subdomains).value(self.equation_system, state)
@@ -1597,6 +1602,7 @@ class FlashMixin:
                 v=v,
                 h=h,
                 initial_state=fluid_state,
+                parameters=self.flash_params,
             )
         else:
             raise NotImplementedError(
