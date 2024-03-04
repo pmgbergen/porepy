@@ -58,12 +58,12 @@ def wrap_discretization(
     coupling_terms: Optional[list[str]] = None,
 ):
     """Convert a discretization to its AD equivalent.
-    
+
     For a (non-ad) discretization object ``D`` of type ``discr``, this function will
     identify all attributes of the form ``"foo_matrix_key"`` and create a corresponding
     attribute "foo" in the AD discretization ``obj``. Thus, after the call to this
     method, ``obj.foo`` will represent the discretization matrix for the term ``foo``.
-    
+
     For example: If ``D`` is an instance of ``Mpfa`` (which has an attribute
     ``flux_matrix_key``), then ``obj.flux`` will be an instance of ``MpfaAd``, and
     this function equips ``obj`` with the method ``obj.flux()``. This method will
@@ -84,13 +84,13 @@ def wrap_discretization(
         coupling_terms: List of (multiphysics) coupling terms provided by this
             discretization. For instance, for a Biot discretization, this would be
             ['div_u', 'bound_div_u', 'bound_pressure', 'stabilization', 'grad_p'].
-        
+
         The coupling keywords and coupling terms are combined in this wrapper, so that
         if ``obj`` has coupling terms ``foo`` and ``bar``, with a coupling keywords
         ``baz`` and ``qux``, then:
             * ``obj.foo('baz')`` and ``obj.bar('baz')`` will be instances of
                 ``MergedOperator``, referring to the discretization matrices for ``foo``
-                and ``bar``, for the ``baz`` physics. 
+                and ``bar``, for the ``baz`` physics.
             * ``obj.foo('baz')`` and ``obj.foo('qux')`` will be *separate* instances of
                 ``MergedOperator``, referring to the discretization matrices for ``foo``
                 for the ``baz`` and ``qux`` physics, respectively.
@@ -116,7 +116,7 @@ def wrap_discretization(
             raise ValueError("Either subdomains or interfaces must be provided")
         if not isinstance(interfaces, list):
             raise ValueError("Interfaces must be a list")
-        
+
         domains = interfaces
     elif interfaces is None:
         # This is a subdomain discretization
@@ -124,7 +124,7 @@ def wrap_discretization(
             raise ValueError("Subdomains must be a list")
         domains = subdomains
     else:
-        raise ValueError("Either subdomains or interfaces must be provided, not both")        
+        raise ValueError("Either subdomains or interfaces must be provided, not both")
 
     if coupling_terms is None:
         coupling_terms = []
@@ -165,9 +165,8 @@ def wrap_discretization(
                 physics_key=phys_key,
                 domains=domains,
             )
-            # Store the new 
+            # Store the new
             operators[discretization_key].update({phys_key: op})
-
 
     def from_single(discr_list):
         # Helper function for creating methods for coupling terms - it turned out that
@@ -177,6 +176,7 @@ def wrap_discretization(
             # From the list of discretizations, return the one corresponding to the
             # provided keyword.
             return list(discr_list.values())[0]
+
         return set_discr
 
     def from_coupled(discr_list):
@@ -187,6 +187,7 @@ def wrap_discretization(
             # From the list of discretizations, return the one corresponding to the
             # provided keyword.
             return discr_list[keyword]
+
         return set_discr
 
     def get_merged_operator(discr_keyword):
@@ -200,23 +201,24 @@ def wrap_discretization(
                 domains=domains,
             )
             return op
-        return get_discr
 
+        return get_discr
 
     for key, discretization_list in operators.items():
         if key in coupling_terms:
             # This is a coupling term, we need to create a method for this term that
             # returns the discretization for the provided physics keyword.
-            #func = outer(discretization_list, key)
+            # func = outer(discretization_list, key)
             func = get_merged_operator(key)
             debug = []
         else:
             # This is a standard term, we can just return the discretization for the
             # main physics keyword.
             func = from_single(discretization_list)
-        
+
         # Assign the discretization as a method to the object.
         setattr(obj, key, func)
+
 
 def uniquify_discretization_list(
     all_discr: list[MergedOperator],
@@ -468,7 +470,7 @@ class MergedOperator(operators.Operator):
 
         self._discretization_matrix_key = discretization_matrix_key
         self._discr = discr
-        
+
         self._physics_key = physics_key
         self._inner_physics_key = inner_physics_key
         self.domain = domains

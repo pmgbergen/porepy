@@ -180,8 +180,8 @@ class SolutionStrategyThermoporomechanics(
                 scalar_vector_mappings = data[pp.PARAMETERS][self.stress_keyword].get(
                     "scalar_vector_mappings", {}
                 )
-                scalar_vector_mappings[self.temperature_variable] = self.solid_thermal_expansion_tensor(
-                    [sd]
+                scalar_vector_mappings[self.temperature_variable] = (
+                    self.solid_thermal_expansion_tensor([sd])
                 )
                 scalar_vector_mappings[self.pressure_variable] = self.biot_tensor([sd])
                 data[pp.PARAMETERS][self.stress_keyword][
@@ -193,7 +193,11 @@ class SolutionStrategyThermoporomechanics(
                     data,
                     self.stress_keyword,
                     {
-                        "scalar_vector_mappings": {self.temperature_variable: self.solid_thermal_expansion_tensor([sd])}
+                        "scalar_vector_mappings": {
+                            self.temperature_variable: self.solid_thermal_expansion_tensor(
+                                [sd]
+                            )
+                        }
                     },
                 )
 

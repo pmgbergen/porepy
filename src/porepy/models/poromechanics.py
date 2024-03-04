@@ -177,7 +177,9 @@ class SolutionStrategyPoromechanics(
                     data,
                     self.stress_keyword,
                     {
-                        "scalar_vector_mappings": {self.pressure_variable: self.biot_tensor([sd])},
+                        "scalar_vector_mappings": {
+                            self.pressure_variable: self.biot_tensor([sd])
+                        },
                     },
                 )
 

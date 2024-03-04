@@ -312,9 +312,7 @@ class Biot(pp.Mpsa):
             sd_data: Containing data for discretization. See above for specification.
 
         """
-        parameter_dictionary: dict[str, Any] = sd_data[pp.PARAMETERS][
-            self.keyword
-        ]
+        parameter_dictionary: dict[str, Any] = sd_data[pp.PARAMETERS][self.keyword]
 
         bound: pp.BoundaryConditionVectorial = parameter_dictionary["bc"]
         constit: pp.FourthOrderTensor = parameter_dictionary["fourth_order_tensor"]
@@ -667,34 +665,36 @@ class Biot(pp.Mpsa):
             matrices_m[self.bound_stress_matrix_key][update_face_ind] = bound_stress[
                 update_face_ind
             ]
-            
-            matrices_m[self.div_u_matrix_key][update_cell_ind] = div_u[update_cell_ind]
-            matrices_m[self.bound_div_u_matrix_key][
-                update_cell_ind
-            ] = bound_div_u[update_cell_ind]
-            matrices_m[self.grad_p_matrix_key][update_face_ind] = grad_p[update_face_ind]
-            matrices_m[self.stabilization_matrix_key][
-                update_cell_ind
-            ] = stabilization[update_cell_ind]
 
-            matrices_m[self.bound_displacement_cell_matrix_key][
+            matrices_m[self.div_u_matrix_key][update_cell_ind] = div_u[update_cell_ind]
+            matrices_m[self.bound_div_u_matrix_key][update_cell_ind] = bound_div_u[
+                update_cell_ind
+            ]
+            matrices_m[self.grad_p_matrix_key][update_face_ind] = grad_p[
                 update_face_ind
-            ] = bound_displacement_cell[update_face_ind]
-            matrices_m[self.bound_displacement_face_matrix_key][
-                update_face_ind
-            ] = bound_displacement_face[update_face_ind]
-            matrices_m[self.bound_pressure_matrix_key][
-                update_face_ind
-            ] = bound_displacement_pressure[update_face_ind]
+            ]
+            matrices_m[self.stabilization_matrix_key][update_cell_ind] = stabilization[
+                update_cell_ind
+            ]
+
+            matrices_m[self.bound_displacement_cell_matrix_key][update_face_ind] = (
+                bound_displacement_cell[update_face_ind]
+            )
+            matrices_m[self.bound_displacement_face_matrix_key][update_face_ind] = (
+                bound_displacement_face[update_face_ind]
+            )
+            matrices_m[self.bound_pressure_matrix_key][update_face_ind] = (
+                bound_displacement_pressure[update_face_ind]
+            )
         else:
             matrices_m[self.stress_matrix_key] = stress
             matrices_m[self.bound_stress_matrix_key] = bound_stress
-            matrices_m[
-                self.bound_displacement_cell_matrix_key
-            ] = bound_displacement_cell
-            matrices_m[
-                self.bound_displacement_face_matrix_key
-            ] = bound_displacement_face
+            matrices_m[self.bound_displacement_cell_matrix_key] = (
+                bound_displacement_cell
+            )
+            matrices_m[self.bound_displacement_face_matrix_key] = (
+                bound_displacement_face
+            )
             matrices_m[self.bound_pressure_matrix_key] = bound_displacement_pressure
             matrices_m[self.grad_p_matrix_key] = grad_p
             matrices_m[self.div_u_matrix_key] = div_u
@@ -889,7 +889,7 @@ class Biot(pp.Mpsa):
         # 2. assemble r.h.s. for the new linear system, needed for the term
         #    'rhs_jumps'
         # 3. compute term 'grad_p_face'
-        
+
         # Step 1: Compute normal vectors * alpha
         nd = sd.dim
         num_subhfno = subcell_topology.subhfno.size
@@ -917,16 +917,20 @@ class Biot(pp.Mpsa):
         # to the left and right side of the face will be put on the same row.
         unique_nAlpha_grad = subcell_topology.pair_over_subfaces(nAlpha_grad)
 
-        def component_wise_ordering(mat: sps.spmatrix, nd: int, ind: np.ndarray) -> sps.spmatrix:
+        def component_wise_ordering(
+            mat: sps.spmatrix, nd: int, ind: np.ndarray
+        ) -> sps.spmatrix:
             # Convenience method for reshaping nAlpha from face-based to
             # component-based. This is to build a block diagonal sparse matrix
             # compatible with igrad * rhs_units, that is first all x-component, then y,
             # and z
-            return sps.block_diag([mat[:, ind[i]] for i in range(nd)], format='csr')
+            return sps.block_diag([mat[:, ind[i]] for i in range(nd)], format="csr")
 
         # Reshape nAlpha component-wise
         nAlpha_grad = component_wise_ordering(nAlpha_grad, nd, sub_cell_index)
-        unique_nAlpha_grad = component_wise_ordering(unique_nAlpha_grad, nd, sub_cell_index)
+        unique_nAlpha_grad = component_wise_ordering(
+            unique_nAlpha_grad, nd, sub_cell_index
+        )
 
         # Step 2: Compute rhs_jumps. This term represents the force imbalance caused by
         # the cell center pressures in the adjacent cells. The goal of the next lines is
@@ -951,7 +955,7 @@ class Biot(pp.Mpsa):
         # interior, and various types of boundary conditions, and construct the
         # requested mapping.
         sz = nd * num_subfno_unique
-        rhs_units = sps.dia_matrix((np.ones(sz), 0), shape=(sz,sz))
+        rhs_units = sps.dia_matrix((np.ones(sz), 0), shape=(sz, sz))
 
         # Divide into internal and external faces. On internal faces there is no need to
         # account for the sign of the normal vector - this is encoded in nAlpha_grad.
@@ -995,7 +999,7 @@ class Biot(pp.Mpsa):
         ).tocsr()
 
         # Prepare for computation of -grad_p_face term
-        grad_p_face = - map_unique_subfno * nAlpha_grad * sc2c
+        grad_p_face = -map_unique_subfno * nAlpha_grad * sc2c
 
         return rhs_jumps, grad_p_face
 
