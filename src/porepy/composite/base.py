@@ -737,21 +737,21 @@ class Phase:
         state = self.eos.compute_phase_state(self.type, p, T, xn)
 
         if store:
-            self.density.value = state.rho
-            self.density.derivatives = state.drho
-            self.volume.value = state.v
-            self.volume.derivatives = state.dv
-            self.enthalpy.value = state.h
-            self.enthalpy.derivatives = state.dh
+            self.density.subdomain_values = state.rho
+            self.density.subdomain_derivatives = state.drho
+            self.volume.subdomain_values = state.v
+            self.volume.subdomain_derivatives = state.dv
+            self.enthalpy.subdomain_values = state.h
+            self.enthalpy.subdomain_derivatives = state.dh
 
-            self.viscosity.value = state.mu
-            self.viscosity.derivatives = state.dmu
-            self.conductivity.value = state.kappa
-            self.conductivity.derivatives = state.dkappa
+            self.viscosity.subdomain_values = state.mu
+            self.viscosity.subdomain_derivatives = state.dmu
+            self.conductivity.subdomain_values = state.kappa
+            self.conductivity.subdomain_derivatives = state.dkappa
 
             for i, comp in enumerate(self):
-                self.fugacity_of[comp].value = state.phis[i]
-                self.fugacity_of[comp].derivatives = state.dphis[i]
+                self.fugacity_of[comp].subdomain_values = state.phis[i]
+                self.fugacity_of[comp].subdomain_derivatives = state.dphis[i]
 
         return state
 
