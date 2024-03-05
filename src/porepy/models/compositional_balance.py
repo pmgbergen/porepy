@@ -2551,6 +2551,7 @@ class CompositionalFlow(  # type: ignore[misc]
     VariablesCompositionalFlow,
     ConstitutiveLawsCompositionalFlow,
     BoundaryConditionsCompositionalFlow,
+    InitialConditionsCompositionalFlow,
     SolutionStrategyCompositionalFlow,
     pp.ModelGeometry,
     pp.DataSavingMixin,

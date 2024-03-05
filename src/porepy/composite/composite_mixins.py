@@ -885,16 +885,15 @@ class FluidMixtureMixin:
         pressure, temperature and fractions of components in the phase.
 
         """
-        subdomains = self.mdg.subdomains()
-        boundaries = self.mdg.boundaries()
         x_j = tuple(phase.fraction_of.values())
         return SecondaryExpression(
             f"phase-volume-{phase.name}",
-            subdomains,
-            boundaries,
+            self.mdg,
             self.pressure,
             self.temperature,
             *x_j,
+            timestepping_depth=1,
+            iterate_depth=0,
         )
 
     def phase_volume(
@@ -902,16 +901,15 @@ class FluidMixtureMixin:
     ) -> Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]:
         """Analogous to :meth:`phase_density`, but creates a new domain property for
         the phase volume."""
-        subdomains = self.mdg.subdomains()
-        boundaries = self.mdg.boundaries()
         x_j = tuple(phase.fraction_of.values())
         return SecondaryExpression(
             f"phase-density-{phase.name}",
-            subdomains,
-            boundaries,
+            self.mdg,
             self.pressure,
             self.temperature,
             *x_j,
+            timestepping_depth=1,
+            iterate_depth=0,
         )
 
     def phase_enthalpy(
@@ -919,16 +917,15 @@ class FluidMixtureMixin:
     ) -> Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]:
         """Analogous to :meth:`phase_density`, but creates a new domain property for
         the phase enthalpy."""
-        subdomains = self.mdg.subdomains()
-        boundaries = self.mdg.boundaries()
         x_j = tuple(phase.fraction_of.values())
         return SecondaryExpression(
             f"phase-enthalpy-{phase.name}",
-            subdomains,
-            boundaries,
+            self.mdg,
             self.pressure,
             self.temperature,
             *x_j,
+            timestepping_depth=1,
+            iterate_depth=0,
         )
 
     def phase_viscosity(
@@ -936,16 +933,15 @@ class FluidMixtureMixin:
     ) -> Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]:
         """Analogous to :meth:`phase_density`, but creates a new domain property for
         the phase viscosity."""
-        subdomains = self.mdg.subdomains()
-        boundaries = self.mdg.boundaries()
         x_j = tuple(phase.fraction_of.values())
         return SecondaryExpression(
             f"phase-viscosity-{phase.name}",
-            subdomains,
-            boundaries,
+            self.mdg,
             self.pressure,
             self.temperature,
             *x_j,
+            timestepping_depth=1,
+            iterate_depth=0,
         )
 
     def phase_conductivity(
@@ -953,16 +949,15 @@ class FluidMixtureMixin:
     ) -> Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]:
         """Analogous to :meth:`phase_density`, but creates a new domain property for
         the phase conductivity."""
-        subdomains = self.mdg.subdomains()
-        boundaries = self.mdg.boundaries()
         x_j = tuple(phase.fraction_of.values())
         return SecondaryExpression(
             f"phase-conductivity-{phase.name}",
-            subdomains,
-            boundaries,
+            self.mdg,
             self.pressure,
             self.temperature,
             *x_j,
+            timestepping_depth=1,
+            iterate_depth=0,
         )
 
     def fugacity_coefficient(
@@ -970,16 +965,15 @@ class FluidMixtureMixin:
     ) -> Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]:
         """Analogous to :meth:`phase_density`, but creates a new domain property
         representing the fugacity coefficient of ``component`` in ``phase``."""
-        subdomains = self.mdg.subdomains()
-        boundaries = self.mdg.boundaries()
         x_j = tuple(phase.fraction_of.values())
         return SecondaryExpression(
             f"fugacity-of-{component.name}-in-{phase.name}",
-            subdomains,
-            boundaries,
+            self.mdg,
             self.pressure,
             self.temperature,
             *x_j,
+            timestepping_depth=1,
+            iterate_depth=0,
         )
 
 
