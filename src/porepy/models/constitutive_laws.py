@@ -3669,7 +3669,7 @@ class ThermoPressureStress(PressureStress):
     temperature_variable: str
     """Name of the pressure variable. Normally set by a mixin instance of
     :class:`~porepy.models.energy_balance.SolutionStrategyEnergyBalance`.
-    """    
+    """
 
     def thermal_stress(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Temperature contribution to stress tensor.
@@ -4630,7 +4630,7 @@ class ThermoPoroMechanicsPorosity(PoroMechanicsPorosity):
     temperature_variable: str
     """Name of the pressure variable. Normally set by a mixin instance of
     :class:`~porepy.models.energy_balance.SolutionStrategyEnergyBalance`.
-    """    
+    """
 
     def matrix_porosity(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Porosity [-].
