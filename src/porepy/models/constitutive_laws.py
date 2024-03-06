@@ -1760,7 +1760,7 @@ class AdTpfaFlux:
             # Contribution from boundaries.
             + boundary_value_contribution
             # the vector source is independent of k
-            + base_discr.bound_pressure_vector_source
+            + base_discr.bound_pressure_vector_source()
             @ getattr(self, "vector_source_" + flux_name)(subdomains)
         )
         return pressure_trace
