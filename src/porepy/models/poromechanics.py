@@ -16,7 +16,7 @@ Suggested references (TODO: add more, e.g. Inga's in prep):
 
 from __future__ import annotations
 
-from typing import Callable, Union, Optional
+from typing import Callable, Optional, Union
 
 import porepy as pp
 import porepy.models.fluid_mass_balance as mass

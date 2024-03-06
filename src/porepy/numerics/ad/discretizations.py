@@ -22,8 +22,9 @@ Example:
 """
 
 from __future__ import annotations
-from typing import Callable
+
 import abc
+from typing import Callable
 
 import porepy as pp
 from porepy.utils.porepy_types import discretization_type
