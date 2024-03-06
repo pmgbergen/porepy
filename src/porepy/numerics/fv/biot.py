@@ -57,15 +57,15 @@ class Biot(pp.Mpsa):
     reconstruction in a poromechanical system, see class documentation in
     `:class:~porepy.numerics.fv.mpsa.Mpsa` for more details.
 
-    ``data[pp.DISCRETIZATION_MATRICES][self.flow_keyword]["div_u"]``: Discretization of
+    ``data[pp.DISCRETIZATION_MATRICES][self.keyword]["div_u"]``: Discretization of
     the term :math:`\\nabla \\cdot u` in the mass balance part of the poromechanical
     system.
 
-    ``data[pp.DISCRETIZATION_MATRICES][self.flow_keyword]["bound_div_u"]``:
+    ``data[pp.DISCRETIZATION_MATRICES][self.keyword]["bound_div_u"]``:
     Discretization of boundary conditions for the term :math:`\\nabla \\cdot u` in the
     mass balance part of the poromechanical system.
 
-    ``data[pp.DISCRETIZATION_MATRICES][self.flow_keyword]["biot_stabilization"]``:
+    ``data[pp.DISCRETIZATION_MATRICES][self.keyword]["biot_stabilization"]``:
     Numerical stabilization term (essentially extra pressure diffusion) needed to
     stabilize the pressure discretization, see Nordbotten 2016 for a derivation.
 
@@ -209,11 +209,11 @@ class Biot(pp.Mpsa):
             self.stabilization_matrix_key,
         ]
         for key in mech_in_flow:
-            mat = sd_data[pp.DISCRETIZATION_MATRICES][self.flow_keyword].pop(key)
+            mat = sd_data[pp.DISCRETIZATION_MATRICES][self.keyword].pop(key)
             sd_data[pp.DISCRETIZATION_MATRICES][self.keyword][key] = mat
 
         # Dump discretization of mass term - this will be fully rediscretized below
-        sd_data[pp.DISCRETIZATION_MATRICES][self.flow_keyword].pop(
+        sd_data[pp.DISCRETIZATION_MATRICES][self.keyword].pop(
             self.mass_matrix_key, None
         )
 
@@ -263,7 +263,6 @@ class Biot(pp.Mpsa):
             vector_face_right=vector_face_right,
             vector_face_left=vector_face_left,
             scalar_cell_left=scalar_cell_left,
-            second_keyword=self.flow_keyword,
         )
         # Remove the mech_in_flow matrices from the mechanics dictionary
         for key in mech_in_flow:
@@ -478,7 +477,7 @@ class Biot(pp.Mpsa):
                 loc_bound_displacement_face,
                 loc_bound_displacement_pressure,
             ) = self._local_discretization(
-                sub_sd, loc_c, loc_bnd, alpha, eta=eta, inverter=inverter
+                sub_sd, loc_c, loc_bnd, loc_alpha, eta=eta, inverter=inverter
             )
 
             # Eliminate contribution from faces already discretized (the dual grids /
@@ -706,7 +705,7 @@ class Biot(pp.Mpsa):
         sd: pp.Grid,
         constit: pp.FourthOrderTensor,
         bound_mech: pp.BoundaryConditionVectorial,
-        alpha: list[pp.SecondOrderTensor],
+        alpha: dict[str, pp.SecondOrderTensor],
         eta: float,
         inverter: Literal["python", "numba"],
         hf_output: bool = False,
