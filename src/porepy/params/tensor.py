@@ -274,7 +274,7 @@ class FourthOrderTensor(object):
         else:
             # In EK's understanding, this should never happen. Give a fair description
             # of the situtaion, and hope the user know what is going on.
-            s += f"The tensor has shape {self.values[:,:,0].shape}."
+            s += f"The tensor has shape {self.values[:, :, 0].shape}."
             s += "It is unclear how this came about."
 
         return s

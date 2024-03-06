@@ -1230,10 +1230,6 @@ def partial_update_discretization(
     if len(vector_cell_left) > 0 or len(scalar_cell_left) > 0:
         update_cells = pp.partition.overlap(sd, update_cells, 1)
 
-        # We will need the non-updated cells as well (but not faces, for similar
-        # reasons as outlined above).
-        passive_cells = np.setdiff1d(np.arange(sd.num_cells), update_cells)
-
     do_discretize = False
     # The actual discretization stencil may be larger than the modified cells and
     # faces (if specified).
@@ -1246,7 +1242,6 @@ def partial_update_discretization(
     # the type of discretizations present).
     _, cells, _ = sparse_array_to_row_col_data(sd.cell_faces[active_faces])
     active_cells = np.unique(cells)
-    passive_cells = np.setdiff1d(np.arange(sd.num_cells), active_cells)
 
     param = data[pp.PARAMETERS][keyword]
     if update_cells.size > 0:
