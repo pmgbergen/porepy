@@ -36,8 +36,12 @@ In addition to the heterogeneity, a notable feature of the problem is the tensor
 coefficient and thermal expansion tensor. These are also spatially heterogeneous.
 
 """
-
 from __future__ import annotations
+import os
+os.environ["MKL_NUM_THREADS"] = "1"
+os.environ["NUMEXPR_NUM_THREADS"] = "1"
+os.environ["OMP_NUM_THREADS"] = "1"
+
 
 from dataclasses import dataclass
 from typing import Callable
@@ -807,7 +811,7 @@ class ManuThermoPoroMechExactSolution3d:
         q_fc: np.ndarray = (
             q_fun[0](fc[0], fc[1], fc[2], time) * fn[0]
             + q_fun[1](fc[0], fc[1], fc[2], time) * fn[1]
-            + q_fun[1](fc[0], fc[1], fc[2], time) * fn[1]
+            + q_fun[2](fc[0], fc[1], fc[2], time) * fn[2]
         )
 
         return q_fc
@@ -846,7 +850,7 @@ class ManuThermoPoroMechExactSolution3d:
         q_fc: np.ndarray = (
             q_fun[0](fc[0], fc[1], fc[2], time) * fn[0]
             + q_fun[1](fc[0], fc[1], fc[2], time) * fn[1]
-            + q_fun[2](fc[0], fc[1], fc[2], time) * fn[1]
+            + q_fun[2](fc[0], fc[1], fc[2], time) * fn[2]
         )
 
         return q_fc
@@ -898,15 +902,15 @@ class ManuThermoPoroMechExactSolution3d:
         force_total_fc: list[np.ndarray] = [
             # (sigma_xx * n_x + sigma_xy * n_y + sigma_xz * n_z) * face_area
             sigma_total_fun[0][0](fc[0], fc[1], fc[2], time) * fn[0]
-            + sigma_total_fun[0][1](fc[0], fc[1], fc[2], time) * fn[1],
+            + sigma_total_fun[0][1](fc[0], fc[1], fc[2], time) * fn[1]
             +sigma_total_fun[0][2](fc[0], fc[1], fc[2], time) * fn[2],
             # (sigma_yx * n_x + sigma_yy * n_y + sigma_yz * n_z) * face_area
             sigma_total_fun[1][0](fc[0], fc[1], fc[2], time) * fn[0]
-            + sigma_total_fun[1][1](fc[0], fc[1], fc[2], time) * fn[1],
+            + sigma_total_fun[1][1](fc[0], fc[1], fc[2], time) * fn[1]
             +sigma_total_fun[1][2](fc[0], fc[1], fc[2], time) * fn[2],
             # (sigma_zx * n_x + sigma_zy * n_y + sigma_zz * n_z) * face_area
             sigma_total_fun[2][0](fc[0], fc[1], fc[2], time) * fn[0]
-            + sigma_total_fun[2][1](fc[0], fc[1], fc[2], time) * fn[1],
+            + sigma_total_fun[2][1](fc[0], fc[1], fc[2], time) * fn[1]
             +sigma_total_fun[2][2](fc[0], fc[1], fc[2], time) * fn[2],
         ]
 
@@ -942,6 +946,7 @@ class ManuThermoPoroMechExactSolution3d:
         source_mech_fun: list[Callable] = [
             sym.lambdify((x, y, z, t), self.source_mech[0], "numpy"),
             sym.lambdify((x, y, z, t), self.source_mech[1], "numpy"),
+            sym.lambdify((x, y, z, t), self.source_mech[2], "numpy"),
         ]
 
         # Evaluate and integrate source
@@ -1064,7 +1069,7 @@ class UnitSquareGrid(pp.ModelGeometry):
 
     def meshing_arguments(self) -> dict[str, float]:
         """Set meshing arguments."""
-        default_mesh_arguments = {"cell_size": 0.1}
+        default_mesh_arguments = {"cell_size": 0.25}
         return self.params.get("meshing_arguments", default_mesh_arguments)
 
     def set_fractures(self) -> None:
@@ -1259,7 +1264,7 @@ class ManuThermoPoroMechSolutionStrategy3d(
             xc = sd.cell_centers
 
             # Set permeability
-            k_xx = sym.lambdify((x, y), self.exact_sol.k, "numpy")(xc[0], xc[1], xc[2])
+            k_xx = sym.lambdify((x, y, z), self.exact_sol.k, "numpy")(xc[0], xc[1], xc[2])
             if isinstance(k_xx, (float, int)):
                 k_xx = k_xx * np.ones(sd.num_cells)
 
@@ -1267,10 +1272,10 @@ class ManuThermoPoroMechSolutionStrategy3d(
             data[pp.PARAMETERS][self.darcy_keyword]["second_order_tensor"] = perm
 
             # Set stiffness matrix
-            lame_lmbda = sym.lambdify((x, y), self.exact_sol.lame_lmbda, "numpy")(
+            lame_lmbda = sym.lambdify((x, y, z), self.exact_sol.lame_lmbda, "numpy")(
                 xc[0], xc[1], xc[2]
             )
-            lame_mu = sym.lambdify((x, y), self.exact_sol.lame_mu, "numpy")(
+            lame_mu = sym.lambdify((x, y, z), self.exact_sol.lame_mu, "numpy")(
                 xc[0], xc[1], xc[2]
             )
             if isinstance(lame_lmbda, (float, int)):
@@ -1281,13 +1286,13 @@ class ManuThermoPoroMechSolutionStrategy3d(
             data[pp.PARAMETERS][self.stress_keyword]["fourth_order_tensor"] = stiffness
 
             # Set the Biot tensor
-            a_xx = sym.lambdify((x, y), self.exact_sol.biot_tensor[0][0], "numpy")(
+            a_xx = sym.lambdify((x, y,z), self.exact_sol.biot_tensor[0][0], "numpy")(
                 xc[0], xc[1], xc[2]
             )
-            a_xy = sym.lambdify((x, y), self.exact_sol.biot_tensor[0][1], "numpy")(
+            a_xy = sym.lambdify((x, y,z), self.exact_sol.biot_tensor[0][1], "numpy")(
                 xc[0], xc[1], xc[2]
             )
-            a_yy = sym.lambdify((x, y), self.exact_sol.biot_tensor[1][1], "numpy")(
+            a_yy = sym.lambdify((x, y,z), self.exact_sol.biot_tensor[1][1], "numpy")(
                 xc[0], xc[1], xc[2]
             )
             # Special case: If the Biot tensor is constant (no spatial variation), the
@@ -1303,13 +1308,13 @@ class ManuThermoPoroMechSolutionStrategy3d(
 
             # Set the thermal stress tensor
             b_xx = sym.lambdify(
-                (x, y), self.exact_sol.thermal_stress_tensor[0][0], "numpy"
+                (x, y,z), self.exact_sol.thermal_stress_tensor[0][0], "numpy"
             )(xc[0], xc[1], xc[2])
             b_xy = sym.lambdify(
-                (x, y), self.exact_sol.thermal_stress_tensor[0][1], "numpy"
+                (x, y,z), self.exact_sol.thermal_stress_tensor[0][1], "numpy"
             )(xc[0], xc[1], xc[2])
             b_yy = sym.lambdify(
-                (x, y), self.exact_sol.thermal_stress_tensor[1][1], "numpy"
+                (x, y,z), self.exact_sol.thermal_stress_tensor[1][1], "numpy"
             )(xc[0], xc[1], xc[2])
             # Special case: If the thermal stress tensor is constant (no spatial
             # variation), the lambdify function returns a float or int. In this case, we
@@ -1353,16 +1358,16 @@ if True:
     params = {
         "material_constants": {"fluid": fluid_constants, "solid": solid_constants},
         "meshing_arguments": {"cell_size": 0.25},
-        "grid_type": "simplex",
-        "perturbation": 0.5,
+        "grid_type": "cartesian",
+        "perturbation": 0.0,
         "heterogeneity": 10.0,
     }
     conv_analysis = ConvergenceAnalysis(
         model_class=ManuThermoPoroMechSetup3d,
         model_params=params,
         spatial_refinement_rate=2,
-        temporal_refinement_rate=2,
-        levels=3,
+        temporal_refinement_rate=4,
+        levels=4,
     )
     results = conv_analysis.run_analysis()
 
@@ -1389,6 +1394,3 @@ if True:
     print("Force error:")
     for i in range(len(results)):
         print(results[i].error_force)
-
-    ooc_setup.append(conv_analysis.order_of_convergence(results))
-    debug = []

@@ -1291,7 +1291,7 @@ def partial_update_discretization(
             # If no mapping is provided, we assume the matrix is not part of the
             # target discretization, and ignore it.
             pass
-        
+
         return mat
 
     # Loop over all existing discretization matrices. Map rows and columns,
@@ -1327,8 +1327,9 @@ def partial_update_discretization(
                         mat_dict_copy[key][sub_key] + val[sub_key]
                     )
             else:
-                data[pp.DISCRETIZATION_MATRICES][keyword][key] = mat_dict_copy[key] + val
-
+                data[pp.DISCRETIZATION_MATRICES][keyword][key] = (
+                    mat_dict_copy[key] + val
+                )
 
 
 def cell_ind_for_partial_update(

@@ -36,9 +36,9 @@ def perform_partial_discretization_specified_nodes(
     data = pp.initialize_default_data(
         g, {}, discr.keyword, specified_parameters=specified_data
     )
-    #if isinstance(discr, pp.Biot):
-        # Special treatment for Biot, which requires data for both flow and mechanics.
-        #data = pp.initialize_default_data(g, data, discr.keyword)
+    # if isinstance(discr, pp.Biot):
+    # Special treatment for Biot, which requires data for both flow and mechanics.
+    # data = pp.initialize_default_data(g, data, discr.keyword)
 
     discr.discretize(g, data)
     return data
