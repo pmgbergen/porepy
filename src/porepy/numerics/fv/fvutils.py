@@ -1256,16 +1256,7 @@ def partial_update_discretization(
         param["specified_faces"] = update_faces
         do_discretize = True
 
-    # Loop over all existing discretization matrices. Map rows and columns,
-    # according to the left/right, cell/face and scalar/vector specifications.
-    # Also eliminate contributions to rows that will also be updated (but not
-    # columns, a non-updated row should keep its information about a column
-    # to be updated).
-    mat_dict = data[pp.DISCRETIZATION_MATRICES][keyword]
-    mat_dict_copy = {}
-    for key, val in mat_dict.items():
-        mat = val
-
+    def update_matrix(key, mat):
         # First multiplication from the right
         if key in scalar_cell_right:
             mat = mat * cell_map.T
@@ -1278,7 +1269,7 @@ def partial_update_discretization(
         else:
             # If no mapping is provided, we assume the matrix is not part of the
             # target discretization, and ignore it.
-            continue
+            pass
 
         # Mapping of faces. Enforce csr format to enable elimination of rows below.
         if key in scalar_cell_left:
@@ -1299,9 +1290,25 @@ def partial_update_discretization(
         else:
             # If no mapping is provided, we assume the matrix is not part of the
             # target discretization, and ignore it.
-            continue
+            pass
+        
+        return mat
 
-        mat_dict_copy[key] = mat
+    # Loop over all existing discretization matrices. Map rows and columns,
+    # according to the left/right, cell/face and scalar/vector specifications.
+    # Also eliminate contributions to rows that will also be updated (but not
+    # columns, a non-updated row should keep its information about a column
+    # to be updated).
+    mat_dict = data[pp.DISCRETIZATION_MATRICES][keyword]
+    mat_dict_copy = {}
+    for key, val in mat_dict.items():
+        if isinstance(val, dict):
+            for sub_key, sub_val in val.items():
+                val[sub_key] = update_matrix(key, sub_val)
+
+        else:
+            val = update_matrix(key, val)
+        mat_dict_copy[key] = val
 
     # Do the actual discretization
     if do_discretize:
@@ -1314,7 +1321,13 @@ def partial_update_discretization(
             and key in mat_dict_copy.keys()
         ):
             # By now, the two matrices should have compatible size
-            data[pp.DISCRETIZATION_MATRICES][keyword][key] = mat_dict_copy[key] + val
+            if isinstance(val, dict):
+                for sub_key, sub_val in val.items():
+                    data[pp.DISCRETIZATION_MATRICES][keyword][key][sub_key] = (
+                        mat_dict_copy[key][sub_key] + val[sub_key]
+                    )
+            else:
+                data[pp.DISCRETIZATION_MATRICES][keyword][key] = mat_dict_copy[key] + val
 
 
 
