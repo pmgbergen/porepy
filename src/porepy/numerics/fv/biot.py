@@ -197,26 +197,6 @@ class Biot(pp.Mpsa):
         if update_cells.size == 0 and update_faces.size == 0:
             return
 
-        # The implementation is quite a bit more involved than the corresponding methods
-        # for mpfa and mpsa, due to the multi-physics structure of the discretization.
-
-        # Matrices computed by self._discretized_mech, but associtated with self.flow_keyword.
-        # These are moved to the self.keyword matrix dictionary, and will then be
-        # moved back again at the end of this function
-        mech_in_flow = [
-            self.div_u_matrix_key,
-            self.bound_div_u_matrix_key,
-            self.stabilization_matrix_key,
-        ]
-        for key in mech_in_flow:
-            mat = sd_data[pp.DISCRETIZATION_MATRICES][self.keyword].pop(key)
-            sd_data[pp.DISCRETIZATION_MATRICES][self.keyword][key] = mat
-
-        # Dump discretization of mass term - this will be fully rediscretized below
-        sd_data[pp.DISCRETIZATION_MATRICES][self.keyword].pop(
-            self.mass_matrix_key, None
-        )
-
         # Define which of the matrices should be considered cell and face quantities,
         # vector and scalar.
         scalar_cell_right = [
@@ -264,9 +244,6 @@ class Biot(pp.Mpsa):
             vector_face_left=vector_face_left,
             scalar_cell_left=scalar_cell_left,
         )
-        # Remove the mech_in_flow matrices from the mechanics dictionary
-        for key in mech_in_flow:
-            sd_data[pp.DISCRETIZATION_MATRICES][self.keyword].pop(key, None)
 
     def discretize(self, sd: pp.Grid, sd_data: dict) -> None:
         """Discretize the mechanics terms in a poromechanical system.
