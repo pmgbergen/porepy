@@ -849,8 +849,8 @@ def test_split_discretization_into_subproblems(
     elif isinstance(discr_class, pp.Biot):
         # Both keywords are set for Biot. We need to deal with this before the Mpsa
         # case, since Biot is a subclass of Mpsa.
-        flow_keyword = discr_class.flow_keyword
-        mechanics_keyword = discr_class.mechanics_keyword
+        flow_keyword = "flow"
+        mechanics_keyword = discr_class.keyword
     elif isinstance(discr_class, pp.Mpsa):
         # Pick the keyword set for the mechanics problem, set a default for the flow.
         flow_keyword = "flow"
