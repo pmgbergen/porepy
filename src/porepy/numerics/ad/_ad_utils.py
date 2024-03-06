@@ -34,10 +34,10 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
+from porepy.numerics.discretization import Discretization, InterfaceDiscretization
 
 from . import operators
 from .forward_mode import AdArray
-from porepy.numerics.discretization import Discretization, InterfaceDiscretization
 
 
 def concatenate_ad_arrays(ad_arrays: list[AdArray], axis=0):

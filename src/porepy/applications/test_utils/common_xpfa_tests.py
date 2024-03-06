@@ -927,12 +927,14 @@ def test_split_discretization_into_subproblems(
         # types of physics, and for all individual matrices.
         for key in [flow_keyword, mechanics_keyword]:
             for mat_key in data_partition[pp.DISCRETIZATION_MATRICES][
-                key
-            ]:  # type: ignore[index]
-                data_with = data_partition[pp.DISCRETIZATION_MATRICES][key][mat_key]
-                data_without = data_no_partition[pp.DISCRETIZATION_MATRICES][key][
-                    mat_key
-                ]
+                key  # type: ignore[index]
+            ]:
+                data_with = data_partition[pp.DISCRETIZATION_MATRICES][
+                    key  # type: ignore[index]
+                ][mat_key]
+                data_without = data_no_partition[pp.DISCRETIZATION_MATRICES][
+                    key  # type: ignore[index]
+                ][mat_key]
 
                 if isinstance(data_with, dict):
                     # This is a Biot coupling discretization, where the matrices are

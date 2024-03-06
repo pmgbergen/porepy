@@ -33,7 +33,6 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
-from porepy.numerics.discretization import Discretization
 
 # Module-wide logger
 logger = logging.getLogger(__name__)
@@ -1008,16 +1007,9 @@ class Biot(pp.Mpsa):
         #   (2d): 0 (u_x) and 3 (u_y)
         #   (3d): 0 (u_x), 4 (u_y), 8 (u_z)
         nd = sd.dim
-        if nd == 2:
-            trace = np.array([0, 3])
-
-        elif nd == 3:
-            trace = np.array([0, 4, 8])
-
         inds = np.arange(nd**2)
 
         # Sub-cell wise trace of strain tensor: One row per sub-cell
-
         row, col = np.meshgrid(np.arange(cell_node_blocks.shape[1]), inds)
         # Adjust the columns to hit each sub-cell
         incr = np.cumsum(nd**2 * np.ones(cell_node_blocks.shape[1])) - nd**2
