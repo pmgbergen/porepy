@@ -883,6 +883,7 @@ def test_split_discretization_into_subproblems(
         # the partitioned and non-partitioned schemes. Give boundary conditions and
         # tensors for both types of physics; although we may only use one of them
         # (unless Biot), but the overhead should be minimal.
+        tensor = pp.SecondOrderTensor(kxx=np.ones(nc), kyy=10*np.ones(nc))
         flow_param = {
             "bc": pp.BoundaryCondition(g),
             "second_order_tensor": pp.SecondOrderTensor(np.ones(nc)),
@@ -890,7 +891,7 @@ def test_split_discretization_into_subproblems(
         mechanics_param = {
             "bc": pp.BoundaryConditionVectorial(g),
             "fourth_order_tensor": pp.FourthOrderTensor(np.ones(nc), np.ones(nc)),
-            "biot_alpha": 1,
+            "scalar_vector_mappings": {'foo': 1, 'bar': tensor}
         }
 
         # Set up a data dictionary that will split the discretization into two.
@@ -928,14 +929,16 @@ def test_split_discretization_into_subproblems(
             for mat_key in data_partition[pp.DISCRETIZATION_MATRICES][
                 key
             ]:  # type: ignore[index]
-                assert np.allclose(
-                    (
-                        data_partition[pp.DISCRETIZATION_MATRICES][
-                            key  # type: ignore[index]
-                        ][mat_key]
-                        - data_no_partition[pp.DISCRETIZATION_MATRICES][
-                            key  # type: ignore[index]
-                        ][mat_key]
-                    ).A,
-                    0,
-                )
+                data_with = data_partition[pp.DISCRETIZATION_MATRICES][key][mat_key]
+                data_without = data_no_partition[pp.DISCRETIZATION_MATRICES][key][mat_key]
+
+                if isinstance(data_with, dict):
+                    # This is a Biot coupling discretization, where the matrices are
+                    # stored in a dictionary, compare the individual matrices.
+                    for sub_key in data_with:
+                        assert np.allclose(
+                            data_with[sub_key].A, data_without[sub_key].A
+                        )
+                else:
+                    # The matrices are stored directly in the data dictionary.
+                    assert np.allclose(data_with.A, data_without.A)
