@@ -167,6 +167,18 @@ class SolutionStrategyThermoporomechanics(
     :class:`~porepy.models.constitutive_laws.FouriersLaw`.
 
     """
+    temperature_variable: str
+    """Name of the pressure variable. Normally set by a mixin instance of
+    :class:`~porepy.models.energy_balance.SolutionStrategyEnergyBalance`.
+    """
+    biot_tensor: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Method that defines the Biot tensor. Normally provided by a mixin instance of
+    :class:`~porepy.models.constitutive_laws.BiotCoefficient`.
+    """
+    solid_thermal_expansion_tensor: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Thermal expansion coefficient. Normally defined in a mixin instance of
+    :class:`~porepy.models.constitutive_laws.ThermalExpansion`.
+    """   
 
     def set_discretization_parameters(self) -> None:
         """Set parameters for the subproblems and the combined problem."""

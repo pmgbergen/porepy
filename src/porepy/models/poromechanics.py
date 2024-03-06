@@ -16,7 +16,7 @@ Suggested references (TODO: add more, e.g. Inga's in prep):
 
 from __future__ import annotations
 
-from typing import Callable, Union
+from typing import Callable, Union, Optional
 
 import porepy as pp
 import porepy.models.fluid_mass_balance as mass
@@ -137,9 +137,13 @@ class SolutionStrategyPoromechanics(
     :class:`~porepy.models.constitutive_laws.DarcysLaw`.
 
     """
-
     mdg: pp.MixedDimensionalGrid
     """Mixed dimensional grid."""
+
+    biot_tensor: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Method that defines the Biot tensor. Normally provided by a mixin instance of
+    :class:`~porepy.models.constitutive_laws.BiotCoefficient`.
+    """
 
     def __init__(self, params: Optional[dict] = None) -> None:
         """Initialize the solution strategy.
