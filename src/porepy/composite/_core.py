@@ -143,7 +143,7 @@ COMPOSITIONAL_VARIABLE_SYMBOLS = {
     "enthalpy": "h",
     "temperature": "T",
     "volume": "v",
-    "component_fraction": "z",
+    "overall_fraction": "z",
     "phase_fraction": "y",
     "phase_saturation": "s",
     "phase_composition": "x",

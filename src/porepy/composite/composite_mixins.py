@@ -23,7 +23,7 @@ __all__ = [
     "FluidMixtureMixin",
     "EquilibriumEquationsMixin",
     "FlashMixin",
-    "SecondaryExpressionsMixin",
+    "SecondaryEquationsMixin",
 ]
 
 
@@ -72,6 +72,11 @@ class CompositeVariables(pp.VariableMixin):
     Various methods can be overwritten to introduce constitutive laws instead of
     unknowns.
 
+    Note:
+        For compositional flow without a local equilibrium problem, the user must
+        overwrite :meth:`partial_fraction` to provide a representation independent of
+        extended fractions.
+
     """
 
     fluid_mixture: Mixture
@@ -98,7 +103,7 @@ class CompositeVariables(pp.VariableMixin):
     """Provided by
     :class:`~porepy.models.compositional_balance.SolutionStrategyCompositionalFlow`."""
 
-    _component_fraction_variables: list[str]
+    _overall_fraction_variables: list[str]
     """Created during :meth:`create_variables`."""
     _solute_fraction_variables: list[str]
     """Created during :meth:`create_variables`"""
@@ -112,7 +117,7 @@ class CompositeVariables(pp.VariableMixin):
     :attr:`has_extended_fractions` is False"""
 
     @property
-    def component_fraction_variables(self) -> list[str]:
+    def overall_fraction_variables(self) -> list[str]:
         """Names of feed fraction variables created by the mixture mixin."""
         if not (
             hasattr(self, "_feed_fraction_variables") and hasattr(self, "fluid_mixture")
@@ -122,7 +127,7 @@ class CompositeVariables(pp.VariableMixin):
             if self.fluid_mixture.num_components == 1:
                 return list()
             else:
-                return [name for name in self._component_fraction_variables]
+                return [name for name in self._overall_fraction_variables]
 
     @property
     def solute_fraction_variables(self) -> list[str]:
@@ -257,7 +262,7 @@ class CompositeVariables(pp.VariableMixin):
     def create_variables(self) -> None:
         """Creates the sets of required variables for a fluid mixture.
 
-        1. :meth:`component_fraction` is called to assign
+        1. :meth:`overall_fraction` is called to assign
            :attr:`~porepy.composite.base.Component.fraction` to components.
         2. :meth:`solute_fraction` is called to assign
            :attr:`~porepy.composite.base.Compound.solute_fraction_of` for each solute in
@@ -270,8 +275,8 @@ class CompositeVariables(pp.VariableMixin):
            :attr:`~porepy.composite.base.Phase.fraction_of` for each phase and component
            in that phase.
 
-        Finally, it creates assignes normalized fractions of components in phases
-        (see :attr:`~porepy.composite.base.Phase.normalized_fraction_of`).
+        Finally, it creates assignes partial fractions of components in phases
+        (see :attr:`~porepy.composite.base.Phase.partial_fraction_of`).
 
         The last step, as well as step 5 are skipped if
         :attr:`CompositeVariables.has_extended_fractions` is False.
@@ -285,7 +290,7 @@ class CompositeVariables(pp.VariableMixin):
         subdomains = self.mdg.subdomains()
 
         # Creating name containers
-        self._component_fraction_variables = list()
+        self._overall_fraction_variables = list()
         self._solute_fraction_variables = list()
         self._phase_fraction_variables = list()
         self._saturation_variables = list()
@@ -299,17 +304,17 @@ class CompositeVariables(pp.VariableMixin):
         for component in self.fluid_mixture.components:
             if component == rcomp:  # will be called last
                 continue
-            name = self._component_fraction_variable(component)
+            name = self._overall_fraction_variable(component)
             self._create_fractional_variable(name, subdomains)
-            self._component_fraction_variables.append(name)
-            component.fraction = self.component_fraction(component)
+            self._overall_fraction_variables.append(name)
+            component.fraction = self.overall_fraction(component)
 
         # reference feed fraction
-        rcomp.fraction = self.component_fraction(rcomp)
+        rcomp.fraction = self.overall_fraction(rcomp)
         # add only as independent variable if not eliminated and more than 1 component
         if not self.eliminate_reference_component and ncomp > 1:
-            self._component_fraction_variables.append(
-                self._component_fraction_variable(rcomp)
+            self._overall_fraction_variables.append(
+                self._overall_fraction_variable(rcomp)
             )
 
         ## Creation of solute fractions
@@ -357,7 +362,7 @@ class CompositeVariables(pp.VariableMixin):
         if self.has_extended_fractions:
             for phase in self.fluid_mixture.phases:
                 phase.fraction_of = dict()
-                phase.normalized_fraction_of = dict()
+                phase.partial_fraction_of = dict()
 
                 # creating extended fractions
                 for comp in phase.components:
@@ -370,15 +375,15 @@ class CompositeVariables(pp.VariableMixin):
 
                 # creating normalized fractions (dependent operators)
                 for comp in phase.components:
-                    phase.normalized_fraction_of.update(
-                        {comp: self.normalized_fraction(comp, phase)}
+                    phase.partial_fraction_of.update(
+                        {comp: self.partial_fraction(comp, phase)}
                     )
 
-    def _component_fraction_variable(self, component: Component) -> str:
+    def _overall_fraction_variable(self, component: Component) -> str:
         """Returns the name of the feed fraction variable assigned to ``component``."""
-        return f"{symbols['component_fraction']}_{component.name}"
+        return f"{symbols['overall_fraction']}_{component.name}"
 
-    def component_fraction(
+    def overall_fraction(
         self,
         component: Component,
     ) -> Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]:
@@ -428,7 +433,7 @@ class CompositeVariables(pp.VariableMixin):
                     return z_R
 
             else:  # create an independent variable
-                name = self._component_fraction_variable(component)
+                name = self._overall_fraction_variable(component)
 
                 def fraction(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
                     if len(domains) > 0 and all(
@@ -492,7 +497,7 @@ class CompositeVariables(pp.VariableMixin):
     def saturation(
         self, phase: Phase
     ) -> Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]:
-        """Same as for :meth:`component_fraction` but for phase saturations.
+        """Same as for :meth:`overall_fraction` but for phase saturations.
 
         The base method creates independent variables for all phases, except for the
         reference phase (eliminated by unity).
@@ -632,11 +637,13 @@ class CompositeVariables(pp.VariableMixin):
 
         return fraction
 
-    def normalized_fraction(
+    def partial_fraction(
         self, component: Component, phase: Phase
     ) -> Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]:
-        """The returned callable constructs an operator which normalizes the fraction of
-        a component in a phase, based on what is returned by :meth:`extended_fraction`.
+        """The returned callable constructs an operator which normalizes the extended
+        fraction of a component in a phase, based on what is returned
+        by :meth:`extended_fraction`.
+
         """
 
         name = self._extended_fraction_variable(component, phase)
@@ -685,6 +692,14 @@ class FluidMixtureMixin:
     strategy (see :meth:`~porepy.models.compositional_balance.
     SolutionStrategyCompositionalFlow.update_thermodynamic_properties`).
 
+    Note:
+        Secondary expressions are given a time step and iterate depth, depending on
+        the solution strategy.
+
+        Expressions which do not appear in the time derivative, such as viscosity,
+        conductivity and fugacity coefficients, never have a time step depth, and only
+        the current values are stored.
+
     """
 
     fluid_mixture: Mixture
@@ -698,6 +713,13 @@ class FluidMixtureMixin:
     """
     temperature: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]
     """Provided by :class:`~porepy.models.energy_balance.VariablesEnergyBalance`."""
+
+    time_step_depth: int
+    """Provided by
+    :class:`~porepy.models.compositional_balance.SolutionStrategyCompositionalFlow`"""
+    iterate_depth: int
+    """Provided by
+    :class:`~porepy.models.compositional_balance.SolutionStrategyCompositionalFlow`"""
 
     def create_mixture(self) -> None:
         """Mixed-in method to create a mixture.
@@ -892,7 +914,7 @@ class FluidMixtureMixin:
             self.pressure,
             self.temperature,
             *x_j,
-            timestepping_depth=1,
+            time_step_depth=1,
             iterate_depth=0,
         )
 
@@ -908,8 +930,8 @@ class FluidMixtureMixin:
             self.pressure,
             self.temperature,
             *x_j,
-            timestepping_depth=1,
-            iterate_depth=0,
+            time_step_depth=self.time_step_depth,
+            iterate_depth=self.iterate_depth,
         )
 
     def phase_enthalpy(
@@ -924,15 +946,21 @@ class FluidMixtureMixin:
             self.pressure,
             self.temperature,
             *x_j,
-            timestepping_depth=1,
-            iterate_depth=0,
+            time_step_depth=self.time_step_depth,
+            iterate_depth=self.iterate_depth,
         )
 
     def phase_viscosity(
         self, phase: Phase
     ) -> Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]:
         """Analogous to :meth:`phase_density`, but creates a new domain property for
-        the phase viscosity."""
+        the phase viscosity.
+
+        Note:
+            The viscosity has no time step depth, because it does not appear in the
+            accumulation term.
+
+        """
         x_j = tuple(phase.fraction_of.values())
         return SecondaryExpression(
             f"phase-viscosity-{phase.name}",
@@ -940,15 +968,21 @@ class FluidMixtureMixin:
             self.pressure,
             self.temperature,
             *x_j,
-            timestepping_depth=1,
-            iterate_depth=0,
+            time_step_depth=0,
+            iterate_depth=self.iterate_depth,
         )
 
     def phase_conductivity(
         self, phase: Phase
     ) -> Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]:
         """Analogous to :meth:`phase_density`, but creates a new domain property for
-        the phase conductivity."""
+        the phase conductivity.
+
+        Note:
+            The conductivity has no time step depth, because it does not appear in the
+            accumulation term.
+
+        """
         x_j = tuple(phase.fraction_of.values())
         return SecondaryExpression(
             f"phase-conductivity-{phase.name}",
@@ -956,15 +990,21 @@ class FluidMixtureMixin:
             self.pressure,
             self.temperature,
             *x_j,
-            timestepping_depth=1,
-            iterate_depth=0,
+            time_step_depth=0,
+            iterate_depth=self.iterate_depth,
         )
 
     def fugacity_coefficient(
         self, component: Component, phase: Phase
     ) -> Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]:
         """Analogous to :meth:`phase_density`, but creates a new domain property
-        representing the fugacity coefficient of ``component`` in ``phase``."""
+        representing the fugacity coefficient of ``component`` in ``phase``.
+
+        Note:
+            The conductivity has no time step depth, because it does not appear in the
+            accumulation term.
+
+        """
         x_j = tuple(phase.fraction_of.values())
         return SecondaryExpression(
             f"fugacity-of-{component.name}-in-{phase.name}",
@@ -972,12 +1012,12 @@ class FluidMixtureMixin:
             self.pressure,
             self.temperature,
             *x_j,
-            timestepping_depth=1,
-            iterate_depth=0,
+            time_step_depth=0,
+            iterate_depth=self.iterate_depth,
         )
 
 
-class SecondaryExpressionsMixin:
+class SecondaryEquationsMixin:
     """Base class for introducing secondary expressions into the compositional flow
     formulation.
 
@@ -1009,8 +1049,8 @@ class SecondaryExpressionsMixin:
     """Provided by
     :class:`~porepy.models.compositional_balance.SolutionStrategyCompositionalFlow`."""
 
-    _density_relations_equation_names: list[str]
-    """Created during :meth:`set_density_relations_for_phases`."""
+    _secondary_equation_names: list[str]
+    """Extended when callind :meth:`add_secondary_equation`."""
 
     def get_secondary_equation_names(self) -> list[str]:
         """Returns a list of secondary equations introduced by this mixin.
@@ -1023,7 +1063,23 @@ class SecondaryExpressionsMixin:
             equations in :meth:`set_secondary_equations`.
 
         """
-        return [name for name in self._density_relations_equation_names]
+        return [name for name in self._secondary_equation_names]
+
+    def add_secondary_equation(
+        self, op: pp.ad.Operator, domains: pp.GridLikeSequence
+    ) -> None:
+        """An operator to be added as a secondary equation in the framework.
+
+        This method must be used to add equations, so that this class can keep track of
+        them.
+
+        Parameters:
+            op: The equation in Ad operator form.
+            domains: The domains on which the equation is defined.
+
+        """
+        self._secondary_equation_names.append(op.name)
+        self.equation_system.set_equation(op, domains, {"cells": 1})
 
     def set_secondary_equations(self) -> None:
         """Override this method to set secondary expressions in equation form
@@ -1036,7 +1092,17 @@ class SecondaryExpressionsMixin:
 
         All equations should be scalar, single, cell-wise equations on each subdomains.
 
+        The parent method calls :meth:`set_density_relations_for_phases`
+
+        Important:
+            When overriding, use super to call the parent method first.
+
+            Use strictly :meth:`add_secondary_equation` in order for this class to keep
+            track of then
+
         """
+        self._secondary_equation_names = list()
+        self.set_density_relations_for_phases()
 
     def set_density_relations_for_phases(self) -> None:
         """Introduced the mass relations for phases into the AD system.
@@ -1066,14 +1132,13 @@ class SecondaryExpressionsMixin:
         """
         rphase = self.fluid_mixture.reference_phase
         subdomains = self.mdg.subdomains()
-        self._density_relations_equation_names = list()
+        self._secondary_equation_names = list()
         if self.fluid_mixture.num_phases > 1:
             for phase in self.fluid_mixture.phases:
                 if phase == rphase and self.eliminate_reference_phase:
                     continue
                 equ = self.density_relation_for_phase(phase, subdomains)
-                self._density_relations_equation_names.append(equ.name)
-                self.equation_system.set_equation(equ, subdomains, {"cells": 1})
+                self.add_secondary_equation(equ, subdomains)
 
     def density_relation_for_phase(
         self, phase: Phase, subdomains: Sequence[pp.Grid]

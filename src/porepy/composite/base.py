@@ -486,10 +486,10 @@ class Phase:
     normalized fractions respectively, are also assigned by a mixture.
 
     Note:
-        All compositional fractions in :attr:`fraction_of` are genuine variables in the
+        All extended fractions :attr:`fraction_of` are genuine variables in the unified
         flash (:class:`~porepy.numerics.ad.operators.MixedDimensionalVariable`).
 
-        All normalized fractions in :attr:`normalized_fractions_of` are dependent
+        All partial fractions in :attr:`partial_fraction_of` are dependent
         :class:`~porepy.numerics.ad.operators.Operator` -instances,
         created by normalization of fractions in :attr:`fraction_of`.
 
@@ -669,16 +669,17 @@ class Phase:
 
         """
 
-        self.normalized_fraction_of: dict[
+        self.partial_fraction_of: dict[
             Component, Callable[[Sequence[pp.Grid]], pp.ad.Operator]
         ]
-        """Normalized versions of :attr:`fraction_of`.
+        """Partial (physical) fraction of a component, relative to the phase fraction.
 
-        For a component i it holds
+        In the unified flash with extended fractions, this must be the normalized
+        version of :attr:`fraction_of`:
 
         .. math::
 
-            x_{n, ij} = \\dfrac{x_{ij}}{\\sum_k x_{kj}}
+            x_{ij} = \\dfrac{\\chi_{ij}}{\\sum_k \\chi_{kj}}
 
         """
 
@@ -708,10 +709,12 @@ class Phase:
         p: np.ndarray,
         T: np.ndarray,
         xn: Sequence[np.ndarray],
-        store: bool = True,
     ) -> PhaseState:
-        """Convenience method to compute the phase properties using the underlying EoS
-        and store the values in the respective AD operator.
+        """Shortcut to compute the properties using :attr:`eos`.
+
+        Note:
+            Property derivatives are provided w.r.t. normalized fraction.
+            Needs an extension (chain rule) for extended fractions.
 
         Parameters:
             p: ``shape=(N,)``
@@ -734,26 +737,7 @@ class Phase:
             A data structure containing the phase properties in numerical format.
 
         """
-        state = self.eos.compute_phase_state(self.type, p, T, xn)
-
-        if store:
-            self.density.subdomain_values = state.rho
-            self.density.subdomain_derivatives = state.drho
-            self.volume.subdomain_values = state.v
-            self.volume.subdomain_derivatives = state.dv
-            self.enthalpy.subdomain_values = state.h
-            self.enthalpy.subdomain_derivatives = state.dh
-
-            self.viscosity.subdomain_values = state.mu
-            self.viscosity.subdomain_derivatives = state.dmu
-            self.conductivity.subdomain_values = state.kappa
-            self.conductivity.subdomain_derivatives = state.dkappa
-
-            for i, comp in enumerate(self):
-                self.fugacity_of[comp].subdomain_values = state.phis[i]
-                self.fugacity_of[comp].subdomain_derivatives = state.dphis[i]
-
-        return state
+        return self.eos.compute_phase_state(self.type, p, T, xn)
 
 
 class Mixture:
@@ -947,38 +931,3 @@ class Mixture:
 
         """
         return self._components[0]
-
-    def compute_properties(
-        self,
-        p: np.ndarray,
-        T: np.ndarray,
-        xn: Sequence[Sequence[np.ndarray]],
-        store: bool = True,
-    ) -> list[PhaseState]:
-        """Convenience function to evaluate and optionally store the physical
-        properties of all phases in the mixture.
-
-        See :meth:`Phase.compute_properties` for more.
-
-        Parameters:
-            p: ``shape=(N,)``
-
-                Pressure.
-            T: ``shape=(N,)``
-
-                Temperature.
-            X: ``shape=(num_phases, num_components, N)``
-
-                A nested sequence containing for each phase a sub-sequence of
-                (normalized) component fractions in that phase.
-            store: ``default=True``
-
-                Flag to store or return the results
-
-        """
-        results: list[PhaseState] = list()
-        for j, phase in enumerate(self.phases):
-            x_j = xn[j]
-            props = phase.compute_properties(p, T, x_j, store=store)
-            results.append(props)
-        return results

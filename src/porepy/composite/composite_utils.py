@@ -214,8 +214,8 @@ class SecondaryOperator(pp.ad.Operator):
     Parameters:
         name: Name of the called :class:`SecondaryExpression`.
         domains: Arguments to its call.
-        timestepping_depth: Assigned by the called expression
-        timestep_index: Assigned as 0 by the expression, increased by
+        time_step_depth: Assigned by the called expression
+        time_step_index: Assigned as 0 by the expression, increased by
             :meth:`previous_timestep`.
         iterate_depth: Assigned by the called expression
         iterate_index: Assigned as 0 by the expression, increased by
@@ -229,8 +229,8 @@ class SecondaryOperator(pp.ad.Operator):
         self,
         name: str,
         domains: Sequence[pp.Grid] | Sequence[pp.MortarGrid],
-        timestepping_depth: int,
-        timestep_index: int,
+        time_step_depth: int,
+        time_step_index: int,
         iterate_depth: int,
         iterate_index: int,
         *children: pp.ad.MixedDimensionalVariable,
@@ -238,20 +238,20 @@ class SecondaryOperator(pp.ad.Operator):
         super().__init__(name, domains, pp.ad.Operator.Operations.evaluate, children)
 
         assert (
-            timestep_index <= timestepping_depth
+            time_step_index <= time_step_depth
         ), "Assigned time step index must be smaller or equal the depth."
         assert (
             iterate_index <= iterate_depth
         ), "Assigned iterate index must be smaller or equal the depth."
 
-        self._time_depth: int = timestepping_depth
+        self._time_depth: int = time_step_depth
         """Depth of stored values in time, with 0 denoting the current time, positive
         numbers going backwards in time."""
         self._iterate_depth: int = iterate_depth
         """Depth of stored iterate values, with 0 denoting the current iteration,
         positive numbers denoting previous iterations."""
 
-        self._time_index: int = timestep_index
+        self._time_index: int = time_step_index
         """Time index assigned to this instance. Capped by :attr:`_time_depth`.
         """
         self._iterate_index: int = iterate_index
@@ -277,14 +277,14 @@ class SecondaryOperator(pp.ad.Operator):
     def __repr__(self) -> str:
         return (
             f"Secondary operator with name {self.name}"
-            + f" at time index {self.timestep_index}"
+            + f" at time index {self.time_step_index}"
             + f" and iterate index {self.iterate_index}\n"
             + f"Defined on {len(self._domains)} {self._domain_type}.\n"
             + f"Dependent on {len(self.children)} independent operators.\n"
         )
 
     @property
-    def timestep_index(self) -> int:
+    def time_step_index(self) -> int:
         """Returns the time step index this instance represents."""
         return self._time_index
 
@@ -330,7 +330,7 @@ class SecondaryOperator(pp.ad.Operator):
                 "Cannot create a variable both on the previous time step and "
                 "previous iteration."
             )
-        if self.timestep_index == self._time_depth:
+        if self.time_step_index == self._time_depth:
             raise ValueError(
                 f"Cannot go further back than {self._time_depth} steps in time."
             )
@@ -342,8 +342,8 @@ class SecondaryOperator(pp.ad.Operator):
         op = SecondaryOperator(
             self.name,
             self.domains,
-            timestepping_depth=self._time_depth,
-            timestep_index=self.timestep_index + 1,  # increase time step index
+            time_step_depth=self._time_depth,
+            time_step_index=self.time_step_index + 1,  # increase time step index
             iterate_depth=self._iterate_depth,
             iterate_index=self.iterate_index,
             *prev_time_children,
@@ -394,7 +394,6 @@ class SecondaryOperator(pp.ad.Operator):
                 else:
                     return op
             else:
-
                 new_children: list[pp.ad.Operator] = list()
                 for ci, child in enumerate(children):
                     # Recursive call to fix the subtree.
@@ -417,8 +416,8 @@ class SecondaryOperator(pp.ad.Operator):
         op = SecondaryOperator(
             self.name,
             self.domains,
-            timestepping_depth=self._time_depth,
-            timestep_index=self.timestep_index,
+            time_step_depth=self._time_depth,
+            time_step_index=self.time_step_index,
             iterate_depth=self._iterate_depth,
             iterate_index=self.iterate_index + 1,  # increase iterate index
             *prev_iter_children,
@@ -513,7 +512,7 @@ class SecondaryExpression:
 
             When calling the secondary expression on some grids, it is expected that the
             dependencies are defined there.
-        timestepping_depth: ``default=1``
+        time_step_depth: ``default=1``
 
             Depth of storage of values backwards in time. Default to 1 (implicit Euler).
         iterate_depth: ``default=1``
@@ -527,7 +526,7 @@ class SecondaryExpression:
         name: str,
         mdg: pp.MixedDimensionalGrid,
         *dependencies: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator],
-        timestepping_depth: int = 1,
+        time_step_depth: int = 1,
         iterate_depth: int = 1,
     ) -> None:
         self._dependencies: Tuple[
@@ -539,7 +538,7 @@ class SecondaryExpression:
         self._ndep: int = len(dependencies)
         """See :meth:`nd`"""
 
-        self._time_depth: int = timestepping_depth
+        self._time_depth: int = time_step_depth
         """Depth of stored values in time, with 0 denoting the current time, positive
         numbers going backwards in time."""
         self._iterate_depth: int = iterate_depth
@@ -590,8 +589,8 @@ class SecondaryExpression:
                 op = SecondaryOperator(
                     self.name,
                     domains,
-                    timestepping_depth=self._time_depth,
-                    timestep_index=0,
+                    time_step_depth=self._time_depth,
+                    time_step_index=0,
                     iterate_depth=self._iterate_depth,
                     iterate_index=0,
                     *tuple(children),
@@ -709,7 +708,7 @@ class SecondaryExpression:
             raise NotImplementedError("Unclear storage access")
         # if op is at previous time, get those values
         if op.prev_time:
-            return d[pp.TIME_STEP_SOLUTIONS][self.name][op.timestep_index]
+            return d[pp.TIME_STEP_SOLUTIONS][self.name][op.time_step_index]
         # otherwise get the iterate values
         # iterate_index is always assigned (0 if not prev_iter)
         else:
