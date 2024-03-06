@@ -125,6 +125,9 @@ class Discretization(abc.ABC):
 class InterfaceDiscretization(abc.ABC):
     """Superclass for all interface discretizations"""
 
+    keyword: str
+    """Keyword associated with this discretization."""
+
     @abc.abstractmethod
     def discretize(
         self,

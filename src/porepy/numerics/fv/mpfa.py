@@ -179,7 +179,7 @@ class Mpfa(pp.FVElliptic):
             )
             # Constitutive law and boundary condition for the active grid.
             active_constit: pp.SecondOrderTensor = (
-                fvutils.restrict_second_order_tensor_to_subgrid(k, active_cells)
+                pp.fvutils.restrict_second_order_tensor_to_subgrid(k, active_cells)
             )
 
             # Extract the relevant part of the boundary condition.
