@@ -22,7 +22,7 @@ Example:
 """
 
 from __future__ import annotations
-
+from typing import Callable
 import abc
 
 import porepy as pp
@@ -101,16 +101,17 @@ class BiotAd(Discretization):
         # Declare attributes, these will be initialized by the below call to the
         # discretization wrapper.
 
-        self.stress: MergedOperator
-        self.bound_stress: MergedOperator
-        self.bound_displacement_cell: MergedOperator
-        self.bound_displacement_face: MergedOperator
+        self.stress: Callable[[], MergedOperator]
+        self.bound_stress: Callable[[], MergedOperator]
+        self.bound_displacement_cell: Callable[[], MergedOperator]
+        self.bound_displacement_face: Callable[[], MergedOperator]
 
-        self.div_u: MergedOperator
-        self.bound_div_u: MergedOperator
-        self.grad_p: MergedOperator
-        self.stabilization: MergedOperator
-        self.bound_pressure: MergedOperator
+        # Attributes for the coupling terms
+        self.div_u: Callable[[str], MergedOperator]
+        self.bound_div_u: Callable[[str], MergedOperator]
+        self.grad_p: Callable[[str], MergedOperator]
+        self.stabilization: Callable[[str], MergedOperator]
+        self.bound_pressure: Callable[[str], MergedOperator]
 
         # The following are keywords used to identify the coupling terms constructed
         # by a Biot discretization.
@@ -141,10 +142,10 @@ class MpsaAd(Discretization):
         # Declare attributes, these will be initialized by the below call to the
         # discretization wrapper.
 
-        self.stress: MergedOperator
-        self.bound_stress: MergedOperator
-        self.bound_displacement_cell: MergedOperator
-        self.bound_displacement_face: MergedOperator
+        self.stress: Callable[[], MergedOperator]
+        self.bound_stress: Callable[[], MergedOperator]
+        self.bound_displacement_cell: Callable[[], MergedOperator]
+        self.bound_displacement_face: Callable[[], MergedOperator]
 
         wrap_discretization(self, self._discretization, subdomains=subdomains)
 
@@ -159,12 +160,12 @@ class MpfaAd(Discretization):
         self._name = "Mpfa"
         self.keyword = keyword
 
-        self.flux: MergedOperator
-        self.bound_flux: MergedOperator
-        self.bound_pressure_cell: MergedOperator
-        self.bound_pressure_face: MergedOperator
-        self.vector_source: MergedOperator
-        self.bound_pressure_vector_source: MergedOperator
+        self.flux: Callable[[], MergedOperator]
+        self.bound_flux: Callable[[], MergedOperator]
+        self.bound_pressure_cell: Callable[[], MergedOperator]
+        self.bound_pressure_face: Callable[[], MergedOperator]
+        self.vector_source: Callable[[], MergedOperator]
+        self.bound_pressure_vector_source: Callable[[], MergedOperator]
 
         wrap_discretization(self, self._discretization, subdomains=subdomains)
 
@@ -176,12 +177,12 @@ class TpfaAd(Discretization):
         self._name = "Tpfa"
         self.keyword = keyword
 
-        self.flux: MergedOperator
-        self.bound_flux: MergedOperator
-        self.bound_pressure_cell: MergedOperator
-        self.bound_pressure_face: MergedOperator
-        self.vector_source: MergedOperator
-        self.bound_pressure_vector_source: MergedOperator
+        self.flux: Callable[[], MergedOperator]
+        self.bound_flux: Callable[[], MergedOperator]
+        self.bound_pressure_cell: Callable[[], MergedOperator]
+        self.bound_pressure_face: Callable[[], MergedOperator]
+        self.vector_source: Callable[[], MergedOperator]
+        self.bound_pressure_vector_source: Callable[[], MergedOperator]
 
         wrap_discretization(self, self._discretization, subdomains=subdomains)
 
@@ -193,9 +194,9 @@ class UpwindAd(Discretization):
         self._name = "Upwind"
         self.keyword = keyword
 
-        self.upwind: MergedOperator
-        self.bound_transport_dir: MergedOperator
-        self.bound_transport_neu: MergedOperator
+        self.upwind: Callable[[], MergedOperator]
+        self.bound_transport_dir: Callable[[], MergedOperator]
+        self.bound_transport_neu: Callable[[], MergedOperator]
         wrap_discretization(self, self._discretization, subdomains=subdomains)
 
 
@@ -208,10 +209,10 @@ class UpwindCouplingAd(Discretization):
 
         # UpwindCoupling also has discretization matrices for (inverse) trace.
         # These are not needed for Ad version since ad.Trace should be used instead
-        self.mortar_discr: MergedOperator
-        self.flux: MergedOperator
-        self.upwind_primary: MergedOperator
-        self.upwind_secondary: MergedOperator
+        self.mortar_discr: Callable[[], MergedOperator]
+        self.flux: Callable[[], MergedOperator]
+        self.upwind_primary: Callable[[], MergedOperator]
+        self.upwind_secondary: Callable[[], MergedOperator]
         wrap_discretization(self, self._discretization, interfaces=interfaces)
 
     def __repr__(self) -> str:
