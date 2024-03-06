@@ -883,7 +883,7 @@ def test_split_discretization_into_subproblems(
         # the partitioned and non-partitioned schemes. Give boundary conditions and
         # tensors for both types of physics; although we may only use one of them
         # (unless Biot), but the overhead should be minimal.
-        tensor = pp.SecondOrderTensor(kxx=np.ones(nc), kyy=10*np.ones(nc))
+        tensor = pp.SecondOrderTensor(kxx=np.ones(nc), kyy=10 * np.ones(nc))
         flow_param = {
             "bc": pp.BoundaryCondition(g),
             "second_order_tensor": pp.SecondOrderTensor(np.ones(nc)),
@@ -891,7 +891,7 @@ def test_split_discretization_into_subproblems(
         mechanics_param = {
             "bc": pp.BoundaryConditionVectorial(g),
             "fourth_order_tensor": pp.FourthOrderTensor(np.ones(nc), np.ones(nc)),
-            "scalar_vector_mappings": {'foo': 1, 'bar': tensor}
+            "scalar_vector_mappings": {"foo": 1, "bar": tensor},
         }
 
         # Set up a data dictionary that will split the discretization into two.
@@ -930,7 +930,9 @@ def test_split_discretization_into_subproblems(
                 key
             ]:  # type: ignore[index]
                 data_with = data_partition[pp.DISCRETIZATION_MATRICES][key][mat_key]
-                data_without = data_no_partition[pp.DISCRETIZATION_MATRICES][key][mat_key]
+                data_without = data_no_partition[pp.DISCRETIZATION_MATRICES][key][
+                    mat_key
+                ]
 
                 if isinstance(data_with, dict):
                     # This is a Biot coupling discretization, where the matrices are

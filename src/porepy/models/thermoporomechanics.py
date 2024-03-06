@@ -178,7 +178,7 @@ class SolutionStrategyThermoporomechanics(
     solid_thermal_expansion_tensor: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Thermal expansion coefficient. Normally defined in a mixin instance of
     :class:`~porepy.models.constitutive_laws.ThermalExpansion`.
-    """   
+    """
 
     def set_discretization_parameters(self) -> None:
         """Set parameters for the subproblems and the combined problem."""
