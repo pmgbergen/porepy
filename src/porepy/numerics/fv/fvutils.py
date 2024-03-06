@@ -1171,7 +1171,6 @@ def partial_update_discretization(
     vector_cell_left: Optional[list[str]] = None,
     scalar_face_left: Optional[list[str]] = None,
     vector_face_left: Optional[list[str]] = None,
-    second_keyword: Optional[str] = None,  # Used for biot discertization
 ) -> None:
     """Do partial update of discretization scheme.
 
@@ -1310,15 +1309,6 @@ def partial_update_discretization(
 
     # Define new discretization as a combination of mapped and rediscretized
     for key, val in data[pp.DISCRETIZATION_MATRICES][keyword].items():
-        # If the key is present in the matrix dictionary of the second_keyword,
-        # we skip it, and handle below.
-        # See comment on Biot discretization below
-        if (
-            second_keyword is not None
-            and key in data[pp.DISCRETIZATION_MATRICES][second_keyword].keys()
-        ):
-            continue
-
         if (
             key in data[pp.DISCRETIZATION_MATRICES][keyword].keys()
             and key in mat_dict_copy.keys()
@@ -1326,24 +1316,6 @@ def partial_update_discretization(
             # By now, the two matrices should have compatible size
             data[pp.DISCRETIZATION_MATRICES][keyword][key] = mat_dict_copy[key] + val
 
-    # The Biot discretization is special, in that it places part of matrices in
-    # the mechanics dictionary, a second part in flow. If a second keyword is provided,
-    # the corresponding matrices must be processed, and added with the stored, mapped
-    # values.
-    # Implementation note: we assume that the previous discretizations are all placed
-    # under the primary keyword, see Biot for an example of the necessary pre-processing.
-    # It could perhaps have been better allow for processing of two keywords in the
-    # mapping, but the implementation ended up being as it is.
-    if second_keyword is not None:
-        for key, val in data[pp.DISCRETIZATION_MATRICES][second_keyword].items():
-            if key in mat_dict_copy.keys():
-                if key in scalar_cell_left:
-                    remove_nonlocal_contribution(passive_cells, 1, val)
-                elif key in vector_cell_left:
-                    remove_nonlocal_contribution(passive_cells, dim, val)
-                data[pp.DISCRETIZATION_MATRICES][second_keyword][key] = (
-                    mat_dict_copy[key] + val
-                )
 
 
 def cell_ind_for_partial_update(
