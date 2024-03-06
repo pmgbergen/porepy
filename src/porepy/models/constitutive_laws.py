@@ -1929,7 +1929,7 @@ class AdTpfaFlux:
 
         # We know that base_discr.vector_source is a sparse matrix, so we can call parse
         # directly.
-        base_discr_vector_source = base_discr.vector_source.parse(self.mdg)
+        base_discr_vector_source = base_discr.vector_source().parse(self.mdg)
 
         # Composing the full expression for the vector source term is a bit tricky, as
         # any of the three arguments may be either a numpy array or an AdArray. We need
@@ -2329,7 +2329,7 @@ class ThermalExpansion:
         return Scalar(val, "solid_thermal_expansion")
 
     def solid_thermal_expansion_tensor(
-        self, subdomains: pp.Grid
+        self, subdomains: list[pp.Grid]
     ) -> pp.SecondOrderTensor:
         """Thermo-mechanical coupling tensor.
 
@@ -3495,6 +3495,10 @@ class PressureStress(LinearElasticMechanicalStress):
     :class:`porepy.models.geometry.ModelGeometry`.
 
     """
+    pressure_variable: str
+    """Name of the pressure variable. Normally set by a mixin instance of
+    :class:`~porepy.models.fluid_mass_balance.SolutionStrategySinglePhaseFlow`.
+    """
 
     def pressure_stress(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Pressure contribution to stress tensor.
@@ -3662,6 +3666,10 @@ class ThermoPressureStress(PressureStress):
     :class:`~porepy.models.momentum_balance.SolutionStrategyMomentumBalance`.
 
     """
+    temperature_variable: str
+    """Name of the pressure variable. Normally set by a mixin instance of
+    :class:`~porepy.models.energy_balance.SolutionStrategyEnergyBalance`.
+    """    
 
     def thermal_stress(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Temperature contribution to stress tensor.
@@ -4300,6 +4308,11 @@ class PoroMechanicsPorosity:
     :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`.
 
     """
+    pressure_variable: str
+    """Name of the pressure variable. Normally set by a mixin instance of
+    :class:`~porepy.models.fluid_mass_balance.SolutionStrategySinglePhaseFlow`.
+    """
+
     subdomains_to_interfaces: Callable[[list[pp.Grid], list[int]], list[pp.MortarGrid]]
     """Map from subdomains to the adjacent interfaces. Normally defined in a mixin
     instance of :class:`~porepy.models.geometry.ModelGeometry`.
@@ -4599,7 +4612,7 @@ class ThermoPoroMechanicsPorosity(PoroMechanicsPorosity):
     provided by a mixin of instance :class:`~porepy.models.VariableMixin`.
 
     """
-    solid_thermal_expansion: Callable[[list[pp.Grid]], pp.ad.Operator]
+    solid_thermal_expansion_coefficient: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Thermal expansion coefficient. Normally defined in a mixin instance of
     :class:`~porepy.models.constitutive_laws.ThermalExpansion`.
     """
@@ -4614,6 +4627,10 @@ class ThermoPoroMechanicsPorosity(PoroMechanicsPorosity):
     :class:`~porepy.models.constitutive_laws.BiotCoefficient`.
 
     """
+    temperature_variable: str
+    """Name of the pressure variable. Normally set by a mixin instance of
+    :class:`~porepy.models.energy_balance.SolutionStrategyEnergyBalance`.
+    """    
 
     def matrix_porosity(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Porosity [-].
