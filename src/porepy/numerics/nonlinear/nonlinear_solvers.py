@@ -190,6 +190,6 @@ class NewtonSolver:
 
         """
         model.assemble_linear_system()
-        _, res = model.linear_system  # Extract residual
         sol = model.solve_linear_system()
+        res = model.equation_system.assemble(evaluate_jacobian=False)
         return res, sol
