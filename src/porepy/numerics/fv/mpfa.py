@@ -152,7 +152,7 @@ class Mpfa(pp.FVElliptic):
 
         eta: Optional[float] = parameter_dictionary.get("mpfa_eta", None)
         inverter: Literal["numba", "python"] = parameter_dictionary.get(
-            "mpfa_inverter", "python"
+            "mpfa_inverter", "numba"
         )
 
         # Control of the number of subdomanis.

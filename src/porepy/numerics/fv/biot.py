@@ -337,7 +337,7 @@ class Biot(pp.Mpsa):
 
         eta: float = parameter_dictionary.get("mpsa_eta", pp.fvutils.determine_eta(sd))
         inverter: Literal["python", "numba"] = parameter_dictionary.get(
-            "inverter", "python"
+            "inverter", "numba"
         )
 
         alpha: float = parameter_dictionary["biot_alpha"]
