@@ -564,17 +564,17 @@ class VariablesEnergyBalance:
         self.equation_system.create_variables(
             self.interface_fourier_flux_variable,
             interfaces=self.mdg.interfaces(codim=1),
-            tags={"si_units": "W"},
+            tags={"si_units": f"W * m^{self.nd - 3}"},
         )
         self.equation_system.create_variables(
             self.interface_enthalpy_flux_variable,
             interfaces=self.mdg.interfaces(codim=1),
-            tags={"si_units": "W"},
+            tags={"si_units": f"W * m^{self.nd - 3}"},
         )
         self.equation_system.create_variables(
             self.well_enthalpy_flux_variable,
             interfaces=self.mdg.interfaces(codim=2),
-            tags={"si_units": "W"},
+            tags={"si_units": f"W * m^{self.nd - 3}"},
         )
 
     def temperature(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
@@ -680,7 +680,9 @@ class VariablesEnergyBalance:
 
 
 class ConstitutiveLawsEnergyBalance(
+    pp.constitutive_laws.SpecificHeatCapacities,
     pp.constitutive_laws.EnthalpyFromTemperature,
+    pp.constitutive_laws.SecondOrderTensorUtils,
     pp.constitutive_laws.FouriersLaw,
     pp.constitutive_laws.ThermalConductivityLTE,
     pp.constitutive_laws.DimensionReduction,

@@ -457,7 +457,9 @@ class MomentumBalanceEquations(pp.BalanceEquation):
 
 class ConstitutiveLawsMomentumBalance(
     constitutive_laws.ZeroGravityForce,
-    constitutive_laws.LinearElasticSolid,
+    constitutive_laws.ElasticModuli,
+    constitutive_laws.LinearElasticMechanicalStress,
+    constitutive_laws.ConstantSolidDensity,
     constitutive_laws.FractureGap,
     constitutive_laws.FrictionBound,
     constitutive_laws.DimensionReduction,
@@ -711,7 +713,7 @@ class SolutionStrategyMomentumBalance(pp.SolutionStrategy):
     """
     stiffness_tensor: Callable[[pp.Grid], pp.FourthOrderTensor]
     """Function that returns the stiffness tensor of a subdomain. Normally provided by a
-    mixin of instance :class:`~porepy.models.constitutive_laws.LinearElasticSolid`.
+    mixin of instance :class:`~porepy.models.constitutive_laws.ElasticModuli`.
 
     """
     bc_type_mechanics: Callable[[pp.Grid], pp.BoundaryConditionVectorial]

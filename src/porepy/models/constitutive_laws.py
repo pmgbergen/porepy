@@ -466,7 +466,7 @@ class FluidDensityFromPressure:
             subdomains: List of subdomain grids.
 
         Returns:
-            Fluid density as a function of pressure [kg*m^-3].
+            Fluid density as a function of pressure [kg * m^-3].
 
         """
         # The reference density is taken from the fluid constants..
@@ -634,7 +634,7 @@ class FluidMobility:
             subdomains: List of subdomains.
 
         Returns:
-            Operator representing the mobility.
+            Operator representing the mobility [m * s * kg^-1].
 
         """
         return pp.ad.Scalar(1) / self.fluid_viscosity(subdomains)
@@ -677,15 +677,15 @@ class ConstantViscosity:
     """
 
     def fluid_viscosity(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Fluid viscosity [Pa s].
+        """Fluid viscosity .
 
         Parameters:
             subdomains: List of subdomain grids. Not used in this implementation, but
                 included for compatibility with other implementations.
 
         Returns:
-            Operator for fluid viscosity, represented as an Ad operator. The value is
-            picked from the fluid constants.
+            Operator for fluid viscosity [Pa * s], represented as an Ad operator. The
+            value is picked from the fluid constants.
 
         """
         return Scalar(self.fluid.viscosity(), "viscosity")
@@ -788,7 +788,7 @@ class SecondOrderTensorUtils:
         return pp.SecondOrderTensor(*args)
 
 
-class ConstantPermeability(SecondOrderTensorUtils):
+class ConstantPermeability:
     """A spatially homogeneous permeability field."""
 
     solid: pp.SolidConstants
@@ -796,6 +796,13 @@ class ConstantPermeability(SecondOrderTensorUtils):
 
     Normally, this is set by a mixin of instance
     :class:`~porepy.models.solution_strategy.SolutionStrategy`.
+
+    """
+    isotropic_second_order_tensor: Callable[
+        [list[pp.Grid], pp.ad.Operator], pp.ad.Operator
+    ]
+    """Basis for the local coordinate system. Normally set by a mixin instance of
+    :class:`porepy.models.constitutive_laws.SecondOrderTensorUtils`.
 
     """
 
@@ -1018,7 +1025,7 @@ class DarcysLaw:
     instance of :class:`~porepy.models.geometry.ModelGeometry`.
 
     """
-    pressure: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]
+    pressure: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     """Pressure variable. Normally defined in a mixin instance of
     :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`.
 
@@ -1153,7 +1160,8 @@ class DarcysLaw:
         discr: Union[pp.ad.TpfaAd, pp.ad.MpfaAd] = self.darcy_flux_discretization(
             subdomains
         )
-        p: pp.ad.MixedDimensionalVariable = self.pressure(subdomains)
+        # We know p is variable, since called on subdomains, not boundaries.
+        p = cast(pp.ad.MixedDimensionalVariable, self.pressure(subdomains))
 
         boundary_operator = self._combine_boundary_operators(  # type: ignore[call-arg]
             subdomains=subdomains,
@@ -2058,12 +2066,17 @@ class AdTpfaFlux:
         return pp.ad.AdArray(val, jac)
 
 
-class DarcysLawAd(AdTpfaFlux, DarcysLaw):
+class DarcysLawAd(AdTpfaFlux):
     """Adaptive discretization of the Darcy flux from generic adaptive flux class."""
 
     permeability: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Function that returns the permeability of a subdomain. Normally provided by a
     mixin class with a suitable permeability definition.
+
+    """
+    pressure: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
+    """Pressure variable. Normally defined in a mixin instance of
+    :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`.
 
     """
 
@@ -2124,7 +2137,7 @@ class PeacemanWellFlux:
     """
     mdg: pp.MixedDimensionalGrid
     """Mixed-dimensional grid."""
-    pressure: Callable[[list[pp.Grid]], pp.ad.Operator]
+    pressure: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     """Pressure variable."""
     well_flux: Callable[[list[pp.MortarGrid]], pp.ad.MixedDimensionalVariable]
     """Well flux variable."""
@@ -2151,13 +2164,17 @@ class PeacemanWellFlux:
     """
 
     def well_flux_equation(self, interfaces: list[pp.MortarGrid]) -> pp.ad.Operator:
-        """Equation for well fluxes.
+        """Equation relating the well flux to the difference between well and formation
+        pressure.
+
+        For details, see Lie: An introduction to reservoir simulation using MATLAB/GNU
+        Octave, 2019, Section 4.3.
 
         Parameters:
             interfaces: List of interfaces where the well fluxes are defined.
 
         Returns:
-            Cell-wise well flux operator.
+            Cell-wise well flux operator, units [kg * m^{nd-1} * s^-2].
 
         """
 
@@ -2168,17 +2185,39 @@ class PeacemanWellFlux:
         r_e = self.equivalent_well_radius(subdomains)
 
         f_log = pp.ad.Function(pp.ad.functions.log, "log_function_Piecmann")
-        e_i = self.e_i(subdomains, i=0, dim=9).T  # type: ignore[call-arg]
+
         # We assume isotropic permeability and extract xx component.
+        e_i = self.e_i(subdomains, i=0, dim=9).T  # type: ignore[call-arg]
+
+        # To get a transmissivity, we multiply the permeability with the length of the
+        # well within one cell. For a 0d-2d coupling, this will be the aperture of the
+        # 2d fracture cell; in practice the number is obtained by multiplying with the
+        # specific volume of the mortar cell (which will incorporate the specific volume
+        # of the higher-dimensional neighbor, that is, the fracture). For a 1d-3d
+        # coupling, we will need the length of the well within the 3d cell (see the MRST
+        # book, p.128, for comments regarding deviated wells). Again, this could be
+        # obtained by a volume integral over the mortar cell; however, as 1d-3d
+        # couplings have not yet been implemented, we will raise an error in this case.
+        if any([sd.dim == 3 for sd in subdomains]):
+            raise NotImplementedError(
+                "The 1d-3d coupling has not yet been implemented. "
+            )
+        elif any([sd.dim == 1 for sd in subdomains]):
+            # This is a 1d-2d (or 1d-1d) coupling, for which the Peaceman model is
+            # not applicable.
+            # TODO: Revisit when we implement 1d-3d coupling.
+            raise ValueError("The Peaceman model assumes a coupling of codimension 2")
+
         isotropic_permeability = e_i @ self.permeability(subdomains)
-        well_index = (
+
+        well_index = self.volume_integral(
             pp.ad.Scalar(2 * np.pi)
             * projection.primary_to_mortar_avg
-            @ (isotropic_permeability / (f_log(r_e / r_w) + skin_factor))
+            @ (isotropic_permeability / (f_log(r_e / r_w) + skin_factor)),
+            interfaces,
+            1,
         )
-        eq: pp.ad.Operator = self.well_flux(interfaces) - self.volume_integral(
-            well_index, interfaces, 1
-        ) * (
+        eq: pp.ad.Operator = self.well_flux(interfaces) - well_index * (
             projection.primary_to_mortar_avg @ self.pressure(subdomains)
             - projection.secondary_to_mortar_avg @ self.pressure(subdomains)
         )
@@ -2192,7 +2231,7 @@ class PeacemanWellFlux:
             subdomains: List of subdomains.
 
         Returns:
-            Cell-wise equivalent radius operator.
+            Cell-wise equivalent radius operator [m].
 
         """
         # Implementational note: The computation of equivalent radius is highly
@@ -2224,7 +2263,7 @@ class PeacemanWellFlux:
             interfaces: List of interfaces.
 
         Returns:
-            Skin factor operator.
+            Skin factor operator [-].
 
         """
         skin_factor = pp.ad.Scalar(self.solid.skin_factor())
@@ -2238,7 +2277,7 @@ class PeacemanWellFlux:
             subdomains: List of subdomains.
 
         Returns:
-            Cell-wise well radius operator.
+            Cell-wise well radius operator [m].
 
         """
         r_w = pp.ad.Scalar(self.solid.well_radius())
@@ -2291,7 +2330,7 @@ class ThermalExpansion:
         return Scalar(val, "solid_thermal_expansion")
 
 
-class ThermalConductivityLTE(SecondOrderTensorUtils):
+class ThermalConductivityLTE:
     """Thermal conductivity in the local thermal equilibrium approximation."""
 
     fluid: pp.FluidConstants
@@ -2324,6 +2363,13 @@ class ThermalConductivityLTE(SecondOrderTensorUtils):
     interfaces_to_subdomains: Callable[[list[pp.MortarGrid]], list[pp.Grid]]
     """Map from interfaces to the adjacent subdomains. Normally defined in a mixin
     instance of :class:`~porepy.models.geometry.ModelGeometry`.
+
+    """
+    isotropic_second_order_tensor: Callable[
+        [list[pp.Grid], pp.ad.Operator], pp.ad.Operator
+    ]
+    """Basis for the local coordinate system. Normally set by a mixin instance of
+    :class:`porepy.models.constitutive_laws.SecondOrderTensorUtils`.
 
     """
 
@@ -2417,7 +2463,7 @@ class FouriersLaw:
     instance of :class:`~porepy.models.geometry.ModelGeometry`.
 
     """
-    temperature: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]
+    temperature: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     """Temperature variable. Normally defined in a mixin instance of
     :class:`~porepy.models.energy_balance.VariablesEnergyBalance`.
 
@@ -2542,8 +2588,8 @@ class FouriersLaw:
                 name="bc_values_fourier",
             )
         )
-
-        t: pp.ad.MixedDimensionalVariable = self.temperature(subdomains)
+        # We know t is a variable, since method is called on subdomains, not boundaries.
+        t = cast(pp.ad.MixedDimensionalVariable, self.temperature(subdomains))
         temperature_trace = (
             discr.bound_pressure_cell @ t  # "pressure" is a legacy misnomer
             + discr.bound_pressure_face
@@ -2701,7 +2747,7 @@ class FouriersLaw:
         return pp.ad.MpfaAd(self.fourier_keyword, subdomains)
 
 
-class FouriersLawAd(AdTpfaFlux, FouriersLaw):
+class FouriersLawAd(AdTpfaFlux):
     """Adaptive discretization of the Fourier flux from generic adaptive flux class."""
 
     thermal_conductivity: Callable[[list[pp.Grid]], pp.ad.Operator]
@@ -2709,6 +2755,11 @@ class FouriersLawAd(AdTpfaFlux, FouriersLaw):
     mixin class of instance
     :class:`~porepy.models.constitutive_laws.ThermalConductivityLTE` or a subclass
     thereof.
+
+    """
+    temperature: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
+    """Temperature variable. Normally defined in a mixin instance of
+    :class:`~porepy.models.energy_balance.VariablesEnergyBalance`.
 
     """
 
@@ -2891,6 +2942,7 @@ class AdvectiveFlux:
 
         Returns:
             Operator representing the advective flux on the interfaces.
+
         """
         subdomains = self.interfaces_to_subdomains(interfaces)
         mortar_projection = pp.ad.MortarProjections(
@@ -2926,15 +2978,15 @@ class SpecificHeatCapacities:
     """
 
     def fluid_specific_heat_capacity(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Fluid specific heat capacity [J/kg/K].
+        """Fluid specific heat capacity.
 
         Parameters:
             subdomains: List of subdomains. Not used, but included for consistency with
                 other implementations.
 
         Returns:
-            Operator representing the fluid specific heat capacity. The value is picked
-            from the fluid constants.
+            Operator representing the fluid specific heat capacity  [J/kg/K]. The value
+            is picked from the fluid constants.
 
         """
         return Scalar(
@@ -2958,12 +3010,12 @@ class SpecificHeatCapacities:
         )
 
 
-class EnthalpyFromTemperature(SpecificHeatCapacities):
+class EnthalpyFromTemperature:
     """Class for representing the ethalpy, computed from the perturbation from a
     reference temperature.
     """
 
-    temperature: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]
+    temperature: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     """Temperature variable. Normally defined in a mixin instance of
     :class:`~porepy.models.energy_balance.VariablesEnergyBalance`.
 
@@ -2980,9 +3032,21 @@ class EnthalpyFromTemperature(SpecificHeatCapacities):
     :class:`~porepy.models.fluid_mass_balance.SolutionStrategyEnergyBalance`.
 
     """
+    fluid_specific_heat_capacity: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Function that returns the specific heat capacity of the fluid. Normally
+    provided by a mixin of instance
+    :class:`~porepy.constitutive_laws.SpecificHeatCapacities`.
+
+    """
+    solid_specific_heat_capacity: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Function that returns the specific heat capacity of the solid. Normally
+    provided by a mixin of instance
+    :class:`~porepy.constitutive_laws.SpecificHeatCapacities`.
+
+    """
 
     def fluid_enthalpy(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Fluid enthalpy [J*kg^-1*m^-nd].
+        """Fluid enthalpy.
 
         The enthalpy is computed as a perturbation from a reference temperature as
         .. math::
@@ -2992,7 +3056,7 @@ class EnthalpyFromTemperature(SpecificHeatCapacities):
             subdomains: List of subdomains.
 
         Returns:
-            Operator representing the fluid enthalpy.
+            Operator representing the fluid enthalpy [J*kg^-1*m^-nd].
 
         """
         c = self.fluid_specific_heat_capacity(subdomains)
@@ -3377,12 +3441,12 @@ class PressureStress(LinearElasticMechanicalStress):
     :class:`porepy.models.geometry.ModelGeometry`.
 
     """
-    pressure: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]
+    pressure: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     """Pressure variable. Normally defined in a mixin instance of
     :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`.
 
     """
-    reference_pressure: Callable[[list[pp.Grid]], pp.ad.Operator]
+    reference_pressure: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     """Reference pressure. Normally defined in a mixin instance of
     :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`.
 
@@ -3545,12 +3609,12 @@ class ThermoPressureStress(PressureStress):
 
     """
 
-    temperature: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]
+    temperature: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     """Temperature variable. Normally defined in a mixin instance of
     :class:`~porepy.models.energy_balance.VariablesEnergyBalance`.
 
     """
-    reference_temperature: Callable[[list[pp.Grid]], pp.ad.Operator]
+    reference_temperature: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     """Reference temperature. Normally defined in a mixin instance of
     :class:`~porepy.models.energy_balance.VariablesEnergyBalance`.
 
@@ -3562,7 +3626,7 @@ class ThermoPressureStress(PressureStress):
     """
     bulk_modulus: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Bulk modulus. Normally defined in a mixin instance of
-    :class:`~porepy.models.constitutive_laws.LinearElasticSolid`.
+    :class:`~porepy.models.constitutive_laws.ElasticModuli`.
 
     """
     solid_thermal_expansion: Callable[[list[pp.Grid]], pp.ad.Operator]
@@ -3645,7 +3709,7 @@ class ConstantSolidDensity:
         return Scalar(self.solid.density(), "solid_density")
 
 
-class LinearElasticSolid(LinearElasticMechanicalStress, ConstantSolidDensity):
+class ElasticModuli:
     """Linear elastic properties of a solid.
 
     Includes "primary" stiffness parameters (lame_lambda, shear_modulus) and "secondary"
@@ -4181,7 +4245,7 @@ class PoroMechanicsPorosity:
     """
     bulk_modulus: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Bulk modulus. Normally defined in a mixin instance of
-    :class:`~porepy.models.constitutive_laws.LinearElasticSolid`.
+    :class:`~porepy.models.constitutive_laws.ElasticModuli`.
 
     """
     stress_keyword: str
@@ -4208,7 +4272,7 @@ class PoroMechanicsPorosity:
     :class:`~porepy.models.momentum_balance.VariablesMomentumBalance`.
 
     """
-    pressure: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]
+    pressure: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     """Pressure variable. Normally defined in a mixin instance of
     :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`.
 

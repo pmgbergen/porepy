@@ -181,7 +181,7 @@ class Mpsa(Discretization):
         hf_eta: Optional[float] = parameter_dictionary.get("reconstruction_eta", None)
 
         inverter: Literal["python", "numba"] = parameter_dictionary.get(
-            "inverter", "python"
+            "inverter", "numba"
         )
 
         # Control of the number of subdomanis.
@@ -1547,9 +1547,11 @@ class Mpsa(Discretization):
         # Define row and column indices to be used for normal vector matrix Rows are
         # based on sub-face numbers. Columns have nd elements for each sub-cell (to
         # store a vector) and is adjusted according to block sizes
-        _, cn = np.meshgrid(subcell_topology.subhfno, np.arange(nd))
-        sum_blocksz = np.cumsum(blocksz)
-        cn += pp.matrix_operations.rldecode(sum_blocksz - blocksz[0], blocksz)
+        _, cn = np.meshgrid(subcell_topology.subhfno, np.arange(nd, dtype=np.int32))
+        sum_blocksz = np.cumsum(blocksz, dtype=np.int32)
+        cn += pp.matrix_operations.rldecode(sum_blocksz - blocksz[0], blocksz).astype(
+            np.int32
+        )
         ind_ptr_n = np.hstack((np.arange(0, cn.size, nd), cn.size))
 
         # Distribute faces equally on the sub-faces, and store in a matrix
@@ -1562,10 +1564,12 @@ class Mpsa(Discretization):
         # Then row and columns for stiffness matrix. There are nd^2 elements in the
         # gradient operator, and so the structure is somewhat different from the normal
         # vectors
-        _, cc = np.meshgrid(subcell_topology.subhfno, np.arange(nd**2))
-        sum_blocksz = np.cumsum(blocksz**2)
-        cc += pp.matrix_operations.rldecode(sum_blocksz - blocksz[0] ** 2, blocksz)
-        ind_ptr_c = np.hstack((np.arange(0, cc.size, nd**2), cc.size))
+        _, cc = np.meshgrid(subcell_topology.subhfno, np.arange(nd**2, dtype=np.int32))
+        sum_blocksz = np.cumsum(blocksz**2, dtype=np.int32)
+        cc += pp.matrix_operations.rldecode(
+            sum_blocksz - blocksz[0] ** 2, blocksz
+        ).astype(np.int32)
+        ind_ptr_c = np.hstack((np.arange(0, cc.size, nd**2), cc.size)).astype(np.int32)
 
         # Splitt stiffness matrix into symmetric and anti-symmatric part
         sym_tensor, asym_tensor = self._split_stiffness_matrix(constit)

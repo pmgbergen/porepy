@@ -431,12 +431,16 @@ def test_block_matrix_inverters_full_blocks(invert_backend: str):
     """
     a = np.vstack((np.array([[1, 3], [4, 2]]), np.zeros((3, 2))))
     b = np.vstack((np.zeros((2, 3)), np.array([[8, 1, 6], [3, 5, 7], [4, 9, 2]])))
-    block = sps.csr_matrix(np.hstack((a, b)))
+    block_as_csr = sps.csr_matrix(np.hstack((a, b)))
+    block_as_csc = sps.csc_matrix(np.hstack((a, b)))
 
     sz = np.array([2, 3], dtype="i8")
-    iblock = matrix_operations.invert_diagonal_blocks(block, sz, method=invert_backend)
-    iblock_ex = np.linalg.inv(block.toarray())
+    iblock_ex = np.linalg.inv(block_as_csr.toarray())
 
+    iblock = matrix_operations.invert_diagonal_blocks(block_as_csr, sz, method=invert_backend)
+    assert np.allclose(iblock_ex, iblock.toarray())
+
+    iblock = matrix_operations.invert_diagonal_blocks(block_as_csc, sz, method=invert_backend)
     assert np.allclose(iblock_ex, iblock.toarray())
 
 
