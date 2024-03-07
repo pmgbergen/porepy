@@ -9,14 +9,13 @@ To define the manufactured solution, we introduce the auxiliary function
 .. math::
     f(x, y, z, t) = t * x * (1 - x) * (x - 1 / 2) * sin(2 * pi * y) * sin(2 * pi * z)
 
-Define the characteristic function $$\chi$$, which is 1 if $$x > 0.5$$, $$y > 0.5$$, $$z
-> 0.5$$, and 0 otherwise. Also, define a heterogeneity factor $$\kappa$$. The exact
+Define the characteristic function $$char$$, which is 1 if $$x > 0.5$$, $$y > 0.5$$, $$z
+> 0.5$$, and 0 otherwise. Also, define a heterogeneity factor $$kappa$$. The exact
 solutions for the primary variables pressure, displacement, and temperature are then
 defined as
 
 .. math::
-
-    p(x, y, z, t) = f / ((1 - \chi) + \chi * \kappa),
+    p(x, y, z, t) = f / ((1 - char) + char * kappa),
 
     u_x(x, y, z, t) = p,
 
@@ -39,32 +38,17 @@ coefficient and thermal expansion tensor. These are also spatially heterogeneous
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import Callable
+
 import numpy as np
 import sympy as sym
-import sys
-from pathlib import Path
-
 
 import porepy as pp
 from porepy.applications.md_grids.domains import nd_cube_domain
-import porepy.models.fluid_mass_balance as mass
-import porepy.models.momentum_balance as momentum
-import porepy.models.energy_balance as energy
-import porepy.models.poromechanics as poromechanics
-from porepy.applications.convergence_analysis import ConvergenceAnalysis
-from porepy.utils.examples_utils import VerificationUtils
-from porepy.viz.data_saving_model_mixin import VerificationDataSaving
-
 from tests.functional.setups.manu_thermoporomech_nofrac_2d import (
-    SourceTerms,
     ManuThermoPoroMechDataSaving,
+    SourceTerms,
 )
-
-# PorePy typings
-number = pp.number
-grid = pp.GridLike
 
 
 class ManuThermoPoroMechExactSolution3d:
@@ -839,7 +823,6 @@ class UnitCubeGrid(pp.ModelGeometry):
 
         pert_rate = self.params.get("perturbation", 0.0)
 
-        x_copy = x.copy()
         # Nodes to perturb: Not on the boundary, and not at x=0.5, y=0.5, z=0.5.
         pert_nodes = np.logical_not(
             np.logical_or.reduce(
@@ -892,20 +875,11 @@ class ManuThermoPoroMechSolutionStrategy3d(
 ):
     """Solution strategy for the verification setup."""
 
-    exact_sol: ManuPoroMechExactSolution3d
+    exact_sol: ManuThermoPoroMechExactSolution3d
     """Exact solution object."""
 
     fluid: pp.FluidConstants
     """Object containing the fluid constants."""
-
-    plot_results: Callable
-    """Method for plotting results. Usually provided by the mixin class
-    :class:`SetupUtilities`.
-
-    """
-
-    results: list[ManuThermoPoroMechSaveData]
-    """List of SaveData objects."""
 
     def __init__(self, params: dict):
         """Constructor for the class."""
@@ -913,12 +887,6 @@ class ManuThermoPoroMechSolutionStrategy3d(
 
         self.exact_sol: ManuThermoPoroMechExactSolution3d
         """Exact solution object."""
-
-        self.results: list[ManuThermoPoroMechSaveData] = []
-        """Results object that stores exact and approximated solutions and errors."""
-
-        self.flux_variable: str = "darcy_flux"
-        """Keyword to access the Darcy fluxes."""
 
         self.stress_variable: str = "poroelastic_force"
         """Keyword to access the poroelastic force."""
