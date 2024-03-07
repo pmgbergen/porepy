@@ -890,6 +890,9 @@ class ManuThermoPoroMechSolutionStrategy3d(
 
         self.stress_variable: str = "poroelastic_force"
         """Keyword to access the poroelastic force."""
+        
+        self.results: list[ManuThermoPoroMechSaveData] = []
+        """Results object that stores exact and approximated solutions and errors."""        
 
     def set_materials(self):
         """Set material parameters."""
