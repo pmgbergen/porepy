@@ -36,12 +36,8 @@ In addition to the heterogeneity, a notable feature of the problem is the tensor
 coefficient and thermal expansion tensor. These are also spatially heterogeneous.
 
 """
-from __future__ import annotations
-import os
-os.environ["MKL_NUM_THREADS"] = "1"
-os.environ["NUMEXPR_NUM_THREADS"] = "1"
-os.environ["OMP_NUM_THREADS"] = "1"
 
+from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Callable
@@ -61,222 +57,14 @@ from porepy.applications.convergence_analysis import ConvergenceAnalysis
 from porepy.utils.examples_utils import VerificationUtils
 from porepy.viz.data_saving_model_mixin import VerificationDataSaving
 
+from tests.functional.setups.manu_thermoporomech_nofrac_2d import (
+    SourceTerms,
+    ManuThermoPoroMechDataSaving,
+)
 
 # PorePy typings
 number = pp.number
 grid = pp.GridLike
-
-
-# -----> Data-saving
-@dataclass
-class ManuThermoPoroMechSaveData:
-    """Data class to save relevant results from the verification setup."""
-
-    approx_displacement: np.ndarray
-    """Numerical displacement."""
-
-    approx_darcy_flux: np.ndarray
-    """Numerical Darcy flux."""
-
-    approx_energy_flux: np.ndarray
-    """Numerical energy flux."""
-
-    approx_force: np.ndarray
-    """Numerical poroelastic force."""
-
-    approx_pressure: np.ndarray
-    """Numerical pressure."""
-
-    approx_temperature: np.ndarray
-    """Numerical temperature."""
-
-    error_displacement: number
-    """L2-discrete relative error for the displacement."""
-
-    error_darcy_flux: number
-    """L2-discrete relative error for the Darcy flux."""
-
-    error_energy_flux: number
-    """L2-discrete relative error for the energy flux."""
-
-    error_force: number
-    """L2-discrete relative error for the poroelastic force."""
-
-    error_pressure: number
-    """L2-discrete relative error for the pressure."""
-
-    error_temperature: number
-    """L2-discrete relative error for the temperature."""
-
-    exact_displacement: np.ndarray
-    """Exact displacement."""
-
-    exact_darcy_flux: np.ndarray
-    """Exact Darcy flux."""
-
-    exact_energy_flux: np.ndarray
-    """Exact energy flux."""
-
-    exact_force: np.ndarray
-    """Exact poroelastic force."""
-
-    exact_pressure: np.ndarray
-    """Exact pressure."""
-
-    exact_temperature: np.ndarray
-    """Exact temperature."""
-
-    time: number
-
-
-class ManuThermoPoroMechDataSaving(VerificationDataSaving):
-    """Mixin class to save relevant data."""
-
-    exact_sol: ManuPoroMechExactSolution3d
-    """Exact solution object."""
-
-    pressure: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]
-    """Pressure variable. Normally defined in a mixin instance of
-    :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`.
-
-    """
-    displacement: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]
-    """Displacement variable. Normally defined in a mixin instance of
-    :class:`~porepy.models.momentum_balance.VariablesMomentumBalance`.
-
-    """
-    temperature: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]
-    """Temperature variable. Normally defined in a mixin instance of
-    :class:`~porepy.models.energy_balance.VariablesEnergyBalance`.
-
-    """
-
-    darcy_flux: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Method that returns the Darcy fluxes in the form of an Ad operator. Usually
-    provided by the mixin class :class:`porepy.models.constitutive_laws.DarcysLaw`.
-
-    """
-    stress: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Method that returns the (integrated) poroelastic stress in the form of an Ad
-    operator. Usually provided by the mixin class
-    :class:`porepy.models.poromechanics.ConstitutiveLawsPoromechanics`.
-
-    """
-
-    def collect_data(self) -> ManuThermoPoroMechSaveData:
-        """Collect data from the verification setup.
-
-        Returns:
-            Object containing the results of the verification for the current time.
-
-        """
-        # IMPLEMENTATION NOTE: It is tempting to use inheritance to access the parallel,
-        # but simpler, implementation in manu_poromech_nofrac_2d. EK tried this but
-        # found out that, while the number of lines of code could be reduced somewhat,
-        # the price was a significant increase in code complexity. It was therefore
-        # decided to keep the current structure.
-
-        mdg: pp.MixedDimensionalGrid = self.mdg
-        sd: pp.Grid = mdg.subdomains()[0]
-        t: number = self.time_manager.time
-
-        # Collect data
-        exact_pressure = self.exact_sol.pressure(sd=sd, time=t)
-        pressure_ad = self.pressure([sd])
-        approx_pressure = pressure_ad.value(self.equation_system)
-        error_pressure = ConvergenceAnalysis.l2_error(
-            grid=sd,
-            true_array=exact_pressure,
-            approx_array=approx_pressure,
-            is_scalar=True,
-            is_cc=True,
-            relative=True,
-        )
-
-        exact_displacement = self.exact_sol.displacement(sd=sd, time=t)
-        displacement_ad = self.displacement([sd])
-        approx_displacement = displacement_ad.value(self.equation_system)
-        error_displacement = ConvergenceAnalysis.l2_error(
-            grid=sd,
-            true_array=exact_displacement,
-            approx_array=approx_displacement,
-            is_scalar=False,
-            is_cc=True,
-            relative=True,
-        )
-
-        exact_temperature = self.exact_sol.temperature(sd=sd, time=t)
-        temperature_ad = self.temperature([sd])
-        approx_temperature = temperature_ad.value(self.equation_system)
-        error_temperature = ConvergenceAnalysis.l2_error(
-            grid=sd,
-            true_array=exact_temperature,
-            approx_array=approx_temperature,
-            is_scalar=True,
-            is_cc=True,
-            relative=True,
-        )
-
-        exact_darcy_flux = self.exact_sol.darcy_flux(sd=sd, time=t)
-        flux_ad = self.darcy_flux([sd])
-        approx_darcy_flux = flux_ad.value(self.equation_system)
-        error_darcy_flux = ConvergenceAnalysis.l2_error(
-            grid=sd,
-            true_array=exact_darcy_flux,
-            approx_array=approx_darcy_flux,
-            is_scalar=True,
-            is_cc=False,
-            relative=True,
-        )
-
-        exact_energy_flux = self.exact_sol.energy_flux(sd=sd, time=t)
-        flux_ad = self.energy_flux([sd])
-        approx_energy_flux = flux_ad.value(self.equation_system)
-        error_energy_flux = ConvergenceAnalysis.l2_error(
-            grid=sd,
-            true_array=exact_energy_flux,
-            approx_array=approx_energy_flux,
-            is_scalar=True,
-            is_cc=False,
-            relative=True,
-        )
-
-        exact_force = self.exact_sol.poroelastic_force(sd=sd, time=t)
-        force_ad = self.stress([sd])
-        approx_force = force_ad.value(self.equation_system)
-        error_force = ConvergenceAnalysis.l2_error(
-            grid=sd,
-            true_array=exact_force,
-            approx_array=approx_force,
-            is_scalar=False,
-            is_cc=False,
-            relative=True,
-        )
-
-        # Store collected data in data class
-        collected_data = ManuThermoPoroMechSaveData(
-            approx_displacement=approx_displacement,
-            approx_darcy_flux=approx_darcy_flux,
-            approx_energy_flux=approx_energy_flux,
-            approx_force=approx_force,
-            approx_pressure=approx_pressure,
-            approx_temperature=approx_temperature,
-            error_displacement=error_displacement,
-            error_darcy_flux=error_darcy_flux,
-            error_energy_flux=error_energy_flux,
-            error_force=error_force,
-            error_pressure=error_pressure,
-            exact_displacement=exact_displacement,
-            error_temperature=error_temperature,
-            exact_darcy_flux=exact_darcy_flux,
-            exact_energy_flux=exact_energy_flux,
-            exact_force=exact_force,
-            exact_pressure=exact_pressure,
-            exact_temperature=exact_temperature,
-            time=t,
-        )
-
-        return collected_data
 
 
 class ManuThermoPoroMechExactSolution3d:
@@ -384,8 +172,11 @@ class ManuThermoPoroMechExactSolution3d:
         p = make_heterogeneous(p_base, True)
         # Displacement
         u_base = [p_base, p_base, p_base]
-        u = [make_heterogeneous(u_base[0], True), make_heterogeneous(u_base[1], True)
-             , make_heterogeneous(u_base[2], True)]
+        u = [
+            make_heterogeneous(u_base[0], True),
+            make_heterogeneous(u_base[1], True),
+            make_heterogeneous(u_base[2], True),
+        ]
 
         # Temperature is not scaled with the heterogeneity, since this would be
         # difficult to make work with the fluid conductivity not being heterogeneous.
@@ -416,7 +207,7 @@ class ManuThermoPoroMechExactSolution3d:
                 alpha * 0.15 * (1 - char_func),
                 alpha * 0.2 * (1 - char_func),
                 alpha * (1.0 / 10 * char_func + 1 * (1 - char_func)),
-            ],            
+            ],
         ]
         thermal_stress_tensor = [
             [
@@ -437,7 +228,7 @@ class ManuThermoPoroMechExactSolution3d:
                 0.7
                 * solid_thermal_expansion
                 * (1.0 / 10 * char_func + 1 * (1 - char_func)),
-            ],            
+            ],
         ]
 
         # Define secondary quantities, with an aim of defining the exact source terms
@@ -903,15 +694,15 @@ class ManuThermoPoroMechExactSolution3d:
             # (sigma_xx * n_x + sigma_xy * n_y + sigma_xz * n_z) * face_area
             sigma_total_fun[0][0](fc[0], fc[1], fc[2], time) * fn[0]
             + sigma_total_fun[0][1](fc[0], fc[1], fc[2], time) * fn[1]
-            +sigma_total_fun[0][2](fc[0], fc[1], fc[2], time) * fn[2],
+            + sigma_total_fun[0][2](fc[0], fc[1], fc[2], time) * fn[2],
             # (sigma_yx * n_x + sigma_yy * n_y + sigma_yz * n_z) * face_area
             sigma_total_fun[1][0](fc[0], fc[1], fc[2], time) * fn[0]
             + sigma_total_fun[1][1](fc[0], fc[1], fc[2], time) * fn[1]
-            +sigma_total_fun[1][2](fc[0], fc[1], fc[2], time) * fn[2],
+            + sigma_total_fun[1][2](fc[0], fc[1], fc[2], time) * fn[2],
             # (sigma_zx * n_x + sigma_zy * n_y + sigma_zz * n_z) * face_area
             sigma_total_fun[2][0](fc[0], fc[1], fc[2], time) * fn[0]
             + sigma_total_fun[2][1](fc[0], fc[1], fc[2], time) * fn[1]
-            +sigma_total_fun[2][2](fc[0], fc[1], fc[2], time) * fn[2],
+            + sigma_total_fun[2][2](fc[0], fc[1], fc[2], time) * fn[2],
         ]
 
         # Flatten array
@@ -929,7 +720,7 @@ class ManuThermoPoroMechExactSolution3d:
 
         Returns:
             Exact right hand side of the momentum balance equation with ``shape=(
-            2 * sd.num_cells, )``.
+            3 * sd.num_cells, )``.
 
         Notes:
             The returned array is given in PorePy's flattened vector format.
@@ -1015,25 +806,24 @@ class ManuThermoPoroMechExactSolution3d:
 
 
 # -----> Geometry
-class UnitSquareGrid(pp.ModelGeometry):
-    """Class for setting up the geometry of the unit square domain.
+class UnitCubeGrid(pp.ModelGeometry):
+    """Class for setting up the geometry of the unit cube domain.
 
-    The domain may be assigned different material parameters in the region x > 0.5 and y
-    > 0.5. To enuser the region with different material parameters is the same in all
-    refinement levels, we want to have the lines x=0.5 and y=0.5 as grid lines. This is
-    achieved by different means: For a Cartesian grid, we simply have to make sure the
-    number of cells in the x and y direction is even (this is done by the default
+    The domain may be assigned different material parameters in the region x > 0.5, y >
+    0.5, z > 0.5 To ensure the region with different material parameters is the same in
+    all refinement levels, we want to have the lines x=0.5, y=0.5, z=0.5 as grid lines.
+    This is achieved by different means: For a Cartesian grid, we simply have to make
+    sure the number of cells in all directions is even (this is done by the default
     meshing parameters provided in self.meshing_arguments(), but will have to be taken
     care of by the user if the default parameters is overridden). For a simplex grid,
     the lines are defined as fractures in self.set_fractures(), and marked as
     constraints in self.meshing_kwargs().
 
     Furthermore, if the grid nodes are perturbed, the perturbation should not be applied
-    to the nodes on the boundary of the domain, nor to the nodes at x=0.5 and y=0.5. The
-    latter is needed to ensure the region with the different material parameters is the
-    same in all realizations of the perturbed grid (It would have sufficied to keep keep
-    the nodes at {x=0.5, y>0.5} and {x>0.5, y=0.5} fixed, but it is just as easy to keep
-    all nodes at x=0.5 and y=0.5 fixed). This is achieved in self.set_geometry().
+    to the nodes on the boundary of the domain, nor to the nodes at x=0.5, y=0.5, z=0.5.
+    The latter is needed to ensure the region with the different material parameters is
+    the same in all realizations of the perturbed grid. This is achieved in
+    self.set_geometry().
 
     """
 
@@ -1050,9 +840,11 @@ class UnitSquareGrid(pp.ModelGeometry):
         pert_rate = self.params.get("perturbation", 0.0)
 
         x_copy = x.copy()
-        # Nodes to perturb: Not on the boundary, and not at x=0.5 and y=0.5.
+        # Nodes to perturb: Not on the boundary, and not at x=0.5, y=0.5, z=0.5.
         pert_nodes = np.logical_not(
-            np.logical_or.reduce((np.isin(x, [0, 0.5, 1]), np.isin(y, [0, 0.5, 1], np.isin(z, [0, 1]))))
+            np.logical_or.reduce(
+                (np.isin(x, [0, 0.5, 1]), np.isin(y, [0, 0.5, 1], np.isin(z, [0, 1])))
+            )
         )
         # Set the random seed
         np.random.seed(42)
@@ -1092,65 +884,6 @@ class UnitSquareGrid(pp.ModelGeometry):
             return {"constraints": [0, 1, 2]}
         else:
             return {}
-
-
-class SourceTerms:
-    """Modified source terms to be added to the balance equations."""
-
-    def fluid_source(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Fluid source."""
-
-        # Internal sources are inherit from parent class
-        # Zero internal sources for unfractured domains, but we keep it to maintain
-        # good code practice
-        internal_sources: pp.ad.Operator = super().fluid_source(subdomains)
-
-        # External sources are retrieved from pp.TIME_STEP_SOLUTIONS and wrapped as an
-        # AdArray.
-        external_sources = pp.ad.TimeDependentDenseArray(
-            name="source_flow",
-            domains=self.mdg.subdomains(),
-            previous_timestep=True,
-        )
-
-        # Add up contribution of internal and external sources of fluid
-        fluid_sources = internal_sources + external_sources
-        fluid_sources.set_name("Fluid source")
-
-        return fluid_sources  # - prod
-
-    def body_force(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Body force."""
-
-        external_sources = pp.ad.TimeDependentDenseArray(
-            name="source_mechanics",
-            domains=self.mdg.subdomains(),
-            previous_timestep=True,
-        )
-
-        return external_sources
-
-    def energy_source(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Thermal source."""
-
-        # Internal sources are inherit from parent class
-        # Zero internal sources for unfractured domains, but we keep it to maintain
-        # good code practice
-        internal_sources: pp.ad.Operator = super().energy_source(subdomains)
-
-        # External sources are retrieved from pp.TIME_STEP_SOLUTIONS and wrapped as an
-        # AdArray.
-        external_sources = pp.ad.TimeDependentDenseArray(
-            name="source_energy",
-            domains=self.mdg.subdomains(),
-            previous_timestep=True,
-        )
-
-        # Add up contribution of internal and external sources of fluid
-        thermal_sources = internal_sources + external_sources
-        thermal_sources.set_name("Energy source")
-
-        return thermal_sources
 
 
 # -----> Solution strategy
@@ -1264,7 +997,9 @@ class ManuThermoPoroMechSolutionStrategy3d(
             xc = sd.cell_centers
 
             # Set permeability
-            k_xx = sym.lambdify((x, y, z), self.exact_sol.k, "numpy")(xc[0], xc[1], xc[2])
+            k_xx = sym.lambdify((x, y, z), self.exact_sol.k, "numpy")(
+                xc[0], xc[1], xc[2]
+            )
             if isinstance(k_xx, (float, int)):
                 k_xx = k_xx * np.ones(sd.num_cells)
 
@@ -1286,13 +1021,13 @@ class ManuThermoPoroMechSolutionStrategy3d(
             data[pp.PARAMETERS][self.stress_keyword]["fourth_order_tensor"] = stiffness
 
             # Set the Biot tensor
-            a_xx = sym.lambdify((x, y,z), self.exact_sol.biot_tensor[0][0], "numpy")(
+            a_xx = sym.lambdify((x, y, z), self.exact_sol.biot_tensor[0][0], "numpy")(
                 xc[0], xc[1], xc[2]
             )
-            a_xy = sym.lambdify((x, y,z), self.exact_sol.biot_tensor[0][1], "numpy")(
+            a_xy = sym.lambdify((x, y, z), self.exact_sol.biot_tensor[0][1], "numpy")(
                 xc[0], xc[1], xc[2]
             )
-            a_yy = sym.lambdify((x, y,z), self.exact_sol.biot_tensor[1][1], "numpy")(
+            a_yy = sym.lambdify((x, y, z), self.exact_sol.biot_tensor[1][1], "numpy")(
                 xc[0], xc[1], xc[2]
             )
             # Special case: If the Biot tensor is constant (no spatial variation), the
@@ -1308,13 +1043,13 @@ class ManuThermoPoroMechSolutionStrategy3d(
 
             # Set the thermal stress tensor
             b_xx = sym.lambdify(
-                (x, y,z), self.exact_sol.thermal_stress_tensor[0][0], "numpy"
+                (x, y, z), self.exact_sol.thermal_stress_tensor[0][0], "numpy"
             )(xc[0], xc[1], xc[2])
             b_xy = sym.lambdify(
-                (x, y,z), self.exact_sol.thermal_stress_tensor[0][1], "numpy"
+                (x, y, z), self.exact_sol.thermal_stress_tensor[0][1], "numpy"
             )(xc[0], xc[1], xc[2])
             b_yy = sym.lambdify(
-                (x, y,z), self.exact_sol.thermal_stress_tensor[1][1], "numpy"
+                (x, y, z), self.exact_sol.thermal_stress_tensor[1][1], "numpy"
             )(xc[0], xc[1], xc[2])
             # Special case: If the thermal stress tensor is constant (no spatial
             # variation), the lambdify function returns a float or int. In this case, we
@@ -1338,59 +1073,10 @@ class ManuThermoPoroMechSolutionStrategy3d(
 
 
 class ManuThermoPoroMechSetup3d(  # type: ignore[misc]
-    UnitSquareGrid,
+    UnitCubeGrid,
     SourceTerms,
-    ManuThermoPoroMechSolutionStrategy3d,
     ManuThermoPoroMechDataSaving,
+    ManuThermoPoroMechSolutionStrategy3d,
     pp.thermoporomechanics.Thermoporomechanics,
 ):
     pass
-
-
-fluid_constants = pp.FluidConstants(
-    {"compressibility": 0.05, "thermal_expansion": 0.03}
-)
-solid_constants = pp.SolidConstants({"thermal_expansion": 0.04})
-
-if True:
-
-    ooc_setup: list[dict[str, float]] = []
-    params = {
-        "material_constants": {"fluid": fluid_constants, "solid": solid_constants},
-        "meshing_arguments": {"cell_size": 0.25},
-        "grid_type": "cartesian",
-        "perturbation": 0.0,
-        "heterogeneity": 10.0,
-    }
-    conv_analysis = ConvergenceAnalysis(
-        model_class=ManuThermoPoroMechSetup3d,
-        model_params=params,
-        spatial_refinement_rate=2,
-        temporal_refinement_rate=4,
-        levels=4,
-    )
-    results = conv_analysis.run_analysis()
-
-    print("Pressure error:")
-    for i in range(len(results)):
-        print(results[i].error_pressure)
-
-    print("Displacement error:")
-    for i in range(len(results)):
-        print(results[i].error_displacement)
-
-    print("Temperature error:")
-    for i in range(len(results)):
-        print(results[i].error_temperature)
-
-    print("darcy Flux error:")
-    for i in range(len(results)):
-        print(results[i].error_darcy_flux)
-
-    print("energy flux error:")
-    for i in range(len(results)):
-        print(results[i].error_energy_flux)
-
-    print("Force error:")
-    for i in range(len(results)):
-        print(results[i].error_force)
