@@ -80,6 +80,8 @@ class NewtonSolver:
         init_sol = prev_sol
         sol = init_sol
         errors: dict = {"residual_error": [], "increment_error": []}
+        # Extract residual of initial guess.
+        res_init = model.equation_system.assemble(evaluate_jacobian=False)
 
         # Define a function that does all the work during one Newton iteration, except
         # for everything ``tqdm`` related.
@@ -88,6 +90,7 @@ class NewtonSolver:
             nonlocal prev_sol
             nonlocal sol
             nonlocal errors
+            nonlocal res_init
             nonlocal is_converged
             nonlocal is_diverged
 
@@ -105,7 +108,7 @@ class NewtonSolver:
             model.after_nonlinear_iteration(sol)
 
             error_res, error_inc, is_converged, is_diverged = model.check_convergence(
-                sol, prev_sol, init_sol, res, self.params
+                sol, prev_sol, init_sol, res, res_init, self.params
             )
             prev_sol = sol
             errors["residual_error"].append(error_res)

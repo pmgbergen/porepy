@@ -482,6 +482,7 @@ class SolutionStrategy(abc.ABC):
         prev_solution: np.ndarray,
         init_solution: np.ndarray,
         residual: np.ndarray,
+        init_residual: np.ndarray,
         nl_params: dict[str, Any],
     ) -> tuple[float, float, bool, bool]:
         """Implements a convergence check, to be called by a non-linear solver.
@@ -490,7 +491,10 @@ class SolutionStrategy(abc.ABC):
             solution: Newly obtained solution vector
             prev_solution: Solution obtained in the previous non-linear iteration.
             init_solution: Solution obtained from the previous time-step.
-            residual: Residual vector of non-linear system, evaluated at prev_solution.
+            residual: Residual vector of non-linear system, evaluated at the newly
+            obtained solution vector.
+            init_residual: Residual vector of non-linear system, evaluated at the
+            solution from the previous time-step.
             nl_params: Dictionary of parameters used for the convergence check.
                 Which items are required will depend on the convergence test to be
                 implemented.

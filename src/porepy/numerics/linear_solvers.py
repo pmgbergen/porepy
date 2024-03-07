@@ -53,11 +53,13 @@ class LinearSolver:
         errors: dict = {"residual_error": [], "increment_error": []}
 
         setup.assemble_linear_system()
-        _, res = setup.linear_system  # Extract residual
+        _, init_res = setup.linear_system  # Extract initial residual
         sol = setup.solve_linear_system()
+        setup.assemble_linear_system()
+        _, res = setup.linear_system  # Extract residual
 
         error_res, error_inc, is_converged, _ = setup.check_convergence(
-            sol, prev_sol, prev_sol, res, self.params
+            sol, prev_sol, prev_sol, res, init_res, self.params
         )
         errors["residual_error"].append(error_res)
         errors["increment_error"].append(error_inc)
