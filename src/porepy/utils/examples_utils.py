@@ -134,9 +134,9 @@ class VerificationUtils:
         # Note that this is not the real trace, as this only holds for particular
         # choices of boundary condtions
         u_faces_ad = (
-            discr_mech.bound_displacement_cell @ u
-            + discr_mech.bound_displacement_face @ bc
-            + discr_poromech.bound_pressure @ p
+            discr_mech.bound_displacement_cell() @ u
+            + discr_mech.bound_displacement_face() @ bc
+            + discr_poromech.bound_pressure(self.stress_keyword) @ p
         )
 
         # Parse numerical value and return the minimum and maximum value
