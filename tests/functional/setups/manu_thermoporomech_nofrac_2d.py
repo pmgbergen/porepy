@@ -9,13 +9,13 @@ To define the manufactured solution, we introduce the auxiliary function
 .. math::
     f(x, y, t) = t * x * (1 - x) * (x - 1 / 2) * sin(2 * pi * y)
 
-Define the characteristic function $$\chi$$, which is 1 if $$x > 0.5$$ and $$y > 0.5$$,
-and 0 otherwise. Also, define a heterogeneity factor $$\kappa$$. The exact solutions for
+Define the characteristic function $$char$$, which is 1 if $$x > 0.5$$ and $$y > 0.5$$,
+and 0 otherwise. Also, define a heterogeneity factor $$kappa$$. The exact solutions for
 the primary variables pressure, displacement, and temperature are then defined as
 
 .. math::
 
-    p(x, y, t) = f / ((1 - \chi) + \chi * \kappa),
+    p(x, y, t) = f / ((1 - char) + char * kappa),
 
     u_x(x, y, t) = p,
 
@@ -40,22 +40,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Callable
+
 import numpy as np
 import sympy as sym
-import sys
-from pathlib import Path
-
 
 import porepy as pp
-from porepy.applications.md_grids.domains import nd_cube_domain
-import porepy.models.fluid_mass_balance as mass
-import porepy.models.momentum_balance as momentum
-import porepy.models.energy_balance as energy
-import porepy.models.poromechanics as poromechanics
 from porepy.applications.convergence_analysis import ConvergenceAnalysis
-from porepy.utils.examples_utils import VerificationUtils
+from porepy.applications.md_grids.domains import nd_cube_domain
 from porepy.viz.data_saving_model_mixin import VerificationDataSaving
-
 
 # PorePy typings
 number = pp.number
@@ -127,7 +119,7 @@ class ManuThermoPoroMechSaveData:
 class ManuThermoPoroMechDataSaving(VerificationDataSaving):
     """Mixin class to save relevant data."""
 
-    exact_sol: ManuPoroMechExactSolution2d
+    exact_sol: ManuThermoPoroMechExactSolution2d
     """Exact solution object."""
 
     pressure: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]
@@ -937,7 +929,6 @@ class UnitSquareGrid(pp.ModelGeometry):
 
         pert_rate = self.params.get("perturbation", 0.0)
 
-        x_copy = x.copy()
         # Nodes to perturb: Not on the boundary, and not at x=0.5 and y=0.5.
         pert_nodes = np.logical_not(
             np.logical_or(np.isin(x, [0, 0.5, 1]), np.isin(y, [0, 0.5, 1]))
@@ -1046,17 +1037,11 @@ class ManuThermoPoroMechSolutionStrategy2d(
 ):
     """Solution strategy for the verification setup."""
 
-    exact_sol: ManuPoroMechExactSolution2d
+    exact_sol: ManuThermoPoroMechExactSolution2d
     """Exact solution object."""
 
     fluid: pp.FluidConstants
     """Object containing the fluid constants."""
-
-    plot_results: Callable
-    """Method for plotting results. Usually provided by the mixin class
-    :class:`SetupUtilities`.
-
-    """
 
     results: list[ManuThermoPoroMechSaveData]
     """List of SaveData objects."""
