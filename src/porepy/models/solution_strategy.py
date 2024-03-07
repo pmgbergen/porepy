@@ -517,17 +517,29 @@ class SolutionStrategy(abc.ABC):
             if np.any(np.isnan(solution)):
                 # If the solution contains nan values, we have diverged.
                 return np.nan, False, True
-            # Simple but fairly robust convergence criterion. More advanced options are
-            # e.g. considering errors for each variable and/or each grid separately,
-            # possibly using _l2_norm_cell
-            #
-            # We normalize by the size of the solution vector.
-            # Enforce float to make mypy happy
-            error = float(np.linalg.norm(solution)) / np.sqrt(solution.size)
+            error = self.variable_norm(solution)
             logger.info(f"Normalized residual norm: {error:.2e}")
             converged = error < nl_params["nl_convergence_tol"]
             diverged = False
             return error, converged, diverged
+
+    def variable_norm(self, solution: np.ndarray) -> float:
+        """Interface to compute the norm of the solution.
+
+        Works in principle for any algebraic representation of a MixedDimensionalVariable.
+
+        Parameters:
+            solution: solution vector
+
+        Returns:
+            float: norm of solution vector
+
+        """
+        # Simple but fairly robust convergence criterion. More advanced options are
+        # e.g. considering errors for each variable and/or each grid separately,
+        # possibly using _l2_norm_cell
+        # We normalize by the size of the solution vector.
+        return np.linalg.norm(solution) / np.sqrt(solution.size)
 
     def _initialize_linear_solver(self) -> None:
         """Initialize linear solver.
