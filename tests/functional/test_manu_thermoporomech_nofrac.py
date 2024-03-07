@@ -34,6 +34,9 @@ from porepy.applications.convergence_analysis import ConvergenceAnalysis
 from tests.functional.setups.manu_thermoporomech_nofrac_2d import (
     ManuThermoPoroMechSetup2d,
 )
+from tests.functional.setups.manu_thermoporomech_nofrac_3d import (
+    ManuThermoPoroMechSetup3d,
+)
 
 
 # --> Declaration of module-wide fixtures that are re-used throughout the tests
@@ -85,7 +88,7 @@ def actual_l2_errors(material_constants) -> list[list[dict[str, float]]]:
     # Retrieve actual L2-relative errors.
     errors: list[list[dict[str, float]]] = []
     # Loop through models, i.e., 2d and 3d.
-    for model in [ManuThermoPoroMechSetup2d]:
+    for model in [ManuThermoPoroMechSetup2d, ManuThermoPoroMechSetup3d]:
         setup = model(deepcopy(params))  # Make deep copy of params to avoid nasty bugs.
         pp.run_time_dependent_model(setup, {})
         errors_setup: list[dict[str, float]] = []
@@ -117,35 +120,61 @@ def desired_l2_errors() -> list[list[dict[str, float]]]:
     """
     desired_errors_2d = [
         {  # t = 0.2 [s]
-            "error_pressure": 0.292455256572285,
-            "error_darcy_flux": 0.14866807005212213,
+            "error_pressure": 0.29245525657228516,
+            "error_darcy_flux": 0.14866807005212218,
             "error_displacement": 0.4060794558177133,
-            "error_force": 0.1688224180599569,
-            "error_temperature": 0.2805373010672498,
+            "error_force": 0.16882241805995685,
+            "error_temperature": 0.2805373010672497,
             "error_energy_flux": 0.14224713493285213,
         },
         {  # t = 0.6 [s]
             "error_pressure": 0.29915191269112884,
             "error_darcy_flux": 0.143731386301777,
-            "error_displacement": 0.40587909625457186,
+            "error_displacement": 0.4058790962545719,
             "error_force": 0.168891116834099,
-            "error_temperature": 0.28176567729235685,
-            "error_energy_flux": 0.14418402387993623,
+            "error_temperature": 0.2817656772923569,
+            "error_energy_flux": 0.14418402387993626,
         },
         {  # t = 1.0 [s]
             "error_pressure": 0.30102053594879236,
             "error_darcy_flux": 0.1433305592811348,
             "error_displacement": 0.40583744381509923,
             "error_force": 0.16890514243228508,
-            "error_temperature": 0.27347361654347835,
+            "error_temperature": 0.2734736165434784,
             "error_energy_flux": 0.14568673457608622,
         },
     ]
+    desired_errors_3d = [
+        {  # t = 0.2 [s]
+            "error_pressure": 0.29483420733078686,
+            "error_darcy_flux": 0.17486321642288996,
+            "error_displacement": 0.4486172675647366,
+            "error_force": 0.21447111918990183,
+            "error_temperature": 0.2658002623034062,
+            "error_energy_flux": 0.14494419847742834,
+        },
+        {  # t = 0.6 [s]
+            "error_pressure": 0.28178892740044215,
+            "error_darcy_flux": 0.1510526423353489,
+            "error_displacement": 0.4482245605585491,
+            "error_force": 0.2145593104444151,
+            "error_temperature": 0.26570376518127564,
+            "error_energy_flux": 0.1473799407417573,
+        },
+        {  # t = 1.0 [s]
+            "error_pressure": 0.28113091748952695,
+            "error_darcy_flux": 0.14877473367953858,
+            "error_displacement": 0.44814466743009757,
+            "error_force": 0.21457738875513135,
+            "error_temperature": 0.2593720615174321,
+            "error_energy_flux": 0.14849416613002764,
+        },
+    ]
 
-    return [desired_errors_2d]
+    return [desired_errors_2d, desired_errors_3d]
 
 
-@pytest.mark.parametrize("dim_idx", [0])
+@pytest.mark.parametrize("dim_idx", [0, 1])
 @pytest.mark.parametrize(
     "var",
     ["pressure", "darcy_flux", "displacement", "force", "temperature", "energy_flux"],
@@ -224,7 +253,9 @@ def actual_ooc(material_constants: dict) -> list[list[dict[str, float]]]:
     """
     ooc: list[list[dict[str, float]]] = []
     # Loop through the models.
-    for model_idx, model in enumerate([ManuThermoPoroMechSetup2d]):
+    for model_idx, model in enumerate(
+        [ManuThermoPoroMechSetup2d, ManuThermoPoroMechSetup3d]
+    ):
         ooc_setup: list[dict[str, float]] = []
         # Loop through grid type.
         for grid_type in ["cartesian", "simplex"]:
@@ -274,25 +305,38 @@ def desired_ooc() -> list[list[dict[str, float]]]:
     """
     desired_ooc_2d = [
         {  # Cartesian
-            'ooc_displacement': 2.056709801235224, 'ooc_darcy_flux': 1.7001969755444197, 'ooc_energy_flux': 1.737188125750454, 'ooc_force': 1.4425687190971193, 'ooc_pressure': 2.1102255203961184, 'ooc_temperature': 2.310453793430966
+            "ooc_displacement": 2.056709801235223,
+            "ooc_darcy_flux": 1.7001969755444224,
+            "ooc_energy_flux": 1.737188125750453,
+            "ooc_force": 1.4425687190971186,
+            "ooc_pressure": 2.1102255203961358,
+            "ooc_temperature": 2.310453793430966,
         },
         {  # simplex
-            'ooc_displacement': 2.0903886074133236, 'ooc_darcy_flux': 1.5662133051661693, 'ooc_nergy_flux': 1.5864494813545402, 'ooc_force': 1.4820831222977102, 'ooc_pressure': 1.9846518952465777, 'ooc_temperature': 2.1924242696392726        },
+            "ooc_displacement": 2.0903886074133236,
+            "ooc_darcy_flux": 1.5662133051661693,
+            "ooc_energy_flux": 1.5864494813545396,
+            "ooc_force": 1.4820831222977098,
+            "ooc_pressure": 1.9846518952465777,
+            "ooc_temperature": 2.1924242696392753,
+        },
     ]
 
     desired_ooc_3d = [
         {  # Cartesian
-            "ooc_displacement": 1.937336915661583,
-            "ooc_flux": 2.0682233172535267,
-            "ooc_force": 1.2933666672847461,
-            "ooc_pressure": 2.0997489656443866,
+            "ooc_displacement": 2.0401748849429717,
+            "ooc_darcy_flux": 1.2226767170350672,
+            "ooc_energy_flux": 1.3090025057692818,
+            "ooc_force": 1.2472669444997415,
+            "ooc_pressure": 2.038904548181216,
+            "ooc_temperature": 2.2095880011696294,
         }
     ]
 
     return [desired_ooc_2d, desired_ooc_3d]
 
 
-# @pytest.mark.skipped  # reason: slow
+@pytest.mark.skipped  # reason: slow
 @pytest.mark.parametrize(
     "var",
     ["pressure", "darcy_flux", "displacement", "force", "temperature", "energy_flux"],
