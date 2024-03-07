@@ -890,7 +890,6 @@ class Biot(pp.Mpsa):
         # sides of the subface. That is, for internal faces, the elements corresponding
         # to the left and right side of the face will be put on the same row.
         unique_nAlpha_grad = subcell_topology.pair_over_subfaces(nAlpha_grad)
-        breakpoint()
 
         def component_wise_ordering(
             mat: sps.spmatrix, nd: int, ind: np.ndarray
@@ -1062,7 +1061,6 @@ class Biot(pp.Mpsa):
         vector_2_scalar = sps.coo_matrix(
             (val.ravel("F"), (row.ravel("F"), col.ravel("F")))
         ).tocsr()
-        breakpoint()
 
         # Mapping from sub-cells to cells
         div_op = sps.coo_matrix(
