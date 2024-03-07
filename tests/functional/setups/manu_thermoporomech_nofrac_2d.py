@@ -36,7 +36,6 @@ coefficient and thermal expansion tensor. These are also spatially heterogeneous
 
 """
 
-
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -131,7 +130,6 @@ class ManuThermoPoroMechDataSaving(VerificationDataSaving):
     exact_sol: ManuPoroMechExactSolution2d
     """Exact solution object."""
 
-
     pressure: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]
     """Pressure variable. Normally defined in a mixin instance of
     :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`.
@@ -147,7 +145,6 @@ class ManuThermoPoroMechDataSaving(VerificationDataSaving):
     :class:`~porepy.models.energy_balance.VariablesEnergyBalance`.
 
     """
-
 
     darcy_flux: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Method that returns the Darcy fluxes in the form of an Ad operator. Usually
@@ -279,7 +276,7 @@ class ManuThermoPoroMechDataSaving(VerificationDataSaving):
 
 class ManuThermoPoroMechExactSolution2d:
     """Class containing the exact manufactured solution for the verification setup.
-    
+
     The exact solutions for the primary variables pressure, displacement, temperature,
     are defined below, as well as the exact solutions for the secondary variables Darcy
     flux and poroelastic force.
@@ -307,58 +304,48 @@ class ManuThermoPoroMechExactSolution2d:
 
         # Heterogeneity factor.
         heterogeneity: float = setup.params.get("heterogeneity")
-        
+
         # Physical parameters, fetched from the material constants in the setup object.
-        
+
         # The parameters for mechanical stiffness and permeability can be made
         # heterogeneous, by means of the parameter 'hetereogeneity'. The values fetched
         # from the material constants 'solid' and 'fluid' are used as base values, and
         # expanded by the heterogeneity factor below
         #
         # Lamé parameters
-        lame_lmbda_base = setup.solid.lame_lambda()  
-        lame_mu_base = setup.solid.shear_modulus() 
+        lame_lmbda_base = setup.solid.lame_lambda()
+        lame_mu_base = setup.solid.shear_modulus()
         # Permeability
         permeability_base = setup.solid.permeability()
 
         # Biot coefficient. Will be used to define the Biot tensor below.
         alpha = setup.solid.biot_coefficient()
-        # Reference density and compressibility for fluid. 
+        # Reference density and compressibility for fluid.
         reference_fluid_density = setup.fluid.density()
-        fluid_compressibility = (
-            setup.fluid.compressibility()
-        ) 
+        fluid_compressibility = setup.fluid.compressibility()
         # Density of the solid.
         solid_density = setup.solid.density()
-        
+
         # Reference porosity
-        phi_0 = setup.solid.porosity()  
+        phi_0 = setup.solid.porosity()
         # Specific heat capacity of the fluid
-        fluid_specific_heat = (
-            setup.fluid.specific_heat_capacity()
-        )  
+        fluid_specific_heat = setup.fluid.specific_heat_capacity()
         # Specific heat capacity of the solid
-        solid_specific_heat = (
-            setup.solid.specific_heat_capacity()
-        )  
+        solid_specific_heat = setup.solid.specific_heat_capacity()
         # Reference pressure and temperature
         p_0 = setup.fluid.pressure()
         T_0 = setup.fluid.temperature()
 
         # Thermal expansion coefficients
-        fluid_thermal_expansion = (
-            setup.fluid.thermal_expansion()
-        )
-        solid_thermal_expansion = (
-            setup.solid.thermal_expansion()
-        )
+        fluid_thermal_expansion = setup.fluid.thermal_expansion()
+        solid_thermal_expansion = setup.solid.thermal_expansion()
 
         # Conductivity for the fluid and solid
         fluid_conductivity = setup.fluid.thermal_conductivity()
         solid_conductivity = setup.solid.thermal_conductivity()
 
         # Fluid viscosity
-        mu_f = setup.fluid.viscosity()  
+        mu_f = setup.fluid.viscosity()
 
         ## Done with fetching constants. Now, introduce heterogeneities and define
         # the exact solutions for the primary variables.
@@ -369,6 +356,7 @@ class ManuThermoPoroMechExactSolution2d:
 
         # Characteristic function: 1 if x > 0.5 and y > 0.5, 0 otherwise
         char_func = sym.Piecewise((1, ((x > 0.5) & (y > 0.5))), (0, True))
+
         def make_heterogeneous(v, invert: bool):
             # Helper function to include the heterogeneity into a function.
             if invert:
@@ -400,7 +388,7 @@ class ManuThermoPoroMechExactSolution2d:
         lame_lmbda = make_heterogeneous(lame_lmbda_base, False)
         lame_mu = make_heterogeneous(lame_mu_base, False)
         #  Solid Bulk modulus (heterogeneous)
-        K_d = lame_lmbda + (2 / 3) * lame_mu  
+        K_d = lame_lmbda + (2 / 3) * lame_mu
 
         # Stress tensors for the fluid and thermal stress (the 'Biot tensor' and its
         # thermal counterpart). These should be symmetric and positive definite. It was
@@ -430,7 +418,7 @@ class ManuThermoPoroMechExactSolution2d:
 
         # Define secondary quantities, with an aim of defining the exact source terms
         # for the balance equations (found by plugging the imposed exact solutions into
-        # the equations). 
+        # the equations).
         #
         # NOTE: The below expressions are mainly taken from Section 3 of
         #
@@ -445,7 +433,6 @@ class ManuThermoPoroMechExactSolution2d:
         fluid_density = reference_fluid_density * sym.exp(
             fluid_compressibility * (p - p_0) - fluid_thermal_expansion * (T - T_0)
         )
-
 
         # Exact gradient of the displacement
         grad_u = [
@@ -467,7 +454,7 @@ class ManuThermoPoroMechExactSolution2d:
             + ((alpha - phi_0) * (1 - alpha) / K_d) * (p - p_0)
             + alpha_div_u
             - (alpha - phi_0) * solid_thermal_expansion * (T - T_0)
-        )        
+        )
 
         ## The mass flux and source term for the mass balance
 
@@ -917,10 +904,10 @@ class ManuThermoPoroMechExactSolution2d:
 
 # -----> Geometry
 class UnitSquareGrid(pp.ModelGeometry):
-    """Class for setting up the geometry of the unit square domain. 
-    
+    """Class for setting up the geometry of the unit square domain.
+
     The domain may be assigned different material parameters in the region x > 0.5 and y
-    > 0.5. To enuser the region with different material parameters is the same in all
+    > 0.5. To ensure the region with different material parameters is the same in all
     refinement levels, we want to have the lines x=0.5 and y=0.5 as grid lines. This is
     achieved by different means: For a Cartesian grid, we simply have to make sure the
     number of cells in the x and y direction is even (this is done by the default
@@ -928,7 +915,7 @@ class UnitSquareGrid(pp.ModelGeometry):
     care of by the user if the default parameters is overridden). For a simplex grid,
     the lines are defined as fractures in self.set_fractures(), and marked as
     constraints in self.meshing_kwargs().
-    
+
     Furthermore, if the grid nodes are perturbed, the perturbation should not be applied
     to the nodes on the boundary of the domain, nor to the nodes at x=0.5 and y=0.5. The
     latter is needed to ensure the region with the different material parameters is the
@@ -1054,7 +1041,7 @@ class SourceTerms:
 
 
 # -----> Solution strategy
-class ManuPoroMechBiotAlphaSolutionStrategy2d(
+class ManuThermoPoroMechSolutionStrategy2d(
     pp.thermoporomechanics.SolutionStrategyThermoporomechanics
 ):
     """Solution strategy for the verification setup."""
@@ -1152,7 +1139,7 @@ class ManuPoroMechBiotAlphaSolutionStrategy2d(
 
     def set_discretization_parameters(self) -> None:
         """Set parameters for the subproblems and the combined problem.
-        
+
         In addition to the standard fields (call to super), the permeability, stiffness
         parameters, and the Biot and thermal stress tensors are set.
         """
@@ -1240,7 +1227,7 @@ class ManuPoroMechBiotAlphaSolutionStrategy2d(
 class ManuThermoPoroMechSetup2d(  # type: ignore[misc]
     UnitSquareGrid,
     SourceTerms,
-    ManuPoroMechBiotAlphaSolutionStrategy2d,
+    ManuThermoPoroMechSolutionStrategy2d,
     ManuThermoPoroMechDataSaving,
     pp.thermoporomechanics.Thermoporomechanics,
 ):
