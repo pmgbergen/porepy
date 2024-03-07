@@ -2451,6 +2451,11 @@ class SolutionStrategyCompositionalFlow(
     check_bc_consistency: Callable[[], None]
     """Provided by :class:`BoundaryConditionsCompositionalFlow`"""
 
+    primary_equation_names: list[str]
+    """Provided by :class:`EquationsCompositionalFlow`."""
+    primary_variable_names: list[str]
+    """Provided by :class:`VariablesCompositionalFlow`."""
+
     def __init__(self, params: Optional[dict] = None) -> None:
         super().__init__(params)
 
@@ -3133,21 +3138,24 @@ class SolutionStrategyCompositionalFlow(
 
         This method performs a Schur complement elimination.
 
-        Primary variables are pressure, enthalpy and overall feed fractions,
-        as well as the interface fluxes (Darcy and Fourier)
-        Primary equations are the pressure equation, energy equation and component mass
-        balance equations, as well as the interface equations for the interface fluxes.
-
-        Secondary variables are the remaining molar fractions, saturations and
-        temperature.
-        Secondary equations are all flash equations, including the phase density
-        relations.
+        Uses the primary equations defined in
+        :meth:`EquationsCompositionalFlow.primary_equation_names` and the primary
+        variables defined in
+        :meth:`VariablesCompositionalFlow.primary_variable_names`.
 
         """
         t_0 = time.time()
-        self.linear_system = ...  # TODO
+        # TODO block diagonal inverter for secondary equations
+        self.linear_system = self.equation_system.assemble_schur_complement_system(
+            self.primary_equation_names, self.primary_variable_names
+        )
         logger.debug(f"Assembled linear system in {time.time() - t_0:.2e} seconds.")
 
+    def solve_linear_system(self) -> np.ndarray:
+        """After calling the parent method, the global solution is calculated by Schur
+        expansion."""
+        sol = super().solve_linear_system()
+        return self.equation_system.expand_schur_complement_solution(sol)
 
 class CompositionalFlow(  # type: ignore[misc]
     ppc.FluidMixtureMixin,
