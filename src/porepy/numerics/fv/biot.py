@@ -369,7 +369,6 @@ class Biot(pp.Mpsa):
 
         active_bound_displacement_cell = sps.csr_matrix((nf * nd, nc * nd))
         active_bound_displacement_face = sps.csr_matrix((nf * nd, nf * nd))
-        active_bound_displacement_pressure = sps.csr_matrix((nf * nd, nc))
 
         active_grad_p, active_div_u, active_bound_div_u, active_stabilization = (
             {},
@@ -377,11 +376,14 @@ class Biot(pp.Mpsa):
             {},
             {},
         )
+        active_bound_displacement_pressure = {}
+
         for key in coupling_keywords:
             active_grad_p[key] = sps.csr_matrix((nf * nd, nc))
             active_div_u[key] = sps.csr_matrix((nc, nc * nd))
             active_bound_div_u[key] = sps.csr_matrix((nc, nf * nd))
             active_stabilization[key] = sps.csr_matrix((nc, nc))
+            active_bound_displacement_pressure[key] = sps.csr_matrix((nf * nd, nc))
 
         def matrices_from_dict(d: dict) -> list:
             return [mat for mat in d.values()]
@@ -470,7 +472,7 @@ class Biot(pp.Mpsa):
                 loc_bound_displacement_cell,
                 loc_bound_displacement_face,
                 *matrices_from_dict(loc_grad_p),
-                loc_bound_displacement_pressure,
+                *matrices_from_dict(loc_bound_displacement_pressure),
             )
 
             eliminate_cell = np.where(
@@ -520,10 +522,10 @@ class Biot(pp.Mpsa):
                 active_stabilization[key] += (
                     cell_map_scalar.transpose() * loc_biot_stab[key] * cell_map_scalar
                 )
+                active_bound_displacement_pressure[key] += (
+                    face_map_vec * loc_bound_displacement_pressure[key] * cell_map_scalar
+                )
 
-            active_bound_displacement_pressure += (
-                face_map_vec * loc_bound_displacement_pressure * cell_map_scalar
-            )
             logger.info(f"Done with subproblem {reg_i}. Elapsed time {time() - tic}")
             # Done with this subdomain, move on to the next one
 
@@ -548,11 +550,11 @@ class Biot(pp.Mpsa):
         active_bound_stress = scaling_vector @ active_bound_stress
         active_bound_displacement_cell = scaling_vector @ active_bound_displacement_cell
         active_bound_displacement_face = scaling_vector @ active_bound_displacement_face
-        active_bound_displacement_pressure = (
-            scaling_vector @ active_bound_displacement_pressure
-        )
         for key in coupling_keywords:
             active_grad_p[key] = scaling_vector @ active_grad_p[key]
+            active_bound_displacement_pressure[key] = (
+                scaling_vector @ active_bound_displacement_pressure[key]
+            )
 
         # We are done with the discretization. What remains is to map the computed
         # matrices back from the active grid to the full one.
@@ -575,7 +577,7 @@ class Biot(pp.Mpsa):
         )
 
         # Update coupling terms, stored as dictionaries
-        grad_p, div_u, bound_div_u, stabilization = {}, {}, {}, {}
+        grad_p, div_u, bound_div_u, stabilization, bound_displacement_pressure = {}, {}, {}, {}, {}
         for key in coupling_keywords:
             grad_p[key] = face_map_vec * active_grad_p[key] * cell_map_scalar
             div_u[key] = (
@@ -591,10 +593,9 @@ class Biot(pp.Mpsa):
                 * active_stabilization[key]
                 * cell_map_scalar
             ).tocsr()
-
-        bound_displacement_pressure = (
-            face_map_vec * active_bound_displacement_pressure * cell_map_scalar
-        )
+            bound_displacement_pressure[key] = (
+                face_map_vec * active_bound_displacement_pressure[key] * cell_map_scalar
+            ).tocsr()
 
         # Eliminate any contributions not associated with the active grid
         eliminate_faces = np.setdiff1d(np.arange(sd.num_faces), active_faces)
@@ -606,7 +607,7 @@ class Biot(pp.Mpsa):
             bound_displacement_cell,
             bound_displacement_face,
             *matrices_from_dict(grad_p),
-            bound_displacement_pressure,
+            *matrices_from_dict(bound_displacement_pressure),
         )
 
         # Cells to be updated is a bit more involved. Best guess now is to update
@@ -758,10 +759,21 @@ class Biot(pp.Mpsa):
             bound_stress = hf2f * bound_stress * hf2f.T
             stress = hf2f * stress
             rhs_bound = rhs_bound * hf2f.T
+            # hf2f sums the values, but here we need an average.
+            # For now, use simple average, although area weighted values may be more accurate
+            num_subfaces = hf2f.sum(axis=1).A.ravel()
+            scaling = sps.dia_matrix(
+                (1.0 / num_subfaces, 0), shape=(hf2f.shape[0], hf2f.shape[0])
+            )
 
+        # We obtain the reconstruction of displacements. This is equivalent as for
+        # mpsa, but we get a contribution from the pressures.
+        dist_grad, cell_centers = self._reconstruct_displacement(
+            sd, subcell_topology, eta
+        )
         # The boundary discretization of the div_u term is represented directly
         # on the cells, instead of going via the faces.
-        grad_p, bound_div_u, div_u, stabilization = {}, {}, {}, {}
+        grad_p, bound_div_u, div_u, stabilization, disp_pressure = {}, {}, {}, {}, {}
         for key in alpha:
             # trace of strain matrix
             div = self._subcell_gradient_to_cell_scalar(
@@ -782,31 +794,18 @@ class Biot(pp.Mpsa):
             else:
                 # otherwise, we map it to faces
                 grad_p[key] = hf2f * (hook * igrad * rhs_jumps + grad_p_face)
+                disp_pressure[key] = scaling * hf2f * dist_grad * igrad * rhs_jumps
 
             # consistency term for the flow equation
             stabilization[key] = div * igrad * rhs_jumps
 
-        # We obtain the reconstruction of displacements. This is equivalent as for
-        # mpsa, but we get a contribution from the pressures.
-        dist_grad, cell_centers = self._reconstruct_displacement(
-            sd, subcell_topology, eta
-        )
 
         disp_cell = dist_grad * igrad * rhs_cells + cell_centers
         disp_bound = dist_grad * igrad * rhs_bound
-        disp_pressure = dist_grad * igrad * rhs_jumps
 
         if not hf_output:
-            # hf2f sums the values, but here we need an average.
-            # For now, use simple average, although area weighted values may be more accurate
-            num_subfaces = hf2f.sum(axis=1).A.ravel()
-            scaling = sps.dia_matrix(
-                (1.0 / num_subfaces, 0), shape=(hf2f.shape[0], hf2f.shape[0])
-            )
-
             disp_cell = scaling * hf2f * disp_cell
             disp_bound = scaling * hf2f * disp_bound
-            disp_pressure = scaling * hf2f * disp_pressure
 
         return (
             stress,
@@ -891,6 +890,7 @@ class Biot(pp.Mpsa):
         # sides of the subface. That is, for internal faces, the elements corresponding
         # to the left and right side of the face will be put on the same row.
         unique_nAlpha_grad = subcell_topology.pair_over_subfaces(nAlpha_grad)
+        breakpoint()
 
         def component_wise_ordering(
             mat: sps.spmatrix, nd: int, ind: np.ndarray
@@ -1062,6 +1062,7 @@ class Biot(pp.Mpsa):
         vector_2_scalar = sps.coo_matrix(
             (val.ravel("F"), (row.ravel("F"), col.ravel("F")))
         ).tocsr()
+        breakpoint()
 
         # Mapping from sub-cells to cells
         div_op = sps.coo_matrix(
