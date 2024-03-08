@@ -82,7 +82,7 @@ def wrap_discretization(
 
         coupling_terms: List of (multiphysics) coupling terms provided by this
             discretization. For instance, for a Biot discretization, this would be
-            ['div_u', 'bound_div_u', 'bound_pressure', 'stabilization', 'grad_p'].
+            ['div_u', 'bound_div_u', 'bound_pressure', 'stabilization', 'scalar_gradient'].
 
         The coupling keywords and coupling terms are combined in this wrapper, so that
         if ``obj`` has coupling terms ``foo`` and ``bar``, with a coupling keywords

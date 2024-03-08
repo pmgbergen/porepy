@@ -47,8 +47,8 @@ class Biot(pp.Mpsa):
     mechanical discretization, this class discretizes the coupling terms between
     mechanics and flow. Specifically, the following coupling terms are discretized:
 
-    ``data[pp.DISCRETIZATION_MATRICES][self.keyword]["grad_p"]``:
-    Discretization of the term :math:`\\nabla p` in the mechanics part of the
+    ``data[pp.DISCRETIZATION_MATRICES][self.keyword]["scalar_gradient"]``:
+    Discretization of the term :math:`\alpha\\nabla p` in the mechanics part of the
     poromechanical system.
 
     ``data[pp.DISCRETIZATION_MATRICES][self.keyword]["bound_displacement_pressure"]``:
@@ -99,7 +99,7 @@ class Biot(pp.Mpsa):
         self.bound_div_u_matrix_key = "bound_div_u"
         """Keyword used to identify the discretization matrix of the boundary condition
         for the term div(u)."""
-        self.grad_p_matrix_key = "grad_p"
+        self.scalar_gradient_matrix_key = "scalar_gradient"
         """Keyword used to identify the discretization matrix of the term grad(p)."""
         self.stabilization_matrix_key = "biot_stabilization"
         """Keyword used to identify the discretization matrix for the stabilization
@@ -199,7 +199,7 @@ class Biot(pp.Mpsa):
         # Define which of the matrices should be considered cell and face quantities,
         # vector and scalar.
         scalar_cell_right = [
-            self.grad_p_matrix_key,
+            self.scalar_gradient_matrix_key,
             self.stabilization_matrix_key,
             self.bound_pressure_matrix_key,
         ]
@@ -222,7 +222,7 @@ class Biot(pp.Mpsa):
 
         vector_face_left = [
             self.stress_matrix_key,
-            self.grad_p_matrix_key,
+            self.scalar_gradient_matrix_key,
             self.bound_stress_matrix_key,
             self.bound_displacement_cell_matrix_key,
             self.bound_displacement_face_matrix_key,
@@ -370,7 +370,7 @@ class Biot(pp.Mpsa):
         active_bound_displacement_cell = sps.csr_matrix((nf * nd, nc * nd))
         active_bound_displacement_face = sps.csr_matrix((nf * nd, nf * nd))
 
-        active_grad_p, active_div_u, active_bound_div_u, active_stabilization = (
+        active_scalar_gradient, active_div_u, active_bound_div_u, active_stabilization = (
             {},
             {},
             {},
@@ -379,7 +379,7 @@ class Biot(pp.Mpsa):
         active_bound_displacement_pressure = {}
 
         for key in coupling_keywords:
-            active_grad_p[key] = sps.csr_matrix((nf * nd, nc))
+            active_scalar_gradient[key] = sps.csr_matrix((nf * nd, nc))
             active_div_u[key] = sps.csr_matrix((nc, nc * nd))
             active_bound_div_u[key] = sps.csr_matrix((nc, nf * nd))
             active_stabilization[key] = sps.csr_matrix((nc, nc))
@@ -449,7 +449,7 @@ class Biot(pp.Mpsa):
                 loc_bound_stress,
                 loc_div_u,
                 loc_bound_div_u,
-                loc_grad_p,
+                loc_scalar_gradient,
                 loc_biot_stab,
                 loc_bound_displacement_cell,
                 loc_bound_displacement_face,
@@ -471,7 +471,7 @@ class Biot(pp.Mpsa):
                 loc_bound_stress,
                 loc_bound_displacement_cell,
                 loc_bound_displacement_face,
-                *matrices_from_dict(loc_grad_p),
+                *matrices_from_dict(loc_scalar_gradient),
                 *matrices_from_dict(loc_bound_displacement_pressure),
             )
 
@@ -510,7 +510,7 @@ class Biot(pp.Mpsa):
             )
 
             for key in coupling_keywords:
-                active_grad_p[key] += face_map_vec * loc_grad_p[key] * cell_map_scalar
+                active_scalar_gradient[key] += face_map_vec * loc_scalar_gradient[key] * cell_map_scalar
                 active_div_u[key] += (
                     cell_map_scalar.transpose() * loc_div_u[key] * cell_map_vec
                 )
@@ -551,7 +551,7 @@ class Biot(pp.Mpsa):
         active_bound_displacement_cell = scaling_vector @ active_bound_displacement_cell
         active_bound_displacement_face = scaling_vector @ active_bound_displacement_face
         for key in coupling_keywords:
-            active_grad_p[key] = scaling_vector @ active_grad_p[key]
+            active_scalar_gradient[key] = scaling_vector @ active_scalar_gradient[key]
             active_bound_displacement_pressure[key] = (
                 scaling_vector @ active_bound_displacement_pressure[key]
             )
@@ -577,9 +577,9 @@ class Biot(pp.Mpsa):
         )
 
         # Update coupling terms, stored as dictionaries
-        grad_p, div_u, bound_div_u, stabilization, bound_displacement_pressure = {}, {}, {}, {}, {}
+        scalar_gradient, div_u, bound_div_u, stabilization, bound_displacement_pressure = {}, {}, {}, {}, {}
         for key in coupling_keywords:
-            grad_p[key] = face_map_vec * active_grad_p[key] * cell_map_scalar
+            scalar_gradient[key] = face_map_vec * active_scalar_gradient[key] * cell_map_scalar
             div_u[key] = (
                 cell_map_scalar.transpose() * active_div_u[key] * cell_map_vec
             ).tocsr()
@@ -606,7 +606,7 @@ class Biot(pp.Mpsa):
             bound_stress,
             bound_displacement_cell,
             bound_displacement_face,
-            *matrices_from_dict(grad_p),
+            *matrices_from_dict(scalar_gradient),
             *matrices_from_dict(bound_displacement_pressure),
         )
 
@@ -646,7 +646,7 @@ class Biot(pp.Mpsa):
             matrices_m[self.bound_div_u_matrix_key][update_cell_ind] = bound_div_u[
                 update_cell_ind
             ]
-            matrices_m[self.grad_p_matrix_key][update_face_ind] = grad_p[
+            matrices_m[self.scalar_gradient_matrix_key][update_face_ind] = scalar_gradient[
                 update_face_ind
             ]
             matrices_m[self.stabilization_matrix_key][update_cell_ind] = stabilization[
@@ -672,7 +672,7 @@ class Biot(pp.Mpsa):
                 bound_displacement_face
             )
             matrices_m[self.bound_pressure_matrix_key] = bound_displacement_pressure
-            matrices_m[self.grad_p_matrix_key] = grad_p
+            matrices_m[self.scalar_gradient_matrix_key] = scalar_gradient
             matrices_m[self.div_u_matrix_key] = div_u
             matrices_m[self.bound_div_u_matrix_key] = bound_div_u
             matrices_m[self.stabilization_matrix_key] = stabilization
@@ -773,7 +773,7 @@ class Biot(pp.Mpsa):
         )
         # The boundary discretization of the div_u term is represented directly
         # on the cells, instead of going via the faces.
-        grad_p, bound_div_u, div_u, stabilization, disp_pressure = {}, {}, {}, {}, {}
+        scalar_gradient, bound_div_u, div_u, stabilization, disp_pressure = {}, {}, {}, {}, {}
         for key in alpha:
             # trace of strain matrix
             div = self._subcell_gradient_to_cell_scalar(
@@ -782,8 +782,8 @@ class Biot(pp.Mpsa):
             div_u[key] = div * igrad * rhs_cells
             bound_div_u[key] = div * igrad * rhs_bound
 
-            # Call discretization of grad_p-term
-            rhs_jumps, grad_p_face = self._create_rhs_grad_p(
+            # Call discretization of scalar_gradient-term
+            rhs_jumps, scalar_gradient_face = self._create_rhs_scalar_gradient(
                 sd, subcell_topology, alpha[key], bound_exclusion_mech
             )
 
@@ -793,7 +793,7 @@ class Biot(pp.Mpsa):
                 raise NotImplementedError("This should be deprecated")
             else:
                 # otherwise, we map it to faces
-                grad_p[key] = hf2f * (hook * igrad * rhs_jumps + grad_p_face)
+                scalar_gradient[key] = hf2f * (hook * igrad * rhs_jumps + scalar_gradient_face)
                 disp_pressure[key] = scaling * hf2f * dist_grad * igrad * rhs_jumps
 
             # consistency term for the flow equation
@@ -812,21 +812,21 @@ class Biot(pp.Mpsa):
             bound_stress,
             div_u,
             bound_div_u,
-            grad_p,
+            scalar_gradient,
             stabilization,
             disp_cell,
             disp_bound,
             disp_pressure,
         )
 
-    def _create_rhs_grad_p(
+    def _create_rhs_scalar_gradient(
         self,
         sd: pp.Grid,
         subcell_topology: pp.fvutils.SubcellTopology,
         alpha: pp.SecondOrderTensor,
         bound_exclusion: pp.fvutils.ExcludeBoundaries,
     ) -> tuple[sps.spmatrix, sps.spmatrix]:
-        """Consistent discretization of grad_p-term in MPSA-W method.
+        """Consistent discretization of scalar_gradient-term in MPSA-W method.
 
         Parameters:
             sd: grid to be discretized.
@@ -851,7 +851,7 @@ class Biot(pp.Mpsa):
         # consists of two terms (to see this, see sections 3 and 4 in Nordbotten 2016 -
         # but be aware a careful read will be needed): First, the pressure force is
         # computed on a face as ``n\dot (alpha p)`` where n is the normal vector; this
-        # is the variable grad_p_face below. Second, imbalances in the pressure force
+        # is the variable scalar_gradient_face below. Second, imbalances in the pressure force
         # between neighboring cells give rise to local mechanical deformation, which
         # again induce stresses; this is variable rhs_jumps below.  The discretization
         # of the first of these terms is computed in this helper method, while for the
@@ -862,7 +862,7 @@ class Biot(pp.Mpsa):
         # 1. compute product normal_vector * alpha and get a map for vector problems
         # 2. assemble r.h.s. for the new linear system, needed for the term
         #    'rhs_jumps'
-        # 3. compute term 'grad_p_face'
+        # 3. compute term 'scalar_gradient_face'
 
         # Step 1: Compute normal vectors * alpha
         nd = sd.dim
@@ -958,7 +958,7 @@ class Biot(pp.Mpsa):
         # inverse gradient.
         rhs_jumps = row_mapping * unique_nAlpha_grad * sc2c
 
-        # Step 3: Compute grad_p_face. This term represents the force on the face due to
+        # Step 3: Compute scalar_gradient_face. This term represents the force on the face due to
         # cell-centre pressure from a unique side. To that end, construct a mapping that
         # keeps all boundary faces, but only one side of the internal faces. Note that
         # this mapping acts on nAlpha_grad, not unique_nAlpha_grad, that is a row
@@ -972,10 +972,10 @@ class Biot(pp.Mpsa):
             (vals, (rows, cols)), shape=(num_subfno_unique * nd, num_subhfno * nd)
         ).tocsr()
 
-        # Prepare for computation of -grad_p_face term
-        grad_p_face = -map_unique_subfno * nAlpha_grad * sc2c
+        # Prepare for computation of -scalar_gradient_face term
+        scalar_gradient_face = -map_unique_subfno * nAlpha_grad * sc2c
 
-        return rhs_jumps, grad_p_face
+        return rhs_jumps, scalar_gradient_face
 
     def _face_vector_to_scalar(self, nf: int, nd: int) -> sps.coo_matrix:
         """Create a mapping from vector quantities on faces (stresses) to scalar

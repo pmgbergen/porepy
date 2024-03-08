@@ -694,7 +694,7 @@ def cell_vector_to_subcell(nd, sub_cell_index, cell_index):
 def cell_scalar_to_subcell_vector(nd, sub_cell_index, cell_index):
     """
     Create mapping from sub-cells to cells for vector problems.
-    For example, discretization of grad_p-term in Biot,
+    For example, discretization of scalar_gradient term in Biot,
     where p is a cell-center scalar
 
     Args:
