@@ -2437,7 +2437,7 @@ class ThermalConductivityLTE:
             phi.value(self.equation_system)
         except KeyError:
             # We assume this means that the porosity includes a discretization matrix
-            # for div_u which has not yet been computed.
+            # for displacement_divergence which has not yet been computed.
             phi = self.reference_porosity(subdomains)
         if isinstance(phi, Scalar):
             size = sum([sd.num_cells for sd in subdomains])
@@ -4498,23 +4498,23 @@ class PoroMechanicsPorosity:
         )
 
         # Compose operator.
-        div_u_integrated = discr.div_u(self.pressure_variable) @ self.displacement(
+        displacement_divergence_integrated = discr.displacement_divergence(self.pressure_variable) @ self.displacement(
             subdomains
-        ) + discr.bound_div_u(self.pressure_variable) @ (
+        ) + discr.bound_displacement_divergence(self.pressure_variable) @ (
             boundary_operator
             + sd_projection.face_restriction(subdomains)
             @ mortar_projection.mortar_to_primary_avg
             @ self.interface_displacement(interfaces)
         )
-        # Divide by cell volumes to counteract integration.
-        # The div_u discretization contains a volume integral. Since div u is used here
-        # together with intensive quantities, we need to divide by cell volumes.
+        # Divide by cell volumes to counteract integration. The displacement_divergence
+        # discretization contains a volume integral. Since this is used here together
+        # with intensive quantities, we need to divide by cell volumes.
         cell_volumes_inv = Scalar(1) / self.wrap_grid_attribute(
             subdomains, "cell_volumes", dim=1  # type: ignore[call-arg]
         )
-        div_u = cell_volumes_inv * div_u_integrated
-        div_u.set_name("div_u")
-        return div_u
+        displacement_divergence = cell_volumes_inv * displacement_divergence_integrated
+        displacement_divergence.set_name("displacement_divergence")
+        return displacement_divergence
 
     def biot_stabilization(
         self, subdomains: list[pp.Grid], variable_name: str

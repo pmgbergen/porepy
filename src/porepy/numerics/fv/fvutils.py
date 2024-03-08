@@ -1219,14 +1219,14 @@ def partial_update_discretization(
     cell_map = update_info.get("map_cells", sps.identity(sd.num_cells))
     face_map = update_info.get("map_faces", sps.identity(sd.num_faces))
 
-    # left cell quantities (known example: div_u term in Biot), are a bit special
-    # in that they require expanded computational stencils.
-    # To see this, consider an update of a single cell. For a left face quantity,
-    # this would require update of the neighboring faces, as will be detected by the
-    # cell_ind_for_partial_update below. The necessary update to nearby cells would
-    # be achieved by the subsequent multiplication with a divergence. For left cell
-    # matrices, the latter step is not available, thus the necessary overlap in
-    # stencil must be explicitly set.
+    # left cell quantities (known example: displacement_divergence term in Biot), are a
+    # bit special in that they require expanded computational stencils. To see this,
+    # consider an update of a single cell. For a left face quantity, this would require
+    # update of the neighboring faces, as will be detected by the
+    # cell_ind_for_partial_update below. The necessary update to nearby cells would be
+    # achieved by the subsequent multiplication with a divergence. For left cell
+    # matrices, the latter step is not available, thus the necessary overlap in stencil
+    # must be explicitly set.
     if len(vector_cell_left) > 0 or len(scalar_cell_left) > 0:
         update_cells = pp.partition.overlap(sd, update_cells, 1)
 
