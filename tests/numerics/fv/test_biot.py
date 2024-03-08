@@ -43,13 +43,13 @@ def discretization_matrices(flow_keyword, mechanics_keyword):
     stab = data[pp.DISCRETIZATION_MATRICES][mechanics_keyword][
         discr.stabilization_matrix_key
     ]
-    grad_p = data[pp.DISCRETIZATION_MATRICES][mechanics_keyword][
-        discr.grad_p_matrix_key
+    scalar_gradient = data[pp.DISCRETIZATION_MATRICES][mechanics_keyword][
+        discr.scalar_gradient_matrix_key
     ]
     bound_pressure = data[pp.DISCRETIZATION_MATRICES][mechanics_keyword][
         discr.bound_pressure_matrix_key
     ]
-    return g, stiffness, bnd, div_u, bound_div_u, grad_p, stab, bound_pressure
+    return g, stiffness, bnd, div_u, bound_div_u, scalar_gradient, stab, bound_pressure
 
 
 def partial_update_parameters(stiffness, bnd, num_cells):
@@ -95,7 +95,7 @@ def test_partial_discretization_specified_nodes(
         bnd,
         div_u_full,
         bound_div_u_full,
-        grad_p_full,
+        scalar_gradient_full,
         stab_full,
         bound_pressure_full,
     ) = discretization_matrices
@@ -112,8 +112,8 @@ def test_partial_discretization_specified_nodes(
     partial_bound_div_u = data[pp.DISCRETIZATION_MATRICES][mechanics_keyword][
         discr.bound_div_u_matrix_key
     ]
-    partial_grad_p = data[pp.DISCRETIZATION_MATRICES][mechanics_keyword][
-        discr.grad_p_matrix_key
+    partial_scalar_gradient = data[pp.DISCRETIZATION_MATRICES][mechanics_keyword][
+        discr.scalar_gradient_matrix_key
     ]
     partial_stab = data[pp.DISCRETIZATION_MATRICES][mechanics_keyword][
         discr.stabilization_matrix_key
@@ -132,8 +132,8 @@ def test_partial_discretization_specified_nodes(
 
     # Compare vector matrices
     for partial, full in zip(
-        [partial_grad_p, partial_bound_pressure],
-        [grad_p_full, bound_pressure_full],
+        [partial_scalar_gradient, partial_bound_pressure],
+        [scalar_gradient_full, bound_pressure_full],
     ):
         if isinstance(partial, dict):
             for key in partial.keys():
