@@ -132,8 +132,8 @@ class BoundaryConditionsThermoporomechanics(
     """Combines energy, mass and momentum balance boundary conditions.
 
     Note:
-        The mechanical boundary conditions are differentiated wrt time in the div_u term.
-        Thus, time dependent values must be defined using
+        The mechanical boundary conditions are differentiated wrt time in the
+        displacement_divergence term. Thus, time dependent values must be defined using
         :class:pp.ad.TimeDependentArray. This is as of yet untested.
 
     """

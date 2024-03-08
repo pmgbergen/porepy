@@ -48,7 +48,7 @@ class Biot(pp.Mpsa):
     mechanics and flow. Specifically, the following coupling terms are discretized:
 
     ``data[pp.DISCRETIZATION_MATRICES][self.keyword]["scalar_gradient"]``:
-    Discretization of the term :math:`\alpha\\nabla p` in the mechanics part of the
+    Discretization of the term :math:`\\alpha\\nabla p` in the mechanics part of the
     poromechanical system.
 
     ``data[pp.DISCRETIZATION_MATRICES][self.keyword]["bound_displacement_pressure"]``:
@@ -56,11 +56,11 @@ class Biot(pp.Mpsa):
     reconstruction in a poromechanical system, see class documentation in
     `:class:~porepy.numerics.fv.mpsa.Mpsa` for more details.
 
-    ``data[pp.DISCRETIZATION_MATRICES][self.keyword]["div_u"]``: Discretization of
-    the term :math:`\\nabla \\cdot u` in the mass balance part of the poromechanical
+    ``data[pp.DISCRETIZATION_MATRICES][self.keyword]["displacement_divergence"]``: Discretization of
+    the term :math:`\\alpha : \\cdot u` in the mass balance part of the poromechanical
     system.
 
-    ``data[pp.DISCRETIZATION_MATRICES][self.keyword]["bound_div_u"]``:
+    ``data[pp.DISCRETIZATION_MATRICES][self.keyword]["bound_displacement_divergence"]``:
     Discretization of boundary conditions for the term :math:`\\nabla \\cdot u` in the
     mass balance part of the poromechanical system.
 
@@ -94,9 +94,9 @@ class Biot(pp.Mpsa):
         # Since these keys are used also for discretizations of other terms in Biot
         # (GradP, DivU), the keys should perhaps have been module level constants,
         # but this would have broken with the system in other discretizaitons.
-        self.div_u_matrix_key = "div_u"
+        self.displacement_divergence_matrix_key = "displacement_divergence"
         """Keyword used to identify the discretization matrix of the term div(u)."""
-        self.bound_div_u_matrix_key = "bound_div_u"
+        self.bound_displacement_divergence_matrix_key = "bound_displacement_divergence"
         """Keyword used to identify the discretization matrix of the boundary condition
         for the term div(u)."""
         self.scalar_gradient_matrix_key = "scalar_gradient"
@@ -206,18 +206,18 @@ class Biot(pp.Mpsa):
         vector_cell_right = [
             self.stress_matrix_key,
             self.bound_displacement_cell_matrix_key,
-            self.div_u_matrix_key,
+            self.displacement_divergence_matrix_key,
         ]
         vector_face_right = [
             self.bound_stress_matrix_key,
             self.bound_displacement_face_matrix_key,
-            self.bound_div_u_matrix_key,
+            self.bound_displacement_divergence_matrix_key,
         ]
 
         scalar_cell_left = [
-            self.div_u_matrix_key,
+            self.displacement_divergence_matrix_key,
             self.stabilization_matrix_key,
-            self.bound_div_u_matrix_key,
+            self.bound_displacement_divergence_matrix_key,
         ]
 
         vector_face_left = [
@@ -370,7 +370,7 @@ class Biot(pp.Mpsa):
         active_bound_displacement_cell = sps.csr_matrix((nf * nd, nc * nd))
         active_bound_displacement_face = sps.csr_matrix((nf * nd, nf * nd))
 
-        active_scalar_gradient, active_div_u, active_bound_div_u, active_stabilization = (
+        active_scalar_gradient, active_displacement_divergence, active_bound_displacement_divergence, active_stabilization = (
             {},
             {},
             {},
@@ -380,8 +380,8 @@ class Biot(pp.Mpsa):
 
         for key in coupling_keywords:
             active_scalar_gradient[key] = sps.csr_matrix((nf * nd, nc))
-            active_div_u[key] = sps.csr_matrix((nc, nc * nd))
-            active_bound_div_u[key] = sps.csr_matrix((nc, nf * nd))
+            active_displacement_divergence[key] = sps.csr_matrix((nc, nc * nd))
+            active_bound_displacement_divergence[key] = sps.csr_matrix((nc, nf * nd))
             active_stabilization[key] = sps.csr_matrix((nc, nc))
             active_bound_displacement_pressure[key] = sps.csr_matrix((nf * nd, nc))
 
@@ -447,8 +447,8 @@ class Biot(pp.Mpsa):
             (
                 loc_stress,
                 loc_bound_stress,
-                loc_div_u,
-                loc_bound_div_u,
+                loc_displacement_divergence,
+                loc_bound_displacement_divergence,
                 loc_scalar_gradient,
                 loc_biot_stab,
                 loc_bound_displacement_cell,
@@ -481,8 +481,8 @@ class Biot(pp.Mpsa):
             pp.fvutils.remove_nonlocal_contribution(
                 eliminate_cell,
                 1,
-                *matrices_from_dict(loc_div_u),
-                *matrices_from_dict(loc_bound_div_u),
+                *matrices_from_dict(loc_displacement_divergence),
+                *matrices_from_dict(loc_bound_displacement_divergence),
                 *matrices_from_dict(loc_biot_stab),
             )
 
@@ -511,12 +511,12 @@ class Biot(pp.Mpsa):
 
             for key in coupling_keywords:
                 active_scalar_gradient[key] += face_map_vec * loc_scalar_gradient[key] * cell_map_scalar
-                active_div_u[key] += (
-                    cell_map_scalar.transpose() * loc_div_u[key] * cell_map_vec
+                active_displacement_divergence[key] += (
+                    cell_map_scalar.transpose() * loc_displacement_divergence[key] * cell_map_vec
                 )
-                active_bound_div_u[key] += (
+                active_bound_displacement_divergence[key] += (
                     cell_map_scalar.transpose()
-                    * loc_bound_div_u[key]
+                    * loc_bound_displacement_divergence[key]
                     * face_map_vec.transpose()
                 )
                 active_stabilization[key] += (
@@ -535,7 +535,7 @@ class Biot(pp.Mpsa):
         # subgrids (thus face map) was computed on the active grid.
         #
         # IMPLEMENTATION NOTE: This scaling is only needed for the vector quantities,
-        # that is, not for the stabilization and div_u terms. The latter are computed
+        # that is, not for the stabilization and displacement_divergence terms. The latter are computed
         # cell-wise rather than face-wise, and will only discretized once, even for
         # cells next to subdomain boundaries.
         num_face_repetitions_vector = np.tile(
@@ -577,15 +577,15 @@ class Biot(pp.Mpsa):
         )
 
         # Update coupling terms, stored as dictionaries
-        scalar_gradient, div_u, bound_div_u, stabilization, bound_displacement_pressure = {}, {}, {}, {}, {}
+        scalar_gradient, displacement_divergence, bound_displacement_divergence, stabilization, bound_displacement_pressure = {}, {}, {}, {}, {}
         for key in coupling_keywords:
             scalar_gradient[key] = face_map_vec * active_scalar_gradient[key] * cell_map_scalar
-            div_u[key] = (
-                cell_map_scalar.transpose() * active_div_u[key] * cell_map_vec
+            displacement_divergence[key] = (
+                cell_map_scalar.transpose() * active_displacement_divergence[key] * cell_map_vec
             ).tocsr()
-            bound_div_u[key] = (
+            bound_displacement_divergence[key] = (
                 cell_map_scalar.transpose()
-                * active_bound_div_u[key]
+                * active_bound_displacement_divergence[key]
                 * face_map_vec.transpose()
             ).tocsr()
             stabilization[key] = (
@@ -622,8 +622,8 @@ class Biot(pp.Mpsa):
         pp.fvutils.remove_nonlocal_contribution(
             eliminate_cells,
             1,
-            *matrices_from_dict(div_u),
-            *matrices_from_dict(bound_div_u),
+            *matrices_from_dict(displacement_divergence),
+            *matrices_from_dict(bound_displacement_divergence),
             *matrices_from_dict(stabilization),
         )
 
@@ -642,8 +642,8 @@ class Biot(pp.Mpsa):
                 update_face_ind
             ]
 
-            matrices_m[self.div_u_matrix_key][update_cell_ind] = div_u[update_cell_ind]
-            matrices_m[self.bound_div_u_matrix_key][update_cell_ind] = bound_div_u[
+            matrices_m[self.displacement_divergence_matrix_key][update_cell_ind] = displacement_divergence[update_cell_ind]
+            matrices_m[self.bound_displacement_divergence_matrix_key][update_cell_ind] = bound_displacement_divergence[
                 update_cell_ind
             ]
             matrices_m[self.scalar_gradient_matrix_key][update_face_ind] = scalar_gradient[
@@ -673,8 +673,8 @@ class Biot(pp.Mpsa):
             )
             matrices_m[self.bound_pressure_matrix_key] = bound_displacement_pressure
             matrices_m[self.scalar_gradient_matrix_key] = scalar_gradient
-            matrices_m[self.div_u_matrix_key] = div_u
-            matrices_m[self.bound_div_u_matrix_key] = bound_div_u
+            matrices_m[self.displacement_divergence_matrix_key] = displacement_divergence
+            matrices_m[self.bound_displacement_divergence_matrix_key] = bound_displacement_divergence
             matrices_m[self.stabilization_matrix_key] = stabilization
 
     def _local_discretization(
@@ -771,16 +771,16 @@ class Biot(pp.Mpsa):
         dist_grad, cell_centers = self._reconstruct_displacement(
             sd, subcell_topology, eta
         )
-        # The boundary discretization of the div_u term is represented directly
-        # on the cells, instead of going via the faces.
-        scalar_gradient, bound_div_u, div_u, stabilization, disp_pressure = {}, {}, {}, {}, {}
+        # The boundary discretization of the displacement_divergence term is represented
+        # directly on the cells, instead of going via the faces.
+        scalar_gradient, bound_displacement_divergence, displacement_divergence, stabilization, disp_pressure = {}, {}, {}, {}, {}
         for key in alpha:
             # trace of strain matrix
             div = self._subcell_gradient_to_cell_scalar(
                 sd, cell_node_blocks, alpha[key], igrad
             )
-            div_u[key] = div * igrad * rhs_cells
-            bound_div_u[key] = div * igrad * rhs_bound
+            displacement_divergence[key] = div * igrad * rhs_cells
+            bound_displacement_divergence[key] = div * igrad * rhs_bound
 
             # Call discretization of scalar_gradient-term
             rhs_jumps, scalar_gradient_face = self._create_rhs_scalar_gradient(
@@ -810,8 +810,8 @@ class Biot(pp.Mpsa):
         return (
             stress,
             bound_stress,
-            div_u,
-            bound_div_u,
+            displacement_divergence,
+            bound_displacement_divergence,
             scalar_gradient,
             stabilization,
             disp_cell,

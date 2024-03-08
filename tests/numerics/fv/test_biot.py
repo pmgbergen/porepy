@@ -36,9 +36,9 @@ def discretization_matrices(flow_keyword, mechanics_keyword):
 
     discr = pp.Biot()
     discr.discretize(g, data)
-    div_u = data[pp.DISCRETIZATION_MATRICES][mechanics_keyword][discr.div_u_matrix_key]
-    bound_div_u = data[pp.DISCRETIZATION_MATRICES][mechanics_keyword][
-        discr.bound_div_u_matrix_key
+    displacement_divergence = data[pp.DISCRETIZATION_MATRICES][mechanics_keyword][discr.displacement_divergence_matrix_key]
+    bound_displacement_divergence = data[pp.DISCRETIZATION_MATRICES][mechanics_keyword][
+        discr.bound_displacement_divergence_matrix_key
     ]
     stab = data[pp.DISCRETIZATION_MATRICES][mechanics_keyword][
         discr.stabilization_matrix_key
@@ -49,7 +49,7 @@ def discretization_matrices(flow_keyword, mechanics_keyword):
     bound_pressure = data[pp.DISCRETIZATION_MATRICES][mechanics_keyword][
         discr.bound_pressure_matrix_key
     ]
-    return g, stiffness, bnd, div_u, bound_div_u, scalar_gradient, stab, bound_pressure
+    return g, stiffness, bnd, displacement_divergence, bound_displacement_divergence, scalar_gradient, stab, bound_pressure
 
 
 def partial_update_parameters(stiffness, bnd, num_cells):
@@ -93,8 +93,8 @@ def test_partial_discretization_specified_nodes(
         g,
         stiffness,
         bnd,
-        div_u_full,
-        bound_div_u_full,
+        displacement_divergence_full,
+        bound_displacement_divergence_full,
         scalar_gradient_full,
         stab_full,
         bound_pressure_full,
@@ -106,11 +106,11 @@ def test_partial_discretization_specified_nodes(
         g, discr, specified_data, cell_id
     )
 
-    partial_div_u = data[pp.DISCRETIZATION_MATRICES][mechanics_keyword][
-        discr.div_u_matrix_key
+    partial_displacement_divergence = data[pp.DISCRETIZATION_MATRICES][mechanics_keyword][
+        discr.displacement_divergence_matrix_key
     ]
-    partial_bound_div_u = data[pp.DISCRETIZATION_MATRICES][mechanics_keyword][
-        discr.bound_div_u_matrix_key
+    partial_bound_displacement_divergence = data[pp.DISCRETIZATION_MATRICES][mechanics_keyword][
+        discr.bound_displacement_divergence_matrix_key
     ]
     partial_scalar_gradient = data[pp.DISCRETIZATION_MATRICES][mechanics_keyword][
         discr.scalar_gradient_matrix_key
@@ -157,8 +157,8 @@ def test_partial_discretization_specified_nodes(
             assert np.allclose(partial.data, 0)
     # Compare scalar matrices
     for partial, full in zip(
-        [partial_div_u, partial_bound_div_u, partial_stab],
-        [div_u_full, bound_div_u_full, stab_full],
+        [partial_displacement_divergence, partial_bound_displacement_divergence, partial_stab],
+        [displacement_divergence_full, bound_displacement_divergence_full, stab_full],
     ):
         if isinstance(partial, dict):
             for key in partial.keys():

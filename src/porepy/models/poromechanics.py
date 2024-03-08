@@ -105,8 +105,8 @@ class BoundaryConditionsPoromechanics(
     """Combines mass and momentum balance boundary conditions.
 
     Note:
-        The mechanical boundary conditions are differentiated wrt time in the div_u
-        term.
+        The mechanical boundary conditions are differentiated wrt time in the
+        displacement_divergence term.
 
         To modify the values of the mechanical boundary conditions, the user must
         redefine the method
