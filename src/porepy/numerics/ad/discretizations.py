@@ -108,18 +108,18 @@ class BiotAd(Discretization):
         self.bound_displacement_face: Callable[[], MergedOperator]
 
         # Attributes for the coupling terms
-        self.div_u: Callable[[str], MergedOperator]
-        self.bound_div_u: Callable[[str], MergedOperator]
-        self.grad_p: Callable[[str], MergedOperator]
+        self.displacement_divergence: Callable[[str], MergedOperator]
+        self.bound_displacement_divergence: Callable[[str], MergedOperator]
+        self.scalar_gradient: Callable[[str], MergedOperator]
         self.stabilization: Callable[[str], MergedOperator]
         self.bound_pressure: Callable[[str], MergedOperator]
 
         # The following are keywords used to identify the coupling terms constructed
         # by a Biot discretization.
         coupling_terms = [
-            "div_u",
-            "bound_div_u",
-            "grad_p",
+            "displacement_divergence",
+            "bound_displacement_divergence",
+            "scalar_gradient",
             "bound_pressure",
             "stabilization",
         ]
