@@ -3522,13 +3522,13 @@ class PressureStress(LinearElasticMechanicalStress):
         # No need to accommodate different discretizations for the stress tensor, as we
         # have only one.
         discr = pp.ad.BiotAd(self.stress_keyword, subdomains)
-        # The stress is simply found by the grad_p operator, multiplied with the
+        # The stress is simply found by the scalar_gradient operator, multiplied with the
         # pressure perturbation.
         stress: pp.ad.Operator = (
-            discr.grad_p(self.pressure_variable) @ self.pressure(subdomains)
+            discr.scalar_gradient(self.pressure_variable) @ self.pressure(subdomains)
             # The reference pressure is only defined on sd_primary, thus there is no
             # need for a subdomain projection.
-            - discr.grad_p(self.pressure_variable) @ self.reference_pressure(subdomains)
+            - discr.scalar_gradient(self.pressure_variable) @ self.reference_pressure(subdomains)
         )
         stress.set_name("pressure_stress")
         return stress
@@ -3689,9 +3689,9 @@ class ThermoPressureStress(PressureStress):
                 raise ValueError("Subdomains must be of dimension nd - 1.")
 
         discr = pp.ad.BiotAd(self.stress_keyword, subdomains)
-        stress: pp.ad.Operator = discr.grad_p(
+        stress: pp.ad.Operator = discr.scalar_gradient(
             self.temperature_variable
-        ) @ self.temperature(subdomains) - discr.grad_p(
+        ) @ self.temperature(subdomains) - discr.scalar_gradient(
             self.temperature_variable
         ) @ self.reference_temperature(
             subdomains
