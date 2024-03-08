@@ -39,6 +39,7 @@ References:
       for Biot equations. SIAM Journal on Numerical Analysis, 54(2), 942-968.
 
 """
+
 from __future__ import annotations
 
 from copy import deepcopy
@@ -116,7 +117,6 @@ def actual_l2_errors(material_constants: dict) -> list[list[dict[str, float]]]:
                 }
             )
         errors.append(errors_setup)
-
     return errors
 
 
@@ -131,43 +131,43 @@ def desired_l2_errors() -> list[list[dict[str, float]]]:
     """
     desired_errors_2d = [
         {  # t = 0.2 [s]
-            "error_pressure": 0.25151427228540035,
-            "error_flux": 0.18937166702134517,
-            "error_displacement": 0.3956281463918882,
-            "error_force": 0.1637416678810283,
+            "error_pressure": 0.2545484162739883,
+            "error_flux": 0.19100289160484132,
+            "error_displacement": 0.39563032313594826,
+            "error_force": 0.16374154620456183,
         },
         {  # t = 0.6 [s]
-            "error_pressure": 0.20290279871225786,
-            "error_flux": 0.10056084121234417,
-            "error_displacement": 0.39528317342334823,
-            "error_force": 0.1637838841316564,
+            "error_pressure": 0.20403618663140907,
+            "error_flux": 0.10127514065678846,
+            "error_displacement": 0.3952832045853454,
+            "error_force": 0.16378390892609127,
         },
         {  # t = 1.0 [s]
-            "error_pressure": 0.19811215356951034,
-            "error_flux": 0.08909630991014847,
-            "error_displacement": 0.395212045815961,
-            "error_force": 0.16379246203974482,
+            "error_pressure": 0.19880638363091166,
+            "error_flux": 0.08957848409690061,
+            "error_displacement": 0.3952120639213762,
+            "error_force": 0.1637924768371908,
         },
     ]
 
     desired_errors_3d = [
         {  # t = 0.2 [s]
-            "error_pressure": 0.23464416339949817,
-            "error_flux": 0.14573171954165537,
-            "error_displacement": 0.44395391299204107,
-            "error_force": 0.22057090855970796,
+            "error_pressure": 0.23782662757050732,
+            "error_flux": 0.14769646432955522,
+            "error_displacement": 0.44395480741716725,
+            "error_force": 0.22057082769118985,
         },
         {  # t = 0.6 [s]
-            "error_pressure": 0.21400059478345512,
-            "error_flux": 0.10078528867796033,
-            "error_displacement": 0.44378245861976723,
-            "error_force": 0.2206023298079865,
+            "error_pressure": 0.21514558283750523,
+            "error_flux": 0.10164613256599124,
+            "error_displacement": 0.4437824620154635,
+            "error_force": 0.2206023522490412,
         },
         {  # t = 1.0 [s]
-            "error_pressure": 0.21212315258433265,
-            "error_flux": 0.09607668646680645,
-            "error_displacement": 0.4437474278712324,
-            "error_force": 0.2206087474332715,
+            "error_pressure": 0.2128149520464844,
+            "error_flux": 0.09661797541885192,
+            "error_displacement": 0.44374742980986287,
+            "error_force": 0.22060876087140713,
         },
     ]
 
@@ -285,7 +285,6 @@ def actual_ooc(material_constants: dict) -> list[list[dict[str, float]]]:
                 results = conv_analysis.run_analysis()
                 ooc_setup.append(conv_analysis.order_of_convergence(results))
         ooc.append(ooc_setup)
-
     return ooc
 
 
@@ -300,25 +299,25 @@ def desired_ooc() -> list[list[dict[str, float]]]:
     """
     desired_ooc_2d = [
         {  # Cartesian
-            "ooc_displacement": 1.9927774099628692,
-            "ooc_flux": 2.080879624446736,
-            "ooc_force": 1.5799927331903982,
-            "ooc_pressure": 2.0896371767100694,
+            "ooc_displacement": 1.9927774927713546,
+            "ooc_flux": 2.077738849468982,
+            "ooc_force": 1.5799927442621455,
+            "ooc_pressure": 2.0879033104990397,
         },
         {  # simplex
-            "ooc_displacement": 2.0726579679829387,
-            "ooc_flux": 1.7226979320319313,
-            "ooc_force": 1.5685087063235608,
-            "ooc_pressure": 2.048681189725677,
+            "ooc_displacement": 2.0726576718996013,
+            "ooc_flux": 1.724210954734997,
+            "ooc_force": 1.5685088977053996,
+            "ooc_pressure": 2.0484193056991544,
         },
     ]
 
     desired_ooc_3d = [
         {  # Cartesian
-            "ooc_displacement": 1.937336915661583,
-            "ooc_flux": 2.0682233172535267,
-            "ooc_force": 1.2933666672847461,
-            "ooc_pressure": 2.0997489656443866,
+            "ooc_displacement": 1.937336984736465,
+            "ooc_flux": 2.0646358924022863,
+            "ooc_force": 1.2933666910552015,
+            "ooc_pressure": 2.097775030326012,
         }
     ]
 
