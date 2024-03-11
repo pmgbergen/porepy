@@ -157,8 +157,6 @@ class SolutionStrategyPoromechanics(
         # Initialize the solution strategy for the momentum balance subproblem.
         momentum.SolutionStrategyMomentumBalance.__init__(self, params=params)
 
-        self.biot_coefficient_key = "biot_alpha"
-        """Keyword for the Biot coefficient."""
 
     def set_discretization_parameters(self) -> None:
         """Set parameters for the subproblems and the combined problem."""
@@ -166,26 +164,14 @@ class SolutionStrategyPoromechanics(
         super().set_discretization_parameters()
 
         for sd, data in self.mdg.subdomains(dim=self.nd, return_data=True):
-            if self.stress_keyword in data[pp.PARAMETERS]:
-                # Set the Biot coefficient.
-                scalar_vector_mappings = data[pp.PARAMETERS][self.stress_keyword].get(
-                    "scalar_vector_mappings", {}
-                )
-                scalar_vector_mappings[self.pressure_variable] = self.biot_tensor([sd])
-                data[pp.PARAMETERS][self.stress_keyword][
-                    "scalar_vector_mappings"
-                ] = scalar_vector_mappings
-            else:
-                pp.initialize_data(
-                    sd,
-                    data,
-                    self.stress_keyword,
-                    {
-                        "scalar_vector_mappings": {
-                            self.pressure_variable: self.biot_tensor([sd])
-                        },
-                    },
-                )
+            # Set the Biot coefficient.
+            scalar_vector_mappings = data[pp.PARAMETERS][self.stress_keyword].get(
+                "scalar_vector_mappings", {}
+            )
+            scalar_vector_mappings[self.pressure_variable] = self.biot_tensor([sd])
+            data[pp.PARAMETERS][self.stress_keyword][
+                "scalar_vector_mappings"
+            ] = scalar_vector_mappings
 
     def _is_nonlinear_problem(self) -> bool:
         """The coupled problem is nonlinear."""

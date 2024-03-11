@@ -4525,7 +4525,7 @@ class PoroMechanicsPorosity:
         MPSA-type discretization of poromechanics (or
         thermomechanics/thermoporomechanics) is stable in the limit of vanishing time
         steps and permeability. The term arises naturally from the MPSA discretization,
-        see Nordbotten 2016 (SIAM) for details.
+        see Nordbotten 2016 (doi:10.1137/15M1014280) for details.
 
         Parameters:
             subdomains: List of subdomains where the stabilization is defined.
@@ -4540,7 +4540,6 @@ class PoroMechanicsPorosity:
 
         discr = pp.ad.BiotAd(self.stress_keyword, subdomains)
 
-        # discr = pp.ad.BiotStabilizationAd(self.darcy_keyword, subdomains)
         # The stabilization is based on perturbation. If pressure is used directly,
         # results will not match if the reference state is not zero, see
         # :func:`test_without_fracture` in test_poromechanics.py.

@@ -186,32 +186,18 @@ class SolutionStrategyThermoporomechanics(
         super().set_discretization_parameters()
 
         for sd, data in self.mdg.subdomains(dim=self.nd, return_data=True):
-            if self.stress_keyword in data[pp.PARAMETERS]:
-                # TODO: I think we can always assume that the stress is defined in the
-                # momentum balance, and remove the if statement.
-                scalar_vector_mappings = data[pp.PARAMETERS][self.stress_keyword].get(
-                    "scalar_vector_mappings", {}
-                )
-                scalar_vector_mappings[self.temperature_variable] = (
-                    self.solid_thermal_expansion_tensor([sd])
-                )
-                scalar_vector_mappings[self.pressure_variable] = self.biot_tensor([sd])
-                data[pp.PARAMETERS][self.stress_keyword][
-                    "scalar_vector_mappings"
-                ] = scalar_vector_mappings
-            else:
-                pp.initialize_data(
-                    sd,
-                    data,
-                    self.stress_keyword,
-                    {
-                        "scalar_vector_mappings": {
-                            self.temperature_variable: self.solid_thermal_expansion_tensor(
-                                [sd]
-                            )
-                        }
-                    },
-                )
+            # TODO: I think we can always assume that the stress is defined in the
+            # momentum balance, and remove the if statement.
+            scalar_vector_mappings = data[pp.PARAMETERS][self.stress_keyword].get(
+                "scalar_vector_mappings", {}
+            )
+            scalar_vector_mappings[self.temperature_variable] = (
+                self.solid_thermal_expansion_tensor([sd])
+            )
+            scalar_vector_mappings[self.pressure_variable] = self.biot_tensor([sd])
+            data[pp.PARAMETERS][self.stress_keyword][
+                "scalar_vector_mappings"
+            ] = scalar_vector_mappings
 
     def set_nonlinear_discretizations(self) -> None:
         """Collect discretizations for nonlinear terms."""
