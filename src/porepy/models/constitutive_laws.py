@@ -4189,29 +4189,28 @@ class BiotCoefficient:
     """
 
     def biot_coefficient(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Biot coefficient.
+        """A coefficient for volumetric changes due to pressure perturbations in Biot's
+        equations.
 
         Parameters:
             subdomains: List of subdomains where the Biot coefficient is defined.
 
         Returns:
-            Biot coefficient operator.
+            Biot coefficient operator, units [-].
 
         """
         return Scalar(self.solid.biot_coefficient(), "biot_coefficient")
 
     def biot_tensor(self, subdomains: list[pp.Grid]) -> pp.SecondOrderTensor:
-        """Biot tensor.
+        """Second-order tensor representing the force caused by a pressure perturbation
+        in Biot's equations.
 
         Parameters:
             subdomains: List of subdomains where the Biot tensor is defined.
 
         Returns:
-            Biot tensor operator.
-
-        Returns:
-            Cell-wise Biot isotropic tensor. The value is set equal to the Biot
-                coefficient in the solid constants.
+            Cell-wise Biot isotropic tensor, units: [-]. The value is set equal to the
+            Biot coefficient in the solid constants.
 
         """
         size = sum(sd.num_cells for sd in subdomains)
