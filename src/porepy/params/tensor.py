@@ -273,7 +273,7 @@ class FourthOrderTensor(object):
             s += f"Each cell has a tensor of shape (3, 3, 3, 3)"
         else:
             # In EK's understanding, this should never happen. Give a fair description
-            # of the situtaion, and hope the user know what is going on.
+            # of the situation, and hope the user knows what is going on.
             s += f"The tensor has shape {self.values[:, :, 0].shape}."
             s += "It is unclear how this came about."
 
