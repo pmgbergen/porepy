@@ -1734,43 +1734,43 @@ def partial_discretization(
 
 
 def restrict_fourth_order_tensor_to_subgrid(
-    constit: pp.FourthOrderTensor, loc_cells: np.ndarray
+    tensor: pp.FourthOrderTensor, loc_cells: np.ndarray
 ) -> pp.FourthOrderTensor:
-    """Extract a constitutive law for a subgrid of the original grid.
+    """Extract a fourth order tensor for a subgrid.
 
     Parameters:
-        constit: Constitutive law for the original grid.
+        tensor: Constitutive law for the original grid.
         loc_cells: Index of cells of the original grid from which the new constitutive
             law should be picked.
 
     Returns:
-        New constitutive law aimed at a smaller grid.
+        Fourth order tensor for the specified subset of cells.
 
     """
     # Copy stiffness tensor, and restrict to local cells
-    loc_c = constit.copy()
-    loc_c.values = loc_c.values[::, ::, loc_cells]
+    loc_tensor = tensor.copy()
+    loc_tensor.values = loc_tensor.values[::, ::, loc_cells]
     # Also restrict the lambda and mu fields; we will copy the stiffness tensors
     # later.
-    loc_c.lmbda = loc_c.lmbda[loc_cells]
-    loc_c.mu = loc_c.mu[loc_cells]
-    return loc_c
+    loc_tensor.lmbda = loc_tensor.lmbda[loc_cells]
+    loc_tensor.mu = loc_tensor.mu[loc_cells]
+    return loc_tensor
 
 
 def restrict_second_order_tensor_to_subgrid(
-    K: pp.SecondOrderTensor, loc_cells: np.ndarray
+    tensor: pp.SecondOrderTensor, loc_cells: np.ndarray
 ) -> pp.SecondOrderTensor:
     """Extract the second-order tensor for a subgrid.
 
     Parameters:
-        K: Permeability tensor for the full grid.
+        tensor: Permeability tensor for the full grid.
         loc_cells: Indices of the cells in the subgrid.
 
     Returns:
-        Permeability tensor for the subgrid.
+        Second order tensor for the specified subset of cells.
 
     """
-    # Copy stiffness tensor, and restrict to local cells
-    loc_K = K.copy()
-    loc_K.values = loc_K.values[::, ::, loc_cells]
-    return loc_K
+    # Copy second order tensor, and restrict to local cells
+    loc_tensor = tensor.copy()
+    loc_tensor.values = loc_tensor.values[::, ::, loc_cells]
+    return loc_tensor

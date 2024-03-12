@@ -3686,16 +3686,12 @@ class ThermoPressureStress(PressureStress):
         """
         for sd in subdomains:
             if sd.dim != self.nd:
-                raise ValueError("Subdomains must be of dimension nd - 1.")
+                raise ValueError("Subdomains must be of dimension nd.")
 
         discr = pp.ad.BiotAd(self.stress_keyword, subdomains)
         stress: pp.ad.Operator = discr.scalar_gradient(
             self.temperature_variable
-        ) @ self.temperature(subdomains) - discr.scalar_gradient(
-            self.temperature_variable
-        ) @ self.reference_temperature(
-            subdomains
-        )
+        ) @ self.perturbation_from_reference("temperature", subdomains)
         stress.set_name("thermal_stress")
         return stress
 
