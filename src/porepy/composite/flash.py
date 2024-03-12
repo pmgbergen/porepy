@@ -310,7 +310,7 @@ class Flash(abc.ABC):
         h: Optional[np.ndarray] = None,
         v: Optional[np.ndarray] = None,
         initial_state: Optional[FluidState] = None,
-        paramers: dict = dict(),
+        parameters: dict = dict(),
     ) -> tuple[FluidState, np.ndarray, np.ndarray]:
         """Abstract method for performing a flash procedure.
 

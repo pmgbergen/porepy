@@ -63,7 +63,7 @@ from porepy.numerics.ad.operator_functions import NumericType
 
 from ._core import R_IDEAL
 from .chem_species import ChemicalSpecies, FluidSpecies
-from .composite_utils import DomainProperty, safe_sum
+from .composite_utils import SecondaryExpression, safe_sum
 from .states import PhaseState
 
 __all__ = [
@@ -103,7 +103,7 @@ class Component(abc.ABC, FluidSpecies):
         )
 
         # creating the overall molar fraction variable
-        self.fraction: Callable[[Sequence[pp.Grid]], pp.ad.Operator]
+        self.fraction: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
         """Overall fraction, or feed fraction, for this component.
 
         It indicates how many of the total moles belong to this component (cell-wise).
@@ -235,7 +235,7 @@ class Compound(Component):
         """
 
         self.solute_fraction_of: dict[
-            ChemicalSpecies, Callable[[Sequence[pp.Grid]], pp.ad.Operator]
+            ChemicalSpecies, Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
         ] = dict()
         """A dictionary containing per solute (key) the relative fraction of it
         in this compound.
@@ -486,10 +486,10 @@ class Phase:
     normalized fractions respectively, are also assigned by a mixture.
 
     Note:
-        All compositional fractions in :attr:`fraction_of` are genuine variables in the
+        All extended fractions :attr:`fraction_of` are genuine variables in the unified
         flash (:class:`~porepy.numerics.ad.operators.MixedDimensionalVariable`).
 
-        All normalized fractions in :attr:`normalized_fractions_of` are dependent
+        All partial fractions in :attr:`partial_fraction_of` are dependent
         :class:`~porepy.numerics.ad.operators.Operator` -instances,
         created by normalization of fractions in :attr:`fraction_of`.
 
@@ -541,7 +541,7 @@ class Phase:
         self.name: str = str(name)
         """Name given to the phase at instantiation."""
 
-        self.density: DomainProperty
+        self.density: SecondaryExpression
         """Molar density of this phase.
 
         - Math. Dimension:        scalar
@@ -554,7 +554,7 @@ class Phase:
 
         """
 
-        self.volume: DomainProperty
+        self.volume: SecondaryExpression
         """Molar volume of this phase.
 
         - Math. Dimension:        scalar
@@ -567,7 +567,7 @@ class Phase:
 
         """
 
-        self.enthalpy: DomainProperty
+        self.enthalpy: SecondaryExpression
         """Specific molar enthalpy of this phase.
 
         - Math. Dimension:        scalar
@@ -580,7 +580,7 @@ class Phase:
 
         """
 
-        self.viscosity: DomainProperty
+        self.viscosity: SecondaryExpression
         """Dynamic molar viscosity of this phase.
 
         - Math. Dimension:        scalar
@@ -593,7 +593,7 @@ class Phase:
 
         """
 
-        self.conductivity: DomainProperty
+        self.conductivity: SecondaryExpression
         """Thermal conductivity of this phase.
 
         - Math. Dimension:    2nd-order tensor
@@ -606,7 +606,7 @@ class Phase:
 
         """
 
-        self.fugacity_of: dict[Component, DomainProperty]
+        self.fugacity_of: dict[Component, SecondaryExpression]
         """Fugacitiy coefficients per component in this phase.
 
         - Math. Dimension:    scalar
@@ -669,16 +669,17 @@ class Phase:
 
         """
 
-        self.normalized_fraction_of: dict[
+        self.partial_fraction_of: dict[
             Component, Callable[[Sequence[pp.Grid]], pp.ad.Operator]
         ]
-        """Normalized versions of :attr:`fraction_of`.
+        """Partial (physical) fraction of a component, relative to the phase fraction.
 
-        For a component i it holds
+        In the unified flash with extended fractions, this must be the normalized
+        version of :attr:`fraction_of`:
 
         .. math::
 
-            x_{n, ij} = \\dfrac{x_{ij}}{\\sum_k x_{kj}}
+            x_{ij} = \\dfrac{\\chi_{ij}}{\\sum_k \\chi_{kj}}
 
         """
 
@@ -708,10 +709,12 @@ class Phase:
         p: np.ndarray,
         T: np.ndarray,
         xn: Sequence[np.ndarray],
-        store: bool = True,
     ) -> PhaseState:
-        """Convenience method to compute the phase properties using the underlying EoS
-        and store the values in the respective AD operator.
+        """Shortcut to compute the properties using :attr:`eos`.
+
+        Note:
+            Property derivatives are provided w.r.t. normalized fraction.
+            Needs an extension (chain rule) for extended fractions.
 
         Parameters:
             p: ``shape=(N,)``
@@ -734,26 +737,7 @@ class Phase:
             A data structure containing the phase properties in numerical format.
 
         """
-        state = self.eos.compute_phase_state(self.type, p, T, xn)
-
-        if store:
-            self.density.value = state.rho
-            self.density.derivatives = state.drho
-            self.volume.value = state.v
-            self.volume.derivatives = state.dv
-            self.enthalpy.value = state.h
-            self.enthalpy.derivatives = state.dh
-
-            self.viscosity.value = state.mu
-            self.viscosity.derivatives = state.dmu
-            self.conductivity.value = state.kappa
-            self.conductivity.derivatives = state.dkappa
-
-            for i, comp in enumerate(self):
-                self.fugacity_of[comp].value = state.phis[i]
-                self.fugacity_of[comp].derivatives = state.dphis[i]
-
-        return state
+        return self.eos.compute_phase_state(self.type, p, T, xn)
 
 
 class Mixture:
@@ -947,38 +931,3 @@ class Mixture:
 
         """
         return self._components[0]
-
-    def compute_properties(
-        self,
-        p: np.ndarray,
-        T: np.ndarray,
-        xn: Sequence[Sequence[np.ndarray]],
-        store: bool = True,
-    ) -> list[PhaseState]:
-        """Convenience function to evaluate and optionally store the physical
-        properties of all phases in the mixture.
-
-        See :meth:`Phase.compute_properties` for more.
-
-        Parameters:
-            p: ``shape=(N,)``
-
-                Pressure.
-            T: ``shape=(N,)``
-
-                Temperature.
-            X: ``shape=(num_phases, num_components, N)``
-
-                A nested sequence containing for each phase a sub-sequence of
-                (normalized) component fractions in that phase.
-            store: ``default=True``
-
-                Flag to store or return the results
-
-        """
-        results: list[PhaseState] = list()
-        for j, phase in enumerate(self.phases):
-            x_j = xn[j]
-            props = phase.compute_properties(p, T, x_j, store=store)
-            results.append(props)
-        return results
