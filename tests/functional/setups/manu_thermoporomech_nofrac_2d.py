@@ -1,4 +1,4 @@
-"""
+r"""
 This module contains the setup for a 2d verification test for the coupled
 thermo-poromechanical problem. The problem is defined on a unit square domain, and
 consists of a fluid flow equation, a mechanical equation, and an energy equation.
@@ -9,13 +9,13 @@ To define the manufactured solution, we introduce the auxiliary function
 .. math::
     f(x, y, t) = t * x * (1 - x) * (x - 1 / 2) * sin(2 * pi * y)
 
-Define the characteristic function $$char$$, which is 1 if $$x > 0.5$$ and $$y > 0.5$$,
-and 0 otherwise. Also, define a heterogeneity factor $$kappa$$. The exact solutions for
+Define the characteristic function $$\\chi$$, which is 1 if $$x > 0.5$$ and $$y > 0.5$$,
+and 0 otherwise. Also, define a heterogeneity factor $$\\kappa$$. The exact solutions for
 the primary variables pressure, displacement, and temperature are then defined as
 
 .. math::
 
-    p(x, y, t) = f / ((1 - char) + char * kappa),
+    p(x, y, t) = f / ((1 - \\chi) + \\chi * \\kappa),
 
     u_x(x, y, t) = p,
 
