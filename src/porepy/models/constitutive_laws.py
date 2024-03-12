@@ -2315,14 +2315,17 @@ class ThermalExpansion:
     def solid_thermal_expansion_coefficient(
         self, subdomains: list[pp.Grid]
     ) -> pp.ad.Operator:
-        """Thermal expansion of the solid [1/K].
+        """Thermal expansion of the solid.
+
+        This is an expression of the volumetric changes of the solid due to temperature
+        changes.
 
         Parameters:
             subdomains: List of subdomains where the thermal expansion is defined.
 
         Returns:
-            Thermal expansion of the fluid, represented as an Ad operator. The value is
-                constant for all subdomains.
+            Thermal expansion of the fluid [1/K], represented as an Ad operator. The
+            value is constant for all subdomains.
 
         """
         val = self.solid.thermal_expansion()
@@ -2331,18 +2334,62 @@ class ThermalExpansion:
     def solid_thermal_expansion_tensor(
         self, subdomains: list[pp.Grid]
     ) -> pp.SecondOrderTensor:
-        """Thermo-mechanical coupling tensor.
+        """Tensor representing the mechanical force associated with thermal expansion
+        and contraction.
+
+        The tensor can be considered a representation of strains due to temperature
+        changes. It can be used to compute stress, e.g., by a Biot discretization, and
+        is thus associated with an equation for momentum conservation.
 
         Parameters:
             subdomains: Subdomains where the thermo-mechanical coupling tensor is
                 defined.
 
         Returns:
-            Thermo-mechanical coupling tensor operator.
+            Thermo-mechanical coupling tensor [Pa].
 
         """
+        # EK: I added some documentation here, since I went through the pain of figuring
+        # out the tensor algebra, and I don't want to do that over again. The conversion
+        # from a thermal strain, given by self.solid.thermal_expansion() to the
+        # corresponding stress, is in general given as (see e.g. Coussy 2004, eq 4.13a)
+        #
+        #    sigma_ij = C_ijkl * a_kl * T
+        #
+        # where sigma is the stress, C is the stiffness tensor (represented as a fourth
+        # order tensor), a is the thermal strain, and the summation convention is
+        # applied. For a linear isotropic material, the stiffness tensor is given by
+        #
+        #    C_ijkl = lambda * delta_ij * delta_kl + mu * (delta_ik * delta_jl +
+        #             delta_il * delta_jk)    [thanks, co-pilot!]
+        #
+        # where d_ij is the Kronecker delta, and lambda and mu are the Lame parameters.
+        # Some algebra gives that for a general expansion tensor, the thermal stress is
+        #
+        #   sigma_ij = mu * (a_ij + a_ji) * T + lambda * a_kk * d_ij * T
+        #
+        # where a_kk of course equals the trace of a.
+        #
+        # The below implementation assumes that the thermal expansion is isotropic, thus
+        # the coefficients simplifies further to
+        #
+        #  sigma_ij = (2 * mu + 3 * lambda) * a * T * d_ij
+        # 
+        # which can be found in, for instance, Boley & Weiner: Theory of thermal
+        # stresses, Dover (ISBN:978-0-486-69579-2), Eq. 1.12.14 p.30.
+        #
+        # If anyone ever overrides this method to include a full thermal expansion
+        # tensor, it is strongly advised to first check the above calculation, as it
+        # should not be fully trusted.
+
         size = sum(sd.num_cells for sd in subdomains)
-        val = self.solid.thermal_expansion()
+
+        lmbda = self.solid.lame_lambda()
+        mu = self.solid.shear_modulus()
+        alpha = self.solid.thermal_expansion()
+
+        val = (2 * mu + 3 * lmbda) * alpha
+
         return pp.SecondOrderTensor(val * np.ones(size))
 
 
