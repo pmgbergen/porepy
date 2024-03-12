@@ -1760,7 +1760,7 @@ def restrict_fourth_order_tensor_to_subgrid(
 def restrict_second_order_tensor_to_subgrid(
     K: pp.SecondOrderTensor, loc_cells: np.ndarray
 ) -> pp.SecondOrderTensor:
-    """Extract the permeability tensor for a subgrid.
+    """Extract the second-order tensor for a subgrid.
 
     Parameters:
         K: Permeability tensor for the full grid.

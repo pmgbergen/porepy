@@ -300,7 +300,7 @@ class Biot(pp.Mpsa):
         scalar_vector_mappings: dict = parameter_dictionary["scalar_vector_mappings"]
         coupling_keywords: list[str] = list(scalar_vector_mappings.keys())
 
-        alpha: dict[str, pp.SecondOrderTensor] = {}
+        alphas: dict[str, pp.SecondOrderTensor] = {}
 
         for key, alpha_input in scalar_vector_mappings.items():
             # TODO: Revisit 'biot_coupling_coefficient
@@ -536,7 +536,7 @@ class Biot(pp.Mpsa):
         #
         # IMPLEMENTATION NOTE: This scaling is only needed for the vector quantities,
         # that is, not for the stabilization and displacement_divergence terms. The latter are computed
-        # cell-wise rather than face-wise, and will only discretized once, even for
+        # cell-wise rather than face-wise, and will only be discretized once, even for
         # cells next to subdomain boundaries.
         num_face_repetitions_vector = np.tile(
             np.bincount(np.concatenate(faces_in_subgrid_accum)), (nd, 1)
@@ -853,7 +853,7 @@ class Biot(pp.Mpsa):
         # computed on a face as ``n\dot (alpha p)`` where n is the normal vector; this
         # is the variable scalar_gradient_face below. Second, imbalances in the pressure force
         # between neighboring cells give rise to local mechanical deformation, which
-        # again induce stresses; this is variable rhs_jumps below.  The discretization
+        # again induce stresses; this is the variable rhs_jumps below. The discretization
         # of the first of these terms is computed in this helper method, while for the
         # second, we construct a rhs-matrix (in the parlance of the Mpsa implementation)
         # that will be multiplied with the inverse deformation gradient elsewhere.

@@ -168,7 +168,7 @@ class SolutionStrategyThermoporomechanics(
 
     """
     temperature_variable: str
-    """Name of the pressure variable. Normally set by a mixin instance of
+    """Name of the temperature variable. Normally set by a mixin instance of
     :class:`~porepy.models.energy_balance.SolutionStrategyEnergyBalance`.
     """
     biot_tensor: Callable[[list[pp.Grid]], pp.ad.Operator]
