@@ -96,7 +96,7 @@ class Biot(pp.Mpsa):
         # but this would have broken with the system in other discretizaitons.
         self.displacement_divergence_matrix_key = "displacement_divergence"
         """Keyword used to identify the discretization matrix of the term div(u)."""
-        self.bound_displacement_divergence_matrix_key = "bound_displacement_divergence"
+        self.bound_displacement_divergence_matrix_key = "boundary_displacement_divergence"
         """Keyword used to identify the discretization matrix of the boundary condition
         for the term div(u)."""
         self.scalar_gradient_matrix_key = "scalar_gradient"
@@ -305,9 +305,9 @@ class Biot(pp.Mpsa):
         for key, alpha_input in scalar_vector_mappings.items():
             # TODO: Revisit 'biot_coupling_coefficient
             if isinstance(alpha_input, (float, int)):
-                alpha[key] = pp.SecondOrderTensor(alpha_input * np.ones(sd.num_cells))
+                alphas[key] = pp.SecondOrderTensor(alpha_input * np.ones(sd.num_cells))
             else:
-                alpha[key] = alpha_input
+                alphas[key] = alpha_input
 
         # Control of the number of subdomanis.
         max_memory, num_subproblems = pp.fvutils.parse_partition_arguments(
@@ -336,10 +336,10 @@ class Biot(pp.Mpsa):
         active_constit: pp.FourthOrderTensor = (
             pp.fvutils.restrict_fourth_order_tensor_to_subgrid(constit, active_cells)
         )
-        active_alpha: dict[str, pp.SecondOrderTensor] = {}
-        for key, val in alpha.items():
-            active_alpha[key] = pp.fvutils.restrict_second_order_tensor_to_subgrid(
-                alpha[key], active_cells
+        active_alphas: dict[str, pp.SecondOrderTensor] = {}
+        for key, val in alphas.items():
+            active_alphas[key] = pp.fvutils.restrict_second_order_tensor_to_subgrid(
+                alphas[key], active_cells
             )
 
         # Extract the relevant part of the boundary condition
@@ -370,13 +370,13 @@ class Biot(pp.Mpsa):
         active_bound_displacement_cell = sps.csr_matrix((nf * nd, nc * nd))
         active_bound_displacement_face = sps.csr_matrix((nf * nd, nf * nd))
 
-        active_scalar_gradient, active_displacement_divergence, active_bound_displacement_divergence, active_stabilization = (
+        active_scalar_gradient, active_displacement_divergence, active_bound_displacement_divergence, active_stabilization, active_bound_displacement_pressure = (
             {},
             {},
             {},
-            {},
+            {}, 
+            {}
         )
-        active_bound_displacement_pressure = {}
 
         for key in coupling_keywords:
             active_scalar_gradient[key] = sps.csr_matrix((nf * nd, nc))
@@ -430,10 +430,10 @@ class Biot(pp.Mpsa):
                 )
             )
             # Copy Biot coefficient, and restrict to local cells
-            loc_alpha = {}
-            for key in active_alpha:
-                loc_alpha[key] = pp.fvutils.restrict_second_order_tensor_to_subgrid(
-                    active_alpha[key], l2g_cells
+            loc_alphas = {}
+            for key in active_alphas:
+                loc_alphas[key] = pp.fvutils.restrict_second_order_tensor_to_subgrid(
+                    active_alphas[key], l2g_cells
                 )
 
             # Boundary conditions are slightly more complex. Find local faces
@@ -455,7 +455,7 @@ class Biot(pp.Mpsa):
                 loc_bound_displacement_face,
                 loc_bound_displacement_pressure,
             ) = self._local_discretization(
-                sub_sd, loc_c, loc_bnd, loc_alpha, eta=eta, inverter=inverter
+                sub_sd, loc_c, loc_bnd, loc_alphas, eta=eta, inverter=inverter
             )
 
             # Eliminate contribution from faces already discretized (the dual grids /
@@ -682,7 +682,7 @@ class Biot(pp.Mpsa):
         sd: pp.Grid,
         constit: pp.FourthOrderTensor,
         bound_mech: pp.BoundaryConditionVectorial,
-        alpha: dict[str, pp.SecondOrderTensor],
+        alphas: dict[str, pp.SecondOrderTensor],
         eta: float,
         inverter: Literal["python", "numba"],
         hf_output: bool = False,
@@ -771,20 +771,39 @@ class Biot(pp.Mpsa):
         dist_grad, cell_centers = self._reconstruct_displacement(
             sd, subcell_topology, eta
         )
-        # The boundary discretization of the displacement_divergence term is represented
-        # directly on the cells, instead of going via the faces.
-        scalar_gradient, bound_displacement_divergence, displacement_divergence, stabilization, disp_pressure = {}, {}, {}, {}, {}
-        for key in alpha:
-            # trace of strain matrix
-            div = self._subcell_gradient_to_cell_scalar(
-                sd, cell_node_blocks, alpha[key], igrad
-            )
-            displacement_divergence[key] = div * igrad * rhs_cells
-            bound_displacement_divergence[key] = div * igrad * rhs_bound
 
-            # Call discretization of scalar_gradient-term
+        # Discretize the coupling terms by looping over the provided coupling tensors
+        # (stored in alpha). First make storage for the discretizations, one per
+        # coupling term.
+        scalar_gradient, bound_displacement_divergence, displacement_divergence, stabilization, disp_pressure = {}, {}, {}, {}, {}
+        for key in alphas:
+            # The matrix igrad contains subcell gradients. The coupling term in the
+            # scalar equation (commonly represented as \alpha div(u) in Biot's
+            # equations) should for tensor coupling coefficients be represented as the
+            # double dot product of the subcell gradients and the tensor. Furthermore,
+            # to get a cell-wise quantity, we need an area-weighted sum of the
+            # contributions from the subcells. First call a helper function to get a
+            # matrix representing the double dot between the coupling tensor and
+            # 'something', with the area weighted summation included. 
+            alpha_double_dot_subcell_quantity = self._subcell_gradient_to_cell_scalar(
+                sd, cell_node_blocks, alphas[key], igrad
+            )
+            # Next, multiply with igrad to get the double dot product with the subcell
+            # gradients.
+            alpha_double_dot_igrad = alpha_double_dot_subcell_quantity * igrad
+            # To express the coupling in terms of the displacements in the cell center
+            # and on boundaries (that is, create basis functions for the discretization,
+            # and a discretization of the boundary conditions), multiply with relevant
+            # matrices.
+            displacement_divergence[key] = alpha_double_dot_igrad * rhs_cells
+            bound_displacement_divergence[key] = alpha_double_dot_igrad * rhs_bound
+
+            # Next, discretize the scalar gradient term (the coupling term in the vector
+            # equation). The construction is similar to the displacement divergence, but
+            # the complicated part is to get the right matrices representing the right
+            # hand side terms. This is done in a helper function.
             rhs_jumps, scalar_gradient_face = self._create_rhs_scalar_gradient(
-                sd, subcell_topology, alpha[key], bound_exclusion_mech
+                sd, subcell_topology, alphas[key], bound_exclusion_mech
             )
 
             if hf_output:
@@ -797,7 +816,7 @@ class Biot(pp.Mpsa):
                 disp_pressure[key] = scaling * hf2f * dist_grad * igrad * rhs_jumps
 
             # consistency term for the flow equation
-            stabilization[key] = div * igrad * rhs_jumps
+            stabilization[key] = alpha_double_dot_subcell_quantity * igrad * rhs_jumps
 
 
         disp_cell = dist_grad * igrad * rhs_cells + cell_centers
@@ -851,17 +870,17 @@ class Biot(pp.Mpsa):
         # consists of two terms (to see this, see sections 3 and 4 in Nordbotten 2016 -
         # but be aware a careful read will be needed): First, the pressure force is
         # computed on a face as ``n\dot (alpha p)`` where n is the normal vector; this
-        # is the variable scalar_gradient_face below. Second, imbalances in the pressure force
-        # between neighboring cells give rise to local mechanical deformation, which
-        # again induce stresses; this is the variable rhs_jumps below. The discretization
-        # of the first of these terms is computed in this helper method, while for the
-        # second, we construct a rhs-matrix (in the parlance of the Mpsa implementation)
-        # that will be multiplied with the inverse deformation gradient elsewhere.
+        # is the variable scalar_gradient_face below. Second, imbalances in the pressure
+        # force between neighboring cells give rise to local mechanical deformation,
+        # which again induce stresses; this is the variable rhs_jumps below. The
+        # discretization of the first of these terms is computed in this helper method,
+        # while for the second, we construct a rhs-matrix (in the parlance of the Mpsa
+        # implementation) that will be multiplied with the inverse deformation gradient
+        # elsewhere.
         #
         # The implementation is divided into three main steps:
         # 1. compute product normal_vector * alpha and get a map for vector problems
-        # 2. assemble r.h.s. for the new linear system, needed for the term
-        #    'rhs_jumps'
+        # 2. assemble r.h.s. for the new linear system, needed for the term 'rhs_jumps'
         # 3. compute term 'scalar_gradient_face'
 
         # Step 1: Compute normal vectors * alpha
@@ -913,8 +932,8 @@ class Biot(pp.Mpsa):
         # calculated from the terms unique_nAlpha_grad, which gives a pressure force on
         # the subfaces as a function of cell center pressures. To be compatible with the
         # wider discretization approach, unique_nAlpha_grad must 1) be reordered to
-        # match the ordering of the local equations, and 2) be multiplied with a
-        # mapping from cell center pressures to subface forces.
+        # match the ordering of the local equations, and 2) be multiplied with a mapping
+        # from cell center pressures to subface forces.
 
         # Construct a mapping from the ordering of unique_nAlpha_grad to the ordering of
         # the local equations. To that end, recall the ordering of the local equations
@@ -958,11 +977,11 @@ class Biot(pp.Mpsa):
         # inverse gradient.
         rhs_jumps = row_mapping * unique_nAlpha_grad * sc2c
 
-        # Step 3: Compute scalar_gradient_face. This term represents the force on the face due to
-        # cell-centre pressure from a unique side. To that end, construct a mapping that
-        # keeps all boundary faces, but only one side of the internal faces. Note that
-        # this mapping acts on nAlpha_grad, not unique_nAlpha_grad, that is a row
-        # contains only the force on one side of the face.
+        # Step 3: Compute scalar_gradient_face. This term represents the force on the
+        # face due to cell-centre pressure from a unique side. To that end, construct a
+        # mapping that keeps all boundary faces, but only one side of the internal
+        # faces. Note that this mapping acts on nAlpha_grad, not unique_nAlpha_grad,
+        # that is a row contains only the force on one side of the face.
         vals = np.ones(num_subfno_unique * nd)
         rows = pp.fvutils.expand_indices_nd(subcell_topology.subfno_unique, nd)
         cols = pp.fvutils.expand_indices_incr(
