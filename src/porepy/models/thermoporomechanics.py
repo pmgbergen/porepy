@@ -186,8 +186,6 @@ class SolutionStrategyThermoporomechanics(
         super().set_discretization_parameters()
 
         for sd, data in self.mdg.subdomains(dim=self.nd, return_data=True):
-            # TODO: I think we can always assume that the stress is defined in the
-            # momentum balance, and remove the if statement.
             scalar_vector_mappings = data[pp.PARAMETERS][self.stress_keyword].get(
                 "scalar_vector_mappings", {}
             )
