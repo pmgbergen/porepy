@@ -21,14 +21,16 @@ import porepy as pp
 import porepy.composite as ppc
 from porepy.applications.md_grids.domains import nd_cube_domain
 from porepy.composite.peng_robinson.eos_c import PengRobinsonCompiler
-from porepy.models.compositional_balance import CompositionalFlow
+from porepy.models.compositional_balance import (
+    BoundaryConditionsCompositionalFlow,
+    CompositionalFlow,
+    InitialConditionsCompositionalFlow,
+)
 
 
 class SoereideMixture(ppc.FluidMixtureMixin):
     """Model fluid using the Soereide mixture, a Peng-Robinson based EoS for
-    NaCl brine with CO2, H2S and N2.
-
-    """
+    NaCl brine with CO2, H2S and N2."""
 
     def get_components(self) -> Sequence[ppc.Component]:
         chems = ["H2O", "CO2"]
@@ -45,7 +47,6 @@ class SoereideMixture(ppc.FluidMixtureMixin):
         # This takes some time
         eos = PengRobinsonCompiler(components)
         return [(eos, 0, "liq"), (eos, 1, "gas")]
-
 
 
 class CompiledFlash(ppc.FlashMixin):
@@ -89,10 +90,139 @@ class ModelGeometry:
         return mesh_args
 
 
+class InitialConditions(InitialConditionsCompositionalFlow):
+    """Define initial pressure, temperature and compositions."""
+
+    def intial_pressure(self, sd: pp.Grid) -> np.ndarray:
+        # Initial pressure of 10 MPa
+        return np.ones(sd.num_cells) * 10e6
+
+    def initial_temperature(self, sd: pp.Grid) -> np.ndarray:
+        # Initial temperature of 550 K
+        return np.ones(sd.num_cells) * 550.0
+
+    def initial_overall_fraction(
+        self, component: ppc.Component, sd: pp.Grid
+    ) -> np.ndarray:
+        # Homogenous initial composition, with 0.5 % CO2
+        if component.name == "H2O":
+            return np.ones(sd.num_cells) * 0.995
+        elif component.name == "CO2":
+            return np.ones(sd.num_cells) * 0.005
+        else:
+            raise NotImplementedError(
+                f"Initial overlal fraction not implemented for component {component.name}"
+            )
+
+
+class BoundaryConditions(BoundaryConditionsCompositionalFlow):
+    """Boundary conditions defining a ``left to right`` flow in the matrix (2D)
+
+    Mass flux:
+
+    - No flux conditions on top and bottom
+    - Dirichlet data (pressure, temperatyre and composition) on left and right faces
+
+    Heat flux:
+
+    - No flux on left, top, right
+    - heated bottom side
+
+    Trivial Neumann conditions for fractures.
+
+    """
+
+    def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        # Setting only conditions on matrix
+        if sd.dim == 2:
+            # Define boundary faces, east west as dirichlet
+            boundary_faces = (
+                self.domain_boundary_sides(sd).east
+                & self.domain_boundary_sides(sd).west
+            )
+            # Define boundary condition on all boundary faces.
+            return pp.BoundaryCondition(sd, boundary_faces, "dir")
+        # In fractures we set trivial NBC
+        else:
+            return pp.BoundaryCondition(sd)
+
+    def bc_type_fourier_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        if sd.dim == 2:
+            # Temperature at inlet and outlet, as well as heated bottom
+            boundary_faces = (
+                self.domain_boundary_sides(sd).east
+                & self.domain_boundary_sides(sd).west
+                & self.domain_boundary_sides(sd).bottom
+            )
+            return pp.BoundaryCondition(sd, boundary_faces, "dir")
+        # In fractures we set trivial NBC
+        else:
+            return pp.BoundaryCondition(sd)
+
+    def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+        # need to define pressure on east and west side of matrix
+        vals = np.zeros(boundary_grid.num_cells)
+        sd = boundary_grid.parent
+        if sd.dim == 2:
+            inlet_faces = self.domain_boundary_sides(sd).west
+            outlet_faces = self.domain_boundary_sides(sd).east
+            vals[inlet_faces] = 15e6
+            vals[outlet_faces] = 10e6
+        return vals
+
+    def bc_values_temperature(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+        vals = np.zeros(boundary_grid.num_cells)
+        sd = boundary_grid.parent
+        # non-trivial BC on matrix
+        if sd.dim == 2:
+            # T values on inlet and outlet faces to compute boundary equilibrium
+            inlet_faces = self.domain_boundary_sides(sd).west
+            outlet_faces = self.domain_boundary_sides(sd).east
+            vals[inlet_faces] = 460.0
+            # outlet values correspond to initial conditions
+            vals[outlet_faces] = 550.0
+
+            # T values on heated bottom
+            heated_faces = self.domain_boundary_sides(sd).bottom
+            vals[heated_faces] = 600.0
+        return vals
+
+    def bc_values_overall_fraction(
+        self, component: ppc.Component, bg: pp.BoundaryGrid
+    ) -> np.ndarray:
+        vals = np.zeros(bg.num_cells)
+        sd = bg.parent
+        if sd.dim == 2:
+            inlet_faces = self.domain_boundary_sides(sd).west
+            outlet_faces = self.domain_boundary_sides(sd).east
+
+            # on inlet, more CO2 enters the system
+            if component.name == "H2O":
+                vals[inlet_faces] = 0.99
+            elif component.name == "CO2":
+                vals[inlet_faces] = 0.01
+            else:
+                raise NotImplementedError(
+                    f"Initial overlal fraction not implemented for component {component.name}"
+                )
+
+            # on outlet we define something corresponding to initial conditions
+            if component.name == "H2O":
+                vals[outlet_faces] = 0.995
+            elif component.name == "CO2":
+                vals[outlet_faces] = 0.005
+            else:
+                raise NotImplementedError(
+                    f"Initial overlal fraction not implemented for component {component.name}"
+                )
+        return vals
+
+
 class GeothermalFlow(
     ModelGeometry,
     SoereideMixture,
     CompiledFlash,
+    InitialConditions,
     CompositionalFlow,
 ):
     """Geothermal flow using a fluid defined by the Soereide model and the compiled
@@ -118,7 +248,7 @@ params = {
     "normalize_state_constraints": True,
     "use_semismooth_complementarity": True,
     "has_time_dependent_boundary_equilibrium": False,
-    "equilibrium_type": 'p-h',
+    "equilibrium_type": "p-h",
     "has_extended_fractions": True,
     "time_manager": time_manager,
 }

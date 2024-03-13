@@ -266,7 +266,9 @@ class SecondaryOperator(pp.ad.Operator):
 
         """
 
-        self.func: Callable[[Tuple[pp.ad.AdArray, ...]], pp.ad.AdArray | np.ndarray]
+        self.func: Callable[
+            [Tuple[pp.ad.AdArray | np.ndarray, ...]], pp.ad.AdArray | np.ndarray
+        ]
         """The function accessing the data stored for this secondary expression.
 
         Assigned by :class:`Secondary Expression` upon creation of this operator."""
@@ -518,6 +520,16 @@ class SecondaryExpression:
         iterate_depth: ``default=1``
 
             Depth of storage of iterate values.
+        prev_time_has_diffs: ``default=False``
+
+            If True, operators representing this expression with
+            :meth:`SecondaryOperator.prev_time` ``== True`` return an Ad array when
+            evaluated. Else only the values at previous time are returned.
+        prev_iter_has_diffs: ``default=False``
+
+            If True, operators representing this expression with
+            :meth:`SecondaryOperator.prev_iter` ``== True`` return an Ad array when
+            evaluated. Else only the values at previous iterate are returned.
 
     """
 
@@ -525,15 +537,25 @@ class SecondaryExpression:
         self,
         name: str,
         mdg: pp.MixedDimensionalGrid,
-        *dependencies: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator],
+        *dependencies: Callable[[pp.GridLikeSequence], pp.ad.Operator],
         time_step_depth: int = 1,
         iterate_depth: int = 1,
+        prev_time_has_diffs: bool = False,
+        prev_iter_has_diffs: bool = False,
     ) -> None:
         self._dependencies: Tuple[
             Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator], ...
         ] = dependencies
         """Sequence of callable first order dependencies. Called when constructing
         operators on domains."""
+
+        self._prev_t_has_d: bool = bool(prev_time_has_diffs)
+        """Indicator if representations at previous time steps have derivatives w.r.t.
+        their dependencies."""
+
+        self._prev_i_has_d: bool = bool(prev_iter_has_diffs)
+        """Indicator if representations at previous iterates have derivatives w.r.t.
+        their dependencies."""
 
         self._ndep: int = len(dependencies)
         """See :meth:`nd`"""
@@ -627,14 +649,9 @@ class SecondaryExpression:
             if self.name not in data[pp.TIME_STEP_SOLUTIONS]:
                 data[pp.TIME_STEP_SOLUTIONS][self.name] = {}
 
-            # prepare time step entries
-            # arrays if no dependencies, 2 tuple of value-derivative pairs if dependent
-            if self.num_dependencies == 0:
-                for t in range(self._time_depth + 1):
-                    data[pp.TIME_STEP_SOLUTIONS][self.name][t] = None
-            else:
-                for t in range(self._time_depth + 1):
-                    data[pp.TIME_STEP_SOLUTIONS][self.name][t] = (None, None)
+            # prepare time step entries, 2 tuple of value-derivative pairs if dependent
+            for t in range(self._time_depth + 1):
+                data[pp.TIME_STEP_SOLUTIONS][self.name][t] = (None, None)
 
             # Do the same for iterate solutions
             if pp.ITERATE_SOLUTIONS not in data:
@@ -642,14 +659,9 @@ class SecondaryExpression:
             if self.name not in data[pp.ITERATE_SOLUTIONS]:
                 data[pp.ITERATE_SOLUTIONS][self.name] = {}
 
-            # prepare time step entries
-            # arrays if no dependencies, 2 tuple of value-derivative pairs if dependent
-            if self.num_dependencies == 0:
-                for i in range(self._iterate_depth + 1):
-                    data[pp.ITERATE_SOLUTIONS][self.name][i] = None
-            else:
-                for i in range(self._iterate_depth + 1):
-                    data[pp.ITERATE_SOLUTIONS][self.name][i] = (None, None)
+            # prepare time step entries, 2 tuple of value-derivative pairs if dependent
+            for i in range(self._iterate_depth + 1):
+                data[pp.ITERATE_SOLUTIONS][self.name][i] = (None, None)
 
         for _, data in self.mdg.interfaces(True):
             if pp.TIME_STEP_SOLUTIONS not in data:
@@ -657,14 +669,9 @@ class SecondaryExpression:
             if self.name not in data[pp.TIME_STEP_SOLUTIONS]:
                 data[pp.TIME_STEP_SOLUTIONS][self.name] = {}
 
-            # prepare time step entries
-            # arrays if no dependencies, 2 tuple of value-derivative pairs if dependent
-            if self.num_dependencies == 0:
-                for t in range(self._time_depth + 1):
-                    data[pp.TIME_STEP_SOLUTIONS][self.name][t] = None
-            else:
-                for t in range(self._time_depth + 1):
-                    data[pp.TIME_STEP_SOLUTIONS][self.name][t] = (None, None)
+            # prepare time step entries, 2 tuple of value-derivative pairs if dependent
+            for t in range(self._time_depth + 1):
+                data[pp.TIME_STEP_SOLUTIONS][self.name][t] = (None, None)
 
             # Do the same for iterate solutions
             if pp.ITERATE_SOLUTIONS not in data:
@@ -672,14 +679,9 @@ class SecondaryExpression:
             if self.name not in data[pp.ITERATE_SOLUTIONS]:
                 data[pp.ITERATE_SOLUTIONS][self.name] = {}
 
-            # prepare time step entries
-            # arrays if no dependencies, 2 tuple of value-derivative pairs if dependent
-            if self.num_dependencies == 0:
-                for i in range(self._iterate_depth + 1):
-                    data[pp.ITERATE_SOLUTIONS][self.name][i] = None
-            else:
-                for i in range(self._iterate_depth + 1):
-                    data[pp.ITERATE_SOLUTIONS][self.name][i] = (None, None)
+            # prepare time step entries, 2 tuple of value-derivative pairs if dependent
+            for i in range(self._iterate_depth + 1):
+                data[pp.ITERATE_SOLUTIONS][self.name][i] = (None, None)
 
         # on boundaries we have only values in time, and no derivatives
         for _, data in self.mdg.boundaries(True):
@@ -693,7 +695,7 @@ class SecondaryExpression:
 
     def _get_op_data(
         self, op: SecondaryOperator, g: pp.Grid | pp.MortarGrid
-    ) -> np.ndarray | tuple[np.ndarray, np.ndarray]:
+    ) -> tuple[np.ndarray, np.ndarray]:
         """Helper function to extract the data stored for this expression on a grid.
 
         Which time step index or iterate index is accessed is defined by the
@@ -721,7 +723,7 @@ class SecondaryExpression:
         ``op`` created by a call to this instance with ``op.domains``.
 
         The function takes the evaluated Ad arrays of the first-order dependencies
-        (if any) and returns the values stored and managed by this instance.
+        and returns the values stored and managed by this instance.
 
         Parameters:
             op: Secondary operator created on the ``domains``.
@@ -733,10 +735,12 @@ class SecondaryExpression:
 
         nc = sum([g.num_cells for g in op.domains])
 
-        # In this case the function is easy and returns only the stored arrays
+        # In this case the function is easy and returns only the stored values
+        # NOTE this should never happen, because expressions without dependencies are
+        # represented as TimeDependentDenseArrays
         if self.num_dependencies == 0:
 
-            def func(*args) -> np.ndarray:
+            def func(*args: pp.ad.AdArray | np.ndarray) -> pp.ad.AdArray | np.ndarray:
                 assert len(args) == 0, f"Evaluation of {self.name} expects 0 args."
 
                 # Extracting and stacking vals
@@ -744,7 +748,7 @@ class SecondaryExpression:
                 vals: list[np.ndarray] = []
                 for g in op.domains:
                     # cast to the type we know will come
-                    val = cast(np.ndarray, self._get_op_data(op, g))
+                    val = cast(np.ndarray, self._get_op_data(op, g)[0])
                     vals.append(val)
                 value = np.hstack(vals)
 
@@ -755,10 +759,10 @@ class SecondaryExpression:
                 return value
 
         # if it has dependencies, the data stored are 2-tuples with value-diff pairs
-        # and the function returns an AdArray
+        # and the function returns an AdArray or numpy array (for prev time and iter)
         else:
 
-            def func(*args: pp.ad.AdArray) -> pp.ad.AdArray:
+            def func(*args: pp.ad.AdArray | np.ndarray) -> pp.ad.AdArray | np.ndarray:
                 assert (
                     len(args) == self.num_dependencies
                 ), f"Evaluation of {self.name} expects {self.num_dependencies} args."
@@ -773,6 +777,13 @@ class SecondaryExpression:
 
                 # values per domain per cell
                 value = np.hstack(vals)
+
+                # if no derivatives requested for prev time or iter, return value
+                if op.prev_time and not self._prev_t_has_d:
+                    return value
+                if op.prev_iter and not self._prev_i_has_d:
+                    return value
+
                 # derivatives, row-wise dependencies, column-wise per domain per cell
                 derivatives = np.hstack(diffs)
 
@@ -1126,12 +1137,8 @@ class SecondaryExpression:
 
         """
         vals = []
-        if self.num_dependencies == 0:
-            for _, data in self.mdg.subdomains(return_data=True):
-                vals.append(data[pp.ITERATE_SOLUTIONS][self.name][0])
-        else:
-            for _, data in self.mdg.subdomains(return_data=True):
-                vals.append(data[pp.ITERATE_SOLUTIONS][self.name][0][0])
+        for _, data in self.mdg.subdomains(return_data=True):
+            vals.append(data[pp.ITERATE_SOLUTIONS][self.name][0][0])
         if len(vals) > 0:
             return np.hstack((vals))
         else:
@@ -1214,12 +1221,8 @@ class SecondaryExpression:
 
         """
         vals = []
-        if self.num_dependencies == 0:
-            for _, data in self.mdg.interfaces(return_data=True):
-                vals.append(data[pp.ITERATE_SOLUTIONS][self.name][0])
-        else:
-            for _, data in self.mdg.interfaces(return_data=True):
-                vals.append(data[pp.ITERATE_SOLUTIONS][self.name][0][0])
+        for _, data in self.mdg.interfaces(return_data=True):
+            vals.append(data[pp.ITERATE_SOLUTIONS][self.name][0][0])
         if len(vals) > 0:
             return np.hstack((vals))
         else:
