@@ -1727,7 +1727,7 @@ class CompiledUnifiedFlash(Flash):
         for i_, _ in enumerate(fluid_state.z):
             if i_ == self._ref_component_idx:
                 continue
-            X0[i, :] = fluid_state.z[i]
+            X0[:, i] = fluid_state.z[i]
             i += 1
         # Filling the fixed state values in X0, getting initialization args
         if flash_type == "p-T":

@@ -52,6 +52,11 @@ class SoereideMixture(ppc.FluidMixtureMixin):
 class CompiledFlash(ppc.FlashMixin):
     """Sets the compiled flash as the flash class, consistent with the EoS."""
 
+    flash_params = {
+        "mode": "parallel",
+        "verbosity": 1,
+    }
+
     def set_up_flasher(self) -> None:
         eos = self.fluid_mixture.reference_phase.eos
         eos = cast(PengRobinsonCompiler, eos)  # cast type
@@ -60,7 +65,7 @@ class CompiledFlash(ppc.FlashMixin):
 
         # Compiling the flash and the EoS
         eos.compile(verbosity=2)
-        flash.compile(verbosity=2, precompile_solvers=True)
+        flash.compile(verbosity=2, precompile_solvers=False)
 
         # NOTE There is place to configure the solver here
 
@@ -138,7 +143,7 @@ class BoundaryConditions(BoundaryConditionsCompositionalFlow):
             # Define boundary faces, east west as dirichlet
             boundary_faces = (
                 self.domain_boundary_sides(sd).east
-                & self.domain_boundary_sides(sd).west
+                | self.domain_boundary_sides(sd).west
             )
             # Define boundary condition on all boundary faces.
             return pp.BoundaryCondition(sd, boundary_faces, "dir")
@@ -151,8 +156,8 @@ class BoundaryConditions(BoundaryConditionsCompositionalFlow):
             # Temperature at inlet and outlet, as well as heated bottom
             boundary_faces = (
                 self.domain_boundary_sides(sd).east
-                & self.domain_boundary_sides(sd).west
-                & self.domain_boundary_sides(sd).bottom
+                | self.domain_boundary_sides(sd).west
+                | self.domain_boundary_sides(sd).bottom
             )
             return pp.BoundaryCondition(sd, boundary_faces, "dir")
         # In fractures we set trivial NBC
@@ -161,40 +166,53 @@ class BoundaryConditions(BoundaryConditionsCompositionalFlow):
 
     def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
         # need to define pressure on east and west side of matrix
-        vals = np.zeros(boundary_grid.num_cells)
         sd = boundary_grid.parent
+        bs = self.domain_boundary_sides(sd)
+        vals = np.zeros(sd.num_faces)
         if sd.dim == 2:
-            inlet_faces = self.domain_boundary_sides(sd).west
-            outlet_faces = self.domain_boundary_sides(sd).east
+            inlet_faces = bs.west
+            outlet_faces = bs.east
             vals[inlet_faces] = 15e6
             vals[outlet_faces] = 10e6
+
+        vals = vals[bs.all_bf]
+        assert vals.shape == (
+            boundary_grid.num_cells,
+        ), "Mismatch in shape of BC values."
         return vals
 
     def bc_values_temperature(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
-        vals = np.zeros(boundary_grid.num_cells)
         sd = boundary_grid.parent
+        bs = self.domain_boundary_sides(sd)
+        vals = np.zeros(sd.num_faces)
         # non-trivial BC on matrix
         if sd.dim == 2:
             # T values on inlet and outlet faces to compute boundary equilibrium
-            inlet_faces = self.domain_boundary_sides(sd).west
-            outlet_faces = self.domain_boundary_sides(sd).east
+            inlet_faces = bs.west
+            outlet_faces = bs.east
             vals[inlet_faces] = 460.0
             # outlet values correspond to initial conditions
             vals[outlet_faces] = 550.0
 
             # T values on heated bottom
-            heated_faces = self.domain_boundary_sides(sd).bottom
+            heated_faces = bs.bottom
             vals[heated_faces] = 600.0
+
+        vals = vals[bs.all_bf]
+        assert vals.shape == (
+            boundary_grid.num_cells,
+        ), "Mismatch in shape of BC values."
         return vals
 
     def bc_values_overall_fraction(
-        self, component: ppc.Component, bg: pp.BoundaryGrid
+        self, component: ppc.Component, boundary_grid: pp.BoundaryGrid
     ) -> np.ndarray:
-        vals = np.zeros(bg.num_cells)
-        sd = bg.parent
+        sd = boundary_grid.parent
+        bs = self.domain_boundary_sides(sd)
+        vals = np.zeros(sd.num_faces)
         if sd.dim == 2:
-            inlet_faces = self.domain_boundary_sides(sd).west
-            outlet_faces = self.domain_boundary_sides(sd).east
+            inlet_faces = bs.west
+            outlet_faces = bs.east
 
             # on inlet, more CO2 enters the system
             if component.name == "H2O":
@@ -215,6 +233,11 @@ class BoundaryConditions(BoundaryConditionsCompositionalFlow):
                 raise NotImplementedError(
                     f"Initial overlal fraction not implemented for component {component.name}"
                 )
+
+        vals = vals[bs.all_bf]
+        assert vals.shape == (
+            boundary_grid.num_cells,
+        ), "Mismatch in shape of BC values."
         return vals
 
 
@@ -223,6 +246,7 @@ class GeothermalFlow(
     SoereideMixture,
     CompiledFlash,
     InitialConditions,
+    BoundaryConditions,
     CompositionalFlow,
 ):
     """Geothermal flow using a fluid defined by the Soereide model and the compiled
@@ -232,6 +256,7 @@ class GeothermalFlow(
 time_manager = pp.TimeManager(
     schedule=[0, 0.3, 0.6],
     dt_init=1e-4,
+    dt_min_max=[1e-4, 0.1],
     constant_dt=False,
     iter_max=50,
     print_info=True,
