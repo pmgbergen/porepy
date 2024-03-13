@@ -271,15 +271,21 @@ class CompositeVariables(pp.VariableMixin):
            :attr:`~porepy.composite.base.Phase.saturation` to phases.
         4. :meth:`phase_fraction` is called to assign
            :attr:`~porepy.composite.base.Phase.fraction` to phases.
-        5. :meth:`extended_fraction` is called to assign
+        5. If :attr:`CompositeVariables.has_extended_fractions` is True,
+           :meth:`extended_fraction` is called to assign
            :attr:`~porepy.composite.base.Phase.fraction_of` for each phase and component
            in that phase.
+        6. :meth:`partial_fraction` is called to assign
+           :attr:`~porepy.composite.base.Phase.partial_fraction_of` for each phase and
+           component in that phase.
 
-        Finally, it creates assignes partial fractions of components in phases
-        (see :attr:`~porepy.composite.base.Phase.partial_fraction_of`).
+        Note:
+            The standard implementation of partial fractions is based on normalization
+            of extended fractions.
 
-        The last step, as well as step 5 are skipped if
-        :attr:`CompositeVariables.has_extended_fractions` is False.
+            If the model has no extended fractions, the user must overwrite
+            :meth:`partial_fraction` to provide a meaningful substitute (variable or
+            some number f.e.)
 
         """
         assert hasattr(self, "fluid_mixture"), "Mixture not set."
@@ -358,7 +364,7 @@ class CompositeVariables(pp.VariableMixin):
         if not self.eliminate_reference_phase and nphase > 1:
             self._phase_fraction_variables.append(self._phase_fraction_variable(rphase))
 
-        # Creation of fractions of components in phases
+        # Creation of extended fractions of components in phases
         if self.has_extended_fractions:
             for phase in self.fluid_mixture.phases:
                 phase.fraction_of = dict()
@@ -373,11 +379,14 @@ class CompositeVariables(pp.VariableMixin):
                         {comp: self.extended_fraction(comp, phase)}
                     )
 
-                # creating normalized fractions (dependent operators)
-                for comp in phase.components:
-                    phase.partial_fraction_of.update(
-                        {comp: self.partial_fraction(comp, phase)}
-                    )
+        # Creation of partial fracions (physical) which appear anyways in flow and transport
+        for phase in self.fluid_mixture.phases:
+            phase.partial_fraction_of = dict()
+            # creating normalized fractions (dependent operators)
+            for comp in phase.components:
+                phase.partial_fraction_of.update(
+                    {comp: self.partial_fraction(comp, phase)}
+                )
 
     def _overall_fraction_variable(self, component: Component) -> str:
         """Returns the name of the feed fraction variable assigned to ``component``."""
@@ -433,9 +442,9 @@ class CompositeVariables(pp.VariableMixin):
                     return z_R
 
             else:  # create an independent variable
-                name = self._overall_fraction_variable(component)
 
                 def fraction(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+                    name = self._overall_fraction_variable(component)
                     if len(domains) > 0 and all(
                         [isinstance(g, pp.BoundaryGrid) for g in domains]
                     ):
@@ -472,9 +481,8 @@ class CompositeVariables(pp.VariableMixin):
             solute in compound.solutes
         ), f"Solute {solute.name} not in compound {compound.name}"
 
-        name = self._solute_fraction_variable(solute, compound)
-
         def fraction(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+            name = self._solute_fraction_variable(solute, compound)
             if len(domains) > 0 and all(
                 [isinstance(g, pp.BoundaryGrid) for g in domains]
             ):
@@ -534,9 +542,9 @@ class CompositeVariables(pp.VariableMixin):
                     return s_R
 
             else:  # create an independent variable
-                name = self._saturation_variable(phase)
 
                 def saturation(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+                    name = self._saturation_variable(phase)
                     if len(domains) > 0 and all(
                         [isinstance(g, pp.BoundaryGrid) for g in domains]
                     ):
@@ -587,9 +595,9 @@ class CompositeVariables(pp.VariableMixin):
                     return y_R
 
             else:  # create an independent variable
-                name = self._phase_fraction_variable(phase)
 
                 def fraction(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+                    name = self._phase_fraction_variable(phase)
                     if len(domains) > 0 and all(
                         [isinstance(g, pp.BoundaryGrid) for g in domains]
                     ):
@@ -603,7 +611,7 @@ class CompositeVariables(pp.VariableMixin):
                         )
                     return self.equation_system.md_variable(name, domains)
 
-        return fraction, name
+        return fraction
 
     def _extended_fraction_variable(self, component: Component, phase: Phase) -> str:
         """Returns the name of the extended fraction variable of ``component`` in
@@ -619,9 +627,9 @@ class CompositeVariables(pp.VariableMixin):
         assert (
             component in phase.components
         ), f"Component {component.name} not in phase {phase.name}"
-        name = self._extended_fraction_variable(component, phase)
 
         def fraction(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+            name = self._extended_fraction_variable(component, phase)
             if len(domains) > 0 and all(
                 [isinstance(g, pp.BoundaryGrid) for g in domains]
             ):
@@ -646,18 +654,18 @@ class CompositeVariables(pp.VariableMixin):
 
         """
 
-        name = self._extended_fraction_variable(component, phase)
-
         def fraction(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
-            xn = self.extended_fraction(component, name)(
+            xn = self.extended_fraction(component, phase)(
                 domains
             ) / pp.ad.sum_operator_list(
                 [
-                    self.extended_fraction(comp_k, name)(domains)
+                    self.extended_fraction(comp_k, phase)(domains)
                     for comp_k in phase.components
                 ]
             )
-            xn.set_name(f"normalized_{name}")
+            xn.set_name(
+                f"normalized_{self._extended_fraction_variable(component, phase)}"
+            )
             return xn
 
         return fraction
@@ -734,7 +742,7 @@ class FluidMixtureMixin:
 
         components = self.get_components()
         assert len(components) > 0, "No components modelled."
-        phase_configurations = self.get_phase_configuration()
+        phase_configurations = self.get_phase_configuration(components)
         assert len(phase_configurations) > 0, "No phases configured."
 
         phases: list[Phase] = list()

@@ -1620,6 +1620,14 @@ class BoundaryConditionsCompositionalFlow(
                 self.update_boundary_condition(phase.viscosity.name, mu_bc)
 
                 # NOTE no fugacity or conductivity on boundary
+        # If BC are not time-dependent, and an equilibrium is defined, do nothing here
+        # This is the case for the first boundary flash, which is done in the solution
+        # strategy.
+        elif (
+            not self.has_time_dependent_boundary_equilibrium
+            and self.equilibrium_type is not None
+        ):
+            pass
         # else we alert the user that the model might be incomplete
         else:
             raise NotImplementedError("Could not resolve strategy for BC update.")
@@ -1629,7 +1637,10 @@ class BoundaryConditionsCompositionalFlow(
         # conventional approach, since they are primary expressions (unknowns)
         for phase in self.fluid_mixture.phases:
             # phase fractions and saturations
-            if self.eliminate_reference_phase:
+            if (
+                self.eliminate_reference_phase
+                and phase == self.fluid_mixture.reference_phase
+            ):
                 pass
             else:
                 y_name = self._phase_fraction_variable(phase)
@@ -1705,7 +1716,7 @@ class BoundaryConditionsCompositionalFlow(
                 parameters=self.flash_params,
             )
 
-            if not np.all(success):
+            if not np.all(success == 0):
                 raise ValueError("Boundary flash did not succeed.")
 
             # Broadcast values into proper size for each boundary grid
@@ -1783,19 +1794,19 @@ class BoundaryConditionsCompositionalFlow(
             # performed by summing the boolean arrays, and asserting that only 0 or a
             # single number is in the resulting array, and not multiple non-zero numbers
             check_dir = bc_darcy.is_dir + bc_fluid.is_dir + bc_enthalpy.is_dir
-            assert len(set(check_dir)) == 2, (
+            assert len(set(check_dir)) <= 2, (
                 "Inconsistent number of Dirichlet boundary faces defined for advective"
                 + f" flux on subdomain {sd}."
             )
 
             # same must hold for Neumann and Robin BC
             check_neu = bc_darcy.is_neu + bc_fluid.is_neu + bc_enthalpy.is_neu
-            assert len(set(check_neu)) == 2, (
+            assert len(set(check_neu)) <= 2, (
                 "Inconsistent number of Neumann boundary faces defined for advective"
                 + f" flux on subdomain {sd}."
             )
             check_rob = bc_darcy.is_rob + bc_fluid.is_rob + bc_enthalpy.is_rob
-            assert len(set(check_rob)) == 2, (
+            assert len(set(check_rob)) <= 2, (
                 "Inconsistent number of Neumann boundary faces defined for advective"
                 + f" flux on subdomain {sd}."
             )
@@ -1902,7 +1913,7 @@ class BoundaryConditionsCompositionalFlow(
         return np.zeros(bg.num_cells)
 
     def bc_values_overall_fraction(
-        self, component: ppc.Component, bg: pp.BoundaryGrid
+        self, component: ppc.Component, boundary_grid: pp.BoundaryGrid
     ) -> np.ndarray:
         """BC values for overall fraction of a component.
 
@@ -1911,14 +1922,14 @@ class BoundaryConditionsCompositionalFlow(
 
         Parameters:
             component: A component in the fluid mixture.
-            bg: A boundary grid in the domain.
+            boundary_grid: A boundary grid in the domain.
 
         Returns:
             An array with ``shape=(bg.num_cells,)`` containing the value of
             the overall fraction.
 
         """
-        return np.zeros(bg.num_cells)
+        return np.zeros(boundary_grid.num_cells)
 
     ### BC which need to be provided in case no equilibrium calculations are included
 
@@ -2193,10 +2204,10 @@ class InitialConditionsCompositionalFlow:
             T = self.initial_temperature(sd)
 
             self.equation_system.set_variable_values(
-                p, self.pressure([sd]), time_step_index=0
+                p, [self.pressure([sd])], time_step_index=0
             )
             self.equation_system.set_variable_values(
-                T, self.temperature([sd]), time_step_index=0
+                T, [self.temperature([sd])], time_step_index=0
             )
 
             # Setting overall fractions
@@ -2209,7 +2220,7 @@ class InitialConditionsCompositionalFlow:
 
                 z_i = self.initial_overall_fraction(comp, sd)
                 self.equation_system.set_variable_values(
-                    z_i, comp.fraction([sd]), time_step_index=0
+                    z_i, [comp.fraction([sd])], time_step_index=0
                 )
 
     def initial_flash(self) -> None:
@@ -2233,7 +2244,7 @@ class InitialConditionsCompositionalFlow:
         for sd in self.mdg.subdomains():
             # pressure, temperature and overall fractions
             p = self.intial_pressure(sd)
-            T = self.intial_pressure(sd)
+            T = self.initial_temperature(sd)
             z = [
                 self.initial_overall_fraction(comp, sd)
                 for comp in self.fluid_mixture.components
@@ -2244,13 +2255,13 @@ class InitialConditionsCompositionalFlow:
                 z, p=p, T=T, parameters=self.flash_params
             )
 
-            if not np.all(success):
+            if not np.all(success == 0):
                 raise ValueError(f"Initial equilibriam not successful on grid {sd}")
 
             # setting initial values for enthalpy
             # NOTE that in the initialization, h is dependent compared to p, T, z
             self.equation_system.set_variable_values(
-                state.h, self.enthalpy([sd]), time_step_index=0
+                state.h, [self.enthalpy([sd])], time_step_index=0
             )
 
             # setting initial values for all fractional variables and phase properties
@@ -2263,16 +2274,16 @@ class InitialConditionsCompositionalFlow:
                     pass  # y and s of ref phase are dependent operators
                 else:
                     self.equation_system.set_variable_values(
-                        state.y[j], phase.fraction([sd]), time_step_index=0
+                        state.y[j], [phase.fraction([sd])], time_step_index=0
                     )
                     self.equation_system.set_variable_values(
-                        state.sat[j], phase.saturation([sd]), time_step_index=0
+                        state.sat[j], [phase.saturation([sd])], time_step_index=0
                     )
                 # extended fractions
                 for k, comp in enumerate(phase.components):
                     self.equation_system.set_variable_values(
                         state.phases[j].x[k],
-                        phase.fraction_of[comp]([sd]),
+                        [phase.fraction_of[comp]([sd])],
                         time_step_index=0,
                     )
 
@@ -2509,7 +2520,7 @@ class SolutionStrategyCompositionalFlow(
         has_extended_fractions = cast(bool, has_extended_fractions)
 
         self.has_extended_fractions: bool = has_extended_fractions
-        """A flag indicates whether (extended) fractions of components in phases should
+        """A flag indicates whether extended fractions of components in phases should
         be created or not. This must be True, if :attr:`equilibrium_type` is not None.
 
         Note:
@@ -2646,6 +2657,9 @@ class SolutionStrategyCompositionalFlow(
         self.create_variables()
         self.assign_thermodynamic_properties_to_mixture()
 
+        # initial_condition calls a BC update, and we must check its consistency first
+        self.check_bc_consistency()
+
         self.initial_condition()
 
         # If equilibrium defined, set the flash clsas and calculate initial equilibria
@@ -2655,7 +2669,6 @@ class SolutionStrategyCompositionalFlow(
             self.initial_flash()
             self.boundary_flash()
         self.initialize_timestep_and_iterate_indices()
-        self.check_bc_consistency()
 
         self.reset_state_from_file()  # TODO check if this is in conflict with init vals
         self.set_equations()
