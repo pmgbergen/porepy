@@ -1132,7 +1132,6 @@ class EquationsCompositionalFlow(
     ppc.SecondaryEquationsMixin,
     ppc.EquilibriumEquationsMixin,
 ):
-
     @property
     def secondary_equation_names(self) -> list[str]:
         """Returns a complete list of secondary equations introduced by the
@@ -2678,8 +2677,8 @@ class SolutionStrategyCompositionalFlow(
         Note:
 
             1. Boundary values are copied only on time indices.
-            2. Derivative values are not copied to other time indices, since they are
-               not accessed by this solution strategy.
+            2. Derivative values are not copied to other time indices or iterate indices
+               since they are not accessed by this solution strategy.
 
         Can be customized by the user.
 
@@ -2704,11 +2703,11 @@ class SolutionStrategyCompositionalFlow(
             mu_j = phase.viscosity.subdomain_values
             kappa_j = phase.conductivity.subdomain_values
 
-            d_rho_j = phase.density.subdomain_derivatives
-            d_v_j = phase.volume.subdomain_derivatives
-            d_h_j = phase.enthalpy.subdomain_derivatives
-            d_mu_j = phase.viscosity.subdomain_derivatives
-            d_kappa_j = phase.conductivity.subdomain_derivatives
+            # d_rho_j = phase.density.subdomain_derivatives
+            # d_v_j = phase.volume.subdomain_derivatives
+            # d_h_j = phase.enthalpy.subdomain_derivatives
+            # d_mu_j = phase.viscosity.subdomain_derivatives
+            # d_kappa_j = phase.conductivity.subdomain_derivatives
 
             # all properties have iterate values, use framework from sec. expressions
             # to push back values
@@ -2719,11 +2718,11 @@ class SolutionStrategyCompositionalFlow(
                 phase.viscosity.subdomain_values = mu_j
                 phase.conductivity.subdomain_values = kappa_j
 
-                phase.density.subdomain_derivatives = d_rho_j
-                phase.volume.subdomain_derivatives = d_v_j
-                phase.enthalpy.subdomain_derivatives = d_h_j
-                phase.viscosity.subdomain_derivatives = d_mu_j
-                phase.conductivity.subdomain_derivatives = d_kappa_j
+                # phase.density.subdomain_derivatives = d_rho_j
+                # phase.volume.subdomain_derivatives = d_v_j
+                # phase.enthalpy.subdomain_derivatives = d_h_j
+                # phase.viscosity.subdomain_derivatives = d_mu_j
+                # phase.conductivity.subdomain_derivatives = d_kappa_j
 
             # all properties have time step values, progress sec. exp. in time
             for _ in self.time_step_indices:
@@ -2744,11 +2743,11 @@ class SolutionStrategyCompositionalFlow(
             # as well to cover everything
             for comp in phase.components:
                 phi = phase.fugacity_of[comp].subdomain_values
-                d_phi = phase.fugacity_of[comp].subdomain_derivatives
+                # d_phi = phase.fugacity_of[comp].subdomain_derivatives
 
                 for _ in self.iterate_indices:
                     phase.fugacity_of[comp].subdomain_values = phi
-                    phase.fugacity_of[comp].subdomain_derivatives = d_phi
+                    # phase.fugacity_of[comp].subdomain_derivatives = d_phi
                 for _ in self.time_step_indices:
                     phase.fugacity_of[comp].progress_value_in_time_on_subdomains(phi)
                     # phase.fugacity_of[comp].progress_derivatives_in_time_on_subdomains(d_phi)
@@ -3156,6 +3155,7 @@ class SolutionStrategyCompositionalFlow(
         expansion."""
         sol = super().solve_linear_system()
         return self.equation_system.expand_schur_complement_solution(sol)
+
 
 class CompositionalFlow(  # type: ignore[misc]
     ppc.FluidMixtureMixin,
