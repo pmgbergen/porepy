@@ -1201,8 +1201,8 @@ class ManuThermoPoroMechSolutionStrategy2d(
 
             # Mapping from scalar to vector variables, to be used for discretization
             scalar_vector_mapping = {
-                self.pressure_variable: biot_alpha,
-                self.temperature_variable: thermal_stress,
+                self.darcy_keyword: biot_alpha,
+                self.enthalpy_keyword: thermal_stress,
             }
             data[pp.PARAMETERS][self.stress_keyword][
                 "scalar_vector_mappings"
