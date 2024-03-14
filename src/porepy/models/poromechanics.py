@@ -157,7 +157,6 @@ class SolutionStrategyPoromechanics(
         # Initialize the solution strategy for the momentum balance subproblem.
         momentum.SolutionStrategyMomentumBalance.__init__(self, params=params)
 
-
     def set_discretization_parameters(self) -> None:
         """Set parameters for the subproblems and the combined problem."""
         # Set parameters for the subproblems.
