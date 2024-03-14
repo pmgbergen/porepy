@@ -136,7 +136,7 @@ class VerificationUtils:
         u_faces_ad = (
             discr_mech.bound_displacement_cell() @ u
             + discr_mech.bound_displacement_face() @ bc
-            + discr_poromech.bound_pressure(self.pressure_variable) @ p
+            + discr_poromech.bound_pressure(self.darcy_keyword) @ p
         )
 
         # Parse numerical value and return the minimum and maximum value

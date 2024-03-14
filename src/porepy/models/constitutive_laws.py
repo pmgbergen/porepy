@@ -3572,10 +3572,10 @@ class PressureStress(LinearElasticMechanicalStress):
         # The stress is simply found by the scalar_gradient operator, multiplied with the
         # pressure perturbation.
         stress: pp.ad.Operator = (
-            discr.scalar_gradient(self.pressure_variable) @ self.pressure(subdomains)
+            discr.scalar_gradient(self.darcy_keyword) @ self.pressure(subdomains)
             # The reference pressure is only defined on sd_primary, thus there is no
             # need for a subdomain projection.
-            - discr.scalar_gradient(self.pressure_variable)
+            - discr.scalar_gradient(self.darcy_keyword)
             @ self.reference_pressure(subdomains)
         )
         stress.set_name("pressure_stress")
@@ -3743,7 +3743,7 @@ class ThermoPressureStress(PressureStress):
 
         discr = pp.ad.BiotAd(self.stress_keyword, subdomains)
         stress: pp.ad.Operator = discr.scalar_gradient(
-            self.temperature_variable
+            self.enthalpy_keyword
         ) @ self.perturbation_from_reference("temperature", subdomains)
         stress.set_name("thermal_stress")
         return stress
@@ -4434,7 +4434,7 @@ class PoroMechanicsPorosity:
             self.reference_porosity(subdomains)
             + self.porosity_change_from_pressure(subdomains)
             + self.porosity_change_from_displacement(subdomains)
-            + self._mpsa_consistency(subdomains, self.pressure_variable)
+            + self._mpsa_consistency(subdomains, self.darcy_keyword, self.pressure_variable)
         )
         phi.set_name("Stabilized matrix porosity")
 
@@ -4547,9 +4547,9 @@ class PoroMechanicsPorosity:
 
         # Compose operator.
         displacement_divergence_integrated = discr.displacement_divergence(
-            self.pressure_variable
+            self.darcy_keyword
         ) @ self.displacement(subdomains) + discr.bound_displacement_divergence(
-            self.pressure_variable
+            self.darcy_keyword
         ) @ (
             boundary_operator
             + sd_projection.face_restriction(subdomains)
@@ -4567,7 +4567,7 @@ class PoroMechanicsPorosity:
         return displacement_divergence
 
     def _mpsa_consistency(
-        self, subdomains: list[pp.Grid], variable_name: str
+        self, subdomains: list[pp.Grid], physics_name: str, variable_name: str
     ) -> pp.ad.Operator:
         """Consistency term for Mpsa discretizations of coupled problems.
 
@@ -4594,7 +4594,7 @@ class PoroMechanicsPorosity:
         # results will not match if the reference state is not zero, see
         # :func:`test_without_fracture` in test_poromechanics.py.
         dp = self.perturbation_from_reference(variable_name, subdomains)
-        consistency_integrated = discr.consistency(variable_name) @ dp
+        consistency_integrated = discr.consistency(physics_name) @ dp
 
         # Divide by cell volumes to counteract integration.
         # The consistency discretization contains a volume integral. Since the
@@ -4724,7 +4724,7 @@ class ThermoPoroMechanicsPorosity(PoroMechanicsPorosity):
         phi = Scalar(-1) * (
             alpha - phi_ref
         ) * beta * dtemperature + self._mpsa_consistency(
-            subdomains, self.temperature_variable
+            subdomains, self.enthalpy_keyword, self.temperature_variable
         )
         phi.set_name("Porosity change from temperature")
         return phi
