@@ -1,5 +1,11 @@
 """This module implements a multiphase-multicomponent flow model with phase change
-using the Soereide model to define the fluid mixture
+using the Soereide model to define the fluid mixture.
+
+Note:
+    It uses the numba-compiled version of the Peng-Robinson EoS and a numba-compiled
+    unified flash.
+
+    Import and compilation take some time.
 
 References:
     [1] Ingolf Søreide, Curtis H. Whitson,
@@ -65,7 +71,13 @@ class CompiledFlash(ppc.FlashMixin):
 
         # Compiling the flash and the EoS
         eos.compile(verbosity=2)
-        flash.compile(verbosity=2, precompile_solvers=False)
+        flash.compile(
+            verbosity=2,
+            # NOTE If true, flash solvers are pre-compiled for **all** flashes
+            # otherwise, they are compiled on the fly when needed.
+            # This increases the time of the first call during the simulation.
+            # precompile_solvers=False,
+        )
 
         # NOTE There is place to configure the solver here
 
