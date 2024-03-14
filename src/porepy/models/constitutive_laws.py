@@ -4579,6 +4579,10 @@ class PoroMechanicsPorosity:
 
         Parameters:
             subdomains: List of subdomains where the consistency is defined.
+            physics_name: The physics keyword for which the consistency is computed.
+                This is the keyword used in the scalar_vector_mapping provided to the
+                Mpsa Biot discretization.
+            variable_name: Name of the variable which should have a consistency term.
 
         Returns:
             Biot consistency operator.
@@ -4590,7 +4594,7 @@ class PoroMechanicsPorosity:
 
         discr = pp.ad.BiotAd(self.stress_keyword, subdomains)
 
-        # The consistency is based on perturbation. If pressure is used directly,
+        # The consistency is based on perturbation. If the variable is used directly,
         # results will not match if the reference state is not zero, see
         # :func:`test_without_fracture` in test_poromechanics.py.
         dp = self.perturbation_from_reference(variable_name, subdomains)
