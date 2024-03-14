@@ -2374,7 +2374,7 @@ class ThermalExpansion:
         # the coefficients simplifies further to
         #
         #  sigma_ij = (2 * mu + 3 * lambda) * a * T * d_ij
-        # 
+        #
         # which can be found in, for instance, Boley & Weiner: Theory of thermal
         # stresses, Dover (ISBN:978-0-486-69579-2), Eq. 1.12.14 p.30.
         #
@@ -3575,7 +3575,8 @@ class PressureStress(LinearElasticMechanicalStress):
             discr.scalar_gradient(self.pressure_variable) @ self.pressure(subdomains)
             # The reference pressure is only defined on sd_primary, thus there is no
             # need for a subdomain projection.
-            - discr.scalar_gradient(self.pressure_variable) @ self.reference_pressure(subdomains)
+            - discr.scalar_gradient(self.pressure_variable)
+            @ self.reference_pressure(subdomains)
         )
         stress.set_name("pressure_stress")
         return stress
@@ -3705,6 +3706,11 @@ class ThermoPressureStress(PressureStress):
     """Solid constant object that takes care of scaling of solid-related quantities.
     Normally, this is set by a mixin of instance
     :class:`~porepy.models.solution_strategy.SolutionStrategy`.
+
+    """
+    perturbation_from_reference: Callable[[str, list[pp.Grid]], pp.ad.Operator]
+    """Function that returns a perturbation from the reference state. Normally
+    provided by a mixin of instance :class:`~porepy.models.VariableMixin`.
 
     """
     stress_keyword: str
@@ -4540,9 +4546,11 @@ class PoroMechanicsPorosity:
         )
 
         # Compose operator.
-        displacement_divergence_integrated = discr.displacement_divergence(self.pressure_variable) @ self.displacement(
-            subdomains
-        ) + discr.bound_displacement_divergence(self.pressure_variable) @ (
+        displacement_divergence_integrated = discr.displacement_divergence(
+            self.pressure_variable
+        ) @ self.displacement(subdomains) + discr.bound_displacement_divergence(
+            self.pressure_variable
+        ) @ (
             boundary_operator
             + sd_projection.face_restriction(subdomains)
             @ mortar_projection.mortar_to_primary_avg
