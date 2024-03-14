@@ -111,7 +111,7 @@ class BiotAd(Discretization):
         self.displacement_divergence: Callable[[str], MergedOperator]
         self.bound_displacement_divergence: Callable[[str], MergedOperator]
         self.scalar_gradient: Callable[[str], MergedOperator]
-        self.stabilization: Callable[[str], MergedOperator]
+        self.consistency: Callable[[str], MergedOperator]
         self.bound_pressure: Callable[[str], MergedOperator]
 
         # The following are keywords used to identify the coupling terms constructed
@@ -121,7 +121,7 @@ class BiotAd(Discretization):
             "bound_displacement_divergence",
             "scalar_gradient",
             "bound_pressure",
-            "stabilization",
+            "consistency",
         ]
 
         wrap_discretization(
