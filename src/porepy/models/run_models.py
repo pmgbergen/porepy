@@ -5,6 +5,8 @@ from __future__ import annotations
 import logging
 from typing import Union
 
+import numpy as np
+
 # ``tqdm`` is not a dependency. Up to the user to install it.
 try:
     # Avoid some mypy trouble.
@@ -119,9 +121,12 @@ def run_time_dependent_model(model, params: dict) -> None:
             # bar will increase with partial steps corresponding to the ratio of the
             # modified time step size to the initial time step size.
             expected_timesteps: int = int(
-                (model.time_manager.schedule[-1] - model.time_manager.schedule[0])
-                / model.time_manager.dt
+                np.round(
+                    (model.time_manager.schedule[-1] - model.time_manager.schedule[0])
+                    / model.time_manager.dt
+                )
             )
+
             initial_time_step: float = model.time_manager.dt
             time_progressbar = trange(
                 expected_timesteps,
@@ -197,7 +202,7 @@ def _run_iterative_model(model, params: dict) -> None:
 
     # Progressbars turned off or tqdm not installed:
     if not params.get("progressbars", False) or not _IS_TQDM_AVAILABLE:
-        while model.time_manager.time < model.time_manager.time_final:
+        while not model.time_manager.final_time_reached():
             time_step()
     # Progressbars turned on:
     else:
@@ -211,8 +216,10 @@ def _run_iterative_model(model, params: dict) -> None:
             # time bar will increase with partial steps corresponding to the ratio of
             # the modified time step size to the initial time step size.
             expected_timesteps: int = int(
-                (model.time_manager.schedule[-1] - model.time_manager.schedule[0])
-                / model.time_manager.dt
+                np.round(
+                    (model.time_manager.schedule[-1] - model.time_manager.schedule[0])
+                    / model.time_manager.dt
+                )
             )
             initial_time_step: float = model.time_manager.dt
             # Assert that the initial time step is not zero, to avoid division by zero
@@ -224,7 +231,7 @@ def _run_iterative_model(model, params: dict) -> None:
                 position=0,
             )
 
-            while model.time_manager.time < model.time_manager.time_final:
+            while not model.time_manager.final_time_reached():
                 time_progressbar.set_description_str(
                     f"Time step {model.time_manager.time_index}"
                 )
