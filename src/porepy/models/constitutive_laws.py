@@ -4281,9 +4281,9 @@ class PoroMechanicsPorosity:
 
     Note:
         For legacy reasons, the discretization matrices for the
-        :math:`\nabla \cdot \mathbf{u}` and stabilization terms include a volume
+        :math:`\nabla \cdot \mathbf{u}` and consistency terms include a volume
         integral. That factor is counteracted in :meth:`displacement_divergence` and
-        :meth:`biot_stabilization`, respectively. This ensure that the returned
+        :meth:`mpsa_consistency`, respectively. This ensure that the returned
         operators correspond to intensive quantities and are compatible with the rest
         of this class. The assumption is that the porosity will be integrated over
         cell volumes later before entering the equation.
@@ -4428,7 +4428,7 @@ class PoroMechanicsPorosity:
             self.reference_porosity(subdomains)
             + self.porosity_change_from_pressure(subdomains)
             + self.porosity_change_from_displacement(subdomains)
-            + self.biot_stabilization(subdomains, self.pressure_variable)
+            + self.mpsa_consistency(subdomains, self.pressure_variable)
         )
         phi.set_name("Stabilized matrix porosity")
 
@@ -4558,7 +4558,7 @@ class PoroMechanicsPorosity:
         displacement_divergence.set_name("displacement_divergence")
         return displacement_divergence
 
-    def biot_stabilization(
+    def mpsa_consistency(
         self, subdomains: list[pp.Grid], variable_name: str
     ) -> pp.ad.Operator:
         """Consistency term for Biot-type discretizations.
@@ -4570,34 +4570,34 @@ class PoroMechanicsPorosity:
         see Nordbotten 2016 (doi:10.1137/15M1014280) for details.
 
         Parameters:
-            subdomains: List of subdomains where the stabilization is defined.
+            subdomains: List of subdomains where the consistency is defined.
 
         Returns:
-            Biot stabilization operator.
+            Biot consistency operator.
 
         """
         # Sanity check on dimension
         if not all(sd.dim == self.nd for sd in subdomains):
-            raise ValueError("Biot stabilization only defined in nd.")
+            raise ValueError("Mpsa consistency only defined in nd.")
 
         discr = pp.ad.BiotAd(self.stress_keyword, subdomains)
 
-        # The stabilization is based on perturbation. If pressure is used directly,
+        # The consistency is based on perturbation. If pressure is used directly,
         # results will not match if the reference state is not zero, see
         # :func:`test_without_fracture` in test_poromechanics.py.
         dp = self.perturbation_from_reference(variable_name, subdomains)
-        stabilization_integrated = discr.stabilization(variable_name) @ dp
+        consistency_integrated = discr.consistency(variable_name) @ dp
 
         # Divide by cell volumes to counteract integration.
-        # The stabilization discretization contains a volume integral. Since the
-        # stabilization term is used here together with intensive quantities, we need to
+        # The consistency discretization contains a volume integral. Since the
+        # consistency term is used here together with intensive quantities, we need to
         # divide by cell volumes.
         cell_volumes_inverse = Scalar(1) / self.wrap_grid_attribute(
             subdomains, "cell_volumes", dim=1  # type: ignore[call-arg]
         )
-        stabilization = cell_volumes_inverse * stabilization_integrated
-        stabilization.set_name("biot_stabilization")
-        return stabilization
+        consistency = cell_volumes_inverse * consistency_integrated
+        consistency.set_name("mpsa_consistency")
+        return consistency
 
 
 class BiotPoroMechanicsPorosity(PoroMechanicsPorosity):
@@ -4715,7 +4715,7 @@ class ThermoPoroMechanicsPorosity(PoroMechanicsPorosity):
         # porosity_change_from_pressure.
         phi = Scalar(-1) * (
             alpha - phi_ref
-        ) * beta * dtemperature + self.biot_stabilization(
+        ) * beta * dtemperature + self.mpsa_consistency(
             subdomains, self.temperature_variable
         )
         phi.set_name("Porosity change from temperature")
