@@ -4727,8 +4727,6 @@ class ThermoPoroMechanicsPorosity(PoroMechanicsPorosity):
         # porosity_change_from_pressure.
         phi = Scalar(-1) * (
             alpha - phi_ref
-        ) * beta + self._mpsa_consistency(
-            subdomains, self.enthalpy_keyword, self.temperature_variable
-        )
+        ) * beta * dtemperature
         phi.set_name("Porosity change from temperature")
         return phi
