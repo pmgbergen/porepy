@@ -120,7 +120,8 @@ class CompositeVariables(pp.VariableMixin):
     def overall_fraction_variables(self) -> list[str]:
         """Names of feed fraction variables created by the mixture mixin."""
         if not (
-            hasattr(self, "_feed_fraction_variables") and hasattr(self, "fluid_mixture")
+            hasattr(self, "_overall_fraction_variables")
+            and hasattr(self, "fluid_mixture")
         ):
             return list()
         else:
@@ -722,12 +723,10 @@ class FluidMixtureMixin:
     temperature: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]
     """Provided by :class:`~porepy.models.energy_balance.VariablesEnergyBalance`."""
 
-    time_step_depth: int
-    """Provided by
-    :class:`~porepy.models.compositional_balance.SolutionStrategyCompositionalFlow`"""
-    iterate_depth: int
-    """Provided by
-    :class:`~porepy.models.compositional_balance.SolutionStrategyCompositionalFlow`"""
+    time_step_indices: np.ndarray
+    """Provided by :class:`~porepy.models.solution_strategy.SolutionStrategy`"""
+    iterate_indices: np.ndarray
+    """Provided by :class:`~porepy.models.solution_strategy.SolutionStrategy`"""
 
     def create_mixture(self) -> None:
         """Mixed-in method to create a mixture.
@@ -917,13 +916,13 @@ class FluidMixtureMixin:
         """
         x_j = tuple(phase.fraction_of.values())
         return SecondaryExpression(
-            f"phase-volume-{phase.name}",
+            f"phase-density-{phase.name}",
             self.mdg,
             self.pressure,
             self.temperature,
             *x_j,
-            time_step_depth=1,
-            iterate_depth=0,
+            time_step_depth=len(self.time_step_indices),
+            iterate_depth=len(self.iterate_indices),
         )
 
     def phase_volume(
@@ -933,13 +932,13 @@ class FluidMixtureMixin:
         the phase volume."""
         x_j = tuple(phase.fraction_of.values())
         return SecondaryExpression(
-            f"phase-density-{phase.name}",
+            f"phase-volume-{phase.name}",
             self.mdg,
             self.pressure,
             self.temperature,
             *x_j,
-            time_step_depth=self.time_step_depth,
-            iterate_depth=self.iterate_depth,
+            time_step_depth=len(self.time_step_indices),
+            iterate_depth=len(self.iterate_indices),
         )
 
     def phase_enthalpy(
@@ -954,8 +953,8 @@ class FluidMixtureMixin:
             self.pressure,
             self.temperature,
             *x_j,
-            time_step_depth=self.time_step_depth,
-            iterate_depth=self.iterate_depth,
+            time_step_depth=len(self.time_step_indices),
+            iterate_depth=len(self.iterate_indices),
         )
 
     def phase_viscosity(
@@ -977,7 +976,7 @@ class FluidMixtureMixin:
             self.temperature,
             *x_j,
             time_step_depth=0,
-            iterate_depth=self.iterate_depth,
+            iterate_depth=len(self.iterate_indices),
         )
 
     def phase_conductivity(
@@ -999,7 +998,7 @@ class FluidMixtureMixin:
             self.temperature,
             *x_j,
             time_step_depth=0,
-            iterate_depth=self.iterate_depth,
+            iterate_depth=len(self.iterate_indices),
         )
 
     def fugacity_coefficient(
@@ -1009,8 +1008,8 @@ class FluidMixtureMixin:
         representing the fugacity coefficient of ``component`` in ``phase``.
 
         Note:
-            The conductivity has no time step depth, because it does not appear in the
-            accumulation term.
+            The fugacity coefficients have no time step depth, because they are used
+            only locally.
 
         """
         x_j = tuple(phase.fraction_of.values())
@@ -1021,7 +1020,7 @@ class FluidMixtureMixin:
             self.temperature,
             *x_j,
             time_step_depth=0,
-            iterate_depth=self.iterate_depth,
+            iterate_depth=len(self.iterate_indices),
         )
 
 

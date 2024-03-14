@@ -41,7 +41,7 @@ class IntensiveState:
     """Temperature values. As of now, an equal temperatue across all phases is assumed
     at equilibrium. Default is zero."""
 
-    z: Sequence[np.ndarray] = field(default_factory=lambda: [np.zeros(1)])
+    z: Sequence[np.ndarray] = field(default_factory=lambda: np.zeros((1, 1)))
     """Overall molar fractions (feed fractions) per component.
     The first fraction is always the feed fraction of the reference component.
     Default is a sequence of zeros."""
@@ -72,7 +72,11 @@ class ExtensiveState:
     @property
     def rho(self) -> np.ndarray:
         """Specific molar density as the reciprocal of :attr:`v`."""
-        return 1 / self.v
+        rho = np.zeros_like(self.v)
+        # special treatment for zero values to avoid division-by zero errors
+        idx = self.v > 0.0
+        rho[idx] = 1.0 / self.v[idx]
+        return rho
 
 
 @dataclass
@@ -94,7 +98,7 @@ class PhaseState(ExtensiveState):
     phasetype: int = 0
     """Type of the phase. Defaults to 0 (liquid)."""
 
-    x: Sequence[np.ndarray] = field(default_factory=lambda: [np.zeros(1)])
+    x: Sequence[np.ndarray] = field(default_factory=lambda: np.zeros((1, 1)))
     """Extended molar fractions for each component.
 
     Fractions of components in a phase are relative to the moles in a phase.
@@ -105,10 +109,10 @@ class PhaseState(ExtensiveState):
 
     """
 
-    phis: Sequence[np.ndarray] = field(default_factory=lambda: [np.zeros(1)])
+    phis: Sequence[np.ndarray] = field(default_factory=lambda: np.zeros((1, 1)))
     """Fugacity coefficients per component in this phase. Default is a list of zeros."""
 
-    dh: Sequence[np.ndarray] = field(default_factory=lambda: [np.zeros(1)])
+    dh: Sequence[np.ndarray] = field(default_factory=lambda: np.zeros((1, 1)))
     """Derivatives of the specific molar enthalpy with respect to pressure, temperature
     and each ``x`` in :attr:`x`.
 
@@ -118,7 +122,7 @@ class PhaseState(ExtensiveState):
 
     """
 
-    dv: Sequence[np.ndarray] = field(default_factory=lambda: [np.zeros(1)])
+    dv: Sequence[np.ndarray] = field(default_factory=lambda: np.zeros((1, 1)))
     """Derivatives of the specific molar volume with respect to pressure, temperature
     and each ``x`` in :attr:`x`.
 
@@ -129,7 +133,7 @@ class PhaseState(ExtensiveState):
     """
 
     dphis: Sequence[Sequence[np.ndarray]] = field(
-        default_factory=lambda: [np.zeros((1, 1))]
+        default_factory=lambda: np.zeros((1, 1, 1))
     )
     """Derivatives of fugacity coefficients per component in this phase.
 
@@ -141,7 +145,7 @@ class PhaseState(ExtensiveState):
     mu: np.ndarray = field(default_factory=lambda: np.zeros(1))
     """Dynamic molar viscosity. Default is 0."""
 
-    dmu: Sequence = field(default_factory=lambda: [np.zeros(1)])
+    dmu: Sequence = field(default_factory=lambda: np.zeros((1, 1)))
     """Derivatives of the dynamic molar viscosity w.r.t. pressure, temperature and
     each ``x`` in :attr:`x`.
 
@@ -154,7 +158,7 @@ class PhaseState(ExtensiveState):
     kappa: np.ndarray = field(default_factory=lambda: np.zeros(1))
     """Thermal conductivity. Default is 0."""
 
-    dkappa: Sequence = field(default_factory=lambda: [np.zeros(1)])
+    dkappa: Sequence = field(default_factory=lambda: np.zeros((1, 1)))
     """Derivatives of the thermal conductivity w.r.t. pressure, temperature and
     each ``x`` in :attr:`x`.
 
@@ -172,14 +176,18 @@ class PhaseState(ExtensiveState):
         The chainrule is applied to compute ``drho`` from ``d(1/v)``.
 
         """
+        # Treatment to avoid division by zero errors
+        idx = self.v > 0.0
+        outer = np.zeros_like(self.v)
+        outer[idx] = -1 / self.v[idx] ** 2
         outer = -1 / self.v**2
-        return [outer * dv for dv in self.dv]
+        return np.array([outer * dv for dv in self.dv])
 
     @property
     def xn(self) -> Sequence[np.ndarray]:
         """Normalized values of fractions found in :attr:`x`."""
         x_sum = safe_sum(self.x)
-        return [x / x_sum for x in self.x]
+        return np.array([x / x_sum for x in self.x])
 
 
 @dataclass
@@ -208,10 +216,10 @@ class FluidState(IntensiveState, ExtensiveState):
 
     """
 
-    y: Sequence[np.ndarray] = field(default_factory=lambda: [np.zeros(1)])
+    y: Sequence[np.ndarray] = field(default_factory=lambda: np.zeros((1, 1)))
     """Molar phase fractions for each phase in :attr:`phases`."""
 
-    sat: Sequence[np.ndarray] = field(default_factory=lambda: [np.zeros(1)])
+    sat: Sequence[np.ndarray] = field(default_factory=lambda: np.zeros((1, 1)))
     """Saturation for each phase in :attr:`phases`."""
 
     phases: Sequence[PhaseState] = field(default_factory=lambda: [PhaseState()])

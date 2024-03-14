@@ -1360,29 +1360,28 @@ def _prolong_boundary_state(
         ncomp = len(state.phases[j].x)
         for i in range(ncomp):
             val = vec.copy()
-            val[dir] = out.phases[j].x[i]
+            val[dir] = state.phases[j].x[i]
             x_j.append(val)
 
             val = vec.copy()
-            val[dir] = out.phases[j].phis[i]
+            val[dir] = state.phases[j].phis[i]
             phis.append(val)
 
         # phase properties. This is important, since densities and enthalpies
         # appear in the PDEs
         v = vec.copy()
-        v[dir] = out.phases[j].v
+        v[dir] = state.phases[j].v
         h = vec.copy()
-        h[dir] = out.phases[j].h
+        h[dir] = state.phases[j].h
         mu = vec.copy()
-        mu[dir] = out.phases[j].mu
+        mu[dir] = state.phases[j].mu
         kappa = vec.copy()
-        kappa[dir] = out.phases[j].kappa
+        kappa[dir] = state.phases[j].kappa
 
-        # TODO parse derivatives if for some reason required on boundary
         phase_j = ppc.PhaseState(
             h=h,
             v=v,
-            phasetype=out.phases[j].phasetype,
+            phasetype=state.phases[j].phasetype,
             x=np.array(x_j),
             phis=np.array(phis),
             mu=mu,
@@ -1517,6 +1516,8 @@ class BoundaryConditionsCompositionalFlow(
     equilibrium_type: Optional[Literal["p-T", "p-h", "v-h"]]
     """Provided by:class:`SolutionStrategyCompositionalFlow`."""
 
+    _overall_fraction_variable: Callable[[ppc.Component], str]
+    """Provided by :class:`~porepy.composite.composite_mixins.CompositeVariables`."""
     _phase_fraction_variable: Callable[[ppc.Phase], str]
     """Provided by :class:`~porepy.composite.composite_mixins.CompositeVariables`."""
     _saturation_variable: Callable[[ppc.Phase], str]
@@ -1570,7 +1571,8 @@ class BoundaryConditionsCompositionalFlow(
         """
         super().update_all_boundary_conditions()
 
-        # values of fractional mobilities on Neumann boundaries.
+        # values of fractional mobilities on Neumann boundaries, and overall fractions
+        # on Dirichlet boundaries
         for component in self.fluid_mixture.components:
             # Skip if mass balance for reference component is eliminated.
             if (
@@ -1584,6 +1586,14 @@ class BoundaryConditionsCompositionalFlow(
 
             self.update_boundary_condition(
                 name=self.bc_data_fractional_mobility_key(component),
+                function=bc_vals,
+            )
+
+            bc_vals = partial(self.bc_values_overall_fraction, component)
+            bc_vals = cast(Callable[[pp.BoundaryGrid], np.ndarray], bc_vals)
+
+            self.update_boundary_condition(
+                name=self._overall_fraction_variable(component),
                 function=bc_vals,
             )
 
@@ -1620,6 +1630,7 @@ class BoundaryConditionsCompositionalFlow(
                 self.update_boundary_condition(phase.viscosity.name, mu_bc)
 
                 # NOTE no fugacity or conductivity on boundary
+
         # If BC are not time-dependent, and an equilibrium is defined, do nothing here
         # This is the case for the first boundary flash, which is done in the solution
         # strategy.
@@ -1693,12 +1704,14 @@ class BoundaryConditionsCompositionalFlow(
             # indexation on boundary grid
             # equilibrium is computable where pressure is given and positive
             dbc = self.bc_type_darcy_flux(sd).is_dir
-            p = self.pressure([bg]).value(self.equation_system)
+            # reduce vector with all faces to vector with boundary faces
+            bf = self.domain_boundary_sides(sd).all_bf
+            dbc = dbc[bf]
             p = self.bc_values_pressure(bg)
-            idx = np.logical_and(dbc, p > 0)
+            dir_idx = dbc & (p > 0.0)
 
             # Skip if not required anywhere
-            if not np.any(idx):
+            if not np.any(dir_idx):
                 continue
 
             # BC consistency checks ensure that z, T are non-trivial where p is
@@ -1710,9 +1723,9 @@ class BoundaryConditionsCompositionalFlow(
             ]
 
             boundary_state, success, _ = self.flash.flash(
-                z=[z[idx] for z in feed],
-                p=p[idx],
-                T=T[idx],
+                z=[z[dir_idx] for z in feed],
+                p=p[dir_idx],
+                T=T[dir_idx],
                 parameters=self.flash_params,
             )
 
@@ -1720,26 +1733,23 @@ class BoundaryConditionsCompositionalFlow(
                 raise ValueError("Boundary flash did not succeed.")
 
             # Broadcast values into proper size for each boundary grid
-            boundary_state = _prolong_boundary_state(boundary_state, bg.num_cells, idx)
+            boundary_state = _prolong_boundary_state(
+                boundary_state, bg.num_cells, dir_idx
+            )
 
             # storing state for fraction updates
             self.boundary_fluid_state[bg] = boundary_state
 
             # update the boundary values of secondary expressions using their methods
             for j, phase in enumerate(self.fluid_mixture.phases):
-                phase.density.progress_value_in_time_on_grid(
-                    boundary_state.phases[j].rho, bg
+                phase.density.update_boundary_value(boundary_state.phases[j].rho, bg)
+                phase.volume.update_boundary_value(boundary_state.phases[j].v, bg)
+                phase.enthalpy.update_boundary_value(boundary_state.phases[j].h, bg)
+                phase.viscosity.update_boundary_value(boundary_state.phases[j].mu, bg)
+                phase.conductivity.update_boundary_value(
+                    boundary_state.phases[j].kappa, bg
                 )
-                phase.volume.progress_value_in_time_on_grid(
-                    boundary_state.phases[j].v, bg
-                )
-                phase.enthalpy.progress_value_in_time_on_grid(
-                    boundary_state.phases[j].h, bg
-                )
-                phase.viscosity.progress_value_in_time_on_grid(
-                    boundary_state.phases[j].mu, bg
-                )
-                # NOTE no conductivity or fugacity on boundary
+                # NOTE no fugacity on boundary
 
     def check_bc_consistency(self) -> None:
         """Performs checks of the set boundary condition values and types to ensure
@@ -2192,7 +2202,7 @@ class InitialConditionsCompositionalFlow:
 
         The base method covers pressure, temperature and overall fractions.
 
-        It stors values at the time step zero (current time).
+        It stors values at the curent time (iterate index 0).
 
         Override for initializing more variable values
 
@@ -2204,10 +2214,10 @@ class InitialConditionsCompositionalFlow:
             T = self.initial_temperature(sd)
 
             self.equation_system.set_variable_values(
-                p, [self.pressure([sd])], time_step_index=0
+                p, [self.pressure([sd])], iterate_index=0
             )
             self.equation_system.set_variable_values(
-                T, [self.temperature([sd])], time_step_index=0
+                T, [self.temperature([sd])], iterate_index=0
             )
 
             # Setting overall fractions
@@ -2220,7 +2230,7 @@ class InitialConditionsCompositionalFlow:
 
                 z_i = self.initial_overall_fraction(comp, sd)
                 self.equation_system.set_variable_values(
-                    z_i, [comp.fraction([sd])], time_step_index=0
+                    z_i, [comp.fraction([sd])], iterate_index=0
                 )
 
     def initial_flash(self) -> None:
@@ -2237,7 +2247,7 @@ class InitialConditionsCompositionalFlow:
         Ergo, the user does not need to set them explicitely, if equilibrium conditions
         are modelled.
 
-        Values are stored in the time stepth 0 (current time).
+        Values are stored in the iterate index 0 (current time).
 
         """
 
@@ -2261,7 +2271,7 @@ class InitialConditionsCompositionalFlow:
             # setting initial values for enthalpy
             # NOTE that in the initialization, h is dependent compared to p, T, z
             self.equation_system.set_variable_values(
-                state.h, [self.enthalpy([sd])], time_step_index=0
+                state.h, [self.enthalpy([sd])], iterate_index=0
             )
 
             # setting initial values for all fractional variables and phase properties
@@ -2274,50 +2284,50 @@ class InitialConditionsCompositionalFlow:
                     pass  # y and s of ref phase are dependent operators
                 else:
                     self.equation_system.set_variable_values(
-                        state.y[j], [phase.fraction([sd])], time_step_index=0
+                        state.y[j], [phase.fraction([sd])], iterate_index=0
                     )
                     self.equation_system.set_variable_values(
-                        state.sat[j], [phase.saturation([sd])], time_step_index=0
+                        state.sat[j], [phase.saturation([sd])], iterate_index=0
                     )
                 # extended fractions
                 for k, comp in enumerate(phase.components):
                     self.equation_system.set_variable_values(
                         state.phases[j].x[k],
                         [phase.fraction_of[comp]([sd])],
-                        time_step_index=0,
+                        iterate_index=0,
                     )
 
                 # phase properties and their derivatives
-                phase.density.progress_value_in_time_on_grid(state.phases[j].rho, sd)
-                phase.volume.progress_value_in_time_on_grid(state.phases[j].v, sd)
-                phase.enthalpy.progress_value_in_time_on_grid(state.phases[j].h, sd)
-                phase.viscosity.progress_value_in_time_on_grid(state.phases[j].mu, sd)
-                phase.conductivity.progress_value_in_time_on_grid(
+                phase.density.progress_iterate_values_on_grid(state.phases[j].rho, sd)
+                phase.volume.progress_iterate_values_on_grid(state.phases[j].v, sd)
+                phase.enthalpy.progress_iterate_values_on_grid(state.phases[j].h, sd)
+                phase.viscosity.progress_iterate_values_on_grid(state.phases[j].mu, sd)
+                phase.conductivity.progress_iterate_values_on_grid(
                     state.phases[j].kappa, sd
                 )
 
-                phase.density.progress_derivatives_in_time_on_grid(
+                phase.density.progress_iterate_derivatives_on_grid(
                     state.phases[j].drho, sd
                 )
-                phase.volume.progress_derivatives_in_time_on_grid(
+                phase.volume.progress_iterate_derivatives_on_grid(
                     state.phases[j].dv, sd
                 )
-                phase.enthalpy.progress_derivatives_in_time_on_grid(
+                phase.enthalpy.progress_iterate_derivatives_on_grid(
                     state.phases[j].dh, sd
                 )
-                phase.viscosity.progress_derivatives_in_time_on_grid(
+                phase.viscosity.progress_iterate_derivatives_on_grid(
                     state.phases[j].dmu, sd
                 )
-                phase.conductivity.progress_derivatives_in_time_on_grid(
+                phase.conductivity.progress_iterate_derivatives_on_grid(
                     state.phases[j].dkappa, sd
                 )
 
                 # fugacities
                 for k, comp in enumerate(phase.components):
-                    phase.fugacity_of[comp].progress_value_in_time_on_grid(
+                    phase.fugacity_of[comp].progress_iterate_values_on_grid(
                         state.phases[j].phis[k], sd
                     )
-                    phase.fugacity_of[comp].progress_derivatives_in_time_on_grid(
+                    phase.fugacity_of[comp].progress_iterate_derivatives_on_grid(
                         state.phases[j].dphis[k], sd
                     )
 
@@ -2568,7 +2578,9 @@ class SolutionStrategyCompositionalFlow(
         elif self.equilibrium_type is None and self.has_extended_fractions is True:
             warnings.warn(
                 "Unusual model set-up: Extended fractions requested but no"
-                + " equilibrium system requested. Check secondary equations."
+                + " equilibrium system requested. Check model for:\n\n."
+                + "1. Update of thermodynamic properties accounts for the"
+                + "derivative of the normalization w.r.t. ext. fractions."
             )
 
         if (
@@ -2654,6 +2666,9 @@ class SolutionStrategyCompositionalFlow(
 
         # This block is new and the order is critical
         self.create_mixture()
+        # If equilibrium defined, set the flash class
+        if self.equilibrium_type is not None:
+            self.set_up_flasher()
         self.create_variables()
         self.assign_thermodynamic_properties_to_mixture()
 
@@ -2661,17 +2676,18 @@ class SolutionStrategyCompositionalFlow(
         self.check_bc_consistency()
 
         self.initial_condition()
+        self.reset_state_from_file()  # TODO check if this is in conflict with init vals
+        self.set_equations()
 
-        # If equilibrium defined, set the flash clsas and calculate initial equilibria
-        # on subdomains and boundaries
+        # If equilibrium defined, compute the initial and boundary equilibrium
+        # to set values
+        # NOTE This must be done after set_equations, so that the secondary expressions
+        # know on which grid they are defined
         if self.equilibrium_type is not None:
-            self.set_up_flasher()
             self.initial_flash()
             self.boundary_flash()
         self.initialize_timestep_and_iterate_indices()
 
-        self.reset_state_from_file()  # TODO check if this is in conflict with init vals
-        self.set_equations()
         self.set_discretization_parameters()
         self.discretize()
         self._initialize_linear_solver()
@@ -2684,30 +2700,45 @@ class SolutionStrategyCompositionalFlow(
         This is done after the initialization, to populate the data dictionaries.
         It is performed for all variables, and all secondary expressions.
 
-        This property assumes the the initial value is stored at the current time step
-        index (0) for every quantity.
+        This method assumes that the initial values are stored at the the iterate index
+        0 (current time step, most recent iterate).
+
+        It also assumes that all phase properties (secondary expressions) are defined
+        on all subdomains.
 
         Note:
+            Derivative values are not copied to other time indices or iterate indices
+            since they are not accessed by this solution strategy.
 
-            1. Boundary values are copied only on time indices.
-            2. Derivative values are not copied to other time indices or iterate indices
-               since they are not accessed by this solution strategy.
+        Note:
+            This method only progresses time step values for phase properties,
+            which appear in the accumulation term.
+            That includes:
+
+            - phase densities
+            - phase volumes
+            - phase enthalpies
+
+            Viscosities, conductivities and fugacities are not progressed in time.
+
+            It also prograsses only phase properties which need a definition on the
+            boundary. That **excludes** the fugacity coefficients.
 
         Can be customized by the user.
 
         """
 
         # updating variable values from current time step, to all previous and iterate
-        val = self.equation_system.get_variable_values(time_step_index=0)
+        val = self.equation_system.get_variable_values(iterate_index=0)
+        self.equation_system.shift_iterate_values()
         for time_step_index in self.time_step_indices:
             self.equation_system.set_variable_values(
                 val,
                 time_step_index=time_step_index,
             )
-        for iterate_index in self.iterate_indices:
-            self.equation_system.set_variable_values(val, iterate_index=iterate_index)
 
         # copying the current value of secondary expressions to all indices
+        # NOTE Only values, not derivatives
         for phase in self.fluid_mixture.phases:
             # phase properties and their derivatives on each subdomain
             rho_j = phase.density.subdomain_values
@@ -2715,12 +2746,6 @@ class SolutionStrategyCompositionalFlow(
             h_j = phase.enthalpy.subdomain_values
             mu_j = phase.viscosity.subdomain_values
             kappa_j = phase.conductivity.subdomain_values
-
-            # d_rho_j = phase.density.subdomain_derivatives
-            # d_v_j = phase.volume.subdomain_derivatives
-            # d_h_j = phase.enthalpy.subdomain_derivatives
-            # d_mu_j = phase.viscosity.subdomain_derivatives
-            # d_kappa_j = phase.conductivity.subdomain_derivatives
 
             # all properties have iterate values, use framework from sec. expressions
             # to push back values
@@ -2731,47 +2756,31 @@ class SolutionStrategyCompositionalFlow(
                 phase.viscosity.subdomain_values = mu_j
                 phase.conductivity.subdomain_values = kappa_j
 
-                # phase.density.subdomain_derivatives = d_rho_j
-                # phase.volume.subdomain_derivatives = d_v_j
-                # phase.enthalpy.subdomain_derivatives = d_h_j
-                # phase.viscosity.subdomain_derivatives = d_mu_j
-                # phase.conductivity.subdomain_derivatives = d_kappa_j
-
             # all properties have time step values, progress sec. exp. in time
             for _ in self.time_step_indices:
-                phase.density.progress_value_in_time_on_subdomains(rho_j)
-                phase.volume.progress_value_in_time_on_subdomains(v_j)
-                phase.enthalpy.progress_value_in_time_on_subdomains(h_j)
-                phase.viscosity.progress_value_in_time_on_subdomains(mu_j)
-                phase.conductivity.progress_value_in_time_on_subdomains(kappa_j)
-
-                # phase.density.progress_derivatives_in_time_on_subdomains(d_rho_j)
-                # phase.volume.progress_derivatives_in_time_on_subdomains(d_v_j)
-                # phase.enthalpy.progress_derivatives_in_time_on_subdomains(d_h_j)
-                # phase.viscosity.progress_derivatives_in_time_on_subdomains(d_mu_j)
-                # phase.conductivity.progress_derivatives_in_time_on_subdomains(d_kappa_j)
+                phase.density.progress_values_in_time()
+                phase.volume.progress_values_in_time()
+                phase.enthalpy.progress_values_in_time()
+            # NOTE viscosity and conductivity are not progressed in time
 
             # fugacity coeffs
-            # NOTE as of now they have only iterate values, but it is here done for time
-            # as well to cover everything
+            # NOTE their values are not progressed in time.
             for comp in phase.components:
                 phi = phase.fugacity_of[comp].subdomain_values
-                # d_phi = phase.fugacity_of[comp].subdomain_derivatives
+                d_phi = phase.fugacity_of[comp].subdomain_derivatives
 
                 for _ in self.iterate_indices:
                     phase.fugacity_of[comp].subdomain_values = phi
-                    # phase.fugacity_of[comp].subdomain_derivatives = d_phi
-                for _ in self.time_step_indices:
-                    phase.fugacity_of[comp].progress_value_in_time_on_subdomains(phi)
-                    # phase.fugacity_of[comp].progress_derivatives_in_time_on_subdomains(d_phi)
+                    phase.fugacity_of[comp].subdomain_derivatives = d_phi
 
             # properties have also (time-dependent) values on boundaries
+            # NOTE the different usage of progressing in time on boundaries
+            # NOTE fugacities have no boundary values
             bc_rho_j = phase.density.boundary_values
             bc_v_j = phase.volume.boundary_values
             bc_h_j = phase.enthalpy.boundary_values
             bc_mu_j = phase.viscosity.boundary_values
             bc_kappa_j = phase.conductivity.boundary_values
-            # NOTE the different usage of time progress for subdomain and boundary vals
             for _ in self.time_step_indices:
                 phase.density.boundary_values = bc_rho_j
                 phase.volume.boundary_values = bc_v_j
@@ -2857,7 +2866,7 @@ class SolutionStrategyCompositionalFlow(
             self.darcy_flux_discretization(subdomains),
         )
 
-    def perform_flash(self) -> ppc.FluidState:
+    def solve_local_equilibrium_problem(self) -> ppc.FluidState:
         """Method performing flash calculations and updating the iterative values of
         unknowns in the local equilibrium problem on the whole mixed-dimensional grid.
 
@@ -2918,7 +2927,7 @@ class SolutionStrategyCompositionalFlow(
 
         return state
 
-    def update_thermodynamic_properties_iteratively(
+    def update_thermodynamic_properties(
         self, fluid_state: Optional[ppc.FluidState] = None
     ) -> None:
         """Method to update various thermodynamic properties of present phases, on all
@@ -3078,36 +3087,24 @@ class SolutionStrategyCompositionalFlow(
         )
 
     def progress_thermodynamic_properties_in_time(self) -> None:
-        """Updates the values of phase properties on subdomains in time, using the
+        """Updates the values of phase properties on all subdomains in time, using the
         current iterate value, and the framework for secondary expressions.
 
         Note:
             The derivatives are not updated in time, since not required here.
 
+            It also progresses only properties in time, which are expected in the
+            accumulation terms:
+
+            - phase density
+            - phase volume
+            - phase enthalpy
+
         """
-
         for phase in self.fluid_mixture.phases:
-            # progress values in time
-            phase.density.progress_value_in_time_on_subdomains(
-                phase.density.subdomain_values
-            )
-            phase.volume.progress_value_in_time_on_subdomains(
-                phase.volume.subdomain_values
-            )
-            phase.enthalpy.progress_value_in_time_on_subdomains(
-                phase.enthalpy.subdomain_values
-            )
-            phase.viscosity.progress_value_in_time_on_subdomains(
-                phase.viscosity.subdomain_values
-            )
-            phase.conductivity.progress_value_in_time_on_subdomains(
-                phase.conductivity.subdomain_values
-            )
-
-            for comp in phase.components:
-                phase.fugacity_of[comp].progress_value_in_time_on_subdomains(
-                    phase.fugacity_of[comp].subdomain_values
-                )
+            phase.density.progress_values_in_time()
+            phase.volume.progress_values_in_time()
+            phase.enthalpy.progress_values_in_time()
 
     def before_nonlinear_iteration(self) -> None:
         """Overwrites parent methods to perform the p-h flash as a predictor step.
@@ -3122,26 +3119,19 @@ class SolutionStrategyCompositionalFlow(
 
         # Flashing the mixture as a predictor step, if equilibrium defined
         if self.equilibrium_type is not None:
-            fluid_state = self.perform_flash()
+            fluid_state = self.solve_local_equilibrium_problem()
         else:
             fluid_state = None
 
-        self.update_thermodynamic_properties_iteratively(fluid_state)
+        self.update_thermodynamic_properties(fluid_state)
 
         # After updating the fluid properties, update discretizations
         self.update_discretizations()
 
-    def after_nonlinear_iteration(self, solution_vector: np.ndarray) -> None:
-        """Expands the Schur complement using ``solution_vector``, to include secondary
-        variables."""
-
-        global_solution_vector = ...  # TODO
-        super().after_nonlinear_iteration(global_solution_vector)
-
     def after_nonlinear_convergence(
         self, solution: np.ndarray, errors: float, iteration_counter: int
     ) -> None:
-        """Calls :meth:`update_thermodynamic_properties_in_time`."""
+        """Calls :meth:`progress_thermodynamic_properties_in_time` at the end."""
         super().after_nonlinear_convergence(solution, errors, iteration_counter)
         self.progress_thermodynamic_properties_in_time()
 
