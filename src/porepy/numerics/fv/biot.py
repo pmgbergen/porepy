@@ -89,7 +89,7 @@ class Biot(pp.Mpsa):
         # Strings used to identify discretization matrices for various terms constructed
         # by this class. Hardcoded here to enforce a common standard.
         self.displacement_divergence_matrix_key = "displacement_divergence"
-        """Keyword used to identify the discretization matrix of the term 
+        """Keyword used to identify the discretization matrix of the term
         'grad(u) : alpha', where ':' is the double dot product and 'alpha' the coupling
         tensor."""
         self.bound_displacement_divergence_matrix_key = (

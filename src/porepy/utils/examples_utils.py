@@ -61,6 +61,12 @@ class VerificationUtils:
     stress_keyword: str
     """Keyword for accessing the parameters of the mechanical subproblem."""
 
+    darcy_keyword: str
+    """Keyword used to identify the Darcy flux discretization. Normally set by a mixin
+    instance of
+    :class:`~porepy.models.fluid_mass_balance.SolutionStrategySinglePhaseFlow`.
+
+    """
     time_manager: pp.TimeManager
     """Time manager. Normally set by an instance of a subclass of
     :class:`porepy.models.solution_strategy.SolutionStrategy`.

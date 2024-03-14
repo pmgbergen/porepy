@@ -3542,9 +3542,11 @@ class PressureStress(LinearElasticMechanicalStress):
     :class:`porepy.models.geometry.ModelGeometry`.
 
     """
-    pressure_variable: str
-    """Name of the pressure variable. Normally set by a mixin instance of
+    darcy_keyword: str
+    """Keyword used to identify the Darcy flux discretization. Normally set by a mixin
+    instance of
     :class:`~porepy.models.fluid_mass_balance.SolutionStrategySinglePhaseFlow`.
+
     """
 
     def pressure_stress(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
@@ -3719,9 +3721,11 @@ class ThermoPressureStress(PressureStress):
     :class:`~porepy.models.momentum_balance.SolutionStrategyMomentumBalance`.
 
     """
-    temperature_variable: str
-    """Name of the temperature variable. Normally set by a mixin instance of
-    :class:`~porepy.models.energy_balance.SolutionStrategyEnergyBalance`.
+    enthalpy_keyword: str
+    """Keyword used to identify the enthalpy flux discretization. Normally"
+     set by an instance of
+    :class:`~porepy.models.fluid_mass_balance.SolutionStrategyEnergyBalance`.
+
     """
 
     def thermal_stress(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
@@ -4434,7 +4438,9 @@ class PoroMechanicsPorosity:
             self.reference_porosity(subdomains)
             + self.porosity_change_from_pressure(subdomains)
             + self.porosity_change_from_displacement(subdomains)
-            + self._mpsa_consistency(subdomains, self.darcy_keyword, self.pressure_variable)
+            + self._mpsa_consistency(
+                subdomains, self.darcy_keyword, self.pressure_variable
+            )
         )
         phi.set_name("Stabilized matrix porosity")
 
@@ -4725,8 +4731,6 @@ class ThermoPoroMechanicsPorosity(PoroMechanicsPorosity):
         alpha = self.biot_coefficient(subdomains)
         # TODO: Figure out why * is needed here, but not in
         # porosity_change_from_pressure.
-        phi = Scalar(-1) * (
-            alpha - phi_ref
-        ) * beta * dtemperature
+        phi = Scalar(-1) * (alpha - phi_ref) * beta * dtemperature
         phi.set_name("Porosity change from temperature")
         return phi
