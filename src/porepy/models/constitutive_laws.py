@@ -4289,7 +4289,7 @@ class PoroMechanicsPorosity:
         For legacy reasons, the discretization matrices for the
         :math:`\nabla \cdot \mathbf{u}` and consistency terms include a volume
         integral. That factor is counteracted in :meth:`displacement_divergence` and
-        :meth:`mpsa_consistency`, respectively. This ensure that the returned
+        :meth:`_mpsa_consistency`, respectively. This ensure that the returned
         operators correspond to intensive quantities and are compatible with the rest
         of this class. The assumption is that the porosity will be integrated over
         cell volumes later before entering the equation.
@@ -4434,7 +4434,7 @@ class PoroMechanicsPorosity:
             self.reference_porosity(subdomains)
             + self.porosity_change_from_pressure(subdomains)
             + self.porosity_change_from_displacement(subdomains)
-            + self.mpsa_consistency(subdomains, self.pressure_variable)
+            + self._mpsa_consistency(subdomains, self.pressure_variable)
         )
         phi.set_name("Stabilized matrix porosity")
 
@@ -4566,10 +4566,10 @@ class PoroMechanicsPorosity:
         displacement_divergence.set_name("displacement_divergence")
         return displacement_divergence
 
-    def mpsa_consistency(
+    def _mpsa_consistency(
         self, subdomains: list[pp.Grid], variable_name: str
     ) -> pp.ad.Operator:
-        """Consistency term for Biot-type discretizations.
+        """Consistency term for Mpsa discretizations of coupled problems.
 
         This function returns a diffusion-type term that is needed to ensure an
         MPSA-type discretization of poromechanics (or
@@ -4723,7 +4723,7 @@ class ThermoPoroMechanicsPorosity(PoroMechanicsPorosity):
         # porosity_change_from_pressure.
         phi = Scalar(-1) * (
             alpha - phi_ref
-        ) * beta * dtemperature + self.mpsa_consistency(
+        ) * beta * dtemperature + self._mpsa_consistency(
             subdomains, self.temperature_variable
         )
         phi.set_name("Porosity change from temperature")
