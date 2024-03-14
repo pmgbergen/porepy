@@ -41,7 +41,7 @@ def discretization_matrices(flow_keyword, mechanics_keyword):
         discr.bound_displacement_divergence_matrix_key
     ]
     stab = data[pp.DISCRETIZATION_MATRICES][mechanics_keyword][
-        discr.stabilization_matrix_key
+        discr.consistency_matrix_key
     ]
     scalar_gradient = data[pp.DISCRETIZATION_MATRICES][mechanics_keyword][
         discr.scalar_gradient_matrix_key
@@ -116,7 +116,7 @@ def test_partial_discretization_specified_nodes(
         discr.scalar_gradient_matrix_key
     ]
     partial_stab = data[pp.DISCRETIZATION_MATRICES][mechanics_keyword][
-        discr.stabilization_matrix_key
+        discr.consistency_matrix_key
     ]
     partial_bound_pressure = data[pp.DISCRETIZATION_MATRICES][mechanics_keyword][
         discr.bound_pressure_matrix_key
