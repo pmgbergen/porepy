@@ -259,9 +259,7 @@ class Mpfa(pp.FVElliptic):
 
             # Copy permeability tensor, and restrict to local cells
             loc_k: pp.SecondOrderTensor = (
-                pp.fvutils.restrict_second_order_tensor_to_subgrid(
-                    active_k, l2g_cells
-                )
+                pp.fvutils.restrict_second_order_tensor_to_subgrid(active_k, l2g_cells)
             )
 
             # Boundary conditions are slightly more complex. Find local faces that are

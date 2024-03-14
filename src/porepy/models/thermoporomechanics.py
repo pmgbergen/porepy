@@ -186,10 +186,10 @@ class SolutionStrategyThermoporomechanics(
         super().set_discretization_parameters()
 
         for sd, data in self.mdg.subdomains(dim=self.nd, return_data=True):
-            scalar_vector_mappings = data[pp.PARAMETERS][self.stress_keyword].get(
+            scalar_vector_mappings = data[pp.PARAMETERS][self.darcy_keyword].get(
                 "scalar_vector_mappings", {}
             )
-            scalar_vector_mappings[self.temperature_variable] = (
+            scalar_vector_mappings[self.energy_keyword] = (
                 self.solid_thermal_expansion_tensor([sd])
             )
             scalar_vector_mappings[self.pressure_variable] = self.biot_tensor([sd])
