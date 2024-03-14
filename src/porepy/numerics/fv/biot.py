@@ -11,10 +11,6 @@ of the poro-elastic system (relying heavily on its parent class pp.Mpsa). This i
 proper discretization class, in that it has discretize() and assemble_matrix_rhs()
 methods.
 
-The other classes, GradP, DivU and BiotStabilization, are containers for the other
-terms in the poro-elasticity system. These have empty discretize() methods, and should
-not be used directly.
-
 Because of the number of variables and equations, and their somewhat difficult relation,
 the most convenient way to set up a discretization for poro-elasticity is to use
 :class:`~porepy.models.poromechanics.Poromechanics` (designed for fractures and contact
@@ -65,7 +61,7 @@ class Biot(pp.Mpsa):
     mass balance part of the poromechanical system.
 
     ``data[pp.DISCRETIZATION_MATRICES][self.keyword]["mpsa_consistency"]``: Numerical
-    consisntency term (essentially extra pressure diffusion) needed to stabilize the
+    consistency term (essentially extra pressure diffusion) needed to stabilize the
     pressure discretization, see Nordbotten 2016 (doi:10.1137/15M1014280) for a
     derivation.
 
@@ -92,26 +88,24 @@ class Biot(pp.Mpsa):
 
         # Strings used to identify discretization matrices for various terms constructed
         # by this class. Hardcoded here to enforce a common standard.
-        # Since these keys are used also for discretizations of other terms in Biot
-        # (GradP, DivU), the keys should perhaps have been module level constants,
-        # but this would have broken with the system in other discretizaitons.
         self.displacement_divergence_matrix_key = "displacement_divergence"
-        """Keyword used to identify the discretization matrix of the term div(u)."""
+        """Keyword used to identify the discretization matrix of the term 
+        'grad(u) : alpha', where ':' is the double dot product and 'alpha' the coupling
+        tensor."""
         self.bound_displacement_divergence_matrix_key = (
             "boundary_displacement_divergence"
         )
         """Keyword used to identify the discretization matrix of the boundary condition
-        for the term div(u)."""
+        for the term grad(u) : alpha."""
         self.scalar_gradient_matrix_key = "scalar_gradient"
-        """Keyword used to identify the discretization matrix of the term grad(p)."""
+        """Keyword used to identify the discretization matrix of the term 'alpha p',
+        where 'alpha' is the coupling tensor."""
         self.consistency_matrix_key = "mpsa_consistency"
         """Keyword used to identify the discretization matrix for the consistency
         term."""
         self.bound_pressure_matrix_key = "bound_displacement_pressure"
         """Keyword used to identify the discretization matrix for the pressure
         contribution to boundary displacement reconstruction."""
-
-        self.mass_matrix_key = "mass"
 
     def ndof(self, sd: pp.Grid) -> int:
         """Return the number of degrees of freedom associated to the method.
@@ -264,8 +258,20 @@ class Biot(pp.Mpsa):
 
         In addition, the following parameters are optional:
             Related to coupling terms:
-                biot_alpha (double between 0 and 1): Biot's coefficient.
-                    Defaults to 1.
+                scalar_vector_mapping (dictionary): Coupling terms (think generalization
+                    of Biot's coefficient). On the form {key_1: alpha_1, key_2: alpha_2}.
+                    The keys are used to identify the coupling term, and the values are
+                    either floats or SecondOrderTensor objects. If a float is given, the
+                    float is expanded to a SecondOrderTensor with the same value in all
+                    cells. The discretization will produce coupling terms (see class
+                    documentation), stored as a dictionary among the discretization
+                    matrices. The keys in the dictionary are the same as the keys in the
+                    scalar_vector_mapping dictionary, on the form
+
+                    data[pp.DISCRETIZATION_MATRICES][self.keyword]['scalar_gradient']
+                        = {key_1: matrix_1, key_2: matrix_2}
+
+                    etc.
 
             Related to numerics:
                 - inverter (``str``): Which method to use for block inversion. See
@@ -306,7 +312,6 @@ class Biot(pp.Mpsa):
         alphas: dict[str, pp.SecondOrderTensor] = {}
 
         for key, alpha_input in scalar_vector_mappings.items():
-            # TODO: Revisit 'biot_coupling_coefficient
             if isinstance(alpha_input, (float, int)):
                 alphas[key] = pp.SecondOrderTensor(alpha_input * np.ones(sd.num_cells))
             else:
