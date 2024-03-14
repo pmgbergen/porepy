@@ -103,9 +103,12 @@ class NewtonSolver:
             # Re-discretize the nonlinear term
             model.before_nonlinear_iteration()
 
-            res, sol = self.iteration(model)
+            sol = self.iteration(model)
 
             model.after_nonlinear_iteration(sol)
+            # Note: The residual is extracted after the solution has been updated by the
+            # after_nonlinear_iteration() method.
+            res = model.equation_system.assemble(evaluate_jacobian=False)
 
             error_res, error_inc, is_converged, is_diverged = model.check_convergence(
                 sol, prev_sol, init_sol, res, res_init, self.params
@@ -175,7 +178,7 @@ class NewtonSolver:
 
         return errors, is_converged, iteration_counter
 
-    def iteration(self, model) -> tuple[np.ndarray, np.ndarray]:
+    def iteration(self, model) -> np.ndarray:
         """A single nonlinear iteration.
 
         Right now, this is an almost trivial function. However, we keep it as a separate
@@ -185,14 +188,10 @@ class NewtonSolver:
             model: The model instance specifying the problem to be solved.
 
         Returns:
-            The method returns the following tuple:
-
-            np.ndarray: Residual vector of nonlinear system.
             np.ndarray: Solution to linearized system, i.e. the Newton update
                 increment.
 
         """
         model.assemble_linear_system()
         sol = model.solve_linear_system()
-        res = model.equation_system.assemble(evaluate_jacobian=False)
-        return res, sol
+        return sol
