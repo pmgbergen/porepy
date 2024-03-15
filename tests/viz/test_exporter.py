@@ -614,7 +614,7 @@ def test_rescaled_export(setup: ExporterTestSetup):
             "specific_heat_capacity": 7.2,  # [J * kg^-1 * K^-1]
             "specific_storage": 4e-1,  # [Pa^-1]
             "thermal_conductivity": 3.1,  # [W * m^-1 * K^-1]
-            "thermal_expansion": 9.6e-2,  # [K^-1]2
+            "thermal_expansion": 9.6e-2,  # [K^-1]
             "temperature": 2,  # [K]
         }
         nontrivial_fluid = {

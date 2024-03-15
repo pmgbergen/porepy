@@ -228,7 +228,7 @@ class ManuThermoPoroMechDataSaving(VerificationDataSaving):
             relative=True,
         )
 
-        exact_force = self.exact_sol.poroelastic_force(sd=sd, time=t)
+        exact_force = self.exact_sol.thermoporoelastic_force(sd=sd, time=t)
         force_ad = self.stress([sd])
         approx_force = force_ad.value(self.equation_system)
         error_force = ConvergenceAnalysis.l2_error(
@@ -752,7 +752,7 @@ class ManuThermoPoroMechExactSolution2d:
 
         return q_fc
 
-    def poroelastic_force(self, sd: pp.Grid, time: float) -> np.ndarray:
+    def thermoporoelastic_force(self, sd: pp.Grid, time: float) -> np.ndarray:
         """Evaluate exact poroelastic force at the face centers.
 
         Parameters:
@@ -1037,14 +1037,8 @@ class ManuThermoPoroMechSolutionStrategy2d(
 ):
     """Solution strategy for the verification setup."""
 
-    exact_sol: ManuThermoPoroMechExactSolution2d
-    """Exact solution object."""
-
     fluid: pp.FluidConstants
     """Object containing the fluid constants."""
-
-    results: list[ManuThermoPoroMechSaveData]
-    """List of SaveData objects."""
 
     def __init__(self, params: dict):
         """Constructor for the class."""
@@ -1059,7 +1053,7 @@ class ManuThermoPoroMechSolutionStrategy2d(
         self.flux_variable: str = "darcy_flux"
         """Keyword to access the Darcy fluxes."""
 
-        self.stress_variable: str = "poroelastic_force"
+        self.stress_variable: str = "thermoporoelastic_force"
         """Keyword to access the poroelastic force."""
 
     def set_materials(self):
@@ -1125,8 +1119,8 @@ class ManuThermoPoroMechSolutionStrategy2d(
     def set_discretization_parameters(self) -> None:
         """Set parameters for the subproblems and the combined problem.
 
-        In addition to the standard fields (call to super), the permeability, stiffness
-        parameters, and the Biot and thermal stress tensors are set.
+        The parent class' definitions of permeability, stiffness parameters, and the Biot
+        and thermal stress tensors are owerwritten.
         """
         super().set_discretization_parameters()
 
