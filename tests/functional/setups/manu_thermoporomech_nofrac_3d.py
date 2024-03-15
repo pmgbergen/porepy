@@ -56,7 +56,7 @@ class ManuThermoPoroMechExactSolution3d:
 
     The exact solutions for the primary variables pressure, displacement, temperature,
     are defined below, as well as the exact solutions for the secondary variables Darcy
-    flux and poroelastic force.
+    flux, energy flux and thermoporoelastic force.
 
     A heterogeneity is introduced in the permeability and Lamé parameters, so that these
     take different values in the region x > 0.5 and y > 0.5. The primary variables
@@ -630,8 +630,8 @@ class ManuThermoPoroMechExactSolution3d:
 
         return q_fc
 
-    def poroelastic_force(self, sd: pp.Grid, time: float) -> np.ndarray:
-        """Evaluate exact poroelastic force at the face centers.
+    def thermoporoelastic_force(self, sd: pp.Grid, time: float) -> np.ndarray:
+        """Evaluate exact thermoporoelastic force at the face centers.
 
         Parameters:
             sd: Subdomain grid.
@@ -642,7 +642,7 @@ class ManuThermoPoroMechExactSolution3d:
             force at the face centers for the given ``time``.
 
         Notes:
-            - The returned poroelastic force is given in PorePy's flattened vector
+            - The returned thermoporoelastic force is given in PorePy's flattened vector
               format.
             - Recall that force = (stress dot_prod unit_normal) * face_area.
 
@@ -673,7 +673,7 @@ class ManuThermoPoroMechExactSolution3d:
             ],
         ]
 
-        # Face-centered poroelastic force
+        # Face-centered thermoporoelastic force
         force_total_fc: list[np.ndarray] = [
             # (sigma_xx * n_x + sigma_xy * n_y + sigma_xz * n_z) * face_area
             sigma_total_fun[0][0](fc[0], fc[1], fc[2], time) * fn[0]
@@ -875,9 +875,6 @@ class ManuThermoPoroMechSolutionStrategy3d(
 ):
     """Solution strategy for the verification setup."""
 
-    exact_sol: ManuThermoPoroMechExactSolution3d
-    """Exact solution object."""
-
     fluid: pp.FluidConstants
     """Object containing the fluid constants."""
 
@@ -888,8 +885,8 @@ class ManuThermoPoroMechSolutionStrategy3d(
         self.exact_sol: ManuThermoPoroMechExactSolution3d
         """Exact solution object."""
 
-        self.stress_variable: str = "poroelastic_force"
-        """Keyword to access the poroelastic force."""
+        self.stress_variable: str = "thermoporoelastic_force"
+        """Keyword to access the thermoporoelastic force."""
         
         self.results: list[ManuThermoPoroMechSaveData] = []
         """Results object that stores exact and approximated solutions and errors."""        
@@ -957,8 +954,8 @@ class ManuThermoPoroMechSolutionStrategy3d(
     def set_discretization_parameters(self) -> None:
         """Set parameters for the subproblems and the combined problem.
 
-        In addition to the standard fields (call to super), the permeability, stiffness
-        parameters, and the Biot and thermal stress tensors are set.
+        The parent class' definitions of permeability, stiffness parameters, and the Biot
+        and thermal stress tensors are owerwritten.
         """
         super().set_discretization_parameters()
 

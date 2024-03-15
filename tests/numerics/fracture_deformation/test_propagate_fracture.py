@@ -158,11 +158,11 @@ def test_partial_discretization(geometry, discretization):
                         assert sub_mat.shape == mat2.shape
                         diff = sub_mat - mat2
                         if diff.data.size > 0:
-                            assert np.allclose(diff.data, 0, atol=1e-10))
+                            assert np.allclose(diff.data, 0, atol=1e-10)
                 else:
                     mat2 = new_d[pp.DISCRETIZATION_MATRICES][eq_type][key]
                     assert mat.shape == mat2.shape
                     diff = mat - mat2
 
                     if diff.data.size > 0:
-                        assert np.allclose(diff.data, 0, atol=1e-10))
+                        assert np.allclose(diff.data, 0, atol=1e-10)
