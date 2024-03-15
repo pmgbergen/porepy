@@ -269,9 +269,9 @@ class ManuThermoPoroMechDataSaving(VerificationDataSaving):
 class ManuThermoPoroMechExactSolution2d:
     """Class containing the exact manufactured solution for the verification setup.
 
-    The exact solutions for the primary variables pressure, displacement, temperature,
+    The exact solutions for the primary variables pressure, displacement and temperature,
     are defined below, as well as the exact solutions for the secondary variables Darcy
-    flux and poroelastic force.
+    flux and thermoporoelastic force.
 
     A heterogeneity is introduced in the permeability and Lamé parameters, so that these
     take different values in the region x > 0.5 and y > 0.5. The primary variables
@@ -283,7 +283,7 @@ class ManuThermoPoroMechExactSolution2d:
     used to verify convergence of the numerical solution.
 
     The temperature variable was not scaled with the heterogeneity, since this would be
-    difficult to make work with the fluid conductivity (thus effective heterogeneity)
+    difficult to make work with the fluid heat conductivity (thus effective heterogeneity)
     not being heterogeneous.
 
     The problem is defined with tensorial Biot's coefficient and thermal expansion
@@ -995,7 +995,7 @@ class SourceTerms:
         fluid_sources = internal_sources + external_sources
         fluid_sources.set_name("Fluid source")
 
-        return fluid_sources  # - prod
+        return fluid_sources
 
     def body_force(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Body force."""
@@ -1011,7 +1011,7 @@ class SourceTerms:
     def energy_source(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Thermal source."""
 
-        # Internal sources are inherit from parent class
+        # Internal sources are inherited from parent class.
         # Zero internal sources for unfractured domains, but we keep it to maintain
         # good code practice
         internal_sources: pp.ad.Operator = super().energy_source(subdomains)
@@ -1024,7 +1024,7 @@ class SourceTerms:
             previous_timestep=True,
         )
 
-        # Add up contribution of internal and external sources of fluid
+        # Add up contribution of internal and external sources of energy.
         thermal_sources = internal_sources + external_sources
         thermal_sources.set_name("Energy source")
 
