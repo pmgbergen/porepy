@@ -289,6 +289,8 @@ def actual_ooc(material_constants: dict) -> list[list[dict[str, float]]]:
 
 
 # ----> Set desired order of convergence
+# Skip this test since it is a subset of the test for thermoporomechanics.
+@pytest.mark.skipped
 @pytest.fixture(scope="module")
 def desired_ooc() -> list[list[dict[str, float]]]:
     """Set desired order of convergence.
