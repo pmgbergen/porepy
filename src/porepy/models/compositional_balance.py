@@ -476,6 +476,12 @@ class TotalMassBalanceEquation(pp.BalanceEquation):
     interfaces_to_subdomains: Callable[[list[pp.MortarGrid]], list[pp.Grid]]
     """Provided by :class:`~porepy.models.geometry.ModelGeometry`."""
 
+    @staticmethod
+    def primary_equation_name() -> str:
+        """Returns the string which is used to name the pressure equation on all
+        subdomains, which is the primary PDE set by this class."""
+        return "pressure_equation"
+
     def set_equations(self):
         """Set the equations for the mass balance problem.
 
@@ -512,7 +518,7 @@ class TotalMassBalanceEquation(pp.BalanceEquation):
 
         # Feed the terms to the general balance equation method.
         eq = self.balance_equation(subdomains, accumulation, flux, source, dim=1)
-        eq.set_name("pressure_equation")
+        eq.set_name(TotalMassBalanceEquation.primary_equation_name())
         return eq
 
     def fluid_mass(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
@@ -593,6 +599,13 @@ class TotalEnergyBalanceEquation_h(energy.EnergyBalanceEquations):
         Many of the methods here which override parent methods can be omitted with
         a proper generalization of the advective weight in the parent class. TODO
 
+    Note:
+        Since this class utilizes the basic energy balance, it introduces an
+        interface enthalpy flux variable (advective energy flux) and respective
+        equations on the interface.
+
+        This is not necessarily required, and can be eliminated.
+
     """
 
     fluid_mixture: ppc.Mixture
@@ -618,6 +631,19 @@ class TotalEnergyBalanceEquation_h(energy.EnergyBalanceEquations):
     bc_type_darcy_flux: Callable[[pp.Grid], pp.BoundaryCondition]
     """Provided by
     :class:`~porepy.models.fluid_mass_balance.BoundaryConditionsSinglePhaseFlow`."""
+
+    @staticmethod
+    def primary_equation_name():
+        """Returns the name of the total energy balance equation introduced by this
+        class, which is a primary PDE on all subdomains."""
+        return "total_energy_balance"
+
+    def energy_balance_equation(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Overwrites the parent method to give the name assigned by
+        :meth:`primary_equation_name`."""
+        eq = super().energy_balance_equation(subdomains)
+        eq.set_name(TotalEnergyBalanceEquation_h.primary_equation_name())
+        return eq
 
     def fluid_internal_energy(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Overwrites the parent method to use the fluix mixture density and the primary
@@ -785,6 +811,25 @@ class ComponentMassBalanceEquations(mass.MassBalanceEquations):
     """Provided by
     :class:`~porepy.models.fluid_mass_balance.BoundaryConditionsSinglePhaseFlow`."""
 
+    def _mass_balance_equation_name(self, component: ppc.Component) -> str:
+        """Method returning a name to be given to the mass balance equation of a
+        component."""
+        return f"mass_balance_equation_{component.name}"
+
+    def mass_balance_equation_names(self) -> list[str]:
+        """Returns the names of mass balance equations set by this class,
+        which are primary PDEs on all subdomains for each independent fluid component.
+        """
+        names: list[str] = list()
+        for component in self.fluid_mixture.components:
+            if (
+                component == self.fluid_mixture.reference_component
+                and self.eliminate_reference_component
+            ):
+                continue
+            names.append(self._mass_balance_equation_name(component))
+        return names
+
     def set_equations(self):
         """Set the equations for the mass balance problem.
 
@@ -823,7 +868,7 @@ class ComponentMassBalanceEquations(mass.MassBalanceEquations):
 
         # Feed the terms to the general balance equation method.
         eq = self.balance_equation(subdomains, accumulation, flux, source, dim=1)
-        eq.set_name(f"mass_balance_equation_{component.name}")
+        eq.set_name(self._mass_balance_equation_name(component))
         return eq
 
     def fluid_mass_for_component(
@@ -934,7 +979,10 @@ class ComponentMassBalanceEquations(mass.MassBalanceEquations):
             fluid_flux_neumann_bc,
         )
         interface_flux = partial(self.interface_flux_for_component, component)
-        interface_flux = cast(Callable[[list[pp.MortarGrid]], pp.ad.Operator])
+        interface_flux = cast(
+            Callable[[list[pp.MortarGrid]], pp.ad.Operator],
+            interface_flux,
+        )
 
         boundary_operator = self._combine_boundary_operators(  # type: ignore[call-arg]
             subdomains=domains,
@@ -1045,6 +1093,27 @@ class SoluteTransportEquations(ComponentMassBalanceEquations):
 
     """
 
+    def _solute_transport_equation_name(
+        self,
+        solute: ppc.ChemicalSpecies,
+        component: ppc.Compound,
+    ) -> str:
+        """Method returning a name to be given to the transport equation of a
+        solute in a compound."""
+        return f"transport_equation_{solute.name}_{component.name}"
+
+    def solute_transport_equation_names(self) -> list[str]:
+        """Returns the names of transport equations set by this class,
+        which are primary PDEs on all subdomains for each solute in each compound in the
+        fluid mixture."""
+        names: list[str] = list()
+        for component in self.fluid_mixture.components:
+            if not isinstance(component, ppc.Compound):
+                continue
+            for solute in component.solutes:
+                names.append(self._solute_transport_equation_name(solute, component))
+        return names
+
     def set_equations(self):
         """Set the equations for the mass balance problem.
 
@@ -1086,7 +1155,7 @@ class SoluteTransportEquations(ComponentMassBalanceEquations):
 
         # Feed the terms to the general balance equation method.
         eq = self.balance_equation(subdomains, accumulation, flux, source, dim=1)
-        eq.set_name(f"transport_equation_{solute.name}_{component.name}")
+        eq.set_name(self._solute_transport_equation_name(solute, component))
         return eq
 
     def mass_for_solute(
@@ -1133,26 +1202,41 @@ class EquationsCompositionalFlow(
     ppc.EquilibriumEquationsMixin,
 ):
     @property
-    def secondary_equation_names(self) -> list[str]:
-        """Returns a complete list of secondary equations introduced by the
-        compositional framework.
+    def primary_equation_names(self) -> list[str]:
+        """Returns the list of primary equation, consisting of
 
-        These include the equilibrium equations (if any), the density relations and
-        custom secondary expressions (if any).
+        1. pressure equation,
+        2. energy balance equation,
+        3. mass balance equations per fluid component,
+        4. transport equations per solute in compounds in the fluid.
+
+        Note:
+            Interface equations, which are non-local equations since they relate
+            interface variables and respective subdomain variables on some subdomain
+            cells, are not included.
+
+            This might have an effect on the Schur complement in the solution strategy
 
         """
-        return ppc.EquilibriumEquationsMixin.get_equilibrium_equation_names(self) + [
-            name for name in self._secondary_equation_names
-        ]
+
+        return (
+            [
+                TotalMassBalanceEquation.primary_equation_name(),
+                TotalEnergyBalanceEquation_h.primary_equation_name(),
+            ]
+            + self.mass_balance_equation_names()
+            + self.solute_transport_equation_names()
+        )
 
     @property
-    def primary_equation_names(self) -> list[str]:
-        """Returns the list of primary equation names, defined as the complement of
-        secondary equation names within the complete set of equations stored in
-        :attr:`equation_system`."""
-        all_equations = set(_ for _ in self.equation_system.equations.keys())
-        secondary_equations = set(self.secondary_equation_names)
-        return list(all_equations.difference(secondary_equations))
+    def secondary_equation_names(self) -> list[str]:
+        """Returns a list of secondary equations, which is defined as the complement
+        of :meth:`primary_equation_names` and all equations found in the equation
+        system."""
+        all_equations = set(
+            [name for name, equ in self.equation_system.equations.items()]
+        )
+        return list(all_equations.difference(set(self.primary_equation_names)))
 
     def set_equations(self):
         """This method introduces:
@@ -1199,30 +1283,34 @@ class VariablesCompositionalFlow(
     @property
     def primary_variable_names(self) -> list[str]:
         """Returns a list of primary variables, which in the basic set-up consist
-        of pressure, fluid enthalpy and overall fractions."""
-        return [
-            self.pressure_variable,
-            self.enthalpy_variable,
-        ] + self.overall_fraction_variables
+        of
 
-    @property
-    def secondary_variables(self) -> list[str]:
-        """Returns a list of secondary variables, which in the basic set-up consist of
+        1. pressure,
+        2. fluid enthalpy,
+        3. overall fractions,
+        4. solute fractions.
 
-        - temperature
-        - saturations
-        - phase molar fractions
-        - extended fractions
-        - solute fractions
+        Primary variable names are used to define the primary block in the Schur
+        elimination in the solution strategy.
 
         """
         return (
-            [self.temperature_variable]
-            + self.saturation_variables
-            + self.phase_fraction_variables
-            + self.extended_fraction_variables
+            [
+                self.pressure_variable,
+                self.enthalpy_variable,
+            ]
+            + self.overall_fraction_variables
             + self.solute_fraction_variables
         )
+
+    @property
+    def secondary_variables(self) -> list[str]:
+        """Returns a list of secondary variables, which is defined as the complement
+        of :meth:`primary_variable_names` and all variables found in the equation
+        system."""
+        all_vars = set([var.name for var in self.equation_system.get_variables()])
+        primary_vars = set(self.primary_variable_names)
+        return list(all_vars.difference(primary_vars))
 
     def create_variables(self) -> None:
         """Set the variables for the fluid mass and energy balance problem.
@@ -1281,21 +1369,71 @@ class VariablesCompositionalFlow(
         return self.equation_system.md_variable(self.enthalpy_variable, domains)
 
 
+class SolidSkeletonCF(
+    PermeabilityCF,
+    pp.constitutive_laws.SpecificHeatCapacities,
+    pp.constitutive_laws.ConstantPorosity,
+    pp.constitutive_laws.ConstantSolidDensity,
+):
+    """Collection of constitutive laws for the solid skeleton in the compositional
+    flow framework."""
+
+    perturbation_from_reference: Callable[[str, list[pp.Grid]], pp.ad.Operator]
+    """Provided by :class:`~porepy.models.VariableMixin`."""
+
+    temperature_variable: str
+    """Provided by :class:`~porepy.models.energy_balance.SolutionStrategyEnergyBalance`.
+    """
+
+    def solid_internal_energy(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Internal energy of the solid.
+
+        Note:
+            This must override the definition of solid internal energy which is
+            (for some reasons) defined in the basic energy balance equation.
+
+        Parameters:
+            subdomains: List of subdomains.
+
+        Returns:
+            Operator representing the solid energy.
+
+        """
+        c_p = self.solid_specific_heat_capacity(subdomains)
+        energy = (
+            (pp.ad.Scalar(1) - self.porosity(subdomains))
+            * self.solid_density(subdomains)
+            * c_p
+            * self.perturbation_from_reference(self.temperature_variable, subdomains)
+        )
+        energy.set_name("solid_internal_energy")
+        return energy
+
+
 class ConstitutiveLawsCompositionalFlow(
+    ppc.FluidMixtureMixin,
     MobilityCF,
     ThermalConductivityCF,
-    PermeabilityCF,
+    SolidSkeletonCF,
+    # mass_energy.ConstitutiveLawFluidMassAndEnergy,
+    pp.constitutive_laws.DimensionReduction,
+    pp.constitutive_laws.SecondOrderTensorUtils,
     pp.constitutive_laws.ZeroGravityForce,
     pp.constitutive_laws.DarcysLaw,
     pp.constitutive_laws.AdvectiveFlux,
     pp.constitutive_laws.FouriersLaw,
     pp.constitutive_laws.PeacemanWellFlux,
-    pp.constitutive_laws.ConstantPorosity,
-    pp.constitutive_laws.ConstantSolidDensity,
-    pp.constitutive_laws.DimensionReduction,
 ):
-    """Constitutive laws for CF with thermal conductivity and permeability adapted to
-    the compositional setting."""
+    """Constitutive laws for compositional flow, using the fluid mixture class
+    and mobility and conductivity laws adapted to it.
+
+    It also uses a separate class, which collects constitutive laws for the solid
+    skeleton.
+
+    All other constitutive laws are analogous to the underlying mass and energy
+    transport.
+
+    """
 
 
 def _prolong_boundary_state(
@@ -1524,6 +1662,10 @@ class BoundaryConditionsCompositionalFlow(
     """Provided by :class:`~porepy.composite.composite_mixins.CompositeVariables`."""
     _extended_fraction_variable: Callable[[ppc.Component, ppc.Phase], str]
     """Provided by :class:`~porepy.composite.composite_mixins.CompositeVariables`."""
+
+    # TODO bc values for advective weight in enthalpy flux need explanation that
+    # the CF framework uses bc_data_enthalpy_flux_key and bc_values_enthalpy_flux for
+    # the weight
 
     def bc_data_fractional_mobility_key(self, component: ppc.Component) -> str:
         """
@@ -2617,37 +2759,6 @@ class SolutionStrategyCompositionalFlow(
         in the equilibrium problem. As a consequence the equilibrium problem
         can be solved locally using a semi-smooth Newton algorithm."""
 
-    @property
-    def time_step_indices(self) -> np.ndarray:
-        """Indices for storing time step solutions.
-
-        The CF framework stores per default the current solution (0) and the previous
-        solution (1)
-
-        Returns:
-            An array of the indices of which time step solutions will be stored.
-
-        """
-        return np.array([0, 1])
-
-    @property
-    def time_step_depth(self) -> int:
-        """
-        Returns:
-            :meth:`time_step_indices` - 1, the number of additionally stored time step
-            values, besides the current one.
-        """
-        return len(self.time_step_indices) - 1
-
-    @property
-    def iterate_depth(self) -> int:
-        """
-        Returns:
-            :meth:`iterate_indices` - 1, the number of additionally stored iterate
-            values, besides the current one.
-        """
-        return len(self.iterate_indices) - 1
-
     def prepare_simulation(self) -> None:
         """Introduces some additional elements in between steps performed by the parent
         method.
@@ -2666,11 +2777,11 @@ class SolutionStrategyCompositionalFlow(
 
         # This block is new and the order is critical
         self.create_mixture()
+        self.create_variables()
+        self.assign_thermodynamic_properties_to_mixture()
         # If equilibrium defined, set the flash class
         if self.equilibrium_type is not None:
             self.set_up_flasher()
-        self.create_variables()
-        self.assign_thermodynamic_properties_to_mixture()
 
         # initial_condition calls a BC update, and we must check its consistency first
         self.check_bc_consistency()
@@ -3161,11 +3272,10 @@ class SolutionStrategyCompositionalFlow(
 
 
 class CompositionalFlow(  # type: ignore[misc]
-    ppc.FluidMixtureMixin,
+    ConstitutiveLawsCompositionalFlow,  # overwrite what is used in inherited equations
     ppc.FlashMixin,
     EquationsCompositionalFlow,
     VariablesCompositionalFlow,
-    ConstitutiveLawsCompositionalFlow,
     BoundaryConditionsCompositionalFlow,
     InitialConditionsCompositionalFlow,
     SolutionStrategyCompositionalFlow,
