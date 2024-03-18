@@ -210,8 +210,8 @@ class SecondaryOperator(pp.ad.Operator):
     Parameters:
         name: Name of the called :class:`SecondaryExpression`.
         domains: Arguments to its call.
-        time_step_depth: Assigned by the called expression
-        iterate_depth: Assigned by the called expression
+        children: The first-order dependencies of the called
+            :class:`SecondaryExpression` in AD form (defined on the same ``domains``).
         time_step_index: Assigned as -1 by the expression, increased by
             :meth:`previous_timestep`.
 
@@ -220,8 +220,6 @@ class SecondaryOperator(pp.ad.Operator):
 
         iterate_index: Assigned as 0 by the expression, increased by
             :meth:`previous_iteration`.
-        *children: The first-order dependencies of the called
-            :class:`SecondaryExpression` in AD form (defined on the same ``domains``).
 
     """
 
@@ -229,30 +227,14 @@ class SecondaryOperator(pp.ad.Operator):
         self,
         name: str,
         domains: Sequence[pp.Grid] | Sequence[pp.MortarGrid],
-        time_step_depth: int,
-        iterate_depth: int,
+        children: Sequence[pp.ad.Variable],
         time_step_index: int,
         iterate_index: int,
-        *children: pp.ad.MixedDimensionalVariable,
     ) -> None:
-        assert (
-            -1 <= time_step_index < time_step_depth
-        ), f"Assigned time step index must be in interval [-1, {time_step_depth - 1})."
-        assert (
-            0 <= iterate_index < iterate_depth
-        ), f"Assigned iterate index must be in interval [0, {iterate_depth - 1}]."
+        assert -1 <= time_step_index, "Assigned time step index must be >= -1."
+        assert 0 <= iterate_index, "Assigned iterate index must be >= 0."
 
         super().__init__(name, domains, pp.ad.Operator.Operations.evaluate, children)
-
-        self._time_depth: int = time_step_depth
-        """Depth of stored values in time, with 0 denoting the first previous time,
-        and higher numbers going backwards in time.
-
-        Operators which present the next time step, or some iterate, should have -1.
-        """
-        self._iterate_depth: int = iterate_depth
-        """Depth of stored iterate values, with 0 denoting the current iteration,
-        positive numbers denoting previous iterations."""
 
         self._time_index: int = time_step_index
         """Time index assigned to this instance. Capped by :attr:`_time_depth`.
@@ -269,12 +251,16 @@ class SecondaryOperator(pp.ad.Operator):
 
         """
 
-        self.func: Callable[
-            [Tuple[pp.ad.AdArray | np.ndarray, ...]], pp.ad.AdArray | np.ndarray
+        self.fetch_data: Callable[
+            [SecondaryOperator, pp.GridLike], Sequence[np.ndarray | None]
         ]
-        """The function accessing the data stored for this secondary expression.
+        """A function returning the stored data for a secondary operator on a grid,
+        which is time step and iterate index dependent.
 
-        Assigned by :class:`SecondaryExpression` upon creation of this operator."""
+        This function is assigned by the factory class :class:`SecondaryExpression`
+        which has a reference to the md-grid and must not be touched by the user.
+
+        """
 
         self.ad_compatible: bool = True
         """To trigger the same parsing as for the regular AD function."""
@@ -348,24 +334,18 @@ class SecondaryOperator(pp.ad.Operator):
                 "Cannot create a variable both on the previous time step and "
                 "previous iteration."
             )
-        if self._time_index == self._time_depth - 1:
-            raise ValueError(
-                f"Cannot go further back than {self._time_depth} steps in time."
-            )
 
-        # there is such a traversion implemented in the base class, calling the
-        # variables at the previous time step.
-        prev_time_children = tuple(pp.ad.Operator.previous_timestep(self).children)
+        # This works because children are always first order (variables)
+        prev_time_children = [child.previous_timestep() for child in self.children]
 
         op = SecondaryOperator(
             self.name,
             self.domains,
-            time_step_depth=self._time_depth,
-            iterate_depth=self._iterate_depth,
-            time_step_index=self.time_step_index + 1,  # increase time step index
-            iterate_index=self.iterate_index,
-            *prev_time_children,
+            prev_time_children,
+            self.time_step_index + 1,  # increase time step index
+            self.iterate_index,
         )
+        op.fetch_data = self.fetch_data
 
         # keeping track to the very first one
         if self.is_original_operator:
@@ -392,54 +372,17 @@ class SecondaryOperator(pp.ad.Operator):
                 "Cannot create a variable both on the previous time step and "
                 "previous iteration."
             )
-        if self.iterate_index == self._iterate_depth - 1:
-            raise ValueError(
-                f"Cannot go further back than {self._iterate_depth} iterations."
-            )
 
-        def _traverse_tree(op: pp.ad.Operator) -> pp.ad.Operator:
-            """Helper function which traverses an operator tree by recursion and
-            gets the children on previous iterations.
-
-            Analogous to what is found in the base operator class. Room for code
-            recycling. TODO."""
-
-            children = op.children
-
-            if len(children) == 0:
-                if isinstance(op, (pp.ad.Variable, pp.ad.MixedDimensionalVariable)):
-                    return op.previous_iteration()
-                else:
-                    return op
-            else:
-                new_children: list[pp.ad.Operator] = list()
-                for ci, child in enumerate(children):
-                    # Recursive call to fix the subtree.
-                    new_children.append(_traverse_tree(child))
-
-                # Use the same lists of domains as in the old operator.
-                domains = op.domains
-
-                # Create new operator from the tree.
-                new_op = pp.ad.Operator(
-                    name=op.name,
-                    domains=domains,
-                    operation=op.operation,
-                    children=new_children,
-                )
-                return new_op
-
-        prev_iter_children = tuple(_traverse_tree(self).children)
+        prev_iter_children = [child.previous_iteration() for child in self.children]
 
         op = SecondaryOperator(
             self.name,
             self.domains,
-            time_step_depth=self._time_depth,
-            iterate_depth=self._iterate_depth,
-            time_step_index=self.time_step_index,
-            iterate_index=self.iterate_index + 1,  # increase iterate index
-            *prev_iter_children,
+            prev_iter_children,
+            self.time_step_index,
+            self.iterate_index + 1,  # increase iterate index
         )
+        op.fetch_data = self.fetch_data
 
         # keeping track to the very first one
         if self.is_original_operator:
@@ -448,6 +391,121 @@ class SecondaryOperator(pp.ad.Operator):
             op.original_operator = self.original_operator
 
         return op
+
+    def func(self, *args: pp.ad.AdArray | np.ndarray) -> pp.ad.AdArray | np.ndarray:
+        """Function which returns the data stored for this secondary operator at its
+        time step or iterate index.
+
+        Uses :attr:`fetch_data` assigned by its factory class
+        :class:`SecondaryExpression`.
+
+        If ``*args`` is composed of Ad arrays, this function returns also an Ad array,
+        which contains the stored derivative values per dependency.
+
+        If on the other hand ``*args`` is composed of numpy arrays (like in the case
+        of an evaluation on the previous time step or iterate), this function
+        will return only values as a numpy array.
+
+        Note:
+            This function contains several validation steps to ensure the correct usage.
+
+            It expects arguments equal to the amount of dependencies.
+            It expects values and derivatives of proper shape stored under respective
+            time or iterate index.
+
+            It performes all those validations at every evaluation, and raises
+            errors respectively.
+
+        """
+
+        nd = len(self.children)  # number of expected dependencies
+        nc = sum([g.num_cells for g in self.domains])  # number of expected values
+        with_derivatives: bool  # flag indicating if stored derivatives are requested
+
+        assert len(args) == nd, f"Evaluation of {self.name} expects {nd} args."
+
+        if all(isinstance(a, pp.ad.AdArray) for a in args):
+            with_derivatives = True
+        else:
+            assert all(
+                isinstance(a, (np.ndarray, pp.number)) for a in args
+            ), "Functions of sec. operators expect either Ad or numpy arrays as args."
+            with_derivatives = False
+
+        vals: list[np.ndarray] = []
+        diffs: list[np.ndarray] = []
+        for g in self.domains:
+            # The function expects objects, one for values, one for derivatives
+            vd = self.fetch_data(self, g)
+            vals.append(vd[0])
+            diffs.append(vd[1])
+
+        # values per domain per cell
+        value = np.hstack(vals)
+
+        # check if values are stored for this operator at its indices
+        if None in vals:
+            idx = [i for i, v in enumerate(vals) if v is None]
+            raise ValueError(
+                f"No values stored for secondary expression {self.name} at time or"
+                + f" iterate index {(self.time_step_index, self.iterate_index)} on"
+                + f" grids {self.domains[idx]}."
+            )
+        value = np.hstack(vals)
+
+        # if no derivatives requested, return value
+        if not with_derivatives:
+            return value
+
+        # if proceeding with derivatives, check if derivatives are stored
+        if None in diffs:
+            idx = [i for i, d in enumerate(diffs) if d is None]
+            raise ValueError(
+                f"No derivative values stored for secondary expression {self.name} at"
+                + f" time or iterate index {(self.time_step_index, self.iterate_index)}"
+                + f" on grids {self.domains[idx]}."
+            )
+        # derivatives, row-wise dependencies, column-wise per domain per cell
+        derivatives = np.hstack(diffs)
+
+        # sanity checks
+        assert value.shape == (nc,), (
+            f"Secondary expression {self.name} requires {nc} values stored in"
+            + f" domains {self.domains}"
+        )
+        assert derivatives.shape == (nd, nc), (
+            f"Secondary expression {self.name} requires {nc} derivative values"
+            + f" per dependency stored in domains {self.domains}."
+        )
+
+        # The Jacobian is assembled additively, starting with the first
+        # dependency. We assume the same shape for all args and use the Jacobian
+        # to check if enough values where stored for the expression
+        idx = cast(tuple[np.ndarray, np.ndarray], args[0].jac.nonzero())
+        shape = args[0].jac.shape()
+
+        # number of provided values must be consistent with the DOFs of the
+        # dependencies (and the size of their identity blocks)
+        assert (
+            idx[0].shape == value.shape
+        ), "Mismatch in shape of derivatives for arg 1."
+        assert (
+            idx[0].shape == derivatives[0].shape
+        ), "Mismatch in shape of provided derivatives for arg 1."
+        jac = sps.coo_matrix((derivatives[0], idx), shape=shape)
+
+        # Do the same with the other dependencies and add respective blocks
+        for i in range(1, len(args)):
+            idx = cast(tuple[np.ndarray, np.ndarray], args[i].jac.nonzero())
+            assert (
+                idx[0].shape == value.shape
+            ), f"Mismatch in shape of derivatives for arg {i + 1}"
+            assert (
+                idx[0].shape == derivatives[i].shape
+            ), f"Mismatch in shape of provided derivatives for arg {i + 1}."
+            jac += sps.coo_matrix((derivatives[i], idx), shape=shape)
+
+        return pp.ad.AdArray(value, jac.tocsr())
 
 
 class SecondaryExpression:
@@ -487,6 +545,13 @@ class SecondaryExpression:
     **On interfaces:**
 
     Analogous to the case on subdomains.
+
+    **Call with empty domain list:**
+
+    This functionality is implemented for completeness reasons, such that the secondary
+    expression can also be called on an empty list of domains (if f.e. the md-grid has
+    no wells), following PorePy's convention. In this case the property returns
+    an empty array wrapped as an Ad array.
 
     Note:
 
@@ -547,16 +612,6 @@ class SecondaryExpression:
 
             Depth of storage of iterate values. By default only 1 iterate value is
             stored. The iterate values represent the current time step.
-        prev_time_has_diffs: ``default=False``
-
-            If True, operators representing this expression with
-            :meth:`SecondaryOperator.prev_time` ``== True`` return an Ad array when
-            evaluated. Else only the values at previous time are returned.
-        prev_iter_has_diffs: ``default=False``
-
-            If True, operators representing this expression with
-            :meth:`SecondaryOperator.prev_iter` ``== True`` return an Ad array when
-            evaluated. Else only the values at previous iterate are returned.
 
     Raises:
         ValueError: If ``time_step_depth`` is smaller than 0.
@@ -573,8 +628,6 @@ class SecondaryExpression:
         *dependencies: Callable[[pp.GridLikeSequence], pp.ad.Operator],
         time_step_depth: int = 0,
         iterate_depth: int = 1,
-        prev_time_has_diffs: bool = False,
-        prev_iter_has_diffs: bool = False,
     ) -> None:
         if len(dependencies) == 0:
             raise ValueError("Secondary expressions must have dependencies.")
@@ -583,14 +636,6 @@ class SecondaryExpression:
             raise ValueError("Time step depth must be at least 0.")
         if iterate_depth < 1:
             raise ValueError("Iterate depth must be at least 1.")
-
-        self._prev_t_has_d: bool = bool(prev_time_has_diffs)
-        """Indicator if representations at previous time steps have derivatives w.r.t.
-        their dependencies."""
-
-        self._prev_i_has_d: bool = bool(prev_iter_has_diffs)
-        """Indicator if representations at previous iterates have derivatives w.r.t.
-        their dependencies."""
 
         self._dependencies: Tuple[
             Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator], ...
@@ -622,12 +667,9 @@ class SecondaryExpression:
         """Call this operator on a subset of grid in the md-grid to get a property
         restricted to the passed domains.
 
-        The resulting operator is a function-evaluations fetching the values and
-        derivatives from the "mother object" and simply restricting them onto the target
-        subdomains.
-
-        If ``subdomains`` contains all subdomains in the md-grid passed at
-        instantiation, this method returns this instance itself.
+        1. If called on an empty list, a wrapped, empty array is returned.
+        2. If called on boundary grids, a time-dependent dense array is returned.
+        3. If called on subdomains on interfaces, a seoncdary operator is returned.
 
         Parameters:
             domains: A subset of either grids, mortar grids or boundary grids in the
@@ -639,6 +681,11 @@ class SecondaryExpression:
                 grids.
 
         """
+
+        # This is for completeness reasons
+        if len(domains) == 0:
+            return pp.wrap_as_dense_ad_array(np.zeros((0,)), name=self.name)
+
         # prepare data storage when called on domains
         self._set_up_dictionaries(domains)
 
@@ -666,20 +713,70 @@ class SecondaryExpression:
             op = SecondaryOperator(
                 self.name,
                 domains,
-                time_step_depth=self._time_depth,
-                iterate_depth=self._iterate_depth,
-                time_step_index=-1,
-                iterate_index=0,
-                *tuple(children),
+                children,
+                -1,
+                0,
             )
 
             # assign the function which extracts the data
-            op.func = self._assign_function(op)
+            op.fetch_data = self.fetch_data
 
         else:
             raise ValueError(f"Unknown grid type {type(domains[0])}")
 
         return op
+
+    def fetch_data(
+        self, op: SecondaryOperator, g: pp.Grid | pp.MortarGrid
+    ) -> Sequence[np.ndarray | None]:
+        """Function fetching the data stored for this secondary expression, represented
+        in Ad form by ``op``.
+
+        ``op`` has a time step or iterate index, which specifies which data should be
+        fetched.
+
+        This function is assigned to :attr:`SecondaryOperator.fetch_data`
+        (a work-around such that the Ad operator has no reference to the md-grid like
+        the other operators).
+
+        Parameters:
+            op: This expression in operator form, created by calling it on subdomains or
+                interfaces.
+            g: A grid or mortar grid, on which ``op`` is defined.
+
+        Raises:
+            KeyError: If no data is stored for ``op``'s time step or iterate index.
+
+        Returns:
+            The data stored in the grid dictionary for this expression.
+            It is a Sequence of length 2, representing value and derivative value pairs.
+
+            It may contain a None, if only one of the two was set previously.
+
+        """
+        if isinstance(g, pp.MortarGrid):
+            d = self.mdg.interface_data(g)
+        elif isinstance(g, pp.Grid):
+            d = self.mdg.subdomain_data(g)
+        else:  # should not happen
+            raise NotImplementedError("Unclear storage access")
+        # if op is at previous time, get those values
+        if op.prev_time:
+            if op.time_step_index not in d[pp.TIME_STEP_SOLUTIONS][self.name]:
+                raise KeyError(
+                    f"No values stored for secondary expression {self.name} at"
+                    + f" time step index {op.time_step_index} on grid {g}"
+                )
+            return d[pp.TIME_STEP_SOLUTIONS][self.name][op.time_step_index]
+        # otherwise get the iterate values
+        # iterate_index is always assigned (0 if not prev_iter)
+        else:
+            if op.iterate_index not in d[pp.ITERATE_SOLUTIONS][self.name]:
+                raise KeyError(
+                    f"No values stored for secondary expression {self.name} at"
+                    + f" iterate index {op.time_step_index} on grid {g}"
+                )
+            return d[pp.ITERATE_SOLUTIONS][self.name][op.iterate_index]
 
     def _set_up_dictionaries(self, domains: pp.GridLikeSequence) -> None:
         """Helper method to populate the data dictionaries in the md-grid and prepare
@@ -692,20 +789,26 @@ class SecondaryExpression:
 
         """
         assert len(domains) > 0, "Cannot call expression without defining domain."
-        assert all(
-            [isinstance(d, type(domains[0])) for d in domains]
-        ), "Cannot call expresion with mixed domain types."
 
         # access to data dicts depending on grid type
+        # check that no mixed types
         data_getter: Callable[[pp.GridLike], dict]
+        check_type: pp.GridLike
         if isinstance(domains[0], pp.Grid):
+            check_type = pp.Grid
             data_getter = self.mdg.subdomain_data
         elif isinstance(domains[0], pp.MortarGrid):
+            check_type = pp.MortarGrid
             data_getter = self.mdg.interface_data
         elif isinstance(domains[0], pp.BoundaryGrid):
+            check_type = pp.BoundaryGrid
             data_getter = self.mdg.boundary_grid_data
         else:
             raise TypeError(f"Unknown grid type {type(domains[0])}.")
+
+        assert all(
+            [isinstance(d, check_type) for d in domains]
+        ), "Cannot call secondary expresion with mixed domain types."
 
         for grid in domains:
             data = data_getter(grid)
@@ -723,130 +826,6 @@ class SecondaryExpression:
                     data[pp.TIME_STEP_SOLUTIONS] = {}
                 if self.name not in data[pp.TIME_STEP_SOLUTIONS]:
                     data[pp.TIME_STEP_SOLUTIONS][self.name] = {}
-
-    def _get_op_data(
-        self, op: SecondaryOperator, g: pp.Grid | pp.MortarGrid
-    ) -> list[np.ndarray | None]:
-        """Helper function to extract the data stored for this expression on a grid.
-
-        Which time step index or iterate index is accessed is defined by the
-        secondary operator ``op``.
-
-        """
-        if isinstance(g, pp.MortarGrid):
-            d = self.mdg.interface_data(g)
-        elif isinstance(g, pp.Grid):
-            d = self.mdg.subdomain_data(g)
-        else:  # should not happen
-            raise NotImplementedError("Unclear storage access")
-        # if op is at previous time, get those values
-        if op.prev_time:
-            return d[pp.TIME_STEP_SOLUTIONS][self.name][op.time_step_index]
-        # otherwise get the iterate values
-        # iterate_index is always assigned (0 if not prev_iter)
-        else:
-            return d[pp.ITERATE_SOLUTIONS][self.name][op.iterate_index]
-
-    def _assign_function(
-        self, op: SecondaryOperator
-    ) -> Callable[[Tuple[pp.ad.AdArray, ...]], pp.ad.AdArray | np.ndarray]:
-        """Creates the function which provides an evaluation of the secondary operator
-        ``op`` created by a call to this instance with ``op.domains``.
-
-        The function takes the evaluated Ad arrays of the first-order dependencies
-        and returns the values stored and managed by this instance.
-
-        Parameters:
-            op: Secondary operator created on the ``domains``.
-
-        Returns:
-            The callable to be assigned to :attr:`SecondaryOperator.func`
-
-        """
-
-        # This many values are expected to be stored for a secondary expression
-        nc = sum([g.num_cells for g in op.domains])
-
-        def func(*args: pp.ad.AdArray | np.ndarray) -> pp.ad.AdArray | np.ndarray:
-            assert (
-                len(args) == self.num_dependencies
-            ), f"Evaluation of {self.name} expects {self.num_dependencies} args."
-
-            vals: list[np.ndarray] = []
-            diffs: list[np.ndarray] = []
-            for g in op.domains:
-                # The function expects 2 arrays, one for values, one for derivatives
-                vd = self._get_op_data(op, g)
-
-                if None in vd:
-                    raise ValueError(
-                        "No values/derivatives stored for secondary expression"
-                        + f" {self.name} at time or iterate index"
-                        + f" {(op.time_step_index, op.iterate_index)} on grid {g}."
-                    )
-                else:
-                    assert isinstance(vd[0], np.ndarray) and isinstance(
-                        vd[1], np.ndarray
-                    ), (
-                        "Expecting [array, array] stored for secondary expression"
-                        + f" {self.name}, not {[type(vd[0]), type(vd[1])]}."
-                    )
-
-                vals.append(vd[0])
-                diffs.append(vd[1])
-
-            # values per domain per cell
-            value = np.hstack(vals)
-
-            # if no derivatives requested for prev time or iter, return value
-            if op.prev_time and not self._prev_t_has_d:
-                return value
-            if op.prev_iter and not self._prev_i_has_d:
-                return value
-
-            # derivatives, row-wise dependencies, column-wise per domain per cell
-            derivatives = np.hstack(diffs)
-
-            # sanity checks
-            assert value.shape == (nc,), (
-                f"Secondary expression {self.name} requires {nc} values stored in"
-                + f" domains {op.domains}"
-            )
-            assert derivatives.shape == (self.num_dependencies, nc), (
-                f"Secondary expression {self.name} requires {nc} derivative values"
-                + f" per dependency stored in domains {op.domains}."
-            )
-
-            # The Jacobian is assembled additively, starting with the first
-            # dependency. We assume the same shape for all args and use the Jacobian
-            # to check if enough values where stored for the expression
-            idx = cast(tuple[np.ndarray, np.ndarray], args[0].jac.nonzero())
-            shape = args[0].jac.shape()
-
-            # number of provided values must be consistent with the DOFs of the
-            # dependencies (and the size of their identity blocks)
-            assert (
-                idx[0].shape == value.shape
-            ), "Mismatch in shape of derivatives for arg 1."
-            assert (
-                idx[0].shape == derivatives[0].shape
-            ), "Mismatch in shape of provided derivatives for arg 1."
-            jac = sps.coo_matrix((derivatives[0], idx), shape=shape)
-
-            # Do the same with the other dependencies and add respective blocks
-            for i in range(1, len(args)):
-                idx = cast(tuple[np.ndarray, np.ndarray], args[i].jac.nonzero())
-                assert (
-                    idx[0].shape == value.shape
-                ), f"Mismatch in shape of derivatives for arg {i + 1}"
-                assert (
-                    idx[0].shape == derivatives[i].shape
-                ), f"Mismatch in shape of provided derivatives for arg {i + 1}."
-                jac += sps.coo_matrix((derivatives[i], idx), shape=shape)
-
-            return pp.ad.AdArray(value, jac.tocsr())
-
-        return func
 
     def _data_of(self, grid: pp.GridLike) -> dict:
         """Convenience function to get the data dictionary of any grid."""
@@ -867,7 +846,7 @@ class SecondaryExpression:
         This determines the number of required :meth:`derivatives`."""
         return len(self._dependencies)
 
-    # Convenience properties to access and progress iterative values on grids and mortar
+    # Convenience properties to access and progress iterative values on grids
 
     @property
     def boundary_values(self) -> np.ndarray:
