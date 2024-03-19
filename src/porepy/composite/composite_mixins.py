@@ -57,9 +57,12 @@ def evaluate_homogenous_constraint(
 
     """
     if weights:
-        return phi - safe_sum(phi_i)
-    else:
+        assert len(weights) == len(
+            phi_i
+        ), "Need equal amount of weights and partial quantities"
         return phi - safe_sum([phi_ * w for phi_, w in zip(phi_i, weights)])
+    else:
+        return phi - safe_sum(phi_i)
 
 
 class CompositeVariables(pp.VariableMixin):
@@ -112,7 +115,7 @@ class CompositeVariables(pp.VariableMixin):
     _phase_fraction_variables: list[str]
     """Created during :meth:`create_variables`. Contains the names of both
     phase molar fractions and fractions of components in phases."""
-    _extended_fraction_variables: list[str]
+    _compositional_fraction_variables: list[str]
     """Created during meth:`create_variables`. Is empty if
     :attr:`has_extended_fractions` is False"""
 
@@ -169,16 +172,11 @@ class CompositeVariables(pp.VariableMixin):
                 return [name for name in self._saturation_variables]
 
     @property
-    def extended_fraction_variables(self) -> list[str]:
-        """Names of phase fraction variables created by the mixture mixin."""
-        if not (
-            hasattr(self, "_compositional_fraction_variables")
-            and hasattr(self, "fluid_mixture")
-            and self.has_extended_fractions
-        ):
-            return list()
-        else:
-            return [name for name in self._extended_fraction_variables]
+    def compositional_fraction_variables(self) -> list[str]:
+        """Names of fraction variables denoting the fraction of a component in a phase
+        This denotes either partial or extended fraction, one of them is always
+        independent."""
+        return [name for name in self._compositional_fraction_variables]
 
     def fractional_state_from_vector(
         self,
@@ -301,7 +299,7 @@ class CompositeVariables(pp.VariableMixin):
         self._solute_fraction_variables = list()
         self._phase_fraction_variables = list()
         self._saturation_variables = list()
-        self._extended_fraction_variables = list()
+        self._compositional_fraction_variables = list()
 
         # The creation of variables seems repetative (it is), but it is done this way
         # to preserve a certain order (component-wise, phase-wise and familiy-wise for
@@ -365,29 +363,28 @@ class CompositeVariables(pp.VariableMixin):
         if not self.eliminate_reference_phase and nphase > 1:
             self._phase_fraction_variables.append(self._phase_fraction_variable(rphase))
 
-        # Creation of extended fractions of components in phases
+        # Creation of extended fractions of components in phases and partial fractions
+        # as dependent operators (by normalization)
         if self.has_extended_fractions:
             for phase in self.fluid_mixture.phases:
                 phase.fraction_of = dict()
-                phase.partial_fraction_of = dict()
 
                 # creating extended fractions
                 for comp in phase.components:
-                    name = self._extended_fraction_variable(comp, phase)
+                    name = self._compositional_fraction_variable(comp, phase)
                     self._create_fractional_variable(name, subdomains)
-                    self._extended_fraction_variables.append(name)
+                    self._compositional_fraction_variables.append(name)
                     phase.fraction_of.update(
                         {comp: self.extended_fraction(comp, phase)}
                     )
 
-        # Creation of partial fracions (physical) which appear anyways in flow and transport
-        for phase in self.fluid_mixture.phases:
-            phase.partial_fraction_of = dict()
-            # creating normalized fractions (dependent operators)
-            for comp in phase.components:
-                phase.partial_fraction_of.update(
-                    {comp: self.partial_fraction(comp, phase)}
-                )
+                phase.partial_fraction_of = dict()
+                for comp in phase.components:
+                    phase.partial_fraction_of.update(
+                        {comp: self.partial_fraction(comp, phase)}
+                    )
+        # Otherwise, create the partial fractions as independent operators
+            
 
     def _overall_fraction_variable(self, component: Component) -> str:
         """Returns the name of the feed fraction variable assigned to ``component``."""
@@ -614,10 +611,11 @@ class CompositeVariables(pp.VariableMixin):
 
         return fraction
 
-    def _extended_fraction_variable(self, component: Component, phase: Phase) -> str:
-        """Returns the name of the extended fraction variable of ``component`` in
-        ``phase``.
-        """
+    def _compositional_fraction_variable(
+        self, component: Component, phase: Phase
+    ) -> str:
+        """Returns the name of the (extended) fraction variable of ``component`` in
+        ``phase``."""
         return f"{symbols['phase_composition']}_{component.name}_{phase.name}"
 
     def extended_fraction(
@@ -630,7 +628,7 @@ class CompositeVariables(pp.VariableMixin):
         ), f"Component {component.name} not in phase {phase.name}"
 
         def fraction(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
-            name = self._extended_fraction_variable(component, phase)
+            name = self._compositional_fraction_variable(component, phase)
             if len(domains) > 0 and all(
                 [isinstance(g, pp.BoundaryGrid) for g in domains]
             ):
@@ -649,25 +647,37 @@ class CompositeVariables(pp.VariableMixin):
     def partial_fraction(
         self, component: Component, phase: Phase
     ) -> Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]:
-        """The returned callable constructs an operator which normalizes the extended
-        fraction of a component in a phase, based on what is returned
-        by :meth:`extended_fraction`.
+        """Returns Ad representations of partial (physical) fractions.
+        
+        If the mixture has extended fractions (unified flash), partial fractions
+        are obtained by normalizing the :meth:`extended_fraction` per phase.
+
+        If the mixture has no extended fractions, more work is required to close the
+        model, and the user is alerted.
 
         """
 
-        def fraction(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
-            xn = self.extended_fraction(component, phase)(
-                domains
-            ) / pp.ad.sum_operator_list(
-                [
-                    self.extended_fraction(comp_k, phase)(domains)
-                    for comp_k in phase.components
-                ]
+        if self.has_extended_fractions:
+
+            def fraction(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+                xn = self.extended_fraction(component, phase)(
+                    domains
+                ) / pp.ad.sum_operator_list(
+                    [
+                        self.extended_fraction(comp_k, phase)(domains)
+                        for comp_k in phase.components
+                    ]
+                )
+                xn.set_name(
+                    "normalized_"
+                    + f"{self._compositional_fraction_variable(component, phase)}"
+                )
+                return xn
+        else:
+            raise NotImplementedError(
+                "Implementation of partial fractions required for models without"
+                + " extended fractions."
             )
-            xn.set_name(
-                f"normalized_{self._extended_fraction_variable(component, phase)}"
-            )
-            return xn
 
         return fraction
 
@@ -677,7 +687,7 @@ class FluidMixtureMixin:
 
     Introduces the fluid mixture into the model.
 
-    Provides means to create domain-dependent operators representing thermodynamic
+    Provides means to create domain-dependent callables representing thermodynamic
     properties which appear in various equations.
 
     Various methods methods returning callable properties can be overwritten for
@@ -707,7 +717,7 @@ class FluidMixtureMixin:
 
         Expressions which do not appear in the time derivative, such as viscosity,
         conductivity and fugacity coefficients, never have a time step depth, and only
-        the current values are stored.
+        the iterate values are stored.
 
     """
 
@@ -722,6 +732,10 @@ class FluidMixtureMixin:
     """
     temperature: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]
     """Provided by :class:`~porepy.models.energy_balance.VariablesEnergyBalance`."""
+
+    has_extended_fractions: bool
+    """Provided by
+    :class:`~porepy.models.compositional_balance.SolutionStrategyCompositionalFlow`."""
 
     time_step_indices: np.ndarray
     """Provided by :class:`~porepy.models.solution_strategy.SolutionStrategy`"""
@@ -899,6 +913,33 @@ class FluidMixtureMixin:
         op = self.fluid_density(domains) ** pp.ad.Scalar(-1)
         op.set_name("fluid-mixture-volume")
         return op
+    
+    def _dependencies_of_phase_properties(
+        self, phase: Phase
+    ) -> Sequence[Callable[[pp.GridLikeSequence], pp.ad.Operator]]:
+        """Helper method to construct the sequence of dependencies of any
+        thermodynamic property of a phase.
+
+        In the most general setting, a property depends on pressure, temperature and
+        fractions of all components in a ``phase``.
+
+        Uses the model framework which defines callables for respective variables.
+
+        Uses the extended fractions, if defined.
+        Otherwise it uses the partial fractions, assuming they are independent
+        variables.
+
+        """
+        dependencies = [self.pressure, self.temperature]
+        if self.has_extended_fractions:
+            dependencies += [
+                phase.fraction_of[component] for component in phase.components
+            ]
+        else:
+            dependencies += [
+                phase.partial_fraction_of[component] for component in phase.components
+            ]
+        return dependencies
 
     def phase_density(
         self, phase: Phase
@@ -907,20 +948,17 @@ class FluidMixtureMixin:
         :class:`~porepy.composite.composite_utils.SecondaryExpression` on all subdomains
         and boundaries.
 
-        It is an operator which is populated by the solution strategy, depending on how
+        It is an object which is populated by the solution strategy, depending on how
         the equilibrium conditions and constitutive laws are implemented.
 
         The phase density (like all thermodynamic properties) is a property depending on
         pressure, temperature and fractions of components in the phase.
 
         """
-        x_j = tuple(phase.fraction_of.values())
         return SecondaryExpression(
             f"phase-density-{phase.name}",
             self.mdg,
-            self.pressure,
-            self.temperature,
-            *x_j,
+            self._dependencies_of_phase_properties(phase),
             time_step_depth=len(self.time_step_indices),
             iterate_depth=len(self.iterate_indices),
         )
@@ -930,13 +968,10 @@ class FluidMixtureMixin:
     ) -> Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]:
         """Analogous to :meth:`phase_density`, but creates a new domain property for
         the phase volume."""
-        x_j = tuple(phase.fraction_of.values())
         return SecondaryExpression(
             f"phase-volume-{phase.name}",
             self.mdg,
-            self.pressure,
-            self.temperature,
-            *x_j,
+            self._dependencies_of_phase_properties(phase),
             time_step_depth=len(self.time_step_indices),
             iterate_depth=len(self.iterate_indices),
         )
@@ -946,13 +981,10 @@ class FluidMixtureMixin:
     ) -> Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]:
         """Analogous to :meth:`phase_density`, but creates a new domain property for
         the phase enthalpy."""
-        x_j = tuple(phase.fraction_of.values())
         return SecondaryExpression(
             f"phase-enthalpy-{phase.name}",
             self.mdg,
-            self.pressure,
-            self.temperature,
-            *x_j,
+            self._dependencies_of_phase_properties(phase),
             time_step_depth=len(self.time_step_indices),
             iterate_depth=len(self.iterate_indices),
         )
@@ -968,13 +1000,10 @@ class FluidMixtureMixin:
             accumulation term.
 
         """
-        x_j = tuple(phase.fraction_of.values())
         return SecondaryExpression(
             f"phase-viscosity-{phase.name}",
             self.mdg,
-            self.pressure,
-            self.temperature,
-            *x_j,
+            self._dependencies_of_phase_properties(phase),
             time_step_depth=0,
             iterate_depth=len(self.iterate_indices),
         )
@@ -990,13 +1019,10 @@ class FluidMixtureMixin:
             accumulation term.
 
         """
-        x_j = tuple(phase.fraction_of.values())
         return SecondaryExpression(
             f"phase-conductivity-{phase.name}",
             self.mdg,
-            self.pressure,
-            self.temperature,
-            *x_j,
+            self._dependencies_of_phase_properties(phase),
             time_step_depth=0,
             iterate_depth=len(self.iterate_indices),
         )
@@ -1012,13 +1038,10 @@ class FluidMixtureMixin:
             only locally.
 
         """
-        x_j = tuple(phase.fraction_of.values())
         return SecondaryExpression(
             f"fugacity-of-{component.name}-in-{phase.name}",
             self.mdg,
-            self.pressure,
-            self.temperature,
-            *x_j,
+            self._dependencies_of_phase_properties(phase),
             time_step_depth=0,
             iterate_depth=len(self.iterate_indices),
         )
@@ -1139,7 +1162,6 @@ class SecondaryEquationsMixin:
         """
         rphase = self.fluid_mixture.reference_phase
         subdomains = self.mdg.subdomains()
-        self._secondary_equation_names = list()
         if self.fluid_mixture.num_phases > 1:
             for phase in self.fluid_mixture.phases:
                 if phase == rphase and self.eliminate_reference_phase:
@@ -1207,7 +1229,7 @@ class EquilibriumEquationsMixin:
     """Provided by
     :class:`~porepy.models.compositional_balance.VariablesCompositionalFlow`."""
     volume: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """TODO Not covered so far."""
+    """Provided by :class:`~porepy.models.compositional_balance.SolidSkeletonCF`."""
 
     eliminate_reference_component: bool
     """Provided by
@@ -1406,7 +1428,7 @@ class EquilibriumEquationsMixin:
         )
 
         if self.use_semismooth_complementarity:
-            equ = pp.ad.SemiSmoothMin(phase.fraction(subdomains), unity)
+            equ = pp.ad.SemiSmoothMin()(phase.fraction(subdomains), unity)
             equ.set_name(f"semismooth-complementary-condition-{phase.name}")
         else:
             equ = phase.fraction(subdomains) * unity
@@ -1533,15 +1555,13 @@ class EquilibriumEquationsMixin:
                 subdomains
             ) - pp.ad.Scalar(1.0)
         else:
-            equ = self.volume(subdomains) - self.fluid_mixture.density(
-                subdomains
-            ) ** pp.ad.Scalar(-1.0)
+            equ = self.volume(subdomains) - self.fluid_mixture.volume(subdomains)
         equ.set_name("mixture-volume-constraint")
         return equ
 
 
 class FlashMixin:
-    """Mixin class to introduce the flash procedure into the solution strategy.
+    """Mixin class to introduce the unified flash procedure into the solution strategy.
 
     Main ideas of the FlashMixin:
 
@@ -1583,7 +1603,7 @@ class FlashMixin:
     """Provided by
     :class:`~porepy.models.compositional_balance.VariablesCompositionalFlow`."""
     volume: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """TODO Not covered so far."""
+    """Provided by :class:`~porepy.models.compositional_balance.SolidSkeletonCF`."""
 
     equilibrium_type: Optional[Literal["p-T", "p-h", "v-h"]]
     """Provided by

@@ -21,6 +21,8 @@ from . import mass_and_energy_balance as mass_energy
 
 logger = logging.getLogger(__name__)
 
+# region CONSTITUTIVE LAWS taylored to pore.composite and its mixins
+
 
 class MobilityCF:
     """Mixin class defining mobilities for the balance equations in the CF setting, and
@@ -54,7 +56,7 @@ class MobilityCF:
     """Provided by :class:`~porepy.composite.composite_mixins.FluidMixtureMixin`."""
 
     relative_permeability: Callable[[pp.ad.Operator], pp.ad.Operator]
-    """Provided by :class:`PermeabilityCF`."""
+    """Provided by :class:`SolidSkeletonCF`."""
 
     create_boundary_operator: Callable[
         [str, Sequence[pp.BoundaryGrid]], pp.ad.TimeDependentDenseArray
@@ -382,9 +384,25 @@ class ThermalConductivityCF(pp.constitutive_laws.ThermalConductivityLTE):
         return normal_conductivity
 
 
-class PermeabilityCF(pp.constitutive_laws.ConstantPermeability):
-    """A constitutive law providing relative and normal permeability functions
-    in the compositional framework."""
+class SolidSkeletonCF(
+    pp.constitutive_laws.ConstantPermeability,
+    pp.constitutive_laws.SpecificHeatCapacities,
+    pp.constitutive_laws.ConstantPorosity,
+    pp.constitutive_laws.ConstantSolidDensity,
+):
+    """Collection of constitutive laws for the solid skeleton in the compositional
+    flow framework.
+    
+    It additionally provides constitutive laws defining the relative and normal
+    permeability functions in the compositional framework, based on saturations and
+    mobilities.
+
+    It also provides an operator representing the pore volume, used to define
+    the :meth:`volume` which is used for isochoric flash calculations.
+
+    TODO Is this the right place to implement :meth:`volume`?
+
+    """
 
     mdg: pp.MixedDimensionalGrid
     """Provided by :class:`~porepy.models.geometry.ModelGeometry`."""
@@ -394,6 +412,13 @@ class PermeabilityCF(pp.constitutive_laws.ConstantPermeability):
 
     interfaces_to_subdomains: Callable[[list[pp.MortarGrid]], list[pp.Grid]]
     """Provided by :class:`~porepy.models.geometry.ModelGeometry`."""
+
+    perturbation_from_reference: Callable[[str, list[pp.Grid]], pp.ad.Operator]
+    """Provided by :class:`~porepy.models.VariableMixin`."""
+
+    temperature_variable: str
+    """Provided by :class:`~porepy.models.energy_balance.SolutionStrategyEnergyBalance`.
+    """
 
     def normal_permeability(self, interfaces: list[MortarGrid]) -> Operator:
         """A constitutive law returning the normal permeability as the product of
@@ -427,6 +452,53 @@ class PermeabilityCF(pp.constitutive_laws.ConstantPermeability):
 
         """
         return saturation**2
+
+    def solid_internal_energy(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Internal energy of the solid.
+
+        Note:
+            This must override the definition of solid internal energy which is
+            (for some reasons) defined in the basic energy balance equation.
+
+        Parameters:
+            subdomains: List of subdomains.
+
+        Returns:
+            Operator representing the solid energy.
+
+        """
+        c_p = self.solid_specific_heat_capacity(subdomains)
+        energy = (
+            (pp.ad.Scalar(1) - self.porosity(subdomains))
+            * self.solid_density(subdomains)
+            * c_p
+            * self.perturbation_from_reference(self.temperature_variable, subdomains)
+        )
+        energy.set_name("solid_internal_energy")
+        return energy
+    
+    def pore_volume(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Returns an Ad representation of the pore volume, which is a multiplication
+        of cell volumes and porosity on subdomains."""
+        cell_volume = pp.wrap_as_dense_ad_array(
+            np.hstack([g.cell_volumes for g in subdomains]), name="cell_volume"
+        )
+        op = cell_volume * self.porosity(subdomains)
+        op.set_name('pore_volume')
+        return op
+    
+    def volume(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Returns the target volume to be used in equilbrium calculations with
+        isochoric constraints.
+
+        The base implementation returns the :meth:`pore_volume`.
+
+        """
+        return self.pore_volume(subdomains)
+
+
+# endregion
+# region PDEs used in the (fractional) CF, taylored to pp.composite and its mixins
 
 
 class TotalMassBalanceEquation(pp.BalanceEquation):
@@ -707,7 +779,7 @@ class TotalEnergyBalanceEquation_h(energy.EnergyBalanceEquations):
                 subdomains=domains,
                 dirichlet_operator=self.advective_weight_enthalpy_flux,
                 neumann_operator=self.enthalpy_flux,
-                bc_type=self.bc_type_darcy_flux,  # TODO this is inconsistent in parent
+                bc_type=self.bc_type_darcy_flux,
                 name="bc_values_enthalpy",
             )
         )
@@ -1193,6 +1265,10 @@ class SoluteTransportEquations(ComponentMassBalanceEquations):
         return mass
 
 
+# endregion
+# region INTERMEDIATE CF MODEL MIXINS: collecting variables, equations, const. laws 
+
+
 class EquationsCompositionalFlow(
     TotalMassBalanceEquation,
     TotalEnergyBalanceEquation_h,
@@ -1369,53 +1445,11 @@ class VariablesCompositionalFlow(
         return self.equation_system.md_variable(self.enthalpy_variable, domains)
 
 
-class SolidSkeletonCF(
-    PermeabilityCF,
-    pp.constitutive_laws.SpecificHeatCapacities,
-    pp.constitutive_laws.ConstantPorosity,
-    pp.constitutive_laws.ConstantSolidDensity,
-):
-    """Collection of constitutive laws for the solid skeleton in the compositional
-    flow framework."""
-
-    perturbation_from_reference: Callable[[str, list[pp.Grid]], pp.ad.Operator]
-    """Provided by :class:`~porepy.models.VariableMixin`."""
-
-    temperature_variable: str
-    """Provided by :class:`~porepy.models.energy_balance.SolutionStrategyEnergyBalance`.
-    """
-
-    def solid_internal_energy(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Internal energy of the solid.
-
-        Note:
-            This must override the definition of solid internal energy which is
-            (for some reasons) defined in the basic energy balance equation.
-
-        Parameters:
-            subdomains: List of subdomains.
-
-        Returns:
-            Operator representing the solid energy.
-
-        """
-        c_p = self.solid_specific_heat_capacity(subdomains)
-        energy = (
-            (pp.ad.Scalar(1) - self.porosity(subdomains))
-            * self.solid_density(subdomains)
-            * c_p
-            * self.perturbation_from_reference(self.temperature_variable, subdomains)
-        )
-        energy.set_name("solid_internal_energy")
-        return energy
-
-
 class ConstitutiveLawsCompositionalFlow(
     ppc.FluidMixtureMixin,
     MobilityCF,
     ThermalConductivityCF,
     SolidSkeletonCF,
-    # mass_energy.ConstitutiveLawFluidMassAndEnergy,
     pp.constitutive_laws.DimensionReduction,
     pp.constitutive_laws.SecondOrderTensorUtils,
     pp.constitutive_laws.ZeroGravityForce,
@@ -1435,6 +1469,9 @@ class ConstitutiveLawsCompositionalFlow(
 
     """
 
+
+# endregion
+# region SOLUTION STRATEGY, including separate treatment of BC and IC
 
 def _prolong_boundary_state(
     state: ppc.FluidState, nc: int, dir: np.ndarray
@@ -2391,6 +2428,10 @@ class InitialConditionsCompositionalFlow:
 
         Values are stored in the iterate index 0 (current time).
 
+        This method also provides the first iterate values for secondary expressions
+        In the basic set-up this includes the phase properties and fugacity
+        coefficients.
+
         """
 
         for sd in self.mdg.subdomains():
@@ -2581,15 +2622,11 @@ class SolutionStrategyCompositionalFlow(
     ]
     """Provided by :class:`MobilityCF`."""
 
-    overall_fraction_variables: list[str]
+    _phase_fraction_variable: Callable[[ppc.Phase], str]
     """Provided by :class:`~porepy.composite.composite_mixins.CompositeVariables`."""
-    solute_fraction_variables: list[str]
+    _saturation_variable: Callable[[ppc.Phase], str]
     """Provided by :class:`~porepy.composite.composite_mixins.CompositeVariables`."""
-    phase_fraction_variables: list[str]
-    """Provided by :class:`~porepy.composite.composite_mixins.CompositeVariables`."""
-    saturation_variables: list[str]
-    """Provided by :class:`~porepy.composite.composite_mixins.CompositeVariables`."""
-    extended_fraction_variables: list[str]
+    _compositional_fraction_variable: Callable[[ppc.Component, ppc.Phase], str]
     """Provided by :class:`~porepy.composite.composite_mixins.CompositeVariables`."""
 
     equilibriate_fluid: Callable[
@@ -2806,7 +2843,7 @@ class SolutionStrategyCompositionalFlow(
         self.save_data_time_step()
 
     def initialize_timestep_and_iterate_indices(self) -> None:
-        """Copies the initial values to all time step and iterate indices.
+        """Copies the initial values to all time step and iterate indices on all grids.
 
         This is done after the initialization, to populate the data dictionaries.
         It is performed for all variables, and all secondary expressions.
@@ -2814,31 +2851,30 @@ class SolutionStrategyCompositionalFlow(
         This method assumes that the initial values are stored at the the iterate index
         0 (current time step, most recent iterate).
 
-        It also assumes that all phase properties (secondary expressions) are defined
-        on all subdomains.
-
         Note:
             Derivative values are not copied to other time indices or iterate indices
             since they are not accessed by this solution strategy.
 
         Note:
-            This method only progresses time step values for phase properties,
-            which appear in the accumulation term.
-            That includes:
+            This method progresses time step values for phase properties
+            **on all subdomains**, including
 
             - phase densities
             - phase volumes
             - phase enthalpies
 
-            Viscosities, conductivities and fugacities are not progressed in time.
+            Viscosities, conductivities and fugacities are not progressed in time,
+            since they are not expected in the accumulation term.
 
-            It also prograsses only phase properties which need a definition on the
-            boundary. That **excludes** the fugacity coefficients.
+            It also progresses boundary values of phase properties on
+            **all boundary grids**, for which boundary values are required.
+            That **excludes** the fugacity coefficients.
 
         Can be customized by the user.
 
         """
 
+        subdomains = self.mdg.subdomains()
         # updating variable values from current time step, to all previous and iterate
         val = self.equation_system.get_variable_values(iterate_index=0)
         self.equation_system.shift_iterate_values()
@@ -2869,9 +2905,9 @@ class SolutionStrategyCompositionalFlow(
 
             # all properties have time step values, progress sec. exp. in time
             for _ in self.time_step_indices:
-                phase.density.progress_values_in_time()
-                phase.volume.progress_values_in_time()
-                phase.enthalpy.progress_values_in_time()
+                phase.density.progress_values_in_time(subdomains)
+                phase.volume.progress_values_in_time(subdomains)
+                phase.enthalpy.progress_values_in_time(subdomains)
             # NOTE viscosity and conductivity are not progressed in time
 
             # fugacity coeffs
@@ -2996,32 +3032,25 @@ class SolutionStrategyCompositionalFlow(
         state = self.postprocess_failures(*self.equilibriate_fluid(None))
 
         # Setting equilibrium values for fractional variables
-        vars_y = self.phase_fraction_variables
-        vars_s = self.saturation_variables
-        if vars_y:  # if not empty
-            ind = 0  # lagging indexation of ref phase eliminated
-            for j in range(self.fluid_mixture.num_phases):
-                # skip if not a variable
-                if self.eliminate_reference_phase:
-                    continue
-                self.equation_system.set_variable_values(
-                    state.sat[j], [vars_y[ind]], iterate_index=0
-                )
-                self.equation_system.set_variable_values(
-                    state.y[j], [vars_s[ind]], iterate_index=0
-                )
-                ind += 1
+        for j, phase in enumerate(self.fluid_mixture.phases):
+            if (
+                phase == self.fluid_mixture.reference_phase
+                and self.eliminate_reference_phase
+            ):
+                continue
+            self.equation_system.set_variable_values(
+                state.sat[j], [self._phase_fraction_variable(phase)], iterate_index=0
+            )
+            self.equation_system.set_variable_values(
+                state.y[j], [self._saturation_variable(phase)], iterate_index=0
+            )
 
-        if self.has_extended_fractions:
-            vars_x = self.extended_fraction_variables
-            ind = 0
-            # NOTE This assumes no-one messed with the order during creation
-            for j, phase in enumerate(self.fluid_mixture.phases):
-                for i in range(len(phase.components)):
-                    self.equation_system.set_variable_values(
-                        state.phases[j].x[i], [vars_x[ind]], iterate_index=0
+            for i, comp in enumerate(phase.components):
+                self.equation_system.set_variable_values(
+                        state.phases[j].x[i],
+                        [self._compositional_fraction_variable(comp, phase)],
+                        iterate_index=0
                     )
-                    ind += 1
 
         # setting Temperature and pressure values, depending on equilibrium definition
         if "T" not in self.equilibrium_type:
@@ -3091,7 +3120,7 @@ class SolutionStrategyCompositionalFlow(
                 x = np.array(
                     [
                         self.equation_system.get_variable_values(
-                            [phase.fraction_of[comp](subdomains)]
+                            [self._compositional_fraction_variable(comp, phase)]
                         )
                         for comp in phase.components
                     ]
@@ -3198,8 +3227,9 @@ class SolutionStrategyCompositionalFlow(
         )
 
     def progress_thermodynamic_properties_in_time(self) -> None:
-        """Updates the values of phase properties on all subdomains in time, using the
-        current iterate value, and the framework for secondary expressions.
+        """Updates the values (and values only) of phase properties on all subdomains in
+        time, using the current iterate value, and the framework for secondary
+        expressions.
 
         Note:
             The derivatives are not updated in time, since not required here.
@@ -3212,10 +3242,11 @@ class SolutionStrategyCompositionalFlow(
             - phase enthalpy
 
         """
+        subdomains = self.mdg.subdomains()
         for phase in self.fluid_mixture.phases:
-            phase.density.progress_values_in_time()
-            phase.volume.progress_values_in_time()
-            phase.enthalpy.progress_values_in_time()
+            phase.density.progress_values_in_time(subdomains)
+            phase.volume.progress_values_in_time(subdomains)
+            phase.enthalpy.progress_values_in_time(subdomains)
 
     def before_nonlinear_iteration(self) -> None:
         """Overwrites parent methods to perform the p-h flash as a predictor step.
@@ -3271,8 +3302,12 @@ class SolutionStrategyCompositionalFlow(
         return self.equation_system.expand_schur_complement_solution(sol)
 
 
+# endregion
+
+
 class CompositionalFlow(  # type: ignore[misc]
-    ConstitutiveLawsCompositionalFlow,  # overwrite what is used in inherited equations
+    # const. laws on top to overwrite what is used in inherited mass and energy balance
+    ConstitutiveLawsCompositionalFlow,
     ppc.FlashMixin,
     EquationsCompositionalFlow,
     VariablesCompositionalFlow,
@@ -3289,6 +3324,7 @@ class CompositionalFlow(  # type: ignore[misc]
     - pressure
     - (specific molar) enthalpy of the mixture
     - ``num_comp - 1 `` overall fractions per independent component
+    - solute fractions for pure transport without equilibrium (if any)
 
     The secondary, local variables are:
 
@@ -3302,6 +3338,7 @@ class CompositionalFlow(  # type: ignore[misc]
     - pressure equation / transport of total mass
     - energy balance / transport of total energy
     - ``num_comp - 1`` transport equations for each independent component
+    - solute transport equations
 
     The secondary block of equations represents the local equilibrium problem formulated
     as a unified p-h flash:
@@ -3315,6 +3352,11 @@ class CompositionalFlow(  # type: ignore[misc]
     In total the model encompasses
     ``3 + num_comp - 1 + num_comp * num_phases + 2 * (num_phases - 1)`` equations und
     DOFs per cell in each subdomains, excluding the unknowns on interfaces.
+
+    Note:
+        The model inherits the md-treatment of Darcy flux, advective enthalpy flux and
+        Fourier flux. Some interface variables and interface equations are introduced
+        there. They are treated as secondary equations and variables in the basic model.
 
     Example:
         For the most simple model set-up, make a mixture mixing defining the components
