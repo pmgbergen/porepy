@@ -5,7 +5,7 @@ from porepy.numerics.fv import fvutils
 from porepy.grids.grid import Grid
 from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_data
 from porepy.params.tensor import FourthOrderTensor
-
+import porepy as pp
 
 class Tpsa:
 
@@ -13,18 +13,18 @@ class Tpsa:
 
         self.keyword: str = keyword
 
-        self.stress_matrix_key: str = "stress"
         self.bound_stress_matrix_key: str = "bound_stress"
 
-        self.rotation_stress_matrix_key: str = "rotation_stress"
+        self.stress_displacement_matrix_key: str = "stress"
         self.stress_rotation_matrix_key: str = "stress_rotation"
-        self.stress_pressure_matrix_key: str = "pressure_stress"
+        self.stress_volumetric_strain_matrix_key: str = "pressure_stress"
+
         self.rotation_displacement_matrix_key: str = "rotation_displacement"
-        self.pressure_pressure_matrix_key = "pressure_pressure"
+
+        self.mass_volumetric_strain_matrix_key = "pressure_pressure"
         # TODO: Need a name for the equaiton for the (solid) pressure. Volumetric
         # compression, but in a shorter form?
-        self.displacement_displacement_matrix_key = "displacement_displacement"
-        self.displacement_pressure_matrix_key = "displacement_pressure"
+        self.mass_displacement_matrix_key = "displacement_pressure"
 
     def discretize(self, sd: Grid, data: dict) -> None:
         parameter_dictionary: dict[str, Any] = data[pp.PARAMETERS][self.keyword]
@@ -66,23 +66,25 @@ class Tpsa:
         ) / np.bincount(ci, weights=dist_fc_cc, minlength=sd.num_cells)
 
         # Stress due to displacements
-        row = fvutils.expand_indices_nd(fi, g.dim)
-        col = fvutils.expand_indices_nd(ci, g.dim)
-        data = np.repeat(t, g.dim)
+        row = fvutils.expand_indices_nd(fi, sd.dim)
+        col = fvutils.expand_indices_nd(ci, sd.dim)
+        data = np.repeat(t, sd.dim)
 
         stress = sps.coo_matrix(
-            (t[np.repeat(fi, sd.dim)], (row, col)), shape=(sd.num_faces * sd.dim, g.num_cells * sd.dim)
+            (t[np.repeat(fi, sd.dim)], (row, col)), shape=(sd.num_faces * sd.dim, sd.num_cells * sd.dim)
         ).tocsr()
 
         # The vector difference operator over a face is simply a Kronecker product of
         # the standard cell-face map.
         cell_to_face_difference = sps.kron(sd.cell_faces, sps.eye(sd.dim)).tocsr()
         # The weighted average
-        cell_to_face_average = sps.kron(
-            sps.coo_matrix(
+        cell_to_face_average =             sps.coo_matrix(
                 ((shear_modulus_by_face_cell_distance, (fi, ci))),
                 shape=(sd.num_faces, sd.num_cells),
-            ).tocsr(),
+            ).tocsr()
+
+        cell_to_face_average_nd = sps.kron(
+            cell_to_face_average,
             sps.eye(sd.dim),
         ).tocsr()
 
@@ -93,11 +95,11 @@ class Tpsa:
         indices = np.arange(0, sd.dim * sd.num_faces)
 
         stress_pressure = sps.csc_matrix(
-            (n[:sd.dim].ravel("F"), indices, indptr_csc), shape=(sd.dim * sd.num_faces, sd.num_cells)
-        )
-        pressure_displacement = sps.csc_matrix(
-            (n[:sd.dim].ravel("F"), indices, indptr_csc), shape=(sd.dim * sd.num_faces, sd.num_cells)
-        )
+            (n[:sd.dim].ravel("F"), np.arange(0, sd.dim * sd.num_faces), np.arange(0, sd.dim * sd.num_faces + 1, sd.dim)), shape=(sd.dim * sd.num_faces, sd.num_faces)
+        ) @ cell_to_face_average
+        mass_displacement = sps.csr_matrix(
+            (n[:sd.dim].ravel("F"), np.arange(sd.dim * sd.num_faces), np.arange(0, sd.num_faces + 1)), shape=(sd.num_faces, sd.dim * sd.num_faces)
+        ) @ cell_to_face_average_nd
 
         pressure_pressure = (
             sps.dia_matrix(
@@ -124,7 +126,7 @@ class Tpsa:
 
             Rn_bar = Rn_check
 
-            stress_rotation = -Rn_check @ cell_to_face_average
+            stress_rotation = -Rn_check @ cell_to_face_average_nd
 
         elif sd.dim == 2:
             # In this case, \hat{R}_k^n and \bar{R}_k^n differs, and read, respectively
@@ -140,39 +142,40 @@ class Tpsa:
             )
             # Mapping from average rotations over faces to stresses
             Rn_check = sps.csc_matrix(
-                (data.ravel('F'), np.repeat(np.arange(sd.num_faces), sd.dim), np.arange(0, sd.dim * sd.num_faces + 1, sd.dim)), shape=(sd.dim * sd.num_faces, g.num_faces)
+                (data.ravel('F'), np.repeat(np.arange(sd.num_faces), sd.dim), np.arange(0, sd.dim * sd.num_faces + 1, sd.dim)), shape=(sd.dim * sd.num_faces, sd.num_faces)
             )
 
-            stress_rotation = -Rn_check @ g.cell_faces
-        rotation_displacement = -Rn_bar @ cell_to_face_average
+            stress_rotation = -Rn_check @ sd.cell_faces
+        rotation_displacement = -Rn_bar @ cell_to_face_average_nd
 
         # TODO: Cosserat model
 
-        matrix_dictionary[self.stress_matrix_key] = stress
+        matrix_dictionary[self.stress_displacement_matrix_key] = stress
         matrix_dictionary[self.stress_rotation_matrix_key] = stress_rotation
-        matrix_dictionary[self.stress_pressure_matrix_key] = stress_pressure
+        matrix_dictionary[self.stress_volumetric_strain_matrix_key] = stress_pressure
         matrix_dictionary[self.rotation_displacement_matrix_key] = rotation_displacement
-        matrix_dictionary[self.pressure_pressure_matrix_key] = pressure_pressure
-        matrix_dictionary[self.displacement_pressure_matrix_key] = pressure_displacement
+        matrix_dictionary[self.mass_volumetric_strain_matrix_key] = pressure_pressure
+        matrix_dictionary[self.mass_displacement_matrix_key] = mass_displacement
 
 
-import porepy as pp
+if False:
+    import porepy as pp
 
-g = pp.CartGrid([3, 3, 3])
-g.compute_geometry()
-mu = np.ones(g.num_cells)
+    g = pp.CartGrid([3, 3, 3])
+    g.compute_geometry()
+    mu = np.ones(g.num_cells)
 
-C = pp.FourthOrderTensor(mu, mu)
+    C = pp.FourthOrderTensor(mu, mu)
 
-data = {pp.PARAMETERS: {'mechanics': {'fourth_order_tensor': C, 'bc': pp.BoundaryConditionVectorial(g)}},
-        pp.DISCRETIZATION_MATRICES: {'mechanics': {}}}
+    data = {pp.PARAMETERS: {'mechanics': {'fourth_order_tensor': C, 'bc': pp.BoundaryConditionVectorial(g)}},
+            pp.DISCRETIZATION_MATRICES: {'mechanics': {}}}
 
-tpsa = T("mechanics")
-tpsa.discretize(g, data)
+    tpsa = Tpsa("mechanics")
+    tpsa.discretize(g, data)
 
-matrix_dictionary = data[pp.DISCRETIZATION_MATRICES]['mechanics']
+    matrix_dictionary = data[pp.DISCRETIZATION_MATRICES]['mechanics']
 
-debug = []
+    debug = []
 
 
 
