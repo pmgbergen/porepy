@@ -1651,6 +1651,12 @@ class Variable(Operator):
             )
         raise ValueError()
 
+    @property
+    def dim(self) -> int:
+        """Returns physical dimension of the variable."""
+        # NOTE: Not always true! Here the physical dimensions is requested...
+        return self._cells + self._faces + self._nodes
+
     def set_name(self, name: str) -> None:
         """
         Raises:
