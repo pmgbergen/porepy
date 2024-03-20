@@ -112,7 +112,7 @@ class Tpsa:
                 (
                     n[: sd.dim].ravel("F"),
                     np.arange(sd.dim * sd.num_faces),
-                    np.arange(0, sd.num_faces + 1),
+                    np.arange(0, sd.dim * sd.num_faces + 1, sd.dim),
                 ),
                 shape=(sd.num_faces, sd.dim * sd.num_faces),
             )
