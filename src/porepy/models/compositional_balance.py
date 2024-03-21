@@ -392,7 +392,7 @@ class SolidSkeletonCF(
 ):
     """Collection of constitutive laws for the solid skeleton in the compositional
     flow framework.
-    
+
     It additionally provides constitutive laws defining the relative and normal
     permeability functions in the compositional framework, based on saturations and
     mobilities.
@@ -476,7 +476,7 @@ class SolidSkeletonCF(
         )
         energy.set_name("solid_internal_energy")
         return energy
-    
+
     def pore_volume(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Returns an Ad representation of the pore volume, which is a multiplication
         of cell volumes and porosity on subdomains."""
@@ -484,9 +484,9 @@ class SolidSkeletonCF(
             np.hstack([g.cell_volumes for g in subdomains]), name="cell_volume"
         )
         op = cell_volume * self.porosity(subdomains)
-        op.set_name('pore_volume')
+        op.set_name("pore_volume")
         return op
-    
+
     def volume(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Returns the target volume to be used in equilbrium calculations with
         isochoric constraints.
@@ -1266,7 +1266,235 @@ class SoluteTransportEquations(ComponentMassBalanceEquations):
 
 
 # endregion
-# region INTERMEDIATE CF MODEL MIXINS: collecting variables, equations, const. laws 
+# region INTERMEDIATE CF MODEL MIXINS: collecting variables, equations, const. laws
+
+
+class SecondaryEquationsMixin:
+    """Base class for introducing secondary equations into the compositional flow
+    formulation.
+
+    Use the methods of this class to close the compositional flow model, in the case of
+    some dangling secondary variables.
+
+    Examples:
+        1. If an equilibrium condition is defined, the framework introduces saturations
+           and molar phase fractions as independent variables, for each independent
+           phase.
+
+           The system needs to be closed by introducing the density relations
+           :meth:`set_density_relations_for_phases` as local equations.
+
+        2. If no equilibrium condition is defined,
+           :attr:`~porepy.composite.base.Phase.saturation` of independent phases
+           as well as :attr:`~porepy.composite.base.Phase.partial_fraction_of` are
+           dangling variables.
+
+           The system can be closed by using :meth:`eliminate_by_constitutive_law`
+           for example, to introduce local, secondary equations.
+
+    """
+
+    fluid_mixture: ppc.Mixture
+    """Provided by: class:`~porepy.composite.composite_mixins.FluidMixtureMixin`."""
+
+    mdg: pp.MixedDimensionalGrid
+    """Provided by :class:`~porepy.models.geometry.ModelGeometry`."""
+    equation_system: pp.ad.EquationSystem
+    """Provided by :class:`~porepy.models.solution_strategy.SolutionStrategy`."""
+
+    normalize_state_constraints: bool
+    """Provided by :class:`SolutionStrategyCompositionalFlow`."""
+    eliminate_reference_phase: bool
+    """Provided by :class:`SolutionStrategyCompositionalFlow`."""
+    equilibrium_type: Optional[Literal["p-T", "p-h", "v-h"]]
+    """Provided by :class:`SolutionStrategyCompositionalFlow`."""
+
+    time_step_indices: np.ndarray
+    """Provided by :class:`~porepy.models.solution_strategy.SolutionStrategy`"""
+    iterate_indices: np.ndarray
+    """Provided by :class:`~porepy.models.solution_strategy.SolutionStrategy`"""
+
+    add_constitutive_expression: Callable[
+        [
+            ppc.SecondaryExpression,
+            pp.GridLikeSequence,
+            Callable[[tuple[np.ndarray, ...]], tuple[np.ndarray, np.ndarray]],
+        ],
+        None,
+    ]
+    """Provided by :class:`ConstitutiveLawsCompositionalFlow`"""
+
+    def set_equations(self) -> None:
+        """Inherit this method to set additional secondary expressions in equation form
+
+        .. math::
+
+            f(x) = 0
+
+        by setting the left-hand side as an equation in the Ad framework.
+
+        The parent method calls :meth:`set_density_relations_for_phases` for models with
+        local equilibrium equations (:attr:`equilibrium_type`).
+
+        """
+        if self.equilibrium_type is not None:
+            self.set_density_relations_for_phases()
+
+    def set_density_relations_for_phases(self) -> None:
+        """Introduced the mass relations for phases into the AD system.
+
+        All equations are scalar, single, cell-wise equations on each subdomains.
+
+        This method is separated, because it has another meaning when coupling the
+        equilibrium problem with flow and transport.
+
+        In multiphase flow in porous media, saturations must always be provided.
+        Hense even if there are no isochoric specifications in the flash, the model
+        necessarily introduced the saturations as unknowns.
+
+        The mass relations per phase close the system, by relating molar phase fractions
+        to saturations. Hence rendering the system solvable.
+
+        Important:
+            If there is only 1 phase, this method does nothing, since in that case
+            the molar fraction and saturation of a phase is always 1.
+
+            If the user wants it nevertheless for some reason,
+            :meth:`density_relation_for_phase` must be called explicitly.
+
+            That equation is not tracked by this class in this case.
+            Hence :meth:`get_secondary_equation_names` will give an empty list.
+
+        """
+        rphase = self.fluid_mixture.reference_phase
+        subdomains = self.mdg.subdomains()
+        if self.fluid_mixture.num_phases > 1:
+            for phase in self.fluid_mixture.phases:
+                if phase == rphase and self.eliminate_reference_phase:
+                    continue
+                equ = self.density_relation_for_phase(phase, subdomains)
+                self.equation_system.set_equation(equ, subdomains, {"cells": 1})
+
+    def density_relation_for_phase(
+        self, phase: ppc.Phase, subdomains: Sequence[pp.Grid]
+    ) -> pp.ad.Operator:
+        """Constructs a local mass relation based on a relation between mixture
+        density, saturated phase density and phase fractions.
+
+        For a phase :math:`j` it holds:
+
+        .. math::
+
+            y_j \\rho - s_j \\rho_j = 0~,~
+            y_j - s_j \\dfrac{\\rho_j}{rho} = 0
+
+        with the mixture density :math:`\\rho = \\sum_k s_k \\rho_k`, assuming
+        :math:`\\rho_k` is the density of a phase when saturated.
+
+        - :math:`y` : Phase :attr:`~porepy.composite.base.Phase.fraction`
+        - :math:`s` : Phase :attr:`~porepy.composite.base.Phase.saturation`
+        - :math:`\\rho` : Fluid mixture :attr:`~porepy.composite.base.Mixture.density`
+        - :math:`\\rho_j` : Phase:attr:`~porepy.composite.base.Phase.density`
+
+        Note:
+            These equations can be used to close the model if molar phase fractions and
+            saturations are independent variables.
+
+            They also appear in the unified flash with isochoric specificitations.
+
+        Parameters:
+            phase: A phase for which the equation should be assembled.
+            subdomains: A list of subdomains on which the equation is defined.
+
+        Returns:
+            The left-hand side of above equations.
+
+            If normalization of state constraints is set in the solution strategy,
+            it returns the normalized form.
+
+        """
+        if self.normalize_state_constraints:
+            equ = phase.fraction(subdomains) - phase.saturation(
+                subdomains
+            ) * phase.density(subdomains) / self.fluid_mixture.density(subdomains)
+        else:
+            equ = phase.fraction(subdomains) * self.fluid_mixture.density(
+                subdomains
+            ) - phase.saturation(subdomains) * phase.density(subdomains)
+        equ.set_name(f"density-relation-{phase.name}")
+        return equ
+
+    def eliminate_by_constitutive_law(
+        self,
+        independent_quantity: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable],
+        dependencies: Sequence[
+            Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]
+        ],
+        func: Callable[[tuple[np.ndarray, ...]], tuple[np.ndarray, np.ndarray]],
+        domains: pp.GridLikeSequence,
+        dofs: dict = {"cells": 1},
+    ) -> None:
+        """Method to add a secondary equation eliminating a formally independent
+        quantity by some constitutive law.
+
+        For a formally independent quantity :math:`\\varphi`, this method introduces
+        a secondary equation :math:`\\varphi - \\hat{\\varphi}(x) = 0`, with :math:`x`
+        denoting the ``dependencies``.
+
+        It uses :class:`~porepy.composite.composite_utils.SecondaryExpression` to
+        provide AD representations of :math:`\\hat{\\varphi}` and to update its values
+        and derivatives using ``func`` in the solutionstrategy.
+
+        Note:
+            Keep the limitations of
+            :class:`~porepy.composite.composite_utils.SecondaryExpression` in mind,
+            especially with regards to ``dofs``.
+
+            Time step depth and iteration depth are assigned according to the numbers
+            of indices in the solution strategy.
+
+        Parameters:
+            independent_quantity: AD representation :math:`\\varphi`, callable on some
+                grids.
+            dependencies: First order dependencies (variables) by which :math:`\\varphi`
+                is expressed locally.
+            func: A numerical function which computes the values of
+                :math:`\\hat{\\varphi}(x)` and its derivatives.
+
+                The return value must be a 2-tuple, containing a 1D value array and a
+                2D derivative value array. The shape of the value array must be
+                ``(N,)``, where ``N`` is consistent with ``dofs``, and the shape of
+                the derivative value array must be ``(M,N)``, where ``M`` denotes the
+                number of first order dependencies (``M == len(dependencies)``).
+
+                The order of arguments for ``func`` must correspond with the order in
+                ``dependencies``.
+            domains: A Sequence of grids on which the quantity and its depdencies are
+                defined and on which the equation should be introduces.
+                Used to call ``independent_quantity`` and ``dependencies``.
+            dofs: ``default={'cells':1}``
+
+                Argument for when adding above equation to the equation system.
+
+        """
+
+        primary_expr = independent_quantity(domains)
+
+        sec_expr = ppc.SecondaryExpression(
+            name=f"secondary_expression_for_{primary_expr.name}",
+            mdg=self.mdg,
+            dependencies=dependencies,
+            time_step_depth=len(self.time_step_indices),
+            iterate_depth=len(self.iterate_indices),
+        )
+
+        local_equ = primary_expr - sec_expr(domains)
+        local_equ.set_name(
+            f"elimination_of_{primary_expr.name}_on_grids_{[g.id for g in domains]}"
+        )
+        self.equation_system.set_equation(local_equ, domains, dofs)
+
+        self.add_constitutive_expression(sec_expr, domains, func)
 
 
 class EquationsCompositionalFlow(
@@ -1274,7 +1502,7 @@ class EquationsCompositionalFlow(
     TotalEnergyBalanceEquation_h,
     SoluteTransportEquations,
     ComponentMassBalanceEquations,
-    ppc.SecondaryEquationsMixin,
+    SecondaryEquationsMixin,
     ppc.EquilibriumEquationsMixin,
 ):
     @property
@@ -1343,7 +1571,7 @@ class EquationsCompositionalFlow(
             ppc.EquilibriumEquationsMixin.set_equations(self)
 
         # Other secondary equations such as the density relation equation
-        self.set_secondary_equations()
+        SecondaryEquationsMixin.set_equations(self)
 
 
 class VariablesCompositionalFlow(
@@ -1469,9 +1697,82 @@ class ConstitutiveLawsCompositionalFlow(
 
     """
 
+    _constitutive_expressions: dict[
+        str,
+        tuple[
+            ppc.SecondaryExpression,
+            pp.GridLikeSequence,
+            Callable[[tuple[np.ndarray, ...]], tuple[np.ndarray, np.ndarray]],
+        ],
+    ]
+    """Provided by :class:`SolutionStrategyCompositionalFlow`"""
+
+    def add_constitutive_expression(
+        self,
+        expression: ppc.SecondaryExpression,
+        domains: Sequence[pp.Grid | pp.MortarGrid],
+        func: Callable[[tuple[np.ndarray, ...]], tuple[np.ndarray, np.ndarray]],
+    ) -> None:
+        """"""
+        self._constitutive_expressions.update(
+            {expression.name, (expression, domains, func)}
+        )
+
+    def update_all_constitutive_expressions(
+        self, update_derivatives: bool = False
+    ) -> None:
+        """Method to update the values of all constitutive expressions in the iterative
+        sense.
+
+        Loops over all expressions stored using :meth:`add_constitutive_expression`,
+        evaluates their dependencies on respective domains and calls the stored
+        evaluation function to obtain derivatives and values.
+
+        To be used before solving the system in a non-linear iteration.
+
+        Parameters:
+            update_derivatives: ``default=False``
+
+                If True, it updates also the derivative values in the iterative
+                sense.
+
+        """
+        for expr, domains, func in self._constitutive_expressions.values():
+            for g in domains:
+                X = [x([g]).value(self.equation_system) for x in expr._dependencies]
+
+                vals, diffs = func(*X)
+
+                expr.progress_iterate_values_on_grid(vals, g)
+                if update_derivatives:
+                    expr.progress_iterate_derivatives_on_grid(diffs, g)
+
+    def progress_all_constitutive_expressions_in_time(
+        self, progress_derivatives: bool = True
+    ) -> None:
+        """Method to progress the values of all added constitutive expressions in time.
+
+        It takes the values at the most recent iterates, and stores them as the most
+        recent previous time step.
+
+        To be used after non-linear iterations converge in a time-dependent problem.
+
+        Parameters:
+            progress_derivatives: ``default=False``
+
+                If True, it progresses also the derivative values in the time
+                sense.
+
+        """
+        for expr, domains, _ in self._constitutive_expressions.values():
+            expr.progress_values_in_time(domains)
+            if progress_derivatives:
+                expr.progress_derivatives_in_time(domains)
+
 
 # endregion
 # region SOLUTION STRATEGY, including separate treatment of BC and IC
+
 
 def _prolong_boundary_state(
     state: ppc.FluidState, nc: int, dir: np.ndarray
@@ -1494,83 +1795,32 @@ def _prolong_boundary_state(
         A fluid state where all values are prolongated to a vector with shape ``(nc,)``.
 
     """
-    # base vector has only zeros
-    vec = np.zeros(nc)
-    out = ppc.FluidState()
+    ncomp = np.array([len(ps.x) for ps in state.phases], dtype=int)
+    nphase = len(state.y)
+    phase_types = np.array([ps.phasetype for ps in state.phases], dtype=int)
+
+    # No derivatives expected on boundary
+    out = ppc.initialize_fluid_state(
+        nc, ncomp, nphase, phase_types, with_derivatives=False
+    )
 
     # prolonging intensive and extensive fluid state
-    val = vec.copy()
-    val[dir] = state.p
-    out.p = val
-    val = vec.copy()
-    val[dir] = state.T
-    out.T = val
-    val = vec.copy()
-    val[dir] = state.h
-    out.h = val
-    val = vec.copy()
-    val[dir] = state.v
-    out.v = val
+    out.p[dir] = state.p
+    out.T[dir] = state.T
+    out.h[dir] = state.h
+    out.v[dir] = state.v
     # feed fractions
-    z = list()
-    for z_ in state.z:
-        val = vec.copy()
-        val[dir] = z_
-        z.append(z_)
-    out.z = np.array(z)
-    # saturations and molar fractions
-    nphase = len(state.y)
-    sat = list()
-    y = list()
-    phases: Sequence[ppc.PhaseState] = list()
+    for i in range(len(state.z)):
+        out.z[i, dir] = state.z[i]
+    # saturations and molar fractions and properties per phase
     for j in range(nphase):
-        val = vec.copy()
-        val[dir] = state.sat[j]
-        sat.append(val)
-        val = vec.copy()
-        val[dir] = state.y[j]
-        y.append(val)
-        x_j = list()
-        phis = list()
-        ncomp = len(state.phases[j].x)
-        for i in range(ncomp):
-            val = vec.copy()
-            val[dir] = state.phases[j].x[i]
-            x_j.append(val)
-
-            val = vec.copy()
-            val[dir] = state.phases[j].phis[i]
-            phis.append(val)
-
-        # phase properties. This is important, since densities and enthalpies
-        # appear in the PDEs
-        v = vec.copy()
-        v[dir] = state.phases[j].v
-        h = vec.copy()
-        h[dir] = state.phases[j].h
-        mu = vec.copy()
-        mu[dir] = state.phases[j].mu
-        kappa = vec.copy()
-        kappa[dir] = state.phases[j].kappa
-
-        phase_j = ppc.PhaseState(
-            h=h,
-            v=v,
-            phasetype=state.phases[j].phasetype,
-            x=np.array(x_j),
-            phis=np.array(phis),
-            mu=mu,
-            kappa=kappa,
-            dv=0,
-            dh=0,
-            dmu=0,
-            dkappa=0,
-            dphis=np.zeros(ncomp),
-        )
-        phases.append(phase_j)
-    out.y = np.array(y)
-    out.sat = np.array(sat)
-    out.phases = phases
+        out.y[j, dir] = state.y[j]
+        out.sat[j, dir] = state.sat[j]
+        for i in range(ncomp[j]):
+            out.phases[j].x[i, dir] = state.phases[j].x[i]
+            out.phases[j].phis[i, dir] = state.phases[j].phis[i]
+        out.phases[j].mu[dir] = state.phases[j].mu
+        out.phases[j].kappa[dir] = state.phases[j].kappa
 
     return out
 
@@ -1683,8 +1933,6 @@ class BoundaryConditionsCompositionalFlow(
     """Provided by :class:`SolutionStrategyCompositionalFlow`."""
     eliminate_reference_component: bool
     """Provided by :class:`SolutionStrategyCompositionalFlow`."""
-    has_extended_fractions: bool
-    """Provided by :class:`SolutionStrategyCompositionalFlow`."""
     has_time_dependent_boundary_equilibrium: bool
     """Provided by :class:`SolutionStrategyCompositionalFlow`."""
 
@@ -1697,238 +1945,8 @@ class BoundaryConditionsCompositionalFlow(
     """Provided by :class:`~porepy.composite.composite_mixins.CompositeVariables`."""
     _saturation_variable: Callable[[ppc.Phase], str]
     """Provided by :class:`~porepy.composite.composite_mixins.CompositeVariables`."""
-    _extended_fraction_variable: Callable[[ppc.Component, ppc.Phase], str]
+    _relative_fraction_variable: Callable[[ppc.Component, ppc.Phase], str]
     """Provided by :class:`~porepy.composite.composite_mixins.CompositeVariables`."""
-
-    # TODO bc values for advective weight in enthalpy flux need explanation that
-    # the CF framework uses bc_data_enthalpy_flux_key and bc_values_enthalpy_flux for
-    # the weight
-
-    def bc_data_fractional_mobility_key(self, component: ppc.Component) -> str:
-        """
-        Parameters:
-            component: A fluid component in the mixture with a mass balance equation.
-
-        Returns:
-            The key for storing (time-dependent) Neumann BC data for the advective
-            weight (fractional mobility) in the advective flux in the components mass
-            balance.
-
-        """
-        return f"{self.bc_data_fluid_flux_key}_fraction_{component.name}"
-
-    def bc_type_fluid_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
-        """Returns the BC type of the darcy flux for consistency reasons."""
-        return self.bc_type_darcy_flux(sd)
-
-    def bc_type_enthalpy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
-        """Returns the BC type of the darcy flux for consistency reasons."""
-        return self.bc_type_darcy_flux(sd)
-
-    def update_all_boundary_conditions(self) -> None:
-        """Additionally to the parent method, this updates the values of all quantities
-        which appear in the advective weights in component mass and energy balance.
-
-        On the Neumann boundary, it updates the values of the weights of the advective
-        flux.
-
-        On the Dirichlet boundary, the boundary flash is performed if the BC are
-        time-dependent.
-        Otherwise it uses various ``bc_values_*`` functions to update
-
-        - phase fractions
-        - saturations
-        - extended fractions
-        - phase densities
-        - phase enthalpies
-        - phase viscosities
-
-        While fractions are always updated the "conventional" way using the boundary
-        mixin, phase properties (secondary expressions) are updated directly using
-        the framework for secondary expressions if the flash was performed.
-
-        """
-        super().update_all_boundary_conditions()
-
-        # values of fractional mobilities on Neumann boundaries, and overall fractions
-        # on Dirichlet boundaries
-        for component in self.fluid_mixture.components:
-            # Skip if mass balance for reference component is eliminated.
-            if (
-                component == self.fluid_mixture.reference_component
-                and self.eliminate_reference_component
-            ):
-                continue
-
-            bc_vals = partial(self.bc_values_fractional_mobility, component)
-            bc_vals = cast(Callable[[pp.BoundaryGrid], np.ndarray], bc_vals)
-
-            self.update_boundary_condition(
-                name=self.bc_data_fractional_mobility_key(component),
-                function=bc_vals,
-            )
-
-            bc_vals = partial(self.bc_values_overall_fraction, component)
-            bc_vals = cast(Callable[[pp.BoundaryGrid], np.ndarray], bc_vals)
-
-            self.update_boundary_condition(
-                name=self._overall_fraction_variable(component),
-                function=bc_vals,
-            )
-
-        # values for weight in enthalpy flux on Neumann boundaries
-        self.update_boundary_condition(
-            name=self.bc_data_enthalpy_flux_key,
-            function=self.bc_values_enthalpy_flux_weight,
-        )
-
-        ### Secondary expressions
-        # Update of BC values on the Dirichlet-boundary, in case of a time-dependent
-        # BC. NOTE due to computational cost, this is only done if time-dependence is
-        # indicated, otherwise it is done once in the solution strategy in the beginning
-        if self.has_time_dependent_boundary_equilibrium:
-            self.boundary_flash()
-        # if no equilibrium conditions/flash defined, use user-provided methods
-        elif (
-            not self.has_time_dependent_boundary_equilibrium
-            and self.equilibrium_type is None
-        ):
-            # BC data for advective weights in balance equations, and fractions
-            for phase in self.fluid_mixture.phases:
-                # phase properties which appear in mobilities
-                rho_bc = partial(self.bc_values_phase_density, phase)
-                rho_bc = cast(Callable[[pp.BoundaryGrid], np.ndarray], rho_bc)
-                self.update_boundary_condition(phase.density.name, rho_bc)
-
-                h_bc = partial(self.bc_values_phase_enthalpy, phase)
-                h_bc = cast(Callable[[pp.BoundaryGrid], np.ndarray], h_bc)
-                self.update_boundary_condition(phase.enthalpy.name, h_bc)
-
-                mu_bc = partial(self.bc_values_phase_viscosity, phase)
-                mu_bc = cast(Callable[[pp.BoundaryGrid], np.ndarray], mu_bc)
-                self.update_boundary_condition(phase.viscosity.name, mu_bc)
-
-                # NOTE no fugacity or conductivity on boundary
-
-        # If BC are not time-dependent, and an equilibrium is defined, do nothing here
-        # This is the case for the first boundary flash, which is done in the solution
-        # strategy.
-        elif (
-            not self.has_time_dependent_boundary_equilibrium
-            and self.equilibrium_type is not None
-        ):
-            pass
-        # else we alert the user that the model might be incomplete
-        else:
-            raise NotImplementedError("Could not resolve strategy for BC update.")
-
-        ### Updating fractions on boundary
-        # BC data for fractions are updated using the boundary fluid state and the
-        # conventional approach, since they are primary expressions (unknowns)
-        for phase in self.fluid_mixture.phases:
-            # phase fractions and saturations
-            if (
-                self.eliminate_reference_phase
-                and phase == self.fluid_mixture.reference_phase
-            ):
-                pass
-            else:
-                y_name = self._phase_fraction_variable(phase)
-                y_bc = partial(self.bc_values_phase_fraction, phase)
-                y_bc = cast(Callable[[pp.BoundaryGrid], np.ndarray], y_bc)
-                self.update_boundary_condition(y_name, y_bc)
-
-                s_name = self._saturation_variable(phase)
-                s_bc = partial(self.bc_values_saturation, phase)
-                s_bc = cast(Callable[[pp.BoundaryGrid], np.ndarray], s_bc)
-                self.update_boundary_condition(s_name, s_bc)
-
-            # extended fractions
-            if self.has_extended_fractions:
-                for comp in phase.components:
-                    x_name = self._extended_fraction_variable(comp, phase)
-                    x_bc = partial(self.bc_values_extended_fraction, component, phase)
-                    x_bc = cast(Callable[[pp.BoundaryGrid], np.ndarray], x_bc)
-                    self.update_boundary_condition(x_name, x_bc)
-
-    def boundary_flash(self) -> None:
-        """If a flash procedure is provided, this method performs
-        the p-T flash on the Dirichlet boundary, where pressure and temperature are
-        positive.
-
-        The values are stored to represent the secondary expressions on the boundary for
-        e.g., upwinding.
-
-        The method can be called any time once the model is initialized, especially for
-        non-constant BC.
-
-        Important:
-            If p or T are negative, the respective secondary expressions are stored as
-            zero. Might have some implications for the simulation in weird cases.
-
-        Raises:
-            AssertionError: If no flash is provided.
-            ValueError: If temperature or feed fractions are not positive where
-                required.
-            ValueError: If the flash did not succeed everywhere.
-
-        """
-        assert hasattr(self, "flash"), "Flash instance not defined."
-        for sd in self.mdg.subdomains():
-            bg = self.mdg.subdomain_to_boundary_grid(sd)
-            if bg is None:  # skipping 0-D grids, or if grid not in mdg
-                continue
-            bg = cast(pp.BoundaryGrid, bg)
-
-            # indexation on boundary grid
-            # equilibrium is computable where pressure is given and positive
-            dbc = self.bc_type_darcy_flux(sd).is_dir
-            # reduce vector with all faces to vector with boundary faces
-            bf = self.domain_boundary_sides(sd).all_bf
-            dbc = dbc[bf]
-            p = self.bc_values_pressure(bg)
-            dir_idx = dbc & (p > 0.0)
-
-            # Skip if not required anywhere
-            if not np.any(dir_idx):
-                continue
-
-            # BC consistency checks ensure that z, T are non-trivial where p is
-            # non-trivial
-            T = self.bc_values_temperature(bg)
-            feed = [
-                self.bc_values_overall_fraction(comp, bg)
-                for comp in self.fluid_mixture.components
-            ]
-
-            boundary_state, success, _ = self.flash.flash(
-                z=[z[dir_idx] for z in feed],
-                p=p[dir_idx],
-                T=T[dir_idx],
-                parameters=self.flash_params,
-            )
-
-            if not np.all(success == 0):
-                raise ValueError("Boundary flash did not succeed.")
-
-            # Broadcast values into proper size for each boundary grid
-            boundary_state = _prolong_boundary_state(
-                boundary_state, bg.num_cells, dir_idx
-            )
-
-            # storing state for fraction updates
-            self.boundary_fluid_state[bg] = boundary_state
-
-            # update the boundary values of secondary expressions using their methods
-            for j, phase in enumerate(self.fluid_mixture.phases):
-                phase.density.update_boundary_value(boundary_state.phases[j].rho, bg)
-                phase.volume.update_boundary_value(boundary_state.phases[j].v, bg)
-                phase.enthalpy.update_boundary_value(boundary_state.phases[j].h, bg)
-                phase.viscosity.update_boundary_value(boundary_state.phases[j].mu, bg)
-                phase.conductivity.update_boundary_value(
-                    boundary_state.phases[j].kappa, bg
-                )
-                # NOTE no fugacity on boundary
 
     def check_bc_consistency(self) -> None:
         """Performs checks of the set boundary condition values and types to ensure
@@ -2062,6 +2080,294 @@ class BoundaryConditionsCompositionalFlow(
                 + f" boundary {bg}."
             )
 
+    def bc_data_fractional_mobility_key(self, component: ppc.Component) -> str:
+        """
+        Parameters:
+            component: A fluid component in the mixture with a mass balance equation.
+
+        Returns:
+            The key for storing (time-dependent) Neumann BC data for the advective
+            weight (fractional mobility) in the advective flux in the components mass
+            balance.
+
+        """
+        return f"{self.bc_data_fluid_flux_key}_fraction_{component.name}"
+
+    def bc_type_fluid_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        """Returns the BC type of the darcy flux for consistency reasons."""
+        return self.bc_type_darcy_flux(sd)
+
+    def bc_type_enthalpy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        """Returns the BC type of the darcy flux for consistency reasons."""
+        return self.bc_type_darcy_flux(sd)
+
+    def update_all_boundary_conditions(self) -> None:
+        """On top of the parent methods for mass and energy models, it updates
+        values for fractional variables and thermodynamic properties of phases on the
+        boundary.
+
+        It updates BC values for overall fractions on the Dirichlet boundary
+        (:meth:`bc_values_overall_fraction`), BC values for fractional mobilities on the
+        Neumann boundary (:meth:`bc_values_fractional_mobility`),
+        and BC values for the weight in the advective enthalpy flux on the Neumann
+        boundary (:meth:`bc_values_enthalpy_flux_weight`)
+
+        If the problem has time-dependent BC and an equilibrium problem
+        (:attr:`has_time_dependent_boundary_equilibrium`),
+        :meth:`boundary_flash` is performed to calculate the BC values on the
+        Dirichlet boundary and to populate :attr:`boundary_fluid_state`.
+
+        Note:
+            The solution strategy performs the first setting of boundary values, if
+            BC values not time dependent and equilibrium is defined.
+
+            This is because of efficiency reasons to not invoke the flash all the time.
+
+        It then proceedes to call the update of BC values for fractional variables
+        (:meth:`update_boundar_conditions_for_fractions`).
+
+        Finally, it updates the values of secondary expressions on the boundary
+        (thermodynamic properties of phases, which appear in the non-linear term in
+        various fluxes). These include
+
+        - phase densities
+        - phase volumes
+        - phase enthalpies
+        - phase viscosities
+        - phase conductivities
+
+        (see :meth:`update_boundar_conditions_for_secondary_expressions`).
+
+        """
+        super().update_all_boundary_conditions()
+
+        # values of fractional mobilities on Neumann boundaries, and overall fractions
+        # on Dirichlet boundaries
+        for component in self.fluid_mixture.components:
+            # Skip if mass balance for reference component is eliminated.
+            if (
+                component == self.fluid_mixture.reference_component
+                and self.eliminate_reference_component
+            ):
+                continue
+
+            bc_vals = partial(self.bc_values_fractional_mobility, component)
+            bc_vals = cast(Callable[[pp.BoundaryGrid], np.ndarray], bc_vals)
+            self.update_boundary_condition(
+                name=self.bc_data_fractional_mobility_key(component),
+                function=bc_vals,
+            )
+
+            bc_vals = partial(self.bc_values_overall_fraction, component)
+            bc_vals = cast(Callable[[pp.BoundaryGrid], np.ndarray], bc_vals)
+            self.update_boundary_condition(
+                name=self._overall_fraction_variable(component),
+                function=bc_vals,
+            )
+
+        # values for weight in enthalpy flux on Neumann boundaries
+        self.update_boundary_condition(
+            name=self.bc_data_enthalpy_flux_key,
+            function=self.bc_values_enthalpy_flux_weight,
+        )
+
+        # Update of BC values on the Dirichlet-boundary, in case of a time-dependent
+        # BC. NOTE due to computational cost, this is only done if time-dependence is
+        # indicated, otherwise it is done once in the solution strategy in the beginning
+        if (
+            self.has_time_dependent_boundary_equilibrium
+            and self.equilibrium_type is not None
+        ):
+            self.boundary_flash()
+
+        self.update_boundar_conditions_for_fractions()
+        self.update_boundar_conditions_for_secondary_expressions()
+
+    def update_boundar_conditions_for_fractions(self) -> None:
+        """Called by :meth:`update_all_boundary_conditions` to update the values of
+        fractional variables.
+
+        It updates the values of saturations in any case.
+
+        In the case that a local equilibrium problem is included, BC values for
+        molar phase fractions and extended fractions are updated.
+        In the case of no local equilibrium formulation, BC values for partial fractions
+        are updated (they are dependent in the equilibrium case).
+
+        Uses partial evaluations of
+
+        - :meth:`bc_values_saturation`
+        - :meth:`bc_values_phase_fraction`
+        - :meth:`bc_values_compositional_fraction`
+
+        to update the grid dictionaries with the parent method
+        :meth:`update_boundary_condition`.
+
+        """
+
+        for phase in self.fluid_mixture.phases:
+            # phase fractions and saturations
+            if (
+                self.eliminate_reference_phase
+                and phase == self.fluid_mixture.reference_phase
+            ):
+                pass
+            else:
+                s_name = self._saturation_variable(phase)
+                s_bc = partial(self.bc_values_saturation, phase)
+                s_bc = cast(Callable[[pp.BoundaryGrid], np.ndarray], s_bc)
+                self.update_boundary_condition(s_name, s_bc)
+
+                # phase fractions are only updated if equilibrium defined
+                if self.equilibrium_type is not None:
+                    y_name = self._phase_fraction_variable(phase)
+                    y_bc = partial(self.bc_values_phase_fraction, phase)
+                    y_bc = cast(Callable[[pp.BoundaryGrid], np.ndarray], y_bc)
+                    self.update_boundary_condition(y_name, y_bc)
+
+            # compositional fractions are always updated (partial and extended are both
+            # named the same if independent)
+            for comp in phase:
+                x_name = self._relative_fraction_variable(comp, phase)
+                x_bc = partial(self.bc_values_relative_fraction, comp, phase)
+                x_bc = cast(Callable[[pp.BoundaryGrid], np.ndarray], x_bc)
+                self.update_boundary_condition(x_name, x_bc)
+
+    def update_boundar_conditions_for_secondary_expressions(self) -> None:
+        """Updates the boundary conditions for secondary expressions appearing in
+        the non-linear weights in various fluxes.
+
+        It uses the framework of the class
+        :class:`~porepy.composite.composite_utils.SecondaryExpression` to update the
+        values directly (bypassing the parent method :meth:`update_boundary_condition`).
+
+        The base updates includes updates for:
+
+        - phase densities (:meth:`bc_values_phase_density`)
+        - phase volumes (reciprocal of :meth:`bc_values_phase_density`)
+        - phase enthalpies (:meth:`bc_values_phase_enthalpy`)
+        - phase viscosities (:meth:`bc_values_phase_viscosity`)
+
+        Note:
+            In a consistent discretization, no BC values for conductivities are
+            required. Hence they are not performed here.
+
+            Also, no BC values for purely local quantities like fugacity coefficients
+            are required.
+
+        """
+        for bg in self.mdg.boundaries():
+            for phase in self.fluid_mixture.phases:
+                # phase properties which appear in mobilities
+                rho_bc = self.bc_values_phase_density(phase, bg)
+                phase.density.update_boundary_value(rho_bc, bg)
+
+                # volume as reciprocal of density, only where given
+                v_bc = np.zeros_like(rho_bc)
+                idx = rho_bc > 0
+                v_bc[idx] = 1.0 / rho_bc[idx]
+                phase.volume.update_boundary_value(v_bc, bg)
+
+                phase.enthalpy.update_boundary_value(
+                    self.bc_values_phase_enthalpy(phase, bg), bg
+                )
+
+                phase.viscosity.update_boundary_value(
+                    self.bc_values_phase_viscosity(phase, bg), bg
+                )
+
+    def boundary_flash(self) -> None:
+        """If a flash procedure is provided, this method performs
+        the p-T flash on the Dirichlet boundary, where pressure and temperature are
+        positive.
+
+        The values are stored to represent the secondary expressions on the boundary for
+        e.g., upwinding.
+
+        The method can be called any time once the model is initialized, especially for
+        non-constant BC.
+
+        It stored the results in :attr:`boundary_fluid_state` to be accessed by various
+        ``bc_values_*`` methods.
+
+        Important:
+            If p or T are non-positive, the respective secondary expressions are stored
+            as zero. Might have some implications for the simulation in weird cases.
+
+        Raises:
+            AssertionError: If no flash is provided.
+            ValueError: If temperature or feed fractions are not positive where
+                required.
+            ValueError: If the flash did not succeed everywhere.
+
+        """
+        if not hasattr(self, "flash"):
+            raise ppc.CompositeModellingError(
+                "Attempting to call the flash on the boundary when no flash is included"
+                + " in the model."
+            )
+
+        nphase = self.fluid_mixture.num_components
+        ncomp = np.array(
+            [phase.num_components for phase in self.fluid_mixture.phases], dtype=int
+        )
+        ptype = np.array(
+            [len(phase.type) for phase in self.fluid_mixture.phases], dtype=int
+        )
+
+        for sd in self.mdg.subdomains():
+            bg = self.mdg.subdomain_to_boundary_grid(sd)
+            # 0D grids are skipped
+            if bg is None:
+                continue
+            # grids without cells (boundaries of lines) have empty states
+            elif bg.num_cells == 0:
+                boundary_state = ppc.FluidState()
+            # if at least 1 cell, perform flash.
+            else:
+                bg = cast(pp.BoundaryGrid, bg)
+
+                # indexation on boundary grid
+                # equilibrium is computable where pressure is given and positive
+                dbc = self.bc_type_darcy_flux(sd).is_dir
+                # reduce vector with all faces to vector with boundary faces
+                bf = self.domain_boundary_sides(sd).all_bf
+                dbc = dbc[bf]
+                p = self.bc_values_pressure(bg)
+                dir_idx = dbc & (p > 0.0)
+
+                # set zero values if not required anywhere (completeness)
+                if not np.any(dir_idx):
+                    boundary_state = ppc.initialize_fluid_state(
+                        bg.num_cells, ncomp, nphase, ptype, with_derivatives=False
+                    )
+                else:
+                    # BC consistency checks ensure that z, T are non-trivial where p is
+                    # non-trivial
+                    T = self.bc_values_temperature(bg)
+                    feed = [
+                        self.bc_values_overall_fraction(comp, bg)
+                        for comp in self.fluid_mixture.components
+                    ]
+
+                    boundary_state, success, _ = self.flash.flash(
+                        z=[z[dir_idx] for z in feed],
+                        p=p[dir_idx],
+                        T=T[dir_idx],
+                        parameters=self.flash_params,
+                    )
+
+                    if not np.all(success == 0):
+                        raise ValueError("Boundary flash did not succeed.")
+
+                    # Broadcast values into proper size for each boundary grid
+                    boundary_state = _prolong_boundary_state(
+                        boundary_state, bg.num_cells, dir_idx
+                    )
+
+            # storing state on boundary for BC value updates
+            self.boundary_fluid_state[bg] = boundary_state
+
     ### BC which always need to be provided
 
     def bc_values_fractional_mobility(
@@ -2120,7 +2426,9 @@ class BoundaryConditionsCompositionalFlow(
         """
         return np.zeros(boundary_grid.num_cells)
 
-    ### BC which need to be provided in case no equilibrium calculations are included
+    ### BC which need to be provided in case no equilibrium calculations are included.
+    ### Default updates uses the data stored after the boundary flash
+    ### If no data is provided, zero arrays are returned
 
     def bc_values_saturation(self, phase: ppc.Phase, bg: pp.BoundaryGrid) -> np.ndarray:
         """BC values for saturation on the Dirichlet boundary, for models which do not
@@ -2132,7 +2440,7 @@ class BoundaryConditionsCompositionalFlow(
 
         Raises:
             AssertionError: If not exactly ``bg.num_cells`` values are stored in
-            :attr:`boundary_fluid_state`.
+                :attr:`boundary_fluid_state`.
 
         Returns:
             The values stored in :attr:`boundary_fluid_state, if available.
@@ -2163,7 +2471,7 @@ class BoundaryConditionsCompositionalFlow(
 
         Raises:
             AssertionError: If not exactly ``bg.num_cells`` values are stored in
-            :attr:`boundary_fluid_state`.
+                :attr:`boundary_fluid_state`.
 
         Returns:
             The values stored in :attr:`boundary_fluid_state, if available.
@@ -2182,11 +2490,17 @@ class BoundaryConditionsCompositionalFlow(
             )
         return vals
 
-    def bc_values_extended_fraction(
+    def bc_values_relative_fraction(
         self, component: ppc.Component, phase: ppc.Phase, bg: pp.BoundaryGrid
     ) -> np.ndarray:
-        """BC values for extended fractions of a component in a phase on the Dirichlet
+        """BC values for fractions of a component in a phase on the Dirichlet
         boundary, for models which do not have equilibrium calculations.
+
+        Note:
+            For models with equilibrium calculations, this is used for BC values of
+            extended fractions.
+            For models without equilibrium calculations, this is used for BC values of
+            partial fractions.
 
         Parameters:
             component: A component in the ``phase``.
@@ -2195,7 +2509,7 @@ class BoundaryConditionsCompositionalFlow(
 
         Raises:
             AssertionError: If not exactly ``bg.num_cells`` values are stored in
-            :attr:`boundary_fluid_state`.
+                :attr:`boundary_fluid_state`.
 
         Returns:
             The values stored in :attr:`boundary_fluid_state, if available.
@@ -2206,7 +2520,7 @@ class BoundaryConditionsCompositionalFlow(
             vals = np.zeros(bg.num_cells)
         else:
             phases = [p for p in self.fluid_mixture.phases]
-            comps = [c for c in phase.components]
+            comps = [c for c in phase]
             j = phases.index(phase)
             i = comps.index(component)
             vals = self.boundary_fluid_state[bg].phases[j].x[i]
@@ -2231,7 +2545,7 @@ class BoundaryConditionsCompositionalFlow(
 
         Raises:
             AssertionError: If not exactly ``bg.num_cells`` values are stored in
-            :attr:`boundary_fluid_state`.
+                :attr:`boundary_fluid_state`.
 
         Returns:
             The values stored in :attr:`boundary_fluid_state, if available.
@@ -2265,7 +2579,7 @@ class BoundaryConditionsCompositionalFlow(
 
         Raises:
             AssertionError: If not exactly ``bg.num_cells`` values are stored in
-            :attr:`boundary_fluid_state`.
+                :attr:`boundary_fluid_state`.
 
         Returns:
             The values stored in :attr:`boundary_fluid_state, if available.
@@ -2299,7 +2613,7 @@ class BoundaryConditionsCompositionalFlow(
 
         Raises:
             AssertionError: If not exactly ``bg.num_cells`` values are stored in
-            :attr:`boundary_fluid_state`.
+                :attr:`boundary_fluid_state`.
 
         Returns:
             The values stored in :attr:`boundary_fluid_state, if available.
@@ -2557,6 +2871,10 @@ class SolutionStrategyCompositionalFlow(
 ):
     """Solution strategy for compositional flow.
 
+    The following parameters are required:
+
+    - ``'equilibrium_type'``: See :attr:`equilibrium_type` and read its documentation.
+
     The initialization parameters can contain the following entries:
 
     - ``'eliminate_reference_phase'``: Defaults to True. If True, the molar fraction
@@ -2573,15 +2891,12 @@ class SolutionStrategyCompositionalFlow(
       complementarity conditions for each phase are formulated in semi-smooth form using
       a AD-compatible ``min`` operator. The semi-smooth Newton can be applied to solve
       the equilibrium problem. If False, the modeller must adapt the solution strategy.
-    - ``'has_extended_fractions'``: See :attr:`has_extended_fractions`.
-
-    The following parameters are required:
-
-    - ``'equilibrium_type'``: See :attr:`equilibrium_type`.
-
-    Raises:
-        ValueError: If no equilibrium type is defined and fractions in phases are
-            **not** requested by the user in the mixture mixin.
+    - ``'has_time_dependent_boundary_equilibrium'``: Defaults to False. If True, the
+      solution strategy includes an update of boundary conditions using a p-T flash in
+      every time step. Otherwise it assumes the boundary flash needs to be performed
+      only once at the beginning. Meaningless if no equilibrium condition is defined.
+      In that case the user must provide values
+      (see :class:`BoundaryConditionsCompositionalFlow`).
 
     """
 
@@ -2626,7 +2941,7 @@ class SolutionStrategyCompositionalFlow(
     """Provided by :class:`~porepy.composite.composite_mixins.CompositeVariables`."""
     _saturation_variable: Callable[[ppc.Phase], str]
     """Provided by :class:`~porepy.composite.composite_mixins.CompositeVariables`."""
-    _compositional_fraction_variable: Callable[[ppc.Component, ppc.Phase], str]
+    _relative_fraction_variable: Callable[[ppc.Component, ppc.Phase], str]
     """Provided by :class:`~porepy.composite.composite_mixins.CompositeVariables`."""
 
     equilibriate_fluid: Callable[
@@ -2649,6 +2964,10 @@ class SolutionStrategyCompositionalFlow(
     """Provided by :class:`InitialConditionsCompositionalFlow`."""
     check_bc_consistency: Callable[[], None]
     """Provided by :class:`BoundaryConditionsCompositionalFlow`"""
+    progress_all_constitutive_expressions_in_time: Callable[[Optional[bool]], None]
+    """Provided by :class:`ConstitutiveLawsCompositionalFlow`."""
+    update_all_constitutive_expressions: Callable[[Optional[bool]], None]
+    """Provided by :class:`ConstitutiveLawsCompositionalFlow`."""
 
     primary_equation_names: list[str]
     """Provided by :class:`EquationsCompositionalFlow`."""
@@ -2660,6 +2979,17 @@ class SolutionStrategyCompositionalFlow(
 
         self._nonlinear_flux_discretizations = list()
 
+        self._constitutive_expressions: dict[
+            str,
+            tuple[
+                ppc.SecondaryExpression,
+                pp.GridLikeSequence,
+                Callable[[tuple[np.ndarray, ...]], tuple[np.ndarray, np.ndarray]],
+            ],
+        ] = dict()
+        """Storage for secondary expressions which need to be covered by a separate
+        update."""
+
         self.enthalpy_variable: str = "enthalpy"
         """Primary variable in the compositional flow model, denoting the total,
         transported (specific molar) enthalpy of the fluid mixture."""
@@ -2667,69 +2997,34 @@ class SolutionStrategyCompositionalFlow(
         self.equilibrium_type: Literal["p-T", "p-h", "v-h"] | None = params[
             "equilibrium_type"
         ]
-        """A string denoting the two state functions which are assumed constant at
-        equilibrium.
+        """A string denoting the two state functions which are assumed constant in the
+        local (phase) equilibrium problem.
 
         Important:
             The user **must** provide a value explictly in the input parameters.
 
-        If set to ``None``, the framework assumes there are no equilibrium calculations,
-        hence there are **no equilibrium equations** and **no equilibriation of the
-        fluid**.
-        Also, **no fractions of components in phases** are created as unknowns
-        (see :attr:`~porepy.composite.base.Phase.fraction_of`).
+        **If defined:**
 
-        The user must in this case provide secondary equations which provide expressions
-        for the unknowns in the equilibrium:
+            The strategy assumes there are equilibrium calculations and performes the
+            flash before every non-linear iteration to update the values of secondary
+            variables and (dependent) thermodynamic properties.
+
+        **If set to ``None``**:
+
+        The framework assumes there are no local equilibrium conditions, hence no flash.
+        It uses then the framework of secondary equations and expressions to update
+        the values of dependent thermodynamic properties before each non-linear
+        iteration
 
         Examples:
-            If no equilibrium is defined, there are dangling variables which need a
-            definition or a constitutive law.
-
-            These include:
-
-            1. Temperature
-            :meth:`~porepy.models.energy_balance.VariablesEnergyBalance.temperature`
-            2. Phase saturations :attr:`~porepy.composite.base.Phase.saturation`
-            3. Optionally molar fractions of components in phases
-            :attr:`~porepy.composite.base.Phase.fraction_of` if
-            :attr:`has_extended_fractions` is True.
-
-            Note that secondary expressions relating molar phase fractions and
-            saturations via densities are always included.
-
-        """
-
-        has_extended_fractions = params.get("has_extended_fractions", None)
-        if has_extended_fractions is None:
-            if self.equilibrium_type is None:
-                has_extended_fractions = False
-            else:
-                has_extended_fractions = True
-        has_extended_fractions = cast(bool, has_extended_fractions)
-
-        self.has_extended_fractions: bool = has_extended_fractions
-        """A flag indicates whether extended fractions of components in phases should
-        be created or not. This must be True, if :attr:`equilibrium_type` is not None.
-
-        Note:
-            This is optional.
-            If ``equilibrium_type`` is None, it defaults to False.
-            If ``equilibrium_type`` is set, it defaults to True
-
-        If True and ``equilibrium_type == None``, the user must provide secondary
-        expressions for the fractional variables to close the system.
-
-        Note:
-            Molar fractions of phases (:attr:`~porepy.composite.base.Phase.fraction`)
-            are always created, as well as saturations
-            (:attr:`~porepy.composite.base.Phase.saturation`).
-
-            This is due to the definition of a mixture properties as a sum of partial
-            phase properties weighed with respective fractions.
-
-            Secondary equations, relating molar fractions and saturations via densities,
-            are always included in the compositional flow equation.
+            1. If set to ``'p-h'`` the basic framework is fully functional and includes
+               the all molar fractions and local equilibrium equations.
+            2. If set to ``None``, the basic framework has dangling variables
+               (temperature, phase saturations and partial fractions), and the model
+               needs to be closed using secondary equations.
+            3. If set to ``'p-T'`` the basic framework has a dangling variable, the
+               enthalpy of the fluid mixture, and needs to be closed with a constitutive
+               law as a secondary equation.
 
         """
 
@@ -2747,29 +3042,6 @@ class SolutionStrategyCompositionalFlow(
         method was introduced).
 
         """
-
-        # Input validation for set-up
-        if self.equilibrium_type is not None and self.has_extended_fractions is False:
-            raise ValueError(
-                f"Conflicting model set-up: No extended fractions requested but"
-                + f" {self.equilibrium_type} equilibrium set."
-            )
-        elif self.equilibrium_type is None and self.has_extended_fractions is True:
-            warnings.warn(
-                "Unusual model set-up: Extended fractions requested but no"
-                + " equilibrium system requested. Check model for:\n\n."
-                + "1. Update of thermodynamic properties accounts for the"
-                + "derivative of the normalization w.r.t. ext. fractions."
-            )
-
-        if (
-            self.equilibrium_type is None
-            and self.has_time_dependent_boundary_equilibrium
-        ):
-            raise ValueError(
-                f"Conflicting model set-up: Time-dependent boundary equilibrium"
-                + f" requested but no equilibrium type defined."
-            )
 
         self.eliminate_reference_phase: bool = params.get(
             "eliminate_reference_phase", True
@@ -2795,6 +3067,26 @@ class SolutionStrategyCompositionalFlow(
         """Flag to use a semi-smooth min operator for the complementarity conditions
         in the equilibrium problem. As a consequence the equilibrium problem
         can be solved locally using a semi-smooth Newton algorithm."""
+
+        # Input validation for set-up
+        if (
+            self.equilibrium_type is None
+            and self.has_time_dependent_boundary_equilibrium
+        ):
+            raise ppc.CompositeModellingError(
+                f"Conflicting model set-up: Time-dependent boundary flash calculations"
+                + f" requested but no equilibrium type defined."
+            )
+        if not self.eliminate_reference_component:
+            warnings.warn(
+                "Reference component (and its fraction) are not eliminated."
+                + " The basic model needs to be closed (unity constraint)."
+            )
+        if not self.eliminate_reference_phase:
+            warnings.warn(
+                "Reference phase (and its saturation) are not eliminated."
+                + " The basic model needs to be closed (unity constraint)."
+            )
 
     def prepare_simulation(self) -> None:
         """Introduces some additional elements in between steps performed by the parent
@@ -2834,6 +3126,10 @@ class SolutionStrategyCompositionalFlow(
         if self.equilibrium_type is not None:
             self.initial_flash()
             self.boundary_flash()
+        # If no equilibrium type, update the constitutive expressions which were added
+        # by the user
+        else:
+            self.update_all_constitutive_expressions(True)
         self.initialize_timestep_and_iterate_indices()
 
         self.set_discretization_parameters()
@@ -2884,6 +3180,8 @@ class SolutionStrategyCompositionalFlow(
                 time_step_index=time_step_index,
             )
 
+        # updateing constitutive expressions on domains
+
         # copying the current value of secondary expressions to all indices
         # NOTE Only values, not derivatives
         for phase in self.fluid_mixture.phases:
@@ -2912,7 +3210,7 @@ class SolutionStrategyCompositionalFlow(
 
             # fugacity coeffs
             # NOTE their values are not progressed in time.
-            for comp in phase.components:
+            for comp in phase:
                 phi = phase.fugacity_of[comp].subdomain_values
                 d_phi = phase.fugacity_of[comp].subdomain_derivatives
 
@@ -3047,10 +3345,10 @@ class SolutionStrategyCompositionalFlow(
 
             for i, comp in enumerate(phase.components):
                 self.equation_system.set_variable_values(
-                        state.phases[j].x[i],
-                        [self._compositional_fraction_variable(comp, phase)],
-                        iterate_index=0
-                    )
+                    state.phases[j].x[i],
+                    [self._relative_fraction_variable(comp, phase)],
+                    iterate_index=0,
+                )
 
         # setting Temperature and pressure values, depending on equilibrium definition
         if "T" not in self.equilibrium_type:
@@ -3067,64 +3365,60 @@ class SolutionStrategyCompositionalFlow(
 
         return state
 
-    def update_thermodynamic_properties(
-        self, fluid_state: Optional[ppc.FluidState] = None
-    ) -> None:
+    def update_thermodynamic_properties(self, fluid_state: ppc.FluidState) -> None:
         """Method to update various thermodynamic properties of present phases, on all
         subdomains **in the iterative sense**.
 
-        I.e., it stores the results in secondary properties in the current iterate value
-        using the secondary expression class (which includes a shift of other values).
+        This is meant for thermodynamic properties which appear in the PDEs, and inclue
 
-        If ``fluid_state`` is None, evaluates pressure, temperature and fractions,
-        and computes the properties using using
-        :meth:`~porepy.composite.base.Phase.compute_properties`
+        - phase densities,
+        - phase volumes,
+        - phase enthalpies,
+        - phase viscosities,
+        - phase conductivities,
 
-        If a ``fluid_state`` is given, uses respective values. This is the case if it
-        was computed using the flash for example.
+        as well as their derivatives w.r.t. their dependencies.
+
+        ``fluid_state`` comes either from the flash (if equilibrium is defined),
+        or from an separate evaluation of secondary quantities if no equilibrium
+        conditions defined.
+
+        Called before every non-linear iteration to update the values of the secondary
+        expressions.
+
+        Note:
+            Fugacity coefficients are only updated if there is a local equilibrium
+            formulation.
 
         """
-        phase_states: list[ppc.PhaseState] = list()
-
-        # This is the case if no flash was performed.
-        # Evaluate the properties using what the user has provided
-        if fluid_state is None:
-            subdomains = self.mdg.subdomains()
-
-            p = self.equation_system.get_variable_values([self.pressure_variable])
-            T = self.equation_system.get_variable_values([self.temperature_variable])
-
-            for phase in self.fluid_mixture.phases:
-                xn = [
-                    phase.partial_fraction_of[comp](subdomains).value(
-                        self.equation_system
-                    )
-                    for comp in phase.components
-                ]
-
-                phase_states.append(phase.compute_properties(p, T, xn))
-        # otherwise assume this is the flash result with a complete description
-        else:
-            phase_states = fluid_state.phases
 
         # updating the phase properties, values and derivatives in the iterative sense
-        for phase, state in zip(self.fluid_mixture.phases, phase_states):
+        for phase, state in zip(self.fluid_mixture.phases, fluid_state.phases):
             phase.density.subdomain_values = state.rho
             phase.volume.subdomain_values = state.v
             phase.enthalpy.subdomain_values = state.h
             phase.viscosity.subdomain_values = state.mu
             phase.conductivity.subdomain_values = state.kappa
 
-            # extend derivatives from partial to extended fractions, if any
-            if self.has_extended_fractions:
+            # extend derivatives from partial to extended fractions.
+            # NOTE This revers the hack performed by the composite mixins when creating
+            # secondary expressions which depend on extended fractions (independent)
+            # quantities, but should actually depend on partial fractions (dependent).
+            if self.equilibrium_type is not None:
                 x = np.array(
                     [
                         self.equation_system.get_variable_values(
-                            [self._compositional_fraction_variable(comp, phase)]
+                            [self._relative_fraction_variable(comp, phase)]
                         )
-                        for comp in phase.components
+                        for comp in phase
                     ]
                 )
+
+                for k, comp in enumerate(phase.components):
+                    phase.fugacity_of[comp].subdomain_values = state.phis[k]
+                    phase.fugacity_of[comp].subdomain_derivatives = _extend(
+                        state.dphis[k], x
+                    )
 
                 phase.density.subdomain_derivatives = _extend(state.drho, x)
                 phase.volume.subdomain_derivatives = _extend(state.dv, x)
@@ -3138,14 +3432,16 @@ class SolutionStrategyCompositionalFlow(
                 phase.viscosity.subdomain_derivatives = state.dmu
                 phase.conductivity.subdomain_derivatives = state.dkappa
 
-            for k, comp in enumerate(phase.components):
-                phase.fugacity_of[comp].subdomain_values = state.phis[k]
-                if self.has_extended_fractions:
-                    phase.fugacity_of[comp].subdomain_derivatives = _extend(
-                        state.dphis[k], x
-                    )
-                else:
-                    phase.fugacity_of[comp].subdomain_derivatives = state.dphis[k]
+    def evaluate_secondary_expressions(self) -> ppc.FluidState:
+        """Method called instead of the flash to evaluate secondary expressions
+        which appear in the flow and transport formulation, depending on their
+        quantities.
+
+        For phase properties it uses
+
+        Uses the numerical functions added by
+        :class:`ConstitutiveLawsCompositionalFlow` to evaluate the properties by
+        """
 
     def update_discretizations(self) -> None:
         """Convenience method to update discretization parameters and non-linear
@@ -3262,10 +3558,11 @@ class SolutionStrategyCompositionalFlow(
         # Flashing the mixture as a predictor step, if equilibrium defined
         if self.equilibrium_type is not None:
             fluid_state = self.solve_local_equilibrium_problem()
+            self.update_thermodynamic_properties(fluid_state)
+        # Otherwise we evaluate the secondary expression according to their dependencies
+        # and provided functions
         else:
-            fluid_state = None
-
-        self.update_thermodynamic_properties(fluid_state)
+            self.update_all_constitutive_expressions()
 
         # After updating the fluid properties, update discretizations
         self.update_discretizations()

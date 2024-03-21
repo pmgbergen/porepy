@@ -174,6 +174,10 @@ class EoSCompiler(AbstractEoS):
     Respective functions must be assembled and compiled by a child class with a specific
     EoS.
 
+    Important:
+        This class fixes the thermodynamic input for computing phase properties to
+        pressure, temperature and partial fractions.
+
     The compiled functions are expected to have a specific signature (see below).
 
     1. One or two pre-arguments (vectors)

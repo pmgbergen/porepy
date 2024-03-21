@@ -35,7 +35,7 @@ class Flash(abc.ABC):
         """Number of phases and components present in mixture."""
 
         self.nc_per_phase: tuple[int, ...] = tuple(
-            [len(phase.components) for phase in mixture.phases]
+            [phase.num_components for phase in mixture.phases]
         )
         """Number of components modelled in each phase."""
 
