@@ -52,43 +52,63 @@ class Tpsa:
         dist_fc_cc = np.sqrt(np.sum(fc_cc**2, axis=0))
 
         # Distance between neighboring cells
-        dist_cc_cc = np.bincount(ci, weights=dist_fc_cc, minlength=sd.num_cells)
+        dist_cc_cc = np.bincount(fi, weights=dist_fc_cc, minlength=sd.num_cells)
 
         ## Harmonic average of the shear modulus
         #
         shear_modulus_by_face_cell_distance = mu / dist_fc_cc
-        t = 1 / np.bincount(
-            fi, weights=1 / shear_modulus_by_face_cell_distance, minlength=sd.num_faces
+        t = (
+            2
+            * 1
+            / np.bincount(
+                fi,
+                weights=1 / shear_modulus_by_face_cell_distance,
+                minlength=sd.num_faces,
+            )
         )
 
         # Arithmetic average of the shear modulus
-        arithmetic_average_shear_modulus = np.bincount(
-            fi, weights=shear_modulus_by_face_cell_distance, minlength=sd.num_cells
-        ) / np.bincount(fi, weights=dist_fc_cc, minlength=sd.num_cells)
-
-        # Stress due to displacements
-        row = fvutils.expand_indices_nd(fi, sd.dim)
-        col = fvutils.expand_indices_nd(ci, sd.dim)
-        data = np.repeat(t, sd.dim)
+        arithmetic_average_shear_modulus = (
+            np.bincount(
+                fi, weights=shear_modulus_by_face_cell_distance, minlength=sd.num_cells
+            )
+            * dist_cc_cc
+        )
 
         # The vector difference operator over a face is simply a Kronecker product of
         # the standard cell-face map.
         cell_to_face_difference = sps.kron(sd.cell_faces, sps.eye(sd.dim)).tocsr()
         # The weighted average
-        cell_to_face_average = sps.coo_matrix(
-            ((shear_modulus_by_face_cell_distance, (fi, ci))),
-            shape=(sd.num_faces, sd.num_cells),
-        ).tocsr()
+        cell_to_face_average = (
+            sps.dia_matrix(
+                (1 / np.bincount(fi, shear_modulus_by_face_cell_distance), 0),
+                shape=(sd.num_faces, sd.num_faces),
+            )
+            @ sps.coo_matrix(
+                ((shear_modulus_by_face_cell_distance, (fi, ci))),
+                shape=(sd.num_faces, sd.num_cells),
+            ).tocsr()
+        )
 
         cell_to_face_average_nd = sps.kron(
             cell_to_face_average,
             sps.eye(sd.dim),
         ).tocsr()
 
-        stress = -sps.coo_matrix(
-            (t[np.repeat(fi, sd.dim)] * np.repeat(sgn, sd.dim), (row, col)),
-            shape=(sd.num_faces * sd.dim, sd.num_cells * sd.dim),
-        ).tocsr()
+        # Stress due to displacements
+        row = fvutils.expand_indices_nd(fi, sd.dim)
+        col = fvutils.expand_indices_nd(ci, sd.dim)
+        # Stress is scaled by the face area.
+        stress = -(
+            sps.dia_matrix(
+                (np.repeat(sd.face_areas, sd.dim), 0),
+                shape=(sd.num_faces * sd.dim, sd.num_faces * sd.dim),
+            )
+            @ sps.coo_matrix(  # Note minus sign
+                (t[np.repeat(fi, sd.dim)] * np.repeat(sgn, sd.dim), (row, col)),
+                shape=(sd.num_faces * sd.dim, sd.num_cells * sd.dim),
+            ).tocsr()
+        )
 
         n = sd.face_normals
 
@@ -121,7 +141,7 @@ class Tpsa:
 
         mass_volumetric_strain = -(
             sps.dia_matrix(
-                (arithmetic_average_shear_modulus, 0),
+                (sd.face_areas / (2 * arithmetic_average_shear_modulus), 0),
                 shape=(sd.num_faces, sd.num_faces),
             )
             @ sd.cell_faces
@@ -151,13 +171,11 @@ class Tpsa:
             # \hat{R}_k^n = [[n2], [-n1]], \bar{R}_k^n = [-n2, n1].
             # We may need a ravel of sorts of the data
             data = np.array([n[1], -n[0]])
-            # Not sure about the arguments here, but the logic should be okay. The csr
-            # and csc are random (50% chance it is correct).
 
             # Mapping from average displacements over faces to rotations on the face
             Rn_bar = sps.csr_matrix(
                 (
-                    data.ravel("F"),
+                    -data.ravel("F"),  # minus sign from definition of Rn_bar
                     np.arange(sd.dim * sd.num_faces),
                     np.arange(0, sd.dim * sd.num_faces + 1, sd.dim),
                 ),
@@ -167,23 +185,30 @@ class Tpsa:
             Rn_hat = sps.csc_matrix(
                 (
                     data.ravel("F"),
-                    np.arange(sd.num_faces* sd.dim),
+                    np.arange(sd.num_faces * sd.dim),
                     np.arange(0, sd.dim * sd.num_faces + 1, sd.dim),
                 ),
                 shape=(sd.dim * sd.num_faces, sd.num_faces),
             )
-            # TODO: sd.cell_faces must be replaced by weighting 
+            # TODO: sd.cell_faces must be replaced by weighting
             stress_rotation = -Rn_hat @ cell_to_face_average
 
         rotation_displacement = -Rn_bar @ cell_to_face_average_nd
 
         # TODO: Cosserat model
 
+        div = pp.fvutils.scalar_divergence(sd)
+        div_vec = pp.fvutils.vector_divergence(sd)
+
         matrix_dictionary[self.stress_displacement_matrix_key] = stress
         matrix_dictionary[self.stress_rotation_matrix_key] = stress_rotation
-        matrix_dictionary[self.stress_volumetric_strain_matrix_key] = stress_volumetric_strain
+        matrix_dictionary[self.stress_volumetric_strain_matrix_key] = (
+            stress_volumetric_strain
+        )
         matrix_dictionary[self.rotation_displacement_matrix_key] = rotation_displacement
-        matrix_dictionary[self.mass_volumetric_strain_matrix_key] = mass_volumetric_strain
+        matrix_dictionary[self.mass_volumetric_strain_matrix_key] = (
+            mass_volumetric_strain
+        )
         matrix_dictionary[self.mass_displacement_matrix_key] = mass_displacement
 
 
@@ -196,11 +221,16 @@ if True:
 
     C = pp.FourthOrderTensor(mu, mu)
 
+    dir_faces = g.get_all_boundary_faces()
+    bc = pp.BoundaryConditionVectorial(g)
+    bc.is_neu[:, dir_faces] = False
+    bc.is_dir[:, dir_faces] = True
+
     data = {
         pp.PARAMETERS: {
             "mechanics": {
                 "fourth_order_tensor": C,
-                "bc": pp.BoundaryConditionVectorial(g),
+                "bc": bc,
             }
         },
         pp.DISCRETIZATION_MATRICES: {"mechanics": {}},
