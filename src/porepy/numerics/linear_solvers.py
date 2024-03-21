@@ -44,7 +44,6 @@ class LinearSolver:
         """
 
         setup.before_nonlinear_loop()
-        prev_sol = setup.equation_system.get_variable_values(time_step_index=0)
 
         # For linear problems, the tolerance is irrelevant
         # FIXME: This assumes a direct solver is applied, but it may also be that parameters
@@ -57,7 +56,7 @@ class LinearSolver:
         sol = setup.solve_linear_system()
 
         error_res, error_inc, is_converged, _ = setup.check_convergence(
-            sol, prev_sol, prev_sol, res, res, self.params
+            sol, res, res.copy(), self.params
         )
         errors["residual_error"].append(error_res)
         errors["increment_error"].append(error_inc)
