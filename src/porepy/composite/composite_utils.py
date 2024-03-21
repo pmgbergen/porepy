@@ -21,6 +21,7 @@ __all__ = [
     "truncexp",
     "trunclog",
     "COMPOSITE_LOGGER",
+    "CompositeModellingError",
     "SecondaryOperator",
     "SecondaryExpression",
 ]
@@ -191,6 +192,11 @@ class CompositionalSingleton(abc.ABCMeta):
         return new_instance
 
 
+class CompositeModellingError(Exception):
+    """Custom exception class to alert the user when using the composite framework
+    logically inconsistent."""
+
+
 class SecondaryOperator(pp.ad.Operator):
     """Operator representing a :class:`SecondaryExpression` in AD operator form on
     some domains.
@@ -213,7 +219,7 @@ class SecondaryOperator(pp.ad.Operator):
         children: The first-order dependencies of the called
             :class:`SecondaryExpression` in AD form (defined on the same ``domains``).
         time_step_index: ``default=-1``
-        
+
             Assigned as -1 by the expression, increased by
             :meth:`previous_timestep`.
 
@@ -221,7 +227,7 @@ class SecondaryOperator(pp.ad.Operator):
             -1 assigned.
 
         iterate_index: ``default=0``
-        
+
             Assigned as 0 by the expression, increased by :meth:`previous_iteration`.
 
     """
@@ -237,9 +243,8 @@ class SecondaryOperator(pp.ad.Operator):
         assert -1 <= time_step_index, "Assigned time step index must be >= -1."
         assert 0 <= iterate_index, "Assigned iterate index must be >= 0."
 
-        if (
-            (iterate_index > 0 and time_step_index != -1)
-            or (time_step_index > -1 and iterate_index != 0)
+        if (iterate_index > 0 and time_step_index != -1) or (
+            time_step_index > -1 and iterate_index != 0
         ):
             raise ValueError(
                 "Cannot represent previous time step and iterate at the same time."
@@ -473,7 +478,7 @@ class SecondaryOperator(pp.ad.Operator):
         # if no derivatives requested, return value
         if not with_derivatives:
             return value
-        
+
         # proceeding with derivatives, by filling the identity blocks of the first-order
         # dependencies. Check if derivatives are stored
         if None in diffs:
@@ -689,9 +694,8 @@ class SecondaryExpression:
         elif all(isinstance(g, pp.BoundaryGrid) for g in domains):
             op = pp.ad.TimeDependentDenseArray(self.name, domains)
         # On subdomains or interfaces, create the secondary operators
-        elif (
-            all(isinstance(g, pp.Grid) for g in domains)
-            or all(isinstance(g, pp.MortarGrid) for g in domains)
+        elif all(isinstance(g, pp.Grid) for g in domains) or all(
+            isinstance(g, pp.MortarGrid) for g in domains
         ):
             children = [child(domains) for child in self._dependencies]
 
@@ -753,14 +757,12 @@ class SecondaryExpression:
         data = self._data_of(grid)
         return data[loc][self.name].get(index, [None, None])
 
-    def _fetch_values(
-        self, grid: pp.GridLike, loc: str, index: int
-    ) -> np.ndarray:
+    def _fetch_values(self, grid: pp.GridLike, loc: str, index: int) -> np.ndarray:
         """Helper function to fetch the value of the secondary expression,
         at a given location and index.
 
         Performs also validations if data is stored.
-        
+
         Parameters:
             grid: A grid in the md-grid.
             loc: Either ``pp.ITERATE_SOLUTIONS`` or ``pp.TIME_STEP_SOLUTIONS``
@@ -784,7 +786,7 @@ class SecondaryExpression:
             )
         else:
             return cast(np.ndarray, values)
-        
+
     def _fetch_derivative_values(
         self, grid: pp.GridLike, loc: str, index: int
     ) -> np.ndarray:
@@ -792,7 +794,7 @@ class SecondaryExpression:
         at a given location and index.
 
         Performs also validations if data is stored.
-        
+
         Parameters:
             grid: A grid in the md-grid.
             loc: Either ``pp.ITERATE_SOLUTIONS`` or ``pp.TIME_STEP_SOLUTIONS``
@@ -827,7 +829,6 @@ class SecondaryExpression:
         """
         # subdomains
         for _, data in self.mdg.subdomains(return_data=True):
-
             # Every expression has at least one iterate value (current time step)
             if pp.ITERATE_SOLUTIONS not in data:
                 data[pp.ITERATE_SOLUTIONS] = {}
@@ -843,7 +844,6 @@ class SecondaryExpression:
                     data[pp.TIME_STEP_SOLUTIONS][self.name] = {}
         # interfaces
         for _, data in self.mdg.interfaces(return_data=True):
-
             if pp.ITERATE_SOLUTIONS not in data:
                 data[pp.ITERATE_SOLUTIONS] = {}
             if self.name not in data[pp.ITERATE_SOLUTIONS]:
@@ -856,7 +856,6 @@ class SecondaryExpression:
                     data[pp.TIME_STEP_SOLUTIONS][self.name] = {}
         # boundaries
         for _, data in self.mdg.boundaries(return_data=True):
-
             if pp.ITERATE_SOLUTIONS not in data:
                 data[pp.ITERATE_SOLUTIONS] = {}
             if self.name not in data[pp.ITERATE_SOLUTIONS]:
@@ -1077,7 +1076,7 @@ class SecondaryExpression:
 
     @interface_derivatives.setter
     def interface_derivatives(self, val: np.ndarray) -> None:
-        shape = (self.num_dependencies,self.mdg.num_interface_cells())
+        shape = (self.num_dependencies, self.mdg.num_interface_cells())
         assert val.shape == shape, (
             f"Need array of shape {shape}," + f" but {val.shape} given."
         )
