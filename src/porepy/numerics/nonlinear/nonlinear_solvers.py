@@ -75,6 +75,7 @@ class NewtonSolver:
 
         is_converged = False
         is_diverged = False
+        sol = model.equation_system.get_variable_values(time_step_index=0)
 
         errors: dict = {"residual_error": [], "increment_error": []}
         # Extract residual of initial guess.
@@ -84,6 +85,7 @@ class NewtonSolver:
         # for everything ``tqdm`` related.
         def newton_step() -> None:
             # Bind to variables in the outer function
+            nonlocal sol
             nonlocal errors
             nonlocal res_init
             nonlocal is_converged
