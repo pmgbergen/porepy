@@ -40,6 +40,7 @@ from . import (
     composite_mixins,
     composite_utils,
     eos_compiler,
+    equilibrium_mixins,
     flash,
     flash_c,
     peng_robinson,
@@ -52,6 +53,7 @@ from .chem_species import *
 from .composite_mixins import *
 from .composite_utils import *
 from .eos_compiler import *
+from .equilibrium_mixins import *
 from .flash import *
 from .flash_c import *
 from .states import *
@@ -62,6 +64,7 @@ __all__.extend(chem_species.__all__)
 __all__.extend(base.__all__)
 __all__.extend(composite_utils.__all__)
 __all__.extend(composite_mixins.__all__)
+__all__.extend(equilibrium_mixins.__all__)
 __all__.extend(flash.__all__)
 __all__.extend(flash_c.__all__)
 __all__.extend(states.__all__)

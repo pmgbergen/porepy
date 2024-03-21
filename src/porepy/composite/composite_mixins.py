@@ -4,7 +4,7 @@ framework.
 """
 from __future__ import annotations
 
-from typing import Any, Callable, Literal, Optional, Sequence
+from typing import Callable, Literal, Optional, Sequence
 
 import numpy as np
 
@@ -13,55 +13,15 @@ import porepy as pp
 from ._core import COMPOSITIONAL_VARIABLE_SYMBOLS as symbols
 from .base import AbstractEoS, Component, Compound, Mixture, Phase
 from .chem_species import ChemicalSpecies
-from .composite_utils import CompositeModellingError, SecondaryExpression, safe_sum
+from .composite_utils import CompositeModellingError, SecondaryExpression
 from .flash import Flash
 from .states import FluidState, PhaseState
 
 __all__ = [
-    "evaluate_homogenous_constraint",
     "CompositeVariables",
     "FluidMixtureMixin",
-    "EquilibriumEquationsMixin",
     "FlashMixin",
 ]
-
-
-def evaluate_homogenous_constraint(
-    phi: Any, phi_i: list[Any], weights: Optional[list[Any]] = None
-) -> Any:
-    """Method to evaluate the equality between a quantity ``phi`` and its
-    sub-quantities ``phi_i``.
-
-    A safe sum function is used, avoiding an allocation of zero as the first
-    summand.
-
-    This method can be used with any first-order homogenous quantity, i.e.
-    quantities which are a sum of phase-related quantities weighed with some
-    fraction.
-
-    Examples include mass, enthalpy and any other energy of the thermodynamic model.
-
-    Parameters:
-        phi: Any homogenous quantity
-        y_j: Fractions of how ``phi`` is split into sub-quantities
-        phi_i: Sub-quantities of ``phi``, if entity ``i`` where saturated.
-        weights: ``default=None``
-
-            If given it must be of equal length as ``phi_i``.
-
-    Returns:
-        A (weighed) equality of form :math:`\\phi - \\sum_i \\phi_i w_i`.
-
-        If no weights are given, :math:`w_i` are assumed 1.
-
-    """
-    if weights:
-        assert len(weights) == len(
-            phi_i
-        ), "Need equal amount of weights and partial quantities"
-        return phi - safe_sum([phi_ * w for phi_, w in zip(phi_i, weights)])
-    else:
-        return phi - safe_sum(phi_i)
 
 
 class CompositeVariables(pp.VariableMixin):
@@ -105,13 +65,13 @@ class CompositeVariables(pp.VariableMixin):
 
     eliminate_reference_phase: bool
     """Provided by
-    :class:`~porepy.models.compositional_balance.SolutionStrategyCompositionalFlow`."""
+    :class:`~porepy.models.compositional_balance.SolutionStrategyCF`."""
     eliminate_reference_component: bool
     """Provided by
-    :class:`~porepy.models.compositional_balance.SolutionStrategyCompositionalFlow`."""
+    :class:`~porepy.models.compositional_balance.SolutionStrategyCF`."""
     equilibrium_type: Optional[Literal["p-T", "p-h", "v-h"]]
     """Provided by
-    :class:`~porepy.models.composite_balance.SolutionStrategyCompositionalFlow`."""
+    :class:`~porepy.models.composite_balance.SolutionStrategyCF`."""
 
     @property
     def overall_fraction_variables(self) -> list[str]:
@@ -694,7 +654,7 @@ class FluidMixtureMixin:
 
     Before modifying anything here, try accomodating the update in the solution
     strategy (see :meth:`~porepy.models.compositional_balance.
-    SolutionStrategyCompositionalFlow.update_thermodynamic_properties`).
+    SolutionStrategyCF.update_thermodynamic_properties`).
 
     Note:
         Secondary expressions are given a time step and iterate depth, depending on
@@ -722,13 +682,13 @@ class FluidMixtureMixin:
 
     eliminate_reference_phase: bool
     """Provided by
-    :class:`~porepy.models.compositional_balance.SolutionStrategyCompositionalFlow`."""
+    :class:`~porepy.models.compositional_balance.SolutionStrategyCF`."""
     eliminate_reference_component: bool
     """Provided by
-    :class:`~porepy.models.compositional_balance.SolutionStrategyCompositionalFlow`."""
+    :class:`~porepy.models.compositional_balance.SolutionStrategyCF`."""
     equilibrium_type: Optional[Literal["p-T", "p-h", "v-h"]]
     """Provided by
-    :class:`~porepy.models.composite_balance.SolutionStrategyCompositionalFlow`."""
+    :class:`~porepy.models.composite_balance.SolutionStrategyCF`."""
 
     time_step_indices: np.ndarray
     """Provided by :class:`~porepy.models.solution_strategy.SolutionStrategy`"""
@@ -1152,336 +1112,6 @@ class FluidMixtureMixin:
         return states_per_grid
 
 
-class EquilibriumEquationsMixin:
-    """Basic class introducing the fluid phase equilibrium equations into the model."""
-
-    mdg: pp.MixedDimensionalGrid
-    """Provided by :class:`~porepy.models.geometry.ModelGeometry`."""
-    equation_system: pp.ad.EquationSystem
-    """Provided by :class:`~porepy.models.solution_strategy.SolutionStrategy`."""
-    fluid_mixture: Mixture
-    """Provided by :class:`FluidMixtureMixin`."""
-
-    enthalpy: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]
-    """Provided by
-    :class:`~porepy.models.compositional_balance.VariablesCompositionalFlow`."""
-    volume: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Provided by :class:`~porepy.models.compositional_balance.SolidSkeletonCF`."""
-
-    eliminate_reference_component: bool
-    """Provided by
-    :class:`~porepy.models.compositional_balance.SolutionStrategyCompositionalFlow`."""
-    eliminate_reference_phase: bool
-    """Provided by
-    :class:`~porepy.models.compositional_balance.SolutionStrategyCompositionalFlow`."""
-    use_semismooth_complementarity: bool
-    """Provided by
-    :class:`~porepy.models.compositional_balance.SolutionStrategyCompositionalFlow`."""
-    normalize_state_constraints: bool
-    """Provided by
-    :class:`~porepy.models.compositional_balance.SolutionStrategyCompositionalFlow`."""
-    equilibrium_type: Optional[Literal["p-T", "p-h", "v-h"]]
-    """Provided by
-    :class:`~porepy.models.composite_balance.SolutionStrategyCompositionalFlow`."""
-
-    _equilibrium_equation_names: list[str]
-    """Created during :meth:`set_equations`."""
-
-    def get_equilibrium_equation_names(self) -> list[str]:
-        """Get a list of equation names introduced into the AD framework by this class
-        depending on :attr:`equilibrium_type`.
-
-        Returns an empty list if ``equilibrium_type==None``.
-
-        """
-        if self.equilibrium_type is None:
-            return list()
-        else:
-            return [name for name in self._equilibrium_equation_names]
-
-    def set_equations(self) -> None:
-        """Introduced the local equilibrium equations into the AD framework.
-
-        All equations are scalar, single, cell-wise equations on each subdomains.
-
-        1. Mass constraints: Except for reference component if eliminiated
-          If only one component is present, the mass constraint is set nevertheless.
-        2. Isofugacity constraints for all components between an independent phase and
-          the reference phase
-        3. Complementary conditions per phase.
-        4. State constraints for more complex flash types than p-T
-
-        Note:
-            The equilibrium calculations make no sense if only one phase is modelled.
-            This method will raise an error in this case.
-
-        Important:
-            This set-up does not cover all cases. If for example only 1 component is
-            present, and the reference phase fraction is eliminated, the equilibrium
-            system is over-determined.
-
-            This singular case must be dealt with separately.
-
-        """
-        subdomains = self.mdg.subdomains()
-        self._equilibrium_equation_names = list()
-        ncomp = self.fluid_mixture.num_components
-        nphase = self.fluid_mixture.num_phases
-
-        if nphase == 1:
-            raise ValueError(
-                f"Equilibrium system set-up is meaningless for only 1 modelled phase."
-            )
-        ## starting with equations common to all equilibrium definitions
-        # local mass constraint per component
-        for component in self.fluid_mixture.components:
-            # skip for reference component if eliminated
-            if (
-                component == self.fluid_mixture.reference_component
-                and self.eliminate_reference_component
-                and ncomp > 1
-            ):
-                continue
-            equ = self.mass_constraint_for_component(component, subdomains)
-            self._equilibrium_equation_names.append(equ.name)
-            self.equation_system.set_equation(equ, subdomains, {"cells": 1})
-
-        # isofugacity constraints
-        # NOTE This need more elaboration for complex mixtures where components are not
-        # in all phases
-        rphase = self.fluid_mixture.reference_phase
-        for phase in self.fluid_mixture.phases:
-            if phase == rphase:
-                continue
-            for component in self.fluid_mixture.components:
-                if not (component in phase and component in rphase):
-                    continue
-                equ = self.isofugacity_constraint_for_component_in_phase(
-                    component, phase, subdomains
-                )
-                self._equilibrium_equation_names.append(equ.name)
-                self.equation_system.set_equation(equ, subdomains, {"cells": 1})
-
-        # complementarity conditions
-        for phase in self.fluid_mixture.phases:
-            equ = self.complementarity_condition_for_phase(phase, subdomains)
-            self._equilibrium_equation_names.append(equ.name)
-            self.equation_system.set_equation(equ, subdomains, {"cells": 1})
-
-        # No more equations for p-T based flash
-        if self.equilibrium_type == "p-T":
-            pass
-        # 1 more equation for p-h based flash (T unknown)
-        elif self.equilibrium_type == "p-h":
-            # here T is another unknown, but h is fixed. Introduce 1 more equations
-            equ = self.mixture_enthalpy_constraint(subdomains)
-            self._equilibrium_equation_names.append(equ.name)
-            self.equation_system.set_equation(equ, subdomains, {"cells": 1})
-        # 2 + num_phase - 1 more equations for v-h flash (p, T, s_j unknown)
-        elif self.equilibrium_type == "v-h":
-            equ = self.mixture_enthalpy_constraint(subdomains)
-            self._equilibrium_equation_names.append(equ.name)
-            self.equation_system.set_equation(equ, subdomains, {"cells": 1})
-            equ = self.mixture_volume_constraint(subdomains)
-            self._equilibrium_equation_names.append(equ.name)
-            self.equation_system.set_equation(equ, subdomains, {"cells": 1})
-
-    def mass_constraint_for_component(
-        self, component: Component, subdomains: Sequence[pp.Grid]
-    ) -> pp.ad.Operator:
-        """Constructs the local mass constraint for a component :math:`i`.
-
-        .. math::
-
-            z_i - \\sum_j x_{ij} y_j = 0.
-
-        - :math:`z` : Component :attr:`~porepy.composite.base.Component.fraction`
-        - :math:`y` : Phase :attr:`~porepy.composite.base.Phase.fraction`
-        - :math:`x` : Phase :attr:`~porepy.composite.base.Phase.fraction_of` component
-
-        The above sum is performed over all phases the component is present in.
-
-        Parameter:
-            component: The component represented by the overall fraction :math:`z_i`.
-            subdomains: A list of subdomains on which to define the equation.
-
-        Returns:
-            An operator representing the left-hand side of above equation.
-
-        """
-        # get all phases the component is present in
-        phases = [phase for phase in self.fluid_mixture.phases if component in phase]
-
-        equ: pp.ad.Operator = evaluate_homogenous_constraint(
-            component.fraction(subdomains),
-            [phase.fraction_of[component](subdomains) for phase in phases],
-            [phase.fraction(subdomains) for phase in phases],
-        )  # type:ignore
-        equ.set_name(f"mass-constraint-{component.name}")
-        return equ
-
-    def complementarity_condition_for_phase(
-        self, phase: Phase, subdomains: Sequence[pp.Grid]
-    ) -> pp.ad.Operator:
-        """Constructs the complementarity condition for a given phase.
-
-        .. math::
-
-            y_j (1 - \\sum_i x_{ij}) = 0~,~
-            \\min \\{y_j, (1 - \\sum_i x_{ij}) \\} = 0.
-
-        - :math:`y` : Phase :attr:`~porepy.composite.base.Phase.fraction`
-        - :math:`x` : Phase :attr:`~porepy.composite.base.Phase.fraction_of` component
-
-        The sum is performed over all components modelled in that phase
-        (see :attr:`~porepy.composite.base.Phase.components`).
-
-        Parameters:
-            phase: The phase for which the condition is assembled.
-            subdomains: A list of subdomains on which to define the equation.
-
-        Returns:
-            The left-hand side of above equation. If the semi-smooth form is
-            requested by the solution strategy, then the :math:`\\min\\{\\}` operator is
-            used.
-
-        """
-
-        unity: pp.ad.Operator = pp.ad.Scalar(1.0) - pp.ad.sum_operator_list(
-            [phase.fraction_of[comp](subdomains) for comp in phase]
-        )
-
-        if self.use_semismooth_complementarity:
-            equ = pp.ad.SemiSmoothMin()(phase.fraction(subdomains), unity)
-            equ.set_name(f"semismooth-complementary-condition-{phase.name}")
-        else:
-            equ = phase.fraction(subdomains) * unity
-            equ.set_name(f"complementary-condition-{phase.name}")
-        return equ
-
-    def isofugacity_constraint_for_component_in_phase(
-        self, component: Component, phase: Phase, subdomains: Sequence[pp.Grid]
-    ) -> pp.ad.Operator:
-        """Construct the local isofugacity constraint for a component between a given
-        phase and the reference phase.
-
-        .. math::
-
-            x_{ij} \\varphi_{ij} - x_{iR} \\varphi_{iR} = 0.
-
-        - :math:`x_{ij}` : :attr:`~porepy.composite.base.Phase.fraction_of` component
-        - :math:`\\varphi_{ij}` : Phase :attr:`~porepy.composite.base.Phase.fugacity_of`
-          component
-
-        Parameters:
-            component: A component characterized by the relative fractions in above
-                equation.
-            phase: The phase denoted by index :math:`j` in above equation.
-            subdomains: A list of subdomains on which to define the equation.
-
-        Raises:
-            ValueError: If ``phase`` is the reference phase.
-            AssertionError: If the component is not present in both reference and passed
-                phase.
-
-        Returns:
-            The left-hand side of above equation.
-
-        """
-        if phase == self.fluid_mixture.reference_phase:
-            raise ValueError(
-                "Cannot construct isofugacity constraint between reference phase and "
-                + "itself."
-            )
-        assert component in phase, "Passed component not modelled in passed phase."
-        assert (
-            component in self.fluid_mixture.reference_phase
-        ), "Passed component not modelled in reference phase."
-
-        equ = phase.fraction_of[component](subdomains) * phase.fugacity_of[component](
-            subdomains
-        ) - self.fluid_mixture.reference_phase.fraction_of[component](
-            subdomains
-        ) * self.fluid_mixture.reference_phase.fugacity_of[
-            component
-        ](
-            subdomains
-        )
-        equ.set_name(
-            f"isofugacity-constraint-"
-            + f"{component.name}-{phase.name}-{self.fluid_mixture.reference_phase.name}"
-        )
-        return equ
-
-    def mixture_enthalpy_constraint(
-        self, subdomains: Sequence[pp.Grid]
-    ) -> pp.ad.Operator:
-        """Constructs the enthalpy constraint for the mixture enthalpy and the
-        transported enthalpy variable.
-
-        .. math::
-
-            \\sum_j y_j h_j  - h = 0~,~
-            (\\sum_j y_j h_j) / h - 1= 0~
-
-        - :math:`y_j`: Phase :attr:`~porepy.composite.base.Phase.fraction`.
-        - :math:`h_j`: Phase :attr:`~porepy.composite.base.Phase.enthalpy`.
-        - :math:`h`: The transported enthalpy :attr:`enthalpy`.
-
-        The first term represents the mixture enthalpy based on the thermodynamic state.
-        The second term represents the target enthalpy in the equilibrium problem.
-        The target enthalpy is a transportable quantity in flow and transport.
-
-        Parameters:
-            subdomains: A list of subdomains on which to define the equation.
-
-        Returns:
-            The left-hand side of above equations. If the normalization of state
-            constraints is required by the solution strategy, the second form is
-            returned.
-
-        """
-        if self.normalize_state_constraints:
-            equ = self.fluid_mixture.enthalpy(subdomains) / self.enthalpy(
-                subdomains
-            ) - pp.ad.Scalar(1.0)
-        else:
-            equ = self.fluid_mixture.enthalpy(subdomains) - self.enthalpy(subdomains)
-        equ.set_name("mixture-enthalpy-constraint")
-        return equ
-
-    def mixture_volume_constraint(
-        self, subdomains: Sequence[pp.Grid]
-    ) -> pp.ad.Operator:
-        """Constructs the volume constraint using the reciprocal of the mixture density.
-
-        .. math::
-
-            \\dfrac{1}{\\sum_j s_j \\rho_j} - v = 0~,~
-            v \\left(\\sum_j s_j \\rho_j\\right) - 1 = 0.
-
-        - :math:`s_j` : Phase :attr:`~porepy.composite.base.Phase.saturation`
-        - :math:`\\rho_j` : Phase :attr:`~porepy.composite.base.Phase.density`
-
-        Parameters:
-            subdomains: A list of subdomains on which to define the equation.
-
-        Returns:
-            The left-hand side of above equations. If the normalization of state
-            constraints is required by the solution strategy, the second form is
-            returned.
-
-        """
-        if self.normalize_state_constraints:
-            equ = self.volume(subdomains) * self.fluid_mixture.density(
-                subdomains
-            ) - pp.ad.Scalar(1.0)
-        else:
-            equ = self.volume(subdomains) - self.fluid_mixture.volume(subdomains)
-        equ.set_name("mixture-volume-constraint")
-        return equ
-
-
 class FlashMixin:
     """Mixin class to introduce the unified flash procedure into the solution strategy.
 
@@ -1529,7 +1159,7 @@ class FlashMixin:
 
     equilibrium_type: Optional[Literal["p-T", "p-h", "v-h"]]
     """Provided by
-    :class:`~porepy.models.composite_balance.SolutionStrategyCompositionalFlow`."""
+    :class:`~porepy.models.composite_balance.SolutionStrategyCF`."""
 
     def set_up_flasher(self) -> None:
         """Method to introduce the flash class, if an equilibrium is defined.
@@ -1546,7 +1176,7 @@ class FlashMixin:
         vector and to equilibriate it using the flasher.
 
         This method is called in
-        :meth:`~porepy.models.compositional_balance.SolutionStrategyCompositionalFlow.
+        :meth:`~porepy.models.compositional_balance.SolutionStrategyCF.
         before_nonlinear_iteration` to use the flash as a predictor during nonlinear
         iterations.
 

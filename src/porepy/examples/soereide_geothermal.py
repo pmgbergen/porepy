@@ -28,13 +28,13 @@ import porepy.composite as ppc
 from porepy.applications.md_grids.domains import nd_cube_domain
 from porepy.composite.peng_robinson.eos_c import PengRobinsonCompiler
 from porepy.models.compositional_balance import (
-    BoundaryConditionsCompositionalFlow,
     CompositionalFlow,
-    InitialConditionsCompositionalFlow,
+    PrimaryEquationsCompositionalFlow,
+    SolutionStrategyCF_with_Flash,
 )
 
 
-class SoereideMixture(ppc.FluidMixtureMixin):
+class SoereideMixture:
     """Model fluid using the Soereide mixture, a Peng-Robinson based EoS for
     NaCl brine with CO2, H2S and N2."""
 
@@ -107,7 +107,7 @@ class ModelGeometry:
         return mesh_args
 
 
-class InitialConditions(InitialConditionsCompositionalFlow):
+class InitialConditions:
     """Define initial pressure, temperature and compositions."""
 
     def intial_pressure(self, sd: pp.Grid) -> np.ndarray:
@@ -132,7 +132,7 @@ class InitialConditions(InitialConditionsCompositionalFlow):
             )
 
 
-class BoundaryConditions(BoundaryConditionsCompositionalFlow):
+class BoundaryConditions:
     """Boundary conditions defining a ``left to right`` flow in the matrix (2D)
 
     Mass flux:
@@ -143,11 +143,14 @@ class BoundaryConditions(BoundaryConditionsCompositionalFlow):
     Heat flux:
 
     - No flux on left, top, right
-    - heated bottom side
+    - heated bottom side (given by temperature as a Dirichlet-type BC)
 
     Trivial Neumann conditions for fractures.
 
     """
+
+    has_time_dependent_boundary_equilibrium = False
+    """Constant BC for primary variables, hence constant BC for all other."""
 
     def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         # Setting only conditions on matrix
@@ -253,12 +256,45 @@ class BoundaryConditions(BoundaryConditionsCompositionalFlow):
         return vals
 
 
+class CF_ph_Equations(
+    PrimaryEquationsCompositionalFlow,
+    ppc.Unified_ph_Equilibrium,
+):
+    """This multi-phase mutli-component model has flow and transport equations,
+    as well as local equilibrium equations in form of a p-h flash
+
+    In mutli-phase flow, saturations must always be provided.
+    The unified flash requires independent phase fractions.
+
+    To close the system, additional local mass conservations are introduced
+    in form of density relations.
+
+    """
+
+    def set_equations(self):
+        super().set_equations()
+        self.set_density_relations_for_phases()
+
+    def set_density_relations_for_phases(self) -> None:
+        """Method setting the density relation for each independent phase."""
+        rphase = self.fluid_mixture.reference_phase
+        subdomains = self.mdg.subdomains()
+        if self.fluid_mixture.num_phases > 1:
+            for phase in self.fluid_mixture.phases:
+                if phase == rphase and self.eliminate_reference_phase:
+                    continue
+                equ = self.density_relation_for_phase(phase, subdomains)
+                self.equation_system.set_equation(equ, subdomains, {"cells": 1})
+
+
 class GeothermalFlow(
     ModelGeometry,
     SoereideMixture,
     CompiledFlash,
     InitialConditions,
     BoundaryConditions,
+    CF_ph_Equations,
+    SolutionStrategyCF_with_Flash,
     CompositionalFlow,
 ):
     """Geothermal flow using a fluid defined by the Soereide model and the compiled
@@ -276,17 +312,11 @@ time_manager = pp.TimeManager(
 
 # Model setup:
 # eliminate reference phase fractions  and reference component.
-# Target equilibrium is in terms of pressure and enthalpy.
-# extended fractions are create because of equilibrium definition.
-# BC are constant and the boundary equilibrium needs to be computed only once.
 params = {
     "eliminate_reference_phase": True,
     "eliminate_reference_component": True,
     "normalize_state_constraints": True,
     "use_semismooth_complementarity": True,
-    "has_time_dependent_boundary_equilibrium": False,
-    "equilibrium_type": "p-h",
-    "has_extended_fractions": True,
     "time_manager": time_manager,
 }
 model = GeothermalFlow(params)
