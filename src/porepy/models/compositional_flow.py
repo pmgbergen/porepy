@@ -1702,89 +1702,35 @@ class BoundaryConditionsCF(
 
     Atop of inheriting the treatment for single phase flow (which is exploited for the
     total mass balance) and the energy balance (total energy balance), this class has
-    a treatment for BC for component mass balances, and secondary expressions.
+    a treatment for BC for fractional unknowns and phase properties as secondary
+    expressions.
 
-    **If model has equilibrium conditions and a flash instance:**
+    **Essential BC**:
 
-    This class provides the :meth:`boundary_flash` method which computes the flash on
-    the Dirichlet boundary for pressure, requiring also temperature values there.
+    In any case, the user must provide BC values for primary variables on the Dirichlet
+    boundary. They are also used to compute values of phase properties on the boundary.
 
-    The result is used to populate various secondary expressions and to provide values
-    for fractional variables on the boundary. The secondary expressions play a role
-    within the mobility terms.
+    On the Neumann boundary, the user must provide values for non-linear weights
+    in various advective fluxes (fractional mobilities f.e.).
 
-    The boundary flash uses the framework of secondary expressions to set boundary
-    values directly.
+    **Other BC**:
 
-    Note:
-        This method performs the boundary flash in every time-step, only if the modeler
-        has explicitely defined if the problem has time-dependent BC
-        (see :attr:`has_time_dependent_boundary_equilibrium`).
-
-        The first boundary equilibrium is performed anyways in the solution strategy, to
-        cover the case of constant BC.
-
-        This is for performance reasons.
-
-    **If the model has no equilibrium conditions and flash defined:**
-
-    The user must provide values for fractional variables and secondary expressions on
-    the Dirichlet boundary, which appear in the weights for fluxes
-    (only advective as of now). They are required for upwinding.
-
-    For convenience, they can be stored in :attr:`boundary_fluid_state`.
-
-    **Values which always need to be provided:**
-
-    Overall fractions of components on the Dirichlet boundary (to compute the boundary
-    flash), and fractional mobility values on the Neumann boundary.
-    This somewhat unusual requirement for the mobility is due to the framework accessing
-    the Neumann flux from single phase flow as BC, and then weighing it with the
-    provided values in the flux terms in component mass and energy balance.
+    Since the modelling framework always introduces saturations and some relative
+    fractions as independent variables, the user must also provide values for them
+    on the Dirichlet BC.
 
     Important:
-        The Dirichlet boundary is solely defined by
-        :meth:`~porepy.models.fluid_mass_balance.BoundaryConditionsSinglePhaseFlow.
-        bc_type_darcy_flux`.
 
-        This class goes as far as overriding the parent method
-        :meth:`~porepy.models.fluid_mass_balance.BoundaryConditionsSinglePhaseFlow.
-        bc_type_fluid_flux` and calling the ``bc_type_darcy_flux`` instead to provide
-        a consistent representation of Dirichlet and Neumann boundary.
+        This class resolves some inconsistencies in the parent methods regarding the bc
+        type definition. There can be only one definition of Dirichlet and Neumann
+        boundary for the fluxes based to Darcy's Law (advective fluxes), and is to be
+        set in :meth:`bc_type_darcy_flux`. Other bce type definition for advective
+        fluxes are overriden here and point to the bc type for the darcy flux.
 
-        This is also done for
-        :meth:`~porepy.models.energy_balance.BoundaryConditionsEnergyBalance.
-        bc_type_enthalpy_flux`.
-
-        It is an inconsistency which probably should be removed in the parent classes.
-        TODO
-
-    Important:
-        The boundary flash requires Dirichlet data for temperature as well, independent
-        of how the boundary type for the Fourier flux is defined.
-        This class implements a p-T flash on the Dirichlet boundary for the advective
-        flux.
-
-    Notes:
-
-        1. BC values for the fluid enthalpy (which is an independent variable) are not
-           required, since it only appears in the accumulation term of the energy
-           balance.
-
-        2. BC values for thermal conductivity are also not required, because of the
-           nature of the Fourier flux.
-
-        3. Derivative values of secondary expressions are not required on the boundary
-           as of now, since they do not appear anywhere.
-
-    """
-
-    boundary_fluid_state: dict[pp.BoundaryGrid, ppc.FluidState] = dict()
-    """Contains per boundary grid the fluid state, where the user can define boundary
-    conditions on each boundary grid.
-
-    This data is used if no boundary flash needs to be performed and the user has to
-    provide custom data.
+        The Fourier flux can have Dirichlet type BC as well, but it is required that the
+        Dirichlet faces of the darcy flux are contained in the Dirichlet faces for the
+        Fourier flux, for consistency reasons.
+        I.e., where Dirichlet pressure is given, Dirichlet temperature must be given.
 
     """
 
@@ -1794,14 +1740,19 @@ class BoundaryConditionsCF(
     equation_system: pp.ad.EquationSystem
     """Provided by :class:`~porepy.models.solution_strategy.SolutionStrategy`."""
 
+    dependencies_of_phase_properties: Callable[
+        [ppc.Phase], Sequence[Callable[[pp.GridLikeSequence], pp.ad.Operator]]
+    ]
+    """Provided by :class:`~porepy.composite.composite_mixins.FluidMixtureMixin`."""
+
     eliminate_reference_phase: bool
     """Provided by :class:`SolutionStrategyCF`."""
     eliminate_reference_component: bool
     """Provided by :class:`SolutionStrategyCF`."""
+    enthalpy_variable: str
+    """Provided by :class:`SolutionStrategyCF`."""
 
     _overall_fraction_variable: Callable[[ppc.Component], str]
-    """Provided by :class:`~porepy.composite.composite_mixins.CompositeVariables`."""
-    _phase_fraction_variable: Callable[[ppc.Phase], str]
     """Provided by :class:`~porepy.composite.composite_mixins.CompositeVariables`."""
     _saturation_variable: Callable[[ppc.Phase], str]
     """Provided by :class:`~porepy.composite.composite_mixins.CompositeVariables`."""
@@ -1965,18 +1916,23 @@ class BoundaryConditionsCF(
 
     def update_all_boundary_conditions(self) -> None:
         """On top of the parent methods for mass and energy models, it updates
-        values for primary variables on the Dirichlet boundary, and values for
-        fractional weights in advective fluxes on the Neumann boundary.
+        values for:
 
-        It then proceedes to update the values for secondary variables on the
-        boundary (especially fractions), and the values of thermodynamic
-        properties of phases.
+        1. primary variables on the Dirichlet boundary, and values for
+           fractional weights in advective fluxes on the Neumann boundary.
+           :meth:`update_essential_boundary_values`
+        2. secondary fractional variables on the Dirichlet boundary
+           :meth:`update_boundary_values_secondary_fractions`.
+        3. phase properties which appear in the non-linear weights of various
+           fluxes :meth:`update_boundary_values_phase_properties`.
 
-        Secondary variables are assumed to be eliminated by constitutive laws depending
-        on primary variables. Hence the user does not need to provide values
-        explicitely.
+        Important:
+            Note that phase property values are computed using the underlying EoS.
+            If their dependency includes f.e. enthalpy, the user must provide BC values
+            for enthalpy even though it does not appear in the flux terms directly.
 
-        Phase property values are computed using the underlying EoS.
+            It is either this (a consistent computation), or a bunch of other methods
+            where users provide values for properties individually.
 
         Note:
             1. Temperature is also a secondary variable for enthalpy-based formulations.
@@ -1984,113 +1940,16 @@ class BoundaryConditionsCF(
             2. If the user provides a constitutive law for temperature, temperature
                values are also provided on the Dirichlet boundary, where the primary
                variables have values!
-            3. No Bc values for the fluid enthalpy are required, since it appears only
-               in the accumulation term.
+            3. If secondary variables are eliminated in terms of primary variables,
+               the user has to ensure that the primary variables are defined on the
+               boundary where the eliminated quantity is accessed.
 
         """
         # covers updates for pressure and temperature
         super().update_all_boundary_conditions()
         self.update_essential_boundary_values()
-
-        self.update_boundar_conditions_for_fractions()
-        self.update_boundar_conditions_for_secondary_expressions()
-
-    def update_boundary_values_phase_properties(self) -> None:
-        """Evaluates the phase properties using underlying EoS and progresses
-        their values in time."""
-
-    def update_boundar_conditions_for_fractions(self) -> None:
-        """Called by :meth:`update_all_boundary_conditions` to update the values of
-        fractional variables.
-
-        It updates the values of saturations in any case.
-
-        In the case that a local equilibrium problem is included, BC values for
-        molar phase fractions and extended fractions are updated.
-        In the case of no local equilibrium formulation, BC values for partial fractions
-        are updated (they are dependent in the equilibrium case).
-
-        Uses partial evaluations of
-
-        - :meth:`bc_values_saturation`
-        - :meth:`bc_values_phase_fraction`
-        - :meth:`bc_values_compositional_fraction`
-
-        to update the grid dictionaries with the parent method
-        :meth:`update_boundary_condition`.
-
-        """
-
-        for phase in self.fluid_mixture.phases:
-            # phase fractions and saturations
-            if (
-                self.eliminate_reference_phase
-                and phase == self.fluid_mixture.reference_phase
-            ):
-                pass
-            else:
-                s_name = self._saturation_variable(phase)
-                s_bc = partial(self.bc_values_saturation, phase)
-                s_bc = cast(Callable[[pp.BoundaryGrid], np.ndarray], s_bc)
-                self.update_boundary_condition(s_name, s_bc)
-
-                # phase fractions are only updated if equilibrium defined
-                if self.equilibrium_type is not None:
-                    y_name = self._phase_fraction_variable(phase)
-                    y_bc = partial(self.bc_values_phase_fraction, phase)
-                    y_bc = cast(Callable[[pp.BoundaryGrid], np.ndarray], y_bc)
-                    self.update_boundary_condition(y_name, y_bc)
-
-            # compositional fractions are always updated (partial and extended are both
-            # named the same if independent)
-            for comp in phase:
-                x_name = self._relative_fraction_variable(comp, phase)
-                x_bc = partial(self.bc_values_relative_fraction, comp, phase)
-                x_bc = cast(Callable[[pp.BoundaryGrid], np.ndarray], x_bc)
-                self.update_boundary_condition(x_name, x_bc)
-
-    def update_boundar_conditions_for_secondary_expressions(self) -> None:
-        """Updates the boundary conditions for secondary expressions appearing in
-        the non-linear weights in various fluxes.
-
-        It uses the framework of the class
-        :class:`~porepy.composite.composite_utils.SecondaryExpression` to update the
-        values directly (bypassing the parent method :meth:`update_boundary_condition`).
-
-        The base updates includes updates for:
-
-        - phase densities (:meth:`bc_values_phase_density`)
-        - phase volumes (reciprocal of :meth:`bc_values_phase_density`)
-        - phase enthalpies (:meth:`bc_values_phase_enthalpy`)
-        - phase viscosities (:meth:`bc_values_phase_viscosity`)
-
-        Note:
-            In a consistent discretization, no BC values for conductivities are
-            required. Hence they are not performed here.
-
-            Also, no BC values for purely local quantities like fugacity coefficients
-            are required.
-
-        """
-        for bg in self.mdg.boundaries():
-            for phase in self.fluid_mixture.phases:
-                # phase properties which appear in mobilities
-                rho_bc = self.bc_values_phase_density(phase, bg)
-                phase.density.update_boundary_value(rho_bc, bg)
-
-                # volume as reciprocal of density, only where given
-                v_bc = np.zeros_like(rho_bc)
-                idx = rho_bc > 0
-                v_bc[idx] = 1.0 / rho_bc[idx]
-                phase.volume.update_boundary_value(v_bc, bg)
-
-                phase.enthalpy.update_boundary_value(
-                    self.bc_values_phase_enthalpy(phase, bg), bg
-                )
-
-                phase.viscosity.update_boundary_value(
-                    self.bc_values_phase_viscosity(phase, bg), bg
-                )
+        self.update_boundary_values_secondary_fractions()
+        self.update_boundary_values_phase_properties()
 
     def update_essential_boundary_values(self) -> None:
         """Method updating BC values of primary variables on Dirichlet boundary,
@@ -2105,7 +1964,7 @@ class BoundaryConditionsCF(
                 for solute in component.solutes:
                     bc_vals = partial(self.bc_values_solute_fraction, solute, component)
                     bc_vals = cast(Callable[[pp.BoundaryGrid], np.ndarray], bc_vals)
-                    self.update_all_boundary_conditions(
+                    self.update_boundary_condition(
                         self._solute_fraction_variable(solute, component),
                         function=bc_vals,
                     )
@@ -2138,10 +1997,113 @@ class BoundaryConditionsCF(
             function=self.bc_values_enthalpy_flux_weight,
         )
 
+        # Update of BC values for fluid enthalpy
+        self.update_boundary_condition(
+            name=self.enthalpy_variable, function=self.bc_values_enthalpy
+        )
+
+    def update_boundary_values_secondary_fractions(self) -> None:
+        """Called by :meth:`update_all_boundary_conditions` to update the values of
+        saturations and partial fractions on the boundary.
+
+        Uses partial evaluations of
+
+        - :meth:`bc_values_saturation`
+        - :meth:`bc_values_relative_fraction`
+
+        to update the grid dictionaries with the parent method
+        :meth:`update_boundary_condition`.
+
+        """
+
+        for phase in self.fluid_mixture.phases:
+            # phase fractions and saturations
+            if (
+                self.eliminate_reference_phase
+                and phase == self.fluid_mixture.reference_phase
+            ):
+                pass
+            else:
+                s_name = self._saturation_variable(phase)
+                s_bc = partial(self.bc_values_saturation, phase)
+                s_bc = cast(Callable[[pp.BoundaryGrid], np.ndarray], s_bc)
+                self.update_boundary_condition(s_name, s_bc)
+
+            # compositional fractions are always updated (partial and extended are both
+            # named the same if independent)
+            for comp in phase:
+                x_name = self._relative_fraction_variable(comp, phase)
+                x_bc = partial(self.bc_values_relative_fraction, comp, phase)
+                x_bc = cast(Callable[[pp.BoundaryGrid], np.ndarray], x_bc)
+                self.update_boundary_condition(x_name, x_bc)
+
+    def update_boundary_values_phase_properties(self) -> None:
+        """Evaluates the phase properties using underlying EoS and progresses
+        their values in time.
+
+        Dependencies of phase properties are evaluated on boundary grids and restricted
+        to Dirichlet faces. The results are then fed to the EoS.
+
+        This base method updates only properties which are expected in the non-linear
+        weights of the avdective flux:
+
+        - phase densities
+        - phase volumes
+        - phase enthalpies
+        - phase viscosities
+
+        Note that conductitivies are not updated, since the framework uses a consistent
+        discretization of diffusive fluxes with non-linear tensors.
+
+        """
+
+        for bg in self.mdg.boundaries():
+            # zero vector for broadcasting
+            vec = np.zeros(bg.num_cells)
+            # Filter for Dirichlet boundary faces
+            dbc = self.bc_type_darcy_flux(bg.parent).is_dir
+            # reduce vector with all faces to vector with boundary faces
+            bf = self.domain_boundary_sides(bg.parent).all_bf
+            dbc = dbc[bf]
+            for phase in self.fluid_mixture.phases:
+                # some work is required for BGs with zero cells
+                if bg.num_cells == 0:
+                    rho_res = np.zeros(0)
+                    h_res = np.zeros(0)
+                    mu_res = np.zeros(0)
+                else:
+                    dep_vals = [
+                        d([bg]).value(self.equation_system)[dbc]
+                        for d in self.dependencies_of_phase_properties(phase)
+                    ]
+                    state = phase.compute_properties(*dep_vals)
+                    rho_res = state.rho
+                    h_res = state.h
+                    mu_res = state.mu
+
+                # phase properties which appear in mobilities
+                rho_bc = vec.copy()
+                rho_bc[dbc] = rho_res
+                phase.density.update_boundary_value(rho_bc, bg)
+
+                # volume as reciprocal of density, only where given
+                v_bc = np.zeros_like(rho_bc)
+                idx = rho_bc > 0
+                v_bc[idx] = 1.0 / rho_bc[idx]
+                phase.volume.update_boundary_value(v_bc, bg)
+
+                h_bc = vec.copy()
+                h_bc[dbc] = h_res
+                phase.enthalpy.update_boundary_value(h_bc, bg)
+
+                mu_bc = vec.copy()
+                mu_bc[dbc] = mu_res
+                phase.viscosity.update_boundary_value(mu_bc, bg)
+
     ### BC values for primary variables which need to be given by the user in any case.
 
     def bc_values_fractional_mobility(
-        self, component: ppc.Component, bg: pp.BoundaryGrid
+        self, component: ppc.Component, boundary_Grid: pp.BoundaryGrid
     ) -> np.ndarray:
         """BC value of the fractional mobility on the Neumann boundary.
 
@@ -2151,16 +2113,18 @@ class BoundaryConditionsCF(
 
         Parameters:
             component: A fluid component in the mixture with a mass balance equation.
-            bg: Boundary grid to provide values for.
+            boundary_Grid: Boundary grid to provide values for.
 
         Returns:
-            An array with ``shape=(bg.num_cells,)`` containing the value of
+            An array with ``shape=(boundary_Grid.num_cells,)`` containing the value of
             the fractional mobility on Neumann boundaries.
 
         """
-        return np.zeros(bg.num_cells)
+        return np.zeros(boundary_Grid.num_cells)
 
-    def bc_values_enthalpy_flux_weight(self, bg: pp.BoundaryGrid) -> np.ndarray:
+    def bc_values_enthalpy_flux_weight(
+        self, boundary_grid: pp.BoundaryGrid
+    ) -> np.ndarray:
         """BC value of the weight in the enthalpy flux on the Neumann boundary.
 
         Required to weigh the total mass influx for component mass balances, when
@@ -2168,14 +2132,34 @@ class BoundaryConditionsCF(
         :meth:`TotalEnergyBalance_h.advective_weight_component_flux` is defined).
 
         Parameters:
-            bg: Boundary grid to provide values for.
+            boundary_grid: Boundary grid to provide values for.
 
         Returns:
-            An array with ``shape=(bg.num_cells,)`` containing the value of
+            An array with ``shape=(boundary_grid.num_cells,)`` containing the value of
             the enthalpy flux weight on Neumann boundaries.
 
         """
-        return np.zeros(bg.num_cells)
+        return np.zeros(boundary_grid.num_cells)
+
+    def bc_values_enthalpy(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+        """BC values for fluid enthalpy on the Dirichlet boundary.
+
+        Important:
+            Though strictly speaking not appearing in the flux terms, this method
+            are required for completeness reasons.
+            E.g., for cases where phase properties depend enthalpies.
+            Phase properties **need** values on the Dirichlet boundary, to compute
+            fractional weights in the advective fluxes.
+
+        Parameters:
+            boundary_grid: Boundary grid to provide values for.
+
+        Returns:
+            An array with ``shape=(boundary_grid.num_cells,)`` containing the value of
+            the fluid enthalpy on the Dirichlet boundary.
+
+        """
+        return np.zeros(boundary_grid.num_cells)
 
     def bc_values_overall_fraction(
         self, component: ppc.Component, boundary_grid: pp.BoundaryGrid
@@ -2218,74 +2202,28 @@ class BoundaryConditionsCF(
         return np.zeros(boundary_grid.num_cells)
 
     ### BC which need to be provided in case no equilibrium calculations are included.
-    ### Default updates uses the data stored after the boundary flash
-    ### If no data is provided, zero arrays are returned
 
-    def bc_values_saturation(self, phase: ppc.Phase, bg: pp.BoundaryGrid) -> np.ndarray:
-        """BC values for saturation on the Dirichlet boundary, for models which do not
-        have equilibrium calculations.
-
-        Parameters:
-            phase: A phase in the fluid mixture.
-            bg: A boundary grid in the domain.
-
-        Raises:
-            AssertionError: If not exactly ``bg.num_cells`` values are stored in
-                :attr:`boundary_fluid_state`.
-
-        Returns:
-            The values stored in :attr:`boundary_fluid_state, if available.
-            Returns zeros otherwise.
-
-        """
-        if bg not in self.boundary_fluid_state:
-            vals = np.zeros(bg.num_cells)
-        else:
-            phases = [p for p in self.fluid_mixture.phases]
-            j = phases.index(phase)
-            vals = self.boundary_fluid_state[bg].sat[j]
-            assert vals.shape == (bg.num_cells,), (
-                f"Mismatch in required saturation values for phase {phase.name} on"
-                + f" boundary {bg}."
-            )
-        return vals
-
-    def bc_values_phase_fraction(
-        self, phase: ppc.Phase, bg: pp.BoundaryGrid
+    def bc_values_saturation(
+        self, phase: ppc.Phase, boundary_grid: pp.BoundaryGrid
     ) -> np.ndarray:
-        """BC values for molar phase fractions on the Dirichlet boundary, for models
-        which do not have equilibrium calculations.
-
+        """
         Parameters:
             phase: A phase in the fluid mixture.
-            bg: A boundary grid in the domain.
-
-        Raises:
-            AssertionError: If not exactly ``bg.num_cells`` values are stored in
-                :attr:`boundary_fluid_state`.
+            boundary_grid: A boundary grid in the domain.
 
         Returns:
-            The values stored in :attr:`boundary_fluid_state, if available.
-            Returns zeros otherwise.
+            BC values for saturation on the Dirichlet boundary, for models which do not
+            have equilibrium calculations.
+            Must be an array with shape ``(boundary_grid.num_cells,)``.
 
         """
-        if bg not in self.boundary_fluid_state:
-            vals = np.zeros(bg.num_cells)
-        else:
-            phases = [p for p in self.fluid_mixture.phases]
-            j = phases.index(phase)
-            vals = self.boundary_fluid_state[bg].y[j]
-            assert vals.shape == (bg.num_cells,), (
-                f"Mismatch in required phase fraction values for phase {phase.name}"
-                + f" on boundary {bg}."
-            )
-        return vals
+        return np.zeros(boundary_grid.num_cells)
 
     def bc_values_relative_fraction(
-        self, component: ppc.Component, phase: ppc.Phase, bg: pp.BoundaryGrid
+        self, component: ppc.Component, phase: ppc.Phase, boundary_grid: pp.BoundaryGrid
     ) -> np.ndarray:
         """BC values for fractions of a component in a phase on the Dirichlet
-        boundary, for models which do not have equilibrium calculations.
+        boundary, for problems without equilibrium calculations.
 
         Note:
             For models with equilibrium calculations, this is used for BC values of
@@ -2296,132 +2234,14 @@ class BoundaryConditionsCF(
         Parameters:
             component: A component in the ``phase``.
             phase: A phase in the fluid mixture.
-            bg: A boundary grid in the domain.
+            boundary_grid: A boundary grid in the domain.
 
-        Raises:
-            AssertionError: If not exactly ``bg.num_cells`` values are stored in
-                :attr:`boundary_fluid_state`.
 
         Returns:
-            The values stored in :attr:`boundary_fluid_state, if available.
-            Returns zeros otherwise.
+            An array with shape ``(boundary_grid.num_cells,)``.
 
         """
-        if bg not in self.boundary_fluid_state:
-            vals = np.zeros(bg.num_cells)
-        else:
-            phases = [p for p in self.fluid_mixture.phases]
-            comps = [c for c in phase]
-            j = phases.index(phase)
-            i = comps.index(component)
-            vals = self.boundary_fluid_state[bg].phases[j].x[i]
-            assert vals.shape == (bg.num_cells,), (
-                f"Mismatch in required ext. fraction values for component"
-                + f" {component.name} in phase {phase.name} on boundary {bg}."
-            )
-        return vals
-
-    def bc_values_phase_density(
-        self, phase: ppc.Phase, bg: pp.BoundaryGrid
-    ) -> np.ndarray:
-        """BC values for the density of a phase on the Dirichlet boundary, for models
-        which do not have equilibrium calculations.
-
-        This value is required since in the general CF framework this is a secondary
-        expression with values provided by the user.
-
-        Parameters:
-            phase: A phase in the fluid mixture.
-            bg: A boundary grid in the domain.
-
-        Raises:
-            AssertionError: If not exactly ``bg.num_cells`` values are stored in
-                :attr:`boundary_fluid_state`.
-
-        Returns:
-            The values stored in :attr:`boundary_fluid_state, if available.
-            Returns zeros otherwise.
-
-        """
-        if bg not in self.boundary_fluid_state:
-            vals = np.zeros(bg.num_cells)
-        else:
-            phases = [p for p in self.fluid_mixture.phases]
-            j = phases.index(phase)
-            vals = self.boundary_fluid_state[bg].phases[j].rho
-            assert vals.shape == (bg.num_cells,), (
-                f"Mismatch in required phase density values for phase {phase.name}"
-                + f" on boundary {bg}."
-            )
-        return vals
-
-    def bc_values_phase_enthalpy(
-        self, phase: ppc.Phase, bg: pp.BoundaryGrid
-    ) -> np.ndarray:
-        """BC values for the enthalpy of a phase on the Dirichlet boundary, for models
-        which do not have equilibrium calculations.
-
-        This value is required since in the general CF framework this is a secondary
-        expression with values provided by the user.
-
-        Parameters:
-            phase: A phase in the fluid mixture.
-            bg: A boundary grid in the domain.
-
-        Raises:
-            AssertionError: If not exactly ``bg.num_cells`` values are stored in
-                :attr:`boundary_fluid_state`.
-
-        Returns:
-            The values stored in :attr:`boundary_fluid_state, if available.
-            Returns zeros otherwise.
-
-        """
-        if bg not in self.boundary_fluid_state:
-            vals = np.zeros(bg.num_cells)
-        else:
-            phases = [p for p in self.fluid_mixture.phases]
-            j = phases.index(phase)
-            vals = self.boundary_fluid_state[bg].phases[j].h
-            assert vals.shape == (bg.num_cells,), (
-                f"Mismatch in required phase enthalpy values for phase {phase.name}"
-                + f" on boundary {bg}."
-            )
-        return vals
-
-    def bc_values_phase_viscosity(
-        self, phase: ppc.Phase, bg: pp.BoundaryGrid
-    ) -> np.ndarray:
-        """BC values for the viscosity of a phase on the Dirichlet boundary, for models
-        which do not have equilibrium calculations.
-
-        This value is required since in the general CF framework this is a secondary
-        expression with values provided by the user.
-
-        Parameters:
-            phase: A phase in the fluid mixture.
-            bg: A boundary grid in the domain.
-
-        Raises:
-            AssertionError: If not exactly ``bg.num_cells`` values are stored in
-                :attr:`boundary_fluid_state`.
-
-        Returns:
-            The values stored in :attr:`boundary_fluid_state, if available.
-            Returns zeros otherwise.
-
-        """
-        if bg not in self.boundary_fluid_state:
-            vals = np.zeros(bg.num_cells)
-        else:
-            phases = [p for p in self.fluid_mixture.phases]
-            j = phases.index(phase)
-            vals = self.boundary_fluid_state[bg].phases[j].mu
-            assert vals.shape == (bg.num_cells,), (
-                f"Mismatch in required phase viscosity values for phase {phase.name}"
-                + f" on boundary {bg}."
-            )
-        return vals
+        return np.zeros(boundary_grid.num_cells)
 
 
 class InitialConditionsCF:

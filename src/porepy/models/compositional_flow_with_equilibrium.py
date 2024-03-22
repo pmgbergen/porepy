@@ -16,8 +16,7 @@ a p-h flash.
 from __future__ import annotations
 
 import logging
-from functools import partial
-from typing import Callable, Literal, Optional, Sequence, cast
+from typing import Callable
 
 import numpy as np
 
@@ -26,6 +25,7 @@ import porepy.composite as ppc
 from porepy.composite.utils_c import extended_compositional_derivatives_v as _extend
 
 from . import compositional_flow as cf
+from . import mass_and_energy_balance as mass_energy
 
 logger = logging.getLogger(__name__)
 
@@ -59,57 +59,6 @@ class EquationsCFLE_ph(
                     continue
                 equ = self.density_relation_for_phase(phase, subdomains)
                 self.equation_system.set_equation(equ, subdomains, {"cells": 1})
-
-
-def _prolong_boundary_state(
-    state: ppc.FluidState, nc: int, dir: np.ndarray
-) -> ppc.FluidState:
-    """Helper method to broadcast the fluid state computed on the Dirichlet-part of a
-    boundary, to the whole boundary.
-
-    Note:
-        Values of derivatives are not prolonged as of now.
-
-    Parameters:
-        state: Flash results with values per Dirichlet cell on a grid.
-        nc: Total number of cells.
-        dir: ``dtype=bool``
-
-            Boolean array indicating which elements of an array with shape ``(nc,)``
-            correspond to the Dirichlet boundary.
-
-    Returns:
-        A fluid state where all values are prolongated to a vector with shape ``(nc,)``.
-
-    """
-    ncomp = np.array([len(ps.x) for ps in state.phases], dtype=int)
-    nphase = len(state.y)
-    phase_types = np.array([ps.phasetype for ps in state.phases], dtype=int)
-
-    # No derivatives expected on boundary
-    out = ppc.initialize_fluid_state(
-        nc, ncomp, nphase, phase_types, with_derivatives=False
-    )
-
-    # prolonging intensive and extensive fluid state
-    out.p[dir] = state.p
-    out.T[dir] = state.T
-    out.h[dir] = state.h
-    out.v[dir] = state.v
-    # feed fractions
-    for i in range(len(state.z)):
-        out.z[i, dir] = state.z[i]
-    # saturations and molar fractions and properties per phase
-    for j in range(nphase):
-        out.y[j, dir] = state.y[j]
-        out.sat[j, dir] = state.sat[j]
-        for i in range(ncomp[j]):
-            out.phases[j].x[i, dir] = state.phases[j].x[i]
-            out.phases[j].phis[i, dir] = state.phases[j].phis[i]
-        out.phases[j].mu[dir] = state.phases[j].mu
-        out.phases[j].kappa[dir] = state.phases[j].kappa
-
-    return out
 
 
 class BoundaryConditionsCFLE(cf.BoundaryConditionsCF):
@@ -146,6 +95,33 @@ class BoundaryConditionsCFLE(cf.BoundaryConditionsCF):
     flash_params: dict
     """Provided by :class:`~porepy.composite.equilibrium_mixins.FlashMixin`."""
 
+    _boundary_fluid_state: dict[pp.BoundaryGrid, dict[str, np.ndarray]]
+    """Provided by :class:`SolutionStrategyCFLE`."""
+
+    def update_all_boundary_conditions(self) -> None:
+        """Boundary conditions for problems with equilibrium calculations can be
+        done using the provided flash class (see :meth:`boundary_flash`)
+
+        If :attr:`has_time_dependent_boundary_equilibrium` is True,
+        this method performs flash calculations on the boundary using the provided
+        pressure, temperature and overall fractions.
+        It then updates the BC values for all secondary, fractional variables and
+        phase properties.
+
+        """
+        # cover the base update of parent class and primary CF variables
+        mass_energy.BoundaryConditionsFluidMassAndEnergy.update_all_boundary_conditions(
+            self
+        )
+        self.update_essential_boundary_values()
+
+        if self.has_time_dependent_boundary_equilibrium:
+            self.boundary_flash()
+
+        # flash results for fractions are stored in the boundary fluid states.
+        # Use regular way of updating to acces them.
+        self.update_boundary_values_secondary_fractions()
+
     def boundary_flash(self) -> None:
         """This method performs the p-T flash on the Dirichlet boundary, where pressure
         and temperature are positive.
@@ -153,7 +129,8 @@ class BoundaryConditionsCFLE(cf.BoundaryConditionsCF):
         The results are stored in the secondary expressions representing thermodynmaic
         properties of phases.
 
-        Results for secondary variables (saturations, fractions), are also stored
+        Results for secondary variables (saturations, relative fractions), are also
+        passed to :meth:`update_boundary_condition` in form of lambda functions
 
         The method can be called any time once the model is initialized, especially for
         non-constant BC.
@@ -163,38 +140,25 @@ class BoundaryConditionsCFLE(cf.BoundaryConditionsCF):
             as zero. Might have some implications for the simulation in weird cases.
 
         Raises:
-            AssertionError: If no flash is provided.
-            ValueError: If temperature or feed fractions are not positive where
-                required.
             ValueError: If the flash did not succeed everywhere.
 
         """
-        if not hasattr(self, "flash"):
-            raise ppc.CompositeModellingError(
-                "Attempting to call the flash on the boundary when no flash is included"
-                + " in the model."
-            )
 
-        nphase = self.fluid_mixture.num_components
-        ncomp = np.array(
-            [phase.num_components for phase in self.fluid_mixture.phases], dtype=int
-        )
-        ptype = np.array(
-            [len(phase.type) for phase in self.fluid_mixture.phases], dtype=int
-        )
+        for bg in self.mdg.boundaries():
+            vec = np.zeros(bg.num_cells)
 
-        for sd in self.mdg.subdomains():
-            bg = self.mdg.subdomain_to_boundary_grid(sd)
-            # 0D grids are skipped
-            if bg is None:
-                continue
-            # grids without cells (boundaries of lines) have empty states
-            elif bg.num_cells == 0:
-                boundary_state = ppc.FluidState()
-            # if at least 1 cell, perform flash.
+            # grids without cells (boundaries of lines) need no fraction values
+            # the methods return by default zero arrays of size bg.num_cells
+            if bg.num_cells == 0:
+                for phase in self.fluid_mixture.phases:
+                    phase.density.update_boundary_value(vec.cop(), bg)
+                    phase.volume.update_boundary_value(vec.copy(), bg)
+                    phase.enthalpy.update_boundary_value(vec.copy(), bg)
+                    phase.viscosity.update_boundary_value(vec.copy(), bg)
+            # if at least 1 cell, perform flash, update properties and store fraction
+            # values
             else:
-                bg = cast(pp.BoundaryGrid, bg)
-
+                sd = bg.parent
                 # indexation on boundary grid
                 # equilibrium is computable where pressure is given and positive
                 dbc = self.bc_type_darcy_flux(sd).is_dir
@@ -206,9 +170,11 @@ class BoundaryConditionsCFLE(cf.BoundaryConditionsCF):
 
                 # set zero values if not required anywhere (completeness)
                 if not np.any(dir_idx):
-                    boundary_state = ppc.initialize_fluid_state(
-                        bg.num_cells, ncomp, nphase, ptype, with_derivatives=False
-                    )
+                    for phase in self.fluid_mixture.phases:
+                        phase.density.update_boundary_value(vec.copy(), bg)
+                        phase.volume.update_boundary_value(vec.copy(), bg)
+                        phase.enthalpy.update_boundary_value(vec.copy(), bg)
+                        phase.viscosity.update_boundary_value(vec.copy(), bg)
                 else:
                     # BC consistency checks ensure that z, T are non-trivial where p is
                     # non-trivial
@@ -228,13 +194,71 @@ class BoundaryConditionsCFLE(cf.BoundaryConditionsCF):
                     if not np.all(success == 0):
                         raise ValueError("Boundary flash did not succeed.")
 
-                    # Broadcast values into proper size for each boundary grid
-                    boundary_state = _prolong_boundary_state(
-                        boundary_state, bg.num_cells, dir_idx
-                    )
+                    for j, phase in enumerate(self.fluid_mixture.phases):
+                        state_j = boundary_state.phases[j]
 
-            # storing state on boundary for BC value updates
-            self.boundary_fluid_state[bg] = boundary_state
+                        # store update for saturation values
+                        sat_j = vec.copy()
+                        sat_j[dir_idx] = boundary_state.sat[j]
+                        self._boundary_fluid_state[bg].update(
+                            {self._saturation_variable(phase): sat_j}
+                        )
+
+                        # store update for relative fractions
+                        for k, comp in enumerate(phase.components):
+                            x_kj = vec.copy()
+                            x_kj[dir_idx] = state_j.x[k]
+                            self._boundary_fluid_state[bg].update(
+                                {self._relative_fraction_variable(comp, phase): x_kj}
+                            )
+
+                        # progress boundary values of phase properties in time
+                        val = vec.copy()
+                        val[dir_idx] = state_j.rho
+                        phase.density.update_boundary_value(val, bg)
+                        val = vec.copy()
+                        val[dir_idx] = state_j.v
+                        phase.volume.update_boundary_value(val, bg)
+                        val = vec.copy()
+                        val[dir_idx] = state_j.h
+                        phase.enthalpy.update_boundary_value(val, bg)
+                        val = vec.copy()
+                        val[dir_idx] = state_j.mu
+                        phase.viscosity.update_boundary_value(val, bg)
+
+    def bc_values_saturation(
+        self, phase: ppc.Phase, boundary_grid: pp.BoundaryGrid
+    ) -> np.ndarray:
+        """Method returns the data stored in the boundary fluid states
+        (boundary flash results)"""
+        if boundary_grid not in self._boundary_fluid_state:
+            vals = np.zeros(boundary_grid.num_cells)
+        else:
+            vals = self._boundary_fluid_state[boundary_grid][
+                self._saturation_variable(phase)
+            ]
+            assert vals.shape == (boundary_grid.num_cells,), (
+                f"Mismatch in required phase enthalpy values for phase {phase.name}"
+                + f" on boundary {boundary_grid}."
+            )
+        return vals
+
+    def bc_values_relative_fraction(
+        self, component: ppc.Component, phase: ppc.Phase, boundary_grid: pp.BoundaryGrid
+    ) -> np.ndarray:
+        """Method returns the data stored in the boundary fluid states
+        (boundary flash results)"""
+        if boundary_grid not in self._boundary_fluid_state:
+            vals = np.zeros(boundary_grid.num_cells)
+        else:
+            vals = self._boundary_fluid_state[boundary_grid][
+                self._relative_fraction_variable(component, phase)
+            ]
+            assert vals.shape == (boundary_grid.num_cells,), (
+                f"Mismatch in required phase enthalpy values for phase {phase.name}"
+                + f" on boundary {boundary_grid}."
+            )
+        return vals
 
 
 class InitialConditionsCFLE(cf.InitialConditionsCF):
@@ -430,6 +454,10 @@ class SolutionStrategyCFLE(cf.SolutionStrategyCF, ppc.FlashMixin):
 
     def __init__(self, params: dict | None = None) -> None:
         super().__init__(params)
+
+        self._boundary_fluid_state: dict[pp.BoundaryGrid, dict[str, np.ndarray]]
+        """Data structure to store results from the boundary flash, required for
+        advective weights on the boundary."""
 
         # Input validation for set-up
         if (
