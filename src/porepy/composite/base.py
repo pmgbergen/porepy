@@ -75,7 +75,7 @@ __all__ = [
 ]
 
 
-class Component(abc.ABC, FluidSpecies):
+class Component(FluidSpecies):
     """Abstract base class for components modelled inside a mixture.
 
     Components are chemical species inside a mixture, which possibly go through phase
@@ -142,10 +142,12 @@ class Component(abc.ABC, FluidSpecies):
         """
         return cls(**asdict(species))
 
-    @abc.abstractmethod
     def h_ideal(self, p: Any, T: Any) -> Any:
         """Abstract method for implementing the component-specific ideal part of the
         specific molar enthalpy.
+
+        The computation of ideal enthalpies is not trivial and depends on data.
+        General solution is in the making.
 
         This function depends on experimental data and heuristic laws.
 
@@ -156,11 +158,16 @@ class Component(abc.ABC, FluidSpecies):
             p: The pressure of the mixture.
             T: The temperature of the mixture.
 
+        Raises:
+            NotImplementedError: Base class has no specific model for any species.
+
         Returns:
             Ideal specific enthalpy for given pressure and temperature.
 
         """
-        pass
+        raise NotImplementedError(
+            "No implementation for general ideal enthalpy computations available."
+        )
 
     def u_ideal(self, p: Any, T: Any) -> Any:
         """

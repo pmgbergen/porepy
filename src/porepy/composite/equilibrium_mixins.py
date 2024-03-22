@@ -16,10 +16,14 @@ from __future__ import annotations
 import warnings
 from typing import Any, Callable, Literal, Optional, Sequence
 
+import numpy as np
+
 import porepy as pp
 
 from .base import Component, Mixture, Phase
 from .composite_utils import CompositeModellingError, safe_sum
+from .flash import Flash
+from .states import FluidState
 
 __all__ = [
     "evaluate_homogenous_constraint",
@@ -27,6 +31,7 @@ __all__ = [
     "Unified_pT_Equilibrium",
     "Unified_ph_Equilibrium",
     "Unified_vh_Equilibrium",
+    "FlashMixin",
 ]
 
 
@@ -100,22 +105,22 @@ class UnifiedPhaseEquilibriumMixin:
 
     enthalpy: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]
     """Provided by
-    :class:`~porepy.models.compositional_balance.VariablesCompositionalFlow`."""
+    :class:`~porepy.models.compositional_flow.VariablesCF`."""
     volume: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Provided by :class:`~porepy.models.compositional_balance.SolidSkeletonCF`."""
+    """Provided by :class:`~porepy.models.compositional_flow.SolidSkeletonCF`."""
 
     eliminate_reference_component: bool
     """Provided by
-    :class:`~porepy.models.compositional_balance.SolutionStrategyCF`."""
+    :class:`~porepy.models.compositional_flow.SolutionStrategyCF`."""
     eliminate_reference_phase: bool
     """Provided by
-    :class:`~porepy.models.compositional_balance.SolutionStrategyCF`."""
+    :class:`~porepy.models.compositional_flow.SolutionStrategyCF`."""
     use_semismooth_complementarity: bool
     """Provided by
-    :class:`~porepy.models.compositional_balance.SolutionStrategyCF`."""
+    :class:`~porepy.models.compositional_flow.SolutionStrategyCF`."""
     normalize_state_constraints: bool
     """Provided by
-    :class:`~porepy.models.compositional_balance.SolutionStrategyCF`."""
+    :class:`~porepy.models.compositional_flow.SolutionStrategyCF`."""
 
     def set_equations(self) -> None:
         """The base class method without defined equilibrium type performs a model
@@ -519,3 +524,158 @@ class Unified_vh_Equilibrium(Unified_ph_Equilibrium):
             if phase != self.fluid_mixture.reference_phase:
                 equ = self.density_relation_for_phase(phase, subdomains)
                 self.equation_system.set_equation(equ, subdomains, {"cells": 1})
+
+
+class FlashMixin:
+    """Mixin class to introduce the unified flash procedure into the solution strategy.
+
+    Main ideas of the FlashMixin:
+
+    1. Instantiation of Flash object and make it available for other mixins.
+    2. Convenience methods to equilibriate the fluid.
+    3. Abstraction to enable customization.
+
+    """
+
+    flash: Flash
+    """A flasher object able to compute the fluid phase equilibrium for a mixture
+    defined in the mixture mixin.
+
+    This object should be created here during :meth:`set_up_flasher`.
+
+    """
+
+    flash_params: dict = dict()
+    """The dictionary to be passed to a flash algorithm, whenever it is called."""
+
+    mdg: pp.MixedDimensionalGrid
+    """Provided by :class:`~porepy.models.geometry.ModelGeometry`."""
+    equation_system: pp.ad.EquationSystem
+    """Provided by :class:`~porepy.models.solution_strategy.SolutionStrategy`."""
+    fluid_mixture: Mixture
+    """Provided by :class:`FluidMixtureMixin`."""
+
+    fractional_state_from_vector: Callable[
+        [Sequence[pp.Grid], Optional[np.ndarray]], FluidState
+    ]
+    """Provided by :class:`CompositeVariables`."""
+
+    pressure: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
+    """Provided by :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`.
+    """
+    temperature: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
+    """Provided by :class:`~porepy.models.energy_balance.VariablesEnergyBalance`."""
+    enthalpy: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
+    """Provided by
+    :class:`~porepy.models.compositional_flow.VariablesCF`."""
+    volume: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Provided by :class:`~porepy.models.compositional_flow.SolidSkeletonCF`."""
+
+    equilibrium_type: Optional[Literal["p-T", "p-h", "v-h"]]
+    """Provided by
+    :class:`~porepy.models.composite_balance.SolutionStrategyCF`."""
+
+    def set_up_flasher(self) -> None:
+        """Method to introduce the flash class, if an equilibrium is defined.
+
+        This method is called by the solution strategy after the model is set up.
+
+        """
+        raise CompositeModellingError("Call to mixin method. No flash object defined.")
+
+    def equilibriate_fluid(
+        self, subdomains: Sequence[pp.Grid], state: Optional[np.ndarray] = None
+    ) -> tuple[FluidState, np.ndarray]:
+        """Convenience method to assemble the state of the fluid based on a global
+        vector and to equilibriate it using the flasher.
+
+        This method is called in
+        :meth:`~porepy.models.compositional_flow.SolutionStrategyCF.
+        before_nonlinear_iteration` to use the flash as a predictor during nonlinear
+        iterations.
+
+        Parameters:
+            state: ``default=None``
+
+                Global state vector to be passed to the Ad framework when evaluating the
+                current state (fractions, pressure, temperature, enthalpy,..)
+
+        Returns:
+            The equilibriated state of the fluid and an indicator where the flash was
+            successful (or not).
+
+            For more information on the `success`-indicators, see respective flash
+            object.
+
+        """
+
+        # Extracting the current, iterative state to use as initial guess for the flash
+        fluid_state = self.fractional_state_from_vector(subdomains, state)
+
+        if self.equilibrium_type == "p-T":
+            p = self.pressure(subdomains).value(self.equation_system, state)
+            T = self.temperature(subdomains).value(self.equation_system, state)
+            result_state, succes, _ = self.flash.flash(
+                z=fluid_state.z,
+                p=p,
+                T=T,
+                initial_state=fluid_state,
+                parameters=self.flash_params,
+            )
+        elif self.equilibrium_type == "p-h":
+            p = self.pressure(subdomains).value(self.equation_system, state)
+            h = self.enthalpy(subdomains).value(self.equation_system, state)
+            # initial guess for T from iterate
+            fluid_state.T = self.temperature(subdomains).value(
+                self.equation_system, state
+            )
+            result_state, succes, _ = self.flash.flash(
+                z=fluid_state.z,
+                p=p,
+                h=h,
+                initial_state=fluid_state,
+                parameters=self.flash_params,
+            )
+        elif self.equilibrium_type == "v-h":
+            v = self.volume(subdomains).value(self.equation_system, state)
+            h = self.enthalpy(subdomains).value(self.equation_system, state)
+            # initial guess for T, p from iterate, saturations already contained
+            fluid_state.T = self.temperature(subdomains).value(
+                self.equation_system, state
+            )
+            fluid_state.p = self.pressure(subdomains).value(self.equation_system, state)
+            result_state, succes, _ = self.flash.flash(
+                z=fluid_state.z,
+                v=v,
+                h=h,
+                initial_state=fluid_state,
+                parameters=self.flash_params,
+            )
+        else:
+            raise CompositeModellingError(
+                "Attempting to equilibriate fluid with uncovered equilibrium type"
+                + f" {self.equilibrium_type}."
+            )
+
+        return result_state, succes
+
+    def postprocess_failures(
+        self, fluid_state: FluidState, success: np.ndarray
+    ) -> FluidState:
+        """A method called after :meth:`equilibriate_fluid` to post-process failures if
+        any.
+
+        Parameters:
+            fluid_state: Fluid state returned from :meth:`equilibriate_fluid`.
+            success: Success flags returned along the fluid state.
+
+        Returns:
+            A final fluid state, with treatment of values where the flash did not
+            succeed.
+
+        """
+        # nothing to do if everything successful
+        if np.all(success == 0):
+            return fluid_state
+        else:
+            NotImplementedError("No flash postprocessing implemented.")
