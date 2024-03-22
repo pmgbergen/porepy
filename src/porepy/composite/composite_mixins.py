@@ -14,13 +14,11 @@ from ._core import COMPOSITIONAL_VARIABLE_SYMBOLS as symbols
 from .base import AbstractEoS, Component, Compound, Mixture, Phase
 from .chem_species import ChemicalSpecies
 from .composite_utils import CompositeModellingError, SecondaryExpression
-from .flash import Flash
 from .states import FluidState, PhaseState
 
 __all__ = [
     "CompositeVariables",
     "FluidMixtureMixin",
-    "FlashMixin",
 ]
 
 
@@ -65,10 +63,10 @@ class CompositeVariables(pp.VariableMixin):
 
     eliminate_reference_phase: bool
     """Provided by
-    :class:`~porepy.models.compositional_balance.SolutionStrategyCF`."""
+    :class:`~porepy.models.compositional_flow.SolutionStrategyCF`."""
     eliminate_reference_component: bool
     """Provided by
-    :class:`~porepy.models.compositional_balance.SolutionStrategyCF`."""
+    :class:`~porepy.models.compositional_flow.SolutionStrategyCF`."""
     equilibrium_type: Optional[Literal["p-T", "p-h", "v-h"]]
     """Provided by
     :class:`~porepy.models.composite_balance.SolutionStrategyCF`."""
@@ -653,7 +651,7 @@ class FluidMixtureMixin:
     calculations are performed or secondary expressions evaluated.
 
     Before modifying anything here, try accomodating the update in the solution
-    strategy (see :meth:`~porepy.models.compositional_balance.
+    strategy (see :meth:`~porepy.models.compositional_flow.
     SolutionStrategyCF.update_thermodynamic_properties`).
 
     Note:
@@ -682,10 +680,10 @@ class FluidMixtureMixin:
 
     eliminate_reference_phase: bool
     """Provided by
-    :class:`~porepy.models.compositional_balance.SolutionStrategyCF`."""
+    :class:`~porepy.models.compositional_flow.SolutionStrategyCF`."""
     eliminate_reference_component: bool
     """Provided by
-    :class:`~porepy.models.compositional_balance.SolutionStrategyCF`."""
+    :class:`~porepy.models.compositional_flow.SolutionStrategyCF`."""
     equilibrium_type: Optional[Literal["p-T", "p-h", "v-h"]]
     """Provided by
     :class:`~porepy.models.composite_balance.SolutionStrategyCF`."""
@@ -938,7 +936,7 @@ class FluidMixtureMixin:
 
         """
         return SecondaryExpression(
-            f"phase-density-{phase.name}",
+            f"phase_density_{phase.name}",
             self.mdg,
             self.dependencies_of_phase_properties(phase),
             time_step_depth=len(self.time_step_indices),
@@ -948,10 +946,10 @@ class FluidMixtureMixin:
     def phase_volume(
         self, phase: Phase
     ) -> Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]:
-        """Analogous to :meth:`phase_density`, creating a new expression for the
-        specific (molar) volume of a ``phase``."""
+        """Implements the volume as the reciprocal of whatever is assigned to a phase
+        density."""
         return SecondaryExpression(
-            f"phase-volume-{phase.name}",
+            f"phase_volume_{phase.name}",
             self.mdg,
             self.dependencies_of_phase_properties(phase),
             time_step_depth=len(self.time_step_indices),
@@ -964,7 +962,7 @@ class FluidMixtureMixin:
         """Analogous to :meth:`phase_density`, creating a new expression for the
         specific (molar) enthalpy of a ``phase``."""
         return SecondaryExpression(
-            f"phase-enthalpy-{phase.name}",
+            f"phase_enthalpy_{phase.name}",
             self.mdg,
             self.dependencies_of_phase_properties(phase),
             time_step_depth=len(self.time_step_indices),
@@ -983,7 +981,7 @@ class FluidMixtureMixin:
 
         """
         return SecondaryExpression(
-            f"phase-viscosity-{phase.name}",
+            f"phase_viscosity_{phase.name}",
             self.mdg,
             self.dependencies_of_phase_properties(phase),
             time_step_depth=0,
@@ -1002,7 +1000,7 @@ class FluidMixtureMixin:
 
         """
         return SecondaryExpression(
-            f"phase-conductivity-{phase.name}",
+            f"phase_conductivity_{phase.name}",
             self.mdg,
             self.dependencies_of_phase_properties(phase),
             time_step_depth=0,
@@ -1024,244 +1022,9 @@ class FluidMixtureMixin:
 
         """
         return SecondaryExpression(
-            f"fugacity-of-{component.name}-in-{phase.name}",
+            f"fugacity_of_{component.name}_in_{phase.name}",
             self.mdg,
             self.dependencies_of_phase_properties(phase),
             time_step_depth=0,
             iterate_depth=len(self.iterate_indices),
         )
-
-    def evaluate_dependent_thermodynamic_properties(
-        self,
-        grids: Sequence[pp.Grid],
-        progress_iteratively: bool = False,
-    ) -> Sequence[FluidState]:
-        """Method to evaluate all dependent thermodynamic properties on a given set of
-        grids.
-
-        This method uses the framework of secondary expressions, to evaluate
-        their dependencies on given ``grids`` and to call
-        :meth:`~porepy.composite.base.Phase.compute_phase_properties`.
-
-        Dependencies are defined by :meth:`dependencies_of_phase_properties`.
-
-        It can store the results using the secondary expressions and progress
-        the values and derivatives in the iterative sense for some properties.
-        These include in the base method only the terms expected in the balance
-        equations and the local equilibrium equations:
-
-        - phase densities, volumes, enthalpies, viscosities, conductivities
-        - fugacity coefficients (if equilibrium conditions defined)
-
-        Parameters:
-            grids: A sequence of subdomains on which the thermodynamic properties of
-                phases, as well as their dependencies are defined.
-            progress_iteratively: ``default=False``
-
-                If True, uses the the framework of secondary expressions to progress
-                values and derivative values in the iterative sense, hence store them.
-
-                Use with care in solution strategies when solving the problem.
-
-        Returns:
-            A sequence of fluid states corresponding to the sequence of ``grids``.
-
-            Note:
-                Only above, dependent properties are stored and returned. Other
-                remain empty.
-
-        """
-        states_per_grid: list[FluidState] = list()
-
-        for g in grids:
-            phase_states: list[PhaseState] = list()
-            for phase in self.fluid_mixture.phases:
-                thermodynamic_input = [
-                    x([g]).value(self.equation_system)
-                    for x in self.dependencies_of_phase_properties(phase)
-                ]
-
-                S = phase.compute_properties(*thermodynamic_input)
-                phase_states.append(S)
-
-                if progress_iteratively:
-                    # progressing iterate values
-                    phase.density.progress_iterate_values_on_grid(S.rho, g)
-                    phase.volume.progress_iterate_values_on_grid(S.v, g)
-                    phase.enthalpy.progress_iterate_values_on_grid(S.h, g)
-                    phase.viscosity.progress_iterate_values_on_grid(S.mu, g)
-                    phase.conductivity.progress_iterate_values_on_grid(S.kappa, g)
-
-                    # progressing iterate derivative values
-                    phase.density.progress_iterate_derivatives_on_grid(S.drho, g)
-                    phase.volume.progress_iterate_derivatives_on_grid(S.dv, g)
-                    phase.enthalpy.progress_iterate_derivatives_on_grid(S.dh, g)
-                    phase.viscosity.progress_iterate_derivatives_on_grid(S.dmu, g)
-                    phase.conductivity.progress_iterate_derivatives_on_grid(S.dkappa, g)
-                    if self.equilibrium_type is not None:
-                        for i, comp in enumerate(phase.components):
-                            phase.fugacity_of[comp].progress_iterate_values_on_grid(
-                                S.phis[i], g
-                            )
-                            phase.fugacity_of[
-                                comp
-                            ].progress_iterate_derivatives_on_grid(S.dphis[i], g)
-
-            states_per_grid.append(FluidState(phases=phase_states))
-
-        return states_per_grid
-
-
-class FlashMixin:
-    """Mixin class to introduce the unified flash procedure into the solution strategy.
-
-    Main ideas of the FlashMixin:
-
-    1. Instantiation of Flash object and make it available for other mixins.
-    2. Convenience methods to equilibriate the fluid.
-    3. Abstraction to enable customization.
-
-    """
-
-    flash: Flash
-    """A flasher object able to compute the fluid phase equilibrium for a mixture
-    defined in the mixture mixin.
-
-    This object should be created here during :meth:`set_up_flasher`.
-
-    """
-
-    flash_params: dict = dict()
-    """The dictionary to be passed to a flash algorithm, whenever it is called."""
-
-    mdg: pp.MixedDimensionalGrid
-    """Provided by :class:`~porepy.models.geometry.ModelGeometry`."""
-    equation_system: pp.ad.EquationSystem
-    """Provided by :class:`~porepy.models.solution_strategy.SolutionStrategy`."""
-    fluid_mixture: Mixture
-    """Provided by :class:`FluidMixtureMixin`."""
-
-    fractional_state_from_vector: Callable[
-        [Sequence[pp.Grid], Optional[np.ndarray]], FluidState
-    ]
-    """Provided by :class:`CompositeVariables`."""
-
-    pressure: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
-    """Provided by :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`.
-    """
-    temperature: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
-    """Provided by :class:`~porepy.models.energy_balance.VariablesEnergyBalance`."""
-    enthalpy: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
-    """Provided by
-    :class:`~porepy.models.compositional_balance.VariablesCompositionalFlow`."""
-    volume: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Provided by :class:`~porepy.models.compositional_balance.SolidSkeletonCF`."""
-
-    equilibrium_type: Optional[Literal["p-T", "p-h", "v-h"]]
-    """Provided by
-    :class:`~porepy.models.composite_balance.SolutionStrategyCF`."""
-
-    def set_up_flasher(self) -> None:
-        """Method to introduce the flash class, if an equilibrium is defined.
-
-        This method is called by the solution strategy after the model is set up.
-
-        """
-        raise CompositeModellingError("Call to mixin method. No flash object defined.")
-
-    def equilibriate_fluid(
-        self, subdomains: Sequence[pp.Grid], state: Optional[np.ndarray] = None
-    ) -> tuple[FluidState, np.ndarray]:
-        """Convenience method to assemble the state of the fluid based on a global
-        vector and to equilibriate it using the flasher.
-
-        This method is called in
-        :meth:`~porepy.models.compositional_balance.SolutionStrategyCF.
-        before_nonlinear_iteration` to use the flash as a predictor during nonlinear
-        iterations.
-
-        Parameters:
-            state: ``default=None``
-
-                Global state vector to be passed to the Ad framework when evaluating the
-                current state (fractions, pressure, temperature, enthalpy,..)
-
-        Returns:
-            The equilibriated state of the fluid and an indicator where the flash was
-            successful (or not).
-
-            For more information on the `success`-indicators, see respective flash
-            object.
-
-        """
-
-        # Extracting the current, iterative state to use as initial guess for the flash
-        fluid_state = self.fractional_state_from_vector(subdomains, state)
-
-        if self.equilibrium_type == "p-T":
-            p = self.pressure(subdomains).value(self.equation_system, state)
-            T = self.temperature(subdomains).value(self.equation_system, state)
-            result_state, succes, _ = self.flash.flash(
-                z=fluid_state.z,
-                p=p,
-                T=T,
-                initial_state=fluid_state,
-                parameters=self.flash_params,
-            )
-        elif self.equilibrium_type == "p-h":
-            p = self.pressure(subdomains).value(self.equation_system, state)
-            h = self.enthalpy(subdomains).value(self.equation_system, state)
-            # initial guess for T from iterate
-            fluid_state.T = self.temperature(subdomains).value(
-                self.equation_system, state
-            )
-            result_state, succes, _ = self.flash.flash(
-                z=fluid_state.z,
-                p=p,
-                h=h,
-                initial_state=fluid_state,
-                parameters=self.flash_params,
-            )
-        elif self.equilibrium_type == "v-h":
-            v = self.volume(subdomains).value(self.equation_system, state)
-            h = self.enthalpy(subdomains).value(self.equation_system, state)
-            # initial guess for T, p from iterate, saturations already contained
-            fluid_state.T = self.temperature(subdomains).value(
-                self.equation_system, state
-            )
-            fluid_state.p = self.pressure(subdomains).value(self.equation_system, state)
-            result_state, succes, _ = self.flash.flash(
-                z=fluid_state.z,
-                v=v,
-                h=h,
-                initial_state=fluid_state,
-                parameters=self.flash_params,
-            )
-        else:
-            raise CompositeModellingError(
-                "Attempting to equilibriate fluid with uncovered equilibrium type"
-                + f" {self.equilibrium_type}."
-            )
-
-        return result_state, succes
-
-    def postprocess_failures(
-        self, fluid_state: FluidState, success: np.ndarray
-    ) -> FluidState:
-        """A method called after :meth:`equilibriate_fluid` to post-process failures if
-        any.
-
-        Parameters:
-            fluid_state: Fluid state returned from :meth:`equilibriate_fluid`.
-            success: Success flags returned along the fluid state.
-
-        Returns:
-            A final fluid state, with treatment of values where the flash did not
-            succeed.
-
-        """
-        # nothing to do if everything successful
-        if np.all(success == 0):
-            return fluid_state
-        else:
-            NotImplementedError("No flash postprocessing implemented.")

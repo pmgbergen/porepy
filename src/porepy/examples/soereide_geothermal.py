@@ -27,11 +27,7 @@ import porepy as pp
 import porepy.composite as ppc
 from porepy.applications.md_grids.domains import nd_cube_domain
 from porepy.composite.peng_robinson.eos_c import PengRobinsonCompiler
-from porepy.models.compositional_balance import (
-    CompositionalFlow,
-    PrimaryEquationsCompositionalFlow,
-    SolutionStrategyCF_with_Flash,
-)
+from porepy.models.compositional_flow_with_equilibrium import CFLEModelMixin_ph
 
 
 class SoereideMixture:
@@ -256,46 +252,13 @@ class BoundaryConditions:
         return vals
 
 
-class CF_ph_Equations(
-    PrimaryEquationsCompositionalFlow,
-    ppc.Unified_ph_Equilibrium,
-):
-    """This multi-phase mutli-component model has flow and transport equations,
-    as well as local equilibrium equations in form of a p-h flash
-
-    In mutli-phase flow, saturations must always be provided.
-    The unified flash requires independent phase fractions.
-
-    To close the system, additional local mass conservations are introduced
-    in form of density relations.
-
-    """
-
-    def set_equations(self):
-        super().set_equations()
-        self.set_density_relations_for_phases()
-
-    def set_density_relations_for_phases(self) -> None:
-        """Method setting the density relation for each independent phase."""
-        rphase = self.fluid_mixture.reference_phase
-        subdomains = self.mdg.subdomains()
-        if self.fluid_mixture.num_phases > 1:
-            for phase in self.fluid_mixture.phases:
-                if phase == rphase and self.eliminate_reference_phase:
-                    continue
-                equ = self.density_relation_for_phase(phase, subdomains)
-                self.equation_system.set_equation(equ, subdomains, {"cells": 1})
-
-
 class GeothermalFlow(
     ModelGeometry,
     SoereideMixture,
     CompiledFlash,
     InitialConditions,
     BoundaryConditions,
-    CF_ph_Equations,
-    SolutionStrategyCF_with_Flash,
-    CompositionalFlow,
+    CFLEModelMixin_ph,
 ):
     """Geothermal flow using a fluid defined by the Soereide model and the compiled
     flash."""
