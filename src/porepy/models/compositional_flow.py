@@ -448,10 +448,22 @@ class SolidSkeletonCF(
         subdomains = self.interfaces_to_subdomains(interfaces)
         projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1)
 
-        normal_permeability = projection.secondary_to_mortar_avg @ (
-            self.total_mobility(subdomains) * self.permeability(subdomains)
+        # diffusive_tensor = self.isotropic_second_order_tensor(
+        #     subdomains, self.total_mobility(subdomains)
+        # ) @ self.permeability(subdomains)
+
+        # TODO This does not cover anisotropic permeability tensors and tensors with
+        # dependencies. In that case one needs to matrix multiply the total diffusive
+        # tensor on cells, with (boundary) face normals for this to be projectable.
+
+        size = sum(sd.num_cells for sd in subdomains)
+        permeability = pp.wrap_as_dense_ad_array(
+            self.solid.permeability(), size, name="permeability"
         )
-        normal_permeability.set_name("norma_permeability")
+        diffusive_tensor = self.total_mobility(subdomains) * permeability
+
+        normal_permeability = projection.secondary_to_mortar_avg @ (diffusive_tensor)
+        normal_permeability.set_name("normal_permeability")
         return normal_permeability
 
     def relative_permeability(self, saturation: pp.ad.Operator) -> pp.ad.Operator:
@@ -2910,7 +2922,7 @@ class SolutionStrategyCF(
             data[pp.PARAMETERS][self.darcy_keyword].update(
                 {
                     "second_order_tensor": self.operator_to_SecondOrderTensor(
-                        sd, self.permeability([sd]) * mob, self.solid.permeability()
+                        sd, mob * self.permeability([sd]), self.solid.permeability()
                     )
                 }
             )
