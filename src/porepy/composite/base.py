@@ -62,7 +62,7 @@ import porepy as pp
 from porepy.numerics.ad.operator_functions import NumericType
 
 from ._core import R_IDEAL
-from .chem_species import ChemicalSpecies, FluidSpecies
+from .chem_species import ChemicalSpecies
 from .composite_utils import SecondaryExpression, safe_sum
 from .states import PhaseState
 
@@ -75,7 +75,7 @@ __all__ = [
 ]
 
 
-class Component(FluidSpecies):
+class Component(ChemicalSpecies):
     """Abstract base class for components modelled inside a mixture.
 
     Components are chemical species inside a mixture, which possibly go through phase
@@ -129,7 +129,7 @@ class Component(FluidSpecies):
         """
 
     @classmethod
-    def from_species(cls, species: FluidSpecies) -> Component:
+    def from_species(cls, species: ChemicalSpecies) -> Component:
         """An instance factory creating an instance of this class based on a load
         fluid species represented by respective data class.
 

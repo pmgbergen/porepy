@@ -19,7 +19,7 @@ from porepy.numerics.ad.operator_functions import NumericType
 
 from .._core import R_IDEAL, T_REF
 from ..base import Component, Compound
-from ..chem_interface import load_species
+from ..chem_species import load_species
 
 __all__ = [
     "ComponentPR",
@@ -199,7 +199,7 @@ class N2(ComponentPR):
     def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
 
-        cas_water = pp.composite.load_species(["H2O"])[0].CASr_number
+        cas_water = load_species(["H2O"])[0].CASr_number
 
         def bip_water(T: NumericType) -> tuple[NumericType, NumericType]:
             return 0.385438, 0
@@ -259,7 +259,7 @@ class NaClBrine(Compound, H2O):
 
         self.alpha = alpha
 
-        co2, h2s, n2 = pp.composite.load_species(["CO2", "H2S", "N2"])
+        co2, h2s, n2 = load_species(["CO2", "H2S", "N2"])
 
         def bip_co2(T: NumericType) -> tuple[NumericType, NumericType]:
             T_r = T / co2.T_crit

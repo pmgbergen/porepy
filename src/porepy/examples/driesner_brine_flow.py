@@ -32,6 +32,7 @@ import numpy as np
 
 import porepy as pp
 import porepy.composite as ppc
+from porepy.applications.md_grids.domains import nd_cube_domain
 
 # CompositionalFlow has data savings mixin, composite variables mixin,
 # Solution strategy eliminating local equations with Schur complement and no flash.
@@ -131,9 +132,7 @@ class H20_NaCl_brine(ppc.FluidMixtureMixin):
     def get_components(self) -> Sequence[ppc.Component]:
         """Setting H20 as first component in Sequence makes it the reference component.
         z_H20 will be eliminated."""
-        species = ppc.load_species(["H2O"], species_type="fluid") + ppc.load_species(
-            ["NaCl"], species_type="basic"
-        )
+        species = ppc.load_species(["H2O", "NaCl"])
         components = [ppc.Component.from_species(s) for s in species]
         return components
 
@@ -172,8 +171,26 @@ class H20_NaCl_brine(ppc.FluidMixtureMixin):
         super().set_components_in_phases(components, phases)
 
 
-class ModelGeometry(pp.ModelGeometry):
-    """Set up as you wish."""
+class ModelGeometry:
+    def set_domain(self) -> None:
+        size = self.solid.convert_units(2, "m")
+        self._domain = nd_cube_domain(2, size)
+
+    def set_fractures(self) -> None:
+        """Setting a diagonal fracture"""
+        frac_1_points = self.solid.convert_units(
+            np.array([[0.2, 1.8], [0.2, 1.8]]), "m"
+        )
+        frac_1 = pp.LineFracture(frac_1_points)
+        self._fractures = [frac_1]
+
+    def grid_type(self) -> str:
+        return self.params.get("grid_type", "simplex")
+
+    def meshing_arguments(self) -> dict:
+        cell_size = self.solid.convert_units(0.25, "m")
+        mesh_args: dict[str, float] = {"cell_size": cell_size}
+        return mesh_args
 
 
 class BoundaryConditions(BoundaryConditionsCF):
@@ -264,11 +281,12 @@ class ModelEquations(
         SecondaryEquations.set_equations(self)
 
 
-class BrineFlowModel(
+class DriesnerBrineFlowModel(
     ModelGeometry,
     H20_NaCl_brine,
     InitialConditions,
     BoundaryConditions,
+    ModelEquations,
     CFModelMixin,
 ):
     """Model assembly. For more details see class CompositionalFlow."""
@@ -290,6 +308,6 @@ params = {
     "eliminate_reference_component": True,  # z_H2O eliminated, default is True
     "time_manager": time_manager,
 }
-model = BrineFlowModel(params)
+model = DriesnerBrineFlowModel(params)
 pp.run_time_dependent_model(model, params)
 pp.plot_grid(model.mdg, "pressure", figsize=(10, 8), plot_2d=True)

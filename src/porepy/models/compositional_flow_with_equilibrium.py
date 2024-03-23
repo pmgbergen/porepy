@@ -395,7 +395,7 @@ class InitialConditionsCFLE(cf.InitialConditionsCF):
 
                 # fugacities
                 for k, comp in enumerate(phase.components):
-                    for _ in len(self.iterate_indices):
+                    for _ in self.iterate_indices:
                         phase.fugacity_of[comp].progress_iterate_values_on_grid(
                             state.phases[j].phis[k], sd
                         )
@@ -405,7 +405,7 @@ class InitialConditionsCFLE(cf.InitialConditionsCF):
 
         # progress property values in time on subdomain
         for phase in self.fluid_mixture.phases:
-            for _ in len(self.time_step_indices):
+            for _ in self.time_step_indices:
                 phase.density.progress_values_in_time(subdomains)
                 phase.volume.progress_values_in_time(subdomains)
                 phase.enthalpy.progress_values_in_time(subdomains)

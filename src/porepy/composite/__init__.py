@@ -35,7 +35,6 @@ __all__ = []
 from . import (
     _core,
     base,
-    chem_interface,
     chem_species,
     composite_mixins,
     composite_utils,
@@ -48,7 +47,6 @@ from . import (
 )
 from ._core import *
 from .base import *
-from .chem_interface import *
 from .chem_species import *
 from .composite_mixins import *
 from .composite_utils import *
@@ -59,7 +57,6 @@ from .flash_c import *
 from .states import *
 
 __all__.extend(_core.__all__)
-__all__.extend(chem_interface.__all__)
 __all__.extend(chem_species.__all__)
 __all__.extend(base.__all__)
 __all__.extend(composite_utils.__all__)

@@ -1399,12 +1399,10 @@ class SecondaryEquationsMixin:
         """
 
         sec_var = independent_quantity(domains)
+        g_ids = [d.id for d in domains]
 
         sec_expr = ppc.SecondaryExpression(
-            name=(
-                f"secondary_expression_for_{sec_var.name}"
-                + f"_on_grids_{[d.id for d in domains]}"
-            ),
+            name=f"secondary_expression_for_{sec_var.name}_on_grids_{g_ids}",
             mdg=self.mdg,
             dependencies=dependencies,
             time_step_depth=len(self.time_step_indices),
@@ -1412,9 +1410,7 @@ class SecondaryEquationsMixin:
         )
 
         local_equ = sec_var - sec_expr(domains)
-        local_equ.set_name(
-            f"elimination_of_{sec_var.name}_on_grids_{[g.id for g in domains]}"
-        )
+        local_equ.set_name(f"elimination_of_{sec_var.name}_on_grids_{g_ids}")
         self.equation_system.set_equation(local_equ, domains, dofs)
 
         self.add_constitutive_expression(sec_var, sec_expr, domains, func)
@@ -1529,7 +1525,7 @@ class VariablesCF(
         self.equation_system.create_variables(
             self.enthalpy_variable,
             subdomains=self.mdg.subdomains(),
-            tags={"si_units": "J"},
+            tags={"si_units": "J * mol ^ -1"},
         )
 
         # compositional variables
@@ -1636,7 +1632,7 @@ class ConstitutiveLawsCF(
 
         """
         self._constitutive_eliminations.update(
-            {expression.name, (primary, expression, domains, func)}
+            {expression.name: (primary, expression, domains, func)}
         )
 
     def update_all_constitutive_expressions(
@@ -2413,13 +2409,13 @@ class InitialConditionsCF:
                     d([grid]).value(self.equation_system) for d in expr._dependencies
                 ]
                 val, diff = f(*dep_vals_g)
-                for _ in len(self.iterate_indices):
+                for _ in self.iterate_indices:
                     expr.progress_iterate_values_on_grid(val, grid)
                 # store the derivative value at the most recent iterate
                 expr.progress_iterate_derivatives_on_grid(diff, grid)
 
             # progress values in time for all indices
-            for _ in len(self.time_step_indices):
+            for _ in self.time_step_indices:
                 expr.progress_values_in_time(domains)
 
     def set_intial_values_phase_properties(self) -> None:
@@ -2441,7 +2437,7 @@ class InitialConditionsCF:
             state = phase.compute_properties(*dep_vals)
 
             # propage values to all iterate indices
-            for _ in len(self.iterate_indices):
+            for _ in self.iterate_indices:
                 phase.density.subdomain_values = state.rho
                 phase.volume.subdomain_values = state.v
                 phase.enthalpy.subdomain_values = state.h
@@ -2456,12 +2452,11 @@ class InitialConditionsCF:
             phase.conductivity.subdomain_derivatives = state.dkappa
 
             # propagate values to all time step indices
-            for _ in len(self.time_step_indices):
+            # Only for those with time depth
+            for _ in self.time_step_indices:
                 phase.density.progress_values_in_time(subdomains)
                 phase.volume.progress_values_in_time(subdomains)
                 phase.enthalpy.progress_values_in_time(subdomains)
-                phase.viscosity.progress_values_in_time(subdomains)
-                phase.conductivity.progress_values_in_time(subdomains)
 
     ### IC for primary variables which need to be given by the user in any case.
 
@@ -2619,6 +2614,11 @@ class SolutionStrategyCF(
     """Provided by :class:`EquationsCompositionalFlow`."""
     primary_variable_names: list[str]
     """Provided by :class:`VariablesCF`."""
+
+    isotropic_second_order_tensor: Callable[
+        [list[pp.Grid], pp.ad.Operator], pp.SecondOrderTensor
+    ]
+    """Provided by :class:`~porepy.models.constitutive_laws.SecondOrderTensorUtils`."""
 
     def __init__(self, params: Optional[dict] = None) -> None:
         super().__init__(params)
@@ -2796,10 +2796,10 @@ class SolutionStrategyCF(
 
         # TODO this is experimental and expensive
         self._nonlinear_flux_discretizations.append(
-            self.fourier_flux_discretization(subdomains),
+            self.fourier_flux_discretization(subdomains).flux,
         )
         self._nonlinear_flux_discretizations.append(
-            self.darcy_flux_discretization(subdomains),
+            self.darcy_flux_discretization(subdomains).flux,
         )
 
     def update_secondary_quantities(self) -> None:
@@ -2906,10 +2906,11 @@ class SolutionStrategyCF(
                     )
                 }
             )
+            mob = self.isotropic_second_order_tensor([sd], self.total_mobility([sd]))
             data[pp.PARAMETERS][self.darcy_keyword].update(
                 {
                     "second_order_tensor": self.operator_to_SecondOrderTensor(
-                        sd, self.total_mobility([sd]), self.solid.permeability()
+                        sd, self.permeability([sd]) * mob, self.solid.permeability()
                     )
                 }
             )

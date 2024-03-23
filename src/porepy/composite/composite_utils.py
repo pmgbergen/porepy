@@ -250,7 +250,7 @@ class SecondaryOperator(pp.ad.Operator):
                 "Cannot represent previous time step and iterate at the same time."
             )
 
-        super().__init__(name, domains, pp.ad.Operator.Operations.evaluate, children)
+        super().__init__(name, domains, pp.ad.Operator.Operations.secondary, children)
 
         self._time_index: int = time_step_index
         """Time index assigned to this instance. Capped by :attr:`_time_depth`.
@@ -277,9 +277,6 @@ class SecondaryOperator(pp.ad.Operator):
         which has a reference to the md-grid and must not be touched by the user.
 
         """
-
-        self.ad_compatible: bool = True
-        """To trigger the same parsing as for the regular AD function."""
 
     def __str__(self) -> str:
         if self.prev_time:
@@ -463,7 +460,7 @@ class SecondaryOperator(pp.ad.Operator):
             diffs.append(vd[1])
 
         # Check if values present and properly shaped
-        if None in vals:
+        if np.any([v is None for v in vals]):
             idx = [i for i, v in enumerate(vals) if v is None]
             raise ValueError(
                 f"No values stored for secondary operator {self}"
@@ -481,7 +478,7 @@ class SecondaryOperator(pp.ad.Operator):
 
         # proceeding with derivatives, by filling the identity blocks of the first-order
         # dependencies. Check if derivatives are stored
-        if None in diffs:
+        if np.any([d is None for d in diffs]):
             idx = [i for i, d in enumerate(diffs) if d is None]
             raise ValueError(
                 f"No derivative values stored for secondary operator {self}"
@@ -1159,10 +1156,10 @@ class SecondaryExpression:
         if self._time_depth > 0:
             for t in range(self._time_depth - 1, 0, -1):
                 val = data[pp.TIME_STEP_SOLUTIONS][self.name].get(t - 1, None)
-                if val:
+                if val is not None:
                     data[pp.TIME_STEP_SOLUTIONS][self.name][t] = val
             new_prev_val = data[pp.ITERATE_SOLUTIONS][self.name].get(0, None)
-            if new_prev_val:
+            if new_prev_val is not None:
                 data[pp.TIME_STEP_SOLUTIONS][self.name][0] = new_prev_val
         # set the given value as the new single iterate value (current time)
         data[pp.ITERATE_SOLUTIONS][self.name][0] = value
@@ -1192,7 +1189,7 @@ class SecondaryExpression:
 
         for i in range_:
             vd = data[loc][self.name].get(i - 1, None)
-            if vd:  # shift only data if available
+            if vd is not None:  # shift only data if available
                 # if derivative data present, don't overwrite
                 if i in data[loc][self.name]:
                     vd[1] = data[loc][self.name][i][1]
@@ -1228,7 +1225,7 @@ class SecondaryExpression:
 
         for i in range_:
             vd = data[loc][self.name].get(i - 1, None)
-            if vd:  # shift only data if available
+            if vd is not None:  # shift only data if available
                 # if value data present, don't overwrite
                 if i in data[loc][self.name]:
                     vd[0] = data[loc][self.name][i][0]
@@ -1270,7 +1267,7 @@ class SecondaryExpression:
                 ``(num_dependencies, grid.num_cells)``.
 
         """
-        shape = (grid.num_cells,)
+        shape = (self.num_dependencies, grid.num_cells)
         assert new_values.shape == shape, (
             f"Need array of shape {shape}," + f" but {new_values.shape} given."
         )
