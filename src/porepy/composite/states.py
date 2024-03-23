@@ -3,7 +3,7 @@ fluid mixtures."""
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Sequence
+from typing import Optional, Sequence, cast
 
 import numpy as np
 
@@ -15,6 +15,7 @@ __all__ = [
     "IntensiveState",
     "PhaseState",
     "FluidState",
+    "initialize_fluid_state",
 ]
 
 
@@ -33,18 +34,18 @@ class IntensiveState:
 
     """
 
-    p: np.ndarray = field(default_factory=lambda: np.zeros(1))
+    p: np.ndarray = field(default_factory=lambda: np.zeros(0))
     """Pressure values. As of now, an equal pressure across all phases is assumed at
-    equilibrium. Default is zero."""
+    equilibrium."""
 
-    T: np.ndarray = field(default_factory=lambda: np.zeros(1))
+    T: np.ndarray = field(default_factory=lambda: np.zeros(0))
     """Temperature values. As of now, an equal temperatue across all phases is assumed
-    at equilibrium. Default is zero."""
+    at equilibrium."""
 
-    z: Sequence[np.ndarray] = field(default_factory=lambda: [np.zeros(1)])
-    """Overall molar fractions (feed fractions) per component.
-    The first fraction is always the feed fraction of the reference component.
-    Default is a sequence of zeros."""
+    z: np.ndarray = field(default_factory=lambda: np.zeros((0, 0)))
+    """Overall molar fractions (feed fractions) per component, stored in a 2D array
+    with row-wise values per component.
+    The first fraction is always the feed fraction of the reference component.."""
 
 
 @dataclass
@@ -63,16 +64,20 @@ class ExtensiveState:
 
     """
 
-    h: np.ndarray = field(default_factory=lambda: np.zeros(1))
-    """Specific molar enthalpy. Default is zero."""
+    h: np.ndarray = field(default_factory=lambda: np.zeros(0))
+    """Specific molar enthalpy."""
 
-    v: np.ndarray = field(default_factory=lambda: np.zeros(1))
-    """Specific molar volume. Default is one."""
+    v: np.ndarray = field(default_factory=lambda: np.zeros(0))
+    """Specific molar volume."""
 
     @property
     def rho(self) -> np.ndarray:
         """Specific molar density as the reciprocal of :attr:`v`."""
-        return 1 / self.v
+        rho = np.zeros_like(self.v)
+        # special treatment for zero values to avoid division-by zero errors
+        idx = self.v > 0.0
+        rho[idx] = 1.0 / self.v[idx]
+        return rho
 
 
 @dataclass
@@ -94,73 +99,69 @@ class PhaseState(ExtensiveState):
     phasetype: int = 0
     """Type of the phase. Defaults to 0 (liquid)."""
 
-    x: Sequence[np.ndarray] = field(default_factory=lambda: [np.zeros(1)])
-    """Extended molar fractions for each component.
+    x: np.ndarray = field(default_factory=lambda: np.zeros((0, 0)))
+    """Molar fractions for each component in a phase, stored row-wise per component
+    in a 2D array.
 
     Fractions of components in a phase are relative to the moles in a phase.
 
     The first one is assumed to belong to the reference component.
 
-    Default is a list of zeros.
-
     """
 
-    phis: Sequence[np.ndarray] = field(default_factory=lambda: [np.zeros(1)])
-    """Fugacity coefficients per component in this phase. Default is a list of zeros."""
+    phis: Sequence[np.ndarray] = field(default_factory=lambda: np.zeros((0, 0)))
+    """Fugacity coefficients per component in this phase, stored row-wise per component
+    in a 2D array."""
 
-    dh: Sequence[np.ndarray] = field(default_factory=lambda: [np.zeros(1)])
+    dh: np.ndarray = field(default_factory=lambda: np.zeros((0, 0)))
     """Derivatives of the specific molar enthalpy with respect to pressure, temperature
     and each ``x`` in :attr:`x`.
 
+    The derivatives are stored row-wise in a 2D array.
     The length of ``dh`` is ``2 + len(x)``.
-
-    Default is a list of zeros.
 
     """
 
-    dv: Sequence[np.ndarray] = field(default_factory=lambda: [np.zeros(1)])
+    dv: Sequence[np.ndarray] = field(default_factory=lambda: np.zeros((0, 0)))
     """Derivatives of the specific molar volume with respect to pressure, temperature
     and each ``x`` in :attr:`x`.
 
+    The derivatives are stored row-wise in a 2D array.
     The length of ``dv`` is ``2 + len(x)``.
-
-    Default is a list of zeros.
 
     """
 
-    dphis: Sequence[Sequence[np.ndarray]] = field(
-        default_factory=lambda: [np.zeros((1, 1))]
-    )
-    """Derivatives of fugacity coefficients per component in this phase.
+    dphis: np.ndarray = field(default_factory=lambda: np.zeros((0, 0, 0)))
+    """Derivatives of fugacity coefficients w.r.t. pressure, temperature and each
+    ``x`` in :attr:`x`.
 
-    The elements themselves are sequences, containing derivatives with respect to
-    pressure, temperature and fractions.
+    Derivatives are stored in a 3D array, where the first axis is associated with
+    components in this phase and the second axis with the derivatives.
+    The third axis is for the values.
 
-    Default is a list of zero 2D-arrays."""
+    """
 
-    mu: np.ndarray = field(default_factory=lambda: np.zeros(1))
-    """Dynamic molar viscosity. Default is 0."""
+    mu: np.ndarray = field(default_factory=lambda: np.zeros(0))
+    """Dynamic molar viscosity."""
 
-    dmu: Sequence = field(default_factory=lambda: [np.zeros(1)])
+    dmu: np.ndarray = field(default_factory=lambda: np.zeros((0, 0)))
     """Derivatives of the dynamic molar viscosity w.r.t. pressure, temperature and
     each ``x`` in :attr:`x`.
 
+    The derivatives are stored row-wise in a 2D array.
     The length of ``dmu`` is ``2 + len(x)``.
-
-    Default is a list of zeros.
 
     """
 
-    kappa: np.ndarray = field(default_factory=lambda: np.zeros(1))
-    """Thermal conductivity. Default is 0."""
+    kappa: np.ndarray = field(default_factory=lambda: np.zeros(0))
+    """Thermal conductivity."""
 
-    dkappa: Sequence = field(default_factory=lambda: [np.zeros(1)])
+    dkappa: np.ndarray = field(default_factory=lambda: np.zeros((0, 0)))
     """Derivatives of the thermal conductivity w.r.t. pressure, temperature and
     each ``x`` in :attr:`x`.
 
-    The length of ``dkappa`` is ``2 + len(x)``.
-
-    Default is a list of zeros.
+    The derivatives are stored row-wise in a 2D array.
+    The length of ``dkapp`` is ``2 + len(x)``.
 
     """
 
@@ -172,14 +173,18 @@ class PhaseState(ExtensiveState):
         The chainrule is applied to compute ``drho`` from ``d(1/v)``.
 
         """
+        # Treatment to avoid division by zero errors
+        idx = self.v > 0.0
+        outer = np.zeros_like(self.v)
+        outer[idx] = -1 / self.v[idx] ** 2
         outer = -1 / self.v**2
-        return [outer * dv for dv in self.dv]
+        return np.array([outer * dv for dv in self.dv])
 
     @property
     def xn(self) -> Sequence[np.ndarray]:
         """Normalized values of fractions found in :attr:`x`."""
         x_sum = safe_sum(self.x)
-        return [x / x_sum for x in self.x]
+        return np.array([x / x_sum for x in self.x])
 
 
 @dataclass
@@ -208,13 +213,13 @@ class FluidState(IntensiveState, ExtensiveState):
 
     """
 
-    y: Sequence[np.ndarray] = field(default_factory=lambda: [np.zeros(1)])
+    y: Sequence[np.ndarray] = field(default_factory=lambda: np.zeros((0, 0)))
     """Molar phase fractions for each phase in :attr:`phases`."""
 
-    sat: Sequence[np.ndarray] = field(default_factory=lambda: [np.zeros(1)])
+    sat: Sequence[np.ndarray] = field(default_factory=lambda: np.zeros((0, 0)))
     """Saturation for each phase in :attr:`phases`."""
 
-    phases: Sequence[PhaseState] = field(default_factory=lambda: [PhaseState()])
+    phases: Sequence[PhaseState] = field(default_factory=lambda: list())
     """A collection of phase state descriptions for phases anticipated in the fluid
     mixture."""
 
@@ -254,6 +259,73 @@ class FluidState(IntensiveState, ExtensiveState):
         """
 
         self.h = safe_sum([y * state.h for y, state in zip(self.y, self.phases)])
-        self.v = 1 / safe_sum(
-            [s * state.rho for s, state in zip(self.sat, self.phases)]
+        rho = cast(
+            np.ndarray,
+            safe_sum([s * state.rho for s, state in zip(self.sat, self.phases)]),
         )
+        v = np.zeros_like(rho)
+        v[rho > 0] = 1.0 / rho[rho > 0]
+        self.v = v
+
+
+def initialize_fluid_state(
+    n: int,
+    ncomp: int | np.ndarray,
+    nphase: int,
+    phase_types: Optional[np.ndarray] = None,
+    with_derivatives: bool = False,
+) -> FluidState:
+    """Creates a fluid state with filled with zero values of defined size.
+
+    Parameters:
+        n: Number of values per thermodynamic quantity.
+        ncomp: Number of components. Either as a number or an array with numbers per
+            phase.
+        nphase: Number of phases
+        phase_types: ``default=None``
+
+            Phase types (integers) per phase. If None, all phases are assigned type 0.
+        with_derivatives: ``default=False``.
+
+            If True, the derivatives are also initialized with zero values, otherwise
+            they are left empty.
+
+    """
+    state = FluidState()
+    state.p = np.zeros(n)
+    state.T = np.zeros(n)
+    state.h = np.zeros(n)
+    state.v = np.zeros(n)
+    state.y = np.zeros((nphase, n))
+    state.sat = np.zeros((nphase, n))
+
+    if phase_types is None:
+        phase_types = np.zeros(nphase, dtype=int)
+    if isinstance(ncomp, int):
+        ncomp = np.ones(nphase, dtype=int) * ncomp
+    else:
+        assert ncomp.shape == (nphase,), "Need number of components for every phase."
+
+    # to cover all components, independent of their modelling in phases
+    state.z = np.zeros((ncomp.max(), n))
+
+    state.phases = list()
+    for j in range(nphase):
+        phase_state = PhaseState(
+            h=np.zeros(n),
+            v=np.zeros(n),
+            phasetype=phase_types[j],
+            x=np.zeros((ncomp[j], n)),
+            phis=np.zeros((ncomp[j], n)),
+            mu=np.zeros(n),
+            kappa=np.zeros(n),
+        )
+
+        if with_derivatives:
+            phase_state.dh = np.zeros((2 + ncomp[j], n))
+            phase_state.dv = np.zeros((2 + ncomp[j], n))
+            phase_state.dphis = np.zeros((ncomp[j], 2 + ncomp[j], n))
+            phase_state.dmu = np.zeros((2 + ncomp[j], n))
+            phase_state.dkappa = np.zeros((2 + ncomp[j], n))
+
+        state.phases.append(phase_state)

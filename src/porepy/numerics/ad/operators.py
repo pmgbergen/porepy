@@ -82,6 +82,7 @@ class Operator:
         rdiv = "rdiv"
         evaluate = "evaluate"
         approximate = "approximate"
+        secondary = "secondary"
         pow = "pow"
         rpow = "rpow"
 
@@ -231,6 +232,9 @@ class Operator:
                     # This also means that operators that are not time dependent need not
                     # override this previous_timestep method.
                     return op
+            # Secondary expressions/operators have children, but also a prev time step
+            elif isinstance(op, pp.composite.SecondaryOperator):
+                    return op.previous_timestep()
             else:
                 # Recursively iterate over the subtree, get the children, evaluated at the
                 # previous time when relevant, and add it to the new list.
@@ -443,6 +447,16 @@ class Operator:
             except ValueError as exc:
                 msg = self._get_error_message(
                     "matrix multiplying", op.children, results
+                )
+                raise ValueError(msg) from exc
+
+        elif operation == Operator.Operations.secondary:
+            try:
+                return op.func(*results)
+            except (ValueError, AssertionError) as exc:
+                msg = (
+                    f"Failed to evaluate secondary operator"
+                    + f" {op.name}{[c.name for c in op.children]}:\n"
                 )
                 raise ValueError(msg) from exc
 

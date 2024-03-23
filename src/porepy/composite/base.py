@@ -62,7 +62,7 @@ import porepy as pp
 from porepy.numerics.ad.operator_functions import NumericType
 
 from ._core import R_IDEAL
-from .chem_species import ChemicalSpecies, FluidSpecies
+from .chem_species import ChemicalSpecies
 from .composite_utils import SecondaryExpression, safe_sum
 from .states import PhaseState
 
@@ -75,7 +75,7 @@ __all__ = [
 ]
 
 
-class Component(abc.ABC, FluidSpecies):
+class Component(ChemicalSpecies):
     """Abstract base class for components modelled inside a mixture.
 
     Components are chemical species inside a mixture, which possibly go through phase
@@ -129,7 +129,7 @@ class Component(abc.ABC, FluidSpecies):
         """
 
     @classmethod
-    def from_species(cls, species: FluidSpecies) -> Component:
+    def from_species(cls, species: ChemicalSpecies) -> Component:
         """An instance factory creating an instance of this class based on a load
         fluid species represented by respective data class.
 
@@ -142,10 +142,12 @@ class Component(abc.ABC, FluidSpecies):
         """
         return cls(**asdict(species))
 
-    @abc.abstractmethod
     def h_ideal(self, p: Any, T: Any) -> Any:
         """Abstract method for implementing the component-specific ideal part of the
         specific molar enthalpy.
+
+        The computation of ideal enthalpies is not trivial and depends on data.
+        General solution is in the making.
 
         This function depends on experimental data and heuristic laws.
 
@@ -156,11 +158,16 @@ class Component(abc.ABC, FluidSpecies):
             p: The pressure of the mixture.
             T: The temperature of the mixture.
 
+        Raises:
+            NotImplementedError: Base class has no specific model for any species.
+
         Returns:
             Ideal specific enthalpy for given pressure and temperature.
 
         """
-        pass
+        raise NotImplementedError(
+            "No implementation for general ideal enthalpy computations available."
+        )
 
     def u_ideal(self, p: Any, T: Any) -> Any:
         """
@@ -412,6 +419,14 @@ class AbstractEoS(abc.ABC):
 
     Component properties required for computations can be extracted in the constructor.
 
+    Note:
+        This class is called 'abstract EoS'. Users can implement any correlations but
+        are encouraged to focus on thermodynamic consistency.
+
+        Phase properties are defined as secondary expressions, and the framework is
+        able to pick up the dependencies and call :meth:`compute_phase_state` with
+        the right values.
+
     Parameters:
         components: A sequence of components for which the EoS is instantiated.
 
@@ -423,14 +438,27 @@ class AbstractEoS(abc.ABC):
 
     @abc.abstractmethod
     def compute_phase_state(
-        self, phase_type: int, p: np.ndarray, T: np.ndarray, xn: Sequence[np.ndarray]
+        self, phase_type: int, *thermodynamic_input: np.ndarray
     ) -> PhaseState:
-        """ "Abstract method to compute the properties of a phase based on pressure,
-        temperature and a sequence of (normalized) fractions for each component passed
-        at instantiation.
+        """ "Abstract method to compute the properties of a phase based any
+        thermodynamic input.
+
+        Examples:
+            1. For a single component mixture, the thermodynamic input may consist of
+               just pressure and temperature.
+               For isothermal models, it may be just pressure.
+            2. For general multiphase-multicomponent mixtures, the thermodynamic input
+               may consist of pressure, temperature and partial fractions of components
+               in a phase.
+            3. For correlations which indirectly represent the solution of the
+               fluid phase equilibrium problem, the signature might as well be
+               pressure, temperature and independent overall fractions.
+            4. For complex models, temperature can be replaced by enthalpy for example.
 
         Parameters:
             phase_type: See :attr:`Phase.type`
+            *thermodynamic_input: Vectors with consistent shape ``(N,)`` representing
+                any combination of thermodynamic input variables.
             p: ``shape=(N,)``
 
                 Pressure values.
@@ -443,7 +471,7 @@ class AbstractEoS(abc.ABC):
 
         Returns:
             A datastructure containing all relevant phase properties and their
-            derivatives.
+            derivatives w.r.t. the dependencies (``thermodynamic_input``).
 
         """
         ...
@@ -456,14 +484,15 @@ class Phase:
     A phase is identified by the (time-dependent) region/volume it occupies (saturation)
     and the (molar) fraction of mass belonging to this phase.
 
-    Phases have physical properties, dependent on pressure, temperature and composition.
+    Phases have physical properties, dependent on some thermodynamic input.
+
     Modelled components can be set and accessed using :attr:`components`.
 
     Thermodynamic phase properties relevant for flow and flash problems are stored as
     AD-compatible objects, whose values can be written and accessed directly.
-    To compute the values based on the passed equation of state, use
-    :meth:`compute_properties`.
-    These properties are:
+
+    Only properties required for flow and transport, and fluid phase equilibria are
+    implemented, which includes:
 
     - :attr:`density`
     - :attr:`enthalpy`
@@ -471,9 +500,13 @@ class Phase:
     - :attr:`conductivity`
     - :attr:`fugacities_of`
 
-    The variables representing the molar fraction and saturation are assigned by
-    a mixture instance, and are only available when the phase was put into context
-    through this way.
+    They are assigned by :class:`~porepy.composite.composite_mixins.FluidMixtureMixin`,
+    during the model set-up.
+    The variables representing fractions and saturations are assigned by
+    a mixture instance as well.
+
+    Both, properties and fractional unknowns, are only available once put into a
+    context.
 
     Note:
         Dependent on whether this phase is assigned as the reference phase or not,
@@ -481,9 +514,6 @@ class Phase:
         variable (:class:`~porepy.numerics.ad.operators.MixedDimensionalVariable`)
         or a dependent :class:`~porepy.numerics.ad.operators.Operator`,
         where the fraction and saturation were eliminated by unity respectively.
-
-    Also, variables and operators representing phase compositions (per component) and
-    normalized fractions respectively, are also assigned by a mixture.
 
     Note:
         All extended fractions :attr:`fraction_of` are genuine variables in the unified
@@ -501,9 +531,9 @@ class Phase:
             - ``>1``: open for further development.
         eos: An EoS which provides means to compute physical properties of the phase.
 
-            Expected to be already compiled.
+            Can be different for different phases.
         name: Given name for this phase. Used as an unique identifier and for naming
-            various variables.
+            various variables and properties.
 
     """
 
@@ -518,15 +548,8 @@ class Phase:
         self.components: Sequence[Component]
         """A sequence of all components modelled in this phase.
 
-        Important:
-            In principle, the user has to manually set which components are in which
-            phase.
-
-            This influences the operators created during :meth:`Mixture.set_up_ad`.
-
-            Models in the unified setting
-            (see :class:`~porepy.composite.equilibrium_models.MixtureUNR`) set all
-            components to be present in every phase by default.
+        To be set by the user, or by some instance of
+        :class:`~porepy.composite.composite_mixins.FluidMixtureMixin`
 
         Once set, it should not be modified. Avoid multiple occurences of components.
 
@@ -547,11 +570,6 @@ class Phase:
         - Math. Dimension:        scalar
         - Phys. Dimension:        [mol / m^3]
 
-        This is an AD-compatible representation, whose value is computed using
-        :meth:`compute_properties`.
-
-        It is available once :meth:`Mixture.set_up_ad` is performed.
-
         """
 
         self.volume: SecondaryExpression
@@ -559,11 +577,6 @@ class Phase:
 
         - Math. Dimension:        scalar
         - Phys. Dimension:        [m^3 / mol]
-
-        This is an AD-compatible representation, whose value is computed using
-        :meth:`compute_properties`.
-
-        It is available once :meth:`Mixture.set_up_ad` is performed.
 
         """
 
@@ -573,11 +586,6 @@ class Phase:
         - Math. Dimension:        scalar
         - Phys.Dimension:         [J / mol / K]
 
-        This is an AD-compatible representation, whose value is computed using
-        :meth:`compute_properties`.
-
-        It is available once :meth:`Mixture.set_up_ad` is performed.
-
         """
 
         self.viscosity: SecondaryExpression
@@ -585,11 +593,6 @@ class Phase:
 
         - Math. Dimension:        scalar
         - Phys. Dimension:        [mol / m / s]
-
-        This is an AD-compatible representation, whose value is computed using
-        :meth:`compute_properties`.
-
-        It is available once :meth:`Mixture.set_up_ad` is performed.
 
         """
 
@@ -599,11 +602,6 @@ class Phase:
         - Math. Dimension:    2nd-order tensor
         - Phys. Dimension:    [W / m / K]
 
-        This is an AD-compatible representation, whose value is computed using
-        :meth:`compute_properties`.
-
-        It is available once :meth:`Mixture.set_up_ad` is performed.
-
         """
 
         self.fugacity_of: dict[Component, SecondaryExpression]
@@ -611,11 +609,6 @@ class Phase:
 
         - Math. Dimension:    scalar
         - Phys. Dimension:    [-]
-
-        The callables are assigned by a mixture mixin.
-
-        Fugacity coefficients depend in general on pressure, temperature and every
-        fraction of components in a phase.
 
         """
 
@@ -625,8 +618,6 @@ class Phase:
 
         - Math. Dimension:        scalar
         - Phys. Dimension:        [-] fractional
-
-        This callable is assigned by a mixture mixin.
 
         If the phase is assigned as the reference phase and the reference
         phase is eliminated, this is a dependent operator.
@@ -643,8 +634,6 @@ class Phase:
         - Math. Dimension:        scalar
         - Phys. Dimension:        [-] fractional
 
-        This callable is assigned by a mixture mixin.
-
         If the phase is assigned as the reference phase and the reference
         phase is eliminated, this is a dependent operator.
         Otherwise it is a variable.
@@ -654,18 +643,14 @@ class Phase:
         """
 
         self.fraction_of: dict[Component, Callable[[Sequence[pp.Grid]], pp.ad.Operator]]
-        """Molar fractions per component in a phase.
+        """Extended molar fractions per component in a phase, used in the unified
+        phase equilibrium formulation.
 
         Indicates how many of the moles in a phase belong to a component
-        (relative fraction).
+        (relative fraction), covering also the case if a phase vanishes.
 
         - Math. Dimension:        scalar
         - Phys. Dimension:        [-] fractional
-
-        The callables are assigned by a mixture mixin.
-
-        As of now, fractions of components in a phase are always introduced as
-        independent variables.
 
         """
 
@@ -680,6 +665,8 @@ class Phase:
         .. math::
 
             x_{ij} = \\dfrac{\\chi_{ij}}{\\sum_k \\chi_{kj}}
+
+        Partial fractions are used in flow and transport to define mobilities.
 
         """
 
@@ -696,7 +683,7 @@ class Phase:
             Components present in this phase.
 
         """
-        for component in self._components:
+        for component in self.components:
             yield component
 
     @property
@@ -704,40 +691,9 @@ class Phase:
         """Number of set components."""
         return len(self.components)
 
-    def compute_properties(
-        self,
-        p: np.ndarray,
-        T: np.ndarray,
-        xn: Sequence[np.ndarray],
-    ) -> PhaseState:
-        """Shortcut to compute the properties using :attr:`eos`.
-
-        Note:
-            Property derivatives are provided w.r.t. normalized fraction.
-            Needs an extension (chain rule) for extended fractions.
-
-        Parameters:
-            p: ``shape=(N,)``
-
-                Pressure.
-            T: ``shape=(N,)``
-
-                Temperature.
-            xn: ``shape=(num_components, N)``
-
-                (Normalized) Component fractions in this phase.
-                The number of values must correspond to the number expected by the
-                underlying EoS.
-            store: ``default=True``
-
-                A flag to store the computed values in the respective operators
-                representing thermodynamic properties.
-
-        Returns:
-            A data structure containing the phase properties in numerical format.
-
-        """
-        return self.eos.compute_phase_state(self.type, p, T, xn)
+    def compute_properties(self, *thermodynamic_input: np.ndarray) -> PhaseState:
+        """Shortcut to compute the properties using :attr:`eos` and :meth:`type`."""
+        return self.eos.compute_phase_state(self.type, *thermodynamic_input)
 
 
 class Mixture:
@@ -757,8 +713,6 @@ class Mixture:
     Important:
         - The first, non-gas-like phase is treated as the reference phase.
         - The first component is set as reference component.
-        - Choice of reference phase and component influence the choice of equations and
-          variables, keep that in mind. It might have numeric implications.
 
     Notes:
         Be careful when modelling mixtures with 1 component. This singular case is not
