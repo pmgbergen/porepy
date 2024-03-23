@@ -802,7 +802,8 @@ class FluidMixtureMixin:
           :attr:`~porepy.composite.base.Phase.conductivity`
         - :meth:`fugacity_coefficient` to
           :attr:`~porepy.composite.base.Phase.fugacity_of`
-          for each component in respective phase
+          for each component in respective phase.
+          This is only done for mixtures with a defined equilibrium type
 
         The :attr:`fluid_mixture` gets following properties assigned:
 
