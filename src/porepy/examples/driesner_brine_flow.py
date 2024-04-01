@@ -32,6 +32,8 @@ import numpy as np
 
 import porepy as pp
 import porepy.composite as ppc
+from FluidDescription import LiquidLikeLinearTracerCorrelations
+from FluidDescription import GasLikeLinearTracerCorrelations
 from porepy.applications.md_grids.domains import nd_cube_domain
 
 # CompositionalFlow has data savings mixin, composite variables mixin,
@@ -46,81 +48,6 @@ from porepy.models.compositional_flow import (
     SecondaryEquationsMixin,
 )
 
-
-def dummy_func(
-    *thermodynamic_dependencies: np.ndarray,
-) -> tuple[np.ndarray, np.ndarray]:
-    """Dummy function for computing the values and derivatives of a thermodynamic
-    property.
-
-    Correlations are designed to depend on p, h, z_H2O and z_CO2,
-    i.e. ``thermodynamic_properties`` will be a 4-tuple of ``(nc,)`` arrays
-    """
-    nc = len(thermodynamic_dependencies[0])
-    vals = np.ones(nc)
-    # row-wise storage of derivatives, (4, nc) array
-    diffs = np.ones((len(thermodynamic_dependencies), nc))
-
-    return vals, diffs
-
-
-class DriesnerCorrelations(ppc.AbstractEoS):
-    """Class implementing the calculation of thermodynamic properties.
-
-    Note:
-        By thermodynamic properties, this framework refers to the below
-        indicated quantities, and **not** quantitie which are variables.
-
-        Fractions (partial and saturations) and other intensive quantities like
-        temperature need a separate treatment because they are always modelled as
-        variables, whereas properties are always dependent expressions.
-
-    """
-
-    def compute_phase_state(
-        self, phase_type: int, *thermodynamic_input: np.ndarray
-    ) -> ppc.PhaseState:
-        """Function will be called to compute the values for a phase.
-        ``phase_type`` indicates the phsycal type (0 - liq, 1 - gas).
-        ``thermodynamic_dependencies`` are as defined by the user.
-        """
-
-        p, h, z_NaCl = thermodynamic_input
-        n = len(p)  # same for all input (number of cells)
-
-        # specific volume of phase
-        v, dv = dummy_func(p, h, z_NaCl)  # (n,), (3, n) array
-        # NOTE specific molar density rho not required since always computed as
-        # reciprocal of v by PhaseState class
-
-        # specific enthalpy of phase
-        h, dh = dummy_func(p, h, z_NaCl)  # (n,), (3, n) array
-        # dynamic viscosity of phase
-        mu, dmu = dummy_func(p, h, z_NaCl)  # (n,), (3, n) array
-        # thermal conductivity of phase
-        kappa, dkappa = dummy_func(p, h, z_NaCl)  # (n,), (3, n) array
-
-        # Fugacity coefficients
-        # not required for this formulation, since no equilibrium equations
-        # just show-casing it here
-        phis = np.empty((2, n))  # (2, n) array  (2 components)
-        dphis = np.empty(
-            (2, 3, n)
-        )  # (2, 3, n)  array (2 components, 3 dependencies, n cells)
-
-        return ppc.PhaseState(
-            phasetype=phase_type,
-            v=v,
-            dv=dv,
-            h=h,
-            dh=dh,
-            mu=mu,
-            dmu=dmu,
-            kappa=kappa,
-            dkappa=dkappa,
-            phis=phis,
-            dphis=dphis,
-        )
 
 
 class H20_NaCl_brine(ppc.FluidMixtureMixin):
@@ -141,19 +68,20 @@ class H20_NaCl_brine(ppc.FluidMixtureMixin):
     ) -> Sequence[tuple[ppc.AbstractEoS, int, str]]:
         """Define all phases the model should consider, here 1 liquid 1 gas.
         Use custom Correlation class."""
-        eos = DriesnerCorrelations(components)
+        eos_L = LiquidLikeLinearTracerCorrelations(components)
+        eos_G = GasLikeLinearTracerCorrelations(components)
         # Configure model with 1 liquid phase (phase type is 0)
         # and 1 gas phase (phase type is 1)
         # The Mixture always choses the first liquid-like phase it finds as reference
         # phase. Ergo, the saturation of the liquid phase is not a variable, but given
         # by 1 - s_gas
-        return [(eos, 0, "liq"), (eos, 1, "gas")]
+        return [(eos_L, 0, "liq"), (eos_G, 1, "gas")]
 
     def dependencies_of_phase_properties(
         self, phase: ppc.Phase
     ) -> Sequence[Callable[[pp.GridLikeSequence], pp.ad.Operator]]:
         """Overwrite parent method which gives by default a dependency on
-        p, T, z_CO2.
+        p, T, z_NaCl.
         """
         # This will give the independent overall fractions
         z_NaCl = [
@@ -173,16 +101,28 @@ class H20_NaCl_brine(ppc.FluidMixtureMixin):
 
 class ModelGeometry:
     def set_domain(self) -> None:
-        size = self.solid.convert_units(2, "m")
-        self._domain = nd_cube_domain(2, size)
+        dimension = 2
+        size_x = self.solid.convert_units(1, "m")
+        size_y = self.solid.convert_units(1, "m")
+        size_z = self.solid.convert_units(1, "m")
 
-    def set_fractures(self) -> None:
-        """Setting a diagonal fracture"""
-        frac_1_points = self.solid.convert_units(
-            np.array([[0.2, 1.8], [0.2, 1.8]]), "m"
-        )
-        frac_1 = pp.LineFracture(frac_1_points)
-        self._fractures = [frac_1]
+        box: dict[str, pp.number] = {"xmax": size_x}
+
+        if dimension > 1:
+            box.update({"ymax": size_y})
+
+        if dimension > 2:
+            box.update({"zmax": size_z})
+
+        self._domain = pp.Domain(box)
+
+    # def set_fractures(self) -> None:
+    #     """Setting a diagonal fracture"""
+    #     frac_1_points = self.solid.convert_units(
+    #         np.array([[0.2, 1.8], [0.2, 1.8]]), "m"
+    #     )
+    #     frac_1 = pp.LineFracture(frac_1_points)
+    #     self._fractures = [frac_1]
 
     def grid_type(self) -> str:
         return self.params.get("grid_type", "simplex")
@@ -196,10 +136,163 @@ class ModelGeometry:
 class BoundaryConditions(BoundaryConditionsCF):
     """See parent class how to set up BC. Default is all zero and Dirichlet."""
 
+    def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        if self.mdg.dim_max() == 2:
+            all, east, west, north, south, top, bottom = self.domain_boundary_sides(sd)
+            return pp.BoundaryCondition(sd, all, "dir")
+        elif self.mdg.dim_max() == 3:
+            all, east, west, north, south, top, bottom = self.domain_boundary_sides(sd)
+            return pp.BoundaryCondition(sd, all, "dir")
+
+    def bc_type_fluid_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        """Returns the BC type of the darcy flux for consistency reasons."""
+        return self.bc_type_darcy_flux(sd)
+
+    def bc_type_enthalpy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        if self.mdg.dim_max() == 2:
+            all, east, west, north, south, top, bottom = self.domain_boundary_sides(sd)
+            return pp.BoundaryCondition(sd, all, "dir")
+        elif self.mdg.dim_max() == 3:
+            all, east, west, north, south, top, bottom = self.domain_boundary_sides(sd)
+            return pp.BoundaryCondition(sd, all, "dir")
+
+    def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+        p = 10.0e6
+        return np.ones(boundary_grid.num_cells) * p
+
+    def bc_values_temperature(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+        T = 1000.0
+        return np.ones(boundary_grid.num_cells) * T
+
+    def bc_values_enthalpy(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+        h = 1000.0
+        return np.ones(boundary_grid.num_cells) * h
+
+    def bc_values_overall_fraction(
+        self, component: ppc.Component, boundary_grid: pp.BoundaryGrid
+    ) -> np.ndarray:
+        if component.name == 'H2O':
+            return np.ones(boundary_grid.num_cells)
+        else:
+            return np.zeros(boundary_grid.num_cells)
 
 class InitialConditions(InitialConditionsCF):
     """See parent class how to set up BC. Default is all zero and Dirichlet."""
 
+    def intial_pressure(self, sd: pp.Grid) -> np.ndarray:
+        p = 10.0e6
+        return np.ones(sd.num_cells) * p
+
+    def initial_temperature(self, sd: pp.Grid) -> np.ndarray:
+        T = 1000.0
+        return np.ones(sd.num_cells) * T
+
+    def initial_enthalpy(self, sd: pp.Grid) -> np.ndarray:
+        h = 1000.0
+        return np.ones(sd.num_cells)  * h
+
+    def initial_overall_fraction(
+        self, component: ppc.Component, sd: pp.Grid
+    ) -> np.ndarray:
+        if component.name == 'H2O':
+            return np.ones(sd.num_cells)
+        else:
+            return np.zeros(sd.num_cells)
+
+
+def gas_saturation_func(
+    *thermodynamic_dependencies: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray]:
+
+    p, h, z_NaCl = thermodynamic_dependencies
+    # same for all input (number of cells)
+    assert len(p) == len(h) == len(z_NaCl)
+    n = len(p)
+
+    nc = len(thermodynamic_dependencies[0])
+    vals = np.zeros(nc)
+    # row-wise storage of derivatives, (3, nc) array
+    diffs = np.zeros((len(thermodynamic_dependencies), nc))
+
+    return vals, diffs
+
+
+def temperature_func(
+        *thermodynamic_dependencies: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray]:
+    p, h, z_NaCl = thermodynamic_dependencies
+    # same for all input (number of cells)
+    assert len(p) == len(h) == len(z_NaCl)
+    n = len(p)
+
+    nc = len(thermodynamic_dependencies[0])
+    vals = np.array(h)
+    # row-wise storage of derivatives, (3, nc) array
+    diffs = np.ones((len(thermodynamic_dependencies), nc))
+    diffs[1, :] = 1.0
+    return vals, diffs
+
+def H2O_liq_func(
+        *thermodynamic_dependencies: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray]:
+    p, h, z_NaCl = thermodynamic_dependencies
+    # same for all input (number of cells)
+    assert len(p) == len(h) == len(z_NaCl)
+    n = len(p)
+
+    nc = len(thermodynamic_dependencies[0])
+    vals = np.array(1-z_NaCl)
+    # row-wise storage of derivatives, (3, nc) array
+    diffs = np.zeros((len(thermodynamic_dependencies), nc))
+    diffs[2, :] = -1.0
+    return vals, diffs
+
+def NaCl_liq_func(
+        *thermodynamic_dependencies: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray]:
+    p, h, z_NaCl = thermodynamic_dependencies
+    # same for all input (number of cells)
+    assert len(p) == len(h) == len(z_NaCl)
+    n = len(p)
+
+    nc = len(thermodynamic_dependencies[0])
+    vals = np.array(z_NaCl)
+    # row-wise storage of derivatives, (4, nc) array
+    diffs = np.zeros((len(thermodynamic_dependencies), nc))
+    diffs[2, :] = +1.0
+    return vals, diffs
+
+def H2O_gas_func(
+        *thermodynamic_dependencies: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray]:
+    p, h, z_NaCl = thermodynamic_dependencies
+    # same for all input (number of cells)
+    assert len(p) == len(h) == len(z_NaCl)
+    n = len(p)
+
+    nc = len(thermodynamic_dependencies[0])
+    vals = np.array(1-z_NaCl)
+    # row-wise storage of derivatives, (3, nc) array
+    diffs = np.zeros((len(thermodynamic_dependencies), nc))
+    diffs[2, :] = -1.0
+    return vals, diffs
+
+def NaCl_gas_func(
+        *thermodynamic_dependencies: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray]:
+    p, h, z_NaCl = thermodynamic_dependencies
+    # same for all input (number of cells)
+    assert len(p) == len(h) == len(z_NaCl)
+    n = len(p)
+
+    nc = len(thermodynamic_dependencies[0])
+    vals = np.array(z_NaCl)
+    # row-wise storage of derivatives, (3, nc) array
+    diffs = np.zeros((len(thermodynamic_dependencies), nc))
+    diffs[2, :] = +1.0
+    return vals, diffs
+
+chi_functions_map = {'H2O_liq': H2O_liq_func,'NaCl_liq': NaCl_liq_func,'H2O_gas': H2O_gas_func,'NaCl_gas': NaCl_gas_func}
 
 class SecondaryEquations(SecondaryEquationsMixin):
     """Mixin to provide expressions for dangling variables.
@@ -235,7 +328,7 @@ class SecondaryEquations(SecondaryEquationsMixin):
                 self.dependencies_of_phase_properties(
                     phase
                 ),  # callables giving primary variables on subdoains
-                dummy_func,  # numerical function implementing correlation
+                gas_saturation_func,  # numerical function implementing correlation
                 subdomains,  # all subdomains on which to eliminate s_gas
                 # dofs = {'cells': 1},  # default value
             )
@@ -246,7 +339,7 @@ class SecondaryEquations(SecondaryEquationsMixin):
                 self.eliminate_by_constitutive_law(
                     phase.partial_fraction_of[comp],
                     self.dependencies_of_phase_properties(phase),
-                    dummy_func,
+                    chi_functions_map[comp.name +  "_" + phase.name],
                     subdomains,
                 )
 
@@ -254,7 +347,7 @@ class SecondaryEquations(SecondaryEquationsMixin):
         self.eliminate_by_constitutive_law(
             self.temperature,
             self.dependencies_of_phase_properties(rphase),  # since same for all.
-            dummy_func,
+            temperature_func,
             subdomains,
         )
 
@@ -280,7 +373,6 @@ class ModelEquations(
         # local elimination of dangling secondary variables
         SecondaryEquations.set_equations(self)
 
-
 class DriesnerBrineFlowModel(
     ModelGeometry,
     H20_NaCl_brine,
@@ -291,13 +383,18 @@ class DriesnerBrineFlowModel(
 ):
     """Model assembly. For more details see class CompositionalFlow."""
 
+    def _export(self):
+        if hasattr(self, "exporter"):
+            self.exporter.write_vtu(self.primary_variable_names(), time_dependent=True)
+
+    def after_simulation(self):
+        self.exporter.write_pvd()
 
 time_manager = pp.TimeManager(
-    schedule=[0, 0.3, 0.6],
-    dt_init=1e-4,
-    dt_min_max=[1e-4, 0.1],
-    constant_dt=False,
-    iter_max=50,
+    schedule=[0, 1.0],
+    dt_init=1.0,
+    constant_dt=True,
+    iter_max=10,
     print_info=True,
 )
 
@@ -307,7 +404,23 @@ params = {
     "eliminate_reference_phase": True,  # s_liq eliminated, default is True
     "eliminate_reference_component": True,  # z_H2O eliminated, default is True
     "time_manager": time_manager,
+    "prepare_simulation":  False,
+    "reduced_system_q": False,
+    'nl_convergence_tol': 1e0,
 }
 model = DriesnerBrineFlowModel(params)
+
+model.prepare_simulation()
+# print geometry
+model.exporter.write_vtu()
+
 pp.run_time_dependent_model(model, params)
-pp.plot_grid(model.mdg, "pressure", figsize=(10, 8), plot_2d=True)
+# pp.plot_grid(model.mdg, "pressure", figsize=(10, 8), plot_2d=True)
+sd, data = model.mdg.subdomains(True,2)[0]
+print(data['time_step_solutions']['pressure'])
+print(data['time_step_solutions']['enthalpy'])
+print(data['time_step_solutions']['temperature'])
+print(data['time_step_solutions']['z_NaCl'])
+
+
+# model.exporter.write_pvd()
