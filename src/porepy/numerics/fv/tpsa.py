@@ -59,7 +59,6 @@ class Tpsa:
         shear_modulus_by_face_cell_distance = mu / dist_fc_cc
         t = (
             2
-            * 1
             / np.bincount(
                 fi,
                 weights=1 / shear_modulus_by_face_cell_distance,
@@ -197,8 +196,20 @@ class Tpsa:
 
         # TODO: Cosserat model
 
+        # Brute force way to set the Dirichlet boundary conditions (assuming the
+        # displacement is zero at the boundary): The 
+        dir_displacement = bnd.is_dir.ravel('f')
+        dir_scalar = bnd.is_dir[0]
+        #rotation_displacement[dir_scalar] = 0
+        #mass_displacement[dir_scalar] = 0
+
+
+
         div = pp.fvutils.scalar_divergence(sd)
         div_vec = pp.fvutils.vector_divergence(sd)
+
+        dsr = div_vec @ stress_rotation
+        drs = div @ rotation_displacement
 
         matrix_dictionary[self.stress_displacement_matrix_key] = stress
         matrix_dictionary[self.stress_rotation_matrix_key] = stress_rotation
@@ -215,7 +226,7 @@ class Tpsa:
 if True:
     import porepy as pp
 
-    g = pp.CartGrid([2, 2])
+    g = pp.CartGrid([4, 4], [1, 2])
     g.compute_geometry()
     mu = np.ones(g.num_cells)
 
