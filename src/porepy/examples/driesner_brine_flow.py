@@ -89,7 +89,7 @@ class H20_NaCl_brine(ppc.FluidMixtureMixin):
 class ModelGeometry:
     def set_domain(self) -> None:
         dimension = 2
-        size_x = self.solid.convert_units(1, "m")
+        size_x = self.solid.convert_units(10, "m")
         size_y = self.solid.convert_units(1, "m")
         size_z = self.solid.convert_units(1, "m")
 
@@ -154,7 +154,7 @@ class BoundaryConditions(BoundaryConditionsCF):
             all, east, west, north, south, top, bottom = self.domain_boundary_sides(boundary_grid)
         p_inlet = 10.0e6
         xcs = boundary_grid.cell_centers.T
-        l = 1.0
+        l = 10.0
         def p_D(xc):
             x, y, z = xc
             return p_inlet * (1 - x/l) + 5
@@ -173,10 +173,29 @@ class BoundaryConditions(BoundaryConditionsCF):
     def bc_values_overall_fraction(
         self, component: ppc.Component, boundary_grid: pp.BoundaryGrid
     ) -> np.ndarray:
+        z = 0.2
         if component.name == 'H2O':
+            return (1 - z) * np.ones(boundary_grid.num_cells)
+        else:
+            return z * np.ones(boundary_grid.num_cells)
+
+    def bc_values_saturation(
+        self, phase: ppc.Phase, boundary_grid: pp.BoundaryGrid
+    ) -> np.ndarray:
+        if phase.name == 'liq':
             return np.ones(boundary_grid.num_cells)
         else:
             return np.zeros(boundary_grid.num_cells)
+
+    def bc_values_relative_fraction(
+        self, component: ppc.Component, phase: ppc.Phase, boundary_grid: pp.BoundaryGrid
+    ) -> np.ndarray:
+
+        z = 0.2
+        if component.name == 'H2O':
+            return (1 - z) * np.ones(boundary_grid.num_cells)
+        else:
+            return z * np.ones(boundary_grid.num_cells)
 
 class InitialConditions(InitialConditionsCF):
     """See parent class how to set up BC. Default is all zero and Dirichlet."""
@@ -196,10 +215,11 @@ class InitialConditions(InitialConditionsCF):
     def initial_overall_fraction(
         self, component: ppc.Component, sd: pp.Grid
     ) -> np.ndarray:
+        z = 0.1
         if component.name == 'H2O':
-            return np.ones(sd.num_cells)
+            return (1 - z) * np.ones(sd.num_cells)
         else:
-            return np.zeros(sd.num_cells)
+            return z * np.ones(sd.num_cells)
 
 
 def gas_saturation_func(
@@ -395,9 +415,10 @@ class DriesnerBrineFlowModel(
     # def permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
 
 
+day = 86400
 time_manager = pp.TimeManager(
-    schedule=[0, 1.0],
-    dt_init=0.1,
+    schedule=[0, 0.1 * day],
+    dt_init=0.01 * day,
     constant_dt=True,
     iter_max=10,
     print_info=True,
@@ -415,7 +436,7 @@ params = {
     "time_manager": time_manager,
     "prepare_simulation":  False,
     "reduced_system_q": False,
-    'nl_convergence_tol': 1.0e-5,
+    'nl_convergence_tol': 1.0e-3,
 }
 
 model = DriesnerBrineFlowModel(params)
