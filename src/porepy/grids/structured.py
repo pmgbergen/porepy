@@ -110,7 +110,7 @@ class TensorGrid(Grid):
             np.arange(0, num_faces_per_cell * num_cells, num_faces_per_cell),
             num_faces_per_cell * num_cells,
         )
-        data = np.empty(cell_faces.size)
+        data = np.empty(cell_faces.size, dtype=int)
         data[::2] = -1
         data[1::2] = 1
 
@@ -198,14 +198,18 @@ class TensorGrid(Grid):
             np.arange(0, num_faces_per_cell * num_cells, num_faces_per_cell),
             num_faces_per_cell * num_cells,
         )
-        data = np.vstack(
-            (
-                -np.ones(face_west.size),
-                np.ones(face_east.size),
-                -np.ones(face_south.size),
-                np.ones(face_north.size),
+        data = (
+            np.vstack(
+                (
+                    -np.ones(face_west.size),
+                    np.ones(face_east.size),
+                    -np.ones(face_south.size),
+                    np.ones(face_north.size),
+                )
             )
-        ).ravel(order="F")
+            .ravel(order="F")
+            .astype(int)
+        )
         cell_faces = sps.csc_matrix(
             (data, cell_faces, indptr), shape=(num_faces, num_cells)
         )
@@ -317,16 +321,20 @@ class TensorGrid(Grid):
             np.arange(0, num_faces_per_cell * num_cells, num_faces_per_cell),
             num_faces_per_cell * num_cells,
         )
-        data = np.vstack(
-            (
-                -np.ones(num_cells),
-                np.ones(num_cells),
-                -np.ones(num_cells),
-                np.ones(num_cells),
-                -np.ones(num_cells),
-                np.ones(num_cells),
+        data = (
+            np.vstack(
+                (
+                    -np.ones(num_cells),
+                    np.ones(num_cells),
+                    -np.ones(num_cells),
+                    np.ones(num_cells),
+                    -np.ones(num_cells),
+                    np.ones(num_cells),
+                )
             )
-        ).ravel(order="F")
+            .ravel(order="F")
+            .astype(int)
+        )
         cell_faces = sps.csc_matrix(
             (data, cell_faces, indptr), shape=(num_faces, num_cells)
         )
