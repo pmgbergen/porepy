@@ -131,7 +131,7 @@ class LiquidLikeLinearTracerCorrelations(ppc.AbstractEoS):
     ) -> tuple[np.ndarray, np.ndarray]:
 
         nc = len(thermodynamic_dependencies[0])
-        vals = (1.0) * np.ones(nc)
+        vals = (0.5) * np.ones(nc)
         # row-wise storage of derivatives, (4, nc) array
         diffs = np.zeros((len(thermodynamic_dependencies), nc))
         return vals, diffs
@@ -237,7 +237,7 @@ class GasLikeLinearTracerCorrelations(ppc.AbstractEoS):
     ) -> tuple[np.ndarray, np.ndarray]:
 
         nc = len(thermodynamic_dependencies[0])
-        vals = (1.0) * np.ones(nc)
+        vals = (1.0e-2) * np.ones(nc)
         # row-wise storage of derivatives, (4, nc) array
         diffs = np.zeros((len(thermodynamic_dependencies), nc))
         return vals, diffs

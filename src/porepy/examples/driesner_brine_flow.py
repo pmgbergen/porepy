@@ -48,8 +48,6 @@ from porepy.models.compositional_flow import (
     SecondaryEquationsMixin,
 )
 
-
-
 class H20_NaCl_brine(ppc.FluidMixtureMixin):
     """Mixture mixin creating the brine mixture with two components."""
 
@@ -105,17 +103,17 @@ class ModelGeometry:
 
         self._domain = pp.Domain(box)
 
-    def set_fractures(self) -> None:
-        frac_1_points = self.solid.convert_units(
-            np.array([[0.2, 0.8], [0.2, 0.8]]), "m"
-        )
-        frac_1 = pp.LineFracture(frac_1_points)
-
-        frac_2_points = self.solid.convert_units(
-            np.array([[0.2, 0.8], [0.8, 0.2]]), "m"
-        )
-        frac_2 = pp.LineFracture(frac_2_points)
-        self._fractures = [frac_1, frac_2]
+    # def set_fractures(self) -> None:
+    #     frac_1_points = self.solid.convert_units(
+    #         np.array([[0.2, 0.8], [0.2, 0.8]]), "m"
+    #     )
+    #     frac_1 = pp.LineFracture(frac_1_points)
+    #
+    #     frac_2_points = self.solid.convert_units(
+    #         np.array([[0.2, 0.8], [0.8, 0.2]]), "m"
+    #     )
+    #     frac_2 = pp.LineFracture(frac_2_points)
+    #     self._fractures = [frac_1, frac_2]
 
     def grid_type(self) -> str:
         return self.params.get("grid_type", "simplex")
@@ -150,15 +148,26 @@ class BoundaryConditions(BoundaryConditionsCF):
             return pp.BoundaryCondition(sd, all, "dir")
 
     def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
-        p = 10.0e6
-        return np.ones(boundary_grid.num_cells) * p
+        if self.mdg.dim_max() == 2:
+            all, east, west, north, south, top, bottom = self.domain_boundary_sides(boundary_grid)
+        elif self.mdg.dim_max() == 3:
+            all, east, west, north, south, top, bottom = self.domain_boundary_sides(boundary_grid)
+        p_inlet = 10.0e6
+        xcs = boundary_grid.cell_centers.T
+        l = 1.0
+        def p_D(xc):
+            x, y, z = xc
+            return p_inlet * (1 - x/l) + 5
+        p_D_iter = map(p_D, xcs)
+        vals = np.fromiter(p_D_iter,dtype=float)
+        return vals
 
     def bc_values_temperature(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
-        T = 1000.0
+        T = 500.0
         return np.ones(boundary_grid.num_cells) * T
 
     def bc_values_enthalpy(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
-        h = 1000.0
+        h = 1.0e5
         return np.ones(boundary_grid.num_cells) * h
 
     def bc_values_overall_fraction(
@@ -177,11 +186,11 @@ class InitialConditions(InitialConditionsCF):
         return np.ones(sd.num_cells) * p
 
     def initial_temperature(self, sd: pp.Grid) -> np.ndarray:
-        T = 1000.0
+        T = 500.0
         return np.ones(sd.num_cells) * T
 
     def initial_enthalpy(self, sd: pp.Grid) -> np.ndarray:
-        h = 1000.0
+        h = 1.0e5
         return np.ones(sd.num_cells)  * h
 
     def initial_overall_fraction(
@@ -219,10 +228,10 @@ def temperature_func(
     n = len(p)
 
     nc = len(thermodynamic_dependencies[0])
-    vals = np.array(h)
+    vals = np.array(h)/200.0
     # row-wise storage of derivatives, (3, nc) array
     diffs = np.ones((len(thermodynamic_dependencies), nc))
-    diffs[1, :] = 1.0
+    diffs[1, :] = 1.0/200.0
     return vals, diffs
 
 def H2O_liq_func(
@@ -395,8 +404,9 @@ time_manager = pp.TimeManager(
 )
 
 # Model setup:
-# eliminate reference phase fractions  and reference component.
-solid_constants = pp.SolidConstants({"permeability": 1.0e-12, "porosity": 0.25})
+# eliminate reference phase fractions  and reference component.\
+# self.solid.thermal_conductivity(), "solid_thermal_conductivity"
+solid_constants = pp.SolidConstants({"permeability": 1.0e-12, "porosity": 0.25, "thermal_conductivity": 100000.0})
 material_constants = {"solid": solid_constants}
 params = {
     "material_constants": material_constants,
@@ -405,7 +415,7 @@ params = {
     "time_manager": time_manager,
     "prepare_simulation":  False,
     "reduced_system_q": False,
-    'nl_convergence_tol': 1.0e-3,
+    'nl_convergence_tol': 1.0e-5,
 }
 
 model = DriesnerBrineFlowModel(params)
@@ -416,13 +426,12 @@ model.exporter.write_vtu()
 
 pp.run_time_dependent_model(model, params)
 # pp.plot_grid(model.mdg, "pressure", figsize=(10, 8), plot_2d=True)
-sd, data = model.mdg.subdomains(True,2)[0]
-print(data['time_step_solutions']['pressure'])
-print(data['time_step_solutions']['enthalpy'])
-print(data['time_step_solutions']['temperature'])
-print(data['time_step_solutions']['z_NaCl'])
-res_at_final_time = model.equation_system.assemble(evaluate_jacobian=False)
-print('residual norm: ', np.linalg.norm(res_at_final_time))
-aka = 0
+# sd, data = model.mdg.subdomains(True,2)[0]
+# print(data['time_step_solutions']['pressure'])
+# print(data['time_step_solutions']['enthalpy'])
+# # print(data['time_step_solutions']['temperature'])
+# # print(data['time_step_solutions']['z_NaCl'])
+# res_at_final_time = model.equation_system.assemble(evaluate_jacobian=False)
+# print('residual norm: ', np.linalg.norm(res_at_final_time))
 
 
