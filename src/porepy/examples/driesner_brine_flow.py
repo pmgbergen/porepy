@@ -66,24 +66,13 @@ class H20_NaCl_brine(ppc.FluidMixtureMixin):
     def get_phase_configuration(
         self, components: Sequence[ppc.Component]
     ) -> Sequence[tuple[ppc.AbstractEoS, int, str]]:
-        """Define all phases the model should consider, here 1 liquid 1 gas.
-        Use custom Correlation class."""
         eos_L = LiquidLikeLinearTracerCorrelations(components)
         eos_G = GasLikeLinearTracerCorrelations(components)
-        # Configure model with 1 liquid phase (phase type is 0)
-        # and 1 gas phase (phase type is 1)
-        # The Mixture always choses the first liquid-like phase it finds as reference
-        # phase. Ergo, the saturation of the liquid phase is not a variable, but given
-        # by 1 - s_gas
         return [(eos_L, 0, "liq"), (eos_G, 1, "gas")]
 
     def dependencies_of_phase_properties(
         self, phase: ppc.Phase
     ) -> Sequence[Callable[[pp.GridLikeSequence], pp.ad.Operator]]:
-        """Overwrite parent method which gives by default a dependency on
-        p, T, z_NaCl.
-        """
-        # This will give the independent overall fractions
         z_NaCl = [
             comp.fraction
             for comp in self.fluid_mixture.components
@@ -116,19 +105,23 @@ class ModelGeometry:
 
         self._domain = pp.Domain(box)
 
-    # def set_fractures(self) -> None:
-    #     """Setting a diagonal fracture"""
-    #     frac_1_points = self.solid.convert_units(
-    #         np.array([[0.2, 1.8], [0.2, 1.8]]), "m"
-    #     )
-    #     frac_1 = pp.LineFracture(frac_1_points)
-    #     self._fractures = [frac_1]
+    def set_fractures(self) -> None:
+        frac_1_points = self.solid.convert_units(
+            np.array([[0.2, 0.8], [0.2, 0.8]]), "m"
+        )
+        frac_1 = pp.LineFracture(frac_1_points)
+
+        frac_2_points = self.solid.convert_units(
+            np.array([[0.2, 0.8], [0.8, 0.2]]), "m"
+        )
+        frac_2 = pp.LineFracture(frac_2_points)
+        self._fractures = [frac_1, frac_2]
 
     def grid_type(self) -> str:
         return self.params.get("grid_type", "simplex")
 
     def meshing_arguments(self) -> dict:
-        cell_size = self.solid.convert_units(0.25, "m")
+        cell_size = self.solid.convert_units(0.1, "m")
         mesh_args: dict[str, float] = {"cell_size": cell_size}
         return mesh_args
 
@@ -390,9 +383,12 @@ class DriesnerBrineFlowModel(
     def after_simulation(self):
         self.exporter.write_pvd()
 
+    # def permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+
+
 time_manager = pp.TimeManager(
     schedule=[0, 1.0],
-    dt_init=1.0,
+    dt_init=0.1,
     constant_dt=True,
     iter_max=10,
     print_info=True,
@@ -400,14 +396,18 @@ time_manager = pp.TimeManager(
 
 # Model setup:
 # eliminate reference phase fractions  and reference component.
+solid_constants = pp.SolidConstants({"permeability": 1.0e-12, "porosity": 0.25})
+material_constants = {"solid": solid_constants}
 params = {
+    "material_constants": material_constants,
     "eliminate_reference_phase": True,  # s_liq eliminated, default is True
     "eliminate_reference_component": True,  # z_H2O eliminated, default is True
     "time_manager": time_manager,
     "prepare_simulation":  False,
     "reduced_system_q": False,
-    'nl_convergence_tol': 1e0,
+    'nl_convergence_tol': 1.0e-3,
 }
+
 model = DriesnerBrineFlowModel(params)
 
 model.prepare_simulation()
@@ -421,6 +421,8 @@ print(data['time_step_solutions']['pressure'])
 print(data['time_step_solutions']['enthalpy'])
 print(data['time_step_solutions']['temperature'])
 print(data['time_step_solutions']['z_NaCl'])
+res_at_final_time = model.equation_system.assemble(evaluate_jacobian=False)
+print('residual norm: ', np.linalg.norm(res_at_final_time))
+aka = 0
 
 
-# model.exporter.write_pvd()

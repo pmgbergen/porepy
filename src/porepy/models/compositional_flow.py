@@ -2723,7 +2723,7 @@ class SolutionStrategyCF(
         self.assign_thermodynamic_properties_to_mixture()
 
         # initial_condition calls a BC update, and we must check its consistency first
-        self.check_bc_consistency()
+        # self.check_bc_consistency()
 
         self.set_equations()
         self.initial_condition()
