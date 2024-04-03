@@ -173,7 +173,7 @@ class BoundaryConditions(BoundaryConditionsCF):
     def bc_values_overall_fraction(
         self, component: ppc.Component, boundary_grid: pp.BoundaryGrid
     ) -> np.ndarray:
-        z = 0.2
+        z = 1.0
         if component.name == 'H2O':
             return (1 - z) * np.ones(boundary_grid.num_cells)
         else:
@@ -191,7 +191,7 @@ class BoundaryConditions(BoundaryConditionsCF):
         self, component: ppc.Component, phase: ppc.Phase, boundary_grid: pp.BoundaryGrid
     ) -> np.ndarray:
 
-        z = 0.2
+        z = 1.0
         if component.name == 'H2O':
             return (1 - z) * np.ones(boundary_grid.num_cells)
         else:
