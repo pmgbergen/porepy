@@ -156,9 +156,6 @@ class SolutionStrategy(abc.ABC):
         self.convergence_status: bool = False
         """Whether the non-linear iteration has converged."""
 
-        self._nonlinear_iteration: int = 0
-        """Number of non-linear iterations performed for current time step."""
-
         # Define attributes to be assigned later
         self.equation_system: pp.ad.EquationSystem
         """Equation system manager. Will be set by :meth:`set_equation_system_manager`.
@@ -451,8 +448,6 @@ class SolutionStrategy(abc.ABC):
         Possible usage is to update time-dependent parameters, discretizations etc.
 
         """
-        # Reset counter for nonlinear iterations.
-        self._nonlinear_iteration = 0
         # Update time step size.
         self.ad_time_step.set_value(self.time_manager.dt)
         # Update the boundary conditions to both the time step and iterate solution.

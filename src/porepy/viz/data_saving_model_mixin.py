@@ -243,11 +243,8 @@ class DataSavingMixin:
 class VerificationDataSaving(DataSavingMixin):
     """Class to store relevant data for a generic verification setup."""
 
-    _nonlinear_iteration: int
-    """Number of non-linear iterations needed to solve the system. Used only as an
-    indicator to avoid saving the initial conditions.
-
-    """
+    nonlinear_solver_statistics: pp.SolverStatistics
+    """Non-linear solver statistics, also keeping track of the number of iterations."""
 
     _is_time_dependent: Callable[[], bool]
     """Whether the problem is time-dependent."""
@@ -258,7 +255,9 @@ class VerificationDataSaving(DataSavingMixin):
     def save_data_time_step(self) -> None:
         """Save data to the `results` list."""
         if not self._is_time_dependent():  # stationary problem
-            if self._nonlinear_iteration > 0:  # avoid saving initial condition
+            if (
+                self.nonlinear_solver_statistics.nonlinear_iteration > 0
+            ):  # avoid saving initial condition
                 collected_data = self.collect_data()
                 self.results.append(collected_data)
         else:  # time-dependent problem
