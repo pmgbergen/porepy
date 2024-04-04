@@ -103,17 +103,17 @@ class ModelGeometry:
 
         self._domain = pp.Domain(box)
 
-    # def set_fractures(self) -> None:
-    #     frac_1_points = self.solid.convert_units(
-    #         np.array([[0.2, 0.8], [0.2, 0.8]]), "m"
-    #     )
-    #     frac_1 = pp.LineFracture(frac_1_points)
-    #
-    #     frac_2_points = self.solid.convert_units(
-    #         np.array([[0.2, 0.8], [0.8, 0.2]]), "m"
-    #     )
-    #     frac_2 = pp.LineFracture(frac_2_points)
-    #     self._fractures = [frac_1, frac_2]
+    def set_fractures(self) -> None:
+        frac_1_points = self.solid.convert_units(
+            np.array([[0.2, 0.8], [0.2, 0.8]]), "m"
+        )
+        frac_1 = pp.LineFracture(frac_1_points)
+
+        frac_2_points = self.solid.convert_units(
+            np.array([[0.2, 0.8], [0.8, 0.2]]), "m"
+        )
+        frac_2 = pp.LineFracture(frac_2_points)
+        self._fractures = [frac_1, frac_2]
 
     def grid_type(self) -> str:
         return self.params.get("grid_type", "simplex")
@@ -152,23 +152,40 @@ class BoundaryConditions(BoundaryConditionsCF):
             all, east, west, north, south, top, bottom = self.domain_boundary_sides(boundary_grid)
         elif self.mdg.dim_max() == 3:
             all, east, west, north, south, top, bottom = self.domain_boundary_sides(boundary_grid)
-        p_inlet = 10.0e6
+        p_inlet = 15.0e6
+        p_outlet = 1.0e6
         xcs = boundary_grid.cell_centers.T
         l = 10.0
         def p_D(xc):
             x, y, z = xc
-            return p_inlet * (1 - x/l) + 5
+            return p_inlet * (1 - x/l) + p_outlet * (x/l)
         p_D_iter = map(p_D, xcs)
         vals = np.fromiter(p_D_iter,dtype=float)
         return vals
 
     def bc_values_temperature(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
-        T = 500.0
-        return np.ones(boundary_grid.num_cells) * T
+        T_inlet = 373.15
+        T_outlet = 773.15
+        xcs = boundary_grid.cell_centers.T
+        l = 10.0
+        def T_D(xc):
+            x, y, z = xc
+            return T_inlet * (1 - x/l) + T_outlet * (x/l)
+        T_D_iter = map(T_D, xcs)
+        vals = np.fromiter(T_D_iter,dtype=float)
+        return vals
 
     def bc_values_enthalpy(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
-        h = 1.0e5
-        return np.ones(boundary_grid.num_cells) * h
+        h_inlet = (3.0e6 / 773.5)*373.15
+        h_outlet = 3.0e6
+        xcs = boundary_grid.cell_centers.T
+        l = 10.0
+        def h_D(xc):
+            x, y, z = xc
+            return h_inlet * (1 - x/l) + h_outlet * (x/l)
+        h_D_iter = map(h_D, xcs)
+        vals = np.fromiter(h_D_iter,dtype=float)
+        return vals
 
     def bc_values_overall_fraction(
         self, component: ppc.Component, boundary_grid: pp.BoundaryGrid
@@ -201,21 +218,21 @@ class InitialConditions(InitialConditionsCF):
     """See parent class how to set up BC. Default is all zero and Dirichlet."""
 
     def intial_pressure(self, sd: pp.Grid) -> np.ndarray:
-        p = 10.0e6
+        p = 15.0e6
         return np.ones(sd.num_cells) * p
 
     def initial_temperature(self, sd: pp.Grid) -> np.ndarray:
-        T = 500.0
+        T = 773.15
         return np.ones(sd.num_cells) * T
 
     def initial_enthalpy(self, sd: pp.Grid) -> np.ndarray:
-        h = 1.0e5
+        h = 3.0e6
         return np.ones(sd.num_cells)  * h
 
     def initial_overall_fraction(
         self, component: ppc.Component, sd: pp.Grid
     ) -> np.ndarray:
-        z = 0.1
+        z = 0.0
         if component.name == 'H2O':
             return (1 - z) * np.ones(sd.num_cells)
         else:
@@ -248,10 +265,12 @@ def temperature_func(
     n = len(p)
 
     nc = len(thermodynamic_dependencies[0])
-    vals = np.array(h)/200.0
+
+    factor  = 773.5 / 3.0e6
+    vals = np.array(h) * factor
     # row-wise storage of derivatives, (3, nc) array
     diffs = np.ones((len(thermodynamic_dependencies), nc))
-    diffs[1, :] = 1.0/200.0
+    diffs[1, :] = 1.0*factor
     return vals, diffs
 
 def H2O_liq_func(
