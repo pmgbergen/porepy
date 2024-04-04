@@ -211,10 +211,10 @@ class SolutionStrategy(abc.ABC):
         self._initialize_linear_solver()
         self.set_nonlinear_discretizations()
 
+        self.set_nonlinear_solver_statistics()
+
         # Export initial condition
         self.save_data_time_step()
-
-        self.set_nonlinear_solver_statistics()
 
     def set_equation_system_manager(self) -> None:
         """Create an equation_system manager on the mixed-dimensional grid."""
