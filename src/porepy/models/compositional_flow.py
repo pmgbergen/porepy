@@ -2991,17 +2991,24 @@ class SolutionStrategyCF(
 
         """
         t_0 = time.time()
-        # TODO block diagonal inverter for secondary equations
-        self.linear_system = self.equation_system.assemble_schur_complement_system(
-            self.primary_equation_names, self.primary_variable_names
-        )
+        reduce_linear_system_q = self.params.get("reduce_linear_system_q", False)
+        if reduce_linear_system_q:
+            # TODO block diagonal inverter for secondary equations
+            self.linear_system = self.equation_system.assemble_schur_complement_system(
+                self.primary_equation_names, self.primary_variable_names
+            )
+        else:
+            self.linear_system = self.equation_system.assemble()
         logger.debug(f"Assembled linear system in {time.time() - t_0:.2e} seconds.")
 
     def solve_linear_system(self) -> np.ndarray:
         """After calling the parent method, the global solution is calculated by Schur
         expansion."""
         sol = super().solve_linear_system()
-        return self.equation_system.expand_schur_complement_solution(sol)
+        reduce_linear_system_q = self.params.get("reduce_linear_system_q", False)
+        if reduce_linear_system_q:
+            sol = self.equation_system.expand_schur_complement_solution(sol)
+        return sol
 
 
 # endregion
