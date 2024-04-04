@@ -75,7 +75,103 @@ class DriesnerCorrelations(ppc.AbstractEoS):
             dphis=dphis,
         )
 
-class LiquidLikeLinearTracerCorrelations(ppc.AbstractEoS):
+def gas_saturation_func(
+    *thermodynamic_dependencies: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray]:
+
+    p, h, z_NaCl = thermodynamic_dependencies
+    # same for all input (number of cells)
+    assert len(p) == len(h) == len(z_NaCl)
+    n = len(p)
+
+    nc = len(thermodynamic_dependencies[0])
+    vals = np.zeros(nc)
+    # row-wise storage of derivatives, (3, nc) array
+    diffs = np.zeros((len(thermodynamic_dependencies), nc))
+
+    return vals, diffs
+
+
+def temperature_func(
+        *thermodynamic_dependencies: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray]:
+    p, h, z_NaCl = thermodynamic_dependencies
+    # same for all input (number of cells)
+    assert len(p) == len(h) == len(z_NaCl)
+    n = len(p)
+
+    nc = len(thermodynamic_dependencies[0])
+
+    factor  = 773.5 / 3.0e6
+    vals = np.array(h) * factor
+    # row-wise storage of derivatives, (3, nc) array
+    diffs = np.ones((len(thermodynamic_dependencies), nc))
+    diffs[1, :] = 1.0*factor
+    return vals, diffs
+
+def H2O_liq_func(
+        *thermodynamic_dependencies: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray]:
+    p, h, z_NaCl = thermodynamic_dependencies
+    # same for all input (number of cells)
+    assert len(p) == len(h) == len(z_NaCl)
+    n = len(p)
+
+    nc = len(thermodynamic_dependencies[0])
+    vals = np.array(1-z_NaCl)
+    # row-wise storage of derivatives, (3, nc) array
+    diffs = np.zeros((len(thermodynamic_dependencies), nc))
+    diffs[2, :] = -1.0
+    return vals, diffs
+
+def NaCl_liq_func(
+        *thermodynamic_dependencies: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray]:
+    p, h, z_NaCl = thermodynamic_dependencies
+    # same for all input (number of cells)
+    assert len(p) == len(h) == len(z_NaCl)
+    n = len(p)
+
+    nc = len(thermodynamic_dependencies[0])
+    vals = np.array(z_NaCl)
+    # row-wise storage of derivatives, (4, nc) array
+    diffs = np.zeros((len(thermodynamic_dependencies), nc))
+    diffs[2, :] = +1.0
+    return vals, diffs
+
+def H2O_gas_func(
+        *thermodynamic_dependencies: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray]:
+    p, h, z_NaCl = thermodynamic_dependencies
+    # same for all input (number of cells)
+    assert len(p) == len(h) == len(z_NaCl)
+    n = len(p)
+
+    nc = len(thermodynamic_dependencies[0])
+    vals = np.array(1-z_NaCl)
+    # row-wise storage of derivatives, (3, nc) array
+    diffs = np.zeros((len(thermodynamic_dependencies), nc))
+    diffs[2, :] = -1.0
+    return vals, diffs
+
+def NaCl_gas_func(
+        *thermodynamic_dependencies: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray]:
+    p, h, z_NaCl = thermodynamic_dependencies
+    # same for all input (number of cells)
+    assert len(p) == len(h) == len(z_NaCl)
+    n = len(p)
+
+    nc = len(thermodynamic_dependencies[0])
+    vals = np.array(z_NaCl)
+    # row-wise storage of derivatives, (3, nc) array
+    diffs = np.zeros((len(thermodynamic_dependencies), nc))
+    diffs[2, :] = +1.0
+    return vals, diffs
+
+chi_functions_map = {'H2O_liq': H2O_liq_func,'NaCl_liq': NaCl_liq_func,'H2O_gas': H2O_gas_func,'NaCl_gas': NaCl_gas_func}
+
+class LiquidLikeTracerCorrelations(ppc.AbstractEoS):
     """Class implementing the calculation of thermodynamic properties.
 
     Note:
@@ -182,7 +278,7 @@ class LiquidLikeLinearTracerCorrelations(ppc.AbstractEoS):
             dphis=dphis,
         )
 
-class GasLikeLinearTracerCorrelations(ppc.AbstractEoS):
+class GasLikeTracerCorrelations(ppc.AbstractEoS):
     """Class implementing the calculation of thermodynamic properties.
 
     Note:
@@ -287,3 +383,4 @@ class GasLikeLinearTracerCorrelations(ppc.AbstractEoS):
             phis=phis,
             dphis=dphis,
         )
+

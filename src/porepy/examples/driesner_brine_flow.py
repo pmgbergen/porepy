@@ -32,8 +32,9 @@ import numpy as np
 
 import porepy as pp
 import porepy.composite as ppc
-from FluidDescription import LiquidLikeLinearTracerCorrelations
-from FluidDescription import GasLikeLinearTracerCorrelations
+import TracerConstitutiveDescription
+from TracerConstitutiveDescription import LiquidLikeCorrelations
+from TracerConstitutiveDescription import GasLikeCorrelations
 from porepy.applications.md_grids.domains import nd_cube_domain
 
 # CompositionalFlow has data savings mixin, composite variables mixin,
@@ -64,8 +65,8 @@ class H20_NaCl_brine(ppc.FluidMixtureMixin):
     def get_phase_configuration(
         self, components: Sequence[ppc.Component]
     ) -> Sequence[tuple[ppc.AbstractEoS, int, str]]:
-        eos_L = LiquidLikeLinearTracerCorrelations(components)
-        eos_G = GasLikeLinearTracerCorrelations(components)
+        eos_L = LiquidLikeCorrelations(components)
+        eos_G = GasLikeCorrelations(components)
         return [(eos_L, 0, "liq"), (eos_G, 1, "gas")]
 
     def dependencies_of_phase_properties(
@@ -88,7 +89,7 @@ class H20_NaCl_brine(ppc.FluidMixtureMixin):
 
 class ModelGeometry:
     def set_domain(self) -> None:
-        dimension = 3
+        dimension = 2
         size_x = self.solid.convert_units(10, "m")
         size_y = self.solid.convert_units(1, "m")
         size_z = self.solid.convert_units(1, "m")
@@ -119,7 +120,7 @@ class ModelGeometry:
         return self.params.get("grid_type", "simplex")
 
     def meshing_arguments(self) -> dict:
-        cell_size = self.solid.convert_units(0.1, "m")
+        cell_size = self.solid.convert_units(0.75, "m")
         mesh_args: dict[str, float] = {"cell_size": cell_size}
         return mesh_args
 
@@ -238,103 +239,6 @@ class InitialConditions(InitialConditionsCF):
         else:
             return z * np.ones(sd.num_cells)
 
-
-def gas_saturation_func(
-    *thermodynamic_dependencies: np.ndarray,
-) -> tuple[np.ndarray, np.ndarray]:
-
-    p, h, z_NaCl = thermodynamic_dependencies
-    # same for all input (number of cells)
-    assert len(p) == len(h) == len(z_NaCl)
-    n = len(p)
-
-    nc = len(thermodynamic_dependencies[0])
-    vals = np.zeros(nc)
-    # row-wise storage of derivatives, (3, nc) array
-    diffs = np.zeros((len(thermodynamic_dependencies), nc))
-
-    return vals, diffs
-
-
-def temperature_func(
-        *thermodynamic_dependencies: np.ndarray,
-) -> tuple[np.ndarray, np.ndarray]:
-    p, h, z_NaCl = thermodynamic_dependencies
-    # same for all input (number of cells)
-    assert len(p) == len(h) == len(z_NaCl)
-    n = len(p)
-
-    nc = len(thermodynamic_dependencies[0])
-
-    factor  = 773.5 / 3.0e6
-    vals = np.array(h) * factor
-    # row-wise storage of derivatives, (3, nc) array
-    diffs = np.ones((len(thermodynamic_dependencies), nc))
-    diffs[1, :] = 1.0*factor
-    return vals, diffs
-
-def H2O_liq_func(
-        *thermodynamic_dependencies: np.ndarray,
-) -> tuple[np.ndarray, np.ndarray]:
-    p, h, z_NaCl = thermodynamic_dependencies
-    # same for all input (number of cells)
-    assert len(p) == len(h) == len(z_NaCl)
-    n = len(p)
-
-    nc = len(thermodynamic_dependencies[0])
-    vals = np.array(1-z_NaCl)
-    # row-wise storage of derivatives, (3, nc) array
-    diffs = np.zeros((len(thermodynamic_dependencies), nc))
-    diffs[2, :] = -1.0
-    return vals, diffs
-
-def NaCl_liq_func(
-        *thermodynamic_dependencies: np.ndarray,
-) -> tuple[np.ndarray, np.ndarray]:
-    p, h, z_NaCl = thermodynamic_dependencies
-    # same for all input (number of cells)
-    assert len(p) == len(h) == len(z_NaCl)
-    n = len(p)
-
-    nc = len(thermodynamic_dependencies[0])
-    vals = np.array(z_NaCl)
-    # row-wise storage of derivatives, (4, nc) array
-    diffs = np.zeros((len(thermodynamic_dependencies), nc))
-    diffs[2, :] = +1.0
-    return vals, diffs
-
-def H2O_gas_func(
-        *thermodynamic_dependencies: np.ndarray,
-) -> tuple[np.ndarray, np.ndarray]:
-    p, h, z_NaCl = thermodynamic_dependencies
-    # same for all input (number of cells)
-    assert len(p) == len(h) == len(z_NaCl)
-    n = len(p)
-
-    nc = len(thermodynamic_dependencies[0])
-    vals = np.array(1-z_NaCl)
-    # row-wise storage of derivatives, (3, nc) array
-    diffs = np.zeros((len(thermodynamic_dependencies), nc))
-    diffs[2, :] = -1.0
-    return vals, diffs
-
-def NaCl_gas_func(
-        *thermodynamic_dependencies: np.ndarray,
-) -> tuple[np.ndarray, np.ndarray]:
-    p, h, z_NaCl = thermodynamic_dependencies
-    # same for all input (number of cells)
-    assert len(p) == len(h) == len(z_NaCl)
-    n = len(p)
-
-    nc = len(thermodynamic_dependencies[0])
-    vals = np.array(z_NaCl)
-    # row-wise storage of derivatives, (3, nc) array
-    diffs = np.zeros((len(thermodynamic_dependencies), nc))
-    diffs[2, :] = +1.0
-    return vals, diffs
-
-chi_functions_map = {'H2O_liq': H2O_liq_func,'NaCl_liq': NaCl_liq_func,'H2O_gas': H2O_gas_func,'NaCl_gas': NaCl_gas_func}
-
 class SecondaryEquations(SecondaryEquationsMixin):
     """Mixin to provide expressions for dangling variables.
 
@@ -369,7 +273,7 @@ class SecondaryEquations(SecondaryEquationsMixin):
                 self.dependencies_of_phase_properties(
                     phase
                 ),  # callables giving primary variables on subdoains
-                gas_saturation_func,  # numerical function implementing correlation
+                TracerConstitutiveDescription.gas_saturation_func,  # numerical function implementing correlation
                 subdomains,  # all subdomains on which to eliminate s_gas
                 # dofs = {'cells': 1},  # default value
             )
@@ -380,7 +284,7 @@ class SecondaryEquations(SecondaryEquationsMixin):
                 self.eliminate_by_constitutive_law(
                     phase.partial_fraction_of[comp],
                     self.dependencies_of_phase_properties(phase),
-                    chi_functions_map[comp.name +  "_" + phase.name],
+                    TracerConstitutiveDescription.chi_functions_map[comp.name +  "_" + phase.name],
                     subdomains,
                 )
 
@@ -388,7 +292,7 @@ class SecondaryEquations(SecondaryEquationsMixin):
         self.eliminate_by_constitutive_law(
             self.temperature,
             self.dependencies_of_phase_properties(rphase),  # since same for all.
-            temperature_func,
+            TracerConstitutiveDescription.temperature_func,
             subdomains,
         )
 
@@ -465,6 +369,8 @@ model.prepare_simulation()
 model.exporter.write_vtu()
 
 pp.run_time_dependent_model(model, params)
+print("Total number of DoF: ", model.equation_system.num_dofs())
+print("Mixed-dimensional grid information: ", model.mdg)
 # pp.plot_grid(model.mdg, "pressure", figsize=(10, 8), plot_2d=True)
 # sd, data = model.mdg.subdomains(True,2)[0]
 # print(data['time_step_solutions']['pressure'])
