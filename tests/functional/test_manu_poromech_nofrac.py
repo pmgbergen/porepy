@@ -182,17 +182,16 @@ def test_relative_l2_errors_cartesian_grid(
         For this functional test, we are comparing errors for the pressure, fluxes,
         displacement, and forces. The errors are measured using the discrete relative
         L2-error norm. The desired errors were obtained by running the model using the
-        physical constants from :meth:`~material_constants` on a Cartesian grid with
-        16 cells in 2d and 64 in 3d. We test the errors for three different times,
-        namely: 0.2 [s], 0.6[s], and 1.0 [s].
+        physical constants from :meth:`~material_constants` on a Cartesian grid with 16
+        cells in 2d and 64 in 3d. We test the errors for two different times, namely:
+        0.5 [s] and 1.0 [s].
 
     Parameters:
         dim_idx: Dimension index acting on the outer list of `actual_l2_errors` and
             `desired_l2_errors`. `0` refers to 2d and `1` to 3d.
         var: Name of the variable to be tested.
         time_idx: Time index acting on the inner lists of 'actual_l2_errors' and
-            'desired_l2_errors'. `0` refers to 0.2 [s], `1` to 0.6 [s], and `2` to
-            1.0 [s].
+            'desired_l2_errors'. `0` refers to 0.5 [s], `1` 1.0 [s].
         actual_l2_errors: List of lists of dictionaries containing the actual
             L2-relative errors.
         desired_l2_errors: List of lists of dictionaries containing the desired

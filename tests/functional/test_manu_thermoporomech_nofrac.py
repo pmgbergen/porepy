@@ -71,8 +71,7 @@ def actual_l2_errors(material_constants) -> list[list[dict[str, float]]]:
         List of lists of dictionaries of actual relative errors. The outer list contains
         two items, the first contains the results for 2d and the second contains the
         results for 3d. Both inner lists contain three items each, each of which is a
-        dictionary of results for the scheduled times, i.e., 0.2 [s], 0.6 [s], and
-        1.0 [s].
+        dictionary of results for the scheduled times, i.e., 0.5 [s] and 1.0 [s].
 
     """
 
@@ -182,9 +181,9 @@ def test_relative_l2_errors_cartesian_grid(
         For this functional test, we are comparing errors for the pressure, fluxes,
         displacement, and forces. The errors are measured using the discrete relative
         L2-error norm. The desired errors were obtained by running the model using the
-        physical constants from :meth:`~material_constants` on a Cartesian grid with
-        16 cells in 2d and 64 in 3d. We test the errors for three different times,
-        namely: 0.5 [s],  and 1.0 [s].
+        physical constants from :meth:`~material_constants` on a Cartesian grid with 16
+        cells in 2d and 64 in 3d. We test the errors for two different times, namely:
+        0.5 [s],  and 1.0 [s].
 
     Parameters:
         dim_idx: Dimension index acting on the outer list of `actual_l2_errors` and
