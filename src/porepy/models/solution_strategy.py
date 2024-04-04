@@ -22,32 +22,58 @@ import porepy as pp
 logger = logging.getLogger(__name__)
 
 
-class StatisticsObject:
-    """This class will keep track of various quantities of interest during a non-linear
-    solver loop, such as the number of iterations and error measurements."""
+class SolverStatistics:
+    """Statistics object for non-linear solver loop.
+
+    This object keeps track of the number of non-linear iterations performed for the
+    current time step, as well as increments and residuals for each iteration.
+
+    """
 
     def __init__(self) -> None:
-        self.iteration_counter: int = 0
-        self.increment_error: list[float] = []
-        self.residual_error: list[float] = []
+        self.num_iteration: int = 0
+        """Number of non-linear iterations performed for current time step."""
+        self.increments: list[float] = []
+        """List of increments for each non-linear iteration."""
+        self.residuals: list[float] = []
+        """List of residual for each non-linear iteration."""
+        self.history: dict[str, int | list | str] = {
+            "size": 0,
+            "num_iteration": [],
+            "increments": [],
+            "residuals": [],
+        }
+        """History of the statistics object over multiple nonlinear iterations."""
+        self.set_info()
+
+    def set_info(self) -> None:
+        """Set the info attribute of the statistics object."""
+        self.history["info"] = (
+            f"""Statistics object for non-linear solver loop.
+            The history attribute contains the following keys:
+            - size: Counter for stacked metrics.
+            - num_iteration: List of iteration counters.
+            - increments: List of evolutions of increments for each non-linear iteration.
+            - residuals: List of evolutions of residuals for each non-linear iteration."""
+        )
 
     def reset(self) -> None:
-        """Reset attributes to default values. Will be run at the start of every time
-        step."""
-        self.iteration_counter: int = 0
-        self.increment_error: list[float] = []
-        self.residual_error: list[float] = []
+        """Reset the statistics object."""
+        self.num_iteration = 0
+        self.increments = []
+        self.residuals = []
 
-    def update(self, **kwargs) -> None:
-        """Update attributes. The errors and iteration counter are updated after every
-        non-linear iteration."""
-        for key in kwargs.keys():
-            if key == "iteration_counter":
-                self.iteration_counter = kwargs.get(key)
-            if key == "increment_error":
-                self.increment_error.append(kwargs.get(key))
-            if key == "residual_error":
-                self.residual_error.append(kwargs.get(key))
+    def update(self, increment: float, residual: float) -> None:
+        """Update the statistics object with new values."""
+        self.increments.append(increment)
+        self.residuals.append(residual)
+
+    def stack(self) -> None:
+        """Stack the current values of the statistics object."""
+        self.history["size"] += 1
+        self.history["num_iteration"].append(self.num_iteration)
+        self.history["increments"].append(self.increments)
+        self.history["residuals"].append(self.residuals)
 
 
 class SolutionStrategy(abc.ABC):
@@ -214,7 +240,8 @@ class SolutionStrategy(abc.ABC):
         is adjusted during simulation. See :meth:`before_nonlinear_loop`.
 
         """
-        self.nonlinear_statistics = StatisticsObject()
+        self.nonlinear_solver_statistics = SolverStatistics()
+        """Statistics object for non-linear solver loop."""
 
     def prepare_simulation(self) -> None:
         """Run at the start of simulation. Used for initialization etc."""
@@ -430,7 +457,8 @@ class SolutionStrategy(abc.ABC):
         self.ad_time_step.set_value(self.time_manager.dt)
         # Update the boundary conditions to both the time step and iterate solution.
         self.update_time_dependent_ad_arrays()
-        self.nonlinear_statistics.reset()
+        # Reset statistics object.
+        self.nonlinear_solver_statistics.reset()
 
     def before_nonlinear_iteration(self) -> None:
         """Method to be called at the start of every non-linear iteration.
@@ -454,8 +482,7 @@ class SolutionStrategy(abc.ABC):
             solution_vector: The new solution, as computed by the non-linear solver.
 
         """
-        self._nonlinear_iteration += 1
-        self.nonlinear_statistics.update(iteration_counter=self._nonlinear_iteration)
+        self.nonlinear_solver_statistics.num_iteration += 1
         self.equation_system.shift_iterate_values()
         self.equation_system.set_variable_values(
             values=solution_vector, additive=True, iterate_index=0
@@ -476,6 +503,7 @@ class SolutionStrategy(abc.ABC):
             values=solution, time_step_index=0, additive=False
         )
         self.convergence_status = True
+        self.nonlinear_solver_statistics.stack()
 
         self.save_data_time_step()
 
@@ -486,6 +514,7 @@ class SolutionStrategy(abc.ABC):
             solution: The new solution, as computed by the non-linear solver.
 
         """
+        self.nonlinear_solver_statistics.stack()
         if self._is_nonlinear_problem():
             raise ValueError("Nonlinear iterations did not converge.")
         else:
@@ -544,12 +573,19 @@ class SolutionStrategy(abc.ABC):
                 # If the solution contains nan values, we have diverged.
                 return np.nan, np.nan, False, True
 
-            # Residual based error
-            error_res = self.nonlinear_residual_error(residual, init_residual)
             # Increment based error
             error_inc = self.nonlinear_increment_error(solution_increment)
-            logger.info(f"Normalized residual error: {error_res:.2e}")
+            # Residual based error
+            error_res = self.nonlinear_residual_error(residual, init_residual)
+            # Log the increments and residuals
+            # TODO Log all possible sub-errors, e.g. for each variable, grid, etc.
+            # TODO Use DiagnosticsMixin capabilities for splitting the errors
+            self.nonlinear_solver_statistics.update(
+                increment=error_inc, residual=error_res
+            )
             logger.info(f"Normalized increment error: {error_inc:.2e}")
+            logger.info(f"Normalized residual error: {error_res:.2e}")
+            # Check convergence
             converged_inc = error_inc < nl_params["nl_convergence_tol"]
             # Allow for nan values in the residual error for effectively disabled
             # convergence check.
@@ -559,9 +595,6 @@ class SolutionStrategy(abc.ABC):
             )
             converged = converged_inc and converged_res
             diverged = False
-            self.nonlinear_statistics.update(
-                residual_error=error_res, increment_error=error_inc
-            )
             return error_res, error_inc, converged, diverged
 
     def nonlinear_residual_error(
