@@ -21,9 +21,11 @@ import porepy as pp
 
 logger = logging.getLogger(__name__)
 
+
 class StatisticsObject:
     """This class will keep track of various quantities of interest during a non-linear
     solver loop, such as the number of iterations and error measurements."""
+
     def __init__(self) -> None:
         self.iteration_counter: int = 0
         self.increment_error: list[float] = []
@@ -40,11 +42,11 @@ class StatisticsObject:
         """Update attributes. The errors and iteration counter are updated after every
         non-linear iteration."""
         for key in kwargs.keys():
-            if key=='iteration_counter':
+            if key == "iteration_counter":
                 self.iteration_counter = kwargs.get(key)
-            if key=='increment_error':
+            if key == "increment_error":
                 self.increment_error.append(kwargs.get(key))
-            if key=='residual_error':
+            if key == "residual_error":
                 self.residual_error.append(kwargs.get(key))
 
 
@@ -459,8 +461,7 @@ class SolutionStrategy(abc.ABC):
             values=solution_vector, additive=True, iterate_index=0
         )
 
-    def after_nonlinear_convergence(
-        self, solution: np.ndarray) -> None:
+    def after_nonlinear_convergence(self, solution: np.ndarray) -> None:
         """Method to be called after every non-linear iteration.
 
         Possible usage is to distribute information on the solution, visualization, etc.
@@ -482,8 +483,7 @@ class SolutionStrategy(abc.ABC):
 
         self.save_data_time_step()
 
-    def after_nonlinear_failure(
-        self, solution: np.ndarray) -> None:
+    def after_nonlinear_failure(self, solution: np.ndarray) -> None:
         """Method to be called if the non-linear solver fails to converge.
 
         Parameters:
