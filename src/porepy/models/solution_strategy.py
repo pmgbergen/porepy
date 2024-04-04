@@ -468,10 +468,6 @@ class SolutionStrategy(abc.ABC):
 
         Parameters:
             solution: The new solution, as computed by the non-linear solver.
-            errors: Error measurements of the solution, as computed by the non-linear
-                solver.
-            iteration_counter: The number of iterations performed by the non-linear
-                solver.
 
         """
         solution = self.equation_system.get_variable_values(iterate_index=0)
@@ -488,10 +484,6 @@ class SolutionStrategy(abc.ABC):
 
         Parameters:
             solution: The new solution, as computed by the non-linear solver.
-            errors: Error measurements of the solution, as computed by the non-linear
-                solver.
-            iteration_counter: The number of iterations performed by the non-linear
-                solver.
 
         """
         if self._is_nonlinear_problem():
@@ -551,11 +543,6 @@ class SolutionStrategy(abc.ABC):
             if np.any(np.isnan(solution_increment)):
                 # If the solution contains nan values, we have diverged.
                 return np.nan, np.nan, False, True
-            # Simple but fairly robust convergence criterions. More advanced options are
-            # e.g. considering errors for each variable and/or each grid separately,
-            # possibly using _l2_norm_cell
-            # We normalize by the size of the solution vector.
-            # Enforce float to make mypy happy
 
             # Residual based error
             error_res = self.nonlinear_residual_error(residual, init_residual)
@@ -604,6 +591,11 @@ class SolutionStrategy(abc.ABC):
         Returns:
             float: Update error.
         """
+        # Simple but fairly robust convergence criterions. More advanced options are
+        # e.g. considering errors for each variable and/or each grid separately,
+        # possibly using _l2_norm_cell
+        # We normalize by the size of the solution vector.
+        # Enforce float to make mypy happy
         error_inc = np.linalg.norm(solution_increment) / np.sqrt(
             solution_increment.size
         )
