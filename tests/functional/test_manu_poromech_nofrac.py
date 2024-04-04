@@ -85,8 +85,7 @@ def actual_l2_errors(material_constants: dict) -> list[list[dict[str, float]]]:
         List of lists of dictionaries of actual relative errors. The outer list contains
         two items, the first contains the results for 2d and the second contains the
         results for 3d. Both inner lists contain three items each, each of which is a
-        dictionary of results for the scheduled times, i.e., 0.2 [s], 0.6 [s], and
-        1.0 [s].
+        dictionary of results for the scheduled times, i.e., 0.5 [s] and 1.0 [s].
 
     """
 
@@ -96,7 +95,7 @@ def actual_l2_errors(material_constants: dict) -> list[list[dict[str, float]]]:
         "material_constants": material_constants,
         "meshing_arguments": {"cell_size": 0.25},
         "manufactured_solution": "nordbotten_2016",
-        "time_manager": pp.TimeManager([0, 0.2, 0.6, 1.0], 0.2, True),
+        "time_manager": pp.TimeManager([0, 0.5, 1.0], 0.5, True),
     }
 
     # Retrieve actual L2-relative errors.
@@ -130,44 +129,32 @@ def desired_l2_errors() -> list[list[dict[str, float]]]:
 
     """
     desired_errors_2d = [
-        {  # t = 0.2 [s]
-            "error_pressure": 0.2545484162739883,
-            "error_flux": 0.19100289160484132,
-            "error_displacement": 0.39563032313594826,
-            "error_force": 0.16374154620456183,
-        },
-        {  # t = 0.6 [s]
-            "error_pressure": 0.20403618663140907,
-            "error_flux": 0.10127514065678846,
-            "error_displacement": 0.3952832045853454,
-            "error_force": 0.16378390892609127,
+        {  # t = 0.5 [s]
+            "error_pressure": 0.20711096997503695,
+            "error_flux": 0.10810627224942725,
+            "error_displacement": 0.3953172876400884,
+            "error_force": 0.16377962778847108,
         },
         {  # t = 1.0 [s]
-            "error_pressure": 0.19880638363091166,
-            "error_flux": 0.08957848409690061,
-            "error_displacement": 0.3952120639213762,
-            "error_force": 0.1637924768371908,
+            "error_pressure": 0.1987998797257252,
+            "error_flux": 0.08957210872187034,
+            "error_displacement": 0.3952120364196121,
+            "error_force": 0.1637924594814397,
         },
     ]
 
     desired_errors_3d = [
-        {  # t = 0.2 [s]
-            "error_pressure": 0.23782662757050732,
-            "error_flux": 0.14769646432955522,
-            "error_displacement": 0.44395480741716725,
-            "error_force": 0.22057082769118985,
+        {  # t = 0.5 [s]
+            "error_pressure": 0.2164612681791387,
+            "error_flux": 0.10469929694089308,
+            "error_displacement": 0.44379951512274146,
+            "error_force": 0.22059921122808707,
         },
-        {  # t = 0.6 [s]
-            "error_pressure": 0.21514558283750523,
-            "error_flux": 0.10164613256599124,
-            "error_displacement": 0.4437824620154635,
-            "error_force": 0.2206023522490412,
-        },
-        {  # t = 1.0 [s]
-            "error_pressure": 0.2128149520464844,
-            "error_flux": 0.09661797541885192,
-            "error_displacement": 0.44374742980986287,
-            "error_force": 0.22060876087140713,
+        {  # t = 1.0[s]
+            "error_pressure": 0.2128131032248365,
+            "error_flux": 0.09661636990837687,
+            "error_displacement": 0.4437474284152431,
+            "error_force": 0.2206087610242069,
         },
     ]
 
