@@ -21,6 +21,32 @@ import porepy as pp
 
 logger = logging.getLogger(__name__)
 
+class StatisticsObject:
+    """This class will keep track of various quantities of interest during a non-linear
+    solver loop, such as the number of iterations and error measurements."""
+    def __init__(self) -> None:
+        self.iteration_counter: int = 0
+        self.increment_error: list[float] = []
+        self.residual_error: list[float] = []
+
+    def reset(self) -> None:
+        """Reset attributes to default values. Will be run at the start of every time
+        step."""
+        self.iteration_counter: int = 0
+        self.increment_error: list[float] = []
+        self.residual_error: list[float] = []
+
+    def update(self, **kwargs) -> None:
+        """Update attributes. The errors and iteration counter are updated after every
+        non-linear iteration."""
+        for key in kwargs.keys():
+            if key=='iteration_counter':
+                self.iteration_counter = kwargs.get(key)
+            if key=='increment_error':
+                self.increment_error.append(kwargs.get(key))
+            if key=='residual_error':
+                self.residual_error.append(kwargs.get(key))
+
 
 class SolutionStrategy(abc.ABC):
     """This is a class that specifies methods that a model must implement to
@@ -186,6 +212,7 @@ class SolutionStrategy(abc.ABC):
         is adjusted during simulation. See :meth:`before_nonlinear_loop`.
 
         """
+        self.nonlinear_statistics = StatisticsObject()
 
     def prepare_simulation(self) -> None:
         """Run at the start of simulation. Used for initialization etc."""
@@ -401,6 +428,7 @@ class SolutionStrategy(abc.ABC):
         self.ad_time_step.set_value(self.time_manager.dt)
         # Update the boundary conditions to both the time step and iterate solution.
         self.update_time_dependent_ad_arrays()
+        self.nonlinear_statistics.reset()
 
     def before_nonlinear_iteration(self) -> None:
         """Method to be called at the start of every non-linear iteration.
@@ -425,14 +453,14 @@ class SolutionStrategy(abc.ABC):
 
         """
         self._nonlinear_iteration += 1
+        self.nonlinear_statistics.update(iteration_counter=self._nonlinear_iteration)
         self.equation_system.shift_iterate_values()
         self.equation_system.set_variable_values(
             values=solution_vector, additive=True, iterate_index=0
         )
 
     def after_nonlinear_convergence(
-        self, solution: np.ndarray, errors: dict, iteration_counter: int
-    ) -> None:
+        self, solution: np.ndarray) -> None:
         """Method to be called after every non-linear iteration.
 
         Possible usage is to distribute information on the solution, visualization, etc.
@@ -455,8 +483,7 @@ class SolutionStrategy(abc.ABC):
         self.save_data_time_step()
 
     def after_nonlinear_failure(
-        self, solution: np.ndarray, errors: dict, iteration_counter: int
-    ) -> None:
+        self, solution: np.ndarray) -> None:
         """Method to be called if the non-linear solver fails to converge.
 
         Parameters:
@@ -541,6 +568,8 @@ class SolutionStrategy(abc.ABC):
                 and error_res < nl_params["nl_convergence_tol_res"]
             )
             diverged = False
+            self.nonlinear_statistics.update(residual_error=error_res,
+                                             increment_error=error_inc)
             return error_res, error_inc, converged, diverged
 
     def nonlinear_residual_error(
