@@ -69,6 +69,8 @@ class NewtonSolver:
 
         iteration_counter = 0
 
+        error_res = np.inf
+        error_inc = np.inf
         is_converged = False
         is_diverged = False
         sol = model.equation_system.get_variable_values(time_step_index=0)
@@ -82,6 +84,8 @@ class NewtonSolver:
             # Bind to variables in the outer function
             nonlocal sol
             nonlocal res_init
+            nonlocal error_res
+            nonlocal error_inc
             nonlocal is_converged
             nonlocal is_diverged
 
@@ -142,9 +146,7 @@ class NewtonSolver:
                     )
                     newton_step()
                     solver_progressbar.update(n=1)
-                    solver_progressbar.set_postfix_str(
-                        f"Error {errors['increment_error'][-1]}"
-                    )
+                    solver_progressbar.set_postfix_str(f"Inc. {error_inc}")
 
                     if is_diverged:
                         # If the process finishes early, the tqdm bar needs to be
