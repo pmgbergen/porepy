@@ -22,60 +22,6 @@ import porepy as pp
 logger = logging.getLogger(__name__)
 
 
-class SolverStatistics:
-    """Statistics object for non-linear solver loop.
-
-    This object keeps track of the number of non-linear iterations performed for the
-    current time step, as well as increments and residuals for each iteration.
-
-    """
-
-    def __init__(self) -> None:
-        self.num_iteration: int = 0
-        """Number of non-linear iterations performed for current time step."""
-        self.increments: list[float] = []
-        """List of increments for each non-linear iteration."""
-        self.residuals: list[float] = []
-        """List of residual for each non-linear iteration."""
-        self.history: dict[str, int | list | str] = {
-            "size": 0,
-            "num_iteration": [],
-            "increments": [],
-            "residuals": [],
-        }
-        """History of the statistics object over multiple nonlinear iterations."""
-        self.set_info()
-
-    def set_info(self) -> None:
-        """Set the info attribute of the statistics object."""
-        self.history["info"] = (
-            f"""Statistics object for non-linear solver loop.
-            The history attribute contains the following keys:
-            - size: Counter for stacked metrics.
-            - num_iteration: List of iteration counters.
-            - increments: List of evolutions of increments for each non-linear iteration.
-            - residuals: List of evolutions of residuals for each non-linear iteration."""
-        )
-
-    def reset(self) -> None:
-        """Reset the statistics object."""
-        self.num_iteration = 0
-        self.increments = []
-        self.residuals = []
-
-    def update(self, increment: float, residual: float) -> None:
-        """Update the statistics object with new values."""
-        self.increments.append(increment)
-        self.residuals.append(residual)
-
-    def stack(self) -> None:
-        """Stack the current values of the statistics object."""
-        self.history["size"] += 1
-        self.history["num_iteration"].append(self.num_iteration)
-        self.history["increments"].append(self.increments)
-        self.history["residuals"].append(self.residuals)
-
-
 class SolutionStrategy(abc.ABC):
     """This is a class that specifies methods that a model must implement to
     be compatible with the linearization and time stepping methods.
@@ -237,7 +183,8 @@ class SolutionStrategy(abc.ABC):
         is adjusted during simulation. See :meth:`before_nonlinear_loop`.
 
         """
-        self.nonlinear_solver_statistics = SolverStatistics()
+
+        self.nonlinear_solver_statistics: pp.SolverStatistics
         """Statistics object for non-linear solver loop."""
 
     def prepare_simulation(self) -> None:
@@ -266,6 +213,8 @@ class SolutionStrategy(abc.ABC):
 
         # Export initial condition
         self.save_data_time_step()
+
+        self.set_nonlinear_solver_statistics()
 
     def set_equation_system_manager(self) -> None:
         """Create an equation_system manager on the mixed-dimensional grid."""
@@ -441,6 +390,16 @@ class SolutionStrategy(abc.ABC):
 
         """
 
+    def set_nonlinear_solver_statistics(self) -> None:
+        """Set statistics object for non-linear solver loop."""
+        statistics_file_path = Path(
+            self.params.get("folder_name", "visualization")
+        ) / Path(self.params.get("statistics_file_name", "solver_statistics.json"))
+        self.nonlinear_solver_statistics = pp.SolverStatistics(
+            self,
+            statistics_file_path,
+        )
+
     def before_nonlinear_loop(self) -> None:
         """Method to be called before entering the non-linear solver, thus at the start
         of a new time step.
@@ -452,8 +411,6 @@ class SolutionStrategy(abc.ABC):
         self.ad_time_step.set_value(self.time_manager.dt)
         # Update the boundary conditions to both the time step and iterate solution.
         self.update_time_dependent_ad_arrays()
-        # Reset statistics object.
-        self.nonlinear_solver_statistics.reset()
 
     def before_nonlinear_iteration(self) -> None:
         """Method to be called at the start of every non-linear iteration.
@@ -498,7 +455,7 @@ class SolutionStrategy(abc.ABC):
             values=solution, time_step_index=0, additive=False
         )
         self.convergence_status = True
-        self.nonlinear_solver_statistics.stack()
+        self.nonlinear_solver_statistics.log_timestep()
 
         self.save_data_time_step()
 
@@ -509,7 +466,7 @@ class SolutionStrategy(abc.ABC):
             solution: The new solution, as computed by the non-linear solver.
 
         """
-        self.nonlinear_solver_statistics.stack()
+        self.nonlinear_solver_statistics.log_timestep()
         if self._is_nonlinear_problem():
             raise ValueError("Nonlinear iterations did not converge.")
         else:
@@ -572,12 +529,10 @@ class SolutionStrategy(abc.ABC):
             error_inc = self.nonlinear_increment_error(solution_increment)
             # Residual based error
             error_res = self.nonlinear_residual_error(residual, init_residual)
-            # Log the increments and residuals
-            # TODO Log all possible sub-errors, e.g. for each variable, grid, etc.
-            # TODO Use DiagnosticsMixin capabilities for splitting the errors
-            self.nonlinear_solver_statistics.update(
-                increment=error_inc, residual=error_res
-            )
+            # Log the errors, increments and residuals
+            self.nonlinear_solver_statistics.log_error(error_inc, error_res)
+            self.nonlinear_solver_statistics.log_increment(solution_increment)
+            self.nonlinear_solver_statistics.log_residual(residual, init_residual)
             logger.info(f"Normalized increment error: {error_inc:.2e}")
             logger.info(f"Normalized residual error: {error_res:.2e}")
             # Check convergence
@@ -659,6 +614,10 @@ class SolutionStrategy(abc.ABC):
         t_0 = time.time()
         self.linear_system = self.equation_system.assemble()
         logger.debug(f"Assembled linear system in {time.time() - t_0:.2e} seconds.")
+
+        # Definition of nonlinear solver strategy not finalized - redefine FIXME
+        if not self.nonlinear_solver_statistics.init_complete:
+            self.set_nonlinear_solver_statistics()
 
     def solve_linear_system(self) -> np.ndarray:
         """Solve linear system.
