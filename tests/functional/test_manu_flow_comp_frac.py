@@ -34,6 +34,7 @@ References:
       elliptic equations. Journal of Numerical Mathematics.
 
 """
+
 from __future__ import annotations
 
 from copy import deepcopy
@@ -127,38 +128,39 @@ def desired_l2_errors() -> list[list[dict[str, float]]]:
         List of lists of dictionaries containing the desired relative L2-errors.
 
     """
+
     # Desired errors for 2d
     desired_errors_2d = [
         {  # t = 0.5 [s]
-            'error_matrix_pressure': 0.05860315482644138, 
-            'error_matrix_flux': 0.01728816711273373,
-            'error_frac_pressure': 4.761115466428997,
-            'error_frac_flux': 0.0027528176884234297,
-            'error_intf_flux': 3.0521278709541946
+            "error_matrix_pressure": 0.05860315482644138,
+            "error_matrix_flux": 0.01728816711273373,
+            "error_frac_pressure": 4.761115466428997,
+            "error_frac_flux": 0.0027528176884234297,
+            "error_intf_flux": 3.0521278709541946,
         },
         {  # t = 1.0 [s]
-            'error_matrix_pressure': 0.056952568619002386,
-            'error_matrix_flux': 0.017206997517806834,
-            'error_frac_pressure': 4.7258340277590865,
-            'error_frac_flux': 0.0036119330001357737,
-            'error_intf_flux': 3.1023316529076546
+            "error_matrix_pressure": 0.056952568619002386,
+            "error_matrix_flux": 0.017206997517806834,
+            "error_frac_pressure": 4.7258340277590865,
+            "error_frac_flux": 0.0036119330001357737,
+            "error_intf_flux": 3.1023316529076546,
         },
     ]
     # Desired errors for 3d
     desired_errors_3d = [
         {  # t = 0.5 [s]
-            'error_matrix_pressure': 0.044142110025893674,
-            'error_matrix_flux': 0.020240531408035483,
-            'error_frac_pressure': 7.345638542028673,
-            'error_frac_flux': 0.04968518024390149,
-            'error_intf_flux': 5.150695781155413
+            "error_matrix_pressure": 0.044142110025893674,
+            "error_matrix_flux": 0.020240531408035483,
+            "error_frac_pressure": 7.345638542028673,
+            "error_frac_flux": 0.04968518024390149,
+            "error_intf_flux": 5.150695781155413,
         },
         {  # t = 1.0 [s]
-            'error_matrix_pressure': 0.043341944057014324,
-            'error_matrix_flux': 0.02031093722149098,
-            'error_frac_pressure': 7.139915887008252,
-            'error_frac_flux': 0.049748152094622,
-            'error_intf_flux': 5.228345273854552
+            "error_matrix_pressure": 0.043341944057014324,
+            "error_matrix_flux": 0.02031093722149098,
+            "error_frac_pressure": 7.139915887008252,
+            "error_frac_flux": 0.049748152094622,
+            "error_intf_flux": 5.228345273854552,
         },
     ]
 
