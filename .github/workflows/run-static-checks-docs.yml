@@ -1,0 +1,31 @@
+# Running checks on updates to docs branch
+
+on:
+  workflow_dispatch:
+    # run jobs manually
+  # NOTE perform workflow only for PRs, not direct pushes to avoid conflict with dev downstream
+  pull_request:
+    branches: 
+      - docs
+
+jobs:
+  # A job checking that changes to docs branch are restricted to directory docs/
+  changes_restricted_to_docs:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: dorny/paths-filter@v3
+      id: filter
+      with:
+# Filters have limited support in finding patterns
+# Strategy is to compare the number of changes per filter
+# If all changes are greater in number than changes to the docs folder, there is at least 1 change outside docs/
+        filters: |
+          docs:
+            - 'docs/**'
+          all:
+            - '**'
+
+    - name: Restrict accepted changes to docs/ directory in PR to branch 'docs'
+      if: steps.filter.outputs.all_count > steps.filter.outputs.docs_count
+      run: echo "::error::Changes outside directory docs/ not allowed in PR to branch 'docs'." && exit 1

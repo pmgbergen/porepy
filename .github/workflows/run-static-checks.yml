@@ -21,6 +21,23 @@ on:
 
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
+  # Assert no docs/ directory on branches main and develop for conflict-free downstream
+  # https://stackoverflow.com/questions/70708306/github-actions-run-step-job-in-a-workflow-if-changes-happen-in-specific-folde
+  no_docs_on_develop_and_main:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: dorny/paths-filter@v3
+      id: filter
+      with:
+        filters: |
+          docs:
+            - 'docs/**'
+
+    - name: assert no docs/ directory on branches 'develop' and 'main'
+      if: steps.filter.outputs.docs == 'true'
+      run: echo "::error::No 'docs/' directory allowed on branches 'develop' and 'main'." && exit 1
+
   # Assert successful build and proper code layout
   build:
     name: Static tests
@@ -92,20 +109,3 @@ jobs:
     - name: mypy
       if: ${{ always() }}
       run: mypy src --cache-dir mypy-cache-${{ matrix.python-version}}
-
-  # Assert no docs/ directory on branches main and develop for conflict-free downstream
-  # https://stackoverflow.com/questions/70708306/github-actions-run-step-job-in-a-workflow-if-changes-happen-in-specific-folde
-  no_docs_on_develop_and_main:
-        runs-on: ubuntu-latest
-        steps:
-        - uses: actions/checkout@v4
-        - uses: dorny/paths-filter@v3
-          id: filter
-          with:
-            filters: |
-              docs:
-                - 'docs/**'
-    
-        - name: assert no docs/ directory on branches 'develop' and 'main'
-          if: steps.filter.outputs.docs == 'true'
-          run: echo "::error::No 'docs/' directory allowed on branches 'develop' and 'main'." && exit 1
