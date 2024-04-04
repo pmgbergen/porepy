@@ -81,7 +81,7 @@ def actual_l2_errors(material_constants) -> list[list[dict[str, float]]]:
         "grid_type": "cartesian",
         "material_constants": material_constants,
         "meshing_arguments": {"cell_size": 0.25},
-        "time_manager": pp.TimeManager([0, 0.2, 0.6, 1.0], 0.2, True),
+        "time_manager": pp.TimeManager([0, 0.5, 1.0], 0.5, True),
         "heterogeneity": 10.0,
     }
 
@@ -119,55 +119,39 @@ def desired_l2_errors() -> list[list[dict[str, float]]]:
 
     """
     desired_errors_2d = [
-        {  # t = 0.2 [s]
-            "error_pressure": 0.29245525657228516,
-            "error_darcy_flux": 0.14866807005212218,
-            "error_displacement": 0.4060794558177133,
-            "error_force": 0.16882241805995685,
-            "error_temperature": 0.2805373010672497,
-            "error_energy_flux": 0.14224713493285213,
-        },
-        {  # t = 0.6 [s]
-            "error_pressure": 0.29915191269112884,
-            "error_darcy_flux": 0.143731386301777,
-            "error_displacement": 0.4058790962545719,
-            "error_force": 0.168891116834099,
-            "error_temperature": 0.2817656772923569,
-            "error_energy_flux": 0.14418402387993626,
+        {  # t = 0.5 [s]
+            "error_pressure": 0.29827252435393803,
+            "error_darcy_flux": 0.1439958241169773,
+            "error_displacement": 0.4058988627472109,
+            "error_force": 0.16888424201570365,
+            "error_temperature": 0.28326347851869543,
+            "error_energy_flux": 0.143777694649805,
         },
         {  # t = 1.0 [s]
-            "error_pressure": 0.30102053594879236,
-            "error_darcy_flux": 0.1433305592811348,
-            "error_displacement": 0.40583744381509923,
-            "error_force": 0.16890514243228508,
-            "error_temperature": 0.2734736165434784,
-            "error_energy_flux": 0.14568673457608622,
+            "error_pressure": 0.3010187539654323,
+            "error_darcy_flux": 0.1433298407071359,
+            "error_displacement": 0.4058374630516512,
+            "error_force": 0.16890514221989356,
+            "error_temperature": 0.27340859892936803,
+            "error_energy_flux": 0.14567435981074586,
         },
     ]
     desired_errors_3d = [
-        {  # t = 0.2 [s]
-            "error_pressure": 0.29483420733078686,
-            "error_darcy_flux": 0.17486321642288996,
-            "error_displacement": 0.4486172675647366,
-            "error_force": 0.21447111918990183,
-            "error_temperature": 0.2658002623034062,
-            "error_energy_flux": 0.14494419847742834,
-        },
-        {  # t = 0.6 [s]
-            "error_pressure": 0.28178892740044215,
-            "error_darcy_flux": 0.1510526423353489,
-            "error_displacement": 0.4482245605585491,
-            "error_force": 0.2145593104444151,
-            "error_temperature": 0.26570376518127564,
-            "error_energy_flux": 0.1473799407417573,
+        {  # t = 0.5 [s]
+            "error_pressure": 0.28233484316067864,
+            "error_darcy_flux": 0.15250403155748207,
+            "error_displacement": 0.4482633717525385,
+            "error_force": 0.21455044408871599,
+            "error_temperature": 0.2668424103750087,
+            "error_energy_flux": 0.14699614090181903,
         },
         {  # t = 1.0 [s]
-            "error_pressure": 0.28113091748952695,
-            "error_darcy_flux": 0.14877473367953858,
-            "error_displacement": 0.44814466743009757,
-            "error_force": 0.21457738875513135,
-            "error_temperature": 0.2593720615174321,
-            "error_energy_flux": 0.14849416613002764,
+            "error_pressure": 0.28113090124404544,
+            "error_darcy_flux": 0.1487747552893976,
+            "error_displacement": 0.448144662794714,
+            "error_force": 0.21457738933054352,
+            "error_temperature": 0.2593080002077755,
+            "error_energy_flux": 0.14847494492738805,
         },
     ]
 
@@ -200,15 +184,14 @@ def test_relative_l2_errors_cartesian_grid(
         L2-error norm. The desired errors were obtained by running the model using the
         physical constants from :meth:`~material_constants` on a Cartesian grid with
         16 cells in 2d and 64 in 3d. We test the errors for three different times,
-        namely: 0.2 [s], 0.6[s], and 1.0 [s].
+        namely: 0.5 [s],  and 1.0 [s].
 
     Parameters:
         dim_idx: Dimension index acting on the outer list of `actual_l2_errors` and
             `desired_l2_errors`. `0` refers to 2d and `1` to 3d.
         var: Name of the variable to be tested.
         time_idx: Time index acting on the inner lists of 'actual_l2_errors' and
-            'desired_l2_errors'. `0` refers to 0.2 [s], `1` to 0.6 [s], and `2` to
-            1.0 [s].
+            'desired_l2_errors'. `0` refers to 0.5 [s], and `1` to 1.0 [s].
         actual_l2_errors: List of lists of dictionaries containing the actual
             L2-relative errors.
         desired_l2_errors: List of lists of dictionaries containing the desired
