@@ -26,16 +26,11 @@ Note:
 """
 from __future__ import annotations
 
-from typing import Callable, Sequence
-
 import numpy as np
 import time
 import porepy as pp
 import porepy.composite as ppc
 import TracerConstitutiveDescription
-from TracerConstitutiveDescription import LiquidLikeCorrelations
-from TracerConstitutiveDescription import GasLikeCorrelations
-from porepy.applications.md_grids.domains import nd_cube_domain
 
 # CompositionalFlow has data savings mixin, composite variables mixin,
 # Solution strategy eliminating local equations with Schur complement and no flash.
@@ -46,50 +41,11 @@ from porepy.models.compositional_flow import (
     CFModelMixin,
     InitialConditionsCF,
     PrimaryEquationsCF,
-    SecondaryEquationsMixin,
 )
-
-class H20_NaCl_brine(ppc.FluidMixtureMixin):
-    """Mixture mixin creating the brine mixture with two components."""
-
-    enthalpy: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]
-    """Provided by :class:`~porepy.models.compositional_flow.VariablesEnergyBalance`."""
-
-    def get_components(self) -> Sequence[ppc.Component]:
-        """Setting H20 as first component in Sequence makes it the reference component.
-        z_H20 will be eliminated."""
-        species = ppc.load_species(["H2O", "NaCl"])
-        components = [ppc.Component.from_species(s) for s in species]
-        return components
-
-    def get_phase_configuration(
-        self, components: Sequence[ppc.Component]
-    ) -> Sequence[tuple[ppc.AbstractEoS, int, str]]:
-        eos_L = LiquidLikeCorrelations(components)
-        eos_G = GasLikeCorrelations(components)
-        return [(eos_L, 0, "liq"), (eos_G, 1, "gas")]
-
-    def dependencies_of_phase_properties(
-        self, phase: ppc.Phase
-    ) -> Sequence[Callable[[pp.GridLikeSequence], pp.ad.Operator]]:
-        z_NaCl = [
-            comp.fraction
-            for comp in self.fluid_mixture.components
-            if comp != self.fluid_mixture.reference_component
-        ]
-        return [self.pressure, self.enthalpy] + z_NaCl
-
-    def set_components_in_phases(
-        self, components: Sequence[ppc.Component], phases: Sequence[ppc.Phase]
-    ) -> None:
-        """By default, the unified assumption is applied: all components are present
-        in all phases."""
-        super().set_components_in_phases(components, phases)
-
 
 class ModelGeometry:
     def set_domain(self) -> None:
-        dimension = 3
+        dimension = 2
         size_x = self.solid.convert_units(10, "m")
         size_y = self.solid.convert_units(1, "m")
         size_z = self.solid.convert_units(1, "m")
@@ -123,7 +79,6 @@ class ModelGeometry:
         cell_size = self.solid.convert_units(0.1, "m")
         mesh_args: dict[str, float] = {"cell_size": cell_size}
         return mesh_args
-
 
 class BoundaryConditions(BoundaryConditionsCF):
     """See parent class how to set up BC. Default is all zero and Dirichlet."""
@@ -239,63 +194,8 @@ class InitialConditions(InitialConditionsCF):
         else:
             return z * np.ones(sd.num_cells)
 
-class SecondaryEquations(SecondaryEquationsMixin):
-    """Mixin to provide expressions for dangling variables.
-
-    The CF framework has the following quantities always as independent variables:
-
-    - independent phase saturations
-    - partial fractions (independent since no equilibrium)
-    - temperature (needs to be expressed through primary variables in this model, since
-      no p-h equilibrium)
-
-    """
-
-    dependencies_of_phase_properties: Sequence[
-        Callable[[pp.GridLikeSequence], pp.ad.Operator]
-    ]
-    """Defined in the Brine mixture mixin."""
-
-    temperature: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]
-    """Provided by :class:`~porepy.models.energy_balance.VariablesEnergyBalance`."""
-
-    def set_equations(self) -> None:
-        subdomains = self.mdg.subdomains()
-
-        ### Providing constitutive law for gas saturation based on correlation
-        rphase = self.fluid_mixture.reference_phase  # liquid phase
-        # gas phase is independent
-        independent_phases = [p for p in self.fluid_mixture.phases if p != rphase]
-
-        for phase in independent_phases:
-            self.eliminate_by_constitutive_law(
-                phase.saturation,  # callable giving saturation on ``subdomains``
-                self.dependencies_of_phase_properties(
-                    phase
-                ),  # callables giving primary variables on subdoains
-                TracerConstitutiveDescription.gas_saturation_func,  # numerical function implementing correlation
-                subdomains,  # all subdomains on which to eliminate s_gas
-                # dofs = {'cells': 1},  # default value
-            )
-
-        ### Providing constitutive laws for partial fractions based on correlations
-        for phase in self.fluid_mixture.phases:
-            for comp in phase:
-                self.eliminate_by_constitutive_law(
-                    phase.partial_fraction_of[comp],
-                    self.dependencies_of_phase_properties(phase),
-                    TracerConstitutiveDescription.chi_functions_map[comp.name +  "_" + phase.name],
-                    subdomains,
-                )
-
-        ### Provide constitutive law for temperature
-        self.eliminate_by_constitutive_law(
-            self.temperature,
-            self.dependencies_of_phase_properties(rphase),  # since same for all.
-            TracerConstitutiveDescription.temperature_func,
-            subdomains,
-        )
-
+class SecondaryEquations(TracerConstitutiveDescription.SecondaryEquations):
+    pass
 
 class ModelEquations(
     PrimaryEquationsCF,
@@ -318,9 +218,10 @@ class ModelEquations(
         # local elimination of dangling secondary variables
         SecondaryEquations.set_equations(self)
 
+
 class DriesnerBrineFlowModel(
     ModelGeometry,
-    H20_NaCl_brine,
+    TracerConstitutiveDescription.FluidMixture,
     InitialConditions,
     BoundaryConditions,
     ModelEquations,
@@ -334,9 +235,6 @@ class DriesnerBrineFlowModel(
 
     def after_simulation(self):
         self.exporter.write_pvd()
-
-    # def permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-
 
 day = 86400
 time_manager = pp.TimeManager(
@@ -358,7 +256,7 @@ params = {
     "eliminate_reference_component": True,  # z_H2O eliminated, default is True
     "time_manager": time_manager,
     "prepare_simulation":  False,
-    "reduced_system_q": False,
+    "reduce_linear_system_q": False,
     'nl_convergence_tol': 1.0e-3,
 }
 
@@ -368,6 +266,8 @@ tb = time.time()
 model.prepare_simulation()
 te = time.time()
 print("Elapsed time prepare simulation: ", te - tb)
+print("Simulation prepared for total number of DoF: ", model.equation_system.num_dofs())
+print("Mixed-dimensional grid employed: ", model.mdg)
 
 # print geometry
 model.exporter.write_vtu()

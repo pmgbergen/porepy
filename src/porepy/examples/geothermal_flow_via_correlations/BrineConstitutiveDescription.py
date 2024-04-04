@@ -1,5 +1,8 @@
 import numpy as np
+import porepy as pp
+from typing import Callable, Sequence
 import porepy.composite as ppc
+from porepy.models.compositional_flow import SecondaryEquationsMixin
 
 def dummy_func(
     *thermodynamic_dependencies: np.ndarray,
@@ -384,3 +387,103 @@ class GasLikeTracerCorrelations(ppc.AbstractEoS):
             dphis=dphis,
         )
 
+class LiquidLikeCorrelations:
+    pass
+
+class GasLikeCorrelations:
+    pass
+
+class Brine_H20_NaCl_mixture(ppc.FluidMixtureMixin):
+    """Mixture mixin creating the brine mixture with two components."""
+
+    enthalpy: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]
+    """Provided by :class:`~porepy.models.compositional_flow.VariablesEnergyBalance`."""
+
+    def get_components(self) -> Sequence[ppc.Component]:
+        """Setting H20 as first component in Sequence makes it the reference component.
+        z_H20 will be eliminated."""
+        species = ppc.load_species(["H2O", "NaCl"])
+        components = [ppc.Component.from_species(s) for s in species]
+        return components
+
+    def get_phase_configuration(
+        self, components: Sequence[ppc.Component]
+    ) -> Sequence[tuple[ppc.AbstractEoS, int, str]]:
+        eos_L = LiquidLikeCorrelations(components)
+        eos_G = GasLikeCorrelations(components)
+        return [(eos_L, 0, "liq"), (eos_G, 1, "gas")]
+
+    def dependencies_of_phase_properties(
+        self, phase: ppc.Phase
+    ) -> Sequence[Callable[[pp.GridLikeSequence], pp.ad.Operator]]:
+        z_NaCl = [
+            comp.fraction
+            for comp in self.fluid_mixture.components
+            if comp != self.fluid_mixture.reference_component
+        ]
+        return [self.pressure, self.enthalpy] + z_NaCl
+
+    def set_components_in_phases(
+        self, components: Sequence[ppc.Component], phases: Sequence[ppc.Phase]
+    ) -> None:
+        """By default, the unified assumption is applied: all components are present
+        in all phases."""
+        super().set_components_in_phases(components, phases)
+
+
+class SecondaryEquations(SecondaryEquationsMixin):
+    """Mixin to provide expressions for dangling variables.
+
+    The CF framework has the following quantities always as independent variables:
+
+    - independent phase saturations
+    - partial fractions (independent since no equilibrium)
+    - temperature (needs to be expressed through primary variables in this model, since
+      no p-h equilibrium)
+
+    """
+
+    dependencies_of_phase_properties: Sequence[
+        Callable[[pp.GridLikeSequence], pp.ad.Operator]
+    ]
+    """Defined in the Brine mixture mixin."""
+
+    temperature: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]
+    """Provided by :class:`~porepy.models.energy_balance.VariablesEnergyBalance`."""
+
+    def set_equations(self) -> None:
+        subdomains = self.mdg.subdomains()
+
+        ### Providing constitutive law for gas saturation based on correlation
+        rphase = self.fluid_mixture.reference_phase  # liquid phase
+        # gas phase is independent
+        independent_phases = [p for p in self.fluid_mixture.phases if p != rphase]
+
+        for phase in independent_phases:
+            self.eliminate_by_constitutive_law(
+                phase.saturation,  # callable giving saturation on ``subdomains``
+                self.dependencies_of_phase_properties(
+                    phase
+                ),  # callables giving primary variables on subdoains
+                gas_saturation_func,  # numerical function implementing correlation
+                subdomains,  # all subdomains on which to eliminate s_gas
+                # dofs = {'cells': 1},  # default value
+            )
+
+        ### Providing constitutive laws for partial fractions based on correlations
+        for phase in self.fluid_mixture.phases:
+            for comp in phase:
+                self.eliminate_by_constitutive_law(
+                    phase.partial_fraction_of[comp],
+                    self.dependencies_of_phase_properties(phase),
+                    chi_functions_map[comp.name +  "_" + phase.name],
+                    subdomains,
+                )
+
+        ### Provide constitutive law for temperature
+        self.eliminate_by_constitutive_law(
+            self.temperature,
+            self.dependencies_of_phase_properties(rphase),  # since same for all.
+            temperature_func,
+            subdomains,
+        )
