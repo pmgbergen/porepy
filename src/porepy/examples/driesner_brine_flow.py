@@ -29,7 +29,7 @@ from __future__ import annotations
 from typing import Callable, Sequence
 
 import numpy as np
-
+import time
 import porepy as pp
 import porepy.composite as ppc
 import TracerConstitutiveDescription
@@ -89,7 +89,7 @@ class H20_NaCl_brine(ppc.FluidMixtureMixin):
 
 class ModelGeometry:
     def set_domain(self) -> None:
-        dimension = 2
+        dimension = 3
         size_x = self.solid.convert_units(10, "m")
         size_y = self.solid.convert_units(1, "m")
         size_z = self.solid.convert_units(1, "m")
@@ -120,7 +120,7 @@ class ModelGeometry:
         return self.params.get("grid_type", "simplex")
 
     def meshing_arguments(self) -> dict:
-        cell_size = self.solid.convert_units(0.75, "m")
+        cell_size = self.solid.convert_units(0.1, "m")
         mesh_args: dict[str, float] = {"cell_size": cell_size}
         return mesh_args
 
@@ -364,7 +364,11 @@ params = {
 
 model = DriesnerBrineFlowModel(params)
 
+tb = time.time()
 model.prepare_simulation()
+te = time.time()
+print("Elapsed time prepare simulation: ", te - tb)
+
 # print geometry
 model.exporter.write_vtu()
 
