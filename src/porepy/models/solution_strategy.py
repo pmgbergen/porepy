@@ -563,13 +563,18 @@ class SolutionStrategy(abc.ABC):
             error_inc = self.nonlinear_increment_error(solution_increment)
             logger.info(f"Normalized residual error: {error_res:.2e}")
             logger.info(f"Normalized increment error: {error_inc:.2e}")
-            converged = (
-                error_inc < nl_params["nl_convergence_tol"]
-                and error_res < nl_params["nl_convergence_tol_res"]
+            converged_inc = error_inc < nl_params["nl_convergence_tol"]
+            # Allow for nan values in the residual error for effectively disabled
+            # convergence check.
+            converged_res = (
+                error_res < nl_params["nl_convergence_tol_res"]
+                or nl_params["nl_convergence_tol_res"] is np.inf
             )
+            converged = converged_inc and converged_res
             diverged = False
-            self.nonlinear_statistics.update(residual_error=error_res,
-                                             increment_error=error_inc)
+            self.nonlinear_statistics.update(
+                residual_error=error_res, increment_error=error_inc
+            )
             return error_res, error_inc, converged, diverged
 
     def nonlinear_residual_error(
