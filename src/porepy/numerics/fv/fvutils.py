@@ -694,7 +694,7 @@ def cell_vector_to_subcell(nd, sub_cell_index, cell_index):
 def cell_scalar_to_subcell_vector(nd, sub_cell_index, cell_index):
     """
     Create mapping from sub-cells to cells for vector problems.
-    For example, discretization of grad_p-term in Biot,
+    For example, discretization of scalar_gradient term in Biot,
     where p is a cell-center scalar
 
     Args:
@@ -1171,7 +1171,6 @@ def partial_update_discretization(
     vector_cell_left: Optional[list[str]] = None,
     scalar_face_left: Optional[list[str]] = None,
     vector_face_left: Optional[list[str]] = None,
-    second_keyword: Optional[str] = None,  # Used for biot discertization
 ) -> None:
     """Do partial update of discretization scheme.
 
@@ -1220,20 +1219,16 @@ def partial_update_discretization(
     cell_map = update_info.get("map_cells", sps.identity(sd.num_cells))
     face_map = update_info.get("map_faces", sps.identity(sd.num_faces))
 
-    # left cell quantities (known example: div_u term in Biot), are a bit special
-    # in that they require expanded computational stencils.
-    # To see this, consider an update of a single cell. For a left face quantity,
-    # this would require update of the neighboring faces, as will be detected by the
-    # cell_ind_for_partial_update below. The necessary update to nearby cells would
-    # be achieved by the subsequent multiplication with a divergence. For left cell
-    # matrices, the latter step is not available, thus the necessary overlap in
-    # stencil must be explicitly set.
+    # left cell quantities (known example: displacement_divergence term in Biot), are a
+    # bit special in that they require expanded computational stencils. To see this,
+    # consider an update of a single cell. For a left face quantity, this would require
+    # update of the neighboring faces, as will be detected by the
+    # cell_ind_for_partial_update below. The necessary update to nearby cells would be
+    # achieved by the subsequent multiplication with a divergence. For left cell
+    # matrices, the latter step is not available, thus the necessary overlap in stencil
+    # must be explicitly set.
     if len(vector_cell_left) > 0 or len(scalar_cell_left) > 0:
         update_cells = pp.partition.overlap(sd, update_cells, 1)
-
-        # We will need the non-updated cells as well (but not faces, for similar
-        # reasons as outlined above).
-        passive_cells = np.setdiff1d(np.arange(sd.num_cells), update_cells)
 
     do_discretize = False
     # The actual discretization stencil may be larger than the modified cells and
@@ -1247,7 +1242,6 @@ def partial_update_discretization(
     # the type of discretizations present).
     _, cells, _ = sparse_array_to_row_col_data(sd.cell_faces[active_faces])
     active_cells = np.unique(cells)
-    passive_cells = np.setdiff1d(np.arange(sd.num_cells), active_cells)
 
     param = data[pp.PARAMETERS][keyword]
     if update_cells.size > 0:
@@ -1257,16 +1251,7 @@ def partial_update_discretization(
         param["specified_faces"] = update_faces
         do_discretize = True
 
-    # Loop over all existing discretization matrices. Map rows and columns,
-    # according to the left/right, cell/face and scalar/vector specifications.
-    # Also eliminate contributions to rows that will also be updated (but not
-    # columns, a non-updated row should keep its information about a column
-    # to be updated).
-    mat_dict = data[pp.DISCRETIZATION_MATRICES][keyword]
-    mat_dict_copy = {}
-    for key, val in mat_dict.items():
-        mat = val
-
+    def update_matrix(key, mat):
         # First multiplication from the right
         if key in scalar_cell_right:
             mat = mat * cell_map.T
@@ -1279,7 +1264,7 @@ def partial_update_discretization(
         else:
             # If no mapping is provided, we assume the matrix is not part of the
             # target discretization, and ignore it.
-            continue
+            pass
 
         # Mapping of faces. Enforce csr format to enable elimination of rows below.
         if key in scalar_cell_left:
@@ -1300,9 +1285,25 @@ def partial_update_discretization(
         else:
             # If no mapping is provided, we assume the matrix is not part of the
             # target discretization, and ignore it.
-            continue
+            pass
 
-        mat_dict_copy[key] = mat
+        return mat
+
+    # Loop over all existing discretization matrices. Map rows and columns,
+    # according to the left/right, cell/face and scalar/vector specifications.
+    # Also eliminate contributions to rows that will also be updated (but not
+    # columns, a non-updated row should keep its information about a column
+    # to be updated).
+    mat_dict = data[pp.DISCRETIZATION_MATRICES][keyword]
+    mat_dict_copy = {}
+    for key, val in mat_dict.items():
+        if isinstance(val, dict):
+            for sub_key, sub_val in val.items():
+                val[sub_key] = update_matrix(key, sub_val)
+
+        else:
+            val = update_matrix(key, val)
+        mat_dict_copy[key] = val
 
     # Do the actual discretization
     if do_discretize:
@@ -1310,38 +1311,18 @@ def partial_update_discretization(
 
     # Define new discretization as a combination of mapped and rediscretized
     for key, val in data[pp.DISCRETIZATION_MATRICES][keyword].items():
-        # If the key is present in the matrix dictionary of the second_keyword,
-        # we skip it, and handle below.
-        # See comment on Biot discretization below
-        if (
-            second_keyword is not None
-            and key in data[pp.DISCRETIZATION_MATRICES][second_keyword].keys()
-        ):
-            continue
-
         if (
             key in data[pp.DISCRETIZATION_MATRICES][keyword].keys()
             and key in mat_dict_copy.keys()
         ):
             # By now, the two matrices should have compatible size
-            data[pp.DISCRETIZATION_MATRICES][keyword][key] = mat_dict_copy[key] + val
-
-    # The Biot discretization is special, in that it places part of matrices in
-    # the mechanics dictionary, a second part in flow. If a second keyword is provided,
-    # the corresponding matrices must be processed, and added with the stored, mapped
-    # values.
-    # Implementation note: we assume that the previous discretizations are all placed
-    # under the primary keyword, see Biot for an example of the necessary pre-processing.
-    # It could perhaps have been better allow for processing of two keywords in the
-    # mapping, but the implementation ended up being as it is.
-    if second_keyword is not None:
-        for key, val in data[pp.DISCRETIZATION_MATRICES][second_keyword].items():
-            if key in mat_dict_copy.keys():
-                if key in scalar_cell_left:
-                    remove_nonlocal_contribution(passive_cells, 1, val)
-                elif key in vector_cell_left:
-                    remove_nonlocal_contribution(passive_cells, dim, val)
-                data[pp.DISCRETIZATION_MATRICES][second_keyword][key] = (
+            if isinstance(val, dict):
+                for sub_key, sub_val in val.items():
+                    data[pp.DISCRETIZATION_MATRICES][keyword][key][sub_key] = (
+                        mat_dict_copy[key][sub_key] + val[sub_key]
+                    )
+            else:
+                data[pp.DISCRETIZATION_MATRICES][keyword][key] = (
                     mat_dict_copy[key] + val
                 )
 
@@ -1750,3 +1731,46 @@ def partial_discretization(
     pp.matrix_operations.zero_rows(data[kw2], affected_faces)
     data[kw1] += trm
     data[kw2] += bound_flux
+
+
+def restrict_fourth_order_tensor_to_subgrid(
+    tensor: pp.FourthOrderTensor, loc_cells: np.ndarray
+) -> pp.FourthOrderTensor:
+    """Extract a fourth order tensor for a subgrid.
+
+    Parameters:
+        tensor: Constitutive law for the original grid.
+        loc_cells: Index of cells of the original grid from which the new constitutive
+            law should be picked.
+
+    Returns:
+        Fourth order tensor for the specified subset of cells.
+
+    """
+    # Copy stiffness tensor, and restrict to local cells
+    loc_tensor = tensor.copy()
+    loc_tensor.values = loc_tensor.values[::, ::, loc_cells]
+    # Also restrict the lambda and mu fields; we will copy the stiffness tensors
+    # later.
+    loc_tensor.lmbda = loc_tensor.lmbda[loc_cells]
+    loc_tensor.mu = loc_tensor.mu[loc_cells]
+    return loc_tensor
+
+
+def restrict_second_order_tensor_to_subgrid(
+    tensor: pp.SecondOrderTensor, loc_cells: np.ndarray
+) -> pp.SecondOrderTensor:
+    """Extract the second-order tensor for a subgrid.
+
+    Parameters:
+        tensor: Permeability tensor for the full grid.
+        loc_cells: Indices of the cells in the subgrid.
+
+    Returns:
+        Second order tensor for the specified subset of cells.
+
+    """
+    # Copy second order tensor, and restrict to local cells
+    loc_tensor = tensor.copy()
+    loc_tensor.values = loc_tensor.values[::, ::, loc_cells]
+    return loc_tensor

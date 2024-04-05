@@ -885,10 +885,10 @@ class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
         """Collect discretizations for nonlinear terms."""
         super().set_nonlinear_discretizations()
         self.add_nonlinear_discretization(
-            self.mobility_discretization(self.mdg.subdomains()).upwind,
+            self.mobility_discretization(self.mdg.subdomains()).upwind(),
         )
         self.add_nonlinear_discretization(
-            self.interface_mobility_discretization(self.mdg.interfaces()).flux,
+            self.interface_mobility_discretization(self.mdg.interfaces()).flux(),
         )
 
 

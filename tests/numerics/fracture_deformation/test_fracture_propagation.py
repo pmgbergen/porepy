@@ -555,7 +555,7 @@ class MockPropagationModel(pp.ConformingFracturePropagation):
         return vals
 
 
-class PropagationCriteria:
+class TestPropagationCriteria:
     """Test of functionality to compute sifs and evaluate propagation onset and angle.
 
     Test logic:
@@ -582,7 +582,7 @@ class PropagationCriteria:
         values for u and parameters.
 
     """
-
+    @pytest.fixture(autouse=True)
     def setup(self):
         self.model = pp.ConformingFracturePropagation({})
         self.model.mortar_displacement_variable = "mortar_variable"
@@ -777,6 +777,7 @@ class TestVariableMappingInitializationUnderPropagation:
 
     """
 
+    @pytest.fixture(autouse=True)
     def setup(self):
         self.cv2 = "cell_variable_2d"
         self.cv1 = "cell_variable_1d"
