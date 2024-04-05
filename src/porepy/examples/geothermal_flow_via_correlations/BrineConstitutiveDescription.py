@@ -4,34 +4,25 @@ from typing import Callable, Sequence
 import porepy.composite as ppc
 from porepy.models.compositional_flow import SecondaryEquationsMixin
 
-def dummy_func(
-    *thermodynamic_dependencies: np.ndarray,
-) -> tuple[np.ndarray, np.ndarray]:
-    """Dummy function for computing the values and derivatives of a thermodynamic
-    property.
+class LiquidDriesnerCorrelations(ppc.AbstractEoS):
 
-    Correlations are designed to depend on p, h, z_H2O and z_CO2,
-    i.e. ``thermodynamic_properties`` will be a 4-tuple of ``(nc,)`` arrays
-    """
-    nc = len(thermodynamic_dependencies[0])
-    vals = np.ones(nc)
-    # row-wise storage of derivatives, (4, nc) array
-    diffs = np.ones((len(thermodynamic_dependencies), nc))
+    @property
+    def obl(self):
+        return self._obl
 
-    return vals, diffs
+    @obl.setter
+    def obl(self, obl):
+        self._obl = obl
 
-class DriesnerCorrelations(ppc.AbstractEoS):
-    """Class implementing the calculation of thermodynamic properties.
+    def kappa(self,
+            *thermodynamic_dependencies: np.ndarray,
+    ) -> tuple[np.ndarray, np.ndarray]:
 
-    Note:
-        By thermodynamic properties, this framework refers to the below
-        indicated quantities, and **not** quantitie which are variables.
-
-        Fractions (partial and saturations) and other intensive quantities like
-        temperature need a separate treatment because they are always modelled as
-        variables, whereas properties are always dependent expressions.
-
-    """
+        nc = len(thermodynamic_dependencies[0])
+        vals = (0.5) * np.ones(nc)
+        # row-wise storage of derivatives, (4, nc) array
+        diffs = np.zeros((len(thermodynamic_dependencies), nc))
+        return vals, diffs
 
     def compute_phase_state(
             self, phase_type: int, *thermodynamic_input: np.ndarray
@@ -41,20 +32,40 @@ class DriesnerCorrelations(ppc.AbstractEoS):
         ``thermodynamic_dependencies`` are as defined by the user.
         """
 
+        h_scale = 1.0 / 1000.0
+        p_scale = 1.0 / 100000.0
+        if not hasattr(self, '_obl'):
+            raise AttributeError('The operator-based linearization (OBL) object is not present. Set up a unique OBL of the type DriesnerBrineOBL')
+
         p, h, z_NaCl = thermodynamic_input
+        par_points = np.array((z_NaCl,h*h_scale,p*p_scale)).T
+        self.obl.sample_at(par_points)
         n = len(p)  # same for all input (number of cells)
 
+
         # specific volume of phase
-        v, dv = dummy_func(p, h, z_NaCl)  # (n,), (3, n) array
-        # NOTE specific molar density rho not required since always computed as
-        # reciprocal of v by PhaseState class
+        v = self.obl.sampled_could.point_data['nu_l']
+        dvdz = self.obl.sampled_could.point_data['grad_nu_l'][:, 0]
+        dvdH = self.obl.sampled_could.point_data['grad_nu_l'][:, 1]*h_scale
+        dvdp = self.obl.sampled_could.point_data['grad_nu_l'][:, 2]*p_scale
+        dv = np.vstack((dvdp,dvdH,dvdz))
 
         # specific enthalpy of phase
-        h, dh = dummy_func(p, h, z_NaCl)  # (n,), (3, n) array
+        h = self.obl.sampled_could.point_data['H_l']
+        dhdz = self.obl.sampled_could.point_data['grad_H_l'][:, 0]
+        dhdH = self.obl.sampled_could.point_data['grad_H_l'][:, 1]*h_scale
+        dhdp = self.obl.sampled_could.point_data['grad_H_l'][:, 2]*p_scale
+        dh = np.vstack((dhdp,dhdH,dhdz))
+
         # dynamic viscosity of phase
-        mu, dmu = dummy_func(p, h, z_NaCl)  # (n,), (3, n) array
+        mu = self.obl.sampled_could.point_data['mu_l']
+        dmudz = self.obl.sampled_could.point_data['grad_mu_l'][:, 0]
+        dmudH = self.obl.sampled_could.point_data['grad_mu_l'][:, 1]*h_scale
+        dmudp = self.obl.sampled_could.point_data['grad_mu_l'][:, 2]*p_scale
+        dmu = np.vstack((dmudp,dmudH,dmudz))
+
         # thermal conductivity of phase
-        kappa, dkappa = dummy_func(p, h, z_NaCl)  # (n,), (3, n) array
+        kappa, dkappa = self.kappa(*thermodynamic_input)  # (n,), (3, n) array
 
         # Fugacity coefficients
         # not required for this formulation, since no equilibrium equations
@@ -78,258 +89,15 @@ class DriesnerCorrelations(ppc.AbstractEoS):
             dphis=dphis,
         )
 
-def gas_saturation_func(
-    *thermodynamic_dependencies: np.ndarray,
-) -> tuple[np.ndarray, np.ndarray]:
+class GasDriesnerCorrelations(ppc.AbstractEoS):
 
-    p, h, z_NaCl = thermodynamic_dependencies
-    # same for all input (number of cells)
-    assert len(p) == len(h) == len(z_NaCl)
-    n = len(p)
+    @property
+    def obl(self):
+        return self._obl
 
-    nc = len(thermodynamic_dependencies[0])
-    vals = np.zeros(nc)
-    # row-wise storage of derivatives, (3, nc) array
-    diffs = np.zeros((len(thermodynamic_dependencies), nc))
-
-    return vals, diffs
-
-
-def temperature_func(
-        *thermodynamic_dependencies: np.ndarray,
-) -> tuple[np.ndarray, np.ndarray]:
-    p, h, z_NaCl = thermodynamic_dependencies
-    # same for all input (number of cells)
-    assert len(p) == len(h) == len(z_NaCl)
-    n = len(p)
-
-    nc = len(thermodynamic_dependencies[0])
-
-    factor  = 773.5 / 3.0e6
-    vals = np.array(h) * factor
-    # row-wise storage of derivatives, (3, nc) array
-    diffs = np.ones((len(thermodynamic_dependencies), nc))
-    diffs[1, :] = 1.0*factor
-    return vals, diffs
-
-def H2O_liq_func(
-        *thermodynamic_dependencies: np.ndarray,
-) -> tuple[np.ndarray, np.ndarray]:
-    p, h, z_NaCl = thermodynamic_dependencies
-    # same for all input (number of cells)
-    assert len(p) == len(h) == len(z_NaCl)
-    n = len(p)
-
-    nc = len(thermodynamic_dependencies[0])
-    vals = np.array(1-z_NaCl)
-    # row-wise storage of derivatives, (3, nc) array
-    diffs = np.zeros((len(thermodynamic_dependencies), nc))
-    diffs[2, :] = -1.0
-    return vals, diffs
-
-def NaCl_liq_func(
-        *thermodynamic_dependencies: np.ndarray,
-) -> tuple[np.ndarray, np.ndarray]:
-    p, h, z_NaCl = thermodynamic_dependencies
-    # same for all input (number of cells)
-    assert len(p) == len(h) == len(z_NaCl)
-    n = len(p)
-
-    nc = len(thermodynamic_dependencies[0])
-    vals = np.array(z_NaCl)
-    # row-wise storage of derivatives, (4, nc) array
-    diffs = np.zeros((len(thermodynamic_dependencies), nc))
-    diffs[2, :] = +1.0
-    return vals, diffs
-
-def H2O_gas_func(
-        *thermodynamic_dependencies: np.ndarray,
-) -> tuple[np.ndarray, np.ndarray]:
-    p, h, z_NaCl = thermodynamic_dependencies
-    # same for all input (number of cells)
-    assert len(p) == len(h) == len(z_NaCl)
-    n = len(p)
-
-    nc = len(thermodynamic_dependencies[0])
-    vals = np.array(1-z_NaCl)
-    # row-wise storage of derivatives, (3, nc) array
-    diffs = np.zeros((len(thermodynamic_dependencies), nc))
-    diffs[2, :] = -1.0
-    return vals, diffs
-
-def NaCl_gas_func(
-        *thermodynamic_dependencies: np.ndarray,
-) -> tuple[np.ndarray, np.ndarray]:
-    p, h, z_NaCl = thermodynamic_dependencies
-    # same for all input (number of cells)
-    assert len(p) == len(h) == len(z_NaCl)
-    n = len(p)
-
-    nc = len(thermodynamic_dependencies[0])
-    vals = np.array(z_NaCl)
-    # row-wise storage of derivatives, (3, nc) array
-    diffs = np.zeros((len(thermodynamic_dependencies), nc))
-    diffs[2, :] = +1.0
-    return vals, diffs
-
-chi_functions_map = {'H2O_liq': H2O_liq_func,'NaCl_liq': NaCl_liq_func,'H2O_gas': H2O_gas_func,'NaCl_gas': NaCl_gas_func}
-
-class LiquidLikeTracerCorrelations(ppc.AbstractEoS):
-    """Class implementing the calculation of thermodynamic properties.
-
-    Note:
-        By thermodynamic properties, this framework refers to the below
-        indicated quantities, and **not** quantitie which are variables.
-
-        Fractions (partial and saturations) and other intensive quantities like
-        temperature need a separate treatment because they are always modelled as
-        variables, whereas properties are always dependent expressions.
-
-    """
-
-    def rho_func(self,
-            *thermodynamic_dependencies: np.ndarray,
-    ) -> tuple[np.ndarray, np.ndarray]:
-
-        nc = len(thermodynamic_dependencies[0])
-        # vals = (55508.435061792) * np.ones(nc)
-        vals = (1000.0) * np.ones(nc)
-        # row-wise storage of derivatives, (4, nc) array
-        diffs = np.zeros((len(thermodynamic_dependencies), nc))
-        return vals, diffs
-
-    def v_func(self,
-            *thermodynamic_dependencies: np.ndarray,
-    ) -> tuple[np.ndarray, np.ndarray]:
-        vals, diffs = self.rho_func(*thermodynamic_dependencies)
-        vals = 1.0 / vals
-        return vals, diffs
-
-    def mu_func(self,
-            *thermodynamic_dependencies: np.ndarray,
-    ) -> tuple[np.ndarray, np.ndarray]:
-
-        nc = len(thermodynamic_dependencies[0])
-        vals = (0.001) * np.ones(nc)
-        # row-wise storage of derivatives, (4, nc) array
-        diffs = np.zeros((len(thermodynamic_dependencies), nc))
-        return vals, diffs
-
-    def h(self,
-            *thermodynamic_dependencies: np.ndarray,
-    ) -> tuple[np.ndarray, np.ndarray]:
-
-        nc = len(thermodynamic_dependencies[0])
-        vals = (1000.0) * np.ones(nc)
-        # row-wise storage of derivatives, (4, nc) array
-        diffs = np.zeros((len(thermodynamic_dependencies), nc))
-        return vals, diffs
-
-    def kappa(self,
-            *thermodynamic_dependencies: np.ndarray,
-    ) -> tuple[np.ndarray, np.ndarray]:
-
-        nc = len(thermodynamic_dependencies[0])
-        vals = (0.5) * np.ones(nc)
-        # row-wise storage of derivatives, (4, nc) array
-        diffs = np.zeros((len(thermodynamic_dependencies), nc))
-        return vals, diffs
-
-    def compute_phase_state(
-            self, phase_type: int, *thermodynamic_input: np.ndarray
-    ) -> ppc.PhaseState:
-        """Function will be called to compute the values for a phase.
-        ``phase_type`` indicates the phsycal type (0 - liq, 1 - gas).
-        ``thermodynamic_dependencies`` are as defined by the user.
-        """
-
-        p, h, z_NaCl = thermodynamic_input
-
-        # same for all input (number of cells)
-        assert len(p) == len(h) == len(z_NaCl)
-        nc = len(p)
-
-        # specific volume of phase
-        v, dv = self.v_func(*thermodynamic_input)  # (n,), (3, n) array
-
-        # specific enthalpy of phase
-        h, dh = self.h(*thermodynamic_input)  # (n,), (3, n) array
-        # dynamic viscosity of phase
-        mu, dmu = self.mu_func(*thermodynamic_input)  # (n,), (3, n) array
-        # thermal conductivity of phase
-        kappa, dkappa = self.kappa(*thermodynamic_input)  # (n,), (3, n) array
-
-        # Fugacity coefficients
-        # not required for this formulation, since no equilibrium equations
-        # just show-casing it here
-        phis = np.empty((2, nc))  # (2, n) array  (2 components)
-        dphis = np.empty(
-            (2, 3, nc)
-        )  # (2, 3, n)  array (2 components, 3 dependencies, n cells)
-
-        return ppc.PhaseState(
-            phasetype=phase_type,
-            v=v,
-            dv=dv,
-            h=h,
-            dh=dh,
-            mu=mu,
-            dmu=dmu,
-            kappa=kappa,
-            dkappa=dkappa,
-            phis=phis,
-            dphis=dphis,
-        )
-
-class GasLikeTracerCorrelations(ppc.AbstractEoS):
-    """Class implementing the calculation of thermodynamic properties.
-
-    Note:
-        By thermodynamic properties, this framework refers to the below
-        indicated quantities, and **not** quantitie which are variables.
-
-        Fractions (partial and saturations) and other intensive quantities like
-        temperature need a separate treatment because they are always modelled as
-        variables, whereas properties are always dependent expressions.
-
-    """
-
-    def rho_func(self,
-            *thermodynamic_dependencies: np.ndarray,
-    ) -> tuple[np.ndarray, np.ndarray]:
-
-        nc = len(thermodynamic_dependencies[0])
-        vals = 1.0 * np.ones(nc)
-        # row-wise storage of derivatives, (4, nc) array
-        diffs = np.zeros((len(thermodynamic_dependencies), nc))
-        return vals, diffs
-
-    def v_func(self,
-            *thermodynamic_dependencies: np.ndarray,
-    ) -> tuple[np.ndarray, np.ndarray]:
-        vals, diffs = self.rho_func(*thermodynamic_dependencies)
-        vals = 1.0 / vals
-        return vals, diffs
-
-    def mu_func(self,
-            *thermodynamic_dependencies: np.ndarray,
-    ) -> tuple[np.ndarray, np.ndarray]:
-
-        nc = len(thermodynamic_dependencies[0])
-        vals = (0.00001) * np.ones(nc)
-        # row-wise storage of derivatives, (4, nc) array
-        diffs = np.zeros((len(thermodynamic_dependencies), nc))
-        return vals, diffs
-
-    def h(self,
-            *thermodynamic_dependencies: np.ndarray,
-    ) -> tuple[np.ndarray, np.ndarray]:
-
-        nc = len(thermodynamic_dependencies[0])
-        vals = (1000.0) * np.ones(nc)
-        # row-wise storage of derivatives, (4, nc) array
-        diffs = np.zeros((len(thermodynamic_dependencies), nc))
-        return vals, diffs
+    @obl.setter
+    def obl(self, obl):
+        self._obl = obl
 
     def kappa(self,
             *thermodynamic_dependencies: np.ndarray,
@@ -349,28 +117,47 @@ class GasLikeTracerCorrelations(ppc.AbstractEoS):
         ``thermodynamic_dependencies`` are as defined by the user.
         """
 
-        p, h, z_NaCl = thermodynamic_input
+        h_scale = 1.0 / 1000.0
+        p_scale = 1.0 / 100000.0
+        if not hasattr(self, '_obl'):
+            raise AttributeError('The operator-based linearization (OBL) object is not present. Set up a unique OBL of the type DriesnerBrineOBL')
 
-        # same for all input (number of cells)
-        assert len(p) == len(h) == len(z_NaCl)
-        nc = len(p)
+        p, h, z_NaCl = thermodynamic_input
+        par_points = np.array((z_NaCl,h*h_scale,p*p_scale)).T
+        self.obl.sample_at(par_points)
+        n = len(p)  # same for all input (number of cells)
+
 
         # specific volume of phase
-        v, dv = self.v_func(*thermodynamic_input)  # (n,), (3, n) array
+        v = self.obl.sampled_could.point_data['nu_v']
+        dvdz = self.obl.sampled_could.point_data['grad_nu_v'][:, 0]
+        dvdH = self.obl.sampled_could.point_data['grad_nu_v'][:, 1]*h_scale
+        dvdp = self.obl.sampled_could.point_data['grad_nu_v'][:, 2]*p_scale
+        dv = np.vstack((dvdp,dvdH,dvdz))
 
         # specific enthalpy of phase
-        h, dh = self.h(*thermodynamic_input)  # (n,), (3, n) array
+        h = self.obl.sampled_could.point_data['H_v']
+        dhdz = self.obl.sampled_could.point_data['grad_H_v'][:, 0]
+        dhdH = self.obl.sampled_could.point_data['grad_H_v'][:, 1]*h_scale
+        dhdp = self.obl.sampled_could.point_data['grad_H_v'][:, 2]*p_scale
+        dh = np.vstack((dhdp,dhdH,dhdz))
+
         # dynamic viscosity of phase
-        mu, dmu = self.mu_func(*thermodynamic_input)  # (n,), (3, n) array
+        mu = self.obl.sampled_could.point_data['mu_v']
+        dmudz = self.obl.sampled_could.point_data['grad_mu_v'][:, 0]
+        dmudH = self.obl.sampled_could.point_data['grad_mu_v'][:, 1]*h_scale
+        dmudp = self.obl.sampled_could.point_data['grad_mu_v'][:, 2]*p_scale
+        dmu = np.vstack((dmudp,dmudH,dmudz))
+
         # thermal conductivity of phase
         kappa, dkappa = self.kappa(*thermodynamic_input)  # (n,), (3, n) array
 
         # Fugacity coefficients
         # not required for this formulation, since no equilibrium equations
         # just show-casing it here
-        phis = np.empty((2, nc))  # (2, n) array  (2 components)
+        phis = np.empty((2, n))  # (2, n) array  (2 components)
         dphis = np.empty(
-            (2, 3, nc)
+            (2, 3, n)
         )  # (2, 3, n)  array (2 components, 3 dependencies, n cells)
 
         return ppc.PhaseState(
@@ -387,13 +174,7 @@ class GasLikeTracerCorrelations(ppc.AbstractEoS):
             dphis=dphis,
         )
 
-class LiquidLikeCorrelations:
-    pass
-
-class GasLikeCorrelations:
-    pass
-
-class Brine_H20_NaCl_mixture(ppc.FluidMixtureMixin):
+class FluidMixture(ppc.FluidMixtureMixin):
     """Mixture mixin creating the brine mixture with two components."""
 
     enthalpy: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]
@@ -409,8 +190,11 @@ class Brine_H20_NaCl_mixture(ppc.FluidMixtureMixin):
     def get_phase_configuration(
         self, components: Sequence[ppc.Component]
     ) -> Sequence[tuple[ppc.AbstractEoS, int, str]]:
-        eos_L = LiquidLikeCorrelations(components)
-        eos_G = GasLikeCorrelations(components)
+        eos_L = LiquidDriesnerCorrelations(components)
+        eos_G = GasDriesnerCorrelations(components)
+        # assign common OBL object
+        eos_L.obl = self.obl
+        eos_G.obl = self.obl
         return [(eos_L, 0, "liq"), (eos_G, 1, "gas")]
 
     def dependencies_of_phase_properties(
@@ -451,8 +235,120 @@ class SecondaryEquations(SecondaryEquationsMixin):
     temperature: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]
     """Provided by :class:`~porepy.models.energy_balance.VariablesEnergyBalance`."""
 
+    def gas_saturation_func(self,
+            *thermodynamic_dependencies: np.ndarray,
+    ) -> tuple[np.ndarray, np.ndarray]:
+
+        h_scale = 1.0 / 1000.0
+        p_scale = 1.0 / 100000.0
+        p, h, z_NaCl = thermodynamic_dependencies
+        assert len(p) == len(h) == len(z_NaCl)
+        par_points = np.array((z_NaCl, h * h_scale, p * p_scale)).T
+        self.obl.sample_at(par_points)
+
+        # Gas saturationn
+        S_v = self.obl.sampled_could.point_data['S_v']
+        dS_vdz = self.obl.sampled_could.point_data['grad_S_v'][:, 0]
+        dS_vdH = self.obl.sampled_could.point_data['grad_S_v'][:, 1]*h_scale
+        dS_vdp = self.obl.sampled_could.point_data['grad_S_v'][:, 2]*p_scale
+        dS_v = np.vstack((dS_vdp,dS_vdH,dS_vdz))
+        return S_v, dS_v
+
+    def temperature_func(self,
+            *thermodynamic_dependencies: np.ndarray,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        h_scale = 1.0 / 1000.0
+        p_scale = 1.0 / 100000.0
+        p, h, z_NaCl = thermodynamic_dependencies
+        assert len(p) == len(h) == len(z_NaCl)
+        par_points = np.array((z_NaCl, h * h_scale, p * p_scale)).T
+        self.obl.sample_at(par_points)
+
+        # Gas saturationn
+        T = self.obl.sampled_could.point_data['Temperature']
+        dTdz = self.obl.sampled_could.point_data['grad_Temperature'][:, 0]
+        dTdH = self.obl.sampled_could.point_data['grad_Temperature'][:, 1] * h_scale
+        dTdp = self.obl.sampled_could.point_data['grad_Temperature'][:, 2] * p_scale
+        dT = np.vstack((dTdp, dTdH, dTdz))
+        return T, dT
+
+    def H2O_liq_func(self,
+            *thermodynamic_dependencies: np.ndarray,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        h_scale = 1.0 / 1000.0
+        p_scale = 1.0 / 100000.0
+        p, h, z_NaCl = thermodynamic_dependencies
+        assert len(p) == len(h) == len(z_NaCl)
+        par_points = np.array((z_NaCl, h * h_scale, p * p_scale)).T
+        self.obl.sample_at(par_points)
+
+        # Gas saturationn
+        X_w = 1.0 - self.obl.sampled_could.point_data['Xl']
+        dX_wdz = - self.obl.sampled_could.point_data['grad_Xl'][:, 0]
+        dX_wdH = - self.obl.sampled_could.point_data['grad_Xl'][:, 1] * h_scale
+        dX_wdp = - self.obl.sampled_could.point_data['grad_Xl'][:, 2] * p_scale
+        dX_w = np.vstack((dX_wdp, dX_wdH, dX_wdz))
+        return X_w, dX_w
+
+    def NaCl_liq_func(self,
+            *thermodynamic_dependencies: np.ndarray,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        h_scale = 1.0 / 1000.0
+        p_scale = 1.0 / 100000.0
+        p, h, z_NaCl = thermodynamic_dependencies
+        assert len(p) == len(h) == len(z_NaCl)
+        par_points = np.array((z_NaCl, h * h_scale, p * p_scale)).T
+        self.obl.sample_at(par_points)
+
+        # Gas saturationn
+        X_s = self.obl.sampled_could.point_data['Xl']
+        dX_sdz = self.obl.sampled_could.point_data['grad_Xl'][:, 0]
+        dX_sdH = self.obl.sampled_could.point_data['grad_Xl'][:, 1] * h_scale
+        dX_sdp = self.obl.sampled_could.point_data['grad_Xl'][:, 2] * p_scale
+        dX_s = np.vstack((dX_sdp, dX_sdH, dX_sdz))
+        return X_s, dX_s
+
+    def H2O_gas_func(self,
+            *thermodynamic_dependencies: np.ndarray,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        h_scale = 1.0 / 1000.0
+        p_scale = 1.0 / 100000.0
+        p, h, z_NaCl = thermodynamic_dependencies
+        assert len(p) == len(h) == len(z_NaCl)
+        par_points = np.array((z_NaCl, h * h_scale, p * p_scale)).T
+        self.obl.sample_at(par_points)
+
+        # Gas saturationn
+        X_w = 1.0 - self.obl.sampled_could.point_data['Xv']
+        dX_wdz = - self.obl.sampled_could.point_data['grad_Xv'][:, 0]
+        dX_wdH = - self.obl.sampled_could.point_data['grad_Xv'][:, 1] * h_scale
+        dX_wdp = - self.obl.sampled_could.point_data['grad_Xv'][:, 2] * p_scale
+        dX_w = np.vstack((dX_wdp, dX_wdH, dX_wdz))
+        return X_w, dX_w
+
+    def NaCl_gas_func(self,
+            *thermodynamic_dependencies: np.ndarray,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        h_scale = 1.0 / 1000.0
+        p_scale = 1.0 / 100000.0
+        p, h, z_NaCl = thermodynamic_dependencies
+        assert len(p) == len(h) == len(z_NaCl)
+        par_points = np.array((z_NaCl, h * h_scale, p * p_scale)).T
+        self.obl.sample_at(par_points)
+
+        # Gas saturationn
+        X_s = self.obl.sampled_could.point_data['Xv']
+        dX_sdz = self.obl.sampled_could.point_data['grad_Xv'][:, 0]
+        dX_sdH = self.obl.sampled_could.point_data['grad_Xv'][:, 1] * h_scale
+        dX_sdp = self.obl.sampled_could.point_data['grad_Xv'][:, 2] * p_scale
+        dX_s = np.vstack((dX_sdp, dX_sdH, dX_sdz))
+        return X_s, dX_s
+
     def set_equations(self) -> None:
         subdomains = self.mdg.subdomains()
+
+        chi_functions_map = {'H2O_liq': self.H2O_liq_func, 'NaCl_liq': self.NaCl_liq_func,
+                             'H2O_gas': self.H2O_gas_func, 'NaCl_gas': self.NaCl_gas_func}
 
         ### Providing constitutive law for gas saturation based on correlation
         rphase = self.fluid_mixture.reference_phase  # liquid phase
@@ -465,7 +361,7 @@ class SecondaryEquations(SecondaryEquationsMixin):
                 self.dependencies_of_phase_properties(
                     phase
                 ),  # callables giving primary variables on subdoains
-                gas_saturation_func,  # numerical function implementing correlation
+                self.gas_saturation_func,  # numerical function implementing correlation
                 subdomains,  # all subdomains on which to eliminate s_gas
                 # dofs = {'cells': 1},  # default value
             )
@@ -484,6 +380,6 @@ class SecondaryEquations(SecondaryEquationsMixin):
         self.eliminate_by_constitutive_law(
             self.temperature,
             self.dependencies_of_phase_properties(rphase),  # since same for all.
-            temperature_func,
+            self.temperature_func,
             subdomains,
         )

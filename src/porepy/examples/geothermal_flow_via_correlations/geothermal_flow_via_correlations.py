@@ -31,6 +31,7 @@ import time
 import porepy as pp
 import porepy.composite as ppc
 import TracerConstitutiveDescription
+import BrineConstitutiveDescription
 
 # CompositionalFlow has data savings mixin, composite variables mixin,
 # Solution strategy eliminating local equations with Schur complement and no flash.
@@ -42,6 +43,10 @@ from porepy.models.compositional_flow import (
     InitialConditionsCF,
     PrimaryEquationsCF,
 )
+
+from DriesnerBrineOBL import DriesnerBrineOBL
+
+
 
 class ModelGeometry:
     def set_domain(self) -> None:
@@ -76,7 +81,7 @@ class ModelGeometry:
         return self.params.get("grid_type", "simplex")
 
     def meshing_arguments(self) -> dict:
-        cell_size = self.solid.convert_units(0.1, "m")
+        cell_size = self.solid.convert_units(0.5, "m")
         mesh_args: dict[str, float] = {"cell_size": cell_size}
         return mesh_args
 
@@ -109,7 +114,7 @@ class BoundaryConditions(BoundaryConditionsCF):
         elif self.mdg.dim_max() == 3:
             all, east, west, north, south, top, bottom = self.domain_boundary_sides(boundary_grid)
         p_inlet = 15.0e6
-        p_outlet = 1.0e6
+        p_outlet = 15.0e6
         xcs = boundary_grid.cell_centers.T
         l = 10.0
         def p_D(xc):
@@ -120,8 +125,8 @@ class BoundaryConditions(BoundaryConditionsCF):
         return vals
 
     def bc_values_temperature(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
-        T_inlet = 373.15
-        T_outlet = 773.15
+        T_inlet = 573.15 # 373.15
+        T_outlet = 573.15
         xcs = boundary_grid.cell_centers.T
         l = 10.0
         def T_D(xc):
@@ -132,7 +137,7 @@ class BoundaryConditions(BoundaryConditionsCF):
         return vals
 
     def bc_values_enthalpy(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
-        h_inlet = (3.0e6 / 773.5)*373.15
+        h_inlet = 3.0e6 #(3.0e6 / 573.5)*373.15
         h_outlet = 3.0e6
         xcs = boundary_grid.cell_centers.T
         l = 10.0
@@ -146,7 +151,7 @@ class BoundaryConditions(BoundaryConditionsCF):
     def bc_values_overall_fraction(
         self, component: ppc.Component, boundary_grid: pp.BoundaryGrid
     ) -> np.ndarray:
-        z = 1.0
+        z = 0.1
         if component.name == 'H2O':
             return (1 - z) * np.ones(boundary_grid.num_cells)
         else:
@@ -164,7 +169,7 @@ class BoundaryConditions(BoundaryConditionsCF):
         self, component: ppc.Component, phase: ppc.Phase, boundary_grid: pp.BoundaryGrid
     ) -> np.ndarray:
 
-        z = 1.0
+        z = 0.1
         if component.name == 'H2O':
             return (1 - z) * np.ones(boundary_grid.num_cells)
         else:
@@ -178,7 +183,11 @@ class InitialConditions(InitialConditionsCF):
         return np.ones(sd.num_cells) * p
 
     def initial_temperature(self, sd: pp.Grid) -> np.ndarray:
-        T = 773.15
+        T = 573.15
+        # p = self.init
+        # return self,obl,temperature_func(
+        #     self.ini
+        # )
         return np.ones(sd.num_cells) * T
 
     def initial_enthalpy(self, sd: pp.Grid) -> np.ndarray:
@@ -188,14 +197,18 @@ class InitialConditions(InitialConditionsCF):
     def initial_overall_fraction(
         self, component: ppc.Component, sd: pp.Grid
     ) -> np.ndarray:
-        z = 0.0
+        z = 0.5e-2
         if component.name == 'H2O':
             return (1 - z) * np.ones(sd.num_cells)
         else:
             return z * np.ones(sd.num_cells)
 
-class SecondaryEquations(TracerConstitutiveDescription.SecondaryEquations):
+# class SecondaryEquations(TracerConstitutiveDescription.SecondaryEquations):
+#     pass
+
+class SecondaryEquations(BrineConstitutiveDescription.SecondaryEquations):
     pass
+
 
 class ModelEquations(
     PrimaryEquationsCF,
@@ -221,7 +234,7 @@ class ModelEquations(
 
 class DriesnerBrineFlowModel(
     ModelGeometry,
-    TracerConstitutiveDescription.FluidMixture,
+    BrineConstitutiveDescription.FluidMixture,
     InitialConditions,
     BoundaryConditions,
     ModelEquations,
@@ -236,10 +249,20 @@ class DriesnerBrineFlowModel(
     def after_simulation(self):
         self.exporter.write_pvd()
 
+    @property
+    def obl(self):
+        return self._obl
+
+    @obl.setter
+    def obl(self, obl):
+        self._obl = obl
+
+
+
 day = 86400
 time_manager = pp.TimeManager(
-    schedule=[0, 0.1 * day],
-    dt_init=0.01 * day,
+    schedule=[0, 0.0001 * day],
+    dt_init=0.00001 * day,
     constant_dt=True,
     iter_max=10,
     print_info=True,
@@ -248,7 +271,7 @@ time_manager = pp.TimeManager(
 # Model setup:
 # eliminate reference phase fractions  and reference component.\
 # self.solid.thermal_conductivity(), "solid_thermal_conductivity"
-solid_constants = pp.SolidConstants({"permeability": 1.0e-12, "porosity": 0.25, "thermal_conductivity": 100000.0})
+solid_constants = pp.SolidConstants({"permeability": 1.0e-12, "porosity": 0.25, "thermal_conductivity": 3.0})
 material_constants = {"solid": solid_constants}
 params = {
     "material_constants": material_constants,
@@ -257,10 +280,14 @@ params = {
     "time_manager": time_manager,
     "prepare_simulation":  False,
     "reduce_linear_system_q": False,
-    'nl_convergence_tol': 1.0e-3,
+    'nl_convergence_tol': 1.0e0,
 }
 
 model = DriesnerBrineFlowModel(params)
+file_name = 'binary_files/PHX_l0_with_gradients.vtk'
+brine_obl = DriesnerBrineOBL(file_name)
+model.obl = brine_obl
+aka = 0
 
 tb = time.time()
 model.prepare_simulation()
