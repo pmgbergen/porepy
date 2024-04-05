@@ -42,6 +42,8 @@ class Tpsa:
         mu = stiffness.mu[ci]
         lmbda = stiffness.lmbda[ci]
 
+        cosserat_parameter = np.ones(sd.num_cells)
+
         # Normal vectors and permeability for each face (here and there side)
         n = sd.face_normals[:, fi]
         # Switch signs where relevant
@@ -66,12 +68,13 @@ class Tpsa:
             )
         )
 
-        # Arithmetic average of the shear modulus
+        # Arithmetic average of the shear modulus. Note slight misnomer here due to the
+        # factor 1 - distance (not distance).
         arithmetic_average_shear_modulus = (
             np.bincount(
                 fi, weights=shear_modulus_by_face_cell_distance, minlength=sd.num_cells
             )
-            * dist_cc_cc
+            * (1 - dist_cc_cc)
         )
 
         # The vector difference operator over a face is simply a Kronecker product of
@@ -88,9 +91,21 @@ class Tpsa:
                 shape=(sd.num_faces, sd.num_cells),
             ).tocsr()
         )
-
         cell_to_face_average_nd = sps.kron(
             cell_to_face_average,
+            sps.eye(sd.dim),
+        ).tocsr()
+
+        # Complement average map, defined as 1 - the average map
+        # The copies may not be needed here.
+        indptr = cell_to_face_average.indptr.copy()
+        indices = cell_to_face_average.indices.copy()
+        data = 1 - cell_to_face_average.data.copy()
+        cell_to_face_average_complement = sps.csr_matrix(
+            (data, indices, indptr), shape=cell_to_face_average.shape
+        )
+        cell_to_face_average_complement_nd = sps.kron(
+            cell_to_face_average_complement,
             sps.eye(sd.dim),
         ).tocsr()
 
@@ -124,7 +139,7 @@ class Tpsa:
                 ),
                 shape=(sd.dim * sd.num_faces, sd.num_faces),
             )
-            @ cell_to_face_average
+            @ cell_to_face_average_complement
         )
         mass_displacement = (
             sps.csr_matrix(
@@ -163,7 +178,7 @@ class Tpsa:
 
             Rn_bar = Rn_check
 
-            stress_rotation = -Rn_check @ cell_to_face_average_nd
+            stress_rotation = -Rn_check @ cell_to_face_average_complement_nd
 
         elif sd.dim == 2:
             # In this case, \hat{R}_k^n and \bar{R}_k^n differs, and read, respectively
@@ -190,7 +205,7 @@ class Tpsa:
                 shape=(sd.dim * sd.num_faces, sd.num_faces),
             )
             # TODO: sd.cell_faces must be replaced by weighting
-            stress_rotation = -Rn_hat @ cell_to_face_average
+            stress_rotation = -Rn_hat @ cell_to_face_average_complement
 
         rotation_displacement = -Rn_bar @ cell_to_face_average_nd
 
@@ -226,7 +241,7 @@ class Tpsa:
 if True:
     import porepy as pp
 
-    g = pp.CartGrid([4, 4], [1, 2])
+    g = pp.CartGrid([2, 2], [1, 2])
     g.compute_geometry()
     mu = np.ones(g.num_cells)
 
