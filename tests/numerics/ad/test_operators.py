@@ -1309,8 +1309,8 @@ def test_ad_discretization_class():
 
     # Compare values under parsing. Note we need to pick out the diagonal, due to the
     # way parsing makes block matrices.
-    assert np.allclose(known_val, discr_ad.foobar.parse(mdg).diagonal())
-    assert np.allclose(known_sub_val, sub_discr_ad.foobar.parse(mdg).diagonal())
+    assert np.allclose(known_val, discr_ad.foobar().parse(mdg).diagonal())
+    assert np.allclose(known_sub_val, sub_discr_ad.foobar().parse(mdg).diagonal())
 
 
 ## Below are helpers for tests of the Ad wrappers.

@@ -1,21 +1,6 @@
 """
 This module contains functional tests for approximations to the set of equations
-modeling the 2d and 3d flow in deformable porous media.
-
-The set of equations is non-linear, with the non-linearity entering through the
-dependency of the fluid density with the pressure as given in [1, 2]:
-
-.. math::
-
-    \\rho(p) = \\rho_0 * \\exp(c_f * (p - p_0)),
-
-where :math:`\\rho_0` and :math:`p_0` are the fluid density and pressure at reference
-states, and :math:`c_f` is the (constant) fluid compressibility. For this setup, we
-employ :math:`\\rho_0=1` [kg * m^-3], :math:`c_f=0.02` [Pa^-1], and :math:`p_0=0` [Pa].
-
-The rest of the physical parameters are given unitary values, except, the reference
-porosity :math:`\\phi_{ref}=0.1` [-] and the Biot coefficient :math:`alpha=0.5` [-]. For
-the exact pressure and displacement solutions, we use the ones employed in [3].
+modeling the 2d and 3d flow in non-isothermal deformable porous media.
 
 Tests:
 
@@ -23,20 +8,17 @@ Tests:
       for three different times for 2d and 3d.
 
     [TEST_2] Observed order of convergence (using four levels of refinement for 2d and
-      three levels of refinement for 3d) for primary and secondary variables. Order
-      of convergence using Cartesian grids are tested for 2d and 3d, whereas
-      simplicial grids are limited to 2d.
+      three levels of refinement for 3d) for primary and secondary variables. Order of
+      convergence using Cartesian grids are tested for 2d and 3d, whereas simplicial
+      grids are limited to 2d.
 
 References:
 
     [1] Coussy, O. (2004). Poromechanics. John Wiley & Sons. ISO 690
 
-    [2] Garipov, T. T., & Hui, M. H. (2019). Discrete fracture modeling approach for
-      simulating coupled thermo-hydro-mechanical effects in fractured reservoirs.
-      International Journal of Rock Mechanics and Mining Sciences, 122, 104075.
-
-    [3] Nordbotten, J. M. (2016). Stable cell-centered finite volume discretization
-      for Biot equations. SIAM Journal on Numerical Analysis, 54(2), 942-968.
+    [2] Stefansson, I., Varela, J., Keilegavlen, E. & Berre, I. (2024). Flexible and
+    rigorous numerical modelling of multiphysics processes in fractured porous media
+    using PorePy. Results in applied Mathematics. 21, 100448.
 
 """
 
@@ -49,8 +31,12 @@ import pytest
 
 import porepy as pp
 from porepy.applications.convergence_analysis import ConvergenceAnalysis
-from tests.functional.setups.manu_poromech_nofrac_2d import ManuPoroMechSetup2d
-from tests.functional.setups.manu_poromech_nofrac_3d import ManuPoroMechSetup3d
+from tests.functional.setups.manu_thermoporomech_nofrac_2d import (
+    ManuThermoPoroMechSetup2d,
+)
+from tests.functional.setups.manu_thermoporomech_nofrac_3d import (
+    ManuThermoPoroMechSetup3d,
+)
 
 
 # --> Declaration of module-wide fixtures that are re-used throughout the tests
@@ -75,7 +61,7 @@ def material_constants() -> dict:
 
 # ----> Retrieve actual L2-errors
 @pytest.fixture(scope="module")
-def actual_l2_errors(material_constants: dict) -> list[list[dict[str, float]]]:
+def actual_l2_errors(material_constants) -> list[list[dict[str, float]]]:
     """Run verification setups and retrieve results for the scheduled times.
 
     Parameters:
@@ -94,14 +80,14 @@ def actual_l2_errors(material_constants: dict) -> list[list[dict[str, float]]]:
         "grid_type": "cartesian",
         "material_constants": material_constants,
         "meshing_arguments": {"cell_size": 0.25},
-        "manufactured_solution": "nordbotten_2016",
         "time_manager": pp.TimeManager([0, 0.5, 1.0], 0.5, True),
+        "heterogeneity": 10.0,
     }
 
     # Retrieve actual L2-relative errors.
     errors: list[list[dict[str, float]]] = []
     # Loop through models, i.e., 2d and 3d.
-    for model in [ManuPoroMechSetup2d, ManuPoroMechSetup3d]:
+    for model in [ManuThermoPoroMechSetup2d, ManuThermoPoroMechSetup3d]:
         setup = model(deepcopy(params))  # Make deep copy of params to avoid nasty bugs.
         pp.run_time_dependent_model(setup, {})
         errors_setup: list[dict[str, float]] = []
@@ -110,12 +96,15 @@ def actual_l2_errors(material_constants: dict) -> list[list[dict[str, float]]]:
             errors_setup.append(
                 {
                     "error_pressure": getattr(result, "error_pressure"),
-                    "error_flux": getattr(result, "error_flux"),
+                    "error_darcy_flux": getattr(result, "error_darcy_flux"),
                     "error_displacement": getattr(result, "error_displacement"),
                     "error_force": getattr(result, "error_force"),
+                    "error_temperature": getattr(result, "error_temperature"),
+                    "error_energy_flux": getattr(result, "error_energy_flux"),
                 }
             )
         errors.append(errors_setup)
+
     return errors
 
 
@@ -130,31 +119,38 @@ def desired_l2_errors() -> list[list[dict[str, float]]]:
     """
     desired_errors_2d = [
         {  # t = 0.5 [s]
-            "error_pressure": 0.20711096997503695,
-            "error_flux": 0.10810627224942725,
-            "error_displacement": 0.3953172876400884,
-            "error_force": 0.16377962778847108,
+            "error_pressure": 0.29827252435393803,
+            "error_darcy_flux": 0.1439958241169773,
+            "error_displacement": 0.4058988627472109,
+            "error_force": 0.16888424201570365,
+            "error_temperature": 0.28326347851869543,
+            "error_energy_flux": 0.143777694649805,
         },
         {  # t = 1.0 [s]
-            "error_pressure": 0.1987998797257252,
-            "error_flux": 0.08957210872187034,
-            "error_displacement": 0.3952120364196121,
-            "error_force": 0.1637924594814397,
+            "error_pressure": 0.3010187539654323,
+            "error_darcy_flux": 0.1433298407071359,
+            "error_displacement": 0.4058374630516512,
+            "error_force": 0.16890514221989356,
+            "error_temperature": 0.27340859892936803,
+            "error_energy_flux": 0.14567435981074586,
         },
     ]
-
     desired_errors_3d = [
         {  # t = 0.5 [s]
-            "error_pressure": 0.2164612681791387,
-            "error_flux": 0.10469929694089308,
-            "error_displacement": 0.44379951512274146,
-            "error_force": 0.22059921122808707,
+            "error_pressure": 0.28233484316067864,
+            "error_darcy_flux": 0.15250403155748207,
+            "error_displacement": 0.4482633717525385,
+            "error_force": 0.21455044408871599,
+            "error_temperature": 0.2668424103750087,
+            "error_energy_flux": 0.14699614090181903,
         },
-        {  # t = 1.0[s]
-            "error_pressure": 0.2128131032248365,
-            "error_flux": 0.09661636990837687,
-            "error_displacement": 0.4437474284152431,
-            "error_force": 0.2206087610242069,
+        {  # t = 1.0 [s]
+            "error_pressure": 0.28113090124404544,
+            "error_darcy_flux": 0.1487747552893976,
+            "error_displacement": 0.448144662794714,
+            "error_force": 0.21457738933054352,
+            "error_temperature": 0.2593080002077755,
+            "error_energy_flux": 0.14847494492738805,
         },
     ]
 
@@ -162,7 +158,10 @@ def desired_l2_errors() -> list[list[dict[str, float]]]:
 
 
 @pytest.mark.parametrize("dim_idx", [0, 1])
-@pytest.mark.parametrize("var", ["pressure", "flux", "displacement", "force"])
+@pytest.mark.parametrize(
+    "var",
+    ["pressure", "darcy_flux", "displacement", "force", "temperature", "energy_flux"],
+)
 @pytest.mark.parametrize("time_idx", [0, 1])
 def test_relative_l2_errors_cartesian_grid(
     dim_idx: int,
@@ -184,14 +183,14 @@ def test_relative_l2_errors_cartesian_grid(
         L2-error norm. The desired errors were obtained by running the model using the
         physical constants from :meth:`~material_constants` on a Cartesian grid with 16
         cells in 2d and 64 in 3d. We test the errors for two different times, namely:
-        0.5 [s] and 1.0 [s].
+        0.5 [s],  and 1.0 [s].
 
     Parameters:
         dim_idx: Dimension index acting on the outer list of `actual_l2_errors` and
             `desired_l2_errors`. `0` refers to 2d and `1` to 3d.
         var: Name of the variable to be tested.
         time_idx: Time index acting on the inner lists of 'actual_l2_errors' and
-            'desired_l2_errors'. `0` refers to 0.5 [s], `1` 1.0 [s].
+            'desired_l2_errors'. `0` refers to 0.5 [s], and `1` to 1.0 [s].
         actual_l2_errors: List of lists of dictionaries containing the actual
             L2-relative errors.
         desired_l2_errors: List of lists of dictionaries containing the desired
@@ -236,7 +235,9 @@ def actual_ooc(material_constants: dict) -> list[list[dict[str, float]]]:
     """
     ooc: list[list[dict[str, float]]] = []
     # Loop through the models.
-    for model_idx, model in enumerate([ManuPoroMechSetup2d, ManuPoroMechSetup3d]):
+    for model_idx, model in enumerate(
+        [ManuThermoPoroMechSetup2d, ManuThermoPoroMechSetup3d]
+    ):
         ooc_setup: list[dict[str, float]] = []
         # Loop through grid type.
         for grid_type in ["cartesian", "simplex"]:
@@ -246,10 +247,11 @@ def actual_ooc(material_constants: dict) -> list[list[dict[str, float]]]:
             else:
                 # Use same parameters for both 2d and 3d.
                 params = {
-                    "manufactured_solution": "nordbotten_2016",
                     "grid_type": grid_type,
                     "material_constants": material_constants,
                     "meshing_arguments": {"cell_size": 0.25},
+                    "perturbation": 0.3,
+                    "heterogeneity": 10.0,
                 }
                 # Use 4 levels of refinement for 2d and 3 levels for 3d.
                 if model_idx == 0:
@@ -275,8 +277,6 @@ def actual_ooc(material_constants: dict) -> list[list[dict[str, float]]]:
 
 
 # ----> Set desired order of convergence
-# Skip this test since it is a subset of the test for thermoporomechanics.
-@pytest.mark.skipped
 @pytest.fixture(scope="module")
 def desired_ooc() -> list[list[dict[str, float]]]:
     """Set desired order of convergence.
@@ -287,25 +287,31 @@ def desired_ooc() -> list[list[dict[str, float]]]:
     """
     desired_ooc_2d = [
         {  # Cartesian
-            "ooc_displacement": 1.9927774927713546,
-            "ooc_flux": 2.077738849468982,
-            "ooc_force": 1.5799927442621455,
-            "ooc_pressure": 2.0879033104990397,
+            "ooc_displacement": 2.056709801235223,
+            "ooc_darcy_flux": 1.7001969755444224,
+            "ooc_energy_flux": 1.737188125750453,
+            "ooc_force": 1.4425687190971186,
+            "ooc_pressure": 2.1102255203961358,
+            "ooc_temperature": 2.310453793430966,
         },
         {  # simplex
-            "ooc_displacement": 2.0726576718996013,
-            "ooc_flux": 1.724210954734997,
-            "ooc_force": 1.5685088977053996,
-            "ooc_pressure": 2.0484193056991544,
+            "ooc_displacement": 2.0903886074133236,
+            "ooc_darcy_flux": 1.5662133051661693,
+            "ooc_energy_flux": 1.5864494813545396,
+            "ooc_force": 1.4820831222977098,
+            "ooc_pressure": 1.9846518952465777,
+            "ooc_temperature": 2.1924242696392753,
         },
     ]
 
     desired_ooc_3d = [
         {  # Cartesian
-            "ooc_displacement": 1.937336984736465,
-            "ooc_flux": 2.0646358924022863,
-            "ooc_force": 1.2933666910552015,
-            "ooc_pressure": 2.097775030326012,
+            "ooc_displacement": 2.0401748849429717,
+            "ooc_darcy_flux": 1.2226767170350672,
+            "ooc_energy_flux": 1.3090025057692818,
+            "ooc_force": 1.2472669444997415,
+            "ooc_pressure": 2.038904548181216,
+            "ooc_temperature": 2.2095880011696294,
         }
     ]
 
@@ -313,8 +319,11 @@ def desired_ooc() -> list[list[dict[str, float]]]:
 
 
 @pytest.mark.skipped  # reason: slow
-@pytest.mark.parametrize("var", ["pressure", "flux", "displacement", "force"])
-@pytest.mark.parametrize("grid_type_idx", [0, 1])
+@pytest.mark.parametrize(
+    "var",
+    ["pressure", "darcy_flux", "displacement", "force", "temperature", "energy_flux"],
+)
+@pytest.mark.parametrize("grid_type_idx", [0])
 @pytest.mark.parametrize("dim_idx", [0, 1])
 def test_order_of_convergence(
     var: str,

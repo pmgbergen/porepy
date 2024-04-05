@@ -131,8 +131,16 @@ class SecondOrderTensor(object):
         """
         self.values = np.tensordot(R.T, np.tensordot(R, self.values, (1, 0)), (0, 1))
 
+    def __str__(self) -> str:
+        # While the tensor is always initiated as 3x3 on each cell, it may be restricted
+        # to 2x2, e.g., to comply with assumptions underlying the mpfa implementation.
+        # Thus we report on the tensor shape, in addition ot the number of cells.
+        s = f"Second order tensor of shape {self.values.shape[:2]}"
+        s += f" defined on {self.values.shape[2]} cells"
+        return s
 
-# ----------------------------------------------------------------------#
+    def __repr__(self) -> str:
+        return self.__str__()
 
 
 class FourthOrderTensor(object):
@@ -250,3 +258,26 @@ class FourthOrderTensor(object):
         C = FourthOrderTensor(mu=self.mu, lmbda=self.lmbda)
         C.values = self.values.copy()
         return C
+
+    def __str__(self) -> str:
+        s = f"Fourth order tensor defined on {self.values.shape[2]} cells.\n"
+
+        # During discretization (e.g., mpsa), the original 3x3x3x3 may be restricted to
+        # 2d, thus (2, 2, 2, 2), to comply with assumptions in the implementation of the
+        # discretization. Therefore, we report on the shape of the tensor. The notation
+        # below acknowledges the full fourth-order nature of this tensor (as opposed to
+        # the storage format in self.values, which joins two and two dimensions).
+        if self.values.shape[:2] == (4, 4):
+            s += f"Each cell has a tensor of shape (2, 2, 2, 2)"
+        elif self.values.shape[:2] == (9, 9):
+            s += f"Each cell has a tensor of shape (3, 3, 3, 3)"
+        else:
+            # In EK's understanding, this should never happen. Give a fair description
+            # of the situation, and hope the user knows what is going on.
+            s += f"The tensor has shape {self.values[:, :, 0].shape}."
+            s += "It is unclear how this came about."
+
+        return s
+
+    def __repr__(self) -> str:
+        return self.__str__()

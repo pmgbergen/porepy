@@ -24,6 +24,7 @@ Example:
 from __future__ import annotations
 
 import abc
+from typing import Callable
 
 import porepy as pp
 from porepy.utils.porepy_types import discretization_type
@@ -34,9 +35,6 @@ __all__ = [
     "Discretization",
     "BiotAd",
     "MpsaAd",
-    "GradPAd",
-    "DivUAd",
-    "BiotStabilizationAd",
     "MpfaAd",
     "TpfaAd",
     "UpwindAd",
@@ -94,11 +92,9 @@ class BiotAd(Discretization):
 
     """
 
-    def __init__(
-        self, keyword: str, subdomains: list[pp.Grid], flow_keyword: str = "flow"
-    ) -> None:
+    def __init__(self, keyword: str, subdomains: list[pp.Grid]) -> None:
         self.subdomains = subdomains
-        self._discretization = pp.Biot(keyword, flow_keyword)
+        self._discretization = pp.Biot(keyword)
         self._name = "BiotMpsa"
 
         self.keyword = keyword
@@ -106,22 +102,33 @@ class BiotAd(Discretization):
         # Declare attributes, these will be initialized by the below call to the
         # discretization wrapper.
 
-        self.stress: MergedOperator
-        self.bound_stress: MergedOperator
-        self.bound_displacement_cell: MergedOperator
-        self.bound_displacement_face: MergedOperator
+        self.stress: Callable[[], MergedOperator]
+        self.bound_stress: Callable[[], MergedOperator]
+        self.bound_displacement_cell: Callable[[], MergedOperator]
+        self.bound_displacement_face: Callable[[], MergedOperator]
 
-        self.div_u: MergedOperator
-        self.bound_div_u: MergedOperator
-        self.grad_p: MergedOperator
-        self.stabilization: MergedOperator
-        self.bound_pressure: MergedOperator
+        # Attributes for the coupling terms
+        self.displacement_divergence: Callable[[str], MergedOperator]
+        self.bound_displacement_divergence: Callable[[str], MergedOperator]
+        self.scalar_gradient: Callable[[str], MergedOperator]
+        self.consistency: Callable[[str], MergedOperator]
+        self.bound_pressure: Callable[[str], MergedOperator]
+
+        # The following are keywords used to identify the coupling terms constructed
+        # by a Biot discretization.
+        coupling_terms = [
+            "displacement_divergence",
+            "bound_displacement_divergence",
+            "scalar_gradient",
+            "bound_pressure",
+            "consistency",
+        ]
 
         wrap_discretization(
             obj=self,
             discr=self._discretization,
             subdomains=subdomains,
-            mat_dict_key=self.keyword,
+            coupling_terms=coupling_terms,
         )
 
 
@@ -136,55 +143,10 @@ class MpsaAd(Discretization):
         # Declare attributes, these will be initialized by the below call to the
         # discretization wrapper.
 
-        self.stress: MergedOperator
-        self.bound_stress: MergedOperator
-        self.bound_displacement_cell: MergedOperator
-        self.bound_displacement_face: MergedOperator
-
-        wrap_discretization(self, self._discretization, subdomains=subdomains)
-
-
-class GradPAd(Discretization):
-    def __init__(self, keyword: str, subdomains: list[pp.Grid]) -> None:
-        self.subdomains = subdomains
-        self._discretization = pp.GradP(keyword)
-        self._name = "GradP from Biot"
-        self.keyword = keyword
-
-        self.grad_p: MergedOperator
-
-        wrap_discretization(self, self._discretization, subdomains=subdomains)
-
-
-class DivUAd(Discretization):
-    def __init__(
-        self, keyword: str, subdomains: list[pp.Grid], mat_dict_keyword: str
-    ) -> None:
-        self.subdomains = subdomains
-        self._discretization = pp.DivU(keyword, mat_dict_keyword)
-
-        self._name = "DivU from Biot"
-        self.keyword = mat_dict_keyword
-
-        self.div_u: MergedOperator
-        self.bound_div_u: MergedOperator
-
-        wrap_discretization(
-            self,
-            self._discretization,
-            subdomains=subdomains,
-            mat_dict_key=mat_dict_keyword,
-        )
-
-
-class BiotStabilizationAd(Discretization):
-    def __init__(self, keyword: str, subdomains: list[pp.Grid]) -> None:
-        self.subdomains = subdomains
-        self._discretization = pp.BiotStabilization(keyword)
-        self._name = "Biot stabilization term"
-        self.keyword = keyword
-
-        self.stabilization: MergedOperator
+        self.stress: Callable[[], MergedOperator]
+        self.bound_stress: Callable[[], MergedOperator]
+        self.bound_displacement_cell: Callable[[], MergedOperator]
+        self.bound_displacement_face: Callable[[], MergedOperator]
 
         wrap_discretization(self, self._discretization, subdomains=subdomains)
 
@@ -199,12 +161,12 @@ class MpfaAd(Discretization):
         self._name = "Mpfa"
         self.keyword = keyword
 
-        self.flux: MergedOperator
-        self.bound_flux: MergedOperator
-        self.bound_pressure_cell: MergedOperator
-        self.bound_pressure_face: MergedOperator
-        self.vector_source: MergedOperator
-        self.bound_pressure_vector_source: MergedOperator
+        self.flux: Callable[[], MergedOperator]
+        self.bound_flux: Callable[[], MergedOperator]
+        self.bound_pressure_cell: Callable[[], MergedOperator]
+        self.bound_pressure_face: Callable[[], MergedOperator]
+        self.vector_source: Callable[[], MergedOperator]
+        self.bound_pressure_vector_source: Callable[[], MergedOperator]
 
         wrap_discretization(self, self._discretization, subdomains=subdomains)
 
@@ -216,12 +178,12 @@ class TpfaAd(Discretization):
         self._name = "Tpfa"
         self.keyword = keyword
 
-        self.flux: MergedOperator
-        self.bound_flux: MergedOperator
-        self.bound_pressure_cell: MergedOperator
-        self.bound_pressure_face: MergedOperator
-        self.vector_source: MergedOperator
-        self.bound_pressure_vector_source: MergedOperator
+        self.flux: Callable[[], MergedOperator]
+        self.bound_flux: Callable[[], MergedOperator]
+        self.bound_pressure_cell: Callable[[], MergedOperator]
+        self.bound_pressure_face: Callable[[], MergedOperator]
+        self.vector_source: Callable[[], MergedOperator]
+        self.bound_pressure_vector_source: Callable[[], MergedOperator]
 
         wrap_discretization(self, self._discretization, subdomains=subdomains)
 
@@ -233,9 +195,9 @@ class UpwindAd(Discretization):
         self._name = "Upwind"
         self.keyword = keyword
 
-        self.upwind: MergedOperator
-        self.bound_transport_dir: MergedOperator
-        self.bound_transport_neu: MergedOperator
+        self.upwind: Callable[[], MergedOperator]
+        self.bound_transport_dir: Callable[[], MergedOperator]
+        self.bound_transport_neu: Callable[[], MergedOperator]
         wrap_discretization(self, self._discretization, subdomains=subdomains)
 
 
@@ -248,10 +210,10 @@ class UpwindCouplingAd(Discretization):
 
         # UpwindCoupling also has discretization matrices for (inverse) trace.
         # These are not needed for Ad version since ad.Trace should be used instead
-        self.mortar_discr: MergedOperator
-        self.flux: MergedOperator
-        self.upwind_primary: MergedOperator
-        self.upwind_secondary: MergedOperator
+        self.mortar_discr: Callable[[], MergedOperator]
+        self.flux: Callable[[], MergedOperator]
+        self.upwind_primary: Callable[[], MergedOperator]
+        self.upwind_secondary: Callable[[], MergedOperator]
         wrap_discretization(self, self._discretization, interfaces=interfaces)
 
     def __repr__(self) -> str:

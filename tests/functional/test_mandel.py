@@ -4,14 +4,15 @@ Module containing functional tests for Mandel's problem.
 We consider two functional tests:
 
     - The first test compares desired and actual relative errors for the pressure,
-      displacement, flux, poroelastic force, and degrees of consolidation, for three
-      different times, namely 10, 30, and 50 seconds.
+      displacement, flux, poroelastic force, and degrees of consolidation, for two
+      different times, namely 25 and 50 seconds.
 
     - The second test checks that the same errors for pressure and displacement (up to
       5 decimals) are obtained for scaled and unscaled problems. Scaling is
       performed for length and mass.
 
 """
+
 from __future__ import annotations
 
 from collections import namedtuple
@@ -36,7 +37,7 @@ def results() -> list[MandelSaveData]:
         "fluid": pp.FluidConstants(mandel_fluid_constants),
         "solid": pp.SolidConstants(mandel_solid_constants),
     }
-    time_manager = pp.TimeManager([0, 10, 30, 50], 10, True)
+    time_manager = pp.TimeManager([0, 25, 50], 25, True)
     params = {
         "material_constants": material_constants,
         "time_manager": time_manager,
@@ -57,34 +58,26 @@ DesiredError = namedtuple(
 )
 
 desired_errors: list[DesiredError] = [
-    # t = 10 [s]
+    # t = 25 [s]
     DesiredError(
-        error_pressure=0.020915626239924504,
-        error_flux=0.4673715742577367,
-        error_displacement=0.00036006562251599753,
-        error_force=0.006174477658138146,
-        error_consolidation_degree=(0.004112823366753098, 2.983724378680108e-16),
-    ),
-    # t = 30 [s]
-    DesiredError(
-        error_pressure=0.01002508912855953,
-        error_flux=0.11759895811865957,
-        error_displacement=0.0003363008805572937,
-        error_force=0.003024676802218547,
-        error_consolidation_degree=(0.002324983805104465, 2.983724378680108e-16),
+        error_pressure=0.02468899282842615,
+        error_flux=0.4277241964548815,
+        error_displacement=0.0007426275934204356,
+        error_force=0.007199561782640474,
+        error_consolidation_degree=(0.005794353839056594, 2.983724378680108e-16),
     ),
     # t = 50 [s]
     DesiredError(
-        error_pressure=0.007059420526689479,
-        error_flux=0.06788475278093752,
-        error_displacement=0.0003094287000315224,
-        error_force=0.002150211938046511,
-        error_consolidation_degree=(0.0018043500295539042, 2.983724378680108e-16),
+        error_pressure=0.01604388082216944,
+        error_flux=0.17474770500364722,
+        error_displacement=0.000710048736369786,
+        error_force=0.0047015988044755526,
+        error_consolidation_degree=(0.004196023265526011, 2.983724378680108e-16),
     ),
 ]
 
 
-@pytest.mark.parametrize("time_index", [0, 1, 2])
+@pytest.mark.parametrize("time_index", [0, 1])
 def test_error_primary_and_secondary_variables(time_index: int, results):
     """Checks error for pressure, displacement, flux, force, and consolidation degree.
 
