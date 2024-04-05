@@ -21,6 +21,7 @@ class Tpsa:
         self.stress_volumetric_strain_matrix_key: str = "pressure_stress"
 
         self.rotation_displacement_matrix_key: str = "rotation_displacement"
+        self.rotation_diffusion_matrix_key: str = "rotation_diffusion"
 
         self.mass_volumetric_strain_matrix_key = "pressure_pressure"
         # TODO: Need a name for the equaiton for the (solid) pressure. Volumetric
@@ -42,7 +43,7 @@ class Tpsa:
         mu = stiffness.mu[ci]
         lmbda = stiffness.lmbda[ci]
 
-        cosserat_parameter = np.ones(sd.num_cells)
+        cosserat_parameter = np.ones(sd.num_cells)[ci]
 
         # Normal vectors and permeability for each face (here and there side)
         n = sd.face_normals[:, fi]
@@ -59,14 +60,17 @@ class Tpsa:
         ## Harmonic average of the shear modulus
         #
         shear_modulus_by_face_cell_distance = mu / dist_fc_cc
-        t = (
-            2
+        t_shear = (
+            1
             / np.bincount(
                 fi,
                 weights=1 / shear_modulus_by_face_cell_distance,
                 minlength=sd.num_faces,
             )
         )
+        cosserat_parameter_by_face_cell_distance = cosserat_parameter / dist_fc_cc
+        # Take the harmonic average of the Cosserat parameter
+        t_cosserat = (1 / np.bincount(fi, weights=1 / cosserat_parameter_by_face_cell_distance, minlength=sd.num_faces))
 
         # Arithmetic average of the shear modulus. Note slight misnomer here due to the
         # factor 1 - distance (not distance).
@@ -74,7 +78,7 @@ class Tpsa:
             np.bincount(
                 fi, weights=shear_modulus_by_face_cell_distance, minlength=sd.num_cells
             )
-            * (1 - dist_cc_cc)
+            * dist_cc_cc
         )
 
         # The vector difference operator over a face is simply a Kronecker product of
@@ -119,7 +123,7 @@ class Tpsa:
                 shape=(sd.num_faces * sd.dim, sd.num_faces * sd.dim),
             )
             @ sps.coo_matrix(  # Note minus sign
-                (t[np.repeat(fi, sd.dim)] * np.repeat(sgn, sd.dim), (row, col)),
+                (2 * t_shear[np.repeat(fi, sd.dim)] * np.repeat(sgn, sd.dim), (row, col)),
                 shape=(sd.num_faces * sd.dim, sd.num_cells * sd.dim),
             ).tocsr()
         )
@@ -180,6 +184,17 @@ class Tpsa:
 
             stress_rotation = -Rn_check @ cell_to_face_average_complement_nd
 
+            rotation_diffusion = -(
+                sps.dia_matrix(
+                    (np.repeat(sd.face_areas, sd.dim), 0),
+                    shape=(sd.num_faces * sd.dim, sd.num_faces * sd.dim),
+                )
+                @ sps.coo_matrix(  # Note minus sign
+                    (t_cosserat[np.repeat(fi, sd.dim)] * np.repeat(sgn, sd.dim), (row, col)),
+                    shape=(sd.num_faces * sd.dim, sd.num_cells * sd.dim),
+                    ).tocsr()
+            )
+
         elif sd.dim == 2:
             # In this case, \hat{R}_k^n and \bar{R}_k^n differs, and read, respectively
             # \hat{R}_k^n = [[n2], [-n1]], \bar{R}_k^n = [-n2, n1].
@@ -207,6 +222,17 @@ class Tpsa:
             # TODO: sd.cell_faces must be replaced by weighting
             stress_rotation = -Rn_hat @ cell_to_face_average_complement
 
+            rotation_diffusion = -(
+                sps.dia_matrix((
+                    sd.face_areas, 0),
+                    shape=(sd.num_faces, sd.num_faces),
+                )
+                @ sps.coo_matrix(  # Note minus sign
+                    (t_cosserat[fi] * sgn, (fi, ci)),
+                    shape=(sd.num_faces, sd.num_cells),
+                    ).tocsr()
+            )            
+
         rotation_displacement = -Rn_bar @ cell_to_face_average_nd
 
         # TODO: Cosserat model
@@ -232,6 +258,7 @@ class Tpsa:
             stress_volumetric_strain
         )
         matrix_dictionary[self.rotation_displacement_matrix_key] = rotation_displacement
+        matrix_dictionary[self.rotation_diffusion_matrix_key] = rotation_diffusion
         matrix_dictionary[self.mass_volumetric_strain_matrix_key] = (
             mass_volumetric_strain
         )
