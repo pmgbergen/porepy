@@ -83,8 +83,7 @@ def actual_l2_errors(material_constants: dict) -> list[list[dict[str, float]]]:
         List of lists of dictionaries of actual relative errors. The outer list contains
         two items, the first contains the results for 2d and the second contains the
         results for 3d. Both inner lists contain two items each, each of which is a
-        dictionary of results for the scheduled times, i.e., 0.5 [s], and
-        1.0 [s].
+        dictionary of results for the scheduled times, i.e., 0.5 [s], and 1.0 [s].
 
     """
 
