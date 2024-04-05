@@ -50,7 +50,7 @@ from DriesnerBrineOBL import DriesnerBrineOBL
 
 class ModelGeometry:
     def set_domain(self) -> None:
-        dimension = 2
+        dimension = 3
         size_x = self.solid.convert_units(10, "m")
         size_y = self.solid.convert_units(1, "m")
         size_z = self.solid.convert_units(1, "m")
@@ -65,17 +65,17 @@ class ModelGeometry:
 
         self._domain = pp.Domain(box)
 
-    def set_fractures(self) -> None:
-        frac_1_points = self.solid.convert_units(
-            np.array([[0.2, 0.8], [0.2, 0.8]]), "m"
-        )
-        frac_1 = pp.LineFracture(frac_1_points)
-
-        frac_2_points = self.solid.convert_units(
-            np.array([[0.2, 0.8], [0.8, 0.2]]), "m"
-        )
-        frac_2 = pp.LineFracture(frac_2_points)
-        self._fractures = [frac_1, frac_2]
+    # def set_fractures(self) -> None:
+    #     frac_1_points = self.solid.convert_units(
+    #         np.array([[0.2, 0.8], [0.2, 0.8]]), "m"
+    #     )
+    #     frac_1 = pp.LineFracture(frac_1_points)
+    #
+    #     frac_2_points = self.solid.convert_units(
+    #         np.array([[0.2, 0.8], [0.8, 0.2]]), "m"
+    #     )
+    #     frac_2 = pp.LineFracture(frac_2_points)
+    #     self._fractures = [frac_1, frac_2]
 
     def grid_type(self) -> str:
         return self.params.get("grid_type", "simplex")
