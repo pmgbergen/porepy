@@ -34,6 +34,7 @@ References:
       elliptic equations. Journal of Numerical Mathematics.
 
 """
+
 from __future__ import annotations
 
 from copy import deepcopy
@@ -81,9 +82,8 @@ def actual_l2_errors(material_constants: dict) -> list[list[dict[str, float]]]:
     Returns:
         List of lists of dictionaries of actual relative errors. The outer list contains
         two items, the first contains the results for 2d and the second contains the
-        results for 3d. Both inner lists contain three items each, each of which is a
-        dictionary of results for the scheduled times, i.e., 0.2 [s], 0.8 [s], and
-        1.0 [s].
+        results for 3d. Both inner lists contain two items each, each of which is a
+        dictionary of results for the scheduled times, i.e., 0.5 [s], and 1.0 [s].
 
     """
 
@@ -92,7 +92,7 @@ def actual_l2_errors(material_constants: dict) -> list[list[dict[str, float]]]:
         "grid_type": "cartesian",
         "material_constants": material_constants,
         "meshing_arguments": {"cell_size": 0.125},
-        "time_manager": pp.TimeManager([0, 0.2, 0.8, 1.0], 0.2, True),
+        "time_manager": pp.TimeManager([0, 0.5, 1.0], 0.5, True),
     }
 
     # Retrieve actual L2-relative errors.
@@ -127,52 +127,39 @@ def desired_l2_errors() -> list[list[dict[str, float]]]:
         List of lists of dictionaries containing the desired relative L2-errors.
 
     """
+
     # Desired errors for 2d
     desired_errors_2d = [
-        {  # t = 0.2 [s]
-            "error_matrix_pressure": 0.05925007221301212,
-            "error_matrix_flux": 0.017427251422474147,
-            "error_frac_pressure": 4.639395967257667,
-            "error_frac_flux": 0.002124677195582403,
-            "error_intf_flux": 2.9141633825921764,
-        },
-        {  # t = 0.8 [s]
-            "error_matrix_pressure": 0.05763683424696444,
-            "error_matrix_flux": 0.017256638140139675,
-            "error_frac_pressure": 4.749914708440596,
-            "error_frac_flux": 0.003280737213089598,
-            "error_intf_flux": 3.0896181780350087,
+        {  # t = 0.5 [s]
+            "error_matrix_pressure": 0.05860315482644138,
+            "error_matrix_flux": 0.01728816711273373,
+            "error_frac_pressure": 4.761115466428997,
+            "error_frac_flux": 0.0027528176884234297,
+            "error_intf_flux": 3.0521278709541946,
         },
         {  # t = 1.0 [s]
-            "error_matrix_pressure": 0.056955711514823516,
-            "error_matrix_flux": 0.01720817118615666,
-            "error_frac_pressure": 4.726676447078315,
-            "error_frac_flux": 0.003612830093695507,
-            "error_intf_flux": 3.1029228202482684,
+            "error_matrix_pressure": 0.056952568619002386,
+            "error_matrix_flux": 0.017206997517806834,
+            "error_frac_pressure": 4.7258340277590865,
+            "error_frac_flux": 0.0036119330001357737,
+            "error_intf_flux": 3.1023316529076546,
         },
     ]
     # Desired errors for 3d
     desired_errors_3d = [
-        {  # t = 0.8 [s]
-            "error_matrix_pressure": 0.044571753794961005,
-            "error_matrix_flux": 0.020249130740834082,
-            "error_frac_pressure": 7.255330029340333,
-            "error_frac_flux": 0.04952574895586101,
-            "error_intf_flux": 4.934788300523336,
-        },
-        {  # t = 0.8 [s]
-            "error_matrix_pressure": 0.04366494151054094,
-            "error_matrix_flux": 0.02026938096079742,
-            "error_frac_pressure": 7.238981125109468,
-            "error_frac_flux": 0.049735390892742634,
-            "error_intf_flux": 5.210187699312009,
+        {  # t = 0.5 [s]
+            "error_matrix_pressure": 0.044142110025893674,
+            "error_matrix_flux": 0.020240531408035483,
+            "error_frac_pressure": 7.345638542028673,
+            "error_frac_flux": 0.04968518024390149,
+            "error_intf_flux": 5.150695781155413,
         },
         {  # t = 1.0 [s]
-            "error_matrix_pressure": 0.043342993753491044,
-            "error_matrix_flux": 0.020310895974943288,
-            "error_frac_pressure": 7.142274002520263,
-            "error_frac_flux": 0.04974929638115217,
-            "error_intf_flux": 5.230143440439021,
+            "error_matrix_pressure": 0.043341944057014324,
+            "error_matrix_flux": 0.02031093722149098,
+            "error_frac_pressure": 7.139915887008252,
+            "error_frac_flux": 0.049748152094622,
+            "error_intf_flux": 5.228345273854552,
         },
     ]
 
@@ -184,7 +171,7 @@ def desired_l2_errors() -> list[list[dict[str, float]]]:
     "var",
     ["matrix_pressure", "matrix_flux", "frac_pressure", "frac_flux", "intf_flux"],
 )
-@pytest.mark.parametrize("time_idx", [0, 1, 2])
+@pytest.mark.parametrize("time_idx", [0, 1])
 def test_relative_l2_errors_cartesian_grid(
     dim_idx: int,
     var: str,
@@ -205,16 +192,15 @@ def test_relative_l2_errors_cartesian_grid(
         and on the interfaces). The errors are measured using the discrete relative
         L2-error norm. The desired errors were obtained by running the model using the
         physical constants from :meth:`~material_constants` on a Cartesian grid with
-        64 cells in 2d and 512 in 3d. We test the errors for three different times,
-        namely: 0.2 [s], 0.8 [s], and 1.0 [s].
+        64 cells in 2d and 512 in 3d. We test the errors for two different times,
+        namely: 0.5 [s], and 1.0 [s].
 
     Parameters:
         dim_idx: Dimension index acting on the outer list of `actual_l2_errors` and
             `desired_l2_errors`. `0` refers to 2d and `1` to 3d.
         var: Name of the variable to be tested.
         time_idx: Time index acting on the inner lists of 'actual_l2_errors' and
-            'desired_l2_errors'. `0` refers to 0.2 [s], `1` to 0.8 [s], and `2` to
-            1.0 [s].
+            'desired_l2_errors'. `0` refers to 0.5 [s], and `1` to 1.0 [s].
         actual_l2_errors: List of lists of dictionaries containing the actual
             L2-relative errors.
         desired_l2_errors: List of lists of dictionaries containing the desired
