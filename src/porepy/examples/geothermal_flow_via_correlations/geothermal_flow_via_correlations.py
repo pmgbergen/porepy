@@ -50,7 +50,7 @@ from DriesnerBrineOBL import DriesnerBrineOBL
 
 class ModelGeometry:
     def set_domain(self) -> None:
-        dimension = 3
+        dimension = 2
         size_x = self.solid.convert_units(10, "m")
         size_y = self.solid.convert_units(1, "m")
         size_z = self.solid.convert_units(1, "m")
@@ -65,17 +65,29 @@ class ModelGeometry:
 
         self._domain = pp.Domain(box)
 
-    # def set_fractures(self) -> None:
-    #     frac_1_points = self.solid.convert_units(
-    #         np.array([[0.2, 0.8], [0.2, 0.8]]), "m"
-    #     )
-    #     frac_1 = pp.LineFracture(frac_1_points)
-    #
-    #     frac_2_points = self.solid.convert_units(
-    #         np.array([[0.2, 0.8], [0.8, 0.2]]), "m"
-    #     )
-    #     frac_2 = pp.LineFracture(frac_2_points)
-    #     self._fractures = [frac_1, frac_2]
+    def set_fractures(self) -> None:
+
+        cross_fractures = np.array([[[0.2, 0.8], [0.2, 0.8]],[[0.2, 0.8], [0.8, 0.2]]])
+        disjoint_set = []
+        dx = 1.0
+        for i in range(10):
+            chunk = cross_fractures.copy()
+            chunk[:,0,:] = chunk[:,0,:] + dx * (i)
+            disjoint_set.append(chunk[0])
+            disjoint_set.append(chunk[1])
+
+        disjoint_fractures = [pp.LineFracture(self.solid.convert_units(fracture_pts, "m"))
+                              for fracture_pts in disjoint_set]
+        # frac_1_points = self.solid.convert_units(
+        #     np.array([[0.2, 0.8], [0.2, 0.8]]), "m"
+        # )
+        # frac_1 = pp.LineFracture(frac_1_points)
+        #
+        # frac_2_points = self.solid.convert_units(
+        #     np.array([[0.2, 0.8], [0.8, 0.2]]), "m"
+        # )
+        # frac_2 = pp.LineFracture(frac_2_points)
+        self._fractures = disjoint_fractures
 
     def grid_type(self) -> str:
         return self.params.get("grid_type", "simplex")
@@ -113,37 +125,48 @@ class BoundaryConditions(BoundaryConditionsCF):
             all, east, west, north, south, top, bottom = self.domain_boundary_sides(boundary_grid)
         elif self.mdg.dim_max() == 3:
             all, east, west, north, south, top, bottom = self.domain_boundary_sides(boundary_grid)
-        p_inlet = 15.0e6
-        p_outlet = 15.0e6
+        p_inlet = 20.0e6
+        p_outlet = 20.0e6
         xcs = boundary_grid.cell_centers.T
         l = 10.0
         def p_D(xc):
             x, y, z = xc
             return p_inlet * (1 - x/l) + p_outlet * (x/l)
         p_D_iter = map(p_D, xcs)
-        vals = np.fromiter(p_D_iter,dtype=float)
-        return vals
+        p_D_vals = np.fromiter(p_D_iter,dtype=float)
+        return p_D_vals
 
     def bc_values_enthalpy(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
-        h_inlet = 3.0e6 #(3.0e6 / 573.5)*373.15
-        h_outlet = 3.0e6
-        xcs = boundary_grid.cell_centers.T
-        l = 10.0
-        def h_D(xc):
-            x, y, z = xc
-            return h_inlet * (1 - x/l) + h_outlet * (x/l)
-        h_D_iter = map(h_D, xcs)
-        vals = np.fromiter(h_D_iter,dtype=float)
-        return vals
+        if self.mdg.dim_max() == 2:
+            all, east, west, north, south, top, bottom = self.domain_boundary_sides(
+                boundary_grid)
+        elif self.mdg.dim_max() == 3:
+            all, east, west, north, south, top, bottom = self.domain_boundary_sides(
+                boundary_grid)
+        h_init = 2.5e6
+        h_inlet = 2.5e6
+        h = h_init * np.ones(boundary_grid.num_cells)
+        h[west] = h_inlet
+        return h
 
     def bc_values_overall_fraction(
         self, component: ppc.Component, boundary_grid: pp.BoundaryGrid
     ) -> np.ndarray:
-        z = 0.1
+        if self.mdg.dim_max() == 2:
+            all, east, west, north, south, top, bottom = self.domain_boundary_sides(boundary_grid)
+        elif self.mdg.dim_max() == 3:
+            all, east, west, north, south, top, bottom = self.domain_boundary_sides(boundary_grid)
+        z_init = 0.2
+        z_inlet = 0.2#0.5e-2
         if component.name == 'H2O':
-            return (1 - z) * np.ones(boundary_grid.num_cells)
+            z_H2O = (1 - z_init) * np.ones(boundary_grid.num_cells)
+            z_H2O[west] = (1-z_inlet)
+            return z_H2O
         else:
-            return z * np.ones(boundary_grid.num_cells)
+            z_NaCl = z_init * np.ones(boundary_grid.num_cells)
+            z_NaCl[west] = z_inlet
+            return z_NaCl
+
 
     def bc_values_saturation(
         self, phase: ppc.Phase, boundary_grid: pp.BoundaryGrid
@@ -152,9 +175,16 @@ class BoundaryConditions(BoundaryConditionsCF):
         # adhoc functional programming for BC consistency
         h_scale = 1.0 / 1000.0
         p_scale = 1.0 / 100000.0
-        p = self.bc_values_pressure(boundary_grid)
-        h = self.bc_values_enthalpy(boundary_grid)
-        z_NaCl = 0.1 * np.ones_like(p)
+        p = self.intial_pressure(boundary_grid)
+        h = self.initial_enthalpy(boundary_grid)
+        if self.mdg.dim_max() == 2:
+            all, east, west, north, south, top, bottom = self.domain_boundary_sides(boundary_grid)
+        elif self.mdg.dim_max() == 3:
+            all, east, west, north, south, top, bottom = self.domain_boundary_sides(boundary_grid)
+        z_init = 0.2
+        z_inlet = 0.2#0.5e-2
+        z_NaCl = z_init * np.ones_like(p)
+        z_NaCl[west] = z_inlet
         par_points = np.array((z_NaCl,h*h_scale,p*p_scale)).T
         self.obl.sample_at(par_points)
         if phase.name == 'liq':
@@ -165,16 +195,23 @@ class BoundaryConditions(BoundaryConditionsCF):
             return s_v
 
     def bc_values_temperature(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
-        # adhoc functional programming for BC consistency
-        h_scale = 1.0 / 1000.0
-        p_scale = 1.0 / 100000.0
-        p = self.bc_values_pressure(boundary_grid)
-        h = self.bc_values_enthalpy(boundary_grid)
-        z_NaCl = 0.1 * np.ones_like(p)
-        par_points = np.array((z_NaCl,h*h_scale,p*p_scale)).T
-        self.obl.sample_at(par_points)
-        T = self.obl.sampled_could.point_data['Temperature']
-        return T
+        # # adhoc functional programming for BC consistency
+        # h_scale = 1.0 / 1000.0
+        # p_scale = 1.0 / 100000.0
+        # p = self.intial_pressure(boundary_grid)
+        # h = self.initial_enthalpy(boundary_grid)
+        # if self.mdg.dim_max() == 2:
+        #     all, east, west, north, south, top, bottom = self.domain_boundary_sides(boundary_grid)
+        # elif self.mdg.dim_max() == 3:
+        #     all, east, west, north, south, top, bottom = self.domain_boundary_sides(boundary_grid)
+        # z_init = 0.2
+        # z_inlet = 0.5e-2
+        # z_NaCl = z_init * np.ones_like(p)
+        # z_NaCl[west] = z_inlet
+        # par_points = np.array((z_NaCl,h*h_scale,p*p_scale)).T
+        # self.obl.sample_at(par_points)
+        # T = self.obl.sampled_could.point_data['Temperature']
+        return 713.489 * np.ones(boundary_grid.num_cells)
 
     def bc_values_relative_fraction(
         self, component: ppc.Component, phase: ppc.Phase, boundary_grid: pp.BoundaryGrid
@@ -182,21 +219,28 @@ class BoundaryConditions(BoundaryConditionsCF):
         # adhoc functional programming for BC consistency
         h_scale = 1.0 / 1000.0
         p_scale = 1.0 / 100000.0
-        p = self.bc_values_pressure(boundary_grid)
-        h = self.bc_values_enthalpy(boundary_grid)
-        z_NaCl = 0.1 * np.ones_like(p)
+        p = self.intial_pressure(boundary_grid)
+        h = self.initial_enthalpy(boundary_grid)
+        if self.mdg.dim_max() == 2:
+            all, east, west, north, south, top, bottom = self.domain_boundary_sides(boundary_grid)
+        elif self.mdg.dim_max() == 3:
+            all, east, west, north, south, top, bottom = self.domain_boundary_sides(boundary_grid)
+        z_init = 0.2
+        z_inlet = 0.2#0.5e-2
+        z_NaCl = z_init * np.ones_like(p)
+        z_NaCl[west] = z_inlet
         par_points = np.array((z_NaCl, h * h_scale, p * p_scale)).T
         self.obl.sample_at(par_points)
         if phase.name == 'liq':
             x_l = self.obl.sampled_could.point_data['Xl']
             if component.name == 'H2O':
-                return (1 - x_l)
+                return (1.0 - x_l)
             else:
                 return x_l
         else:
             x_v = self.obl.sampled_could.point_data['Xv']
             if component.name == 'H2O':
-                return (1 - x_v)
+                return (1.0 - x_v)
             else:
                 return x_v
 
@@ -204,7 +248,7 @@ class InitialConditions(InitialConditionsCF):
     """See parent class how to set up BC. Default is all zero and Dirichlet."""
 
     def intial_pressure(self, sd: pp.Grid) -> np.ndarray:
-        p = 15.0e6
+        p = 20.0e6
         return np.ones(sd.num_cells) * p
 
     def initial_temperature(self, sd: pp.Grid) -> np.ndarray:
@@ -213,20 +257,20 @@ class InitialConditions(InitialConditionsCF):
         p_scale = 1.0 / 100000.0
         p = self.intial_pressure(sd)
         h = self.initial_enthalpy(sd)
-        z_NaCl = 0.5e-2 * np.ones_like(p)
+        z_NaCl = 0.2 * np.ones_like(p)
         par_points = np.array((z_NaCl,h*h_scale,p*p_scale)).T
         self.obl.sample_at(par_points)
         T = self.obl.sampled_could.point_data['Temperature']
         return T
 
     def initial_enthalpy(self, sd: pp.Grid) -> np.ndarray:
-        h = 3.0e6
+        h = 2.5e6
         return np.ones(sd.num_cells)  * h
 
     def initial_overall_fraction(
         self, component: ppc.Component, sd: pp.Grid
     ) -> np.ndarray:
-        z = 0.5e-2
+        z = 0.2
         if component.name == 'H2O':
             return (1 - z) * np.ones(sd.num_cells)
         else:
@@ -278,6 +322,10 @@ class DriesnerBrineFlowModel(
     def after_simulation(self):
         self.exporter.write_pvd()
 
+    def relative_permeability(self, saturation: pp.ad.Operator) -> pp.ad.Operator:
+        # return saturation**2
+        return saturation
+
     @property
     def obl(self):
         return self._obl
@@ -289,18 +337,19 @@ class DriesnerBrineFlowModel(
 
 
 day = 86400
+t_scale = 0.1
 time_manager = pp.TimeManager(
-    schedule=[0, 0.0001 * day],
-    dt_init=0.00001 * day,
+    schedule=[0, 1.0 * day * t_scale],
+    dt_init=0.1 * day * t_scale,
     constant_dt=True,
-    iter_max=10,
+    iter_max=50,
     print_info=True,
 )
 
 # Model setup:
 # eliminate reference phase fractions  and reference component.\
 # self.solid.thermal_conductivity(), "solid_thermal_conductivity"
-solid_constants = pp.SolidConstants({"permeability": 1.0e-12, "porosity": 0.25, "thermal_conductivity": 3.0})
+solid_constants = pp.SolidConstants({"permeability": 9.869233e-14, "porosity": 0.2, "thermal_conductivity": 1.92})
 material_constants = {"solid": solid_constants}
 params = {
     "material_constants": material_constants,
@@ -309,7 +358,8 @@ params = {
     "time_manager": time_manager,
     "prepare_simulation":  False,
     "reduce_linear_system_q": False,
-    'nl_convergence_tol': 1.0e0,
+    'nl_convergence_tol': 1.0e-4,
+    "max_iterations": 50,
 }
 
 model = DriesnerBrineFlowModel(params)
@@ -324,8 +374,8 @@ print("Elapsed time prepare simulation: ", te - tb)
 print("Simulation prepared for total number of DoF: ", model.equation_system.num_dofs())
 print("Mixed-dimensional grid employed: ", model.mdg)
 
-# print geometry
-model.exporter.write_vtu()
+# # print geometry
+# model.exporter.write_vtu()
 
 pp.run_time_dependent_model(model, params)
 print("Total number of DoF: ", model.equation_system.num_dofs())
