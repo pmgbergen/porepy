@@ -4,6 +4,7 @@ from typing import Callable, Sequence
 import porepy.composite as ppc
 from porepy.models.compositional_flow import SecondaryEquationsMixin
 
+
 def gas_saturation_func(
     *thermodynamic_dependencies: np.ndarray,
 ) -> tuple[np.ndarray, np.ndarray]:
@@ -22,7 +23,7 @@ def gas_saturation_func(
 
 
 def temperature_func(
-        *thermodynamic_dependencies: np.ndarray,
+    *thermodynamic_dependencies: np.ndarray,
 ) -> tuple[np.ndarray, np.ndarray]:
     p, h, z_NaCl = thermodynamic_dependencies
     # same for all input (number of cells)
@@ -31,15 +32,16 @@ def temperature_func(
 
     nc = len(thermodynamic_dependencies[0])
 
-    factor  = 773.5 / 3.0e6
+    factor = 773.5 / 3.0e6
     vals = np.array(h) * factor
     # row-wise storage of derivatives, (3, nc) array
     diffs = np.ones((len(thermodynamic_dependencies), nc))
-    diffs[1, :] = 1.0*factor
+    diffs[1, :] = 1.0 * factor
     return vals, diffs
 
+
 def H2O_liq_func(
-        *thermodynamic_dependencies: np.ndarray,
+    *thermodynamic_dependencies: np.ndarray,
 ) -> tuple[np.ndarray, np.ndarray]:
     p, h, z_NaCl = thermodynamic_dependencies
     # same for all input (number of cells)
@@ -47,14 +49,15 @@ def H2O_liq_func(
     n = len(p)
 
     nc = len(thermodynamic_dependencies[0])
-    vals = np.array(1-z_NaCl)
+    vals = np.array(1 - z_NaCl)
     # row-wise storage of derivatives, (3, nc) array
     diffs = np.zeros((len(thermodynamic_dependencies), nc))
     diffs[2, :] = -1.0
     return vals, diffs
 
+
 def NaCl_liq_func(
-        *thermodynamic_dependencies: np.ndarray,
+    *thermodynamic_dependencies: np.ndarray,
 ) -> tuple[np.ndarray, np.ndarray]:
     p, h, z_NaCl = thermodynamic_dependencies
     # same for all input (number of cells)
@@ -68,8 +71,9 @@ def NaCl_liq_func(
     diffs[2, :] = +1.0
     return vals, diffs
 
+
 def H2O_gas_func(
-        *thermodynamic_dependencies: np.ndarray,
+    *thermodynamic_dependencies: np.ndarray,
 ) -> tuple[np.ndarray, np.ndarray]:
     p, h, z_NaCl = thermodynamic_dependencies
     # same for all input (number of cells)
@@ -77,14 +81,15 @@ def H2O_gas_func(
     n = len(p)
 
     nc = len(thermodynamic_dependencies[0])
-    vals = np.array(1-z_NaCl)
+    vals = np.array(1 - z_NaCl)
     # row-wise storage of derivatives, (3, nc) array
     diffs = np.zeros((len(thermodynamic_dependencies), nc))
     diffs[2, :] = -1.0
     return vals, diffs
 
+
 def NaCl_gas_func(
-        *thermodynamic_dependencies: np.ndarray,
+    *thermodynamic_dependencies: np.ndarray,
 ) -> tuple[np.ndarray, np.ndarray]:
     p, h, z_NaCl = thermodynamic_dependencies
     # same for all input (number of cells)
@@ -98,7 +103,14 @@ def NaCl_gas_func(
     diffs[2, :] = +1.0
     return vals, diffs
 
-chi_functions_map = {'H2O_liq': H2O_liq_func,'NaCl_liq': NaCl_liq_func,'H2O_gas': H2O_gas_func,'NaCl_gas': NaCl_gas_func}
+
+chi_functions_map = {
+    "H2O_liq": H2O_liq_func,
+    "NaCl_liq": NaCl_liq_func,
+    "H2O_gas": H2O_gas_func,
+    "NaCl_gas": NaCl_gas_func,
+}
+
 
 class LiquidLikeCorrelations(ppc.AbstractEoS):
     """Class implementing the calculation of thermodynamic properties.
@@ -113,8 +125,9 @@ class LiquidLikeCorrelations(ppc.AbstractEoS):
 
     """
 
-    def rho_func(self,
-            *thermodynamic_dependencies: np.ndarray,
+    def rho_func(
+        self,
+        *thermodynamic_dependencies: np.ndarray,
     ) -> tuple[np.ndarray, np.ndarray]:
 
         nc = len(thermodynamic_dependencies[0])
@@ -124,15 +137,17 @@ class LiquidLikeCorrelations(ppc.AbstractEoS):
         diffs = np.zeros((len(thermodynamic_dependencies), nc))
         return vals, diffs
 
-    def v_func(self,
-            *thermodynamic_dependencies: np.ndarray,
+    def v_func(
+        self,
+        *thermodynamic_dependencies: np.ndarray,
     ) -> tuple[np.ndarray, np.ndarray]:
         vals, diffs = self.rho_func(*thermodynamic_dependencies)
         vals = 1.0 / vals
         return vals, diffs
 
-    def mu_func(self,
-            *thermodynamic_dependencies: np.ndarray,
+    def mu_func(
+        self,
+        *thermodynamic_dependencies: np.ndarray,
     ) -> tuple[np.ndarray, np.ndarray]:
 
         nc = len(thermodynamic_dependencies[0])
@@ -141,8 +156,9 @@ class LiquidLikeCorrelations(ppc.AbstractEoS):
         diffs = np.zeros((len(thermodynamic_dependencies), nc))
         return vals, diffs
 
-    def h(self,
-            *thermodynamic_dependencies: np.ndarray,
+    def h(
+        self,
+        *thermodynamic_dependencies: np.ndarray,
     ) -> tuple[np.ndarray, np.ndarray]:
 
         nc = len(thermodynamic_dependencies[0])
@@ -151,8 +167,9 @@ class LiquidLikeCorrelations(ppc.AbstractEoS):
         diffs = np.zeros((len(thermodynamic_dependencies), nc))
         return vals, diffs
 
-    def kappa(self,
-            *thermodynamic_dependencies: np.ndarray,
+    def kappa(
+        self,
+        *thermodynamic_dependencies: np.ndarray,
     ) -> tuple[np.ndarray, np.ndarray]:
 
         nc = len(thermodynamic_dependencies[0])
@@ -162,7 +179,7 @@ class LiquidLikeCorrelations(ppc.AbstractEoS):
         return vals, diffs
 
     def compute_phase_state(
-            self, phase_type: int, *thermodynamic_input: np.ndarray
+        self, phase_type: int, *thermodynamic_input: np.ndarray
     ) -> ppc.PhaseState:
         """Function will be called to compute the values for a phase.
         ``phase_type`` indicates the phsycal type (0 - liq, 1 - gas).
@@ -206,6 +223,7 @@ class LiquidLikeCorrelations(ppc.AbstractEoS):
             phis=phis,
             dphis=dphis,
         )
+
 
 class GasLikeCorrelations(ppc.AbstractEoS):
     """Class implementing the calculation of thermodynamic properties.
@@ -220,8 +238,9 @@ class GasLikeCorrelations(ppc.AbstractEoS):
 
     """
 
-    def rho_func(self,
-            *thermodynamic_dependencies: np.ndarray,
+    def rho_func(
+        self,
+        *thermodynamic_dependencies: np.ndarray,
     ) -> tuple[np.ndarray, np.ndarray]:
 
         nc = len(thermodynamic_dependencies[0])
@@ -230,15 +249,17 @@ class GasLikeCorrelations(ppc.AbstractEoS):
         diffs = np.zeros((len(thermodynamic_dependencies), nc))
         return vals, diffs
 
-    def v_func(self,
-            *thermodynamic_dependencies: np.ndarray,
+    def v_func(
+        self,
+        *thermodynamic_dependencies: np.ndarray,
     ) -> tuple[np.ndarray, np.ndarray]:
         vals, diffs = self.rho_func(*thermodynamic_dependencies)
         vals = 1.0 / vals
         return vals, diffs
 
-    def mu_func(self,
-            *thermodynamic_dependencies: np.ndarray,
+    def mu_func(
+        self,
+        *thermodynamic_dependencies: np.ndarray,
     ) -> tuple[np.ndarray, np.ndarray]:
 
         nc = len(thermodynamic_dependencies[0])
@@ -247,8 +268,9 @@ class GasLikeCorrelations(ppc.AbstractEoS):
         diffs = np.zeros((len(thermodynamic_dependencies), nc))
         return vals, diffs
 
-    def h(self,
-            *thermodynamic_dependencies: np.ndarray,
+    def h(
+        self,
+        *thermodynamic_dependencies: np.ndarray,
     ) -> tuple[np.ndarray, np.ndarray]:
 
         nc = len(thermodynamic_dependencies[0])
@@ -257,8 +279,9 @@ class GasLikeCorrelations(ppc.AbstractEoS):
         diffs = np.zeros((len(thermodynamic_dependencies), nc))
         return vals, diffs
 
-    def kappa(self,
-            *thermodynamic_dependencies: np.ndarray,
+    def kappa(
+        self,
+        *thermodynamic_dependencies: np.ndarray,
     ) -> tuple[np.ndarray, np.ndarray]:
 
         nc = len(thermodynamic_dependencies[0])
@@ -268,7 +291,7 @@ class GasLikeCorrelations(ppc.AbstractEoS):
         return vals, diffs
 
     def compute_phase_state(
-            self, phase_type: int, *thermodynamic_input: np.ndarray
+        self, phase_type: int, *thermodynamic_input: np.ndarray
     ) -> ppc.PhaseState:
         """Function will be called to compute the values for a phase.
         ``phase_type`` indicates the phsycal type (0 - liq, 1 - gas).
@@ -312,6 +335,7 @@ class GasLikeCorrelations(ppc.AbstractEoS):
             phis=phis,
             dphis=dphis,
         )
+
 
 class FluidMixture(ppc.FluidMixtureMixin):
     """Mixture mixin creating the brine mixture with two components."""
@@ -396,7 +420,7 @@ class SecondaryEquations(SecondaryEquationsMixin):
                 self.eliminate_by_constitutive_law(
                     phase.partial_fraction_of[comp],
                     self.dependencies_of_phase_properties(phase),
-                    chi_functions_map[comp.name +  "_" + phase.name],
+                    chi_functions_map[comp.name + "_" + phase.name],
                     subdomains,
                 )
 
