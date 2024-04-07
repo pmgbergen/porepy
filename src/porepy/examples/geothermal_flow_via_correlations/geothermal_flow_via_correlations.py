@@ -337,7 +337,7 @@ class DriesnerBrineFlowModel(
 
 
 day = 86400
-t_scale = 0.1
+t_scale = 0.001
 time_manager = pp.TimeManager(
     schedule=[0, 1.0 * day * t_scale],
     dt_init=0.1 * day * t_scale,
