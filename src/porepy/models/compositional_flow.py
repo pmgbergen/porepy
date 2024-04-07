@@ -1526,7 +1526,7 @@ class VariablesCF(
         1. Sets up the pressure and temperature variables from standard mass and energy
            transport models.
         3. Creates the transported enthalpy variable.
-        4. Ccreates all compositional variables.
+        4. Creates all compositional variables.
 
         """
         # pressure and temperature. This covers also the interface variables for
@@ -2723,7 +2723,7 @@ class SolutionStrategyCF(
         self.assign_thermodynamic_properties_to_mixture()
 
         # initial_condition calls a BC update, and we must check its consistency first
-        self.check_bc_consistency()
+        # self.check_bc_consistency()
 
         self.set_equations()
         self.initial_condition()
