@@ -50,12 +50,11 @@ class DriesnerBrineOBL:
 
     def sample_at(self, points):
         point_cloud = pyvista.PolyData(points)
-        tb = time.time()
+        # tb = time.time()
         self.sampled_could = point_cloud.sample(self._search_space)
-        te = time.time()
-        print("DriesnerBrineOBL:: Sampled n_points: ", len(points))
-        print("DriesnerBrineOBL:: Time for sampling: ", te - tb)
-        aka = 0
+        # te = time.time()
+        # print("DriesnerBrineOBL:: Sampled n_points: ", len(points))
+        # print("DriesnerBrineOBL:: Time for sampling: ", te - tb)
 
     def __build_search_space(self):
         tb = time.time()
