@@ -10,18 +10,6 @@ class DriesnerBrineOBL:
         self.file_name = file_name
         self.__build_search_space()
 
-    @staticmethod
-    def available_fields():
-        fields = ['Temperature', 'Rho', 'H', 'Xl', 'Xv', 'Rho_l', 'Rho_v',
-                          'Rho_h', 'H_l', 'H_v', 'H_h', 'mu_l', 'mu_v', 'PhaseRegion']
-        return fields
-
-    @staticmethod
-    def fields_with_gradients():
-        fields = ['Temperature', 'Rho', 'H', 'Xl', 'Xv', 'Rho_l', 'Rho_v',
-                          'Rho_h', 'H_l', 'H_v', 'H_h', 'mu_l', 'mu_v']
-        return fields
-
     @property
     def file_name(self):
         return self._file_name
