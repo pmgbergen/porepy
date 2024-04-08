@@ -61,6 +61,12 @@ class VerificationUtils:
     stress_keyword: str
     """Keyword for accessing the parameters of the mechanical subproblem."""
 
+    darcy_keyword: str
+    """Keyword used to identify the Darcy flux discretization. Normally set by a mixin
+    instance of
+    :class:`~porepy.models.fluid_mass_balance.SolutionStrategySinglePhaseFlow`.
+
+    """
     time_manager: pp.TimeManager
     """Time manager. Normally set by an instance of a subclass of
     :class:`porepy.models.solution_strategy.SolutionStrategy`.
@@ -134,9 +140,9 @@ class VerificationUtils:
         # Note that this is not the real trace, as this only holds for particular
         # choices of boundary condtions
         u_faces_ad = (
-            discr_mech.bound_displacement_cell @ u
-            + discr_mech.bound_displacement_face @ bc
-            + discr_poromech.bound_pressure @ p
+            discr_mech.bound_displacement_cell() @ u
+            + discr_mech.bound_displacement_face() @ bc
+            + discr_poromech.bound_pressure(self.darcy_keyword) @ p
         )
 
         # Parse numerical value and return the minimum and maximum value
