@@ -2781,10 +2781,10 @@ class SolutionStrategyCF(
 
         # Upwind of enthalpy mobility in energy equation
         self.add_nonlinear_discretization(
-            self.advected_enthalpy_discretization(subdomains).upwind,
+            self.advected_enthalpy_discretization(subdomains).upwind(),
         )
         self.add_nonlinear_discretization(
-            self.interface_advected_enthalpy_discretization(interfaces).flux,
+            self.interface_advected_enthalpy_discretization(interfaces).flux(),
         )
 
         # Upwinding of mobilities in component balance equations
@@ -2798,21 +2798,19 @@ class SolutionStrategyCF(
                 continue
 
             self.add_nonlinear_discretization(
-                self.fractional_mobility_discretization(component, subdomains).upwind,
+                self.fractional_mobility_discretization(component, subdomains).upwind(),
             )
             self.add_nonlinear_discretization(
                 self.interface_fractional_mobility_discretization(
                     component, interfaces
-                ).flux,
+                ).flux(),
             )
 
         # TODO this is experimental and expensive
-        self._nonlinear_flux_discretizations.append(
-            self.fourier_flux_discretization(subdomains).flux,
-        )
-        self._nonlinear_flux_discretizations.append(
-            self.darcy_flux_discretization(subdomains).flux,
-        )
+        self.add_nonlinear_discretization(
+            self.fourier_flux_discretization(subdomains).flux())
+        self.add_nonlinear_discretization(
+            self.darcy_flux_discretization(subdomains).flux())
 
     def update_secondary_quantities(self) -> None:
         """Update of secondary quantities with evaluations performed outside the AD
