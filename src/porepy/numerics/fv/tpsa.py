@@ -72,13 +72,14 @@ class Tpsa:
         # Take the harmonic average of the Cosserat parameter
         t_cosserat = (1 / np.bincount(fi, weights=1 / cosserat_parameter_by_face_cell_distance, minlength=sd.num_faces))
 
-        # Arithmetic average of the shear modulus. Note slight misnomer here due to the
-        # factor 1 - distance (not distance).
+        # Arithmetic average of the shear modulus.
         arithmetic_average_shear_modulus = (
             np.bincount(
-                fi, weights=shear_modulus_by_face_cell_distance, minlength=sd.num_cells
+                fi, weights=shear_modulus_by_face_cell_distance, minlength=sd.num_faces
             )
-            * dist_cc_cc
+        )
+        delta_bar = 1 / np.bincount(
+            fi, weights=1/dist_fc_cc, minlength=sd.num_faces
         )
 
         # The vector difference operator over a face is simply a Kronecker product of
@@ -159,7 +160,7 @@ class Tpsa:
 
         mass_volumetric_strain = -(
             sps.dia_matrix(
-                (sd.face_areas / (2 * arithmetic_average_shear_modulus), 0),
+                (sd.face_areas * delta_bar / (2 * arithmetic_average_shear_modulus), 0),
                 shape=(sd.num_faces, sd.num_faces),
             )
             @ sd.cell_faces
@@ -241,8 +242,8 @@ class Tpsa:
         # displacement is zero at the boundary): The 
         dir_displacement = bnd.is_dir.ravel('f')
         dir_scalar = bnd.is_dir[0]
-        #rotation_displacement[dir_scalar] = 0
-        #mass_displacement[dir_scalar] = 0
+        rotation_displacement[dir_scalar] = 0
+        mass_displacement[dir_scalar] = 0
 
 
 
