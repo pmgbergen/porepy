@@ -1018,8 +1018,8 @@ class SolutionStrategyEnergyBalance(pp.SolutionStrategy):
         """Collect discretizations for nonlinear terms."""
         super().set_nonlinear_discretizations()
         self.add_nonlinear_discretization(
-            self.enthalpy_discretization(self.mdg.subdomains()).upwind,
+            self.enthalpy_discretization(self.mdg.subdomains()).upwind(),
         )
         self.add_nonlinear_discretization(
-            self.interface_enthalpy_discretization(self.mdg.interfaces()).flux,
+            self.interface_enthalpy_discretization(self.mdg.interfaces()).flux(),
         )

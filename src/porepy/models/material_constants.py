@@ -437,7 +437,7 @@ class SolidConstants(MaterialConstants):
         return self.convert_units(self.constants["residual_aperture"], "m")
 
     def shear_modulus(self) -> number:
-        """Young's modulus [Pa].
+        """Shear modulus [Pa].
 
         Returns:
             Shear modulus in converted pressure units.

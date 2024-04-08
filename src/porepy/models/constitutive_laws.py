@@ -818,9 +818,6 @@ class ConstantPermeability:
         Parameters:
             subdomains: Subdomains where the permeability is defined.
 
-        Raises:
-            ValueError: If more than one subdomain is provided.
-
         Returns:
             Cell-wise permeability tensor. The value is picked from the solid constants.
 
@@ -1172,11 +1169,11 @@ class DarcysLaw:
         )
 
         pressure_trace = (
-            discr.bound_pressure_cell @ p
-            + discr.bound_pressure_face
+            discr.bound_pressure_cell() @ p
+            + discr.bound_pressure_face()
             @ (projection.mortar_to_primary_int @ self.interface_darcy_flux(interfaces))
-            + discr.bound_pressure_face @ boundary_operator
-            + discr.bound_pressure_vector_source
+            + discr.bound_pressure_face() @ boundary_operator
+            + discr.bound_pressure_vector_source()
             @ self.vector_source_darcy_flux(subdomains)
         )
         return pressure_trace
@@ -1235,14 +1232,14 @@ class DarcysLaw:
             domains
         )
         flux: pp.ad.Operator = (
-            discr.flux @ self.pressure(domains)
-            + discr.bound_flux
+            discr.flux() @ self.pressure(domains)
+            + discr.bound_flux()
             @ (
                 boundary_operator
                 + intf_projection.mortar_to_primary_int
                 @ self.interface_darcy_flux(interfaces)
             )
-            + discr.vector_source @ self.vector_source_darcy_flux(domains)
+            + discr.vector_source() @ self.vector_source_darcy_flux(domains)
         )
         flux.set_name("Darcy_flux")
         return flux
@@ -1641,7 +1638,7 @@ class AdTpfaFlux:
         # discretization on operator form, and multiply it by zero to avoid it having
         # any real impact on the equation. This is certainly an ugly hack, but it will
         # have to do for now.
-        flux_p = flux_p + pp.ad.Scalar(0) * base_discr.flux @ potential(domains)
+        flux_p = flux_p + pp.ad.Scalar(0) * base_discr.flux() @ potential(domains)
 
         # Get boundary condition values
         boundary_operator = self._combine_boundary_operators(  # type: ignore[call-arg]
@@ -1756,14 +1753,14 @@ class AdTpfaFlux:
         # diffusive flux method?
         boundary_value_contribution = boundary_value_contribution + pp.ad.Scalar(
             0
-        ) * base_discr.flux @ potential(subdomains)
+        ) * base_discr.flux() @ potential(subdomains)
 
         pressure_trace = (
-            base_discr.bound_pressure_cell @ potential(subdomains)
+            base_discr.bound_pressure_cell() @ potential(subdomains)
             # Contribution from boundaries.
             + boundary_value_contribution
             # the vector source is independent of k
-            + base_discr.bound_pressure_vector_source
+            + base_discr.bound_pressure_vector_source()
             @ getattr(self, "vector_source_" + flux_name)(subdomains)
         )
         return pressure_trace
@@ -1877,7 +1874,7 @@ class AdTpfaFlux:
 
         # We know that base_discr.flux is a sparse matrix, so we can call parse
         # directly.
-        base_flux = base_discr.flux.parse(self.mdg)
+        base_flux = base_discr.flux().parse(self.mdg)
         # If the function has been called using .value, p is a numpy array and we pass
         # only the value.
         if not isinstance(p, pp.ad.AdArray):
@@ -1932,7 +1929,7 @@ class AdTpfaFlux:
 
         # We know that base_discr.vector_source is a sparse matrix, so we can call parse
         # directly.
-        base_discr_vector_source = base_discr.vector_source.parse(self.mdg)
+        base_discr_vector_source = base_discr.vector_source().parse(self.mdg)
 
         # Composing the full expression for the vector source term is a bit tricky, as
         # any of the three arguments may be either a numpy array or an AdArray. We need
@@ -1977,7 +1974,7 @@ class AdTpfaFlux:
         val = base_discr_vector_source @ vs_val
         # The contribution from differentiating the vector source term to the Jacobian
         # of the flux.
-        jac = base_discr.vector_source.parse(self.mdg) @ vs_jac
+        jac = base_discr.vector_source().parse(self.mdg) @ vs_jac
 
         if hasattr(T_f, "jac"):
             # Add the contribution to the Jacobian matrix from the derivative of the
@@ -2025,7 +2022,7 @@ class AdTpfaFlux:
         # parse directly. At the time of evaluation, internal_flux will be an AdArray,
         # thus we can access its val and jac attributes, while external_flux is a numpy
         # array.
-        base_term = base_discr.bound_pressure_face.parse(self.mdg)
+        base_term = base_discr.bound_pressure_face().parse(self.mdg)
         # The value is the standard product of the matrix and boundary values.
 
         # If the function has been called using .value, p is a numpy array and we pass
@@ -2315,19 +2312,85 @@ class ThermalExpansion:
         val = self.fluid.thermal_expansion()
         return Scalar(val, "fluid_thermal_expansion")
 
-    def solid_thermal_expansion(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Thermal expansion of the solid [1/K].
+    def solid_thermal_expansion_coefficient(
+        self, subdomains: list[pp.Grid]
+    ) -> pp.ad.Operator:
+        """Thermal expansion of the solid.
+
+        This is an expression of the volumetric changes of the solid due to temperature
+        changes.
 
         Parameters:
             subdomains: List of subdomains where the thermal expansion is defined.
 
         Returns:
-            Thermal expansion of the fluid, represented as an Ad operator. The value is
-            constant for all subdomains.
+            Thermal expansion of the fluid [1/K], represented as an Ad operator. The
+            value is constant for all subdomains.
 
         """
         val = self.solid.thermal_expansion()
         return Scalar(val, "solid_thermal_expansion")
+
+    def solid_thermal_expansion_tensor(
+        self, subdomains: list[pp.Grid]
+    ) -> pp.SecondOrderTensor:
+        """Tensor representing the mechanical force associated with thermal expansion
+        and contraction.
+
+        The tensor can be considered a representation of strains due to temperature
+        changes. It can be used to compute stress, e.g., by a Biot discretization, and
+        is thus associated with an equation for momentum conservation.
+
+        Parameters:
+            subdomains: Subdomains where the thermo-mechanical coupling tensor is
+                defined.
+
+        Returns:
+            Thermo-mechanical coupling tensor [Pa].
+
+        """
+        # EK: I added some documentation here, since I went through the pain of figuring
+        # out the tensor algebra, and I don't want to do that over again. The conversion
+        # from a thermal strain, given by self.solid.thermal_expansion() to the
+        # corresponding stress, is in general given as (see e.g. Coussy 2004, eq 4.13a)
+        #
+        #    sigma_ij = C_ijkl * a_kl * T
+        #
+        # where sigma is the stress, C is the stiffness tensor (represented as a fourth
+        # order tensor), a is the thermal strain, and the summation convention is
+        # applied. For a linear isotropic material, the stiffness tensor is given by
+        #
+        #    C_ijkl = lambda * delta_ij * delta_kl + mu * (delta_ik * delta_jl +
+        #             delta_il * delta_jk)    [thanks, co-pilot!]
+        #
+        # where d_ij is the Kronecker delta, and lambda and mu are the Lame parameters.
+        # Some algebra gives that for a general expansion tensor, the thermal stress is
+        #
+        #   sigma_ij = mu * (a_ij + a_ji) * T + lambda * a_kk * d_ij * T
+        #
+        # where a_kk of course equals the trace of a.
+        #
+        # The below implementation assumes that the thermal expansion is isotropic, thus
+        # the coefficients simplifies further to
+        #
+        #  sigma_ij = (2 * mu + 3 * lambda) * a * T * d_ij
+        #
+        # which can be found in, for instance, Boley & Weiner: Theory of thermal
+        # stresses, Dover (ISBN:978-0-486-69579-2), Eq. 1.12.14 p.30.
+        #
+        # If anyone ever overrides this method to include a full thermal expansion
+        # tensor, it is strongly advised to first check the above calculation, as it
+        # should not be fully trusted.
+
+        size = sum(sd.num_cells for sd in subdomains)
+
+        lmbda = self.solid.lame_lambda()
+        mu = self.solid.shear_modulus()
+        alpha = self.solid.thermal_expansion()
+
+        val = (2 * mu + 3 * lmbda) * alpha
+
+        return pp.SecondOrderTensor(val * np.ones(size))
 
 
 class ThermalConductivityLTE:
@@ -2421,7 +2484,7 @@ class ThermalConductivityLTE:
             phi.value(self.equation_system)
         except KeyError:
             # We assume this means that the porosity includes a discretization matrix
-            # for div_u which has not yet been computed.
+            # for displacement_divergence which has not yet been computed.
             phi = self.reference_porosity(subdomains)
         if isinstance(phi, Scalar):
             size = sum([sd.num_cells for sd in subdomains])
@@ -2591,14 +2654,14 @@ class FouriersLaw:
         # We know t is a variable, since method is called on subdomains, not boundaries.
         t = cast(pp.ad.MixedDimensionalVariable, self.temperature(subdomains))
         temperature_trace = (
-            discr.bound_pressure_cell @ t  # "pressure" is a legacy misnomer
-            + discr.bound_pressure_face
+            discr.bound_pressure_cell() @ t  # "pressure" is a legacy misnomer
+            + discr.bound_pressure_face()
             @ (
                 projection.mortar_to_primary_int
                 @ self.interface_fourier_flux(interfaces)
             )
-            + discr.bound_pressure_face @ boundary_operator_fourier
-            + discr.bound_pressure_vector_source
+            + discr.bound_pressure_face() @ boundary_operator_fourier
+            + discr.bound_pressure_vector_source()
             @ self.vector_source_fourier_flux(subdomains)
         )
         return temperature_trace
@@ -2640,14 +2703,14 @@ class FouriersLaw:
         )
 
         flux: pp.ad.Operator = (
-            discr.flux @ self.temperature(subdomains)
-            + discr.bound_flux
+            discr.flux() @ self.temperature(subdomains)
+            + discr.bound_flux()
             @ (
                 boundary_operator_fourier
                 + projection.mortar_to_primary_int
                 @ self.interface_fourier_flux(interfaces)
             )
-            + discr.vector_source @ self.vector_source_fourier_flux(subdomains)
+            + discr.vector_source() @ self.vector_source_fourier_flux(subdomains)
         )
         flux.set_name("Fourier_flux")
         return flux
@@ -2865,14 +2928,14 @@ class AdvectiveFlux:
             self.mdg, subdomains, interfaces, dim=1
         )
         flux: pp.ad.Operator = (
-            darcy_flux * (discr.upwind @ advected_entity)
-            - discr.bound_transport_dir @ (darcy_flux * bc_values)
+            darcy_flux * (discr.upwind() @ advected_entity)
+            - discr.bound_transport_dir() @ (darcy_flux * bc_values)
             # Advective flux coming from lower-dimensional subdomains
-            - discr.bound_transport_neu @ bc_values
+            - discr.bound_transport_neu() @ bc_values
         )
         if interface_flux is not None:
             flux -= (
-                discr.bound_transport_neu
+                discr.bound_transport_neu()
                 @ mortar_projection.mortar_to_primary_int
                 @ interface_flux(interfaces)
             )
@@ -2912,11 +2975,11 @@ class AdvectiveFlux:
         # Project the two advected entities to the interface and multiply with upstream
         # weights and the interface Darcy flux.
         interface_flux: pp.ad.Operator = self.interface_darcy_flux(interfaces) * (
-            discr.upwind_primary
+            discr.upwind_primary()
             @ mortar_projection.primary_to_mortar_avg
             @ trace.trace
             @ advected_entity
-            + discr.upwind_secondary
+            + discr.upwind_secondary()
             @ mortar_projection.secondary_to_mortar_avg
             @ advected_entity
         )
@@ -2951,10 +3014,10 @@ class AdvectiveFlux:
         # Project the two advected entities to the interface and multiply with upstream
         # weights and the interface Darcy flux.
         interface_flux: pp.ad.Operator = self.well_flux(interfaces) * (
-            discr.upwind_primary
+            discr.upwind_primary()
             @ mortar_projection.primary_to_mortar_avg
             @ advected_entity
-            + discr.upwind_secondary
+            + discr.upwind_secondary()
             @ mortar_projection.secondary_to_mortar_avg
             @ advected_entity
         )
@@ -3356,9 +3419,9 @@ class LinearElasticMechanicalStress:
         # subdomains, and let these act as Dirichlet boundary conditions on the
         # subdomains.
         stress = (
-            discr.stress @ self.displacement(domains)
-            + discr.bound_stress @ boundary_operator
-            + discr.bound_stress
+            discr.stress() @ self.displacement(domains)
+            + discr.bound_stress() @ boundary_operator
+            + discr.bound_stress()
             @ proj.mortar_to_primary_avg
             @ self.interface_displacement(interfaces)
         )
@@ -3479,6 +3542,12 @@ class PressureStress(LinearElasticMechanicalStress):
     :class:`porepy.models.geometry.ModelGeometry`.
 
     """
+    darcy_keyword: str
+    """Keyword used to identify the Darcy flux discretization. Normally set by a mixin
+    instance of
+    :class:`~porepy.models.fluid_mass_balance.SolutionStrategySinglePhaseFlow`.
+
+    """
 
     def pressure_stress(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Pressure contribution to stress tensor.
@@ -3502,13 +3571,14 @@ class PressureStress(LinearElasticMechanicalStress):
         # No need to accommodate different discretizations for the stress tensor, as we
         # have only one.
         discr = pp.ad.BiotAd(self.stress_keyword, subdomains)
-        # The stress is simply found by the grad_p operator, multiplied with the
+        # The stress is simply found by the scalar_gradient operator, multiplied with the
         # pressure perturbation.
         stress: pp.ad.Operator = (
-            discr.grad_p @ self.pressure(subdomains)
+            discr.scalar_gradient(self.darcy_keyword) @ self.pressure(subdomains)
             # The reference pressure is only defined on sd_primary, thus there is no
             # need for a subdomain projection.
-            - discr.grad_p @ self.reference_pressure(subdomains)
+            - discr.scalar_gradient(self.darcy_keyword)
+            @ self.reference_pressure(subdomains)
         )
         stress.set_name("pressure_stress")
         return stress
@@ -3640,10 +3710,21 @@ class ThermoPressureStress(PressureStress):
     :class:`~porepy.models.solution_strategy.SolutionStrategy`.
 
     """
+    perturbation_from_reference: Callable[[str, list[pp.Grid]], pp.ad.Operator]
+    """Function that returns a perturbation from the reference state. Normally
+    provided by a mixin of instance :class:`~porepy.models.VariableMixin`.
+
+    """
     stress_keyword: str
     """Keyword used to identify the stress discretization. Normally set by a mixin
     instance of
     :class:`~porepy.models.momentum_balance.SolutionStrategyMomentumBalance`.
+
+    """
+    enthalpy_keyword: str
+    """Keyword used to identify the enthalpy flux discretization. Normally"
+     set by an instance of
+    :class:`~porepy.models.fluid_mass_balance.SolutionStrategyEnergyBalance`.
 
     """
 
@@ -3662,27 +3743,12 @@ class ThermoPressureStress(PressureStress):
         """
         for sd in subdomains:
             if sd.dim != self.nd:
-                raise ValueError("Subdomains must be of dimension nd - 1.")
+                raise ValueError("Subdomains must be of dimension nd.")
 
         discr = pp.ad.BiotAd(self.stress_keyword, subdomains)
-        alpha = self.biot_coefficient(subdomains)
-        beta = self.solid_thermal_expansion(subdomains)
-        k = self.bulk_modulus(subdomains)
-
-        # Check that both are scalar. Else, the scaling may not be correct.
-        assert isinstance(alpha, pp.ad.Scalar)
-        assert isinstance(beta, pp.ad.Scalar)
-        # The thermal stress should be multiplied by beta and k. Divide by alpha to
-        # cancel that factor from the discretization matrix.
-        stress: pp.ad.Operator = (
-            beta
-            * k
-            / alpha
-            * (
-                discr.grad_p @ self.temperature(subdomains)
-                - discr.grad_p @ self.reference_temperature(subdomains)
-            )
-        )
+        stress: pp.ad.Operator = discr.scalar_gradient(
+            self.enthalpy_keyword
+        ) @ self.perturbation_from_reference("temperature", subdomains)
         stress.set_name("thermal_stress")
         return stress
 
@@ -4123,7 +4189,7 @@ class FractureGap(BartonBandis, ShearDilation):
 
 
 class BiotCoefficient:
-    """Biot coefficient."""
+    """Biot coefficient and tensor."""
 
     solid: pp.SolidConstants
     """Solid constant object that takes care of scaling of solid-related quantities.
@@ -4133,16 +4199,33 @@ class BiotCoefficient:
     """
 
     def biot_coefficient(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Biot coefficient.
+        """A coefficient for volumetric changes due to pressure perturbations in Biot's
+        equations.
 
         Parameters:
             subdomains: List of subdomains where the Biot coefficient is defined.
 
         Returns:
-            Biot coefficient operator.
+            Biot coefficient operator, units [-].
 
         """
         return Scalar(self.solid.biot_coefficient(), "biot_coefficient")
+
+    def biot_tensor(self, subdomains: list[pp.Grid]) -> pp.SecondOrderTensor:
+        """Second-order tensor representing the force caused by a pressure perturbation
+        in Biot's equations.
+
+        Parameters:
+            subdomains: List of subdomains where the Biot tensor is defined.
+
+        Returns:
+            Cell-wise Biot isotropic tensor, units: [-]. The value is set equal to the
+            Biot coefficient in the solid constants.
+
+        """
+        size = sum(sd.num_cells for sd in subdomains)
+        value = self.solid.biot_coefficient()
+        return pp.SecondOrderTensor(value * np.ones(size))
 
 
 class SpecificStorage:
@@ -4208,9 +4291,9 @@ class PoroMechanicsPorosity:
 
     Note:
         For legacy reasons, the discretization matrices for the
-        :math:`\nabla \cdot \mathbf{u}` and stabilization terms include a volume
+        :math:`\nabla \cdot \mathbf{u}` and consistency terms include a volume
         integral. That factor is counteracted in :meth:`displacement_divergence` and
-        :meth:`biot_stabilization`, respectively. This ensure that the returned
+        :meth:`_mpsa_consistency`, respectively. This ensure that the returned
         operators correspond to intensive quantities and are compatible with the rest
         of this class. The assumption is that the porosity will be integrated over
         cell volumes later before entering the equation.
@@ -4277,6 +4360,11 @@ class PoroMechanicsPorosity:
     :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`.
 
     """
+    pressure_variable: str
+    """Name of the pressure variable. Normally set by a mixin instance of
+    :class:`~porepy.models.fluid_mass_balance.SolutionStrategySinglePhaseFlow`.
+    """
+
     subdomains_to_interfaces: Callable[[list[pp.Grid], list[int]], list[pp.MortarGrid]]
     """Map from subdomains to the adjacent interfaces. Normally defined in a mixin
     instance of :class:`~porepy.models.geometry.ModelGeometry`.
@@ -4350,7 +4438,9 @@ class PoroMechanicsPorosity:
             self.reference_porosity(subdomains)
             + self.porosity_change_from_pressure(subdomains)
             + self.porosity_change_from_displacement(subdomains)
-            + self.biot_stabilization(subdomains)
+            + self._mpsa_consistency(
+                subdomains, self.darcy_keyword, self.pressure_variable
+            )
         )
         phi.set_name("Stabilized matrix porosity")
 
@@ -4411,9 +4501,11 @@ class PoroMechanicsPorosity:
             matrix porosity. Scaling with Biot's coefficient is already included.
 
         """
-        alpha = self.biot_coefficient(subdomains)
-        div_u = self.displacement_divergence(subdomains)
-        div_u_contribution = alpha * div_u
+        # Implementation note: Scaling of the displacement divergence with Biot's
+        # tensor (in the form of a double dot product) is already included in the
+        # discretization of the displacement divergence. Therefore, no additional
+        # scaling is needed here.
+        div_u_contribution = self.displacement_divergence(subdomains)
         div_u_contribution.set_name("Porosity change from displacement")
         return div_u_contribution
 
@@ -4423,8 +4515,9 @@ class PoroMechanicsPorosity:
     ) -> pp.ad.Operator:
         """Divergence of displacement [-].
 
-        This is div(u). Note that opposed to old implementation, the temporal is not
-        included here. Rather, it is handled by :meth:`pp.ad.dt`.
+        This is ``alpha : grad(u)`` where ``alpha`` is the Biot tensor and ``u`` is
+        the displacement. If the tensor is isotropic, the expression simplifies to
+        ``alpha * div(u)``, where ``alpha`` can be interpreted as a scalar.
 
         Parameters:
             subdomains: List of subdomains where the divergence is defined.
@@ -4442,7 +4535,7 @@ class PoroMechanicsPorosity:
         interfaces = self.subdomains_to_interfaces(subdomains, [1])
         # Mock discretization (empty `discretize` method), used to access discretization
         # matrices computed by Biot discretization.
-        discr = pp.ad.DivUAd(self.stress_keyword, subdomains, self.darcy_keyword)
+        discr = pp.ad.BiotAd(self.stress_keyword, subdomains)
         # Projections
         sd_projection = pp.ad.SubdomainProjections(subdomains, dim=self.nd)
         mortar_projection = pp.ad.MortarProjections(
@@ -4459,57 +4552,70 @@ class PoroMechanicsPorosity:
         )
 
         # Compose operator.
-        div_u_integrated = discr.div_u @ self.displacement(
-            subdomains
-        ) + discr.bound_div_u @ (
+        displacement_divergence_integrated = discr.displacement_divergence(
+            self.darcy_keyword
+        ) @ self.displacement(subdomains) + discr.bound_displacement_divergence(
+            self.darcy_keyword
+        ) @ (
             boundary_operator
             + sd_projection.face_restriction(subdomains)
             @ mortar_projection.mortar_to_primary_avg
             @ self.interface_displacement(interfaces)
         )
-        # Divide by cell volumes to counteract integration.
-        # The div_u discretization contains a volume integral. Since div u is used here
-        # together with intensive quantities, we need to divide by cell volumes.
+        # Divide by cell volumes to counteract integration. The displacement_divergence
+        # discretization contains a volume integral. Since this is used here together
+        # with intensive quantities, we need to divide by cell volumes.
         cell_volumes_inv = Scalar(1) / self.wrap_grid_attribute(
             subdomains, "cell_volumes", dim=1  # type: ignore[call-arg]
         )
-        div_u = cell_volumes_inv * div_u_integrated
-        div_u.set_name("div_u")
-        return div_u
+        displacement_divergence = cell_volumes_inv * displacement_divergence_integrated
+        displacement_divergence.set_name("displacement_divergence")
+        return displacement_divergence
 
-    def biot_stabilization(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Biot stabilization term.
+    def _mpsa_consistency(
+        self, subdomains: list[pp.Grid], physics_name: str, variable_name: str
+    ) -> pp.ad.Operator:
+        """Consistency term for Mpsa discretizations of coupled problems.
 
-        TODO: Determine if this is the correct place to include stabilization.
+        This function returns a diffusion-type term that is needed to ensure an
+        MPSA-type discretization of poromechanics (or
+        thermomechanics/thermoporomechanics) is stable in the limit of vanishing time
+        steps and permeability. The term arises naturally from the MPSA discretization,
+        see Nordbotten 2016 (doi:10.1137/15M1014280) for details.
 
         Parameters:
-            subdomains: List of subdomains where the stabilization is defined.
+            subdomains: List of subdomains where the consistency is defined.
+            physics_name: The physics keyword for which the consistency is computed.
+                This is the keyword used in the scalar_vector_mapping provided to the
+                Mpsa Biot discretization.
+            variable_name: Name of the variable which should have a consistency term.
 
         Returns:
-            Biot stabilization operator.
+            Biot consistency operator.
 
         """
         # Sanity check on dimension
         if not all(sd.dim == self.nd for sd in subdomains):
-            raise ValueError("Biot stabilization only defined in nd.")
+            raise ValueError("Mpsa consistency only defined in nd.")
 
-        discr = pp.ad.BiotStabilizationAd(self.darcy_keyword, subdomains)
-        # The stabilization is based on perturbation. If pressure is used directly,
+        discr = pp.ad.BiotAd(self.stress_keyword, subdomains)
+
+        # The consistency is based on perturbation. If the variable is used directly,
         # results will not match if the reference state is not zero, see
         # :func:`test_without_fracture` in test_poromechanics.py.
-        dp = self.perturbation_from_reference("pressure", subdomains)
-        stabilization_integrated = discr.stabilization @ dp
+        dp = self.perturbation_from_reference(variable_name, subdomains)
+        consistency_integrated = discr.consistency(physics_name) @ dp
 
         # Divide by cell volumes to counteract integration.
-        # The stabilization discretization contains a volume integral. Since the
-        # stabilization term is used here together with intensive quantities, we need to
+        # The consistency discretization contains a volume integral. Since the
+        # consistency term is used here together with intensive quantities, we need to
         # divide by cell volumes.
         cell_volumes_inverse = Scalar(1) / self.wrap_grid_attribute(
             subdomains, "cell_volumes", dim=1  # type: ignore[call-arg]
         )
-        stabilization = cell_volumes_inverse * stabilization_integrated
-        stabilization.set_name("biot_stabilization")
-        return stabilization
+        consistency = cell_volumes_inverse * consistency_integrated
+        consistency.set_name("mpsa_consistency")
+        return consistency
 
 
 class BiotPoroMechanicsPorosity(PoroMechanicsPorosity):
@@ -4565,7 +4671,7 @@ class ThermoPoroMechanicsPorosity(PoroMechanicsPorosity):
     provided by a mixin of instance :class:`~porepy.models.VariableMixin`.
 
     """
-    solid_thermal_expansion: Callable[[list[pp.Grid]], pp.ad.Operator]
+    solid_thermal_expansion_coefficient: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Thermal expansion coefficient. Normally defined in a mixin instance of
     :class:`~porepy.models.constitutive_laws.ThermalExpansion`.
     """
@@ -4579,6 +4685,10 @@ class ThermoPoroMechanicsPorosity(PoroMechanicsPorosity):
     """Biot coefficient. Normally defined in a mixin instance of
     :class:`~porepy.models.constitutive_laws.BiotCoefficient`.
 
+    """
+    temperature_variable: str
+    """Name of the pressure variable. Normally set by a mixin instance of
+    :class:`~porepy.models.energy_balance.SolutionStrategyEnergyBalance`.
     """
 
     def matrix_porosity(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
@@ -4617,7 +4727,7 @@ class ThermoPoroMechanicsPorosity(PoroMechanicsPorosity):
             raise ValueError("Subdomains must be of dimension nd.")
         dtemperature = self.perturbation_from_reference("temperature", subdomains)
         phi_ref = self.reference_porosity(subdomains)
-        beta = self.solid_thermal_expansion(subdomains)
+        beta = self.solid_thermal_expansion_coefficient(subdomains)
         alpha = self.biot_coefficient(subdomains)
         # TODO: Figure out why * is needed here, but not in
         # porosity_change_from_pressure.

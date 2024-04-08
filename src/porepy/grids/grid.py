@@ -91,6 +91,12 @@ class Grid:
         """An array with ``shape=(ambient_dimension, num_nodes)`` containing node
         coordinates column-wise."""
 
+        # Force topological information to be stored as integers. The known subclasses
+        # of Grid all have integer values in these arrays, so this is a safeguard aimed
+        # at third-party code.
+        cell_faces.data = cell_faces.data.astype(int)
+        face_nodes.data = face_nodes.data.astype(int)
+
         self.cell_faces: sps.csc_matrix = cell_faces
         """An array with ``shape=(num_faces, num_cells)`` representing the map from
         cells to faces bordering respective cell.

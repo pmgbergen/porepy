@@ -118,6 +118,7 @@ class NewtonSolver:
 
                 if is_diverged:
                     model.after_nonlinear_failure(sol, errors, iteration_counter)
+                    break
                 elif is_converged:
                     model.after_nonlinear_convergence(sol, errors, iteration_counter)
 
