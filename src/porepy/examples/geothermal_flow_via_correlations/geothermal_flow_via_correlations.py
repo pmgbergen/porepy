@@ -86,7 +86,7 @@ class ModelGeometry:
         return self.params.get("grid_type", "simplex")
 
     def meshing_arguments(self) -> dict:
-        cell_size = self.solid.convert_units(0.5, "m")
+        cell_size = self.solid.convert_units(0.25, "m")
         mesh_args: dict[str, float] = {"cell_size": cell_size}
         return mesh_args
 
@@ -100,7 +100,7 @@ class BoundaryConditions(BoundaryConditionsCF):
 
     def bc_type_advective_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         all, east, west, north, south, top, bottom = self.domain_boundary_sides(sd)
-        return pp.BoundaryCondition(sd, west, "dir")
+        return pp.BoundaryCondition(sd, west + east, "dir")
 
     def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
         all, east, west, north, south, top, bottom = self.domain_boundary_sides(
@@ -134,7 +134,7 @@ class BoundaryConditions(BoundaryConditionsCF):
         all, east, west, north, south, top, bottom = self.domain_boundary_sides(
             boundary_grid
         )
-        z_init = 0.1
+        z_init = 0.01
         z_inlet = 0.2  # 0.5e-2
         if component.name == "H2O":
             z_H2O = (1 - z_init) * np.ones(boundary_grid.num_cells)
@@ -254,8 +254,8 @@ class DriesnerBrineFlowModel(
 day = 86400
 t_scale = 0.00001
 time_manager = pp.TimeManager(
-    schedule=[0, 10.0 * day * t_scale],
-    dt_init=0.1 * day * t_scale,
+    schedule=[0, 1.0 * day * t_scale],
+    dt_init=1.0 * day * t_scale,
     constant_dt=True,
     iter_max=50,
     print_info=True,
