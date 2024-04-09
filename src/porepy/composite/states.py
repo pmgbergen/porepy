@@ -177,7 +177,7 @@ class PhaseState(ExtensiveState):
         idx = self.v > 0.0
         outer = np.zeros_like(self.v)
         outer[idx] = -1 / self.v[idx] ** 2
-        outer = -1 / self.v**2
+        # outer = -1 / self.v**2
         return np.array([outer * dv for dv in self.dv])
 
     @property
