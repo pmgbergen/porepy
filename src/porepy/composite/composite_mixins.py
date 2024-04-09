@@ -571,29 +571,22 @@ class CompositeVariables(pp.VariableMixin):
             component in phase
         ), f"Component {component.name} not in phase {phase.name}"
 
-        if len(phase.components) == 1:
-
-            def fraction(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
-                return pp.ad.Scalar(
-                    1.0, f"single-partial-fraction_{component.name}_{phase.name}"
+        # Extended fractions are always independent, even in the single-component case,
+        # because they are not necessarily 1.
+        def fraction(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+            name = self._relative_fraction_variable(component, phase)
+            if len(domains) > 0 and all(
+                [isinstance(g, pp.BoundaryGrid) for g in domains]
+            ):
+                return self.create_boundary_operator(
+                    name=name, domains=domains  # type: ignore[call-arg]
                 )
-
-        else:
-
-            def fraction(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
-                name = self._relative_fraction_variable(component, phase)
-                if len(domains) > 0 and all(
-                    [isinstance(g, pp.BoundaryGrid) for g in domains]
-                ):
-                    return self.create_boundary_operator(
-                        name=name, domains=domains  # type: ignore[call-arg]
-                    )
-                # Check that the domains are grids.
-                if not all([isinstance(g, pp.Grid) for g in domains]):
-                    raise ValueError(
-                        """Argument domains a mixture of subdomain and boundaries."""
-                    )
-                return self.equation_system.md_variable(name, domains)
+            # Check that the domains are grids.
+            if not all([isinstance(g, pp.Grid) for g in domains]):
+                raise ValueError(
+                    """Argument domains a mixture of subdomain and boundaries."""
+                )
+            return self.equation_system.md_variable(name, domains)
 
         return fraction
 
@@ -607,6 +600,9 @@ class CompositeVariables(pp.VariableMixin):
 
         If the mixture has no extended fractions, the partial fractions are independent
         operators.
+
+        if the phase has only 1 component, the single partial fraction is automatically
+        constant 1.
 
         Note:
             If the partial fractions are independent operators, this method
@@ -633,7 +629,18 @@ class CompositeVariables(pp.VariableMixin):
                 return xn
 
         else:
-            fraction = self.extended_fraction(component, phase)
+            # Physical fraction are constant 1, if only 1 component
+            # Otherwise we use the code from extended fractions to create independent
+            # variables
+            if len(phase.components) == 1:
+
+                def fraction(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+                    return pp.ad.Scalar(
+                        1.0, f"single-partial-fraction_{component.name}_{phase.name}"
+                    )
+
+            else:
+                fraction = self.extended_fraction(component, phase)
 
         return fraction
 
