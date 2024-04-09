@@ -83,10 +83,10 @@ class ModelGeometry:
     #     self._fractures = disjoint_fractures
 
     def grid_type(self) -> str:
-        return self.params.get("grid_type", "simplex")
+        return self.params.get("grid_type", "cartesian")
 
     def meshing_arguments(self) -> dict:
-        cell_size = self.solid.convert_units(0.25, "m")
+        cell_size = self.solid.convert_units(1.0, "m")
         mesh_args: dict[str, float] = {"cell_size": cell_size}
         return mesh_args
 
@@ -252,7 +252,7 @@ class DriesnerBrineFlowModel(
 
 
 day = 86400
-t_scale = 0.00001
+t_scale = 0.000001
 time_manager = pp.TimeManager(
     schedule=[0, 1.0 * day * t_scale],
     dt_init=1.0 * day * t_scale,
