@@ -96,21 +96,20 @@ class BoundaryConditions(BoundaryConditionsCF):
 
     def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         all, east, west, north, south, top, bottom = self.domain_boundary_sides(sd)
-        return pp.BoundaryCondition(sd, east + west, "dir")
+        return pp.BoundaryCondition(sd, west + east, "dir")
 
     def bc_type_advective_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         all, east, west, north, south, top, bottom = self.domain_boundary_sides(sd)
-        return pp.BoundaryCondition(sd, east + west, "dir")
+        return pp.BoundaryCondition(sd, west, "dir")
 
     def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
         all, east, west, north, south, top, bottom = self.domain_boundary_sides(
             boundary_grid
         )
-        p_inlet = 20.0e6
-        p_outlet = 15.0e6
+        p_inlet = 15.0e6
+        p_outlet = 14.0e6
         xcs = boundary_grid.cell_centers.T
         l = 10.0
-
         def p_D(xc):
             x, y, z = xc
             return p_inlet * (1 - x / l) + p_outlet * (x / l)
@@ -124,7 +123,7 @@ class BoundaryConditions(BoundaryConditionsCF):
             boundary_grid
         )
         h_init = 2.5e6
-        h_inlet = 2.5e6
+        h_inlet = 1.5e6
         h = h_init * np.ones(boundary_grid.num_cells)
         h[west] = h_inlet
         return h
@@ -135,7 +134,7 @@ class BoundaryConditions(BoundaryConditionsCF):
         all, east, west, north, south, top, bottom = self.domain_boundary_sides(
             boundary_grid
         )
-        z_init = 0.01
+        z_init = 0.1
         z_inlet = 0.2  # 0.5e-2
         if component.name == "H2O":
             z_H2O = (1 - z_init) * np.ones(boundary_grid.num_cells)
@@ -163,7 +162,7 @@ class InitialConditions(InitialConditionsCF):
     """See parent class how to set up BC. Default is all zero and Dirichlet."""
 
     def intial_pressure(self, sd: pp.Grid) -> np.ndarray:
-        p = 20.0e6
+        p = 15.0e6
         return np.ones(sd.num_cells) * p
 
     def initial_temperature(self, sd: pp.Grid) -> np.ndarray:
@@ -253,10 +252,10 @@ class DriesnerBrineFlowModel(
 
 
 day = 86400
-t_scale = 0.000001
+t_scale = 0.00001
 time_manager = pp.TimeManager(
-    schedule=[0, 1.0 * day * t_scale],
-    dt_init=1.0 * day * t_scale,
+    schedule=[0, 10.0 * day * t_scale],
+    dt_init=0.1 * day * t_scale,
     constant_dt=True,
     iter_max=50,
     print_info=True,
@@ -266,7 +265,7 @@ time_manager = pp.TimeManager(
 # eliminate reference phase fractions  and reference component.\
 # self.solid.thermal_conductivity(), "solid_thermal_conductivity"
 solid_constants = pp.SolidConstants(
-    {"permeability": 9.869233e-14, "porosity": 0.2, "thermal_conductivity": 1000.0*1.92}
+    {"permeability": 9.869233e-14, "porosity": 0.2, "thermal_conductivity": 1.0*1.92}
 )
 material_constants = {"solid": solid_constants}
 params = {
@@ -276,7 +275,7 @@ params = {
     "time_manager": time_manager,
     "prepare_simulation": False,
     "reduce_linear_system_q": False,
-    "nl_convergence_tol": 1.0e-6,
+    "nl_convergence_tol": 1.0e-3,
     "max_iterations": 50,
 }
 
@@ -297,18 +296,28 @@ print("Mixed-dimensional grid employed: ", model.mdg)
 tb = time.time()
 pp.run_time_dependent_model(model, params)
 fluxes = model.darcy_flux(model.mdg.subdomains()).value(model.equation_system)
-bc_grid = model.mdg.boundaries()
 all, east, west, north, south, top, bottom = model.domain_boundary_sides(model.mdg.subdomains()[0])
 print("fluxes[north]: ", fluxes[north])
 print("fluxes[south]: ", fluxes[south])
 print("fluxes[east]: ", fluxes[east])
 print("fluxes[west]: ", fluxes[west])
+
 east_ = east[all]
+bc_grid = model.mdg.boundaries()
 bc_flux = model.darcy_flux(bc_grid).value(model.equation_system)
 print("bc fluxes[north]: ", bc_flux[north[all]])
 print("bc fluxes[south]: ", bc_flux[south[all]])
 print("bc fluxes[east]: ", bc_flux[east[all]])
 print("bc fluxes[west]: ", bc_flux[west[all]])
+
+NaCl = model.fluid_mixture._components[1]
+NaCl_fluxes = model.fluid_flux_for_component(NaCl,model.mdg.subdomains()).value(model.equation_system)
+print("NaCl_fluxes[north]: ", NaCl_fluxes[north])
+print("NaCl_fluxes[south]: ", NaCl_fluxes[south])
+print("NaCl_fluxes[east]: ", NaCl_fluxes[east])
+print("NaCl_fluxes[west]: ", NaCl_fluxes[west])
+
+
 te = time.time()
 print("Elapsed time run_time_dependent_model: ", te - tb)
 print("Total number of DoF: ", model.equation_system.num_dofs())
