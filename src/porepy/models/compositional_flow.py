@@ -307,7 +307,7 @@ class MobilityCF:
         component mass balance equations.
 
         Note:
-            In a fractional flow formulation with a single darcy flux, this
+            In a fractional flow formulation with a single darcy flux (total flux), this
             discretization should be the same for all components.
             The signature is left to include the component for any case.
 
@@ -725,9 +725,8 @@ class TotalEnergyBalanceEquation_h(energy.EnergyBalanceEquations):
     ]
     """Provided by :class:`MobilityCF`."""
 
-    bc_type_darcy_flux: Callable[[pp.Grid], pp.BoundaryCondition]
-    """Provided by
-    :class:`~porepy.models.fluid_mass_balance.BoundaryConditionsSinglePhaseFlow`."""
+    bc_type_advective_flux: Callable[[pp.Grid], pp.BoundaryCondition]
+    """Provided by :class:`BoundaryConditionsCF`."""
 
     @staticmethod
     def primary_equation_name():
@@ -781,13 +780,9 @@ class TotalEnergyBalanceEquation_h(energy.EnergyBalanceEquations):
         """
 
         if len(domains) == 0 or all(isinstance(d, pp.BoundaryGrid) for d in domains):
-            # enthalpy flux values on the boundary (Neumann type) are given by the
-            # overall darcy flux and user-provided values for the weight
-            fraction_boundary = self.create_boundary_operator(
-                self.bc_data_enthalpy_flux_key, domains
-            )
-            op = fraction_boundary * self.darcy_flux(domains)
-            op.set_name(f"bc_enthalpy_flux")
+            # NOTE The advected enthalpy (Neumann-type flux) must be consistent with
+            # the total mass flux
+            op = self.advective_weight_enthalpy_flux(domains) * self.darcy_flux(domains)
             return op
 
         # Check that the domains are grids.
@@ -799,13 +794,15 @@ class TotalEnergyBalanceEquation_h(energy.EnergyBalanceEquations):
         # (in the typing sense).
         domains = cast(list[pp.Grid], domains)
 
+        # NOTE Boundary conditions are different from the pressure equation
+        # This is consistent with the usage of darcy_flux in advective_flux
         boundary_operator_enthalpy = (
             self._combine_boundary_operators(  # type: ignore[call-arg]
                 subdomains=domains,
                 dirichlet_operator=self.advective_weight_enthalpy_flux,
                 neumann_operator=self.enthalpy_flux,
-                bc_type=self.bc_type_darcy_flux,
-                name="bc_values_enthalpy",
+                bc_type=self.bc_type_advective_flux,
+                name="bc_values_enthalpy_flux",
             )
         )
 
@@ -901,12 +898,8 @@ class ComponentMassBalanceEquations(mass.MassBalanceEquations):
     eliminate_reference_component: bool
     """Provided by :class:`SolutionStrategyCF`."""
 
-    bc_data_fractional_mobility_key: Callable[[ppc.Component], str]
+    bc_type_advective_flux: Callable[[pp.Grid], pp.BoundaryCondition]
     """Provided by :class:`BoundaryConditionsCF`."""
-
-    bc_type_darcy_flux: Callable[[pp.Grid], pp.BoundaryCondition]
-    """Provided by
-    :class:`~porepy.models.fluid_mass_balance.BoundaryConditionsSinglePhaseFlow`."""
 
     def _mass_balance_equation_name(self, component: ppc.Component) -> str:
         """Method returning a name to be given to the mass balance equation of a
@@ -1045,13 +1038,10 @@ class ComponentMassBalanceEquations(mass.MassBalanceEquations):
 
         """
         if len(domains) == 0 or all(isinstance(d, pp.BoundaryGrid) for d in domains):
-            # Flux values on the boundary (Neumann type) are given by the overall darcy
-            # flux and user-provided values for the fractional mobility
-            fraction_boundary = self.create_boundary_operator(
-                self.bc_data_fractional_mobility_key(component), domains
-            )
-            op = fraction_boundary * self.darcy_flux(domains)
-            op.set_name(f"bc_component_flux_{component.name}")
+            # NOTE consistent Neumann-type flux based on the total flux
+            op = self.advective_weight_component_flux(
+                component, domains
+            ) * self.darcy_flux(domains)
             return op
 
         # Verify that the domains are subdomains.
@@ -1081,11 +1071,13 @@ class ComponentMassBalanceEquations(mass.MassBalanceEquations):
             interface_flux,
         )
 
+        # NOTE Boundary conditions are different from the pressure equation
+        # This is consistent with the usage of darcy_flux in advective_flux
         boundary_operator = self._combine_boundary_operators(  # type: ignore[call-arg]
             subdomains=domains,
             dirichlet_operator=weight_dirichlet_bc,
             neumann_operator=fluid_flux_neumann_bc,
-            bc_type=self.bc_type_darcy_flux,
+            bc_type=self.bc_type_advective_flux,
             name=f"bc_values_component_flux_{component.name}",
         )
         flux = self.advective_flux(
@@ -1335,8 +1327,8 @@ class SecondaryEquationsMixin:
         [
             pp.ad.MixedDimensionalVariable,
             ppc.SecondaryExpression,
-            pp.GridLikeSequence,
             Callable[[tuple[np.ndarray, ...]], tuple[np.ndarray, np.ndarray]],
+            pp.GridLikeSequence,
         ],
         None,
     ]
@@ -1404,14 +1396,20 @@ class SecondaryEquationsMixin:
             domains: A Sequence of grids on which the quantity and its depdencies are
                 defined and on which the equation should be introduces.
                 Used to call ``independent_quantity`` and ``dependencies``.
+
+                Note that a quantity can be eliminated on the boundary as well!
+
             dofs: ``default={'cells':1}``
 
                 Argument for when adding above equation to the equation system.
 
         """
+        # separate these two because Boundary values for independent quantities are
+        # stored differently
+        non_boundaries = [g for g in domains if isinstance(g, (pp.Grid, pp.MortarGrid))]
 
-        sec_var = independent_quantity(domains)
-        g_ids = [d.id for d in domains]
+        sec_var = independent_quantity(non_boundaries)
+        g_ids = [d.id for d in non_boundaries]
 
         sec_expr = ppc.SecondaryExpression(
             name=f"secondary_expression_for_{sec_var.name}_on_grids_{g_ids}",
@@ -1421,11 +1419,11 @@ class SecondaryEquationsMixin:
             iterate_depth=len(self.iterate_indices),
         )
 
-        local_equ = sec_var - sec_expr(domains)
+        local_equ = sec_var - sec_expr(non_boundaries)
         local_equ.set_name(f"elimination_of_{sec_var.name}_on_grids_{g_ids}")
-        self.equation_system.set_equation(local_equ, domains, dofs)
+        self.equation_system.set_equation(local_equ, non_boundaries, dofs)
 
-        self.add_constitutive_expression(sec_var, sec_expr, domains, func)
+        self.add_constitutive_expression(sec_var, sec_expr, func, domains)
 
 
 class PrimaryEquationsCF(
@@ -1609,8 +1607,9 @@ class ConstitutiveLawsCF(
         tuple[
             pp.ad.MixedDimensionalVariable,
             ppc.SecondaryExpression,
-            pp.GridLikeSequence,
             Callable[[tuple[np.ndarray, ...]], tuple[np.ndarray, np.ndarray]],
+            Sequence[pp.Grid | pp.MortarGrid],
+            Sequence[pp.BoundaryGrid]
         ],
     ]
     """Provided by :class:`SolutionStrategyCF`"""
@@ -1619,8 +1618,8 @@ class ConstitutiveLawsCF(
         self,
         primary: pp.ad.MixedDimensionalVariable,
         expression: ppc.SecondaryExpression,
-        domains: pp.GridLikeSequence,
         func: Callable[[tuple[np.ndarray, ...]], tuple[np.ndarray, np.ndarray]],
+        grids: pp.GridLikeSequence,
     ) -> None:
         """Register a secondary expression with the model framework to have it's
         update automatized.
@@ -1635,16 +1634,18 @@ class ConstitutiveLawsCF(
                 expression.
             expression: The secondary expression which eliminates ``primary``, with
                 some dependencies on primary variables.
-            domains: A sequence of domain on which it was eliminated.
             func: A numerical function returning value and derivative values to be
                 inserted into ``expression`` when updateing.
 
                 The derivative values must be a 2D array with rows consistent with the
                 number of dependencies in ``expression``.
+            grids: A sequence of grids on which it was eliminated.
 
         """
+        boundaries = [g for g in grids if isinstance(g, pp.BoundaryGrid)]
+        domains = [g for g in grids if isinstance(g, (pp.Grid, pp.MortarGrid))]
         self._constitutive_eliminations.update(
-            {expression.name: (primary, expression, domains, func)}
+            {expression.name: (primary, expression, func, domains, boundaries)}
         )
 
     def update_all_constitutive_expressions(
@@ -1666,7 +1667,7 @@ class ConstitutiveLawsCF(
                 sense.
 
         """
-        for _, expr, domains, func in self._constitutive_eliminations.values():
+        for _, expr, func, domains, _ in self._constitutive_eliminations.values():
             for g in domains:
                 X = [x([g]).value(self.equation_system) for x in expr._dependencies]
 
@@ -1693,7 +1694,7 @@ class ConstitutiveLawsCF(
                 sense.
 
         """
-        for _, expr, domains, _ in self._constitutive_eliminations.values():
+        for _, expr, _, domains, _ in self._constitutive_eliminations.values():
             expr.progress_values_in_time(domains)
             if progress_derivatives:
                 expr.progress_derivatives_in_time(domains)
@@ -1769,158 +1770,49 @@ class BoundaryConditionsCF(
     _solute_fraction_variable: Callable[[ppc.ChemicalSpecies, ppc.Compound], str]
     """Provided by :class:`~porepy.composite.composite_mixins.CompositeVariables`."""
 
-    def check_bc_consistency(self) -> None:
-        """Performs checks of the set boundary condition values and types to ensure
-        consistency.
+    _constitutive_eliminations: dict[
+        str,
+        tuple[
+            pp.ad.MixedDimensionalVariable,
+            ppc.SecondaryExpression,
+            Callable[[tuple[np.ndarray, ...]], tuple[np.ndarray, np.ndarray]],
+            Sequence[pp.Grid | pp.MortarGrid],
+            Sequence[pp.BoundaryGrid]
+        ],
+    ]
+    """Provided by :class:`SolutionStrategyCF`"""
 
-        This method implements certain requirements to how the model is configured,
-        aiming for complete mathematical consistency.
+    def bc_type_advective_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        """Returns the BC type of hyperbolic boundary condition in the advective flux.
 
-        Checks:
+        Consider an advective flux :math:`f \\mathbf{m}`.
+        While the BC type for :math:`\\mathbf{m}` is defined by
+        :meth:`bc_type_darcy_flux`, the user can define Dirichlet-type faces where
+        mass or energy in form of :math:`f` enters the system, independent of the values
+        of :math:`\\mathbf{m}` (which can be zero).
 
-        1. Dirichlet/Neumann/Robin faces must be consistently defined for all advective
-           fluxes.
-        2. Dirichlet faces for the advective flux (where temperature must also be
-           defined on the boundary to compute the advective weights), must be contained
-           in the Dirichlet faces for the Fourier flux (important!)
-        3. Fractional mobilities on boundaries must add up to 1 or be zero.
-        4. Overall fractions on boundaries must add up to 1 or be zero.
-        5. Pressure, temperature and overall fraction values on Dirichlet boundary must
-           be strictly positive or zero on the same faces (boundary flash).
+        Note:
+            Mass as well as energy are advected.
 
-        While most of the checks are straight forward, check 2 needs an explanation:
+        Important:
+            Due to the fractional flow formulation and the dependency of :math:`f`
+            on pressure, enthalpy/pressure and fractional variables,
+            the user must be aware that pressure values on boundary faces, which the
+            Darcy flux considers as Neumann-type, also have an impact on the simulation.
 
-        On Dirichlet faces for the Darcy flux, pressure must be provided, and a way
-        to compute the weights in the advective flux.
-        Since in the non-isothermal setting the fluid properties depend also on T,
-        the user must provide T values there as well.
-
-        Also, the conductive flux in the energy equation on this part of the boundary
-        must hence not be given by Neumann conditions, but be consistent since T is
-        provided.
-
-        To summarize, on the boundary with pressure defined, temperature must be defined
-        as well to compute the propertie. And since temperature is given, the Fourier
-        flux cannot have Neumann values on those faces.
-
-        Note though, that temperature can be defined on faces, where there are no
-        Dirichlet conditions for pressure. This gives flexibility to define heated
-        boundaries with no mass flux, in terms of both temperature and heat flux.
+        Base implementation sets all faces to Dirichlet-type.
 
         """
-
-        # Checking consistency of BC type definitions of the advective flux
-        # The parent classes have BC types for Darcy flux, fluid flux and enthalpy flux
-        # in separate methods. But they must be all the same, since they are due to mass
-        # entering the system.
-        for sd in self.mdg.subdomains():
-            bc_darcy = self.bc_type_darcy_flux(sd)
-            bc_fluid = self.bc_type_fluid_flux(sd)
-            bc_enthalpy = self.bc_type_fluid_flux(sd)
-
-            # checking definition of Dirichlet boundary
-            # performed by summing the boolean arrays, and asserting that only 0 or a
-            # single number is in the resulting array, and not multiple non-zero numbers
-            check_dir = bc_darcy.is_dir + bc_fluid.is_dir + bc_enthalpy.is_dir
-            assert len(set(check_dir)) <= 2, (
-                "Inconsistent number of Dirichlet boundary faces defined for advective"
-                + f" flux on subdomain {sd}."
-            )
-
-            # same must hold for Neumann and Robin BC
-            check_neu = bc_darcy.is_neu + bc_fluid.is_neu + bc_enthalpy.is_neu
-            assert len(set(check_neu)) <= 2, (
-                "Inconsistent number of Neumann boundary faces defined for advective"
-                + f" flux on subdomain {sd}."
-            )
-            check_rob = bc_darcy.is_rob + bc_fluid.is_rob + bc_enthalpy.is_rob
-            assert len(set(check_rob)) <= 2, (
-                "Inconsistent number of Neumann boundary faces defined for advective"
-                + f" flux on subdomain {sd}."
-            )
-
-            # check if Dirichlet faces for Fourier flux are part of the Dirichlet
-            # faces for the Fourier flux.
-            # This is important because Temperature must be provided on the Dirichlet
-            # boundary for the advective flux (to compute the influxing mass)
-            # Temperature though, can be defined on faces where there is no advective
-            # flux (hot boundary). This gives some flexibility for model set-ups.
-            if np.any(bc_darcy.is_dir):
-                bc_fourier = self.bc_type_fourier_flux(sd)
-                Fourier_consistent_with_Darcy = bc_fourier.is_dir[bc_darcy.is_dir]
-                assert np.all(Fourier_consistent_with_Darcy), (
-                    "Darcy Dirichlet faces must be contained in Fourier Dirichlet faces"
-                    + f" on subdomain {sd}."
-                )
-
-            ### checks involving boundary grids as arguments
-            bg = self.mdg.subdomain_to_boundary_grid(sd)
-
-            # check if fractional mobilities on Neumann faces add up to 1
-            f = np.zeros(bg.num_cells)
-            for comp in self.fluid_mixture.components:
-                f_i = self.bc_values_fractional_mobility(comp, bg)
-                # check positivitiy of fractional mobilities
-                assert np.all(f_i >= 0.0), (
-                    f"Fractional mobilities of component {comp} on boundary {bg} must"
-                    + " be non-negative."
-                )
-                f += f_i
-            # f must be either zero or 1
-            assert np.allclose(
-                f[f > 0], 1.0
-            ), f"Sum of fractional mobilities must be either 1 or 0 on boundary {bg}."
-
-            # check if overall fractions on boundaries add up to one
-            z_sum = np.zeros(bg.num_cells)
-            for comp in self.fluid_mixture.components:
-                z_i = self.bc_values_overall_fraction(comp, bg)
-                # check positivitiy of fractional mobilities
-                assert np.all(z_i >= 0.0), (
-                    f"Overall fraction of component {comp} on boundary {bg} must"
-                    + " be non-negative."
-                )
-                z_sum += z_i
-            # z_sum must be either 0 or 1
-            assert np.allclose(
-                z_sum[z_sum > 0], 1.0
-            ), f"Sum of overall fractions must be either 1 or 0 on boundary {bg}."
-
-            # Check if T and z are non-trivial where p is non-trivial, since this
-            # is the part of the boundary where fluid properties are computed and should
-            # be non-trivial
-            p_bc = self.bc_values_pressure(bg)
-            T_bc = self.bc_values_temperature(bg)
-
-            assert np.all(T_bc[p_bc > 0.0] > 0), (
-                "Temperature values must be positive where pressure is positive on"
-                + f" boundary {bg}"
-            )
-            assert np.allclose(z_sum[p_bc > 0.0], 1), (
-                "Overall fractions must be provided where pressure is positive on"
-                + f" boundary {bg}."
-            )
-
-    def bc_data_fractional_mobility_key(self, component: ppc.Component) -> str:
-        """
-        Parameters:
-            component: A fluid component in the mixture with a mass balance equation.
-
-        Returns:
-            The key for storing (time-dependent) Neumann BC data for the advective
-            weight (fractional mobility) in the advective flux in the components mass
-            balance.
-
-        """
-        return f"{self.bc_data_fluid_flux_key}_fraction_{component.name}"
+        boundary_faces = self.domain_boundary_sides(sd).all_bf
+        return pp.BoundaryCondition(sd, boundary_faces, "dir")
 
     def bc_type_fluid_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
-        """Returns the BC type of the darcy flux for consistency reasons."""
-        return self.bc_type_darcy_flux(sd)
+        """Returns the BC type of the advective flux for consistency reasons."""
+        return self.bc_type_advective_flux(sd)
 
     def bc_type_enthalpy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
-        """Returns the BC type of the darcy flux for consistency reasons."""
-        return self.bc_type_darcy_flux(sd)
+        """Returns the BC type of the advective flux for consistency reasons."""
+        return self.bc_type_advective_flux(sd)
 
     def update_all_boundary_conditions(self) -> None:
         """On top of the parent methods for mass and energy models, it updates
@@ -1929,8 +1821,8 @@ class BoundaryConditionsCF(
         1. primary variables on the Dirichlet boundary, and values for
            fractional weights in advective fluxes on the Neumann boundary.
            :meth:`update_essential_boundary_values`
-        2. secondary fractional variables on the Dirichlet boundary
-           :meth:`update_boundary_values_secondary_fractions`.
+        2. Consitutively eliminated quantities on the boundary
+           :meth:`update_boundary_values_constitutive_eliminated`.
         3. phase properties which appear in the non-linear weights of various
            fluxes :meth:`update_boundary_values_phase_properties`.
 
@@ -1942,7 +1834,7 @@ class BoundaryConditionsCF(
             It is either this (a consistent computation), or a bunch of other methods
             where users provide values for properties individually.
 
-        Note:
+        Notes:
             1. Temperature is also a secondary variable for enthalpy-based formulations.
                Its update is taken care by the parent method for energy balance though.
             2. If the user provides a constitutive law for temperature, temperature
@@ -1956,7 +1848,7 @@ class BoundaryConditionsCF(
         # covers updates for pressure and temperature
         super().update_all_boundary_conditions()
         self.update_essential_boundary_values()
-        self.update_boundary_values_secondary_fractions()
+        self.update_boundary_values_constitutive_eliminated()
         self.update_boundary_values_phase_properties()
 
     def update_essential_boundary_values(self) -> None:
@@ -1991,66 +1883,40 @@ class BoundaryConditionsCF(
                 function=bc_vals,
             )
 
-            # update of fractional mobilities on Neumann boundary
-            bc_vals = partial(self.bc_values_fractional_mobility, component)
-            bc_vals = cast(Callable[[pp.BoundaryGrid], np.ndarray], bc_vals)
-            self.update_boundary_condition(
-                name=self.bc_data_fractional_mobility_key(component),
-                function=bc_vals,
-            )
-
-        # Update for weight in enthalpy flux on Neumann boundaries
-        self.update_boundary_condition(
-            name=self.bc_data_enthalpy_flux_key,
-            function=self.bc_values_enthalpy_flux_weight,
-        )
-
         # Update of BC values for fluid enthalpy
         self.update_boundary_condition(
             name=self.enthalpy_variable, function=self.bc_values_enthalpy
         )
 
-    def update_boundary_values_secondary_fractions(self) -> None:
+    def update_boundary_values_constitutive_eliminated(self) -> None:
         """Called by :meth:`update_all_boundary_conditions` to update the values of
-        saturations and partial fractions on the boundary.
+        formerly independent quantities, which were eliminated on some boundaries.
 
-        Uses partial evaluations of
-
-        - :meth:`bc_values_saturation`
-        - :meth:`bc_values_relative_fraction`
-
-        to update the grid dictionaries with the parent method
-        :meth:`update_boundary_condition`.
+        Uses the parent method :meth:`update_boundary_condition` assuming that the
+        quantity is used correspondingly
 
         """
 
-        for phase in self.fluid_mixture.phases:
-            # phase fractions and saturations
-            if (
-                self.eliminate_reference_phase
-                and phase == self.fluid_mixture.reference_phase
-            ):
-                pass
-            else:
-                s_name = self._saturation_variable(phase)
-                s_bc = partial(self.bc_values_saturation, phase)
-                s_bc = cast(Callable[[pp.BoundaryGrid], np.ndarray], s_bc)
-                self.update_boundary_condition(s_name, s_bc)
+        for elim_var, expr, func, _, bgs in self._constitutive_eliminations.values():
 
-            # compositional fractions are always updated (partial and extended are both
-            # named the same if independent)
-            for comp in phase:
-                x_name = self._relative_fraction_variable(comp, phase)
-                x_bc = partial(self.bc_values_relative_fraction, comp, phase)
-                x_bc = cast(Callable[[pp.BoundaryGrid], np.ndarray], x_bc)
-                self.update_boundary_condition(x_name, x_bc)
+            def bc_values_prim(bg: pp.BoundaryGrid) -> np.ndarray:
+                bc_vals: np.ndarray
+
+                if bg in bgs:
+                    X = [
+                        x([bg]).value(self.equation_system) for x in expr._dependencies
+                    ]
+                    bc_vals, _ = func(*X)
+                else:
+                    bc_vals = np.zeros(bg.num_cells)
+
+                return bc_vals
+
+            self.update_boundary_condition(elim_var.name, bc_values_prim)
 
     def update_boundary_values_phase_properties(self) -> None:
         """Evaluates the phase properties using underlying EoS and progresses
         their values in time.
-
-        Dependencies of phase properties are evaluated on boundary grids and restricted
-        to Dirichlet faces. The results are then fed to the EoS.
 
         This base method updates only properties which are expected in the non-linear
         weights of the avdective flux:
@@ -2063,36 +1929,41 @@ class BoundaryConditionsCF(
         Note that conductitivies are not updated, since the framework uses a consistent
         discretization of diffusive fluxes with non-linear tensors.
 
+        Important:
+            Due to the fractional flow formulation, values are required on all boundary
+            faces, Neumann and Dirichlet.
+            The fractional flow weights are multiplied on each face with the total flux.
+
+            This implies, that the user must be aware that primary variables like
+            pressure must be considered on all faces.
+
+            Especially if they are zero, the underlying EoS
+            (:meth:`~porepy.composite.base.Phase.compute_properties`) must be able
+            to handle that input.
+
         """
 
         for bg in self.mdg.boundaries():
-            # zero vector for broadcasting
-            vec = np.zeros(bg.num_cells)
-            # Filter for Dirichlet boundary faces
-            dbc = self.bc_type_darcy_flux(bg.parent).is_dir
-            # reduce vector with all faces to vector with boundary faces
-            bf = self.domain_boundary_sides(bg.parent).all_bf
-            dbc = dbc[bf]
             for phase in self.fluid_mixture.phases:
                 # some work is required for BGs with zero cells
                 if bg.num_cells == 0:
-                    rho_res = np.zeros(0)
-                    h_res = np.zeros(0)
-                    mu_res = np.zeros(0)
+                    rho_bc = np.zeros(0)
+                    h_bc = np.zeros(0)
+                    mu_bc = np.zeros(0)
                 else:
                     dep_vals = [
-                        d([bg]).value(self.equation_system)[dbc]
+                        d([bg]).value(self.equation_system)
                         for d in self.dependencies_of_phase_properties(phase)
                     ]
                     state = phase.compute_properties(*dep_vals)
-                    rho_res = state.rho
-                    h_res = state.h
-                    mu_res = state.mu
+                    rho_bc = state.rho
+                    h_bc = state.h
+                    mu_bc = state.mu
 
                 # phase properties which appear in mobilities
-                rho_bc = vec.copy()
-                rho_bc[dbc] = rho_res
                 phase.density.update_boundary_value(rho_bc, bg)
+                phase.enthalpy.update_boundary_value(h_bc, bg)
+                phase.viscosity.update_boundary_value(mu_bc, bg)
 
                 # volume as reciprocal of density, only where given
                 v_bc = np.zeros_like(rho_bc)
@@ -2100,54 +1971,7 @@ class BoundaryConditionsCF(
                 v_bc[idx] = 1.0 / rho_bc[idx]
                 phase.volume.update_boundary_value(v_bc, bg)
 
-                h_bc = vec.copy()
-                h_bc[dbc] = h_res
-                phase.enthalpy.update_boundary_value(h_bc, bg)
-
-                mu_bc = vec.copy()
-                mu_bc[dbc] = mu_res
-                phase.viscosity.update_boundary_value(mu_bc, bg)
-
     ### BC values for primary variables which need to be given by the user in any case.
-
-    def bc_values_fractional_mobility(
-        self, component: ppc.Component, boundary_Grid: pp.BoundaryGrid
-    ) -> np.ndarray:
-        """BC value of the fractional mobility on the Neumann boundary.
-
-        Required to weigh the total mass influx for component mass balances, when
-        Neumann conditions are defined (see how
-        :meth:`ComponentMassBalanceEquations.advective_weight_enthalpy_flux` is defined).
-
-        Parameters:
-            component: A fluid component in the mixture with a mass balance equation.
-            boundary_Grid: Boundary grid to provide values for.
-
-        Returns:
-            An array with ``shape=(boundary_Grid.num_cells,)`` containing the value of
-            the fractional mobility on Neumann boundaries.
-
-        """
-        return np.zeros(boundary_Grid.num_cells)
-
-    def bc_values_enthalpy_flux_weight(
-        self, boundary_grid: pp.BoundaryGrid
-    ) -> np.ndarray:
-        """BC value of the weight in the enthalpy flux on the Neumann boundary.
-
-        Required to weigh the total mass influx for component mass balances, when
-        Neumann conditions are defined (see how
-        :meth:`TotalEnergyBalance_h.advective_weight_component_flux` is defined).
-
-        Parameters:
-            boundary_grid: Boundary grid to provide values for.
-
-        Returns:
-            An array with ``shape=(boundary_grid.num_cells,)`` containing the value of
-            the enthalpy flux weight on Neumann boundaries.
-
-        """
-        return np.zeros(boundary_grid.num_cells)
 
     def bc_values_enthalpy(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
         """BC values for fluid enthalpy on the Dirichlet boundary.
@@ -2205,48 +2029,6 @@ class BoundaryConditionsCF(
         Returns:
             An array with ``shape=(bg.num_cells,)`` containing the value of
             the overall fraction.
-
-        """
-        return np.zeros(boundary_grid.num_cells)
-
-    ### BC which need to be provided in case no equilibrium calculations are included.
-
-    def bc_values_saturation(
-        self, phase: ppc.Phase, boundary_grid: pp.BoundaryGrid
-    ) -> np.ndarray:
-        """
-        Parameters:
-            phase: A phase in the fluid mixture.
-            boundary_grid: A boundary grid in the domain.
-
-        Returns:
-            BC values for saturation on the Dirichlet boundary, for models which do not
-            have equilibrium calculations.
-            Must be an array with shape ``(boundary_grid.num_cells,)``.
-
-        """
-        return np.zeros(boundary_grid.num_cells)
-
-    def bc_values_relative_fraction(
-        self, component: ppc.Component, phase: ppc.Phase, boundary_grid: pp.BoundaryGrid
-    ) -> np.ndarray:
-        """BC values for fractions of a component in a phase on the Dirichlet
-        boundary, for problems without equilibrium calculations.
-
-        Note:
-            For models with equilibrium calculations, this is used for BC values of
-            extended fractions.
-            For models without equilibrium calculations, this is used for BC values of
-            partial fractions.
-
-        Parameters:
-            component: A component in the ``phase``.
-            phase: A phase in the fluid mixture.
-            boundary_grid: A boundary grid in the domain.
-
-
-        Returns:
-            An array with shape ``(boundary_grid.num_cells,)``.
 
         """
         return np.zeros(boundary_grid.num_cells)
@@ -2312,8 +2094,9 @@ class InitialConditionsCF:
         tuple[
             pp.ad.MixedDimensionalVariable,
             ppc.SecondaryExpression,
-            pp.GridLikeSequence,
             Callable[[tuple[np.ndarray, ...]], tuple[np.ndarray, np.ndarray]],
+            Sequence[pp.Grid | pp.MortarGrid],
+            Sequence[pp.BoundaryGrid],
         ],
     ]
     """Provided by :class:`SolutionStrategyCF`"""
@@ -2326,14 +2109,14 @@ class InitialConditionsCF:
            :meth:`set_initial_values_primary_variables`
         2. Initializes secondary variables and the secondary expressions by which
            they were eliminated
-           :meth:`set_initial_values_secondary_variables`
+           :meth:`set_initial_values_constitutive_eliminated`
         3. Copies values of all independent variables to all time and iterate indices.
         4. Initializes phase properties by computing them using the underlying EoS
            :meth:`set_intial_values_phase_properties`
 
         """
         self.set_initial_values_primary_variables()
-        self.set_initial_values_secondary_variables()
+        self.set_initial_values_constitutive_eliminated()
         # updating variable values from current time step, to all previous and iterate
         val = self.equation_system.get_variable_values(iterate_index=0)
         self.equation_system.shift_iterate_values()
@@ -2394,7 +2177,7 @@ class InitialConditionsCF:
                     z_i, [comp.fraction([sd])], iterate_index=0
                 )
 
-    def set_initial_values_secondary_variables(self) -> None:
+    def set_initial_values_constitutive_eliminated(self) -> None:
         """Sets the initial values of secondary variables which were eliminated by
         some constitutive expression.
 
@@ -2406,7 +2189,7 @@ class InitialConditionsCF:
         The derivative values are only stored at the most recent iterate.
 
         """
-        for secvar, expr, domains, f in self._constitutive_eliminations.values():
+        for secvar, expr, f, domains, _ in self._constitutive_eliminations.values():
             # store value for eliminated secondary variable globally
             dep_vals = [
                 d(domains).value(self.equation_system) for d in expr._dependencies
@@ -2611,8 +2394,6 @@ class SolutionStrategyCF(
     """Provided by :class:`~porepy.composite.composite_mixins.FluidMixtureMixin`."""
     set_initial_values: Callable[[], None]
     """Provided by :class:`InitialConditionsCF`."""
-    check_bc_consistency: Callable[[], None]
-    """Provided by :class:`BoundaryConditionsCF`"""
     progress_all_constitutive_expressions_in_time: Callable[[Optional[bool]], None]
     """Provided by :class:`ConstitutiveLawsCF`."""
     update_all_constitutive_expressions: Callable[[Optional[bool]], None]
@@ -2642,8 +2423,9 @@ class SolutionStrategyCF(
             tuple[
                 pp.ad.MixedDimensionalVariable,
                 ppc.SecondaryExpression,
-                pp.GridLikeSequence,
                 Callable[[tuple[np.ndarray, ...]], tuple[np.ndarray, np.ndarray]],
+                Sequence[pp.Grid, pp.MortarGrid],
+                Sequence[pp.BoundaryGrid],
             ],
         ] = dict()
         """Storage of terms which were eliminated by some cosntitutive expression."""
@@ -2722,9 +2504,6 @@ class SolutionStrategyCF(
         self.create_variables()
         self.assign_thermodynamic_properties_to_mixture()
 
-        # initial_condition calls a BC update, and we must check its consistency first
-        # self.check_bc_consistency()
-
         self.set_equations()
         self.initial_condition()
         self.reset_state_from_file()  # TODO check if this is in conflict with init vals
@@ -2768,6 +2547,24 @@ class SolutionStrategyCF(
                 },
             )
 
+    def add_nonlinear_flux_discretization(
+        self, discretization: pp.ad._ad_utils.MergedOperator
+    ) -> None:
+        """Add an entry to the list of nonlinear flux discretizations.
+
+        Important:
+            The fluxes must be re-discretized before the upwinding is re-discretized,
+            since the new flux values must be stored before upwinding is updated.
+
+        Parameters:
+            discretization: The nonlinear discretization to be added.
+
+        """
+        # This guardrail is very weak. However, the discretization list is uniquified
+        # before discretization, so it should not be a problem.
+        if discretization not in self._nonlinear_discretizations:
+            self._nonlinear_flux_discretizations.append(discretization)
+
     def set_nonlinear_discretizations(self) -> None:
         """Overwrites parent methods to point to discretizations in
         :class:`MobilityCF`.
@@ -2807,9 +2604,9 @@ class SolutionStrategyCF(
             )
 
         # TODO this is experimental and expensive
-        self.add_nonlinear_discretization(
+        self.add_nonlinear_flux_discretization(
             self.fourier_flux_discretization(subdomains).flux())
-        self.add_nonlinear_discretization(
+        self.add_nonlinear_flux_discretization(
             self.darcy_flux_discretization(subdomains).flux())
 
     def update_secondary_quantities(self) -> None:

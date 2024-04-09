@@ -16,7 +16,8 @@ a p-h flash.
 from __future__ import annotations
 
 import logging
-from typing import Callable
+from typing import Callable, cast
+from functools import partial
 
 import numpy as np
 
@@ -114,13 +115,35 @@ class BoundaryConditionsCFLE(cf.BoundaryConditionsCF):
             self
         )
         self.update_essential_boundary_values()
+        self.update_boundary_values_constitutive_eliminated()
 
         if self.has_time_dependent_boundary_equilibrium:
             self.boundary_flash()
 
         # flash results for fractions are stored in the boundary fluid states.
         # Use regular way of updating to acces them.
-        self.update_boundary_values_secondary_fractions()
+        for phase in self.fluid_mixture.phases:
+
+            # phase fractions and saturations
+            if (
+                self.eliminate_reference_phase
+                and phase == self.fluid_mixture.reference_phase
+            ):
+                pass
+            else:
+                s_name = self._saturation_variable(phase)
+                s_bc = partial(self.bc_values_saturation, phase)
+                s_bc = cast(Callable[[pp.BoundaryGrid], np.ndarray], s_bc)
+                self.update_boundary_condition(s_name, s_bc)
+
+            # compositional fractions are always updated (partial and extended are both
+            # named the same if independent)
+            for comp in phase:
+                x_name = self._relative_fraction_variable(comp, phase)
+                x_bc = partial(self.bc_values_relative_fraction, comp, phase)
+                x_bc = cast(Callable[[pp.BoundaryGrid], np.ndarray], x_bc)
+                self.update_boundary_condition(x_name, x_bc)
+
 
     def boundary_flash(self) -> None:
         """This method performs the p-T flash on the Dirichlet boundary, where pressure
@@ -151,7 +174,7 @@ class BoundaryConditionsCFLE(cf.BoundaryConditionsCF):
             # the methods return by default zero arrays of size bg.num_cells
             if bg.num_cells == 0:
                 for phase in self.fluid_mixture.phases:
-                    phase.density.update_boundary_value(vec.cop(), bg)
+                    phase.density.update_boundary_value(vec.copy(), bg)
                     phase.volume.update_boundary_value(vec.copy(), bg)
                     phase.enthalpy.update_boundary_value(vec.copy(), bg)
                     phase.viscosity.update_boundary_value(vec.copy(), bg)
@@ -289,7 +312,7 @@ class InitialConditionsCFLE(cf.InitialConditionsCF):
 
         """
         self.set_initial_values_primary_variables()
-        self.set_initial_values_secondary_variables()
+        self.set_initial_values_constitutive_eliminated()
         self.set_intial_values_phase_properties()
         # updating variable values from current time step, to all previous and iterate
         val = self.equation_system.get_variable_values(iterate_index=0)
@@ -455,7 +478,9 @@ class SolutionStrategyCFLE(cf.SolutionStrategyCF, ppc.FlashMixin):
     def __init__(self, params: dict | None = None) -> None:
         super().__init__(params)
 
-        self._boundary_fluid_state: dict[pp.BoundaryGrid, dict[str, np.ndarray]]
+        self._boundary_fluid_state: dict[
+            pp.BoundaryGrid, dict[str, np.ndarray]
+        ] = dict()
         """Data structure to store results from the boundary flash, required for
         advective weights on the boundary."""
 
