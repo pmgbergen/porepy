@@ -111,11 +111,7 @@ class BoundaryConditions(BoundaryConditionsCF):
             all, east, west, north, south, top, bottom = self.domain_boundary_sides(sd)
             return pp.BoundaryCondition(sd, all, "dir")
 
-    def bc_type_fluid_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
-        """Returns the BC type of the darcy flux for consistency reasons."""
-        return self.bc_type_darcy_flux(sd)
-
-    def bc_type_enthalpy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
+    def bc_type_advective_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         if self.mdg.dim_max() == 2:
             all, east, west, north, south, top, bottom = self.domain_boundary_sides(sd)
             return pp.BoundaryCondition(sd, all, "dir")
@@ -182,36 +178,6 @@ class BoundaryConditions(BoundaryConditionsCF):
             z_NaCl[west] = z_inlet
             return z_NaCl
 
-    def bc_values_saturation(
-        self, phase: ppc.Phase, boundary_grid: pp.BoundaryGrid
-    ) -> np.ndarray:
-        # TODO: refactor with functional programming
-        # adhoc functional programming for BC consistency
-        h_scale = 1.0 / 1000.0
-        p_scale = 1.0 / 100000.0
-        p = self.intial_pressure(boundary_grid)
-        h = self.initial_enthalpy(boundary_grid)
-        if self.mdg.dim_max() == 2:
-            all, east, west, north, south, top, bottom = self.domain_boundary_sides(
-                boundary_grid
-            )
-        elif self.mdg.dim_max() == 3:
-            all, east, west, north, south, top, bottom = self.domain_boundary_sides(
-                boundary_grid
-            )
-        z_init = 0.2
-        z_inlet = 0.2  # 0.5e-2
-        z_NaCl = z_init * np.ones_like(p)
-        z_NaCl[west] = z_inlet
-        par_points = np.array((z_NaCl, h * h_scale, p * p_scale)).T
-        self.obl.sample_at(par_points)
-        if phase.name == "liq":
-            s_l = self.obl.sampled_could.point_data["S_l"]
-            return s_l
-        else:
-            s_v = self.obl.sampled_could.point_data["S_v"]
-            return s_v
-
     def bc_values_temperature(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
         # # adhoc functional programming for BC consistency
         # h_scale = 1.0 / 1000.0
@@ -231,40 +197,70 @@ class BoundaryConditions(BoundaryConditionsCF):
         # T = self.obl.sampled_could.point_data['Temperature']
         return 713.489 * np.ones(boundary_grid.num_cells)
 
-    def bc_values_relative_fraction(
-        self, component: ppc.Component, phase: ppc.Phase, boundary_grid: pp.BoundaryGrid
-    ) -> np.ndarray:
-        # adhoc functional programming for BC consistency
-        h_scale = 1.0 / 1000.0
-        p_scale = 1.0 / 100000.0
-        p = self.intial_pressure(boundary_grid)
-        h = self.initial_enthalpy(boundary_grid)
-        if self.mdg.dim_max() == 2:
-            all, east, west, north, south, top, bottom = self.domain_boundary_sides(
-                boundary_grid
-            )
-        elif self.mdg.dim_max() == 3:
-            all, east, west, north, south, top, bottom = self.domain_boundary_sides(
-                boundary_grid
-            )
-        z_init = 0.2
-        z_inlet = 0.2  # 0.5e-2
-        z_NaCl = z_init * np.ones_like(p)
-        z_NaCl[west] = z_inlet
-        par_points = np.array((z_NaCl, h * h_scale, p * p_scale)).T
-        self.obl.sample_at(par_points)
-        if phase.name == "liq":
-            x_l = self.obl.sampled_could.point_data["Xl"]
-            if component.name == "H2O":
-                return 1.0 - x_l
-            else:
-                return x_l
-        else:
-            x_v = self.obl.sampled_could.point_data["Xv"]
-            if component.name == "H2O":
-                return 1.0 - x_v
-            else:
-                return x_v
+    # def bc_values_relative_fraction(
+    #     self, component: ppc.Component, phase: ppc.Phase, boundary_grid: pp.BoundaryGrid
+    # ) -> np.ndarray:
+    #     # adhoc functional programming for BC consistency
+    #     h_scale = 1.0 / 1000.0
+    #     p_scale = 1.0 / 100000.0
+    #     p = self.intial_pressure(boundary_grid)
+    #     h = self.initial_enthalpy(boundary_grid)
+    #     if self.mdg.dim_max() == 2:
+    #         all, east, west, north, south, top, bottom = self.domain_boundary_sides(
+    #             boundary_grid
+    #         )
+    #     elif self.mdg.dim_max() == 3:
+    #         all, east, west, north, south, top, bottom = self.domain_boundary_sides(
+    #             boundary_grid
+    #         )
+    #     z_init = 0.2
+    #     z_inlet = 0.2  # 0.5e-2
+    #     z_NaCl = z_init * np.ones_like(p)
+    #     z_NaCl[west] = z_inlet
+    #     par_points = np.array((z_NaCl, h * h_scale, p * p_scale)).T
+    #     self.obl.sample_at(par_points)
+    #     if phase.name == "liq":
+    #         x_l = self.obl.sampled_could.point_data["Xl"]
+    #         if component.name == "H2O":
+    #             return 1.0 - x_l
+    #         else:
+    #             return x_l
+    #     else:
+    #         x_v = self.obl.sampled_could.point_data["Xv"]
+    #         if component.name == "H2O":
+    #             return 1.0 - x_v
+    #         else:
+    #             return x_v
+
+    # def bc_values_saturation(
+    #     self, phase: ppc.Phase, boundary_grid: pp.BoundaryGrid
+    # ) -> np.ndarray:
+    #     # TODO: refactor with functional programming
+    #     # adhoc functional programming for BC consistency
+    #     h_scale = 1.0 / 1000.0
+    #     p_scale = 1.0 / 100000.0
+    #     p = self.intial_pressure(boundary_grid)
+    #     h = self.initial_enthalpy(boundary_grid)
+    #     if self.mdg.dim_max() == 2:
+    #         all, east, west, north, south, top, bottom = self.domain_boundary_sides(
+    #             boundary_grid
+    #         )
+    #     elif self.mdg.dim_max() == 3:
+    #         all, east, west, north, south, top, bottom = self.domain_boundary_sides(
+    #             boundary_grid
+    #         )
+    #     z_init = 0.2
+    #     z_inlet = 0.2  # 0.5e-2
+    #     z_NaCl = z_init * np.ones_like(p)
+    #     z_NaCl[west] = z_inlet
+    #     par_points = np.array((z_NaCl, h * h_scale, p * p_scale)).T
+    #     self.obl.sample_at(par_points)
+    #     if phase.name == "liq":
+    #         s_l = self.obl.sampled_could.point_data["S_l"]
+    #         return s_l
+    #     else:
+    #         s_v = self.obl.sampled_could.point_data["S_v"]
+    #         return s_v
 
 
 class InitialConditions(InitialConditionsCF):
@@ -389,7 +385,7 @@ params = {
 }
 
 model = DriesnerBrineFlowModel(params)
-file_name = "binary_files/PHX_l0_with_gradients.vtk"
+file_name = "src/binary_files/PHX_l0_with_gradients.vtk"
 brine_obl = DriesnerBrineOBL(file_name)
 model.obl = brine_obl
 

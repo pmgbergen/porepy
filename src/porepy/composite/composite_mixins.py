@@ -564,7 +564,10 @@ class CompositeVariables(pp.VariableMixin):
         """The base method creates an independent variable for any phase and component
         combination, after asserting the component is modelled in that phase.
 
-        If there is only 1 component in that phase, the fraction is constant 1.
+        Note:
+            Compared to partial fractions, extended fractions are always independent
+            even in the case of only 1 component in a phase.
+            This is because they are not necessarily 1 at equilibrium.
 
         """
         assert (
