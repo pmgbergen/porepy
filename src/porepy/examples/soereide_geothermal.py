@@ -147,14 +147,24 @@ class BoundaryConditions:
     has_time_dependent_boundary_equilibrium = False
     """Constant BC for primary variables, hence constant BC for all other."""
 
-    def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
+    def bc_type_advective_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        all, east, west, north, south, top, bottom = self.domain_boundary_sides(sd)
         # Setting only conditions on matrix
         if sd.dim == 2:
             # Define boundary faces, east west as dirichlet
-            boundary_faces = (
-                self.domain_boundary_sides(sd).east
-                | self.domain_boundary_sides(sd).west
-            )
+            boundary_faces = east | west
+            # Define boundary condition on all boundary faces.
+            return pp.BoundaryCondition(sd, boundary_faces, "dir")
+        # In fractures we set trivial NBC
+        else:
+            return pp.BoundaryCondition(sd)
+
+    def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        all, east, west, north, south, top, bottom = self.domain_boundary_sides(sd)
+        # Setting only conditions on matrix
+        if sd.dim == 2:
+            # Define boundary faces, east west as dirichlet
+            boundary_faces = east | west
             # Define boundary condition on all boundary faces.
             return pp.BoundaryCondition(sd, boundary_faces, "dir")
         # In fractures we set trivial NBC
@@ -162,13 +172,10 @@ class BoundaryConditions:
             return pp.BoundaryCondition(sd)
 
     def bc_type_fourier_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        all, east, west, north, south, top, bottom = self.domain_boundary_sides(sd)
         if sd.dim == 2:
             # Temperature at inlet and outlet, as well as heated bottom
-            boundary_faces = (
-                self.domain_boundary_sides(sd).east
-                | self.domain_boundary_sides(sd).west
-                | self.domain_boundary_sides(sd).bottom
-            )
+            boundary_faces = east | west | bottom
             return pp.BoundaryCondition(sd, boundary_faces, "dir")
         # In fractures we set trivial NBC
         else:
