@@ -46,7 +46,6 @@ class SoereideMixture:
     def get_phase_configuration(
         self, components: Sequence[ppc.Component]
     ) -> Sequence[tuple[ppc.EoSCompiler, int, str]]:
-        # This takes some time
         eos = PengRobinsonCompiler(components)
         return [(eos, 0, "liq"), (eos, 1, "gas")]
 

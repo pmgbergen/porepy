@@ -562,25 +562,38 @@ class CompositeVariables(pp.VariableMixin):
         self, component: Component, phase: Phase
     ) -> Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]:
         """The base method creates an independent variable for any phase and component
-        combination, after asserting the component is modelled in that phase."""
+        combination, after asserting the component is modelled in that phase.
+
+        If there is only 1 component in that phase, the fraction is constant 1.
+
+        """
         assert (
             component in phase
         ), f"Component {component.name} not in phase {phase.name}"
 
-        def fraction(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
-            name = self._relative_fraction_variable(component, phase)
-            if len(domains) > 0 and all(
-                [isinstance(g, pp.BoundaryGrid) for g in domains]
-            ):
-                return self.create_boundary_operator(
-                    name=name, domains=domains  # type: ignore[call-arg]
+        if len(phase.components) == 1:
+
+            def fraction(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+                return pp.ad.Scalar(
+                    1.0, f"single-partial-fraction_{component.name}_{phase.name}"
                 )
-            # Check that the domains are grids.
-            if not all([isinstance(g, pp.Grid) for g in domains]):
-                raise ValueError(
-                    """Argument domains a mixture of subdomain and boundaries."""
-                )
-            return self.equation_system.md_variable(name, domains)
+
+        else:
+
+            def fraction(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+                name = self._relative_fraction_variable(component, phase)
+                if len(domains) > 0 and all(
+                    [isinstance(g, pp.BoundaryGrid) for g in domains]
+                ):
+                    return self.create_boundary_operator(
+                        name=name, domains=domains  # type: ignore[call-arg]
+                    )
+                # Check that the domains are grids.
+                if not all([isinstance(g, pp.Grid) for g in domains]):
+                    raise ValueError(
+                        """Argument domains a mixture of subdomain and boundaries."""
+                    )
+                return self.equation_system.md_variable(name, domains)
 
         return fraction
 
