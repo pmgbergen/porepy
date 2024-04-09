@@ -100,7 +100,7 @@ class BoundaryConditions(BoundaryConditionsCF):
 
     def bc_type_advective_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         all, east, west, north, south, top, bottom = self.domain_boundary_sides(sd)
-        return pp.BoundaryCondition(sd, east + west, "neu")
+        return pp.BoundaryCondition(sd, east + west, "dir")
 
     def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
         all, east, west, north, south, top, bottom = self.domain_boundary_sides(
@@ -303,6 +303,12 @@ print("fluxes[north]: ", fluxes[north])
 print("fluxes[south]: ", fluxes[south])
 print("fluxes[east]: ", fluxes[east])
 print("fluxes[west]: ", fluxes[west])
+east_ = east[all]
+bc_flux = model.darcy_flux(bc_grid).value(model.equation_system)
+print("bc fluxes[north]: ", bc_flux[north[all]])
+print("bc fluxes[south]: ", bc_flux[south[all]])
+print("bc fluxes[east]: ", bc_flux[east[all]])
+print("bc fluxes[west]: ", bc_flux[west[all]])
 te = time.time()
 print("Elapsed time run_time_dependent_model: ", te - tb)
 print("Total number of DoF: ", model.equation_system.num_dofs())
