@@ -276,7 +276,7 @@ params = {
     "time_manager": time_manager,
     "prepare_simulation": False,
     "reduce_linear_system_q": False,
-    "nl_convergence_tol": 1.0e-4,
+    "nl_convergence_tol": 1.0e-6,
     "max_iterations": 50,
 }
 
@@ -296,6 +296,13 @@ print("Mixed-dimensional grid employed: ", model.mdg)
 # model.exporter.write_vtu()
 tb = time.time()
 pp.run_time_dependent_model(model, params)
+fluxes = model.darcy_flux(model.mdg.subdomains()).value(model.equation_system)
+bc_grid = model.mdg.boundaries()
+all, east, west, north, south, top, bottom = model.domain_boundary_sides(model.mdg.subdomains()[0])
+print("fluxes[north]: ", fluxes[north])
+print("fluxes[south]: ", fluxes[south])
+print("fluxes[east]: ", fluxes[east])
+print("fluxes[west]: ", fluxes[west])
 te = time.time()
 print("Elapsed time run_time_dependent_model: ", te - tb)
 print("Total number of DoF: ", model.equation_system.num_dofs())
