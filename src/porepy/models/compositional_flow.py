@@ -2413,6 +2413,9 @@ class SolutionStrategyCF(
     ]
     """Provided by :class:`~porepy.models.constitutive_laws.SecondOrderTensorUtils`."""
 
+    bc_type_advective_flux: Callable[[pp.Grid], pp.BoundaryCondition]
+    """Provided by :class:`BoundaryConditionsCF`."""
+
     def __init__(self, params: Optional[dict] = None) -> None:
         super().__init__(params)
 
@@ -2522,30 +2525,30 @@ class SolutionStrategyCF(
         super().initial_condition()
         self.set_initial_values()
 
-    def set_discretization_parameters(self) -> None:
-        """Overrides the BC types for all advective fluxes and their weights to be
-        consistent with the Darcy flux."""
-        # For compatibility with inheritance
-        super().set_discretization_parameters()
+    # def set_discretization_parameters(self) -> None:
+    #     """Overrides the BC types for all advective fluxes and their weights to be
+    #     consistent with the Darcy flux."""
+    #     # For compatibility with inheritance
+    #     super().set_discretization_parameters()
 
-        # Use the same BC type for all advective fluxes
-        for sd, data in self.mdg.subdomains(return_data=True):
-            pp.initialize_data(
-                sd,
-                data,
-                self.enthalpy_keyword,
-                {
-                    "bc": self.bc_type_darcy_flux(sd),
-                },
-            )
-            pp.initialize_data(
-                sd,
-                data,
-                self.mobility_keyword,
-                {
-                    "bc": self.bc_type_darcy_flux(sd),
-                },
-            )
+    #     # Use the same BC type for all advective fluxes
+    #     for sd, data in self.mdg.subdomains(return_data=True):
+    #         pp.initialize_data(
+    #             sd,
+    #             data,
+    #             self.enthalpy_keyword,
+    #             {
+    #                 "bc": self.bc_type_advective_flux(sd),
+    #             },
+    #         )
+    #         pp.initialize_data(
+    #             sd,
+    #             data,
+    #             self.mobility_keyword,
+    #             {
+    #                 "bc": self.bc_type_advective_flux(sd),
+    #             },
+    #         )
 
     def add_nonlinear_flux_discretization(
         self, discretization: pp.ad._ad_utils.MergedOperator
