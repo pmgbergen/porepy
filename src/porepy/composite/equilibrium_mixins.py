@@ -483,7 +483,7 @@ class Unified_ph_Equilibrium(Unified_pT_Equilibrium):
     """
 
     equilibrium_type = "p-h"
-    """The quantities fixed at equilibrium are pressure, specific molar enthalpy and
+    """The quantities fixed at equilibrium are pressure, specific enthalpy and
     overall fractions."""
 
     def set_equations(self) -> None:
@@ -511,7 +511,7 @@ class Unified_vh_Equilibrium(Unified_ph_Equilibrium):
     """
 
     equilibrium_type = "v-h"
-    """The quantities fixed at equilibrium are specific volume, specific molar enthalpy
+    """The quantities fixed at equilibrium are specific volume, specific enthalpy
     and overall fractions."""
 
     def set_equations(self) -> None:
