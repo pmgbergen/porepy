@@ -87,7 +87,7 @@ class ModelGeometry:
 
     def meshing_arguments(self) -> dict:
         cell_size = self.solid.convert_units(1.0, "m")
-        cell_size_x = self.solid.convert_units(0.01, "m")
+        cell_size_x = self.solid.convert_units(0.1, "m")
         mesh_args: dict[str, float] = {"cell_size": cell_size, "cell_size_x": cell_size_x}
         return mesh_args
 
@@ -134,7 +134,7 @@ class BoundaryConditions(BoundaryConditionsCF):
     ) -> np.ndarray:
         sides = self.domain_boundary_sides(boundary_grid)
         z_init = 0.1
-        z_inlet = 0.1  # 0.5e-2
+        z_inlet = 0.1
         if component.name == "H2O":
             z_H2O = (1 - z_init) * np.ones(boundary_grid.num_cells)
             z_H2O[sides.west] = 1 - z_inlet
@@ -146,12 +146,10 @@ class BoundaryConditions(BoundaryConditionsCF):
 
     def bc_values_temperature(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
         # # adhoc functional programming for BC consistency
-        h_scale = 1.0 / 1000.0
-        p_scale = 1.0 / 100000.0
         p = self.bc_values_pressure(boundary_grid)
         h = self.bc_values_enthalpy(boundary_grid)
         z_NaCl = self.bc_values_overall_fraction(self.fluid_mixture._components[1], boundary_grid)
-        par_points = np.array((z_NaCl, h * h_scale, p * p_scale)).T
+        par_points = np.array((z_NaCl, h, p)).T
         self.obl.sample_at(par_points)
         T = self.obl.sampled_could.point_data["Temperature"]
         return T
@@ -175,12 +173,10 @@ class InitialConditions(InitialConditionsCF):
 
     def initial_temperature(self, sd: pp.Grid) -> np.ndarray:
         # adhoc functional programming for IC consistency
-        h_scale = 1.0 / 1000.0
-        p_scale = 1.0 / 100000.0
         p = self.intial_pressure(sd)
         h = self.initial_enthalpy(sd)
         z_NaCl = self.initial_overall_fraction(self.fluid_mixture._components[1], sd)
-        par_points = np.array((z_NaCl, h * h_scale, p * p_scale)).T
+        par_points = np.array((z_NaCl, h, p)).T
         self.obl.sample_at(par_points)
         T = self.obl.sampled_could.point_data["Temperature"]
         return T
@@ -264,7 +260,7 @@ class DriesnerBrineFlowModel(
 
 
 day = 86400
-t_scale = 0.0000001
+t_scale = 0.000000001
 time_manager = pp.TimeManager(
     schedule=list(n * day * t_scale for n in range(3)),
     dt_init=1.0 * day * t_scale,
@@ -277,7 +273,7 @@ time_manager = pp.TimeManager(
 # eliminate reference phase fractions  and reference component.\
 # self.solid.thermal_conductivity(), "solid_thermal_conductivity"
 solid_constants = pp.SolidConstants(
-    {"permeability": 9.869233e-14, "porosity": 0.2, "thermal_conductivity": 1.0*1.92}
+    {"permeability": 9.869233e-14, "porosity": 0.2, "thermal_conductivity": 1000.0*1.92}
 )
 material_constants = {"solid": solid_constants}
 params = {
@@ -294,6 +290,7 @@ params = {
 model = DriesnerBrineFlowModel(params)
 file_name = "binary_files/PHX_l0_with_gradients.vtk"
 brine_obl = DriesnerBrineOBL(file_name)
+brine_obl.conversion_factors = (1.0,1.0e-3,1.0e-5)
 model.obl = brine_obl
 
 tb = time.time()
