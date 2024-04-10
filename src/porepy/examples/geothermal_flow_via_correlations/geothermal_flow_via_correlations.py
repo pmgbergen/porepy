@@ -83,11 +83,12 @@ class ModelGeometry:
     #     self._fractures = disjoint_fractures
 
     def grid_type(self) -> str:
-        return self.params.get("grid_type", "simplex")
+        return self.params.get("grid_type", "cartesian")
 
     def meshing_arguments(self) -> dict:
-        cell_size = self.solid.convert_units(0.25, "m")
-        mesh_args: dict[str, float] = {"cell_size": cell_size}
+        cell_size = self.solid.convert_units(1.0, "m")
+        cell_size_x = self.solid.convert_units(0.01, "m")
+        mesh_args: dict[str, float] = {"cell_size": cell_size, "cell_size_x": cell_size_x}
         return mesh_args
 
 
@@ -105,12 +106,11 @@ class BoundaryConditions(BoundaryConditionsCF):
     def bc_type_advective_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         sides = self.domain_boundary_sides(sd)
         return pp.BoundaryCondition(sd, sides.west, "dir")
-        # return pp.BoundaryCondition(sd)
 
     def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
         sides = self.domain_boundary_sides(boundary_grid)
         p_inlet = 15.0e6
-        p_outlet = 14.0e6
+        p_outlet = 10.0e6
         xcs = boundary_grid.cell_centers.T
         l = 10.0
         def p_D(xc):
@@ -161,8 +161,17 @@ class InitialConditions(InitialConditionsCF):
     """See parent class how to set up BC. Default is all zero and Dirichlet."""
 
     def intial_pressure(self, sd: pp.Grid) -> np.ndarray:
-        p = 15.0e6
-        return np.ones(sd.num_cells) * p
+        p_inlet = 15.0e6
+        p_outlet = 10.0e6
+        xcs = sd.cell_centers.T
+        l = 10.0
+        def p_D(xc):
+            x, y, z = xc
+            return p_inlet * (1 - x / l) + p_outlet * (x / l)
+
+        p_D_iter = map(p_D, xcs)
+        p_D_vals = np.fromiter(p_D_iter, dtype=float)
+        return p_D_vals
 
     def initial_temperature(self, sd: pp.Grid) -> np.ndarray:
         # adhoc functional programming for IC consistency
@@ -249,9 +258,13 @@ class DriesnerBrineFlowModel(
     def obl(self, obl):
         self._obl = obl
 
+    # def darcy_flux_discretization(self, subdomains: list[pp.Grid]) -> pp.ad.TpfaAd:
+    #     return pp.ad.TpfaAd(self.darcy_keyword, subdomains)
+
+
 
 day = 86400
-t_scale = 0.000001
+t_scale = 0.0000001
 time_manager = pp.TimeManager(
     schedule=list(n * day * t_scale for n in range(3)),
     dt_init=1.0 * day * t_scale,
@@ -274,8 +287,8 @@ params = {
     "time_manager": time_manager,
     "prepare_simulation": False,
     "reduce_linear_system_q": False,
-    "nl_convergence_tol": 1.0e-3,
-    "max_iterations": 50,
+    "nl_convergence_tol": 1.0e-8,
+    "max_iterations": 100,
 }
 
 model = DriesnerBrineFlowModel(params)
@@ -316,7 +329,9 @@ print("fluid enthalpy: ", model.enthalpy(sds).value(eqs))
 print("Salt fraction: ", NaCl.fraction(sds).value(eqs))
 print("Gas saturation:", gas.saturation(sds).value(eqs))
 
-fluxes = model.darcy_flux(sds).value(model.equation_system)
+fluxes = model.darcy_flux(model.mdg.subdomains()).value(model.equation_system)
+all, east, west, north, south, top, bottom = model.domain_boundary_sides(model.mdg.subdomains()[0])
+print("fluxes: ", fluxes)
 print("fluxes[north]: ", fluxes[north])
 print("fluxes[south]: ", fluxes[south])
 print("fluxes[east]: ", fluxes[east])
@@ -362,5 +377,5 @@ print(f"int {A_name} phi after change:", int_A_phi.value(eqs))
 print("dt accum manual after change:", ((int_A_phi - int_A_phi.previous_timestep()) / model.ad_time_step).value(eqs))
 print("dt accum after change:", dt_accum.value(eqs))
 
-pp.plot_grid(model.mdg, NaCl.fraction(sds).name, figsize=(10, 8), plot_2d=True)
+# pp.plot_grid(model.mdg, NaCl.fraction(sds).name, figsize=(10, 8), plot_2d=True)
 print("end")
