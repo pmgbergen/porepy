@@ -782,7 +782,12 @@ class TotalEnergyBalanceEquation_h(energy.EnergyBalanceEquations):
         if len(domains) == 0 or all(isinstance(d, pp.BoundaryGrid) for d in domains):
             # NOTE The advected enthalpy (Neumann-type flux) must be consistent with
             # the total mass flux
-            op = self.advective_weight_enthalpy_flux(domains) * self.darcy_flux(domains)
+            sds = [g.parent for g in domains]
+            f = self.advective_weight_enthalpy_flux(domains)
+            m_b = self.darcy_flux(sds)
+            op = f * (
+                pp.ad.BoundaryProjection(self.mdg, sds).subdomain_to_boundary @ m_b
+            )
             return op
 
         # Check that the domains are grids.
@@ -1038,10 +1043,14 @@ class ComponentMassBalanceEquations(mass.MassBalanceEquations):
 
         """
         if len(domains) == 0 or all(isinstance(d, pp.BoundaryGrid) for d in domains):
+            sds = [g.parent for g in domains]
             # NOTE consistent Neumann-type flux based on the total flux
-            op = self.advective_weight_component_flux(
-                component, domains
-            ) * self.darcy_flux(domains)
+            f = self.advective_weight_component_flux(component, domains)
+            m_b = self.darcy_flux(sds)
+
+            op = f * (
+                pp.ad.BoundaryProjection(self.mdg, sds).subdomain_to_boundary @ m_b
+            )
             return op
 
         # Verify that the domains are subdomains.
