@@ -33,38 +33,35 @@ class LiquidDriesnerCorrelations(ppc.AbstractEoS):
         ``phase_type`` indicates the phsycal type (0 - liq, 1 - gas).
         ``thermodynamic_dependencies`` are as defined by the user.
         """
-
-        h_scale = 1.0 / 1000.0
-        p_scale = 1.0 / 100000.0
         if not hasattr(self, "_obl"):
             raise AttributeError(
                 "The operator-based linearization (OBL) object is not present. Set up a unique OBL of the type DriesnerBrineOBL"
             )
 
         p, h, z_NaCl = thermodynamic_input
-        par_points = np.array((z_NaCl, h * h_scale, p * p_scale)).T
+        par_points = np.array((z_NaCl, h, p)).T
         self.obl.sample_at(par_points)
         n = len(p)  # same for all input (number of cells)
 
         # specific volume of phase
         v = self.obl.sampled_could.point_data["nu_l"]
         dvdz = self.obl.sampled_could.point_data["grad_nu_l"][:, 0]
-        dvdH = self.obl.sampled_could.point_data["grad_nu_l"][:, 1] * h_scale
-        dvdp = self.obl.sampled_could.point_data["grad_nu_l"][:, 2] * p_scale
+        dvdH = self.obl.sampled_could.point_data["grad_nu_l"][:, 1]
+        dvdp = self.obl.sampled_could.point_data["grad_nu_l"][:, 2]
         dv = np.vstack((dvdp, dvdH, dvdz))
 
         # specific enthalpy of phase
         h = self.obl.sampled_could.point_data["H_l"]
         dhdz = self.obl.sampled_could.point_data["grad_H_l"][:, 0]
-        dhdH = self.obl.sampled_could.point_data["grad_H_l"][:, 1] * h_scale
-        dhdp = self.obl.sampled_could.point_data["grad_H_l"][:, 2] * p_scale
+        dhdH = self.obl.sampled_could.point_data["grad_H_l"][:, 1]
+        dhdp = self.obl.sampled_could.point_data["grad_H_l"][:, 2]
         dh = np.vstack((dhdp, dhdH, dhdz))
 
         # dynamic viscosity of phase
         mu = self.obl.sampled_could.point_data["mu_l"]
         dmudz = self.obl.sampled_could.point_data["grad_mu_l"][:, 0]
-        dmudH = self.obl.sampled_could.point_data["grad_mu_l"][:, 1] * h_scale
-        dmudp = self.obl.sampled_could.point_data["grad_mu_l"][:, 2] * p_scale
+        dmudH = self.obl.sampled_could.point_data["grad_mu_l"][:, 1]
+        dmudp = self.obl.sampled_could.point_data["grad_mu_l"][:, 2]
         dmu = np.vstack((dmudp, dmudH, dmudz))
 
         # thermal conductivity of phase
@@ -122,37 +119,35 @@ class GasDriesnerCorrelations(ppc.AbstractEoS):
         ``thermodynamic_dependencies`` are as defined by the user.
         """
 
-        h_scale = 1.0 / 1000.0
-        p_scale = 1.0 / 100000.0
         if not hasattr(self, "_obl"):
             raise AttributeError(
                 "The operator-based linearization (OBL) object is not present. Set up a unique OBL of the type DriesnerBrineOBL"
             )
 
         p, h, z_NaCl = thermodynamic_input
-        par_points = np.array((z_NaCl, h * h_scale, p * p_scale)).T
+        par_points = np.array((z_NaCl, h, p)).T
         self.obl.sample_at(par_points)
         n = len(p)  # same for all input (number of cells)
 
         # specific volume of phase
         v = self.obl.sampled_could.point_data["nu_v"]
         dvdz = self.obl.sampled_could.point_data["grad_nu_v"][:, 0]
-        dvdH = self.obl.sampled_could.point_data["grad_nu_v"][:, 1] * h_scale
-        dvdp = self.obl.sampled_could.point_data["grad_nu_v"][:, 2] * p_scale
+        dvdH = self.obl.sampled_could.point_data["grad_nu_v"][:, 1]
+        dvdp = self.obl.sampled_could.point_data["grad_nu_v"][:, 2]
         dv = np.vstack((dvdp, dvdH, dvdz))
 
         # specific enthalpy of phase
         h = self.obl.sampled_could.point_data["H_v"]
         dhdz = self.obl.sampled_could.point_data["grad_H_v"][:, 0]
-        dhdH = self.obl.sampled_could.point_data["grad_H_v"][:, 1] * h_scale
-        dhdp = self.obl.sampled_could.point_data["grad_H_v"][:, 2] * p_scale
+        dhdH = self.obl.sampled_could.point_data["grad_H_v"][:, 1]
+        dhdp = self.obl.sampled_could.point_data["grad_H_v"][:, 2]
         dh = np.vstack((dhdp, dhdH, dhdz))
 
         # dynamic viscosity of phase
         mu = self.obl.sampled_could.point_data["mu_v"]
         dmudz = self.obl.sampled_could.point_data["grad_mu_v"][:, 0]
-        dmudH = self.obl.sampled_could.point_data["grad_mu_v"][:, 1] * h_scale
-        dmudp = self.obl.sampled_could.point_data["grad_mu_v"][:, 2] * p_scale
+        dmudH = self.obl.sampled_could.point_data["grad_mu_v"][:, 1]
+        dmudp = self.obl.sampled_could.point_data["grad_mu_v"][:, 2]
         dmu = np.vstack((dmudp, dmudH, dmudz))
 
         # thermal conductivity of phase
@@ -247,18 +242,16 @@ class SecondaryEquations(SecondaryEquationsMixin):
         *thermodynamic_dependencies: np.ndarray,
     ) -> tuple[np.ndarray, np.ndarray]:
 
-        h_scale = 1.0 / 1000.0
-        p_scale = 1.0 / 100000.0
         p, h, z_NaCl = thermodynamic_dependencies
         assert len(p) == len(h) == len(z_NaCl)
-        par_points = np.array((z_NaCl, h * h_scale, p * p_scale)).T
+        par_points = np.array((z_NaCl, h, p)).T
         self.obl.sample_at(par_points)
 
         # Gas saturationn
         S_v = self.obl.sampled_could.point_data["S_v"]
         dS_vdz = self.obl.sampled_could.point_data["grad_S_v"][:, 0]
-        dS_vdH = self.obl.sampled_could.point_data["grad_S_v"][:, 1] * h_scale
-        dS_vdp = self.obl.sampled_could.point_data["grad_S_v"][:, 2] * p_scale
+        dS_vdH = self.obl.sampled_could.point_data["grad_S_v"][:, 1]
+        dS_vdp = self.obl.sampled_could.point_data["grad_S_v"][:, 2]
         dS_v = np.vstack((dS_vdp, dS_vdH, dS_vdz))
         return S_v, dS_v
 
@@ -266,18 +259,17 @@ class SecondaryEquations(SecondaryEquationsMixin):
         self,
         *thermodynamic_dependencies: np.ndarray,
     ) -> tuple[np.ndarray, np.ndarray]:
-        h_scale = 1.0 / 1000.0
-        p_scale = 1.0 / 100000.0
+
         p, h, z_NaCl = thermodynamic_dependencies
         assert len(p) == len(h) == len(z_NaCl)
-        par_points = np.array((z_NaCl, h * h_scale, p * p_scale)).T
+        par_points = np.array((z_NaCl, h, p)).T
         self.obl.sample_at(par_points)
 
         # Gas saturationn
         T = self.obl.sampled_could.point_data["Temperature"]
         dTdz = self.obl.sampled_could.point_data["grad_Temperature"][:, 0]
-        dTdH = self.obl.sampled_could.point_data["grad_Temperature"][:, 1] * h_scale
-        dTdp = self.obl.sampled_could.point_data["grad_Temperature"][:, 2] * p_scale
+        dTdH = self.obl.sampled_could.point_data["grad_Temperature"][:, 1]
+        dTdp = self.obl.sampled_could.point_data["grad_Temperature"][:, 2]
         dT = np.vstack((dTdp, dTdH, dTdz))
         return T, dT
 
@@ -285,18 +277,17 @@ class SecondaryEquations(SecondaryEquationsMixin):
         self,
         *thermodynamic_dependencies: np.ndarray,
     ) -> tuple[np.ndarray, np.ndarray]:
-        h_scale = 1.0 / 1000.0
-        p_scale = 1.0 / 100000.0
+
         p, h, z_NaCl = thermodynamic_dependencies
         assert len(p) == len(h) == len(z_NaCl)
-        par_points = np.array((z_NaCl, h * h_scale, p * p_scale)).T
+        par_points = np.array((z_NaCl, h, p)).T
         self.obl.sample_at(par_points)
 
         # Gas saturationn
         X_w = 1.0 - self.obl.sampled_could.point_data["Xl"]
         dX_wdz = -self.obl.sampled_could.point_data["grad_Xl"][:, 0]
-        dX_wdH = -self.obl.sampled_could.point_data["grad_Xl"][:, 1] * h_scale
-        dX_wdp = -self.obl.sampled_could.point_data["grad_Xl"][:, 2] * p_scale
+        dX_wdH = -self.obl.sampled_could.point_data["grad_Xl"][:, 1]
+        dX_wdp = -self.obl.sampled_could.point_data["grad_Xl"][:, 2]
         dX_w = np.vstack((dX_wdp, dX_wdH, dX_wdz))
         return X_w, dX_w
 
@@ -304,18 +295,16 @@ class SecondaryEquations(SecondaryEquationsMixin):
         self,
         *thermodynamic_dependencies: np.ndarray,
     ) -> tuple[np.ndarray, np.ndarray]:
-        h_scale = 1.0 / 1000.0
-        p_scale = 1.0 / 100000.0
         p, h, z_NaCl = thermodynamic_dependencies
         assert len(p) == len(h) == len(z_NaCl)
-        par_points = np.array((z_NaCl, h * h_scale, p * p_scale)).T
+        par_points = np.array((z_NaCl, h, p)).T
         self.obl.sample_at(par_points)
 
         # Gas saturationn
         X_s = self.obl.sampled_could.point_data["Xl"]
         dX_sdz = self.obl.sampled_could.point_data["grad_Xl"][:, 0]
-        dX_sdH = self.obl.sampled_could.point_data["grad_Xl"][:, 1] * h_scale
-        dX_sdp = self.obl.sampled_could.point_data["grad_Xl"][:, 2] * p_scale
+        dX_sdH = self.obl.sampled_could.point_data["grad_Xl"][:, 1]
+        dX_sdp = self.obl.sampled_could.point_data["grad_Xl"][:, 2]
         dX_s = np.vstack((dX_sdp, dX_sdH, dX_sdz))
         return X_s, dX_s
 
@@ -323,18 +312,16 @@ class SecondaryEquations(SecondaryEquationsMixin):
         self,
         *thermodynamic_dependencies: np.ndarray,
     ) -> tuple[np.ndarray, np.ndarray]:
-        h_scale = 1.0 / 1000.0
-        p_scale = 1.0 / 100000.0
         p, h, z_NaCl = thermodynamic_dependencies
         assert len(p) == len(h) == len(z_NaCl)
-        par_points = np.array((z_NaCl, h * h_scale, p * p_scale)).T
+        par_points = np.array((z_NaCl, h, p)).T
         self.obl.sample_at(par_points)
 
         # Gas saturationn
         X_w = 1.0 - self.obl.sampled_could.point_data["Xv"]
         dX_wdz = -self.obl.sampled_could.point_data["grad_Xv"][:, 0]
-        dX_wdH = -self.obl.sampled_could.point_data["grad_Xv"][:, 1] * h_scale
-        dX_wdp = -self.obl.sampled_could.point_data["grad_Xv"][:, 2] * p_scale
+        dX_wdH = -self.obl.sampled_could.point_data["grad_Xv"][:, 1]
+        dX_wdp = -self.obl.sampled_could.point_data["grad_Xv"][:, 2]
         dX_w = np.vstack((dX_wdp, dX_wdH, dX_wdz))
         return X_w, dX_w
 
@@ -342,18 +329,16 @@ class SecondaryEquations(SecondaryEquationsMixin):
         self,
         *thermodynamic_dependencies: np.ndarray,
     ) -> tuple[np.ndarray, np.ndarray]:
-        h_scale = 1.0 / 1000.0
-        p_scale = 1.0 / 100000.0
         p, h, z_NaCl = thermodynamic_dependencies
         assert len(p) == len(h) == len(z_NaCl)
-        par_points = np.array((z_NaCl, h * h_scale, p * p_scale)).T
+        par_points = np.array((z_NaCl, h, p)).T
         self.obl.sample_at(par_points)
 
         # Gas saturationn
         X_s = self.obl.sampled_could.point_data["Xv"]
         dX_sdz = self.obl.sampled_could.point_data["grad_Xv"][:, 0]
-        dX_sdH = self.obl.sampled_could.point_data["grad_Xv"][:, 1] * h_scale
-        dX_sdp = self.obl.sampled_could.point_data["grad_Xv"][:, 2] * p_scale
+        dX_sdH = self.obl.sampled_could.point_data["grad_Xv"][:, 1]
+        dX_sdp = self.obl.sampled_could.point_data["grad_Xv"][:, 2]
         dX_s = np.vstack((dX_sdp, dX_sdH, dX_sdz))
         return X_s, dX_s
 
@@ -399,5 +384,5 @@ class SecondaryEquations(SecondaryEquationsMixin):
             self.temperature,
             self.dependencies_of_phase_properties(rphase),  # since same for all.
             self.temperature_func,
-            subdomains + boundaries,
+            subdomains #+ boundaries,
         )
