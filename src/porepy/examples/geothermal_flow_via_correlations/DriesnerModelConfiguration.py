@@ -62,11 +62,11 @@ class BoundaryConditions(BoundaryConditionsCF):
 
     def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         sides = self.domain_boundary_sides(sd)
-        return pp.BoundaryCondition(sd, sides.west, "dir")
+        return pp.BoundaryCondition(sd, sides.west | sides.east, "dir")
 
     def bc_type_advective_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         sides = self.domain_boundary_sides(sd)
-        return pp.BoundaryCondition(sd, sides.west, "dir")
+        return pp.BoundaryCondition(sd, sides.west | sides.east, "dir")
 
     def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
         sides = self.domain_boundary_sides(boundary_grid)

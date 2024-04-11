@@ -62,11 +62,11 @@ class BoundaryConditions(BoundaryConditionsCF):
 
     def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         sides = self.domain_boundary_sides(sd)
-        return pp.BoundaryCondition(sd, sides.west, "dir")
+        return pp.BoundaryCondition(sd, sides.west | sides.east, "dir")
 
     def bc_type_advective_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         sides = self.domain_boundary_sides(sd)
-        return pp.BoundaryCondition(sd, sides.west, "dir")
+        return pp.BoundaryCondition(sd, sides.west | sides.east, "dir")
 
     def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
         sides = self.domain_boundary_sides(boundary_grid)
@@ -95,7 +95,7 @@ class BoundaryConditions(BoundaryConditionsCF):
     ) -> np.ndarray:
         sides = self.domain_boundary_sides(boundary_grid)
         z_init = 0.1
-        z_inlet = 0.5
+        z_inlet = 1.0
         if component.name == "H2O":
             z_H2O = (1 - z_init) * np.ones(boundary_grid.num_cells)
             z_H2O[sides.west] = 1 - z_inlet
