@@ -48,8 +48,8 @@ class ModelGeometry:
         return self.params.get("grid_type", "cartesian")
 
     def meshing_arguments(self) -> dict:
-        cell_size = self.solid.convert_units(0.1, "m")
-        cell_size_x = self.solid.convert_units(0.1, "m")
+        cell_size = self.solid.convert_units(1.0, "m")
+        cell_size_x = self.solid.convert_units(1.0, "m")
         mesh_args: dict[str, float] = {"cell_size": cell_size, "cell_size_x": cell_size_x}
         return mesh_args
 
@@ -107,7 +107,7 @@ class BoundaryConditions(BoundaryConditionsCF):
 
     def bc_values_temperature(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
         h = self.bc_values_enthalpy(boundary_grid)
-        factor = 773.5 / 2.5e6
+        factor = 630.0 / 2.5e6
         T = factor * h
         return T
 
@@ -130,7 +130,7 @@ class InitialConditions(InitialConditionsCF):
 
     def initial_temperature(self, sd: pp.Grid) -> np.ndarray:
         h = self.initial_enthalpy(sd)
-        factor = 773.5 / 2.5e6
+        factor = 630.0 / 2.5e6
         T = factor * h
         return T
 
