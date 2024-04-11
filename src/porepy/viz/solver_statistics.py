@@ -21,6 +21,22 @@ class SolverStatistics:
     This object keeps track of the number of non-linear iterations performed for the
     current time step, as well as increments and residuals for each iteration.
 
+    An example usage is shown below. We have defined nonlinear_solver_statistics as an
+    instance of SolverStatistics (see models.solution_strategy). We then define a
+    mixin where the after_nonlinear_convergence() method is overwritten. We extract the
+    number of nonlinear iterations and the norm of the residual for each iteration, and
+    plot the results. Note that the index [0] refers to the first time step. More
+    generally, index [i] would extract values from the i+1-th time step.
+
+    def after_nonlinear_convergence(self, solution: np.ndarray) -> None:
+        super().after_nonlinear_convergence(solution)
+        itr = np.arange(0, self.nonlinear_solver_statistics.history["num_iteration"][0])
+        err = self.nonlinear_solver_statistics.history["residual_errors"][0]
+        plt.semilogy(itr, err)
+        plt.xlabel("Iteration number")
+        plt.ylabel("Residual")
+        plt.title("Residual error")
+
     """
 
     def __init__(self, model, path: Optional[Path]) -> None:
