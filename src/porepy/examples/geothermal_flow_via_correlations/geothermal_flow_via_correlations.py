@@ -31,13 +31,12 @@ import numpy as np
 import time
 import porepy as pp
 import porepy.composite as ppc
-import TracerConstitutiveDescription
 
 
 day = 86400
-t_scale = 0.1
+t_scale = 100.0
 time_manager = pp.TimeManager(
-    schedule=list(n * day * t_scale for n in range(3)),
+    schedule=[0.0, 10.0 * day * t_scale],
     dt_init=1.0 * day * t_scale,
     constant_dt=True,
     iter_max=50,
@@ -45,7 +44,7 @@ time_manager = pp.TimeManager(
 )
 
 tracer_like_setting_q = True
-enable_checks_q = False
+enable_checks_q = True
 
 solid_constants = pp.SolidConstants(
     {"permeability": 9.869233e-14, "porosity": 0.2, "thermal_conductivity": 1.92}
@@ -58,7 +57,7 @@ params = {
     "time_manager": time_manager,
     "prepare_simulation": False,
     "reduce_linear_system_q": False,
-    "nl_convergence_tol": 1.0e-3,
+    "nl_convergence_tol": 1.0e-4,
     "max_iterations": 100,
 }
 
