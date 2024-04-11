@@ -32,7 +32,7 @@ def temperature_func(
 
     nc = len(thermodynamic_dependencies[0])
 
-    factor = 773.5 / 3.0e6
+    factor = 773.5 / 2.5e6
     vals = np.array(h) * factor
     # row-wise storage of derivatives, (3, nc) array
     diffs = np.ones((len(thermodynamic_dependencies), nc))

@@ -32,208 +32,44 @@ import time
 import porepy as pp
 import porepy.composite as ppc
 import TracerConstitutiveDescription
-import BrineConstitutiveDescription
 
-# CompositionalFlow has data savings mixin, composite variables mixin,
-# Solution strategy eliminating local equations with Schur complement and no flash.
-# It also hase the ConstitutiveLaws for CF, which use the FluidMixture.
-# For changing constitutive laws, import ConstitutiveLawsCF and overwrite mixins
-from porepy.models.compositional_flow import (
-    BoundaryConditionsCF,
-    CFModelMixin,
-    InitialConditionsCF,
-    PrimaryEquationsCF,
+
+day = 86400
+t_scale = 0.1
+time_manager = pp.TimeManager(
+    schedule=list(n * day * t_scale for n in range(3)),
+    dt_init=1.0 * day * t_scale,
+    constant_dt=True,
+    iter_max=50,
+    print_info=True,
 )
 
-from DriesnerBrineOBL import DriesnerBrineOBL
+tracer_like_setting_q = True
+enable_checks_q = False
+
+solid_constants = pp.SolidConstants(
+    {"permeability": 9.869233e-14, "porosity": 0.2, "thermal_conductivity": 1.92}
+)
+material_constants = {"solid": solid_constants}
+params = {
+    "material_constants": material_constants,
+    "eliminate_reference_phase": True,  # s_liq eliminated, default is True
+    "eliminate_reference_component": True,  # z_H2O eliminated, default is True
+    "time_manager": time_manager,
+    "prepare_simulation": False,
+    "reduce_linear_system_q": False,
+    "nl_convergence_tol": 1.0e-3,
+    "max_iterations": 100,
+}
 
 
-class ModelGeometry:
-    def set_domain(self) -> None:
-        dimension = 2
-        size_x = self.solid.convert_units(10, "m")
-        size_y = self.solid.convert_units(1, "m")
-        size_z = self.solid.convert_units(1, "m")
+if tracer_like_setting_q:
+    from TracerModelConfiguration import TracerFlowModel as FlowModel
+else:
+    from DriesnerBrineOBL import DriesnerBrineOBL
+    from DriesnerModelConfiguration import DriesnerBrineFlowModel as FlowModel
 
-        box: dict[str, pp.number] = {"xmax": size_x}
-
-        if dimension > 1:
-            box.update({"ymax": size_y})
-
-        if dimension > 2:
-            box.update({"zmax": size_z})
-
-        self._domain = pp.Domain(box)
-
-    # def set_fractures(self) -> None:
-    #
-    #     cross_fractures = np.array([[[0.2, 0.8], [0.2, 0.8]], [[0.2, 0.8], [0.8, 0.2]]])
-    #     disjoint_set = []
-    #     dx = 1.0
-    #     for i in range(10):
-    #         chunk = cross_fractures.copy()
-    #         chunk[:, 0, :] = chunk[:, 0, :] + dx * (i)
-    #         disjoint_set.append(chunk[0])
-    #         disjoint_set.append(chunk[1])
-    #
-    #     disjoint_fractures = [
-    #         pp.LineFracture(self.solid.convert_units(fracture_pts, "m"))
-    #         for fracture_pts in disjoint_set
-    #     ]
-    #     self._fractures = disjoint_fractures
-
-    def grid_type(self) -> str:
-        return self.params.get("grid_type", "cartesian")
-
-    def meshing_arguments(self) -> dict:
-        cell_size = self.solid.convert_units(1.0, "m")
-        cell_size_x = self.solid.convert_units(0.1, "m")
-        mesh_args: dict[str, float] = {"cell_size": cell_size, "cell_size_x": cell_size_x}
-        return mesh_args
-
-
-class BoundaryConditions(BoundaryConditionsCF):
-    """See parent class how to set up BC. Default is all zero and Dirichlet."""
-
-    def bc_type_fourier_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
-        sides = self.domain_boundary_sides(sd)
-        return pp.BoundaryCondition(sd, sides.west | sides.east, "dir")
-
-    def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
-        sides = self.domain_boundary_sides(sd)
-        return pp.BoundaryCondition(sd, sides.west, "dir")
-
-    def bc_type_advective_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
-        sides = self.domain_boundary_sides(sd)
-        return pp.BoundaryCondition(sd, sides.west, "dir")
-
-    def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
-        sides = self.domain_boundary_sides(boundary_grid)
-        p_inlet = 15.0e6
-        p_outlet = 10.0e6
-        xcs = boundary_grid.cell_centers.T
-        l = 10.0
-        def p_D(xc):
-            x, y, z = xc
-            return p_inlet * (1 - x / l) + p_outlet * (x / l)
-
-        p_D_iter = map(p_D, xcs)
-        p_D_vals = np.fromiter(p_D_iter, dtype=float)
-        return p_D_vals
-
-    def bc_values_enthalpy(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
-        sides = self.domain_boundary_sides(boundary_grid)
-        h_init = 2.5e6
-        h_inlet = 2.5e6
-        h = h_init * np.ones(boundary_grid.num_cells)
-        h[sides.west] = h_inlet
-        return h
-
-    def bc_values_overall_fraction(
-        self, component: ppc.Component, boundary_grid: pp.BoundaryGrid
-    ) -> np.ndarray:
-        sides = self.domain_boundary_sides(boundary_grid)
-        z_init = 0.1
-        z_inlet = 0.1
-        if component.name == "H2O":
-            z_H2O = (1 - z_init) * np.ones(boundary_grid.num_cells)
-            z_H2O[sides.west] = 1 - z_inlet
-            return z_H2O
-        else:
-            z_NaCl = z_init * np.ones(boundary_grid.num_cells)
-            z_NaCl[sides.west] = z_inlet
-            return z_NaCl
-
-    def bc_values_temperature(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
-        # # adhoc functional programming for BC consistency
-        p = self.bc_values_pressure(boundary_grid)
-        h = self.bc_values_enthalpy(boundary_grid)
-        z_NaCl = self.bc_values_overall_fraction(self.fluid_mixture._components[1], boundary_grid)
-        par_points = np.array((z_NaCl, h, p)).T
-        self.obl.sample_at(par_points)
-        T = self.obl.sampled_could.point_data["Temperature"]
-        return T
-
-
-class InitialConditions(InitialConditionsCF):
-    """See parent class how to set up BC. Default is all zero and Dirichlet."""
-
-    def intial_pressure(self, sd: pp.Grid) -> np.ndarray:
-        p_inlet = 15.0e6
-        p_outlet = 10.0e6
-        xcs = sd.cell_centers.T
-        l = 10.0
-        def p_D(xc):
-            x, y, z = xc
-            return p_inlet * (1 - x / l) + p_outlet * (x / l)
-
-        p_D_iter = map(p_D, xcs)
-        p_D_vals = np.fromiter(p_D_iter, dtype=float)
-        return p_D_vals
-
-    def initial_temperature(self, sd: pp.Grid) -> np.ndarray:
-        # adhoc functional programming for IC consistency
-        p = self.intial_pressure(sd)
-        h = self.initial_enthalpy(sd)
-        z_NaCl = self.initial_overall_fraction(self.fluid_mixture._components[1], sd)
-        par_points = np.array((z_NaCl, h, p)).T
-        self.obl.sample_at(par_points)
-        T = self.obl.sampled_could.point_data["Temperature"]
-        return T
-
-    def initial_enthalpy(self, sd: pp.Grid) -> np.ndarray:
-        h = 2.5e6
-        return np.ones(sd.num_cells) * h
-
-    def initial_overall_fraction(
-        self, component: ppc.Component, sd: pp.Grid
-    ) -> np.ndarray:
-        z = 0.1
-        if component.name == "H2O":
-            return (1 - z) * np.ones(sd.num_cells)
-        else:
-            return z * np.ones(sd.num_cells)
-
-
-# class SecondaryEquations(TracerConstitutiveDescription.SecondaryEquations):
-#     pass
-
-
-class SecondaryEquations(BrineConstitutiveDescription.SecondaryEquations):
-    pass
-
-
-class ModelEquations(
-    PrimaryEquationsCF,
-    SecondaryEquations,
-):
-    """Collecting primary flow and transport equations, and secondary equations
-    which provide substitutions for independent saturations and partial fractions.
-    """
-
-    def set_equations(self):
-        """Call to the equation. Parent classes don't use super(). User must provide
-        proper order resultion.
-
-        I don't know why, but the other models are doing it this way was well.
-        Maybe it has something to do with the sparsity pattern.
-
-        """
-        # Flow and transport in MD setting
-        PrimaryEquationsCF.set_equations(self)
-        # local elimination of dangling secondary variables
-        SecondaryEquations.set_equations(self)
-
-
-class DriesnerBrineFlowModel(
-    ModelGeometry,
-    BrineConstitutiveDescription.FluidMixture,
-    InitialConditions,
-    BoundaryConditions,
-    ModelEquations,
-    CFModelMixin,
-):
-    """Model assembly. For more details see class CompositionalFlow."""
+class GeothermalFlowModel(FlowModel):
 
     def _export(self):
         if hasattr(self, "exporter"):
@@ -246,52 +82,17 @@ class DriesnerBrineFlowModel(
         # return saturation**2
         return saturation
 
-    @property
-    def obl(self):
-        return self._obl
+    def darcy_flux_discretization(self, subdomains: list[pp.Grid]) -> pp.ad.TpfaAd:
+        return pp.ad.TpfaAd(self.darcy_keyword, subdomains)
 
-    @obl.setter
-    def obl(self, obl):
-        self._obl = obl
-
-    # def darcy_flux_discretization(self, subdomains: list[pp.Grid]) -> pp.ad.TpfaAd:
-    #     return pp.ad.TpfaAd(self.darcy_keyword, subdomains)
-
-
-
-day = 86400
-t_scale = 0.000000001
-time_manager = pp.TimeManager(
-    schedule=list(n * day * t_scale for n in range(3)),
-    dt_init=1.0 * day * t_scale,
-    constant_dt=True,
-    iter_max=50,
-    print_info=True,
-)
-
-# Model setup:
-# eliminate reference phase fractions  and reference component.\
-# self.solid.thermal_conductivity(), "solid_thermal_conductivity"
-solid_constants = pp.SolidConstants(
-    {"permeability": 9.869233e-14, "porosity": 0.2, "thermal_conductivity": 1000.0*1.92}
-)
-material_constants = {"solid": solid_constants}
-params = {
-    "material_constants": material_constants,
-    "eliminate_reference_phase": True,  # s_liq eliminated, default is True
-    "eliminate_reference_component": True,  # z_H2O eliminated, default is True
-    "time_manager": time_manager,
-    "prepare_simulation": False,
-    "reduce_linear_system_q": False,
-    "nl_convergence_tol": 1.0e-8,
-    "max_iterations": 100,
-}
-
-model = DriesnerBrineFlowModel(params)
-file_name = "binary_files/PHX_l0_with_gradients.vtk"
-brine_obl = DriesnerBrineOBL(file_name)
-brine_obl.conversion_factors = (1.0,1.0e-3,1.0e-5)
-model.obl = brine_obl
+if tracer_like_setting_q:
+    model = GeothermalFlowModel(params)
+else:
+    model = GeothermalFlowModel(params)
+    file_name = "binary_files/PHX_l0_with_gradients.vtk"
+    brine_obl = DriesnerBrineOBL(file_name)
+    brine_obl.conversion_factors = (1.0,1.0e-3,1.0e-5) #(z,h,p)
+    model.obl = brine_obl
 
 tb = time.time()
 model.prepare_simulation()
@@ -309,70 +110,71 @@ print("Elapsed time run_time_dependent_model: ", te - tb)
 print("Total number of DoF: ", model.equation_system.num_dofs())
 print("Mixed-dimensional grid information: ", model.mdg)
 
-print("CHECKS -----------------")
-bgs = model.mdg.boundaries()
-sds = model.mdg.subdomains()
-eqs = model.equation_system
-NaCl = model.fluid_mixture._components[1]
-gas = model.fluid_mixture._phases[1]
-all, east, west, north, south, top, bottom = model.domain_boundary_sides(sds[0])
+if enable_checks_q:
+    print("CHECKS -----------------")
+    bgs = model.mdg.boundaries()
+    sds = model.mdg.subdomains()
+    eqs = model.equation_system
+    NaCl = model.fluid_mixture._components[1]
+    gas = model.fluid_mixture._phases[1]
+    all, east, west, north, south, top, bottom = model.domain_boundary_sides(sds[0])
 
-for name, equ in model.equation_system.equations.items():
-    print(f"Residual {name}: ", np.linalg.norm(equ.value(eqs)))
+    for name, equ in model.equation_system.equations.items():
+        print(f"Residual {name}: ", np.linalg.norm(equ.value(eqs)))
 
-print("pressure: ", model.pressure(sds).value(eqs))
-print("temperature: ", model.temperature(sds).value(eqs))
-print("fluid enthalpy: ", model.enthalpy(sds).value(eqs))
-print("Salt fraction: ", NaCl.fraction(sds).value(eqs))
-print("Gas saturation:", gas.saturation(sds).value(eqs))
+    print("pressure: ", model.pressure(sds).value(eqs))
+    print("temperature: ", model.temperature(sds).value(eqs))
+    print("fluid enthalpy: ", model.enthalpy(sds).value(eqs))
+    print("Salt fraction: ", NaCl.fraction(sds).value(eqs))
+    print("Gas saturation:", gas.saturation(sds).value(eqs))
 
-fluxes = model.darcy_flux(model.mdg.subdomains()).value(model.equation_system)
-all, east, west, north, south, top, bottom = model.domain_boundary_sides(model.mdg.subdomains()[0])
-print("fluxes: ", fluxes)
-print("fluxes[north]: ", fluxes[north])
-print("fluxes[south]: ", fluxes[south])
-print("fluxes[east]: ", fluxes[east])
-print("fluxes[west]: ", fluxes[west])
+    fluxes = model.darcy_flux(model.mdg.subdomains()).value(model.equation_system)
+    all, east, west, north, south, top, bottom = model.domain_boundary_sides(model.mdg.subdomains()[0])
+    print("fluxes: ", fluxes)
+    print("fluxes[north]: ", fluxes[north])
+    print("fluxes[south]: ", fluxes[south])
+    print("fluxes[east]: ", fluxes[east])
+    print("fluxes[west]: ", fluxes[west])
 
-east_ = east[all]
-bc_flux = model.darcy_flux(bgs).value(model.equation_system)
-print("bc fluxes[north]: ", bc_flux[north[all]])
-print("bc fluxes[south]: ", bc_flux[south[all]])
-print("bc fluxes[east]: ", bc_flux[east[all]])
-print("bc fluxes[west]: ", bc_flux[west[all]])
+    east_ = east[all]
+    bc_flux = model.darcy_flux(bgs).value(model.equation_system)
+    print("bc fluxes[north]: ", bc_flux[north[all]])
+    print("bc fluxes[south]: ", bc_flux[south[all]])
+    print("bc fluxes[east]: ", bc_flux[east[all]])
+    print("bc fluxes[west]: ", bc_flux[west[all]])
 
 
-NaCl_fluxes = model.fluid_flux_for_component(NaCl,sds).value(model.equation_system)
-print("NaCl_fluxes[north]: ", NaCl_fluxes[north])
-print("NaCl_fluxes[south]: ", NaCl_fluxes[south])
-print("NaCl_fluxes[east]: ", NaCl_fluxes[east])
-print("NaCl_fluxes[west]: ", NaCl_fluxes[west])
+    NaCl_fluxes = model.fluid_flux_for_component(NaCl,sds).value(model.equation_system)
+    print("NaCl_fluxes[north]: ", NaCl_fluxes[north])
+    print("NaCl_fluxes[south]: ", NaCl_fluxes[south])
+    print("NaCl_fluxes[east]: ", NaCl_fluxes[east])
+    print("NaCl_fluxes[west]: ", NaCl_fluxes[west])
 
-A_name = "density"
-A_t = model.fluid_mixture.density(sds)
-A_tp = A_t.previous_timestep()
-print(f"{A_name}_t after sim: ", A_t.value(eqs))
-print(f"{A_name}_t prev after sim: ", A_tp.value(eqs))
-print(f"delta {A_name}_t after sim: ", np.abs((A_t - A_tp).value(eqs)))
-A_phi = A_t * model.porosity(sds)
-print(f"{A_name} phi after sim:", A_phi.value(eqs))
-print(f"delta {A_name} phi after sim:", np.abs((A_phi - A_phi.previous_timestep()).value(eqs)))
-int_A_phi = model.volume_integral(A_phi, sds, dim=1)
-print(f"int {A_name} phi after sim:", int_A_phi.value(eqs))
-dt_accum = pp.ad.time_derivatives.dt(int_A_phi, model.ad_time_step)
-print("dt accum manual after sim:", ((int_A_phi - int_A_phi.previous_timestep()) / model.ad_time_step).value(eqs))
-print("dt accum after sim:", dt_accum.value(eqs))
-print(f"gas rho after sim:", gas.density.subdomain_values)
-gas.density.subdomain_values = gas.density.subdomain_values * 4.
-print(f"gas rho after change:", gas.density.subdomain_values)
-print(f"{A_name}_t after change: ", A_t.value(eqs))
-print(f"{A_name}_t prev after change: ", A_tp.value(eqs))
-print(f"delta {A_name}_t after change: ", np.abs((A_t - A_tp).value(eqs)))
-print(f"{A_name} phi after change:", A_phi.value(eqs))
-print(f"delta {A_name} phi after change:", np.abs((A_phi - A_phi.previous_timestep()).value(eqs)))
-print(f"int {A_name} phi after change:", int_A_phi.value(eqs))
-print("dt accum manual after change:", ((int_A_phi - int_A_phi.previous_timestep()) / model.ad_time_step).value(eqs))
-print("dt accum after change:", dt_accum.value(eqs))
+    A_name = "density"
+    A_t = model.fluid_mixture.density(sds)
+    A_tp = A_t.previous_timestep()
+    print(f"{A_name}_t after sim: ", A_t.value(eqs))
+    print(f"{A_name}_t prev after sim: ", A_tp.value(eqs))
+    print(f"delta {A_name}_t after sim: ", np.abs((A_t - A_tp).value(eqs)))
+    A_phi = A_t * model.porosity(sds)
+    print(f"{A_name} phi after sim:", A_phi.value(eqs))
+    print(f"delta {A_name} phi after sim:", np.abs((A_phi - A_phi.previous_timestep()).value(eqs)))
+    int_A_phi = model.volume_integral(A_phi, sds, dim=1)
+    print(f"int {A_name} phi after sim:", int_A_phi.value(eqs))
+    dt_accum = pp.ad.time_derivatives.dt(int_A_phi, model.ad_time_step)
+    print("dt accum manual after sim:", ((int_A_phi - int_A_phi.previous_timestep()) / model.ad_time_step).value(eqs))
+    print("dt accum after sim:", dt_accum.value(eqs))
+    print(f"gas rho after sim:", gas.density.subdomain_values)
+    gas.density.subdomain_values = gas.density.subdomain_values * 4.
+    print(f"gas rho after change:", gas.density.subdomain_values)
+    print(f"{A_name}_t after change: ", A_t.value(eqs))
+    print(f"{A_name}_t prev after change: ", A_tp.value(eqs))
+    print(f"delta {A_name}_t after change: ", np.abs((A_t - A_tp).value(eqs)))
+    print(f"{A_name} phi after change:", A_phi.value(eqs))
+    print(f"delta {A_name} phi after change:", np.abs((A_phi - A_phi.previous_timestep()).value(eqs)))
+    print(f"int {A_name} phi after change:", int_A_phi.value(eqs))
+    print("dt accum manual after change:", ((int_A_phi - int_A_phi.previous_timestep()) / model.ad_time_step).value(eqs))
+    print("dt accum after change:", dt_accum.value(eqs))
 
-# pp.plot_grid(model.mdg, NaCl.fraction(sds).name, figsize=(10, 8), plot_2d=True)
-print("end")
+    # pp.plot_grid(model.mdg, NaCl.fraction(sds).name, figsize=(10, 8), plot_2d=True)
+    print("end")
