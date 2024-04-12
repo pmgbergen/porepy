@@ -1062,13 +1062,7 @@ class ComponentMassBalanceEquations(mass.MassBalanceEquations):
 
         # Use a partially evaluated function call to functions to mimic
         # functions solely depend on a sequence of grids
-        # TODO: It should be accommodated in a reasonable manner different from this one
-        def inlet_bc_data(component: ppc.Component, boundary_grid: pp.BoundaryGrid):
-            # This should be the actual fractional flow and not the overall composition
-            result = self.bc_values_overall_fraction(component, boundary_grid[0])
-            return pp.wrap_as_dense_ad_array(result)
-
-        weight_inlet_bc = partial(inlet_bc_data, component)
+        weight_inlet_bc = partial(self.advective_weight_component_flux, component)
         weight_inlet_bc = cast(
             Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
             weight_inlet_bc,
@@ -1809,16 +1803,15 @@ class BoundaryConditionsCF(
             Mass as well as energy are advected.
 
         Important:
-            Due to the fractional flow formulation and the dependency of :math:`f`
-            on pressure, enthalpy/pressure and fractional variables,
-            the user must be aware that pressure values on boundary faces, which the
-            Darcy flux considers as Neumann-type, also have an impact on the simulation.
+            Due to how Upwinding is implemented, the boundaries here must all be flagged
+            as `dir`, though the concept of Dirichlet and Neumann is not applicable
+            here. This function should not be modified by the user, but it is left here
+            to fix inconsistencies with parent methods used for advective fluxes.
 
         Base implementation sets all faces to Dirichlet-type.
 
         """
-        boundary_faces = self.domain_boundary_sides(sd).all_bf
-        return pp.BoundaryCondition(sd, boundary_faces, "dir")
+        return pp.BoundaryCondition(sd, self.domain_boundary_sides(sd).all_bf, "dir")
 
     def bc_type_fluid_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         """Returns the BC type of the advective flux for consistency reasons."""
@@ -1912,6 +1905,10 @@ class BoundaryConditionsCF(
         """
 
         for elim_var, expr, func, _, bgs in self._constitutive_eliminations.values():
+
+            # skip if not eliminated on boundary
+            if not bgs:
+                continue
 
             def bc_values_prim(bg: pp.BoundaryGrid) -> np.ndarray:
                 bc_vals: np.ndarray
@@ -2538,31 +2535,6 @@ class SolutionStrategyCF(
         properly."""
         super().initial_condition()
         self.set_initial_values()
-
-    # def set_discretization_parameters(self) -> None:
-    #     """Overrides the BC types for all advective fluxes and their weights to be
-    #     consistent with the Darcy flux."""
-    #     # For compatibility with inheritance
-    #     super().set_discretization_parameters()
-
-    #     # Use the same BC type for all advective fluxes
-    #     for sd, data in self.mdg.subdomains(return_data=True):
-    #         pp.initialize_data(
-    #             sd,
-    #             data,
-    #             self.enthalpy_keyword,
-    #             {
-    #                 "bc": self.bc_type_advective_flux(sd),
-    #             },
-    #         )
-    #         pp.initialize_data(
-    #             sd,
-    #             data,
-    #             self.mobility_keyword,
-    #             {
-    #                 "bc": self.bc_type_advective_flux(sd),
-    #             },
-    #         )
 
     def add_nonlinear_flux_discretization(
         self, discretization: pp.ad._ad_utils.MergedOperator

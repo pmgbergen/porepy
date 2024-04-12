@@ -398,6 +398,9 @@ class SecondaryEquations(SecondaryEquationsMixin):
     def set_equations(self) -> None:
         subdomains = self.mdg.subdomains()
 
+        matrix = self.mdg.subdomains(dim=self.mdg.dim_max())[0]
+        matrix_boundary = [self.mdg.subdomain_to_boundary_grid(matrix)]
+
         ### Providing constitutive law for gas saturation based on correlation
         rphase = self.fluid_mixture.reference_phase  # liquid phase
         # gas phase is independent
@@ -410,7 +413,7 @@ class SecondaryEquations(SecondaryEquationsMixin):
                     phase
                 ),  # callables giving primary variables on subdoains
                 gas_saturation_func,  # numerical function implementing correlation
-                subdomains,  # all subdomains on which to eliminate s_gas
+                subdomains + matrix_boundary,  # all subdomains on which to eliminate s_gas
                 # dofs = {'cells': 1},  # default value
             )
 
@@ -421,7 +424,7 @@ class SecondaryEquations(SecondaryEquationsMixin):
                     phase.partial_fraction_of[comp],
                     self.dependencies_of_phase_properties(phase),
                     chi_functions_map[comp.name + "_" + phase.name],
-                    subdomains,
+                    subdomains + matrix_boundary,
                 )
 
         ### Provide constitutive law for temperature
@@ -429,5 +432,5 @@ class SecondaryEquations(SecondaryEquationsMixin):
             self.temperature,
             self.dependencies_of_phase_properties(rphase),  # since same for all.
             temperature_func,
-            subdomains,
+            subdomains + matrix_boundary,
         )
