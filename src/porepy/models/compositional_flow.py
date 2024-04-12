@@ -780,14 +780,15 @@ class TotalEnergyBalanceEquation_h(energy.EnergyBalanceEquations):
         """
 
         if len(domains) == 0 or all(isinstance(d, pp.BoundaryGrid) for d in domains):
-            # NOTE The advected enthalpy (Neumann-type flux) must be consistent with
-            # the total mass flux
-            sds = [g.parent for g in domains]
-            f = self.advective_weight_enthalpy_flux(domains)
-            m_b = self.darcy_flux(sds)
-            op = f * (
-                pp.ad.BoundaryProjection(self.mdg, sds).subdomain_to_boundary @ m_b
-            )
+            # # NOTE The advected enthalpy (Neumann-type flux) must be consistent with
+            # # the total mass flux
+            # sds = [g.parent for g in domains]
+            # f = self.advective_weight_enthalpy_flux(domains)
+            # m_b = self.darcy_flux(sds)
+            # op = f * (
+            #     pp.ad.BoundaryProjection(self.mdg, sds).subdomain_to_boundary @ m_b
+            # )
+            op = self.advective_weight_enthalpy_flux(domains) * self.darcy_flux(domains)
             return op
 
         # Check that the domains are grids.
@@ -1045,12 +1046,9 @@ class ComponentMassBalanceEquations(mass.MassBalanceEquations):
         if len(domains) == 0 or all(isinstance(d, pp.BoundaryGrid) for d in domains):
             sds = [g.parent for g in domains]
             # NOTE consistent Neumann-type flux based on the total flux
-            f = self.advective_weight_component_flux(component, domains)
-            m_b = self.darcy_flux(sds)
-
-            op = f * (
-                pp.ad.BoundaryProjection(self.mdg, sds).subdomain_to_boundary @ m_b
-            )
+            op = self.advective_weight_component_flux(
+                component, domains
+            ) * self.darcy_flux(domains)
             return op
 
         # Verify that the domains are subdomains.
@@ -1064,11 +1062,18 @@ class ComponentMassBalanceEquations(mass.MassBalanceEquations):
 
         # Use a partially evaluated function call to functions to mimic
         # functions solely depend on a sequence of grids
-        weight_dirichlet_bc = partial(self.advective_weight_component_flux, component)
-        weight_dirichlet_bc = cast(
+        # TODO: It should be accommodated in a reasonable manner different from this one
+        def inlet_bc_data(component: ppc.Component, boundary_grid: pp.BoundaryGrid):
+            # This should be the actual fractional flow and not the overall composition
+            result = self.bc_values_overall_fraction(component, boundary_grid[0])
+            return pp.wrap_as_dense_ad_array(result)
+
+        weight_inlet_bc = partial(inlet_bc_data, component)
+        weight_inlet_bc = cast(
             Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
-            weight_dirichlet_bc,
+            weight_inlet_bc,
         )
+
         fluid_flux_neumann_bc = partial(self.fluid_flux_for_component, component)
         fluid_flux_neumann_bc = cast(
             Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
@@ -1084,7 +1089,7 @@ class ComponentMassBalanceEquations(mass.MassBalanceEquations):
         # This is consistent with the usage of darcy_flux in advective_flux
         boundary_operator = self._combine_boundary_operators(  # type: ignore[call-arg]
             subdomains=domains,
-            dirichlet_operator=weight_dirichlet_bc,
+            dirichlet_operator=weight_inlet_bc,
             neumann_operator=fluid_flux_neumann_bc,
             bc_type=self.bc_type_advective_flux,
             name=f"bc_values_component_flux_{component.name}",

@@ -27,30 +27,29 @@ class ModelGeometry:
 
         self._domain = pp.Domain(box)
 
-    # def set_fractures(self) -> None:
-    #
-    #     cross_fractures = np.array([[[0.2, 0.8], [0.2, 0.8]], [[0.2, 0.8], [0.8, 0.2]]])
-    #     disjoint_set = []
-    #     dx = 1.0
-    #     for i in range(10):
-    #         chunk = cross_fractures.copy()
-    #         chunk[:, 0, :] = chunk[:, 0, :] + dx * (i)
-    #         disjoint_set.append(chunk[0])
-    #         disjoint_set.append(chunk[1])
-    #
-    #     disjoint_fractures = [
-    #         pp.LineFracture(self.solid.convert_units(fracture_pts, "m"))
-    #         for fracture_pts in disjoint_set
-    #     ]
-    #     self._fractures = disjoint_fractures
+    def set_fractures(self) -> None:
+
+        cross_fractures = np.array([[[0.2, 0.8], [0.2, 0.8]], [[0.2, 0.8], [0.8, 0.2]]])
+        disjoint_set = []
+        dx = 1.0
+        for i in range(10):
+            chunk = cross_fractures.copy()
+            chunk[:, 0, :] = chunk[:, 0, :] + dx * (i)
+            disjoint_set.append(chunk[0])
+            disjoint_set.append(chunk[1])
+
+        disjoint_fractures = [
+            pp.LineFracture(self.solid.convert_units(fracture_pts, "m"))
+            for fracture_pts in disjoint_set
+        ]
+        self._fractures = disjoint_fractures
 
     def grid_type(self) -> str:
-        return self.params.get("grid_type", "cartesian")
+        return self.params.get("grid_type", "simplex")
 
     def meshing_arguments(self) -> dict:
-        cell_size = self.solid.convert_units(1.0, "m")
-        cell_size_x = self.solid.convert_units(1.0, "m")
-        mesh_args: dict[str, float] = {"cell_size": cell_size, "cell_size_x": cell_size_x}
+        cell_size = self.solid.convert_units(0.1, "m")
+        mesh_args: dict[str, float] = {"cell_size": cell_size}
         return mesh_args
 
 class BoundaryConditions(BoundaryConditionsCF):
@@ -66,7 +65,7 @@ class BoundaryConditions(BoundaryConditionsCF):
 
     def bc_type_advective_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         sides = self.domain_boundary_sides(sd)
-        return pp.BoundaryCondition(sd, sides.west | sides.east, "dir")
+        return pp.BoundaryCondition(sd, sides.all_bf, "dir")
 
     def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
         sides = self.domain_boundary_sides(boundary_grid)
