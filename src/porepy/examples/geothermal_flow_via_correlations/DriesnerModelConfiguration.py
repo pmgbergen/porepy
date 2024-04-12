@@ -2,6 +2,7 @@ import porepy as pp
 import numpy as np
 import porepy.composite as ppc
 import BrineConstitutiveDescription
+from Geometries import SimpleGeometry as ModelGeometry
 
 from porepy.models.compositional_flow import (
     BoundaryConditionsCF,
@@ -9,49 +10,6 @@ from porepy.models.compositional_flow import (
     InitialConditionsCF,
     PrimaryEquationsCF,
 )
-
-class ModelGeometry:
-    def set_domain(self) -> None:
-        dimension = 2
-        size_x = self.solid.convert_units(10, "m")
-        size_y = self.solid.convert_units(1, "m")
-        size_z = self.solid.convert_units(1, "m")
-
-        box: dict[str, pp.number] = {"xmax": size_x}
-
-        if dimension > 1:
-            box.update({"ymax": size_y})
-
-        if dimension > 2:
-            box.update({"zmax": size_z})
-
-        self._domain = pp.Domain(box)
-
-    # def set_fractures(self) -> None:
-    #
-    #     cross_fractures = np.array([[[0.2, 0.8], [0.2, 0.8]], [[0.2, 0.8], [0.8, 0.2]]])
-    #     disjoint_set = []
-    #     dx = 1.0
-    #     for i in range(10):
-    #         chunk = cross_fractures.copy()
-    #         chunk[:, 0, :] = chunk[:, 0, :] + dx * (i)
-    #         disjoint_set.append(chunk[0])
-    #         disjoint_set.append(chunk[1])
-    #
-    #     disjoint_fractures = [
-    #         pp.LineFracture(self.solid.convert_units(fracture_pts, "m"))
-    #         for fracture_pts in disjoint_set
-    #     ]
-    #     self._fractures = disjoint_fractures
-
-    def grid_type(self) -> str:
-        return self.params.get("grid_type", "cartesian")
-
-    def meshing_arguments(self) -> dict:
-        cell_size = self.solid.convert_units(1.0, "m")
-        cell_size_x = self.solid.convert_units(0.1, "m")
-        mesh_args: dict[str, float] = {"cell_size": cell_size, "cell_size_x": cell_size_x}
-        return mesh_args
 
 class BoundaryConditions(BoundaryConditionsCF):
     """See parent class how to set up BC. Default is all zero and Dirichlet."""
@@ -66,7 +24,7 @@ class BoundaryConditions(BoundaryConditionsCF):
 
     def bc_type_advective_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         sides = self.domain_boundary_sides(sd)
-        return pp.BoundaryCondition(sd, sides.west | sides.east, "dir")
+        return pp.BoundaryCondition(sd, sides.all_bf, "dir")
 
     def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
         sides = self.domain_boundary_sides(boundary_grid)
@@ -84,8 +42,8 @@ class BoundaryConditions(BoundaryConditionsCF):
 
     def bc_values_enthalpy(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
         sides = self.domain_boundary_sides(boundary_grid)
-        h_init = 2.5e6
-        h_inlet = 2.5e6
+        h_init = 1.3e6
+        h_inlet = 1.3e6
         h = h_init * np.ones(boundary_grid.num_cells)
         h[sides.west] = h_inlet
         return h
@@ -94,8 +52,8 @@ class BoundaryConditions(BoundaryConditionsCF):
         self, component: ppc.Component, boundary_grid: pp.BoundaryGrid
     ) -> np.ndarray:
         sides = self.domain_boundary_sides(boundary_grid)
-        z_init = 0.1
-        z_inlet = 0.1
+        z_init = 0.2
+        z_inlet = 0.01
         if component.name == "H2O":
             z_H2O = (1 - z_init) * np.ones(boundary_grid.num_cells)
             z_H2O[sides.west] = 1 - z_inlet
@@ -143,7 +101,7 @@ class InitialConditions(InitialConditionsCF):
         return T
 
     def initial_enthalpy(self, sd: pp.Grid) -> np.ndarray:
-        h = 2.5e6
+        h = 1.3e6
         return np.ones(sd.num_cells) * h
 
     def initial_overall_fraction(
@@ -154,10 +112,6 @@ class InitialConditions(InitialConditionsCF):
             return (1 - z) * np.ones(sd.num_cells)
         else:
             return z * np.ones(sd.num_cells)
-
-
-# class SecondaryEquations(TracerConstitutiveDescription.SecondaryEquations):
-#     pass
 
 
 class SecondaryEquations(BrineConstitutiveDescription.SecondaryEquations):
