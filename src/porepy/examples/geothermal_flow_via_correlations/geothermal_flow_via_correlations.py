@@ -34,10 +34,10 @@ import porepy.composite as ppc
 
 
 day = 86400
-t_scale = 0.01
+t_scale = 0.1
 time_manager = pp.TimeManager(
-    schedule=[0.0, 50.0 * day * t_scale],
-    dt_init=5.0 * day * t_scale,
+    schedule=[0.0, 10.0 * day * t_scale],
+    dt_init=1.0 * day * t_scale,
     constant_dt=True,
     iter_max=50,
     print_info=True,
@@ -57,7 +57,7 @@ params = {
     "time_manager": time_manager,
     "prepare_simulation": False,
     "reduce_linear_system_q": False,
-    "nl_convergence_tol": 1.0e-2,
+    "nl_convergence_tol": 1.0e-3,
     "max_iterations": 50,
 }
 
@@ -100,8 +100,8 @@ print("Elapsed time prepare simulation: ", te - tb)
 print("Simulation prepared for total number of DoF: ", model.equation_system.num_dofs())
 print("Mixed-dimensional grid employed: ", model.mdg)
 
-# # print geometry
-# model.exporter.write_vtu()
+# print geometry
+model.exporter.write_vtu()
 tb = time.time()
 pp.run_time_dependent_model(model, params)
 te = time.time()

@@ -2,55 +2,13 @@ import porepy as pp
 import numpy as np
 import porepy.composite as ppc
 import TracerConstitutiveDescription
-
+from Geometries import Benchmark3DC3 as ModelGeometry
 from porepy.models.compositional_flow import (
     BoundaryConditionsCF,
     CFModelMixin,
     InitialConditionsCF,
     PrimaryEquationsCF,
 )
-
-class ModelGeometry:
-    def set_domain(self) -> None:
-        dimension = 2
-        size_x = self.solid.convert_units(10, "m")
-        size_y = self.solid.convert_units(1, "m")
-        size_z = self.solid.convert_units(1, "m")
-
-        box: dict[str, pp.number] = {"xmax": size_x}
-
-        if dimension > 1:
-            box.update({"ymax": size_y})
-
-        if dimension > 2:
-            box.update({"zmax": size_z})
-
-        self._domain = pp.Domain(box)
-
-    def set_fractures(self) -> None:
-
-        cross_fractures = np.array([[[0.2, 0.8], [0.2, 0.8]], [[0.2, 0.8], [0.8, 0.2]]])
-        disjoint_set = []
-        dx = 1.0
-        for i in range(10):
-            chunk = cross_fractures.copy()
-            chunk[:, 0, :] = chunk[:, 0, :] + dx * (i)
-            disjoint_set.append(chunk[0])
-            disjoint_set.append(chunk[1])
-
-        disjoint_fractures = [
-            pp.LineFracture(self.solid.convert_units(fracture_pts, "m"))
-            for fracture_pts in disjoint_set
-        ]
-        self._fractures = disjoint_fractures
-
-    def grid_type(self) -> str:
-        return self.params.get("grid_type", "simplex")
-
-    def meshing_arguments(self) -> dict:
-        cell_size = self.solid.convert_units(0.1, "m")
-        mesh_args: dict[str, float] = {"cell_size": cell_size}
-        return mesh_args
 
 class BoundaryConditions(BoundaryConditionsCF):
     """See parent class how to set up BC. Default is all zero and Dirichlet."""
