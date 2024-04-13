@@ -10,6 +10,7 @@ from porepy.models.compositional_flow import (
     PrimaryEquationsCF,
 )
 
+
 class BoundaryConditions(BoundaryConditionsCF):
     """See parent class how to set up BC. Default is all zero and Dirichlet."""
 
@@ -90,6 +91,7 @@ class InitialConditions(InitialConditionsCF):
         T = factor * h
         return T
 
+
 class SecondaryEquations(TracerConstitutiveDescription.SecondaryEquations):
     pass
 
@@ -125,5 +127,5 @@ class TracerFlowModel(
     CFModelMixin,
 ):
 
-   def relative_permeability(self, saturation: pp.ad.Operator) -> pp.ad.Operator:
+    def relative_permeability(self, saturation: pp.ad.Operator) -> pp.ad.Operator:
         return saturation

@@ -2,6 +2,7 @@ import pyvista
 import numpy as np
 import time
 
+
 class DriesnerBrineOBL:
     # Operator-based linearization (OBL) for Driesner correlations
 
@@ -14,7 +15,7 @@ class DriesnerBrineOBL:
         if hasattr(self, "_conversion_factors"):
             return self._conversion_factors
         else:
-            return (1.0,1.0,1.0) # No conversion
+            return (1.0, 1.0, 1.0)  # No conversion
 
     @conversion_factors.setter
     def conversion_factors(self, conversion_factors):
@@ -57,12 +58,12 @@ class DriesnerBrineOBL:
 
     def _apply_conversion_factor(self, points):
         for i, scale in enumerate(self.conversion_factors):
-            points[:,i] *= scale
+            points[:, i] *= scale
         return points
 
     def _apply_conversion_factor_on_gradients(self):
         for name, grad in self.sampled_could.point_data.items():
-            if name.startswith('grad_'):
+            if name.startswith("grad_"):
                 for i, scale in enumerate(self.conversion_factors):
                     grad[:, i] *= scale
         return
