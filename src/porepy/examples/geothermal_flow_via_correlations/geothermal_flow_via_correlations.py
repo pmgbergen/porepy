@@ -27,10 +27,11 @@ Note:
 
 from __future__ import annotations
 
-import numpy as np
 import time
-import porepy as pp
 
+import numpy as np
+
+import porepy as pp
 
 day = 86400
 t_scale = 0.00001
