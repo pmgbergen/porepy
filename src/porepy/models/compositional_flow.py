@@ -2154,7 +2154,7 @@ class InitialConditionsCF:
 
         for sd in self.mdg.subdomains():
             # setting pressure and temperature per domain
-            p = self.intial_pressure(sd)
+            p = self.initial_pressure(sd)
             T = self.initial_temperature(sd)
             h = self.initial_enthalpy(sd)
 
@@ -2266,7 +2266,7 @@ class InitialConditionsCF:
 
     ### IC for primary variables which need to be given by the user in any case.
 
-    def intial_pressure(self, sd: pp.Grid) -> np.ndarray:
+    def initial_pressure(self, sd: pp.Grid) -> np.ndarray:
         """
         Parameters:
             sd: A subdomain in the md-grid.
