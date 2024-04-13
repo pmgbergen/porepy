@@ -19,6 +19,7 @@ class Geometry(ModelGeometry):
         r = np.linalg.norm(dx, axis=1)
         return np.where(r < rc, True, False)
 
+
 class Benchmark2DC1(Geometry):
 
     def set_fractures(self) -> None:
@@ -44,16 +45,17 @@ class Benchmark2DC1(Geometry):
         idx = sides.all_bf
 
         rc = 0.25
-        xc = np.array([0., 0.0, 0.])
+        xc = np.array([0.0, 0.0, 0.0])
         logical = Geometry.harvest_sphere_members(xc, rc, x[idx])
         inlet_facets = idx[logical]
 
         rc = 0.25
-        xc = np.array([1.0, 1.0, 0.])
+        xc = np.array([1.0, 1.0, 0.0])
         logical = Geometry.harvest_sphere_members(xc, rc, x[idx])
         outlet_facets = idx[logical]
 
         return inlet_facets, outlet_facets
+
 
 class Benchmark2DC3(Geometry):
 
@@ -80,16 +82,17 @@ class Benchmark2DC3(Geometry):
         idx = sides.all_bf
 
         rc = 0.25
-        xc = np.array([0., 0.0, 0.])
+        xc = np.array([0.0, 0.0, 0.0])
         logical = Geometry.harvest_sphere_members(xc, rc, x[idx])
         inlet_facets = idx[logical]
 
         rc = 0.25
-        xc = np.array([1.0, 1.0, 0.])
+        xc = np.array([1.0, 1.0, 0.0])
         logical = Geometry.harvest_sphere_members(xc, rc, x[idx])
         outlet_facets = idx[logical]
 
         return inlet_facets, outlet_facets
+
 
 class Benchmark3DC3(Geometry):
 
@@ -143,6 +146,7 @@ class Benchmark3DC3(Geometry):
 
         return inlet_facets, outlet_facets
 
+
 class SimpleGeometry(Geometry):
 
     def set_domain(self) -> None:
@@ -182,7 +186,7 @@ class SimpleGeometry(Geometry):
             z_level = 0.5
 
         rc = 1.0
-        xc = np.array([0., 0.5, z_level])
+        xc = np.array([0.0, 0.5, z_level])
         logical = Geometry.harvest_sphere_members(xc, rc, x[idx])
         inlet_facets = idx[logical]
 

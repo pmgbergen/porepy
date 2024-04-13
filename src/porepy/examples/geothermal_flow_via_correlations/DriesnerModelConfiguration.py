@@ -2,7 +2,7 @@ import porepy as pp
 import numpy as np
 import porepy.composite as ppc
 import BrineConstitutiveDescription
-from Geometries import Benchmark2DC3 as ModelGeometry
+from Geometries import SimpleGeometry as ModelGeometry
 
 from porepy.models.compositional_flow import (
     BoundaryConditionsCF,
@@ -10,6 +10,7 @@ from porepy.models.compositional_flow import (
     InitialConditionsCF,
     PrimaryEquationsCF,
 )
+
 
 class BoundaryConditions(BoundaryConditionsCF):
     """See parent class how to set up BC. Default is all zero and Dirichlet."""
@@ -62,7 +63,9 @@ class BoundaryConditions(BoundaryConditionsCF):
         # # adhoc functional programming for BC consistency
         p = self.bc_values_pressure(boundary_grid)
         h = self.bc_values_enthalpy(boundary_grid)
-        z_NaCl = self.bc_values_overall_fraction(self.fluid_mixture._components[1], boundary_grid)
+        z_NaCl = self.bc_values_overall_fraction(
+            self.fluid_mixture._components[1], boundary_grid
+        )
         par_points = np.array((z_NaCl, h, p)).T
         self.obl.sample_at(par_points)
         T = self.obl.sampled_could.point_data["Temperature"]
@@ -99,6 +102,7 @@ class InitialConditions(InitialConditionsCF):
         T = self.obl.sampled_could.point_data["Temperature"]
         return T
 
+
 class SecondaryEquations(BrineConstitutiveDescription.SecondaryEquations):
     pass
 
@@ -134,7 +138,7 @@ class DriesnerBrineFlowModel(
     CFModelMixin,
 ):
     def relative_permeability(self, saturation: pp.ad.Operator) -> pp.ad.Operator:
-        return saturation ** 2
+        return saturation**2
 
     @property
     def obl(self):
@@ -143,4 +147,3 @@ class DriesnerBrineFlowModel(
     @obl.setter
     def obl(self, obl):
         self._obl = obl
-

@@ -413,7 +413,8 @@ class SecondaryEquations(SecondaryEquationsMixin):
                     phase
                 ),  # callables giving primary variables on subdoains
                 gas_saturation_func,  # numerical function implementing correlation
-                subdomains + matrix_boundary,  # all subdomains on which to eliminate s_gas
+                subdomains
+                + matrix_boundary,  # all subdomains on which to eliminate s_gas
                 # dofs = {'cells': 1},  # default value
             )
 

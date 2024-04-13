@@ -35,7 +35,7 @@ import porepy as pp
 day = 86400
 t_scale = 0.00001
 time_manager = pp.TimeManager(
-    schedule=[0.0, 10.0 * day * t_scale],
+    schedule=[0.0, 100.0 * day * t_scale],
     dt_init=1.0 * day * t_scale,
     constant_dt=True,
     iter_max=50,
@@ -67,6 +67,18 @@ params = {
 
 class GeothermalFlowModel(FlowModel):
 
+    def after_nonlinear_convergence(
+        self, solution: np.ndarray, errors: float, iteration_counter: int
+    ) -> None:
+        res_norm = np.linalg.norm(
+            model.equation_system.assemble(evaluate_jacobian=False)
+        )
+        super().after_nonlinear_convergence(solution, errors, iteration_counter)
+        print("Time step converged with residual norm: ", res_norm)
+        print("Time value: ", self.time_manager.time)
+        print("Time index: ", self.time_manager.time_index)
+        print("")
+
     def _export(self):
         if hasattr(self, "exporter"):
             self.exporter.write_vtu(self.primary_variable_names(), time_dependent=True)
@@ -81,7 +93,7 @@ else:
     model = GeothermalFlowModel(params)
     file_name = "binary_files/PHX_l0_with_gradients.vtk"
     brine_obl = DriesnerBrineOBL(file_name)
-    brine_obl.conversion_factors = (1.0,1.0e-3,1.0e-5) #(z,h,p)
+    brine_obl.conversion_factors = (1.0, 1.0e-3, 1.0e-5)  # (z,h,p)
     model.obl = brine_obl
 
 tb = time.time()
