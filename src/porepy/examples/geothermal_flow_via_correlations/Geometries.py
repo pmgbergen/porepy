@@ -1,23 +1,97 @@
 import porepy as pp
 import numpy as np
 from abc import ABC, abstractmethod
+from porepy.models.geometry import ModelGeometry
 from typing import Callable, cast
 from porepy.fracs.fracture_network_3d import FractureNetwork3d
 from porepy.applications.md_grids.mdg_library import benchmark_3d_case_3
 
 
-# class Geometry(ABC):
-#
-#     @property
-#     def file_name(self):
-#         return self._file_name
-#
-#     @file_name.setter
-#     def file_name(self, file_name):
-#         self._file_name = file_name
+class Geometry(ModelGeometry):
 
-class Benchmark3DC3:
+    @abstractmethod
+    def get_inlet_outlet_sides(self, sd: pp.Grid | pp.BoundaryGrid) -> np.ndarray:
+        pass
 
+    @staticmethod
+    def harvest_sphere_members(xc, rc, x):
+        dx = x - xc
+        r = np.linalg.norm(dx, axis=1)
+        return np.where(r < rc, True, False)
+
+class Benchmark2DC1(Geometry):
+
+    def set_fractures(self) -> None:
+        self._fractures = pp.applications.md_grids.fracture_sets.benchmark_2d_case_1()
+
+    def grid_type(self) -> str:
+        return self.params.get("grid_type", "simplex")
+
+    def meshing_arguments(self) -> dict:
+        cell_size = self.solid.convert_units(0.1, "m")
+        mesh_args: dict[str, float] = {"cell_size": cell_size}
+        return mesh_args
+
+    def get_inlet_outlet_sides(self, sd: pp.Grid | pp.BoundaryGrid) -> np.ndarray:
+
+        if isinstance(sd, pp.Grid):
+            x = sd.face_centers.T
+        elif isinstance(sd, pp.BoundaryGrid):
+            x = sd.cell_centers.T
+        else:
+            raise ValueError("Type not expected.")
+        sides = self.domain_boundary_sides(sd)
+        idx = sides.all_bf
+
+        rc = 0.25
+        xc = np.array([0., 0.0, 0.])
+        logical = Geometry.harvest_sphere_members(xc, rc, x[idx])
+        inlet_facets = idx[logical]
+
+        rc = 0.25
+        xc = np.array([1.0, 1.0, 0.])
+        logical = Geometry.harvest_sphere_members(xc, rc, x[idx])
+        outlet_facets = idx[logical]
+
+        return inlet_facets, outlet_facets
+
+class Benchmark2DC3(Geometry):
+
+    def set_fractures(self) -> None:
+        self._fractures = pp.applications.md_grids.fracture_sets.benchmark_2d_case_3()
+
+    def grid_type(self) -> str:
+        return self.params.get("grid_type", "simplex")
+
+    def meshing_arguments(self) -> dict:
+        cell_size = self.solid.convert_units(0.1, "m")
+        mesh_args: dict[str, float] = {"cell_size": cell_size}
+        return mesh_args
+
+    def get_inlet_outlet_sides(self, sd: pp.Grid | pp.BoundaryGrid) -> np.ndarray:
+
+        if isinstance(sd, pp.Grid):
+            x = sd.face_centers.T
+        elif isinstance(sd, pp.BoundaryGrid):
+            x = sd.cell_centers.T
+        else:
+            raise ValueError("Type not expected.")
+        sides = self.domain_boundary_sides(sd)
+        idx = sides.all_bf
+
+        rc = 0.2
+        xc = np.array([0., 0.0, 0.])
+        logical = Geometry.harvest_sphere_members(xc, rc, x[idx])
+        inlet_facets = idx[logical]
+
+        rc = 0.25
+        xc = np.array([1.0, 1.0, 0.])
+        logical = Geometry.harvest_sphere_members(xc, rc, x[idx])
+        outlet_facets = idx[logical]
+
+        return inlet_facets, outlet_facets
+
+class Benchmark3DC3(Geometry):
 
     def set_geometry(self) -> None:
         """Create mixed-dimensional grid and fracture network."""
@@ -46,47 +120,71 @@ class Benchmark3DC3:
             # grid along with these grids' new interfaces to fractures.
             self.well_network.mesh(self.mdg)
 
-class SimpleGeometry:
+    def get_inlet_outlet_sides(self, sd: pp.Grid | pp.BoundaryGrid) -> np.ndarray:
 
+        if isinstance(sd, pp.Grid):
+            x = sd.face_centers.T
+        elif isinstance(sd, pp.BoundaryGrid):
+            x = sd.cell_centers.T
+        else:
+            raise ValueError("Type not expected.")
+        sides = self.domain_boundary_sides(sd)
+        idx = sides.all_bf
 
+        rc = 0.25
+        xc = np.array([0.0, 0.0, 0.0])
+        logical = Geometry.harvest_sphere_members(xc, rc, x[idx])
+        inlet_facets = idx[logical]
+
+        rc = 0.25
+        xc = np.array([1.0, 2.25, 1.0])
+        logical = Geometry.harvest_sphere_members(xc, rc, x[idx])
+        outlet_facets = idx[logical]
+
+        return inlet_facets, outlet_facets
+
+class SimpleGeometry(Geometry):
 
     def set_domain(self) -> None:
+
         dimension = 2
         size_x = self.solid.convert_units(10, "m")
         size_y = self.solid.convert_units(1, "m")
         size_z = self.solid.convert_units(1, "m")
-
         box: dict[str, pp.number] = {"xmax": size_x}
-
         if dimension > 1:
             box.update({"ymax": size_y})
-
         if dimension > 2:
             box.update({"zmax": size_z})
-
         self._domain = pp.Domain(box)
 
-    # def set_fractures(self) -> None:
-    #
-    #     cross_fractures = np.array([[[0.2, 0.8], [0.2, 0.8]], [[0.2, 0.8], [0.8, 0.2]]])
-    #     disjoint_set = []
-    #     dx = 1.0
-    #     for i in range(10):
-    #         chunk = cross_fractures.copy()
-    #         chunk[:, 0, :] = chunk[:, 0, :] + dx * (i)
-    #         disjoint_set.append(chunk[0])
-    #         disjoint_set.append(chunk[1])
-    #
-    #     disjoint_fractures = [
-    #         pp.LineFracture(self.solid.convert_units(fracture_pts, "m"))
-    #         for fracture_pts in disjoint_set
-    #     ]
-    #     self._fractures = disjoint_fractures
-
     def grid_type(self) -> str:
-        return self.params.get("grid_type", "simplex")
+        return self.params.get("grid_type", "cartesian")
 
     def meshing_arguments(self) -> dict:
-        cell_size = self.solid.convert_units(0.5, "m")
+        cell_size = self.solid.convert_units(1.0, "m")
         mesh_args: dict[str, float] = {"cell_size": cell_size}
         return mesh_args
+
+    def get_inlet_outlet_sides(self, sd: pp.Grid | pp.BoundaryGrid) -> np.ndarray:
+
+        if isinstance(sd, pp.Grid):
+            x = sd.face_centers.T
+        elif isinstance(sd, pp.BoundaryGrid):
+            x = sd.cell_centers.T
+        else:
+            raise ValueError("Type not expected.")
+        sides = self.domain_boundary_sides(sd)
+        idx = sides.all_bf
+
+        rc = 1.0
+        xc = np.array([0., 0.5, 0.])
+        logical = Geometry.harvest_sphere_members(xc, rc, x[idx])
+        inlet_facets = idx[logical]
+
+        rc = 1.0
+        xc = np.array([10.0, 0.5, 0.])
+        logical = Geometry.harvest_sphere_members(xc, rc, x[idx])
+        outlet_facets = idx[logical]
+
+        return inlet_facets, outlet_facets

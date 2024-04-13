@@ -2,7 +2,7 @@ import porepy as pp
 import numpy as np
 import porepy.composite as ppc
 import TracerConstitutiveDescription
-from Geometries import Benchmark3DC3 as ModelGeometry
+from Geometries import Benchmark2DC1 as ModelGeometry
 from porepy.models.compositional_flow import (
     BoundaryConditionsCF,
     CFModelMixin,
@@ -14,19 +14,18 @@ class BoundaryConditions(BoundaryConditionsCF):
     """See parent class how to set up BC. Default is all zero and Dirichlet."""
 
     def bc_type_fourier_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
-        sides = self.domain_boundary_sides(sd)
-        return pp.BoundaryCondition(sd, sides.west | sides.east, "dir")
+        facet_idx = np.concatenate(self.get_inlet_outlet_sides(sd))
+        return pp.BoundaryCondition(sd, facet_idx, "dir")
 
     def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
-        sides = self.domain_boundary_sides(sd)
-        return pp.BoundaryCondition(sd, sides.west | sides.east, "dir")
+        facet_idx = np.concatenate(self.get_inlet_outlet_sides(sd))
+        return pp.BoundaryCondition(sd, facet_idx, "dir")
 
     def bc_type_advective_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
-        sides = self.domain_boundary_sides(sd)
-        return pp.BoundaryCondition(sd, sides.all_bf, "dir")
+        facet_idx = np.concatenate(self.get_inlet_outlet_sides(sd))
+        return pp.BoundaryCondition(sd, facet_idx, "dir")
 
     def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
-        sides = self.domain_boundary_sides(boundary_grid)
         p_inlet = 15.0e6
         p_outlet = 10.0e6
         xcs = boundary_grid.cell_centers.T
@@ -40,26 +39,26 @@ class BoundaryConditions(BoundaryConditionsCF):
         return p_D_vals
 
     def bc_values_enthalpy(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
-        sides = self.domain_boundary_sides(boundary_grid)
+        inlet_idx, _ = self.get_inlet_outlet_sides(boundary_grid)
         h_init = 2.5e6
         h_inlet = 2.5e6
         h = h_init * np.ones(boundary_grid.num_cells)
-        h[sides.west] = h_inlet
+        h[inlet_idx] = h_inlet
         return h
 
     def bc_values_overall_fraction(
         self, component: ppc.Component, boundary_grid: pp.BoundaryGrid
     ) -> np.ndarray:
-        sides = self.domain_boundary_sides(boundary_grid)
+        inlet_idx, _ = self.get_inlet_outlet_sides(boundary_grid)
         z_init = 0.1
         z_inlet = 1.0
         if component.name == "H2O":
             z_H2O = (1 - z_init) * np.ones(boundary_grid.num_cells)
-            z_H2O[sides.west] = 1 - z_inlet
+            z_H2O[inlet_idx] = 1 - z_inlet
             return z_H2O
         else:
             z_NaCl = z_init * np.ones(boundary_grid.num_cells)
-            z_NaCl[sides.west] = z_inlet
+            z_NaCl[inlet_idx] = z_inlet
             return z_NaCl
 
     def bc_values_temperature(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
@@ -74,7 +73,7 @@ class InitialConditions(InitialConditionsCF):
 
     def intial_pressure(self, sd: pp.Grid) -> np.ndarray:
         p_inlet = 15.0e6
-        p_outlet = 10.0e6
+        p_outlet = 15.0e6
         xcs = sd.cell_centers.T
         l = 10.0
         def p_D(xc):
