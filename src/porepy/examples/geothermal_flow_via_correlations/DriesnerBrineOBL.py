@@ -73,4 +73,4 @@ class DriesnerBrineOBL:
         tb = time.time()
         self._search_space = pyvista.read(self.file_name)
         te = time.time()
-        print("DriesnerBrineOBL:: Time for loading search_space: ", te - tb)
+        print("DriesnerBrineOBL:: Time for loading interpolation space: ", te - tb)

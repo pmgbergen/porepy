@@ -43,7 +43,7 @@ time_manager = pp.TimeManager(
     print_info=True,
 )
 
-tracer_like_setting_q = False
+tracer_like_setting_q = True
 if tracer_like_setting_q:
     from TracerModelConfiguration import TracerFlowModel as FlowModel
 else:
@@ -61,7 +61,7 @@ params = {
     "time_manager": time_manager,
     "prepare_simulation": False,
     "reduce_linear_system_q": False,
-    "nl_convergence_tol": 1.0e-4,
+    "nl_convergence_tol": 1.0e-3,
     "max_iterations": 25,
 }
 

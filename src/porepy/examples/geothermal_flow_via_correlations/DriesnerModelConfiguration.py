@@ -1,6 +1,6 @@
 import BrineConstitutiveDescription
 import numpy as np
-from Geometries import SimpleGeometry as ModelGeometry
+from Geometries import Benchmark2DC3 as ModelGeometry
 
 import porepy as pp
 import porepy.composite as ppc
