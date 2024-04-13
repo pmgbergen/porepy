@@ -148,7 +148,7 @@ class SimpleGeometry(Geometry):
     def set_domain(self) -> None:
 
         dimension = 2
-        size_x = self.solid.convert_units(10, "m")
+        size_x = self.solid.convert_units(2, "m")
         size_y = self.solid.convert_units(1, "m")
         size_z = self.solid.convert_units(1, "m")
         box: dict[str, pp.number] = {"xmax": size_x}
@@ -162,7 +162,7 @@ class SimpleGeometry(Geometry):
         return self.params.get("grid_type", "cartesian")
 
     def meshing_arguments(self) -> dict:
-        cell_size = self.solid.convert_units(0.1, "m")
+        cell_size = self.solid.convert_units(0.5, "m")
         mesh_args: dict[str, float] = {"cell_size": cell_size}
         return mesh_args
 
