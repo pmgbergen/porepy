@@ -1,8 +1,9 @@
-import porepy as pp
 import numpy as np
-import porepy.composite as ppc
 import TracerConstitutiveDescription
 from Geometries import Benchmark2DC3 as ModelGeometry
+
+import porepy as pp
+import porepy.composite as ppc
 from porepy.models.compositional_flow import (
     BoundaryConditionsCF,
     CFModelMixin,

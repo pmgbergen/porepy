@@ -1,10 +1,12 @@
-import porepy as pp
-import numpy as np
 from abc import ABC, abstractmethod
-from porepy.models.geometry import ModelGeometry
 from typing import Callable, cast
-from porepy.fracs.fracture_network_3d import FractureNetwork3d
+
+import numpy as np
+
+import porepy as pp
 from porepy.applications.md_grids.mdg_library import benchmark_3d_case_3
+from porepy.fracs.fracture_network_3d import FractureNetwork3d
+from porepy.models.geometry import ModelGeometry
 
 
 class Geometry(ModelGeometry):

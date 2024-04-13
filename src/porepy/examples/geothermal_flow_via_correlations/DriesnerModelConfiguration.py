@@ -1,9 +1,9 @@
-import porepy as pp
-import numpy as np
-import porepy.composite as ppc
 import BrineConstitutiveDescription
+import numpy as np
 from Geometries import SimpleGeometry as ModelGeometry
 
+import porepy as pp
+import porepy.composite as ppc
 from porepy.models.compositional_flow import (
     BoundaryConditionsCF,
     CFModelMixin,

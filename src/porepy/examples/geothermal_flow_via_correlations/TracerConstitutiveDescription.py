@@ -1,6 +1,8 @@
-import numpy as np
-import porepy as pp
 from typing import Callable, Sequence
+
+import numpy as np
+
+import porepy as pp
 import porepy.composite as ppc
 from porepy.models.compositional_flow import SecondaryEquationsMixin
 
