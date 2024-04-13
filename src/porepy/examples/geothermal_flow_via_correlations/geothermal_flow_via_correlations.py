@@ -34,7 +34,7 @@ import porepy.composite as ppc
 
 
 day = 86400
-t_scale = 0.01
+t_scale = 0.1
 time_manager = pp.TimeManager(
     schedule=[0.0, 10.0 * day * t_scale],
     dt_init=1.0 * day * t_scale,
