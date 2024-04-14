@@ -1,12 +1,12 @@
-"""Example implementing a multi-phase multi component flow of H2O-NaCl using
-the Driesner correlations as constitutive laws.
+"""Example implementing a multi-phase multi component flow of H2O-NaCl using Driesner
+correlations and a tracer-like as constitutive descriptions.
 
 This model uses pressure, specific fluid mixture enthalpy and NaCl overall fraction as
 primary variables.
 
 No equilibrium calculations included.
 
-Ergo, the user must close the model to provide expressions for saturations, partial
+Ergo, the user must close the model to provide expressions for saturation, partial
 fractions and temperature, depending on primary variables.
 
 Note:
@@ -33,6 +33,13 @@ import numpy as np
 
 import porepy as pp
 
+tracer_like_setting_q = True
+if tracer_like_setting_q:
+    from TracerModelConfiguration import TracerFlowModel as FlowModel
+else:
+    from DriesnerBrineOBL import DriesnerBrineOBL
+    from DriesnerModelConfiguration import DriesnerBrineFlowModel as FlowModel
+
 day = 86400
 t_scale = 0.00001
 time_manager = pp.TimeManager(
@@ -42,13 +49,6 @@ time_manager = pp.TimeManager(
     iter_max=50,
     print_info=True,
 )
-
-tracer_like_setting_q = True
-if tracer_like_setting_q:
-    from TracerModelConfiguration import TracerFlowModel as FlowModel
-else:
-    from DriesnerBrineOBL import DriesnerBrineOBL
-    from DriesnerModelConfiguration import DriesnerBrineFlowModel as FlowModel
 
 solid_constants = pp.SolidConstants(
     {"permeability": 9.869233e-14, "porosity": 0.2, "thermal_conductivity": 1.92}
@@ -61,6 +61,7 @@ params = {
     "time_manager": time_manager,
     "prepare_simulation": False,
     "reduce_linear_system_q": False,
+    "petsc_solver_q": True,
     "nl_convergence_tol": 1.0e-3,
     "max_iterations": 25,
 }
@@ -71,9 +72,12 @@ class GeothermalFlowModel(FlowModel):
     def after_nonlinear_convergence(
         self, solution: np.ndarray, errors: float, iteration_counter: int
     ) -> None:
+        tb = time.time()
         res_norm = np.linalg.norm(
             model.equation_system.assemble(evaluate_jacobian=False)
         )
+        te = time.time()
+        print("Elapsed time residual assemble: ", te - tb)
         super().after_nonlinear_convergence(solution, errors, iteration_counter)
         print("Time step converged with residual norm: ", res_norm)
         print("Time value: ", self.time_manager.time)
@@ -86,6 +90,46 @@ class GeothermalFlowModel(FlowModel):
 
     def after_simulation(self):
         self.exporter.write_pvd()
+
+    def solve_linear_system(self) -> np.ndarray:
+        """After calling the parent method, the global solution is calculated by Schur
+        expansion."""
+        petsc_solver_q = self.params.get("petsc_solver_q", False)
+        tb = time.time()
+        if petsc_solver_q:
+            from petsc4py import PETSc
+
+            csr_mat, res_g = self.linear_system
+
+            jac_g = PETSc.Mat().createAIJ(
+                size=csr_mat.shape,
+                csr=((csr_mat.indptr, csr_mat.indices, csr_mat.data)),
+            )
+
+            # solving ls
+            st = time.time()
+            ksp = PETSc.KSP().create()
+            ksp.setOperators(jac_g)
+            b = jac_g.createVecLeft()
+            b.array[:] = res_g
+            x = jac_g.createVecRight()
+
+            ksp.setType("preonly")
+            ksp.getPC().setType("lu")
+            ksp.getPC().setFactorSolverType("mumps")
+
+            ksp.setConvergenceHistory()
+            ksp.solve(b, x)
+            sol = x.array
+        else:
+            sol = super().solve_linear_system()
+
+        reduce_linear_system_q = self.params.get("reduce_linear_system_q", False)
+        if reduce_linear_system_q:
+            raise ValueError("Case not implemented yet.")
+        te = time.time()
+        print("Elapsed time linear solve: ", te - tb)
+        return sol
 
 
 if tracer_like_setting_q:
