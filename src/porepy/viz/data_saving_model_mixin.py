@@ -256,7 +256,7 @@ class VerificationDataSaving(DataSavingMixin):
         """Save data to the `results` list."""
         if not self._is_time_dependent():  # stationary problem
             if (
-                self.nonlinear_solver_statistics.nonlinear_iteration > 0
+                self.nonlinear_solver_statistics.num_iteration > 0
             ):  # avoid saving initial condition
                 collected_data = self.collect_data()
                 self.results.append(collected_data)
