@@ -18,23 +18,45 @@ class SolverStatistics:
     """Statistics object for non-linear solver loop.
 
     This object keeps track of the number of non-linear iterations performed for the
-    current time step, as well as increments and residuals for each iteration.
+    current time step, as well as increments and residuals for each iteration. The
+    output is stored in a dictionary which is saved to a file in json format.
 
-    An example usage is shown below. We have defined nonlinear_solver_statistics as an
-    instance of SolverStatistics (see models.solution_strategy). We then define a
-    mixin where the after_nonlinear_convergence() method is overwritten. We extract the
-    number of nonlinear iterations and the norm of the residual for each iteration, and
-    plot the results. Note that the index [0] refers to the first time step. More
-    generally, index [i] would extract values from the i+1-th time step.
+    We exemplify two use cases of the SolverStatistics object. The first example shows
+    how to use the object inside a model, while the second demonstrates simple interaction
+    as external post-processing step.
 
-    def after_nonlinear_convergence(self, solution: np.ndarray) -> None:
-        super().after_nonlinear_convergence(solution)
-        itr = np.arange(0, self.nonlinear_solver_statistics.history["num_iteration"][0])
-        err = self.nonlinear_solver_statistics.history["residual_errors"][0]
-        plt.semilogy(itr, err)
-        plt.xlabel("Iteration number")
-        plt.ylabel("Residual")
-        plt.title("Residual error")
+    Example:
+
+        Within a model, we overwrite after_nonlinear_convergence() to plot the number of
+        nonlinear iterations agains the norm of the residual for the first time step.
+
+        >>> def after_nonlinear_convergence(self, solution: np.ndarray) -> None:
+        >>>     super().after_nonlinear_convergence(solution)
+        >>>     import matplotlib.pyplot as plt
+        >>>     ts = 0
+        >>>     err = self.nonlinear_solver_statistics.history["residual_errors"][ts]
+        >>>     plt.semilogy(err)
+        >>>     plt.xlabel("Iteration number")
+        >>>     plt.ylabel("Residual")
+        >>>     plt.title("Residual error")
+        >>>     plt.show()
+
+    Example:
+
+        After storing solver statistics to file, we can load the file and plot
+        analogous data.
+
+        >>> import matplotlib.pyplot as plt
+        >>> import json
+        >>> with open("solver_statistics.json", "r") as f:
+        >>>     history = json.load(f)
+        >>> ts = 0
+        >>> err = history["residual_errors"][ts]
+        >>> plt.semilogy(err)
+        >>> plt.xlabel("Iteration number")
+        >>> plt.ylabel("Residual")
+        >>> plt.title("Residual error")
+        >>> plt.show()
 
     """
 
