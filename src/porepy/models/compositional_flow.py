@@ -1500,9 +1500,9 @@ class VariablesCF(
         of
 
         1. pressure,
-        2. fluid enthalpy,
-        3. overall fractions,
-        4. solute fractions.
+        2. overall fractions,
+        3. solute fractions,
+        4. fluid enthalpy.
 
         Primary variable names are used to define the primary block in the Schur
         elimination in the solution strategy.
@@ -1511,10 +1511,13 @@ class VariablesCF(
         return (
             [
                 self.pressure_variable,
-                self.enthalpy_variable,
             ]
             + self.overall_fraction_variables
             + self.solute_fraction_variables
+            +
+            [
+                self.enthalpy_variable,
+            ]
         )
 
     @property
