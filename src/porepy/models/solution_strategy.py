@@ -436,11 +436,11 @@ class SolutionStrategy(abc.ABC):
             solution_vector: The new solution, as computed by the non-linear solver.
 
         """
-        self.nonlinear_solver_statistics.num_iteration += 1
         self.equation_system.shift_iterate_values()
         self.equation_system.set_variable_values(
             values=solution_vector, additive=True, iterate_index=0
         )
+        self.nonlinear_solver_statistics.num_iteration += 1
 
     def after_nonlinear_convergence(self, solution: np.ndarray) -> None:
         """Method to be called after every non-linear iteration.
@@ -518,9 +518,10 @@ class SolutionStrategy(abc.ABC):
             # is returned. We check for this.
             diverged = bool(np.any(np.isnan(solution_increment)))
             converged: bool = not diverged
-            error_res: float = np.nan if diverged else 0.0
-            error_inc: float = np.nan if diverged else 0.0
-            return error_res, error_inc, converged, diverged
+            residual_error: float = np.nan if diverged else 0.0
+            increment_error: float = np.nan if diverged else 0.0
+            # TODO decide whether to omit logging of errors for linear problems
+            # return residual_error, increment_error, converged, diverged
         else:
             # First a simple check for nan values.
             if np.any(np.isnan(solution_increment)):
@@ -528,26 +529,28 @@ class SolutionStrategy(abc.ABC):
                 return np.nan, np.nan, False, True
 
             # Increment based error
-            error_inc = self.nonlinear_increment_error(solution_increment)
+            increment_error = self.nonlinear_increment_error(solution_increment)
             # Residual based error
-            error_res = self.nonlinear_residual_error(residual, init_residual)
-            # Log the errors, increments and residuals
-            self.nonlinear_solver_statistics.log_error(error_inc, error_res)
-            self.nonlinear_solver_statistics.log_increment(solution_increment)
-            self.nonlinear_solver_statistics.log_residual(residual, init_residual)
-            logger.info(f"Normalized increment error: {error_inc:.2e}")
-            logger.info(f"Normalized residual error: {error_res:.2e}")
+            residual_error = self.nonlinear_residual_error(residual, init_residual)
+            logger.info(f"Normalized increment error: {increment_error:.2e}")
+            logger.info(f"Normalized residual error: {residual_error:.2e}")
             # Check convergence
-            converged_inc = error_inc < nl_params["nl_convergence_tol"]
+            converged_inc = increment_error < nl_params["nl_convergence_tol"]
             # Allow for nan values in the residual error for effectively disabled
             # convergence check.
             converged_res = (
-                error_res < nl_params["nl_convergence_tol_res"]
+                residual_error < nl_params["nl_convergence_tol_res"]
                 or nl_params["nl_convergence_tol_res"] is np.inf
             )
             converged = converged_inc and converged_res
             diverged = False
-            return error_res, error_inc, converged, diverged
+
+        # Log the errors, increments and residuals
+        self.nonlinear_solver_statistics.log_error(increment_error, residual_error)
+        self.nonlinear_solver_statistics.log_increment(solution_increment)
+        self.nonlinear_solver_statistics.log_residual(residual, init_residual)
+
+        return residual_error, increment_error, converged, diverged
 
     def nonlinear_residual_error(
         self, residual: np.ndarray, init_residual: np.ndarray
@@ -564,8 +567,8 @@ class SolutionStrategy(abc.ABC):
             float: Residual error.
 
         """
-        error_res = np.linalg.norm(residual) / np.sqrt(residual.size)
-        return error_res
+        residual_error = np.linalg.norm(residual) / np.sqrt(residual.size)
+        return residual_error
 
     def nonlinear_increment_error(self, solution_increment: np.ndarray) -> float:
         """Compute the error based on the update increment for a nonlinear iteration.
@@ -581,10 +584,10 @@ class SolutionStrategy(abc.ABC):
         # possibly using _l2_norm_cell
         # We normalize by the size of the solution vector.
         # Enforce float to make mypy happy
-        error_inc = np.linalg.norm(solution_increment) / np.sqrt(
+        increment_error = np.linalg.norm(solution_increment) / np.sqrt(
             solution_increment.size
         )
-        return error_inc
+        return increment_error
 
     def _initialize_linear_solver(self) -> None:
         """Initialize linear solver.
