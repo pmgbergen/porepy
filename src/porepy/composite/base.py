@@ -770,7 +770,7 @@ class Mixture:
         # checking model assumptions
         assert len(self._components) > 0, "At least 1 component required."
         assert len(self._phases) > 0, "At least 1 phase required."
-        assert len(gaslike_phases) == 1, "Only 1 gas-like phase is permitted."
+        assert len(gaslike_phases) <= 1, "Only 1 or none gas-like phase  is permitted."
 
         ### PUBLIC
 
