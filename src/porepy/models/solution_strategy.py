@@ -411,6 +411,8 @@ class SolutionStrategy(abc.ABC):
         self.ad_time_step.set_value(self.time_manager.dt)
         # Update the boundary conditions to both the time step and iterate solution.
         self.update_time_dependent_ad_arrays()
+        # Empty the log in the statistics object.
+        self.nonlinear_solver_statistics.reset()
 
     def before_nonlinear_iteration(self) -> None:
         """Method to be called at the start of every non-linear iteration.

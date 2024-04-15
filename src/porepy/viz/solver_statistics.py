@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 from pathlib import Path
 from typing import Optional
@@ -9,8 +10,6 @@ from typing import Optional
 import numpy as np
 
 import porepy as pp
-
-import json
 
 logger = logging.getLogger(__name__)
 
@@ -254,10 +253,9 @@ class SolverStatistics:
             self.history["residuals"][key].append(self.residuals[key])
         for key in self.init_residuals:
             self.history["init_residuals"][key].append(self.init_residuals[key])
-        self._reset()
         self._save()
 
-    def _reset(self) -> None:
+    def reset(self) -> None:
         """Reset the statistics object."""
         self.num_iteration = 0
         self.increment_errors = []
