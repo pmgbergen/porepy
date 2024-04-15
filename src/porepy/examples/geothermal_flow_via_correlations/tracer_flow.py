@@ -30,20 +30,13 @@ from __future__ import annotations
 import time
 
 import numpy as np
-
 import porepy as pp
-
-tracer_like_setting_q = True
-if tracer_like_setting_q:
-    from TracerModelConfiguration import TracerFlowModel as FlowModel
-else:
-    from DriesnerBrineOBL import DriesnerBrineOBL
-    from DriesnerModelConfiguration import DriesnerBrineFlowModel as FlowModel
+from LinearTracerModelConfiguration import LinearTracerFlowModel as FlowModel
 
 day = 86400
-t_scale = 0.00001
+t_scale = 0.01
 time_manager = pp.TimeManager(
-    schedule=[0.0, 100.0 * day * t_scale],
+    schedule=[0.0, 10.0 * day * t_scale],
     dt_init=1.0 * day * t_scale,
     constant_dt=True,
     iter_max=50,
@@ -132,14 +125,7 @@ class GeothermalFlowModel(FlowModel):
         return sol
 
 
-if tracer_like_setting_q:
-    model = GeothermalFlowModel(params)
-else:
-    model = GeothermalFlowModel(params)
-    file_name = "binary_files/PHX_l0_with_gradients.vtk"
-    brine_obl = DriesnerBrineOBL(file_name)
-    brine_obl.conversion_factors = (1.0, 1.0e-3, 1.0e-5)  # (z,h,p)
-    model.obl = brine_obl
+model = GeothermalFlowModel(params)
 
 tb = time.time()
 model.prepare_simulation()
