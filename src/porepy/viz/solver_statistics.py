@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import logging
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional, Sequence
 
 import numpy as np
 
@@ -65,10 +65,17 @@ class SolverStatistics:
         self.nd = model.nd
         """Ambient dimension of the problem."""
 
-        self._variable_data: dict = {}
+        self._variable_data: dict[str, Sequence[dict[str, Any]]] = {}
         """Variable data for the model."""
-        self._equations_data: dict = {}
+        self._equations_data: dict[str, Sequence[dict[str, Any]]] = {}
         """Equation data for the model."""
+
+        # Fetch variable and equation data for the model via the equation system.
+        # The data is stored in dictionaries with keys "dense", "sparse", "subdomains_nd",
+        # and "interfaces_nd", where nd is the ambient dimension of the problem.
+        # "Dense" and "sparse" refer to the entire domain and the subdomains and interfaces,
+        # respectively. "Subdomains_nd" and "interfaces_nd" refer to the subdomains and
+        # interfaces in the model, respectively, grouped by dimension.
 
         self._variable_data["dense"] = pp.DiagnosticsMixin._variable_data(
             model,
@@ -135,56 +142,64 @@ class SolverStatistics:
         """List of increments for each non-linear iteration."""
         self.residual_errors: list[float] = []
         """List of residual for each non-linear iteration."""
-        self.increments: dict["str", list[float]] = {}
+        self.sub_increment_errors: dict["str", list[float]] = {}
         """Dictionary of subincrements for each non-linear iteration."""
-        self.residuals: dict["str", list[float]] = {}
+        self.sub_residual_errors: dict["str", list[float]] = {}
         """Dictionary of subresiduals for each non-linear iteration."""
-        self.init_residuals: dict["str", float] = {}
+        self.init_sub_residual_errors: dict["str", float] = {}
         """Dictionary of subinitial residuals for each time step."""
         self.history: dict = {
             "size": 0,
             "num_iteration": [],
             "increment_errors": [],
             "residual_errors": [],
-            "increments": {},
-            "residuals": {},
-            "init_residuals": {},
+            "sub_increment_errors": {},
+            "sub_residual_errors": {},
+            "init_sub_residual_errors": {},
         }
         """History of the statistics object over multiple nonlinear iterations."""
 
         # Initialize the subincrements dictionary and associated history
         for key in ["dense", "sparse"]:
             for var in self._variable_data[key]:
-                self.increments[var["printed_name"]] = []
-                self.history["increments"][var["printed_name"]] = []
+                self.sub_increment_errors[var["printed_name"]] = []
+                self.history["sub_increment_errors"][var["printed_name"]] = []
         for nd in range(self.nd + 1):
             for var in self._variable_data[f"subdomains_{nd}"]:
-                self.increments[var["printed_name"] + f" {nd}D"] = []
-                self.history["increments"][var["printed_name"] + f" {nd}D"] = []
+                self.sub_increment_errors[var["printed_name"] + f" {nd}D"] = []
+                self.history["sub_increment_errors"][
+                    var["printed_name"] + f" {nd}D"
+                ] = []
         for nd in range(self.nd):
             for var in self._variable_data[f"interfaces_{nd}"]:
-                self.increments[var["printed_name"] + f" {nd}D, intf."] = []
-                self.history["increments"][var["printed_name"] + f" {nd}D, intf."] = []
+                self.sub_increment_errors[var["printed_name"] + f" {nd}D, intf."] = []
+                self.history["sub_increment_errors"][
+                    var["printed_name"] + f" {nd}D, intf."
+                ] = []
 
         # Initialize the subresiduals dictionary and associated history
         for key in ["dense", "sparse"]:
             for eq in self._equations_data[key]:
-                self.residuals[eq["printed_name"]] = []
-                self.init_residuals[eq["printed_name"]] = 0
-                self.history["residuals"][eq["printed_name"]] = []
-                self.history["init_residuals"][eq["printed_name"]] = []
+                self.sub_residual_errors[eq["printed_name"]] = []
+                self.init_sub_residual_errors[eq["printed_name"]] = 0
+                self.history["sub_residual_errors"][eq["printed_name"]] = []
+                self.history["init_sub_residual_errors"][eq["printed_name"]] = []
         for nd in range(self.nd + 1):
             for eq in self._equations_data[f"subdomains_{nd}"]:
-                self.residuals[eq["printed_name"] + f" {nd}D"] = []
-                self.init_residuals[eq["printed_name"] + f" {nd}D"] = 0
-                self.history["residuals"][eq["printed_name"] + f" {nd}D"] = []
-                self.history["init_residuals"][eq["printed_name"] + f" {nd}D"] = []
+                self.sub_residual_errors[eq["printed_name"] + f" {nd}D"] = []
+                self.init_sub_residual_errors[eq["printed_name"] + f" {nd}D"] = 0
+                self.history["sub_residual_errors"][eq["printed_name"] + f" {nd}D"] = []
+                self.history["init_sub_residual_errors"][
+                    eq["printed_name"] + f" {nd}D"
+                ] = []
         for nd in range(self.nd):
             for eq in self._equations_data[f"interfaces_{nd}"]:
-                self.residuals[eq["printed_name"] + f" {nd}D, intf."] = []
-                self.init_residuals[eq["printed_name"] + f" {nd}D, intf."] = 0
-                self.history["residuals"][eq["printed_name"] + f" {nd}D, intf."] = []
-                self.history["init_residuals"][
+                self.sub_residual_errors[eq["printed_name"] + f" {nd}D, intf."] = []
+                self.init_sub_residual_errors[eq["printed_name"] + f" {nd}D, intf."] = 0
+                self.history["sub_residual_errors"][
+                    eq["printed_name"] + f" {nd}D, intf."
+                ] = []
+                self.history["init_sub_residual_errors"][
                     eq["printed_name"] + f" {nd}D, intf."
                 ] = []
 
@@ -199,9 +214,9 @@ class SolverStatistics:
             - num_iteration: List of iteration counters.
             - increment_errors: List of evolutions of increments for each non-linear iteration.
             - residual_errors: List of evolutions of residuals for each non-linear iteration.
-            - increments: Dictionary of subincrements for each non-linear iteration.
-            - residuals: Dictionary of subresiduals for each non-linear iteration.
-            - init_residuals: Dictionary of subinitial residuals for each time step.
+            - sub_increment_errors: Dictionary of subincrements for each non-linear iteration.
+            - sub_residual_errors: Dictionary of subresiduals for each non-linear iteration.
+            - init_sub_residual_errors: Dictionary of subinitial residuals for each time step.
             """
         )
 
@@ -214,44 +229,44 @@ class SolverStatistics:
         """Log the increment for the current iteration."""
         for key in ["dense", "sparse"]:
             for var in self._variable_data[key]:
-                self.increments[var["printed_name"]].append(
+                self.sub_increment_errors[var["printed_name"]].append(
                     self._metric(increment[var["block_dofs"]])
                 )
         for nd in range(self.nd + 1):
             for var in self._variable_data[f"subdomains_{nd}"]:
-                self.increments[var["printed_name"] + f" {nd}D"].append(
+                self.sub_increment_errors[var["printed_name"] + f" {nd}D"].append(
                     self._metric(increment[var["block_dofs"]])
                 )
         for nd in range(self.nd):
             for var in self._variable_data[f"interfaces_{nd}"]:
-                self.increments[var["printed_name"] + f" {nd}D, intf."].append(
-                    self._metric(increment[var["block_dofs"]])
-                )
+                self.sub_increment_errors[
+                    var["printed_name"] + f" {nd}D, intf."
+                ].append(self._metric(increment[var["block_dofs"]]))
 
     def log_residual(self, residual: np.ndarray, init_residual: np.ndarray) -> None:
         """Log the residual for the current iteration."""
         for key in ["dense", "sparse"]:
             for eq in self._equations_data[key]:
-                self.residuals[eq["printed_name"]].append(
+                self.sub_residual_errors[eq["printed_name"]].append(
                     self._metric(residual[eq["block_dofs"]])
                 )
-                self.init_residuals[eq["printed_name"]] = self._metric(
+                self.init_sub_residual_errors[eq["printed_name"]] = self._metric(
                     init_residual[eq["block_dofs"]]
                 )
         for nd in range(self.nd + 1):
             for eq in self._equations_data[f"subdomains_{nd}"]:
-                self.residuals[eq["printed_name"] + f" {nd}D"].append(
+                self.sub_residual_errors[eq["printed_name"] + f" {nd}D"].append(
                     self._metric(residual[eq["block_dofs"]])
                 )
-                self.init_residuals[eq["printed_name"] + f" {nd}D"] = self._metric(
-                    init_residual[eq["block_dofs"]]
+                self.init_sub_residual_errors[eq["printed_name"] + f" {nd}D"] = (
+                    self._metric(init_residual[eq["block_dofs"]])
                 )
         for nd in range(self.nd):
             for eq in self._equations_data[f"interfaces_{nd}"]:
-                self.residuals[eq["printed_name"] + f" {nd}D, intf."].append(
+                self.sub_residual_errors[eq["printed_name"] + f" {nd}D, intf."].append(
                     self._metric(residual[eq["block_dofs"]])
                 )
-                self.init_residuals[eq["printed_name"] + f" {nd}D, intf."] = (
+                self.init_sub_residual_errors[eq["printed_name"] + f" {nd}D, intf."] = (
                     self._metric(init_residual[eq["block_dofs"]])
                 )
 
@@ -269,12 +284,18 @@ class SolverStatistics:
         self.history["num_iteration"].append(self.num_iteration)
         self.history["increment_errors"].append(self.increment_errors)
         self.history["residual_errors"].append(self.residual_errors)
-        for key in self.increments:
-            self.history["increments"][key].append(self.increments[key])
-        for key in self.residuals:
-            self.history["residuals"][key].append(self.residuals[key])
-        for key in self.init_residuals:
-            self.history["init_residuals"][key].append(self.init_residuals[key])
+        for key in self.sub_increment_errors:
+            self.history["sub_increment_errors"][key].append(
+                self.sub_increment_errors[key]
+            )
+        for key in self.sub_residual_errors:
+            self.history["sub_residual_errors"][key].append(
+                self.sub_residual_errors[key]
+            )
+        for key in self.init_sub_residual_errors:
+            self.history["init_sub_residual_errors"][key].append(
+                self.init_sub_residual_errors[key]
+            )
         self._save()
 
     def reset(self) -> None:
@@ -282,12 +303,12 @@ class SolverStatistics:
         self.num_iteration = 0
         self.increment_errors.clear()
         self.residual_errors.clear()
-        for key in self.increments:
-            self.increments[key].clear()
-        for key in self.residuals:
-            self.residuals[key].clear()
-        for key in self.init_residuals:
-            self.init_residuals[key] = 0
+        for key in self.sub_increment_errors:
+            self.sub_increment_errors[key].clear()
+        for key in self.sub_residual_errors:
+            self.sub_residual_errors[key].clear()
+        for key in self.init_sub_residual_errors:
+            self.init_sub_residual_errors[key] = 0
 
     def _save(self) -> None:
         """Save the statistics object to a file in json format."""
