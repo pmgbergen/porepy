@@ -141,28 +141,26 @@ class SolverStatistics:
                 self.history["increments"][var["printed_name"] + f" {nd}D"] = []
         for nd in range(self.nd):
             for var in self._variable_data[f"interfaces_{nd}"]:
-                self.increments[var["printed_name"] + f" {nd}D, intf."]: list[
-                    float
-                ] = []
+                self.increments[var["printed_name"] + f" {nd}D, intf."] = []
                 self.history["increments"][var["printed_name"] + f" {nd}D, intf."] = []
 
         # Initialize the subresiduals dictionary and associated history
         for key in ["dense", "sparse"]:
             for eq in self._equations_data[key]:
-                self.residuals[eq["printed_name"]]: list[float] = []
-                self.init_residuals[eq["printed_name"]] = []
+                self.residuals[eq["printed_name"]] = []
+                self.init_residuals[eq["printed_name"]] = 0
                 self.history["residuals"][eq["printed_name"]] = []
                 self.history["init_residuals"][eq["printed_name"]] = []
         for nd in range(self.nd + 1):
             for eq in self._equations_data[f"subdomains_{nd}"]:
-                self.residuals[eq["printed_name"] + f" {nd}D"]: list[float] = []
-                self.init_residuals[eq["printed_name"] + f" {nd}D"] = []
+                self.residuals[eq["printed_name"] + f" {nd}D"] = []
+                self.init_residuals[eq["printed_name"] + f" {nd}D"] = 0
                 self.history["residuals"][eq["printed_name"] + f" {nd}D"] = []
                 self.history["init_residuals"][eq["printed_name"] + f" {nd}D"] = []
         for nd in range(self.nd):
             for eq in self._equations_data[f"interfaces_{nd}"]:
                 self.residuals[eq["printed_name"] + f" {nd}D, intf."] = []
-                self.init_residuals[eq["printed_name"] + f" {nd}D, intf."] = []
+                self.init_residuals[eq["printed_name"] + f" {nd}D, intf."] = 0
                 self.history["residuals"][eq["printed_name"] + f" {nd}D, intf."] = []
                 self.history["init_residuals"][
                     eq["printed_name"] + f" {nd}D, intf."
