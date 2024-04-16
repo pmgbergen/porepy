@@ -28,7 +28,7 @@ class SolverStatistics:
     Example:
 
         Within a model, we overwrite after_nonlinear_convergence() to plot the number of
-        nonlinear iterations agains the norm of the residual for the first time step.
+        nonlinear iterations against the norm of the residual for the first time step.
 
         >>> def after_nonlinear_convergence(self, solution: np.ndarray) -> None:
         >>>     super().after_nonlinear_convergence(solution)
