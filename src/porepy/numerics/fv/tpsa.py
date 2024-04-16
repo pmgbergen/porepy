@@ -35,6 +35,7 @@ class Tpsa:
         ]
 
         stiffness: FourthOrderTensor = parameter_dictionary["fourth_order_tensor"]
+        cosserat_values = parameter_dictionary["cosserat_parameter"]
 
         bnd = parameter_dictionary["bc"]
 
@@ -42,8 +43,9 @@ class Tpsa:
 
         mu = stiffness.mu[ci]
         lmbda = stiffness.lmbda[ci]
+        cosserat_parameter = cosserat_values[ci]
 
-        cosserat_parameter = np.ones(sd.num_cells)[ci]
+        #cosserat_parameter = np.ones(sd.num_cells)[ci]
 
         # Normal vectors and permeability for each face (here and there side)
         n = sd.face_normals[:, fi]
@@ -51,26 +53,21 @@ class Tpsa:
         n *= sgn
 
         # Vector from face center to cell center
-        fc_cc = sd.face_centers[::, fi] - sd.cell_centers[::, ci]
+        fc_cc = n * (sd.face_centers[::, fi] - sd.cell_centers[::, ci]) / sd.face_areas[fi]
         dist_fc_cc = np.sqrt(np.sum(fc_cc**2, axis=0))
 
         # Distance between neighboring cells
         dist_cc_cc = np.bincount(fi, weights=dist_fc_cc, minlength=sd.num_cells)
 
+        def facewise_harmonic_mean(field):
+            return 1 / np.bincount(fi, weights=1 / field, minlength=sd.num_faces)
+
         ## Harmonic average of the shear modulus
         #
         shear_modulus_by_face_cell_distance = mu / dist_fc_cc
-        t_shear = (
-            1
-            / np.bincount(
-                fi,
-                weights=1 / shear_modulus_by_face_cell_distance,
-                minlength=sd.num_faces,
-            )
-        )
-        cosserat_parameter_by_face_cell_distance = cosserat_parameter / dist_fc_cc
+        t_shear = facewise_harmonic_mean(shear_modulus_by_face_cell_distance)
         # Take the harmonic average of the Cosserat parameter
-        t_cosserat = (1 / np.bincount(fi, weights=1 / cosserat_parameter_by_face_cell_distance, minlength=sd.num_faces))
+        t_cosserat = facewise_harmonic_mean(cosserat_parameter / dist_fc_cc)
 
         # Arithmetic average of the shear modulus.
         arithmetic_average_shear_modulus = (
@@ -266,10 +263,10 @@ class Tpsa:
         matrix_dictionary[self.mass_displacement_matrix_key] = mass_displacement
 
 
-if True:
+if False:
     import porepy as pp
 
-    g = pp.CartGrid([2, 2], [1, 2])
+    g = pp.StructuredTriangleGrid([2, 2], [1, 2])
     g.compute_geometry()
     mu = np.ones(g.num_cells)
 
@@ -285,6 +282,7 @@ if True:
             "mechanics": {
                 "fourth_order_tensor": C,
                 "bc": bc,
+                "cosserat_parameter": np.ones(g.num_cells),
             }
         },
         pp.DISCRETIZATION_MATRICES: {"mechanics": {}},
