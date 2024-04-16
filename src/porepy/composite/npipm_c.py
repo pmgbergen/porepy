@@ -471,7 +471,7 @@ def _solver(
             - 2: failure in the evaluation of the residual
             - 3: failure in the evaluation of the Jacobian
             - 4: NAN or infty detected in update (aborted)
-        3. final number of perfored iterations
+        3. final number of performed iterations
 
         If the success flag indicates failure, the last iterate state of the unknown
         is returned.

@@ -149,7 +149,7 @@ class CompositeVariables(pp.VariableMixin):
         Evaluates:
 
         1. Overall fractions per component
-        2. Molar fractions per phase
+        2. Fractions per phase
         3. Volumetric fractions per phase (saturations)
         4. Fractions per phase per component
            (extended if equilibrium defined, else partial)
@@ -198,7 +198,7 @@ class CompositeVariables(pp.VariableMixin):
                     else phase.partial_fraction_of[component](subdomains).value(
                         self.equation_system, state
                     )
-                    for component in self.fluid_mixture.components
+                    for component in phase
                 ]
             )
             for phase in self.fluid_mixture.phases

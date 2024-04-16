@@ -66,13 +66,9 @@ class CompiledFlash(ppc.FlashMixin):
 
         # Compiling the flash and the EoS
         eos.compile(verbosity=2)
-        flash.compile(
-            verbosity=2,
-            # NOTE If true, flash solvers are pre-compiled for **all** flashes
-            # otherwise, they are compiled on the fly when needed.
-            # This increases the time of the first call during the simulation.
-            # precompile_solvers=False,
-        )
+        # pre-compile solvers for given mixture to avoid waiting times in
+        # prepare simulation and the first iteration
+        flash.compile(verbosity=2, precompile_solvers=False)
 
         # NOTE There is place to configure the solver here
 
@@ -105,7 +101,7 @@ class ModelGeometry:
 class InitialConditions:
     """Define initial pressure, temperature and compositions."""
 
-    def intial_pressure(self, sd: pp.Grid) -> np.ndarray:
+    def initial_pressure(self, sd: pp.Grid) -> np.ndarray:
         # Initial pressure of 10 MPa
         return np.ones(sd.num_cells) * 10e6
 
@@ -147,35 +143,21 @@ class BoundaryConditions:
     has_time_dependent_boundary_equilibrium = False
     """Constant BC for primary variables, hence constant BC for all other."""
 
-    def bc_type_advective_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
-        all, east, west, north, south, top, bottom = self.domain_boundary_sides(sd)
-        # Setting only conditions on matrix
-        if sd.dim == 2:
-            # Define boundary faces, east west as dirichlet
-            boundary_faces = east | west
-            # Define boundary condition on all boundary faces.
-            return pp.BoundaryCondition(sd, boundary_faces, "dir")
-        # In fractures we set trivial NBC
-        else:
-            return pp.BoundaryCondition(sd)
-
     def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
-        all, east, west, north, south, top, bottom = self.domain_boundary_sides(sd)
+        sides = self.domain_boundary_sides(sd)
         # Setting only conditions on matrix
         if sd.dim == 2:
-            # Define boundary faces, east west as dirichlet
-            boundary_faces = east | west
             # Define boundary condition on all boundary faces.
-            return pp.BoundaryCondition(sd, boundary_faces, "dir")
+            return pp.BoundaryCondition(sd, sides.east | sides.west, "dir")
         # In fractures we set trivial NBC
         else:
             return pp.BoundaryCondition(sd)
 
     def bc_type_fourier_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
-        all, east, west, north, south, top, bottom = self.domain_boundary_sides(sd)
+        sides= self.domain_boundary_sides(sd)
         if sd.dim == 2:
             # Temperature at inlet and outlet, as well as heated bottom
-            boundary_faces = east | west | bottom
+            boundary_faces = sides.east | sides.west | sides.bottom
             return pp.BoundaryCondition(sd, boundary_faces, "dir")
         # In fractures we set trivial NBC
         else:

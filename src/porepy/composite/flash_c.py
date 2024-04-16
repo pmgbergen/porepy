@@ -517,7 +517,7 @@ class CompiledUnifiedFlash(Flash):
             s: list[np.ndarray] = list()
             for j in range(nphase - 1):
                 s.append(results[:, -(p_pos + nphase - 1 + j)])
-            fluid_state.sat = [1 - safe_sum(s)] + s
+            fluid_state.sat = np.vstack([1 - safe_sum(s), np.array(s)])
 
         # Computing states for each phase after filling p, T and x
         fluid_state.phases = list()
@@ -1725,10 +1725,9 @@ class CompiledUnifiedFlash(Flash):
         # Filling the feed fractions into X0
         i = 0
         for i_, _ in enumerate(fluid_state.z):
-            if i_ == self._ref_component_idx:
-                continue
-            X0[:, i] = fluid_state.z[i]
-            i += 1
+            if i_ != self._ref_component_idx:
+                X0[:, i] = fluid_state.z[i_]
+                i += 1
         # Filling the fixed state values in X0, getting initialization args
         if flash_type == "p-T":
             X0[:, ncomp - 1] = fluid_state.p
@@ -1765,16 +1764,17 @@ class CompiledUnifiedFlash(Flash):
             init_time = end - start
             logger.info(f"Initial state computed (elapsed time: {init_time} (s)).\n")
         else:
+            init_time = 0.
             # parsing phase compositions and molar fractions
             idx = 0
             for j in range(nphase):
                 # values for molar phase fractions except for reference phase
                 if j != self._ref_phase_idx:
-                    X0[:, -(1 + nphase * ncomp + nphase - 1 + idx)] = fluid_state.y[j]
+                    X0[:, -(1 + nphase * ncomp + nphase - 1) + idx] = fluid_state.y[j]
                     idx += 1
                 # composition of phase j
                 for i in range(ncomp):
-                    X0[:, -(1 + (nphase - j) * ncomp + i)] = fluid_state.phases[j].x[i]
+                    X0[:, -(1 + (nphase - j) * ncomp) + i] = fluid_state.phases[j].x[i]
 
             # If T is unknown, get provided guess for T
             if "T" not in flash_type:
@@ -1792,7 +1792,7 @@ class CompiledUnifiedFlash(Flash):
                 idx = 0
                 for j in range(nphase - 1):
                     if j != self._ref_phase_idx:
-                        X0[:, -(p_pos + nphase - 1 + idx)] = fluid_state.sat[j]
+                        X0[:, -(p_pos + nphase - 1) + idx] = fluid_state.sat[j]
                         idx += 1
 
         logger.info("Computing initial guess for slack variable ..")

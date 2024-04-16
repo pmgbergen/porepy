@@ -126,7 +126,6 @@ class UnifiedPhaseEquilibriumMixin:
         """The base class method without defined equilibrium type performs a model
         validation to ensure that the assumptions for the unified flash are fulfilled.
         """
-        subdomains = self.mdg.subdomains()
         ncomp = self.fluid_mixture.num_components
         nphase = self.fluid_mixture.num_phases
 
@@ -159,21 +158,6 @@ class UnifiedPhaseEquilibriumMixin:
                     f"Unified equilibrium assumption violated for phase: {phase.name}."
                     + " All phases must have all components modelled in them."
                 )
-
-        # No more equations for p-T based flash
-        if self.equilibrium_type == "p-T":
-            pass
-        # 1 more equation for p-h based flash (T unknown)
-        elif self.equilibrium_type == "p-h":
-            # here T is another unknown, but h is fixed. Introduce 1 more equations
-            equ = self.mixture_enthalpy_constraint(subdomains)
-            self.equation_system.set_equation(equ, subdomains, {"cells": 1})
-        # 2 + num_phase - 1 more equations for v-h flash (p, T, s_j unknown)
-        elif self.equilibrium_type == "v-h":
-            equ = self.mixture_enthalpy_constraint(subdomains)
-            self.equation_system.set_equation(equ, subdomains, {"cells": 1})
-            equ = self.mixture_volume_constraint(subdomains)
-            self.equation_system.set_equation(equ, subdomains, {"cells": 1})
 
     def mass_constraint_for_component(
         self, component: Component, subdomains: Sequence[pp.Grid]

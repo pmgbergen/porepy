@@ -289,6 +289,13 @@ class Flash(abc.ABC):
                         s[:] = fluid_state.sat[j]
                         S.append(s)
                     fluid_state.sat = np.array(S)
+                    p = np.zeros(NF)
+                    p[:] = fluid_state.p
+                    fluid_state.p = p
+                if "T" not in flash_type:
+                    T = np.zeros(NF)
+                    T[:] = fluid_state.T
+                    fluid_state.T = T
             except ValueError as err:
                 if "broadcast" in str(err):
                     xl = [[len(x) for x in phase.x] for phase in fluid_state.phases]
