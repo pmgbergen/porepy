@@ -9,13 +9,15 @@ TODO: Clean up.
 from __future__ import annotations
 
 import copy
+from typing import Callable, Literal, Optional
 
 import numpy as np
 import pytest
+import scipy.sparse as sps
 
 import porepy as pp
 from porepy.applications.md_grids import model_geometries
-from porepy.applications.test_utils import well_models
+from porepy.applications.test_utils import models, well_models
 from porepy.applications.test_utils.models import (
     Thermoporomechanics,
     compare_scaled_model_quantities,
@@ -263,6 +265,141 @@ def test_positive_p_frac_positive_opening():
     # Fracture pressure and temperature are both positive.
     assert np.allclose(p_frac, 4.8e-4, atol=1e-5)
     assert np.allclose(t_frac, 8.3e-6, atol=1e-7)
+
+
+@pytest.mark.parametrize(
+    "method_name, expected_value, dimension_restriction",
+    [
+        ("aperture", 0, None),
+        ("biot_coefficient", 0, None),
+        ("body_force", 0, None),
+        ("bulk_modulus", 0, None),
+        ("darcy_flux", 0, None),
+        ("dilation_angle", 0, None),
+        ("displacement", 0, None),
+        ("displacement_divergence", 0, None),
+        ("displacement_jump", 0, None),
+        ("elastic_normal_fracture_deformation", 0, None),
+        ("energy_balance_equation", 0, None),
+        ("energy_flux", 0, None),
+        ("energy_source", 0, None),
+        ("enthalpy_flux", 0, None),
+        ("equivalent_well_radius", 0, None),
+        ("fluid_compressibility", 0, None),
+        ("fluid_density", 0, None),
+        ("fluid_enthalpy", 0, None),
+        ("fluid_flux", 0, None),
+        ("fluid_internal_energy", 0, None),
+        ("fluid_mass", 0, None),
+        ("fluid_source", 0, None),
+        ("fluid_specific_heat_capacity", 0, None),
+        ("fluid_thermal_conductivity", 0, None),
+        ("fluid_thermal_expansion", 0, None),
+        ("fluid_viscosity", 0, None),
+        ("fourier_flux", 0, None),
+        ("fracture_gap", 0, None),
+        ("fracture_normal_stiffness", 0, None),
+        ("fracture_pressure_stress", 0, None),
+        ("fracture_stress", 0, None),
+        ("friction_bound", 0, None),
+        ("friction_coefficient", 0, None),
+        ("inertia", 0, None),
+        ("interface_darcy_flux_equation", 0, None),
+        ("interface_energy_flux", 0, None),
+        ("interface_enthalpy_flux_equation", 0, None),
+        ("interface_fluid_flux", 0, None),
+        ("interface_flux_equation", 0, None),
+        ("interface_force_balance_equation", 0, None),
+        ("interface_fourier_flux_equation", 0, None),
+        ("interface_vector_source_darcy_flux", 0, None),
+        ("interface_vector_source_fourier_flux", 0, None),
+        ("lame_lambda", 0, None),
+        ("mass_balance_equation", 0, None),
+        ("matrix_porosity", 0, None),
+        ("maximum_fracture_closure", 0, None),
+        ("mechanical_stress", 0, None),
+        ("mobility", 0, None),
+        ("mobility_rho", 0, None),
+        ("momentum_balance_equation", 0, None),
+        ("normal_fracture_deformation_equation", 0, None),
+        ("normal_permeability", 0, None),
+        ("permeability", 0, None),
+        ("porosity", 0, None),
+        ("porosity_change_from_displacement", 0, None),
+        ("porosity_change_from_pressure", 0, None),
+        ("porosity_change_from_temperature", 0, None),
+        ("pressure", 0, None),
+        ("pressure_exponential", 0, None),
+        ("pressure_stress", 0, None),
+        ("pressure_trace", 0, None),
+        ("reference_fracture_gap", 0, None),
+        ("reference_porosity", 0, None),
+        ("reference_pressure", 0, None),
+        ("reference_temperature", 0, None),
+        ("shear_dilation_gap", 0, None),
+        ("shear_modulus", 0, None),
+        ("skin_factor", 0, None),
+        ("solid_enthalpy", 0, None),
+        ("solid_internal_energy", 0, None),
+        ("solid_specific_heat_capacity", 0, None),
+        ("solid_thermal_conductivity", 0, None),
+        ("solid_thermal_expansion_coefficient", 0, None),
+        ("stress", 0, None),
+        ("tangential_component", 0, None),
+        ("tangential_fracture_deformation_equation", 0, None),
+        ("temperature", 0, None),
+        ("temperature_exponential", 0, None),
+        ("temperature_trace", 0, None),
+        ("thermal_conductivity", 0, None),
+        ("thermal_stress", 0, None),
+        ("total_internal_energy", 0, None),
+        ("well_enthalpy_flux_equation", 0, None),
+        ("well_fluid_flux", 0, None),
+        ("well_flux_equation", 0, None),
+        ("well_radius", 0, None),
+        ("youngs_modulus", 0, None),
+    ],
+)
+def test_ad_operator_methods_thermo_poro_mechanics(
+    model_setup,
+    method_name: str,
+    expected_value: float | np.ndarray,
+    dimension_restriction: int | None,
+) -> None:
+    """Test that Ad operator methods return expected values.
+
+    Parameters:
+        model_setup: XXX.
+        method_name: Name of the method to be tested.
+        expected_value: The expected value from the evaluation.
+        dimension_restriction: Dimension in which the method is restricted. If None,
+            all valid dimensions for the method will be considered. Can also be used
+            to test a method that is valid in all dimensions, but for the sake of
+            compactness, only tested in one dimension.
+
+    """
+    # Get the method to be tested in callable form..
+    method: Callable = getattr(model_setup, method_name)
+
+    # Obtain list of subdomain or interface grids where the method is defined.
+    domains = models.subdomains_or_interfaces_from_method_name(
+        model_setup.mdg,
+        method,
+        dimension_restriction,
+    )
+
+    # Obtain operator in AD form.
+    operator = method(domains)
+
+    # Discretize (if necessary), evaluate, and retrieve numerical values.
+    operator.discretize(model_setup.mdg)
+    val = operator.value(model_setup.equation_system)
+
+    if isinstance(val, sps.bsr_matrix):  # needed for `tangential_component`
+        val = val.A
+
+    # Compare the actual and expected values.
+    assert np.allclose(val, expected_value, rtol=1e-8, atol=1e-15)
 
 
 @pytest.mark.parametrize(
