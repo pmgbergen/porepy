@@ -30,6 +30,13 @@ logger = logging.getLogger(__name__)
 class MomentumBalanceEquations(pp.BalanceEquation):
     """Class for momentum balance equations and fracture deformation equations."""
 
+    solid: pp.SolidConstants
+    """Solid constant object that takes care of scaling of solid-related quantities.
+    Normally, this is set by a mixin of instance
+    :class:`~porepy.models.solution_strategy.SolutionStrategy`.
+
+    """
+
     stress: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Stress on the grid faces. Provided by a suitable mixin class that specifies the
     physical laws governing the stress.
@@ -383,7 +390,9 @@ class MomentumBalanceEquations(pp.BalanceEquation):
         # to changes in state between sticking and sliding. To reduce the sensitivity to
         # round-off errors, we use a tolerance to allow for slight inaccuracies before
         # switching between the two cases.
-        tol = 1e-5  # FIXME: Revisit this tolerance!
+        tol = (
+            self.solid.tangential_characteristic_tol()
+        )  # FIXME: Revisit this tolerance!
         # The characteristic function will evaluate to 1 if the argument is less than
         # the tolerance, and 0 otherwise.
         f_characteristic = pp.ad.Function(
@@ -822,7 +831,7 @@ class SolutionStrategyMomentumBalance(pp.SolutionStrategy):
         # The scaling factor should not be too large, otherwise the contact problem
         # may be discretized wrongly. I therefore introduce a safety factor here; its
         # value is somewhat arbitrary.
-        softening_factor = 1e-1
+        softening_factor = self.solid.contact_mechanics_scaler()
 
         val = softening_factor * shear_modulus / characteristic_distance
 

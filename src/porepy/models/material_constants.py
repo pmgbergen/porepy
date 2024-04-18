@@ -71,7 +71,8 @@ class MaterialConstants:
     @overload
     def convert_units(
         self, value: number, units: str, to_si: Optional[bool] = False
-    ) -> number: ...
+    ) -> number:
+        ...
 
     @overload
     def convert_units(
@@ -79,7 +80,8 @@ class MaterialConstants:
         value: np.ndarray,
         units: str,
         to_si: Optional[bool] = False,
-    ) -> np.ndarray: ...
+    ) -> np.ndarray:
+        ...
 
     def convert_units(
         self,
@@ -326,7 +328,7 @@ class SolidConstants(MaterialConstants):
             Dictionary of constants.
 
         """
-        # Default values, sorted alphabetically
+        # Default values, sorted alphabetically (Numerical constants added at the end)
         default_constants = {
             "biot_coefficient": 1,
             "density": 1,
@@ -348,6 +350,8 @@ class SolidConstants(MaterialConstants):
             "thermal_conductivity": 1,
             "thermal_expansion": 0,
             "well_radius": 0.1,
+            "tangential_characteristic_tol": 1e-5,
+            "contact_mechanics_scaler": 1e-1,
         }
         return default_constants
 
@@ -540,3 +544,21 @@ class SolidConstants(MaterialConstants):
 
         """
         return self.convert_units(self.constants["maximum_fracture_closure"], "m")
+
+    def tangential_characteristic_tol(self) -> number:
+        """Tolerance parameter for the tangential characteristic contatct mechanics [-].
+
+        Returns:
+            The tolerance parameter.
+
+        """
+        return self.constants["tangential_characteristic_tol"]
+
+    def contact_mechanics_scaler(self) -> number:
+        """Safety scaling factor, making fractures softer than the matrix [-].
+
+        Returns:
+            The softening factor.
+
+        """
+        return self.constants["contact_mechanics_scaler"]
