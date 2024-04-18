@@ -326,7 +326,8 @@ class SolidConstants(MaterialConstants):
             Dictionary of constants.
 
         """
-        # Default values, sorted alphabetically (Numerical constants added at the end)
+        # Default values, sorted alphabetically
+        # TODO: Numerical method parameters may find a better home soon.
         default_constants = {
             "biot_coefficient": 1,
             "density": 1,
@@ -348,8 +349,8 @@ class SolidConstants(MaterialConstants):
             "thermal_conductivity": 1,
             "thermal_expansion": 0,
             "well_radius": 0.1,
-            "tangential_characteristic_tol": 1e-5,
-            "contact_mechanics_scaler": 1e-1,
+            "tangential_characteristic_tol": 1e-5,  # Numerical method parameter
+            "contact_mechanics_scaler": 1e-1,  # Numerical method parameter
         }
         return default_constants
 
