@@ -874,7 +874,7 @@ class SolutionStrategyMomentumBalance(pp.SolutionStrategy):
 
         Returns:
             characteristic: Characteristic function.
-        
+
         """
 
         # Basis vectors for the tangential components. This is a list of Ad matrices,
