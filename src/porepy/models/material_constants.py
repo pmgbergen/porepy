@@ -71,8 +71,7 @@ class MaterialConstants:
     @overload
     def convert_units(
         self, value: number, units: str, to_si: Optional[bool] = False
-    ) -> number:
-        ...
+    ) -> number: ...
 
     @overload
     def convert_units(
@@ -80,8 +79,7 @@ class MaterialConstants:
         value: np.ndarray,
         units: str,
         to_si: Optional[bool] = False,
-    ) -> np.ndarray:
-        ...
+    ) -> np.ndarray: ...
 
     def convert_units(
         self,
@@ -546,7 +544,10 @@ class SolidConstants(MaterialConstants):
         return self.convert_units(self.constants["maximum_fracture_closure"], "m")
 
     def tangential_characteristic_tol(self) -> number:
-        """Tolerance parameter for the tangential characteristic contatct mechanics [-].
+        """Tolerance parameter for the tangential characteristic contact mechanics [-].
+
+        FIXME:
+            Revisit the tolerance.
 
         Returns:
             The tolerance parameter.
