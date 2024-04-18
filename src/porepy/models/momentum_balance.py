@@ -467,7 +467,7 @@ class MomentumBalanceEquations(pp.BalanceEquation):
         )
 
 
-class ConstitutiveLawsMomentumBalance(  #
+class ConstitutiveLawsMomentumBalance(
     constitutive_laws.ZeroGravityForce,
     constitutive_laws.ElasticModuli,
     constitutive_laws.LinearElasticMechanicalStress,
@@ -906,10 +906,13 @@ class SolutionStrategyMomentumBalance(pp.SolutionStrategy):
             "characteristic_function_for_zero_normal_traction",
         )
 
-        # YZ to IS: Note that here I change how the characteristic is defined, but it
-        # shouldn't affect anything. Previously max(b_p, 0) was passed to
-        # f_characteristic. Now I pass just b_p.
-        b_p = self.friction_bound(subdomains)
+        # Composing b_p = max(friction_bound, 0).
+        num_cells = sum([sd.num_cells for sd in subdomains])
+        zeros_frac = pp.ad.DenseArray(np.zeros(num_cells))
+        f_max = pp.ad.Function(pp.ad.maximum, "max_function")
+        b_p = f_max(self.friction_bound(subdomains), zeros_frac)
+        b_p.set_name("bp")
+
         characteristic: pp.ad.Operator = scalar_to_tangential @ f_characteristic(b_p)
         characteristic.set_name("characteristic_function_of_b_p")
         return characteristic
