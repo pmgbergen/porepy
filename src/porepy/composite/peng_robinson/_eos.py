@@ -2,6 +2,7 @@
 
 This module contains a class implementing the Peng-Robinson EoS for either
 a liquid- or gas-like phase."""
+
 from __future__ import annotations
 
 import abc
@@ -315,9 +316,9 @@ class ThermodynamicState:
                 X_jacs.append(list())
                 for i in range(num_comp):
                     jac_x_ji = jac_glob_d.copy()
-                    jac_x_ji[
-                        :, n_p + i * num_vals : n_p + (i + 1) * num_vals
-                    ] = id_block
+                    jac_x_ji[:, n_p + i * num_vals : n_p + (i + 1) * num_vals] = (
+                        id_block
+                    )
                     X_jacs[-1].append(jac_x_ji)
 
             # reference phase fraction is dependent by unity
@@ -1680,10 +1681,7 @@ class PengRobinson(AbstractEoS):
             return 0.37464 + 1.54226 * omega - 0.26992 * omega**2
         else:
             return (
-                0.379642
-                + 1.48503 * omega
-                - 0.164423 * omega**2
-                + 0.016666 * omega**3
+                0.379642 + 1.48503 * omega - 0.164423 * omega**2 + 0.016666 * omega**3
             )
 
     @staticmethod
@@ -1853,10 +1851,7 @@ class PengRobinson(AbstractEoS):
     def _Z_polynom(Z: NumericType, A: NumericType, B: NumericType) -> NumericType:
         """Auxiliary method implementing the compressibility polynomial."""
         return (
-            (B**3 + B**2 - A * B)
-            + (B - 1) * Z**2
-            + (A - 2 * B - 3 * B**2) * Z
-            + Z**3
+            (B**3 + B**2 - A * B) + (B - 1) * Z**2 + (A - 2 * B - 3 * B**2) * Z + Z**3
         )
 
     @staticmethod

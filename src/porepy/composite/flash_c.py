@@ -18,6 +18,7 @@ References:
 
 
 """
+
 from __future__ import annotations
 
 import logging
@@ -41,12 +42,11 @@ from .npipm_c import (
 )
 from .states import FluidState
 from .utils_c import (
-    compute_saturations,
-    extended_compositional_derivatives,
+    _compute_saturations,
+    _extend_fractional_derivatives,
     insert_pT,
     insert_sat,
     insert_xy,
-    normalize_fractions,
     parse_pT,
     parse_sat,
     parse_target_state,
@@ -56,10 +56,30 @@ from .utils_c import (
 __all__ = ["CompiledUnifiedFlash"]
 
 
-_import_start = time.time()
-
-
 # region Helper methods
+
+
+@numba.njit("float64[:,:](float64[:,:])", fastmath=True, cache=True)
+def _normalize_x(x: np.ndarray) -> np.ndarray:
+    """Takes a matrix of phase compositions (rows - phase, columns - component)
+    and normalizes the fractions.
+
+    Meaning it divides each matrix element by the sum of respective row.
+
+    NJIT-ed function with signature ``(float64[:,:]) -> float64[:,:]``.
+
+    Parameters:
+        x: ``shape=(num_phases, num_components)``
+
+            A matrix of phase compositions, containing per row the (extended)
+            fractions per component.
+
+    Returns:
+        A normalized version of ``X``, with the normalization performed row-wise
+        (phase-wise).
+
+    """
+    return (x.T / x.sum(axis=1)).T
 
 
 @numba.njit("float64[:](float64[:],float64[:,:])", fastmath=True, cache=True)
@@ -106,10 +126,9 @@ def _rr_binary_vle_inversion(z: np.ndarray, K: np.ndarray) -> float:
     return n / np.sum(d)
 
 
-# NOTE This cache is dependeont on another function
 @numba.njit(
     "float64(float64[:],float64[:],float64[:,:])",
-    cache=NUMBA_CACHE,
+    cache=NUMBA_CACHE,  # NOTE cache is dependent on internal function
 )
 def _rr_potential(z: np.ndarray, y: np.ndarray, K: np.ndarray) -> float:
     """Calculates the potential according to [1] for the j-th Rachford-Rice equation.
@@ -517,7 +536,7 @@ class CompiledUnifiedFlash(Flash):
             s: list[np.ndarray] = list()
             for j in range(nphase - 1):
                 s.append(results[:, -(p_pos + nphase - 1 + j)])
-            fluid_state.sat = [1 - safe_sum(s)] + s
+            fluid_state.sat = np.vstack([1 - safe_sum(s), np.array(s)])
 
         # Computing states for each phase after filling p, T and x
         fluid_state.phases = list()
@@ -713,7 +732,7 @@ class CompiledUnifiedFlash(Flash):
             # NOTE phi depends on normalized fractions
             # extending derivatives from normalized fractions to extended ones
             for i in range(ncomp):
-                d_phi_j[i] = extended_compositional_derivatives(d_phi_j[i], X)
+                d_phi_j[i] = _extend_fractional_derivatives(d_phi_j[i], X)
 
             # product rule: x * dphi
             d_xphi_j = (d_phi_j.T * X).T
@@ -827,7 +846,7 @@ class CompiledUnifiedFlash(Flash):
             # enthalpy and its gradient of the reference phase
             h_0 = h_c(prearg_res[0], p, T, xn[0])
             # gradient of h_0 w.r.t to extended fraction
-            d_h_0 = extended_compositional_derivatives(
+            d_h_0 = _extend_fractional_derivatives(
                 d_h_c(prearg_res[0], prearg_jac[0], p, T, xn[0]), x[0]
             )
             # contribution to p- and T-derivative of reference phase
@@ -841,7 +860,7 @@ class CompiledUnifiedFlash(Flash):
 
             for j in range(1, nphase):
                 h_j = h_c(prearg_res[j], p, T, xn[j])
-                d_h_j = extended_compositional_derivatives(
+                d_h_j = _extend_fractional_derivatives(
                     d_h_c(prearg_res[j], prearg_jac[j], p, T, xn[j]), x[j]
                 )
                 # contribution to p- and T-derivative of phase j
@@ -930,7 +949,7 @@ class CompiledUnifiedFlash(Flash):
 
             for j in range(nphase):
                 rho_j[j] = rho_c(prearg_res[j], p, T, xn[j])
-                d_rho_j[j] = extended_compositional_derivatives(
+                d_rho_j[j] = _extend_fractional_derivatives(
                     d_rho_c(prearg_res[j], prearg_jac[j], p, T, xn[j]), x[j]
                 )
                 dpT_rho_mix += sat[j] * d_rho_j[j, :2]
@@ -1019,7 +1038,7 @@ class CompiledUnifiedFlash(Flash):
             res[-nphase:] = complementary_conditions_res(x, y)
 
             # EoS specific computations
-            xn = normalize_fractions(x)
+            xn = _normalize_x(x)
             prearg = get_prearg_res(p, T, xn)
 
             res[ncomp - 1 : ncomp - 1 + ncomp * (nphase - 1)] = isofug_constr_c(
@@ -1043,13 +1062,13 @@ class CompiledUnifiedFlash(Flash):
             jac[-nphase:] = complementary_conditions_jac(x, y)
 
             # EoS specific computations
-            xn = normalize_fractions(x)
+            xn = _normalize_x(x)
             prearg_res = get_prearg_res(p, T, xn)
             prearg_jac = get_prearg_jac(p, T, xn)
 
-            jac[
-                ncomp - 1 : ncomp - 1 + ncomp * (nphase - 1), nphase - 1 :
-            ] = d_isofug_constr_c(prearg_res, prearg_jac, p, T, x, xn)[:, 2:]
+            jac[ncomp - 1 : ncomp - 1 + ncomp * (nphase - 1), nphase - 1 :] = (
+                d_isofug_constr_c(prearg_res, prearg_jac, p, T, x, xn)[:, 2:]
+            )
 
             return jac
 
@@ -1070,7 +1089,7 @@ class CompiledUnifiedFlash(Flash):
             res[-nphase:] = complementary_conditions_res(x, y)
 
             # EoS specific computations
-            xn = normalize_fractions(x)
+            xn = _normalize_x(x)
             prearg = get_prearg_res(p, T, xn)
 
             res[ncomp - 1 : ncomp - 1 + ncomp * (nphase - 1)] = isofug_constr_c(
@@ -1097,7 +1116,7 @@ class CompiledUnifiedFlash(Flash):
             jac[-nphase:, 1:] = complementary_conditions_jac(x, y)
 
             # EoS specific computations
-            xn = normalize_fractions(x)
+            xn = _normalize_x(x)
             prearg_res = get_prearg_res(p, T, xn)
             prearg_jac = get_prearg_jac(p, T, xn)
 
@@ -1135,7 +1154,7 @@ class CompiledUnifiedFlash(Flash):
             res[-nphase:] = complementary_conditions_res(x, y)
 
             # EoS specific computations
-            xn = normalize_fractions(x)
+            xn = _normalize_x(x)
             prearg = get_prearg_res(p, T, xn)
 
             res[ncomp - 1 : ncomp - 1 + ncomp * (nphase - 1)] = isofug_constr_c(
@@ -1171,7 +1190,7 @@ class CompiledUnifiedFlash(Flash):
             jac[-nphase:, nphase + 1 :] = complementary_conditions_jac(x, y)
 
             # EoS specific computations
-            xn = normalize_fractions(x)
+            xn = _normalize_x(x)
             prearg_res = get_prearg_res(p, T, xn)
             prearg_jac = get_prearg_jac(p, T, xn)
 
@@ -1245,7 +1264,7 @@ class CompiledUnifiedFlash(Flash):
                         + K_tol
                     )
             else:
-                xn = normalize_fractions(x)
+                xn = _normalize_x(x)
                 prearg = get_prearg_res(p, T, xn)
                 # fugacity coefficients reference phase
                 phi_r = phi_c(prearg[0], p, T, xn[0])
@@ -1344,7 +1363,7 @@ class CompiledUnifiedFlash(Flash):
 
                 # update K-values if another iteration comes
                 if n < N1 - 1:
-                    xn = normalize_fractions(x)
+                    xn = _normalize_x(x)
                     prearg = get_prearg_res(p, T, xn)
                     # fugacity coefficients reference phase
                     phi_r = phi_c(prearg[0], p, T, xn[0])
@@ -1373,7 +1392,7 @@ class CompiledUnifiedFlash(Flash):
             x, y, _ = parse_xyz(X_gen, npnc)
             p, T = parse_pT(X_gen, npnc)
             h, _ = parse_target_state(X_gen, npnc)
-            xn = normalize_fractions(x)
+            xn = _normalize_x(x)
             h_j = np.empty(nphase, dtype=np.float64)
             dT_h_j = np.empty(nphase, dtype=np.float64)
 
@@ -1445,7 +1464,7 @@ class CompiledUnifiedFlash(Flash):
             jac = np.zeros((nphase + 1, nphase + 1))
 
             x, y, _ = parse_xyz(X_gen, npnc)
-            xn = normalize_fractions(x)
+            xn = _normalize_x(x)
             v, h = parse_target_state(X_gen, npnc)
             if gas_index >= 0:
                 y_g = y[gas_index]
@@ -1467,7 +1486,7 @@ class CompiledUnifiedFlash(Flash):
                     rho_j[j] = rho_c(prearg_res[j], p, T, xn[j])
                     h_j[j] = h_c(prearg_res[j], p, T, xn[j])
 
-                sat = compute_saturations(y, rho_j, 1e-10)
+                sat = _compute_saturations(y, rho_j, 1e-10)
                 v_mix = 1.0 / (sat * rho_j).sum()
                 h_mix = (y * h_j).sum()
 
@@ -1595,14 +1614,14 @@ class CompiledUnifiedFlash(Flash):
 
                 # final saturation update
                 x, y, _ = parse_xyz(xf, npnc)
-                xn = normalize_fractions(x)
+                xn = _normalize_x(x)
                 p, T = parse_pT(xf, npnc)
                 rho = np.empty(nphase, dtype=np.float64)
                 for j in range(nphase):
                     rho[j] = rho_c(
                         prearg_val_c(phasetypes[j], p, T, xn[j]), p, T, xn[j]
                     )
-                sat = compute_saturations(y, rho, 1e-10)
+                sat = _compute_saturations(y, rho, 1e-10)
                 X_gen[f] = insert_sat(xf, sat[1:], npnc)
 
             return X_gen
@@ -1725,10 +1744,9 @@ class CompiledUnifiedFlash(Flash):
         # Filling the feed fractions into X0
         i = 0
         for i_, _ in enumerate(fluid_state.z):
-            if i_ == self._ref_component_idx:
-                continue
-            X0[:, i] = fluid_state.z[i]
-            i += 1
+            if i_ != self._ref_component_idx:
+                X0[:, i] = fluid_state.z[i_]
+                i += 1
         # Filling the fixed state values in X0, getting initialization args
         if flash_type == "p-T":
             X0[:, ncomp - 1] = fluid_state.p
@@ -1765,16 +1783,17 @@ class CompiledUnifiedFlash(Flash):
             init_time = end - start
             logger.info(f"Initial state computed (elapsed time: {init_time} (s)).\n")
         else:
+            init_time = 0.0
             # parsing phase compositions and molar fractions
             idx = 0
             for j in range(nphase):
                 # values for molar phase fractions except for reference phase
                 if j != self._ref_phase_idx:
-                    X0[:, -(1 + nphase * ncomp + nphase - 1 + idx)] = fluid_state.y[j]
+                    X0[:, -(1 + nphase * ncomp + nphase - 1) + idx] = fluid_state.y[j]
                     idx += 1
                 # composition of phase j
                 for i in range(ncomp):
-                    X0[:, -(1 + (nphase - j) * ncomp + i)] = fluid_state.phases[j].x[i]
+                    X0[:, -(1 + (nphase - j) * ncomp) + i] = fluid_state.phases[j].x[i]
 
             # If T is unknown, get provided guess for T
             if "T" not in flash_type:
@@ -1792,7 +1811,7 @@ class CompiledUnifiedFlash(Flash):
                 idx = 0
                 for j in range(nphase - 1):
                     if j != self._ref_phase_idx:
-                        X0[:, -(p_pos + nphase - 1 + idx)] = fluid_state.sat[j]
+                        X0[:, -(p_pos + nphase - 1) + idx] = fluid_state.sat[j]
                         idx += 1
 
         logger.info("Computing initial guess for slack variable ..")
@@ -1829,13 +1848,3 @@ class CompiledUnifiedFlash(Flash):
             success,
             num_iter,
         )
-
-
-_import_end = time.time()
-
-logger.debug(
-    "(import composite/flash_c.py)"
-    + f" Done (elapsed time: {_import_end - _import_start} (s)).\n\n"
-)
-
-del _import_start, _import_end

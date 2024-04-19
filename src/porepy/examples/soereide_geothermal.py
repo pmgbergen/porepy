@@ -17,8 +17,10 @@ References:
         https://doi.org/10.1016/0378-3812(92)85105-H
 
 """
+
 from __future__ import annotations
 
+import logging
 from typing import Sequence, cast
 
 import numpy as np
@@ -26,8 +28,12 @@ import numpy as np
 import porepy as pp
 import porepy.composite as ppc
 from porepy.applications.md_grids.domains import nd_cube_domain
-from porepy.composite.peng_robinson.eos_c import PengRobinsonCompiler
 from porepy.models.compositional_flow_with_equilibrium import CFLEModelMixin_ph
+
+ppc.COMPOSITE_LOGGER.setLevel(logging.DEBUG)  # prints informatin about compile progress
+from porepy.composite.peng_robinson import PengRobinsonCompiler
+
+ppc.COMPOSITE_LOGGER.setLevel(logging.INFO)
 
 
 class SoereideMixture:
@@ -66,13 +72,9 @@ class CompiledFlash(ppc.FlashMixin):
 
         # Compiling the flash and the EoS
         eos.compile(verbosity=2)
-        flash.compile(
-            verbosity=2,
-            # NOTE If true, flash solvers are pre-compiled for **all** flashes
-            # otherwise, they are compiled on the fly when needed.
-            # This increases the time of the first call during the simulation.
-            # precompile_solvers=False,
-        )
+        # pre-compile solvers for given mixture to avoid waiting times in
+        # prepare simulation and the first iteration
+        flash.compile(verbosity=2, precompile_solvers=False)
 
         # NOTE There is place to configure the solver here
 
@@ -105,7 +107,7 @@ class ModelGeometry:
 class InitialConditions:
     """Define initial pressure, temperature and compositions."""
 
-    def intial_pressure(self, sd: pp.Grid) -> np.ndarray:
+    def initial_pressure(self, sd: pp.Grid) -> np.ndarray:
         # Initial pressure of 10 MPa
         return np.ones(sd.num_cells) * 10e6
 
@@ -147,35 +149,21 @@ class BoundaryConditions:
     has_time_dependent_boundary_equilibrium = False
     """Constant BC for primary variables, hence constant BC for all other."""
 
-    def bc_type_advective_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
-        all, east, west, north, south, top, bottom = self.domain_boundary_sides(sd)
-        # Setting only conditions on matrix
-        if sd.dim == 2:
-            # Define boundary faces, east west as dirichlet
-            boundary_faces = east | west
-            # Define boundary condition on all boundary faces.
-            return pp.BoundaryCondition(sd, boundary_faces, "dir")
-        # In fractures we set trivial NBC
-        else:
-            return pp.BoundaryCondition(sd)
-
     def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
-        all, east, west, north, south, top, bottom = self.domain_boundary_sides(sd)
+        sides = self.domain_boundary_sides(sd)
         # Setting only conditions on matrix
         if sd.dim == 2:
-            # Define boundary faces, east west as dirichlet
-            boundary_faces = east | west
             # Define boundary condition on all boundary faces.
-            return pp.BoundaryCondition(sd, boundary_faces, "dir")
+            return pp.BoundaryCondition(sd, sides.east | sides.west, "dir")
         # In fractures we set trivial NBC
         else:
             return pp.BoundaryCondition(sd)
 
     def bc_type_fourier_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
-        all, east, west, north, south, top, bottom = self.domain_boundary_sides(sd)
+        sides = self.domain_boundary_sides(sd)
         if sd.dim == 2:
             # Temperature at inlet and outlet, as well as heated bottom
-            boundary_faces = east | west | bottom
+            boundary_faces = sides.east | sides.west | sides.bottom
             return pp.BoundaryCondition(sd, boundary_faces, "dir")
         # In fractures we set trivial NBC
         else:
@@ -183,78 +171,72 @@ class BoundaryConditions:
 
     def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
         # need to define pressure on east and west side of matrix
+        p_init = 10e6
         sd = boundary_grid.parent
-        bs = self.domain_boundary_sides(sd)
-        vals = np.zeros(sd.num_faces)
-        if sd.dim == 2:
-            inlet_faces = bs.west
-            outlet_faces = bs.east
-            vals[inlet_faces] = 15e6
-            vals[outlet_faces] = 10e6
+        sides = self.domain_boundary_sides(sd)
 
-        vals = vals[bs.all_bf]
-        assert vals.shape == (
-            boundary_grid.num_cells,
-        ), "Mismatch in shape of BC values."
+        # non-trivial BC on matrix
+        if sd.dim == 2:
+            vals = np.ones(sd.num_faces) * p_init
+
+            vals[sides.west] = 15e6
+            vals[sides.east] = 10e6
+
+            vals = vals[sides.all_bf]
+        else:
+            vals = np.zeros(boundary_grid.num_cells)
+
         return vals
 
     def bc_values_temperature(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+        T_init = 550.0
         sd = boundary_grid.parent
-        bs = self.domain_boundary_sides(sd)
-        vals = np.zeros(sd.num_faces)
+        sides = self.domain_boundary_sides(sd)
+
         # non-trivial BC on matrix
         if sd.dim == 2:
-            # T values on inlet and outlet faces to compute boundary equilibrium
-            inlet_faces = bs.west
-            outlet_faces = bs.east
-            vals[inlet_faces] = 460.0
-            # outlet values correspond to initial conditions
-            vals[outlet_faces] = 550.0
+            vals = np.ones(sd.num_faces) * T_init
 
+            vals[sides.west] = 460.0
+            vals[sides.east] = 550.0
             # T values on heated bottom
-            heated_faces = bs.bottom
-            vals[heated_faces] = 600.0
+            vals[sides.bottom] = 600.0
 
-        vals = vals[bs.all_bf]
-        assert vals.shape == (
-            boundary_grid.num_cells,
-        ), "Mismatch in shape of BC values."
+            vals = vals[sides.all_bf]
+        else:
+            vals = np.zeros(boundary_grid.num_cells)
+
         return vals
 
     def bc_values_overall_fraction(
         self, component: ppc.Component, boundary_grid: pp.BoundaryGrid
     ) -> np.ndarray:
         sd = boundary_grid.parent
-        bs = self.domain_boundary_sides(sd)
-        vals = np.zeros(sd.num_faces)
+        sides = self.domain_boundary_sides(sd)
+
+        if component.name == "H2O":
+            z_init = 0.995
+            z_inlet = 0.99
+            z_outlet = z_init
+        elif component.name == "CO2":
+            z_init = 0.005
+            z_inlet = 0.01
+            z_outlet = z_init
+        else:
+            NotImplementedError(
+                f"Initial overlal fraction not implemented for component {component.name}"
+            )
+
         if sd.dim == 2:
-            inlet_faces = bs.west
-            outlet_faces = bs.east
+            vals = np.ones(sd.num_faces) * z_init
 
-            # on inlet, more CO2 enters the system
-            if component.name == "H2O":
-                vals[inlet_faces] = 0.99
-            elif component.name == "CO2":
-                vals[inlet_faces] = 0.01
-            else:
-                raise NotImplementedError(
-                    f"Initial overlal fraction not implemented for component {component.name}"
-                )
+            vals[sides.west] = z_inlet
+            vals[sides.east] = z_outlet
 
-            # on outlet we define something corresponding to initial conditions
-            if component.name == "H2O":
-                vals[outlet_faces] = 0.995
-            elif component.name == "CO2":
-                vals[outlet_faces] = 0.005
-            else:
-                raise NotImplementedError(
-                    f"Initial overlal fraction not implemented for component {component.name}"
-                )
+            vals = vals[sides.all_bf]
+        else:
+            vals = np.zeros(boundary_grid.num_cells)
 
-        vals = vals[bs.all_bf]
-        assert vals.shape == (
-            boundary_grid.num_cells,
-        ), "Mismatch in shape of BC values."
         return vals
 
 
@@ -286,6 +268,7 @@ params = {
     "eliminate_reference_component": True,
     "normalize_state_constraints": True,
     "use_semismooth_complementarity": True,
+    "reduce_linear_system_q": True,
     "time_manager": time_manager,
 }
 model = GeothermalFlow(params)

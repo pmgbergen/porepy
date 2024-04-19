@@ -2,9 +2,9 @@
 algorithm and Armijo line search.
 
 To be used by the compiled flash."""
+
 from __future__ import annotations
 
-import time
 from typing import Callable, Literal
 
 import numba
@@ -13,7 +13,6 @@ from numba.core import types as nbtypes
 from numba.typed import Dict as nbdict
 
 from ._core import NUMBA_CACHE
-from .composite_utils import COMPOSITE_LOGGER as logger
 from .utils_c import parse_xyz
 
 SOLVER_PARAMS = dict[
@@ -81,12 +80,7 @@ def convert_param_dict(params: SOLVER_PARAMS) -> nbdict:
     return out
 
 
-_import_start = time.time()
-
 # region NPIPM related functions
-
-
-logger.debug(f"(import composite/npipm_c.py) Compiling NPIPM methods ..\n")
 
 
 @numba.njit(
@@ -241,11 +235,10 @@ def initialize_npipm_nu(X_gen: np.ndarray, npnc: tuple[int, int]) -> np.ndarray:
     return X_gen
 
 
-# NOTE The cache is dependent on another function
 @numba.njit(
     "float64[:](float64[:],float64[:],UniTuple(int32, 2),float64,float64,float64)",
     fastmath=True,
-    cache=NUMBA_CACHE,
+    cache=NUMBA_CACHE,  # NOTE The cache is dependent on another function
 )
 def _npipm_extend_and_regularize_res(
     f_res: np.ndarray,
@@ -294,12 +287,11 @@ def _npipm_extend_and_regularize_res(
     return f_npipm
 
 
-# NOTE The cache is dependent on another function
 @numba.njit(
     "float64[:,:]"
     + "(float64[:,:],float64[:],UniTuple(int32, 2),float64,float64,float64)",
     fastmath=True,
-    cache=NUMBA_CACHE,
+    cache=NUMBA_CACHE,  # NOTE The cache is dependent on another function
 )
 def _npipm_extend_and_regularize_jac(
     f_jac: np.ndarray,
@@ -350,9 +342,9 @@ def _npipm_extend_and_regularize_jac(
         d_slack_expanded[-(1 + (j + 1) * ncomp) : -(1 + j * ncomp)] = vec
 
     # derivatives w.r.t y_j. j != r
-    d_slack_expanded[
-        -(1 + nphase * ncomp + nphase - 1) : -(1 + nphase * ncomp)
-    ] = d_slack[: nphase - 1]
+    d_slack_expanded[-(1 + nphase * ncomp + nphase - 1) : -(1 + nphase * ncomp)] = (
+        d_slack[: nphase - 1]
+    )
 
     df_npipm[-1] = d_slack_expanded
 
@@ -373,55 +365,51 @@ def _npipm_extend_and_regularize_jac(
 
 # TODO below solver methods need a static signature, once typing for functions as
 # arguments is available in numba
-# NOTE functions should be cached once this is available
 # region Methods related to the numerical solution strategy
 
-
-logger.debug(f"(import composite/npipm_c.py) Compiling numerical methods ..\n")
-
-
-@numba.njit("float64[:](float64[:])")
-def _dummy_res(x: np.ndarray):
-    return x.copy()
+# @numba.njit("float64[:](float64[:])")
+# def _dummy_res(x: np.ndarray):
+#     return x.copy()
 
 
-@numba.njit("float64[:,:](float64[:])")
-def _dummy_jac(x: np.ndarray):
-    return np.diag(x)
+# @numba.njit("float64[:,:](float64[:])")
+# def _dummy_jac(x: np.ndarray):
+#     return np.diag(x)
 
 
-_dummy_dict = nbdict.empty(key_type=nbtypes.unicode_type, value_type=nbtypes.float64)
-_dummy_dict["f_dim"] = 5.0
-_dummy_dict["num_phase"] = 2.0
-_dummy_dict["num_comp"] = 2.0
-_dummy_dict["tol"] = 1e-8
-_dummy_dict["max_iter"] = 150.0
-_dummy_dict["rho"] = 0.99
-_dummy_dict["kappa"] = 0.4
-_dummy_dict["j_max"] = 50.0
-_dummy_dict["u1"] = 1.0
-_dummy_dict["u2"] = 10.0
-_dummy_dict["eta"] = 0.5
+# _dummy_dict = nbdict.empty(key_type=nbtypes.unicode_type, value_type=nbtypes.float64)
+# _dummy_dict["f_dim"] = 5.0
+# _dummy_dict["num_phase"] = 2.0
+# _dummy_dict["num_comp"] = 2.0
+# _dummy_dict["tol"] = 1e-8
+# _dummy_dict["max_iter"] = 150.0
+# _dummy_dict["rho"] = 0.99
+# _dummy_dict["kappa"] = 0.4
+# _dummy_dict["j_max"] = 50.0
+# _dummy_dict["u1"] = 1.0
+# _dummy_dict["u2"] = 10.0
+# _dummy_dict["eta"] = 0.5
 
 
-@numba.njit(
-    # numba.types.Tuple((numba.float64[:],numba.int32,numba.int32))(
-    #     numba.float64[:],
-    #     numba.typeof(_dummy_res),
-    #     numba.typeof(_dummy_jac),
-    #     numba.int32,
-    #     numba.types.UniTuple(numba.int32,2),
-    #     numba.float64,
-    #     numba.int32,
-    #     numba.float64,
-    #     numba.float64,
-    #     numba.int32,
-    #     numba.float64,
-    #     numba.float64,
-    #     numba.float64,
-    # ),
-    cache=NUMBA_CACHE
-)
+# @numba.njit(
+#     # numba.types.Tuple((numba.float64[:],numba.int32,numba.int32))(
+#     #     numba.float64[:],
+#     #     numba.typeof(_dummy_res),
+#     #     numba.typeof(_dummy_jac),
+#     #     numba.int32,
+#     #     numba.types.UniTuple(numba.int32,2),
+#     #     numba.float64,
+#     #     numba.int32,
+#     #     numba.float64,
+#     #     numba.float64,
+#     #     numba.int32,
+#     #     numba.float64,
+#     #     numba.float64,
+#     #     numba.float64,
+#     # ),
+#     # cache=True,
+# )
+@numba.njit
 def _solver(
     X_0: np.ndarray,
     F: Callable[[np.ndarray], np.ndarray],
@@ -471,7 +459,7 @@ def _solver(
             - 2: failure in the evaluation of the residual
             - 3: failure in the evaluation of the Jacobian
             - 4: NAN or infty detected in update (aborted)
-        3. final number of perfored iterations
+        3. final number of performed iterations
 
         If the success flag indicates failure, the last iterate state of the unknown
         is returned.
@@ -579,8 +567,8 @@ def _solver(
     #     numba.typeof(_dummy_jac),
     #     numba.typeof(_dummy_dict),
     # ),
+    # cache=True,
     parallel=True,
-    cache=NUMBA_CACHE,
 )
 def parallel_solver(
     X0: np.ndarray,
@@ -647,15 +635,16 @@ def parallel_solver(
     return result, converged, num_iter
 
 
-@numba.njit(
-    # numba.types.Tuple((numba.float64[:,:],numba.int32[:],numba.int32[:]))(
-    #     numba.float64[:,:],
-    #     numba.typeof(_dummy_res),
-    #     numba.typeof(_dummy_jac),
-    #     numba.typeof(_dummy_dict),
-    # ),
-    cache=NUMBA_CACHE
-)
+# @numba.njit(
+#     # numba.types.Tuple((numba.float64[:,:],numba.int32[:],numba.int32[:]))(
+#     #     numba.float64[:,:],
+#     #     numba.typeof(_dummy_res),
+#     #     numba.typeof(_dummy_jac),
+#     #     numba.typeof(_dummy_dict),
+#     # ),
+#     cache=True,
+# )
+@numba.njit
 def linear_solver(
     X0: np.ndarray,
     F: Callable[[np.ndarray], np.ndarray],
@@ -700,12 +689,3 @@ def linear_solver(
 
 
 # endregion
-
-_import_end = time.time()
-
-logger.debug(
-    "(import composite/npipm_c.py)"
-    + f" Done (elapsed time: {_import_end - _import_start} (s)).\n\n"
-)
-
-del _import_start, _import_end

@@ -1,4 +1,5 @@
 """Module containing an abstraction layer for the flash procedure."""
+
 from __future__ import annotations
 
 import abc
@@ -106,7 +107,12 @@ class Flash(abc.ABC):
         h: Optional[np.ndarray | pp.number] = None,
         v: Optional[np.ndarray | pp.number] = None,
         initial_state: Optional[FluidState] = None,
-    ) -> tuple[FluidState, Literal["p-T", "p-h", "v-T", "v-h"], int, int,]:
+    ) -> tuple[
+        FluidState,
+        Literal["p-T", "p-h", "v-T", "v-h"],
+        int,
+        int,
+    ]:
         """Helper method to parse the input and construct a provisorical fluid state
         with uniform input (numpy arrays of same size).
 
@@ -289,6 +295,13 @@ class Flash(abc.ABC):
                         s[:] = fluid_state.sat[j]
                         S.append(s)
                     fluid_state.sat = np.array(S)
+                    p = np.zeros(NF)
+                    p[:] = fluid_state.p
+                    fluid_state.p = p
+                if "T" not in flash_type:
+                    T = np.zeros(NF)
+                    T[:] = fluid_state.T
+                    fluid_state.T = T
             except ValueError as err:
                 if "broadcast" in str(err):
                     xl = [[len(x) for x in phase.x] for phase in fluid_state.phases]
