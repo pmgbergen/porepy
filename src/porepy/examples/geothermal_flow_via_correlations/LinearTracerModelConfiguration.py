@@ -61,7 +61,7 @@ class BoundaryConditions(BoundaryConditionsCF):
 
     def bc_values_temperature(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
         h = self.bc_values_enthalpy(boundary_grid)
-        factor = 635.0 / 2.0e6
+        factor = 630.0 / 2.0e6
         T = factor * h
         return T
 
@@ -71,7 +71,13 @@ class InitialConditions(InitialConditionsCF):
 
     def initial_pressure(self, sd: pp.Grid) -> np.ndarray:
         p_init = 15.0e6
-        return np.ones(sd.num_cells) * p_init
+        p_outlet = 15.0e6
+        xc = sd.cell_centers.T
+        def p_D(xv):
+            p_val = (1-xv[0]/2)*p_init + (xv[0]/2)*p_outlet
+            return p_val
+        p_vals = np.fromiter(map(p_D,xc),dtype=float)
+        return p_vals
 
     def initial_enthalpy(self, sd: pp.Grid) -> np.ndarray:
         h = 2.0e6
@@ -88,7 +94,7 @@ class InitialConditions(InitialConditionsCF):
 
     def initial_temperature(self, sd: pp.Grid) -> np.ndarray:
         h = self.initial_enthalpy(sd)
-        factor = 635.0 / 2.0e6
+        factor = 630.0 / 2.0e6
         T = factor * h
         return T
 
