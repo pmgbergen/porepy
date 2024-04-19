@@ -1,6 +1,6 @@
-import numpy as np
 import LinearTracerConstitutiveDescription
-from Geometries import SimpleGeometry as ModelGeometry
+import numpy as np
+from Geometries import Benchmark2DC3 as ModelGeometry
 
 import porepy as pp
 import porepy.composite as ppc

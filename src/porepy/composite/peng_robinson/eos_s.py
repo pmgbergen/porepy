@@ -56,6 +56,7 @@ The following standard names are used for thermodynamic quantities:
 - ``_r`` index related to the reference phase (the first one is assumed to be r)
 
 """
+
 from __future__ import annotations
 
 from typing import Any, Callable, Optional, Sequence
@@ -864,8 +865,7 @@ class PengRobinsonSymbolic:
         self.d_B_f = sp.lambdify(self.thd_arg, d_B_e)
 
         a_i_crit: list[float] = [
-            A_CRIT * (R_IDEAL**2 * comp.T_crit**2) / comp.p_crit
-            for comp in components
+            A_CRIT * (R_IDEAL**2 * comp.T_crit**2) / comp.p_crit for comp in components
         ]
         """List of critical cohesion values per component."""
 
@@ -1090,8 +1090,5 @@ class PengRobinsonSymbolic:
             return 0.37464 + 1.54226 * omega - 0.26992 * omega**2
         else:
             return (
-                0.379642
-                + 1.48503 * omega
-                - 0.164423 * omega**2
-                + 0.016666 * omega**3
+                0.379642 + 1.48503 * omega - 0.164423 * omega**2 + 0.016666 * omega**3
             )

@@ -7,6 +7,7 @@ Use the dataclass contained here for various interfaces with chemical databases
 or other, third-party software.
 
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass

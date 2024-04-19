@@ -1,5 +1,6 @@
 """Module containing various data structures to store thermodynamic state values for
 fluid mixtures."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -8,7 +9,7 @@ from typing import Optional, Sequence, cast
 import numpy as np
 
 from .composite_utils import safe_sum
-from .utils_c import compute_saturations, compute_saturations_v
+from .utils_c import compute_saturations
 
 __all__ = [
     "ExtensiveState",
@@ -244,11 +245,7 @@ class FluidState(IntensiveState, ExtensiveState):
 
         rho = np.array([phase.rho for phase in self.phases])
         assert y.shape == rho.shape, "Mismatch in values for fractions and densities."
-
-        if len(y.shape) == 1:
-            self.sat = compute_saturations(y, rho, eps).reshape((y.shape[0], 1))
-        else:
-            self.sat = compute_saturations_v(y, rho, eps)
+        self.sat = compute_saturations(y, rho, eps)
 
     def evaluate_extensive_state(self) -> None:
         """Evaluates the mixture properties based on the currently stored phase

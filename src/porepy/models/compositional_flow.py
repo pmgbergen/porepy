@@ -2124,13 +2124,15 @@ class InitialConditionsCF:
         2. Initializes secondary variables and the secondary expressions by which
            they were eliminated
            :meth:`set_initial_values_constitutive_eliminated`
-        3. Copies values of all independent variables to all time and iterate indices.
-        4. Initializes phase properties by computing them using the underlying EoS
+        3. Initializes phase properties by computing them using the underlying EoS
            :meth:`set_intial_values_phase_properties`
+        4. Copies values of all independent variables to all time and iterate indices.
 
         """
         self.set_initial_values_primary_variables()
         self.set_initial_values_constitutive_eliminated()
+        self.set_intial_values_phase_properties()
+
         # updating variable values from current time step, to all previous and iterate
         val = self.equation_system.get_variable_values(iterate_index=0)
         self.equation_system.shift_iterate_values()
@@ -2139,7 +2141,6 @@ class InitialConditionsCF:
                 val,
                 time_step_index=time_step_index,
             )
-        self.set_intial_values_phase_properties()
 
     def set_initial_values_primary_variables(self) -> None:
         """Method to set initial values for primary variables at the current time
@@ -2506,9 +2507,6 @@ class SolutionStrategyCF(
            mixture mixin.
         3. Then it creates the equations so that all secondary expressions are
            instantiated.
-        4. After initial values are computed for all quantities, calls
-           :meth:`initialize_timestep_and_iterate_indices` to copy initial values
-           to all iterate and time step indices.
 
         """
         self.set_materials()
@@ -2523,7 +2521,7 @@ class SolutionStrategyCF(
 
         self.set_equations()
         self.initial_condition()
-        self.reset_state_from_file()  # TODO check if this is in conflict with init vals
+        self.reset_state_from_file()
 
         self.set_discretization_parameters()
         self.discretize()

@@ -12,6 +12,7 @@ For custom implementation of BIPs, see
 :attr:`~porepy.composite.peng_robinson.pr_components.Component_PR.bip_map`.
 
 """
+
 from __future__ import annotations
 
 from thermo.interaction_parameters import IPDB

@@ -2,6 +2,7 @@
 framework.
 
 """
+
 from __future__ import annotations
 
 from typing import Callable, Literal, Optional, Sequence
@@ -149,7 +150,7 @@ class CompositeVariables(pp.VariableMixin):
         Evaluates:
 
         1. Overall fractions per component
-        2. Molar fractions per phase
+        2. Fractions per phase
         3. Volumetric fractions per phase (saturations)
         4. Fractions per phase per component
            (extended if equilibrium defined, else partial)
@@ -191,14 +192,16 @@ class CompositeVariables(pp.VariableMixin):
         x = [
             np.array(
                 [
-                    phase.fraction_of[component](subdomains).value(
-                        self.equation_system, state
+                    (
+                        phase.fraction_of[component](subdomains).value(
+                            self.equation_system, state
+                        )
+                        if self.equilibrium_type is not None
+                        else phase.partial_fraction_of[component](subdomains).value(
+                            self.equation_system, state
+                        )
                     )
-                    if self.equilibrium_type is not None
-                    else phase.partial_fraction_of[component](subdomains).value(
-                        self.equation_system, state
-                    )
-                    for component in self.fluid_mixture.components
+                    for component in phase
                 ]
             )
             for phase in self.fluid_mixture.phases

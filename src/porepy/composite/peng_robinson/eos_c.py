@@ -38,6 +38,7 @@ Note:
     Not all functions have a ``_u`` version.
 
 """
+
 from __future__ import annotations
 
 import logging
@@ -87,6 +88,8 @@ from .eos_s import (
     widom_line,
 )
 from .pr_components import ComponentPR
+
+__all__ = ["PengRobinsonCompiler"]
 
 _STATIC_FAST_COMPILE_ARGS: dict[str, Any] = {
     "fastmath": True,
@@ -264,6 +267,7 @@ characteristic_residual_u = numba.vectorize(
 
 
 # endregion
+
 
 # region Functions related to the A-B space
 
@@ -1443,13 +1447,11 @@ class PengRobinsonCompiler(EoSCompiler):
         return d_kappa_c
 
 
-_import_end = time.time()
-
 logger.debug(
-    f"{_import_msg} Done (elapsed time: {_import_end - _import_start} (s)).\n\n"
+    f"{_import_msg} Done (elapsed time: {time.time() - _import_start} (s)).\n\n"
 )
 
-del _import_start, _import_end, _import_msg
+del _import_start, _import_msg
 
 
 class _PR_Compiler_tests:

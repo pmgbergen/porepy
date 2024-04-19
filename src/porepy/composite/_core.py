@@ -4,6 +4,7 @@ composite subpackage.
 Changes here should be done with much care.
 
 """
+
 from __future__ import annotations
 
 __all__ = [
@@ -15,7 +16,7 @@ __all__ = [
 ]
 
 
-NUMBA_CACHE: bool = False
+NUMBA_CACHE: bool = True
 """Flag to instruct the numba compiler to cache (!and use cached!) functions.
 
 This might cause some confusion in the developing process due to some lack in numba's
@@ -24,6 +25,10 @@ caching functionality.
 re-compilation)
 
 Use with care.
+
+Note:
+    Functions which do not use other numba-compiled functions are cached by default.
+    This flag is for those who do use other functions.
 
 See Also:
     https://numba.readthedocs.io/en/stable/user/jit.html#cache

@@ -1,5 +1,6 @@
 """Module containing the abstract base class for compiling EoS-related functions used
 in the evaluation of thermodynamic properties."""
+
 from __future__ import annotations
 
 import abc
@@ -12,7 +13,7 @@ import numpy as np
 from .base import AbstractEoS, Component
 from .composite_utils import COMPOSITE_LOGGER as logger
 from .states import PhaseState
-from .utils_c import extended_compositional_derivatives_v
+from .utils_c import extend_fractional_derivatives
 
 __all__ = [
     "EoSCompiler",
@@ -889,12 +890,12 @@ class EoSCompiler(AbstractEoS):
         )
 
         # Extending derivatives to extended fractions
-        state.dh = extended_compositional_derivatives_v(state.dh, x)
-        state.dv = extended_compositional_derivatives_v(state.dv, x)
-        state.dmu = extended_compositional_derivatives_v(state.dmu, x)
-        state.dkappa = extended_compositional_derivatives_v(state.dkappa, x)
+        state.dh = extend_fractional_derivatives(state.dh, x)
+        state.dv = extend_fractional_derivatives(state.dv, x)
+        state.dmu = extend_fractional_derivatives(state.dmu, x)
+        state.dkappa = extend_fractional_derivatives(state.dkappa, x)
         for i in range(ncomp):
             # TODO check if this is indexed correctly
-            state.dphis[i] = extended_compositional_derivatives_v(state.dphis[i], x)
+            state.dphis[i] = extend_fractional_derivatives(state.dphis[i], x)
 
         return state
