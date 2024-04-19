@@ -2,6 +2,7 @@
 framework.
 
 """
+
 from __future__ import annotations
 
 from typing import Callable, Literal, Optional, Sequence
@@ -191,12 +192,14 @@ class CompositeVariables(pp.VariableMixin):
         x = [
             np.array(
                 [
-                    phase.fraction_of[component](subdomains).value(
-                        self.equation_system, state
-                    )
-                    if self.equilibrium_type is not None
-                    else phase.partial_fraction_of[component](subdomains).value(
-                        self.equation_system, state
+                    (
+                        phase.fraction_of[component](subdomains).value(
+                            self.equation_system, state
+                        )
+                        if self.equilibrium_type is not None
+                        else phase.partial_fraction_of[component](subdomains).value(
+                            self.equation_system, state
+                        )
                     )
                     for component in phase
                 ]

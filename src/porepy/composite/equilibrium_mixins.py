@@ -11,6 +11,7 @@ to be set, which must not be ``None``. This is to inform the remaining framework
 that local equilibrium assumptions (instead of some constitutive laws) were introduced.
 
 """
+
 from __future__ import annotations
 
 import warnings

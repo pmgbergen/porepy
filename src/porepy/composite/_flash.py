@@ -1,6 +1,7 @@
 """DEPRACATED.
 
 This module contains functionality to solve the equilibrium problem numerically."""
+
 from __future__ import annotations
 
 import logging
@@ -19,12 +20,12 @@ from ._core import R_IDEAL
 from .base import Mixture
 from .composite_utils import COMPOSITE_LOGGER as logger
 from .composite_utils import safe_sum, trunclog
-from .peng_robinson.eos import PhaseProperties, ThermodynamicState
+from .peng_robinson._eos import PhaseProperties, ThermodynamicState
 
 __all__ = ["FlashSystemNR", "FlashNR"]
 
 
-DeprecationWarning("The module porepy.composite.flash is deprecated.")
+DeprecationWarning("The module porepy.composite._flash is deprecated.")
 
 
 def K_val_Wilson(
@@ -79,9 +80,11 @@ def _rr_pole(i: int, y: list[NumericType], K: list[list[NumericType]]) -> Numeri
     """
     # multiplication is sensitive between numpy arrays and AdArrays...
     t = [
-        y[j] * (K[j][i] - 1)
-        if isinstance(y[j], pp.ad.AdArray)
-        else (K[j][i] - 1) * y[j]
+        (
+            y[j] * (K[j][i] - 1)
+            if isinstance(y[j], pp.ad.AdArray)
+            else (K[j][i] - 1) * y[j]
+        )
         for j in range(len(y))
     ]
 

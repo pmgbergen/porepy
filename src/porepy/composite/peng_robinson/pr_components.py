@@ -10,6 +10,7 @@ They are optional in the sense that they are declared, but not implemented.
 Custom implementation must be done in the constructor for child classes.
 
 """
+
 from __future__ import annotations
 
 from typing import Callable
@@ -250,9 +251,7 @@ class NaClBrine(Compound, H2O):
             b = self.molalities[1]
 
             alpha_ = (
-                1
-                + 0.453 * (1 - T_r * (1 - 0.0103 * b**1.1))
-                + 0.0034 * (T_r**-3 - 1)
+                1 + 0.453 * (1 - T_r * (1 - 0.0103 * b**1.1)) + 0.0034 * (T_r**-3 - 1)
             )
 
             return alpha_

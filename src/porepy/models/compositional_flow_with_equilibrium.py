@@ -13,17 +13,17 @@ Provides a fully formulated CF model with local equilibrium equations formulated
 a p-h flash.
 
 """
+
 from __future__ import annotations
 
 import logging
 from typing import Callable, cast
-from functools import partial
 
 import numpy as np
 
 import porepy as pp
 import porepy.composite as ppc
-from porepy.composite.utils_c import extended_compositional_derivatives_v as _extend
+from porepy.composite.utils_c import extend_fractional_derivatives as _extend
 
 from . import compositional_flow as cf
 
@@ -99,7 +99,7 @@ class BoundaryConditionsCFLE(cf.BoundaryConditionsCF):
         """Instead of performing the update using underlying EoS, a flash is performed
         to compute the updates for phase properties, as well as for (extended) partial
         fractions and saturations.
-        
+
         Calls :meth:`boundary_flash` if :attr:`has_time_dependent_boundary_equilibrium`
         is True.
 
@@ -121,102 +121,122 @@ class BoundaryConditionsCFLE(cf.BoundaryConditionsCF):
         non-constant BC.
 
         Important:
-            If p or T are non-positive, the respective secondary expressions are stored
-            as zero. Might have some implications for the simulation in weird cases.
+            The flash is performed on boundaries where the non-linear advective terms
+            are required. As of now, this is indicated by ``is_dir`` from
+            :meth:`bc_type_advective_flux`.
+
+            The user must provide values for p, T, and z on those boundaries!
 
         Raises:
             ValueError: If the flash did not succeed everywhere.
 
         """
-        rphase = self.fluid_mixture.reference_phase
+
+        # structure for storing values of fractional variables on the boundaries
+        # used to update time-dependent dense arrays
+        fracs_on_bgs: dict[pp.BoundaryGrid, dict[str, np.ndarray]] = dict()
+
+        # First loop to compute values and to set them for thermodynamic properties
         for bg in self.mdg.boundaries():
             vec = np.zeros(bg.num_cells)
 
-            # grids without cells (boundaries of lines) need no fraction values
-            # the methods return by default zero arrays of size bg.num_cells
-            if bg.num_cells == 0:
+            # populate fractional values with default value of zero
+            fracs_on_bgs[bg] = dict()
+            for phase in self.fluid_mixture.phases:
+                fracs_on_bgs[bg][self._saturation_variable(phase)] = vec.copy()
+                for comp in phase:
+                    # NOTE trace amounts to avoid division by zero errors when
+                    # evaluationg partial fractions by normalization
+                    fracs_on_bgs[bg][self._relative_fraction_variable(comp, phase)] = (
+                        vec.copy() + 1e-16
+                    )
+
+            # NOTE IMPORTANT: Indicator for boundary cells, where is_dir indicates
+            # where values are required for upwinding.
+            dir_bc = self.bc_type_advective_flux(bg.parent).is_dir[
+                self.domain_boundary_sides(bg.parent).all_bf
+            ]
+
+            # set zero values if not required anywhere (completeness)
+            if not np.any(dir_bc) or bg.num_cells == 0:
                 for phase in self.fluid_mixture.phases:
                     phase.density.update_boundary_value(vec.copy(), bg)
                     phase.volume.update_boundary_value(vec.copy(), bg)
                     phase.enthalpy.update_boundary_value(vec.copy(), bg)
-                    phase.viscosity.update_boundary_value(vec.copy(), bg)
-            # if at least 1 cell, perform flash, update properties and store fraction
-            # values
+                    # NOTE ones to avoid division by zero. Cancelled out anyways.
+                    phase.viscosity.update_boundary_value(np.ones(bg.num_cells), bg)
             else:
-                sd = bg.parent
-                # indexation on boundary grid
-                # equilibrium is computable where pressure is given and positive
-                dbc = self.bc_type_darcy_flux(sd).is_dir
-                # reduce vector with all faces to vector with boundary faces
-                bf = self.domain_boundary_sides(sd).all_bf
-                dbc = dbc[bf]
+
                 p = self.bc_values_pressure(bg)
-                dir_idx = dbc & (p > 0.0)
+                T = self.bc_values_temperature(bg)
+                feed = [
+                    self.bc_values_overall_fraction(comp, bg)
+                    for comp in self.fluid_mixture.components
+                ]
 
-                # set zero values if not required anywhere (completeness)
-                if not np.any(dir_idx):
-                    for phase in self.fluid_mixture.phases:
-                        phase.density.update_boundary_value(vec.copy(), bg)
-                        phase.volume.update_boundary_value(vec.copy(), bg)
-                        phase.enthalpy.update_boundary_value(vec.copy(), bg)
-                        phase.viscosity.update_boundary_value(vec.copy(), bg)
-                else:
-                    # BC consistency checks ensure that z, T are non-trivial where p is
-                    # non-trivial
-                    T = self.bc_values_temperature(bg)
-                    feed = [
-                        self.bc_values_overall_fraction(comp, bg)
-                        for comp in self.fluid_mixture.components
-                    ]
+                boundary_state, success, _ = self.flash.flash(
+                    z=[z[dir_bc] for z in feed],
+                    p=p[dir_bc],
+                    T=T[dir_bc],
+                    parameters=self.flash_params,
+                )
 
-                    boundary_state, success, _ = self.flash.flash(
-                        z=[z[dir_idx] for z in feed],
-                        p=p[dir_idx],
-                        T=T[dir_idx],
-                        parameters=self.flash_params,
-                    )
+                if not np.all(success == 0):
+                    raise ValueError("Boundary flash did not succeed.")
 
-                    if not np.all(success == 0):
-                        raise ValueError("Boundary flash did not succeed.")
+                # storing fractional values on boundaries temporarily, and progressing
+                # secondary expressions in time, for which boundary values are required.
+                for j, phase in enumerate(self.fluid_mixture.phases):
 
-                    for j, phase in enumerate(self.fluid_mixture.phases):
-                        state_j = boundary_state.phases[j]
+                    # Update for saturation values
+                    sat_j = vec.copy()
+                    sat_j[dir_bc] = boundary_state.sat[j]
+                    fracs_on_bgs[bg][self._saturation_variable(phase)] = sat_j
+                    state_j = boundary_state.phases[j]
 
-                        # Updating BC value for saturation
-                        if not (
-                            self.eliminate_reference_phase
-                            and phase == rphase
-                        ):
-                            sat_j = vec.copy()
-                            sat_j[dir_idx] = boundary_state.sat[j]
-                            s_name = self._saturation_variable(phase)
-                            s_bc = lambda bg: sat_j
-                            s_bc = cast(Callable[[pp.BoundaryGrid], np.ndarray], s_bc)
-                            self.update_boundary_condition(s_name, s_bc)
-                        
+                    # Update for relative fractions
+                    for k, comp in enumerate(phase.components):
+                        x_kj = vec.copy() + 1e-16
+                        x_kj[dir_bc] = state_j.x[k]
+                        fracs_on_bgs[bg][
+                            self._relative_fraction_variable(comp, phase)
+                        ] = x_kj
 
-                        # Updating BC value for partial fractions
-                        for k, comp in enumerate(phase.components):
-                            x_kj = vec.copy()
-                            x_kj[dir_idx] = state_j.x[k]
-                            x_name = self._relative_fraction_variable(comp, phase)
-                            x_bc = lambda bg: x_kj
-                            x_bc = cast(Callable[[pp.BoundaryGrid], np.ndarray], x_bc)
-                            self.update_boundary_condition(x_name, x_bc)
+                    # Update BC values of phase properties in time on boundaries
+                    val = vec.copy()
+                    val[dir_bc] = state_j.rho
+                    phase.density.update_boundary_value(val, bg)
+                    val = vec.copy()
+                    val[dir_bc] = state_j.v
+                    phase.volume.update_boundary_value(val, bg)
+                    val = vec.copy()
+                    val[dir_bc] = state_j.h
+                    phase.enthalpy.update_boundary_value(val, bg)
+                    val = np.ones(bg.num_cells)
+                    val[dir_bc] = state_j.mu
+                    phase.viscosity.update_boundary_value(val, bg)
 
-                        # Update BC values of phase properties in time
-                        val = vec.copy()
-                        val[dir_idx] = state_j.rho
-                        phase.density.update_boundary_value(val, bg)
-                        val = vec.copy()
-                        val[dir_idx] = state_j.v
-                        phase.volume.update_boundary_value(val, bg)
-                        val = vec.copy()
-                        val[dir_idx] = state_j.h
-                        phase.enthalpy.update_boundary_value(val, bg)
-                        val = vec.copy()
-                        val[dir_idx] = state_j.mu
-                        phase.viscosity.update_boundary_value(val, bg)
+        # Second loop to call the base method for updating time-dependent dense arrays
+        # on boundaries. Used to update values of fractional unknowns, which appear
+        # in the advective fluxes
+        for phase in self.fluid_mixture.phases:
+
+            if (
+                self.eliminate_reference_phase
+                and phase == self.fluid_mixture.reference_phase
+            ):
+                pass
+            else:
+                var_name = self._saturation_variable(phase)
+                s_j_bc = lambda bg: fracs_on_bgs[bg][var_name]
+                s_j_bc = cast(Callable[[pp.BoundaryGrid], np.ndarray], s_j_bc)
+                self.update_boundary_condition(var_name, s_j_bc)
+
+            for k, comp in enumerate(phase.components):
+                var_name = self._relative_fraction_variable(comp, phase)
+                x_ij_bc = lambda bg: fracs_on_bgs[bg][var_name]
+                x_ij_bc = cast(Callable[[pp.BoundaryGrid], np.ndarray], x_ij_bc)
+                self.update_boundary_condition(var_name, x_ij_bc)
 
 
 class InitialConditionsCFLE(cf.InitialConditionsCF):
@@ -446,11 +466,11 @@ class SolutionStrategyCFLE(cf.SolutionStrategyCF, ppc.FlashMixin):
             else:
                 self.equation_system.set_variable_values(
                     fluid.sat[j],
-                    [self._phase_fraction_variable(phase)],
+                    [self._saturation_variable(phase)],
                     iterate_index=0,
                 )
                 self.equation_system.set_variable_values(
-                    fluid.y[j], [self._saturation_variable(phase)], iterate_index=0
+                    fluid.y[j], [self._phase_fraction_variable(phase)], iterate_index=0
                 )
 
             for i, comp in enumerate(phase.components):

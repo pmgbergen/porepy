@@ -50,6 +50,7 @@ Note:
     A basic interface for such an equation of state is defined by :class:`AbstractEoS`.
 
 """
+
 from __future__ import annotations
 
 import abc

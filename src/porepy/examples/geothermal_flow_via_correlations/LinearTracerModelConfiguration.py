@@ -1,5 +1,5 @@
-import numpy as np
 import LinearTracerConstitutiveDescription
+import numpy as np
 from Geometries import Benchmark2DC3 as ModelGeometry
 
 import porepy as pp

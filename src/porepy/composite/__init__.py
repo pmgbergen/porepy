@@ -32,7 +32,7 @@ References:
 
 __all__ = []
 
-from . import (
+from . import (  # peng_robinson,
     _core,
     base,
     chem_species,
@@ -42,8 +42,8 @@ from . import (
     equilibrium_mixins,
     flash,
     flash_c,
-    peng_robinson,
     states,
+    utils_c,
 )
 from ._core import *
 from .base import *
@@ -55,6 +55,7 @@ from .equilibrium_mixins import *
 from .flash import *
 from .flash_c import *
 from .states import *
+from .utils_c import *
 
 __all__.extend(_core.__all__)
 __all__.extend(chem_species.__all__)
@@ -66,3 +67,4 @@ __all__.extend(flash.__all__)
 __all__.extend(flash_c.__all__)
 __all__.extend(states.__all__)
 __all__.extend(eos_compiler.__all__)
+__all__.extend(utils_c.__all__)

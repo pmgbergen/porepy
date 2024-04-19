@@ -14,20 +14,20 @@ The convention in the compiled flash is as follows:
    phase.
 
 """
-from __future__ import annotations
 
-import time
+from __future__ import annotations
 
 import numba
 import numpy as np
 
 from ._core import NUMBA_CACHE
-from .composite_utils import COMPOSITE_LOGGER as logger
 
-_import_start = time.time()
+__all__ = [
+    "compute_saturations",
+    "extend_fractional_derivatives",
+]
 
 
-logger.debug(f"(import composite/utils_c.py) Compiling parsers ..\n")
 # region Parsers for generic flash arguments
 
 
@@ -239,57 +239,11 @@ def insert_sat(X_gen: np.ndarray, sat: np.ndarray, npnc: tuple[int, int]) -> np.
 # endregion
 
 
-logger.debug(f"(import composite/utils_c.py) Compiling miscellaneous functions ..\n")
-
-
-@numba.njit("float64[:,:](float64[:,:])", fastmath=True, cache=True)
-def normalize_fractions(x: np.ndarray) -> np.ndarray:
-    """Takes a matrix of phase compositions (rows - phase, columns - component)
-    and normalizes the fractions.
-
-    Meaning it divides each matrix element by the sum of respective row.
-
-    NJIT-ed function with signature ``(float64[:,:]) -> float64[:,:]``.
-
-    Parameters:
-        x: ``shape=(num_phases, num_components)``
-
-            A matrix of phase compositions, containing per row the (extended)
-            fractions per component.
-
-    Returns:
-        A normalized version of ``X``, with the normalization performed row-wise
-        (phase-wise).
-
-    """
-    return (x.T / x.sum(axis=1)).T
-
-
 @numba.njit("float64[:](float64[:],float64[:])", fastmath=True, cache=True)
-def extended_compositional_derivatives(df_dxn: np.ndarray, x: np.ndarray) -> np.ndarray:
-    """Expands the derivatives of a scalar function :math:`f(p, T, x_n)`, assuming
-    the its derivatives are given w.r.t. to the normalized fractions
-    (see :func:`normalize_fractions`).
+def _extend_fractional_derivatives(df_dxn: np.ndarray, x: np.ndarray) -> np.ndarray:
+    """Internal ``numba.njit``-decorated function for
+    :meth:`extend_compositional_derivatives` for non-vectorized input."""
 
-    Expansion is conducted by simply applying the chain rule to :math:`f(x_n(x))`.
-
-    Intended use is for thermodynamic properties given by :class:`EoSCompiler`, which
-    are given as functions with above signature.
-
-    Parameters:
-        df_dxn: ``shape=(2 + num_components,)``
-
-            The gradient of a scalar function w.r.t. to pressure, temperature and
-            normalized fractions in a phase.
-        x: ``shape=(num_components,)``
-
-            The extended fractions for a phase.
-
-    Returns:
-        An array with the same shape as ``df_dxn`` where the chain rule was applied.
-
-    """
-    assert len(df_dxn) >= len(x), "Dimension mismatch (number of derivatives)."
     df_dx = df_dxn.copy()  # deep copy to avoid messing with values
     ncomp = x.shape[0]
     # constructing the derivatives of xn_ij = x_ij / (sum_k x_kj)
@@ -302,23 +256,36 @@ def extended_compositional_derivatives(df_dxn: np.ndarray, x: np.ndarray) -> np.
     return df_dx
 
 
-# TODO this can be turned into a numpy universal function to collapse to single function
-# NOTE This cache is dependent on changes in the base function
-@numba.njit(
-    "float64[:,:](float64[:,:],float64[:,:])",
-    parallel=True,
-    fastmath=True,
-    cache=NUMBA_CACHE,
+@numba.guvectorize(
+    ["void(float64[:],float64[:],float64[:],float64[:])"],
+    "(m),(n),(m)->(m)",
+    target="parallel",
+    nopython=True,
+    cache=NUMBA_CACHE,  # NOTE cache depends on internal function
 )
-def extended_compositional_derivatives_v(
-    df_dxn: np.ndarray, x: np.ndarray
+def _extend_fractional_derivatives_gu(
+    df_dxn: np.ndarray, x: np.ndarray, out: np.ndarray, dummy: np.ndarray
 ) -> np.ndarray:
-    """Same as :func:`extended_compositional_derivatives`, only efficiently vectorized.
+    """Internal ``numba.guvectorize``-decorated function for
+    :meth:`extend_compositional_derivatives`."""
+    out[:] = _extend_fractional_derivatives(df_dxn, x)
+
+
+def extend_fractional_derivatives(df_dxn: np.ndarray, x: np.ndarray) -> np.ndarray:
+    r"""Expands the derivatives of a scalar function :math:`f(y, x_n)`, assuming
+    its derivatives are given w.r.t. to the normalized fractions ``x_n``.
+
+    Expansion is conducted by simply applying the chain rule to :math:`f(y, x_n(x))`.
+
+    Intended use is for thermodynamic properties given by :class:`EoSCompiler`, which
+    are given as functions with above signature.
+
+    Utilizes numba for parallelized, efficient computations.
 
     Parameters:
-        df_dxn: ``shape=(2 + num_components, M)``
+        df_dxn: ``shape=(N + num_components, M)``
 
-            The gradient of a scalar function w.r.t. to pressure, temperature and
+            The gradient of a scalar function w.r.t. to ``y`` and
             normalized fractions in a phase.
 
             The derivatives are expected to be given row-wise.
@@ -327,47 +294,38 @@ def extended_compositional_derivatives_v(
 
             The extended fractions for a phase (row-wise).
 
+    Raises:
+        AssertionError: If vectorized input is of mismatching dimensions (M).
+        AssertionError: If ``df_dxn`` has fewer rows than than ``x``
+            (number of derivatives must be at least length of ``x``)
+
     Returns:
         An array with the same shape as ``df_dxn`` where the chain rule was applied.
 
     """
-    assert df_dxn.shape[1] == x.shape[1], "Dimension mismatch (values)."
     assert df_dxn.shape[0] >= x.shape[0], "Dimension mismatch (number of derivatives)."
-    df_dx = np.empty_like(df_dxn)
-    _, N = x.shape
-    for i in numba.prange(N):
-        df_dx[:, i] = extended_compositional_derivatives(df_dxn[:, i], x[:, i])
+
+    # allowing 1D arrays
+    if len(df_dxn.shape) > 1:
+        assert df_dxn.shape[1] == x.shape[1], "Dimension mismatch (values)."
+
+        # NOTE Transpose to parallelize over values, not derivatives
+        df_dx = np.empty_like(df_dxn.T)
+        _extend_fractional_derivatives_gu(df_dxn.T, x.T, df_dx)
+
+        df_dx = df_dx.T
+    else:
+        assert len(x.shape) == 1, "Dimension mismatch (values)."
+        df_dx = _extend_fractional_derivatives(df_dxn, x)
+
     return df_dx
 
 
 @numba.njit("float64[:](float64[:],float64[:],float64)", fastmath=True, cache=True)
-def compute_saturations(y: np.ndarray, rho: np.ndarray, eps: float) -> np.ndarray:
-    r"""Computes the saturation values by solving the phase fraction relations of form
+def _compute_saturations(y: np.ndarray, rho: np.ndarray, eps: float) -> np.ndarray:
+    """Internal ``numba.njit``-decorated function for :meth:`compute_saturations` for
+    non-vectorized input."""
 
-    .. math::
-
-        \left(\sum_k s_k \rho_k\right) y_j - \rho_j s_j = 0~,~ \sum_k s_k - 1 = 0~.
-
-    Parameters:
-        y: ``shape=(num_phase,)``
-
-            A vector of molar phase fractions, assuming the first value belongs to the
-            reference phase.
-        rho: ``shape=(num_phase,)``
-
-            A vector of phase densities, corresponding to ``y``. Must be of same length
-            as ``y``.
-        eps: A small number to determin saturated phases (``y_j > 1- eps``).
-
-    Raises:
-        AssertionError: If ``y`` and ``rho`` are of unequal shape.
-        AssertionError: If more than one phase is saturated.
-        AssertionError: If the computed saturations violate the unity constraint.
-
-    Returns:
-        A vector of analogous shape (and phase order) containing saturation values.
-
-    """
     assert y.shape == rho.shape, "Mismatch in given numbers of fractions and densities."
     nphase = y.shape[0]
 
@@ -415,47 +373,74 @@ def compute_saturations(y: np.ndarray, rho: np.ndarray, eps: float) -> np.ndarra
                 s_ = np.linalg.solve(mat, rhs)
                 s[not_vanished] = s_
 
-    # sanity check of results, should not happen.
-    assert s.sum() <= 1.0 + eps, "Computed saturations violate unity constraint."
     return s
 
 
-# NOTE this cache is dependent on changes in the base function
-@numba.njit(
-    "float64[:,:](float64[:,:],float64[:,:],float64)",
-    parallel=True,
-    fastmath=True,
-    cache=NUMBA_CACHE,
+@numba.guvectorize(
+    ["void(float64[:],float64[:],float64,float64[:],float64[:])"],
+    "(n),(n),(),(n)->(n)",
+    target="parallel",
+    nopython=True,
+    cache=NUMBA_CACHE,  # NOTE cache depends on internal function
 )
-def compute_saturations_v(y: np.ndarray, rho: np.ndarray, eps: float) -> np.ndarray:
-    """Parallelized form of :func:`compute_saturations` for vectorized input.
+def _compute_saturations_gu(
+    y: np.ndarray, rho: np.ndarray, eps: float, out: np.ndarray, dummy: np.ndarray
+) -> np.ndarray:
+    """Internal ``numba.guvectorize``-decorated function for
+    :meth:`compute_saturations`."""
+    out[:] = _compute_saturations(y, rho, eps)
+
+
+def compute_saturations(
+    y: np.ndarray, rho: np.ndarray, eps: float = 1e-8
+) -> np.ndarray:
+    r"""Computes the saturation values by solving the phase fraction relations of form
+
+    .. math::
+
+        \left(\sum_k s_k \rho_k\right) y_j - \rho_j s_j = 0~,~ \sum_k s_k - 1 = 0~.
+
+    Utilizes numba for parallelized, efficient computations.
 
     Parameters:
         y: ``shape=(num_phase, N)``
 
-            Matrix containing row-wise molar phase fractions per phase.
+            A vector of molar phase fractions, assuming the first row belongs to the
+            reference phase.
         rho: ``shape=(num_phase, N)``
 
-            Same for densities.
-        eps: Same as for non-parallelized version.
+            A vector of phase densities, corresponding to ``y``. Must be of same shape
+            as ``y``.
+        eps: ``default=1e-8``
+
+            A small number to determin saturated phases (``y_j > 1- eps``).
+
+    Raises:
+        AssertionError: If ``y`` and ``rho`` are of unequal shape.
+        AssertionError: If more than one phase is saturated.
+        AssertionError: If the computed saturations violate the unity constraint.
 
     Returns:
-        An array with ``shape=(num_phase, N)`` containing row-wise saturation values per
-        phase.
+        A vector of analogous shape (and phase order) containing saturation values.
 
     """
     assert y.shape == rho.shape, "Mismatch in given numbers of fractions and densities."
-    s = np.empty_like(y)
-    for n in numba.prange(y.shape[1]):
-        s[:, n] = compute_saturations(y[:, n], rho[:, n], eps)
+
+    saturated = y > 1 - eps
+    multi_saturated = saturated.sum(axis=0)
+    assert not np.any(multi_saturated > 1), "More than 1 phase saturated in terms of y."
+
+    if len(y.shape) > 1:
+        # NOTE transpose to parallelize over values, not phases
+        s = np.empty_like(y.T)
+        _compute_saturations_gu(y.T, rho.T, eps, s)
+        s = s.T
+    else:
+        s = _compute_saturations(y, rho, eps)
+
+    # checking feasibility of results, should never assert though
+    saturated = s > 1 - eps
+    multi_saturated = saturated.sum(axis=0)
+    assert not np.any(multi_saturated > 1), "More than 1 phase saturated in terms of s."
+
     return s
-
-
-_import_end = time.time()
-
-logger.debug(
-    "(import composite/utils_c.py)"
-    + f" Done (elapsed time: {_import_end - _import_start} (s)).\n\n"
-)
-
-del _import_start, _import_end

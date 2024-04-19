@@ -1,4 +1,5 @@
 """Module containing an abstraction layer for the flash procedure."""
+
 from __future__ import annotations
 
 import abc
@@ -106,7 +107,12 @@ class Flash(abc.ABC):
         h: Optional[np.ndarray | pp.number] = None,
         v: Optional[np.ndarray | pp.number] = None,
         initial_state: Optional[FluidState] = None,
-    ) -> tuple[FluidState, Literal["p-T", "p-h", "v-T", "v-h"], int, int,]:
+    ) -> tuple[
+        FluidState,
+        Literal["p-T", "p-h", "v-T", "v-h"],
+        int,
+        int,
+    ]:
         """Helper method to parse the input and construct a provisorical fluid state
         with uniform input (numpy arrays of same size).
 
