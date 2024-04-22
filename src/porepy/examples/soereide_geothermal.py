@@ -77,9 +77,70 @@ class CompiledFlash(ppc.FlashMixin):
         flash.compile(verbosity=2, precompile_solvers=False)
 
         # NOTE There is place to configure the solver here
+        flash.armijo_parameters["j_max"] = 30
+        flash.tolerance = 1e-7
+        flash.max_iter = 150
 
         # Setting the attribute of the mixin
         self.flash = flash
+
+    def get_fluid_state(
+        self, subdomains: Sequence[pp.Grid], state: np.ndarray | None = None
+    ) -> ppc.FluidState:
+        """Method to pre-process the evaluated fractions. Normalizes the extended
+        fractions where they violate a certain threshold."""
+        fluid_state = super().get_fluid_state(subdomains, state)
+
+        unity_tolerance = 1.05
+
+        for j, phase in enumerate(fluid_state.phases):
+            x_sum = phase.x.sum(axis=0)
+            if np.any(x_sum > unity_tolerance):
+                raise ValueError(
+                    f"Extended fractions in phase {j} violate unity constraint."
+                )
+            idx = x_sum > 1.0 + 1e-10
+            phase.x[:, idx] = ppc.normalize_rows(phase.x[:, idx].T).T
+
+        return fluid_state
+
+    def postprocess_failures(
+        self, fluid_state: ppc.FluidState, success: np.ndarray
+    ) -> ppc.FluidState:
+        """A post-processing where the flash is again attempted where not succesful.
+
+        But the new attempt does not use iterate values as initial guesses, but computes
+        the flash from scratch.
+
+        """
+        failure = success > 0
+        if np.any(failure):
+            sds = self.mdg.subdomains()
+            # no initial guess, and this model uses only p-h flash.
+            flash_kwargs = {
+                "z": [
+                    comp.fraction(sds).value(self.equation_system)[failure]
+                    for comp in self.fluid_mixture.components
+                ],
+                "p": self.pressure(sds).value(self.equation_system)[failure],
+                "h": self.enthalpy(sds).value(self.equation_system)[failure],
+                "parameters": self.flash_params,
+            }
+
+            sub_state, sub_success, _ = self.flash.flash(**flash_kwargs)
+
+            # update parent state with sub state values
+            success[failure] = sub_success
+            fluid_state.T[failure] = sub_state.T
+
+            for j in range(len(fluid_state.phases)):
+                fluid_state.sat[j][failure] = sub_state.sat[j]
+                fluid_state.y[j][failure] = sub_state.y[j]
+
+                fluid_state.phases[j].x[:, failure] = sub_state.phases[j].x
+
+        # Parent method performs a check that everything is successful.
+        return super().postprocess_failures(fluid_state, success)
 
 
 class ModelGeometry:
@@ -197,7 +258,7 @@ class BoundaryConditions:
         if sd.dim == 2:
             vals = np.ones(sd.num_faces) * T_init
 
-            vals[sides.west] = 460.0
+            vals[sides.west] = 500.0
             vals[sides.east] = 550.0
             # T values on heated bottom
             vals[sides.bottom] = 600.0
@@ -252,24 +313,33 @@ class GeothermalFlow(
     flash."""
 
 
+day = 86400
+t_scale = 0.00001
 time_manager = pp.TimeManager(
-    schedule=[0, 0.3, 0.6],
-    dt_init=1e-4,
-    dt_min_max=[1e-4, 0.1],
-    constant_dt=False,
-    iter_max=50,
+    schedule=[0.0, 100.0 * day * t_scale],
+    dt_init=1.0 * day * t_scale,
+    constant_dt=True,
+    iter_max=80,
     print_info=True,
 )
+
+solid_constants = pp.SolidConstants(
+    {"permeability": 9.869233e-12, "porosity": 0.2, "thermal_conductivity": 1.92}
+)
+material_constants = {"solid": solid_constants}
 
 # Model setup:
 # eliminate reference phase fractions  and reference component.
 params = {
+    "material_constants": material_constants,
     "eliminate_reference_phase": True,
     "eliminate_reference_component": True,
     "normalize_state_constraints": True,
     "use_semismooth_complementarity": True,
     "reduce_linear_system_q": True,
     "time_manager": time_manager,
+    "max_iterations": 80,
+    "nl_convergence_tol": 1e-5,
 }
 model = GeothermalFlow(params)
 pp.run_time_dependent_model(model, params)

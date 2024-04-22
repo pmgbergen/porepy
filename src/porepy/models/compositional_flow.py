@@ -13,6 +13,7 @@ The user needs to close models by providing a constitutive expression
 for them and eliminating the variables by a local, algebraic equation.
 
 """
+
 from __future__ import annotations
 
 import logging
@@ -473,10 +474,10 @@ class SolidSkeletonCF(
             saturation: Operator representing the saturation of a phase.
 
         Returns:
-            The base class method implements the quadratic law ``saturation ** 2``.
+            The base class method implements the linear law ``saturation``.
 
         """
-        return saturation**2
+        return saturation
 
     def solid_internal_energy(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Internal energy of the solid.
@@ -1044,7 +1045,6 @@ class ComponentMassBalanceEquations(mass.MassBalanceEquations):
 
         """
         if len(domains) == 0 or all(isinstance(d, pp.BoundaryGrid) for d in domains):
-            sds = [g.parent for g in domains]
             # NOTE consistent Neumann-type flux based on the total flux
             op = self.advective_weight_component_flux(
                 component, domains
@@ -1514,8 +1514,7 @@ class VariablesCF(
             ]
             + self.overall_fraction_variables
             + self.solute_fraction_variables
-            +
-            [
+            + [
                 self.enthalpy_variable,
             ]
         )
@@ -1620,7 +1619,7 @@ class ConstitutiveLawsCF(
             ppc.SecondaryExpression,
             Callable[[tuple[np.ndarray, ...]], tuple[np.ndarray, np.ndarray]],
             Sequence[pp.Grid | pp.MortarGrid],
-            Sequence[pp.BoundaryGrid]
+            Sequence[pp.BoundaryGrid],
         ],
     ]
     """Provided by :class:`SolutionStrategyCF`"""
@@ -1788,7 +1787,7 @@ class BoundaryConditionsCF(
             ppc.SecondaryExpression,
             Callable[[tuple[np.ndarray, ...]], tuple[np.ndarray, np.ndarray]],
             Sequence[pp.Grid | pp.MortarGrid],
-            Sequence[pp.BoundaryGrid]
+            Sequence[pp.BoundaryGrid],
         ],
     ]
     """Provided by :class:`SolutionStrategyCF`"""
@@ -2595,9 +2594,11 @@ class SolutionStrategyCF(
 
         # TODO this is experimental and expensive
         self.add_nonlinear_flux_discretization(
-            self.fourier_flux_discretization(subdomains).flux())
+            self.fourier_flux_discretization(subdomains).flux()
+        )
         self.add_nonlinear_flux_discretization(
-            self.darcy_flux_discretization(subdomains).flux())
+            self.darcy_flux_discretization(subdomains).flux()
+        )
 
     def update_secondary_quantities(self) -> None:
         """Update of secondary quantities with evaluations performed outside the AD

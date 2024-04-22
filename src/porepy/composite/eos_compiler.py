@@ -13,7 +13,7 @@ import numpy as np
 from .base import AbstractEoS, Component
 from .composite_utils import COMPOSITE_LOGGER as logger
 from .states import PhaseState
-from .utils_c import extend_fractional_derivatives
+from .utils_c import extend_fractional_derivatives, normalize_rows
 
 __all__ = [
     "EoSCompiler",
@@ -862,8 +862,7 @@ class EoSCompiler(AbstractEoS):
         # normalization of fractions for computing properties
         if not isinstance(x, np.ndarray):
             x = np.array(x)
-        x_sum = np.sum(x, axis=0)
-        xn = np.array([x_i / x_sum for x_i in x])
+        xn = normalize_rows(x.T).T
 
         ncomp, _ = x.shape
 
