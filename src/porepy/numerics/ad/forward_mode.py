@@ -106,7 +106,7 @@ class AdArray:
         else:
             key_val = key
         return AdArray(self.val[key_val], self.jac[key])
-    
+
     def __setitem__(self, key, val):
         if isinstance(key, tuple):
             key_val = key[0]
@@ -147,7 +147,7 @@ class AdArray:
             return self.val == other.val
         else:
             return self.val == other
-        
+
     def __neq__(self, other: AdType) -> bool | np.ndarray:
         if isinstance(other, AdArray):
             return self.val != other.val

@@ -73,10 +73,12 @@ class InitialConditions(InitialConditionsCF):
         p_init = 15.0e6
         p_outlet = 15.0e6
         xc = sd.cell_centers.T
+
         def p_D(xv):
-            p_val = (1-xv[0]/2)*p_init + (xv[0]/2)*p_outlet
+            p_val = (1 - xv[0] / 2) * p_init + (xv[0] / 2) * p_outlet
             return p_val
-        p_vals = np.fromiter(map(p_D,xc),dtype=float)
+
+        p_vals = np.fromiter(map(p_D, xc), dtype=float)
         return p_vals
 
     def initial_enthalpy(self, sd: pp.Grid) -> np.ndarray:

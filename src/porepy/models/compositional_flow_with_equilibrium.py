@@ -454,7 +454,11 @@ class SolutionStrategyCFLE(cf.SolutionStrategyCF, ppc.FlashMixin):
 
         """
         subdomains = self.mdg.subdomains()
-        fluid = self.postprocess_failures(*self.equilibriate_fluid(subdomains, None))
+        fluid = self.postprocess_failures(
+            *self.equilibriate_fluid(
+                subdomains, None, self.get_fluid_state(subdomains, None)
+            )
+        )
 
         ### Updating variables which are unknown to the specific equilibrium type
         for j, phase in enumerate(self.fluid_mixture.phases):

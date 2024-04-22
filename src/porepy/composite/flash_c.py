@@ -47,6 +47,7 @@ from .utils_c import (
     insert_pT,
     insert_sat,
     insert_xy,
+    normalize_rows,
     parse_pT,
     parse_sat,
     parse_target_state,
@@ -57,29 +58,6 @@ __all__ = ["CompiledUnifiedFlash"]
 
 
 # region Helper methods
-
-
-@numba.njit("float64[:,:](float64[:,:])", fastmath=True, cache=True)
-def _normalize_x(x: np.ndarray) -> np.ndarray:
-    """Takes a matrix of phase compositions (rows - phase, columns - component)
-    and normalizes the fractions.
-
-    Meaning it divides each matrix element by the sum of respective row.
-
-    NJIT-ed function with signature ``(float64[:,:]) -> float64[:,:]``.
-
-    Parameters:
-        x: ``shape=(num_phases, num_components)``
-
-            A matrix of phase compositions, containing per row the (extended)
-            fractions per component.
-
-    Returns:
-        A normalized version of ``X``, with the normalization performed row-wise
-        (phase-wise).
-
-    """
-    return (x.T / x.sum(axis=1)).T
 
 
 @numba.njit("float64[:](float64[:],float64[:,:])", fastmath=True, cache=True)
@@ -1038,7 +1016,7 @@ class CompiledUnifiedFlash(Flash):
             res[-nphase:] = complementary_conditions_res(x, y)
 
             # EoS specific computations
-            xn = _normalize_x(x)
+            xn = normalize_rows(x)
             prearg = get_prearg_res(p, T, xn)
 
             res[ncomp - 1 : ncomp - 1 + ncomp * (nphase - 1)] = isofug_constr_c(
@@ -1062,7 +1040,7 @@ class CompiledUnifiedFlash(Flash):
             jac[-nphase:] = complementary_conditions_jac(x, y)
 
             # EoS specific computations
-            xn = _normalize_x(x)
+            xn = normalize_rows(x)
             prearg_res = get_prearg_res(p, T, xn)
             prearg_jac = get_prearg_jac(p, T, xn)
 
@@ -1089,7 +1067,7 @@ class CompiledUnifiedFlash(Flash):
             res[-nphase:] = complementary_conditions_res(x, y)
 
             # EoS specific computations
-            xn = _normalize_x(x)
+            xn = normalize_rows(x)
             prearg = get_prearg_res(p, T, xn)
 
             res[ncomp - 1 : ncomp - 1 + ncomp * (nphase - 1)] = isofug_constr_c(
@@ -1116,7 +1094,7 @@ class CompiledUnifiedFlash(Flash):
             jac[-nphase:, 1:] = complementary_conditions_jac(x, y)
 
             # EoS specific computations
-            xn = _normalize_x(x)
+            xn = normalize_rows(x)
             prearg_res = get_prearg_res(p, T, xn)
             prearg_jac = get_prearg_jac(p, T, xn)
 
@@ -1154,7 +1132,7 @@ class CompiledUnifiedFlash(Flash):
             res[-nphase:] = complementary_conditions_res(x, y)
 
             # EoS specific computations
-            xn = _normalize_x(x)
+            xn = normalize_rows(x)
             prearg = get_prearg_res(p, T, xn)
 
             res[ncomp - 1 : ncomp - 1 + ncomp * (nphase - 1)] = isofug_constr_c(
@@ -1190,7 +1168,7 @@ class CompiledUnifiedFlash(Flash):
             jac[-nphase:, nphase + 1 :] = complementary_conditions_jac(x, y)
 
             # EoS specific computations
-            xn = _normalize_x(x)
+            xn = normalize_rows(x)
             prearg_res = get_prearg_res(p, T, xn)
             prearg_jac = get_prearg_jac(p, T, xn)
 
@@ -1264,7 +1242,7 @@ class CompiledUnifiedFlash(Flash):
                         + K_tol
                     )
             else:
-                xn = _normalize_x(x)
+                xn = normalize_rows(x)
                 prearg = get_prearg_res(p, T, xn)
                 # fugacity coefficients reference phase
                 phi_r = phi_c(prearg[0], p, T, xn[0])
@@ -1363,7 +1341,7 @@ class CompiledUnifiedFlash(Flash):
 
                 # update K-values if another iteration comes
                 if n < N1 - 1:
-                    xn = _normalize_x(x)
+                    xn = normalize_rows(x)
                     prearg = get_prearg_res(p, T, xn)
                     # fugacity coefficients reference phase
                     phi_r = phi_c(prearg[0], p, T, xn[0])
@@ -1392,7 +1370,7 @@ class CompiledUnifiedFlash(Flash):
             x, y, _ = parse_xyz(X_gen, npnc)
             p, T = parse_pT(X_gen, npnc)
             h, _ = parse_target_state(X_gen, npnc)
-            xn = _normalize_x(x)
+            xn = normalize_rows(x)
             h_j = np.empty(nphase, dtype=np.float64)
             dT_h_j = np.empty(nphase, dtype=np.float64)
 
@@ -1464,7 +1442,7 @@ class CompiledUnifiedFlash(Flash):
             jac = np.zeros((nphase + 1, nphase + 1))
 
             x, y, _ = parse_xyz(X_gen, npnc)
-            xn = _normalize_x(x)
+            xn = normalize_rows(x)
             v, h = parse_target_state(X_gen, npnc)
             if gas_index >= 0:
                 y_g = y[gas_index]
@@ -1614,7 +1592,7 @@ class CompiledUnifiedFlash(Flash):
 
                 # final saturation update
                 x, y, _ = parse_xyz(xf, npnc)
-                xn = _normalize_x(x)
+                xn = normalize_rows(x)
                 p, T = parse_pT(xf, npnc)
                 rho = np.empty(nphase, dtype=np.float64)
                 for j in range(nphase):

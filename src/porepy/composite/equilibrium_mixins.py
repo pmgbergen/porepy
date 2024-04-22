@@ -568,11 +568,51 @@ class FlashMixin:
         """
         raise CompositeModellingError("Call to mixin method. No flash object defined.")
 
-    def equilibriate_fluid(
+    def get_fluid_state(
         self, subdomains: Sequence[pp.Grid], state: Optional[np.ndarray] = None
+    ) -> FluidState:
+        """Method to assemble a fluid state in the iterative procedure, which
+        should be passed to :meth:`equilibriate_fluid`.
+
+        This method provides room to pre-process data before the flash is called with
+        the returned fluid state as the initial guess.
+
+        Parameters:
+            subdomains: Subdomains for which the state functions should be evaluated
+            state: ``default=None``
+
+                Global state vector to be passed to the Ad framework when evaluating the
+                current state (fractions, pressure, temperature, enthalpy,..)
+
+        Returns:
+            The base method returns a fluid state containing the current iterate value
+            of the unknowns of respective flash subproblem (p-T, p-h,...).
+
+        """
+
+        # Extracting the current, iterative state to use as initial guess for the flash
+        fluid_state = self.fractional_state_from_vector(subdomains, state)
+
+        # Evaluate temperature as initial guess, if not fixed in equilibrium type
+        if "T" not in self.equilibrium_type:
+            # initial guess for T from iterate
+            fluid_state.T = self.temperature(subdomains).value(
+                self.equation_system, state
+            )
+        # evaluate pressure, if volume is fixed. NOTE saturations are also fractions
+        # and already included
+        if "v" in self.equilibrium_type:
+            fluid_state.p = self.pressure(subdomains).value(self.equation_system, state)
+
+        return fluid_state
+
+    def equilibriate_fluid(
+        self,
+        subdomains: Sequence[pp.Grid],
+        state: Optional[np.ndarray] = None,
+        initial_fluid_state: Optional[FluidState] = None,
     ) -> tuple[FluidState, np.ndarray]:
-        """Convenience method to assemble the state of the fluid based on a global
-        vector and to equilibriate it using the flasher.
+        """Convenience method perform the flash based on model specifications.
 
         This method is called in
         :meth:`~porepy.models.compositional_flow.SolutionStrategyCF.
@@ -580,10 +620,15 @@ class FlashMixin:
         iterations.
 
         Parameters:
+            subdomains: Subdomains on which to evaluate the target state functions.
             state: ``default=None``
 
                 Global state vector to be passed to the Ad framework when evaluating the
-                current state (fractions, pressure, temperature, enthalpy,..)
+                state functions.
+            initial_fluid_state: ``default=None``
+
+                Initial guess passed to :meth:`~porepy.composite.flash.Flash.flash`.
+                Note that if None, the flash computes the initial guess itself.
 
         Returns:
             The equilibriated state of the fluid and an indicator where the flash was
@@ -594,53 +639,52 @@ class FlashMixin:
 
         """
 
-        # Extracting the current, iterative state to use as initial guess for the flash
-        fluid_state = self.fractional_state_from_vector(subdomains, state)
+        if initial_fluid_state is None:
+            z = np.array(
+                [
+                    comp.fraction(subdomains).value(self.equation_system)
+                    for comp in self.fluid_mixture.components
+                ]
+            )
+        else:
+            z = initial_fluid_state.z
+
+        flash_kwargs = {
+            "z": z,
+            "initial_state": initial_fluid_state,
+            "parameters": self.flash_params,
+        }
 
         if self.equilibrium_type == "p-T":
-            p = self.pressure(subdomains).value(self.equation_system, state)
-            T = self.temperature(subdomains).value(self.equation_system, state)
-            result_state, succes, _ = self.flash.flash(
-                z=fluid_state.z,
-                p=p,
-                T=T,
-                initial_state=fluid_state,
-                parameters=self.flash_params,
+            flash_kwargs.update(
+                {
+                    "p": self.pressure(subdomains).value(self.equation_system, state),
+                    "T": self.temperature(subdomains).value(
+                        self.equation_system, state
+                    ),
+                }
             )
         elif self.equilibrium_type == "p-h":
-            p = self.pressure(subdomains).value(self.equation_system, state)
-            h = self.enthalpy(subdomains).value(self.equation_system, state)
-            # initial guess for T from iterate
-            fluid_state.T = self.temperature(subdomains).value(
-                self.equation_system, state
-            )
-            result_state, succes, _ = self.flash.flash(
-                z=fluid_state.z,
-                p=p,
-                h=h,
-                initial_state=fluid_state,
-                parameters=self.flash_params,
+            flash_kwargs.update(
+                {
+                    "p": self.pressure(subdomains).value(self.equation_system, state),
+                    "h": self.enthalpy(subdomains).value(self.equation_system, state),
+                }
             )
         elif self.equilibrium_type == "v-h":
-            v = self.volume(subdomains).value(self.equation_system, state)
-            h = self.enthalpy(subdomains).value(self.equation_system, state)
-            # initial guess for T, p from iterate, saturations already contained
-            fluid_state.T = self.temperature(subdomains).value(
-                self.equation_system, state
-            )
-            fluid_state.p = self.pressure(subdomains).value(self.equation_system, state)
-            result_state, succes, _ = self.flash.flash(
-                z=fluid_state.z,
-                v=v,
-                h=h,
-                initial_state=fluid_state,
-                parameters=self.flash_params,
+            flash_kwargs.update(
+                {
+                    "v": self.volume(subdomains).value(self.equation_system, state),
+                    "h": self.enthalpy(subdomains).value(self.equation_system, state),
+                }
             )
         else:
             raise CompositeModellingError(
                 "Attempting to equilibriate fluid with uncovered equilibrium type"
                 + f" {self.equilibrium_type}."
             )
+
+        result_state, succes, _ = self.flash.flash(**flash_kwargs)
 
         return result_state, succes
 
@@ -663,4 +707,7 @@ class FlashMixin:
         if np.all(success == 0):
             return fluid_state
         else:
-            NotImplementedError("No flash postprocessing implemented.")
+            raise ValueError(
+                "Flash strategy did not succeed in"
+                + f" {(success > 0).sum()} / {len(success)} cases."
+            )

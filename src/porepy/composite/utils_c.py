@@ -23,6 +23,7 @@ import numpy as np
 from ._core import NUMBA_CACHE
 
 __all__ = [
+    "normalize_rows",
     "compute_saturations",
     "extend_fractional_derivatives",
 ]
@@ -237,6 +238,29 @@ def insert_sat(X_gen: np.ndarray, sat: np.ndarray, npnc: tuple[int, int]) -> np.
 
 
 # endregion
+
+
+@numba.njit("float64[:,:](float64[:,:])", fastmath=True, cache=True)
+def normalize_rows(x: np.ndarray) -> np.ndarray:
+    """Takes a 2D array and normalizes it row-wise.
+
+    Each row vector is divided by the sum of row elements.
+
+    Inteded use is for families of fractional variables, which ought to be normalized
+    such that they fulfill the unity constraint.
+
+    NJIT-ed function with signature ``(float64[:,:]) -> float64[:,:]``.
+
+    Parameters:
+        x: ``shape=(N, M)``
+
+            Rectangular 2D array.
+
+    Returns:
+        A normalized version of ``X``, with the normalization performed row-wise.
+
+    """
+    return (x.T / x.sum(axis=1)).T
 
 
 @numba.njit("float64[:](float64[:],float64[:])", fastmath=True, cache=True)
