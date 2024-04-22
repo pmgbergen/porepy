@@ -102,9 +102,9 @@ class Tpsa:
         # The copies may not be needed here.
         indptr = cell_to_face_average.indptr.copy()
         indices = cell_to_face_average.indices.copy()
-        data = 1 - cell_to_face_average.data.copy()
+        vals = 1 - cell_to_face_average.data.copy()
         cell_to_face_average_complement = sps.csr_matrix(
-            (data, indices, indptr), shape=cell_to_face_average.shape
+            (vals, indices, indptr), shape=cell_to_face_average.shape
         )
         cell_to_face_average_complement_nd = sps.kron(
             cell_to_face_average_complement,
@@ -197,12 +197,12 @@ class Tpsa:
             # In this case, \hat{R}_k^n and \bar{R}_k^n differs, and read, respectively
             # \hat{R}_k^n = [[n2], [-n1]], \bar{R}_k^n = [-n2, n1].
             # We may need a ravel of sorts of the data
-            data = np.array([n[1], -n[0]])
+            normal_vector_data = np.array([n[1], -n[0]])
 
             # Mapping from average displacements over faces to rotations on the face
             Rn_bar = sps.csr_matrix(
                 (
-                    -data.ravel("F"),  # minus sign from definition of Rn_bar
+                    -normal_vector_data.ravel("F"),  # minus sign from definition of Rn_bar
                     np.arange(sd.dim * sd.num_faces),
                     np.arange(0, sd.dim * sd.num_faces + 1, sd.dim),
                 ),
@@ -211,7 +211,7 @@ class Tpsa:
             # Mapping from average rotations over faces to stresses
             Rn_hat = sps.csc_matrix(
                 (
-                    data.ravel("F"),
+                    normal_vector_data.ravel("F"),
                     np.arange(sd.num_faces * sd.dim),
                     np.arange(0, sd.dim * sd.num_faces + 1, sd.dim),
                 ),
