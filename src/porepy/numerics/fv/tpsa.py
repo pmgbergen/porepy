@@ -54,7 +54,7 @@ class Tpsa:
 
         # Vector from face center to cell center
         fc_cc = n * (sd.face_centers[::, fi] - sd.cell_centers[::, ci]) / sd.face_areas[fi]
-        dist_fc_cc = np.sqrt(np.sum(fc_cc**2, axis=0))
+        dist_fc_cc = np.abs(np.sum(fc_cc, axis=0))
 
         # Distance between neighboring cells
         dist_cc_cc = np.bincount(fi, weights=dist_fc_cc, minlength=sd.num_cells)
