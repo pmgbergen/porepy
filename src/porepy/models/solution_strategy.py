@@ -533,12 +533,7 @@ class SolutionStrategy(abc.ABC):
             logger.info(f"Normalized residual error: {residual_error:.2e}")
             # Check convergence
             converged_inc = increment_error < nl_params["nl_convergence_tol"]
-            # Allow for nan values in the residual error for effectively disabled
-            # convergence check.
-            converged_res = (
-                residual_error < nl_params["nl_convergence_tol_res"]
-                or nl_params["nl_convergence_tol_res"] is np.inf
-            )
+            converged_res = residual_error < nl_params["nl_convergence_tol_res"]
             converged = converged_inc and converged_res
             diverged = False
 
