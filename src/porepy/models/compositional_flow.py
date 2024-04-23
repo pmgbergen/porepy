@@ -1524,9 +1524,9 @@ class VariablesCF(
         """Returns a list of secondary variables, which is defined as the complement
         of :meth:`primary_variable_names` and all variables found in the equation
         system."""
-        all_vars = set([var.name for var in self.equation_system.get_variables()])
-        primary_vars = set(self.primary_variable_names)
-        return list(all_vars.difference(primary_vars))
+        secondary_variables = [var.name for var in self.equation_system.get_variables()]
+        [secondary_variables.remove(var) for var in self.primary_variable_names]
+        return secondary_variables
 
     def create_variables(self) -> None:
         """Set the variables for the fluid mass and energy balance problem.
