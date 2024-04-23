@@ -27,7 +27,7 @@ class SolverStatistics:
         >>> import json
         >>> with open("solver_statistics.json", "r") as f:
         >>>     history = json.load(f)
-        >>> ts = 1
+        >>> ts = str(1)
         >>> err = history[ts]["residual_errors"]
         >>> plt.semilogy(err)
         >>> plt.xlabel("Iteration number")
