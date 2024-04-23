@@ -391,14 +391,14 @@ class SolutionStrategy(abc.ABC):
         """
 
     def set_nonlinear_solver_statistics(self) -> None:
-        """Set statistics object for non-linear solver loop."""
-        statistics_file_path = Path(
-            self.params.get("folder_name", "visualization")
-        ) / Path(self.params.get("statistics_file_name", "solver_statistics.json"))
-        self.nonlinear_solver_statistics = pp.SolverStatistics(
-            self,
-            statistics_file_path,
-        )
+        """Set statistics object for non-linear solver loop.
+
+        NOTE: If 'solver_statistics_file_name' is chosen None, file is not stored.
+        """
+        path = self.params.get("solver_statistics_file_name")
+        if path is not None:
+            path = Path(self.params.get("folder_name", "visualization")) / path
+        self.nonlinear_solver_statistics = pp.SolverStatistics(path=path)
 
     def before_nonlinear_loop(self) -> None:
         """Method to be called before entering the non-linear solver, thus at the start
@@ -457,8 +457,7 @@ class SolutionStrategy(abc.ABC):
             values=solution, time_step_index=0, additive=False
         )
         self.convergence_status = True
-        self.nonlinear_solver_statistics.log_timestep()
-
+        self.nonlinear_solver_statistics.save()
         self.save_data_time_step()
 
     def after_nonlinear_failure(self, solution: np.ndarray) -> None:
@@ -468,7 +467,7 @@ class SolutionStrategy(abc.ABC):
             solution: The new solution, as computed by the non-linear solver.
 
         """
-        self.nonlinear_solver_statistics.log_timestep()
+        self.nonlinear_solver_statistics.save()
         if self._is_nonlinear_problem():
             raise ValueError("Nonlinear iterations did not converge.")
         else:
@@ -520,8 +519,6 @@ class SolutionStrategy(abc.ABC):
             converged: bool = not diverged
             residual_error: float = np.nan if diverged else 0.0
             increment_error: float = np.nan if diverged else 0.0
-            # TODO decide whether to omit logging of errors for linear problems
-            # return residual_error, increment_error, converged, diverged
         else:
             # First a simple check for nan values.
             if np.any(np.isnan(solution_increment)):
@@ -547,8 +544,6 @@ class SolutionStrategy(abc.ABC):
 
         # Log the errors, increments and residuals
         self.nonlinear_solver_statistics.log_error(increment_error, residual_error)
-        self.nonlinear_solver_statistics.log_increment(solution_increment)
-        self.nonlinear_solver_statistics.log_residual(residual, init_residual)
 
         return residual_error, increment_error, converged, diverged
 
@@ -559,9 +554,8 @@ class SolutionStrategy(abc.ABC):
 
         Parameters:
             residual: Residual of current iteration.
-            init_residual: Reference residual value (initial residual expected).
-
-        NOTE: Access to initial residual allows for defining relative criteria.
+            init_residual: Reference residual value (initial residual expected), allowing
+                for definiting relative criteria.
 
         Returns:
             float: Residual error.
@@ -619,10 +613,6 @@ class SolutionStrategy(abc.ABC):
         t_0 = time.time()
         self.linear_system = self.equation_system.assemble()
         logger.debug(f"Assembled linear system in {time.time() - t_0:.2e} seconds.")
-
-        # Definition of nonlinear solver strategy not finalized - redefine FIXME
-        if not self.nonlinear_solver_statistics.init_complete:
-            self.set_nonlinear_solver_statistics()
 
     def solve_linear_system(self) -> np.ndarray:
         """Solve linear system.
