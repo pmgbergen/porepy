@@ -7,7 +7,7 @@ import copy
 from enum import Enum
 from functools import reduce
 from itertools import count
-from typing import Any, Literal, Optional, Sequence, Union, overload, Callable
+from typing import Any, Callable, Literal, Optional, Sequence, Union, overload
 
 import numpy as np
 import scipy.sparse as sps
@@ -285,7 +285,7 @@ class Operator:
 
         """
         return _get_previous_time_or_iterate(self, prev_time=True)
-    
+
     def previous_iterate(self) -> pp.ad.Operator:
         """Analogous to :meth:`previous_timestep`, but for the iterate representation.
 

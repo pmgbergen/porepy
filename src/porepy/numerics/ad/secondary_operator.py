@@ -41,9 +41,9 @@ Example:
     .. code-block:: python
 
         class MyFluid:
-        
+
             mdg: porepy.MixedDimensionalGrid
-        
+
             pressure: Callable[
                 [porepy.SubdomainsOrBoundaries], porepy.MixedDimensionalVariable
             ]
@@ -51,9 +51,9 @@ Example:
             temperature: Callable[
                 [porepy.SubdomainsOrBoundaries], porepy.MixedDimensionalVariable
             ]
-        
+
             def __init__(self):
-            
+
                 self.fluid_density: Callable[
                     [porepy.GridlikeSequence], porepy.Operator
                 ] = SecondaryExpression(
@@ -78,7 +78,7 @@ Example:
     user to be aware of the data which is stored in the memory and requires thinking
     about the memory budget.
 
-    Analogously, since we assume a non-linear problem which requires iterations, 
+    Analogously, since we assume a non-linear problem which requires iterations,
     we need to store iterate values for the current time step as well, hence
     ``iterate_depth`` is 1.
 

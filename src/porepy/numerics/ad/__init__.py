@@ -17,8 +17,8 @@ from . import (
     grid_operators,
     operator_functions,
     operators,
+    secondary_operator,
     time_derivatives,
-    secondary_operator
 )
 from .discretizations import *
 from .equation_system import *
@@ -27,8 +27,8 @@ from .functions import *
 from .grid_operators import *
 from .operator_functions import *
 from .operators import *
-from .time_derivatives import *
 from .secondary_operator import *
+from .time_derivatives import *
 
 __all__.extend(operators.__all__)
 __all__.extend(operator_functions.__all__)
