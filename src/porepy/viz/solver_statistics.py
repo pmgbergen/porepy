@@ -21,12 +21,13 @@ class SolverStatistics:
     Example:
 
         After storing solver statistics to file, we can load the file and plot
-        analogous data.
+        analogous data, here for the first time step.
 
         >>> import matplotlib.pyplot as plt
         >>> import json
         >>> with open("solver_statistics.json", "r") as f:
         >>>     history = json.load(f)
+        >>> ts = 1
         >>> err = history[ts]["residual_errors"]
         >>> plt.semilogy(err)
         >>> plt.xlabel("Iteration number")
@@ -77,8 +78,8 @@ class SolverStatistics:
             else:
                 data = {}
 
-            # Append data
-            ind = len(data)
+            # Append data - assume the index corresponds to time step
+            ind = len(data) + 1
             data[ind] = {
                 "num_iteration": self.num_iteration,
                 "increment_errors": self.increment_errors,
