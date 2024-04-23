@@ -1520,7 +1520,7 @@ class VariablesCF(
         )
 
     @property
-    def secondary_variables(self) -> list[str]:
+    def secondary_variables_names(self) -> list[str]:
         """Returns a list of secondary variables, which is defined as the complement
         of :meth:`primary_variable_names` and all variables found in the equation
         system."""
