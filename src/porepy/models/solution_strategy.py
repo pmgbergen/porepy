@@ -395,9 +395,12 @@ class SolutionStrategy(abc.ABC):
 
         NOTE: If 'solver_statistics_file_name' is chosen None, file is not stored.
         """
-        path = self.params.get("solver_statistics_file_name")
-        if path is not None:
-            path = Path(self.params.get("folder_name", "visualization")) / path
+        if "solver_statistics_file_name" in self.params:
+            path = Path(self.params.get("folder_name", "visualization")) / Path(
+                self.params["solver_statistics_file_name"]
+            )
+        else:
+            path = None
         self.nonlinear_solver_statistics = pp.SolverStatistics(path=path)
 
     def before_nonlinear_loop(self) -> None:
