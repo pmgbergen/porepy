@@ -7,7 +7,7 @@ import copy
 from enum import Enum
 from functools import reduce
 from itertools import count
-from typing import Any, Literal, Optional, Sequence, Union, overload
+from typing import Any, Literal, Optional, Sequence, Union, overload, Callable
 
 import numpy as np
 import scipy.sparse as sps
@@ -36,6 +36,76 @@ def _get_shape(mat):
         return mat.jac.shape
     else:
         return mat.shape
+
+
+def _get_previous_time_or_iterate(op: Operator, prev_time: bool = True) -> Operator:
+    """Helper function which traverses an operator tree by recursion to get a
+    copy of and its childrent, representing it at a previous time or
+    previous iteration.
+
+    Parameters:
+        op: Some operator whos tree should be traversed.
+        prev_time: ``default=True``
+
+            If True, it calles :meth:`Operator.previous_timestep`, otherwise it calls
+            :meth:`Operator.previous_iterate`.
+
+            This is the only difference in the recursion and we can avoid duplicate
+            code.
+
+    Returns:
+        A copy of the operator and its childrent, representing the previous time or
+        iterate.
+
+    """
+
+    prev_func: Callable[[], Operator]
+
+    if prev_time:
+        prev_func = op.previous_timestep
+        atomic_operators = (
+            Variable,
+            MixedDimensionalVariable,
+            TimeDependentDenseArray,
+            pp.ad.SecondaryOperator,
+        )
+    else:
+        prev_func = op.previous_iterate
+        atomic_operators = (
+            Variable,
+            MixedDimensionalVariable,
+            pp.ad.SecondaryOperator,
+        )
+
+    # The recursion reached an atomic operator, which has some time- or
+    # iterate-dependent behaviour
+    if isinstance(op, atomic_operators):
+        new_op = prev_func()
+    # The recursion reached an operator without children and without time- or iterate-
+    # dependent behaviour
+    elif op.is_leaf():
+        new_op = op
+    # Else we are in the middle of the operator tree and need to go deeper, creating
+    # copies along.
+    else:
+        # Invoke recursion for all children.
+        new_children: list[Operator] = list()
+        for child in op.children:
+            # Recursive call to fix the subtree.
+            new_children.append(
+                _get_previous_time_or_iterate(child, prev_time=prev_time)
+            )
+
+        # Create new operator from the tree, with the only difference being the new
+        # children.
+        new_op = Operator(
+            name=op.name,
+            domains=op.domains,
+            operation=op.operation,
+            children=new_children,
+        )
+
+    return new_op
 
 
 class Operator:
@@ -194,68 +264,47 @@ class Operator:
         """Return an operator that represents the value of this operator at the previous
         timestep.
 
-        The operator tree at the previous time step is created as a shallow copy, and will
-        thus be identical to the original operator, except that all time dependent operators
-        are evaluated at the previous time step.
+        The operator tree at the previous time step is created as a shallow copy, and
+        will thus be identical to the original operator, except that all time dependent
+        operators are evaluated at the previous time step.
+
+        Important:
+            Operators which have a changing behavior in time, must overide this method
+            to implement respective changes and a return the shallow copy of themselves.
+
+        Operators with a representation at the previous time step include as of now
+
+        - :class:`Variable`
+        - :class:`MixedDimensionalVariable`
+        - :class:`TimeDependentDenseArray`
+        - :class:`~porepy.numerics.ad.secondary_operator.SecondaryOperator`
 
         Returns:
             A copy of self, with all time dependent operators evaluated at the previous
             time step.
 
         """
-        # Create a copy of the operator tree evaluated at a previous time step. This is done
-        # by traversing the underlying graph, and set all time-dependent objects to be
-        # evaluated at the previous time step.
+        return _get_previous_time_or_iterate(self, prev_time=True)
+    
+    def previous_iterate(self) -> pp.ad.Operator:
+        """Analogous to :meth:`previous_timestep`, but for the iterate representation.
 
-        def _traverse_tree(op: Operator) -> Operator:
-            """Helper function which traverses an operator tree by recursion."""
+        Operators with a representation at the previous iterate include as of now
 
-            children = op.children
+        - :class:`Variable`
+        - :class:`MixedDimensionalVariable`
+        - :class:`~porepy.numerics.ad.secondary_operator.SecondaryOperator`
 
-            if len(children) == 0:
-                # We are on an atomic operator. If this is a time-dependent operator,
-                # set it to be evaluated at the previous time step. If not, leave the
-                # operator as it is.
-                if isinstance(
-                    op, (Variable, MixedDimensionalVariable, TimeDependentDenseArray)
-                ):
-                    # Use the previous_timestep() method of the operator to get the
-                    # operator evaluated at the previous time step. This in effect
-                    # creates a copy of the operator.
-                    # If other time-dependent other operators are added, they will have
-                    # to override this previous_timestep method.
-                    return op.previous_timestep()
+        Important:
+            Operators which have a changing behavior during iterations, must overide
+            this method to implement respective changes and a return the shallow copy of
+            themselves.
 
-                else:
-                    # No need to use a copy here.
-                    # This also means that operators that are not time dependent need not
-                    # override this previous_timestep method.
-                    return op
-            else:
-                # Recursively iterate over the subtree, get the children, evaluated at the
-                # previous time when relevant, and add it to the new list.
-                new_children: list[Operator] = list()
-                for ci, child in enumerate(children):
-                    # Recursive call to fix the subtree.
-                    new_children.append(_traverse_tree(child))
+        Returns:
+            A copy of self, with all operators evaluated at the previous iterate.
 
-                # Use the same lists of domains as in the old operator.
-                domains = op.domains
-
-                # Create new operator from the tree.
-                new_op = Operator(
-                    name=op.name,
-                    domains=domains,
-                    operation=op.operation,
-                    children=new_children,
-                )
-                return new_op
-
-        # Get a copy of the operator with all time-dependent quantities evaluated at the
-        # previous time step.
-        prev_time = _traverse_tree(self)
-
-        return prev_time
+        """
+        return _get_previous_time_or_iterate(self, prev_time=False)
 
     def parse(self, mdg: pp.MixedDimensionalGrid) -> Any:
         """Translate the operator into a numerical expression.
@@ -1294,12 +1343,12 @@ class SparseArray(Operator):
         """
         return self._mat
 
-    def transpose(self) -> "SparseArray":
+    def transpose(self) -> SparseArray:
         """Returns an AD operator representing the transposed matrix."""
         return SparseArray(self._mat.transpose())
 
     @property
-    def T(self) -> "SparseArray":
+    def T(self) -> SparseArray:
         """Shorthand for transpose."""
         return self.transpose()
 
@@ -1924,7 +1973,7 @@ class MixedDimensionalVariable(Variable):
         new_var.original_variable = self
         return new_var
 
-    def copy(self) -> "MixedDimensionalVariable":
+    def copy(self) -> MixedDimensionalVariable:
         """Copy the mixed-dimensional variable.
 
         Returns:
