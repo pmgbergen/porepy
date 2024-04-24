@@ -18,11 +18,12 @@ from porepy.numerics.ad.operator_functions import NumericType
 
 from ._core import R_IDEAL
 from .base import Mixture
-from .composite_utils import COMPOSITE_LOGGER as logger
 from .composite_utils import safe_sum, trunclog
 from .peng_robinson._eos import PhaseProperties, ThermodynamicState
 
 __all__ = ["FlashSystemNR", "FlashNR"]
+
+logger = logging.getLogger(__name__)
 
 
 DeprecationWarning("The module porepy.composite._flash is deprecated.")
@@ -1222,14 +1223,6 @@ class FlashNR:
               the last iterate is returned.
 
         """
-
-        # setting logging verbosity
-        if verbosity == 1:
-            logger.setLevel(logging.INFO)
-        elif verbosity >= 2:
-            logger.setLevel(logging.DEBUG)
-        else:
-            logger.setLevel(logging.WARNING)
 
         # check requested method
         assert method in ["newton-min", "npipm"], f"Unsupported method '{method}'."

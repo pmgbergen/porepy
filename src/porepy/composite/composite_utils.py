@@ -21,7 +21,6 @@ __all__ = [
     "safe_sum",
     "truncexp",
     "trunclog",
-    "COMPOSITE_LOGGER",
     "CompositeModellingError",
     "SecondaryOperator",
     "SecondaryExpression",
