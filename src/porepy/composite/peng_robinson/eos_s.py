@@ -59,6 +59,7 @@ The following standard names are used for thermodynamic quantities:
 
 from __future__ import annotations
 
+import logging
 from typing import Any, Callable, Optional, Sequence
 
 import numpy as np
@@ -66,10 +67,12 @@ import sympy as sp
 
 from .._core import COMPOSITIONAL_VARIABLE_SYMBOLS as SYMBOLS
 from .._core import R_IDEAL
-from ..composite_utils import COMPOSITE_LOGGER as logger
 from ..composite_utils import safe_sum
 from .pr_bip import load_bip
 from .pr_components import ComponentPR
+
+logger = logging.getLogger(__name__)
+
 
 A_CRIT: float = (
     1

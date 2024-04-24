@@ -471,15 +471,23 @@ class SemiSmoothMin(AbstractFunction):
 
         self.ad_compatible = False
 
-    def get_values(self, *args: AdArray) -> np.ndarray:
+    def get_values(self, *args: AdArray | np.ndarray) -> np.ndarray:
         # this will throw an error if more than two arguments were passed
         op1, op2 = args
-        # active set choice
-        active_set = (op1.val - op2.val) > 0.0
-        # default/inactive vals
-        vals = op1.val.copy()
-        # replace vals on active set
-        vals[active_set] = op2.val[active_set]
+        if all(isinstance(a, np.ndarray) for a in args):
+            # active set choice
+            active_set = (op1 - op2) > 0.0
+            # default/inactive vals
+            vals = op1.copy()
+            # replace vals on active set
+            vals[active_set] = op2[active_set]
+        else:
+            # active set choice
+            active_set = (op1.val - op2.val) > 0.0
+            # default/inactive vals
+            vals = op1.val.copy()
+            # replace vals on active set
+            vals[active_set] = op2.val[active_set]
         return vals
 
     def get_jacobian(self, *args: AdArray) -> sps.spmatrix:

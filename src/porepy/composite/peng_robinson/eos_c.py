@@ -50,7 +50,6 @@ import numpy as np
 from numpy import ndarray
 
 from .._core import NUMBA_CACHE
-from ..composite_utils import COMPOSITE_LOGGER as logger
 from ..eos_compiler import EoSCompiler
 from .eos_s import (
     A_CRIT,
@@ -91,6 +90,10 @@ from .pr_components import ComponentPR
 
 __all__ = ["PengRobinsonCompiler"]
 
+
+logger = logging.getLogger(__name__)
+
+
 _STATIC_FAST_COMPILE_ARGS: dict[str, Any] = {
     "fastmath": True,
     "cache": NUMBA_CACHE,
@@ -104,7 +107,7 @@ _import_start = time.time()
 # region Functions related to the characteristic polynomial and its roots
 
 
-logger.debug(f"{_import_msg} Compiling cubic polynomial ..\n")
+logger.debug(f"{_import_msg} Compiling cubic polynomial ..")
 
 
 coeff_0_c: Callable[[float, float], float] = numba.njit(
@@ -271,7 +274,7 @@ characteristic_residual_u = numba.vectorize(
 
 # region Functions related to the A-B space
 
-logger.debug(f"{_import_msg} Compiling A-B space functions ..\n")
+logger.debug(f"{_import_msg} Compiling A-B space functions ..")
 
 critical_line_c: Callable[[float], float] = numba.njit(
     "float64(float64)", **_STATIC_FAST_COMPILE_ARGS
@@ -393,54 +396,34 @@ def _compile_Z(
     return numba.njit("float64(float64, float64)", cache=False, fastmath=fastmath)(Z_)
 
 
-logger.start_progress_log(f"{_import_msg} Compiling comp. factor formulae", 20, 2)
+logger.debug(f"{_import_msg} Compiling compressibility factors ..")
 
 
 Z_triple_c: Callable[[float, float], float] = _compile_Z(Z_triple_f, fastmath=True)
-logger.progress()
 d_Z_triple_c: Callable[[float, float], np.ndarray] = _compile_d_Z(
     d_Z_triple_f, fastmath=True
 )
-logger.progress()
 Z_one_c: Callable[[float, float], float] = _compile_Z(Z_one_f)
-logger.progress()
 d_Z_one_c: Callable[[float, float], np.ndarray] = _compile_d_Z(d_Z_one_f)
-logger.progress()
 Z_ext_sub_c: Callable[[float, float], float] = _compile_Z(Z_ext_sub_f)
-logger.progress()
 d_Z_ext_sub_c: Callable[[float, float], np.ndarray] = _compile_d_Z(d_Z_ext_sub_f)
-logger.progress()
 Z_ext_scg_c: Callable[[float, float], float] = _compile_Z(Z_ext_scg_f)
-logger.progress()
 d_Z_ext_scg_c: Callable[[float, float], np.ndarray] = _compile_d_Z(d_Z_ext_scg_f)
-logger.progress()
 Z_ext_scl_c: Callable[[float, float], float] = _compile_Z(Z_ext_scl_f)
-logger.progress()
 d_Z_ext_scl_c: Callable[[float, float], np.ndarray] = _compile_d_Z(d_Z_ext_scl_f)
-logger.progress()
 Z_double_g_c: Callable[[float, float], float] = _compile_Z(Z_double_g_f)
-logger.progress()
 d_Z_double_g_c: Callable[[float, float], np.ndarray] = _compile_d_Z(d_Z_double_g_f)
-logger.progress()
 Z_double_l_c: Callable[[float, float], float] = _compile_Z(Z_double_l_f)
-logger.progress()
 d_Z_double_l_c: Callable[[float, float], np.ndarray] = _compile_d_Z(d_Z_double_l_f)
-logger.progress()
 Z_three_g_c: Callable[[float, float], float] = _compile_Z(Z_three_g_f)
-logger.progress()
 d_Z_three_g_c: Callable[[float, float], np.ndarray] = _compile_d_Z(d_Z_three_g_f)
-logger.progress()
 Z_three_l_c: Callable[[float, float], float] = _compile_Z(Z_three_l_f)
-logger.progress()
 d_Z_three_l_c: Callable[[float, float], np.ndarray] = _compile_d_Z(d_Z_three_l_f)
-logger.progress()
 Z_three_i_c: Callable[[float, float], float] = _compile_Z(Z_three_i_f)
-logger.progress()
 d_Z_three_i_c: Callable[[float, float], np.ndarray] = _compile_d_Z(d_Z_three_i_f)
-logger.progress()
 
 
-logger.debug(f"{_import_msg} Compiling general compressibility factor ..\n")
+logger.debug(f"{_import_msg} Compiling general compressibility factor ..")
 
 
 @numba.njit("int8(int8, float64, float64, float64)", cache=NUMBA_CACHE, fastmath=True)
@@ -1142,67 +1125,59 @@ class PengRobinsonCompiler(EoSCompiler):
 
         self.symbolic: PengRobinsonSymbolic = PengRobinsonSymbolic(components)
 
-    def compile(self, verbosity: int = 1) -> None:
+    def compile(self) -> None:
         """Child method compiles essential functions from symbolic part before calling
         the parent class compiler"""
 
-        # setting logging verbosity
-        if verbosity == 1:
-            logger.setLevel(logging.INFO)
-        elif verbosity >= 2:
-            logger.setLevel(logging.DEBUG)
-        else:
-            logger.setLevel(logging.WARNING)
-
-        logger.start_progress_log("Compiling symbolic functions", 14)
+        logger.info("Compiling symbolic functions ..")
 
         B_c = numba.njit(
             "float64(float64, float64, float64[:])",
             fastmath=True,
         )(self.symbolic.B_f)
-        logger.progress()
+        logger.debug("Compiling symbolic functions 1/14")
         d_B_c = _compile_thd_function_derivatives(self.symbolic.d_B_f, fastmath=True)
-        logger.progress()
+        logger.debug("Compiling symbolic functions 2/14")
         A_c = numba.njit(
             "float64(float64, float64, float64[:])",
         )(self.symbolic.A_f)
-        logger.progress()
+        logger.debug("Compiling symbolic functions 3/14")
         # no fastmath because of sqrt
         d_A_c = _compile_thd_function_derivatives(self.symbolic.d_A_f)
-        logger.progress()
+        logger.debug("Compiling symbolic functions 4/14")
 
         Z_mix_c = compile_Z_mix(A_c, B_c)
-        logger.progress()
+        logger.debug("Compiling symbolic functions 5/14")
         d_Z_mix_c = compile_d_Z_mix(A_c, B_c, d_A_c, d_B_c)
-        logger.progress()
+        logger.debug("Compiling symbolic functions 6/14")
 
         phi_c = _compile_fugacities(self.symbolic.phi_f)
-        logger.progress()
+        logger.debug("Compiling symbolic functions 7/14")
         d_phi_c = numba.njit(
             "float64[:,:](float64, float64, float64[:], float64, float64, float64)"
         )(self.symbolic.d_phi_f)
-        logger.progress()
+        logger.debug("Compiling symbolic functions 8/14")
 
         h_dep_c = numba.njit(
             "float64(float64, float64, float64[:], float64, float64, float64)"
         )(self.symbolic.h_dep_f)
-        logger.progress()
+        logger.debug("Compiling symbolic functions 9/14")
         h_ideal_c = numba.njit("float64(float64, float64, float64[:])")(
             self.symbolic.h_ideal_f
         )
-        logger.progress()
+        logger.debug("Compiling symbolic functions 10/14")
         d_h_dep_c = _compile_extended_thd_function_derivatives(self.symbolic.d_h_dep_f)
-        logger.progress()
+        logger.debug("Compiling symbolic functions 11/14")
         d_h_ideal_c = _compile_thd_function_derivatives(self.symbolic.d_h_ideal_f)
-        logger.progress()
+        logger.debug("Compiling symbolic functions 12/14")
 
         v_c = numba.njit(
             "float64(float64,float64,float64)",
             fastmath=True,
         )(self.symbolic.v_f)
-        logger.progress()
+        logger.debug("Compiling symbolic functions 13/14")
         d_v_c = _compile_volume_derivative(self.symbolic.d_v_f)
-        logger.progress()
+        logger.debug("Compiling symbolic functions 14/14")
 
         self._cfuncs.update(
             {
@@ -1223,7 +1198,7 @@ class PengRobinsonCompiler(EoSCompiler):
             }
         )
 
-        return super().compile(verbosity)
+        return super().compile()
 
     def get_prearg_for_values(
         self,

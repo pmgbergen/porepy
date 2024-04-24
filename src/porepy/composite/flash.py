@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import abc
+import logging
 from typing import Any, Literal, Optional, Sequence
 
 import numpy as np
@@ -10,11 +11,12 @@ import numpy as np
 import porepy as pp
 import porepy.composite as ppc
 
-from .composite_utils import COMPOSITE_LOGGER as logger
 from .composite_utils import safe_sum
 from .states import FluidState
 
 __all__ = ["Flash"]
+
+logger = logging.getLogger(__name__)
 
 
 class Flash(abc.ABC):
@@ -97,7 +99,7 @@ class Flash(abc.ABC):
         for k, v in self.last_flash_stats.items():
             msg += f"---\t{k}: {v}\n"
         msg += "\n"
-        logger.warn(msg)
+        print(msg)
 
     def parse_flash_input(
         self,

@@ -30,7 +30,6 @@ import numpy as np
 
 from ._core import NUMBA_CACHE, R_IDEAL
 from .base import Mixture
-from .composite_utils import COMPOSITE_LOGGER as logger
 from .composite_utils import safe_sum
 from .eos_compiler import EoSCompiler
 from .flash import Flash
@@ -55,6 +54,9 @@ from .utils_c import (
 )
 
 __all__ = ["CompiledUnifiedFlash"]
+
+
+logger = logging.getLogger(__name__)
 
 
 # region Helper methods
@@ -144,9 +146,6 @@ def _rr_potential(z: np.ndarray, y: np.ndarray, K: np.ndarray) -> float:
 # endregion
 
 # region General flash equation independent of flash type and EoS
-
-
-logger.debug(f"(import composite/flash_c.py) Compiling shared flash equations ..\n")
 
 
 @numba.njit("float64[:](float64[:,:],float64[:],float64[:])", fastmath=True, cache=True)
@@ -548,11 +547,7 @@ class CompiledUnifiedFlash(Flash):
         self._solver_params["u2"] = self.npipm_parameters["u2"]
         self._solver_params["eta"] = self.npipm_parameters["eta"]
 
-    def compile(
-        self,
-        verbosity: int = 1,
-        precompile_solvers: bool = False,
-    ) -> None:
+    def compile(self, precompile_solvers: bool = False) -> None:
         """Triggers the assembly and compilation of equilibrium equations, including
         the NPIPM approach.
 
@@ -569,22 +564,12 @@ class CompiledUnifiedFlash(Flash):
             The compilation is therefore separated from the instantiation of this class.
 
         Parameters:
-            verbosity: ``default=1``
-
-                Enable progress logs. Set to zero to disable.
             precompile_solvers: ``default=False``
 
                 Highly invasive flag to hack into numba and pre-compile solvers for
                 compiled flash systems.
 
         """
-        # setting logging verbosity
-        if verbosity == 1:
-            logger.setLevel(logging.INFO)
-        elif verbosity >= 2:
-            logger.setLevel(logging.DEBUG)
-        else:
-            logger.setLevel(logging.WARNING)
 
         nphase, ncomp = self.npnc
         npnc = self.npnc
@@ -608,7 +593,8 @@ class CompiledUnifiedFlash(Flash):
         # additional equations volume constraint and density constraints
         vh_dim = ph_dim + 1 + (nphase - 1)
 
-        logger.start_progress_log("Compiling flash equations", 17)
+        logger.info("Compiling flash equations ..")
+        logger.debug("Compiling flash equations: EoS functions")
 
         prearg_val_c = self.eos_compiler.funcs.get("prearg_val", None)
         if prearg_val_c is None:
@@ -658,7 +644,7 @@ class CompiledUnifiedFlash(Flash):
                 prearg[j] = prearg_jac_c(phasetypes[j], p, T, xn[j])
             return prearg
 
-        logger.progress("EoS functions")
+        logger.debug("Compiling flash equations: isofugacity constraints")
 
         @numba.njit(
             "float64[:](float64[:,:], float64, float64, float64[:,:], float64[:,:])"
@@ -686,8 +672,6 @@ class CompiledUnifiedFlash(Flash):
                 isofug[(j - 1) * ncomp : j * ncomp] = X[j] * phi_j - X[0] * phi_r
 
             return isofug
-
-        logger.progress("isofugacity constraints")
 
         @numba.njit(
             "float64[:,:](float64[:],float64[:],float64,float64,float64[:],float64[:])",
@@ -718,8 +702,6 @@ class CompiledUnifiedFlash(Flash):
             d_xphi_j[:, 2:] += np.diag(phi_j)
 
             return d_xphi_j
-
-        logger.progress("isofugacity constraints")
 
         @numba.njit(
             "float64[:,:](float64[:,:],float64[:, :],"
@@ -768,7 +750,7 @@ class CompiledUnifiedFlash(Flash):
 
             return d_iso
 
-        logger.progress("isofugacity constraints")
+        logger.debug("Compiling flash equations: enthalpy constraint")
 
         @numba.njit(
             "float64(float64[:,:],float64,float64,float64,float64[:],float64[:,:])"
@@ -797,8 +779,6 @@ class CompiledUnifiedFlash(Flash):
             # h_constr_res /= T**2
 
             return h_constr_res
-
-        logger.progress("enthalpy constraint")
 
         @numba.njit(
             "float64[:]"
@@ -869,7 +849,7 @@ class CompiledUnifiedFlash(Flash):
 
             return h_constr_jac
 
-        logger.progress("enthalpy constraint")
+        logger.debug("Compiling flash equations: volume constraint")
 
         @numba.njit(
             "float64[:]"
@@ -899,8 +879,6 @@ class CompiledUnifiedFlash(Flash):
             res[1:] = (y - sat * rho_j / rho_mix)[1:]
 
             return res
-
-        logger.progress("volume constraints")
 
         @numba.njit(
             "float64[:,:]"
@@ -1001,7 +979,7 @@ class CompiledUnifiedFlash(Flash):
 
             return jac
 
-        logger.progress("volume constraints")
+        logger.debug("Compiling flash equations: p-T flash")
 
         @numba.njit("float64[:](float64[:])")
         def F_pT(X_gen: np.ndarray) -> np.ndarray:
@@ -1024,8 +1002,6 @@ class CompiledUnifiedFlash(Flash):
             )
 
             return res
-
-        logger.progress("p-T flash")
 
         @numba.njit("float64[:,:](float64[:])")
         def DF_pT(X_gen: np.ndarray) -> np.ndarray:
@@ -1050,7 +1026,7 @@ class CompiledUnifiedFlash(Flash):
 
             return jac
 
-        logger.progress("p-T flash")
+        logger.debug("Compiling flash equations: p-h flash")
 
         @numba.njit("float64[:](float64[:])")
         def F_ph(X_gen: np.ndarray) -> np.ndarray:
@@ -1077,8 +1053,6 @@ class CompiledUnifiedFlash(Flash):
             res[-(nphase + 1)] = h_constr_res_c(prearg, p, h, T, y, xn) / T**2
 
             return res
-
-        logger.progress("p-h flash")
 
         @numba.njit("float64[:,:](float64[:])")
         def DF_ph(X_gen: np.ndarray) -> np.ndarray:
@@ -1114,7 +1088,7 @@ class CompiledUnifiedFlash(Flash):
 
             return jac
 
-        logger.progress("p-h flash")
+        logger.debug("Compiling flash equations: v-h flash")
 
         @numba.njit("float64[:](float64[:])")
         def F_vh(X_gen: np.ndarray) -> np.ndarray:
@@ -1150,8 +1124,6 @@ class CompiledUnifiedFlash(Flash):
             )
 
             return res
-
-        logger.progress("v-h flash")
 
         @numba.njit("float64[:,:](float64[:])")
         def DF_vh(X_gen: np.ndarray) -> np.ndarray:
@@ -1196,8 +1168,6 @@ class CompiledUnifiedFlash(Flash):
 
             return jac
 
-        logger.progress("v-h flash")
-
         self.residuals.update(
             {
                 "p-T": F_pT,
@@ -1218,6 +1188,8 @@ class CompiledUnifiedFlash(Flash):
         T_crits = np.array(self._Tcrits)
         v_crits = np.array(self._vcrits)
         omegas = np.array(self._omegas)
+
+        logger.debug("Compiling flash initialization: p-T")
 
         @numba.njit("float64[:](float64[:],int32,int32)")
         def guess_fractions(
@@ -1361,7 +1333,7 @@ class CompiledUnifiedFlash(Flash):
                 X_gen[f] = guess_fractions(X_gen[f], N1, guess_K_vals)
             return X_gen
 
-        logger.progress("p-T initialization")
+        logger.debug("Compiling flash initialization: p-h")
 
         @numba.njit("float64[:](float64[:],int32,float64)")
         def update_T_guess(X_gen: np.ndarray, N2: int, eps: float) -> np.ndarray:
@@ -1431,7 +1403,7 @@ class CompiledUnifiedFlash(Flash):
                 X_gen[f] = xf
             return X_gen
 
-        logger.progress("p-h initialization")
+        logger.debug("Compiling flash initialization: v-h")
 
         @numba.njit("float64[:](float64[:],int32,float64)")
         def update_pT_guess(X_gen: np.ndarray, N2: int, eps: float) -> np.ndarray:
@@ -1604,8 +1576,6 @@ class CompiledUnifiedFlash(Flash):
 
             return X_gen
 
-        logger.progress("v-h initialization")
-
         self.initializers.update(
             {
                 "p-T": pT_initializer,
@@ -1615,37 +1585,28 @@ class CompiledUnifiedFlash(Flash):
         )
 
         if precompile_solvers:
-            logger.start_progress_log("Pre-compiling solvers", 6)
+            logger.debug("Compiling solvers ..")
 
-            try:
-                # pre compile for p-T flash
-                gen_arg_dim = ncomp + 1 + pT_dim
-                X = np.ones((1, gen_arg_dim))
-                self._update_solver_params(pT_dim + 1)
-                linear_solver._compile_for_args(X, F_pT, DF_pT, self._solver_params)
-                logger.progress()
-                parallel_solver._compile_for_args(X, F_pT, DF_pT, self._solver_params)
-                logger.progress()
+            # pre compile for p-T flash
+            gen_arg_dim = ncomp + 1 + pT_dim
+            X = np.ones((1, gen_arg_dim))
+            self._update_solver_params(pT_dim + 1)
+            linear_solver._compile_for_args(X, F_pT, DF_pT, self._solver_params)
+            parallel_solver._compile_for_args(X, F_pT, DF_pT, self._solver_params)
 
-                # pre compile for p-h flash
-                gen_arg_dim = ncomp + 1 + ph_dim
-                X = np.ones((1, gen_arg_dim))
-                self._update_solver_params(ph_dim + 1)
-                linear_solver._compile_for_args(X, F_ph, DF_ph, self._solver_params)
-                logger.progress()
-                parallel_solver._compile_for_args(X, F_ph, DF_ph, self._solver_params)
-                logger.progress()
+            # pre compile for p-h flash
+            gen_arg_dim = ncomp + 1 + ph_dim
+            X = np.ones((1, gen_arg_dim))
+            self._update_solver_params(ph_dim + 1)
+            linear_solver._compile_for_args(X, F_ph, DF_ph, self._solver_params)
+            parallel_solver._compile_for_args(X, F_ph, DF_ph, self._solver_params)
 
-                # pre-compile for v-h flash
-                gen_arg_dim = ncomp + 1 + vh_dim
-                X = np.ones((1, gen_arg_dim))
-                self._update_solver_params(vh_dim + 1)
-                linear_solver._compile_for_args(X, F_vh, DF_vh, self._solver_params)
-                logger.progress()
-                parallel_solver._compile_for_args(X, F_vh, DF_vh, self._solver_params)
-                logger.progress()
-            except:
-                logger.abort_progress()
+            # pre-compile for v-h flash
+            gen_arg_dim = ncomp + 1 + vh_dim
+            X = np.ones((1, gen_arg_dim))
+            self._update_solver_params(vh_dim + 1)
+            linear_solver._compile_for_args(X, F_vh, DF_vh, self._solver_params)
+            parallel_solver._compile_for_args(X, F_vh, DF_vh, self._solver_params)
 
     def flash(
         self,
@@ -1677,12 +1638,6 @@ class CompiledUnifiedFlash(Flash):
             problems.
 
             Defaults to ``'linear'``.
-        - ``'verbosity'``: For logging information about progress.
-
-          Note that as of now, there is no support for logs during solution procedures
-          in the loop since compiled code is exectuded.
-
-          Defaults to 0.
 
         Raises:
             NotImplementedError: If an unsupported combination or insufficient number of
@@ -1691,14 +1646,8 @@ class CompiledUnifiedFlash(Flash):
         """
         mode = parameters.get("mode", "linear")
         assert mode in ["linear", "parallel"], f"Unsupported mode {mode}."
-        verbosity = parameters.get("verbosity", 0)
-        # setting logging verbosity
-        if verbosity == 1:
-            logger.setLevel(logging.INFO)
-        elif verbosity >= 2:
-            logger.setLevel(logging.DEBUG)
-        else:
-            logger.setLevel(logging.WARNING)
+
+        logger.debug("Flash: Parsing input ..")
 
         nphase, ncomp = self.npnc
         fluid_state, flash_type, f_dim, NF = self.parse_flash_input(
@@ -1710,7 +1659,6 @@ class CompiledUnifiedFlash(Flash):
             "p-h",
             "v-h",
         ], f"Unsupported flash type {flash_type}"
-        logger.info(f"Determined flash type: {flash_type}\n")
 
         # Because of NPIPM, we have an additiona slack variable
         f_dim += 1
@@ -1752,14 +1700,14 @@ class CompiledUnifiedFlash(Flash):
         else:
             assert False, "Missing logic"
 
+        logger.info(f"{flash_type} Flash: Initialization ..")
         if initial_state is None:
-            logger.info("Computing initial state ..")
             start = time.time()
             # exclude NPIPM variable (last column) from initialization
             X0[:, :-1] = self.initializers[flash_type](X0[:, :-1], *init_args)
             end = time.time()
             init_time = end - start
-            logger.info(f"Initial state computed (elapsed time: {init_time} (s)).\n")
+            logger.debug(f"Flash initialized (elapsed time: {init_time} (s)).")
         else:
             init_time = 0.0
             # parsing phase compositions and molar fractions
@@ -1792,14 +1740,14 @@ class CompiledUnifiedFlash(Flash):
                         X0[:, -(p_pos + nphase - 1) + idx] = fluid_state.sat[j]
                         idx += 1
 
-        logger.info("Computing initial guess for slack variable ..")
+        logger.debug(f"{flash_type}Flash: Initializing NPIPM ..")
         X0 = initialize_npipm_nu(X0, self.npnc)
 
         F = self.residuals[flash_type]
         DF = self.jacobians[flash_type]
         self._update_solver_params(f_dim)
 
-        logger.info("Solving ..\n")
+        logger.info(f"{flash_type} Flash: Solving ..")
         start = time.time()
         if mode == "linear":
             results, success, num_iter = linear_solver(X0, F, DF, self._solver_params)
@@ -1807,7 +1755,7 @@ class CompiledUnifiedFlash(Flash):
             results, success, num_iter = parallel_solver(X0, F, DF, self._solver_params)
         end = time.time()
         minim_time = end - start
-        logger.info(f"{flash_type} flash done (elapsed time: {minim_time} (s)).\n\n")
+        logger.info(f"Flashed (elapsed time: {minim_time} (s)).")
 
         self.last_flash_stats = {
             "type": flash_type,
@@ -1818,8 +1766,6 @@ class CompiledUnifiedFlash(Flash):
             "num_failure": int(np.sum(success == 2) + np.sum(success == 3)),
             "num_diverged": int(np.sum(success == 4)),
         }
-        if verbosity >= 2:
-            self.log_last_flash()
 
         return (
             self._parse_and_complete_results(results, flash_type, fluid_state),

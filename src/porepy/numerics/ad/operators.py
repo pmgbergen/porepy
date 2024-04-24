@@ -470,15 +470,23 @@ class Operator:
                 return func_op.func(*results[1:])
             else:
                 # This should be a Function with approximated Jacobian and value.
-                try:
-                    val = func_op.get_values(*results[1:])
-                    jac = func_op.get_jacobian(*results[1:])
-                except Exception as exc:
-                    # TODO specify what can go wrong here (Exception type)
-                    msg = "Ad parsing: Error evaluating operator function:\n"
-                    msg += func_op._parse_readable()
-                    raise ValueError(msg) from exc
-                return AdArray(val, jac)
+                if all(isinstance(r, np.ndarray) for r in results[1:]):
+                    try:
+                        val = func_op.get_values(*results[1:])
+                    except Exception as exc:
+                        # TODO specify what can go wrong here (Exception type)
+                        msg = "Ad parsing: Error evaluating operator function:\n"
+                        msg += func_op._parse_readable()
+                    return val
+                else:
+                    try:
+                        val = func_op.get_values(*results[1:])
+                        jac = func_op.get_jacobian(*results[1:])
+                    except Exception as exc:
+                        # TODO specify what can go wrong here (Exception type)
+                        msg = "Ad parsing: Error evaluating operator function:\n"
+                        msg += func_op._parse_readable()
+                    return AdArray(val, jac)
 
         else:
             raise ValueError(f"Encountered unknown operation {operation}")

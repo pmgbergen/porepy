@@ -11,13 +11,14 @@ import numba
 import numpy as np
 
 from .base import AbstractEoS, Component
-from .composite_utils import COMPOSITE_LOGGER as logger
 from .states import PhaseState
 from .utils_c import extend_fractional_derivatives, normalize_rows
 
 __all__ = [
     "EoSCompiler",
 ]
+
+logger = logging.getLogger(__name__)
 
 
 def _compile_vectorized_prearg(
@@ -644,7 +645,7 @@ class EoSCompiler(AbstractEoS):
 
         return drho_c
 
-    def compile(self, verbosity: int = 1) -> None:
+    def compile(self) -> None:
         """Compiles vectorized functions for properties, depending on pre-arguments,
         pressure, temperature and fractions.
 
@@ -656,153 +657,127 @@ class EoSCompiler(AbstractEoS):
             This function takes long to complete. It compiles all scalar, and vectorized
             computations of properties.
 
-        Parameters:
-            verbosity: ``default=1``
-
-                Enable progress logs. Set to zero to disable.
-
         """
 
-        # setting logging verbosity
-        if verbosity == 1:
-            logger.setLevel(logging.INFO)
-        elif verbosity >= 2:
-            logger.setLevel(logging.DEBUG)
-        else:
-            logger.setLevel(logging.WARNING)
-
-        logger.start_progress_log("Compiling property functions", 14)
+        logger.info("Compiling property functions ..")
 
         # region Element-wise computations
         prearg_val_c = self.funcs.get("prearg_val", None)
         if prearg_val_c is None:
             prearg_val_c = self.get_prearg_for_values()
             self.funcs["prearg_val"] = prearg_val_c
-        logger.progress()
+        logger.debug("Compiling property functions 1/14")
 
         prearg_jac_c = self.funcs.get("prearg_jac", None)
         if prearg_jac_c is None:
             prearg_jac_c = self.get_prearg_for_derivatives()
             self.funcs["prearg_jac"] = prearg_jac_c
-        logger.progress()
+        logger.debug("Compiling property functions 2/14")
 
         phi_c = self.funcs.get("phi", None)
         if phi_c is None:
             phi_c = self.get_fugacity_function()
             self.funcs["phi"] = phi_c
-        logger.progress()
+        logger.debug("Compiling property functions 3/14")
 
         d_phi_c = self.funcs.get("d_phi", None)
         if d_phi_c is None:
             d_phi_c = self.get_dpTX_fugacity_function()
             self.funcs["d_phi"] = d_phi_c
-        logger.progress()
+        logger.debug("Compiling property functions 4/14")
 
         h_c = self.funcs.get("h", None)
         if h_c is None:
             h_c = self.get_enthalpy_function()
             self.funcs["h"] = h_c
-        logger.progress()
+        logger.debug("Compiling property functions 5/14")
 
         d_h_c = self.funcs.get("d_h", None)
         if d_h_c is None:
             d_h_c = self.get_dpTX_enthalpy_function()
             self.funcs["d_h"] = d_h_c
-        logger.progress()
+        logger.debug("Compiling property functions 6/14")
 
         v_c = self.funcs.get("v", None)
         if v_c is None:
             v_c = self.get_volume_function()
             self.funcs["v"] = v_c
-        logger.progress()
+        logger.debug("Compiling property functions 7/14")
 
         d_v_c = self.funcs.get("d_v", None)
         if d_v_c is None:
             d_v_c = self.get_dpTX_volume_function()
             self.funcs["d_v"] = d_v_c
-        logger.progress()
+        logger.debug("Compiling property functions 8/14")
 
         rho_c = self.funcs.get("rho", None)
         if rho_c is None:
             rho_c = self.get_density_function()
             self.funcs["rho"] = rho_c
-        logger.progress()
+        logger.debug("Compiling property functions 9/14")
 
         d_rho_c = self.funcs.get("d_rho", None)
         if d_rho_c is None:
             d_rho_c = self.get_dpTX_density_function()
             self.funcs["d_rho"] = d_rho_c
-        logger.progress()
+        logger.debug("Compiling property functions 10/14")
 
         mu_c = self.funcs.get("mu", None)
         if mu_c is None:
             mu_c = self.get_viscosity_function()
             self.funcs["mu"] = mu_c
-        logger.progress()
+        logger.debug("Compiling property functions 11/14")
 
         d_mu_c = self.funcs.get("d_mu", None)
         if d_mu_c is None:
             d_mu_c = self.get_dpTX_viscosity_function()
             self.funcs["d_mu"] = d_mu_c
-        logger.progress()
+        logger.debug("Compiling property functions 12/14")
 
         kappa_c = self.funcs.get("kappa", None)
         if kappa_c is None:
             kappa_c = self.get_conductivity_function()
             self.funcs["kappa"] = kappa_c
-        logger.progress()
+        logger.debug("Compiling property functions 13/14")
 
         d_kappa_c = self.funcs.get("d_kappa", None)
         if d_kappa_c is None:
             d_kappa_c = self.get_dpTX_conductivity_function()
             self.funcs["d_kappa"] = d_kappa_c
-        logger.progress()
+        logger.debug("Compiling property functions 14/14")
         # endregion
 
-        logger.start_progress_log("Compiling vectorized functions", 14)
+        logger.info("Compiling vectorized functions ..")
 
         # region vectorized computations
         prearg_val_v = _compile_vectorized_prearg(prearg_val_c)
-        logger.progress()
-
+        logger.debug("Compiling vectorized functions 1/14")
         prearg_jac_v = _compile_vectorized_prearg(prearg_jac_c)
-        logger.progress()
-
+        logger.debug("Compiling vectorized functions 2/14")
         phi_v = _compile_vectorized_fugacity_coeffs(phi_c)
-        logger.progress()
-
+        logger.debug("Compiling vectorized functions 3/14")
         d_phi_v = _compile_vectorized_fugacity_coeff_derivatives(d_phi_c)
-        logger.progress()
-
+        logger.debug("Compiling vectorized functions 4/14")
         h_v = _compile_vectorized_property(h_c)
-        logger.progress()
-
+        logger.debug("Compiling vectorized functions 5/14")
         d_h_v = _compile_vectorized_property_derivatives(d_h_c)
-        logger.progress()
-
+        logger.debug("Compiling vectorized functions 6/14")
         v_v = _compile_vectorized_property(v_c)
-        logger.progress()
-
+        logger.debug("Compiling vectorized functions 7/14")
         d_v_v = _compile_vectorized_property_derivatives(d_v_c)
-        logger.progress()
-
+        logger.debug("Compiling vectorized functions 8/14")
         rho_v = _compile_vectorized_property(rho_c)
-        logger.progress()
-
+        logger.debug("Compiling vectorized functions 9/14")
         d_rho_v = _compile_vectorized_property_derivatives(d_rho_c)
-        logger.progress()
-
+        logger.debug("Compiling vectorized functions 10/14")
         mu_v = _compile_vectorized_property(mu_c)
-        logger.progress()
-
+        logger.debug("Compiling vectorized functions 11/14")
         d_mu_v = _compile_vectorized_property_derivatives(d_mu_c)
-        logger.progress()
-
+        logger.debug("Compiling vectorized functions 12/14")
         kappa_v = _compile_vectorized_property(kappa_c)
-        logger.progress()
-
+        logger.debug("Compiling vectorized functions 13/14")
         d_kappa_v = _compile_vectorized_property_derivatives(d_kappa_c)
-        logger.progress()
+        logger.debug("Compiling vectorized functions 14/14")
 
         self.gufuncs.update(
             {

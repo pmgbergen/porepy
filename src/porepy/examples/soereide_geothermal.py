@@ -21,6 +21,11 @@ References:
 from __future__ import annotations
 
 import logging
+
+logging.basicConfig(level=logging.DEBUG)
+numba_logger = logging.getLogger("numba")
+numba_logger.setLevel(logging.WARNING)
+
 from typing import Sequence, cast
 
 import numpy as np
@@ -28,12 +33,8 @@ import numpy as np
 import porepy as pp
 import porepy.composite as ppc
 from porepy.applications.md_grids.domains import nd_cube_domain
-from porepy.models.compositional_flow_with_equilibrium import CFLEModelMixin_ph
-
-ppc.COMPOSITE_LOGGER.setLevel(logging.DEBUG)  # prints informatin about compile progress
 from porepy.composite.peng_robinson import PengRobinsonCompiler
-
-ppc.COMPOSITE_LOGGER.setLevel(logging.INFO)
+from porepy.models.compositional_flow_with_equilibrium import CFLEModelMixin_ph
 
 
 class SoereideMixture:
@@ -71,10 +72,10 @@ class CompiledFlash(ppc.FlashMixin):
         flash = ppc.CompiledUnifiedFlash(self.fluid_mixture, eos)
 
         # Compiling the flash and the EoS
-        eos.compile(verbosity=2)
+        eos.compile()
         # pre-compile solvers for given mixture to avoid waiting times in
         # prepare simulation and the first iteration
-        flash.compile(verbosity=2, precompile_solvers=False)
+        flash.compile(precompile_solvers=False)
 
         # NOTE There is place to configure the solver here
         flash.armijo_parameters["j_max"] = 30
@@ -116,6 +117,17 @@ class CompiledFlash(ppc.FlashMixin):
         failure = success > 0
         if np.any(failure):
             sds = self.mdg.subdomains()
+
+            print("failure at")
+            print(
+                "z: ",
+                [
+                    comp.fraction(sds).value(self.equation_system)[failure]
+                    for comp in self.fluid_mixture.components
+                ],
+            )
+            print("p: ", self.pressure(sds).value(self.equation_system)[failure])
+            print("h: ", self.enthalpy(sds).value(self.equation_system)[failure])
             # no initial guess, and this model uses only p-h flash.
             flash_kwargs = {
                 "z": [
@@ -170,7 +182,7 @@ class InitialConditions:
 
     def initial_pressure(self, sd: pp.Grid) -> np.ndarray:
         # Initial pressure of 10 MPa
-        return np.ones(sd.num_cells) * 10e6
+        return np.ones(sd.num_cells) * 15e6
 
     def initial_temperature(self, sd: pp.Grid) -> np.ndarray:
         # Initial temperature of 550 K
@@ -224,7 +236,7 @@ class BoundaryConditions:
         sides = self.domain_boundary_sides(sd)
         if sd.dim == 2:
             # Temperature at inlet and outlet, as well as heated bottom
-            boundary_faces = sides.east | sides.west | sides.bottom
+            boundary_faces = sides.west | sides.bottom  # | sides.east
             return pp.BoundaryCondition(sd, boundary_faces, "dir")
         # In fractures we set trivial NBC
         else:
@@ -232,7 +244,7 @@ class BoundaryConditions:
 
     def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
         # need to define pressure on east and west side of matrix
-        p_init = 10e6
+        p_init = 15e6
         sd = boundary_grid.parent
         sides = self.domain_boundary_sides(sd)
 
@@ -241,7 +253,7 @@ class BoundaryConditions:
             vals = np.ones(sd.num_faces) * p_init
 
             vals[sides.west] = 15e6
-            vals[sides.east] = 10e6
+            vals[sides.east] = 15e6
 
             vals = vals[sides.all_bf]
         else:
@@ -258,10 +270,10 @@ class BoundaryConditions:
         if sd.dim == 2:
             vals = np.ones(sd.num_faces) * T_init
 
-            vals[sides.west] = 500.0
-            vals[sides.east] = 550.0
+            vals[sides.west] = 550.0
+            # vals[sides.east] = 550.0
             # T values on heated bottom
-            vals[sides.bottom] = 600.0
+            vals[sides.bottom] = 550.0
 
             vals = vals[sides.all_bf]
         else:
@@ -276,11 +288,11 @@ class BoundaryConditions:
         sides = self.domain_boundary_sides(sd)
 
         if component.name == "H2O":
-            z_init = 0.995
+            z_init = 0.99
             z_inlet = 0.99
             z_outlet = z_init
         elif component.name == "CO2":
-            z_init = 0.005
+            z_init = 0.01
             z_inlet = 0.01
             z_outlet = z_init
         else:
@@ -313,11 +325,11 @@ class GeothermalFlow(
     flash."""
 
 
-day = 86400
-t_scale = 0.00001
+days = 3650
+t_scale = 0.000001
 time_manager = pp.TimeManager(
-    schedule=[0.0, 100.0 * day * t_scale],
-    dt_init=1.0 * day * t_scale,
+    schedule=[0.0, 100.0 * days * t_scale],
+    dt_init=1.0 * days * t_scale,
     constant_dt=True,
     iter_max=80,
     print_info=True,
@@ -336,10 +348,10 @@ params = {
     "eliminate_reference_component": True,
     "normalize_state_constraints": True,
     "use_semismooth_complementarity": True,
-    "reduce_linear_system_q": True,
+    "reduce_linear_system_q": False,
     "time_manager": time_manager,
     "max_iterations": 80,
-    "nl_convergence_tol": 1e-5,
+    "nl_convergence_tol": 1e-4,
 }
 model = GeothermalFlow(params)
 pp.run_time_dependent_model(model, params)
