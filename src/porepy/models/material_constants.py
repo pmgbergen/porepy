@@ -350,7 +350,7 @@ class SolidConstants(MaterialConstants):
             "thermal_expansion": 0,
             "well_radius": 0.1,
             "tangential_characteristic_tol": 1e-5,  # Numerical method parameter
-            "contact_mechanics_scaler": 1e-1,  # Numerical method parameter
+            "contact_mechanics_scaling": 1e-1,  # Numerical method parameter
         }
         return default_constants
 
@@ -556,11 +556,11 @@ class SolidConstants(MaterialConstants):
         """
         return self.constants["tangential_characteristic_tol"]
 
-    def contact_mechanics_scaler(self) -> number:
+    def contact_mechanics_scaling(self) -> number:
         """Safety scaling factor, making fractures softer than the matrix [-].
 
         Returns:
             The softening factor.
 
         """
-        return self.constants["contact_mechanics_scaler"]
+        return self.constants["contact_mechanics_scaling"]
