@@ -855,8 +855,7 @@ class SolutionStrategyMomentumBalance(pp.SolutionStrategy):
     ) -> pp.ad.Operator:
         r"""Characteristic function used in the tangential contact mechanics relation.
         Can be interpreted as an indicator of the fracture cells in the open state.
-        Used to smoothen the transition between the fracture states and improve
-        nonlinear convergence.
+        Used to make the problem well-posed in the case b_p is zero.
 
         The function reads
         .. math::
