@@ -898,7 +898,7 @@ class SolutionStrategyMomentumBalance(pp.SolutionStrategy):
         # to changes in state between sticking and sliding. To reduce the sensitivity to
         # round-off errors, we use a tolerance to allow for slight inaccuracies before
         # switching between the two cases.
-        tol = self.solid.tangential_characteristic_tol()
+        tol = self.solid.open_state_tolerance()
         # The characteristic function will evaluate to 1 if the argument is less than
         # the tolerance, and 0 otherwise.
         f_characteristic = pp.ad.Function(
