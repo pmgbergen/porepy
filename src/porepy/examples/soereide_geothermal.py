@@ -32,9 +32,9 @@ import numpy as np
 
 import porepy as pp
 import porepy.composite as ppc
+import porepy.models.compositional_flow_with_equilibrium as cfle
 from porepy.applications.md_grids.domains import nd_cube_domain
 from porepy.composite.peng_robinson import PengRobinsonCompiler
-from porepy.models.compositional_flow_with_equilibrium import CFLEModelMixin_ph
 
 
 class SoereideMixture:
@@ -252,8 +252,8 @@ class BoundaryConditions:
         if sd.dim == 2:
             vals = np.ones(sd.num_faces) * p_init
 
-            vals[sides.west] = 15e6
-            vals[sides.east] = 15e6
+            vals[sides.west] = 10e6
+            vals[sides.east] = 20e6
 
             vals = vals[sides.all_bf]
         else:
@@ -319,7 +319,7 @@ class GeothermalFlow(
     CompiledFlash,
     InitialConditions,
     BoundaryConditions,
-    CFLEModelMixin_ph,
+    cfle.CFLEModelMixin_ph,
 ):
     """Geothermal flow using a fluid defined by the Soereide model and the compiled
     flash."""
