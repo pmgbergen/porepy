@@ -844,7 +844,7 @@ class SolutionStrategyMomentumBalance(pp.SolutionStrategy):
         # The scaling factor should not be too large, otherwise the contact problem
         # may be discretized wrongly. I therefore introduce a safety factor here; its
         # value is somewhat arbitrary.
-        softening_factor = self.solid.contact_mechanics_scaler()
+        softening_factor = self.solid.contact_mechanics_scaling()
 
         val = softening_factor * shear_modulus / characteristic_distance
 
