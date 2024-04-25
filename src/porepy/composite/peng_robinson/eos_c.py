@@ -103,6 +103,8 @@ _STATIC_FAST_COMPILE_ARGS: dict[str, Any] = {
 _import_msg: str = "(import peng_robinson/eos_c.py)"
 _import_start = time.time()
 
+logger.warn(f"{_import_msg} Compiling Peng-Robinson EoS (this takes some time) ..")
+
 
 # region Functions related to the characteristic polynomial and its roots
 
