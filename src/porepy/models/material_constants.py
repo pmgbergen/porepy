@@ -349,7 +349,7 @@ class SolidConstants(MaterialConstants):
             "thermal_conductivity": 1,
             "thermal_expansion": 0,
             "well_radius": 0.1,
-            "tangential_characteristic_tol": 1e-5,  # Numerical method parameter
+            "open_state_tolerance": 1e-5,  # Numerical method parameter
             "contact_mechanics_scaling": 1e-1,  # Numerical method parameter
         }
         return default_constants
@@ -544,7 +544,7 @@ class SolidConstants(MaterialConstants):
         """
         return self.convert_units(self.constants["maximum_fracture_closure"], "m")
 
-    def tangential_characteristic_tol(self) -> number:
+    def open_state_tolerance(self) -> number:
         """Tolerance parameter for the tangential characteristic contact mechanics [-].
 
         FIXME:
@@ -554,7 +554,7 @@ class SolidConstants(MaterialConstants):
             The tolerance parameter.
 
         """
-        return self.constants["tangential_characteristic_tol"]
+        return self.constants["open_state_tolerance"]
 
     def contact_mechanics_scaling(self) -> number:
         """Safety scaling factor, making fractures softer than the matrix [-].
