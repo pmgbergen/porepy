@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import abc
 from functools import partial
-from typing import Callable, Optional, Type
+from typing import Callable, Optional, Sequence, Type
 
 import numpy as np
 import scipy.sparse as sps
@@ -55,8 +55,18 @@ class AbstractFunction(Operator):
 
     """
 
-    def __init__(self, name: str) -> None:
-        super().__init__(name=name, operation=Operator.Operations.evaluate)
+    def __init__(
+        self,
+        name: Optional[str] = None,
+        domains: Optional[pp.GridLikeSequence] = None,
+        operation: Optional[Operator.Operations] = None,
+        children: Optional[Sequence[Operator]] = None,
+        **kwargs,  # Left for inheritance for more complex functions
+    ) -> None:
+        # NOTE Constructor is overwritten to have a consistent signature
+        # But only name and operation are actually important.
+        # Done for reasons of multiple inheritance.
+        super().__init__(name=name, operation=pp.ad.Operator.Operations.evaluate)
 
     def __call__(self, *args: pp.ad.Operator) -> pp.ad.Operator:
         """Renders this function operator callable, fulfilling its notion as 'function'.
@@ -255,7 +265,7 @@ class DiagonalJacobianFunction(AbstractFunction):
         multipliers: float | list[float],
         name: str,
     ):
-        super().__init__(name)
+        super().__init__(name=name)
         # check and format input for further use
         if isinstance(multipliers, list):
             self._multipliers = [float(val) for val in multipliers]
@@ -298,7 +308,7 @@ class Function(AbstractFunction):
     def __init__(
         self, func: Callable[[AdArray | np.ndarray], AdArray | np.ndarray], name: str
     ) -> None:
-        super().__init__(name)
+        super().__init__(name=name)
         self._func: Callable[[AdArray | np.ndarray], AdArray | np.ndarray] = func
         """Reference to the callable passed at instantiation."""
 
@@ -355,7 +365,7 @@ class InterpolatedFunction(AbstractFunction):
         order: int = 1,
         preval: bool = False,
     ):
-        super().__init__(name)
+        super().__init__(name=name)
 
         ### PUBLIC
         self.order: int = order
@@ -590,8 +600,6 @@ class ADmethod:
             self._op_kwargs.update({"name": name})
 
         # calling the operator
-        wrapping_operator = self._ad_func_type(
-            func=operator_func, **self._op_kwargs
-        )  # type:ignore[call-arg]
+        wrapping_operator = self._ad_func_type(func=operator_func, **self._op_kwargs)
 
         return wrapping_operator(*args, **kwargs)
