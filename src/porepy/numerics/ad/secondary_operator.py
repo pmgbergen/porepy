@@ -121,12 +121,13 @@ Example:
 
 from __future__ import annotations
 
-from typing import Callable, Sequence, Tuple, cast
+from typing import Callable, Sequence, cast
 
 import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
+from porepy.numerics.ad.forward_mode import AdArray
 
 __all__ = [
     "SecondaryOperator",
@@ -134,7 +135,13 @@ __all__ = [
 ]
 
 
-class SecondaryOperator(pp.ad.Operator):
+class SecondaryOperator(
+    pp.ad.TimeDependentOperator,
+    pp.ad.IterativeOperator,
+    # NOTE, with AbstractFunction at the end, the other parent classes enable arithmetic
+    # overloads
+    pp.ad.AbstractFunction,
+):
     """Operator representing a :class:`SecondaryExpression` in AD operator form on
     specified subdomains or interfaces, at a time or iterate index.
 
@@ -179,36 +186,17 @@ class SecondaryOperator(pp.ad.Operator):
         name: str,
         domains: Sequence[pp.Grid] | Sequence[pp.MortarGrid],
         children: Sequence[pp.ad.Variable],
-        time_step_index: int = -1,
-        iterate_index: int = 0,
     ) -> None:
-        assert -1 <= time_step_index, "Assigned time step index must be >= -1."
-        assert 0 <= iterate_index, "Assigned iterate index must be >= 0."
 
-        if (iterate_index > 0 and time_step_index != -1) or (
-            time_step_index > -1 and iterate_index != 0
-        ):
-            raise ValueError(
-                "Cannot represent previous time step and iterate at the same time."
-            )
-
-        super().__init__(name, domains, pp.ad.Operator.Operations.secondary, children)
-
-        self._time_index: int = time_step_index
-        """Time index assigned to this instance."""
-        self._iterate_index: int = iterate_index
-        """Time index assigned to this instance."""
-
-        self.original_operator: SecondaryOperator
-        """A reference to the original operator (current time and iterate index).
-
-        Only instances with either :meth:`prev_time` or :meth:`prev_iter` being ``True``
-        have this attribute.
-
-        """
+        super().__init__(
+            name=name,
+            domains=domains,
+            # operation=pp.ad.Operator.Operations.evaluate,
+            children=children,
+        )
 
         self.fetch_data: Callable[
-            [SecondaryOperator, pp.GridLike], Sequence[np.ndarray]
+            [SecondaryOperator, pp.GridLike], Sequence[np.ndarray | None]
         ]
         """A function returning the stored data for a secondary operator on a grid,
         which is time step and iterate index dependent.
@@ -235,228 +223,77 @@ class SecondaryOperator(pp.ad.Operator):
             + f"Dependent on {len(self.children)} independent expressions.\n"
         )
 
-    @property
-    def time_step_index(self) -> int:
-        """Returns the time step index this instance represents.
-
-        - -1 represents the current time step
-        - 0 represents the first previous time step
-        - 1 represents the next time step further back in time
-        - ...
-
-        """
-        return self._time_index
-
-    @property
-    def prev_time(self) -> bool:
-        """True, if the operator represents a previous time-step."""
-        return True if self._time_index > -1 else False
-
-    @property
-    def iterate_index(self) -> int:
-        """Returns the iterate index this instance represents, at the current time.
-
-        - 0 represents the current iterate
-        - 1 represents the first previous iterate
-        - 2 represents the iterate before that
-        - ...
-
-        """
-        return self._iterate_index
-
-    @property
-    def prev_iter(self) -> bool:
-        """True, if the operator represents a previous iterate."""
-        return True if self._iterate_index > 0 else False
-
-    @property
-    def is_original_operator(self) -> bool:
-        """Returns True if this AD-operator represents its designated term at the
-        current time and iterate index."""
-        # TODO Should this be based on time and iterate index?
-        if hasattr(self, "original_operator"):
-            return False
-        else:
-            return True
-
     def previous_timestep(self) -> SecondaryOperator:
-        """
-        Raises:
-            ValueError: If the variable is a representation of the previous iteration,
-                previously set by :meth:`~previous_iteration`.
-            ValueError: If the timestepping depth was reached.
+        """Secondary operators have children which also need to be obtained at
+        the previous time step."""
 
-        Returns:
-            A representation of this operator at one timestep backwards.
-
-        """
-        if self.prev_iter:
-            raise ValueError(
-                "Cannot create a variable both on the previous time step and "
-                "previous iteration."
-            )
-
-        # This works because children are always first order (variables)
-        prev_time_children = [child.previous_timestep() for child in self.children]
-
-        op = SecondaryOperator(
-            self.name,
-            self.domains,
-            prev_time_children,
-            self.time_step_index + 1,  # increase time step index
-            self.iterate_index,
-        )
-        op.fetch_data = self.fetch_data
-
-        # keeping track to the very first one
-        if self.is_original_operator:
-            op.original_operator = self
-        else:
-            op.original_operator = self.original_operator
-
+        op = super().previous_timestep()
+        op.children = [child.previous_timestep() for child in self.children[1:]]
         return op
 
     def previous_iteration(self) -> SecondaryOperator:
-        """
-        Raises:
-            ValueError: If the variable is a representation of the previous time step,
-                previously set by :meth:`~previous_timestep`.
-            ValueError: If the iterate depth was reached.
-
-        Returns:
-            A representation of this operator at the current time step, at one iteration
-            before.
-
-        """
-        if self.prev_time:
-            raise ValueError(
-                "Cannot create a variable both on the previous time step and "
-                "previous iteration."
-            )
-
-        prev_iter_children = [child.previous_iteration() for child in self.children]
-
-        op = SecondaryOperator(
-            self.name,
-            self.domains,
-            prev_iter_children,
-            self.time_step_index,
-            self.iterate_index + 1,  # increase iterate index
-        )
-        op.fetch_data = self.fetch_data
-
-        # keeping track to the very first one
-        if self.is_original_operator:
-            op.original_operator = self
-        else:
-            op.original_operator = self.original_operator
-
+        """Secondary operators have children which also need to be obtained at
+        the previous iteration."""
+        op = super().previous_iteration()
+        op.children = [child.previous_iteration() for child in self.children[1:]]
         return op
 
-    def func(self, *args: pp.ad.AdArray | np.ndarray) -> pp.ad.AdArray | np.ndarray:
-        """Function which returns the data stored for this secondary operator at its
-        time step or iterate index.
+    def get_values(self, *args: np.ndarray | AdArray) -> np.ndarray:
+        """Fetches the values stored for this secondary operator at its time or iterate
+        index."""
 
-        Uses :attr:`fetch_data` assigned by its factory class
-        :class:`SecondaryExpression`.
+        values: list[np.ndarray] = []
 
-        If ``*args`` is composed of Ad arrays, this function returns also an Ad array,
-        which contains the stored derivative values per dependency.
+        for g in self.domains:
+            val = self.fetch_data(self, g)[0]
+            if val is None:
+                raise ValueError(
+                    f"No values stored for secondary operator {self.name}"
+                    + f"at time {self.time_step_index} and iterate {self.iterate_index}"
+                    + f" on grid with id {g.id}."
+                )
+            else:
+                values.append(val)
 
-        If on the other hand ``*args`` is composed of numpy arrays (like in the case
-        of an evaluation on the previous time step or iterate), this function
-        will return only values as a numpy array.
+        value = np.hstack(values)
 
-        Note:
-            This function contains several validation steps to ensure the correct usage.
+        return value
 
-            It expects arguments equal to the amount of dependencies.
-            It expects values and derivatives of proper shape stored under respective
-            time or iterate index.
+    def get_jacobian(self, *args: np.ndarray | AdArray) -> sps.spmatrix:
+        """Fetches the derivative values stored for this secondary operator at its time
+        or iterate index.
 
-            It performes all those validations at every evaluation, and raises
-            errors respectively.
+        Uses the structure of the Jacobians of arguments to insert the values,
+        assuming the Jacobians contain only identity blocks.
 
         """
 
-        nd = len(self.children)  # number of expected dependencies
-        nc = sum([g.num_cells for g in self.domains])  # number of expected values
-        with_derivatives: bool  # flag indicating if stored derivatives are requested
-
-        assert len(args) == nd, f"Evaluation of {self.name} expects {nd} args."
-
-        # case when evaluated at current time step, current iterate
-        if all(isinstance(a, pp.ad.AdArray) for a in args):
-            with_derivatives = True
-        # other cases, some previous time or iterate
-        else:
-            assert all(
-                isinstance(a, np.ndarray) for a in args
-            ), "Functions of sec. operators expect either Ad or numpy arrays as args."
-            with_derivatives = False
-
-        vals: list[np.ndarray] = []
         diffs: list[np.ndarray] = []
         for g in self.domains:
-            # The function expects objects, one for values, one for derivatives
-            # It also validates if data is stored or not
-            vd = self.fetch_data(self, g)
-            vals.append(vd[0])
-            diffs.append(vd[1])
+            val = self.fetch_data(self, g)[1]
+            if val is None:
+                raise ValueError(
+                    f"No derivative values stored for secondary operator {self.name}"
+                    + f"at time {self.time_step_index} and iterate {self.iterate_index}"
+                    + f" on grid with id {g.id}."
+                )
+            else:
+                diffs.append(val)
 
-        # Check if values present and properly shaped
-        if np.any([v is None for v in vals]):
-            idx = [i for i, v in enumerate(vals) if v is None]
-            raise ValueError(
-                f"No values stored for secondary operator {self}"
-                + f" on grids {self.domains[idx]}."
-            )
-        value = np.hstack(vals)
-        assert value.shape == (nc,), (
-            f"Secondary expression {self.name} requires {nc} values stored in"
-            + f" domains {self.domains}"
-        )
-
-        # if no derivatives requested, return value
-        if not with_derivatives:
-            return value
-
-        # proceeding with derivatives, by filling the identity blocks of the first-order
-        # dependencies. Check if derivatives are stored
-        if np.any([d is None for d in diffs]):
-            idx = [i for i, d in enumerate(diffs) if d is None]
-            raise ValueError(
-                f"No derivative values stored for secondary operator {self}"
-                + f" on grids {self.domains[idx]}."
-            )
-        # derivatives, row-wise dependencies, column-wise per domain per cell
         derivatives = np.hstack(diffs)
-        assert derivatives.shape == (nd, nc), (
-            f"Secondary expression {self.name} requires {nc} derivative values"
-            + f" per dependency stored in domains {self.domains}."
-        )
 
         # list of jacs per dependency, assuming porepy.ad makes consistent shapes
-        jacs: list[sps.coo_matrix] = []
+        jacs: list[sps.csr_matrix] = []
 
-        for i, arg in enumerate(args):
-            # by logic, arg has to be an AD array
-            arg = cast(pp.ad.AdArray, arg)
-            # by logic, this is a 1D array
-            d_i = cast(np.ndarray, derivatives[i])
+        for arg, d_i in zip(args, derivatives):
+            if isinstance(arg, AdArray):
+                # At this point we assume that the derivative has only an identity block
+                # Shape checks for derivatives are done in the factory class
+                jacs.append(
+                    sps.csr_matrix((d_i, arg.jac.nonzero()), shape=arg.jac.shape)
+                )
 
-            idx = cast(tuple[np.ndarray, np.ndarray], arg.jac.nonzero())
-            shape = arg.jac.shape
-            # sanity checks that the amount of derivatives (per cell) match
-            assert (
-                idx[0].shape == value.shape
-            ), "Mismatch in shape of derivatives for arg 1."
-            assert (
-                idx[0].shape == d_i.shape
-            ), "Mismatch in shape of provided derivatives for arg 1."
-            jacs.append(sps.coo_matrix((d_i, idx), shape=shape))
-
-        return pp.ad.AdArray(value, cast(sps.coo_matrix, sum(jacs)).tocsr())
+        return sum(jacs).tocsr()
 
 
 class SecondaryExpression:
@@ -582,8 +419,8 @@ class SecondaryExpression:
         if iterate_depth < 1:
             raise ValueError("Iterate depth must be at least 1.")
 
-        self._dependencies: Tuple[
-            Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator], ...
+        self._dependencies: Sequence[
+            Callable[[pp.GridLikeSequence], pp.ad.Variable]
         ] = dependencies
         """Sequence of callable first order dependencies. Called when constructing
         operators on domains."""
@@ -627,12 +464,14 @@ class SecondaryExpression:
             return pp.wrap_as_dense_ad_array(np.zeros((0,)), name=self.name)
         # On the boundary, this is a Time-Dependent dense array
         elif all(isinstance(g, pp.BoundaryGrid) for g in domains):
-            op = pp.ad.TimeDependentDenseArray(self.name, domains)
+            return pp.ad.TimeDependentDenseArray(self.name, domains)
         # On subdomains or interfaces, create the secondary operators
         elif all(isinstance(g, pp.Grid) for g in domains) or all(
             isinstance(g, pp.MortarGrid) for g in domains
         ):
-            children = [child(domains) for child in self._dependencies]
+            # for mypy
+            domains_ = cast(Sequence[pp.Grid] | Sequence[pp.MortarGrid], domains)
+            children = [child(domains_) for child in self._dependencies]
 
             # Check if first-order dependency
             assert all(isinstance(child, pp.ad.Variable) for child in children), (
@@ -641,19 +480,19 @@ class SecondaryExpression:
             )
 
             # always start with operator at current time step, current iterate
-            op = SecondaryOperator(self.name, domains, children)
+            op = SecondaryOperator(self.name, domains_, children)
 
             # assign the function which extracts the data
             op.fetch_data = self.fetch_data
+
+            return op
         else:
             raise ValueError(
                 f"Unsupported domain configuration {[type(g) for g in domains]}."
             )
 
-        return op
-
     def fetch_data(
-        self, op: SecondaryOperator, grid: pp.Grid | pp.MortarGrid
+        self, op: SecondaryOperator, grid: pp.GridLike
     ) -> Sequence[np.ndarray | None]:
         """Function fetching the data stored for this secondary expression, represented
         in Ad form by ``op``.
