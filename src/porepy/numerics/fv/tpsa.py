@@ -75,9 +75,6 @@ class Tpsa:
                 fi, weights=shear_modulus_by_face_cell_distance, minlength=sd.num_faces
             )
         )
-        delta_bar = 1 / np.bincount(
-            fi, weights=1/dist_fc_cc, minlength=sd.num_faces
-        )
 
         # The vector difference operator over a face is simply a Kronecker product of
         # the standard cell-face map.
@@ -157,7 +154,7 @@ class Tpsa:
 
         mass_volumetric_strain = -(
             sps.dia_matrix(
-                (sd.face_areas * delta_bar / (2 * arithmetic_average_shear_modulus), 0),
+                (sd.face_areas / (2 * arithmetic_average_shear_modulus), 0),
                 shape=(sd.num_faces, sd.num_faces),
             )
             @ sd.cell_faces
