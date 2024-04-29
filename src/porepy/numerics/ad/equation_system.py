@@ -572,26 +572,9 @@ class EquationSystem:
                 :meth:`num_dofs`.
 
         Raises:
-            ValueError: If neither of ``time_step_index`` or ``iterate_index`` have been
-            assigned a non-None value.
-            ValueError: If both ``time_step_index`` and ``iterate_index`` have been
-            assigned a value.
-            KeyError: If no values are stored for the VariableType input.
             ValueError: If unknown VariableType arguments are passed.
 
         """
-        if time_step_index is None and iterate_index is None:
-            raise ValueError(
-                "Either time_step_index or iterate_index needs to be different from"
-                " None"
-            )
-
-        if time_step_index is not None and iterate_index is not None:
-            raise ValueError(
-                "Only one of time_step_index or iterate_index should be assigned a"
-                " value."
-            )
-
         variables = self._parse_variable_type(variables)
         # Storage for atomic blocks of the sub vector (identified by name-grid pairs).
         values = []
@@ -600,28 +583,15 @@ class EquationSystem:
         # This ensures uniqueness and correct order.
         for variable in self._variable_numbers:
             if variable in variables:
-                name = variable.name
-                grid = variable.domain
-                if isinstance(grid, pp.Grid):
-                    data = self.mdg.subdomain_data(grid)
-                elif isinstance(grid, pp.MortarGrid):
-                    data = self.mdg.interface_data(grid)
-                # Extract a copy of requested values.
-                try:
-                    if iterate_index is not None:
-                        values.append(
-                            data[pp.ITERATE_SOLUTIONS][name][iterate_index].copy()
-                        )
 
-                    elif time_step_index is not None:
-                        values.append(
-                            data[pp.TIME_STEP_SOLUTIONS][name][time_step_index].copy()
-                        )
-
-                except KeyError:
-                    raise KeyError(
-                        f"No values stored for variable {name} on grid {grid}."
-                    )
+                val = pp.get_solution_values(
+                    variable.name,
+                    self._get_data(variable.domain),
+                    time_step_index=time_step_index,
+                    iterate_index=iterate_index,
+                )
+                # NOTE get_solution_values already returns a copy
+                values.append(val)
 
         # If there are matching blocks, concatenate and return.
         if values:
@@ -648,34 +618,26 @@ class EquationSystem:
             Mismatches of is-size and should-be-size according to the subspace specified
             by ``variables`` will raise respective errors by numpy.
 
+        See also:
+            :meth:`~porepy.numerics.ad._ad_utils.set_solution_values`.
+
         Parameters:
             values: Vector of size corresponding to number of DOFs of the specified
                 variables.
             variables (optional): VariableType input for which the values are
                 requested. If None (default), the global vector of unknowns will be
                 set.
-            time_step_index: Several solutions might be stored in the data dictionary.
-                This parameter determines which one of these is to be overwritten/added
-                to (depends on ``additive``). If ``None``, the values will not be
-                stored to ``pp.TIME_STEP_SOLUTIONS``.
-            iterate_index: Several iterates might be stored in the data dictionary. This
-                parameter determines which one of these is to be overwritten/added to
-                (depends on ``additive``). If ``None``, the values will not be stored
-                to ``pp.ITERATE_SOLUTIONS``.
+            time_step_index: Index of previous time step for which the values are
+                intended.
+            iterate_index: Iterate index for current time step for which the values are
+                intended.
             additive (optional): Flag to write values additively. To be used in
                 iterative procedures.
 
         Raises:
-            ValueError: If neither of ``time_step_index`` or ``iterate_index`` have been
-            assigned a value.
             ValueError: If unknown VariableType arguments are passed.
 
         """
-        if time_step_index is None and iterate_index is None:
-            raise ValueError(
-                "At least one of time_step_index and iterate_index needs to be"
-                "different from None."
-            )
 
         # Start of dissection.
         dof_start = 0
@@ -683,42 +645,29 @@ class EquationSystem:
         variables = self._parse_variable_type(variables)
         for variable, variable_number in self._variable_numbers.items():
             if variable in variables:
-                name = variable.name
-                grid = variable.domain
-
-                data = self._get_data(grid=grid)
-
+                # 1. Slice the vector to local size
+                # This will raise errors if indexation is out of range.
                 num_dofs = int(self._variable_num_dofs[variable_number])
+                dof_end = dof_start + num_dofs
+                dof_end = dof_start + num_dofs
+                # Extract local vector.
+                # This will raise errors if indexation is out of range.
                 dof_end = dof_start + num_dofs
                 # Extract local vector.
                 # This will raise errors if indexation is out of range.
                 local_vec = values[dof_start:dof_end]
 
-                # The data dictionary will have ``pp.TIME_STEP_SOLUTIONS`` and
-                # ``pp.ITERATE_SOLUTIONS`` entries already created during
-                # create_variables. If an error is returned here, a variable has been
-                # created in a non-standard way. Store new values as requested.
-                if additive:
-                    if iterate_index is not None:
-                        data[pp.ITERATE_SOLUTIONS][name][iterate_index] += local_vec
+                # 2.  Use the AD utilities to set the values
+                pp.set_solution_values(
+                    variable.name,
+                    local_vec,
+                    self._get_data(grid=variable.domain),
+                    time_step_index=time_step_index,
+                    iterate_index=iterate_index,
+                    additive=additive,
+                )
 
-                    if time_step_index is not None:
-                        data[pp.TIME_STEP_SOLUTIONS][name][time_step_index] += local_vec
-
-                else:
-                    if iterate_index is not None:
-                        # The copy is critcial here.
-                        data[pp.ITERATE_SOLUTIONS][name][
-                            iterate_index
-                        ] = local_vec.copy()
-
-                    if time_step_index is not None:
-                        # The copy is critcial here.
-                        data[pp.TIME_STEP_SOLUTIONS][name][
-                            time_step_index
-                        ] = local_vec.copy()
-
-                # Move dissection forward.
+                # 3. Move dissection forward.
                 dof_start = dof_end
 
         # Last sanity check if the vector was properly sized, or if it was too large.
@@ -938,9 +887,16 @@ class EquationSystem:
         assert isinstance(variables, list)
         for variable in variables:
             if isinstance(variable, MixedDimensionalVariable):
-                parsed_variables += variable.sub_vars
+                parsed_variables += [
+                    var if var.is_original_operator else var.original_operator
+                    for var in variable.sub_vars
+                ]
             elif isinstance(variable, Variable):
-                parsed_variables.append(variable)
+                parsed_variables.append(
+                    variable
+                    if variable.is_original_operator
+                    else variable.original_operator
+                )
             elif isinstance(variable, str):
                 # Use _variables to avoid recursion (get_variables() calls this method)
                 vars = [var for var in self._variables if var.name == variable]

@@ -241,8 +241,9 @@ def test_ad_operator_unary_minus_parsing():
     mat2 = sps.csr_matrix(np.random.rand(3))
     sp_array1 = pp.ad.SparseArray(mat1)
     sp_array2 = pp.ad.SparseArray(mat2)
+    eqs = pp.ad.EquationSystem(pp.MixedDimensionalGrid())
     op = sp_array1 + sp_array2
-    assert np.allclose(op._parse_operator(-op, None).data, -(mat1 + mat2).data)
+    assert np.allclose(op._parse_operator(-op, eqs, None).data, -(mat1 + mat2).data)
 
 
 def test_time_dependent_array():

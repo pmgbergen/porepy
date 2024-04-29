@@ -64,9 +64,14 @@ class AbstractFunction(Operator):
         **kwargs,  # Left for inheritance for more complex functions
     ) -> None:
         # NOTE Constructor is overwritten to have a consistent signature
-        # But only name and operation are actually important.
+        # But the operation is always overwritten to point to evaluate.
         # Done for reasons of multiple inheritance.
-        super().__init__(name=name, operation=pp.ad.Operator.Operations.evaluate)
+        super().__init__(
+            name=name,
+            domains=domains,
+            operation=pp.ad.Operator.Operations.evaluate,
+            children=children,
+        )
 
     def __call__(self, *args: pp.ad.Operator) -> pp.ad.Operator:
         """Renders this function operator callable, fulfilling its notion as 'function'.
@@ -86,7 +91,14 @@ class AbstractFunction(Operator):
             len(args) > 0
         ), "Operator functions must be called with at least 1 argument."
 
-        op = Operator(children=args, operation=self.operation)
+        op = Operator(
+            name=f"{self.name}{[a.name for a in args]}",
+            # domains=self.domains,
+            operation=pp.ad.Operator.Operations.evaluate,
+            children=args,
+        )
+        # Assigning the functional representation by the implementation of this instance
+        op.func = self.func  # type: ignore
         return op
 
     def __repr__(self) -> str:
@@ -167,7 +179,9 @@ class AbstractFunction(Operator):
         :meth:`func`."""
         return self
 
-    def func(self, *args: np.ndarray | AdArray) -> np.ndarray | AdArray:
+    def func(
+        self, *args: np.ndarray | AdArray
+    ) -> np.ndarray | AdArray:  # type:ignore[override]
         """The underlying numerical function which is represented by this operator
         function.
 
@@ -309,10 +323,13 @@ class Function(AbstractFunction):
         self, func: Callable[[AdArray | np.ndarray], AdArray | np.ndarray], name: str
     ) -> None:
         super().__init__(name=name)
+
         self._func: Callable[[AdArray | np.ndarray], AdArray | np.ndarray] = func
         """Reference to the callable passed at instantiation."""
 
-    def func(self, *args: np.ndarray | AdArray) -> np.ndarray | AdArray:
+    def func(
+        self, *args: np.ndarray | AdArray
+    ) -> np.ndarray | AdArray:  # type:ignore[override]
         """Overwrites the parent method to call the numerical function passed at
         instantiation."""
         return self._func(*args)

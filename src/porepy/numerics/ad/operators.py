@@ -7,7 +7,7 @@ import copy
 from enum import Enum
 from functools import reduce
 from itertools import count
-from typing import Any, Literal, Optional, Sequence, TypeVar, Union, cast, overload
+from typing import Any, Callable, Literal, Optional, Sequence, TypeVar, Union, overload
 
 import numpy as np
 import scipy.sparse as sps
@@ -40,7 +40,9 @@ def _get_shape(mat):
         return mat.shape
 
 
-def _get_previous_time_or_iterate(op: Operator, prev_time: bool = True) -> Operator:
+def _get_previous_time_or_iterate(
+    op: Operator, prev_time: bool = True, steps: int = 1
+) -> Operator:
     """Helper function which traverses an operator tree by recursion to get a
     copy of and its childrent, representing it at a previous time or
     previous iteration.
@@ -54,6 +56,9 @@ def _get_previous_time_or_iterate(op: Operator, prev_time: bool = True) -> Opera
 
             This is the only difference in the recursion and we can avoid duplicate
             code.
+        steps: ``default=1``
+
+            Number of steps backwards in time or iterate sense.
 
     Returns:
         A copy of the operator and its children, representing the previous time or
@@ -63,32 +68,32 @@ def _get_previous_time_or_iterate(op: Operator, prev_time: bool = True) -> Opera
 
     # The recursion reached an atomic operator, which has some time- or
     # iterate-dependent behaviour
-    if isinstance(op, IterativeOperator | TimeDependentOperator):
-        if prev_time:
-            new_op = op.previous_timestep()
-        else:
-            new_op = op.previous_iteration()
+    if isinstance(op, TimeDependentOperator) and prev_time:
+        return op.previous_timestep(steps=steps)
+    elif isinstance(op, IterativeOperator) and not prev_time:
+        return op.previous_iteration(steps=steps)
+    # NOTE The previous_iteration of a time-dependent operator will return the operator
+    # itself. Vice-versa, the previous_timestep of an Iterative operator will return
+    # itself. Holds only if the operator is original (no previous_* operation performed)
+
     # The recursion reached an operator without children and without time- or iterate-
     # dependent behaviour
     elif op.is_leaf():
-        new_op = op
+        return op
     # Else we are in the middle of the operator tree and need to go deeper, creating
     # copies along.
     else:
 
         # Create new operator from the tree, with the only difference being the new
         # children, for which the recursion is invoked
-        new_op = Operator(
-            name=op.name,
-            domains=op.domains,
-            operation=op.operation,
-            children=[
-                _get_previous_time_or_iterate(child, prev_time=prev_time)
-                for child in op.children
-            ],
-        )
+        # NOTE copy takes care of references to original_operator and func
+        new_op = copy.copy(op)
+        new_op.children = [
+            _get_previous_time_or_iterate(child, prev_time=prev_time, steps=steps)
+            for child in op.children
+        ]
 
-    return new_op
+        return new_op
 
 
 class Operator:
@@ -161,6 +166,28 @@ class Operator:
                 " interfaces, subdomains or boundary grids."
             )
 
+        self.func: Callable[[tuple[np.ndarray | AdArray, ...]], np.ndarray | AdArray]
+        """Functional representation of this operator.
+
+        As of now, only instances of
+        :class:`~porepy.numerics.ad.operator_functions.AbstractFunction` have a
+        functional representation, whereas basic arithmetics are implemented by
+        arithmetic overloads in this class.
+
+        Note:
+            This declaration avoids operator functions creating operators with
+            themselves as the first child to provide access to
+            :meth:`~porepy.numerics.ad.operator_functions.AbstractFunction.func`,
+            and hence artificially bloating the operator tree.
+
+        Note:
+            For future development:
+
+            Functional representation can be used for an optimized representation
+            (keyword numba compilation).
+
+        """
+
         self.children: Sequence[Operator]
         """List of children, other AD operators.
 
@@ -177,12 +204,6 @@ class Operator:
 
         ### PRIVATE
         self._name = name if name is not None else ""
-
-        self._variables_in_tree: Optional[
-            Sequence[Variable | MixedDimensionalVariable]
-        ] = None
-        """The variables in the operator tree. This need only be created once during
-        the first parsing."""
 
     @property
     def interfaces(self):
@@ -266,7 +287,7 @@ class Operator:
         """
         self._name = name
 
-    def previous_timestep(self) -> pp.ad.Operator:
+    def previous_timestep(self, steps: int = 1) -> pp.ad.Operator:
         """Base method to trigger a recursion over the operator tree and create a
         shallow copy of this operator, where child operators with time-dependent
         behaviour are pushed backwards in time.
@@ -274,9 +295,9 @@ class Operator:
         For more information, see :class:`TimeDependentOperator`.
 
         """
-        return _get_previous_time_or_iterate(self, prev_time=True)
+        return _get_previous_time_or_iterate(self, prev_time=True, steps=steps)
 
-    def previous_iteration(self) -> pp.ad.Operator:
+    def previous_iteration(self, steps: int = 1) -> pp.ad.Operator:
         """Base method to trigger a recursion over the operator tree and create a
         shallow copy of this operator, where child operators with iterative
         behaviour are pushed backwards in the iterative sense.
@@ -284,7 +305,7 @@ class Operator:
         For more information, see :class:`IterativeOperator`.
 
         """
-        return _get_previous_time_or_iterate(self, prev_time=False)
+        return _get_previous_time_or_iterate(self, prev_time=False, steps=steps)
 
     def parse(self, mdg: pp.MixedDimensionalGrid) -> Any:
         """Translate the operator into a numerical expression.
@@ -307,8 +328,7 @@ class Operator:
     def _parse_operator(
         self,
         op: Operator,
-        mdg: pp.MixedDimensionalGrid,
-        dof_map: dict[int, np.ndarray | Sequence[np.ndarray]],
+        eqs: pp.ad.EquationSystem,
         ad_base: AdArray | np.ndarray,
     ):
         """Recursive parsing of operator tree to return numerical representation.
@@ -321,9 +341,7 @@ class Operator:
 
         Parameters:
             op: The operator to be parsed (for recursion in tree of ``self``).
-            mdg: Md-grid on which the operator is parsed (contains numerical data).
-            dof_map: Map between variable ids of variables in the tree, and their dofs
-                in the global sense.
+            eqs: Equation system and its grid on which to perform the parsing.
             ad_base: Starting point for forward mode, containing values
                 (and possibly derivatives as identities) of the global vector at current
                 time and iterate.
@@ -336,11 +354,11 @@ class Operator:
         # The parsing strategy depends on the operator at hand:
         # 1) If it is numeric, then it is already some sort of leaf. Return it
         # 2) If it is a leaf
-        #    a) it can be some some discretization or some wrapped data
-        #    b) or a variable/md-variable
-        #    In both cases we parse the operator, minding the DOFs for variables
-        # 3) If it is an operator with children, invoke recursion for children and
-        #    continue to the operation assigned to the operator.
+        #    a) A md-variable with dofs per atomic variable
+        #    b) An atomic variable, with its dofs
+        #    c) Some wrapper for discretizations or other data.
+        # 3) If it is a non-variable operator with children, invoke recursion and
+        #    proceed to the non-void operation.
 
         # Case 1), Some numeric data, or already evaluated operator.
         if isinstance(op, AdArray | np.ndarray | pp.number):
@@ -352,59 +370,46 @@ class Operator:
         ), f"Failure in parsing: Unsupported type in operor tree {type(op)}."
 
         # Case 2) Leaf operators or variables
+        # NOTE Should MD variables really be leaves?
         if op.is_leaf():
-            # For variables, we need to insert the values at the right DOFs
-            if isinstance(op, Variable):
-                # Empty vector like the global vector of unknowns for prev time or iter
-                # insert the values at the right dofs and return the reduced
-                # array
-                vals = np.zeros_like(
-                    ad_base.val if isinstance(ad_base, AdArray) else ad_base
-                )
+            # Case 2.a) Md-variable
+            # TODO no derivatives for prev iter for atomic and md vars?
+            if isinstance(op, MixedDimensionalVariable):
+                if op.prev_iter or op.prev_time:
+                    # Empty vector like the global vector of unknowns for prev time/iter
+                    # insert the values at the right dofs and slice
+                    vals = np.empty_like(
+                        ad_base.val if isinstance(ad_base, AdArray) else ad_base
+                    )
+                    # list of indices for sub variables
+                    dofs = []
+                    for sub_var in op.sub_vars:
+                        sub_dofs = eqs.dofs_of([sub_var])
+                        vals[sub_dofs] = sub_var.parse(eqs.mdg)
+                        dofs.append(sub_dofs)
 
-                # md-variables have a sequence of dofs.
-                if isinstance(op, MixedDimensionalVariable):
-                    # the dof map contains a sequence per sub-variable
-                    # if empty, make an empty index array
-                    if dof_map[op.id]:
-                        all_sub_dofs = np.hstack(
-                            cast(Sequence[np.ndarray], dof_map[op.id]), dtype=int
-                        )
-                    else:
-                        all_sub_dofs = np.array([], dtype=int)
-
-                    # TODO previous times and iterates have only representations without
-                    # derivatives. Iis this critical for prev iter representations?
-                    if op.prev_iter or op.prev_time:
-
-                        for sub_vals, sub_dofs in zip(op.parse(mdg), dof_map[op.id]):
-                            vals[sub_dofs] = sub_vals
-
-                        return vals[all_sub_dofs]
-                    # At current time and iterate, ad_base has already the correct
-                    # values
-                    else:
-                        return ad_base[all_sub_dofs]
-                # analogous parsing for atomic variables, dofs are now a single array
+                    return vals[np.hstack(dofs, dtype=int)] if dofs else np.array([])
+                # Like for atomic variables, ad_base contains current time and iter
                 else:
-                    dofs = cast(np.ndarray, dof_map[op.id])
-                    if op.prev_iter or op.prev_time:
-                        vals[dofs] = op.parse(mdg)
-                        return vals[dofs]
-                    else:
-                        return ad_base[dofs]
-
-            # all other leafs like discretizations or some wrapped data
+                    return ad_base[eqs.dofs_of([op])]
+            # Case 2.b) atomic variables
+            elif isinstance(op, Variable):
+                # If a variable represents a previous iter or time, parse values
+                if op.prev_iter or op.prev_time:
+                    return op.parse(eqs.mdg)
+                # Otherwise use the current time and iter values
+                else:
+                    return ad_base[eqs.dofs_of([op])]
+            # Case 2.c) All other leafs like discretizations or some wrapped data
             else:
                 # Mypy compains because the return type of parse is Any
-                return op.parse(mdg)  # type:ignore
+                return op.parse(eqs.mdg)  # type:ignore
 
-        # Case 3) This is not an atomic operator.
-        # First parse its children, then apply the designated operation
-        results = [
-            self._parse_operator(child, mdg, dof_map, ad_base) for child in op.children
-        ]
+        # Case 3) This is a non-atomic operator with an assigned operation
+        # Invoke recursion
+        results = [self._parse_operator(child, eqs, ad_base) for child in op.children]
 
+        # Finally, do the operation
         operation = op.operation
         if operation == Operator.Operations.add:
             # To add we need two objects
@@ -520,15 +525,15 @@ class Operator:
                 raise ValueError(msg) from exc
 
         elif operation == Operator.Operations.evaluate:
-            # Operator functions should have at least 1 child
+            # Operator functions should have at least 1 child (themselves)
             assert len(results) >= 1, "Operator functions must have at least 1 child."
-            assert isinstance(op, pp.ad.AbstractFunction), (
-                f"Operators with operation {operation} must be instances of"
-                + f" {pp.ad.AbstractFunction}."
+            assert hasattr(op, "func"), (
+                f"Operators with operation {operation} must have a functional"
+                + f" representation `func` implemented as a callable member."
             )
 
             try:
-                return op.func(*results[1:])
+                return op.func(*results)
             except Exception as exc:
                 # TODO specify what can go wrong here (Exception type)
                 msg = "Error while parsing operator function:\n"
@@ -811,14 +816,6 @@ class Operator:
             depends on the operator.
 
         """
-        mdg = system_manager.mdg
-
-        # Identify all variables in the Operator tree and their DOFs.
-        dof_map = self._identify_variables(system_manager)
-
-        # 1. Make a forward Ad-representation of the variable state.
-        # (this must be done jointly for all variables of the operator to get all
-        # derivatives represented)
 
         # If state is not specified, use values at current time, current iterate
         if state is None:
@@ -837,67 +834,13 @@ class Operator:
         else:
             ad_base = state
 
-        # Parse operators. This is left to a separate function to facilitate the
+        # 2. Parse operators. This is left to a separate function to facilitate the
         # necessary recursion for complex operators.
-        eq = self._parse_operator(self, mdg, dof_map, ad_base)
+        eq = self._parse_operator(self, system_manager, ad_base)
 
         return eq
 
-    def _identify_variables(
-        self,
-        system_manager: pp.ad.EquationSystem,
-    ) -> dict[int, np.ndarray | Sequence[np.ndarray]]:
-        """Identify all variables in this operator and a return a dictionary mapping
-        from variable ids to their DOFs.
-
-        If it is an atomic variable, the dictionary contains a numpy array with indices
-        If it is a md-variable, the dictionary contains a sequence of numpy arrays,
-        with indices for each sub variable.
-
-        """
-        # 1. Get all variables present in this operator.
-        # The variable finder is implemented in a special function, aimed at recursion
-        # through the operator tree.
-        # Uniquify by making this a set, and then sort on variable id
-        variables: Sequence[Variable | MixedDimensionalVariable]
-        if self._variables_in_tree is None:
-            variables = sorted(
-                list(set(self._find_subtree_variables())),
-                key=lambda var: var.id,
-            )
-            self._variables_in_tree = variables
-        else:
-            variables = self._variables_in_tree
-
-        # 2. Get a mapping between variables (*not* only MixedDimensionalVariables) and
-        # their indices according to the EquationSystem. This is needed to access the
-        # state of a variable when parsing the operator to numerical values using
-        # forward Ad.
-        # NOTE This map can change between iterations or time steps, for complex
-        # algorithms involving grid refinement (fracture propagation)
-        # Not static like self._variables_in_tree
-        dof_map: dict[int, np.ndarray | Sequence[np.ndarray]] = dict()
-
-        # 3. Loop over identified variables
-        # TODO can be optimized to avoid storage for variables at previous time or iter
-        for variable in variables:
-
-            # Md-variables have sub variables, each with an array of dofs assigned.
-            if isinstance(variable, MixedDimensionalVariable):
-
-                sub_var_inds: list[np.ndarray] = [
-                    # NOTE dofs_of works based on the variable name, not on ID
-                    # This makes this step actually independent of prev time or iter
-                    system_manager.dofs_of([var for var in variable.sub_vars])
-                ]
-                dof_map[variable.id] = sub_var_inds
-            # Else it is an atomic variable, and only dofs for itself are required
-            else:
-                dof_map[variable.id] = system_manager.dofs_of([variable])
-
-        return dof_map
-
-    def _find_subtree_variables(self) -> Sequence[Variable | MixedDimensionalVariable]:
+    def find_variables_in_tree(self) -> Sequence[Variable | MixedDimensionalVariable]:
         """Method to recursively look for Variables (or MixedDimensionalVariables) in an
         operator tree.
         """
@@ -916,7 +859,7 @@ class Operator:
             # children - they have none.
             for child in self.children:
                 if isinstance(child, Operator):
-                    sub_variables += child._find_subtree_variables()
+                    sub_variables += child.find_variables_in_tree()
 
             # Some work is needed to parse the information
             var_list: list[Variable] = []
@@ -1216,7 +1159,9 @@ class TimeDependentOperator(Operator):
         operation: Optional[Operator.Operations] = None,
         children: Optional[Sequence[Operator]] = None,
     ) -> None:
-        super().__init__(name, domains, operation, children)
+        super().__init__(
+            name=name, domains=domains, operation=operation, children=children
+        )
 
         self.original_operator: Operator
         """Reference to the operator representing this operator at the current time.
@@ -1235,18 +1180,24 @@ class TimeDependentOperator(Operator):
         return True if self._time_step_index > -1 else False
 
     @property
-    def time_step_index(self) -> int:
+    def time_step_index(self) -> Optional[int]:
         """Returns the time step index this instance represents.
 
-        - -1 represents the current time step
+        - None indicates this is an operator at the current time step
         - 0 represents the first previous time step
         - 1 represents the next time step further back in time
         - ...
 
-        """
-        return self._time_step_index
+        Note:
+            The public time step index is ``None``, if the operator represents the
+            current time.
 
-    def previous_timestep(self: _TimeDependentOperator) -> _TimeDependentOperator:
+        """
+        return self._time_step_index if self._time_step_index >= 0 else None
+
+    def previous_timestep(
+        self: _TimeDependentOperator, steps: int = 1
+    ) -> _TimeDependentOperator:
         """Returns a copy of the time-dependent operator with an advanced time-step
         index.
 
@@ -1266,7 +1217,11 @@ class TimeDependentOperator(Operator):
                     + " if it already represents a previous iterate."
                 )
         # TODO copy or deepcopy? Is this enough for every operator class?
-        op = copy.deepcopy(self)
+        op = copy.copy(self)
+
+        # NOTE Use private time step index, because it is always an integer
+        # The public time step index is NONE for current time
+        # (which translates to -1 for the private index)
         op._time_step_index = self._time_step_index + 1
 
         # keeping track to the very first one
@@ -1303,7 +1258,9 @@ class IterativeOperator(Operator):
         operation: Optional[Operator.Operations] = None,
         children: Optional[Sequence[Operator]] = None,
     ) -> None:
-        super().__init__(name, domains, operation, children)
+        super().__init__(
+            name=name, domains=domains, operation=operation, children=children
+        )
 
         self.original_operator: Operator
         """Reference to the operator representing this operator at the current time.
@@ -1333,7 +1290,9 @@ class IterativeOperator(Operator):
         """
         return self._iterate_index
 
-    def previous_iteration(self: _IterativeOperator) -> _IterativeOperator:
+    def previous_iteration(
+        self: _IterativeOperator, steps: int = 1
+    ) -> _IterativeOperator:
         """Returns a copy of the iterative operator with an advanced iterate index.
 
         Iterative operators do not invoke the recursion (like the base class),
@@ -1352,7 +1311,7 @@ class IterativeOperator(Operator):
                     + " if it already represents a previous time step."
                 )
         # See TODO in TimeDependentOperator.previous_timestep
-        op = copy.deepcopy(self)
+        op = copy.copy(self)
         op._iterate_index = self._iterate_index + 1
 
         # keeping track to the very first one
@@ -1586,10 +1545,13 @@ class TimeDependentDenseArray(TimeDependentOperator):
             return np.empty(0, dtype=float)
 
     def __repr__(self) -> str:
-        return (
+        msg = (
             f"Wrapped time-dependent array with name {self._name}.\n"
             f"Defined on {len(self._domains)} {self._domain_type}.\n"
         )
+        if self.prev_time:
+            msg += f"Evaluated at the previous time step {self.time_step_index}.\n"
+        return msg
 
 
 class Scalar(Operator):
@@ -1761,11 +1723,15 @@ class Variable(TimeDependentOperator, IterativeOperator):
 
         if self.prev_time:
             return pp.get_solution_values(
-                self.name, data, time_step_index=self.time_step_index
+                self.name,
+                data,
+                time_step_index=self.time_step_index,
             )
         else:
             return pp.get_solution_values(
-                self.name, data, iterate_index=self.iterate_index
+                self.name,
+                data,
+                iterate_index=self.iterate_index,
             )
 
     def __repr__(self) -> str:
@@ -1779,9 +1745,9 @@ class Variable(TimeDependentOperator, IterativeOperator):
             f"nodes ({self._nodes})\n"
         )
         if self.prev_iter:
-            s += "Evaluated at the previous iteration.\n"
+            s += f"Evaluated at the previous iteration {self.iterate_index}.\n"
         elif self.prev_time:
-            s += "Evaluated at the previous time step.\n"
+            s += f"Evaluated at the previous time step {self.time_step_index}.\n"
 
         return s
 
@@ -1791,7 +1757,7 @@ class MixedDimensionalVariable(Variable):
     subdomains or interfaces, but treated jointly in the mixed-dimensional sense.
 
     Conversion of the variables into numerical value should be done with respect to the
-    state of an array; see :meth:`Operator.evaluate`. Therefore, the MergedVariable does
+    state of an array; see :meth:`Operator.value`. Therefore, the MergedVariable does
     not implement the method :meth:`Operator.parse`.
 
     Parameters:
@@ -1826,7 +1792,7 @@ class MixedDimensionalVariable(Variable):
                 len(names) == 1
             ), "Cannot create md-variable from variables with different names."
 
-            time_step_index = list(time_indices)[0]
+            time_step_index = list(time_indices)[0]  # type:ignore
             iterate_index = list(iterate_indices)[0]
             name = list(names)[0]
             domains = [var.domains[0] for var in variables]
@@ -1837,7 +1803,10 @@ class MixedDimensionalVariable(Variable):
             ), "Md-variable are supported either on subdomains or interfaces."
 
         ### PRIVATE
-        self._time_step_index = time_step_index
+        # NOTE private time step index is -1 if public time step index of atomic
+        # variables is None (current time)
+        self._time_step_index = -1 if time_step_index is None else time_step_index
+        # NOTE private and public iterate indices are always integers
         self._iterate_index = iterate_index
         self._name = name
 
@@ -1845,9 +1814,6 @@ class MixedDimensionalVariable(Variable):
         # domain. While formally correct, this should be picked up in other places so we
         # ignore the warning here.
         self._domains = domains  # type: ignore[assignment]
-
-        self._initialize_children()
-        self.copy_common_sub_tags()
 
         ### PUBLIC
 
@@ -1859,6 +1825,9 @@ class MixedDimensionalVariable(Variable):
 
         self.id = next(Variable._ids)
         """ID counter. Used to identify variables during operator parsing."""
+
+        self._initialize_children()
+        self.copy_common_sub_tags()
 
     def __repr__(self) -> str:
         if len(self.sub_vars) == 0:
@@ -1874,9 +1843,9 @@ class MixedDimensionalVariable(Variable):
             f"Total size: {self.size}\n"
         )
         if self.prev_iter:
-            s += "Evaluated at the previous iteration.\n"
+            s += f"Evaluated at the previous iteration {self.iterate_index}.\n"
         elif self.prev_time:
-            s += "Evaluated at the previous time step.\n"
+            s += f"Evaluated at the previous time step {self.time_step_index}.\n"
 
         return s
 
@@ -1918,21 +1887,24 @@ class MixedDimensionalVariable(Variable):
 
     def parse(self, mdg: pp.MixedDimensionalGrid) -> Any:
         """Returns a sequence of values stored for each variable in :attr:`sub_vars`."""
-        return [var.parse(mdg) for var in self.sub_vars]
+        raise TypeError(
+            "Md-variables parsed on a md-grid without the equation system."
+            + " Use ``value(equation_system)`` instead."
+        )
 
-    def previous_timestep(self) -> MixedDimensionalVariable:
+    def previous_timestep(self, steps: int = 1) -> MixedDimensionalVariable:
         """Mixed-dimensional variables have sub-variables which also need to be
         obtained at the previous time step."""
 
-        op = super().previous_timestep()
-        op.sub_vars = [var.previous_timestep() for var in self.sub_vars]
+        op = super().previous_timestep(steps=steps)
+        op.sub_vars = [var.previous_timestep(steps=steps) for var in self.sub_vars]
         return op
 
-    def previous_iteration(self) -> MixedDimensionalVariable:
+    def previous_iteration(self, steps: int = 1) -> MixedDimensionalVariable:
         """Mixed-dimensional variables have sub-variables which also need to be
         obtained at the previous iteration."""
-        op = super().previous_iteration()
-        op.sub_vars = [var.previous_iteration() for var in self.sub_vars]
+        op = super().previous_iteration(steps=steps)
+        op.sub_vars = [var.previous_iteration(steps=steps) for var in self.sub_vars]
         return op
 
 

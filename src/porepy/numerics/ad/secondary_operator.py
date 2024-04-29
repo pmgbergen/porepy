@@ -128,6 +128,10 @@ import scipy.sparse as sps
 
 import porepy as pp
 from porepy.numerics.ad.forward_mode import AdArray
+from porepy.numerics.ad.operators import Operator
+
+from .operator_functions import AbstractFunction
+from .operators import IterativeOperator, TimeDependentOperator
 
 __all__ = [
     "SecondaryOperator",
@@ -136,11 +140,11 @@ __all__ = [
 
 
 class SecondaryOperator(
-    pp.ad.TimeDependentOperator,
-    pp.ad.IterativeOperator,
+    TimeDependentOperator,
+    IterativeOperator,
     # NOTE, with AbstractFunction at the end, the other parent classes enable arithmetic
     # overloads
-    pp.ad.AbstractFunction,
+    AbstractFunction,
 ):
     """Operator representing a :class:`SecondaryExpression` in AD operator form on
     specified subdomains or interfaces, at a time or iterate index.
@@ -210,32 +214,53 @@ class SecondaryOperator(
         """String representation giving information on name, time and iterate index, as
         well as domains and dependencies."""
 
-        msg = f"Secondary operator {self.name}"
-
-        if self.prev_time:
-            msg += f" at time step {self.time_step_index}"
-        else:
-            msg += f" at iterate {self.iterate_index}"
-
-        return (
-            msg
+        msg = (
+            f"Secondary operator {self.name}.\n"
             + f"\nDefined on {len(self._domains)} {self._domain_type}.\n"
             + f"Dependent on {len(self.children)} independent expressions.\n"
         )
 
-    def previous_timestep(self) -> SecondaryOperator:
+        if self.prev_time:
+            msg += f"Evaluated at the previous time step {self.time_step_index}.\n"
+        elif self.prev_iter:
+            msg += f"Evaluated at the previous iterate {self.iterate_index}.\n"
+
+        return msg
+
+    def __call__(self, *args: Operator) -> Operator:
+        """By calling this operator with new children, the user can change the
+        structure of the Jacobian.
+
+        The dependencies/children are replaced and hence the non-trivial entries in
+        the Jacobian in the md-setting.
+
+        Note:
+            Call this operator only if you know what you are doing.
+
+            It will reset the time step and iterate indices to current time and iterate.
+
+        """
+        op = SecondaryOperator(
+            name=self.name,
+            domains=self.domains,  # type:ignore[arg-type]
+            children=args,  # type:ignore[arg-type]
+        )
+        op.fetch_data = self.fetch_data
+        return op
+
+    def previous_timestep(self, steps: int = 1) -> SecondaryOperator:
         """Secondary operators have children which also need to be obtained at
         the previous time step."""
 
-        op = super().previous_timestep()
-        op.children = [child.previous_timestep() for child in self.children[1:]]
+        op = super().previous_timestep(steps=steps)
+        op.children = [child.previous_timestep(steps=steps) for child in self.children]
         return op
 
-    def previous_iteration(self) -> SecondaryOperator:
+    def previous_iteration(self, steps: int = 1) -> SecondaryOperator:
         """Secondary operators have children which also need to be obtained at
         the previous iteration."""
-        op = super().previous_iteration()
-        op.children = [child.previous_iteration() for child in self.children[1:]]
+        op = super().previous_iteration(steps=steps)
+        op.children = [child.previous_iteration(steps=steps) for child in self.children]
         return op
 
     def get_values(self, *args: np.ndarray | AdArray) -> np.ndarray:
@@ -480,7 +505,11 @@ class SecondaryExpression:
             )
 
             # always start with operator at current time step, current iterate
-            op = SecondaryOperator(self.name, domains_, children)
+            op = SecondaryOperator(
+                name=self.name,
+                domains=domains_,
+                children=children,
+            )
 
             # assign the function which extracts the data
             op.fetch_data = self.fetch_data
