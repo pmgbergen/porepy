@@ -45,7 +45,10 @@ class Tpsa:
         lmbda = stiffness.lmbda[ci]
         cosserat_parameter = cosserat_values[ci]
 
-        #cosserat_parameter = np.ones(sd.num_cells)[ci]
+        # Data structures for boundary conditions. Only homogeneous Dirichlet conditions
+        # treated so far.
+        dir_displacement = bnd.is_dir.ravel('f')
+        dir_scalar = bnd.is_dir[0]
 
         # Normal vectors and permeability for each face (here and there side)
         n = sd.face_normals[:, fi]
@@ -90,6 +93,14 @@ class Tpsa:
                 shape=(sd.num_faces, sd.num_cells),
             ).tocsr()
         )
+
+        # For Dirichlet conditions, set the averaging map to zero (as is the correct
+        # discretization). TODO: Treat Neumann, and possibly Robin, conditions.
+        dir_indices = np.where(dir_scalar)[0]
+        r, _, _ = sps.find(cell_to_face_average)
+        hit = np.in1d(r, dir_indices)
+        cell_to_face_average.data[hit] = 0
+
         cell_to_face_average_nd = sps.kron(
             cell_to_face_average,
             sps.eye(sd.dim),
@@ -124,10 +135,6 @@ class Tpsa:
         )
 
         n = sd.face_normals
-
-        # Indices and index pointers to make a block diagonal matrix
-        indptr_csc = np.arange(0, sd.dim * sd.num_cells + 1, sd.dim)
-        indices = np.arange(0, sd.dim * sd.num_faces)
 
         stress_volumetric_strain = (
             sps.csc_matrix(
@@ -229,13 +236,9 @@ class Tpsa:
             )            
 
         rotation_displacement = -Rn_bar @ cell_to_face_average_nd
-
         # TODO: Cosserat model
-
         # Brute force way to set the Dirichlet boundary conditions (assuming the
         # displacement is zero at the boundary): The 
-        dir_displacement = bnd.is_dir.ravel('f')
-        dir_scalar = bnd.is_dir[0]
         rotation_displacement[dir_scalar] = 0
         mass_displacement[dir_scalar] = 0
 
@@ -258,36 +261,3 @@ class Tpsa:
             mass_volumetric_strain
         )
         matrix_dictionary[self.mass_displacement_matrix_key] = mass_displacement
-
-
-if False:
-    import porepy as pp
-
-    g = pp.StructuredTriangleGrid([2, 2], [1, 2])
-    g.compute_geometry()
-    mu = np.ones(g.num_cells)
-
-    C = pp.FourthOrderTensor(mu, mu)
-
-    dir_faces = g.get_all_boundary_faces()
-    bc = pp.BoundaryConditionVectorial(g)
-    bc.is_neu[:, dir_faces] = False
-    bc.is_dir[:, dir_faces] = True
-
-    data = {
-        pp.PARAMETERS: {
-            "mechanics": {
-                "fourth_order_tensor": C,
-                "bc": bc,
-                "cosserat_parameter": np.ones(g.num_cells),
-            }
-        },
-        pp.DISCRETIZATION_MATRICES: {"mechanics": {}},
-    }
-
-    tpsa = Tpsa("mechanics")
-    tpsa.discretize(g, data)
-
-    matrix_dictionary = data[pp.DISCRETIZATION_MATRICES]["mechanics"]
-
-    debug = []
