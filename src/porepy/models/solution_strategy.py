@@ -354,7 +354,7 @@ class SolutionStrategy(abc.ABC):
             self.nonlinear_discretizations
         )
         pp.ad._ad_utils.discretize_from_list(unique_discr, self.mdg)
-        logger.info(
+        logger.debug(
             "Re-discretized nonlinear terms in {} seconds".format(time.time() - tic)
         )
 
