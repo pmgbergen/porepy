@@ -111,7 +111,11 @@ class AdArray:
             A new Ad array with values and Jacobian sliced row-wise.
 
         """
-        return AdArray(self.val[key], self.jac[key])
+        val = self.val[key]
+        # in case of single index, broadcast to 1D array
+        if val.ndim == 0:
+            val = np.array([val])
+        return AdArray(val, self.jac[key])
 
     def __setitem__(
         self,

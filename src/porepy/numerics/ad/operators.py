@@ -1164,7 +1164,8 @@ class TimeDependentOperator(Operator):
         )
 
         self.original_operator: Operator
-        """Reference to the operator representing this operator at the current time.
+        """Reference to the operator representing this operator at the current time amd
+        iterate.
 
         This attribute is only available in operators representing previous time steps.
 
@@ -1204,10 +1205,18 @@ class TimeDependentOperator(Operator):
         Time-dependent operators do not invoke the recursion (like the base class),
         but represent a leaf in the recursion tree.
 
-        Implements a check that operators which represent a previous iterate
-        cannot be used to construct operators at a previous time step.
+        Note:
+            You cannot create operators at the previous time step from operators which
+            are at some previous iterate. Use the :attr:`original_operator` instead.
 
-        Use the :attr:`original_operator` instead.
+        Parameters:
+            steps: ``default=1``
+
+                Number of steps backwards in time.
+
+        Raises:
+            ValueError: If this instance represents an operator at a previous iterate.
+            AssertionError: If ``steps`` is not strictly positive.
 
         """
         if isinstance(self, IterativeOperator):
@@ -1216,13 +1225,15 @@ class TimeDependentOperator(Operator):
                     "Cannot create an operator representing a previous time step,"
                     + " if it already represents a previous iterate."
                 )
+
+        assert steps > 0, "Number of steps backwards must be strictly positive."
         # TODO copy or deepcopy? Is this enough for every operator class?
         op = copy.copy(self)
 
         # NOTE Use private time step index, because it is always an integer
         # The public time step index is NONE for current time
         # (which translates to -1 for the private index)
-        op._time_step_index = self._time_step_index + 1
+        op._time_step_index = self._time_step_index + int(steps)
 
         # keeping track to the very first one
         if self.is_original_operator:
@@ -1263,7 +1274,8 @@ class IterativeOperator(Operator):
         )
 
         self.original_operator: Operator
-        """Reference to the operator representing this operator at the current time.
+        """Reference to the operator representing this operator at the current time amd
+        iterate.
 
         This attribute is only available in operators representing previous time steps.
 
@@ -1298,10 +1310,18 @@ class IterativeOperator(Operator):
         Iterative operators do not invoke the recursion (like the base class),
         but represent a leaf in the recursion tree.
 
-        Implements a check that operators which represent a previous time step
-        cannot be used to construct operators at a previous iterate.
+        Note:
+            You cannot create operators at the previous iterates from operators which
+            are at some previous time step. Use the :attr:`original_operator` instead.
 
-        Use the :attr:`original_operator` instead.
+        Parameters:
+            steps: ``default=1``
+
+                Number of steps backwards in the iterate sense.
+
+        Raises:
+            ValueError: If this instance represents an operator at a previous time step.
+            AssertionError: If ``steps`` is not strictly positive.
 
         """
         if isinstance(self, TimeDependentOperator):
@@ -1310,9 +1330,10 @@ class IterativeOperator(Operator):
                     "Cannot create an operator representing a previous iterate,"
                     + " if it already represents a previous time step."
                 )
+        assert steps > 0, "Number of steps backwards must be strictly positive."
         # See TODO in TimeDependentOperator.previous_timestep
         op = copy.copy(self)
-        op._iterate_index = self._iterate_index + 1
+        op._iterate_index = self._iterate_index + int(steps)
 
         # keeping track to the very first one
         if self.is_original_operator:
@@ -1618,14 +1639,24 @@ class Scalar(Operator):
 class Variable(TimeDependentOperator, IterativeOperator):
     """AD operator representing a variable defined on a single grid or mortar grid.
 
-    For combinations of variables on different subdomains, see :class:`MergedVariable`.
-
-    Conversion of the variable into numerical value should be done with respect to the
-    state of an array; see :meth:`Operator.evaluate`. Therefore, the variable does not
-    implement the method :meth:`Operator.parse`.
+    For combinations of variables on different subdomains, see
+    :class:`MixedDimensionalVariable`.
 
     A variable is associated with either a grid or an interface. Therefore it is assumed
     that either ``subdomains`` or ``interfaces`` is passed as an argument.
+
+    Also, a variable is associated with a specific time and iterate index. :meth:`parse`
+    will return the values at respective index on its :meth:`domain`.
+
+    Important:
+        Each atomic variable (a variable on a single grid) has a :attr:`id`, unique
+        among created variables. This ID is used to map the DOFs in the global system
+        and hence critical.
+
+        As of now, variable instances representing the same quantity at different
+        time and iterate steps have the same ID.
+
+        This might with future development (e.g. adaptive mesh refinement).
 
     Parameters:
         name: Variable name.
@@ -1633,6 +1664,10 @@ class Variable(TimeDependentOperator, IterativeOperator):
             Valid keys are ``cells``, ``faces`` and ``nodes``.
         domain: A Subdomain or interface on which the variable is defined.
         tags: A dictionary of tags.
+
+    Raises:
+        NotImplementedError: If ``domain`` is not a grid or mortar grid. Variables are
+            not supported on boundaries.
 
     """
 
@@ -1662,14 +1697,10 @@ class Variable(TimeDependentOperator, IterativeOperator):
         # circumvent the warning is not worth it.
         super().__init__(name=name, domains=[domain])  # type: ignore [arg-type]
 
-        ### PUBLIC
-
-        self.id: int = next(Variable._ids)
-        """ID counter. Used to identify variables during operator parsing."""
-
-        ### PRIVATE
-        # domain
+        self._id: int = next(Variable._ids)
+        """See :meth:`id`."""
         self._g: GridLike = domain
+        """See :meth:`domain`"""
         # dofs per
         self._cells: int = ndof.get("cells", 0)
         self._faces: int = ndof.get("faces", 0)
@@ -1679,8 +1710,23 @@ class Variable(TimeDependentOperator, IterativeOperator):
         self._tags: dict[str, Any] = tags if tags is not None else {}
 
     @property
+    def id(self) -> int:
+        """Returns an integer unique among variables used for identification.
+        Assigned during instantiation."""
+        return self._id
+
+    @property
     def domain(self) -> GridLike:
-        """The grid or mortar grid on which this variable is defined."""
+        """The grid or mortar grid on which this variable is defined.
+
+        Note:
+            Not to be confused with :meth:`domains`, which has the grid in a sequence
+            of length 1.
+
+            This is for inheritance reasons, since :class:`Variable` inherits from
+            :class:`Operator`.
+
+        """
         return self._g
 
     @property
@@ -1754,61 +1800,66 @@ class Variable(TimeDependentOperator, IterativeOperator):
 
 class MixedDimensionalVariable(Variable):
     """Ad representation of a collection of variables that individually live on separate
-    subdomains or interfaces, but treated jointly in the mixed-dimensional sense.
+    subdomains or interfaces, but represent the same quantity and are treated jointly in
+    the mixed-dimensional sense.
 
-    Conversion of the variables into numerical value should be done with respect to the
-    state of an array; see :meth:`Operator.value`. Therefore, the MergedVariable does
-    not implement the method :meth:`Operator.parse`.
+    Note:
+        As of now, the wrapped fixed-dimensional variables must fulfill the following
+        assumptions:
+
+        1. They have the same name
+        2. They are at the same time step and iterate.
+        3. They are defined in different grids (no overlaps).
 
     Parameters:
-        variables: List of variables to be merged. Should all have the same name,
-            time step index and iterate index.
+        variables: List of variables to be merged.
+
+    Raises:
+        AssertionError: If one of the above assumptions is violated.
 
     """
 
     def __init__(self, variables: list[Variable]) -> None:
 
-        # First, validate the variables. As of now, they must have the same name,
-        # iterate index and time step index
-        if len(variables) == 0:
-            # default behavior
-            time_step_index = -1
-            iterate_index = 0
-            name = "no_sub_variables"
-            domains = []
-        else:
-            time_indices = set([var.time_step_index for var in variables])
+        time_indices = []
+        iterate_indices = []
+        names = []
+        domains = []
+
+        for var in variables:
+            time_indices.append(var.time_step_index)
+            iterate_indices.append(var.iterate_index)
+            names.append(var.name)
+            domains.append(var.domain)
+
+        # check assumptions
+        if len(variables) > 0:
             assert (
-                len(time_indices) == 1
+                len(set(time_indices)) == 1
             ), "Cannot create md-variable from variables at different time steps."
-
-            iterate_indices = set([var.iterate_index for var in variables])
             assert (
-                len(iterate_indices) == 1
+                len(set(iterate_indices)) == 1
             ), "Cannot create md-variable from variables at different iterates."
-
-            names = set([var.name for var in variables])
             assert (
-                len(names) == 1
+                len(set(names)) == 1
             ), "Cannot create md-variable from variables with different names."
-
-            time_step_index = list(time_indices)[0]  # type:ignore
-            iterate_index = list(iterate_indices)[0]
-            name = list(names)[0]
-            domains = [var.domains[0] for var in variables]
-
-            # Verify that all domains of of the same type
-            assert all(isinstance(d, pp.Grid) for d in domains) or all(
-                isinstance(d, pp.MortarGrid) for d in domains
-            ), "Md-variable are supported either on subdomains or interfaces."
+            assert len(set(domains)) == len(
+                domains
+            ), "Cannot create md-variable from variables with overlapping domains."
+        # Default values for empty md variable
+        else:
+            time_indices = [-1]
+            iterate_indices = [0]
+            names = ["empty_md_variable"]
 
         ### PRIVATE
+        self._id = next(Variable._ids)
         # NOTE private time step index is -1 if public time step index of atomic
         # variables is None (current time)
-        self._time_step_index = -1 if time_step_index is None else time_step_index
+        self._time_step_index = -1 if time_indices[0] is None else time_indices[0]
         # NOTE private and public iterate indices are always integers
-        self._iterate_index = iterate_index
-        self._name = name
+        self._iterate_index = iterate_indices[0]
+        self._name = names[0]
 
         # Mypy complains that we do not know that all variables have the same type of
         # domain. While formally correct, this should be picked up in other places so we
@@ -1822,9 +1873,6 @@ class MixedDimensionalVariable(Variable):
         domain.
 
         """
-
-        self.id = next(Variable._ids)
-        """ID counter. Used to identify variables during operator parsing."""
 
         self._initialize_children()
         self.copy_common_sub_tags()

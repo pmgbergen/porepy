@@ -60,6 +60,8 @@ def test_evaluate_variables():
             name=var_name, values=vals_sol, data=d, time_step_index=0
         )
         pp.set_solution_values(name=var_name, values=vals_it, data=d, iterate_index=0)
+        # Provide values for previous iterate as well
+        pp.set_solution_values(name=var_name, values=vals_it, data=d, iterate_index=1)
 
     # We only need to test a single variable, they should all be the same.
     single_variable = eq_system.variables[0]

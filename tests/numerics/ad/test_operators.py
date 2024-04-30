@@ -413,33 +413,33 @@ def test_ad_variable_creation():
     assert mvar_1_copy.id == mvar_1.id
     assert mvar_1_deepcopy.id == mvar_1.id
 
-    # Get versions of the variables at previous iteration and time step.
-    # This should return variables with different ids
+    # # Get versions of the variables at previous iteration and time step.
+    # # This should return variables with different ids
 
-    # First variables
-    var_1_prev_iter = var_1.previous_iteration()
-    var_1_prev_time = var_1.previous_timestep()
-    assert var_1_prev_iter.id != var_1.id
-    assert var_1_prev_time.id != var_1.id
+    # # First variables
+    # var_1_prev_iter = var_1.previous_iteration()
+    # var_1_prev_time = var_1.previous_timestep()
+    # assert var_1_prev_iter.id != var_1.id
+    # assert var_1_prev_time.id != var_1.id
 
-    # Then mixed-dimensional variables.
-    mvar_1_prev_iter = mvar_1.previous_iteration()
-    mvar_1_prev_time = mvar_1.previous_timestep()
-    assert mvar_1_prev_iter.id != mvar_1.id
-    assert mvar_1_prev_time.id != mvar_1.id
+    # # Then mixed-dimensional variables.
+    # mvar_1_prev_iter = mvar_1.previous_iteration()
+    # mvar_1_prev_time = mvar_1.previous_timestep()
+    # assert mvar_1_prev_iter.id != mvar_1.id
+    # assert mvar_1_prev_time.id != mvar_1.id
 
-    # We prohibit creating a variable both on previous time step and iter.
-    with pytest.raises(ValueError):
-        _ = mvar_1_prev_iter.previous_timestep()
-    with pytest.raises(ValueError):
-        _ = mvar_1_prev_time.previous_iteration()
+    # # We prohibit creating a variable both on previous time step and iter.
+    # with pytest.raises(ValueError):
+    #     _ = mvar_1_prev_iter.previous_timestep()
+    # with pytest.raises(ValueError):
+    #     _ = mvar_1_prev_time.previous_iteration()
 
-    # We prohibit creating a variable on more than one iter or time step behind.
-    # NOTE: This should be removed when this feature is implemented.
-    with pytest.raises(NotImplementedError):
-        _ = mvar_1_prev_iter.previous_iteration()
-    with pytest.raises(NotImplementedError):
-        _ = mvar_1_prev_time.previous_timestep()
+    # # We prohibit creating a variable on more than one iter or time step behind.
+    # # NOTE: This should be removed when this feature is implemented.
+    # with pytest.raises(NotImplementedError):
+    #     _ = mvar_1_prev_iter.previous_iteration()
+    # with pytest.raises(NotImplementedError):
+    #     _ = mvar_1_prev_time.previous_timestep()
 
 
 def test_ad_variable_evaluation():

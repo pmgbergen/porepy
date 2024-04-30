@@ -179,9 +179,7 @@ class AbstractFunction(Operator):
         :meth:`func`."""
         return self
 
-    def func(
-        self, *args: np.ndarray | AdArray
-    ) -> np.ndarray | AdArray:  # type:ignore[override]
+    def func(self, *args: np.ndarray | AdArray) -> np.ndarray | AdArray:
         """The underlying numerical function which is represented by this operator
         function.
 
@@ -327,9 +325,7 @@ class Function(AbstractFunction):
         self._func: Callable[[AdArray | np.ndarray], AdArray | np.ndarray] = func
         """Reference to the callable passed at instantiation."""
 
-    def func(
-        self, *args: np.ndarray | AdArray
-    ) -> np.ndarray | AdArray:  # type:ignore[override]
+    def func(self, *args: np.ndarray | AdArray) -> np.ndarray | AdArray:
         """Overwrites the parent method to call the numerical function passed at
         instantiation."""
         return self._func(*args)
