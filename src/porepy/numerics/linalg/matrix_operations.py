@@ -1062,3 +1062,104 @@ def sparse_array_to_row_col_data(
         return (mat_copy.row[nz_mask], mat_copy.col[nz_mask], mat_copy.data[nz_mask])
     else:
         return (mat_copy.row, mat_copy.col, mat_copy.data)
+
+
+def invert_permutation(perm):
+    """
+    Invert permutation array
+
+    Parameters
+    ----------
+    perm : permutation array
+
+    Returns
+    -------
+    inv_perm: Permuted sparse array
+    """
+
+    x = np.empty_like(perm)
+    x[perm] = np.arange(len(perm), dtype=perm.dtype)
+    return x
+
+
+def sparse_permute(
+    a: sps.spmatrix, row_perm: np.ndarray, col_perm: np.ndarray, inplace_q: bool = False
+) -> sps.spmatrix:
+    """
+    Permute a sparse array.
+
+    Parameters
+    ----------
+    a : Sparse array
+    row_perm : Rows permutation dense array
+    col_perm : Columns permutation dense array
+    inplace_q: Apply permutation in place
+
+    Returns
+    -------
+    a_perm: Permuted sparse array
+    """
+
+    # This function only supports CSR anc CSC format.
+    if not (sps.isspmatrix_csr(a) or sps.isspmatrix_csc(a)):
+        raise TypeError("Sparse array type not implemented: ", type(a))
+
+    not_equal_length_q = row_perm.shape[0] != a.shape[0]
+    if not_equal_length_q:
+        raise IndexError(
+            "Row Permutation should have length equal to the number of rows."
+        )
+
+    not_equal_length_q = col_perm.shape[0] != a.shape[1]
+    if not_equal_length_q:
+        raise IndexError(
+            "Column Permutation should have length equal to the number of columns."
+        )
+
+    row_perm = invert_permutation(row_perm)
+    col_perm = invert_permutation(col_perm)
+
+    o_indptr = a.indptr.astype(dtype=np.int32)
+    o_indices = a.indices.astype(dtype=np.int32)
+
+    # Retrieve global indices (low complexity)
+    if sps.isspmatrix_csr(a):
+        row_reps = o_indptr[1 : o_indptr.size] - o_indptr[0 : o_indptr.size - 1]
+        rows = np.repeat(np.arange(a.shape[0], dtype=np.int32), row_reps)
+        cols = o_indices
+
+        rows = row_perm[rows]
+        cols = col_perm[cols]
+        sorted_idx = np.argsort(rows)
+
+        count = np.bincount(rows)
+        indptr = np.cumsum(np.insert(count, 0, 0)).astype(dtype=np.int32)
+        indices = cols[sorted_idx].astype(dtype=np.int32)
+        data = a.data[sorted_idx]
+        if inplace_q:
+            a.indptr = indptr
+            a.indices = indices
+            a.data = data
+            return a
+        else:
+            return sps.csr_matrix((data, indices, indptr), shape=a.shape)
+    else:
+        col_reps = o_indptr[1 : o_indptr.size] - o_indptr[0 : o_indptr.size - 1]
+        cols = np.repeat(np.arange(a.shape[1], dtype=np.int32), col_reps)
+        rows = a.indices
+
+        rows = row_perm[rows]
+        cols = col_perm[cols]
+        sorted_idx = np.argsort(cols)
+
+        count = np.bincount(cols)
+        indptr = np.cumsum(np.insert(count, 0, 0)).astype(dtype=np.int32)
+        indices = rows[sorted_idx].astype(dtype=np.int32)
+        data = a.data[sorted_idx]
+        if inplace_q:
+            a.indptr = indptr
+            a.indices = indices
+            a.data = data
+            return a
+        else:
+            return sps.csc_matrix((data, indices, indptr), shape=a.shape)

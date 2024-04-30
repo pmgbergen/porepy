@@ -468,3 +468,42 @@ def test_block_matrix_invertes_sparse_blocks(invert_backend: str):
     iblock_ex = np.linalg.inv(block.toarray())
 
     assert np.allclose(iblock_ex, iblock.toarray())
+
+def test_invert_permutation():
+    perm = np.random.permutation(np.array([0, 1, 2, 3, 4, 5, 6, 7]))
+    inv_perm = matrix_operations.invert_permutation(perm)
+    assert np.all(np.isclose(np.argsort(perm), inv_perm))
+
+@pytest.mark.parametrize(
+    "sparse_array_type",
+    [
+        "csr",
+        "csc",
+    ],
+)
+def test_sparse_permutation(sparse_array_type):
+
+    # Define data, rows, and columns for the sparse matrix
+    data = np.array([1., 2., 3., 4., 5., 6., 7., 8., 9., 10.])
+    rows = np.array([0, 1, 1, 2, 3, 4, 4, 4, 4, 4])
+    cols = np.array([0, 1, 2, 3, 4, 0, 1, 2, 3, 4])
+
+    if sparse_array_type == "csr":
+        # Create a CSR matrix
+        ref_sparse_array = sps.csr_matrix((data, (rows, cols)), shape=(5, 5))
+    else:
+        # Create a CSC matrix
+        ref_sparse_array = sps.csc_matrix((data, (rows, cols)), shape=(5, 5))
+
+    ref_dense_array = ref_sparse_array.todense()
+
+    row_perm = np.random.permutation(np.array([0, 1, 2, 3, 4]))
+    col_perm = np.random.permutation(np.array([0, 1, 2, 3, 4]))
+
+    sparse_array = matrix_operations.sparse_permute(ref_sparse_array, row_perm, col_perm)
+    assert not ref_sparse_array.data.data == sparse_array.data.data
+    assert np.all(np.isclose(ref_dense_array[row_perm,:][:,col_perm], sparse_array.A))
+
+    sparse_array = matrix_operations.sparse_permute(ref_sparse_array, row_perm, col_perm, True)
+    assert ref_sparse_array.data.data == sparse_array.data.data
+    assert np.all(np.isclose(ref_dense_array[row_perm,:][:,col_perm], sparse_array.A))
