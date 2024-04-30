@@ -383,7 +383,7 @@ class FractureNetwork3d(object):
         if not self.has_checked_intersections:
             self.find_intersections()
         else:
-            logger.info("Use existing intersections")
+            logger.debug("Use existing intersections")
 
         if "mesh_size_frac" not in mesh_args.keys():
             raise ValueError("Meshing algorithm needs argument mesh_size_frac")
@@ -718,7 +718,7 @@ class FractureNetwork3d(object):
 
         """
         self.has_checked_intersections = True
-        logger.info("Find intersection between fractures")
+        logger.debug("Find intersection between fractures")
         start_time = time.time()
 
         # If desired, use the original points in the fracture intersection. This will
@@ -782,7 +782,7 @@ class FractureNetwork3d(object):
                 bound_first=on_bound_0,
                 bound_second=on_bound_1,
             )
-        logger.info(
+        logger.debug(
             "Found %i intersections. Elapsed time: %.5f",
             len(self.intersections),
             time.time() - start_time,
@@ -798,7 +798,7 @@ class FractureNetwork3d(object):
 
         """
 
-        logger.info("Split intersections")
+        logger.debug("Split intersections")
         start_time = time.time()
 
         # First, collate all points and edges used to describe fracture boundaries
@@ -849,7 +849,7 @@ class FractureNetwork3d(object):
         self.decomposition["polygons"] = polygons
         self.decomposition["line_in_frac"] = line_in_frac
 
-        logger.info(
+        logger.debug(
             "Finished fracture splitting after %.5f seconds", time.time() - start_time
         )
 
@@ -887,7 +887,7 @@ class FractureNetwork3d(object):
         # The workflow is based on first collecting information for all fractures,
         # next get information for all intersections between fractures.
 
-        logger.info("Compile list of points and edges")
+        logger.debug("Compile list of points and edges")
         start_time = time.time()
 
         # Field for all points in the fracture description
@@ -954,7 +954,7 @@ class FractureNetwork3d(object):
         # Ensure that edges are integers
         edges = edges.astype("int")
 
-        logger.info(
+        logger.debug(
             "Points and edges done. Elapsed time %.5f", time.time() - start_time
         )
 
@@ -1021,7 +1021,7 @@ class FractureNetwork3d(object):
         """
 
         start_time = time.time()
-        logger.info(
+        logger.debug(
             """Uniquify points and edges, starting with %i points, %i edges""",
             all_p.shape[1],
             edges.shape[1],
@@ -1083,7 +1083,7 @@ class FractureNetwork3d(object):
         if self.run_checks:
             self._verify_fractures_in_plane(p_unique, edges, edges_2_frac_out)
 
-        logger.info(
+        logger.debug(
             """Uniquify complete. %i points, %i edges. Elapsed time %.5f""",
             p_unique.shape[1],
             edges.shape[1],
@@ -1146,7 +1146,7 @@ class FractureNetwork3d(object):
                 of a fracture. Each item of the list is a boolean numpy array.
 
         """
-        logger.info("Remove edge intersections")
+        logger.debug("Remove edge intersections")
         start_time = time.time()
 
         # The algorithm loops over all fractures, pulls out edges associated with the
@@ -1282,7 +1282,7 @@ class FractureNetwork3d(object):
                 del is_boundary_edge[ei]
             # And we are done with this fracture. On to the next one.
 
-        logger.info(
+        logger.debug(
             "Done with intersection removal. Elapsed time %.5f",
             time.time() - start_time,
         )
@@ -2277,7 +2277,7 @@ class FractureNetwork3d(object):
         # point will already have been inserted there
         dist = pp.distances.pointset(p, max_diag=True)
         point_dist = np.min(dist, axis=1)
-        logger.info(
+        logger.debug(
             "Minimal distance between points encountered is " + str(np.min(dist))
         )
         # The mesh size should not be smaller than the prescribed minimum distance
@@ -2333,7 +2333,7 @@ class FractureNetwork3d(object):
 
         """
         if self.auxiliary_points_added:
-            logger.info("Auxiliary points already added. Returning.")
+            logger.debug("Auxiliary points already added. Returning.")
         else:
             self.auxiliary_points_added = True
 
