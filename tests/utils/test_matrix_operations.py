@@ -2,6 +2,7 @@
 Tests for matrix operations for zeroing rows/columns, efficient slicing, stacking,
 merging and construction from arrays.
 """
+
 import numpy as np
 import pytest
 import scipy.sparse as sps
@@ -437,10 +438,14 @@ def test_block_matrix_inverters_full_blocks(invert_backend: str):
     sz = np.array([2, 3], dtype="i8")
     iblock_ex = np.linalg.inv(block_as_csr.toarray())
 
-    iblock = matrix_operations.invert_diagonal_blocks(block_as_csr, sz, method=invert_backend)
+    iblock = matrix_operations.invert_diagonal_blocks(
+        block_as_csr, sz, method=invert_backend
+    )
     assert np.allclose(iblock_ex, iblock.toarray())
 
-    iblock = matrix_operations.invert_diagonal_blocks(block_as_csc, sz, method=invert_backend)
+    iblock = matrix_operations.invert_diagonal_blocks(
+        block_as_csc, sz, method=invert_backend
+    )
     assert np.allclose(iblock_ex, iblock.toarray())
 
 
@@ -469,6 +474,7 @@ def test_block_matrix_invertes_sparse_blocks(invert_backend: str):
 
     assert np.allclose(iblock_ex, iblock.toarray())
 
+
 def test_invert_permutation():
     """
     Test the inverse of a permutation.
@@ -477,6 +483,7 @@ def test_invert_permutation():
     perm = np.random.permutation(np.array([0, 1, 2, 3, 4, 5, 6, 7]))
     inv_perm = matrix_operations.invert_permutation(perm)
     assert np.all(np.isclose(np.argsort(perm), inv_perm))
+
 
 @pytest.mark.parametrize(
     "sparse_array_type",
@@ -494,7 +501,7 @@ def test_sparse_permutation(sparse_array_type):
     """
 
     # Define data, rows, and columns for the sparse matrix
-    data = np.array([1., 2., 3., 4., 5., 6., 7., 8., 9., 10.])
+    data = np.array([1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0])
     rows = np.array([0, 1, 1, 2, 3, 4, 4, 4, 4, 4])
     cols = np.array([0, 1, 2, 3, 4, 0, 1, 2, 3, 4])
 
@@ -513,14 +520,18 @@ def test_sparse_permutation(sparse_array_type):
     col_perm = np.random.permutation(np.array([0, 1, 2, 3, 4]))
 
     # permute the array and generates a new one
-    sparse_array = matrix_operations.sparse_permute(ref_sparse_array, row_perm, col_perm)
+    sparse_array = matrix_operations.sparse_permute(
+        ref_sparse_array, row_perm, col_perm
+    )
     # The nonzero data arrays should not share memory.
-    assert not np.shares_memory(ref_sparse_array.data,sparse_array.data)
+    assert not np.shares_memory(ref_sparse_array.data, sparse_array.data)
     # The permuted sparse array represents the same reference dense array
-    assert np.all(np.isclose(ref_dense_array[row_perm,:][:,col_perm], sparse_array.A))
+    assert np.all(np.isclose(ref_dense_array[row_perm, :][:, col_perm], sparse_array.A))
 
-    sparse_array = matrix_operations.sparse_permute(ref_sparse_array, row_perm, col_perm, True)
+    sparse_array = matrix_operations.sparse_permute(
+        ref_sparse_array, row_perm, col_perm, True
+    )
     # The nonzero data arrays should share memory.
-    assert np.shares_memory(ref_sparse_array.data,sparse_array.data)
+    assert np.shares_memory(ref_sparse_array.data, sparse_array.data)
     # The permuted sparse array represents the same reference dense array
-    assert np.all(np.isclose(ref_dense_array[row_perm,:][:,col_perm], sparse_array.A))
+    assert np.all(np.isclose(ref_dense_array[row_perm, :][:, col_perm], sparse_array.A))
