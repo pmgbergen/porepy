@@ -1112,11 +1112,13 @@ def sparse_permute(
             "Column Permutation should have length equal to the number of columns."
         )
 
-    row_perm = invert_permutation(row_perm)
-    col_perm = invert_permutation(col_perm)
+    # Operating with unsigned int
+    # https://numpy.org/doc/stable/reference/arrays.scalars.html#numpy.uintc
+    row_perm = invert_permutation(row_perm).astype(dtype=np.uintc)
+    col_perm = invert_permutation(col_perm).astype(dtype=np.uintc)
 
-    o_indptr = a.indptr.astype(dtype=np.int32)
-    o_indices = a.indices.astype(dtype=np.int32)
+    o_indptr = a.indptr.astype(dtype=np.uintc)
+    o_indices = a.indices.astype(dtype=np.uintc)
 
     # Retrieve global indices (low complexity)
     if sps.isspmatrix_csr(a):
@@ -1147,6 +1149,7 @@ def sparse_permute(
         indices = rows[sorted_idx].astype(dtype=np.int32)
         data = a.data[sorted_idx]
 
+    # Applies inplace directive
     if inplace_q:
         a.indptr = indptr
         a.indices = indices
