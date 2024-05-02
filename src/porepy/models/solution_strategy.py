@@ -482,7 +482,7 @@ class SolutionStrategy(abc.ABC):
 
     def check_convergence(
         self,
-        increment: np.ndarray,
+        nonlinear_increment: np.ndarray,
         residual: np.ndarray,
         reference_residual: np.ndarray,
         nl_params: dict[str, Any],
@@ -490,7 +490,7 @@ class SolutionStrategy(abc.ABC):
         """Implements a convergence check, to be called by a non-linear solver.
 
         Parameters:
-            increment: Newly obtained solution increment vector
+            nonlinear_increment: Newly obtained solution increment vector
             residual: Residual vector of non-linear system, evaluated at the newly
             obtained solution vector.
             reference_residual: Reference residual vector of non-linear system, evaluated
@@ -518,34 +518,38 @@ class SolutionStrategy(abc.ABC):
             # At least for the default direct solver, scipy.sparse.linalg.spsolve, no
             # error (but a warning) is raised for singular matrices, but a nan solution
             # is returned. We check for this.
-            diverged = bool(np.any(np.isnan(increment)))
+            diverged = bool(np.any(np.isnan(nonlinear_increment)))
             converged: bool = not diverged
             residual_norm: float = np.nan if diverged else 0.0
-            increment_norm: float = np.nan if diverged else 0.0
+            nonlinear_increment_norm: float = np.nan if diverged else 0.0
         else:
             # First a simple check for nan values.
-            if np.any(np.isnan(increment)):
+            if np.any(np.isnan(nonlinear_increment)):
                 # If the solution contains nan values, we have diverged.
                 return np.nan, np.nan, False, True
 
-            # Increment based norm
-            increment_norm = self.compute_increment_norm(increment)
+            # nonlinear_increment based norm
+            nonlinear_increment_norm = self.compute_nonlinear_increment_norm(
+                nonlinear_increment
+            )
             # Residual based norm
             residual_norm = self.compute_residual_norm(residual, reference_residual)
             logger.debug(
-                f"Nonlinear increment norm: {increment_norm:.2e}, "
+                f"Nonlinear increment norm: {nonlinear_increment_norm:.2e}, "
                 f"Nonlinear residual norm: {residual_norm:.2e}"
             )
             # Check convergence requiring both the increment and residual to be small.
-            converged_inc = increment_norm < nl_params["nl_convergence_tol"]
+            converged_inc = nonlinear_increment_norm < nl_params["nl_convergence_tol"]
             converged_res = residual_norm < nl_params["nl_convergence_tol_res"]
             converged = converged_inc and converged_res
             diverged = False
 
         # Log the errors (here increments and residuals)
-        self.nonlinear_solver_statistics.log_error(increment_norm, residual_norm)
+        self.nonlinear_solver_statistics.log_error(
+            nonlinear_increment_norm, residual_norm
+        )
 
-        return residual_norm, increment_norm, converged, diverged
+        return residual_norm, nonlinear_increment_norm, converged, diverged
 
     def compute_residual_norm(
         self, residual: np.ndarray, reference_residual: np.ndarray
@@ -564,21 +568,26 @@ class SolutionStrategy(abc.ABC):
         residual_norm = np.linalg.norm(residual) / np.sqrt(residual.size)
         return residual_norm
 
-    def compute_increment_norm(self, increment: np.ndarray) -> float:
+    def compute_nonlinear_increment_norm(
+        self, nonlinear_increment: np.ndarray
+    ) -> float:
         """Compute the norm based on the update increment for a nonlinear iteration.
 
         Parameters:
-            increment: Solution to the linearization.
+            nonlinear_increment: Solution to the linearization.
 
         Returns:
             float: Update increment norm.
+
         """
         # Simple but fairly robust convergence criterions. More advanced options are
         # e.g. considering norms for each variable and/or each grid separately,
         # possibly using _l2_norm_cell
         # We normalize by the size of the solution vector.
-        increment_norm = np.linalg.norm(increment) / np.sqrt(increment.size)
-        return increment_norm
+        nonlinear_increment_norm = np.linalg.norm(nonlinear_increment) / np.sqrt(
+            nonlinear_increment.size
+        )
+        return nonlinear_increment_norm
 
     def _initialize_linear_solver(self) -> None:
         """Initialize linear solver.
