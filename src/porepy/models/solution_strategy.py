@@ -430,13 +430,10 @@ class SolutionStrategy(abc.ABC):
         )
         self.nonlinear_solver_statistics.num_iteration += 1
 
-    def after_nonlinear_convergence(self, solution: np.ndarray) -> None:
+    def after_nonlinear_convergence(self) -> None:
         """Method to be called after every non-linear iteration.
 
         Possible usage is to distribute information on the solution, visualization, etc.
-
-        Parameters:
-            solution: The new solution, as computed by the non-linear solver.
 
         """
         solution = self.equation_system.get_variable_values(iterate_index=0)
@@ -447,13 +444,8 @@ class SolutionStrategy(abc.ABC):
         self.convergence_status = True
         self.save_data_time_step()
 
-    def after_nonlinear_failure(self, solution: np.ndarray) -> None:
-        """Method to be called if the non-linear solver fails to converge.
-
-        Parameters:
-            solution: The new solution, as computed by the non-linear solver.
-
-        """
+    def after_nonlinear_failure(self) -> None:
+        """Method to be called if the non-linear solver fails to converge."""
         self.save_data_time_step()
         if self._is_nonlinear_problem():
             raise ValueError("Nonlinear iterations did not converge.")

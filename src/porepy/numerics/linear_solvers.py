@@ -68,7 +68,7 @@ class LinearSolver:
             # the case for ContactMechanics and possibly others). Thus, we first call
             # after_nonlinear_iteration(), and then after_nonlinear_convergence()
             setup.after_nonlinear_iteration(nonlinear_increment)
-            setup.after_nonlinear_convergence(nonlinear_increment)
+            setup.after_nonlinear_convergence()
         else:
-            setup.after_nonlinear_failure(nonlinear_increment)
+            setup.after_nonlinear_failure()
         return is_converged
