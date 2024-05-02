@@ -27,8 +27,8 @@ class SolverStatistics:
         >>> import json
         >>> with open("solver_statistics.json", "r") as f:
         >>>     history = json.load(f)
-        >>> ts = str(1)
-        >>> err = history[ts]["residual_errors"]
+        >>> time_step = str(1)
+        >>> err = history[time_step]["residual_errors"]
         >>> plt.semilogy(err)
         >>> plt.xlabel("Iteration number")
         >>> plt.ylabel("Residual")
@@ -40,7 +40,7 @@ class SolverStatistics:
     num_iteration: int = 0
     """Number of non-linear iterations performed for current time step."""
     increment_errors: list[float] = field(default_factory=list)
-    """List of increments for each non-linear iteration."""
+    """List of increment magnitudes for each non-linear iteration."""
     residual_errors: list[float] = field(default_factory=list)
     """List of residual for each non-linear iteration."""
     path: Optional[Path] = None

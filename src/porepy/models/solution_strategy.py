@@ -505,7 +505,7 @@ class SolutionStrategy(abc.ABC):
             float:
                 Residual error, computed to the norm in question.
             float:
-                Increment error, computed to the norm in quesiton.
+                Increment error, computed to the norm in question.
             boolean:
                 True if the solution is converged according to the test implemented by
                 this method.
@@ -553,7 +553,7 @@ class SolutionStrategy(abc.ABC):
         Parameters:
             residual: Residual of current iteration.
             init_residual: Reference residual value (initial residual expected), allowing
-                for definiting relative criteria.
+                for defining relative criteria.
 
         Returns:
             float: Residual error.
@@ -566,7 +566,7 @@ class SolutionStrategy(abc.ABC):
         """Compute the error based on the update increment for a nonlinear iteration.
 
         Parameters:
-            solution_increment: Solution to the Newton linearization.
+            solution_increment: Solution to the linearization.
 
         Returns:
             float: Update error.
