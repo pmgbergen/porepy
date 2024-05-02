@@ -160,3 +160,34 @@ basalt = {
     "thermal_conductivity": 1.6736,  # [W * m^-1 * K^-1]
     "thermal_expansion": 5.0e-6,  # [K^-1]
 }
+
+"""Some docstring.
+
+References:
+According to the MRST book, the skin factor is some value between -6 and 100.
+
+"""
+
+extended_granite_values_for_testing = {
+    "biot_coefficient": 0.47,  # [-]
+    "density": 2683.0,  # [kg * m^-3]
+    "friction_coefficient": 0.6,  # [-]
+    "lame_lambda": 7020826106,  # [Pa]
+    "permeability": 5.0e-18,  # [m^2]
+    "porosity": 1.3e-2,  # [-]
+    "shear_modulus": 1.485472195e10,  # [Pa]
+    "specific_heat_capacity": 720.7,  # [J * kg^-1 * K^-1]
+    "specific_storage": 4.74e-10,  # [Pa^-1]
+    "thermal_conductivity": 3.1,  # [W * m^-1 * K^-1]
+    "thermal_expansion": 9.66e-6,  # [K^-1]
+    # Extended values for testing:
+    "dilation_angle": 0.1,  # [rad]
+    "fracture_gap": 1e-3,  # [m]
+    "fracture_normal_stiffness": 1e8,  # [Pa m^-1]
+    "maximum_fracture_closure": 1e-3,  # [m]
+    "normal_permeability": 5.0e-15,  # [m^2]
+    "residual_aperture": 0.1,  # [m]
+    "skin_factor": 37,  # [-]
+    "temperature": 293.15,  # [K]
+    "well_radius": 0.1,  # [m]
+}
