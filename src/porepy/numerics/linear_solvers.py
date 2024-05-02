@@ -50,11 +50,11 @@ class LinearSolver:
         # needs clarification at some point.
 
         setup.assemble_linear_system()
-        res = setup.equation_system.assemble(evaluate_jacobian=False)
-        sol = setup.solve_linear_system()
+        residual = setup.equation_system.assemble(evaluate_jacobian=False)
+        increment = setup.solve_linear_system()
 
-        error_res, error_inc, is_converged, _ = setup.check_convergence(
-            sol, res, res.copy(), self.params
+        _, _, is_converged, _ = setup.check_convergence(
+            increment, residual, residual.copy(), self.params
         )
 
         if is_converged:
@@ -67,8 +67,8 @@ class LinearSolver:
             # implemented to be valid for both linear and non-linear problems, as is
             # the case for ContactMechanics and possibly others). Thus, we first call
             # after_nonlinear_iteration(), and then after_nonlinear_convergence()
-            setup.after_nonlinear_iteration(sol)
-            setup.after_nonlinear_convergence(sol)
+            setup.after_nonlinear_iteration(increment)
+            setup.after_nonlinear_convergence(increment)
         else:
-            setup.after_nonlinear_failure(sol)
+            setup.after_nonlinear_failure(increment)
         return is_converged
