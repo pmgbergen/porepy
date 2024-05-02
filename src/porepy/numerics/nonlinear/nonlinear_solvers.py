@@ -70,10 +70,12 @@ class NewtonSolver:
         iteration_counter = 0
 
         residual_norm = np.inf
-        increment_norm = np.inf
+        nonlinear_increment_norm = np.inf
         is_converged = False
         is_diverged = False
-        increment = model.equation_system.get_variable_values(time_step_index=0)
+        nonlinear_increment = model.equation_system.get_variable_values(
+            time_step_index=0
+        )
 
         # Extract residual of initial guess.
         reference_residual = model.equation_system.assemble(evaluate_jacobian=False)
@@ -82,10 +84,10 @@ class NewtonSolver:
         # for everything ``tqdm`` related.
         def newton_step() -> None:
             # Bind to variables in the outer function
-            nonlocal increment
+            nonlocal nonlinear_increment
             nonlocal reference_residual
             nonlocal residual_norm
-            nonlocal increment_norm
+            nonlocal nonlinear_increment_norm
             nonlocal is_converged
             nonlocal is_diverged
 
@@ -98,16 +100,16 @@ class NewtonSolver:
             # Re-discretize the nonlinear term
             model.before_nonlinear_iteration()
 
-            increment = self.iteration(model)
+            nonlinear_increment = self.iteration(model)
 
-            model.after_nonlinear_iteration(increment)
+            model.after_nonlinear_iteration(nonlinear_increment)
             # Note: The residual is extracted after the solution has been updated by the
             # after_nonlinear_iteration() method.
             residual = model.equation_system.assemble(evaluate_jacobian=False)
 
-            residual_norm, increment_norm, is_converged, is_diverged = (
+            residual_norm, nonlinear_increment_norm, is_converged, is_diverged = (
                 model.check_convergence(
-                    increment, residual, reference_residual, self.params
+                    nonlinear_increment, residual, reference_residual, self.params
                 )
             )
 
@@ -119,10 +121,10 @@ class NewtonSolver:
                 newton_step()
 
                 if is_diverged:
-                    model.after_nonlinear_failure(increment)
+                    model.after_nonlinear_failure(nonlinear_increment)
                     break
                 elif is_converged:
-                    model.after_nonlinear_convergence(increment)
+                    model.after_nonlinear_convergence(nonlinear_increment)
                     break
 
                 iteration_counter += 1
@@ -151,24 +153,24 @@ class NewtonSolver:
                     newton_step()
                     solver_progressbar.update(n=1)
                     solver_progressbar.set_postfix_str(
-                        f"Increment {increment_norm:.3E}"
+                        f"Increment {nonlinear_increment_norm:.3E}"
                     )
 
                     if is_diverged:
                         # If the process finishes early, the tqdm bar needs to be
                         # manually closed. See https://stackoverflow.com/a/73175351.
                         solver_progressbar.close()
-                        model.after_nonlinear_failure(increment)
+                        model.after_nonlinear_failure(nonlinear_increment)
                         break
                     elif is_converged:
                         solver_progressbar.close()
-                        model.after_nonlinear_convergence(increment)
+                        model.after_nonlinear_convergence(nonlinear_increment)
                         break
 
                     iteration_counter += 1
 
         if not is_converged:
-            model.after_nonlinear_failure(increment)
+            model.after_nonlinear_failure(nonlinear_increment)
 
         return is_converged, iteration_counter
 
@@ -186,5 +188,5 @@ class NewtonSolver:
 
         """
         model.assemble_linear_system()
-        increment = model.solve_linear_system()
-        return increment
+        nonlinear_increment = model.solve_linear_system()
+        return nonlinear_increment

@@ -39,28 +39,28 @@ class SolverStatistics:
 
     num_iteration: int = 0
     """Number of non-linear iterations performed for current time step."""
-    increment_norms: list[float] = field(default_factory=list)
+    nonlinear_increment_norms: list[float] = field(default_factory=list)
     """List of increment magnitudes for each non-linear iteration."""
     residual_norms: list[float] = field(default_factory=list)
     """List of residual for each non-linear iteration."""
     path: Optional[Path] = None
     """Path to save the statistics object to."""
 
-    def log_error(self, increment_norm: float, residual_norm: float) -> None:
+    def log_error(self, nonlinear_increment_norm: float, residual_norm: float) -> None:
         """Log errors produced from convergence criteria.
 
         Parameters:
-            increment_norm (float): Error in the increment.
+            nonlinear_increment_norm (float): Error in the increment.
             residual_norm (float): Error in the residual.
 
         """
-        self.increment_norms.append(increment_norm)
+        self.nonlinear_increment_norms.append(nonlinear_increment_norm)
         self.residual_norms.append(residual_norm)
 
     def reset(self) -> None:
         """Reset the statistics object."""
         self.num_iteration = 0
-        self.increment_norms.clear()
+        self.nonlinear_increment_norms.clear()
         self.residual_norms.clear()
 
     def save(self) -> None:
@@ -77,7 +77,7 @@ class SolverStatistics:
             ind = len(data) + 1
             data[ind] = {
                 "num_iteration": self.num_iteration,
-                "increment_norms": self.increment_norms,
+                "nonlinear_increment_norms": self.nonlinear_increment_norms,
                 "residual_norms": self.residual_norms,
             }
 
