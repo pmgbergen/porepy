@@ -1065,16 +1065,14 @@ def sparse_array_to_row_col_data(
 
 
 def invert_permutation(perm):
-    """
-    Invert permutation array
+    """Invert permutation array.
 
-    Parameters
-    ----------
-    perm : permutation array
+    Parameters:
+        perm : permutation array
 
-    Returns
-    -------
-    inv_perm: Permuted sparse array
+    Returns:
+        inv_perm: Permuted sparse array
+
     """
 
     x = np.empty_like(perm)
@@ -1085,19 +1083,17 @@ def invert_permutation(perm):
 def sparse_permute(
     a: sps.spmatrix, row_perm: np.ndarray, col_perm: np.ndarray, inplace_q: bool = False
 ) -> sps.spmatrix:
-    """
-    Permute a sparse array.
+    """Permute a sparse array.
 
-    Parameters
-    ----------
-    a : Sparse array
-    row_perm : Rows permutation dense array
-    col_perm : Columns permutation dense array
-    inplace_q: Apply permutation in place
+    Parameters:
+        a : Sparse array
+        row_perm : Rows permutation dense array
+        col_perm : Columns permutation dense array
+        inplace_q: Apply permutation in place
 
-    Returns
-    -------
-    a_perm: Permuted sparse array
+    Returns:
+        a_perm: Permuted sparse array
+
     """
 
     # This function only supports CSR anc CSC format.
