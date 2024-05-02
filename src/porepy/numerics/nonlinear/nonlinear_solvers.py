@@ -69,23 +69,23 @@ class NewtonSolver:
 
         iteration_counter = 0
 
-        error_res = np.inf
-        error_inc = np.inf
+        residual_norm = np.inf
+        increment_norm = np.inf
         is_converged = False
         is_diverged = False
-        sol = model.equation_system.get_variable_values(time_step_index=0)
+        increment = model.equation_system.get_variable_values(time_step_index=0)
 
         # Extract residual of initial guess.
-        res_init = model.equation_system.assemble(evaluate_jacobian=False)
+        reference_residual = model.equation_system.assemble(evaluate_jacobian=False)
 
         # Define a function that does all the work during one Newton iteration, except
         # for everything ``tqdm`` related.
         def newton_step() -> None:
             # Bind to variables in the outer function
-            nonlocal sol
-            nonlocal res_init
-            nonlocal error_res
-            nonlocal error_inc
+            nonlocal increment
+            nonlocal reference_residual
+            nonlocal residual_norm
+            nonlocal increment_norm
             nonlocal is_converged
             nonlocal is_diverged
 
@@ -98,15 +98,17 @@ class NewtonSolver:
             # Re-discretize the nonlinear term
             model.before_nonlinear_iteration()
 
-            sol = self.iteration(model)
+            increment = self.iteration(model)
 
-            model.after_nonlinear_iteration(sol)
+            model.after_nonlinear_iteration(increment)
             # Note: The residual is extracted after the solution has been updated by the
             # after_nonlinear_iteration() method.
-            res = model.equation_system.assemble(evaluate_jacobian=False)
+            residual = model.equation_system.assemble(evaluate_jacobian=False)
 
-            error_res, error_inc, is_converged, is_diverged = model.check_convergence(
-                sol, res, res_init, self.params
+            residual_norm, increment_norm, is_converged, is_diverged = (
+                model.check_convergence(
+                    increment, residual, reference_residual, self.params
+                )
             )
 
         # Progressbars turned off or tqdm not installed:
@@ -117,10 +119,11 @@ class NewtonSolver:
                 newton_step()
 
                 if is_diverged:
-                    model.after_nonlinear_failure(sol)
+                    model.after_nonlinear_failure(increment)
                     break
                 elif is_converged:
-                    model.after_nonlinear_convergence(sol)
+                    model.after_nonlinear_convergence(increment)
+                    break
 
                 iteration_counter += 1
 
@@ -142,28 +145,30 @@ class NewtonSolver:
                     and not is_converged
                 ):
                     solver_progressbar.set_description_str(
-                        f"Newton iteration number {iteration_counter + 1} of \
-                            {self.params['max_iterations']}"
+                        f"""Newton iteration number {iteration_counter + 1} of \t"""
+                        f"""{self.params['max_iterations']}"""
                     )
                     newton_step()
                     solver_progressbar.update(n=1)
-                    solver_progressbar.set_postfix_str(f"Inc. {error_inc}")
+                    solver_progressbar.set_postfix_str(
+                        f"Increment {increment_norm:.3E}"
+                    )
 
                     if is_diverged:
                         # If the process finishes early, the tqdm bar needs to be
                         # manually closed. See https://stackoverflow.com/a/73175351.
                         solver_progressbar.close()
-                        model.after_nonlinear_failure(sol)
+                        model.after_nonlinear_failure(increment)
                         break
                     elif is_converged:
                         solver_progressbar.close()
-                        model.after_nonlinear_convergence(sol)
+                        model.after_nonlinear_convergence(increment)
                         break
 
                     iteration_counter += 1
 
         if not is_converged:
-            model.after_nonlinear_failure(sol)
+            model.after_nonlinear_failure(increment)
 
         return is_converged, iteration_counter
 
@@ -177,10 +182,9 @@ class NewtonSolver:
             model: The model instance specifying the problem to be solved.
 
         Returns:
-            np.ndarray: Solution to linearized system, i.e. the Newton update
-                increment.
+            np.ndarray: Solution to linearized system, i.e. the update increment.
 
         """
         model.assemble_linear_system()
-        sol = model.solve_linear_system()
-        return sol
+        increment = model.solve_linear_system()
+        return increment

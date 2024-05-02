@@ -21,14 +21,14 @@ class SolverStatistics:
     Example:
 
         After storing solver statistics to file, we can load the file and plot
-        analogous data, here for the first time step.
+        the stored data, here for the first time step.
 
         >>> import matplotlib.pyplot as plt
         >>> import json
         >>> with open("solver_statistics.json", "r") as f:
         >>>     history = json.load(f)
         >>> time_step = str(1)
-        >>> err = history[time_step]["residual_errors"]
+        >>> err = history[time_step]["residual_norms"]
         >>> plt.semilogy(err)
         >>> plt.xlabel("Iteration number")
         >>> plt.ylabel("Residual")
@@ -39,37 +39,32 @@ class SolverStatistics:
 
     num_iteration: int = 0
     """Number of non-linear iterations performed for current time step."""
-    increment_errors: list[float] = field(default_factory=list)
+    increment_norms: list[float] = field(default_factory=list)
     """List of increment magnitudes for each non-linear iteration."""
-    residual_errors: list[float] = field(default_factory=list)
+    residual_norms: list[float] = field(default_factory=list)
     """List of residual for each non-linear iteration."""
     path: Optional[Path] = None
     """Path to save the statistics object to."""
 
-    def log_error(self, increment_error: float, residual_error: float) -> None:
+    def log_error(self, increment_norm: float, residual_norm: float) -> None:
         """Log errors produced from convergence criteria.
 
         Parameters:
-            increment_error (float): Error in the increment.
-            residual_error (float): Error in the residual.
+            increment_norm (float): Error in the increment.
+            residual_norm (float): Error in the residual.
 
         """
-        self.increment_errors.append(increment_error)
-        self.residual_errors.append(residual_error)
+        self.increment_norms.append(increment_norm)
+        self.residual_norms.append(residual_norm)
 
     def reset(self) -> None:
         """Reset the statistics object."""
         self.num_iteration = 0
-        self.increment_errors.clear()
-        self.residual_errors.clear()
+        self.increment_norms.clear()
+        self.residual_norms.clear()
 
     def save(self) -> None:
-        """Save the statistics object to a JSON file.
-
-        Parameters:
-            path (Path): Path to the file to save the statistics object to.
-
-        """
+        """Save the statistics object to a JSON file."""
         if self.path is not None:
             # Check if object exists and append to it
             if self.path.exists():
@@ -82,8 +77,8 @@ class SolverStatistics:
             ind = len(data) + 1
             data[ind] = {
                 "num_iteration": self.num_iteration,
-                "increment_errors": self.increment_errors,
-                "residual_errors": self.residual_errors,
+                "increment_norms": self.increment_norms,
+                "residual_norms": self.residual_norms,
             }
 
             # Save to file

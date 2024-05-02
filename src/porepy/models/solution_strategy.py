@@ -482,18 +482,18 @@ class SolutionStrategy(abc.ABC):
 
     def check_convergence(
         self,
-        solution_increment: np.ndarray,
+        increment: np.ndarray,
         residual: np.ndarray,
-        init_residual: np.ndarray,
+        reference_residual: np.ndarray,
         nl_params: dict[str, Any],
     ) -> tuple[float, float, bool, bool]:
         """Implements a convergence check, to be called by a non-linear solver.
 
         Parameters:
-            solution_increment: Newly obtained solution increment vector
+            increment: Newly obtained solution increment vector
             residual: Residual vector of non-linear system, evaluated at the newly
             obtained solution vector.
-            init_residual: Reference residual vector of non-linear system, evaluated
+            reference_residual: Reference residual vector of non-linear system, evaluated
                 for the initial guess at current time step.
             nl_params: Dictionary of parameters used for the convergence check.
                 Which items are required will depend on the convergence test to be
@@ -503,9 +503,9 @@ class SolutionStrategy(abc.ABC):
             The method returns the following tuple:
 
             float:
-                Residual error, computed to the norm in question.
+                Residual norm, computed to the norm in question.
             float:
-                Increment error, computed to the norm in question.
+                Increment norm, computed to the norm in question.
             boolean:
                 True if the solution is converged according to the test implemented by
                 this method.
@@ -518,68 +518,67 @@ class SolutionStrategy(abc.ABC):
             # At least for the default direct solver, scipy.sparse.linalg.spsolve, no
             # error (but a warning) is raised for singular matrices, but a nan solution
             # is returned. We check for this.
-            diverged = bool(np.any(np.isnan(solution_increment)))
+            diverged = bool(np.any(np.isnan(increment)))
             converged: bool = not diverged
-            residual_error: float = np.nan if diverged else 0.0
-            increment_error: float = np.nan if diverged else 0.0
+            residual_norm: float = np.nan if diverged else 0.0
+            increment_norm: float = np.nan if diverged else 0.0
         else:
             # First a simple check for nan values.
-            if np.any(np.isnan(solution_increment)):
+            if np.any(np.isnan(increment)):
                 # If the solution contains nan values, we have diverged.
                 return np.nan, np.nan, False, True
 
-            # Increment based error
-            increment_error = self.nonlinear_increment_error(solution_increment)
-            # Residual based error
-            residual_error = self.nonlinear_residual_error(residual, init_residual)
-            logger.info(f"Normalized increment error: {increment_error:.2e}")
-            logger.info(f"Normalized residual error: {residual_error:.2e}")
-            # Check convergence
-            converged_inc = increment_error < nl_params["nl_convergence_tol"]
-            converged_res = residual_error < nl_params["nl_convergence_tol_res"]
+            # Increment based norm
+            increment_norm = self.compute_increment_norm(increment)
+            # Residual based norm
+            residual_norm = self.compute_residual_norm(residual, reference_residual)
+            logger.debug(
+                f"Nonlinear increment norm: {increment_norm:.2e}, "
+                f"Nonlinear residual norm: {residual_norm:.2e}"
+            )
+            # Check convergence requiring both the increment and residual to be small.
+            converged_inc = increment_norm < nl_params["nl_convergence_tol"]
+            converged_res = residual_norm < nl_params["nl_convergence_tol_res"]
             converged = converged_inc and converged_res
             diverged = False
 
-        # Log the errors, increments and residuals
-        self.nonlinear_solver_statistics.log_error(increment_error, residual_error)
+        # Log the errors (here increments and residuals)
+        self.nonlinear_solver_statistics.log_error(increment_norm, residual_norm)
 
-        return residual_error, increment_error, converged, diverged
+        return residual_norm, increment_norm, converged, diverged
 
-    def nonlinear_residual_error(
-        self, residual: np.ndarray, init_residual: np.ndarray
+    def compute_residual_norm(
+        self, residual: np.ndarray, reference_residual: np.ndarray
     ) -> float:
-        """Compute the residual error for a nonlinear iteration.
+        """Compute the residual norm for a nonlinear iteration.
 
         Parameters:
             residual: Residual of current iteration.
-            init_residual: Reference residual value (initial residual expected), allowing
-                for defining relative criteria.
+            reference_residual: Reference residual value (initial residual expected),
+                allowing for definiting relative criteria.
 
         Returns:
-            float: Residual error.
+            float: Residual norm.
 
         """
-        residual_error = np.linalg.norm(residual) / np.sqrt(residual.size)
-        return residual_error
+        residual_norm = np.linalg.norm(residual) / np.sqrt(residual.size)
+        return residual_norm
 
-    def nonlinear_increment_error(self, solution_increment: np.ndarray) -> float:
-        """Compute the error based on the update increment for a nonlinear iteration.
+    def compute_increment_norm(self, increment: np.ndarray) -> float:
+        """Compute the norm based on the update increment for a nonlinear iteration.
 
         Parameters:
-            solution_increment: Solution to the linearization.
+            increment: Solution to the linearization.
 
         Returns:
-            float: Update error.
+            float: Update increment norm.
         """
         # Simple but fairly robust convergence criterions. More advanced options are
-        # e.g. considering errors for each variable and/or each grid separately,
+        # e.g. considering norms for each variable and/or each grid separately,
         # possibly using _l2_norm_cell
         # We normalize by the size of the solution vector.
-        # Enforce float to make mypy happy
-        increment_error = np.linalg.norm(solution_increment) / np.sqrt(
-            solution_increment.size
-        )
-        return increment_error
+        increment_norm = np.linalg.norm(increment) / np.sqrt(increment.size)
+        return increment_norm
 
     def _initialize_linear_solver(self) -> None:
         """Initialize linear solver.
