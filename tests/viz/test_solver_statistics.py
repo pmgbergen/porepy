@@ -14,8 +14,8 @@ def test_solver_statistic_attributes():
     assert hasattr(model, "nonlinear_solver_statistics")
     assert isinstance(model.nonlinear_solver_statistics, pp.SolverStatistics)
     assert hasattr(model.nonlinear_solver_statistics, "num_iteration")
-    assert hasattr(model.nonlinear_solver_statistics, "increment_errors")
-    assert hasattr(model.nonlinear_solver_statistics, "residual_errors")
+    assert hasattr(model.nonlinear_solver_statistics, "nonlinear_increment_norms")
+    assert hasattr(model.nonlinear_solver_statistics, "residual_norms")
     assert hasattr(model.nonlinear_solver_statistics, "path")
     assert model.nonlinear_solver_statistics.path is None
 
