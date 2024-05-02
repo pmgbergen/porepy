@@ -121,10 +121,10 @@ class NewtonSolver:
                 newton_step()
 
                 if is_diverged:
-                    model.after_nonlinear_failure(nonlinear_increment)
+                    model.after_nonlinear_failure()
                     break
                 elif is_converged:
-                    model.after_nonlinear_convergence(nonlinear_increment)
+                    model.after_nonlinear_convergence()
                     break
 
                 iteration_counter += 1
@@ -170,7 +170,7 @@ class NewtonSolver:
                     iteration_counter += 1
 
         if not is_converged:
-            model.after_nonlinear_failure(nonlinear_increment)
+            model.after_nonlinear_failure()
 
         return is_converged, iteration_counter
 
