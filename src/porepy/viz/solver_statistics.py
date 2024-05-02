@@ -46,12 +46,15 @@ class SolverStatistics:
     path: Optional[Path] = None
     """Path to save the statistics object to."""
 
-    def log_error(self, nonlinear_increment_norm: float, residual_norm: float) -> None:
+    def log_error(
+        self, nonlinear_increment_norm: float, residual_norm: float, **kwargs
+    ) -> None:
         """Log errors produced from convergence criteria.
 
         Parameters:
             nonlinear_increment_norm (float): Error in the increment.
             residual_norm (float): Error in the residual.
+            **kwargs: Additional keyword arguments, for potential extension.
 
         """
         self.nonlinear_increment_norms.append(nonlinear_increment_norm)
