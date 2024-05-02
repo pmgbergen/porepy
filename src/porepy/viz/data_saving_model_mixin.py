@@ -42,6 +42,8 @@ class DataSavingMixin:
     """Fluid constants for the simulation."""
     nd: int
     """Number of spatial dimensions for the simulation."""
+    nonlinear_solver_statistics: pp.SolverStatistics
+    """Non-linear solver statistics for nonlinear solver."""
 
     def save_data_time_step(self) -> None:
         """Export the model state at a given time step, and log time.
@@ -49,6 +51,8 @@ class DataSavingMixin:
             * None: All time steps are exported
             * list: Export if time is in the list. If the list is empty, then no times
               are exported.
+
+        In addition, save the solver statistics to file if the option is set.
 
         """
 
@@ -66,6 +70,9 @@ class DataSavingMixin:
 
         if do_export:
             self.write_pvd_and_vtu()
+
+        # Save solver statistics to file
+        self.nonlinear_solver_statistics.save()
 
     def write_pvd_and_vtu(self) -> None:
         """Helper function for writing the .vtu and .pvd files and time information."""
@@ -157,6 +164,8 @@ class DataSavingMixin:
         and any other data saving functionality (e.g., empty data containers to be
         appended in :meth:`save_data_time_step`).
 
+        In addition, set path for storing solver statistics data to file for each time step.
+
         """
         self.exporter = pp.Exporter(
             self.mdg,
@@ -167,6 +176,12 @@ class DataSavingMixin:
             ),
             length_scale=self.units.m,
         )
+
+        if "solver_statistics_file_name" in self.params:
+            self.nonlinear_solver_statistics.path = (
+                Path(self.params["folder_name"])
+                / self.params["solver_statistics_file_name"]
+            )
 
     def load_data_from_vtu(
         self,

@@ -184,7 +184,7 @@ class SolutionStrategy(abc.ABC):
 
         """
 
-        self.nonlinear_solver_statistics: pp.SolverStatistics
+        self.nonlinear_solver_statistics = pp.SolverStatistics()
         """Statistics object for non-linear solver loop."""
 
     def prepare_simulation(self) -> None:
@@ -210,8 +210,6 @@ class SolutionStrategy(abc.ABC):
         self.discretize()
         self._initialize_linear_solver()
         self.set_nonlinear_discretizations()
-
-        self.set_nonlinear_solver_statistics()
 
         # Export initial condition
         self.save_data_time_step()
@@ -390,19 +388,6 @@ class SolutionStrategy(abc.ABC):
 
         """
 
-    def set_nonlinear_solver_statistics(self) -> None:
-        """Set statistics object for non-linear solver loop.
-
-        NOTE: If 'solver_statistics_file_name' is chosen None, file is not stored.
-        """
-        if "solver_statistics_file_name" in self.params:
-            path = Path(self.params.get("folder_name", "visualization")) / Path(
-                self.params["solver_statistics_file_name"]
-            )
-        else:
-            path = None
-        self.nonlinear_solver_statistics = pp.SolverStatistics(path=path)
-
     def before_nonlinear_loop(self) -> None:
         """Method to be called before entering the non-linear solver, thus at the start
         of a new time step.
@@ -429,19 +414,19 @@ class SolutionStrategy(abc.ABC):
         # self.nonlinear_discretizations, this will be a no-op.
         self.rediscretize()
 
-    def after_nonlinear_iteration(self, solution_vector: np.ndarray) -> None:
+    def after_nonlinear_iteration(self, nonlinear_increment: np.ndarray) -> None:
         """Method to be called after every non-linear iteration.
 
         Possible usage is to distribute information on the new trial state, visualize
         the current approximation etc.
 
         Parameters:
-            solution_vector: The new solution, as computed by the non-linear solver.
+            nonlinear_increment: The new solution, as computed by the non-linear solver.
 
         """
         self.equation_system.shift_iterate_values()
         self.equation_system.set_variable_values(
-            values=solution_vector, additive=True, iterate_index=0
+            values=nonlinear_increment, additive=True, iterate_index=0
         )
         self.nonlinear_solver_statistics.num_iteration += 1
 
@@ -460,7 +445,6 @@ class SolutionStrategy(abc.ABC):
             values=solution, time_step_index=0, additive=False
         )
         self.convergence_status = True
-        self.nonlinear_solver_statistics.save()
         self.save_data_time_step()
 
     def after_nonlinear_failure(self, solution: np.ndarray) -> None:
@@ -470,7 +454,7 @@ class SolutionStrategy(abc.ABC):
             solution: The new solution, as computed by the non-linear solver.
 
         """
-        self.nonlinear_solver_statistics.save()
+        self.save_data_time_step()
         if self._is_nonlinear_problem():
             raise ValueError("Nonlinear iterations did not converge.")
         else:
