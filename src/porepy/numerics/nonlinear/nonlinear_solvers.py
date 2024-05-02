@@ -160,11 +160,11 @@ class NewtonSolver:
                         # If the process finishes early, the tqdm bar needs to be
                         # manually closed. See https://stackoverflow.com/a/73175351.
                         solver_progressbar.close()
-                        model.after_nonlinear_failure(nonlinear_increment)
+                        model.after_nonlinear_failure()
                         break
                     elif is_converged:
                         solver_progressbar.close()
-                        model.after_nonlinear_convergence(nonlinear_increment)
+                        model.after_nonlinear_convergence()
                         break
 
                     iteration_counter += 1
