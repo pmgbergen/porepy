@@ -1123,12 +1123,12 @@ def sparse_permute(
     # Retrieve global indices (low complexity)
     if sps.isspmatrix_csr(a):
         row_reps = o_indptr[1 : o_indptr.size] - o_indptr[0 : o_indptr.size - 1]
-        rows = np.repeat(np.arange(a.shape[0], dtype=np.int32), row_reps)
+        rows = np.repeat(np.arange(a.shape[0], dtype=np.uintc), row_reps)
         cols = o_indices
 
         rows = row_perm[rows]
         cols = col_perm[cols]
-        sorted_idx = np.argsort(rows)
+        sorted_idx = np.argsort(rows).astype(dtype=np.uintc)
 
         count = np.bincount(rows)
         indptr = np.cumsum(np.insert(count, 0, 0)).astype(dtype=np.int32)
@@ -1137,12 +1137,12 @@ def sparse_permute(
 
     else:
         col_reps = o_indptr[1 : o_indptr.size] - o_indptr[0 : o_indptr.size - 1]
-        cols = np.repeat(np.arange(a.shape[1], dtype=np.int32), col_reps)
+        cols = np.repeat(np.arange(a.shape[1], dtype=np.uintc), col_reps)
         rows = a.indices
 
         rows = row_perm[rows]
         cols = col_perm[cols]
-        sorted_idx = np.argsort(cols)
+        sorted_idx = np.argsort(cols).astype(dtype=np.uintc)
 
         count = np.bincount(cols)
         indptr = np.cumsum(np.insert(count, 0, 0)).astype(dtype=np.int32)
