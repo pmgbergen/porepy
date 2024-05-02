@@ -1136,13 +1136,7 @@ def sparse_permute(
         indptr = np.cumsum(np.insert(count, 0, 0)).astype(dtype=np.int32)
         indices = cols[sorted_idx].astype(dtype=np.int32)
         data = a.data[sorted_idx]
-        if inplace_q:
-            a.indptr = indptr
-            a.indices = indices
-            a.data = data
-            return a
-        else:
-            return sps.csr_matrix((data, indices, indptr), shape=a.shape)
+
     else:
         col_reps = o_indptr[1 : o_indptr.size] - o_indptr[0 : o_indptr.size - 1]
         cols = np.repeat(np.arange(a.shape[1], dtype=np.int32), col_reps)
@@ -1156,10 +1150,14 @@ def sparse_permute(
         indptr = np.cumsum(np.insert(count, 0, 0)).astype(dtype=np.int32)
         indices = rows[sorted_idx].astype(dtype=np.int32)
         data = a.data[sorted_idx]
-        if inplace_q:
-            a.indptr = indptr
-            a.indices = indices
-            a.data = data
-            return a
+
+    if inplace_q:
+        a.indptr = indptr
+        a.indices = indices
+        a.data = data
+        return a
+    else:
+        if sps.isspmatrix_csr(a):
+            return sps.csr_matrix((data, indices, indptr), shape=a.shape)
         else:
             return sps.csc_matrix((data, indices, indptr), shape=a.shape)
