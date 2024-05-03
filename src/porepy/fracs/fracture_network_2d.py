@@ -121,11 +121,11 @@ class FractureNetwork2d:
             # Note: If the list of fracture is empty, we end up here.
             logger.info(f"Generated a fracture set with {self.num_frac()} fractures")
             if self._pts.size > 0:
-                logger.info(
+                logger.debug(
                     f"Minimum point coordinates x: {self._pts[0].min():.2f}, \
                         y: {self._pts[1].min():.2f}",
                 )
-                logger.info(
+                logger.debug(
                     f"Maximum point coordinates x: {self._pts[0].max():.2f}, \
                         y: {self._pts[1].max():.2f}",
                 )
@@ -158,9 +158,9 @@ class FractureNetwork2d:
             ``fs``, and the union of the domains.
 
         """
-        logger.info("Add fracture sets: ")
-        logger.info(str(self))
-        logger.info(str(fs))
+        logger.debug("Add fracture sets: ")
+        logger.debug(str(self))
+        logger.debug(str(fs))
 
         p = np.hstack((self._pts, fs._pts))
         e = np.hstack((self._edges[:2], fs._edges[:2] + self._pts.shape[1]))
@@ -646,13 +646,13 @@ class FractureNetwork2d:
 
         # We split all fracture intersections so that the new lines do not
         # intersect, except possible at the end points
-        logger.info("Remove edge crossings")
+        logger.debug("Remove edge crossings")
         tm = time.time()
 
         pts_split, lines_split, *_ = pp.intersections.split_intersecting_segments_2d(
             pts_all, lines, tol=self.tol
         )
-        logger.info("Done. Elapsed time " + str(time.time() - tm))
+        logger.debug("Done. Elapsed time " + str(time.time() - tm))
 
         # Ensure unique description of points
         pts_split, _, old_2_new = pp.utils.setmembership.uniquify_point_set(
@@ -747,7 +747,7 @@ class FractureNetwork2d:
 
         # Mesh size
         # Tag points at the domain corners
-        logger.info("Determine mesh size")
+        logger.debug("Determine mesh size")
         tm = time.time()
 
         p = self._decomposition["points"]
@@ -763,7 +763,7 @@ class FractureNetwork2d:
             mesh_size_min=mesh_size_min,
         )
 
-        logger.info("Done. Elapsed time " + str(time.time() - tm))
+        logger.debug("Done. Elapsed time " + str(time.time() - tm))
 
         self._decomposition["points"] = pts_split
         self._decomposition["edges"] = lines
@@ -796,7 +796,7 @@ class FractureNetwork2d:
         """
         # Gridding size
         # Tag points at the domain corners
-        logger.info("Determine mesh size")
+        logger.debug("Determine mesh size")
         tm = time.time()
 
         boundary_pt_ind = self._decomposition["domain_boundary_points"]
@@ -810,7 +810,7 @@ class FractureNetwork2d:
         vals = val * np.ones(num_pts)
         if mesh_size_bound is not None:
             vals[boundary_pt_ind] = mesh_size_bound
-        logger.info("Done. Elapsed time " + str(time.time() - tm))
+        logger.debug("Done. Elapsed time " + str(time.time() - tm))
         self._decomposition["mesh_size"] = vals
 
     def impose_external_boundary(
@@ -1022,10 +1022,10 @@ class FractureNetwork2d:
             counter += 1
 
         if counter < max_iter:
-            logger.info(
+            logger.debug(
                 "Fracture snapping converged after " + str(counter) + " iterations"
             )
-            logger.info("Maximum modification " + str(np.max(np.abs(pts - pts_orig))))
+            logger.debug("Maximum modification " + str(np.max(np.abs(pts - pts_orig))))
             return pts, True
         else:
             logger.warning("Fracture snapping failed to converge")

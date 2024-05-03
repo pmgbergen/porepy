@@ -25,7 +25,7 @@ WORKDIR ${HOME}
 
 # Install missing packages. Most of these are needed for gmsh.
 RUN apt-get update 
-RUN apt-get install -y git libglu1-mesa libxrender1 libxcursor1 libxft2 libxinerama1 ffmpeg libgl1-mesa-glx libsm6 libxext6 python3-tk
+RUN apt-get install -y build-essential vim git libglu1-mesa libxrender1 libxcursor1 libxft2 libxinerama1 ffmpeg libgl1-mesa-glx libsm6 libxext6 python3-tk
 
 # Update pip
 RUN pip install --upgrade pip

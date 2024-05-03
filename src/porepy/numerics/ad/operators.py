@@ -814,6 +814,7 @@ class Operator:
         # tree-representation, and parse and combine individual operators.
 
         prev_vals = system_manager.get_variable_values(time_step_index=0)
+        prev_iter_vals = system_manager.get_variable_values(iterate_index=0)
 
         if state is None:
             state = system_manager.get_variable_values(iterate_index=0)
@@ -859,7 +860,7 @@ class Operator:
         # This is simpler, since it is only a matter of getting the residual vector
         # correctly (not Jacobian matrix).
 
-        prev_iter_vals_list = [state[ind] for ind in self._prev_iter_dofs]
+        prev_iter_vals_list = [prev_iter_vals[ind] for ind in self._prev_iter_dofs]
         self._prev_iter_vals = {
             var_id: val
             for (var_id, val) in zip(self._prev_iter_ids, prev_iter_vals_list)
