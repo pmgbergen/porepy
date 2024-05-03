@@ -1132,10 +1132,21 @@ class Operator:
             return [self, DenseArray(other)]
         elif isinstance(other, sps.spmatrix):
             return [self, SparseArray(other)]
-        elif isinstance(other, Operator):
-            return [self, other]
         elif isinstance(other, AdArray):
             # This may happen when using nested pp.ad.Function.
+            return [self, other]
+        elif isinstance(other, pp.ad.SecondaryOperator):
+            # Putting secondary operator above abstract function, because it inherits
+            # from abstract function, but is operable
+            return [self, other]
+        elif isinstance(other, pp.ad.AbstractFunction):
+            # Need to put this here, because overload of AbstractFunction is not
+            # applied if AbstractFunction is right operand.
+            raise TypeError(
+                "Operator functions must be called before applying any operation."
+            )
+        elif isinstance(other, Operator):
+            # Put Operator at end, because Seconary and Abstract are also operators
             return [self, other]
         else:
             raise ValueError(f"Cannot parse {other} as an AD operator")

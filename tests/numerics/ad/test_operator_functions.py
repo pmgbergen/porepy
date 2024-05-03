@@ -44,9 +44,11 @@ def test_ad_function():
     eqs.set_variable_values(vals * 10, [var], time_step_index=0)
 
     # test that the function without call with operator is inoperable
-    for op in ['*', '/', '+', '-', '**']:
+    for op in ['*', '/', '+', '-', '**', '@']:
         with pytest.raises(TypeError):
             _ = eval(f"F {op} var")
+        with pytest.raises(TypeError):
+            _ = eval(f"var {op} F")
 
     F_var = F(var)
 
