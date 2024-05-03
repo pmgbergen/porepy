@@ -1676,23 +1676,22 @@ class Mpsa(Discretization):
         """
 
         # Mappings to convert linear system to block diagonal form
-        rows2blk_diag, cols2blk_diag, size_of_blocks = self._block_diagonal_structure(
+        row_perm, col_perm, size_of_blocks = self._block_permutations_and_sizes(
             sub_cell_index, cell_node_blocks, nno_unique, bound_exclusion, nd
         )
 
-        grad = rows2blk_diag * grad_eqs * cols2blk_diag
+        grad = grad_eqs[row_perm,:][:,col_perm]
         # Compute inverse gradient operator, and map back again
-        igrad = (
-            cols2blk_diag
-            * pp.matrix_operations.invert_diagonal_blocks(
-                grad, size_of_blocks, method=inverter
-            )
-            * rows2blk_diag
+        inv_grad = pp.matrix_operations.invert_diagonal_blocks(
+            grad, size_of_blocks, method=inverter
         )
+        row_inv_perm = pp.matrix_operations.invert_permutation(row_perm)
+        col_inv_perm = pp.matrix_operations.invert_permutation(col_perm)
+        igrad = inv_grad[col_inv_perm, :][:, row_inv_perm]
         logger.debug("max igrad: " + str(np.max(np.abs(igrad))))
         return igrad
 
-    def _block_diagonal_structure(
+    def _block_permutations_and_sizes(
         self,
         sub_cell_index: np.ndarray,
         cell_node_blocks: np.ndarray,
@@ -1731,28 +1730,21 @@ class Mpsa(Discretization):
         nno_displacement = bound_exclusion.exclude_neumann_robin(nno, transform=False)
         nno_neu = bound_exclusion.keep_neumann(nno, transform=False)
         nno_rob = bound_exclusion.keep_robin(nno, transform=False)
-        node_occ = np.hstack((nno_stress, nno_neu, nno_rob, nno_displacement))
+        node_occ = np.hstack((nno_stress, nno_neu, nno_rob, nno_displacement)).astype("int32")
 
-        sorted_ind = np.argsort(node_occ, kind="mergesort")
-        rows2blk_diag = sps.coo_matrix(
-            (np.ones(sorted_ind.size), (np.arange(sorted_ind.size), sorted_ind))
-        ).tocsr()
+        row_inv_perm = node_occ.astype("int32")
+        row_perm = np.argsort(row_inv_perm).astype("int32")
+
         # Size of block systems
-        sorted_nodes_rows = node_occ[sorted_ind]
-        size_of_blocks = np.bincount(sorted_nodes_rows.astype("int64"))
+        sorted_nodes_rows = node_occ[row_perm]
+        size_of_blocks = np.bincount(sorted_nodes_rows).astype("int32")
 
         # cell_node_blocks[1] contains the node numbers associated with each sub-cell
         # gradient (and so column of the local linear systems). A sort of these will
         # give a block-diagonal structure
-        sorted_nodes_cols = np.argsort(cell_node_blocks[1], kind="mergesort")
-        subcind_nodes = sub_cell_index[::, sorted_nodes_cols].ravel("F")
-        cols2blk_diag = sps.coo_matrix(
-            (
-                np.ones(sub_cell_index.size),
-                (subcind_nodes, np.arange(sub_cell_index.size)),
-            )
-        ).tocsr()
-        return rows2blk_diag, cols2blk_diag, size_of_blocks
+        sorted_nodes_cols = np.argsort(cell_node_blocks[1])
+        col_perm = sub_cell_index[::, sorted_nodes_cols].ravel("F")
+        return row_perm, col_perm, size_of_blocks
 
     def _unique_hooks_law(
         self,
