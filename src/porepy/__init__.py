@@ -200,6 +200,7 @@ from porepy.models import (
 from porepy.viz.exporter import Exporter
 from porepy.viz.plot_grid import plot_grid, save_img
 from porepy.viz.fracture_visualization import plot_fractures, plot_wells
+from porepy.viz.solver_statistics import SolverStatistics
 
 # Modules
 from porepy.fracs import utils as frac_utils
