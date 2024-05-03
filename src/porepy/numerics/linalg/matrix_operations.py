@@ -1064,16 +1064,14 @@ def sparse_array_to_row_col_data(
         return (mat_copy.row, mat_copy.col, mat_copy.data)
 
 def invert_permutation(perm):
-    """
-    Invert permutation array
+    """Invert permutation array.
 
-    Parameters
-    ----------
-    perm : permutation array
+    Parameters:
+        perm : permutation array
 
-    Returns
-    -------
-    inv_perm: Permuted sparse array
+    Returns:
+        inv_perm: Permuted sparse array
+
     """
 
     x = np.empty_like(perm)

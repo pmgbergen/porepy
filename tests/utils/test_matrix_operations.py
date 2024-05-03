@@ -468,3 +468,12 @@ def test_block_matrix_invertes_sparse_blocks(invert_backend: str):
     iblock_ex = np.linalg.inv(block.toarray())
 
     assert np.allclose(iblock_ex, iblock.toarray())
+
+def test_invert_permutation():
+    """
+    Test the inverse of a permutation.
+
+    """
+    perm = np.random.permutation(np.array([0, 1, 2, 3, 4, 5, 6, 7]))
+    inv_perm = matrix_operations.invert_permutation(perm)
+    assert np.all(np.isclose(np.argsort(perm), inv_perm))
