@@ -1658,7 +1658,7 @@ class Mpsa(Discretization):
         ncasym = bd_average @ ncasym
 
         return ncsym, ncasym, cell_node_blocks, grad_ind
-
+    @profile
     def _inverse_gradient(
         self,
         grad_eqs: sps.spmatrix,
@@ -1685,7 +1685,7 @@ class Mpsa(Discretization):
 
         """
 
-        # Permutations to convert linear system to block diagonal form
+        # Mappings to convert linear system to block diagonal form
         row_perm, col_perm, size_of_blocks = self._block_permutations_and_sizes(
             sub_cell_index, cell_node_blocks, nno_unique, bound_exclusion, nd
         )
