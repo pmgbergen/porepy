@@ -263,7 +263,7 @@ class SecondaryOperator(
         op.children = [child.previous_iteration(steps=steps) for child in self.children]
         return op
 
-    def get_values(self, *args: np.ndarray | AdArray) -> np.ndarray:
+    def get_values(self, *args: float | np.ndarray | AdArray) -> np.ndarray:
         """Fetches the values stored for this secondary operator at its time or iterate
         index."""
 
@@ -284,7 +284,7 @@ class SecondaryOperator(
 
         return value
 
-    def get_jacobian(self, *args: np.ndarray | AdArray) -> sps.spmatrix:
+    def get_jacobian(self, *args: float | np.ndarray | AdArray) -> sps.spmatrix:
         """Fetches the derivative values stored for this secondary operator at its time
         or iterate index.
 

@@ -24,6 +24,7 @@ import scipy.sparse as sps
 import porepy as pp
 from porepy.numerics.ad.forward_mode import AdArray
 
+from .functions import FloatType
 from .operators import Operator
 
 __all__ = [
@@ -179,7 +180,7 @@ class AbstractFunction(Operator):
         :meth:`func`."""
         return self
 
-    def func(self, *args: np.ndarray | AdArray) -> np.ndarray | AdArray:
+    def func(self, *args: FloatType) -> float | np.ndarray | AdArray:
         """The underlying numerical function which is represented by this operator
         function.
 
@@ -205,12 +206,16 @@ class AbstractFunction(Operator):
         values = self.get_values(*args)
 
         if any(isinstance(a, AdArray) for a in args):
+            jac = self.get_jacobian(*args)
+            if isinstance(values, float):
+                assert jac.shape[0] == 1, "Inconsistent Jacobian of scalar function."
+                values = np.array([values])
             return AdArray(values, self.get_jacobian(*args))
         else:
             return values
 
     @abc.abstractmethod
-    def get_values(self, *args: np.ndarray | AdArray) -> np.ndarray:
+    def get_values(self, *args: float | np.ndarray | AdArray) -> float | np.ndarray:
         """Abstract method for evaluating the callable passed at instantiation.
 
         The returned numpy array will be set as
@@ -233,7 +238,7 @@ class AbstractFunction(Operator):
         pass
 
     @abc.abstractmethod
-    def get_jacobian(self, *args: np.ndarray | AdArray) -> sps.spmatrix:
+    def get_jacobian(self, *args: float | np.ndarray | AdArray) -> sps.spmatrix:
         """Abstract method for evaluating the Jacobian of the function represented
         by this instance.
 
@@ -284,7 +289,7 @@ class DiagonalJacobianFunction(AbstractFunction):
         else:
             self._multipliers = [float(multipliers)]
 
-    def get_jacobian(self, *args: np.ndarray | AdArray) -> sps.spmatrix:
+    def get_jacobian(self, *args: float | np.ndarray | AdArray) -> sps.spmatrix:
         """The approximate Jacobian consists of identity blocks times scalar multiplier
         per every function dependency."""
         jacs = [
@@ -317,28 +322,26 @@ class Function(AbstractFunction):
 
     """
 
-    def __init__(
-        self, func: Callable[[AdArray | np.ndarray], AdArray | np.ndarray], name: str
-    ) -> None:
+    def __init__(self, func: Callable[..., FloatType], name: str) -> None:
         super().__init__(name=name)
 
-        self._func: Callable[[AdArray | np.ndarray], AdArray | np.ndarray] = func
+        self._func: Callable[..., float | np.ndarray | AdArray] = func
         """Reference to the callable passed at instantiation."""
 
-    def func(self, *args: np.ndarray | AdArray) -> np.ndarray | AdArray:
+    def func(self, *args: FloatType) -> float | np.ndarray | AdArray:
         """Overwrites the parent method to call the numerical function passed at
         instantiation."""
         return self._func(*args)
 
-    def get_values(self, *args: np.ndarray | AdArray) -> np.ndarray:
-        result = self.func(*args)
+    def get_values(self, *args: float | np.ndarray | AdArray) -> float | np.ndarray:
+        result = self._func(*args)
         return result.val if isinstance(result, AdArray) else result
 
-    def get_jacobian(self, *args: np.ndarray | AdArray) -> np.ndarray:
+    def get_jacobian(self, *args: float | np.ndarray | AdArray) -> sps.spmatrix:
         assert any(
             isinstance(a, AdArray) for a in args
         ), "No Ad arrays passed as arguments."
-        result = self.func(*args)
+        result = self._func(*args)
         assert isinstance(result, AdArray)
         return result.jac
 
@@ -403,12 +406,18 @@ class InterpolatedFunction(AbstractFunction):
                 f"Interpolation of order {self.order} not implemented."
             )
 
-    def get_values(self, *args: np.ndarray | AdArray) -> np.ndarray:
+    def get_values(self, *args: float | np.ndarray | AdArray) -> np.ndarray:
         # stacking argument values vertically for interpolation
-        X = np.vstack([x.val if isinstance(x, AdArray) else x for x in args])
+        args_: list[float | np.ndarray] = []
+        for a in args:
+            if isinstance(a, AdArray):
+                args_.append(a.val)
+            else:
+                args_.append(a)
+        X: np.ndarray = np.vstack(args_)
         return self._table.interpolate(X)
 
-    def get_jacobian(self, *args: np.ndarray | AdArray) -> sps.spmatrix:
+    def get_jacobian(self, *args: float | np.ndarray | AdArray) -> sps.spmatrix:
         # get points at which to evaluate the differentiation
         X = np.vstack([x.val if isinstance(x, AdArray) else x for x in args])
         # allocate zero matrix for Jacobian with correct dimensions and in CSR format

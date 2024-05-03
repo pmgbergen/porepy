@@ -166,7 +166,7 @@ class Operator:
                 " interfaces, subdomains or boundary grids."
             )
 
-        self.func: Callable[..., np.ndarray | AdArray]
+        self.func: Callable[..., float | np.ndarray | AdArray]
         """Functional representation of this operator.
 
         As of now, only instances of

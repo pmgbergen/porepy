@@ -111,7 +111,9 @@ class AdArray:
             A new Ad array with values and Jacobian sliced row-wise.
 
         """
-        val = self.val[key]
+        # NOTE mypy complains even though numpy arrays can handle slices [x:y:z]
+        # Probably a missing type annotation on numpy's side
+        val = self.val[key]  # type:ignore[index]
         # in case of single index, broadcast to 1D array
         if val.ndim == 0:
             val = np.array([val])

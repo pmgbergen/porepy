@@ -898,16 +898,9 @@ class EquationSystem:
         assert isinstance(variables, list)
         for variable in variables:
             if isinstance(variable, MixedDimensionalVariable):
-                parsed_variables += [
-                    var if var.is_original_operator else var.original_operator
-                    for var in variable.sub_vars
-                ]
+                parsed_variables += [var for var in variable.sub_vars]
             elif isinstance(variable, Variable):
-                parsed_variables.append(
-                    variable
-                    if variable.is_original_operator
-                    else variable.original_operator
-                )
+                parsed_variables.append(variable)
             elif isinstance(variable, str):
                 # Use _variables to avoid recursion (get_variables() calls this method)
                 vars = [
