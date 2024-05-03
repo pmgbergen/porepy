@@ -58,27 +58,27 @@ def subdomains_to_mdg(
     # Tag tip faces
     check_highest_dim = kwargs.get("check_highest_dim", False)
     _tag_faces(subdomains, check_highest_dim)
-    logger.info("Assemble mdg")
+    logger.debug("Assemble mdg")
     tm_mdg = time.time()
 
     # Assemble the list of subdomain grids into a mixed-dimensional grid. This will
     # also identify pairs of neighboring grids (one dimension apart).
     mdg, sd_pair_to_face_cell_map = _assemble_mdg(subdomains)
-    logger.info("Done. Elapsed time " + str(time.time() - tm_mdg))
+    logger.debug("Done. Elapsed time " + str(time.time() - tm_mdg))
 
-    logger.info("Compute geometry")
+    logger.debug("Compute geometry")
     tm_geom = time.time()
     mdg.compute_geometry()
 
-    logger.info("Done. Elapsed time " + str(time.time() - tm_geom))
-    logger.info("Split fractures")
+    logger.debug("Done. Elapsed time " + str(time.time() - tm_geom))
+    logger.debug("Split fractures")
     tm_split = time.time()
 
     # Split faces and nodes in the grids of various dimensions
     mdg, node_pairs = split_grid.split_fractures(
         mdg, sd_pair_to_face_cell_map, **kwargs
     )
-    logger.info("Done. Elapsed time " + str(time.time() - tm_split))
+    logger.debug("Done. Elapsed time " + str(time.time() - tm_split))
 
     # Now that neighboring subdomains are identified, faces and nodes are split,
     # we are ready to create mortar grids on the interface between subdomains. These
