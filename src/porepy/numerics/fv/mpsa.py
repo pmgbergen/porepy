@@ -1710,11 +1710,9 @@ class Mpsa(Discretization):
             nd: Number of spatial dimensions.
 
         Returns:
-            :obj:`~scipy.sparse.spmatrix`: Transform rows of linear system to
-                block-diagonal form.
+            np.ndarray: row permutation to block-diagonal form.
 
-            :obj:`~scipy.sparse.spmatrix`: Transform colmns of linear system to
-                block-diagonal form.
+            np.ndarray: column permutation to block-diagonal form.
 
             np.ndarray: Number of equations in each block.
 
