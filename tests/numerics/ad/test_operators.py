@@ -355,6 +355,11 @@ def test_time_dependent_array():
             "foofoobar", domains=[*mdg.subdomains(), *mdg.interfaces()]
         )
 
+    # Time dependent arrays at two time steps back are possible, but the evaluation
+    # should raise a key error because no values are stored
+    with pytest.raises(KeyError):
+        _ = sd_prev_timestep.previous_timestep().parse(mdg)
+
 
 def test_ad_variable_creation():
     """Test creation of Ad variables by way of the EquationSystem.
@@ -412,34 +417,6 @@ def test_ad_variable_creation():
     # The copy model will return variables with the same id.
     assert mvar_1_copy.id == mvar_1.id
     assert mvar_1_deepcopy.id == mvar_1.id
-
-    # # Get versions of the variables at previous iteration and time step.
-    # # This should return variables with different ids
-
-    # # First variables
-    # var_1_prev_iter = var_1.previous_iteration()
-    # var_1_prev_time = var_1.previous_timestep()
-    # assert var_1_prev_iter.id != var_1.id
-    # assert var_1_prev_time.id != var_1.id
-
-    # # Then mixed-dimensional variables.
-    # mvar_1_prev_iter = mvar_1.previous_iteration()
-    # mvar_1_prev_time = mvar_1.previous_timestep()
-    # assert mvar_1_prev_iter.id != mvar_1.id
-    # assert mvar_1_prev_time.id != mvar_1.id
-
-    # # We prohibit creating a variable both on previous time step and iter.
-    # with pytest.raises(ValueError):
-    #     _ = mvar_1_prev_iter.previous_timestep()
-    # with pytest.raises(ValueError):
-    #     _ = mvar_1_prev_time.previous_iteration()
-
-    # # We prohibit creating a variable on more than one iter or time step behind.
-    # # NOTE: This should be removed when this feature is implemented.
-    # with pytest.raises(NotImplementedError):
-    #     _ = mvar_1_prev_iter.previous_iteration()
-    # with pytest.raises(NotImplementedError):
-    #     _ = mvar_1_prev_time.previous_timestep()
 
 
 def test_ad_variable_evaluation():
@@ -650,6 +627,170 @@ def test_ad_variable_evaluation():
 
     v1_prev = v1.previous_timestep()
     assert np.allclose(true_state[ind1], v1_prev.value(eq_system, true_iterate))
+
+
+def test_ad_variable_prev_iter():
+    # Test only 1 variable, the rest should be covered by other tests
+    mdg, _ = pp.mdg_library.square_with_orthogonal_fractures(
+        "cartesian",
+        {"cell_size": 0.2},
+        fracture_indices=[1],
+    )
+    eqs = pp.ad.EquationSystem(mdg)
+
+    # Integer to test the depth of prev _*, could be a test parameter, but no need
+    depth = 5
+    var_name = 'foo'
+    vec = np.ones(mdg.num_subdomain_cells())
+
+    eqs.create_variables(
+        var_name, dof_info={"cells": 1}, subdomains=mdg.subdomains()
+    )
+    var = eqs.md_variable(var_name)
+
+    # Starting point is time step index is None, iterate index is 0
+    # (current time and iter)
+    assert var.time_step_index is None
+    assert var.iterate_index == 0 
+
+    # Set values except for the last step
+    for i in range(depth - 1):
+        eqs.set_variable_values(vec * i, [var], iterate_index=i)
+
+    # prohibit prev iter variable to also be prev time
+    with pytest.raises(ValueError):
+        var_pi = var.previous_iteration()
+        _ = var_pi.previous_timestep()
+
+    # Evaluating the last step, should raise a key error because no values set
+    with pytest.raises(KeyError):
+        # different steps, because iter starts at 0, time at -1
+        var_prev = var.previous_iteration(steps = depth - 1) 
+        _ = var_prev.value(eqs)
+
+    # Evaluate prev iter and check that the values are what they're supposed to be
+    for i in range(1, depth - 1):
+        var_i = var.previous_iteration(steps = i)
+        val_i = var_i.value(eqs)
+        assert np.allclose(val_i, i)
+
+        # prev iter has no Jacobian
+        ad_i = var_i.value_and_jacobian(eqs)
+        assert np.all(ad_i.jac.A == 0.)
+
+    # Test creating with explicit stepping and recursive stepping
+    vars_exp = [var.previous_iteration(steps=i) for i in range(1, depth - 1)]
+
+    vars_rec = []
+    for i in range(1, depth - 1):
+        var_i = copy.copy(var)
+        for _ in range(i):
+            var_i = var_i.previous_iteration()
+        vars_rec.append(var_i)
+
+    assert len(vars_exp) == len(vars_rec)
+    vals_exp = [v.value(eqs) for v in vars_exp]
+    vals_rec = [v.value(eqs) for v in vars_rec]
+
+    for v_e, v_r in zip(vals_exp, vals_rec):
+        assert np.allclose(v_e, v_r)
+
+    # Testing IDs. NOTE as of now, variables at prev iter have the same ID until
+    # full support is given
+    all_ids = set([var.id] + [v.id for v in vars_exp] + [v.id for v in vars_rec])
+    assert len(all_ids) == 1
+
+    # Testing index values. Should be increasing with depth, while time step index stays
+    # None (current time)
+    for i in range(1, depth - 1):
+        assert vars_exp[i - 1].iterate_index == i
+        assert vars_exp[i - 1].time_step_index is None
+        assert vars_rec[i - 1].iterate_index == i
+        assert vars_rec[i - 1].time_step_index is None
+
+
+def test_ad_variable_prev_time():
+    # Tests are similar to prev iter tests, just change the indexation logic because
+    # time_step_index = 0  is already a previous value
+    mdg, _ = pp.mdg_library.square_with_orthogonal_fractures(
+        "cartesian",
+        {"cell_size": 0.2},
+        fracture_indices=[1],
+    )
+    eqs = pp.ad.EquationSystem(mdg)
+
+    # Integer to test the depth of prev _*, could be a test parameter, but no need
+    depth = 5
+    var_name = 'foo'
+    vec = np.ones(mdg.num_subdomain_cells())
+
+    eqs.create_variables(
+        var_name, dof_info={"cells": 1}, subdomains=mdg.subdomains()
+    )
+    var = eqs.md_variable(var_name)
+
+    # Starting point is time step index is None, iterate index is 0
+    # (current time and iter)
+    assert var.time_step_index is None
+    assert var.iterate_index == 0 
+
+    # For AD to work, we need at least values at current time and iterate
+    eqs.set_variable_values(vec * 0., [var], iterate_index=0)
+
+    # Set values except for the last step
+    for i in range(depth - 1):
+        eqs.set_variable_values(vec * i, [var], time_step_index=i)
+
+    # prohibit prev time step variable to also be prev iter
+    with pytest.raises(ValueError):
+        var_pt = var.previous_timestep()
+        _ = var_pt.previous_iteration()
+
+    # Evaluating the last step, should raise a key error because no values set
+    with pytest.raises(KeyError):
+        # different stepping than for iter
+        var_prev = var.previous_timestep(steps = depth) 
+        _ = var_prev.value(eqs)
+
+    # Evaluate prev time and check that the values are what they're supposed to be
+    for i in range(1, depth - 1):
+        var_i = var.previous_timestep(steps = i)
+        val_i = var_i.value(eqs)
+        assert np.allclose(val_i, i - 1)
+
+        # prev time has no Jacobian
+        ad_i = var_i.value_and_jacobian(eqs)
+        assert np.all(ad_i.jac.A == 0.)
+
+    # Test creating with explicit stepping and recursive stepping
+    vars_exp = [var.previous_timestep(steps=i) for i in range(1, depth - 1)]
+
+    vars_rec = []
+    for i in range(1, depth - 1):
+        var_i = copy.copy(var)
+        for _ in range(i):
+            var_i = var_i.previous_timestep()
+        vars_rec.append(var_i)
+
+    assert len(vars_exp) == len(vars_rec)
+    vals_exp = [v.value(eqs) for v in vars_exp]
+    vals_rec = [v.value(eqs) for v in vars_rec]
+
+    for v_e, v_r in zip(vals_exp, vals_rec):
+        assert np.allclose(v_e, v_r)
+
+    # Testing IDs. NOTE as of now, variables at prev time have the same ID until
+    # full support is given
+    all_ids = set([var.id] + [v.id for v in vars_exp] + [v.id for v in vars_rec])
+    assert len(all_ids) == 1
+
+    # Testing index values. Should be increasing with depth, while iterate index stays
+    # 0 (no iterates at previous time)
+    for i in range(depth - 2):
+        assert vars_exp[i].iterate_index == 0
+        assert vars_exp[i].time_step_index == i
+        assert vars_rec[i].iterate_index == 0
+        assert vars_rec[i].time_step_index == i
 
 
 @pytest.mark.parametrize(
