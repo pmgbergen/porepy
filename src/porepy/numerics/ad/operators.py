@@ -1135,10 +1135,6 @@ class Operator:
         elif isinstance(other, AdArray):
             # This may happen when using nested pp.ad.Function.
             return [self, other]
-        elif isinstance(other, pp.ad.SecondaryOperator):
-            # Putting secondary operator above abstract function, because it inherits
-            # from abstract function, but is operable
-            return [self, other]
         elif isinstance(other, pp.ad.AbstractFunction):
             # Need to put this here, because overload of AbstractFunction is not
             # applied if AbstractFunction is right operand.
