@@ -25,7 +25,7 @@ import configparser
 import warnings
 
 
-__version__ = "1.8.0"
+__version__ = "1.9.0"
 
 # Try to read the config file from the directory where python process was launched
 try:

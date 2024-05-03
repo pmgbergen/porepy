@@ -9,7 +9,7 @@ with open("requirements.txt") as f:
 setup(
     name="porepy",
     url="https://github.com/pmgbergen/porepy",
-    version="1.8.0",
+    version="1.9.0",
     license="GPL",
     keywords=["porous media simulation fractures deformable"],
     install_requires=required,
