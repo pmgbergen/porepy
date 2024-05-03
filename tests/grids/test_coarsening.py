@@ -18,7 +18,7 @@ class TestPartitioning:
     # Skipped: The test fails after update to scipy 1.13 due to changes in the sparse
     # matrix format. Since the underlying code is marked for deprecation, the test will
     # not be updated.
-    @pytest.mark.skipped
+    @pytest.mark.xfail
     def test_coarse_grid_2d(self):
         g = pp.CartGrid([3, 2])
         g.compute_geometry()
@@ -65,7 +65,7 @@ class TestPartitioning:
     # Skipped: The test fails after update to scipy 1.13 due to changes in the sparse
     # matrix format. Since the underlying code is marked for deprecation, the test will
     # not be updated.
-    @pytest.mark.skipped
+    @pytest.mark.xfail
     def test_coarse_grid_3d(self):
         g = pp.CartGrid([2, 2, 2])
         g.compute_geometry()
