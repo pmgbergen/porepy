@@ -1616,6 +1616,13 @@ class Mpsa(Discretization):
         # Operator for carying out the average
         average = sps.kron(map_mat * weight_mat, sps.identity(nd)).tocsr()
 
+        # block operators
+        bd_normals_mat = sps.block_diag([normals_mat] * nd)
+        bd_average = sps.block_diag([normals_mat @ average] * nd)
+
+        # common indexation
+        indices_c = cc.ravel("F")
+
         for iter1 in range(nd):
             # Pick out part of Hook's law associated with this dimension The code here
             # looks nasty, it should be possible to get the right format of the
@@ -1630,22 +1637,25 @@ class Mpsa(Discretization):
             asym_vals = asym_dim[sub_cell_ind]
 
             # Represent this part of the stiffness matrix in matrix form
-            csym_mat = sps.csr_matrix((sym_vals.ravel("C"), cc.ravel("F"), ind_ptr_c))
-            casym_mat = sps.csr_matrix((asym_vals.ravel("C"), cc.ravel("F"), ind_ptr_c))
-
-            # Compute average around vertexes
-            casym_mat = average * casym_mat
+            csym_mat = sps.csr_matrix((sym_vals.ravel("C"), indices_c, ind_ptr_c))
+            casym_mat = sps.csr_matrix((asym_vals.ravel("C"), indices_c, ind_ptr_c))
 
             # Compute products of normal vectors and stiffness tensors, and stack
             # dimensions vertically
-            ncsym = sps.vstack((ncsym, normals_mat * csym_mat))
-            ncasym = sps.vstack((ncasym, normals_mat * casym_mat))
+            ncsym = sps.vstack((ncsym, csym_mat))
+            ncasym = sps.vstack((ncasym, casym_mat))
 
             # Increase index vector, so that we get rows contributing to forces
             # in the next dimension
             rind += nd
 
         grad_ind = cc[:, ::nd]
+
+        ncsym.eliminate_zeros()
+        ncasym.eliminate_zeros()
+
+        ncsym = bd_normals_mat @ ncsym
+        ncasym = bd_average @ ncasym
 
         return ncsym, ncasym, cell_node_blocks, grad_ind
 
