@@ -17,6 +17,7 @@ References:
     - TODO: add more, e.g. Inga's in prep, ppV2
 
 """
+
 from __future__ import annotations
 
 from typing import Callable, Union
@@ -37,10 +38,13 @@ class ConstitutiveLawsThermoporomechanics(
     pp.constitutive_laws.ThermoPoroMechanicsPorosity,
     pp.constitutive_laws.FluidDensityFromPressureAndTemperature,
     # Energy subproblem
+    pp.constitutive_laws.SecondOrderTensorUtils,
+    pp.constitutive_laws.SpecificHeatCapacities,
     pp.constitutive_laws.EnthalpyFromTemperature,
     pp.constitutive_laws.FouriersLaw,
     pp.constitutive_laws.ThermalConductivityLTE,
     # Fluid mass balance subproblem
+    pp.constitutive_laws.ZeroGravityForce,
     pp.constitutive_laws.DarcysLaw,
     pp.constitutive_laws.DimensionReduction,
     pp.constitutive_laws.AdvectiveFlux,
@@ -49,7 +53,9 @@ class ConstitutiveLawsThermoporomechanics(
     pp.constitutive_laws.ConstantPermeability,
     pp.constitutive_laws.ConstantViscosity,
     # Mechanical subproblem
-    pp.constitutive_laws.LinearElasticSolid,
+    pp.constitutive_laws.ElasticModuli,
+    pp.constitutive_laws.LinearElasticMechanicalStress,
+    pp.constitutive_laws.ConstantSolidDensity,
     pp.constitutive_laws.FractureGap,
     pp.constitutive_laws.FrictionBound,
 ):
@@ -126,8 +132,8 @@ class BoundaryConditionsThermoporomechanics(
     """Combines energy, mass and momentum balance boundary conditions.
 
     Note:
-        The mechanical boundary conditions are differentiated wrt time in the div_u term.
-        Thus, time dependent values must be defined using
+        The mechanical boundary conditions are differentiated wrt time in the
+        displacement_divergence term. Thus, time dependent values must be defined using
         :class:pp.ad.TimeDependentArray. This is as of yet untested.
 
     """
@@ -161,6 +167,18 @@ class SolutionStrategyThermoporomechanics(
     :class:`~porepy.models.constitutive_laws.FouriersLaw`.
 
     """
+    temperature_variable: str
+    """Name of the temperature variable. Normally set by a mixin instance of
+    :class:`~porepy.models.energy_balance.SolutionStrategyEnergyBalance`.
+    """
+    biot_tensor: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Method that defines the Biot tensor. Normally provided by a mixin instance of
+    :class:`~porepy.models.constitutive_laws.BiotCoefficient`.
+    """
+    solid_thermal_expansion_tensor: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Thermal expansion coefficient. Normally defined in a mixin instance of
+    :class:`~porepy.models.constitutive_laws.ThermalExpansion`.
+    """
 
     def set_discretization_parameters(self) -> None:
         """Set parameters for the subproblems and the combined problem."""
@@ -168,14 +186,16 @@ class SolutionStrategyThermoporomechanics(
         super().set_discretization_parameters()
 
         for sd, data in self.mdg.subdomains(dim=self.nd, return_data=True):
-            pp.initialize_data(
-                sd,
-                data,
-                self.stress_keyword,
-                {
-                    "biot_alpha": self.solid.biot_coefficient(),  # TODO: Rename in Biot
-                },
+            scalar_vector_mappings = data[pp.PARAMETERS][self.darcy_keyword].get(
+                "scalar_vector_mappings", {}
             )
+            scalar_vector_mappings[self.enthalpy_keyword] = (
+                self.solid_thermal_expansion_tensor([sd])
+            )
+            scalar_vector_mappings[self.darcy_keyword] = self.biot_tensor([sd])
+            data[pp.PARAMETERS][self.stress_keyword][
+                "scalar_vector_mappings"
+            ] = scalar_vector_mappings
 
     def set_nonlinear_discretizations(self) -> None:
         """Collect discretizations for nonlinear terms."""
@@ -186,12 +206,12 @@ class SolutionStrategyThermoporomechanics(
         # of the diffusive flux in subdomains where the aperture changes.
         subdomains = [sd for sd in self.mdg.subdomains() if sd.dim < self.nd]
         self.add_nonlinear_discretization(
-            self.darcy_flux_discretization(subdomains).flux,
+            self.darcy_flux_discretization(subdomains).flux(),
         )
         # Aperture and porosity changes render thermal conductivity variable. This
         # requires a re-discretization of the diffusive flux.
         self.add_nonlinear_discretization(
-            self.fourier_flux_discretization(self.mdg.subdomains()).flux,
+            self.fourier_flux_discretization(self.mdg.subdomains()).flux(),
         )
 
 

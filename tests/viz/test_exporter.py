@@ -27,6 +27,8 @@ from porepy.applications.test_utils.vtk import (
     compare_vtu_files,
 )
 from porepy.fracs.utils import pts_edges_to_linefractures
+from tests.models.test_poromechanics import NonzeroFractureGapPoromechanics
+from porepy.applications.test_utils.models import Thermoporomechanics
 
 # Globally store location of reference files
 FOLDER_REFERENCE = (
@@ -580,3 +582,84 @@ def test_fracture_network_3d(setup: ExporterTestSetup):
         f"{setup.folder}/{setup.file_name}.vtu",
         f"{setup.folder_reference}/fractures_3d.vtu",
     )
+
+
+class TailoredThermoporomechanics(
+    NonzeroFractureGapPoromechanics,
+    pp.model_boundary_conditions.TimeDependentMechanicalBCsDirNorthSouth,
+    pp.model_boundary_conditions.BoundaryConditionsEnergyDirNorthSouth,
+    pp.model_boundary_conditions.BoundaryConditionsMassDirNorthSouth,
+    Thermoporomechanics,
+):
+    def grid_type(self):
+        return "cartesian"
+
+
+def test_rescaled_export(setup: ExporterTestSetup):
+    """The test exports the scaled and unscaled versions of the same simulation and
+    checks whether the output is the same. The output of the scaled model should be
+    rescaled back to the SI units.
+
+    """
+
+    def run_simulation_save_results(units: pp.Units, file_name: str):
+        nontrivial_solid = {
+            "biot_coefficient": 0.47,  # [-]
+            "density": 2.6,  # [kg * m^-3]
+            "friction_coefficient": 0.6,  # [-]
+            "lame_lambda": 7.02,  # [Pa]
+            "permeability": 0.5,  # [m^2]
+            "porosity": 1.3e-1,  # [-]
+            "shear_modulus": 1.4,  # [Pa]
+            "specific_heat_capacity": 7.2,  # [J * kg^-1 * K^-1]
+            "specific_storage": 4e-1,  # [Pa^-1]
+            "thermal_conductivity": 3.1,  # [W * m^-1 * K^-1]
+            "thermal_expansion": 9.6e-2,  # [K^-1]
+            "temperature": 2,  # [K]
+        }
+        nontrivial_fluid = {
+            "compressibility": 1e-1,  # [Pa^-1], isentropic compressibility
+            "density": 9.2,  # [kg m^-3]
+            "specific_heat_capacity": 4.2,  # [J kg^-1 K^-1], isochoric specific heat
+            "thermal_conductivity": 0.5,  # [kg m^-3]
+            "thermal_expansion": 2.068e-1,  # [K^-1]
+            "viscosity": 1.002e-1,  # [Pa s], absolute viscosity
+            "pressure": 1,  # [Pa]
+            "temperature": 2,  # [K]
+        }
+
+        params = {
+            "suppress_export": False,
+            "units": units,
+            "file_name": file_name,
+            "folder_name": setup.folder,
+            "material_constants": {
+                "solid": pp.SolidConstants(nontrivial_solid),
+                "fluid": pp.FluidConstants(nontrivial_fluid),
+            },
+        }
+        model = TailoredThermoporomechanics(params=params)
+        pp.run_time_dependent_model(model, {})
+
+    units_scaled = pp.Units(m=3.14, kg=42.0, K=3.79)
+    units_unscaled = pp.Units()
+    scaled_prefix = "scaled"
+    unscaled_prefix = "unscaled"
+
+    run_simulation_save_results(units=units_scaled, file_name=scaled_prefix)
+    run_simulation_save_results(units=units_unscaled, file_name=unscaled_prefix)
+
+    folder_path = Path(setup.folder)
+    num_vtk_tested = 0
+    for file_name_scaled in os.listdir(setup.folder):
+        if not file_name_scaled.startswith(scaled_prefix):
+            continue
+        file_name_unscaled = f"{unscaled_prefix}{file_name_scaled[6:]}"
+        if file_name_scaled.endswith("vtu"):
+            assert compare_vtu_files(
+                test_file=folder_path / file_name_scaled,
+                reference_file=folder_path / file_name_unscaled,
+            ), f"Files don't match: {file_name_scaled} and {file_name_unscaled}."
+            num_vtk_tested += 1
+
+    assert num_vtk_tested > 0, 'No VTU files were tested.'

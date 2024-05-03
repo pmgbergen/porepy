@@ -10,6 +10,7 @@ as would be consistent with the other models. However, the class is included in 
 models, notably :class:`~porepy.models.mass_and_energy_balance.MassAndEnergyBalance`.
 
 """
+
 from __future__ import annotations
 
 from typing import Callable, Optional, Sequence, Union, cast
@@ -563,17 +564,17 @@ class VariablesEnergyBalance:
         self.equation_system.create_variables(
             self.interface_fourier_flux_variable,
             interfaces=self.mdg.interfaces(codim=1),
-            tags={"si_units": "W"},
+            tags={"si_units": f"W * m^{self.nd - 3}"},
         )
         self.equation_system.create_variables(
             self.interface_enthalpy_flux_variable,
             interfaces=self.mdg.interfaces(codim=1),
-            tags={"si_units": "W"},
+            tags={"si_units": f"W * m^{self.nd - 3}"},
         )
         self.equation_system.create_variables(
             self.well_enthalpy_flux_variable,
             interfaces=self.mdg.interfaces(codim=2),
-            tags={"si_units": "W"},
+            tags={"si_units": f"W * m^{self.nd - 3}"},
         )
 
     def temperature(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
@@ -675,11 +676,13 @@ class VariablesEnergyBalance:
         t_ref = self.fluid.temperature()
         assert t_ref == self.solid.temperature()
         size = sum([sd.num_cells for sd in subdomains])
-        return pp.wrap_as_ad_array(t_ref, size, name="reference_temperature")
+        return pp.wrap_as_dense_ad_array(t_ref, size, name="reference_temperature")
 
 
 class ConstitutiveLawsEnergyBalance(
+    pp.constitutive_laws.SpecificHeatCapacities,
     pp.constitutive_laws.EnthalpyFromTemperature,
+    pp.constitutive_laws.SecondOrderTensorUtils,
     pp.constitutive_laws.FouriersLaw,
     pp.constitutive_laws.ThermalConductivityLTE,
     pp.constitutive_laws.DimensionReduction,
@@ -897,6 +900,14 @@ class SolutionStrategyEnergyBalance(pp.SolutionStrategy):
     :class:`~porepy.models.constitutive_laws.EnthalpyFromTemperature`.
 
     """
+    operator_to_SecondOrderTensor: Callable[
+        [pp.Grid, pp.ad.Operator, pp.number], pp.SecondOrderTensor
+    ]
+    """Function that returns a SecondOrderTensor provided a method returning
+    permeability as a Operator. Normally provided by a mixin instance of
+    :class:`~porepy.models.constitutive_laws.SecondOrderTensorUtils`.
+
+    """
 
     def __init__(self, params: Optional[dict] = None) -> None:
         # Generic solution strategy initialization in pp.SolutionStrategy and specific
@@ -948,7 +959,11 @@ class SolutionStrategyEnergyBalance(pp.SolutionStrategy):
                 self.fourier_keyword,
                 {
                     "bc": self.bc_type_fourier_flux(sd),
-                    "second_order_tensor": self.thermal_conductivity_tensor(sd),
+                    "second_order_tensor": self.operator_to_SecondOrderTensor(
+                        sd,
+                        self.thermal_conductivity([sd]),
+                        self.fluid.thermal_conductivity(),
+                    ),
                     "ambient_dimension": self.nd,
                 },
             )
@@ -960,26 +975,6 @@ class SolutionStrategyEnergyBalance(pp.SolutionStrategy):
                     "bc": self.bc_type_enthalpy_flux(sd),
                 },
             )
-
-    def thermal_conductivity_tensor(self, sd: pp.Grid) -> pp.SecondOrderTensor:
-        """Convert ad conductivity to :class:`~pp.params.tensor.SecondOrderTensor`.
-
-        Override this method if the conductivity is anisotropic.
-
-        Parameters:
-            sd: Subdomain for which the conductivity is requested.
-
-        Returns:
-            Thermal conductivity tensor.
-
-        """
-        conductivity_ad = self.specific_volume([sd]) * self.thermal_conductivity([sd])
-        conductivity = conductivity_ad.evaluate(self.equation_system)
-        # The result may be an AdArray, in which case we need to extract the
-        # underlying array.
-        if isinstance(conductivity, pp.ad.AdArray):
-            conductivity = conductivity.val
-        return pp.SecondOrderTensor(conductivity)
 
     def initial_condition(self) -> None:
         """Add darcy flux to discretization parameter dictionaries."""
@@ -1005,15 +1000,16 @@ class SolutionStrategyEnergyBalance(pp.SolutionStrategy):
 
         """
         # Update parameters *before* the discretization matrices are re-computed.
+        equation_system = self.equation_system
         for sd, data in self.mdg.subdomains(return_data=True):
-            vals = self.darcy_flux([sd]).evaluate(self.equation_system).val
+            vals = self.darcy_flux([sd]).value(equation_system)
             data[pp.PARAMETERS][self.enthalpy_keyword].update({"darcy_flux": vals})
 
         for intf, data in self.mdg.interfaces(return_data=True, codim=1):
-            vals = self.interface_darcy_flux([intf]).evaluate(self.equation_system).val
+            vals = self.interface_darcy_flux([intf]).value(equation_system)
             data[pp.PARAMETERS][self.enthalpy_keyword].update({"darcy_flux": vals})
         for intf, data in self.mdg.interfaces(return_data=True, codim=2):
-            vals = self.well_flux([intf]).evaluate(self.equation_system).val
+            vals = self.well_flux([intf]).value(equation_system)
             data[pp.PARAMETERS][self.enthalpy_keyword].update({"darcy_flux": vals})
 
         super().before_nonlinear_iteration()
@@ -1022,8 +1018,8 @@ class SolutionStrategyEnergyBalance(pp.SolutionStrategy):
         """Collect discretizations for nonlinear terms."""
         super().set_nonlinear_discretizations()
         self.add_nonlinear_discretization(
-            self.enthalpy_discretization(self.mdg.subdomains()).upwind,
+            self.enthalpy_discretization(self.mdg.subdomains()).upwind(),
         )
         self.add_nonlinear_discretization(
-            self.interface_enthalpy_discretization(self.mdg.interfaces()).flux,
+            self.interface_enthalpy_discretization(self.mdg.interfaces()).flux(),
         )

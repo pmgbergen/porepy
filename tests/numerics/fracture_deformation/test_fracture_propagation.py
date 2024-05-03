@@ -3,24 +3,26 @@ Tests of the propagation of fractures.
 
 Content:
   * test_pick_propagation_face_conforming_propagation: Given a critically stressed
-    fracture tip in the lower-dimensional grid, find which face in the higher-dimensional
-    grid should be split. It employs the ConformingPropagation strategy.
+    fracture tip in the lower-dimensional grid, find which face in the
+    higher-dimensional grid should be split. It employs the ConformingPropagation
+    strategy.
   * FaceSplittingHostGrid: Various consistency tests for splitting faces in the higher
     dimensional grid, resembling propagation.
-  * PropagationCriteria: Tests i) SIF computation by displacement correlation, ii)
-    tags for which tips to propagate iii) propagation angles (only asserts all angles are
+  * PropagationCriteria: Tests i) SIF computation by displacement correlation, ii) tags
+    for which tips to propagate iii) propagation angles (only asserts all angles are
     zero).
   * VariableMappingInitializationUpdate: Checks that mapping of variables and
     assignment of new variable values in the FracturePropagation classes are correct.
 
 Cases specifications for test_pick_propagation_face_conforming_propagation :
 
-Case 1: Define a 2D medium that has a single fracture. Propagate first from both ends and
-then from only one end. Since this is (almost) the simplest possible case, if the test
-fails, either something fundamentally wrong has occurred with the propagation or a basic
-assumption has been violated.
+Case 1: Define a 2D medium that has a single fracture. Propagate first from both ends
+and then from only one end. Since this is (almost) the simplest possible case, if the
+test fails, either something fundamentally wrong has occurred with the propagation or a
+basic assumption has been violated.
 
-Case 2: An example of a simple 3D case with one fracture. The first step propagates in two
+Case 2: An example of a simple 3D case with one fracture. The first step propagates in
+two
  directions. In the second step, the fracture propagates in three directions, including
  both newly formed faces and the original fracture.
 
@@ -33,17 +35,17 @@ from typing import List, Union
 
 import numpy as np
 import pytest
-import scipy.sparse as sps
 
 import porepy as pp
 from porepy.fracs.fracture_network_2d import FractureNetwork2d
 from porepy.fracs.fracture_network_3d import FractureNetwork3d
-from tests.test_utils import compare_arrays
+from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_data
+from porepy.applications.test_utils.arrays import compare_arrays
 
 FractureNetwork = Union[FractureNetwork2d, FractureNetwork3d]
 
-# @TODO: Notice that this is integration test collection. It is needed a set of unit test.
-# @TODO: Unit test are required for conforming_propagation.py and propagation_model.py
+# @TODO: Notice that this is integration test collection. A set of unit test is needed.
+# @TODO: Unit tests are required for conforming_propagation.py and propagation_model.py
 
 
 def domains(case: int) -> pp.Domain:
@@ -118,8 +120,8 @@ def retrieve_md_targets_cells_and_angles(case: int):
 
 def grid_3d_2d(nx=[2, 2, 2], x_start=0, x_stop=1):
     """
-    Make the simplest possible fractured grid: 2d unit square with one
-    horizontal fracture extending from 0 to fracture_x <= 1.
+    Make the simplest possible fractured grid: 2d unit square with one horizontal
+    fracture extending from 0 to fracture_x <= 1.
 
     """
     eps = 1e-10
@@ -142,8 +144,9 @@ def test_pick_propagation_face_conforming_propagation(case):
     The overall idea of the test is to give a MixedDimensionalGrid, and a sequence of
     target faces in sd_primary to be split, based on face indices. For each target face,
     the closest (by distance) of the tip faces in g_l is found, and tagged for
-    propagation. We then call the function to be tested to identify the face in sd_primary
-    which should be propagated, and verify that the identified face is indeed the target.
+    propagation. We then call the function to be tested to identify the face in
+    sd_primary which should be propagated, and verify that the identified face is indeed
+    the target.
 
     A key assumption in the above reasoning is that the propagation angle is known, and
     fixed to zero; non-zero values can also be accommodated, but that case is outside
@@ -211,7 +214,7 @@ def test_pick_propagation_face_conforming_propagation(case):
             model._pick_propagation_faces(
                 sd_primary, sd_frac, data_primary, data_frac, intf_data
             )
-            _, face, _ = sps.find(intf_data["propagation_face_map"])
+            _, face, _ = sparse_array_to_row_col_data(intf_data["propagation_face_map"])
 
             # This is the test, the targets and the identified faces should be the same
             assert np.all(np.sort(face) == np.sort(step_target[sd_frac]))
@@ -237,8 +240,8 @@ class TestFaceSplittingHostGrid:
 
     def test_equivalence_2d(self):
         """
-        This central test checks that certain geometry, connectivity and tags
-        are independent of whether the fracture is
+        This central test checks that certain geometry, connectivity and tags are
+        independent of whether the fracture is
         1 premade in its final form
         2-3 grown in a single step (from two different initial fractures)
         4 grown in two steps
@@ -318,11 +321,10 @@ class TestFaceSplittingHostGrid:
         _check_equivalent_md_grids([mdg_1, mdg_2, mdg_3, mdg_4])
 
     def test_two_fractures_2d(self):
-        """
-        Two fractures growing towards each other, but not meeting.
+        """Two fractures growing towards each other, but not meeting.
 
-        Tests simultaneous growth of two fractures in multiple steps, and growth
-        of one fracture in the presence of an inactive one.
+        Tests simultaneous growth of two fractures in multiple steps, and growth of one
+        fracture in the presence of an inactive one.
         """
         f_1 = np.array([[0, 0.25], [0.5, 0.5]])
         f_2 = np.array([[1.75, 2], [0.5, 0.5]])
@@ -473,8 +475,8 @@ class TestFaceSplittingHostGrid:
     #### Helpers below
 
     def _verify(self, mdg, split, cc, fc, cv, new_cell_volumes, new_fc, num_nodes):
-        # Check that the geometry of a (propagated) MixedDimensionalGrid corresponds to a given
-        # known geometry.
+        # Check that the geometry of a (propagated) MixedDimensionalGrid corresponds to
+        # a given known geometry.
 
         gh = mdg.subdomains(dim=mdg.dim_max())[0]
         g = mdg.subdomains(dim=mdg.dim_max() - 1)[0]
@@ -534,11 +536,13 @@ class TestFaceSplittingHostGrid:
 
 
 class MockPropagationModel(pp.ConformingFracturePropagation):
-    # Helper class for variable mapping tests.
-    # Define a propagation model with a tailored method to populate new fields in
-    # variables. Should be easy to verify implementation.
-    # Subclass ConformingFracturePropagation, which is the simplest known non-ABC
-    # propagation class.
+    """Helper class for variable mapping tests.
+
+    Define a propagation model with a tailored method to populate new fields in
+    variables. Should be easy to verify implementation. Subclass
+    ConformingFracturePropagation, which is the simplest known non-ABC propagation
+    class.
+    """
 
     def _initialize_new_variable_values(self, g, d, var, dofs):
         cell_dof: int = dofs.get("cells")
@@ -551,7 +555,7 @@ class MockPropagationModel(pp.ConformingFracturePropagation):
         return vals
 
 
-class PropagationCriteria:
+class TestPropagationCriteria:
     """Test of functionality to compute sifs and evaluate propagation onset and angle.
 
     Test logic:
@@ -578,7 +582,7 @@ class PropagationCriteria:
         values for u and parameters.
 
     """
-
+    @pytest.fixture(autouse=True)
     def setup(self):
         self.model = pp.ConformingFracturePropagation({})
         self.model.mortar_displacement_variable = "mortar_variable"
@@ -588,8 +592,8 @@ class PropagationCriteria:
 
     def _assign_data(self, u_bot, u_top):
         """
-        u_bot and u_top are the u_h in the neighbouring cells on the two sides of the fracture.
-        Ordering is hard-coded according to the grids defined in _make_grid
+        u_bot and u_top are the u_h in the neighbouring cells on the two sides of the
+        fracture. Ordering is hard-coded according to the grids defined in _make_grid
         """
         u_h = np.zeros(self.nd * self.sd_primary.num_cells)
         if self.nd == 3:
@@ -762,9 +766,9 @@ class PropagationCriteria:
 class TestVariableMappingInitializationUnderPropagation:
     """Test of functionality to update variables during propagation.
 
-    In reality, three features are tested: First, the mappings for cell and face variables,
-    generated by fracture propagation, second the usage of these mappings to update
-    variables, and third the functionality to initialize new variables.
+    In reality, three features are tested: First, the mappings for cell and face
+    variables, generated by fracture propagation, second the usage of these mappings to
+    update variables, and third the functionality to initialize new variables.
 
     Three cases are considered (all 2d, 3d should raise no further complication):
         1. Update on a domain a single fracture.
@@ -773,6 +777,7 @@ class TestVariableMappingInitializationUnderPropagation:
 
     """
 
+    @pytest.fixture(autouse=True)
     def setup(self):
         self.cv2 = "cell_variable_2d"
         self.cv1 = "cell_variable_1d"
@@ -960,7 +965,7 @@ class TestVariableMappingInitializationUnderPropagation:
                 # the next step. To be sure values from the first propagation are mapped
                 # correctly, we alter the true value (add 1), and update this both in
                 # the solution vector, time step solutions and previous iterate
-                # solutions
+                # solutions.
                 var_1d = equation_system.get_variables([self.cv1], [g])
                 x_new[equation_system.dofs_of(var_1d)] = np.r_[
                     val_1d_prev[g], extended_1d + 1
@@ -1150,12 +1155,15 @@ def _make_maps(g0, g1, n_digits=8, offset=0.11):
     these entities are constructed. Handles non-unique nodes and faces on next
     to fractures by exploiting neighbour information.
     Builds maps from g1 to g0, so g1.x[x_map]=g0.x, e.g.
+
     g1.tags[some_key][face_map] = g0.tags[some_key].
-    g0 Reference grid
-    g1 Other grid
-    n_digits Tolerance in rounding before coordinate comparison
-    offset: Weight determining how far the fracture neighbour nodes and faces
-    are shifted (normally away from fracture) to ensure unique coordinates.
+
+    Parameters:
+        g0: Reference grid
+        g1: Other grid
+        n_digits: Tolerance in rounding before coordinate comparison
+        offset: Weight determining how far the fracture neighbour nodes and faces
+            are shifted (normally away from fracture) to ensure unique coordinates.
     """
     cell_map = pp.utils.setmembership.ismember_rows(
         np.around(g0.cell_centers, n_digits),

@@ -18,7 +18,7 @@ def plot_fractures(
     domain: Optional[pp.Domain] = None,
     colortag: Optional[np.ndarray] = None,
     ax: Optional[mpl.axes.Axes] = None,
-    **kwargs
+    **kwargs,
 ) -> mpl.axes.Axes:
     """
     Plot 2d fractures as lines in a domain.

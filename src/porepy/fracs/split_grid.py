@@ -1,13 +1,14 @@
 """A module containing functionality for splitting a grid at fractures."""
+
 from __future__ import annotations
 
 from typing import Optional
 
-import networkx as nx
 import numpy as np
 from scipy import sparse as sps
 
 import porepy as pp
+from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_data
 from porepy.utils import setmembership, tags
 from porepy.utils.graph import Graph
 from porepy.utils.mcolon import mcolon
@@ -650,6 +651,8 @@ def duplicate_nodes(g: pp.Grid, nodes: np.ndarray, offset: float) -> int:
         The number of added nodes.
 
     """
+    import networkx as nx
+
     # In the case of a non-zero offset (presumably intended for visualization),
     # use a (somewhat slow) legacy implementation which can handle this.
     if offset != 0:
@@ -717,7 +720,7 @@ def duplicate_nodes(g: pp.Grid, nodes: np.ndarray, offset: float) -> int:
     # will leave a block diagonal connection matrix, one block per node.
 
     # All non-zero elements in c2c.
-    row_c2c, col_c2c, dat_c2c = sps.find(c2c)
+    row_c2c, col_c2c, dat_c2c = sparse_array_to_row_col_data(c2c)
 
     # Get sorted (increasing columns) version of the matrix. This allows for iteration
     # through the columns of the matrix.
@@ -743,8 +746,9 @@ def duplicate_nodes(g: pp.Grid, nodes: np.ndarray, offset: float) -> int:
         # Data for this block ends with the first column that belongs to the next
         # block. Note that we only search from the start index of this block,
         # and use this as an offset (saves time).
-        col_group_end = col_group_start + np.argmax(
-            sorted_cols[col_group_start:] == block_start[bi + 1]
+        col_group_end = int(
+            col_group_start
+            + np.argmax(sorted_cols[col_group_start:] == block_start[bi + 1])
         )
         # Special case for the last iteration: the last element in block_start has
         # value one higher than the number of rows, thus the equality above is never
@@ -1047,10 +1051,10 @@ def _sort_sub_list(
 
 
 def _find_cell_color(g: pp.Grid, cells: np.ndarray) -> np.ndarray:
-    """Color the cells depending on the cell connections.
+    r"""Color the cells depending on the cell connections.
 
     Each group of cells that are connected (either directly by a shared face or
-    through a series of shared faces of many cells) is are given different colors.
+    through a series of shared faces of many cells) is given a distinct color.
 
     Example:
 
@@ -1117,7 +1121,7 @@ def _avg_normal(g: pp.Grid, faces: np.ndarray) -> np.ndarray:
 
     """
     frac_face = np.ravel(np.sum(np.abs(g.cell_faces[faces, :]), axis=1) == 1)
-    f, _, sign = sps.find(g.cell_faces[faces[frac_face], :])
+    f, _, sign = sparse_array_to_row_col_data(g.cell_faces[faces[frac_face], :])
     n = g.face_normals[:, faces[frac_face]]
     n = n[:, f] * sign
     n = np.mean(n, axis=1)

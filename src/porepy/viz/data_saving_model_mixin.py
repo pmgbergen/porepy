@@ -6,6 +6,7 @@ We provide basic Exporter functionality, but the user is free to override and ex
 this class to suit their needs. This could include, e.g., saving data to a database,
 or to a file format other than vtu.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -41,19 +42,49 @@ class DataSavingMixin:
     """Fluid constants for the simulation."""
     nd: int
     """Number of spatial dimensions for the simulation."""
+    nonlinear_solver_statistics: pp.SolverStatistics
+    """Non-linear solver statistics for nonlinear solver."""
 
     def save_data_time_step(self) -> None:
-        """Export the model state at a given time step, and log time."""
-        if not self.suppress_export:
-            self.exporter.write_vtu(self.data_to_export(), time_dependent=True)
-            if self.restart_options.get("restart", False):
-                # For a pvd file addressing all time steps (before and after restart
-                # time), resume based on restart input pvd file through append.
-                pvd_file = self.restart_options["pvd_file"]
-                self.exporter.write_pvd(append=True, from_pvd_file=pvd_file)
-            else:
-                self.exporter.write_pvd()
-            self.time_manager.write_time_information()
+        """Export the model state at a given time step, and log time.
+        The options for exporting times are:
+            * None: All time steps are exported
+            * list: Export if time is in the list. If the list is empty, then no times
+              are exported.
+
+        In addition, save the solver statistics to file if the option is set.
+
+        """
+
+        # Fetching the desired times to export
+        times_to_export = self.params.get("times_to_export", None)
+        if times_to_export is None:
+            # Export all time steps if times are not specified.
+            do_export = True
+        else:
+            # If times are specified, export should only occur if the current time is in
+            # the list of times to export.
+            do_export = bool(
+                np.any(np.isclose(self.time_manager.time, times_to_export))
+            )
+
+        if do_export:
+            self.write_pvd_and_vtu()
+
+        # Save solver statistics to file
+        self.nonlinear_solver_statistics.save()
+
+    def write_pvd_and_vtu(self) -> None:
+        """Helper function for writing the .vtu and .pvd files and time information."""
+        self.exporter.write_vtu(self.data_to_export(), time_dependent=True)
+        if self.restart_options.get("restart", False):
+            # For a pvd file addressing all time steps (before and after restart
+            # time), resume based on restart input pvd file through append.
+            pvd_file = self.restart_options["pvd_file"]
+            self.exporter.write_pvd(append=True, from_pvd_file=pvd_file)
+        else:
+            self.exporter.write_pvd()
+        self.time_manager.write_time_information()
 
     def data_to_export(self) -> list[DataInput]:
         """Return data to be exported.
@@ -95,7 +126,7 @@ class DataSavingMixin:
                         sd,
                         "specific_volume",
                         self._evaluate_and_scale(
-                            sd, "specific_volume", f"m^{self.nd-sd.dim}"
+                            sd, "specific_volume", f"m^{self.nd - sd.dim}"
                         ),
                     )
                 )
@@ -122,9 +153,7 @@ class DataSavingMixin:
             Array of values for the quantity, scaled to SI units.
 
         """
-        vals_scaled = getattr(self, method_name)([grid]).evaluate(self.equation_system)
-        if isinstance(vals_scaled, pp.ad.AdArray):
-            vals_scaled = vals_scaled.val
+        vals_scaled = getattr(self, method_name)([grid]).value(self.equation_system)
         vals = self.fluid.convert_units(vals_scaled, units, to_si=True)
         return vals
 
@@ -134,6 +163,8 @@ class DataSavingMixin:
         This method is called by :meth:`prepare_simulation` to initialize the exporter,
         and any other data saving functionality (e.g., empty data containers to be
         appended in :meth:`save_data_time_step`).
+
+        In addition, set path for storing solver statistics data to file for each time step.
 
         """
         self.exporter = pp.Exporter(
@@ -145,6 +176,12 @@ class DataSavingMixin:
             ),
             length_scale=self.units.m,
         )
+
+        if "solver_statistics_file_name" in self.params:
+            self.nonlinear_solver_statistics.path = (
+                Path(self.params["folder_name"])
+                / self.params["solver_statistics_file_name"]
+            )
 
     def load_data_from_vtu(
         self,
@@ -217,20 +254,12 @@ class DataSavingMixin:
         self.time_manager.set_from_history(time_index)
         self.exporter._time_step_counter = time_index
 
-    @property
-    def suppress_export(self) -> bool:
-        """Suppress export of data to file."""
-        return self.params.get("suppress_export", False)
-
 
 class VerificationDataSaving(DataSavingMixin):
     """Class to store relevant data for a generic verification setup."""
 
-    _nonlinear_iteration: int
-    """Number of non-linear iterations needed to solve the system. Used only as an
-    indicator to avoid saving the initial conditions.
-
-    """
+    nonlinear_solver_statistics: pp.SolverStatistics
+    """Non-linear solver statistics, also keeping track of the number of iterations."""
 
     _is_time_dependent: Callable[[], bool]
     """Whether the problem is time-dependent."""
@@ -241,7 +270,9 @@ class VerificationDataSaving(DataSavingMixin):
     def save_data_time_step(self) -> None:
         """Save data to the `results` list."""
         if not self._is_time_dependent():  # stationary problem
-            if self._nonlinear_iteration > 0:  # avoid saving initial condition
+            if (
+                self.nonlinear_solver_statistics.num_iteration > 0
+            ):  # avoid saving initial condition
                 collected_data = self.collect_data()
                 self.results.append(collected_data)
         else:  # time-dependent problem

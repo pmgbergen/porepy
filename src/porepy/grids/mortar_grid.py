@@ -2,9 +2,9 @@
 interfaces between two subdomains in the mixed-dimensional sense.
 
 """
+
 from __future__ import annotations
 
-import warnings
 from enum import Enum
 from itertools import count
 from typing import Generator, Optional, Union
@@ -13,7 +13,10 @@ import numpy as np
 from scipy import sparse as sps
 
 import porepy as pp
-from porepy.numerics.linalg.matrix_operations import sparse_kronecker_product
+from porepy.numerics.linalg.matrix_operations import (
+    sparse_array_to_row_col_data,
+    sparse_kronecker_product,
+)
 
 
 class MortarSides(Enum):
@@ -467,7 +470,7 @@ class MortarGrid:
 
         if self.dim == 0:
             # retrieve the old faces and the corresponding coordinates
-            _, old_faces, _ = sps.find(self._primary_to_mortar_int)
+            _, old_faces, _ = sparse_array_to_row_col_data(self._primary_to_mortar_int)
             old_nodes = g_old.face_centers[:, old_faces]
 
             # retrieve the boundary faces and the corresponding coordinates
@@ -783,9 +786,6 @@ class MortarGrid:
         """
         nc = self.num_cells
         if self.num_sides() == 1:
-            warnings.warn(
-                "Is it really meaningful to ask for signs of a one sided mortar grid?"
-            )
             return sps.dia_matrix((np.ones(nc * nd), 0), shape=(nd * nc, nd * nc))
         elif self.num_sides() == 2:
             # By the ordering of the mortar cells, we know that all cells on the one
@@ -854,7 +854,7 @@ class MortarGrid:
         """
         # primary_secondary is a mapping from the cells (faces if secondary.dim ==
         # primary.dim) of the secondary grid to the faces of the primary grid.
-        secondary_f, primary_f, data = sps.find(primary_secondary)
+        secondary_f, primary_f, data = sparse_array_to_row_col_data(primary_secondary)
 
         # If the face_duplicate_ind is given we have to reorder the primary face indices
         # such that the original faces comes first, then the duplicate faces. If the

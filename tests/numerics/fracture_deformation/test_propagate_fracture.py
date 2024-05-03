@@ -55,7 +55,7 @@ def _two_fractures_regions_become_overlapping():
 )
 @pytest.mark.parametrize(
     "discretization",
-    [pp.Mpfa("flow"), pp.Mpsa("mechanics"), pp.Biot("mechanics", "flow")],
+    [pp.Mpfa("flow"), pp.Mpsa("mechanics"), pp.Biot("mechanics")],
 )
 def test_partial_discretization(geometry, discretization):
     """Method to test (FV) partial discretization under fracture propagation.
@@ -89,7 +89,6 @@ def test_partial_discretization(geometry, discretization):
             "bc": pp.BoundaryCondition(sd),
             "bc_values": np.zeros(sd.num_faces),
             "second_order_tensor": pp.SecondOrderTensor(np.ones(sd.num_cells)),
-            "biot_alpha": 1,
             "mass_weight": np.ones(sd.num_cells),
         }
 
@@ -99,7 +98,8 @@ def test_partial_discretization(geometry, discretization):
             "fourth_order_tensor": pp.FourthOrderTensor(
                 np.ones(sd.num_cells), np.ones(sd.num_cells)
             ),
-            "biot_alpha": 1,
+            "scalar_vector_mappings": {'foo': 1,
+                 'bar': pp.SecondOrderTensor(np.ones(sd.num_cells))},
         }
 
     # Populate parameters
@@ -151,9 +151,18 @@ def test_partial_discretization(geometry, discretization):
                 assert key in data[pp.DISCRETIZATION_MATRICES][eq_type]
 
             for key, mat in data[pp.DISCRETIZATION_MATRICES][eq_type].items():
-                mat2 = new_d[pp.DISCRETIZATION_MATRICES][eq_type][key]
-                assert mat.shape == mat2.shape
-                diff = mat - mat2
+                if isinstance(mat, dict):
+                    # Special treatment of Biot coupling terms
+                    for sub_key, sub_mat in mat.items():
+                        mat2 = new_d[pp.DISCRETIZATION_MATRICES][eq_type][key][sub_key]
+                        assert sub_mat.shape == mat2.shape
+                        diff = sub_mat - mat2
+                        if diff.data.size > 0:
+                            assert np.allclose(diff.data, 0, atol=1e-10)
+                else:
+                    mat2 = new_d[pp.DISCRETIZATION_MATRICES][eq_type][key]
+                    assert mat.shape == mat2.shape
+                    diff = mat - mat2
 
-                if diff.data.size > 0:
-                    assert np.max(np.abs(diff.data)) < 1e-10
+                    if diff.data.size > 0:
+                        assert np.allclose(diff.data, 0, atol=1e-10)

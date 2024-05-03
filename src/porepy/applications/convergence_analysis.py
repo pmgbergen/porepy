@@ -1,4 +1,5 @@
 """Module containing a class for performing spatio-temporal convergence analysis."""
+
 from __future__ import annotations
 
 import logging
@@ -135,16 +136,16 @@ class ConvergenceAnalysis:
         # Retrieve list of meshing arguments
         # The list is of length ``levels`` and contains the ``meshing_arguments``
         # dictionaries needed to run the simulations.
-        list_of_meshing_arguments: list[
-            dict[str, float]
-        ] = self._get_list_of_meshing_arguments()
+        list_of_meshing_arguments: list[dict[str, float]] = (
+            self._get_list_of_meshing_arguments()
+        )
 
         # Retrieve list of time managers
         # The list is of length ``levels`` and contains the ``pp.TimeManager``s
         # needed to run the simulations. ``None`` if the model is stationary.
-        list_of_time_managers: Union[
-            list[pp.TimeManager], None
-        ] = self._get_list_of_time_managers()
+        list_of_time_managers: Union[list[pp.TimeManager], None] = (
+            self._get_list_of_time_managers()
+        )
 
         # Generate list of model parameters
         # Having the initial model parameter, the list of meshing arguments, and the
@@ -357,7 +358,7 @@ class ConvergenceAnalysis:
         ooc_dict: dict[str, float] = {}
         for idx, name in enumerate(names):
             slope, *_ = stats.linregress(x_vals_filtered, y_vals_filtered[idx])
-            ooc_name = "ooc_" + name.lstrip("error_")  # strip the prefix "error_"
+            ooc_name = "ooc_" + name.removeprefix("error_")  # strip the prefix "error_"
             ooc_dict[ooc_name] = slope
 
         return ooc_dict

@@ -27,6 +27,7 @@ from porepy.applications.test_utils import reference_dense_arrays
 from porepy.applications.test_utils.partial_discretization import (
     perform_partial_discretization_specified_nodes,
 )
+from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_data
 
 keyword = "mechanics"
 
@@ -401,8 +402,19 @@ class TestMpsaExactReproduction:
             _, traction = self.solve(g, bound, bc_values, constit)
             traction_2d = traction.reshape((g.dim, -1), order="F")
             for cell in range(g.num_cells):
-                fid, _, sgn = sps.find(g.cell_faces[:, cell])
+                fid, _, sgn = sparse_array_to_row_col_data(g.cell_faces[:, cell])
                 assert np.all(np.sum(traction_2d[:, fid] * sgn, axis=1) < 1e-10)
+
+
+def test_split_discretization_into_parts():
+    """Test that the discretization matrices are correct if the domain is split into
+    subdomains.
+
+    This test is just a shallow wrapper around the common test function for the XPFA
+    discretization.
+    """
+    discr = pp.Mpsa("mechanics")
+    xpfa_tests.test_split_discretization_into_subproblems(discr)
 
 
 class TestUpdateMpsaDiscretization(TestMpsaExactReproduction):

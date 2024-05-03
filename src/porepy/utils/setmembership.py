@@ -1,18 +1,16 @@
 """
 Various functions with set operations.
 """
+
 from __future__ import annotations
 
 from typing import Any, Tuple
 
-import numba
 import numpy as np
 from scipy.spatial import KDTree
 
 
-def unique_rows(
-    data: np.ndarray[Any, np.dtype[np.float64]]
-) -> Tuple[
+def unique_rows(data: np.ndarray[Any, np.dtype[np.float64]]) -> Tuple[
     np.ndarray[Any, np.dtype[np.float64]],
     np.ndarray[Any, np.dtype[np.int64]],
     np.ndarray[Any, np.dtype[np.int64]],
@@ -158,6 +156,8 @@ def unique_columns_tol(
         array([0, 1, 0])
 
     """
+    import numba
+
     # Treat 1d array as 2d
     mat = np.atleast_2d(mat)
 
@@ -225,6 +225,7 @@ def unique_columns_tol(
     # IMPLEMENTATION NOTE: It could pay off to make a pure Python implementation
     # to be used for small arrays, however, attempts on making this work in
     # practice failed.
+
     keep, new_2_old, old_2_new = _numba_distance(mat_t, tol)
 
     return mat[:, keep], new_2_old, old_2_new

@@ -1,4 +1,4 @@
-"""Coupling of mass and momentum balance to obtain poromechanics equations.
+r"""Coupling of mass and momentum balance to obtain poromechanics equations.
 
 The module only contains what is needed for the coupling, the two individual subproblems
 are defined elsewhere.
@@ -13,9 +13,10 @@ Suggested references (TODO: add more, e.g. Inga's in prep):
     - Garipov and Hui, 2019, https://doi.org/10.1016/j.ijrmms.2019.104075.
 
 """
+
 from __future__ import annotations
 
-from typing import Callable, Union
+from typing import Callable, Optional, Union
 
 import porepy as pp
 import porepy.models.fluid_mass_balance as mass
@@ -29,6 +30,8 @@ class ConstitutiveLawsPoromechanics(
     pp.constitutive_laws.PressureStress,
     pp.constitutive_laws.PoroMechanicsPorosity,
     # Fluid mass balance subproblem
+    pp.constitutive_laws.ZeroGravityForce,
+    pp.constitutive_laws.SecondOrderTensorUtils,
     pp.constitutive_laws.DarcysLaw,
     pp.constitutive_laws.DimensionReduction,
     pp.constitutive_laws.AdvectiveFlux,
@@ -38,7 +41,9 @@ class ConstitutiveLawsPoromechanics(
     pp.constitutive_laws.FluidDensityFromPressure,
     pp.constitutive_laws.ConstantViscosity,
     # Mechanical subproblem
-    pp.constitutive_laws.LinearElasticSolid,
+    pp.constitutive_laws.ElasticModuli,
+    pp.constitutive_laws.LinearElasticMechanicalStress,
+    pp.constitutive_laws.ConstantSolidDensity,
     pp.constitutive_laws.FractureGap,
     pp.constitutive_laws.FrictionBound,
 ):
@@ -100,8 +105,8 @@ class BoundaryConditionsPoromechanics(
     """Combines mass and momentum balance boundary conditions.
 
     Note:
-        The mechanical boundary conditions are differentiated wrt time in the div_u
-        term.
+        The mechanical boundary conditions are differentiated wrt time in the
+        displacement_divergence term.
 
         To modify the values of the mechanical boundary conditions, the user must
         redefine the method
@@ -132,9 +137,25 @@ class SolutionStrategyPoromechanics(
     :class:`~porepy.models.constitutive_laws.DarcysLaw`.
 
     """
-
     mdg: pp.MixedDimensionalGrid
     """Mixed dimensional grid."""
+
+    biot_tensor: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Method that defines the Biot tensor. Normally provided by a mixin instance of
+    :class:`~porepy.models.constitutive_laws.BiotCoefficient`.
+    """
+
+    def __init__(self, params: Optional[dict] = None) -> None:
+        """Initialize the solution strategy.
+
+        Parameters:
+            params: Dictionary of parameters.
+
+        """
+        # Initialize the solution strategy for the fluid mass balance subproblem.
+        mass.SolutionStrategySinglePhaseFlow.__init__(self, params=params)
+        # Initialize the solution strategy for the momentum balance subproblem.
+        momentum.SolutionStrategyMomentumBalance.__init__(self, params=params)
 
     def set_discretization_parameters(self) -> None:
         """Set parameters for the subproblems and the combined problem."""
@@ -142,14 +163,14 @@ class SolutionStrategyPoromechanics(
         super().set_discretization_parameters()
 
         for sd, data in self.mdg.subdomains(dim=self.nd, return_data=True):
-            pp.initialize_data(
-                sd,
-                data,
-                self.stress_keyword,
-                {
-                    "biot_alpha": self.solid.biot_coefficient(),  # TODO: Rename in Biot
-                },
+            # Set the Biot coefficient.
+            scalar_vector_mappings = data[pp.PARAMETERS][self.stress_keyword].get(
+                "scalar_vector_mappings", {}
             )
+            scalar_vector_mappings[self.darcy_keyword] = self.biot_tensor([sd])
+            data[pp.PARAMETERS][self.stress_keyword][
+                "scalar_vector_mappings"
+            ] = scalar_vector_mappings
 
     def _is_nonlinear_problem(self) -> bool:
         """The coupled problem is nonlinear."""
@@ -164,7 +185,7 @@ class SolutionStrategyPoromechanics(
         # of the diffusive flux in subdomains where the aperture changes.
         subdomains = [sd for sd in self.mdg.subdomains() if sd.dim < self.nd]
         self.add_nonlinear_discretization(
-            self.darcy_flux_discretization(subdomains).flux,
+            self.darcy_flux_discretization(subdomains).flux(),
         )
 
 

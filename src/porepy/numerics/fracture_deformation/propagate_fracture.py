@@ -10,6 +10,7 @@ WARNING: This should be considered experimental code, which cannot be assumed
 to be bug free.
 
 """
+
 import warnings
 from typing import Any, Dict, List, Tuple
 
@@ -18,6 +19,7 @@ import scipy.sparse as sps
 
 import porepy as pp
 from porepy.grids import mortar_grid
+from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_data
 
 
 def propagate_fractures(
@@ -308,7 +310,7 @@ def _update_mortar_grid(
     # the shapes of the new grids
     face_cells = d_e["face_cells"]
 
-    cells, faces, _ = sps.find(face_cells)
+    cells, faces, _ = sparse_array_to_row_col_data(face_cells)
 
     # If this is ever broken, we have a problem
     other_side_old = intf._ind_face_on_other_side
@@ -349,7 +351,9 @@ def _update_mortar_grid(
 
         # Get the other faces of these nodes. These will include both faces
         # on the fracture, and faces internal to sd_primary
-        _, other_faces, _ = sps.find(sd_primary.face_nodes[local_nodes_0_only])
+        _, other_faces, _ = sparse_array_to_row_col_data(
+            sd_primary.face_nodes[local_nodes_0_only]
+        )
 
         # Pick those of the other faces that were not added during splitting
         old_other_faces = np.setdiff1d(other_faces, new_faces_h)

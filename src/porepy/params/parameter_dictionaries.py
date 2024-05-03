@@ -3,6 +3,7 @@
 Here, we store various parameter dictionaries with "sensible" (typically unitary or
 zero) default values for the parameters required by the discretization objects.
 """
+
 from __future__ import annotations
 
 import numpy as np

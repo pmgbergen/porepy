@@ -9,7 +9,7 @@ import pytest
 import scipy.sparse as sps
 
 import porepy as pp
-from tests import test_utils
+from porepy.applications.test_utils.grids import compare_md_grids
 
 
 class MockGrid(pp.CartGrid):
@@ -525,7 +525,7 @@ def test_pickle_md_grid():
     pickle.dump(mdg, open(fn, "wb"))
     mdg_read = pickle.load(open(fn, "rb"))
 
-    test_utils.compare_md_grids(mdg, mdg_read)
+    compare_md_grids(mdg, mdg_read)
 
     # Delete the temporary file
     os.remove(fn)

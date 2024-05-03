@@ -11,6 +11,7 @@ See documentation of class :class:`Grid` for further details.
     2016.
 
 """
+
 from __future__ import annotations
 
 import copy
@@ -23,6 +24,7 @@ import numpy as np
 from scipy import sparse as sps
 
 import porepy as pp
+from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_data
 from porepy.utils import mcolon, tags
 
 
@@ -88,6 +90,12 @@ class Grid:
         self.nodes: np.ndarray = nodes
         """An array with ``shape=(ambient_dimension, num_nodes)`` containing node
         coordinates column-wise."""
+
+        # Force topological information to be stored as integers. The known subclasses
+        # of Grid all have integer values in these arrays, so this is a safeguard aimed
+        # at third-party code.
+        cell_faces.data = cell_faces.data.astype(int)
+        face_nodes.data = face_nodes.data.astype(int)
 
         self.cell_faces: sps.csc_matrix = cell_faces
         """An array with ``shape=(num_faces, num_cells)`` representing the map from
@@ -403,7 +411,7 @@ class Grid:
         def nrm(u):
             return np.sqrt(u[0] * u[0] + u[1] * u[1] + u[2] * u[2])
 
-        [fi, ci, val] = sps.find(self.cell_faces)
+        fi, ci, val = sparse_array_to_row_col_data(self.cell_faces)
         _, idx = np.unique(fi, return_index=True)
         sgn = val[idx]
         fc = self.face_centers[:, fi[idx]]
@@ -455,7 +463,7 @@ class Grid:
         self.face_centers = 0.5 * self.nodes * np.abs(fn_orient)
 
         # Compute the temporary cell centers as average of the cell nodes
-        faceno, cellno, cf_orient = sps.find(self.cell_faces)
+        faceno, cellno, cf_orient = sparse_array_to_row_col_data(self.cell_faces)
         cx = np.bincount(cellno, weights=self.face_centers[0, faceno])
         cy = np.bincount(cellno, weights=self.face_centers[1, faceno])
         cz = np.bincount(cellno, weights=self.face_centers[2, faceno])
@@ -986,7 +994,7 @@ class Grid:
         IA = np.argsort(faces)
         IC = np.argsort(IA)
 
-        fi, ci, sgn = sps.find(self.cell_faces[faces[IA], :])
+        fi, ci, sgn = sparse_array_to_row_col_data(self.cell_faces[faces[IA], :])
         if fi.size != faces.size:
             raise ValueError("sign of internal faces does not make sense")
 

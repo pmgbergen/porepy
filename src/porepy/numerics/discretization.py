@@ -1,4 +1,5 @@
 """ Module contains the abstract superclass for all discretizations."""
+
 import abc
 from typing import Dict, Union
 
@@ -123,6 +124,9 @@ class Discretization(abc.ABC):
 
 class InterfaceDiscretization(abc.ABC):
     """Superclass for all interface discretizations"""
+
+    keyword: str
+    """Keyword associated with this discretization."""
 
     @abc.abstractmethod
     def discretize(

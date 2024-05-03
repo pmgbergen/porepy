@@ -30,6 +30,13 @@ logger = logging.getLogger(__name__)
 class MomentumBalanceEquations(pp.BalanceEquation):
     """Class for momentum balance equations and fracture deformation equations."""
 
+    solid: pp.SolidConstants
+    """Solid constant object that takes care of scaling of solid-related quantities.
+    Normally, this is set by a mixin of instance
+    :class:`~porepy.models.solution_strategy.SolutionStrategy`.
+
+    """
+
     stress: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Stress on the grid faces. Provided by a suitable mixin class that specifies the
     physical laws governing the stress.
@@ -99,9 +106,26 @@ class MomentumBalanceEquations(pp.BalanceEquation):
     of :class:`~porepy.models.momuntum_balance.SolutionStrategyMomentumBalance`.
 
     """
+
+    contact_mechanics_open_state_characteristic: Callable[
+        [list[pp.Grid]], pp.ad.Operator
+    ]
+    """Characteristic function used in the tangential contact mechanics relation.
+    Can be interpreted as an indicator of the fracture cells in the open state.
+    Normally provided by a mixin instance of
+    :class:`~porepy.models.momuntum_balance.SolutionStrategyMomentumBalance`.
+
+    """
+
     equation_system: pp.ad.EquationSystem
     """EquationSystem object for the current model. Normally defined in a mixin class
     defining the solution strategy.
+
+    """
+    gravity_force: Callable[[list[pp.Grid] | list[pp.MortarGrid], str], pp.ad.Operator]
+    """Gravity force. Normally provided by a mixin instance of
+    :class:`~porepy.models.constitutive_laws.GravityForce` or
+    :class:`~porepy.models.constitutive_laws.ZeroGravityForce`.
 
     """
 
@@ -160,6 +184,7 @@ class MomentumBalanceEquations(pp.BalanceEquation):
         # surface term (stress), so we need to multiply by -1.
         stress = pp.ad.Scalar(-1) * self.stress(subdomains)
         body_force = self.body_force(subdomains)
+
         equation = self.balance_equation(
             subdomains, accumulation, stress, body_force, dim=self.nd
         )
@@ -314,7 +339,7 @@ class MomentumBalanceEquations(pp.BalanceEquation):
         characteristic function.
 
         Parameters:
-            fracture_subdomains: List of fracture subdomains.
+            subdomains: List of fracture subdomains.
 
         Returns:
             complementary_eq: Contact mechanics equation for the tangential constraints.
@@ -372,18 +397,6 @@ class MomentumBalanceEquations(pp.BalanceEquation):
         f_max = pp.ad.Function(pp.ad.maximum, "max_function")
         f_norm = pp.ad.Function(partial(pp.ad.l2_norm, self.nd - 1), "norm_function")
 
-        # With the active set method, the performance of the Newton solver is sensitive
-        # to changes in state between sticking and sliding. To reduce the sensitivity to
-        # round-off errors, we use a tolerance to allow for slight inaccuracies before
-        # switching between the two cases.
-        tol = 1e-5  # FIXME: Revisit this tolerance!
-        # The characteristic function will evaluate to 1 if the argument is less than
-        # the tolerance, and 0 otherwise.
-        f_characteristic = pp.ad.Function(
-            partial(pp.ad.functions.characteristic_function, tol),
-            "characteristic_function_for_zero_normal_traction",
-        )
-
         # The numerical constant is used to loosen the sensitivity in the transition
         # between sticking and sliding.
         # Expanding using only left multiplication to with scalar_to_tangential does not
@@ -420,8 +433,14 @@ class MomentumBalanceEquations(pp.BalanceEquation):
 
         # For the use of @, see previous comment.
         maxbp_abs = scalar_to_tangential @ f_max(b_p, norm_tangential_sum)
-        characteristic: pp.ad.Operator = scalar_to_tangential @ f_characteristic(b_p)
-        characteristic.set_name("characteristic_function_of_b_p")
+
+        # The characteristic function below reads "1 if (abs(b_p) < tol) else 0".
+        # With the active set method, the performance of the Newton solver is sensitive
+        # to changes in state between sticking and sliding. To reduce the sensitivity to
+        # round-off errors, we use a tolerance to allow for slight inaccuracies before
+        # switching between the two cases. The tolerance is a numerical method parameter
+        # and can be tailored.
+        characteristic = self.contact_mechanics_open_state_characteristic(subdomains)
 
         # Compose the equation itself. The last term handles the case bound=0, in which
         # case t_t = 0 cannot be deduced from the standard version of the complementary
@@ -436,23 +455,23 @@ class MomentumBalanceEquations(pp.BalanceEquation):
     def body_force(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Body force integrated over the subdomain cells.
 
-        FIXME: See FluidMassBalanceEquations.fluid_source.
-
         Parameters:
             subdomains: List of subdomains where the body force is defined.
 
         Returns:
-            Operator for the body force.
+            Operator for the body force [kg*m*s^-2].
 
         """
-        num_cells = sum([sd.num_cells for sd in subdomains])
-        vals = np.zeros(num_cells * self.nd)
-        source = pp.ad.DenseArray(vals, "body_force")
-        return source
+        return self.volume_integral(
+            self.gravity_force(subdomains, "solid"), subdomains, dim=self.nd
+        )
 
 
 class ConstitutiveLawsMomentumBalance(
-    constitutive_laws.LinearElasticSolid,
+    constitutive_laws.ZeroGravityForce,
+    constitutive_laws.ElasticModuli,
+    constitutive_laws.LinearElasticMechanicalStress,
+    constitutive_laws.ConstantSolidDensity,
     constitutive_laws.FractureGap,
     constitutive_laws.FrictionBound,
     constitutive_laws.DimensionReduction,
@@ -706,13 +725,23 @@ class SolutionStrategyMomentumBalance(pp.SolutionStrategy):
     """
     stiffness_tensor: Callable[[pp.Grid], pp.FourthOrderTensor]
     """Function that returns the stiffness tensor of a subdomain. Normally provided by a
-    mixin of instance :class:`~porepy.models.constitutive_laws.LinearElasticSolid`.
+    mixin of instance :class:`~porepy.models.constitutive_laws.ElasticModuli`.
 
     """
     bc_type_mechanics: Callable[[pp.Grid], pp.BoundaryConditionVectorial]
     """Function that returns the boundary condition type for the momentum problem.
     Normally provided by a mixin instance of
     :class:`~porepy.models.momentum_balance.BoundaryConditionsMomentumBalance`.
+
+    """
+    basis: Callable[[Sequence[pp.GridLike], int], list[pp.ad.SparseArray]]
+    """Basis for the local coordinate system. Normally set by a mixin instance of
+    :class:`porepy.models.geometry.ModelGeometry`.
+
+    """
+    friction_bound: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Friction bound of a fracture. Normally provided by a mixin instance of
+    :class:`~porepy.models.constitutive_laws.FrictionBound`.
 
     """
 
@@ -815,11 +844,77 @@ class SolutionStrategyMomentumBalance(pp.SolutionStrategy):
         # The scaling factor should not be too large, otherwise the contact problem
         # may be discretized wrongly. I therefore introduce a safety factor here; its
         # value is somewhat arbitrary.
-        softening_factor = 1e-1
+        softening_factor = self.solid.contact_mechanics_scaling()
 
         val = softening_factor * shear_modulus / characteristic_distance
 
         return pp.ad.Scalar(val, name="Contact_mechanics_numerical_constant")
+
+    def contact_mechanics_open_state_characteristic(
+        self, subdomains: list[pp.Grid]
+    ) -> pp.ad.Operator:
+        r"""Characteristic function used in the tangential contact mechanics relation.
+        Can be interpreted as an indicator of the fracture cells in the open state.
+        Used to make the problem well-posed in the case b_p is zero.
+
+        The function reads
+        .. math::
+            \begin{equation}
+            \text{characteristic} =
+            \begin{cases}
+                1 & \\text{if }~~ |b_p| < tol  \\
+                0 & \\text{otherwise.}
+            \end{cases}
+            \end{equation}
+        or simply `1 if (abs(b_p) < tol) else 0`
+
+        Parameters:
+            subdomains: List of fracture subdomains.
+
+        Returns:
+            characteristic: Characteristic function.
+
+        """
+
+        # Basis vectors for the tangential components. This is a list of Ad matrices,
+        # each of which represents a cell-wise basis vector which is non-zero in one
+        # dimension (and this is known to be in the tangential plane of the subdomains).
+        # Ignore mypy complaint on unknown keyword argument
+        tangential_basis: list[pp.ad.SparseArray] = self.basis(
+            subdomains, dim=self.nd - 1  # type: ignore[call-arg]
+        )
+
+        # To map a scalar to the tangential plane, we need to sum the basis vectors. The
+        # individual basis functions have shape (Nc * (self.nd - 1), Nc), where Nc is
+        # the total number of cells in the subdomain. The sum will have the same shape,
+        # but the row corresponding to each cell will be non-zero in all rows
+        # corresponding to the tangential basis vectors of this cell.
+        scalar_to_tangential = pp.ad.sum_operator_list(
+            [e_i for e_i in tangential_basis]
+        )
+
+        # With the active set method, the performance of the Newton solver is sensitive
+        # to changes in state between sticking and sliding. To reduce the sensitivity to
+        # round-off errors, we use a tolerance to allow for slight inaccuracies before
+        # switching between the two cases.
+        tol = self.solid.open_state_tolerance()
+        # The characteristic function will evaluate to 1 if the argument is less than
+        # the tolerance, and 0 otherwise.
+        f_characteristic = pp.ad.Function(
+            partial(pp.ad.functions.characteristic_function, tol),
+            "characteristic_function_for_zero_normal_traction",
+        )
+
+        # Composing b_p = max(friction_bound, 0).
+        num_cells = sum([sd.num_cells for sd in subdomains])
+        zeros_frac = pp.ad.DenseArray(np.zeros(num_cells))
+        f_max = pp.ad.Function(pp.ad.maximum, "max_function")
+        b_p = f_max(self.friction_bound(subdomains), zeros_frac)
+        b_p.set_name("bp")
+
+        characteristic: pp.ad.Operator = scalar_to_tangential @ f_characteristic(b_p)
+        characteristic.set_name("characteristic_function_of_b_p")
+        return characteristic
 
     def _is_nonlinear_problem(self) -> bool:
         """
@@ -843,7 +938,6 @@ class BoundaryConditionsMomentumBalance(pp.BoundaryConditionMixin):
 
     def bc_type_mechanics(self, sd: pp.Grid) -> pp.BoundaryConditionVectorial:
         """Define type of boundary conditions.
-
 
         Parameters:
             sd: Subdomain grid.

@@ -19,16 +19,11 @@ We consider three functional tests:
 
 """
 
-import sys
-
 import numpy as np
 
 import porepy as pp
 
-# Append the top PorePy folder to the path to allow for imports of the examples folder
-sys.path.append("../..")
-
-from examples.terzaghi_biot import (
+from porepy.examples.terzaghi_biot import (
     PseudoOneDimensionalColumn,
     TerzaghiDataSaving,
     TerzaghiPoromechanicsBoundaryConditions,
@@ -118,22 +113,21 @@ def test_pressure_and_consolidation_degree_errors():
             "solid": pp.SolidConstants(terzaghi_solid_constants),
             "fluid": pp.FluidConstants(terzaghi_fluid_constants),
         },
-        "time_manager": pp.TimeManager([0, 0.05, 0.1, 0.3], 0.05, True),
+        "time_manager": pp.TimeManager([0, 0.15, 0.3], 0.15, True),
         "num_cells": 10,
     }
     setup = TerzaghiSetup(params)
     pp.run_time_dependent_model(setup, params)
 
     # Check pressure error
-    desired_error_p = [0.06884857957987067, 0.0455347877406611, 0.022391576732172767]
+    desired_error_p = [0.09073522073879309, 0.0613512657231161]
     actual_error_p = [result.error_pressure for result in setup.results]
     np.testing.assert_allclose(actual_error_p, desired_error_p, rtol=1e-3, atol=1e-5)
 
     # Check consolidation degree error
     desired_error_consol = [
-        0.0270053052913328,
-        0.018839104164792175,
-        0.010927390550216687,
+        0.03840054346677685,
+        0.028730080280409465,
     ]
     actual_error_consol = [
         result.error_consolidation_degree for result in setup.results

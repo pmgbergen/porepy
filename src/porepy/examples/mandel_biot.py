@@ -20,23 +20,24 @@ References:
       Comput Geosci 25, 243–265 (2021).
 
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Callable, Literal, Union
+from typing import Callable, Literal, Union, cast
 
 import matplotlib.colors as mcolors  # type: ignore
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy.optimize as opt
-import scipy.sparse as sps
 
 import porepy as pp
 import porepy.models.fluid_mass_balance as mass
-import porepy.models.poromechanics as poromechanics
 import porepy.models.momentum_balance as momentum_balance
-from porepy.models.derived_models.biot import BiotPoromechanics
+import porepy.models.poromechanics as poromechanics
 from porepy.applications.convergence_analysis import ConvergenceAnalysis
+from porepy.models.derived_models.biot import BiotPoromechanics
+from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_data
 from porepy.utils.examples_utils import VerificationUtils
 from porepy.viz.data_saving_model_mixin import VerificationDataSaving
 
@@ -174,11 +175,11 @@ class MandelDataSaving(VerificationDataSaving):
         # Collect data
         exact_pressure = self.exact_sol.pressure(sd, t)
         pressure_ad = self.pressure([sd])
-        approx_pressure = pressure_ad.evaluate(self.equation_system).val
+        approx_pressure = pressure_ad.value(self.equation_system)
         error_pressure = ConvergenceAnalysis.l2_error(
             grid=sd,
             true_array=exact_pressure,
-            approx_array=approx_pressure,
+            approx_array=cast(np.ndarray, approx_pressure),
             is_scalar=True,
             is_cc=True,
             relative=True,
@@ -186,11 +187,11 @@ class MandelDataSaving(VerificationDataSaving):
 
         exact_displacement = self.exact_sol.displacement(sd, t)
         displacement_ad = self.displacement([sd])
-        approx_displacement = displacement_ad.evaluate(self.equation_system).val
+        approx_displacement = displacement_ad.value(self.equation_system)
         error_displacement = ConvergenceAnalysis.l2_error(
             grid=sd,
             true_array=exact_displacement,
-            approx_array=approx_displacement,
+            approx_array=cast(np.ndarray, approx_displacement),
             is_scalar=False,
             is_cc=True,
             relative=True,
@@ -199,11 +200,11 @@ class MandelDataSaving(VerificationDataSaving):
         exact_flux = self.exact_sol.flux(sd, t)
         flux_ad = self.darcy_flux([sd])
         mobility = 1 / self.fluid.viscosity()
-        approx_flux = mobility * flux_ad.evaluate(self.equation_system).val
+        approx_flux = mobility * flux_ad.value(self.equation_system)
         error_flux = ConvergenceAnalysis.l2_error(
             grid=sd,
             true_array=exact_flux,
-            approx_array=approx_flux,
+            approx_array=cast(np.ndarray, approx_flux),
             is_scalar=True,
             is_cc=False,
             relative=True,
@@ -211,11 +212,11 @@ class MandelDataSaving(VerificationDataSaving):
 
         exact_force = self.exact_sol.poroelastic_force(sd, t)
         force_ad = self.stress([sd])
-        approx_force = force_ad.evaluate(self.equation_system).val
+        approx_force = force_ad.value(self.equation_system)
         error_force = ConvergenceAnalysis.l2_error(
             grid=sd,
             true_array=exact_force,
-            approx_array=approx_force,
+            approx_array=cast(np.ndarray, approx_force),
             is_scalar=False,
             is_cc=False,
             relative=True,
@@ -237,10 +238,10 @@ class MandelDataSaving(VerificationDataSaving):
         # Store collected data in data class
         collected_data = MandelSaveData(
             approx_consolidation_degree=approx_consolidation_degree,
-            approx_displacement=approx_displacement,
-            approx_flux=approx_flux,
-            approx_force=approx_force,
-            approx_pressure=approx_pressure,
+            approx_displacement=cast(np.ndarray, approx_displacement),
+            approx_flux=cast(np.ndarray, approx_flux),
+            approx_force=cast(np.ndarray, approx_force),
+            approx_pressure=cast(np.ndarray, approx_pressure),
             error_consolidation_degree=error_consolidation_degree,
             error_displacement=error_displacement,
             error_flux=error_flux,
@@ -639,7 +640,7 @@ class MandelUtils(VerificationUtils):
     domain: pp.Domain
     """Domain specification. Set by an instance of :class:`~MandelGeometry`."""
 
-    domain_boundary_sides: Callable[[pp.Grid], pp.domain.DomainSides]
+    domain_boundary_sides: Callable[[pp.Grid | pp.BoundaryGrid], pp.domain.DomainSides]
     """Boundary sides of the domain. Defined by a mixin instance of
     :class:`~porepy.models.geometry.ModelGeometry`.
 
@@ -907,12 +908,12 @@ class MandelUtils(VerificationUtils):
                 self.nondim_pressure(
                     self.exact_sol.pressure_profile(x_ex, result.time)
                 ),
-                color=color_map.colors[idx],
+                color=color_map.colors[idx],  # type:ignore [index]
             )
             ax.plot(
                 self.nondim_x(xc[south_cells]),
                 self.nondim_pressure(result.approx_pressure[south_cells]),
-                color=color_map.colors[idx],
+                color=color_map.colors[idx],  # type:ignore [index]
                 linewidth=0,
                 marker=".",
                 markersize=8,
@@ -920,7 +921,7 @@ class MandelUtils(VerificationUtils):
             ax.plot(
                 [],
                 [],
-                color=color_map.colors[idx],
+                color=color_map.colors[idx],  # type:ignore [index]
                 linewidth=0,
                 marker="s",
                 markersize=12,
@@ -954,12 +955,12 @@ class MandelUtils(VerificationUtils):
                 self.nondim_x(
                     self.exact_sol.horizontal_displacement_profile(x_ex, result.time)
                 ),
-                color=color_map.colors[idx],
+                color=color_map.colors[idx],  # type:ignore [index]
             )
             ax.plot(
                 self.nondim_x(xc[south_cells]),
                 self.nondim_x(result.approx_displacement[::2][south_cells]),
-                color=color_map.colors[idx],
+                color=color_map.colors[idx],  # type:ignore [index]
                 linewidth=0,
                 marker=".",
                 markersize=8,
@@ -967,7 +968,7 @@ class MandelUtils(VerificationUtils):
             ax.plot(
                 [],
                 [],
-                color=color_map.colors[idx],
+                color=color_map.colors[idx],  # type:ignore [index]
                 linewidth=0,
                 marker="s",
                 markersize=12,
@@ -1003,12 +1004,12 @@ class MandelUtils(VerificationUtils):
                 self.nondim_y(
                     self.exact_sol.vertical_displacement_profile(y_ex, result.time)
                 ),
-                color=color_map.colors[idx],
+                color=color_map.colors[idx],  # type:ignore [index]
             )
             ax.plot(
                 self.nondim_y(yc[east_cells]),
                 self.nondim_y(result.approx_displacement[1::2][east_cells]),
-                color=color_map.colors[idx],
+                color=color_map.colors[idx],  # type:ignore [index]
                 linewidth=0,
                 marker=".",
                 markersize=8,
@@ -1016,7 +1017,7 @@ class MandelUtils(VerificationUtils):
             ax.plot(
                 [],
                 [],
-                color=color_map.colors[idx],
+                color=color_map.colors[idx],  # type:ignore [index]
                 linewidth=0,
                 marker="s",
                 markersize=12,
@@ -1043,7 +1044,9 @@ class MandelUtils(VerificationUtils):
         nx = sd.face_normals[0]
         sides = self.domain_boundary_sides(sd)
         south_cells = self.south_cells()
-        faces_of_south_cells = sps.find(sd.cell_faces.T[south_cells])[1]
+        faces_of_south_cells = sparse_array_to_row_col_data(
+            sd.cell_faces.T[south_cells]
+        )[1]
         south_faces = np.where(sides.south)[0]
         int_faces_of_south_cells = np.setdiff1d(faces_of_south_cells, south_faces)
 
@@ -1057,7 +1060,7 @@ class MandelUtils(VerificationUtils):
                 self.nondim_flux(
                     self.exact_sol.horizontal_velocity_profile(x_ex, result.time)
                 ),
-                color=color_map.colors[idx],
+                color=color_map.colors[idx],  # type:ignore [index]
             )
             ax.plot(
                 self.nondim_x(xf[int_faces_of_south_cells]),
@@ -1065,7 +1068,7 @@ class MandelUtils(VerificationUtils):
                     result.approx_flux[int_faces_of_south_cells]
                     / nx[int_faces_of_south_cells]
                 ),
-                color=color_map.colors[idx],
+                color=color_map.colors[idx],  # type:ignore [index]
                 linewidth=0,
                 marker=".",
                 markersize=8,
@@ -1073,7 +1076,7 @@ class MandelUtils(VerificationUtils):
             ax.plot(
                 [],
                 [],
-                color=color_map.colors[idx],
+                color=color_map.colors[idx],  # type:ignore [index]
                 linewidth=0,
                 marker="s",
                 markersize=12,
@@ -1114,14 +1117,14 @@ class MandelUtils(VerificationUtils):
                 self.nondim_pressure(
                     self.exact_sol.vertical_stress_profile(x_ex, result.time)
                 ),
-                color=color_map.colors[idx],
+                color=color_map.colors[idx],  # type:ignore [index]
             )
             ax.plot(
                 self.nondim_x(xf[south_faces]),
                 self.nondim_pressure(
                     result.approx_force[1 :: sd.dim][south_faces] / ny[south_faces]
                 ),
-                color=color_map.colors[idx],
+                color=color_map.colors[idx],  # type:ignore [index]
                 linewidth=0,
                 marker=".",
                 markersize=8,
@@ -1129,7 +1132,7 @@ class MandelUtils(VerificationUtils):
             ax.plot(
                 [],
                 [],
-                color=color_map.colors[idx],
+                color=color_map.colors[idx],  # type:ignore [index]
                 linewidth=0,
                 marker="s",
                 markersize=12,
@@ -1339,7 +1342,7 @@ class MandelBoundaryConditionsMechanicsTimeDependent(
 
 
 class MandelBoundaryConditionsSinglePhaseFlow(mass.BoundaryConditionsSinglePhaseFlow):
-    domain_boundary_sides: Callable[[pp.Grid], pp.domain.DomainSides]
+    domain_boundary_sides: Callable[[pp.Grid | pp.BoundaryGrid], pp.domain.DomainSides]
     """Boundary sides of the domain. Normally defined in a mixin instance of
     :class:`~porepy.models.geometry.ModelGeometry`.
 

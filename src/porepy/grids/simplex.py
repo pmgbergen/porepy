@@ -7,6 +7,7 @@ functions found in the `Matlab Reservoir Simulation Toolbox (MRST)
 <www.sintef.no/projectweb/mrst/>`_ developed by SINTEF ICT.
 
 """
+
 from typing import Optional
 
 import numpy as np
@@ -102,7 +103,7 @@ class TriangleGrid(Grid):
         # Cell face relation
         num_faces_per_cell = 3
         cell_faces = cell_faces.reshape(num_faces_per_cell, num_cells).ravel("F")
-        cf_data = cf_data.reshape(num_faces_per_cell, num_cells).ravel("F")
+        cf_data = cf_data.reshape(num_faces_per_cell, num_cells).ravel("F").astype(int)
 
         indptr = np.hstack(
             (
@@ -111,9 +112,7 @@ class TriangleGrid(Grid):
             )
         )
         cell_faces = sps.csc_matrix(
-            (cf_data, cell_faces, indptr),
-            shape=(num_faces, num_cells),
-            dtype=float,
+            (cf_data, cell_faces, indptr), shape=(num_faces, num_cells)
         )
 
         super().__init__(2, nodes, face_nodes, cell_faces, name)
@@ -291,7 +290,7 @@ class TetrahedralGrid(Grid):
                 num_faces_per_cell * num_cells,
             )
         )
-        data = np.ones(cell_faces.shape)
+        data = np.ones(cell_faces.shape, dtype=int)
         sgn_change = np.where(np.any(np.diff(sort_ind, axis=0) == 1, axis=0))[0]
         data[sgn_change] = -1
         cell_faces = sps.csc_matrix(

@@ -6,6 +6,7 @@ Mainly for use in tests. Other usage should be covered by the model_geometries.
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Literal, Optional, cast
 
 import numpy as np
@@ -128,7 +129,13 @@ def seven_fractures_one_L_intersection(
             :meth:`~porepy.grids.mdg_generation.create_mdg`.
 
     Returns:
-        Mixed-dimensional grid and fracture network.
+        Tuple containing a:
+
+            :obj:`~pp.MixedDimensionalGrid`:
+                The grid, constructed from the meshing arguments.
+
+            :obj:`~pp.FractureNetwork2d`:
+                The fracture network.
 
     """
     domain = pp.Domain(bounding_box={"xmin": 0, "ymin": 0, "xmax": 2, "ymax": 1})
@@ -158,11 +165,17 @@ def benchmark_regular_2d(
             :meth:`~porepy.grids.mdg_generation.create_mdg`.
 
     Returns:
-        Mixed-dimensional grid and fracture network.
+        Tuple containing a:
+
+            :obj:`~pp.MixedDimensionalGrid`:
+                The grid, constructed from the meshing arguments.
+
+            :obj:`~pp.FractureNetwork2d`:
+                The fracture network.
 
     """
     domain = domains.nd_cube_domain(2, 1)
-    fractures = fracture_sets.benchmark_regular_2d_fractures()
+    fractures = fracture_sets.benchmark_2d_case_1()
     # Cast to FractureNetwork2d to avoid ambiguity leading to mypy errors
     fracture_network = cast(
         FractureNetwork2d, pp.create_fracture_network(fractures, domain)
@@ -172,3 +185,63 @@ def benchmark_regular_2d(
     if is_coarse:
         pp.coarsening.coarsen(mdg, "by_volume")
     return mdg, fracture_network
+
+
+def benchmark_3d_case_3(
+    refinement_level: Literal[0, 1, 2, 3] = 0,
+) -> tuple[pp.MixedDimensionalGrid, FractureNetwork3d]:
+    """
+    Create a mixed-dimensional grid for the geometry of case 3 from [1].
+
+    Note:
+        The mixed-dimensional grid is created by reading a `geo` file, so there is no
+        direct way of prescribing meshing arguments.
+
+    Reference:
+        [1] Berre, I., Boon, W. M., Flemisch, B., Fumagalli, A., Gläser, D., Keilegavlen,
+        E., ... & Zulian, P. (2021). Verification benchmarks for single-phase flow in
+        three-dimensional fractured porous media. Advances in Water Resources, 147,
+        103759.
+
+    Parameters:
+        refinement_level: An integer denoting the level of refinement. Use `0` to
+            generate a mixed-dimensional grid with approximately 30K 3D cells,
+            `1` for 140K 3D cells, `2` for 350K 3D cells, and `3` for 500K 3D cells.
+            Default is `0`.
+
+    Returns:
+        Tuple containing a:
+
+            :obj:`~pp.MixedDimensionalGrid`:
+                The grid for the specified refinement level.
+
+            :obj:`~pp.FractureNetwork3d`:
+                The fracture network.
+
+    """
+    # Sanity check on input argument
+    if refinement_level not in [0, 1, 2, 3]:
+        raise NotImplementedError("Refinement level not available.")
+
+    # Get directory pointing to the `geo` file
+    abs_path = Path(__file__)
+    benchmark_path = (
+        abs_path.parent / Path("gmsh_file_library") / Path("benchmark_3d_case_3")
+    )
+    num_cells = [30, 140, 350, 500][refinement_level]
+    full_path = benchmark_path / Path(f"mesh{num_cells}k.geo")
+
+    # Set file permissions. This turned out to be important for GH actions.
+    full_path.chmod(777)
+
+    # Create mixed-dimensional grid
+    mdg = pp.fracture_importer.dfm_from_gmsh(str(full_path), dim=3)
+
+    # Also import fracture network
+    fracture_network_path = benchmark_path / Path("fracture_network.csv")
+    # Set file permissions. This turned out to be important for GH actions.
+    fracture_network_path.chmod(777)
+
+    network = pp.fracture_importer.network_3d_from_csv(str(fracture_network_path))
+
+    return mdg, network

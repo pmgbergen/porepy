@@ -5,6 +5,7 @@ This is needed to avoid degenerate mass and energy balance equations in the frac
 
 TODO: Clean up.
 """
+
 from __future__ import annotations
 
 import copy
@@ -63,7 +64,7 @@ def create_fractured_setup(
     fluid = pp.FluidConstants(fluid_vals)
 
     default = {
-        "suppress_export": True,  # Suppress output for tests
+        "times_to_export": [],  # Suppress output for tests
         "material_constants": {"solid": solid, "fluid": fluid},
         "max_iterations": 20,
     }
@@ -280,7 +281,7 @@ def test_unit_conversion(units):
     """
 
     params = {
-        "suppress_export": True,  # Suppress output for tests
+        "times_to_export": [],  # Suppress output for tests
         "fracture_indices": [0],
         "cartesian": True,
         "uy_north": -0.1,
@@ -338,8 +339,8 @@ class ThermoporomechanicsWell(
         return mesh_sizes
 
 
-def test_poromechanics():
-    """Test that the poromechanics model runs without errors."""
+def test_thermoporomechanics_well():
+    """Test that the thermoporomechanics model runs without errors."""
     # These parameters hopefully yield a relatively easy problem
     params = {
         "fracture_indices": [2],
