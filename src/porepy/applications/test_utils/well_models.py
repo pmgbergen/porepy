@@ -1,5 +1,6 @@
 """Contains code for setting up a simple but non-trivial model with a well.
 """
+
 import numpy as np
 
 import porepy as pp
@@ -175,7 +176,7 @@ class WellPermeability(pp.constitutive_laws.CubicLawPermeability):
             Cell-wise permeability values.
 
         """
-        projection = pp.ad.SubdomainProjections(subdomains, dim=1)
+        projection = pp.ad.SubdomainProjections(subdomains, dim=9)
         matrix = [sd for sd in subdomains if sd.dim == self.nd]
         fractures_and_intersections: list[pp.Grid] = [
             sd
@@ -203,5 +204,5 @@ class WellPermeability(pp.constitutive_laws.CubicLawPermeability):
 
         """
         size = sum(sd.num_cells for sd in subdomains)
-        permeability = pp.wrap_as_ad_array(1, size, name="well permeability")
-        return permeability
+        permeability = pp.wrap_as_dense_ad_array(1, size, name="well permeability")
+        return self.isotropic_second_order_tensor(subdomains, permeability)

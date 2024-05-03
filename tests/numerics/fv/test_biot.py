@@ -3,6 +3,7 @@ import numpy as np
 import pytest
 
 import porepy as pp
+from porepy.applications.test_utils import common_xpfa_tests as xpfa_tests
 from porepy.applications.test_utils.partial_discretization import (
     perform_partial_discretization_specified_nodes,
 )
@@ -29,35 +30,38 @@ def discretization_matrices(flow_keyword, mechanics_keyword):
         g,
         {},
         mechanics_keyword,
-        specified_parameters=partial_update_parameters(stiffness, bnd),
+        specified_parameters=partial_update_parameters(stiffness, bnd, g.num_cells),
     )
     data = pp.initialize_default_data(g, data, flow_keyword)
 
     discr = pp.Biot()
     discr.discretize(g, data)
-    div_u = data[pp.DISCRETIZATION_MATRICES][flow_keyword][discr.div_u_matrix_key]
-    bound_div_u = data[pp.DISCRETIZATION_MATRICES][flow_keyword][
-        discr.bound_div_u_matrix_key
+    displacement_divergence = data[pp.DISCRETIZATION_MATRICES][mechanics_keyword][discr.displacement_divergence_matrix_key]
+    bound_displacement_divergence = data[pp.DISCRETIZATION_MATRICES][mechanics_keyword][
+        discr.bound_displacement_divergence_matrix_key
     ]
-    stab = data[pp.DISCRETIZATION_MATRICES][flow_keyword][
-        discr.stabilization_matrix_key
+    stab = data[pp.DISCRETIZATION_MATRICES][mechanics_keyword][
+        discr.consistency_matrix_key
     ]
-    grad_p = data[pp.DISCRETIZATION_MATRICES][mechanics_keyword][
-        discr.grad_p_matrix_key
+    scalar_gradient = data[pp.DISCRETIZATION_MATRICES][mechanics_keyword][
+        discr.scalar_gradient_matrix_key
     ]
     bound_pressure = data[pp.DISCRETIZATION_MATRICES][mechanics_keyword][
         discr.bound_pressure_matrix_key
     ]
-    return g, stiffness, bnd, div_u, bound_div_u, grad_p, stab, bound_pressure
+    return g, stiffness, bnd, displacement_divergence, bound_displacement_divergence, scalar_gradient, stab, bound_pressure
 
 
-def partial_update_parameters(stiffness, bnd):
+def partial_update_parameters(stiffness, bnd, num_cells):
     """Return parameter dictionary for partial update tests."""
+
+    tensor = pp.SecondOrderTensor(kxx=np.ones(num_cells), kyy=10*np.ones(num_cells))
+
     specified_data = {
         "fourth_order_tensor": stiffness,
         "bc": bnd,
         "inverter": "python",
-        "biot_alpha": 1,
+        "scalar_vector_mappings": {'foo': 1, 'bar': tensor},
     }
     return specified_data
 
@@ -89,30 +93,30 @@ def test_partial_discretization_specified_nodes(
         g,
         stiffness,
         bnd,
-        div_u_full,
-        bound_div_u_full,
-        grad_p_full,
+        displacement_divergence_full,
+        bound_displacement_divergence_full,
+        scalar_gradient_full,
         stab_full,
         bound_pressure_full,
     ) = discretization_matrices
-    specified_data = partial_update_parameters(stiffness, bnd)
-    discr = pp.Biot(mechanics_keyword=mechanics_keyword, flow_keyword=flow_keyword)
+    specified_data = partial_update_parameters(stiffness, bnd, g.num_cells)
+    discr = pp.Biot(mechanics_keyword)
     discr.keyword = mechanics_keyword
     data = perform_partial_discretization_specified_nodes(
         g, discr, specified_data, cell_id
     )
 
-    partial_div_u = data[pp.DISCRETIZATION_MATRICES][flow_keyword][
-        discr.div_u_matrix_key
+    partial_displacement_divergence = data[pp.DISCRETIZATION_MATRICES][mechanics_keyword][
+        discr.displacement_divergence_matrix_key
     ]
-    partial_bound_div_u = data[pp.DISCRETIZATION_MATRICES][flow_keyword][
-        discr.bound_div_u_matrix_key
+    partial_bound_displacement_divergence = data[pp.DISCRETIZATION_MATRICES][mechanics_keyword][
+        discr.bound_displacement_divergence_matrix_key
     ]
-    partial_grad_p = data[pp.DISCRETIZATION_MATRICES][mechanics_keyword][
-        discr.grad_p_matrix_key
+    partial_scalar_gradient = data[pp.DISCRETIZATION_MATRICES][mechanics_keyword][
+        discr.scalar_gradient_matrix_key
     ]
-    partial_stab = data[pp.DISCRETIZATION_MATRICES][flow_keyword][
-        discr.stabilization_matrix_key
+    partial_stab = data[pp.DISCRETIZATION_MATRICES][mechanics_keyword][
+        discr.consistency_matrix_key
     ]
     partial_bound_pressure = data[pp.DISCRETIZATION_MATRICES][mechanics_keyword][
         discr.bound_pressure_matrix_key
@@ -128,27 +132,62 @@ def test_partial_discretization_specified_nodes(
 
     # Compare vector matrices
     for partial, full in zip(
-        [partial_grad_p, partial_bound_pressure],
-        [grad_p_full, bound_pressure_full],
+        [partial_scalar_gradient, partial_bound_pressure],
+        [scalar_gradient_full, bound_pressure_full],
     ):
-        assert np.allclose(
-            partial.todense()[active_faces_nd],
-            full.todense()[active_faces_nd],
-        )
-        # For partial update, only the active faces should be nonzero. Force these to
-        # zero and check that the rest is zero.
-        pp.fvutils.remove_nonlocal_contribution(active_faces_nd, 1, partial)
-        assert np.allclose(partial.data, 0)
+        if isinstance(partial, dict):
+            for key in partial.keys():
+                assert np.allclose(
+                    partial[key].todense()[active_faces_nd],
+                    full[key].todense()[active_faces_nd],
+                )
+            # For partial update, only the active faces should be nonzero. Force these
+            # to zero and check that the rest is zero.
+            pp.fvutils.remove_nonlocal_contribution(active_faces_nd, 1, partial[key])
+            assert np.allclose(partial[key].data, 0)
+
+        else:
+            assert np.allclose(
+                partial.todense()[active_faces_nd],
+                full.todense()[active_faces_nd],
+            )
+            # For partial update, only the active faces should be nonzero. Force these
+            # to zero and check that the rest is zero.
+            pp.fvutils.remove_nonlocal_contribution(active_faces_nd, 1, partial)
+            assert np.allclose(partial.data, 0)
     # Compare scalar matrices
     for partial, full in zip(
-        [partial_div_u, partial_bound_div_u, partial_stab],
-        [div_u_full, bound_div_u_full, stab_full],
+        [partial_displacement_divergence, partial_bound_displacement_divergence, partial_stab],
+        [displacement_divergence_full, bound_displacement_divergence_full, stab_full],
     ):
-        assert np.allclose(
-            partial.todense()[cell_id],
-            full.todense()[cell_id],
-        )
-        # For partial update, only the active cells should be nonzero. Force these to
-        # zero and check that the rest is zero.
-        pp.fvutils.remove_nonlocal_contribution(active_cells, 1, partial)
-        assert np.allclose(partial.data, 0)
+        if isinstance(partial, dict):
+            for key in partial.keys():
+                assert np.allclose(
+                    partial[key].todense()[cell_id],
+                    full[key].todense()[cell_id],
+                )
+            # For partial update, only the active cells should be nonzero. Force these
+            # to zero and check that the rest is zero.
+            pp.fvutils.remove_nonlocal_contribution(active_cells, 1, partial[key])
+            assert np.allclose(partial[key].data, 0)
+
+        else:
+            assert np.allclose(
+                partial.todense()[cell_id],
+                full.todense()[cell_id],
+            )
+            # For partial update, only the active cells should be nonzero. Force these
+            # to zero and check that the rest is zero.
+            pp.fvutils.remove_nonlocal_contribution(active_cells, 1, partial)
+            assert np.allclose(partial.data, 0)
+
+
+def test_split_discretization_into_parts():
+    """Test that the discretization matrices are correct if the domain is split into
+    subdomains.
+
+    This test is just a shallow wrapper around the common test function for the XPFA
+    discretization.
+    """
+    discr = pp.Biot(keyword="mechanics")
+    xpfa_tests.test_split_discretization_into_subproblems(discr)

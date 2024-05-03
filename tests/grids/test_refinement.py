@@ -17,7 +17,7 @@ from porepy.fracs import meshing
 from porepy.grids import refinement
 from porepy.grids.simplex import TriangleGrid
 from porepy.grids.structured import TensorGrid
-from tests import test_utils
+from porepy.applications.test_utils.arrays import compare_arrays
 
 
 class TestGridPerturbation:
@@ -92,7 +92,7 @@ class TestGridRefinement2DSimplex:
         assert np.allclose(h.cell_volumes, 1 / 8)
 
         known_nodes = np.array([[0, 0.5, 1, 0.5, 0, 0], [0, 0, 0, 0.5, 1, 0.5]])
-        test_utils.compare_arrays(h.nodes[:2], known_nodes)
+        compare_arrays(h.nodes[:2], known_nodes)
         assert np.all(parent == 0)
 
     def test_refinement_two_cells(self, two_cell_grid):
@@ -109,7 +109,7 @@ class TestGridRefinement2DSimplex:
         known_nodes = np.array(
             [[0, 0.5, 1, 0.5, 0, 0, 1, 1, 0.5], [0, 0, 0, 0.5, 1, 0.5, 0.5, 1, 1]]
         )
-        test_utils.compare_arrays(h.nodes[:2], known_nodes)
+        compare_arrays(h.nodes[:2], known_nodes)
         assert np.sum(parent == 0) == 4
         assert np.sum(parent == 1) == 4
         assert np.allclose(np.bincount(parent, h.cell_volumes), 0.5)
@@ -344,8 +344,12 @@ class TestGridFactory:
             "mesh_param": mesh_args,
         }
 
-        network_2d = pp.create_fracture_network(domain=pp.domains.unit_cube_domain(dimension=2))
-        network_3d = pp.create_fracture_network(domain=pp.domains.unit_cube_domain(dimension=3))
+        network_2d = pp.create_fracture_network(
+            domain=pp.domains.unit_cube_domain(dimension=2)
+        )
+        network_3d = pp.create_fracture_network(
+            domain=pp.domains.unit_cube_domain(dimension=3)
+        )
 
         for network in [network_2d, network_3d]:
             factory = pp.refinement.GridSequenceFactory(network, params)
@@ -368,7 +372,9 @@ class TestGridFactory:
 
         # Add a single fracture to the network
         fracture = pp.LineFracture(np.array([[0.3, 0.7], [0.5, 0.5]]))
-        network = pp.create_fracture_network([fracture], pp.domains.unit_cube_domain(dimension=2))
+        network = pp.create_fracture_network(
+            [fracture], pp.domains.unit_cube_domain(dimension=2)
+        )
 
         params = {
             "mode": "nested",

@@ -17,6 +17,7 @@ We test:
     achieved for the test approach in test_single_phase_flow.py.
 
 """
+
 from __future__ import annotations
 
 import copy
@@ -51,7 +52,7 @@ def create_restart_model(
     params = fractured_setup.params
 
     # Enable exporting
-    params["suppress_export"] = False
+    params["times_to_export"] = None
 
     # Add time stepping to the setup
     params["time_manager"] = pp.TimeManager(
@@ -197,8 +198,8 @@ class RediscretizationTest:
     """
 
     def check_convergence(self, *args, **kwargs):
-        if self._nonlinear_iteration > 1:
-            return 0.0, True, False
+        if self.nonlinear_solver_statistics.num_iteration > 1:
+            return 0.0, 0.0, True, False
         else:
             # Call to super is okay here, since the full model used in the tests is
             # known to have a method of this name.
@@ -383,4 +384,4 @@ def test_parse_equations(
     # indicate that something is wrong with the way the conservation law combines
     # terms and factors (e.g., grids, parameters, variables, other methods etc.) to form
     # an Ad operator object.
-    setup.equation_system.assemble_subsystem({equation_name: domains})
+    setup.equation_system.assemble({equation_name: domains})

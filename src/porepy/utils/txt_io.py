@@ -1,4 +1,5 @@
 """Module for exporting/importing numpy arrays to/from txt files."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass

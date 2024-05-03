@@ -3,12 +3,12 @@ import numpy as np
 import pytest
 
 import porepy as pp
+from porepy.applications.md_grids.domains import unit_cube_domain as unit_domain
 from porepy.applications.test_utils.arrays import compare_arrays
 from porepy.fracs.fracture_network_2d import FractureNetwork2d
 from porepy.fracs.line_fracture import LineFracture
 from porepy.fracs.utils import pts_edges_to_linefractures
 from porepy.geometry.domain import Domain
-from porepy.applications.md_grids.domains import unit_cube_domain as unit_domain
 
 
 def check_mdg_from_polytopal_2d_domain(

@@ -65,13 +65,12 @@ def orthogonal_fractures_3d(size: pp.number) -> list[pp.PlaneFracture]:
     return [pp.PlaneFracture(pts[i]) for i in range(3)]
 
 
-def benchmark_regular_2d_fractures(
-    size: Optional[pp.number] = 1,
-) -> list[pp.LineFracture]:
-    """Return a list of regular fractures as used in the 2d benchmark study.
+def benchmark_2d_case_1(size: pp.number = 1) -> list[pp.LineFracture]:
+    """Return a list of regular fractures as used in case 1 of the 2d benchmark study by
+    Flemisch et al. 2018.
 
     Parameters:
-        size: The side length of the line fractures.
+        size: The side length of the domain.
 
     Returns:
         List of fractures.
@@ -100,9 +99,34 @@ def benchmark_regular_2d_fractures(
     return pp.frac_utils.pts_edges_to_linefractures(points, fracs)
 
 
-def seven_fractures_one_L_intersection(
-    size: Optional[pp.number] = 1,
-) -> list[pp.LineFracture]:
+def benchmark_2d_case_3(size: pp.number = 1) -> list[pp.LineFracture]:
+    """Return a list of fractures as used in case 3 of the 2d benchmark study by
+    Flemisch et al. 2018.
+
+    Parameters:
+        size: The side length of the domain.
+
+    Returns:
+        List of fractures.
+
+    """
+    points = [
+        np.array([[0.0500, 0.2200], [0.4160, 0.0624]]),
+        np.array([[0.0500, 0.2500], [0.2750, 0.1350]]),
+        np.array([[0.1500, 0.4500], [0.6300, 0.0900]]),
+        np.array([[0.1500, 0.4000], [0.9167, 0.5000]]),
+        np.array([[0.6500, 0.849723], [0.8333, 0.167625]]),
+        np.array([[0.7000, 0.849723], [0.2350, 0.167625]]),
+        np.array([[0.6000, 0.8500], [0.3800, 0.2675]]),
+        np.array([[0.3500, 0.8000], [0.9714, 0.7143]]),
+        np.array([[0.7500, 0.9500], [0.9574, 0.8155]]),
+        np.array([[0.1500, 0.4000], [0.8363, 0.9727]]),
+    ]
+    fractures = [pp.LineFracture(pts * size) for pts in points]
+    return fractures
+
+
+def seven_fractures_one_L_intersection(size: pp.number = 1) -> list[pp.LineFracture]:
     """Return a list of seven fractures with one L intersection.
 
     First used in example one of the paper `Finite volume discretization for poroelastic

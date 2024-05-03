@@ -1,4 +1,5 @@
 """Module contains class for representing a fracture network in a 2d domain."""
+
 from __future__ import annotations
 
 import copy
@@ -9,7 +10,6 @@ import warnings
 from typing import Optional, Union
 
 import meshio
-import networkx
 import numpy as np
 
 import porepy as pp
@@ -114,18 +114,18 @@ class FractureNetwork2d:
         This will include intersection points identified.
         """
 
-        # -----> Logging
+        # Logging
         if self.fractures is not None:
             logger.info("Generated empty fracture set")
         elif self._pts is not None and self._edges is not None:
             # Note: If the list of fracture is empty, we end up here.
             logger.info(f"Generated a fracture set with {self.num_frac()} fractures")
             if self._pts.size > 0:
-                logger.info(
+                logger.debug(
                     f"Minimum point coordinates x: {self._pts[0].min():.2f}, \
                         y: {self._pts[1].min():.2f}",
                 )
-                logger.info(
+                logger.debug(
                     f"Maximum point coordinates x: {self._pts[0].max():.2f}, \
                         y: {self._pts[1].max():.2f}",
                 )
@@ -158,9 +158,9 @@ class FractureNetwork2d:
             ``fs``, and the union of the domains.
 
         """
-        logger.info("Add fracture sets: ")
-        logger.info(str(self))
-        logger.info(str(fs))
+        logger.debug("Add fracture sets: ")
+        logger.debug(str(self))
+        logger.debug(str(fs))
 
         p = np.hstack((self._pts, fs._pts))
         e = np.hstack((self._edges[:2], fs._edges[:2] + self._pts.shape[1]))
@@ -646,13 +646,13 @@ class FractureNetwork2d:
 
         # We split all fracture intersections so that the new lines do not
         # intersect, except possible at the end points
-        logger.info("Remove edge crossings")
+        logger.debug("Remove edge crossings")
         tm = time.time()
 
         pts_split, lines_split, *_ = pp.intersections.split_intersecting_segments_2d(
             pts_all, lines, tol=self.tol
         )
-        logger.info("Done. Elapsed time " + str(time.time() - tm))
+        logger.debug("Done. Elapsed time " + str(time.time() - tm))
 
         # Ensure unique description of points
         pts_split, _, old_2_new = pp.utils.setmembership.uniquify_point_set(
@@ -747,7 +747,7 @@ class FractureNetwork2d:
 
         # Mesh size
         # Tag points at the domain corners
-        logger.info("Determine mesh size")
+        logger.debug("Determine mesh size")
         tm = time.time()
 
         p = self._decomposition["points"]
@@ -763,7 +763,7 @@ class FractureNetwork2d:
             mesh_size_min=mesh_size_min,
         )
 
-        logger.info("Done. Elapsed time " + str(time.time() - tm))
+        logger.debug("Done. Elapsed time " + str(time.time() - tm))
 
         self._decomposition["points"] = pts_split
         self._decomposition["edges"] = lines
@@ -796,7 +796,7 @@ class FractureNetwork2d:
         """
         # Gridding size
         # Tag points at the domain corners
-        logger.info("Determine mesh size")
+        logger.debug("Determine mesh size")
         tm = time.time()
 
         boundary_pt_ind = self._decomposition["domain_boundary_points"]
@@ -810,7 +810,7 @@ class FractureNetwork2d:
         vals = val * np.ones(num_pts)
         if mesh_size_bound is not None:
             vals[boundary_pt_ind] = mesh_size_bound
-        logger.info("Done. Elapsed time " + str(time.time() - tm))
+        logger.debug("Done. Elapsed time " + str(time.time() - tm))
         self._decomposition["mesh_size"] = vals
 
     def impose_external_boundary(
@@ -841,12 +841,12 @@ class FractureNetwork2d:
 
                 :obj:`numpy.ndarray`:
 
-                    Array containing the indices of the edges that have been kept.
+                    Array containing the indices of the fractures that have been kept.
 
                 :obj:`numpy.ndarray`:
 
-                    Array containing the indices of the edges that have been deleted,
-                    since they were outside the bounding box.
+                    Array containing the indices of the fractures that have been
+                    deleted, since they were outside the bounding box.
 
         """
 
@@ -1022,10 +1022,10 @@ class FractureNetwork2d:
             counter += 1
 
         if counter < max_iter:
-            logger.info(
+            logger.debug(
                 "Fracture snapping converged after " + str(counter) + " iterations"
             )
-            logger.info("Maximum modification " + str(np.max(np.abs(pts - pts_orig))))
+            logger.debug("Maximum modification " + str(np.max(np.abs(pts - pts_orig))))
             return pts, True
         else:
             logger.warning("Fracture snapping failed to converge")
@@ -1099,7 +1099,6 @@ class FractureNetwork2d:
 
     """
     End of methods related to meshing
-    ---------------------------------
     """
 
     def constrain_to_domain(
@@ -1269,54 +1268,7 @@ class FractureNetwork2d:
 
         return fn
 
-    # --------- Methods for analysis of the fracture set
-
-    def as_graph(
-        self, split_intersections: bool = True
-    ) -> Union[networkx.Graph, tuple[networkx.Graph, FractureNetwork2d]]:
-        """Represent the fracture set as a graph, using the networkx data structure.
-
-        By default, the fractures will first be split into non-intersecting branches.
-
-        Parameters:
-            split_intersections: ``default=True``
-
-                Flag if the network should be split into non-intersecting branches
-                before invoking the graph representation.
-
-        Returns:
-            Graph representation of the network, using the networkx data structure,
-            and if ``split_intersections=True``, also the fracture network,
-            split into non-intersecting branches.
-
-        """
-        if split_intersections:
-            # FIXME: The method split_intersections() does not exist. EK: Suggestions?
-            split_network = self.split_intersections()  # type: ignore[attr-defined]
-            pts = split_network._pts
-            edges = split_network._edges
-        else:
-            edges = self._edges
-            pts = self._pts
-
-        import networkx as nx
-
-        G = nx.Graph()
-        for pi in range(pts.shape[1]):
-            G.add_node(pi, coordinate=pts[:, pi])
-
-        for ei in range(edges.shape[1]):
-            tags = {}
-            for key, value in split_network.tags.items():
-                tags[key] = value[ei]
-            G.add_edge(edges[0, ei], edges[1, ei], labels=tags)
-
-        if split_intersections:
-            return G, split_network
-        else:
-            return G
-
-    # --------- Utility functions below here
+    # Utility functions below here
 
     def num_frac(self) -> int:
         """

@@ -8,6 +8,7 @@ import scipy.sparse as sps
 from numpy.linalg import solve
 
 import porepy as pp
+from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_data
 from porepy.numerics.vem.dual_elliptic import DualElliptic
 
 
@@ -100,7 +101,7 @@ class HybridDualVEM:
         bc_val = parameter_dictionary["bc_values"]
         a = parameter_dictionary["aperture"]
 
-        faces, _, sgn = sps.find(g.cell_faces)
+        faces, _, sgn = sparse_array_to_row_col_data(g.cell_faces)
 
         # Map the domain to a reference geometry (i.e. equivalent to compute
         # surface coordinates in 1d and 2d)
@@ -192,7 +193,7 @@ class HybridDualVEM:
                 rhs[is_dir] = norm * bc_val[is_dir]
 
             if np.any(bc.is_neu):
-                faces, _, sgn = sps.find(g.cell_faces)
+                faces, _, sgn = sparse_array_to_row_col_data(g.cell_faces)
                 sgn = sgn[np.unique(faces, return_index=True)[1]]
 
                 is_neu = np.where(bc.is_neu)[0]
@@ -227,7 +228,7 @@ class HybridDualVEM:
         f = param.get_source(self)
         a = param.aperture
 
-        faces, _, sgn = sps.find(g.cell_faces)
+        faces, _, sgn = sparse_array_to_row_col_data(g.cell_faces)
 
         # Map the domain to a reference geometry (i.e. equivalent to compute
         # surface coordinates in 1d and 2d)

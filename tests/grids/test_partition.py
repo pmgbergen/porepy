@@ -1,8 +1,7 @@
 """ Tests of methods from porepy.grids.partition.
 """
-import pytest
-
 import numpy as np
+import pytest
 
 import porepy as pp
 from porepy.applications.test_utils import reference_dense_arrays

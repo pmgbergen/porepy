@@ -7,6 +7,7 @@ The implementation is based on the weakly symmetric version of MPSA, described i
         IJNME, 2017.
 
 """
+
 from __future__ import annotations
 
 import logging
@@ -24,7 +25,6 @@ logger = logging.getLogger(__name__)
 
 
 class Mpsa(Discretization):
-
     """Implementation of the Multi-point stress approximation.
 
     The method can be used directly on a single grid, by calling ``:meth:discretize``
@@ -143,7 +143,14 @@ class Mpsa(Discretization):
                 value. This value is set to all subfaces, except the boundary (where,
                 0 is used).
             - inverter (``str``): Optional. Inverter to apply for local problems.
-                Can take values 'numba' (default), or 'python'.
+                Can take values 'python' (default), or 'numba'.
+            - partition_arguments (``dict``): Optional. Arguments to control the number
+                of subproblems used to discretize the grid. Can be either the target
+                maximal memory use (controlled by keyword 'max_memory' in
+                ``partition_arguments``), or the number of subproblems (keyword
+                'num_subproblems' in ``partition_arguments``). If none are given, the
+                default is to use 1e9 bytes of memory per subproblem. If both are given,
+                the maximal memory use is prioritized.
 
         matrix_dictionary will be updated with the following entries:
             - ``stress: sps.csc_matrix (sd.dim * sd.num_faces, sd.dim * sd.num_cells)``
@@ -176,7 +183,11 @@ class Mpsa(Discretization):
         inverter: Literal["python", "numba"] = parameter_dictionary.get(
             "inverter", "numba"
         )
-        max_memory: int = parameter_dictionary.get("max_memory", 1e9)
+
+        # Control of the number of subdomanis.
+        max_memory, num_subproblems = pp.fvutils.parse_partition_arguments(
+            parameter_dictionary.get("partition_arguments", {})
+        )
 
         # Whether to update an existing discretization, or construct a new one. If True,
         # either specified_cells, _faces or _nodes should also be given, or else a full
@@ -197,8 +208,8 @@ class Mpsa(Discretization):
             sd, active_cells
         )
         # Constitutive law and boundary condition for the active grid
-        active_constit: pp.FourthOrderTensor = self._constit_for_subgrid(
-            constit, active_cells
+        active_constit: pp.FourthOrderTensor = (
+            pp.fvutils.restrict_fourth_order_tensor_to_subgrid(constit, active_cells)
         )
 
         # Extract the relevant part of the boundary condition
@@ -211,8 +222,17 @@ class Mpsa(Discretization):
         nf = active_grid.num_faces
         nc = active_grid.num_cells
 
+        # To limit the memory need of discretization, we will split the discretization
+        # into sub-problems, discretize these separately, and glue together the results.
+        # This procedure requires some bookkeeping, in particular to keep track of how
+        # many times a face has been discretized (faces may be shared between subgrids,
+        # thus discretized multiple times).
+        faces_in_subgrid_accum = []
+        # Find an estimate of the peak memory need. This is used to decide how many
+        # subproblems to split the discretization into.
+        peak_memory_estimate = self._estimate_peak_memory_mpsa(active_grid)
         # Empty matrices for stress, bound_stress and boundary displacement
-        # reconstruction. Will be expanded as we go.
+        # reconstruction. These will be expanded as we go.
         # Implementation note: It should be relatively straightforward to estimate the
         # memory need of stress (face_nodes -> node_cells -> unique).
         active_stress = sps.csr_matrix((nf * nd, nc * nd))
@@ -220,19 +240,42 @@ class Mpsa(Discretization):
         active_bound_displacement_cell = sps.csr_matrix((nf * nd, nc * nd))
         active_bound_displacement_face = sps.csr_matrix((nf * nd, nf * nd))
 
-        # Find an estimate of the peak memory need
-        peak_memory_estimate = self._estimate_peak_memory_mpsa(active_grid)
-
         # Loop over all partition regions, construct local problems, and transfer
         # discretization to the entire active grid.
         for reg_i, (sub_g, faces_in_subgrid, _, l2g_cells, l2g_faces) in enumerate(
-            pp.fvutils.subproblems(active_grid, max_memory, peak_memory_estimate)
+            pp.fvutils.subproblems(
+                active_grid,
+                peak_memory_estimate,
+                max_memory=max_memory,
+                num_subproblems=num_subproblems,
+            )
         ):
+            # The partitioning into subgrids is done with an overlap (see
+            # fvutils.subproblems for a description). Cells and faces in the overlap
+            # will have a wrong discretization in one of two ways: Those faces that are
+            # strictly in the overlap should not be included in the current
+            # sub-discretization (their will be in the interior of a different
+            # subdomain). This contribution will be deleted locally, below. Faces that
+            # are on the boundary between two subgrids will be discretized twice. This
+            # will be handled by dividing the discretization by two. We cannot know
+            # which faces are on the boundary (or perhaps we could, but that would
+            # require more advanced bookkeeping), so we count the number of times a face
+            # has been discretized, and divide by that number at the end (after having
+            # iterated over all subdomains).
+            #
+            # Take note of which faces are discretized in this subgrid. Note that this
+            # needs to use faces_in_subgrid, not l2g_faces, since the latter contains
+            # faces in the overlap.
+            faces_in_subgrid_accum.append(faces_in_subgrid)
+
+            # Start timer for subproblem
             tic = time()
 
             # Copy stiffness tensor, and restrict to local cells.
-            loc_c: pp.FourthOrderTensor = self._constit_for_subgrid(
-                active_constit, l2g_cells
+            loc_c: pp.FourthOrderTensor = (
+                pp.fvutils.restrict_fourth_order_tensor_to_subgrid(
+                    active_constit, l2g_cells
+                )
             )
 
             # Boundary conditions are slightly more complex. Find local faces that are
@@ -241,6 +284,18 @@ class Mpsa(Discretization):
                 active_bound, sub_g, l2g_faces
             )
 
+            # Eta can either be a scalar or a vector. If a vector valued eta is passed,
+            # its length should be adjusted to match the number of subfaces in the
+            # partitioned subgrid.
+            if isinstance(eta, np.ndarray):
+                loc_eta = pp.fvutils.adjust_eta_length(
+                    eta=eta, sub_sd=sub_g, l2g_faces=l2g_faces
+                )
+
+            # Non-array eta suggests eta is scalar. Thus no changes happen to eta.
+            else:
+                loc_eta = eta
+
             # Discretization of sub-problem
             (
                 loc_stress,
@@ -248,7 +303,7 @@ class Mpsa(Discretization):
                 loc_bound_displacement_cell,
                 loc_bound_displacement_face,
             ) = self._stress_discretization(
-                sub_g, loc_c, loc_bnd, eta=eta, inverter=inverter, hf_eta=hf_eta
+                sub_g, loc_c, loc_bnd, eta=loc_eta, inverter=inverter, hf_eta=hf_eta
             )
 
             # Eliminate contribution from faces already discretized (the dual grids /
@@ -285,6 +340,23 @@ class Mpsa(Discretization):
             )
             logger.info(f"Done with subproblem {reg_i}. Elapsed time {time() - tic}")
 
+        # Divide by the number of times a face has been discretized. This is necessary
+        # to avoid double counting of faces on the boundary between subproblems. Note
+        # that this is done before mapping from the active to the full grid, since the
+        # subgrids (thus face map) was computed on the active grid.
+        num_face_repetitions = np.tile(
+            np.bincount(np.concatenate(faces_in_subgrid_accum)), (nd, 1)
+        ).ravel("F")
+        scaling = sps.dia_matrix(
+            (1.0 / num_face_repetitions, 0),
+            shape=(nf * nd, nf * nd),
+        )
+        # All the discretization matrices must be updated.
+        active_stress = scaling @ active_stress
+        active_bound_stress = scaling @ active_bound_stress
+        active_bound_displacement_cell = scaling @ active_bound_displacement_cell
+        active_bound_displacement_face = scaling @ active_bound_displacement_face
+
         # We have reached the end of the discretization, what remains is to map the
         # discretization back from the active grid to the entire grid
         face_map, cell_map = pp.fvutils.map_subgrid_to_grid(
@@ -301,6 +373,7 @@ class Mpsa(Discretization):
             face_map * active_bound_displacement_face * face_map.transpose()
         )
 
+        # Eliminate contribution from faces that were not designated as active.
         eliminate_faces = np.setdiff1d(np.arange(sd.num_faces), active_faces)
         pp.fvutils.remove_nonlocal_contribution(
             eliminate_faces,
@@ -316,24 +389,24 @@ class Mpsa(Discretization):
             matrix_dictionary[self.stress_matrix_key][update_ind] = stress_glob[
                 update_ind
             ]
-            matrix_dictionary[self.bound_stress_matrix_key][
-                update_ind
-            ] = bound_stress_glob[update_ind]
-            matrix_dictionary[self.bound_displacement_cell_matrix_key][
-                update_ind
-            ] = bound_displacement_cell_glob[update_ind]
-            matrix_dictionary[self.bound_displacement_face_matrix_key][
-                update_ind
-            ] = bound_displacement_face_glob[update_ind]
+            matrix_dictionary[self.bound_stress_matrix_key][update_ind] = (
+                bound_stress_glob[update_ind]
+            )
+            matrix_dictionary[self.bound_displacement_cell_matrix_key][update_ind] = (
+                bound_displacement_cell_glob[update_ind]
+            )
+            matrix_dictionary[self.bound_displacement_face_matrix_key][update_ind] = (
+                bound_displacement_face_glob[update_ind]
+            )
         else:
             matrix_dictionary[self.stress_matrix_key] = stress_glob
             matrix_dictionary[self.bound_stress_matrix_key] = bound_stress_glob
-            matrix_dictionary[
-                self.bound_displacement_cell_matrix_key
-            ] = bound_displacement_cell_glob
-            matrix_dictionary[
-                self.bound_displacement_face_matrix_key
-            ] = bound_displacement_face_glob
+            matrix_dictionary[self.bound_displacement_cell_matrix_key] = (
+                bound_displacement_cell_glob
+            )
+            matrix_dictionary[self.bound_displacement_face_matrix_key] = (
+                bound_displacement_face_glob
+            )
 
     def update_discretization(self, sd: pp.Grid, data: dict) -> None:
         """Update discretization.
@@ -455,7 +528,7 @@ class Mpsa(Discretization):
         constit: pp.FourthOrderTensor,
         bound: pp.BoundaryConditionVectorial,
         eta: Optional[float] = None,
-        inverter: Literal["numba", "python"] = "numba",
+        inverter: Optional[Literal["python", "numba"]] = None,
         hf_disp: bool = False,
         hf_eta: Optional[float] = None,
     ) -> tuple[sps.spmatrix, sps.spmatrix, sps.spmatrix, sps.spmatrix]:
@@ -518,7 +591,7 @@ class Mpsa(Discretization):
             eta: Parameter controlling continuity of displacement. If None, a default
                 value will be used, adapted to the grid type.
             inverter: Method to be used for inversion of local systems. Options are
-                'numba' (default) and 'python'.
+                'python' and 'numba'.
             hf_disp: If True, the displacement will be represented by subface values
                 instead of cell values. This is not recommended, but kept for the time
                 being for legacy reasons.
@@ -709,7 +782,7 @@ class Mpsa(Discretization):
         subcell_topology: pp.fvutils.SubcellTopology,
         bound_exclusion: pp.fvutils.ExcludeBoundaries,
         eta: float,
-        inverter: Literal["python", "numba"],
+        inverter: Optional[Literal["python", "numba"]] = None,
     ) -> tuple[sps.spmatrix, sps.spmatrix, np.ndarray]:
         """
         This is the function where the real discretization takes place. It contains
@@ -1476,9 +1549,11 @@ class Mpsa(Discretization):
         # Define row and column indices to be used for normal vector matrix Rows are
         # based on sub-face numbers. Columns have nd elements for each sub-cell (to
         # store a vector) and is adjusted according to block sizes
-        _, cn = np.meshgrid(subcell_topology.subhfno, np.arange(nd))
-        sum_blocksz = np.cumsum(blocksz)
-        cn += pp.matrix_operations.rldecode(sum_blocksz - blocksz[0], blocksz)
+        _, cn = np.meshgrid(subcell_topology.subhfno, np.arange(nd, dtype=np.int32))
+        sum_blocksz = np.cumsum(blocksz, dtype=np.int32)
+        cn += pp.matrix_operations.rldecode(sum_blocksz - blocksz[0], blocksz).astype(
+            np.int32
+        )
         ind_ptr_n = np.hstack((np.arange(0, cn.size, nd), cn.size))
 
         # Distribute faces equally on the sub-faces, and store in a matrix
@@ -1491,10 +1566,12 @@ class Mpsa(Discretization):
         # Then row and columns for stiffness matrix. There are nd^2 elements in the
         # gradient operator, and so the structure is somewhat different from the normal
         # vectors
-        _, cc = np.meshgrid(subcell_topology.subhfno, np.arange(nd**2))
-        sum_blocksz = np.cumsum(blocksz**2)
-        cc += pp.matrix_operations.rldecode(sum_blocksz - blocksz[0] ** 2, blocksz)
-        ind_ptr_c = np.hstack((np.arange(0, cc.size, nd**2), cc.size))
+        _, cc = np.meshgrid(subcell_topology.subhfno, np.arange(nd**2, dtype=np.int32))
+        sum_blocksz = np.cumsum(blocksz**2, dtype=np.int32)
+        cc += pp.matrix_operations.rldecode(
+            sum_blocksz - blocksz[0] ** 2, blocksz
+        ).astype(np.int32)
+        ind_ptr_c = np.hstack((np.arange(0, cc.size, nd**2), cc.size)).astype(np.int32)
 
         # Splitt stiffness matrix into symmetric and anti-symmatric part
         sym_tensor, asym_tensor = self._split_stiffness_matrix(constit)
@@ -1580,7 +1657,7 @@ class Mpsa(Discretization):
         nno_unique: np.ndarray,
         bound_exclusion: pp.fvutils.ExcludeBoundaries,
         nd: int,
-        inverter: str,
+        inverter: Optional[str] = None,
     ) -> sps.spmatrix:
         """Invert local system to compute the subcell gradient operator.
 
@@ -1954,26 +2031,3 @@ class Mpsa(Discretization):
         sub_bc.basis = bc.basis[:, :, face_map]
 
         return sub_bc
-
-    def _constit_for_subgrid(
-        self, constit: pp.FourthOrderTensor, loc_cells: np.ndarray
-    ) -> pp.FourthOrderTensor:
-        """Extract a constitutive law for a subgrid of the original grid.
-
-        Parameters:
-            constit: Constitutive law for the original grid.
-            loc_cells: Index of cells of the original grid from which the new
-                constitutive law should be picked.
-
-        Returns:
-            New constitutive law aimed at a smaller grid.
-
-        """
-        # Copy stiffness tensor, and restrict to local cells
-        loc_c = constit.copy()
-        loc_c.values = loc_c.values[::, ::, loc_cells]
-        # Also restrict the lambda and mu fields; we will copy the stiffness tensors
-        # later.
-        loc_c.lmbda = loc_c.lmbda[loc_cells]
-        loc_c.mu = loc_c.mu[loc_cells]
-        return loc_c

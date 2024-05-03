@@ -1,4 +1,4 @@
-"""
+r"""
 Model class for poromechanical equations under the Biot assumptions [1, 2, 3].
 
 This class can be seen as a subset of the full poromechanical system of equations,
@@ -76,7 +76,6 @@ References:
 
 """
 
-
 import porepy as pp
 from porepy.models.poromechanics import (
     ConstitutiveLawsPoromechanics,
@@ -99,13 +98,11 @@ class ConstitutiveLawsBiot(
     pp.constitutive_laws.SpecificStorage,
     pp.constitutive_laws.BiotPoroMechanicsPorosity,
     ConstitutiveLawsPoromechanics,
-):
-    ...
+): ...
 
 
 class BiotPoromechanics(  # type: ignore[misc]
     ConstitutiveLawsBiot,
     SolutionStrategyBiot,
     Poromechanics,
-):
-    ...
+): ...

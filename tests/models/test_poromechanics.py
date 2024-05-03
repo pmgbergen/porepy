@@ -5,6 +5,7 @@ This is needed to avoid degenerate mass balance equation in fracture.
 
 TODO: Clean up.
 """
+
 from __future__ import annotations
 
 import copy
@@ -54,7 +55,7 @@ class NonzeroFractureGapPoromechanics:
         sd, sd_data = self.mdg.subdomains(return_data=True)[0]
         # Initial displacement.
         if len(self.mdg.subdomains()) > 1:
-            top_cells = sd.cell_centers[1] > 0.5
+            top_cells = sd.cell_centers[1] > self.fluid.convert_units(0.5, "m")
             vals = np.zeros((self.nd, sd.num_cells))
             vals[1, top_cells] = self.fluid.convert_units(0.042, "m")
             self.equation_system.set_variable_values(
@@ -139,7 +140,7 @@ class NonzeroFractureGapPoromechanics:
                     self.params["fracture_source_value"], "kg * s ^ -1"
                 )
                 vals.append(val * np.ones(sd.num_cells))
-        fracture_source = pp.wrap_as_ad_array(
+        fracture_source = pp.wrap_as_dense_ad_array(
             np.hstack(vals), name="fracture_fluid_source"
         )
         return internal_boundaries + fracture_source
@@ -177,7 +178,7 @@ def create_fractured_setup(solid_vals, fluid_vals, uy_north):
     fluid = pp.FluidConstants(fluid_vals)
 
     params = {
-        "suppress_export": True,  # Suppress output for tests
+        "times_to_export": [],  # Suppress output for tests
         "material_constants": {"solid": solid, "fluid": fluid},
         "uy_north": uy_north,
         "max_iterations": 20,
@@ -225,13 +226,13 @@ def get_variables(
     sd_frac = setup.mdg.subdomains(dim=setup.nd - 1)
     jump = (
         setup.displacement_jump(sd_frac)
-        .evaluate(setup.equation_system)
-        .val.reshape(setup.nd, -1, order="F")
+        .value(setup.equation_system)
+        .reshape(setup.nd, -1, order="F")
     )
     traction = (
         setup.contact_traction(sd_frac)
-        .evaluate(setup.equation_system)
-        .val.reshape(setup.nd, -1, order="F")
+        .value(setup.equation_system)
+        .reshape(setup.nd, -1, order="F")
     )
     return u_vals, p_vals, p_frac, jump, traction
 
@@ -337,12 +338,8 @@ def test_without_fracture(biot_coefficient):
     pp.run_time_dependent_model(m, {})
 
     sd = m.mdg.subdomains(dim=m.nd)
-    u = (
-        m.displacement(sd)
-        .evaluate(m.equation_system)
-        .val.reshape((m.nd, -1), order="F")
-    )
-    p = m.pressure(sd).evaluate(m.equation_system).val
+    u = m.displacement(sd).value(m.equation_system).reshape((m.nd, -1), order="F")
+    p = m.pressure(sd).value(m.equation_system)
 
     # By symmetry (reasonable to expect from this grid), the average x displacement
     # should be zero
@@ -482,7 +479,7 @@ def test_unit_conversion(units):
     """
 
     params = {
-        "suppress_export": True,  # Suppress output for tests
+        "times_to_export": [],  # Suppress output for tests
         "num_fracs": 1,
         "cartesian": True,
         "uy_north": 0.1,
@@ -530,7 +527,7 @@ class PoromechanicsWell(
         return mesh_sizes
 
 
-def test_poromechanics():
+def test_poromechanics_well():
     """Test that the poromechanics model runs without errors."""
     # These parameters hopefully yield a relatively easy problem
     params = {

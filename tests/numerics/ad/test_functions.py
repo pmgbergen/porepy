@@ -109,20 +109,6 @@ def test_log_scalar_times_ad_var():
     assert np.all(a.val == [1, 2, 3]) and np.all(a.jac.A == J.A)
 
 
-# Function: sign
-def test_sign_no_advar():
-    a = np.array([1, -10, 3, -np.pi])
-    sign = af.sign(a)
-    assert np.all(sign == [1, -1, 1, -1])
-
-
-def test_sign_advar():
-    a = AdArray(np.array([1, -10, 3, -np.pi]), np.eye(4))
-    sign = af.sign(a)
-    assert np.all(sign == [1, -1, 1, -1])
-    assert np.allclose(a.val, [1, -10, 3, -np.pi]) and np.allclose(a.jac, np.eye(4))
-
-
 # Function: abs
 def test_abs_no_advar():
     a = np.array([1, -10, 3, -np.pi])

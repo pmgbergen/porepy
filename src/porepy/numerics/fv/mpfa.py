@@ -1,6 +1,7 @@
 """Implementation of the multi-point flux approximation O-method.
 
 """
+
 from __future__ import annotations
 
 from typing import Literal, Optional
@@ -86,7 +87,14 @@ class Mpfa(pp.FVElliptic):
             - mpfa_eta (``float``): Optional. Range [0, 1). Location of pressure
                 continuity point. If not given, porepy tries to set an optimal value.
             - mpfa_inverter (``str``): Optional. Inverter to apply for local problems.
-                Can take values 'numba' (default), or 'python'.
+                Can take values 'python' (default), or 'numba'.
+            - partition_arguments (``dict``): Optional. Arguments to control the number
+                of subproblems used to discretize the grid. Can be either the target
+                maximal memory use (controlled by keyword 'max_memory' in
+                ``partition_arguments``), or the number of subproblems (keyword
+                'num_subproblems' in ``partition_arguments``). If none are given, the
+                default is to use 1e9 bytes of memory per subproblem. If both are given,
+                the maximal memory use is prioritized.
 
         matrix_dictionary will be updated with the following entries:
             - ``flux: sps.csc_matrix (sd.num_faces, sd.num_cells)``
@@ -133,9 +141,9 @@ class Mpfa(pp.FVElliptic):
             matrix_dictionary[self.vector_source_matrix_key] = sps.csc_matrix(
                 (sd.num_faces, sd.num_cells * vector_source_dim)
             )
-            matrix_dictionary[
-                self.bound_pressure_vector_source_matrix_key
-            ] = sps.csc_matrix((sd.num_faces, sd.num_cells * vector_source_dim))
+            matrix_dictionary[self.bound_pressure_vector_source_matrix_key] = (
+                sps.csc_matrix((sd.num_faces, sd.num_cells * vector_source_dim))
+            )
             # Done
             return
 
@@ -147,7 +155,10 @@ class Mpfa(pp.FVElliptic):
             "mpfa_inverter", "numba"
         )
 
-        max_memory: int = parameter_dictionary.get("max_memory", 1e9)
+        # Control of the number of subdomanis.
+        max_memory, num_subproblems = pp.fvutils.parse_partition_arguments(
+            parameter_dictionary.get("partition_arguments", {})
+        )
 
         # Whether to update an existing discretization, or construct a new one.
         # If True, either specified_cells, _faces or _nodes should also be given, or
@@ -167,8 +178,8 @@ class Mpfa(pp.FVElliptic):
                 sd, active_cells
             )
             # Constitutive law and boundary condition for the active grid.
-            active_constit: pp.SecondOrderTensor = self._constit_for_subgrid(
-                k, active_cells
+            active_k: pp.SecondOrderTensor = (
+                pp.fvutils.restrict_second_order_tensor_to_subgrid(k, active_cells)
             )
 
             # Extract the relevant part of the boundary condition.
@@ -179,12 +190,22 @@ class Mpfa(pp.FVElliptic):
             # The active grid is simply the grid
             active_grid = sd
             extracted_faces = active_faces
-            active_constit = k
+            active_k = k
             active_bound = bnd
 
         # Bookkeeping.
         nf = active_grid.num_faces
         nc = active_grid.num_cells
+
+        # To limit the memory need of discretization, we will split the discretization
+        # into sub-problems, discretize these separately, and glue together the results.
+        # This procedure requires some bookkeeping, in particular to keep track of how
+        # many times a face has been discretized (faces may be shared between subgrids,
+        # thus discretized multiple times).
+        faces_in_subgrid_accum = []
+        # Find an estimate of the peak memory need. This is used to decide how many
+        # subproblems to split the discretization into.
+        peak_memory_estimate = self._estimate_peak_memory(active_grid)
 
         # Empty matrices for flux, bound_flux and boundary pressure reconstruction. Will
         # be expanded as we go.
@@ -211,17 +232,34 @@ class Mpfa(pp.FVElliptic):
         active_vector_source = sps.csr_matrix((nf, nc * cell_vector_dim))
         active_bound_pressure_vector_source = sps.csr_matrix((nf, nc * cell_vector_dim))
 
-        # Find an estimate of the peak memory need.
-        peak_memory_estimate = self._estimate_peak_memory(active_grid)
-
         # Loop over all partition regions, construct local problems, and transfer
         # discretization to the entire active grid.
         for reg_i, (sub_sd, faces_in_subgrid, _, l2g_cells, l2g_faces) in enumerate(
-            pp.fvutils.subproblems(active_grid, max_memory, peak_memory_estimate)
+            pp.fvutils.subproblems(
+                active_grid, peak_memory_estimate, max_memory, num_subproblems
+            )
         ):
-            # Copy stiffness tensor, and restrict to local cells
-            loc_c: pp.SecondOrderTensor = self._constit_for_subgrid(
-                active_constit, l2g_cells
+            # The partitioning into subgrids is done with an overlap (see
+            # fvutils.subproblems for a description). Cells and faces in the overlap
+            # will have a wrong discretization in one of two ways: Those faces that are
+            # strictly in the overlap should not be included in the current
+            # sub-discretization (their will be in the interior of a different
+            # subdomain). This contribution will be deleted locally, below. Faces that
+            # are on the boundary between two subgrids will be discretized twice. This
+            # will be handled by dividing the discretization by two. We cannot know
+            # which faces are on the boundary (or perhaps we could, but that would
+            # require more advanced bookkeeping), so we count the number of times a face
+            # has been discretized, and divide by that number at the end (after having
+            # iterated over all subdomains).
+            #
+            # Take note of which faces are discretized in this subgrid. Note that this
+            # needs to use faces_in_subgrid, not l2g_faces, since the latter contains
+            # faces in the overlap.
+            faces_in_subgrid_accum.append(faces_in_subgrid)
+
+            # Copy permeability tensor, and restrict to local cells
+            loc_k: pp.SecondOrderTensor = (
+                pp.fvutils.restrict_second_order_tensor_to_subgrid(active_k, l2g_cells)
             )
 
             # Boundary conditions are slightly more complex. Find local faces that are
@@ -229,11 +267,25 @@ class Mpfa(pp.FVElliptic):
             loc_bnd: pp.BoundaryCondition = self._bc_for_subgrid(
                 active_bound, sub_sd, l2g_faces, active_grid
             )
+
+            # Eta can either be a scalar or a vector. If a vector valued eta is passed,
+            # its length should be adjusted to match the number of subfaces in the
+            # partitioned subgrid.
+            if isinstance(eta, np.ndarray):
+                loc_eta = pp.fvutils.adjust_eta_length(
+                    eta=eta, sub_sd=sub_sd, l2g_faces=l2g_faces
+                )
+
+            # Non-array eta suggests eta is scalar. Thus no changes happen to eta.
+            else:
+                loc_eta = eta
+
+            # Discretization of sub-problem
             discr_fields = self._flux_discretization(
                 sub_sd,
-                loc_c,
+                loc_k,
                 loc_bnd,
-                eta=eta,
+                eta=loc_eta,
                 inverter=inverter,
                 ambient_dimension=vector_source_dim,
             )
@@ -257,11 +309,10 @@ class Mpfa(pp.FVElliptic):
             ) = discr_fields
 
             # Next, transfer discretization matrices from the local to the active grid
-            if (
-                sub_sd.num_cells == active_grid.num_cells
-                and sub_sd.num_faces == active_grid.num_faces
-            ):
-                # Shortcut
+            if active_grid.num_faces == faces_in_subgrid.size:
+                # If all faces in the grid are truly within this subgrid (identified by
+                # faces_in_subgrid, which does not include faces in the overlap), we
+                # know the domain was not split, thus we need not bother with mappings.
                 active_flux = loc_flux
                 active_bound_flux = loc_bound_flux
                 active_bound_pressure_cell = loc_bound_pressure_cell
@@ -297,6 +348,23 @@ class Mpfa(pp.FVElliptic):
                 active_bound_pressure_vector_source += (
                     face_map * loc_bound_pressure_vector_source * cell_map_vec
                 )
+
+        # Divide by the number of times a face has been discretized. This is necessary
+        # to avoid double counting of faces on the boundary between subproblems. Note
+        # that this is done before mapping from the active to the full grid, since the
+        # subgrids (thus face map) was computed on the active grid.
+        num_face_repetitions = np.bincount(np.concatenate(faces_in_subgrid_accum))
+
+        scaling = sps.dia_matrix((1.0 / num_face_repetitions, 0), shape=(nf, nf))
+        # All the discretization matrices must be updated.
+        active_flux = scaling @ active_flux
+        active_bound_flux = scaling @ active_bound_flux
+        active_bound_pressure_cell = scaling @ active_bound_pressure_cell
+        active_bound_pressure_face = scaling @ active_bound_pressure_face
+        active_vector_source = scaling @ active_vector_source
+        active_bound_pressure_vector_source = (
+            scaling @ active_bound_pressure_vector_source
+        )
 
         # We have reached the end of the discretization, what remains is to map the
         # discretization back from the active grid to the entire grid.
@@ -403,19 +471,19 @@ class Mpfa(pp.FVElliptic):
             matrix_dictionary[self.flux_matrix_key][active_faces] = flux_glob[
                 active_faces
             ]
-            matrix_dictionary[self.bound_flux_matrix_key][
-                active_faces
-            ] = bound_flux_glob[active_faces]
-            matrix_dictionary[self.bound_pressure_cell_matrix_key][
-                active_faces
-            ] = bound_pressure_cell_glob[active_faces]
-            matrix_dictionary[self.bound_pressure_face_matrix_key][
-                active_faces
-            ] = bound_pressure_face_glob[active_faces]
+            matrix_dictionary[self.bound_flux_matrix_key][active_faces] = (
+                bound_flux_glob[active_faces]
+            )
+            matrix_dictionary[self.bound_pressure_cell_matrix_key][active_faces] = (
+                bound_pressure_cell_glob[active_faces]
+            )
+            matrix_dictionary[self.bound_pressure_face_matrix_key][active_faces] = (
+                bound_pressure_face_glob[active_faces]
+            )
 
-            matrix_dictionary[self.vector_source_matrix_key][
-                active_faces
-            ] = vector_source_glob[active_faces]
+            matrix_dictionary[self.vector_source_matrix_key][active_faces] = (
+                vector_source_glob[active_faces]
+            )
             matrix_dictionary[self.bound_pressure_vector_source_matrix_key][
                 active_faces
             ] = bound_pressure_vector_source_glob[active_faces]
@@ -423,16 +491,16 @@ class Mpfa(pp.FVElliptic):
         else:
             matrix_dictionary[self.flux_matrix_key] = flux_glob
             matrix_dictionary[self.bound_flux_matrix_key] = bound_flux_glob
-            matrix_dictionary[
-                self.bound_pressure_cell_matrix_key
-            ] = bound_pressure_cell_glob
-            matrix_dictionary[
-                self.bound_pressure_face_matrix_key
-            ] = bound_pressure_face_glob
+            matrix_dictionary[self.bound_pressure_cell_matrix_key] = (
+                bound_pressure_cell_glob
+            )
+            matrix_dictionary[self.bound_pressure_face_matrix_key] = (
+                bound_pressure_face_glob
+            )
             matrix_dictionary[self.vector_source_matrix_key] = vector_source_glob
-            matrix_dictionary[
-                self.bound_pressure_vector_source_matrix_key
-            ] = bound_pressure_vector_source_glob
+            matrix_dictionary[self.bound_pressure_vector_source_matrix_key] = (
+                bound_pressure_vector_source_glob
+            )
 
     def update_discretization(self, sd: pp.Grid, data: dict) -> None:
         """Update discretization.
@@ -521,7 +589,7 @@ class Mpfa(pp.FVElliptic):
         sd: pp.Grid,
         k: pp.SecondOrderTensor,
         bnd: pp.BoundaryCondition,
-        inverter: Literal["python", "numba"],
+        inverter: Optional[Literal["python", "numba"]] = None,
         ambient_dimension: Optional[int] = None,
         eta: Optional[float] = None,
     ) -> tuple[
@@ -1516,7 +1584,7 @@ class Mpfa(pp.FVElliptic):
         whether the implementation is sufficiently general to be put there.
 
         Parameters:
-            sub_g (pp.Grid): Grid for which the new condition applies. Is
+            sub_sd (pp.Grid): Grid for which the new condition applies. Is
                 assumed to be a subgrid of the grid to initialize this object.
             face_map (np.ndarray): Index of faces of the original grid from
                 which the new conditions should be picked.
@@ -1548,24 +1616,6 @@ class Mpfa(pp.FVElliptic):
         sub_bc.basis = bc.basis[face_map]
 
         return sub_bc
-
-    def _constit_for_subgrid(
-        self, K: pp.SecondOrderTensor, loc_cells: np.ndarray
-    ) -> pp.SecondOrderTensor:
-        """Extract the permeability tensor for a subgrid.
-
-        Parameters:
-            K: Permeability tensor for the full grid.
-            loc_cells: Indices of the cells in the subgrid.
-
-        Returns:
-            Permeability tensor for the subgrid.
-
-        """
-        # Copy stiffness tensor, and restrict to local cells
-        loc_K = K.copy()
-        loc_K.values = loc_K.values[::, ::, loc_cells]
-        return loc_K
 
 
 def reconstruct_presssure(

@@ -10,8 +10,8 @@ tags. Grid node ordering is tacitly assumed - if the assumption is broken, the
 well implementation should also be revisited.
 
 """
-from typing import List
 import numbers
+from typing import List
 
 import numpy as np
 import pytest

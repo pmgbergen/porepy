@@ -18,9 +18,10 @@ Examples:
     the argument passed to ``f`` will be an AdArray.
 
 """
+
 from __future__ import annotations
 
-from typing import Callable
+from typing import Callable, TypeVar
 
 import numpy as np
 import scipy.sparse as sps
@@ -28,10 +29,11 @@ import scipy.sparse as sps
 import porepy as pp
 from porepy.numerics.ad.forward_mode import AdArray
 
+FloatType = TypeVar("FloatType", AdArray, np.ndarray, float)
+
 __all__ = [
     "exp",
     "log",
-    "sign",
     "abs",
     "l2_norm",
     "sin",
@@ -54,8 +56,8 @@ __all__ = [
 ]
 
 
-# %% Exponential and logarithmic functions
-def exp(var):
+# Exponential and logarithmic functions
+def exp(var: FloatType) -> FloatType:
     if isinstance(var, AdArray):
         val = np.exp(var.val)
         der = var._diagvec_mul_jac(np.exp(var.val))
@@ -64,7 +66,7 @@ def exp(var):
         return np.exp(var)
 
 
-def log(var):
+def log(var: FloatType) -> FloatType:
     if isinstance(var, AdArray):
         val = np.log(var.val)
         der = var._diagvec_mul_jac(1 / var.val)
@@ -73,18 +75,13 @@ def log(var):
         return np.log(var)
 
 
-# %% Sign and absolute value functions and l2_norm
-def sign(var):
-    if not isinstance(var, AdArray):
-        return np.sign(var)
-    else:
-        return np.sign(var.val)
+# Absolute value and l2_norm
 
 
-def abs(var):
+def abs(var: FloatType) -> FloatType:
     if isinstance(var, AdArray):
         val = np.abs(var.val)
-        jac = var._diagvec_mul_jac(sign(var))
+        jac = var._diagvec_mul_jac(np.sign(var.val))
         return AdArray(val, jac)
     else:
         return np.abs(var)
@@ -103,13 +100,15 @@ def l2_norm(dim: int, var: pp.ad.AdArray) -> pp.ad.AdArray:
 
     Parameters:
         dim: Dimension, i.e. number of vector components.
-        var: Ad operator (variable or expression) which is argument of the norm function.
+        var: Ad operator which is argument of the norm function.
 
     Returns:
         The norm of var with appropriate val and jac attributes.
 
     """
-
+    if not isinstance(var, AdArray):
+        resh = np.reshape(var, (dim, -1), order="F")
+        return np.linalg.norm(resh, axis=0)
     if dim == 1:
         # For scalar variables, the cell-wise L2 norm is equivalent to
         # taking the absolute value.
@@ -124,8 +123,8 @@ def l2_norm(dim: int, var: pp.ad.AdArray) -> pp.ad.AdArray:
     # Prepare for left multiplication with var.jac to yield
     # norm(var).jac = var/norm(var) * var.jac
     dim_size = var.val.size
-    # Check that size of var is compatible with the given dimension, e.g. all 'cells' have
-    # the same number of values assigned
+    # Check that size of var is compatible with the given dimension, e.g. all 'cells'
+    # have the same number of values assigned
     assert dim_size % dim == 0
     size = int(dim_size / dim)
     local_inds_t = np.arange(dim_size)
@@ -141,8 +140,8 @@ def l2_norm(dim: int, var: pp.ad.AdArray) -> pp.ad.AdArray:
     return pp.ad.AdArray(vals, jac)
 
 
-# %% Trigonometric functions
-def sin(var):
+# Trigonometric functions
+def sin(var: FloatType) -> FloatType:
     if isinstance(var, AdArray):
         val = np.sin(var.val)
         jac = var._diagvec_mul_jac(np.cos(var.val))
@@ -151,7 +150,7 @@ def sin(var):
         return np.sin(var)
 
 
-def cos(var):
+def cos(var: FloatType) -> FloatType:
     if isinstance(var, AdArray):
         val = np.cos(var.val)
         jac = var._diagvec_mul_jac(-np.sin(var.val))
@@ -160,7 +159,7 @@ def cos(var):
         return np.cos(var)
 
 
-def tan(var):
+def tan(var: FloatType) -> FloatType:
     if isinstance(var, AdArray):
         val = np.tan(var.val)
         jac = var._diagvec_mul_jac((np.cos(var.val) ** 2) ** (-1))
@@ -169,7 +168,7 @@ def tan(var):
         return np.tan(var)
 
 
-def arcsin(var):
+def arcsin(var: FloatType) -> FloatType:
     if isinstance(var, AdArray):
         val = np.arcsin(var.val)
         jac = var._diagvec_mul_jac((1 - var.val**2) ** (-0.5))
@@ -178,7 +177,7 @@ def arcsin(var):
         return np.arcsin(var)
 
 
-def arccos(var):
+def arccos(var: FloatType) -> FloatType:
     if isinstance(var, AdArray):
         val = np.arccos(var.val)
         jac = var._diagvec_mul_jac(-((1 - var.val**2) ** (-0.5)))
@@ -187,7 +186,7 @@ def arccos(var):
         return np.arccos(var)
 
 
-def arctan(var):
+def arctan(var: FloatType) -> FloatType:
     if isinstance(var, AdArray):
         val = np.arctan(var.val)
         jac = var._diagvec_mul_jac((var.val**2 + 1) ** (-1))
@@ -196,8 +195,8 @@ def arctan(var):
         return np.arctan(var)
 
 
-# %% Hyperbolic functions
-def sinh(var):
+# Hyperbolic functions
+def sinh(var: FloatType) -> FloatType:
     if isinstance(var, AdArray):
         val = np.sinh(var.val)
         jac = var._diagvec_mul_jac(np.cosh(var.val))
@@ -206,7 +205,7 @@ def sinh(var):
         return np.sinh(var)
 
 
-def cosh(var):
+def cosh(var: FloatType) -> FloatType:
     if isinstance(var, AdArray):
         val = np.cosh(var.val)
         jac = var._diagvec_mul_jac(np.sinh(var.val))
@@ -215,7 +214,7 @@ def cosh(var):
         return np.cosh(var)
 
 
-def tanh(var):
+def tanh(var: FloatType) -> FloatType:
     if isinstance(var, AdArray):
         val = np.tanh(var.val)
         jac = var._diagvec_mul_jac(np.cosh(var.val) ** (-2))
@@ -224,7 +223,7 @@ def tanh(var):
         return np.tanh(var)
 
 
-def arcsinh(var):
+def arcsinh(var: FloatType) -> FloatType:
     if isinstance(var, AdArray):
         val = np.arcsinh(var.val)
         jac = var._diagvec_mul_jac((var.val**2 + 1) ** (-0.5))
@@ -233,7 +232,7 @@ def arcsinh(var):
         return np.arcsinh(var)
 
 
-def arccosh(var):
+def arccosh(var: FloatType) -> FloatType:
     if isinstance(var, AdArray):
         val = np.arccosh(var.val)
         den1 = (var.val - 1) ** (-0.5)
@@ -244,7 +243,7 @@ def arccosh(var):
         return np.arccosh(var)
 
 
-def arctanh(var):
+def arctanh(var: FloatType) -> FloatType:
     if isinstance(var, AdArray):
         val = np.arctanh(var.val)
         jac = var._diagvec_mul_jac((1 - var.val**2) ** (-1))
@@ -253,7 +252,7 @@ def arctanh(var):
         return np.arctanh(var)
 
 
-# %% Step and Heaviside functions
+# Step and Heaviside functions
 def heaviside(var, zerovalue: float = 0.5):
     if isinstance(var, AdArray):
         return np.heaviside(var.val, zerovalue)
@@ -284,9 +283,7 @@ def heaviside_smooth(var, eps: float = 1e-3):
     """
     if isinstance(var, AdArray):
         val = 0.5 * (1 + 2 * np.pi ** (-1) * np.arctan(var.val * eps ** (-1)))
-        jac = var._diagvec_mul_jac(
-            np.pi ** (-1) * eps * (eps**2 + var.val**2) ** (-1)
-        )
+        jac = var._diagvec_mul_jac(np.pi ** (-1) * eps * (eps**2 + var.val**2) ** (-1))
         return AdArray(val, jac)
     else:
         return 0.5 * (1 + 2 * np.pi ** (-1) * np.arctan(var * eps ** (-1)))
@@ -306,7 +303,7 @@ class RegularizedHeaviside:
             return np.heaviside(var)  # type: ignore
 
 
-def maximum(var_0: pp.ad.AdArray, var_1: pp.ad.AdArray | np.ndarray) -> pp.ad.AdArray:
+def maximum(var_0: FloatType, var_1: FloatType) -> FloatType:
     """Ad maximum function represented as an AdArray.
 
     The arguments can be either AdArrays or ndarrays, this duality is needed to allow
@@ -387,7 +384,7 @@ def maximum(var_0: pp.ad.AdArray, var_1: pp.ad.AdArray | np.ndarray) -> pp.ad.Ad
     if isinstance(jacs[0], (float, int)):
         assert np.isclose(jacs[0], 0)
         assert np.isclose(jacs[1], 0)
-        return pp.ad.AdArray(max_val, 0)
+        return AdArray(max_val, 0)
 
     # Start from var_0, then change entries corresponding to inds.
     max_jac = jacs[0].copy()
@@ -401,10 +398,10 @@ def maximum(var_0: pp.ad.AdArray, var_1: pp.ad.AdArray | np.ndarray) -> pp.ad.Ad
     else:
         max_jac[inds] = jacs[1][inds]
 
-    return pp.ad.AdArray(max_val, max_jac)
+    return AdArray(max_val, max_jac)
 
 
-def characteristic_function(tol: float, var: pp.ad.AdArray):
+def characteristic_function(tol: float, var: FloatType) -> FloatType:
     """Characteristic function of an ad variable.
 
     Returns 1 if ``var.val`` is within absolute tolerance = ``tol`` of zero.
@@ -422,8 +419,10 @@ def characteristic_function(tol: float, var: pp.ad.AdArray):
         The characteristic function of var with appropriate val and jac attributes.
 
     """
+    if not isinstance(var, AdArray):
+        return np.isclose(var, 0, atol=tol).astype(float)
     vals = np.zeros(var.val.size)
     zero_inds = np.isclose(var.val, 0, atol=tol)
-    vals[zero_inds] = 1
+    vals[zero_inds] = 1.0
     jac = sps.csr_matrix(var.jac.shape)
-    return pp.ad.AdArray(vals, jac)
+    return AdArray(vals, jac)

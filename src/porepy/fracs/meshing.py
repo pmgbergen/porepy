@@ -4,6 +4,7 @@ The module serves as the only necessary entry point to create a grid. It will th
 wrap interface to different mesh generators, pass options to the generators etc.
 
 """
+
 from __future__ import annotations
 
 import logging
@@ -17,6 +18,7 @@ import porepy as pp
 from porepy.fracs import split_grid, structured
 from porepy.grids import mortar_grid
 from porepy.grids.md_grid import MixedDimensionalGrid
+from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_data
 from porepy.utils import mcolon
 
 logger = logging.getLogger(__name__)
@@ -56,27 +58,27 @@ def subdomains_to_mdg(
     # Tag tip faces
     check_highest_dim = kwargs.get("check_highest_dim", False)
     _tag_faces(subdomains, check_highest_dim)
-    logger.info("Assemble mdg")
+    logger.debug("Assemble mdg")
     tm_mdg = time.time()
 
     # Assemble the list of subdomain grids into a mixed-dimensional grid. This will
     # also identify pairs of neighboring grids (one dimension apart).
     mdg, sd_pair_to_face_cell_map = _assemble_mdg(subdomains)
-    logger.info("Done. Elapsed time " + str(time.time() - tm_mdg))
+    logger.debug("Done. Elapsed time " + str(time.time() - tm_mdg))
 
-    logger.info("Compute geometry")
+    logger.debug("Compute geometry")
     tm_geom = time.time()
     mdg.compute_geometry()
 
-    logger.info("Done. Elapsed time " + str(time.time() - tm_geom))
-    logger.info("Split fractures")
+    logger.debug("Done. Elapsed time " + str(time.time() - tm_geom))
+    logger.debug("Split fractures")
     tm_split = time.time()
 
     # Split faces and nodes in the grids of various dimensions
     mdg, node_pairs = split_grid.split_fractures(
         mdg, sd_pair_to_face_cell_map, **kwargs
     )
-    logger.info("Done. Elapsed time " + str(time.time() - tm_split))
+    logger.debug("Done. Elapsed time " + str(time.time() - tm_split))
 
     # Now that neighboring subdomains are identified, faces and nodes are split,
     # we are ready to create mortar grids on the interface between subdomains. These
@@ -252,7 +254,7 @@ def _tag_faces(grids, check_highest_dim=True):
         fn_h = g_h.face_nodes[:, bnd_faces].tocsr()
 
         # Nodes on the boundary
-        bnd_nodes, _, _ = sps.find(fn_h)
+        bnd_nodes, _, _ = sparse_array_to_row_col_data(fn_h)
 
         # Boundary nodes of g_h in terms of global indices
         bnd_nodes_glb = g_h.global_point_ind[np.unique(bnd_nodes)]

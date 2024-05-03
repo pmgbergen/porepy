@@ -1,4 +1,5 @@
 """The module contains functions for distance computations."""
+
 from __future__ import annotations
 
 from typing import Union

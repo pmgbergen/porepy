@@ -4,8 +4,7 @@ porepy.geometry.constrain_geometry.py"""
 import numpy as np
 
 from porepy import constrain_geometry
-from tests.test_utils import compare_arrays
-
+from porepy.applications.test_utils.arrays import compare_arrays
 
 class TestConstrainGeometry:
     """

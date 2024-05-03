@@ -21,7 +21,7 @@ jobs:
     # https://help.github.com/en/actions/language-and-framework-guides/using-python-with-github-actions#specifying-a-python-version
     strategy:
       matrix:
-        python-version:  ["3.11"]  # run only the last python version
+        python-version:  ["3.12"]  # run only the last python version
       # Complete all versions in matrix even if one fails.
       fail-fast: false
 
@@ -47,8 +47,8 @@ jobs:
         # Cache the full python environment, this is more efficient than just caching pip
         # https://blog.allenai.org/python-caching-in-github-actions-e9452698e98d
         path: ${{ env.pythonLocation }}
-        # Hash both ordinary requirements and those specific for developmnet.
-        key: ${{ env.pythonLocation }}-${{ hashFiles('setup.py') }}-${{ hashFiles('**/requirements.txt', '**/requirements-dev.txt') }}
+        # Hash requirements.
+        key: ${{ env.pythonLocation }}-${{ hashFiles('setup.py') }}-${{ hashFiles('**/requirements.txt') }}
 
     - name: Install external libraries
       run: |

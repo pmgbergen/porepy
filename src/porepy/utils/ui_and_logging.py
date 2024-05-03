@@ -1,5 +1,6 @@
 """This module contains functionality to make the progress bars work correctly with
 logging."""
+
 from __future__ import annotations
 
 import logging

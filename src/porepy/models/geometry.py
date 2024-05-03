@@ -1,6 +1,7 @@
 """Geometry definition for simulation setup.
 
 """
+
 from __future__ import annotations
 
 import copy
@@ -233,7 +234,7 @@ class ModelGeometry:
                 flattened if it is not already one dimensional.
             dim: Dimensions to include for vector attributes. Intended use is to
                 limit the number of dimensions for a vector attribute, e.g. to exclude
-                the z-component of a vector attribute in 2d, to acieve compatibility
+                the z-component of a vector attribute in 2d, to achieve compatibility
                 with code which is explicitly 2d (e.g. fv discretizations).
 
         Returns:
@@ -331,7 +332,6 @@ class ModelGeometry:
         # is used as a mixin, and the need to add type-ignore[call-arg] on use of this
         # method.
 
-        assert dim <= self.nd, "Basis functions of higher dimension than the md grid"
         # Collect the basis functions for each dimension
         basis: list[pp.ad.SparseArray] = []
         for i in range(dim):
@@ -350,7 +350,7 @@ class ModelGeometry:
 
         Example:
             For a grid with two cells, and with `i=1` and `dim=3`, the returned basis
-            will be (aftert conversion to a numpy array)
+            will be (after conversion to a numpy array)
             .. code-block:: python
                 array([[0., 0.],
                        [1., 0.],
@@ -364,15 +364,14 @@ class ModelGeometry:
 
         Parameters:
             grids: List of grids on which the basis vector is defined.
-            dim: Dimension of the functions.
             i: Index of the basis function. Note: Counts from 0.
+            dim: Dimension of the functions.
 
         Returns:
             pp.ad.SparseArray: Ad representation of a matrix with the basis functions as
             columns.
 
         Raises:
-            ValueError: If dim is smaller than the dimension of the mixed-dimensional.
             ValueError: If i is larger than dim.
 
         """
@@ -388,8 +387,6 @@ class ModelGeometry:
             dim = self.nd
 
         # Sanity checks
-        if dim > self.nd:
-            raise ValueError("Basis functions of higher dimension than the md grid")
         if i >= dim:
             raise ValueError("Basis function index out of range")
 

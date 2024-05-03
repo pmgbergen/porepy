@@ -1,5 +1,6 @@
 """ Implementation of wrappers for Ad representations of several operators.
 """
+
 from __future__ import annotations
 
 import copy
@@ -8,8 +9,6 @@ from functools import reduce
 from itertools import count
 from typing import Any, Literal, Optional, Sequence, Union, overload
 
-import matplotlib.pyplot as plt
-import networkx as nx
 import numpy as np
 import scipy.sparse as sps
 
@@ -588,6 +587,9 @@ class Operator:
 
     def viz(self):
         """Draws a visualization of the operator tree that has this operator as its root."""
+        import matplotlib.pyplot as plt
+        import networkx as nx
+
         G = nx.Graph()
 
         def parse_subgraph(node: Operator):
@@ -617,9 +619,9 @@ class Operator:
         Expression - it is now done here to accommodate updates (?) and
 
         """
-        unique_discretizations: dict[
-            pp.discretization_type, list[GridLike]
-        ] = self._identify_discretizations()
+        unique_discretizations: dict[pp.discretization_type, list[GridLike]] = (
+            self._identify_discretizations()
+        )
         _ad_utils.discretize_from_list(unique_discretizations, mdg)
 
     def _identify_discretizations(
@@ -649,25 +651,95 @@ class Operator:
 
     ### Operator parsing ---------------------------------------------------------------
 
-    def evaluate(
-        self,
-        system_manager: pp.ad.EquationSystem,
-        state: Optional[np.ndarray] = None,
-    ):  # TODO ensure the operator always returns an AD array
+    def value(
+        self, system_manager: pp.ad.EquationSystem, state: Optional[np.ndarray] = None
+    ) -> pp.number | np.ndarray | sps.spmatrix:
+        """Evaluate the residual for a given solution.
+
+        Parameters:
+            system_manager: Used to represent the problem. Will be used to parse the
+                sub-operators that combine to form this operator.
+            state (optional): Solution vector for which the residual and its derivatives
+                should be formed. If not provided, the solution will be pulled from the
+                previous iterate (if this exists), or alternatively from the solution at
+                the previous time step.
+
+        Returns:
+            A representation of the residual in form of a number, numpy array or sparse
+            matrix.
+
+        """
+        return self._evaluate(system_manager, state=state, evaluate_jacobian=False)
+
+    def value_and_jacobian(
+        self, system_manager: pp.ad.EquationSystem, state: Optional[np.ndarray] = None
+    ) -> AdArray:
         """Evaluate the residual and Jacobian matrix for a given solution.
 
         Parameters:
-            system_manager: Used to represent the problem. Will be used
-                to parse the sub-operators that combine to form this operator.
-            state (optional): Solution vector for which the residual and its
-                derivatives should be formed. If not provided, the solution will be
-                pulled from the previous iterate (if this exists), or alternatively from
-                the solution at the previous time step.
+            system_manager: Used to represent the problem. Will be used to parse the
+                sub-operators that combine to form this operator.
+            state (optional): Solution vector for which the residual and its derivatives
+                should be formed. If not provided, the solution will be pulled from the
+                previous iterate (if this exists), or alternatively from the solution at
+                the previous time step.
 
         Returns:
             A representation of the residual and Jacobian in form of an AD Array.
             Note that the Jacobian matrix need not be invertible, or even square;
             this depends on the operator.
+
+        """
+        ad = self._evaluate(system_manager, state=state, evaluate_jacobian=True)
+
+        # Casting the result to AdArray or raising an error.
+        # It's better to set pp.number here, but isinstance requires a tuple, not Union.
+        # This should be reconsidered when pp.number is replaced with numbers.Real
+        if isinstance(ad, (int, float)):
+            # AdArray requires 1D numpy array as value, not a scalar.
+            ad = np.array([ad])
+
+        if isinstance(ad, np.ndarray) and len(ad.shape) == 1:
+            return AdArray(ad, sps.csr_matrix((ad.shape[0], system_manager.num_dofs())))
+        elif isinstance(ad, (sps.spmatrix, np.ndarray)):
+            # this case coverse both, dense and sparse matrices returned from
+            # discretizations f.e.
+            raise NotImplementedError(
+                f"The Jacobian of {type(ad)} is not implemented because it is "
+                "multidimensional"
+            )
+        else:
+            return ad
+
+    def evaluate(
+        self,
+        system_manager: pp.ad.EquationSystem,
+        state: Optional[np.ndarray] = None,
+    ):
+        raise ValueError(
+            "`evaluate` is deprecated. Use `value` or `value_and_jacobian` instead."
+        )
+
+    def _evaluate(
+        self,
+        system_manager: pp.ad.EquationSystem,
+        state: Optional[np.ndarray] = None,
+        evaluate_jacobian: bool = True,
+    ) -> pp.number | np.ndarray | sps.spmatrix | AdArray:
+        """Evaluate the residual and Jacobian matrix for a given solution.
+
+        Parameters:
+            system_manager: Used to represent the problem. Will be used to parse the
+                sub-operators that combine to form this operator.
+            state (optional): Solution vector for which the residual and its derivatives
+                should be formed. If not provided, the solution will be pulled from the
+                previous iterate (if this exists), or alternatively from the solution at
+                the previous time step.
+
+        Returns:
+            A representation of the residual and Jacobian in form of an AD Array.
+            Note that the Jacobian matrix need not be invertible, or even square; this
+            depends on the operator.
 
         """
         # Get the mixed-dimensional grid used for the dof-manager.
@@ -720,6 +792,7 @@ class Operator:
         # tree-representation, and parse and combine individual operators.
 
         prev_vals = system_manager.get_variable_values(time_step_index=0)
+        prev_iter_vals = system_manager.get_variable_values(iterate_index=0)
 
         if state is None:
             state = system_manager.get_variable_values(iterate_index=0)
@@ -734,7 +807,12 @@ class Operator:
         # this matrix.
 
         # First generate an Ad array (ready for forward Ad) for the full set.
-        ad_vars = initAdArrays([state])[0]
+        # If the Jacobian is not requested, this step is skipped.
+        vars: AdArray | np.ndarray
+        if evaluate_jacobian:
+            vars = initAdArrays([state])[0]
+        else:
+            vars = state
 
         # Next, the Ad array must be split into variables of the right size
         # (splitting impacts values and number of rows in the Jacobian, but
@@ -754,13 +832,13 @@ class Operator:
             R = sps.coo_matrix(
                 (np.ones(nrow), (np.arange(nrow), dof)), shape=(nrow, ncol)
             ).tocsr()
-            self._ad[var_id] = R @ ad_vars
+            self._ad[var_id] = R @ vars
 
         # Also make mappings from the previous iteration.
         # This is simpler, since it is only a matter of getting the residual vector
         # correctly (not Jacobian matrix).
 
-        prev_iter_vals_list = [state[ind] for ind in self._prev_iter_dofs]
+        prev_iter_vals_list = [prev_iter_vals[ind] for ind in self._prev_iter_dofs]
         self._prev_iter_vals = {
             var_id: val
             for (var_id, val) in zip(self._prev_iter_ids, prev_iter_vals_list)
@@ -898,7 +976,7 @@ class Operator:
                             var_list.append(sub_var)
             return var_list
 
-    ### Special methods -----------------------------------------------------------------------
+    ### Special methods ----------------------------------------------------------------
 
     def __str__(self) -> str:
         return self._name if self._name is not None else ""
@@ -1895,8 +1973,7 @@ def _ad_wrapper(
     as_array: Literal[True],
     size: Optional[int] = None,
     name: Optional[str] = None,
-) -> DenseArray:
-    ...
+) -> DenseArray: ...
 
 
 def _ad_wrapper(
@@ -1934,7 +2011,7 @@ def _ad_wrapper(
         return pp.ad.SparseArray(matrix, name)
 
 
-def wrap_as_ad_array(
+def wrap_as_dense_ad_array(
     vals: pp.number | np.ndarray,
     size: Optional[int] = None,
     name: Optional[str] = None,
@@ -1953,7 +2030,7 @@ def wrap_as_ad_array(
     return _ad_wrapper(vals, True, size=size, name=name)
 
 
-def wrap_as_ad_matrix(
+def wrap_as_sparse_ad_array(
     vals: Union[pp.number, np.ndarray],
     size: Optional[int] = None,
     name: Optional[str] = None,

@@ -1,7 +1,8 @@
 """
-The tensor module contains classes for second and fourth order tensors,
-intended e.g. for representation of permeability and stiffness, respectively.
+The tensor module contains classes for second and fourth order tensors, intended e.g.
+for representation of permeability and stiffness, respectively.
 """
+
 from __future__ import annotations
 
 from typing import Optional
@@ -10,12 +11,11 @@ import numpy as np
 
 
 class SecondOrderTensor(object):
-    """Cell-wise permeability represented by (3, 3, Nc)-array, where Nc
-    denotes the number of cells, i.e. the tensor values are stored discretely.
+    """Cell-wise permeability represented.
 
-    The permeability is always 3-dimensional (since the geometry is always 3D),
-    however, 1D and 2D problems are accommodated by assigning unit values to kzz
-    and kyy, and no cross terms.
+    The permeability is always 3-dimensional (since the geometry is always 3D), however,
+    1D and 2D problems are accommodated by assigning unit values to kzz and kyy, and no
+    cross terms.
     """
 
     def __init__(
@@ -29,19 +29,17 @@ class SecondOrderTensor(object):
     ):
         """Initialize permeability
 
-        Args:
-            kxx (np.ndarray): Nc array, with cell-wise values of kxx permeability.
-            kyy (optional, np.ndarray): Nc array of kyy. Default equal to kxx.
-            kzz (optional, np.ndarray): Nc array of kzz. Default equal to kxx.
-                Not used if dim < 3.
-            kxy (optional, np.ndarray): Nc array of kxy. Defaults to zero.
-            kxz (optional, np.ndarray): Nc array of kxz. Defaults to zero.
-                Not used if dim < 3.
-            kyz (optional, np.ndarray): Nc array of kyz. Defaults to zero.
-                Not used if dim < 3.
+        Parameters:
+            kxx: Nc array, with cell-wise values of kxx permeability.
+            kyy: Nc array of kyy. Default equal to kxx.
+            kzz: Nc array of kzz. Default equal to kxx. Not used if dim < 3.
+            kxy: Nc array of kxy. Defaults to zero.
+            kxz: Nc array of kxz. Defaults to zero. Not used if dim < 3.
+            kyz: Nc array of kyz. Defaults to zero. Not used if dim < 3.
 
         Raises:
             ValueError if the permeability is not positive definite.
+
         """
         Nc = kxx.size
         perm = np.zeros((3, 3, Nc))
@@ -106,13 +104,12 @@ class SecondOrderTensor(object):
 
         self.values = perm
 
-    def copy(self) -> "SecondOrderTensor":
-        """`
-        Define a deep copy of the tensor.
+    def copy(self) -> SecondOrderTensor:
+        """Define a deep copy of the tensor.
 
         Returns:
-            SecondOrderTensor: New tensor with identical fields, but separate
-                arrays (in the memory sense).
+            SecondOrderTensor: New tensor with identical fields, but separate arrays (in
+                the memory sense).
         """
 
         kxx = self.values[0, 0, :].copy()
@@ -126,55 +123,52 @@ class SecondOrderTensor(object):
         return SecondOrderTensor(kxx, kxy=kxy, kxz=kxz, kyy=kyy, kyz=kyz, kzz=kzz)
 
     def rotate(self, R: np.ndarray) -> None:
-        """
-        Rotate the permeability given a rotation matrix.
+        """Rotate the permeability given a rotation matrix.
 
         Parameter:
-            R: a rotation matrix 3x3
+            R: a rotation matrix 3x3.
+
         """
         self.values = np.tensordot(R.T, np.tensordot(R, self.values, (1, 0)), (0, 1))
 
+    def __str__(self) -> str:
+        # While the tensor is always initiated as 3x3 on each cell, it may be restricted
+        # to 2x2, e.g., to comply with assumptions underlying the mpfa implementation.
+        # Thus we report on the tensor shape, in addition ot the number of cells.
+        s = f"Second order tensor of shape {self.values.shape[:2]}"
+        s += f" defined on {self.values.shape[2]} cells"
+        return s
 
-# ----------------------------------------------------------------------#
+    def __repr__(self) -> str:
+        return self.__str__()
 
 
 class FourthOrderTensor(object):
-    """Cell-wise representation of fourth order tensor, represented by (3^2, 3^2 ,Nc)-array,
-    where Nc denotes the number of cells, i.e. the tensor values are stored discretely.
+    """Cell-wise representation of fourth order tensor.
 
-    For each cell, there are dim^4 degrees of freedom, stored in a
-    3^2 * 3^2 matrix (exactly how to convert between 2D and 4D matrix
-    is not clear to me a the moment, but in practise there is sufficient
-    symmetry in the tensors for the question to be irrelevant).
+    For each cell, there are dim^4 degrees of freedom, stored in a 3^2 * 3^2 matrix
+    (exactly how to convert between 2D and 4D matrix is not clear to me a the moment,
+    but in practise there is sufficient symmetry in the tensors for the question to be
+    irrelevant).
 
-    The only constructor available for the moment is based on the Lame parameters,
-    e.g. using two degrees of freedom. A third parameter phi is also present,
-    but this has never been used.
+    The only constructor available for the moment is based on the Lame parameters, e.g.
+    using two degrees of freedom. A third parameter phi is also present, but this has
+    never been used.
 
-    Primary usage for the class is for mpsa discretizations. Other applications
-    have not been tested.
-
-    Attributes:
-        values (numpy.ndarray): dimensions (3^2, 3^2, nc), cell-wise
-            representation of the stiffness matrix.
-        lmbda (np.ndarray): Nc array of first Lame parameter
-        mu (np.ndarray): Nc array of second Lame parameter
+    Primary usage for the class is for mpsa discretizations. Other applications have not
+    been tested.
 
     """
 
     def __init__(
         self, mu: np.ndarray, lmbda: np.ndarray, phi: Optional[np.ndarray] = None
     ):
-        """Constructor for fourth order tensor on Lame-parameter form
-
-        Args:
-            mu (numpy.ndarray): Nc array of shear modulus (second lame parameter).
-            lmbda (numpy.ndarray): Nc array of first lame parameter.
-            phi (Optional numpy.ndarray): Nc array (not used)
+        """Constructor for fourth order tensor on Lame-parameter form.
 
         Raises:
-            ValueError if mu, lmbda, or phi (if not None) are no 1d arrays
-            ValueError if the lengths of mu, lmbda, and phi (if not None) are not matching
+            ValueError if mu, lmbda or phi (if not None) are not 1d arrays.
+            ValueError if the lengths of mu, lmbda and phi (if not None) are not
+                matching.
         """
 
         if not isinstance(mu, np.ndarray):
@@ -199,7 +193,9 @@ class FourthOrderTensor(object):
 
         # Save lmbda and mu, can be useful to have in some cases
         self.lmbda = lmbda
+        """Nc array of first Lamé parameter."""
         self.mu = mu
+        """Nc array of shear modulus (second Lamé parameter)."""
 
         # Basis for the contributions of mu, lmbda and phi is hard-coded
         mu_mat = np.array(
@@ -249,15 +245,39 @@ class FourthOrderTensor(object):
 
         c = mu_mat * mu + lmbda_mat * lmbda + phi_mat * phi
         self.values = c
+        """Values of the stiffness tensor as a (3^2, 3^2, Nc) array."""
 
-    def copy(self) -> "FourthOrderTensor":
-        """`
-        Define a deep copy of the tensor.
+    def copy(self) -> FourthOrderTensor:
+        """Define a deep copy of the tensor.
 
         Returns:
-            FourthOrderTensor: New tensor with identical fields, but separate
-                arrays (in the memory sense).
+            FourthOrderTensor: New tensor with identical fields, but separate arrays (in
+                the memory sense).
+
         """
         C = FourthOrderTensor(mu=self.mu, lmbda=self.lmbda)
         C.values = self.values.copy()
         return C
+
+    def __str__(self) -> str:
+        s = f"Fourth order tensor defined on {self.values.shape[2]} cells.\n"
+
+        # During discretization (e.g., mpsa), the original 3x3x3x3 may be restricted to
+        # 2d, thus (2, 2, 2, 2), to comply with assumptions in the implementation of the
+        # discretization. Therefore, we report on the shape of the tensor. The notation
+        # below acknowledges the full fourth-order nature of this tensor (as opposed to
+        # the storage format in self.values, which joins two and two dimensions).
+        if self.values.shape[:2] == (4, 4):
+            s += f"Each cell has a tensor of shape (2, 2, 2, 2)"
+        elif self.values.shape[:2] == (9, 9):
+            s += f"Each cell has a tensor of shape (3, 3, 3, 3)"
+        else:
+            # In EK's understanding, this should never happen. Give a fair description
+            # of the situation, and hope the user knows what is going on.
+            s += f"The tensor has shape {self.values[:, :, 0].shape}."
+            s += "It is unclear how this came about."
+
+        return s
+
+    def __repr__(self) -> str:
+        return self.__str__()

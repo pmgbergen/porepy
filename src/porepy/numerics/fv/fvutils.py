@@ -6,6 +6,7 @@ for MPxA discertizations, however, due to the somewhat intricate inheritance rel
 between these methods, the current structure with multiple auxiliary methods emerged.
 
 """
+
 from __future__ import annotations
 
 from typing import Any, Callable, Generator, Optional
@@ -14,6 +15,7 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
+from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_data
 
 
 class SubcellTopology:
@@ -350,11 +352,115 @@ def find_active_indices(
     return active_cells, active_faces
 
 
+def parse_partition_arguments(
+    partition_arguments: Optional[dict[str, int]] = None
+) -> tuple[int | None, int | None]:
+    """Parse arguments related to the splitting of discretization into subproblems.
+
+    Parameters:
+        parameter_dictionary (dict): Parameters, potentially containing fields
+            "max_memory" and "num_subproblems".
+
+    Returns:
+        Values to be used in the partitioning of the grid. One of the values will be
+        numerical, the other will be None; it is up to the calling method to use the
+        former to define a partitioning.
+
+
+        int | None: Maximum memory footprint allowed for the discretization. If
+            ``partition_arguments`` has a key ``max_memory``, this value will be
+            returned. If ``partition_arguments`` is ``None``, the default value of 1e9
+            will be returned. If ``partition_arguments`` does not have a key
+            ``max_memory``, but has a key ``num_subproblems``, the value will be set to
+            ``None``.
+
+        int | None: The number of subproblems to construct. If ``partition_arguments``
+            has a key ``num_subproblems``, but no key ``max_memory``, the value will be
+            returned. In all other cases, the value will be set to ``None``.
+
+    """
+
+    # Control of the number of subdomanis.
+    if partition_arguments is not None:
+        if (
+            "max_memory" in partition_arguments
+            or "num_subproblems" not in partition_arguments
+        ):
+            # If max_memory is given, use it. If num_subproblems is not given, use
+            # default (which is max_memory = 1e9). Cast to int to avoid problems with
+            # mypy.
+            max_memory = int(partition_arguments.get("max_memory", 1e9))
+            # Explicitly set num_subproblems to None, to signal that it should not
+            # be used.
+            num_subproblems = None
+        else:  # Only num_subproblems is given
+            num_subproblems = partition_arguments["num_subproblems"]
+            # Explicitly set max_memory to None, to signal that it should not be
+            # used.
+            max_memory = None
+    else:
+        # No values are given, use default. Cast to int to avoid problems with mypy.
+        max_memory = int(1e9)
+        # Explicitly set num_subproblems to None, to signal that it should not be
+        # used.
+        num_subproblems = None
+
+    return max_memory, num_subproblems
+
+
 def subproblems(
-    sd: pp.Grid, max_memory: int, peak_memory_estimate: int
+    sd: pp.Grid,
+    peak_memory_estimate: int,
+    max_memory: Optional[int] = None,
+    num_subproblems: Optional[int] = None,
 ) -> Generator[
     tuple[pp.Grid, np.ndarray, np.ndarray, np.ndarray, np.ndarray], None, None
 ]:
+    """Split a grid into subgrids in preparation for discretization with limited memory
+    footprint.
+
+    The subgrids are constructed by partititoning the grid; see comments in the code
+    for details, including information on overlap between subgrids.
+
+    Parameters:
+        sd: Grid to be partitioned.
+        peak_memory_estimate: Estimate of the peak memory footprint of the
+            discretization.
+        max_memory: Maximum memory footprint allowed for the discretization.
+        num_subproblems: Number of subproblems to construct.
+
+        At least one of max_memory and num_subproblems must be given. If both are given,
+        max_memory will be used.
+
+    Raises:
+        ValueError: If neither max_memory nor num_subproblems are given.
+
+    Yields:
+        Subgrids and topological information:
+
+        pp.Grid:
+            The subgrid to be discretized.
+
+        :obj:`~numpy.ndarray`:
+            Indices (in the global grid) of the faces to be discretized. This does not
+            include faces that are in the overlap, but not in the subgrid proper.
+
+        :obj:`~numpy.ndarray`:
+            Indices (in the global grid) of the cells contained in the subgrid (not
+            including the overlap).
+
+        :obj:`~numpy.ndarray`:
+            Indices (in the global grid) of all cells in the subgrid, including those
+            in the overlap. Represented as a numpy array, so that element i gives the
+            global index of the i-th cell in the subgrid.
+
+        :obj:`~numpy.ndarray`:
+            Indices (in the global grid) of all faces in the subgrid, including those
+            in the overlap. Represented as a numpy array, so that element i gives the
+            global index of the i-th face in the subgrid.
+
+    """
+
     if sd.dim == 0:
         # nothing realy to do here
         loc_faces = np.ones(sd.num_faces, dtype=bool)
@@ -363,7 +469,12 @@ def subproblems(
         loc2g_face = np.ones(sd.num_faces, dtype=bool)
         yield sd, loc_faces, loc_cells, loc2g_cells, loc2g_face
 
-    num_part: int = np.ceil(peak_memory_estimate / max_memory).astype(int)
+    if max_memory is not None:
+        num_part: int = np.ceil(peak_memory_estimate / max_memory).astype(int)
+    elif num_subproblems is not None:
+        num_part = num_subproblems
+    else:
+        raise ValueError("Either max_memory or num_subproblems must be given")
 
     if num_part == 1:
         yield sd, np.arange(sd.num_faces), np.arange(sd.num_cells), np.arange(
@@ -371,14 +482,27 @@ def subproblems(
         ), np.arange(sd.num_faces)
 
     else:
-        # Let partitioning module apply the best available method
+        # Since MPxA discretizations are based on interaction regions (cells in the dual
+        # grid), we need to construct the subgrids with an overlap: If a vertex is part
+        # of the subgrid proper, the overlap must be large enough that all cells that
+        # share this vertex are included in the discretization stencil. The overlap will
+        # mean that certain faces and cells will be discretized multiple times, it is
+        # the responsibility of the discretization to handle this.
+        #
+        # To construct the partitioning, we first define a partitioning with no overlap,
+        # identify the extra cells that should be included in the overlap, and then
+        # define the subgrid with overlap.
+
+        # Use the partition model to define a partitioning with no overlap. The function
+        # called will decide how to construct the partitioning, depending on the grid
+        # type, third-party software available etc.
         part: np.ndarray = pp.partition.partition(sd, num_part)
 
         # Cell-node relation
         cn: sps.csc_matrix = sd.cell_nodes()
 
-        # Loop over all partition regions, construct local problemsac, and transfer
-        # discretization to the entire active grid
+        # Loop over all partition regions, construct local grids, and information to map
+        # between local and global grids.
         for p in np.unique(part):
             # Cells in this partitioning
             cells_in_partition: np.ndarray = np.argwhere(part == p).ravel("F")
@@ -389,11 +513,13 @@ def subproblems(
             cells_in_partition_boolean = np.zeros(sd.num_cells, dtype=bool)
             cells_in_partition_boolean[cells_in_partition] = 1
 
+            # Nodes present in this partition
             nodes_in_partition: np.ndarray = np.squeeze(
                 np.where((cn * cells_in_partition_boolean) > 0)
             )
 
-            # Find computational stencil, based on the nodes in this partition
+            # Find computational stencil (cells and faces), based on the nodes in this
+            # partition
             loc_cells, loc_faces = pp.fvutils.cell_ind_for_partial_update(
                 sd, nodes=nodes_in_partition
             )
@@ -470,6 +596,40 @@ def expand_indices_incr(ind, dim, increment):
     return ind_new
 
 
+def adjust_eta_length(
+    eta: np.ndarray, sub_sd: pp.Grid, l2g_faces: np.ndarray
+) -> np.ndarray:
+    """Adjusts length of vector valued eta for problems partitioned into subproblems.
+
+    Eta can either be a scalar or a vector. If a vector valued eta is passed, it will
+    have a length equal to the number of subfaces in the entire grid. If the grid is
+    partitioned into subgrids, we need to adjust the length of eta to match the subfaces
+    of the subgrid.
+
+    Parameters:
+        eta: MPFA/MPSA-eta.
+        sub_sd: A subgrid of the domain. Eta is adjusted according to the subfaces in
+            sub_sd.
+        l2g_faces: Indices (in the global grid) of all faces in the subgrid. Represented
+            as a numpy array, so that element i gives the global index of the i-th face
+            in the subgrid.
+
+    Returns:
+        An array of eta values corresponding to a grid that arises from from domain
+        partitioning.
+
+    """
+    # Use information in the sparse formatting to find the number of nodes per face
+    num_nodes_per_face = np.diff(sub_sd.face_nodes.tocsc().indptr)
+    # Verify that all faces have equally many nodes
+    assert np.unique(num_nodes_per_face).size == 1
+    expansion_index = num_nodes_per_face[0]
+
+    indices = expand_indices_nd(l2g_faces, expansion_index)
+    loc_eta = np.array([eta[i] for i in indices])
+    return loc_eta
+
+
 def map_hf_2_f(fno=None, subfno=None, nd=None, sd=None):
     """
     Create mapping from half-faces to faces for vector problems.
@@ -534,7 +694,7 @@ def cell_vector_to_subcell(nd, sub_cell_index, cell_index):
 def cell_scalar_to_subcell_vector(nd, sub_cell_index, cell_index):
     """
     Create mapping from sub-cells to cells for vector problems.
-    For example, discretization of grad_p-term in Biot,
+    For example, discretization of scalar_gradient term in Biot,
     where p is a cell-center scalar
 
     Args:
@@ -810,7 +970,7 @@ class ExcludeBoundaries:
             col = np.tile(np.arange(self.num_subfno * self.nd), (1, self.nd)).ravel()
 
             return sps.coo_matrix(
-                (data, (row, col)),
+                (data, (row.astype(np.int32), col.astype(np.int32))),
                 shape=(self.num_subfno * self.nd, self.num_subfno * self.nd),
             ).tocsr()
         else:
@@ -827,29 +987,28 @@ class ExcludeBoundaries:
             [[0, 1, 0, 0],
               [0, 0, 0, 1]]
         """
-        col = np.argwhere(np.logical_not(ids))
-        row = np.arange(col.size)
+        col = np.argwhere(np.logical_not(ids)).astype(np.int32)
+        row = np.arange(col.size).astype(np.int32)
         return sps.coo_matrix(
             (np.ones(row.size, dtype=bool), (row, col.ravel("C"))),
             shape=(row.size, self.num_subfno),
         ).tocsr()
 
     def _exclude_matrix_xyz(self, ids):
-        col_x = np.argwhere([not it for it in ids[0]])
-
-        col_y = np.argwhere([not it for it in ids[1]])
+        col_x = np.flatnonzero(np.logical_not(ids[0]))
+        col_y = np.flatnonzero(np.logical_not(ids[1]))
         col_y += self.num_subfno
 
         col_neu = np.append(col_x, [col_y])
 
         if self.nd == 3:
-            col_z = np.argwhere([not it for it in ids[2]])
+            col_z = np.flatnonzero(np.logical_not(ids[2]))
             col_z += 2 * self.num_subfno
             col_neu = np.append(col_neu, [col_z])
 
-        row_neu = np.arange(col_neu.size)
+        row_neu = np.arange(col_neu.size, dtype=np.int32)
         exclude_nd = sps.coo_matrix(
-            (np.ones(row_neu.size), (row_neu, col_neu.ravel("C"))),
+            (np.ones(row_neu.size), (row_neu, col_neu.ravel("C").astype(np.int32))),
             shape=(row_neu.size, self.nd * self.num_subfno),
         ).tocsr()
 
@@ -1012,7 +1171,6 @@ def partial_update_discretization(
     vector_cell_left: Optional[list[str]] = None,
     scalar_face_left: Optional[list[str]] = None,
     vector_face_left: Optional[list[str]] = None,
-    second_keyword: Optional[str] = None,  # Used for biot discertization
 ) -> None:
     """Do partial update of discretization scheme.
 
@@ -1061,20 +1219,16 @@ def partial_update_discretization(
     cell_map = update_info.get("map_cells", sps.identity(sd.num_cells))
     face_map = update_info.get("map_faces", sps.identity(sd.num_faces))
 
-    # left cell quantities (known example: div_u term in Biot), are a bit special
-    # in that they require expanded computational stencils.
-    # To see this, consider an update of a single cell. For a left face quantity,
-    # this would require update of the neighboring faces, as will be detected by the
-    # cell_ind_for_partial_update below. The necessary update to nearby cells would
-    # be achieved by the subsequent multiplication with a divergence. For left cell
-    # matrices, the latter step is not available, thus the necessary overlap in
-    # stencil must be explicitly set.
+    # left cell quantities (known example: displacement_divergence term in Biot), are a
+    # bit special in that they require expanded computational stencils. To see this,
+    # consider an update of a single cell. For a left face quantity, this would require
+    # update of the neighboring faces, as will be detected by the
+    # cell_ind_for_partial_update below. The necessary update to nearby cells would be
+    # achieved by the subsequent multiplication with a divergence. For left cell
+    # matrices, the latter step is not available, thus the necessary overlap in stencil
+    # must be explicitly set.
     if len(vector_cell_left) > 0 or len(scalar_cell_left) > 0:
         update_cells = pp.partition.overlap(sd, update_cells, 1)
-
-        # We will need the non-updated cells as well (but not faces, for similar
-        # reasons as outlined above).
-        passive_cells = np.setdiff1d(np.arange(sd.num_cells), update_cells)
 
     do_discretize = False
     # The actual discretization stencil may be larger than the modified cells and
@@ -1086,9 +1240,8 @@ def partial_update_discretization(
 
     # Find the faces next to the active faces. All these may be updated (depending on
     # the type of discretizations present).
-    _, cells, _ = sps.find(sd.cell_faces[active_faces])
+    _, cells, _ = sparse_array_to_row_col_data(sd.cell_faces[active_faces])
     active_cells = np.unique(cells)
-    passive_cells = np.setdiff1d(np.arange(sd.num_cells), active_cells)
 
     param = data[pp.PARAMETERS][keyword]
     if update_cells.size > 0:
@@ -1098,16 +1251,7 @@ def partial_update_discretization(
         param["specified_faces"] = update_faces
         do_discretize = True
 
-    # Loop over all existing discretization matrices. Map rows and columns,
-    # according to the left/right, cell/face and scalar/vector specifications.
-    # Also eliminate contributions to rows that will also be updated (but not
-    # columns, a non-updated row should keep its information about a column
-    # to be updated).
-    mat_dict = data[pp.DISCRETIZATION_MATRICES][keyword]
-    mat_dict_copy = {}
-    for key, val in mat_dict.items():
-        mat = val
-
+    def update_matrix(key, mat):
         # First multiplication from the right
         if key in scalar_cell_right:
             mat = mat * cell_map.T
@@ -1120,7 +1264,7 @@ def partial_update_discretization(
         else:
             # If no mapping is provided, we assume the matrix is not part of the
             # target discretization, and ignore it.
-            continue
+            pass
 
         # Mapping of faces. Enforce csr format to enable elimination of rows below.
         if key in scalar_cell_left:
@@ -1141,9 +1285,25 @@ def partial_update_discretization(
         else:
             # If no mapping is provided, we assume the matrix is not part of the
             # target discretization, and ignore it.
-            continue
+            pass
 
-        mat_dict_copy[key] = mat
+        return mat
+
+    # Loop over all existing discretization matrices. Map rows and columns,
+    # according to the left/right, cell/face and scalar/vector specifications.
+    # Also eliminate contributions to rows that will also be updated (but not
+    # columns, a non-updated row should keep its information about a column
+    # to be updated).
+    mat_dict = data[pp.DISCRETIZATION_MATRICES][keyword]
+    mat_dict_copy = {}
+    for key, val in mat_dict.items():
+        if isinstance(val, dict):
+            for sub_key, sub_val in val.items():
+                val[sub_key] = update_matrix(key, sub_val)
+
+        else:
+            val = update_matrix(key, val)
+        mat_dict_copy[key] = val
 
     # Do the actual discretization
     if do_discretize:
@@ -1151,38 +1311,18 @@ def partial_update_discretization(
 
     # Define new discretization as a combination of mapped and rediscretized
     for key, val in data[pp.DISCRETIZATION_MATRICES][keyword].items():
-        # If the key is present in the matrix dictionary of the second_keyword,
-        # we skip it, and handle below.
-        # See comment on Biot discretization below
-        if (
-            second_keyword is not None
-            and key in data[pp.DISCRETIZATION_MATRICES][second_keyword].keys()
-        ):
-            continue
-
         if (
             key in data[pp.DISCRETIZATION_MATRICES][keyword].keys()
             and key in mat_dict_copy.keys()
         ):
             # By now, the two matrices should have compatible size
-            data[pp.DISCRETIZATION_MATRICES][keyword][key] = mat_dict_copy[key] + val
-
-    # The Biot discretization is special, in that it places part of matrices in
-    # the mechanics dictionary, a second part in flow. If a second keyword is provided,
-    # the corresponding matrices must be processed, and added with the stored, mapped
-    # values.
-    # Implementation note: we assume that the previous discretizations are all placed
-    # under the primary keyword, see Biot for an example of the necessary pre-processing.
-    # It could perhaps have been better allow for processing of two keywords in the
-    # mapping, but the implementation ended up being as it is.
-    if second_keyword is not None:
-        for key, val in data[pp.DISCRETIZATION_MATRICES][second_keyword].items():
-            if key in mat_dict_copy.keys():
-                if key in scalar_cell_left:
-                    remove_nonlocal_contribution(passive_cells, 1, val)
-                elif key in vector_cell_left:
-                    remove_nonlocal_contribution(passive_cells, dim, val)
-                data[pp.DISCRETIZATION_MATRICES][second_keyword][key] = (
+            if isinstance(val, dict):
+                for sub_key, sub_val in val.items():
+                    data[pp.DISCRETIZATION_MATRICES][keyword][key][sub_key] = (
+                        mat_dict_copy[key][sub_key] + val[sub_key]
+                    )
+            else:
+                data[pp.DISCRETIZATION_MATRICES][keyword][key] = (
                     mat_dict_copy[key] + val
                 )
 
@@ -1591,3 +1731,46 @@ def partial_discretization(
     pp.matrix_operations.zero_rows(data[kw2], affected_faces)
     data[kw1] += trm
     data[kw2] += bound_flux
+
+
+def restrict_fourth_order_tensor_to_subgrid(
+    tensor: pp.FourthOrderTensor, loc_cells: np.ndarray
+) -> pp.FourthOrderTensor:
+    """Extract a fourth order tensor for a subgrid.
+
+    Parameters:
+        tensor: Constitutive law for the original grid.
+        loc_cells: Index of cells of the original grid from which the new constitutive
+            law should be picked.
+
+    Returns:
+        Fourth order tensor for the specified subset of cells.
+
+    """
+    # Copy stiffness tensor, and restrict to local cells
+    loc_tensor = tensor.copy()
+    loc_tensor.values = loc_tensor.values[::, ::, loc_cells]
+    # Also restrict the lambda and mu fields; we will copy the stiffness tensors
+    # later.
+    loc_tensor.lmbda = loc_tensor.lmbda[loc_cells]
+    loc_tensor.mu = loc_tensor.mu[loc_cells]
+    return loc_tensor
+
+
+def restrict_second_order_tensor_to_subgrid(
+    tensor: pp.SecondOrderTensor, loc_cells: np.ndarray
+) -> pp.SecondOrderTensor:
+    """Extract the second-order tensor for a subgrid.
+
+    Parameters:
+        tensor: Permeability tensor for the full grid.
+        loc_cells: Indices of the cells in the subgrid.
+
+    Returns:
+        Second order tensor for the specified subset of cells.
+
+    """
+    # Copy second order tensor, and restrict to local cells
+    loc_tensor = tensor.copy()
+    loc_tensor.values = loc_tensor.values[::, ::, loc_cells]
+    return loc_tensor

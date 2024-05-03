@@ -18,6 +18,7 @@ viz: Visualization; paraview, matplotlib.
 isort:skip_file
 
 """
+
 import os, sys
 from pathlib import Path
 import configparser
@@ -124,7 +125,7 @@ from porepy.numerics.fv.mpsa import Mpsa
 from porepy.numerics.fv.fv_elliptic import FVElliptic
 from porepy.numerics.fv.tpfa import Tpfa
 from porepy.numerics.fv.mpfa import Mpfa
-from porepy.numerics.fv.biot import Biot, GradP, DivU, BiotStabilization
+from porepy.numerics.fv.biot import Biot
 
 # Virtual elements, elliptic
 from porepy.numerics.vem.dual_elliptic import project_flux
@@ -155,7 +156,7 @@ from porepy.models.run_models import (
 
 
 from porepy.numerics import ad
-from porepy.numerics.ad.operators import wrap_as_ad_array, wrap_as_ad_matrix
+from porepy.numerics.ad.operators import wrap_as_dense_ad_array, wrap_as_sparse_ad_array
 from porepy.numerics.ad.equation_system import EquationSystem
 from porepy.numerics.ad._ad_utils import set_solution_values
 from porepy.numerics.ad._ad_utils import get_solution_values
@@ -199,6 +200,7 @@ from porepy.models import (
 from porepy.viz.exporter import Exporter
 from porepy.viz.plot_grid import plot_grid, save_img
 from porepy.viz.fracture_visualization import plot_fractures, plot_wells
+from porepy.viz.solver_statistics import SolverStatistics
 
 # Modules
 from porepy.fracs import utils as frac_utils

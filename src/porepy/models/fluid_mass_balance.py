@@ -218,7 +218,7 @@ class MassBalanceEquations(pp.BalanceEquation):
                 called using a list of boundary grids.
 
         Returns:
-            Operator representing the fluid density times mobility.
+            Operator representing the fluid density times mobility [s * m^-2].
 
         """
         return self.fluid_density(domains) * self.mobility(domains)
@@ -314,7 +314,7 @@ class MassBalanceEquations(pp.BalanceEquation):
             interfaces: List of interface grids.
 
         Returns:
-            Operator representing the interface fluid flux.
+            Operator representing the interface fluid flux [kg * s^-1].
 
         """
         subdomains = self.interfaces_to_subdomains(interfaces)
@@ -326,10 +326,9 @@ class MassBalanceEquations(pp.BalanceEquation):
         return flux
 
     def fluid_source(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Fluid source term.
+        """Fluid source term integrated over the subdomain cells.
 
-        Includes
-
+        Includes:
             - external sources
             - interface flow from neighboring subdomains of higher dimension.
             - well flow from neighboring subdomains of lower and higher dimension.
@@ -343,7 +342,7 @@ class MassBalanceEquations(pp.BalanceEquation):
             subdomains: List of subdomains.
 
         Returns:
-            Operator representing the source term.
+            Operator representing the source term [kg * s^-1].
 
         """
         # Interdimensional fluxes manifest as source terms in lower-dimensional
@@ -373,12 +372,14 @@ class MassBalanceEquations(pp.BalanceEquation):
 
 
 class ConstitutiveLawsSinglePhaseFlow(
+    pp.constitutive_laws.ZeroGravityForce,
     pp.constitutive_laws.DarcysLaw,
     pp.constitutive_laws.PeacemanWellFlux,
     pp.constitutive_laws.DimensionReduction,
     pp.constitutive_laws.AdvectiveFlux,
     pp.constitutive_laws.ConstantPorosity,
     pp.constitutive_laws.ConstantPermeability,
+    pp.constitutive_laws.SecondOrderTensorUtils,
     pp.constitutive_laws.FluidDensityFromPressure,
     pp.constitutive_laws.ConstantViscosity,
     pp.constitutive_laws.FluidMobility,
@@ -629,7 +630,7 @@ class VariablesSinglePhaseFlow(pp.VariableMixin):
             ValueError: If the grids are not all subdomains or all boundary grids.
 
         Returns:
-            Operator representing the pressure.
+            Operator representing the pressure [Pa].
 
         """
         if len(domains) > 0 and isinstance(domains[0], pp.BoundaryGrid):
@@ -649,11 +650,13 @@ class VariablesSinglePhaseFlow(pp.VariableMixin):
     ) -> pp.ad.MixedDimensionalVariable:
         """Interface Darcy flux.
 
+        Integrated over faces in the mortar grid.
+
         Parameters:
             interfaces: List of interface grids.
 
         Returns:
-            Variable representing the interface Darcy flux.
+            Variable representing the interface Darcy flux [kg * m^2 * s^-2].
 
         """
         flux = self.equation_system.md_variable(
@@ -664,13 +667,13 @@ class VariablesSinglePhaseFlow(pp.VariableMixin):
     def well_flux(
         self, interfaces: list[pp.MortarGrid]
     ) -> pp.ad.MixedDimensionalVariable:
-        """Well flux.
+        """Variable for the volumetric well flux.
 
         Parameters:
             interfaces: List of interface grids.
 
         Returns:
-            Variable representing the well flux.
+            Variable representing the Darcy-like well flux [kg * m^2 * s^-2].
 
         """
         flux = self.equation_system.md_variable(self.well_flux_variable, interfaces)
@@ -683,7 +686,7 @@ class VariablesSinglePhaseFlow(pp.VariableMixin):
             subdomains: List of subdomains.
 
         Returns:
-            Operator representing the reference pressure.
+            Operator representing the reference pressure [Pa].
 
         """
         # TODO: Confirm that this is the right place for this method. # IS: Definitely
@@ -693,7 +696,7 @@ class VariablesSinglePhaseFlow(pp.VariableMixin):
         # method.
         p_ref = self.fluid.pressure()
         size = sum([sd.num_cells for sd in subdomains])
-        return pp.wrap_as_ad_array(p_ref, size, name="reference_pressure")
+        return pp.wrap_as_dense_ad_array(p_ref, size, name="reference_pressure")
 
 
 class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
@@ -713,7 +716,6 @@ class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
     specific_volume: Callable[
         [Union[list[pp.Grid], list[pp.MortarGrid]]], pp.ad.Operator
     ]
-
     """Function that returns the specific volume of a subdomain or interface.
 
     Normally provided by a mixin of instance
@@ -753,6 +755,14 @@ class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
     ]
     """Discretization of the fluid mobility on internal boundaries. Normally provided
     by a mixin instance of :class:`~porepy.models.constitutive_laws.FluidMobility`.
+
+    """
+    operator_to_SecondOrderTensor: Callable[
+        [pp.Grid, pp.ad.Operator, pp.number], pp.SecondOrderTensor
+    ]
+    """Function that returns a SecondOrderTensor provided a method returning
+    permeability as a Operator. Normally provided by a mixin instance of
+    :class:`~porepy.models.constitutive_laws.SecondOrderTensorUtils`.
 
     """
 
@@ -825,7 +835,9 @@ class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
                 self.darcy_keyword,
                 {
                     "bc": self.bc_type_darcy_flux(sd),
-                    "second_order_tensor": self.permeability_tensor(sd),
+                    "second_order_tensor": self.operator_to_SecondOrderTensor(
+                        sd, self.permeability([sd]), self.solid.permeability()
+                    ),
                     "ambient_dimension": self.nd,
                 },
             )
@@ -849,33 +861,6 @@ class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
                 },
             )
 
-    def permeability_tensor(self, sd: pp.Grid) -> pp.SecondOrderTensor:
-        """Convert ad permeability to :class:`~pp.params.tensor.SecondOrderTensor`.
-
-        Override this method if the permeability is anisotropic.
-
-        Parameters:
-            sd: Subdomain for which the permeability is requested.
-
-        Returns:
-            Permeability tensor.
-
-        """
-        permeability_ad = self.specific_volume([sd]) * self.permeability([sd])
-        try:
-            permeability = permeability_ad.evaluate(self.equation_system)
-        except KeyError:
-            # If the permeability depends on an not yet computed discretization matrix,
-            # fall back on reference value
-            volume = self.specific_volume([sd]).evaluate(self.equation_system)
-            permeability = self.solid.permeability() * np.ones(sd.num_cells) * volume
-        # The result may be an AdArray, in which case we need to extract the
-        # underlying array.
-        if isinstance(permeability, pp.ad.AdArray):
-            permeability = permeability.val
-        # TODO: Safeguard against negative permeability?
-        return pp.SecondOrderTensor(permeability)
-
     def before_nonlinear_iteration(self):
         """
         Evaluate Darcy flux for each subdomain and interface and store in the data
@@ -884,14 +869,14 @@ class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
         """
         # Update parameters *before* the discretization matrices are re-computed.
         for sd, data in self.mdg.subdomains(return_data=True):
-            vals = self.darcy_flux([sd]).evaluate(self.equation_system).val
+            vals = self.darcy_flux([sd]).value(self.equation_system)
             data[pp.PARAMETERS][self.mobility_keyword].update({"darcy_flux": vals})
 
         for intf, data in self.mdg.interfaces(return_data=True, codim=1):
-            vals = self.interface_darcy_flux([intf]).evaluate(self.equation_system).val
+            vals = self.interface_darcy_flux([intf]).value(self.equation_system)
             data[pp.PARAMETERS][self.mobility_keyword].update({"darcy_flux": vals})
         for intf, data in self.mdg.interfaces(return_data=True, codim=2):
-            vals = self.well_flux([intf]).evaluate(self.equation_system).val
+            vals = self.well_flux([intf]).value(self.equation_system)
             data[pp.PARAMETERS][self.mobility_keyword].update({"darcy_flux": vals})
 
         super().before_nonlinear_iteration()
@@ -900,10 +885,10 @@ class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
         """Collect discretizations for nonlinear terms."""
         super().set_nonlinear_discretizations()
         self.add_nonlinear_discretization(
-            self.mobility_discretization(self.mdg.subdomains()).upwind,
+            self.mobility_discretization(self.mdg.subdomains()).upwind(),
         )
         self.add_nonlinear_discretization(
-            self.interface_mobility_discretization(self.mdg.interfaces()).flux,
+            self.interface_mobility_discretization(self.mdg.interfaces()).flux(),
         )
 
 
