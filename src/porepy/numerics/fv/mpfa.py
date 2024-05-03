@@ -1347,11 +1347,11 @@ class Mpfa(pp.FVElliptic):
         return total_size
 
     def _block_permutations_and_sizes(
-            self,
-            sub_cell_index: np.ndarray,
-            cell_node_blocks: np.ndarray,
-            nno: np.ndarray,
-            bound_exclusion: pp.fvutils.ExcludeBoundaries,
+        self,
+        sub_cell_index: np.ndarray,
+        cell_node_blocks: np.ndarray,
+        nno: np.ndarray,
+        bound_exclusion: pp.fvutils.ExcludeBoundaries,
     ) -> tuple[sps.spmatrix, sps.spmatrix, np.ndarray]:
         """Define matrices to turn linear system into block-diagonal form.
 

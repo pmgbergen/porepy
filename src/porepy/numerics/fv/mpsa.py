@@ -1680,7 +1680,7 @@ class Mpsa(Discretization):
             sub_cell_index, cell_node_blocks, nno_unique, bound_exclusion, nd
         )
 
-        grad = grad_eqs[row_perm,:][:,col_perm]
+        grad = grad_eqs[row_perm, :][:, col_perm]
         # Compute inverse gradient operator, and map back again
         inv_grad = pp.matrix_operations.invert_diagonal_blocks(
             grad, size_of_blocks, method=inverter
@@ -1728,7 +1728,9 @@ class Mpsa(Discretization):
         nno_displacement = bound_exclusion.exclude_neumann_robin(nno, transform=False)
         nno_neu = bound_exclusion.keep_neumann(nno, transform=False)
         nno_rob = bound_exclusion.keep_robin(nno, transform=False)
-        node_occ = np.hstack((nno_stress, nno_neu, nno_rob, nno_displacement)).astype("int32")
+        node_occ = np.hstack((nno_stress, nno_neu, nno_rob, nno_displacement)).astype(
+            "int32"
+        )
 
         row_inv_perm = node_occ.astype("int32")
         row_perm = np.argsort(row_inv_perm).astype("int32")

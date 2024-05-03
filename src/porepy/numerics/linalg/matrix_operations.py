@@ -1063,6 +1063,7 @@ def sparse_array_to_row_col_data(
     else:
         return (mat_copy.row, mat_copy.col, mat_copy.data)
 
+
 def invert_permutation(perm):
     """Invert permutation array.
 
