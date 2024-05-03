@@ -102,9 +102,6 @@ class SolutionStrategy(abc.ABC):
         self.convergence_status: bool = False
         """Whether the non-linear iteration has converged."""
 
-        self._nonlinear_iteration: int = 0
-        """Number of non-linear iterations performed for current time step."""
-
         # Define attributes to be assigned later
         self.equation_system: pp.ad.EquationSystem
         """Equation system manager. Will be set by :meth:`set_equation_system_manager`.
@@ -186,6 +183,9 @@ class SolutionStrategy(abc.ABC):
         is adjusted during simulation. See :meth:`before_nonlinear_loop`.
 
         """
+
+        self.nonlinear_solver_statistics = pp.SolverStatistics()
+        """Statistics object for non-linear solver loop."""
 
     def prepare_simulation(self) -> None:
         """Run at the start of simulation. Used for initialization etc."""
@@ -395,12 +395,12 @@ class SolutionStrategy(abc.ABC):
         Possible usage is to update time-dependent parameters, discretizations etc.
 
         """
-        # Reset counter for nonlinear iterations.
-        self._nonlinear_iteration = 0
         # Update time step size.
         self.ad_time_step.set_value(self.time_manager.dt)
         # Update the boundary conditions to both the time step and iterate solution.
         self.update_time_dependent_ad_arrays()
+        # Empty the log in the statistics object.
+        self.nonlinear_solver_statistics.reset()
 
     def before_nonlinear_iteration(self) -> None:
         """Method to be called at the start of every non-linear iteration.
@@ -414,34 +414,26 @@ class SolutionStrategy(abc.ABC):
         # self.nonlinear_discretizations, this will be a no-op.
         self.rediscretize()
 
-    def after_nonlinear_iteration(self, solution_vector: np.ndarray) -> None:
+    def after_nonlinear_iteration(self, nonlinear_increment: np.ndarray) -> None:
         """Method to be called after every non-linear iteration.
 
         Possible usage is to distribute information on the new trial state, visualize
         the current approximation etc.
 
         Parameters:
-            solution_vector: The new solution, as computed by the non-linear solver.
+            nonlinear_increment: The new solution, as computed by the non-linear solver.
 
         """
-        self._nonlinear_iteration += 1
         self.equation_system.shift_iterate_values()
         self.equation_system.set_variable_values(
-            values=solution_vector, additive=True, iterate_index=0
+            values=nonlinear_increment, additive=True, iterate_index=0
         )
+        self.nonlinear_solver_statistics.num_iteration += 1
 
-    def after_nonlinear_convergence(
-        self, solution: np.ndarray, errors: float, iteration_counter: int
-    ) -> None:
+    def after_nonlinear_convergence(self) -> None:
         """Method to be called after every non-linear iteration.
 
         Possible usage is to distribute information on the solution, visualization, etc.
-
-        Parameters:
-            solution: The new solution, as computed by the non-linear solver.
-            errors: The error in the solution, as computed by the non-linear solver.
-            iteration_counter: The number of iterations performed by the non-linear
-                solver.
 
         """
         solution = self.equation_system.get_variable_values(iterate_index=0)
@@ -450,21 +442,11 @@ class SolutionStrategy(abc.ABC):
             values=solution, time_step_index=0, additive=False
         )
         self.convergence_status = True
-
         self.save_data_time_step()
 
-    def after_nonlinear_failure(
-        self, solution: np.ndarray, errors: float, iteration_counter: int
-    ) -> None:
-        """Method to be called if the non-linear solver fails to converge.
-
-        Parameters:
-            solution: The new solution, as computed by the non-linear solver.
-            errors: The error in the solution, as computed by the non-linear solver.
-            iteration_counter: The number of iterations performed by the non-linear
-                solver.
-
-        """
+    def after_nonlinear_failure(self) -> None:
+        """Method to be called if the non-linear solver fails to converge."""
+        self.save_data_time_step()
         if self._is_nonlinear_problem():
             raise ValueError("Nonlinear iterations did not converge.")
         else:
@@ -476,18 +458,20 @@ class SolutionStrategy(abc.ABC):
 
     def check_convergence(
         self,
-        solution: np.ndarray,
-        prev_solution: np.ndarray,
-        init_solution: np.ndarray,
+        nonlinear_increment: np.ndarray,
+        residual: np.ndarray,
+        reference_residual: np.ndarray,
         nl_params: dict[str, Any],
-    ) -> tuple[float, bool, bool]:
+    ) -> tuple[float, float, bool, bool]:
         """Implements a convergence check, to be called by a non-linear solver.
 
         Parameters:
-            solution: Newly obtained solution vector prev_solution: Solution obtained in
-            the previous non-linear iteration. init_solution: Solution obtained from the
-            previous time-step. nl_params: Dictionary of parameters used for the
-            convergence check.
+            nonlinear_increment: Newly obtained solution increment vector
+            residual: Residual vector of non-linear system, evaluated at the newly
+            obtained solution vector.
+            reference_residual: Reference residual vector of non-linear system, evaluated
+                for the initial guess at current time step.
+            nl_params: Dictionary of parameters used for the convergence check.
                 Which items are required will depend on the convergence test to be
                 implemented.
 
@@ -495,7 +479,9 @@ class SolutionStrategy(abc.ABC):
             The method returns the following tuple:
 
             float:
-                Error, computed to the norm in question.
+                Residual norm, computed to the norm in question.
+            float:
+                Increment norm, computed to the norm in question.
             boolean:
                 True if the solution is converged according to the test implemented by
                 this method.
@@ -508,26 +494,76 @@ class SolutionStrategy(abc.ABC):
             # At least for the default direct solver, scipy.sparse.linalg.spsolve, no
             # error (but a warning) is raised for singular matrices, but a nan solution
             # is returned. We check for this.
-            diverged = bool(np.any(np.isnan(solution)))
+            diverged = bool(np.any(np.isnan(nonlinear_increment)))
             converged: bool = not diverged
-            error: float = np.nan if diverged else 0.0
-            return error, converged, diverged
+            residual_norm: float = np.nan if diverged else 0.0
+            nonlinear_increment_norm: float = np.nan if diverged else 0.0
         else:
             # First a simple check for nan values.
-            if np.any(np.isnan(solution)):
+            if np.any(np.isnan(nonlinear_increment)):
                 # If the solution contains nan values, we have diverged.
-                return np.nan, False, True
-            # Simple but fairly robust convergence criterion. More advanced options are
-            # e.g. considering errors for each variable and/or each grid separately,
-            # possibly using _l2_norm_cell
-            #
-            # We normalize by the size of the solution vector.
-            # Enforce float to make mypy happy
-            error = float(np.linalg.norm(solution)) / np.sqrt(solution.size)
-            logger.info(f"Normalized residual norm: {error:.2e}")
-            converged = error < nl_params["nl_convergence_tol"]
+                return np.nan, np.nan, False, True
+
+            # nonlinear_increment based norm
+            nonlinear_increment_norm = self.compute_nonlinear_increment_norm(
+                nonlinear_increment
+            )
+            # Residual based norm
+            residual_norm = self.compute_residual_norm(residual, reference_residual)
+            logger.debug(
+                f"Nonlinear increment norm: {nonlinear_increment_norm:.2e}, "
+                f"Nonlinear residual norm: {residual_norm:.2e}"
+            )
+            # Check convergence requiring both the increment and residual to be small.
+            converged_inc = nonlinear_increment_norm < nl_params["nl_convergence_tol"]
+            converged_res = residual_norm < nl_params["nl_convergence_tol_res"]
+            converged = converged_inc and converged_res
             diverged = False
-            return error, converged, diverged
+
+        # Log the errors (here increments and residuals)
+        self.nonlinear_solver_statistics.log_error(
+            nonlinear_increment_norm, residual_norm
+        )
+
+        return residual_norm, nonlinear_increment_norm, converged, diverged
+
+    def compute_residual_norm(
+        self, residual: np.ndarray, reference_residual: np.ndarray
+    ) -> float:
+        """Compute the residual norm for a nonlinear iteration.
+
+        Parameters:
+            residual: Residual of current iteration.
+            reference_residual: Reference residual value (initial residual expected),
+                allowing for definiting relative criteria.
+
+        Returns:
+            float: Residual norm.
+
+        """
+        residual_norm = np.linalg.norm(residual) / np.sqrt(residual.size)
+        return residual_norm
+
+    def compute_nonlinear_increment_norm(
+        self, nonlinear_increment: np.ndarray
+    ) -> float:
+        """Compute the norm based on the update increment for a nonlinear iteration.
+
+        Parameters:
+            nonlinear_increment: Solution to the linearization.
+
+        Returns:
+            float: Update increment norm.
+
+        """
+        # Simple but fairly robust convergence criterions. More advanced options are
+        # e.g. considering norms for each variable and/or each grid separately,
+        # possibly using _l2_norm_cell
+        # We normalize by the size of the solution vector.
+        nonlinear_increment_norm = np.linalg.norm(nonlinear_increment) / np.sqrt(
+            nonlinear_increment.size
+        )
+        return nonlinear_increment_norm
 
     def _initialize_linear_solver(self) -> None:
         """Initialize linear solver.
