@@ -1658,7 +1658,7 @@ class Mpsa(Discretization):
         ncasym = bd_average @ ncasym
 
         return ncsym, ncasym, cell_node_blocks, grad_ind
-
+    @profile
     def _inverse_gradient(
         self,
         grad_eqs: sps.spmatrix,
@@ -1698,7 +1698,6 @@ class Mpsa(Discretization):
         row_inv_perm = pp.matrix_operations.invert_permutation(row_perm)
         col_inv_perm = pp.matrix_operations.invert_permutation(col_perm)
         igrad = inv_grad[col_inv_perm, :][:, row_inv_perm]
-        logger.debug("max igrad: " + str(np.max(np.abs(igrad))))
         return igrad
 
     def _block_permutations_and_sizes(
