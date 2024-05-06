@@ -402,7 +402,7 @@ class Operator:
                     return ad_base[eqs.dofs_of([op])]
             # Case 2.c) All other leafs like discretizations or some wrapped data
             else:
-                # Mypy compains because the return type of parse is Any
+                # Mypy complains because the return type of parse is Any.
                 return op.parse(eqs.mdg)  # type:ignore
 
         # Case 3) This is a non-atomic operator with an assigned operation
