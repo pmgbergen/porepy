@@ -51,7 +51,7 @@ def _get_previous_time_or_iterate(
         op: Some operator whos tree should be traversed.
         prev_time: ``default=True``
 
-            If True, it calles :meth:`Operator.previous_timestep`, otherwise it calls
+            If True, it calls :meth:`Operator.previous_timestep`, otherwise it calls
             :meth:`Operator.previous_iteration`.
 
             This is the only difference in the recursion and we can avoid duplicate
