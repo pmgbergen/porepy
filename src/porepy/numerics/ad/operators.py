@@ -1669,7 +1669,7 @@ class Variable(TimeDependentOperator, IterativeOperator):
         name: Variable name.
         ndof: Number of dofs per grid element.
             Valid keys are ``cells``, ``faces`` and ``nodes``.
-        domain: A Subdomain or interface on which the variable is defined.
+        domain: A subdomain or interface on which the variable is defined.
         tags: A dictionary of tags.
 
     Raises:
