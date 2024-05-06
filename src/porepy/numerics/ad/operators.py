@@ -394,7 +394,7 @@ class Operator:
                     return ad_base[eqs.dofs_of([op])]
             # Case 2.b) atomic variables
             elif isinstance(op, Variable):
-                # If a variable represents a previous iter or time, parse values
+                # If a variable represents a previous iteration or time, parse values.
                 if op.prev_iter or op.prev_time:
                     return op.parse(eqs.mdg)
                 # Otherwise use the current time and iter values
