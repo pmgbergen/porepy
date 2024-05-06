@@ -78,7 +78,7 @@ class AbstractFunction(Operator):
         """Renders this function operator callable, fulfilling its notion as 'function'.
 
         Parameters:
-            *args: AD operators representing the arguments of the function, represented
+            *args: AD operators representing the arguments of the function represented
                 by this instance.
 
         Returns:
