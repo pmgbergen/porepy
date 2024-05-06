@@ -272,7 +272,7 @@ class Operator:
 
         """
         # NOTE we use the existence of the original operator (not the index)
-        # because this works for both, previous time and iter.
+        # because this works for both previous time and iteration.
         if hasattr(self, "original_operator"):
             return False
         else:
