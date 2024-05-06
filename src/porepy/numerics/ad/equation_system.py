@@ -191,7 +191,7 @@ class EquationSystem:
         self._variable_numbers: dict[int, int] = dict()
         """A Map between a variable's ID and its index in the system vector.
 
-        This is an optimized structure, meaning the order of entries are created in
+        This is an optimized structure, meaning the order of entries is created in
         :meth:`_cluster_dofs_gridwise`.
 
         """
