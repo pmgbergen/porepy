@@ -397,7 +397,7 @@ class Operator:
                 # If a variable represents a previous iteration or time, parse values.
                 if op.prev_iter or op.prev_time:
                     return op.parse(eqs.mdg)
-                # Otherwise use the current time and iter values
+                # Otherwise use the current time and iteration values.
                 else:
                     return ad_base[eqs.dofs_of([op])]
             # Case 2.c) All other leafs like discretizations or some wrapped data
