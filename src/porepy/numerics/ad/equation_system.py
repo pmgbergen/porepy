@@ -303,7 +303,7 @@ class EquationSystem:
         system.
 
         """
-        return [var for _, var in self._variables.items()]
+        return [var for var in self._variables.values()]
 
     @property
     def variable_domains(self) -> list[pp.GridLike]:
