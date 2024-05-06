@@ -172,7 +172,7 @@ class EquationSystem:
         """Dictionary mapping variable IDs to the atomic variables created and managed
         by this instance.
 
-        Variables contained here are ordered according chronologically in terms of
+        Variables contained here are ordered chronologically in terms of
         instantiation. It does not reflect the order of DOFs, which is to some degree
         optimized.
 
