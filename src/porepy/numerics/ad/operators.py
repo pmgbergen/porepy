@@ -48,7 +48,7 @@ def _get_previous_time_or_iterate(
     previous iteration.
 
     Parameters:
-        op: Some operator whos tree should be traversed.
+        op: Some operator whose tree should be traversed.
         prev_time: ``default=True``
 
             If True, it calls :meth:`Operator.previous_timestep`, otherwise it calls
