@@ -348,7 +348,7 @@ class Function(AbstractFunction):
 
 class InterpolatedFunction(AbstractFunction):
     """Represents the passed function as an interpolation of chosen order on a
-    cartesian, uniform grid.
+    Cartesian, uniform grid.
 
     The image of the function is expected to be of dimension 1, while the domain can be
     multidimensional.
