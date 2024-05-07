@@ -664,8 +664,6 @@ class EquationSystem:
                 # 1. Slice the vector to local size
                 # This will raise errors if indexation is out of range.
                 num_dofs = int(self._variable_num_dofs[variable_number])
-                dof_end = dof_start + num_dofs
-                dof_end = dof_start + num_dofs
                 # Extract local vector.
                 # This will raise errors if indexation is out of range.
                 dof_end = dof_start + num_dofs
@@ -903,9 +901,7 @@ class EquationSystem:
                 parsed_variables.append(variable)
             elif isinstance(variable, str):
                 # Use _variables to avoid recursion (get_variables() calls this method)
-                vars = [
-                    var for _, var in self._variables.items() if var.name == variable
-                ]
+                vars = [var for var in self._variables.values() if var.name == variable]
                 parsed_variables += vars
             else:
                 raise ValueError(

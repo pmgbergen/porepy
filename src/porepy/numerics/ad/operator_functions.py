@@ -36,6 +36,10 @@ __all__ = [
 ]
 
 
+def _raise_no_arithmetics_with_functions_error():
+    raise TypeError("Operator functions must be called before applying any operation.")
+
+
 class AbstractFunction(Operator):
     """Abstract class for all operator functions, i.e. functions called with some other
     AD operators.
@@ -44,7 +48,7 @@ class AbstractFunction(Operator):
     and its operation set to
     :attr:`~porepy.numerics.ad.operators.Operator.Operations.evaluate`.
 
-    Provided abstract methods to implement the computation of value and Jacobian of the
+    Provides abstract methods to implement the computation of value and Jacobian of the
     function independently.
 
     The abstract function itself has no arithmetic overloads, since its meaning
@@ -110,69 +114,43 @@ class AbstractFunction(Operator):
         return s
 
     def __neg__(self) -> Operator:
-        raise TypeError(
-            "Operator functions must be called before applying any operation."
-        )
+        return _raise_no_arithmetics_with_functions_error()
 
     def __add__(self, other: Operator) -> Operator:
-        raise TypeError(
-            "Operator functions must be called before applying any operation."
-        )
+        return _raise_no_arithmetics_with_functions_error()
 
     def __radd__(self, other: Operator) -> Operator:
-        raise TypeError(
-            "Operator functions must be called before applying any operation."
-        )
+        return _raise_no_arithmetics_with_functions_error()
 
     def __sub__(self, other: Operator) -> Operator:
-        raise TypeError(
-            "Operator functions must be called before applying any operation."
-        )
+        return _raise_no_arithmetics_with_functions_error()
 
     def __rsub__(self, other: Operator) -> Operator:
-        raise TypeError(
-            "Operator functions must be called before applying any operation."
-        )
+        return _raise_no_arithmetics_with_functions_error()
 
     def __mul__(self, other: Operator) -> Operator:
-        raise TypeError(
-            "Operator functions must be called before applying any operation."
-        )
+        return _raise_no_arithmetics_with_functions_error()
 
     def __rmul__(self, other: Operator) -> Operator:
-        raise TypeError(
-            "Operator functions must be called before applying any operation."
-        )
+        return _raise_no_arithmetics_with_functions_error()
 
     def __truediv__(self, other: Operator) -> Operator:
-        raise TypeError(
-            "Operator functions must be called before applying any operation."
-        )
+        return _raise_no_arithmetics_with_functions_error()
 
     def __rtruediv__(self, other: Operator) -> Operator:
-        raise TypeError(
-            "Operator functions must be called before applying any operation."
-        )
+        return _raise_no_arithmetics_with_functions_error()
 
     def __pow__(self, other: Operator) -> Operator:
-        raise TypeError(
-            "Operator functions must be called before applying any operation."
-        )
+        return _raise_no_arithmetics_with_functions_error()
 
     def __rpow__(self, other: Operator) -> Operator:
-        raise TypeError(
-            "Operator functions must be called before applying any operation."
-        )
+        return _raise_no_arithmetics_with_functions_error()
 
     def __matmul__(self, other: Operator) -> Operator:
-        raise TypeError(
-            "Operator functions must be called before applying any operation."
-        )
+        return _raise_no_arithmetics_with_functions_error()
 
     def __rmatmul__(self, other):
-        raise TypeError(
-            "Operator functions must be called before applying any operation."
-        )
+        return _raise_no_arithmetics_with_functions_error()
 
     def parse(self, mdg: pp.MixedDimensionalGrid):
         """Operator functions return themselves to give the recursion in
@@ -358,6 +336,13 @@ class InterpolatedFunction(AbstractFunction):
         Each row-entry represents a value for an argument of ``func`` in
         respective order.
 
+    Important:
+        The construction of the Jacobian assumes that the arguments/dependencies of the
+        interpolated function are independent variables (their jacobian has only a
+        single identity block). The correct behavior of the interpolation in other cases
+        is not guaranteed due to how derivative values are stored in the sparse matrix
+        of derivatives.
+
     Parameters:
         min_val: lower bounds for the domain of ``func``.
         max_val: upper bound for the domain.
@@ -486,8 +471,11 @@ class ADmethod:
         self,
         func: Optional[Callable] = None,
         ad_function_type: Type[AbstractFunction] = Function,
-        operator_kwargs: dict = {"name": "unnamed_function"},
+        operator_kwargs: Optional[dict] = None,
     ) -> None:
+        if operator_kwargs is None:
+            operator_kwargs = {"name": "unnamed_function"}
+
         assert "name" in operator_kwargs, "Operator functions must be named."
         # reference to decorated function object
         self._func = func

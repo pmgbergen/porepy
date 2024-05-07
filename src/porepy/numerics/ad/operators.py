@@ -43,9 +43,9 @@ def _get_shape(mat):
 def _get_previous_time_or_iterate(
     op: Operator, prev_time: bool = True, steps: int = 1
 ) -> Operator:
-    """Helper function which traverses an operator tree by recursion to get a
-    copy of and its childrent, representing it at a previous time or
-    previous iteration.
+    """Helper function which traverses an operator's tree recursively to get a
+    copy of it and it's children, representing ``op`` at a previous time or
+    iteration.
 
     Parameters:
         op: Some operator whose tree should be traversed.
@@ -62,7 +62,7 @@ def _get_previous_time_or_iterate(
 
     Returns:
         A copy of the operator and its children, representing the previous time or
-        iterate.
+        iteration.
 
     """
 
@@ -262,7 +262,7 @@ class Operator:
         return len(self.children) == 0
 
     @property
-    def is_original_operator(self) -> bool:
+    def is_current_iterate(self) -> bool:
         """Returns True if this AD-operator represents its designated term at the
         current time and iterate index.
 
@@ -352,12 +352,12 @@ class Operator:
         """
 
         # The parsing strategy depends on the operator at hand:
-        # 1) If it is numeric, then it is already some sort of leaf. Return it
-        # 2) If it is a leaf
-        #    a) A md-variable with dofs per atomic variable
-        #    b) An atomic variable, with its dofs
+        # 1) If it is numeric, then it is already some sort of leaf. Return it.
+        # 2) If it is a leaf:
+        #    a) A md-variable with dofs per atomic variable.
+        #    b) An atomic variable with its dofs.
         #    c) Some wrapper for discretizations or other data.
-        # 3) If it is a non-variable operator with children, invoke recursion and
+        # 3) If it is an operator with children, invoke recursion and
         #    proceed to the non-void operation.
 
         # Case 1), Some numeric data, or already evaluated operator.
@@ -373,9 +373,8 @@ class Operator:
         # NOTE Should MD variables really be leaves?
         if op.is_leaf():
             # Case 2.a) Md-variable
-            # TODO no derivatives for prev iter for atomic and md vars?
             if isinstance(op, MixedDimensionalVariable):
-                if op.prev_iter or op.prev_time:
+                if op.is_previous_iterate or op.is_previous_time:
                     # Empty vector like the global vector of unknowns for prev time/iter
                     # insert the values at the right dofs and slice
                     vals = np.empty_like(
@@ -395,7 +394,7 @@ class Operator:
             # Case 2.b) atomic variables
             elif isinstance(op, Variable):
                 # If a variable represents a previous iteration or time, parse values.
-                if op.prev_iter or op.prev_time:
+                if op.is_previous_iterate or op.is_previous_time:
                     return op.parse(eqs.mdg)
                 # Otherwise use the current time and iteration values.
                 else:
@@ -1138,9 +1137,7 @@ class Operator:
         elif isinstance(other, pp.ad.AbstractFunction):
             # Need to put this here, because overload of AbstractFunction is not
             # applied if AbstractFunction is right operand.
-            raise TypeError(
-                "Operator functions must be called before applying any operation."
-            )
+            pp.ad.operator_functions._raise_no_arithmetics_with_functions_error()
         elif isinstance(other, Operator):
             # Put Operator at end, because Seconary and Abstract are also operators
             return [self, other]
@@ -1183,7 +1180,7 @@ class TimeDependentOperator(Operator):
         time steps."""
 
     @property
-    def prev_time(self) -> bool:
+    def is_previous_time(self) -> bool:
         """True, if the operator represents a previous time-step."""
         return True if self._time_step_index > -1 else False
 
@@ -1227,7 +1224,7 @@ class TimeDependentOperator(Operator):
 
         """
         if isinstance(self, IterativeOperator):
-            if self.prev_iter:
+            if self.is_previous_iterate:
                 raise ValueError(
                     "Cannot create an operator representing a previous time step,"
                     + " if it already represents a previous iterate."
@@ -1243,7 +1240,7 @@ class TimeDependentOperator(Operator):
         op._time_step_index = self._time_step_index + int(steps)
 
         # keeping track to the very first one
-        if self.is_original_operator:
+        if self.is_current_iterate:
             op.original_operator = self
         else:
             op.original_operator = self.original_operator
@@ -1293,7 +1290,7 @@ class IterativeOperator(Operator):
         increasing for previous iterates."""
 
     @property
-    def prev_iter(self) -> bool:
+    def is_previous_iterate(self) -> bool:
         """True, if the operator represents a previous iterate."""
         return True if self._iterate_index > 0 else False
 
@@ -1332,7 +1329,7 @@ class IterativeOperator(Operator):
 
         """
         if isinstance(self, TimeDependentOperator):
-            if self.prev_time:
+            if self.is_previous_time:
                 raise ValueError(
                     "Cannot create an operator representing a previous iterate,"
                     + " if it already represents a previous time step."
@@ -1343,7 +1340,7 @@ class IterativeOperator(Operator):
         op._iterate_index = self._iterate_index + int(steps)
 
         # keeping track to the very first one
-        if self.is_original_operator:
+        if self.is_current_iterate:
             op.original_operator = self
         else:
             op.original_operator = self.original_operator
@@ -1552,7 +1549,7 @@ class TimeDependentDenseArray(TimeDependentOperator):
                 data = mdg.boundary_grid_data(g)
             else:
                 raise ValueError(f"Unknown grid type: {self._domain_type}.")
-            if self.prev_time:
+            if self.is_previous_time:
                 vals.append(
                     pp.get_solution_values(
                         name=self._name, data=data, time_step_index=self.time_step_index
@@ -1577,7 +1574,7 @@ class TimeDependentDenseArray(TimeDependentOperator):
             f"Wrapped time-dependent array with name {self._name}.\n"
             f"Defined on {len(self._domains)} {self._domain_type}.\n"
         )
-        if self.prev_time:
+        if self.is_previous_time:
             msg += f"Evaluated at the previous time step {self.time_step_index}.\n"
         return msg
 
@@ -1774,7 +1771,7 @@ class Variable(TimeDependentOperator, IterativeOperator):
         elif isinstance(self._g, pp.MortarGrid):
             data = mdg.interface_data(self._g)
 
-        if self.prev_time:
+        if self.is_previous_time:
             return pp.get_solution_values(
                 self.name,
                 data,
@@ -1797,9 +1794,9 @@ class Variable(TimeDependentOperator, IterativeOperator):
             f"Degrees of freedom: cells ({self._cells}), faces ({self._faces}), "
             f"nodes ({self._nodes})\n"
         )
-        if self.prev_iter:
+        if self.is_previous_iterate:
             s += f"Evaluated at the previous iteration {self.iterate_index}.\n"
-        elif self.prev_time:
+        elif self.is_previous_time:
             s += f"Evaluated at the previous time step {self.time_step_index}.\n"
 
         return s
@@ -1897,9 +1894,9 @@ class MixedDimensionalVariable(Variable):
             f"Composed of {len(self.sub_vars)} variables\n"
             f"Total size: {self.size}\n"
         )
-        if self.prev_iter:
+        if self.is_previous_iterate:
             s += f"Evaluated at the previous iteration {self.iterate_index}.\n"
-        elif self.prev_time:
+        elif self.is_previous_time:
             s += f"Evaluated at the previous time step {self.time_step_index}.\n"
 
         return s
