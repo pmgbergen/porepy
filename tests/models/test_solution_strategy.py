@@ -198,8 +198,8 @@ class RediscretizationTest:
     """
 
     def check_convergence(self, *args, **kwargs):
-        if self._nonlinear_iteration > 1:
-            return 0.0, True, False
+        if self.nonlinear_solver_statistics.num_iteration > 1:
+            return 0.0, 0.0, True, False
         else:
             # Call to super is okay here, since the full model used in the tests is
             # known to have a method of this name.
