@@ -1730,6 +1730,9 @@ class Variable(TimeDependentOperator, IterativeOperator):
             This is for inheritance reasons, since :class:`Variable` inherits from
             :class:`Operator`.
 
+            TODO: Clean up.
+
+
         """
         return self._g
 
