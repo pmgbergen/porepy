@@ -1716,7 +1716,18 @@ class Variable(TimeDependentOperator, IterativeOperator):
     @property
     def id(self) -> int:
         """Returns an integer unique among variables used for identification.
-        Assigned during instantiation."""
+        Assigned during instantiation.
+        
+        The id of a variable is common for all instances of the variable, regardless of
+        whether it represents the present state, the previous iteration, or the previous
+        time step.
+
+        While a specific variable can be identified in terms of its id, it is often
+        advisable to rather use its name and domain, preferrably using relevant
+        functionality in
+        :class:`~porepy.numerics.ad.equation_system.EquationSystem`.
+
+        """
         return self._id
 
     @property
