@@ -80,6 +80,8 @@ __all__ = [
     "characteristic_residual",
     "get_root_case",
     "is_real_root",
+    "compressibility_factor",
+    "compressibility_factor_dAB",
     "PengRobinsonCompiler",
 ]
 
@@ -195,6 +197,7 @@ def _get_root_case(A: float, B: float, eps: float) -> int:
 get_root_case = numba.vectorize(
     [numba.int8(numba.float64, numba.float64, numba.float64)],
     nopython=True,
+    target="parallel",
     **_STATIC_FAST_COMPILE_ARGS,
 )(_get_root_case)
 """A piece-wise cosntant function dependent on non-dimensional cohesion and covolume,
@@ -244,6 +247,7 @@ def _characteristic_residual(Z: float, A: float, B: float) -> int:
 characteristic_residual = numba.vectorize(
     [numba.float64(numba.float64, numba.float64, numba.float64)],
     nopython=True,
+    target="parallel",
     **_STATIC_FAST_COMPILE_ARGS,
 )(_characteristic_residual)
 """Numpy-universal function with signature ``(float64, float64, float64) -> float64``.
@@ -590,10 +594,10 @@ logger.debug(f"{_import_msg} Compiling general compressibility factor ..")
 
 
 @numba.njit(
-    "int8(int8,float64,float64,float64)",
+    "int8(float64,float64,int8,float64)",
     **_STATIC_FAST_COMPILE_ARGS,
 )
-def _is_real_root(gaslike: int, A: float, B: float, eps: float) -> int:
+def _is_real_root(A: float, B: float, gaslike: int, eps: float) -> int:
     """Internal, scalar function for :data:`is_real_root`."""
     nroot = _get_root_case(A, B, eps)
     # super critical check
@@ -619,8 +623,9 @@ def _is_real_root(gaslike: int, A: float, B: float, eps: float) -> int:
 
 
 is_real_root = numba.vectorize(
-    [numba.int8(numba.int8, numba.float64, numba.float64, numba.float64)],
+    [numba.int8(numba.float64, numba.float64, numba.int8, numba.float64)],
     nopython=True,
+    target="parallel",
     **_STATIC_FAST_COMPILE_ARGS,
 )(_is_real_root)
 """Checks if a configuration of gas-like flag, cohesion and covolume would lead to a
@@ -629,7 +634,7 @@ real root.
 If not, an extension procedure was applied, i.e. the compressibility factor
 is not an actual root of the characteristic polynomial.
 
-Numpy-universal function with signature ``(int8, float64, float64, float64) -> int8``.
+Numpy-universal function with signature ``(float64, float64, int8, float64) -> int8``.
 Can be called with vectorized input.
 
 Note:
@@ -638,9 +643,9 @@ Note:
     ``eps`` doesn't have to be vectorized.
 
 Parameters:
-    gaslike: 1 if a gas-like root is assumed, 0 otherwise.
     A: Non-dimensional cohesion.
     B: Non-dimensional covolume.
+    gaslike: 1 if a gas-like root is assumed, 0 otherwise.
     eps: Numerical zero, used to determine the root case (see :data:`get_root_case`).
 
 Returns:
@@ -650,54 +655,18 @@ Returns:
 
 
 @numba.njit(
-    "float64(int8, float64, float64, float64, float64, float64)",
-    cache=NUMBA_CACHE,
+    "float64(float64,float64,int8,float64,float64,float64)",
+    cache=True,
 )
-def Z_c(
-    gaslike: int,
+def _Z_gen(
     A: float,
     B: float,
+    gaslike: int,
     eps: float,
     smooth_e: float,
     smooth_3: float,
 ) -> float:
-    """Computation of the (extended) compressibility factor depending on A and B.
-
-    NJIT-ed function with signature
-    ``(int8, float64, float64, float64, float64, float64) -> float64``
-
-    It determince the root case, depending on A and B, and applies the
-    correct formula to obtain the root.
-    It also computes the extended root, if it turns out to be required.
-
-    To check if a root is extended, see :func:`is_extended`
-
-    Parameters:
-        gaslike: 0 if the computation should return the liquid-like root, 1 for the
-            gas-like root.
-        A: Non-dimensional cohesion.
-        B: Non-dimensional covolume.
-        eps: ``default=1e-14``
-
-            Numerical zero, used to determine the root case
-            (see :func:`get_root_case_c`).
-        smooth_e: ``default=1e-2``
-
-            Width of smoothing area around borders between areas of different extension
-            procedures.
-
-            Set to 0. to turn of this moothing.
-        smooth_3: ``default=1e-3``
-
-            Width of area in the subcritical 2-phase/ 3-root region for smoothing
-            according Ben Gharbia et al. (2021)
-
-            Set to 0. to turn it of.
-
-    Returns:
-        The (possibly extended) compressibility factor.
-
-    """
+    """Internal, scalar function for :func:`compressibility_factor`."""
     AB_point = np.array([A, B])
 
     # super critical check
@@ -844,59 +813,67 @@ def Z_c(
         return Z_triple_c(A, B)
 
 
-@numba.guvectorize(
-    ["void(int8,float64,float64,float64,float64,float64,float64[:])"],
-    "(),(),(),(),(),()->()",
-    target="parallel",
+compressibility_factor = numba.vectorize(
+    [
+        numba.float64(
+            numba.float64,
+            numba.float64,
+            numba.int8,
+            numba.float64,
+            numba.float64,
+            numba.float64,
+        )
+    ],
     nopython=True,
-    cache=NUMBA_CACHE,
-)
-def _Z_u(
-    gaslike,
-    A,
-    B,
-    eps,
-    smooth_e,
-    smooth_3,
-    out,
-):
-    """Internal ufunc because it cannot have default arguments"""
-    out[0] = Z_c(gaslike, A, B, eps, smooth_e, smooth_3)
+    cache=True,
+    target="parallel",
+)(_Z_gen)
+"""Root-case insensitive computation of the (extended) compressibility factor depending
+on A and B.
 
+It determins the root case, depending on A and B, and applies the correct formula to
+obtain the root. It also computes the extended root, if it turns out to be required.
 
-def Z_u(
-    gaslike: bool | int,
-    A: float | np.ndarray,
-    B: float | np.ndarray,
-    eps: float = 1e-14,
-    smooth_e: float = 1e-2,
-    smooth_3: float = 1e-3,
-) -> float | np.ndarray:
-    """Numpy-universal function of :func:`Z_c`.
+To check if a root is extended, see :func:`is_extended`.
 
-    This is a shallow wrapper of the actual ufunc to allow default arguments.
+Numpy-universal function with signature
+``(float64, float64, int8, float64, float64, float64) -> float64``.
+Can be called with vectorized input.
 
-    """
-    # get correct shape independent of format of input
-    out = np.empty_like(A + B)
-    _Z_u(int(gaslike), A, B, eps, smooth_e, smooth_3, out)
-    return out
+Parameters:
+    A: Non-dimensional cohesion.
+    B: Non-dimensional covolume.
+    gaslike: 0 if the computation should return the liquid-like root, 1 for the
+        gas-like root.
+    eps: Numerical zero, used to determine the root case
+        (see :func:`get_root_case`).
+    smooth_e: Width of smoothing area around borders between areas of different
+        extension procedures, e.g. ``1e-2``.
+        Set to 0. to turn of this moothing.
+    smooth_3: Width of area in the subcritical 2-phase/ 3-root region for smoothing
+        according Ben Gharbia et al. (2021) (e.g. ``1e-4``).
+        Set to 0. to turn it of.
+
+Returns:
+    The (extended) compressibility factor.
+
+"""
 
 
 @numba.njit(
-    "float64[:](int8, float64, float64, float64, float64, float64)",
-    cache=NUMBA_CACHE,
+    "float64[:](float64,float64,int8,float64,float64,float64)",
+    cache=True,
 )
-def d_Z_c(
-    gaslike: int,
+def _d_Z_gen(
     A: float,
     B: float,
+    gaslike: int,
     eps: float,
     smooth_e: float,
     smooth_3: float,
 ) -> np.ndarray:
-    """Analogoues to :func:`Z_c`, only returns an array instead of the root.
-    The array contains the derivative w.r.t. ``A`` and ``B`` of the root."""
+    """Analogoues to :func:`_Z_gen`, only returns the derivatives of the compressibility
+    factor w.r.t. ``A`` and ``B`` in an array."""
 
     AB_point = np.array([A, B])
 
@@ -1045,16 +1022,16 @@ def d_Z_c(
 
 
 @numba.guvectorize(
-    ["void(int8,float64,float64,float64,float64,float64,float64[:],float64[:])"],
+    ["void(float64,float64,int8,float64,float64,float64,float64[:],float64[:])"],
     "(),(),(),(),(),(),(m)->(m)",
-    target="parallel",
     nopython=True,
-    cache=NUMBA_CACHE,
+    target="parallel",
+    cache=True,
 )
-def _d_Z_u(
-    gaslike,
+def _d_Z_gen_gu(
     A,
     B,
+    gaslike,
     eps,
     smooth_e,
     smooth_3,
@@ -1065,20 +1042,23 @@ def _d_Z_u(
     # dummy is required to get the dimension of of the derivative
     # per row in vectorized computations (m in layout arg to guvectorize)
     # https://stackoverflow.com/questions/66052723/bad-token-in-signature-with-numba-guvectorize
-    out[:] = d_Z_c(gaslike, A, B, eps, smooth_e, smooth_3)
+    out[:] = _d_Z_gen(A, B, gaslike, eps, smooth_e, smooth_3)
 
 
-def d_Z_u(
-    gaslike: bool | int,
+def compressibility_factor_dAB(
     A: float | np.ndarray,
     B: float | np.ndarray,
+    gaslike: bool | int,
     eps: float = 1e-14,
     smooth_e: float = 1e-2,
     smooth_3: float = 1e-3,
 ) -> float | np.ndarray:
-    """Numpy-universal function of :func:`d_Z_c`.
+    """Analogoues to :func:`compressibility_factor`, only returns the derivatives of the
+    factor w.r.t. ``A`` and ``B`` in an array.
 
-    This is a shallow wrapper of the actual ufunc to allow default arguments.
+    Note:
+        Due to the output being in general a 2D array, ``numba.guvectorized`` due to
+        limited capabilities of ``numba.vectorize``.
 
     """
     # get correct shape independent of format of input
@@ -1087,13 +1067,16 @@ def d_Z_u(
         out = np.empty((out_.shape[0], 2))
     else:
         out = np.empty((1, 2), dtype=np.float64)
-    _d_Z_u(int(gaslike), A, B, eps, smooth_e, smooth_3, out)
-    # TODO in the case of scalar input (not vectorized)
-    # decide if return arg has shape (1,n) or (n,)
+    _d_Z_gen_gu(A, B, gaslike, eps, smooth_e, smooth_3, out)
+    if out.shape[0] == 1:
+        out = out.reshape((2,))
     return out
 
 
-def compile_Z_mix(
+# endregion
+
+
+def _compile_Z_mix(
     A_c: Callable[[float, float, np.ndarray], float],
     B_c: Callable[[float, float, np.ndarray], float],
 ) -> Callable[[int, float, float, np.ndarray, float, float, float], float]:
@@ -1124,22 +1107,22 @@ def compile_Z_mix(
     # )
     @numba.njit
     def Z_mix(
-        gaslike: int,
         p: float,
         T: float,
         X: np.ndarray,
+        gaslike: int,
         eps: float = 1e-14,
         smooth_e: float = 1e-2,
         smooth_3: float = 1e-3,
     ) -> float:
         A_ = A_c(p, T, X)
         B_ = B_c(p, T, X)
-        return Z_c(gaslike, A_, B_, eps, smooth_e, smooth_3)
+        return _Z_gen(A_, B_, gaslike, eps, smooth_e, smooth_3)
 
     return Z_mix
 
 
-def compile_d_Z_mix(
+def _compile_d_Z_mix(
     A_c: Callable[[float, float, np.ndarray], float],
     B_c: Callable[[float, float, np.ndarray], float],
     d_A_c: Callable[[float, float, np.ndarray], np.ndarray],
@@ -1174,10 +1157,10 @@ def compile_d_Z_mix(
     # )
     @numba.njit
     def d_Z_mix(
-        gaslike: int,
         p: float,
         T: float,
         X: np.ndarray,
+        gaslike: int,
         eps: float = 1e-14,
         smooth_e: float = 1e-2,
         smooth_3: float = 1e-3,
@@ -1186,13 +1169,10 @@ def compile_d_Z_mix(
         B_ = B_c(p, T, X)
         dA = d_A_c(p, T, X)
         dB = d_B_c(p, T, X)
-        dz = d_Z_c(gaslike, A_, B_, eps, smooth_e, smooth_3)
+        dz = _d_Z_gen(A_, B_, gaslike, eps, smooth_e, smooth_3)
         return dz[0] * dA + dz[1] * dB
 
     return d_Z_mix
-
-
-# endregion
 
 
 def _compile_fugacities(
@@ -1323,9 +1303,9 @@ class PengRobinsonCompiler(EoSCompiler):
         d_A_c = _compile_thd_function_derivatives(self.symbolic.d_A_f)
         logger.debug("Compiling symbolic functions 4/14")
 
-        Z_mix_c = compile_Z_mix(A_c, B_c)
+        Z_mix_c = _compile_Z_mix(A_c, B_c)
         logger.debug("Compiling symbolic functions 5/14")
-        d_Z_mix_c = compile_d_Z_mix(A_c, B_c, d_A_c, d_B_c)
+        d_Z_mix_c = _compile_d_Z_mix(A_c, B_c, d_A_c, d_B_c)
         logger.debug("Compiling symbolic functions 6/14")
 
         phi_c = _compile_fugacities(self.symbolic.phi_f)
@@ -1392,7 +1372,7 @@ class PengRobinsonCompiler(EoSCompiler):
 
             prearg[0] = A_c(p, T, xn)
             prearg[1] = B_c(p, T, xn)
-            prearg[2] = Z_c(phasetype, p, T, xn)
+            prearg[2] = Z_c(p, T, xn, phasetype)
 
             return prearg
 
@@ -1417,7 +1397,7 @@ class PengRobinsonCompiler(EoSCompiler):
 
             prearg[0:d] = dA_c(p, T, xn)
             prearg[d : 2 * d] = dB_c(p, T, xn)
-            prearg[2 * d : 3 * d] = dZ_c(phasetype, p, T, xn)
+            prearg[2 * d : 3 * d] = dZ_c(p, T, xn, phasetype)
 
             return prearg
 

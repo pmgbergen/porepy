@@ -69,7 +69,7 @@ def flash(mixture, eos) -> ppc.CompiledUnifiedFlash:
 
 
 # @pytest.mark.skip("EoS compilation takes too much time as of now")
-def test_compressibility_from_eos(eos: ppcpr.PengRobinsonCompiler):
+def test_compressibility_factor_from_eos(eos: ppcpr.PengRobinsonCompiler):
     """The only (known) double root for the characteristic polynomial
     (2 compressibility factors) is the point where cohesion and co-volume are zero."""
     ncomp = eos._nc
@@ -102,13 +102,13 @@ def test_compressibility_from_eos(eos: ppcpr.PengRobinsonCompiler):
 
     # The tailored computations from EoS should give the same result as the formulas
     # dependent on A, B
-    assert np.abs(Z_c(1, p, T, x, tol, 0.0, 0.0) - z_gas) < tol
-    assert np.abs(Z_c(0, p, T, x, tol, 0.0, 0.0) - z_liq) < tol
+    assert np.abs(Z_c(p, T, x, True, tol, 0.0, 0.0) - z_gas) < tol
+    assert np.abs(Z_c(p, T, x, False, tol, 0.0, 0.0) - z_liq) < tol
     # for testing derivatives, extend dAB to dptx by chain rule
     d_test = d_z_gas[0] * d_A + d_z_gas[1] * d_B
-    assert np.linalg.norm(d_Z_c(1, p, T, x, tol, 0.0, 0.0) - d_test) < tol
+    assert np.linalg.norm(d_Z_c(p, T, x, True, tol, 0.0, 0.0) - d_test) < tol
     d_test = d_z_liq[0] * d_A + d_z_liq[1] * d_B
-    assert np.linalg.norm(d_Z_c(0, p, T, x, tol, 0.0, 0.0) - d_test) < tol
+    assert np.linalg.norm(d_Z_c(p, T, x, False, tol, 0.0, 0.0) - d_test) < tol
 
 
 def test_compressibility_factor_double_root():
@@ -140,10 +140,10 @@ def test_compressibility_factor_double_root():
 
     # The general calculation of the compressibility factor should give the
     # same result as the formulas
-    assert np.abs(ppcpr.eos_c.Z_c(1, A, B, tol, 0.0, 0.0) - z_gas) < tol
-    assert np.abs(ppcpr.eos_c.Z_c(0, A, B, tol, 0.0, 0.0) - z_liq) < tol
-    assert np.linalg.norm(ppcpr.eos_c.d_Z_c(1, A, B, tol, 0.0, 0.0) - d_z_gas) < tol
-    assert np.linalg.norm(ppcpr.eos_c.d_Z_c(0, A, B, tol, 0.0, 0.0) - d_z_liq) < tol
+    assert np.abs(ppcpr.eos_c._Z_gen(A, B, True, tol, 0.0, 0.0) - z_gas) < tol
+    assert np.abs(ppcpr.eos_c._Z_gen(A, B, False, tol, 0.0, 0.0) - z_liq) < tol
+    assert np.linalg.norm(ppcpr.eos_c._d_Z_gen(A, B, True, tol, 0.0, 0.0) - d_z_gas) < tol
+    assert np.linalg.norm(ppcpr.eos_c._d_Z_gen(A, B, False, tol, 0.0, 0.0) - d_z_liq) < tol
 
 
 def test_compressibility_factor_triple_root():
@@ -170,36 +170,10 @@ def test_compressibility_factor_triple_root():
     assert nroot == 0
 
     # Assert general compuations also give the same result, for liquid and gas-like
-    assert (
-        np.abs(
-            ppcpr.eos_c.Z_c(
-                1,
-                A,
-                B,
-                tol,
-                0.0,
-                0.0,
-            )
-            - z
-        )
-        < tol
-    )
-    assert (
-        np.abs(
-            ppcpr.eos_c.Z_c(
-                0,
-                A,
-                B,
-                tol,
-                0.0,
-                0.0,
-            )
-            - z
-        )
-        < tol
-    )
-    assert np.linalg.norm(ppcpr.eos_c.d_Z_c(1, A, B, tol, 0.0, 0.0) - d_z) < tol
-    assert np.linalg.norm(ppcpr.eos_c.d_Z_c(0, A, B, tol, 0.0, 0.0) - d_z) < tol
+    assert np.abs(ppcpr.eos_c._Z_gen(A, B, True, tol, 0.0, 0.0,) - z) < tol
+    assert np.abs(ppcpr.eos_c._Z_gen(A, B, False, tol, 0.0, 0.0,) - z) < tol
+    assert np.linalg.norm(ppcpr.eos_c._d_Z_gen(A, B, True, tol, 0.0, 0.0) - d_z) < tol
+    assert np.linalg.norm(ppcpr.eos_c._d_Z_gen(A, B, False, tol, 0.0, 0.0) - d_z) < tol
 
 
 def test_compressibility_factors_are_roots():
@@ -217,19 +191,25 @@ def test_compressibility_factors_are_roots():
     A, B = np.meshgrid(np.arange(0, 1, steps), np.arange(0, 1, steps))
     A = A.flatten()
     B = B.flatten()
-    Z_liq = ppcpr.eos_c.Z_u(0, A, B, tol, 0.0, 0.0)
-    not_extended = ppcpr.eos_c.is_real_root(np.zeros_like(A, dtype=np.int8), A, B, tol)
+    Z_liq = ppcpr.eos_c.compressibility_factor(A, B, False, tol, 0.0, 0.0)
+    not_extended_liq = ppcpr.eos_c.is_real_root(A, B, False, tol)
     residual = ppcpr.eos_c.characteristic_residual(
-        Z_liq[not_extended], A[not_extended], B[not_extended]
+        Z_liq[not_extended_liq], A[not_extended_liq], B[not_extended_liq]
     )
     assert np.all(np.abs(residual) < tol)
 
-    Z_gas = ppcpr.eos_c.Z_u(1, A, B, tol, 0.0, 0.0)
-    not_extended = ppcpr.eos_c.is_real_root(np.ones_like(A, dtype=np.int8), A, B, tol)
+    Z_gas = ppcpr.eos_c.compressibility_factor(A, B, True, tol, 0.0, 0.0)
+    not_extended_gas = ppcpr.eos_c.is_real_root(A, B, True, tol)
     residual = ppcpr.eos_c.characteristic_residual(
-        Z_gas[not_extended], A[not_extended], B[not_extended]
+        Z_gas[not_extended_gas], A[not_extended_gas], B[not_extended_gas]
     )
     assert np.all(np.abs(residual) < tol)
+
+    # where neither liquid root nor gas root are extended (2-phase), the liquid root
+    # must be smaller than the gas root.
+    # NOTE This may in future also be desirable for extended roots
+    not_exteded = not_extended_liq & not_extended_gas
+    assert np.all(Z_liq[not_exteded] <= Z_gas[not_exteded])
 
 
 # @pytest.mark.skip("FLash compilation takes too much time as of now")
