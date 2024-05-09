@@ -20,9 +20,16 @@ References:
 
 from __future__ import annotations
 
-import logging
+import os
 
-logging.basicConfig(level=logging.DEBUG)
+os.environ["NUMBA_DISABLE_JIT"] = "1"
+
+import logging
+import time
+
+from matplotlib import pyplot as plt
+
+logging.basicConfig(level=logging.INFO)
 numba_logger = logging.getLogger("numba")
 numba_logger.setLevel(logging.WARNING)
 
@@ -34,7 +41,7 @@ import porepy as pp
 import porepy.composite as ppc
 import porepy.models.compositional_flow_with_equilibrium as cfle
 from porepy.applications.md_grids.domains import nd_cube_domain
-from porepy.composite.peng_robinson import PengRobinsonCompiler
+import porepy.composite.peng_robinson as ppcpr
 
 
 class SoereideMixture:
@@ -53,7 +60,7 @@ class SoereideMixture:
     def get_phase_configuration(
         self, components: Sequence[ppc.Component]
     ) -> Sequence[tuple[ppc.EoSCompiler, int, str]]:
-        eos = PengRobinsonCompiler(components)
+        eos = ppcpr.PengRobinsonCompiler(components)
         return [(eos, 0, "liq"), (eos, 1, "gas")]
 
 
@@ -67,7 +74,7 @@ class CompiledFlash(ppc.FlashMixin):
 
     def set_up_flasher(self) -> None:
         eos = self.fluid_mixture.reference_phase.eos
-        eos = cast(PengRobinsonCompiler, eos)  # cast type
+        eos = cast(ppcpr.PengRobinsonCompiler, eos)  # cast type
 
         flash = ppc.CompiledUnifiedFlash(self.fluid_mixture, eos)
 
@@ -352,7 +359,118 @@ params = {
     "time_manager": time_manager,
     "max_iterations": 80,
     "nl_convergence_tol": 1e-4,
+    "prepare_simulation": False,
 }
 model = GeothermalFlow(params)
+
+start = time.time()
+model.prepare_simulation()
+print(f"Finished prepare_simulation in {time.time() - start} seconds")
+
+F = model.flash.residuals["v-h"]
+DF = model.flash.jacobians["v-h"]
+F = model.flash.residuals["p-h"]
+DF = model.flash.jacobians["p-h"]
+
+X0 = np.array(  # v-h
+    [
+        0.01,  # z_co2
+        3.267067077646246e-05,  # v
+        -18911.557739855507,  # h
+        0.0,  # s_g
+        15000000.37937989,  # p
+        575.0000000014545,  # T
+        0.0,  # y_g
+        0.99,  # x_h2o_l
+        0.01,  # x_co2_l
+        0.7441053921417927,  # x_h2o_g
+        0.16487463968601462,  # x_co2_g
+    ]
+)
+
+X0 = np.array(  # p-h
+    [
+        0.01,  # z_co2
+        -26944.248743227625,  # h
+        6789473.684210526,  # p
+        499.99989708191384,  # T
+        0.007915211517683818,  # y_g
+        0.9942155515034707,  # x_h2o_l
+        0.005784448496529226,  # x_co2_l
+        0.46162695648652396,  # x_h2o_g
+        0.5383730435134759,  # x_co2_g
+    ]
+)
+
+
+F0 = F(X0)
+DF0 = DF(X0)
+
+p_idx = 4
+T_idx = 5
+
+print("Residual: ", np.linalg.norm(F(X0)))
+
+N = 10
+delta_err = []
+deltas = []
+
+var_delta = [
+    ("s_g", 0.01),
+    ("p", 100),
+    ("T", 1),
+    ("y", 0.01),
+    ("xh20_l", 0.01),
+    ("xco2_l", 0.01),
+    ("xh2o_g", 0.01),
+    ("xco2_g", 0.01),
+]
+var_delta = [
+    # ('s_g', 0.01),
+    # ('p', 100),
+    ("T", 1),
+    ("y", 0.01),
+    ("xh20_l", 0.01),
+    ("xco2_l", 0.01),
+    ("xh2o_g", 0.01),
+    ("xco2_g", 0.01),
+]
+MSG = []
+ERRORS = []
+
+for i, vd in enumerate(var_delta):
+    var, delta = vd
+
+    delta_err = []
+    deltas = []
+
+    for k in range(1, N + 1):
+        delta_x = np.zeros_like(X0)
+        delta_x[3 + i] = k * delta  # +3 because of gen arg
+        deltas.append(k * delta)
+
+        F_k = F(X0 + delta_x)
+        F_t = F0 + DF0 @ delta_x[3:]
+
+        err = np.linalg.norm(F_k - F_t)
+        delta_err.append(err)
+
+    log_err = np.diff(np.log(np.array(delta_err)))
+    log_dx = np.diff(np.log(np.array(deltas)))
+
+    eoc = log_err / log_dx
+    MSG.append(f"SLOPE {var}: mean {np.mean(eoc)}\n{eoc}")
+    ERRORS.append(f"ERRORS {var}: mean {np.mean(delta_err)}\n{delta_err}")
+
+    plt.plot(deltas, delta_err)
+    fig = plt.get_current_fig_manager()
+    fig.set_window_title(var)
+    plt.show()
+
+for m1, m2 in zip(MSG, ERRORS):
+    print("")
+    print(m1)
+    print(m2)
+    print("")
 pp.run_time_dependent_model(model, params)
 pp.plot_grid(model.mdg, "pressure", figsize=(10, 8), plot_2d=True)
