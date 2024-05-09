@@ -1,26 +1,17 @@
 """This module contains compiled versions of the Peng-Robinson EoS functionalities,
-and related, required functions.
+and related functions.
 
 The functions provided here are building on lambdified expressions in
 :mod:`~porepy.composite.peng_robinson.eos_s`.
 
 The naming convention introduced there is extended here:
 
-- ``_c``: NJIT compiled callable with a specific signature.
-- ``_u``: Numpy-universal version (ufunc) of the respective ``_c`` callable, for
-  vectorized evaluation.
+- ``*_c``: NJIT compiled callable with a specific signature.
 
 To extend the example based on the compressibility factor ``Z``:
 
-- ``Z_c`` denotes a compiled, scalar callable with a signature reflexting the dependency
-  of ``Z_e``.
-- ``Z_u`` denotes the numpy-universal function, a vectorized version of ``Z_c`` since
-  a fast and efficient evaluation of the compressibility factor is deemed necessary
-  (e.g. in flow problems to compute fluid properties)
-- ``d_Z_u`` denotes the numpy universal function of the total derivative of ``Z``,
-  w.r.t. to the dependencies given in the call signature of ``Z_c``
-- ``dp_Z_c`` denotes a compiled function returning the derivative of ``Z`` w.r.t.
-  pressure ``p``, with the same call signature as ``Z_c``.
+- ``Z_c`` denotes a scalar callable, compiled from ``Z_f``, with a signature reflexting
+  the dependency of ``Z_e``.
 
 Important:
     Importing this module for the first time triggers numba NJIT compilation with
@@ -31,11 +22,10 @@ Important:
     Several functions are also implemented as only Python Callables, and then NJIT-ed.
 
 Note:
-    - We decided to append ``_c`` to the name of the compiled version of a function,
-    which takes non-vectorized input.
-    - ``_u`` denotes a numpy-universal function. These versions have been implemented
-    for some quantities, where fast, vectorized evaluation is deemed required.
-    Not all functions have a ``_u`` version.
+    ``*_c``-functions are in general scalar. Vectorized versions using numpy-universal
+    vectorization and parallelization have in general no suffix. They are also only
+    meant to be called from the Python interpreter (not inside other compiled
+    functions).
 
 """
 
