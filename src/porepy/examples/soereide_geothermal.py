@@ -39,9 +39,9 @@ import numpy as np
 
 import porepy as pp
 import porepy.composite as ppc
+import porepy.composite.peng_robinson as ppcpr
 import porepy.models.compositional_flow_with_equilibrium as cfle
 from porepy.applications.md_grids.domains import nd_cube_domain
-import porepy.composite.peng_robinson as ppcpr
 
 
 class SoereideMixture:
