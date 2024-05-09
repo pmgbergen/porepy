@@ -698,7 +698,7 @@ class CompiledUnifiedFlash(Flash):
 
             # product rule: x * dphi
             d_xphi_j = (d_phi_j.T * X).T
-            # + phi * dx  (minding the first two columns which contain the p-T derivs)
+            # + phi * dx  (minding the first two columns which contain the dp dT)
             d_xphi_j[:, 2:] += np.diag(phi_j)
 
             return d_xphi_j
@@ -776,7 +776,6 @@ class CompiledUnifiedFlash(Flash):
 
             # for better conditioning, normalize enthalpy constraint
             h_constr_res /= h
-            # h_constr_res /= T**2
 
             return h_constr_res
 
@@ -808,13 +807,10 @@ class CompiledUnifiedFlash(Flash):
                 d_h_c(prearg_res[0], prearg_jac[0], p, T, xn[0]), x[0]
             )
             # contribution to p- and T-derivative of reference phase
-            h_constr_jac[0] = y[0] * d_h_0[0]
-            h_constr_jac[1] = y[0] * d_h_0[1]
+            h_constr_jac[:2] = y[0] * d_h_0[:2]
             # y_0 = 1 - y_1 - y_2 ..., contribution is below
             # derivative w.r.t. composition in reference phase
             h_constr_jac[2 + nphase - 1 : 2 + nphase - 1 + ncomp] = y[0] * d_h_0[2:]
-
-            h_mix = y[0] * h_0
 
             for j in range(1, nphase):
                 h_j = h_c(prearg_res[j], p, T, xn[j])
@@ -822,8 +818,7 @@ class CompiledUnifiedFlash(Flash):
                     d_h_c(prearg_res[j], prearg_jac[j], p, T, xn[j]), x[j]
                 )
                 # contribution to p- and T-derivative of phase j
-                h_constr_jac[0] += y[j] * d_h_j[0]
-                h_constr_jac[1] += y[j] * d_h_j[1]
+                h_constr_jac[:2] += y[j] * d_h_j[:2]
 
                 # derivative w.r.t. y_j
                 h_constr_jac[1 + j] = h_j - h_0  # because y_0 = 1 - y_1 - y_2 ...
@@ -833,16 +828,8 @@ class CompiledUnifiedFlash(Flash):
                     2 + nphase - 1 + j * ncomp : 2 + nphase - 1 + (j + 1) * ncomp
                 ] = (y[j] * d_h_j[2:])
 
-                h_mix += y[j] * h_j
-
-            # (h - h_mix) / T^2
-            # h_constr_jac /= T**2
-            # h_constr_jac[1] -= 2. / T**3 * (h_mix)
-
             # constraints is h_target - h_mix
             h_constr_jac *= -1.0
-            # account for T derivative of 1/T^2 (product rule)
-            # h_constr_jac[1] += -2. / T**3 * h
 
             # for better conditioning
             h_constr_jac /= h
@@ -1083,8 +1070,7 @@ class CompiledUnifiedFlash(Flash):
 
             d_h_constr /= T**2
             d_h_constr[1] += 2.0 / T**3 * h_constr_res_c(prearg_res, p, h, T, y, xn)
-            jac[-(nphase + 1), 0] = d_h_constr[1]
-            jac[-(nphase + 1), 1:] = d_h_constr[2:]
+            jac[-(nphase + 1)] = d_h_constr[1:]  # exclude dp
 
             return jac
 
