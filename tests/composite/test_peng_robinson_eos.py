@@ -22,10 +22,9 @@ import porepy.composite as ppc
 from porepy.composite import peng_robinson as ppcpr
 
 
-@pytest.fixture(scope="module")
-def eos() -> ppcpr.PengRobinsonCompiler:
-    """The fixture for this series of tests is a 2-component mixture with water and CO2."""
-
+@pytest.fixture(scope='module')
+def components() -> tuple[ppcpr.H2O, ppcpr.CO2]:
+    """A 2-component mixture with Water and CO2"""
     chems = ["H2O", "CO2"]
     species = ppc.load_species(chems)
     components = [
@@ -33,9 +32,40 @@ def eos() -> ppcpr.PengRobinsonCompiler:
         ppcpr.CO2.from_species(species[1]),
     ]
 
-    eos = ppcpr.PengRobinsonCompiler(components)
+    return tuple(components)
+
+
+@pytest.fixture(scope="module")
+def eos(components) -> ppcpr.PengRobinsonCompiler:
+    """The fixture for this series of tests is a 2-component mixture with water and CO2."""
+
+    eos = ppcpr.PengRobinsonCompiler(list(components))
     eos.compile()
     return eos
+
+
+@pytest.fixture(scope='module')
+def mixture(components, eos) -> ppc.Mixture:
+    """Returns the 2-phase, 2-component mixture class used in this series of tests."""
+
+    phases = [ppc.Phase(eos, 0, 'L'), ppc.Phase(eos, 1, 'G')]
+    for p in phases:
+        p.components = components
+
+    mixture = ppc.Mixture(components, phases)
+
+    return mixture
+
+
+@pytest.fixture(scope='module')
+def flash(mixture, eos) -> ppc.CompiledUnifiedFlash:
+    """Compiled, unified flash instance based on the compiled PR EoS and the
+    mixture"""
+
+    flash_= ppc.CompiledUnifiedFlash(mixture, eos)
+    flash_.compile()
+
+    return flash_
 
 
 # @pytest.mark.skip("EoS compilation takes too much time as of now")
@@ -201,5 +231,145 @@ def test_compressibility_factors_are_roots():
     )
     assert np.all(np.abs(residual) < tol)
 
+
+# @pytest.mark.skip("FLash compilation takes too much time as of now")
+@pytest.mark.parametrize(
+    ['flash_type', 'X0', 'var_idx_delta'],
+    [
+        (
+            'p-T',
+            np.array(  # p-T
+                [
+                    0.01,  # z_co2
+                    9683544.303797469,  # p
+                    450.0,  # T
+                    0.003224682234577669,  # y_g
+                    0.9927348925274755,  # x_h2o_l
+                    0.007265107472524585,  # x_co2_l
+                    0.14462263564478728,  # x_h2o_g
+                    0.8553773643552127,  # x_co2_g
+                ]
+            ),
+            [
+                ('y_g', 3, 0.01),
+                ('x_h2o_l', 4, 0.01),
+                ('x_co2_l', 5, 0.01),
+                ('x_h2o_g', 6, 0.01),
+                ('x_co2_g', 7, 0.01)
+            ]
+        ),
+        (
+            'p-h',
+            np.array(  # p-h
+                [
+                    0.01,  # z_co2
+                    -26944.248743227625,  # h
+                    6789473.684210526,  # p
+                    499.99989708191384,  # T
+                    0.007915211517683818,  # y_g
+                    0.9942155515034707,  # x_h2o_l
+                    0.005784448496529226,  # x_co2_l
+                    0.46162695648652396,  # x_h2o_g
+                    0.5383730435134759,  # x_co2_g
+                ]
+            ),
+            [
+                ('T', 3, 1),
+                ('y_g', 4, 0.01),
+                ('x_h2o_l', 5, 0.01),
+                ('x_co2_l', 6, 0.01),
+                ('x_h2o_g', 7, 0.01),
+                ('x_co2_g', 8, 0.01)
+            ]
+        ),
+        (
+            'v-h',
+            np.array(  # v-h
+                [
+                    0.01,  # z_co2
+                    3.267067077646246e-05,  # v
+                    -18911.557739855507,  # h
+                    0.0,  # s_g
+                    15000000.37937989,  # p
+                    575.0000000014545,  # T
+                    0.0,  # y_g
+                    0.99,  # x_h2o_l
+                    0.01,  # x_co2_l
+                    0.7441053921417927,  # x_h2o_g
+                    0.16487463968601462,  # x_co2_g
+                ]
+            ),
+            [
+                ("s_g", 3, 0.01),
+                ("p", 4, 100),
+                ("T", 5, 1),
+                ("y", 6, 0.01),
+                ("xh20_l", 7, 0.01),
+                ("xco2_l", 8, 0.01),
+                ("xh2o_g", 9, 0.01),
+                ("xco2_g", 10, 0.01),
+            ]
+        ),
+    ],
+)
+def test_flash_system_using_pr_eos(
+    flash_type, X0, var_idx_delta, flash: ppc.CompiledUnifiedFlash
+):
+    """Computes the Flash equations (Jacobian and residual) and checks that the
+    Taylor expansion for each unknown is approximately of second order.
+    
+    Taylor expansion is calculated for each flash type, around an argument ``X0``,
+    which contains the solution of the flash.
+
+    ``var_idx_delta`` contains the name, the index and the delta for the expansion,
+    for each variable in respective flash type to be tested.
+
+    """
+
+    tol = 1e-14  # numerical zero for errors
+
+    N = 10  # Number of steps n * delta in Taylor expansion for each unknown
+
+    minimal_order = 1.65  # Lower bound for order to be reached by Taylor expansion
+    # NOTE the theoretical order is 2, but this lower bound is required because N
+    # is used for each variable and for some of them this is far away from X0
+
+    F = flash.residuals[flash_type]
+    DF = flash.jacobians[flash_type]
+
+    F0 = F(X0)
+    DF0 = DF(X0)
+
+    for var, i, delta in var_idx_delta:
+    
+        delta_err = []
+        deltas = []
+
+        for k in range(1, N + 1):
+            delta_x = np.zeros_like(X0)
+            delta_x[i] = k * delta  # +3 because of gen arg
+            deltas.append(k * delta)
+
+            F_k = F(X0 + delta_x)
+            F_t = F0 + DF0 @ delta_x[3:]
+
+            err = np.linalg.norm(F_k - F_t)
+            delta_err.append(err)
+
+        log_err = np.diff(np.log(np.array(delta_err)))
+        log_dx = np.diff(np.log(np.array(deltas)))
+
+        # Estimated order of convergence using the mean of delta_err / delta_dx for each
+        # step
+        eoc = log_err / log_dx
+        eoc_mean = np.mean(eoc)
+        if np.isnan(eoc_mean):  # this can happen if the error is numerically zero
+            assert np.all(np.abs(np.array(delta_err)) < tol)
+        else:
+            assert (
+                eoc_mean >= minimal_order
+            ), f"Failure to reach EOC goal for variable {var} for flash {flash_type}"
+
+        assert np.mean(eoc)
 
 del os.environ["NUMBA_DISABLE_JIT"]
