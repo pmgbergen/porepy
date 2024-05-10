@@ -1175,30 +1175,30 @@ class TimeDependentOperator(Operator):
 
         """
 
-        self._time_step_index: int = -1
-        """Time step index, starting with -1 (current time) and increasing for previous
+        self._time_step_index: int = 0
+        """Time step index, starting with 0 (current time) and increasing for previous
         time steps."""
 
     @property
     def is_previous_time(self) -> bool:
         """True, if the operator represents a previous time-step."""
-        return True if self._time_step_index > -1 else False
+        return True if self._time_step_index > 0 else False
 
     @property
-    def time_step_index(self) -> Optional[int]:
+    def time_step_index(self) -> int:
         """Returns the time step index this instance represents.
 
-        - None indicates this is an operator at the current time step
-        - 0 represents the first previous time step
-        - 1 represents the next time step further back in time
+        - 0 indicates this is an operator at the current time step
+        - 1 represents the first previous time step
+        - 2 represents the next time step further back in time
         - ...
 
         Note:
-            The public time step index is ``None``, if the operator represents the
-            current time.
+            Time-dependent operators with time step index 0 will always return the
+            value at the most recent iterate.
 
         """
-        return self._time_step_index if self._time_step_index >= 0 else None
+        return self._time_step_index
 
     def previous_timestep(
         self: _TimeDependentOperator, steps: int = 1
@@ -1537,6 +1537,11 @@ class TimeDependentDenseArray(TimeDependentOperator):
 
         """
         vals = []
+        if self.is_previous_time:
+            index_kwarg = {"time_step_index": self.time_step_index}
+        else:
+            index_kwarg = {"iterate_index": 0}
+
         for g in self._domains:
             if self._domain_type == "subdomains":
                 assert isinstance(g, pp.Grid)
@@ -1549,18 +1554,10 @@ class TimeDependentDenseArray(TimeDependentOperator):
                 data = mdg.boundary_grid_data(g)
             else:
                 raise ValueError(f"Unknown grid type: {self._domain_type}.")
-            if self.is_previous_time:
-                vals.append(
-                    pp.get_solution_values(
-                        name=self._name, data=data, time_step_index=self.time_step_index
-                    )
-                )
-            else:
-                # Time dependent dense arrays have only 1 iterate value at the current
-                # time
-                vals.append(
-                    pp.get_solution_values(name=self._name, data=data, iterate_index=0)
-                )
+
+            vals.append(
+                pp.get_solution_values(name=self._name, data=data, **index_kwarg)
+            )
 
         if len(vals) > 0:
             # Normal case: concatenate the values from all grids

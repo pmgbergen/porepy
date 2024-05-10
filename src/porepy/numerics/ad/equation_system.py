@@ -759,7 +759,17 @@ class EquationSystem:
 
             # Shift old values as requested.
             num_stored = len(data[location][name])
-            for i in range(num_stored - 1, 0, -1):
+            if location == pp.ITERATE_SOLUTIONS:
+                range_ = range(num_stored - 1, 0, -1)
+            # previous time step values start with index 1.
+            # NOTE this functionality should be in _ad_utils, together with set and get
+            elif location == pp.TIME_STEP_SOLUTIONS:
+                range_ = range(num_stored, 1, -1)
+            else:
+                raise NotImplementedError(
+                    f"Shift values not implemented for location {location}"
+                )
+            for i in range_:
                 data[location][name][i] = data[location][name][i - 1].copy()
 
     def _get_data(

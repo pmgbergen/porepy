@@ -41,7 +41,7 @@ def test_ad_function():
     vals = np.ones(mdg.num_subdomain_cells())
     eqsys.set_variable_values(vals, [var], iterate_index=0)
     eqsys.set_variable_values(vals * 2, [var], iterate_index=1)
-    eqsys.set_variable_values(vals * 10, [var], time_step_index=0)
+    eqsys.set_variable_values(vals * 10, [var], time_step_index=1)
 
     # test that the function without call with operator is inoperable
     for op in ['*', '/', '+', '-', '**', '@']:
