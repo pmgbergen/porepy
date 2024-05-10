@@ -2793,6 +2793,8 @@ class SolutionStrategyCF(
         """After calling the parent method, the global solution is calculated by Schur
         expansion."""
         sol = super().solve_linear_system()
+
+        print("norm delta x: ", np.linalg.norm(sol))
         reduce_linear_system_q = self.params.get("reduce_linear_system_q", False)
         if reduce_linear_system_q:
             sol = self.equation_system.expand_schur_complement_solution(sol)

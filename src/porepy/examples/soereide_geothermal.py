@@ -20,9 +20,16 @@ References:
 
 from __future__ import annotations
 
-import logging
+import os
 
-logging.basicConfig(level=logging.DEBUG)
+os.environ["NUMBA_DISABLE_JIT"] = "1"
+
+import logging
+import time
+
+from matplotlib import pyplot as plt
+
+logging.basicConfig(level=logging.INFO)
 numba_logger = logging.getLogger("numba")
 numba_logger.setLevel(logging.WARNING)
 
@@ -32,9 +39,9 @@ import numpy as np
 
 import porepy as pp
 import porepy.composite as ppc
+import porepy.composite.peng_robinson as ppcpr
+import porepy.models.compositional_flow_with_equilibrium as cfle
 from porepy.applications.md_grids.domains import nd_cube_domain
-from porepy.composite.peng_robinson import PengRobinsonCompiler
-from porepy.models.compositional_flow_with_equilibrium import CFLEModelMixin_ph
 
 
 class SoereideMixture:
@@ -53,7 +60,7 @@ class SoereideMixture:
     def get_phase_configuration(
         self, components: Sequence[ppc.Component]
     ) -> Sequence[tuple[ppc.EoSCompiler, int, str]]:
-        eos = PengRobinsonCompiler(components)
+        eos = ppcpr.PengRobinsonCompiler(components)
         return [(eos, 0, "liq"), (eos, 1, "gas")]
 
 
@@ -67,7 +74,7 @@ class CompiledFlash(ppc.FlashMixin):
 
     def set_up_flasher(self) -> None:
         eos = self.fluid_mixture.reference_phase.eos
-        eos = cast(PengRobinsonCompiler, eos)  # cast type
+        eos = cast(ppcpr.PengRobinsonCompiler, eos)  # cast type
 
         flash = ppc.CompiledUnifiedFlash(self.fluid_mixture, eos)
 
@@ -252,8 +259,8 @@ class BoundaryConditions:
         if sd.dim == 2:
             vals = np.ones(sd.num_faces) * p_init
 
-            vals[sides.west] = 15e6
-            vals[sides.east] = 15e6
+            vals[sides.west] = 10e6
+            vals[sides.east] = 20e6
 
             vals = vals[sides.all_bf]
         else:
@@ -319,7 +326,7 @@ class GeothermalFlow(
     CompiledFlash,
     InitialConditions,
     BoundaryConditions,
-    CFLEModelMixin_ph,
+    cfle.CFLEModelMixin_ph,
 ):
     """Geothermal flow using a fluid defined by the Soereide model and the compiled
     flash."""
@@ -352,7 +359,13 @@ params = {
     "time_manager": time_manager,
     "max_iterations": 80,
     "nl_convergence_tol": 1e-4,
+    "prepare_simulation": False,
 }
 model = GeothermalFlow(params)
+
+start = time.time()
+model.prepare_simulation()
+print(f"Finished prepare_simulation in {time.time() - start} seconds")
+
 pp.run_time_dependent_model(model, params)
 pp.plot_grid(model.mdg, "pressure", figsize=(10, 8), plot_2d=True)

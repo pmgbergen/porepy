@@ -71,6 +71,15 @@ from ..composite_utils import safe_sum
 from .pr_bip import load_bip
 from .pr_components import ComponentPR
 
+__all__ = [
+    "A_CRIT",
+    "B_CRIT",
+    "Z_CRIT",
+    "VanDerWaals_cohesion",
+    "VanDerWaals_covolume",
+    "PengRobinsonSymbolic",
+]
+
 logger = logging.getLogger(__name__)
 
 
@@ -97,99 +106,6 @@ Z_CRIT: float = (
     1 / 32 * (11 + np.cbrt(16 * np.sqrt(2) - 13) - np.cbrt(16 * np.sqrt(2) + 13))
 )
 """Critical compressibility factor in the Peng-Robinson EoS, ~ 0.307401308."""
-
-
-def critical_line(A: Any) -> Any:
-    r"""Returns the critical line parametrized as ``B(A)``.
-
-    .. math::
-
-        \frac{B_{crit}}{A_{crit}} A
-
-    """
-    return (B_CRIT / A_CRIT) * A
-
-
-def widom_line(A: Any) -> Any:
-    r"""Returns the Widom-line parametrized as ``B(A)`` in the A-B space:
-
-    .. math::
-
-        B_{crit} + 0.8 \cdot 0.3381965009398633 \cdot \left(A - A_{crit}\right)
-
-    """
-    return B_CRIT + 0.8 * 0.3381965009398633 * (A - A_CRIT)
-
-
-B_CRIT_LINE_POINTS: tuple[np.ndarray, np.ndarray] = (
-    np.array([0.0, B_CRIT], dtype=np.float64),
-    np.array([A_CRIT, B_CRIT], dtype=np.float64),
-)
-r"""Two 2D points characterizing the line ``B=B_CRIT`` in the A-B space, namely
-
-.. math::
-
-    (0, B_{crit}),~(A_{crit},B_{crit})
-
-See :data:`B_CRIT`, data:`A_CRIT`.
-
-"""
-
-
-S_CRIT_LINE_POINTS: tuple[np.ndarray, np.ndarray] = (
-    np.zeros(2, dtype=np.float64),
-    np.array([A_CRIT, B_CRIT], dtype=np.float64),
-)
-r"""Two 2D points characterizing the super-critical line in the A-B space, namely
-
-.. math::
-
-    (0,0),~(A_{crit},B_{crit})
-
-See :data:`B_CRIT`, data:`A_CRIT`.
-
-"""
-
-
-W_LINE_POINTS: tuple[np.ndarray, np.ndarray] = (
-    np.array([0.0, widom_line(0)], dtype=np.float64),
-    np.array([A_CRIT, widom_line(A_CRIT)], dtype=np.float64),
-)
-r"""Two 2D points characterizing the Widom-line for water.
-
-The points are created by using :func:`widom_line` for :math:`A\in\{0, A_{crit}\}`.
-
-See :data:`~porepy.composite.peng_robinson.eos.A_CRIT`.
-
-"""
-
-
-def point_to_line_distance(p: np.ndarray, lp1: np.ndarray, lp2: np.ndarray) -> float:
-    """Computes the distance between a 2-D point and a line spanned by two points.
-
-    NJIT-ed function with signature ``(float64[:], float64[:], float64[:]) -> float64``.
-
-    Parameters:
-        p: ``shape=(2,n)``
-
-            Point(s) in 2D space.
-        lp1: ``shape=(2,)``
-
-            First point spanning the line.
-        lp2: ``shape=(2,)``
-
-            Second point spanning the line.
-
-    Returns:
-        Normal distance between ``p`` and the spanned line.
-
-    """
-
-    d = np.sqrt((lp2[0] - lp1[0]) ** 2 + (lp2[1] - lp1[1]) ** 2)
-    n = np.abs(
-        (lp2[0] - lp1[0]) * (lp1[1] - p[1]) - (lp1[0] - p[0]) * (lp2[1] - lp1[1])
-    )
-    return n / d
 
 
 Z_s: sp.Symbol = sp.Symbol("Z")
@@ -513,60 +429,10 @@ def one_root(A: sp.Symbol, B: sp.Symbol) -> sp.Expr:
     return u - r / (3 * u) - c2 / 3
 
 
-def ext_root_gharbia(Z: sp.Expr, B: sp.Symbol) -> sp.Expr:
-    r"""Formula for the Ben Gharbia extension in the case of only one real root in the
-    subcritical area of the A-B space.
-
-    Parameters:
-        Z: The single, real root
-        B: Non-dimensional covolume.
-
-    Returns:
-        The expression :math:`\frac{1 - B - Z}{2}`.
-
-    """
-    return (1 - B - Z) / 2
-
-
-def ext_root_scg(Z: sp.Expr, B: sp.Symbol) -> sp.Expr:
-    r"""Formula for the extended, gas-like root, outside the subcritical area defined
-    by Ben Gharbia et al..
-
-    Parameters:
-        Z: The single, real root
-        B: Non-dimensional covolume.
-
-    Returns:
-        The expression :math:`\frac{1 - B - Z}{2} + B`.
-
-    """
-    return (1 - B - Z) / 2 + B
-
-
-def ext_root_scl(Z: sp.Expr, B: sp.Symbol) -> sp.Expr:
-    r"""Formula for the extended, liquid-like root, outside the subcritical area defined
-    by Ben Gharbia et al.
-
-    This is the counterpart to :func:`ext_root_scg` for the case when the liquid-like
-    phase needs to be extended.
-
-    To be used also in the 3-root region above the critical line in the A-B space.
-
-    Parameters:
-        Z: The single, real root
-        B: Non-dimensional covolume.
-
-    Returns:
-        The expression :math:`\frac{B - Z}{2} + Z`.
-
-    """
-    return (B - Z) / 2 + Z
-
-
 # endregion
 
 
-# region Symbolic expressions for all root cases (this can take some time)
+# region Symbolic expressions for all root cases
 
 
 Z_triple_e: sp.Expr = triple_root(A_s, B_s)
@@ -574,15 +440,6 @@ d_Z_triple_e: list[sp.Expr] = [Z_triple_e.diff(A_s), Z_triple_e.diff(B_s)]
 
 Z_one_e: sp.Expr = one_root(A_s, B_s)
 d_Z_one_e: list[sp.Expr] = [Z_one_e.diff(A_s), Z_one_e.diff(B_s)]
-
-Z_ext_sub_e: sp.Expr = ext_root_gharbia(Z_one_e, B_s)
-d_Z_ext_sub_e: list[sp.Expr] = [Z_ext_sub_e.diff(A_s), Z_ext_sub_e.diff(B_s)]
-
-Z_ext_scg_e: sp.Expr = ext_root_scg(Z_one_e, B_s)
-d_Z_ext_scg_e: list[sp.Expr] = [Z_ext_scg_e.diff(A_s), Z_ext_scg_e.diff(B_s)]
-
-Z_ext_scl_e: sp.Expr = ext_root_scl(Z_one_e, B_s)
-d_Z_ext_scl_e: list[sp.Expr] = [Z_ext_scl_e.diff(A_s), Z_ext_scl_e.diff(B_s)]
 
 Z_double_g_e: sp.Expr = double_root(A_s, B_s, True)
 d_Z_double_g_e: list[sp.Expr] = [Z_double_g_e.diff(A_s), Z_double_g_e.diff(B_s)]
@@ -632,25 +489,6 @@ Z_one_f: Callable[[float, float], float] = sp.lambdify(
 )
 d_Z_one_f: Callable[[float, float], list[float]] = sp.lambdify(
     [A_s, B_s], d_Z_one_e, modules=_module_one_root
-)
-
-Z_ext_sub_f: Callable[[float, float], float] = sp.lambdify(
-    [A_s, B_s], Z_ext_sub_e, modules=_module_one_root
-)
-d_Z_ext_sub_f: Callable[[float, float], list[float]] = sp.lambdify(
-    [A_s, B_s], d_Z_ext_sub_e, modules=_module_one_root
-)
-Z_ext_scg_f: Callable[[float, float], float] = sp.lambdify(
-    [A_s, B_s], Z_ext_scg_e, modules=_module_one_root
-)
-d_Z_ext_scg_f: Callable[[float, float], list[float]] = sp.lambdify(
-    [A_s, B_s], d_Z_ext_scg_e, modules=_module_one_root
-)
-Z_ext_scl_f: Callable[[float, float], float] = sp.lambdify(
-    [A_s, B_s], Z_ext_scl_e, modules=_module_one_root
-)
-d_Z_ext_scl_f: Callable[[float, float], list[float]] = sp.lambdify(
-    [A_s, B_s], d_Z_ext_scl_e, modules=_module_one_root
 )
 
 # because piece-wise
