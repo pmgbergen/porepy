@@ -987,33 +987,38 @@ class EquationSystem:
             return sps.csr_matrix((0, num_dofs))
 
     def dofs_of(self, variables: VariableList) -> np.ndarray:
-        """Get the indices in the global vector of unknowns belonging to the variable(s).
+        """Get the indices in the global vector of unknowns belonging to the variables.
 
         Parameters:
             variables: VariableType input for which the indices are requested.
 
         Returns:
-            An order-preserving array of indices of DOFs corresponding to ``variables``.
+            An array of indices/ DOFs corresponding to ``variables``.
+            Note that the order of indices corresponds to the order in ``variables``.
 
         Raises:
-            ValueError: if unknown VariableType arguments are passed.
+            ValueError: If an unknown  variable is passed as argument.
 
         """
         variables = self._parse_variable_type(variables)
-        var_ids = [var.id for var in variables]
         global_variable_dofs = np.hstack((0, np.cumsum(self._variable_num_dofs)))
 
-        # Storage of indices per requested variable.
-        # NOTE Loop over current order in variable numbers to preserve order of dofs
-        indices = list()
-        for id_, variable_number in self._variable_numbers.items():
-            if id_ in var_ids:
+        indices: list[np.ndarray] = []
+
+        for var in variables:
+            if var.id in self._variable_numbers:
+                variable_number = self._variable_numbers[var.id]
                 var_indices = np.arange(
                     global_variable_dofs[variable_number],
                     global_variable_dofs[variable_number + 1],
                     dtype=int,
                 )
                 indices.append(var_indices)
+            else:
+                raise ValueError(
+                    f"Variable {var.name} with ID {var.id} not registered among DOFS"
+                    + f" of equation system {self}."
+                )
 
         # Concatenate indices, if any
         if len(indices) > 0:
@@ -1021,11 +1026,6 @@ class EquationSystem:
         else:
             all_indices = np.array([], dtype=int)
 
-        # sanity check that the indices are in ascending order, as intended
-        # strictly positive, because dofs are unique.
-        assert np.all(
-            np.diff(all_indices) > 0
-        ), "Failure in sorting DOFs to be ascending."
         return all_indices
 
     def identify_dof(self, dof: int) -> Variable:
