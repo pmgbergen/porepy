@@ -267,6 +267,19 @@ def test_mdg(setup: ExporterTestSetup):
         )
 
         pp.set_solution_values(
+            name="dummy_vector",
+            values=np.ones((3, intf.num_cells)) * sd.dim,
+            data=intf_data,
+            time_step_index=0,
+        )
+        pp.set_solution_values(
+            name="dummy_vector_pt",
+            values=np.ones((3, intf.num_nodes)) * sd.dim,
+            data=intf_data,
+            time_step_index=0,
+        )
+
+        pp.set_solution_values(
             name="unique_dummy_scalar",
             values=np.zeros(intf.num_cells),
             data=intf_data,
@@ -413,6 +426,7 @@ def test_import_state_from_vtu_mdg(setup: ExporterTestSetup, addendum: str):
     # Define keys (here corresponding to all data stored in the vtu file to pass the
     # test).
     keys = ["dummy_scalar", "dummy_vector", "unique_dummy_scalar"]
+    keys_pt = ["dummy_scalar_pt", "dummy_vector_pt", "unique_dummy_scalar_pt"]
     # Import data
     save.import_state_from_vtu(
         vtu_files=[
@@ -420,11 +434,12 @@ def test_import_state_from_vtu_mdg(setup: ExporterTestSetup, addendum: str):
             Path(f"{setup.folder_reference}/mdg_{addendum}grid_1.vtu"),
             Path(f"{setup.folder_reference}/mdg_{addendum}grid_mortar_1.vtu"),
         ],
-        keys=keys,
+        keys=keys + keys_pt,
     )
+
     # Perform comparison on vtu level (seems the easiest as it only involves a
     # comparison of dictionaries). This requires test_mdg to pass all tests.
-    save.write_vtu(keys)
+    save.write_vtu(keys, data_pt=keys_pt)
     # Check that exported vtu files and reference files are the same.
     for appendix in ["1", "2", "mortar_1"]:
         assert compare_vtu_files(
