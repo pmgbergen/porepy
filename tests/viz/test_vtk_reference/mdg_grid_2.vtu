@@ -20,6 +20,12 @@ AQAAAACAAACAAAAADgAAAA==eJzjZIAAzgGiASbAAJE=
 </DataArray>
 </Cells>
 <PointData>
+<DataArray type="Float64" Name="dummy_scalar_pt" format="binary">
+AQAAAACAAAAAAQAAEAAAAA==eJxjYAADB4YRSgMA6S0IAQ==
+</DataArray>
+<DataArray type="Float64" Name="dummy_vector_pt" NumberOfComponents="3" format="binary">
+AQAAAACAAAAAAwAAEwAAAA==eJxjYAADB4ZRepQegTQAvQ0YAQ==
+</DataArray>
 <DataArray type="Int64" Name="node_id" format="binary">
 AQAAAACAAAAAAQAAQAAAAA==eJwtxbUBgwAAADDcrUVa/P8vGUiWBMErdOTYiVNnzl24dOXajVt37j34469HT569+Oe/V2/effj05dsPq4AB8Q==
 </DataArray>
