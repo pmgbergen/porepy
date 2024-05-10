@@ -273,7 +273,6 @@ def _extend_fractional_derivatives(df_dxn: np.ndarray, x: np.ndarray) -> np.ndar
     # constructing the derivatives of xn_ij = x_ij / (sum_k x_kj)
     x_sum = np.sum(x)
     dxn = np.eye(ncomp) / x_sum - np.outer(x, np.ones(ncomp)) / (x_sum**2)
-    # dxn = np.eye(ncomp) / x_sum - np.column_stack([x] * ncomp) / (x_sum ** 2)
     # assuming derivatives w.r.t. normalized fractions are in the last num_comp elements
     df_dx[-ncomp:] = df_dx[-ncomp:].dot(dxn)
 

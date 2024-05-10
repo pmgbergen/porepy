@@ -32,11 +32,13 @@ References:
 
 __all__ = []
 
-from . import eos_c, pr_bip, pr_components
+from . import eos_c, eos_s, pr_bip, pr_components
 from .eos_c import *
+from .eos_s import *
 from .pr_bip import *
 from .pr_components import *
 
 __all__.extend(pr_bip.__all__)
 __all__.extend(pr_components.__all__)
 __all__.extend(eos_c.__all__)
+__all__.extend(eos_s.__all__)
