@@ -108,9 +108,9 @@ class MobilityCF:
                 name = f"bc_{name}"
         mobility = pp.ad.sum_operator_list(
             [
-                phase.density(domains)
+                self.relative_permeability(phase.saturation(domains))
+                * phase.density(domains)
                 / phase.viscosity(domains)
-                * self.relative_permeability(phase.saturation(domains))
                 for phase in self.fluid_mixture.phases
             ],
             name,
@@ -142,8 +142,8 @@ class MobilityCF:
             [
                 phase.enthalpy(domains)
                 * phase.density(domains)
-                / phase.viscosity(domains)
                 * self.relative_permeability(phase.saturation(domains))
+                / phase.viscosity(domains)
                 for phase in self.fluid_mixture.phases
             ],
             name,
@@ -168,7 +168,7 @@ class MobilityCF:
 
             .. math::
 
-                \sum_j \dfrac{\rho_j}{\mu_j} x_{n, ij} k_r(s_j),
+                \sum_j x_{n, ij} \rho_j \dfrac{k_r(s_j)}{\mu_j},
 
             which is the advected mass in the total mass balance equation.
             :math:`x_{n, ij}` denotes the normalized fraction of component i in phase j.
@@ -181,10 +181,10 @@ class MobilityCF:
                 name = f"bc_{name}"
         mobility = pp.ad.sum_operator_list(
             [
-                phase.density(domains)
-                / phase.viscosity(domains)
-                * phase.partial_fraction_of[component](domains)
+                phase.partial_fraction_of[component](domains)
+                * phase.density(domains)
                 * self.relative_permeability(phase.saturation(domains))
+                / phase.viscosity(domains)
                 for phase in self.fluid_mixture.phases
             ],
             name,
@@ -498,7 +498,7 @@ class SolidSkeletonCF(
             (pp.ad.Scalar(1) - self.porosity(subdomains))
             * self.solid_density(subdomains)
             * c_p
-            * self.perturbation_from_reference(self.temperature_variable, subdomains)
+            * self.temperature(subdomains)
         )
         energy.set_name("solid_internal_energy")
         return energy
@@ -747,8 +747,7 @@ class TotalEnergyBalanceEquation_h(energy.EnergyBalanceEquations):
         unknown enthalpy."""
         energy = (
             self.fluid_mixture.density(subdomains) * self.enthalpy(subdomains)
-            - self.pressure(subdomains)
-        ) * self.porosity(subdomains)
+        ) * self.porosity(subdomains) - self.pressure(subdomains)
         energy.set_name("fluid_mixture_internal_energy")
         return energy
 
@@ -2777,9 +2776,9 @@ class SolutionStrategyCF(
         t_0 = time.time()
         reduce_linear_system_q = self.params.get("reduce_linear_system_q", False)
 
-        for name, eq in self.equation_system.equations.items():
-            res = eq.value(self.equation_system)
-            print(f"res {name}: ", np.linalg.norm(res))
+        # for name, eq in self.equation_system.equations.items():
+        #     res = eq.value(self.equation_system)
+        #     print(f"res {name}: ", np.linalg.norm(res))
         if reduce_linear_system_q:
             # TODO block diagonal inverter for secondary equations
             self.linear_system = self.equation_system.assemble_schur_complement_system(
@@ -2793,8 +2792,6 @@ class SolutionStrategyCF(
         """After calling the parent method, the global solution is calculated by Schur
         expansion."""
         sol = super().solve_linear_system()
-
-        print("norm delta x: ", np.linalg.norm(sol))
         reduce_linear_system_q = self.params.get("reduce_linear_system_q", False)
         if reduce_linear_system_q:
             sol = self.equation_system.expand_schur_complement_solution(sol)
