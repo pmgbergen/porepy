@@ -9,19 +9,30 @@ AQAAAACAAABgAAAAGgAAAA==eJxjYMAOQsHgqj128acY4hDwAUMcAHEqB2Q=
 </DataArray>
 </Points>
 <Cells>
-<DataArray type="Int32" Name="connectivity" format="binary">
-AQAAAACAAAAYAAAAEwAAAA==eJxjYGBgYIRiJihmBmIAAHAACg==
+<DataArray type="Int64" Name="connectivity" format="binary">
+AQAAAACAAAAwAAAAEwAAAA==eJxjYIAARjSaCY1mhtIAAOAACg==
 </DataArray>
-<DataArray type="Int32" Name="offsets" format="binary">
-AQAAAACAAAAMAAAAEQAAAA==eJxjYmBgYAFiNiAGAABcAA0=
+<DataArray type="Int64" Name="offsets" format="binary">
+AQAAAACAAAAYAAAAEAAAAA==eJxjYoAAFijNBqUBALgADQ==
 </DataArray>
-<DataArray type="Int32" Name="types" format="binary">
-AQAAAACAAAAMAAAADgAAAA==eJxjZmBgYIZiAABUAAo=
+<DataArray type="Int64" Name="types" format="binary">
+AQAAAACAAAAYAAAADgAAAA==eJxjZoAAZjQaAACoAAo=
 </DataArray>
 </Cells>
+<PointData>
+<DataArray type="Float64" Name="dummy_scalar_pt" format="binary">
+AQAAAACAAAAgAAAAEAAAAA==eJxjYACBD/YMOGgAQWwEvQ==
+</DataArray>
+<DataArray type="Float64" Name="dummy_vector_pt" NumberOfComponents="3" format="binary">
+AQAAAACAAABgAAAAEAAAAA==eJxjYACBD/YMNKIBiuIONQ==
+</DataArray>
+<DataArray type="Int64" Name="node_id" format="binary">
+AQAAAACAAAAgAAAAEwAAAA==eJxjYIAARijNBKWZoTQAAHAABw==
+</DataArray>
+</PointData>
 <CellData>
-<DataArray type="Int32" Name="cell_id" format="binary">
-AQAAAACAAAAMAAAAEQAAAA==eJxjYGBgYARiJiAGAAAcAAQ=
+<DataArray type="Int64" Name="cell_id" format="binary">
+AQAAAACAAAAYAAAAEAAAAA==eJxjYIAARijNBKUBADgABA==
 </DataArray>
 <DataArray type="Float64" Name="dummy_scalar" format="binary">
 AQAAAACAAAAYAAAAEAAAAA==eJxjYACBD/YMaDQAIt0Djg==
@@ -29,17 +40,17 @@ AQAAAACAAAAYAAAAEAAAAA==eJxjYACBD/YMaDQAIt0Djg==
 <DataArray type="Float64" Name="dummy_vector" NumberOfComponents="3" format="binary">
 AQAAAACAAABIAAAAEAAAAA==eJxjYACBD/YMFNIAaE4KqA==
 </DataArray>
-<DataArray type="Int32" Name="grid_dim" format="binary">
-AQAAAACAAAAMAAAADgAAAA==eJxjZGBgYIRiAAAkAAQ=
+<DataArray type="Int64" Name="grid_dim" format="binary">
+AQAAAACAAAAYAAAADgAAAA==eJxjZIAARjQaAABIAAQ=
 </DataArray>
-<DataArray type="Int32" Name="is_mortar" format="binary">
-AQAAAACAAAAMAAAACwAAAA==eJxjYEAAAAAMAAE=
+<DataArray type="Int64" Name="is_mortar" format="binary">
+AQAAAACAAAAYAAAACwAAAA==eJxjYMAOAAAYAAE=
 </DataArray>
-<DataArray type="Int32" Name="mortar_side" format="binary">
-AQAAAACAAAAMAAAACwAAAA==eJxjYEAAAAAMAAE=
+<DataArray type="Int64" Name="mortar_side" format="binary">
+AQAAAACAAAAYAAAACwAAAA==eJxjYMAOAAAYAAE=
 </DataArray>
-<DataArray type="Int32" Name="subdomain_id" format="binary">
-AQAAAACAAAAMAAAADgAAAA==eJxjYmBgYIJiAAA8AAc=
+<DataArray type="Int64" Name="subdomain_id" format="binary">
+AQAAAACAAAAYAAAADgAAAA==eJxjYoAAJjQaAAB4AAc=
 </DataArray>
 </CellData>
 </Piece>
