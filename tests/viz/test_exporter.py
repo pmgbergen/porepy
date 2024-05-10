@@ -10,6 +10,7 @@ indicates that something in the export filter, or in the vtk python bindings has
 changed. If the change is external to PorePy, this does not necessarily mean that
 something is wrong.
 """
+
 from __future__ import annotations
 
 import os
@@ -136,16 +137,14 @@ def subdomain(request: pytest.FixtureRequest) -> SingleSubdomain:
 def test_single_subdomains(setup: ExporterTestSetup, subdomain: SingleSubdomain):
     """Test of the Exporter for single subdomains of different dimensionality and
     different grid type. Exporting of scalar and vectorial data is tested.
-
     """
-
     # Define grid
     sd = subdomain.grid
-
     # Define data
     dummy_scalar = np.ones(sd.num_cells) * sd.dim
+    dummy_scalar_pt = np.ones(sd.num_nodes) * sd.dim
     dummy_vector = np.ones((3, sd.num_cells)) * sd.dim
-
+    dummy_vector_pt = np.ones((3, sd.num_nodes)) * sd.dim
     # Export data
     save = pp.Exporter(
         sd,
@@ -153,8 +152,13 @@ def test_single_subdomains(setup: ExporterTestSetup, subdomain: SingleSubdomain)
         setup.folder,
         export_constants_separately=False,
     )
-    save.write_vtu([("dummy_scalar", dummy_scalar), ("dummy_vector", dummy_vector)])
-
+    save.write_vtu(
+        [("dummy_scalar", dummy_scalar), ("dummy_vector", dummy_vector)],
+        data_pt=[
+            ("dummy_scalar_pt", dummy_scalar_pt),
+            ("dummy_vector_pt", dummy_vector_pt),
+        ],
+    )
     # Check that exported vtu file and reference file are the same
     assert compare_vtu_files(
         f"{setup.folder}/{setup.file_name}_{sd.dim}.vtu",
@@ -182,11 +186,12 @@ def test_import_state_from_vtu_single_subdomains(
     # Define keys (here corresponding to all data stored in the vtu file to pass the
     # test).
     keys = ["dummy_scalar", "dummy_vector"]
+    keys_pts = ["dummy_scalar_pt", "dummy_vector_pt"]
 
     # Import data
     save.import_state_from_vtu(
         vtu_files=f"{subdomain.ref_vtu_file}",
-        keys=keys,
+        keys=keys + keys_pts,
         automatic=False,
         dims=sd.dim,
     )
@@ -194,7 +199,7 @@ def test_import_state_from_vtu_single_subdomains(
     # Perform comparison on vtu level (seems the easiest as it only involves a
     # comparison of dictionaries). This requires test_single_subdomains to pass all
     # tests.
-    save.write_vtu(keys)
+    save.write_vtu(keys, data_pt=keys_pts)
 
     # Check that exported vtu file and reference file are the same
     assert compare_vtu_files(
@@ -227,10 +232,22 @@ def test_mdg(setup: ExporterTestSetup):
             data=sd_data,
             time_step_index=0,
         )
+        pp.set_solution_values(
+            name="dummy_scalar_pt",
+            values=np.ones(sd.num_nodes) * sd.dim,
+            data=sd_data,
+            time_step_index=0,
+        )
 
         pp.set_solution_values(
             name="dummy_vector",
             values=np.ones((3, sd.num_cells)) * sd.dim,
+            data=sd_data,
+            time_step_index=0,
+        )
+        pp.set_solution_values(
+            name="dummy_vector_pt",
+            values=np.ones((3, sd.num_nodes)) * sd.dim,
             data=sd_data,
             time_step_index=0,
         )
@@ -242,10 +259,22 @@ def test_mdg(setup: ExporterTestSetup):
             data=intf_data,
             time_step_index=0,
         )
+        pp.set_solution_values(
+            name="dummy_scalar_pt",
+            values=np.zeros(intf.num_nodes),
+            data=intf_data,
+            time_step_index=0,
+        )
 
         pp.set_solution_values(
             name="unique_dummy_scalar",
             values=np.zeros(intf.num_cells),
+            data=intf_data,
+            time_step_index=0,
+        )
+        pp.set_solution_values(
+            name="unique_dummy_scalar_pt",
+            values=np.zeros(intf.num_nodes),
             data=intf_data,
             time_step_index=0,
         )
@@ -257,7 +286,10 @@ def test_mdg(setup: ExporterTestSetup):
         setup.folder,
         export_constants_separately=False,
     )
-    save.write_vtu(["dummy_scalar", "dummy_vector", "unique_dummy_scalar"])
+    save.write_vtu(
+        ["dummy_scalar", "dummy_vector", "unique_dummy_scalar"],
+        data_pt=["dummy_scalar_pt", "dummy_vector_pt", "unique_dummy_scalar_pt"],
+    )
     # Check that exported vtu files and reference files are the same.
     for appendix in ["1", "2", "mortar_1"]:
         assert compare_vtu_files(
@@ -361,11 +393,9 @@ def test_import_from_pvd_mdg(setup: ExporterTestSetup, case: int):
 def test_import_state_from_vtu_mdg(setup: ExporterTestSetup, addendum: str):
     # Test of the import routine of the Exporter for 2d mixed-dimensional grids.
     # Consistent with test_mdg.
-
     # NOTE: In case the reference files for this test needs to be updated, the
     # references for the two addenda ("" and "nontrivial_data_") can be identical,
     # though they of course need to be separate files.
-
     # Define grid
     mdg, _ = pp.mdg_library.square_with_orthogonal_fractures(
         "cartesian",
@@ -373,7 +403,6 @@ def test_import_state_from_vtu_mdg(setup: ExporterTestSetup, addendum: str):
         fracture_indices=[0, 1],
         fracture_endpoints=[np.array([0.25, 0.75]), np.array([0, 1])],
     )
-
     # Define exporter
     save = pp.Exporter(
         mdg,
@@ -381,11 +410,9 @@ def test_import_state_from_vtu_mdg(setup: ExporterTestSetup, addendum: str):
         setup.folder,
         export_constants_separately=False,
     )
-
     # Define keys (here corresponding to all data stored in the vtu file to pass the
     # test).
     keys = ["dummy_scalar", "dummy_vector", "unique_dummy_scalar"]
-
     # Import data
     save.import_state_from_vtu(
         vtu_files=[
@@ -395,11 +422,9 @@ def test_import_state_from_vtu_mdg(setup: ExporterTestSetup, addendum: str):
         ],
         keys=keys,
     )
-
     # Perform comparison on vtu level (seems the easiest as it only involves a
     # comparison of dictionaries). This requires test_mdg to pass all tests.
     save.write_vtu(keys)
-
     # Check that exported vtu files and reference files are the same.
     for appendix in ["1", "2", "mortar_1"]:
         assert compare_vtu_files(
@@ -434,10 +459,22 @@ def test_mdg_data_selection(setup: ExporterTestSetup):
             data=sd_data,
             time_step_index=0,
         )
+        pp.set_solution_values(
+            name="dummy_scalar_pt",
+            values=np.ones(sd.num_nodes) * sd.dim,
+            data=sd_data,
+            time_step_index=0,
+        )
 
         pp.set_solution_values(
             name="dummy_vector",
             values=np.ones((3, sd.num_cells)) * sd.dim,
+            data=sd_data,
+            time_step_index=0,
+        )
+        pp.set_solution_values(
+            name="dummy_vector_pt",
+            values=np.ones((3, sd.num_nodes)) * sd.dim,
             data=sd_data,
             time_step_index=0,
         )
@@ -449,10 +486,22 @@ def test_mdg_data_selection(setup: ExporterTestSetup):
             data=intf_data,
             time_step_index=0,
         )
+        pp.set_solution_values(
+            name="dummy_scalar_pt",
+            values=np.zeros(intf.num_nodes),
+            data=intf_data,
+            time_step_index=0,
+        )
 
         pp.set_solution_values(
             name="unique_dummy_scalar",
             values=np.zeros(intf.num_cells),
+            data=intf_data,
+            time_step_index=0,
+        )
+        pp.set_solution_values(
+            name="unique_dummy_scalar_pt",
+            values=np.zeros(intf.num_nodes),
             data=intf_data,
             time_step_index=0,
         )
@@ -475,7 +524,13 @@ def test_mdg_data_selection(setup: ExporterTestSetup):
             "dummy_vector",
             "unique_dummy_scalar",
             (sd_2d, "cc", sd_2d.cell_centers),
-        ]
+        ],
+        data_pt=[
+            (subdomains_1d, "dummy_scalar_pt"),
+            "dummy_vector_pt",
+            "unique_dummy_scalar_pt",
+            (sd_2d, "nodes", sd_2d.nodes),
+        ],
     )
 
     # Check that exported vtu files and reference files are the same.
@@ -498,7 +553,10 @@ def test_constant_data(setup: ExporterTestSetup):
 
     # Define data
     dummy_scalar = np.ones(g.num_cells) * g.dim
+    dummy_scalar_pt = np.ones(g.num_nodes) * g.dim
+
     dummy_vector = np.ones((3, g.num_cells)) * g.dim
+    dummy_vector_pt = np.ones((3, g.num_nodes)) * g.dim
 
     # Export data
     save = pp.Exporter(
@@ -507,8 +565,14 @@ def test_constant_data(setup: ExporterTestSetup):
         setup.folder,
     )
     # Add additional constant data (cell centers)
-    save.add_constant_data([(g, "cc", g.cell_centers)])
-    save.write_vtu([("dummy_scalar", dummy_scalar), ("dummy_vector", dummy_vector)])
+    save.add_constant_data([(g, "cc", g.cell_centers)], data_pt=[("x", g.nodes[0, :])])
+    save.write_vtu(
+        [("dummy_scalar", dummy_scalar), ("dummy_vector", dummy_vector)],
+        data_pt=[
+            ("dummy_scalar_pt", dummy_scalar_pt),
+            ("dummy_vector_pt", dummy_vector_pt),
+        ],
+    )
 
     # Check that exported vtu files and reference files are the same
     for appendix in ["2", "constant_2"]:
@@ -662,4 +726,4 @@ def test_rescaled_export(setup: ExporterTestSetup):
             ), f"Files don't match: {file_name_scaled} and {file_name_unscaled}."
             num_vtk_tested += 1
 
-    assert num_vtk_tested > 0, 'No VTU files were tested.'
+    assert num_vtk_tested > 0, "No VTU files were tested."
