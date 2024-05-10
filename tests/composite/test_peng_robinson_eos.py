@@ -8,19 +8,29 @@ Note:
 
 """
 
+_NO_JIT = True
+"""Flag to disable numba JIT for this module by setting an environment flag.
+The flag is deleted at the end of the module.
+
+NOTE: This still may interfer with other tests if pytest does some fancy parallelization
+or networking.
+
+"""
+
 from __future__ import annotations
-
-# Disabling JIT, might be in conflict with other tests.
 import os
-
-os.environ["NUMBA_DISABLE_JIT"] = "1"
 
 import numpy as np
 import pytest
 
+if _NO_JIT:
+    os.environ["NUMBA_DISABLE_JIT"] = "1"
+
 import porepy.composite as ppc
 from porepy.composite import peng_robinson as ppcpr
 
+# NOTE Fixtures created here are expensive because of compilation
+# broadening the scope to have the value cached.
 
 @pytest.fixture(scope='module')
 def components() -> tuple[ppcpr.H2O, ppcpr.CO2]:
@@ -352,4 +362,5 @@ def test_flash_system_using_pr_eos(
 
         assert np.mean(eoc)
 
-del os.environ["NUMBA_DISABLE_JIT"]
+if _NO_JIT:
+    del os.environ["NUMBA_DISABLE_JIT"]
