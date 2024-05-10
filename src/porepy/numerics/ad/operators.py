@@ -1717,7 +1717,7 @@ class Variable(TimeDependentOperator, IterativeOperator):
     def id(self) -> int:
         """Returns an integer unique among variables used for identification.
         Assigned during instantiation.
-        
+
         The id of a variable is common for all instances of the variable, regardless of
         whether it represents the present state, the previous iteration, or the previous
         time step.
