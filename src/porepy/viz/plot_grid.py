@@ -263,7 +263,7 @@ def plot_mdg(
             extr_value = np.array([np.inf, -np.inf])
             for _, sd_data in mdg.subdomains(return_data=True):
                 values = pp.get_solution_values(
-                    name=cell_value, data=sd_data, time_step_index=0
+                    name=cell_value, data=sd_data, time_step_index=1
                 )
                 extr_value[0] = min(
                     np.amin(values),

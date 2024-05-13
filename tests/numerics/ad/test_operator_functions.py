@@ -32,16 +32,16 @@ def test_ad_function():
     mdg.compute_geometry()
 
     sds = mdg.subdomains()
-    eqs = pp.ad.EquationSystem(mdg)
-    eqs.create_variables('foo', {'cells': 1}, sds)
+    eqsys = pp.ad.EquationSystem(mdg)
+    eqsys.create_variables('foo', {'cells': 1}, sds)
 
-    var = eqs.md_variable('foo', sds)
+    var = eqsys.md_variable('foo', sds)
 
     # setting values at current time, previous time and previous iter
     vals = np.ones(mdg.num_subdomain_cells())
-    eqs.set_variable_values(vals, [var], iterate_index=0)
-    eqs.set_variable_values(vals * 2, [var], iterate_index=1)
-    eqs.set_variable_values(vals * 10, [var], time_step_index=0)
+    eqsys.set_variable_values(vals, [var], iterate_index=0)
+    eqsys.set_variable_values(vals * 2, [var], iterate_index=1)
+    eqsys.set_variable_values(vals * 10, [var], time_step_index=1)
 
     # test that the function without call with operator is inoperable
     for op in ['*', '/', '+', '-', '**', '@']:
@@ -52,27 +52,27 @@ def test_ad_function():
 
     F_var = F(var)
 
-    val = F_var.value_and_jacobian(eqs)
+    val = F_var.value_and_jacobian(eqsys)
     # test values at current time step
     assert np.all(val.val == 1.)
     assert np.all(val.jac.A == np.eye(mdg.num_subdomain_cells()))
 
     # vals at previous iter and zero Jacobian
     F_var_pi = F_var.previous_iteration()
-    val = F_var_pi.value_and_jacobian(eqs)
+    val = F_var_pi.value_and_jacobian(eqsys)
     assert np.all(val.val == 2.)
     assert np.all(val.jac.A == 0.)
 
     # Analogously for prev time
     F_var_pt = F_var.previous_timestep()
-    val = F_var_pt.value_and_jacobian(eqs)
+    val = F_var_pt.value_and_jacobian(eqsys)
     assert np.all(val.val == 10.)
     assert np.all(val.jac.A == 0.)
 
     # when evaluating with values only, the result should be a numpy array
-    val = F_var.value(eqs)
-    val_pi = F_var_pi.value(eqs)
-    val_pt = F_var_pt.value(eqs)
+    val = F_var.value(eqsys)
+    val_pi = F_var_pi.value(eqsys)
+    val_pt = F_var_pt.value(eqsys)
     assert isinstance(val, np.ndarray)
     assert isinstance(val_pi, np.ndarray)
     assert isinstance(val_pt, np.ndarray)

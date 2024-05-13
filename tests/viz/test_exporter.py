@@ -225,14 +225,14 @@ def test_mdg(setup: ExporterTestSetup):
             name="dummy_scalar",
             values=np.ones(sd.num_cells) * sd.dim,
             data=sd_data,
-            time_step_index=0,
+            time_step_index=1,
         )
 
         pp.set_solution_values(
             name="dummy_vector",
             values=np.ones((3, sd.num_cells)) * sd.dim,
             data=sd_data,
-            time_step_index=0,
+            time_step_index=1,
         )
 
     for intf, intf_data in mdg.interfaces(return_data=True):
@@ -240,14 +240,14 @@ def test_mdg(setup: ExporterTestSetup):
             name="dummy_scalar",
             values=np.zeros(intf.num_cells),
             data=intf_data,
-            time_step_index=0,
+            time_step_index=1,
         )
 
         pp.set_solution_values(
             name="unique_dummy_scalar",
             values=np.zeros(intf.num_cells),
             data=intf_data,
-            time_step_index=0,
+            time_step_index=1,
         )
 
     # Export data
@@ -432,14 +432,14 @@ def test_mdg_data_selection(setup: ExporterTestSetup):
             name="dummy_scalar",
             values=np.ones(sd.num_cells) * sd.dim,
             data=sd_data,
-            time_step_index=0,
+            time_step_index=1,
         )
 
         pp.set_solution_values(
             name="dummy_vector",
             values=np.ones((3, sd.num_cells)) * sd.dim,
             data=sd_data,
-            time_step_index=0,
+            time_step_index=1,
         )
 
     for intf, intf_data in mdg.interfaces(return_data=True):
@@ -447,14 +447,14 @@ def test_mdg_data_selection(setup: ExporterTestSetup):
             name="dummy_scalar",
             values=np.zeros(intf.num_cells),
             data=intf_data,
-            time_step_index=0,
+            time_step_index=1,
         )
 
         pp.set_solution_values(
             name="unique_dummy_scalar",
             values=np.zeros(intf.num_cells),
             data=intf_data,
-            time_step_index=0,
+            time_step_index=1,
         )
 
     # Fetch separate subdomains

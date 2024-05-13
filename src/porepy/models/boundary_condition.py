@@ -92,7 +92,7 @@ class BoundaryConditionMixin:
                 # No previous time step exists. The method was called during
                 # the initialization.
                 vals = function(bg)
-            pp.set_solution_values(name=name, values=vals, data=data, time_step_index=0)
+            pp.set_solution_values(name=name, values=vals, data=data, time_step_index=1)
 
             # Set the unknown time step values.
             vals = function(bg)

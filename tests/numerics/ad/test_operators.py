@@ -114,7 +114,7 @@ def test_copy_operator_tree():
     eq_system = pp.ad.EquationSystem(mdg)
     eq_system.create_variables("foo", {"cells": 1}, mdg.subdomains())
     eq_system.set_variable_values(
-        np.zeros(eq_system.num_dofs()), iterate_index=0, time_step_index=0
+        np.zeros(eq_system.num_dofs()), iterate_index=0, time_step_index=1
     )
 
     # In their initial state, all operators should have the same values
@@ -241,9 +241,9 @@ def test_ad_operator_unary_minus_parsing():
     mat2 = sps.csr_matrix(np.random.rand(3))
     sp_array1 = pp.ad.SparseArray(mat1)
     sp_array2 = pp.ad.SparseArray(mat2)
-    eqs = pp.ad.EquationSystem(pp.MixedDimensionalGrid())
+    eqsys = pp.ad.EquationSystem(pp.MixedDimensionalGrid())
     op = sp_array1 + sp_array2
-    assert np.allclose(op._parse_operator(-op, eqs, None).data, -(mat1 + mat2).data)
+    assert np.allclose(op._parse_operator(-op, eqsys, None).data, -(mat1 + mat2).data)
 
 
 def test_time_dependent_array():
@@ -259,7 +259,7 @@ def test_time_dependent_array():
     for sd, sd_data in mdg.subdomains(return_data=True):
         vals_sol = np.zeros(sd.num_cells)
         pp.set_solution_values(
-            name="foo", values=vals_sol, data=sd_data, time_step_index=0
+            name="foo", values=vals_sol, data=sd_data, time_step_index=1
         )
 
         vals_it = sd.dim * np.ones(sd.num_cells)
@@ -271,7 +271,7 @@ def test_time_dependent_array():
         # Create an empty primary variable list
         vals_sol = np.arange(intf.num_cells)
         pp.set_solution_values(
-            name="bar", values=vals_sol, data=intf_data, time_step_index=0
+            name="bar", values=vals_sol, data=intf_data, time_step_index=1
         )
 
         vals_it = np.ones(intf.num_cells)
@@ -282,7 +282,7 @@ def test_time_dependent_array():
     for bg, bg_data in mdg.boundaries(return_data=True):
         vals_sol = np.arange(bg.num_cells)
         pp.set_solution_values(
-            name="foobar", values=vals_sol, data=bg_data, time_step_index=0
+            name="foobar", values=vals_sol, data=bg_data, time_step_index=1
         )
 
         vals_it = np.ones(bg.num_cells) * bg.parent.dim
@@ -497,7 +497,7 @@ def test_ad_variable_evaluation():
         val_state = np.random.rand(sd.num_cells * num_dofs)
         val_iterate = np.random.rand(sd.num_cells * num_dofs)
 
-        pp.set_solution_values(name=var, values=val_state, data=data, time_step_index=0)
+        pp.set_solution_values(name=var, values=val_state, data=data, time_step_index=1)
         pp.set_solution_values(name=var, values=val_iterate, data=data, iterate_index=0)
 
         state_map[sd] = val_state
@@ -510,7 +510,7 @@ def test_ad_variable_evaluation():
             val_iterate = np.random.rand(sd.num_cells)
 
             pp.set_solution_values(
-                name=var2, values=val_state, data=data, time_step_index=0
+                name=var2, values=val_state, data=data, time_step_index=1
             )
             pp.set_solution_values(
                 name=var2, values=val_iterate, data=data, iterate_index=0
@@ -531,7 +531,7 @@ def test_ad_variable_evaluation():
         val_iterate = np.random.rand(intf.num_cells * num_dofs)
 
         pp.set_solution_values(
-            name=mortar_var, values=val_state, data=data, time_step_index=0
+            name=mortar_var, values=val_state, data=data, time_step_index=1
         )
         pp.set_solution_values(
             name=mortar_var, values=val_iterate, data=data, iterate_index=0
@@ -629,68 +629,88 @@ def test_ad_variable_evaluation():
     assert np.allclose(true_state[ind1], v1_prev.value(eq_system, true_iterate))
 
 
-def test_ad_variable_prev_iter():
+@pytest.mark.parametrize('prev_time', [True, False])
+def test_ad_variable_prev_time_and_iter(prev_time):
     # Test only 1 variable, the rest should be covered by other tests
     mdg, _ = pp.mdg_library.square_with_orthogonal_fractures(
         "cartesian",
-        {"cell_size": 0.2},
+        {"cell_size": 0.5},
         fracture_indices=[1],
     )
-    eqs = pp.ad.EquationSystem(mdg)
+    eqsys = pp.ad.EquationSystem(mdg)
 
     # Integer to test the depth of prev _*, could be a test parameter, but no need
-    depth = 5
+    depth = 3
     var_name = 'foo'
     vec = np.ones(mdg.num_subdomain_cells())
 
-    eqs.create_variables(
+    eqsys.create_variables(
         var_name, dof_info={"cells": 1}, subdomains=mdg.subdomains()
     )
-    var = eqs.md_variable(var_name)
+    var = eqsys.md_variable(var_name)
 
-    # Starting point is time step index is None, iterate index is 0
+    # Starting point is time step index is 0, iterate index is 0
     # (current time and iter)
-    assert var.time_step_index is None
-    assert var.iterate_index == 0 
+    assert var.time_step_index == 0
+    assert var.iterate_index == 0
 
-    # Set values except for the last step
-    for i in range(depth - 1):
-        eqs.set_variable_values(vec * i, [var], iterate_index=i)
+    # For AD to work, we need at least values at iterate_index = 0
+    eqsys.set_variable_values(vec * 0., [var], iterate_index = 0)
 
-    # prohibit prev iter variable to also be prev time
-    with pytest.raises(ValueError):
-        var_pi = var.previous_iteration()
-        _ = var_pi.previous_timestep()
+    # Test configuration dependent on whether prev iter or prev time is tested.
+    # Code is analogous
+    if prev_time:
+        index_key = 'time_step_index'
+        other_index_key = 'iterate_index'
+        get_prev_key = 'previous_timestep'
+
+        # prohibit prev time step variable to also be prev iter
+        with pytest.raises(ValueError):
+            var_pt = var.previous_timestep()
+            _ = var_pt.previous_iteration()
+    else:
+        index_key = 'iterate_index'
+        other_index_key = 'time_step_index'
+        get_prev_key = 'previous_iteration'
+
+        # prohibit prev iter variable to also be prev time
+        with pytest.raises(ValueError):
+            var_pi = var.previous_iteration()
+            _ = var_pi.previous_timestep()
+
+    # Set values except for the last step. The current value is set above
+    for i in range(1, depth - 1):
+        eqsys.set_variable_values(vec * i, [var], **{index_key: i})
 
     # Evaluating the last step, should raise a key error because no values set
     with pytest.raises(KeyError):
-        # different steps, because iter starts at 0, time at -1
-        var_prev = var.previous_iteration(steps = depth - 1) 
-        _ = var_prev.value(eqs)
+        # bot time and iterate index start at 0, hence the shift
+        var_prev = getattr(var, get_prev_key)(steps = depth - 1)
+        _ = var_prev.value(eqsys)
 
-    # Evaluate prev iter and check that the values are what they're supposed to be
+    # Evaluate prev var and check that the values are what they're supposed to be.
     for i in range(1, depth - 1):
-        var_i = var.previous_iteration(steps = i)
-        val_i = var_i.value(eqs)
+        var_i = getattr(var, get_prev_key)(steps = 1)
+        val_i = var_i.value(eqsys)
         assert np.allclose(val_i, i)
 
-        # prev iter has no Jacobian
-        ad_i = var_i.value_and_jacobian(eqs)
+        # prev var has no Jacobian
+        ad_i = var_i.value_and_jacobian(eqsys)
         assert np.all(ad_i.jac.A == 0.)
 
     # Test creating with explicit stepping and recursive stepping
-    vars_exp = [var.previous_iteration(steps=i) for i in range(1, depth - 1)]
+    vars_exp = [getattr(var, get_prev_key)(steps=i) for i in range(1, depth - 1)]
 
     vars_rec = []
     for i in range(1, depth - 1):
         var_i = copy.copy(var)
         for _ in range(i):
-            var_i = var_i.previous_iteration()
+            var_i = getattr(var_i, get_prev_key)()
         vars_rec.append(var_i)
 
     assert len(vars_exp) == len(vars_rec)
-    vals_exp = [v.value(eqs) for v in vars_exp]
-    vals_rec = [v.value(eqs) for v in vars_rec]
+    vals_exp = [v.value(eqsys) for v in vars_exp]
+    vals_rec = [v.value(eqsys) for v in vars_rec]
 
     for v_e, v_r in zip(vals_exp, vals_rec):
         assert np.allclose(v_e, v_r)
@@ -700,97 +720,14 @@ def test_ad_variable_prev_iter():
     all_ids = set([var.id] + [v.id for v in vars_exp] + [v.id for v in vars_rec])
     assert len(all_ids) == 1
 
-    # Testing index values. Should be increasing with depth, while time step index stays
-    # None (current time)
+    # Testing index values.
+    # For prev time, time step index increases starting from 0, while iterate is 0
+    # For prev iter, iterate index increases starting from 0, while time is always 0
     for i in range(1, depth - 1):
-        assert vars_exp[i - 1].iterate_index == i
-        assert vars_exp[i - 1].time_step_index is None
-        assert vars_rec[i - 1].iterate_index == i
-        assert vars_rec[i - 1].time_step_index is None
-
-
-def test_ad_variable_prev_time():
-    # Tests are similar to prev iter tests, just change the indexation logic because
-    # time_step_index = 0  is already a previous value
-    mdg, _ = pp.mdg_library.square_with_orthogonal_fractures(
-        "cartesian",
-        {"cell_size": 0.2},
-        fracture_indices=[1],
-    )
-    eqs = pp.ad.EquationSystem(mdg)
-
-    # Integer to test the depth of prev _*, could be a test parameter, but no need
-    depth = 5
-    var_name = 'foo'
-    vec = np.ones(mdg.num_subdomain_cells())
-
-    eqs.create_variables(
-        var_name, dof_info={"cells": 1}, subdomains=mdg.subdomains()
-    )
-    var = eqs.md_variable(var_name)
-
-    # Starting point is time step index is None, iterate index is 0
-    # (current time and iter)
-    assert var.time_step_index is None
-    assert var.iterate_index == 0 
-
-    # For AD to work, we need at least values at current time and iterate
-    eqs.set_variable_values(vec * 0., [var], iterate_index=0)
-
-    # Set values except for the last step
-    for i in range(depth - 1):
-        eqs.set_variable_values(vec * i, [var], time_step_index=i)
-
-    # prohibit prev time step variable to also be prev iter
-    with pytest.raises(ValueError):
-        var_pt = var.previous_timestep()
-        _ = var_pt.previous_iteration()
-
-    # Evaluating the last step, should raise a key error because no values set
-    with pytest.raises(KeyError):
-        # different stepping than for iter
-        var_prev = var.previous_timestep(steps = depth) 
-        _ = var_prev.value(eqs)
-
-    # Evaluate prev time and check that the values are what they're supposed to be
-    for i in range(1, depth - 1):
-        var_i = var.previous_timestep(steps = i)
-        val_i = var_i.value(eqs)
-        assert np.allclose(val_i, i - 1)
-
-        # prev time has no Jacobian
-        ad_i = var_i.value_and_jacobian(eqs)
-        assert np.all(ad_i.jac.A == 0.)
-
-    # Test creating with explicit stepping and recursive stepping
-    vars_exp = [var.previous_timestep(steps=i) for i in range(1, depth - 1)]
-
-    vars_rec = []
-    for i in range(1, depth - 1):
-        var_i = copy.copy(var)
-        for _ in range(i):
-            var_i = var_i.previous_timestep()
-        vars_rec.append(var_i)
-
-    assert len(vars_exp) == len(vars_rec)
-    vals_exp = [v.value(eqs) for v in vars_exp]
-    vals_rec = [v.value(eqs) for v in vars_rec]
-
-    for v_e, v_r in zip(vals_exp, vals_rec):
-        assert np.allclose(v_e, v_r)
-
-    # Testing IDs. NOTE as of now, variables at prev time have the same ID until
-    # full support is given
-    all_ids = set([var.id] + [v.id for v in vars_exp] + [v.id for v in vars_rec])
-    assert len(all_ids) == 1
-
-    # Testing index values. Should be increasing with depth, while iterate index stays
-    # 0 (no iterates at previous time)
-    for i in range(depth - 2):
-        assert vars_exp[i].iterate_index == 0
-        assert vars_exp[i].time_step_index == i
-        assert vars_rec[i].iterate_index == 0
-        assert vars_rec[i].time_step_index == i
+        assert getattr(vars_exp[i - 1], index_key) == i
+        assert getattr(vars_exp[i - 1], other_index_key) == 0
+        assert getattr(vars_rec[i - 1], index_key) == i
+        assert getattr(vars_rec[i - 1], other_index_key) == 0
 
 
 @pytest.mark.parametrize(
@@ -817,7 +754,7 @@ def test_variable_combinations(grids, variables):
             data[pp.PRIMARY_VARIABLES].update({var: {"cells": 1}})
 
             vals = np.random.rand(sd.num_cells)
-            pp.set_solution_values(name=var, values=vals, data=data, time_step_index=0)
+            pp.set_solution_values(name=var, values=vals, data=data, time_step_index=1)
 
     # Ad boilerplate
     eq_system = pp.ad.EquationSystem(mdg)
@@ -826,7 +763,7 @@ def test_variable_combinations(grids, variables):
         eq_system.set_variable_values(
             np.random.rand(mdg.num_subdomain_cells()),
             [var],
-            time_step_index=0,
+            time_step_index=1,
             iterate_index=0,
         )
     # Standard Ad variables
@@ -842,7 +779,7 @@ def test_variable_combinations(grids, variables):
                 expr = var.value_and_jacobian(eq_system)
                 # Check that the size of the variable is correct
                 values = pp.get_solution_values(
-                    name=var.name, data=data, time_step_index=0
+                    name=var.name, data=data, time_step_index=1
                 )
                 assert np.allclose(expr.val, values)
                 # Check that the Jacobian matrix has the right number of columns
@@ -855,7 +792,7 @@ def test_variable_combinations(grids, variables):
         for sub_var in var.sub_vars:
             data = mdg.subdomain_data(sub_var.domain)
             values = pp.get_solution_values(
-                name=sub_var.name, data=data, time_step_index=0
+                name=sub_var.name, data=data, time_step_index=1
             )
             vals.append(values)
 
@@ -914,10 +851,10 @@ def test_time_differentiation():
             vals_sol_bar = 2 * np.ones(sd.num_cells)
 
             pp.set_solution_values(
-                name="foo", values=vals_sol_foo, data=sd_data, time_step_index=0
+                name="foo", values=vals_sol_foo, data=sd_data, time_step_index=1
             )
             pp.set_solution_values(
-                name="bar", values=vals_sol_bar, data=sd_data, time_step_index=0
+                name="bar", values=vals_sol_bar, data=sd_data, time_step_index=1
             )
 
             vals_it_foo = 3 * np.ones(sd.num_cells)
@@ -935,7 +872,7 @@ def test_time_differentiation():
             vals_it_foo = np.ones(sd.num_cells)
 
             pp.set_solution_values(
-                name="foo", values=vals_sol_foo, data=sd_data, time_step_index=0
+                name="foo", values=vals_sol_foo, data=sd_data, time_step_index=1
             )
             pp.set_solution_values(
                 name="foo", values=vals_it_foo, data=sd_data, iterate_index=0
@@ -949,7 +886,7 @@ def test_time_differentiation():
         vals_it = 2 * np.ones(intf.num_cells)
 
         pp.set_solution_values(
-            name="foobar", values=vals_sol, data=intf_data, time_step_index=0
+            name="foobar", values=vals_sol, data=intf_data, time_step_index=1
         )
         pp.set_solution_values(
             name="foobar", values=vals_it, data=intf_data, iterate_index=0
@@ -1557,7 +1494,7 @@ def _get_ad_array(
         d = mdg.subdomain_data(g)
 
         pp.set_solution_values(
-            name="foo", values=variable_val, data=d, time_step_index=0
+            name="foo", values=variable_val, data=d, time_step_index=1
         )
         pp.set_solution_values(name="foo", values=variable_val, data=d, iterate_index=0)
         mat = pp.ad.SparseArray(jac)

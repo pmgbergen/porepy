@@ -172,7 +172,7 @@ class EquationSystem:
         """Dictionary mapping variable IDs to the atomic variables created and managed
         by this instance.
 
-        Variables contained here are ordered according chronologically in terms of
+        Variables contained here are ordered chronologically in terms of
         instantiation. It does not reflect the order of DOFs, which is to some degree
         optimized.
 
@@ -191,7 +191,7 @@ class EquationSystem:
         self._variable_numbers: dict[int, int] = dict()
         """A Map between a variable's ID and its index in the system vector.
 
-        This is an optimized structure, meaning the order of entries are created in
+        This is an optimized structure, meaning the order of entries is created in
         :meth:`_cluster_dofs_gridwise`.
 
         """
@@ -303,7 +303,7 @@ class EquationSystem:
         system.
 
         """
-        return [var for _, var in self._variables.items()]
+        return [var for var in self._variables.values()]
 
     @property
     def variable_domains(self) -> list[pp.GridLike]:
@@ -664,6 +664,8 @@ class EquationSystem:
                 # 1. Slice the vector to local size
                 # This will raise errors if indexation is out of range.
                 num_dofs = int(self._variable_num_dofs[variable_number])
+                # Extract local vector.
+                # This will raise errors if indexation is out of range.
                 dof_end = dof_start + num_dofs
                 dof_end = dof_start + num_dofs
                 # Extract local vector.
@@ -761,7 +763,17 @@ class EquationSystem:
 
             # Shift old values as requested.
             num_stored = len(data[location][name])
-            for i in range(num_stored - 1, 0, -1):
+            if location == pp.ITERATE_SOLUTIONS:
+                range_ = range(num_stored - 1, 0, -1)
+            # previous time step values start with index 1.
+            # NOTE this functionality should be in _ad_utils, together with set and get
+            elif location == pp.TIME_STEP_SOLUTIONS:
+                range_ = range(num_stored, 1, -1)
+            else:
+                raise NotImplementedError(
+                    f"Shift values not implemented for location {location}"
+                )
+            for i in range_:
                 data[location][name][i] = data[location][name][i - 1].copy()
 
     def _get_data(
@@ -903,9 +915,7 @@ class EquationSystem:
                 parsed_variables.append(variable)
             elif isinstance(variable, str):
                 # Use _variables to avoid recursion (get_variables() calls this method)
-                vars = [
-                    var for _, var in self._variables.items() if var.name == variable
-                ]
+                vars = [var for var in self._variables.values() if var.name == variable]
                 parsed_variables += vars
             else:
                 raise ValueError(
@@ -991,33 +1001,38 @@ class EquationSystem:
             return sps.csr_matrix((0, num_dofs))
 
     def dofs_of(self, variables: VariableList) -> np.ndarray:
-        """Get the indices in the global vector of unknowns belonging to the variable(s).
+        """Get the indices in the global vector of unknowns belonging to the variables.
 
         Parameters:
             variables: VariableType input for which the indices are requested.
 
         Returns:
-            An order-preserving array of indices of DOFs corresponding to ``variables``.
+            An array of indices/ DOFs corresponding to ``variables``.
+            Note that the order of indices corresponds to the order in ``variables``.
 
         Raises:
-            ValueError: if unknown VariableType arguments are passed.
+            ValueError: If an unknown  variable is passed as argument.
 
         """
         variables = self._parse_variable_type(variables)
-        var_ids = [var.id for var in variables]
         global_variable_dofs = np.hstack((0, np.cumsum(self._variable_num_dofs)))
 
-        # Storage of indices per requested variable.
-        # NOTE Loop over current order in variable numbers to preserve order of dofs
-        indices = list()
-        for id_, variable_number in self._variable_numbers.items():
-            if id_ in var_ids:
+        indices: list[np.ndarray] = []
+
+        for var in variables:
+            if var.id in self._variable_numbers:
+                variable_number = self._variable_numbers[var.id]
                 var_indices = np.arange(
                     global_variable_dofs[variable_number],
                     global_variable_dofs[variable_number + 1],
                     dtype=int,
                 )
                 indices.append(var_indices)
+            else:
+                raise ValueError(
+                    f"Variable {var.name} with ID {var.id} not registered among DOFS"
+                    + f" of equation system {self}."
+                )
 
         # Concatenate indices, if any
         if len(indices) > 0:
@@ -1025,11 +1040,6 @@ class EquationSystem:
         else:
             all_indices = np.array([], dtype=int)
 
-        # sanity check that the indices are in ascending order, as intended
-        # strictly positive, because dofs are unique.
-        assert np.all(
-            np.diff(all_indices) > 0
-        ), "Failure in sorting DOFs to be ascending."
         return all_indices
 
     def identify_dof(self, dof: int) -> Variable:

@@ -1071,18 +1071,18 @@ class ManuThermoPoroMechSolutionStrategy2d(
         # Mechanics source
         mech_source = self.exact_sol.mechanics_source(sd=sd, time=t)
         pp.set_solution_values(
-            name="source_mechanics", values=mech_source, data=data, time_step_index=0
+            name="source_mechanics", values=mech_source, data=data, time_step_index=1
         )
 
         # Flow source
         flow_source = self.exact_sol.flow_source(sd=sd, time=t)
         pp.set_solution_values(
-            name="source_flow", values=flow_source, data=data, time_step_index=0
+            name="source_flow", values=flow_source, data=data, time_step_index=1
         )
         # Energy source
         energy_source = self.exact_sol.energy_source(sd=sd, time=t)
         pp.set_solution_values(
-            name="source_energy", values=energy_source, data=data, time_step_index=0
+            name="source_energy", values=energy_source, data=data, time_step_index=1
         )
 
     def _is_nonlinear_problem(self) -> bool:
