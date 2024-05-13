@@ -118,7 +118,7 @@ def l2_norm(dim: int, var: pp.ad.AdArray) -> pp.ad.AdArray:
     # Avoid dividing by zero
     tol = 1e-12
     nonzero_inds = vals > tol
-    jac_vals = np.zeros(resh.shape)
+    jac_vals = np.ones(resh.shape)
     jac_vals[:, nonzero_inds] = resh[:, nonzero_inds] / vals[nonzero_inds]
     # Prepare for left multiplication with var.jac to yield
     # norm(var).jac = var/norm(var) * var.jac
