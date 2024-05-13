@@ -667,10 +667,6 @@ class EquationSystem:
                 # Extract local vector.
                 # This will raise errors if indexation is out of range.
                 dof_end = dof_start + num_dofs
-                dof_end = dof_start + num_dofs
-                # Extract local vector.
-                # This will raise errors if indexation is out of range.
-                dof_end = dof_start + num_dofs
                 # Extract local vector.
                 # This will raise errors if indexation is out of range.
                 local_vec = values[dof_start:dof_end]
