@@ -306,6 +306,10 @@ class RegularizedHeaviside:
 def maximum(var_0: FloatType, var_1: FloatType) -> FloatType:
     """Ad maximum function represented as an AdArray.
 
+    The maximum function is defined as the element-wise maximum of two arrays. At
+    equality, the maximum is taken from the first argument. The order of the arguments
+    may be important, since it determines which Jacobian is used in the case of equality.
+
     The arguments can be either AdArrays or ndarrays, this duality is needed to allow
     for parsing of operators that can be taken at the current iteration (in which case
     it will parse as an AdArray) or at the previous iteration or time step (in which
@@ -375,7 +379,7 @@ def maximum(var_0: FloatType, var_1: FloatType) -> FloatType:
     # the case.
     assert isinstance(vals[0], np.ndarray) and isinstance(vals[1], np.ndarray)
     # Maximum of the two arrays
-    inds = (vals[1] >= vals[0]).nonzero()[0]
+    inds = (vals[1] > vals[0]).nonzero()[0]
 
     max_val = vals[0].copy()
     max_val[inds] = vals[1][inds]
