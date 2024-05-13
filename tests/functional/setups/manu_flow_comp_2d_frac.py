@@ -661,8 +661,7 @@ class ManuCompBalanceEquation(pp.fluid_mass_balance.MassBalanceEquations):
         external_sources = pp.ad.TimeDependentDenseArray(
             name="external_sources",
             domains=self.mdg.subdomains(),
-            previous_timestep=True,
-        )
+        ).previous_timestep()
 
         # Add-up contribution
         fluid_source = internal_sources + external_sources
@@ -748,7 +747,7 @@ class ManuCompSolutionStrategy2d(pp.fluid_mass_balance.SolutionStrategySinglePha
             name="external_sources",
             values=matrix_source,
             data=data_matrix,
-            time_step_index=0,
+            time_step_index=1,
         )
 
         frac_source = self.exact_sol.fracture_source(sd_frac, t)
@@ -757,7 +756,7 @@ class ManuCompSolutionStrategy2d(pp.fluid_mass_balance.SolutionStrategySinglePha
             name="external_sources",
             values=frac_source,
             data=data_frac,
-            time_step_index=0,
+            time_step_index=1,
         )
 
     def after_simulation(self) -> None:

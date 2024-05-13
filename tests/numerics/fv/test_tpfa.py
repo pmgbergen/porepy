@@ -126,7 +126,7 @@ class UnitTestAdTpfaFlux(
                 values=np.array([2, 3], dtype=float),
                 data=data,
                 iterate_index=0,
-                time_step_index=0,
+                time_step_index=1,
             )
 
     def set_geometry(self):
