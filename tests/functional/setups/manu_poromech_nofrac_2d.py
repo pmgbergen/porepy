@@ -642,8 +642,7 @@ class ManuPoroMechMassBalance(mass.MassBalanceEquations):
         external_sources = pp.ad.TimeDependentDenseArray(
             name="source_flow",
             domains=self.mdg.subdomains(),
-            previous_timestep=True,
-        )
+        ).previous_timestep()
 
         # Add up contribution of internal and external sources of fluid
         fluid_sources = internal_sources + external_sources
@@ -680,8 +679,7 @@ class ManuPoroMechMomentumBalance(momentum.MomentumBalanceEquations):
         external_sources = pp.ad.TimeDependentDenseArray(
             name="source_mechanics",
             domains=self.mdg.subdomains(),
-            previous_timestep=True,
-        )
+        ).previous_timestep()
 
         return external_sources
 
@@ -755,13 +753,13 @@ class ManuPoroMechSolutionStrategy2d(poromechanics.SolutionStrategyPoromechanics
         # Mechanics source
         mech_source = self.exact_sol.mechanics_source(sd=sd, time=t)
         pp.set_solution_values(
-            name="source_mechanics", values=mech_source, data=data, time_step_index=0
+            name="source_mechanics", values=mech_source, data=data, time_step_index=1
         )
 
         # Flow source
         flow_source = self.exact_sol.flow_source(sd=sd, time=t)
         pp.set_solution_values(
-            name="source_flow", values=flow_source, data=data, time_step_index=0
+            name="source_flow", values=flow_source, data=data, time_step_index=1
         )
 
     def after_simulation(self) -> None:

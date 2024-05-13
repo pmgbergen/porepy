@@ -100,6 +100,56 @@ class AdArray:
         s += " elements"
         return s
 
+    def __getitem__(self, key: slice | np._ArrayLikeInt) -> AdArray:
+        """Slice the Ad Array row-wise (value and Jacobian).
+
+        Parameters:
+            key: A row-index (integer) or slice object to be applied to :attr:`val` and
+                :attr:`jac`
+
+        Returns:
+            A new Ad array with values and Jacobian sliced row-wise.
+
+        """
+        # NOTE mypy complains even though numpy arrays can handle slices [x:y:z]
+        # Probably a missing type annotation on numpy's side
+        val = self.val[key]  # type:ignore[index]
+        # in case of single index, broadcast to 1D array
+        if val.ndim == 0:
+            val = np.array([val])
+        return AdArray(val, self.jac[key])
+
+    def __setitem__(
+        self,
+        key: slice | np._ArrayLikeInt,
+        new_value: pp.number | np.ndarray | AdArray,
+    ) -> None:
+        """Insert new values in :attr:`val` and :attr:`jac` row-wise.
+
+        Note:
+            Broadcasting is outsourced to numpy and scipy. If ``new_value`` is not
+                compatible in terms of size and ``key``, respective errors are raised.
+
+        Parameters:
+            key: A row-index (integer) or slice object to set the rows in value and
+                Jacobian
+            new_value: New values for :attr:`val` and rows of :attr:`jac`.
+                If ``new_value`` is an Ad array, its ``jac`` is inserted into the
+                defined rows.
+
+        Raises:
+            NotImplementedError: If ``new_value`` is not a number, numpy array or
+                Ad array.
+
+        """
+        if isinstance(new_value, np.ndarray | pp.number):
+            self.val[key] = new_value
+        elif isinstance(new_value, AdArray):
+            self.val[key] = new_value.val
+            self.jac[key] = new_value.jac
+        else:
+            raise NotImplementedError("Setting")
+
     def __add__(self, other: AdType) -> AdArray:
         """Add the AdArray to another object.
 

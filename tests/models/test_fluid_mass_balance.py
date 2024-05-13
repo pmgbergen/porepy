@@ -740,21 +740,21 @@ class TestMixedDimGravity:
     def solve(self):
         pp.run_time_dependent_model(self.model, self.model.params)
         pressure = self.model.equation_system.get_variable_values(
-            [self.model.pressure_variable], time_step_index=0
+            [self.model.pressure_variable], time_step_index=1
         )
         return pressure
 
     def verify_pressure(self, p_known: float = 0):
         """Verify that the pressure of all subdomains equals p_known."""
         pressure = self.model.equation_system.get_variable_values(
-            [self.model.pressure_variable], time_step_index=0
+            [self.model.pressure_variable], time_step_index=1
         )
         assert np.allclose(pressure, p_known, rtol=1e-3, atol=1e-3)
 
     def verify_mortar_flux(self, u_known: float):
         """Verify that the mortar flux of all interfaces equals u_known."""
         flux = self.model.equation_system.get_variable_values(
-            [self.model.interface_darcy_flux_variable], time_step_index=0
+            [self.model.interface_darcy_flux_variable], time_step_index=1
         )
         assert np.allclose(np.abs(flux), u_known, rtol=1e-3, atol=1e-3)
 
@@ -770,7 +770,7 @@ class TestMixedDimGravity:
         sd_primary = mdg.subdomains(dim=mdg.dim_max())[0]
         data_primary = mdg.subdomain_data(sd_primary)
         p_primary = pp.get_solution_values(
-            name="pressure", data=data_primary, time_step_index=0
+            name="pressure", data=data_primary, time_step_index=1
         )
 
         # The cells above the fracture
@@ -782,7 +782,7 @@ class TestMixedDimGravity:
         sd_secondary = mdg.subdomains(dim=mdg.dim_max() - 1)[0]
         data_secondary = mdg.subdomain_data(sd_secondary)
         p_secondary = pp.get_solution_values(
-            name="pressure", data=data_secondary, time_step_index=0
+            name="pressure", data=data_secondary, time_step_index=1
         )
 
         # Half the additional jump is added to the fracture pressure
@@ -791,7 +791,7 @@ class TestMixedDimGravity:
 
         assert np.allclose(p_secondary, p_known, rtol=1e-3, atol=1e-3)
         flux = self.model.equation_system.get_variable_values(
-            [self.model.interface_darcy_flux_variable], time_step_index=0
+            [self.model.interface_darcy_flux_variable], time_step_index=1
         )
         assert np.allclose(flux, 0, rtol=1e-3, atol=1e-3)
 

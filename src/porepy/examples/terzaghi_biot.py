@@ -699,7 +699,7 @@ class TerzaghiSolutionStrategy(poromechanics.SolutionStrategyPoromechanics):
             values=initial_p,
             data=data,
             iterate_index=0,
-            time_step_index=0,
+            time_step_index=1,
         )
 
     def after_simulation(self) -> None:

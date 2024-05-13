@@ -28,7 +28,7 @@ Classes:
 from __future__ import annotations
 
 from abc import ABCMeta
-from typing import Optional
+from typing import Any, Optional
 
 import numpy as np
 import scipy.sparse as sps
@@ -294,6 +294,60 @@ def discretize_from_list(
                     pass
 
 
+def _validate_indices(
+    time_step_index: Optional[int] = None,
+    iterate_index: Optional[int] = None,
+) -> list[tuple[Any, int]]:
+    """Helper method to validate the indexation of getter and setter methods for
+    values in a grid's data dictionary.
+
+    See :func:`set_solution_values` and :func:`get_solution_values`.
+
+    """
+    if time_step_index is None and iterate_index is None:
+        raise ValueError(
+            "At least one of time_step_index and iterate_index needs to be different"
+            " from None."
+        )
+
+    out = []
+
+    if iterate_index is not None:
+        # Some iterate values of the current time
+        if iterate_index >= 0:
+            out.append((pp.ITERATE_SOLUTIONS, iterate_index))
+        # Negative iterate indices are not supported
+        else:
+            raise ValueError(
+                "Use increasing, non-negative integers for (previous) iterate values."
+            )
+
+    if time_step_index is not None:
+        # Some previous time.
+        if time_step_index > 0:
+            out.append((pp.TIME_STEP_SOLUTIONS, time_step_index))
+        # Current time. NOTE this is ambigous since the current time is an unknown and
+        # has multiple iterate values.
+        # Alternatively, we could associate time_step_index = 0 with iterate_index = 0
+        # the below elif branch introduces the convention that
+        # time step = iterate step = 0 are equivalent.
+        elif time_step_index == 0:
+            # if (pp.ITERATE_SOLUTIONS, 0) not in out:
+            #     out.append((pp.ITERATE_SOLUTIONS, 0))
+            raise ValueError(
+                "Using time_step_index = 0 (current time) is ambiguous."
+                + " Specify iterate_index instead."
+                + " First previous time step value is time_step_index = 1."
+            )
+        # Negative time step indices are not supported
+        else:
+            raise ValueError(
+                "Use increasing, non-negative integers for previous time step values."
+            )
+
+    return out
+
+
 def set_solution_values(
     name: str,
     values: np.ndarray,
@@ -302,7 +356,8 @@ def set_solution_values(
     iterate_index: Optional[int] = None,
     additive: bool = False,
 ) -> None:
-    """Function for setting values in the data dictionary.
+    """Function for setting values in the data dictionary, for some time-dependent or
+    iterative term.
 
     Parameters:
         name: Name of the quantity that is to be assigned values.
@@ -320,36 +375,29 @@ def set_solution_values(
             dictionary should be added to or overwritten.
 
     Raises:
-        ValueError: If neither of `time_step_index` or `iterate_index` have been
-            assigned a non-None value.
+        ValueError: In the case of inconsistent usage of indices
+            (both None, or negative values).
+        ValueError: If the user attempts to set values additively at an index where no
+            values were set before.
 
     """
-    if time_step_index is None and iterate_index is None:
-        raise ValueError(
-            "At least one of time_step_index and iterate_index needs to be different"
-            " from None."
-        )
+    loc_index = _validate_indices(time_step_index, iterate_index)
 
-    if not additive:
-        if time_step_index is not None:
-            if pp.TIME_STEP_SOLUTIONS not in data:
-                data[pp.TIME_STEP_SOLUTIONS] = {}
-            if name not in data[pp.TIME_STEP_SOLUTIONS]:
-                data[pp.TIME_STEP_SOLUTIONS][name] = {}
-            data[pp.TIME_STEP_SOLUTIONS][name][time_step_index] = values.copy()
+    for loc, index in loc_index:
+        if loc not in data:
+            data[loc] = {}
+        if name not in data[loc]:
+            data[loc][name] = {}
 
-        if iterate_index is not None:
-            if pp.ITERATE_SOLUTIONS not in data:
-                data[pp.ITERATE_SOLUTIONS] = {}
-            if name not in data[pp.ITERATE_SOLUTIONS]:
-                data[pp.ITERATE_SOLUTIONS][name] = {}
-            data[pp.ITERATE_SOLUTIONS][name][iterate_index] = values.copy()
-    else:
-        if time_step_index is not None:
-            data[pp.TIME_STEP_SOLUTIONS][name][time_step_index] += values
-
-        if iterate_index is not None:
-            data[pp.ITERATE_SOLUTIONS][name][iterate_index] += values
+        if additive:
+            if index not in data[loc][name]:
+                raise ValueError(
+                    f"Cannot set value additively for {name} at {(loc, index)}:"
+                    + " No values stored to add to."
+                )
+            data[loc][name][index] += values
+        else:
+            data[loc][name][index] = values.copy()
 
 
 def get_solution_values(
@@ -358,11 +406,8 @@ def get_solution_values(
     time_step_index: Optional[int] = None,
     iterate_index: Optional[int] = None,
 ) -> np.ndarray:
-    """Function for fetching values stored in the data dictionary.
-
-    This function should be used for obtaining solution values that are not related to a
-    variable. This is to avoid the cumbersome alternative of writing e.g.:
-    `data["solution_name"][pp.TIME_STEP_SOLUTION/pp.ITERATE_SOLUTION][0]`.
+    """Function for fetching values stored in the data dictionary, for some
+    time-dependent or iterative term.
 
     Parameters:
         name: Name of the parameter whose values we are interested in.
@@ -375,45 +420,31 @@ def get_solution_values(
             from before.
 
     Raises:
-        ValueError: If both time_step_index and iterate_index are None.
-
-        ValueErorr: If both time_step_index and iterate_index are assigned a value.
-
-        KeyError: If there are no data values assigned to the provided name.
-
-        KeyError: If there are no data values assigned to the time step/iterate index.
+        ValueError: In the case of inconsistent usage of indices
+            (both None or negative values).
+        AssertionError: If the user attempts to get iterate and time step values
+            simultanously. Only 1 index is permitted in getter
+        KeyError: If no values are stored for the passed index.
 
     Returns:
-        An array containing the solution values.
+        A copy of the values stored at the passed index.
 
     """
-    if time_step_index is None and iterate_index is None:
-        raise ValueError("Both time_step_index and iterate_index cannot be None.")
+    loc_index = _validate_indices(time_step_index, iterate_index)
+    assert (
+        len(loc_index) == 1
+    ), "Cannot get value from both iterate and time step at once. Call separately."
 
-    if time_step_index is not None and iterate_index is not None:
-        raise ValueError(
-            "Both time_step_index and iterate_index cannot be assigned a value."
-        )
+    loc, index = loc_index[0]
 
-    if time_step_index is not None:
-        if name not in data[pp.TIME_STEP_SOLUTIONS].keys():
-            raise KeyError(f"There are no values related the parameter name {name}.")
+    try:
+        value = data[loc][name][index].copy()
+    except KeyError as err:
+        raise KeyError(
+            f"No values stored for {name} at {(loc, index)}: {str(err)}."
+        ) from err
 
-        if time_step_index not in data[pp.TIME_STEP_SOLUTIONS][name].keys():
-            raise KeyError(
-                f"There are no values stored for time step index {time_step_index}."
-            )
-        return data[pp.TIME_STEP_SOLUTIONS][name][time_step_index].copy()
-
-    else:
-        if name not in data[pp.ITERATE_SOLUTIONS].keys():
-            raise KeyError(f"There are no values related the parameter name {name}.")
-
-        if iterate_index not in data[pp.ITERATE_SOLUTIONS][name].keys():
-            raise KeyError(
-                f"There are no values stored for iterate index {iterate_index}."
-            )
-        return data[pp.ITERATE_SOLUTIONS][name][iterate_index].copy()
+    return value
 
 
 class MergedOperator(operators.Operator):
