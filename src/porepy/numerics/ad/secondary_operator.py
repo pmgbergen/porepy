@@ -358,6 +358,7 @@ class SecondaryExpression:
 
             The number of DOFs of this expression is used to validate the shape of
             values and derivative values set.
+            Defaults to cell-wise, scalar expression.
 
     Raises:
         ValueError: If there are no ``*dependencies``. The user should use other
@@ -545,10 +546,14 @@ class SecondaryExpression:
 
         """
         if isinstance(grid, (pp.BoundaryGrid, pp.MortarGrid)):
+            # NOTE using default value of 1, because this is the general default value
+            # and only cells are supported on boundaries and interfaces
             return self._dof_info.get("cells", 1) * grid.num_cells
         elif isinstance(grid, pp.Grid):
+            # NOTE cannot use default value of scalar, cell-wise, to not mess with
+            # cases where the user defines only node- or face-wise dofs.
             return (
-                self._dof_info.get("cells", 1) * grid.num_cells
+                self._dof_info.get("cells", 0) * grid.num_cells
                 + self._dof_info.get("faces", 0) * grid.num_faces
                 + self._dof_info.get("nodes", 0) * grid.num_nodes
             )
