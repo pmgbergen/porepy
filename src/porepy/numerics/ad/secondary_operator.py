@@ -323,15 +323,14 @@ class SecondaryExpression:
     in the md-setting. It makes this class compatible for models without fractures or
     interfaces.
 
-    Note:
+    Notes:
 
         1. The ``dependencies`` are assumed to be of first order. I.e., independent
            variables. Nested dependencies are not supported.
-        2. It also supports only ``dependencies`` which have cell-wise a single DOF.
-        3. Data is stored in a grid's data dictionary. This class generates an extra
+        2. Data is stored in a grid's data dictionary. This class generates an extra
            key based on its name to store the derivative values using PorePy's AD
            utilities.
-        4. This class provides management functionality to update values grid-wise and
+        3. This class provides management functionality to update values grid-wise and
            globally, in both iterative and time sense, as well as derivative values.
            On boundaries, it does not support derivatives and no storage of data in the
            iterative sense, only in time.
