@@ -14,7 +14,7 @@ Note:
 
 :class:`SecondaryExpression` is a factory and management class for
 :class:`SecondaryOperator`. The latter is the (actual) AD-compatible representation,
-on some specified grid, at a specified time and iterate index.
+on some specified grids, at a specified time and iterate index.
 
 Note:
     A connection between operator and factory class is established via
@@ -60,8 +60,7 @@ Example:
                     name = 'fluid_density',
                     mdg = self.mdg,
                     dependencies = [self.pressure, self.temperature],
-                    time_step_depth = 1,
-                    iterate_depth = 1,
+                    time_dependent = True,
                 )
 
     The model will now have a callable ``fluid_density``, which returns an AD operator
@@ -72,15 +71,15 @@ Example:
     the result is an AD array.
 
     Since the fluid density appears in the accumulation term of any balance equation,
-    it has a ``time_step_depth`` of 1 (Implicit Euler). This informs the
-    :class:`SecondaryExpression` that its values can be progressed in time. Otherwise
-    it will raise an error if the user attempts to progress in time. This forces the
-    user to be aware of the data which is stored in the memory and requires thinking
-    about the memory budget.
+    it is ``time_dependent`` and the user can update boundary values or progress
+    values (and derivative values) in time.
+    To avoid unintentional, possibly memory-heavy storage of data, the user must
+    declare the expression explicitly as time-dependent. If the expression is not
+    time-dependent, the update and progress methods will do nothing.
+    (Except for the boundary values, since the current boundary values are stored at
+    the iterate index 0.)
 
-    Analogously, since we assume a non-linear problem which requires iterations,
-    we need to store iterate values for the current time step as well, hence
-    ``iterate_depth`` is 1.
+    Arbitrary iterate depth is supported by default.
 
     To get a representation of the accumulation term in all subdomains, the user has now
     the option to make the following call somewhere else in the model mixins:
@@ -98,30 +97,32 @@ Example:
     >>> new_boundary_values: numpy.array = ...
     >>> self.fluid_density.boundary_values = new_boundary_values
 
-    Note that ``new_boundary_values`` must be of shape ``(num_boundary_cells,)``, where
-    ``num_boundary_cells`` is the sum of cells in each boundary grid.
-
-    Also note, that the update is performed on the instance of
+    Note, that the update is performed on the instance of
     :class:`SecondaryExpression`, not on its products :class:`SecondaryOperator`.
 
     Iterate values at the current time step (to be solved for) can be updated in a
     similar fashion:
 
-    >>> new_vals: numpy.array = ...  # array with shape (num_cells,)
-    >>> new_derivatives: numpy.array = ...  # array with shape (2, num_cells)
+    >>> new_vals: numpy.array = ...
+    >>> new_derivatives: numpy.array = ...
     >>> self.fluid_density.subdomain_values = new_vals
     >>> self.fluid_density.subdomain_derivatives = new_derivatives
 
     In the next parsing of the fluid density at the current time and iterate, an
     AD array will be returned with values equaling ``new_vals`` and a sparse CSR matrix
     with diagonal blocks containing the two derivative values for pressure and
-    temperature.
+    temperature in their respective columns.
+
+    Note that the user must inform the :class:`SecondaryExpression` about it's number
+    of dofs (similar to when creating variables in the equation system).
+    This information is used to support the user and raise exceptions if various
+    ``new_values`` are not of expected shape.
 
 """
 
 from __future__ import annotations
 
-from typing import Callable, Sequence, cast
+from typing import Any, Callable, Optional, Sequence, cast
 
 import numpy as np
 import scipy.sparse as sps
@@ -130,7 +131,7 @@ import porepy as pp
 from porepy.numerics.ad.forward_mode import AdArray
 from porepy.numerics.ad.operators import Operator
 
-from .operator_functions import AbstractFunction
+from .functions import FloatType
 from .operators import IterativeOperator, TimeDependentOperator
 
 __all__ = [
@@ -142,9 +143,6 @@ __all__ = [
 class SecondaryOperator(
     TimeDependentOperator,
     IterativeOperator,
-    # NOTE, with AbstractFunction at the end, the other parent classes enable arithmetic
-    # overloads
-    AbstractFunction,
 ):
     """Operator representing a :class:`SecondaryExpression` in AD operator form on
     specified subdomains or interfaces, at a time or iterate index.
@@ -158,30 +156,11 @@ class SecondaryOperator(
     The derivative values are inserted into the Jacobians of the first-order
     dependencies (identity blocks).
 
-    It supports the notion of previous time step and iterate values to an arbitrary
-    depth, which are mutually exclusive. I.e., it cannot represent a previous time step
-    and iterate at the same time.
-
-    Note:
-        The default instantiation returns the term at current time
-        (time step index is ``-1``), current iterate (iterate index is 0).
-
     Parameters:
         name: Name of the called :class:`SecondaryExpression`.
         domains: Arguments to its call.
         children: The first-order dependencies of the called
             :class:`SecondaryExpression` in AD form (defined on the same ``domains``).
-        time_step_index: ``default=-1``
-
-            Assigned as -1 by the expression, increased by
-            :meth:`previous_timestep`.
-
-            Operators representing the current time step or some iterate step, must have
-            -1 assigned.
-
-        iterate_index: ``default=0``
-
-            Assigned as 0 by the expression, increased by :meth:`previous_iteration`.
 
     """
 
@@ -195,13 +174,11 @@ class SecondaryOperator(
         super().__init__(
             name=name,
             domains=domains,
-            # operation=pp.ad.Operator.Operations.evaluate,
+            operation=pp.ad.Operator.Operations.evaluate,
             children=children,
         )
 
-        self.fetch_data: Callable[
-            [SecondaryOperator, pp.GridLike], Sequence[np.ndarray | None]
-        ]
+        self.fetch_data: Callable[[SecondaryOperator, pp.GridLike, bool], np.ndarray]
         """A function returning the stored data for a secondary operator on a grid,
         which is time step and iterate index dependent.
 
@@ -220,9 +197,9 @@ class SecondaryOperator(
             + f"Dependent on {len(self.children)} independent expressions.\n"
         )
 
-        if self.prev_time:
+        if self.is_previous_time:
             msg += f"Evaluated at the previous time step {self.time_step_index}.\n"
-        elif self.prev_iter:
+        elif self.is_previous_iterate:
             msg += f"Evaluated at the previous iterate {self.iterate_index}.\n"
 
         return msg
@@ -263,26 +240,25 @@ class SecondaryOperator(
         op.children = [child.previous_iteration(steps=steps) for child in self.children]
         return op
 
+    def func(self, *args: FloatType) -> float | np.ndarray | AdArray:
+        """See :meth:`~porepy.numerics.ad.operator_functions.AbstractFunction.func`.
+
+        Note:
+            This class cannot inherit from
+            :class:`~porepy.numerics.ad.operator_functions.AbstractFunction` because
+            that parent would block arithmetic overloads.
+            But it uses the operation ``evaluate`` and the ``AbstractFunction.func``
+            with ``self`` as an explicit argument.
+
+        """
+        # mypy complains that self is not an instance of AbstractFunction because of the
+        # hack
+        return pp.ad.AbstractFunction.func(self, *args)  # type:ignore[arg-type]
+
     def get_values(self, *args: float | np.ndarray | AdArray) -> np.ndarray:
         """Fetches the values stored for this secondary operator at its time or iterate
         index."""
-
-        values: list[np.ndarray] = []
-
-        for g in self.domains:
-            val = self.fetch_data(self, g)[0]
-            if val is None:
-                raise ValueError(
-                    f"No values stored for secondary operator {self.name}"
-                    + f"at time {self.time_step_index} and iterate {self.iterate_index}"
-                    + f" on grid with id {g.id}."
-                )
-            else:
-                values.append(val)
-
-        value = np.hstack(values)
-
-        return value
+        return np.hstack([self.fetch_data(self, g, False) for g in self.domains])
 
     def get_jacobian(self, *args: float | np.ndarray | AdArray) -> sps.spmatrix:
         """Fetches the derivative values stored for this secondary operator at its time
@@ -293,19 +269,7 @@ class SecondaryOperator(
 
         """
 
-        diffs: list[np.ndarray] = []
-        for g in self.domains:
-            val = self.fetch_data(self, g)[1]
-            if val is None:
-                raise ValueError(
-                    f"No derivative values stored for secondary operator {self.name}"
-                    + f"at time {self.time_step_index} and iterate {self.iterate_index}"
-                    + f" on grid with id {g.id}."
-                )
-            else:
-                diffs.append(val)
-
-        derivatives = np.hstack(diffs)
+        derivatives = np.hstack([self.fetch_data(self, g, True) for g in self.domains])
 
         # list of jacs per dependency, assuming porepy.ad makes consistent shapes
         jacs: list[sps.csr_matrix] = []
@@ -364,40 +328,13 @@ class SecondaryExpression:
         1. The ``dependencies`` are assumed to be of first order. I.e., independent
            variables. Nested dependencies are not supported.
         2. It also supports only ``dependencies`` which have cell-wise a single DOF.
-        3. Data is stored in a grid's data dictionary. On subdomains and interfaces,
-           a list of length 2 is created, representing a value-derivative pair
-           (1D array and 2D array with row-wise derivatives w.r.t. dependencies).
-           To not bother with this, use the functionality of this class to set values
-           and progress them iteratively/ in time.
-
-    Important:
-        This class (and :class:`SecondaryOperator`) support the notion of iterate
-        and time step values according to the convention in PorePy.
-
-        Current time step (to be solved for) is stored using iterate indices,
-        starting with 0 and increasing for previous iterates.
-
-        Previous time steps are stored using time step indices, starting with 0 for the
-        most recent previous time (e.g., impl. Euler requires this) and increasing
-        with further steps back in time.
-
-        Iterate and timestep values can be progressed on individual grids using
-        various ``progress_*`` methods.
-
-        The properties defined by the class are for convenience to do it on all grids of
-        a certain type (subdomain, interface or boundary).
-
-        For subdomains and interfaces, the properties progress the iterate value.
-        Time step values have to be progressed explicitely using
-        :meth:`progress_values_in_time` and :meth:`progress_derivatives_in_time`.
-
-        For boundaries, this class does not implement a progress in the iterative sense.
-        If boundary values are set using the property :meth:`boundary_values`, it stores
-        them as current iterate values (index 0), and progress is made in time by
-        copying the previous value stored at the single iterate value to the previous
-        time step index.
-
-        This is for consistency with the remaining framework.
+        3. Data is stored in a grid's data dictionary. This class generates an extra
+           key based on its name to store the derivative values using PorePy's AD
+           utilities.
+        4. This class provides management functionality to update values grid-wise and
+           globally, in both iterative and time sense, as well as derivative values.
+           On boundaries, it does not support derivatives and no storage of data in the
+           iterative sense, only in time.
 
     Parameters:
         name: Assigned name of the expression. Used to name operators and to store
@@ -409,19 +346,21 @@ class SecondaryExpression:
 
             When calling the secondary expression on some grids, it is expected that the
             dependencies are defined there.
-        time_step_depth: ``default=0``
+        time_dependent: ``default=False``
 
-            Depth of storage of values backwards in time.
-            Default to 0 (no time-dependent storage for static problems).
+            If flagged as time-dependent, methods updating/progressing values in time
+            will shift values backwards and store them to be accessed in time-stepping
+            schemes. Otherwise time-dependent storage is deactivated and respective
+            methods will only update the current time value (stored as current iterate).
+        dof_info: ``default=None``
 
-        iterate_depth: ``default=1``
+            See
+            :meth:`~porepy.numerics.ad.equation_system.EquationSystem.create_variables`.
 
-            Depth of storage of iterate values. By default only 1 iterate value is
-            stored. The iterate values represent the current time step.
+            The number of DOFs of this expression is used to validate the shape of
+            values and derivative values set.
 
     Raises:
-        ValueError: If ``time_step_depth`` is smaller than 0.
-        ValueError: If ``iterate_depth`` is smaller than 1.
         ValueError: If there are no ``*dependencies``. The user should use other
             solutions in ``porepy.ad`` for this case.
 
@@ -432,17 +371,18 @@ class SecondaryExpression:
         name: str,
         mdg: pp.MixedDimensionalGrid,
         dependencies: Sequence[Callable[[pp.GridLikeSequence], pp.ad.Variable]],
-        time_step_depth: int = 0,
-        iterate_depth: int = 1,
+        time_dependent: bool = False,
+        dof_info: Optional[dict[pp.ad.equation_system.GridEntity, int]] = None,
     ) -> None:
 
         if len(dependencies) == 0:
             raise ValueError("Secondary expressions must have dependencies.")
 
-        if time_step_depth < 0:
-            raise ValueError("Time step depth must be at least 0.")
-        if iterate_depth < 1:
-            raise ValueError("Iterate depth must be at least 1.")
+        if dof_info is None:
+            dof_info = {"cells": 1}
+
+        # help mypy with default values
+        dof_info = cast(dict[pp.ad.equation_system.GridEntity, int], dof_info)
 
         self._dependencies: Sequence[
             Callable[[pp.GridLikeSequence], pp.ad.Variable]
@@ -450,20 +390,18 @@ class SecondaryExpression:
         """Sequence of callable first order dependencies. Called when constructing
         operators on domains."""
 
-        self._time_depth: int = time_step_depth
-        """Depth of stored values in time, with 0 denoting the current time, positive
-        numbers going backwards in time."""
-        self._iterate_depth: int = iterate_depth
-        """Depth of stored iterate values, with 0 denoting the current iteration,
-        positive numbers denoting previous iterations."""
+        self._time_dependent: bool = time_dependent
+        """Flag to activate storage of data backwards in time, passed at instantiation.
+        """
+        self._name: str = name
+        """See :meth:`name`."""
+
+        self._dof_info: dict[pp.ad.equation_system.GridEntity, int] = dof_info
+        """Passed at insantiation, with default value leading to scalar, cell-wise dofs.
+        """
 
         self.mdg: pp.MixedDimensionalGrid = mdg
         """Mixed-dimensional domain passed at instantiation."""
-        self.name: str = name
-        """Name passed at instantiation. Used to name resulting operators and to store
-        values in data dictionaries."""
-
-        self._set_up_dictionaries()
 
     def __call__(self, domains: pp.GridLikeSequence) -> pp.ad.Operator:
         """Call this operator on a subset of grid in the md-grid to get a property
@@ -521,8 +459,8 @@ class SecondaryExpression:
             )
 
     def fetch_data(
-        self, op: SecondaryOperator, grid: pp.GridLike
-    ) -> Sequence[np.ndarray | None]:
+        self, op: SecondaryOperator, grid: pp.GridLike, get_derivatives: bool = False
+    ) -> np.ndarray:
         """Function fetching the data stored for this secondary expression, represented
         in Ad form by ``op``.
 
@@ -534,141 +472,38 @@ class SecondaryExpression:
         the other operators).
 
         Note:
-            (Implementation) This method does not validate if data is stored or not, in
-            order to allow for more flexibility in the evaluation of ``op``.
+            This method uses PorePy's utility functions to get data stored in a grid's
+            data dictionary. Respective errors will be raised if no data stored.
 
         Parameters:
-            op: This expression in operator form, created by calling it on subdomains or
-                interfaces.
-            g: A grid or mortar grid, on which ``op`` is defined.
+            op: An AD representation of this expression at a specific time and iterate.
+            grid: A grid in the md-grid for which the data should be fetched.
+            get_derivatives: If True, it fetches the derivative values, otherwise it
+                fetches the values.
 
         Returns:
-            The data stored in the grid dictionary for this expression.
-            It is a Sequence of length 2, representing a value and derivative pair.
+            If ``get_derivatives==True``, the resulting array is of shape
+            ``(num_dependencies, num_dofs)``, with ``num_dofs`` being the number of DOFs
+            of this expression.
 
-            It may contain a None, if data is not present.
+            Otherwise the resulting array is of shape ``(num_dofs,)``.
 
         """
-        # if op is at previous time, get those values
-        if op.prev_time:
-            loc = pp.TIME_STEP_SOLUTIONS
-            index = op.time_step_index
+        # arguments for utility function
+        kwargs: dict[Any, Any] = dict()
+        if get_derivatives:
+            kwargs["name"] = self._name_diffs
         else:
-            loc = pp.ITERATE_SOLUTIONS
-            index = op.iterate_index
+            kwargs["name"] = self.name
 
-        data = self._data_of(grid)
-        return data[loc][self.name].get(index, [None, None])
+        kwargs["data"] = self._data_of(grid)
 
-    def _fetch_values(self, grid: pp.GridLike, loc: str, index: int) -> np.ndarray:
-        """Helper function to fetch the value of the secondary expression,
-        at a given location and index.
-
-        Performs also validations if data is stored.
-
-        Parameters:
-            grid: A grid in the md-grid.
-            loc: Either ``pp.ITERATE_SOLUTIONS`` or ``pp.TIME_STEP_SOLUTIONS``
-            index: Iterate or time step index.
-
-        Raises:
-            KeyError: If no values were stored for this instance at given location and
-                index.
-
-        """
-        data = self._data_of(grid)
-        values = None
-
-        if index in data[loc][self.name]:
-            values = data[loc][self.name][index][0]
-
-        if values is None:
-            raise KeyError(
-                f"No values stored for secondary expression {self.name} at location"
-                + f" {loc} and index {index} on grid {grid}."
-            )
+        if op.is_previous_time:
+            kwargs["time_step_index"] = op.time_step_index
         else:
-            return cast(np.ndarray, values)
+            kwargs["iterate_index"] = op.iterate_index
 
-    def _fetch_derivative_values(
-        self, grid: pp.GridLike, loc: str, index: int
-    ) -> np.ndarray:
-        """Helper function to fetch the derivative values of the secondary expression,
-        at a given location and index.
-
-        Performs also validations if data is stored.
-
-        Parameters:
-            grid: A grid in the md-grid.
-            loc: Either ``pp.ITERATE_SOLUTIONS`` or ``pp.TIME_STEP_SOLUTIONS``
-            index: Iterate or time step index.
-
-        Raises:
-            KeyError: If no derivative values were stored for this instance at given
-                location and index.
-
-        """
-        data = self._data_of(grid)
-        values = None
-
-        if index in data[loc][self.name]:
-            values = data[loc][self.name][index][1]
-
-        if values is None:
-            raise KeyError(
-                f"No derivative values stored for secondary expression {self.name} at"
-                + f" location {loc} and index {index} on grid {grid}."
-            )
-        else:
-            return cast(np.ndarray, values)
-
-    def _set_up_dictionaries(self) -> None:
-        """Helper method to populate the data dictionaries in the md-grid and prepare
-        the data storage for this expression, when calling it.
-
-        Prepares the ``pp.ITERATE_SOLUTIONS`` dictionary, and ``pp.TIME_STEP_SOLUTIONS``
-        if the time depth is not zero.
-
-        """
-        # subdomains
-        for _, data in self.mdg.subdomains(return_data=True):
-            # Every expression has at least one iterate value (current time step)
-            if pp.ITERATE_SOLUTIONS not in data:
-                data[pp.ITERATE_SOLUTIONS] = {}
-            if self.name not in data[pp.ITERATE_SOLUTIONS]:
-                data[pp.ITERATE_SOLUTIONS][self.name] = {}
-
-            # If an expression has a time-step depth, prepare dicts analogously in
-            # TIME_STEP_SOLUTIONS (previous time steps)
-            if self._time_depth > 0:
-                if pp.TIME_STEP_SOLUTIONS not in data:
-                    data[pp.TIME_STEP_SOLUTIONS] = {}
-                if self.name not in data[pp.TIME_STEP_SOLUTIONS]:
-                    data[pp.TIME_STEP_SOLUTIONS][self.name] = {}
-        # interfaces
-        for _, data in self.mdg.interfaces(return_data=True):
-            if pp.ITERATE_SOLUTIONS not in data:
-                data[pp.ITERATE_SOLUTIONS] = {}
-            if self.name not in data[pp.ITERATE_SOLUTIONS]:
-                data[pp.ITERATE_SOLUTIONS][self.name] = {}
-
-            if self._time_depth > 0:
-                if pp.TIME_STEP_SOLUTIONS not in data:
-                    data[pp.TIME_STEP_SOLUTIONS] = {}
-                if self.name not in data[pp.TIME_STEP_SOLUTIONS]:
-                    data[pp.TIME_STEP_SOLUTIONS][self.name] = {}
-        # boundaries
-        for _, data in self.mdg.boundaries(return_data=True):
-            if pp.ITERATE_SOLUTIONS not in data:
-                data[pp.ITERATE_SOLUTIONS] = {}
-            if self.name not in data[pp.ITERATE_SOLUTIONS]:
-                data[pp.ITERATE_SOLUTIONS][self.name] = {}
-
-            if self._time_depth > 0:
-                if pp.TIME_STEP_SOLUTIONS not in data:
-                    data[pp.TIME_STEP_SOLUTIONS] = {}
-                if self.name not in data[pp.TIME_STEP_SOLUTIONS]:
-                    data[pp.TIME_STEP_SOLUTIONS][self.name] = {}
+        return pp.get_solution_values(**kwargs)
 
     def _data_of(self, grid: pp.GridLike) -> dict:
         """Convenience function to get the data dictionary of any grid."""
@@ -689,6 +524,49 @@ class SecondaryExpression:
         This determines the number of required derivative values."""
         return len(self._dependencies)
 
+    def num_dofs_on_grid(self, grid: pp.GridLike) -> int:
+        """Computes the numbe of DOFs based on the information provided during
+        instantiation.
+
+        Note:
+            On boundary grids and interfaces, only cell-wise DOFs are expected.
+            On subdomains, DOFs can be cell-, node- and face-wise.
+
+        Parameters:
+            grid: Any grid in the md-grid.
+
+        Returns:
+            For boundary grids and interfaces it returns ``grid.num_cells`` multiplied
+            with ``dof_info['cells']``.
+            For subdomains, it returns information based on ``dof_info``,
+            number of cells, number of faces and number of nodes in ``grid``.
+
+        Raises:
+            TypeError: If ``grid`` is neither a boundary, interface or subdomain.
+
+        """
+        if isinstance(grid, (pp.BoundaryGrid, pp.MortarGrid)):
+            return self._dof_info.get("cells", 1) * grid.num_cells
+        elif isinstance(grid, pp.Grid):
+            return (
+                self._dof_info.get("cells", 1) * grid.num_cells
+                + self._dof_info.get("faces", 0) * grid.num_faces
+                + self._dof_info.get("nodes", 0) * grid.num_nodes
+            )
+        else:
+            raise TypeError(f"Unsupported type of grid {type(grid)}.")
+
+    @property
+    def name(self) -> str:
+        """Name of this expression assigned at instantiation."""
+        return self._name
+
+    @property
+    def _name_diffs(self) -> str:
+        """Private property giving the name under which the **derivative** values of
+        this expression are stored in the grid data dictionaries"""
+        return f"{self.name}_DERIVATIVES"
+
     # Convenience properties/methods to access and progress values collectively
 
     @property
@@ -697,6 +575,8 @@ class SecondaryExpression:
         on **all** boundaries in the md grid.
 
         The getter fetches the values in the order imposed by the md-grid.
+        The setter slices the values according to :meth:`num_dofs_on_grid` for each
+        boundary grid in the md-grid.
 
         Note:
             This is a convenience functionality for :meth:`update_boundary_values`,
@@ -710,18 +590,18 @@ class SecondaryExpression:
             values.
 
         Parameters:
-            val: ``shape=(num_boundary_cells,)``
+            val: A new value with shape ``(N,)`` to be set. Note that ``N`` is
+                calculated from the information passed in ``dof_info`` during
+                instantiation, and the number of cells in all boundary grids.
 
-                A new value to be set.
-
-        Raises:
-            AssertionError: If the size of the value mismatches what is expected.
-            KeyError: If no data was stored on a grid, but accessed.
+        Returns:
+            If boundary values are set, it returns the one for the current time
+            (iterate index = 0). The shape is consistent with ``val``.
 
         """
         vals = []
-        for grid in self.mdg.boundaries():
-            vals.append(self._fetch_values(grid, pp.ITERATE_SOLUTIONS, 0))
+        for _, data in self.mdg.boundaries(return_data=True):
+            vals.append(pp.get_solution_values(self.name, data, iterate_index=0))
         if len(vals) > 0:
             return np.hstack(vals)
         else:
@@ -729,40 +609,35 @@ class SecondaryExpression:
 
     @boundary_values.setter
     def boundary_values(self, val: np.ndarray) -> None:
-        shape = (sum([g.num_cells for g in self.mdg.boundaries()]),)
-        assert val.shape == shape, (
-            f"Need array of shape {shape}," + f" but {val.shape} given."
-        )
 
-        idx = 0
+        i = 0
         for grid in self.mdg.boundaries():
-            n = grid.num_cells
-            self.update_boundary_value(val[idx : idx + n], grid)
-            idx += n
+            n = self.num_dofs_on_grid(grid)
+            self.update_boundary_values(val[i : i + n], grid)
+            i += n
 
     @property
     def subdomain_values(self) -> np.ndarray:
         """Property to access and store the value at the current time step, current
-        iterate on **all** subdomains in the md grid for convenience.
+        iterate on **all** subdomains in the md-grid for convenience.
 
         The getter fetches the values in the order imposed by the md-grid.
-
         The setter shifts iterate values backwards and sets the given value as the most
         recent iterate.
 
         Parameters:
-            val: ``shape=(num_subdomain_cells,)``
+            val: A new value with shape ``(N,)`` to be set. Note that ``N`` is
+                calculated from the information passed in ``dof_info`` during
+                instantiation, and the number of cells, faces and nodes in all
+                subdomains.
 
-                A new value to be set.
-
-        Raises:
-            AssertionError: If the size of the value mismatches what is expected.
-            KeyError: If no data was stored on a grid, but accessed.
+        Returns:
+            The current iterate value of same shape as ``val``.
 
         """
         vals = []
-        for grid in self.mdg.subdomains():
-            vals.append(self._fetch_values(grid, pp.ITERATE_SOLUTIONS, 0))
+        for _, data in self.mdg.subdomains(return_data=True):
+            vals.append(pp.get_solution_values(self.name, data, iterate_index=0))
         if len(vals) > 0:
             return np.hstack(vals)
         else:
@@ -770,16 +645,12 @@ class SecondaryExpression:
 
     @subdomain_values.setter
     def subdomain_values(self, val: np.ndarray) -> None:
-        shape = (self.mdg.num_subdomain_cells(),)
-        assert val.shape == shape, (
-            f"Need array of shape {shape}," + f" but {val.shape} given."
-        )
 
-        idx = 0
+        i = 0
         for grid in self.mdg.subdomains():
-            nc_d = grid.num_cells
-            self.progress_iterate_values_on_grid(val[idx : idx + nc_d], grid)
-            idx += nc_d
+            n = self.num_dofs_on_grid(grid)
+            self.progress_iterate_values_on_grid(val[i : i + n], grid)
+            i += n
 
     @property
     def subdomain_derivatives(self) -> np.ndarray:
@@ -790,7 +661,6 @@ class SecondaryExpression:
         subdomain.
 
         The getter fetches the values in the order imposed by the md-grid.
-
         The setter shifts iterate values backwards and sets the given value as the
         current iterate.
 
@@ -799,18 +669,18 @@ class SecondaryExpression:
             passed at instantiation.
 
         Parameters:
-            val: ``shape=(num_dependencies, num_subdomain_cells)``
+            val: ``shape=(num_dependencies, N)``
 
-                A new value to be set.
+                A new value to be set. Note that ``N`` must be consistent with the shape
+                of values for :meth:`subdomain_values`.
 
-        Raises:
-            AssertionError: If the size of the value mismatches what is expected.
-            KeyError: If no data was stored on a grid, but accessed.
+        Returns:
+            The current iterate derivative values of same shape as ``val``.
 
         """
         vals = []
-        for grid in self.mdg.subdomains():
-            vals.append(self._fetch_derivative_values(grid, pp.ITERATE_SOLUTIONS, 0))
+        for _, data in self.mdg.subdomains(return_data=True):
+            vals.append(pp.get_solution_values(self._name_diffs, data, iterate_index=0))
         if len(vals) > 0:
             return np.hstack(vals)
         else:
@@ -818,30 +688,27 @@ class SecondaryExpression:
 
     @subdomain_derivatives.setter
     def subdomain_derivatives(self, val: np.ndarray) -> None:
-        shape = (self.num_dependencies, self.mdg.num_subdomain_cells())
-        assert val.shape == shape, (
-            f"Need array of shape {shape}," + f" but {val.shape} given."
-        )
-
-        idx = 0
+        i = 0
         for grid in self.mdg.subdomains():
-            nc_d = grid.num_cells
-            self.progress_iterate_derivatives_on_grid(val[:, idx : idx + nc_d], grid)
-            idx += nc_d
+            n = grid.num_cells
+            self.progress_iterate_derivatives_on_grid(val[:, i : i + n], grid)
+            i += n
 
     @property
     def interface_values(self) -> np.ndarray:
         """Analogous to :meth:`subdomain_values`, but for all interfaces in the md-grid.
 
         Parameters:
-            val: ``shape=(num_interface_cells,)``
+            val: ``shape=(M,)``
 
-                A new value to be set.
+                A new value to be set. Note that ``M`` is
+                calculated from the information passed in ``dof_info`` during
+                instantiation, and the number of cells on all interfaces.
 
         """
         vals = []
-        for grid in self.mdg.interfaces():
-            vals.append(self._fetch_values(grid, pp.ITERATE_SOLUTIONS, 0))
+        for _, data in self.mdg.interfaces(return_data=True):
+            vals.append(pp.get_solution_values(self.name, data, iterate_index=0))
         if len(vals) > 0:
             return np.hstack(vals)
         else:
@@ -849,16 +716,11 @@ class SecondaryExpression:
 
     @interface_values.setter
     def interface_values(self, val: np.ndarray) -> None:
-        shape = (self.mdg.num_interface_cells(),)
-        assert val.shape == shape, (
-            f"Need array of shape {shape}," + f" but {val.shape} given."
-        )
-
-        idx = 0
+        i = 0
         for grid in self.mdg.interfaces():
-            nc_d = grid.num_cells
-            self.progress_iterate_values_on_grid(val[idx : idx + nc_d], grid)
-            idx += nc_d
+            n = grid.num_cells
+            self.progress_iterate_values_on_grid(val[i : i + n], grid)
+            i += n
 
     @property
     def interface_derivatives(self) -> np.ndarray:
@@ -866,14 +728,14 @@ class SecondaryExpression:
         md-grid.
 
         Parameters:
-            val: ``shape=(num_dependencies, num_interface_cells)``
+            val: ``shape=(num_dependencies, M)``
 
-                A new value to be set.
+                A new value to be set, with ``M`` as for :meth:`interface_values`.
 
         """
         vals = []
-        for grid in self.mdg.interfaces():
-            vals.append(self._fetch_derivative_values(grid, pp.ITERATE_SOLUTIONS, 0))
+        for _, data in self.mdg.interfaces(return_data=True):
+            vals.append(pp.get_solution_values(self._name_diffs, data, iterate_index=0))
         if len(vals) > 0:
             return np.hstack(vals)
         else:
@@ -881,18 +743,15 @@ class SecondaryExpression:
 
     @interface_derivatives.setter
     def interface_derivatives(self, val: np.ndarray) -> None:
-        shape = (self.num_dependencies, self.mdg.num_interface_cells())
-        assert val.shape == shape, (
-            f"Need array of shape {shape}," + f" but {val.shape} given."
-        )
 
-        idx = 0
+        i = 0
         for grid in self.mdg.interfaces():
-            nc_d = grid.num_cells
-            self.progress_iterate_derivatives_on_grid(val[:, idx : idx + nc_d], grid)
-            idx += nc_d
+            n = grid.num_cells
+            self.progress_iterate_derivatives_on_grid(val[:, i : i + n], grid)
+            i += n
 
-    # Methods to progress values and derivatives in time (don't need new values)
+    # Methods to progress values and derivatives in time on subdomains or
+    # interfaces (don't need new values)
 
     def progress_values_in_time(
         self, domains: Sequence[pp.Grid | pp.MortarGrid]
@@ -900,40 +759,38 @@ class SecondaryExpression:
         """Shifts timestepping values backwards in times and sets the current
         iterate value as the (first) previous time step value.
 
-        Parameters:
-            domains: Performs the progress on given list.
+        Does this only if the expression was instatiated as time-dependent.
 
-        Raises:
-            ValueError: If ``time_step_depth`` at instantiation was set to zero.
-            KeyError: If nothing is stored as the current time step (iterate index 0).
+        Parameters:
+            domains: Performs the progress on given sequence of domains.
 
         """
-        if self._time_depth < 1:
-            raise ValueError(
-                f"Cannot progress secondary expression {self.name} in time with"
-                + f" time step depth set to zero."
-            )
-        for grid in domains:
-            current_vals = self._fetch_values(grid, pp.ITERATE_SOLUTIONS, 0)
-            self._shift_values(grid, pp.TIME_STEP_SOLUTIONS, current_vals)
+        if self._time_dependent:
+            for grid in domains:
+                data = self._data_of(grid)
+                pp.shift_solution_values(self.name, data, pp.TIME_STEP_SOLUTIONS)
+                current_vals = pp.get_solution_values(self.name, data, iterate_index=0)
+                pp.set_solution_values(self.name, current_vals, data, time_step_index=1)
 
     def progress_derivatives_in_time(
         self, domains: Sequence[pp.Grid | pp.MortarGrid]
     ) -> None:
         """Analogous to :meth:`progress_values_in_time`, but for derivatives."""
-        if self._time_depth < 1:
-            raise ValueError(
-                f"Cannot progress secondary expression {self.name} in time with"
-                + f" time step depth set to zero."
-            )
-        for grid in domains:
-            current_vals = self._fetch_derivative_values(grid, pp.ITERATE_SOLUTIONS, 0)
-            self._shift_derivatives(grid, pp.TIME_STEP_SOLUTIONS, current_vals)
+        if self._time_dependent:
+            for grid in domains:
+                data = self._data_of(grid)
+                pp.shift_solution_values(self._name_diffs, data, pp.TIME_STEP_SOLUTIONS)
+                current_vals = pp.get_solution_values(
+                    self._name_diffs, data, iterate_index=0
+                )
+                pp.set_solution_values(
+                    self._name_diffs, current_vals, data, time_step_index=1
+                )
 
     # Methods operating on single grids
 
-    def update_boundary_value(
-        self, value: np.ndarray, boundary_grid: pp.BoundaryGrid
+    def update_boundary_values(
+        self, values: np.ndarray, boundary_grid: pp.BoundaryGrid
     ) -> None:
         """Function to update the value of the secondary expression on the boundary.
 
@@ -941,144 +798,96 @@ class SecondaryExpression:
         subdomains and interfaces.
 
         1. Boundary values have only a single iterate value (current time step)
-        2. Boundary values can have multiple previous time steps, if time step depth is
-           not zero (no standard use case as of now).
-        3. Boundary cannot be updated collectively, but must be done per grid.
+        2. Boundary values can have multiple previous time steps, if expression is
+           time-dependent.
+
+        Therefore, values for the current time can always be set, but values will be
+        shifted backwards in time only if the quantity is time-dependent.
 
         Parameters:
-            value: ``shape=(boundary_grid.num_cells,)``
+            values: ``shape=(N,)``
 
-                A new value to be set for the boundary.
+                A new value to be set for the boundary. ``N`` is computed from the
+                information passed in ``dof_info`` at instantiation and the number of
+                cells in ``boundary_grid``.
             boundary_grid: A boundary grid in the mixed-dimensional domain.
 
         Raises:
-            AssertionError: If ``value`` is not of the expected shape.
+            AssertionError: If ``values`` is not of the expected shape.
 
         """
-        shape = (boundary_grid.num_cells,)
-        assert value.shape == shape, (
-            f"Need array of shape {shape}," + f" but {value.shape} given."
+        shape = (self.num_dofs_on_grid(boundary_grid),)
+        assert values.shape == shape, (
+            f"Need array of shape {shape}," + f" but {values.shape} given."
         )
         data = self._data_of(boundary_grid)
 
         # If boundary values stored in time, shift them and store the current time step
         # (iterate idx 0) as the most recent previous time step
-        if self._time_depth > 0:
-            for t in range(self._time_depth - 1, 0, -1):
-                val = data[pp.TIME_STEP_SOLUTIONS][self.name].get(t - 1, None)
-                if val is not None:
-                    data[pp.TIME_STEP_SOLUTIONS][self.name][t] = val
-            new_prev_val = data[pp.ITERATE_SOLUTIONS][self.name].get(0, None)
-            if new_prev_val is not None:
-                data[pp.TIME_STEP_SOLUTIONS][self.name][0] = new_prev_val
+        if self._time_dependent:
+            pp.shift_solution_values(self.name, data, pp.TIME_STEP_SOLUTIONS)
+            # NOTE avoid pp.get_solution_values for the case when values are set
+            # the first time.
+            try:
+                new_prev_val = data[pp.ITERATE_SOLUTIONS][self.name][0]
+            except KeyError:
+                pass
+            else:
+                pp.set_solution_values(self.name, new_prev_val, data, time_step_index=1)
         # set the given value as the new single iterate value (current time)
-        data[pp.ITERATE_SOLUTIONS][self.name][0] = value
-
-    def _shift_values(
-        self, grid: pp.Grid | pp.MortarGrid, loc: str, new_values: np.ndarray
-    ) -> None:
-        """Helper function to shift the values in the storage.
-
-        Parameters:
-            data: A grid data dictionary, assuming it is prepared
-            loc: Either ``pp.ITERATE_SOLUTIONS`` or ``pp.TIME_STEP_SOLUTIONS``
-            new_values: New 1D array to be stored.
-
-        """
-        if loc == pp.ITERATE_SOLUTIONS:
-            range_ = range(self._iterate_depth - 1, 0, -1)
-        elif loc == pp.TIME_STEP_SOLUTIONS:
-            # abort shift if no time step depth
-            if self._time_depth == 0:
-                return
-            range_ = range(self._time_depth - 1, 0, -1)
-        else:
-            raise ValueError(f"Unsupported location {loc}.")
-
-        data = self._data_of(grid)
-
-        for i in range_:
-            vd = data[loc][self.name].get(i - 1, None)
-            if vd is not None:  # shift only data if available
-                # if derivative data present, don't overwrite
-                if i in data[loc][self.name]:
-                    vd[1] = data[loc][self.name][i][1]
-                data[loc][self.name][i] = vd
-
-        if 0 in data[loc][self.name]:
-            data[loc][self.name][0][0] = new_values
-        else:
-            data[loc][self.name][0] = [new_values, None]
-
-    def _shift_derivatives(
-        self, grid: pp.Grid | pp.MortarGrid, loc: str, new_values: np.ndarray
-    ) -> None:
-        """Helper function to shift the derivative values in the storage.
-
-        Parameters:
-            grid: A grid, assuming data dictionaries are prepard.
-            loc: Either ``pp.ITERATE_SOLUTIONS`` or ``pp.TIME_STEP_SOLUTIONS``
-            new_values: New 2D array to be stored.
-
-        """
-        if loc == pp.ITERATE_SOLUTIONS:
-            range_ = range(self._iterate_depth - 1, 0, -1)
-        elif loc == pp.TIME_STEP_SOLUTIONS:
-            # abort shift if no time step depth
-            if self._time_depth == 0:
-                return
-            range_ = range(self._time_depth - 1, 0, -1)
-        else:
-            raise ValueError(f"Unsupported location {loc}.")
-
-        data = self._data_of(grid)
-
-        for i in range_:
-            vd = data[loc][self.name].get(i - 1, None)
-            if vd is not None:  # shift only data if available
-                # if value data present, don't overwrite
-                if i in data[loc][self.name]:
-                    vd[0] = data[loc][self.name][i][0]
-                data[loc][self.name][i] = vd
-
-        if 0 in data[loc][self.name]:
-            data[loc][self.name][0][1] = new_values
-        else:
-            data[loc][self.name][0] = [None, new_values]
+        pp.set_solution_values(self.name, values, data, iterate_index=0)
 
     def progress_iterate_values_on_grid(
         self,
-        new_values: np.ndarray,
+        values: np.ndarray,
         grid: pp.Grid | pp.MortarGrid,
     ) -> None:
-        """Shifts the iterate values backwards and sets ``new_value`` as the current
-        iterate value on the given ``grid``.
+        """Shifts the iterate values backwards in the iterate sense and sets ``values``
+        as the current iterate values.
+
+        Parameters:
+            values: ``shape=(N,)``
+
+                A new value to be set on the ``grid``. ``N`` is computed from the
+                information passed in ``dof_info`` at instantiation and the number of
+                cells in ``grid`` (and faces and nodes if subdomain).
+            grid: A subdomain or interface in the mixed-dimensional domain.
 
         Raises:
-            AssertionError: If ``new_vales`` is not of shape ``(grid.num_cells,)``.
+            AssertionError: If ``values`` is not of the expected shape.
 
         """
-        shape = (grid.num_cells,)
-        assert new_values.shape == shape, (
-            f"Need array of shape {shape}," + f" but {new_values.shape} given."
+        shape = (self.num_dofs_on_grid(grid),)
+        assert values.shape == shape, (
+            f"Need array of shape {shape}," + f" but {values.shape} given."
         )
-        self._shift_values(grid, pp.ITERATE_SOLUTIONS, new_values)
+        data = self._data_of(grid)
+        pp.shift_solution_values(self.name, data, pp.ITERATE_SOLUTIONS)
+        pp.set_solution_values(self.name, values, data, iterate_index=0)
 
     def progress_iterate_derivatives_on_grid(
         self,
-        new_values: np.ndarray,
+        values: np.ndarray,
         grid: pp.Grid | pp.MortarGrid,
     ) -> None:
-        """Shifts the iterate values of derivatives backwards and sets ``new_value`` as
-        the current iterate value on the given ``grid``.
+        """Analogous to :meth:`progress_iterate_values_on_grid`, but for derivative
+        values.
+
+        Parameters:
+            values: ``shape=(num_dependencies, N)``
+
+                A new value to be set on the ``grid``. ``N`` must be consistent with
+                the shape in :meth:`progress_iterate_values_on_grid`.
+            grid: A subdomain or interface in the mixed-dimensional domain.
 
         Raises:
-            AssertionError: If ``new_vales`` is not of shape
-                ``(num_dependencies, grid.num_cells)``.
+            AssertionError: If ``values`` is not of the expected shape.
 
         """
-        shape = (self.num_dependencies, grid.num_cells)
-        assert new_values.shape == shape, (
-            f"Need array of shape {shape}," + f" but {new_values.shape} given."
+        shape = (self.num_dependencies, self.num_dofs_on_grid(grid))
+        assert values.shape == shape, (
+            f"Need array of shape {shape}," + f" but {values.shape} given."
         )
-        self._shift_derivatives(grid, pp.ITERATE_SOLUTIONS, new_values)
+        data = self._data_of(grid)
+        pp.shift_solution_values(self._name_diffs, data, pp.ITERATE_SOLUTIONS)
+        pp.set_solution_values(self._name_diffs, values, data, iterate_index=0)

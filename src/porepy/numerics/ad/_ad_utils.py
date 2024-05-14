@@ -447,6 +447,51 @@ def get_solution_values(
     return value
 
 
+def shift_solution_values(
+    name: str,
+    data: dict,
+    location: Any,
+) -> None:
+    """Function to shift numerical values stored in the data dictionary.
+
+    The shift is implemented s.t. values at index ``i`` are copied to index ``i + 1``,
+    based on the number of stored values.
+    I.e., shifts do not occur if nothing is stored at an index ``i``, or only values
+    for 1 index are stored.
+
+    Note:
+        The data stored must have support for ``.copy()`` in order to avoid faulty
+        referencing (e.g., numpy arrays or sparse matrices).
+
+    Parameters:
+        name: Key in ``data`` for which quantity the shift should be performed.
+        value: The new value to be stored at index 0 at given ``location``.
+        data: A grid data dictionary.
+        location: Either ``pp.TIME_STEP_SOLUTIONS`` or ``pp.ITERATE_SOLUTIONS``
+
+    Raises:
+        ValueError: If unsupported ``location`` is passed.
+
+    """
+    if location not in data:
+        data[location] = {}
+    if name not in data[location]:
+        data[location][name] = {}
+
+    num_stored = len(data[location][name])
+
+    if location == pp.ITERATE_SOLUTIONS:
+        first_index = 0
+    # previous time step values start with index 1.
+    elif location == pp.TIME_STEP_SOLUTIONS:
+        first_index = 1
+    else:
+        raise ValueError(f"Shifting values not implemented for location {location}")
+
+    for i in range(num_stored, first_index, -1):
+        data[location][name][i] = data[location][name][i - 1].copy()
+
+
 class MergedOperator(operators.Operator):
     """Representation of specific discretization fields for an Ad discretization.
 

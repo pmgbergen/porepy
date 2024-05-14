@@ -704,9 +704,10 @@ class EquationSystem:
                 be shifted.
 
         """
-        self._shift_variable_values(
-            location=pp.TIME_STEP_SOLUTIONS, variables=variables
-        )
+        for var in self._parse_variable_type(variables):
+            pp.shift_solution_values(
+                var.name, self._get_data(var.domain), pp.TIME_STEP_SOLUTIONS
+            )
 
     def shift_iterate_values(
         self,
@@ -722,55 +723,10 @@ class EquationSystem:
                 be shifted.
 
         """
-        self._shift_variable_values(location=pp.ITERATE_SOLUTIONS, variables=variables)
-
-    def _shift_variable_values(
-        self,
-        location: str,
-        variables: Optional[VariableList] = None,
-    ) -> None:
-        """Method for shifting values in data dictionary.
-
-        Time step and iterate values are stored with storage indices as keys in
-        the data dictionary for the subdomain or interface in question. For each
-        time-step/iteration, these values are shifted such that the most recent
-        variable value later can be placed at index 0. The previous
-        time-step/iterate values have their index incremented by one. Values
-        of key 0 is moved to key 1, values of key 1 is moved to key 2, and so
-        on. The value at the highest key is discarded.
-
-        Parameters:
-            location: Should be ``pp.TIME_STEP_SOLUTIONS`` or ``pp.ITERATE_SOLUTIONS``
-                depending on which one of solutions/iterates that are to be shifted.
-            variables (optional): VariableType input for which the values are
-                requested. If None (default), the global vector of unknowns will
-                be shifted.
-
-        Raises:
-            ValueError: If unknown VariableType arguments are passed.
-
-        """
-        # Looping through the variables and shifting the values
-        variables = self._parse_variable_type(variables)
-        for variable in variables:
-            name = variable.name
-            grid = variable.domain
-            data = self._get_data(grid=grid)
-
-            # Shift old values as requested.
-            num_stored = len(data[location][name])
-            if location == pp.ITERATE_SOLUTIONS:
-                range_ = range(num_stored - 1, 0, -1)
-            # previous time step values start with index 1.
-            # NOTE this functionality should be in _ad_utils, together with set and get
-            elif location == pp.TIME_STEP_SOLUTIONS:
-                range_ = range(num_stored, 1, -1)
-            else:
-                raise NotImplementedError(
-                    f"Shift values not implemented for location {location}"
-                )
-            for i in range_:
-                data[location][name][i] = data[location][name][i - 1].copy()
+        for var in self._parse_variable_type(variables):
+            pp.shift_solution_values(
+                var.name, self._get_data(var.domain), pp.ITERATE_SOLUTIONS
+            )
 
     def _get_data(
         self,
