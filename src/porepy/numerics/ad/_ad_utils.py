@@ -456,8 +456,6 @@ def shift_solution_values(
 
     The shift is implemented s.t. values at index ``i`` are copied to index ``i + 1``,
     based on the number of stored values.
-    I.e., shifts do not occur if nothing is stored at an index ``i``, or only values
-    for 1 index are stored.
 
     Note:
         The data stored must have support for ``.copy()`` in order to avoid faulty
@@ -465,9 +463,9 @@ def shift_solution_values(
 
     Parameters:
         name: Key in ``data`` for which quantity the shift should be performed.
-        value: The new value to be stored at index 0 at given ``location``.
         data: A grid data dictionary.
-        location: Either ``pp.TIME_STEP_SOLUTIONS`` or ``pp.ITERATE_SOLUTIONS``
+        location: Either :data:`~porepy.utils.common_constants.TIME_STEP_SOLUTIONS`
+            or :data:`~porepy.utils.common_constants.ITERATE_SOLUTIONS`.
 
     Raises:
         ValueError: If unsupported ``location`` is passed.
@@ -476,19 +474,21 @@ def shift_solution_values(
     if location not in data:
         data[location] = {}
     if name not in data[location]:
+        # TODO should we return here instead? Nothing to be shifted, and
+        # set_solution_values is the method which prepares the data dict
         data[location][name] = {}
 
     num_stored = len(data[location][name])
 
     if location == pp.ITERATE_SOLUTIONS:
-        first_index = 0
+        range_ = range(num_stored, 0, -1)
     # previous time step values start with index 1.
     elif location == pp.TIME_STEP_SOLUTIONS:
-        first_index = 1
+        range_ = range(num_stored + 1, 1, -1)
     else:
         raise ValueError(f"Shifting values not implemented for location {location}")
 
-    for i in range(num_stored, first_index, -1):
+    for i in range_:
         data[location][name][i] = data[location][name][i - 1].copy()
 
 
