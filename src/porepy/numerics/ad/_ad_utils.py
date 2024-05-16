@@ -471,12 +471,12 @@ def shift_solution_values(
         ValueError: If unsupported ``location`` is passed.
 
     """
+    # NOTE return because nothing to be shifted. Avoid confusion by introducing data
+    # dictionaries for values which were never set using pp.set_solution_values
     if location not in data:
-        data[location] = {}
+        return
     if name not in data[location]:
-        # TODO should we return here instead? Nothing to be shifted, and
-        # set_solution_values is the method which prepares the data dict
-        data[location][name] = {}
+        return
 
     num_stored = len(data[location][name])
 
