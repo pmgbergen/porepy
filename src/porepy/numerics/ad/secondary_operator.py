@@ -326,7 +326,9 @@ class SecondaryExpression:
     framework, meant for terms where the evaluation is done elsewhere and then stored.
 
     This is a factory class, callable using some domains in the md-setting to create
-    AD operators representing this expression on respective domains.
+    AD operators representing this expression on respective domains. See the module-level
+    documentation for more information on the relation between :class:`SecondaryExpression`
+    and :class:`SecondaryOperator`.
 
     For an example of how to use it, see
     :module:`~porepy.numerics.ad.secondary_operator`.
@@ -335,7 +337,7 @@ class SecondaryExpression:
 
     The class creates a
     :class:`~porepy.numerics.ad.opeators.TimeDependentDenseArray` using its given
-    name and the boundar grids passed to the call.
+    name and the boundary grids passed to the call.
     Boundary values can hence be updated like any other term in the model framework.
     But they can also be updated using :meth:`boundary_values` for convenience.
 
@@ -473,6 +475,8 @@ class SecondaryExpression:
         ):
             # for mypy
             domains_ = cast(Sequence[pp.Grid] | Sequence[pp.MortarGrid], domains)
+
+            # Call the provided method for obtaining children (independent variables) on the domains.
             children = [child(domains_) for child in self._dependencies]
 
             # Check if first-order dependency
@@ -564,7 +568,7 @@ class SecondaryExpression:
         return len(self._dependencies)
 
     def num_dofs_on_grid(self, grid: pp.GridLike) -> int:
-        """Computes the numbe of DOFs based on the information provided during
+        """Computes the number of DOFs based on the information provided during
         instantiation.
 
         Note:
@@ -709,7 +713,9 @@ class SecondaryExpression:
 
         Important:
             The order of derivatives should reflect the order of ``dependencies``
-            passed at instantiation.
+            passed at instantiation. For a dependency defined on multiple grids (say, subdomains),
+            the order of the derivatives should reflect the order of the grids as retured by the
+            relevant iterator in the MixedDimensionalGrid (e.g., mdg.subdomains()).
 
         Parameters:
             val: ``shape=(num_dependencies, N)``
