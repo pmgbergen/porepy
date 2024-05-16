@@ -476,7 +476,8 @@ class SecondaryExpression:
             # for mypy
             domains_ = cast(Sequence[pp.Grid] | Sequence[pp.MortarGrid], domains)
 
-            # Call the provided method for obtaining children (independent variables) on the domains.
+            # Call the provided method for obtaining children (independent variables) on
+            # the domains.
             children = [child(domains_) for child in self._dependencies]
 
             # Check if first-order dependency
@@ -713,9 +714,10 @@ class SecondaryExpression:
 
         Important:
             The order of derivatives should reflect the order of ``dependencies``
-            passed at instantiation. For a dependency defined on multiple grids (say, subdomains),
-            the order of the derivatives should reflect the order of the grids as retured by the
-            relevant iterator in the MixedDimensionalGrid (e.g., mdg.subdomains()).
+            passed at instantiation. For a dependency defined on multiple grids
+            (say, subdomains), the order of the derivatives should reflect the order of
+            the grids as retured by the relevant iterator in the MixedDimensionalGrid
+            (e.g., mdg.subdomains()).
 
         Parameters:
             val: ``shape=(num_dependencies, N)``
