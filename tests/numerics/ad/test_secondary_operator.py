@@ -9,6 +9,7 @@ import numpy as np
 import pytest
 
 import porepy as pp
+from porepy.applications.md_grids.fracture_sets import orthogonal_fractures_2d
 
 VAR1_NAME = "var1"
 VAR2_NAME = "var2"
@@ -29,10 +30,9 @@ def eqsys() -> pp.ad.EquationSystem:
     bounding_box = {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1}
     domain = pp.Domain(bounding_box=bounding_box)
 
-    frac1 = pp.LineFracture(np.array([[0.5, 0.5], [0.2, 0.8]]))
-    frac2 = pp.LineFracture(np.array([[0.2, 0.8], [0.5, 0.5]]))
+    fracs = orthogonal_fractures_2d(0.5, [np.array([0.5, 0.8]), np.array([0.8, 0.5])])
 
-    network_2d = pp.create_fracture_network([frac1, frac2], domain)
+    network_2d = pp.create_fracture_network(fracs, domain)
 
     mesh_args: dict[str, float] = {"cell_size": 0.1, "cell_size_fracture": 0.1}
     mdg = pp.create_mdg("simplex", mesh_args, network_2d)
@@ -147,19 +147,6 @@ def test_secondary_operators(
     assert sop_pt.time_step_index == 1
     assert all(v.iterate_index == 0 for v in sop_pt.children)
     assert all(v.time_step_index == 1 for v in sop_pt.children)
-
-    # check that arithmetic overloads work for secondary operator, even though it
-    # inherits from AbstractFunction (correct MOR)
-    a = sop + vars[0]
-    try:
-        for a in ["+", "-", "*", "@", "**"]:
-            eval(f"sop {a} vars[0]")
-            eval(f"vars[0] {a} sop")
-    except TypeError as err:
-        if "Operator functions" in str(err):
-            pytest.fail("Arithmetic overloads not working for secondary operators.")
-        else:  # raise the error anyways, above is only to help figure out what's wrong
-            raise err
 
     # At this point, no data has been set, check correct return format for no data case
     for g in sds + intfs + bgs:

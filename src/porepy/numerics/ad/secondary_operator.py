@@ -24,10 +24,9 @@ Note:
     Therefore, the class :class:`SecondaryOperator` should not be instantiated directly,
     but only calling the factory class.
 
-    Note that a :class:`SecondaryExpression` can be represented on boundaries,
-    subdomains and interfaces. Each call to it creates a new instance of
-    :class:`SecondaryOperator` which during parsing needs to fetch the right data for
-    itself.
+    We also cannot overload :meth:`~porepy.numerics.ad.operators.Operator.parse`,
+    because a secondary operator has children, and no way of knowing the
+    structure of the Jacobian if value and Jacobian are evaluated.
 
 Example:
 
@@ -156,6 +155,9 @@ class SecondaryOperator(
     The derivative values are inserted into the Jacobians of the first-order
     dependencies (identity blocks).
 
+    For an example of how to use it, see
+    :module:`~porepy.numerics.ad.secondary_operator`.
+
     Parameters:
         name: Name of the called :class:`SecondaryExpression`.
         domains: Arguments to its call.
@@ -226,16 +228,16 @@ class SecondaryOperator(
         return op
 
     def previous_timestep(self, steps: int = 1) -> SecondaryOperator:
-        """Secondary operators have children which also need to be obtained at
-        the previous time step."""
+        """Secondary operators have children (e.g. md-variables) which also need to be
+        obtained at the previous time step."""
 
         op = super().previous_timestep(steps=steps)
         op.children = [child.previous_timestep(steps=steps) for child in self.children]
         return op
 
     def previous_iteration(self, steps: int = 1) -> SecondaryOperator:
-        """Secondary operators have children which also need to be obtained at
-        the previous iteration."""
+        """Secondary operators have children (e.g. md-variables) which also need to be
+        obtained at the previous iteration."""
         op = super().previous_iteration(steps=steps)
         op.children = [child.previous_iteration(steps=steps) for child in self.children]
         return op
@@ -257,27 +259,61 @@ class SecondaryOperator(
 
     def get_values(self, *args: float | np.ndarray | AdArray) -> np.ndarray:
         """Fetches the values stored for this secondary operator at its time or iterate
-        index."""
+        index.
+
+        Note:
+            ``*args`` are the children/dependencies of this operator in evaluated form.
+            They can come as Ad arrays when evaluating the operator with Jacobian.
+            The return type of this method though must strictly be a numpy array, since
+            its Jacobian is returned by :meth:`get_jacobian`.
+
+        """
         return np.hstack([self.fetch_data(self, g, False) for g in self.domains])
 
     def get_jacobian(self, *args: float | np.ndarray | AdArray) -> sps.spmatrix:
         """Fetches the derivative values stored for this secondary operator at its time
         or iterate index.
 
-        Uses the structure of the Jacobians of arguments to insert the values,
-        assuming the Jacobians contain only identity blocks.
+        Note:
+            The assumption here is that ``*args`` are of first order (pure variables)
+            with only 1 identity block in their Jacobian.
+
+            In this case, the derivative values of this operator w.r.t. its dependencies
+            can be safely assigned.
+
+            If ``*args`` is a general operator with multiple derivatives bundled in
+            their Jacobians, the number of provided derivative values and required
+            values can mismatch. Hence there is no clear way to insert the provided
+            derivative values in the Jacobian.
 
         """
 
         derivatives = np.hstack([self.fetch_data(self, g, True) for g in self.domains])
 
         # list of jacs per dependency, assuming porepy.ad makes consistent shapes
+        # NOTE: The Jacobians of individual args must be of same shape, with a
+        # diagonal (identity) in some column block per arg.
+        # Otherwise this operator has no way of knowing in which column to insert the
+        # derivative values.
+        # Also, the comlete Jacobian of this operator is created by summing the
+        # Jacobians of arguments, with the derivative data inserted in the diagonal
+        # of the block, per argument/dependency/provided derivative value.
         jacs: list[sps.csr_matrix] = []
+
+        # Checking Jacobian shapes to assert they are consistent
+        shapes = set()
+        for arg in args:
+            if isinstance(arg, AdArray):
+                shapes.add(arg.jac.shape)
+        assert len(shapes) <= 1, (
+            "Inconsistent shapes of Jacobians of dependencies."
+            + " Cannot insert provided derivative values safely."
+        )
 
         for arg, d_i in zip(args, derivatives):
             if isinstance(arg, AdArray):
-                # At this point we assume that the derivative has only an identity block
-                # Shape checks for derivatives are done in the factory class
+                # The factory class asserts that the number of provided derivative
+                # values fits the size of the diagonal block.
                 jacs.append(
                     sps.csr_matrix((d_i, arg.jac.nonzero()), shape=arg.jac.shape)
                 )
@@ -291,6 +327,9 @@ class SecondaryExpression:
 
     This is a factory class, callable using some domains in the md-setting to create
     AD operators representing this expression on respective domains.
+
+    For an example of how to use it, see
+    :module:`~porepy.numerics.ad.secondary_operator`.
 
     **On the boundary:**
 
@@ -492,7 +531,7 @@ class SecondaryExpression:
         # arguments for utility function
         kwargs: dict[Any, Any] = dict()
         if get_derivatives:
-            kwargs["name"] = self._name_diffs
+            kwargs["name"] = self._name_derivatives
         else:
             kwargs["name"] = self.name
 
@@ -566,7 +605,7 @@ class SecondaryExpression:
         return self._name
 
     @property
-    def _name_diffs(self) -> str:
+    def _name_derivatives(self) -> str:
         """Private property giving the name under which the **derivative** values of
         this expression are stored in the grid data dictionaries"""
         return f"{self.name}_DERIVATIVES"
@@ -684,7 +723,9 @@ class SecondaryExpression:
         """
         vals = []
         for _, data in self.mdg.subdomains(return_data=True):
-            vals.append(pp.get_solution_values(self._name_diffs, data, iterate_index=0))
+            vals.append(
+                pp.get_solution_values(self._name_derivatives, data, iterate_index=0)
+            )
         if len(vals) > 0:
             return np.hstack(vals)
         else:
@@ -739,7 +780,9 @@ class SecondaryExpression:
         """
         vals = []
         for _, data in self.mdg.interfaces(return_data=True):
-            vals.append(pp.get_solution_values(self._name_diffs, data, iterate_index=0))
+            vals.append(
+                pp.get_solution_values(self._name_derivatives, data, iterate_index=0)
+            )
         if len(vals) > 0:
             return np.hstack(vals)
         else:
@@ -783,12 +826,14 @@ class SecondaryExpression:
         if self._time_dependent:
             for grid in domains:
                 data = self._data_of(grid)
-                pp.shift_solution_values(self._name_diffs, data, pp.TIME_STEP_SOLUTIONS)
+                pp.shift_solution_values(
+                    self._name_derivatives, data, pp.TIME_STEP_SOLUTIONS
+                )
                 current_vals = pp.get_solution_values(
-                    self._name_diffs, data, iterate_index=0
+                    self._name_derivatives, data, iterate_index=0
                 )
                 pp.set_solution_values(
-                    self._name_diffs, current_vals, data, time_step_index=1
+                    self._name_derivatives, current_vals, data, time_step_index=1
                 )
 
     # Methods operating on single grids
@@ -893,5 +938,5 @@ class SecondaryExpression:
             f"Need array of shape {shape}," + f" but {values.shape} given."
         )
         data = self._data_of(grid)
-        pp.shift_solution_values(self._name_diffs, data, pp.ITERATE_SOLUTIONS)
-        pp.set_solution_values(self._name_diffs, values, data, iterate_index=0)
+        pp.shift_solution_values(self._name_derivatives, data, pp.ITERATE_SOLUTIONS)
+        pp.set_solution_values(self._name_derivatives, values, data, iterate_index=0)
