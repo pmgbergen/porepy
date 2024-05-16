@@ -436,6 +436,8 @@ class SecondaryExpression:
         ):
             # for mypy
             domains_ = cast(Sequence[pp.Grid] | Sequence[pp.MortarGrid], domains)
+
+            # Call the provided method for obtaining children (independent variables) on the domains.
             children = [child(domains_) for child in self._dependencies]
 
             # Check if first-order dependency
