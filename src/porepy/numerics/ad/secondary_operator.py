@@ -674,7 +674,9 @@ class SecondaryExpression:
 
         Important:
             The order of derivatives should reflect the order of ``dependencies``
-            passed at instantiation.
+            passed at instantiation. For a dependency defined on multiple grids (say, subdomains),
+            the order of the derivatives should reflect the order of the grids as retured by the
+            relevant iterator in the MixedDimensionalGrid (e.g., mdg.subdomains()).
 
         Parameters:
             val: ``shape=(num_dependencies, N)``
