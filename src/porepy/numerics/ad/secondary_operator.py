@@ -529,7 +529,7 @@ class SecondaryExpression:
         return len(self._dependencies)
 
     def num_dofs_on_grid(self, grid: pp.GridLike) -> int:
-        """Computes the numbe of DOFs based on the information provided during
+        """Computes the number of DOFs based on the information provided during
         instantiation.
 
         Note:
