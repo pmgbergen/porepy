@@ -290,7 +290,9 @@ class SecondaryExpression:
     framework, meant for terms where the evaluation is done elsewhere and then stored.
 
     This is a factory class, callable using some domains in the md-setting to create
-    AD operators representing this expression on respective domains.
+    AD operators representing this expression on respective domains. See the module-level
+    documentation for more information on the relation between :class:`SecondaryExpression`
+    and :class:`SecondaryOperator`.
 
     **On the boundary:**
 
