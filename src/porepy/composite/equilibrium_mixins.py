@@ -262,28 +262,27 @@ class UnifiedPhaseEquilibriumMixin:
             The left-hand side of above equation.
 
         """
-        if phase == self.fluid_mixture.reference_phase:
+        rphase = self.fluid_mixture.reference_phase
+        if phase == rphase:
             raise ValueError(
                 "Cannot construct isofugacity constraint between reference phase and "
                 + "itself."
             )
         assert component in phase, "Passed component not modelled in passed phase."
-        assert (
-            component in self.fluid_mixture.reference_phase
-        ), "Passed component not modelled in reference phase."
+        assert component in rphase, "Passed component not modelled in reference phase."
 
-        equ = phase.fraction_of[component](subdomains) * phase.fugacity_of[component](
+        equ = phase.fraction_of[component](subdomains) * phase.fugacity_of[
+            component
+        ](subdomains) - rphase.fraction_of[component](
             subdomains
-        ) - self.fluid_mixture.reference_phase.fraction_of[component](
-            subdomains
-        ) * self.fluid_mixture.reference_phase.fugacity_of[
+        ) * rphase.fugacity_of[
             component
         ](
             subdomains
         )
+
         equ.set_name(
-            f"isofugacity_constraint-"
-            + f"{component.name}_{phase.name}_{self.fluid_mixture.reference_phase.name}"
+            f"isofugacity_constraint-" + f"{component.name}_{phase.name}_{rphase.name}"
         )
         return equ
 

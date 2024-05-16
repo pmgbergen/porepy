@@ -25,11 +25,12 @@ import os
 os.environ["NUMBA_DISABLE_JIT"] = "1"
 
 import logging
+import pathlib
 import time
 
 from matplotlib import pyplot as plt
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.WARNING)
 numba_logger = logging.getLogger("numba")
 numba_logger.setLevel(logging.WARNING)
 
@@ -69,7 +70,6 @@ class CompiledFlash(ppc.FlashMixin):
 
     flash_params = {
         "mode": "parallel",
-        "verbosity": 1,
     }
 
     def set_up_flasher(self) -> None:
@@ -86,7 +86,7 @@ class CompiledFlash(ppc.FlashMixin):
 
         # NOTE There is place to configure the solver here
         flash.armijo_parameters["j_max"] = 30
-        flash.tolerance = 1e-7
+        flash.tolerance = 1e-8
         flash.max_iter = 150
 
         # Setting the attribute of the mixin
@@ -167,20 +167,24 @@ class ModelGeometry:
         size = self.solid.convert_units(2, "m")
         self._domain = nd_cube_domain(2, size)
 
-    def set_fractures(self) -> None:
-        """Setting a diagonal fracture"""
-        frac_1_points = self.solid.convert_units(
-            np.array([[0.2, 1.8], [0.2, 1.8]]), "m"
-        )
-        frac_1 = pp.LineFracture(frac_1_points)
-        self._fractures = [frac_1]
+    # def set_fractures(self) -> None:
+    #     """Setting a diagonal fracture"""
+    #     frac_1_points = self.solid.convert_units(
+    #         np.array([[0.2, 1.8], [0.2, 1.8]]), "m"
+    #     )
+    #     frac_1 = pp.LineFracture(frac_1_points)
+    #     self._fractures = [frac_1]
 
     def grid_type(self) -> str:
         return self.params.get("grid_type", "simplex")
 
     def meshing_arguments(self) -> dict:
-        cell_size = self.solid.convert_units(0.25, "m")
-        mesh_args: dict[str, float] = {"cell_size": cell_size}
+        cell_size = self.solid.convert_units(0.1, "m")
+        cell_size_fracture = self.solid.convert_units(0.05, "m")
+        mesh_args: dict[str, float] = {
+            "cell_size": cell_size,
+            "cell_size_fracture": cell_size_fracture,
+        }
         return mesh_args
 
 
@@ -226,25 +230,60 @@ class BoundaryConditions:
 
     """
 
+    mdg: pp.MixedDimensionalGrid
+
     has_time_dependent_boundary_equilibrium = False
     """Constant BC for primary variables, hence constant BC for all other."""
 
-    def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
+    def _inlet_faces(self, sd: pp.Grid) -> np.ndarray:
+        """Define inlet."""
         sides = self.domain_boundary_sides(sd)
+
+        inlet = np.zeros(sd.num_faces, dtype=bool)
+        inlet[sides.west] = True
+        inlet &= sd.face_centers[1] > 0.5
+        inlet &= sd.face_centers[1] < 1.5
+
+        return inlet
+
+    def _outlet_faces(self, sd: pp.Grid) -> np.ndarray:
+        """Define outlet."""
+
+        sides = self.domain_boundary_sides(sd)
+
+        outlet = np.zeros(sd.num_faces, dtype=bool)
+        outlet[sides.east] = True
+        outlet &= sd.face_centers[1] > 0.5
+        outlet &= sd.face_centers[1] < 1.5
+
+        return outlet
+
+    def _heated_faces(self, sd: pp.Grid) -> np.ndarray:
+        """Define heated boundary with D-type conditions for conductive flux."""
+        sides = self.domain_boundary_sides(sd)
+
+        heated = np.zeros(sd.num_faces, dtype=bool)
+        heated[sides.bottom] = True
+        heated &= sd.face_centers[1] > 0.5
+        heated &= sd.face_centers[1] < 1.5
+
+        return heated
+
+    def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         # Setting only conditions on matrix
         if sd.dim == 2:
+
+            inout = self._inlet_faces(sd) | self._outlet_faces(sd)
             # Define boundary condition on all boundary faces.
-            return pp.BoundaryCondition(sd, sides.east | sides.west, "dir")
+            return pp.BoundaryCondition(sd, inout, "dir")
         # In fractures we set trivial NBC
         else:
             return pp.BoundaryCondition(sd)
 
     def bc_type_fourier_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
-        sides = self.domain_boundary_sides(sd)
         if sd.dim == 2:
-            # Temperature at inlet and outlet, as well as heated bottom
-            boundary_faces = sides.west | sides.bottom  # | sides.east
-            return pp.BoundaryCondition(sd, boundary_faces, "dir")
+            heated = self._heated_faces(sd)
+            return pp.BoundaryCondition(sd, heated, "dir")
         # In fractures we set trivial NBC
         else:
             return pp.BoundaryCondition(sd)
@@ -252,6 +291,8 @@ class BoundaryConditions:
     def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
         # need to define pressure on east and west side of matrix
         p_init = 15e6
+        p_in = 16e5
+        p_out = 15e6
         sd = boundary_grid.parent
         sides = self.domain_boundary_sides(sd)
 
@@ -259,8 +300,12 @@ class BoundaryConditions:
         if sd.dim == 2:
             vals = np.ones(sd.num_faces) * p_init
 
-            vals[sides.west] = 10e6
-            vals[sides.east] = 20e6
+            inlet = self._inlet_faces(sd)
+            outlet = self._outlet_faces(sd)
+
+            # vals[sides.west] = 10e6
+            vals[inlet] = p_in
+            vals[outlet] = p_out
 
             vals = vals[sides.all_bf]
         else:
@@ -270,6 +315,8 @@ class BoundaryConditions:
 
     def bc_values_temperature(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
         T_init = 550.0
+        T_in = 550.0
+        T_heat = 550.0
         sd = boundary_grid.parent
         sides = self.domain_boundary_sides(sd)
 
@@ -277,10 +324,11 @@ class BoundaryConditions:
         if sd.dim == 2:
             vals = np.ones(sd.num_faces) * T_init
 
-            vals[sides.west] = 550.0
-            # vals[sides.east] = 550.0
-            # T values on heated bottom
-            vals[sides.bottom] = 550.0
+            inlet = self._inlet_faces(sd)
+            heated = self._heated_faces(sd)
+
+            vals[inlet] = T_in
+            vals[heated] = T_heat
 
             vals = vals[sides.all_bf]
         else:
@@ -295,13 +343,13 @@ class BoundaryConditions:
         sides = self.domain_boundary_sides(sd)
 
         if component.name == "H2O":
-            z_init = 0.99
-            z_inlet = 0.99
-            z_outlet = z_init
+            z_init = 0.995
+            z_in = 0.995
+            z_out = z_init
         elif component.name == "CO2":
-            z_init = 0.01
-            z_inlet = 0.01
-            z_outlet = z_init
+            z_init = 0.005
+            z_in = 0.005
+            z_out = z_init
         else:
             NotImplementedError(
                 f"Initial overlal fraction not implemented for component {component.name}"
@@ -310,8 +358,11 @@ class BoundaryConditions:
         if sd.dim == 2:
             vals = np.ones(sd.num_faces) * z_init
 
-            vals[sides.west] = z_inlet
-            vals[sides.east] = z_outlet
+            inlet = self._inlet_faces(sd)
+            outlet = self._outlet_faces(sd)
+
+            vals[inlet] = z_in
+            vals[outlet] = z_out
 
             vals = vals[sides.all_bf]
         else:
@@ -331,21 +382,47 @@ class GeothermalFlow(
     """Geothermal flow using a fluid defined by the Soereide model and the compiled
     flash."""
 
+    def after_nonlinear_failure(self):
+        self.exporter.write_pvd()
+        super().after_nonlinear_failure()
 
-days = 3650
-t_scale = 0.000001
+
+days = 365
+t_scale = 1e-5
+T_end = 100 * days * t_scale
+dt_init = 1 * days * t_scale
+max_iterations = 80
+newton_tol = 1e-5
+
+# time_manager = pp.TimeManager(
+#     schedule=[0.0, 100.0 * days * t_scale],
+#     dt_init=1.0 * days * t_scale,
+#     constant_dt=True,
+#     iter_max=80,
+#     print_info=True,
+# )
 time_manager = pp.TimeManager(
-    schedule=[0.0, 100.0 * days * t_scale],
-    dt_init=1.0 * days * t_scale,
-    constant_dt=True,
-    iter_max=80,
+    schedule=[0, T_end],
+    dt_init=dt_init,
+    dt_min_max=(0.1 * dt_init, 2 * dt_init),
+    iter_max=max_iterations,
+    iter_optimal_range=(2, 10),
+    iter_relax_factors=(0.9, 1.1),
+    recomp_factor=0.1,
+    recomp_max=5,
     print_info=True,
 )
 
 solid_constants = pp.SolidConstants(
-    {"permeability": 9.869233e-12, "porosity": 0.2, "thermal_conductivity": 1.92}
+    {"permeability": 1e-8, "porosity": 0.2, "thermal_conductivity": 1.92}
 )
 material_constants = {"solid": solid_constants}
+
+restart_options = {
+    "restart": True,
+    "is_mdg_pvd": True,
+    "pdv_file": pathlib.Path("./visualization/data.pvd"),
+}
 
 # Model setup:
 # eliminate reference phase fractions  and reference component.
@@ -357,9 +434,11 @@ params = {
     "use_semismooth_complementarity": True,
     "reduce_linear_system_q": False,
     "time_manager": time_manager,
-    "max_iterations": 80,
-    "nl_convergence_tol": 1e-4,
+    "max_iterations": max_iterations,
+    "nl_convergence_tol": newton_tol,
     "prepare_simulation": False,
+    "progressbars": True,
+    # 'restart_options': restart_options,  # NOTE no yet fully integrated in porepy
 }
 model = GeothermalFlow(params)
 
