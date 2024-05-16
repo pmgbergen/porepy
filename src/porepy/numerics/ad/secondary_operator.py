@@ -298,7 +298,7 @@ class SecondaryExpression:
 
     The class creates a
     :class:`~porepy.numerics.ad.opeators.TimeDependentDenseArray` using its given
-    name and the boundar grids passed to the call.
+    name and the boundary grids passed to the call.
     Boundary values can hence be updated like any other term in the model framework.
     But they can also be updated using :meth:`boundary_values` for convenience.
 
