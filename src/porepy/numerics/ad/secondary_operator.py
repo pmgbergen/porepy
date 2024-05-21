@@ -128,7 +128,6 @@ import scipy.sparse as sps
 
 import porepy as pp
 from porepy.numerics.ad.forward_mode import AdArray
-from porepy.numerics.ad.operators import Operator
 
 from .functions import FloatType
 from .operators import IterativeOperator, TimeDependentOperator
@@ -180,12 +179,24 @@ class SecondaryOperator(
             children=children,
         )
 
-        self.fetch_data: Callable[[SecondaryOperator, pp.GridLike, bool], np.ndarray]
+        self._fetch_data: Callable[[SecondaryOperator, pp.GridLike, bool], np.ndarray]
         """A function returning the stored data for a secondary operator on a grid,
         which is time step and iterate index dependent.
 
         This function is assigned by the factory class :class:`SecondaryExpression`
         which has a reference to the md-grid and must not be touched by the user.
+
+        Note:
+            This method is private in the secondary **operator**, because it is not
+            supposed to be used here. Operators should be *evaluated* using ``value()``
+            or ``value_and_jacobian()``.
+
+            The :class:`SecondaryExpression` has the public version of this method,
+            since that one is the instance managing the data.
+            Use :meth:`SecondaryExpression.fetch_data` for inspection of data stored
+            for specific operators an grids.
+            Use this instance's ``value()`` and ``value_and_jacobian()`` to parse the
+            operator with proper DOF order.
 
         """
 
@@ -205,27 +216,6 @@ class SecondaryOperator(
             msg += f"Evaluated at the previous iterate {self.iterate_index}.\n"
 
         return msg
-
-    def __call__(self, *args: Operator) -> Operator:
-        """By calling this operator with new children, the user can change the
-        structure of the Jacobian.
-
-        The dependencies/children are replaced and hence the non-trivial entries in
-        the Jacobian in the md-setting.
-
-        Note:
-            Call this operator only if you know what you are doing.
-
-            It will reset the time step and iterate indices to current time and iterate.
-
-        """
-        op = SecondaryOperator(
-            name=self.name,
-            domains=self.domains,  # type:ignore[arg-type]
-            children=args,  # type:ignore[arg-type]
-        )
-        op.fetch_data = self.fetch_data
-        return op
 
     def previous_timestep(self, steps: int = 1) -> SecondaryOperator:
         """Secondary operators have children (e.g. md-variables) which also need to be
@@ -253,8 +243,9 @@ class SecondaryOperator(
             with ``self`` as an explicit argument.
 
         """
-        # mypy complains that self is not an instance of AbstractFunction because of the
-        # hack
+        # Use the functionality of AbstractFunction to call get_values and get_jacobian
+        # correctly based on the types of input arguments.
+        # Ignore arg-type of self, because it does not inherit from AbstractFunction
         return pp.ad.AbstractFunction.func(self, *args)  # type:ignore[arg-type]
 
     def get_values(self, *args: float | np.ndarray | AdArray) -> np.ndarray:
@@ -268,7 +259,7 @@ class SecondaryOperator(
             its Jacobian is returned by :meth:`get_jacobian`.
 
         """
-        return np.hstack([self.fetch_data(self, g, False) for g in self.domains])
+        return np.hstack([self._fetch_data(self, g, False) for g in self.domains])
 
     def get_jacobian(self, *args: float | np.ndarray | AdArray) -> sps.spmatrix:
         """Fetches the derivative values stored for this secondary operator at its time
@@ -288,7 +279,7 @@ class SecondaryOperator(
 
         """
 
-        derivatives = np.hstack([self.fetch_data(self, g, True) for g in self.domains])
+        derivatives = np.hstack([self._fetch_data(self, g, True) for g in self.domains])
 
         # list of jacs per dependency, assuming porepy.ad makes consistent shapes
         # NOTE: The Jacobians of individual args must be of same shape, with a
@@ -319,6 +310,21 @@ class SecondaryOperator(
                 )
 
         return sum(jacs).tocsr()
+
+
+def _check_expected_values(values: Any, target_shape: tuple[int, ...]) -> None:
+    """Helper method for secondary expressions and operators, checking that the
+    expected values are an instance of :obj:`numpy.ndarray`, and that they have the
+    expected shape.
+
+    Parameters:
+        values: Any object representing values or derivative values.
+        target_shape: The expected shape of the ``values`` in numpy's array format.
+
+    Raises:
+        ValueError: If the values are not of expected type or shape.
+
+    """
 
 
 class SecondaryExpression:
@@ -494,7 +500,7 @@ class SecondaryExpression:
             )
 
             # assign the function which extracts the data
-            op.fetch_data = self.fetch_data
+            op._fetch_data = self.fetch_data
 
             return op
         else:
@@ -541,6 +547,12 @@ class SecondaryExpression:
             kwargs["name"] = self.name
 
         kwargs["data"] = self._data_of(grid)
+
+        if (op.is_previous_iterate or op.is_previous_time) and get_derivatives:
+            raise ValueError(
+                "Derivative values for operators at previous time or iterate are not"
+                + " supported."
+            )
 
         if op.is_previous_time:
             kwargs["time_step_index"] = op.time_step_index

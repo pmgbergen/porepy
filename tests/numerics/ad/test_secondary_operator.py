@@ -218,10 +218,12 @@ def test_secondary_operators(
         assert np.all(sop_pt.value(eqsys) == expr.interface_values)
     else:
         assert np.all(sop_pt.value(eqsys) == expr.subdomain_values)
-    # No derivatives progressed in time
+    # No support for derivative values of operators at previous time and iterate
     for g in domains:
-        with pytest.raises(KeyError):
+        with pytest.raises(ValueError):
             expr.fetch_data(sop_pt, g, True)
+        with pytest.raises(ValueError):
+            expr.fetch_data(sop_pi, g, True)
 
     # previous iterate and time step have no derivative values, but the parsing should
     # still work because the dependencies at previous iter and time are parsed as
