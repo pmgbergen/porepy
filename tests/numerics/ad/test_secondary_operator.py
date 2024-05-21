@@ -162,6 +162,47 @@ def test_secondary_operators(
     with pytest.raises(ValueError):
         _ = sop_pt.value_and_jacobian(eqsys)
 
+    ## Testing that setting arbitrary data not using the framework will raise errors
+    # if data does not fit
+    data = mdg.boundary_grid_data(bgs[0])
+    if pp.ITERATE_SOLUTIONS not in data:
+        data[pp.ITERATE_SOLUTIONS] = {}
+    if expr.name not in data[pp.ITERATE_SOLUTIONS]:
+        data[pp.ITERATE_SOLUTIONS][expr.name] = {}
+    data[pp.ITERATE_SOLUTIONS][expr.name][0] = np.ones(nc - 1)
+    with pytest.raises(ValueError):
+        _ = expr.boundary_values
+    # deleting entry
+    del data[pp.ITERATE_SOLUTIONS][expr.name][0]
+
+    # analogous for interfaces and subdomains
+    if on_intf:
+        data = mdg.interface_data(domains[0])
+    else:
+        data = mdg.subdomain_data(domains[0])
+
+    if pp.ITERATE_SOLUTIONS not in data:
+        data[pp.ITERATE_SOLUTIONS] = {}
+    if expr.name not in data[pp.ITERATE_SOLUTIONS]:
+        data[pp.ITERATE_SOLUTIONS][expr.name] = {}
+    if expr._name_derivatives not in data[pp.ITERATE_SOLUTIONS]:
+        data[pp.ITERATE_SOLUTIONS][expr._name_derivatives] = {}
+    data[pp.ITERATE_SOLUTIONS][expr.name][0] = np.ones(nc - 1)
+    data[pp.ITERATE_SOLUTIONS][expr._name_derivatives][0] = np.ones(nc - 1)
+    if on_intf:
+        with pytest.raises(ValueError):
+            _ = expr.interface_values
+        with pytest.raises(ValueError):
+            _ = expr.interface_derivatives
+    else:
+        with pytest.raises(ValueError):
+            _ = expr.subdomain_values
+        with pytest.raises(ValueError):
+            _ = expr.subdomain_derivatives
+    # deleting entry
+    del data[pp.ITERATE_SOLUTIONS][expr.name][0]
+    del data[pp.ITERATE_SOLUTIONS][expr._name_derivatives][0]
+
     ## Testing the setting of values using the local and global setter for iter values
     for g in domains:
         expr.progress_iterate_values_on_grid(np.zeros(g.num_cells), g)
@@ -240,6 +281,26 @@ def test_secondary_operators(
     sop_pi_val = sop_pi.value_and_jacobian(eqsys)
     assert np.all(sop_pi_val.val == np.zeros(nc))
     assert np.all(sop_pi_val.jac.A == 0.0)
+
+    ## Test that the user cannot set values of unexpected shape
+    if on_intf:
+        with pytest.raises(ValueError):
+            expr.interface_values = np.ones(nc - 1)
+        with pytest.raises(ValueError):
+            expr.interface_values = [g] * nc
+        with pytest.raises(ValueError):
+            expr.interface_derivatives = np.array(diff_vals)[:, : nc - 1]
+    else:
+        with pytest.raises(ValueError):
+            expr.subdomain_values = np.ones(nc - 1)
+        with pytest.raises(ValueError):
+            expr.subdomain_values = [g] * nc
+        with pytest.raises(ValueError):
+            expr.subdomain_derivatives = np.array(diff_vals)[:, : nc - 1]
+
+    # NOTE: The setters work if the given array is too large, only the first values are
+    # used then. Should we enforce that the array must be of exact size? And not
+    # "at least of size"
 
 
 def test_secondary_operators_on_boundaries(

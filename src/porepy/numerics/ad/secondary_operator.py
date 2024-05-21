@@ -312,7 +312,13 @@ class SecondaryOperator(
         return sum(jacs).tocsr()
 
 
-def _check_expected_values(values: Any, target_shape: tuple[int, ...]) -> None:
+def _check_expected_values(
+    values: Any,
+    target_shape: tuple[int, ...],
+    grid: pp.GridLike,
+    iterate_index: Optional[int] = None,
+    time_step_index: Optional[int] = None,
+) -> None:
     """Helper method for secondary expressions and operators, checking that the
     expected values are an instance of :obj:`numpy.ndarray`, and that they have the
     expected shape.
@@ -320,11 +326,34 @@ def _check_expected_values(values: Any, target_shape: tuple[int, ...]) -> None:
     Parameters:
         values: Any object representing values or derivative values.
         target_shape: The expected shape of the ``values`` in numpy's array format.
+        grid: A grid in the md-grid.
+        iterate_index: The iteration index for which the values are assigned.
+        time_step_index: The time step index for which the values are assigned.
 
     Raises:
-        ValueError: If the values are not of expected type or shape.
+        ValueError: If the values are not of expected type or shape, for given index.
 
     """
+
+    if isinstance(values, np.ndarray):
+        if values.shape == target_shape:
+            return
+
+    raise ValueError(
+        f"Expecting numpy array of shape {target_shape} on grid with id {grid.id}"
+        + f", got type {type(values)}"
+        + f" with shape {values.shape}"
+        if isinstance(values, np.ndarray)
+        else (
+            "" + ""
+            if iterate_index is None
+            else (
+                f" at iteration index {iterate_index}" + ""
+                if time_step_index is None
+                else f" at time step index {time_step_index}" + "."
+            )
+        )
+    )
 
 
 class SecondaryExpression:
@@ -660,12 +689,13 @@ class SecondaryExpression:
 
         """
         vals = []
-        for _, data in self.mdg.boundaries(return_data=True):
-            vals.append(pp.get_solution_values(self.name, data, iterate_index=0))
-        if len(vals) > 0:
-            return np.hstack(vals)
-        else:
-            return np.zeros(0, dtype=float)
+        for bg, data in self.mdg.boundaries(return_data=True):
+            val_g = pp.get_solution_values(self.name, data, iterate_index=0)
+            _check_expected_values(
+                val_g, (self.num_dofs_on_grid(bg),), bg, iterate_index=0
+            )
+            vals.append(val_g)
+        return np.hstack(vals)
 
     @boundary_values.setter
     def boundary_values(self, val: np.ndarray) -> None:
@@ -696,12 +726,13 @@ class SecondaryExpression:
 
         """
         vals = []
-        for _, data in self.mdg.subdomains(return_data=True):
-            vals.append(pp.get_solution_values(self.name, data, iterate_index=0))
-        if len(vals) > 0:
-            return np.hstack(vals)
-        else:
-            return np.zeros(0, dtype=float)
+        for g, data in self.mdg.subdomains(return_data=True):
+            val_g = pp.get_solution_values(self.name, data, iterate_index=0)
+            _check_expected_values(
+                val_g, (self.num_dofs_on_grid(g),), g, iterate_index=0
+            )
+            vals.append(val_g)
+        return np.hstack(vals)
 
     @subdomain_values.setter
     def subdomain_values(self, val: np.ndarray) -> None:
@@ -742,14 +773,18 @@ class SecondaryExpression:
 
         """
         vals = []
-        for _, data in self.mdg.subdomains(return_data=True):
-            vals.append(
-                pp.get_solution_values(self._name_derivatives, data, iterate_index=0)
+        for g, data in self.mdg.subdomains(return_data=True):
+            val_g = pp.get_solution_values(
+                self._name_derivatives, data, iterate_index=0
             )
-        if len(vals) > 0:
-            return np.hstack(vals)
-        else:
-            return np.zeros(self.num_dependencies, dtype=float)
+            _check_expected_values(
+                val_g,
+                (self.num_dependencies, self.num_dofs_on_grid(g)),
+                g,
+                iterate_index=0,
+            )
+            vals.append(val_g)
+        return np.hstack(vals)
 
     @subdomain_derivatives.setter
     def subdomain_derivatives(self, val: np.ndarray) -> None:
@@ -772,12 +807,16 @@ class SecondaryExpression:
 
         """
         vals = []
-        for _, data in self.mdg.interfaces(return_data=True):
-            vals.append(pp.get_solution_values(self.name, data, iterate_index=0))
-        if len(vals) > 0:
-            return np.hstack(vals)
-        else:
-            return np.zeros(0, dtype=float)
+        for g, data in self.mdg.interfaces(return_data=True):
+            val_g = pp.get_solution_values(self.name, data, iterate_index=0)
+            _check_expected_values(
+                val_g,
+                (self.num_dofs_on_grid(g),),
+                g,
+                iterate_index=0,
+            )
+            vals.append(val_g)
+        return np.hstack(vals)
 
     @interface_values.setter
     def interface_values(self, val: np.ndarray) -> None:
@@ -799,14 +838,18 @@ class SecondaryExpression:
 
         """
         vals = []
-        for _, data in self.mdg.interfaces(return_data=True):
-            vals.append(
-                pp.get_solution_values(self._name_derivatives, data, iterate_index=0)
+        for g, data in self.mdg.interfaces(return_data=True):
+            val_g = pp.get_solution_values(
+                self._name_derivatives, data, iterate_index=0
             )
-        if len(vals) > 0:
-            return np.hstack(vals)
-        else:
-            return np.zeros(self.num_dependencies, dtype=float)
+            _check_expected_values(
+                val_g,
+                (self.num_dependencies, self.num_dofs_on_grid(g)),
+                g,
+                iterate_index=0,
+            )
+            vals.append(val_g)
+        return np.hstack(vals)
 
     @interface_derivatives.setter
     def interface_derivatives(self, val: np.ndarray) -> None:
@@ -885,9 +928,12 @@ class SecondaryExpression:
             AssertionError: If ``values`` is not of the expected shape.
 
         """
-        shape = (self.num_dofs_on_grid(boundary_grid),)
-        assert values.shape == shape, (
-            f"Need array of shape {shape}," + f" but {values.shape} given."
+
+        _check_expected_values(
+            values,
+            (self.num_dofs_on_grid(boundary_grid),),
+            boundary_grid,
+            iterate_index=0,
         )
         data = self._data_of(boundary_grid)
 
@@ -926,11 +972,11 @@ class SecondaryExpression:
             AssertionError: If ``values`` is not of the expected shape.
 
         """
-        shape = (self.num_dofs_on_grid(grid),)
-        assert values.shape == shape, (
-            f"Need array of shape {shape}," + f" but {values.shape} given."
+        _check_expected_values(
+            values, (self.num_dofs_on_grid(grid),), grid, iterate_index=0
         )
         data = self._data_of(grid)
+
         pp.shift_solution_values(self.name, data, pp.ITERATE_SOLUTIONS)
         pp.set_solution_values(self.name, values, data, iterate_index=0)
 
@@ -953,9 +999,11 @@ class SecondaryExpression:
             AssertionError: If ``values`` is not of the expected shape.
 
         """
-        shape = (self.num_dependencies, self.num_dofs_on_grid(grid))
-        assert values.shape == shape, (
-            f"Need array of shape {shape}," + f" but {values.shape} given."
+        _check_expected_values(
+            values,
+            (self.num_dependencies, self.num_dofs_on_grid(grid)),
+            grid,
+            iterate_index=0,
         )
         data = self._data_of(grid)
         pp.shift_solution_values(self._name_derivatives, data, pp.ITERATE_SOLUTIONS)
