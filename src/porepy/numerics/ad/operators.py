@@ -1298,7 +1298,7 @@ class IterativeOperator(Operator):
         """Returns the iterate index this instance represents, at the current time.
 
         - None indicates this instance is at a previous time
-        - 0 represents the first previous iterate
+        - 0 represents the most recently computed iterate.
         - 1 represents the iterate before that
         - ...
 
