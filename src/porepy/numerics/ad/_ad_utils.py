@@ -411,7 +411,7 @@ def get_solution_values(
 
             Determines the key of where ``values`` are to be stored in
             ``data[pp.TIME_STEP_SOLUTIONS][name]``.
-            0 is the first previous time step, 1 the one before that and so on.
+            0 is the most recent time step, 1 the one before that and so on.
         iterate_index: ``default=None``
 
             Determines the key of where ``values`` are to be stored in
