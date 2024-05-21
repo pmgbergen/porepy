@@ -1175,30 +1175,29 @@ class TimeDependentOperator(Operator):
 
         """
 
-        self._time_step_index: int = 0
+        self._time_step_index: int = -1
         """Time step index, starting with 0 (current time) and increasing for previous
         time steps."""
 
     @property
     def is_previous_time(self) -> bool:
         """True, if the operator represents a previous time-step."""
-        return True if self._time_step_index > 0 else False
+        return True if self._time_step_index >= 0 else False
 
     @property
-    def time_step_index(self) -> int:
+    def time_step_index(self) -> int | None:
         """Returns the time step index this instance represents.
 
-        - 0 indicates this is an operator at the current time step
-        - 1 represents the first previous time step
-        - 2 represents the next time step further back in time
+        - None indicates the current time (unknown value)
+        - 0 indicates this is an operator at the first previous time step
+        - 1 at the time step before
         - ...
 
-        Note:
-            Time-dependent operators with time step index 0 will always return the
-            value at the most recent iterate.
-
         """
-        return self._time_step_index
+        if self._time_step_index < 0:
+            return None
+        else:
+            return self._time_step_index
 
     def previous_timestep(
         self: _TimeDependentOperator, steps: int = 1
@@ -1285,26 +1284,41 @@ class IterativeOperator(Operator):
 
         """
 
-        self._iterate_index: int = 0
+        self._iterate_index: int = -1
         """iterate index, starting with 0 (current iterate at current time) and
         increasing for previous iterates."""
 
     @property
     def is_previous_iterate(self) -> bool:
         """True, if the operator represents a previous iterate."""
-        return True if self._iterate_index > 0 else False
+        return True if self._iterate_index >= 0 else False
 
     @property
-    def iterate_index(self) -> int:
+    def iterate_index(self) -> int | None:
         """Returns the iterate index this instance represents, at the current time.
 
-        - 0 represents the current iterate
-        - 1 represents the first previous iterate
-        - 2 represents the iterate before that
+        - None indicates this instance is at a previous time
+        - 0 represents the first previous iterate
+        - 1 represents the iterate before that
         - ...
 
+        Note:
+            Operators at current time (unknown value) also have the index 0, since those
+            values are used to linearize the system and construct the Jacobian.
+
         """
-        return self._iterate_index
+        # Operators at previous time have no iterate indices
+        if isinstance(self, TimeDependentOperator):
+            if self.is_previous_time:
+                return None
+
+        # operators representing at current time use the values stored at index 0
+        # in that case the private index is -1
+        if self._iterate_index < 0:
+            return 0
+        # return respective index
+        else:
+            return self._iterate_index
 
     def previous_iteration(
         self: _IterativeOperator, steps: int = 1
@@ -1782,18 +1796,14 @@ class Variable(TimeDependentOperator, IterativeOperator):
         elif isinstance(self._g, pp.MortarGrid):
             data = mdg.interface_data(self._g)
 
-        if self.is_previous_time:
-            return pp.get_solution_values(
-                self.name,
-                data,
-                time_step_index=self.time_step_index,
-            )
-        else:
-            return pp.get_solution_values(
-                self.name,
-                data,
-                iterate_index=self.iterate_index,
-            )
+        # We can safely use both indices as arguments, without checking prev time,
+        # because iterate index is None if prev time, and vice versa
+        return pp.get_solution_values(
+            self.name,
+            data,
+            iterate_index=self.iterate_index,
+            time_step_index=self.time_step_index,
+        )
 
     def __repr__(self) -> str:
         s = f"Variable {self.name} with id {self.id}"
@@ -1837,13 +1847,15 @@ class MixedDimensionalVariable(Variable):
     def __init__(self, variables: list[Variable]) -> None:
 
         time_indices = []
-        iterate_indices = []
+        iter_indices = []
+        current_iter = []
         names = []
         domains = []
 
         for var in variables:
             time_indices.append(var.time_step_index)
-            iterate_indices.append(var.iterate_index)
+            iter_indices.append(var.iterate_index)
+            current_iter.append(var.is_current_iterate)
             names.append(var.name)
             domains.append(var.domain)
 
@@ -1853,7 +1865,7 @@ class MixedDimensionalVariable(Variable):
                 len(set(time_indices)) == 1
             ), "Cannot create md-variable from variables at different time steps."
             assert (
-                len(set(iterate_indices)) == 1
+                len(set(iter_indices)) == 1 and len(set(current_iter)) == 1
             ), "Cannot create md-variable from variables at different iterates."
             assert (
                 len(set(names)) == 1
@@ -1864,16 +1876,24 @@ class MixedDimensionalVariable(Variable):
         # Default values for empty md variable
         else:
             time_indices = [-1]
-            iterate_indices = [0]
+            iter_indices = [-1]
             names = ["empty_md_variable"]
+            current_iter = [True]
 
         ### PRIVATE
         self._id = next(Variable._ids)
         # NOTE private time step index is -1 if public time step index of atomic
         # variables is None (current time)
         self._time_step_index = -1 if time_indices[0] is None else time_indices[0]
-        # NOTE private and public iterate indices are always integers
-        self._iterate_index = iterate_indices[0]
+
+        # If current time and iterate
+        if current_iter[0]:
+            self._iterate_index = -1  # current time and iter
+        else:
+            # can be None if variables at previous time. Set iterate index to default
+            # value.
+            self._iterate_index = -1 if iter_indices[0] is None else iter_indices[0]
+
         self._name = names[0]
 
         # Mypy complains that we do not know that all variables have the same type of

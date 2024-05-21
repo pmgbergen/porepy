@@ -57,7 +57,7 @@ def test_evaluate_variables():
         vals_it = 2 * np.ones([sd.num_cells])
 
         pp.set_solution_values(
-            name=var_name, values=vals_sol, data=d, time_step_index=1
+            name=var_name, values=vals_sol, data=d, time_step_index=0
         )
         pp.set_solution_values(name=var_name, values=vals_it, data=d, iterate_index=0)
         # Provide values for previous iterate as well
@@ -381,7 +381,7 @@ class EquationSystemSetup:
             self.name_intf_top_variable,
         ]
         sys_man.set_variable_values(
-            global_vals, variables=all_variables, iterate_index=0, time_step_index=1
+            global_vals, variables=all_variables, iterate_index=0, time_step_index=0
         )
         self.initial_values = global_vals
 
@@ -646,18 +646,18 @@ def test_set_get_methods(
         # the global ordering.
         assert np.allclose(setup.initial_values[np.sort(inds)], retrieved_vals)
     # The time step solution should not have been updated
-    retrieved_vals_state = sys_man.get_variable_values(variables, time_step_index=1)
+    retrieved_vals_state = sys_man.get_variable_values(variables, time_step_index=0)
     assert np.allclose(setup.initial_values[np.sort(inds)], retrieved_vals_state)
 
     # Set values again, this time also to the time step solutions.
     if iterate:
-        sys_man.set_variable_values(vals, variables, iterate_index=0, time_step_index=1)
+        sys_man.set_variable_values(vals, variables, iterate_index=0, time_step_index=0)
     else:
-        sys_man.set_variable_values(vals, variables, time_step_index=1)
+        sys_man.set_variable_values(vals, variables, time_step_index=0)
     # Retrieve only values from time step solutions; iterate should be the same as
     # before (and the additive mode is checked below).
 
-    retrieved_vals_state = sys_man.get_variable_values(variables, time_step_index=1)
+    retrieved_vals_state = sys_man.get_variable_values(variables, time_step_index=0)
 
     assert np.allclose(vals, retrieved_vals_state)
 
@@ -668,7 +668,7 @@ def test_set_get_methods(
         sys_man.set_variable_values(new_vals, variables, iterate_index=0)
         retrieved_vals2 = sys_man.get_variable_values(variables, iterate_index=0)
     if not iterate:
-        retrieved_vals2 = sys_man.get_variable_values(variables, time_step_index=1)
+        retrieved_vals2 = sys_man.get_variable_values(variables, time_step_index=0)
     # Iterate has either been updated, or it still has the initial value
     if iterate:
         assert np.allclose(new_vals, retrieved_vals2)
@@ -679,11 +679,11 @@ def test_set_get_methods(
     # Set values to time step solutions. This should overwrite the old values.
     if iterate:
         sys_man.set_variable_values(
-            new_vals, variables, iterate_index=0, time_step_index=1
+            new_vals, variables, iterate_index=0, time_step_index=0
         )
     else:
-        sys_man.set_variable_values(new_vals, variables, time_step_index=1)
-    retrieved_vals_state_2 = sys_man.get_variable_values(variables, time_step_index=1)
+        sys_man.set_variable_values(new_vals, variables, time_step_index=0)
+    retrieved_vals_state_2 = sys_man.get_variable_values(variables, time_step_index=0)
     assert np.allclose(new_vals, retrieved_vals_state_2)
 
     # Set the values again, this time with additive=True. This should double the
@@ -692,7 +692,7 @@ def test_set_get_methods(
         sys_man.set_variable_values(new_vals, variables, iterate_index=0, additive=True)
         retrieved_vals3 = sys_man.get_variable_values(variables, iterate_index=0)
     elif not iterate:
-        retrieved_vals3 = sys_man.get_variable_values(variables, time_step_index=1)
+        retrieved_vals3 = sys_man.get_variable_values(variables, time_step_index=0)
 
     if iterate:
         assert np.allclose(2 * new_vals, retrieved_vals3)
@@ -703,13 +703,13 @@ def test_set_get_methods(
     # Set to time step solutions, with additive=True. This should double the retrieved
     if iterate:
         sys_man.set_variable_values(
-            new_vals, variables, iterate_index=0, time_step_index=1, additive=True
+            new_vals, variables, iterate_index=0, time_step_index=0, additive=True
         )
     else:
         sys_man.set_variable_values(
-            new_vals, variables, time_step_index=1, additive=True
+            new_vals, variables, time_step_index=0, additive=True
         )
-    retrieved_vals_state_3 = sys_man.get_variable_values(variables, time_step_index=1)
+    retrieved_vals_state_3 = sys_man.get_variable_values(variables, time_step_index=0)
     assert np.allclose(2 * new_vals, retrieved_vals_state_3)
 
     # Test storage of multiple values of time step and iterate solutions from here and
@@ -722,7 +722,7 @@ def test_set_get_methods(
         # are as expected.
         for ind, val in enumerate(known_values):
             assert np.allclose(
-                sys_man.get_variable_values(variables, time_step_index=ind + 1), val
+                sys_man.get_variable_values(variables, time_step_index=ind), val
             )
 
     # Building a few solution vectors and defining the desired solution indices
@@ -730,7 +730,7 @@ def test_set_get_methods(
     vals1 = vals0 * 2
     vals2 = vals0 * 3
 
-    solution_indices = np.array([1, 2, 3])
+    solution_indices = np.array([0, 1, 2])
     vals_mat = np.array([vals0, vals1, vals2])
 
     # Test setting values at several indices and then gathering them
@@ -749,7 +749,7 @@ def test_set_get_methods(
     # Test additive = True to make sure only the most recently stored values are added
     # to.
     sys_man.set_variable_values(
-        values=vals0, variables=variables, time_step_index=1, additive=True
+        values=vals0, variables=variables, time_step_index=0, additive=True
     )
     _retrieve_and_check_time_step([2 * vals0, vals0, vals1])
 

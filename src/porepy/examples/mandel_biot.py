@@ -1435,7 +1435,7 @@ class MandelSolutionStrategy(poromechanics.SolutionStrategyPoromechanics):
             values=self.exact_sol.pressure(sd, 0),
             data=data,
             iterate_index=0,
-            time_step_index=1,
+            time_step_index=0,
         )
 
         # Set initial displacement
@@ -1444,7 +1444,7 @@ class MandelSolutionStrategy(poromechanics.SolutionStrategyPoromechanics):
             values=self.exact_sol.displacement(sd, 0),
             data=data,
             iterate_index=0,
-            time_step_index=1,
+            time_step_index=0,
         )
 
     def after_simulation(self) -> None:

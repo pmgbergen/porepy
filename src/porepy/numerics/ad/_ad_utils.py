@@ -313,36 +313,23 @@ def _validate_indices(
     out = []
 
     if iterate_index is not None:
-        # Some iterate values of the current time
+        # Some valid iterate value.
         if iterate_index >= 0:
             out.append((pp.ITERATE_SOLUTIONS, iterate_index))
         # Negative iterate indices are not supported
         else:
             raise ValueError(
-                "Use increasing, non-negative integers for (previous) iterate values."
+                "Use increasing, non-negative integers for iterate indices."
             )
 
     if time_step_index is not None:
         # Some previous time.
-        if time_step_index > 0:
+        if time_step_index >= 0:
             out.append((pp.TIME_STEP_SOLUTIONS, time_step_index))
-        # Current time. NOTE this is ambigous since the current time is an unknown and
-        # has multiple iterate values.
-        # Alternatively, we could associate time_step_index = 0 with iterate_index = 0
-        # the below elif branch introduces the convention that
-        # time step = iterate step = 0 are equivalent.
-        elif time_step_index == 0:
-            # if (pp.ITERATE_SOLUTIONS, 0) not in out:
-            #     out.append((pp.ITERATE_SOLUTIONS, 0))
-            raise ValueError(
-                "Using time_step_index = 0 (current time) is ambiguous."
-                + " Specify iterate_index instead."
-                + " First previous time step value is time_step_index = 1."
-            )
         # Negative time step indices are not supported
         else:
             raise ValueError(
-                "Use increasing, non-negative integers for previous time step values."
+                "Use increasing, non-negative integers for time step indices."
             )
 
     return out
@@ -363,16 +350,20 @@ def set_solution_values(
         name: Name of the quantity that is to be assigned values.
         values: The values that are set in the data dictionary.
         data: Data dictionary corresponding to the subdomain or interface in question.
-        time_step_index (optional): Determines the key of where `values` are to be
-            stored in `data[pp.TIME_STEP_SOLUTIONS][name]`. 0 means it is the most
-            recent set of values, 1 means the one time step back in time, 2 is two time
-            steps back, and so on.
-        iterate_index (optional): Determines the key of where `values` are to be
-            stored in `data[pp.ITERATE_SOLUTIONS][name]`. 0 means it is the most
-            recent set of values, 1 means the values one iteration back in time, 2 is
-            two iterations back, and so on.
-        additive: Flag to decide whether the values already stored in the data
-            dictionary should be added to or overwritten.
+        time_step_index: ``default=None``
+
+            Determines the key of where ``values`` are to be stored in
+            ``data[pp.TIME_STEP_SOLUTIONS][name]``.
+            0 is the first previous time step, 1 the one before that and so on.
+        iterate_index: ``default=None``
+
+            Determines the key of where ``values`` are to be stored in
+            ``data[pp.ITERATE_SOLUTIONS][name]``.
+            0 is the current iterate, 1 the previous iterate, and so on.
+        additive: ``default=False``
+
+            Flag to decide whether the values already stored in the data dictionary
+            should be added to or overwritten.
 
     Raises:
         ValueError: In the case of inconsistent usage of indices
@@ -409,21 +400,29 @@ def get_solution_values(
     """Function for fetching values stored in the data dictionary, for some
     time-dependent or iterative term.
 
+    Note:
+        Compared to :func:`get_solution_values` the getter works only for 1 defined
+        index, whereas the setter can take both a time and iterate index.
+
     Parameters:
         name: Name of the parameter whose values we are interested in.
         data: The data dictionary.
-        time_step_index: Which time step we want to get values for. 0 is current, 1 is
-            one time step back in time. This is only limited by how many time steps are
-            stored from before.
-        iterate_index: Which iterate we want to get values for. 0 is current, 1 is one
-            iterate back in time. This is only limited by how many iterates are stored
-            from before.
+        time_step_index: ``default=None``
+
+            Determines the key of where ``values`` are to be stored in
+            ``data[pp.TIME_STEP_SOLUTIONS][name]``.
+            0 is the first previous time step, 1 the one before that and so on.
+        iterate_index: ``default=None``
+
+            Determines the key of where ``values`` are to be stored in
+            ``data[pp.ITERATE_SOLUTIONS][name]``.
+            0 is the current iterate, 1 the previous iterate, and so on.
 
     Raises:
         ValueError: In the case of inconsistent usage of indices
             (both None or negative values).
-        AssertionError: If the user attempts to get iterate and time step values
-            simultanously. Only 1 index is permitted in getter
+        ValueError: If the user attempts to get multiple iterate and time step values
+            simultanously. Only 1 index is permitted in the getter.
         KeyError: If no values are stored for the passed index.
 
     Returns:
@@ -431,9 +430,10 @@ def get_solution_values(
 
     """
     loc_index = _validate_indices(time_step_index, iterate_index)
-    assert (
-        len(loc_index) == 1
-    ), "Cannot get value from both iterate and time step at once. Call separately."
+    if len(loc_index) != 1:
+        raise ValueError(
+            "Cannot get value from both iterate and time step at once. Call separately."
+        )
 
     loc, index = loc_index[0]
 
@@ -445,6 +445,50 @@ def get_solution_values(
         ) from err
 
     return value
+
+
+def shift_solution_values(
+    name: str,
+    data: dict,
+    location: Any,
+) -> None:
+    """Function to shift numerical values stored in the data dictionary.
+
+    The shift is implemented s.t. values at index ``i`` are copied to index ``i + 1``,
+    based on the number of stored values.
+
+    Note:
+        The data stored must have support for ``.copy()`` in order to avoid faulty
+        referencing (e.g., numpy arrays or sparse matrices).
+
+    Note:
+        After this operation, values at index 0 and 1 will be the same.
+        Use :meth:`set_solution_values` to update the latest values at index 0.
+
+    Parameters:
+        name: Key in ``data`` for which quantity the shift should be performed.
+        data: A grid data dictionary.
+        location: Either :data:`~porepy.utils.common_constants.TIME_STEP_SOLUTIONS`
+            or :data:`~porepy.utils.common_constants.ITERATE_SOLUTIONS`.
+
+    Raises:
+        ValueError: If unsupported ``location`` is passed.
+
+    """
+    if location not in [pp.ITERATE_SOLUTIONS, pp.TIME_STEP_SOLUTIONS]:
+        raise ValueError(f"Shifting values not implemented for location {location}")
+
+    # NOTE return because nothing to be shifted. Avoid confusion by introducing data
+    # dictionaries for values which were never set using pp.set_solution_values
+    if location not in data:
+        return
+    if name not in data[location]:
+        return
+
+    num_stored = len(data[location][name])
+
+    for i in range(num_stored, 0, -1):
+        data[location][name][i] = data[location][name][i - 1].copy()
 
 
 class MergedOperator(operators.Operator):

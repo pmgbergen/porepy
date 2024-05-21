@@ -264,7 +264,7 @@ class SolutionStrategy(abc.ABC):
             An array of the indices of which time step solutions will be stored.
 
         """
-        return np.array([1])
+        return np.array([0])
 
     @property
     def iterate_indices(self) -> np.ndarray:
@@ -302,9 +302,9 @@ class SolutionStrategy(abc.ABC):
                     time_index,
                     times_file,
                 )
-            vals = self.equation_system.get_variable_values(time_step_index=1)
+            vals = self.equation_system.get_variable_values(time_step_index=0)
             self.equation_system.set_variable_values(
-                vals, iterate_index=0, time_step_index=1
+                vals, iterate_index=0, time_step_index=0
             )
             # Update the boundary conditions to both the time step and iterate solution.
             self.update_time_dependent_ad_arrays()
@@ -442,7 +442,7 @@ class SolutionStrategy(abc.ABC):
         solution = self.equation_system.get_variable_values(iterate_index=0)
         self.equation_system.shift_time_step_values()
         self.equation_system.set_variable_values(
-            values=solution, time_step_index=1, additive=False
+            values=solution, time_step_index=0, additive=False
         )
         self.convergence_status = True
         self.save_data_time_step()
