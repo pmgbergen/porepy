@@ -1285,7 +1285,7 @@ class IterativeOperator(Operator):
         """
 
         self._iterate_index: int = -1
-        """iterate index, starting with 0 (current iterate at current time) and
+        """Iterate index, starting with 0 (current iterate at current time) and
         increasing for previous iterates."""
 
     @property
