@@ -261,7 +261,8 @@ class SolutionStrategy(abc.ABC):
             (Previous) Time step indices should start with 1.
 
         Returns:
-            An array of the indices of which time step solutions will be stored.
+            An array of the indices of which time step solutions will be stored, counting
+            from 0. Defaults to storing the most recently computed solution only.
 
         """
         return np.array([0])
