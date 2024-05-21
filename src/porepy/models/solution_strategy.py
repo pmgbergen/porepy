@@ -427,7 +427,7 @@ class SolutionStrategy(abc.ABC):
             nonlinear_increment: The new solution, as computed by the non-linear solver.
 
         """
-        self.equation_system.shift_iterate_values()
+        self.equation_system.shift_iterate_values(max_index=len(self.iterate_indices))
         self.equation_system.set_variable_values(
             values=nonlinear_increment, additive=True, iterate_index=0
         )
@@ -440,7 +440,9 @@ class SolutionStrategy(abc.ABC):
 
         """
         solution = self.equation_system.get_variable_values(iterate_index=0)
-        self.equation_system.shift_time_step_values()
+        self.equation_system.shift_time_step_values(
+            max_index=len(self.time_step_indices)
+        )
         self.equation_system.set_variable_values(
             values=solution, time_step_index=0, additive=False
         )

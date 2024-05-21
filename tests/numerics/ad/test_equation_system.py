@@ -604,7 +604,7 @@ def test_set_get_methods(
 
     """
 
-    sys_man = setup.sys_man
+    sys_man: pp.ad.EquationSystem = setup.sys_man
 
     np.random.seed(42)
 
@@ -741,7 +741,7 @@ def test_set_get_methods(
 
     # Test functionality that shifts values to prepare setting of the most recent
     # solution values.
-    sys_man.shift_time_step_values()
+    sys_man.shift_time_step_values(max_index=len(solution_indices))
     # The expected result is that key 0 and 1 has the same values, and key 2 have the
     # values that were at key 1 before the values were shifted.
     _retrieve_and_check_time_step([vals0, vals0, vals1])

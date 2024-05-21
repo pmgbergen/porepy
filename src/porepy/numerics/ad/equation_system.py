@@ -694,6 +694,7 @@ class EquationSystem:
     def shift_time_step_values(
         self,
         variables: Optional[VariableList] = None,
+        max_index: Optional[int] = None,
     ) -> None:
         """Method for shifting stored time step values in data sub-dictionary.
 
@@ -701,26 +702,32 @@ class EquationSystem:
         :func:`~porepy.numerics.ad._ad_utils.shift_solution_values`.
 
         Parameters:
-            variables (optional): ``default=None``
+            variables: ``default=None``
 
                 VariableType input for which the values should be shifted in time.
                 If None, all variables created by this system will be shifted.
+            max_index: ``default=None``
+
+                A positive integer, capping the range of the shift operation to
+                ``i -> max_index``.
+                If called repeatedly with ``None``, the depth in time keeps increasing.
 
         """
         for var in self._parse_variable_type(variables):
             pp.shift_solution_values(
-                var.name, self._get_data(var.domain), pp.TIME_STEP_SOLUTIONS
+                var.name, self._get_data(var.domain), pp.TIME_STEP_SOLUTIONS, max_index
             )
 
     def shift_iterate_values(
         self,
         variables: Optional[VariableList] = None,
+        max_index: Optional[int] = None,
     ) -> None:
         """Analogous to :meth:`shift_time_step_values`, but for iterates of the current
         (unknown) time step."""
         for var in self._parse_variable_type(variables):
             pp.shift_solution_values(
-                var.name, self._get_data(var.domain), pp.ITERATE_SOLUTIONS
+                var.name, self._get_data(var.domain), pp.ITERATE_SOLUTIONS, max_index
             )
 
     def _get_data(

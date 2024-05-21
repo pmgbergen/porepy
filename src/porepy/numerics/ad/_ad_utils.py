@@ -451,11 +451,11 @@ def shift_solution_values(
     name: str,
     data: dict,
     location: Any,
+    max_index: Optional[int] = None,
 ) -> None:
     """Function to shift numerical values stored in the data dictionary.
 
-    The shift is implemented s.t. values at index ``i`` are copied to index ``i + 1``,
-    based on the number of stored values.
+    The shift is implemented s.t. values at index ``i`` are copied to index ``i + 1``.
 
     Note:
         The data stored must have support for ``.copy()`` in order to avoid faulty
@@ -470,9 +470,17 @@ def shift_solution_values(
         data: A grid data dictionary.
         location: Either :data:`~porepy.utils.common_constants.TIME_STEP_SOLUTIONS`
             or :data:`~porepy.utils.common_constants.ITERATE_SOLUTIONS`.
+        max_index: ``default=None``
+
+            A non-negative integer, capping the range of the shift operation to
+            ``i -> max_index``.
+            If called repeatedly with ``None``, the depth in ``location`` keeps
+            increasing. To be used in schemes with a defined maximal depth of stored
+            iterate or time step values.
 
     Raises:
         ValueError: If unsupported ``location`` is passed.
+        ValueError: if ``max_index`` is negative.
 
     """
     if location not in [pp.ITERATE_SOLUTIONS, pp.TIME_STEP_SOLUTIONS]:
@@ -486,6 +494,12 @@ def shift_solution_values(
         return
 
     num_stored = len(data[location][name])
+
+    if max_index is not None:
+        if max_index < 0:
+            raise ValueError("Maximal index must be non-negative.")
+
+        num_stored = int(np.min([num_stored, max_index]))
 
     for i in range(num_stored, 0, -1):
         data[location][name][i] = data[location][name][i - 1].copy()
