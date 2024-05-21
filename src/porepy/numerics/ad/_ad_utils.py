@@ -401,7 +401,7 @@ def get_solution_values(
     time-dependent or iterative term.
 
     Note:
-        Compared to :func:`get_solution_values` the getter works only for 1 defined
+        Compared to :func:`set_solution_values` the getter works only for 1 defined
         index, whereas the setter can take both a time and iterate index.
 
     Parameters:
