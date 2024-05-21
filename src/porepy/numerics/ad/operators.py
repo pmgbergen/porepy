@@ -1845,6 +1845,21 @@ class MixedDimensionalVariable(Variable):
     """
 
     def __init__(self, variables: list[Variable]) -> None:
+        # IMPLEMENTATION NOTE VL
+        # I guess the original idea was to have the md-variable as a leaf in an operator
+        # tree, hence bypassing the super().__init__ and not having children.
+        # The code would be clearer if the md-variable is **not** a leaf, with no
+        # impairment to the efficiency of the parsing.
+        # Then we could call super() here and would have no need to essentially mimic
+        # its functionality here (along with the functionality of time-dependent and
+        # iterate operators), no duplicate code and less margin for errors.
+        # Unclear is however, how much of the remaining code must change, because
+        # the md-variable would not have an ID anymore, only the atomic variables.
+        # Also, there would be no attribute sub_vars, but the regular children, and the
+        # class would need custom implementations for is_previous_time/iterate and
+        # is_current_iterate, because these flags are useful on md-level as well.
+        # My guess, it's not much because EquationSystem operatores solely on atomic
+        # variables and their dofs, and changes are restricted to there (and tests)
 
         time_indices = []
         iter_indices = []
@@ -1864,6 +1879,9 @@ class MixedDimensionalVariable(Variable):
             assert (
                 len(set(time_indices)) == 1
             ), "Cannot create md-variable from variables at different time steps."
+            # NOTE both must be unique for all sub-variables, to avoid md-variables
+            # having sub-variables at different iterate states.
+            # Both current value, and most recent previous iterate have iterate index 0.
             assert (
                 len(set(iter_indices)) == 1 and len(set(current_iter)) == 1
             ), "Cannot create md-variable from variables at different iterates."
@@ -1876,7 +1894,7 @@ class MixedDimensionalVariable(Variable):
         # Default values for empty md variable
         else:
             time_indices = [-1]
-            iter_indices = [-1]
+            iter_indices = [None]
             names = ["empty_md_variable"]
             current_iter = [True]
 
@@ -1888,6 +1906,9 @@ class MixedDimensionalVariable(Variable):
 
         # If current time and iterate
         if current_iter[0]:
+            # NOTE need to catch current-iter in if-else, otherwise the md-variable at
+            # current time (to be solved for) would get the private index 0, instead of
+            # -1, because atomic vars at current time and iter have public iter index 0
             self._iterate_index = -1  # current time and iter
         else:
             # can be None if variables at previous time. Set iterate index to default
@@ -1900,6 +1921,19 @@ class MixedDimensionalVariable(Variable):
         # domain. While formally correct, this should be picked up in other places so we
         # ignore the warning here.
         self._domains = domains  # type: ignore[assignment]
+
+        # If someone attempts to create a prev time or iter md-variable using
+        # atomic variables at prev time and iter, we have a missing reference to the
+        # operator at current time and iter. Need ro reverse-engineer that, for
+        # is_current_iterate to work on the md-variable-level
+        if self.is_previous_iterate or self.is_previous_time:
+            # NOTE this can be removed with the re-work in first note in constructor
+            # Mypy complains because of the typing of original_operator
+            original_mdg = MixedDimensionalVariable(
+                [var.original_operator for var in variables]  # type:ignore[misc]
+            )
+            original_mdg._id = self._id
+            self.original_operator = original_mdg
 
         ### PUBLIC
 
