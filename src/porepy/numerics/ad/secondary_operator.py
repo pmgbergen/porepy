@@ -339,21 +339,19 @@ def _check_expected_values(
         if values.shape == target_shape:
             return
 
-    raise ValueError(
+    msg = (
         f"Expecting numpy array of shape {target_shape} on grid with id {grid.id}"
         + f", got type {type(values)}"
         + f" with shape {values.shape}"
         if isinstance(values, np.ndarray)
-        else (
-            "" + ""
-            if iterate_index is None
-            else (
-                f" at iteration index {iterate_index}" + ""
-                if time_step_index is None
-                else f" at time step index {time_step_index}" + "."
-            )
-        )
+        else ""
     )
+    if iterate_index is not None:
+        msg += f" at iteration index {iterate_index}"
+    elif time_step_index is not None:
+        msg += f" at time step index {time_step_index}"
+    msg += "."
+    raise ValueError(msg)
 
 
 class SecondaryExpression:
