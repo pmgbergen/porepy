@@ -1898,6 +1898,9 @@ class MixedDimensionalVariable(Variable):
             names = ["empty_md_variable"]
             current_iter = [True]
 
+        # NOTE everything below here is redundent with a proper super() call
+        # See top comment in constructor
+
         ### PRIVATE
         self._id = next(Variable._ids)
         # NOTE private time step index is -1 if public time step index of atomic
@@ -1927,7 +1930,6 @@ class MixedDimensionalVariable(Variable):
         # operator at current time and iter. Need ro reverse-engineer that, for
         # is_current_iterate to work on the md-variable-level
         if self.is_previous_iterate or self.is_previous_time:
-            # NOTE this can be removed with the re-work in first note in constructor
             # Mypy complains because of the typing of original_operator
             original_mdg = MixedDimensionalVariable(
                 [var.original_operator for var in variables]  # type:ignore[misc]
