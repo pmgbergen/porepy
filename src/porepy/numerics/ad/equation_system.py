@@ -641,7 +641,7 @@ class EquationSystem:
                 variables.
             variables: ``default=None``
 
-                VariableType input for which the values are requested.
+                VariableType input for which the values are prescribed.
                 If None (default), the global vector of unknowns will be set.
             time_step_index: Time step index for which the values are intended.
             iterate_index: Iterate index for which the values are intended.
