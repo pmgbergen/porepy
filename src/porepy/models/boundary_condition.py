@@ -1,4 +1,3 @@
-import warnings
 from functools import cached_property
 from typing import Callable, Sequence
 
@@ -44,6 +43,10 @@ class BoundaryConditionMixin:
 
     units: "pp.Units"
     """Units object, containing the scaling of base magnitudes."""
+
+    time_step_indices: np.ndarray
+    """See :meth:`~porepy.models.solution_strategy.SolutionStragey.time_step_indices`.
+    """
 
     def update_all_boundary_conditions(self) -> None:
         """This method is called before a new time step to set the values of the
@@ -92,23 +95,21 @@ class BoundaryConditionMixin:
                 # No previous time step exists. The method was called during
                 # the initialization.
                 vals = function(bg)
+
+            # Before setting the new, most recent time step, shift the stored values
+            # backwards in time
+            pp.shift_solution_values(
+                name=name,
+                data=data,
+                location=pp.TIME_STEP_SOLUTIONS,
+                max_index=len(self.time_step_indices),
+            )
+            # Set the values of current time to most recent previous time
             pp.set_solution_values(name=name, values=vals, data=data, time_step_index=0)
 
             # Set the unknown time step values.
             vals = function(bg)
             pp.set_solution_values(name=name, values=vals, data=data, iterate_index=0)
-
-            # If more than one time step or iterate values are stored, the user should
-            # override this method to handle boundary data replacement properly.
-            max_steps_back = max(
-                len(data[pp.ITERATE_SOLUTIONS][name]),
-                len(data[pp.TIME_STEP_SOLUTIONS][name]),
-            )
-            if max_steps_back > 1:
-                warnings.warn(
-                    "The default implementation of update_boundary_condition does not"
-                    " consider having more than one time step or iterate data layers."
-                )
 
     def create_boundary_operator(
         self, name: str, domains: Sequence[pp.BoundaryGrid]
