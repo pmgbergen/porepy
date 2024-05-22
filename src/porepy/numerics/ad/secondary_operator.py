@@ -702,7 +702,6 @@ class SecondaryExpression:
 
     @boundary_values.setter
     def boundary_values(self, val: np.ndarray) -> None:
-
         i = 0
         for grid in self.mdg.boundaries():
             n = self.num_dofs_on_grid(grid)
@@ -739,7 +738,6 @@ class SecondaryExpression:
 
     @subdomain_values.setter
     def subdomain_values(self, val: np.ndarray) -> None:
-
         i = 0
         for grid in self.mdg.subdomains():
             n = self.num_dofs_on_grid(grid)
@@ -856,7 +854,6 @@ class SecondaryExpression:
 
     @interface_derivatives.setter
     def interface_derivatives(self, val: np.ndarray) -> None:
-
         i = 0
         for grid in self.mdg.interfaces():
             n = grid.num_cells
