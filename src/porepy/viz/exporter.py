@@ -10,7 +10,7 @@ import sys
 import xml.etree.ElementTree as ET
 from collections import namedtuple
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
+from typing import Any, Dict, Iterable, List, Optional, Tuple, Union, Literal
 
 import meshio
 import numpy as np
@@ -344,7 +344,7 @@ class Exporter:
         from deepdiff import DeepDiff
 
         # Aux. method: Inverse of _to_vector_format, used to define vector-ranged values
-        def _from_vector_format(value: np.ndarray, num: int) -> np.ndarray:
+        def _from_vector_format(value: np.ndarray, num_dofs: int) -> np.ndarray:
             """Check whether the value array has the right dimension corresponding to
             the grid size. If possible, translate the value to a scalar-ranged object.
 
@@ -352,14 +352,14 @@ class Exporter:
 
             Parameters:
                 value: input array to be converted.
-                num: number of degrees of freedom (num_cells or num_nodes)
+                num_dofs: number of degrees of freedom (num_cells or num_nodes)
 
             Raises:
                 ValueError: if the value array is not compatible with the grid.
 
             """
             # Make some checks - note that this method handles cell data only.
-            if not value.size % num == 0:
+            if not value.size % num_dofs == 0:
                 # This line will raise an error if node or face data is exported.
                 raise ValueError("The data array is not compatible with the grid.")
 
@@ -927,7 +927,7 @@ class Exporter:
     def _sort_and_unify_data(
         self,
         data=None,
-        data_type: str = "num_cells",
+        num_entities: Literal = "num_cells",
         # ignore type which is essentially Union[DataInput, list[DataInput]]
     ) -> tuple[SubdomainData, InterfaceData]:
         """Preprocess data.
@@ -940,7 +940,7 @@ class Exporter:
         Parameters:
             data: data provided by the user in the form of strings and/or tuples of
             subdomains/interfaces.
-            data_type: type of data that should be processed: cell type by using
+            num_entities: type of data that should be processed: cell type by using
                 the (default) flag "num_cells" and node type by using the flag "num_nodes".
 
         Returns:
@@ -962,32 +962,32 @@ class Exporter:
         # routine.
 
         # Aux. method: Transform scalar- to vector-ranged values.
-        def _to_vector_format(value: np.ndarray, num: int) -> np.ndarray:
+        def _to_vector_format(value: np.ndarray, num_dofs: int) -> np.ndarray:
             """Check whether the value array has the right dimension corresponding to
             the grid size. If possible, translate the value to a vectorial object, but
             do nothing if the data naturally can be interpreted as scalar data.
 
             Parameters:
                 value: input array to be converted.
-                num: number of degrees of freedom (num_cells or num_nodes).
+                num_dofs: number of degrees of freedom (num_cells or num_nodes).
 
             Raises:
                 ValueError: if the value array is not compatible with the grid.
 
             """
             # Make some checks
-            if value.size == 0 and num == 0:
+            if value.size == 0 and num_dofs == 0:
                 return value
-            elif not value.size % num == 0:
+            elif not value.size % num_dofs == 0:
                 # This line will raise an error if node or face data is exported.
                 raise ValueError("The data array is not compatible with the grid.")
 
             # Convert to vectorial data if more data provided than grid cells available,
             # and the value array is not already in vectorial format
-            if not value.size == num and not (
-                len(value.shape) > 1 and value.shape[1] == num
+            if not value.size == num_dofs and not (
+                len(value.shape) > 1 and value.shape[1] == num_dofs
             ):
-                value = np.reshape(value, (-1, num), "F")
+                value = np.reshape(value, (-1, num_dofs), "F")
 
             return value
 
@@ -1222,7 +1222,7 @@ class Exporter:
             data_pt: tuple[pp.Grid, str, np.ndarray],
             subdomain_data: dict,
             interface_data: dict,
-            data_type: str,
+            num_entities: Literal,
         ) -> tuple[dict, dict, bool]:
             """Check whether data is provided as tuple (sd, key, data),
             where sd is a single subdomain, key is a string, and data is a user-defined
@@ -1233,6 +1233,7 @@ class Exporter:
                     cell data.
                 subdomain_data: container for subdomain data.
                 interface_data: container for interface data.
+                num_entities: the type of entity considered: "num_cells" or "num_faces".
 
             Returns:
                 Updated data containers and flag of success.
@@ -1255,7 +1256,7 @@ class Exporter:
                 # Interpret (sd, key, value) = (data_pt[0], data_pt[1], data_pt[2]);
                 sd = data_pt[0]
                 key = data_pt[1]
-                value = _to_vector_format(data_pt[2], getattr(sd, data_type))
+                value = _to_vector_format(data_pt[2], getattr(sd, num_entities))
 
                 # Add data point in correct format to collection
                 subdomain_data[(sd, key)] = value
@@ -1271,7 +1272,7 @@ class Exporter:
             data_pt: tuple[pp.MortarGrid, str, np.ndarray],
             subdomain_data: dict,
             interface_data: dict,
-            data_type: str,
+            num_entities: Literal,
         ) -> tuple[dict, dict, bool]:
             """Check whether data is provided as tuple (g, key, data), where e is a
             single interface, key is a string, and data is a user-defined data array.
@@ -1284,7 +1285,7 @@ class Exporter:
                     cell data.
                 subdomain_data: container for subdomain data.
                 interface_data: container for interface data.
-                data_type: type of data that should be processed: cell type by using
+                num_entities: type of data that should be processed: cell type by using
                     the flag "num_cells" and node type by using the flag "num_nodes".
 
             Returns:
@@ -1308,7 +1309,7 @@ class Exporter:
                 # Interpret (intf, key, value) = (data_pt[0], data_pt[1], data_pt[2]);
                 intf = data_pt[0]
                 key = data_pt[1]
-                value = _to_vector_format(data_pt[2], getattr(intf, data_type))
+                value = _to_vector_format(data_pt[2], getattr(intf, num_entities))
 
                 # Add data point in correct format to collection
                 interface_data[(intf, key)] = value
@@ -1324,7 +1325,7 @@ class Exporter:
             data: tuple[str, np.ndarray],
             subdomain_data: dict,
             interface_data: dict,
-            data_type: str,
+            num_entities: Literal,
         ) -> tuple[dict, dict, bool]:
             """Check whether data is provided by a tuple (key, data), where key is a
             string, and data is a user-defined data array.
@@ -1335,7 +1336,7 @@ class Exporter:
                 data: data tuple containing arbitrary key, and associated cell data.
                 subdomain_data: container for subdomain data.
                 interface_data: container for interface data.
-                data_type: type of data that should be processed: cell type by using
+                num_entities: type of data that should be processed: cell type by using
                     the flag "num_cells" and node type by using the flag "num_nodes".
 
             Returns:
@@ -1364,7 +1365,7 @@ class Exporter:
                 # Fetch remaining ingredients required to define subdomain data element
                 sd = subdomains[0]
                 key = data[0]
-                value = _to_vector_format(data[1], getattr(sd, data_type))
+                value = _to_vector_format(data[1], getattr(sd, num_entities))
 
                 # Add data point in correct format to collection
                 subdomain_data[(sd, key)] = value
@@ -1415,7 +1416,7 @@ class Exporter:
                 # Check whether data point of right type and convert to the unique data
                 # type.
                 subdomain_data, interface_data, success = method(
-                    data_pt, subdomain_data, interface_data, data_type
+                    data_pt, subdomain_data, interface_data, num_entities
                 )
 
                 # Stop, once a supported data format has been detected.
