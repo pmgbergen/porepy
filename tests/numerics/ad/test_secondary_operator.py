@@ -34,7 +34,7 @@ def eqsys() -> pp.ad.EquationSystem:
 
     network_2d = pp.create_fracture_network(fracs, domain)
 
-    mesh_args: dict[str, float] = {"cell_size": 0.1, "cell_size_fracture": 0.1}
+    mesh_args: dict[str, float] = {"cell_size": 0.5, "cell_size_fracture": 0.5}
     mdg = pp.create_mdg("cartesian", mesh_args, network_2d)
     mdg.compute_geometry()
 
