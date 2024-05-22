@@ -245,7 +245,12 @@ class SecondaryOperator(
         """
         # Use the functionality of AbstractFunction to call get_values and get_jacobian
         # correctly based on the types of input arguments.
-        # Ignore arg-type of self, because it does not inherit from AbstractFunction
+        # Ignore arg-type of self, because it does not inherit from AbstractFunction.
+
+        # TODO The concept of Operator functions needs to be revisited.
+        # Most likely they will not be operators anymore, but operator factories.
+        # Hence there will be no blocking of arithmetic overloads and we can rework the
+        # hierarchical structure between this class and AbstractFunction
         return pp.ad.AbstractFunction.func(self, *args)  # type:ignore[arg-type]
 
     def get_values(self, *args: float | np.ndarray | AdArray) -> np.ndarray:

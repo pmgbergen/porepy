@@ -187,8 +187,8 @@ def test_secondary_operators(
         data[pp.ITERATE_SOLUTIONS][expr.name] = {}
     if expr._name_derivatives not in data[pp.ITERATE_SOLUTIONS]:
         data[pp.ITERATE_SOLUTIONS][expr._name_derivatives] = {}
-    data[pp.ITERATE_SOLUTIONS][expr.name][0] = np.ones(nc - 1)
-    data[pp.ITERATE_SOLUTIONS][expr._name_derivatives][0] = np.ones(nc - 1)
+    data[pp.ITERATE_SOLUTIONS][expr.name][0] = np.ones(3 * nc)
+    data[pp.ITERATE_SOLUTIONS][expr._name_derivatives][0] = np.ones(3 * nc)
     if on_intf:
         with pytest.raises(ValueError):
             _ = expr.interface_values
