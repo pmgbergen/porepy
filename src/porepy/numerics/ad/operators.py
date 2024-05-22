@@ -1881,7 +1881,8 @@ class MixedDimensionalVariable(Variable):
             ), "Cannot create md-variable from variables at different time steps."
             # NOTE both must be unique for all sub-variables, to avoid md-variables
             # having sub-variables at different iterate states.
-            # Both current value, and most recent previous iterate have iterate index 0.
+            # Both current value, and most recent previous iterate have iterate index 0,
+            # hence the need to check the size of the current_iter set.
             assert (
                 len(set(iter_indices)) == 1 and len(set(current_iter)) == 1
             ), "Cannot create md-variable from variables at different iterates."
