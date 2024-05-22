@@ -71,14 +71,10 @@ class BoundaryConditionMixin:
     ) -> None:
         """This method is the unified procedure of updating a boundary condition.
 
-        It moves the boundary condition values used on the previous time step from
-        iterate data (current time step) to previous time step data.
+        It shifts the boundary condition values in time and stores the current iterate
+        data (current time step) as the most recent previous time step data.
         Next, it evaluates the boundary condition values for the new time step and
         stores them in the iterate data.
-
-        Note:
-            This implementation assumes that only one time step and iterate layers are
-            used. Otherwise, it prints a warning.
 
         Parameters:
             name: Name of the operator defined on the boundary.
@@ -87,24 +83,24 @@ class BoundaryConditionMixin:
 
         """
         for bg, data in self.mdg.boundaries(return_data=True):
-            # Set the known time step values.
+            # Get the current time step values.
             if pp.ITERATE_SOLUTIONS in data and name in data[pp.ITERATE_SOLUTIONS]:
                 # Use the values at the unknown time step from the previous time step.
                 vals = pp.get_solution_values(name=name, data=data, iterate_index=0)
             else:
-                # No previous time step exists. The method was called during
-                # the initialization.
+                # No current value stored. The method was called during the
+                # initialization.
                 vals = function(bg)
 
             # Before setting the new, most recent time step, shift the stored values
-            # backwards in time
+            # backwards in time.
             pp.shift_solution_values(
                 name=name,
                 data=data,
                 location=pp.TIME_STEP_SOLUTIONS,
                 max_index=len(self.time_step_indices),
             )
-            # Set the values of current time to most recent previous time
+            # Set the values of current time to most recent previous time.
             pp.set_solution_values(name=name, values=vals, data=data, time_step_index=0)
 
             # Set the unknown time step values.
