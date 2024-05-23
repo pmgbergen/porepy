@@ -71,7 +71,7 @@ def test_ad_function():
     assert np.all(val.jac.A == 0.)
 
     # Analogously for prev time
-    F_var_pt = F_var.at_previous_timestep()
+    F_var_pt = F_var.at_previous_time_step()
     val = F_var_pt.value_and_jacobian(eqsys)
     assert np.all(val.val == 10.)
     assert np.all(val.jac.A == 0.)

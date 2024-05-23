@@ -988,7 +988,7 @@ class SourceTerms:
         external_sources = pp.ad.TimeDependentDenseArray(
             name="source_flow",
             domains=self.mdg.subdomains(),
-        ).at_previous_timestep()
+        ).at_previous_time_step()
 
         # Add up contribution of internal and external sources of fluid
         fluid_sources = internal_sources + external_sources
@@ -1002,7 +1002,7 @@ class SourceTerms:
         external_sources = pp.ad.TimeDependentDenseArray(
             name="source_mechanics",
             domains=self.mdg.subdomains(),
-        ).at_previous_timestep()
+        ).at_previous_time_step()
 
         return external_sources
 
@@ -1019,7 +1019,7 @@ class SourceTerms:
         external_sources = pp.ad.TimeDependentDenseArray(
             name="source_energy",
             domains=self.mdg.subdomains(),
-        ).at_previous_timestep()
+        ).at_previous_time_step()
 
         # Add up contribution of internal and external sources of energy.
         thermal_sources = internal_sources + external_sources

@@ -69,7 +69,7 @@ def _get_previous_time_or_iterate(
     # The recursion reached an atomic operator, which has some time- or
     # iterate-dependent behaviour
     if isinstance(op, TimeDependentOperator) and prev_time:
-        return op.at_previous_timestep(steps=steps)
+        return op.at_previous_time_step(steps=steps)
     elif isinstance(op, IterativeOperator) and not prev_time:
         return op.at_previous_iteration(steps=steps)
     # NOTE The at_previous_iteration of a time-dependent operator will return th
@@ -288,7 +288,7 @@ class Operator:
         """
         self._name = name
 
-    def at_previous_timestep(self, steps: int = 1) -> pp.ad.Operator:
+    def at_previous_time_step(self, steps: int = 1) -> pp.ad.Operator:
         """Base method to trigger a recursion over the operator tree and create a
         shallow copy of this operator, where child operators with time-dependent
         behaviour are pushed backwards in time.
@@ -375,7 +375,7 @@ class Operator:
         if op.is_leaf():
             # Case 2.a) Md-variable
             if isinstance(op, MixedDimensionalVariable):
-                if op.is_at_previous_iteration or op.is_at_previous_timestep:
+                if op.is_at_previous_iteration or op.is_at_previous_time_step:
                     # Empty vector like the global vector of unknowns for prev time/iter
                     # insert the values at the right dofs and slice
                     vals = np.empty_like(
@@ -395,7 +395,7 @@ class Operator:
             # Case 2.b) atomic variables
             elif isinstance(op, Variable):
                 # If a variable represents a previous iteration or time, parse values.
-                if op.is_at_previous_iteration or op.is_at_previous_timestep:
+                if op.is_at_previous_iteration or op.is_at_previous_time_step:
                     return op.parse(eqs.mdg)
                 # Otherwise use the current time and iteration values.
                 else:
@@ -1181,7 +1181,7 @@ class TimeDependentOperator(Operator):
         time steps."""
 
     @property
-    def is_at_previous_timestep(self) -> bool:
+    def is_at_previous_time_step(self) -> bool:
         """True, if the operator represents a previous time-step."""
         return True if self._time_step_index >= 0 else False
 
@@ -1200,7 +1200,7 @@ class TimeDependentOperator(Operator):
         else:
             return self._time_step_index
 
-    def at_previous_timestep(
+    def at_previous_time_step(
         self: _TimeDependentOperator, steps: int = 1
     ) -> _TimeDependentOperator:
         """Returns a copy of the time-dependent operator with an advanced time-step
@@ -1310,7 +1310,7 @@ class IterativeOperator(Operator):
         """
         # Operators at previous time have no iterate indices
         if isinstance(self, TimeDependentOperator):
-            if self.is_at_previous_timestep:
+            if self.is_at_previous_time_step:
                 return None
 
         # operators representing at current time use the values stored at index 0
@@ -1344,13 +1344,13 @@ class IterativeOperator(Operator):
 
         """
         if isinstance(self, TimeDependentOperator):
-            if self.is_at_previous_timestep:
+            if self.is_at_previous_time_step:
                 raise ValueError(
                     "Cannot create an operator representing a previous iterate,"
                     + " if it already represents a previous time step."
                 )
         assert steps > 0, "Number of steps backwards must be strictly positive."
-        # See TODO in TimeDependentOperator.at_previous_timestep
+        # See TODO in TimeDependentOperator.at_previous_time_step
         op = copy.copy(self)
         op._iterate_index = self._iterate_index + int(steps)
 
@@ -1533,7 +1533,7 @@ class TimeDependentDenseArray(TimeDependentOperator):
 
         """
         vals = []
-        if self.is_at_previous_timestep:
+        if self.is_at_previous_time_step:
             index_kwarg = {"time_step_index": self.time_step_index}
         else:
             index_kwarg = {"iterate_index": 0}
@@ -1567,7 +1567,7 @@ class TimeDependentDenseArray(TimeDependentOperator):
             f"Wrapped time-dependent array with name {self._name}.\n"
             f"Defined on {len(self._domains)} {self._domain_type}.\n"
         )
-        if self.is_at_previous_timestep:
+        if self.is_at_previous_time_step:
             msg += f"Evaluated at the previous time step {self.time_step_index}.\n"
         return msg
 
@@ -1799,7 +1799,7 @@ class Variable(TimeDependentOperator, IterativeOperator):
         )
         if self.is_at_previous_iteration:
             s += f"Evaluated at the previous iteration {self.iterate_index}.\n"
-        elif self.is_at_previous_timestep:
+        elif self.is_at_previous_time_step:
             s += f"Evaluated at the previous time step {self.time_step_index}.\n"
 
         return s
@@ -1838,7 +1838,7 @@ class MixedDimensionalVariable(Variable):
         # Unclear is however, how much of the remaining code must change, because
         # the md-variable would not have an ID anymore, only the atomic variables.
         # Also, there would be no attribute sub_vars, but the regular children, and the
-        # class would need custom implementations for is_at_previous_timestep/iteration
+        # class would need custom implementations for is_at_previous_time_step/iteration
         # and is_at_current_iteration, because these flags are useful on md-level as
         # well.
         # My guess, it's not much because EquationSystem operatores solely on atomic
@@ -1913,7 +1913,7 @@ class MixedDimensionalVariable(Variable):
         # atomic variables at prev time and iter, we have a missing reference to the
         # operator at current time and iter. Need ro reverse-engineer that, for
         # is_at_current_iteration to work on the md-variable-level
-        if self.is_at_previous_iteration or self.is_at_previous_timestep:
+        if self.is_at_previous_iteration or self.is_at_previous_time_step:
             # Mypy complains because of the typing of original_operator
             original_mdg = MixedDimensionalVariable(
                 [var.original_operator for var in variables]  # type:ignore[misc]
@@ -1947,7 +1947,7 @@ class MixedDimensionalVariable(Variable):
         )
         if self.is_at_previous_iteration:
             s += f"Evaluated at the previous iteration {self.iterate_index}.\n"
-        elif self.is_at_previous_timestep:
+        elif self.is_at_previous_time_step:
             s += f"Evaluated at the previous time step {self.time_step_index}.\n"
 
         return s
@@ -1995,12 +1995,12 @@ class MixedDimensionalVariable(Variable):
             + " Use ``value(equation_system)`` instead."
         )
 
-    def at_previous_timestep(self, steps: int = 1) -> MixedDimensionalVariable:
+    def at_previous_time_step(self, steps: int = 1) -> MixedDimensionalVariable:
         """Mixed-dimensional variables have sub-variables which also need to be
         obtained at the previous time step."""
 
-        op = super().at_previous_timestep(steps=steps)
-        op.sub_vars = [var.at_previous_timestep(steps=steps) for var in self.sub_vars]
+        op = super().at_previous_time_step(steps=steps)
+        op.sub_vars = [var.at_previous_time_step(steps=steps) for var in self.sub_vars]
         return op
 
     def at_previous_iteration(self, steps: int = 1) -> MixedDimensionalVariable:

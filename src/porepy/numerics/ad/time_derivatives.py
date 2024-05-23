@@ -47,4 +47,4 @@ def time_increment(op: pp.ad.Operator) -> pp.ad.Operator:
         The difference of the operator tree now and at the previous time step.
 
     """
-    return op - op.at_previous_timestep()
+    return op - op.at_previous_time_step()

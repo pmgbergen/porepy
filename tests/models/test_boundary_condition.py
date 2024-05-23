@@ -97,7 +97,7 @@ def test_boundary_condition_mixin(t_end: int):
         assert np.allclose(bc_val[bc_type.is_neu], expected_val[bc_type.is_neu])
 
         # Testing previous timestep.
-        bc_val_prev_ts = bc_operator.at_previous_timestep().value(setup.equation_system)
+        bc_val_prev_ts = bc_operator.at_previous_time_step().value(setup.equation_system)
         expected_val = np.arange(bg.num_cells) * bg.parent.dim * (t_end - 1)
         # Projecting the expected value to the subdomain.
         expected_val = bg.projection().T @ expected_val

@@ -89,7 +89,7 @@ def test_evaluate_variables():
 
         # Create the variable at the previous time step. This should give the most
         # recent value in pp.TIME_STEP_SOLUTIONS.
-        var_prev_timestep = var.at_previous_timestep()
+        var_prev_timestep = var.at_previous_time_step()
         ad_array_prev_timestep = var_prev_timestep.value_and_jacobian(eq_system)
         assert isinstance(ad_array_prev_timestep, pp.ad.AdArray)
         assert np.allclose(ad_array_prev_timestep.val, 1)
