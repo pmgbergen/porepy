@@ -100,60 +100,6 @@ class AdArray:
         s += " elements"
         return s
 
-    def __getitem__(self, key: int | slice | tuple[slice, slice]) -> AdArray:
-        if isinstance(key, tuple):
-            key_val = key[0]
-        else:
-            key_val = key
-        return AdArray(self.val[key_val], self.jac[key])
-    
-    def __setitem__(self, key, val):
-        if isinstance(key, tuple):
-            key_val = key[0]
-        else:
-            key_val = key
-        if isinstance(val, AdArray):
-            self.val[key_val] = val.val
-            self.jac[key] = val.jac
-        else:
-            self.val[key_val] = val
-
-    def __lt__(self, other: AdType) -> bool | np.ndarray:
-        if isinstance(other, AdArray):
-            return self.val < other.val
-        else:
-            return self.val < other
-
-    def __le__(self, other: AdType) -> bool | np.ndarray:
-        if isinstance(other, AdArray):
-            return self.val <= other.val
-        else:
-            return self.val <= other
-
-    def __gt__(self, other: AdType) -> bool | np.ndarray:
-        if isinstance(other, AdArray):
-            return self.val > other.val
-        else:
-            return self.val > other
-
-    def __ge__(self, other: AdType) -> bool | np.ndarray:
-        if isinstance(other, AdArray):
-            return self.val >= other.val
-        else:
-            return self.val >= other
-
-    def __eq__(self, other: AdType) -> bool | np.ndarray:
-        if isinstance(other, AdArray):
-            return self.val == other.val
-        else:
-            return self.val == other
-        
-    def __neq__(self, other: AdType) -> bool | np.ndarray:
-        if isinstance(other, AdArray):
-            return self.val != other.val
-        else:
-            return self.val != other
-
     def __add__(self, other: AdType) -> AdArray:
         """Add the AdArray to another object.
 
