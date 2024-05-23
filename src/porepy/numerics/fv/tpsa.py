@@ -137,6 +137,9 @@ class Tpsa:
 
         dir_filter = sps.dia_matrix((dir_scalar.astype(int), 0), shape=(nf, nf))
         dir_filter_nd = sps.dia_matrix((np.repeat(dir_scalar.astype(int), nd), 0), shape=(nf*nd, nf*nd))
+        dir_nopass_filter = sps.dia_matrix((1 - dir_scalar.astype(int), 0), shape=(nf, nf))
+        dir_nopass_filter_nd = sps.dia_matrix((1 - np.repeat(dir_scalar.astype(int), nd), 0), shape=(nf*nd, nf*nd))
+
 
         # Stress due to displacements
         row = fvutils.expand_indices_nd(fi, sd.dim)
@@ -150,7 +153,7 @@ class Tpsa:
 
         bound_stress = -dir_filter_nd @ face_area_diag_matrix_nd @ sps.coo_matrix(
                             (2 * t_shear[np.repeat(fi, sd.dim)] * np.repeat(sgn, sd.dim), (row, row)),
-                shape=(sd.num_faces * sd.dim, sd.num_cells * sd.dim),
+                shape=(nf * nd, nf * nd),
             ).tocsr()
 
         n = sd.face_normals
@@ -180,7 +183,7 @@ class Tpsa:
         )
         bound_mass_displacement = dir_filter @ normal_vector_fat_matrix
 
-        mass_volumetric_strain = -(
+        mass_volumetric_strain = -dir_nopass_filter @ (
             sps.dia_matrix(
                 (sd.face_areas / (2 * arithmetic_average_shear_modulus), 0),
                 shape=(sd.num_faces, sd.num_faces),
@@ -250,11 +253,11 @@ class Tpsa:
             )            
             bound_rotation_diffusion = -dir_filter @ face_area_diag_matrix @ sps.coo_matrix(
                     (t_cosserat[fi] * sgn, (fi, fi)),
-                    shape=(sd.num_faces, sd.num_cells),
+                    shape=(nf, nf),
                     ).tocsr()
         rotation_displacement = -Rn_bar @ cell_to_face_average_nd
 
-        bound_rotation_displacement = dir_filter @ Rn_bar
+        bound_rotation_displacement = -dir_filter @ Rn_bar
 
 
         div = pp.fvutils.scalar_divergence(sd)
