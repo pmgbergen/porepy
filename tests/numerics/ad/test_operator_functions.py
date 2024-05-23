@@ -59,19 +59,19 @@ def test_ad_function():
 
     # vals at previous iter and zero Jacobian
     # previous iterate has the same values as the original operator, but no Jacobian
-    F_var_pi = F_var.previous_iteration()
+    F_var_pi = F_var.at_previous_iteration()
     val = F_var_pi.value_and_jacobian(eqsys)
     assert np.all(val.val == val_ad.val)
     assert np.all(val.jac.A == 0.)
 
     # 1 iterate before has the respective values
-    F_var_pii = F_var_pi.previous_iteration()
+    F_var_pii = F_var_pi.at_previous_iteration()
     val = F_var_pii.value_and_jacobian(eqsys)
     assert np.all(val.val == 2.)
     assert np.all(val.jac.A == 0.)
 
     # Analogously for prev time
-    F_var_pt = F_var.previous_timestep()
+    F_var_pt = F_var.at_previous_timestep()
     val = F_var_pt.value_and_jacobian(eqsys)
     assert np.all(val.val == 10.)
     assert np.all(val.jac.A == 0.)
