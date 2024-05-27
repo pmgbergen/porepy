@@ -20,17 +20,18 @@ References:
 
 from __future__ import annotations
 
-import os
-
-os.environ["NUMBA_DISABLE_JIT"] = "1"
-
 import logging
+import os
 import pathlib
 import time
 
-logging.basicConfig(level=logging.WARNING)
-numba_logger = logging.getLogger("numba")
-numba_logger.setLevel(logging.WARNING)
+os.environ["NUMBA_DISABLE_JIT"] = "1"
+
+
+# logging.basicConfig(level=logging.DEBUG)
+logging.getLogger("porepy").setLevel(logging.INFO)
+logging.getLogger("numba").setLevel(logging.WARNING)
+logging.getLogger("matplotlib").setLevel(logging.WARNING)
 
 from typing import Sequence, cast
 
@@ -232,15 +233,22 @@ class BoundaryConditions:
     _T_INIT: float
     _z_INIT: dict[str, float]
 
-    _p_IN: float = 16e6
-    _p_OUT: float = 15e6
+    _p_IN: float = InitialConditions._p_INIT
+    _p_OUT: float = InitialConditions._p_INIT
 
-    _T_IN: float = 550.0
-    _T_OUT: float = 550.0
-    _T_HEATED: float = 550.0
+    _T_IN: float = InitialConditions._T_INIT
+    _T_OUT: float = InitialConditions._T_INIT
+    _T_HEATED: float = InitialConditions._T_INIT + 50.0
 
-    _z_IN: dict[str, float] = {"H2O": 0.99, "CO2": 0.01}
-    _z_OUT: dict[str, float] = {"H2O": 0.995, "CO2": 0.005}
+    # _z_IN: dict[str, float] = {"H2O": 0.99, "CO2": 0.01}
+    _z_IN: dict[str, float] = {
+        "H2O": InitialConditions._z_INIT["H2O"],
+        "CO2": InitialConditions._z_INIT["CO2"],
+    }
+    _z_OUT: dict[str, float] = {
+        "H2O": InitialConditions._z_INIT["H2O"],
+        "CO2": InitialConditions._z_INIT["CO2"],
+    }
 
     def _inlet_faces(self, sd: pp.Grid) -> np.ndarray:
         """Define inlet."""
@@ -270,9 +278,9 @@ class BoundaryConditions:
         sides = self.domain_boundary_sides(sd)
 
         heated = np.zeros(sd.num_faces, dtype=bool)
-        heated[sides.bottom] = True
-        heated &= sd.face_centers[1] > 0.5
-        heated &= sd.face_centers[1] < 1.5
+        heated[sides.south] = True
+        heated &= sd.face_centers[0] > 0.2
+        heated &= sd.face_centers[0] < 0.8
 
         return heated
 
@@ -397,7 +405,7 @@ time_manager = pp.TimeManager(
 )
 
 solid_constants = pp.SolidConstants(
-    {"permeability": 1e-11, "porosity": 0.2, "thermal_conductivity": 1.92}
+    {"permeability": 1e-11, "porosity": 0.2, "thermal_conductivity": 192}
 )
 material_constants = {"solid": solid_constants}
 
@@ -439,4 +447,4 @@ result, success, num_iter = model.flash.flash(
 )
 
 pp.run_time_dependent_model(model, params)
-pp.plot_grid(model.mdg, "pressure", figsize=(10, 8), plot_2d=True)
+# pp.plot_grid(model.mdg, "pressure", figsize=(10, 8), plot_2d=True)

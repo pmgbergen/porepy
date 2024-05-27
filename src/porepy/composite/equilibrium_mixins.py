@@ -22,7 +22,7 @@ import numpy as np
 import porepy as pp
 
 from .base import Component, Mixture, Phase
-from .composite_utils import CompositeModellingError, safe_sum
+from .composite_utils import CompositeModellingError, SemiSmoothMin, safe_sum
 from .flash import Flash
 from .states import FluidState
 
@@ -226,7 +226,9 @@ class UnifiedPhaseEquilibriumMixin:
         )
 
         if self.use_semismooth_complementarity:
-            equ = pp.ad.SemiSmoothMin()(phase.fraction(subdomains), unity)
+            equ = SemiSmoothMin(name="semi-smooth-min")(
+                phase.fraction(subdomains), unity
+            )
             equ.set_name(f"semismooth_complementary_condition_{phase.name}")
         else:
             equ = phase.fraction(subdomains) * unity

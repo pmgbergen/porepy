@@ -60,7 +60,6 @@ from typing import Any, Callable, Generator, Literal, Sequence, overload
 import numpy as np
 
 import porepy as pp
-from porepy.numerics.ad.operator_functions import NumericType
 
 from ._core import R_IDEAL
 from .chem_species import ChemicalSpecies
@@ -232,7 +231,7 @@ class Compound(Component):
         self._solutes: list[ChemicalSpecies] = list()
         """A list containing present solutes."""
 
-        self.molalities: list[NumericType] = list()
+        self.molalities: list = list()
         """A list containing the molality for the solvent, followed by molalities for
         present solutes.
 
@@ -291,8 +290,7 @@ class Compound(Component):
                 self._solutes.append(s)
                 double.append(s.CASr_number)
 
-    @pp.ad.admethod
-    def compound_molar_mass(self, *X: tuple[NumericType]) -> NumericType:
+    def compound_molar_mass(self, *X: tuple):
         """The molar mass of a compound depends on how much of the solutes is available.
 
         It is a sum of the molar masses of present species, weighed with their
@@ -318,22 +316,16 @@ class Compound(Component):
         return M
 
     @overload
-    def compute_molalities(
-        self, *X: tuple[NumericType], store: Literal[True] = True
-    ) -> None:
+    def compute_molalities(self, *X: tuple, store: Literal[True] = True) -> None:
         # signature overload for default args
         ...
 
     @overload
-    def compute_molalities(
-        self, *X: tuple[NumericType], store: Literal[False] = False
-    ) -> list[NumericType]:
+    def compute_molalities(self, *X: tuple, store: Literal[False] = False) -> list:
         # signature overload for ``store==False``
         ...
 
-    def compute_molalities(
-        self, *X: tuple[NumericType], store: bool = True
-    ) -> list[NumericType] | None:
+    def compute_molalities(self, *X: tuple, store: bool = True) -> list | None:
         """Computes the molalities of present species, including the solvent.
 
         The first molality value belongs to the solvent, the remainder are ordered
@@ -379,9 +371,7 @@ class Compound(Component):
         else:
             return molalities
 
-    def fractions_from_molalities(
-        self, molalities: list[NumericType]
-    ) -> list[np.ndarray]:
+    def fractions_from_molalities(self, molalities: list) -> list[np.ndarray]:
         """
         Note:
             Molalities must only be given for solutes, not the solvent.
