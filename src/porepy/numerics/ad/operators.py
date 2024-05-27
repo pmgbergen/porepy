@@ -140,7 +140,6 @@ class Operator:
         rdiv = "rdiv"
         evaluate = "evaluate"
         approximate = "approximate"
-        secondary = "secondary"
         pow = "pow"
         rpow = "rpow"
 
@@ -521,16 +520,6 @@ class Operator:
             except ValueError as exc:
                 msg = self._get_error_message(
                     "matrix multiplying", op.children, results
-                )
-                raise ValueError(msg) from exc
-
-        elif operation == Operator.Operations.secondary:
-            try:
-                return op.func(*results)
-            except (ValueError, AssertionError) as exc:
-                msg = (
-                    f"Failed to evaluate secondary operator"
-                    + f" {op.name}{[c.name for c in op.children]}:\n"
                 )
                 raise ValueError(msg) from exc
 
