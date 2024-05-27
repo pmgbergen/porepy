@@ -790,7 +790,7 @@ class SolutionStrategyMomentumBalance(pp.SolutionStrategy):
         self.equation_system.set_variable_values(
             traction_vals.ravel("F"),
             [self.contact_traction_variable],
-            time_step_index=1,
+            time_step_index=0,
             iterate_index=0,
         )
 

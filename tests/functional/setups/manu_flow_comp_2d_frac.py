@@ -747,7 +747,7 @@ class ManuCompSolutionStrategy2d(pp.fluid_mass_balance.SolutionStrategySinglePha
             name="external_sources",
             values=matrix_source,
             data=data_matrix,
-            time_step_index=1,
+            time_step_index=0,
         )
 
         frac_source = self.exact_sol.fracture_source(sd_frac, t)
@@ -756,7 +756,7 @@ class ManuCompSolutionStrategy2d(pp.fluid_mass_balance.SolutionStrategySinglePha
             name="external_sources",
             values=frac_source,
             data=data_frac,
-            time_step_index=1,
+            time_step_index=0,
         )
 
     def after_simulation(self) -> None:
