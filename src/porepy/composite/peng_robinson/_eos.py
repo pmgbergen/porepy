@@ -15,11 +15,10 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
-from porepy.numerics.ad.operator_functions import NumericType
 
 from .._core import R_IDEAL
 from ..base import Component
-from ..composite_utils import safe_sum, truncexp, trunclog
+from ..composite_utils import NumericType, safe_sum, truncexp, trunclog
 from .pr_bip import load_bip
 from .pr_components import ComponentPR
 

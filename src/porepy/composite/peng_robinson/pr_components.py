@@ -13,10 +13,11 @@ Custom implementation must be done in the constructor for child classes.
 
 from __future__ import annotations
 
-from typing import Callable
+from typing import Callable, Union
+
+import numpy as np
 
 import porepy as pp
-from porepy.numerics.ad.operator_functions import NumericType
 
 from .._core import R_IDEAL, T_REF
 from ..base import Component, Compound
@@ -30,6 +31,9 @@ __all__ = [
     "N2",
     "NaClBrine",
 ]
+
+
+NumericType = Union[pp.number, np.ndarray, pp.ad.AdArray]
 
 
 class ComponentPR(Component):

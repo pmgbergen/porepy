@@ -1972,15 +1972,15 @@ class BoundaryConditionsCF(
                     mu_bc = state.mu
 
                 # phase properties which appear in mobilities
-                phase.density.update_boundary_value(rho_bc, bg)
-                phase.enthalpy.update_boundary_value(h_bc, bg)
-                phase.viscosity.update_boundary_value(mu_bc, bg)
+                phase.density.update_boundary_values(rho_bc, bg)
+                phase.enthalpy.update_boundary_values(h_bc, bg)
+                phase.viscosity.update_boundary_values(mu_bc, bg)
 
                 # volume as reciprocal of density, only where given
                 v_bc = np.zeros_like(rho_bc)
                 idx = rho_bc > 0
                 v_bc[idx] = 1.0 / rho_bc[idx]
-                phase.volume.update_boundary_value(v_bc, bg)
+                phase.volume.update_boundary_values(v_bc, bg)
 
     ### BC values for primary variables which need to be given by the user in any case.
 
