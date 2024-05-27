@@ -7,6 +7,8 @@ add, sub, etc., which are also covered in other tests.
 """
 from __future__ import annotations
 
+import pytest
+
 import numpy as np
 import scipy.sparse as sps
 
@@ -198,3 +200,57 @@ def test_exp_scalar_times_ad_var():
     jac_a = sps.hstack([J, zero, zero])
     assert np.allclose(b.val, np.exp(c * val)) and np.allclose(b.jac.A, jac.A)
     assert np.all(a.val == [1, 2, 3]) and np.all(a.jac.A == jac_a.A)
+
+
+@pytest.mark.parametrize(
+    'index,index_c', [  # indices and their complement for tested array
+        (1, [0, 2, 3, 4, 5, 6, 7, 8, 9]),
+        (slice(0, 10, 2), slice(1, 10, 2)),
+        (np.array([0, 2, 4, 6, 8], dtype=int), np.array([1, 3, 5, 7, 9], dtype=int)),
+    ]
+)
+def test_get_set_slice_ad_var(index, index_c):
+    a = initAdArrays([np.arange(10)])[0]
+
+    val = np.arange(10)
+    jac = sps.csr_matrix(np.eye(10))
+
+    assert np.all(val == a.val)
+    assert np.all(jac == a.jac.toarray())
+
+    if isinstance(index, int):
+        target_val = np.array([val[index]])
+    else:
+        target_val = val[index]
+    target_jac = jac[index].toarray()
+
+    # Testing slicing
+    a_slice = a[index]
+
+    assert a_slice.val.shape == target_val.shape
+    assert a_slice.jac.shape == target_jac.shape
+    assert np.all(a_slice.val == target_val)
+    assert np.all(a_slice.jac == target_jac)
+
+    # testing setting values with slicing
+
+    b = a[index] * 10.
+    assert np.all(b.val == val[index] * 10.)
+    assert np.all(b.jac.toarray() == jac[index] * 10.)
+
+    # setting an AD array should set val and jacobian row-wise
+    a_copy = a.copy()
+    a[index] = b
+    assert np.all(a[index].val == b.val)
+    assert np.all(a[index].jac.A == b.jac.A)
+    # complement should not be affected
+    assert np.all(a[index_c].val == a_copy[index_c].val)
+    assert np.all(a[index_c].jac.A == a_copy[index_c].jac.A)
+
+    # setting a numpy array should only modify the values of the ad array
+    b = target_val * 10.
+    a = a_copy.copy()
+    a[index] = b
+    assert np.all(a[index].val == b)
+    assert np.all(a[index_c].val == a_copy[index_c].val)
+    assert np.all(a.jac.A == a_copy.jac.A)
