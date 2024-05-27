@@ -271,13 +271,9 @@ class UnifiedPhaseEquilibriumMixin:
         assert component in phase, "Passed component not modelled in passed phase."
         assert component in rphase, "Passed component not modelled in reference phase."
 
-        equ = phase.fraction_of[component](subdomains) * phase.fugacity_of[
-            component
-        ](subdomains) - rphase.fraction_of[component](
+        equ = phase.fraction_of[component](subdomains) * phase.fugacity_of[component](
             subdomains
-        ) * rphase.fugacity_of[
-            component
-        ](
+        ) - rphase.fraction_of[component](subdomains) * rphase.fugacity_of[component](
             subdomains
         )
 
