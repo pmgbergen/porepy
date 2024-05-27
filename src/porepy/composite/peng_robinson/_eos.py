@@ -38,6 +38,18 @@ logger = logging.getLogger(__name__)
 DeprecationWarning("The module porepy.composite.peng_robinson.eos is deprecated.")
 
 
+def _sqrt(a):
+    return a ** (1 / 2)
+
+
+def _power(a, b):
+    return a**b
+
+
+def _cbrt(a):
+    return a ** (1 / 3)
+
+
 @dataclass
 class ThermodynamicState:
     """Data class for storing the thermodynamic state of a mixture..
@@ -522,12 +534,12 @@ class VanDerWaals:
             dT_a_parts.append(X[i] ** 2 * dT_a[i])
             for j in range(i + 1, nc):
                 x_ij = X[i] * X[j]
-                a_ij_ = pp.ad.sqrt(a[i] * a[j])
+                a_ij_ = _sqrt(a[i] * a[j])
                 delta_ij = 1 - bip[i][j]
 
                 a_ij = a_ij_ * delta_ij
                 dT_a_ij = (
-                    pp.ad.power(a[i] * a[j], -1 / 2)
+                    _power(a[i] * a[j], -1 / 2)
                     / 2
                     * (dT_a[i] * a[j] + a[i] * dT_a[j])
                     * delta_ij
@@ -560,7 +572,7 @@ class VanDerWaals:
             The derivative of the mixture cohesion w.r.t to ``X[i]``
         """
         return 2.0 * safe_sum(
-            [X[j] * pp.ad.sqrt(a[i] * a[j]) * (1 - bip[i][j]) for j in range(len(X))]
+            [X[j] * _sqrt(a[i] * a[j]) * (1 - bip[i][j]) for j in range(len(X))]
         )
 
     @staticmethod
@@ -1223,8 +1235,10 @@ class PengRobinson(AbstractEoS):
         self.eps: float = eps
         """Passed at instantiation."""
 
-        self.smoothing_factor: float = smoothing_factor
+        self.smooth_3: float = smoothing_factor
         """Passed at instantiation."""
+
+        self.smooth_e = 1e-3
 
         self.regions: list[np.ndarray] = [np.zeros(1, dtype=bool)] * 4
         """A list of root-region indicates.
@@ -1557,11 +1571,11 @@ class PengRobinson(AbstractEoS):
             else:
                 alpha_i = self.a_correction(a_cor_i, T_r_i)
 
-            a_i = a_crit_i * pp.ad.power(alpha_i, 2)
+            a_i = a_crit_i * _power(alpha_i, 2)
             # outer derivative
             dT_a_i = 2 * a_crit_i * alpha_i
             # inner derivative
-            dT_a_i *= (-a_cor_i / (2 * comp.T_crit)) * pp.ad.power(T_r_i, -1 / 2)
+            dT_a_i *= (-a_cor_i / (2 * comp.T_crit)) * _power(T_r_i, -1 / 2)
 
             a.append(a_i)
             dT_a.append(dT_a_i)
@@ -1697,7 +1711,7 @@ class PengRobinson(AbstractEoS):
             The root of the linearized correction for the cohesion term.
 
         """
-        return 1 + kappa * (1 - pp.ad.sqrt(T_r))
+        return 1 + kappa * (1 - _sqrt(T_r))
 
     def _dXi_a(
         self,
@@ -1952,16 +1966,16 @@ class PengRobinson(AbstractEoS):
         n = np.max((n_a, n_b))  # determine the number of vectorized values
 
         # the coefficients of the compressibility polynomial
-        c0 = pp.ad.power(B, 3) + pp.ad.power(B, 2) - A * B
-        c1 = A - 2 * B - 3 * pp.ad.power(B, 2)
+        c0 = _power(B, 3) + _power(B, 2) - A * B
+        c1 = A - 2 * B - 3 * _power(B, 2)
         c2 = B - 1
 
         # the coefficients of the reduced polynomial (elimination of 2-monomial)
-        r = c1 - pp.ad.power(c2, 2) / 3
-        q = 2 / 27 * pp.ad.power(c2, 3) - c2 * c1 / 3 + c0
+        r = c1 - _power(c2, 2) / 3
+        q = 2 / 27 * _power(c2, 3) - c2 * c1 / 3 + c0
 
         # discriminant to determine the number of roots
-        delta = pp.ad.power(q, 2) / 4 + pp.ad.power(r, 3) / 27
+        delta = _power(q, 2) / 4 + _power(r, 3) / 27
 
         if shape:
             Z_L = pp.ad.AdArray(np.zeros(n), sps.lil_matrix(shape))
@@ -2038,17 +2052,17 @@ class PengRobinson(AbstractEoS):
             B_ = B[one_root_region]
 
             # delta has only positive values in this case by logic
-            t = -q_ / 2 + pp.ad.sqrt(delta_)
+            t = -q_ / 2 + _sqrt(delta_)
 
             # t_1 might be negative, in this case we must choose the real cubic root
             # by extracting cbrt(-1), where -1 is the real cubic root.
             im_cube = t < 0.0
             if np.any(im_cube):
                 t[im_cube] = t[im_cube] * (-1)
-                u = pp.ad.cbrt(t)
+                u = _cbrt(t)
                 u[im_cube] = u[im_cube] * (-1)
             else:
-                u = pp.ad.cbrt(t)
+                u = _cbrt(t)
 
             # TODO In rare, un-physical areas of A,B, u can become zero,
             # causing infinity here, e.g.
@@ -2066,7 +2080,6 @@ class PengRobinson(AbstractEoS):
             # using asymmetric, supercritical extension
             gas_ext_supc = gas_ext_supc[one_root_region]
             liq_ext_supc = liq_ext_supc[one_root_region]
-            smoothing_distance = 1e-1
             if np.any(gas_ext_supc) and asymmetric_extension:
                 w_g = self.extended_root_gas_sc(B_, z_1)[gas_ext_supc]
                 w_sub = w[gas_ext_supc]
@@ -2090,8 +2103,8 @@ class PengRobinson(AbstractEoS):
                 )
 
                 # smoothing towards subcritical region (Gharbia extension)
-                smooth = (d_g < smoothing_distance) & (b >= B_CRIT)
-                d = d_g / smoothing_distance  # normalize distance
+                smooth = (d_g < self.smooth_e) & (b >= B_CRIT)
+                d = d_g / self.smooth_e  # normalize distance
                 w_g[smooth] = (w_sub * (1 - d) + w_g * d)[smooth]
                 w[gas_ext_supc] = w_g
             if np.any(liq_ext_supc) and asymmetric_extension:
@@ -2120,12 +2133,12 @@ class PengRobinson(AbstractEoS):
 
                 # smoothing towards supercritical gas extension
                 # Smoothing using a convex combination of extended gas root
-                smooth = (d_w < smoothing_distance) & (b >= B_CRIT)
-                d = d_w / smoothing_distance  # normalize distance
+                smooth = (d_w < self.smooth_e) & (b >= B_CRIT)
+                d = d_w / self.smooth_e  # normalize distance
                 w_l[smooth] = (w_g * (1 - d) + w_l * d)[smooth]
                 # smoothing towards subcritical Ben Gharbia extension
-                smooth = (d_s < smoothing_distance) & (b < B_CRIT)
-                d = d_s / smoothing_distance
+                smooth = (d_s < self.smooth_e) & (b < B_CRIT)
+                d = d_s / self.smooth_e
                 w_l[smooth] = (w_sub * (1 - d) + w_l * d)[smooth]
 
                 w[liq_ext_supc] = w_l
@@ -2160,8 +2173,8 @@ class PengRobinson(AbstractEoS):
 
             # compute roots in three-root-region using Cardano formula,
             # Casus Irreducibilis
-            t_2 = pp.ad.arccos(-q_ / 2 * pp.ad.sqrt(-27 * pp.ad.power(r_, -3))) / 3
-            t_1 = pp.ad.sqrt(-4 / 3 * r_)
+            t_2 = pp.ad.arccos(-q_ / 2 * _sqrt(-27 * _power(r_, -3))) / 3
+            t_1 = _sqrt(-4 / 3 * r_)
 
             z3 = t_1 * pp.ad.cos(t_2) - c2_ / 3
             z2 = -t_1 * pp.ad.cos(t_2 + np.pi / 3) - c2_ / 3
@@ -2171,7 +2184,7 @@ class PengRobinson(AbstractEoS):
             # roots are positive and bound from below by B
             smoothable = gharbia_ext[three_root_region]
             if apply_smoother and np.any(smoothable):
-                z1_s, z3_s = root_smoother(z1, z2, z3, self.smoothing_factor)
+                z1_s, z3_s = root_smoother(z1, z2, z3, self.smooth_3)
 
                 z3[smoothable] = z3_s[smoothable]
                 z1[smoothable] = z1_s[smoothable]
