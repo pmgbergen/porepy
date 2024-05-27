@@ -81,7 +81,7 @@ def test_evaluate_variables():
 
         # Now create the variable at the previous iterate. This should also give the
         # most recent value in pp.ITERATE_SOLUTIONS, but it should not yield an AdArray.
-        var_prev_iter = var.at_previous_iteration()
+        var_prev_iter = var.previous_iteration()
         ad_array_prev_iter = var_prev_iter.value_and_jacobian(eq_system)
         assert isinstance(ad_array_prev_iter, pp.ad.AdArray)
         assert np.allclose(ad_array_prev_iter.val, 2)
@@ -89,7 +89,7 @@ def test_evaluate_variables():
 
         # Create the variable at the previous time step. This should give the most
         # recent value in pp.TIME_STEP_SOLUTIONS.
-        var_prev_timestep = var.at_previous_time_step()
+        var_prev_timestep = var.previous_timestep()
         ad_array_prev_timestep = var_prev_timestep.value_and_jacobian(eq_system)
         assert isinstance(ad_array_prev_timestep, pp.ad.AdArray)
         assert np.allclose(ad_array_prev_timestep.val, 1)

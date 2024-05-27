@@ -325,16 +325,16 @@ def test_time_dependent_array():
     # Evaluate at previous time steps
 
     # The value is the same on both subdomains, so we can check them together.
-    sd_prev_timestep = sd_array.at_previous_time_step()
+    sd_prev_timestep = sd_array.previous_timestep()
     assert np.allclose(sd_prev_timestep.parse(mdg), 0)
 
-    sd_top_prev_timestep = sd_array_top.at_previous_time_step()
+    sd_top_prev_timestep = sd_array_top.previous_timestep()
     assert np.allclose(sd_top_prev_timestep.parse(mdg), 0)
 
-    intf_prev_timestep = intf_array.at_previous_time_step()
+    intf_prev_timestep = intf_array.previous_timestep()
     assert np.allclose(intf_prev_timestep.parse(mdg), np.arange(intf_val.size))
 
-    bg_val_prev_timestep = bg_array.at_previous_time_step().parse(mdg)
+    bg_val_prev_timestep = bg_array.previous_timestep().parse(mdg)
     assert np.allclose(bg_val_prev_timestep[: bg_sizes[0]], np.arange(bg_sizes[0]))
     assert np.allclose(bg_val_prev_timestep[bg_sizes[0] :], np.arange(bg_sizes[1]))
 
@@ -345,7 +345,7 @@ def test_time_dependent_array():
     empty_eval = empty_array.parse(mdg)
     assert empty_eval.size == 0
     # Same with the previous timestep
-    empty_prev_timestep = empty_array.at_previous_time_step()
+    empty_prev_timestep = empty_array.previous_timestep()
     assert empty_prev_timestep.parse(mdg).size == 0
 
     with pytest.raises(ValueError):
@@ -358,7 +358,7 @@ def test_time_dependent_array():
     # Time dependent arrays at two time steps back are possible, but the evaluation
     # should raise a key error because no values are stored
     with pytest.raises(KeyError):
-        _ = sd_prev_timestep.at_previous_time_step().parse(mdg)
+        _ = sd_prev_timestep.previous_timestep().parse(mdg)
 
 
 def test_ad_variable_creation():
@@ -586,7 +586,7 @@ def test_ad_variable_evaluation():
     )
 
     # Represent the variable on the previous time step. This should be a numpy array
-    prev_var_ad = var_ad.at_previous_time_step()
+    prev_var_ad = var_ad.previous_timestep()
     prev_evaluated = prev_var_ad.value(eq_system)
     assert isinstance(prev_evaluated, np.ndarray)
     assert np.allclose(true_state[inds_var], prev_evaluated)
@@ -625,7 +625,7 @@ def test_ad_variable_evaluation():
     assert np.allclose(true_iterate[ind1], v1.value(eq_system, true_iterate))
     assert np.allclose(true_iterate[ind2], v2.value(eq_system, true_iterate))
 
-    v1_prev = v1.at_previous_time_step()
+    v1_prev = v1.previous_timestep()
     assert np.allclose(true_state[ind1], v1_prev.value(eq_system, true_iterate))
 
 
@@ -662,21 +662,21 @@ def test_ad_variable_prev_time_and_iter(prev_time):
     if prev_time:
         index_key = 'time_step_index'
         other_index_key = 'iterate_index'
-        get_prev_key = 'at_previous_time_step'
+        get_prev_key = 'previous_timestep'
 
         # prohibit prev time step variable to also be prev iter
         with pytest.raises(ValueError):
-            var_pt = var.at_previous_time_step()
-            _ = var_pt.at_previous_iteration()
+            var_pt = var.previous_timestep()
+            _ = var_pt.previous_iteration()
     else:
         index_key = 'iterate_index'
         other_index_key = 'time_step_index'
-        get_prev_key = 'at_previous_iteration'
+        get_prev_key = 'previous_iteration'
 
         # prohibit prev iter variable to also be prev time
         with pytest.raises(ValueError):
-            var_pi = var.at_previous_iteration()
-            _ = var_pi.at_previous_time_step()
+            var_pi = var.previous_iteration()
+            _ = var_pi.previous_timestep()
 
     # Set values except for the last step. The current value is set above
     for i in range(depth - 1):
