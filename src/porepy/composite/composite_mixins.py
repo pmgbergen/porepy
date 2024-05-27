@@ -14,7 +14,7 @@ import porepy as pp
 from ._core import COMPOSITIONAL_VARIABLE_SYMBOLS as symbols
 from .base import AbstractEoS, Component, Compound, Mixture, Phase
 from .chem_species import ChemicalSpecies
-from .composite_utils import CompositeModellingError, SecondaryExpression
+from .composite_utils import CompositeModellingError
 from .states import FluidState, PhaseState
 
 __all__ = [
@@ -962,12 +962,11 @@ class FluidMixtureMixin:
         pressure, temperature and some fractions.
 
         """
-        return SecondaryExpression(
+        return pp.ad.SurrogateFactory(
             f"phase_density_{phase.name}",
             self.mdg,
             self.dependencies_of_phase_properties(phase),
-            time_step_depth=len(self.time_step_indices),
-            iterate_depth=len(self.iterate_indices),
+            time_dependent=True,
         )
 
     def phase_volume(
@@ -975,12 +974,11 @@ class FluidMixtureMixin:
     ) -> Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]:
         """Implements the volume as the reciprocal of whatever is assigned to a phase
         density."""
-        return SecondaryExpression(
+        return pp.ad.SurrogateFactory(
             f"phase_volume_{phase.name}",
             self.mdg,
             self.dependencies_of_phase_properties(phase),
-            time_step_depth=len(self.time_step_indices),
-            iterate_depth=len(self.iterate_indices),
+            time_dependent=True,
         )
 
     def phase_enthalpy(
@@ -988,12 +986,11 @@ class FluidMixtureMixin:
     ) -> Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]:
         """Analogous to :meth:`phase_density`, creating a new expression for the
         specific (molar) enthalpy of a ``phase``."""
-        return SecondaryExpression(
+        return pp.ad.SurrogateFactory(
             f"phase_enthalpy_{phase.name}",
             self.mdg,
             self.dependencies_of_phase_properties(phase),
-            time_step_depth=len(self.time_step_indices),
-            iterate_depth=len(self.iterate_indices),
+            time_dependent=True,
         )
 
     def phase_viscosity(
@@ -1007,12 +1004,11 @@ class FluidMixtureMixin:
             accumulation term.
 
         """
-        return SecondaryExpression(
+        return pp.ad.SurrogateFactory(
             f"phase_viscosity_{phase.name}",
             self.mdg,
             self.dependencies_of_phase_properties(phase),
-            time_step_depth=0,
-            iterate_depth=len(self.iterate_indices),
+            time_dependent=False,
         )
 
     def phase_conductivity(
@@ -1026,12 +1022,11 @@ class FluidMixtureMixin:
             accumulation term.
 
         """
-        return SecondaryExpression(
+        return pp.ad.SurrogateFactory(
             f"phase_conductivity_{phase.name}",
             self.mdg,
             self.dependencies_of_phase_properties(phase),
-            time_step_depth=0,
-            iterate_depth=len(self.iterate_indices),
+            time_dependent=False,
         )
 
     def fugacity_coefficient(
@@ -1048,10 +1043,9 @@ class FluidMixtureMixin:
             equation or other chemistry-related models, but not in flow and transport.
 
         """
-        return SecondaryExpression(
+        return pp.ad.SurrogateFactory(
             f"fugacity_of_{component.name}_in_{phase.name}",
             self.mdg,
             self.dependencies_of_phase_properties(phase),
-            time_step_depth=0,
-            iterate_depth=len(self.iterate_indices),
+            time_dependent=False,
         )
