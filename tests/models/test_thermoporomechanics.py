@@ -79,13 +79,13 @@ def get_variables(setup):
         [setup.temperature_variable], setup.mdg.subdomains()
     )
     t_vals = setup.equation_system.get_variable_values(
-        variables=t_var, time_step_index=1
+        variables=t_var, time_step_index=0
     )
     t_var = setup.equation_system.get_variables(
         [setup.temperature_variable], setup.mdg.subdomains(dim=setup.nd - 1)
     )
     t_frac = setup.equation_system.get_variable_values(
-        variables=t_var, time_step_index=1
+        variables=t_var, time_step_index=0
     )
     return u_vals, p_vals, p_frac, jump, traction, t_vals, t_frac
 

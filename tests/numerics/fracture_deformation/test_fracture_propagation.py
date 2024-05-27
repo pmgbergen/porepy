@@ -855,7 +855,7 @@ class TestVariableMappingInitializationUnderPropagation:
         val_sol = cell_val_2d
         val_it = 2 * cell_val_2d
 
-        pp.set_solution_values(name=self.cv2, values=val_sol, data=d, time_step_index=1)
+        pp.set_solution_values(name=self.cv2, values=val_sol, data=d, time_step_index=0)
         pp.set_solution_values(name=self.cv2, values=val_it, data=d, iterate_index=0)
 
         for g in g_1d:
@@ -866,7 +866,7 @@ class TestVariableMappingInitializationUnderPropagation:
             val_it = 2 * cell_val_1d[g]
 
             pp.set_solution_values(
-                name=self.cv1, values=val_sol, data=d, time_step_index=1
+                name=self.cv1, values=val_sol, data=d, time_step_index=0
             )
             pp.set_solution_values(
                 name=self.cv1, values=val_it, data=d, iterate_index=0
@@ -883,7 +883,7 @@ class TestVariableMappingInitializationUnderPropagation:
             val_it = 2 * cell_val_mortar[g]
 
             pp.set_solution_values(
-                name=self.mv, values=val_sol, data=d, time_step_index=1
+                name=self.mv, values=val_sol, data=d, time_step_index=0
             )
             pp.set_solution_values(name=self.mv, values=val_it, data=d, iterate_index=0)
 
@@ -921,7 +921,7 @@ class TestVariableMappingInitializationUnderPropagation:
             # updated
             d = mdg.subdomain_data(g_2d)
             time_step_values_cv2 = pp.get_solution_values(
-                name=self.cv2, data=d, time_step_index=1
+                name=self.cv2, data=d, time_step_index=0
             )
             assert np.all(time_step_values_cv2 == cell_val_2d)
 
@@ -952,7 +952,7 @@ class TestVariableMappingInitializationUnderPropagation:
                 d = mdg.subdomain_data(g)
 
                 time_step_values_cv1 = pp.get_solution_values(
-                    name=self.cv1, data=d, time_step_index=1
+                    name=self.cv1, data=d, time_step_index=0
                 )
                 assert np.all(time_step_values_cv1 == truth_1d)
 
@@ -974,7 +974,7 @@ class TestVariableMappingInitializationUnderPropagation:
                 val_1d_iterate_prev[g] = np.r_[val_1d_iterate_prev[g], extended_1d + 1]
 
                 pp.set_solution_values(
-                    name=self.cv1, values=val_1d_prev[g], data=d, time_step_index=1
+                    name=self.cv1, values=val_1d_prev[g], data=d, time_step_index=0
                 )
                 pp.set_solution_values(
                     name=self.cv1,
@@ -1008,7 +1008,7 @@ class TestVariableMappingInitializationUnderPropagation:
 
                 assert np.all(x_mortar == truth_mortar)
                 assert np.all(
-                    pp.get_solution_values(name=self.mv, data=d, time_step_index=1)
+                    pp.get_solution_values(name=self.mv, data=d, time_step_index=0)
                     == truth_mortar
                 )
                 assert np.all(
@@ -1030,7 +1030,7 @@ class TestVariableMappingInitializationUnderPropagation:
                 ]
 
                 pp.set_solution_values(
-                    name=self.mv, values=val_mortar_prev[g], data=d, time_step_index=1
+                    name=self.mv, values=val_mortar_prev[g], data=d, time_step_index=0
                 )
                 pp.set_solution_values(
                     name=self.mv,
