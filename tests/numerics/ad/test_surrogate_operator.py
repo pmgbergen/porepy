@@ -52,7 +52,7 @@ def eqsys() -> pp.ad.EquationSystem:
 
     # setting also variable values at prev time and iter for testing
     eqsys_.set_variable_values(
-        np.zeros(eqsys_.num_dofs()), iterate_index=1, time_step_index=1
+        np.zeros(eqsys_.num_dofs()), iterate_index=1, time_step_index=0
     )
 
     return eqsys_
@@ -103,7 +103,7 @@ def test_secondary_operators(
         domains = intfs
         vars = [get_var(INTFVAR_NAME)(domains)]
         diff_vals = [2 * np.ones(nc)]
-        expr = pp.ad.SecondaryExpression(
+        expr = pp.ad.SurrogateFactory(
             "interface_expression",
             eqsys.mdg,
             [get_var(INTFVAR_NAME)],
@@ -115,7 +115,7 @@ def test_secondary_operators(
         vars = [get_var(VAR1_NAME)(domains), get_var(VAR2_NAME)(domains)]
 
         diff_vals = [2 * np.ones(nc), 3 * np.ones(nc)]
-        expr = pp.ad.SecondaryExpression(
+        expr = pp.ad.SurrogateFactory(
             "subdomain_expression",
             eqsys.mdg,
             [get_var(VAR1_NAME), get_var(VAR2_NAME)],
@@ -130,23 +130,23 @@ def test_secondary_operators(
     sop_pt = sop.previous_timestep()
 
     # Test that the right operator was created
-    assert isinstance(sop, pp.ad.SecondaryOperator)
+    assert isinstance(sop, pp.ad.SurrogateOperator)
     # Calling the secondary expression with no grids, gives a wrapped empty array
     assert isinstance(sop_empty, pp.ad.DenseArray)
     assert sop_empty.value(eqsys).shape == (0,)
 
     # secondary operator (SOP) starts at current iterate
-    assert sop.time_step_index == 0
+    assert sop.time_step_index is None
     assert sop.iterate_index == 0
     # assert the prev index was increased for SOP and its children
-    assert sop_pi.iterate_index == 1
-    assert sop_pi.time_step_index == 0
-    assert all(v.iterate_index == 1 for v in sop_pi.children)
-    assert all(v.time_step_index == 0 for v in sop_pi.children)
-    assert sop_pt.iterate_index == 0
-    assert sop_pt.time_step_index == 1
-    assert all(v.iterate_index == 0 for v in sop_pt.children)
-    assert all(v.time_step_index == 1 for v in sop_pt.children)
+    assert sop_pi.iterate_index == 0
+    assert sop_pi.time_step_index is None
+    assert all(v.iterate_index == 0 for v in sop_pi.children)
+    assert all(v.time_step_index is None for v in sop_pi.children)
+    assert sop_pt.iterate_index is None
+    assert sop_pt.time_step_index == 0
+    assert all(v.iterate_index is None for v in sop_pt.children)
+    assert all(v.time_step_index == 0 for v in sop_pt.children)
 
     # At this point, no data has been set, check correct return format for no data case
     for g in sds + intfs + bgs:
@@ -219,8 +219,10 @@ def test_secondary_operators(
         expr.subdomain_values = np.ones(nc)
 
     # Check parsing of previous iter and current op
-    assert np.all(sop_pi.value(eqsys) == np.zeros(nc))
+    # Note that prev iter operator has the same values, but no Jacobian (tested later)
     assert np.all(sop.value(eqsys) == np.ones(nc))
+    assert np.all(sop_pi.value(eqsys) == np.ones(nc))
+    assert np.all(sop.previous_iteration(steps=2).value(eqsys) == np.zeros(nc))
     # Still no data at previous time step
     with pytest.raises(ValueError):
         _ = sop_pt.value(eqsys)
@@ -279,7 +281,7 @@ def test_secondary_operators(
     assert np.all(sop_pt_val.jac.A == 0.0)
 
     sop_pi_val = sop_pi.value_and_jacobian(eqsys)
-    assert np.all(sop_pi_val.val == np.zeros(nc))
+    assert np.all(sop_pi_val.val == np.ones(nc))
     assert np.all(sop_pi_val.jac.A == 0.0)
 
     ## Test that the user cannot set values of unexpected shape
@@ -315,7 +317,7 @@ def test_secondary_operators_on_boundaries(
 
     nc = sum([g.num_cells for g in bgs])
 
-    subdomain_expression = pp.ad.SecondaryExpression(
+    subdomain_expression = pp.ad.SurrogateFactory(
         "subdomain_expression",
         eqsys.mdg,
         [get_var(VAR1_NAME), get_var(VAR2_NAME)],
@@ -327,7 +329,7 @@ def test_secondary_operators_on_boundaries(
     # we force this behavior to avoid someone implementing duplicate functionality in
     # future
     assert isinstance(sop, pp.ad.TimeDependentDenseArray)
-    assert sop.time_step_index == 0
+    assert sop.time_step_index is None
 
     # fetching boundary values should raise an error
     with pytest.raises(KeyError):
@@ -348,3 +350,13 @@ def test_secondary_operators_on_boundaries(
 
     # parsing the operator at the previous time step should give the old values
     assert np.all(sop.previous_timestep().value(eqsys) == np.ones(nc))
+
+    # Testing one 1 shift in time
+    # testing the local setter
+    for g in bgs:
+        subdomain_expression.update_boundary_values(np.ones(g.num_cells) * 3, g)
+
+    assert np.all(sop.value(eqsys) == 3 * np.ones(nc))
+    # parsing the operator at the previous time step should give the old values
+    assert np.all(sop.previous_timestep().value(eqsys) == 2 * np.ones(nc))
+    assert np.all(sop.previous_timestep(steps=2).value(eqsys) == np.ones(nc))

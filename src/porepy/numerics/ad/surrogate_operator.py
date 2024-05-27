@@ -5,33 +5,33 @@ by some external computations.
 The classes contained here are essentially wrappers for values provided by the user.
 
 The base class for representing some term which depends on independent variables is
-:class:`SecondaryExpression`. The user can call it using a sequence of grids to get a
+:class:`SurrogateFactory`. The user can call it using a sequence of grids to get a
 representation as an AD operator on respective domains.
 
 Note:
-    Due to how AD parsing is implemented, the :class:`SecondaryExpression` requires a
+    Due to how AD parsing is implemented, the :class:`SurrogateFactory` requires a
     reference to the mixed-dimensional grid to store and later access the data.
 
-:class:`SecondaryExpression` is a factory and management class for
-:class:`SecondaryOperator`. The latter is the (actual) AD-compatible representation,
+:class:`SurrogateFactory` is a factory and management class for
+:class:`SurrogateOperator`. The latter is the (actual) AD-compatible representation,
 on some specified grids, at a specified time and iterate index.
 
 Note:
     A connection between operator and factory class is established via
-    :attr:`SecondaryOperator.fetch_data`. Since operators are in general *not aware* of
+    :attr:`SurrogateOperator.fetch_data`. Since operators are in general *not aware* of
     the mixed-dimensional grid, a connection to the factory is required to fetch the
     data for the correct grids, at the correct time and iterate index.
-    Therefore, the class :class:`SecondaryOperator` should not be instantiated directly,
+    Therefore, the class :class:`SurrogateOperator` should not be instantiated directly,
     but only calling the factory class.
 
     We also cannot overload :meth:`~porepy.numerics.ad.operators.Operator.parse`,
-    because a secondary operator has children, and no way of knowing the
+    because a surrogate operator has children, and no way of knowing the
     structure of the Jacobian if value and Jacobian are evaluated.
 
 Example:
 
     Let's consider the set-up of a model, which needs to represent the fluid density as
-    a :class:`SecondaryExpression` assuming it's computation is provided from some
+    a :class:`SurrogateFactory` assuming it's computation is provided from some
     third-party package.
 
     The class follows the mixin approach, i.e. the variables pressure and temperature
@@ -55,7 +55,7 @@ Example:
 
                 self.fluid_density: Callable[
                     [porepy.GridlikeSequence], porepy.Operator
-                ] = SecondaryExpression(
+                ] = SurrogateFactory(
                     name = 'fluid_density',
                     mdg = self.mdg,
                     dependencies = [self.pressure, self.temperature],
@@ -97,7 +97,7 @@ Example:
     >>> self.fluid_density.boundary_values = new_boundary_values
 
     Note, that the update is performed on the instance of
-    :class:`SecondaryExpression`, not on its products :class:`SecondaryOperator`.
+    :class:`SurrogateFactory`, not on its products :class:`SurrogateOperator`.
 
     Iterate values at the current time step (to be solved for) can be updated in a
     similar fashion:
@@ -112,7 +112,7 @@ Example:
     with diagonal blocks containing the two derivative values for pressure and
     temperature in their respective columns.
 
-    Note that the user must inform the :class:`SecondaryExpression` about it's number
+    Note that the user must inform the :class:`SurrogateFactory` about it's number
     of dofs (similar to when creating variables in the equation system).
     This information is used to support the user and raise exceptions if various
     ``new_values`` are not of expected shape.
@@ -133,35 +133,35 @@ from .functions import FloatType
 from .operators import IterativeOperator, TimeDependentOperator
 
 __all__ = [
-    "SecondaryOperator",
-    "SecondaryExpression",
+    "SurrogateOperator",
+    "SurrogateFactory",
 ]
 
 
-class SecondaryOperator(
+class SurrogateOperator(
     TimeDependentOperator,
     IterativeOperator,
 ):
-    """Operator representing a :class:`SecondaryExpression` in AD operator form on
+    """Operator representing a :class:`SurrogateFactory` in AD operator form on
     specified subdomains or interfaces, at a time or iterate index.
 
     Not meant to be instantiated directly, only by calling the factory class
-    :class:`SecondaryExpression`.
+    :class:`SurrogateFactory`.
 
-    The secondary operator is essentially like a
+    The surrogate operator is essentially like a
     :class:`~porepy.numerics.ad.operator_functions.Function`. Upon evaluation it fetches
     the stored values and the derivative values.
     The derivative values are inserted into the Jacobians of the first-order
     dependencies (identity blocks).
 
     For an example of how to use it, see
-    :module:`~porepy.numerics.ad.secondary_operator`.
+    :module:`~porepy.numerics.ad.surrogate_operator`.
 
     Parameters:
-        name: Name of the called :class:`SecondaryExpression`.
+        name: Name of the called :class:`SurrogateFactory`.
         domains: Arguments to its call.
         children: The first-order dependencies of the called
-            :class:`SecondaryExpression` in AD form (defined on the same ``domains``).
+            :class:`SurrogateFactory` in AD form (defined on the same ``domains``).
 
     """
 
@@ -179,21 +179,21 @@ class SecondaryOperator(
             children=children,
         )
 
-        self._fetch_data: Callable[[SecondaryOperator, pp.GridLike, bool], np.ndarray]
-        """A function returning the stored data for a secondary operator on a grid,
+        self._fetch_data: Callable[[SurrogateOperator, pp.GridLike, bool], np.ndarray]
+        """A function returning the stored data for a surrogate operator on a grid,
         which is time step and iterate index dependent.
 
-        This function is assigned by the factory class :class:`SecondaryExpression`
+        This function is assigned by the factory class :class:`SurrogateFactory`
         which has a reference to the md-grid and must not be touched by the user.
 
         Note:
-            This method is private in the secondary **operator**, because it is not
+            This method is private in the surrogate **operator**, because it is not
             supposed to be used here. Operators should be *evaluated* using ``value()``
             or ``value_and_jacobian()``.
 
-            The :class:`SecondaryExpression` has the public version of this method,
+            The :class:`SurrogateFactory` has the public version of this method,
             since that one is the instance managing the data.
-            Use :meth:`SecondaryExpression.fetch_data` for inspection of data stored
+            Use :meth:`SurrogateFactory.fetch_data` for inspection of data stored
             for specific operators an grids.
             Use this instance's ``value()`` and ``value_and_jacobian()`` to parse the
             operator with proper DOF order.
@@ -205,9 +205,9 @@ class SecondaryOperator(
         well as domains and dependencies."""
 
         msg = (
-            f"Secondary operator {self.name}.\n"
+            f"Surrogate operator {self.name}.\n"
             + f"\nDefined on {len(self._domains)} {self._domain_type}.\n"
-            + f"Dependent on {len(self.children)} independent expressions.\n"
+            + f"Dependent on {len(self.children)} independent variables.\n"
         )
 
         if self.is_previous_time:
@@ -217,16 +217,16 @@ class SecondaryOperator(
 
         return msg
 
-    def previous_timestep(self, steps: int = 1) -> SecondaryOperator:
-        """Secondary operators have children (e.g. md-variables) which also need to be
+    def previous_timestep(self, steps: int = 1) -> SurrogateOperator:
+        """Surrogate operators have children (e.g. md-variables) which also need to be
         obtained at the previous time step."""
 
         op = super().previous_timestep(steps=steps)
         op.children = [child.previous_timestep(steps=steps) for child in self.children]
         return op
 
-    def previous_iteration(self, steps: int = 1) -> SecondaryOperator:
-        """Secondary operators have children (e.g. md-variables) which also need to be
+    def previous_iteration(self, steps: int = 1) -> SurrogateOperator:
+        """Surrogate operators have children (e.g. md-variables) which also need to be
         obtained at the previous iteration."""
         op = super().previous_iteration(steps=steps)
         op.children = [child.previous_iteration(steps=steps) for child in self.children]
@@ -254,8 +254,7 @@ class SecondaryOperator(
         return pp.ad.AbstractFunction.func(self, *args)  # type:ignore[arg-type]
 
     def get_values(self, *args: float | np.ndarray | AdArray) -> np.ndarray:
-        """Fetches the values stored for this secondary operator at its time or iterate
-        index.
+        """Fetches the values stored for this operator at its time or iterate index.
 
         Note:
             ``*args`` are the children/dependencies of this operator in evaluated form.
@@ -267,8 +266,8 @@ class SecondaryOperator(
         return np.hstack([self._fetch_data(self, g, False) for g in self.domains])
 
     def get_jacobian(self, *args: float | np.ndarray | AdArray) -> sps.spmatrix:
-        """Fetches the derivative values stored for this secondary operator at its time
-        or iterate index.
+        """Fetches the derivative values stored for this operator at its time or iterate
+        index.
 
         Note:
             The assumption here is that ``*args`` are of first order (pure variables)
@@ -324,7 +323,7 @@ def _check_expected_values(
     iterate_index: Optional[int] = None,
     time_step_index: Optional[int] = None,
 ) -> None:
-    """Helper method for secondary expressions and operators, checking that the
+    """Helper method for surrogate factories and operators, checking that the
     expected values are an instance of :obj:`numpy.ndarray`, and that they have the
     expected shape.
 
@@ -359,17 +358,17 @@ def _check_expected_values(
     raise ValueError(msg)
 
 
-class SecondaryExpression:
+class SurrogateFactory:
     """A representation of some dependent quantity in the PorePy modelling and AD
     framework, meant for terms where the evaluation is done elsewhere and then stored.
 
     This is a factory class, callable using some domains in the md-setting to create
-    AD operators representing this expression on respective domains. See the module-level
-    documentation for more information on the relation between :class:`SecondaryExpression`
-    and :class:`SecondaryOperator`.
+    AD operators representing this expression on respective domains.
+    See the module-level documentation for more information on the relation between
+    :class:`SurrogateFactory` and :class:`SurrogateOperator`.
 
     For an example of how to use it, see
-    :module:`~porepy.numerics.ad.secondary_operator`.
+    :module:`~porepy.numerics.ad.surrogate_operator`.
 
     **On the boundary:**
 
@@ -379,23 +378,23 @@ class SecondaryExpression:
     Boundary values can hence be updated like any other term in the model framework.
     But they can also be updated using :meth:`boundary_values` for convenience.
 
-    The secondary expression has no derivatives and no iterate values on the boundary.
+    The surrogate operator has no derivatives and no iterate values on the boundary.
 
     **On subdomains and interfaces:**
 
-    The expression creates a :class:`SecondaryOperator`, which represents the data
+    The factory creates a :class:`SurrogateOperator`, which represents the data
     managed by this class on subdomains and interfaces.
     The operator has instances of
     :class:`~porepy.numerics.ad.operators.MixedDimensionalVariable` as children
     (dependencies).
 
-    The secondary operator supports the notion of previous timesteps and iterate
+    The :class:`SurrogateOperator` supports the notion of previous timesteps and iterate
     values. Updates of respective values are handled by this factory class.
 
     **Call with empty domain list:**
 
-    This functionality is implemented for completeness reasons, such that the secondary
-    expression can also be called on an empty list of domains. In this case the property
+    This functionality is implemented for completeness reasons, such that the factory
+    can also be called on an empty list of domains. In this case the property
     returns an empty array wrapped as an Ad array.
 
     This functionality is implemented since general PorePy models implement equations
@@ -417,12 +416,12 @@ class SecondaryExpression:
     Parameters:
         name: Assigned name of the expression. Used to name operators and to store
             values in the data dictionaries
-        mdg: The mixed-dimensional grid on which the expression is defined.
+        mdg: The mixed-dimensional grid on which the operators are defined.
         dependencies: A sequence of callables/ constructors for independent variables on
             which the expression depends. The order passed here is reflected in the
             order of stored derivative values.
 
-            When calling the secondary expression on some grids, it is expected that the
+            When calling the factory on some grids, it is expected that the
             dependencies are defined there.
         time_dependent: ``default=False``
 
@@ -437,7 +436,7 @@ class SecondaryExpression:
 
             The number of DOFs of this expression is used to validate the shape of
             values and derivative values set.
-            Defaults to cell-wise, scalar expression.
+            Defaults to cell-wise, scalar quantities.
 
     Raises:
         ValueError: If there are no ``*dependencies``. The user should use other
@@ -455,7 +454,7 @@ class SecondaryExpression:
     ) -> None:
 
         if len(dependencies) == 0:
-            raise ValueError("Secondary expressions must have dependencies.")
+            raise ValueError("Surrogate operators must have dependencies.")
 
         if dof_info is None:
             dof_info = {"cells": 1}
@@ -488,7 +487,7 @@ class SecondaryExpression:
 
         1. If called on an empty list, a wrapped, empty array is returned.
         2. If called on boundary grids, a time-dependent dense array is returned.
-        3. If called on subdomains on interfaces, a :class:`SecondaryOperator` is
+        3. If called on subdomains on interfaces, a :class:`SurrogateOperator` is
            returned.
 
         Parameters:
@@ -507,7 +506,7 @@ class SecondaryExpression:
         # On the boundary, this is a Time-Dependent dense array
         elif all(isinstance(g, pp.BoundaryGrid) for g in domains):
             return pp.ad.TimeDependentDenseArray(self.name, domains)
-        # On subdomains or interfaces, create the secondary operators
+        # On subdomains or interfaces, create the surrogate operators
         elif all(isinstance(g, pp.Grid) for g in domains) or all(
             isinstance(g, pp.MortarGrid) for g in domains
         ):
@@ -520,12 +519,12 @@ class SecondaryExpression:
 
             # Check if first-order dependency
             assert all(isinstance(child, pp.ad.Variable) for child in children), (
-                "Secondary expressions must depend on independent variables, not"
+                "Surrogate operators must depend on independent variables, not"
                 + f" {[type(c) for c in children]}."
             )
 
             # always start with operator at current time step, current iterate
-            op = SecondaryOperator(
+            op = SurrogateOperator(
                 name=self.name,
                 domains=domains_,
                 children=children,
@@ -541,15 +540,15 @@ class SecondaryExpression:
             )
 
     def fetch_data(
-        self, op: SecondaryOperator, grid: pp.GridLike, get_derivatives: bool = False
+        self, op: SurrogateOperator, grid: pp.GridLike, get_derivatives: bool = False
     ) -> np.ndarray:
-        """Function fetching the data stored for this secondary expression, represented
+        """Function fetching the data stored for the surrogated expression, represented
         in Ad form by ``op``.
 
         ``op`` has a time step or iterate index, which specifies which data should be
         fetched.
 
-        This function is assigned to :attr:`SecondaryOperator.fetch_data`
+        This function is assigned to :attr:`SurrogateOperator.fetch_data`
         (a work-around such that the Ad operator has no reference to the md-grid like
         the other operators).
 
@@ -650,7 +649,8 @@ class SecondaryExpression:
 
     @property
     def name(self) -> str:
-        """Name of this expression assigned at instantiation."""
+        """Name of this expression assigned at instantiation and to all created
+        operators."""
         return self._name
 
     @property
@@ -869,7 +869,7 @@ class SecondaryExpression:
         """Shifts timestepping values backwards in times and sets the current
         iterate value as the (first) previous time step value.
 
-        Does this only if the expression was instatiated as time-dependent.
+        Does this only if the surrogate was instatiated as time-dependent.
 
         Parameters:
             domains: Performs the progress on given sequence of domains.
@@ -880,7 +880,7 @@ class SecondaryExpression:
                 data = self._data_of(grid)
                 pp.shift_solution_values(self.name, data, pp.TIME_STEP_SOLUTIONS)
                 current_vals = pp.get_solution_values(self.name, data, iterate_index=0)
-                pp.set_solution_values(self.name, current_vals, data, time_step_index=1)
+                pp.set_solution_values(self.name, current_vals, data, time_step_index=0)
 
     def progress_derivatives_in_time(
         self, domains: Sequence[pp.Grid | pp.MortarGrid]
@@ -896,7 +896,7 @@ class SecondaryExpression:
                     self._name_derivatives, data, iterate_index=0
                 )
                 pp.set_solution_values(
-                    self._name_derivatives, current_vals, data, time_step_index=1
+                    self._name_derivatives, current_vals, data, time_step_index=0
                 )
 
     # Methods operating on single grids
@@ -904,13 +904,13 @@ class SecondaryExpression:
     def update_boundary_values(
         self, values: np.ndarray, boundary_grid: pp.BoundaryGrid
     ) -> None:
-        """Function to update the value of the secondary expression on the boundary.
+        """Function to update the value of the surrogate operator on the boundary.
 
         The update process of boundary values is different from the process on
         subdomains and interfaces.
 
         1. Boundary values have only a single iterate value (current time step)
-        2. Boundary values can have multiple previous time steps, if expression is
+        2. Boundary values can have multiple previous time steps, if the expression is
            time-dependent.
 
         Therefore, values for the current time can always be set, but values will be
@@ -948,7 +948,7 @@ class SecondaryExpression:
             except KeyError:
                 pass
             else:
-                pp.set_solution_values(self.name, new_prev_val, data, time_step_index=1)
+                pp.set_solution_values(self.name, new_prev_val, data, time_step_index=0)
         # set the given value as the new single iterate value (current time)
         pp.set_solution_values(self.name, values, data, iterate_index=0)
 
