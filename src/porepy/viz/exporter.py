@@ -500,7 +500,7 @@ class Exporter:
                                 value[offset : offset + sd.num_cells], sd
                             )
                             pp.set_solution_values(
-                                name=key, values=values, data=sd_data, time_step_index=1
+                                name=key, values=values, data=sd_data, time_step_index=0
                             )
 
                             offset += sd.num_cells
@@ -516,7 +516,7 @@ class Exporter:
                                 name=key,
                                 values=values,
                                 data=intf_data,
-                                time_step_index=1,
+                                time_step_index=0,
                             )
 
                             offset += intf.num_cells
@@ -966,7 +966,7 @@ class Exporter:
                     ):
                         # Fetch data and convert to vectorial format if needed
                         data_to_convert = pp.get_solution_values(
-                            name=key, data=grid_data, time_step_index=1
+                            name=key, data=grid_data, time_step_index=0
                         )
                         value: np.ndarray = _to_vector_format(
                             data_to_convert,
@@ -1058,7 +1058,7 @@ class Exporter:
 
                     # Fetch data and convert to vectorial format if suitable
                     data_to_convert = pp.get_solution_values(
-                        name=key, data=sd_data, time_step_index=1
+                        name=key, data=sd_data, time_step_index=0
                     )
                     value = _to_vector_format(data_to_convert, sd)
 
@@ -1130,7 +1130,7 @@ class Exporter:
 
                     # Fetch data and convert to vectorial format if suitable
                     data_to_convert = pp.get_solution_values(
-                        name=key, data=intf_data, time_step_index=1
+                        name=key, data=intf_data, time_step_index=0
                     )
                     value = _to_vector_format(data_to_convert, intf)
 

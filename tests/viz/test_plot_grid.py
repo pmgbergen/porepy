@@ -60,7 +60,7 @@ def mdg(request: pytest.FixtureRequest) -> pp.MixedDimensionalGrid:
 
             for i in range(len(variables)):
                 pp.set_solution_values(
-                    name=variables[i], values=values[i], data=data, time_step_index=1
+                    name=variables[i], values=values[i], data=data, time_step_index=0
                 )
 
         else:
@@ -93,10 +93,10 @@ def test_plot_grid_simple_grid(mdg: MixedDimensionalGrid, vector_variable: str):
     The redundant dimensions are filled with zeros."""
     grid, data = mdg.subdomains(return_data=True)[0]
     scalar_data = pp.get_solution_values(
-        name=SCALAR_VARIABLE, data=data, time_step_index=1
+        name=SCALAR_VARIABLE, data=data, time_step_index=0
     )
     vector_data = pp.get_solution_values(
-        name=vector_variable, data=data, time_step_index=1
+        name=vector_variable, data=data, time_step_index=0
     )
     vector_data = vector_data.reshape((mdg.dim_max(), -1), order="F")
     vector_data = np.vstack(

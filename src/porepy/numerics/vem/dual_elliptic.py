@@ -42,7 +42,7 @@ def project_flux(
         # we need to recover the flux from the mortar variable before
         # the projection, only lower dimensional edges need to be considered.
         edge_flux = np.zeros(
-            pp.get_solution_values(name=flux, data=data, time_step_index=1).size
+            pp.get_solution_values(name=flux, data=data, time_step_index=0).size
         )
         faces = sd.tags["fracture_faces"]
         if np.any(faces):
@@ -63,14 +63,14 @@ def project_flux(
                 # edge_flux += sign * g_m.mortar_to_primary_int() *
                 # d_e[pp.TIME_STEP_SOLUTIONS][mortar_key][0]
                 mortar_values = pp.get_solution_values(
-                    name=mortar_key, data=data_intf, time_step_index=1
+                    name=mortar_key, data=data_intf, time_step_index=0
                 )
                 edge_flux += sign * intf.primary_to_mortar_avg().T * mortar_values
 
-        flux_values = pp.get_solution_values(name=flux, data=data, time_step_index=1)
+        flux_values = pp.get_solution_values(name=flux, data=data, time_step_index=0)
         discr_projected_flux = discr.project_flux(sd, edge_flux + flux_values, data)
         pp.set_solution_values(
-            name=P0_flux, values=discr_projected_flux, data=data, time_step_index=1
+            name=P0_flux, values=discr_projected_flux, data=data, time_step_index=0
         )
 
 

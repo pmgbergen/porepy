@@ -74,7 +74,7 @@ class NewtonSolver:
         is_converged = False
         is_diverged = False
         nonlinear_increment = model.equation_system.get_variable_values(
-            time_step_index=1
+            time_step_index=0
         )
 
         # Extract residual of initial guess.
