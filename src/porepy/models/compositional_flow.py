@@ -1333,7 +1333,7 @@ class SecondaryEquationsMixin:
     add_constitutive_expression: Callable[
         [
             pp.ad.MixedDimensionalVariable,
-            ppc.SecondaryExpression,
+            pp.ad.SurrogateFactory,
             Callable[[tuple[np.ndarray, ...]], tuple[np.ndarray, np.ndarray]],
             pp.GridLikeSequence,
         ],
@@ -1418,12 +1418,11 @@ class SecondaryEquationsMixin:
         sec_var = independent_quantity(non_boundaries)
         g_ids = [d.id for d in non_boundaries]
 
-        sec_expr = ppc.SecondaryExpression(
+        sec_expr = pp.ad.SurrogateFactory(
             name=f"secondary_expression_for_{sec_var.name}_on_grids_{g_ids}",
             mdg=self.mdg,
             dependencies=dependencies,
-            time_step_depth=len(self.time_step_indices),
-            iterate_depth=len(self.iterate_indices),
+            time_dependent=True,
         )
 
         local_equ = sec_var - sec_expr(non_boundaries)
@@ -1615,7 +1614,7 @@ class ConstitutiveLawsCF(
         str,
         tuple[
             pp.ad.MixedDimensionalVariable,
-            ppc.SecondaryExpression,
+            pp.ad.SurrogateFactory,
             Callable[[tuple[np.ndarray, ...]], tuple[np.ndarray, np.ndarray]],
             Sequence[pp.Grid | pp.MortarGrid],
             Sequence[pp.BoundaryGrid],
@@ -1626,7 +1625,7 @@ class ConstitutiveLawsCF(
     def add_constitutive_expression(
         self,
         primary: pp.ad.MixedDimensionalVariable,
-        expression: ppc.SecondaryExpression,
+        expression: pp.ad.SurrogateFactory,
         func: Callable[[tuple[np.ndarray, ...]], tuple[np.ndarray, np.ndarray]],
         grids: pp.GridLikeSequence,
     ) -> None:
@@ -1783,7 +1782,7 @@ class BoundaryConditionsCF(
         str,
         tuple[
             pp.ad.MixedDimensionalVariable,
-            ppc.SecondaryExpression,
+            pp.ad.SurrogateFactory,
             Callable[[tuple[np.ndarray, ...]], tuple[np.ndarray, np.ndarray]],
             Sequence[pp.Grid | pp.MortarGrid],
             Sequence[pp.BoundaryGrid],
@@ -2105,7 +2104,7 @@ class InitialConditionsCF:
         str,
         tuple[
             pp.ad.MixedDimensionalVariable,
-            ppc.SecondaryExpression,
+            pp.ad.SurrogateFactory,
             Callable[[tuple[np.ndarray, ...]], tuple[np.ndarray, np.ndarray]],
             Sequence[pp.Grid | pp.MortarGrid],
             Sequence[pp.BoundaryGrid],
@@ -2438,7 +2437,7 @@ class SolutionStrategyCF(
             str,
             tuple[
                 pp.ad.MixedDimensionalVariable,
-                ppc.SecondaryExpression,
+                pp.ad.SurrogateFactory,
                 Callable[[tuple[np.ndarray, ...]], tuple[np.ndarray, np.ndarray]],
                 Sequence[pp.Grid, pp.MortarGrid],
                 Sequence[pp.BoundaryGrid],

@@ -64,7 +64,7 @@ from porepy.numerics.ad.operator_functions import NumericType
 
 from ._core import R_IDEAL
 from .chem_species import ChemicalSpecies
-from .composite_utils import SecondaryExpression, safe_sum
+from .composite_utils import safe_sum
 from .states import PhaseState
 
 __all__ = [
@@ -565,7 +565,7 @@ class Phase:
         self.name: str = str(name)
         """Name given to the phase at instantiation."""
 
-        self.density: SecondaryExpression
+        self.density: pp.ad.SurrogateFactory
         """Molar density of this phase.
 
         - Math. Dimension:        scalar
@@ -573,7 +573,7 @@ class Phase:
 
         """
 
-        self.volume: SecondaryExpression
+        self.volume: pp.ad.SurrogateFactory
         """Molar volume of this phase.
 
         - Math. Dimension:        scalar
@@ -581,7 +581,7 @@ class Phase:
 
         """
 
-        self.enthalpy: SecondaryExpression
+        self.enthalpy: pp.ad.SurrogateFactory
         """Specific molar enthalpy of this phase.
 
         - Math. Dimension:        scalar
@@ -589,7 +589,7 @@ class Phase:
 
         """
 
-        self.viscosity: SecondaryExpression
+        self.viscosity: pp.ad.SurrogateFactory
         """Dynamic molar viscosity of this phase.
 
         - Math. Dimension:        scalar
@@ -597,7 +597,7 @@ class Phase:
 
         """
 
-        self.conductivity: SecondaryExpression
+        self.conductivity: pp.ad.SurrogateFactory
         """Thermal conductivity of this phase.
 
         - Math. Dimension:    2nd-order tensor
@@ -605,7 +605,7 @@ class Phase:
 
         """
 
-        self.fugacity_of: dict[Component, SecondaryExpression]
+        self.fugacity_of: dict[Component, pp.ad.SurrogateFactory]
         """Fugacitiy coefficients per component in this phase.
 
         - Math. Dimension:    scalar
