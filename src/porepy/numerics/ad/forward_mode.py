@@ -100,59 +100,55 @@ class AdArray:
         s += " elements"
         return s
 
-    def __getitem__(self, key: int | slice | tuple[slice, slice]) -> AdArray:
-        if isinstance(key, tuple):
-            key_val = key[0]
-        else:
-            key_val = key
-        return AdArray(self.val[key_val], self.jac[key])
+    def __getitem__(self, key: slice | np._ArrayLikeInt) -> AdArray:
+        """Slice the Ad Array row-wise (value and Jacobian).
 
-    def __setitem__(self, key, val):
-        if isinstance(key, tuple):
-            key_val = key[0]
-        else:
-            key_val = key
-        if isinstance(val, AdArray):
-            self.val[key_val] = val.val
-            self.jac[key] = val.jac
-        else:
-            self.val[key_val] = val
+        Parameters:
+            key: A row-index (integer) or slice object to be applied to :attr:`val` and
+                :attr:`jac`
 
-    def __lt__(self, other: AdType) -> bool | np.ndarray:
-        if isinstance(other, AdArray):
-            return self.val < other.val
-        else:
-            return self.val < other
+        Returns:
+            A new Ad array with values and Jacobian sliced row-wise.
 
-    def __le__(self, other: AdType) -> bool | np.ndarray:
-        if isinstance(other, AdArray):
-            return self.val <= other.val
-        else:
-            return self.val <= other
+        """
+        # NOTE mypy complains even though numpy arrays can handle slices [x:y:z]
+        # Probably a missing type annotation on numpy's side
+        val = self.val[key]  # type:ignore[index]
+        # in case of single index, broadcast to 1D array
+        if val.ndim == 0:
+            val = np.array([val])
+        return AdArray(val, self.jac[key])
 
-    def __gt__(self, other: AdType) -> bool | np.ndarray:
-        if isinstance(other, AdArray):
-            return self.val > other.val
-        else:
-            return self.val > other
+    def __setitem__(
+        self,
+        key: slice | np._ArrayLikeInt,
+        new_value: pp.number | np.ndarray | AdArray,
+    ) -> None:
+        """Insert new values in :attr:`val` and :attr:`jac` row-wise.
 
-    def __ge__(self, other: AdType) -> bool | np.ndarray:
-        if isinstance(other, AdArray):
-            return self.val >= other.val
-        else:
-            return self.val >= other
+        Note:
+            Broadcasting is outsourced to numpy and scipy. If ``new_value`` is not
+                compatible in terms of size and ``key``, respective errors are raised.
 
-    def __eq__(self, other: AdType) -> bool | np.ndarray:
-        if isinstance(other, AdArray):
-            return self.val == other.val
-        else:
-            return self.val == other
+        Parameters:
+            key: A row-index (integer) or slice object to set the rows in value and
+                Jacobian
+            new_value: New values for :attr:`val` and rows of :attr:`jac`.
+                If ``new_value`` is an Ad array, its ``jac`` is inserted into the
+                defined rows.
 
-    def __neq__(self, other: AdType) -> bool | np.ndarray:
-        if isinstance(other, AdArray):
-            return self.val != other.val
+        Raises:
+            NotImplementedError: If ``new_value`` is not a number, numpy array or
+                Ad array.
+
+        """
+        if isinstance(new_value, np.ndarray | pp.number):
+            self.val[key] = new_value
+        elif isinstance(new_value, AdArray):
+            self.val[key] = new_value.val
+            self.jac[key] = new_value.jac
         else:
-            return self.val != other
+            raise NotImplementedError("Setting")
 
     def __add__(self, other: AdType) -> AdArray:
         """Add the AdArray to another object.
