@@ -42,6 +42,8 @@ class DataSavingMixin:
     """Fluid constants for the simulation."""
     nd: int
     """Number of spatial dimensions for the simulation."""
+    nonlinear_solver_statistics: pp.SolverStatistics
+    """Non-linear solver statistics for nonlinear solver."""
 
     def save_data_time_step(self) -> None:
         """Export the model state at a given time step, and log time.
@@ -49,6 +51,8 @@ class DataSavingMixin:
             * None: All time steps are exported
             * list: Export if time is in the list. If the list is empty, then no times
               are exported.
+
+        In addition, save the solver statistics to file if the option is set.
 
         """
 
@@ -66,6 +70,9 @@ class DataSavingMixin:
 
         if do_export:
             self.write_pvd_and_vtu()
+
+        # Save solver statistics to file
+        self.nonlinear_solver_statistics.save()
 
     def write_pvd_and_vtu(self) -> None:
         """Helper function for writing the .vtu and .pvd files and time information."""
@@ -157,6 +164,8 @@ class DataSavingMixin:
         and any other data saving functionality (e.g., empty data containers to be
         appended in :meth:`save_data_time_step`).
 
+        In addition, set path for storing solver statistics data to file for each time step.
+
         """
         self.exporter = pp.Exporter(
             self.mdg,
@@ -167,6 +176,12 @@ class DataSavingMixin:
             ),
             length_scale=self.units.m,
         )
+
+        if "solver_statistics_file_name" in self.params:
+            self.nonlinear_solver_statistics.path = (
+                Path(self.params["folder_name"])
+                / self.params["solver_statistics_file_name"]
+            )
 
     def load_data_from_vtu(
         self,
@@ -243,11 +258,8 @@ class DataSavingMixin:
 class VerificationDataSaving(DataSavingMixin):
     """Class to store relevant data for a generic verification setup."""
 
-    _nonlinear_iteration: int
-    """Number of non-linear iterations needed to solve the system. Used only as an
-    indicator to avoid saving the initial conditions.
-
-    """
+    nonlinear_solver_statistics: pp.SolverStatistics
+    """Non-linear solver statistics, also keeping track of the number of iterations."""
 
     _is_time_dependent: Callable[[], bool]
     """Whether the problem is time-dependent."""
@@ -258,7 +270,9 @@ class VerificationDataSaving(DataSavingMixin):
     def save_data_time_step(self) -> None:
         """Save data to the `results` list."""
         if not self._is_time_dependent():  # stationary problem
-            if self._nonlinear_iteration > 0:  # avoid saving initial condition
+            if (
+                self.nonlinear_solver_statistics.num_iteration > 0
+            ):  # avoid saving initial condition
                 collected_data = self.collect_data()
                 self.results.append(collected_data)
         else:  # time-dependent problem

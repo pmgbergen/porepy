@@ -60,6 +60,8 @@ def test_evaluate_variables():
             name=var_name, values=vals_sol, data=d, time_step_index=0
         )
         pp.set_solution_values(name=var_name, values=vals_it, data=d, iterate_index=0)
+        # Provide values for previous iterate as well
+        pp.set_solution_values(name=var_name, values=vals_it, data=d, iterate_index=1)
 
     # We only need to test a single variable, they should all be the same.
     single_variable = eq_system.variables[0]
@@ -602,7 +604,7 @@ def test_set_get_methods(
 
     """
 
-    sys_man = setup.sys_man
+    sys_man: pp.ad.EquationSystem = setup.sys_man
 
     np.random.seed(42)
 
@@ -732,15 +734,14 @@ def test_set_get_methods(
     vals_mat = np.array([vals0, vals1, vals2])
 
     # Test setting values at several indices and then gathering them
-    for i in solution_indices:
-        val = vals_mat[i].copy()
+    for i, val in zip(solution_indices, vals_mat):
         sys_man.set_variable_values(values=val, variables=variables, time_step_index=i)
 
     _retrieve_and_check_time_step([vals0, vals1, vals2])
 
     # Test functionality that shifts values to prepare setting of the most recent
     # solution values.
-    sys_man.shift_time_step_values()
+    sys_man.shift_time_step_values(max_index=len(solution_indices))
     # The expected result is that key 0 and 1 has the same values, and key 2 have the
     # values that were at key 1 before the values were shifted.
     _retrieve_and_check_time_step([vals0, vals0, vals1])
