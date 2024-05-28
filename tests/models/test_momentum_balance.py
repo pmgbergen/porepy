@@ -123,6 +123,10 @@ def test_unit_conversion(units, uy_north):
         uy_north (float): Value of displacement on the north boundary.
 
     """
+    solid_vals = pp.solid_values.extended_granite_values_for_testing
+    fluid_vals = pp.fluid_values.extended_water_values_for_testing
+    solid = pp.SolidConstants(solid_vals)
+    fluid = pp.FluidConstants(fluid_vals)
 
     params = {
         "times_to_export": [],  # Suppress output for tests
@@ -130,6 +134,7 @@ def test_unit_conversion(units, uy_north):
         "cartesian": True,
         "uy_north": uy_north,
         "max_iterations": 10,
+        "material_constants": {"solid": solid, "fluid": fluid},
     }
     reference_params = copy.deepcopy(params)
 
