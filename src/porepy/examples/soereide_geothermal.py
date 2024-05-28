@@ -61,7 +61,7 @@ class SoereideMixture:
         self, components: Sequence[ppc.Component]
     ) -> Sequence[tuple[ppc.EoSCompiler, int, str]]:
         eos = ppcpr.PengRobinsonCompiler(components)
-        return [(eos, 0, "liq"), (eos, 1, "gas")]
+        return [(eos, 0, "l"), (eos, 1, "g")]
 
 
 class CompiledFlash(ppc.FlashMixin):
