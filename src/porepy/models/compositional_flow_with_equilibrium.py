@@ -160,11 +160,11 @@ class BoundaryConditionsCFLE(cf.BoundaryConditionsCF):
             # set zero values if not required anywhere (completeness)
             if not np.any(dir_bc) or bg.num_cells == 0:
                 for phase in self.fluid_mixture.phases:
-                    phase.density.update_boundary_value(vec.copy(), bg)
-                    phase.volume.update_boundary_value(vec.copy(), bg)
-                    phase.enthalpy.update_boundary_value(vec.copy(), bg)
+                    phase.density.update_boundary_values(vec.copy(), bg)
+                    phase.volume.update_boundary_values(vec.copy(), bg)
+                    phase.enthalpy.update_boundary_values(vec.copy(), bg)
                     # NOTE ones to avoid division by zero. Cancelled out anyways.
-                    phase.viscosity.update_boundary_value(np.ones(bg.num_cells), bg)
+                    phase.viscosity.update_boundary_values(np.ones(bg.num_cells), bg)
             else:
 
                 p = self.bc_values_pressure(bg)
@@ -205,16 +205,16 @@ class BoundaryConditionsCFLE(cf.BoundaryConditionsCF):
                     # Update BC values of phase properties in time on boundaries
                     val = vec.copy()
                     val[dir_bc] = state_j.rho
-                    phase.density.update_boundary_value(val, bg)
+                    phase.density.update_boundary_values(val, bg)
                     val = vec.copy()
                     val[dir_bc] = state_j.v
-                    phase.volume.update_boundary_value(val, bg)
+                    phase.volume.update_boundary_values(val, bg)
                     val = vec.copy()
                     val[dir_bc] = state_j.h
-                    phase.enthalpy.update_boundary_value(val, bg)
+                    phase.enthalpy.update_boundary_values(val, bg)
                     val = np.ones(bg.num_cells)
                     val[dir_bc] = state_j.mu
-                    phase.viscosity.update_boundary_value(val, bg)
+                    phase.viscosity.update_boundary_values(val, bg)
 
         # Second loop to call the base method for updating time-dependent dense arrays
         # on boundaries. Used to update values of fractional unknowns, which appear

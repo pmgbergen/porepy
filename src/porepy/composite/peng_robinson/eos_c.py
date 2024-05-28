@@ -671,10 +671,9 @@ def _Z_gen(
         # Extension procedure according Ben Gharbia et al.
         # though we use the Widom-line to distinguis between roots, not their size
         if not is_sc and B < B_CRIT:
-            W = W_sub_c(A, B)
+            W = W_sub_c(Z_1_real, B)
             if below_widom:
                 return W if gaslike else Z_1_real
-
             else:
                 return Z_1_real if gaslike else W
         # Extension procedure with asymmetric extension of gas

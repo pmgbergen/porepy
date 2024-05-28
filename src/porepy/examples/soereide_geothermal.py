@@ -20,18 +20,18 @@ References:
 
 from __future__ import annotations
 
+import logging
 import os
+import pathlib
+import time
 
 os.environ["NUMBA_DISABLE_JIT"] = "1"
 
-import logging
-import time
 
-from matplotlib import pyplot as plt
-
-logging.basicConfig(level=logging.INFO)
-numba_logger = logging.getLogger("numba")
-numba_logger.setLevel(logging.WARNING)
+# logging.basicConfig(level=logging.DEBUG)
+logging.getLogger("porepy").setLevel(logging.INFO)
+logging.getLogger("numba").setLevel(logging.WARNING)
+logging.getLogger("matplotlib").setLevel(logging.WARNING)
 
 from typing import Sequence, cast
 
@@ -52,8 +52,8 @@ class SoereideMixture:
         chems = ["H2O", "CO2"]
         species = ppc.load_species(chems)
         components = [
-            ppc.peng_robinson.H2O.from_species(species[0]),
-            ppc.peng_robinson.CO2.from_species(species[1]),
+            ppcpr.H2O.from_species(species[0]),
+            ppcpr.CO2.from_species(species[1]),
         ]
         return components
 
@@ -69,7 +69,6 @@ class CompiledFlash(ppc.FlashMixin):
 
     flash_params = {
         "mode": "parallel",
-        "verbosity": 1,
     }
 
     def set_up_flasher(self) -> None:
@@ -80,14 +79,13 @@ class CompiledFlash(ppc.FlashMixin):
 
         # Compiling the flash and the EoS
         eos.compile()
-        # pre-compile solvers for given mixture to avoid waiting times in
-        # prepare simulation and the first iteration
-        flash.compile(precompile_solvers=False)
+        flash.compile()
 
         # NOTE There is place to configure the solver here
-        flash.armijo_parameters["j_max"] = 30
-        flash.tolerance = 1e-7
+        flash.armijo_parameters["max_iter"] = 30
+        flash.tolerance = 1e-8
         flash.max_iter = 150
+        flash.heavy_ball_momentum = False
 
         # Setting the attribute of the mixin
         self.flash = flash
@@ -164,49 +162,49 @@ class CompiledFlash(ppc.FlashMixin):
 
 class ModelGeometry:
     def set_domain(self) -> None:
-        size = self.solid.convert_units(2, "m")
+        size = self.solid.convert_units(1, "m")
         self._domain = nd_cube_domain(2, size)
 
-    def set_fractures(self) -> None:
-        """Setting a diagonal fracture"""
-        frac_1_points = self.solid.convert_units(
-            np.array([[0.2, 1.8], [0.2, 1.8]]), "m"
-        )
-        frac_1 = pp.LineFracture(frac_1_points)
-        self._fractures = [frac_1]
+    # def set_fractures(self) -> None:
+    #     """Setting a diagonal fracture"""
+    #     frac_1_points = self.solid.convert_units(
+    #         np.array([[0.2, 1.8], [0.2, 1.8]]), "m"
+    #     )
+    #     frac_1 = pp.LineFracture(frac_1_points)
+    #     self._fractures = [frac_1]
 
     def grid_type(self) -> str:
         return self.params.get("grid_type", "simplex")
 
     def meshing_arguments(self) -> dict:
-        cell_size = self.solid.convert_units(0.25, "m")
-        mesh_args: dict[str, float] = {"cell_size": cell_size}
+        cell_size = self.solid.convert_units(0.1, "m")
+        cell_size_fracture = self.solid.convert_units(0.05, "m")
+        mesh_args: dict[str, float] = {
+            "cell_size": cell_size,
+            "cell_size_fracture": cell_size_fracture,
+        }
         return mesh_args
 
 
 class InitialConditions:
     """Define initial pressure, temperature and compositions."""
 
+    _p_INIT: float = 15e6
+    _T_INIT: float = 550.0
+    _z_INIT: dict[str, float] = {"H2O": 0.995, "CO2": 0.005}
+
     def initial_pressure(self, sd: pp.Grid) -> np.ndarray:
         # Initial pressure of 10 MPa
-        return np.ones(sd.num_cells) * 15e6
+        return np.ones(sd.num_cells) * self._p_INIT
 
     def initial_temperature(self, sd: pp.Grid) -> np.ndarray:
         # Initial temperature of 550 K
-        return np.ones(sd.num_cells) * 550.0
+        return np.ones(sd.num_cells) * self._T_INIT
 
     def initial_overall_fraction(
         self, component: ppc.Component, sd: pp.Grid
     ) -> np.ndarray:
-        # Homogenous initial composition, with 0.5 % CO2
-        if component.name == "H2O":
-            return np.ones(sd.num_cells) * 0.995
-        elif component.name == "CO2":
-            return np.ones(sd.num_cells) * 0.005
-        else:
-            raise NotImplementedError(
-                f"Initial overlal fraction not implemented for component {component.name}"
-            )
+        return np.ones(sd.num_cells) * self._z_INIT[component.name]
 
 
 class BoundaryConditions:
@@ -226,41 +224,99 @@ class BoundaryConditions:
 
     """
 
+    mdg: pp.MixedDimensionalGrid
+
     has_time_dependent_boundary_equilibrium = False
     """Constant BC for primary variables, hence constant BC for all other."""
 
-    def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
+    _p_INIT: float
+    _T_INIT: float
+    _z_INIT: dict[str, float]
+
+    _p_IN: float = InitialConditions._p_INIT
+    _p_OUT: float = InitialConditions._p_INIT
+
+    _T_IN: float = InitialConditions._T_INIT
+    _T_OUT: float = InitialConditions._T_INIT
+    _T_HEATED: float = InitialConditions._T_INIT + 50.0
+
+    # _z_IN: dict[str, float] = {"H2O": 0.99, "CO2": 0.01}
+    _z_IN: dict[str, float] = {
+        "H2O": InitialConditions._z_INIT["H2O"],
+        "CO2": InitialConditions._z_INIT["CO2"],
+    }
+    _z_OUT: dict[str, float] = {
+        "H2O": InitialConditions._z_INIT["H2O"],
+        "CO2": InitialConditions._z_INIT["CO2"],
+    }
+
+    def _inlet_faces(self, sd: pp.Grid) -> np.ndarray:
+        """Define inlet."""
         sides = self.domain_boundary_sides(sd)
+
+        inlet = np.zeros(sd.num_faces, dtype=bool)
+        inlet[sides.west] = True
+        inlet &= sd.face_centers[1] > 0.2
+        inlet &= sd.face_centers[1] < 0.8
+
+        return inlet
+
+    def _outlet_faces(self, sd: pp.Grid) -> np.ndarray:
+        """Define outlet."""
+
+        sides = self.domain_boundary_sides(sd)
+
+        outlet = np.zeros(sd.num_faces, dtype=bool)
+        outlet[sides.east] = True
+        outlet &= sd.face_centers[1] > 0.2
+        outlet &= sd.face_centers[1] < 0.8
+
+        return outlet
+
+    def _heated_faces(self, sd: pp.Grid) -> np.ndarray:
+        """Define heated boundary with D-type conditions for conductive flux."""
+        sides = self.domain_boundary_sides(sd)
+
+        heated = np.zeros(sd.num_faces, dtype=bool)
+        heated[sides.south] = True
+        heated &= sd.face_centers[0] > 0.2
+        heated &= sd.face_centers[0] < 0.8
+
+        return heated
+
+    def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         # Setting only conditions on matrix
         if sd.dim == 2:
+
+            inout = self._inlet_faces(sd) | self._outlet_faces(sd)
             # Define boundary condition on all boundary faces.
-            return pp.BoundaryCondition(sd, sides.east | sides.west, "dir")
+            return pp.BoundaryCondition(sd, inout, "dir")
         # In fractures we set trivial NBC
         else:
             return pp.BoundaryCondition(sd)
 
     def bc_type_fourier_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
-        sides = self.domain_boundary_sides(sd)
         if sd.dim == 2:
-            # Temperature at inlet and outlet, as well as heated bottom
-            boundary_faces = sides.west | sides.bottom  # | sides.east
-            return pp.BoundaryCondition(sd, boundary_faces, "dir")
+            heated = self._heated_faces(sd)
+            return pp.BoundaryCondition(sd, heated, "dir")
         # In fractures we set trivial NBC
         else:
             return pp.BoundaryCondition(sd)
 
     def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
-        # need to define pressure on east and west side of matrix
-        p_init = 15e6
+
         sd = boundary_grid.parent
         sides = self.domain_boundary_sides(sd)
 
-        # non-trivial BC on matrix
         if sd.dim == 2:
-            vals = np.ones(sd.num_faces) * p_init
+            vals = np.ones(sd.num_faces) * self._p_INIT
 
-            vals[sides.west] = 10e6
-            vals[sides.east] = 20e6
+            inlet = self._inlet_faces(sd)
+            outlet = self._outlet_faces(sd)
+
+            # vals[sides.west] = 10e6
+            vals[inlet] = self._p_IN
+            vals[outlet] = self._p_OUT
 
             vals = vals[sides.all_bf]
         else:
@@ -269,18 +325,20 @@ class BoundaryConditions:
         return vals
 
     def bc_values_temperature(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
-        T_init = 550.0
+
         sd = boundary_grid.parent
         sides = self.domain_boundary_sides(sd)
 
-        # non-trivial BC on matrix
         if sd.dim == 2:
-            vals = np.ones(sd.num_faces) * T_init
+            vals = np.ones(sd.num_faces) * self._T_INIT
 
-            vals[sides.west] = 550.0
-            # vals[sides.east] = 550.0
-            # T values on heated bottom
-            vals[sides.bottom] = 550.0
+            inlet = self._inlet_faces(sd)
+            outlet = self._outlet_faces(sd)
+            heated = self._heated_faces(sd)
+
+            vals[inlet] = self._T_IN
+            vals[outlet] = self._T_OUT
+            vals[heated] = self._T_HEATED
 
             vals = vals[sides.all_bf]
         else:
@@ -291,27 +349,18 @@ class BoundaryConditions:
     def bc_values_overall_fraction(
         self, component: ppc.Component, boundary_grid: pp.BoundaryGrid
     ) -> np.ndarray:
+
         sd = boundary_grid.parent
         sides = self.domain_boundary_sides(sd)
 
-        if component.name == "H2O":
-            z_init = 0.99
-            z_inlet = 0.99
-            z_outlet = z_init
-        elif component.name == "CO2":
-            z_init = 0.01
-            z_inlet = 0.01
-            z_outlet = z_init
-        else:
-            NotImplementedError(
-                f"Initial overlal fraction not implemented for component {component.name}"
-            )
-
         if sd.dim == 2:
-            vals = np.ones(sd.num_faces) * z_init
+            vals = np.ones(sd.num_faces) * self._z_INIT[component.name]
 
-            vals[sides.west] = z_inlet
-            vals[sides.east] = z_outlet
+            inlet = self._inlet_faces(sd)
+            outlet = self._outlet_faces(sd)
+
+            vals[inlet] = self._z_IN[component.name]
+            vals[outlet] = self._z_OUT[component.name]
 
             vals = vals[sides.all_bf]
         else:
@@ -331,21 +380,40 @@ class GeothermalFlow(
     """Geothermal flow using a fluid defined by the Soereide model and the compiled
     flash."""
 
+    def after_nonlinear_failure(self):
+        self.exporter.write_pvd()
+        super().after_nonlinear_failure()
 
-days = 3650
-t_scale = 0.000001
+
+days = 365
+t_scale = 1e-5
+T_end = 100 * days * t_scale
+dt_init = 1 * days * t_scale
+max_iterations = 80
+newton_tol = 1e-5
+
 time_manager = pp.TimeManager(
-    schedule=[0.0, 100.0 * days * t_scale],
-    dt_init=1.0 * days * t_scale,
-    constant_dt=True,
-    iter_max=80,
+    schedule=[0, T_end],
+    dt_init=dt_init,
+    dt_min_max=(0.1 * dt_init, 2 * dt_init),
+    iter_max=max_iterations,
+    iter_optimal_range=(2, 10),
+    iter_relax_factors=(0.9, 1.1),
+    recomp_factor=0.1,
+    recomp_max=5,
     print_info=True,
 )
 
 solid_constants = pp.SolidConstants(
-    {"permeability": 9.869233e-12, "porosity": 0.2, "thermal_conductivity": 1.92}
+    {"permeability": 1e-11, "porosity": 0.2, "thermal_conductivity": 192}
 )
 material_constants = {"solid": solid_constants}
+
+restart_options = {
+    "restart": True,
+    "is_mdg_pvd": True,
+    "pdv_file": pathlib.Path("./visualization/data.pvd"),
+}
 
 # Model setup:
 # eliminate reference phase fractions  and reference component.
@@ -357,15 +425,26 @@ params = {
     "use_semismooth_complementarity": True,
     "reduce_linear_system_q": False,
     "time_manager": time_manager,
-    "max_iterations": 80,
-    "nl_convergence_tol": 1e-4,
+    "max_iterations": max_iterations,
+    "nl_convergence_tol": newton_tol,
     "prepare_simulation": False,
+    "progressbars": True,
+    # 'restart_options': restart_options,  # NOTE no yet fully integrated in porepy
 }
 model = GeothermalFlow(params)
+
+model.equilibrium_type = "p-T"
 
 start = time.time()
 model.prepare_simulation()
 print(f"Finished prepare_simulation in {time.time() - start} seconds")
 
+
+result, success, num_iter = model.flash.flash(
+    z=np.array([0.995, 0.005]),
+    p=np.array(15e6),
+    T=np.array([550.0]),
+)
+
 pp.run_time_dependent_model(model, params)
-pp.plot_grid(model.mdg, "pressure", figsize=(10, 8), plot_2d=True)
+# pp.plot_grid(model.mdg, "pressure", figsize=(10, 8), plot_2d=True)

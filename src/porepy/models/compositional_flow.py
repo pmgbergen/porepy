@@ -108,9 +108,9 @@ class MobilityCF:
                 name = f"bc_{name}"
         mobility = pp.ad.sum_operator_list(
             [
-                phase.density(domains)
+                self.relative_permeability(phase.saturation(domains))
+                * phase.density(domains)
                 / phase.viscosity(domains)
-                * self.relative_permeability(phase.saturation(domains))
                 for phase in self.fluid_mixture.phases
             ],
             name,
@@ -142,8 +142,8 @@ class MobilityCF:
             [
                 phase.enthalpy(domains)
                 * phase.density(domains)
-                / phase.viscosity(domains)
                 * self.relative_permeability(phase.saturation(domains))
+                / phase.viscosity(domains)
                 for phase in self.fluid_mixture.phases
             ],
             name,
@@ -168,7 +168,7 @@ class MobilityCF:
 
             .. math::
 
-                \sum_j \dfrac{\rho_j}{\mu_j} x_{n, ij} k_r(s_j),
+                \sum_j x_{n, ij} \rho_j \dfrac{k_r(s_j)}{\mu_j},
 
             which is the advected mass in the total mass balance equation.
             :math:`x_{n, ij}` denotes the normalized fraction of component i in phase j.
@@ -181,10 +181,10 @@ class MobilityCF:
                 name = f"bc_{name}"
         mobility = pp.ad.sum_operator_list(
             [
-                phase.density(domains)
-                / phase.viscosity(domains)
-                * phase.partial_fraction_of[component](domains)
+                phase.partial_fraction_of[component](domains)
+                * phase.density(domains)
                 * self.relative_permeability(phase.saturation(domains))
+                / phase.viscosity(domains)
                 for phase in self.fluid_mixture.phases
             ],
             name,
@@ -498,7 +498,7 @@ class SolidSkeletonCF(
             (pp.ad.Scalar(1) - self.porosity(subdomains))
             * self.solid_density(subdomains)
             * c_p
-            * self.perturbation_from_reference(self.temperature_variable, subdomains)
+            * self.temperature(subdomains)
         )
         energy.set_name("solid_internal_energy")
         return energy
@@ -747,8 +747,7 @@ class TotalEnergyBalanceEquation_h(energy.EnergyBalanceEquations):
         unknown enthalpy."""
         energy = (
             self.fluid_mixture.density(subdomains) * self.enthalpy(subdomains)
-            - self.pressure(subdomains)
-        ) * self.porosity(subdomains)
+        ) * self.porosity(subdomains) - self.pressure(subdomains)
         energy.set_name("fluid_mixture_internal_energy")
         return energy
 
@@ -1334,7 +1333,7 @@ class SecondaryEquationsMixin:
     add_constitutive_expression: Callable[
         [
             pp.ad.MixedDimensionalVariable,
-            ppc.SecondaryExpression,
+            pp.ad.SurrogateFactory,
             Callable[[tuple[np.ndarray, ...]], tuple[np.ndarray, np.ndarray]],
             pp.GridLikeSequence,
         ],
@@ -1419,12 +1418,11 @@ class SecondaryEquationsMixin:
         sec_var = independent_quantity(non_boundaries)
         g_ids = [d.id for d in non_boundaries]
 
-        sec_expr = ppc.SecondaryExpression(
+        sec_expr = pp.ad.SurrogateFactory(
             name=f"secondary_expression_for_{sec_var.name}_on_grids_{g_ids}",
             mdg=self.mdg,
             dependencies=dependencies,
-            time_step_depth=len(self.time_step_indices),
-            iterate_depth=len(self.iterate_indices),
+            time_dependent=True,
         )
 
         local_equ = sec_var - sec_expr(non_boundaries)
@@ -1616,7 +1614,7 @@ class ConstitutiveLawsCF(
         str,
         tuple[
             pp.ad.MixedDimensionalVariable,
-            ppc.SecondaryExpression,
+            pp.ad.SurrogateFactory,
             Callable[[tuple[np.ndarray, ...]], tuple[np.ndarray, np.ndarray]],
             Sequence[pp.Grid | pp.MortarGrid],
             Sequence[pp.BoundaryGrid],
@@ -1627,7 +1625,7 @@ class ConstitutiveLawsCF(
     def add_constitutive_expression(
         self,
         primary: pp.ad.MixedDimensionalVariable,
-        expression: ppc.SecondaryExpression,
+        expression: pp.ad.SurrogateFactory,
         func: Callable[[tuple[np.ndarray, ...]], tuple[np.ndarray, np.ndarray]],
         grids: pp.GridLikeSequence,
     ) -> None:
@@ -1784,7 +1782,7 @@ class BoundaryConditionsCF(
         str,
         tuple[
             pp.ad.MixedDimensionalVariable,
-            ppc.SecondaryExpression,
+            pp.ad.SurrogateFactory,
             Callable[[tuple[np.ndarray, ...]], tuple[np.ndarray, np.ndarray]],
             Sequence[pp.Grid | pp.MortarGrid],
             Sequence[pp.BoundaryGrid],
@@ -1974,15 +1972,15 @@ class BoundaryConditionsCF(
                     mu_bc = state.mu
 
                 # phase properties which appear in mobilities
-                phase.density.update_boundary_value(rho_bc, bg)
-                phase.enthalpy.update_boundary_value(h_bc, bg)
-                phase.viscosity.update_boundary_value(mu_bc, bg)
+                phase.density.update_boundary_values(rho_bc, bg)
+                phase.enthalpy.update_boundary_values(h_bc, bg)
+                phase.viscosity.update_boundary_values(mu_bc, bg)
 
                 # volume as reciprocal of density, only where given
                 v_bc = np.zeros_like(rho_bc)
                 idx = rho_bc > 0
                 v_bc[idx] = 1.0 / rho_bc[idx]
-                phase.volume.update_boundary_value(v_bc, bg)
+                phase.volume.update_boundary_values(v_bc, bg)
 
     ### BC values for primary variables which need to be given by the user in any case.
 
@@ -2106,7 +2104,7 @@ class InitialConditionsCF:
         str,
         tuple[
             pp.ad.MixedDimensionalVariable,
-            ppc.SecondaryExpression,
+            pp.ad.SurrogateFactory,
             Callable[[tuple[np.ndarray, ...]], tuple[np.ndarray, np.ndarray]],
             Sequence[pp.Grid | pp.MortarGrid],
             Sequence[pp.BoundaryGrid],
@@ -2439,7 +2437,7 @@ class SolutionStrategyCF(
             str,
             tuple[
                 pp.ad.MixedDimensionalVariable,
-                ppc.SecondaryExpression,
+                pp.ad.SurrogateFactory,
                 Callable[[tuple[np.ndarray, ...]], tuple[np.ndarray, np.ndarray]],
                 Sequence[pp.Grid, pp.MortarGrid],
                 Sequence[pp.BoundaryGrid],
@@ -2777,9 +2775,9 @@ class SolutionStrategyCF(
         t_0 = time.time()
         reduce_linear_system_q = self.params.get("reduce_linear_system_q", False)
 
-        for name, eq in self.equation_system.equations.items():
-            res = eq.value(self.equation_system)
-            print(f"res {name}: ", np.linalg.norm(res))
+        # for name, eq in self.equation_system.equations.items():
+        #     res = eq.value(self.equation_system)
+        #     print(f"res {name}: ", np.linalg.norm(res))
         if reduce_linear_system_q:
             # TODO block diagonal inverter for secondary equations
             self.linear_system = self.equation_system.assemble_schur_complement_system(
@@ -2793,8 +2791,6 @@ class SolutionStrategyCF(
         """After calling the parent method, the global solution is calculated by Schur
         expansion."""
         sol = super().solve_linear_system()
-
-        print("norm delta x: ", np.linalg.norm(sol))
         reduce_linear_system_q = self.params.get("reduce_linear_system_q", False)
         if reduce_linear_system_q:
             sol = self.equation_system.expand_schur_complement_solution(sol)

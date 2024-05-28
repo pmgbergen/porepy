@@ -27,18 +27,15 @@ from typing import Callable, Literal, Optional, Sequence
 
 import numba
 import numpy as np
+from numba.core import types as nbtypes
+from numba.typed import Dict as nbdict
 
 from ._core import NUMBA_CACHE, R_IDEAL
 from .base import Mixture
 from .composite_utils import safe_sum
 from .eos_compiler import EoSCompiler
 from .flash import Flash
-from .npipm_c import (
-    convert_param_dict,
-    initialize_npipm_nu,
-    linear_solver,
-    parallel_solver,
-)
+from .npipm_c import solver as npipmsolver
 from .states import FluidState
 from .utils_c import (
     _compute_saturations,
@@ -57,6 +54,157 @@ __all__ = ["CompiledUnifiedFlash"]
 
 
 logger = logging.getLogger(__name__)
+
+
+SOLVER_PARAMETERS = dict[
+    Literal[
+        "f_dim",
+        "num_phase",
+        "num_comp",
+        "tol",
+        "max_iter",
+        "rho",
+        "kappa",
+        "max_iter_armijo",
+        "u1",
+        "u2",
+        "eta",
+    ],
+    float,
+]
+"""Type alias describing a parameter dictionary containing parameters which are required
+for the solution strategy in this module.
+
+- ``'f_dim'``: Int. Dimension of the flash system, including the NPIPM slack equation.
+- ``'num_phases'``: Int. Number of phases in fluid mixture.
+- ``'num_comps'``: Int. Number of components in fluid mixture.
+- ``'tol'``: Float. Tolerance for 2-norm of residual to be used as convergence criterion.
+- ``'max_iter'``: Int. Maximal number of Newton iterations.
+- ``'rho'``: ``(0, 1)``. First step size in Armijo line search.
+- ``'kappa'``: ``(0, 0.5)``. Slope of line for line search.
+- ``'max_iter_armijo'``: Int. Maximal number of line search iterations.
+- ``'u1'``: Float. Penalty parameter for violation of complementarity in NPIPM.
+- ``'u2'``: Float. Penalty parameter for violation of non-negativity in NPIPM.
+- ``'eta'``: Float. Linear decline of NPIPM slack variable.
+
+"""
+
+
+SOLVERS: dict[str, Callable] = {"npipm": npipmsolver}
+"""Map of available solvers.
+
+Currently available:
+
+- ``'npipm'``: A NPIPM with Newton solver, Armijo line search and heavy ball momentum.
+
+A solver must have the signature
+``(X0, F, DF, solver_parameters) -> (array(1D), int, int)``,
+where ``X0`` is the generic flash argument containing the initial guess,
+``F`` is a callable representing the residual of the flash system,
+``DF`` is a callable assembling the Jacobian of the flash system,
+and ``solver_parameters`` of type ``nbdict[str, float64]``
+(see :data:`SOLVER_PARAMETERS`)
+
+Note:
+    ``X0`` must be the generic flash argument for ``F``.
+    Therefore the dimension of the image of ``F`` must be defined by passing
+    ``'f_dim'`` in ``solver_params``.
+    I.e., ``len(F(X0)) == f_dim`` and ``DF(X0).shape == (f_dim, f_dim)``.
+
+    The generic argument contains feed fractions and 2 state definitions in the first
+    ``num_comp + 1`` entries, especially ``X0.shape = (f_dim + num_comp + 1,)``.
+
+It should return the solution of the flash in generic flash argument format,
+a success flag and the number of iterations.
+
+The success flag should be one of the following values:
+
+- 0: success
+- 1: max iter reached
+- 2: failure in the evaluation of the residual
+- 3: failure in the evaluation of the Jacobian
+- 4: NAN or infty detected in update (aborted)
+
+The returned result should contain the value of the last iterate
+(independent of success).
+
+"""
+
+
+@numba.njit(
+    parallel=True,
+)
+def parallel_solver(
+    X0: np.ndarray,
+    F: Callable[[np.ndarray], np.ndarray],
+    DF: Callable[[np.ndarray], np.ndarray],
+    solver: Callable,
+    solver_params: dict,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Parallel application of the ``solver`` to vectorized input, assuming each row
+    in ``X0`` is a starting point to find a root of ``F``.
+
+    Note:
+        For more information on the requirements for the arguments and the return values
+        see :data:`SOLVERS`.
+
+    Parameters:
+        X_0: Initial guess.
+        F: Callable representing the residual. Must be callable with ``X0[i]``.
+        DF: Callable representing the Jacobian. Must be callable with ``X0[i]``.
+        solver: See :data:`SOLVERS`.
+        solver_paramers: See :data:`SOLVER_PARAMETERS`.
+
+    Returns:
+        The results, the success flag and the number of iterations, vectorized per row
+        in ``X0``.
+
+    """
+
+    # alocating return values
+    n = X0.shape[0]
+    result = np.empty_like(X0)
+    num_iter = np.empty(n, dtype=np.int32)
+    converged = np.empty(n, dtype=np.int32)
+
+    for i in numba.prange(n):
+        res_i, conv_i, n_i = solver(X0[i], F, DF, solver_params)
+        converged[i] = conv_i
+        num_iter[i] = n_i
+        result[i] = res_i
+
+    return result, converged, num_iter
+
+
+@numba.njit
+def linear_solver(
+    X0: np.ndarray,
+    F: Callable[[np.ndarray], np.ndarray],
+    DF: Callable[[np.ndarray], np.ndarray],
+    solver: Callable,
+    solver_params: dict,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Does the same as :func:`parallel_solver`, only the loop over the rows of ``X0``
+    is not parallelized, but executed in a sequential manner.
+
+    Intended use is for smaller amount of flash problems, where the parallelization
+    would produce a certain overhead in the initialization.
+
+    """
+
+    # alocating return values
+    n = X0.shape[0]
+    result = np.empty_like(X0)
+    num_iter = np.empty(n, dtype=np.int32)
+    converged = np.empty(n, dtype=np.int32)
+
+    for i in range(n):
+        res_i, conv_i, n_i = solver(X0[i], F, DF, solver_params)
+        converged[i] = conv_i
+        num_iter[i] = n_i
+        result[i] = res_i
+
+    return result, converged, num_iter
 
 
 # region Helper methods
@@ -141,6 +289,29 @@ def _rr_potential(z: np.ndarray, y: np.ndarray, K: np.ndarray) -> float:
     return np.sum(-z * np.log(np.abs(_rr_poles(y, K))))
     # F = [-np.log(np.abs(_rr_pole(i, y, K))) * z[i] for i in range(len(z))]
     # return np.sum(F)
+
+
+def _convert_solver_parameters(params: SOLVER_PARAMETERS) -> nbdict:
+    """Helper function to convert the parameter dictionary into a typed dict
+    recognizable by numba.
+
+    Key type: unicode type (string).
+    Value type: float64.
+
+    Note:
+        Numba dicts must have precise types, so any value is converted to a float.
+        If a parameter is an integer, the solver must convert it back to int.
+
+    Raises:
+        KeyError: If any of the expected parameters is missing.
+
+    """
+
+    out = nbdict.empty(key_type=nbtypes.unicode_type, value_type=nbtypes.float64)
+    for key, val in params.items():
+        out[str(key)] = float(val)
+
+    return out
 
 
 # endregion
@@ -406,7 +577,7 @@ class CompiledUnifiedFlash(Flash):
         self.armijo_parameters: dict[str, float] = {
             "kappa": 0.4,
             "rho": 0.99,
-            "j_max": 50,
+            "max_iter": 50,
         }
         """A dictionary containing per parameter name (str, key) the respective
         parameter for the Armijo line-search:
@@ -438,7 +609,7 @@ class CompiledUnifiedFlash(Flash):
 
         """
 
-        self._solver_params: dict = convert_param_dict(
+        self._solver_params: dict = _convert_solver_parameters(
             {
                 "f_dim": 1,
                 "num_phase": self.npnc[0],
@@ -447,7 +618,7 @@ class CompiledUnifiedFlash(Flash):
                 "max_iter": self.max_iter,
                 "rho": self.armijo_parameters["rho"],
                 "kappa": self.armijo_parameters["kappa"],
-                "j_max": self.armijo_parameters["j_max"],
+                "max_iter_armijo": self.armijo_parameters["max_iter"],
                 "u1": self.npipm_parameters["u1"],
                 "u2": self.npipm_parameters["u2"],
                 "eta": self.npipm_parameters["eta"],
@@ -459,6 +630,9 @@ class CompiledUnifiedFlash(Flash):
         NOTE: This is a numba experimental feature.
 
         """
+
+        self.heavy_ball_momentum: bool
+        """Flag to use the have ball momentum descend. Used in some solvers."""
 
     def _parse_and_complete_results(
         self,
@@ -478,6 +652,8 @@ class CompiledUnifiedFlash(Flash):
 
         """
         nphase, ncomp = self.npnc
+        # index of first phase fraction
+        idx_y = -(nphase * ncomp + nphase - 1)
 
         # Parsing phase compositions and molar phsae fractions
         y: list[np.ndarray] = list()
@@ -485,34 +661,34 @@ class CompiledUnifiedFlash(Flash):
         for j in range(nphase):
             # values for molar phase fractions of independent phases
             if j < nphase - 1:
-                y.append(results[:, -(1 + nphase * ncomp + nphase - 1) + j])
+                y.append(results[:, idx_y + j])
             # composition of phase j
             x_j = list()
             for i in range(ncomp):
-                x_j.append(results[:, -(1 + (nphase - j) * ncomp) + i])
+                x_j.append(results[:, -(nphase - j) * ncomp + i])
             x.append(np.array(x_j))
 
         fluid_state.y = np.vstack([1 - safe_sum(y), np.array(y)])
 
         # If T is unknown, it is always the last unknown before molar fractions
         if "T" not in flash_type:
-            fluid_state.T = results[:, -(1 + ncomp * nphase + nphase - 1 + 1)]
+            fluid_state.T = results[:, idx_y - 1]
 
         # If v is a defined value, we fetch pressure and saturations
         if "v" in flash_type:
             # If T is additionally unknown to p, p is the second last quantity before
             # molar fractions
             if "T" not in flash_type:
-                p_pos = 1 + ncomp * nphase + nphase - 1 + 2
+                idx_p = idx_y - 2
             else:
-                p_pos = 1 + ncomp * nphase + nphase - 1 + 1
+                idx_p = idx_y - 1
 
-            fluid_state.p = results[:, -p_pos]
+            fluid_state.p = results[:, idx_p]
 
             # saturations are stored before pressure (for independent phases)
             s: list[np.ndarray] = list()
             for j in range(nphase - 1):
-                s.append(results[:, -(p_pos + nphase - 1 + j)])
+                s.append(results[:, idx_p - (nphase - 1) + j])
             fluid_state.sat = np.vstack([1 - safe_sum(s), np.array(s)])
 
         # Computing states for each phase after filling p, T and x
@@ -542,12 +718,18 @@ class CompiledUnifiedFlash(Flash):
         self._solver_params["max_iter"] = float(self.max_iter)
         self._solver_params["rho"] = self.armijo_parameters["rho"]
         self._solver_params["kappa"] = self.armijo_parameters["kappa"]
-        self._solver_params["j_max"] = float(self.armijo_parameters["j_max"])
+        self._solver_params["max_iter_armijo"] = float(
+            self.armijo_parameters["max_iter"]
+        )
         self._solver_params["u1"] = self.npipm_parameters["u1"]
         self._solver_params["u2"] = self.npipm_parameters["u2"]
         self._solver_params["eta"] = self.npipm_parameters["eta"]
+        if hasattr(self, "heavy_ball_momentum"):
+            self._solver_params["hbm"] = float(self.heavy_ball_momentum)
+        else:
+            self._solver_params["hbm"] = 0.0
 
-    def compile(self, precompile_solvers: bool = False) -> None:
+    def compile(self) -> None:
         """Triggers the assembly and compilation of equilibrium equations, including
         the NPIPM approach.
 
@@ -562,12 +744,6 @@ class CompiledUnifiedFlash(Flash):
         Important:
             This takes a considerable amount of time.
             The compilation is therefore separated from the instantiation of this class.
-
-        Parameters:
-            precompile_solvers: ``default=False``
-
-                Highly invasive flag to hack into numba and pre-compile solvers for
-                compiled flash systems.
 
         """
 
@@ -1570,30 +1746,6 @@ class CompiledUnifiedFlash(Flash):
             }
         )
 
-        if precompile_solvers:
-            logger.debug("Compiling solvers ..")
-
-            # pre compile for p-T flash
-            gen_arg_dim = ncomp + 1 + pT_dim
-            X = np.ones((1, gen_arg_dim))
-            self._update_solver_params(pT_dim + 1)
-            linear_solver._compile_for_args(X, F_pT, DF_pT, self._solver_params)
-            parallel_solver._compile_for_args(X, F_pT, DF_pT, self._solver_params)
-
-            # pre compile for p-h flash
-            gen_arg_dim = ncomp + 1 + ph_dim
-            X = np.ones((1, gen_arg_dim))
-            self._update_solver_params(ph_dim + 1)
-            linear_solver._compile_for_args(X, F_ph, DF_ph, self._solver_params)
-            parallel_solver._compile_for_args(X, F_ph, DF_ph, self._solver_params)
-
-            # pre-compile for v-h flash
-            gen_arg_dim = ncomp + 1 + vh_dim
-            X = np.ones((1, gen_arg_dim))
-            self._update_solver_params(vh_dim + 1)
-            linear_solver._compile_for_args(X, F_vh, DF_vh, self._solver_params)
-            parallel_solver._compile_for_args(X, F_vh, DF_vh, self._solver_params)
-
     def flash(
         self,
         z: Sequence[np.ndarray],
@@ -1624,6 +1776,7 @@ class CompiledUnifiedFlash(Flash):
             problems.
 
             Defaults to ``'linear'``.
+        - ``'solver'``: See :data:`SOLVERS`. Defaults to ``'npipm'``.
 
         Raises:
             NotImplementedError: If an unsupported combination or insufficient number of
@@ -1632,6 +1785,8 @@ class CompiledUnifiedFlash(Flash):
         """
         mode = parameters.get("mode", "linear")
         assert mode in ["linear", "parallel"], f"Unsupported mode {mode}."
+        solver = parameters.get("solver", "npipm")
+        assert solver in SOLVERS, f"Unsupported solver {solver}"
 
         logger.debug("Flash: Parsing input ..")
 
@@ -1646,28 +1801,25 @@ class CompiledUnifiedFlash(Flash):
             "v-h",
         ], f"Unsupported flash type {flash_type}"
 
-        # Because of NPIPM, we have an additiona slack variable
-        f_dim += 1
-        # the generic argument has additional ncomp - 1 feed fractions and 2 states
-        gen_arg_dim = ncomp + 1 + f_dim
         # vectorized, generic flash argument
-        X0 = np.zeros((NF, gen_arg_dim))
+        # the generic argument has additional ncomp - 1 feed fractions and 2 states
+        X0 = np.zeros((ncomp + 1 + f_dim, NF))
 
         # Filling the feed fractions into X0
         i = 0
         for i_, _ in enumerate(fluid_state.z):
             if i_ != self._ref_component_idx:
-                X0[:, i] = fluid_state.z[i_]
+                X0[i] = fluid_state.z[i_]
                 i += 1
         # Filling the fixed state values in X0, getting initialization args
         if flash_type == "p-T":
-            X0[:, ncomp - 1] = fluid_state.p
-            X0[:, ncomp] = fluid_state.T
+            X0[ncomp - 1] = fluid_state.p
+            X0[ncomp] = fluid_state.T
             init_args = (self.initialization_parameters["N1"], 1)
         elif flash_type == "p-h":
             # has a reverse order of states, because of parse_pT
-            X0[:, ncomp - 1] = fluid_state.h
-            X0[:, ncomp] = fluid_state.p
+            X0[ncomp - 1] = fluid_state.h
+            X0[ncomp] = fluid_state.p
             init_args = (
                 self.initialization_parameters["N1"],
                 self.initialization_parameters["N2"],
@@ -1675,8 +1827,8 @@ class CompiledUnifiedFlash(Flash):
                 self.initialization_parameters["eps"],
             )
         elif flash_type == "v-h":
-            X0[:, ncomp - 1] = fluid_state.v
-            X0[:, ncomp] = fluid_state.h
+            X0[ncomp - 1] = fluid_state.v
+            X0[ncomp] = fluid_state.h
             init_args = (
                 self.initialization_parameters["N1"],
                 self.initialization_parameters["N2"],
@@ -1690,44 +1842,42 @@ class CompiledUnifiedFlash(Flash):
         if initial_state is None:
             start = time.time()
             # exclude NPIPM variable (last column) from initialization
-            X0[:, :-1] = self.initializers[flash_type](X0[:, :-1], *init_args)
+            X0 = self.initializers[flash_type](X0.T, *init_args).T
             end = time.time()
             init_time = end - start
             logger.debug(f"Flash initialized (elapsed time: {init_time} (s)).")
         else:
             init_time = 0.0
             # parsing phase compositions and molar fractions
+            idx_y = -(nphase * ncomp + nphase - 1)  # index of first phase fraction
             idx = 0
             for j in range(nphase):
                 # values for molar phase fractions except for reference phase
                 if j != self._ref_phase_idx:
-                    X0[:, -(1 + nphase * ncomp + nphase - 1) + idx] = fluid_state.y[j]
+                    X0[idx_y + idx] = fluid_state.y[j]
                     idx += 1
                 # composition of phase j
                 for i in range(ncomp):
-                    X0[:, -(1 + (nphase - j) * ncomp) + i] = fluid_state.phases[j].x[i]
+                    X0[-((nphase - j) * ncomp) + i] = fluid_state.phases[j].x[i]
 
             # If T is unknown, get provided guess for T
             if "T" not in flash_type:
-                X0[:, -(1 + ncomp * nphase + nphase - 1 + 1)] = fluid_state.T
+                X0[idx_y - 1] = fluid_state.T
             # If v is given, get provided guess for p and saturations
             if "v" in flash_type:
                 # If T is additionally unknown to p, p is the second last quantity
                 # before molar fractions
                 if "T" not in flash_type:
-                    p_pos = 1 + ncomp * nphase + nphase - 1 + 2
+                    idx_p = idx_y - 2
                 else:
-                    p_pos = 1 + ncomp * nphase + nphase - 1 + 1
-                X0[:, -p_pos] = fluid_state.p
+                    idx_p = idx_y - 1
+                X0[idx_p] = fluid_state.p
                 # parsing saturation values except for reference phase
                 idx = 0
                 for j in range(nphase - 1):
                     if j != self._ref_phase_idx:
-                        X0[:, -(p_pos + nphase - 1) + idx] = fluid_state.sat[j]
+                        X0[idx_p - (nphase - 1) + j] = fluid_state.sat[j]
                         idx += 1
-
-        logger.debug(f"{flash_type}Flash: Initializing NPIPM ..")
-        X0 = initialize_npipm_nu(X0, self.npnc)
 
         F = self.residuals[flash_type]
         DF = self.jacobians[flash_type]
@@ -1736,9 +1886,13 @@ class CompiledUnifiedFlash(Flash):
         logger.info(f"{flash_type} Flash: Solving ..")
         start = time.time()
         if mode == "linear":
-            results, success, num_iter = linear_solver(X0, F, DF, self._solver_params)
-        else:  # parallel, by logic only this
-            results, success, num_iter = parallel_solver(X0, F, DF, self._solver_params)
+            results, success, num_iter = linear_solver(
+                X0.T, F, DF, SOLVERS[solver], self._solver_params
+            )
+        elif mode == "parallel":
+            results, success, num_iter = parallel_solver(
+                X0.T, F, DF, SOLVERS[solver], self._solver_params
+            )
         end = time.time()
         minim_time = end - start
         logger.info(f"Flashed (elapsed time: {minim_time} (s)).")

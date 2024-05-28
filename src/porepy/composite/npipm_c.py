@@ -1,84 +1,17 @@
 """Module containing numba-compiled implementations of the NPIPM using the Newton
 algorithm and Armijo line search.
 
-To be used by the compiled flash."""
+To be used by the compiled flash for parallelized computations."""
 
 from __future__ import annotations
 
-from typing import Callable, Literal
+from typing import Callable
 
 import numba
 import numpy as np
-from numba.core import types as nbtypes
-from numba.typed import Dict as nbdict
 
 from ._core import NUMBA_CACHE
 from .utils_c import parse_xyz
-
-SOLVER_PARAMS = dict[
-    Literal[
-        "f_dim",
-        "num_phase",
-        "num_comp",
-        "tol",
-        "max_iter",
-        "rho",
-        "kappa",
-        "j_max",
-        "u1",
-        "u2",
-        "eta",
-    ],
-    float,
-]
-"""Type alias describing a parameter dictionary containing parameters which are required
-for the solution strategy in this module.
-
-- ``'f_dim'``: Int. Dimension of the flash system, including the NPIPM slack equation.
-- ``'num_phases'``: Int. Number of phases in fluid mixture.
-- ``'num_comps'``: Int. Number of components in fluid mixture.
-- ``'tol'``: Float. Tolerance for 2-norm of residual to be used as convergence criterion.
-- ``'max_iter'``: Int. Maximal number of Newton iterations.
-- ``'rho'``: ``(0, 1)``. First step size in Armijo line search.
-- ``'kappa'``: ``(0, 0.5)``. Slope of line for line search.
-- ``'j_max'``: Int. Maximal number of line search iterations.
-- ``'u1'``: Float. Penalty parameter for violation of complementarity in NPIPM.
-- ``'u2'``: Float. Penalty parameter for violation of non-negativity in NPIPM.
-- ``'eta'``: Float. Linear decline of NPIPM slack variable.
-
-"""
-
-
-def convert_param_dict(params: SOLVER_PARAMS) -> nbdict:
-    """Helper function to convert the parameter dictionary into a typed dict
-    recognizable by numba.
-
-    Key type: unicode type (string).
-    Value type: float64.
-
-    Raises:
-        KeyError: If any of the expected parameters is missing.
-
-    """
-
-    out = nbdict.empty(key_type=nbtypes.unicode_type, value_type=nbtypes.float64)
-
-    # NOTE Numba must have precise types, so integers are converted temporary to floats
-    # The solver then converts what is expected to be an integer to int format.
-    out["f_dim"] = float(params["f_dim"])
-    out["num_phase"] = float(params["num_phase"])
-    out["num_comp"] = float(params["num_comp"])
-    out["tol"] = float(params["tol"])
-    out["max_iter"] = float(params["max_iter"])
-    out["rho"] = float(params["rho"])
-    out["kappa"] = float(params["kappa"])
-    out["j_max"] = float(params["j_max"])
-    out["u1"] = float(params["u1"])
-    out["u2"] = float(params["u2"])
-    out["eta"] = float(params["eta"])
-
-    return out
-
 
 # region NPIPM related functions
 
@@ -88,7 +21,7 @@ def convert_param_dict(params: SOLVER_PARAMS) -> nbdict:
     fastmath=True,
     cache=True,
 )
-def slack_equation_res(
+def _slack_equation_res(
     v: np.ndarray, w: np.ndarray, nu: float, u1: float, u2: float, eta: float
 ) -> float:
     r"""Implementation of the residual of the slack equation for the non-parametric
@@ -145,7 +78,7 @@ def slack_equation_res(
     fastmath=True,
     cache=True,
 )
-def slack_equation_jac(
+def _slack_equation_jac(
     v: np.ndarray, w: np.ndarray, nu: float, u1: float, u2: float, eta: float
 ) -> float:
     """Implementation of the gradient of the slack equation for the non-parametric
@@ -193,11 +126,11 @@ def slack_equation_jac(
 
 
 @numba.njit(
-    "float64[:,:](float64[:,:],UniTuple(int32, 2))",
+    "float64(float64[:],UniTuple(int32, 2))",
     fastmath=True,
     cache=True,
 )
-def initialize_npipm_nu(X_gen: np.ndarray, npnc: tuple[int, int]) -> np.ndarray:
+def _initial_nu_for_npipm(X: np.ndarray, npnc: tuple[int, int]) -> float:
     """Computes an initial guess for the slack variable :math:`\\nu` in the NPIPM.
 
     Parameters:
@@ -207,32 +140,12 @@ def initialize_npipm_nu(X_gen: np.ndarray, npnc: tuple[int, int]) -> np.ndarray:
             2-tuple containing the number of phases and number of components
 
     Returns:
-        ``X_gen`` with the last column containing initial values of :math:`\\nu` based
-        on the fractional values found in ``X_gen``.
+        Initial value for :math:`\\nu` based on the fractional values found in ``X``.
 
     """
-    nphase, ncomp = npnc
-    nu = np.zeros(X_gen.shape[0])
-
-    # contribution from dependent phase
-    nu = (
-        1 - np.sum(X_gen[:, -(ncomp * nphase + nphase) : -(ncomp * nphase + 1)], axis=1)
-    ) * (
-        1
-        - np.sum(X_gen[:, -(ncomp * nphase + 1) : -(ncomp * (nphase - 1) + 1)], axis=1)
-    )
-
-    # contribution from independent phases
-    for j in range(nphase - 1):
-        y_j = X_gen[:, -(ncomp * nphase + nphase) + j]
-        x_j = X_gen[
-            :,
-            -(ncomp * (nphase - 1) + 1) : -(ncomp * (nphase - 1) + 1) + (j + 1) * ncomp,
-        ]
-        nu += y_j * (1 - np.sum(x_j, axis=1))
-
-    X_gen[:, -1] = nu / nphase
-    return X_gen
+    x, y, _ = parse_xyz(X, npnc)
+    nu = np.sum(y * (1 - np.sum(x, axis=1))) / npnc[0]
+    return nu
 
 
 @numba.njit(
@@ -267,7 +180,7 @@ def _npipm_extend_and_regularize_res(
 
     # NPIPM equation
     unity_j = 1.0 - np.sum(x, axis=1)
-    slack = slack_equation_res(y, unity_j, nu, u1, u2, eta)
+    slack = _slack_equation_res(y, unity_j, nu, u1, u2, eta)
 
     # NPIPM system has one equation more at end
     f_npipm = np.zeros(f_res.shape[0] + 1)
@@ -288,8 +201,7 @@ def _npipm_extend_and_regularize_res(
 
 
 @numba.njit(
-    "float64[:,:]"
-    + "(float64[:,:],float64[:],UniTuple(int32, 2),float64,float64,float64)",
+    "float64[:,:](float64[:,:],float64[:],UniTuple(int32, 2),float64,float64,float64)",
     fastmath=True,
     cache=NUMBA_CACHE,  # NOTE The cache is dependent on another function
 )
@@ -320,7 +232,7 @@ def _npipm_extend_and_regularize_jac(
     df_npipm[-(nphase + 1) : -1, -1] = np.ones(nphase) * (-1)
 
     unity_j = 1.0 - np.sum(x, axis=1)
-    d_slack = slack_equation_jac(y, unity_j, nu, u1, u2, eta)
+    d_slack = _slack_equation_jac(y, unity_j, nu, u1, u2, eta)
     # d slack has derivatives w.r.t. y_j and w_j
     # d w_j must be expanded since w_j = 1 - sum x_j
     # d y_0 must be expanded since reference phase is eliminated by unity
@@ -363,9 +275,8 @@ def _npipm_extend_and_regularize_jac(
 
 # endregion
 
-# TODO below solver methods need a static signature, once typing for functions as
+# TODO The solver method need a static signature, once typing for functions as
 # arguments is available in numba
-# region Methods related to the numerical solution strategy
 
 # @numba.njit("float64[:](float64[:])")
 # def _dummy_res(x: np.ndarray):
@@ -378,17 +289,7 @@ def _npipm_extend_and_regularize_jac(
 
 
 # _dummy_dict = nbdict.empty(key_type=nbtypes.unicode_type, value_type=nbtypes.float64)
-# _dummy_dict["f_dim"] = 5.0
-# _dummy_dict["num_phase"] = 2.0
-# _dummy_dict["num_comp"] = 2.0
-# _dummy_dict["tol"] = 1e-8
-# _dummy_dict["max_iter"] = 150.0
-# _dummy_dict["rho"] = 0.99
-# _dummy_dict["kappa"] = 0.4
-# _dummy_dict["j_max"] = 50.0
-# _dummy_dict["u1"] = 1.0
-# _dummy_dict["u2"] = 10.0
-# _dummy_dict["eta"] = 0.5
+# _dummy_dict["dummy"] = 0.0
 
 
 # @numba.njit(
@@ -396,91 +297,73 @@ def _npipm_extend_and_regularize_jac(
 #     #     numba.float64[:],
 #     #     numba.typeof(_dummy_res),
 #     #     numba.typeof(_dummy_jac),
-#     #     numba.int32,
-#     #     numba.types.UniTuple(numba.int32,2),
-#     #     numba.float64,
-#     #     numba.int32,
-#     #     numba.float64,
-#     #     numba.float64,
-#     #     numba.int32,
-#     #     numba.float64,
-#     #     numba.float64,
-#     #     numba.float64,
+#     #     numba.typeof(_dummy_dict),
 #     # ),
 #     # cache=True,
 # )
 @numba.njit
-def _solver(
-    X_0: np.ndarray,
+def solver(
+    X0: np.ndarray,
     F: Callable[[np.ndarray], np.ndarray],
     DF: Callable[[np.ndarray], np.ndarray],
-    f_dim: int,
-    npnc: tuple[int, int],
-    tol: float,
-    max_iter: int,
-    rho: float,
-    kappa: float,
-    j_max: int,
-    u1: float,
-    u2: float,
-    eta: float,
+    solver_params: dict,
 ) -> tuple[np.ndarray, int, int]:
     """Compiled Newton with Armijo line search and NPIPM regularization.
 
     Intended use is for the unified flash problem.
+    See :data:`~porepy.composite.flash_c.SOLVERS` for more information.
 
-    Parameters:
-        X_0: Initial guess.
-        F: Callable representing the residual. Must be callable with ``X0``.
-        DF: Callable representing the Jacobian. Must be callable with ``X0``.
-        F_dim: Dimension of system (number of equations and unknowns). Not necessarily
-            equal to length of ``X_0``, since flash system arguments contain parameters
-            such as state definitions.
-            The last ``F_dim`` elements of ``X_0`` are treated as variables, where as
-            the rest is left untouched.
-        tol: Residual tolerance as stopping criterion.
-        max_iter: Maximal number of iterations.
-        npnc: ``len=2``
+    The required parameters are:
 
-            2-tuple containing the number of phases and number of flashes in the flash
-            problem.
-        u1: See :func:`slack_equation_res`. Required for regularization.
-        rho_0: See :func:`Armijo_line_search`.
-        kappa: See :func:`Armijo_line_search`.
-        j_max: See :func:`Armijo_line_search`.
-
-    Returns:
-        A 3-tuple containing
-
-        1. the result of the Newton algorithm,
-        2. a success flag
-            - 0: success
-            - 1: max iter reached
-            - 2: failure in the evaluation of the residual
-            - 3: failure in the evaluation of the Jacobian
-            - 4: NAN or infty detected in update (aborted)
-        3. final number of performed iterations
-
-        If the success flag indicates failure, the last iterate state of the unknown
-        is returned.
+     - ``'f_dim'``: Dimension of system (number of equations and unknowns).
+        The last ``f_dim`` entries of the generic argument ``X0`` are assumed to
+        be the unknowns.
+    - ``'tol'``: Residual tolerance as stopping criterion.
+    - ``'max_iter'``: Maximal number of iterations.
+    - ``'npnc'``: 2-tuple containing the number of phases and components.
+    - ``'u1'``: See :func:`slack_equation_res`. Required for regularization.
+    - ``'rho_0'``: Initial step size for (Armijo) line search.
+    - ``'kappa'``: Slope for line search.
+    - ``'max_iter_armijo'``: Maximal number of iterations for line search.
 
     """
     # default return values
     num_iter = 0
     success = 1
 
-    X = X_0.copy()
-    DX = np.zeros_like(X_0)
+    # extracting solver parameters
+    f_dim = int(solver_params["f_dim"])
+    npnc = (int(solver_params["num_phase"]), int(solver_params["num_comp"]))
+    tol = float(solver_params["tol"])
+    max_iter = int(solver_params["max_iter"])
+    rho = float(solver_params["rho"])
+    kappa = float(solver_params["kappa"])
+    max_iter_armijo = int(solver_params["max_iter_armijo"])
+    u1 = float(solver_params["u1"])
+    u2 = float(solver_params["u2"])
+    eta = float(solver_params["eta"])
+    heavy_ball = int(solver_params["hbm"])
+
+    nu = _initial_nu_for_npipm(X0, npnc)
+
+    # numba does not support stacking with inhomogenous sequence of array and float
+    X = np.zeros(X0.shape[0] + 1)
+    X[:-1] = X0
+    X[-1] = nu
+    DX = np.zeros_like(X)
     DX_prev = DX.copy()
+
+    # complete system size including slack equation
+    matrix_rank = f_dim + 1
 
     try:
         f_i = _npipm_extend_and_regularize_res(F(X[:-1]), X, npnc, u1, u2, eta)
     except:
         return X, 2, num_iter
 
-    res_k = np.linalg.norm(f_i)
+    res_i = np.linalg.norm(f_i)
 
-    if res_k <= tol:
+    if res_i <= tol:
         success = 0  # root already found
     else:
         for _ in range(max_iter):
@@ -504,22 +387,21 @@ def _solver(
                 success = 4
                 break
 
-            dx = np.linalg.solve(df_i, -f_i)
+            # if np.linalg.matrix_rank(df_i) == matrix_rank:
+            #     DX[-matrix_rank:] = np.linalg.solve(df_i, -f_i)
+            # else:
+            #     DX[-matrix_rank:] = np.linalg.lstsq(df_i, -f_i)[0]
+            DX[-matrix_rank:] = np.linalg.solve(df_i, -f_i)
 
-            if np.any(np.isnan(dx)) or np.any(np.isinf(dx)):
+            if np.any(np.isnan(DX)) or np.any(np.isinf(DX)):
                 success = 4
                 break
-
-            # X contains also parameters (p, T, z_i, ...)
-            # exactly ncomp - 1 feed fractions and 2 state definitions (p-T, p-h, ...)
-            # for broadcasting insert solution into new vector
-            DX[-f_dim:] = dx
 
             # Armijo line search
             pot_i = np.sum(f_i * f_i) / 2.0
             rho_j = rho
 
-            for j in range(1, j_max + 1):
+            for j in range(1, max_iter_armijo + 1):
                 rho_j = rho**j
 
                 try:
@@ -535,157 +417,28 @@ def _solver(
                 if pot_i_j <= (1 - 2 * kappa * rho_j) * pot_i:
                     break
 
-            # heavy ball momentum descend (for cases where Armijo is small)
-            # weight -> 1, DX -> 0 as solution is approached
-            if rho_j < rho ** (j_max / 2):
-                # scale with previous update to avoid large over-shooting
-                delta_heavy = 1 / (1 + np.linalg.norm(DX_prev))
-            else:
-                delta_heavy = 0.0
-            X = X + rho_j * DX + delta_heavy * DX_prev
-            DX_prev = DX
+            X = X + rho_j * DX
+
+            if heavy_ball > 0:
+                # heavy ball momentum descend (for cases where Armijo is small)
+                # weight -> 1, DX -> 0 as solution is approached
+                if rho_j < rho ** (max_iter_armijo / 2):
+                    # scale with previous update to avoid large over-shooting
+                    delta_heavy = 1 / (1 + np.linalg.norm(DX_prev))
+                else:
+                    delta_heavy = 0.0
+                X = X + delta_heavy * DX_prev
+                DX_prev = DX
 
             try:
                 f_i = _npipm_extend_and_regularize_res(F(X[:-1]), X, npnc, u1, u2, eta)
-                res_k = np.linalg.norm(f_i)
+                res_i = np.linalg.norm(f_i)
             except:
                 success = 2
                 break
 
-            if res_k <= tol:
-                # if np.linalg.norm(f_i) / res_0 <= tol:
+            if res_i <= tol:
                 success = 0
                 break
 
-    return X, success, num_iter
-
-
-@numba.njit(
-    # numba.types.Tuple((numba.float64[:,:],numba.int32[:],numba.int32[:]))(
-    #     numba.float64[:,:],
-    #     numba.typeof(_dummy_res),
-    #     numba.typeof(_dummy_jac),
-    #     numba.typeof(_dummy_dict),
-    # ),
-    # cache=True,
-    parallel=True,
-)
-def parallel_solver(
-    X0: np.ndarray,
-    F: Callable[[np.ndarray], np.ndarray],
-    DF: Callable[[np.ndarray], np.ndarray],
-    solver_params: SOLVER_PARAMS,
-) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Parallel application of the NPIPM solver to vectorized input, assuming each row
-    in ``X0`` is a starting point to find a root of ``F``.
-
-    For an explanation of all parameters, see :func:`newton`.
-
-    Note:
-        ``X0`` can contain parameters for the evaluation of ``F``.
-        Therefore the dimension of the image of ``F`` must be defined by passing
-        ``'f_dim'`` in ``solver_params``.
-        I.e., ``len(F(X0[i])) == F_dim`` and ``DF(X0[i]).shape == (F_dim, F_dim)``.
-
-    Parameters:
-        X_0: Initial guess, including an initial value for the NPIPM slack variable in
-            the last column.
-        F: Callable representing the residual. Must be callable with ``X0[:-1]``.
-        DF: Callable representing the Jacobian. Must be callable with ``X0[:-1]``.
-        solver_paramers: All parameters required by this solver. For more information,
-            see the respective type.
-
-    Returns:
-        The results of the algorithm per row in ``X0``
-
-        Note however, that the returned results contain only the actual results,
-        not the whole, generic flash argument given in ``X0``.
-        More precisely, the first ``num_comp - 1 + 2`` elements per row are assumed to
-        contain flash specifications in terms of feed fractions and thermodynamic state.
-        Hence they are not duplicated and returned to safe memory.
-
-    """
-
-    # extracting solver parameters
-    f_dim = int(solver_params["f_dim"])
-    npnc = (int(solver_params["num_phase"]), int(solver_params["num_comp"]))
-    tol = float(solver_params["tol"])
-    max_iter = int(solver_params["max_iter"])
-    rho = float(solver_params["rho"])
-    kappa = float(solver_params["kappa"])
-    j_max = int(solver_params["j_max"])
-    u1 = float(solver_params["u1"])
-    u2 = float(solver_params["u2"])
-    eta = float(solver_params["eta"])
-
-    # alocating return values
-    N = X0.shape[0]
-    result = np.empty((N, f_dim))
-    num_iter = np.empty(N, dtype=np.int32)
-    converged = np.empty(N, dtype=np.int32)
-
-    for n in numba.prange(N):
-        res_i, conv_i, n_i = _solver(
-            X0[n], F, DF, f_dim, npnc, tol, max_iter, rho, kappa, j_max, u1, u2, eta
-        )
-        converged[n] = conv_i
-        num_iter[n] = n_i
-        result[n] = res_i[-f_dim:]
-
-    return result, converged, num_iter
-
-
-# @numba.njit(
-#     # numba.types.Tuple((numba.float64[:,:],numba.int32[:],numba.int32[:]))(
-#     #     numba.float64[:,:],
-#     #     numba.typeof(_dummy_res),
-#     #     numba.typeof(_dummy_jac),
-#     #     numba.typeof(_dummy_dict),
-#     # ),
-#     cache=True,
-# )
-@numba.njit
-def linear_solver(
-    X0: np.ndarray,
-    F: Callable[[np.ndarray], np.ndarray],
-    DF: Callable[[np.ndarray], np.ndarray],
-    solver_params: SOLVER_PARAMS,
-) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Does the same as :func:`parallel_solver`, only the loop over the rows of ``X0``
-    is not parallelized, but executed in a classical loop.
-
-    Intended use is for smaller amount of flash problems, where the parallelization
-    would produce a certain overhead in the initialization.
-
-    """
-
-    # extracting solver parameters
-    f_dim = int(solver_params["f_dim"])
-    npnc = (int(solver_params["num_phase"]), int(solver_params["num_comp"]))
-    tol = float(solver_params["tol"])
-    max_iter = int(solver_params["max_iter"])
-    rho = float(solver_params["rho"])
-    kappa = float(solver_params["kappa"])
-    j_max = int(solver_params["j_max"])
-    u1 = float(solver_params["u1"])
-    u2 = float(solver_params["u2"])
-    eta = float(solver_params["eta"])
-
-    # alocating return values
-    N = X0.shape[0]
-    result = np.empty((N, f_dim))
-    num_iter = np.empty(N, dtype=np.int32)
-    converged = np.empty(N, dtype=np.int32)
-
-    for n in range(N):
-        res_i, conv_i, n_i = _solver(
-            X0[n], F, DF, f_dim, npnc, tol, max_iter, rho, kappa, j_max, u1, u2, eta
-        )
-        converged[n] = conv_i
-        num_iter[n] = n_i
-        result[n] = res_i[-f_dim:]
-
-    return result, converged, num_iter
-
-
-# endregion
+    return X[:-1], success, num_iter

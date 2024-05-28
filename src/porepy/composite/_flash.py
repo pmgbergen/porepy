@@ -14,11 +14,10 @@ import pypardiso
 import scipy.sparse as sps
 
 import porepy as pp
-from porepy.numerics.ad.operator_functions import NumericType
 
 from ._core import R_IDEAL
 from .base import Mixture
-from .composite_utils import safe_sum, trunclog
+from .composite_utils import NumericType, safe_sum, trunclog
 from .peng_robinson._eos import PhaseProperties, ThermodynamicState
 
 __all__ = ["FlashSystemNR", "FlashNR"]
