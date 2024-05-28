@@ -124,6 +124,7 @@ The success flag should be one of the following values:
 - 2: failure in the evaluation of the residual
 - 3: failure in the evaluation of the Jacobian
 - 4: NAN or infty detected in update (aborted)
+- 5: Any other failure
 
 The returned result should contain the value of the last iterate
 (independent of success).
@@ -163,9 +164,9 @@ def parallel_solver(
 
     # alocating return values
     n = X0.shape[0]
-    result = np.empty_like(X0)
-    num_iter = np.empty(n, dtype=np.int32)
-    converged = np.empty(n, dtype=np.int32)
+    result = np.zeros_like(X0)
+    num_iter = np.zeros(n, dtype=np.int32)
+    converged = np.ones(n, dtype=np.int32) * 4
 
     for i in numba.prange(n):
         res_i, conv_i, n_i = solver(X0[i], F, DF, solver_params)
@@ -194,9 +195,9 @@ def linear_solver(
 
     # alocating return values
     n = X0.shape[0]
-    result = np.empty_like(X0)
-    num_iter = np.empty(n, dtype=np.int32)
-    converged = np.empty(n, dtype=np.int32)
+    result = np.zeros_like(X0)
+    num_iter = np.zeros(n, dtype=np.int32)
+    converged = np.ones(n, dtype=np.int32) * 5
 
     for i in range(n):
         res_i, conv_i, n_i = solver(X0[i], F, DF, solver_params)

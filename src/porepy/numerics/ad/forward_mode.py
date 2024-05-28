@@ -605,3 +605,39 @@ class AdArray:
         A = sps.diags(a)
 
         return self.jac * A
+
+    def __lt__(self, other: AdType) -> bool | np.ndarray:
+        if isinstance(other, AdArray):
+            return self.val < other.val
+        else:
+            return self.val < other
+
+    def __le__(self, other: AdType) -> bool | np.ndarray:
+        if isinstance(other, AdArray):
+            return self.val <= other.val
+        else:
+            return self.val <= other
+
+    def __gt__(self, other: AdType) -> bool | np.ndarray:
+        if isinstance(other, AdArray):
+            return self.val > other.val
+        else:
+            return self.val > other
+
+    def __ge__(self, other: AdType) -> bool | np.ndarray:
+        if isinstance(other, AdArray):
+            return self.val >= other.val
+        else:
+            return self.val >= other
+
+    def __eq__(self, other: AdType) -> bool | np.ndarray:
+        if isinstance(other, AdArray):
+            return self.val == other.val
+        else:
+            return self.val == other
+
+    def __neq__(self, other: AdType) -> bool | np.ndarray:
+        if isinstance(other, AdArray):
+            return self.val != other.val
+        else:
+            return self.val != other

@@ -387,11 +387,11 @@ def solver(
                 success = 4
                 break
 
-            # if np.linalg.matrix_rank(df_i) == matrix_rank:
-            #     DX[-matrix_rank:] = np.linalg.solve(df_i, -f_i)
-            # else:
-            #     DX[-matrix_rank:] = np.linalg.lstsq(df_i, -f_i)[0]
-            DX[-matrix_rank:] = np.linalg.solve(df_i, -f_i)
+            if np.linalg.matrix_rank(df_i) == matrix_rank:
+                DX[-matrix_rank:] = np.linalg.solve(df_i, -f_i)
+            else:
+                DX[-matrix_rank:] = np.linalg.lstsq(df_i, -f_i)[0]
+            # DX[-matrix_rank:] = np.linalg.solve(df_i, -f_i)
 
             if np.any(np.isnan(DX)) or np.any(np.isinf(DX)):
                 success = 4
