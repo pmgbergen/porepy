@@ -62,6 +62,7 @@ from __future__ import annotations
 import logging
 from typing import Any, Callable, Optional, Sequence
 
+import numba
 import numpy as np
 import sympy as sp
 
@@ -463,6 +464,31 @@ d_Z_three_i_e: list[sp.Expr] = [Z_three_i_e.diff(A_s), Z_three_i_e.diff(B_s)]
 # region Lambdified functions for roots depending on A and B
 
 
+@numba.njit(cache=True)
+def _select(condlist: list, choicelist: list, default=np.nan):
+    """Intermediate function for ``numpy.select`` reformating the input args, s.t. numba
+    can use its implementation of ``numpy.select``.
+
+    See also:
+
+        https://numba.readthedocs.io/en/0.59.1/reference/numpysupported.html
+
+    """
+    assert len(condlist) == len(choicelist) == 2, "Supported selection between two."
+    # cond_1 = np.array([condlist[0]], dtype=np.bool_)
+    # cond_2 = np.ones(1, dtype=np.bool_)
+    # choicelist_ = [np.array([c]) for c in choicelist]
+    # return np.select([cond_1, cond_2], choicelist_, default=default)[0]
+    if condlist[0]:
+        return choicelist[0]
+    elif condlist[1]:
+        return choicelist[1]
+    else:
+        raise ValueError(
+            f"No condition met in for\ncondtlist {condlist}\nchoicelist{choicelist}"
+        )
+
+
 Z_triple_f: Callable[[float, float], float] = sp.lambdify([A_s, B_s], Z_triple_e)
 d_Z_triple_f: Callable[[float, float], list[float]] = sp.lambdify(
     [A_s, B_s], d_Z_triple_e
@@ -482,7 +508,7 @@ d_Z_three_i_f: Callable[[float, float], list[float]] = sp.lambdify(
 )
 
 # because piecewise and to provide numeric evaluation of custom cubic root
-_module_one_root = [{"_cbrt": np.cbrt}, "math"]
+_module_one_root = [{"_cbrt": np.cbrt, "select": _select}, "numpy"]
 
 Z_one_f: Callable[[float, float], float] = sp.lambdify(
     [A_s, B_s], Z_one_e, modules=_module_one_root
@@ -492,7 +518,7 @@ d_Z_one_f: Callable[[float, float], list[float]] = sp.lambdify(
 )
 
 # because piece-wise
-_module_double_root = "math"
+_module_double_root = [{"select": _select}, "numpy"]
 
 Z_double_g_f: Callable[[float, float], float] = sp.lambdify(
     [A_s, B_s], Z_double_g_e, modules=_module_double_root
