@@ -91,9 +91,10 @@ def l2_norm(dim: int, var: pp.ad.AdArray) -> pp.ad.AdArray:
     """L2 norm of a vector variable.
 
     For the example of dim=3 components and n vectors, the ordering is assumed
-    to be ``[u0, v0, w0, u1, v1, w1, ..., un, vn, wn]``
+    to be ``[u0, v0, w0, u1, v1, w1, ..., un, vn, wn]``.
 
-    Vectors satisfying ui=vi=wi=0 are assigned zero entries in the jacobi matrix
+    Vectors satisfying ui=vi=wi=0 are assigned positive entries in the Jacobi
+    matrix.
 
     Note:
         See module level documentation on how to wrap functions like this in ad.Function.
@@ -306,9 +307,10 @@ class RegularizedHeaviside:
 def maximum(var_0: FloatType, var_1: FloatType) -> FloatType:
     """Ad maximum function represented as an AdArray.
 
-    The maximum function is defined as the element-wise maximum of two arrays. At
-    equality, the maximum is taken from the first argument. The order of the arguments
-    may be important, since it determines which Jacobian is used in the case of equality.
+    The maximum function is defined as the element-wise maximum of two arrays.
+    At equality, the Jacobian is taken from the first argument. The order of the
+    arguments may be important, since it determines which Jacobian is used in
+    the case of equality.
 
     The arguments can be either AdArrays or ndarrays, this duality is needed to allow
     for parsing of operators that can be taken at the current iteration (in which case
