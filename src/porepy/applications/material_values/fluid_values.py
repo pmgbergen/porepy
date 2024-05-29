@@ -51,7 +51,7 @@ extended_water_values_for_testing = {
     "compressibility": 4.559 * 1e-10,  # [Pa^-1], isentropic compressibility
     "density": 998.2,  # [kg m^-3]
     "normal_thermal_conductivity": 0.5975,  # [kg m^-3]
-    "pressure": 101.325,  # [Pa]
+    "pressure": 101325,  # [Pa]
     "specific_heat_capacity": 4182.0,  # [J kg^-1 K^-1], isochoric specific heat
     "temperature": 1.1,  # [K]
     "thermal_conductivity": 0.5975,  # [kg m^-3]
