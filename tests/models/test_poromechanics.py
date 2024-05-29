@@ -49,7 +49,7 @@ class NonzeroFractureGapPoromechanics:
         self.equation_system.set_variable_values(
             self.fluid.pressure() * np.ones(self.mdg.num_subdomain_cells()),
             [self.pressure_variable],
-            time_step_index=1,
+            time_step_index=0,
             iterate_index=0,
         )
         sd, sd_data = self.mdg.subdomains(return_data=True)[0]
@@ -61,7 +61,7 @@ class NonzeroFractureGapPoromechanics:
             self.equation_system.set_variable_values(
                 vals.ravel("F"),
                 [self.displacement_variable],
-                time_step_index=1,
+                time_step_index=0,
                 iterate_index=0,
             )
             # Find mortar cells on the top boundary
@@ -86,7 +86,7 @@ class NonzeroFractureGapPoromechanics:
             self.equation_system.set_variable_values(
                 vals.ravel("F"),
                 [self.interface_displacement_variable],
-                time_step_index=1,
+                time_step_index=0,
                 iterate_index=0,
             )
 
@@ -207,20 +207,20 @@ def get_variables(
     sd = setup.mdg.subdomains(dim=setup.nd)[0]
     u_var = setup.equation_system.get_variables([setup.displacement_variable], [sd])
     u_vals = setup.equation_system.get_variable_values(
-        variables=u_var, time_step_index=1
+        variables=u_var, time_step_index=0
     ).reshape(setup.nd, -1, order="F")
 
     p_var = setup.equation_system.get_variables(
         [setup.pressure_variable], setup.mdg.subdomains()
     )
     p_vals = setup.equation_system.get_variable_values(
-        variables=p_var, time_step_index=1
+        variables=p_var, time_step_index=0
     )
     p_var = setup.equation_system.get_variables(
         [setup.pressure_variable], setup.mdg.subdomains(dim=setup.nd - 1)
     )
     p_frac = setup.equation_system.get_variable_values(
-        variables=p_var, time_step_index=1
+        variables=p_var, time_step_index=0
     )
     # Fracture
     sd_frac = setup.mdg.subdomains(dim=setup.nd - 1)

@@ -569,22 +569,23 @@ class EquationSystem:
         index specified by the user. The global order is preserved and independent of
         the order of the argument.
 
+        See also:
+            :meth:`~porepy.numerics.ad._ad_utils.get_solution_values`.
+
         Parameters:
-            variables (optional): VariableType input for which the values are
-                requested. If None (default), the global vector of unknowns is returned.
-            time_step_index: Specified by user if they want to gather variable values
-                from a specific time-step. Value 0 provides the most recent time-step. A
-                value of 1 will give the values of one time-step back in time.
-            iterate_index: Specified by user if they want to gather a specific set of
-                iterate values. Similar to ``time_step_index``, value 0 is the
-                default value and gives the most recent iterate.
+            variables: ``default=None``
+
+                VariableType input for which the values are requested.
+                If None (default), the global vector of unknowns is returned.
+            time_step_index: Time step index for which the values should be fetched.
+            iterate_index: Iterate index for which the values should be fetched.
+
+        Raises:
+            ValueError: If unknown VariableType arguments are passed.
 
         Returns:
             The respective (sub) vector in numerical format, size anywhere between 0 and
                 :meth:`num_dofs`.
-
-        Raises:
-            ValueError: If unknown VariableType arguments are passed.
 
         """
         variables = self._parse_variable_type(variables)
@@ -638,15 +639,15 @@ class EquationSystem:
         Parameters:
             values: Vector of size corresponding to number of DOFs of the specified
                 variables.
-            variables (optional): VariableType input for which the values are
-                requested. If None (default), the global vector of unknowns will be
-                set.
-            time_step_index: Index of previous time step for which the values are
-                intended.
-            iterate_index: Iterate index for current time step for which the values are
-                intended.
-            additive (optional): Flag to write values additively. To be used in
-                iterative procedures.
+            variables: ``default=None``
+
+                VariableType input for which the values are prescribed.
+                If None (default), the global vector of unknowns will be set.
+            time_step_index: Time step index for which the values are intended.
+            iterate_index: Iterate index for which the values are intended.
+            additive: ``default=False``
+
+                Flag to write values additively. To be used in iterative procedures.
 
         Raises:
             ValueError: If unknown VariableType arguments are passed.
@@ -693,84 +694,41 @@ class EquationSystem:
     def shift_time_step_values(
         self,
         variables: Optional[VariableList] = None,
+        max_index: Optional[int] = None,
     ) -> None:
         """Method for shifting stored time step values in data sub-dictionary.
 
-        For details of the value shifting see the method :meth:`_shift_variable_values`.
+        For details of the value shifting see the method
+        :func:`~porepy.numerics.ad._ad_utils.shift_solution_values`.
 
         Parameters:
-            variables (optional): VariableType input for which the values are
-                requested. If None (default), the global vector of unknowns will
-                be shifted.
+            variables: ``default=None``
+
+                VariableType input for which the values should be shifted in time.
+                If None, all variables created by this system will be shifted.
+            max_index: ``default=None``
+
+                A positive integer, capping the range of the shift operation to
+                ``i -> max_index``.
+                If called repeatedly with ``None``, the depth in time keeps increasing.
 
         """
-        self._shift_variable_values(
-            location=pp.TIME_STEP_SOLUTIONS, variables=variables
-        )
+        for var in self._parse_variable_type(variables):
+            pp.shift_solution_values(
+                var.name, self._get_data(var.domain), pp.TIME_STEP_SOLUTIONS, max_index
+            )
 
     def shift_iterate_values(
         self,
         variables: Optional[VariableList] = None,
+        max_index: Optional[int] = None,
     ) -> None:
-        """Method for shifting stored iterate values in data sub-dictionary.
-
-        For details of the value shifting see the method :meth:`_shift_variable_values`.
-
-        Parameters:
-            variables (optional): VariableType input for which the values are
-                requested. If None (default), the global vector of unknowns will
-                be shifted.
-
-        """
-        self._shift_variable_values(location=pp.ITERATE_SOLUTIONS, variables=variables)
-
-    def _shift_variable_values(
-        self,
-        location: str,
-        variables: Optional[VariableList] = None,
-    ) -> None:
-        """Method for shifting values in data dictionary.
-
-        Time step and iterate values are stored with storage indices as keys in
-        the data dictionary for the subdomain or interface in question. For each
-        time-step/iteration, these values are shifted such that the most recent
-        variable value later can be placed at index 0. The previous
-        time-step/iterate values have their index incremented by one. Values
-        of key 0 is moved to key 1, values of key 1 is moved to key 2, and so
-        on. The value at the highest key is discarded.
-
-        Parameters:
-            location: Should be ``pp.TIME_STEP_SOLUTIONS`` or ``pp.ITERATE_SOLUTIONS``
-                depending on which one of solutions/iterates that are to be shifted.
-            variables (optional): VariableType input for which the values are
-                requested. If None (default), the global vector of unknowns will
-                be shifted.
-
-        Raises:
-            ValueError: If unknown VariableType arguments are passed.
-
-        """
-        # Looping through the variables and shifting the values
-        variables = self._parse_variable_type(variables)
-        for variable in variables:
-            name = variable.name
-            grid = variable.domain
-            data = self._get_data(grid=grid)
-
-            # Shift old values as requested.
-            num_stored = len(data[location][name])
-            if location == pp.ITERATE_SOLUTIONS:
-                range_ = range(num_stored - 1, 0, -1)
-            # previous time step values start with index 1.
-            # NOTE this functionality should be in _ad_utils, together with set and get
-            elif location == pp.TIME_STEP_SOLUTIONS:
-                range_ = range(num_stored, 1, -1)
-            else:
-                raise NotImplementedError(
-                    f"Shift values not implemented for location {location}"
-                )
-            for i in range_:
-                data[location][name][i] = data[location][name][i - 1].copy()
+        """Analogous to :meth:`shift_time_step_values`, but for iterates of the current
+        (unknown) time step."""
+        for var in self._parse_variable_type(variables):
+            pp.shift_solution_values(
+                var.name, self._get_data(var.domain), pp.ITERATE_SOLUTIONS, max_index
+            )
 
     def _get_data(
         self,
