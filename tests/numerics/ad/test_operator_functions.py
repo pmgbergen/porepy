@@ -41,7 +41,7 @@ def test_ad_function():
     vals = np.ones(mdg.num_subdomain_cells())
     eqsys.set_variable_values(vals, [var], iterate_index=0)
     eqsys.set_variable_values(vals * 2, [var], iterate_index=1)
-    eqsys.set_variable_values(vals * 10, [var], time_step_index=1)
+    eqsys.set_variable_values(vals * 10, [var], time_step_index=0)
 
     # test that the function without call with operator is inoperable
     for op in ['*', '/', '+', '-', '**', '@']:
@@ -52,14 +52,21 @@ def test_ad_function():
 
     F_var = F(var)
 
-    val = F_var.value_and_jacobian(eqsys)
+    val_ad = F_var.value_and_jacobian(eqsys)
     # test values at current time step
-    assert np.all(val.val == 1.)
-    assert np.all(val.jac.A == np.eye(mdg.num_subdomain_cells()))
+    assert np.all(val_ad.val == 1.)
+    assert np.all(val_ad.jac.A == np.eye(mdg.num_subdomain_cells()))
 
     # vals at previous iter and zero Jacobian
+    # previous iterate has the same values as the original operator, but no Jacobian
     F_var_pi = F_var.previous_iteration()
     val = F_var_pi.value_and_jacobian(eqsys)
+    assert np.all(val.val == val_ad.val)
+    assert np.all(val.jac.A == 0.)
+
+    # 1 iterate before has the respective values
+    F_var_pii = F_var_pi.previous_iteration()
+    val = F_var_pii.value_and_jacobian(eqsys)
     assert np.all(val.val == 2.)
     assert np.all(val.jac.A == 0.)
 
