@@ -200,25 +200,47 @@ def test_unit_conversion(units):
             :class:`~pp.models.material_constants.MaterialConstants`.
 
     """
+
+    class Model(EnergyBalanceTailoredBCs):
+        def bc_values_temperature(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+            """ """
+
+            sides = self.domain_boundary_sides(boundary_grid)
+            vals = np.zeros(boundary_grid.num_cells)
+            vals[sides.west] = self.fluid.convert_units(10.0, "K")
+            return vals
+
+        def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+            """ """
+
+            sides = self.domain_boundary_sides(boundary_grid)
+            vals = np.zeros(boundary_grid.num_cells)
+            vals[sides.west] = self.fluid.convert_units(1e4, "Pa")
+            return vals
+
     solid_vals = pp.solid_values.extended_granite_values_for_testing
     fluid_vals = pp.fluid_values.extended_water_values_for_testing
     solid = pp.SolidConstants(solid_vals)
     fluid = pp.FluidConstants(fluid_vals)
 
+    # Non-unitary time step needed for convergence
+    dt = 1e5
     params = {
         "times_to_export": [],
         "fracture_indices": [0, 1],
         "cartesian": True,
         "material_constants": {"solid": solid, "fluid": fluid},
+        "time_manager": pp.TimeManager(schedule=[0, dt], dt_init=dt, constant_dt=True),
     }
+
     # Create model and run simulation
     reference_params = copy.deepcopy(params)
     reference_params["file_name"] = "unit_conversion_reference"
-    reference_setup = EnergyBalanceTailoredBCs(reference_params)
+    reference_setup = Model(reference_params)
     pp.run_time_dependent_model(reference_setup, reference_params)
 
     params["units"] = pp.Units(**units)
-    setup = EnergyBalanceTailoredBCs(params)
+    setup = Model(params)
 
     pp.run_time_dependent_model(setup, params)
     variable_names = [
