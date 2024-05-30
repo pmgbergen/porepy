@@ -489,6 +489,10 @@ class SolutionStrategyCFLE(cf.SolutionStrategyCF, ppc.FlashMixin):
             self.equation_system.set_variable_values(
                 fluid.T, [self.temperature_variable], iterate_index=0
             )
+        if "h" not in self.equilibrium_type:
+            self.equation_system.set_variable_values(
+                fluid.h, [self.enthalpy_variable], iterate_index=0
+            )
         if "p" not in self.equilibrium_type:
             self.equation_system.set_variable_values(
                 fluid.p, [self.pressure_variable], iterate_index=0

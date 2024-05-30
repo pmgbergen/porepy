@@ -82,7 +82,15 @@ class CompiledFlash(ppc.FlashMixin):
         flash.compile()
 
         # NOTE There is place to configure the solver here
-        flash.armijo_parameters["max_iter"] = 30
+        flash.armijo_parameters["rho"] = 0.99
+        flash.armijo_parameters["kappa"] = 0.4
+        flash.armijo_parameters["max_iter"] = 50
+        flash.npipm_parameters["u1"] = 1.0
+        flash.npipm_parameters["u2"] = 10.0
+        flash.npipm_parameters["eta"] = 0.5
+        flash.initialization_parameters["N1"] = 3
+        flash.initialization_parameters["N2"] = 1
+        flash.initialization_parameters["N3"] = 5
         flash.tolerance = 1e-8
         flash.max_iter = 150
         flash.heavy_ball_momentum = False
@@ -133,6 +141,7 @@ class CompiledFlash(ppc.FlashMixin):
             )
             print("p: ", self.pressure(sds).value(self.equation_system)[failure])
             print("h: ", self.enthalpy(sds).value(self.equation_system)[failure])
+            print("T: ", self.temperature(sds).value(self.equation_system)[failure])
             # no initial guess, and this model uses only p-h flash.
             flash_kwargs = {
                 "z": [
@@ -140,15 +149,26 @@ class CompiledFlash(ppc.FlashMixin):
                     for comp in self.fluid_mixture.components
                 ],
                 "p": self.pressure(sds).value(self.equation_system)[failure],
-                "h": self.enthalpy(sds).value(self.equation_system)[failure],
                 "parameters": self.flash_params,
             }
 
+            if self.equilibrium_type == "p-h":
+                flash_kwargs["h"] = self.enthalpy(sds).value(self.equation_system)[
+                    failure
+                ]
+            elif self.equilibrium_type == "p-T":
+                flash_kwargs["T"] = self.temperature(sds).value(self.equation_system)[
+                    failure
+                ]
+
             sub_state, sub_success, _ = self.flash.flash(**flash_kwargs)
 
+            # treat max iter reached as success, and hope for the best in the PDE iter
+            sub_success[sub_success == 1] = 0
             # update parent state with sub state values
             success[failure] = sub_success
             fluid_state.T[failure] = sub_state.T
+            fluid_state.h[failure] = sub_state.h
 
             for j in range(len(fluid_state.phases)):
                 fluid_state.sat[j][failure] = sub_state.sat[j]

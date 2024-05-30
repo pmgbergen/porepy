@@ -10,7 +10,7 @@ from typing import Callable
 import numba
 import numpy as np
 
-from ._core import NUMBA_CACHE
+from ._core import NUMBA_CACHE, NUMBA_FAST_MATH
 from .utils_c import parse_xyz
 
 # region NPIPM related functions
@@ -18,7 +18,7 @@ from .utils_c import parse_xyz
 
 @numba.njit(
     "float64(float64[:],float64[:],float64,float64,float64,float64)",
-    fastmath=True,
+    fastmath=NUMBA_FAST_MATH,
     cache=True,
 )
 def _slack_equation_res(
@@ -75,7 +75,7 @@ def _slack_equation_res(
 
 @numba.njit(
     "float64[:](float64[:],float64[:],float64,float64,float64,float64)",
-    fastmath=True,
+    fastmath=NUMBA_FAST_MATH,
     cache=True,
 )
 def _slack_equation_jac(
@@ -127,7 +127,7 @@ def _slack_equation_jac(
 
 @numba.njit(
     "float64(float64[:],UniTuple(int32, 2))",
-    fastmath=True,
+    fastmath=NUMBA_FAST_MATH,
     cache=True,
 )
 def _initial_nu_for_npipm(X: np.ndarray, npnc: tuple[int, int]) -> float:
@@ -150,7 +150,7 @@ def _initial_nu_for_npipm(X: np.ndarray, npnc: tuple[int, int]) -> float:
 
 @numba.njit(
     "float64[:](float64[:],float64[:],UniTuple(int32, 2),float64,float64,float64)",
-    fastmath=True,
+    fastmath=NUMBA_FAST_MATH,
     cache=NUMBA_CACHE,  # NOTE The cache is dependent on another function
 )
 def _npipm_extend_and_regularize_res(
@@ -202,7 +202,7 @@ def _npipm_extend_and_regularize_res(
 
 @numba.njit(
     "float64[:,:](float64[:,:],float64[:],UniTuple(int32, 2),float64,float64,float64)",
-    fastmath=True,
+    fastmath=NUMBA_FAST_MATH,
     cache=NUMBA_CACHE,  # NOTE The cache is dependent on another function
 )
 def _npipm_extend_and_regularize_jac(
