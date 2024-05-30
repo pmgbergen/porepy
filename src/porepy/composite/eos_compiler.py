@@ -12,7 +12,7 @@ import numpy as np
 
 from .base import AbstractEoS, Component
 from .states import PhaseState
-from .utils_c import extend_fractional_derivatives, normalize_rows
+from .utils_c import normalize_rows
 
 __all__ = [
     "EoSCompiler",
@@ -170,7 +170,7 @@ class EoSCompiler(AbstractEoS):
 
     - fugacity coefficients
     - enthalpies
-    - volumes
+    - densities
     - the derivatives of above w.r.t. pressure, temperature and phase compositions
 
     Respective functions must be assembled and compiled by a child class with a specific
@@ -436,10 +436,10 @@ class EoSCompiler(AbstractEoS):
         pass
 
     @abc.abstractmethod
-    def get_volume_function(
+    def get_density_function(
         self,
     ) -> Callable[[np.ndarray, float, float, np.ndarray], float]:
-        """Abstract assembler for compiled computations of the specific molar volume.
+        """Abstract assembler for compiled computations of the density.
 
         Returns:
             A NJIT-ed function taking
@@ -449,17 +449,17 @@ class EoSCompiler(AbstractEoS):
             - temperature value,
             - an 1D-array of normalized fractions of components of a phase,
 
-            and returning a volume value.
+            and returning a density value.
 
         """
         pass
 
     @abc.abstractmethod
-    def get_dpTX_volume_function(
+    def get_dpTX_density_function(
         self,
     ) -> Callable[[np.ndarray, np.ndarray, float, float, np.ndarray], np.ndarray]:
         """Abstract assembler for compiled computations of the derivative of the
-        volume function for a phase.
+        density function for a phase.
 
         Returns:
             A NJIT-ed function taking
@@ -470,7 +470,7 @@ class EoSCompiler(AbstractEoS):
             - temperature value,
             - an 1D-array of normalized fractions of components of a phase,
 
-            and returning an array of derivatives of the volume with
+            and returning an array of derivatives of the density with
             ``shape=(2 + num_comp,)``., containing the derivatives w.r.t.
             pressure, temperature and fractions.
 
@@ -561,16 +561,16 @@ class EoSCompiler(AbstractEoS):
         """
         pass
 
-    def get_density_function(
+    def get_volume_function(
         self,
     ) -> Callable[[np.ndarray, float, float, np.ndarray], float]:
-        """Assembler for compiled computations of the specific molar density.
+        """Assembler for compiled computations of the specific molar volume.
 
-        The density is computed as the reciprocal of the return value of
-        :meth:`get_volume_function`.
+        The volume is computed as the reciprocal of the return value of
+        :meth:`get_density_function`.
 
         Note:
-            This function is compiled faster, if the volume function has already been
+            This function is compiled faster, if the density function has already been
             compiled and stored in :attr:`funcs`.
 
         Returns:
@@ -581,32 +581,36 @@ class EoSCompiler(AbstractEoS):
             - temperature value,
             - an 1D-array of normalized fractions of components of a phase,
 
-            and returning a volume value.
+            and returning a density value.
 
         """
-        v_c = self.funcs.get("v", None)
-        if v_c is None:
-            v_c = self.get_volume_function()
+        rho_c = self.funcs.get("rho", None)
+        if rho_c is None:
+            rho_c = self.get_density_function()
 
         @numba.njit("float64(float64[:],float64,float64,float64[:])")
-        def rho_c(prearg: np.ndarray, p: float, T: float, xn: np.ndarray) -> np.ndarray:
-            return 1.0 / v_c(prearg, p, T, xn)
+        def v_c(prearg: np.ndarray, p: float, T: float, xn: np.ndarray) -> np.ndarray:
+            rho = rho_c(prearg, p, T, xn)
+            if rho > 0.0:
+                return 1.0 / rho
+            else:
+                return 0.0
 
-        return rho_c
+        return v_c
 
-    def get_dpTX_density_function(
+    def get_dpTX_volume_function(
         self,
     ) -> Callable[[np.ndarray, np.ndarray, float, float, np.ndarray], np.ndarray]:
         """Assembler for compiled computations of the derivative of the
-        density function for a phase.
+        volume function for a phase.
 
-        Density is expressed as the reciprocal of volume.
-        Hence the computations utilize :meth:`get_volume_function`,
-        :meth:`get_dpTX_volume_function` and the chain-rule to compute the derivatives.
+        Volume is expressed as the reciprocal of density.
+        Hence the computations utilize :meth:`get_density_function`,
+        :meth:`get_dpTX_density_function` and the chain-rule to compute the derivatives.
 
         Note:
-            This function is compiled faster, if the volume function and its deritvative
-            have already been compiled and stored in :attr:`funcs`.
+            This function is compiled faster, if the density function and its
+            deritvative have already been compiled and stored in :attr:`funcs`.
 
         Returns:
             A NJIT-ed function taking
@@ -617,33 +621,36 @@ class EoSCompiler(AbstractEoS):
             - temperature value,
             - an 1D-array of normalized fractions of components of a phase,
 
-            and returning an array of derivatives of the density with
+            and returning an array of derivatives of the volume with
             ``shape=(2 + num_comp,)``., containing the derivatives w.r.t.
             pressure, temperature and fractions.
 
         """
-        v_c = self.funcs.get("v", None)
-        if v_c is None:
-            v_c = self.get_volume_function()
+        rho_c = self.funcs.get("rho", None)
+        if rho_c is None:
+            rho_c = self.get_density_function()
 
-        dv_c = self.funcs.get("d_v", None)
-        if dv_c is None:
-            dv_c = self.get_dpTX_volume_function()
+        drho_c = self.funcs.get("d_rho", None)
+        if drho_c is None:
+            drho_c = self.get_dpTX_density_function()
 
         @numba.njit("float64[:](float64[:],float64[:],float64,float64,float64[:])")
-        def drho_c(
+        def dv_c(
             prearg_res: np.ndarray,
             prearg_jac: np.ndarray,
             p: float,
             T: float,
             xn: np.ndarray,
         ) -> np.ndarray:
-            v = v_c(prearg_res, p, T, xn)
-            dv = dv_c(prearg_res, prearg_jac, p, T, xn)
-            # chain rule: drho = d(1 / v) = - 1 / v**2 * dv
-            return -dv / v**2
+            rho = rho_c(prearg_res, p, T, xn)
+            drho = drho_c(prearg_res, prearg_jac, p, T, xn)
+            if rho > 0.0:
+                # chain rule: drho = d(1 / v) = - 1 / v**2 * dv
+                return -drho / rho**2
+            else:
+                return np.zeros_like(drho)
 
-        return drho_c
+        return dv_c
 
     def compile(self) -> None:
         """Compiles vectorized functions for properties, depending on pre-arguments,
@@ -698,28 +705,28 @@ class EoSCompiler(AbstractEoS):
             self.funcs["d_h"] = d_h_c
         logger.debug("Compiling property functions 6/14")
 
-        v_c = self.funcs.get("v", None)
-        if v_c is None:
-            v_c = self.get_volume_function()
-            self.funcs["v"] = v_c
-        logger.debug("Compiling property functions 7/14")
-
-        d_v_c = self.funcs.get("d_v", None)
-        if d_v_c is None:
-            d_v_c = self.get_dpTX_volume_function()
-            self.funcs["d_v"] = d_v_c
-        logger.debug("Compiling property functions 8/14")
-
         rho_c = self.funcs.get("rho", None)
         if rho_c is None:
             rho_c = self.get_density_function()
             self.funcs["rho"] = rho_c
-        logger.debug("Compiling property functions 9/14")
+        logger.debug("Compiling property functions 7/14")
 
         d_rho_c = self.funcs.get("d_rho", None)
         if d_rho_c is None:
             d_rho_c = self.get_dpTX_density_function()
             self.funcs["d_rho"] = d_rho_c
+        logger.debug("Compiling property functions 8/14")
+
+        v_c = self.funcs.get("v", None)
+        if v_c is None:
+            v_c = self.get_volume_function()
+            self.funcs["v"] = v_c
+        logger.debug("Compiling property functions 9/14")
+
+        d_v_c = self.funcs.get("d_v", None)
+        if d_v_c is None:
+            d_v_c = self.get_dpTX_volume_function()
+            self.funcs["d_v"] = d_v_c
         logger.debug("Compiling property functions 10/14")
 
         mu_c = self.funcs.get("mu", None)
@@ -762,14 +769,16 @@ class EoSCompiler(AbstractEoS):
         logger.debug("Compiling vectorized functions 5/14")
         d_h_v = _compile_vectorized_property_derivatives(d_h_c)
         logger.debug("Compiling vectorized functions 6/14")
-        v_v = _compile_vectorized_property(v_c)
-        logger.debug("Compiling vectorized functions 7/14")
-        d_v_v = _compile_vectorized_property_derivatives(d_v_c)
-        logger.debug("Compiling vectorized functions 8/14")
+
         rho_v = _compile_vectorized_property(rho_c)
-        logger.debug("Compiling vectorized functions 9/14")
+        logger.debug("Compiling vectorized functions 7/14")
         d_rho_v = _compile_vectorized_property_derivatives(d_rho_c)
+        logger.debug("Compiling vectorized functions 8/14")
+        v_v = _compile_vectorized_property(v_c)
+        logger.debug("Compiling vectorized functions 9/14")
+        d_v_v = _compile_vectorized_property_derivatives(d_v_c)
         logger.debug("Compiling vectorized functions 10/14")
+
         mu_v = _compile_vectorized_property(mu_c)
         logger.debug("Compiling vectorized functions 11/14")
         d_mu_v = _compile_vectorized_property_derivatives(d_mu_c)
@@ -804,10 +813,14 @@ class EoSCompiler(AbstractEoS):
         phasetype: int,
         p: np.ndarray,
         T: np.ndarray,
-        x: Sequence[np.ndarray],
+        xn: Sequence[np.ndarray],
     ) -> PhaseState:
         """This method must only be called after the vectorized computations have been
         compiled (see :meth:`compile`).
+
+        Note:
+            The returned derivatives include derivatives w.r.t. (physical) partial
+            fractions, not extended fractions.
 
         Parameters:
             phasetype: Type of phase (passed to pre-arg computation).
@@ -817,13 +830,10 @@ class EoSCompiler(AbstractEoS):
             T: ``shape=(N,)``
 
                 Temperature values.
-            x: ``shape=(num_comp, N)``
+            xn: ``shape=(num_comp, N)``
 
-                Extended fractions per component (row-wise).
+                Partial fractions per component (row-wise).
                 They will be normalized before computing properties.
-
-                Derivatives of properties w.r.t. to normalized fractions will be
-                extended to derivatives w.r.t. to extended fractions.
 
         Returns:
             A complete datastructure containing values for thermodynamic phase
@@ -835,26 +845,24 @@ class EoSCompiler(AbstractEoS):
         """
 
         # normalization of fractions for computing properties
-        if not isinstance(x, np.ndarray):
-            x = np.array(x)
-        xn = normalize_rows(x.T).T
-
-        ncomp, _ = x.shape
+        if not isinstance(xn, np.ndarray):
+            xn = np.array(xn)
+        xn = normalize_rows(xn.T).T
 
         prearg_val = self.gufuncs["prearg_val"](phasetype, p, T, xn)
         prearg_jac = self.gufuncs["prearg_jac"](phasetype, p, T, xn)
 
         state = PhaseState(
             phasetype=phasetype,
-            x=x,
+            x=xn,
             h=self.gufuncs["h"](prearg_val, p, T, xn),
-            v=self.gufuncs["v"](prearg_val, p, T, xn),
+            rho=self.gufuncs["rho"](prearg_val, p, T, xn),
             # shape = (num_comp, num_vals), sequence per component
             phis=self.gufuncs["phi"](prearg_val, p, T, xn),
             # shape = (num_diffs, num_vals), sequence per derivative
             dh=self.gufuncs["d_h"](prearg_val, prearg_jac, p, T, xn),
             # shape = (num_diffs, num_vals), sequence per derivative
-            dv=self.gufuncs["d_v"](prearg_val, prearg_jac, p, T, xn),
+            drho=self.gufuncs["d_rho"](prearg_val, prearg_jac, p, T, xn),
             # shape = (num_comp, num_diffs, num_vals)
             dphis=self.gufuncs["d_phi"](prearg_val, prearg_jac, p, T, xn),
             mu=self.gufuncs["mu"](prearg_val, p, T, xn),
@@ -862,14 +870,5 @@ class EoSCompiler(AbstractEoS):
             kappa=self.gufuncs["kappa"](prearg_val, p, T, xn),
             dkappa=self.gufuncs["d_kappa"](prearg_val, prearg_jac, p, T, xn),
         )
-
-        # Extending derivatives to extended fractions
-        state.dh = extend_fractional_derivatives(state.dh, x)
-        state.dv = extend_fractional_derivatives(state.dv, x)
-        state.dmu = extend_fractional_derivatives(state.dmu, x)
-        state.dkappa = extend_fractional_derivatives(state.dkappa, x)
-        for i in range(ncomp):
-            # TODO check if this is indexed correctly
-            state.dphis[i] = extend_fractional_derivatives(state.dphis[i], x)
 
         return state

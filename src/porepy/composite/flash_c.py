@@ -30,7 +30,7 @@ import numpy as np
 from numba.core import types as nbtypes
 from numba.typed import Dict as nbdict
 
-from ._core import NUMBA_CACHE, R_IDEAL
+from ._core import NUMBA_CACHE, NUMBA_FAST_MATH, R_IDEAL
 from .base import Mixture
 from .composite_utils import safe_sum
 from .eos_compiler import EoSCompiler
@@ -211,7 +211,7 @@ def linear_solver(
 # region Helper methods
 
 
-@numba.njit("float64[:](float64[:],float64[:,:])", fastmath=True, cache=True)
+@numba.njit("float64[:](float64[:],float64[:,:])", fastmath=NUMBA_FAST_MATH, cache=True)
 def _rr_poles(y: np.ndarray, K: np.ndarray) -> np.ndarray:
     """
     Parameters:
@@ -230,7 +230,7 @@ def _rr_poles(y: np.ndarray, K: np.ndarray) -> np.ndarray:
     return 1 + (K.T - 1) @ y[1:]  # K-values given for each independent phase
 
 
-@numba.njit("float64(float64[:],float64[:])", fastmath=True, cache=True)
+@numba.njit("float64(float64[:],float64[:])", fastmath=NUMBA_FAST_MATH, cache=True)
 def _rr_binary_vle_inversion(z: np.ndarray, K: np.ndarray) -> float:
     """Inverts the Rachford-Rice equation for the binary 2-phase case.
 
@@ -320,7 +320,11 @@ def _convert_solver_parameters(params: SOLVER_PARAMETERS) -> nbdict:
 # region General flash equation independent of flash type and EoS
 
 
-@numba.njit("float64[:](float64[:,:],float64[:],float64[:])", fastmath=True, cache=True)
+@numba.njit(
+    "float64[:](float64[:,:],float64[:],float64[:])",
+    fastmath=NUMBA_FAST_MATH,
+    cache=True,
+)
 def mass_conservation_res(x: np.ndarray, y: np.ndarray, z: np.ndarray) -> np.ndarray:
     r"""Assembles the residual of the mass conservation equations.
 
@@ -361,7 +365,9 @@ def mass_conservation_res(x: np.ndarray, y: np.ndarray, z: np.ndarray) -> np.nda
     return (z - np.dot(y, x))[1:]
 
 
-@numba.njit("float64[:,:](float64[:,:],float64[:])", fastmath=True, cache=True)
+@numba.njit(
+    "float64[:,:](float64[:,:],float64[:])", fastmath=NUMBA_FAST_MATH, cache=True
+)
 def mass_conservation_jac(x: np.ndarray, y: np.ndarray) -> np.ndarray:
     """Returns the Jacobian of the residual described in
     :func:`mass_conservation_res`
@@ -399,7 +405,7 @@ def mass_conservation_jac(x: np.ndarray, y: np.ndarray) -> np.ndarray:
     return (-1) * jac
 
 
-@numba.njit("float64[:](float64[:,:],float64[:])", fastmath=True, cache=True)
+@numba.njit("float64[:](float64[:,:],float64[:])", fastmath=NUMBA_FAST_MATH, cache=True)
 def complementary_conditions_res(x: np.ndarray, y: np.ndarray) -> np.ndarray:
     r"""Assembles the residual of the complementary conditions.
 
@@ -433,7 +439,9 @@ def complementary_conditions_res(x: np.ndarray, y: np.ndarray) -> np.ndarray:
     return y * (1 - np.sum(x, axis=1))
 
 
-@numba.njit("float64[:,:](float64[:,:],float64[:])", fastmath=True, cache=True)
+@numba.njit(
+    "float64[:,:](float64[:,:],float64[:])", fastmath=NUMBA_FAST_MATH, cache=True
+)
 def complementary_conditions_jac(x: np.ndarray, y: np.ndarray) -> np.ndarray:
     """Returns the Jacobian of the residual described in
     :func:`complementary_conditions_res`
@@ -1243,10 +1251,10 @@ class CompiledUnifiedFlash(Flash):
             # derivatives w.r.t. fractions
             jac[ncomp - 1 : ncomp - 1 + ncomp * (nphase - 1), nphase:] = d_iso[:, 2:]
 
-            d_h_constr = h_constr_jac_c(prearg_res, prearg_jac, p, h, T, y, x, xn)
-
-            d_h_constr /= T**2
-            d_h_constr[1] += 2.0 / T**3 * h_constr_res_c(prearg_res, p, h, T, y, xn)
+            d_h_constr = (
+                h_constr_jac_c(prearg_res, prearg_jac, p, h, T, y, x, xn) / T**2
+            )
+            d_h_constr[1] -= 2.0 / T**3 * h_constr_res_c(prearg_res, p, h, T, y, xn)
             jac[-(nphase + 1)] = d_h_constr[1:]  # exclude dp
 
             return jac
@@ -1319,9 +1327,10 @@ class CompiledUnifiedFlash(Flash):
             ]
 
             # enthalpy constraint
-            d_h_constr = h_constr_jac_c(prearg_res, prearg_jac, p, h, T, y, x, xn)
-            d_h_constr /= T**2
-            d_h_constr[1] += 2.0 / T**3 * h_constr_res_c(prearg_res, p, h, T, y, xn)
+            d_h_constr = (
+                h_constr_jac_c(prearg_res, prearg_jac, p, h, T, y, x, xn) / T**2
+            )
+            d_h_constr[1] -= 2.0 / T**3 * h_constr_res_c(prearg_res, p, h, T, y, xn)
             jac[ncomp - 1 + ncomp * (nphase - 1), nphase - 1 :] = d_h_constr
 
             # volume constraint

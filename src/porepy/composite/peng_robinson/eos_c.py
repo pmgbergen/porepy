@@ -33,14 +33,16 @@ from __future__ import annotations
 
 import logging
 import time
+from dataclasses import dataclass, field
 from typing import Any, Callable
 
 import numba
 import numpy as np
-from numpy import ndarray
 
-from .._core import NUMBA_CACHE
+from .._core import NUMBA_CACHE, NUMBA_FAST_MATH
 from ..eos_compiler import EoSCompiler
+from ..states import PhaseState
+from ..utils_c import normalize_rows
 from .eos_s import (
     A_CRIT,
     B_CRIT,
@@ -80,7 +82,7 @@ logger = logging.getLogger(__name__)
 
 
 _STATIC_FAST_COMPILE_ARGS: dict[str, Any] = {
-    "fastmath": True,
+    "fastmath": NUMBA_FAST_MATH,
     "cache": NUMBA_CACHE,
 }
 
@@ -294,7 +296,7 @@ Returns:
 """
 
 
-@numba.njit("float64(float64)", cache=True, fastmath=True)
+@numba.njit("float64(float64)", cache=True, fastmath=NUMBA_FAST_MATH)
 def _widom_line(A: float) -> float:
     """Internal, scalar function for :func:`widom_line`."""
     return B_CRIT + 0.8 * 0.3381965009398633 * (A - A_CRIT)
@@ -334,7 +336,7 @@ Returns:
             numba.types.Array(numba.float64, 1, "C", readonly=False),
         ),
     ],
-    cache=True,  # NOTE no fastmath because of sqrt and abs for small numbers
+    cache=True,
 )
 def point_to_line_distance(p: np.ndarray, lp1: np.ndarray, lp2: np.ndarray) -> float:
     """Computes the distance between a 2-D point and a line spanned by two points.
@@ -417,45 +419,43 @@ See :data:`~porepy.composite.peng_robinson.eos.A_CRIT`.
 # see https://github.com/sympy/sympy/issues/18432
 # https://github.com/numba/numba/issues/5128
 def _compile_d_Z(
-    d_Z_: Callable[[float, float], list[float]], fastmath: bool = False
+    d_Z_: Callable[[float, float], list[float]]
 ) -> Callable[[float, float], np.ndarray]:
     """Helper function to wrap derivatives of compressibility factors into arrays.
 
     Parameters:
         d_Z_: Callable of derivative of root, dependent on two floats
             (cohesion and covolume).
-        fastmath: for numba (use only for simple expressions)
 
     Returns:
         NJIT-compiled function with signature ``(float64, float64) -> float64[:]``.
 
     """
     # make internal function, and external which wraps list into array
-    f = numba.njit(d_Z_, cache=False, fastmath=fastmath)
+    f = numba.njit(d_Z_, cache=False, fastmath=NUMBA_FAST_MATH)
 
-    @numba.njit("float64[:](float64, float64)", cache=False, fastmath=fastmath)
+    @numba.njit("float64[:](float64, float64)", cache=False, fastmath=NUMBA_FAST_MATH)
     def inner(a, b):
         return np.array(f(a, b), dtype=np.float64)
 
     return inner
 
 
-def _compile_Z(
-    Z_: Callable[[float, float], float], fastmath: bool = False
-) -> Callable[[float, float], float]:
+def _compile_Z(Z_: Callable[[float, float], float]) -> Callable[[float, float], float]:
     """Helper function to compile expressions representing compressibility factors as
     roots.
 
     Parameters:
         Z_: Callable for root calculation, dependent on two floats
             (cohesion and covolume).
-        fastmath: for numba (use only for simple expressions)
 
     Returns:
         NJIT-compiled function with signature ``(float64, float64) -> float64``.
 
     """
-    return numba.njit("float64(float64, float64)", cache=False, fastmath=fastmath)(Z_)
+    return numba.njit(
+        "float64(float64, float64)", cache=False, fastmath=NUMBA_FAST_MATH
+    )(Z_)
 
 
 logger.debug(f"{_import_msg} Compiling compressibility factors ..")
@@ -463,10 +463,8 @@ logger.debug(f"{_import_msg} Compiling compressibility factors ..")
 
 # Standard compressibility factors and their derivatives
 
-Z_triple_c: Callable[[float, float], float] = _compile_Z(Z_triple_f, fastmath=True)
-d_Z_triple_c: Callable[[float, float], np.ndarray] = _compile_d_Z(
-    d_Z_triple_f, fastmath=True
-)
+Z_triple_c: Callable[[float, float], float] = _compile_Z(Z_triple_f)
+d_Z_triple_c: Callable[[float, float], np.ndarray] = _compile_d_Z(d_Z_triple_f)
 
 Z_one_c: Callable[[float, float], float] = _compile_Z(Z_one_f)
 d_Z_one_c: Callable[[float, float], np.ndarray] = _compile_d_Z(d_Z_one_f)
@@ -486,7 +484,7 @@ d_Z_three_i_c: Callable[[float, float], np.ndarray] = _compile_d_Z(d_Z_three_i_f
 # extended compressibility factors and their derivatives
 
 
-@numba.njit("float64(float64,float64)", cache=True, fastmath=True)
+@numba.njit("float64(float64,float64)", cache=True, fastmath=NUMBA_FAST_MATH)
 def W_sub_c(Z: float, B: float) -> float:
     """Extended compressibility factor in the sub-critical area (Ben Gharbia 2021).
 
@@ -501,7 +499,7 @@ def W_sub_c(Z: float, B: float) -> float:
     return (1 - B - Z) * 0.5
 
 
-@numba.njit("float64[:](float64[:])", cache=True, fastmath=True)
+@numba.njit("float64[:](float64[:])", cache=True, fastmath=NUMBA_FAST_MATH)
 def d_W_sub_c(d_Z: np.ndarray) -> np.ndarray:
     """
     Parameters:
@@ -516,7 +514,7 @@ def d_W_sub_c(d_Z: np.ndarray) -> np.ndarray:
     return -0.5 * np.array([d_Z[0], 1 + d_Z[1]])
 
 
-@numba.njit("float64(float64,float64)", cache=True, fastmath=True)
+@numba.njit("float64(float64,float64)", cache=True, fastmath=NUMBA_FAST_MATH)
 def W_scl_c(Z: float, B: float) -> float:
     """Extended liquid-like compressibility factor in the super-critical region, where
     the gas-like phase is flagged as present.
@@ -533,7 +531,7 @@ def W_scl_c(Z: float, B: float) -> float:
     return Z + (B - Z) * 0.5
 
 
-@numba.njit("float64[:](float64[:])", cache=True, fastmath=True)
+@numba.njit("float64[:](float64[:])", cache=True, fastmath=NUMBA_FAST_MATH)
 def d_W_scl_c(d_Z: np.ndarray) -> np.ndarray:
     """
     Parameters:
@@ -548,7 +546,7 @@ def d_W_scl_c(d_Z: np.ndarray) -> np.ndarray:
     return 0.5 * np.array([d_Z[0], 1 + d_Z[1]])
 
 
-@numba.njit("float64(float64,float64)", cache=True, fastmath=True)
+@numba.njit("float64(float64,float64)", cache=True, fastmath=NUMBA_FAST_MATH)
 def W_scg_c(Z: float, B: float) -> float:
     """Extended gas-like compressibility factor in the super-critical region, where
     the liquid-like phase is flagged as present.
@@ -565,7 +563,7 @@ def W_scg_c(Z: float, B: float) -> float:
     return B + (1 - B - Z) * 0.5
 
 
-@numba.njit("float64[:](float64[:])", cache=True, fastmath=True)
+@numba.njit("float64[:](float64[:])", cache=True, fastmath=NUMBA_FAST_MATH)
 def d_W_scg_c(d_Z: np.ndarray) -> np.ndarray:
     """
     Parameters:
@@ -645,10 +643,133 @@ Returns:
 
 
 @numba.njit(
-    "float64(float64,float64,int8,float64,float64,float64)",
+    "float64(float64,float64,float64,float64)",
     cache=True,
 )
-def _Z_gen(
+def _gas_smoother(Z_L: float, Z_i: float, Z_G: float, s: float) -> float:
+    """Auxiliary function to compute the weight for convex-combination of gas root
+    and the average of gas and intermediate root in the physical 2-phase region."""
+
+    # proximity:
+    # If close to 1, intermediate root is close to gas root.
+    # If close to 0, intermediate root is close to liquid root.
+    # values bound by [0,1]
+    d = (Z_i - Z_L) / (Z_G - Z_L)
+
+    w = (d - (1 - 2 * s)) / s
+    w = w**2 * (3 - 2 * w)
+    if d >= 1 - s:
+        w = 1.0
+    elif d <= 1 - 2 * s:
+        w = 0.0
+
+    return w
+
+
+@numba.njit(
+    "float64(float64,float64,float64,float64)",
+    cache=True,
+)
+def _liq_smoother(Z_L: float, Z_i: float, Z_G: float, s: float) -> float:
+    """Auxiliary function to compute the weight for convex-combination of liquid root
+    and the average of liquid and intermediate root in the physical 2-phase region."""
+    # NOTE See gas smoother for explanation
+    d = (Z_i - Z_L) / (Z_G - Z_L)
+
+    w = (d - s) / s
+    w = -(w**2) * (3 - 2 * w) + 1.0
+    if d <= s:
+        w = 1.0
+    elif d >= 2 * s:
+        w = 0.0
+
+    return w
+
+
+@numba.njit(
+    [
+        "float64(float64,float64,float64,float64,float64,float64)",
+        "float64[:](float64[:],float64[:],float64[:],float64,float64,float64)",
+    ],
+    cache=True,
+)
+def _smooth_asymmetric_liq_extension(
+    W_scl: float | np.ndarray,
+    W_scg: float | np.ndarray,
+    W_sub: float | np.ndarray,
+    A: float,
+    B: float,
+    s: float,
+) -> float | np.ndarray:
+    """Resolves the representation of the asymetrically extended liquid-like root, or
+    its derivatives."""
+
+    AB_point = np.array([A, B])
+
+    W = W_scl  # use the assymetric extension by default
+
+    # computing distance to Widom-line,
+    # which separates gas and liquid in supercrit area
+    d = point_to_line_distance(
+        AB_point,
+        W_LINE_POINTS[0],
+        W_LINE_POINTS[1],
+    )
+    if d < s and B >= B_CRIT:
+        d_n = d / s
+        W = W_scg * (1 - d_n) + W * d_n
+
+    # Computing distance to supercritical line,
+    # which separates sub- and supercritical liquid extension
+    d = point_to_line_distance(
+        AB_point,
+        S_CRIT_LINE_POINTS[0],
+        S_CRIT_LINE_POINTS[1],
+    )
+    if d < s and B < B_CRIT:
+        d_n = d / s
+        W = W_sub * (1 - d_n) + W * d_n
+
+    return W
+
+
+@numba.njit(
+    [
+        "float64(float64,float64,float64,float64,float64)",
+        "float64[:](float64[:],float64[:],float64,float64,float64)",
+    ],
+    cache=True,
+)
+def _smooth_asymmetric_gas_extension(
+    W_scg: float | np.ndarray,
+    W_sub: float | np.ndarray,
+    A: float,
+    B: float,
+    s: float,
+) -> float | np.ndarray:
+    """Resolves the representation of the asymetrically extended gas-like root, or
+    its derivatives."""
+    AB_point = np.array([A, B])
+
+    W = W_scg  # use the assymetric extension by default
+
+    d = point_to_line_distance(
+        AB_point,
+        B_CRIT_LINE_POINTS[0],
+        B_CRIT_LINE_POINTS[1],
+    )
+    if d < s:
+        d_n = d / s
+        W = W_sub * (1 - d_n) + W * d_n
+
+    return W
+
+
+@numba.njit(
+    "float64(float64,float64,int8,float64,float64,float64)",
+    cache=NUMBA_CACHE,
+)
+def _Z_generic(
     A: float,
     B: float,
     gaslike: int,
@@ -657,147 +778,90 @@ def _Z_gen(
     smooth_3: float,
 ) -> float:
     """Internal, scalar function for :func:`compressibility_factor`."""
-    AB_point = np.array([A, B])
 
-    # super critical check
-    is_sc = B >= _critical_line(A)
-    # below widom -> gas-like root is extended
-    below_widom = B <= _widom_line(A)
     # determine number of roots
     nroot = _get_root_case(A, B, eps)
+    # sub critical area as defined by Ben Gharbia et al. (2021)
+    is_subcritical = (B < B_CRIT) and (B < _critical_line(A))
 
     if nroot == 1:
         Z_1_real = Z_one_c(A, B)
         # Extension procedure according Ben Gharbia et al.
-        # though we use the Widom-line to distinguis between roots, not their size
-        if not is_sc and B < B_CRIT:
+        if is_subcritical:
             W = W_sub_c(Z_1_real, B)
-            if below_widom:
-                return W if gaslike else Z_1_real
-            else:
-                return Z_1_real if gaslike else W
-        # Extension procedure with asymmetric extension of gas
-        elif below_widom and B >= B_CRIT:
+            # gas like roots are always given by the bigger one
             if gaslike:
-                W = W_scg_c(Z_1_real, B)
-
-                # computing distance to border to subcritical extension
-                # smooth if close
-                d = point_to_line_distance(
-                    AB_point,
-                    B_CRIT_LINE_POINTS[0],
-                    B_CRIT_LINE_POINTS[1],
-                )
-                if smooth_e > 0.0 and d < smooth_e:
-                    d_n = d / smooth_e
-                    W = W_sub_c(Z_1_real, B) * (1 - d_n) + W * d_n
-
-                return W
+                return W if W >= Z_1_real else Z_1_real
             else:
-                return Z_1_real
-        # Extension procedure with asymmetric extension of liquid
+                return W if W < Z_1_real else Z_1_real
+        # Asymetric extension in super-critical area
         else:
-            if gaslike:
-                return Z_1_real
+            # For asymetric extension in supercritical area:
+            # below widom -> gas-like root is extended
+            # NOTE TODO This holds only for water-like mixtures
+            if B < _widom_line(A):
+                if gaslike:
+                    W = W_scg_c(Z_1_real, B)
+
+                    if smooth_e > 0.0:
+                        W_sub = W_sub_c(Z_1_real, B)
+                        W = _smooth_asymmetric_gas_extension(W, W_sub, A, B, smooth_e)
+
+                    return W
+                else:
+                    return Z_1_real
             else:
-                W = W_scl_c(Z_1_real, B)
+                if gaslike:
+                    return Z_1_real
+                else:
+                    W = W_scl_c(Z_1_real, B)
 
-                # computing distance to Widom-line,
-                # which separates gas and liquid in supercrit area
-                d = point_to_line_distance(
-                    AB_point,
-                    W_LINE_POINTS[0],
-                    W_LINE_POINTS[1],
-                )
-                if smooth_e > 0.0 and d < smooth_e and B >= B_CRIT:
-                    d_n = d / smooth_e
-                    W = W_scg_c(Z_1_real, B) * (1 - d_n) + W * d_n
-
-                # Computing distance to supercritical line,
-                # which separates sub- and supercritical liquid extension
-                d = point_to_line_distance(
-                    AB_point,
-                    S_CRIT_LINE_POINTS[0],
-                    S_CRIT_LINE_POINTS[1],
-                )
-                if smooth_e > 0.0 and d < smooth_e and B < B_CRIT:
-                    d_n = d / smooth_e
-                    W = W_sub_c(Z_1_real, B) * (1 - d_n) + W * d_n
+                    if smooth_e > 0.0:
+                        W_scg = W_scg_c(Z_1_real, B)
+                        W_sub = W_sub_c(Z_1_real, B)
+                        W = _smooth_asymmetric_liq_extension(
+                            W, W_scg, W_sub, A, B, smooth_e
+                        )
 
                 return W
     elif nroot == 2:
-        if gaslike > 0:
-            return Z_double_g_c(A, B)
-        else:
-            return Z_double_l_c(A, B)
+        return Z_double_g_c(A, B) if gaslike else Z_double_l_c(A, B)
     elif nroot == 3:
-        # triple root area above the critical line is substituted with the
-        # extended supercritical liquid-like root
-        if is_sc:
-            Z_gas = Z_three_g_c(A, B)
-            if gaslike:
-                return Z_gas
-            else:
-                W = W_scl_c(Z_gas, B)
-
-                # computing distance to Widom-line,
-                # which separates gas and liquid in supercrit area
-                d = point_to_line_distance(
-                    AB_point,
-                    W_LINE_POINTS[0],
-                    W_LINE_POINTS[1],
-                )
-                if smooth_e > 0.0 and d < smooth_e and B >= B_CRIT:
-                    d_n = d / smooth_e
-                    W = W_scg_c(Z_gas, B) * (1 - d_n) + W * d_n
-
-                # Computing distance to supercritical line,
-                # which separates sub- and supercritical liquid extension
-                d = point_to_line_distance(
-                    AB_point,
-                    S_CRIT_LINE_POINTS[0],
-                    S_CRIT_LINE_POINTS[1],
-                )
-                if smooth_e > 0.0 and d < smooth_e and B < B_CRIT:
-                    d_n = d / smooth_e
-                    W = W_sub_c(Z_gas, B) * (1 - d_n) + W * d_n
-
-                return W
-        else:
+        # Physical 2-phase region with 3 roots fulfilling lower bound by B
+        if is_subcritical:
             # smoothing according Ben Gharbia et al., in physical 2-phase region
             if smooth_3 > 0.0:
                 Z_l = Z_three_l_c(A, B)
                 Z_i = Z_three_i_c(A, B)
                 Z_g = Z_three_g_c(A, B)
 
-                d = (Z_i - Z_l) / (Z_g - Z_l)
-
                 # gas root smoothing
                 if gaslike:
-                    # gas root smoothing weight
-                    v_g = (d - (1 - 2 * smooth_3)) / smooth_3
-                    v_g = v_g**2 * (3 - 2 * v_g)
-                    if d >= 1 - smooth_3:
-                        v_g = 1.0
-                    elif d <= 1 - 2 * smooth_3:
-                        v_g = 0.0
-
+                    v_g = _gas_smoother(Z_l, Z_i, Z_g, smooth_3)
                     return Z_g * (1 - v_g) + (Z_i + Z_g) * 0.5 * v_g
                 # liquid root smoothing
                 else:
-                    v_l = (d - smooth_3) / smooth_3
-                    v_l = -(v_l**2) * (3 - 2 * v_l) + 1.0
-                    if d <= smooth_3:
-                        v_l = 1.0
-                    elif d >= 2 * smooth_3:
-                        v_l = 0.0
-
+                    v_l = _liq_smoother(Z_l, Z_i, Z_g, smooth_3)
                     return Z_l * (1 - v_l) + (Z_i + Z_l) * 0.5 * v_l
             else:
-                if gaslike:
-                    return Z_three_g_c(A, B)
-                else:
-                    return Z_three_l_c(A, B)
+                return Z_three_g_c(A, B) if gaslike else Z_three_l_c(A, B)
+        # There is a super-critical region with 3 roots, where the liquid-like root
+        # violates the lower bound by B -> asymetric extension of liquid-like root
+        else:
+            Z_gas = Z_three_g_c(A, B)
+            if gaslike:
+                return Z_gas
+            else:
+                W = W_scl_c(Z_gas, B)
+
+                if smooth_e > 0.0:
+                    W_scg = W_scg_c(Z_gas, B)
+                    W_sub = W_sub_c(Z_gas, B)
+                    W = _smooth_asymmetric_liq_extension(
+                        W, W_scg, W_sub, A, B, smooth_e
+                    )
+
+                return W
     else:
         return Z_triple_c(A, B)
 
@@ -816,7 +880,7 @@ compressibility_factor = numba.vectorize(
     nopython=True,
     cache=True,
     target="parallel",
-)(_Z_gen)
+)(_Z_generic)
 """Root-case insensitive computation of the (extended) compressibility factor depending
 on A and B.
 
@@ -851,9 +915,9 @@ Returns:
 
 @numba.njit(
     "float64[:](float64,float64,int8,float64,float64,float64)",
-    cache=True,
+    cache=NUMBA_CACHE,
 )
-def _d_Z_gen(
+def _d_Z_generic(
     A: float,
     B: float,
     gaslike: int,
@@ -864,113 +928,60 @@ def _d_Z_gen(
     """Analogoues to :func:`_Z_gen`, only returns the derivatives of the compressibility
     factor w.r.t. ``A`` and ``B`` in an array."""
 
-    AB_point = np.array([A, B])
-
-    # super critical check
-    is_sc = B >= _critical_line(A)
-    # below widom -> gas-like root is extended
-    below_widom = B <= _widom_line(A)
     # determine number of roots
     nroot = _get_root_case(A, B, eps)
+    # sub critical area as defined by Ben Gharbia et al. (2021)
+    is_subcritical = (B < B_CRIT) and (B < _critical_line(A))
 
     if nroot == 1:
         d_Z_1_real = d_Z_one_c(A, B)
+        Z_1_real = Z_one_c(A, B)
         # Extension procedure according Ben Gharbia et al.
-        if not is_sc and B < B_CRIT:
+        if is_subcritical:
             d_W = d_W_sub_c(d_Z_1_real)
-            if below_widom:
-                return d_W if gaslike else d_Z_1_real
-
-            else:
-                return d_Z_1_real if gaslike else d_W
-        # Extension procedure with asymmetric extension of gas
-        elif below_widom and B >= B_CRIT:
+            W = W_sub_c(Z_1_real, B)
+            # gas like roots are always given by the bigger one
             if gaslike:
-                d_W = d_W_scg_c(d_Z_1_real)
-
-                # computing distance to border to subcritical extension
-                # smooth if close
-                d = point_to_line_distance(
-                    AB_point,
-                    B_CRIT_LINE_POINTS[0],
-                    B_CRIT_LINE_POINTS[1],
-                )
-                if smooth_e > 0.0 and d < smooth_e:
-                    d_n = d / smooth_e
-                    d_W = d_W_sub_c(d_Z_1_real) * (1 - d_n) + d_W * d_n
-
-                return d_W
+                return d_W if W >= Z_1_real else d_Z_1_real
             else:
-                return d_Z_1_real
-        # Extension procedure with asymmetric extension of liquid
+                return d_W if W < Z_1_real else d_Z_1_real
+        # Asymetric extension in super-critical area
         else:
-            if gaslike:
-                return d_Z_1_real
+            # For asymetric extension in supercritical area:
+            # below widom -> gas-like root is extended
+            # NOTE TODO This holds only for water-like mixtures
+            if B < _widom_line(A):
+                if gaslike:
+                    d_W = d_W_scg_c(d_Z_1_real)
+
+                    if smooth_e > 0.0:
+                        d_W_sub = d_W_sub_c(d_Z_1_real)
+                        d_W = _smooth_asymmetric_gas_extension(
+                            d_W, d_W_sub, A, B, smooth_e
+                        )
+
+                    return d_W
+                else:
+                    return d_Z_1_real
             else:
-                d_W = d_W_scl_c(d_Z_1_real)
+                if gaslike:
+                    return d_Z_1_real
+                else:
+                    d_W = d_W_scl_c(d_Z_1_real)
 
-                # computing distance to Widom-line,
-                # which separates gas and liquid in supercrit area
-                d = point_to_line_distance(
-                    AB_point,
-                    W_LINE_POINTS[0],
-                    W_LINE_POINTS[1],
-                )
-                if smooth_e > 0.0 and d < smooth_e and B >= B_CRIT:
-                    d_n = d / smooth_e
-                    d_W = d_W_scg_c(d_Z_1_real) * (1 - d_n) + d_W * d_n
+                    if smooth_e > 0.0:
+                        d_W_scg = d_W_scg_c(d_Z_1_real)
+                        d_W_sub = d_W_sub_c(d_Z_1_real)
+                        d_W = _smooth_asymmetric_liq_extension(
+                            d_W, d_W_scg, d_W_sub, A, B, smooth_e
+                        )
 
-                # Computing distance to supercritical line,
-                # which separates sub- and supercritical liquid extension
-                d = point_to_line_distance(
-                    AB_point,
-                    S_CRIT_LINE_POINTS[0],
-                    S_CRIT_LINE_POINTS[1],
-                )
-                if smooth_e > 0.0 and d < smooth_e and B < B_CRIT:
-                    d_n = d / smooth_e
-                    d_W = d_W_sub_c(d_Z_1_real) * (1 - d_n) + d_W * d_n
-
-                return d_W
+                    return d_W
     elif nroot == 2:
-        if gaslike:
-            return d_Z_double_g_c(A, B)
-        else:
-            return d_Z_double_l_c(A, B)
+        return d_Z_double_g_c(A, B) if gaslike else d_Z_double_l_c(A, B)
     elif nroot == 3:
-        # triple root area above the critical line is substituted with the
-        # extended supercritical liquid-like root
-        if is_sc:
-            d_Z_gas = d_Z_three_g_c(A, B)
-            if gaslike:
-                return d_Z_gas
-            else:
-                d_W = d_W_scl_c(d_Z_gas)
-
-                # computing distance to Widom-line,
-                # which separates gas and liquid in supercrit area
-                d = point_to_line_distance(
-                    AB_point,
-                    W_LINE_POINTS[0],
-                    W_LINE_POINTS[1],
-                )
-                if smooth_e > 0.0 and d < smooth_e and B >= B_CRIT:
-                    d_n = d / smooth_e
-                    d_W = d_W_scg_c(d_Z_gas) * (1 - d_n) + d_W * d_n
-
-                # Computing distance to supercritical line,
-                # which separates sub- and supercritical liquid extension
-                d = point_to_line_distance(
-                    AB_point,
-                    S_CRIT_LINE_POINTS[0],
-                    S_CRIT_LINE_POINTS[1],
-                )
-                if smooth_e > 0.0 and d < smooth_e and B < B_CRIT:
-                    d_n = d / smooth_e
-                    d_W = d_W_sub_c(d_Z_gas) * (1 - d_n) + d_W * d_n
-
-                return d_W
-        else:
+        # Physical 2-phase region with 3 roots fulfilling lower bound by B
+        if is_subcritical:
             # smoothing according Ben Gharbia et al., in physical 2-phase region
             if smooth_3 > 0.0:
                 Z_l = Z_three_l_c(A, B)
@@ -981,31 +992,33 @@ def _d_Z_gen(
                 d_Z_i = d_Z_three_i_c(A, B)
                 d_Z_g = d_Z_three_g_c(A, B)
 
-                d = (Z_i - Z_l) / (Z_g - Z_l)
-
                 # gas root smoothing
                 if gaslike:
-                    # gas root smoothing weight
-                    v_g = (d - (1 - 2 * smooth_3)) / smooth_3
-                    v_g = v_g**2 * (3 - 2 * v_g)
-                    if d >= 1 - smooth_3:
-                        v_g = 1.0
-                    elif d <= 1 - 2 * smooth_3:
-                        v_g = 0.0
-
+                    v_g = _gas_smoother(Z_l, Z_i, Z_g, smooth_3)
                     return d_Z_g * (1 - v_g) + (d_Z_i + d_Z_g) * 0.5 * v_g
                 # liquid root smoothing
                 else:
-                    v_l = (d - smooth_3) / smooth_3
-                    v_l = -(v_l**2) * (3 - 2 * v_l) + 1.0
-                    if d <= smooth_3:
-                        v_l = 1.0
-                    elif d >= 2 * smooth_3:
-                        v_l = 0.0
-
+                    v_l = _liq_smoother(Z_l, Z_i, Z_g, smooth_3)
                     return d_Z_l * (1 - v_l) + (d_Z_i + d_Z_l) * 0.5 * v_l
             else:
                 return d_Z_three_g_c(A, B) if gaslike else d_Z_three_l_c(A, B)
+        # There is a super-critical region with 3 roots, where the liquid-like root
+        # violates the lower bound by B -> asymetric extension of liquid-like root
+        else:
+            d_Z_gas = d_Z_three_g_c(A, B)
+            if gaslike:
+                return d_Z_gas
+            else:
+                d_W = d_W_scl_c(d_Z_gas)
+
+                if smooth_e > 0.0:
+                    d_W_scg = d_W_scg_c(d_Z_gas)
+                    d_W_sub = d_W_sub_c(d_Z_gas)
+                    d_W = _smooth_asymmetric_liq_extension(
+                        d_W, d_W_scg, d_W_sub, A, B, smooth_e
+                    )
+
+                return d_W
     else:
         return d_Z_triple_c(A, B)
 
@@ -1031,7 +1044,7 @@ def _d_Z_gen_gu(
     # dummy is required to get the dimension of of the derivative
     # per row in vectorized computations (m in layout arg to guvectorize)
     # https://stackoverflow.com/questions/66052723/bad-token-in-signature-with-numba-guvectorize
-    out[:] = _d_Z_gen(A, B, gaslike, eps, smooth_e, smooth_3)
+    out[:] = _d_Z_generic(A, B, gaslike, eps, smooth_e, smooth_3)
 
 
 def compressibility_factor_dAB(
@@ -1101,12 +1114,12 @@ def _compile_Z_mix(
         X: np.ndarray,
         gaslike: int,
         eps: float = 1e-14,
-        smooth_e: float = 1e-2,
-        smooth_3: float = 1e-3,
+        smooth_e: float = 0.0,
+        smooth_3: float = 0.0,
     ) -> float:
         A_ = A_c(p, T, X)
         B_ = B_c(p, T, X)
-        return _Z_gen(A_, B_, gaslike, eps, smooth_e, smooth_3)
+        return _Z_generic(A_, B_, gaslike, eps, smooth_e, smooth_3)
 
     return Z_mix
 
@@ -1151,14 +1164,14 @@ def _compile_d_Z_mix(
         X: np.ndarray,
         gaslike: int,
         eps: float = 1e-14,
-        smooth_e: float = 1e-2,
-        smooth_3: float = 1e-3,
+        smooth_e: float = 0.0,
+        smooth_3: float = 0.0,
     ) -> float:
         A_ = A_c(p, T, X)
         B_ = B_c(p, T, X)
         dA = d_A_c(p, T, X)
         dB = d_B_c(p, T, X)
-        dz = _d_Z_gen(A_, B_, gaslike, eps, smooth_e, smooth_3)
+        dz = _d_Z_generic(A_, B_, gaslike, eps, smooth_e, smooth_3)
         return dz[0] * dA + dz[1] * dB
 
     return d_Z_mix
@@ -1185,7 +1198,6 @@ def _compile_fugacities(
 
 def _compile_thd_function_derivatives(
     thd_df: Callable[[float, float, np.ndarray], list[float]],
-    fastmath: bool = False,
 ) -> Callable[[float, float, np.ndarray], np.ndarray]:
     """Helper function to compile the gradient of a thermodynamic function.
 
@@ -1198,11 +1210,11 @@ def _compile_thd_function_derivatives(
     It also enforces a signature ``(float64, float64, float64[:]) -> float64[:]``
 
     """
-    df = numba.njit(thd_df, fastmath=fastmath)
+    df = numba.njit(thd_df, fastmath=NUMBA_FAST_MATH)
 
     @numba.njit(
         "float64[:](float64, float64, float64[:])",
-        fastmath=fastmath,
+        fastmath=NUMBA_FAST_MATH,
     )
     def inner(p_, T_, X_):
         return np.array(df(p_, T_, X_), dtype=np.float64)
@@ -1249,7 +1261,7 @@ def _compile_volume_derivative(
     """
 
     dv_ = numba.njit(
-        fastmath=True,
+        fastmath=NUMBA_FAST_MATH,
     )(dv)
 
     @numba.njit("float64[:](float64,float64,float64)")
@@ -1257,6 +1269,48 @@ def _compile_volume_derivative(
         return np.array(dv_(p_, T_, Z_), dtype=np.float64)
 
     return inner
+
+
+@dataclass
+class PhaseStateCubic(PhaseState):
+    """Extended data class for cubic equations of state including the compressibility
+    factor, cohesion and covolume."""
+
+    Z: np.ndarray = field(default_factory=lambda: np.zeros(0))
+    """Compressibility factor."""
+
+    A: np.ndarray = field(default_factory=lambda: np.zeros(0))
+    """Dimensionless cohesion."""
+
+    B: np.ndarray = field(default_factory=lambda: np.zeros(0))
+    """Dimensionless co-volume."""
+
+    dZ: np.ndarray = field(default_factory=lambda: np.zeros((0, 0)))
+    """Derivative of compressibility factor with respect to pressure, temperature
+    and each ``x`` in :attr:`x`.
+
+    The derivatives are stored row-wise in a 2D array.
+    The length of ``dh`` is ``2 + len(x)``.
+
+    """
+
+    dA: np.ndarray = field(default_factory=lambda: np.zeros((0, 0)))
+    """Derivative of dimensionless cohesion factor with respect to pressure, temperature
+    and each ``x`` in :attr:`x`.
+
+    The derivatives are stored row-wise in a 2D array.
+    The length of ``dh`` is ``2 + len(x)``.
+
+    """
+
+    dB: np.ndarray = field(default_factory=lambda: np.zeros((0, 0)))
+    """Derivative of dimensionless co-volume factor with respect to pressure,
+    temperature and each ``x`` in :attr:`x`.
+
+    The derivatives are stored row-wise in a 2D array.
+    The length of ``dh`` is ``2 + len(x)``.
+
+    """
 
 
 class PengRobinsonCompiler(EoSCompiler):
@@ -1279,16 +1333,16 @@ class PengRobinsonCompiler(EoSCompiler):
 
         B_c = numba.njit(
             "float64(float64, float64, float64[:])",
-            fastmath=True,
+            fastmath=NUMBA_FAST_MATH,
         )(self.symbolic.B_f)
         logger.debug("Compiling symbolic functions 1/14")
-        d_B_c = _compile_thd_function_derivatives(self.symbolic.d_B_f, fastmath=True)
+        d_B_c = _compile_thd_function_derivatives(self.symbolic.d_B_f)
         logger.debug("Compiling symbolic functions 2/14")
+
         A_c = numba.njit(
             "float64(float64, float64, float64[:])",
         )(self.symbolic.A_f)
         logger.debug("Compiling symbolic functions 3/14")
-        # no fastmath because of sqrt
         d_A_c = _compile_thd_function_derivatives(self.symbolic.d_A_f)
         logger.debug("Compiling symbolic functions 4/14")
 
@@ -1317,12 +1371,12 @@ class PengRobinsonCompiler(EoSCompiler):
         d_h_ideal_c = _compile_thd_function_derivatives(self.symbolic.d_h_ideal_f)
         logger.debug("Compiling symbolic functions 12/14")
 
-        v_c = numba.njit(
+        rho_c = numba.njit(
             "float64(float64,float64,float64)",
-            fastmath=True,
-        )(self.symbolic.v_f)
+            fastmath=NUMBA_FAST_MATH,
+        )(self.symbolic.rho_f)
         logger.debug("Compiling symbolic functions 13/14")
-        d_v_c = _compile_volume_derivative(self.symbolic.d_v_f)
+        d_rho_c = _compile_volume_derivative(self.symbolic.d_rho_f)
         logger.debug("Compiling symbolic functions 14/14")
 
         self._cfuncs.update(
@@ -1339,8 +1393,8 @@ class PengRobinsonCompiler(EoSCompiler):
                 "h_ideal": h_ideal_c,
                 "d_h_dep": d_h_dep_c,
                 "d_h_ideal": d_h_ideal_c,
-                "v": v_c,
-                "d_v": d_v_c,
+                "rho": rho_c,
+                "d_rho": d_rho_c,
             }
         )
 
@@ -1481,45 +1535,45 @@ class PengRobinsonCompiler(EoSCompiler):
 
         return d_h_c
 
-    def get_volume_function(
+    def get_density_function(
         self,
     ) -> Callable[[np.ndarray, float, float, np.ndarray], float]:
-        v_c_ = self._cfuncs["v"]
+        rho_c_ = self._cfuncs["rho"]
 
         @numba.njit("float64(float64[:], float64, float64, float64[:])")
-        def v_c(prearg: np.ndarray, p: float, T: float, xn: np.ndarray) -> np.ndarray:
-            return v_c_(p, T, prearg[2])
+        def rho_c(prearg: np.ndarray, p: float, T: float, xn: np.ndarray) -> np.ndarray:
+            return rho_c_(p, T, prearg[2])
 
-        return v_c
+        return rho_c
 
-    def get_dpTX_volume_function(
+    def get_dpTX_density_function(
         self,
     ) -> Callable[[np.ndarray, np.ndarray, float, float, np.ndarray], np.ndarray]:
         d = 2 + self._nc
-        d_v_c_ = self._cfuncs["d_v"]
+        d_rho_c_ = self._cfuncs["d_rho"]
 
         @numba.njit("float64[:](float64[:], float64[:], float64, float64, float64[:])")
-        def d_v_c(
+        def d_rho_c(
             prearg_val: np.ndarray,
             prearg_jac: np.ndarray,
             p: float,
             T: float,
             xn: np.ndarray,
         ) -> np.ndarray:
-            d_v_ = d_v_c_(p, T, prearg_val[2])
+            d_rho_ = d_rho_c_(p, T, prearg_val[2])
             # derivatives of Z_j w.r.t. p, T, and X_j
             dZ = prearg_jac[2 * d : 3 * d]
             # expansion of derivatives (chain rule)
-            d_v = d_v_[-1] * dZ
-            d_v[:2] += d_v_[:2]  # contribution of p, T derivatives
-            return d_v
+            d_rho = d_rho_[-1] * dZ
+            d_rho[:2] += d_rho_[:2]  # contribution of p, T derivatives
+            return d_rho
 
-        return d_v_c
+        return d_rho_c
 
     # TODO need models for below functions
     def get_viscosity_function(
         self,
-    ) -> Callable[[ndarray, float, float, ndarray], float]:
+    ) -> Callable[[np.ndarray, float, float, np.ndarray], float]:
         @numba.njit("float64(float64[:], float64, float64, float64[:])")
         def mu_c(prearg: np.ndarray, p: float, T: float, xn: np.ndarray) -> np.ndarray:
             return 1.0
@@ -1528,7 +1582,7 @@ class PengRobinsonCompiler(EoSCompiler):
 
     def get_dpTX_viscosity_function(
         self,
-    ) -> Callable[[ndarray, float, float, ndarray], np.ndarray]:
+    ) -> Callable[[np.ndarray, float, float, np.ndarray], np.ndarray]:
         @numba.njit("float64[:](float64[:], float64[:], float64, float64, float64[:])")
         def dmu_c(
             prearg_val: np.ndarray,
@@ -1543,7 +1597,7 @@ class PengRobinsonCompiler(EoSCompiler):
 
     def get_conductivity_function(
         self,
-    ) -> Callable[[ndarray, float, float, ndarray], float]:
+    ) -> Callable[[np.ndarray, float, float, np.ndarray], float]:
         @numba.njit("float64(float64[:], float64, float64, float64[:])")
         def kappa_c(
             prearg: np.ndarray, p: float, T: float, xn: np.ndarray
@@ -1554,7 +1608,7 @@ class PengRobinsonCompiler(EoSCompiler):
 
     def get_dpTX_conductivity_function(
         self,
-    ) -> Callable[[ndarray, float, float, ndarray], np.ndarray]:
+    ) -> Callable[[np.ndarray, float, float, np.ndarray], np.ndarray]:
         @numba.njit("float64[:](float64[:], float64[:], float64, float64, float64[:])")
         def d_kappa_c(
             prearg_val: np.ndarray,
@@ -1566,6 +1620,63 @@ class PengRobinsonCompiler(EoSCompiler):
             return np.zeros(2 + xn.shape[0], dtype=np.float64)
 
         return d_kappa_c
+
+    def compute_phase_state(
+        self,
+        phasetype: int,
+        p: np.ndarray,
+        T: np.ndarray,
+        x: logging.Sequence[np.ndarray],
+    ) -> PhaseStateCubic:
+        """Computes and stores additional properties relevant for cubic EoS.
+
+        These include:
+
+        - Compressibility factor
+        - Dimensionless cohesion
+        - Dimensionless co-volume
+        - and their derivatives.
+
+        """
+        # NOTE we do not call super to avoid computing A, B, Z twice, since they are
+        # in the pre-arguments
+        if not isinstance(x, np.ndarray):
+            x = np.array(x)
+        xn = normalize_rows(x.T).T
+
+        d = 2 + self._nc
+
+        prearg_val = self.gufuncs["prearg_val"](phasetype, p, T, xn)
+        prearg_jac = self.gufuncs["prearg_jac"](phasetype, p, T, xn)
+
+        state = PhaseStateCubic(
+            phasetype=phasetype,
+            x=xn,
+            h=self.gufuncs["h"](prearg_val, p, T, xn),
+            rho=self.gufuncs["rho"](prearg_val, p, T, xn),
+            # shape = (num_comp, num_vals), sequence per component
+            phis=self.gufuncs["phi"](prearg_val, p, T, xn),
+            # shape = (num_diffs, num_vals), sequence per derivative
+            dh=self.gufuncs["d_h"](prearg_val, prearg_jac, p, T, xn),
+            # shape = (num_diffs, num_vals), sequence per derivative
+            drho=self.gufuncs["d_rho"](prearg_val, prearg_jac, p, T, xn),
+            # shape = (num_comp, num_diffs, num_vals)
+            dphis=self.gufuncs["d_phi"](prearg_val, prearg_jac, p, T, xn),
+            mu=self.gufuncs["mu"](prearg_val, p, T, xn),
+            dmu=self.gufuncs["d_mu"](prearg_val, prearg_jac, p, T, xn),
+            kappa=self.gufuncs["kappa"](prearg_val, p, T, xn),
+            dkappa=self.gufuncs["d_kappa"](prearg_val, prearg_jac, p, T, xn),
+        )
+
+        state.A = prearg_val[:, 0]
+        state.B = prearg_val[:, 1]
+        state.Z = prearg_val[:, 2]
+
+        state.dA = prearg_jac[:, :d].T
+        state.dB = prearg_jac[:, d : 2 * d].T
+        state.dZ = prearg_jac[:, 2 * d : 3 * d].T
+
+        return state
 
 
 logger.debug(

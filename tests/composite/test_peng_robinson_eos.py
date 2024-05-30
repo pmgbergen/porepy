@@ -150,10 +150,10 @@ def test_compressibility_factor_double_root():
 
     # The general calculation of the compressibility factor should give the
     # same result as the formulas
-    assert np.abs(ppcpr.eos_c._Z_gen(A, B, True, tol, 0.0, 0.0) - z_gas) < tol
-    assert np.abs(ppcpr.eos_c._Z_gen(A, B, False, tol, 0.0, 0.0) - z_liq) < tol
-    assert np.linalg.norm(ppcpr.eos_c._d_Z_gen(A, B, True, tol, 0.0, 0.0) - d_z_gas) < tol
-    assert np.linalg.norm(ppcpr.eos_c._d_Z_gen(A, B, False, tol, 0.0, 0.0) - d_z_liq) < tol
+    assert np.abs(ppcpr.eos_c._Z_generic(A, B, True, tol, 0.0, 0.0) - z_gas) < tol
+    assert np.abs(ppcpr.eos_c._Z_generic(A, B, False, tol, 0.0, 0.0) - z_liq) < tol
+    assert np.linalg.norm(ppcpr.eos_c._d_Z_generic(A, B, True, tol, 0.0, 0.0) - d_z_gas) < tol
+    assert np.linalg.norm(ppcpr.eos_c._d_Z_generic(A, B, False, tol, 0.0, 0.0) - d_z_liq) < tol
 
 
 def test_compressibility_factor_triple_root():
@@ -180,10 +180,10 @@ def test_compressibility_factor_triple_root():
     assert nroot == 0
 
     # Assert general compuations also give the same result, for liquid and gas-like
-    assert np.abs(ppcpr.eos_c._Z_gen(A, B, True, tol, 0.0, 0.0,) - z) < tol
-    assert np.abs(ppcpr.eos_c._Z_gen(A, B, False, tol, 0.0, 0.0,) - z) < tol
-    assert np.linalg.norm(ppcpr.eos_c._d_Z_gen(A, B, True, tol, 0.0, 0.0) - d_z) < tol
-    assert np.linalg.norm(ppcpr.eos_c._d_Z_gen(A, B, False, tol, 0.0, 0.0) - d_z) < tol
+    assert np.abs(ppcpr.eos_c._Z_generic(A, B, True, tol, 0.0, 0.0,) - z) < tol
+    assert np.abs(ppcpr.eos_c._Z_generic(A, B, False, tol, 0.0, 0.0,) - z) < tol
+    assert np.linalg.norm(ppcpr.eos_c._d_Z_generic(A, B, True, tol, 0.0, 0.0) - d_z) < tol
+    assert np.linalg.norm(ppcpr.eos_c._d_Z_generic(A, B, False, tol, 0.0, 0.0) - d_z) < tol
 
 
 def test_compressibility_factors_are_roots():

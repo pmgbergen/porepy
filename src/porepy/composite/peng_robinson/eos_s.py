@@ -466,8 +466,8 @@ d_Z_three_i_e: list[sp.Expr] = [Z_three_i_e.diff(A_s), Z_three_i_e.diff(B_s)]
 
 @numba.njit(cache=True)
 def _select(condlist: list, choicelist: list, default=np.nan):
-    """Intermediate function for ``numpy.select`` reformating the input args, s.t. numba
-    can use its implementation of ``numpy.select``.
+    """Intermediate function to replace the ``numpy.select`` for scalar condition and
+    choice input, because numba has a lot of issues resolving ``numpy.select``.
 
     See also:
 
@@ -475,18 +475,10 @@ def _select(condlist: list, choicelist: list, default=np.nan):
 
     """
     assert len(condlist) == len(choicelist) == 2, "Supported selection between two."
-    # cond_1 = np.array([condlist[0]], dtype=np.bool_)
-    # cond_2 = np.ones(1, dtype=np.bool_)
-    # choicelist_ = [np.array([c]) for c in choicelist]
-    # return np.select([cond_1, cond_2], choicelist_, default=default)[0]
     if condlist[0]:
         return choicelist[0]
-    elif condlist[1]:
-        return choicelist[1]
     else:
-        raise ValueError(
-            f"No condition met in for\ncondtlist {condlist}\nchoicelist{choicelist}"
-        )
+        return choicelist[1]
 
 
 Z_triple_f: Callable[[float, float], float] = sp.lambdify([A_s, B_s], Z_triple_e)
@@ -697,8 +689,8 @@ class PengRobinsonSymbolic:
         """Gradient of attr:`h_ideal_f` returning a list of floats of length
         ``2 + num_comp``."""
 
-        self.v_f: Callable[[float, float, float], float]
-        """Function evaluating the specific molar volume dependent on
+        self.rho_f: Callable[[float, float, float], float]
+        """Function evaluating the density dependent on
 
         1. pressure,
         2. temperature,
@@ -706,8 +698,8 @@ class PengRobinsonSymbolic:
 
         """
 
-        self.d_v_f: Callable[[float, float, float], list[float]]
-        """Gradient of :attr:`v_f` returning a list of floats of length ``3``."""
+        self.d_rho_f: Callable[[float, float, float], list[float]]
+        """Gradient of :attr:`rho_f` returning a list of floats of length ``3``."""
 
         # region coterms
 
@@ -843,18 +835,18 @@ class PengRobinsonSymbolic:
         self.d_h_ideal_f = sp.lambdify(self.thd_arg, d_h_ideal_e)
         # endregion
 
-        # region Volume
+        # region Density
 
-        v_e: sp.Expr = Z_s * self.T_s * R_IDEAL / self.p_s
-        """Symbolic expression for specific volume, depending on pressure, temperature
+        rho_e: sp.Expr = self.p_s / (Z_s * self.T_s * R_IDEAL)
+        """Symbolic expression for density, depending on pressure, temperature
         and compressibility factor."""
 
-        d_v_e: list[sp.Expr] = [v_e.diff(_) for _ in [self.p_s, self.T_s, Z_s]]
+        d_rho_e: list[sp.Expr] = [rho_e.diff(_) for _ in [self.p_s, self.T_s, Z_s]]
         """Symbolic gradient of specific volume, depending on pressure, temperature
         and compressibility factor."""
 
-        self.v_f = sp.lambdify([self.p_s, self.T_s, Z_s], v_e)
-        self.d_v_f = sp.lambdify([self.p_s, self.T_s, Z_s], d_v_e)
+        self.rho_f = sp.lambdify([self.p_s, self.T_s, Z_s], rho_e)
+        self.d_rho_f = sp.lambdify([self.p_s, self.T_s, Z_s], d_rho_e)
         # endregion
 
     def _compute_bips(
