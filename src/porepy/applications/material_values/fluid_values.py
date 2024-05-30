@@ -53,7 +53,7 @@ extended_water_values_for_testing = {
     "normal_thermal_conductivity": 0.5975,  # [kg m^-3]
     "pressure": 101325,  # [Pa]
     "specific_heat_capacity": 4182.0,  # [J kg^-1 K^-1], isochoric specific heat
-    "temperature": 1.1,  # [K]
+    "temperature": 293.15,  # [K]
     "thermal_conductivity": 0.5975,  # [kg m^-3]
     "thermal_expansion": 2.068e-4,  # [K^-1]
     "viscosity": 1.002e-3,  # [Pa s], absolute viscosity

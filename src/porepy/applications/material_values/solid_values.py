@@ -188,6 +188,6 @@ extended_granite_values_for_testing = {
     "normal_permeability": 5.0e-15,  # [m^2]
     "residual_aperture": 0.1,  # [m]
     "skin_factor": 37,  # [-]
-    "temperature": 1.1,  # [K]
+    "temperature": 293.15,  # [K]
     "well_radius": 0.1,  # [m]
 }
