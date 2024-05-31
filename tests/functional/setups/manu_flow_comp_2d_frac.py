@@ -661,8 +661,7 @@ class ManuCompBalanceEquation(pp.fluid_mass_balance.MassBalanceEquations):
         external_sources = pp.ad.TimeDependentDenseArray(
             name="external_sources",
             domains=self.mdg.subdomains(),
-            previous_timestep=True,
-        )
+        ).previous_timestep()
 
         # Add-up contribution
         fluid_source = internal_sources + external_sources
