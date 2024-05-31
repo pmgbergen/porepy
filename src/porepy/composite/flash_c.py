@@ -603,7 +603,7 @@ class CompiledUnifiedFlash(Flash):
             "N1": 3,
             "N2": 1,
             "N3": 5,
-            "eps": 1e-3,
+            "eps": self.tolerance,
         }
         """Numbers of iterations for initialization procedures and other configurations
 
@@ -955,12 +955,12 @@ class CompiledUnifiedFlash(Flash):
 
             """
 
-            h_constr_res = h
+            h_mix = np.empty(nphase)
             for j in range(xn.shape[0]):
-                h_constr_res -= y[j] * h_c(prearg[j], p, T, xn[j])
+                h_mix[j] = h_c(prearg[j], p, T, xn[j])
 
-            # for better conditioning, normalize enthalpy constraint
-            h_constr_res /= h
+            # normalized enthalpy constraint
+            h_constr_res = (y * h_mix).sum() / h - 1
 
             return h_constr_res
 
@@ -1013,9 +1013,6 @@ class CompiledUnifiedFlash(Flash):
                     2 + nphase - 1 + j * ncomp : 2 + nphase - 1 + (j + 1) * ncomp
                 ] = (y[j] * d_h_j[2:])
 
-            # constraints is h_target - h_mix
-            h_constr_jac *= -1.0
-
             # for better conditioning
             h_constr_jac /= h
 
@@ -1048,7 +1045,7 @@ class CompiledUnifiedFlash(Flash):
             # volume constraint
             res[0] = v * rho_mix - 1
             # nphase - 1 phase fraction relations
-            res[1:] = (y - sat * rho_j / rho_mix)[1:]
+            res[1:] = (sat * rho_j / rho_mix - y)[1:]
 
             return res
 
@@ -1107,20 +1104,20 @@ class CompiledUnifiedFlash(Flash):
                 outer_j = -rho_j[j] / rho_mix**2
 
                 # derivatives of phase fraction relations for each independent phase.
-                # y_j - sat_j * rho_j / (sum_i s_i * rho_i)
+                # sat_j * rho_j / (sum_i s_i * rho_i) - y_j
                 # First, derivatives w.r.t. saturations
                 # With s_0 = 1 - sum_(i > 0) s_i it holds for k > 0
                 # ds_k (s_j rho_j / (sum_i s_i * rho_i)) =
-                # delta_kj * rho_j / (sum_i s_i * rho_i)
-                # + s_j * (- rho_j / (sum_i s_i * rho_i)^2 * (rho_k - rho_0))
+                # s_j * (- rho_j / (sum_i s_i * rho_i)^2 * (rho_k - rho_0))
                 jac[j, : nphase - 1] = sat[j] * outer_j * (rho_j[1:] - rho_j[0])
+                # + delta_kj * rho_j / (sum_i s_i * rho_i) with delta_kj = ds_k s_j
                 jac[j, j - 1] += rho_j[j] / rho_mix
 
                 # derivatives of phase fraction relations w.r.t. p, T
                 # With s_0 = 1 - sum_(i > 0) s_i and rho_mix = sum_i s_i * rho_i
                 # dpt (rho_j(p, T) / rho_mix) =
                 # dpt(rho_j(p,T)) / rho_mix
-                # + rho_j * (-1 / rho_mix^2 * dpt(rho_mix))
+                # - rho_j / (sum_i s_i * rho_i)^2 * dpt(rho_mix)
                 jac[j, nphase - 1 : nphase + 1] = sat[j] * (
                     d_rho_j[j, :2] / rho_mix + outer_j * dpT_rho_mix
                 )
@@ -1144,10 +1141,9 @@ class CompiledUnifiedFlash(Flash):
             # volume constraint is scaled with target volume
             jac[0] *= v
 
-            # multiply fraction relations with -1 because y_j (-) s_j rho_j / rho_mix
-            jac[1:] *= -1
             # derivatives of phase fraction relations w.r.t. independent y_j
-            jac[1:, nphase + 1 : 2 * nphase] = np.eye(nphase - 1)
+            # - because s_j rho_j / rho_mix - y_j = 0
+            jac[1:, nphase + 1 : 2 * nphase] = -np.eye(nphase - 1)
 
             return jac
 
