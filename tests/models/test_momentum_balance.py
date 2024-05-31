@@ -123,8 +123,7 @@ def test_unit_conversion(units, uy_north):
         uy_north (float): Value of displacement on the north boundary.
 
     """
-    solid_vals = pp.solid_values.extended_granite_values_for_testing
-    solid = pp.SolidConstants(solid_vals)
+    solid = pp.SolidConstants(pp.solid_values.extended_granite_values_for_testing)
 
     params = {
         "times_to_export": [],  # Suppress output for tests
@@ -132,11 +131,9 @@ def test_unit_conversion(units, uy_north):
         "cartesian": True,
         "uy_north": uy_north,
         "material_constants": {"solid": solid},
-        "max_iterations": 20,
     }
     reference_params = copy.deepcopy(params)
-    # Sjekk de andre testene med water og granitt.
-    # Create model and run simulation
+    # Create model and run simulation.
     setup_0 = LinearModel(reference_params)
     pp.run_time_dependent_model(setup_0, reference_params)
 

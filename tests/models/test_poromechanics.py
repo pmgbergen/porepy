@@ -485,7 +485,7 @@ def test_unit_conversion(units):
         "times_to_export": [],  # Suppress output for tests
         "num_fracs": 1,
         "cartesian": True,
-        "uy_north": 0.1,
+        "uy_north": 1e-5,
         "material_constants": {"solid": solid, "fluid": fluid},
     }
     reference_params = copy.deepcopy(params)
