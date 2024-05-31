@@ -74,6 +74,7 @@ __all__ = [
     "is_real_root",
     "compressibility_factor",
     "compressibility_factor_dAB",
+    "PhaseStateCubic",
     "PengRobinsonCompiler",
 ]
 
