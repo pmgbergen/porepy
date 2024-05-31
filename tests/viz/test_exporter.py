@@ -191,7 +191,8 @@ def test_import_state_from_vtu_single_subdomains(
     # Import data
     save.import_state_from_vtu(
         vtu_files=f"{subdomain.ref_vtu_file}",
-        keys=keys + keys_pts,
+        keys=keys,
+        keys_pts=keys_pts,
         automatic=False,
         dims=sd.dim,
     )
@@ -434,7 +435,8 @@ def test_import_state_from_vtu_mdg(setup: ExporterTestSetup, addendum: str):
             Path(f"{setup.folder_reference}/mdg_{addendum}grid_1.vtu"),
             Path(f"{setup.folder_reference}/mdg_{addendum}grid_mortar_1.vtu"),
         ],
-        keys=keys + keys_pt,
+        keys=keys,
+        keys_pt=keys_pt,
     )
 
     # Perform comparison on vtu level (seems the easiest as it only involves a

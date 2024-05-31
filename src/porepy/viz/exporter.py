@@ -313,6 +313,7 @@ class Exporter:
         self,
         vtu_files: Union[Path, list[Path]],
         keys: Optional[Union[str, list[str]]] = None,
+        keys_pt: Optional[Union[str, list[str]]] = None,
         **kwargs,
     ) -> None:
         """Import state variables from vtu file. It is assumed that the vtu file was
@@ -324,6 +325,7 @@ class Exporter:
             keys: keywords addressing cell data to be transferred. If 'None', the
                 mixed-dimensional grid is checked for keywords corresponding to primary
                 variables identified through pp.TIME_STEP_SOLUTIONS.
+            keys_pt: keywords addressing point data to be transferred.
 
             kwargs:
                 automatic: boolean flag controlling whether dimensionality of the grids
@@ -478,6 +480,42 @@ class Exporter:
             # Make keys unique
             unique_keys = list(set(_keys))
 
+            def _save_to_mdg(
+                key: str,
+                value: np.ndarray,
+                num_entities: Literal["num_cells", "num_nodes"],
+            ) -> None:
+                # Chop data in pieces compatible with the subdomains and interfaces
+                offset = 0
+                if is_subdomain_data:
+                    for sd, sd_data in self._mdg.subdomains(dim=dim, return_data=True):
+                        num_dofs = getattr(sd, num_entities)
+                        values = _from_vector_format(
+                            value[offset : offset + num_dofs], num_dofs
+                        )
+                        pp.set_solution_values(
+                            name=key, values=values, data=sd_data, time_step_index=0
+                        )
+
+                        offset += num_dofs
+
+                else:
+                    for intf, intf_data in self._mdg.interfaces(
+                        dim=dim, return_data=True, codim=1
+                    ):
+                        num_dofs = getattr(intf, num_entities)
+                        values = _from_vector_format(
+                            value[offset : offset + num_dofs], num_dofs
+                        )
+                        pp.set_solution_values(
+                            name=key,
+                            values=values,
+                            data=intf_data,
+                            time_step_index=0,
+                        )
+
+                        offset += num_dofs
+
             # 4th step: Transfer data. Consider each key separately.
             for key in unique_keys:
                 # Only continue if the key is present in the data
@@ -487,70 +525,13 @@ class Exporter:
                     # grids). Accumulate the data again, assuming the same
                     # dimensionality in each cell.
                     value = np.concatenate(tuple(vtu_data.cell_data[key]), axis=0)
+                    _save_to_mdg(key, value, "num_cells")
 
-                    # Chop data in pieces compatible with the subdomains and interfaces
-                    offset = 0
-                    if is_subdomain_data:
-                        for sd, sd_data in self._mdg.subdomains(
-                            dim=dim, return_data=True
-                        ):
-                            values = _from_vector_format(
-                                value[offset : offset + sd.num_cells], sd.num_cells
-                            )
-                            pp.set_solution_values(
-                                name=key, values=values, data=sd_data, time_step_index=0
-                            )
-
-                            offset += sd.num_cells
-
-                    else:
-                        for intf, intf_data in self._mdg.interfaces(
-                            dim=dim, return_data=True, codim=1
-                        ):
-                            values = _from_vector_format(
-                                value[offset : offset + intf.num_cells], intf.num_cells
-                            )
-                            pp.set_solution_values(
-                                name=key,
-                                values=values,
-                                data=intf_data,
-                                time_step_index=0,
-                            )
-
-                            offset += intf.num_cells
-                if key in vtu_data.point_data:
-                    value = vtu_data.point_data[key]
-
-                    # Chop data in pieces compatible with the subdomains and interfaces
-                    offset = 0
-                    if is_subdomain_data:
-                        for sd, sd_data in self._mdg.subdomains(
-                            dim=dim, return_data=True
-                        ):
-                            values = _from_vector_format(
-                                value[offset : offset + sd.num_nodes], sd.num_nodes
-                            )
-                            pp.set_solution_values(
-                                name=key, values=values, data=sd_data, time_step_index=0
-                            )
-
-                            offset += sd.num_nodes
-
-                    else:
-                        for intf, intf_data in self._mdg.interfaces(
-                            dim=dim, return_data=True, codim=1
-                        ):
-                            values = _from_vector_format(
-                                value[offset : offset + intf.num_nodes], intf.num_nodes
-                            )
-                            pp.set_solution_values(
-                                name=key,
-                                values=values,
-                                data=intf_data,
-                                time_step_index=0,
-                            )
-
-                            offset += intf.num_nodes
+            if keys_pt is not None:
+                for key in keys_pt:
+                    if key in vtu_data.point_data:
+                        value = vtu_data.point_data[key]
+                        _save_to_mdg(key, value, "num_nodes")
 
     def add_constant_data(
         self,
@@ -927,7 +908,7 @@ class Exporter:
     def _sort_and_unify_data(
         self,
         data=None,
-        num_entities: Literal = "num_cells",
+        num_entities: Literal["num_cells", "num_nodes"] = "num_cells",
         # ignore type which is essentially Union[DataInput, list[DataInput]]
     ) -> tuple[SubdomainData, InterfaceData]:
         """Preprocess data.
@@ -1222,7 +1203,7 @@ class Exporter:
             data_pt: tuple[pp.Grid, str, np.ndarray],
             subdomain_data: dict,
             interface_data: dict,
-            num_entities: Literal,
+            num_entities: Literal["num_cells", "num_nodes"],
         ) -> tuple[dict, dict, bool]:
             """Check whether data is provided as tuple (sd, key, data),
             where sd is a single subdomain, key is a string, and data is a user-defined
@@ -1272,7 +1253,7 @@ class Exporter:
             data_pt: tuple[pp.MortarGrid, str, np.ndarray],
             subdomain_data: dict,
             interface_data: dict,
-            num_entities: Literal,
+            num_entities: Literal["num_cells", "num_nodes"],
         ) -> tuple[dict, dict, bool]:
             """Check whether data is provided as tuple (g, key, data), where e is a
             single interface, key is a string, and data is a user-defined data array.
@@ -1325,7 +1306,7 @@ class Exporter:
             data: tuple[str, np.ndarray],
             subdomain_data: dict,
             interface_data: dict,
-            num_entities: Literal,
+            num_entities: Literal["num_cells", "num_nodes"],
         ) -> tuple[dict, dict, bool]:
             """Check whether data is provided by a tuple (key, data), where key is a
             string, and data is a user-defined data array.
@@ -1454,7 +1435,7 @@ class Exporter:
             self._constant_subdomain_data_pt = dict()
 
         # Add mesh related, constant subdomain data by direct assignment
-        for sd, sd_data in self._mdg.subdomains(return_data=True):
+        for sd in self._mdg.subdomains():
             ones = np.ones(sd.num_cells, dtype=int)
             self._constant_subdomain_data[(sd, "cell_id")] = np.arange(
                 sd.num_cells, dtype=int
@@ -1602,6 +1583,29 @@ class Exporter:
         keys_pt = list(set([key for _, key in data_pt]))
         keys_pt.sort()
 
+        def _build_field(
+            key: str,
+            entities: list[Any],
+            data: Union[SubdomainData, InterfaceData],
+            dim: int,
+        ) -> list[Any]:
+            # Collect the values associated to all entities
+            values = []
+            for e in entities:
+                if (e, key) in data:
+                    values.append(data[(e, key)])
+
+            # Require data for all or none entities of that dimension.
+            if len(values) not in [0, len(entities)]:
+                raise ValueError(
+                    f"""Insufficient amount of data provided for key {key} on
+                    dimension {dim}."""
+                )
+
+            # If data has been found, append data to list after stacking values
+            # for different entities
+            return [Field(key, np.hstack(values))] if values else []
+
         # Collect the data and extra data in a single stack for each dimension
         for dim in dims:
             # Define the full file name
@@ -1613,48 +1617,15 @@ class Exporter:
             else:
                 entities = self._mdg.interfaces(dim=dim, codim=1)
 
-            # Construct the list of fields represented on this dimension.
+            # Construct the list of cell fields represented on this dimension.
             fields: list[Field] = []
             for key in keys:
-                # Collect the values associated to all entities
-                values = []
-                for e in entities:
-                    if (e, key) in data:
-                        values.append(data[(e, key)])
+                fields += _build_field(key, entities, data, dim)
 
-                # Require data for all or none entities of that dimension.
-                if len(values) not in [0, len(entities)]:
-                    raise ValueError(
-                        f"""Insufficient amount of data provided for key {key} on
-                        dimension {dim}."""
-                    )
-
-                # If data has been found, append data to list after stacking values
-                # for different entities
-                if values:
-                    field = Field(key, np.hstack(values))
-                    fields.append(field)
-
+            # Construct the list of point fields represented on this dimension.
             fields_pt: list[Field] = []
             for key in keys_pt:
-                # Collect the values associated to all entities
-                values = []
-                for e in entities:
-                    if (e, key) in data_pt:
-                        values.append(data_pt[(e, key)])
-
-                # Require data for all or none entities of that dimension.
-                if len(values) not in [0, len(entities)]:
-                    raise ValueError(
-                        f"""Insufficient amount of data provided for key {key} on
-                        dimension {dim}."""
-                    )
-
-                # If data has been found, append data to list after stacking values
-                # for different entities
-                if values:
-                    field = Field(key, np.hstack(values))
-                    fields_pt.append(field)
+                fields_pt += _build_field(key, entities, data_pt, dim)
 
             # Print data for the particular dimension. Since geometric info is required
             # distinguish between subdomain and interface data.
