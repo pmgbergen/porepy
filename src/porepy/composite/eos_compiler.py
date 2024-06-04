@@ -813,7 +813,7 @@ class EoSCompiler(AbstractEoS):
         phasetype: int,
         p: np.ndarray,
         T: np.ndarray,
-        xn: Sequence[np.ndarray],
+        x: Sequence[np.ndarray],
     ) -> PhaseState:
         """This method must only be called after the vectorized computations have been
         compiled (see :meth:`compile`).
@@ -830,7 +830,7 @@ class EoSCompiler(AbstractEoS):
             T: ``shape=(N,)``
 
                 Temperature values.
-            xn: ``shape=(num_comp, N)``
+            x: ``shape=(num_comp, N)``
 
                 Partial fractions per component (row-wise).
                 They will be normalized before computing properties.
@@ -845,16 +845,16 @@ class EoSCompiler(AbstractEoS):
         """
 
         # normalization of fractions for computing properties
-        if not isinstance(xn, np.ndarray):
-            xn = np.array(xn)
-        xn = normalize_rows(xn.T).T
+        if not isinstance(x, np.ndarray):
+            x = np.array(x)
+        xn = normalize_rows(x.T).T
 
         prearg_val = self.gufuncs["prearg_val"](phasetype, p, T, xn)
         prearg_jac = self.gufuncs["prearg_jac"](phasetype, p, T, xn)
 
         state = PhaseState(
             phasetype=phasetype,
-            x=xn,
+            x=x,
             h=self.gufuncs["h"](prearg_val, p, T, xn),
             rho=self.gufuncs["rho"](prearg_val, p, T, xn),
             # shape = (num_comp, num_vals), sequence per component

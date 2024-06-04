@@ -899,7 +899,7 @@ class PengRobinsonSymbolic:
                         if bip_ij is None:
                             bip_ij = bip_ij_f(self.T_s)[0]
                         else:  # warn the user if a double implementation is detected
-                            logger.warn(
+                            logger.warning(
                                 "Detected double custom implementation of BIPs for"
                                 + f"{comp_i.name} and {comp_j.name}."
                                 + f"Chosing model from {comp_i.name}."
@@ -911,7 +911,7 @@ class PengRobinsonSymbolic:
                     bip_ij = load_bip(comp_i.CASr_number, comp_j.CASr_number)
                     # warn the user if a zero bip was loaded (likely missing data)
                     if bip_ij == 0.0:
-                        logger.warn(
+                        logger.warning(
                             "Loaded a BIP with zero value for"
                             + f" components {comp_i.name} and {comp_j.name}."
                         )

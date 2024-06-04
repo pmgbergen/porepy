@@ -648,6 +648,7 @@ class CompositeVariables(pp.VariableMixin):
             else:
                 fraction = self.extended_fraction(component, phase)
 
+        # return self.extended_fraction(component, phase)
         return fraction
 
 
@@ -966,7 +967,6 @@ class FluidMixtureMixin:
             f"phase_density_{phase.name}",
             self.mdg,
             self.dependencies_of_phase_properties(phase),
-            time_dependent=True,
         )
 
     def phase_volume(
@@ -978,7 +978,6 @@ class FluidMixtureMixin:
             f"phase_volume_{phase.name}",
             self.mdg,
             self.dependencies_of_phase_properties(phase),
-            time_dependent=True,
         )
 
     def phase_enthalpy(
@@ -990,7 +989,6 @@ class FluidMixtureMixin:
             f"phase_enthalpy_{phase.name}",
             self.mdg,
             self.dependencies_of_phase_properties(phase),
-            time_dependent=True,
         )
 
     def phase_viscosity(
@@ -1008,7 +1006,6 @@ class FluidMixtureMixin:
             f"phase_viscosity_{phase.name}",
             self.mdg,
             self.dependencies_of_phase_properties(phase),
-            time_dependent=False,
         )
 
     def phase_conductivity(
@@ -1026,7 +1023,6 @@ class FluidMixtureMixin:
             f"phase_conductivity_{phase.name}",
             self.mdg,
             self.dependencies_of_phase_properties(phase),
-            time_dependent=False,
         )
 
     def fugacity_coefficient(
@@ -1047,5 +1043,4 @@ class FluidMixtureMixin:
             f"fugacity_of_{component.name}_in_{phase.name}",
             self.mdg,
             self.dependencies_of_phase_properties(phase),
-            time_dependent=False,
         )

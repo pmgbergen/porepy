@@ -9,7 +9,7 @@ from typing import Optional, Sequence, cast
 import numpy as np
 
 from .composite_utils import safe_sum
-from .utils_c import compute_saturations
+from .utils_c import compute_saturations, extend_fractional_derivatives
 
 __all__ = [
     "ExtensiveState",
@@ -110,7 +110,7 @@ class PhaseState(ExtensiveState):
 
     """
 
-    phis: Sequence[np.ndarray] = field(default_factory=lambda: np.zeros((0, 0)))
+    phis: np.ndarray = field(default_factory=lambda: np.zeros((0, 0)))
     """Fugacity coefficients per component in this phase, stored row-wise per component
     in a 2D array."""
 
@@ -123,7 +123,7 @@ class PhaseState(ExtensiveState):
 
     """
 
-    drho: Sequence[np.ndarray] = field(default_factory=lambda: np.zeros((0, 0)))
+    drho: np.ndarray = field(default_factory=lambda: np.zeros((0, 0)))
     """Derivatives of the density with respect to pressure, temperature
     and each ``x`` in :attr:`x`.
 
@@ -167,7 +167,7 @@ class PhaseState(ExtensiveState):
     """
 
     @property
-    def dv(self) -> Sequence[np.ndarray]:
+    def dv(self) -> np.ndarray:
         """Derivatives of the specific molar volume, expressed as the reciprocal of
         density.
 
@@ -178,14 +178,62 @@ class PhaseState(ExtensiveState):
         idx = self.rho > 0.0
         outer = np.zeros_like(self.v)
         outer[idx] = -1 / self.rho[idx] ** 2
-        # outer = -1 / self.v**2
         return np.array([outer * d for d in self.drho])
 
     @property
-    def xn(self) -> Sequence[np.ndarray]:
+    def x_normalized(self) -> np.ndarray:
         """Normalized values of fractions found in :attr:`x`."""
         x_sum = safe_sum(self.x)
         return np.array([x / x_sum for x in self.x])
+
+    @property
+    def drho_ext(self) -> np.ndarray:
+        """Returning the derivatives of :attr:`rho` with respect to pressure,
+        temperature and the extended partial fractions."""
+        return self._extend(self.drho)
+
+    @property
+    def dv_ext(self) -> np.ndarray:
+        """Returning the derivatives of :meth:`v` with respect to pressure,
+        temperature and the extended partial fractions."""
+        return self._extend(self.dv)
+
+    @property
+    def dh_ext(self) -> np.ndarray:
+        """Returning the derivatives of :attr:`h` with respect to pressure,
+        temperature and the extended partial fractions."""
+        return self._extend(self.dh)
+
+    @property
+    def dmu_ext(self) -> np.ndarray:
+        """Returning the derivatives of :attr:`mu` with respect to pressure,
+        temperature and the extended partial fractions."""
+        return self._extend(self.dmu)
+
+    @property
+    def dkappa_ext(self) -> np.ndarray:
+        """Returning the derivatives of :attr:`kappa` with respect to pressure,
+        temperature and the extended partial fractions."""
+        return self._extend(self.dkappa)
+
+    @property
+    def dphis_ext(self) -> np.ndarray:
+        """Returning the derivatives of :attr:`phis` with respect to pressure,
+        temperature and the extended partial fractions."""
+        return np.array([self._extend(dphi) for dphi in self.dphis])
+
+    def _extend(self, df_dx: np.ndarray) -> np.ndarray:
+        """Helper method to extend the fractional derivatives.
+
+        Note:
+            The extended derivatives are used in the unified CFLE setting.
+            But it seems that the model converges even when using the un-extended
+            derivatives (Jacobian is not exact).
+            Full implications unclear as of now.
+
+        """
+        return extend_fractional_derivatives(df_dx, self.x)
+        # return df_dx
 
 
 @dataclass
@@ -214,10 +262,10 @@ class FluidState(IntensiveState, ExtensiveState):
 
     """
 
-    y: Sequence[np.ndarray] = field(default_factory=lambda: np.zeros((0, 0)))
+    y: np.ndarray = field(default_factory=lambda: np.zeros((0, 0)))
     """Molar phase fractions for each phase in :attr:`phases`."""
 
-    sat: Sequence[np.ndarray] = field(default_factory=lambda: np.zeros((0, 0)))
+    sat: np.ndarray = field(default_factory=lambda: np.zeros((0, 0)))
     """Saturation for each phase in :attr:`phases`."""
 
     phases: Sequence[PhaseState] = field(default_factory=lambda: list())
