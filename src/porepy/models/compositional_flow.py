@@ -2829,7 +2829,7 @@ class SolutionStrategyCF(
     def _log_res(self, loc: str = ""):
         all_res = list()
         msg = "Residuals per equation:\n"
-        eq_names = list(self.equation_system.equations.values())
+        eq_names = list(self.equation_system.equations.keys())
         for i, name in enumerate(eq_names):
             eq = self.equation_system.equations[name]
             res = eq.value(self.equation_system)
@@ -2840,7 +2840,7 @@ class SolutionStrategyCF(
                 msg += f"{name}: {np.linalg.norm(res)}\n"
         all_res = np.hstack(all_res)
         logger.info(
-            f"\nResidual at {loc}: {np.linalg.norm(all_res) / np.sqrt(all_res.size)}"
+            f"\nResidual {loc}: {np.linalg.norm(all_res) / np.sqrt(all_res.size)}"
         )
         logger.debug(msg)
 

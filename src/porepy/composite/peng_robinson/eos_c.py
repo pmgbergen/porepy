@@ -1245,6 +1245,7 @@ class PengRobinsonCompiler(EoSCompiler):
         the parent class compiler"""
 
         logger.info("Compiling symbolic functions ..")
+        start = time.time()
 
         B_c = numba.njit(
             "float64(float64, float64, float64[:])",
@@ -1306,7 +1307,12 @@ class PengRobinsonCompiler(EoSCompiler):
             }
         )
 
-        return super().compile()
+        super().compile()
+
+        logger.info(
+            f"EoS compiled for {self._nc} components"
+            + " (elapsed time: %.5f (s))." % (time.time() - start)
+        )
 
     def get_prearg_for_values(
         self,

@@ -17,6 +17,7 @@ a p-h flash.
 from __future__ import annotations
 
 import logging
+import time
 from typing import Callable, cast
 
 import numpy as np
@@ -469,8 +470,13 @@ class SolutionStrategyCFLE(cf.SolutionStrategyCF, ppc.FlashMixin):
 
         for sd in self.mdg.subdomains():
             logger.debug(f"Flashing on grid {sd.id}")
+            start = time.time()
             fluid = self.postprocess_failures(
                 *self.equilibriate_fluid([sd], None, self.get_fluid_state([sd], None))
+            )
+            logger.info(
+                f"Fluid equilibriated on grid {sd.id}"
+                + " (elapsed time: %.5f (s))." % (time.time() - start)
             )
 
             ### Updating variables which are unknown to the specific equilibrium type
