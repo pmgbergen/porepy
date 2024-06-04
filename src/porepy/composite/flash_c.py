@@ -124,7 +124,7 @@ The success flag should be one of the following values:
 - 2: NAN or infty detected in update (aborted)
 - 3: failure in the evaluation of the residual
 - 4: failure in the evaluation of the Jacobian
-- 5: Any other failure (raised by parallel or linear mode solver)
+- 5: Any other failure (raised by linear mode solver)
 
 The returned result should contain the value of the last iterate
 (independent of success).
@@ -169,16 +169,17 @@ def parallel_solver(
     converged = np.ones(n, dtype=np.int32) * 4
 
     for i in numba.prange(n):
-        try:
-            res_i, conv_i, n_i = solver(X0[i], F, DF, solver_params)
-        except Exception:
-            converged[i] = 5
-            num_iter[i] = np.nan
-            result[i, :] = np.nan
-        else:
-            converged[i] = conv_i
-            num_iter[i] = n_i
-            result[i] = res_i
+        # NOTE Numba cannot parallelize if there is a try-except clause
+        # try:
+        res_i, conv_i, n_i = solver(X0[i], F, DF, solver_params)
+        # except Exception:
+        #     converged[i] = 5
+        #     num_iter[i] = np.nan
+        #     result[i, :] = np.nan
+        # else:
+        converged[i] = conv_i
+        num_iter[i] = n_i
+        result[i] = res_i
 
     return result, converged, num_iter
 
@@ -792,6 +793,7 @@ class CompiledUnifiedFlash(Flash):
         vh_dim = ph_dim + 1 + (nphase - 1)
 
         logger.info("Compiling flash equations ..")
+        start = time.time()
         logger.debug("Compiling flash equations: EoS functions")
 
         prearg_val_c = self.eos_compiler.funcs.get("prearg_val", None)
@@ -1761,6 +1763,11 @@ class CompiledUnifiedFlash(Flash):
             }
         )
 
+        logger.info(
+            f"{nphase}-phase, {ncomp}-component flash compiled"
+            + " (elapsed time: %.5f (s))." % (time.time() - start)
+        )
+
     def flash(
         self,
         z: Sequence[np.ndarray],
@@ -1861,7 +1868,9 @@ class CompiledUnifiedFlash(Flash):
             X0 = self.initializers[flash_type](X0.T, *init_args).T
             end = time.time()
             init_time = end - start
-            logger.debug(f"Flash initialized (elapsed time: {init_time} (s)).")
+            logger.debug(
+                f"Flash initialized" + " (elapsed time: %.5f (s))." % (init_time)
+            )
         else:
             init_time = 0.0
             # parsing phase compositions and molar fractions
@@ -1912,7 +1921,10 @@ class CompiledUnifiedFlash(Flash):
             )
         end = time.time()
         minim_time = end - start
-        logger.info(f"{NF} {flash_type} flash solved (elapsed time: {minim_time} (s)).")
+        logger.info(
+            f"{NF} {flash_type} flash solved"
+            + " (elapsed time: %.5f (s))." % (minim_time)
+        )
         logger.debug(
             f"Success: {np.sum(success == 0)} / {NF}; "
             + f"Max iter reached: {np.sum(success == 1)} / {NF}; "

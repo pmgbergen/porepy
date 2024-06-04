@@ -25,7 +25,7 @@ import os
 import pathlib
 import time
 
-os.environ["NUMBA_DISABLE_JIT"] = "1"
+# os.environ["NUMBA_DISABLE_JIT"] = "1"
 
 
 logging.basicConfig(level=logging.INFO)
@@ -260,10 +260,9 @@ class InitialConditions:
         f = lambda x: self._p_IN + x * (self._p_OUT - self._p_IN)
         vals = np.array(list(map(f, sd.cell_centers[0])))
         # return vals
-        return vals
+        return np.ones(sd.num_cells) * self._p_INIT
 
     def initial_temperature(self, sd: pp.Grid) -> np.ndarray:
-        # Initial temperature of 550 K
         return np.ones(sd.num_cells) * self._T_INIT
 
     def initial_overall_fraction(
@@ -452,7 +451,7 @@ class GeothermalFlow(
 
 days = 365
 t_scale = 1e-5
-T_end = 100 * days * t_scale
+T_end = 200 * days * t_scale
 dt_init = 1 * days * t_scale
 max_iterations = 80
 newton_tol = 5e-4
