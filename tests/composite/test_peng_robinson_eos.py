@@ -202,14 +202,14 @@ def test_compressibility_factors_are_roots():
     A = A.flatten()
     B = B.flatten()
     Z_liq = ppcpr.eos_c.compressibility_factor(A, B, False, tol, 0.0, 0.0)
-    not_extended_liq = ppcpr.eos_c.is_real_root(A, B, False, tol)
+    not_extended_liq = ppcpr.eos_c.is_extended_root(A, B, False, tol)
     residual = ppcpr.eos_c.characteristic_residual(
         Z_liq[not_extended_liq], A[not_extended_liq], B[not_extended_liq]
     )
     assert np.all(np.abs(residual) < tol)
 
     Z_gas = ppcpr.eos_c.compressibility_factor(A, B, True, tol, 0.0, 0.0)
-    not_extended_gas = ppcpr.eos_c.is_real_root(A, B, True, tol)
+    not_extended_gas = ppcpr.eos_c.is_extended_root(A, B, True, tol)
     residual = ppcpr.eos_c.characteristic_residual(
         Z_gas[not_extended_gas], A[not_extended_gas], B[not_extended_gas]
     )

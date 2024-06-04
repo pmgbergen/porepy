@@ -107,7 +107,6 @@ def test_secondary_operators(
             "interface_expression",
             eqsys.mdg,
             [get_var(INTFVAR_NAME)],
-            time_dependent=True,
         )
     else:
         nc = mdg.num_subdomain_cells()
@@ -119,7 +118,6 @@ def test_secondary_operators(
             "subdomain_expression",
             eqsys.mdg,
             [get_var(VAR1_NAME), get_var(VAR2_NAME)],
-            time_dependent=True,
         )
 
     # Testing the created operators
@@ -321,7 +319,6 @@ def test_secondary_operators_on_boundaries(
         "subdomain_expression",
         eqsys.mdg,
         [get_var(VAR1_NAME), get_var(VAR2_NAME)],
-        time_dependent=True,
     )
 
     sop = subdomain_expression(bgs)

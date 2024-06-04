@@ -358,8 +358,8 @@ def solver(
 
     try:
         f_i = _npipm_extend_and_regularize_res(F(X[:-1]), X, npnc, u1, u2, eta)
-    except:
-        return X, 2, num_iter
+    except Exception:  # whatever happens, residual evaluation is faulty
+        return X, 3, num_iter
 
     res_i = np.linalg.norm(f_i)
 
@@ -373,8 +373,8 @@ def solver(
                 df_i = _npipm_extend_and_regularize_jac(
                     DF(X[:-1]), X, npnc, u1, u2, eta
                 )
-            except:
-                success = 3
+            except Exception:  # whatever happens, Jacobian assembly is faulty
+                success = 4
                 break
 
             # Need this test otherwise np.linalg.solve raises an error.
@@ -384,7 +384,7 @@ def solver(
                 # or np.any(np.isnan(df_i))
                 # or np.any(np.isinf(df_i))
             ):
-                success = 4
+                success = 2
                 break
 
             if np.linalg.matrix_rank(df_i) == matrix_rank:
@@ -394,7 +394,7 @@ def solver(
             # DX[-matrix_rank:] = np.linalg.solve(df_i, -f_i)
 
             if np.any(np.isnan(DX)) or np.any(np.isinf(DX)):
-                success = 4
+                success = 2
                 break
 
             # Armijo line search
@@ -409,7 +409,13 @@ def solver(
                     f_i_j = _npipm_extend_and_regularize_res(
                         F(X_i_j[:-1]), X_i_j, npnc, u1, u2, eta
                     )
-                except:
+                except Exception:
+                    # NOTE Here we allow the residual evaluation to fail and skip the
+                    # line search step, as this might happen when dealing with
+                    # non-smooth F.
+                    # By continuing we the step size comes closer to the old iterate
+                    # making the line search more robust, but slowing the overall
+                    # progress
                     continue
 
                 pot_i_j = np.sum(f_i_j * f_i_j) / 2.0
@@ -433,8 +439,8 @@ def solver(
             try:
                 f_i = _npipm_extend_and_regularize_res(F(X[:-1]), X, npnc, u1, u2, eta)
                 res_i = np.linalg.norm(f_i)
-            except:
-                success = 2
+            except Exception:
+                success = 3
                 break
 
             if res_i <= tol:

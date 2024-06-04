@@ -23,7 +23,6 @@ import numpy as np
 
 import porepy as pp
 import porepy.composite as ppc
-from porepy.composite.utils_c import extend_fractional_derivatives as _extend
 
 from . import compositional_flow as cf
 
@@ -135,21 +134,15 @@ class BoundaryConditionsCFLE(cf.BoundaryConditionsCF):
         # structure for storing values of fractional variables on the boundaries
         # used to update time-dependent dense arrays
         fracs_on_bgs: dict[pp.BoundaryGrid, dict[str, np.ndarray]] = dict()
+        nt = self.time_step_indices.size
 
         # First loop to compute values and to set them for thermodynamic properties
         for bg in self.mdg.boundaries():
-            vec = np.zeros(bg.num_cells)
+            logger.debug(f"Computing equilibrium on boundary {bg.id}")
 
             # populate fractional values with default value of zero
+            phase_states: list[ppc.PhaseState] = list()
             fracs_on_bgs[bg] = dict()
-            for phase in self.fluid_mixture.phases:
-                fracs_on_bgs[bg][self._saturation_variable(phase)] = vec.copy()
-                for comp in phase:
-                    # NOTE trace amounts to avoid division by zero errors when
-                    # evaluationg partial fractions by normalization
-                    fracs_on_bgs[bg][self._relative_fraction_variable(comp, phase)] = (
-                        vec.copy() + 1e-16
-                    )
 
             # NOTE IMPORTANT: Indicator for boundary cells, where is_dir indicates
             # where values are required for upwinding.
@@ -158,15 +151,28 @@ class BoundaryConditionsCFLE(cf.BoundaryConditionsCF):
             ]
 
             # set zero values if not required anywhere (completeness)
-            if not np.any(dir_bc) or bg.num_cells == 0:
+            if bg.num_cells == 0:
                 for phase in self.fluid_mixture.phases:
-                    phase.density.update_boundary_values(vec.copy(), bg)
-                    phase.volume.update_boundary_values(vec.copy(), bg)
-                    phase.enthalpy.update_boundary_values(vec.copy(), bg)
+                    # default values of properties are zero-sized arrays.
+                    # So this will not raise an error since bg.num_cells == 0
+                    state_j = ppc.PhaseState()
                     # NOTE ones to avoid division by zero. Cancelled out anyways.
-                    phase.viscosity.update_boundary_values(np.ones(bg.num_cells), bg)
-            else:
+                    # NOTE I also don't know why numpy is performing the operation on
+                    # empty arrays
+                    state_j.mu = np.ones(0)
+                    phase_states.append(state_j)
 
+                    fracs_on_bgs[bg][self._saturation_variable(phase)] = np.zeros(
+                        bg.num_cells
+                    )
+                    for comp in phase:
+                        # NOTE trace amounts to avoid division by zero errors when
+                        # evaluationg partial fractions by normalization
+                        fracs_on_bgs[bg][
+                            self._relative_fraction_variable(comp, phase)
+                        ] = (np.ones(bg.num_cells) * 1e-16)
+            else:
+                assert np.all(dir_bc), "Missing logic in BC conditions for flash"
                 p = self.bc_values_pressure(bg)
                 T = self.bc_values_temperature(bg)
                 feed = [
@@ -175,9 +181,9 @@ class BoundaryConditionsCFLE(cf.BoundaryConditionsCF):
                 ]
 
                 boundary_state, success, _ = self.flash.flash(
-                    z=[z[dir_bc] for z in feed],
-                    p=p[dir_bc],
-                    T=T[dir_bc],
+                    z=[z for z in feed],
+                    p=p,
+                    T=T,
                     parameters=self.flash_params,
                 )
 
@@ -189,36 +195,32 @@ class BoundaryConditionsCFLE(cf.BoundaryConditionsCF):
                 for j, phase in enumerate(self.fluid_mixture.phases):
 
                     # Update for saturation values
-                    sat_j = vec.copy()
-                    sat_j[dir_bc] = boundary_state.sat[j]
-                    fracs_on_bgs[bg][self._saturation_variable(phase)] = sat_j
+                    fracs_on_bgs[bg][self._saturation_variable(phase)] = (
+                        boundary_state.sat[j]
+                    )
                     state_j = boundary_state.phases[j]
 
                     # Update for relative fractions
                     for k, comp in enumerate(phase.components):
-                        x_kj = vec.copy() + 1e-16
-                        x_kj[dir_bc] = state_j.x[k]
                         fracs_on_bgs[bg][
                             self._relative_fraction_variable(comp, phase)
-                        ] = x_kj
+                        ] = state_j.x[k]
 
-                    # Update BC values of phase properties in time on boundaries
-                    val = vec.copy()
-                    val[dir_bc] = state_j.rho
-                    phase.density.update_boundary_values(val, bg)
-                    val = vec.copy()
-                    val[dir_bc] = state_j.v
-                    phase.volume.update_boundary_values(val, bg)
-                    val = vec.copy()
-                    val[dir_bc] = state_j.h
-                    phase.enthalpy.update_boundary_values(val, bg)
-                    val = np.ones(bg.num_cells)
-                    val[dir_bc] = state_j.mu
-                    phase.viscosity.update_boundary_values(val, bg)
+                    phase_states.append(state_j)
 
+            # After the states are computes, update the boundary values of phase
+            # properties, where boundary values are required
+            for phase, state in zip(self.fluid_mixture.phases, phase_states):
+                # Update BC values of phase properties in time on boundaries
+                phase.density.update_boundary_values(state.rho, bg, depth=nt)
+                phase.volume.update_boundary_values(state.v, bg, depth=nt)
+                phase.enthalpy.update_boundary_values(state.h, bg, depth=nt)
+                phase.viscosity.update_boundary_values(state.mu, bg, depth=nt)
         # Second loop to call the base method for updating time-dependent dense arrays
         # on boundaries. Used to update values of fractional unknowns, which appear
-        # in the advective fluxes
+        # in the advective fluxes.
+        # NOTE this loop is done additionally to the first loop, because
+        # update_boundary_condition itself loops over all boundaries
         for phase in self.fluid_mixture.phases:
 
             if (
@@ -277,7 +279,11 @@ class InitialConditionsCFLE(cf.InitialConditionsCF):
         """
         subdomains = self.mdg.subdomains()
 
+        nt = self.time_step_indices.size
+        ni = self.iterate_indices.size
+
         for sd in subdomains:
+            logger.debug(f"Computing initial equilibrium on grid {sd.id}")
             # pressure, temperature and overall fractions
             p = self.initial_pressure(sd)
             T = self.initial_temperature(sd)
@@ -326,17 +332,19 @@ class InitialConditionsCFLE(cf.InitialConditionsCF):
                 # progress iterates values to all indices
                 for _ in self.iterate_indices:
                     phase.density.progress_iterate_values_on_grid(
-                        state.phases[j].rho, sd
+                        state.phases[j].rho, sd, depth=ni
                     )
-                    phase.volume.progress_iterate_values_on_grid(state.phases[j].v, sd)
+                    phase.volume.progress_iterate_values_on_grid(
+                        state.phases[j].v, sd, depth=ni
+                    )
                     phase.enthalpy.progress_iterate_values_on_grid(
-                        state.phases[j].h, sd
+                        state.phases[j].h, sd, depth=ni
                     )
                     phase.viscosity.progress_iterate_values_on_grid(
-                        state.phases[j].mu, sd
+                        state.phases[j].mu, sd, depth=ni
                     )
                     phase.conductivity.progress_iterate_values_on_grid(
-                        state.phases[j].kappa, sd
+                        state.phases[j].kappa, sd, depth=ni
                     )
                 # progress derivative values only once (current iterate)
                 # extend derivatives from partial to extended fractions.
@@ -344,37 +352,38 @@ class InitialConditionsCFLE(cf.InitialConditionsCF):
                 # secondary expressions which depend on extended fractions (independent)
                 # quantities, but should actually depend on partial fractions (dependent).
                 phase.density.progress_iterate_derivatives_on_grid(
-                    _extend(state.phases[j].drho, state.phases[j].x), sd
+                    state.phases[j].drho_ext, sd
                 )
                 phase.volume.progress_iterate_derivatives_on_grid(
-                    _extend(state.phases[j].dv, state.phases[j].x), sd
+                    state.phases[j].dv_ext, sd
                 )
                 phase.enthalpy.progress_iterate_derivatives_on_grid(
-                    _extend(state.phases[j].dh, state.phases[j].x), sd
+                    state.phases[j].dh_ext, sd
                 )
                 phase.viscosity.progress_iterate_derivatives_on_grid(
-                    _extend(state.phases[j].dmu, state.phases[j].x), sd
+                    state.phases[j].dmu_ext, sd
                 )
                 phase.conductivity.progress_iterate_derivatives_on_grid(
-                    _extend(state.phases[j].dkappa, state.phases[j].x), sd
+                    state.phases[j].dkappa_ext, sd
                 )
 
                 # fugacities
+                dphis_ext = state.phases[j].dphis_ext
                 for k, comp in enumerate(phase.components):
                     for _ in self.iterate_indices:
                         phase.fugacity_of[comp].progress_iterate_values_on_grid(
-                            state.phases[j].phis[k], sd
+                            state.phases[j].phis[k], sd, depth=ni
                         )
                     phase.fugacity_of[comp].progress_iterate_derivatives_on_grid(
-                        _extend(state.phases[j].dphis[k], state.phases[j].x), sd
+                        dphis_ext[k], sd
                     )
 
         # progress property values in time on subdomain
         for phase in self.fluid_mixture.phases:
             for _ in self.time_step_indices:
-                phase.density.progress_values_in_time(subdomains)
-                phase.volume.progress_values_in_time(subdomains)
-                phase.enthalpy.progress_values_in_time(subdomains)
+                phase.density.progress_values_in_time(subdomains, depth=nt)
+                phase.volume.progress_values_in_time(subdomains, depth=nt)
+                phase.enthalpy.progress_values_in_time(subdomains, depth=nt)
 
 
 class SolutionStrategyCFLE(cf.SolutionStrategyCF, ppc.FlashMixin):
@@ -453,77 +462,91 @@ class SolutionStrategyCFLE(cf.SolutionStrategyCF, ppc.FlashMixin):
         solving the local equilibrium problem with fixed primary variables.
 
         """
-        subdomains = self.mdg.subdomains()
-        fluid = self.postprocess_failures(
-            *self.equilibriate_fluid(
-                subdomains, None, self.get_fluid_state(subdomains, None)
-            )
+        logger.info(
+            f"Updating thermodynamic state of fluid with {self.equilibrium_type} flash."
         )
+        self._log_res("before flash")
 
-        ### Updating variables which are unknown to the specific equilibrium type
-        for j, phase in enumerate(self.fluid_mixture.phases):
-            if (
-                phase == self.fluid_mixture.reference_phase
-                and self.eliminate_reference_phase
-            ):
-                pass
-            else:
-                self.equation_system.set_variable_values(
-                    fluid.sat[j],
-                    [self._saturation_variable(phase)],
-                    iterate_index=0,
-                )
-                self.equation_system.set_variable_values(
-                    fluid.y[j], [self._phase_fraction_variable(phase)], iterate_index=0
-                )
-
-            for i, comp in enumerate(phase.components):
-                self.equation_system.set_variable_values(
-                    fluid.phases[j].x[i],
-                    [self._relative_fraction_variable(comp, phase)],
-                    iterate_index=0,
-                )
-
-        # setting Temperature and pressure values, depending on equilibrium definition
-        if "T" not in self.equilibrium_type:
-            self.equation_system.set_variable_values(
-                fluid.T, [self.temperature_variable], iterate_index=0
+        for sd in self.mdg.subdomains():
+            logger.debug(f"Flashing on grid {sd.id}")
+            fluid = self.postprocess_failures(
+                *self.equilibriate_fluid([sd], None, self.get_fluid_state([sd], None))
             )
-        if "h" not in self.equilibrium_type:
-            self.equation_system.set_variable_values(
-                fluid.h, [self.enthalpy_variable], iterate_index=0
-            )
-        if "p" not in self.equilibrium_type:
-            self.equation_system.set_variable_values(
-                fluid.p, [self.pressure_variable], iterate_index=0
-            )
-        # TODO resulting enthalpy can change due to numerics, update as well?
 
-        ### update dependen quantities/ secondary expressions
-        for phase, state in zip(self.fluid_mixture.phases, fluid.phases):
-            phase.density.subdomain_values = state.rho
-            phase.volume.subdomain_values = state.v
-            phase.enthalpy.subdomain_values = state.h
-            phase.viscosity.subdomain_values = state.mu
-            phase.conductivity.subdomain_values = state.kappa
+            ### Updating variables which are unknown to the specific equilibrium type
+            for j, phase in enumerate(self.fluid_mixture.phases):
+                if (
+                    phase == self.fluid_mixture.reference_phase
+                    and self.eliminate_reference_phase
+                ):
+                    pass
+                else:
+                    self.equation_system.set_variable_values(
+                        fluid.sat[j],
+                        [phase.saturation([sd])],
+                        iterate_index=0,
+                    )
+                    self.equation_system.set_variable_values(
+                        fluid.y[j], [phase.fraction([sd])], iterate_index=0
+                    )
 
-            # extend derivatives from partial to extended fractions.
-            # NOTE This revers the hack performed by the composite mixins when creating
-            # secondary expressions which depend on extended fractions (independent)
-            # quantities, but should actually depend on partial fractions (dependent).
-            x = fluid.phases[j].x
+                for i, comp in enumerate(phase.components):
+                    self.equation_system.set_variable_values(
+                        fluid.phases[j].x[i],
+                        [phase.fraction_of[comp]([sd])],
+                        iterate_index=0,
+                    )
 
-            for k, comp in enumerate(phase.components):
-                phase.fugacity_of[comp].subdomain_values = state.phis[k]
-                phase.fugacity_of[comp].subdomain_derivatives = _extend(
-                    state.dphis[k], x
+            # setting state function values, depending on equilibrium definition
+            if "T" not in self.equilibrium_type:
+                self.equation_system.set_variable_values(
+                    fluid.T, [self.temperature([sd])], iterate_index=0
+                )
+            if "h" not in self.equilibrium_type:
+                self.equation_system.set_variable_values(
+                    fluid.h, [self.enthalpy([sd])], iterate_index=0
+                )
+            if "p" not in self.equilibrium_type:
+                self.equation_system.set_variable_values(
+                    fluid.p, [self.pressure([sd])], iterate_index=0
+                )
+            # TODO THis update is not an iterative progress, but replaces the values
+            # of the current iterate
+
+            ### update dependen quantities/ secondary expressions
+            for phase, state in zip(self.fluid_mixture.phases, fluid.phases):
+                # extend derivatives from partial to extended fractions.
+                # NOTE The flash returns properties with derivatives w.r.t
+                # partial/physical fractions by default. Must be extended since
+                # here extended fractions are used (chain rule for normalization)
+                # NOTE also, that the progress_* methods with depth 0, don't shift
+                # the iterate values, but overwrite only the current one at iterate
+                # index 0
+                phase.density.progress_iterate_values_on_grid(state.rho, sd)
+                phase.volume.progress_iterate_values_on_grid(state.v, sd)
+                phase.enthalpy.progress_iterate_values_on_grid(state.h, sd)
+                phase.viscosity.progress_iterate_values_on_grid(state.mu, sd)
+                phase.conductivity.progress_iterate_values_on_grid(state.kappa, sd)
+
+                phase.density.progress_iterate_derivatives_on_grid(state.drho_ext, sd)
+                phase.volume.progress_iterate_derivatives_on_grid(state.dv_ext, sd)
+                phase.enthalpy.progress_iterate_derivatives_on_grid(state.dh_ext, sd)
+                phase.viscosity.progress_iterate_derivatives_on_grid(state.dmu_ext, sd)
+                phase.conductivity.progress_iterate_derivatives_on_grid(
+                    state.dkappa_ext, sd
                 )
 
-            phase.density.subdomain_derivatives = _extend(state.drho, x)
-            phase.volume.subdomain_derivatives = _extend(state.dv, x)
-            phase.enthalpy.subdomain_derivatives = _extend(state.dh, x)
-            phase.viscosity.subdomain_derivatives = _extend(state.dmu, x)
-            phase.conductivity.subdomain_derivatives = _extend(state.dkappa, x)
+                dphis_ext = state.dphis_ext
+
+                for k, comp in enumerate(phase.components):
+                    phase.fugacity_of[comp].progress_iterate_values_on_grid(
+                        state.phis[k], sd
+                    )
+                    phase.fugacity_of[comp].progress_iterate_derivatives_on_grid(
+                        dphis_ext[k], sd
+                    )
+
+        self._log_res("after flash")
 
 
 class CFLEModelMixin_ph(

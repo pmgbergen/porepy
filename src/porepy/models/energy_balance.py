@@ -285,6 +285,7 @@ class EnergyBalanceEquations(pp.BalanceEquation):
 
         """
         flux = self.fourier_flux(subdomains) + self.enthalpy_flux(subdomains)
+        # flux = self.enthalpy_flux(subdomains)
         flux.set_name("energy_flux")
         return flux
 

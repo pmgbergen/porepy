@@ -121,10 +121,10 @@ The success flag should be one of the following values:
 
 - 0: success
 - 1: max iter reached
-- 2: failure in the evaluation of the residual
-- 3: failure in the evaluation of the Jacobian
-- 4: NAN or infty detected in update (aborted)
-- 5: Any other failure
+- 2: NAN or infty detected in update (aborted)
+- 3: failure in the evaluation of the residual
+- 4: failure in the evaluation of the Jacobian
+- 5: Any other failure (raised by parallel or linear mode solver)
 
 The returned result should contain the value of the last iterate
 (independent of success).
@@ -169,10 +169,16 @@ def parallel_solver(
     converged = np.ones(n, dtype=np.int32) * 4
 
     for i in numba.prange(n):
-        res_i, conv_i, n_i = solver(X0[i], F, DF, solver_params)
-        converged[i] = conv_i
-        num_iter[i] = n_i
-        result[i] = res_i
+        try:
+            res_i, conv_i, n_i = solver(X0[i], F, DF, solver_params)
+        except Exception:
+            converged[i] = 5
+            num_iter[i] = np.nan
+            result[i, :] = np.nan
+        else:
+            converged[i] = conv_i
+            num_iter[i] = n_i
+            result[i] = res_i
 
     return result, converged, num_iter
 
@@ -200,10 +206,16 @@ def linear_solver(
     converged = np.ones(n, dtype=np.int32) * 5
 
     for i in range(n):
-        res_i, conv_i, n_i = solver(X0[i], F, DF, solver_params)
-        converged[i] = conv_i
-        num_iter[i] = n_i
-        result[i] = res_i
+        try:
+            res_i, conv_i, n_i = solver(X0[i], F, DF, solver_params)
+        except Exception:
+            converged[i] = 5
+            num_iter[i] = np.nan
+            result[i, :] = np.nan
+        else:
+            converged[i] = conv_i
+            num_iter[i] = n_i
+            result[i] = res_i
 
     return result, converged, num_iter
 
@@ -501,11 +513,9 @@ class CompiledUnifiedFlash(Flash):
     3. ``'v-h'``: state definition in terms of specific volume and enthalpy of the
        mixture
 
-    Supported mixtures:
-
-    1. non-reactive
-    2. only 1 gas and 1 liquid phase
-    3. arbitrary many components
+    Important:
+        The isenthalpic-isochoric flash is as of now not robust for some tricky areas.
+        Use with care.
 
     Multiple flash problems can be solved in parallel by passing vectorized state
     definitions.
@@ -516,8 +526,11 @@ class CompiledUnifiedFlash(Flash):
             :class:`~porepy.composite.flash_compiler.FlashCompiler`.
 
     Raises:
-        AssertionError: If not at least 2 components are present.
-        AssertionError: If not 2 phases are modelled.
+        AssertionError: If any of the following assumptions is violated
+
+            - Exactly two phases modelled
+            - At least two components modelled (non-singular)
+            - All components present in all phases (unified assumption)
 
     """
 
@@ -1650,16 +1663,12 @@ class CompiledUnifiedFlash(Flash):
                     # correction for gas-like mixture and volume too large,
                     # increase p significantly
                     if y_g >= 1.0 and v_mix > v:
-                        p_ = p * (2 - fp)
+                        p_ *= 2 - fp
                     # correction for liquid-like mixtures, h is very sensitive to p
                     # because h = u + pv, v small (liquid)
                     # then cancel the update
-                    if y_g < 1e-1 and h_mix < h and p_ > p:
-                        p_ = p
-                    #     if p_ > 0.:
-                    #         p_ *= 1.1
-                    #     else:  # if for some reason negative, kick up
-                    #         p_ = p * 1.1
+                    if y_g < 1e-1 and h_mix < h:  # and p_ > p:
+                        p_ *= 1.1
 
                     p = p_
                     T = T_
@@ -1794,13 +1803,14 @@ class CompiledUnifiedFlash(Flash):
         solver = parameters.get("solver", "npipm")
         assert solver in SOLVERS, f"Unsupported solver {solver}"
 
-        logger.debug("Flash: Parsing input ..")
-
         nphase, ncomp = self.npnc
         fluid_state, flash_type, f_dim, NF = self.parse_flash_input(
             z, p, T, h, v, initial_state
         )
-
+        logger.debug(
+            f"{flash_type} flash target state parsed with {NF} points."
+            + f" Local size problem size: {f_dim}."
+        )
         assert flash_type in [
             "p-T",
             "p-h",
@@ -1844,8 +1854,8 @@ class CompiledUnifiedFlash(Flash):
         else:
             assert False, "Missing logic"
 
-        logger.info(f"{flash_type} Flash: Initialization ..")
         if initial_state is None:
+            logger.debug(f"Computing initial values for {flash_type} flash.")
             start = time.time()
             # exclude NPIPM variable (last column) from initialization
             X0 = self.initializers[flash_type](X0.T, *init_args).T
@@ -1885,11 +1895,12 @@ class CompiledUnifiedFlash(Flash):
                         X0[idx_p - (nphase - 1) + j] = fluid_state.sat[j]
                         idx += 1
 
+            logger.debug("Provided initial state parsed.")
         F = self.residuals[flash_type]
         DF = self.jacobians[flash_type]
         self._update_solver_params(f_dim)
 
-        logger.info(f"{flash_type} Flash: Solving ..")
+        logger.debug(f"Starting {solver} ({mode}) solver ..")
         start = time.time()
         if mode == "linear":
             results, success, num_iter = linear_solver(
@@ -1901,7 +1912,13 @@ class CompiledUnifiedFlash(Flash):
             )
         end = time.time()
         minim_time = end - start
-        logger.info(f"Flashed (elapsed time: {minim_time} (s)).")
+        logger.info(f"{NF} {flash_type} flash solved (elapsed time: {minim_time} (s)).")
+        logger.debug(
+            f"Success: {np.sum(success == 0)} / {NF}; "
+            + f"Max iter reached: {np.sum(success == 1)} / {NF}; "
+            + f"Diverged: {np.sum(success == 2)} / {NF}; "
+            + f"Other failures: {np.sum(success > 2)} / {NF}"
+        )
 
         self.last_flash_stats = {
             "type": flash_type,

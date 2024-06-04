@@ -273,14 +273,15 @@ class UnifiedPhaseEquilibriumMixin:
         assert component in phase, "Passed component not modelled in passed phase."
         assert component in rphase, "Passed component not modelled in reference phase."
 
-        equ = phase.fraction_of[component](subdomains) * phase.fugacity_of[component](
-            subdomains
-        ) - rphase.fraction_of[component](subdomains) * rphase.fugacity_of[component](
-            subdomains
-        )
+        x_ij = phase.fraction_of[component](subdomains)
+        x_ir = rphase.fraction_of[component](subdomains)
+        phi_ij = phase.fugacity_of[component](subdomains)
+        phi_ir = rphase.fugacity_of[component](subdomains)
+
+        equ = x_ij * phi_ij - x_ir * phi_ir
 
         equ.set_name(
-            f"isofugacity_constraint-" + f"{component.name}_{phase.name}_{rphase.name}"
+            f"isofugacity_constraint_" + f"{component.name}_{phase.name}_{rphase.name}"
         )
         return equ
 
@@ -312,12 +313,13 @@ class UnifiedPhaseEquilibriumMixin:
             returned.
 
         """
+
+        h_mix = self.fluid_mixture.enthalpy(subdomains)
+        h_target = self.enthalpy(subdomains)
         if self.normalize_state_constraints:
-            equ = self.fluid_mixture.enthalpy(subdomains) / self.enthalpy(
-                subdomains
-            ) - pp.ad.Scalar(1.0)
+            equ = h_mix / h_target - pp.ad.Scalar(1.0)
         else:
-            equ = self.fluid_mixture.enthalpy(subdomains) - self.enthalpy(subdomains)
+            equ = h_mix - h_target
         equ.set_name("local_fluid_enthalpy_constraint")
         return equ
 
@@ -681,6 +683,10 @@ class FlashMixin:
                 + f" {self.equilibrium_type}."
             )
 
+        if "p" in flash_kwargs:
+            flash_kwargs["p"] = flash_kwargs["p"]
+        if "h" in flash_kwargs:
+            flash_kwargs["h"] = flash_kwargs["h"]
         result_state, succes, _ = self.flash.flash(**flash_kwargs)
 
         return result_state, succes
