@@ -415,10 +415,24 @@ def test_unit_conversion(units):
     class Model(SquareDomainOrthogonalFractures, SinglePhaseFlow):
         """Single phase flow model in a domain with two intersecting fractures."""
 
+        def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+            """Ensure nontrivial solution."""
+            vals = self.fluid.pressure() * np.ones(boundary_grid.num_cells)
+            faces = self.domain_boundary_sides(boundary_grid).east
+            vals[faces] += self.fluid.convert_units(1e5, "Pa")
+            return vals
+
+    solid_vals = pp.solid_values.extended_granite_values_for_testing
+    fluid_vals = pp.fluid_values.extended_water_values_for_testing
+    solid = pp.SolidConstants(solid_vals)
+    fluid = pp.FluidConstants(fluid_vals)
     params = {
         "times_to_export": [],  # Suppress output for tests
         "fracture_indices": [0, 1],
         "cartesian": True,
+        "material_constants": {"solid": solid, "fluid": fluid},
+        "nl_convergence_tol_res": 1e-12,
+        "nl_convergence_tol": 1,
     }
     reference_params = copy.deepcopy(params)
     reference_params["file_name"] = "unit_conversion_reference"
