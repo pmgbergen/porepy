@@ -17,10 +17,10 @@ def gas_saturation_func(
     n = len(p)
 
     nc = len(thermodynamic_dependencies[0])
-    vals = np.zeros(nc)
+    vals = z_NaCl
     # row-wise storage of derivatives, (3, nc) array
     diffs = np.zeros((len(thermodynamic_dependencies), nc))
-
+    diffs[2, :] = +1.0
     return vals, diffs
 
 
