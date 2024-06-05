@@ -256,9 +256,8 @@ class InitialConditions:
     _z_INIT: dict[str, float] = {"H2O": 0.995, "CO2": 0.005}
 
     def initial_pressure(self, sd: pp.Grid) -> np.ndarray:
-
-        f = lambda x: self._p_IN + x * (self._p_OUT - self._p_IN)
-        vals = np.array(list(map(f, sd.cell_centers[0])))
+        # f = lambda x: self._p_IN + x * (self._p_OUT - self._p_IN)
+        # vals = np.array(list(map(f, sd.cell_centers[0])))
         # return vals
         return np.ones(sd.num_cells) * self._p_INIT
 
@@ -302,7 +301,7 @@ class BoundaryConditions:
 
     _T_IN: float = InitialConditions._T_INIT
     _T_OUT: float = InitialConditions._T_INIT
-    _T_HEATED: float = InitialConditions._T_INIT
+    _T_HEATED: float = 620.0  # InitialConditions._T_INIT
 
     _z_IN: dict[str, float] = {
         "H2O": InitialConditions._z_INIT["H2O"] - 0.005,
@@ -451,7 +450,7 @@ class GeothermalFlow(
 
 days = 365
 t_scale = 1e-5
-T_end = 200 * days * t_scale
+T_end = 100 * days * t_scale
 dt_init = 1 * days * t_scale
 max_iterations = 80
 newton_tol = 1e-6
@@ -472,7 +471,7 @@ solid_constants = pp.SolidConstants(
     {
         "permeability": 1e-8,
         "porosity": 0.2,
-        "thermal_conductivity": 3.0,
+        "thermal_conductivity": 30.0,
         "specific_heat_capacity": 0.0,
     }
 )
