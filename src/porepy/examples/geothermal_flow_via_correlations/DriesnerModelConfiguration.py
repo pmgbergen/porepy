@@ -1,6 +1,6 @@
 import BrineConstitutiveDescription
 import numpy as np
-from Geometries import Benchmark2DC3 as ModelGeometry
+from Geometries import SimpleGeometry as ModelGeometry
 
 import porepy as pp
 import porepy.composite as ppc
@@ -29,18 +29,29 @@ class BoundaryConditions(BoundaryConditionsCF):
 
     def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
         inlet_idx, outlet_idx = self.get_inlet_outlet_sides(boundary_grid)
-        p_inlet = 15.0e6
-        p_outlet = 10.0e6
-        p = p_inlet * np.ones(boundary_grid.num_cells)
+        p_inlet = 20.0e6
+        p_outlet = 15.0e6
+        xc = boundary_grid.cell_centers.T
+        l = 2.0
+        def p_linear(xv):
+            p_v = p_inlet * (1-xv[0]/l)  + p_outlet * (xv[0]/l)
+            return p_v
+        p = np.fromiter(map(p_linear,xc),dtype=float)
+        return p
         p[inlet_idx] = p_inlet
         p[outlet_idx] = p_outlet
         return p
 
     def bc_values_enthalpy(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
         inlet_idx, _ = self.get_inlet_outlet_sides(boundary_grid)
-        h_init = 2.0e6
         h_inlet = 2.0e6
-        h = h_init * np.ones(boundary_grid.num_cells)
+        h_outlet = 2.0e6
+        xc = boundary_grid.cell_centers.T
+        l = 2.0
+        def h_linear(xv):
+            h_v = h_inlet * (1-xv[0]/l) + h_outlet * (xv[0]/l)
+            return h_v
+        h = np.fromiter(map(h_linear,xc),dtype=float)
         h[inlet_idx] = h_inlet
         return h
 
@@ -48,8 +59,8 @@ class BoundaryConditions(BoundaryConditionsCF):
         self, component: ppc.Component, boundary_grid: pp.BoundaryGrid
     ) -> np.ndarray:
         inlet_idx, _ = self.get_inlet_outlet_sides(boundary_grid)
-        z_init = 0.15
-        z_inlet = 0.05
+        z_init = 0.1
+        z_inlet = 0.02
         if component.name == "H2O":
             z_H2O = (1 - z_init) * np.ones(boundary_grid.num_cells)
             z_H2O[inlet_idx] = 1 - z_inlet
@@ -59,48 +70,51 @@ class BoundaryConditions(BoundaryConditionsCF):
             z_NaCl[inlet_idx] = z_inlet
             return z_NaCl
 
-    def bc_values_temperature(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
-        # # adhoc functional programming for BC consistency
-        p = self.bc_values_pressure(boundary_grid)
-        h = self.bc_values_enthalpy(boundary_grid)
-        z_NaCl = self.bc_values_overall_fraction(
-            self.fluid_mixture._components[1], boundary_grid
-        )
-        par_points = np.array((z_NaCl, h, p)).T
-        self.obl.sample_at(par_points)
-        T = self.obl.sampled_could.point_data["Temperature"]
-        return T
-
+    # def bc_values_temperature(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+    #     h = self.bc_values_enthalpy(boundary_grid)
+    #     factor = 630.0 / 2.0e6
+    #     T = factor * h
+    #     return T
 
 class InitialConditions(InitialConditionsCF):
     """See parent class how to set up BC. Default is all zero and Dirichlet."""
 
     def initial_pressure(self, sd: pp.Grid) -> np.ndarray:
-        p_init = 15.0e6
-        return np.ones(sd.num_cells) * p_init
+        p_inlet = 20.0e6
+        p_outlet = 20.0e6
+        xc = sd.cell_centers.T
+        l = 2.0
+        def p_linear(xv):
+            p_v = p_inlet * (1-xv[0]/l)  + p_outlet * (xv[0]/l)
+            return p_v
+        p = np.fromiter(map(p_linear,xc),dtype=float)
+        return p
 
     def initial_enthalpy(self, sd: pp.Grid) -> np.ndarray:
-        h = 2.0e6
-        return np.ones(sd.num_cells) * h
+        h_inlet = 2.0e6
+        h_outlet = 2.0e6
+        xc = sd.cell_centers.T
+        l = 2.0
+        def h_linear(xv):
+            h_v = h_inlet * (1-xv[0]/l)  + h_outlet * (xv[0]/l)
+            return h_v
+        h = np.fromiter(map(h_linear,xc),dtype=float)
+        return h
 
     def initial_overall_fraction(
         self, component: ppc.Component, sd: pp.Grid
     ) -> np.ndarray:
-        z = 0.15
+        z = 0.1
         if component.name == "H2O":
             return (1 - z) * np.ones(sd.num_cells)
         else:
             return z * np.ones(sd.num_cells)
 
-    def initial_temperature(self, sd: pp.Grid) -> np.ndarray:
-        # adhoc functional programming for IC consistency
-        p = self.initial_pressure(sd)
-        h = self.initial_enthalpy(sd)
-        z_NaCl = self.initial_overall_fraction(self.fluid_mixture._components[1], sd)
-        par_points = np.array((z_NaCl, h, p)).T
-        self.obl.sample_at(par_points)
-        T = self.obl.sampled_could.point_data["Temperature"]
-        return T
+    # def initial_temperature(self, sd: pp.Grid) -> np.ndarray:
+    #     h = self.initial_enthalpy(sd)
+    #     factor = 630.0 / 2.0e6
+    #     T = factor * h
+    #     return T
 
 
 class SecondaryEquations(BrineConstitutiveDescription.SecondaryEquations):
@@ -138,7 +152,7 @@ class DriesnerBrineFlowModel(
     CFModelMixin,
 ):
     def relative_permeability(self, saturation: pp.ad.Operator) -> pp.ad.Operator:
-        return saturation**2
+        return saturation
 
     @property
     def obl(self):
