@@ -20,7 +20,7 @@ from __future__ import annotations
 import numba
 import numpy as np
 
-from ._core import NUMBA_CACHE
+from ._core import NUMBA_CACHE, NUMBA_FAST_MATH
 
 __all__ = [
     "normalize_rows",
@@ -34,8 +34,8 @@ __all__ = [
 
 @numba.njit(
     "Tuple((float64[:,:],float64[:],float64[:]))(float64[:],UniTuple(int32,2))",
-    fastmath=True,
-    cache=True,
+    fastmath=NUMBA_FAST_MATH,
+    cache=NUMBA_FAST_MATH,
 )
 def parse_xyz(
     X_gen: np.ndarray, npnc: tuple[int, int]
@@ -99,7 +99,7 @@ def parse_xyz(
 
 @numba.njit(
     "float64[:](float64[:],float64[:,:],float64[:],UniTuple(int32,2))",
-    fastmath=True,
+    fastmath=NUMBA_FAST_MATH,
     cache=True,
 )
 def insert_xy(
@@ -162,7 +162,9 @@ def insert_pT(
     return X_gen
 
 
-@numba.njit("float64[:](float64[:],UniTuple(int32,2))", fastmath=True, cache=True)
+@numba.njit(
+    "float64[:](float64[:],UniTuple(int32,2))", fastmath=NUMBA_FAST_MATH, cache=True
+)
 def parse_target_state(X_gen: np.ndarray, npnc: tuple[int, int]) -> np.ndarray:
     """Helper function extracing the values for the equilibrium state definition.
 
@@ -187,7 +189,9 @@ def parse_target_state(X_gen: np.ndarray, npnc: tuple[int, int]) -> np.ndarray:
     return X_gen[ncomp - 1 : ncomp + 1]
 
 
-@numba.njit("float64[:](float64[:],UniTuple(int32,2))", fastmath=True, cache=True)
+@numba.njit(
+    "float64[:](float64[:],UniTuple(int32,2))", fastmath=NUMBA_FAST_MATH, cache=True
+)
 def parse_sat(X_gen: np.ndarray, npnc: tuple[int, int]) -> np.ndarray:
     """Helper function extracing the saturation values.
 
@@ -240,7 +244,7 @@ def insert_sat(X_gen: np.ndarray, sat: np.ndarray, npnc: tuple[int, int]) -> np.
 # endregion
 
 
-@numba.njit("float64[:,:](float64[:,:])", fastmath=True, cache=True)
+@numba.njit("float64[:,:](float64[:,:])", fastmath=NUMBA_FAST_MATH, cache=True)
 def normalize_rows(x: np.ndarray) -> np.ndarray:
     """Takes a 2D array and normalizes it row-wise.
 
@@ -263,7 +267,7 @@ def normalize_rows(x: np.ndarray) -> np.ndarray:
     return (x.T / x.sum(axis=1)).T
 
 
-@numba.njit("float64[:](float64[:],float64[:])", fastmath=True, cache=True)
+@numba.njit("float64[:](float64[:],float64[:])", fastmath=NUMBA_FAST_MATH, cache=True)
 def _extend_fractional_derivatives(df_dxn: np.ndarray, x: np.ndarray) -> np.ndarray:
     """Internal ``numba.njit``-decorated function for
     :meth:`extend_compositional_derivatives` for non-vectorized input."""
@@ -344,7 +348,9 @@ def extend_fractional_derivatives(df_dxn: np.ndarray, x: np.ndarray) -> np.ndarr
     return df_dx
 
 
-@numba.njit("float64[:](float64[:],float64[:],float64)", fastmath=True, cache=True)
+@numba.njit(
+    "float64[:](float64[:],float64[:],float64)", fastmath=NUMBA_FAST_MATH, cache=True
+)
 def _compute_saturations(y: np.ndarray, rho: np.ndarray, eps: float) -> np.ndarray:
     """Internal ``numba.njit``-decorated function for :meth:`compute_saturations` for
     non-vectorized input."""
