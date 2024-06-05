@@ -25,7 +25,7 @@ import os
 import pathlib
 import time
 
-# os.environ["NUMBA_DISABLE_JIT"] = "1"
+os.environ["NUMBA_DISABLE_JIT"] = "1"
 
 
 logging.basicConfig(level=logging.INFO)
@@ -454,7 +454,7 @@ t_scale = 1e-5
 T_end = 200 * days * t_scale
 dt_init = 1 * days * t_scale
 max_iterations = 80
-newton_tol = 5e-4
+newton_tol = 1e-6
 
 time_manager = pp.TimeManager(
     schedule=[0, T_end],
@@ -492,7 +492,7 @@ params = {
     "eliminate_reference_component": True,
     "normalize_state_constraints": True,
     "use_semismooth_complementarity": True,
-    "reduce_linear_system_q": True,
+    "reduce_linear_system_q": False,
     "time_manager": time_manager,
     "max_iterations": max_iterations,
     "nl_convergence_tol": newton_tol,

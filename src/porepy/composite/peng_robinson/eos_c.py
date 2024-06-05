@@ -1310,7 +1310,7 @@ class PengRobinsonCompiler(EoSCompiler):
         super().compile()
 
         logger.info(
-            f"EoS compiled for {self._nc} components"
+            f"{self._nc}-component PR-EoS compiled"
             + " (elapsed time: %.5f (s))." % (time.time() - start)
         )
 
@@ -1604,8 +1604,8 @@ class PengRobinsonCompiler(EoSCompiler):
         return state
 
 
-logger.debug(
-    f"{_import_msg} Done (elapsed time: {time.time() - _import_start} (s)).\n\n"
+logger.info(
+    f"{_import_msg} Done" + " (elapsed time: %.5f (s))." % (time.time() - _import_start)
 )
 
 del _import_start, _import_msg

@@ -463,10 +463,10 @@ class SolutionStrategyCFLE(cf.SolutionStrategyCF, ppc.FlashMixin):
         solving the local equilibrium problem with fixed primary variables.
 
         """
+        self._log_res("before flash")
         logger.info(
             f"Updating thermodynamic state of fluid with {self.equilibrium_type} flash."
         )
-        self._log_res("before flash")
 
         for sd in self.mdg.subdomains():
             logger.debug(f"Flashing on grid {sd.id}")
