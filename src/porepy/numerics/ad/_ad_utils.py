@@ -501,7 +501,7 @@ def shift_solution_values(
 
         num_stored = int(np.min([num_stored, max_index]))
 
-    for i in range(num_stored, 0, -1):
+    for i in range(num_stored - 1, 0, -1):
         data[location][name][i] = data[location][name][i - 1].copy()
 
 

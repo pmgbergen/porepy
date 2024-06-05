@@ -423,12 +423,6 @@ class SurrogateFactory:
 
             When calling the factory on some grids, it is expected that the
             dependencies are defined there.
-        time_dependent: ``default=False``
-
-            If flagged as time-dependent, methods updating/progressing values in time
-            will shift values backwards and store them to be accessed in time-stepping
-            schemes. Otherwise time-dependent storage is deactivated and respective
-            methods will only update the current time value (stored as current iterate).
         dof_info: ``default=None``
 
             See
@@ -449,7 +443,6 @@ class SurrogateFactory:
         name: str,
         mdg: pp.MixedDimensionalGrid,
         dependencies: Sequence[Callable[[pp.GridLikeSequence], pp.ad.Variable]],
-        time_dependent: bool = False,
         dof_info: Optional[dict[pp.ad.equation_system.GridEntity, int]] = None,
     ) -> None:
 
@@ -468,9 +461,6 @@ class SurrogateFactory:
         """Sequence of callable first order dependencies. Called when constructing
         operators on domains."""
 
-        self._time_dependent: bool = time_dependent
-        """Flag to activate storage of data backwards in time, passed at instantiation.
-        """
         self._name: str = name
         """See :meth:`name`."""
 
@@ -590,7 +580,17 @@ class SurrogateFactory:
         else:
             kwargs["iterate_index"] = op.iterate_index
 
-        return pp.get_solution_values(**kwargs)
+        values = pp.get_solution_values(**kwargs)
+
+        # last check before parsing that it returns what it should
+        if get_derivatives:
+            target_shape = (self.num_dependencies, self.num_dofs_on_grid(grid))
+        else:
+            target_shape = (self.num_dofs_on_grid(grid),)
+        _check_expected_values(
+            values, target_shape, grid, op.iterate_index, op.time_step_index
+        )
+        return values
 
     def _data_of(self, grid: pp.GridLike) -> dict:
         """Convenience function to get the data dictionary of any grid."""
@@ -671,15 +671,14 @@ class SurrogateFactory:
         boundary grid in the md-grid.
 
         Note:
-            This is a convenience functionality for :meth:`update_boundary_values`,
-            which operates on all boundary grids.
+            This is a convenience functionality only for the values at the current time
+            (time step to be solved for).
 
-            Hence, the setter shifts **time step** values backwards and sets the given
-            value as the **curent iterate** (current time).
+            The getter and setter hence get and set only the values stored at
+            ``iterate_index=0``.
 
-            Most importantly, it has a different paradigm than the property setters and
-            getters for subdomains and interfaces, which operate only with iterate
-            values.
+            For progressing values in time with a shift (providing values for previous
+            time steps), see :meth:`update_boundary_values`
 
         Parameters:
             val: A new value with shape ``(N,)`` to be set. Note that ``N`` is
@@ -692,12 +691,8 @@ class SurrogateFactory:
 
         """
         vals = []
-        for bg, data in self.mdg.boundaries(return_data=True):
-            val_g = pp.get_solution_values(self.name, data, iterate_index=0)
-            _check_expected_values(
-                val_g, (self.num_dofs_on_grid(bg),), bg, iterate_index=0
-            )
-            vals.append(val_g)
+        for _, data in self.mdg.boundaries(return_data=True):
+            vals.append(pp.get_solution_values(self.name, data, iterate_index=0))
         return np.hstack(vals)
 
     @boundary_values.setter
@@ -705,35 +700,24 @@ class SurrogateFactory:
         i = 0
         for grid in self.mdg.boundaries():
             n = self.num_dofs_on_grid(grid)
-            self.update_boundary_values(val[i : i + n], grid)
+            self._set_current_value_on_grid(
+                val[i : i + n],
+                grid,
+                is_derivative_value=False,
+            )
             i += n
 
     @property
     def subdomain_values(self) -> np.ndarray:
-        """Property to access and store the value at the current time step, current
-        iterate on **all** subdomains in the md-grid for convenience.
+        """Analogous to :meth:`boundary_values`, but for values on **all** subdomains.
 
-        The getter fetches the values in the order imposed by the md-grid.
-        The setter shifts iterate values backwards and sets the given value as the most
-        recent iterate.
-
-        Parameters:
-            val: A new value with shape ``(N,)`` to be set. Note that ``N`` is
-                calculated from the information passed in ``dof_info`` during
-                instantiation, and the number of cells, faces and nodes in all
-                subdomains.
-
-        Returns:
-            The current iterate value of same shape as ``val``.
+        For more information on how to progress values iteratively or in time, see
+        :meth:`progress_values_in_time` and :meth:`progress_iterate_values_on_grid`
 
         """
         vals = []
-        for g, data in self.mdg.subdomains(return_data=True):
-            val_g = pp.get_solution_values(self.name, data, iterate_index=0)
-            _check_expected_values(
-                val_g, (self.num_dofs_on_grid(g),), g, iterate_index=0
-            )
-            vals.append(val_g)
+        for _, data in self.mdg.subdomains(return_data=True):
+            vals.append(pp.get_solution_values(self.name, data, iterate_index=0))
         return np.hstack(vals)
 
     @subdomain_values.setter
@@ -741,7 +725,9 @@ class SurrogateFactory:
         i = 0
         for grid in self.mdg.subdomains():
             n = self.num_dofs_on_grid(grid)
-            self.progress_iterate_values_on_grid(val[i : i + n], grid)
+            self._set_current_value_on_grid(
+                val[i : i + n], grid, is_derivative_value=False
+            )
             i += n
 
     @property
@@ -753,8 +739,11 @@ class SurrogateFactory:
         subdomain.
 
         The getter fetches the values in the order imposed by the md-grid.
-        The setter shifts iterate values backwards and sets the given value as the
-        current iterate.
+        The setter sets the derivative values for the current iterate.
+
+        If (for some reason) you want to store the derivative values in time or iterate
+        sense, see :meth:`progress_derivatives_in_time` and
+        :meth:`progress_iterate_derivatives_on_grid`.
 
         Important:
             The order of derivatives should reflect the order of ``dependencies``
@@ -774,25 +763,22 @@ class SurrogateFactory:
 
         """
         vals = []
-        for g, data in self.mdg.subdomains(return_data=True):
-            val_g = pp.get_solution_values(
-                self._name_derivatives, data, iterate_index=0
+        for _, data in self.mdg.subdomains(return_data=True):
+            vals.append(
+                pp.get_solution_values(self._name_derivatives, data, iterate_index=0)
             )
-            _check_expected_values(
-                val_g,
-                (self.num_dependencies, self.num_dofs_on_grid(g)),
-                g,
-                iterate_index=0,
-            )
-            vals.append(val_g)
         return np.hstack(vals)
 
     @subdomain_derivatives.setter
     def subdomain_derivatives(self, val: np.ndarray) -> None:
         i = 0
         for grid in self.mdg.subdomains():
-            n = grid.num_cells
-            self.progress_iterate_derivatives_on_grid(val[:, i : i + n], grid)
+            n = self.num_dofs_on_grid(grid)
+            self._set_current_value_on_grid(
+                val[:, i : i + n],
+                grid,
+                is_derivative_value=True,
+            )
             i += n
 
     @property
@@ -808,23 +794,18 @@ class SurrogateFactory:
 
         """
         vals = []
-        for g, data in self.mdg.interfaces(return_data=True):
-            val_g = pp.get_solution_values(self.name, data, iterate_index=0)
-            _check_expected_values(
-                val_g,
-                (self.num_dofs_on_grid(g),),
-                g,
-                iterate_index=0,
-            )
-            vals.append(val_g)
+        for _, data in self.mdg.interfaces(return_data=True):
+            vals.append(pp.get_solution_values(self.name, data, iterate_index=0))
         return np.hstack(vals)
 
     @interface_values.setter
     def interface_values(self, val: np.ndarray) -> None:
         i = 0
         for grid in self.mdg.interfaces():
-            n = grid.num_cells
-            self.progress_iterate_values_on_grid(val[i : i + n], grid)
+            n = self.num_dofs_on_grid(grid)
+            self._set_current_value_on_grid(
+                val[i : i + n], grid, is_derivative_value=False
+            )
             i += n
 
     @property
@@ -839,70 +820,49 @@ class SurrogateFactory:
 
         """
         vals = []
-        for g, data in self.mdg.interfaces(return_data=True):
-            val_g = pp.get_solution_values(
-                self._name_derivatives, data, iterate_index=0
+        for _, data in self.mdg.interfaces(return_data=True):
+            vals.append(
+                pp.get_solution_values(self._name_derivatives, data, iterate_index=0)
             )
-            _check_expected_values(
-                val_g,
-                (self.num_dependencies, self.num_dofs_on_grid(g)),
-                g,
-                iterate_index=0,
-            )
-            vals.append(val_g)
         return np.hstack(vals)
 
     @interface_derivatives.setter
     def interface_derivatives(self, val: np.ndarray) -> None:
         i = 0
         for grid in self.mdg.interfaces():
-            n = grid.num_cells
-            self.progress_iterate_derivatives_on_grid(val[:, i : i + n], grid)
+            n = self.num_dofs_on_grid(grid)
+            self._set_current_value_on_grid(
+                val[:, i : i + n],
+                grid,
+                is_derivative_value=True,
+            )
             i += n
+
+    def _set_current_value_on_grid(
+        self, value: np.ndarray, grid: pp.GridLike, is_derivative_value: bool
+    ) -> None:
+        """Helper method to set the ``value`` on ``grid`` for the current time step
+        (at ``iterate_index=0``). If ``is_derivative_value==True``, then ``value`` is
+        stored as the derivative value."""
+        if is_derivative_value:
+            target_shape = (self.num_dependencies, self.num_dofs_on_grid(grid))
+            name = self._name_derivatives
+        else:
+            target_shape = (self.num_dofs_on_grid(grid),)
+            name = self.name
+        _check_expected_values(
+            value,
+            target_shape,
+            grid,
+            iterate_index=0,
+        )
+        pp.set_solution_values(name, value, self._data_of(grid), iterate_index=0)
 
     # Methods to progress values and derivatives in time on subdomains or
     # interfaces (don't need new values)
 
-    def progress_values_in_time(
-        self, domains: Sequence[pp.Grid | pp.MortarGrid]
-    ) -> None:
-        """Shifts timestepping values backwards in times and sets the current
-        iterate value as the (first) previous time step value.
-
-        Does this only if the surrogate was instatiated as time-dependent.
-
-        Parameters:
-            domains: Performs the progress on given sequence of domains.
-
-        """
-        if self._time_dependent:
-            for grid in domains:
-                data = self._data_of(grid)
-                pp.shift_solution_values(self.name, data, pp.TIME_STEP_SOLUTIONS)
-                current_vals = pp.get_solution_values(self.name, data, iterate_index=0)
-                pp.set_solution_values(self.name, current_vals, data, time_step_index=0)
-
-    def progress_derivatives_in_time(
-        self, domains: Sequence[pp.Grid | pp.MortarGrid]
-    ) -> None:
-        """Analogous to :meth:`progress_values_in_time`, but for derivatives."""
-        if self._time_dependent:
-            for grid in domains:
-                data = self._data_of(grid)
-                pp.shift_solution_values(
-                    self._name_derivatives, data, pp.TIME_STEP_SOLUTIONS
-                )
-                current_vals = pp.get_solution_values(
-                    self._name_derivatives, data, iterate_index=0
-                )
-                pp.set_solution_values(
-                    self._name_derivatives, current_vals, data, time_step_index=0
-                )
-
-    # Methods operating on single grids
-
     def update_boundary_values(
-        self, values: np.ndarray, boundary_grid: pp.BoundaryGrid
+        self, values: np.ndarray, boundary_grid: pp.BoundaryGrid, depth: int = 1.0
     ) -> None:
         """Function to update the value of the surrogate operator on the boundary.
 
@@ -923,9 +883,14 @@ class SurrogateFactory:
                 information passed in ``dof_info`` at instantiation and the number of
                 cells in ``boundary_grid``.
             boundary_grid: A boundary grid in the mixed-dimensional domain.
+            depth: ``default=1``
+
+                Maximal number of time steps stored. The default value 1 leads to
+                only 1 previous time step value stored.
+                See :func:`~porepy.numerics.ad._ad_utils.shift_solution_values`.
 
         Raises:
-            AssertionError: If ``values`` is not of the expected shape.
+            ValueError: If ``values`` is not of the expected shape.
 
         """
 
@@ -939,26 +904,79 @@ class SurrogateFactory:
 
         # If boundary values stored in time, shift them and store the current time step
         # (iterate idx 0) as the most recent previous time step
-        if self._time_dependent:
-            pp.shift_solution_values(self.name, data, pp.TIME_STEP_SOLUTIONS)
-            # NOTE avoid pp.get_solution_values for the case when values are set
-            # the first time.
-            try:
-                new_prev_val = data[pp.ITERATE_SOLUTIONS][self.name][0]
-            except KeyError:
-                pass
-            else:
-                pp.set_solution_values(self.name, new_prev_val, data, time_step_index=0)
+        pp.shift_solution_values(
+            self.name, data, pp.TIME_STEP_SOLUTIONS, max_index=depth
+        )
+        # NOTE avoid pp.get_solution_values for the case when values are set
+        # the first time.
+        try:
+            new_prev_val = pp.get_solution_values(self.name, data, iterate_index=0)
+        except KeyError:
+            pass
+        else:
+            pp.set_solution_values(self.name, new_prev_val, data, time_step_index=0)
         # set the given value as the new single iterate value (current time)
         pp.set_solution_values(self.name, values, data, iterate_index=0)
+
+    def progress_values_in_time(
+        self, domains: pp.GridLikeSequence, depth: int = 1
+    ) -> None:
+        """Shifts timestepping values backwards in times and sets the current
+        iterate value as the (first) previous time step value.
+
+        Parameters:
+            domains: Performs the progress on given sequence of domains.
+            depth: ``default=1``
+
+                Maximal number of time steps stored. The default value 1 leads to
+                only 1 previous time step value stored.
+                See :func:`~porepy.numerics.ad._ad_utils.shift_solution_values`.
+
+        """
+        for grid in domains:
+            data = self._data_of(grid)
+            pp.shift_solution_values(
+                self.name, data, pp.TIME_STEP_SOLUTIONS, max_index=depth
+            )
+            current_vals = pp.get_solution_values(self.name, data, iterate_index=0)
+            pp.set_solution_values(self.name, current_vals, data, time_step_index=0)
+
+    def progress_derivatives_in_time(
+        self, domains: Sequence[pp.Grid | pp.MortarGrid], depth: int = 0
+    ) -> None:
+        """Analogous to :meth:`progress_values_in_time`, but for derivatives.
+
+        Important:
+            As of now, there is no use case in storing derivatives in time, except
+            for export and inspection reason. Use with care and do not trash the memory.
+
+        """
+        for grid in domains:
+            data = self._data_of(grid)
+            pp.shift_solution_values(
+                self._name_derivatives, data, pp.TIME_STEP_SOLUTIONS, max_index=depth
+            )
+            current_vals = pp.get_solution_values(
+                self._name_derivatives, data, iterate_index=0
+            )
+            pp.set_solution_values(
+                self._name_derivatives, current_vals, data, time_step_index=0
+            )
+
+    # Methods operating on single grids
 
     def progress_iterate_values_on_grid(
         self,
         values: np.ndarray,
         grid: pp.Grid | pp.MortarGrid,
+        depth: int = 0,
     ) -> None:
         """Shifts the iterate values backwards in the iterate sense and sets ``values``
         as the current iterate values.
+
+        Note:
+            Using this method with ``depth=0`` is a way to set the values of this
+            expression on individual grids, for the current time and iterate.
 
         Parameters:
             values: ``shape=(N,)``
@@ -967,26 +985,40 @@ class SurrogateFactory:
                 information passed in ``dof_info`` at instantiation and the number of
                 cells in ``grid`` (and faces and nodes if subdomain).
             grid: A subdomain or interface in the mixed-dimensional domain.
+            depth: ``default=0``
+
+                Maximal number of iterage values stored. The default value leads to
+                **no** previous iterate values stored.
+                See :func:`~porepy.numerics.ad._ad_utils.shift_solution_values`.
 
         Raises:
-            AssertionError: If ``values`` is not of the expected shape.
+            ValueError: If ``values`` is not of the expected shape.
 
         """
         _check_expected_values(
             values, (self.num_dofs_on_grid(grid),), grid, iterate_index=0
         )
         data = self._data_of(grid)
-
-        pp.shift_solution_values(self.name, data, pp.ITERATE_SOLUTIONS)
+        pp.shift_solution_values(self.name, data, pp.ITERATE_SOLUTIONS, max_index=depth)
         pp.set_solution_values(self.name, values, data, iterate_index=0)
 
     def progress_iterate_derivatives_on_grid(
         self,
         values: np.ndarray,
         grid: pp.Grid | pp.MortarGrid,
+        depth: int = 0,
     ) -> None:
         """Analogous to :meth:`progress_iterate_values_on_grid`, but for derivative
         values.
+
+        Important:
+            As of now, there is no use case in storing derivatives in the iterate sense,
+            except for export and inspection reason. Use with care and do not trash the
+            memory.
+
+            But using this method with ``depth=0`` is a possibility to update the
+            value of derivatives on individual grids, for the current time and iterate
+            only.
 
         Parameters:
             values: ``shape=(num_dependencies, N)``
@@ -994,9 +1026,14 @@ class SurrogateFactory:
                 A new value to be set on the ``grid``. ``N`` must be consistent with
                 the shape in :meth:`progress_iterate_values_on_grid`.
             grid: A subdomain or interface in the mixed-dimensional domain.
+            depth: ``default=0``
+
+                Maximal number of iterage derivative values stored. The default value 0
+                leads to **no** previous iterate derivative values stored.
+                See :func:`~porepy.numerics.ad._ad_utils.shift_solution_values`.
 
         Raises:
-            AssertionError: If ``values`` is not of the expected shape.
+            ValueError: If ``values`` is not of the expected shape.
 
         """
         _check_expected_values(
@@ -1006,5 +1043,25 @@ class SurrogateFactory:
             iterate_index=0,
         )
         data = self._data_of(grid)
-        pp.shift_solution_values(self._name_derivatives, data, pp.ITERATE_SOLUTIONS)
+        pp.shift_solution_values(
+            self._name_derivatives, data, pp.ITERATE_SOLUTIONS, max_index=depth
+        )
         pp.set_solution_values(self._name_derivatives, values, data, iterate_index=0)
+
+    def shift_iterate_values_on_grids(
+        self, domains: Sequence[pp.Grid | pp.MortarGrid], depth: int = 1
+    ) -> None:
+        """Convenience function to shift the current values backwards in the iterate
+        sense. Similar to :meth:`progress_values_in_time`.
+
+        This is a convenience function for populating the iterate values at the
+        beginning of a simulation.
+
+        See also:
+            :func:`~porepy.numerics.ad._ad_utils.shift_solution_values`
+
+        """
+        for grid in domains:
+            pp.shift_solution_values(
+                self.name, self._data_of(grid), pp.ITERATE_SOLUTIONS, max_index=depth
+            )
