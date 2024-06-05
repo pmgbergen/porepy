@@ -22,7 +22,7 @@ NUMBA_CACHE: bool = True
 This might cause some confusion in the developing process due to some lack in numba's
 caching functionality.
 (Does not recognize changes in nested functions and hence does not trigger
-re-compilation)
+re-compilation).
 
 Use with care.
 
@@ -32,6 +32,16 @@ Note:
 
 See Also:
     https://numba.readthedocs.io/en/stable/user/jit.html#cache
+
+"""
+
+NUMBA_FAST_MATH: bool = False
+"""Flag to instruct the numba compiler to use it's ``fastmath`` functions.
+
+To be used with care, due to loss in precision.
+
+See Also:
+    https://numba.readthedocs.io/en/stable/reference/jit-compilation.html#numba.jit
 
 """
 

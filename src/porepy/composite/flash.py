@@ -262,11 +262,13 @@ class Flash(abc.ABC):
         elif flash_type == "p-h":
             fluid_state.p = s_1
             fluid_state.h = s_2
+        # NOTE the state cannot set v, as it is always the reciprocal of rho
+        # set rho as the reciprocal of target v
         elif flash_type == "v-T":
-            fluid_state.v = s_1
+            fluid_state.rho = 1.0 / s_1
             fluid_state.T = s_2
         elif flash_type == "v-h":
-            fluid_state.v = s_1
+            fluid_state.rho = 1.0 / s_1
             fluid_state.h = s_2
         else:
             # alert developers if sth missing, error should be catched above
