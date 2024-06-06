@@ -43,7 +43,7 @@ else:
     from DriesnerModelConfiguration import DriesnerBrineFlowModel as FlowModel
 
 day = 86400
-t_scale = 0.00001
+t_scale = 0.0000001
 time_manager = pp.TimeManager(
     schedule=[0.0, 100.0 * day * t_scale],
     dt_init=1.0 * day * t_scale,

@@ -44,8 +44,8 @@ class BoundaryConditions(BoundaryConditionsCF):
 
     def bc_values_enthalpy(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
         inlet_idx, _ = self.get_inlet_outlet_sides(boundary_grid)
-        h_inlet = 2.0e6
-        h_outlet = 2.0e6
+        h_inlet = 1.5e6
+        h_outlet = 2.2e6
         xc = boundary_grid.cell_centers.T
         l = 2.0
         def h_linear(xv):
@@ -59,7 +59,7 @@ class BoundaryConditions(BoundaryConditionsCF):
         self, component: ppc.Component, boundary_grid: pp.BoundaryGrid
     ) -> np.ndarray:
         inlet_idx, _ = self.get_inlet_outlet_sides(boundary_grid)
-        z_init = 0.1
+        z_init = 0.2
         z_inlet = 0.02
         if component.name == "H2O":
             z_H2O = (1 - z_init) * np.ones(boundary_grid.num_cells)
@@ -80,8 +80,8 @@ class InitialConditions(InitialConditionsCF):
     """See parent class how to set up BC. Default is all zero and Dirichlet."""
 
     def initial_pressure(self, sd: pp.Grid) -> np.ndarray:
-        p_inlet = 20.0e6
-        p_outlet = 20.0e6
+        p_inlet = 15.0e6
+        p_outlet = 15.0e6
         xc = sd.cell_centers.T
         l = 2.0
         def p_linear(xv):
@@ -91,8 +91,8 @@ class InitialConditions(InitialConditionsCF):
         return p
 
     def initial_enthalpy(self, sd: pp.Grid) -> np.ndarray:
-        h_inlet = 2.0e6
-        h_outlet = 2.0e6
+        h_inlet = 2.2e6
+        h_outlet = 2.2e6
         xc = sd.cell_centers.T
         l = 2.0
         def h_linear(xv):
@@ -104,7 +104,7 @@ class InitialConditions(InitialConditionsCF):
     def initial_overall_fraction(
         self, component: ppc.Component, sd: pp.Grid
     ) -> np.ndarray:
-        z = 0.1
+        z = 0.2
         if component.name == "H2O":
             return (1 - z) * np.ones(sd.num_cells)
         else:
