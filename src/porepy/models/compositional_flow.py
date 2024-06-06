@@ -1723,11 +1723,11 @@ class ConstitutiveLawsCF(
             for g in domains:
                 X = [x([g]).value(self.equation_system) for x in expr._dependencies]
 
-                vals, _ = func(*X)
+                vals, diffs = func(*X)
 
                 expr.progress_iterate_values_on_grid(vals, g, depth=ni)
                 # NOTE with depth=0, no shift in iterate sense is performed
-                expr.progress_iterate_derivatives_on_grid(vals, g)
+                expr.progress_iterate_derivatives_on_grid(diffs, g)
 
     def progress_all_constitutive_expressions_in_time(self) -> None:
         """Method to progress the values of all added constitutive expressions in time.
@@ -2464,6 +2464,8 @@ class SolutionStrategyCF(
     bc_type_advective_flux: Callable[[pp.Grid], pp.BoundaryCondition]
     """Provided by :class:`BoundaryConditionsCF`."""
 
+    _stats: list[list[dict]] = list()
+
     def __init__(self, params: Optional[dict] = None) -> None:
         super().__init__(params)
 
@@ -2784,6 +2786,7 @@ class SolutionStrategyCF(
     def before_nonlinear_iteration(self) -> None:
         """Overwrites parent methods to perform an update of secondary quantities,
         and then performing customized updates of discretizations."""
+        self._stats[-1].append(dict())
         self.update_secondary_quantities()
         # After updating the fluid properties, update discretizations
         self.update_discretizations()
@@ -2815,15 +2818,24 @@ class SolutionStrategyCF(
             )
         else:
             self.linear_system = self.equation_system.assemble()
-        logger.debug(f"Assembled linear system in {time.time() - t_0:.2e} seconds.")
+        t_1 = time.time()
+        logger.debug(f"Assembled linear system in {t_1 - t_0:.2e} seconds.")
+        self._stats[-1][-1]["time_assembly"] = t_1 - t_0
+        res = self.equation_system.assemble(evaluate_jacobian=False)
+        self._stats[-1][-1]["residual_at_assembly"] = np.linalg.norm(res) / np.sqrt(
+            res.size
+        )
 
     def solve_linear_system(self) -> np.ndarray:
         """After calling the parent method, the global solution is calculated by Schur
         expansion."""
+        t_0 = time.time()
         sol = super().solve_linear_system()
         reduce_linear_system_q = self.params.get("reduce_linear_system_q", False)
         if reduce_linear_system_q:
             sol = self.equation_system.expand_schur_complement_solution(sol)
+        t_1 = time.time()
+        self._stats[-1][-1]["time_linsolve"] = t_1 - t_0
         return sol
 
     def _log_res(self, loc: str = ""):
@@ -2843,6 +2855,10 @@ class SolutionStrategyCF(
             f"\nResidual {loc}: {np.linalg.norm(all_res) / np.sqrt(all_res.size)}"
         )
         logger.debug(msg)
+
+    def before_nonlinear_loop(self) -> None:
+        self._stats.append([])
+        super().before_nonlinear_loop()
 
 
 # endregion
