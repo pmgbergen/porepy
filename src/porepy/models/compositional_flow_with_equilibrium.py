@@ -467,7 +467,11 @@ class SolutionStrategyCFLE(cf.SolutionStrategyCF, ppc.FlashMixin):
         logger.info(
             f"Updating thermodynamic state of fluid with {self.equilibrium_type} flash."
         )
-
+        res = self.equation_system.assemble(evaluate_jacobian=False)
+        self._stats[-1][-1]["residual_before_flash"] = np.linalg.norm(res) / np.sqrt(
+            res.size
+        )
+        t_0 = time.time()
         for sd in self.mdg.subdomains():
             logger.debug(f"Flashing on grid {sd.id}")
             start = time.time()
@@ -552,7 +556,13 @@ class SolutionStrategyCFLE(cf.SolutionStrategyCF, ppc.FlashMixin):
                         dphis_ext[k], sd
                     )
 
+        t_1 = time.time()
+        self._stats[-1][-1]["time_flash"] = t_1 - t_0
         self._log_res("after flash")
+        res = self.equation_system.assemble(evaluate_jacobian=False)
+        self._stats[-1][-1]["residual_after_flash"] = np.linalg.norm(res) / np.sqrt(
+            res.size
+        )
 
 
 class CFLEModelMixin_ph(
