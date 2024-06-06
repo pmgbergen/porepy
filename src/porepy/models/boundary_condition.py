@@ -133,6 +133,7 @@ class BoundaryConditionMixin:
         subdomains: Sequence[pp.Grid],
         dirichlet_operator: Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
         neumann_operator: Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
+        robin_operator: Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
         bc_type: Callable[[pp.Grid], pp.BoundaryCondition],
         name: str,
         dim: int = 1,
@@ -158,6 +159,7 @@ class BoundaryConditionMixin:
         # Creating the Dirichlet and Neumann AD expressions.
         dirichlet = dirichlet_operator(boundary_grids)
         neumann = neumann_operator(boundary_grids)
+        robin = robin_operator(boundary_grids)
 
         # Adding bc_type function to local storage to evaluate it before every time step
         # in case if the type changes in the runtime.
@@ -170,6 +172,10 @@ class BoundaryConditionMixin:
         neu_filter = pp.ad.TimeDependentDenseArray(
             name=(name + "_filter_neu"), domains=boundary_grids
         )
+        rob_filter = pp.ad.TimeDependentDenseArray(
+            name=(name + "_filter_rob"), domains=boundary_grids
+        )
+
         # Setting the values of the filters for the first time.
         self._update_bc_type_filter(name=name, bc_type_callable=bc_type)
 
@@ -182,8 +188,10 @@ class BoundaryConditionMixin:
         dirichlet *= dir_filter
         # Same with Neumann conditions.
         neumann *= neu_filter
+        # Same with Robin conditions
+        robin *= rob_filter
         # Projecting from the boundary grid to the subdomain.
-        result = boundary_to_subdomain @ (dirichlet + neumann)
+        result = boundary_to_subdomain @ (dirichlet + neumann + robin)
         result.set_name(name)
         return result
 
@@ -211,8 +219,14 @@ class BoundaryConditionMixin:
             is_neu = bg.projection() @ is_neu
             return is_neu.T.ravel("F")
 
+        def robin(bg: pp.BoundaryGrid):
+            is_rob = bc_type_callable(bg.parent).is_rob.T
+            is_rob = bg.projection() @ is_rob
+            return is_rob.T.ravel("F")
+
         self.update_boundary_condition(name=(name + "_filter_dir"), function=dirichlet)
         self.update_boundary_condition(name=(name + "_filter_neu"), function=neumann)
+        self.update_boundary_condition(name=(name + "_filter_rob"), function=robin)
 
     @cached_property
     def __bc_type_storage(self) -> dict[str, Callable[[pp.Grid], pp.BoundaryCondition]]:
