@@ -1723,11 +1723,11 @@ class ConstitutiveLawsCF(
             for g in domains:
                 X = [x([g]).value(self.equation_system) for x in expr._dependencies]
 
-                vals, _ = func(*X)
+                vals, diffs = func(*X)
 
                 expr.progress_iterate_values_on_grid(vals, g, depth=ni)
                 # NOTE with depth=0, no shift in iterate sense is performed
-                expr.progress_iterate_derivatives_on_grid(vals, g)
+                expr.progress_iterate_derivatives_on_grid(diffs, g)
 
     def progress_all_constitutive_expressions_in_time(self) -> None:
         """Method to progress the values of all added constitutive expressions in time.

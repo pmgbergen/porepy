@@ -35,7 +35,7 @@ from LinearTracerModelConfiguration import LinearTracerFlowModel as FlowModel
 import porepy as pp
 
 day = 86400
-t_scale = 0.01
+t_scale = 0.00001
 time_manager = pp.TimeManager(
     schedule=[0.0, 10.0 * day * t_scale],
     dt_init=1.0 * day * t_scale,
@@ -56,7 +56,8 @@ params = {
     "prepare_simulation": False,
     "reduce_linear_system_q": False,
     "petsc_solver_q": False,
-    "nl_convergence_tol": 1.0e-3,
+    "nl_convergence_tol": 1.0e-8,
+    "nl_convergence_tol_res": 1.0e-8,
     "max_iterations": 25,
 }
 
@@ -64,23 +65,18 @@ params = {
 class GeothermalFlowModel(FlowModel):
 
     def after_nonlinear_convergence(
-        self, solution: np.ndarray, errors: float, iteration_counter: int
-    ) -> None:
+        self) -> None:
         tb = time.time()
         res_norm = np.linalg.norm(
             model.equation_system.assemble(evaluate_jacobian=False)
         )
         te = time.time()
         print("Elapsed time residual assemble: ", te - tb)
-        super().after_nonlinear_convergence(solution, errors, iteration_counter)
+        super().after_nonlinear_convergence()
         print("Time step converged with residual norm: ", res_norm)
         print("Time value: ", self.time_manager.time)
         print("Time index: ", self.time_manager.time_index)
         print("")
-
-    def _export(self):
-        if hasattr(self, "exporter"):
-            self.exporter.write_vtu(self.primary_variable_names(), time_dependent=True)
 
     def after_simulation(self):
         self.exporter.write_pvd()

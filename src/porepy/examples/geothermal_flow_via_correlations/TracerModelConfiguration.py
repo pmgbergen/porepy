@@ -1,6 +1,6 @@
 import numpy as np
 import TracerConstitutiveDescription
-from Geometries import Benchmark2DC3 as ModelGeometry
+from Geometries import SimpleGeometry as ModelGeometry
 
 import porepy as pp
 import porepy.composite as ppc
@@ -129,4 +129,4 @@ class TracerFlowModel(
 ):
 
     def relative_permeability(self, saturation: pp.ad.Operator) -> pp.ad.Operator:
-        return saturation
+        return saturation**2
