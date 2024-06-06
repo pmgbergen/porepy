@@ -4,10 +4,11 @@ import numpy as np
 import pyvista
 import ClassifyPoints as cp
 
+
 class DriesnerBrineOBL:
     # Operator-based linearization (OBL) for Driesner correlations
 
-    def __init__(self, file_name, extended_q = True):
+    def __init__(self, file_name, extended_q=True):
         self.file_name = file_name
         self.taylor_extended_q = extended_q
         self.__build_search_space()
@@ -58,9 +59,12 @@ class DriesnerBrineOBL:
 
         point_cloud = pyvista.PolyData(points)
         self.sampled_could = point_cloud.sample(self._search_space)
-        check_enclosed_points = point_cloud.select_enclosed_points(self.bc_surface,
-                                                                   check_surface=False)
-        external_idx = np.logical_not(check_enclosed_points.point_data['SelectedPoints'])
+        check_enclosed_points = point_cloud.select_enclosed_points(
+            self.bc_surface, check_surface=False
+        )
+        external_idx = np.logical_not(
+            check_enclosed_points.point_data["SelectedPoints"]
+        )
         if self.taylor_extended_q:
             self.__taylor_expansion(points, external_idx)
 
@@ -91,6 +95,16 @@ class DriesnerBrineOBL:
     def __map_external_points_to_surface(self, xv):
         bounds = self.search_space.bounds
         xmin, xmax, ymin, ymax, zmin, zmax = bounds
+
+        # ensure that vtk sampling for zero order expansion is performed internally
+        eps = 1.0e-10
+        xmin += eps
+        ymin += eps
+        zmin += eps
+
+        xmax -= eps
+        ymax -= eps
+        zmax -= eps
 
         # detect regions
         w_q = cp.w_predicate(*xv.T, bounds)
@@ -135,8 +149,8 @@ class DriesnerBrineOBL:
         xv[e_q, 0] = xmax
         xv[s_q, 1] = ymin
         xv[n_q, 1] = ymax
-        xv[b_q, 2] = ymin
-        xv[t_q, 2] = ymax
+        xv[b_q, 2] = zmin
+        xv[t_q, 2] = zmax
 
         # x range
         xv[sb_q, 1] = ymin
@@ -198,7 +212,6 @@ class DriesnerBrineOBL:
         xv[ent_q, 1] = ymax
         xv[ent_q, 2] = zmax
 
-
     def __taylor_expansion(self, points, external_idx):
 
         xv = points[external_idx].copy()
@@ -226,4 +239,3 @@ class DriesnerBrineOBL:
                 self.sampled_could[grad_field_name][glob_idx] = grad_fv
 
         return
-
