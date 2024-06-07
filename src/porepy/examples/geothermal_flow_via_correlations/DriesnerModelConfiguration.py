@@ -33,10 +33,12 @@ class BoundaryConditions(BoundaryConditionsCF):
         p_outlet = 15.0e6
         xc = boundary_grid.cell_centers.T
         l = 2.0
+
         def p_linear(xv):
-            p_v = p_inlet * (1-xv[0]/l)  + p_outlet * (xv[0]/l)
+            p_v = p_inlet * (1 - xv[0] / l) + p_outlet * (xv[0] / l)
             return p_v
-        p = np.fromiter(map(p_linear,xc),dtype=float)
+
+        p = np.fromiter(map(p_linear, xc), dtype=float)
         return p
         p[inlet_idx] = p_inlet
         p[outlet_idx] = p_outlet
@@ -48,10 +50,12 @@ class BoundaryConditions(BoundaryConditionsCF):
         h_outlet = 2.2e6
         xc = boundary_grid.cell_centers.T
         l = 2.0
+
         def h_linear(xv):
-            h_v = h_inlet * (1-xv[0]/l) + h_outlet * (xv[0]/l)
+            h_v = h_inlet * (1 - xv[0] / l) + h_outlet * (xv[0] / l)
             return h_v
-        h = np.fromiter(map(h_linear,xc),dtype=float)
+
+        h = np.fromiter(map(h_linear, xc), dtype=float)
         h[inlet_idx] = h_inlet
         return h
 
@@ -76,6 +80,7 @@ class BoundaryConditions(BoundaryConditionsCF):
     #     T = factor * h
     #     return T
 
+
 class InitialConditions(InitialConditionsCF):
     """See parent class how to set up BC. Default is all zero and Dirichlet."""
 
@@ -84,10 +89,12 @@ class InitialConditions(InitialConditionsCF):
         p_outlet = 15.0e6
         xc = sd.cell_centers.T
         l = 2.0
+
         def p_linear(xv):
-            p_v = p_inlet * (1-xv[0]/l)  + p_outlet * (xv[0]/l)
+            p_v = p_inlet * (1 - xv[0] / l) + p_outlet * (xv[0] / l)
             return p_v
-        p = np.fromiter(map(p_linear,xc),dtype=float)
+
+        p = np.fromiter(map(p_linear, xc), dtype=float)
         return p
 
     def initial_enthalpy(self, sd: pp.Grid) -> np.ndarray:
@@ -95,10 +102,12 @@ class InitialConditions(InitialConditionsCF):
         h_outlet = 2.2e6
         xc = sd.cell_centers.T
         l = 2.0
+
         def h_linear(xv):
-            h_v = h_inlet * (1-xv[0]/l)  + h_outlet * (xv[0]/l)
+            h_v = h_inlet * (1 - xv[0] / l) + h_outlet * (xv[0] / l)
             return h_v
-        h = np.fromiter(map(h_linear,xc),dtype=float)
+
+        h = np.fromiter(map(h_linear, xc), dtype=float)
         return h
 
     def initial_overall_fraction(

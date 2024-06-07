@@ -121,17 +121,10 @@ The success flag should be one of the following values:
 
 - 0: success
 - 1: max iter reached
-<<<<<<< HEAD
-- 2: failure in the evaluation of the residual
-- 3: failure in the evaluation of the Jacobian
-- 4: NAN or infty detected in update (aborted)
-- 5: Any other failure
-=======
 - 2: NAN or infty detected in update (aborted)
 - 3: failure in the evaluation of the residual
 - 4: failure in the evaluation of the Jacobian
 - 5: Any other failure (raised by linear mode solver)
->>>>>>> aa975bc2359e8aadb7db7bac266ff0a277275ee3
 
 The returned result should contain the value of the last iterate
 (independent of success).
