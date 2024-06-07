@@ -201,7 +201,7 @@ class CompiledFlash(ppc.FlashMixin):
             h = self.enthalpy(sds).value(self.equation_system)[failure]
             T = self.temperature(sds).value(self.equation_system)[failure]
 
-            logger.info(f"Failed at\nz: {z}\np: {p}\nh: {h}\nT: {T}")
+            logger.info(f"Failed at\nz: {z}\np: {p}\nT: {T}\nh: {h}")
             # no initial guess, and this model uses only p-h flash.
             flash_kwargs = {
                 "z": z,
@@ -482,6 +482,7 @@ T_end = 200 * days * t_scale
 dt_init = 1 * days * t_scale / 4
 max_iterations = 80
 newton_tol = 1e-6
+newton_tol_increment = newton_tol
 
 time_manager = pp.TimeManager(
     schedule=[0, T_end],
@@ -522,7 +523,7 @@ params = {
     "reduce_linear_system_q": False,
     "time_manager": time_manager,
     "max_iterations": max_iterations,
-    "nl_convergence_tol": newton_tol,
+    "nl_convergence_tol": newton_tol_increment,
     "nl_convergence_tol_res": newton_tol,
     "prepare_simulation": False,
     "progressbars": True,

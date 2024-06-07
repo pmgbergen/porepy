@@ -123,6 +123,9 @@ class UnifiedPhaseEquilibriumMixin:
     """Provided by
     :class:`~porepy.models.compositional_flow.SolutionStrategyCF`."""
 
+    ad_time_step: pp.ad.Operator
+    """Provided by solutions trategy."""
+
     def set_equations(self) -> None:
         """The base class method without defined equilibrium type performs a model
         validation to ensure that the assumptions for the unified flash are fulfilled.
@@ -321,7 +324,14 @@ class UnifiedPhaseEquilibriumMixin:
             equ = h_mix / h_target - pp.ad.Scalar(1.0)
         else:
             equ = h_mix - h_target
-        equ.set_name("local_fluid_enthalpy_constraint")
+
+        if self.equilibrium_type == 'p-T':  # TODO should I leave it for now or later?
+            equ = pp.ad.dt(equ, self.ad_time_step) + (
+                pp.ad.Scalar(1/5) / self.ad_time_step
+            ) * equ
+            equ.set_name('relaxed_local_fluid_enthalpy_constraint')
+        else:
+            equ.set_name("local_fluid_enthalpy_constraint")
         return equ
 
     def mixture_volume_constraint(
