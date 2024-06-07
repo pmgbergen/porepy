@@ -266,6 +266,7 @@ class MassBalanceEquations(pp.BalanceEquation):
             subdomains=domains,
             dirichlet_operator=self.mobility_rho,
             neumann_operator=self.fluid_flux,
+            robin_operator=self.fluid_flux,
             bc_type=self.bc_type_fluid_flux,
             name="bc_values_fluid_flux",
         )

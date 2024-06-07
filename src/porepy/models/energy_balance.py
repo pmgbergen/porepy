@@ -355,6 +355,7 @@ class EnergyBalanceEquations(pp.BalanceEquation):
                 subdomains=subdomains,
                 dirichlet_operator=enthalpy_dirichlet,
                 neumann_operator=self.enthalpy_flux,
+                robin_operator=self.enthalpy_flux,
                 bc_type=self.bc_type_enthalpy_flux,
                 name="bc_values_enthalpy",
             )
