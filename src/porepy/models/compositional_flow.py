@@ -35,6 +35,54 @@ from . import mass_and_energy_balance as mass_energy
 
 logger = logging.getLogger(__name__)
 
+
+def update_phase_properties(
+    phase: ppc.Phase,
+    state: ppc.PhaseState,
+    update_derivatives: bool = True,
+    use_extended_derivatives: bool = False,
+) -> None:
+    """Helper method to update the phase properties and its derivatives.
+
+    This method is intended for a global update of properties and their derivatives,
+    using the setters of the
+    :class:`~porepy.numerics.ad.surrogate_operator.SurrogateFactory`.
+
+    Parameters:
+        phase: Any phase
+        state: A phase state structure containing the new values to be set
+        update_derivatives: ``default=True``
+
+            If True, updates also the derivative values.
+        use_extended_derivatives: ``default=False``
+
+            If True, and if ``update_derivatives==True``, uses the extend
+            derivatives of the ``state``.
+
+            To be used in the the CFLE setting with the unified equilibrium formulation.
+
+    """
+    phase.density.subdomain_values = state.rho
+    phase.volume.subdomain_values = state.v
+    phase.enthalpy.subdomain_values = state.h
+    phase.viscosity.subdomain_values = state.mu
+    phase.conductivity.subdomain_values = state.kappa
+
+    if update_derivatives:
+        if use_extended_derivatives:
+            phase.density.subdomain_derivatives = state.drho_ext
+            phase.volume.subdomain_derivatives = state.dv_ext
+            phase.enthalpy.subdomain_derivatives = state.dh_ext
+            phase.viscosity.subdomain_derivatives = state.dmu_ext
+            phase.conductivity.subdomain_derivatives = state.dkappa_ext
+        else:
+            phase.density.subdomain_derivatives = state.drho
+            phase.volume.subdomain_derivatives = state.dv
+            phase.enthalpy.subdomain_derivatives = state.dh
+            phase.viscosity.subdomain_derivatives = state.dmu
+            phase.conductivity.subdomain_derivatives = state.dkappa
+
+
 # region CONSTITUTIVE LAWS taylored to pore.composite and its mixins
 
 
@@ -424,6 +472,9 @@ class SolidSkeletonCF(
     total_mobility: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     """Provided by :class:`MobilityCF`."""
 
+    temperature: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
+    """Provided by :class:`~porepy.models.energy_balance.VariablesEnergyBalance`."""
+
     interfaces_to_subdomains: Callable[[list[pp.MortarGrid]], list[pp.Grid]]
     """Provided by :class:`~porepy.models.geometry.ModelGeometry`."""
 
@@ -745,9 +796,10 @@ class TotalEnergyBalanceEquation_h(energy.EnergyBalanceEquations):
     def fluid_internal_energy(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Overwrites the parent method to use the fluix mixture density and the primary
         unknown enthalpy."""
-        energy = (
+        energy = self.porosity(subdomains) * (
             self.fluid_mixture.density(subdomains) * self.enthalpy(subdomains)
-        ) * self.porosity(subdomains) - self.pressure(subdomains)
+            - self.pressure(subdomains)
+        )
         energy.set_name("fluid_mixture_internal_energy")
         return energy
 
@@ -1422,7 +1474,6 @@ class SecondaryEquationsMixin:
             name=f"secondary_expression_for_{sec_var.name}_on_grids_{g_ids}",
             mdg=self.mdg,
             dependencies=dependencies,
-            time_dependent=True,
         )
 
         local_equ = sec_var - sec_expr(non_boundaries)
@@ -1656,9 +1707,7 @@ class ConstitutiveLawsCF(
             {expression.name: (primary, expression, func, domains, boundaries)}
         )
 
-    def update_all_constitutive_expressions(
-        self, update_derivatives: bool = False
-    ) -> None:
+    def update_all_constitutive_expressions(self) -> None:
         """Method to update the values of all constitutive expressions in the iterative
         sense.
 
@@ -1668,26 +1717,19 @@ class ConstitutiveLawsCF(
 
         To be used before solving the system in a non-linear iteration.
 
-        Parameters:
-            update_derivatives: ``default=False``
-
-                If True, it updates also the derivative values in the iterative
-                sense.
-
         """
+        ni = self.iterate_indices.size
         for _, expr, func, domains, _ in self._constitutive_eliminations.values():
             for g in domains:
                 X = [x([g]).value(self.equation_system) for x in expr._dependencies]
 
                 vals, diffs = func(*X)
 
-                expr.progress_iterate_values_on_grid(vals, g)
-                if update_derivatives:
-                    expr.progress_iterate_derivatives_on_grid(diffs, g)
+                expr.progress_iterate_values_on_grid(vals, g, depth=ni)
+                # NOTE with depth=0, no shift in iterate sense is performed
+                expr.progress_iterate_derivatives_on_grid(diffs, g)
 
-    def progress_all_constitutive_expressions_in_time(
-        self, progress_derivatives: bool = False
-    ) -> None:
+    def progress_all_constitutive_expressions_in_time(self) -> None:
         """Method to progress the values of all added constitutive expressions in time.
 
         It takes the values at the most recent iterates, and stores them as the most
@@ -1695,17 +1737,10 @@ class ConstitutiveLawsCF(
 
         To be used after non-linear iterations converge in a time-dependent problem.
 
-        Parameters:
-            progress_derivatives: ``default=False``
-
-                If True, it progresses also the derivative values in the time
-                sense.
-
         """
+        nt = self.time_step_indices.size
         for _, expr, _, domains, _ in self._constitutive_eliminations.values():
-            expr.progress_values_in_time(domains)
-            if progress_derivatives:
-                expr.progress_derivatives_in_time(domains)
+            expr.progress_values_in_time(domains, depth=nt)
 
 
 # endregion
@@ -1954,11 +1989,13 @@ class BoundaryConditionsCF(
 
         """
 
+        nt = self.time_step_indices.size
         for bg in self.mdg.boundaries():
             for phase in self.fluid_mixture.phases:
                 # some work is required for BGs with zero cells
                 if bg.num_cells == 0:
                     rho_bc = np.zeros(0)
+                    v_bc = np.zeros(0)
                     h_bc = np.zeros(0)
                     mu_bc = np.zeros(0)
                 else:
@@ -1968,19 +2005,15 @@ class BoundaryConditionsCF(
                     ]
                     state = phase.compute_properties(*dep_vals)
                     rho_bc = state.rho
+                    v_bc = state.v
                     h_bc = state.h
                     mu_bc = state.mu
 
                 # phase properties which appear in mobilities
-                phase.density.update_boundary_values(rho_bc, bg)
-                phase.enthalpy.update_boundary_values(h_bc, bg)
-                phase.viscosity.update_boundary_values(mu_bc, bg)
-
-                # volume as reciprocal of density, only where given
-                v_bc = np.zeros_like(rho_bc)
-                idx = rho_bc > 0
-                v_bc[idx] = 1.0 / rho_bc[idx]
-                phase.volume.update_boundary_values(v_bc, bg)
+                phase.density.update_boundary_values(rho_bc, bg, depth=nt)
+                phase.volume.update_boundary_values(v_bc, bg, depth=nt)
+                phase.enthalpy.update_boundary_values(h_bc, bg, depth=nt)
+                phase.viscosity.update_boundary_values(mu_bc, bg, depth=nt)
 
     ### BC values for primary variables which need to be given by the user in any case.
 
@@ -2132,7 +2165,11 @@ class InitialConditionsCF:
 
         # updating variable values from current time step, to all previous and iterate
         val = self.equation_system.get_variable_values(iterate_index=0)
-        self.equation_system.shift_iterate_values()
+        for iterate_index in self.iterate_indices:
+            self.equation_system.set_variable_values(
+                val,
+                iterate_index=iterate_index,
+            )
         for time_step_index in self.time_step_indices:
             self.equation_system.set_variable_values(
                 val,
@@ -2201,6 +2238,8 @@ class InitialConditionsCF:
         The derivative values are only stored at the most recent iterate.
 
         """
+        ni = self.iterate_indices.size
+        nt = self.time_step_indices.size
         for secvar, expr, f, domains, _ in self._constitutive_eliminations.values():
             # store value for eliminated secondary variable globally
             dep_vals = [
@@ -2217,13 +2256,13 @@ class InitialConditionsCF:
                 ]
                 val, diff = f(*dep_vals_g)
                 for _ in self.iterate_indices:
-                    expr.progress_iterate_values_on_grid(val, grid)
-                # store the derivative value at the most recent iterate
+                    expr.progress_iterate_values_on_grid(val, grid, depth=ni)
+                # NOTE with depth=0, no shift in iterate sense is performed
                 expr.progress_iterate_derivatives_on_grid(diff, grid)
 
             # progress values in time for all indices
             for _ in self.time_step_indices:
-                expr.progress_values_in_time(domains)
+                expr.progress_values_in_time(domains, depth=nt)
 
     def set_intial_values_phase_properties(self) -> None:
         """Method to set the initial values and derivative values of phase
@@ -2234,6 +2273,8 @@ class InitialConditionsCF:
 
         """
         subdomains = self.mdg.subdomains()
+        ni = self.iterate_indices.size
+        nt = self.time_step_indices.size
 
         for phase in self.fluid_mixture.phases:
             dep_vals = [
@@ -2243,27 +2284,22 @@ class InitialConditionsCF:
 
             state = phase.compute_properties(*dep_vals)
 
-            # propage values to all iterate indices
+            # Set values and derivative values for current current index
+            update_phase_properties(phase, state)
+
+            # shift/copy current values to all previous iterates
             for _ in self.iterate_indices:
-                phase.density.subdomain_values = state.rho
-                phase.volume.subdomain_values = state.v
-                phase.enthalpy.subdomain_values = state.h
-                phase.viscosity.subdomain_values = state.mu
-                phase.conductivity.subdomain_values = state.kappa
-
-            # set derivatives to current index.
-            phase.density.subdomain_derivatives = state.drho
-            phase.volume.subdomain_derivatives = state.dv
-            phase.enthalpy.subdomain_derivatives = state.dh
-            phase.viscosity.subdomain_derivatives = state.dmu
-            phase.conductivity.subdomain_derivatives = state.dkappa
-
+                phase.density.shift_iterate_values_on_grids(subdomains, depth=ni)
+                phase.volume.shift_iterate_values_on_grids(subdomains, depth=ni)
+                phase.enthalpy.shift_iterate_values_on_grids(subdomains, depth=ni)
+                phase.viscosity.shift_iterate_values_on_grids(subdomains, depth=ni)
+                phase.conductivity.shift_iterate_values_on_grids(subdomains, depth=ni)
             # propagate values to all time step indices
             # Only for those with time depth
             for _ in self.time_step_indices:
-                phase.density.progress_values_in_time(subdomains)
-                phase.volume.progress_values_in_time(subdomains)
-                phase.enthalpy.progress_values_in_time(subdomains)
+                phase.density.progress_values_in_time(subdomains, depth=nt)
+                phase.volume.progress_values_in_time(subdomains, depth=nt)
+                phase.enthalpy.progress_values_in_time(subdomains, depth=nt)
 
     ### IC for primary variables which need to be given by the user in any case.
 
@@ -2406,9 +2442,9 @@ class SolutionStrategyCF(
     """Provided by :class:`~porepy.composite.composite_mixins.FluidMixtureMixin`."""
     set_initial_values: Callable[[], None]
     """Provided by :class:`InitialConditionsCF`."""
-    progress_all_constitutive_expressions_in_time: Callable[[Optional[bool]], None]
+    progress_all_constitutive_expressions_in_time: Callable[[], None]
     """Provided by :class:`ConstitutiveLawsCF`."""
-    update_all_constitutive_expressions: Callable[[Optional[bool]], None]
+    update_all_constitutive_expressions: Callable[[], None]
     """Provided by :class:`ConstitutiveLawsCF`."""
     dependencies_of_phase_properties: Callable[
         [ppc.Phase], Sequence[Callable[[pp.GridLikeSequence], pp.ad.Operator]]
@@ -2525,6 +2561,7 @@ class SolutionStrategyCF(
         self._initialize_linear_solver()
         self.set_nonlinear_discretizations()
         self.save_data_time_step()
+        self._log_res("after set-up")
 
     def initial_condition(self) -> None:
         """Atop the parent methods, this method calles
@@ -2612,7 +2649,7 @@ class SolutionStrategyCF(
         :meth:`update_thermodynamic_properties_of_phases`.
 
         """
-        self.update_all_constitutive_expressions(True)
+        self.update_all_constitutive_expressions()
         self.update_thermodynamic_properties_of_phases()
 
     def update_thermodynamic_properties_of_phases(self) -> None:
@@ -2631,17 +2668,7 @@ class SolutionStrategyCF(
             state = phase.compute_properties(*dep_vals)
 
             # Set current iterate indices of values and derivatives
-            phase.density.subdomain_values = state.rho
-            phase.volume.subdomain_values = state.v
-            phase.enthalpy.subdomain_values = state.h
-            phase.viscosity.subdomain_values = state.mu
-            phase.conductivity.subdomain_values = state.kappa
-
-            phase.density.subdomain_derivatives = state.drho
-            phase.volume.subdomain_derivatives = state.dv
-            phase.enthalpy.subdomain_derivatives = state.dh
-            phase.viscosity.subdomain_derivatives = state.dmu
-            phase.conductivity.subdomain_derivatives = state.dkappa
+            update_phase_properties(phase, state)
 
     def update_discretizations(self) -> None:
         """Convenience method to update discretization parameters and non-linear
@@ -2702,11 +2729,16 @@ class SolutionStrategyCF(
                     )
                 }
             )
-            mob = self.isotropic_second_order_tensor([sd], self.total_mobility([sd]))
+            scalar_perm = pp.wrap_as_dense_ad_array(
+                self.solid.permeability(), sd.num_cells, name="permeability"
+            )
+            perm = self.isotropic_second_order_tensor(
+                [sd], self.total_mobility([sd]) * scalar_perm
+            )
             data[pp.PARAMETERS][self.darcy_keyword].update(
                 {
                     "second_order_tensor": self.operator_to_SecondOrderTensor(
-                        sd, mob * self.permeability([sd]), self.solid.permeability()
+                        sd, perm, self.solid.permeability()
                     )
                 }
             )
@@ -2741,13 +2773,13 @@ class SolutionStrategyCF(
 
         """
         # progress only values in time
-        self.progress_all_constitutive_expressions_in_time(False)
-
+        self.progress_all_constitutive_expressions_in_time()
         subdomains = self.mdg.subdomains()
+        nt = self.time_step_indices.size
         for phase in self.fluid_mixture.phases:
-            phase.density.progress_values_in_time(subdomains)
-            phase.volume.progress_values_in_time(subdomains)
-            phase.enthalpy.progress_values_in_time(subdomains)
+            phase.density.progress_values_in_time(subdomains, depth=nt)
+            phase.volume.progress_values_in_time(subdomains, depth=nt)
+            phase.enthalpy.progress_values_in_time(subdomains, depth=nt)
 
     def before_nonlinear_iteration(self) -> None:
         """Overwrites parent methods to perform an update of secondary quantities,
@@ -2775,9 +2807,7 @@ class SolutionStrategyCF(
         t_0 = time.time()
         reduce_linear_system_q = self.params.get("reduce_linear_system_q", False)
 
-        # for name, eq in self.equation_system.equations.items():
-        #     res = eq.value(self.equation_system)
-        #     print(f"res {name}: ", np.linalg.norm(res))
+        self._log_res("at assembly")
         if reduce_linear_system_q:
             # TODO block diagonal inverter for secondary equations
             self.linear_system = self.equation_system.assemble_schur_complement_system(
@@ -2795,6 +2825,24 @@ class SolutionStrategyCF(
         if reduce_linear_system_q:
             sol = self.equation_system.expand_schur_complement_solution(sol)
         return sol
+
+    def _log_res(self, loc: str = ""):
+        all_res = list()
+        msg = "Residuals per equation:\n"
+        eq_names = list(self.equation_system.equations.keys())
+        for i, name in enumerate(eq_names):
+            eq = self.equation_system.equations[name]
+            res = eq.value(self.equation_system)
+            all_res.append(res)
+            if i == (len(eq_names) - 1):  # last equation without line break
+                msg += f"{name}: {np.linalg.norm(res)}"
+            else:
+                msg += f"{name}: {np.linalg.norm(res)}\n"
+        all_res = np.hstack(all_res)
+        logger.info(
+            f"\nResidual {loc}: {np.linalg.norm(all_res) / np.sqrt(all_res.size)}"
+        )
+        logger.debug(msg)
 
 
 # endregion
