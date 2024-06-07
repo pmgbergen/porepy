@@ -9,10 +9,8 @@ from __future__ import annotations
 from typing import Any, Sequence, Union
 
 import numpy as np
-from scipy.sparse._matrix import spmatrix
 
 import porepy as pp
-from porepy.numerics.ad.forward_mode import AdArray
 
 __all__ = [
     "safe_sum",
@@ -63,45 +61,6 @@ def safe_sum(x: Sequence[Any]) -> Any:
         return sum_
     else:
         return 0
-
-
-class SemiSmoothMin(pp.ad.AbstractFunction):
-    """Semi-smooth min function. To be replaced with core implementation TODO."""
-
-    def __call__(self, *args: pp.ad.Operator) -> pp.ad.Operator:
-        """Checks that exactly two operands are given."""
-        assert (
-            len(args) == 2
-        ), f"Need exactly two operands for semi-smooth min function."
-        return super().__call__(*args)
-
-    def get_values(self, *args: float | np.ndarray | AdArray) -> float | np.ndarray:
-        op1, op2 = args
-        if all(isinstance(a, np.ndarray) for a in args):
-            # active set choice
-            active_set = (op1 - op2) > 0.0
-            # default/inactive vals
-            vals = op1.copy()
-            # replace vals on active set
-            vals[active_set] = op2[active_set]
-        else:
-            # active set choice
-            active_set = (op1.val - op2.val) > 0.0
-            # default/inactive vals
-            vals = op1.val.copy()
-            # replace vals on active set
-            vals[active_set] = op2.val[active_set]
-        return vals
-
-    def get_jacobian(self, *args: float | np.ndarray | AdArray) -> spmatrix:
-        op1, op2 = args
-        # active set choice
-        active_set = (op1.val - op2.val) > 0.0
-        # default/inactive choice (lil format for faster assembly)
-        jac = op1.jac.copy()
-        # replace (active set) rows with the differential from the other operator
-        jac[active_set] = op2.jac[active_set]
-        return jac.tocsr()
 
 
 class CompositeModellingError(Exception):

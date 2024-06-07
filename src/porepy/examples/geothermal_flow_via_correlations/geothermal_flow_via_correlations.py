@@ -27,12 +27,14 @@ Note:
 
 from __future__ import annotations
 
-import time
 import os
+import time
+
 os.environ["NUMBA_DISABLE_JIT"] = str(0)
 
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
+
 import porepy as pp
 
 tracer_like_setting_q = False
@@ -145,23 +147,31 @@ else:
         # p = np.arange(1.0e6, 20.0e6, 0.5e6)
         # h = 3.2e6 * np.ones_like(p)
 
-        z_NaCl = (0.001+1.0e-5) * np.ones_like(h)
+        z_NaCl = (0.001 + 1.0e-5) * np.ones_like(h)
         par_points = np.array((z_NaCl, h, p)).T
         brine_obl.sample_at(par_points)
 
-        T = brine_obl.sampled_could.point_data['Temperature']
-        plt.plot(h, T, label='T(H)', color='blue', linestyle='-', marker='o',
-                 markerfacecolor='blue', markersize=5)
+        T = brine_obl.sampled_could.point_data["Temperature"]
+        plt.plot(
+            h,
+            T,
+            label="T(H)",
+            color="blue",
+            linestyle="-",
+            marker="o",
+            markerfacecolor="blue",
+            markersize=5,
+        )
 
-        s_l = brine_obl.sampled_could.point_data['S_l']
-        s_v = brine_obl.sampled_could.point_data['S_v']
+        s_l = brine_obl.sampled_could.point_data["S_l"]
+        s_v = brine_obl.sampled_could.point_data["S_v"]
         # plt.plot(h, s_l, label='Liquid', color='blue', linestyle='-', marker='o',
         #          markerfacecolor='blue', markersize=5)
         # plt.plot(h, s_v, label='Vapor', color='red', linestyle='-', marker='o',
         #          markerfacecolor='red', markersize=5)
 
-        h_l = brine_obl.sampled_could.point_data['H_l']
-        h_v = brine_obl.sampled_could.point_data['H_v']
+        h_l = brine_obl.sampled_could.point_data["H_l"]
+        h_v = brine_obl.sampled_could.point_data["H_v"]
         # plt.plot(p, h_l, label='Liquid', color='blue', linestyle='-', marker='o',
         #          markerfacecolor='blue', markersize=5)
         # plt.plot(p, h_v, label='Vapor', color='red', linestyle='-', marker='o',
@@ -173,7 +183,6 @@ else:
         plt.legend()
         plt.show()
         aka = 0
-
 
 
 tb = time.time()

@@ -64,8 +64,7 @@ params = {
 
 class GeothermalFlowModel(FlowModel):
 
-    def after_nonlinear_convergence(
-        self) -> None:
+    def after_nonlinear_convergence(self) -> None:
         tb = time.time()
         res_norm = np.linalg.norm(
             model.equation_system.assemble(evaluate_jacobian=False)
