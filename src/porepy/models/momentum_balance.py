@@ -939,9 +939,6 @@ class BoundaryConditionsMomentumBalance(pp.BoundaryConditionMixin):
 
     stress_keyword: str
 
-    def robin_boundary_operator_stress(self, bgs: pp.SubdomainsOrBoundaries):
-        return self.create_boundary_operator(name=self.bc_robin_keyword, domains=bgs)
-
     def bc_type_mechanics(self, sd: pp.Grid) -> pp.BoundaryConditionVectorial:
         """Define type of boundary conditions.
 
@@ -995,7 +992,6 @@ class BoundaryConditionsMomentumBalance(pp.BoundaryConditionMixin):
             self.displacement_variable, self.bc_values_displacement
         )
         self.update_boundary_condition(self.stress_keyword, self.bc_values_stress)
-        self.update_boundary_condition(self.bc_robin_keyword, self.bc_values_stress)
 
 
 # Note that we ignore a mypy error here. There are some inconsistencies in the method
