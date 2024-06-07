@@ -3403,16 +3403,7 @@ class LinearElasticMechanicalStress:
         interfaces = self.subdomains_to_interfaces(domains, [1])
 
         # Boundary conditions on external boundaries
-        boundary_operator = self._combine_boundary_operators(  # type: ignore[call-arg]
-            subdomains=domains,
-            dirichlet_operator=self.displacement,
-            neumann_operator=self.mechanical_stress,
-            robin_operator=self.robin_boundary_operator_stress,
-            bc_type=self.bc_type_mechanics,
-            dim=self.nd,
-            name="bc_values_mechanics",
-        )
-
+        boundary_operator = self.combine_boundary_operators_mechanical_stress(domains)
         proj = pp.ad.MortarProjections(self.mdg, domains, interfaces, dim=self.nd)
         # The stress in the subdomanis is the sum of the stress in the subdomain,
         # the stress on the external boundaries, and the stress on the interfaces.
@@ -3428,6 +3419,18 @@ class LinearElasticMechanicalStress:
         )
         stress.set_name("mechanical_stress")
         return stress
+
+    def combine_boundary_operators_mechanical_stress(self, subdomains):
+        op = self._combine_boundary_operators(  # type: ignore[call-arg]
+            subdomains=subdomains,
+            dirichlet_operator=self.displacement,
+            neumann_operator=self.mechanical_stress,
+            robin_operator=self.mechanical_stress,
+            bc_type=self.bc_type_mechanics,
+            dim=self.nd,
+            name="bc_values_mechanics",
+        )
+        return op
 
     def fracture_stress(self, interfaces: list[pp.MortarGrid]) -> pp.ad.Operator:
         """Fracture stress on interfaces.
@@ -4543,14 +4546,8 @@ class PoroMechanicsPorosity:
             self.mdg, subdomains, interfaces, dim=self.nd
         )
 
-        boundary_operator = self._combine_boundary_operators(  # type: ignore[call-arg]
-            subdomains=subdomains,
-            dirichlet_operator=self.displacement,
-            neumann_operator=self.mechanical_stress,
-            robin_operator=self.robin_boundary_operator_stress,
-            bc_type=self.bc_type_mechanics,
-            dim=self.nd,
-            name="bc_values_mechanics",
+        boundary_operator = self.combine_boundary_operators_mechanical_stress(
+            subdomains
         )
 
         # Compose operator.
