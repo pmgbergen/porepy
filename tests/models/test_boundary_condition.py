@@ -1,6 +1,7 @@
 """This file is testing the functionality of `pp.BoundaryConditionMixin`.
 
 """
+
 from typing import Callable, Sequence
 
 import numpy as np
@@ -51,6 +52,9 @@ class CustomBoundaryCondition(pp.BoundaryConditionMixin):
             subdomains=subdomains,
             dirichlet_operator=self.fluid_density,
             neumann_operator=lambda bgs: self.create_boundary_operator(
+                name=self.custom_bc_neumann_key, domains=bgs
+            ),
+            robin_operator=lambda bgs: self.create_boundary_operator(
                 name=self.custom_bc_neumann_key, domains=bgs
             ),
             bc_type=self.bc_type_dummy,

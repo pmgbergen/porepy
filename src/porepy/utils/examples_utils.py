@@ -131,6 +131,7 @@ class VerificationUtils:
             subdomains=[sd],
             dirichlet_operator=self.displacement,
             neumann_operator=self.mechanical_stress,
+            robin_operator=self.mechanical_stress,
             bc_type=self.bc_type_mechanics,
             dim=self.nd,
             name="bc_values_mechanics",

@@ -1160,12 +1160,8 @@ class DarcysLaw:
         # We know p is variable, since called on subdomains, not boundaries.
         p = cast(pp.ad.MixedDimensionalVariable, self.pressure(subdomains))
 
-        boundary_operator = self._combine_boundary_operators(  # type: ignore[call-arg]
-            subdomains=subdomains,
-            dirichlet_operator=self.pressure,
-            neumann_operator=self.darcy_flux,
-            bc_type=self.bc_type_darcy_flux,
-            name="bc_values_darcy",
+        boundary_operator = self.combine_boundary_operators_darcy_flux(
+            subdomains=subdomains
         )
 
         pressure_trace = (
@@ -1220,12 +1216,8 @@ class DarcysLaw:
         interfaces: list[pp.MortarGrid] = self.subdomains_to_interfaces(domains, [1])
         intf_projection = pp.ad.MortarProjections(self.mdg, domains, interfaces, dim=1)
 
-        boundary_operator = self._combine_boundary_operators(  # type: ignore[call-arg]
-            subdomains=domains,
-            dirichlet_operator=self.pressure,
-            neumann_operator=self.darcy_flux,
-            bc_type=self.bc_type_darcy_flux,
-            name="bc_values_" + self.bc_data_darcy_flux_key,
+        boundary_operator = self.combine_boundary_operators_darcy_flux(
+            subdomains=domains
         )
 
         discr: Union[pp.ad.TpfaAd, pp.ad.MpfaAd] = self.darcy_flux_discretization(
@@ -1243,6 +1235,17 @@ class DarcysLaw:
         )
         flux.set_name("Darcy_flux")
         return flux
+
+    def combine_boundary_operators_darcy_flux(self, subdomains):
+        op = self._combine_boundary_operators(  # type: ignore[call-arg]
+            subdomains=subdomains,
+            dirichlet_operator=self.pressure,
+            neumann_operator=self.darcy_flux,
+            robin_operator=self.darcy_flux,
+            bc_type=self.bc_type_darcy_flux,
+            name="bc_values_" + self.bc_data_darcy_flux_key,
+        )
+        return op
 
     def interface_darcy_flux_equation(
         self, interfaces: list[pp.MortarGrid]
@@ -1645,6 +1648,7 @@ class AdTpfaFlux:
             subdomains=domains,
             dirichlet_operator=potential,
             neumann_operator=getattr(self, flux_name),
+            robin_operator=getattr(self, flux_name),
             bc_type=getattr(self, "bc_type_" + flux_name),
             name="bc_values_" + flux_name,
         )
@@ -1691,6 +1695,7 @@ class AdTpfaFlux:
             subdomains=subdomains,
             dirichlet_operator=potential,
             neumann_operator=getattr(self, flux_name),
+            robin_operator=getattr(self, flux_name),
             bc_type=getattr(self, "bc_type_" + flux_name),
             name="bc_values_" + flux_name,
         )
@@ -2642,14 +2647,8 @@ class FouriersLaw:
             subdomains
         )
 
-        boundary_operator_fourier = (
-            self._combine_boundary_operators(  # type: ignore[call-arg]
-                subdomains=subdomains,
-                dirichlet_operator=self.temperature,
-                neumann_operator=self.fourier_flux,
-                bc_type=self.bc_type_fourier_flux,
-                name="bc_values_fourier",
-            )
+        boundary_operator_fourier = self.combine_boundary_operators_fourier_flux(
+            subdomains=subdomains
         )
         # We know t is a variable, since method is called on subdomains, not boundaries.
         t = cast(pp.ad.MixedDimensionalVariable, self.temperature(subdomains))
@@ -2694,12 +2693,8 @@ class FouriersLaw:
             subdomains
         )
 
-        boundary_operator_fourier = self._combine_boundary_operators(  # type: ignore[call-arg]
-            subdomains=subdomains,
-            dirichlet_operator=self.temperature,
-            neumann_operator=self.fourier_flux,
-            bc_type=self.bc_type_fourier_flux,
-            name="bc_values_fourier",
+        boundary_operator_fourier = self.combine_boundary_operators_fourier_flux(
+            subdomains=subdomains
         )
 
         flux: pp.ad.Operator = (
@@ -2714,6 +2709,17 @@ class FouriersLaw:
         )
         flux.set_name("Fourier_flux")
         return flux
+
+    def combine_boundary_operators_fourier_flux(self, subdomains):
+        op = self._combine_boundary_operators(  # type: ignore[call-arg]
+            subdomains=subdomains,
+            dirichlet_operator=self.temperature,
+            neumann_operator=self.fourier_flux,
+            robin_operator=self.fourier_flux,
+            bc_type=self.bc_type_fourier_flux,
+            name="bc_values_fourier",
+        )
+        return op
 
     def interface_fourier_flux_equation(
         self, interfaces: list[pp.MortarGrid]
