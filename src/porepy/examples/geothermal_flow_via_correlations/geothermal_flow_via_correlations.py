@@ -28,12 +28,14 @@ Note:
 from __future__ import annotations
 
 import time
+import os
+os.environ["NUMBA_DISABLE_JIT"] = str(0)
 
 import numpy as np
-
+import matplotlib.pyplot as plt
 import porepy as pp
 
-tracer_like_setting_q = True
+tracer_like_setting_q = False
 if tracer_like_setting_q:
     from TracerModelConfiguration import TracerFlowModel as FlowModel
 else:
@@ -41,7 +43,7 @@ else:
     from DriesnerModelConfiguration import DriesnerBrineFlowModel as FlowModel
 
 day = 86400
-t_scale = 0.00001
+t_scale = 0.0000001
 time_manager = pp.TimeManager(
     schedule=[0.0, 100.0 * day * t_scale],
     dt_init=1.0 * day * t_scale,
@@ -62,31 +64,26 @@ params = {
     "prepare_simulation": False,
     "reduce_linear_system_q": False,
     "petsc_solver_q": False,
-    "nl_convergence_tol": 1.0e-3,
+    "nl_convergence_tol": np.inf,
+    "nl_convergence_tol_res": 1.0e-5,
     "max_iterations": 25,
 }
 
 
 class GeothermalFlowModel(FlowModel):
 
-    def after_nonlinear_convergence(
-        self, solution: np.ndarray, errors: float, iteration_counter: int
-    ) -> None:
+    def after_nonlinear_convergence(self) -> None:
         tb = time.time()
         res_norm = np.linalg.norm(
-            model.equation_system.assemble(evaluate_jacobian=False)
+            self.equation_system.assemble(evaluate_jacobian=False)
         )
         te = time.time()
         print("Elapsed time residual assemble: ", te - tb)
-        super().after_nonlinear_convergence(solution, errors, iteration_counter)
         print("Time step converged with residual norm: ", res_norm)
         print("Time value: ", self.time_manager.time)
         print("Time index: ", self.time_manager.time_index)
         print("")
-
-    def _export(self):
-        if hasattr(self, "exporter"):
-            self.exporter.write_vtu(self.primary_variable_names(), time_dependent=True)
+        super().after_nonlinear_convergence()
 
     def after_simulation(self):
         self.exporter.write_pvd()
@@ -136,10 +133,48 @@ if tracer_like_setting_q:
     model = GeothermalFlowModel(params)
 else:
     model = GeothermalFlowModel(params)
-    file_name = "binary_files/PHX_l0_with_gradients.vtk"
+    file_name = "binary_files/PHX_l2_with_gradients.vtk"
     brine_obl = DriesnerBrineOBL(file_name)
     brine_obl.conversion_factors = (1.0, 1.0e-3, 1.0e-5)  # (z,h,p)
     model.obl = brine_obl
+
+    if False:
+        h = np.arange(1.5e6, 3.2e6, 0.025e6)
+        p = 20.0e6 * np.ones_like(h)
+
+        # p = np.arange(1.0e6, 20.0e6, 0.5e6)
+        # h = 3.2e6 * np.ones_like(p)
+
+        z_NaCl = (0.001+1.0e-5) * np.ones_like(h)
+        par_points = np.array((z_NaCl, h, p)).T
+        brine_obl.sample_at(par_points)
+
+        T = brine_obl.sampled_could.point_data['Temperature']
+        plt.plot(h, T, label='T(H)', color='blue', linestyle='-', marker='o',
+                 markerfacecolor='blue', markersize=5)
+
+        s_l = brine_obl.sampled_could.point_data['S_l']
+        s_v = brine_obl.sampled_could.point_data['S_v']
+        # plt.plot(h, s_l, label='Liquid', color='blue', linestyle='-', marker='o',
+        #          markerfacecolor='blue', markersize=5)
+        # plt.plot(h, s_v, label='Vapor', color='red', linestyle='-', marker='o',
+        #          markerfacecolor='red', markersize=5)
+
+        h_l = brine_obl.sampled_could.point_data['H_l']
+        h_v = brine_obl.sampled_could.point_data['H_v']
+        # plt.plot(p, h_l, label='Liquid', color='blue', linestyle='-', marker='o',
+        #          markerfacecolor='blue', markersize=5)
+        # plt.plot(p, h_v, label='Vapor', color='red', linestyle='-', marker='o',
+        #          markerfacecolor='red', markersize=5)
+
+        # dTdh = 1/brine_obl.sampled_could.point_data['grad_Temperature'][:,1]
+        # plt.plot(h, dTdh, label='dTdh(H)', color='red', linestyle='-', marker='o',
+        #          markerfacecolor='red', markersize=5)
+        plt.legend()
+        plt.show()
+        aka = 0
+
+
 
 tb = time.time()
 model.prepare_simulation()

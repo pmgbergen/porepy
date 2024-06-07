@@ -2098,7 +2098,7 @@ class FlashNR:
                 # compute system state at preliminary step-size
                 try:
                     b_j = F(X_k + rho_j * DX)
-                except:
+                except Exception:
                     logger.warn(f"{msg} ; Armijo search j={j}: evaluation failed")
                     continue
 
@@ -2129,7 +2129,7 @@ class FlashNR:
                 rho_j *= rho
                 try:
                     b_j = F(X_k + rho_j * DX)
-                except:
+                except Exception:
                     logger.warn(f"{msg} ; Armijo search j={j}: evaluation failed")
                     j += 1
                     continue

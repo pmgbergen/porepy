@@ -1,6 +1,6 @@
 import LinearTracerConstitutiveDescription
 import numpy as np
-from Geometries import Benchmark2DC3 as ModelGeometry
+from Geometries import SimpleGeometry as ModelGeometry
 
 import porepy as pp
 import porepy.composite as ppc
@@ -16,7 +16,7 @@ class BoundaryConditions(BoundaryConditionsCF):
     """See parent class how to set up BC. Default is all zero and Dirichlet."""
 
     def bc_type_fourier_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
-        facet_idx = np.concatenate(self.get_inlet_outlet_sides(sd))
+        facet_idx, _ = self.get_inlet_outlet_sides(sd)
         return pp.BoundaryCondition(sd, facet_idx, "dir")
 
     def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:

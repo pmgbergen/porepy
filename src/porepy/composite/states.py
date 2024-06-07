@@ -9,7 +9,7 @@ from typing import Optional, Sequence, cast
 import numpy as np
 
 from .composite_utils import safe_sum
-from .utils_c import compute_saturations
+from .utils_c import compute_saturations, extend_fractional_derivatives
 
 __all__ = [
     "ExtensiveState",
@@ -68,17 +68,17 @@ class ExtensiveState:
     h: np.ndarray = field(default_factory=lambda: np.zeros(0))
     """Specific molar enthalpy."""
 
-    v: np.ndarray = field(default_factory=lambda: np.zeros(0))
-    """Specific molar volume."""
+    rho: np.ndarray = field(default_factory=lambda: np.zeros(0))
+    """Density."""
 
     @property
-    def rho(self) -> np.ndarray:
-        """Specific molar density as the reciprocal of :attr:`v`."""
-        rho = np.zeros_like(self.v)
+    def v(self) -> np.ndarray:
+        """Specific molar volume as the reciprocal of :attr:`rho`."""
+        v = np.zeros_like(self.rho)
         # special treatment for zero values to avoid division-by zero errors
-        idx = self.v > 0.0
-        rho[idx] = 1.0 / self.v[idx]
-        return rho
+        idx = self.rho > 0.0
+        v[idx] = 1.0 / self.rho[idx]
+        return v
 
 
 @dataclass
@@ -110,7 +110,7 @@ class PhaseState(ExtensiveState):
 
     """
 
-    phis: Sequence[np.ndarray] = field(default_factory=lambda: np.zeros((0, 0)))
+    phis: np.ndarray = field(default_factory=lambda: np.zeros((0, 0)))
     """Fugacity coefficients per component in this phase, stored row-wise per component
     in a 2D array."""
 
@@ -123,12 +123,12 @@ class PhaseState(ExtensiveState):
 
     """
 
-    dv: Sequence[np.ndarray] = field(default_factory=lambda: np.zeros((0, 0)))
-    """Derivatives of the specific molar volume with respect to pressure, temperature
+    drho: np.ndarray = field(default_factory=lambda: np.zeros((0, 0)))
+    """Derivatives of the density with respect to pressure, temperature
     and each ``x`` in :attr:`x`.
 
     The derivatives are stored row-wise in a 2D array.
-    The length of ``dv`` is ``2 + len(x)``.
+    The length of ``drho`` is ``2 + len(x)``.
 
     """
 
@@ -167,25 +167,73 @@ class PhaseState(ExtensiveState):
     """
 
     @property
-    def drho(self) -> Sequence[np.ndarray]:
-        """Derivatives of the specific molar volume, expressed as the reciprocal
-        of volume.
+    def dv(self) -> np.ndarray:
+        """Derivatives of the specific molar volume, expressed as the reciprocal of
+        density.
 
-        The chainrule is applied to compute ``drho`` from ``d(1/v)``.
+        The chainrule is applied to compute ``dv`` from ``d(1/rho)``.
 
         """
         # Treatment to avoid division by zero errors
-        idx = self.v > 0.0
+        idx = self.rho > 0.0
         outer = np.zeros_like(self.v)
-        outer[idx] = -1 / self.v[idx] ** 2
-        # outer = -1 / self.v**2
-        return np.array([outer * dv for dv in self.dv])
+        outer[idx] = -1 / self.rho[idx] ** 2
+        return np.array([outer * d for d in self.drho])
 
     @property
-    def xn(self) -> Sequence[np.ndarray]:
+    def x_normalized(self) -> np.ndarray:
         """Normalized values of fractions found in :attr:`x`."""
         x_sum = safe_sum(self.x)
         return np.array([x / x_sum for x in self.x])
+
+    @property
+    def drho_ext(self) -> np.ndarray:
+        """Returning the derivatives of :attr:`rho` with respect to pressure,
+        temperature and the extended partial fractions."""
+        return self._extend(self.drho)
+
+    @property
+    def dv_ext(self) -> np.ndarray:
+        """Returning the derivatives of :meth:`v` with respect to pressure,
+        temperature and the extended partial fractions."""
+        return self._extend(self.dv)
+
+    @property
+    def dh_ext(self) -> np.ndarray:
+        """Returning the derivatives of :attr:`h` with respect to pressure,
+        temperature and the extended partial fractions."""
+        return self._extend(self.dh)
+
+    @property
+    def dmu_ext(self) -> np.ndarray:
+        """Returning the derivatives of :attr:`mu` with respect to pressure,
+        temperature and the extended partial fractions."""
+        return self._extend(self.dmu)
+
+    @property
+    def dkappa_ext(self) -> np.ndarray:
+        """Returning the derivatives of :attr:`kappa` with respect to pressure,
+        temperature and the extended partial fractions."""
+        return self._extend(self.dkappa)
+
+    @property
+    def dphis_ext(self) -> np.ndarray:
+        """Returning the derivatives of :attr:`phis` with respect to pressure,
+        temperature and the extended partial fractions."""
+        return np.array([self._extend(dphi) for dphi in self.dphis])
+
+    def _extend(self, df_dx: np.ndarray) -> np.ndarray:
+        """Helper method to extend the fractional derivatives.
+
+        Note:
+            The extended derivatives are used in the unified CFLE setting.
+            But it seems that the model converges even when using the un-extended
+            derivatives (Jacobian is not exact).
+            Full implications unclear as of now.
+
+        """
+        return extend_fractional_derivatives(df_dx, self.x)
+        # return df_dx
 
 
 @dataclass
@@ -214,10 +262,10 @@ class FluidState(IntensiveState, ExtensiveState):
 
     """
 
-    y: Sequence[np.ndarray] = field(default_factory=lambda: np.zeros((0, 0)))
+    y: np.ndarray = field(default_factory=lambda: np.zeros((0, 0)))
     """Molar phase fractions for each phase in :attr:`phases`."""
 
-    sat: Sequence[np.ndarray] = field(default_factory=lambda: np.zeros((0, 0)))
+    sat: np.ndarray = field(default_factory=lambda: np.zeros((0, 0)))
     """Saturation for each phase in :attr:`phases`."""
 
     phases: Sequence[PhaseState] = field(default_factory=lambda: list())
@@ -260,9 +308,7 @@ class FluidState(IntensiveState, ExtensiveState):
             np.ndarray,
             safe_sum([s * state.rho for s, state in zip(self.sat, self.phases)]),
         )
-        v = np.zeros_like(rho)
-        v[rho > 0] = 1.0 / rho[rho > 0]
-        self.v = v
+        self.rho = rho
 
 
 def initialize_fluid_state(
@@ -292,7 +338,7 @@ def initialize_fluid_state(
     state.p = np.zeros(n)
     state.T = np.zeros(n)
     state.h = np.zeros(n)
-    state.v = np.zeros(n)
+    state.rho = np.zeros(n)
     state.y = np.zeros((nphase, n))
     state.sat = np.zeros((nphase, n))
 
@@ -310,7 +356,7 @@ def initialize_fluid_state(
     for j in range(nphase):
         phase_state = PhaseState(
             h=np.zeros(n),
-            v=np.zeros(n),
+            rho=np.zeros(n),
             phasetype=phase_types[j],
             x=np.zeros((ncomp[j], n)),
             phis=np.zeros((ncomp[j], n)),
@@ -320,7 +366,7 @@ def initialize_fluid_state(
 
         if with_derivatives:
             phase_state.dh = np.zeros((2 + ncomp[j], n))
-            phase_state.dv = np.zeros((2 + ncomp[j], n))
+            phase_state.drho = np.zeros((2 + ncomp[j], n))
             phase_state.dphis = np.zeros((ncomp[j], 2 + ncomp[j], n))
             phase_state.dmu = np.zeros((2 + ncomp[j], n))
             phase_state.dkappa = np.zeros((2 + ncomp[j], n))

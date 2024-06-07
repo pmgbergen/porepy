@@ -150,10 +150,10 @@ def test_compressibility_factor_double_root():
 
     # The general calculation of the compressibility factor should give the
     # same result as the formulas
-    assert np.abs(ppcpr.eos_c._Z_gen(A, B, True, tol, 0.0, 0.0) - z_gas) < tol
-    assert np.abs(ppcpr.eos_c._Z_gen(A, B, False, tol, 0.0, 0.0) - z_liq) < tol
-    assert np.linalg.norm(ppcpr.eos_c._d_Z_gen(A, B, True, tol, 0.0, 0.0) - d_z_gas) < tol
-    assert np.linalg.norm(ppcpr.eos_c._d_Z_gen(A, B, False, tol, 0.0, 0.0) - d_z_liq) < tol
+    assert np.abs(ppcpr.eos_c._Z_generic(A, B, True, tol, 0.0, 0.0) - z_gas) < tol
+    assert np.abs(ppcpr.eos_c._Z_generic(A, B, False, tol, 0.0, 0.0) - z_liq) < tol
+    assert np.linalg.norm(ppcpr.eos_c._d_Z_generic(A, B, True, tol, 0.0, 0.0) - d_z_gas) < tol
+    assert np.linalg.norm(ppcpr.eos_c._d_Z_generic(A, B, False, tol, 0.0, 0.0) - d_z_liq) < tol
 
 
 def test_compressibility_factor_triple_root():
@@ -180,10 +180,10 @@ def test_compressibility_factor_triple_root():
     assert nroot == 0
 
     # Assert general compuations also give the same result, for liquid and gas-like
-    assert np.abs(ppcpr.eos_c._Z_gen(A, B, True, tol, 0.0, 0.0,) - z) < tol
-    assert np.abs(ppcpr.eos_c._Z_gen(A, B, False, tol, 0.0, 0.0,) - z) < tol
-    assert np.linalg.norm(ppcpr.eos_c._d_Z_gen(A, B, True, tol, 0.0, 0.0) - d_z) < tol
-    assert np.linalg.norm(ppcpr.eos_c._d_Z_gen(A, B, False, tol, 0.0, 0.0) - d_z) < tol
+    assert np.abs(ppcpr.eos_c._Z_generic(A, B, True, tol, 0.0, 0.0,) - z) < tol
+    assert np.abs(ppcpr.eos_c._Z_generic(A, B, False, tol, 0.0, 0.0,) - z) < tol
+    assert np.linalg.norm(ppcpr.eos_c._d_Z_generic(A, B, True, tol, 0.0, 0.0) - d_z) < tol
+    assert np.linalg.norm(ppcpr.eos_c._d_Z_generic(A, B, False, tol, 0.0, 0.0) - d_z) < tol
 
 
 def test_compressibility_factors_are_roots():
@@ -202,14 +202,14 @@ def test_compressibility_factors_are_roots():
     A = A.flatten()
     B = B.flatten()
     Z_liq = ppcpr.eos_c.compressibility_factor(A, B, False, tol, 0.0, 0.0)
-    not_extended_liq = ppcpr.eos_c.is_real_root(A, B, False, tol)
+    not_extended_liq = ppcpr.eos_c.is_extended_root(A, B, False, tol)
     residual = ppcpr.eos_c.characteristic_residual(
         Z_liq[not_extended_liq], A[not_extended_liq], B[not_extended_liq]
     )
     assert np.all(np.abs(residual) < tol)
 
     Z_gas = ppcpr.eos_c.compressibility_factor(A, B, True, tol, 0.0, 0.0)
-    not_extended_gas = ppcpr.eos_c.is_real_root(A, B, True, tol)
+    not_extended_gas = ppcpr.eos_c.is_extended_root(A, B, True, tol)
     residual = ppcpr.eos_c.characteristic_residual(
         Z_gas[not_extended_gas], A[not_extended_gas], B[not_extended_gas]
     )

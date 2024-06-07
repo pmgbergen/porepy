@@ -30,7 +30,7 @@ import numpy as np
 from numba.core import types as nbtypes
 from numba.typed import Dict as nbdict
 
-from ._core import NUMBA_CACHE, R_IDEAL
+from ._core import NUMBA_CACHE, NUMBA_FAST_MATH, R_IDEAL
 from .base import Mixture
 from .composite_utils import safe_sum
 from .eos_compiler import EoSCompiler
@@ -121,10 +121,17 @@ The success flag should be one of the following values:
 
 - 0: success
 - 1: max iter reached
+<<<<<<< HEAD
 - 2: failure in the evaluation of the residual
 - 3: failure in the evaluation of the Jacobian
 - 4: NAN or infty detected in update (aborted)
 - 5: Any other failure
+=======
+- 2: NAN or infty detected in update (aborted)
+- 3: failure in the evaluation of the residual
+- 4: failure in the evaluation of the Jacobian
+- 5: Any other failure (raised by linear mode solver)
+>>>>>>> aa975bc2359e8aadb7db7bac266ff0a277275ee3
 
 The returned result should contain the value of the last iterate
 (independent of success).
@@ -169,7 +176,14 @@ def parallel_solver(
     converged = np.ones(n, dtype=np.int32) * 4
 
     for i in numba.prange(n):
+        # NOTE Numba cannot parallelize if there is a try-except clause
+        # try:
         res_i, conv_i, n_i = solver(X0[i], F, DF, solver_params)
+        # except Exception:
+        #     converged[i] = 5
+        #     num_iter[i] = np.nan
+        #     result[i, :] = np.nan
+        # else:
         converged[i] = conv_i
         num_iter[i] = n_i
         result[i] = res_i
@@ -200,10 +214,16 @@ def linear_solver(
     converged = np.ones(n, dtype=np.int32) * 5
 
     for i in range(n):
-        res_i, conv_i, n_i = solver(X0[i], F, DF, solver_params)
-        converged[i] = conv_i
-        num_iter[i] = n_i
-        result[i] = res_i
+        try:
+            res_i, conv_i, n_i = solver(X0[i], F, DF, solver_params)
+        except Exception:
+            converged[i] = 5
+            num_iter[i] = np.nan
+            result[i, :] = np.nan
+        else:
+            converged[i] = conv_i
+            num_iter[i] = n_i
+            result[i] = res_i
 
     return result, converged, num_iter
 
@@ -211,7 +231,7 @@ def linear_solver(
 # region Helper methods
 
 
-@numba.njit("float64[:](float64[:],float64[:,:])", fastmath=True, cache=True)
+@numba.njit("float64[:](float64[:],float64[:,:])", fastmath=NUMBA_FAST_MATH, cache=True)
 def _rr_poles(y: np.ndarray, K: np.ndarray) -> np.ndarray:
     """
     Parameters:
@@ -230,7 +250,7 @@ def _rr_poles(y: np.ndarray, K: np.ndarray) -> np.ndarray:
     return 1 + (K.T - 1) @ y[1:]  # K-values given for each independent phase
 
 
-@numba.njit("float64(float64[:],float64[:])", fastmath=True, cache=True)
+@numba.njit("float64(float64[:],float64[:])", fastmath=NUMBA_FAST_MATH, cache=True)
 def _rr_binary_vle_inversion(z: np.ndarray, K: np.ndarray) -> float:
     """Inverts the Rachford-Rice equation for the binary 2-phase case.
 
@@ -320,7 +340,11 @@ def _convert_solver_parameters(params: SOLVER_PARAMETERS) -> nbdict:
 # region General flash equation independent of flash type and EoS
 
 
-@numba.njit("float64[:](float64[:,:],float64[:],float64[:])", fastmath=True, cache=True)
+@numba.njit(
+    "float64[:](float64[:,:],float64[:],float64[:])",
+    fastmath=NUMBA_FAST_MATH,
+    cache=True,
+)
 def mass_conservation_res(x: np.ndarray, y: np.ndarray, z: np.ndarray) -> np.ndarray:
     r"""Assembles the residual of the mass conservation equations.
 
@@ -361,7 +385,9 @@ def mass_conservation_res(x: np.ndarray, y: np.ndarray, z: np.ndarray) -> np.nda
     return (z - np.dot(y, x))[1:]
 
 
-@numba.njit("float64[:,:](float64[:,:],float64[:])", fastmath=True, cache=True)
+@numba.njit(
+    "float64[:,:](float64[:,:],float64[:])", fastmath=NUMBA_FAST_MATH, cache=True
+)
 def mass_conservation_jac(x: np.ndarray, y: np.ndarray) -> np.ndarray:
     """Returns the Jacobian of the residual described in
     :func:`mass_conservation_res`
@@ -399,7 +425,7 @@ def mass_conservation_jac(x: np.ndarray, y: np.ndarray) -> np.ndarray:
     return (-1) * jac
 
 
-@numba.njit("float64[:](float64[:,:],float64[:])", fastmath=True, cache=True)
+@numba.njit("float64[:](float64[:,:],float64[:])", fastmath=NUMBA_FAST_MATH, cache=True)
 def complementary_conditions_res(x: np.ndarray, y: np.ndarray) -> np.ndarray:
     r"""Assembles the residual of the complementary conditions.
 
@@ -433,7 +459,9 @@ def complementary_conditions_res(x: np.ndarray, y: np.ndarray) -> np.ndarray:
     return y * (1 - np.sum(x, axis=1))
 
 
-@numba.njit("float64[:,:](float64[:,:],float64[:])", fastmath=True, cache=True)
+@numba.njit(
+    "float64[:,:](float64[:,:],float64[:])", fastmath=NUMBA_FAST_MATH, cache=True
+)
 def complementary_conditions_jac(x: np.ndarray, y: np.ndarray) -> np.ndarray:
     """Returns the Jacobian of the residual described in
     :func:`complementary_conditions_res`
@@ -493,11 +521,9 @@ class CompiledUnifiedFlash(Flash):
     3. ``'v-h'``: state definition in terms of specific volume and enthalpy of the
        mixture
 
-    Supported mixtures:
-
-    1. non-reactive
-    2. only 1 gas and 1 liquid phase
-    3. arbitrary many components
+    Important:
+        The isenthalpic-isochoric flash is as of now not robust for some tricky areas.
+        Use with care.
 
     Multiple flash problems can be solved in parallel by passing vectorized state
     definitions.
@@ -508,8 +534,11 @@ class CompiledUnifiedFlash(Flash):
             :class:`~porepy.composite.flash_compiler.FlashCompiler`.
 
     Raises:
-        AssertionError: If not at least 2 components are present.
-        AssertionError: If not 2 phases are modelled.
+        AssertionError: If any of the following assumptions is violated
+
+            - Exactly two phases modelled
+            - At least two components modelled (non-singular)
+            - All components present in all phases (unified assumption)
 
     """
 
@@ -595,7 +624,7 @@ class CompiledUnifiedFlash(Flash):
             "N1": 3,
             "N2": 1,
             "N3": 5,
-            "eps": 1e-3,
+            "eps": self.tolerance,
         }
         """Numbers of iterations for initialization procedures and other configurations
 
@@ -771,6 +800,7 @@ class CompiledUnifiedFlash(Flash):
         vh_dim = ph_dim + 1 + (nphase - 1)
 
         logger.info("Compiling flash equations ..")
+        start = time.time()
         logger.debug("Compiling flash equations: EoS functions")
 
         prearg_val_c = self.eos_compiler.funcs.get("prearg_val", None)
@@ -947,12 +977,12 @@ class CompiledUnifiedFlash(Flash):
 
             """
 
-            h_constr_res = h
+            h_mix = np.empty(nphase)
             for j in range(xn.shape[0]):
-                h_constr_res -= y[j] * h_c(prearg[j], p, T, xn[j])
+                h_mix[j] = h_c(prearg[j], p, T, xn[j])
 
-            # for better conditioning, normalize enthalpy constraint
-            h_constr_res /= h
+            # normalized enthalpy constraint
+            h_constr_res = (y * h_mix).sum() / h - 1
 
             return h_constr_res
 
@@ -1005,9 +1035,6 @@ class CompiledUnifiedFlash(Flash):
                     2 + nphase - 1 + j * ncomp : 2 + nphase - 1 + (j + 1) * ncomp
                 ] = (y[j] * d_h_j[2:])
 
-            # constraints is h_target - h_mix
-            h_constr_jac *= -1.0
-
             # for better conditioning
             h_constr_jac /= h
 
@@ -1040,7 +1067,7 @@ class CompiledUnifiedFlash(Flash):
             # volume constraint
             res[0] = v * rho_mix - 1
             # nphase - 1 phase fraction relations
-            res[1:] = (y - sat * rho_j / rho_mix)[1:]
+            res[1:] = (sat * rho_j / rho_mix - y)[1:]
 
             return res
 
@@ -1099,20 +1126,20 @@ class CompiledUnifiedFlash(Flash):
                 outer_j = -rho_j[j] / rho_mix**2
 
                 # derivatives of phase fraction relations for each independent phase.
-                # y_j - sat_j * rho_j / (sum_i s_i * rho_i)
+                # sat_j * rho_j / (sum_i s_i * rho_i) - y_j
                 # First, derivatives w.r.t. saturations
                 # With s_0 = 1 - sum_(i > 0) s_i it holds for k > 0
                 # ds_k (s_j rho_j / (sum_i s_i * rho_i)) =
-                # delta_kj * rho_j / (sum_i s_i * rho_i)
-                # + s_j * (- rho_j / (sum_i s_i * rho_i)^2 * (rho_k - rho_0))
+                # s_j * (- rho_j / (sum_i s_i * rho_i)^2 * (rho_k - rho_0))
                 jac[j, : nphase - 1] = sat[j] * outer_j * (rho_j[1:] - rho_j[0])
+                # + delta_kj * rho_j / (sum_i s_i * rho_i) with delta_kj = ds_k s_j
                 jac[j, j - 1] += rho_j[j] / rho_mix
 
                 # derivatives of phase fraction relations w.r.t. p, T
                 # With s_0 = 1 - sum_(i > 0) s_i and rho_mix = sum_i s_i * rho_i
                 # dpt (rho_j(p, T) / rho_mix) =
                 # dpt(rho_j(p,T)) / rho_mix
-                # + rho_j * (-1 / rho_mix^2 * dpt(rho_mix))
+                # - rho_j / (sum_i s_i * rho_i)^2 * dpt(rho_mix)
                 jac[j, nphase - 1 : nphase + 1] = sat[j] * (
                     d_rho_j[j, :2] / rho_mix + outer_j * dpT_rho_mix
                 )
@@ -1136,10 +1163,9 @@ class CompiledUnifiedFlash(Flash):
             # volume constraint is scaled with target volume
             jac[0] *= v
 
-            # multiply fraction relations with -1 because y_j (-) s_j rho_j / rho_mix
-            jac[1:] *= -1
             # derivatives of phase fraction relations w.r.t. independent y_j
-            jac[1:, nphase + 1 : 2 * nphase] = np.eye(nphase - 1)
+            # - because s_j rho_j / rho_mix - y_j = 0
+            jac[1:, nphase + 1 : 2 * nphase] = -np.eye(nphase - 1)
 
             return jac
 
@@ -1243,10 +1269,10 @@ class CompiledUnifiedFlash(Flash):
             # derivatives w.r.t. fractions
             jac[ncomp - 1 : ncomp - 1 + ncomp * (nphase - 1), nphase:] = d_iso[:, 2:]
 
-            d_h_constr = h_constr_jac_c(prearg_res, prearg_jac, p, h, T, y, x, xn)
-
-            d_h_constr /= T**2
-            d_h_constr[1] += 2.0 / T**3 * h_constr_res_c(prearg_res, p, h, T, y, xn)
+            d_h_constr = (
+                h_constr_jac_c(prearg_res, prearg_jac, p, h, T, y, x, xn) / T**2
+            )
+            d_h_constr[1] -= 2.0 / T**3 * h_constr_res_c(prearg_res, p, h, T, y, xn)
             jac[-(nphase + 1)] = d_h_constr[1:]  # exclude dp
 
             return jac
@@ -1319,9 +1345,10 @@ class CompiledUnifiedFlash(Flash):
             ]
 
             # enthalpy constraint
-            d_h_constr = h_constr_jac_c(prearg_res, prearg_jac, p, h, T, y, x, xn)
-            d_h_constr /= T**2
-            d_h_constr[1] += 2.0 / T**3 * h_constr_res_c(prearg_res, p, h, T, y, xn)
+            d_h_constr = (
+                h_constr_jac_c(prearg_res, prearg_jac, p, h, T, y, x, xn) / T**2
+            )
+            d_h_constr[1] -= 2.0 / T**3 * h_constr_res_c(prearg_res, p, h, T, y, xn)
             jac[ncomp - 1 + ncomp * (nphase - 1), nphase - 1 :] = d_h_constr
 
             # volume constraint
@@ -1645,16 +1672,12 @@ class CompiledUnifiedFlash(Flash):
                     # correction for gas-like mixture and volume too large,
                     # increase p significantly
                     if y_g >= 1.0 and v_mix > v:
-                        p_ = p * (2 - fp)
+                        p_ *= 2 - fp
                     # correction for liquid-like mixtures, h is very sensitive to p
                     # because h = u + pv, v small (liquid)
                     # then cancel the update
-                    if y_g < 1e-1 and h_mix < h and p_ > p:
-                        p_ = p
-                    #     if p_ > 0.:
-                    #         p_ *= 1.1
-                    #     else:  # if for some reason negative, kick up
-                    #         p_ = p * 1.1
+                    if y_g < 1e-1 and h_mix < h:  # and p_ > p:
+                        p_ *= 1.1
 
                     p = p_
                     T = T_
@@ -1747,6 +1770,11 @@ class CompiledUnifiedFlash(Flash):
             }
         )
 
+        logger.info(
+            f"{nphase}-phase, {ncomp}-component flash compiled"
+            + " (elapsed time: %.5f (s))." % (time.time() - start)
+        )
+
     def flash(
         self,
         z: Sequence[np.ndarray],
@@ -1789,13 +1817,14 @@ class CompiledUnifiedFlash(Flash):
         solver = parameters.get("solver", "npipm")
         assert solver in SOLVERS, f"Unsupported solver {solver}"
 
-        logger.debug("Flash: Parsing input ..")
-
         nphase, ncomp = self.npnc
         fluid_state, flash_type, f_dim, NF = self.parse_flash_input(
             z, p, T, h, v, initial_state
         )
-
+        logger.debug(
+            f"{flash_type} flash target state parsed with {NF} points."
+            + f" Local size problem size: {f_dim}."
+        )
         assert flash_type in [
             "p-T",
             "p-h",
@@ -1839,14 +1868,16 @@ class CompiledUnifiedFlash(Flash):
         else:
             assert False, "Missing logic"
 
-        logger.info(f"{flash_type} Flash: Initialization ..")
         if initial_state is None:
+            logger.debug(f"Computing initial values for {flash_type} flash.")
             start = time.time()
             # exclude NPIPM variable (last column) from initialization
             X0 = self.initializers[flash_type](X0.T, *init_args).T
             end = time.time()
             init_time = end - start
-            logger.debug(f"Flash initialized (elapsed time: {init_time} (s)).")
+            logger.debug(
+                f"Flash initialized" + " (elapsed time: %.5f (s))." % (init_time)
+            )
         else:
             init_time = 0.0
             # parsing phase compositions and molar fractions
@@ -1880,11 +1911,12 @@ class CompiledUnifiedFlash(Flash):
                         X0[idx_p - (nphase - 1) + j] = fluid_state.sat[j]
                         idx += 1
 
+            logger.debug("Provided initial state parsed.")
         F = self.residuals[flash_type]
         DF = self.jacobians[flash_type]
         self._update_solver_params(f_dim)
 
-        logger.info(f"{flash_type} Flash: Solving ..")
+        logger.debug(f"Starting {solver} ({mode}) solver ..")
         start = time.time()
         if mode == "linear":
             results, success, num_iter = linear_solver(
@@ -1896,7 +1928,16 @@ class CompiledUnifiedFlash(Flash):
             )
         end = time.time()
         minim_time = end - start
-        logger.info(f"Flashed (elapsed time: {minim_time} (s)).")
+        logger.info(
+            f"{NF} {flash_type} flash solved"
+            + " (elapsed time: %.5f (s))." % (minim_time)
+        )
+        logger.debug(
+            f"Success: {np.sum(success == 0)} / {NF}; "
+            + f"Max iter reached: {np.sum(success == 1)} / {NF}; "
+            + f"Diverged: {np.sum(success == 2)} / {NF}; "
+            + f"Other failures: {np.sum(success > 2)} / {NF}"
+        )
 
         self.last_flash_stats = {
             "type": flash_type,

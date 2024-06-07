@@ -2205,10 +2205,29 @@ class PengRobinson(AbstractEoS):
 
                 w[liq_ext_supc] = w_l
 
+<<<<<<< HEAD
             if use_widom_line:
                 extension_is_bigger = widom_line[one_root_region]
             else:
                 extension_is_bigger = z_1 < w
+=======
+            # if use_widom_line:
+            #     extension_is_bigger = widom_line[one_root_region]
+            # else:
+            extension_is_bigger = (z_1 < w) & gharbia_ext[one_root_region]
+
+            # assign the smaller values to w
+            z_1_small = z_1[extension_is_bigger]
+            z_1[extension_is_bigger] = w[extension_is_bigger]
+            w[extension_is_bigger] = z_1_small
+
+            Z_L[one_root_region] = w
+            Z_G[one_root_region] = z_1
+
+            extension_is_bigger = widom_line[one_root_region] & (
+                ~gharbia_ext[one_root_region]
+            )
+>>>>>>> aa975bc2359e8aadb7db7bac266ff0a277275ee3
 
             # assign the smaller values to w
             z_1_small = z_1[extension_is_bigger]

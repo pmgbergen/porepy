@@ -28,7 +28,7 @@ import time
 os.environ["NUMBA_DISABLE_JIT"] = "1"
 
 
-# logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 logging.getLogger("porepy").setLevel(logging.INFO)
 logging.getLogger("numba").setLevel(logging.WARNING)
 logging.getLogger("matplotlib").setLevel(logging.WARNING)
@@ -43,6 +43,8 @@ import porepy.composite.peng_robinson as ppcpr
 import porepy.models.compositional_flow_with_equilibrium as cfle
 from porepy.applications.md_grids.domains import nd_cube_domain
 
+logger = logging.getLogger(__name__)
+
 
 class SoereideMixture:
     """Model fluid using the Soereide mixture, a Peng-Robinson based EoS for
@@ -53,7 +55,7 @@ class SoereideMixture:
         species = ppc.load_species(chems)
         components = [
             ppcpr.H2O.from_species(species[0]),
-            ppcpr.CO2.from_species(species[1]),
+            ppcpr.H2S.from_species(species[1]),
         ]
         return components
 
@@ -61,7 +63,7 @@ class SoereideMixture:
         self, components: Sequence[ppc.Component]
     ) -> Sequence[tuple[ppc.EoSCompiler, int, str]]:
         eos = ppcpr.PengRobinsonCompiler(components)
-        return [(eos, 0, "l"), (eos, 1, "g")]
+        return [(eos, 0, "L"), (eos, 1, "G")]
 
 
 class CompiledFlash(ppc.FlashMixin):
@@ -73,7 +75,7 @@ class CompiledFlash(ppc.FlashMixin):
 
     def set_up_flasher(self) -> None:
         eos = self.fluid_mixture.reference_phase.eos
-        eos = cast(ppcpr.PengRobinsonCompiler, eos)  # cast type
+        eos = cast(ppcpr.PengRobinsonCompiler, eos)
 
         flash = ppc.CompiledUnifiedFlash(self.fluid_mixture, eos)
 
@@ -81,11 +83,20 @@ class CompiledFlash(ppc.FlashMixin):
         eos.compile()
         flash.compile()
 
-        # NOTE There is place to configure the solver here
-        flash.armijo_parameters["max_iter"] = 30
+        # Configuring solver for the requested equilibrium type
         flash.tolerance = 1e-8
         flash.max_iter = 150
         flash.heavy_ball_momentum = False
+        flash.armijo_parameters["rho"] = 0.99
+        flash.armijo_parameters["kappa"] = 0.4
+        flash.armijo_parameters["max_iter"] = 50
+        flash.npipm_parameters["u1"] = 1.0
+        flash.npipm_parameters["u2"] = 10.0 if self.equilibrium_type == "p-T" else 1.0
+        flash.npipm_parameters["eta"] = 0.5
+        flash.initialization_parameters["N1"] = 3
+        flash.initialization_parameters["N2"] = 1
+        flash.initialization_parameters["N3"] = 5
+        flash.initialization_parameters["eps"] = flash.tolerance
 
         # Setting the attribute of the mixin
         self.flash = flash
@@ -94,19 +105,51 @@ class CompiledFlash(ppc.FlashMixin):
         self, subdomains: Sequence[pp.Grid], state: np.ndarray | None = None
     ) -> ppc.FluidState:
         """Method to pre-process the evaluated fractions. Normalizes the extended
-        fractions where they violate a certain threshold."""
+        fractions where they violate the unity constraint."""
         fluid_state = super().get_fluid_state(subdomains, state)
 
-        unity_tolerance = 1.05
+        # sanity checks
+        p = self.equation_system.get_variable_values(
+            [self.pressure_variable], iterate_index=0
+        )
+        T = self.equation_system.get_variable_values(
+            [self.temperature_variable], iterate_index=0
+        )
+        if np.any(p <= 0.0):
+            raise ValueError("Pressure diverged to negative values.")
+        if np.any(T <= 0):
+            raise ValueError("Temperature diverged to negative values.")
+
+        unity_tolerance = 0.05
+
+        sat_sum = np.sum(fluid_state.sat, axis=0)
+        if np.any(sat_sum > 1 + unity_tolerance):
+            raise ValueError("Saturations violate unity constraint")
+        y_sum = np.sum(fluid_state.y, axis=0)
+        if np.any(y_sum > 1 + unity_tolerance):
+            raise ValueError("Phase fractions violate unity constraint")
+        if np.any(fluid_state.y < 0 - unity_tolerance) or np.any(
+            fluid_state.y > 1 + unity_tolerance
+        ):
+            raise ValueError("Phase fractions out of bound.")
+        if np.any(fluid_state.sat < 0 - unity_tolerance) or np.any(
+            fluid_state.sat > 1 + unity_tolerance
+        ):
+            raise ValueError("Phase fractions out of bound.")
 
         for j, phase in enumerate(fluid_state.phases):
             x_sum = phase.x.sum(axis=0)
-            if np.any(x_sum > unity_tolerance):
+            if np.any(x_sum > 1 + unity_tolerance):
                 raise ValueError(
                     f"Extended fractions in phase {j} violate unity constraint."
                 )
-            idx = x_sum > 1.0 + 1e-10
-            phase.x[:, idx] = ppc.normalize_rows(phase.x[:, idx].T).T
+            if np.any(phase.x < 0 - unity_tolerance) or np.any(
+                phase.x > 1 + unity_tolerance
+            ):
+                raise ValueError(f"Extended fractions in phase {j} out of bound.")
+            idx = x_sum > 1.0
+            if np.any(idx):
+                phase.x[:, idx] = ppc.normalize_rows(phase.x[:, idx].T).T
 
         return fluid_state
 
@@ -122,6 +165,10 @@ class CompiledFlash(ppc.FlashMixin):
         failure = success > 0
         if np.any(failure):
             sds = self.mdg.subdomains()
+            logger.warning(
+                f"Flash from iterate state failed in {failure.sum()} cases."
+                + " Re-starting with computation of initial guess."
+            )
 
             print("failure at")
             print(
@@ -133,6 +180,7 @@ class CompiledFlash(ppc.FlashMixin):
             )
             print("p: ", self.pressure(sds).value(self.equation_system)[failure])
             print("h: ", self.enthalpy(sds).value(self.equation_system)[failure])
+            print("T: ", self.temperature(sds).value(self.equation_system)[failure])
             # no initial guess, and this model uses only p-h flash.
             flash_kwargs = {
                 "z": [
@@ -140,15 +188,26 @@ class CompiledFlash(ppc.FlashMixin):
                     for comp in self.fluid_mixture.components
                 ],
                 "p": self.pressure(sds).value(self.equation_system)[failure],
-                "h": self.enthalpy(sds).value(self.equation_system)[failure],
                 "parameters": self.flash_params,
             }
 
+            if self.equilibrium_type == "p-h":
+                flash_kwargs["h"] = self.enthalpy(sds).value(self.equation_system)[
+                    failure
+                ]
+            elif self.equilibrium_type == "p-T":
+                flash_kwargs["T"] = self.temperature(sds).value(self.equation_system)[
+                    failure
+                ]
+
             sub_state, sub_success, _ = self.flash.flash(**flash_kwargs)
 
+            # treat max iter reached as success, and hope for the best in the PDE iter
+            sub_success[sub_success == 1] = 0
             # update parent state with sub state values
             success[failure] = sub_success
             fluid_state.T[failure] = sub_state.T
+            fluid_state.h[failure] = sub_state.h
 
             for j in range(len(fluid_state.phases)):
                 fluid_state.sat[j][failure] = sub_state.sat[j]
@@ -189,16 +248,20 @@ class ModelGeometry:
 class InitialConditions:
     """Define initial pressure, temperature and compositions."""
 
+    _p_IN: float
+    _p_OUT: float
+
     _p_INIT: float = 15e6
     _T_INIT: float = 550.0
     _z_INIT: dict[str, float] = {"H2O": 0.995, "CO2": 0.005}
 
     def initial_pressure(self, sd: pp.Grid) -> np.ndarray:
-        # Initial pressure of 10 MPa
+        # f = lambda x: self._p_IN + x * (self._p_OUT - self._p_IN)
+        # vals = np.array(list(map(f, sd.cell_centers[0])))
+        # return vals
         return np.ones(sd.num_cells) * self._p_INIT
 
     def initial_temperature(self, sd: pp.Grid) -> np.ndarray:
-        # Initial temperature of 550 K
         return np.ones(sd.num_cells) * self._T_INIT
 
     def initial_overall_fraction(
@@ -233,17 +296,16 @@ class BoundaryConditions:
     _T_INIT: float
     _z_INIT: dict[str, float]
 
-    _p_IN: float = InitialConditions._p_INIT
+    _p_IN: float = InitialConditions._p_INIT + 5e6
     _p_OUT: float = InitialConditions._p_INIT
 
     _T_IN: float = InitialConditions._T_INIT
     _T_OUT: float = InitialConditions._T_INIT
-    _T_HEATED: float = InitialConditions._T_INIT + 50.0
+    _T_HEATED: float = 620.0  # InitialConditions._T_INIT
 
-    # _z_IN: dict[str, float] = {"H2O": 0.99, "CO2": 0.01}
     _z_IN: dict[str, float] = {
-        "H2O": InitialConditions._z_INIT["H2O"],
-        "CO2": InitialConditions._z_INIT["CO2"],
+        "H2O": InitialConditions._z_INIT["H2O"] - 0.005,
+        "CO2": InitialConditions._z_INIT["CO2"] + 0.005,
     }
     _z_OUT: dict[str, float] = {
         "H2O": InitialConditions._z_INIT["H2O"],
@@ -297,7 +359,8 @@ class BoundaryConditions:
 
     def bc_type_fourier_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         if sd.dim == 2:
-            heated = self._heated_faces(sd)
+            inout = self._inlet_faces(sd) | self._outlet_faces(sd)
+            heated = self._heated_faces(sd) | inout
             return pp.BoundaryCondition(sd, heated, "dir")
         # In fractures we set trivial NBC
         else:
@@ -390,7 +453,7 @@ t_scale = 1e-5
 T_end = 100 * days * t_scale
 dt_init = 1 * days * t_scale
 max_iterations = 80
-newton_tol = 1e-5
+newton_tol = 1e-6
 
 time_manager = pp.TimeManager(
     schedule=[0, T_end],
@@ -405,7 +468,12 @@ time_manager = pp.TimeManager(
 )
 
 solid_constants = pp.SolidConstants(
-    {"permeability": 1e-11, "porosity": 0.2, "thermal_conductivity": 192}
+    {
+        "permeability": 1e-8,
+        "porosity": 0.2,
+        "thermal_conductivity": 30.0,
+        "specific_heat_capacity": 0.0,
+    }
 )
 material_constants = {"solid": solid_constants}
 
@@ -427,24 +495,17 @@ params = {
     "time_manager": time_manager,
     "max_iterations": max_iterations,
     "nl_convergence_tol": newton_tol,
+    "nl_convergence_tol_res": newton_tol,
     "prepare_simulation": False,
     "progressbars": True,
     # 'restart_options': restart_options,  # NOTE no yet fully integrated in porepy
 }
 model = GeothermalFlow(params)
 
-model.equilibrium_type = "p-T"
+model.equilibrium_type = "p-h"
 
 start = time.time()
 model.prepare_simulation()
 print(f"Finished prepare_simulation in {time.time() - start} seconds")
-
-
-result, success, num_iter = model.flash.flash(
-    z=np.array([0.995, 0.005]),
-    p=np.array(15e6),
-    T=np.array([550.0]),
-)
-
 pp.run_time_dependent_model(model, params)
 # pp.plot_grid(model.mdg, "pressure", figsize=(10, 8), plot_2d=True)

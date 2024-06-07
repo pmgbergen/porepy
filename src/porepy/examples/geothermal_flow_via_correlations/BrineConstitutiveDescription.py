@@ -45,12 +45,12 @@ class LiquidDriesnerCorrelations(ppc.AbstractEoS):
         self.obl.sample_at(par_points)
         n = len(p)  # same for all input (number of cells)
 
-        # specific volume of phase
-        v = self.obl.sampled_could.point_data["nu_l"]
-        dvdz = self.obl.sampled_could.point_data["grad_nu_l"][:, 0]
-        dvdH = self.obl.sampled_could.point_data["grad_nu_l"][:, 1]
-        dvdp = self.obl.sampled_could.point_data["grad_nu_l"][:, 2]
-        dv = np.vstack((dvdp, dvdH, dvdz))
+        # Mass density of phase
+        rho = self.obl.sampled_could.point_data["Rho_l"]
+        drhodz = self.obl.sampled_could.point_data["grad_Rho_l"][:, 0]
+        drhodH = self.obl.sampled_could.point_data["grad_Rho_l"][:, 1]
+        drhodp = self.obl.sampled_could.point_data["grad_Rho_l"][:, 2]
+        drho = np.vstack((drhodp, drhodH, drhodz))
 
         # specific enthalpy of phase
         h = self.obl.sampled_could.point_data["H_l"]
@@ -79,8 +79,8 @@ class LiquidDriesnerCorrelations(ppc.AbstractEoS):
 
         return ppc.PhaseState(
             phasetype=phase_type,
-            v=v,
-            dv=dv,
+            rho=rho,
+            drho=drho,
             h=h,
             dh=dh,
             mu=mu,
@@ -131,12 +131,12 @@ class GasDriesnerCorrelations(ppc.AbstractEoS):
         self.obl.sample_at(par_points)
         n = len(p)  # same for all input (number of cells)
 
-        # specific volume of phase
-        v = self.obl.sampled_could.point_data["nu_v"]
-        dvdz = self.obl.sampled_could.point_data["grad_nu_v"][:, 0]
-        dvdH = self.obl.sampled_could.point_data["grad_nu_v"][:, 1]
-        dvdp = self.obl.sampled_could.point_data["grad_nu_v"][:, 2]
-        dv = np.vstack((dvdp, dvdH, dvdz))
+        # Mass density of phase
+        rho = self.obl.sampled_could.point_data["Rho_v"]
+        drhodz = self.obl.sampled_could.point_data["grad_Rho_v"][:, 0]
+        drhodH = self.obl.sampled_could.point_data["grad_Rho_v"][:, 1]
+        drhodp = self.obl.sampled_could.point_data["grad_Rho_v"][:, 2]
+        drho = np.vstack((drhodp, drhodH, drhodz))
 
         # specific enthalpy of phase
         h = self.obl.sampled_could.point_data["H_v"]
@@ -165,8 +165,8 @@ class GasDriesnerCorrelations(ppc.AbstractEoS):
 
         return ppc.PhaseState(
             phasetype=phase_type,
-            v=v,
-            dv=dv,
+            rho=rho,
+            drho=drho,
             h=h,
             dh=dh,
             mu=mu,

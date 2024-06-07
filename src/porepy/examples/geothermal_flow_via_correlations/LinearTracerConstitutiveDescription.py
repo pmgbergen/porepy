@@ -112,7 +112,7 @@ class LiquidLikeCorrelations(ppc.AbstractEoS):
         *thermodynamic_dependencies: np.ndarray,
     ) -> tuple[np.ndarray, np.ndarray]:
 
-        nc = len(thermodynamic_dependencies[0])
+        nc = len(thermodynamic_dependencies[1])
         vals = (1000.0) * np.ones(nc)
         # row-wise storage of derivatives, (4, nc) array
         diffs = np.zeros((len(thermodynamic_dependencies), nc))
@@ -259,5 +259,5 @@ class SecondaryEquations(SecondaryEquationsMixin):
             self.temperature,
             self.dependencies_of_phase_properties(rphase),  # since same for all.
             temperature_func,
-            subdomains + matrix_boundary,
+            subdomains,
         )
