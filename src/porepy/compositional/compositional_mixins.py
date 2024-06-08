@@ -1,5 +1,8 @@
-"""A module containing equilibrium formulations for fluid mixtures using PorePy's AD
-framework.
+"""A module containing mixins for defining fluid mixtures and relatd variables in a
+PorePy model.
+
+While the mixins operatore on some base assumptions, they are highly customizable by
+inheritance and the user is encouraged to read up on them.
 
 """
 
@@ -12,18 +15,18 @@ import numpy as np
 import porepy as pp
 
 from ._core import COMPOSITIONAL_VARIABLE_SYMBOLS as symbols
-from .base import AbstractEoS, Component, Compound, Mixture, Phase
+from .base import AbstractEoS, Component, Compound, FluidMixture, Phase
 from .chem_species import ChemicalSpecies
-from .composite_utils import CompositeModellingError
 from .states import FluidState, PhaseState
+from .utils import CompositionalModellingError
 
 __all__ = [
-    "CompositeVariables",
+    "CompositionalVariables",
     "FluidMixtureMixin",
 ]
 
 
-class CompositeVariables(pp.VariableMixin):
+class CompositionalVariables(pp.VariableMixin):
     """Mixin class for models with mixtures which defines the respective fractional
     unknowns.
 
@@ -35,7 +38,7 @@ class CompositeVariables(pp.VariableMixin):
 
     Important:
         For compositional flow without a local equilibrium formulation, the flow and
-        transport formulationd does not require molar phase fractions or extended
+        transport formulationd does not require phase fractions or extended
         fractions of components in phases.
         Phases have only saturations as phase related variables, and instead of extended
         fractions, the (physical) partial fractions are independent variables.
@@ -48,7 +51,7 @@ class CompositeVariables(pp.VariableMixin):
 
     """
 
-    fluid_mixture: Mixture
+    fluid_mixture: FluidMixture
     """Provided by :class:`FluidMixtureMixin`."""
 
     mdg: pp.MixedDimensionalGrid
@@ -70,13 +73,21 @@ class CompositeVariables(pp.VariableMixin):
     :class:`~porepy.models.compositional_flow.SolutionStrategyCF`."""
     equilibrium_type: Optional[Literal["p-T", "p-h", "v-h"]]
     """Provided by
-    :class:`~porepy.models.composite_balance.SolutionStrategyCF`."""
+    :class:`~porepy.models.compositional_flow.SolutionStrategyCF`."""
 
     @property
     def overall_fraction_variables(self) -> list[str]:
-        """Names of independent feed fraction variables created by the mixture mixin."""
+        """Names of independent overall fraction variables created by the mixture mixin.
+
+        See Also:
+            :meth:`~porepy.compositional.base.Component.fraction`
+
+        """
         names = list()
         if hasattr(self, "fluid_mixture"):
+            # the single feed fraction is not a variable
+            if self.fluid_mixture.num_components == 1:
+                return names
             for comp in self.fluid_mixture.components:
                 if not (
                     comp == self.fluid_mixture.reference_component
@@ -87,20 +98,33 @@ class CompositeVariables(pp.VariableMixin):
 
     @property
     def solute_fraction_variables(self) -> list[str]:
-        """Names of solute fraction variables created by the mixture mixin."""
+        """Names of solute fraction variables created by the mixture mixin.
+
+        See Also:
+            :attr:`~porepy.compositional.base.Compound.relative_fraction_of`
+
+        """
         names = list()
         if hasattr(self, "fluid_mixture"):
             for comp in self.fluid_mixture.components:
                 if isinstance(comp, Compound):
-                    for solute in comp.solutes:
+                    for solute in comp.pseudo_components:
                         names.append(self._solute_fraction_variable(solute, comp))
         return names
 
     @property
     def phase_fraction_variables(self) -> list[str]:
-        """Names of independent phase fraction variables created by the mixture mixin."""
+        """Names of independent phase fraction variables created by the mixture mixin.
+
+        See Also:
+            :attr:`~porepy.compositional.base.Phase.fraction`
+
+        """
         names = list()
-        if hasattr(self, "fluid_mixture"):
+        if hasattr(self, "fluid_mixture") and self.equilibrium_type is not None:
+            # single phase fraction is not a variable
+            if self.fluid_mixture.num_phases == 1:
+                return names
             for phase in self.fluid_mixture.phases:
                 if not (
                     phase == self.fluid_mixture.reference_phase
@@ -111,9 +135,17 @@ class CompositeVariables(pp.VariableMixin):
 
     @property
     def saturation_variables(self) -> list[str]:
-        """Names of phase saturation variables created by the mixture mixin."""
+        """Names of phase saturation variables created by the mixture mixin.
+
+        See Also:
+            :attr:`~porepy.compositional.base.Phase.saturation`
+
+        """
         names = list()
         if hasattr(self, "fluid_mixture"):
+            # single phase saturation is not a variable
+            if self.fluid_mixture.num_phases == 1:
+                return names
             for phase in self.fluid_mixture.phases:
                 if not (
                     phase == self.fluid_mixture.reference_phase
@@ -128,6 +160,10 @@ class CompositeVariables(pp.VariableMixin):
 
         If a local equilibrium is defined, this denotes the extended fractions,
         otherwise it denotes the partial fractions.
+
+        See Also:
+            :attr:`~porepy.compositional.base.Phase.extended_fraction_of`
+            :attr:`~porepy.compositional.base.Phase.partial_fraction_of`
 
         """
         names = list()
@@ -158,9 +194,7 @@ class CompositeVariables(pp.VariableMixin):
         Parameters:
             state: ``default=None``
 
-                Argument for the evaluation methods of the AD framework.
-                Can be used to assemble a fluid state from an alternative global vector
-                of unknowns.
+                See :meth:`~porepy.numerics.ad.operators.Operator.value`.
 
         Returns:
             A partially filled fluid state data structure containing the above
@@ -193,7 +227,7 @@ class CompositeVariables(pp.VariableMixin):
             np.array(
                 [
                     (
-                        phase.fraction_of[component](subdomains).value(
+                        phase.extended_fraction_of[component](subdomains).value(
                             self.equation_system, state
                         )
                         if self.equilibrium_type is not None
@@ -228,29 +262,29 @@ class CompositeVariables(pp.VariableMixin):
         """Creates the sets of required variables for a fluid mixture.
 
         1. :meth:`overall_fraction` is called to assign
-           :attr:`~porepy.composite.base.Component.fraction` to components.
+           :attr:`~porepy.compositional.base.Component.fraction` to components.
         2. :meth:`solute_fraction` is called to assign
-           :attr:`~porepy.composite.base.Compound.solute_fraction_of` for each solute in
-           a compound.
+           :attr:`~porepy.compositional.base.Compound.relative_fraction_of` for each solute
+           in a compound.
         3. :meth:`saturation` is called to assign
-           :attr:`~porepy.composite.base.Phase.saturation` to phases.
+           :attr:`~porepy.compositional.base.Phase.saturation` to phases.
 
         If a local :attr:`equilibrium_type` is defined, it introduces additionally
 
-        4. :attr:`~porepy.composite.base.Phase.fraction` to phases by calling
+        4. :attr:`~porepy.compositional.base.Phase.fraction` to phases by calling
            :meth:`phase_fraction'
-        5. :attr:`~porepy.composite.base.Phase.fraction_of` for each phase and component
-           by calling :meth:`extended_fraction`
+        5. :attr:`~porepy.compositional.base.Phase.extended_fraction_of` for each phase and
+           component by calling :meth:`extended_fraction`
 
         If a local equilibrium is defined :meth:`partial_fractions` returns dependent
         operators by normalizing extended fractions. Otherwise partial fractions are
-        also introduced as as independent operators by calling
-        :attr:`~porepy.composite.base.Phase.partial_fraction_of` for each phase and
-        component in that phase, and assigning it to :meth:`partial_fraction`.
+        also introduced as as independent operators by calling :meth:`partial_fraction`
+        for each phase and component in that phase, and assigning it to
+        :attr:`~porepy.compositional.base.Phase.partial_fraction_of`.
 
         """
         if not hasattr(self, "fluid_mixture"):
-            raise CompositeModellingError(
+            raise CompositionalModellingError(
                 "Cannot create fluid mixture variables before defining a fluid mixture."
             )
 
@@ -274,11 +308,11 @@ class CompositeVariables(pp.VariableMixin):
         ## Creation of solute fractions
         for comp in self.fluid_mixture.components:
             if isinstance(comp, Compound):
-                comp.solute_fraction_of = dict()
-                for solute in comp.solutes:
+                comp.relative_fraction_of = dict()
+                for solute in comp.pseudo_components:
                     name = self._solute_fraction_variable(solute, comp)
                     self._create_fractional_variable(name, subdomains)
-                    comp.solute_fraction_of.update(
+                    comp.relative_fraction_of.update(
                         {solute: self.solute_fraction(solute, comp)}
                     )
 
@@ -312,9 +346,9 @@ class CompositeVariables(pp.VariableMixin):
                     phase.fraction = self.phase_fraction(phase)
 
                 # creating extended fractions
-                phase.fraction_of = dict()
+                phase.extended_fraction_of = dict()
                 for comp in phase:
-                    phase.fraction_of.update(
+                    phase.extended_fraction_of.update(
                         {comp: self.extended_fraction(comp, phase)}
                     )
 
@@ -345,7 +379,7 @@ class CompositeVariables(pp.VariableMixin):
         The base method creates independent variables for all components, except for the
         reference component (eliminated by unity).
         The returned callable returns the respective operator.
-        If only 1 component is available, it the Callable returns a scalar.
+        If only 1 component is available, the Callable returns a scalar.
 
         Note:
             This method is called during :meth:`create_variables`.
@@ -416,12 +450,12 @@ class CompositeVariables(pp.VariableMixin):
         """Method is called for every compound created and every solute in that
         compound.
 
-        The base method creates solute fractions as independend variables
+        The base method creates solute fractions as an independend variables
         (transportable), after asserting the solute is indeed in that compound.
 
         """
         assert (
-            solute in compound.solutes
+            solute in compound.pseudo_components
         ), f"Solute {solute.name} not in compound {compound.name}"
 
         def fraction(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
@@ -453,12 +487,11 @@ class CompositeVariables(pp.VariableMixin):
         The base method creates independent variables for all phases, except for the
         reference phase (eliminated by unity).
         The returned callable returns the respective operator.
-        If only 1 phase is available, callable returns a scalar 1.
+        If only 1 phase is modelled, the callable returns a scalar 1.
 
         This method will be called last for the reference phase.
 
         """
-        assert hasattr(self, "fluid_mixture"), "Mixture not set."
         nphase = self.fluid_mixture.num_phases
         rphase = self.fluid_mixture.reference_phase
 
@@ -511,7 +544,6 @@ class CompositeVariables(pp.VariableMixin):
         self, phase: Phase
     ) -> Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]:
         """Analogous to :meth:`saturation` but for phase molar fractions."""
-        assert hasattr(self, "fluid_mixture"), "Mixture not set."
         nphase = self.fluid_mixture.num_phases
         rphase = self.fluid_mixture.reference_phase
 
@@ -638,7 +670,7 @@ class CompositeVariables(pp.VariableMixin):
             # Physical fraction are constant 1, if only 1 component
             # Otherwise we use the code from extended fractions to create independent
             # variables
-            if len(phase.components) == 1:
+            if phase.num_components == 1:
 
                 def fraction(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
                     return pp.ad.Scalar(
@@ -648,17 +680,15 @@ class CompositeVariables(pp.VariableMixin):
             else:
                 fraction = self.extended_fraction(component, phase)
 
-        # return self.extended_fraction(component, phase)
         return fraction
 
 
 class FluidMixtureMixin:
-    """Mixin class for modelling a mixture.
-
-    Introduces the fluid mixture into the model.
+    """Mixin class for modelling a mixture and providing it as an attribute to a PorePy
+    model.
 
     Provides means to create domain-dependent callables representing thermodynamic
-    properties which appear in various equations.
+    properties which appear in equations.
 
     Various methods methods returning callable properties can be overwritten for
     customization.
@@ -672,26 +702,17 @@ class FluidMixtureMixin:
     This base class is designed to accomodate the most general formulation of the
     compositional flow paired with local equilibrium equations.
 
-    Properties of phases
-    (:class:`~porepy.composite.composite_utils.SecondaryExpression`)
-    are such that the solution strategy can populate values depending on whether flash
-    calculations are performed or secondary expressions evaluated.
+    It uses the :class:`~porepy.numerics.ad.surrogate_operator.SurrogateFactory` to
+    provide representations of phase properties, which can be filled with either flash
+    calculations or interpolation values f.e.
 
     Before modifying anything here, try accomodating the update in the solution
     strategy (see :meth:`~porepy.models.compositional_flow.
     SolutionStrategyCF.update_thermodynamic_properties`).
 
-    Note:
-        Secondary expressions are given a time step and iterate depth, depending on
-        the solution strategy.
-
-        Expressions which do not appear in the time derivative, such as viscosity,
-        conductivity and fugacity coefficients, never have a time step depth, and only
-        the iterate values are stored.
-
     """
 
-    fluid_mixture: Mixture
+    fluid_mixture: FluidMixture
     """The fluid mixture set by this class during :meth:`create_mixture`."""
 
     mdg: pp.MixedDimensionalGrid
@@ -713,7 +734,7 @@ class FluidMixtureMixin:
     :class:`~porepy.models.compositional_flow.SolutionStrategyCF`."""
     equilibrium_type: Optional[Literal["p-T", "p-h", "v-h"]]
     """Provided by
-    :class:`~porepy.models.composite_balance.SolutionStrategyCF`."""
+    :class:`~porepy.models.compositional_flow.SolutionStrategyCF`."""
 
     time_step_indices: np.ndarray
     """Provided by :class:`~porepy.models.solution_strategy.SolutionStrategy`"""
@@ -727,19 +748,10 @@ class FluidMixtureMixin:
         :meth:`set_components_in_phases` in that order and creates the instance
         :attr:`fluid_mixture`
 
-        Raises:
-            CompositeModellingError: If no component or no phase was modelled.
-
         """
 
         components = self.get_components()
-        # TODO other models can be abstracted to use this class, which implement
-        # simple constitutive laws without usage of chemistry -> Code unification
-        # for incompressible single-phase flow for example, no need to define phases or
-        # components
-        assert len(components) > 0, "Need at least one component."
         phase_configurations = self.get_phase_configuration(components)
-        assert len(phase_configurations) > 0, "Need at least one phase."
 
         phases: list[Phase] = list()
         for config in phase_configurations:
@@ -748,22 +760,18 @@ class FluidMixtureMixin:
 
         self.set_components_in_phases(components, phases)
 
-        self.fluid_mixture = Mixture(components, phases)
+        self.fluid_mixture = FluidMixture(components, phases)
 
     def get_components(self) -> Sequence[Component]:
         """Method to return a list of modelled components."""
-        raise CompositeModellingError("Call to mixin method. No components defined.")
+        raise CompositionalModellingError(
+            "Call to mixin method. Define components by overriding this method."
+        )
 
     def get_phase_configuration(
         self, components: Sequence[Component]
     ) -> Sequence[tuple[AbstractEoS, int, str]]:
         """Method to return a configuration of modelled phases.
-
-        Must return the instance of used EoS, the phase type (integer) and a name
-        for each phase.
-
-        This reflects the required input to instantiate a phase
-        (see :class:`~porepy.composite.base.Phase`)
 
         Parameters:
             components: The list of components modelled by :meth:`get_components`.
@@ -771,23 +779,23 @@ class FluidMixtureMixin:
                 Note:
                     The reason why this is passed as an argument is to avoid
                     constructing multiple, possibly expensive EoS compiler instances.
-
                     The user can use only a single EoS instance for all phases f.e.
 
         Returns:
             A sequence of 3-tuples containing
 
-            1. An instance of an EoS (or some other class providing means to compute
-               phase properties)
-            2. The phase type (integer denoting the phsycial state like liquid or gas)
+            1. An instance of an EoS.
+            2. The phase type.
             3. A name for the phase.
 
             Each tuple will be used to create a phase in the fluid mixture.
             For more information on the required return values see
-            :class:`~porepy.composite.base.Phase`.
+            :class:`~porepy.compositional.base.Phase`.
 
         """
-        raise CompositeModellingError("Call to mixin method. No phases configured.")
+        raise CompositionalModellingError(
+            "Call to mixin method. Configure phases by overriding this method."
+        )
 
     def set_components_in_phases(
         self, components: Sequence[Component], phases: Sequence[Phase]
@@ -814,29 +822,34 @@ class FluidMixtureMixin:
     def assign_thermodynamic_properties_to_mixture(self) -> None:
         """A method to create various thermodynamic properties of phases in AD form.
 
-        After that, it assignes properties to the ``fluid_mixture`` based on phase
+        After that, it assignes properties to the :attr:`fluid_mixture` based on phase
         properties.
 
         Will be called by the solution strategy after all variables have been created.
 
         Phases get the following properties assigned:
 
-        - :meth:`phase_density` to :attr:`~porepy.composite.base.Phase.density`
-        - :meth:`phase_volume` to :attr:`~porepy.composite.base.Phase.volume`
-        - :meth:`phase_enthalpy` to :attr:`~porepy.composite.base.Phase.enthalpy`
-        - :meth:`phase_viscosity` to :attr:`~porepy.composite.base.Phase.viscosity`
-        - :meth:`phase_conductivity` to
-          :attr:`~porepy.composite.base.Phase.conductivity`
+        - :meth:`density_of_phase` to
+          :attr:`~porepy.compositional.base.Phase.density`
+        - :meth:`specific_volume_of_phase` to
+          :attr:`~porepy.compositional.base.Phase.specific_volume`
+        - :meth:`specific_enthalpy_of_phase` to
+          :attr:`~porepy.compositional.base.Phase.specific_enthalpy`
+        - :meth:`viscosity_of_phase` to :attr:`~porepy.compositional.base.Phase.viscosity`
+        - :meth:`conductivity_of_phase` to
+          :attr:`~porepy.compositional.base.Phase.conductivity`
         - :meth:`fugacity_coefficient` to
-          :attr:`~porepy.composite.base.Phase.fugacity_of`
+          :attr:`~porepy.compositional.base.Phase.fugacity_coefficient_of`
           for each component in respective phase.
           This is only done for mixtures with a defined equilibrium type
 
         The :attr:`fluid_mixture` gets following properties assigned:
 
-        - :meth:`fluid_density` to :attr:`~porepy.composite.base.Mixture.density`
-        - :meth:`fluid_volume` to :attr:`~porepy.composite.base.Mixture.volume`
-        - :meth:`fluid_enthalpy` to :attr:`~porepy.composite.base.Mixture.enthalpy`
+        - :meth:`fluid_density` to :attr:`~porepy.compositional.base.FluidMixture.density`
+        - :meth:`fluid_specific_volume` to
+          :attr:`~porepy.compositional.base.FluidMixture.specific_volume`
+        - :meth:`fluid_specific_enthalpy` to
+          :attr:`~porepy.compositional.base.FluidMixture.specific_enthalpy`
 
         Customization is possible in respective methods by inheritance.
 
@@ -844,79 +857,31 @@ class FluidMixtureMixin:
         assert hasattr(self, "fluid_mixture"), "Mixture not set."
 
         for phase in self.fluid_mixture.phases:
-            phase.density = self.phase_density(phase)
-            phase.volume = self.phase_volume(phase)
-            phase.enthalpy = self.phase_enthalpy(phase)
-            phase.viscosity = self.phase_viscosity(phase)
-            phase.conductivity = self.phase_conductivity(phase)
-            phase.fugacity_of = dict()
+            phase.density = self.density_of_phase(phase)
+            phase.specific_volume = self.specific_volume_of_phase(phase)
+            phase.specific_enthalpy = self.specific_enthalpy_of_phase(phase)
+            phase.viscosity = self.viscosity_of_phase(phase)
+            phase.conductivity = self.conductivity_of_phase(phase)
+            phase.fugacity_coefficient_of = dict()
             for comp in phase:
-                phase.fugacity_of[comp] = self.fugacity_coefficient(comp, phase)
+                phase.fugacity_coefficient_of[comp] = self.fugacity_coefficient(
+                    comp, phase
+                )
 
         self.fluid_mixture.density = self.fluid_density
-        self.fluid_mixture.volume = self.fluid_volume
-        self.fluid_mixture.enthalpy = self.fluid_enthalpy
-
-    def fluid_density(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
-        """Implements the mixture density function which returns the sum of phase
-        densities weighed with phase saturations."""
-
-        op = pp.ad.sum_operator_list(
-            [
-                phase.saturation(domains) * phase.density(domains)
-                for phase in self.fluid_mixture.phases
-            ],
-            "fluid-mixture-density",
-        )
-        return op
-
-    def fluid_enthalpy(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
-        """Implements the mixture enthalpy function which returns the sum of
-        phase enthalpies weighed with phase fractions.
-
-        Raises:
-            CompositeModellingError: If :attr:`equilibrium_type` is None, and hence no
-                molar phase fractions are introduced by this class.
-                The consistent definition of the specific molar enthalpy of a fluid
-                mixture always depends on molar phase fractions.
-
-        """
-
-        if self.equilibrium_type is None:
-            raise CompositeModellingError(
-                "Attempting to define the (specific) fluid mixture enthalpy as sum of"
-                + " phase enthalpies weighed with molar phase fractions, even though"
-                + " no equilibrium conditions defined. Per default, molar phase"
-                + " fractions are only created when an equilibrium formulation is"
-                + " used in the model."
-            )
-
-        op = pp.ad.sum_operator_list(
-            [
-                phase.fraction(domains) * phase.enthalpy(domains)
-                for phase in self.fluid_mixture.phases
-            ],
-            "fluid-mixture-enthalpy",
-        )
-        return op
-
-    def fluid_volume(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
-        """Implements the mixture volume function which returns the reciprocal of
-        whatever :meth:`get_mixture_volume` returns."""
-        op = self.fluid_density(domains) ** pp.ad.Scalar(-1)
-        op.set_name("fluid-mixture-volume")
-        return op
+        self.fluid_mixture.specific_volume = self.fluid_specific_volume
+        self.fluid_mixture.specific_enthalpy = self.fluid_specific_enthalpy
 
     def dependencies_of_phase_properties(
         self, phase: Phase
     ) -> Sequence[Callable[[pp.GridLikeSequence], pp.ad.Operator]]:
-        """Method to define the signature of phase properties, which are secondary
-        expressions.
+        """Method to define the signature of phase properties, which are dependent
+        quantities.
 
         In the case of a local equilibrium formulation, the properties
-        depend on pressure, temperature and extended fractions.
+        depend on pressure, temperature and (extended) fractions.
 
-        Otherwise they depend on pressure, temperature and independent overall
+        Otherwise they depend on pressure, temperature and **independent** overall
         fractions.
 
         Note:
@@ -924,7 +889,7 @@ class FluidMixtureMixin:
             in the equilibrium formulation.
 
             But since they are dependent operators and
-            :class:`~porepy.composite.composite_utils.SecondaryExpression`
+            :class:`~porepy.numerics.ad.surrogate_operator.SurrogateFactory`
             requires independent variables as dependencies, this little `hack` is
             performed here and the derivatives w.r.t. the fractions are expanded
             in the solution strategy of the CF framework, to account for the partial
@@ -933,7 +898,9 @@ class FluidMixtureMixin:
         """
         dependencies = [self.pressure, self.temperature]
         if self.equilibrium_type is not None:
-            dependencies += [phase.fraction_of[component] for component in phase]
+            dependencies += [
+                phase.extended_fraction_of[component] for component in phase
+            ]
         else:
             if self.eliminate_reference_component:
                 independent_overall_fractions = [
@@ -949,78 +916,119 @@ class FluidMixtureMixin:
             dependencies += independent_overall_fractions
         return dependencies
 
-    def phase_density(
+    def fluid_density(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+        """Returns an operaror by calling phase saturations and densities, and
+        performing a weighed sum."""
+
+        op = pp.ad.sum_operator_list(
+            [
+                phase.saturation(domains) * phase.density(domains)
+                for phase in self.fluid_mixture.phases
+            ],
+            "fluid-mixture-density",
+        )
+        return op
+
+    def fluid_specific_volume(
+        self, domains: pp.SubdomainsOrBoundaries
+    ) -> pp.ad.Operator:
+        """Returns the reciprocal of whatever :meth:`fluid_density` returns."""
+        op = self.fluid_density(domains) ** pp.ad.Scalar(-1)
+        op.set_name("fluid-mixture-specific-volume")
+        return op
+
+    def fluid_specific_enthalpy(
+        self, domains: pp.SubdomainsOrBoundaries
+    ) -> pp.ad.Operator:
+        """Returns an operaror by calling phase fractions and specific enthalpies, and
+        performing a weighed sum.
+
+        Raises:
+            CompositeModellingError: If :attr:`equilibrium_type` is None, and hence no
+                phase fractions were introduced by :class:`CompositionalVariables`.
+                The consistent definition of the specific molar enthalpy of a fluid
+                mixture always depends on phase fractions.
+
+        """
+
+        if self.equilibrium_type is None:
+            raise CompositionalModellingError(
+                "Attempting to define the (specific) fluid mixture enthalpy as sum of"
+                + " phase enthalpies weighed with phase fractions, even though no"
+                + " equilibrium conditions defined. Per default, phase fractions are"
+                + " only created when an equilibrium formulation is used in the model."
+            )
+
+        op = pp.ad.sum_operator_list(
+            [
+                phase.fraction(domains) * phase.specific_enthalpy(domains)
+                for phase in self.fluid_mixture.phases
+            ],
+            "fluid-mixture-specific-enthalpy",
+        )
+        return op
+
+    def density_of_phase(
         self, phase: Phase
     ) -> Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]:
-        """This base method returns the specific (molar) density of a ``phase`` as a
-        :class:`~porepy.composite.composite_utils.SecondaryExpression` on all subdomains
-        and boundaries.
+        """This base method returns the density of a ``phase`` as a
+        :class:`~porepy.numerics.ad.surrogate_operator.SurrogateFactory`.
 
-        It is an object which is populated by the solution strategy, depending on how
+        It is populated by the solution strategy, depending on how
         the equilibrium conditions and constitutive laws are implemented.
 
-        The phase density (like all thermodynamic properties) is a property depending on
-        pressure, temperature and some fractions.
+        The phase density (like all thermodynamic properties) is a dependent quantity.
 
         """
         return pp.ad.SurrogateFactory(
-            f"phase_density_{phase.name}",
+            f"phase_{phase.name}_density",
             self.mdg,
             self.dependencies_of_phase_properties(phase),
         )
 
-    def phase_volume(
+    def specific_volume_of_phase(
         self, phase: Phase
     ) -> Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]:
-        """Implements the volume as the reciprocal of whatever is assigned to a phase
-        density."""
+        """The specific volume of the phase is returned as a function calling the
+        the phase density and taking the reciprocal of it."""
+
+        def volume(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+            op = phase.density(domains)
+            op = op ** pp.ad.Scalar(-1.0)
+            op.set_name(f"phase_{phase.name}_specific_volume")
+            return op
+
+        return volume
+
+    def specific_enthalpy_of_phase(
+        self, phase: Phase
+    ) -> Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]:
+        """Analogous to :meth:`density_of_phase`, creating a new surrogate factory for
+        the specific enthalpy of a ``phase``."""
         return pp.ad.SurrogateFactory(
-            f"phase_volume_{phase.name}",
+            f"phase_{phase.name}_specific_enthalpy",
             self.mdg,
             self.dependencies_of_phase_properties(phase),
         )
 
-    def phase_enthalpy(
+    def viscosity_of_phase(
         self, phase: Phase
     ) -> Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]:
-        """Analogous to :meth:`phase_density`, creating a new expression for the
-        specific (molar) enthalpy of a ``phase``."""
+        """Analogous to :meth:`density_of_phase`, creating a new surrogate factory for
+        the dynamic viscosity of a ``phase``."""
         return pp.ad.SurrogateFactory(
-            f"phase_enthalpy_{phase.name}",
+            f"phase_{phase.name}_viscosity",
             self.mdg,
             self.dependencies_of_phase_properties(phase),
         )
 
-    def phase_viscosity(
+    def conductivity_of_phase(
         self, phase: Phase
     ) -> Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]:
-        """Analogous to :meth:`phase_density`, creating a new expression for the
-        dynamic (molar) viscosity of a ``phase``.
-
-        Note:
-            The viscosity has no time step depth, because it does not appear in the
-            accumulation term.
-
-        """
+        """Analogous to :meth:`density_of_phase`, creating a new surrogate factory for
+        the thermal conductivity of a ``phase``."""
         return pp.ad.SurrogateFactory(
-            f"phase_viscosity_{phase.name}",
-            self.mdg,
-            self.dependencies_of_phase_properties(phase),
-        )
-
-    def phase_conductivity(
-        self, phase: Phase
-    ) -> Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]:
-        """Analogous to :meth:`phase_density`, creating a new expression for the
-        thermal conductivity of a ``phase``.
-
-        Note:
-            The conductivity has no time step depth, because it does not appear in the
-            accumulation term.
-
-        """
-        return pp.ad.SurrogateFactory(
-            f"phase_conductivity_{phase.name}",
+            f"phase_{phase.name}_conductivity",
             self.mdg,
             self.dependencies_of_phase_properties(phase),
         )
@@ -1028,19 +1036,16 @@ class FluidMixtureMixin:
     def fugacity_coefficient(
         self, component: Component, phase: Phase
     ) -> Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]:
-        """Analogous to :meth:`phase_density`, creating a new expression for the
-        fugacity coefficient of a ``component`` in a ``phase``.
+        """Analogous to :meth:`density_of_phase`, creating a new surrogate factory for
+        the fugacity coefficient of a ``component`` in a ``phase``.
 
         Note:
-            The fugacity coefficients have no time step depth, because they are used
-            only locally.
-
-            Note also, that fugacity coefficient appear only in the local equilibrium
+            Fugacity coefficient appear only in the local equilibrium
             equation or other chemistry-related models, but not in flow and transport.
 
         """
         return pp.ad.SurrogateFactory(
-            f"fugacity_of_{component.name}_in_{phase.name}",
+            f"fugacity_coefficient_{component.name}_in_{phase.name}",
             self.mdg,
             self.dependencies_of_phase_properties(phase),
         )

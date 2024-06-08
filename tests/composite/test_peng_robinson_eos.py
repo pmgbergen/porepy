@@ -7,6 +7,7 @@ Note:
     This is regulated locally in the file by disabling numba JIT
 
 """
+from __future__ import annotations
 
 _NO_JIT = True
 """Flag to disable numba JIT for this module by setting an environment flag.
@@ -16,8 +17,6 @@ NOTE: This still may interfer with other tests if pytest does some fancy paralle
 or networking.
 
 """
-
-from __future__ import annotations
 import os
 
 import numpy as np
@@ -55,14 +54,14 @@ def eos(components) -> ppcpr.PengRobinsonCompiler:
 
 
 @pytest.fixture(scope='module')
-def mixture(components, eos) -> ppc.Mixture:
+def mixture(components, eos) -> ppc.FluidMixture:
     """Returns the 2-phase, 2-component mixture class used in this series of tests."""
 
     phases = [ppc.Phase(eos, 0, 'L'), ppc.Phase(eos, 1, 'G')]
     for p in phases:
         p.components = components
 
-    mixture = ppc.Mixture(components, phases)
+    mixture = ppc.FluidMixture(components, phases)
 
     return mixture
 

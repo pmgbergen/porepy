@@ -9,10 +9,10 @@ from typing import Any, Literal, Optional, Sequence
 import numpy as np
 
 import porepy as pp
-import porepy.composite as ppc
+import porepy.compositional as ppc
 
-from .composite_utils import safe_sum
 from .states import FluidState
+from .utils import safe_sum
 
 __all__ = ["Flash"]
 
@@ -23,12 +23,11 @@ class Flash(abc.ABC):
     """Abstract base class for flash algorithms defining the interface of flash objects.
 
     The definition of the interface is done mainly as an orientation for compatibility
-    with the remainder of PorePy's framework (especially the compositional flow.)
-
+    with the remainder of PorePy's framework (especially the compositional flow).
 
     """
 
-    def __init__(self, mixture: ppc.Mixture) -> None:
+    def __init__(self, mixture: ppc.FluidMixture) -> None:
         super().__init__()
 
         ncomp = mixture.num_components
@@ -41,28 +40,6 @@ class Flash(abc.ABC):
             [phase.num_components for phase in mixture.phases]
         )
         """Number of components modelled in each phase."""
-
-        ref_idx: int = 0
-        for comp in mixture.components:
-            if comp == mixture.reference_component:
-                break
-            else:
-                ref_idx += 1
-
-        self._ref_component_idx: int = ref_idx
-        """Index of reference component. Relevant for when eliminating the mass balance
-        of the reference component, or constructing a generic flash argument."""
-
-        ref_idx: int = 0
-        for phase in mixture.phases:
-            if phase == mixture.reference_phase:
-                break
-            else:
-                ref_idx += 1
-
-        self._ref_phase_idx: int = ref_idx
-        """Index of reference phase. Relevant for when eliminating its fraction and
-        saturation as an unknown."""
 
         self.tolerance: float = 1e-8
         """Convergence criterion for the flash algorithm. Defaults to ``1e-8``."""

@@ -36,35 +36,34 @@ from . import (  # peng_robinson,
     _core,
     base,
     chem_species,
-    composite_mixins,
-    composite_utils,
+    compositional_mixins,
+    utils,
     eos_compiler,
     equilibrium_mixins,
     flash,
-    flash_c,
+    uniflash_c,
     states,
-    utils_c,
+    uniflash_utils_c
 )
 from ._core import *
 from .base import *
 from .chem_species import *
-from .composite_mixins import *
-from .composite_utils import *
+from .compositional_mixins import *
+from .utils import *
 from .eos_compiler import *
 from .equilibrium_mixins import *
 from .flash import *
-from .flash_c import *
+from .uniflash_c import *
 from .states import *
-from .utils_c import *
+from .uniflash_utils_c import *
 
 __all__.extend(_core.__all__)
 __all__.extend(chem_species.__all__)
 __all__.extend(base.__all__)
-__all__.extend(composite_utils.__all__)
-__all__.extend(composite_mixins.__all__)
+__all__.extend(utils.__all__)
+__all__.extend(compositional_mixins.__all__)
 __all__.extend(equilibrium_mixins.__all__)
 __all__.extend(flash.__all__)
-__all__.extend(flash_c.__all__)
+__all__.extend(uniflash_c.__all__)
 __all__.extend(states.__all__)
 __all__.extend(eos_compiler.__all__)
-__all__.extend(utils_c.__all__)

@@ -229,4 +229,4 @@ from porepy.applications import test_utils
 from porepy import applications
 
 # composite subpackage
-from . import composite
+from . import compositional

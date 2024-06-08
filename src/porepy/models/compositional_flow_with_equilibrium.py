@@ -23,7 +23,7 @@ from typing import Callable, cast
 import numpy as np
 
 import porepy as pp
-import porepy.composite as ppc
+import porepy.compositional as ppc
 
 from . import compositional_flow as cf
 
@@ -91,9 +91,9 @@ class BoundaryConditionsCFLE(cf.BoundaryConditionsCF):
     """
 
     flash: ppc.Flash
-    """Provided by :class:`~porepy.composite.equilibrium_mixins.FlashMixin`."""
+    """Provided by :class:`~porepy.compositional.equilibrium_mixins.FlashMixin`."""
     flash_params: dict
-    """Provided by :class:`~porepy.composite.equilibrium_mixins.FlashMixin`."""
+    """Provided by :class:`~porepy.compositional.equilibrium_mixins.FlashMixin`."""
 
     def update_boundary_values_phase_properties(self) -> None:
         """Instead of performing the update using underlying EoS, a flash is performed
@@ -214,8 +214,7 @@ class BoundaryConditionsCFLE(cf.BoundaryConditionsCF):
             for phase, state in zip(self.fluid_mixture.phases, phase_states):
                 # Update BC values of phase properties in time on boundaries
                 phase.density.update_boundary_values(state.rho, bg, depth=nt)
-                phase.volume.update_boundary_values(state.v, bg, depth=nt)
-                phase.enthalpy.update_boundary_values(state.h, bg, depth=nt)
+                phase.specific_enthalpy.update_boundary_values(state.h, bg, depth=nt)
                 phase.viscosity.update_boundary_values(state.mu, bg, depth=nt)
         # Second loop to call the base method for updating time-dependent dense arrays
         # on boundaries. Used to update values of fractional unknowns, which appear
@@ -258,12 +257,12 @@ class InitialConditionsCFLE(cf.InitialConditionsCF):
     """
 
     flash: ppc.Flash
-    """Provided by :class:`~porepy.composite.equilibrium_mixins.FlashMixin`."""
+    """Provided by :class:`~porepy.compositional.equilibrium_mixins.FlashMixin`."""
     flash_params: dict
-    """Provided by :class:`~porepy.composite.equilibrium_mixins.FlashMixin`."""
+    """Provided by :class:`~porepy.compositional.equilibrium_mixins.FlashMixin`."""
 
     _relative_fraction_variable: Callable[[ppc.Component, ppc.Phase], str]
-    """Provided by :class:`~porepy.composite.composite_mixins.CompositeVariables`."""
+    """Provided by :class:`~porepy.compositional.compositional_mixins.CompositeVariables`."""
 
     def set_intial_values_phase_properties(self) -> None:
         """Instead of computing the initial values using the underlying EoS, it performs
@@ -326,7 +325,7 @@ class InitialConditionsCFLE(cf.InitialConditionsCF):
                 for k, comp in enumerate(phase.components):
                     self.equation_system.set_variable_values(
                         state.phases[j].x[k],
-                        [phase.fraction_of[comp]([sd])],
+                        [phase.extended_fraction_of[comp]([sd])],
                         iterate_index=0,
                     )
 
@@ -335,10 +334,7 @@ class InitialConditionsCFLE(cf.InitialConditionsCF):
                     phase.density.progress_iterate_values_on_grid(
                         state.phases[j].rho, sd, depth=ni
                     )
-                    phase.volume.progress_iterate_values_on_grid(
-                        state.phases[j].v, sd, depth=ni
-                    )
-                    phase.enthalpy.progress_iterate_values_on_grid(
+                    phase.specific_enthalpy.progress_iterate_values_on_grid(
                         state.phases[j].h, sd, depth=ni
                     )
                     phase.viscosity.progress_iterate_values_on_grid(
@@ -355,10 +351,7 @@ class InitialConditionsCFLE(cf.InitialConditionsCF):
                 phase.density.progress_iterate_derivatives_on_grid(
                     state.phases[j].drho_ext, sd
                 )
-                phase.volume.progress_iterate_derivatives_on_grid(
-                    state.phases[j].dv_ext, sd
-                )
-                phase.enthalpy.progress_iterate_derivatives_on_grid(
+                phase.specific_enthalpy.progress_iterate_derivatives_on_grid(
                     state.phases[j].dh_ext, sd
                 )
                 phase.viscosity.progress_iterate_derivatives_on_grid(
@@ -372,10 +365,10 @@ class InitialConditionsCFLE(cf.InitialConditionsCF):
                 dphis_ext = state.phases[j].dphis_ext
                 for k, comp in enumerate(phase.components):
                     for _ in self.iterate_indices:
-                        phase.fugacity_of[comp].progress_iterate_values_on_grid(
+                        phase.fugacity_coefficient_of[comp].progress_iterate_values_on_grid(
                             state.phases[j].phis[k], sd, depth=ni
                         )
-                    phase.fugacity_of[comp].progress_iterate_derivatives_on_grid(
+                    phase.fugacity_coefficient_of[comp].progress_iterate_derivatives_on_grid(
                         dphis_ext[k], sd
                     )
 
@@ -383,8 +376,7 @@ class InitialConditionsCFLE(cf.InitialConditionsCF):
         for phase in self.fluid_mixture.phases:
             for _ in self.time_step_indices:
                 phase.density.progress_values_in_time(subdomains, depth=nt)
-                phase.volume.progress_values_in_time(subdomains, depth=nt)
-                phase.enthalpy.progress_values_in_time(subdomains, depth=nt)
+                phase.specific_enthalpy.progress_values_in_time(subdomains, depth=nt)
 
 
 class SolutionStrategyCFLE(cf.SolutionStrategyCF, ppc.FlashMixin):
@@ -413,11 +405,11 @@ class SolutionStrategyCFLE(cf.SolutionStrategyCF, ppc.FlashMixin):
     """Provided by :class:`InitialConditionsCF`."""
 
     _phase_fraction_variable: Callable[[ppc.Phase], str]
-    """Provided by :class:`~porepy.composite.composite_mixins.CompositeVariables`."""
+    """Provided by :class:`~porepy.compositional.compositional_mixins.CompositeVariables`."""
     _saturation_variable: Callable[[ppc.Phase], str]
-    """Provided by :class:`~porepy.composite.composite_mixins.CompositeVariables`."""
+    """Provided by :class:`~porepy.compositional.compositional_mixins.CompositeVariables`."""
     _relative_fraction_variable: Callable[[ppc.Component, ppc.Phase], str]
-    """Provided by :class:`~porepy.composite.composite_mixins.CompositeVariables`."""
+    """Provided by :class:`~porepy.compositional.compositional_mixins.CompositeVariables`."""
 
     has_time_dependent_boundary_equilibrium: bool
     """Provided by :class:`BoundaryConditionsCF`"""
@@ -430,7 +422,7 @@ class SolutionStrategyCFLE(cf.SolutionStrategyCF, ppc.FlashMixin):
             self.equilibrium_type is None
             and self.has_time_dependent_boundary_equilibrium
         ):
-            raise ppc.CompositeModellingError(
+            raise ppc.CompositionalModellingError(
                 f"Conflicting model set-up: Time-dependent boundary flash calculations"
                 + f" requested but no equilibrium type defined."
             )
@@ -503,7 +495,7 @@ class SolutionStrategyCFLE(cf.SolutionStrategyCF, ppc.FlashMixin):
                 for i, comp in enumerate(phase.components):
                     self.equation_system.set_variable_values(
                         fluid.phases[j].x[i],
-                        [phase.fraction_of[comp]([sd])],
+                        [phase.extended_fraction_of[comp]([sd])],
                         iterate_index=0,
                     )
 
@@ -533,14 +525,12 @@ class SolutionStrategyCFLE(cf.SolutionStrategyCF, ppc.FlashMixin):
                 # the iterate values, but overwrite only the current one at iterate
                 # index 0
                 phase.density.progress_iterate_values_on_grid(state.rho, sd)
-                phase.volume.progress_iterate_values_on_grid(state.v, sd)
-                phase.enthalpy.progress_iterate_values_on_grid(state.h, sd)
+                phase.specific_enthalpy.progress_iterate_values_on_grid(state.h, sd)
                 phase.viscosity.progress_iterate_values_on_grid(state.mu, sd)
                 phase.conductivity.progress_iterate_values_on_grid(state.kappa, sd)
 
                 phase.density.progress_iterate_derivatives_on_grid(state.drho_ext, sd)
-                phase.volume.progress_iterate_derivatives_on_grid(state.dv_ext, sd)
-                phase.enthalpy.progress_iterate_derivatives_on_grid(state.dh_ext, sd)
+                phase.specific_enthalpy.progress_iterate_derivatives_on_grid(state.dh_ext, sd)
                 phase.viscosity.progress_iterate_derivatives_on_grid(state.dmu_ext, sd)
                 phase.conductivity.progress_iterate_derivatives_on_grid(
                     state.dkappa_ext, sd
@@ -549,10 +539,10 @@ class SolutionStrategyCFLE(cf.SolutionStrategyCF, ppc.FlashMixin):
                 dphis_ext = state.dphis_ext
 
                 for k, comp in enumerate(phase.components):
-                    phase.fugacity_of[comp].progress_iterate_values_on_grid(
+                    phase.fugacity_coefficient_of[comp].progress_iterate_values_on_grid(
                         state.phis[k], sd
                     )
-                    phase.fugacity_of[comp].progress_iterate_derivatives_on_grid(
+                    phase.fugacity_coefficient_of[comp].progress_iterate_derivatives_on_grid(
                         dphis_ext[k], sd
                     )
 

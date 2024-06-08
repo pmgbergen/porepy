@@ -3,7 +3,7 @@ from typing import Callable, Sequence
 import numpy as np
 
 import porepy as pp
-import porepy.composite as ppc
+import porepy.compositional as ppc
 from porepy.models.compositional_flow import SecondaryEquationsMixin
 
 
