@@ -1331,7 +1331,7 @@ class SoluteTransportEquations(ComponentMassBalanceEquations):
             self.porosity(subdomains)
             * self.fluid_mixture.density(subdomains)
             * component.fraction(subdomains)
-            * component.relative_fraction_of[solute](subdomains)
+            * component.solute_fraction_of[solute](subdomains)
         )
         mass = self.volume_integral(mass_density, subdomains, dim=1)
         mass.set_name(f"solute_mass_{solute.name}_{component.name}")
@@ -1657,6 +1657,11 @@ class ConstitutiveLawsCF(
     transport.
 
     """
+
+    time_step_indices: np.ndarray
+    """Provided by :class:`~porepy.models.solution_strategy.SolutionStrategy`"""
+    iterate_indices: np.ndarray
+    """Provided by :class:`~porepy.models.solution_strategy.SolutionStrategy`"""
 
     _constitutive_eliminations: dict[
         str,
@@ -2206,7 +2211,7 @@ class InitialConditionsCF:
                     for solute in comp.pseudo_components:
                         c = self.initial_solute_fraction(solute, comp, sd)
                         self.equation_system.set_variable_values(
-                            c, [comp.relative_fraction_of[solute](sd)], iterate_index=0
+                            c, [comp.solute_fraction_of[solute](sd)], iterate_index=0
                         )
 
                 if (

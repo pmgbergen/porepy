@@ -499,9 +499,17 @@ def shift_solution_values(
         if max_index < 0:
             raise ValueError("Maximal index must be non-negative.")
 
-        num_stored = int(np.min([num_stored, max_index]))
+        # Allow the number of stored values to increase
+        if max_index > num_stored:
+            range_ = range(num_stored, 0, -1)
+        # don't allow it to increase
+        else:
+            range_ = range(max_index - 1, 0, -1)
+            # TODO What should we do if for some reason already more stored?
+    else:
+        range_ = range(num_stored, 0, -1)
 
-    for i in range(num_stored - 1, 0, -1):
+    for i in range_:
         data[location][name][i] = data[location][name][i - 1].copy()
 
 

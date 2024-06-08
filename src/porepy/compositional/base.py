@@ -54,7 +54,7 @@ from __future__ import annotations
 
 import abc
 from dataclasses import asdict
-from typing import Callable, Generator, Sequence
+from typing import Callable, Generator, Sequence, Type, TypeVar
 
 import numpy as np
 
@@ -120,7 +120,9 @@ class Component(ChemicalSpecies):
         """
 
     @classmethod
-    def from_species(cls, species: ChemicalSpecies) -> Component:
+    def from_species(
+        cls: Type[_ComponentLike], species: ChemicalSpecies
+    ) -> _ComponentLike:
         """Factory method for creating an instance of this class based on some chemical
         data.
 
@@ -133,6 +135,9 @@ class Component(ChemicalSpecies):
 
         """
         return cls(**asdict(species))
+
+
+_ComponentLike = TypeVar("_ComponentLike", bound=Component)
 
 
 class Compound(Component):
@@ -177,7 +182,7 @@ class Compound(Component):
         self._pseudo_comps: list[ChemicalSpecies] = list()
         """A list containing present pseudo-components."""
 
-        self.relative_fraction_of: dict[
+        self.solute_fraction_of: dict[
             ChemicalSpecies, Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
         ] = dict()
         """A dictionary containing per present pseudo-component (key) the relative
@@ -238,7 +243,7 @@ class Compound(Component):
             The molar mass of the compound.
 
         """
-        X = [self.relative_fraction_of[self](domains)]
+        X = [self.solute_fraction_of[self](domains)]
         M = pp.ad.Scalar(self.molar_mass) * (pp.ad.Scalar(1.0) - safe_sum(X))
 
         for pc, x in zip(self._pseudo_comps, X):
@@ -610,7 +615,7 @@ class Phase:
     @property
     def num_components(self) -> int:
         """Number of set components."""
-        return len(self.components)
+        return len(self.components) if hasattr(self, "components") else 0
 
     def compute_properties(self, *thermodynamic_input: np.ndarray) -> PhaseState:
         """Shortcut to compute the properties calling
@@ -662,6 +667,7 @@ class FluidMixture:
             - At least 1 component must be present.
             - At least 1 phase must be modelled.
             - Any phase has no components in it.
+        CompositionalModellingError: If there is 1 component, which is not in any phase.
         ValueError: If any two components or phases have the same name
             (storage conflicts).
 
@@ -716,6 +722,16 @@ class FluidMixture:
         if len(gaslike_phases) > 1:
             raise CompositionalModellingError("At most 1 gas-like phase is permitted.")
 
+        # Checking no dangling components
+        for comp in self._components:
+            its_phases = list()
+            for phase in self._phases:
+                if comp in phase.components:
+                    its_phases.append(phase)
+            if len(its_phases) == 0:
+                raise CompositionalModellingError(
+                    f"Component {comp.name} not in any phase."
+                )
         ### PUBLIC
 
         self.density: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
