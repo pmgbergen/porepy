@@ -630,7 +630,9 @@ class AdArray:
         else:
             return self.val >= other
 
-    def __eq__(self, other: AdType) -> bool | np.ndarray:
+    def __eq__(self, other: AdType) -> bool | np.ndarray:  # type:ignore[override]
+        # mypy complaints that parent class object returns only bool here.
+        # But we leave the equal operation to the numpy values.
         if isinstance(other, AdArray):
             return self.val == other.val
         else:

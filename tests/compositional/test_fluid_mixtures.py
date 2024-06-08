@@ -136,7 +136,7 @@ def test_mixture_contexts(species: list[str], phaseconfig: list[list[tuple[str, 
                 has_more_gas = True
             has_gas = True
         phases.append(ppc.Phase(eos, t, name))
-        phases[-1].components = [h2o]  # to avoid errors
+        phases[-1].components = [h2o] + components  # to avoid errors
 
     phasenames = [phase.name for phase in phases]
     compnames = [comp.name for comp in components]
@@ -333,7 +333,7 @@ def test_mixture_member_assignment(
 
         # IF it is a compound, check relative fractions of pseudo components
         if isinstance(comp, ppc.Compound):
-            assert hasattr(comp, 'relative_fraction_of')
+            assert hasattr(comp, 'solute_fraction_of')
             for pc in comp.pseudo_components:
                 assert pc in comp.solute_fraction_of
                 # solute fractions are aalways variables

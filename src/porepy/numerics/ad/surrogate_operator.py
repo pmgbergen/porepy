@@ -583,6 +583,7 @@ class SurrogateFactory:
         values = pp.get_solution_values(**kwargs)
 
         # last check before parsing that it returns what it should
+        target_shape: tuple[int, ...]
         if get_derivatives:
             target_shape = (self.num_dependencies, self.num_dofs_on_grid(grid))
         else:
@@ -844,6 +845,7 @@ class SurrogateFactory:
         """Helper method to set the ``value`` on ``grid`` for the current time step
         (at ``iterate_index=0``). If ``is_derivative_value==True``, then ``value`` is
         stored as the derivative value."""
+        target_shape: tuple[int, ...]
         if is_derivative_value:
             target_shape = (self.num_dependencies, self.num_dofs_on_grid(grid))
             name = self._name_derivatives
@@ -862,7 +864,7 @@ class SurrogateFactory:
     # interfaces (don't need new values)
 
     def update_boundary_values(
-        self, values: np.ndarray, boundary_grid: pp.BoundaryGrid, depth: int = 1.0
+        self, values: np.ndarray, boundary_grid: pp.BoundaryGrid, depth: int = 1
     ) -> None:
         """Function to update the value of the surrogate operator on the boundary.
 

@@ -633,7 +633,7 @@ class CompositionalVariables(pp.VariableMixin):
         # also a scalar 1, since the 1 modelled phase cannot vanish.
         if self.fluid_mixture.num_components == self.fluid_mixture.num_phases == 1:
 
-            def fraction(domain: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+            def fraction(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
                 return pp.ad.Scalar(1.0, "single-component-single-phase-extended-frac")
 
         else:
