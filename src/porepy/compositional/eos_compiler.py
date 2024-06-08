@@ -12,7 +12,7 @@ import numpy as np
 
 from .base import AbstractEoS, Component
 from .states import PhaseState
-from .utils_c import normalize_rows
+from .utils import normalize_rows
 
 __all__ = [
     "EoSCompiler",
@@ -226,7 +226,7 @@ class EoSCompiler(AbstractEoS):
 
     Parameters:
         components: Sequence of components for which the EoS should be compiled.
-            The class :class:`~porepy.composite.base.Component` is used as a storage for
+            The class :class:`~porepy.compositional.base.Component` is used as a storage for
             physical properties, the only relevant information for the EoS.
 
     """

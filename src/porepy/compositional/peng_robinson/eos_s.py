@@ -67,8 +67,8 @@ import numpy as np
 import sympy as sp
 
 from .._core import COMPOSITIONAL_VARIABLE_SYMBOLS as SYMBOLS
-from .._core import R_IDEAL
-from ..composite_utils import safe_sum
+from .._core import R_IDEAL_MOL
+from ..utils import safe_sum
 from .pr_bip import load_bip
 from .pr_components import ComponentPR
 
@@ -704,14 +704,14 @@ class PengRobinsonSymbolic:
         # region coterms
 
         b_i_crit: list[float] = [
-            B_CRIT * (R_IDEAL * comp.T_crit) / comp.p_crit for comp in components
+            B_CRIT * (R_IDEAL_MOL * comp.T_crit) / comp.p_crit for comp in components
         ]
         """List of critical covolumes per component"""
 
         # mixed covolume
         b_e: sp.Expr = VanDerWaals_covolume(self.x_in_j, b_i_crit)
         """Mixed covolume according to the Van der Waals mixing rule."""
-        B_e: sp.Expr = b_e * self.p_s / (R_IDEAL * self.T_s)
+        B_e: sp.Expr = b_e * self.p_s / (R_IDEAL_MOL * self.T_s)
         """Non-dimensional, mixed covolume created using :attr:`b_e`"""
         d_B_e: list[sp.Expr] = [
             B_e.diff(self.thd_arg[0]),
@@ -724,7 +724,8 @@ class PengRobinsonSymbolic:
         self.d_B_f = sp.lambdify(self.thd_arg, d_B_e)
 
         a_i_crit: list[float] = [
-            A_CRIT * (R_IDEAL**2 * comp.T_crit**2) / comp.p_crit for comp in components
+            A_CRIT * (R_IDEAL_MOL**2 * comp.T_crit**2) / comp.p_crit
+            for comp in components
         ]
         """List of critical cohesion values per component."""
 
@@ -746,7 +747,7 @@ class PengRobinsonSymbolic:
             self.x_in_j, ai_e, self._compute_bips(components)
         )
         """Mixed cohesion according to the Van der Waals mixing rule."""
-        A_e: sp.Expr = a_e * self.p_s / (R_IDEAL**2 * self.T_s**2)
+        A_e: sp.Expr = a_e * self.p_s / (R_IDEAL_MOL**2 * self.T_s**2)
         """Non-dimensional, mixed cohesion created using :attr:`b_e`"""
         d_A_e: list[sp.Expr] = [
             A_e.diff(self.thd_arg[0]),
@@ -763,7 +764,7 @@ class PengRobinsonSymbolic:
         phi_i_e: list[sp.Expr] = []
 
         for i in range(len(components)):
-            B_i_e = b_i_crit[i] * self.p_s / (R_IDEAL * self.T_s)
+            B_i_e = b_i_crit[i] * self.p_s / (R_IDEAL_MOL * self.T_s)
             dXi_A_e = A_e.diff(self.x_in_j[i])
             log_phi_i = (
                 B_i_e / B_s * (Z_s - 1)
@@ -800,11 +801,11 @@ class PengRobinsonSymbolic:
 
         dT_A_e: sp.Expr = A_e.diff(self.T_s)
 
-        h_dep_e: sp.Expr = (R_IDEAL / np.sqrt(8)) * (
+        h_dep_e: sp.Expr = (R_IDEAL_MOL / np.sqrt(8)) * (
             dT_A_e * self.T_s**2 + A_s * self.T_s
         ) / B_s * sp.ln(
             (Z_s + (1 + np.sqrt(2)) * B_s) / (Z_s + (1 - np.sqrt(2)) * B_s)
-        ) + R_IDEAL * self.T_s * (
+        ) + R_IDEAL_MOL * self.T_s * (
             Z_s - 1
         )
         """Symbolic expression for departure enthalpy."""
@@ -837,7 +838,7 @@ class PengRobinsonSymbolic:
 
         # region Density
 
-        rho_e: sp.Expr = self.p_s / (Z_s * self.T_s * R_IDEAL)
+        rho_e: sp.Expr = self.p_s / (Z_s * self.T_s * R_IDEAL_MOL)
         """Symbolic expression for density, depending on pressure, temperature
         and compressibility factor."""
 

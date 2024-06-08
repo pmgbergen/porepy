@@ -40,8 +40,8 @@ import numpy as np
 import porepy as pp
 
 t_0 = time.time()
-import porepy.composite as ppc
-import porepy.composite.peng_robinson as ppcpr
+import porepy.compositional as ppc
+import porepy.compositional.peng_robinson as ppcpr
 
 compile_time += time.time() - t_0
 from matplotlib import pyplot as plt
@@ -264,7 +264,7 @@ class ModelGeometry:
         return self.params.get("grid_type", "simplex")
 
     def meshing_arguments(self) -> dict:
-        cell_size = self.solid.convert_units(0.01, "m")
+        cell_size = self.solid.convert_units(0.05, "m")
         cell_size_fracture = self.solid.convert_units(0.05, "m")
         mesh_args: dict[str, float] = {
             "cell_size": cell_size,
@@ -478,8 +478,8 @@ class GeothermalFlow(
 
 days = 365
 t_scale = 1e-5
-T_end = 200 * days * t_scale
-dt_init = 1 * days * t_scale / 4
+T_end = 40 * days * t_scale
+dt_init = 1 * days * t_scale / 2
 max_iterations = 80
 newton_tol = 1e-6
 newton_tol_increment = newton_tol

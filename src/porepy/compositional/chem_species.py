@@ -13,8 +13,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Callable
 
-import chemicals
-
 __all__ = ["load_species", "ChemicalSpecies"]
 
 
@@ -31,13 +29,13 @@ def load_species(names: list[str], package: str = "chemicals") -> list[ChemicalS
         package: ``default='chemicals'``
 
             Name of one of the supported packages containing chemical databases.
-
             Currently supported:
 
             - chemicals
 
     Raises:
         NotImplementedError: If an unsupported package is passed as argument.
+        ModuleNotFoundError: If the ``package`` could not be imported.
 
     Returns:
         If the look-up was successful, extracts the relevant data and returns respective
@@ -57,6 +55,8 @@ def load_species(names: list[str], package: str = "chemicals") -> list[ChemicalS
     omega_loader: Callable
 
     if package == "chemicals":
+        import chemicals  # will raise a ModuleNotFoundError
+
         cas_loader = chemicals.CAS_from_any
         mw_loader = lambda x: chemicals.MW(x) * 1e-3  # molas mass in kg / mol
         pc_loader = chemicals.Pc  # critical pressure in Pa
@@ -86,7 +86,16 @@ def load_species(names: list[str], package: str = "chemicals") -> list[ChemicalS
 
 @dataclass(frozen=True)
 class ChemicalSpecies:
-    """A basic data class for species, containing identification and basic properties."""
+    """A basic data class for species, containing identification and basic properties.
+
+    Chemical species are the starting point to create instances of
+    :class:`~porepy.compositional.base.Component`.
+    The attributes defined here are the required kw arguments for the constructor.
+
+    Note:
+        This is a frozen data class, since the values here are physical constants.
+
+    """
 
     name: str
     """Name (or chemical formula) of the chemical species."""

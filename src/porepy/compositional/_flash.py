@@ -7,7 +7,7 @@ from __future__ import annotations
 import logging
 import numbers
 from dataclasses import asdict
-from typing import Any, Callable, Literal, Optional, overload
+from typing import Any, Callable, Literal, Optional, overload, Union
 
 import numpy as np
 import pypardiso
@@ -16,8 +16,8 @@ import scipy.sparse as sps
 import porepy as pp
 
 from ._core import R_IDEAL
-from .base import Mixture
-from .composite_utils import NumericType, safe_sum, trunclog
+from .base import FluidMixture
+from .utils import safe_sum
 from .peng_robinson._eos import PhaseProperties, ThermodynamicState
 
 __all__ = ["FlashSystemNR", "FlashNR"]
@@ -25,7 +25,35 @@ __all__ = ["FlashSystemNR", "FlashNR"]
 logger = logging.getLogger(__name__)
 
 
-DeprecationWarning("The module porepy.composite._flash is deprecated.")
+DeprecationWarning("The module porepy.compositional._flash is deprecated.")
+
+NumericType = Union[pp.number, np.ndarray, pp.ad.AdArray]
+"""DEPRECATED: Delete with finalization of flash and eos update to numba. TODO"""
+
+
+def truncexp(var):
+    if isinstance(var, pp.ad.AdArray):
+        trunc = var > 700
+        val = np.exp(var.val, where=(~trunc))
+        val[trunc] = np.exp(700)
+        der = var._diagvec_mul_jac(val)
+        return pp.ad.AdArray(val, der)
+    else:
+        trunc = var > 700
+        val = np.exp(var, where=(~trunc))
+        val[trunc] = np.exp(700)
+        return val
+
+
+def trunclog(var, eps):
+    if isinstance(var, pp.ad.AdArray):
+        trunc_val = np.maximum(var.val, eps)
+        val = np.log(trunc_val)
+        der = var._diagvec_mul_jac(1 / trunc_val)
+        return pp.ad.AdArray(val, der)
+    else:
+        return np.log(np.maximum(var, eps))
+
 
 
 def K_val_Wilson(
@@ -321,7 +349,7 @@ class FlashSystemNR(ThermodynamicState):
         eos_kwargs: ``default={}``
 
                 Keyword-arguments to be passed to
-                :meth:`~porepy.composite.mixture.BasicMixture.compute_properties`.
+                :meth:`~porepy.compositional.mixture.BasicMixture.compute_properties`.
         npipm: ``default=None``
 
             A bool indicating if the flash system is extended by the NPIPM method.
@@ -334,7 +362,7 @@ class FlashSystemNR(ThermodynamicState):
 
     def __init__(
         self,
-        mixture: Mixture,
+        mixture: FluidMixture,
         num_vals: int,
         flash_type: str,
         eos_kwargs: dict,
@@ -421,7 +449,7 @@ class FlashSystemNR(ThermodynamicState):
                         [self.s[j].jac, empty_block], format="csr"
                     )
 
-        self.mixture: Mixture = mixture
+        self.mixture: FluidMixture = mixture
         """Passed at instantiation."""
         self.eos_kwargs: dict = eos_kwargs
         """Passed at instantiation."""
@@ -988,10 +1016,10 @@ class FlashNR:
     Notes:
         1. The mixture set-up must be performed using
            ``semismooth_complementarity=True`` for the semi-smooth method to work as
-           intended (see :meth:`~porepy.composite.mixture.NonReactiveMixture.set_up`).
+           intended (see :meth:`~porepy.compositional.mixture.NonReactiveMixture.set_up`).
         2. The reference phase fraction must be eliminated
            (``eliminate_ref_phase=True`` during
-           :meth:`~porepy.composite.mixture.NonReactiveMixture.set_up`).
+           :meth:`~porepy.compositional.mixture.NonReactiveMixture.set_up`).
 
     References:
         [1]: `Lauser et al. (2011) <https://doi.org/10.1016/j.advwatres.2011.04.021>`_
@@ -1002,13 +1030,13 @@ class FlashNR:
 
     """
 
-    def __init__(self, mixture: Mixture) -> None:
+    def __init__(self, mixture: FluidMixture) -> None:
         ### PUBLIC
 
         # currently only 2-phase flash is supported
         assert mixture.num_phases == 2, "Currently supports only 2-phase mixtures."
 
-        self.mixture: Mixture = mixture
+        self.mixture: FluidMixture = mixture
         """The mixture class passed at instantiation."""
 
         self.history: list[dict[str, Any]] = list()
@@ -1127,7 +1155,7 @@ class FlashNR:
 
             In theory this allows the user to partition the flash problem
             into domain-wise sub-problems (if for example the underlying
-            mixed-dimensional domain in :attr:`~porepy.composite.mixture.Mixture.system`
+            mixed-dimensional domain in :attr:`~porepy.compositional.mixture.Mixture.system`
             is large).
 
             Also, different flash-types can be performed on different partitions.
@@ -1135,7 +1163,7 @@ class FlashNR:
         Parameters:
             state: The thermodynamic state.
 
-                Besides the feed :attr:`~porepy.composite.component.Component.fraction`,
+                Besides the feed :attr:`~porepy.compositional.component.Component.fraction`,
                 the thermodynamic state must be fixed with exactly 2 other quantities.
 
                 Currently supported are
@@ -1175,7 +1203,7 @@ class FlashNR:
             eos_kwargs: ``default={}``
 
                 Keyword-arguments to be passed to
-                :meth:`~porepy.composite.mixture.BasicMixture.compute_properties`.
+                :meth:`~porepy.compositional.mixture.BasicMixture.compute_properties`.
             quickshot: ``default=False``
 
                 If True, it returns the results from the initial guess procedure as a
@@ -1188,7 +1216,7 @@ class FlashNR:
                 of the mixture. This can be used to linearize the system or evaluate its
                 residual (see :class:`FlashSystemNR`).
                 Otherwise the results are returned as a value
-                (see :class:`~porepy.composite.mixture.ThermodynamicState`).
+                (see :class:`~porepy.compositional.mixture.ThermodynamicState`).
             verbosity: ``default=0``
 
                 Verbosity for logging. Per default, only warnings and logs of higher

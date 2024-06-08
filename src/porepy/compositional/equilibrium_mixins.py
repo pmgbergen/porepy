@@ -21,10 +21,10 @@ import numpy as np
 
 import porepy as pp
 
-from .base import Component, Mixture, Phase
-from .composite_utils import CompositeModellingError, safe_sum
+from .base import Component, FluidMixture, Phase
 from .flash import Flash
 from .states import FluidState
+from .utils import CompositionalModellingError, safe_sum
 
 __all__ = [
     "evaluate_homogenous_constraint",
@@ -101,7 +101,7 @@ class UnifiedPhaseEquilibriumMixin:
     """Provided by :class:`~porepy.models.geometry.ModelGeometry`."""
     equation_system: pp.ad.EquationSystem
     """Provided by :class:`~porepy.models.solution_strategy.SolutionStrategy`."""
-    fluid_mixture: Mixture
+    fluid_mixture: FluidMixture
     """Provided by :class:`FluidMixtureMixin`."""
 
     enthalpy: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]
@@ -134,12 +134,12 @@ class UnifiedPhaseEquilibriumMixin:
         nphase = self.fluid_mixture.num_phases
 
         if nphase < 2:
-            raise CompositeModellingError(
+            raise CompositionalModellingError(
                 "Unified equilibrium models need at least to modelled phases,"
                 + f" {nphase} given."
             )
         if ncomp < 2:
-            raise CompositeModellingError(
+            raise CompositionalModellingError(
                 "Unified equilibrium models require at least to components in the fluid"
                 + f" mixture, {ncomp} given."
             )
@@ -158,7 +158,7 @@ class UnifiedPhaseEquilibriumMixin:
         for phase in self.fluid_mixture.phases:
             phase_comps = set(phase)
             if all_comps.symmetric_difference(phase_comps):
-                raise CompositeModellingError(
+                raise CompositionalModellingError(
                     f"Unified equilibrium assumption violated for phase: {phase.name}."
                     + " All phases must have all components modelled in them."
                 )
@@ -172,9 +172,9 @@ class UnifiedPhaseEquilibriumMixin:
 
             z_i - \\sum_j x_{ij} y_j = 0.
 
-        - :math:`z` : Component :attr:`~porepy.composite.base.Component.fraction`
-        - :math:`y` : Phase :attr:`~porepy.composite.base.Phase.fraction`
-        - :math:`x` : Phase :attr:`~porepy.composite.base.Phase.fraction_of` component
+        - :math:`z` : Component :attr:`~porepy.compositional.base.Component.fraction`
+        - :math:`y` : Phase :attr:`~porepy.compositional.base.Phase.fraction`
+        - :math:`x` : Phase :attr:`~porepy.compositional.base.Phase.fraction_of` component
 
         The above sum is performed over all phases the component is present in.
 
@@ -191,7 +191,7 @@ class UnifiedPhaseEquilibriumMixin:
 
         equ: pp.ad.Operator = evaluate_homogenous_constraint(
             component.fraction(subdomains),
-            [phase.fraction_of[component](subdomains) for phase in phases],
+            [phase.extended_fraction_of[component](subdomains) for phase in phases],
             [phase.fraction(subdomains) for phase in phases],
         )  # type:ignore
         equ.set_name(f"local_mass_constraint_{component.name}")
@@ -207,11 +207,11 @@ class UnifiedPhaseEquilibriumMixin:
             y_j (1 - \\sum_i x_{ij}) = 0~,~
             \\min \\{y_j, (1 - \\sum_i x_{ij}) \\} = 0.
 
-        - :math:`y` : Phase :attr:`~porepy.composite.base.Phase.fraction`
-        - :math:`x` : Phase :attr:`~porepy.composite.base.Phase.fraction_of` component
+        - :math:`y` : Phase :attr:`~porepy.compositional.base.Phase.fraction`
+        - :math:`x` : Phase :attr:`~porepy.compositional.base.Phase.fraction_of` component
 
         The sum is performed over all components modelled in that phase
-        (see :attr:`~porepy.composite.base.Phase.components`).
+        (see :attr:`~porepy.compositional.base.Phase.components`).
 
         Parameters:
             phase: The phase for which the condition is assembled.
@@ -225,7 +225,7 @@ class UnifiedPhaseEquilibriumMixin:
         """
 
         unity: pp.ad.Operator = pp.ad.Scalar(1.0) - pp.ad.sum_operator_list(
-            [phase.fraction_of[comp](subdomains) for comp in phase]
+            [phase.extended_fraction_of[comp](subdomains) for comp in phase]
         )
 
         minimum = lambda x, y: pp.ad.maximum(-x, -y)
@@ -249,9 +249,9 @@ class UnifiedPhaseEquilibriumMixin:
 
             x_{ij} \\varphi_{ij} - x_{iR} \\varphi_{iR} = 0.
 
-        - :math:`x_{ij}` : :attr:`~porepy.composite.base.Phase.fraction_of` component
-        - :math:`\\varphi_{ij}` : Phase :attr:`~porepy.composite.base.Phase.fugacity_of`
-          component
+        - :math:`x_{ij}` : :attr:`~porepy.compositional.base.Phase.fraction_of` component
+        - :math:`\\varphi_{ij}` : Phase
+          :attr:`~porepy.compositional.base.Phase.fugacity_coefficient_of` component
 
         Parameters:
             component: A component characterized by the relative fractions in above
@@ -277,10 +277,10 @@ class UnifiedPhaseEquilibriumMixin:
         assert component in phase, "Passed component not modelled in passed phase."
         assert component in rphase, "Passed component not modelled in reference phase."
 
-        x_ij = phase.fraction_of[component](subdomains)
-        x_ir = rphase.fraction_of[component](subdomains)
-        phi_ij = phase.fugacity_of[component](subdomains)
-        phi_ir = rphase.fugacity_of[component](subdomains)
+        x_ij = phase.extended_fraction_of[component](subdomains)
+        x_ir = rphase.extended_fraction_of[component](subdomains)
+        phi_ij = phase.fugacity_coefficient_of[component](subdomains)
+        phi_ir = rphase.fugacity_coefficient_of[component](subdomains)
 
         equ = x_ij * phi_ij - x_ir * phi_ir
 
@@ -300,8 +300,8 @@ class UnifiedPhaseEquilibriumMixin:
             \\sum_j y_j h_j  - h = 0~,~
             (\\sum_j y_j h_j) / h - 1= 0~
 
-        - :math:`y_j`: Phase :attr:`~porepy.composite.base.Phase.fraction`.
-        - :math:`h_j`: Phase :attr:`~porepy.composite.base.Phase.enthalpy`.
+        - :math:`y_j`: Phase :attr:`~porepy.compositional.base.Phase.fraction`.
+        - :math:`h_j`: Phase :attr:`~porepy.compositional.base.Phase.enthalpy`.
         - :math:`h`: The transported enthalpy :attr:`enthalpy`.
 
         The first term represents the mixture enthalpy based on the thermodynamic state.
@@ -318,7 +318,7 @@ class UnifiedPhaseEquilibriumMixin:
 
         """
 
-        h_mix = self.fluid_mixture.enthalpy(subdomains)
+        h_mix = self.fluid_mixture.specific_enthalpy(subdomains)
         h_target = self.enthalpy(subdomains)
         if self.normalize_state_constraints:
             equ = h_mix / h_target - pp.ad.Scalar(1.0)
@@ -345,8 +345,8 @@ class UnifiedPhaseEquilibriumMixin:
             \\dfrac{1}{\\sum_j s_j \\rho_j} - v = 0~,~
             v \\left(\\sum_j s_j \\rho_j\\right) - 1 = 0.
 
-        - :math:`s_j` : Phase :attr:`~porepy.composite.base.Phase.saturation`
-        - :math:`\\rho_j` : Phase :attr:`~porepy.composite.base.Phase.density`
+        - :math:`s_j` : Phase :attr:`~porepy.compositional.base.Phase.saturation`
+        - :math:`\\rho_j` : Phase :attr:`~porepy.compositional.base.Phase.density`
 
         Parameters:
             subdomains: A list of subdomains on which to define the equation.
@@ -362,7 +362,9 @@ class UnifiedPhaseEquilibriumMixin:
                 subdomains
             ) - pp.ad.Scalar(1.0)
         else:
-            equ = self.volume(subdomains) - self.fluid_mixture.volume(subdomains)
+            equ = self.volume(subdomains) - self.fluid_mixture.specific_volume(
+                subdomains
+            )
         equ.set_name("local_fluid_volume_constraint")
         return equ
 
@@ -382,10 +384,10 @@ class UnifiedPhaseEquilibriumMixin:
         with the mixture density :math:`\\rho = \\sum_k s_k \\rho_k`, assuming
         :math:`\\rho_k` is the density of a phase when saturated.
 
-        - :math:`y` : Phase :attr:`~porepy.composite.base.Phase.fraction`
-        - :math:`s` : Phase :attr:`~porepy.composite.base.Phase.saturation`
-        - :math:`\\rho` : Fluid mixture :attr:`~porepy.composite.base.Mixture.density`
-        - :math:`\\rho_j` : Phase:attr:`~porepy.composite.base.Phase.density`
+        - :math:`y` : Phase :attr:`~porepy.compositional.base.Phase.fraction`
+        - :math:`s` : Phase :attr:`~porepy.compositional.base.Phase.saturation`
+        - :math:`\\rho` : Fluid mixture :attr:`~porepy.compositional.base.FluidMixture.density`
+        - :math:`\\rho_j` : Phase:attr:`~porepy.compositional.base.Phase.density`
 
         Note:
             These equations can be used to close the model if molar phase fractions and
@@ -548,7 +550,7 @@ class FlashMixin:
     """Provided by :class:`~porepy.models.geometry.ModelGeometry`."""
     equation_system: pp.ad.EquationSystem
     """Provided by :class:`~porepy.models.solution_strategy.SolutionStrategy`."""
-    fluid_mixture: Mixture
+    fluid_mixture: FluidMixture
     """Provided by :class:`FluidMixtureMixin`."""
 
     fractional_state_from_vector: Callable[
@@ -569,7 +571,7 @@ class FlashMixin:
 
     equilibrium_type: Optional[Literal["p-T", "p-h", "v-h"]]
     """Provided by
-    :class:`~porepy.models.composite_balance.SolutionStrategyCF`."""
+    :class:`~porepy.models.compositional_flow.SolutionStrategyCF`."""
 
     def set_up_flasher(self) -> None:
         """Method to introduce the flash class, if an equilibrium is defined.
@@ -577,7 +579,9 @@ class FlashMixin:
         This method is called by the solution strategy after the model is set up.
 
         """
-        raise CompositeModellingError("Call to mixin method. No flash object defined.")
+        raise CompositionalModellingError(
+            "Call to mixin method. No flash object defined."
+        )
 
     def get_fluid_state(
         self, subdomains: Sequence[pp.Grid], state: Optional[np.ndarray] = None
@@ -638,7 +642,7 @@ class FlashMixin:
                 state functions.
             initial_fluid_state: ``default=None``
 
-                Initial guess passed to :meth:`~porepy.composite.flash.Flash.flash`.
+                Initial guess passed to :meth:`~porepy.compositional.flash.Flash.flash`.
                 Note that if None, the flash computes the initial guess itself.
 
         Returns:
@@ -690,7 +694,7 @@ class FlashMixin:
                 }
             )
         else:
-            raise CompositeModellingError(
+            raise CompositionalModellingError(
                 "Attempting to equilibriate fluid with uncovered equilibrium type"
                 + f" {self.equilibrium_type}."
             )
