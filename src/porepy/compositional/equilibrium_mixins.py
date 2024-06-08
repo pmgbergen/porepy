@@ -1,10 +1,10 @@
-"""Module containing mixin classes for introducing local equilibrium equations into a
-motel.
+"""Module containing mixin classes for introducing the local equilibrium problem into a
+PorePy model.
 
 Local equilibrium equations are single, cell-wise algebraic equations, introducing
 the thermodynamically consistent approach to modelling secondary expressions like
 phase densities.
-They also introduce necessarily new variables into the system (molar fractions).
+They also introduce necessarily new variables into the system (fractions).
 
 Instances of :class:`UnifiedEquilibriumMixin` require an attribite ``equilibrium_type``
 to be set, which must not be ``None``. This is to inform the remaining framework

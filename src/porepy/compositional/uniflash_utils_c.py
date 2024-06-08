@@ -1,17 +1,24 @@
 """Module containing utility functions for numba compiled flash computations.
 
-The utility functions depend mostly on the order of unknowns stored in the solution
-vector ``X_gen``.
+It introduces the indexing convention for the *generic flash argumen*.
+
+Assuming any flash is given by a residual and Jacobian function ``F, DF``, the generic
+argument is a specially sorted array, containing unknowns, but also parameters.
+Parameters include foremostly the thermodynamic target state (pressure values in the pT
+flash for example.)
+
 The convention in the compiled flash is as follows:
 
 1. ``num_comp - 1`` values for independent feed fractions.
 2. 2 values for target equilibrium state (p-T, h-p, v-h) defining the flash procedure.
-3. (optional) ``num_phase - 1`` saturation values.
+3. (optional) ``num_phase - 1`` saturation values for flashes with given volume.
 4. (optional) 1 pressure value if pressure is unknown.
 5. (optional) 1 temperature value if temperature is unknown.
-6. ``num_phase - 1`` molar phase fraction values.
-7. ``num_phase * num_comp`` molar phase compositions values, starting with the reference
-   phase.
+6. ``num_phase - 1`` phase fraction values of independent phases.
+7. ``num_phase * num_comp`` extended phase compositions values.
+
+The order of fractions and saturations corresponds to the order of phases and components
+in a fluid mixture.
 
 """
 

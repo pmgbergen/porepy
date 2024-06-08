@@ -8,7 +8,7 @@ inheritance and the user is encouraged to read up on them.
 
 from __future__ import annotations
 
-from typing import Callable, Literal, Optional, Sequence
+from typing import Callable, Literal, Optional, Sequence, cast
 
 import numpy as np
 
@@ -83,7 +83,7 @@ class CompositionalVariables(pp.VariableMixin):
             :meth:`~porepy.compositional.base.Component.fraction`
 
         """
-        names = list()
+        names: list[str] = list()
         if hasattr(self, "fluid_mixture"):
             # the single feed fraction is not a variable
             if self.fluid_mixture.num_components == 1:
@@ -104,7 +104,7 @@ class CompositionalVariables(pp.VariableMixin):
             :attr:`~porepy.compositional.base.Compound.relative_fraction_of`
 
         """
-        names = list()
+        names: list[str] = list()
         if hasattr(self, "fluid_mixture"):
             for comp in self.fluid_mixture.components:
                 if isinstance(comp, Compound):
@@ -120,7 +120,7 @@ class CompositionalVariables(pp.VariableMixin):
             :attr:`~porepy.compositional.base.Phase.fraction`
 
         """
-        names = list()
+        names: list[str] = list()
         if hasattr(self, "fluid_mixture") and self.equilibrium_type is not None:
             # single phase fraction is not a variable
             if self.fluid_mixture.num_phases == 1:
@@ -141,7 +141,7 @@ class CompositionalVariables(pp.VariableMixin):
             :attr:`~porepy.compositional.base.Phase.saturation`
 
         """
-        names = list()
+        names: list[str] = list()
         if hasattr(self, "fluid_mixture"):
             # single phase saturation is not a variable
             if self.fluid_mixture.num_phases == 1:
@@ -166,7 +166,7 @@ class CompositionalVariables(pp.VariableMixin):
             :attr:`~porepy.compositional.base.Phase.partial_fraction_of`
 
         """
-        names = list()
+        names: list[str] = list()
         if hasattr(self, "fluid_mixture"):
             for phase in self.fluid_mixture.phases:
                 for comp in phase:
@@ -251,7 +251,7 @@ class CompositionalVariables(pp.VariableMixin):
     def _create_fractional_variable(
         self,
         name: str,
-        subdomains: Sequence[pp.Grid],
+        subdomains: list[pp.Grid],
     ) -> None:
         """Helper method to create individual variables."""
         self.equation_system.create_variables(
@@ -433,6 +433,7 @@ class CompositionalVariables(pp.VariableMixin):
                         raise ValueError(
                             """Argument domains a mixture of subdomain and boundaries"""
                         )
+                    domains = cast(list[pp.Grid], domains)
                     return self.equation_system.md_variable(name, domains)
 
         return fraction
@@ -471,6 +472,7 @@ class CompositionalVariables(pp.VariableMixin):
                 raise ValueError(
                     """Argument domains a mixture of subdomain and boundaries."""
                 )
+            domains = cast(list[pp.Grid], domains)
             return self.equation_system.md_variable(name, domains)
 
         return fraction
@@ -532,6 +534,7 @@ class CompositionalVariables(pp.VariableMixin):
                         raise ValueError(
                             """Argument domains a mixture of subdomain and boundaries"""
                         )
+                    domains = cast(list[pp.Grid], domains)
                     return self.equation_system.md_variable(name, domains)
 
         return saturation
@@ -584,6 +587,7 @@ class CompositionalVariables(pp.VariableMixin):
                         raise ValueError(
                             """Argument domains a mixture of subdomain and boundaries"""
                         )
+                    domains = cast(list[pp.Grid], domains)
                     return self.equation_system.md_variable(name, domains)
 
         return fraction
@@ -624,6 +628,7 @@ class CompositionalVariables(pp.VariableMixin):
                 raise ValueError(
                     """Argument domains a mixture of subdomain and boundaries."""
                 )
+            domains = cast(list[pp.Grid], domains)
             return self.equation_system.md_variable(name, domains)
 
         return fraction
@@ -678,7 +683,13 @@ class CompositionalVariables(pp.VariableMixin):
                     )
 
             else:
-                fraction = self.extended_fraction(component, phase)
+                # Mypy complains that above the argument of fraction is explicitly
+                # stated as 'domanis', while extended_fraction returns no information
+                # on how the argument is called.
+                # But both are (pp.SubdomainOrBoundaries) -> pp.ad.Operator
+                fraction = self.extended_fraction(
+                    component, phase
+                )  # type:ignore[assignment]
 
         return fraction
 
@@ -720,10 +731,10 @@ class FluidMixtureMixin:
     equation_system: pp.ad.EquationSystem
     """Provided by :class:`~porepy.models.solution_strategy.SolutionStrategy`."""
 
-    pressure: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]
+    pressure: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     """Provided by :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`.
     """
-    temperature: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]
+    temperature: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     """Provided by :class:`~porepy.models.energy_balance.VariablesEnergyBalance`."""
 
     eliminate_reference_phase: bool
@@ -762,7 +773,7 @@ class FluidMixtureMixin:
 
         self.fluid_mixture = FluidMixture(components, phases)
 
-    def get_components(self) -> Sequence[Component]:
+    def get_components(self) -> list[Component]:
         """Method to return a list of modelled components."""
         raise CompositionalModellingError(
             "Call to mixin method. Define components by overriding this method."
@@ -874,7 +885,7 @@ class FluidMixtureMixin:
 
     def dependencies_of_phase_properties(
         self, phase: Phase
-    ) -> Sequence[Callable[[pp.GridLikeSequence], pp.ad.Operator]]:
+    ) -> Sequence[Callable[[pp.GridLikeSequence], pp.ad.Variable]]:
         """Method to define the signature of phase properties, which are dependent
         quantities.
 
@@ -914,7 +925,13 @@ class FluidMixtureMixin:
                 ]
 
             dependencies += independent_overall_fractions
-        return dependencies
+
+        # casting to include mortar greeds and variables as return types.
+        # This is used as an argument for Surrogate factories, so we must have the
+        # mortars as well
+        return cast(
+            Sequence[Callable[[pp.GridLikeSequence], pp.ad.Variable]], dependencies
+        )
 
     def fluid_density(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
         """Returns an operaror by calling phase saturations and densities, and
@@ -968,9 +985,7 @@ class FluidMixtureMixin:
         )
         return op
 
-    def density_of_phase(
-        self, phase: Phase
-    ) -> Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]:
+    def density_of_phase(self, phase: Phase) -> pp.ad.SurrogateFactory:
         """This base method returns the density of a ``phase`` as a
         :class:`~porepy.numerics.ad.surrogate_operator.SurrogateFactory`.
 
@@ -1000,9 +1015,7 @@ class FluidMixtureMixin:
 
         return volume
 
-    def specific_enthalpy_of_phase(
-        self, phase: Phase
-    ) -> Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]:
+    def specific_enthalpy_of_phase(self, phase: Phase) -> pp.ad.SurrogateFactory:
         """Analogous to :meth:`density_of_phase`, creating a new surrogate factory for
         the specific enthalpy of a ``phase``."""
         return pp.ad.SurrogateFactory(
@@ -1011,9 +1024,7 @@ class FluidMixtureMixin:
             self.dependencies_of_phase_properties(phase),
         )
 
-    def viscosity_of_phase(
-        self, phase: Phase
-    ) -> Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]:
+    def viscosity_of_phase(self, phase: Phase) -> pp.ad.SurrogateFactory:
         """Analogous to :meth:`density_of_phase`, creating a new surrogate factory for
         the dynamic viscosity of a ``phase``."""
         return pp.ad.SurrogateFactory(
@@ -1022,9 +1033,7 @@ class FluidMixtureMixin:
             self.dependencies_of_phase_properties(phase),
         )
 
-    def conductivity_of_phase(
-        self, phase: Phase
-    ) -> Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]:
+    def conductivity_of_phase(self, phase: Phase) -> pp.ad.SurrogateFactory:
         """Analogous to :meth:`density_of_phase`, creating a new surrogate factory for
         the thermal conductivity of a ``phase``."""
         return pp.ad.SurrogateFactory(
@@ -1035,7 +1044,7 @@ class FluidMixtureMixin:
 
     def fugacity_coefficient(
         self, component: Component, phase: Phase
-    ) -> Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]:
+    ) -> pp.ad.SurrogateFactory:
         """Analogous to :meth:`density_of_phase`, creating a new surrogate factory for
         the fugacity coefficient of a ``component`` in a ``phase``.
 

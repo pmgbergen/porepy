@@ -1,5 +1,20 @@
 """Module containing various data structures to store thermodynamic state values for
-fluid mixtures."""
+fluid mixtures.
+
+Note:
+    State data structures are required as a contract for which thermodynamic properties
+    are required to describe a fluid in PorePy's flow & transport problems.
+
+    The compositional framework does not rely purely on :mod:`porepy.numerics.ad`, but
+    has multiple interfaces to obtaining values.
+
+    1. Flash calculations: Must be fast, efficient and parallelized, hence no AD but
+       generic interfaces and data structures.
+    2. OBL: Operator-based linearizations introduces interpolated data into the
+       framework. To safely and generically broadcast the data into the Jacobian and
+       residual, these data structures are used.
+
+"""
 
 from __future__ import annotations
 
@@ -345,3 +360,5 @@ def initialize_fluid_state(
             phase_state.dkappa = np.zeros((2 + ncomp[j], n))
 
         state.phases.append(phase_state)
+
+    return state

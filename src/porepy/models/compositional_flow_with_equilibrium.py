@@ -365,12 +365,14 @@ class InitialConditionsCFLE(cf.InitialConditionsCF):
                 dphis_ext = state.phases[j].dphis_ext
                 for k, comp in enumerate(phase.components):
                     for _ in self.iterate_indices:
-                        phase.fugacity_coefficient_of[comp].progress_iterate_values_on_grid(
+                        phase.fugacity_coefficient_of[
+                            comp
+                        ].progress_iterate_values_on_grid(
                             state.phases[j].phis[k], sd, depth=ni
                         )
-                    phase.fugacity_coefficient_of[comp].progress_iterate_derivatives_on_grid(
-                        dphis_ext[k], sd
-                    )
+                    phase.fugacity_coefficient_of[
+                        comp
+                    ].progress_iterate_derivatives_on_grid(dphis_ext[k], sd)
 
         # progress property values in time on subdomain
         for phase in self.fluid_mixture.phases:
@@ -530,7 +532,9 @@ class SolutionStrategyCFLE(cf.SolutionStrategyCF, ppc.FlashMixin):
                 phase.conductivity.progress_iterate_values_on_grid(state.kappa, sd)
 
                 phase.density.progress_iterate_derivatives_on_grid(state.drho_ext, sd)
-                phase.specific_enthalpy.progress_iterate_derivatives_on_grid(state.dh_ext, sd)
+                phase.specific_enthalpy.progress_iterate_derivatives_on_grid(
+                    state.dh_ext, sd
+                )
                 phase.viscosity.progress_iterate_derivatives_on_grid(state.dmu_ext, sd)
                 phase.conductivity.progress_iterate_derivatives_on_grid(
                     state.dkappa_ext, sd
@@ -542,9 +546,9 @@ class SolutionStrategyCFLE(cf.SolutionStrategyCF, ppc.FlashMixin):
                     phase.fugacity_coefficient_of[comp].progress_iterate_values_on_grid(
                         state.phis[k], sd
                     )
-                    phase.fugacity_coefficient_of[comp].progress_iterate_derivatives_on_grid(
-                        dphis_ext[k], sd
-                    )
+                    phase.fugacity_coefficient_of[
+                        comp
+                    ].progress_iterate_derivatives_on_grid(dphis_ext[k], sd)
 
         t_1 = time.time()
         self._stats[-1][-1]["time_flash"] = t_1 - t_0

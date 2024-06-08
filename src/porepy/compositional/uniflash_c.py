@@ -34,6 +34,8 @@ from ._core import NUMBA_CACHE, NUMBA_FAST_MATH, R_IDEAL_MOL
 from .base import FluidMixture
 from .eos_compiler import EoSCompiler
 from .flash import Flash
+from .npipm_c import solver as npipmsolver
+from .states import FluidState
 from .uniflash_utils_c import (
     insert_pT,
     insert_sat,
@@ -43,8 +45,6 @@ from .uniflash_utils_c import (
     parse_target_state,
     parse_xyz,
 )
-from .npipm_c import solver as npipmsolver
-from .states import FluidState
 from .utils import (
     _compute_saturations,
     _extend_fractional_derivatives,
@@ -525,8 +525,10 @@ class CompiledUnifiedFlash(Flash):
 
     Parameters:
         mixture: A mixture model containing modelled components and phases.
-        eos_compiler: An EoS compiler instance required to create a
-            :class:`~porepy.compositional.flash_compiler.FlashCompiler`.
+        eos_compiler: An EoS compiler instance.
+
+            Important:
+                As of now, all phases must have the same EoS.
 
     Raises:
         AssertionError: If any of the following assumptions is violated

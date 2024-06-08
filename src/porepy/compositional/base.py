@@ -242,7 +242,7 @@ class Compound(Component):
         M = pp.ad.Scalar(self.molar_mass) * (pp.ad.Scalar(1.0) - safe_sum(X))
 
         for pc, x in zip(self._pseudo_comps, X):
-            M += pc.molar_mass * x
+            M += pp.ad.Scalar(pc.molar_mass) * x
         M.set_name(f"compound_molar_mass_{self.name}")
         return M
 
@@ -279,17 +279,17 @@ class Compound(Component):
 
         # solvent fraction
         x_s = 1 - safe_sum(fractions)
-        for fractions in fractions:
-            m_i = fractions / (x_s * self.molar_mass)
+        for fraction in fractions:
+            m_i = fraction / (x_s * self.molar_mass)
             molalities.append(m_i)
 
         return molalities
 
-    def fractions_from_molalities(self, molalities: FloatType) -> list[FloatType]:
+    def fractions_from_molalities(self, *molalities: FloatType) -> list[FloatType]:
         """Reverse operation for :meth:`molalities_from_fractions`.
 
         Parameters:
-            molalities: A list of molalities per present pseudo-component.
+            *molalities: Molalities per present pseudo-component.
 
         Raises:
             ValueError: If the number of provided values does not match the number
