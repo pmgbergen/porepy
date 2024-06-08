@@ -1992,7 +1992,6 @@ class BoundaryConditionsCF(
                 # some work is required for BGs with zero cells
                 if bg.num_cells == 0:
                     rho_bc = np.zeros(0)
-                    v_bc = np.zeros(0)
                     h_bc = np.zeros(0)
                     mu_bc = np.zeros(0)
                 else:
@@ -2002,7 +2001,6 @@ class BoundaryConditionsCF(
                     ]
                     state = phase.compute_properties(*dep_vals)
                     rho_bc = state.rho
-                    v_bc = state.v
                     h_bc = state.h
                     mu_bc = state.mu
 
@@ -2286,7 +2284,9 @@ class InitialConditionsCF:
             # shift/copy current values to all previous iterates
             for _ in self.iterate_indices:
                 phase.density.shift_iterate_values_on_grids(subdomains, depth=ni)
-                phase.specific_enthalpy.shift_iterate_values_on_grids(subdomains, depth=ni)
+                phase.specific_enthalpy.shift_iterate_values_on_grids(
+                    subdomains, depth=ni
+                )
                 phase.viscosity.shift_iterate_values_on_grids(subdomains, depth=ni)
                 phase.conductivity.shift_iterate_values_on_grids(subdomains, depth=ni)
             # propagate values to all time step indices

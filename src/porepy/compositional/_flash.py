@@ -7,7 +7,7 @@ from __future__ import annotations
 import logging
 import numbers
 from dataclasses import asdict
-from typing import Any, Callable, Literal, Optional, overload, Union
+from typing import Any, Callable, Literal, Optional, Union, overload
 
 import numpy as np
 import pypardiso
@@ -17,8 +17,8 @@ import porepy as pp
 
 from ._core import R_IDEAL
 from .base import FluidMixture
-from .utils import safe_sum
 from .peng_robinson._eos import PhaseProperties, ThermodynamicState
+from .utils import safe_sum
 
 __all__ = ["FlashSystemNR", "FlashNR"]
 
@@ -53,7 +53,6 @@ def trunclog(var, eps):
         return pp.ad.AdArray(val, der)
     else:
         return np.log(np.maximum(var, eps))
-
 
 
 def K_val_Wilson(

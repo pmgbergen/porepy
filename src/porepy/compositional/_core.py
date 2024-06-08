@@ -58,7 +58,7 @@ properties.
 
 T_REF: float = 273.16
 """The reference temperature for the composite module is set to the triple point
-temperature of pure water in ``[K]``
+temperature of pure water in ``[K]``.
 
 This value must be used to calculate the reference state when dealing with thermodynamic
 properties.

@@ -1,8 +1,9 @@
-"""This module contains utility functions for the composite subpackage."""
+"""Contains utility functions for the compositional subpackage, as well as a custom
+exception class :class:`CompositionalModellingError`."""
 
 from __future__ import annotations
 
-from typing import Sequence, TypeVar
+from typing import Sequence, TypeVar, cast
 
 import numba
 import numpy as np
@@ -44,10 +45,12 @@ def safe_sum(x: Sequence[_Addable]) -> _Addable:
         # TODO do we need a copy here? Test extensively
         sum_ = x[0]
         for i in range(1, len(x)):
-            sum_ = sum_ + x[i]
+            # Using TypeVar to indicate that return type is same as argument type
+            # MyPy says tha tthe TypeVar has no __add__, hence not adable...
+            sum_ = sum_ + x[i]  # type: ignore[operator]
         return sum_
     else:
-        return 0
+        return cast(_Addable, 0)
 
 
 @numba.njit("float64[:,:](float64[:,:])", fastmath=NUMBA_FAST_MATH, cache=True)
@@ -100,7 +103,7 @@ def _extend_fractional_derivatives(df_dxn: np.ndarray, x: np.ndarray) -> np.ndar
 )
 def _extend_fractional_derivatives_gu(
     df_dxn: np.ndarray, x: np.ndarray, out: np.ndarray, dummy: np.ndarray
-) -> np.ndarray:
+) -> None:
     """Internal ``numba.guvectorize``-decorated function for
     :meth:`extend_compositional_derivatives`."""
     out[:] = _extend_fractional_derivatives(df_dxn, x)
@@ -227,7 +230,7 @@ def _compute_saturations(y: np.ndarray, rho: np.ndarray, eps: float) -> np.ndarr
 )
 def _compute_saturations_gu(
     y: np.ndarray, rho: np.ndarray, eps: float, out: np.ndarray, dummy: np.ndarray
-) -> np.ndarray:
+) -> None:
     """Internal ``numba.guvectorize``-decorated function for
     :meth:`compute_saturations`."""
     out[:] = _compute_saturations(y, rho, eps)
@@ -291,5 +294,15 @@ def compute_saturations(
 
 
 class CompositionalModellingError(Exception):
-    """Custom exception class to alert the user when using the compositional framework
-    logically inconsistent."""
+    """Custom exception class to alert the user when the compositional framework is
+    inconsistently used.
+
+    Such usage includes for example:
+
+    - passing phases without components into a fluid mixture,
+    - creating EoS or mixtures without any components at all,
+    - requesting a time-dependent boundary equilibrium problem, without providing
+      equilibrium equations,
+    - violations of unified assumptions in equilibrium problems.
+
+    """

@@ -1,27 +1,33 @@
-"""The ``composite`` sub-package in PorePy contains classes representing
-mixtures and mixture components, as well as an implementations of the unified flash
-procedure.
+""">>> import porepy.compositional as ppc
 
-The unified flash is largely based on the work listed below.
+The compositional subpackage provides utilities to model multi-phase multi-component
+fluid mixtures, and fluid phase equilibrium problems.
 
-Compositions/mixtures are intended to be part of a flow model, i.e. they use PorePy's AD
-framework to represent variables and equations.
-The subsystems can naturally be extended by the respective flow model.
+The entry point to compositional modelling is the module
+:mod:`porepy.compositional.base`, wich provides means to model a component-context, a
+phase-context and a fluid mixture.
 
-The composite module works (for now) with the following units as base units:
+While the package is in principal self-contained, it provides two interfaces to PorePy's
+modelling framework in the form of model mixins:
 
-- Pressure:     [Pa] (Pascal)
-- Temperature:  [K] (Kelvin)
-- Mass:         [mol] (mol)
-- Energy:       [J] (Joule)
-- Volume:       [m^3] (Cubic Meter)
+1. :mod:`porepy.compositional.compositional_mixins`
+2. :mod:`porepy.compositional.equilibrium_mixins`
 
-For the reference state, an ideal tri-atomic gas (like water),
-with internal energy at the triple point of water set to zero, was chosen (as per
-IAPWS standard).
+.. rubric:: Some additional information.
 
-All phases, components and thermodynamic properties are to be modelled with
-respect to this reference state.
+    1. The package is built to support the unified formulation of the equilibrium
+       problem [1,2].
+    2. While thermodynamically consistent, it does not provide full support for any kind
+       of thermodynamic computations. It focues on properties required for
+       flow & transport.
+    3. For the case of more sophisticated thermodynamics, the groundwork is layed by
+       defining a thermodynamic reference state (:mod:`~porepy.compositional._core`)
+       most commonly used in other packages  and literature [3].
+    4. Units are standard SI units, and there is in principal no distinguishing between
+       massic or molar quantities. Once the modeller decides what the model represents,
+       massic or molar values must be consistently enforced.
+       The unly exception is :data:`~porepy.compositional._core.R_IDEAL_MOL`, which is
+       given as a molar quantity.
 
 References:
     [1]: `Lauser et al. (2011) <https://doi.org/10.1016/j.advwatres.2011.04.021>`_
@@ -37,25 +43,25 @@ from . import (  # peng_robinson,
     base,
     chem_species,
     compositional_mixins,
-    utils,
     eos_compiler,
     equilibrium_mixins,
     flash,
-    uniflash_c,
     states,
-    uniflash_utils_c
+    uniflash_c,
+    uniflash_utils_c,
+    utils,
 )
 from ._core import *
 from .base import *
 from .chem_species import *
 from .compositional_mixins import *
-from .utils import *
 from .eos_compiler import *
 from .equilibrium_mixins import *
 from .flash import *
-from .uniflash_c import *
 from .states import *
+from .uniflash_c import *
 from .uniflash_utils_c import *
+from .utils import *
 
 __all__.extend(_core.__all__)
 __all__.extend(chem_species.__all__)
