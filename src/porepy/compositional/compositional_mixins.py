@@ -713,12 +713,12 @@ class CompositionalVariables(pp.VariableMixin):
             # By logic of the framework, the other components must be in this phase.
             # See constructor of fluid mixture
             elif self.fluid_mixture.num_phases == 1:
-                fraction = component.fraction
-            else:
                 # Mypy complains that above the argument of fraction is explicitly
-                # stated as 'domanis', while extended_fraction returns no information
+                # stated as 'domains', while extended_fraction returns no information
                 # on how the argument is called.
                 # But both are (pp.SubdomainOrBoundaries) -> pp.ad.Operator
+                fraction = component.fraction  # type:ignore[assignment]
+            else:
                 fraction = self.extended_fraction(
                     component, phase
                 )  # type:ignore[assignment]

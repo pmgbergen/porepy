@@ -43,33 +43,35 @@ from . import (  # peng_robinson,
     base,
     chem_species,
     compositional_mixins,
-    eos_compiler,
-    equilibrium_mixins,
-    flash,
     states,
-    uniflash_c,
-    uniflash_utils_c,
     utils,
 )
-from ._core import *
-from .base import *
-from .chem_species import *
-from .compositional_mixins import *
-from .eos_compiler import *
-from .equilibrium_mixins import *
-from .flash import *
-from .states import *
-from .uniflash_c import *
-from .uniflash_utils_c import *
-from .utils import *
+
+# TODO flake8 complains about from . import * imports
+# Even though __all__ is defined in all packages
+# But it does not complain so for the AD subpackage??
+from ._core import P_REF, R_IDEAL_MOL, T_REF
+from .base import AbstractEoS, Component, Compound, FluidMixture, Phase
+from .chem_species import ChemicalSpecies, load_species
+from .compositional_mixins import CompositionalVariables, FluidMixtureMixin
+from .states import (
+    ExtensiveState,
+    FluidState,
+    IntensiveState,
+    PhaseState,
+    initialize_fluid_state,
+)
+from .utils import (
+    CompositionalModellingError,
+    compute_saturations,
+    extend_fractional_derivatives,
+    normalize_rows,
+    safe_sum,
+)
 
 __all__.extend(_core.__all__)
 __all__.extend(chem_species.__all__)
 __all__.extend(base.__all__)
 __all__.extend(utils.__all__)
 __all__.extend(compositional_mixins.__all__)
-__all__.extend(equilibrium_mixins.__all__)
-__all__.extend(flash.__all__)
-__all__.extend(uniflash_c.__all__)
 __all__.extend(states.__all__)
-__all__.extend(eos_compiler.__all__)
