@@ -1,6 +1,6 @@
 import BrineConstitutiveDescription
 import numpy as np
-from Geometries import SimpleGeometry as ModelGeometry
+from Geometries import Benchmark2DC3 as ModelGeometry
 
 import porepy as pp
 import porepy.composite as ppc
@@ -31,35 +31,42 @@ class BoundaryConditions(BoundaryConditionsCF):
         inlet_idx, outlet_idx = self.get_inlet_outlet_sides(boundary_grid)
         p_inlet = 20.0e6
         p_outlet = 15.0e6
-        xc = boundary_grid.cell_centers.T
-        l = 2.0
-        def p_linear(xv):
-            p_v = p_inlet * (1-xv[0]/l)  + p_outlet * (xv[0]/l)
-            return p_v
-        p = np.fromiter(map(p_linear,xc),dtype=float)
-        return p
+        p = p_outlet * np.ones(boundary_grid.num_cells)
+        # xc = boundary_grid.cell_centers.T
+        # l = 20.0
+        #
+        # def p_linear(xv):
+        #     p_v = p_inlet * (1 - xv[0] / l) + p_outlet * (xv[0] / l)
+        #     return p_v
+        #
+        # p = np.fromiter(map(p_linear, xc), dtype=float)
+        # return p
         p[inlet_idx] = p_inlet
         p[outlet_idx] = p_outlet
         return p
 
     def bc_values_enthalpy(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
-        inlet_idx, _ = self.get_inlet_outlet_sides(boundary_grid)
-        h_inlet = 1.5e6
-        h_outlet = 2.2e6
-        xc = boundary_grid.cell_centers.T
-        l = 2.0
-        def h_linear(xv):
-            h_v = h_inlet * (1-xv[0]/l) + h_outlet * (xv[0]/l)
-            return h_v
-        h = np.fromiter(map(h_linear,xc),dtype=float)
+        inlet_idx, outlet_idx = self.get_inlet_outlet_sides(boundary_grid)
+        h_inlet = 2.0e3
+        h_outlet = 1.0e3
+        h = h_outlet * np.ones(boundary_grid.num_cells)
+        # xc = boundary_grid.cell_centers.T
+        # l = 20.0
+        #
+        # def h_linear(xv):
+        #     h_v = h_inlet * (1 - xv[0] / l) + h_outlet * (xv[0] / l)
+        #     return h_v
+        #
+        # h = np.fromiter(map(h_linear, xc), dtype=float)
         h[inlet_idx] = h_inlet
+        h[outlet_idx] = h_outlet
         return h
 
     def bc_values_overall_fraction(
         self, component: ppc.Component, boundary_grid: pp.BoundaryGrid
     ) -> np.ndarray:
         inlet_idx, _ = self.get_inlet_outlet_sides(boundary_grid)
-        z_init = 0.2
+        z_init = 0.02
         z_inlet = 0.02
         if component.name == "H2O":
             z_H2O = (1 - z_init) * np.ones(boundary_grid.num_cells)
@@ -70,41 +77,46 @@ class BoundaryConditions(BoundaryConditionsCF):
             z_NaCl[inlet_idx] = z_inlet
             return z_NaCl
 
-    # def bc_values_temperature(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
-    #     h = self.bc_values_enthalpy(boundary_grid)
-    #     factor = 630.0 / 2.0e6
-    #     T = factor * h
-    #     return T
 
 class InitialConditions(InitialConditionsCF):
     """See parent class how to set up BC. Default is all zero and Dirichlet."""
 
     def initial_pressure(self, sd: pp.Grid) -> np.ndarray:
-        p_inlet = 15.0e6
-        p_outlet = 15.0e6
-        xc = sd.cell_centers.T
-        l = 2.0
-        def p_linear(xv):
-            p_v = p_inlet * (1-xv[0]/l)  + p_outlet * (xv[0]/l)
-            return p_v
-        p = np.fromiter(map(p_linear,xc),dtype=float)
+        p_init = 15.0e6
+        p = p_init * np.ones(sd.num_cells)
         return p
+        # p_inlet = 15.0e6
+        # p_outlet = 15.0e6
+        # xc = sd.cell_centers.T
+        # l = 20.0
+        #
+        # def p_linear(xv):
+        #     p_v = p_inlet * (1 - xv[0] / l) + p_outlet * (xv[0] / l)
+        #     return p_v
+        #
+        # p = np.fromiter(map(p_linear, xc), dtype=float)
+        # return p
 
     def initial_enthalpy(self, sd: pp.Grid) -> np.ndarray:
-        h_inlet = 2.2e6
-        h_outlet = 2.2e6
-        xc = sd.cell_centers.T
-        l = 2.0
-        def h_linear(xv):
-            h_v = h_inlet * (1-xv[0]/l)  + h_outlet * (xv[0]/l)
-            return h_v
-        h = np.fromiter(map(h_linear,xc),dtype=float)
+        h_init = 1.0e3
+        h = h_init * np.ones(sd.num_cells)
         return h
+        # h_inlet = 1.0e3
+        # h_outlet = 1.0e3
+        # xc = sd.cell_centers.T
+        # l = 20.0
+        #
+        # def h_linear(xv):
+        #     h_v = h_inlet * (1 - xv[0] / l) + h_outlet * (xv[0] / l)
+        #     return h_v
+        #
+        # h = np.fromiter(map(h_linear, xc), dtype=float)
+        # return h
 
     def initial_overall_fraction(
         self, component: ppc.Component, sd: pp.Grid
     ) -> np.ndarray:
-        z = 0.2
+        z = 0.02
         if component.name == "H2O":
             return (1 - z) * np.ones(sd.num_cells)
         else:
