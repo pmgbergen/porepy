@@ -8,6 +8,8 @@ import numpy as np
 
 import porepy as pp
 
+from porepy.models.constitutive_laws import LinearElasticMechanicalStress
+
 
 class VerificationUtils:
     """Mixin class storing useful utility methods.
@@ -127,14 +129,8 @@ class VerificationUtils:
         discr_poromech = pp.ad.BiotAd(self.stress_keyword, [sd])
 
         # Boundary conditions
-        bc = self._combine_boundary_operators(  # type: ignore [call-arg]
-            subdomains=[sd],
-            dirichlet_operator=self.displacement,
-            neumann_operator=self.mechanical_stress,
-            robin_operator=self.mechanical_stress,
-            bc_type=self.bc_type_mechanics,
-            dim=self.nd,
-            name="bc_values_mechanics",
+        bc = LinearElasticMechanicalStress.combine_boundary_operators_mechanical_stress(
+            subdomains=[sd]
         )
 
         # Compute the pseudo-trace of the displacement
