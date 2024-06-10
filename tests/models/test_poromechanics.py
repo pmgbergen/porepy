@@ -477,12 +477,16 @@ def test_unit_conversion(units):
             :class:`~pp.models.material_constants.MaterialConstants`.
 
     """
-
+    solid_vals = pp.solid_values.extended_granite_values_for_testing
+    fluid_vals = pp.fluid_values.extended_water_values_for_testing
+    solid = pp.SolidConstants(solid_vals)
+    fluid = pp.FluidConstants(fluid_vals)
     params = {
         "times_to_export": [],  # Suppress output for tests
         "num_fracs": 1,
         "cartesian": True,
-        "uy_north": 0.1,
+        "uy_north": 1e-5,
+        "material_constants": {"solid": solid, "fluid": fluid},
     }
     reference_params = copy.deepcopy(params)
     reference_params["file_name"] = "unit_conversion_reference"
