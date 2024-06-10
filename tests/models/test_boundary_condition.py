@@ -48,15 +48,14 @@ class CustomBoundaryCondition(pp.BoundaryConditionMixin):
     def create_dummy_ad_boundary_condition(
         self, subdomains: Sequence[pp.Grid]
     ) -> pp.ad.Operator:
+        op = lambda bgs: self.create_boundary_operator(
+            name=self.custom_bc_neumann_key, domains=bgs
+        )
         return self._combine_boundary_operators(
             subdomains=subdomains,
             dirichlet_operator=self.fluid_density,
-            neumann_operator=lambda bgs: self.create_boundary_operator(
-                name=self.custom_bc_neumann_key, domains=bgs
-            ),
-            robin_operator=lambda bgs: self.create_boundary_operator(
-                name=self.custom_bc_neumann_key, domains=bgs
-            ),
+            neumann_operator=op,
+            robin_operator=op,
             bc_type=self.bc_type_dummy,
             name="boundary_condition_dummy",
             dim=1,
