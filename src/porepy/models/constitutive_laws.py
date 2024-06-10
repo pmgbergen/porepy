@@ -1236,7 +1236,19 @@ class DarcysLaw:
         flux.set_name("Darcy_flux")
         return flux
 
-    def combine_boundary_operators_darcy_flux(self, subdomains):
+    def combine_boundary_operators_darcy_flux(
+        self, subdomains: list[pp.Grid]
+    ) -> pp.ad.Operator:
+        """Combine darcy flux boundary operators.
+
+        Parameters:
+            subdomains: List of the subdomains whose boundary operators are to be
+                combined.
+
+        Returns:
+            The combined darcy flux boundary operator.
+
+        """
         op = self._combine_boundary_operators(  # type: ignore[call-arg]
             subdomains=subdomains,
             dirichlet_operator=self.pressure,
@@ -2710,7 +2722,19 @@ class FouriersLaw:
         flux.set_name("Fourier_flux")
         return flux
 
-    def combine_boundary_operators_fourier_flux(self, subdomains):
+    def combine_boundary_operators_fourier_flux(
+        self, subdomains: list[pp.Grids]
+    ) -> pp.ad.Operator:
+        """Combine fourier flux boundary operators.
+
+        Parameters:
+            subdomains: List of the subdomains whose boundary operators are to be
+                combined.
+
+        Returns:
+            The combined fourier flux boundary operator.
+
+        """
         op = self._combine_boundary_operators(  # type: ignore[call-arg]
             subdomains=subdomains,
             dirichlet_operator=self.temperature,
@@ -3426,7 +3450,19 @@ class LinearElasticMechanicalStress:
         stress.set_name("mechanical_stress")
         return stress
 
-    def combine_boundary_operators_mechanical_stress(self, subdomains):
+    def combine_boundary_operators_mechanical_stress(
+        self, subdomains: list[pp.Grid]
+    ) -> pp.ad.Operator:
+        """Combine mechanical stress boundary operators.
+
+        Parameters:
+            subdomains: List of the subdomains whose boundary operators are to be
+                combined.
+
+        Returns:
+            The combined mechanical stress boundary operator.
+
+        """
         op = self._combine_boundary_operators(  # type: ignore[call-arg]
             subdomains=subdomains,
             dirichlet_operator=self.displacement,
