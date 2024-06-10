@@ -186,13 +186,13 @@ def test_import_state_from_vtu_single_subdomains(
     # Define keys (here corresponding to all data stored in the vtu file to pass the
     # test).
     keys = ["dummy_scalar", "dummy_vector"]
-    keys_pts = ["dummy_scalar_pt", "dummy_vector_pt"]
+    keys_pt = ["dummy_scalar_pt", "dummy_vector_pt"]
 
     # Import data
     save.import_state_from_vtu(
         vtu_files=f"{subdomain.ref_vtu_file}",
         keys=keys,
-        keys_pts=keys_pts,
+        keys_pt=keys_pt,
         automatic=False,
         dims=sd.dim,
     )
@@ -200,7 +200,7 @@ def test_import_state_from_vtu_single_subdomains(
     # Perform comparison on vtu level (seems the easiest as it only involves a
     # comparison of dictionaries). This requires test_single_subdomains to pass all
     # tests.
-    save.write_vtu(keys, data_pt=keys_pts)
+    save.write_vtu(keys, data_pt=keys_pt)
 
     # Check that exported vtu file and reference file are the same
     assert compare_vtu_files(
