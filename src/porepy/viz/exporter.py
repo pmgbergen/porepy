@@ -10,7 +10,7 @@ import sys
 import xml.etree.ElementTree as ET
 from collections import namedtuple
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional, Tuple, Union, Literal
+from typing import Any, Dict, Iterable, List, Literal, Optional, Tuple, Union
 
 import meshio
 import numpy as np
