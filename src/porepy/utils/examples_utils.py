@@ -130,7 +130,7 @@ class VerificationUtils:
 
         # Boundary conditions
         bc = LinearElasticMechanicalStress.combine_boundary_operators_mechanical_stress(
-            subdomains=[sd]
+            self, subdomains=[sd]
         )
 
         # Compute the pseudo-trace of the displacement
