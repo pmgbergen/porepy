@@ -138,8 +138,8 @@ class BoundaryConditionMixin:
         name: str,
         dim: int = 1,
     ) -> pp.ad.Operator:
-        """Creates an operator representing Dirichlet and Neumann boundary conditions
-        and projects it to the subdomains from boundary grids.
+        """Creates an operator representing Dirichlet, Neumann and Robin boundary
+        conditions and projects it to the subdomains from boundary grids.
 
         Parameters:
             subdomains: List of subdomains.
