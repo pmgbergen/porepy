@@ -147,6 +147,7 @@ class BoundaryConditionMixin:
                 operator.
             neumann_operator: Function that returns the Neumann boundary condition
                 operator.
+            robin_operator: Function that returns the Robin boundary condition operator.
             dim: Dimension of the equation. Defaults to 1.
             name: Name of the resulting operator. Must be unique for an operator.
 
@@ -156,7 +157,7 @@ class BoundaryConditionMixin:
         """
         boundary_grids = self.subdomains_to_boundary_grids(subdomains)
 
-        # Creating the Dirichlet and Neumann AD expressions.
+        # Creating the Dirichlet, Neumann and Robin AD expressions.
         dirichlet = dirichlet_operator(boundary_grids)
         neumann = neumann_operator(boundary_grids)
         robin = robin_operator(boundary_grids)
@@ -164,8 +165,8 @@ class BoundaryConditionMixin:
         # Adding bc_type function to local storage to evaluate it before every time step
         # in case if the type changes in the runtime.
         self.__bc_type_storage[name] = bc_type
-        # Creating the filters to ensure that Dirichlet and Neumann arrays do not
-        # intersect where we do not want it.
+        # Creating the filters to ensure that Dirichlet,  Neumann and Robin arrays do
+        # not intersect where we do not want it.
         dir_filter = pp.ad.TimeDependentDenseArray(
             name=(name + "_filter_dir"), domains=boundary_grids
         )
@@ -198,10 +199,10 @@ class BoundaryConditionMixin:
     def _update_bc_type_filter(
         self, name: str, bc_type_callable: Callable[[pp.Grid], pp.BoundaryCondition]
     ):
-        """Update the filters for Dirichlet and Neumann values.
+        """Update the filters for Dirichlet, Neumann and Robin values.
 
-        This is done to discard the data related to Dirichlet boundary condition in
-        cells where the ``bc_type`` is Neumann and vice versa.
+        This is done to discard the data related to Dirichlet and Robin boundary
+        condition in cells where the ``bc_type`` is Neumann and vice versa.
 
         """
 

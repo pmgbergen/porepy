@@ -766,9 +766,6 @@ class SolutionStrategyMomentumBalance(pp.SolutionStrategy):
 
         """
 
-        self.bc_robin_keyword: str = "robin_stress"
-        """Keyword for the Robin boundary condition operator."""
-
     def initial_condition(self) -> None:
         """Set initial guess for the variables.
 
