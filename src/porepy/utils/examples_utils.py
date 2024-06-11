@@ -7,7 +7,6 @@ from typing import Callable, Sequence
 import numpy as np
 
 import porepy as pp
-
 from porepy.models.constitutive_laws import LinearElasticMechanicalStress
 
 
@@ -130,7 +129,8 @@ class VerificationUtils:
 
         # Boundary conditions
         bc = LinearElasticMechanicalStress.combine_boundary_operators_mechanical_stress(
-            self, subdomains=[sd]
+            self,  # type: ignore[arg-type]
+            subdomains=[sd],
         )
 
         # Compute the pseudo-trace of the displacement
