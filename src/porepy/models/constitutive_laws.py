@@ -2723,7 +2723,7 @@ class FouriersLaw:
         return flux
 
     def combine_boundary_operators_fourier_flux(
-        self, subdomains: list[pp.Grids]
+        self, subdomains: list[pp.Grid]
     ) -> pp.ad.Operator:
         """Combine fourier flux boundary operators.
 
@@ -4423,16 +4423,8 @@ class PoroMechanicsPorosity:
     """
     bc_type_mechanics: Callable[[pp.Grid], pp.ad.Operator]
 
-    _combine_boundary_operators: Callable[
-        [
-            Sequence[pp.Grid],
-            Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
-            Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
-            Callable[[pp.Grid], pp.BoundaryCondition],
-            str,
-            int,
-        ],
-        pp.ad.Operator,
+    combine_boundary_operators_mechanical_stress: Callable[
+        [Sequence[pp.Grid]], pp.ad.Operator
     ]
 
     mechanical_stress: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
