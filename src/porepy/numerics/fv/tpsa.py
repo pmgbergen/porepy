@@ -206,9 +206,10 @@ class Tpsa:
                 shape=(sd.dim * sd.num_faces, sd.dim * sd.num_faces),
             )
 
-            Rn_bar = Rn_check
+            Rn_bar = Rn_hat
 
-            stress_rotation = -Rn_check @ cell_to_face_average_complement_nd
+            stress_rotation = -Rn_hat @ cell_to_face_average_complement_nd
+            
 
             rotation_diffusion = -(
                 face_area_diag_matrix_nd @ sps.coo_matrix(  # Note minus sign
@@ -216,6 +217,13 @@ class Tpsa:
                     shape=(sd.num_faces * sd.dim, sd.num_cells * sd.dim),
                     ).tocsr()
             )
+            bound_rotation_diffusion = -dir_filter_nd @ (
+                face_area_diag_matrix_nd @ sps.coo_matrix(  # Note minus sign
+                    (t_cosserat[np.repeat(fi, sd.dim)] * np.repeat(sgn, sd.dim), (row, row)),
+                    shape=(sd.num_faces * sd.dim, sd.num_faces * sd.dim),
+                    ).tocsr()
+            )
+
 
         elif sd.dim == 2:
             # In this case, \hat{R}_k^n and \bar{R}_k^n differs, and read, respectively
@@ -257,14 +265,10 @@ class Tpsa:
                     ).tocsr()
         rotation_displacement = -Rn_bar @ cell_to_face_average_nd
 
-        bound_rotation_displacement = -dir_filter @ Rn_bar
-
-
-        div = pp.fvutils.scalar_divergence(sd)
-        div_vec = pp.fvutils.vector_divergence(sd)
-
-        dsr = div_vec @ stress_rotation
-        drs = div @ rotation_displacement
+        if sd.dim == 2:
+            bound_rotation_displacement = -dir_filter @ Rn_bar
+        else: # 3D
+            bound_rotation_displacement = -dir_filter_nd @ Rn_bar
 
         ## Store the computed fields
 
