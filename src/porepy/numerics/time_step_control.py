@@ -620,11 +620,21 @@ class TimeManager:
     def _correction_based_on_schedule(self) -> None:
         """Correct time step if time + dt > scheduled_time."""
         schedule_time = self.schedule[self._scheduled_idx]
-        if (self.time + self.dt) > schedule_time:
-            self.dt = schedule_time - self.time  # correct  time step
+        if self.time + self.dt > schedule_time:
+            self._scheduled_idx += 1  # Increaing index to catch next scheduled time.
+
+            if np.isclose(self.time, schedule_time, rtol=self.rtol, atol=self.atol):
+                # Scheduled time will be reached within tol, no need for correction.
+                if self._print_info:
+                    print(
+                        f"Not correcting time step to match scheduled time. Next dt ="
+                        f" {self.dt}."
+                    )
+                return
+
+            self.dt = schedule_time - self.time  # Correcting time step.
 
             if self._scheduled_idx < len(self.schedule) - 1:
-                self._scheduled_idx += 1  # increase index to catch next scheduled time
                 if self._print_info:
                     print(
                         f"Correcting time step to match scheduled time. Next dt ="
