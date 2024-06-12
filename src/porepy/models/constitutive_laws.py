@@ -1452,7 +1452,7 @@ class AdTpfaFlux:
         ],
         pp.ad.Operator,
     ]
-    """Combine Dirichlet, Neumann and Robin boundary conditions. Normally defined in a 
+    """Combine Dirichlet, Neumann and Robin boundary conditions. Normally defined in a
     mixin instance of :class:`~porepy.models.boundary_condition.BoundaryConditionMixin`.
 
     """
