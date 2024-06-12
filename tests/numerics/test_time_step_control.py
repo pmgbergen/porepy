@@ -750,7 +750,7 @@ class TestTimeControl:
         pth.unlink()
 
 
-class DynamicTimeStepTestCaseModel(SquareDomainOrthogonalFractures, SinglePhaseFlow):
+class DynamicTimeStepTestCaseModel(SinglePhaseFlow):
     """A mockup model that overrides `check_convergence` and predefines convergence
     behavior after each nonlinear iteration.
 
@@ -764,7 +764,7 @@ class DynamicTimeStepTestCaseModel(SquareDomainOrthogonalFractures, SinglePhaseF
         time_step_converged: list,
         params: dict,
     ):
-        super().__init__(params | {"fracture_indices": []})
+        super().__init__(params)
         self.time_step_idx: int = -1
         self.nonlinear_iter_idx: int = 0
         self.num_nonlinear_iterations: list[int] = num_nonlinear_iterations
@@ -832,8 +832,8 @@ MAX_NONLINEAR_ITER = 10
             # iterations, etc. "unreachable" means that the convergence check should not
             # be called due to exceeding the iteration limit.
             "time_step_converged": [False, True, "unreachable"] + [True] * 5,
-            # Time step magnitudes to compare with. These are known values produced with the settings
-            # of the TimeStepper found in the test function below.
+            # Time step magnitudes to compare with. These are known values produced with
+            # the settings of the TimeStepper found in the test function below.
             "dt_history_expected": [1, 0.3, 0.6, 0.18, 0.36, 0.36, 0.144, 0.006],
         },
         # Case 2: constant_dt. Should fail after nonlinear divergence.

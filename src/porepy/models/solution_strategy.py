@@ -460,13 +460,7 @@ class SolutionStrategy(abc.ABC):
         self.save_data_time_step()
 
     def after_nonlinear_failure(self) -> None:
-        """Method to be called if the non-linear solver fails to converge.
-
-        Parameters:
-            iteration_counter: Number of nonlinear solver iterations before failure.
-                Used for time step adaptation.
-
-        """
+        """Method to be called if the non-linear solver fails to converge."""
         self.save_data_time_step()
         if not self._is_nonlinear_problem():
             raise ValueError("Failed to solve linear system for the linear problem.")
