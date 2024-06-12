@@ -1081,6 +1081,7 @@ class DarcysLaw:
             Sequence[pp.Grid],
             Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
             Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
+            Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
             Callable[[pp.Grid], pp.BoundaryCondition],
             str,
             int,
@@ -1444,14 +1445,15 @@ class AdTpfaFlux:
             Sequence[pp.Grid],
             Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
             Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
+            Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
             Callable[[pp.Grid], pp.BoundaryCondition],
             str,
             int,
         ],
         pp.ad.Operator,
     ]
-    """Combine Dirichlet and Neumann boundary conditions. Normally defined in a mixin
-    instance of :class:`~porepy.models.boundary_condition.BoundaryConditionMixin`.
+    """Combine Dirichlet, Neumann and Robin boundary conditions. Normally defined in a 
+    mixin instance of :class:`~porepy.models.boundary_condition.BoundaryConditionMixin`.
 
     """
     basis: Callable[[Sequence[pp.GridLike], int], list[pp.ad.SparseArray]]
@@ -1656,13 +1658,10 @@ class AdTpfaFlux:
         flux_p = flux_p + pp.ad.Scalar(0) * base_discr.flux() @ potential(domains)
 
         # Get boundary condition values
-        boundary_operator = self._combine_boundary_operators(  # type: ignore[call-arg]
+        boundary_operator = self.combine_boundary_operators_tpfa_flux(
             subdomains=domains,
-            dirichlet_operator=potential,
-            neumann_operator=getattr(self, flux_name),
-            robin_operator=getattr(self, flux_name),
-            bc_type=getattr(self, "bc_type_" + flux_name),
-            name="bc_values_" + flux_name,
+            potential=potential,
+            flux_name=flux_name,
         )
 
         # Compose the full discretization of the Darcy flux, which consists of three
@@ -1703,13 +1702,8 @@ class AdTpfaFlux:
 
         projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1)
 
-        boundary_operator = self._combine_boundary_operators(  # type: ignore[call-arg]
-            subdomains=subdomains,
-            dirichlet_operator=potential,
-            neumann_operator=getattr(self, flux_name),
-            robin_operator=getattr(self, flux_name),
-            bc_type=getattr(self, "bc_type_" + flux_name),
-            name="bc_values_" + flux_name,
+        boundary_operator = self.combine_boundary_operators_tpfa_flux(
+            subdomains=subdomains, potential=potential, flux_name=flux_name
         )
         base_discr = getattr(self, flux_name + "_discretization")(subdomains)
         # Obtain the transmissibilities in operator form. Ignore other outputs.
@@ -1781,6 +1775,34 @@ class AdTpfaFlux:
             @ getattr(self, "vector_source_" + flux_name)(subdomains)
         )
         return pressure_trace
+
+    def combine_boundary_operators_tpfa_flux(
+        self,
+        subdomains: list[pp.Grid],
+        potential: Callable[[list[pp.Grid]], pp.ad.Operator],
+        flux_name: str,
+    ) -> pp.ad.Operator:
+        """Combine flux boundary operators for tpfa (used for Fourier and Darcy flux).
+
+        Parameters:
+            subdomains: List of the subdomains whose boundary operators are to be
+                combined.
+            potential: The Dirichlet operator.
+            flux_name: The name of the flux.
+
+        Returns:
+            The combined flux boundary operator.
+
+        """
+        op = self._combine_boundary_operators(  # type: ignore[call-arg]
+            subdomains=subdomains,
+            dirichlet_operator=potential,
+            neumann_operator=getattr(self, flux_name),
+            robin_operator=getattr(self, flux_name),
+            bc_type=getattr(self, "bc_type_" + flux_name),
+            name="bc_values_" + flux_name,
+        )
+        return op
 
     def __transmissibility_matrix(
         self,
@@ -2589,6 +2611,7 @@ class FouriersLaw:
             Sequence[pp.Grid],
             Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
             Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
+            Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
             Callable[[pp.Grid], pp.BoundaryCondition],
             str,
             int,
@@ -3376,6 +3399,7 @@ class LinearElasticMechanicalStress:
     _combine_boundary_operators: Callable[
         [
             Sequence[pp.Grid],
+            Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
             Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
             Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
             Callable[[pp.Grid], pp.BoundaryCondition],
