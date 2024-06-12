@@ -621,7 +621,7 @@ class TimeManager:
         """Correct time step if time + dt > scheduled_time."""
         schedule_time = self.schedule[self._scheduled_idx]
         if self.time + self.dt > schedule_time:
-            self._scheduled_idx += 1  # Increaing index to catch next scheduled time.
+            self._scheduled_idx += 1  # Increase index to catch next scheduled time.
 
             if np.isclose(self.time, schedule_time, rtol=self.rtol, atol=self.atol):
                 # Scheduled time will be reached within tol, no need for correction.

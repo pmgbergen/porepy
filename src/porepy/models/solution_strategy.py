@@ -469,7 +469,7 @@ class SolutionStrategy(abc.ABC):
         """
         self.save_data_time_step()
         if not self._is_nonlinear_problem():
-            raise ValueError("Tried solving singular matrix for the linear problem.")
+            raise ValueError("Failed to solve linear system for the linear problem.")
 
         if self.time_manager.is_constant:
             # We cannot decrease the constant time step.
