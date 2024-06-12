@@ -193,7 +193,7 @@ class Tpsa:
 
         # Operator R_k^n
         if sd.dim == 3:
-            # In this case, \hat{R}_k^n = \bar{R}_k^n is a 3x3 projection matrix that reads
+            # In this case, \hat{R}_k^n = \bar{R}_k^n is the 3x3 projection matrix
             #
             #  R^n = [[0, -n3, n2], [n3, 0, -n1], [-n2, n1, 0]]
             z = np.zeros(sd.num_faces)
@@ -202,9 +202,10 @@ class Tpsa:
             indices = np.repeat(np.arange(0, sd.dim * sd.num_faces), sd.dim)
             indptr = np.arange(0, sd.dim**2 * sd.num_faces + 1, sd.dim)
             Rn_hat = sps.csr_matrix(
-                (Rn_data.ravel("C"), indices, indptr),
+                (Rn_data.ravel("F"), indices, indptr),
                 shape=(sd.dim * sd.num_faces, sd.dim * sd.num_faces),
             )
+            Rn_hat = sps.block_diag([Rn_data[:, :, i] for i in range(nf)], format="csr")
 
             Rn_bar = Rn_hat
 
@@ -223,7 +224,6 @@ class Tpsa:
                     shape=(sd.num_faces * sd.dim, sd.num_faces * sd.dim),
                     ).tocsr()
             )
-
 
         elif sd.dim == 2:
             # In this case, \hat{R}_k^n and \bar{R}_k^n differs, and read, respectively
