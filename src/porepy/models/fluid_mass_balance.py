@@ -261,20 +261,37 @@ class MassBalanceEquations(pp.BalanceEquation):
         discr = self.mobility_discretization(domains)
         mob_rho = self.mobility_rho(domains)
 
-        # )
-        boundary_operator = self._combine_boundary_operators(  # type: ignore[call-arg]
-            subdomains=domains,
-            dirichlet_operator=self.mobility_rho,
-            neumann_operator=self.fluid_flux,
-            robin_operator=self.fluid_flux,
-            bc_type=self.bc_type_fluid_flux,
-            name="bc_values_fluid_flux",
+        boundary_operator = self.combine_boundary_operators_fluid_flux(
+            subdomains=domains
         )
         flux = self.advective_flux(
             domains, mob_rho, discr, boundary_operator, self.interface_fluid_flux
         )
         flux.set_name("fluid_flux")
         return flux
+
+    def combine_boundary_operators_fluid_flux(
+        self, subdomains: list[pp.Grid]
+    ) -> pp.ad.Operator:
+        """Combine fluid flux boundary operators.
+
+        Parameters:
+            subdomains: List of the subdomains whose boundary operators are to be
+                combined.
+
+        Returns:
+            The combined fluid flux boundary operator.
+
+        """
+        op = self._combine_boundary_operators(  # type: ignore[call-arg]
+            subdomains=subdomains,
+            dirichlet_operator=self.mobility_rho,
+            neumann_operator=self.fluid_flux,
+            robin_operator=self.fluid_flux,
+            bc_type=self.bc_type_fluid_flux,
+            name="bc_values_fluid_flux",
+        )
+        return op
 
     def interface_flux_equation(
         self, interfaces: list[pp.MortarGrid]
