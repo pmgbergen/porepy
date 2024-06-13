@@ -106,6 +106,7 @@ class CompositionalVariables(pp.VariableMixin):
 
         """
         names: list[str] = list()
+        # If no fluid mixture has been assigned, the list of fraction variables will be empty
         if hasattr(self, "fluid_mixture"):
             for comp in self.fluid_mixture.components:
                 if isinstance(comp, Compound):
