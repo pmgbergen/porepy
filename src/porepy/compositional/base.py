@@ -629,7 +629,7 @@ class Phase:
 class FluidMixture:
     """Basic fluid mixture class managing modelled components and phases.
 
-    The mixture class serves as a container for components and phases and to determine
+    The mixture class serves as a container for components and phases and contains the specification of
     the reference component and phase.
 
     It also allocates attributes for some thermodynamic properites of a mixture, which
