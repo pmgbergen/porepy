@@ -373,7 +373,7 @@ class AbstractEoS(abc.ABC):
             3. For correlations which indirectly represent the solution of the
                fluid phase equilibrium problem, the signature might as well be
                pressure, temperature and independent overall fractions.
-            4. For complex models, temperature can be replaced by enthalpy for example.
+            4. For complex models, temperature can be replaced by enthalpy, for example.
 
         Parameters:
             phase_type: See :attr:`Phase.type`
