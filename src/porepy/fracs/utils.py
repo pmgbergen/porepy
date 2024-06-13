@@ -165,7 +165,7 @@ def linefractures_to_pts_edges(
     # the rest of the rows with tags where they exist. All other tags keep their
     # initial value of ``-1``, which is equal to the tag not existing. This seemingly
     # complicated procedure is done to ensure that the ``edges`` array is not ragged.
-    edges = np.full((max_edge_dim, len(fractures)), -1, dtype=np.int8)
+    edges = np.full((max_edge_dim, len(fractures)), -1, dtype=np.int32)
     for row_index, edge in enumerate(edges_list):
         edges[: edge.shape[0], row_index] = edge
 
