@@ -25,6 +25,7 @@
 
    The phase has also physical properties (like density and enthalpy) which come into
    play when formulating more complex equilibrium models coupled with flow & transport.
+
 4. :class:`FluidMixture`:
     A basic representation of a mixture which is a collection of anticipated phases and
     present components.
