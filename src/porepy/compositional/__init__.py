@@ -22,7 +22,7 @@ modelling framework in the form of model mixins:
        flow & transport.
     3. For the case of more sophisticated thermodynamics, the groundwork is layed by
        defining a thermodynamic reference state (:mod:`~porepy.compositional._core`)
-       most commonly used in other packages  and literature [3].
+       most commonly used in other packages and literature [3].
     4. Units are standard SI units, and there is in principal no distinguishing between
        massic or molar quantities. Once the modeller decides what the model represents,
        massic or molar values must be consistently enforced.
