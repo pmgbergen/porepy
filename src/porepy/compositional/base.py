@@ -98,6 +98,7 @@ class Component(ChemicalSpecies):
 
     def __init__(self, **kwargs) -> None:
         # NOTE Only for Python >= 3.10
+        # Filter away kwargs that will not be recognized by ChemicalSpecies
         chem_species_kwargs = {
             k: v for k, v in kwargs.items() if k in ChemicalSpecies.__match_args__
         }
