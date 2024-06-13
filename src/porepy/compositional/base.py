@@ -1,7 +1,7 @@
 """This module contains the base classes for elements of a mixture:
 
 1. :class:`Component`:
-   A phase-changing representation of a species involving some physical constants
+   A phase-changing representation of a species involving some physical constants.
    Additionally, this class represents a variable quantity in the equilibrium
    problem. It can appear in multiple phases and has a fraction of the overall mass
    associated with it.
