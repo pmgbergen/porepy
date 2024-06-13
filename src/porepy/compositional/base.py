@@ -179,12 +179,12 @@ class Compound(Component):
     def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
 
-        self._pseudo_comps: list[ChemicalSpecies] = list()
+        self._pseudo_comps: list[ChemicalSpecies] = []
         """A list containing present pseudo-components."""
 
         self.solute_fraction_of: dict[
             ChemicalSpecies, Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
-        ] = dict()
+        ] = {}
         """A dictionary containing per present pseudo-component (key) the relative
         fraction of it with respect to the compound's overall fraction.
 
@@ -211,7 +211,7 @@ class Compound(Component):
 
         Parameters:
             pseudo_components: A list of chemical species to be added to the compound.
-                Uniqueness of the species is checked in the setter.
+                Uniqueness of the species is enforced in the setter.
 
         Returns:
             Solutes modelled in this compound.
@@ -235,6 +235,10 @@ class Compound(Component):
         It is a sum of the molar masses of present species, weighed with their
         respective fraction, including the solvent.
 
+        Important:
+            This is the *average* molar mass (https://en.wikipedia.org/wiki/Molar_mass),
+            assuming :attr:`solute_fraction_of` contains *molar* fractions.
+
         Parameters:
             domains: A sequence of subdomains or boundaries on which the operator
                 should be assembled. Used to call :attr:`relative_fraction_of`.
@@ -243,8 +247,12 @@ class Compound(Component):
             The molar mass of the compound.
 
         """
-        X = [self.solute_fraction_of[self](domains)]
+        X = [self.solute_fraction_of[pc](domains) for pc in self.pseudo_components]
         M = pp.ad.Scalar(self.molar_mass) * (pp.ad.Scalar(1.0) - safe_sum(X))
+        # But the molar mass [kg / mol] can be computed using molar masses of the
+        # solvent and solutes, weighing them with respective fractions and summing them.
+        # NOTE molar masses are required for the gravitational flux, in a setting with
+        # molar units.
 
         for pc, x in zip(self._pseudo_comps, X):
             M += pp.ad.Scalar(pc.molar_mass) * x
@@ -282,6 +290,9 @@ class Compound(Component):
 
         molalities = []
 
+        # NOTE for more information on the formula applied here see
+        # https://en.wikipedia.org/wiki/Molality
+
         # solvent fraction
         x_s = 1 - safe_sum(fractions)
         for fraction in fractions:
@@ -310,10 +321,12 @@ class Compound(Component):
             )
 
         m_sum = safe_sum(molalities)
-        X = list()
+        X = []
+
+        # NOTE for more information on the formula applied here see
+        # https://en.wikipedia.org/wiki/Molality
 
         for m in molalities:
-            # See https://en.wikipedia.org/wiki/Molality
             x_i = self.molar_mass * m / (1 + self.molar_mass * m_sum)
             X.append(x_i)
 
@@ -651,10 +664,6 @@ class FluidMixture:
         - The single gas-like phase is always the last one.
         - The first component is set as reference component.
 
-    Notes:
-        Be careful when modelling mixtures with 1 component. This singular case is not
-        fully supported by the equilibrium framework.
-
     Parameters:
         components: A list of components to be added to the mixture.
             This are the chemical species which can appear in multiple phases.
@@ -687,8 +696,8 @@ class FluidMixture:
         # a container holding names already added, to avoid storage conflicts
         doubles = []
         # Lists of gas-like and other phases
-        gaslike_phases: list[Phase] = list()
-        other_phases: list[Phase] = list()
+        gaslike_phases: list[Phase] = []
+        other_phases: list[Phase] = []
 
         for comp in components:
             if comp.name in doubles:
@@ -724,7 +733,7 @@ class FluidMixture:
 
         # Checking no dangling components
         for comp in self._components:
-            its_phases = list()
+            its_phases = []
             for phase in self._phases:
                 if comp in phase.components:
                     its_phases.append(phase)

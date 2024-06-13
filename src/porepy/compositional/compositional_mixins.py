@@ -83,7 +83,7 @@ class CompositionalVariables(pp.VariableMixin):
             :meth:`~porepy.compositional.base.Component.fraction`
 
         """
-        names: list[str] = list()
+        names: list[str] = []
         if hasattr(self, "fluid_mixture"):
             # the single feed fraction is not a variable
             if self.fluid_mixture.num_components == 1:
@@ -104,7 +104,7 @@ class CompositionalVariables(pp.VariableMixin):
             :attr:`~porepy.compositional.base.Compound.solute_fraction_of`
 
         """
-        names: list[str] = list()
+        names: list[str] = []
         if hasattr(self, "fluid_mixture"):
             for comp in self.fluid_mixture.components:
                 if isinstance(comp, Compound):
@@ -120,7 +120,7 @@ class CompositionalVariables(pp.VariableMixin):
             :attr:`~porepy.compositional.base.Phase.fraction`
 
         """
-        names: list[str] = list()
+        names: list[str] = []
         if self.equilibrium_type is None:
             return names
         if hasattr(self, "fluid_mixture"):
@@ -143,7 +143,7 @@ class CompositionalVariables(pp.VariableMixin):
             :attr:`~porepy.compositional.base.Phase.saturation`
 
         """
-        names: list[str] = list()
+        names: list[str] = []
         if hasattr(self, "fluid_mixture"):
             # single phase saturation is not a variable
             if self.fluid_mixture.num_phases == 1:
@@ -168,7 +168,7 @@ class CompositionalVariables(pp.VariableMixin):
             :attr:`~porepy.compositional.base.Phase.partial_fraction_of`
 
         """
-        names: list[str] = list()
+        names: list[str] = []
         if hasattr(self, "fluid_mixture"):
             ncomp = self.fluid_mixture.num_components
             nphase = self.fluid_mixture.num_phases
@@ -312,7 +312,10 @@ class CompositionalVariables(pp.VariableMixin):
 
         ## Creation of feed fractions
         for component in self.fluid_mixture.components:
-            if component != rcomp:  # will be called last
+            # NOTE The feed fraction of the reference component is called last.
+            # It can be eliminated by unity, but for this the other feed fractions must
+            # already be created and available as operators.
+            if component != rcomp:
                 name = self._overall_fraction_variable(component)
                 self._create_fractional_variable(name, subdomains)
                 component.fraction = self.overall_fraction(component)
@@ -322,7 +325,7 @@ class CompositionalVariables(pp.VariableMixin):
         ## Creation of solute fractions
         for comp in self.fluid_mixture.components:
             if isinstance(comp, Compound):
-                comp.solute_fraction_of = dict()
+                comp.solute_fraction_of = {}
                 for solute in comp.pseudo_components:
                     name = self._solute_fraction_variable(solute, comp)
                     self._create_fractional_variable(name, subdomains)
@@ -360,7 +363,7 @@ class CompositionalVariables(pp.VariableMixin):
                     phase.fraction = self.phase_fraction(phase)
 
                 # creating extended fractions
-                phase.extended_fraction_of = dict()
+                phase.extended_fraction_of = {}
                 for comp in phase:
                     phase.extended_fraction_of.update(
                         {comp: self.extended_fraction(comp, phase)}
@@ -373,7 +376,7 @@ class CompositionalVariables(pp.VariableMixin):
         # But if there is no equilibrium type, they are the independent variables
         # Otherwise they are created by normalization of extended variables
         for phase in self.fluid_mixture.phases:
-            phase.partial_fraction_of = dict()
+            phase.partial_fraction_of = {}
             for comp in phase:
                 phase.partial_fraction_of.update(
                     {comp: self.partial_fraction(comp, phase)}
@@ -398,7 +401,9 @@ class CompositionalVariables(pp.VariableMixin):
         Note:
             This method is called during :meth:`create_variables`.
             It is called last for the reference component.
-            I.e. The user can access fractions of the other components.
+            Since the overall fraction of the reference component can be eliminated by
+            unity of fractions, the other fractions must already be defined and
+            accessible at this point.
 
         Parameters:
             component: A component in the fluid mixture.
@@ -791,7 +796,7 @@ class FluidMixtureMixin:
         components = self.get_components()
         phase_configurations = self.get_phase_configuration(components)
 
-        phases: list[Phase] = list()
+        phases: list[Phase] = []
         for config in phase_configurations:
             eos, type_, name = config
             phases.append(Phase(eos, type_, name))
@@ -900,7 +905,7 @@ class FluidMixtureMixin:
             phase.specific_enthalpy = self.specific_enthalpy_of_phase(phase)
             phase.viscosity = self.viscosity_of_phase(phase)
             phase.conductivity = self.conductivity_of_phase(phase)
-            phase.fugacity_coefficient_of = dict()
+            phase.fugacity_coefficient_of = {}
             for comp in phase:
                 phase.fugacity_coefficient_of[comp] = self.fugacity_coefficient(
                     comp, phase

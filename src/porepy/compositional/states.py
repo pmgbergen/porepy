@@ -217,11 +217,14 @@ class PhaseState(ExtensiveState):
     def _extend(self, df_dx: np.ndarray) -> np.ndarray:
         """Helper method to extend the fractional derivatives.
 
-        Note:
-            The extended derivatives are used in the unified CFLE setting.
-            But it seems that the model converges even when using the un-extended
-            derivatives (Jacobian is not exact).
-            Full implications unclear as of now.
+        By extension, the application of the chain rule is meant, where ``f`` depends
+        on the partial fractions, which in return depend on the extended fractions
+        in the unified equilibrium formulation
+
+        :math:`f(\\tilde{x}) = f(\\tilde{x}(x))`.
+
+        See Also:
+            :func:`~porepy.compositional.utils.extend_fractional_derivatives`
 
         """
         return extend_fractional_derivatives(df_dx, self.x)
@@ -237,7 +240,8 @@ class FluidState(IntensiveState, ExtensiveState):
     phases.
 
     Note:
-        The first phase is always assumed to be the reference phase.
+        The first phase is always assumed to be the reference phase
+        (see :class:`~porepy.compositional.base.FluidMixture`).
         I.e., its fractional values are usually dependent by unity of fractions.
 
     Contrary to :class:`PhaseState`, this dataclass does not support derivatives of
@@ -340,7 +344,7 @@ def initialize_fluid_state(
     # to cover all components, independent of their modelling in phases
     state.z = np.zeros((ncomp.max(), n))
 
-    state.phases = list()
+    state.phases = []
     for j in range(nphase):
         phase_state = PhaseState(
             h=np.zeros(n),

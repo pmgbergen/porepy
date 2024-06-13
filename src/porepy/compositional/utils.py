@@ -110,12 +110,11 @@ def _extend_fractional_derivatives_gu(
 
 
 def extend_fractional_derivatives(df_dxn: np.ndarray, x: np.ndarray) -> np.ndarray:
-    r"""Expands the derivatives of a scalar function :math:`f(y, x_n)`, assuming
-    its derivatives are given w.r.t. to the normalized fractions ``x_n``.
+    r"""Applies the chain rule to the derivatives of a scalar function
+    :math:`f(y, \tilde{x})`, assuming its derivatives are given w.r.t. to the normalized
+    fractions :math:`\tilde{x}_i = \frac{x_i} / \frac{\sum_j x_j}`.
 
-    Expansion is conducted by simply applying the chain rule to :math:`f(y, x_n(x))`.
-
-    Intended use is for thermodynamic properties, which
+    Intended use is for thermodynamic properties in the unified formulation, which
     are given as functions with above signature.
 
     Utilizes numba for parallelized, efficient computations.
