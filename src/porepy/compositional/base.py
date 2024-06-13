@@ -632,7 +632,7 @@ class FluidMixture:
     The mixture class serves as a container for components and phases and to determine
     the reference component and phase.
 
-    If also allocates attributes for some thermodynamic properites of a mixture, which
+    It also allocates attributes for some thermodynamic properites of a mixture, which
     are required by the remaining framework, which are assigned by an instance of
     :class:`~porepy.compositional.compositional_mixins.FluidMixtureMixin`.
 
