@@ -1,7 +1,7 @@
 """This module contains the base classes for elements of a mixture:
 
 1. :class:`Component`:
-   A phase-changing representation of a species involving some physical constants
+   A phase-changing representation of a species involving some physical constants.
    Additionally, this class represents a variable quantity in the equilibrium
    problem. It can appear in multiple phases and has a fraction of the overall mass
    associated with it.
@@ -25,6 +25,7 @@
 
    The phase has also physical properties (like density and enthalpy) which come into
    play when formulating more complex equilibrium models coupled with flow & transport.
+
 4. :class:`FluidMixture`:
     A basic representation of a mixture which is a collection of anticipated phases and
     present components.
@@ -97,6 +98,7 @@ class Component(ChemicalSpecies):
 
     def __init__(self, **kwargs) -> None:
         # NOTE Only for Python >= 3.10
+        # Filter away kwargs that will not be recognized by ChemicalSpecies
         chem_species_kwargs = {
             k: v for k, v in kwargs.items() if k in ChemicalSpecies.__match_args__
         }
@@ -384,7 +386,7 @@ class AbstractEoS(abc.ABC):
             3. For correlations which indirectly represent the solution of the
                fluid phase equilibrium problem, the signature might as well be
                pressure, temperature and independent overall fractions.
-            4. For complex models, temperature can be replaced by enthalpy for example.
+            4. For complex models, temperature can be replaced by enthalpy, for example.
 
         Parameters:
             phase_type: See :attr:`Phase.type`
@@ -640,10 +642,10 @@ class Phase:
 class FluidMixture:
     """Basic fluid mixture class managing modelled components and phases.
 
-    The mixture class serves as a container for components and phases and to determine
+    The mixture class serves as a container for components and phases and contains the specification of
     the reference component and phase.
 
-    If also allocates attributes for some thermodynamic properites of a mixture, which
+    It also allocates attributes for some thermodynamic properites of a mixture, which
     are required by the remaining framework, which are assigned by an instance of
     :class:`~porepy.compositional.compositional_mixins.FluidMixtureMixin`.
 
@@ -657,7 +659,7 @@ class FluidMixture:
     Flash algorithms are built around the mixture management utilities of this class.
 
     Important:
-        Phases are re-ordered once passed as arguments.
+        Phases are re-ordered once passed as arguments according to the following rules:
 
         - If more than 1 phase, the first, non-gas-like phase is treated as the
           reference phase.
@@ -666,7 +668,7 @@ class FluidMixture:
 
     Parameters:
         components: A list of components to be added to the mixture.
-            This are the chemical species which can appear in multiple phases.
+            These are the chemical species which can appear in multiple phases.
         phases: A list of phases to be modelled.
 
     Raises:
@@ -694,7 +696,7 @@ class FluidMixture:
         """A list of phases passed at instantiation."""
 
         # a container holding names already added, to avoid storage conflicts
-        doubles = []
+        doubles: list[str] = []
         # Lists of gas-like and other phases
         gaslike_phases: list[Phase] = []
         other_phases: list[Phase] = []

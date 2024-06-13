@@ -98,7 +98,7 @@ class PhaseState(ExtensiveState):
     as viscosity and thermal conductivity.
 
     Derivatives are denoted with a ``d*`` and the derivative values are stored
-    along the first axis of a 2D array (i.e. each rot represents the derivative with
+    along the first axis of a 2D array (i.e. each row represents the derivative with
     respect to 1 dependency)
 
     The state of a phase is additionally characterized by an integer representing the

@@ -46,7 +46,7 @@ def safe_sum(x: Sequence[_Addable]) -> _Addable:
         sum_ = x[0]
         for i in range(1, len(x)):
             # Using TypeVar to indicate that return type is same as argument type
-            # MyPy says tha tthe TypeVar has no __add__, hence not adable...
+            # MyPy says that the TypeVar has no __add__, hence not adable...
             sum_ = sum_ + x[i]  # type: ignore[operator]
         return sum_
     else:
@@ -151,8 +151,9 @@ def extend_fractional_derivatives(df_dxn: np.ndarray, x: np.ndarray) -> np.ndarr
             raise ValueError("Dimensions in Axis 2 mismatch.")
 
         # NOTE Transpose to parallelize over values, not derivatives
-        df_dx = np.empty_like(df_dxn.T)
-        _extend_fractional_derivatives_gu(df_dxn.T, x.T, df_dx)
+        df_dxn_T = df_dxn.T
+        df_dx = np.empty_like(df_dxn_T)
+        _extend_fractional_derivatives_gu(df_dxn_T, x.T, df_dx)
 
         df_dx = df_dx.T
     else:
@@ -278,8 +279,9 @@ def compute_saturations(
 
     if len(y.shape) > 1:
         # NOTE transpose to parallelize over values, not phases
-        s = np.empty_like(y.T)
-        _compute_saturations_gu(y.T, rho.T, eps, s)
+        y_T = y.T
+        s = np.empty_like(y_T)
+        _compute_saturations_gu(y_T, rho.T, eps, s)
         s = s.T
     else:
         s = _compute_saturations(y, rho, eps)

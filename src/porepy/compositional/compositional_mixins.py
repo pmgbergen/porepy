@@ -1,7 +1,7 @@
 """A module containing mixins for defining fluid mixtures and relatd variables in a
 PorePy model.
 
-While the mixins operatore on some base assumptions, they are highly customizable by
+While the mixins operate on some base assumptions, they are highly customizable by
 inheritance and the user is encouraged to read up on them.
 
 """
@@ -38,7 +38,7 @@ class CompositionalVariables(pp.VariableMixin):
 
     Important:
         For compositional flow without a local equilibrium formulation, the flow and
-        transport formulationd does not require phase fractions or extended
+        transport formulation does not require phase fractions or extended
         fractions of components in phases.
         Phases have only saturations as phase related variables, and instead of extended
         fractions, the (physical) partial fractions are independent variables.
@@ -84,6 +84,7 @@ class CompositionalVariables(pp.VariableMixin):
 
         """
         names: list[str] = []
+        # If no fluid mixture has been assigned, the list of fraction variables will be empty.
         if hasattr(self, "fluid_mixture"):
             # the single feed fraction is not a variable
             if self.fluid_mixture.num_components == 1:
