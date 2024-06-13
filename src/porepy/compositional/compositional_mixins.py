@@ -38,7 +38,7 @@ class CompositionalVariables(pp.VariableMixin):
 
     Important:
         For compositional flow without a local equilibrium formulation, the flow and
-        transport formulationd does not require phase fractions or extended
+        transport formulation does not require phase fractions or extended
         fractions of components in phases.
         Phases have only saturations as phase related variables, and instead of extended
         fractions, the (physical) partial fractions are independent variables.
