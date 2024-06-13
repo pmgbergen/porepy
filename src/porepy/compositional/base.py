@@ -659,7 +659,7 @@ class FluidMixture:
 
     Parameters:
         components: A list of components to be added to the mixture.
-            This are the chemical species which can appear in multiple phases.
+            These are the chemical species which can appear in multiple phases.
         phases: A list of phases to be modelled.
 
     Raises:
