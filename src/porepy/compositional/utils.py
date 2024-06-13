@@ -280,8 +280,9 @@ def compute_saturations(
 
     if len(y.shape) > 1:
         # NOTE transpose to parallelize over values, not phases
-        s = np.empty_like(y.T)
-        _compute_saturations_gu(y.T, rho.T, eps, s)
+        y_T = y.T
+        s = np.empty_like(y_T)
+        _compute_saturations_gu(y_T, rho.T, eps, s)
         s = s.T
     else:
         s = _compute_saturations(y, rho, eps)
