@@ -152,8 +152,9 @@ def extend_fractional_derivatives(df_dxn: np.ndarray, x: np.ndarray) -> np.ndarr
             raise ValueError("Dimensions in Axis 2 mismatch.")
 
         # NOTE Transpose to parallelize over values, not derivatives
-        df_dx = np.empty_like(df_dxn.T)
-        _extend_fractional_derivatives_gu(df_dxn.T, x.T, df_dx)
+        df_dxn_T = df_dxn.T
+        df_dx = np.empty_like(df_dxn_T)
+        _extend_fractional_derivatives_gu(df_dxn_T, x.T, df_dx)
 
         df_dx = df_dx.T
     else:
