@@ -687,7 +687,7 @@ class FluidMixture:
         """A list of phases passed at instantiation."""
 
         # a container holding names already added, to avoid storage conflicts
-        doubles = []
+        doubles: list[str] = []
         # Lists of gas-like and other phases
         gaslike_phases: list[Phase] = list()
         other_phases: list[Phase] = list()
