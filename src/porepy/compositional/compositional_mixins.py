@@ -1,7 +1,7 @@
 """A module containing mixins for defining fluid mixtures and relatd variables in a
 PorePy model.
 
-While the mixins operatore on some base assumptions, they are highly customizable by
+While the mixins operate on some base assumptions, they are highly customizable by
 inheritance and the user is encouraged to read up on them.
 
 """
