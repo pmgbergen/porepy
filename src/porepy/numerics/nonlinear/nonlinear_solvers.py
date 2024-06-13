@@ -121,10 +121,12 @@ class NewtonSolver:
                 newton_step()
 
                 if is_diverged:
-                    model.after_nonlinear_failure()
+                    # The nonlinear solver failure is handled after the loop.
                     break
                 elif is_converged:
-                    model.after_nonlinear_convergence()
+                    model.after_nonlinear_convergence(
+                        iteration_counter=iteration_counter
+                    )
                     break
 
                 iteration_counter += 1
@@ -160,11 +162,13 @@ class NewtonSolver:
                         # If the process finishes early, the tqdm bar needs to be
                         # manually closed. See https://stackoverflow.com/a/73175351.
                         solver_progressbar.close()
-                        model.after_nonlinear_failure()
+                        # The nonlinear solver failure is handled after the loop.
                         break
                     elif is_converged:
                         solver_progressbar.close()
-                        model.after_nonlinear_convergence()
+                        model.after_nonlinear_convergence(
+                            iteration_counter=iteration_counter
+                        )
                         break
 
                     iteration_counter += 1
