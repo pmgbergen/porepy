@@ -26,7 +26,7 @@ modelling framework in the form of model mixins:
     4. Units are standard SI units, and there is in principal no distinguishing between
        massic or molar quantities. Once the modeller decides what the model represents,
        massic or molar values must be consistently enforced.
-       The unly exception is :data:`~porepy.compositional._core.R_IDEAL_MOL`, which is
+       The only exception is :data:`~porepy.compositional._core.R_IDEAL_MOL`, which is
        given as a molar quantity.
 
 References:
