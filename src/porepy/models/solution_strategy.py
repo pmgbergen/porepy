@@ -523,15 +523,8 @@ class SolutionStrategy(abc.ABC):
             # First a simple check for nan values.
             if np.any(np.isnan(nonlinear_increment)):
                 # If the solution contains nan values, we have diverged.
-            # TODO: resolve this!
-            #     return np.nan, False, True
-            # error = self.variable_norm(solution)
-            # logger.info(f"Normalized residual norm: {error:.2e}")
-            # converged = error < nl_params["nl_convergence_tol"]
-            # 
-            #     return np.nan, np.nan, False, True
-
-            # nonlinear_increment based norm
+                return np.nan, np.nan, False, True
+            # Nonlinear_increment based norm
             nonlinear_increment_norm = self.compute_nonlinear_increment_norm(
                 nonlinear_increment
             )
@@ -591,24 +584,6 @@ class SolutionStrategy(abc.ABC):
             nonlinear_increment.size
         )
         return nonlinear_increment_norm
-
-    def variable_norm(self, solution: np.ndarray) -> float:
-        """Interface to compute the norm of the solution.
-
-        Works in principle for any algebraic representation of a MixedDimensionalVariable.
-
-        Parameters:
-            solution: solution vector
-
-        Returns:
-            float: norm of solution vector
-
-        """
-        # Simple but fairly robust convergence criterion. More advanced options are
-        # e.g. considering errors for each variable and/or each grid separately,
-        # possibly using _l2_norm_cell
-        # We normalize by the size of the solution vector.
-        return np.linalg.norm(solution) / np.sqrt(solution.size)
 
     def _initialize_linear_solver(self) -> None:
         """Initialize linear solver.
