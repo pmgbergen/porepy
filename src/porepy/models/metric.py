@@ -1,7 +1,19 @@
 """Module collecting useful convergence criteria for integration in solution strategy.
 
 These can also serve as inspiration for how to define custom criteria to override
-'variable_norm' in solution_strategy.
+methods for computing norms in solution_strategy. But moreover, they can be used
+for convergence studies etc.
+
+Example:
+    # Given a model class `MyModel`, to equip it with a custom metric to be used in
+    # the solution strategy, one can override the corresponding method as follows:
+
+    class MyNewModel(MyModel):
+
+        def compute_nonlinear_increment_norm(self, solution: np.ndarray) -> float:
+            # Method for computing the norm of the nonlinear increment during
+            # `check_convergence`.
+            return pp.LebesgueMetric().variable_norm(self, solution)
 
 """
 
