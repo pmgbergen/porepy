@@ -46,7 +46,7 @@ def safe_sum(x: Sequence[_Addable]) -> _Addable:
         sum_ = x[0]
         for i in range(1, len(x)):
             # Using TypeVar to indicate that return type is same as argument type
-            # MyPy says tha tthe TypeVar has no __add__, hence not adable...
+            # MyPy says that the TypeVar has no __add__, hence not adable...
             sum_ = sum_ + x[i]  # type: ignore[operator]
         return sum_
     else:
