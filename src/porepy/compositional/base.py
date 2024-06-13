@@ -646,7 +646,7 @@ class FluidMixture:
     Flash algorithms are built around the mixture management utilities of this class.
 
     Important:
-        Phases are re-ordered once passed as arguments.
+        Phases are re-ordered once passed as arguments according to the following rules:
 
         - If more than 1 phase, the first, non-gas-like phase is treated as the
           reference phase.
