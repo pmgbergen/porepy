@@ -5,7 +5,10 @@ fluid mixtures, and fluid phase equilibrium problems.
 
 The entry point to compositional modelling is the module
 :mod:`porepy.compositional.base`, wich provides means to model a component-context, a
-phase-context and a fluid mixture.
+phase-context and a fluid mixture. Classes for storing the state of a fluid (values of primary
+and secondary variables and their derivatives) can be found in :mod:`porepy.compositional.states`,
+while functionality for coupling with the models is provided in
+:mod:`porepy.compositional.compositional_mixins`.
 
 While the package is in principal self-contained, it provides two interfaces to PorePy's
 modelling framework in the form of model mixins:
