@@ -1,4 +1,5 @@
 """Testing functionality related to FractureNetwork2d."""
+
 import numpy as np
 import pytest
 
@@ -247,8 +248,9 @@ def test_add_networks_preserve_tags(fracs: list[LineFracture]):
 
     # Assign tags to network1
     tag1 = 2
-    # Had to change this to ensure that edges still has ``dtype np.int8``
-    network_1._edges = np.vstack((network_1._edges, tag1 * np.ones(2, dtype=np.int8)))
+    # Had to change this to ensure that edges still has ``dtype np.int32``.
+    # Used to be int8. Not sure if this is important.
+    network_1._edges = np.vstack((network_1._edges, tag1 * np.ones(2, dtype=np.int32)))
     together = network_1.add_network(network_2)
     known_tags = np.array([tag1, tag1, tag2, tag2])
     assert np.all(together._edges[2] == known_tags)
