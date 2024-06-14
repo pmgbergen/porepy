@@ -44,6 +44,23 @@ See Also:
 
 """
 
+NUMBA_PARALLEL: bool = True
+"""Flag to instruct numba to compile functions in parallel mode, where applicable.
+
+By default, the parallel backend will be used.
+
+Flag is introduced for developing processes when involving other packages supporing
+parallelism such as numpy and PETSc.
+
+Affected numba functionality includes:
+
+1. `JIT parallelism
+   <https://numba.readthedocs.io/en/stable/user/jit.html#parallel>`_
+2. `Numpy universal functions
+   <https://numba.readthedocs.io/en/stable/user/vectorize.html>`_
+
+"""
+
 R_IDEAL_MOL: float = 8.31446261815324
 """Universal gas constant in ``[J / K mol]``."""
 

@@ -4,6 +4,14 @@ PorePy model.
 While the mixins operate on some base assumptions, they are highly customizable by
 inheritance and the user is encouraged to read up on them.
 
+Important:
+    The framework does not support the variable switiching approach.
+
+    Once the :meth:`~porepy.compositional.base.FluidMixture.reference_phase_index` and
+    :meth:`~porepy.compositional.base.FluidMixture.reference_component_index` are set
+    and the mixins create the mixture and associated variables, there is no changing
+    that.
+
 """
 
 from __future__ import annotations

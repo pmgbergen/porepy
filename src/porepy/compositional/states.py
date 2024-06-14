@@ -24,8 +24,8 @@ from typing import Optional, Sequence, cast
 import numpy as np
 
 from .utils import (
+    chainrule_fractional_derivatives,
     compute_saturations,
-    extend_fractional_derivatives,
     normalize_rows,
     safe_sum,
 )
@@ -173,61 +173,57 @@ class PhaseState(ExtensiveState):
 
     @property
     def drho_ext(self) -> np.ndarray:
-        """Returning the extended derivatives from :attr:`drho`, assuming the last
-        rows are derivatives w.r.t. (extended) fractions in :attr:`x`.
+        """Assuming the derivatives in :attr:`drho` are with respect to (physical)
+        partial fractions (last :attr:`x` ``.shape[0]`` rows), this property returns the
+        derivatives w.r.t. extended fractions in the unified setting.
 
-        I.e., ``drho.shape[0]`` must be at least ``x.shape[0]``.
+        The extended fractions are assumed to be stored in :attr:`x`,
+        whereas the partial fractions are given by :attr:`x_normalized`.
 
         For more information, see
-        :func:`~porepy.compositional.utils.extend_fractional_derivatives`.
+        :func:`~porepy.compositional.utils.chainrule_fractional_derivatives`.
 
         """
-        return self._extend(self.drho)
+        return self._for_extended_fractions(self.drho)
 
     @property
     def dv_ext(self) -> np.ndarray:
-        """Extended derivatives found in :attr:`dv`. See :meth:`drho_ext` for more
-        information."""
-        return self._extend(self.dv)
+        """See :meth:`drho_ext` for more information."""
+        return self._for_extended_fractions(self.dv)
 
     @property
     def dh_ext(self) -> np.ndarray:
-        """Extended derivatives found in :attr:`dh`. See :meth:`drho_ext` for more
-        information."""
-        return self._extend(self.dh)
+        """See :meth:`drho_ext` for more information."""
+        return self._for_extended_fractions(self.dh)
 
     @property
     def dmu_ext(self) -> np.ndarray:
-        """Extended derivatives found in :attr:`dmu`. See :meth:`drho_ext` for more
-        information."""
-        return self._extend(self.dmu)
+        """See :meth:`drho_ext` for more information."""
+        return self._for_extended_fractions(self.dmu)
 
     @property
     def dkappa_ext(self) -> np.ndarray:
-        """Extended derivatives found in :attr:`dkappa`. See :meth:`drho_ext` for more
-        information."""
-        return self._extend(self.dkappa)
+        """See :meth:`drho_ext` for more information."""
+        return self._for_extended_fractions(self.dkappa)
 
     @property
     def dphis_ext(self) -> np.ndarray:
-        """Extended derivatives found in :attr:`dkappa`. See :meth:`drho_ext` for more
-        information."""
-        return np.array([self._extend(dphi) for dphi in self.dphis])
+        """See :meth:`drho_ext` for more information."""
+        return np.array([self._for_extended_fractions(dphi) for dphi in self.dphis])
 
-    def _extend(self, df_dx: np.ndarray) -> np.ndarray:
-        """Helper method to extend the fractional derivatives.
-
-        By extension, the application of the chain rule is meant, where ``f`` depends
-        on the partial fractions, which in return depend on the extended fractions
-        in the unified equilibrium formulation
-
-        :math:`f(\\tilde{x}) = f(\\tilde{x}(x))`.
+    def _for_extended_fractions(self, df_dx: np.ndarray) -> np.ndarray:
+        """Helper method to apply the chainrule to fractional derivatives, switching
+        from partial fraction to extended fractions in the unified formulation.
 
         See Also:
-            :func:`~porepy.compositional.utils.extend_fractional_derivatives`
+            :func:`~porepy.compositional.utils.chainrule_fractional_derivatives`
 
         """
-        return extend_fractional_derivatives(df_dx, self.x)
+        # NOTE development & debug:
+        # A switch to Quasi-Newton can be handled here by omitting the chainrule.
+        # Increased robustness (challenging EoS extension) and the Jacobian containing
+        # the physical derivatives are the consequences
+        return chainrule_fractional_derivatives(df_dx, self.x)
 
 
 @dataclass

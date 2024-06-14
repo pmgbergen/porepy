@@ -291,16 +291,16 @@ def test_logical_operation(N: int, logical_op: str, other: int | np.ndarray | Ad
     result_numpy = np.empty(N)
     result_ad = np.empty(N)
 
-    # If numpy failes to broadcast the shapes, so should the Ad Array.
     # NOTE Numpy manages to compare arrays, if one of them has shape (1,) by treating
     # it as a scalar. All other cases should raise an error.
     try:
         # NOTE if the AD array is the right operand, the overload of numpy will be
-        # invoked
+        # invoked. Must use the .val member in this case
         if isinstance(other, AdArray):
             exec(f"global result_numpy; result_numpy = val {logical_op} other.val")
         else:
             exec(f"global result_numpy; result_numpy = val {logical_op} other")
+    # If numpy failes to broadcast the shapes, so should the Ad Array.
     except ValueError as numpy_err:
         with pytest.raises(ValueError) as ad_error:
             exec(f"result_ad = ad {logical_op} other")

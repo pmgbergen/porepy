@@ -1,6 +1,4 @@
-""">>> import porepy.compositional as ppc
-
-The compositional subpackage provides utilities to model multi-phase multi-component
+"""The compositional subpackage provides utilities to model multi-phase multi-component
 fluid mixtures, and fluid phase equilibrium problems.
 
 The entry point to compositional modelling is the module
@@ -59,8 +57,8 @@ from .states import (
 )
 from .utils import (
     CompositionalModellingError,
+    chainrule_fractional_derivatives,
     compute_saturations,
-    extend_fractional_derivatives,
     normalize_rows,
     safe_sum,
 )

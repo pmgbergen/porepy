@@ -662,9 +662,9 @@ class FluidMixture:
         Phases are re-ordered once passed as arguments according to the following rules:
 
         - If more than 1 phase, the first, non-gas-like phase is treated as the
-          reference phase.
+          reference phase per default.
         - The single gas-like phase is always the last one.
-        - The first component is set as reference component.
+        - The first component is set as reference component per default.
 
     Parameters:
         components: A list of components to be added to the mixture.
@@ -689,7 +689,11 @@ class FluidMixture:
         components: list[Component],
         phases: list[Phase],
     ) -> None:
-        # modelled phases and components
+
+        self._ref_phase_index: int = 0
+        """See :meth:`reference_phase_index`."""
+        self._ref_component_index: int = 0
+        """See :meth:`reference_component_index`."""
         self._components: list[Component] = []
         """A list of components passed at instantiation."""
         self._phases: list[Phase] = []
@@ -743,6 +747,10 @@ class FluidMixture:
                 raise CompositionalModellingError(
                     f"Component {comp.name} not in any phase."
                 )
+
+        # NOTE by logic, length of gas-like phases can only be 1 at this point
+        self._has_gas: bool = True if len(gaslike_phases) == 1 else False
+        """Flag indicating if a gas-like phase is present."""
         ### PUBLIC
 
         self.density: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
@@ -793,25 +801,10 @@ class FluidMixture:
         return len(self._phases)
 
     @property
-    def num_equilibrium_equations(self) -> int:
-        """Number of necessary equilibrium equations for this composition, based on the
-        number of added components and phases ``num_components * (num_phases - 1)``.
-
-        Equilibrium equation (isofugacity constraints) are always formulated w.r.t. the
-        reference phase, hence ``num_phases - 1``.
-
-        """
-        return self.num_components * (self.num_phases - 1)
-
-    @property
     def components(self) -> Generator[Component, None, None]:
         """
-        Note:
-            The first component is always the reference component.
-
         Yields:
-            Components added to the composition.
-
+            Components in this fluid mixture.
         """
         for C in self._components:
             yield C
@@ -819,48 +812,106 @@ class FluidMixture:
     @property
     def phases(self) -> Generator[Phase, None, None]:
         """
-        Note:
-            The first phase is always the reference phase.
-
         Yields:
-            Phases modelled by the composition class.
-
+            Phases modelled in this fluid mixture.
         """
         for P in self._phases:
             yield P
 
     @property
-    def reference_phase(self) -> Phase:
-        """Returns the reference phase.
+    def gas_phase_index(self) -> int | None:
+        """Returns the index of the gas-like phase in :meth:`phases`.
 
-        As of now, the first **non-gas-like** phase is declared as reference
-        phase (based on :attr:`~porepy.compositional.phase.Phase.gaslike`).
+        Only 1 gas-like phase is supported and as of now it is always the last one
+        in :meth:`phases`, if present.
 
-        The reference phase is always the first element in :meth:`phases`.
+        Note:
+            The return value can be used as a boolean check whether gas is modelled or
+            not.
 
-        The implications of a phase being the reference phase include:
-
-        - The reference phase :attr:`~Phase.fraction` and :attr:`~Phase.saturation` can
-          be eliminated by unity and are **not** independent variables.
+        Returns:
+            The index of the gas-like phase (:meth:`num_phases` - 1), if gas is
+            modelled. Returns None otherwise.
 
         """
-        return self._phases[0]
+        if self._has_gas:
+            # NOTE for safety reasons, we avoid using -1 for the last index to be
+            # compatible with non-pythonic indexation
+            return self.num_phases - 1
+        else:
+            return None
+
+    @property
+    def reference_phase_index(self) -> int:
+        """Returns the index of the phase in :meth:`phases`, which is designated
+        as the reference phase.
+
+        By default, the first phase (0) is designated as the reference phase, which
+        coincides with the first liquid-like phase (if any).
+
+        Important:
+            Changing the index of the reference phase changes also which phase
+            :attr:`~Phase.fraction` and :attr:`~Phase.saturation` are eliminated by
+            unity.
+
+            Depending on the simulation set-up, this has numerical implications.
+
+        Parameters:
+            index: A new index to be assigned.
+
+        Raises:
+            IndexError: If index is out of range of :meth:`phases`.
+
+        Returns:
+            The index of the current phase designated as the reference phase.
+
+        """
+        return self._ref_phase_index
+
+    @reference_phase_index.setter
+    def reference_phase_index(self, index: int) -> None:
+        max_index = len(self._phases) - 1
+        if index < 0 or index > max_index:
+            raise IndexError(f"Phase index {index} out of range [0, {max_index}].")
+        self._ref_phase_index = int(index)
+
+    @property
+    def reference_component_index(self) -> int:
+        """Returns the index of the component in :meth:`components`, which is designated
+        as the reference component.
+
+        By default, the first component (0) is designated as the reference component.
+
+        Important:
+            Changing the index of the reference component changes which mass
+            conservation equations are eliminated by unity.
+
+        Parameters:
+            index: A new index to be assigned.
+
+        Raises:
+            IndexError: If index is out of range of :meth:`components`.
+
+        Returns:
+            The index of the current component designated as the reference component.
+
+        """
+        return self._ref_component_index
+
+    @reference_component_index.setter
+    def reference_component_index(self, index: int) -> None:
+        max_index = len(self._components) - 1
+        if index < 0 or index > max_index:
+            raise IndexError(f"Component index {index} out of range [0, {max_index}].")
+        self._ref_component_index = int(index)
+
+    @property
+    def reference_phase(self) -> Phase:
+        """Returns the reference phase as designated by :meth:`reference_phase_index`."""
+        return self._phases[self.reference_phase_index]
 
     @property
     def reference_component(self) -> Component:
-        """Returns the reference component.
-
-        The reference component is always the first element in :meth:`components`.
-
-        It can be changed by changing the order of ``components`` when creating the
-        mixture.
-
-        The implications of a component being the reference component include:
-
-        - The mass constraint can be eliminated, since it is linear dependent on the
-          other mass constraints due to various unity constraints.
-        - Its overall :attr:`Component.fraction` can be eliminated by unity and is
-          **not** an independent variable.
-
-        """
-        return self._components[0]
+        """Returns the reference component as designated by
+        :meth:`reference_component_index`."""
+        return self._components[self.reference_component_index]

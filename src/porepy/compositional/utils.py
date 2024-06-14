@@ -8,12 +8,12 @@ from typing import Sequence, TypeVar, cast
 import numba
 import numpy as np
 
-from ._core import NUMBA_CACHE, NUMBA_FAST_MATH
+from ._core import NUMBA_CACHE, NUMBA_FAST_MATH, NUMBA_PARALLEL
 
 __all__ = [
     "safe_sum",
     "normalize_rows",
-    "extend_fractional_derivatives",
+    "chainrule_fractional_derivatives",
     "compute_saturations",
     "CompositionalModellingError",
 ]
@@ -77,9 +77,9 @@ def normalize_rows(x: np.ndarray) -> np.ndarray:
 
 
 @numba.njit("float64[:](float64[:],float64[:])", fastmath=NUMBA_FAST_MATH, cache=True)
-def _extend_fractional_derivatives(df_dxn: np.ndarray, x: np.ndarray) -> np.ndarray:
+def _chainrule_fractional_derivatives(df_dxn: np.ndarray, x: np.ndarray) -> np.ndarray:
     """Internal ``numba.njit``-decorated function for
-    :meth:`extend_compositional_derivatives` for non-vectorized input."""
+    :meth:`chainrule_fractional_derivatives` for non-vectorized input."""
 
     df_dx = df_dxn.copy()  # deep copy to avoid messing with values
     ncomp = x.shape[0]
@@ -97,19 +97,19 @@ def _extend_fractional_derivatives(df_dxn: np.ndarray, x: np.ndarray) -> np.ndar
 @numba.guvectorize(
     ["void(float64[:],float64[:],float64[:],float64[:])"],
     "(m),(n),(m)->(m)",
-    target="parallel",
+    target="parallel" if NUMBA_PARALLEL else "cpu",
     nopython=True,
     cache=NUMBA_CACHE,  # NOTE cache depends on internal function
 )
-def _extend_fractional_derivatives_gu(
+def _chainrule_fractional_derivatives_gu(
     df_dxn: np.ndarray, x: np.ndarray, out: np.ndarray, dummy: np.ndarray
 ) -> None:
     """Internal ``numba.guvectorize``-decorated function for
-    :meth:`extend_compositional_derivatives`."""
-    out[:] = _extend_fractional_derivatives(df_dxn, x)
+    :meth:`chainrule_fractional_derivatives`."""
+    out[:] = _chainrule_fractional_derivatives(df_dxn, x)
 
 
-def extend_fractional_derivatives(df_dxn: np.ndarray, x: np.ndarray) -> np.ndarray:
+def chainrule_fractional_derivatives(df_dxn: np.ndarray, x: np.ndarray) -> np.ndarray:
     r"""Applies the chain rule to the derivatives of a scalar function
     :math:`f(y, \tilde{x})`, assuming its derivatives are given w.r.t. to the normalized
     fractions :math:`\tilde{x}_i = \frac{x_i} / \frac{\sum_j x_j}`.
@@ -153,13 +153,13 @@ def extend_fractional_derivatives(df_dxn: np.ndarray, x: np.ndarray) -> np.ndarr
         # NOTE Transpose to parallelize over values, not derivatives
         df_dxn_T = df_dxn.T
         df_dx = np.empty_like(df_dxn_T)
-        _extend_fractional_derivatives_gu(df_dxn_T, x.T, df_dx)
+        _chainrule_fractional_derivatives_gu(df_dxn_T, x.T, df_dx)
 
         df_dx = df_dx.T
     else:
         if len(x.shape) != 1:
             raise ValueError("Dimensions in Axis 2 mismatch.")
-        df_dx = _extend_fractional_derivatives(df_dxn, x)
+        df_dx = _chainrule_fractional_derivatives(df_dxn, x)
 
     return df_dx
 
@@ -224,7 +224,7 @@ def _compute_saturations(y: np.ndarray, rho: np.ndarray, eps: float) -> np.ndarr
 @numba.guvectorize(
     ["void(float64[:],float64[:],float64,float64[:],float64[:])"],
     "(n),(n),(),(n)->(n)",
-    target="parallel",
+    target="parallel" if NUMBA_PARALLEL else "cpu",
     nopython=True,
     cache=NUMBA_CACHE,  # NOTE cache depends on internal function
 )

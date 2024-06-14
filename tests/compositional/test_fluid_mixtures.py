@@ -6,24 +6,24 @@ import pytest
 
 import numpy as np
 import porepy as pp
-import porepy.compositional as ppc
+import porepy.compositional as composit
 
 
 @pytest.fixture(scope='module')
 def dummyeos():
     """Dummy Eos"""
 
-    class DummyEos(ppc.AbstractEoS):
+    class DummyEos(composit.AbstractEoS):
 
         def compute_phase_state(
             self, phase_type: int, *thermodynamic_input: ndarray
-        ) -> ppc.PhaseState:
+        ) -> composit.PhaseState:
             pass
 
     return DummyEos
 
 
-class MockModel(ppc.FluidMixtureMixin, ppc.CompositionalVariables, pp.BoundaryConditionMixin):
+class MockModel(composit.FluidMixtureMixin, composit.CompositionalVariables, pp.BoundaryConditionMixin):
     """For typing support when using methods of the mixins."""
     pass
 
@@ -50,19 +50,19 @@ def get_mock_model(
         return pp.ad.Variable('pressure', {'cells': 1}, grid[0])
     
     
-    class Model(ppc.FluidMixtureMixin, ppc.CompositionalVariables, pp.BoundaryConditionMixin):
+    class Model(composit.FluidMixtureMixin, composit.CompositionalVariables, pp.BoundaryConditionMixin):
         
-        def get_components(self) -> list[ppc.Component]:
+        def get_components(self) -> list[composit.Component]:
             return components
         
         def get_phase_configuration(
-            self, components: np.Sequence[ppc.Component]
-        ) -> np.Sequence[tuple[ppc.AbstractEoS, int, str]]:
+            self, components: np.Sequence[composit.Component]
+        ) -> np.Sequence[tuple[composit.AbstractEoS, int, str]]:
             return phase_configuration
 
         # for simplicity of testing
         def dependencies_of_phase_properties(
-                self, phase: ppc.Phase
+                self, phase: composit.Phase
         ):
             return [self.pressure, self.temperature]
         
@@ -114,19 +114,19 @@ def test_mixture_contexts(species: list[str], phaseconfig: list[list[tuple[str, 
     ncomp = len(species)
 
     # 1 component to make an eos
-    h2o = ppc.Component.from_species(ppc.load_species(['H2O'])[0])
+    h2o = composit.Component.from_species(composit.load_species(['H2O'])[0])
 
-    components: list[ppc.Component] = [
-        ppc.Component.from_species(s) for s in ppc.load_species(species)
+    components: list[composit.Component] = [
+        composit.Component.from_species(s) for s in composit.load_species(species)
     ]
 
     if ncomp == 0:
-        with pytest.raises(ppc.CompositionalModellingError):
+        with pytest.raises(composit.CompositionalModellingError):
             _ = dummyeos(components)
-        eos: ppc.AbstractEoS = dummyeos([h2o])
+        eos: composit.AbstractEoS = dummyeos([h2o])
     else:
-        eos: ppc.AbstractEoS = dummyeos(components)
-    phases: list[ppc.Phase] = []
+        eos: composit.AbstractEoS = dummyeos(components)
+    phases: list[composit.Phase] = []
     has_gas = False
     has_more_gas = False
     for conf in phaseconfig:
@@ -135,7 +135,7 @@ def test_mixture_contexts(species: list[str], phaseconfig: list[list[tuple[str, 
             if has_gas:
                 has_more_gas = True
             has_gas = True
-        phases.append(ppc.Phase(eos, t, name))
+        phases.append(composit.Phase(eos, t, name))
         phases[-1].components = [h2o] + components  # to avoid errors
 
     phasenames = [phase.name for phase in phases]
@@ -150,21 +150,21 @@ def test_mixture_contexts(species: list[str], phaseconfig: list[list[tuple[str, 
             (ncomp > 0 or nphase > 0)
         ):
             with pytest.raises(ValueError):
-                ppc.FluidMixture(components, phases)
+                composit.FluidMixture(components, phases)
         else:
-            with pytest.raises(ppc.CompositionalModellingError):
-                ppc.FluidMixture(components, phases)
+            with pytest.raises(composit.CompositionalModellingError):
+                composit.FluidMixture(components, phases)
     # cannot create mixtures with duplicate names
     elif len(set(phasenames)) < nphase or len(set(compnames)) < ncomp:
         with pytest.raises(ValueError):
-            ppc.FluidMixture(components, phases)
+            composit.FluidMixture(components, phases)
     # more than 1 gas phase not allowed
     elif has_more_gas:
-        with pytest.raises(ppc.CompositionalModellingError):
-            ppc.FluidMixture(components, phases)
+        with pytest.raises(composit.CompositionalModellingError):
+            composit.FluidMixture(components, phases)
     # else the creation should not raise an error, and we check phase ordering
     else:
-        mix = ppc.FluidMixture(components, phases)
+        mix = composit.FluidMixture(components, phases)
 
         ordered_phases = [p for p in mix.phases]
         ordered_comps = [c for c in mix.components]
@@ -177,8 +177,8 @@ def test_mixture_contexts(species: list[str], phaseconfig: list[list[tuple[str, 
 
         # check that we cannot create mixtures if a phase has no components
         phases[0].components = []
-        with pytest.raises(ppc.CompositionalModellingError):
-            ppc.FluidMixture(components, phases)
+        with pytest.raises(composit.CompositionalModellingError):
+            composit.FluidMixture(components, phases)
     
 
 @pytest.mark.parametrize(
@@ -194,10 +194,10 @@ def test_mixture_member_assignment(
     fluid mixtures are assigned by the compositional mixins. Tested with and without
     independent reference component/phase fractions."""
 
-    species = ppc.load_species(['H2O', 'CO2', 'NaCl'])
-    comp1 = ppc.Compound.from_species(species[0])
+    species = composit.load_species(['H2O', 'CO2', 'NaCl'])
+    comp1 = composit.Compound.from_species(species[0])
     comp1.pseudo_components = [species[2]]
-    comp2 = ppc.Component.from_species(species[1])
+    comp2 = composit.Component.from_species(species[1])
     eos = dummyeos([comp1, comp2])
 
     mixin: MockModel = get_mock_model(
@@ -332,7 +332,7 @@ def test_mixture_member_assignment(
             assert isinstance(comp.fraction(bgs), pp.ad.TimeDependentDenseArray)
 
         # IF it is a compound, check relative fractions of pseudo components
-        if isinstance(comp, ppc.Compound):
+        if isinstance(comp, composit.Compound):
             assert hasattr(comp, 'solute_fraction_of')
             for pc in comp.pseudo_components:
                 assert pc in comp.solute_fraction_of
@@ -361,7 +361,7 @@ def test_singular_mixtures(species, phase_names, equilibrium_type, dummyeos):
     In this case, the number of created variables follows certain rules."""
 
 
-    components = [ppc.Component.from_species(s) for s in ppc.load_species(species)]
+    components = [composit.Component.from_species(s) for s in composit.load_species(species)]
     eos = dummyeos(components)
     phases = [(eos, 0, name) for name in phase_names]
 
