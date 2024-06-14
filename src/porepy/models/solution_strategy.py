@@ -135,7 +135,7 @@ class SolutionStrategy(abc.ABC):
         self.solid: pp.SolidConstants
         """Solid constants. See also :meth:`set_materials`."""
 
-        self.time_manager = params.get(
+        self.time_manager: pp.TimeManager = params.get(
             "time_manager",
             pp.TimeManager(schedule=[0, 1], dt_init=1, constant_dt=True),
         )
@@ -434,13 +434,22 @@ class SolutionStrategy(abc.ABC):
         )
         self.nonlinear_solver_statistics.num_iteration += 1
 
-    def after_nonlinear_convergence(self) -> None:
+    def after_nonlinear_convergence(self, iteration_counter: int) -> None:
         """Method to be called after every non-linear iteration.
 
         Possible usage is to distribute information on the solution, visualization, etc.
 
+        Parameters:
+            iteration_counter: Number of nonlinear solver iterations before convergence.
+                Used for time step adaptation.
+
         """
         solution = self.equation_system.get_variable_values(iterate_index=0)
+
+        # Update the time step magnitude if the dynamic scheme is used.
+        if not self.time_manager.is_constant:
+            self.time_manager.compute_time_step(iterations=iteration_counter)
+
         self.equation_system.shift_time_step_values(
             max_index=len(self.time_step_indices)
         )
@@ -453,10 +462,16 @@ class SolutionStrategy(abc.ABC):
     def after_nonlinear_failure(self) -> None:
         """Method to be called if the non-linear solver fails to converge."""
         self.save_data_time_step()
-        if self._is_nonlinear_problem():
+        if not self._is_nonlinear_problem():
+            raise ValueError("Failed to solve linear system for the linear problem.")
+
+        if self.time_manager.is_constant:
+            # We cannot decrease the constant time step.
             raise ValueError("Nonlinear iterations did not converge.")
         else:
-            raise ValueError("Tried solving singular matrix for the linear problem.")
+            # Update the time step magnitude if the dynamic scheme is used.
+            # Note: It will also raise a ValueError if the minimal time step is reached.
+            self.time_manager.compute_time_step(recompute_solution=True)
 
     def after_simulation(self) -> None:
         """Run at the end of simulation. Can be used for cleanup etc."""
