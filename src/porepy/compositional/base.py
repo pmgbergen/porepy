@@ -213,6 +213,9 @@ class Compound(Component):
             pseudo_components: A list of chemical species to be added to the compound.
                 Uniqueness of the species is enforced in the setter.
 
+        Raises:
+            ValueError: If names or CASr numbers are not unique per pseudo-component.
+
         Returns:
             Solutes modelled in this compound.
 
@@ -222,12 +225,17 @@ class Compound(Component):
     @pseudo_components.setter
     def pseudo_components(self, pseudo_components: list[ChemicalSpecies]) -> None:
         # avoid double species
-        double = []
+        double_names = []
+        double_casr = []
         self._pseudo_comps = []
         for s in pseudo_components:
-            if s.CASr_number not in double:
-                self._pseudo_comps.append(s)
-                double.append(s.CASr_number)
+            double_names.append(s.name)
+            double_casr.append(s.CASr_number)
+            self._pseudo_comps.append(s)
+        if len(set(double_casr)) < len(pseudo_components):
+            raise ValueError("CASr numbers must be unique per species.")
+        if len(set(double_names)) < len(pseudo_components):
+            raise ValueError("Names must be unique per species.")
 
     def compound_molar_mass(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
         """The molar mass of a compound depends on how much of the solutes is available.
@@ -684,7 +692,7 @@ class FluidMixture:
             - Any phase has no components in it.
         CompositionalModellingError: If there is 1 component, which is not in any phase.
         ValueError: If any two components or phases have the same name
-            (storage conflicts).
+            (storage conflicts), or any two components have the same CASr number.
 
     """
 
@@ -704,23 +712,22 @@ class FluidMixture:
         """A list of phases passed at instantiation."""
 
         # a container holding names already added, to avoid storage conflicts
-        doubles: list[str] = []
+        double_names: list[str] = []
+        double_casr: list[str] = []
         # Lists of gas-like and other phases
         gaslike_phases: list[Phase] = []
         other_phases: list[Phase] = []
 
         for comp in components:
-            if comp.name in doubles:
-                raise ValueError(
-                    f"All components must have different 'name' attributes."
-                )
-            doubles.append(comp.name)
+            double_names.append(comp.name)
+            double_casr.append(comp.CASr_number)
             self._components.append(comp)
 
+        if len(set(double_casr)) < len(self._components):
+            raise ValueError("CASr numbers must be unique per component.")
+
         for phase in phases:
-            if phase.name in doubles:
-                raise ValueError("All phases must have different 'name' attributes.")
-            doubles.append(phase.name)
+            double_names.append(phase.name)
             if phase.state == PhysicalState.gas:
                 gaslike_phases.append(phase)
             else:
@@ -732,6 +739,9 @@ class FluidMixture:
                 )
 
         self._phases = other_phases + gaslike_phases
+
+        if len(set(double_names)) < len(self._phases) + len(self._components):
+            raise ValueError("Phases and components must have unique names each.")
 
         # checking model assumptions
         if len(self._components) == 0:
