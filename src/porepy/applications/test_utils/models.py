@@ -122,6 +122,12 @@ class ThreeBoundaryConditionTypes:
     """Mixin for applying Neumann, Dirichlet and Robin conditions for a
     thermoporomechanics model."""
 
+    params: dict
+
+    domain_boundary_sides: Callable[[pp.GridLike], pp.domain.DomainSides]
+
+    nd: int
+
     def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
         p_north = self.params.get("p_north", 1)
         p_south = self.params.get("p_north", 1)
