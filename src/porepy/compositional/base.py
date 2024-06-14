@@ -375,7 +375,7 @@ class AbstractEoS(abc.ABC):
             raise CompositionalModellingError("Cannot create an EoS with no components")
 
     @abc.abstractmethod
-    def compute_phase_state(
+    def compute_phase_properties(
         self, phase_state: PhysicalState, *thermodynamic_input: np.ndarray
     ) -> PhaseProperties:
         """ "Abstract method to compute the properties of a phase based any
@@ -634,7 +634,7 @@ class Phase:
         """Shortcut to compute the properties calling
         :meth:`AbstractEoS.compute_phase_state` of :attr:`eos` with :attr:`type` as
         argument."""
-        return self.eos.compute_phase_state(self.state, *thermodynamic_input)
+        return self.eos.compute_phase_properties(self.state, *thermodynamic_input)
 
 
 class FluidMixture:
