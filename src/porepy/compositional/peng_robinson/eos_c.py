@@ -2,7 +2,7 @@
 and related functions.
 
 The functions provided here are building on lambdified expressions in
-:mod:`~porepy.composite.peng_robinson.eos_s`.
+:mod:`~porepy.compositional.peng_robinson.eos_s`.
 
 The naming convention introduced there is extended here:
 
@@ -42,7 +42,7 @@ import numpy as np
 from .._core import NUMBA_CACHE, NUMBA_FAST_MATH
 from ..eos_compiler import EoSCompiler
 from ..states import PhaseState
-from ..utils_c import normalize_rows
+from ..utils import normalize_rows
 from .eos_s import (
     A_CRIT,
     B_CRIT,
@@ -154,7 +154,7 @@ def red_coeff_1_c(A: float, B: float) -> float:
 discriminant_c: Callable[[float, float], float] = numba.njit(
     "float64(float64, float64)", **_STATIC_FAST_COMPILE_ARGS
 )(discriminant)
-"""NJIT-ed version of :func:`~porepy.composite.peng_robinson.eos_s.discriminant`.
+"""NJIT-ed version of :func:`~porepy.compositional.peng_robinson.eos_s.discriminant`.
 
 Signature: ``(float64, float64) -> float64``
 
@@ -405,7 +405,7 @@ r"""Two 2D points characterizing the Widom-line for water.
 
 The points are created by using :func:`widom_line` for :math:`A\in\{0, A_{crit}\}`.
 
-See :data:`~porepy.composite.peng_robinson.eos.A_CRIT`.
+See :data:`~porepy.compositional.peng_robinson.eos.A_CRIT`.
 
 """
 

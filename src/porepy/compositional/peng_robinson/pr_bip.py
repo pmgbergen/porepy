@@ -5,11 +5,11 @@ This includes interfaces to third-party packages like ``thermo``.
 
 BIPs are required for genuine components (and compounds), which switch phases and appear
 in the mixture cohesion term calculated by
-:class:`~porepy.composite.peng_robinson.eos.PengRobinsonEoS`.
+:class:`~porepy.compositional.peng_robinson.eos.PengRobinsonEoS`.
 
 This module serves standard, constant BIPs.
 For custom implementation of BIPs, see
-:attr:`~porepy.composite.peng_robinson.pr_components.Component_PR.bip_map`.
+:attr:`~porepy.compositional.peng_robinson.pr_components.Component_PR.bip_map`.
 
 """
 
@@ -27,7 +27,7 @@ def load_bip(cas_n1: str, cas_n2: str, package: str = "thermo") -> float:
     This function is an interface to third-party databases.
 
     CAS registry numbers can be accessed using
-    :class:`~porepy.composite.chem_species.ChemicalSpecies.CASr_number`.
+    :class:`~porepy.compositional.chem_species.ChemicalSpecies.CASr_number`.
 
     Parameters:
         cas_n1: CAS registry number of first component.

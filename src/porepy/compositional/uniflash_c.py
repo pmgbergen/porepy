@@ -30,24 +30,26 @@ import numpy as np
 from numba.core import types as nbtypes
 from numba.typed import Dict as nbdict
 
-from ._core import NUMBA_CACHE, NUMBA_FAST_MATH, R_IDEAL
-from .base import Mixture
-from .composite_utils import safe_sum
+from ._core import NUMBA_CACHE, NUMBA_FAST_MATH, R_IDEAL_MOL
+from .base import FluidMixture
 from .eos_compiler import EoSCompiler
 from .flash import Flash
 from .npipm_c import solver as npipmsolver
 from .states import FluidState
-from .utils_c import (
-    _compute_saturations,
-    _extend_fractional_derivatives,
+from .uniflash_utils_c import (
     insert_pT,
     insert_sat,
     insert_xy,
-    normalize_rows,
     parse_pT,
     parse_sat,
     parse_target_state,
     parse_xyz,
+)
+from .utils import (
+    _compute_saturations,
+    _extend_fractional_derivatives,
+    normalize_rows,
+    safe_sum,
 )
 
 __all__ = ["CompiledUnifiedFlash"]
@@ -523,8 +525,10 @@ class CompiledUnifiedFlash(Flash):
 
     Parameters:
         mixture: A mixture model containing modelled components and phases.
-        eos_compiler: An EoS compiler instance required to create a
-            :class:`~porepy.composite.flash_compiler.FlashCompiler`.
+        eos_compiler: An EoS compiler instance.
+
+            Important:
+                As of now, all phases must have the same EoS.
 
     Raises:
         AssertionError: If any of the following assumptions is violated
@@ -537,7 +541,7 @@ class CompiledUnifiedFlash(Flash):
 
     def __init__(
         self,
-        mixture: Mixture,
+        mixture: FluidMixture,
         eos_compiler: EoSCompiler,
     ) -> None:
         super().__init__(mixture)
@@ -776,9 +780,10 @@ class CompiledUnifiedFlash(Flash):
 
         if 1 in phasetypes:
             # NOTE only 1 expected (first)
-            gas_index = phasetypes.tolist().index(1)
+            # gas_index = phasetypes.tolist().index(1)
+            has_gas = True
         else:
-            gas_index = -1
+            has_gas = False
 
         ## dimension of flash systems, excluding NPIPM
         # number of equations for the pT system
@@ -1551,8 +1556,9 @@ class CompiledUnifiedFlash(Flash):
                     dT *= 1 - np.abs(dT) / T
                     # correction if gas phase is present and mixture enthalpy is too low
                     # to avoid overshooting T update
-                    if h_mix < h and y[gas_index] > 1e-3:
-                        dT *= 0.4
+                    if has_gas:
+                        if h_mix < h and y[-1] > 1e-3:
+                            dT *= 0.4
                     T += dT
 
             return insert_pT(X_gen, p, T, npnc)
@@ -1599,8 +1605,8 @@ class CompiledUnifiedFlash(Flash):
             x, y, _ = parse_xyz(X_gen, npnc)
             xn = normalize_rows(x)
             v, h = parse_target_state(X_gen, npnc)
-            if gas_index >= 0:
-                y_g = y[gas_index]
+            if has_gas:
+                y_g = y[-1]
             else:
                 y_g = 0.0
 
@@ -1713,14 +1719,14 @@ class CompiledUnifiedFlash(Flash):
                 else:  # gas-like
                     Z = 0.7
 
-                p = Z * T * R_IDEAL / v
+                p = Z * T * R_IDEAL_MOL / v
 
                 xf = insert_pT(xf, p, T, npnc)
                 xf = guess_fractions(xf, 3, 1)
 
-                if gas_index >= 0:
+                if has_gas:
                     _, y, _ = parse_xyz(xf, npnc)
-                    y_g = y[gas_index]
+                    y_g = y[-1]
                 else:
                     y_g = 0.0
                 if y_g < 1e-3:  # correction if no gas present
@@ -1828,12 +1834,9 @@ class CompiledUnifiedFlash(Flash):
         # the generic argument has additional ncomp - 1 feed fractions and 2 states
         X0 = np.zeros((ncomp + 1 + f_dim, NF))
 
-        # Filling the feed fractions into X0
-        i = 0
-        for i_, _ in enumerate(fluid_state.z):
-            if i_ != self._ref_component_idx:
-                X0[i] = fluid_state.z[i_]
-                i += 1
+        # Filling the independent feed fractions into X0
+        for i in range(1, ncomp):
+            X0[i - 1] = fluid_state.z[i]
         # Filling the fixed state values in X0, getting initialization args
         if flash_type == "p-T":
             X0[ncomp - 1] = fluid_state.p
@@ -1875,12 +1878,12 @@ class CompiledUnifiedFlash(Flash):
             init_time = 0.0
             # parsing phase compositions and molar fractions
             idx_y = -(nphase * ncomp + nphase - 1)  # index of first phase fraction
-            idx = 0
-            for j in range(nphase):
-                # values for molar phase fractions except for reference phase
-                if j != self._ref_phase_idx:
-                    X0[idx_y + idx] = fluid_state.y[j]
-                    idx += 1
+            # composition of reference phase
+            for i in range(ncomp):
+                X0[-(nphase * ncomp) + i] = fluid_state.phases[0].x[i]
+            # independent phases, including phase fractions
+            for j in range(1, nphase):
+                X0[idx_y + j - 1] = fluid_state.y[j]
                 # composition of phase j
                 for i in range(ncomp):
                     X0[-((nphase - j) * ncomp) + i] = fluid_state.phases[j].x[i]
@@ -1898,11 +1901,8 @@ class CompiledUnifiedFlash(Flash):
                     idx_p = idx_y - 1
                 X0[idx_p] = fluid_state.p
                 # parsing saturation values except for reference phase
-                idx = 0
                 for j in range(nphase - 1):
-                    if j != self._ref_phase_idx:
-                        X0[idx_p - (nphase - 1) + j] = fluid_state.sat[j]
-                        idx += 1
+                    X0[idx_p - (nphase - 1) + j] = fluid_state.sat[j + 1]
 
             logger.debug("Provided initial state parsed.")
         F = self.residuals[flash_type]
