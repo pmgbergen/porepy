@@ -36,6 +36,23 @@ class TailoredThermoporomechanics(
     pass
 
 
+class TailoredPoromechanicsRobin(
+    pp.test_utils.models.ThreeBoundaryConditionTypes,
+    pp.models.thermoporomechanics.Thermoporomechanics,
+):
+    def nd_rect_domain(self, x, y) -> pp.Domain:
+        box: dict[str, pp.number] = {"xmin": 0, "xmax": x}
+
+        box.update({"ymin": 0, "ymax": y})
+
+        return pp.Domain(box)
+
+    def set_domain(self) -> None:
+        x = self.solid.convert_units(1.0, "m")
+        y = self.solid.convert_units(1.0, "m")
+        self._domain = self.nd_rect_domain(x, y)
+
+
 def create_fractured_setup(
     solid_vals: dict, fluid_vals: dict, params: dict
 ) -> TailoredThermoporomechanics:
@@ -263,6 +280,62 @@ def test_positive_p_frac_positive_opening():
     # Fracture pressure and temperature are both positive.
     assert np.allclose(p_frac, 4.8e-4, atol=1e-5)
     assert np.allclose(t_frac, 8.3e-6, atol=1e-7)
+
+
+def test_robin_boundary_flux():
+    """Tests the Robin boundary conditions.
+
+    Model setup:
+    * West boundary: Robin
+    * East boundary: Neumann
+    * North and south boundaries: Dirichlet
+
+    Flux types that are tested: Mechanical stress, Fourier flux and Darcy flux.
+
+    """
+    params = {
+        "meshing_arguments": {"cell_size": 0.25},
+        "grid_type": "cartesian",
+        "p_north": 1e-2,
+        "p_south": 1e-2,
+        "df_west": 1e-2,
+        "df_east": -1e-2,
+        "ff_west": 2e-2,
+        "ff_east": -2e-2,
+        "ms_west": 3e-2,
+        "ms_east": -3e-2,
+    }
+    model = TailoredPoromechanicsRobin(params)
+    pp.run_time_dependent_model(model, params)
+
+    sd, _ = model.mdg.subdomains(dim=model.nd, return_data=True)[0]
+
+    bc_operator_darcy_flux = model.combine_boundary_operators_darcy_flux(
+        subdomains=[sd]
+    )
+    bc_operator_fourier_flux = model.combine_boundary_operators_fourier_flux(
+        subdomains=[sd]
+    )
+    bc_operator_mechanical_stress = model.combine_boundary_operators_mechanical_stress(
+        subdomains=[sd]
+    )
+
+    values_darcy_flux = bc_operator_darcy_flux.value(model.equation_system)
+    values_fourier_flux = bc_operator_fourier_flux.value(model.equation_system)
+    values_mechanical_stress = bc_operator_mechanical_stress.value(
+        model.equation_system
+    ).reshape((model.nd, sd.num_faces), order="F")
+
+    bounds = model.domain_boundary_sides(sd)
+
+    assert np.allclose(values_darcy_flux[bounds.west], params["df_west"])
+    assert np.allclose(values_darcy_flux[bounds.east], params["df_east"])
+
+    assert np.allclose(values_fourier_flux[bounds.west], params["ff_west"])
+    assert np.allclose(values_fourier_flux[bounds.east], params["ff_east"])
+
+    assert np.allclose(values_mechanical_stress[0][bounds.west], params["ms_west"])
+    assert np.allclose(values_mechanical_stress[0][bounds.east], params["ms_east"])
 
 
 @pytest.mark.parametrize(
