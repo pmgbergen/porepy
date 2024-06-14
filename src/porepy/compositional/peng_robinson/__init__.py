@@ -1,4 +1,4 @@
-"""Sub-package of ``porepy.composite`` with implementations using the Peng-Robinson EoS.
+"""Sub-package of ``porepy.compositional`` with implementations using the Peng-Robinson EoS.
 
 The work here is largely based on below references.
 
@@ -6,17 +6,17 @@ This subpackage implements the standard Peng-Robinson equation of state,
 including some mixing rules and model components.
 
 It provides an intermediate abstraction for model components
-:class:`~porepy.composite.peng_robinson.pr_components.Component_PR`,
+:class:`~porepy.compositional.peng_robinson.pr_components.Component_PR`,
 such that custom implementations for some physical and chemical quantities can be done.
 
 The core of the module is its EoS class
-:class:`~porepy.composite.peng_robinson.eos.PengRobinsonEoS`,
+:class:`~porepy.compositional.peng_robinson.eos.PengRobinsonEoS`,
 which implements the calculation of physical properties.
 
 It provides furthermore an interface to load binary interaction parameters from the
 package ``thermo``, as well as some mixing rules to obtain a mixture's cohesion and
 covolume, such as
-:class:`~porepy.composite.peng_robinson.mixing.VanDerWaals`.
+:class:`~porepy.compositional.peng_robinson.mixing.VanDerWaals`.
 
 The mixing rules are independent of the EoS and can in theory be used for any other
 cubic EoS.

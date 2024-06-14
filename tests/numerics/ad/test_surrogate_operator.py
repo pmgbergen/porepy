@@ -168,7 +168,7 @@ def test_secondary_operators(
     if expr.name not in data[pp.ITERATE_SOLUTIONS]:
         data[pp.ITERATE_SOLUTIONS][expr.name] = {}
     data[pp.ITERATE_SOLUTIONS][expr.name][0] = np.ones(nc - 1)
-    with pytest.raises(ValueError):
+    with pytest.raises(KeyError):
         _ = expr.boundary_values
     # deleting entry
     del data[pp.ITERATE_SOLUTIONS][expr.name][0]
@@ -188,14 +188,14 @@ def test_secondary_operators(
     data[pp.ITERATE_SOLUTIONS][expr.name][0] = np.ones(3 * nc)
     data[pp.ITERATE_SOLUTIONS][expr._name_derivatives][0] = np.ones(3 * nc)
     if on_intf:
-        with pytest.raises(ValueError):
+        with pytest.raises(KeyError):
             _ = expr.interface_values
-        with pytest.raises(ValueError):
+        with pytest.raises(KeyError):
             _ = expr.interface_derivatives
     else:
-        with pytest.raises(ValueError):
+        with pytest.raises(KeyError):
             _ = expr.subdomain_values
-        with pytest.raises(ValueError):
+        with pytest.raises(KeyError):
             _ = expr.subdomain_derivatives
     # deleting entry
     del data[pp.ITERATE_SOLUTIONS][expr.name][0]
@@ -220,7 +220,8 @@ def test_secondary_operators(
     # Note that prev iter operator has the same values, but no Jacobian (tested later)
     assert np.all(sop.value(eqsys) == np.ones(nc))
     assert np.all(sop_pi.value(eqsys) == np.ones(nc))
-    assert np.all(sop.previous_iteration(steps=2).value(eqsys) == np.zeros(nc))
+    with pytest.raises(ValueError):
+        _ = sop.previous_iteration(steps=2).value(eqsys)
     # Still no data at previous time step
     with pytest.raises(ValueError):
         _ = sop_pt.value(eqsys)
@@ -348,10 +349,10 @@ def test_secondary_operators_on_boundaries(
     # parsing the operator at the previous time step should give the old values
     assert np.all(sop.previous_timestep().value(eqsys) == np.ones(nc))
 
-    # Testing one 1 shift in time
+    # Testing shift in time
     # testing the local setter
     for g in bgs:
-        subdomain_expression.update_boundary_values(np.ones(g.num_cells) * 3, g)
+        subdomain_expression.update_boundary_values(np.ones(g.num_cells) * 3, g, depth=2)
 
     assert np.all(sop.value(eqsys) == 3 * np.ones(nc))
     # parsing the operator at the previous time step should give the old values

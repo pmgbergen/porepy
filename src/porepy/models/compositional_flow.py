@@ -25,7 +25,7 @@ from typing import Callable, Optional, Sequence, cast
 import numpy as np
 
 import porepy as pp
-import porepy.composite as ppc
+import porepy.compositional as ppc
 from porepy.grids.mortar_grid import MortarGrid
 from porepy.numerics.ad.operators import Operator
 
@@ -63,27 +63,24 @@ def update_phase_properties(
 
     """
     phase.density.subdomain_values = state.rho
-    phase.volume.subdomain_values = state.v
-    phase.enthalpy.subdomain_values = state.h
+    phase.specific_enthalpy.subdomain_values = state.h
     phase.viscosity.subdomain_values = state.mu
     phase.conductivity.subdomain_values = state.kappa
 
     if update_derivatives:
         if use_extended_derivatives:
             phase.density.subdomain_derivatives = state.drho_ext
-            phase.volume.subdomain_derivatives = state.dv_ext
-            phase.enthalpy.subdomain_derivatives = state.dh_ext
+            phase.specific_enthalpy.subdomain_derivatives = state.dh_ext
             phase.viscosity.subdomain_derivatives = state.dmu_ext
             phase.conductivity.subdomain_derivatives = state.dkappa_ext
         else:
             phase.density.subdomain_derivatives = state.drho
-            phase.volume.subdomain_derivatives = state.dv
-            phase.enthalpy.subdomain_derivatives = state.dh
+            phase.specific_enthalpy.subdomain_derivatives = state.dh
             phase.viscosity.subdomain_derivatives = state.dmu
             phase.conductivity.subdomain_derivatives = state.dkappa
 
 
-# region CONSTITUTIVE LAWS taylored to pore.composite and its mixins
+# region CONSTITUTIVE LAWS taylored to pore.compositional and its mixins
 
 
 class MobilityCF:
@@ -114,8 +111,8 @@ class MobilityCF:
 
     """
 
-    fluid_mixture: ppc.Mixture
-    """Provided by :class:`~porepy.composite.composite_mixins.FluidMixtureMixin`."""
+    fluid_mixture: ppc.FluidMixture
+    """Provided by :class:`~porepy.compositional.compositional_mixins.FluidMixtureMixin`."""
 
     relative_permeability: Callable[[pp.ad.Operator], pp.ad.Operator]
     """Provided by :class:`SolidSkeletonCF`."""
@@ -188,7 +185,7 @@ class MobilityCF:
                 name = f"bc_{name}"
         weight = pp.ad.sum_operator_list(
             [
-                phase.enthalpy(domains)
+                phase.specific_enthalpy(domains)
                 * phase.density(domains)
                 * self.relative_permeability(phase.saturation(domains))
                 / phase.viscosity(domains)
@@ -398,8 +395,8 @@ class ThermalConductivityCF(pp.constitutive_laws.ThermalConductivityLTE):
     mdg: pp.MixedDimensionalGrid
     """Provided by :class:`~porepy.models.geometry.ModelGeometry`."""
 
-    fluid_mixture: ppc.Mixture
-    """Provided by :class:`~porepy.composite.composite_mixins.FluidMixtureMixin`."""
+    fluid_mixture: ppc.FluidMixture
+    """Provided by :class:`~porepy.compositional.compositional_mixins.FluidMixtureMixin`."""
 
     def fluid_thermal_conductivity(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Assembles the fluid conductivity as a sum of phase conductivities weighed
@@ -575,7 +572,7 @@ class SolidSkeletonCF(
 
 
 # endregion
-# region PDEs used in the (fractional) CF, taylored to pp.composite and its mixins
+# region PDEs used in the (fractional) CF, taylored to pp.compositional and its mixins
 
 
 class TotalMassBalanceEquation(pp.BalanceEquation):
@@ -598,8 +595,8 @@ class TotalMassBalanceEquation(pp.BalanceEquation):
     equation_system: pp.ad.EquationSystem
     """Provided by :class:`~porepy.models.solution_strategy.SolutionStrategy`."""
 
-    fluid_mixture: ppc.Mixture
-    """Provided by :class:`~porepy.composite.composite_mixins.FluidMixtureMixin`."""
+    fluid_mixture: ppc.FluidMixture
+    """Provided by :class:`~porepy.compositional.compositional_mixins.FluidMixtureMixin`."""
 
     darcy_flux: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     """Provided by :class:`~porepy.models.constitutive_laws.DarcysLaw`."""
@@ -673,7 +670,7 @@ class TotalMassBalanceEquation(pp.BalanceEquation):
     def fluid_mass(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Analogous to
         :meth:`~porepy.models.fluid_mass_balance.MassBalanceEquations.fluid_mass`
-        with the only difference that :attr:`~porepy.composite.base.Mixture.density`,
+        with the only difference that :attr:`~porepy.compositional.base.Mixture.density`,
         which by procedure is defined using the pressure, temperature and fractions on
         all subdomains."""
         mass_density = self.fluid_mixture.density(subdomains) * self.porosity(
@@ -757,8 +754,8 @@ class TotalEnergyBalanceEquation_h(energy.EnergyBalanceEquations):
 
     """
 
-    fluid_mixture: ppc.Mixture
-    """Provided by :class:`~porepy.composite.composite_mixins.FluidMixtureMixin`."""
+    fluid_mixture: ppc.FluidMixture
+    """Provided by :class:`~porepy.compositional.compositional_mixins.FluidMixtureMixin`."""
 
     enthalpy: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]
     """Provided by :class:`VariablesCF`."""
@@ -935,8 +932,8 @@ class ComponentMassBalanceEquations(mass.MassBalanceEquations):
 
     """
 
-    fluid_mixture: ppc.Mixture
-    """Provided by :class:`~porepy.composite.composite_mixins.FluidMixtureMixin`."""
+    fluid_mixture: ppc.FluidMixture
+    """Provided by :class:`~porepy.compositional.compositional_mixins.FluidMixtureMixin`."""
 
     darcy_flux: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     """Provided by :class:`~porepy.models.constitutive_laws.DarcyFlux`."""
@@ -1258,7 +1255,7 @@ class SoluteTransportEquations(ComponentMassBalanceEquations):
         for component in self.fluid_mixture.components:
             if not isinstance(component, ppc.Compound):
                 continue
-            for solute in component.solutes:
+            for solute in component.pseudo_components:
                 names.append(self._solute_transport_equation_name(solute, component))
         return names
 
@@ -1274,7 +1271,7 @@ class SoluteTransportEquations(ComponentMassBalanceEquations):
             if not isinstance(component, ppc.Compound):
                 continue
 
-            for solute in component.solutes:
+            for solute in component.pseudo_components:
                 sd_eq = self.transport_equation_for_solute(
                     solute, component, subdomains
                 )
@@ -1360,8 +1357,8 @@ class SecondaryEquationsMixin:
            The system needs to be closed by introducing the density relations
            as local equations.
         2. If no equilibrium condition is defined,
-           :attr:`~porepy.composite.base.Phase.saturation` of independent phases
-           as well as :attr:`~porepy.composite.base.Phase.partial_fraction_of` are
+           :attr:`~porepy.compositional.base.Phase.saturation` of independent phases
+           as well as :attr:`~porepy.compositional.base.Phase.partial_fraction_of` are
            dangling variables.
 
            The system can be closed by using :meth:`eliminate_by_constitutive_law`
@@ -1369,8 +1366,8 @@ class SecondaryEquationsMixin:
 
     """
 
-    fluid_mixture: ppc.Mixture
-    """Provided by: class:`~porepy.composite.composite_mixins.FluidMixtureMixin`."""
+    fluid_mixture: ppc.FluidMixture
+    """Provided by: class:`~porepy.compositional.compositional_mixins.FluidMixtureMixin`."""
 
     mdg: pp.MixedDimensionalGrid
     """Provided by :class:`~porepy.models.geometry.ModelGeometry`."""
@@ -1424,13 +1421,13 @@ class SecondaryEquationsMixin:
         a secondary equation :math:`\\varphi - \\hat{\\varphi}(x) = 0`, with :math:`x`
         denoting the ``dependencies``.
 
-        It uses :class:`~porepy.composite.composite_utils.SecondaryExpression` to
+        It uses :class:`~porepy.compositional.utils.SecondaryExpression` to
         provide AD representations of :math:`\\hat{\\varphi}` and to update its values
         and derivatives using ``func`` in the solutionstrategy.
 
         Note:
             Keep the limitations of
-            :class:`~porepy.composite.composite_utils.SecondaryExpression` in mind,
+            :class:`~porepy.compositional.utils.SecondaryExpression` in mind,
             especially with regards to ``dofs``.
 
             Time step depth and iteration depth are assigned according to the numbers
@@ -1535,7 +1532,7 @@ class PrimaryEquationsCF(
 
 class VariablesCF(
     mass_energy.VariablesFluidMassAndEnergy,
-    ppc.CompositeVariables,
+    ppc.CompositionalVariables,
 ):
     """Extension of the standard variables pressure and temperature by an additional
     variable, the transported enthalpy."""
@@ -1598,7 +1595,7 @@ class VariablesCF(
         )
 
         # compositional variables
-        ppc.CompositeVariables.create_variables(self)
+        ppc.CompositionalVariables.create_variables(self)
 
     def enthalpy(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
         """Representation of the enthalpy as an AD-Operator.
@@ -1660,6 +1657,11 @@ class ConstitutiveLawsCF(
     transport.
 
     """
+
+    time_step_indices: np.ndarray
+    """Provided by :class:`~porepy.models.solution_strategy.SolutionStrategy`"""
+    iterate_indices: np.ndarray
+    """Provided by :class:`~porepy.models.solution_strategy.SolutionStrategy`"""
 
     _constitutive_eliminations: dict[
         str,
@@ -1786,8 +1788,8 @@ class BoundaryConditionsCF(
 
     """
 
-    fluid_mixture: ppc.Mixture
-    """Provided by :class:`~porepy.composite.composite_mixins.FluidMixtureMixin`."""
+    fluid_mixture: ppc.FluidMixture
+    """Provided by :class:`~porepy.compositional.compositional_mixins.FluidMixtureMixin`."""
 
     equation_system: pp.ad.EquationSystem
     """Provided by :class:`~porepy.models.solution_strategy.SolutionStrategy`."""
@@ -1795,7 +1797,7 @@ class BoundaryConditionsCF(
     dependencies_of_phase_properties: Callable[
         [ppc.Phase], Sequence[Callable[[pp.GridLikeSequence], pp.ad.Operator]]
     ]
-    """Provided by :class:`~porepy.composite.composite_mixins.FluidMixtureMixin`."""
+    """Provided by :class:`~porepy.compositional.compositional_mixins.FluidMixtureMixin`."""
 
     eliminate_reference_phase: bool
     """Provided by :class:`SolutionStrategyCF`."""
@@ -1805,13 +1807,13 @@ class BoundaryConditionsCF(
     """Provided by :class:`SolutionStrategyCF`."""
 
     _overall_fraction_variable: Callable[[ppc.Component], str]
-    """Provided by :class:`~porepy.composite.composite_mixins.CompositeVariables`."""
+    """Provided by :class:`~porepy.compositional.compositional_mixins.CompositeVariables`."""
     _saturation_variable: Callable[[ppc.Phase], str]
-    """Provided by :class:`~porepy.composite.composite_mixins.CompositeVariables`."""
+    """Provided by :class:`~porepy.compositional.compositional_mixins.CompositeVariables`."""
     _relative_fraction_variable: Callable[[ppc.Component, ppc.Phase], str]
-    """Provided by :class:`~porepy.composite.composite_mixins.CompositeVariables`."""
+    """Provided by :class:`~porepy.compositional.compositional_mixins.CompositeVariables`."""
     _solute_fraction_variable: Callable[[ppc.ChemicalSpecies, ppc.Compound], str]
-    """Provided by :class:`~porepy.composite.composite_mixins.CompositeVariables`."""
+    """Provided by :class:`~porepy.compositional.compositional_mixins.CompositeVariables`."""
 
     _constitutive_eliminations: dict[
         str,
@@ -1903,7 +1905,7 @@ class BoundaryConditionsCF(
         for component in self.fluid_mixture.components:
             # Update of solute fractions on Dirichlet boundary
             if isinstance(component, ppc.Compound):
-                for solute in component.solutes:
+                for solute in component.pseudo_components:
                     bc_vals = partial(self.bc_values_solute_fraction, solute, component)
                     bc_vals = cast(Callable[[pp.BoundaryGrid], np.ndarray], bc_vals)
                     self.update_boundary_condition(
@@ -1984,7 +1986,7 @@ class BoundaryConditionsCF(
             pressure must be considered on all faces.
 
             Especially if they are zero, the underlying EoS
-            (:meth:`~porepy.composite.base.Phase.compute_properties`) must be able
+            (:meth:`~porepy.compositional.base.Phase.compute_properties`) must be able
             to handle that input.
 
         """
@@ -1995,7 +1997,6 @@ class BoundaryConditionsCF(
                 # some work is required for BGs with zero cells
                 if bg.num_cells == 0:
                     rho_bc = np.zeros(0)
-                    v_bc = np.zeros(0)
                     h_bc = np.zeros(0)
                     mu_bc = np.zeros(0)
                 else:
@@ -2005,14 +2006,12 @@ class BoundaryConditionsCF(
                     ]
                     state = phase.compute_properties(*dep_vals)
                     rho_bc = state.rho
-                    v_bc = state.v
                     h_bc = state.h
                     mu_bc = state.mu
 
                 # phase properties which appear in mobilities
                 phase.density.update_boundary_values(rho_bc, bg, depth=nt)
-                phase.volume.update_boundary_values(v_bc, bg, depth=nt)
-                phase.enthalpy.update_boundary_values(h_bc, bg, depth=nt)
+                phase.specific_enthalpy.update_boundary_values(h_bc, bg, depth=nt)
                 phase.viscosity.update_boundary_values(mu_bc, bg, depth=nt)
 
     ### BC values for primary variables which need to be given by the user in any case.
@@ -2102,8 +2101,8 @@ class InitialConditionsCF:
     """Provided by :class:`~porepy.models.geometry.ModelGeometry`."""
     equation_system: pp.ad.EquationSystem
     """Provided by :class:`~porepy.models.solution_strategy.SolutionStrategy`."""
-    fluid_mixture: ppc.Mixture
-    """Provided by :class:`~porepy.composite.composite_mixins.FluidMixtureMixin`."""
+    fluid_mixture: ppc.FluidMixture
+    """Provided by :class:`~porepy.compositional.compositional_mixins.FluidMixtureMixin`."""
 
     time_step_indices: np.ndarray
     """Provided by :class:`~porepy.models.solution_strategy.SolutionStrategy`."""
@@ -2131,7 +2130,7 @@ class InitialConditionsCF:
     dependencies_of_phase_properties: Callable[
         [ppc.Phase], Sequence[Callable[[pp.GridLikeSequence], pp.ad.Operator]]
     ]
-    """Provided by :class:`~porepy.composite.composite_mixins.FluidMixtureMixin`."""
+    """Provided by :class:`~porepy.compositional.compositional_mixins.FluidMixtureMixin`."""
 
     _constitutive_eliminations: dict[
         str,
@@ -2209,7 +2208,7 @@ class InitialConditionsCF:
             # Setting overall fractions and solute fractions
             for comp in self.fluid_mixture.components:
                 if isinstance(comp, ppc.Compound):
-                    for solute in comp.solutes:
+                    for solute in comp.pseudo_components:
                         c = self.initial_solute_fraction(solute, comp, sd)
                         self.equation_system.set_variable_values(
                             c, [comp.solute_fraction_of[solute](sd)], iterate_index=0
@@ -2290,16 +2289,16 @@ class InitialConditionsCF:
             # shift/copy current values to all previous iterates
             for _ in self.iterate_indices:
                 phase.density.shift_iterate_values_on_grids(subdomains, depth=ni)
-                phase.volume.shift_iterate_values_on_grids(subdomains, depth=ni)
-                phase.enthalpy.shift_iterate_values_on_grids(subdomains, depth=ni)
+                phase.specific_enthalpy.shift_iterate_values_on_grids(
+                    subdomains, depth=ni
+                )
                 phase.viscosity.shift_iterate_values_on_grids(subdomains, depth=ni)
                 phase.conductivity.shift_iterate_values_on_grids(subdomains, depth=ni)
             # propagate values to all time step indices
             # Only for those with time depth
             for _ in self.time_step_indices:
                 phase.density.progress_values_in_time(subdomains, depth=nt)
-                phase.volume.progress_values_in_time(subdomains, depth=nt)
-                phase.enthalpy.progress_values_in_time(subdomains, depth=nt)
+                phase.specific_enthalpy.progress_values_in_time(subdomains, depth=nt)
 
     ### IC for primary variables which need to be given by the user in any case.
 
@@ -2399,8 +2398,8 @@ class SolutionStrategyCF(
 
     """
 
-    fluid_mixture: ppc.Mixture
-    """Provided by :class:`~porepy.composite.composite_mixins.FluidMixtureMixin`."""
+    fluid_mixture: ppc.FluidMixture
+    """Provided by :class:`~porepy.compositional.compositional_mixins.FluidMixtureMixin`."""
 
     total_mobility: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Provided by :class:`MobilityCF`."""
@@ -2437,9 +2436,9 @@ class SolutionStrategyCF(
     """Provided by :class:`MobilityCF`."""
 
     create_mixture: Callable[[], None]
-    """Provided by :class:`~porepy.composite.composite_mixins.FluidMixtureMixin`."""
+    """Provided by :class:`~porepy.compositional.compositional_mixins.FluidMixtureMixin`."""
     assign_thermodynamic_properties_to_mixture: Callable[[], None]
-    """Provided by :class:`~porepy.composite.composite_mixins.FluidMixtureMixin`."""
+    """Provided by :class:`~porepy.compositional.compositional_mixins.FluidMixtureMixin`."""
     set_initial_values: Callable[[], None]
     """Provided by :class:`InitialConditionsCF`."""
     progress_all_constitutive_expressions_in_time: Callable[[], None]
@@ -2449,7 +2448,7 @@ class SolutionStrategyCF(
     dependencies_of_phase_properties: Callable[
         [ppc.Phase], Sequence[Callable[[pp.GridLikeSequence], pp.ad.Operator]]
     ]
-    """Provided by :class:`~porepy.composite.composite_mixins.FluidMixtureMixin`."""
+    """Provided by :class:`~porepy.compositional.compositional_mixins.FluidMixtureMixin`."""
 
     primary_equation_names: list[str]
     """Provided by :class:`EquationsCompositionalFlow`."""
@@ -2463,6 +2462,8 @@ class SolutionStrategyCF(
 
     bc_type_advective_flux: Callable[[pp.Grid], pp.BoundaryCondition]
     """Provided by :class:`BoundaryConditionsCF`."""
+
+    _stats: list[list[dict]] = list()
 
     def __init__(self, params: Optional[dict] = None) -> None:
         super().__init__(params)
@@ -2489,7 +2490,7 @@ class SolutionStrategyCF(
             self.equilibrium_type = None
         else:
             if self.equilibrium_type is None:
-                raise ppc.CompositeModellingError(
+                raise ppc.CompositionalModellingError(
                     "Cannot set the value of attribute `equilibrium_type` to None."
                     + " Use some valid description of equilibrium state, e.g. 'p-T'."
                 )
@@ -2778,12 +2779,12 @@ class SolutionStrategyCF(
         nt = self.time_step_indices.size
         for phase in self.fluid_mixture.phases:
             phase.density.progress_values_in_time(subdomains, depth=nt)
-            phase.volume.progress_values_in_time(subdomains, depth=nt)
-            phase.enthalpy.progress_values_in_time(subdomains, depth=nt)
+            phase.specific_enthalpy.progress_values_in_time(subdomains, depth=nt)
 
     def before_nonlinear_iteration(self) -> None:
         """Overwrites parent methods to perform an update of secondary quantities,
         and then performing customized updates of discretizations."""
+        self._stats[-1].append(dict())
         self.update_secondary_quantities()
         # After updating the fluid properties, update discretizations
         self.update_discretizations()
@@ -2815,15 +2816,24 @@ class SolutionStrategyCF(
             )
         else:
             self.linear_system = self.equation_system.assemble()
-        logger.debug(f"Assembled linear system in {time.time() - t_0:.2e} seconds.")
+        t_1 = time.time()
+        logger.debug(f"Assembled linear system in {t_1 - t_0:.2e} seconds.")
+        self._stats[-1][-1]["time_assembly"] = t_1 - t_0
+        res = self.equation_system.assemble(evaluate_jacobian=False)
+        self._stats[-1][-1]["residual_at_assembly"] = np.linalg.norm(res) / np.sqrt(
+            res.size
+        )
 
     def solve_linear_system(self) -> np.ndarray:
         """After calling the parent method, the global solution is calculated by Schur
         expansion."""
+        t_0 = time.time()
         sol = super().solve_linear_system()
         reduce_linear_system_q = self.params.get("reduce_linear_system_q", False)
         if reduce_linear_system_q:
             sol = self.equation_system.expand_schur_complement_solution(sol)
+        t_1 = time.time()
+        self._stats[-1][-1]["time_linsolve"] = t_1 - t_0
         return sol
 
     def _log_res(self, loc: str = ""):
@@ -2843,6 +2853,10 @@ class SolutionStrategyCF(
             f"\nResidual {loc}: {np.linalg.norm(all_res) / np.sqrt(all_res.size)}"
         )
         logger.debug(msg)
+
+    def before_nonlinear_loop(self) -> None:
+        self._stats.append([])
+        super().before_nonlinear_loop()
 
 
 # endregion

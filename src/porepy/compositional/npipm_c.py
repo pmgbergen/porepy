@@ -11,7 +11,7 @@ import numba
 import numpy as np
 
 from ._core import NUMBA_CACHE, NUMBA_FAST_MATH
-from .utils_c import parse_xyz
+from .uniflash_utils_c import parse_xyz
 
 # region NPIPM related functions
 
@@ -311,7 +311,7 @@ def solver(
     """Compiled Newton with Armijo line search and NPIPM regularization.
 
     Intended use is for the unified flash problem.
-    See :data:`~porepy.composite.flash_c.SOLVERS` for more information.
+    See :data:`~porepy.compositional.uniflash_c.SOLVERS` for more information.
 
     The required parameters are:
 

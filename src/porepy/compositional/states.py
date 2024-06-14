@@ -1,5 +1,20 @@
 """Module containing various data structures to store thermodynamic state values for
-fluid mixtures."""
+fluid mixtures.
+
+Note:
+    State data structures are required as a contract for which thermodynamic properties
+    are required to describe a fluid in PorePy's flow & transport problems.
+
+    The compositional framework does not rely purely on :mod:`porepy.numerics.ad`, but
+    has multiple interfaces to obtaining values.
+
+    1. Flash calculations: Must be fast, efficient and parallelized, hence no AD but
+       generic interfaces and data structures.
+    2. OBL: Operator-based linearizations introduces interpolated data into the
+       framework. To safely and generically broadcast the data into the Jacobian and
+       residual, these data structures are used.
+
+"""
 
 from __future__ import annotations
 
@@ -8,8 +23,12 @@ from typing import Optional, Sequence, cast
 
 import numpy as np
 
-from .composite_utils import safe_sum
-from .utils_c import compute_saturations, extend_fractional_derivatives
+from .utils import (
+    compute_saturations,
+    extend_fractional_derivatives,
+    normalize_rows,
+    safe_sum,
+)
 
 __all__ = [
     "ExtensiveState",
@@ -27,12 +46,6 @@ class IntensiveState:
     Storage is intended to be in array format for usage in flow and transport, where
     the vectorized format reflects the degrees of freedom on a grid.
 
-    Intensive properties include:
-
-    - pressure [Pa]
-    - temperature [K]
-    - overall molar fraction per fluid component [-]
-
     """
 
     p: np.ndarray = field(default_factory=lambda: np.zeros(0))
@@ -45,8 +58,7 @@ class IntensiveState:
 
     z: np.ndarray = field(default_factory=lambda: np.zeros((0, 0)))
     """Overall molar fractions (feed fractions) per component, stored in a 2D array
-    with row-wise values per component.
-    The first fraction is always the feed fraction of the reference component.."""
+    with row-wise values per component."""
 
 
 @dataclass
@@ -55,25 +67,23 @@ class ExtensiveState:
     (analogous to :class:`IntensiveState`).
 
     As of now, the extensive state does not encompass all of the physical quantities,
-    but those which are relevant for the flow and transport model in PorePy.
-
-    These include:
-
-    - specific molar enthalpy [J / mol]
-    - specific molar density [mol / m^3]
-    - specific molar volume [m^3 / mol]
+    but those which are relevant for the flow & transport model in PorePy.
 
     """
 
     h: np.ndarray = field(default_factory=lambda: np.zeros(0))
-    """Specific molar enthalpy."""
+    """Specific enthalpy."""
 
     rho: np.ndarray = field(default_factory=lambda: np.zeros(0))
     """Density."""
 
     @property
     def v(self) -> np.ndarray:
-        """Specific molar volume as the reciprocal of :attr:`rho`."""
+        """Specific volume as the reciprocal of :attr:`rho`.
+
+        Returns zeros, where :attr:`rho` is zero.
+
+        """
         v = np.zeros_like(self.rho)
         # special treatment for zero values to avoid division-by zero errors
         idx = self.rho > 0.0
@@ -84,13 +94,12 @@ class ExtensiveState:
 @dataclass
 class PhaseState(ExtensiveState):
     """An extended state description for physical phases, including derivatives
-    with respect to pressure temperature and fractions of component in this phase.
+    of extensive properties and properties which are not state functions such
+    as viscosity and thermal conductivity.
 
-    The derivatives are always in that order:
-
-    1. pressure,
-    2. temperature,
-    3. ``dx`` for each component
+    Derivatives are denoted with a ``d*`` and the derivative values are stored
+    along the first axis of a 2D array (i.e. each rot represents the derivative with
+    respect to 1 dependency)
 
     The state of a phase is additionally characterized by an integer representing the
     phase type, and the values of fractions per component.
@@ -101,12 +110,10 @@ class PhaseState(ExtensiveState):
     """Type of the phase. Defaults to 0 (liquid)."""
 
     x: np.ndarray = field(default_factory=lambda: np.zeros((0, 0)))
-    """Molar fractions for each component in a phase, stored row-wise per component
+    """Fractions for each component in a phase, stored row-wise per component
     in a 2D array.
 
-    Fractions of components in a phase are relative to the moles in a phase.
-
-    The first one is assumed to belong to the reference component.
+    Fractions of components in a phase are relative to the fraction of a phase.
 
     """
 
@@ -115,63 +122,41 @@ class PhaseState(ExtensiveState):
     in a 2D array."""
 
     dh: np.ndarray = field(default_factory=lambda: np.zeros((0, 0)))
-    """Derivatives of the specific molar enthalpy with respect to pressure, temperature
-    and each ``x`` in :attr:`x`.
-
-    The derivatives are stored row-wise in a 2D array.
-    The length of ``dh`` is ``2 + len(x)``.
-
-    """
+    """Derivatives of the specific enthalpy."""
 
     drho: np.ndarray = field(default_factory=lambda: np.zeros((0, 0)))
-    """Derivatives of the density with respect to pressure, temperature
-    and each ``x`` in :attr:`x`.
-
-    The derivatives are stored row-wise in a 2D array.
-    The length of ``drho`` is ``2 + len(x)``.
-
-    """
+    """Derivatives of the density."""
 
     dphis: np.ndarray = field(default_factory=lambda: np.zeros((0, 0, 0)))
-    """Derivatives of fugacity coefficients w.r.t. pressure, temperature and each
-    ``x`` in :attr:`x`.
+    """Derivatives of fugacity coefficients.
 
-    Derivatives are stored in a 3D array, where the first axis is associated with
-    components in this phase and the second axis with the derivatives.
-    The third axis is for the values.
+    This is a 3D array!
+
+    The first axis is associated with components in this phase and the second axis with
+    the derivatives. The third axis is for the values.
 
     """
 
     mu: np.ndarray = field(default_factory=lambda: np.zeros(0))
-    """Dynamic molar viscosity."""
+    """Dynamic viscosity."""
 
     dmu: np.ndarray = field(default_factory=lambda: np.zeros((0, 0)))
-    """Derivatives of the dynamic molar viscosity w.r.t. pressure, temperature and
-    each ``x`` in :attr:`x`.
-
-    The derivatives are stored row-wise in a 2D array.
-    The length of ``dmu`` is ``2 + len(x)``.
-
-    """
+    """Derivatives of the dynamic viscosity."""
 
     kappa: np.ndarray = field(default_factory=lambda: np.zeros(0))
     """Thermal conductivity."""
 
     dkappa: np.ndarray = field(default_factory=lambda: np.zeros((0, 0)))
-    """Derivatives of the thermal conductivity w.r.t. pressure, temperature and
-    each ``x`` in :attr:`x`.
-
-    The derivatives are stored row-wise in a 2D array.
-    The length of ``dkapp`` is ``2 + len(x)``.
-
-    """
+    """Derivatives of the thermal conductivity."""
 
     @property
     def dv(self) -> np.ndarray:
-        """Derivatives of the specific molar volume, expressed as the reciprocal of
+        """Derivatives of the specific volume, expressed as the reciprocal of
         density.
 
         The chainrule is applied to compute ``dv`` from ``d(1/rho)``.
+
+        The derivatives are set to zero, where :attr:`rho` is zero.
 
         """
         # Treatment to avoid division by zero errors
@@ -182,44 +167,51 @@ class PhaseState(ExtensiveState):
 
     @property
     def x_normalized(self) -> np.ndarray:
-        """Normalized values of fractions found in :attr:`x`."""
-        x_sum = safe_sum(self.x)
-        return np.array([x / x_sum for x in self.x])
+        """Normalized values of fractions found in :attr:`x`.
+        The normalization is performed along the 2nd axis."""
+        return normalize_rows(self.x.T).T
 
     @property
     def drho_ext(self) -> np.ndarray:
-        """Returning the derivatives of :attr:`rho` with respect to pressure,
-        temperature and the extended partial fractions."""
+        """Returning the extended derivatives from :attr:`drho`, assuming the last
+        rows are derivatives w.r.t. (extended) fractions in :attr:`x`.
+
+        I.e., ``drho.shape[0]`` must be at least ``x.shape[0]``.
+
+        For more information, see
+        :func:`~porepy.compositional.utils.extend_fractional_derivatives`.
+
+        """
         return self._extend(self.drho)
 
     @property
     def dv_ext(self) -> np.ndarray:
-        """Returning the derivatives of :meth:`v` with respect to pressure,
-        temperature and the extended partial fractions."""
+        """Extended derivatives found in :attr:`dv`. See :meth:`drho_ext` for more
+        information."""
         return self._extend(self.dv)
 
     @property
     def dh_ext(self) -> np.ndarray:
-        """Returning the derivatives of :attr:`h` with respect to pressure,
-        temperature and the extended partial fractions."""
+        """Extended derivatives found in :attr:`dh`. See :meth:`drho_ext` for more
+        information."""
         return self._extend(self.dh)
 
     @property
     def dmu_ext(self) -> np.ndarray:
-        """Returning the derivatives of :attr:`mu` with respect to pressure,
-        temperature and the extended partial fractions."""
+        """Extended derivatives found in :attr:`dmu`. See :meth:`drho_ext` for more
+        information."""
         return self._extend(self.dmu)
 
     @property
     def dkappa_ext(self) -> np.ndarray:
-        """Returning the derivatives of :attr:`kappa` with respect to pressure,
-        temperature and the extended partial fractions."""
+        """Extended derivatives found in :attr:`dkappa`. See :meth:`drho_ext` for more
+        information."""
         return self._extend(self.dkappa)
 
     @property
     def dphis_ext(self) -> np.ndarray:
-        """Returning the derivatives of :attr:`phis` with respect to pressure,
-        temperature and the extended partial fractions."""
+        """Extended derivatives found in :attr:`dkappa`. See :meth:`drho_ext` for more
+        information."""
         return np.array([self._extend(dphi) for dphi in self.dphis])
 
     def _extend(self, df_dx: np.ndarray) -> np.ndarray:
@@ -233,7 +225,6 @@ class PhaseState(ExtensiveState):
 
         """
         return extend_fractional_derivatives(df_dx, self.x)
-        # return df_dx
 
 
 @dataclass
@@ -245,39 +236,33 @@ class FluidState(IntensiveState, ExtensiveState):
     as well as a collection of :class:`PhaseState` isntances characterizing individual
     phases.
 
-    Important:
+    Note:
         The first phase is always assumed to be the reference phase.
         I.e., its fractional values are usually dependent by unity of fractions.
 
-    The complete fluid state includes additionally:
-
-    - volumetric phase fractions (saturations) [-]
-    - molar phase fractions [-]
-
     Contrary to :class:`PhaseState`, this dataclass does not support derivatives of
     extensive properties on a mixture-level.
-    Since the derivatives w.r.t. to molar or volumetric phase fractions are trivially
+    Since the derivatives w.r.t. to phase fractions or saturations are trivially
     the respective property of the phase, this can be done easily by the user without
     having the same values stored at two different places.
 
     """
 
     y: np.ndarray = field(default_factory=lambda: np.zeros((0, 0)))
-    """Molar phase fractions for each phase in :attr:`phases`."""
+    """Phase fractions for each phase in :attr:`phases`, stored row-wise."""
 
     sat: np.ndarray = field(default_factory=lambda: np.zeros((0, 0)))
-    """Saturation for each phase in :attr:`phases`."""
+    """Saturation for each phase in :attr:`phases`, stored row-wise."""
 
     phases: Sequence[PhaseState] = field(default_factory=lambda: list())
-    """A collection of phase state descriptions for phases anticipated in the fluid
-    mixture."""
+    """A collection of phase state descriptions per phase in the fluid mixture."""
 
     def evaluate_saturations(self, eps: float = 1e-10) -> None:
         """Calculates the values for volumetric phase fractions from stored
         :attr:`y` and density values, and stores them in :attr:`sat`.
 
-        The calculation is performed using the relation
-        :math:`y_j \\rho  = s_j \\rho_j`.
+        See Also:
+            :func:`~porepy.compositional.utils.compute_saturations`
 
         Parameters:
             eps: ``default=1e-10``
@@ -292,14 +277,17 @@ class FluidState(IntensiveState, ExtensiveState):
             y = self.y
 
         rho = np.array([phase.rho for phase in self.phases])
-        assert y.shape == rho.shape, "Mismatch in values for fractions and densities."
         self.sat = compute_saturations(y, rho, eps)
 
     def evaluate_extensive_state(self) -> None:
-        """Evaluates the mixture properties based on the currently stored phase
-        properties, molar phase fractions and volumetric phase fractions.
+        """Evaluates the extensive mixture properties based on the currently stored
+        phase properties, phase fractions and saturations.
 
-        Stores them in the respective attribute found in :class:`ExtensiveState`.
+        1. :attr:`h` of the mixture (weights :attr:`y`)
+        2. :attr:`rho` of the mixture (weights :attr:`sat`)
+
+        Each one is computed by summing corresponding phase properties weighed with
+        respective weights.
 
         """
 
@@ -372,3 +360,5 @@ def initialize_fluid_state(
             phase_state.dkappa = np.zeros((2 + ncomp[j], n))
 
         state.phases.append(phase_state)
+
+    return state

@@ -3,7 +3,7 @@ import numpy as np
 from Geometries import SimpleGeometry as ModelGeometry
 
 import porepy as pp
-import porepy.composite as ppc
+import porepy.compositional as ppc
 from porepy.models.compositional_flow import (
     BoundaryConditionsCF,
     CFModelMixin,

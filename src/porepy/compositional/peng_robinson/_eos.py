@@ -9,16 +9,16 @@ import abc
 import logging
 import numbers
 from dataclasses import dataclass, field
-from typing import Any, Callable, Literal, Optional
+from typing import Any, Callable, Literal, Optional, Union
 
 import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
 
-from .._core import R_IDEAL
+from .._core import R_IDEAL_MOL
 from ..base import Component
-from ..composite_utils import NumericType, safe_sum, truncexp, trunclog
+from ..utils import safe_sum
 from .pr_bip import load_bip
 from .pr_components import ComponentPR
 
@@ -34,7 +34,10 @@ __all__ = [
 
 logger = logging.getLogger(__name__)
 
-DeprecationWarning("The module porepy.composite.peng_robinson.eos is deprecated.")
+DeprecationWarning("The module porepy.compositional.peng_robinson.eos is deprecated.")
+
+NumericType = Union[pp.number, np.ndarray, pp.ad.AdArray]
+"""DEPRECATED: Delete with finalization of flash and eos update to numba. TODO"""
 
 
 def _sqrt(a):
@@ -49,6 +52,30 @@ def _cbrt(a):
     return a ** (1 / 3)
 
 
+def truncexp(var):
+    if isinstance(var, pp.ad.AdArray):
+        trunc = var > 700
+        val = np.exp(var.val, where=(~trunc))
+        val[trunc] = np.exp(700)
+        der = var._diagvec_mul_jac(val)
+        return pp.ad.AdArray(val, der)
+    else:
+        trunc = var > 700
+        val = np.exp(var, where=(~trunc))
+        val[trunc] = np.exp(700)
+        return val
+
+
+def trunclog(var, eps):
+    if isinstance(var, pp.ad.AdArray):
+        trunc_val = np.maximum(var.val, eps)
+        val = np.log(trunc_val)
+        der = var._diagvec_mul_jac(1 / trunc_val)
+        return pp.ad.AdArray(val, der)
+    else:
+        return np.log(np.maximum(var, eps))
+
+
 @dataclass
 class ThermodynamicState:
     """Data class for storing the thermodynamic state of a mixture..
@@ -56,9 +83,9 @@ class ThermodynamicState:
     The name of the attributes ``p, T, X`` is designed such that they can be used
     as keyword arguments for
 
-    1. :meth:`~porepy.composite.phase.AbstractEoS.compute`,
-    2. :meth:`~porepy.composite.phase.Phase.compute_properties` and
-    3. :meth:`~porepy.composite.mixture.BasicMixture.compute_properties`,
+    1. :meth:`~porepy.compositional.phase.AbstractEoS.compute`,
+    2. :meth:`~porepy.compositional.phase.Phase.compute_properties` and
+    3. :meth:`~porepy.compositional.mixture.BasicMixture.compute_properties`,
 
     and should not be meddled with (especially capital ``X``).
 
@@ -953,7 +980,7 @@ r"""Two 2D points characterizing the Widom-line for water.
 
 The points are created by using :func:`widom_line` for :math:`A\in\{0, A_{crit}\}`.
 
-See :data:`~porepy.composite.peng_robinson.eos.A_CRIT`.
+See :data:`~porepy.compositional.peng_robinson.eos.A_CRIT`.
 
 """
 
@@ -1256,7 +1283,7 @@ class PengRobinson(AbstractEoS):
         """A map between indices for :attr:`_bip_vals` (upper triangle) and
         custom implementation of BIPs (temperature-dependent), if available.
 
-        See :attr:`~porepy.composite.peng_robinson.pr_components.Component_PR.bip_map`.
+        See :attr:`~porepy.compositional.peng_robinson.pr_components.Component_PR.bip_map`.
 
         """
 
@@ -1330,7 +1357,7 @@ class PengRobinson(AbstractEoS):
         Warning:
             If two components ``i`` and ``j``, with ``i < j``, have both BIPs
             BIPs implemented for each other in
-            :attr:`~porepy.composite.peng_robinson.pr_components.Component_PR.bip_map`,
+            :attr:`~porepy.compositional.peng_robinson.pr_components.Component_PR.bip_map`,
             the first implementation of ``i`` is taken and a warning is emitted.
 
         Parameters:
@@ -1493,7 +1520,7 @@ class PengRobinson(AbstractEoS):
         rho = v ** (-1)  # self._rho(p, T, Z)
         rho_mass = self.get_rho_mass(rho, X)
         # departure enthalpy
-        dT_A = dT_a / (R_IDEAL * T) ** 2 * p - 2 * a / (R_IDEAL**2 * T**3) * p
+        dT_A = dT_a / (R_IDEAL_MOL * T) ** 2 * p - 2 * a / (R_IDEAL_MOL**2 * T**3) * p
         h_dep = self._h_dep(T, Z, A, dT_A, B)
         h_ideal = self.get_h_ideal(p, T, X)
         h = h_ideal + h_dep
@@ -1709,7 +1736,7 @@ class PengRobinson(AbstractEoS):
             The component-specific critical covolume.
 
         """
-        return cls.B_CRIT * (R_IDEAL * T_crit) / p_crit
+        return cls.B_CRIT * (R_IDEAL_MOL * T_crit) / p_crit
 
     @classmethod
     def _a_crit(cls, p_crit: float, T_crit: float) -> float:
@@ -1726,7 +1753,7 @@ class PengRobinson(AbstractEoS):
             The component-specific critical cohesion.
 
         """
-        return cls.A_CRIT * (R_IDEAL**2 * T_crit**2) / p_crit
+        return cls.A_CRIT * (R_IDEAL_MOL**2 * T_crit**2) / p_crit
 
     @staticmethod
     def _a_cor(omega: float) -> float:
@@ -1782,17 +1809,17 @@ class PengRobinson(AbstractEoS):
     def _A(a: NumericType, p: NumericType, T: NumericType) -> NumericType:
         """Auxiliary method implementing formula for non-dimensional cohesion."""
         if isinstance(T, pp.ad.AdArray):
-            return T ** (-2) * a * p / R_IDEAL**2
+            return T ** (-2) * a * p / R_IDEAL_MOL**2
         else:
-            return a * p / (R_IDEAL**2 * T**2)
+            return a * p / (R_IDEAL_MOL**2 * T**2)
 
     @staticmethod
     def _B(b: NumericType, p: NumericType, T: NumericType) -> NumericType:
         """Auxiliary method implementing formula for non-dimensional covolume."""
         if isinstance(T, pp.ad.AdArray):
-            return T ** (-1) * b * p / R_IDEAL
+            return T ** (-1) * b * p / R_IDEAL_MOL
         else:
-            return b * p / (R_IDEAL * T)
+            return b * p / (R_IDEAL_MOL * T)
 
     # TODO
     def _kappa(self, p: NumericType, T: NumericType, Z: NumericType) -> NumericType:
@@ -1825,15 +1852,15 @@ class PengRobinson(AbstractEoS):
     @staticmethod
     def _rho(p: NumericType, T: NumericType, Z: NumericType) -> NumericType:
         """Auxiliary function implementing the formula for density."""
-        return Z ** (-1) * p / (T * R_IDEAL)
+        return Z ** (-1) * p / (T * R_IDEAL_MOL)
 
     @staticmethod
     def _v(p: NumericType, T: NumericType, Z: NumericType) -> NumericType:
         """Auxiliary function implementing the formula for volume."""
         if isinstance(T, pp.ad.AdArray):
-            return T * Z * R_IDEAL / p
+            return T * Z * R_IDEAL_MOL / p
         else:
-            return Z * T / p * R_IDEAL
+            return Z * T / p * R_IDEAL_MOL
 
     @staticmethod
     def _log_ZB_0(Z: NumericType, B: NumericType) -> NumericType:
@@ -1853,13 +1880,13 @@ class PengRobinson(AbstractEoS):
     ) -> NumericType:
         """Auxiliary function for computing the enthalpy departure function."""
         if isinstance(T, pp.ad.AdArray):
-            i = T * (Z - 1) * R_IDEAL
+            i = T * (Z - 1) * R_IDEAL_MOL
         else:
-            i = (Z - 1) * T * R_IDEAL
+            i = (Z - 1) * T * R_IDEAL_MOL
         return (
             1
             / np.sqrt(8)
-            * (dT_A * T**2 * R_IDEAL + A * T * R_IDEAL)
+            * (dT_A * T**2 * R_IDEAL_MOL + A * T * R_IDEAL_MOL)
             / B
             * self._log_ZB_1(Z, B)
             + i
@@ -1872,7 +1899,7 @@ class PengRobinson(AbstractEoS):
         return (
             (self._log_ZB_0(Z, B) - self._log_ZB_1(Z, B) * A / B / np.sqrt(8))
             * T
-            * R_IDEAL
+            * R_IDEAL_MOL
         )
 
     @staticmethod
@@ -1909,8 +1936,8 @@ class PengRobinson(AbstractEoS):
         w.r.t. molar fraction ``x_i``."""
         d = 1 + 2 * b * rho - (b * rho) ** 2
         return (1 - b * rho) ** (-2) * rho * b_i + (
-            a * rho * (2 * rho * b_i + 2 * b * rho**2 * b_i) / (d**2 * T * R_IDEAL)
-            - dxi_a * rho / (d * T * R_IDEAL)
+            a * rho * (2 * rho * b_i + 2 * b * rho**2 * b_i) / (d**2 * T * R_IDEAL_MOL)
+            - dxi_a * rho / (d * T * R_IDEAL_MOL)
         )
 
     @staticmethod
@@ -2439,7 +2466,7 @@ class _PengRobinson(AbstractEoS):
         """A map between indices for :attr:`_bip_vals` (upper triangle) and
         custom implementation of BIPs (temperature-dependent), if available.
 
-        See :attr:`~porepy.composite.peng_robinson.pr_components.Component_PR.bip_map`.
+        See :attr:`~porepy.compositional.peng_robinson.pr_components.Component_PR.bip_map`.
 
         """
 
@@ -2497,7 +2524,7 @@ class _PengRobinson(AbstractEoS):
         Warning:
             If two components ``i`` and ``j``, with ``i < j``, have both BIPs
             BIPs implemented for each other in
-            :attr:`~porepy.composite.peng_robinson.pr_components.Component_PR.bip_map`,
+            :attr:`~porepy.compositional.peng_robinson.pr_components.Component_PR.bip_map`,
             the first implementation of ``i`` is taken and a warning is emitted.
 
         Parameters:
@@ -2659,7 +2686,7 @@ class _PengRobinson(AbstractEoS):
         rho = v ** (-1)  # self._rho(p, T, Z)
         rho_mass = self.get_rho_mass(rho, X)
         # departure enthalpy
-        dT_A = dT_a / (R_IDEAL * T) ** 2 * p - 2 * a / (R_IDEAL**2 * T**3) * p
+        dT_A = dT_a / (R_IDEAL_MOL * T) ** 2 * p - 2 * a / (R_IDEAL_MOL**2 * T**3) * p
         h_dep = self._h_dep(T, Z, A, dT_A, B)
         h_ideal = self.get_h_ideal(p, T, X)
         h = h_ideal + h_dep
@@ -2875,7 +2902,7 @@ class _PengRobinson(AbstractEoS):
             The component-specific critical covolume.
 
         """
-        return B_CRIT * (R_IDEAL * T_crit) / p_crit
+        return B_CRIT * (R_IDEAL_MOL * T_crit) / p_crit
 
     @staticmethod
     def a_crit(p_crit: float, T_crit: float) -> float:
@@ -2892,7 +2919,7 @@ class _PengRobinson(AbstractEoS):
             The component-specific critical cohesion.
 
         """
-        return A_CRIT * (R_IDEAL**2 * T_crit**2) / p_crit
+        return A_CRIT * (R_IDEAL_MOL**2 * T_crit**2) / p_crit
 
     @staticmethod
     def a_correction_weight(omega: float) -> float:
@@ -2948,17 +2975,17 @@ class _PengRobinson(AbstractEoS):
     def A(a: NumericType, p: NumericType, T: NumericType) -> NumericType:
         """Auxiliary method implementing formula for non-dimensional cohesion."""
         if isinstance(T, pp.ad.AdArray):
-            return T ** (-2) * a * p / R_IDEAL**2
+            return T ** (-2) * a * p / R_IDEAL_MOL**2
         else:
-            return a * p / (R_IDEAL**2 * T**2)
+            return a * p / (R_IDEAL_MOL**2 * T**2)
 
     @staticmethod
     def B(b: NumericType, p: NumericType, T: NumericType) -> NumericType:
         """Auxiliary method implementing formula for non-dimensional covolume."""
         if isinstance(T, pp.ad.AdArray):
-            return T ** (-1) * b * p / R_IDEAL
+            return T ** (-1) * b * p / R_IDEAL_MOL
         else:
-            return b * p / (R_IDEAL * T)
+            return b * p / (R_IDEAL_MOL * T)
 
     # TODO
     def _kappa(self, p: NumericType, T: NumericType, Z: NumericType) -> NumericType:
@@ -2991,15 +3018,15 @@ class _PengRobinson(AbstractEoS):
     @staticmethod
     def _rho(p: NumericType, T: NumericType, Z: NumericType) -> NumericType:
         """Auxiliary function implementing the formula for density."""
-        return Z ** (-1) * p / (T * R_IDEAL)
+        return Z ** (-1) * p / (T * R_IDEAL_MOL)
 
     @staticmethod
     def _v(p: NumericType, T: NumericType, Z: NumericType) -> NumericType:
         """Auxiliary function implementing the formula for volume."""
         if isinstance(T, pp.ad.AdArray):
-            return T * Z * R_IDEAL / p
+            return T * Z * R_IDEAL_MOL / p
         else:
-            return Z * T / p * R_IDEAL
+            return Z * T / p * R_IDEAL_MOL
 
     @staticmethod
     def _log_ZB_0(Z: NumericType, B: NumericType) -> NumericType:
@@ -3019,13 +3046,13 @@ class _PengRobinson(AbstractEoS):
     ) -> NumericType:
         """Auxiliary function for computing the enthalpy departure function."""
         if isinstance(T, pp.ad.AdArray):
-            i = T * (Z - 1) * R_IDEAL
+            i = T * (Z - 1) * R_IDEAL_MOL
         else:
-            i = (Z - 1) * T * R_IDEAL
+            i = (Z - 1) * T * R_IDEAL_MOL
         return (
             1
             / np.sqrt(8)
-            * (dT_A * T**2 * R_IDEAL + A * T * R_IDEAL)
+            * (dT_A * T**2 * R_IDEAL_MOL + A * T * R_IDEAL_MOL)
             / B
             * self._log_ZB_1(Z, B)
             + i
@@ -3038,7 +3065,7 @@ class _PengRobinson(AbstractEoS):
         return (
             (self._log_ZB_0(Z, B) - self._log_ZB_1(Z, B) * A / B / np.sqrt(8))
             * T
-            * R_IDEAL
+            * R_IDEAL_MOL
         )
 
     @staticmethod
@@ -3075,8 +3102,8 @@ class _PengRobinson(AbstractEoS):
         w.r.t. molar fraction ``x_i``."""
         d = 1 + 2 * b * rho - (b * rho) ** 2
         return (1 - b * rho) ** (-2) * rho * b_i + (
-            a * rho * (2 * rho * b_i + 2 * b * rho**2 * b_i) / (d**2 * T * R_IDEAL)
-            - dxi_a * rho / (d * T * R_IDEAL)
+            a * rho * (2 * rho * b_i + 2 * b * rho**2 * b_i) / (d**2 * T * R_IDEAL_MOL)
+            - dxi_a * rho / (d * T * R_IDEAL_MOL)
         )
 
     @staticmethod

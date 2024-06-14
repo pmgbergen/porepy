@@ -5,7 +5,7 @@ It contains an intermediate abstraction of a component through the class
 
 The intermediate abstraction :class:`Component_PR` contains optional instance
 attributes, which are utilized by the EoS class
-:class:`~porepy.composite.peng_robinson.eos.PengRobinsonEoS`.
+:class:`~porepy.compositional.peng_robinson.eos.PengRobinsonEoS`.
 They are optional in the sense that they are declared, but not implemented.
 Custom implementation must be done in the constructor for child classes.
 
@@ -19,7 +19,7 @@ import numpy as np
 
 import porepy as pp
 
-from .._core import R_IDEAL, T_REF
+from .._core import R_IDEAL_MOL, T_REF
 from ..base import Component, Compound
 from ..chem_species import load_species
 
@@ -60,7 +60,7 @@ class ComponentPR(Component):
 
         Per standard Peng-Robinson EoS, ``alpha`` is a linearized expression dependent
         on the acentric factor and the temperature. This is computed by the equation of
-        state :class:`~porepy.composite.peng_robinson.pr_eos.PengRobinsonEoS`.
+        state :class:`~porepy.compositional.peng_robinson.pr_eos.PengRobinsonEoS`.
 
         If a more specific formula for ``alpha`` is required by a special model,
         this can be implemented by defining a callable ``alpha`` as an attribute of this
@@ -102,14 +102,14 @@ class ComponentPR(Component):
         Per standard Peng-Robinson EoS, the BIP is a constant, real number.
 
         If ``bip_map`` is not defined for a concrete Peng-Robinson component, the
-        EOS-class :class:`~porepy.composite.peng_robinson.pr_eos.PengRobinsonEoS`
-        uses :func:`~porepy.composite.peng_robinson.pr_bip.load_bip` to obtain a
+        EOS-class :class:`~porepy.compositional.peng_robinson.pr_eos.PengRobinsonEoS`
+        uses :func:`~porepy.compositional.peng_robinson.pr_bip.load_bip` to obtain a
         constant value.
 
         If ``bip_map`` is defined in a concrete implementation, it uses the
         callables given here to calculate BIPs by passing the temperature
         during a call to
-        :meth:`~porepy.composite.peng_robinson.pr_eos.PengRobinsonEoS.compute`.
+        :meth:`~porepy.compositional.peng_robinson.pr_eos.PengRobinsonEoS.compute`.
 
         """
 
@@ -179,7 +179,7 @@ class H2S(ComponentPR):
         book/10.1002/9781118135341>`_ .
 
         """
-        return R_IDEAL * (
+        return R_IDEAL_MOL * (
             self.cp1 * (T - T_REF)
             + self.cp2 / 2 * (T**2 - T_REF**2)
             - self.cp3 * (T ** (-1) - T_REF ** (-1))
@@ -218,7 +218,7 @@ class N2(ComponentPR):
         book/10.1002/9781118135341>`_ .
 
         """
-        return R_IDEAL * (
+        return R_IDEAL_MOL * (
             self.cp1 * (T - T_REF)
             + self.cp2 / 2 * (T**2 - T_REF**2)
             - self.cp3 * (T ** (-1) - T_REF ** (-1))
@@ -243,7 +243,7 @@ class NaClBrine(Compound, H2O):
         # instantiate NaCl_ps as a solute
         solute = load_species(["NaCl"], species_type="basic")
         # add solute to self
-        self.solutes = solute
+        self.pseudo_components = solute
 
         # store NaCl for quick access
         self.NaCl = solute

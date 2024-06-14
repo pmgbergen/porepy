@@ -7,8 +7,9 @@ Note:
     This is regulated locally in the file by disabling numba JIT
 
 """
+from __future__ import annotations
 
-_NO_JIT = True
+_NO_JIT = False
 """Flag to disable numba JIT for this module by setting an environment flag.
 The flag is deleted at the end of the module.
 
@@ -16,8 +17,6 @@ NOTE: This still may interfer with other tests if pytest does some fancy paralle
 or networking.
 
 """
-
-from __future__ import annotations
 import os
 
 import numpy as np
@@ -26,8 +25,8 @@ import pytest
 if _NO_JIT:
     os.environ["NUMBA_DISABLE_JIT"] = "1"
 
-import porepy.composite as ppc
-from porepy.composite import peng_robinson as ppcpr
+import porepy.compositional as ppc
+from porepy.compositional import peng_robinson as ppcpr
 
 # NOTE Fixtures created here are expensive because of compilation
 # broadening the scope to have the value cached.
@@ -55,14 +54,14 @@ def eos(components) -> ppcpr.PengRobinsonCompiler:
 
 
 @pytest.fixture(scope='module')
-def mixture(components, eos) -> ppc.Mixture:
+def mixture(components, eos) -> ppc.FluidMixture:
     """Returns the 2-phase, 2-component mixture class used in this series of tests."""
 
     phases = [ppc.Phase(eos, 0, 'L'), ppc.Phase(eos, 1, 'G')]
     for p in phases:
         p.components = components
 
-    mixture = ppc.Mixture(components, phases)
+    mixture = ppc.FluidMixture(components, phases)
 
     return mixture
 
@@ -76,49 +75,6 @@ def flash(mixture, eos) -> ppc.CompiledUnifiedFlash:
     flash_.compile()
 
     return flash_
-
-
-# @pytest.mark.skip("EoS compilation takes too much time as of now")
-def test_compressibility_factor_from_eos(eos: ppcpr.PengRobinsonCompiler):
-    """The only (known) double root for the characteristic polynomial
-    (2 compressibility factors) is the point where cohesion and co-volume are zero."""
-    ncomp = eos._nc
-    tol = 1e-12
-
-    # If fractions x are zero, p and T don't matter
-    p = 1.0
-    T = 1.0
-    x = np.array([0.0] * ncomp)
-
-    A_c = eos._cfuncs["A"]
-    d_A_c = eos._cfuncs["d_A"]
-    B_c = eos._cfuncs["B"]
-    d_B_c = eos._cfuncs["d_B"]
-    Z_c = eos._cfuncs["Z"]
-    d_Z_c = eos._cfuncs["d_Z"]
-
-    # Zero composition leads to zero A and B
-    A = A_c(p, T, x)
-    B = B_c(p, T, x)
-    d_A = d_A_c(p, T, x)
-    d_B = d_B_c(p, T, x)
-    assert np.abs(A) < tol
-    assert np.abs(B) < tol
-
-    z_liq = ppcpr.eos_c.Z_double_l_c(A, B)
-    z_gas = ppcpr.eos_c.Z_double_g_c(A, B)
-    d_z_liq = ppcpr.eos_c.d_Z_double_l_c(A, B)
-    d_z_gas = ppcpr.eos_c.d_Z_double_g_c(A, B)
-
-    # The tailored computations from EoS should give the same result as the formulas
-    # dependent on A, B
-    assert np.abs(Z_c(p, T, x, True, tol, 0.0, 0.0) - z_gas) < tol
-    assert np.abs(Z_c(p, T, x, False, tol, 0.0, 0.0) - z_liq) < tol
-    # for testing derivatives, extend dAB to dptx by chain rule
-    d_test = d_z_gas[0] * d_A + d_z_gas[1] * d_B
-    assert np.linalg.norm(d_Z_c(p, T, x, True, tol, 0.0, 0.0) - d_test) < tol
-    d_test = d_z_liq[0] * d_A + d_z_liq[1] * d_B
-    assert np.linalg.norm(d_Z_c(p, T, x, False, tol, 0.0, 0.0) - d_test) < tol
 
 
 def test_compressibility_factor_double_root():
