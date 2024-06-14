@@ -37,7 +37,7 @@ import numpy as np
 
 import porepy as pp
 
-tracer_like_setting_q = False
+tracer_like_setting_q = True
 if tracer_like_setting_q:
     from TracerModelConfiguration import TracerFlowModel as FlowModel
 else:
@@ -45,9 +45,9 @@ else:
     from DriesnerModelConfiguration import DriesnerBrineFlowModel as FlowModel
 
 day = 86400
-t_scale = 0.0000001
+t_scale = 1.0
 time_manager = pp.TimeManager(
-    schedule=[0.0, 100.0 * day * t_scale],
+    schedule=[0.0, 10.0 * day * t_scale],
     dt_init=1.0 * day * t_scale,
     constant_dt=True,
     iter_max=50,
@@ -55,7 +55,7 @@ time_manager = pp.TimeManager(
 )
 
 solid_constants = pp.SolidConstants(
-    {"permeability": 9.869233e-14, "porosity": 0.2, "thermal_conductivity": 1.92}
+    {"permeability": 5.0e-15, "porosity": 0.1, "thermal_conductivity": 1.8, 'density': 2650.0, 'specific_heat_capacity': 1000.0}
 )
 material_constants = {"solid": solid_constants}
 params = {
@@ -74,18 +74,18 @@ params = {
 
 class GeothermalFlowModel(FlowModel):
 
-    def after_nonlinear_convergence(self) -> None:
+    def after_nonlinear_convergence(self, iteration_counter) -> None:
         tb = time.time()
-        res_norm = np.linalg.norm(
-            self.equation_system.assemble(evaluate_jacobian=False)
-        )
+        _, residual = self.equation_system.assemble(evaluate_jacobian=True)
+        res_norm = np.linalg.norm(residual)
         te = time.time()
-        print("Elapsed time residual assemble: ", te - tb)
+        print("Elapsed time assemble: ", te - tb)
         print("Time step converged with residual norm: ", res_norm)
+        print("Number of iterations: ", iteration_counter)
         print("Time value: ", self.time_manager.time)
         print("Time index: ", self.time_manager.time_index)
         print("")
-        super().after_nonlinear_convergence()
+        super().after_nonlinear_convergence(iteration_counter)
 
     def after_simulation(self):
         self.exporter.write_pvd()
