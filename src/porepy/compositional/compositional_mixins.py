@@ -23,7 +23,7 @@ import numpy as np
 import porepy as pp
 
 from ._core import COMPOSITIONAL_VARIABLE_SYMBOLS as symbols
-from .base import AbstractEoS, Component, Compound, FluidMixture, Phase
+from .base import AbstractEoS, Component, Compound, FluidMixture, Phase, PhysicalState
 from .chem_species import ChemicalSpecies
 from .states import FluidState, PhaseState
 from .utils import CompositionalModellingError
@@ -822,7 +822,7 @@ class FluidMixtureMixin:
 
     def get_phase_configuration(
         self, components: Sequence[Component]
-    ) -> Sequence[tuple[AbstractEoS, int, str]]:
+    ) -> Sequence[tuple[AbstractEoS, PhysicalState, str]]:
         """Method to return a configuration of modelled phases.
 
         Parameters:
@@ -837,7 +837,7 @@ class FluidMixtureMixin:
             A sequence of 3-tuples containing
 
             1. An instance of an EoS.
-            2. The phase type.
+            2. The phase state.
             3. A name for the phase.
 
             Each tuple will be used to create a phase in the fluid mixture.

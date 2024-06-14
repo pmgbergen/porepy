@@ -89,11 +89,11 @@ def get_mock_model(
     'phaseconfig',
     [
         [],  # shoud lead to error if no phase
-        [('L', 0)],
-        [('L', 0), ('L', 0)],  # error since same name
-        [('G', 1), ('L', 0)],  # should re-order s.t. L is ref phase and G at end
-        [('L', 1), ('G', 1)],  # error since two gas phases
-        [('L1', 0), ('L2', 0), ('G', 1)],
+        [('L', composit.PhysicalState.liquid)],
+        [('L', composit.PhysicalState.liquid), ('L', composit.PhysicalState.liquid)],  # error since same name
+        [('G', composit.PhysicalState.gas), ('L', composit.PhysicalState.liquid)],  # should re-order s.t. L is ref phase and G at end
+        [('L', composit.PhysicalState.gas), ('G', composit.PhysicalState.gas)],  # error since two gas phases
+        [('L1', composit.PhysicalState.liquid), ('L2', composit.PhysicalState.liquid), ('G', composit.PhysicalState.gas)],
     ],
 )
 @pytest.mark.parametrize(
@@ -131,7 +131,7 @@ def test_mixture_contexts(species: list[str], phaseconfig: list[list[tuple[str, 
     has_more_gas = False
     for conf in phaseconfig:
         name, t = conf
-        if t == 1:
+        if t == composit.PhysicalState.gas:
             if has_gas:
                 has_more_gas = True
             has_gas = True
@@ -169,7 +169,7 @@ def test_mixture_contexts(species: list[str], phaseconfig: list[list[tuple[str, 
         ordered_phases = [p for p in mix.phases]
         ordered_comps = [c for c in mix.components]
         if has_gas:
-            assert ordered_phases[-1].type == 1
+            assert ordered_phases[-1].state == composit.PhysicalState.gas
 
         # asert that the first phase and components are always the reference
         assert ordered_phases[0] == mix.reference_phase

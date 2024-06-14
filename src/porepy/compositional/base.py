@@ -28,14 +28,10 @@
 
 4. :class:`FluidMixture`:
     A basic representation of a mixture which is a collection of anticipated phases and
-    present components.
+    present components, putting them into their contexts.
 
-    It puts phases and components into context.
-    The mixture expects the overall fraction of a component (:attr:`Component.fraction`)
-    to never be zero. Otherwise a smaller mixture can be modelled.
-
-    Serves as a managing instance and provides functionalities to formulate the flash
-    equations using PorePy's AD framework.
+    Serves as a managing instance and provides functionalities to formulate flow &
+    transport & flash equations using PorePy's AD framework.
 
 Note:
     Phases are meant to be based on an Equation of State.
@@ -55,6 +51,7 @@ from __future__ import annotations
 
 import abc
 from dataclasses import asdict
+from enum import Enum
 from typing import Callable, Generator, Sequence, Type, TypeVar
 
 import numpy as np
@@ -69,6 +66,7 @@ from .utils import CompositionalModellingError, safe_sum
 __all__ = [
     "Component",
     "Compound",
+    "PhysicalState",
     "AbstractEoS",
     "Phase",
     "FluidMixture",
@@ -335,6 +333,19 @@ class Compound(Component):
         return X
 
 
+class PhysicalState(Enum):
+    """Enum object for characterizing the physical states of a phase.
+
+    - :attr:`liquid`: liquid-like state (value 0)
+    - ``gas: int = 1``: gas-like state (value 1)
+    - values above 1 are reserved for further development
+
+    """
+
+    liquid: int = 0
+    gas: int = 1
+
+
 class AbstractEoS(abc.ABC):
     """Abstract EoS class defining the interface between thermodynamic input
     and resulting structure containing thermodynamic properties of a phase.
@@ -371,7 +382,7 @@ class AbstractEoS(abc.ABC):
 
     @abc.abstractmethod
     def compute_phase_state(
-        self, phase_type: int, *thermodynamic_input: np.ndarray
+        self, phase_state: PhysicalState, *thermodynamic_input: np.ndarray
     ) -> PhaseState:
         """ "Abstract method to compute the properties of a phase based any
         thermodynamic input.
@@ -389,7 +400,7 @@ class AbstractEoS(abc.ABC):
             4. For complex models, temperature can be replaced by enthalpy, for example.
 
         Parameters:
-            phase_type: See :attr:`Phase.type`
+            phase_state: The physical phase state for which to compute values.
             *thermodynamic_input: Vectors with consistent shape ``(N,)`` representing
                 any combination of thermodynamic input variables.
 
@@ -410,9 +421,8 @@ class Phase:
 
     Phases have physical properties, dependent on some thermodynamic input.
     They are usually assigned by an instance of
-    :class:`~porepy.compositional.compositional_mixins.FluidMixtureMixin`, and include **only**
-    properties relevant for flow & transport problems.
-    This includes
+    :class:`~porepy.compositional.compositional_mixins.FluidMixtureMixin`, and include
+    **only** properties relevant for flow & transport problems:
 
     - :attr:`density`
     - :attr:`specific_volume`
@@ -422,7 +432,7 @@ class Phase:
     - :attr:`fugacities_of`
 
     Components must be modelled explicitly in a phase, by setting :attr:`components`.
-    (see als:class:`~porepy.compositional.compositional_mixins.
+    (see also :class:`~porepy.compositional.compositional_mixins.
     FluidMixtureMixin.set_components_in_phases`).
 
     Important:
@@ -452,16 +462,16 @@ class Phase:
 
         All partial fractions in :attr:`partial_fraction_of` are dependent
         :class:`~porepy.numerics.ad.operators.Operator` -instances,
-        created by normalization of fractions in :attr:`fraction_of`.
+        created by normalization of fractions in :attr:`extended_fraction_of`.
 
         If the flow & transport model does not include an equilibrium formulation,
         the extended fractions are meaningless and the partialf ractions are independent
         variables instead.
 
     Parameters:
-        phase_type: Integer indicating the physical type of the phase (see :attr:`type`)
         eos: An EoS which provides means to compute physical properties of the phase.
             Can be different for different phases.
+        state: The physical state this phase represents.
         name: Given name for this phase. Used as an unique identifier and for naming
             various variables and properties.
 
@@ -470,7 +480,7 @@ class Phase:
     def __init__(
         self,
         eos: AbstractEoS,
-        type: int,
+        state: PhysicalState,
         name: str,
     ) -> None:
         ### PUBLIC
@@ -488,14 +498,8 @@ class Phase:
         self.eos: AbstractEoS = eos
         """The EoS passed at instantiation."""
 
-        self.type: int = int(type)
-        """Physical type of this phase. Passed at instantiation.
-
-        - ``0``: liquid-like
-        - ``1``: gas-like
-        - ``>1``: unused but reserved for future development.
-
-        """
+        self.state: PhysicalState = state
+        """Physical state declared at instantiation (see :attr:`PhysicalStates`)."""
 
         self.name: str = str(name)
         """Name given to the phase at instantiation."""
@@ -636,7 +640,7 @@ class Phase:
         """Shortcut to compute the properties calling
         :meth:`AbstractEoS.compute_phase_state` of :attr:`eos` with :attr:`type` as
         argument."""
-        return self.eos.compute_phase_state(self.type, *thermodynamic_input)
+        return self.eos.compute_phase_state(self.state, *thermodynamic_input)
 
 
 class FluidMixture:
@@ -717,7 +721,7 @@ class FluidMixture:
             if phase.name in doubles:
                 raise ValueError("All phases must have different 'name' attributes.")
             doubles.append(phase.name)
-            if phase.type == 1:
+            if phase.state == PhysicalState.gas:
                 gaslike_phases.append(phase)
             else:
                 other_phases.append(phase)
