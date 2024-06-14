@@ -638,7 +638,7 @@ class AdArray:
         else:
             return self.val == other
 
-    def __neq__(self, other: AdType) -> bool | np.ndarray:
+    def __ne__(self, other: AdType) -> bool | np.ndarray:
         if isinstance(other, AdArray):
             return self.val != other.val
         else:

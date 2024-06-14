@@ -254,3 +254,65 @@ def test_get_set_slice_ad_var(index, index_c):
     assert np.all(a[index].val == b)
     assert np.all(a[index_c].val == a_copy[index_c].val)
     assert np.all(a.jac.A == a_copy.jac.A)
+
+
+@pytest.mark.parametrize(
+    'N', [1, 3]
+)
+@pytest.mark.parametrize(
+    'logical_op', ['>', '>=', '<', '<=', '==', '!=']
+)
+@pytest.mark.parametrize(
+    'other', [
+        1,
+        np.ones(1),
+        np.ones(2),
+        np.ones(3),
+        np.ones((2, 2)),
+        AdArray(np.ones(1), sps.csr_matrix(np.eye(1))),
+        AdArray(np.ones(2), sps.csr_matrix(np.eye(2))),
+        AdArray(np.ones(3), sps.csr_matrix(np.eye(3))),
+    ]
+)
+def test_logical_operation(N: int, logical_op: str, other: int | np.ndarray | AdArray):
+    """Logical operations on Ad arrays are implemented such that they operate only on
+    values, making them completely equivalent to what numpy does.
+
+    Test that they work and that the result of the logical operation is doing the same
+    as numpy for ``.val`` only.
+
+    """
+
+    val = np.arange(N)
+    jac = sps.csr_matrix(np.eye(N))
+    ad = AdArray(val, jac)
+
+    global result_numpy, result_ad
+    result_numpy = np.empty(N)
+    result_ad = np.empty(N)
+
+    # If numpy failes to broadcast the shapes, so should the Ad Array.
+    # NOTE Numpy manages to compare arrays, if one of them has shape (1,) by treating
+    # it as a scalar. All other cases should raise an error.
+    try:
+        # NOTE if the AD array is the right operand, the overload of numpy will be
+        # invoked
+        if isinstance(other, AdArray):
+            exec(f"global result_numpy; result_numpy = val {logical_op} other.val")
+        else:
+            exec(f"global result_numpy; result_numpy = val {logical_op} other")
+    except ValueError as numpy_err:
+        with pytest.raises(ValueError) as ad_error:
+            exec(f"result_ad = ad {logical_op} other")
+
+        # Comparison of exceptions by type and message content
+        assert ad_error.type == type(numpy_err)
+        assert str(ad_error.value) == str(numpy_err)
+    # If numpy does not fail, the logical operation on AD should have same result,
+    # dtype and shape
+    else:
+        exec(f"global result_ad; result_ad = ad {logical_op} other")
+
+        assert result_ad.shape == result_numpy.shape
+        assert result_ad.dtype == result_numpy.dtype
+        assert np.all(result_ad == result_numpy)
