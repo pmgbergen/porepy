@@ -118,6 +118,81 @@ def model(
     return model
 
 
+class ThreeBoundaryConditionTypes:
+    """Mixin for applying Neumann, Dirichlet and Robin conditions for a
+    thermoporomechanics model."""
+
+    def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+        p_north = self.params.get("p_north", 1)
+        p_south = self.params.get("p_north", 1)
+        values = np.zeros(boundary_grid.num_cells)
+        bounds = self.domain_boundary_sides(boundary_grid)
+
+        values[bounds.north] += np.ones(len(values[bounds.north])) * p_north
+        values[bounds.south] += np.ones(len(values[bounds.south])) * p_north
+        return values
+
+    def bc_type_mechanics(self, sd: pp.Grid) -> pp.BoundaryConditionVectorial:
+        bounds = self.domain_boundary_sides(sd)
+        bc = pp.BoundaryConditionVectorial(
+            sd,
+            bounds.north + bounds.south + bounds.east + bounds.west,
+            "dir",
+        )
+        bc.is_dir[:, bounds.west + bounds.east] = False
+
+        bc.is_rob[:, bounds.west] = True
+        bc.is_neu[:, bounds.east] = True
+        return bc
+
+    def _bc_type_wrap(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        bounds = self.domain_boundary_sides(sd)
+        bc = pp.BoundaryCondition(
+            sd, bounds.north + bounds.south + bounds.west + bounds.east, "dir"
+        )
+        bc.is_dir[bounds.west + bounds.east] = False
+        bc.is_rob[bounds.west] = True
+        bc.is_neu[bounds.east] = True
+
+        return bc
+
+    def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        return self._bc_type_wrap(sd=sd)
+
+    def bc_type_fourier_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        return self._bc_type_wrap(sd=sd)
+
+    def bc_values_darcy_flux(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+        df_west = self.params.get("df_west", 1)
+        df_east = self.params.get("df_east", 1)
+        values = np.zeros(boundary_grid.num_cells)
+        bounds = self.domain_boundary_sides(boundary_grid)
+
+        values[bounds.west] += np.ones(len(values[bounds.west])) * df_west
+        values[bounds.east] += np.ones(len(values[bounds.east])) * df_east
+        return values
+
+    def bc_values_fourier_flux(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+        ff_west = self.params.get("ff_west", 1)
+        ff_east = self.params.get("ff_east", 1)
+        values = np.zeros(boundary_grid.num_cells)
+        bounds = self.domain_boundary_sides(boundary_grid)
+
+        values[bounds.west] += np.ones(len(values[bounds.west])) * ff_west
+        values[bounds.east] += np.ones(len(values[bounds.east])) * ff_east
+        return values
+
+    def bc_values_stress(self, bg: pp.BoundaryGrid) -> np.ndarray:
+        ms_west = self.params.get("ms_west", 1)
+        ms_east = self.params.get("ms_east", 1)
+        values = np.zeros((self.nd, bg.num_cells))
+        bounds = self.domain_boundary_sides(bg)
+
+        values[0][bounds.west] += np.ones(len(values[0][bounds.west])) * ms_west
+        values[0][bounds.east] += np.ones(len(values[0][bounds.east])) * ms_east
+        return values.ravel("F")
+
+
 def subdomains_or_interfaces_from_method_name(
     mdg: pp.MixedDimensionalGrid,
     method_name: Callable,
