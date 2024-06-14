@@ -172,6 +172,38 @@ def test_tested_vs_testable_methods_single_phase_flow(
     [
         ("aperture", np.array([1, 1, 1, 1, 0.01, 0.01, 0.01, 0.01, 0.01]), None),
         ("combine_boundary_operators_darcy_flux", np.zeros(24), None),
+        (
+            "combine_boundary_operators_fluid_flux",
+            np.array(
+                [
+                    1000000.0,
+                    0.0,
+                    1000000.0,
+                    1000000.0,
+                    0.0,
+                    1000000.0,
+                    1000000.0,
+                    1000000.0,
+                    0.0,
+                    0.0,
+                    1000000.0,
+                    1000000.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    1000000.0,
+                    0.0,
+                    1000000.0,
+                    0.0,
+                    1000000.0,
+                    0.0,
+                    1000000.0,
+                    0.0,
+                ]
+            ),
+            None,
+        ),
         # Darcy fluxes (with unitary values for the viscosity).
         (
             "darcy_flux",
