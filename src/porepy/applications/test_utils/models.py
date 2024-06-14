@@ -129,7 +129,7 @@ class ThreeBoundaryConditionTypes:
         bounds = self.domain_boundary_sides(boundary_grid)
 
         values[bounds.north] += np.ones(len(values[bounds.north])) * p_north
-        values[bounds.south] += np.ones(len(values[bounds.south])) * p_north
+        values[bounds.south] += np.ones(len(values[bounds.south])) * p_south
         return values
 
     def bc_type_mechanics(self, sd: pp.Grid) -> pp.BoundaryConditionVectorial:
