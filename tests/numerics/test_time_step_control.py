@@ -772,12 +772,18 @@ class DynamicTimeStepTestCaseModel(SinglePhaseFlow):
         self.time_step_history: list = []
 
     def before_nonlinear_loop(self) -> None:
+        super().before_nonlinear_loop()  # The AD time step is expected to update here.
         self.time_step_idx += 1
         self.nonlinear_iter_idx = -1
         self.time_step_history.append(self.time_manager.dt)
 
     def before_nonlinear_iteration(self):
+        super().before_nonlinear_iteration()
         self.nonlinear_iter_idx += 1
+        # The AD time step should not change throughout the Newton iterations.
+        assert (
+            self.ad_time_step.value(self.equation_system) == self.time_manager.dt
+        ), "The AD time step value conflicts with the value from the time_manager."
 
     def _is_nonlinear_problem(self):
         return True
