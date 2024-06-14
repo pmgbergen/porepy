@@ -17,7 +17,7 @@ def dummyeos():
 
         def compute_phase_state(
             self, phase_type: int, *thermodynamic_input: ndarray
-        ) -> composit.PhaseState:
+        ) -> composit.PhaseProperties:
             pass
 
     return DummyEos

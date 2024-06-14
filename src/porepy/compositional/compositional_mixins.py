@@ -23,9 +23,10 @@ import numpy as np
 import porepy as pp
 
 from ._core import COMPOSITIONAL_VARIABLE_SYMBOLS as symbols
-from .base import AbstractEoS, Component, Compound, FluidMixture, Phase, PhysicalState
+from ._core import PhysicalState
+from .base import AbstractEoS, Component, Compound, FluidMixture, Phase
 from .chem_species import ChemicalSpecies
-from .states import FluidState, PhaseState
+from .states import FluidProperties, PhaseProperties
 from .utils import CompositionalModellingError
 
 __all__ = [
@@ -200,7 +201,7 @@ class CompositionalVariables(pp.VariableMixin):
         self,
         subdomains: Sequence[pp.Grid],
         state: Optional[np.ndarray] = None,
-    ) -> FluidState:
+    ) -> FluidProperties:
         """Uses the AD framework to create a fluid state from currently stored values of
         fractions.
 
@@ -264,11 +265,11 @@ class CompositionalVariables(pp.VariableMixin):
             for phase in self.fluid_mixture.phases
         ]
 
-        return FluidState(
+        return FluidProperties(
             z=z,
             y=y,
             sat=sat,
-            phases=[PhaseState(x=x_) for x_ in x],
+            phases=[PhaseProperties(x=x_) for x_ in x],
         )
 
     def _create_fractional_variable(

@@ -51,7 +51,6 @@ from __future__ import annotations
 
 import abc
 from dataclasses import asdict
-from enum import Enum
 from typing import Callable, Generator, Sequence, Type, TypeVar
 
 import numpy as np
@@ -59,14 +58,14 @@ import numpy as np
 import porepy as pp
 from porepy.numerics.ad.functions import FloatType
 
+from ._core import PhysicalState
 from .chem_species import ChemicalSpecies
-from .states import PhaseState
+from .states import PhaseProperties
 from .utils import CompositionalModellingError, safe_sum
 
 __all__ = [
     "Component",
     "Compound",
-    "PhysicalState",
     "AbstractEoS",
     "Phase",
     "FluidMixture",
@@ -341,19 +340,6 @@ class Compound(Component):
         return X
 
 
-class PhysicalState(Enum):
-    """Enum object for characterizing the physical states of a phase.
-
-    - :attr:`liquid`: liquid-like state (value 0)
-    - ``gas: int = 1``: gas-like state (value 1)
-    - values above 1 are reserved for further development
-
-    """
-
-    liquid: int = 0
-    gas: int = 1
-
-
 class AbstractEoS(abc.ABC):
     """Abstract EoS class defining the interface between thermodynamic input
     and resulting structure containing thermodynamic properties of a phase.
@@ -391,7 +377,7 @@ class AbstractEoS(abc.ABC):
     @abc.abstractmethod
     def compute_phase_state(
         self, phase_state: PhysicalState, *thermodynamic_input: np.ndarray
-    ) -> PhaseState:
+    ) -> PhaseProperties:
         """ "Abstract method to compute the properties of a phase based any
         thermodynamic input.
 
@@ -644,7 +630,7 @@ class Phase:
         """Number of set components."""
         return len(self.components) if hasattr(self, "components") else 0
 
-    def compute_properties(self, *thermodynamic_input: np.ndarray) -> PhaseState:
+    def compute_properties(self, *thermodynamic_input: np.ndarray) -> PhaseProperties:
         """Shortcut to compute the properties calling
         :meth:`AbstractEoS.compute_phase_state` of :attr:`eos` with :attr:`type` as
         argument."""

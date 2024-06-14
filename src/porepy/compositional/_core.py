@@ -7,11 +7,14 @@ Changes here should be done with much care.
 
 from __future__ import annotations
 
+from enum import Enum
+
 __all__ = [
     "R_IDEAL_MOL",
     "P_REF",
     "T_REF",
     "COMPOSITIONAL_VARIABLE_SYMBOLS",
+    "PhysicalState",
 ]
 
 
@@ -155,3 +158,16 @@ Important:
     variable using the symbols here.
 
 """
+
+
+class PhysicalState(Enum):
+    """Enum object for characterizing the physical states of a phase.
+
+    - :attr:`liquid`: liquid-like state (value 0)
+    - ``gas: int = 1``: gas-like state (value 1)
+    - values above 1 are reserved for further development
+
+    """
+
+    liquid: int = 0
+    gas: int = 1

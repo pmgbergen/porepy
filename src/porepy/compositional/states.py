@@ -23,6 +23,7 @@ from typing import Optional, Sequence, cast
 
 import numpy as np
 
+from ._core import PhysicalState
 from .utils import (
     chainrule_fractional_derivatives,
     compute_saturations,
@@ -31,16 +32,16 @@ from .utils import (
 )
 
 __all__ = [
-    "ExtensiveState",
-    "IntensiveState",
-    "PhaseState",
-    "FluidState",
-    "initialize_fluid_state",
+    "ExtensiveProperties",
+    "IntensiveProperties",
+    "PhaseProperties",
+    "FluidProperties",
+    "initialize_fluid_properties",
 ]
 
 
 @dataclass
-class IntensiveState:
+class IntensiveProperties:
     """Dataclass for storing intensive thermodynamic properties of a fluid mixture.
 
     Storage is intended to be in array format for usage in flow and transport, where
@@ -62,9 +63,9 @@ class IntensiveState:
 
 
 @dataclass
-class ExtensiveState:
+class ExtensiveProperties:
     """Dataclass for storing extensive thermodynamic properties
-    (analogous to :class:`IntensiveState`).
+    (analogous to :class:`IntensiveProperties`).
 
     As of now, the extensive state does not encompass all of the physical quantities,
     but those which are relevant for the flow & transport model in PorePy.
@@ -92,7 +93,7 @@ class ExtensiveState:
 
 
 @dataclass
-class PhaseState(ExtensiveState):
+class PhaseProperties(ExtensiveProperties):
     """An extended state description for physical phases, including derivatives
     of extensive properties and properties which are not state functions such
     as viscosity and thermal conductivity.
@@ -106,8 +107,8 @@ class PhaseState(ExtensiveState):
 
     """
 
-    phasetype: int = 0
-    """Type of the phase. Defaults to 0 (liquid)."""
+    state: PhysicalState = PhysicalState.liquid
+    """Physical state of the phase. Defaults to liquid-like."""
 
     x: np.ndarray = field(default_factory=lambda: np.zeros((0, 0)))
     """Fractions for each component in a phase, stored row-wise per component
@@ -227,12 +228,12 @@ class PhaseState(ExtensiveState):
 
 
 @dataclass
-class FluidState(IntensiveState, ExtensiveState):
+class FluidProperties(IntensiveProperties, ExtensiveProperties):
     """Nested dataclass characterizing the thermodynamic state of a
     multiphase multicomponent fluid.
 
     This is a collection of intensive and extensive states of the fluid,
-    as well as a collection of :class:`PhaseState` isntances characterizing individual
+    as well as a collection of :class:`PhaseProperties` isntances characterizing individual
     phases.
 
     Note:
@@ -240,7 +241,7 @@ class FluidState(IntensiveState, ExtensiveState):
         (see :class:`~porepy.compositional.base.FluidMixture`).
         I.e., its fractional values are usually dependent by unity of fractions.
 
-    Contrary to :class:`PhaseState`, this dataclass does not support derivatives of
+    Contrary to :class:`PhaseProperties`, this dataclass does not support derivatives of
     extensive properties on a mixture-level.
     Since the derivatives w.r.t. to phase fractions or saturations are trivially
     the respective property of the phase, this can be done easily by the user without
@@ -254,7 +255,7 @@ class FluidState(IntensiveState, ExtensiveState):
     sat: np.ndarray = field(default_factory=lambda: np.zeros((0, 0)))
     """Saturation for each phase in :attr:`phases`, stored row-wise."""
 
-    phases: Sequence[PhaseState] = field(default_factory=lambda: list())
+    phases: Sequence[PhaseProperties] = field(default_factory=lambda: list())
     """A collection of phase state descriptions per phase in the fluid mixture."""
 
     def evaluate_saturations(self, eps: float = 1e-10) -> None:
@@ -299,30 +300,30 @@ class FluidState(IntensiveState, ExtensiveState):
         self.rho = rho
 
 
-def initialize_fluid_state(
+def initialize_fluid_properties(
     n: int,
     ncomp: int | np.ndarray,
     nphase: int,
-    phase_types: Optional[np.ndarray] = None,
+    phase_states: Optional[Sequence[PhysicalState]] = None,
     with_derivatives: bool = False,
-) -> FluidState:
-    """Creates a fluid state with filled with zero values of defined size.
+) -> FluidProperties:
+    """Creates a fluid property structure with filled with zero values of defined size.
 
     Parameters:
         n: Number of values per thermodynamic quantity.
         ncomp: Number of components. Either as a number or an array with numbers per
             phase.
         nphase: Number of phases
-        phase_types: ``default=None``
+        phase_states: ``default=None``
 
-            Phase types (integers) per phase. If None, all phases are assigned type 0.
+            Physical states per phase. If None, all phases are assigned a liquid state.
         with_derivatives: ``default=False``.
 
             If True, the derivatives are also initialized with zero values, otherwise
             they are left empty.
 
     """
-    state = FluidState()
+    state = FluidProperties()
     state.p = np.zeros(n)
     state.T = np.zeros(n)
     state.h = np.zeros(n)
@@ -330,8 +331,8 @@ def initialize_fluid_state(
     state.y = np.zeros((nphase, n))
     state.sat = np.zeros((nphase, n))
 
-    if phase_types is None:
-        phase_types = np.zeros(nphase, dtype=int)
+    if phase_states is None:
+        phase_states = [PhysicalState.liquid] * nphase
     if isinstance(ncomp, int):
         ncomp = np.ones(nphase, dtype=int) * ncomp
     else:
@@ -342,10 +343,10 @@ def initialize_fluid_state(
 
     state.phases = []
     for j in range(nphase):
-        phase_state = PhaseState(
+        phase_state = PhaseProperties(
             h=np.zeros(n),
             rho=np.zeros(n),
-            phasetype=phase_types[j],
+            state=phase_states[j],
             x=np.zeros((ncomp[j], n)),
             phis=np.zeros((ncomp[j], n)),
             mu=np.zeros(n),
