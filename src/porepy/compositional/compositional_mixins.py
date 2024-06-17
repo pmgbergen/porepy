@@ -35,7 +35,155 @@ __all__ = [
 ]
 
 
-class CompositionalVariables(pp.VariableMixin):
+class CVDOF:
+    """A class to help resolve the independent compositional variables of an arbitrary
+    mixture, and respectivly the DOFs.
+    
+    .. rubric:: Assumptions and unity constraints
+
+    1. Reference phase and component can be eliminated.
+
+       - Phase fraction, saturation and component overall fractions of reference
+         instance can be expressed by unity of fractions.
+
+    2. Components do not have to be in all phases. E.g., solid phase models usually
+       contain only 1 mineral/component, or ions in liquid phase do not have to
+       evaporate into a gas phase.
+    3. Partial fractions of components in phases have to fulfill the unity constraint.
+       Their 
+    3. While point number 2. holds especially for partial (physical) fractions, it does
+       not hold necessarily for extended fraction in the unified setting. Vanished
+       phases with only 1 component still have extended fractions (unity gap).
+    4. Solute fractions of pseudo-components in Compounds are always unknown (transport)
+
+    .. rubric:: Resolution
+
+    1. Overall fractions:
+
+       - If only 1 component, the fraction is always 1.
+       - If the reference component is eliminated, it's fraction is not independent.
+
+    2. Phase fractions:
+
+       - If only 1 phase, the fraction is always 1.
+       - If the reference phase is eliminated, its fraction is not independent.
+
+    3. Phase saturations: Analogous to fractions.
+
+    Partial and extended fractions are resolved depending on the equilibrium setting.
+
+    1. No equilibrium, multiple phases
+
+       - If only 1 component in a phase, the partial fraction is the scalar 1.
+       - If more than 1 component in a phase, the partial fractions are independent
+         quantities. If the reference component is modelled in a phase, its partial
+         fraction is not independent.
+       - If more than 1 component in a phase, and the reference component is **not**
+         in the phase, the first component in the phase is eliminated instead.
+
+    3. Non-unified/classical equilibrium: Must work on the same assumptions as above.
+       The difference being, that equilibrium equations are provided to close the model,
+       whereas the interpolated approach (OBL) must close the system with local
+       equations relating the dangling fractions to some interpolated function.
+
+    3. Unified equilibrium:
+
+       - Partial fractions are always dependent operators, obtained by normalizing
+         extended fractions (even if only 1 component, minimal overhead)
+       - Extended fractions are always independent operators, even if a phase has only
+         1 component (unity constraint is not a strict equality anymore).
+
+    4. Single-phase mixtures: No phase-equilibrium problem, hence partial fractions are
+       equal to overall fractions.
+
+    Parameters:
+        mixture: The created fluid mxiture.
+        eliminate_reference_phase: Model assumption to eliminate the reference phase.
+        eliminate_reference_component: Model assumption to eliminate the overall
+            fraction of the reference component.
+
+    """
+
+    fluid_mixture: FluidMixture
+    """Provided by :class:`FluidMixtureMixin`."""
+
+    params: dict
+    """Provided by the solutions strategy mixin."""
+
+    def has_independent_saturation(self, phase: Phase) -> bool:
+        """Checks if the saturation of the ``phase`` is an independent variable.
+
+        If there is only 1 phase, or the phase is the reference phase, it is not an
+        independenr variable.
+
+        Paremters:
+            phase: A phase in the :attr:`fluid_mixture`.
+
+        Raises:
+            ValueError: If ``phase`` is not modelled in the fluid mixture.
+
+        Returns:
+            False, if there is only 1 phase, or the phase is the reference phase and
+            it was eliminated. Otherwise it returns True.
+
+        """
+
+        phases = list(self.fluid_mixture.phases)
+        if phase not in phases:
+            raise ValueError(f"Phase {phase} not in fluid mixture.")
+        idx = phases.index(phase)
+        eliminated = self.params.get('eliminate_reference_phase', True)
+        if (
+            (idx == self.fluid_mixture.reference_phase_index and eliminated)
+            or self.fluid_mixture.num_phases == 1
+        ):
+            return False
+        else:
+            return True
+
+    def has_independent_fraction(self, instance: Phase | Component) -> bool:
+        """Checking whether the ``instance`` has an independent variable for the
+        fraction of total mass associated with it.
+
+        Works the same for both components and phases.
+
+        Note:
+            The case for phases is analogous to :meth:`has_independent_saturation`.
+
+        Parameters:
+            instance: A phase or a component in the :attr:`fluid_mixture`.
+
+        Raises:
+            ValueError: If the ``instance`` is not in the fluid mixture.
+
+        Returns:
+            False, if there is only 1 instance in the fluid mixture, or
+            it is the reference instance and it was eliminated. Otherwise it returns
+            True.
+
+        """
+        if isinstance(instance, Phase):
+            return self.has_independent_saturation(instance)
+        elif isinstance(instance, Component):
+            components = list(self.fluid_mixture.components)
+            if instance not in components:
+                raise ValueError(f"Component {instance} not in fluid mixture.")
+            idx = components.index(instance)
+            eliminated = self.params.get('eliminate_reference_component', True)
+            if (
+                (idx == self.fluid_mixture.reference_component_index and eliminated)
+                or self.fluid_mixture.num_components == 1
+            ):
+                return False
+            else:
+                return True
+        else:
+            raise ValueError(
+                f"Unknown type {type(instance)}. Expecting phase or component."
+            )
+
+
+class CompositionalVariables(pp.VariableMixin, CVDOF):
     """Mixin class for models with mixtures which defines the respective fractional
     unknowns.
 

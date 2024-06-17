@@ -477,6 +477,10 @@ class Phase:
         state: PhysicalState,
         name: str,
     ) -> None:
+        
+        self._ref_component_index: int = 0
+        """See :meth:`reference_component_index`."""
+
         ### PUBLIC
 
         self.components: Sequence[Component]
@@ -629,6 +633,41 @@ class Phase:
     def num_components(self) -> int:
         """Number of set components."""
         return len(self.components) if hasattr(self, "components") else 0
+
+    @property
+    def reference_component_index(self) -> int:
+        """Returns the index of the component in :meth:`components`, which is designated
+        as the reference component *in this phase*.
+
+        Not to be confused with :meth:`FluidMixture.reference_component_index`.
+
+        By default, the first component (0) is designated as the reference component.
+
+        Important:
+            Changing the index of the reference component changes which partial fraction
+            is eliminated by unity of fractions.
+            Its representation will be by unity, and more importantly, it will reduce
+            the size of the system by 1.
+
+        Parameters:
+            index: A new index to be assigned.
+
+        Raises:
+            IndexError: If index is out of range of :meth:`components`.
+
+        Returns:
+            The index of the current component designated as the reference component in
+            this phase.
+
+        """
+        return self._ref_component_index
+
+    @reference_component_index.setter
+    def reference_component_index(self, index: int) -> None:
+        max_index = len(self.components) - 1
+        if index < 0 or index > max_index:
+            raise IndexError(f"Component index {index} out of range [0, {max_index}].")
+        self._ref_component_index = int(index)
 
     def compute_properties(self, *thermodynamic_input: np.ndarray) -> PhaseProperties:
         """Shortcut to compute the properties calling
