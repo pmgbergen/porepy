@@ -145,6 +145,7 @@ class LiquidLikeCorrelations(ppc.AbstractEoS):
 
         # specific volume of phase
         v, dv = self.v_func(*thermodynamic_input)  # (n,), (3, n) array
+        rho, drho = self.rho_func(*thermodynamic_input)
 
         # specific enthalpy of phase
         h, dh = self.h(*thermodynamic_input)  # (n,), (3, n) array
@@ -163,8 +164,8 @@ class LiquidLikeCorrelations(ppc.AbstractEoS):
 
         return ppc.PhaseState(
             phasetype=phase_type,
-            v=v,
-            dv=dv,
+            rho=rho,
+            drho=drho,
             h=h,
             dh=dh,
             mu=mu,
@@ -244,15 +245,19 @@ class SecondaryEquations(SecondaryEquationsMixin):
         # gas phase is independent
         independent_phases = [p for p in self.fluid_mixture.phases if p != rphase]
 
+        # NOTE for OD, from VL
+        # In the 1 phase case, like in the linear tracer implemented here, partial
+        # fractions are replaced by overall fractions, not necessary to eliminate them.
+
         ### Providing constitutive laws for partial fractions based on correlations
-        for phase in self.fluid_mixture.phases:
-            for comp in phase:
-                self.eliminate_by_constitutive_law(
-                    phase.partial_fraction_of[comp],
-                    self.dependencies_of_phase_properties(phase),
-                    chi_functions_map[comp.name + "_" + phase.name],
-                    subdomains + matrix_boundary,
-                )
+        # for phase in self.fluid_mixture.phases:
+        #     for comp in phase:
+        #         self.eliminate_by_constitutive_law(
+        #             phase.partial_fraction_of[comp],
+        #             self.dependencies_of_phase_properties(phase),
+        #             chi_functions_map[comp.name + "_" + phase.name],
+        #             subdomains + matrix_boundary,
+        #         )
 
         ### Provide constitutive law for temperature
         self.eliminate_by_constitutive_law(
