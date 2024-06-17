@@ -91,9 +91,10 @@ def l2_norm(dim: int, var: pp.ad.AdArray) -> pp.ad.AdArray:
     """L2 norm of a vector variable.
 
     For the example of dim=3 components and n vectors, the ordering is assumed
-    to be ``[u0, v0, w0, u1, v1, w1, ..., un, vn, wn]``
+    to be ``[u0, v0, w0, u1, v1, w1, ..., un, vn, wn]``.
 
-    Vectors satisfying ui=vi=wi=0 are assigned zero entries in the jacobi matrix
+    Vectors satisfying ui=vi=wi=0 are assigned positive entries in the Jacobi
+    matrix.
 
     Note:
         See module level documentation on how to wrap functions like this in ad.Function.
@@ -118,7 +119,7 @@ def l2_norm(dim: int, var: pp.ad.AdArray) -> pp.ad.AdArray:
     # Avoid dividing by zero
     tol = 1e-12
     nonzero_inds = vals > tol
-    jac_vals = np.zeros(resh.shape)
+    jac_vals = np.ones(resh.shape)
     jac_vals[:, nonzero_inds] = resh[:, nonzero_inds] / vals[nonzero_inds]
     # Prepare for left multiplication with var.jac to yield
     # norm(var).jac = var/norm(var) * var.jac
@@ -306,6 +307,11 @@ class RegularizedHeaviside:
 def maximum(var_0: FloatType, var_1: FloatType) -> FloatType:
     """Ad maximum function represented as an AdArray.
 
+    The maximum function is defined as the element-wise maximum of two arrays.
+    At equality, the Jacobian is taken from the first argument. The order of the
+    arguments may be important, since it determines which Jacobian is used in
+    the case of equality.
+
     The arguments can be either AdArrays or ndarrays, this duality is needed to allow
     for parsing of operators that can be taken at the current iteration (in which case
     it will parse as an AdArray) or at the previous iteration or time step (in which
@@ -375,7 +381,7 @@ def maximum(var_0: FloatType, var_1: FloatType) -> FloatType:
     # the case.
     assert isinstance(vals[0], np.ndarray) and isinstance(vals[1], np.ndarray)
     # Maximum of the two arrays
-    inds = (vals[1] >= vals[0]).nonzero()[0]
+    inds = (vals[1] > vals[0]).nonzero()[0]
 
     max_val = vals[0].copy()
     max_val[inds] = vals[1][inds]
