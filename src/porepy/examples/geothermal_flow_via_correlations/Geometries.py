@@ -193,7 +193,7 @@ class SimpleGeometry(Geometry):
         inlet_facets = idx[logical]
 
         rc = 1.0
-        xc = np.array([1.0, 0.5, z_level])
+        xc = np.array([10.0, 0.5, z_level])
         logical = Geometry.harvest_sphere_members(xc, rc, x[idx])
         outlet_facets = idx[logical]
 
