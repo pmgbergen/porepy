@@ -46,9 +46,11 @@ else:
 
 day = 86400
 t_scale = 1.0
+tf = 0.025 * day * t_scale
+dt = 0.025 * day * t_scale
 time_manager = pp.TimeManager(
-    schedule=[0.0, 10.0 * day * t_scale],
-    dt_init=1.0 * day * t_scale,
+    schedule=[0.0, tf],
+    dt_init=dt,
     constant_dt=True,
     iter_max=50,
     print_info=True,
@@ -200,3 +202,6 @@ te = time.time()
 print("Elapsed time run_time_dependent_model: ", te - tb)
 print("Total number of DoF: ", model.equation_system.num_dofs())
 print("Mixed-dimensional grid information: ", model.mdg)
+
+mn = model.darcy_flux(model.mdg.subdomains()).value(model.equation_system)[model.domain_boundary_sides(model.mdg.subdomains()[0]).north]
+print("normal flux: ", mn)
