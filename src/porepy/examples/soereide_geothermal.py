@@ -345,10 +345,10 @@ class ModelGeometry:
     #     self._fractures = [frac_1]
 
     def grid_type(self) -> str:
-        return self.params.get("grid_type", "simplex")
+        return self.params.get("grid_type", "cartesian")
 
     def meshing_arguments(self) -> dict:
-        cell_size = self.solid.convert_units(0.05, "m")
+        cell_size = self.solid.convert_units(0.1, "m")
         cell_size_fracture = self.solid.convert_units(0.05, "m")
         mesh_args: dict[str, float] = {
             "cell_size": cell_size,
@@ -368,10 +368,10 @@ class InitialConditions:
     _z_INIT: dict[str, float] = {"H2O": 0.995, "CO2": 0.005}
 
     def initial_pressure(self, sd: pp.Grid) -> np.ndarray:
-        f = lambda x: self._p_IN + x * (self._p_OUT - self._p_IN)
-        vals = np.array(list(map(f, sd.cell_centers[0])))
-        return vals
-        # return np.ones(sd.num_cells) * self._p_INIT
+        # f = lambda x: self._p_IN + x * (self._p_OUT - self._p_IN)
+        # vals = np.array(list(map(f, sd.cell_centers[0])))
+        # return vals
+        return np.ones(sd.num_cells) * self._p_INIT
 
     def initial_temperature(self, sd: pp.Grid) -> np.ndarray:
         return np.ones(sd.num_cells) * self._T_INIT
@@ -413,7 +413,7 @@ class BoundaryConditions:
 
     _T_IN: float = InitialConditions._T_INIT
     _T_OUT: float = InitialConditions._T_INIT
-    _T_HEATED: float = 630.0
+    _T_HEATED: float = InitialConditions._T_INIT
 
     _z_IN: dict[str, float] = {
         "H2O": InitialConditions._z_INIT["H2O"] - 0.105,
@@ -430,8 +430,8 @@ class BoundaryConditions:
 
         inlet = np.zeros(sd.num_faces, dtype=bool)
         inlet[sides.west] = True
-        inlet &= sd.face_centers[1] > 0.2
-        inlet &= sd.face_centers[1] < 0.5
+        # inlet &= sd.face_centers[1] > 0.2
+        # inlet &= sd.face_centers[1] < 0.5
 
         return inlet
 
@@ -442,8 +442,8 @@ class BoundaryConditions:
 
         outlet = np.zeros(sd.num_faces, dtype=bool)
         outlet[sides.east] = True
-        outlet &= sd.face_centers[1] > 0.75
-        outlet &= sd.face_centers[1] < 0.99
+        # outlet &= sd.face_centers[1] > 0.75
+        # outlet &= sd.face_centers[1] < 0.99
 
         return outlet
 
@@ -560,10 +560,10 @@ class GeothermalFlow(
         super().after_nonlinear_failure()
 
 
-days = 3
-t_scale = 1e-5
-T_end = days
-dt_init = 1 / 24 / 60
+days = 365
+t_scale = 1e-5 / 2
+T_end = 1 * days * t_scale
+dt_init = 1 *days * t_scale
 max_iterations = 80
 newton_tol = 1e-6
 newton_tol_increment = newton_tol
