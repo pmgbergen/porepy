@@ -17,10 +17,10 @@ def gas_saturation_func(
     n = len(p)
 
     nc = len(thermodynamic_dependencies[0])
-    vals = z_NaCl
+    vals = np.zeros_like(z_NaCl)
     # row-wise storage of derivatives, (3, nc) array
     diffs = np.zeros((len(thermodynamic_dependencies), nc))
-    diffs[2, :] = +1.0
+    # diffs[2, :] = +1.0
     return vals, diffs
 
 
@@ -34,7 +34,7 @@ def temperature_func(
 
     nc = len(thermodynamic_dependencies[0])
 
-    factor = 630.0 / 2.5e6
+    factor = 0.25
     vals = np.array(h) * factor
     # row-wise storage of derivatives, (3, nc) array
     diffs = np.zeros((len(thermodynamic_dependencies), nc))
@@ -139,14 +139,6 @@ class LiquidLikeCorrelations(ppc.AbstractEoS):
         diffs = np.zeros((len(thermodynamic_dependencies), nc))
         return vals, diffs
 
-    def v_func(
-        self,
-        *thermodynamic_dependencies: np.ndarray,
-    ) -> tuple[np.ndarray, np.ndarray]:
-        vals, diffs = self.rho_func(*thermodynamic_dependencies)
-        vals = 1.0 / vals
-        return vals, diffs
-
     def mu_func(
         self,
         *thermodynamic_dependencies: np.ndarray,
@@ -175,7 +167,7 @@ class LiquidLikeCorrelations(ppc.AbstractEoS):
     ) -> tuple[np.ndarray, np.ndarray]:
 
         nc = len(thermodynamic_dependencies[0])
-        vals = (0.5) * np.ones(nc)
+        vals = (1.8) * np.ones(nc)
         # row-wise storage of derivatives, (4, nc) array
         diffs = np.zeros((len(thermodynamic_dependencies), nc))
         return vals, diffs
@@ -194,8 +186,8 @@ class LiquidLikeCorrelations(ppc.AbstractEoS):
         assert len(p) == len(h) == len(z_NaCl)
         nc = len(p)
 
-        # specific volume of phase
-        v, dv = self.v_func(*thermodynamic_input)  # (n,), (3, n) array
+        # mass density of phase
+        rho, drho = self.rho_func(*thermodynamic_input)  # (n,), (3, n) array
 
         # specific enthalpy of phase
         h, dh = self.h(*thermodynamic_input)  # (n,), (3, n) array
@@ -214,8 +206,8 @@ class LiquidLikeCorrelations(ppc.AbstractEoS):
 
         return ppc.PhaseState(
             phasetype=phase_type,
-            v=v,
-            dv=dv,
+            rho=rho,
+            drho=drho,
             h=h,
             dh=dh,
             mu=mu,
@@ -249,14 +241,6 @@ class GasLikeCorrelations(ppc.AbstractEoS):
         vals = 1.0 * np.ones(nc)
         # row-wise storage of derivatives, (4, nc) array
         diffs = np.zeros((len(thermodynamic_dependencies), nc))
-        return vals, diffs
-
-    def v_func(
-        self,
-        *thermodynamic_dependencies: np.ndarray,
-    ) -> tuple[np.ndarray, np.ndarray]:
-        vals, diffs = self.rho_func(*thermodynamic_dependencies)
-        vals = 1.0 / vals
         return vals, diffs
 
     def mu_func(
@@ -306,8 +290,8 @@ class GasLikeCorrelations(ppc.AbstractEoS):
         assert len(p) == len(h) == len(z_NaCl)
         nc = len(p)
 
-        # specific volume of phase
-        v, dv = self.v_func(*thermodynamic_input)  # (n,), (3, n) array
+        # mass density of phase
+        rho, drho = self.rho_func(*thermodynamic_input)  # (n,), (3, n) array
 
         # specific enthalpy of phase
         h, dh = self.h(*thermodynamic_input)  # (n,), (3, n) array
@@ -326,8 +310,8 @@ class GasLikeCorrelations(ppc.AbstractEoS):
 
         return ppc.PhaseState(
             phasetype=phase_type,
-            v=v,
-            dv=dv,
+            rho=rho,
+            drho=drho,
             h=h,
             dh=dh,
             mu=mu,

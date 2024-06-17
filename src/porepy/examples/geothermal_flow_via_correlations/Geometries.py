@@ -154,9 +154,9 @@ class SimpleGeometry(Geometry):
     def set_domain(self) -> None:
 
         dimension = 2
-        size_x = self.solid.convert_units(1, "m")
-        size_y = self.solid.convert_units(1, "m")
-        size_z = self.solid.convert_units(1, "m")
+        size_x = self.solid.convert_units(10.0, "m")
+        size_y = self.solid.convert_units(1.0, "m")
+        size_z = self.solid.convert_units(1.0, "m")
         box: dict[str, pp.number] = {"xmax": size_x}
         if dimension > 1:
             box.update({"ymax": size_y})
@@ -168,7 +168,7 @@ class SimpleGeometry(Geometry):
         return self.params.get("grid_type", "simplex")
 
     def meshing_arguments(self) -> dict:
-        cell_size = self.solid.convert_units(0.1, "m")
+        cell_size = self.solid.convert_units(0.4, "m")
         mesh_args: dict[str, float] = {"cell_size": cell_size}
         return mesh_args
 
@@ -187,13 +187,13 @@ class SimpleGeometry(Geometry):
         if self._domain.dim == 3:
             z_level = 0.5
 
-        rc = 0.1
-        xc = np.array([0.0, 0.0, z_level])
+        rc = 1.0
+        xc = np.array([0.0, 0.5, z_level])
         logical = Geometry.harvest_sphere_members(xc, rc, x[idx])
         inlet_facets = idx[logical]
 
-        rc = 0.1
-        xc = np.array([1.0, 1.0, z_level])
+        rc = 1.0
+        xc = np.array([10.0, 0.5, z_level])
         logical = Geometry.harvest_sphere_members(xc, rc, x[idx])
         outlet_facets = idx[logical]
 

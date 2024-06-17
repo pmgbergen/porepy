@@ -259,5 +259,5 @@ class SecondaryEquations(SecondaryEquationsMixin):
             self.temperature,
             self.dependencies_of_phase_properties(rphase),  # since same for all.
             temperature_func,
-            subdomains,
+            subdomains + matrix_boundary,
         )
