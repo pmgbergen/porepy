@@ -55,7 +55,7 @@ time_manager = pp.TimeManager(
 )
 
 solid_constants = pp.SolidConstants(
-    {"permeability": 5.0e-15, "porosity": 0.1, "thermal_conductivity": 1.8, 'density': 2650.0, 'specific_heat_capacity': 1000.0}
+    {"permeability": 5.0e-14, "porosity": 0.1, "thermal_conductivity": 1.8, 'density': 2650.0, 'specific_heat_capacity': 1000.0}
 )
 material_constants = {"solid": solid_constants}
 params = {
