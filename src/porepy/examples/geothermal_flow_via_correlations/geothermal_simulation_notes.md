@@ -1,6 +1,6 @@
 # Geothermal simulation with Dreisner correlations
 
-The following notes contain essential informaiton on the implementation of a geothermal simulation with dreisner correlations.
+The following notes contain essential information on the implementation of a geothermal simulation with brine correlations.
 
 ## Critial components for no-gravity simulations
 

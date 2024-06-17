@@ -7,8 +7,8 @@ import os
 if not os.path.exists(folder_name):
     os.makedirs(folder_name)
 
-taylor_extended = True
-file_name = "binary_files/PHX_l0_with_gradients.vtk"
+taylor_extended = False
+file_name = "binary_files/PHX_l1_with_gradients.vtk"
 brine_obl = DriesnerBrineOBL(file_name, taylor_extended)
 brine_obl.conversion_factors = (1.0, 1.0, 10.0)  # (z,h,p)
 
@@ -21,16 +21,15 @@ def compose_figure_name(folder_name, p_val, z_val, suffix):
 
 
 pressure_val = 20.0
-z_NaCl_val = 0.02
+z_NaCl_val = 0.001
 
-at_label = '(p,z_NaCl) = ' + '(' + str(pressure_val) + ', ' + str(z_NaCl_val) + ')'
-
-h = np.arange(0.1e3, 3.4e3, 0.05e3)
+h = np.arange(0.1e2, 3.4e3, 0.05e3)
 p = pressure_val * np.ones_like(h)
-
 z_NaCl = z_NaCl_val * np.ones_like(h)
 par_points = np.array((z_NaCl, h, p)).T
 brine_obl.sample_at(par_points)
+
+at_label = '(p,z_NaCl) = ' + '(' + str(pressure_val) + ', ' + str(z_NaCl_val) + ')'
 
 T = brine_obl.sampled_could.point_data["Temperature"]
 plt.plot(h, T, label='T at ' + at_label, color='blue', linestyle='-', marker='o',
