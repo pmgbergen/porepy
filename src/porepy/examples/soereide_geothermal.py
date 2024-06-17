@@ -25,13 +25,10 @@ import os
 import pathlib
 import time
 
-# os.environ["NUMBA_DISABLE_JIT"] = "1"
+os.environ["NUMBA_DISABLE_JIT"] = "1"
 compile_time = 0.0
-
 logging.basicConfig(level=logging.INFO)
 logging.getLogger("porepy").setLevel(logging.INFO)
-logging.getLogger("numba").setLevel(logging.WARNING)
-logging.getLogger("matplotlib").setLevel(logging.WARNING)
 
 from typing import Sequence, cast
 
@@ -178,28 +175,31 @@ class CompiledFlash(ppc.FlashMixin):
         return fluid_state
 
     def postprocess_failures(
-        self, fluid_state: ppc.FluidState, success: np.ndarray
+        self, subdomain: pp.Grid, fluid_state: ppc.FluidState, success: np.ndarray
     ) -> ppc.FluidState:
         """A post-processing where the flash is again attempted where not succesful.
 
-        But the new attempt does not use iterate values as initial guesses, but computes
-        the flash from scratch.
+        1. Where not successful, it re-attempts the flash from scratch, with
+           initialization procedure.
+           If the new attempt did not reach the desired precision (max iter), it
+           treats it as success.
+        2. Where still not successful, it falls back to the values of the previous
+           iterate.
 
         """
         failure = success > 0
         if np.any(failure):
-            sds = self.mdg.subdomains()
             logger.warning(
                 f"Flash from iterate state failed in {failure.sum()} cases."
                 + " Re-starting with computation of initial guess."
             )
             z = [
-                comp.fraction(sds).value(self.equation_system)[failure]
+                comp.fraction([subdomain]).value(self.equation_system)[failure]
                 for comp in self.fluid_mixture.components
             ]
-            p = self.pressure(sds).value(self.equation_system)[failure]
-            h = self.enthalpy(sds).value(self.equation_system)[failure]
-            T = self.temperature(sds).value(self.equation_system)[failure]
+            p = self.pressure([subdomain]).value(self.equation_system)[failure]
+            h = self.enthalpy([subdomain]).value(self.equation_system)[failure]
+            T = self.temperature([subdomain]).value(self.equation_system)[failure]
 
             logger.info(f"Failed at\nz: {z}\np: {p}\nT: {T}\nh: {h}")
             # no initial guess, and this model uses only p-h flash.
@@ -216,8 +216,18 @@ class CompiledFlash(ppc.FlashMixin):
 
             sub_state, sub_success, _ = self.flash.flash(**flash_kwargs)
 
+            fallback = sub_success > 1
+            max_iter_reached = sub_success == 1
             # treat max iter reached as success, and hope for the best in the PDE iter
-            sub_success[sub_success == 1] = 0
+            sub_success[max_iter_reached] = 0
+            # fall back to previous iter values
+            if np.any(fallback):
+                logger.warning(
+                    f"Falling back to previous iteration values in {fallback.sum()}"
+                    + f" cells on grid {subdomain}"
+                )
+                sub_state = self.fall_back(subdomain, sub_state, failure, fallback)
+                sub_success[fallback] = 0
             # update parent state with sub state values
             success[failure] = sub_success
             fluid_state.T[failure] = sub_state.T
@@ -244,7 +254,81 @@ class CompiledFlash(ppc.FlashMixin):
                 fluid_state.phases[j].dphis[:, :, failure] = sub_state.phases[j].dphis
 
         # Parent method performs a check that everything is successful.
-        return super().postprocess_failures(fluid_state, success)
+        return super().postprocess_failures(subdomain, fluid_state, success)
+
+    def fall_back(
+        self,
+        grid: pp.Grid,
+        sub_state: ppc.FluidState,
+        failed_idx: np.ndarray,
+        fallback_idx: np.ndarray,
+    ) -> ppc.FluidState:
+        """Falls back to previous iterate values for the fluid state, on given
+        grid."""
+        sds = [grid]
+        data = self.mdg.subdomain_data(grid)
+        if 'T' not in self.equilibrium_type:
+            sub_state.T[fallback_idx] = pp.get_solution_values(self.temperature_variable, data, iterate_index=0)[failed_idx][fallback_idx]
+        if 'h' not in self.equilibrium_type:
+            sub_state.h[fallback_idx] = pp.get_solution_values(self.pressure_variable, data, iterate_index=0)[failed_idx][fallback_idx]
+        if 'p' not in self.equilibrium_type:
+            sub_state.p[fallback_idx] = pp.get_solution_values(self.enthalpy_variable, data, iterate_index=0)[failed_idx][fallback_idx]
+
+        for j, phase in enumerate(self.fluid_mixture.phases):
+            if j > 0:
+                sub_state.sat[j][fallback_idx] = pp.get_solution_values(
+                    phase.saturation(sds).name, data, iterate_index=0
+                )[failed_idx][fallback_idx]
+                sub_state.y[j][fallback_idx] = pp.get_solution_values(
+                    phase.fraction(sds).name, data, iterate_index=0
+                )[failed_idx][fallback_idx]
+
+            sub_state.phases[j].rho[fallback_idx] = pp.get_solution_values(
+                phase.density.name, data, iterate_index=0
+            )[failed_idx][fallback_idx]
+            sub_state.phases[j].h[fallback_idx] = pp.get_solution_values(
+                phase.specific_enthalpy.name, data, iterate_index=0
+            )[failed_idx][fallback_idx]
+            sub_state.phases[j].mu[fallback_idx] = pp.get_solution_values(
+                phase.viscosity.name, data, iterate_index=0
+            )[failed_idx][fallback_idx]
+            sub_state.phases[j].kappa[fallback_idx] = pp.get_solution_values(
+                phase.conductivity.name, data, iterate_index=0
+            )[failed_idx][fallback_idx]
+
+            sub_state.phases[j].drho[:, fallback_idx] = pp.get_solution_values(
+                phase.density._name_derivatives, data, iterate_index=0
+            )[:, failed_idx][:, fallback_idx]
+            sub_state.phases[j].dh[:, fallback_idx] = pp.get_solution_values(
+                phase.specific_enthalpy._name_derivatives, data, iterate_index=0
+            )[:, failed_idx][:, fallback_idx]
+            sub_state.phases[j].dmu[:, fallback_idx] = pp.get_solution_values(
+                phase.viscosity._name_derivatives, data, iterate_index=0
+            )[:, failed_idx][:, fallback_idx]
+            sub_state.phases[j].dkappa[:, fallback_idx] = pp.get_solution_values(
+                phase.conductivity._name_derivatives, data, iterate_index=0
+            )[:, failed_idx][:, fallback_idx]
+
+            for i, comp in enumerate(phase):
+                sub_state.phases[j].x[i, fallback_idx] = pp.get_solution_values(
+                    phase.extended_fraction_of[comp](sds).name, data, iterate_index=0
+                )[failed_idx][fallback_idx]
+
+                sub_state.phases[j].phis[i, fallback_idx] = pp.get_solution_values(
+                    phase.fugacity_coefficient_of[comp].name, data, iterate_index=0
+                )[failed_idx][fallback_idx]
+                # NOTE numpy does some weird transpositions when dealing with 3D arrays
+                dphi = sub_state.phases[j].dphis[i]
+                dphi[:, fallback_idx] = pp.get_solution_values(
+                    phase.fugacity_coefficient_of[comp]._name_derivatives, data, iterate_index=0
+                )[:, failed_idx][:, fallback_idx]
+                sub_state.phases[j].dphis[i, :, :] = dphi
+
+        # reference phase fractions and saturations must be computed, since not stored
+        sub_state.y[0,:] = 1 - np.sum(sub_state.y[1:, :], axis=0)
+        sub_state.sat[0,:] = 1 - np.sum(sub_state.sat[1:, :], axis=0)
+
+        return sub_state
 
 
 class ModelGeometry:
@@ -284,10 +368,10 @@ class InitialConditions:
     _z_INIT: dict[str, float] = {"H2O": 0.995, "CO2": 0.005}
 
     def initial_pressure(self, sd: pp.Grid) -> np.ndarray:
-        # f = lambda x: self._p_IN + x * (self._p_OUT - self._p_IN)
-        # vals = np.array(list(map(f, sd.cell_centers[0])))
-        # return vals
-        return np.ones(sd.num_cells) * self._p_INIT
+        f = lambda x: self._p_IN + x * (self._p_OUT - self._p_IN)
+        vals = np.array(list(map(f, sd.cell_centers[0])))
+        return vals
+        # return np.ones(sd.num_cells) * self._p_INIT
 
     def initial_temperature(self, sd: pp.Grid) -> np.ndarray:
         return np.ones(sd.num_cells) * self._T_INIT
@@ -476,10 +560,10 @@ class GeothermalFlow(
         super().after_nonlinear_failure()
 
 
-days = 365
+days = 3
 t_scale = 1e-5
-T_end = 40 * days * t_scale
-dt_init = 1 * days * t_scale / 2
+T_end = days
+dt_init = 1 / 24 / 60
 max_iterations = 80
 newton_tol = 1e-6
 newton_tol_increment = newton_tol
@@ -498,10 +582,10 @@ time_manager = pp.TimeManager(
 
 solid_constants = pp.SolidConstants(
     {
-        "permeability": 1e-8,
+        "permeability": 1e-16,
         "porosity": 0.2,
-        "thermal_conductivity": 1000.0,
-        "specific_heat_capacity": 500.0,
+        "thermal_conductivity": 1.6736,
+        "specific_heat_capacity": 603.0,
     }
 )
 material_constants = {"solid": solid_constants}

@@ -708,12 +708,13 @@ class FlashMixin:
         return result_state, succes
 
     def postprocess_failures(
-        self, fluid_state: FluidState, success: np.ndarray
+        self, subdomain: pp.Grid, fluid_state: FluidState, success: np.ndarray
     ) -> FluidState:
         """A method called after :meth:`equilibriate_fluid` to post-process failures if
         any.
 
         Parameters:
+            subdomain: A grid for which ``fluid_state`` contains the values.
             fluid_state: Fluid state returned from :meth:`equilibriate_fluid`.
             success: Success flags returned along the fluid state.
 

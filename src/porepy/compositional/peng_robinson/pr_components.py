@@ -13,7 +13,7 @@ Custom implementation must be done in the constructor for child classes.
 
 from __future__ import annotations
 
-from typing import Callable, Union
+from typing import Callable, Union, TypeVar
 
 import numpy as np
 
@@ -34,6 +34,99 @@ __all__ = [
 
 
 NumericType = Union[pp.number, np.ndarray, pp.ad.AdArray]
+
+# NOTE Consider adding typing of objects which support arithmetic overloads
+# see https://stackoverflow.com/questions/76821158/
+# specify-that-a-typevar-supports-the-operator-among-its-values
+_Any = TypeVar('_Any')
+
+
+def h_ideal_H2O(T: _Any) -> _Any:
+    """Specific, ideal enthalpy of water based on below reference.
+
+    Can be called with any object supporting overloads of ``+,-,*, **``.
+
+    References:
+        `Zhu, Okuno (2015) <https://onepetro.org/spersc/proceedings/15RSS/
+        1-15RSS/D011S001R002/183434>`_
+
+    """
+    # Units cp_i in [J / mol K^i]
+    cp1: float = 32.2
+    cp2: float = 1.907e-3
+    cp3: float = 1.055e-5
+    cp4: float = -3.596e-9
+    return (
+        cp1 * (T - T_REF)
+        + cp2 / 2 * (T**2 - T_REF**2)
+        + cp3 / 3 * (T**3 - T_REF**3)
+        + cp4 / 4 * (T**4 - T_REF**4)
+    )
+
+
+def h_ideal_CO2(T: _Any) -> _Any:
+    """Specific, ideal enthalpy of CO2 based on below reference.
+
+    Can be called with any object supporting overloads of ``+,-,*, **``.
+
+    References:
+        `Zhu, Okuno (2014) <http://dx.doi.org/10.1016/j.fluid.2014.07.003>`_
+
+    """
+    # Units cp_i in [J / mol K^i]
+    cp1: float = 19.795
+    cp2: float = 7.343e-2
+    cp3: float = -5.602e-5
+    cp4: float = 1.715e-8
+
+    return (
+        cp1 * (T - T_REF)
+        + cp2 / 2 * (T**2 - T_REF**2)
+        + cp3 / 3 * (T**3 - T_REF**3)
+        + cp4 / 4 * (T**4 - T_REF**4)
+    )
+
+
+def h_ideal_H2S(T: _Any) -> _Any:
+    """Specific, ideal enthalpy of CO2 based on below reference.
+
+    Can be called with any object supporting overloads of ``+,-,*, **``.
+
+    References:
+        `de Nevers (2012), table A.9 <https://onlinelibrary.wiley.com/doi/
+        book/10.1002/9781118135341>`_ .
+
+    """
+    # Units cp_i in [J / mol K^i]
+    cp1: float = 3.931
+    cp2: float = 1.49e-3
+    cp3: float = -0.232e5
+    return R_IDEAL_MOL * (
+        cp1 * (T - T_REF)
+        + cp2 / 2 * (T**2 - T_REF**2)
+        - cp3 * (T ** (-1) - T_REF ** (-1))
+    )
+
+
+def h_ideal_N2(T: _Any) -> _Any:
+    """Specific, ideal enthalpy of N2 based on below reference.
+
+    Can be called with any object supporting overloads of ``+,-,*, **``.
+
+    References:
+        `de Nevers (2012), table A.9 <https://onlinelibrary.wiley.com/doi/
+        book/10.1002/9781118135341>`_ .
+
+    """
+    # Units cp_i in [J / mol K^i]
+    cp1: float = 3.280
+    cp2: float = 0.593e-3
+    cp3: float = 0.04e5
+    return R_IDEAL_MOL * (
+        cp1 * (T - T_REF)
+        + cp2 / 2 * (T**2 - T_REF**2)
+        - cp3 * (T ** (-1) - T_REF ** (-1))
+    )
 
 
 class ComponentPR(Component):
