@@ -301,7 +301,7 @@ class MomentumBalanceEquations(pp.BalanceEquation):
 
         # Variables
         nd_vec_to_normal = self.normal_component(subdomains)
-        # The normal component of the contact traction and the displacement jump
+        # The normal component of the contact traction and the displacement jump.
         t_n: pp.ad.Operator = nd_vec_to_normal @ self.contact_traction(subdomains)
         u_n: pp.ad.Operator = nd_vec_to_normal @ self.displacement_jump(subdomains)
 
@@ -392,8 +392,6 @@ class MomentumBalanceEquations(pp.BalanceEquation):
         ones_frac = pp.ad.DenseArray(np.ones(num_cells * (self.nd - 1)))
         zeros_frac = pp.ad.DenseArray(np.zeros(num_cells))
 
-        # Functions EK: Should we try to agree on a name convention for ad functions?
-        # EK: Yes. Suggestions?
         f_max = pp.ad.Function(pp.ad.maximum, "max_function")
         f_norm = pp.ad.Function(partial(pp.ad.l2_norm, self.nd - 1), "norm_function")
 
