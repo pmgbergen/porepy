@@ -36,23 +36,6 @@ class TailoredThermoporomechanics(
     pass
 
 
-class TailoredPoromechanicsRobin(
-    pp.test_utils.models.ThreeBoundaryConditionTypes,
-    pp.models.thermoporomechanics.Thermoporomechanics,
-):
-    def nd_rect_domain(self, x, y) -> pp.Domain:
-        box: dict[str, pp.number] = {"xmin": 0, "xmax": x}
-
-        box.update({"ymin": 0, "ymax": y})
-
-        return pp.Domain(box)
-
-    def set_domain(self) -> None:
-        x = self.solid.convert_units(1.0, "m")
-        y = self.solid.convert_units(1.0, "m")
-        self._domain = self.nd_rect_domain(x, y)
-
-
 def create_fractured_setup(
     solid_vals: dict, fluid_vals: dict, params: dict
 ) -> TailoredThermoporomechanics:
@@ -285,6 +268,10 @@ def test_positive_p_frac_positive_opening():
 def test_robin_boundary_flux():
     """Tests the Robin boundary conditions.
 
+    Neumann and Robin boundary values are set by the same method
+    (bc_values_"flux_name"). This test ensures that the correct values are assigned to
+    the correct domain boundary sides (Robin values to Robin boundaries, Neumann values to Neumann boundaries).
+
     Model setup:
     * West boundary: Robin
     * East boundary: Neumann
@@ -293,8 +280,16 @@ def test_robin_boundary_flux():
     Flux types that are tested: Mechanical stress, Fourier flux and Darcy flux.
 
     """
+
+    class TailoredPoromechanicsRobin(
+        pp.test_utils.models.ThreeBoundaryConditionTypes,
+        pp.models.thermoporomechanics.Thermoporomechanics,
+    ):
+        def set_domain(self) -> None:
+            self._domain = pp.domains.unit_cube_domain(dimension=2)
+
     params = {
-        "meshing_arguments": {"cell_size": 0.25},
+        "meshing_arguments": {"cell_size": 0.5},
         "grid_type": "cartesian",
         "p_north": 1e-2,
         "p_south": 1e-2,
@@ -305,37 +300,40 @@ def test_robin_boundary_flux():
         "ms_west": 3e-2,
         "ms_east": -3e-2,
     }
+
     model = TailoredPoromechanicsRobin(params)
     pp.run_time_dependent_model(model, params)
 
-    sd, _ = model.mdg.subdomains(dim=model.nd, return_data=True)[0]
+    subdomain = model.mdg.subdomains(dim=model.nd, return_data=True)[0][0]
 
-    bc_operator_darcy_flux = model.combine_boundary_operators_darcy_flux(
-        subdomains=[sd]
+    bc_operators = {
+        "darcy_flux": model.combine_boundary_operators_darcy_flux,
+        "fourier_flux": model.combine_boundary_operators_fourier_flux,
+        "mechanical_stress": model.combine_boundary_operators_mechanical_stress,
+    }
+
+    # Create dictionary of evaluated boundary operators in bc_operators
+    values = {
+        key: operator([subdomain]).value(model.equation_system)
+        for key, operator in bc_operators.items()
+    }
+
+    # Reshape mechanical stress values
+    values["mechanical_stress"] = values["mechanical_stress"].reshape(
+        (model.nd, subdomain.num_faces), order="F"
     )
-    bc_operator_fourier_flux = model.combine_boundary_operators_fourier_flux(
-        subdomains=[sd]
-    )
-    bc_operator_mechanical_stress = model.combine_boundary_operators_mechanical_stress(
-        subdomains=[sd]
-    )
 
-    values_darcy_flux = bc_operator_darcy_flux.value(model.equation_system)
-    values_fourier_flux = bc_operator_fourier_flux.value(model.equation_system)
-    values_mechanical_stress = bc_operator_mechanical_stress.value(
-        model.equation_system
-    ).reshape((model.nd, sd.num_faces), order="F")
+    # Get boundary sides and assert boundary condition values
+    bounds = model.domain_boundary_sides(subdomain)
 
-    bounds = model.domain_boundary_sides(sd)
+    assert np.allclose(values["darcy_flux"][bounds.west], params["df_west"])
+    assert np.allclose(values["darcy_flux"][bounds.east], params["df_east"])
 
-    assert np.allclose(values_darcy_flux[bounds.west], params["df_west"])
-    assert np.allclose(values_darcy_flux[bounds.east], params["df_east"])
+    assert np.allclose(values["fourier_flux"][bounds.west], params["ff_west"])
+    assert np.allclose(values["fourier_flux"][bounds.east], params["ff_east"])
 
-    assert np.allclose(values_fourier_flux[bounds.west], params["ff_west"])
-    assert np.allclose(values_fourier_flux[bounds.east], params["ff_east"])
-
-    assert np.allclose(values_mechanical_stress[0][bounds.west], params["ms_west"])
-    assert np.allclose(values_mechanical_stress[0][bounds.east], params["ms_east"])
+    assert np.allclose(values["mechanical_stress"][0][bounds.west], params["ms_west"])
+    assert np.allclose(values["mechanical_stress"][0][bounds.east], params["ms_east"])
 
 
 @pytest.mark.parametrize(
