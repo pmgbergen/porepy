@@ -23,6 +23,7 @@ else:
     _IS_TQDM_AVAILABLE = True
 
 import porepy as pp
+from porepy.numerics.solvers.andersonacceleration import *
 
 # Module-wide logger
 logger = logging.getLogger(__name__)
@@ -161,7 +162,9 @@ def run_stationary_uzawa_model(model, params: dict) -> None:
     error = 1
     uzawa_iteration_counter = 0
     total_iteration_counter = 0
-    while error >= 1e-9: # Could maybe introduce convergence tol in parameter dict
+    max_itr = 100
+    converged = False
+    while not converged and uzawa_iteration_counter < max_itr: # Could maybe introduce convergence tol in parameter dict
         # One iteration of the Uzawa loop consists of replacing the complementary
         # functions with regularized versions, and solving the resulting nonlinear
         # system.
@@ -172,7 +175,7 @@ def run_stationary_uzawa_model(model, params: dict) -> None:
         val_prev = model.equation_system.get_variable_values(iterate_index=0)
         _, itr = solver.solve(model)
         val_current = model.equation_system.get_variable_values(iterate_index=0)
-        error = float(np.linalg.norm(val_current-val_prev))
+        uzawa_error = float(np.linalg.norm(val_current-val_prev))
 
         # Update numerical constants. Lots of options for how to update.
         model.c_n += 0
@@ -193,11 +196,16 @@ def run_stationary_uzawa_model(model, params: dict) -> None:
             model.equation_system.remove_equation(eqn)
         model.set_equations()
 
+        if uzawa_error < 1e-9:
+            converged = True
         uzawa_iteration_counter += 1
         total_iteration_counter += itr
 
     # Note: Should also have an after_uzawa_failure() method
-    model.after_uzawa_convergence(uzawa_iteration_counter)
+    if converged:
+        model.after_uzawa_convergence(uzawa_iteration_counter)
+    else:
+        model.after_uzawa_failure()
     print("Uzawa iterations:", uzawa_iteration_counter)
     print("Total nonlinear iterations:", total_iteration_counter)
 
@@ -215,14 +223,14 @@ def run_time_dependent_uzawa_model(model, params: dict) -> None:
     # Assign a solver
     solver = _choose_solver(model, params)
 
-    uzawa_iteration_counter = 0
     # Uzawa iteration
     def uzawa_algorithm() -> None:
         uzawa_error = 1
-        nonlocal uzawa_iteration_counter
+        uzawa_iteration_counter = 0
         total_iteration_counter = 0
-
-        while uzawa_error >= 1e-9:
+        converged = False
+        max_itr = 100  # Maximum number of outer Uzawa iterations
+        while not converged and uzawa_iteration_counter < max_itr:
             # One iteration of the Uzawa loop consists of replacing the complementary
             # functions with regularized versions, and solving the resulting nonlinear
             # system.
@@ -256,10 +264,17 @@ def run_time_dependent_uzawa_model(model, params: dict) -> None:
                 model.equation_system.remove_equation(eqn)
             model.set_equations()
 
+            # TODO: Should the convergence check be here?
+            if uzawa_error < 1e-9:
+                converged = True
             uzawa_iteration_counter += 1
             print("Uzawa error:", uzawa_error)
             total_iteration_counter += itr
 
+        if converged:
+            model.after_uzawa_convergence(uzawa_iteration_counter)
+        else:
+            model.after_uzawa_failure()
         print("Uzawa iteration counter:", uzawa_iteration_counter)
         print("Total iteration counter:", total_iteration_counter)
 
@@ -274,7 +289,6 @@ def run_time_dependent_uzawa_model(model, params: dict) -> None:
             + f" with time step {model.time_manager.dt:.1e}"
         )
         uzawa_algorithm()
-        model.after_uzawa_convergence(uzawa_iteration_counter)
 
     while model.time_manager.time < model.time_manager.time_final:
         time_step()
@@ -286,7 +300,7 @@ def run_time_dependent_uzawa_model(model, params: dict) -> None:
     model.after_simulation()
 
 
-def run_time_dependent_uzawa_aa_model(model, params: dict, depth: int) -> tuple(list, int):
+def run_time_dependent_uzawa_aa_model(model, params: dict, depth: int) -> None:
     """Run a time-dependent model using an implicit Uzawa algorithm together with
     Anderson acceleration. Must be combined with mixin defining the Uzawa equations and
     solution strategy"""
@@ -297,21 +311,19 @@ def run_time_dependent_uzawa_aa_model(model, params: dict, depth: int) -> tuple(
 
     # Assign a solver
     solver = _choose_solver(model, params)
-    uzawa_errors = []
-    uzawa_iteration_counter = 0
 
     # Uzawa iteration
     def uzawa_algorithm() -> None:
         uzawa_error = 1
-        nonlocal uzawa_errors
-        nonlocal uzawa_iteration_counter
+        uzawa_iteration_counter = 0
         total_iteration_counter = 0
-
+        max_itr = 100
+        converged = False
         # dimension = model.equation_system.num_dofs()
         # AA on just the contact traction
         dimension = len(model.equation_system.dofs_of(["t"]))
         aa = AndersonAcceleration(dimension, depth)
-        while uzawa_error >= 1e-9:
+        while not converged and uzawa_iteration_counter < max_itr:
             # One iteration of the Uzawa loop consists of replacing the complementary
             # functions with regularized versions, and solving the resulting nonlinear
             # system.
@@ -338,7 +350,6 @@ def run_time_dependent_uzawa_aa_model(model, params: dict, depth: int) -> tuple(
             # val_current = aa.apply(g_i, f_i, uzawa_iteration_counter)
 
             uzawa_error = float(np.linalg.norm(val_current - val_prev))
-            uzawa_errors.append(uzawa_error)
 
             # Update numerical constants. Lots of options for how to update.
             model.c_n += 0
@@ -360,10 +371,16 @@ def run_time_dependent_uzawa_aa_model(model, params: dict, depth: int) -> tuple(
                 model.equation_system.remove_equation(eqn)
             model.set_equations()
 
+            if uzawa_error < 1e-9:
+                converged = True
             uzawa_iteration_counter += 1
             print("Uzawa error:", uzawa_error, "Uzawa_counter:", uzawa_iteration_counter)
             total_iteration_counter += itr
 
+        if converged:
+            model.after_uzawa_convergence(uzawa_iteration_counter)
+        else:
+            model.after_uzawa_failure()
         print("Uzawa iteration counter:", uzawa_iteration_counter)
         print("Total iteration counter:", total_iteration_counter)
 
@@ -378,7 +395,6 @@ def run_time_dependent_uzawa_aa_model(model, params: dict, depth: int) -> tuple(
             + f" with time step {model.time_manager.dt:.1e}"
         )
         uzawa_algorithm()
-        model.after_uzawa_convergence(uzawa_iteration_counter)
 
     while model.time_manager.time < model.time_manager.time_final:
         time_step()
@@ -388,7 +404,6 @@ def run_time_dependent_uzawa_aa_model(model, params: dict, depth: int) -> tuple(
         model.set_equations()
 
     model.after_simulation()
-    return uzawa_errors, uzawa_iteration_counter
 
 
 def _run_iterative_model(model, params: dict) -> None:
