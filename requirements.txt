@@ -4,7 +4,7 @@ matplotlib
 meshio >= 5.0
 networkx
 numba >= 0.57
-numpy
+numpy < 2.0
 requests
 scipy
 seaborn
