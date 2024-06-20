@@ -196,7 +196,7 @@ def test_mixture_member_assignment(
 
     species = composit.load_species(['H2O', 'CO2', 'NaCl'])
     comp1 = composit.Compound.from_species(species[0])
-    comp1.pseudo_components = [species[2]]
+    comp1.active_tracers = [species[2]]
     comp2 = composit.Component.from_species(species[1])
     eos = dummyeos([comp1, comp2])
 
@@ -222,7 +222,7 @@ def test_mixture_member_assignment(
     # There are always partial or extended variables
     assert len(mixin.relative_fraction_variables) == ncomp * nphase
     # there are always solute fraction variables in compounds
-    assert len(mixin.solute_fraction_variables) == 1
+    assert len(mixin.tracer_fraction_variables) == 1
     # test that the eliminated variables were not created
     if eliminate_reference:
         assert len(mixin.overall_fraction_variables) == ncomp - 1
@@ -334,11 +334,11 @@ def test_mixture_member_assignment(
         # IF it is a compound, check relative fractions of pseudo components
         if isinstance(comp, composit.Compound):
             assert hasattr(comp, 'solute_fraction_of')
-            for pc in comp.pseudo_components:
-                assert pc in comp.solute_fraction_of
+            for pc in comp.active_tracers:
+                assert pc in comp.tracer_fraction_of
                 # solute fractions are aalways variables
-                assert isinstance(comp.solute_fraction_of[pc](sds), pp.ad.Variable)
-                assert isinstance(comp.solute_fraction_of[pc](bgs), pp.ad.Operator)
+                assert isinstance(comp.tracer_fraction_of[pc](sds), pp.ad.Variable)
+                assert isinstance(comp.tracer_fraction_of[pc](bgs), pp.ad.Operator)
 
 
     # TODO should we include tests for singular mixtures? 1 component and/ or 1 phase

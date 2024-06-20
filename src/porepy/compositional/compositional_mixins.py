@@ -38,7 +38,7 @@ __all__ = [
 class CVDOF:
     """A class to help resolve the independent compositional variables of an arbitrary
     mixture, and respectivly the DOFs.
-    
+
     .. rubric:: Assumptions and unity constraints
 
     1. Reference phase and component can be eliminated.
@@ -50,11 +50,11 @@ class CVDOF:
        contain only 1 mineral/component, or ions in liquid phase do not have to
        evaporate into a gas phase.
     3. Partial fractions of components in phases have to fulfill the unity constraint.
-       Their 
+       Their
     3. While point number 2. holds especially for partial (physical) fractions, it does
        not hold necessarily for extended fraction in the unified setting. Vanished
        phases with only 1 component still have extended fractions (unity gap).
-    4. Solute fractions of pseudo-components in Compounds are always unknown (transport)
+    4. Tracer fractions of active tracers in Compounds are always unknown (transport)
 
     .. rubric:: Resolution
 
@@ -132,11 +132,10 @@ class CVDOF:
         if phase not in phases:
             raise ValueError(f"Phase {phase} not in fluid mixture.")
         idx = phases.index(phase)
-        eliminated = self.params.get('eliminate_reference_phase', True)
+        eliminated = self.params.get("eliminate_reference_phase", True)
         if (
-            (idx == self.fluid_mixture.reference_phase_index and eliminated)
-            or self.fluid_mixture.num_phases == 1
-        ):
+            idx == self.fluid_mixture.reference_phase_index and eliminated
+        ) or self.fluid_mixture.num_phases == 1:
             return False
         else:
             return True
@@ -169,11 +168,10 @@ class CVDOF:
             if instance not in components:
                 raise ValueError(f"Component {instance} not in fluid mixture.")
             idx = components.index(instance)
-            eliminated = self.params.get('eliminate_reference_component', True)
+            eliminated = self.params.get("eliminate_reference_component", True)
             if (
-                (idx == self.fluid_mixture.reference_component_index and eliminated)
-                or self.fluid_mixture.num_components == 1
-            ):
+                idx == self.fluid_mixture.reference_component_index and eliminated
+            ) or self.fluid_mixture.num_components == 1:
                 return False
             else:
                 return True
@@ -255,19 +253,19 @@ class CompositionalVariables(pp.VariableMixin, CVDOF):
         return names
 
     @property
-    def solute_fraction_variables(self) -> list[str]:
-        """Names of solute fraction variables created by the mixture mixin.
+    def tracer_fraction_variables(self) -> list[str]:
+        """Names of active tracer fraction variables created by the mixture mixin.
 
         See Also:
-            :attr:`~porepy.compositional.base.Compound.solute_fraction_of`
+            :attr:`~porepy.compositional.base.Compound.tracer_fraction_of`
 
         """
         names: list[str] = []
         if hasattr(self, "fluid_mixture"):
             for comp in self.fluid_mixture.components:
                 if isinstance(comp, Compound):
-                    for solute in comp.pseudo_components:
-                        names.append(self._solute_fraction_variable(solute, comp))
+                    for tracer in comp.active_tracers:
+                        names.append(self._tracer_fraction_variable(tracer, comp))
         return names
 
     @property
@@ -435,9 +433,9 @@ class CompositionalVariables(pp.VariableMixin, CVDOF):
 
         1. :meth:`overall_fraction` is called to assign
            :attr:`~porepy.compositional.base.Component.fraction` to components.
-        2. :meth:`solute_fraction` is called to assign
-           :attr:`~porepy.compositional.base.Compound.solute_fraction_of` for each solute
-           in a compound.
+        2. :meth:`tracer_fraction` is called to assign
+           :attr:`~porepy.compositional.base.Compound.tracer_fraction_of` for each
+           tracer in a compound.
         3. :meth:`saturation` is called to assign
            :attr:`~porepy.compositional.base.Phase.saturation` to phases.
 
@@ -480,15 +478,15 @@ class CompositionalVariables(pp.VariableMixin, CVDOF):
         # reference feed fraction
         rcomp.fraction = self.overall_fraction(rcomp)
 
-        ## Creation of solute fractions
+        ## Creation of tracer fractions
         for comp in self.fluid_mixture.components:
             if isinstance(comp, Compound):
-                comp.solute_fraction_of = {}
-                for solute in comp.pseudo_components:
-                    name = self._solute_fraction_variable(solute, comp)
+                comp.tracer_fraction_of = {}
+                for tracer in comp.active_tracers:
+                    name = self._tracer_fraction_variable(tracer, comp)
                     self._create_fractional_variable(name, subdomains)
-                    comp.solute_fraction_of.update(
-                        {solute: self.solute_fraction(solute, comp)}
+                    comp.tracer_fraction_of.update(
+                        {tracer: self.tracer_fraction(tracer, comp)}
                     )
 
         # Creation of saturation variables
@@ -615,29 +613,29 @@ class CompositionalVariables(pp.VariableMixin, CVDOF):
 
         return fraction
 
-    def _solute_fraction_variable(
-        self, solute: ChemicalSpecies, compound: Compound
+    def _tracer_fraction_variable(
+        self, tracer: ChemicalSpecies, compound: Compound
     ) -> str:
-        """Returns the name of the solute fraction variable assigned to solute in a
+        """Returns the name of the tracer fraction variable assigned to tracer in a
         compound."""
-        return f"{symbols['solute_fraction']}_{solute.name}_{compound.name}"
+        return f"{symbols['tracer_fraction']}_{tracer.name}_{compound.name}"
 
-    def solute_fraction(
-        self, solute: ChemicalSpecies, compound: Compound
+    def tracer_fraction(
+        self, tracer: ChemicalSpecies, compound: Compound
     ) -> Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]:
-        """Method is called for every compound created and every solute in that
+        """Method is called for every compound created and every tracer in that
         compound.
 
-        The base method creates solute fractions as an independend variables
-        (transportable), after asserting the solute is indeed in that compound.
+        The base method creates tracer fractions as an independend variables
+        (transportable), after asserting the tracer is indeed in that compound.
 
         """
         assert (
-            solute in compound.pseudo_components
-        ), f"Solute {solute.name} not in compound {compound.name}"
+            tracer in compound.active_tracers
+        ), f"Solute {tracer.name} not in compound {compound.name}"
 
         def fraction(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
-            name = self._solute_fraction_variable(solute, compound)
+            name = self._tracer_fraction_variable(tracer, compound)
             if len(domains) > 0 and all(
                 [isinstance(g, pp.BoundaryGrid) for g in domains]
             ):

@@ -9,7 +9,7 @@
 2. :class:`Compound`:
    A compound represents a combination of chemical species, which can be bundled into
    1 component-like instance. While one chemical species serves as the solvent,
-   an arbitrary number of other species can be set as pseudo-components or solutes.
+   an arbitrary number of other species can be set as active tracers.
    Pseudo-components are not considered individually in the equilibrium problem, but the
    compound as a whole.
    But they are transportable quantities, with a fractional value relative to the
@@ -144,47 +144,47 @@ class Compound(Component):
     inside a mixture, for which it makes sense to treat it as a single component.
 
     It is represents one species, the solvent, and contains arbitrary many
-    pseudo-components (solutes).
+    active tracers (pseudo-components).
 
     A compound can appear in multiple phases and its thermodynamic properties are
-    influenced by present pseudo-components.
+    influenced by present tracers.
 
-    Pseudo-components are transportable and are represented by a fraction relative to
+    Tracers are transportable and are represented by a fraction relative to
     the :attr:`~Component.fraction` of the compound, i.e. the moles/mass of them are
-    given by a product of mixture density, compound fraction and relative fraction.
-    :attr:`relative_fraction_of` are assigned by the AD interface
+    given by a product of mixture density, compound fraction and tracer fraction.
+    :attr:`tracer_fraction_of` are assigned by the AD interface
     :class:`~porepy.compositional.compositional_mixins.FluidMixtureMixin`.
 
     Note:
-        Due to the generalization, the solvent and solutes alone are not considered as
+        Due to the generalization, the solvent and tracers alone are not considered as
         genuine components which can transition into various phases,
         but rather as parameters in the equilibrium problem problem.
         Only the compound as a whole splits into various phases. Fractions in phases
         are associated with the compound.
-        Solvent and solute fractions are not variables in the flash problem.
+        Solvent and tracer fractions are not variables in the flash problem.
 
     Example:
-        1. Brines with species salt and water as solute and solvent, where it is
+        1. Brines with species salt and water as tracer and solvent, where it is
            sufficient to calculate how much brine is in vapor or liquid form,
            and the information about how the salt distributes across phases is
            irrelevant. The salt in this case is a **transportable** quantity,
            whose concentration acts as a parameter in the flash.
 
         2. The black-oil model, where black-oil is treated as a compound with various
-           hydrocarbons as pseudo-components.
+           hydrocarbons as active tracers.
 
     """
 
     def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
 
-        self._pseudo_comps: list[ChemicalSpecies] = []
-        """A list containing present pseudo-components."""
+        self._active_tracers: list[ChemicalSpecies] = []
+        """A list containing present tracers as species."""
 
-        self.solute_fraction_of: dict[
+        self.tracer_fraction_of: dict[
             ChemicalSpecies, Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
         ] = {}
-        """A dictionary containing per present pseudo-component (key) the relative
+        """A dictionary containing per present tracer (key) the tracer
         fraction of it with respect to the compound's overall fraction.
 
         Dimensionless, scalar field bound to the interval ``[0, 1]``.
@@ -193,106 +193,103 @@ class Compound(Component):
         Note:
             Pseudo-components are transportable quantities!
             This is hence a variable in flow and transport.
-            The fraction of the solvent can be eliminated by unity.
+            The fraction of the solvent is eliminated by unity.
 
         """
 
     def __iter__(self) -> Generator[ChemicalSpecies, None, None]:
-        """Iterator overload to iterate over present pseudo-components."""
-        for solute in self._pseudo_comps:
-            yield solute
+        """Iterator overload to iterate over present tracers."""
+        for tracer in self._active_tracers:
+            yield tracer
 
     @property
-    def pseudo_components(self) -> list[ChemicalSpecies]:
+    def active_tracers(self) -> list[ChemicalSpecies]:
         """
         Important:
             Pseudo-components must be set before the compound is added to a mixture.
 
         Parameters:
-            pseudo_components: A list of chemical species to be added to the compound.
-                Uniqueness of the species is enforced in the setter.
+            tracers: A list of chemical species to be added to the compound as active
+                tracers. Uniqueness of the species is enforced in the setter.
 
         Raises:
-            ValueError: If names or CASr numbers are not unique per pseudo-component.
+            ValueError: If names or CASr numbers are not unique per tracer.
 
         Returns:
-            Solutes modelled in this compound.
+            Active tracers present in this compound.
 
         """
-        return [s for s in self._pseudo_comps]
+        return [s for s in self._active_tracers]
 
-    @pseudo_components.setter
-    def pseudo_components(self, pseudo_components: list[ChemicalSpecies]) -> None:
+    @active_tracers.setter
+    def active_tracers(self, tracers: list[ChemicalSpecies]) -> None:
         # avoid double species
         double_names = []
         double_casr = []
-        self._pseudo_comps = []
-        for s in pseudo_components:
+        self._active_tracers = []
+        for s in tracers:
             double_names.append(s.name)
             double_casr.append(s.CASr_number)
-            self._pseudo_comps.append(s)
-        if len(set(double_casr)) < len(pseudo_components):
+            self._active_tracers.append(s)
+        if len(set(double_casr)) < len(tracers):
             raise ValueError("CASr numbers must be unique per species.")
-        if len(set(double_names)) < len(pseudo_components):
+        if len(set(double_names)) < len(tracers):
             raise ValueError("Names must be unique per species.")
 
     def compound_molar_mass(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
-        """The molar mass of a compound depends on how much of the solutes is available.
+        """The molar mass of a compound depends on how much of the tracers are present.
 
         It is a sum of the molar masses of present species, weighed with their
         respective fraction, including the solvent.
 
         Important:
             This is the *average* molar mass (https://en.wikipedia.org/wiki/Molar_mass),
-            assuming :attr:`solute_fraction_of` contains *molar* fractions.
+            assuming :attr:`tracer_fraction_of` contains *molar* fractions.
 
         Parameters:
             domains: A sequence of subdomains or boundaries on which the operator
-                should be assembled. Used to call :attr:`relative_fraction_of`.
+                should be assembled. Used to call :attr:`tracer_fraction_of`.
 
         Returns:
             The molar mass of the compound.
 
         """
-        X = [self.solute_fraction_of[pc](domains) for pc in self.pseudo_components]
+        X = [self.tracer_fraction_of[pc](domains) for pc in self.active_tracers]
         M = pp.ad.Scalar(self.molar_mass) * (pp.ad.Scalar(1.0) - safe_sum(X))
         # But the molar mass [kg / mol] can be computed using molar masses of the
-        # solvent and solutes, weighing them with respective fractions and summing them.
+        # solvent and tracers, weighing them with respective fractions and summing them.
         # NOTE molar masses are required for the gravitational flux, in a setting with
         # molar units.
 
-        for pc, x in zip(self._pseudo_comps, X):
+        for pc, x in zip(self._active_tracers, X):
             M += pp.ad.Scalar(pc.molar_mass) * x
         M.set_name(f"compound_molar_mass_{self.name}")
         return M
 
     def molalities_from_fractions(self, *fractions: FloatType) -> list[FloatType]:
-        """Computes the molalities of present pseudo components.
-
-        The first molality value belongs to the solvent, the remainder are ordered
-        as given by :meth:`pseudo_components`.
+        """Computes the molalities of present active tracers, based on given
+        ``fractions``.
 
         Notes:
             1. The order of ``fractions`` must match the order in
-               :meth:`pseudo_components`
+               :meth:`active_tracers`
             2. The solvent molality is always the reciprocal of the solvent molar mass.
-               Hence, it is always a scalar, and not computed here
+               Hence, it is always a scalar, and not computed here.
 
         Parameters:
-            *fractions: Relative fractions of present pseudo components in numerical
-                format.
+            *fractions: Tracer fractions of present tracers in numerical format.
 
         Raises:
             ValueError: If the number of provided values does not match the number
-                of present pseudo-components.
+                of present tracers.
 
         Returns:
-            A list of molality values per pseudo-component.
+            A list of molality values per tracer in :attr:`active_tracers`.
 
         """
-        if len(fractions) != len(self._pseudo_comps):
+        if len(fractions) != len(self._active_tracers):
             raise ValueError(
-                f"Need {len(self._pseudo_comps)} values, {len(fractions)} given."
+                f"Need {len(self._active_tracers)} values, {len(fractions)} given."
             )
 
         molalities = []
@@ -312,19 +309,19 @@ class Compound(Component):
         """Reverse operation for :meth:`molalities_from_fractions`.
 
         Parameters:
-            *molalities: Molalities per present pseudo-component.
+            *molalities: Molalities per present tracer.
 
         Raises:
             ValueError: If the number of provided values does not match the number
-                of present pseudo-components.
+                of tracers in :attr:`active_tracers`.
 
         Returns:
-            A list of relative solute fractions calculated from molalities.
+            A list of tracer fractions calculated from molalities.
 
         """
-        if len(molalities) != len(self._pseudo_comps):
+        if len(molalities) != len(self._active_tracers):
             raise ValueError(
-                f"Need {len(self._pseudo_comps)} values, {len(molalities)} given."
+                f"Need {len(self._active_tracers)} values, {len(molalities)} given."
             )
 
         m_sum = safe_sum(molalities)
@@ -477,7 +474,7 @@ class Phase:
         state: PhysicalState,
         name: str,
     ) -> None:
-        
+
         self._ref_component_index: int = 0
         """See :meth:`reference_component_index`."""
 
@@ -875,7 +872,7 @@ class FluidMixture:
         """
         if self._has_gas:
             # NOTE for safety reasons, we avoid using -1 for the last index to be
-            # compatible with non-pythonic indexation
+            # compatible with non-pythonic indexation (numba)
             return self.num_phases - 1
         else:
             return None
