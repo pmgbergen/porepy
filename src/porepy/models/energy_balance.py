@@ -345,8 +345,20 @@ class EnergyBalanceEquations(pp.BalanceEquation):
         # (in the typing sense).
         subdomains = cast(list[pp.Grid], subdomains)
 
-        boundary_operator_enthalpy = self.combine_boundary_operators_enthalpy_flux(
-            subdomains=subdomains
+        def enthalpy_dirichlet(boundary_grids):
+            result = self.fluid_enthalpy(boundary_grids)
+            result *= self.mobility_rho(boundary_grids)
+            return result
+
+        boundary_operator_enthalpy = (
+            self._combine_boundary_operators(  # type: ignore[call-arg]
+                subdomains=subdomains,
+                dirichlet_operator=enthalpy_dirichlet,
+                neumann_operator=self.enthalpy_flux,
+                robin_operator=self.enthalpy_flux,
+                bc_type=self.bc_type_enthalpy_flux,
+                name="bc_values_enthalpy",
+            )
         )
 
         discr = self.enthalpy_discretization(subdomains)
@@ -361,35 +373,6 @@ class EnergyBalanceEquations(pp.BalanceEquation):
         )
         flux.set_name("enthalpy_flux")
         return flux
-
-    def combine_boundary_operators_enthalpy_flux(
-        self, subdomains: list[pp.Grid]
-    ) -> pp.ad.Operator:
-        """Combine enthalpy flux boundary operators.
-
-        Parameters:
-            subdomains: List of the subdomains whose boundary operators are to be
-                combined.
-
-        Returns:
-            The combined enthalpy flux boundary operator.
-
-        """
-
-        def enthalpy_dirichlet(boundary_grids):
-            result = self.fluid_enthalpy(boundary_grids)
-            result *= self.mobility_rho(boundary_grids)
-            return result
-
-        op = self._combine_boundary_operators(  # type: ignore[call-arg]
-            subdomains=subdomains,
-            dirichlet_operator=enthalpy_dirichlet,
-            neumann_operator=self.enthalpy_flux,
-            robin_operator=self.enthalpy_flux,
-            bc_type=self.bc_type_enthalpy_flux,
-            name="bc_values_enthalpy",
-        )
-        return op
 
     def interface_enthalpy_flux_equation(
         self, interfaces: list[pp.MortarGrid]
