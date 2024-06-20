@@ -109,7 +109,7 @@ class Upwind(Discretization):
                 with multiple components is only supported in Ad mode.
                 """
             )
-        rhs = -div * (bc_discr_neu + bc_discr_dir * flux_mat) * bc_values
+        rhs = div * (bc_discr_neu + bc_discr_dir * flux_mat) * bc_values
         return matrix, rhs
 
     def discretize(self, sd: pp.Grid, data: dict) -> None:
