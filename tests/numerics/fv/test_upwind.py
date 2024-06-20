@@ -216,7 +216,7 @@ def references_market():
 @pytest.fixture()
 def rhs_market():
     collection = {
-        "test_1d_darcy_flux_positive_rhs_dir": - np.array([6, 0, 0]),
+        "test_1d_darcy_flux_positive_rhs_dir": np.array([-6, 0, 0]),
         "test_1d_darcy_flux_negative_rhs_dir": - np.array([0, 0, 6]),
     }
     return collection
