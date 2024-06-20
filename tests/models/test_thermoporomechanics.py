@@ -266,11 +266,13 @@ def test_positive_p_frac_positive_opening():
 
 
 def test_robin_boundary_flux():
-    """Tests the Robin boundary conditions.
+    """Tests model setup with Robin boundary conditions.
 
     Neumann and Robin boundary values are set by the same method
     (bc_values_"flux_name"). This test ensures that the correct values are assigned to
-    the correct domain boundary sides (Robin values to Robin boundaries, Neumann values to Neumann boundaries).
+    the correct domain boundary sides (Robin values to Robin boundaries, Neumann values
+    to Neumann boundaries). The test also covers checking if the Dirichlet values are
+    assigned to the correct boundary sides.
 
     Model setup:
     * West boundary: Robin
@@ -282,7 +284,7 @@ def test_robin_boundary_flux():
     """
 
     class TailoredPoromechanicsRobin(
-        pp.test_utils.models.ThreeBoundaryConditionTypes,
+        pp.test_utils.models.BoundaryConditionTypes,
         pp.models.thermoporomechanics.Thermoporomechanics,
     ):
         def set_domain(self) -> None:
@@ -291,8 +293,8 @@ def test_robin_boundary_flux():
     params = {
         "meshing_arguments": {"cell_size": 0.5},
         "grid_type": "cartesian",
-        "p_north": 1e-2,
-        "p_south": 1e-2,
+        "p_north": 1e-3,
+        "p_south": -1e-3,
         "df_west": 1e-2,
         "df_east": -1e-2,
         "ff_west": 2e-2,
@@ -334,6 +336,23 @@ def test_robin_boundary_flux():
 
     assert np.allclose(values["mechanical_stress"][0][bounds.west], params["ms_west"])
     assert np.allclose(values["mechanical_stress"][0][bounds.east], params["ms_east"])
+
+    # Final check to see that the Dirichlet values are also assigned as expected. The
+    # different bc types should not overlap. If all these tests pass, that suggest there
+    # is no such overlap.
+
+    # First constructing the pressure operator and evaluating it, then finding the
+    # indices of the north and south boundaries in the pressure_values array, before
+    # finally asserting that the values are correct.
+    bg = model.mdg.subdomain_to_boundary_grid(subdomain)
+    pressure_operator = model.pressure([bg])
+    pressure_values = pressure_operator.value(model.equation_system)
+
+    ind_north = np.nonzero(np.isin(bounds.all_bf, np.where(bounds.north)[0]))[0]
+    ind_south = np.nonzero(np.isin(bounds.all_bf, np.where(bounds.south)[0]))[0]
+
+    assert np.allclose(pressure_values[ind_north], params["p_north"])
+    assert np.allclose(pressure_values[ind_south], params["p_south"])
 
 
 @pytest.mark.parametrize(

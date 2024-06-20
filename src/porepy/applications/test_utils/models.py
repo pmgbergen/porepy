@@ -118,7 +118,7 @@ def model(
     return model
 
 
-class ThreeBoundaryConditionTypes:
+class BoundaryConditionTypes:
     """Mixin for applying Neumann, Dirichlet and Robin conditions for a
     thermoporomechanics model."""
 
@@ -130,7 +130,7 @@ class ThreeBoundaryConditionTypes:
 
     def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
         p_north = self.params.get("p_north", 1)
-        p_south = self.params.get("p_north", 1)
+        p_south = self.params.get("p_south", 1)
         values = np.zeros(boundary_grid.num_cells)
         bounds = self.domain_boundary_sides(boundary_grid)
 
@@ -149,6 +149,9 @@ class ThreeBoundaryConditionTypes:
 
         bc.is_rob[:, bounds.west] = True
         bc.is_neu[:, bounds.east] = True
+
+        r_w = np.tile(np.eye(sd.dim), (1, sd.num_faces))
+        bc.robin_weight = np.reshape(r_w, (sd.dim, sd.dim, sd.num_faces), "F")
         return bc
 
     def _bc_type_wrap(self, sd: pp.Grid) -> pp.BoundaryCondition:
@@ -160,6 +163,7 @@ class ThreeBoundaryConditionTypes:
         bc.is_rob[bounds.west] = True
         bc.is_neu[bounds.east] = True
 
+        bc.robin_weight = np.ones(sd.num_faces)
         return bc
 
     def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
