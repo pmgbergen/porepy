@@ -180,6 +180,23 @@ class CVDOF:
                 f"Unknown type {type(instance)}. Expecting phase or component."
             )
 
+    def has_independent_tracer_fraction(
+        self, tracer: ChemicalSpecies, compound: Compound
+    ) -> bool:
+        """Check to perform if a chemical species (``tracer``) has an independent tracer
+        fraction in the ``compound``.
+        
+        Note:
+            This function returns always True, if the tracer is present in the compound
+            in :meth:`~porepy.compositional.base.Compound.active_tracers`.
+            Left for completeness and future work.
+
+        """
+        if tracer in compound.active_tracers:
+            return True
+        else:
+            return False
+
 
 class CompositionalVariables(pp.VariableMixin, CVDOF):
     """Mixin class for models with mixtures which defines the respective fractional
