@@ -57,7 +57,13 @@ time_manager = pp.TimeManager(
 )
 
 solid_constants = pp.SolidConstants(
-    {"permeability": 5.0e-14, "porosity": 0.1, "thermal_conductivity": 1.8, 'density': 2650.0, 'specific_heat_capacity': 1000.0}
+    {
+        "permeability": 5.0e-14,
+        "porosity": 0.1,
+        "thermal_conductivity": 1.8,
+        "density": 2650.0,
+        "specific_heat_capacity": 1000.0,
+    }
 )
 material_constants = {"solid": solid_constants}
 params = {
@@ -203,5 +209,7 @@ print("Elapsed time run_time_dependent_model: ", te - tb)
 print("Total number of DoF: ", model.equation_system.num_dofs())
 print("Mixed-dimensional grid information: ", model.mdg)
 
-mn = model.darcy_flux(model.mdg.subdomains()).value(model.equation_system)[model.domain_boundary_sides(model.mdg.subdomains()[0]).north]
+mn = model.darcy_flux(model.mdg.subdomains()).value(model.equation_system)[
+    model.domain_boundary_sides(model.mdg.subdomains()[0]).north
+]
 print("normal flux: ", mn)

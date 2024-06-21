@@ -59,7 +59,7 @@ class SoereideMixture:
         species = ppc.load_species(chems)
         components = [
             ppcpr.H2O.from_species(species[0]),
-            ppcpr.H2S.from_species(species[1]),
+            ppcpr.CO2.from_species(species[1]),
         ]
         return components
 
@@ -267,12 +267,18 @@ class CompiledFlash(ppc.FlashMixin):
         grid."""
         sds = [grid]
         data = self.mdg.subdomain_data(grid)
-        if 'T' not in self.equilibrium_type:
-            sub_state.T[fallback_idx] = pp.get_solution_values(self.temperature_variable, data, iterate_index=0)[failed_idx][fallback_idx]
-        if 'h' not in self.equilibrium_type:
-            sub_state.h[fallback_idx] = pp.get_solution_values(self.pressure_variable, data, iterate_index=0)[failed_idx][fallback_idx]
-        if 'p' not in self.equilibrium_type:
-            sub_state.p[fallback_idx] = pp.get_solution_values(self.enthalpy_variable, data, iterate_index=0)[failed_idx][fallback_idx]
+        if "T" not in self.equilibrium_type:
+            sub_state.T[fallback_idx] = pp.get_solution_values(
+                self.temperature_variable, data, iterate_index=0
+            )[failed_idx][fallback_idx]
+        if "h" not in self.equilibrium_type:
+            sub_state.h[fallback_idx] = pp.get_solution_values(
+                self.pressure_variable, data, iterate_index=0
+            )[failed_idx][fallback_idx]
+        if "p" not in self.equilibrium_type:
+            sub_state.p[fallback_idx] = pp.get_solution_values(
+                self.enthalpy_variable, data, iterate_index=0
+            )[failed_idx][fallback_idx]
 
         for j, phase in enumerate(self.fluid_mixture.phases):
             if j > 0:
@@ -320,13 +326,15 @@ class CompiledFlash(ppc.FlashMixin):
                 # NOTE numpy does some weird transpositions when dealing with 3D arrays
                 dphi = sub_state.phases[j].dphis[i]
                 dphi[:, fallback_idx] = pp.get_solution_values(
-                    phase.fugacity_coefficient_of[comp]._name_derivatives, data, iterate_index=0
+                    phase.fugacity_coefficient_of[comp]._name_derivatives,
+                    data,
+                    iterate_index=0,
                 )[:, failed_idx][:, fallback_idx]
                 sub_state.phases[j].dphis[i, :, :] = dphi
 
         # reference phase fractions and saturations must be computed, since not stored
-        sub_state.y[0,:] = 1 - np.sum(sub_state.y[1:, :], axis=0)
-        sub_state.sat[0,:] = 1 - np.sum(sub_state.sat[1:, :], axis=0)
+        sub_state.y[0, :] = 1 - np.sum(sub_state.y[1:, :], axis=0)
+        sub_state.sat[0, :] = 1 - np.sum(sub_state.sat[1:, :], axis=0)
 
         return sub_state
 
@@ -430,8 +438,8 @@ class BoundaryConditions:
 
         inlet = np.zeros(sd.num_faces, dtype=bool)
         inlet[sides.west] = True
-        # inlet &= sd.face_centers[1] > 0.2
-        # inlet &= sd.face_centers[1] < 0.5
+        inlet &= sd.face_centers[1] > 0.2
+        inlet &= sd.face_centers[1] < 0.5
 
         return inlet
 
@@ -442,8 +450,8 @@ class BoundaryConditions:
 
         outlet = np.zeros(sd.num_faces, dtype=bool)
         outlet[sides.east] = True
-        # outlet &= sd.face_centers[1] > 0.75
-        # outlet &= sd.face_centers[1] < 0.99
+        outlet &= sd.face_centers[1] > 0.75
+        outlet &= sd.face_centers[1] < 0.99
 
         return outlet
 
@@ -562,8 +570,8 @@ class GeothermalFlow(
 
 days = 365
 t_scale = 1e-5 / 2
-T_end = 1 * days * t_scale
-dt_init = 1 *days * t_scale
+T_end = 40 * days * t_scale
+dt_init = 1 * days * t_scale
 max_iterations = 80
 newton_tol = 1e-6
 newton_tol_increment = newton_tol

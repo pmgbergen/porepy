@@ -13,7 +13,7 @@ Custom implementation must be done in the constructor for child classes.
 
 from __future__ import annotations
 
-from typing import Callable, Union, TypeVar
+from typing import Callable, TypeVar, Union
 
 import numpy as np
 
@@ -38,7 +38,7 @@ NumericType = Union[pp.number, np.ndarray, pp.ad.AdArray]
 # NOTE Consider adding typing of objects which support arithmetic overloads
 # see https://stackoverflow.com/questions/76821158/
 # specify-that-a-typevar-supports-the-operator-among-its-values
-_Any = TypeVar('_Any')
+_Any = TypeVar("_Any")
 
 
 def h_ideal_H2O(T: _Any) -> _Any:

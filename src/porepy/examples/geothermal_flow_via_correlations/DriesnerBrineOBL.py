@@ -1,8 +1,8 @@
 import time
 
+import ClassifyPoints as cp
 import numpy as np
 import pyvista
-import ClassifyPoints as cp
 
 
 class DriesnerBrineOBL:
