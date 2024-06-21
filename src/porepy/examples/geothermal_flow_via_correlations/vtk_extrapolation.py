@@ -1,7 +1,7 @@
+import matplotlib.pyplot as plt
 import numpy as np
 import pyvista as pv
 from DriesnerBrineOBL import DriesnerBrineOBL
-import matplotlib.pyplot as plt
 
 file_name = "sample_with_gradients.vtk"
 

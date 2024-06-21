@@ -470,8 +470,8 @@ class SolutionStrategyCFLE(cf.SolutionStrategyCF, ppc.FlashMixin):
             logger.debug(f"Flashing on grid {sd.id}")
             start = time.time()
             fluid = self.postprocess_failures(
-                sd, 
-                *self.equilibriate_fluid([sd], None, self.get_fluid_state([sd], None))
+                sd,
+                *self.equilibriate_fluid([sd], None, self.get_fluid_state([sd], None)),
             )
             logger.info(
                 f"Fluid equilibriated on grid {sd.id}"
