@@ -666,6 +666,12 @@ class Phase:
             raise IndexError(f"Component index {index} out of range [0, {max_index}].")
         self._ref_component_index = int(index)
 
+    @property
+    def reference_component(self) -> Component:
+        """The component in :attr:`components` corresponding to the
+        :meth:`reference_component_index`."""
+        return self.components[self.reference_component_index]
+
     def compute_properties(self, *thermodynamic_input: np.ndarray) -> PhaseProperties:
         """Shortcut to compute the properties calling
         :meth:`AbstractEoS.compute_phase_state` of :attr:`eos` with :attr:`type` as
