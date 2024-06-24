@@ -93,7 +93,7 @@ def _chainrule_fractional_derivatives(df_dxn: np.ndarray, x: np.ndarray) -> np.n
 
 
 # NOTE Use guvectorize, not vectorize, because the return value is a 2D array
-# vectorize cannot cope with everything
+# vectorize cannot cope with everything, must instruct numba about the output shape
 @numba.guvectorize(
     ["void(float64[:],float64[:],float64[:],float64[:])"],
     "(m),(n),(m)->(m)",
@@ -209,10 +209,10 @@ def _compute_saturations(y: np.ndarray, rho: np.ndarray, eps: float) -> np.ndarr
                 n = y_.shape[0]
                 # solve j=1..n equations (sum_k s_k rho_k) y_j - s_j rho_j = 0
                 # where in each equation, s_j is replaced by 1 - sum_k!=j s_k
-                rhs = np.ones(n, dtype=np.float64)
+                rhs = rho_ * (y_ - 1.0)
                 mat = np.empty((n, n), dtype=np.float64)
                 for j in range(n):
-                    mat[j] = 1.0 - rho_ / rho_[j] * y_[j] / (1.0 - y_[j])
+                    mat[j] = rho_[j] * (y_[j] - 1) - rho_ * y_[j]
                 np.fill_diagonal(mat, 0.0)
 
                 s_ = np.linalg.solve(mat, rhs)
@@ -237,7 +237,7 @@ def _compute_saturations_gu(
 
 
 def compute_saturations(
-    y: np.ndarray, rho: np.ndarray, eps: float = 1e-8
+    y: np.ndarray, rho: np.ndarray, eps: float = 1e-10
 ) -> np.ndarray:
     r"""Computes the saturation values by solving the phase mass conservation
 
