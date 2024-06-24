@@ -142,13 +142,13 @@ def chainrule_fractional_derivatives(df_dxn: np.ndarray, x: np.ndarray) -> np.nd
     """
     if df_dxn.shape[0] < x.shape[0]:
         raise ValueError(
-            "Axis 2 of Argument 1 must be at least the size of Axis 1 of Argument 2."
+            "Axis 0 of Argument 1 must be at least the size of Axis 0 of Argument 2."
         )
 
     # allowing 1D arrays
     if len(df_dxn.shape) > 1:
         if df_dxn.shape[1] != x.shape[1]:
-            raise ValueError("Dimensions in Axis 2 mismatch.")
+            raise ValueError("Dimensions in Axis 1 mismatch.")
 
         # NOTE Transpose to parallelize over values, not derivatives
         df_dxn_T = df_dxn.T
@@ -158,7 +158,7 @@ def chainrule_fractional_derivatives(df_dxn: np.ndarray, x: np.ndarray) -> np.nd
         df_dx = df_dx.T
     else:
         if len(x.shape) != 1:
-            raise ValueError("Dimensions in Axis 2 mismatch.")
+            raise ValueError("Dimensions in Axis 1 mismatch.")
         df_dx = _chainrule_fractional_derivatives(df_dxn, x)
 
     return df_dx
