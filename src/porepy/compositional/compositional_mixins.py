@@ -8,7 +8,7 @@ Important:
     The framework does not support the variable switiching approach.
 
     Variables are persistent and the user must be familiar with the DOFs implemented
-    in the class :class:`CVDOF`.
+    in the class :class:`MixtureDOFHandler`.
 
     Once the :meth:`~porepy.compositional.base.FluidMixture.reference_phase_index` and
     :meth:`~porepy.compositional.base.FluidMixture.reference_component_index` of a the
@@ -39,7 +39,7 @@ __all__ = [
 ]
 
 
-class CVDOF:
+class MixtureDOFHandler:
     """A class to help resolve the independent fractional variables of an arbitrary
     mixture, and respectivly the DOFs.
 
@@ -104,19 +104,18 @@ class CVDOF:
     """
 
     fluid_mixture: FluidMixture
-    """Provided by :class:`FluidMixtureMixin`."""
+    """See :class:`FluidMixtureMixin`."""
 
     equation_system: pp.ad.EquationSystem
-    """Provided by :class:`~porepy.models.solution_strategy.SolutionStrategy`."""
+    """See :class:`~porepy.models.solution_strategy.SolutionStrategy`."""
 
     params: dict
-    """Provided by the solutions strategy mixin."""
+    """See the solutions strategy mixin."""
 
     create_boundary_operator: Callable[
         [str, Sequence[pp.BoundaryGrid]], pp.ad.TimeDependentDenseArray
     ]
-    """Provided by :class:`~porepy.models.boundary_condition.BoundaryConditionMixin`.
-    """
+    """See :class:`~porepy.models.boundary_condition.BoundaryConditionMixin`."""
 
     # Logic methods determining existence of DOFs
 
@@ -517,7 +516,7 @@ class CVDOF:
         return names
 
 
-class CompositionalVariables(pp.VariableMixin, CVDOF):
+class CompositionalVariables(pp.VariableMixin, MixtureDOFHandler):
     """Mixin class for models with mixtures which defines the respective fractional
     unknowns.
 
@@ -543,7 +542,7 @@ class CompositionalVariables(pp.VariableMixin, CVDOF):
     """
 
     fluid_mixture: FluidMixture
-    """Provided by :class:`FluidMixtureMixin`."""
+    """See :class:`FluidMixtureMixin`."""
 
     def fractional_state_from_vector(
         self,
@@ -1055,27 +1054,26 @@ class FluidMixtureMixin:
     """The fluid mixture set by this class during :meth:`create_mixture`."""
 
     mdg: pp.MixedDimensionalGrid
-    """Provided by :class:`~porepy.models.geometry.ModelGeometry`."""
+    """See :class:`~porepy.models.geometry.ModelGeometry`."""
     equation_system: pp.ad.EquationSystem
-    """Provided by :class:`~porepy.models.solution_strategy.SolutionStrategy`."""
+    """See :class:`~porepy.models.solution_strategy.SolutionStrategy`."""
 
     pressure: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
-    """Provided by :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`.
-    """
+    """See :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`."""
     temperature: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
-    """Provided by :class:`~porepy.models.energy_balance.VariablesEnergyBalance`."""
+    """See :class:`~porepy.models.energy_balance.VariablesEnergyBalance`."""
 
     _has_unified_equilibrium: bool
-    """Provided by :class:`CompositionalVariables`."""
+    """See :class:`CompositionalVariables`."""
     _has_equilibrium: bool
-    """Provided by :class:`CompositionalVariables`."""
+    """See :class:`CompositionalVariables`."""
 
     has_independent_partial_fraction: Callable[[Component, Phase], bool]
-    """Provided by :class:`CVDOF`."""
+    """See :class:`MixtureDOFHandler`."""
     has_independent_extended_fraction: Callable[[Component, Phase], bool]
-    """Provided by :class:`CVDOF`."""
+    """See :class:`MixtureDOFHandler`."""
     has_independent_fraction: Callable[[Component], bool]
-    """Provided by :class:`CVDOF`."""
+    """See :class:`MixtureDOFHandler`."""
 
     def create_mixture(self) -> None:
         """Mixed-in method to create a mixture.
