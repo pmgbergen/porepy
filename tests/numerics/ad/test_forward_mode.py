@@ -276,7 +276,9 @@ def test_get_set_slice_ad_var(index, index_c):
 )
 def test_logical_operation(N: int, logical_op: str, other: int | np.ndarray | AdArray):
     """Logical operations on Ad arrays are implemented such that they operate only on
-    values, making them completely equivalent to what numpy does.
+    values, making them completely equivalent to what numpy does. This test is based on that
+    premise: Logical operations on AdArrays should yield results identical to operations on
+    numpy arrays.
 
     Test that they work and that the result of the logical operation is doing the same
     as numpy for ``.val`` only.

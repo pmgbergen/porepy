@@ -147,7 +147,7 @@ class Compound(Component):
     active tracers (pseudo-components).
 
     A compound can appear in multiple phases and its thermodynamic properties are
-    influenced by present tracers.
+    determined by the tracers present.
 
     Tracers are transportable and are represented by a fraction relative to
     the :attr:`~Component.fraction` of the compound, i.e. the moles/mass of them are
@@ -156,7 +156,7 @@ class Compound(Component):
     :class:`~porepy.compositional.compositional_mixins.FluidMixtureMixin`.
 
     Note:
-        Due to the generalization, the solvent and tracers alone are not considered as
+        Due to the generalization, the solvent and individual tracers are not considered as
         genuine components which can transition into various phases,
         but rather as parameters in the equilibrium problem problem.
         Only the compound as a whole splits into various phases. Fractions in phases

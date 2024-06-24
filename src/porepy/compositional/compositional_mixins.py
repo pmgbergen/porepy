@@ -284,7 +284,7 @@ class CVDOF:
             component, and hence for the number of transport equations.
             The :attr:`~porepy.compositional.base.Phase.partial_fraction_of` a the
             reference component of a phase is always eliminated by unity, since
-            it is a local quantity. There are no benefits or alternative formulatiosn of
+            it is a local quantity. There are no benefits or alternative formulations of
             making it a genuine variable. It would only increase the system size
             unnecessarily.
 
@@ -316,7 +316,7 @@ class CVDOF:
             # any phase.
             # If there is only 1 phase, the partial fractions are replaced by the
             # overall component fraction.
-            # If there is only 1 component in that phase, the partialf fraction is 1.
+            # If there is only 1 component in that phase, the partial fraction is 1.
             # Both cases lead to the partial fraction not being an independent variable.
             if self.fluid_mixture.num_phases == 1 or phase.num_components == 1:
                 return False
