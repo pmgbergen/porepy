@@ -409,16 +409,6 @@ class CVDOF:
         """
         return f"{symbols['phase_composition']}_{component.name}_{phase.name}"
 
-    def _create_fractional_variable(  # TODO delete
-        self,
-        name: str,
-        subdomains: list[pp.Grid],
-    ) -> None:
-        """Helper method to create individual fractional variables."""
-        self.equation_system.create_variables(
-            name=name, subdomains=subdomains, tags={"si_units": "-"}
-        )
-
     def _fraction_factory(
         self, name: str
     ) -> Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]:
