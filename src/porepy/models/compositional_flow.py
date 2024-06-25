@@ -30,7 +30,6 @@ from porepy.grids.mortar_grid import MortarGrid
 from porepy.numerics.ad.operators import Operator
 
 from . import energy_balance as energy
-from . import fluid_mass_balance as mass
 from . import mass_and_energy_balance as mass_energy
 
 logger = logging.getLogger(__name__)
@@ -681,7 +680,7 @@ class TotalEnergyBalanceEquation_h(energy.EnergyBalanceEquations):
     bc_type_advective_flux: Callable[[pp.Grid], pp.BoundaryCondition]
     """See :class:`BoundaryConditionsCF`."""
 
-    bc_values_fractional_flow_energy_key: str
+    bc_data_fractional_flow_energy_key: str
     """See :class:`BoundaryConditionsCF`."""
     uses_fractional_flow_bc: bool
     """See :class:`BoundaryConditionsCF`."""
@@ -737,7 +736,7 @@ class TotalEnergyBalanceEquation_h(energy.EnergyBalanceEquations):
 
         if self.uses_fractional_flow_bc:
             op = self.create_boundary_operator(
-                self.bc_values_fractional_flow_energy_key,
+                self.bc_data_fractional_flow_energy_key,
                 domains,
             )
         else:
@@ -928,7 +927,7 @@ class ComponentMassBalanceEquations(pp.BalanceEquation):
     uses_fractional_flow_bc: bool
     """See :class:`BoundaryConditionsCF`."""
 
-    bc_values_fractional_flow_component_key: Callable[[ppc.Component], str]
+    bc_data_fractional_flow_component_key: Callable[[ppc.Component], str]
     """See :class:`BoundaryConditionsCF`"""
 
     create_boundary_operator: Callable[
@@ -1037,7 +1036,7 @@ class ComponentMassBalanceEquations(pp.BalanceEquation):
         """
         if self.uses_fractional_flow_bc:
             op = self.create_boundary_operator(
-                self.bc_values_fractional_flow_component_key(component), domains
+                self.bc_data_fractional_flow_component_key(component), domains
             )
         else:
             op = self.fractional_component_mobility(component, domains)
@@ -1286,7 +1285,7 @@ class SoluteTransportEquations(ComponentMassBalanceEquations):
             * component.solute_fraction_of[solute](subdomains)
         )
         mass_density.set_name(f"solute_mass_{solute.name}_{component.name}")
-        return mass
+        return mass_density
 
 
 # endregion
@@ -1808,7 +1807,7 @@ class BoundaryConditionsCF(
     ]
     """Provided by :class:`SolutionStrategyCF`"""
 
-    bc_values_fractional_flow_energy_key: str = "bc_values_fractional_flow_energy"
+    bc_data_fractional_flow_energy_key: str = "bc_data_fractional_flow_energy"
     """Key to store the BC values for the non-linear weight in the advective flux in the
     energy balance equation, for the case where explicit values are provided."""
 
@@ -2032,23 +2031,23 @@ class BoundaryConditionsCF(
             bc_func = cast(Callable[[pp.BoundaryGrid], np.ndarray], bc_func)
 
             self.update_boundary_condition(
-                name=self.bc_values_fractional_flow_component_key(component),
+                name=self.bc_data_fractional_flow_component_key(component),
                 function=bc_func,
             )
 
         # Updaing BC values of the non-linear weight in the energy balance
         # (advected enthalpy)
         self.update_boundary_condition(
-            name=self.bc_values_fractional_flow_energy_key,
+            name=self.bc_data_fractional_flow_energy_key,
             function=self.bc_values_fractional_flow_energy,
         )
 
     ### BC values for primary variables which need to be given by the user in any case.
 
-    def bc_values_fractional_flow_component_key(self, component: ppc.Component) -> str:
+    def bc_data_fractional_flow_component_key(self, component: ppc.Component) -> str:
         """Key to store the BC values of the non-linear weight in the advective flux
         of a component's mass balance equation"""
-        return f"bc_values_fractional_flow_{component.name}"
+        return f"bc_data_fractional_flow_{component.name}"
 
     def bc_values_enthalpy(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
         """BC values for fluid enthalpy on the Dirichlet boundary.
