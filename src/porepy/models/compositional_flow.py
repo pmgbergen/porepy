@@ -399,6 +399,18 @@ class SolidSkeletonCF(
     temperature_variable: str
     """See :class:`~porepy.models.energy_balance.SolutionStrategyEnergyBalance`."""
 
+    def reference_porosity(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Reference porosity.
+
+        Parameters:
+            subdomains: A list of subdomains.
+
+        Returns:
+            The constant solid porosity wrapped as an Ad scalar.
+
+        """
+        return pp.ad.Scalar(self.solid.porosity(), "reference_porosity")
+
     def diffusive_permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """
         Important:
