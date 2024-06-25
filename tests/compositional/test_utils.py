@@ -78,34 +78,48 @@ def test_chainrule_fractional_derivatives():
     """Tests the expansion of fractional derivatives to derivatives w.r.t. extended
     fractions."""
 
-    # derivatives w.r.t. to fractions are in the last 3 rows.
-    # They are such that the i-th derivative contains non-zero external derivatives,
-    # but the other contain the internal derivative of the normalization.
-    # I.e., the result of sending df through the computations should give exactly
-    # the Jacobian of the normalization x_i = y_i / sum_j y_j
+    # This tests mimics the values of a function, depending on 2 state functions and
+    # 3 component fractions, evaluated on 3 cells.
+    # The global Jacobian has hence 2 + 3 rows and 3 columns.
+    # The derivatives w.r.t. to fractions are in the last 3 rows.
+    # In each cell, the derivative w.r.t fractions is 1 for only 1 component, hence
+    # that row-block is the identity.
+    # Assuming that we want to expand the derivatives to extended fractions,
+    # which are obtained by normalization of (normal) fractions, this identity block
+    # shoud turn into the Jacobian of the normalization function
+    # x_i = y_i / sum_j y_j
     # dy_k x_i = delta_ki 1 / sum_j y_j - y_i / (sum_j y_j)^2
-    # in the last 3 rows
+
+    # Construct the derivatives of the functions, with value 20 for the 2 state
+    # functions. Those values should not be changed by the tested method
     df = np.vstack([np.ones((2, 3)) * 20., np.eye(3)])
     
+    # Set some arbitrary values for the extended fractions for 3 components
+    # We use the same value on all 3 cells, in order to obtain the Jacobian of the
+    # normalization
     x_ext = np.array([0.1, 0.2, 0.3])
+    x_ext_v = np.vstack([x_ext] * 3).T
 
     # Analytical derivative with respect to the extended fractions.
     s = x_ext.sum()
     jac = np.eye(3) / s - np.outer(x_ext, np.ones(3)) / (s**2)
 
-    x_ext_v = np.vstack([x_ext] * 3).T
-    # Compute the derivatives w.r.t. the extended fractions by the chain rule
+    # Compute the chainrule with the method
     df_ext = composit.chainrule_fractional_derivatives(df, x_ext_v)
 
+    # The jacobian should be un-altered in terms of shape and the first two rows, which
+    # are considered to be derivatives w.r.t to some other independent variables
     assert df_ext.shape == df.shape
-    assert np.allclose(df_ext[2:], jac.T, rtol=0.,  atol=1e-14)
-    # other derivatives are left untouched
     assert np.allclose(df_ext[:2], 20, rtol=0, atol=1e-14)
 
-    # slicing columns should mimic non-vectorized computations. assert shape-consistency
+    # The derivatives w.r.t. extended fractions should match the analytical solution
+    assert np.allclose(df_ext[2:], jac.T, rtol=0.,  atol=1e-14)
+
+    # slicing columns should mimic non-vectorized computations
+    # This tests the consistency of the method, when passing arguments as 1D arrays
     df_0 = df[:, 0]
     assert df_0.shape == (5,)
     df_ext_0 = composit.chainrule_fractional_derivatives(df_0, x_ext)
     assert df_ext_0.shape == df_0.shape
-    assert np.allclose(df_ext_0[2:], jac[0], rtol=0., atol=1e-14)
     assert np.allclose(df_ext_0[:2], 20., rtol=0, atol=1e-14)
+    assert np.allclose(df_ext_0[2:], jac[0], rtol=0., atol=1e-14)
