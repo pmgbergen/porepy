@@ -8,7 +8,8 @@ Important:
     The framework does not support the variable switiching approach.
 
     Variables are persistent and the user must be familiar with the DOFs implemented
-    in the class :class:`MixtureDOFHandler`.
+    in the class :class:`_MixtureDOFHandler` (whose methods are not supposed to be
+    overwritten).
 
     Once the :meth:`~porepy.compositional.base.FluidMixture.reference_phase_index` and
     :meth:`~porepy.compositional.base.FluidMixture.reference_component_index` of a the
@@ -39,7 +40,7 @@ __all__ = [
 ]
 
 
-class MixtureDOFHandler:
+class _MixtureDOFHandler:
     """A class to help resolve the independent fractional variables of an arbitrary
     mixture, and respectivly the DOFs.
 
@@ -516,7 +517,7 @@ class MixtureDOFHandler:
         return names
 
 
-class CompositionalVariables(pp.VariableMixin, MixtureDOFHandler):
+class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
     """Mixin class for models with mixtures which defines the respective fractional
     unknowns.
 
@@ -1069,11 +1070,11 @@ class FluidMixtureMixin:
     """See :class:`CompositionalVariables`."""
 
     has_independent_partial_fraction: Callable[[Component, Phase], bool]
-    """See :class:`MixtureDOFHandler`."""
+    """See :class:`_MixtureDOFHandler`."""
     has_independent_extended_fraction: Callable[[Component, Phase], bool]
-    """See :class:`MixtureDOFHandler`."""
+    """See :class:`_MixtureDOFHandler`."""
     has_independent_fraction: Callable[[Component], bool]
-    """See :class:`MixtureDOFHandler`."""
+    """See :class:`_MixtureDOFHandler`."""
 
     def create_mixture(self) -> None:
         """Mixed-in method to create a mixture.
