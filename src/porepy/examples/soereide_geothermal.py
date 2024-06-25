@@ -25,7 +25,7 @@ import os
 import pathlib
 import time
 
-os.environ["NUMBA_DISABLE_JIT"] = "1"
+# os.environ["NUMBA_DISABLE_JIT"] = "1"
 compile_time = 0.0
 logging.basicConfig(level=logging.INFO)
 logging.getLogger("porepy").setLevel(logging.INFO)
@@ -353,10 +353,10 @@ class ModelGeometry:
     #     self._fractures = [frac_1]
 
     def grid_type(self) -> str:
-        return self.params.get("grid_type", "cartesian")
+        return self.params.get("grid_type", "simplex")
 
     def meshing_arguments(self) -> dict:
-        cell_size = self.solid.convert_units(0.1, "m")
+        cell_size = self.solid.convert_units(0.05, "m")
         cell_size_fracture = self.solid.convert_units(0.05, "m")
         mesh_args: dict[str, float] = {
             "cell_size": cell_size,
@@ -553,6 +553,8 @@ class BoundaryConditions:
 
 
 class GeothermalFlow(
+    pp.constitutive_laws.DarcysLawAd,
+    pp.constitutive_laws.FouriersLawAd,
     ModelGeometry,
     SoereideMixture,
     CompiledFlash,
@@ -569,7 +571,7 @@ class GeothermalFlow(
 
 
 days = 365
-t_scale = 1e-5 / 2
+t_scale = 1e-5
 T_end = 40 * days * t_scale
 dt_init = 1 * days * t_scale
 max_iterations = 80
@@ -635,6 +637,7 @@ sim_time = time.time() - t_0
 print(f"Finished prepare_simulation in {prep_sim_time} seconds.")
 print(f"Finished simulation in {sim_time} seconds.")
 
+# region stat plots
 N = len(model._stats)
 tx = np.linspace(0, T_end, N, endpoint=True)
 
@@ -910,3 +913,4 @@ fig.savefig(
     format="png",
     dpi=400,
 )
+# endregion
