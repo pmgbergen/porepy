@@ -760,7 +760,9 @@ class TotalEnergyBalanceEquation_h(energy.EnergyBalanceEquations):
 
         """
 
-        if self.uses_fractional_flow_bc:
+        if self.uses_fractional_flow_bc and all(
+            [isinstance(g, pp.BoundaryGrid) for g in domains]
+        ):
             op = self.create_boundary_operator(
                 self.bc_data_fractional_flow_energy_key,
                 domains,
@@ -1060,7 +1062,9 @@ class ComponentMassBalanceEquations(pp.BalanceEquation):
         used.
 
         """
-        if self.uses_fractional_flow_bc:
+        if self.uses_fractional_flow_bc and all(
+            [isinstance(g, pp.BoundaryGrid) for g in domains]
+        ):
             op = self.create_boundary_operator(
                 self.bc_data_fractional_flow_component_key(component), domains
             )
@@ -2138,7 +2142,7 @@ class BoundaryConditionsCF(
     def bc_values_fractional_flow_component(
         self, component: ppc.Component, boundary_grid: pp.BoundaryGrid
     ) -> np.ndarray:
-        """BC values for the non-linear weight in the advecitve flux in
+        """BC values for the non-linear weight in the advective flux in
         :class:`ComponentMassBalanceEquations`, determining how much mass for respecitve
         ``component`` is entering the system on some inlet faces.
 
@@ -2155,7 +2159,7 @@ class BoundaryConditionsCF(
     def bc_values_fractional_flow_energy(
         self, boundary_grid: pp.BoundaryGrid
     ) -> np.ndarray:
-        """BC values for the non-linear weight in the advecitve flux in
+        """BC values for the non-linear weight in the advective flux in
         :class:`TotalEnergyBalanceEquation_h`, determining how much energy/enthalpy is
         entering the system on some inlet faces.
 
