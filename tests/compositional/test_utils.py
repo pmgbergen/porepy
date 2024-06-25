@@ -89,10 +89,12 @@ def test_chainrule_fractional_derivatives():
     
     x_ext = np.array([0.1, 0.2, 0.3])
 
+    # Analytical derivative with respect to the extended fractions.
     s = x_ext.sum()
     jac = np.eye(3) / s - np.outer(x_ext, np.ones(3)) / (s**2)
 
     x_ext_v = np.vstack([x_ext] * 3).T
+    # Compute the derivatives w.r.t. the extended fractions by the chain rule
     df_ext = composit.chainrule_fractional_derivatives(df, x_ext_v)
 
     assert df_ext.shape == df.shape
@@ -105,5 +107,5 @@ def test_chainrule_fractional_derivatives():
     assert df_0.shape == (5,)
     df_ext_0 = composit.chainrule_fractional_derivatives(df_0, x_ext)
     assert df_ext_0.shape == df_0.shape
-    assert np.allclose(df_ext_0[2:], jac[0], rtol=0.,  atol=1e-14)
+    assert np.allclose(df_ext_0[2:], jac[0], rtol=0., atol=1e-14)
     assert np.allclose(df_ext_0[:2], 20., rtol=0, atol=1e-14)
