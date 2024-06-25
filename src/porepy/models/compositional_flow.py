@@ -137,10 +137,6 @@ class MobilityCF:
 
         """
         name = "total_mobility"
-        # change name if on boundary to help the user in the operator tree
-        if len(domains) > 0:
-            if isinstance(domains[0], pp.BoundaryGrid):
-                name = f"bc_{name}"
         mobility = pp.ad.sum_operator_list(
             [
                 self.phase_mobility(phase, domains)
@@ -168,10 +164,6 @@ class MobilityCF:
 
         """
         name = f"phase_mobility_{phase.name}"
-        # change name if on boundary to help the user in the operator tree
-        if len(domains) > 0:
-            if isinstance(domains[0], pp.BoundaryGrid):
-                name = f"bc_{name}"
         mobility = (
             phase.density(domains)
             * self.relative_permeability(phase.saturation(domains))
@@ -203,10 +195,6 @@ class MobilityCF:
 
         """
         name = f"component_mobility_{component.name}"
-        # change name if on boundary to help the user in the operator tree
-        if len(domains) > 0:
-            if isinstance(domains[0], pp.BoundaryGrid):
-                name = f"bc_{name}"
         mobility = pp.ad.sum_operator_list(
             [
                 phase.partial_fraction_of[component](domains)
@@ -246,10 +234,6 @@ class MobilityCF:
 
         """
         name = f"fractional_component_mobility_{component.name}"
-        # change name if on boundary to help the user in the operator tree
-        if len(domains) > 0:
-            if isinstance(domains[0], pp.BoundaryGrid):
-                name = f"bc_{name}"
         frac_mob = self.component_mobility(component, domains) / self.total_mobility(
             domains
         )
@@ -283,10 +267,6 @@ class MobilityCF:
 
         """
         name = f"fractional_phase_mobility_{phase.name}"
-        # change name if on boundary to help the user in the operator tree
-        if len(domains) > 0:
-            if isinstance(domains[0], pp.BoundaryGrid):
-                name = f"bc_{name}"
         frac_mob = self.phase_mobility(phase, domains) / self.total_mobility(domains)
         frac_mob.set_name(name)
         return frac_mob
@@ -701,6 +681,11 @@ class TotalEnergyBalanceEquation_h(energy.EnergyBalanceEquations):
     bc_type_advective_flux: Callable[[pp.Grid], pp.BoundaryCondition]
     """See :class:`BoundaryConditionsCF`."""
 
+    bc_values_fractional_flow_energy_key: str
+    """See :class:`BoundaryConditionsCF`."""
+    uses_fractional_flow_bc: bool
+    """See :class:`BoundaryConditionsCF`."""
+
     @staticmethod
     def primary_equation_name():
         """Returns the name of the total energy balance equation introduced by this
@@ -745,16 +730,28 @@ class TotalEnergyBalanceEquation_h(energy.EnergyBalanceEquations):
         This is consistent with the fractional flow formulation, assuming the total
         mobility is part of the diffusive tensor in :class:`TotalMassBalanceEquation`.
 
+        Creates a boundary operator, in case explicit values for fractional flow BC are
+        used.
+
         """
-        # NOTE Not using fractional phase mobility to reduce operator tree size
-        op = pp.ad.sum_operator_list(
-            [
-                phase.specific_enthalpy(domains) * self.phase_mobility(phase, domains)
-                for phase in self.fluid_mixture.phases
-            ],
-            name="advected_enthalpy",
-        ) / self.total_mobility(domains)
-        op.set_name("fractional_advected_enthalpy")
+
+        if self.uses_fractional_flow_bc:
+            op = self.create_boundary_operator(
+                self.bc_values_fractional_flow_energy_key,
+                domains,
+            )
+        else:
+            # NOTE Not using fractional phase mobility to reduce operator tree size
+            op = pp.ad.sum_operator_list(
+                [
+                    phase.specific_enthalpy(domains)
+                    * self.phase_mobility(phase, domains)
+                    for phase in self.fluid_mixture.phases
+                ],
+                name="advected_enthalpy",
+            ) / self.total_mobility(domains)
+
+        op.set_name("bc_advected_enthalpy")
         return op
 
     def enthalpy_flux(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
@@ -928,6 +925,16 @@ class ComponentMassBalanceEquations(pp.BalanceEquation):
         pp.ad.Operator,
     ]
     """See :class:`~porepy.models.boundary_condition.BoundaryConditionMixin`"""
+    uses_fractional_flow_bc: bool
+    """See :class:`BoundaryConditionsCF`."""
+
+    bc_values_fractional_flow_component_key: Callable[[ppc.Component], str]
+    """See :class:`BoundaryConditionsCF`"""
+
+    create_boundary_operator: Callable[
+        [str, Sequence[pp.BoundaryGrid]], pp.ad.TimeDependentDenseArray
+    ]
+    """See :class:`~porepy.models.boundary_condition.BoundaryConditionMixin`."""
 
     def _mass_balance_equation_name(self, component: ppc.Component) -> str:
         """Method returning a name to be given to the mass balance equation of a
@@ -1024,8 +1031,19 @@ class ComponentMassBalanceEquations(pp.BalanceEquation):
         This is consistent with the fractional flow formulation, based on overall
         fractions.
 
+        Creates a boundary operator, in case explicit values for fractional flow BC are
+        used.
+
         """
-        return self.fractional_component_mobility(component, domains)
+        if self.uses_fractional_flow_bc:
+            op = self.create_boundary_operator(
+                self.bc_values_fractional_flow_component_key(component), domains
+            )
+        else:
+            op = self.fractional_component_mobility(component, domains)
+
+        op.set_name(f"bc_advected_mass_{component.name}")
+        return op
 
     def fluid_flux_for_component(
         self, component: ppc.Component, domains: pp.SubdomainsOrBoundaries
@@ -1707,30 +1725,45 @@ class BoundaryConditionsCF(
 
     **Essential BC**:
 
-    In any case, the user must provide BC values for primary variables on the Dirichlet
-    boundary. They are also used to compute values of phase properties on the boundary.
+    Essential BC denote the values of primary variables on the Dirichlet boundary,
+    and flux values (Darcy + Fourier) on the Neumann boundary.
 
-    On the Neumann boundary, the user must provide values for non-linear weights
-    in various advective fluxes (fractional mobilities f.e.).
+    They must be provided for all set-ups.
 
-    **Other BC**:
+    **BC values for constitutively eliminated variables**:
 
-    Since the modelling framework always introduces saturations and some relative
-    fractions as independent variables, the user must also provide values for them
-    on the Dirichlet BC.
+    If a variable was eliminated using
+    :meth:`SecondaryEquationsMixin.eliminate_by_constitutive_law` on a boundary grid,
+    the passed function is used to evaluate and store its value on the boundary.
+    This assumes the BC values for its dependencies are also provided.
+
+    **BC Values for thermodynamic properties of phases**:
+
+    If the user choce to pass ``'use_fractional_flow_bc' == False`` as a model
+    parameter, the boundary values of properties are evaluated and stored.
+    This happens for properties which are appearing in the non-linear weights of
+    advective fluxes in component mass and energy balance.
+
+    **BC Values in the fractional flow setting**:
+
+    If the user passed ``'use_fractional_flow_bc' == True`` as a model parameter,
+    the non-linear weights in the advecitve fluxes are treated as *closed* expressions
+    on the boundary. The user has to provide values for them explicitly and they are
+    not computed using values of e.g. viscosity, density, enthalpies, saturations and
+    partial fractions on the boundary.
 
     Important:
 
-        This class resolves some inconsistencies in the parent methods regarding the bc
+        This class resolves some inconsistencies in the parent methods regarding the BC
         type definition. There can be only one definition of Dirichlet and Neumann
-        boundary for the fluxes based to Darcy's Law (advective fluxes), and is to be
-        set in :meth:`bc_type_darcy_flux`. Other bce type definition for advective
-        fluxes are overriden here and point to the bc type for the darcy flux.
+        boundary for the fluxes based on Darcy's Law (advective fluxes), and is to be
+        set in :meth:`bc_type_darcy_flux`. Other BC type definition for advective
+        fluxes are overriden here and point to the BC type for the darcy flux.
 
-        The Fourier flux can have Dirichlet type BC as well, but it is required that the
-        Dirichlet faces of the darcy flux are contained in the Dirichlet faces for the
-        Fourier flux, for consistency reasons.
-        I.e., where Dirichlet pressure is given, Dirichlet temperature must be given.
+        Due to how the Upwinding is implemented, it has its own BC type definition,
+        **which must be flagged as Dirichlet everywhere**. Do not mess with
+        :meth:`bc_type_advective_flux`. This inconsistency will be removed in the near
+        future.
 
     """
 
@@ -1750,6 +1783,8 @@ class BoundaryConditionsCF(
     eliminate_reference_component: bool
     """Provided by :class:`SolutionStrategyCF`."""
     enthalpy_variable: str
+    """Provided by :class:`SolutionStrategyCF`."""
+    params: dict
     """Provided by :class:`SolutionStrategyCF`."""
 
     _overall_fraction_variable: Callable[[ppc.Component], str]
@@ -1772,6 +1807,21 @@ class BoundaryConditionsCF(
         ],
     ]
     """Provided by :class:`SolutionStrategyCF`"""
+
+    bc_values_fractional_flow_energy_key: str = "bc_values_fractional_flow_energy"
+    """Key to store the BC values for the non-linear weight in the advective flux in the
+    energy balance equation, for the case where explicit values are provided."""
+
+    @property
+    def uses_fractional_flow_bc(self) -> bool:
+        """Flag passed to the model set-up, indicating whether values for non-linear
+        weights in advectie fluxes are used explicitly on the boundary, or calculated
+        inderectly from properties and variables involved.
+
+        Defaults to False.
+
+        """
+        return bool(self.params.get("use_fractional_flow_bc", False))
 
     def bc_type_advective_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         """Returns the BC type of hyperbolic boundary condition in the advective flux.
@@ -1839,7 +1889,12 @@ class BoundaryConditionsCF(
         super().update_all_boundary_conditions()
         self.update_essential_boundary_values()
         self.update_boundary_values_constitutive_eliminated()
-        self.update_boundary_values_phase_properties()
+        # TODO This needs more documentation in tutorials or similar, such that the
+        # user is aware of which data is computed and stored, and which not.
+        if self.uses_fractional_flow_bc:
+            self.update_fractional_boundary_values()
+        else:
+            self.update_boundary_values_phase_properties()
 
     def update_essential_boundary_values(self) -> None:
         """Method updating BC values of primary variables on Dirichlet boundary,
@@ -1960,7 +2015,40 @@ class BoundaryConditionsCF(
                 phase.specific_enthalpy.update_boundary_values(h_bc, bg, depth=nt)
                 phase.viscosity.update_boundary_values(mu_bc, bg, depth=nt)
 
+    def update_fractional_boundary_values(self) -> None:
+        """If the user instructs the model to use explicit values for the non-linear
+        weights in advective fluxes, they are updated here on the boundary."""
+
+        # Updating BC values of non-linear weights in component mass balance equations
+        # If the reference component was eliminated, it is skipped.
+        for component in self.fluid_mixture.components:
+            if (
+                component == self.fluid_mixture.reference_component
+                and self.eliminate_reference_component
+            ):
+                continue
+
+            bc_func = partial(self.bc_values_fractional_flow_component, component)
+            bc_func = cast(Callable[[pp.BoundaryGrid], np.ndarray], bc_func)
+
+            self.update_boundary_condition(
+                name=self.bc_values_fractional_flow_component_key(component),
+                function=bc_func,
+            )
+
+        # Updaing BC values of the non-linear weight in the energy balance
+        # (advected enthalpy)
+        self.update_boundary_condition(
+            name=self.bc_values_fractional_flow_energy_key,
+            function=self.bc_values_fractional_flow_energy,
+        )
+
     ### BC values for primary variables which need to be given by the user in any case.
+
+    def bc_values_fractional_flow_component_key(self, component: ppc.Component) -> str:
+        """Key to store the BC values of the non-linear weight in the advective flux
+        of a component's mass balance equation"""
+        return f"bc_values_fractional_flow_{component.name}"
 
     def bc_values_enthalpy(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
         """BC values for fluid enthalpy on the Dirichlet boundary.
@@ -2018,6 +2106,39 @@ class BoundaryConditionsCF(
         Returns:
             An array with ``shape=(bg.num_cells,)`` containing the value of
             the overall fraction.
+
+        """
+        return np.zeros(boundary_grid.num_cells)
+
+    def bc_values_fractional_flow_component(
+        self, component: ppc.Component, boundary_grid: pp.BoundaryGrid
+    ) -> np.ndarray:
+        """BC values for the non-linear weight in the advecitve flux in
+        :class:`ComponentMassBalanceEquations`, determining how much mass for respecitve
+        ``component`` is entering the system on some inlet faces.
+
+        Parameters:
+            component: A component in the fluid mixture.
+            boundary_grid: A boundary grid in the mixed-dimensional grid.
+
+        Returns:
+            By default a zero array with shape ``(boundary_grid.num_cells,)``.
+
+        """
+        return np.zeros(boundary_grid.num_cells)
+
+    def bc_values_fractional_flow_energy(
+        self, boundary_grid: pp.BoundaryGrid
+    ) -> np.ndarray:
+        """BC values for the non-linear weight in the advecitve flux in
+        :class:`TotalEnergyBalanceEquation_h`, determining how much energy/enthalpy is
+        entering the system on some inlet faces.
+
+        Parameters:
+            boundary_grid: A boundary grid in the mixed-dimensional grid.
+
+        Returns:
+            By default a zero array with shape ``(boundary_grid.num_cells,)``.
 
         """
         return np.zeros(boundary_grid.num_cells)
@@ -2337,6 +2458,12 @@ class SolutionStrategyCF(
       complementarity conditions for each phase are formulated in semi-smooth form using
       a AD-compatible ``min`` operator. The semi-smooth Newton can be applied to solve
       the equilibrium problem. If False, the modeller must adapt the solution strategy.
+    - ``'use_fractional_flow_bc'``: Defaults to False. If True, the model treats the
+      non-linear weights in the advective fluxes in mass and energy balances as a closed
+      term on the boundary. The user must then provide values for the non-linear weights
+      directly. Otherwise, their values are calculated based on the values of inidivual
+      terms they are composed of (e.g. density depending on pressure and temperature on
+      the boundary).
 
 
     The base class checks if ``equilibrium_type`` is set as an attribute.
