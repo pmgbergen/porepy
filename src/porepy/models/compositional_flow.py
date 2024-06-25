@@ -26,8 +26,6 @@ import numpy as np
 
 import porepy as pp
 import porepy.compositional as ppc
-from porepy.grids.mortar_grid import MortarGrid
-from porepy.numerics.ad.operators import Operator
 
 from . import energy_balance as energy
 from . import mass_and_energy_balance as mass_energy
@@ -401,7 +399,47 @@ class SolidSkeletonCF(
     temperature_variable: str
     """See :class:`~porepy.models.energy_balance.SolutionStrategyEnergyBalance`."""
 
-    def normal_permeability(self, interfaces: list[MortarGrid]) -> Operator:
+    def diffusive_permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """
+        Important:
+            This implementation does not cover absolute permeabilities which are not
+            constant.
+
+        Parameters:
+            subdomains: A list of subdomains
+
+        Returns:
+            The cell-wise, scalar, isotropic permeability, composed of the total
+            mobility and the absolut permeability of the underlying solid.
+            Used for the diffusive tensor in the fractional flow formulation.
+
+        """
+        abs_perm = pp.wrap_as_dense_ad_array(
+            self.solid.permeability(),
+            size=sum(sd.num_cells for sd in subdomains),
+            name="absolute_permeability",
+        )
+        op = self.total_mobility(subdomains) * abs_perm
+        op.set_name("isotropic_permeability")
+        return op
+
+    def permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """
+        Parameters:
+            subdomains: A list of subdomains
+
+        Returns:
+            The value of :meth:`diffusive_permeability` wrapped into an isotropic,
+            second-order tensor.
+
+        """
+        op = self.isotropic_second_order_tensor(
+            subdomains, self.diffusive_permeability(subdomains)
+        )
+        op.set_name("diffusive_tensor_darcy")
+        return op
+
+    def normal_permeability(self, interfaces: list[pp.MortarGrid]) -> pp.ad.Operator:
         """A constitutive law returning the normal permeability as the product of
         total mobility and the permeability on the lower-dimensional subdomain.
 
@@ -416,21 +454,9 @@ class SolidSkeletonCF(
         subdomains = self.interfaces_to_subdomains(interfaces)
         projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1)
 
-        # diffusive_tensor = self.isotropic_second_order_tensor(
-        #     subdomains, self.total_mobility(subdomains)
-        # ) @ self.permeability(subdomains)
-
-        # TODO This does not cover anisotropic permeability tensors and tensors with
-        # dependencies. In that case one needs to matrix multiply the total diffusive
-        # tensor on cells, with (boundary) face normals for this to be projectable.
-
-        size = sum(sd.num_cells for sd in subdomains)
-        permeability = pp.wrap_as_dense_ad_array(
-            self.solid.permeability(), size, name="permeability"
+        normal_permeability = (
+            projection.secondary_to_mortar_avg @ self.diffusive_permeability(subdomains)
         )
-        diffusive_tensor = self.total_mobility(subdomains) * permeability
-
-        normal_permeability = projection.secondary_to_mortar_avg @ (diffusive_tensor)
         normal_permeability.set_name("normal_permeability")
         return normal_permeability
 
@@ -1822,6 +1848,11 @@ class BoundaryConditionsCF(
         """
         return bool(self.params.get("use_fractional_flow_bc", False))
 
+    def bc_data_fractional_flow_component_key(self, component: ppc.Component) -> str:
+        """Key to store the BC values of the non-linear weight in the advective flux
+        of a component's mass balance equation"""
+        return f"bc_data_fractional_flow_{component.name}"
+
     def bc_type_advective_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         """Returns the BC type of hyperbolic boundary condition in the advective flux.
 
@@ -2043,11 +2074,6 @@ class BoundaryConditionsCF(
         )
 
     ### BC values for primary variables which need to be given by the user in any case.
-
-    def bc_data_fractional_flow_component_key(self, component: ppc.Component) -> str:
-        """Key to store the BC values of the non-linear weight in the advective flux
-        of a component's mass balance equation"""
-        return f"bc_data_fractional_flow_{component.name}"
 
     def bc_values_enthalpy(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
         """BC values for fluid enthalpy on the Dirichlet boundary.
@@ -2511,11 +2537,6 @@ class SolutionStrategyCF(
     primary_variable_names: list[str]
     """Provided by :class:`VariablesCF`."""
 
-    isotropic_second_order_tensor: Callable[
-        [list[pp.Grid], pp.ad.Operator], pp.SecondOrderTensor
-    ]
-    """Provided by :class:`~porepy.models.constitutive_laws.SecondOrderTensorUtils`."""
-
     bc_type_advective_flux: Callable[[pp.Grid], pp.BoundaryCondition]
     """Provided by :class:`BoundaryConditionsCF`."""
 
@@ -2764,16 +2785,10 @@ class SolutionStrategyCF(
                     )
                 }
             )
-            scalar_perm = pp.wrap_as_dense_ad_array(
-                self.solid.permeability(), sd.num_cells, name="permeability"
-            )
-            perm = self.isotropic_second_order_tensor(
-                [sd], self.total_mobility([sd]) * scalar_perm
-            )
             data[pp.PARAMETERS][self.darcy_keyword].update(
                 {
                     "second_order_tensor": self.operator_to_SecondOrderTensor(
-                        sd, perm, self.solid.permeability()
+                        sd, self.permeability([sd]), self.solid.permeability()
                     )
                 }
             )
