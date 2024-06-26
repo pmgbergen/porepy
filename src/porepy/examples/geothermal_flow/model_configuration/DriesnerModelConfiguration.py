@@ -1,6 +1,7 @@
-import BrineConstitutiveDescription
 import numpy as np
-from Geometries import SimpleGeometry as ModelGeometry
+from .geometry_description.geometry_market import SimpleGeometry as ModelGeometry
+from .constitutive_description.BrineConstitutiveDescription import SecondaryEquations
+from .constitutive_description.BrineConstitutiveDescription import FluidMixture
 
 import porepy as pp
 import porepy.compositional as ppc
@@ -126,7 +127,7 @@ class InitialConditions(InitialConditionsCF):
     #     return T
 
 
-class SecondaryEquations(BrineConstitutiveDescription.SecondaryEquations):
+class SecondaryEquations(SecondaryEquations):
     pass
 
 
@@ -154,7 +155,7 @@ class ModelEquations(
 
 class DriesnerBrineFlowModel(
     ModelGeometry,
-    BrineConstitutiveDescription.FluidMixture,
+    FluidMixture,
     InitialConditions,
     BoundaryConditions,
     ModelEquations,
