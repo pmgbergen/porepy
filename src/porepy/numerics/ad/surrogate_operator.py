@@ -974,7 +974,6 @@ class SurrogateFactory:
         self,
         values: np.ndarray,
         grid: pp.Grid | pp.MortarGrid,
-        depth: int = 0,
     ) -> None:
         """Sets the derivative values of the expression, for the current time step
         and iterate.
@@ -982,26 +981,12 @@ class SurrogateFactory:
         Derivatives can as of now only be set for the current time step and iterate
         (value to be solved for)
 
-        Important:
-            As of now, there is no use case in storing derivatives in the iterate sense,
-            except for export and inspection reason. Use with care and do not trash the
-            memory.
-
-            But using this method with ``depth=0`` is a possibility to update the
-            value of derivatives on individual grids, for the current time and iterate
-            only.
-
         Parameters:
             values: ``shape=(num_dependencies, N)``
 
                 A new value to be set on the ``grid``. ``N`` must be consistent with
                 the shape in :meth:`set_values_on_grid`.
             grid: A subdomain or interface in the mixed-dimensional domain.
-            depth: ``default=0``
-
-                Maximal number of iterage derivative values stored. The default value 0
-                leads to **no** previous iterate derivative values stored.
-                See :func:`~porepy.numerics.ad._ad_utils.shift_solution_values`.
 
         Raises:
             ValueError: If ``values`` is not of the expected shape.
@@ -1021,21 +1006,3 @@ class SurrogateFactory:
         #     self._name_derivatives, data, pp.ITERATE_SOLUTIONS, max_index=depth
         # )
         pp.set_solution_values(self._name_derivatives, values, data, iterate_index=0)
-
-    def shift_iterate_values_on_grids(
-        self, domains: Sequence[pp.Grid | pp.MortarGrid], depth: int = 1
-    ) -> None:
-        """Convenience function to shift the current values backwards in the iterate
-        sense. Similar to :meth:`progress_values_in_time`.
-
-        This is a convenience function for populating the iterate values at the
-        beginning of a simulation.
-
-        See also:
-            :func:`~porepy.numerics.ad._ad_utils.shift_solution_values`
-
-        """
-        for grid in domains:
-            pp.shift_solution_values(
-                self.name, self._data_of(grid), pp.ITERATE_SOLUTIONS, max_index=depth
-            )
