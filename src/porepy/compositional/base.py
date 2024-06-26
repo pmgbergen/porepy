@@ -1,7 +1,7 @@
 """This module contains the base classes for elements of a mixture:
 
 1. :class:`Component`:
-   A phase-changing representation of a species involving some physical constants
+   A phase-changing representation of a species involving some physical constants.
    Additionally, this class represents a variable quantity in the equilibrium
    problem. It can appear in multiple phases and has a fraction of the overall mass
    associated with it.
@@ -9,7 +9,7 @@
 2. :class:`Compound`:
    A compound represents a combination of chemical species, which can be bundled into
    1 component-like instance. While one chemical species serves as the solvent,
-   an arbitrary number of other species can be set as pseudo-components or solutes.
+   an arbitrary number of other species can be set as active tracers.
    Pseudo-components are not considered individually in the equilibrium problem, but the
    compound as a whole.
    But they are transportable quantities, with a fractional value relative to the
@@ -25,16 +25,13 @@
 
    The phase has also physical properties (like density and enthalpy) which come into
    play when formulating more complex equilibrium models coupled with flow & transport.
+
 4. :class:`FluidMixture`:
     A basic representation of a mixture which is a collection of anticipated phases and
-    present components.
+    present components, putting them into their contexts.
 
-    It puts phases and components into context.
-    The mixture expects the overall fraction of a component (:attr:`Component.fraction`)
-    to never be zero. Otherwise a smaller mixture can be modelled.
-
-    Serves as a managing instance and provides functionalities to formulate the flash
-    equations using PorePy's AD framework.
+    Serves as a managing instance and provides functionalities to formulate flow &
+    transport & flash equations using PorePy's AD framework.
 
 Note:
     Phases are meant to be based on an Equation of State.
@@ -61,8 +58,9 @@ import numpy as np
 import porepy as pp
 from porepy.numerics.ad.functions import FloatType
 
+from ._core import PhysicalState
 from .chem_species import ChemicalSpecies
-from .states import PhaseState
+from .states import PhaseProperties
 from .utils import CompositionalModellingError, safe_sum
 
 __all__ = [
@@ -97,6 +95,7 @@ class Component(ChemicalSpecies):
 
     def __init__(self, **kwargs) -> None:
         # NOTE Only for Python >= 3.10
+        # Filter away kwargs that will not be recognized by ChemicalSpecies
         chem_species_kwargs = {
             k: v for k, v in kwargs.items() if k in ChemicalSpecies.__match_args__
         }
@@ -145,47 +144,47 @@ class Compound(Component):
     inside a mixture, for which it makes sense to treat it as a single component.
 
     It is represents one species, the solvent, and contains arbitrary many
-    pseudo-components (solutes).
+    active tracers (pseudo-components).
 
     A compound can appear in multiple phases and its thermodynamic properties are
-    influenced by present pseudo-components.
+    determined by the tracers present.
 
-    Pseudo-components are transportable and are represented by a fraction relative to
+    Tracers are transportable and are represented by a fraction relative to
     the :attr:`~Component.fraction` of the compound, i.e. the moles/mass of them are
-    given by a product of mixture density, compound fraction and relative fraction.
-    :attr:`relative_fraction_of` are assigned by the AD interface
+    given by a product of mixture density, compound fraction and tracer fraction.
+    :attr:`tracer_fraction_of` are assigned by the AD interface
     :class:`~porepy.compositional.compositional_mixins.FluidMixtureMixin`.
 
     Note:
-        Due to the generalization, the solvent and solutes alone are not considered as
+        Due to the generalization, the solvent and individual tracers are not considered as
         genuine components which can transition into various phases,
         but rather as parameters in the equilibrium problem problem.
         Only the compound as a whole splits into various phases. Fractions in phases
         are associated with the compound.
-        Solvent and solute fractions are not variables in the flash problem.
+        Solvent and tracer fractions are not variables in the flash problem.
 
     Example:
-        1. Brines with species salt and water as solute and solvent, where it is
+        1. Brines with species salt and water as tracer and solvent, where it is
            sufficient to calculate how much brine is in vapor or liquid form,
            and the information about how the salt distributes across phases is
            irrelevant. The salt in this case is a **transportable** quantity,
            whose concentration acts as a parameter in the flash.
 
         2. The black-oil model, where black-oil is treated as a compound with various
-           hydrocarbons as pseudo-components.
+           hydrocarbons as active tracers.
 
     """
 
     def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
 
-        self._pseudo_comps: list[ChemicalSpecies] = list()
-        """A list containing present pseudo-components."""
+        self._active_tracers: list[ChemicalSpecies] = []
+        """A list containing present tracers as species."""
 
-        self.solute_fraction_of: dict[
+        self.tracer_fraction_of: dict[
             ChemicalSpecies, Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
-        ] = dict()
-        """A dictionary containing per present pseudo-component (key) the relative
+        ] = {}
+        """A dictionary containing per present tracer (key) the tracer
         fraction of it with respect to the compound's overall fraction.
 
         Dimensionless, scalar field bound to the interval ``[0, 1]``.
@@ -194,93 +193,109 @@ class Compound(Component):
         Note:
             Pseudo-components are transportable quantities!
             This is hence a variable in flow and transport.
-            The fraction of the solvent can be eliminated by unity.
+            The fraction of the solvent is eliminated by unity.
 
         """
 
     def __iter__(self) -> Generator[ChemicalSpecies, None, None]:
-        """Iterator overload to iterate over present pseudo-components."""
-        for solute in self._pseudo_comps:
-            yield solute
+        """Iterator overload to iterate over present tracers."""
+        for tracer in self._active_tracers:
+            yield tracer
 
     @property
-    def pseudo_components(self) -> list[ChemicalSpecies]:
+    def active_tracers(self) -> list[ChemicalSpecies]:
         """
         Important:
             Pseudo-components must be set before the compound is added to a mixture.
 
         Parameters:
-            pseudo_components: A list of chemical species to be added to the compound.
-                Uniqueness of the species is checked in the setter.
+            tracers: A list of chemical species to be added to the compound as active
+                tracers. Uniqueness of the species is enforced in the setter.
+
+        Raises:
+            ValueError: If names or CASr numbers are not unique per tracer.
 
         Returns:
-            Solutes modelled in this compound.
+            Active tracers present in this compound.
 
         """
-        return [s for s in self._pseudo_comps]
+        return [s for s in self._active_tracers]
 
-    @pseudo_components.setter
-    def pseudo_components(self, pseudo_components: list[ChemicalSpecies]) -> None:
+    @active_tracers.setter
+    def active_tracers(self, tracers: list[ChemicalSpecies]) -> None:
         # avoid double species
-        double = []
-        self._pseudo_comps = []
-        for s in pseudo_components:
-            if s.CASr_number not in double:
-                self._pseudo_comps.append(s)
-                double.append(s.CASr_number)
+        double_names = []
+        double_casr = []
+        self._active_tracers = []
+        for s in tracers:
+            double_names.append(s.name)
+            double_casr.append(s.CASr_number)
+            self._active_tracers.append(s)
+        if len(set(double_casr)) < len(tracers):
+            raise ValueError("CASr numbers must be unique per species.")
+        if len(set(double_names)) < len(tracers):
+            raise ValueError("Names must be unique per species.")
 
     def compound_molar_mass(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
-        """The molar mass of a compound depends on how much of the solutes is available.
+        """The molar mass of a compound depends on how much of the tracers are present.
 
         It is a sum of the molar masses of present species, weighed with their
         respective fraction, including the solvent.
 
+        Important:
+            This is the *average* molar mass (https://en.wikipedia.org/wiki/Molar_mass),
+            assuming :attr:`tracer_fraction_of` contains *molar* fractions.
+
         Parameters:
             domains: A sequence of subdomains or boundaries on which the operator
-                should be assembled. Used to call :attr:`relative_fraction_of`.
+                should be assembled. Used to call :attr:`tracer_fraction_of`.
 
         Returns:
             The molar mass of the compound.
 
         """
-        X = [self.solute_fraction_of[self](domains)]
+        X = [self.tracer_fraction_of[pc](domains) for pc in self.active_tracers]
         M = pp.ad.Scalar(self.molar_mass) * (pp.ad.Scalar(1.0) - safe_sum(X))
+        # But the molar mass [kg / mol] can be computed using molar masses of the
+        # solvent and tracers, weighing them with respective fractions and summing them.
+        # NOTE molar masses are required for the gravitational flux, in a setting with
+        # molar units.
 
-        for pc, x in zip(self._pseudo_comps, X):
+        for pc, x in zip(self._active_tracers, X):
             M += pp.ad.Scalar(pc.molar_mass) * x
         M.set_name(f"compound_molar_mass_{self.name}")
         return M
 
     def molalities_from_fractions(self, *fractions: FloatType) -> list[FloatType]:
-        """Computes the molalities of present pseudo components.
-
-        The first molality value belongs to the solvent, the remainder are ordered
-        as given by :meth:`pseudo_components`.
+        """Computes the molalities of present active tracers, based on given
+        ``fractions``.
 
         Notes:
             1. The order of ``fractions`` must match the order in
-               :meth:`pseudo_components`
+               :meth:`active_tracers`
             2. The solvent molality is always the reciprocal of the solvent molar mass.
-               Hence, it is always a scalar, and not computed here
+               Hence, it is always a scalar, and not computed here.
 
         Parameters:
-            *fractions: Relative fractions of present pseudo components in numerical
-                format.
+            *fractions: Tracer fractions of present tracers in numerical format.
 
         Raises:
             ValueError: If the number of provided values does not match the number
-                of present pseudo-components.
+                of present tracers.
 
         Returns:
-            A list of molality values per pseudo-component.
+            A list of molality values per tracer in :attr:`active_tracers`.
 
         """
-        if len(fractions) != len(self._pseudo_comps):
+        if len(fractions) != len(self._active_tracers):
             raise ValueError(
-                f"Need {len(self._pseudo_comps)} values, {len(fractions)} given."
+                f"Need {len(self._active_tracers)} values, {len(fractions)} given."
             )
 
         molalities = []
+
+        # NOTE for more information on the formula applied here see
+        # https://en.wikipedia.org/wiki/Molality
 
         # solvent fraction
         x_s = 1 - safe_sum(fractions)
@@ -294,26 +309,28 @@ class Compound(Component):
         """Reverse operation for :meth:`molalities_from_fractions`.
 
         Parameters:
-            *molalities: Molalities per present pseudo-component.
+            *molalities: Molalities per present tracer.
 
         Raises:
             ValueError: If the number of provided values does not match the number
-                of present pseudo-components.
+                of tracers in :attr:`active_tracers`.
 
         Returns:
-            A list of relative solute fractions calculated from molalities.
+            A list of tracer fractions calculated from molalities.
 
         """
-        if len(molalities) != len(self._pseudo_comps):
+        if len(molalities) != len(self._active_tracers):
             raise ValueError(
-                f"Need {len(self._pseudo_comps)} values, {len(molalities)} given."
+                f"Need {len(self._active_tracers)} values, {len(molalities)} given."
             )
 
         m_sum = safe_sum(molalities)
-        X = list()
+        X = []
+
+        # NOTE for more information on the formula applied here see
+        # https://en.wikipedia.org/wiki/Molality
 
         for m in molalities:
-            # See https://en.wikipedia.org/wiki/Molality
             x_i = self.molar_mass * m / (1 + self.molar_mass * m_sum)
             X.append(x_i)
 
@@ -355,9 +372,9 @@ class AbstractEoS(abc.ABC):
             raise CompositionalModellingError("Cannot create an EoS with no components")
 
     @abc.abstractmethod
-    def compute_phase_state(
-        self, phase_type: int, *thermodynamic_input: np.ndarray
-    ) -> PhaseState:
+    def compute_phase_properties(
+        self, phase_state: PhysicalState, *thermodynamic_input: np.ndarray
+    ) -> PhaseProperties:
         """ "Abstract method to compute the properties of a phase based any
         thermodynamic input.
 
@@ -371,10 +388,10 @@ class AbstractEoS(abc.ABC):
             3. For correlations which indirectly represent the solution of the
                fluid phase equilibrium problem, the signature might as well be
                pressure, temperature and independent overall fractions.
-            4. For complex models, temperature can be replaced by enthalpy for example.
+            4. For complex models, temperature can be replaced by enthalpy, for example.
 
         Parameters:
-            phase_type: See :attr:`Phase.type`
+            phase_state: The physical phase state for which to compute values.
             *thermodynamic_input: Vectors with consistent shape ``(N,)`` representing
                 any combination of thermodynamic input variables.
 
@@ -395,9 +412,8 @@ class Phase:
 
     Phases have physical properties, dependent on some thermodynamic input.
     They are usually assigned by an instance of
-    :class:`~porepy.compositional.compositional_mixins.FluidMixtureMixin`, and include **only**
-    properties relevant for flow & transport problems.
-    This includes
+    :class:`~porepy.compositional.compositional_mixins.FluidMixtureMixin`, and include
+    **only** properties relevant for flow & transport problems:
 
     - :attr:`density`
     - :attr:`specific_volume`
@@ -407,7 +423,7 @@ class Phase:
     - :attr:`fugacities_of`
 
     Components must be modelled explicitly in a phase, by setting :attr:`components`.
-    (see als:class:`~porepy.compositional.compositional_mixins.
+    (see also :class:`~porepy.compositional.compositional_mixins.
     FluidMixtureMixin.set_components_in_phases`).
 
     Important:
@@ -437,16 +453,16 @@ class Phase:
 
         All partial fractions in :attr:`partial_fraction_of` are dependent
         :class:`~porepy.numerics.ad.operators.Operator` -instances,
-        created by normalization of fractions in :attr:`fraction_of`.
+        created by normalization of fractions in :attr:`extended_fraction_of`.
 
         If the flow & transport model does not include an equilibrium formulation,
         the extended fractions are meaningless and the partialf ractions are independent
         variables instead.
 
     Parameters:
-        phase_type: Integer indicating the physical type of the phase (see :attr:`type`)
         eos: An EoS which provides means to compute physical properties of the phase.
             Can be different for different phases.
+        state: The physical state this phase represents.
         name: Given name for this phase. Used as an unique identifier and for naming
             various variables and properties.
 
@@ -455,9 +471,13 @@ class Phase:
     def __init__(
         self,
         eos: AbstractEoS,
-        type: int,
+        state: PhysicalState,
         name: str,
     ) -> None:
+
+        self._ref_component_index: int = 0
+        """See :meth:`reference_component_index`."""
+
         ### PUBLIC
 
         self.components: Sequence[Component]
@@ -473,14 +493,8 @@ class Phase:
         self.eos: AbstractEoS = eos
         """The EoS passed at instantiation."""
 
-        self.type: int = int(type)
-        """Physical type of this phase. Passed at instantiation.
-
-        - ``0``: liquid-like
-        - ``1``: gas-like
-        - ``>1``: unused but reserved for future development.
-
-        """
+        self.state: PhysicalState = state
+        """Physical state declared at instantiation (see :attr:`PhysicalStates`)."""
 
         self.name: str = str(name)
         """Name given to the phase at instantiation."""
@@ -617,20 +631,61 @@ class Phase:
         """Number of set components."""
         return len(self.components) if hasattr(self, "components") else 0
 
-    def compute_properties(self, *thermodynamic_input: np.ndarray) -> PhaseState:
+    @property
+    def reference_component_index(self) -> int:
+        """Returns the index of the component in :meth:`components`, which is designated
+        as the reference component *in this phase*.
+
+        Not to be confused with :meth:`FluidMixture.reference_component_index`.
+
+        By default, the first component (0) is designated as the reference component.
+
+        Important:
+            Changing the index of the reference component changes which partial fraction
+            is eliminated by unity of fractions.
+            Its representation will be by unity, and more importantly, it will reduce
+            the size of the system by 1.
+
+        Parameters:
+            index: A new index to be assigned.
+
+        Raises:
+            IndexError: If index is out of range of :meth:`components`.
+
+        Returns:
+            The index of the current component designated as the reference component in
+            this phase.
+
+        """
+        return self._ref_component_index
+
+    @reference_component_index.setter
+    def reference_component_index(self, index: int) -> None:
+        max_index = len(self.components) - 1
+        if index < 0 or index > max_index:
+            raise IndexError(f"Component index {index} out of range [0, {max_index}].")
+        self._ref_component_index = int(index)
+
+    @property
+    def reference_component(self) -> Component:
+        """The component in :attr:`components` corresponding to the
+        :meth:`reference_component_index`."""
+        return self.components[self.reference_component_index]
+
+    def compute_properties(self, *thermodynamic_input: np.ndarray) -> PhaseProperties:
         """Shortcut to compute the properties calling
         :meth:`AbstractEoS.compute_phase_state` of :attr:`eos` with :attr:`type` as
         argument."""
-        return self.eos.compute_phase_state(self.type, *thermodynamic_input)
+        return self.eos.compute_phase_properties(self.state, *thermodynamic_input)
 
 
 class FluidMixture:
     """Basic fluid mixture class managing modelled components and phases.
 
-    The mixture class serves as a container for components and phases and to determine
-    the reference component and phase.
+    The mixture class serves as a container for components and phases and contains the
+    specification of the reference component and phase.
 
-    If also allocates attributes for some thermodynamic properites of a mixture, which
+    It also allocates attributes for some thermodynamic properites of a mixture, which
     are required by the remaining framework, which are assigned by an instance of
     :class:`~porepy.compositional.compositional_mixins.FluidMixtureMixin`.
 
@@ -644,20 +699,16 @@ class FluidMixture:
     Flash algorithms are built around the mixture management utilities of this class.
 
     Important:
-        Phases are re-ordered once passed as arguments.
+        Phases are re-ordered once passed as arguments according to the following rules:
 
         - If more than 1 phase, the first, non-gas-like phase is treated as the
-          reference phase.
+          reference phase per default.
         - The single gas-like phase is always the last one.
-        - The first component is set as reference component.
-
-    Notes:
-        Be careful when modelling mixtures with 1 component. This singular case is not
-        fully supported by the equilibrium framework.
+        - The first component is set as reference component per default.
 
     Parameters:
         components: A list of components to be added to the mixture.
-            This are the chemical species which can appear in multiple phases.
+            These are the chemical species which can appear in multiple phases.
         phases: A list of phases to be modelled.
 
     Raises:
@@ -669,7 +720,7 @@ class FluidMixture:
             - Any phase has no components in it.
         CompositionalModellingError: If there is 1 component, which is not in any phase.
         ValueError: If any two components or phases have the same name
-            (storage conflicts).
+            (storage conflicts), or any two components have the same CASr number.
 
     """
 
@@ -678,31 +729,34 @@ class FluidMixture:
         components: list[Component],
         phases: list[Phase],
     ) -> None:
-        # modelled phases and components
+
+        self._ref_phase_index: int = 0
+        """See :meth:`reference_phase_index`."""
+        self._ref_component_index: int = 0
+        """See :meth:`reference_component_index`."""
         self._components: list[Component] = []
         """A list of components passed at instantiation."""
         self._phases: list[Phase] = []
         """A list of phases passed at instantiation."""
 
         # a container holding names already added, to avoid storage conflicts
-        doubles = []
+        double_names: list[str] = []
+        double_casr: list[str] = []
         # Lists of gas-like and other phases
-        gaslike_phases: list[Phase] = list()
-        other_phases: list[Phase] = list()
+        gaslike_phases: list[Phase] = []
+        other_phases: list[Phase] = []
 
         for comp in components:
-            if comp.name in doubles:
-                raise ValueError(
-                    f"All components must have different 'name' attributes."
-                )
-            doubles.append(comp.name)
+            double_names.append(comp.name)
+            double_casr.append(comp.CASr_number)
             self._components.append(comp)
 
+        if len(set(double_casr)) < len(self._components):
+            raise ValueError("CASr numbers must be unique per component.")
+
         for phase in phases:
-            if phase.name in doubles:
-                raise ValueError("All phases must have different 'name' attributes.")
-            doubles.append(phase.name)
-            if phase.type == 1:
+            double_names.append(phase.name)
+            if phase.state == PhysicalState.gas:
                 gaslike_phases.append(phase)
             else:
                 other_phases.append(phase)
@@ -714,6 +768,9 @@ class FluidMixture:
 
         self._phases = other_phases + gaslike_phases
 
+        if len(set(double_names)) < len(self._phases) + len(self._components):
+            raise ValueError("Phases and components must have unique names each.")
+
         # checking model assumptions
         if len(self._components) == 0:
             raise CompositionalModellingError("At least 1 component required")
@@ -724,7 +781,7 @@ class FluidMixture:
 
         # Checking no dangling components
         for comp in self._components:
-            its_phases = list()
+            its_phases = []
             for phase in self._phases:
                 if comp in phase.components:
                     its_phases.append(phase)
@@ -732,6 +789,10 @@ class FluidMixture:
                 raise CompositionalModellingError(
                     f"Component {comp.name} not in any phase."
                 )
+
+        # NOTE by logic, length of gas-like phases can only be 1 at this point
+        self._has_gas: bool = True if len(gaslike_phases) == 1 else False
+        """Flag indicating if a gas-like phase is present."""
         ### PUBLIC
 
         self.density: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
@@ -782,25 +843,10 @@ class FluidMixture:
         return len(self._phases)
 
     @property
-    def num_equilibrium_equations(self) -> int:
-        """Number of necessary equilibrium equations for this composition, based on the
-        number of added components and phases ``num_components * (num_phases - 1)``.
-
-        Equilibrium equation (isofugacity constraints) are always formulated w.r.t. the
-        reference phase, hence ``num_phases - 1``.
-
-        """
-        return self.num_components * (self.num_phases - 1)
-
-    @property
     def components(self) -> Generator[Component, None, None]:
         """
-        Note:
-            The first component is always the reference component.
-
         Yields:
-            Components added to the composition.
-
+            Components in this fluid mixture.
         """
         for C in self._components:
             yield C
@@ -808,48 +854,106 @@ class FluidMixture:
     @property
     def phases(self) -> Generator[Phase, None, None]:
         """
-        Note:
-            The first phase is always the reference phase.
-
         Yields:
-            Phases modelled by the composition class.
-
+            Phases modelled in this fluid mixture.
         """
         for P in self._phases:
             yield P
 
     @property
-    def reference_phase(self) -> Phase:
-        """Returns the reference phase.
+    def gas_phase_index(self) -> int | None:
+        """Returns the index of the gas-like phase in :meth:`phases`.
 
-        As of now, the first **non-gas-like** phase is declared as reference
-        phase (based on :attr:`~porepy.compositional.phase.Phase.gaslike`).
+        Only 1 gas-like phase is supported and as of now it is always the last one
+        in :meth:`phases`, if present.
 
-        The reference phase is always the first element in :meth:`phases`.
+        Note:
+            The return value can be used as a boolean check whether gas is modelled or
+            not.
 
-        The implications of a phase being the reference phase include:
-
-        - The reference phase :attr:`~Phase.fraction` and :attr:`~Phase.saturation` can
-          be eliminated by unity and are **not** independent variables.
+        Returns:
+            The index of the gas-like phase (:meth:`num_phases` - 1), if gas is
+            modelled. Returns None otherwise.
 
         """
-        return self._phases[0]
+        if self._has_gas:
+            # NOTE for safety reasons, we avoid using -1 for the last index to be
+            # compatible with non-pythonic indexation (numba)
+            return self.num_phases - 1
+        else:
+            return None
+
+    @property
+    def reference_phase_index(self) -> int:
+        """Returns the index of the phase in :meth:`phases`, which is designated
+        as the reference phase.
+
+        By default, the first phase (0) is designated as the reference phase, which
+        coincides with the first liquid-like phase (if any).
+
+        Important:
+            Changing the index of the reference phase changes also which phase
+            :attr:`~Phase.fraction` and :attr:`~Phase.saturation` are eliminated by
+            unity.
+
+            Depending on the simulation set-up, this has numerical implications.
+
+        Parameters:
+            index: A new index to be assigned.
+
+        Raises:
+            IndexError: If index is out of range of :meth:`phases`.
+
+        Returns:
+            The index of the current phase designated as the reference phase.
+
+        """
+        return self._ref_phase_index
+
+    @reference_phase_index.setter
+    def reference_phase_index(self, index: int) -> None:
+        max_index = len(self._phases) - 1
+        if index < 0 or index > max_index:
+            raise IndexError(f"Phase index {index} out of range [0, {max_index}].")
+        self._ref_phase_index = int(index)
+
+    @property
+    def reference_component_index(self) -> int:
+        """Returns the index of the component in :meth:`components`, which is designated
+        as the reference component.
+
+        By default, the first component (0) is designated as the reference component.
+
+        Important:
+            Changing the index of the reference component changes which mass
+            conservation equations are eliminated by unity.
+
+        Parameters:
+            index: A new index to be assigned.
+
+        Raises:
+            IndexError: If index is out of range of :meth:`components`.
+
+        Returns:
+            The index of the current component designated as the reference component.
+
+        """
+        return self._ref_component_index
+
+    @reference_component_index.setter
+    def reference_component_index(self, index: int) -> None:
+        max_index = len(self._components) - 1
+        if index < 0 or index > max_index:
+            raise IndexError(f"Component index {index} out of range [0, {max_index}].")
+        self._ref_component_index = int(index)
+
+    @property
+    def reference_phase(self) -> Phase:
+        """Returns the reference phase as designated by :meth:`reference_phase_index`."""
+        return self._phases[self.reference_phase_index]
 
     @property
     def reference_component(self) -> Component:
-        """Returns the reference component.
-
-        The reference component is always the first element in :meth:`components`.
-
-        It can be changed by changing the order of ``components`` when creating the
-        mixture.
-
-        The implications of a component being the reference component include:
-
-        - The mass constraint can be eliminated, since it is linear dependent on the
-          other mass constraints due to various unity constraints.
-        - Its overall :attr:`Component.fraction` can be eliminated by unity and is
-          **not** an independent variable.
-
-        """
-        return self._components[0]
+        """Returns the reference component as designated by
+        :meth:`reference_component_index`."""
+        return self._components[self.reference_component_index]

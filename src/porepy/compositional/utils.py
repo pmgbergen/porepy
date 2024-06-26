@@ -8,12 +8,12 @@ from typing import Sequence, TypeVar, cast
 import numba
 import numpy as np
 
-from ._core import NUMBA_CACHE, NUMBA_FAST_MATH
+from ._core import NUMBA_CACHE, NUMBA_FAST_MATH, NUMBA_PARALLEL
 
 __all__ = [
     "safe_sum",
     "normalize_rows",
-    "extend_fractional_derivatives",
+    "chainrule_fractional_derivatives",
     "compute_saturations",
     "CompositionalModellingError",
 ]
@@ -46,7 +46,7 @@ def safe_sum(x: Sequence[_Addable]) -> _Addable:
         sum_ = x[0]
         for i in range(1, len(x)):
             # Using TypeVar to indicate that return type is same as argument type
-            # MyPy says tha tthe TypeVar has no __add__, hence not adable...
+            # MyPy says that the TypeVar has no __add__, hence not adable...
             sum_ = sum_ + x[i]  # type: ignore[operator]
         return sum_
     else:
@@ -77,9 +77,9 @@ def normalize_rows(x: np.ndarray) -> np.ndarray:
 
 
 @numba.njit("float64[:](float64[:],float64[:])", fastmath=NUMBA_FAST_MATH, cache=True)
-def _extend_fractional_derivatives(df_dxn: np.ndarray, x: np.ndarray) -> np.ndarray:
+def _chainrule_fractional_derivatives(df_dxn: np.ndarray, x: np.ndarray) -> np.ndarray:
     """Internal ``numba.njit``-decorated function for
-    :meth:`extend_compositional_derivatives` for non-vectorized input."""
+    :meth:`chainrule_fractional_derivatives` for non-vectorized input."""
 
     df_dx = df_dxn.copy()  # deep copy to avoid messing with values
     ncomp = x.shape[0]
@@ -93,29 +93,28 @@ def _extend_fractional_derivatives(df_dxn: np.ndarray, x: np.ndarray) -> np.ndar
 
 
 # NOTE Use guvectorize, not vectorize, because the return value is a 2D array
-# vectorize cannot cope with everything
+# vectorize cannot cope with everything, must instruct numba about the output shape
 @numba.guvectorize(
     ["void(float64[:],float64[:],float64[:],float64[:])"],
     "(m),(n),(m)->(m)",
-    target="parallel",
+    target="parallel" if NUMBA_PARALLEL else "cpu",
     nopython=True,
     cache=NUMBA_CACHE,  # NOTE cache depends on internal function
 )
-def _extend_fractional_derivatives_gu(
+def _chainrule_fractional_derivatives_gu(
     df_dxn: np.ndarray, x: np.ndarray, out: np.ndarray, dummy: np.ndarray
 ) -> None:
     """Internal ``numba.guvectorize``-decorated function for
-    :meth:`extend_compositional_derivatives`."""
-    out[:] = _extend_fractional_derivatives(df_dxn, x)
+    :meth:`chainrule_fractional_derivatives`."""
+    out[:] = _chainrule_fractional_derivatives(df_dxn, x)
 
 
-def extend_fractional_derivatives(df_dxn: np.ndarray, x: np.ndarray) -> np.ndarray:
-    r"""Expands the derivatives of a scalar function :math:`f(y, x_n)`, assuming
-    its derivatives are given w.r.t. to the normalized fractions ``x_n``.
+def chainrule_fractional_derivatives(df_dxn: np.ndarray, x: np.ndarray) -> np.ndarray:
+    r"""Applies the chain rule to the derivatives of a scalar function
+    :math:`f(y, \tilde{x})`, assuming its derivatives are given w.r.t. to the normalized
+    fractions :math:`\tilde{x}_i = \frac{x_i} / \frac{\sum_j x_j}`.
 
-    Expansion is conducted by simply applying the chain rule to :math:`f(y, x_n(x))`.
-
-    Intended use is for thermodynamic properties, which
+    Intended use is for thermodynamic properties in the unified formulation, which
     are given as functions with above signature.
 
     Utilizes numba for parallelized, efficient computations.
@@ -143,23 +142,24 @@ def extend_fractional_derivatives(df_dxn: np.ndarray, x: np.ndarray) -> np.ndarr
     """
     if df_dxn.shape[0] < x.shape[0]:
         raise ValueError(
-            "Axis 2 of Argument 1 must be at least the size of Axis 1 of Argument 2."
+            "Axis 0 of Argument 1 must be at least the size of Axis 0 of Argument 2."
         )
 
     # allowing 1D arrays
     if len(df_dxn.shape) > 1:
         if df_dxn.shape[1] != x.shape[1]:
-            raise ValueError("Dimensions in Axis 2 mismatch.")
+            raise ValueError("Dimensions in Axis 1 mismatch.")
 
         # NOTE Transpose to parallelize over values, not derivatives
-        df_dx = np.empty_like(df_dxn.T)
-        _extend_fractional_derivatives_gu(df_dxn.T, x.T, df_dx)
+        df_dxn_T = df_dxn.T
+        df_dx = np.empty_like(df_dxn_T)
+        _chainrule_fractional_derivatives_gu(df_dxn_T, x.T, df_dx)
 
         df_dx = df_dx.T
     else:
         if len(x.shape) != 1:
-            raise ValueError("Dimensions in Axis 2 mismatch.")
-        df_dx = _extend_fractional_derivatives(df_dxn, x)
+            raise ValueError("Dimensions in Axis 1 mismatch.")
+        df_dx = _chainrule_fractional_derivatives(df_dxn, x)
 
     return df_dx
 
@@ -209,10 +209,10 @@ def _compute_saturations(y: np.ndarray, rho: np.ndarray, eps: float) -> np.ndarr
                 n = y_.shape[0]
                 # solve j=1..n equations (sum_k s_k rho_k) y_j - s_j rho_j = 0
                 # where in each equation, s_j is replaced by 1 - sum_k!=j s_k
-                rhs = np.ones(n, dtype=np.float64)
+                rhs = rho_ * (y_ - 1.0)
                 mat = np.empty((n, n), dtype=np.float64)
                 for j in range(n):
-                    mat[j] = 1.0 - rho_ / rho_[j] * y_[j] / (1.0 - y_[j])
+                    mat[j] = rho_[j] * (y_[j] - 1) - rho_ * y_[j]
                 np.fill_diagonal(mat, 0.0)
 
                 s_ = np.linalg.solve(mat, rhs)
@@ -224,7 +224,7 @@ def _compute_saturations(y: np.ndarray, rho: np.ndarray, eps: float) -> np.ndarr
 @numba.guvectorize(
     ["void(float64[:],float64[:],float64,float64[:],float64[:])"],
     "(n),(n),(),(n)->(n)",
-    target="parallel",
+    target="parallel" if NUMBA_PARALLEL else "cpu",
     nopython=True,
     cache=NUMBA_CACHE,  # NOTE cache depends on internal function
 )
@@ -237,7 +237,7 @@ def _compute_saturations_gu(
 
 
 def compute_saturations(
-    y: np.ndarray, rho: np.ndarray, eps: float = 1e-8
+    y: np.ndarray, rho: np.ndarray, eps: float = 1e-10
 ) -> np.ndarray:
     r"""Computes the saturation values by solving the phase mass conservation
 
@@ -279,8 +279,9 @@ def compute_saturations(
 
     if len(y.shape) > 1:
         # NOTE transpose to parallelize over values, not phases
-        s = np.empty_like(y.T)
-        _compute_saturations_gu(y.T, rho.T, eps, s)
+        y_T = y.T
+        s = np.empty_like(y_T)
+        _compute_saturations_gu(y_T, rho.T, eps, s)
         s = s.T
     else:
         s = _compute_saturations(y, rho, eps)

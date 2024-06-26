@@ -607,36 +607,61 @@ class AdArray:
         return self.jac * A
 
     def __lt__(self, other: AdType) -> bool | np.ndarray:
+        """Overload of operation ``self < other``.
+
+        The Ad-array delegates the logical operation solely to the values :attr:`val`,
+        leaving the actual implementation to numpy.
+        I.e., any binary, logical operation is equivalent to what numpy does with the
+        values.
+
+        Parameters:
+            other: Right-hand side operand. If it is an Ad-array, its :attr:`val` is
+                used to invoke the overload of numpy.
+
+        Returns:
+            A boolean (array) as the result of the lesser-operation.
+
+        """
         if isinstance(other, AdArray):
             return self.val < other.val
         else:
             return self.val < other
 
     def __le__(self, other: AdType) -> bool | np.ndarray:
+        """Overload for ``self <= other``. See :meth:`__lt__` for more information."""
         if isinstance(other, AdArray):
             return self.val <= other.val
         else:
             return self.val <= other
 
     def __gt__(self, other: AdType) -> bool | np.ndarray:
+        """Overload for ``self > other``. See :meth:`__lt__` for more information."""
         if isinstance(other, AdArray):
             return self.val > other.val
         else:
             return self.val > other
 
     def __ge__(self, other: AdType) -> bool | np.ndarray:
+        """Overload for ``self >= other``. See :meth:`__lt__` for more information."""
         if isinstance(other, AdArray):
             return self.val >= other.val
         else:
             return self.val >= other
 
-    def __eq__(self, other: AdType) -> bool | np.ndarray:
+    def __eq__(self, other: AdType) -> bool | np.ndarray:  # type:ignore[override]
+        """Overload for ``self == other``. See :meth:`__lt__` for more information."""
+        # mypy complaints that parent class object returns only bool here.
+        # But we leave the equal operation to the numpy values.
         if isinstance(other, AdArray):
             return self.val == other.val
         else:
             return self.val == other
 
-    def __neq__(self, other: AdType) -> bool | np.ndarray:
+    def __ne__(self, other: AdType) -> bool | np.ndarray:  # type:ignore[override]
+        """Overload for ``self != other``. See :meth:`__lt__` for more information."""
+        # NOTE without the override of __ne__, Python uses __eq__ and returns its
+        # negation. In the scalar case (val.shape = (1,)) this can return a boolean,
+        # not a boolean array with shape (1,)
         if isinstance(other, AdArray):
             return self.val != other.val
         else:

@@ -23,24 +23,25 @@ from typing import Optional, Sequence, cast
 
 import numpy as np
 
+from ._core import PhysicalState
 from .utils import (
+    chainrule_fractional_derivatives,
     compute_saturations,
-    extend_fractional_derivatives,
     normalize_rows,
     safe_sum,
 )
 
 __all__ = [
-    "ExtensiveState",
-    "IntensiveState",
-    "PhaseState",
-    "FluidState",
-    "initialize_fluid_state",
+    "ExtensiveProperties",
+    "IntensiveProperties",
+    "PhaseProperties",
+    "FluidProperties",
+    "initialize_fluid_properties",
 ]
 
 
 @dataclass
-class IntensiveState:
+class IntensiveProperties:
     """Dataclass for storing intensive thermodynamic properties of a fluid mixture.
 
     Storage is intended to be in array format for usage in flow and transport, where
@@ -62,9 +63,9 @@ class IntensiveState:
 
 
 @dataclass
-class ExtensiveState:
+class ExtensiveProperties:
     """Dataclass for storing extensive thermodynamic properties
-    (analogous to :class:`IntensiveState`).
+    (analogous to :class:`IntensiveProperties`).
 
     As of now, the extensive state does not encompass all of the physical quantities,
     but those which are relevant for the flow & transport model in PorePy.
@@ -92,13 +93,13 @@ class ExtensiveState:
 
 
 @dataclass
-class PhaseState(ExtensiveState):
+class PhaseProperties(ExtensiveProperties):
     """An extended state description for physical phases, including derivatives
     of extensive properties and properties which are not state functions such
     as viscosity and thermal conductivity.
 
     Derivatives are denoted with a ``d*`` and the derivative values are stored
-    along the first axis of a 2D array (i.e. each rot represents the derivative with
+    along the first axis of a 2D array (i.e. each row represents the derivative with
     respect to 1 dependency)
 
     The state of a phase is additionally characterized by an integer representing the
@@ -106,8 +107,8 @@ class PhaseState(ExtensiveState):
 
     """
 
-    phasetype: int = 0
-    """Type of the phase. Defaults to 0 (liquid)."""
+    state: PhysicalState = PhysicalState.liquid
+    """Physical state of the phase. Defaults to liquid-like."""
 
     x: np.ndarray = field(default_factory=lambda: np.zeros((0, 0)))
     """Fractions for each component in a phase, stored row-wise per component
@@ -173,74 +174,74 @@ class PhaseState(ExtensiveState):
 
     @property
     def drho_ext(self) -> np.ndarray:
-        """Returning the extended derivatives from :attr:`drho`, assuming the last
-        rows are derivatives w.r.t. (extended) fractions in :attr:`x`.
+        """Assuming the derivatives in :attr:`drho` are with respect to (physical)
+        partial fractions (last :attr:`x` ``.shape[0]`` rows), this property returns the
+        derivatives w.r.t. extended fractions in the unified setting.
 
-        I.e., ``drho.shape[0]`` must be at least ``x.shape[0]``.
+        The extended fractions are assumed to be stored in :attr:`x`,
+        whereas the partial fractions are given by :attr:`x_normalized`.
 
         For more information, see
-        :func:`~porepy.compositional.utils.extend_fractional_derivatives`.
+        :func:`~porepy.compositional.utils.chainrule_fractional_derivatives`.
 
         """
-        return self._extend(self.drho)
+        return self._for_extended_fractions(self.drho)
 
     @property
     def dv_ext(self) -> np.ndarray:
-        """Extended derivatives found in :attr:`dv`. See :meth:`drho_ext` for more
-        information."""
-        return self._extend(self.dv)
+        """See :meth:`drho_ext` for more information."""
+        return self._for_extended_fractions(self.dv)
 
     @property
     def dh_ext(self) -> np.ndarray:
-        """Extended derivatives found in :attr:`dh`. See :meth:`drho_ext` for more
-        information."""
-        return self._extend(self.dh)
+        """See :meth:`drho_ext` for more information."""
+        return self._for_extended_fractions(self.dh)
 
     @property
     def dmu_ext(self) -> np.ndarray:
-        """Extended derivatives found in :attr:`dmu`. See :meth:`drho_ext` for more
-        information."""
-        return self._extend(self.dmu)
+        """See :meth:`drho_ext` for more information."""
+        return self._for_extended_fractions(self.dmu)
 
     @property
     def dkappa_ext(self) -> np.ndarray:
-        """Extended derivatives found in :attr:`dkappa`. See :meth:`drho_ext` for more
-        information."""
-        return self._extend(self.dkappa)
+        """See :meth:`drho_ext` for more information."""
+        return self._for_extended_fractions(self.dkappa)
 
     @property
     def dphis_ext(self) -> np.ndarray:
-        """Extended derivatives found in :attr:`dkappa`. See :meth:`drho_ext` for more
-        information."""
-        return np.array([self._extend(dphi) for dphi in self.dphis])
+        """See :meth:`drho_ext` for more information."""
+        return np.array([self._for_extended_fractions(dphi) for dphi in self.dphis])
 
-    def _extend(self, df_dx: np.ndarray) -> np.ndarray:
-        """Helper method to extend the fractional derivatives.
+    def _for_extended_fractions(self, df_dx: np.ndarray) -> np.ndarray:
+        """Helper method to apply the chainrule to fractional derivatives, switching
+        from partial fraction to extended fractions in the unified formulation.
 
-        Note:
-            The extended derivatives are used in the unified CFLE setting.
-            But it seems that the model converges even when using the un-extended
-            derivatives (Jacobian is not exact).
-            Full implications unclear as of now.
+        See Also:
+            :func:`~porepy.compositional.utils.chainrule_fractional_derivatives`
 
         """
-        return extend_fractional_derivatives(df_dx, self.x)
+        # NOTE development & debug:
+        # A switch to Quasi-Newton can be handled here by omitting the chainrule.
+        # Increased robustness (challenging EoS extension) and the Jacobian containing
+        # the physical derivatives are the consequences
+        return chainrule_fractional_derivatives(df_dx, self.x)
 
 
 @dataclass
-class FluidState(IntensiveState, ExtensiveState):
+class FluidProperties(IntensiveProperties, ExtensiveProperties):
     """Nested dataclass characterizing the thermodynamic state of a
     multiphase multicomponent fluid.
 
     This is a collection of intensive and extensive states of the fluid,
-    as well as a collection of :class:`PhaseState` isntances characterizing individual
+    as well as a collection of :class:`PhaseProperties` isntances characterizing individual
     phases.
 
     Note:
-        The first phase is always assumed to be the reference phase.
+        The first phase is always assumed to be the reference phase
+        (see :class:`~porepy.compositional.base.FluidMixture`).
         I.e., its fractional values are usually dependent by unity of fractions.
 
-    Contrary to :class:`PhaseState`, this dataclass does not support derivatives of
+    Contrary to :class:`PhaseProperties`, this dataclass does not support derivatives of
     extensive properties on a mixture-level.
     Since the derivatives w.r.t. to phase fractions or saturations are trivially
     the respective property of the phase, this can be done easily by the user without
@@ -254,7 +255,7 @@ class FluidState(IntensiveState, ExtensiveState):
     sat: np.ndarray = field(default_factory=lambda: np.zeros((0, 0)))
     """Saturation for each phase in :attr:`phases`, stored row-wise."""
 
-    phases: Sequence[PhaseState] = field(default_factory=lambda: list())
+    phases: Sequence[PhaseProperties] = field(default_factory=lambda: list())
     """A collection of phase state descriptions per phase in the fluid mixture."""
 
     def evaluate_saturations(self, eps: float = 1e-10) -> None:
@@ -299,30 +300,30 @@ class FluidState(IntensiveState, ExtensiveState):
         self.rho = rho
 
 
-def initialize_fluid_state(
+def initialize_fluid_properties(
     n: int,
     ncomp: int | np.ndarray,
     nphase: int,
-    phase_types: Optional[np.ndarray] = None,
+    phase_states: Optional[Sequence[PhysicalState]] = None,
     with_derivatives: bool = False,
-) -> FluidState:
-    """Creates a fluid state with filled with zero values of defined size.
+) -> FluidProperties:
+    """Creates a fluid property structure with filled with zero values of defined size.
 
     Parameters:
         n: Number of values per thermodynamic quantity.
         ncomp: Number of components. Either as a number or an array with numbers per
             phase.
         nphase: Number of phases
-        phase_types: ``default=None``
+        phase_states: ``default=None``
 
-            Phase types (integers) per phase. If None, all phases are assigned type 0.
+            Physical states per phase. If None, all phases are assigned a liquid state.
         with_derivatives: ``default=False``.
 
             If True, the derivatives are also initialized with zero values, otherwise
             they are left empty.
 
     """
-    state = FluidState()
+    state = FluidProperties()
     state.p = np.zeros(n)
     state.T = np.zeros(n)
     state.h = np.zeros(n)
@@ -330,8 +331,8 @@ def initialize_fluid_state(
     state.y = np.zeros((nphase, n))
     state.sat = np.zeros((nphase, n))
 
-    if phase_types is None:
-        phase_types = np.zeros(nphase, dtype=int)
+    if phase_states is None:
+        phase_states = [PhysicalState.liquid] * nphase
     if isinstance(ncomp, int):
         ncomp = np.ones(nphase, dtype=int) * ncomp
     else:
@@ -340,12 +341,12 @@ def initialize_fluid_state(
     # to cover all components, independent of their modelling in phases
     state.z = np.zeros((ncomp.max(), n))
 
-    state.phases = list()
+    state.phases = []
     for j in range(nphase):
-        phase_state = PhaseState(
+        phase_state = PhaseProperties(
             h=np.zeros(n),
             rho=np.zeros(n),
-            phasetype=phase_types[j],
+            state=phase_states[j],
             x=np.zeros((ncomp[j], n)),
             phis=np.zeros((ncomp[j], n)),
             mu=np.zeros(n),

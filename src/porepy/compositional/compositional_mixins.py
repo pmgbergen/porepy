@@ -1,23 +1,37 @@
 """A module containing mixins for defining fluid mixtures and relatd variables in a
 PorePy model.
 
-While the mixins operatore on some base assumptions, they are highly customizable by
+While the mixins operate on some base assumptions, they are highly customizable by
 inheritance and the user is encouraged to read up on them.
+
+Important:
+    The framework does not support the variable switiching approach.
+
+    Variables are persistent and the user must be familiar with the DOFs implemented
+    in the class :class:`_MixtureDOFHandler` (whose methods are not supposed to be
+    overwritten).
+
+    Once the :meth:`~porepy.compositional.base.FluidMixture.reference_phase_index` and
+    :meth:`~porepy.compositional.base.FluidMixture.reference_component_index` of a the
+    fluid, :meth:`~porepy.compositional.base.Phase.reference_component_index` for each
+    phase are set, the mixins create the mixture and associated variables and it is not
+    possible to change fraction and saturation variables in the course of a simulation.
 
 """
 
 from __future__ import annotations
 
-from typing import Callable, Literal, Optional, Sequence, cast
+from typing import Callable, Optional, Sequence, cast
 
 import numpy as np
 
 import porepy as pp
 
 from ._core import COMPOSITIONAL_VARIABLE_SYMBOLS as symbols
+from ._core import PhysicalState
 from .base import AbstractEoS, Component, Compound, FluidMixture, Phase
 from .chem_species import ChemicalSpecies
-from .states import FluidState, PhaseState
+from .states import FluidProperties, PhaseProperties
 from .utils import CompositionalModellingError
 
 __all__ = [
@@ -26,7 +40,484 @@ __all__ = [
 ]
 
 
-class CompositionalVariables(pp.VariableMixin):
+class _MixtureDOFHandler:
+    """A class to help resolve the independent fractional variables of an arbitrary
+    mixture, and respectivly the DOFs.
+
+    .. rubric:: Assumptions and unity constraints
+
+    1. Reference phase and component can be eliminated.
+
+       - Phase fraction, saturation and component overall fractions of the reference
+         instance can be expressed by unity of fractions.
+
+    2. Components do not have to be in all phases. E.g., solid phase models usually
+       contain only 1 mineral/component, or ions in liquid phase do not have to
+       evaporate into a gas phase.
+    3. Partial fractions of components in phases have to fulfill the unity constraint.
+       A phase's reference component and its partial fraction are eliminated as DOFs.
+    4. While the third point holds especially for partial (physical) fractions, it does
+       not hold necessarily for extended fraction in the unified setting. Vanished
+       phases with only 1 component still have extended fractions (weak unity).
+    5. Tracer fractions of active tracers in compounds are always unknown (transport).
+
+    .. rubric:: Resolution
+
+    The logic of whether a fraction is an independent variable or not is implemented in
+    various ``has_independent_*`` methods:
+
+    1. Independent overall :attr:`~porepy.compositional.base.Component.fraction` of
+       components and massic/molar :attr:`~porepy.compositional.base.Phase.fraction` of
+       phases are determined by :meth:`has_independent_fraction`.
+    2. Independent :attr:`~porepy.compositional.base.Phase.saturation` variables are
+       determined by :meth:`has_independent_saturation`.
+    3. Independent :attr:`~porepy.compositional.base.Compound.tracer_fraction_of` are
+       determined by :meth:`has_independent_tracer_fraction`.
+    4. Independent :attr:`~porepy.compositional.base.Phase.partial_fraction_of`
+       are determined by :meth:`has_independent_partial_fraction` for all components
+       and phases in the mixture, independent of whether an equilibrium is defined or
+       not.
+    5. Independent :attr:`~porepy.compositional.base.Phase.extended_fraction_of`
+       are determined by :meth:`has_independent_extended_fraction` for all components
+       and phases in the mixture, independent of whether an equilibrium is defined or
+       not.
+
+    Notes:
+        The logic is guided by the
+
+        - :meth:`~porepy.compositional.base.FluidMixture.num_components` in the
+          :attr:`fluid_mixture`
+        - :meth:`~porepy.compositional.base.FluidMixture.num_phases` in the
+          :attr:`fluid_mixture`
+        - :meth:`~porepy.compositional.base.FluidMixture.reference_component` and
+          :meth:`~porepy.compositional.base.FluidMixture.reference_phase` in the
+          :attr:`fluid_mixture`
+        - :meth:`~porepy.compositional.base.Phase.reference_component` in each phase
+          in the :attr:`fluid_mixture`
+
+        It is also guided by the flags ``'eliminate_reference_component'`` and
+        ``'eliminate_reference_phase'``, which can be set in the model's :attr:`params`.
+
+        Finally, the ``'equilibrium_type'`` set in the model's :attr:`params` is used
+        to determine the indepency of partial and extended fractions of components
+        in phases.
+
+    """
+
+    fluid_mixture: FluidMixture
+    """See :class:`FluidMixtureMixin`."""
+
+    equation_system: pp.ad.EquationSystem
+    """See :class:`~porepy.models.solution_strategy.SolutionStrategy`."""
+
+    params: dict
+    """See the solutions strategy mixin."""
+
+    create_boundary_operator: Callable[
+        [str, Sequence[pp.BoundaryGrid]], pp.ad.TimeDependentDenseArray
+    ]
+    """See :class:`~porepy.models.boundary_condition.BoundaryConditionMixin`."""
+
+    # Logic methods determining existence of DOFs
+
+    @property
+    def _is_ref_phase_eliminated(self) -> bool:
+        """Helper property to access the model parameters and check if the
+        reference phase is eliminated. Default value is True."""
+        return bool(self.params.get("eliminate_reference_phase", True))
+
+    @property
+    def _is_ref_comp_eliminated(self) -> bool:
+        """Helper property to access the model parameters and check if the
+        reference component is eliminated. Default value is True."""
+        return bool(self.params.get("eliminate_reference_component", True))
+
+    @property
+    def _has_equilibrium(self) -> bool:
+        """Helper method to access the model parameters and check if the
+        equilibrium type is defined. Defaults to False."""
+
+        equilibrium_type = self.params.get("equilibrium_type", None)
+
+        if equilibrium_type is None:
+            return False
+        else:
+            return True
+
+    @property
+    def _has_unified_equilibrium(self) -> bool:
+        """Helper method to access the model parameters and check if the
+        equilibrium type is defined and if it is unified."""
+        if self._has_equilibrium:
+            # NOTE _has_equilibrium already checks that the value is not none.
+            if "unified" in str(self.params["equilibrium_type"]):
+                return True
+            else:
+                return False
+        else:
+            return False
+
+    def has_independent_fraction(self, instance: Phase | Component) -> bool:
+        """Checks whether the ``instance`` has an independent variable for the
+        fraction of total mass associated with it (
+        :attr:`~porepy.compositional.base.Component.fraction` of a component,
+        :attr:`~porepy.compositional.base.Phase.fraction` of a phase
+        )
+
+        Works the same for both components and phases.
+
+        Parameters:
+            instance: A phase or a component in the :attr:`fluid_mixture`.
+
+        Raises:
+            ValueError: If the ``instance`` is not in the fluid mixture.
+            TypeError: If ``instance`` is neither a phase nor a component.
+
+        Returns:
+            False, if there is only 1 instance (of phases or component) in the fluid
+            mixture, or it is the reference instance and it was eliminated.
+            Otherwise it returns True.
+
+        """
+        instances: list[Phase | Component]
+        if isinstance(instance, Phase):
+            instances = list(self.fluid_mixture.phases)
+            if instance not in instances:
+                raise ValueError(f"Phase {instance} not in fluid mixture.")
+            idx = instances.index(instance)
+            ref_idx = self.fluid_mixture.reference_phase_index
+            num_instances = self.fluid_mixture.num_phases
+            eliminated = self._is_ref_phase_eliminated
+        elif isinstance(instance, Component):
+            instances = list(self.fluid_mixture.components)
+            if instance not in instances:
+                raise ValueError(f"Component {instance} not in fluid mixture.")
+            idx = instances.index(instance)
+            ref_idx = self.fluid_mixture.reference_component_index
+            num_instances = self.fluid_mixture.num_components
+            eliminated = self._is_ref_comp_eliminated
+        else:
+            raise TypeError(
+                f"Unknown type {type(instance)}. Expecting phase or component."
+            )
+
+        if (idx == ref_idx and eliminated) or num_instances == 1:
+            return False
+        else:
+            return True
+
+    def has_independent_saturation(self, phase: Phase) -> bool:
+        """Checks if the :attr:`~porepy.compositional.base.Phase.saturation` of the
+        ``phase`` is an independent variable.
+
+        Note:
+            The logic is analogous to :meth:`has_independent_fraction` for phases.
+
+        Paremters:
+            phase: A phase in the :attr:`fluid_mixture`.
+
+        Returns:
+            False, if there is only 1 phase, or the phase is the reference phase and
+            it was eliminated.
+            Otherwise it returns True.
+
+        """
+        return self.has_independent_fraction(phase)
+
+    def has_independent_tracer_fraction(
+        self, tracer: ChemicalSpecies, compound: Compound
+    ) -> bool:
+        """Checks if the :attr:`~porepy.compositional.base.Compound.tracer_fraction_of`
+        a ``tracer`` in the ``compound`` is an independent variable.
+
+        Paramters:
+            tracer: An active tracer in one of the compounds in the
+                :attr:`fluid_mixture`
+            compound: A component/compound in the :attr:`fluid_mixture`'s
+                :attr:`~porepy.compositional.base.FluidMixture.components`.
+
+        Raises:
+            ValueError: If the ``compound`` is not in the :attr:`fluid_mixture`.
+
+        Returns:
+            True, if the ``tracer`` is in the compound``, False otherwise.
+
+        """
+        if compound not in list(self.fluid_mixture.components):
+            raise ValueError(f"Compound {compound} not in fluid mixture.")
+        if tracer in compound.active_tracers:
+            return True
+        else:
+            return False
+
+    def has_independent_partial_fraction(
+        self, component: Component, phase: Phase
+    ) -> bool:
+        """Checks whether the
+        :attr:`~porepy.compositional.base.Phase.partial_fraction_of` a ``component`` in
+        a ``phase`` is an independent variable or not.
+
+        If the ``'equilibrium_type'`` in :attr:`params` indicates that any *unified*
+        equilibrium is included in the model, i.e.
+        ``'unified' in params['equilibrium_type'] == True``, partial fractions are
+        always dependent, since they are obtained by normalization of extended
+        fractions.
+
+        If there is no equilibrium or a non-unified equilibrium, partial fractions can
+        be independent variables.
+
+        If there is only 1 phase, the partial fractions are replaced by the overall
+        fractions and hence not independent. Since all components must be at least in
+        one phase, the system is closed.
+
+        If there is only 1 component in that phase (or 1 component in the whole mixture)
+        the partial fraction is always 1, hence not an independent variable.
+
+        If there are multiple components in the phase, the partial fraction is an
+        independent variable. Except if it is the fraction of the phase's reference
+        component. Then it is assumed to be eliminated by unity of fractions, hence
+        a dependent quantity.
+
+        Note:
+            The flag ``'eliminate_reference_component'`` is only relevant for the
+            overall :attr:`~porepy.compositional.base.Component.fraction` of a
+            component, and hence for the number of transport equations.
+            The :attr:`~porepy.compositional.base.Phase.partial_fraction_of` a the
+            reference component of a phase is always eliminated by unity, since
+            it is a local quantity. There are no benefits or alternative formulations of
+            making it a genuine variable. It would only increase the system size
+            unnecessarily.
+
+        Paramters:
+            component: Any component in the :attr:`fluid_mixture`.
+            phase: Any phase in the :attr:`fluid_mixture`.
+
+        Raises:
+            ValueError: If the ``phase`` or the ``component are not in the
+                :attr:`fluid_mixture`.
+
+        Returns:
+            True, if the partial fraction is an independent variable according to above
+            logic. False otherwise.
+
+        """
+        if phase not in self.fluid_mixture.phases:
+            raise ValueError(f"Phase {phase} not in fluid mixture.")
+        if component not in self.fluid_mixture.components:
+            raise ValueError(f"Component {component} not in fluid mixture.")
+
+        if self._has_unified_equilibrium:
+            return False
+        else:
+            if component not in phase:
+                return False
+            # By logic, component is now in phase.
+            # NOTE The FluidMixtureMixin does not allow for any component not being in
+            # any phase.
+            # If there is only 1 phase, the partial fractions are replaced by the
+            # overall component fraction.
+            # If there is only 1 component in that phase, the partial fraction is 1.
+            # Both cases lead to the partial fraction not being an independent variable.
+            if self.fluid_mixture.num_phases == 1 or phase.num_components == 1:
+                return False
+
+            # Now, the component can either be the reference component of the phase
+            # or not. If it is the reference component, its partial fraction is always
+            # eliminated by unity. Otherwise it has an independent partial fraction
+            # NOTE if there is only 1 component and multiple phases, it is automatically
+            # the reference component of each phase.
+            if component == phase.reference_component:
+                return False
+            else:
+                return True
+
+    def has_independent_extended_fraction(
+        self, component: Component, phase: Phase
+    ) -> bool:
+        """Checks whether the
+        :attr:`~porepy.compositional.base.Phase.extended_fraction_of` a ``component`` in
+        a ``phase`` is an independent variable or not.
+
+        Extended fractions are only used if there is a unified equilibrium defintion,
+        i.e. ``'unified' in params['equilibrium_type'] == True``.
+
+        In that case, if the ``component`` is modelled in the ``phase``, the respective
+        extended fraction is always an independent variable.
+        Since for vanished phases the extended fractions do not necessarily fulfill the
+        unity constraint, no extended fraction can be eliminated.
+
+        Paramters:
+            component: Any component in the :attr:`fluid_mixture`.
+            phase: Any phase in the :attr:`fluid_mixture`.
+
+        Raises:
+            ValueError: If the ``phase`` or the ``component are not in the
+                :attr:`fluid_mixture`.
+            CompositionalModellingError: If the ``component`` is not in the phase.
+                The unified setting expects all components to be modelled in all phases.
+
+        Returns:
+            True, if the ``'equilibrium_type'`` in :attr:`params` contains
+            ``'unified'``. False otherwise.
+
+        """
+        if phase not in self.fluid_mixture.phases:
+            raise ValueError(f"Phase {phase} not in fluid mixture.")
+        if component not in self.fluid_mixture.components:
+            raise ValueError(f"Component {component} not in fluid mixture.")
+
+        if self._has_unified_equilibrium:
+            if component not in phase:
+                raise CompositionalModellingError(
+                    f"Component {component} not in phase {phase}."
+                    + " Models with unified equilibrium require all components to"
+                    + " be modelled in all phases."
+                )
+            return True
+        else:
+            return False
+
+    # Utility methods for DOFs and variables
+
+    def _overall_fraction_variable(self, component: Component) -> str:
+        """Returns the name of the fraction variable assigned to ``component``."""
+        return f"{symbols['overall_fraction']}_{component.name}"
+
+    def _saturation_variable(self, phase: Phase) -> str:
+        """Returns the name of the saturation variable assigned to ``phase``."""
+        return f"{symbols['phase_saturation']}_{phase.name}"
+
+    def _tracer_fraction_variable(
+        self, tracer: ChemicalSpecies, compound: Compound
+    ) -> str:
+        """Returns the name of the tracer fraction variable assigned to tracer in a
+        compound."""
+        return f"{symbols['tracer_fraction']}_{tracer.name}_{compound.name}"
+
+    def _phase_fraction_variable(self, phase: Phase) -> str:
+        """Returns the name of the phase fraction variable assigned to ``phase``."""
+        return f"{symbols['phase_fraction']}_{phase.name}"
+
+    def _partial_fraction_variable(self, component: Component, phase: Phase) -> str:
+        """Returns the name of the (extended or partial) fraction variable of
+        ``component`` in ``phase``.
+
+        Note:
+            For simplicity we use the same name for the extended fractions, because in
+            the case they are used, partial fractions are always dependent operators.
+
+        """
+        return f"{symbols['phase_composition']}_{component.name}_{phase.name}"
+
+    def _fraction_factory(
+        self, name: str
+    ) -> Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]:
+        """Factory method to create a callable representing any independent fraction
+        with given ``name`` on subdomain or boundary grids."""
+
+        # If the factory is called the first time for a specific variable name,
+        # create the variable.
+        if name not in set([var.name for var in self.equation_system.variables]):
+            self.equation_system.create_variables(
+                name=name,
+                subdomains=self.equation_system.mdg.subdomains(),
+                tags={"si_units": "-"},
+            )
+
+        def fraction(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+            if len(domains) > 0 and all(
+                [isinstance(g, pp.BoundaryGrid) for g in domains]
+            ):
+                return self.create_boundary_operator(
+                    name=name, domains=domains  # type: ignore[call-arg]
+                )
+            # Check that the domains are grids.
+            if not all([isinstance(g, pp.Grid) for g in domains]):
+                raise ValueError(
+                    """Argument 'domains' a mixture of subdomain and boundaries."""
+                )
+            domains = cast(list[pp.Grid], domains)
+            return self.equation_system.md_variable(name, domains)
+
+        return fraction
+
+    @property
+    def overall_fraction_variables(self) -> list[str]:
+        """Names of independent overall
+        :attr:`~porepy.compositional.base.Component.fraction` variables created for this
+        model."""
+        names: list[str] = []
+        for comp in self.fluid_mixture.components:
+            if self.has_independent_fraction(comp):
+                names.append(self._overall_fraction_variable(comp))
+        return names
+
+    @property
+    def tracer_fraction_variables(self) -> list[str]:
+        """Names of independent
+        :attr:`~porepy.compositional.base.Compound.tracer_fraction_of` -variables
+        created for this model."""
+        names: list[str] = []
+        compounds = [
+            comp for comp in self.fluid_mixture.components if isinstance(comp, Compound)
+        ]
+        for comp in compounds:
+            for tracer in comp.active_tracers:
+                if self.has_independent_tracer_fraction(tracer, comp):
+                    names.append(self._tracer_fraction_variable(tracer, comp))
+        return names
+
+    @property
+    def phase_fraction_variables(self) -> list[str]:
+        """Names of independent phase :attr:`~porepy.compositional.base.Phase.fraction`
+        variables created for this model."""
+        names: list[str] = []
+        if self._has_equilibrium:
+            for phase in self.fluid_mixture.phases:
+                if self.has_independent_fraction(phase):
+                    names.append(self._phase_fraction_variable(phase))
+        return names
+
+    @property
+    def saturation_variables(self) -> list[str]:
+        """Names of independent phase
+        :attr:`~porepy.compositional.base.Phase.saturation` variables created for this
+        model."""
+        names: list[str] = []
+        for phase in self.fluid_mixture.phases:
+            if self.has_independent_saturation(phase):
+                names.append(self._saturation_variable(phase))
+        return names
+
+    @property
+    def fraction_in_phase_variables(self) -> list[str]:
+        """Names of either partial fractions or extended fraction variables created
+        for this model.
+
+        Note that only 1 type of fractions is created, depending on the equilibrium
+        settings.
+
+        See Also:
+            :attr:`~porepy.compositional.base.Phase.extended_fraction_of`
+            :attr:`~porepy.compositional.base.Phase.partial_fraction_of`
+
+        """
+        names: list[str] = []
+        for phase in self.fluid_mixture.phases:
+            for comp in phase:
+                append = False
+                if self._has_unified_equilibrium:
+                    if self.has_independent_extended_fraction(comp, phase):
+                        append = True
+                elif self.has_independent_partial_fraction(comp, phase):
+                    append = True
+                if append:
+                    names.append(self._partial_fraction_variable(comp, phase))
+
+        return names
+
+
+class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
     """Mixin class for models with mixtures which defines the respective fractional
     unknowns.
 
@@ -38,7 +529,7 @@ class CompositionalVariables(pp.VariableMixin):
 
     Important:
         For compositional flow without a local equilibrium formulation, the flow and
-        transport formulationd does not require phase fractions or extended
+        transport formulation does not require phase fractions or extended
         fractions of components in phases.
         Phases have only saturations as phase related variables, and instead of extended
         fractions, the (physical) partial fractions are independent variables.
@@ -52,146 +543,13 @@ class CompositionalVariables(pp.VariableMixin):
     """
 
     fluid_mixture: FluidMixture
-    """Provided by :class:`FluidMixtureMixin`."""
-
-    mdg: pp.MixedDimensionalGrid
-    """Provided by :class:`~porepy.models.geometry.ModelGeometry`."""
-    equation_system: pp.ad.EquationSystem
-    """Provided by :class:`~porepy.models.solution_strategy.SolutionStrategy`."""
-
-    create_boundary_operator: Callable[
-        [str, Sequence[pp.BoundaryGrid]], pp.ad.TimeDependentDenseArray
-    ]
-    """Provided by :class:`~porepy.models.boundary_condition.BoundaryConditionMixin`.
-    """
-
-    eliminate_reference_phase: bool
-    """Provided by
-    :class:`~porepy.models.compositional_flow.SolutionStrategyCF`."""
-    eliminate_reference_component: bool
-    """Provided by
-    :class:`~porepy.models.compositional_flow.SolutionStrategyCF`."""
-    equilibrium_type: Optional[Literal["p-T", "p-h", "v-h"]]
-    """Provided by
-    :class:`~porepy.models.compositional_flow.SolutionStrategyCF`."""
-
-    @property
-    def overall_fraction_variables(self) -> list[str]:
-        """Names of independent overall fraction variables created by the mixture mixin.
-
-        See Also:
-            :meth:`~porepy.compositional.base.Component.fraction`
-
-        """
-        names: list[str] = list()
-        if hasattr(self, "fluid_mixture"):
-            # the single feed fraction is not a variable
-            if self.fluid_mixture.num_components == 1:
-                return names
-            for comp in self.fluid_mixture.components:
-                if not (
-                    comp == self.fluid_mixture.reference_component
-                    and self.eliminate_reference_component
-                ):
-                    names.append(self._overall_fraction_variable(comp))
-        return names
-
-    @property
-    def solute_fraction_variables(self) -> list[str]:
-        """Names of solute fraction variables created by the mixture mixin.
-
-        See Also:
-            :attr:`~porepy.compositional.base.Compound.solute_fraction_of`
-
-        """
-        names: list[str] = list()
-        if hasattr(self, "fluid_mixture"):
-            for comp in self.fluid_mixture.components:
-                if isinstance(comp, Compound):
-                    for solute in comp.pseudo_components:
-                        names.append(self._solute_fraction_variable(solute, comp))
-        return names
-
-    @property
-    def phase_fraction_variables(self) -> list[str]:
-        """Names of independent phase fraction variables created by the mixture mixin.
-
-        See Also:
-            :attr:`~porepy.compositional.base.Phase.fraction`
-
-        """
-        names: list[str] = list()
-        if self.equilibrium_type is None:
-            return names
-        if hasattr(self, "fluid_mixture"):
-            # single phase fraction is not a variable
-            if self.fluid_mixture.num_phases == 1:
-                return names
-            for phase in self.fluid_mixture.phases:
-                if not (
-                    phase == self.fluid_mixture.reference_phase
-                    and self.eliminate_reference_phase
-                ):
-                    names.append(self._phase_fraction_variable(phase))
-        return names
-
-    @property
-    def saturation_variables(self) -> list[str]:
-        """Names of phase saturation variables created by the mixture mixin.
-
-        See Also:
-            :attr:`~porepy.compositional.base.Phase.saturation`
-
-        """
-        names: list[str] = list()
-        if hasattr(self, "fluid_mixture"):
-            # single phase saturation is not a variable
-            if self.fluid_mixture.num_phases == 1:
-                return names
-            for phase in self.fluid_mixture.phases:
-                if not (
-                    phase == self.fluid_mixture.reference_phase
-                    and self.eliminate_reference_phase
-                ):
-                    names.append(self._saturation_variable(phase))
-        return names
-
-    @property
-    def relative_fraction_variables(self) -> list[str]:
-        """Names of fraction variables denoting the fraction of a component in a phase.
-
-        If a local equilibrium is defined, this denotes the extended fractions,
-        otherwise it denotes the partial fractions.
-
-        See Also:
-            :attr:`~porepy.compositional.base.Phase.extended_fraction_of`
-            :attr:`~porepy.compositional.base.Phase.partial_fraction_of`
-
-        """
-        names: list[str] = list()
-        if hasattr(self, "fluid_mixture"):
-            ncomp = self.fluid_mixture.num_components
-            nphase = self.fluid_mixture.num_phases
-            # no relative fractions whatsoever
-            if ncomp == nphase == 1:
-                return names
-            # Partial fractions are meant in this case
-            if self.equilibrium_type is None:
-                # only 1 phase, the partial fractions are equal overall fractions
-                # If only 1 component, the partial fraction is 1
-                if ncomp == 1 or nphase == 1:
-                    return names
-            for phase in self.fluid_mixture.phases:
-                for comp in phase:
-                    names.append(self._relative_fraction_variable(comp, phase))
-
-        return names
+    """See :class:`FluidMixtureMixin`."""
 
     def fractional_state_from_vector(
         self,
         subdomains: Sequence[pp.Grid],
         state: Optional[np.ndarray] = None,
-    ) -> FluidState:
+    ) -> FluidProperties:
         """Uses the AD framework to create a fluid state from currently stored values of
         fractions.
 
@@ -244,7 +602,7 @@ class CompositionalVariables(pp.VariableMixin):
                         phase.extended_fraction_of[component](subdomains).value(
                             self.equation_system, state
                         )
-                        if self.equilibrium_type is not None
+                        if self._has_unified_equilibrium
                         else phase.partial_fraction_of[component](subdomains).value(
                             self.equation_system, state
                         )
@@ -255,21 +613,11 @@ class CompositionalVariables(pp.VariableMixin):
             for phase in self.fluid_mixture.phases
         ]
 
-        return FluidState(
+        return FluidProperties(
             z=z,
             y=y,
             sat=sat,
-            phases=[PhaseState(x=x_) for x_ in x],
-        )
-
-    def _create_fractional_variable(
-        self,
-        name: str,
-        subdomains: list[pp.Grid],
-    ) -> None:
-        """Helper method to create individual variables."""
-        self.equation_system.create_variables(
-            name=name, subdomains=subdomains, tags={"si_units": "-"}
+            phases=[PhaseProperties(x=x_) for x_ in x],
         )
 
     def create_variables(self) -> None:
@@ -277,24 +625,21 @@ class CompositionalVariables(pp.VariableMixin):
 
         1. :meth:`overall_fraction` is called to assign
            :attr:`~porepy.compositional.base.Component.fraction` to components.
-        2. :meth:`solute_fraction` is called to assign
-           :attr:`~porepy.compositional.base.Compound.solute_fraction_of` for each solute
-           in a compound.
+        2. :meth:`tracer_fraction` is called to assign
+           :attr:`~porepy.compositional.base.Compound.tracer_fraction_of` for each
+           tracer in a compound.
         3. :meth:`saturation` is called to assign
            :attr:`~porepy.compositional.base.Phase.saturation` to phases.
-
-        If a local :attr:`equilibrium_type` is defined, it introduces additionally
-
         4. :attr:`~porepy.compositional.base.Phase.fraction` to phases by calling
            :meth:`phase_fraction'
-        5. :attr:`~porepy.compositional.base.Phase.extended_fraction_of` for each phase and
-           component by calling :meth:`extended_fraction`
+        5. :attr:`~porepy.compositional.base.Phase.extended_fraction_of` for each phase
+           and component by calling :meth:`extended_fraction`
+        6. :attr:`~porepy.compositional.base.Phase.partial_fraction_of` for each phase
+           and component by calling :meth:`partial_fraction`
 
-        If a local equilibrium is defined :meth:`partial_fractions` returns dependent
-        operators by normalizing extended fractions. Otherwise partial fractions are
-        also introduced as as independent operators by calling :meth:`partial_fraction`
-        for each phase and component in that phase, and assigning it to
-        :attr:`~porepy.compositional.base.Phase.partial_fraction_of`.
+        Note however, that dependent on the mixture and model configuration, the
+        objects and callables created here are both independent variables and dependent
+        expressions (regular AD operators).
 
         """
         if not hasattr(self, "fluid_mixture"):
@@ -302,86 +647,48 @@ class CompositionalVariables(pp.VariableMixin):
                 "Cannot create fluid mixture variables before defining a fluid mixture."
             )
 
-        rcomp = self.fluid_mixture.reference_component
-        rphase = self.fluid_mixture.reference_phase
-        subdomains = self.mdg.subdomains()
-
         # NOTE: The creation of variables seems repetative (it is), but it is done this
         # way to preserve a certain order (component-wise, phase-wise and familiy-wise
         # for each family of fractions)
 
-        ## Creation of feed fractions
+        # Creation of feed fractions
         for component in self.fluid_mixture.components:
-            if component != rcomp:  # will be called last
-                name = self._overall_fraction_variable(component)
-                self._create_fractional_variable(name, subdomains)
-                component.fraction = self.overall_fraction(component)
-        # reference feed fraction
-        rcomp.fraction = self.overall_fraction(rcomp)
+            component.fraction = self.overall_fraction(component)
 
-        ## Creation of solute fractions
-        for comp in self.fluid_mixture.components:
-            if isinstance(comp, Compound):
-                comp.solute_fraction_of = dict()
-                for solute in comp.pseudo_components:
-                    name = self._solute_fraction_variable(solute, comp)
-                    self._create_fractional_variable(name, subdomains)
-                    comp.solute_fraction_of.update(
-                        {solute: self.solute_fraction(solute, comp)}
+        # Creation of tracer fractions for compounds
+        for component in self.fluid_mixture.components:
+            if isinstance(component, Compound):
+                component.tracer_fraction_of = {}
+                for tracer in component.active_tracers:
+                    component.tracer_fraction_of[tracer] = self.tracer_fraction(
+                        tracer, component
                     )
+
+        # NOTE all variables associated with transport of mass are now created.
+        # Below variables are of local nature.
 
         # Creation of saturation variables
         for phase in self.fluid_mixture.phases:
-            if phase != rphase:  # will be called last
-                name = self._saturation_variable(phase)
-                self._create_fractional_variable(name, subdomains)
-                phase.saturation = self.saturation(phase)
-        # reference phase saturation
-        rphase.saturation = self.saturation(rphase)
+            phase.saturation = self.saturation(phase)
 
-        # Creation of molar phase fractions, extended fractions of components in phases
-        # and partial fractions as dependent operators (by normalization)
-
-        # some kind of relative fraction exists always, independent of equilibrium type
+        # Creation of phase fraction variables
         for phase in self.fluid_mixture.phases:
+            phase.fraction = self.phase_fraction(phase)
+
+        # Creation of extended fractions
+        for phase in self.fluid_mixture.phases:
+            phase.extended_fraction_of = dict()
+            # NOTE iterate over components in phase, not all components to avoid
+            # conflicts with non-unified set-ups.
+            # The check of whether all phases have all components must be done elsewhere
             for comp in phase:
-                self._create_fractional_variable(
-                    self._relative_fraction_variable(comp, phase), subdomains
-                )
+                phase.extended_fraction_of[comp] = self.extended_fraction(comp, phase)
 
-        # If the equilibrium is defined, molar phase fractions and extended fractions
-        # exist. The extended fractions are the independent compositional fractions
-        if self.equilibrium_type is not None:
-            for phase in self.fluid_mixture.phases:
-                # assigning molar fractions to independent phases
-                if phase != rphase:
-                    name = self._phase_fraction_variable(phase)
-                    self._create_fractional_variable(name, subdomains)
-                    phase.fraction = self.phase_fraction(phase)
-
-                # creating extended fractions
-                phase.extended_fraction_of = dict()
-                for comp in phase:
-                    phase.extended_fraction_of.update(
-                        {comp: self.extended_fraction(comp, phase)}
-                    )
-
-            # reference phase fraction
-            rphase.fraction = self.phase_fraction(rphase)
-
-        # Partial fractions exist independent of the equilibrium type
-        # But if there is no equilibrium type, they are the independent variables
-        # Otherwise they are created by normalization of extended variables
+        # Creation of partial fractions
         for phase in self.fluid_mixture.phases:
             phase.partial_fraction_of = dict()
             for comp in phase:
-                phase.partial_fraction_of.update(
-                    {comp: self.partial_fraction(comp, phase)}
-                )
-
-    def _overall_fraction_variable(self, component: Component) -> str:
-        """Returns the name of the feed fraction variable assigned to ``component``."""
-        return f"{symbols['overall_fraction']}_{component.name}"
+                phase.partial_fraction_of[comp] = self.partial_fraction(comp, phase)
 
     def overall_fraction(
         self,
@@ -390,15 +697,11 @@ class CompositionalVariables(pp.VariableMixin):
         """Getter method to create a callable representing the overall fraction of a
         component on a list of subdomains or boundaries.
 
-        The base method creates independent variables for all components, except for the
-        reference component (eliminated by unity).
-        The returned callable returns the respective operator.
-        If only 1 component is available, the Callable returns a scalar.
+        Cases where the overall fraction is not an independent variable:
 
-        Note:
-            This method is called during :meth:`create_variables`.
-            It is called last for the reference component.
-            I.e. The user can access fractions of the other components.
+        1. If there is only 1 component, the fraction is constant 1.
+        2. If the reference component fraction was eliminated, is is a dependent
+           operator.
 
         Parameters:
             component: A component in the fluid mixture.
@@ -407,225 +710,195 @@ class CompositionalVariables(pp.VariableMixin):
             A callable which returns the feed fraction for a given set of domains.
 
         """
-        ncomp = self.fluid_mixture.num_components
-        rcomp = self.fluid_mixture.reference_component
 
         fraction: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
 
-        if ncomp == 1:  # If only 1 component, the fraction is always 1
+        # If only 1 component, the fraction is always 1
+        if self.fluid_mixture.num_components == 1:
 
             def fraction(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
-                return pp.ad.Scalar(1.0, "single-feed-fraction")
+                return pp.ad.Scalar(1.0, "single_feed_fraction")
 
+        # NOTE if the reference component fraction is independent, below elif-clause
+        # will be executed, instead of the next one
+        elif self.has_independent_fraction(component):
+            fraction = self._fraction_factory(
+                self._overall_fraction_variable(component)
+            )
+        elif component == self.fluid_mixture.reference_component:
+
+            def fraction(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+                z_R = pp.ad.Scalar(1.0) - pp.ad.sum_operator_list(
+                    [
+                        comp.fraction(domains)
+                        for comp in self.fluid_mixture.components
+                        if comp != self.fluid_mixture.reference_component
+                    ]
+                )
+                z_R.set_name("reference_feed_fraction_by_unity")
+                return z_R
+
+        # Should never happen
         else:
-            # if reference component, eliminate by unity
-            if component == rcomp and self.eliminate_reference_component:
-
-                def fraction(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
-                    z_R = pp.ad.Scalar(1.0) - pp.ad.sum_operator_list(
-                        [
-                            comp.fraction(domains)
-                            for comp in self.fluid_mixture.components
-                            if comp != rcomp
-                        ]
-                    )
-                    z_R.set_name("reference-feed-fraction-by-unity")
-                    return z_R
-
-            else:  # create an independent variable
-
-                def fraction(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
-                    name = self._overall_fraction_variable(component)
-                    if len(domains) > 0 and all(
-                        [isinstance(g, pp.BoundaryGrid) for g in domains]
-                    ):
-                        return self.create_boundary_operator(
-                            name=name, domains=domains  # type: ignore[call-arg]
-                        )
-                    # Check that the domains are grids.
-                    if not all([isinstance(g, pp.Grid) for g in domains]):
-                        raise ValueError(
-                            """Argument domains a mixture of subdomain and boundaries"""
-                        )
-                    domains = cast(list[pp.Grid], domains)
-                    return self.equation_system.md_variable(name, domains)
+            raise NotImplementedError("Missing logic for overall fractions.")
 
         return fraction
 
-    def _solute_fraction_variable(
-        self, solute: ChemicalSpecies, compound: Compound
-    ) -> str:
-        """Returns the name of the solute fraction variable assigned to solute in a
-        compound."""
-        return f"{symbols['solute_fraction']}_{solute.name}_{compound.name}"
-
-    def solute_fraction(
-        self, solute: ChemicalSpecies, compound: Compound
+    def tracer_fraction(
+        self, tracer: ChemicalSpecies, compound: Compound
     ) -> Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]:
-        """Method is called for every compound created and every solute in that
-        compound.
+        """Getter method to create a callable representing the tracer fraction of an
+        active tracer in a compound, on a list of subdomains or boundaries.
 
-        The base method creates solute fractions as an independend variables
-        (transportable), after asserting the solute is indeed in that compound.
+        The base method creates tracer fractions as an independend variables
+        (transportable), after asserting the tracer is indeed in that compound.
+
+        Parameters:
+            tracer: An active tracer in the fluid mixture.
+            compound: A compound in the fluid mixture.
+
+        Returns:
+            A callable which returns the tracer fraction for a given set of domains.
 
         """
         assert (
-            solute in compound.pseudo_components
-        ), f"Solute {solute.name} not in compound {compound.name}"
+            tracer in compound.active_tracers
+        ), f"Solute {tracer.name} not in compound {compound.name}"
 
-        def fraction(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
-            name = self._solute_fraction_variable(solute, compound)
-            if len(domains) > 0 and all(
-                [isinstance(g, pp.BoundaryGrid) for g in domains]
-            ):
-                return self.create_boundary_operator(
-                    name=name, domains=domains  # type: ignore[call-arg]
-                )
-            # Check that the domains are grids.
-            if not all([isinstance(g, pp.Grid) for g in domains]):
-                raise ValueError(
-                    """Argument domains a mixture of subdomain and boundaries."""
-                )
-            domains = cast(list[pp.Grid], domains)
-            return self.equation_system.md_variable(name, domains)
+        if self.has_independent_tracer_fraction(tracer, compound):
+            fraction = self._fraction_factory(
+                self._tracer_fraction_variable(tracer, compound)
+            )
+        else:
+            raise NotImplementedError("Missing logic for tracer fraction.")
 
         return fraction
-
-    def _saturation_variable(self, phase: Phase) -> str:
-        """Returns the name of the saturation variable assigned to ``phase``."""
-        return f"{symbols['phase_saturation']}_{phase.name}"
 
     def saturation(
         self, phase: Phase
     ) -> Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]:
-        """Same as for :meth:`overall_fraction` but for phase saturations.
+        """Analogous to :meth:`overall_fraction` but for phase saturations.
 
-        The base method creates independent variables for all phases, except for the
-        reference phase (eliminated by unity).
-        The returned callable returns the respective operator.
-        If only 1 phase is modelled, the callable returns a scalar 1.
+        Cases where the saturation is not an independent variable:
 
-        This method will be called last for the reference phase.
+        1. If there is only 1 phase, the saturation is constant 1.
+        2. If the reference phase was eliminated, is is a dependent operator.
+
+        Parameters:
+            phase: A phase in the fluid mixture.
+
+        Returns:
+            A callable which returns the saturation for a given set of domains.
 
         """
-        nphase = self.fluid_mixture.num_phases
-        rphase = self.fluid_mixture.reference_phase
 
         saturation: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
 
-        if nphase == 1:  # If only 1 component, the fraction is always 1
+        # If only 1 phase, the saturation is always 1
+        if self.fluid_mixture.num_phases == 1:
 
             def saturation(subdomains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
-                return pp.ad.Scalar(1.0, "single-phase-saturation")
+                return pp.ad.Scalar(1.0, "single_phase_saturation")
 
+        # NOTE if the reference phase is independent, below elif-clause will be
+        # executed, instead of the next one.
+        elif self.has_independent_saturation(phase):
+            saturation = self._fraction_factory(self._saturation_variable(phase))
+        # if reference component, eliminate by unity
+        elif phase == self.fluid_mixture.reference_phase:
+
+            def saturation(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+                s_R = pp.ad.Scalar(1.0) - pp.ad.sum_operator_list(
+                    [
+                        phase.saturation(domains)
+                        for phase in self.fluid_mixture.phases
+                        if phase != self.fluid_mixture.reference_phase
+                    ]
+                )
+                s_R.set_name("reference_phase_saturation_by_unity")
+                return s_R
+
+        # Should never happen
         else:
-            # if reference component, eliminate by unity
-            if phase == rphase and self.eliminate_reference_phase:
-
-                def saturation(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
-                    s_R = pp.ad.Scalar(1.0) - pp.ad.sum_operator_list(
-                        [
-                            phase.saturation(domains)
-                            for phase in self.fluid_mixture.phases
-                            if phase != rphase
-                        ]
-                    )
-                    s_R.set_name("reference-phase-saturation-by-unity")
-                    return s_R
-
-            else:  # create an independent variable
-
-                def saturation(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
-                    name = self._saturation_variable(phase)
-                    if len(domains) > 0 and all(
-                        [isinstance(g, pp.BoundaryGrid) for g in domains]
-                    ):
-                        return self.create_boundary_operator(
-                            name=name, domains=domains  # type: ignore[call-arg]
-                        )
-                    # Check that the domains are grids.
-                    if not all([isinstance(g, pp.Grid) for g in domains]):
-                        raise ValueError(
-                            """Argument domains a mixture of subdomain and boundaries"""
-                        )
-                    domains = cast(list[pp.Grid], domains)
-                    return self.equation_system.md_variable(name, domains)
+            raise NotImplementedError("Missing logic for saturations.")
 
         return saturation
-
-    def _phase_fraction_variable(self, phase: Phase) -> str:
-        """Returns the name of the molar phase fraction variable assigned to ``phase``."""
-        return f"{symbols['phase_fraction']}_{phase.name}"
 
     def phase_fraction(
         self, phase: Phase
     ) -> Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]:
         """Analogous to :meth:`saturation` but for phase molar fractions."""
-        nphase = self.fluid_mixture.num_phases
-        rphase = self.fluid_mixture.reference_phase
 
         fraction: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
-
-        if nphase == 1:  # If only 1 component, the fraction is always 1
+        # Code is completely analogous to method saturation, except that we raise a
+        # modelling error if no equilibrium is defined. phase fractions can completely
+        # be omitted in that case
+        if self.fluid_mixture.num_phases == 1:
 
             def fraction(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
-                return pp.ad.Scalar(1.0, "single-phase-fraction")
+                return pp.ad.Scalar(1.0, "single_phase_fraction")
+
+        elif not self._has_equilibrium:
+
+            def fraction(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+                raise CompositionalModellingError(
+                    "Phase fractions are not defined in model without equilibrium."
+                    + " A re-formulation using saturations is required."
+                )
+
+        elif self.has_independent_fraction(phase):
+            fraction = self._fraction_factory(self._phase_fraction_variable(phase))
+        elif phase == self.fluid_mixture.reference_phase:
+
+            def fraction(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+                y_R = pp.ad.Scalar(1.0) - pp.ad.sum_operator_list(
+                    [
+                        phase.fraction(domains)
+                        for phase in self.fluid_mixture.phases
+                        if phase != self.fluid_mixture.reference_phase
+                    ]
+                )
+                y_R.set_name("reference_phase_fraction_by_unity")
+                return y_R
 
         else:
-            # if reference component, eliminate by unity
-            if phase == rphase and self.eliminate_reference_phase:
-
-                def fraction(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
-                    y_R = pp.ad.Scalar(1.0) - pp.ad.sum_operator_list(
-                        [
-                            phase.fraction(domains)
-                            for phase in self.fluid_mixture.phases
-                            if phase != rphase
-                        ]
-                    )
-                    y_R.set_name("reference-phase-fraction-by-unity")
-                    return y_R
-
-            else:  # create an independent variable
-
-                def fraction(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
-                    name = self._phase_fraction_variable(phase)
-                    if len(domains) > 0 and all(
-                        [isinstance(g, pp.BoundaryGrid) for g in domains]
-                    ):
-                        return self.create_boundary_operator(
-                            name=name, domains=domains  # type: ignore[call-arg]
-                        )
-                    # Check that the domains are grids.
-                    if not all([isinstance(g, pp.Grid) for g in domains]):
-                        raise ValueError(
-                            """Argument domains a mixture of subdomain and boundaries"""
-                        )
-                    domains = cast(list[pp.Grid], domains)
-                    return self.equation_system.md_variable(name, domains)
+            raise NotImplementedError("Missing logic for phase fractions.")
 
         return fraction
-
-    def _relative_fraction_variable(self, component: Component, phase: Phase) -> str:
-        """Returns the name of the (extended or partial) fraction variable of
-        ``component`` in ``phase``."""
-        return f"{symbols['phase_composition']}_{component.name}_{phase.name}"
 
     def extended_fraction(
         self, component: Component, phase: Phase
     ) -> Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]:
-        """The base method creates an independent variable for any phase and component
-        combination, after asserting the component is modelled in that phase.
+        """Getter method to create a callable representing the extended fraction of a
+        component in a phase, on a list of subdomains or boundaries.
+
+        Cases where the extended fractions are not independent variables:
+
+        1. If no unified equilibrium is defined, accessing the extended fractions will
+           raise an :class:`~porepy.compositional.utils.CompositionalModellingError`.
+        2. If there is only 1 phase **and** 1 component, the extended fraction is always
+           1 since there the 1 phase cannot vanish.
 
         Note:
-            Compared to partial fractions, extended fractions are always independent
-            even in the case of only 1 component in a phase.
-            This is because they are not necessarily 1 at equilibrium.
+            Even if a phase has only 1 component in it, if it vanishes the extended
+            fraction is not necessarily 1, hence an unknown.
+
+        Parameters:
+            component: A componend in the fluid mixture.
+            phase: A phase in the fluid mixture.
+
+        Returns:
+            A callable which returns the extended fraction for a given set of domains.
 
         """
         assert (
             component in phase
         ), f"Component {component.name} not in phase {phase.name}"
+
+        fraction: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
+
+        # Add this for completeness reasons, s.t. the phase has the respective
+        # attribute. But raise an error if the user tries to access the fraction.
 
         # NOTE Extended fractions are in general always unknowns, even in
         # 1 component, multiphase case (they are some value below 1 if a phase vanishes)
@@ -633,95 +906,118 @@ class CompositionalVariables(pp.VariableMixin):
         # also a scalar 1, since the 1 modelled phase cannot vanish.
         if self.fluid_mixture.num_components == self.fluid_mixture.num_phases == 1:
 
-            def fraction(domain: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
-                return pp.ad.Scalar(1.0, "single-component-single-phase-extended-frac")
+            def fraction(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+                return pp.ad.Scalar(
+                    1.0, "single_component_single_phase_extended_fraction"
+                )
 
-        else:
+        # If no unified equilibrium, calling the extended fractions will raise an error
+        elif not self._has_unified_equilibrium:
 
             def fraction(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
-                name = self._relative_fraction_variable(component, phase)
-                if len(domains) > 0 and all(
-                    [isinstance(g, pp.BoundaryGrid) for g in domains]
-                ):
-                    return self.create_boundary_operator(
-                        name=name, domains=domains  # type: ignore[call-arg]
-                    )
-                # Check that the domains are grids.
-                if not all([isinstance(g, pp.Grid) for g in domains]):
-                    raise ValueError(
-                        """Argument domains a mixture of subdomain and boundaries."""
-                    )
-                domains = cast(list[pp.Grid], domains)
-                return self.equation_system.md_variable(name, domains)
+                raise CompositionalModellingError(
+                    "Attempting to access extended fractions in set-up where unified"
+                    + " equilibrium was not defined."
+                )
+
+        elif self.has_independent_extended_fraction(component, phase):
+            fraction = self._fraction_factory(
+                self._partial_fraction_variable(component, phase)
+            )
+        else:
+            raise NotImplementedError("Missing logic for extended fractions.")
 
         return fraction
 
     def partial_fraction(
         self, component: Component, phase: Phase
     ) -> Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]:
-        """Returns Ad representations of (physical) partial fractions.
+        """Getter method to create a callable representing the partial fraction of a
+        component in a phase, on a list of subdomains or boundaries.
 
-        - If the mixture has extended fractions (unified flash), partial fractions
-          are obtained by normalizing the :meth:`extended_fraction` per phase.
-        - If the mixture has no extended fractions, the partial fractions are
-          independent operators.
-        - If the phase has only 1 component, the single partial fraction is
-          constant 1.
-        - If there is only 1 phase, the partial fraction is equal the overall fraction
+        Cases where the partial fractions are not independent variables:
 
-        Note:
-            If the partial fractions are independent operators, this method
-            uses internally :meth:`extended_fractions` because the code to create
-            an independent variable for a fraction of a component in a phase is
-            identical.
+        1. If there is only 1 component in the phase, the partial fraction is always 1.
+        2. If there is only 1 phase, the partial fractions are equal to the overall
+           fraction, hence dependent.
+        3. If a *unified* equilibrium is defined, partial fractions are always dependent
+           operators, obtained by normalization of extended fractions.
+        4. If it is the fraction of a phase's reference component, it is eliminated by
+           unity.
 
-            The same variable name is used.
+        Parameters:
+            component: A componend in the fluid mixture.
+            phase: A phase in the fluid mixture.
+
+        Returns:
+            A callable which returns the extended fraction for a given set of domains.
 
         """
         assert (
             component in phase
         ), f"Component {component.name} not in phase {phase.name}"
 
-        if self.equilibrium_type is not None:
+        fraction: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
+
+        # Case only 1 component in phase: partial fraction is always 1
+        if phase.num_components == 1:
 
             def fraction(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
-                xn = self.extended_fraction(component, phase)(
+                return pp.ad.Scalar(
+                    1.0, f"single_partial_fraction_{component.name}_{phase.name}"
+                )
+
+        # Case only 1 phase in entire mixture, partial fractions are equal to overall
+        # fractions
+        elif self.fluid_mixture.num_phases == 1:
+            # Mypy complains that above the argument of fraction is explicitly
+            # stated as 'domains', while extended_fraction returns no information
+            # on how the argument is called.
+            # But both are (pp.SubdomainOrBoundaries) -> pp.ad.Operator
+            fraction = component.fraction  # type:ignore[assignment]
+        # Case reference component: Partial fraction of a phase's reference component
+        # is always expressed by unity of partial fractions in that phase
+        elif component == phase.reference_component:
+
+            def fraction(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+
+                x_r = pp.ad.Scalar(1.0) - pp.ad.sum_operator_list(
+                    [
+                        phase.partial_fraction_of[comp](domains)
+                        for comp in phase
+                        if comp != phase.reference_component
+                    ]
+                )
+                x_r.set_name(
+                    f"reference_partial_fraction_by_unity_in_phase_{phase.name}"
+                )
+                return x_r
+
+        # Case of unified equilibrium: Partial fractions are obtained by normalization
+        elif self._has_unified_equilibrium:
+            # NOTE the fraction of the phase's reference component is covered above
+            def fraction(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+                xn = phase.extended_fraction_of[component](
                     domains
                 ) / pp.ad.sum_operator_list(
-                    [self.extended_fraction(comp_k, phase)(domains) for comp_k in phase]
+                    [phase.extended_fraction_of[comp](domains) for comp in phase]
                 )
                 xn.set_name(
                     "normalized_"
-                    + f"{self._relative_fraction_variable(component, phase)}"
+                    + f"{self._partial_fraction_variable(component, phase)}"
                 )
                 return xn
 
+        # The general case of multi-component, multi-phase mixtures with or without
+        # non-unified equilibrium.
+        # Partial fractions are independent, except for the reference component in that
+        # phase, which is eliminated by unity above
+        elif self.has_independent_partial_fraction(component, phase):
+            fraction = self._fraction_factory(
+                self._partial_fraction_variable(component, phase)
+            )
         else:
-            # Physical fraction are constant 1, if only 1 component
-            # Otherwise we use the code from extended fractions to create independent
-            # variables
-            # This case also covers the single phase, single component case
-            if phase.num_components == 1:
-
-                def fraction(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
-                    return pp.ad.Scalar(
-                        1.0, f"single-partial-fraction_{component.name}_{phase.name}"
-                    )
-
-            # If there is only 1 phase, and multiple components, the partial fractions
-            # are equal to the overall mass fractions.
-            # By logic of the framework, the other components must be in this phase.
-            # See constructor of fluid mixture
-            elif self.fluid_mixture.num_phases == 1:
-                fraction = component.fraction
-            else:
-                # Mypy complains that above the argument of fraction is explicitly
-                # stated as 'domanis', while extended_fraction returns no information
-                # on how the argument is called.
-                # But both are (pp.SubdomainOrBoundaries) -> pp.ad.Operator
-                fraction = self.extended_fraction(
-                    component, phase
-                )  # type:ignore[assignment]
+            raise NotImplementedError("Missing logic for partial fractions.")
 
         return fraction
 
@@ -759,25 +1055,26 @@ class FluidMixtureMixin:
     """The fluid mixture set by this class during :meth:`create_mixture`."""
 
     mdg: pp.MixedDimensionalGrid
-    """Provided by :class:`~porepy.models.geometry.ModelGeometry`."""
+    """See :class:`~porepy.models.geometry.ModelGeometry`."""
     equation_system: pp.ad.EquationSystem
-    """Provided by :class:`~porepy.models.solution_strategy.SolutionStrategy`."""
+    """See :class:`~porepy.models.solution_strategy.SolutionStrategy`."""
 
     pressure: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
-    """Provided by :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`.
-    """
+    """See :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`."""
     temperature: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
-    """Provided by :class:`~porepy.models.energy_balance.VariablesEnergyBalance`."""
+    """See :class:`~porepy.models.energy_balance.VariablesEnergyBalance`."""
 
-    eliminate_reference_phase: bool
-    """Provided by
-    :class:`~porepy.models.compositional_flow.SolutionStrategyCF`."""
-    eliminate_reference_component: bool
-    """Provided by
-    :class:`~porepy.models.compositional_flow.SolutionStrategyCF`."""
-    equilibrium_type: Optional[Literal["p-T", "p-h", "v-h"]]
-    """Provided by
-    :class:`~porepy.models.compositional_flow.SolutionStrategyCF`."""
+    _has_unified_equilibrium: bool
+    """See :class:`CompositionalVariables`."""
+    _has_equilibrium: bool
+    """See :class:`CompositionalVariables`."""
+
+    has_independent_partial_fraction: Callable[[Component, Phase], bool]
+    """See :class:`_MixtureDOFHandler`."""
+    has_independent_extended_fraction: Callable[[Component, Phase], bool]
+    """See :class:`_MixtureDOFHandler`."""
+    has_independent_fraction: Callable[[Component], bool]
+    """See :class:`_MixtureDOFHandler`."""
 
     def create_mixture(self) -> None:
         """Mixed-in method to create a mixture.
@@ -791,7 +1088,7 @@ class FluidMixtureMixin:
         components = self.get_components()
         phase_configurations = self.get_phase_configuration(components)
 
-        phases: list[Phase] = list()
+        phases: list[Phase] = []
         for config in phase_configurations:
             eos, type_, name = config
             phases.append(Phase(eos, type_, name))
@@ -808,7 +1105,7 @@ class FluidMixtureMixin:
 
     def get_phase_configuration(
         self, components: Sequence[Component]
-    ) -> Sequence[tuple[AbstractEoS, int, str]]:
+    ) -> Sequence[tuple[AbstractEoS, PhysicalState, str]]:
         """Method to return a configuration of modelled phases.
 
         Parameters:
@@ -823,7 +1120,7 @@ class FluidMixtureMixin:
             A sequence of 3-tuples containing
 
             1. An instance of an EoS.
-            2. The phase type.
+            2. The phase state.
             3. A name for the phase.
 
             Each tuple will be used to create a phase in the fluid mixture.
@@ -900,7 +1197,7 @@ class FluidMixtureMixin:
             phase.specific_enthalpy = self.specific_enthalpy_of_phase(phase)
             phase.viscosity = self.viscosity_of_phase(phase)
             phase.conductivity = self.conductivity_of_phase(phase)
-            phase.fugacity_coefficient_of = dict()
+            phase.fugacity_coefficient_of = {}
             for comp in phase:
                 phase.fugacity_coefficient_of[comp] = self.fugacity_coefficient(
                     comp, phase
@@ -916,44 +1213,38 @@ class FluidMixtureMixin:
         """Method to define the signature of phase properties, which are dependent
         quantities.
 
-        In the case of a local equilibrium formulation, the properties
-        depend on pressure, temperature and (extended) fractions.
+        In the case of a unified equilibrium formulation, the properties
+        depend on pressure, temperature and extended fractions.
 
-        Otherwise they depend on pressure, temperature and **independent** overall
+        In the case of a non-unified equilibrium formulation, the properties are
+        dependent on pressure, temperature and partial fractions in that phase.
+
+        Otherwise they are depend on pressure, temperature and **independent** overall
         fractions.
-
-        Note:
-            Strictly speaking, the properties should depend on partial fractions
-            in the equilibrium formulation.
-
-            But since they are dependent operators and
-            :class:`~porepy.numerics.ad.surrogate_operator.SurrogateFactory`
-            requires independent variables as dependencies, this little `hack` is
-            performed here and the derivatives w.r.t. the fractions are expanded
-            in the solution strategy of the CF framework, to account for the partial
-            fractions being normalizations of extended fractions.
 
         """
         dependencies = [self.pressure, self.temperature]
-        if self.equilibrium_type is not None:
+        if self._has_unified_equilibrium:
             dependencies += [
-                phase.extended_fraction_of[component] for component in phase
+                phase.extended_fraction_of[component]
+                for component in phase
+                if self.has_independent_extended_fraction(component, phase)
+            ]
+        elif self._has_equilibrium:
+            dependencies += [
+                phase.partial_fraction_of[component]
+                for component in phase
+                if self.has_independent_partial_fraction(component, phase)
             ]
         else:
-            if self.eliminate_reference_component:
-                independent_overall_fractions = [
-                    comp.fraction
-                    for comp in self.fluid_mixture.components
-                    if comp != self.fluid_mixture.reference_component
-                ]
-            else:
-                independent_overall_fractions = [
-                    comp.fraction for comp in self.fluid_mixture.components
-                ]
 
-            dependencies += independent_overall_fractions
+            dependencies += [
+                component.fraction
+                for component in self.fluid_mixture.components
+                if self.has_independent_fraction(component)
+            ]
 
-        # casting to include mortar greeds and variables as return types.
+        # casting to include mortar grids and variables as return types.
         # This is used as an argument for Surrogate factories, so we must have the
         # mortars as well
         return cast(
@@ -995,7 +1286,7 @@ class FluidMixtureMixin:
 
         """
 
-        if self.equilibrium_type is None:
+        if not self._has_equilibrium:
             raise CompositionalModellingError(
                 "Attempting to define the (specific) fluid mixture enthalpy as sum of"
                 + " phase enthalpies weighed with phase fractions, even though no"
