@@ -131,7 +131,7 @@ def sort_multiple_point_pairs(lines: np.ndarray) -> np.ndarray:
     except ImportError:
         raise ImportError("Numba not available on the system")
 
-    @numba.njit("f8[:,:](i4[:,:])", cache=True)
+    @numba.njit("i4[:,:](i4[:,:])", cache=True)
     def _function_to_compile(lines):
         """
         Copy of pp.utils.sort_points.sort_point_pairs. This version is extended
