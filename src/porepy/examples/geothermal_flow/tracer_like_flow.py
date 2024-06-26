@@ -37,12 +37,7 @@ import numpy as np
 
 import porepy as pp
 
-tracer_like_setting_q = True
-if tracer_like_setting_q:
-    from TracerModelConfiguration import TracerFlowModel as FlowModel
-else:
-    from DriesnerBrineOBL import DriesnerBrineOBL
-    from DriesnerModelConfiguration import DriesnerBrineFlowModel as FlowModel
+from model_configuration.TracerModelConfiguration import TracerFlowModel as FlowModel
 
 day = 86400
 t_scale = 1.0
@@ -80,7 +75,7 @@ params = {
 }
 
 
-class GeothermalFlowModel(FlowModel):
+class TracerLikeFlowModel(FlowModel):
 
     def after_nonlinear_convergence(self, iteration_counter) -> None:
         tb = time.time()
@@ -138,60 +133,7 @@ class GeothermalFlowModel(FlowModel):
         print("Elapsed time linear solve: ", te - tb)
         return sol
 
-
-if tracer_like_setting_q:
-    model = GeothermalFlowModel(params)
-else:
-    model = GeothermalFlowModel(params)
-    file_name = "binary_files/PHX_l2_with_gradients.vtk"
-    brine_obl = DriesnerBrineOBL(file_name)
-    brine_obl.conversion_factors = (1.0, 1.0e-3, 1.0e-5)  # (z,h,p)
-    model.obl = brine_obl
-
-    if False:
-        h = np.arange(1.5e6, 3.2e6, 0.025e6)
-        p = 20.0e6 * np.ones_like(h)
-
-        # p = np.arange(1.0e6, 20.0e6, 0.5e6)
-        # h = 3.2e6 * np.ones_like(p)
-
-        z_NaCl = (0.001 + 1.0e-5) * np.ones_like(h)
-        par_points = np.array((z_NaCl, h, p)).T
-        brine_obl.sample_at(par_points)
-
-        T = brine_obl.sampled_could.point_data["Temperature"]
-        plt.plot(
-            h,
-            T,
-            label="T(H)",
-            color="blue",
-            linestyle="-",
-            marker="o",
-            markerfacecolor="blue",
-            markersize=5,
-        )
-
-        s_l = brine_obl.sampled_could.point_data["S_l"]
-        s_v = brine_obl.sampled_could.point_data["S_v"]
-        # plt.plot(h, s_l, label='Liquid', color='blue', linestyle='-', marker='o',
-        #          markerfacecolor='blue', markersize=5)
-        # plt.plot(h, s_v, label='Vapor', color='red', linestyle='-', marker='o',
-        #          markerfacecolor='red', markersize=5)
-
-        h_l = brine_obl.sampled_could.point_data["H_l"]
-        h_v = brine_obl.sampled_could.point_data["H_v"]
-        # plt.plot(p, h_l, label='Liquid', color='blue', linestyle='-', marker='o',
-        #          markerfacecolor='blue', markersize=5)
-        # plt.plot(p, h_v, label='Vapor', color='red', linestyle='-', marker='o',
-        #          markerfacecolor='red', markersize=5)
-
-        # dTdh = 1/brine_obl.sampled_could.point_data['grad_Temperature'][:,1]
-        # plt.plot(h, dTdh, label='dTdh(H)', color='red', linestyle='-', marker='o',
-        #          markerfacecolor='red', markersize=5)
-        plt.legend()
-        plt.show()
-        aka = 0
-
+model = TracerLikeFlowModel(params)
 
 tb = time.time()
 model.prepare_simulation()
