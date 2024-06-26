@@ -26,7 +26,8 @@ Note:
 """
 
 from __future__ import annotations
-
+import os
+os.environ["NUMBA_DISABLE_JIT"] = "1"
 import time
 
 import numpy as np
@@ -38,8 +39,8 @@ from vtk_sampler import VTKSampler
 import porepy as pp
 
 day = 86400
-t_scale = 0.00001
-tf = 0.025 * day * t_scale
+t_scale = 0.01
+tf = 2.5 * day * t_scale
 dt = 0.025 * day * t_scale
 time_manager = pp.TimeManager(
     schedule=[0.0, tf],
@@ -67,8 +68,8 @@ params = {
     "prepare_simulation": False,
     "reduce_linear_system_q": False,
     "nl_convergence_tol": np.inf,
-    "nl_convergence_tol_res": 1.0e-5,
-    "max_iterations": 25,
+    "nl_convergence_tol_res": 1.0e-3,
+    "max_iterations": 50,
 }
 
 
