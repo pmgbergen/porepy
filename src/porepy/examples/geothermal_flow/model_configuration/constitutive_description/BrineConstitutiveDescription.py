@@ -249,7 +249,7 @@ class SecondaryEquations(SecondaryEquationsMixin):
         par_points = np.array((z_NaCl, h, p)).T
         self.vtk_sampler.sample_at(par_points)
 
-        # Gas saturationn
+        # Gas saturation
         S_v = self.vtk_sampler.sampled_could.point_data["S_v"]
         dS_vdz = self.vtk_sampler.sampled_could.point_data["grad_S_v"][:, 0]
         dS_vdH = self.vtk_sampler.sampled_could.point_data["grad_S_v"][:, 1]
@@ -267,8 +267,8 @@ class SecondaryEquations(SecondaryEquationsMixin):
         par_points = np.array((z_NaCl, h, p)).T
         self.vtk_sampler.sample_at(par_points)
 
-        # Gas saturationn
-        T = self.vtk_sampler.sampled_could.point_data["Temperature"]
+        # Overall temperature
+        T = self.vtk_sampler.sampled_could.point_data["Temperature"] + 273.15 # [K]
         dTdz = self.vtk_sampler.sampled_could.point_data["grad_Temperature"][:, 0]
         dTdH = self.vtk_sampler.sampled_could.point_data["grad_Temperature"][:, 1]
         dTdp = self.vtk_sampler.sampled_could.point_data["grad_Temperature"][:, 2]
@@ -285,7 +285,7 @@ class SecondaryEquations(SecondaryEquationsMixin):
         par_points = np.array((z_NaCl, h, p)).T
         self.vtk_sampler.sample_at(par_points)
 
-        # Gas saturationn
+        # Partial fraction of water in liquid phase
         X_w = 1.0 - self.vtk_sampler.sampled_could.point_data["Xl"]
         dX_wdz = -self.vtk_sampler.sampled_could.point_data["grad_Xl"][:, 0]
         dX_wdH = -self.vtk_sampler.sampled_could.point_data["grad_Xl"][:, 1]
@@ -302,7 +302,7 @@ class SecondaryEquations(SecondaryEquationsMixin):
         par_points = np.array((z_NaCl, h, p)).T
         self.vtk_sampler.sample_at(par_points)
 
-        # Gas saturationn
+        # Partial fraction of salt in liquid phase
         X_s = self.vtk_sampler.sampled_could.point_data["Xl"]
         dX_sdz = self.vtk_sampler.sampled_could.point_data["grad_Xl"][:, 0]
         dX_sdH = self.vtk_sampler.sampled_could.point_data["grad_Xl"][:, 1]
@@ -319,7 +319,7 @@ class SecondaryEquations(SecondaryEquationsMixin):
         par_points = np.array((z_NaCl, h, p)).T
         self.vtk_sampler.sample_at(par_points)
 
-        # Gas saturationn
+        # Partial fraction of water in vapor phase
         X_w = 1.0 - self.vtk_sampler.sampled_could.point_data["Xv"]
         dX_wdz = -self.vtk_sampler.sampled_could.point_data["grad_Xv"][:, 0]
         dX_wdH = -self.vtk_sampler.sampled_could.point_data["grad_Xv"][:, 1]
@@ -336,7 +336,7 @@ class SecondaryEquations(SecondaryEquationsMixin):
         par_points = np.array((z_NaCl, h, p)).T
         self.vtk_sampler.sample_at(par_points)
 
-        # Gas saturationn
+        # Partial fraction of salt in vapor phase
         X_s = self.vtk_sampler.sampled_could.point_data["Xv"]
         dX_sdz = self.vtk_sampler.sampled_could.point_data["grad_Xv"][:, 0]
         dX_sdH = self.vtk_sampler.sampled_could.point_data["grad_Xv"][:, 1]
