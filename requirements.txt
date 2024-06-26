@@ -6,7 +6,7 @@ networkx
 numba >= 0.57
 numpy < 2.0
 requests
-scipy
+scipy < 1.14
 seaborn
 shapely
 six
@@ -20,6 +20,3 @@ mypy
 pytest >= 4.6
 pytest-cov
 pytest-runner
-chemicals
-thermo
-pyvista

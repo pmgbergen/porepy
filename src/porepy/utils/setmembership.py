@@ -194,7 +194,7 @@ def unique_columns_tol(
 
         """
         num_cols = mat.shape[0]
-        keep = np.zeros(num_cols, dtype=numba.types.bool_)
+        keep = np.zeros(num_cols, dtype=np.bool_)
         keep[0] = True
         keep_counter = 1
 

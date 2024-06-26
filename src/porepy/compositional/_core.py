@@ -7,11 +7,14 @@ Changes here should be done with much care.
 
 from __future__ import annotations
 
+from enum import Enum
+
 __all__ = [
     "R_IDEAL_MOL",
     "P_REF",
     "T_REF",
     "COMPOSITIONAL_VARIABLE_SYMBOLS",
+    "PhysicalState",
 ]
 
 
@@ -41,6 +44,23 @@ To be used with care, due to loss in precision.
 
 See Also:
     https://numba.readthedocs.io/en/stable/reference/jit-compilation.html#numba.jit
+
+"""
+
+NUMBA_PARALLEL: bool = True
+"""Flag to instruct numba to compile functions in parallel mode, where applicable.
+
+By default, the parallel backend will be used.
+
+Flag is introduced for developing processes when involving other packages supporing
+parallelism such as numpy and PETSc.
+
+Affected numba functionality includes:
+
+1. `JIT parallelism
+   <https://numba.readthedocs.io/en/stable/user/jit.html#parallel>`_
+2. `Numpy universal functions
+   <https://numba.readthedocs.io/en/stable/user/vectorize.html>`_
 
 """
 
@@ -128,7 +148,7 @@ COMPOSITIONAL_VARIABLE_SYMBOLS = {
     "phase_fraction": "y",
     "phase_saturation": "s",
     "phase_composition": "x",
-    "solute_fraction": "c",
+    "tracer_fraction": "c",
 }
 """A dictionary mapping names of variables (key) to their symbol (value), which is used
 in the compositional framework.
@@ -138,3 +158,16 @@ Important:
     variable using the symbols here.
 
 """
+
+
+class PhysicalState(Enum):
+    """Enum object for characterizing the physical states of a phase.
+
+    - :attr:`liquid`: liquid-like state (value 0)
+    - ``gas: int = 1``: gas-like state (value 1)
+    - values above 1 are reserved for further development
+
+    """
+
+    liquid: int = 0
+    gas: int = 1
