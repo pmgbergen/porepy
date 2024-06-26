@@ -37,7 +37,7 @@ class LiquidDriesnerCorrelations(ppc.AbstractEoS):
         """
         if not hasattr(self, "_vtk_sampler"):
             raise AttributeError(
-                "The operator-based linearization (vtk_sampler) object is not present. Set up a unique vtk_sampler of the type DriesnerBrinevtk_sampler"
+                "Instance of the vtk_sampler attribute is not present."
             )
 
         p, h, z_NaCl = thermodynamic_input
@@ -123,7 +123,7 @@ class GasDriesnerCorrelations(ppc.AbstractEoS):
 
         if not hasattr(self, "_vtk_sampler"):
             raise AttributeError(
-                "The operator-based linearization (vtk_sampler) object is not present. Set up a unique vtk_sampler of the type DriesnerBrinevtk_sampler"
+                "Instance of the vtk_sampler attribute is not present."
             )
 
         p, h, z_NaCl = thermodynamic_input

@@ -1,5 +1,5 @@
-from abc import ABC, abstractmethod
-from typing import Callable, cast
+from abc import abstractmethod
+from typing import cast
 
 import numpy as np
 
