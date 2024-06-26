@@ -2,15 +2,10 @@
 
 from __future__ import annotations
 
-# NOTE to disable numba compilation and debug tests
-import os
-
 import numpy as np
 import pytest
 
 import porepy.compositional as composit
-
-# os.environ["NUMBA_DISABLE_JIT"] = "1"
 
 
 @pytest.mark.parametrize("vectorized", [0, 1, 3])
