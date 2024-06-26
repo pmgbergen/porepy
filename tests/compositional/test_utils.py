@@ -10,7 +10,7 @@ import pytest
 
 import porepy.compositional as composit
 
-os.environ["NUMBA_DISABLE_JIT"] = "1"
+# os.environ["NUMBA_DISABLE_JIT"] = "1"
 
 
 @pytest.mark.parametrize("vectorized", [0, 1, 3])
