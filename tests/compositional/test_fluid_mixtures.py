@@ -132,11 +132,26 @@ def test_mixture_contexts(
     nphase = len(phaseconfig)
     ncomp = len(species)
 
-    # 1 component to make an eos
-    h2o = composit.Component.from_species(composit.load_species(["H2O"])[0])
+    species_kwargs = {
+        "molar_mass": 1.0,
+        "p_crit": 1.0,
+        "T_crit": 1.0,
+        "V_crit": 1.0,
+        "omega": 1.0,
+    }
 
+    # h2o = composit.Component.from_species(composit.load_species(["H2O"])[0])
+    # Creating dummy components. Physical properties have no relevance for this test
+
+    # 1 separate component for the dummy eos, just to instantiate it.
+    h2o = composit.Component(name="H2O", CASr_number="1", **species_kwargs)
+
+    # components: list[composit.Component] = [
+    #     composit.Component.from_species(s) for s in composit.load_species(species)
+    # ]
     components: list[composit.Component] = [
-        composit.Component.from_species(s) for s in composit.load_species(species)
+        composit.Component(name=s, CASr_number=f"{i}", **species_kwargs)
+        for i, s in enumerate(species)
     ]
 
     if ncomp == 0:
@@ -209,10 +224,24 @@ def test_mixture_member_assignment(
     fluid mixtures are assigned by the compositional mixins. Tested with and without
     independent reference component/phase fractions."""
 
-    species = composit.load_species(["H2O", "CO2", "NaCl"])
-    comp1 = composit.Compound.from_species(species[0])
-    comp1.active_tracers = [species[2]]
-    comp2 = composit.Component.from_species(species[1])
+    species_kwargs = {
+        "molar_mass": 1.0,
+        "p_crit": 1.0,
+        "T_crit": 1.0,
+        "V_crit": 1.0,
+        "omega": 1.0,
+    }
+    # Creating dummy components. Physical properties have no relevance for this test
+
+    comp1 = composit.Compound.from_species(
+        composit.ChemicalSpecies(name="H2O", CASr_number="1", **species_kwargs)
+    )
+    comp1.active_tracers = [
+        composit.ChemicalSpecies(name="NaCl", CASr_number="2", **species_kwargs)
+    ]
+    comp2 = composit.Component.from_species(
+        composit.ChemicalSpecies(name="CO2", CASr_number="3", **species_kwargs)
+    )
     eos = dummyeos([comp1, comp2])
 
     mixin: MockModel = get_mock_model(
@@ -448,9 +477,23 @@ def test_singular_mixtures(species, phase_names, equilibrium_type, dummyeos):
     """Testing the behavior when only 1 component, or 1 phase or both.
     In this case, the number of created variables follows certain rules."""
 
-    components = [
-        composit.Component.from_species(s) for s in composit.load_species(species)
+    species_kwargs = {
+        "molar_mass": 1.0,
+        "p_crit": 1.0,
+        "T_crit": 1.0,
+        "V_crit": 1.0,
+        "omega": 1.0,
+    }
+
+    # Creating dummy components. Physical properties have no relevance for this test
+    components: list[composit.Component] = [
+        composit.Component(name=s, CASr_number=f"{i}", **species_kwargs)
+        for i, s in enumerate(species)
     ]
+
+    # components = [
+    #     composit.Component.from_species(s) for s in composit.load_species(species)
+    # ]
     eos = dummyeos(components)
     phases = [(eos, 0, name) for name in phase_names]
 

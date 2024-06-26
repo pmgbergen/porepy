@@ -20,4 +20,3 @@ mypy
 pytest >= 4.6
 pytest-cov
 pytest-runner
-chemicals

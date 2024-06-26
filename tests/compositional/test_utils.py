@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
+# NOTE to disable numba compilation and debug tests
+import os
+
 import numpy as np
 import pytest
 
 import porepy.compositional as composit
 
-# NOTE to disable numba compilation and debug tests
-import os
 os.environ["NUMBA_DISABLE_JIT"] = "1"
 
 
@@ -92,8 +93,8 @@ def test_chainrule_fractional_derivatives():
 
     # Construct the derivatives of the functions, with value 20 for the 2 state
     # functions. Those values should not be changed by the tested method
-    df = np.vstack([np.ones((2, 3)) * 20., np.eye(3)])
-    
+    df = np.vstack([np.ones((2, 3)) * 20.0, np.eye(3)])
+
     # Set some arbitrary values for the extended fractions for 3 components
     # We use the same value on all 3 cells, in order to obtain the Jacobian of the
     # normalization
@@ -113,7 +114,7 @@ def test_chainrule_fractional_derivatives():
     assert np.allclose(df_ext[:2], 20, rtol=0, atol=1e-14)
 
     # The derivatives w.r.t. extended fractions should match the analytical solution
-    assert np.allclose(df_ext[2:], jac.T, rtol=0.,  atol=1e-14)
+    assert np.allclose(df_ext[2:], jac.T, rtol=0.0, atol=1e-14)
 
     # slicing columns should mimic non-vectorized computations
     # This tests the consistency of the method, when passing arguments as 1D arrays
@@ -121,5 +122,5 @@ def test_chainrule_fractional_derivatives():
     assert df_0.shape == (5,)
     df_ext_0 = composit.chainrule_fractional_derivatives(df_0, x_ext)
     assert df_ext_0.shape == df_0.shape
-    assert np.allclose(df_ext_0[:2], 20., rtol=0, atol=1e-14)
-    assert np.allclose(df_ext_0[2:], jac[0], rtol=0., atol=1e-14)
+    assert np.allclose(df_ext_0[:2], 20.0, rtol=0, atol=1e-14)
+    assert np.allclose(df_ext_0[2:], jac[0], rtol=0.0, atol=1e-14)
