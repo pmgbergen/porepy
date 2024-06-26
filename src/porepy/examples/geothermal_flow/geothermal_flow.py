@@ -39,9 +39,8 @@ from vtk_sampler import VTKSampler
 import porepy as pp
 
 day = 86400
-t_scale = 0.01
-tf = 2.5 * day * t_scale
-dt = 0.025 * day * t_scale
+tf = 0.05 * day
+dt = 0.00025 * day
 time_manager = pp.TimeManager(
     schedule=[0.0, tf],
     dt_init=dt,
