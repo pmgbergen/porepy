@@ -1,6 +1,7 @@
 import numpy as np
-import TracerConstitutiveDescription
-from Geometries import SimpleGeometry as ModelGeometry
+from .geometry_description.geometry_market import SimpleGeometry as ModelGeometry
+from .constitutive_description.TracerConstitutiveDescription import SecondaryEquations
+from .constitutive_description.TracerConstitutiveDescription import FluidMixture
 
 import porepy as pp
 import porepy.compositional as ppc
@@ -89,10 +90,6 @@ class InitialConditions(InitialConditionsCF):
             return z * np.ones(sd.num_cells)
 
 
-class SecondaryEquations(TracerConstitutiveDescription.SecondaryEquations):
-    pass
-
-
 class ModelEquations(
     PrimaryEquationsCF,
     SecondaryEquations,
@@ -117,7 +114,7 @@ class ModelEquations(
 
 class TracerFlowModel(
     ModelGeometry,
-    TracerConstitutiveDescription.FluidMixture,
+    FluidMixture,
     InitialConditions,
     BoundaryConditions,
     ModelEquations,

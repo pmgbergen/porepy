@@ -126,11 +126,6 @@ class InitialConditions(InitialConditionsCF):
     #     T = factor * h
     #     return T
 
-
-class SecondaryEquations(SecondaryEquations):
-    pass
-
-
 class ModelEquations(
     PrimaryEquationsCF,
     SecondaryEquations,
