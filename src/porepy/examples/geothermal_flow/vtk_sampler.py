@@ -2,7 +2,7 @@ import time
 
 import numpy as np
 import pyvista
-import sampler.classify_points as cp
+import classify_points as cp
 
 
 class VTKSampler:
@@ -69,8 +69,8 @@ class VTKSampler:
 
         self._apply_conversion_factor_on_gradients()
         # te = time.time()
-        # print("DriesnerBrineOBL:: Sampled n_points: ", len(points))
-        # print("DriesnerBrineOBL:: Time for sampling: ", te - tb)
+        # print("VTKSampler:: Sampled n_points: ", len(points))
+        # print("VTKSampler:: Time for sampling: ", te - tb)
 
     def _apply_conversion_factor(self, points):
         for i, scale in enumerate(self.conversion_factors):
@@ -89,7 +89,7 @@ class VTKSampler:
         self._search_space = pyvista.read(self.file_name)
         self._bc_surface = self._search_space.extract_surface()
         te = time.time()
-        print("DriesnerBrineOBL:: Time for loading interpolation space: ", te - tb)
+        print("VTKSampler:: Time for loading interpolation space: ", te - tb)
 
     def __map_external_points_to_surface(self, xv):
         bounds = self.search_space.bounds
