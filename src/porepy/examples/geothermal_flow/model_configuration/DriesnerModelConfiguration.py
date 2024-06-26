@@ -1,7 +1,4 @@
 import numpy as np
-from .geometry_description.geometry_market import SimpleGeometry as ModelGeometry
-from .constitutive_description.BrineConstitutiveDescription import SecondaryEquations
-from .constitutive_description.BrineConstitutiveDescription import FluidMixture
 
 import porepy as pp
 import porepy.compositional as ppc
@@ -11,6 +8,12 @@ from porepy.models.compositional_flow import (
     InitialConditionsCF,
     PrimaryEquationsCF,
 )
+
+from .constitutive_description.BrineConstitutiveDescription import (
+    FluidMixture,
+    SecondaryEquations,
+)
+from .geometry_description.geometry_market import SimpleGeometry as ModelGeometry
 
 
 class BoundaryConditions(BoundaryConditionsCF):
@@ -125,6 +128,7 @@ class InitialConditions(InitialConditionsCF):
     #     factor = 630.0 / 2.0e6
     #     T = factor * h
     #     return T
+
 
 class ModelEquations(
     PrimaryEquationsCF,

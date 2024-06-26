@@ -1,8 +1,8 @@
 import time
 
+import classify_points as cp
 import numpy as np
 import pyvista
-import classify_points as cp
 
 
 class VTKSampler:

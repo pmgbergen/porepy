@@ -27,16 +27,15 @@ Note:
 
 from __future__ import annotations
 
-import os
 import time
 
-os.environ["NUMBA_DISABLE_JIT"] = str(0)
-
 import numpy as np
-import porepy as pp
+from model_configuration.DriesnerModelConfiguration import (
+    DriesnerBrineFlowModel as FlowModel,
+)
 from vtk_sampler import VTKSampler
-from model_configuration.DriesnerModelConfiguration import DriesnerBrineFlowModel as FlowModel
 
+import porepy as pp
 
 day = 86400
 t_scale = 0.00001
@@ -67,7 +66,6 @@ params = {
     "time_manager": time_manager,
     "prepare_simulation": False,
     "reduce_linear_system_q": False,
-    "petsc_solver_q": False,
     "nl_convergence_tol": np.inf,
     "nl_convergence_tol_res": 1.0e-5,
     "max_iterations": 25,
@@ -92,52 +90,15 @@ class GeothermalFlowModel(FlowModel):
     def after_simulation(self):
         self.exporter.write_pvd()
 
-    def solve_linear_system(self) -> np.ndarray:
-        """After calling the parent method, the global solution is calculated by Schur
-        expansion."""
-        petsc_solver_q = self.params.get("petsc_solver_q", False)
-        tb = time.time()
-        if petsc_solver_q:
-            from petsc4py import PETSc
-
-            csr_mat, res_g = self.linear_system
-
-            jac_g = PETSc.Mat().createAIJ(
-                size=csr_mat.shape,
-                csr=((csr_mat.indptr, csr_mat.indices, csr_mat.data)),
-            )
-
-            # solving ls
-            st = time.time()
-            ksp = PETSc.KSP().create()
-            ksp.setOperators(jac_g)
-            b = jac_g.createVecLeft()
-            b.array[:] = res_g
-            x = jac_g.createVecRight()
-
-            ksp.setType("preonly")
-            ksp.getPC().setType("lu")
-            ksp.getPC().setFactorSolverType("mumps")
-
-            ksp.setConvergenceHistory()
-            ksp.solve(b, x)
-            sol = x.array
-        else:
-            sol = super().solve_linear_system()
-
-        reduce_linear_system_q = self.params.get("reduce_linear_system_q", False)
-        if reduce_linear_system_q:
-            raise ValueError("Case not implemented yet.")
-        te = time.time()
-        print("Elapsed time linear solve: ", te - tb)
-        return sol
 
 # Instance of the computational model
 model = GeothermalFlowModel(params)
 
 parametric_space_ref_level = 0
 file_name_prefix = "model_configuration/constitutive_description/driesner_vtk_files/"
-file_name = file_name_prefix + "XHP_l" + str(parametric_space_ref_level) +"_modified.vtk"
+file_name = (
+    file_name_prefix + "XHP_l" + str(parametric_space_ref_level) + "_modified.vtk"
+)
 brine_sampler = VTKSampler(file_name)
 brine_sampler.conversion_factors = (1.0, 1.0e-3, 1.0e-5)  # (z,h,p)
 model.vtk_sampler = brine_sampler

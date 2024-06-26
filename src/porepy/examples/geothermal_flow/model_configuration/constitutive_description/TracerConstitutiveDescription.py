@@ -14,13 +14,11 @@ def gas_saturation_func(
     p, h, z_NaCl = thermodynamic_dependencies
     # same for all input (number of cells)
     assert len(p) == len(h) == len(z_NaCl)
-    n = len(p)
 
     nc = len(thermodynamic_dependencies[0])
     vals = np.zeros_like(z_NaCl)
     # row-wise storage of derivatives, (3, nc) array
     diffs = np.zeros((len(thermodynamic_dependencies), nc))
-    # diffs[2, :] = +1.0
     return vals, diffs
 
 
@@ -30,7 +28,6 @@ def temperature_func(
     p, h, z_NaCl = thermodynamic_dependencies
     # same for all input (number of cells)
     assert len(p) == len(h) == len(z_NaCl)
-    n = len(p)
 
     nc = len(thermodynamic_dependencies[0])
 
@@ -48,7 +45,6 @@ def H2O_liq_func(
     p, h, z_NaCl = thermodynamic_dependencies
     # same for all input (number of cells)
     assert len(p) == len(h) == len(z_NaCl)
-    n = len(p)
 
     nc = len(thermodynamic_dependencies[0])
     vals = np.array(1 - z_NaCl)
@@ -64,7 +60,6 @@ def NaCl_liq_func(
     p, h, z_NaCl = thermodynamic_dependencies
     # same for all input (number of cells)
     assert len(p) == len(h) == len(z_NaCl)
-    n = len(p)
 
     nc = len(thermodynamic_dependencies[0])
     vals = np.array(z_NaCl)
@@ -80,7 +75,6 @@ def H2O_gas_func(
     p, h, z_NaCl = thermodynamic_dependencies
     # same for all input (number of cells)
     assert len(p) == len(h) == len(z_NaCl)
-    n = len(p)
 
     nc = len(thermodynamic_dependencies[0])
     vals = np.array(1 - z_NaCl)
@@ -96,7 +90,6 @@ def NaCl_gas_func(
     p, h, z_NaCl = thermodynamic_dependencies
     # same for all input (number of cells)
     assert len(p) == len(h) == len(z_NaCl)
-    n = len(p)
 
     nc = len(thermodynamic_dependencies[0])
     vals = np.array(z_NaCl)
@@ -181,10 +174,9 @@ class LiquidLikeCorrelations(ppc.AbstractEoS):
         """
 
         p, h, z_NaCl = thermodynamic_input
-
         # same for all input (number of cells)
         assert len(p) == len(h) == len(z_NaCl)
-        nc = len(p)
+        nc = len(thermodynamic_input[0])
 
         # mass density of phase
         rho, drho = self.rho_func(*thermodynamic_input)  # (n,), (3, n) array
@@ -288,7 +280,7 @@ class GasLikeCorrelations(ppc.AbstractEoS):
 
         # same for all input (number of cells)
         assert len(p) == len(h) == len(z_NaCl)
-        nc = len(p)
+        nc = len(thermodynamic_input[0])
 
         # mass density of phase
         rho, drho = self.rho_func(*thermodynamic_input)  # (n,), (3, n) array
