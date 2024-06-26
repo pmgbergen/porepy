@@ -35,15 +35,7 @@ class BoundaryConditions(BoundaryConditionsCF):
         inlet_idx, outlet_idx = self.get_inlet_outlet_sides(boundary_grid)
         p_inlet = 20.0e6
         p_outlet = 15.0e6
-        xc = boundary_grid.cell_centers.T
-        l = 2.0
-
-        def p_linear(xv):
-            p_v = p_inlet * (1 - xv[0] / l) + p_outlet * (xv[0] / l)
-            return p_v
-
-        p = np.fromiter(map(p_linear, xc), dtype=float)
-        return p
+        p = p_outlet * np.ones(boundary_grid.num_cells)
         p[inlet_idx] = p_inlet
         p[outlet_idx] = p_outlet
         return p
@@ -52,14 +44,7 @@ class BoundaryConditions(BoundaryConditionsCF):
         inlet_idx, _ = self.get_inlet_outlet_sides(boundary_grid)
         h_inlet = 1.5e6
         h_outlet = 2.2e6
-        xc = boundary_grid.cell_centers.T
-        l = 2.0
-
-        def h_linear(xv):
-            h_v = h_inlet * (1 - xv[0] / l) + h_outlet * (xv[0] / l)
-            return h_v
-
-        h = np.fromiter(map(h_linear, xc), dtype=float)
+        h = h_outlet * np.ones(boundary_grid.num_cells)
         h[inlet_idx] = h_inlet
         return h
 
@@ -78,41 +63,26 @@ class BoundaryConditions(BoundaryConditionsCF):
             z_NaCl[inlet_idx] = z_inlet
             return z_NaCl
 
-    # def bc_values_temperature(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
-    #     h = self.bc_values_enthalpy(boundary_grid)
-    #     factor = 630.0 / 2.0e6
-    #     T = factor * h
-    #     return T
+    def bc_values_temperature(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+        inlet_idx, outlet_idx = self.get_inlet_outlet_sides(boundary_grid)
+        t_inlet = 500.0
+        t_outlet = 500.0
+        T = t_outlet * np.ones(boundary_grid.num_cells)
+        T[inlet_idx] = t_inlet
+        T[outlet_idx] = t_outlet
+        return T
 
 
 class InitialConditions(InitialConditionsCF):
     """See parent class how to set up BC. Default is all zero and Dirichlet."""
 
     def initial_pressure(self, sd: pp.Grid) -> np.ndarray:
-        p_inlet = 15.0e6
-        p_outlet = 15.0e6
-        xc = sd.cell_centers.T
-        l = 2.0
-
-        def p_linear(xv):
-            p_v = p_inlet * (1 - xv[0] / l) + p_outlet * (xv[0] / l)
-            return p_v
-
-        p = np.fromiter(map(p_linear, xc), dtype=float)
-        return p
+        p_init = 15.0e6
+        return np.ones(sd.num_cells) * p_init
 
     def initial_enthalpy(self, sd: pp.Grid) -> np.ndarray:
-        h_inlet = 2.2e6
-        h_outlet = 2.2e6
-        xc = sd.cell_centers.T
-        l = 2.0
-
-        def h_linear(xv):
-            h_v = h_inlet * (1 - xv[0] / l) + h_outlet * (xv[0] / l)
-            return h_v
-
-        h = np.fromiter(map(h_linear, xc), dtype=float)
-        return h
+        h_init = 2.2e6
+        return np.ones(sd.num_cells) * h_init
 
     def initial_overall_fraction(
         self, component: ppc.Component, sd: pp.Grid
@@ -122,12 +92,6 @@ class InitialConditions(InitialConditionsCF):
             return (1 - z) * np.ones(sd.num_cells)
         else:
             return z * np.ones(sd.num_cells)
-
-    # def initial_temperature(self, sd: pp.Grid) -> np.ndarray:
-    #     h = self.initial_enthalpy(sd)
-    #     factor = 630.0 / 2.0e6
-    #     T = factor * h
-    #     return T
 
 
 class ModelEquations(
@@ -164,9 +128,9 @@ class DriesnerBrineFlowModel(
         return saturation
 
     @property
-    def obl(self):
-        return self._obl
+    def vtk_sampler(self):
+        return self._vtk_sampler
 
-    @obl.setter
-    def obl(self, obl):
-        self._obl = obl
+    @vtk_sampler.setter
+    def vtk_sampler(self, vtk_sampler):
+        self._vtk_sampler = vtk_sampler

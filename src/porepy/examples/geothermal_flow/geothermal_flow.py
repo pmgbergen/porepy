@@ -94,7 +94,7 @@ class GeothermalFlowModel(FlowModel):
 # Instance of the computational model
 model = GeothermalFlowModel(params)
 
-parametric_space_ref_level = 0
+parametric_space_ref_level = 2
 file_name_prefix = "model_configuration/constitutive_description/driesner_vtk_files/"
 file_name = (
     file_name_prefix + "XHP_l" + str(parametric_space_ref_level) + "_modified.vtk"
@@ -120,7 +120,19 @@ print("Elapsed time run_time_dependent_model: ", te - tb)
 print("Total number of DoF: ", model.equation_system.num_dofs())
 print("Mixed-dimensional grid information: ", model.mdg)
 
-mn = model.darcy_flux(model.mdg.subdomains()).value(model.equation_system)[
-    model.domain_boundary_sides(model.mdg.subdomains()[0]).north
-]
-print("normal flux: ", mn)
+# Retrieve the grid and boundary information
+grid = model.mdg.subdomains()[0]
+bc_sides = model.domain_boundary_sides(grid)
+
+# Integrated overall mass flux on all facets
+mn = model.darcy_flux(model.mdg.subdomains()).value(model.equation_system)
+
+inlet_idx, outlet_idx = model.get_inlet_outlet_sides(model.mdg.subdomains()[0])
+print("Inflow values : ", mn[inlet_idx])
+print("Outflow values : ", mn[outlet_idx])
+
+# Check conservation of overall mass across boundaries
+external_bc_idx = bc_sides.all_bf
+assert np.isclose(np.sum(mn[external_bc_idx]), 0.0, atol=1.0e-10)
+
+
