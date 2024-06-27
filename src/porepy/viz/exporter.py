@@ -973,7 +973,10 @@ class Exporter:
             return value
 
         def add_data_from_str(
-            data_pt: str, subdomain_data: dict, interface_data: dict, num_entities: Literal["num_cells", "num_nodes"]
+            data_pt: str,
+            subdomain_data: dict,
+            interface_data: dict,
+            num_entities: Literal["num_cells", "num_nodes"],
         ) -> tuple[dict, dict, bool]:
             """Check whether data is provided by a key of a field - could be both
             subdomain and interface data. If so, collect all data corresponding to
@@ -1112,7 +1115,9 @@ class Exporter:
                     data_to_convert = pp.get_solution_values(
                         name=key, data=sd_data, time_step_index=0
                     )
-                    value = _to_vector_format(data_to_convert, getattr(sd, num_entities))
+                    value = _to_vector_format(
+                        data_to_convert, getattr(sd, num_entities)
+                    )
 
                     # Add data point in correct format to collection
                     subdomain_data[(sd, key)] = value
@@ -1187,7 +1192,9 @@ class Exporter:
                     data_to_convert = pp.get_solution_values(
                         name=key, data=intf_data, time_step_index=0
                     )
-                    value = _to_vector_format(data_to_convert, getattr(intf, num_entities))
+                    value = _to_vector_format(
+                        data_to_convert, getattr(intf, num_entities)
+                    )
 
                     # Add data point in correct format to collection
                     interface_data[(intf, key)] = value
