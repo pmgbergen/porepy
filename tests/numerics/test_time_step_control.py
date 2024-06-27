@@ -766,7 +766,7 @@ class DynamicTimeStepTestCaseModel(SinglePhaseFlow):
     ):
         super().__init__(params)
         self.time_step_idx: int = -1
-        self.nonlinear_iter_idx: int = 0
+        self.num_nonlinear_iters: int = 0
         self.num_nonlinear_iterations: list[int] = num_nonlinear_iterations
         self.time_step_converged: list = time_step_converged
         self.time_step_history: list = []
@@ -774,12 +774,12 @@ class DynamicTimeStepTestCaseModel(SinglePhaseFlow):
     def before_nonlinear_loop(self) -> None:
         super().before_nonlinear_loop()  # The AD time step is expected to update here.
         self.time_step_idx += 1
-        self.nonlinear_iter_idx = -1
+        self.num_nonlinear_iters = 0
         self.time_step_history.append(self.time_manager.dt)
 
     def before_nonlinear_iteration(self):
         super().before_nonlinear_iteration()
-        self.nonlinear_iter_idx += 1
+        self.num_nonlinear_iters += 1
         # The AD time step should not change throughout the Newton iterations.
         assert (
             self.ad_time_step.value(self.equation_system) == self.time_manager.dt
@@ -795,7 +795,7 @@ class DynamicTimeStepTestCaseModel(SinglePhaseFlow):
         reference_residual: np.ndarray,
         nl_params: dict[str, Any],
     ) -> tuple[float, float, bool, bool]:
-        if self.nonlinear_iter_idx < self.num_nonlinear_iterations[self.time_step_idx]:
+        if self.num_nonlinear_iters < self.num_nonlinear_iterations[self.time_step_idx]:
             # Neither converged nor diverged
             return 0.5, 0.5, False, False
         if self.time_step_converged[self.time_step_idx] is True:
@@ -830,10 +830,11 @@ MAX_NONLINEAR_ITER = 10
         # - increase the time step due to few nonlinear iterations
         # - keep the time step due to expected number of nonlinear iterations
         # - decrease the time step due to many nonlinear iterations (after convergence)
+        # - decrease the time step to meet the schedule (last time step)
         {
             # Below reads as: time step 0 takes 4 nonlinear iterations, time step 1
             # takes 3 nonlinear iterations, etc.
-            "num_nonlinear_iterations": [4, 3, MAX_NONLINEAR_ITER + 1, 1, 5, 9, 1, 1],
+            "num_nonlinear_iterations": [4, 3, MAX_NONLINEAR_ITER + 2, 1, 6, 9, 1, 1],
             # Time step 0 diverged after 4 iterations, time step 1 converged after 3
             # iterations, etc. "unreachable" means that the convergence check should not
             # be called due to exceeding the iteration limit.
@@ -857,6 +858,13 @@ MAX_NONLINEAR_ITER = 10
             "num_nonlinear_iterations": [1, 1, 1],
             "time_step_converged": [False, False, False],
             "dt_history_expected": [1, 0.3, 0.1],
+        },
+        # Case 4: The time step fails right before the schedule point. Expected to
+        # decrease dt and meet the schedule regardless.
+        {
+            "num_nonlinear_iterations": [1, 1, 1, 1, 1],
+            "time_step_converged": [True, False, True, True, True],
+            "dt_history_expected": [1, 0.35, 0.105, 0.21, 0.035],
         },
     ],
 )
