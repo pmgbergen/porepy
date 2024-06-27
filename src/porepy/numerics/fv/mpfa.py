@@ -1014,7 +1014,7 @@ class Mpfa(pp.FVElliptic):
         # in SubcellTopology (which treats one cell at a time). For efficient inversion
         # (below), it is desirable to get the system over to a block-diagonal structure,
         # with one block centered around each vertex. Obtain the necessary mappings.
-        rows2blk_diag, cols2blk_diag, size_of_blocks = self._block_diagonal_structure(
+        row_perm, col_perm, size_of_blocks = self._block_permutations_and_sizes(
             sub_cell_index,
             cell_node_blocks,
             subcell_topology.nno_unique,
@@ -1022,22 +1022,21 @@ class Mpfa(pp.FVElliptic):
         )
 
         # Re-organize system into a block-diagonal form.
-        grad = rows2blk_diag * grad_eqs * cols2blk_diag
+        grad = grad_eqs[row_perm, :][:, col_perm]
 
         del grad_eqs
         # Invert the system, and map back to the original form. Also right multiply with
         # the diagonal scaling matrix. Since we will multiply igrad with various right
         # hand side matrices to construct the discretizations, this is equivalent with
         # scaling the right hand side terms.
-        igrad = (
-            cols2blk_diag
-            * pp.matrix_operations.invert_diagonal_blocks(
-                grad, size_of_blocks, method=inverter
-            )
-            * rows2blk_diag
-        ) * full_scaling
+        inv_grad = pp.matrix_operations.invert_diagonal_blocks(
+            grad, size_of_blocks, method=inverter
+        )
+        row_inv_perm = pp.matrix_operations.invert_permutation(row_perm)
+        col_inv_perm = pp.matrix_operations.invert_permutation(col_perm)
+        igrad = inv_grad[col_inv_perm, :][:, row_inv_perm] * full_scaling
 
-        del grad, cols2blk_diag, rows2blk_diag
+        del grad
 
         # Technical note: The elements in igrad are organized as follows: The fields
         # subcell_topology.cno and .nno will together identify Nd placements in igrad
@@ -1347,7 +1346,7 @@ class Mpfa(pp.FVElliptic):
         # between local and block ordering etc.
         return total_size
 
-    def _block_diagonal_structure(
+    def _block_permutations_and_sizes(
         self,
         sub_cell_index: np.ndarray,
         cell_node_blocks: np.ndarray,
@@ -1376,33 +1375,20 @@ class Mpfa(pp.FVElliptic):
         # Stack node numbers of equations on top of each other, and sort them to get
         # block-structure. First eliminate node numbers at the boundary, where the
         # equations are either of flux, pressure continuity or Robin
-        nno_flux = bound_exclusion.exclude_robin_dirichlet(nno)
-        nno_pressure = bound_exclusion.exclude_neumann_robin(nno)
+        nno_flux = bound_exclusion.exclude_robin_dirichlet(nno).astype("int32")
+        nno_pressure = bound_exclusion.exclude_neumann_robin(nno).astype("int32")
         # we have now eliminated all nodes related to robin, we therefore add them
-        nno_rob = bound_exclusion.keep_robin(nno)
+        nno_rob = bound_exclusion.keep_robin(nno).astype("int32")
 
-        node_occ = np.hstack((nno_flux, nno_rob, nno_pressure))
-        sorted_ind = np.argsort(node_occ)
-        sorted_nodes_rows = node_occ[sorted_ind]
-        # Size of block systems
-        size_of_blocks = np.bincount(sorted_nodes_rows.astype("int64"))
-        rows2blk_diag = sps.coo_matrix(
-            (np.ones(sorted_nodes_rows.size), (np.arange(sorted_ind.size), sorted_ind))
-        ).tocsr()
+        node_occ = np.hstack((nno_flux, nno_rob, nno_pressure)).astype("int32")
+        row_perm = np.argsort(node_occ).astype("int32")
 
-        # cell_node_blocks[1] contains the node numbers associated with each sub-cell
-        # gradient (and so column of the local linear systems). A sort of these will
-        # give a block-diagonal structure
+        size_of_blocks = np.bincount(node_occ[row_perm]).astype("int32")
+
         sorted_nodes_cols = np.argsort(cell_node_blocks[1])
-        subcind_nodes = sub_cell_index[::, sorted_nodes_cols].ravel("F")
-        cols2blk_diag = sps.coo_matrix(
-            (
-                np.ones(sub_cell_index.size),
-                (subcind_nodes, np.arange(sub_cell_index.size)),
-            )
-        ).tocsr()
+        col_perm = sub_cell_index[::, sorted_nodes_cols].ravel("F").astype("int32")
 
-        return rows2blk_diag, cols2blk_diag, size_of_blocks
+        return row_perm, col_perm, size_of_blocks
 
     def _create_bound_rhs(
         self,

@@ -1616,6 +1616,13 @@ class Mpsa(Discretization):
         # Operator for carying out the average
         average = sps.kron(map_mat * weight_mat, sps.identity(nd)).tocsr()
 
+        # block operators
+        bd_normals_mat = sps.block_diag([normals_mat] * nd)
+        bd_average = sps.block_diag([normals_mat @ average] * nd)
+
+        # common indexation
+        indices_c = cc.ravel("F")
+
         for iter1 in range(nd):
             # Pick out part of Hook's law associated with this dimension The code here
             # looks nasty, it should be possible to get the right format of the
@@ -1630,22 +1637,25 @@ class Mpsa(Discretization):
             asym_vals = asym_dim[sub_cell_ind]
 
             # Represent this part of the stiffness matrix in matrix form
-            csym_mat = sps.csr_matrix((sym_vals.ravel("C"), cc.ravel("F"), ind_ptr_c))
-            casym_mat = sps.csr_matrix((asym_vals.ravel("C"), cc.ravel("F"), ind_ptr_c))
-
-            # Compute average around vertexes
-            casym_mat = average * casym_mat
+            csym_mat = sps.csr_matrix((sym_vals.ravel("C"), indices_c, ind_ptr_c))
+            casym_mat = sps.csr_matrix((asym_vals.ravel("C"), indices_c, ind_ptr_c))
 
             # Compute products of normal vectors and stiffness tensors, and stack
             # dimensions vertically
-            ncsym = sps.vstack((ncsym, normals_mat * csym_mat))
-            ncasym = sps.vstack((ncasym, normals_mat * casym_mat))
+            ncsym = sps.vstack((ncsym, csym_mat))
+            ncasym = sps.vstack((ncasym, casym_mat))
 
             # Increase index vector, so that we get rows contributing to forces
             # in the next dimension
             rind += nd
 
         grad_ind = cc[:, ::nd]
+
+        ncsym.eliminate_zeros()
+        ncasym.eliminate_zeros()
+
+        ncsym = bd_normals_mat @ ncsym
+        ncasym = bd_average @ ncasym
 
         return ncsym, ncasym, cell_node_blocks, grad_ind
 
@@ -1675,24 +1685,22 @@ class Mpsa(Discretization):
 
         """
 
-        # Mappings to convert linear system to block diagonal form
-        rows2blk_diag, cols2blk_diag, size_of_blocks = self._block_diagonal_structure(
+        # Permutations to convert linear system to block diagonal form
+        row_perm, col_perm, size_of_blocks = self._block_permutations_and_sizes(
             sub_cell_index, cell_node_blocks, nno_unique, bound_exclusion, nd
         )
 
-        grad = rows2blk_diag * grad_eqs * cols2blk_diag
+        grad = grad_eqs[row_perm, :][:, col_perm]
         # Compute inverse gradient operator, and map back again
-        igrad = (
-            cols2blk_diag
-            * pp.matrix_operations.invert_diagonal_blocks(
-                grad, size_of_blocks, method=inverter
-            )
-            * rows2blk_diag
+        inv_grad = pp.matrix_operations.invert_diagonal_blocks(
+            grad, size_of_blocks, method=inverter
         )
-        logger.debug("max igrad: " + str(np.max(np.abs(igrad))))
+        row_inv_perm = pp.matrix_operations.invert_permutation(row_perm)
+        col_inv_perm = pp.matrix_operations.invert_permutation(col_perm)
+        igrad = inv_grad[col_inv_perm, :][:, row_inv_perm]
         return igrad
 
-    def _block_diagonal_structure(
+    def _block_permutations_and_sizes(
         self,
         sub_cell_index: np.ndarray,
         cell_node_blocks: np.ndarray,
@@ -1711,11 +1719,9 @@ class Mpsa(Discretization):
             nd: Number of spatial dimensions.
 
         Returns:
-            :obj:`~scipy.sparse.spmatrix`: Transform rows of linear system to
-                block-diagonal form.
+            np.ndarray: row permutation to block-diagonal form.
 
-            :obj:`~scipy.sparse.spmatrix`: Transform colmns of linear system to
-                block-diagonal form.
+            np.ndarray: column permutation to block-diagonal form.
 
             np.ndarray: Number of equations in each block.
 
@@ -1731,28 +1737,23 @@ class Mpsa(Discretization):
         nno_displacement = bound_exclusion.exclude_neumann_robin(nno, transform=False)
         nno_neu = bound_exclusion.keep_neumann(nno, transform=False)
         nno_rob = bound_exclusion.keep_robin(nno, transform=False)
-        node_occ = np.hstack((nno_stress, nno_neu, nno_rob, nno_displacement))
+        node_occ = np.hstack((nno_stress, nno_neu, nno_rob, nno_displacement)).astype(
+            "int32"
+        )
 
-        sorted_ind = np.argsort(node_occ, kind="mergesort")
-        rows2blk_diag = sps.coo_matrix(
-            (np.ones(sorted_ind.size), (np.arange(sorted_ind.size), sorted_ind))
-        ).tocsr()
+        row_inv_perm = node_occ.astype("int32")
+        row_perm = np.argsort(row_inv_perm).astype("int32")
+
         # Size of block systems
-        sorted_nodes_rows = node_occ[sorted_ind]
-        size_of_blocks = np.bincount(sorted_nodes_rows.astype("int64"))
+        sorted_nodes_rows = node_occ[row_perm]
+        size_of_blocks = np.bincount(sorted_nodes_rows).astype("int32")
 
         # cell_node_blocks[1] contains the node numbers associated with each sub-cell
         # gradient (and so column of the local linear systems). A sort of these will
         # give a block-diagonal structure
-        sorted_nodes_cols = np.argsort(cell_node_blocks[1], kind="mergesort")
-        subcind_nodes = sub_cell_index[::, sorted_nodes_cols].ravel("F")
-        cols2blk_diag = sps.coo_matrix(
-            (
-                np.ones(sub_cell_index.size),
-                (subcind_nodes, np.arange(sub_cell_index.size)),
-            )
-        ).tocsr()
-        return rows2blk_diag, cols2blk_diag, size_of_blocks
+        sorted_nodes_cols = np.argsort(cell_node_blocks[1])
+        col_perm = sub_cell_index[::, sorted_nodes_cols].ravel("F")
+        return row_perm, col_perm, size_of_blocks
 
     def _unique_hooks_law(
         self,
