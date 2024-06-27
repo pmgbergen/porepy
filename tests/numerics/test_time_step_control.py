@@ -387,22 +387,30 @@ class TestParameterInputs:
 
 
 class TestTimeControl:
-    """The following tests are written to check the overall behavior of the time-stepping
-    algorithm"""
+    """The following tests are written to check the overall behavior of the
+    time-stepping algorithm"""
 
-    def test_final_simulation_time(self):
-        """Test if final simulation time returns None, irrespectively of parameters
-        passed in next_time_step()."""
+    @pytest.mark.parametrize("recompute_solution", [False, True])
+    @pytest.mark.parametrize(
+        "time",
+        [
+            1,  # We reach the final time
+            2,  # We are above the final time
+        ],
+    )
+    def test_final_simulation_time(self, recompute_solution: bool, time: int):
+        """Test if final simulation time returns None if we do not ask to recompute the
+        solution"""
         # Assume we reach the final time
         time_manager = pp.TimeManager(schedule=[0, 1], dt_init=0.1)
-        time_manager.time = 1
-        dt = time_manager.compute_time_step(iterations=1000, recompute_solution=True)
-        assert dt is None
-        # Now, assume we are above the final time
-        time_manager = pp.TimeManager(schedule=[0, 1], dt_init=0.1)
-        time_manager.time = 2
-        dt = time_manager.compute_time_step(iterations=0, recompute_solution=False)
-        assert dt is None
+        time_manager.time = time
+        dt = time_manager.compute_time_step(
+            iterations=1000, recompute_solution=recompute_solution
+        )
+        if recompute_solution:
+            assert dt is not None
+        else:
+            assert dt is None
 
     @pytest.mark.parametrize(
         "schedule, dt_init, time, time_index, iters, recomp_sol",
