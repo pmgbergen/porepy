@@ -973,7 +973,7 @@ class Exporter:
             return value
 
         def add_data_from_str(
-            data_pt: str, subdomain_data: dict, interface_data: dict, data_type: str
+            data_pt: str, subdomain_data: dict, interface_data: dict, num_entities: Literal["num_cells", "num_nodes"]
         ) -> tuple[dict, dict, bool]:
             """Check whether data is provided by a key of a field - could be both
             subdomain and interface data. If so, collect all data corresponding to
@@ -984,7 +984,7 @@ class Exporter:
                     ``pp.TIME_STEP_SOLUTIONS``.
                 subdomain_data: container for subdomain data.
                 interface_data: container for interface data.
-                data_type: type of data that should be processed: cell type by using
+                num_entities: type of data that should be processed: cell type by using
                     the flag "num_cells" and node type by using the flag "num_nodes".
 
             Returns:
@@ -1019,7 +1019,7 @@ class Exporter:
                             name=key, data=grid_data, time_step_index=0
                         )
                         value: np.ndarray = _to_vector_format(
-                            data_to_convert, getattr(grid, data_type)
+                            data_to_convert, getattr(grid, num_entities)
                         )
 
                         # Add data point in correct format to the collection
@@ -1057,7 +1057,7 @@ class Exporter:
             data_pt: tuple[list[pp.Grid], str],
             subdomain_data: dict,
             interface_data: dict,
-            data_type: str,
+            num_entities: Literal["num_cells", "num_nodes"],
         ) -> tuple[dict, dict, bool]:
             """Check whether data is provided as tuple (subdomains, key), where
             subdomains is a list of subdomains, and key is a string. This routine
@@ -1068,7 +1068,7 @@ class Exporter:
                     and a specific subdomain.
                 subdomain_data: container for subdomain data
                 interface_data: container for interface data
-                data_type: type of data that should be processed: cell type by using
+                num_entities: type of data that should be processed: cell type by using
                     the flag "num_cells" and node type by using the flag "num_nodes".
 
             Returns:
@@ -1112,7 +1112,7 @@ class Exporter:
                     data_to_convert = pp.get_solution_values(
                         name=key, data=sd_data, time_step_index=0
                     )
-                    value = _to_vector_format(data_to_convert, getattr(sd, data_type))
+                    value = _to_vector_format(data_to_convert, getattr(sd, num_entities))
 
                     # Add data point in correct format to collection
                     subdomain_data[(sd, key)] = value
@@ -1129,7 +1129,7 @@ class Exporter:
             data_pt: tuple[list[pp.MortarGrid], str],
             subdomain_data: dict,
             interface_data: dict,
-            data_type: str,
+            num_entities: Literal["num_cells", "num_nodes"],
         ) -> tuple[dict, dict, bool]:
             """Check whether data is provided as tuple (interfaces, key), where
             interfaces is a list of interfaces, and key is a string. This routine
@@ -1143,7 +1143,7 @@ class Exporter:
                     a key present in pp.TIME_STEP_SOLUTIONS.
                 subdomain_data: container for subdomain data.
                 interface_data: container for interface data.
-                data_type: type of data that should be processed: cell type by using
+                num_entities: type of data that should be processed: cell type by using
                     the flag "num_cells" and node type by using the flag "num_nodes".
 
             Returns:
@@ -1187,7 +1187,7 @@ class Exporter:
                     data_to_convert = pp.get_solution_values(
                         name=key, data=intf_data, time_step_index=0
                     )
-                    value = _to_vector_format(data_to_convert, getattr(intf, data_type))
+                    value = _to_vector_format(data_to_convert, getattr(intf, num_entities))
 
                     # Add data point in correct format to collection
                     interface_data[(intf, key)] = value
@@ -1214,7 +1214,7 @@ class Exporter:
                     cell data.
                 subdomain_data: container for subdomain data.
                 interface_data: container for interface data.
-                num_entities: the type of entity considered: "num_cells" or "num_faces".
+                num_entities: the type of entity considered: "num_cells" or "num_nodes".
 
             Returns:
                 Updated data containers and flag of success.
