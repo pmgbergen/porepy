@@ -467,7 +467,7 @@ class TimeManager:
         self._recomp_sol = recompute_solution
         self._iters = iterations
 
-        # First, check if we reach final simulation time
+        # First, check if we reach final simulation time with a valid solution
         if not recompute_solution and self.final_time_reached():
             return None
 
