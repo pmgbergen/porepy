@@ -68,6 +68,8 @@ class SolutionStrategy(abc.ABC):
     :class:`~porepy.viz.exporter.Exporter`.
 
     """
+    nonlinear_solver_statistics: pp.SolverStatistics
+    """Solver statistics for the nonlinear solver."""
     update_all_boundary_conditions: Callable[[], None]
     """Set the values of the boundary conditions for the new time step.
     Defined in :class:`~porepy.models.abstract_equations.BoundaryConditionsMixin`.
@@ -183,9 +185,7 @@ class SolutionStrategy(abc.ABC):
         is adjusted during simulation. See :meth:`before_nonlinear_loop`.
 
         """
-
-        self.nonlinear_solver_statistics = pp.SolverStatistics()
-        """Statistics object for non-linear solver loop."""
+        self.set_solver_statistics()
 
     def prepare_simulation(self) -> None:
         """Run at the start of simulation. Used for initialization etc."""
@@ -227,6 +227,31 @@ class SolutionStrategy(abc.ABC):
         the permeability, the porosity, etc.
 
         """
+
+    def set_solver_statistics(self) -> None:
+        """Set the solver statistics object.
+
+        This method is called at initialization. It is intended to be used to
+        set the solver statistics object(s). Currently, the solver statistics
+        object is related to nonlinearity only. Statistics on other parts of the
+        solution process, such as linear solvers, may be added in the future.
+
+        Raises:
+            ValueError: If the solver statistics object is not a subclass of
+                pp.SolverStatistics.
+
+        """
+        # Retrieve the value with a default of pp.SolverStatistics
+        statistics = self.params.get("nonlinear_solver_statistics", pp.SolverStatistics)
+        # Explicitly check if the retrieved value is a class and a subclass of
+        # pp.SolverStatistics for type checking.
+        if isinstance(statistics, type) and issubclass(statistics, pp.SolverStatistics):
+            self.nonlinear_solver_statistics = statistics()
+
+        else:
+            raise ValueError(
+                f"Expected a subclass of pp.SolverStatistics, got {statistics}."
+            )
 
     def initial_condition(self) -> None:
         """Set the initial condition for the problem.
