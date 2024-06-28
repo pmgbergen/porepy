@@ -8,11 +8,12 @@ keep them separate, to avoid breaking existing code (legacy models).
 from __future__ import annotations
 
 import abc
+from dataclasses import dataclass
 import logging
 import time
 import warnings
 from pathlib import Path
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Optional, Type
 
 import numpy as np
 import scipy.sparse as sps
@@ -183,11 +184,7 @@ class SolutionStrategy(abc.ABC):
         is adjusted during simulation. See :meth:`before_nonlinear_loop`.
 
         """
-
-        self.nonlinear_solver_statistics = self.params.get(
-            "nonlinear_solver_statistics", pp.SolverStatistics
-        )()
-        """Statistics object for non-linear solver loop."""
+        self.set_solver_statistics()
 
     def prepare_simulation(self) -> None:
         """Run at the start of simulation. Used for initialization etc."""
@@ -229,6 +226,17 @@ class SolutionStrategy(abc.ABC):
         the permeability, the porosity, etc.
 
         """
+
+    def set_solver_statistics(self) -> None:
+        """Set the solver statistics object.
+
+        This method is called at initialization. It is intended to be used to
+        set the solver statistics object(s). Currently, the solver statistics
+        object is related to nonlinearity only. Statistics on linear solvers
+        may be added in the future.
+
+        """
+        self.nonlinear_solver_statistics = pp.SolverStatistics()
 
     def initial_condition(self) -> None:
         """Set the initial condition for the problem.
