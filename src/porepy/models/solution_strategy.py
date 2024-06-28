@@ -233,24 +233,25 @@ class SolutionStrategy(abc.ABC):
 
         This method is called at initialization. It is intended to be used to
         set the solver statistics object(s). Currently, the solver statistics
-        object is related to nonlinearity only. Statistics on linear solvers
-        may be added in the future.
+        object is related to nonlinearity only. Statistics on other parts of the
+        solution process, such as linear solvers, may be added in the future.
+
+        Raises:
+            ValueError: If the solver statistics object is not a subclass of
+                pp.SolverStatistics.
 
         """
         # Retrieve the value with a default of pp.SolverStatistics
-        statistics_candidate = self.params.get(
-            "nonlinear_solver_statistics",
-        )
+        statistics = self.params.get("nonlinear_solver_statistics", pp.SolverStatistics)
         # Explicitly check if the retrieved value is a class and a subclass of
         # pp.SolverStatistics for type checking.
-        if isinstance(statistics_candidate, type) and issubclass(
-            statistics_candidate, pp.SolverStatistics
-        ):
-            statistics: Type[pp.SolverStatistics] = statistics_candidate
+        if isinstance(statistics, type) and issubclass(statistics, pp.SolverStatistics):
+            self.nonlinear_solver_statistics = statistics()
+
         else:
-            # Default to pp.SolverStatistics if the check fails
-            statistics = pp.SolverStatistics
-        self.nonlinear_solver_statistics = statistics()
+            raise ValueError(
+                f"Expected a subclass of pp.SolverStatistics, got {statistics}."
+            )
 
     def initial_condition(self) -> None:
         """Set the initial condition for the problem.
