@@ -184,7 +184,9 @@ class SolutionStrategy(abc.ABC):
 
         """
 
-        self.nonlinear_solver_statistics = pp.SolverStatistics()
+        self.nonlinear_solver_statistics = self.params.get(
+            "nonlinear_solver_statistics", pp.SolverStatistics
+        )()
         """Statistics object for non-linear solver loop."""
 
     def prepare_simulation(self) -> None:
