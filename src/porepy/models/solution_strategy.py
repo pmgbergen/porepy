@@ -236,7 +236,20 @@ class SolutionStrategy(abc.ABC):
         may be added in the future.
 
         """
-        self.nonlinear_solver_statistics = pp.SolverStatistics()
+        # Retrieve the value with a default of pp.SolverStatistics
+        statistics_candidate = self.params.get(
+            "nonlinear_solver_statistics",
+        )
+        # Explicitly check if the retrieved value is a class and a subclass of
+        # pp.SolverStatistics for type checking.
+        if isinstance(statistics_candidate, type) and issubclass(
+            statistics_candidate, pp.SolverStatistics
+        ):
+            statistics: Type[pp.SolverStatistics] = statistics_candidate
+        else:
+            # Default to pp.SolverStatistics if the check fails
+            statistics = pp.SolverStatistics
+        self.nonlinear_solver_statistics = statistics()
 
     def initial_condition(self) -> None:
         """Set the initial condition for the problem.
