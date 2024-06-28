@@ -105,3 +105,204 @@ def test_boundary_condition_mixin(t_end: int):
         # Projecting the expected value to the subdomain.
         expected_val = bg.projection().T @ expected_val
         assert np.allclose(bc_val_prev_ts[bc_type.is_neu], expected_val[bc_type.is_neu])
+
+
+"""Here follows mixins related to testing of Robin limit cases, and eventually the test itself. """
+
+
+class Geometry:
+    """Set a 2x2 unit square domain for testing the Robin limit case."""
+
+    def set_domain(self) -> None:
+        self._domain = pp.domains.unit_cube_domain(dimension=2)
+
+    def meshing_arguments(self) -> dict:
+        cell_size = self.solid.convert_units(0.5, "m")
+        mesh_args: dict[str, float] = {"cell_size": cell_size}
+        return mesh_args
+
+
+class BCValues:
+    """Set boundary values for momentum, mass, and mass and energy balance."""
+
+    def bc_values_displacement(self, bg: pp.BoundaryGrid) -> np.ndarray:
+        """Assigns displacement values in the x-direction of the west boundary."""
+        values = np.zeros((self.nd, bg.num_cells))
+        bounds = self.domain_boundary_sides(bg)
+        values[0][bounds.west] += np.ones(len(values[0][bounds.west]))
+        return values.ravel("F")
+
+    def bc_values_pressure(self, bg: pp.BoundaryGrid) -> np.ndarray:
+        """Assigns pressure values on the west boundary."""
+        values = np.zeros(bg.num_cells)
+        bounds = self.domain_boundary_sides(bg)
+        values[bounds.west] += np.ones(len(values[bounds.west]))
+        return values
+
+    def bc_values_temperature(self, bg: pp.BoundaryGrid) -> np.ndarray:
+        """Assigns temperature values on the west boundary."""
+        values = np.zeros(bg.num_cells)
+        bounds = self.domain_boundary_sides(bg)
+        values[bounds.west] += np.ones(len(values[bounds.west]))
+        return values
+
+
+class BCRobDir:
+    """Set Dirichlet and Robin for momentum, mass, and mass and energy balance.
+
+    Sets Dirichlet on the west boundary, and Robin with alpha = 0 on all other
+    boundaries.
+
+    """
+
+    def bc_type_mechanics(self, sd: pp.Grid) -> pp.BoundaryConditionVectorial:
+        bounds = self.domain_boundary_sides(sd)
+        bc = pp.BoundaryConditionVectorial(
+            sd,
+            bounds.north + bounds.south + bounds.east + bounds.west,
+            "rob",
+        )
+        bc.is_rob[:, bounds.west] = False
+        bc.is_dir[:, bounds.west] = True
+
+        r_w = np.tile(np.eye(sd.dim), (1, sd.num_faces))
+        bc.robin_weight = np.reshape(r_w, (sd.dim, sd.dim, sd.num_faces), "F") * 0
+        return bc
+
+    def bc_type_scalar_rob_dir(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        bounds = self.domain_boundary_sides(sd)
+        bc = pp.BoundaryCondition(
+            sd,
+            bounds.north + bounds.south + bounds.east + bounds.west,
+            "rob",
+        )
+        bc.is_rob[bounds.west] = False
+        bc.is_dir[bounds.west] = True
+
+        bc.robin_weight = np.zeros(sd.num_faces)
+        return bc
+
+    def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        return self.bc_type_scalar_rob_dir(sd=sd)
+
+    def bc_type_fourier_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        return self.bc_type_scalar_rob_dir(sd=sd)
+
+
+class BCDirNeu:
+    """Set Dirichlet and Neumann for momentum, mass, and mass and energy balance.
+
+    Sets Dirichlet on the west boundary, and Neumann on all other boundaries.
+
+    """
+
+    def bc_type_mechanics(self, sd: pp.Grid) -> pp.BoundaryConditionVectorial:
+        bounds = self.domain_boundary_sides(sd)
+        bc = pp.BoundaryConditionVectorial(sd, bounds.all_bf, "neu")
+        bc.is_neu[:, bounds.west] = False
+        bc.is_dir[:, bounds.west] = True
+        return bc
+
+    def bc_type_scalar_dir_neu(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        bounds = self.domain_boundary_sides(sd)
+        bc = pp.BoundaryCondition(
+            sd,
+            bounds.north + bounds.south + bounds.east + bounds.west,
+            "neu",
+        )
+        bc.is_neu[bounds.west] = False
+        bc.is_dir[bounds.west] = True
+        return bc
+
+    def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        return self.bc_type_scalar_dir_neu(sd=sd)
+
+    def bc_type_fourier_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        return self.bc_type_scalar_dir_neu(sd=sd)
+
+
+class MassBalanceNeu(
+    Geometry, BCValues, BCDirNeu, pp.models.fluid_mass_balance.SinglePhaseFlow
+): ...
+
+
+class MassBalanceRob(BCRobDir, MassBalanceNeu): ...
+
+
+class MassAndEnergyBalanceNeu(
+    Geometry, BCValues, BCDirNeu, pp.models.mass_and_energy_balance.MassAndEnergyBalance
+): ...
+
+
+class MassAndEnergyBalanceRob(BCRobDir, MassAndEnergyBalanceNeu): ...
+
+
+class MomentumBalanceNeu(
+    Geometry, BCValues, BCDirNeu, pp.models.momentum_balance.MomentumBalance
+): ...
+
+
+class MomentumBalanceRob(BCRobDir, MomentumBalanceNeu): ...
+
+
+@pytest.fixture()
+def run_models():
+    params = {"times_to_export": []}
+    models = {}
+
+    def run_model(balance_class):
+        instance = balance_class(params)
+        pp.run_time_dependent_model(instance, params)
+        sd = instance.mdg.subdomains(dim=2)[0]
+
+        if isinstance(instance, (MassBalanceRob, MassBalanceNeu)):
+            pressure = instance.pressure([sd]).value(instance.equation_system)
+            return {"pressure": pressure}
+        elif isinstance(instance, (MomentumBalanceRob, MomentumBalanceNeu)):
+            displacement = instance.displacement([sd]).value(instance.equation_system)
+            return {"displacement": displacement}
+        elif isinstance(instance, (MassAndEnergyBalanceRob, MassAndEnergyBalanceNeu)):
+            temperature = instance.temperature([sd]).value(instance.equation_system)
+            return {"temperature": temperature}
+
+    models["mass_balance"] = {
+        "rob": run_model(MassBalanceRob),
+        "neu": run_model(MassBalanceNeu),
+    }
+
+    models["momentum_balance"] = {
+        "rob": run_model(MomentumBalanceRob),
+        "neu": run_model(MomentumBalanceNeu),
+    }
+
+    models["mass_and_energy_balance"] = {
+        "rob": run_model(MassAndEnergyBalanceRob),
+        "neu": run_model(MassAndEnergyBalanceNeu),
+    }
+    return models
+
+
+@pytest.mark.parametrize(
+    "balance_type", ["mass_balance", "momentum_balance", "mass_and_energy_balance"]
+)
+def test_robin_limit_case(run_models, balance_type):
+    """Test that Robin conditions are equivalent to Neumann with Robin weight = 0.
+
+    The Robin conditions are implemented on the form: sigma * n + alpha * u = G. That
+    means that setting Robin conditions with alpha = 0 should correspond exactly to
+    setting Neumann conditions.
+
+    We test this for mass balance, mass and energy balance, and momentum balance.
+
+    Common for all model setups is that they have one Dirichlet condition to introduce
+    some driving forces to the system.
+
+    The model class setups with documentation are further up in this document.
+
+    """
+    rob_results = run_models[balance_type]["rob"]
+    neu_results = run_models[balance_type]["neu"]
+
+    assert all(
+        np.allclose(rob_results[key], neu_results[key]) for key in rob_results.keys()
+    )
