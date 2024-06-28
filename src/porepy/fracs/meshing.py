@@ -286,7 +286,7 @@ def _tag_faces(grids, check_highest_dim=True):
                 nodes_glb = g.global_point_ind[nodes_loc]
                 # We then tag each node as a tip node if it is not a global
                 # boundary node
-                node_on_tip_not_global_bnd = np.in1d(
+                node_on_tip_not_global_bnd = np.isin(
                     nodes_glb, bnd_nodes_glb, invert=True
                 )
 

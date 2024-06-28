@@ -522,13 +522,13 @@ class FractureNetwork3d(object):
             if has_boundary:
                 is_boundary = np.array(self.tags["boundary"])[unique_fracs]
                 is_frac = np.logical_not(
-                    np.logical_or(np.in1d(unique_fracs, constraints), is_boundary)
+                    np.logical_or(np.isin(unique_fracs, constraints), is_boundary)
                 )
                 is_frac_or_boundary = np.logical_not(
-                    np.in1d(unique_fracs, constraints),
+                    np.isin(unique_fracs, constraints),
                 )
             else:
-                is_frac = np.logical_not(np.in1d(unique_fracs, constraints))
+                is_frac = np.logical_not(np.isin(unique_fracs, constraints))
                 is_frac_or_boundary = is_frac
 
             # If more than one fracture share this point, it is an intersection
@@ -2149,7 +2149,7 @@ class FractureNetwork3d(object):
         # Loop over edges, and the polygons to which the edge belongs
         for e, e2f in enumerate(edges_2_frac):
             # Check if the polygons are on the boundary
-            edge_of_domain_boundary = np.in1d(e2f, boundary_polygons)
+            edge_of_domain_boundary = np.isin(e2f, boundary_polygons)
 
             if any(edge_of_domain_boundary):
                 # If all associated polygons are boundary, this is simple

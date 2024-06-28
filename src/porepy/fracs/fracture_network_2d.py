@@ -501,7 +501,7 @@ class FractureNetwork2d:
 
         # map the constraint index
         index_map = np.where(np.logical_not(to_delete))[0]
-        mapped_constraints = np.arange(index_map.size)[np.in1d(index_map, constraints)]
+        mapped_constraints = np.arange(index_map.size)[np.isin(index_map, constraints)]
 
         # update the tags
         for key, value in self.tags.items():

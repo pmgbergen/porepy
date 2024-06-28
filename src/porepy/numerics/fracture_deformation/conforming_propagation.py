@@ -704,7 +704,7 @@ class ConformingFracturePropagation(FracturePropagation):
             for i in range(local_nodes.size - 1):
                 e = [local_nodes[i + j] for j in range(sd_secondary.dim)]
 
-                if np.all(np.in1d(e, edge_primary)):
+                if np.all(np.isin(e, edge_primary)):
                     # The edge which we are splitting
                     continue
                 # Identify whether the edge is on a fracture. If so, remove the
