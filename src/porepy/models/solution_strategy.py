@@ -68,6 +68,8 @@ class SolutionStrategy(abc.ABC):
     :class:`~porepy.viz.exporter.Exporter`.
 
     """
+    nonlinear_solver_statistics: pp.SolverStatistics
+    """Solver statistics for the nonlinear solver."""
     update_all_boundary_conditions: Callable[[], None]
     """Set the values of the boundary conditions for the new time step.
     Defined in :class:`~porepy.models.abstract_equations.BoundaryConditionsMixin`.
