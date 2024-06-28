@@ -8,7 +8,6 @@ keep them separate, to avoid breaking existing code (legacy models).
 from __future__ import annotations
 
 import abc
-from dataclasses import dataclass
 import logging
 import time
 import warnings
