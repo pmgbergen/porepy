@@ -295,7 +295,7 @@ def test_bound_exclusion():
     neu_ind = np.argsort(subfno_neu)
     neu_ind = neu_ind[is_neu_nd[neu_ind]]
     reference = reference_dense_arrays.test_fvutils["test_bound_exclusion"]
-    assert np.alltrue(neu_ind == reference["neu_inds"])
+    assert np.all(neu_ind == reference["neu_inds"])
 
     subfno_dir = bound_exclusion.exclude_neumann_robin(subfno_nd.ravel("C")).ravel("F")
     is_dir_nd = (
@@ -307,4 +307,4 @@ def test_bound_exclusion():
     dir_ind = np.argsort(subfno_dir)
     dir_ind = dir_ind[is_dir_nd[dir_ind]]
 
-    assert np.alltrue(dir_ind == reference["dir_inds"])
+    assert np.all(dir_ind == reference["dir_inds"])
