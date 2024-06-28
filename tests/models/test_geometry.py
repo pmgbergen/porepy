@@ -90,9 +90,9 @@ def test_boundary_sides(geometry_class, num_fracs):
 
         # Check that only valid boundaries are picked
         domain_or_internal_bf = np.where(np.sum(np.abs(sd.cell_faces), axis=1) == 1)
-        assert np.all(np.in1d(all_bf, domain_or_internal_bf))
+        assert np.all(np.isin(all_bf, domain_or_internal_bf))
         frac_faces = sd.tags["fracture_faces"].nonzero()[0]
-        assert np.all(np.logical_not(np.in1d(all_bf, frac_faces)))
+        assert np.all(np.logical_not(np.isin(all_bf, frac_faces)))
         assert np.all(all_bool == (east + west + north + south + top + bottom))
 
         # Check that the coordinates of the

@@ -48,7 +48,7 @@ def test_subcell_topology_2d_cart():
     usubfno = np.unique(subcell_topology.subfno)
     assert usubfno.size == subcell_topology.subfno.size
 
-    assert np.all(np.in1d(subcell_topology.subfno, subcell_topology.subhfno))
+    assert np.all(np.isin(subcell_topology.subfno, subcell_topology.subhfno))
 
 
 def test_subcell_mapping_2d_simplex():
