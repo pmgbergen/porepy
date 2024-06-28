@@ -225,7 +225,7 @@ def match_2d(
         old_g_ind = old_g_ind[mask]
         weights = np.ones_like(new_g_ind)
     else:
-        raise ValueError("Unknown scaling option passed.")
+        raise ValueError(f"Unknown scaling option {scaling} passed.")
 
     return sps.coo_matrix(
         (weights, (new_g_ind, old_g_ind)), shape=(new_g.num_cells, old_g.num_cells)
