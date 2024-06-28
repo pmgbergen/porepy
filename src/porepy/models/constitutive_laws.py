@@ -2982,12 +2982,12 @@ class AdvectiveFlux:
         )
         flux: pp.ad.Operator = (
             darcy_flux * (discr.upwind() @ advected_entity)
-            - discr.bound_transport_dir() @ (darcy_flux * bc_values)
+            + discr.bound_transport_dir() @ (darcy_flux * bc_values)
             # Advective flux coming from lower-dimensional subdomains
-            - discr.bound_transport_neu() @ bc_values
+            + discr.bound_transport_neu() @ bc_values
         )
         if interface_flux is not None:
-            flux -= (
+            flux += (
                 discr.bound_transport_neu()
                 @ mortar_projection.mortar_to_primary_int
                 @ interface_flux(interfaces)

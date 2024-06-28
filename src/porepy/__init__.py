@@ -227,3 +227,6 @@ from porepy.applications.md_grids import (
 from porepy.applications.boundary_conditions import model_boundary_conditions
 from porepy.applications import test_utils
 from porepy import applications
+
+# composite subpackage
+from . import compositional

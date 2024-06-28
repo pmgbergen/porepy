@@ -9,19 +9,30 @@ AQAAAACAAACAAQAAPwAAAA==eJxjYMAOQsHgqj128acY4hDwAYc4pnkwPnbxpxjiMPOJdReq+ejiTzHE
 </DataArray>
 </Points>
 <Cells>
-<DataArray type="Int32" Name="connectivity" format="binary">
-AQAAAACAAADYAAAARwAAAA==eJxNiwEKgCAQBLcsNS37/287aYU5WBhuGEnaYqf+O8zzt8cyfPYvxQp8QXeZq3l1Db6h6/Ad3WO+zasb8APdCz/5A4D0AZY=
+<DataArray type="Int64" Name="connectivity" format="binary">
+AQAAAACAAACwAQAAUQAAAA==eJx1jUkOgDAMxMJWSoH2/7/l0MwBS5NLJGssR8xb8h/xvx1cuzV/MX7Bbst/Gl+cvQu8grPXjN+wU+82vjh7L/gDzl43fsdOvWF88Q8B9wGW
 </DataArray>
-<DataArray type="Int32" Name="offsets" format="binary">
-AQAAAACAAABIAAAAMgAAAA==eJwNw4EGgDAUAMBHRETEiDHGiDFG9P+ftjtui4jdw9PL2+RjtlhtvnaH08/fBTW4AgI=
+<DataArray type="Int64" Name="offsets" format="binary">
+AQAAAACAAACQAAAANgAAAA==eJwtxdEGwCAAAMARY8QYMSIiRkSM/f+n9bC7lwvbb/fh6NOXk29nF1c3P+4enn79eQFrcAIC
 </DataArray>
-<DataArray type="Int32" Name="types" format="binary">
-AQAAAACAAABIAAAADwAAAA==eJxjZWBgYKUCBgANpABb
+<DataArray type="Int64" Name="types" format="binary">
+AQAAAACAAACQAAAADwAAAA==eJxjZYAA1kFCAwAbSABb
 </DataArray>
 </Cells>
+<PointData>
+<DataArray type="Float64" Name="dummy_scalar_pt" format="binary">
+AQAAAACAAACAAAAADwAAAA==eJxjYAADB4YBogH0gAQB
+</DataArray>
+<DataArray type="Float64" Name="dummy_vector_pt" NumberOfComponents="3" format="binary">
+AQAAAACAAACAAQAAEQAAAA==eJxjYAADB4ZRekBoAN34DAE=
+</DataArray>
+<DataArray type="Int64" Name="node_id" format="binary">
+AQAAAACAAACAAAAAKgAAAA==eJwtxTkCwBAAADClbuX/v+0gWRLC9Tg6+XV2cXVz9/D08uft4x8VwAB5
+</DataArray>
+</PointData>
 <CellData>
-<DataArray type="Int32" Name="cell_id" format="binary">
-AQAAAACAAABIAAAAKwAAAA==eJwNwwESgBAQAMCTChH1/8/andmIiORh9vTytlhtPnaHr9Pl5+8GD2wAmg==
+<DataArray type="Int64" Name="cell_id" format="binary">
+AQAAAACAAACQAAAALgAAAA==eJwtxbcBgCAAADBEBWmC/z/LYLIkhN/h6NOXbydnPy6ubu4efj29/HkDHtgAmg==
 </DataArray>
 <DataArray type="Float64" Name="dummy_scalar" format="binary">
 AQAAAACAAACQAAAAEAAAAA==eJxjYAADB4ZBQgMANx8EgQ==
@@ -29,17 +40,17 @@ AQAAAACAAACQAAAAEAAAAA==eJxjYAADB4ZBQgMANx8EgQ==
 <DataArray type="Float64" Name="dummy_vector" NumberOfComponents="3" format="binary">
 AQAAAACAAACwAQAAEQAAAA==eJxjYAADB4ZRekjQAD3VDYE=
 </DataArray>
-<DataArray type="Int32" Name="grid_dim" format="binary">
-AQAAAACAAABIAAAADwAAAA==eJxjYmBgYKICBgAFoAAl
+<DataArray type="Int64" Name="grid_dim" format="binary">
+AQAAAACAAACQAAAADwAAAA==eJxjYoAApkFCAwALQAAl
 </DataArray>
-<DataArray type="Int32" Name="is_mortar" format="binary">
-AQAAAACAAABIAAAADAAAAA==eJxjYKAOAAAASAAB
+<DataArray type="Int64" Name="is_mortar" format="binary">
+AQAAAACAAACQAAAADAAAAA==eJxjYBhcAAAAkAAB
 </DataArray>
-<DataArray type="Int32" Name="mortar_side" format="binary">
-AQAAAACAAABIAAAADAAAAA==eJxjYKAOAAAASAAB
+<DataArray type="Int64" Name="mortar_side" format="binary">
+AQAAAACAAACQAAAADAAAAA==eJxjYBhcAAAAkAAB
 </DataArray>
-<DataArray type="Int32" Name="subdomain_id" format="binary">
-AQAAAACAAABIAAAADwAAAA==eJzjYmBg4KICBgAbAAC1
+<DataArray type="Int64" Name="subdomain_id" format="binary">
+AQAAAACAAACQAAAADwAAAA==eJzjYIAAjkFCAwArUACR
 </DataArray>
 </CellData>
 </Piece>
