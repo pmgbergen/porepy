@@ -120,6 +120,8 @@ class NewtonSolver:
             ):
                 newton_step()
 
+                iteration_counter += 1
+
                 if is_diverged:
                     # The nonlinear solver failure is handled after the loop.
                     break
@@ -128,8 +130,6 @@ class NewtonSolver:
                         iteration_counter=iteration_counter
                     )
                     break
-
-                iteration_counter += 1
 
         # Progressbars turned on:
         else:
@@ -153,6 +153,8 @@ class NewtonSolver:
                         f"""{self.params['max_iterations']}"""
                     )
                     newton_step()
+                    iteration_counter += 1
+
                     solver_progressbar.update(n=1)
                     solver_progressbar.set_postfix_str(
                         f"Increment {nonlinear_increment_norm:.3E}"
@@ -170,8 +172,6 @@ class NewtonSolver:
                             iteration_counter=iteration_counter
                         )
                         break
-
-                    iteration_counter += 1
 
         if not is_converged:
             model.after_nonlinear_failure()
