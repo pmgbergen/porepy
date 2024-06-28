@@ -97,6 +97,7 @@ class SparseNdArray:
             return_inverse=True,
             return_counts=True,
         )
+        all_2_unique = all_2_unique.ravel()
 
         # Next, consolidate the values for duplicate coordinates.
         if additive:
