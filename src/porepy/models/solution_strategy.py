@@ -12,7 +12,7 @@ import logging
 import time
 import warnings
 from pathlib import Path
-from typing import Any, Callable, Optional, Type
+from typing import Any, Callable, Optional
 
 import numpy as np
 import scipy.sparse as sps
