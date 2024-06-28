@@ -9,6 +9,9 @@ import pytest
 
 import porepy as pp
 from porepy.applications.test_utils.models import MassBalance as MassBalance_
+from porepy.applications.md_grids.model_geometries import (
+    SquareDomainOrthogonalFractures,
+)
 
 
 class CustomBoundaryCondition(pp.BoundaryConditionMixin):
@@ -108,18 +111,6 @@ def test_boundary_condition_mixin(t_end: int):
 
 
 """Here follows mixins related to testing of Robin limit cases, and eventually the test itself. """
-
-
-class Geometry:
-    """Set a 2x2 unit square domain for testing the Robin limit case."""
-
-    def set_domain(self) -> None:
-        self._domain = pp.domains.unit_cube_domain(dimension=2)
-
-    def meshing_arguments(self) -> dict:
-        cell_size = self.solid.convert_units(0.5, "m")
-        mesh_args: dict[str, float] = {"cell_size": cell_size}
-        return mesh_args
 
 
 class BCValues:
@@ -222,7 +213,10 @@ class BCDirNeu:
 
 
 class MassBalanceNeu(
-    Geometry, BCValues, BCDirNeu, pp.models.fluid_mass_balance.SinglePhaseFlow
+    SquareDomainOrthogonalFractures,
+    BCValues,
+    BCDirNeu,
+    pp.models.fluid_mass_balance.SinglePhaseFlow,
 ): ...
 
 
@@ -230,7 +224,10 @@ class MassBalanceRob(BCRobDir, MassBalanceNeu): ...
 
 
 class MassAndEnergyBalanceNeu(
-    Geometry, BCValues, BCDirNeu, pp.models.mass_and_energy_balance.MassAndEnergyBalance
+    SquareDomainOrthogonalFractures,
+    BCValues,
+    BCDirNeu,
+    pp.models.mass_and_energy_balance.MassAndEnergyBalance,
 ): ...
 
 
@@ -238,7 +235,10 @@ class MassAndEnergyBalanceRob(BCRobDir, MassAndEnergyBalanceNeu): ...
 
 
 class MomentumBalanceNeu(
-    Geometry, BCValues, BCDirNeu, pp.models.momentum_balance.MomentumBalance
+    SquareDomainOrthogonalFractures,
+    BCValues,
+    BCDirNeu,
+    pp.models.momentum_balance.MomentumBalance,
 ): ...
 
 
@@ -247,7 +247,11 @@ class MomentumBalanceRob(BCRobDir, MomentumBalanceNeu): ...
 
 @pytest.fixture()
 def run_models():
-    params = {"times_to_export": []}
+    params = {
+        "times_to_export": [],
+        "fracture_indices": [],
+        "meshing_arguments": {"cell_size": 0.5},
+    }
     models = {}
 
     def run_model(balance_class):
