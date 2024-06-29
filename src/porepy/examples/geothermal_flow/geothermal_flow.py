@@ -1,33 +1,20 @@
 """Example implementing a multi-phase multi component flow of H2O-NaCl using Driesner
-correlations and a tracer-like as constitutive descriptions.
+correlations.
 
-This model uses pressure, specific fluid mixture enthalpy and NaCl overall fraction as
-primary variables.
+The model relies on pressure (P), specific fluid mixture enthalpy (H), and NaCl overall
+composition (z_NaCl) as primary variables.
 
-No equilibrium calculations included.
+Equilibrium calculations are included in the correlations. As a result, they contain
+expressions for saturation, partial fractions, and temperature based on primary variables.
 
-Ergo, the user must close the model to provide expressions for saturation, partial
-fractions and temperature, depending on primary variables.
-
-Note:
-    With some additional work, it is straight forward to implement a model without
-    h as the primary variable, but T.
-
-    What needs to change is:
-
-    1. Overwrite
-       porepy.models.compositional_flow.VariablesCF
-       mixin s.t. it does not create a h variable.
-    2. Modify accumulation term in
-       porepy.models.compositional_flow.TotalEnergyBalanceEquation_h
-       to use T, not h.
-    3. H20_NaCl_brine.dependencies_of_phase_properties: Use T instead of h.
+The correlations are interpolated with VTK using a standalone object (VTKSampler). This
+object provides functions and their gradients in the product space (z_NaCl, H, P) in R^3.
 
 """
 
 from __future__ import annotations
+
 import os
-os.environ["NUMBA_DISABLE_JIT"] = "1"
 import time
 
 import numpy as np
@@ -37,6 +24,8 @@ from model_configuration.DriesnerModelConfiguration import (
 from vtk_sampler import VTKSampler
 
 import porepy as pp
+
+os.environ["NUMBA_DISABLE_JIT"] = "1"
 
 day = 86400
 tf = 0.05 * day
@@ -130,9 +119,3 @@ mn = model.darcy_flux(model.mdg.subdomains()).value(model.equation_system)
 inlet_idx, outlet_idx = model.get_inlet_outlet_sides(model.mdg.subdomains()[0])
 print("Inflow values : ", mn[inlet_idx])
 print("Outflow values : ", mn[outlet_idx])
-
-# Check conservation of overall mass across boundaries
-# external_bc_idx = bc_sides.all_bf
-# assert np.isclose(np.sum(mn[external_bc_idx]), 0.0, atol=1.0e-10)
-
-
