@@ -1,27 +1,19 @@
-"""Example implementing a multi-phase multi component flow of H2O-NaCl using Driesner
-correlations and a tracer-like as constitutive descriptions.
+"""Example implementing a multi-phase multi component flow of H2O-NaCl using a passive
+tracer constitutive model. In its full extension, the model is linear.
 
-This model uses pressure, specific fluid mixture enthalpy and NaCl overall fraction as
-primary variables.
+The model relies on pressure (P), specific fluid mixture enthalpy (H), and NaCl overall
+composition (z_NaCl) as primary variables.
 
-No equilibrium calculations included.
+    Note:
+        - The overall mass flux is a solenoidal vector field and constant in time;
+        - Partial fractions X_NaCL_gamma are equal to z_NaCL;
+        - Partial fractions X_H2O_gamma are equal to 1-z_NaCL;
+        - Temperature is related to H with the residual equation (T - 0.25 H = 0);
+        - Relative permeability is linear;
+        - Phase saturations S_gamma (gamma in {l,v}) are kept constant and equal to 0.5.
 
-Ergo, the user must close the model to provide expressions for saturation, partial
-fractions and temperature, depending on primary variables.
-
-Note:
-    With some additional work, it is straight forward to implement a model without
-    h as the primary variable, but T.
-
-    What needs to change is:
-
-    1. Overwrite
-       porepy.models.compositional_flow.VariablesCF
-       mixin s.t. it does not create a h variable.
-    2. Modify accumulation term in
-       porepy.models.compositional_flow.TotalEnergyBalanceEquation_h
-       to use T, not h.
-    3. H20_NaCl_brine.dependencies_of_phase_properties: Use T instead of h.
+The computations are qualitatively checked by asserting global conservation of the
+solenoidal vector field.
 
 """
 
@@ -72,17 +64,11 @@ params = {
 class TracerLikeFlowModel(FlowModel):
 
     def after_nonlinear_convergence(self, iteration_counter) -> None:
-        tb = time.time()
-        _, residual = self.equation_system.assemble(evaluate_jacobian=True)
-        res_norm = np.linalg.norm(residual)
-        te = time.time()
-        print("Elapsed time assemble: ", te - tb)
-        print("Time step converged with residual norm: ", res_norm)
+        super().after_nonlinear_convergence(iteration_counter)
         print("Number of iterations: ", iteration_counter)
         print("Time value: ", self.time_manager.time)
         print("Time index: ", self.time_manager.time_index)
         print("")
-        super().after_nonlinear_convergence(iteration_counter)
 
     def after_simulation(self):
         self.exporter.write_pvd()
