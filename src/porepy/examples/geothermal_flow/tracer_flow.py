@@ -10,7 +10,7 @@ composition (z_NaCl) as primary variables.
         - Partial fractions X_H2O_gamma are equal to 1-z_NaCL;
         - Temperature is related to H with the residual equation (T - 0.25 H = 0);
         - Relative permeability is linear;
-        - Phase saturations S_gamma (gamma in {l,v}) are kept constant and equal to 0.5.
+        - Phase saturation S_gamma (gamma in {l,v}) is kept constant and equal to 0.5.
 
 The computations are qualitatively checked by asserting global conservation of the
 solenoidal vector field.
