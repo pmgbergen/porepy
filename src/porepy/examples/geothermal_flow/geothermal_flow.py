@@ -14,7 +14,6 @@ object provides functions and their gradients in the product space (z_NaCl, H, P
 
 from __future__ import annotations
 
-import os
 import time
 
 import numpy as np
@@ -25,11 +24,9 @@ from vtk_sampler import VTKSampler
 
 import porepy as pp
 
-os.environ["NUMBA_DISABLE_JIT"] = "1"
-
 day = 86400
-tf = 0.05 * day
-dt = 0.00025 * day
+tf = 0.05 * day # final time
+dt = 0.00025 * day # time step size
 time_manager = pp.TimeManager(
     schedule=[0.0, tf],
     dt_init=dt,
@@ -64,17 +61,11 @@ params = {
 class GeothermalFlowModel(FlowModel):
 
     def after_nonlinear_convergence(self, iteration_counter) -> None:
-        tb = time.time()
-        _, residual = self.equation_system.assemble(evaluate_jacobian=True)
-        res_norm = np.linalg.norm(residual)
-        te = time.time()
-        print("Elapsed time assemble: ", te - tb)
-        print("Time step converged with residual norm: ", res_norm)
+        super().after_nonlinear_convergence(iteration_counter)
         print("Number of iterations: ", iteration_counter)
         print("Time value: ", self.time_manager.time)
         print("Time index: ", self.time_manager.time_index)
         print("")
-        super().after_nonlinear_convergence(iteration_counter)
 
     def after_simulation(self):
         self.exporter.write_pvd()
