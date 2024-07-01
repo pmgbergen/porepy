@@ -14,7 +14,6 @@ class Tpsa:
 
         self.keyword: str = keyword
 
-
         self.stress_displacement_matrix_key: str = "stress"
         self.stress_rotation_matrix_key: str = "stress_rotation"
         self.stress_solid_pressure_matrix_key: str = "pressure_stress"
@@ -33,8 +32,9 @@ class Tpsa:
         self.bound_rotation_diffusion_matrix_key = "bound_rotation_diffusion"
         self.bound_rotation_displacement_matrix_key = "bound_rotation_displacement"
 
-
+    
     def discretize(self, sd: Grid, data: dict) -> None:
+
         parameter_dictionary: dict[str, Any] = data[pp.PARAMETERS][self.keyword]
         matrix_dictionary: dict[str, sps.spmatrix] = data[pp.DISCRETIZATION_MATRICES][
             self.keyword
@@ -57,7 +57,7 @@ class Tpsa:
 
         # Data structures for boundary conditions. Only homogeneous Dirichlet conditions
         # treated so far.
-        dir_displacement = bnd.is_dir.ravel('f')
+        dir_displacement = bnd.is_dir.ravel("f")
         dir_scalar = bnd.is_dir[0]
 
         # Normal vectors and permeability for each face (here and there side)
@@ -66,14 +66,16 @@ class Tpsa:
         n *= sgn
 
         # Vector from face center to cell center
-        fc_cc = n * (sd.face_centers[::, fi] - sd.cell_centers[::, ci]) / sd.face_areas[fi]
+        fc_cc = (
+            n * (sd.face_centers[::, fi] - sd.cell_centers[::, ci]) / sd.face_areas[fi]
+        )
         dist_fc_cc = np.abs(np.sum(fc_cc, axis=0))
 
         # Distance between neighboring cells
-        dist_cc_cc = np.bincount(fi, weights=dist_fc_cc, minlength=sd.num_cells)
+        dist_cc_cc = np.bincount(fi, weights=dist_fc_cc, minlength=nc)
 
         def facewise_harmonic_mean(field):
-            return 1 / np.bincount(fi, weights=1 / field, minlength=sd.num_faces)
+            return 1 / np.bincount(fi, weights=1 / field, minlength=nf)
 
         ## Harmonic average of the shear modulus
         #
@@ -83,30 +85,28 @@ class Tpsa:
         t_cosserat = facewise_harmonic_mean(cosserat_parameter / dist_fc_cc)
 
         # Arithmetic average of the shear modulus.
-        arithmetic_average_shear_modulus = (
-            np.bincount(
-                fi, weights=shear_modulus_by_face_cell_distance, minlength=sd.num_faces
-            )
+        arithmetic_average_shear_modulus = np.bincount(
+            fi, weights=shear_modulus_by_face_cell_distance, minlength=nf
         )
 
-        face_area_diag_matrix = sps.dia_matrix((sd.face_areas, 0),shape=(nf, nf))
+        face_area_diag_matrix = sps.dia_matrix((sd.face_areas, 0), shape=(nf, nf))
         face_area_diag_matrix_nd = sps.dia_matrix(
-                (np.repeat(sd.face_areas, sd.dim), 0),
-                shape=(sd.num_faces * sd.dim, sd.num_faces * sd.dim),
-            )
+            (np.repeat(sd.face_areas, nd), 0),
+            shape=(nf * nd, nf * nd),
+        )
 
         # The vector difference operator over a face is simply a Kronecker product of
         # the standard cell-face map.
-        cell_to_face_difference = sps.kron(sd.cell_faces, sps.eye(sd.dim)).tocsr()
+        cell_to_face_difference = sps.kron(sd.cell_faces, sps.eye(nd)).tocsr()
         # The weighted average
         cell_to_face_average = (
             sps.dia_matrix(
                 (1 / np.bincount(fi, shear_modulus_by_face_cell_distance), 0),
-                shape=(sd.num_faces, sd.num_faces),
+                shape=(nf, nf),
             )
             @ sps.coo_matrix(
                 ((shear_modulus_by_face_cell_distance, (fi, ci))),
-                shape=(sd.num_faces, sd.num_cells),
+                shape=(nf, nc),
             ).tocsr()
         )
 
@@ -119,7 +119,7 @@ class Tpsa:
 
         cell_to_face_average_nd = sps.kron(
             cell_to_face_average,
-            sps.eye(sd.dim),
+            sps.eye(nd),
         ).tocsr()
 
         # Complement average map, defined as 1 - the average map
@@ -132,100 +132,111 @@ class Tpsa:
         )
         cell_to_face_average_complement_nd = sps.kron(
             cell_to_face_average_complement,
-            sps.eye(sd.dim),
+            sps.eye(nd),
         ).tocsr()
 
         dir_filter = sps.dia_matrix((dir_scalar.astype(int), 0), shape=(nf, nf))
-        dir_filter_nd = sps.dia_matrix((np.repeat(dir_scalar.astype(int), nd), 0), shape=(nf*nd, nf*nd))
-        dir_nopass_filter = sps.dia_matrix((1 - dir_scalar.astype(int), 0), shape=(nf, nf))
-        dir_nopass_filter_nd = sps.dia_matrix((1 - np.repeat(dir_scalar.astype(int), nd), 0), shape=(nf*nd, nf*nd))
-
+        dir_filter_nd = sps.dia_matrix(
+            (np.repeat(dir_scalar.astype(int), nd), 0), shape=(nf * nd, nf * nd)
+        )
+        dir_nopass_filter = sps.dia_matrix(
+            (1 - dir_scalar.astype(int), 0), shape=(nf, nf)
+        )
+        dir_nopass_filter_nd = sps.dia_matrix(
+            (1 - np.repeat(dir_scalar.astype(int), nd), 0), shape=(nf * nd, nf * nd)
+        )
 
         # Stress due to displacements
-        row = fvutils.expand_indices_nd(fi, sd.dim)
-        col = fvutils.expand_indices_nd(ci, sd.dim)
+        row = fvutils.expand_indices_nd(fi, nd)
+        col = fvutils.expand_indices_nd(ci, nd)
         # Stress is scaled by the face area.
-        stress = -( face_area_diag_matrix_nd @ sps.coo_matrix(  # Note minus sign
-                (2 * t_shear[np.repeat(fi, sd.dim)] * np.repeat(sgn, sd.dim), (row, col)),
-                shape=(sd.num_faces * sd.dim, sd.num_cells * sd.dim),
+        stress = -(
+            face_area_diag_matrix_nd
+            @ sps.coo_matrix(  # Note minus sign
+                (2 * t_shear[np.repeat(fi, nd)] * np.repeat(sgn, nd), (row, col)),
+                shape=(nf * nd, nc * nd),
             ).tocsr()
         )
 
-        bound_stress = -dir_filter_nd @ face_area_diag_matrix_nd @ sps.coo_matrix(
-                            (2 * t_shear[np.repeat(fi, sd.dim)] * np.repeat(sgn, sd.dim), (row, row)),
+        bound_stress = (
+            -dir_filter_nd
+            @ face_area_diag_matrix_nd
+            @ sps.coo_matrix(
+                (2 * t_shear[np.repeat(fi, nd)] * np.repeat(sgn, nd), (row, row)),
                 shape=(nf * nd, nf * nd),
             ).tocsr()
+        )
 
         n = sd.face_normals
 
         stress_solid_pressure = (
             sps.csc_matrix(
                 (
-                    n[: sd.dim].ravel("F"),
-                    np.arange(0, sd.dim * sd.num_faces),
-                    np.arange(0, sd.dim * sd.num_faces + 1, sd.dim),
+                    n[:nd].ravel("F"),
+                    np.arange(0, nd * nf),
+                    np.arange(0, nd * nf + 1, nd),
                 ),
-                shape=(sd.dim * sd.num_faces, sd.num_faces),
+                shape=(nd * nf, nf),
             )
             @ cell_to_face_average_complement
         )
 
         normal_vector_fat_matrix = sps.csr_matrix(
-                (
-                    n[: sd.dim].ravel("F"),
-                    np.arange(sd.dim * sd.num_faces),
-                    np.arange(0, sd.dim * sd.num_faces + 1, sd.dim),
-                ),
-                shape=(sd.num_faces, sd.dim * sd.num_faces),
-            )
-
-        mass_displacement = (normal_vector_fat_matrix @ cell_to_face_average_nd
+            (
+                n[:nd].ravel("F"),
+                np.arange(nd * nf),
+                np.arange(0, nd * nf + 1, nd),
+            ),
+            shape=(nf, nd * nf),
         )
+
+        mass_displacement = normal_vector_fat_matrix @ cell_to_face_average_nd
         bound_mass_displacement = dir_filter @ normal_vector_fat_matrix
 
         mass_solid_pressure = -dir_nopass_filter @ (
             sps.dia_matrix(
                 (sd.face_areas / (2 * arithmetic_average_shear_modulus), 0),
-                shape=(sd.num_faces, sd.num_faces),
+                shape=(nf, nf),
             )
             @ sd.cell_faces
         )
 
         # Operator R_k^n
-        if sd.dim == 3:
+        if nd == 3:
             # In this case, \hat{R}_k^n = \bar{R}_k^n is the 3x3 projection matrix
             #
             #  R^n = [[0, -n3, n2], [n3, 0, -n1], [-n2, n1, 0]]
-            z = np.zeros(sd.num_faces)
+            z = np.zeros(nf)
             Rn_data = np.array([[z, -n[2], n[1]], [n[2], z, -n[0]], [-n[1], n[0], z]])
 
-            indices = np.repeat(np.arange(0, sd.dim * sd.num_faces), sd.dim)
-            indptr = np.arange(0, sd.dim**2 * sd.num_faces + 1, sd.dim)
+            indices = np.repeat(np.arange(0, nd * nf), nd)
+            indptr = np.arange(0, nd**2 * nf + 1, nd)
             Rn_hat = sps.csr_matrix(
                 (Rn_data.ravel("F"), indices, indptr),
-                shape=(sd.dim * sd.num_faces, sd.dim * sd.num_faces),
+                shape=(nd * nf, nd * nf),
             )
             Rn_hat = sps.block_diag([Rn_data[:, :, i] for i in range(nf)], format="csr")
 
             Rn_bar = Rn_hat
 
             stress_rotation = -Rn_hat @ cell_to_face_average_complement_nd
-            
 
             rotation_diffusion = -(
-                face_area_diag_matrix_nd @ sps.coo_matrix(  # Note minus sign
-                    (t_cosserat[np.repeat(fi, sd.dim)] * np.repeat(sgn, sd.dim), (row, col)),
-                    shape=(sd.num_faces * sd.dim, sd.num_cells * sd.dim),
-                    ).tocsr()
+                face_area_diag_matrix_nd
+                @ sps.coo_matrix(  # Note minus sign
+                    (t_cosserat[np.repeat(fi, nd)] * np.repeat(sgn, nd), (row, col)),
+                    shape=(nf * nd, nc * nd),
+                ).tocsr()
             )
             bound_rotation_diffusion = -dir_filter_nd @ (
-                face_area_diag_matrix_nd @ sps.coo_matrix(  # Note minus sign
-                    (t_cosserat[np.repeat(fi, sd.dim)] * np.repeat(sgn, sd.dim), (row, row)),
-                    shape=(sd.num_faces * sd.dim, sd.num_faces * sd.dim),
-                    ).tocsr()
+                face_area_diag_matrix_nd
+                @ sps.coo_matrix(  # Note minus sign
+                    (t_cosserat[np.repeat(fi, nd)] * np.repeat(sgn, nd), (row, row)),
+                    shape=(nf * nd, nf * nd),
+                ).tocsr()
             )
 
-        elif sd.dim == 2:
+        elif nd == 2:
             # In this case, \hat{R}_k^n and \bar{R}_k^n differs, and read, respectively
             # \hat{R}_k^n = [[n2], [-n1]], \bar{R}_k^n = [-n2, n1].
             # We may need a ravel of sorts of the data
@@ -234,20 +245,22 @@ class Tpsa:
             # Mapping from average displacements over faces to rotations on the face
             Rn_bar = sps.csr_matrix(
                 (
-                    -normal_vector_data.ravel("F"),  # minus sign from definition of Rn_bar
-                    np.arange(sd.dim * sd.num_faces),
-                    np.arange(0, sd.dim * sd.num_faces + 1, sd.dim),
+                    -normal_vector_data.ravel(
+                        "F"
+                    ),  # minus sign from definition of Rn_bar
+                    np.arange(nd * nf),
+                    np.arange(0, nd * nf + 1, nd),
                 ),
-                shape=(sd.num_faces, sd.dim * sd.num_faces),
+                shape=(nf, nd * nf),
             )
             # Mapping from average rotations over faces to stresses
             Rn_hat = sps.csc_matrix(
                 (
                     normal_vector_data.ravel("F"),
-                    np.arange(sd.num_faces * sd.dim),
-                    np.arange(0, sd.dim * sd.num_faces + 1, sd.dim),
+                    np.arange(nf * nd),
+                    np.arange(0, nd * nf + 1, nd),
                 ),
-                shape=(sd.dim * sd.num_faces, sd.num_faces),
+                shape=(nd * nf, nf),
             )
             # TODO: sd.cell_faces must be replaced by weighting
             stress_rotation = -Rn_hat @ cell_to_face_average_complement
@@ -256,18 +269,22 @@ class Tpsa:
                 face_area_diag_matrix
                 @ sps.coo_matrix(  # Note minus sign
                     (t_cosserat[fi] * sgn, (fi, ci)),
-                    shape=(sd.num_faces, sd.num_cells),
-                    ).tocsr()
-            )            
-            bound_rotation_diffusion = -dir_filter @ face_area_diag_matrix @ sps.coo_matrix(
+                    shape=(nf, nc),
+                ).tocsr()
+            )
+            bound_rotation_diffusion = (
+                -dir_filter
+                @ face_area_diag_matrix
+                @ sps.coo_matrix(
                     (t_cosserat[fi] * sgn, (fi, fi)),
                     shape=(nf, nf),
-                    ).tocsr()
+                ).tocsr()
+            )
         rotation_displacement = -Rn_bar @ cell_to_face_average_nd
 
-        if sd.dim == 2:
+        if nd == 2:
             bound_rotation_displacement = -dir_filter @ Rn_bar
-        else: # 3D
+        else:  # 3D
             bound_rotation_displacement = -dir_filter_nd @ Rn_bar
 
         ## Store the computed fields
@@ -275,18 +292,20 @@ class Tpsa:
         # Discretization matrices
         matrix_dictionary[self.stress_displacement_matrix_key] = stress
         matrix_dictionary[self.stress_rotation_matrix_key] = stress_rotation
-        matrix_dictionary[self.stress_solid_pressure_matrix_key] = (
-            stress_solid_pressure
-        )
+        matrix_dictionary[self.stress_solid_pressure_matrix_key] = stress_solid_pressure
         matrix_dictionary[self.rotation_displacement_matrix_key] = rotation_displacement
         matrix_dictionary[self.rotation_diffusion_matrix_key] = rotation_diffusion
-        matrix_dictionary[self.mass_solid_pressure_matrix_key] = (
-            mass_solid_pressure
-        )
+        matrix_dictionary[self.mass_solid_pressure_matrix_key] = mass_solid_pressure
         matrix_dictionary[self.mass_displacement_matrix_key] = mass_displacement
 
         # Boundary conditions (NB: Only Dirichlet implemented for now)
         matrix_dictionary[self.bound_stress_matrix_key] = bound_stress
-        matrix_dictionary[self.bound_mass_displacement_matrix_key] = bound_mass_displacement
-        matrix_dictionary[self.bound_rotation_diffusion_matrix_key] = bound_rotation_diffusion
-        matrix_dictionary[self.bound_rotation_displacement_matrix_key] = bound_rotation_displacement
+        matrix_dictionary[self.bound_mass_displacement_matrix_key] = (
+            bound_mass_displacement
+        )
+        matrix_dictionary[self.bound_rotation_diffusion_matrix_key] = (
+            bound_rotation_diffusion
+        )
+        matrix_dictionary[self.bound_rotation_displacement_matrix_key] = (
+            bound_rotation_displacement
+        )
