@@ -325,7 +325,7 @@ def test_internal_boundary_normal_to_outwards(
         cf = sd.cell_faces
         # Summing is a trick to get the sign of the cell-face relation for the boundary
         # faces (we don't care about internal faces).
-        cf_sum = np.sum(cf, axis=1)
+        cf_sum = np.asarray(np.sum(cf, axis=1))
         # Only compare for fracture faces
         fracture_faces = np.where(sd.tags["fracture_faces"])[0]
         # The matrix constrained to this subdomain
@@ -338,7 +338,7 @@ def test_internal_boundary_normal_to_outwards(
             dim_ind = np.arange(i, loc_size, dim)
             dim_vals = loc_vals[dim_ind]
             assert np.allclose(
-                dim_vals[fracture_faces], cf_sum[fracture_faces].toarray().ravel()
+                dim_vals[fracture_faces], cf_sum[fracture_faces].ravel()
             )
         # Update offset, needed to test for multiple subdomains.
         offset += sd.num_faces * dim
