@@ -15,7 +15,7 @@ def unique_rows(data: np.ndarray[Any, np.dtype[np.float64]]) -> Tuple[
     np.ndarray[Any, np.dtype[np.int64]],
     np.ndarray[Any, np.dtype[np.int64]],
 ]:
-    """Function similar to Matlab's unique(...,'rows')
+    r"""Function similar to Matlab's unique(...,'rows')
 
     See also function unique_columns in this module; this is likely slower, but
     is understandable, documented, and has a tolerance option.
@@ -34,7 +34,7 @@ def unique_rows(data: np.ndarray[Any, np.dtype[np.float64]]) -> Tuple[
         Uniquified array.
 
         np.ndarray: ``shape=(n, r), r \leq m``. Unique rows.
-        
+
         np.ndarray: ``shape=(r)`` Indexes that map from the unique to the original
             array.
 
