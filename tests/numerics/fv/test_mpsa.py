@@ -267,7 +267,7 @@ class TestMpsaExactReproduction:
         discr.discretize(g, data)
         A, b = discr.assemble_matrix_rhs(g, data)
 
-        d = np.linalg.solve(A.A, b)
+        d = np.linalg.solve(A.toarray(), b)
 
         stress = data[pp.DISCRETIZATION_MATRICES][keyword][discr.stress_matrix_key]
         bound_stress = data[pp.DISCRETIZATION_MATRICES][keyword][
@@ -592,7 +592,7 @@ class MpsaReconstructBoundaryDisplacement(TestUpdateMpsaDiscretization):
         grad_bound = matrix_dictionary[discr.bound_displacement_face_matrix_key]
 
         hf2f = pp.fvutils.map_hf_2_f(sd=g)
-        num_subfaces = hf2f.sum(axis=1).A.ravel()
+        num_subfaces = hf2f.sum(axis=1).toarray().ravel()
         scaling = sps.dia_matrix(
             (1.0 / num_subfaces, 0), shape=(hf2f.shape[0], hf2f.shape[0])
         )
@@ -740,7 +740,7 @@ class TestCreateBoundRhs:
         bound_rhs_b = pp.Mpsa("")._create_bound_rhs(bc_sub, be, st, g, True)
 
         # rhs should not be affected by basis transform
-        assert np.allclose(bound_rhs_b.A, bound_rhs.A)
+        assert np.allclose(bound_rhs_b.toarray(), bound_rhs.toarray())
 
 
 class TestMpsaRotation:
@@ -1183,7 +1183,7 @@ class TestAsymmetricNeumann:
 
         expected_igrad = self.reference_sparse_arrays["test_cart_2d"]["igrad"]
 
-        assert np.all(np.abs(igrad - expected_igrad).A < 1e-12)
+        assert np.all(np.abs(igrad - expected_igrad).toarray() < 1e-12)
 
     def test_cart_3d(self):
         g = pp.CartGrid([1, 1, 1], physdims=(1, 1, 1))
@@ -1205,7 +1205,7 @@ class TestAsymmetricNeumann:
             g, k, subcell_topology, bound_exclusion, 0, "python"
         )
         expected_igrad = self.reference_sparse_arrays["test_cart_3d"]["igrad"]
-        assert np.all(np.abs(igrad - expected_igrad).A < 1e-12)
+        assert np.all(np.abs(igrad - expected_igrad).toarray() < 1e-12)
 
 
 class TestMpsaReproduceKnownValues:

@@ -338,7 +338,7 @@ def test_internal_boundary_normal_to_outwards(
             dim_ind = np.arange(i, loc_size, dim)
             dim_vals = loc_vals[dim_ind]
             assert np.allclose(
-                dim_vals[fracture_faces], cf_sum[fracture_faces].A.ravel()
+                dim_vals[fracture_faces], cf_sum[fracture_faces].toarray().ravel()
             )
         # Update offset, needed to test for multiple subdomains.
         offset += sd.num_faces * dim

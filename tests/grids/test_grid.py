@@ -605,10 +605,10 @@ def test_merge_single_grid():
 
     assert intf.num_cells == 1
     assert intf.num_sides() == 1
-    assert np.all(intf.primary_to_mortar_avg().A == [1, 0, 0])
-    assert np.all(intf.primary_to_mortar_int().A == [1, 0, 0])
-    assert np.all(intf.secondary_to_mortar_avg().A == [0, 0, 1])
-    assert np.all(intf.secondary_to_mortar_int().A == [0, 0, 1])
+    assert np.all(intf.primary_to_mortar_avg().toarray() == [1, 0, 0])
+    assert np.all(intf.primary_to_mortar_int().toarray() == [1, 0, 0])
+    assert np.all(intf.secondary_to_mortar_avg().toarray() == [0, 0, 1])
+    assert np.all(intf.secondary_to_mortar_int().toarray() == [0, 0, 1])
 
 
 def test_merge_two_grids():
@@ -632,10 +632,10 @@ def test_merge_two_grids():
 
     assert intf.num_cells == 1
     assert intf.num_sides() == 1
-    assert np.all(intf.primary_to_mortar_avg().A == [0, 1, 0])
-    assert np.all(intf.primary_to_mortar_int().A == [0, 1, 0])
-    assert np.all(intf.secondary_to_mortar_avg().A == [0, 1])
-    assert np.all(intf.secondary_to_mortar_int().A == [0, 1])
+    assert np.all(intf.primary_to_mortar_avg().toarray() == [0, 1, 0])
+    assert np.all(intf.primary_to_mortar_int().toarray() == [0, 1, 0])
+    assert np.all(intf.secondary_to_mortar_avg().toarray() == [0, 1])
+    assert np.all(intf.secondary_to_mortar_int().toarray() == [0, 1])
 
 
 def test_boundary_grid():

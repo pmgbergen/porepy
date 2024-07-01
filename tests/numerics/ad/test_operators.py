@@ -695,7 +695,7 @@ def test_ad_variable_prev_time_and_iter(prev_time):
 
         # prev var has no Jacobian
         ad_i = var_i.value_and_jacobian(eqsys)
-        assert np.all(ad_i.jac.A == 0.)
+        assert np.all(ad_i.jac.toarray() == 0.)
 
     # Test creating with explicit stepping and recursive stepping
     vars_exp = [getattr(var, get_prev_key)(steps=i) for i in range(1, depth)]
@@ -1641,9 +1641,9 @@ def _expected_value(
                 2
                 * np.vstack(
                     (
-                        var_1.val[0] * var_1.jac[0].A,
-                        var_1.val[1] * var_1.jac[1].A,
-                        var_1.val[2] * var_1.jac[2].A,
+                        var_1.val[0] * var_1.jac[0].toarray(),
+                        var_1.val[1] * var_1.jac[1].toarray(),
+                        var_1.val[2] * var_1.jac[2].toarray(),
                     )
                 ),
             )
@@ -1680,9 +1680,9 @@ def _expected_value(
             jac = sps.csr_matrix(
                 np.vstack(
                     (
-                        -2 / var_2.val[0] ** 2 * var_2.jac[0].A,
-                        -2 / var_2.val[1] ** 2 * var_2.jac[1].A,
-                        -2 / var_2.val[2] ** 2 * var_2.jac[2].A,
+                        -2 / var_2.val[0] ** 2 * var_2.jac[0].toarray(),
+                        -2 / var_2.val[1] ** 2 * var_2.jac[1].toarray(),
+                        -2 / var_2.val[2] ** 2 * var_2.jac[2].toarray(),
                     )
                 ),
             )
@@ -1694,9 +1694,9 @@ def _expected_value(
             jac = sps.csr_matrix(
                 np.vstack(
                     (
-                        np.log(2.0) * (2 ** var_2.val[0]) * var_2.jac[0].A,
-                        np.log(2.0) * (2 ** var_2.val[1]) * var_2.jac[1].A,
-                        np.log(2.0) * (2 ** var_2.val[2]) * var_2.jac[2].A,
+                        np.log(2.0) * (2 ** var_2.val[0]) * var_2.jac[0].toarray(),
+                        np.log(2.0) * (2 ** var_2.val[1]) * var_2.jac[1].toarray(),
+                        np.log(2.0) * (2 ** var_2.val[2]) * var_2.jac[2].toarray(),
                     )
                 ),
             )
@@ -1728,9 +1728,9 @@ def _expected_value(
             jac = sps.csr_matrix(
                 np.vstack(
                     (
-                        var_1.jac[0].A / var_2[0],
-                        var_1.jac[1].A / var_2[1],
-                        var_1.jac[2].A / var_2[2],
+                        var_1.jac[0].toarray() / var_2[0],
+                        var_1.jac[1].toarray() / var_2[1],
+                        var_1.jac[2].toarray() / var_2[2],
                     )
                 )
             )
@@ -1743,9 +1743,9 @@ def _expected_value(
             jac = sps.csr_matrix(
                 np.vstack(
                     (
-                        var_2[0] * (var_1.val[0] ** (var_2[0] - 1.0)) * var_1.jac[0].A,
-                        var_2[1] * (var_1.val[1] ** (var_2[1] - 1.0)) * var_1.jac[1].A,
-                        var_2[2] * (var_1.val[2] ** (var_2[2] - 1.0)) * var_1.jac[2].A,
+                        var_2[0] * (var_1.val[0] ** (var_2[0] - 1.0)) * var_1.jac[0].toarray(),
+                        var_2[1] * (var_1.val[1] ** (var_2[1] - 1.0)) * var_1.jac[1].toarray(),
+                        var_2[2] * (var_1.val[2] ** (var_2[2] - 1.0)) * var_1.jac[2].toarray(),
                     )
                 )
             )
@@ -1776,9 +1776,9 @@ def _expected_value(
             jac = sps.csr_matrix(
                 np.vstack(
                     (
-                        -var_1[0] * var_2.jac[0].A / var_2.val[0] ** 2,
-                        -var_1[1] * var_2.jac[1].A / var_2.val[1] ** 2,
-                        -var_1[2] * var_2.jac[2].A / var_2.val[2] ** 2,
+                        -var_1[0] * var_2.jac[0].toarray() / var_2.val[0] ** 2,
+                        -var_1[1] * var_2.jac[1].toarray() / var_2.val[1] ** 2,
+                        -var_1[2] * var_2.jac[2].toarray() / var_2.val[2] ** 2,
                     )
                 )
             )
@@ -1789,9 +1789,9 @@ def _expected_value(
             jac = sps.csr_matrix(
                 np.vstack(
                     (
-                        var_1[0] ** var_2.val[0] * np.log(var_1[0]) * var_2.jac[0].A,
-                        var_1[1] ** var_2.val[1] * np.log(var_1[1]) * var_2.jac[1].A,
-                        var_1[2] ** var_2.val[2] * np.log(var_1[2]) * var_2.jac[2].A,
+                        var_1[0] ** var_2.val[0] * np.log(var_1[0]) * var_2.jac[0].toarray(),
+                        var_1[1] ** var_2.val[1] * np.log(var_1[1]) * var_2.jac[1].toarray(),
+                        var_1[2] ** var_2.val[2] * np.log(var_1[2]) * var_2.jac[2].toarray(),
                     )
                 )
             )
@@ -1828,9 +1828,9 @@ def _expected_value(
             jac = sps.csr_matrix(
                 np.vstack(
                     (
-                        var_1.jac[0].A * var_2.val[0] + var_1.val[0] * var_2.jac[0].A,
-                        var_1.jac[1].A * var_2.val[1] + var_1.val[1] * var_2.jac[1].A,
-                        var_1.jac[2].A * var_2.val[2] + var_1.val[2] * var_2.jac[2].A,
+                        var_1.jac[0].toarray() * var_2.val[0] + var_1.val[0] * var_2.jac[0].toarray(),
+                        var_1.jac[1].toarray() * var_2.val[1] + var_1.val[1] * var_2.jac[1].toarray(),
+                        var_1.jac[2].toarray() * var_2.val[2] + var_1.val[2] * var_2.jac[2].toarray(),
                     )
                 )
             )
@@ -1842,12 +1842,12 @@ def _expected_value(
             jac = sps.csr_matrix(
                 np.vstack(  # NBNB
                     (
-                        var_1.jac[0].A / var_2.val[0]
-                        - var_1.val[0] * var_2.jac[0].A / var_2.val[0] ** 2,
-                        var_1.jac[1].A / var_2.val[1]
-                        - var_1.val[1] * var_2.jac[1].A / var_2.val[1] ** 2,
-                        var_1.jac[2].A / var_2.val[2]
-                        - var_1.val[2] * var_2.jac[2].A / var_2.val[2] ** 2,
+                        var_1.jac[0].toarray() / var_2.val[0]
+                        - var_1.val[0] * var_2.jac[0].toarray() / var_2.val[0] ** 2,
+                        var_1.jac[1].toarray() / var_2.val[1]
+                        - var_1.val[1] * var_2.jac[1].toarray() / var_2.val[1] ** 2,
+                        var_1.jac[2].toarray() / var_2.val[2]
+                        - var_1.val[2] * var_2.jac[2].toarray() / var_2.val[2] ** 2,
                     )
                 )
             )
@@ -1863,22 +1863,22 @@ def _expected_value(
                     (
                         var_2.val[0]
                         * var_1.val[0] ** (var_2.val[0] - 1.0)
-                        * var_1.jac[0].A
+                        * var_1.jac[0].toarray()
                         + np.log(var_1.val[0])
                         * (var_1.val[0] ** var_2.val[0])
-                        * var_2.jac[0].A,
+                        * var_2.jac[0].toarray(),
                         var_2.val[1]
                         * var_1.val[1] ** (var_2.val[1] - 1.0)
-                        * var_1.jac[1].A
+                        * var_1.jac[1].toarray()
                         + np.log(var_1.val[1])
                         * (var_1.val[1] ** var_2.val[1])
-                        * var_2.jac[1].A,
+                        * var_2.jac[1].toarray(),
                         var_2.val[2]
                         * var_1.val[2] ** (var_2.val[2] - 1.0)
-                        * var_1.jac[2].A
+                        * var_1.jac[2].toarray()
                         + np.log(var_1.val[2])
                         * (var_1.val[2] ** var_2.val[2])
-                        * var_2.jac[2].A,
+                        * var_2.jac[2].toarray(),
                     )
                 )
             )

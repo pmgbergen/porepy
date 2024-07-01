@@ -287,7 +287,7 @@ def test_targeted_rediscretization(model_class):
         A_targeted, b_targeted = model_targeted.stored_linear_system[i]
 
         # Convert to dense array to ensure the matrices are identical.
-        assert np.allclose(A_full.A, A_targeted.A)
+        assert np.allclose(A_full.toarray(), A_targeted.toarray())
         assert np.allclose(b_full, b_targeted)
 
     # Check that the discretization matrix changes between iterations. Without this

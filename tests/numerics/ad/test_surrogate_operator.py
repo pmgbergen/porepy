@@ -251,7 +251,7 @@ def test_secondary_operators(
         jac_.data = d
         jacs.append(jac_)
 
-    assert np.all(sop_val.jac.A == sum(jacs).A)
+    assert np.all(sop_val.jac.toarray() == sum(jacs).toarray())
 
     # progress values in time and check that only values are progressed, and that
     # they are correct, i.e. current iter is set as previous time
@@ -277,11 +277,11 @@ def test_secondary_operators(
         assert np.all(sop_pt_val.val == expr.interface_values)
     else:
         assert np.all(sop_pt_val.val == expr.subdomain_values)
-    assert np.all(sop_pt_val.jac.A == 0.0)
+    assert np.all(sop_pt_val.jac.toarray() == 0.0)
 
     sop_pi_val = sop_pi.value_and_jacobian(eqsys)
     assert np.all(sop_pi_val.val == np.ones(nc))
-    assert np.all(sop_pi_val.jac.A == 0.0)
+    assert np.all(sop_pi_val.jac.toarray() == 0.0)
 
     ## Test that the user cannot set values of unexpected shape
     if on_intf:
