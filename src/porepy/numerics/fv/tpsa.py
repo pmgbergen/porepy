@@ -32,7 +32,6 @@ class Tpsa:
         self.bound_rotation_diffusion_matrix_key = "bound_rotation_diffusion"
         self.bound_rotation_displacement_matrix_key = "bound_rotation_displacement"
 
-    
     def discretize(self, sd: Grid, data: dict) -> None:
 
         parameter_dictionary: dict[str, Any] = data[pp.PARAMETERS][self.keyword]
@@ -50,6 +49,9 @@ class Tpsa:
         bnd = parameter_dictionary["bc"]
 
         fi, ci, sgn = sparse_array_to_row_col_data(sd.cell_faces)
+
+        fi_nd = np.repeat(fi, nd)
+        face_areas_fi_nd = sd.face_areas[fi_nd]
 
         mu = stiffness.mu[ci]
         lmbda = stiffness.lmbda[ci]
@@ -90,10 +92,6 @@ class Tpsa:
         )
 
         face_area_diag_matrix = sps.dia_matrix((sd.face_areas, 0), shape=(nf, nf))
-        face_area_diag_matrix_nd = sps.dia_matrix(
-            (np.repeat(sd.face_areas, nd), 0),
-            shape=(nf * nd, nf * nd),
-        )
 
         # The vector difference operator over a face is simply a Kronecker product of
         # the standard cell-face map.
@@ -151,18 +149,17 @@ class Tpsa:
         col = fvutils.expand_indices_nd(ci, nd)
         # Stress is scaled by the face area.
         stress = -(
-            face_area_diag_matrix_nd
-            @ sps.coo_matrix(  # Note minus sign
-                (2 * t_shear[np.repeat(fi, nd)] * np.repeat(sgn, nd), (row, col)),
+            
+            sps.coo_matrix(  # Note minus sign
+                (2 * face_areas_fi_nd * t_shear[fi_nd] * np.repeat(sgn, nd), (row, col)),
                 shape=(nf * nd, nc * nd),
             ).tocsr()
         )
 
         bound_stress = (
             -dir_filter_nd
-            @ face_area_diag_matrix_nd
             @ sps.coo_matrix(
-                (2 * t_shear[np.repeat(fi, nd)] * np.repeat(sgn, nd), (row, row)),
+                (2 * face_areas_fi_nd * t_shear[fi_nd] * np.repeat(sgn, nd), (row, row)),
                 shape=(nf * nd, nf * nd),
             ).tocsr()
         )
@@ -207,31 +204,25 @@ class Tpsa:
             #
             #  R^n = [[0, -n3, n2], [n3, 0, -n1], [-n2, n1, 0]]
             z = np.zeros(nf)
-            Rn_data = np.array([[z, -n[2], n[1]], [n[2], z, -n[0]], [-n[1], n[0], z]])
+            Rn_data = np.array([[z, n[2], -n[1]], [-n[2], z, n[0]], [n[1], -n[0], z]])
 
             indices = np.repeat(np.arange(0, nd * nf), nd)
             indptr = np.arange(0, nd**2 * nf + 1, nd)
-            Rn_hat = sps.csr_matrix(
-                (Rn_data.ravel("F"), indices, indptr),
-                shape=(nd * nf, nd * nf),
-            )
-            Rn_hat = sps.block_diag([Rn_data[:, :, i] for i in range(nf)], format="csr")
-
+            #Rn_hat = sps.block_diag([Rn_data[:, :, i] for i in range(nf)], format="csr")
+            Rn_hat = pp.matrix_operations.csr_matrix_from_blocks(Rn_data.ravel('F'), nd, nf)
             Rn_bar = Rn_hat
 
             stress_rotation = -Rn_hat @ cell_to_face_average_complement_nd
 
             rotation_diffusion = -(
-                face_area_diag_matrix_nd
-                @ sps.coo_matrix(  # Note minus sign
-                    (t_cosserat[np.repeat(fi, nd)] * np.repeat(sgn, nd), (row, col)),
+                sps.coo_matrix(  # Note minus sign
+                    (face_areas_fi_nd * t_cosserat[fi_nd] * np.repeat(sgn, nd), (row, col)),
                     shape=(nf * nd, nc * nd),
                 ).tocsr()
             )
             bound_rotation_diffusion = -dir_filter_nd @ (
-                face_area_diag_matrix_nd
-                @ sps.coo_matrix(  # Note minus sign
-                    (t_cosserat[np.repeat(fi, nd)] * np.repeat(sgn, nd), (row, row)),
+                 sps.coo_matrix(  # Note minus sign
+                    (face_areas_fi_nd * t_cosserat[fi_nd] * np.repeat(sgn, nd), (row, row)),
                     shape=(nf * nd, nf * nd),
                 ).tocsr()
             )
@@ -266,21 +257,25 @@ class Tpsa:
             stress_rotation = -Rn_hat @ cell_to_face_average_complement
 
             rotation_diffusion = -(
-                face_area_diag_matrix
-                @ sps.coo_matrix(  # Note minus sign
-                    (t_cosserat[fi] * sgn, (fi, ci)),
+                sps.coo_matrix(  # Note minus sign
+                    (sd.face_areas[fi] * t_cosserat[fi] * sgn, (fi, ci)),
                     shape=(nf, nc),
                 ).tocsr()
             )
             bound_rotation_diffusion = (
                 -dir_filter
-                @ face_area_diag_matrix
                 @ sps.coo_matrix(
-                    (t_cosserat[fi] * sgn, (fi, fi)),
+                    (sd.face_areas[fi] * t_cosserat[fi] * sgn, (fi, fi)),
                     shape=(nf, nf),
                 ).tocsr()
             )
         rotation_displacement = -Rn_bar @ cell_to_face_average_nd
+
+        v = np.random.rand(nc * nd)
+        d = sps.dia_matrix((v, 0), shape=(nc * nd, nc * nd))
+
+        tmp = cell_to_face_average_nd @ v
+        tmp = cell_to_face_average_complement_nd @ tmp
 
         if nd == 2:
             bound_rotation_displacement = -dir_filter @ Rn_bar
