@@ -1167,7 +1167,7 @@ class TestRobinBoundaryCondition:
         a = div * flux
         b = -div * bound_flux * u_bound
 
-        p = np.linalg.solve(a.A, b)
+        p = np.linalg.solve(a.toarray(), b)
 
         u_ex = [
             np.dot(g.face_normals[:, f], np.array([0, -1, 0]))
@@ -1198,7 +1198,7 @@ class TestRobinBoundaryCondition:
         a = div * flux
         b = -div * bound_flux * u_bound
 
-        p = np.linalg.solve(a.A, b)
+        p = np.linalg.solve(a.toarray(), b)
         assert np.allclose(p, p_ex)
         assert np.allclose(flux * p + bound_flux * u_bound, u_ex)
 

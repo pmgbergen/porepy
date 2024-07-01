@@ -391,7 +391,7 @@ def test_ad_operator_methods_single_phase_flow(
     val = operator.value(model_setup.equation_system)
 
     if isinstance(val, sps.bsr_matrix):  # needed for `tangential_component`
-        val = val.A
+        val = val.toarray()
 
     # Compare the actual and expected values.
     assert np.allclose(val, expected_value, rtol=1e-8, atol=1e-15)
