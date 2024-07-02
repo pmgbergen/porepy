@@ -835,6 +835,9 @@ class Mpsa(Discretization):
         self._eliminate_ncasym_neumann(
             ncasym, subcell_topology, bound_exclusion, cell_node_blocks, nd
         )
+        self._eliminate_ncasym_robin(
+            ncasym, subcell_topology, bound_exclusion, cell_node_blocks, nd
+        )
 
         # The final expression of Hook's law will involve deformation gradients on one
         # side of the faces only; eliminate the other one. Note that this must be done
@@ -1943,6 +1946,59 @@ class Mpsa(Discretization):
         # To obtain an invertible system we remove the asymetric part around these
         # nodes.
         count_neu = bound_exclusion.keep_neu.T * count_neu[idx_neu]
+        diff_count = num_sub_cells[nno_nd.ravel("C")] - count_neu
+        remove_singular = np.argwhere((diff_count < 0)).ravel()
+
+        # remove_singular gives the indices of the subfaces. We now obtain the indices
+        # as given in ncasym,
+        subfno_nd = np.tile(subcell_topology.unique_subfno, (nd, 1))
+        subfno_nd += subcell_topology.fno.size * np.atleast_2d(np.arange(0, nd)).T
+        dof_elim = subfno_nd.ravel("C")[remove_singular]
+        # and eliminate the rows corresponding to these subfaces
+        pp.matrix_operations.zero_rows(ncasym, dof_elim)
+        logger.debug("number of ncasym eliminated: " + str(np.sum(dof_elim.size)))
+
+    def _eliminate_ncasym_robin(
+        self,
+        ncasym: np.ndarray,
+        subcell_topology: pp.fvutils.SubcellTopology,
+        bound_exclusion: pp.fvutils.ExcludeBoundaries,
+        cell_node_blocks: np.ndarray,
+        nd: int,
+    ) -> None:
+        """Eliminate the asymetric part of the stress tensor such that the local systems
+        are invertible.
+
+        Parameters:
+            ncasym: Asymetric part of the stress tensor.
+            subcell_topology: Object containing information about sub-cells.
+            bound_exclusion: Object containing information about excluded boundaries.
+            cell_node_blocks: Pairs of node and cell indices that identify sub-cells.
+            nd: Number of spatial dimensions.
+
+        """
+        # We expand the node indices such that we get one indices for each vector
+        # equation. The equations are ordered as first all x, then all y, and so on
+        node_blocks_nd = np.tile(cell_node_blocks[1], (nd, 1))
+        node_blocks_nd += subcell_topology.num_nodes * np.atleast_2d(np.arange(0, nd)).T
+        nno_nd = np.tile(subcell_topology.nno_unique, (nd, 1))
+        nno_nd += subcell_topology.num_nodes * np.atleast_2d(np.arange(0, nd)).T
+
+        # Each local system is associated to a node. We count the number of subcells for
+        # assoiated with each node.
+        _, num_sub_cells = np.unique(node_blocks_nd.ravel("C"), return_counts=True)
+
+        # Then we count the number how many Neumann subfaces there are for each node.
+        nno_neu = bound_exclusion.keep_robin(nno_nd.ravel("C"), transform=False)
+        _, idx_neu, count_neu = np.unique(
+            nno_neu, return_inverse=True, return_counts=True
+        )
+
+        # The local system is invertible if the number of sub_cells (remember there is
+        # one gradient for each subcell) is larger than the number of Neumann sub_faces.
+        # To obtain an invertible system we remove the asymetric part around these
+        # nodes.
+        count_neu = bound_exclusion.keep_rob.T * count_neu[idx_neu]
         diff_count = num_sub_cells[nno_nd.ravel("C")] - count_neu
         remove_singular = np.argwhere((diff_count < 0)).ravel()
 
