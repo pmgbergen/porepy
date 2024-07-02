@@ -77,7 +77,7 @@ def test_evaluate_variables():
         ad_array = var.value_and_jacobian(eq_system)
         assert isinstance(ad_array, pp.ad.AdArray)
         assert np.allclose(ad_array.val, 2)
-        assert np.allclose(ad_array.jac.A, known_jac)
+        assert np.allclose(ad_array.jac.toarray(), known_jac)
 
         # Now create the variable at the previous iterate. This should also give the
         # most recent value in pp.ITERATE_SOLUTIONS, but it should not yield an AdArray.
@@ -85,7 +85,7 @@ def test_evaluate_variables():
         ad_array_prev_iter = var_prev_iter.value_and_jacobian(eq_system)
         assert isinstance(ad_array_prev_iter, pp.ad.AdArray)
         assert np.allclose(ad_array_prev_iter.val, 2)
-        assert np.allclose(ad_array_prev_iter.jac.A, np.zeros(known_jac.shape))
+        assert np.allclose(ad_array_prev_iter.jac.toarray(), np.zeros(known_jac.shape))
 
         # Create the variable at the previous time step. This should give the most
         # recent value in pp.TIME_STEP_SOLUTIONS.
@@ -93,7 +93,7 @@ def test_evaluate_variables():
         ad_array_prev_timestep = var_prev_timestep.value_and_jacobian(eq_system)
         assert isinstance(ad_array_prev_timestep, pp.ad.AdArray)
         assert np.allclose(ad_array_prev_timestep.val, 1)
-        assert np.allclose(ad_array_prev_timestep.jac.A, np.zeros(known_jac.shape))
+        assert np.allclose(ad_array_prev_timestep.jac.toarray(), np.zeros(known_jac.shape))
 
         # Use the ad machinery to define the difference between the current and previous
         # time step. This should give an AdArray with the same value as that obtained by
@@ -104,7 +104,7 @@ def test_evaluate_variables():
         assert np.allclose(
             ad_array_increment.val, ad_array.val - ad_array_prev_timestep.val
         )
-        assert np.allclose(ad_array_increment.jac.A, known_jac)
+        assert np.allclose(ad_array_increment.jac.toarray(), known_jac)
 
 
 def test_variable_creation():
@@ -1337,7 +1337,7 @@ def test_schur_complement(eq_var_to_exclude):
             var for var in setup.all_variable_names if var not in var_to_exclude
         ]
 
-    inverter = lambda A: sps.csr_matrix(np.linalg.inv(A.A))
+    inverter = lambda A: sps.csr_matrix(np.linalg.inv(A.toarray()))
 
     # Rows and columns to keep
     rows_keep = np.sort(np.hstack([setup.eq_ind(name) for name in eq_names]))

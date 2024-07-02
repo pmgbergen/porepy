@@ -287,21 +287,21 @@ class TestRefinementMortarGrid:
             # The ordering of the cells in the new 1d grid may be flipped on
             # some systems; therefore allow two configurations
             assert np.logical_or(
-                np.allclose(low_to_mortar_known_avg, intf.secondary_to_mortar_avg().A),
+                np.allclose(low_to_mortar_known_avg, intf.secondary_to_mortar_avg().toarray()),
                 np.allclose(
                     low_to_mortar_known_avg,
-                    intf.secondary_to_mortar_avg().A[::-1],
+                    intf.secondary_to_mortar_avg().toarray()[::-1],
                 ),
             )
 
             if low_to_mortar_known_int is not None:
                 assert np.logical_or(
                     np.allclose(
-                        low_to_mortar_known_int, intf.secondary_to_mortar_int().A
+                        low_to_mortar_known_int, intf.secondary_to_mortar_int().toarray()
                     ),
                     np.allclose(
                         low_to_mortar_known_int,
-                        intf.secondary_to_mortar_int().A[::-1],
+                        intf.secondary_to_mortar_int().toarray()[::-1],
                     ),
                 )
 

@@ -154,7 +154,7 @@ class BoundaryCondition(AbstractBoundaryCondition):
                                         array must match number of faces"""
                     )
                 faces = np.argwhere(faces)
-            if not np.all(np.in1d(faces, self.bf)):
+            if not np.all(np.isin(faces, self.bf)):
                 raise ValueError(
                     "Give boundary condition only on the \
                                  boundary"
@@ -162,7 +162,7 @@ class BoundaryCondition(AbstractBoundaryCondition):
             domain_boundary_and_tips = np.argwhere(
                 np.logical_or(sd.tags["domain_boundary_faces"], sd.tags["tip_faces"])
             )
-            if not np.all(np.in1d(faces, domain_boundary_and_tips)):
+            if not np.all(np.isin(faces, domain_boundary_and_tips)):
                 warnings.warn(
                     "You are now specifying conditions on internal \
                               boundaries. Be very careful!"
@@ -393,7 +393,7 @@ class BoundaryConditionVectorial(AbstractBoundaryCondition):
                     )
                 faces = np.argwhere(faces)
 
-            if not np.all(np.in1d(faces, self.bf)):
+            if not np.all(np.isin(faces, self.bf)):
                 raise ValueError("Give boundary condition only on the boundary")
             if isinstance(cond, str):
                 cond = [cond] * faces.size
