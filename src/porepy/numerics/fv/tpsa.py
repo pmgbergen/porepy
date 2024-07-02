@@ -122,7 +122,7 @@ class Tpsa:
         stiffness: FourthOrderTensor = parameter_dictionary["fourth_order_tensor"]
         # The Cosserat parameter, if present, else set to zero
         cosserat_values = parameter_dictionary.get("cosserat_parameter", None)
-        if cosserat_values is not None:
+        if cosserat_values is None:
             cosserat_values = np.zeros(nc)
 
         # Boundary condition object
