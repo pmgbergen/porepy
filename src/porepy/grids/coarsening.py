@@ -182,7 +182,7 @@ def generate_seeds(mdg: Union[pp.Grid, pp.MixedDimensionalGrid]) -> np.ndarray:
     for g in gs:
         tips = np.where(g.tags["tip_faces"])[0]
         faces, cells, _ = sparse_array_to_row_col_data(g.cell_faces)
-        index = np.in1d(faces, tips).nonzero()[0]
+        index = np.isin(faces, tips).nonzero()[0]
         cells = np.unique(cells[index])
 
         # recover the mapping between the secondary and the primary grid
@@ -193,8 +193,8 @@ def generate_seeds(mdg: Union[pp.Grid, pp.MixedDimensionalGrid]) -> np.ndarray:
         face_cells = secondary_to_mortar.T * primary_to_mortar
 
         interf_cells, interf_faces, _ = sparse_array_to_row_col_data(face_cells)
-        index = np.in1d(interf_cells, cells).nonzero()[0]
-        index = np.in1d(g_h_faces, interf_faces[index]).nonzero()[0]
+        index = np.isin(interf_cells, cells).nonzero()[0]
+        index = np.isin(g_h_faces, interf_faces[index]).nonzero()[0]
         seeds = np.concatenate((seeds, g_h_cells[index]))
 
     return seeds
@@ -704,7 +704,7 @@ def _generate_coarse_grid_mdg(
 
                 # Map indices
                 mask = np.argsort(indices)
-                indices = np.in1d(face_map[0, :], indices[mask]).nonzero()[0]
+                indices = np.isin(face_map[0, :], indices[mask]).nonzero()[0]
                 # Reverse the ordering
                 indices = indices[np.argsort(mask)]
 
@@ -727,7 +727,7 @@ def _generate_coarse_grid_mdg(
 
             # map indices
             mask = np.argsort(indices)
-            indices = np.in1d(face_map[0, :], indices[mask]).nonzero()[0]
+            indices = np.isin(face_map[0, :], indices[mask]).nonzero()[0]
             face_cells.indices = indices[np.argsort(mask)]
 
             # update the map
