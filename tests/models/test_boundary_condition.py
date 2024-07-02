@@ -118,21 +118,21 @@ class BCValues:
 
     def bc_values_displacement(self, bg: pp.BoundaryGrid) -> np.ndarray:
         """Assigns displacement values in the x-direction of the west boundary."""
-        values = np.zeros((self.nd, bg.num_cells))
+        values = np.ones((self.nd, bg.num_cells))
         bounds = self.domain_boundary_sides(bg)
         values[0][bounds.west] += np.ones(len(values[0][bounds.west]))
         return values.ravel("F")
 
     def bc_values_pressure(self, bg: pp.BoundaryGrid) -> np.ndarray:
         """Assigns pressure values on the west boundary."""
-        values = np.zeros(bg.num_cells)
+        values = np.ones(bg.num_cells)
         bounds = self.domain_boundary_sides(bg)
         values[bounds.west] += np.ones(len(values[bounds.west]))
         return values
 
     def bc_values_temperature(self, bg: pp.BoundaryGrid) -> np.ndarray:
         """Assigns temperature values on the west boundary."""
-        values = np.zeros(bg.num_cells)
+        values = np.ones(bg.num_cells)
         bounds = self.domain_boundary_sides(bg)
         values[bounds.west] += np.ones(len(values[bounds.west]))
         return values
