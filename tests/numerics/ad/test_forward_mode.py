@@ -20,7 +20,7 @@ def test_quadratic_function():
     x, y = initAdArrays([np.array([1]), np.array([2])])
     z = 1 * x + 2 * y + 3 * x * y + 4 * x * x + 5 * y * y
     val = 35
-    assert z.val == val and np.all(z.jac.A == [15, 25])
+    assert z.val == val and np.all(z.jac.toarray() == [15, 25])
 
 
 def test_vector_quadratic():
@@ -46,34 +46,34 @@ def test_mapping_m_to_n():
 def test_add_two_ad_variables_init():
     a, b = initAdArrays([np.array([1]), np.array([-10])])
     c = a + b
-    assert c.val == -9 and np.all(c.jac.A == [1, 1])
-    assert a.val == 1 and np.all(a.jac.A == [1, 0])
-    assert b.val == -10 and np.all(b.jac.A == [0, 1])
+    assert c.val == -9 and np.all(c.jac.toarray() == [1, 1])
+    assert a.val == 1 and np.all(a.jac.toarray() == [1, 0])
+    assert b.val == -10 and np.all(b.jac.toarray() == [0, 1])
 
 
 def test_sub_var_init_with_var_init():
     a, b = initAdArrays([np.array([3]), np.array([2])])
     c = b - a
-    assert np.allclose(c.val, -1) and np.all(c.jac.A == [-1, 1])
-    assert a.val == 3 and np.all(a.jac.A == [1, 0])
-    assert b.val == 2 and np.all(b.jac.A == [0, 1])
+    assert np.allclose(c.val, -1) and np.all(c.jac.toarray() == [-1, 1])
+    assert a.val == 3 and np.all(a.jac.toarray() == [1, 0])
+    assert b.val == 2 and np.all(b.jac.toarray() == [0, 1])
 
 
 def test_mul_ad_var_init():
     a, b = initAdArrays([np.array([3]), np.array([2])])
     c = a * b
-    assert a.val == 3 and np.all(a.jac.A == [1, 0])
-    assert b.val == 2 and np.all(b.jac.A == [0, 1])
-    assert c.val == 6 and np.all(c.jac.A == [2, 3])
+    assert a.val == 3 and np.all(a.jac.toarray() == [1, 0])
+    assert b.val == 2 and np.all(b.jac.toarray() == [0, 1])
+    assert c.val == 6 and np.all(c.jac.toarray() == [2, 3])
 
 
 def test_mul_scal_ad_var_init():
     a, b = initAdArrays([np.array([3]), np.array([2])])
     d = 3.0
     c = d * a
-    assert c.val == 9 and np.all(c.jac.A == [3, 0])
-    assert a.val == 3 and np.all(a.jac.A == [1, 0])
-    assert b.val == 2 and np.all(b.jac.A == [0, 1])
+    assert c.val == 9 and np.all(c.jac.toarray() == [3, 0])
+    assert a.val == 3 and np.all(a.jac.toarray() == [1, 0])
+    assert b.val == 2 and np.all(b.jac.toarray() == [0, 1])
 
 
 def test_mul_sps_advar_init():
@@ -82,7 +82,7 @@ def test_mul_sps_advar_init():
 
     f = A @ x
     assert np.all(f.val == [14, 32, 50])
-    assert np.all((f.jac == A).A)
+    assert np.all((f.jac == A).toarray())
 
 
 def test_advar_init_diff_len():
@@ -98,9 +98,9 @@ def test_advar_init_diff_len():
     jac_f = sps.hstack((A, zero_32))
     jac_g = sps.hstack((zero_23, B))
     assert np.all(f.val == [14, 32, 50])
-    assert np.all((f.jac == jac_f).A)
+    assert np.all((f.jac == jac_f).toarray())
     assert np.all(g.val == [5, 14])
-    assert np.all((g.jac == jac_g).A)
+    assert np.all((g.jac == jac_g).toarray())
 
 
 def test_advar_init_cross_jacobi():
@@ -109,7 +109,7 @@ def test_advar_init_cross_jacobi():
     z = x * y
     J = np.array([[1, 0, -1, 0], [0, 5, 0, 4]])
     assert np.all(z.val == [-1, 20])
-    assert np.all((z.jac == J).A)
+    assert np.all((z.jac.toarray() == J))
 
 
 def test_advar_mul_vec():
@@ -132,9 +132,9 @@ def test_advar_m_mul_vec_n():
     Jy = np.array([[3, 0, 1], [0, 2, 0]])
     Jz = np.array([[1, 0, 3], [0, 4, 0]])
     assert np.all(y.val == [4, 2])
-    assert np.sum(y.jac.A - Jy) == 0
+    assert np.sum(y.jac.toarray() - Jy) == 0
     assert np.all(z.val == [4, 4])
-    assert np.sum(z.jac.A - Jz) == 0
+    assert np.sum(z.jac.toarray() - Jz) == 0
 
 
 def test_mul_sps_advar():
@@ -144,7 +144,7 @@ def test_mul_sps_advar():
     f = A @ x
 
     assert np.all(f.val == [14, 32, 50])
-    assert np.all(f.jac == A * J.A)
+    assert np.all(f.jac == A * J.toarray())
 
 
 def test_mul_advar_vectors():
@@ -157,7 +157,7 @@ def test_mul_advar_vectors():
     f = A @ a + b
 
     assert np.all(f.val == [15, 33, 51])
-    assert np.sum(f.jac.A != A * Ja + Jb) == 0
+    assert np.sum(f.jac.toarray() != A * Ja + Jb) == 0
     assert (
         np.sum(Ja != sps.csc_matrix(np.array([[1, 3, 1], [5, 0, 0], [5, 1, 2]]))) == 0
     )
@@ -181,11 +181,11 @@ def test_copy_vector():
     a = AdArray(np.ones(3), sps.csr_matrix(np.diag(np.ones((3)))))
     b = a.copy()
     assert np.allclose(a.val, b.val)
-    assert np.allclose(a.jac.A, b.jac.A)
+    assert np.allclose(a.jac.toarray(), b.jac.toarray())
     a.val[0] = 3
     a.jac[2] = 4
     assert np.allclose(b.val, np.ones(3))
-    assert np.allclose(b.jac.A, sps.csr_matrix(np.diag(np.ones((3)))).A)
+    assert np.allclose(b.jac.toarray(), sps.csr_matrix(np.diag(np.ones((3)))).toarray())
 
 
 def test_exp_scalar_times_ad_var():
@@ -198,8 +198,8 @@ def test_exp_scalar_times_ad_var():
     zero = sps.csc_matrix((3, 3))
     jac = sps.hstack([c * sps.diags(np.exp(c * val)) * J, zero, zero])
     jac_a = sps.hstack([J, zero, zero])
-    assert np.allclose(b.val, np.exp(c * val)) and np.allclose(b.jac.A, jac.A)
-    assert np.all(a.val == [1, 2, 3]) and np.all(a.jac.A == jac_a.A)
+    assert np.allclose(b.val, np.exp(c * val)) and np.allclose(b.jac.toarray(), jac.toarray())
+    assert np.all(a.val == [1, 2, 3]) and np.all(a.jac.toarray() == jac_a.toarray())
 
 
 @pytest.mark.parametrize(
@@ -242,10 +242,10 @@ def test_get_set_slice_ad_var(index, index_c):
     a_copy = a.copy()
     a[index] = b
     assert np.all(a[index].val == b.val)
-    assert np.all(a[index].jac.A == b.jac.A)
+    assert np.all(a[index].jac.toarray() == b.jac.toarray())
     # complement should not be affected
     assert np.all(a[index_c].val == a_copy[index_c].val)
-    assert np.all(a[index_c].jac.A == a_copy[index_c].jac.A)
+    assert np.all(a[index_c].jac.toarray() == a_copy[index_c].jac.toarray())
 
     # setting a numpy array should only modify the values of the ad array
     b = target_val * 10.
@@ -253,7 +253,7 @@ def test_get_set_slice_ad_var(index, index_c):
     a[index] = b
     assert np.all(a[index].val == b)
     assert np.all(a[index_c].val == a_copy[index_c].val)
-    assert np.all(a.jac.A == a_copy.jac.A)
+    assert np.all(a.jac.toarray() == a_copy.jac.toarray())
 
 
 @pytest.mark.parametrize(

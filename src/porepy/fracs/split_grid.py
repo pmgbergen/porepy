@@ -971,7 +971,7 @@ def _duplicate_nodes_with_offset(g: pp.Grid, nodes: np.ndarray, offset: float) -
             assert isinstance(all_faces, np.ndarray)  # Appease mypy
             colored_faces = np.unique(all_faces)
 
-            is_colored = np.in1d(faces_of_node_t, colored_faces, assume_unique=True)
+            is_colored = np.isin(faces_of_node_t, colored_faces, assume_unique=True)
 
             faces = np.append(faces, faces_of_node_t[is_colored])
 
@@ -1141,7 +1141,7 @@ def remove_nodes(g: pp.Grid, rem: np.ndarray) -> pp.Grid:
 
     """
     all_rows = np.arange(g.face_nodes.shape[0])
-    rows_to_keep = np.where(np.logical_not(np.in1d(all_rows, rem)))[0]
+    rows_to_keep = np.where(np.logical_not(np.isin(all_rows, rem)))[0]
     g.face_nodes = g.face_nodes[rows_to_keep, :]
     g.nodes = g.nodes[:, rows_to_keep]
     return g
