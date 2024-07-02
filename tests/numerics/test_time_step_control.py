@@ -787,11 +787,22 @@ class DynamicTimeStepTestCaseModel(SinglePhaseFlow):
 
     def before_nonlinear_iteration(self):
         super().before_nonlinear_iteration()
-        self.num_nonlinear_iters += 1
+
         # The AD time step should not change throughout the Newton iterations.
         assert (
             self.ad_time_step.value(self.equation_system) == self.time_manager.dt
         ), "The AD time step value conflicts with the value from the time_manager."
+
+        # The initial guess for the unknown time step values should be equal to the
+        # known time step values. See https://github.com/pmgbergen/porepy/issues/1205.
+        if self.num_nonlinear_iters == 0:
+            iterate_values = self.equation_system.get_variable_values(iterate_index=0)
+            state_values = self.equation_system.get_variable_values(time_step_index=0)
+            assert np.all(
+                iterate_values == state_values
+            ), "Likely, 'iterate' was not reset after the unsuccessful time step."
+
+        self.num_nonlinear_iters += 1
 
     def _is_nonlinear_problem(self):
         return True
@@ -897,7 +908,10 @@ def test_model_time_step_control(params: dict):
     model = DynamicTimeStepTestCaseModel(
         num_nonlinear_iterations=num_nonlinear_iterations,
         time_step_converged=time_step_converged,
-        params={"time_manager": time_manager},
+        params={
+            "time_manager": time_manager,
+            "times_to_export": [],  # Suspends export
+        },
     )
 
     if should_fail:
