@@ -498,6 +498,11 @@ class SolutionStrategy(abc.ABC):
             # Note: It will also raise a ValueError if the minimal time step is reached.
             self.time_manager.compute_time_step(recompute_solution=True)
 
+            # Reset the iterate values. This ensures that the initial guess for an
+            # unknown time step equals the known time step.
+            prev_solution = self.equation_system.get_variable_values(time_step_index=0)
+            self.equation_system.set_variable_values(prev_solution, iterate_index=0)
+
     def after_simulation(self) -> None:
         """Run at the end of simulation. Can be used for cleanup etc."""
         pass
