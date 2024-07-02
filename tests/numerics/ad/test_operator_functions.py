@@ -55,26 +55,26 @@ def test_ad_function():
     val_ad = F_var.value_and_jacobian(eqsys)
     # test values at current time step
     assert np.all(val_ad.val == 1.)
-    assert np.all(val_ad.jac.A == np.eye(mdg.num_subdomain_cells()))
+    assert np.all(val_ad.jac.toarray() == np.eye(mdg.num_subdomain_cells()))
 
     # vals at previous iter and zero Jacobian
     # previous iterate has the same values as the original operator, but no Jacobian
     F_var_pi = F_var.previous_iteration()
     val = F_var_pi.value_and_jacobian(eqsys)
     assert np.all(val.val == val_ad.val)
-    assert np.all(val.jac.A == 0.)
+    assert np.all(val.jac.toarray() == 0.)
 
     # 1 iterate before has the respective values
     F_var_pii = F_var_pi.previous_iteration()
     val = F_var_pii.value_and_jacobian(eqsys)
     assert np.all(val.val == 2.)
-    assert np.all(val.jac.A == 0.)
+    assert np.all(val.jac.toarray() == 0.)
 
     # Analogously for prev time
     F_var_pt = F_var.previous_timestep()
     val = F_var_pt.value_and_jacobian(eqsys)
     assert np.all(val.val == 10.)
-    assert np.all(val.jac.A == 0.)
+    assert np.all(val.jac.toarray() == 0.)
 
     # when evaluating with values only, the result should be a numpy array
     val = F_var.value(eqsys)

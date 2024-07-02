@@ -880,7 +880,7 @@ class MortarGrid:
             and (face_duplicate_ind is not None)
             and self.codim < 2
         ):
-            is_second_side = np.in1d(primary_f, face_duplicate_ind)
+            is_second_side = np.isin(primary_f, face_duplicate_ind)
             secondary_f = np.r_[
                 secondary_f[~is_second_side], secondary_f[is_second_side]
             ]

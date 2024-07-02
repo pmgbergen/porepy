@@ -650,7 +650,7 @@ def test_derivatives_darcy_flux_potential_trace(base_discr: str):
     # match the ordering of the 2d cells (which was used to set 'true_derivatives').
     dt_du_computed = computed_flux.jac[
         1, (model.mortar_to_high_cell @ model.global_dof_u_mortar_y).astype(int)
-    ].A.ravel()
+    ].toarray().ravel()
 
     assert np.allclose(dt_du_computed, true_derivatives)
 
@@ -708,14 +708,14 @@ def test_derivatives_darcy_flux_potential_trace(base_discr: str):
     # ordering.
     assert np.allclose(
         true_jac_dp,
-        potential_trace.jac[fracture_faces_cart_ordering][:, model.global_p_2d_ind].A,
+        potential_trace.jac[fracture_faces_cart_ordering][:, model.global_p_2d_ind].toarray(),
     )
 
     # The computed Jacobian. Here we also need to reorder the columns from mortar to
     # high-dimensional cell ordering.
     computed_dp_dl = potential_trace.jac[fracture_faces_cart_ordering][
         :, model.mortar_to_high_cell @ model.global_intf_ind
-    ].A
+    ].toarray()
     # The true Jacobian with respect to the interface flux is found by differentiating
     # p_reconstructed with respect to the interface flux.
     true_dp_dl = np.diag(-dist / k_yy)
