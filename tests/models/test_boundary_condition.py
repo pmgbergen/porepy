@@ -160,7 +160,13 @@ class BCRobDir:
         bc.robin_weight = np.reshape(r_w, (sd.dim, sd.dim, sd.num_faces), "F") * 0
         return bc
 
-    def bc_type_scalar_rob_dir(self, sd: pp.Grid) -> pp.BoundaryCondition:
+    def _bc_type_scalar(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        """Helper function for setting boundary conditions on scalar fields.
+
+        The function sets Dirichlet on the west boundary, and Robin with alpha = 0 on
+        all other boundaries.
+
+        """
         bounds = self.domain_boundary_sides(sd)
         bc = pp.BoundaryCondition(
             sd,
@@ -174,13 +180,13 @@ class BCRobDir:
         return bc
 
     def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
-        return self.bc_type_scalar_rob_dir(sd=sd)
+        return self.bc_type_scalar(sd=sd)
 
     def bc_type_fourier_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
-        return self.bc_type_scalar_rob_dir(sd=sd)
+        return self.bc_type_scalar(sd=sd)
 
 
-class BCDirNeu:
+class BCDirNeu(BCRobDir):
     """Set Dirichlet and Neumann for momentum, mass, and mass and energy balance.
 
     Sets Dirichlet on the west boundary, and Neumann on all other boundaries.
@@ -194,7 +200,14 @@ class BCDirNeu:
         bc.is_dir[:, bounds.west] = True
         return bc
 
-    def bc_type_scalar_dir_neu(self, sd: pp.Grid) -> pp.BoundaryCondition:
+    def _bc_type_scalar(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        """Helper function for setting boundary conditions on scalar fields.
+
+        The function sets Dirichlet on the west boundary, and Neumann on all other
+        boundaries.
+
+        """
+
         bounds = self.domain_boundary_sides(sd)
         bc = pp.BoundaryCondition(
             sd,
@@ -204,12 +217,6 @@ class BCDirNeu:
         bc.is_neu[bounds.west] = False
         bc.is_dir[bounds.west] = True
         return bc
-
-    def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
-        return self.bc_type_scalar_dir_neu(sd=sd)
-
-    def bc_type_fourier_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
-        return self.bc_type_scalar_dir_neu(sd=sd)
 
 
 class MassBalanceNeu(
