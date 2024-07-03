@@ -138,6 +138,45 @@ class BCValues:
         return values
 
 
+class BCDirNeu:
+    """Set Dirichlet and Neumann for momentum, mass, and mass and energy balance.
+
+    Sets Dirichlet on the west boundary, and Neumann on all other boundaries.
+
+    """
+
+    def bc_type_mechanics(self, sd: pp.Grid) -> pp.BoundaryConditionVectorial:
+        bounds = self.domain_boundary_sides(sd)
+        bc = pp.BoundaryConditionVectorial(sd, bounds.all_bf, "neu")
+        bc.is_neu[:, bounds.west] = False
+        bc.is_dir[:, bounds.west] = True
+        return bc
+
+    def _bc_type_scalar(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        """Helper function for setting boundary conditions on scalar fields.
+
+        The function sets Dirichlet on the west boundary, and Neumann on all other
+        boundaries.
+
+        """
+
+        bounds = self.domain_boundary_sides(sd)
+        bc = pp.BoundaryCondition(
+            sd,
+            bounds.north + bounds.south + bounds.east + bounds.west,
+            "neu",
+        )
+        bc.is_neu[bounds.west] = False
+        bc.is_dir[bounds.west] = True
+        return bc
+
+    def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        return self._bc_type_scalar(sd=sd)
+
+    def bc_type_fourier_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        return self._bc_type_scalar(sd=sd)
+
+
 class BCRobDir:
     """Set Dirichlet and Robin for momentum, mass, and mass and energy balance.
 
@@ -177,45 +216,6 @@ class BCRobDir:
         bc.is_dir[bounds.west] = True
 
         bc.robin_weight = np.zeros(sd.num_faces)
-        return bc
-
-    def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
-        return self.bc_type_scalar(sd=sd)
-
-    def bc_type_fourier_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
-        return self.bc_type_scalar(sd=sd)
-
-
-class BCDirNeu(BCRobDir):
-    """Set Dirichlet and Neumann for momentum, mass, and mass and energy balance.
-
-    Sets Dirichlet on the west boundary, and Neumann on all other boundaries.
-
-    """
-
-    def bc_type_mechanics(self, sd: pp.Grid) -> pp.BoundaryConditionVectorial:
-        bounds = self.domain_boundary_sides(sd)
-        bc = pp.BoundaryConditionVectorial(sd, bounds.all_bf, "neu")
-        bc.is_neu[:, bounds.west] = False
-        bc.is_dir[:, bounds.west] = True
-        return bc
-
-    def _bc_type_scalar(self, sd: pp.Grid) -> pp.BoundaryCondition:
-        """Helper function for setting boundary conditions on scalar fields.
-
-        The function sets Dirichlet on the west boundary, and Neumann on all other
-        boundaries.
-
-        """
-
-        bounds = self.domain_boundary_sides(sd)
-        bc = pp.BoundaryCondition(
-            sd,
-            bounds.north + bounds.south + bounds.east + bounds.west,
-            "neu",
-        )
-        bc.is_neu[bounds.west] = False
-        bc.is_dir[bounds.west] = True
         return bc
 
 
