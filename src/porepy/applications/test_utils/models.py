@@ -118,7 +118,7 @@ def model(
     return model
 
 
-class BoundaryConditionTypes:
+class RobinDirichletNeumannConditions:
     """Mixin for applying Neumann, Dirichlet and Robin conditions for a
     thermoporomechanics model."""
 
