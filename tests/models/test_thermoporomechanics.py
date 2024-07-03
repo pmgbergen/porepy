@@ -284,7 +284,7 @@ def test_robin_boundary_flux():
     """
 
     class TailoredPoromechanicsRobin(
-        pp.test_utils.models.BoundaryConditionTypes,
+        pp.test_utils.models.RobinDirichletNeumannConditions,
         pp.models.thermoporomechanics.Thermoporomechanics,
     ):
         def set_domain(self) -> None:
