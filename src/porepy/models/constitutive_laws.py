@@ -1240,14 +1240,20 @@ class DarcysLaw:
     def combine_boundary_operators_darcy_flux(
         self, subdomains: list[pp.Grid]
     ) -> pp.ad.Operator:
-        """Combine darcy flux boundary operators.
+        """Combine Darcy flux boundary operators.
+
+        Note that the default Robin operator is the same as that of Neumann. Override
+        this method to define and assign another boundary operator of your choice. The
+        new operator should then be passed as an argument to the
+        _combine_boundary_operators method, just like self.darcy_flux is passed to
+        robin_operator in the default setup.
 
         Parameters:
             subdomains: List of the subdomains whose boundary operators are to be
                 combined.
 
         Returns:
-            The combined darcy flux boundary operator.
+            The combined Darcy flux boundary operator.
 
         """
         op = self._combine_boundary_operators(  # type: ignore[call-arg]
@@ -2748,14 +2754,20 @@ class FouriersLaw:
     def combine_boundary_operators_fourier_flux(
         self, subdomains: list[pp.Grid]
     ) -> pp.ad.Operator:
-        """Combine fourier flux boundary operators.
+        """Combine Fourier flux boundary operators.
+
+        Note that the default Robin operator is the same as that of Neumann. Override
+        this method to define and assign another boundary operator of your choice. The
+        new operator should then be passed as an argument to the
+        _combine_boundary_operators method, just like self.fourier_flux is passed to
+        robin_operator in the default setup.
 
         Parameters:
             subdomains: List of the subdomains whose boundary operators are to be
                 combined.
 
         Returns:
-            The combined fourier flux boundary operator.
+            The combined Fourier flux boundary operator.
 
         """
         op = self._combine_boundary_operators(  # type: ignore[call-arg]
@@ -3478,6 +3490,12 @@ class LinearElasticMechanicalStress:
         self, subdomains: list[pp.Grid]
     ) -> pp.ad.Operator:
         """Combine mechanical stress boundary operators.
+
+        Note that the default Robin operator is the same as that of Neumann. Override
+        this method to define and assign another boundary operator of your choice. The
+        new operator should then be passed as an argument to the
+        _combine_boundary_operators method, just like self.mechanical_stress is passed
+        to robin_operator in the default setup.
 
         Parameters:
             subdomains: List of the subdomains whose boundary operators are to be
