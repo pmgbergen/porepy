@@ -1489,9 +1489,12 @@ class AdTpfaFlux:
 
         Parameters:
             domains: List of domains where the flux is defined.
-            diffusivity_tensor: Function returning the diffusivity tensor as an Ad
+            potential: Method returning the potential as an Ad operator.
+            diffusivity_tensor: Method returning the diffusivity tensor as an Ad
                 operator. For Darcy's and Fourier's law, this is the permeability and
                 thermal conductivity, respectively.
+            boundary_operator: Method returning the boundary operator as an Ad
+                operator.
 
         Raises:
             ValueError if the domains are a mixture of grids and boundary grids.
@@ -1665,7 +1668,7 @@ class AdTpfaFlux:
         flux_p = flux_p + pp.ad.Scalar(0) * base_discr.flux() @ potential(domains)
 
         # Get boundary condition values
-        boundary_operator = boundary_operator(domains)
+        boundary_value_operator = boundary_operator(domains)
 
         # Compose the full discretization of the Darcy flux, which consists of three
         # terms: The flux due to pressure differences, the flux due to boundary
@@ -1674,7 +1677,7 @@ class AdTpfaFlux:
             flux_p
             + t_bnd
             * (
-                boundary_operator
+                boundary_value_operator
                 + intf_projection.mortar_to_primary_int
                 @ getattr(self, "interface_" + flux_name)(interfaces)
             )
@@ -1695,6 +1698,12 @@ class AdTpfaFlux:
 
         Parameters:
             subdomains: List of subdomains where the pressure is defined.
+            potential: Method returning the potential as an Ad operator.
+            diffusivity_tensor: Method returning the diffusivity tensor as an Ad
+                operator. For Darcy's and Fourier's law, this is the permeability and
+                thermal conductivity, respectively.
+            boundary_operator: Method returning the boundary operator as an Ad
+                operator.
 
         Returns:
             Pressure on the subdomain boundaries. Parsing the operator will return a
@@ -1706,7 +1715,7 @@ class AdTpfaFlux:
 
         projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1)
 
-        boundary_operator = boundary_operator(subdomains)
+        boundary_value_operator = boundary_operator(subdomains)
         base_discr = getattr(self, flux_name + "_discretization")(subdomains)
         # Obtain the transmissibilities in operator form. Ignore other outputs.
         t_f_full, *_ = self.__transmissibility_matrix(subdomains, diffusivity_tensor)
@@ -1743,7 +1752,7 @@ class AdTpfaFlux:
             )(
                 bound_pressure_face_discr,
                 projected_internal_flux,
-                boundary_operator,
+                boundary_value_operator,
             )
 
         else:
@@ -1751,7 +1760,7 @@ class AdTpfaFlux:
             # compose the discretization, treating internal and external boundaries
             # equally.
             boundary_value_contribution = bound_pressure_face_discr * (
-                projected_internal_flux + boundary_operator
+                projected_internal_flux + boundary_value_operator
             )
 
         # As the base discretization is only invoked inside a function, and then only by
@@ -2752,7 +2761,7 @@ class FouriersLaw:
             neumann_operator=self.fourier_flux,
             robin_operator=self.fourier_flux,
             bc_type=self.bc_type_fourier_flux,
-            name="bc_values_fourier",
+            name="bc_values_" + self.bc_data_fourier_flux_key,
         )
         return op
 
