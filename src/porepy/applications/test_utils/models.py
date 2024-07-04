@@ -129,8 +129,9 @@ class RobinDirichletNeumannConditions:
     nd: int
 
     def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
-        p_north = self.params.get("p_north", 1)
-        p_south = self.params.get("p_south", 1)
+        """Assigns pressure values on the north and south boundary."""
+        p_north = self.params.get("pressure_north", 1)
+        p_south = self.params.get("pressure_south", 1)
         values = np.zeros(boundary_grid.num_cells)
         bounds = self.domain_boundary_sides(boundary_grid)
 
@@ -139,6 +140,11 @@ class RobinDirichletNeumannConditions:
         return values
 
     def bc_type_mechanics(self, sd: pp.Grid) -> pp.BoundaryConditionVectorial:
+        """Assigns boundary condition types for the mechanics problem.
+
+        Puts Robin on west, Neumann on east and Dirichlet on north and south.
+
+        """
         bounds = self.domain_boundary_sides(sd)
         bc = pp.BoundaryConditionVectorial(
             sd,
@@ -150,11 +156,17 @@ class RobinDirichletNeumannConditions:
         bc.is_rob[:, bounds.west] = True
         bc.is_neu[:, bounds.east] = True
 
+        # Assign the robin weight
         r_w = np.tile(np.eye(sd.dim), (1, sd.num_faces))
         bc.robin_weight = np.reshape(r_w, (sd.dim, sd.dim, sd.num_faces), "F")
         return bc
 
-    def _bc_type_wrap(self, sd: pp.Grid) -> pp.BoundaryCondition:
+    def _bc_type_scalar(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        """Method for setting scalar boundary condition types.
+
+        Puts Robin on west, Neumann on east and Dirichlet on north and south.
+
+        """
         bounds = self.domain_boundary_sides(sd)
         bc = pp.BoundaryCondition(
             sd, bounds.north + bounds.south + bounds.west + bounds.east, "dir"
@@ -167,14 +179,15 @@ class RobinDirichletNeumannConditions:
         return bc
 
     def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
-        return self._bc_type_wrap(sd=sd)
+        return self._bc_type_scalar(sd=sd)
 
     def bc_type_fourier_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
-        return self._bc_type_wrap(sd=sd)
+        return self._bc_type_scalar(sd=sd)
 
     def bc_values_darcy_flux(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
-        df_west = self.params.get("df_west", 1)
-        df_east = self.params.get("df_east", 1)
+        """Assigns Darcy flux values on the west and east boundaries."""
+        df_west = self.params.get("darcy_flux_west", 1)
+        df_east = self.params.get("darcy_flux_east", 1)
         values = np.zeros(boundary_grid.num_cells)
         bounds = self.domain_boundary_sides(boundary_grid)
 
@@ -183,8 +196,9 @@ class RobinDirichletNeumannConditions:
         return values
 
     def bc_values_fourier_flux(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
-        ff_west = self.params.get("ff_west", 1)
-        ff_east = self.params.get("ff_east", 1)
+        """Assigns Fourier flux values on the west and east boundaries."""
+        ff_west = self.params.get("fourier_flux_west", 1)
+        ff_east = self.params.get("fourier_flux_east", 1)
         values = np.zeros(boundary_grid.num_cells)
         bounds = self.domain_boundary_sides(boundary_grid)
 
@@ -193,8 +207,9 @@ class RobinDirichletNeumannConditions:
         return values
 
     def bc_values_stress(self, bg: pp.BoundaryGrid) -> np.ndarray:
-        ms_west = self.params.get("ms_west", 1)
-        ms_east = self.params.get("ms_east", 1)
+        """Assigns mechanical stress values in x-direction of west/east boundary."""
+        ms_west = self.params.get("mechanical_stress_west", 1)
+        ms_east = self.params.get("mechanical_stress_east", 1)
         values = np.zeros((self.nd, bg.num_cells))
         bounds = self.domain_boundary_sides(bg)
 
