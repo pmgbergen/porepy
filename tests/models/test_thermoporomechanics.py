@@ -272,7 +272,8 @@ def test_robin_boundary_flux():
     (bc_values_"flux_name"). This test ensures that the correct values are assigned to
     the correct domain boundary sides (Robin values to Robin boundaries, Neumann values
     to Neumann boundaries). The test also covers checking if the Dirichlet values are
-    assigned to the correct boundary sides.
+    assigned to the correct boundary sides. Thus, this test also checks that there is no
+    overlap between the three boundary condition types.
 
     Model setup:
     * West boundary: Robin
@@ -293,14 +294,14 @@ def test_robin_boundary_flux():
     params = {
         "meshing_arguments": {"cell_size": 0.5},
         "grid_type": "cartesian",
-        "p_north": 1e-3,
-        "p_south": -1e-3,
-        "df_west": 1e-2,
-        "df_east": -1e-2,
-        "ff_west": 2e-2,
-        "ff_east": -2e-2,
-        "ms_west": 3e-2,
-        "ms_east": -3e-2,
+        "pressure_north": 1e-3,
+        "pressure_south": -1e-3,
+        "darcy_flux_west": 1e-2,
+        "darcy_flux_east": -1e-2,
+        "fourier_flux_west": 2e-2,
+        "fourier_flux_east": -2e-2,
+        "mechanical_stress_west": 3e-2,
+        "mechanical_stress_east": -3e-2,
     }
 
     model = TailoredPoromechanicsRobin(params)
@@ -328,14 +329,18 @@ def test_robin_boundary_flux():
     # Get boundary sides and assert boundary condition values
     bounds = model.domain_boundary_sides(subdomain)
 
-    assert np.allclose(values["darcy_flux"][bounds.west], params["df_west"])
-    assert np.allclose(values["darcy_flux"][bounds.east], params["df_east"])
+    assert np.allclose(values["darcy_flux"][bounds.west], params["darcy_flux_west"])
+    assert np.allclose(values["darcy_flux"][bounds.east], params["darcy_flux_east"])
 
-    assert np.allclose(values["fourier_flux"][bounds.west], params["ff_west"])
-    assert np.allclose(values["fourier_flux"][bounds.east], params["ff_east"])
+    assert np.allclose(values["fourier_flux"][bounds.west], params["fourier_flux_west"])
+    assert np.allclose(values["fourier_flux"][bounds.east], params["fourier_flux_east"])
 
-    assert np.allclose(values["mechanical_stress"][0][bounds.west], params["ms_west"])
-    assert np.allclose(values["mechanical_stress"][0][bounds.east], params["ms_east"])
+    assert np.allclose(
+        values["mechanical_stress"][0][bounds.west], params["mechanical_stress_west"]
+    )
+    assert np.allclose(
+        values["mechanical_stress"][0][bounds.east], params["mechanical_stress_east"]
+    )
 
     # Final check to see that the Dirichlet values are also assigned as expected. The
     # different bc types should not overlap. If all these tests pass, that suggest there
@@ -351,8 +356,8 @@ def test_robin_boundary_flux():
     ind_north = np.nonzero(np.isin(bounds.all_bf, np.where(bounds.north)[0]))[0]
     ind_south = np.nonzero(np.isin(bounds.all_bf, np.where(bounds.south)[0]))[0]
 
-    assert np.allclose(pressure_values[ind_north], params["p_north"])
-    assert np.allclose(pressure_values[ind_south], params["p_south"])
+    assert np.allclose(pressure_values[ind_north], params["pressure_north"])
+    assert np.allclose(pressure_values[ind_south], params["pressure_south"])
 
 
 @pytest.mark.parametrize(
