@@ -350,7 +350,7 @@ class EnergyBalanceEquations(pp.BalanceEquation):
             result *= self.mobility_rho(boundary_grids)
             return result
 
-        boundary_operator_enthalpy = self._combine_boundary_operators(  # type: ignore[call-arg]
+        boundary_operator = self._combine_boundary_operators(  # type: ignore[call-arg]
             subdomains=subdomains,
             dirichlet_operator=enthalpy_dirichlet,
             neumann_operator=self.enthalpy_flux,
@@ -367,7 +367,7 @@ class EnergyBalanceEquations(pp.BalanceEquation):
             * self.mobility(subdomains)
             * self.fluid_density(subdomains),
             discr,
-            boundary_operator_enthalpy,
+            boundary_operator,
             self.interface_enthalpy_flux,
         )
         flux.set_name("enthalpy_flux")
