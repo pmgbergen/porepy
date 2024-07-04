@@ -14,6 +14,7 @@ constitutive laws, the first test might be removed.
 
 
 """
+
 from __future__ import annotations
 
 from typing import Any, Literal, Type
@@ -300,11 +301,13 @@ reference_arrays = reference_dense_arrays["test_evaluated_values"]
     ],
 )
 def test_evaluated_values(
-    model: Type[models.Poromechanics]
-    | Type[models.Thermoporomechanics]
-    | Type[models.MassAndEnergyBalance]
-    | Type[models.MomentumBalance]
-    | Type[_],  # noqa
+    model: (
+        Type[models.Poromechanics]
+        | Type[models.Thermoporomechanics]
+        | Type[models.MassAndEnergyBalance]
+        | Type[models.MomentumBalance]
+        | Type[_]
+    ),  # noqa
     method_name: Literal[
         "fluid_density",
         "thermal_conductivity",
@@ -648,9 +651,13 @@ def test_derivatives_darcy_flux_potential_trace(base_discr: str):
     # Pick out the middle face, and only those faces that are associated with the mortar
     # displacement in the y-direction. The column indices must also be reordered to
     # match the ordering of the 2d cells (which was used to set 'true_derivatives').
-    dt_du_computed = computed_flux.jac[
-        1, (model.mortar_to_high_cell @ model.global_dof_u_mortar_y).astype(int)
-    ].toarray().ravel()
+    dt_du_computed = (
+        computed_flux.jac[
+            1, (model.mortar_to_high_cell @ model.global_dof_u_mortar_y).astype(int)
+        ]
+        .toarray()
+        .ravel()
+    )
 
     assert np.allclose(dt_du_computed, true_derivatives)
 
@@ -659,7 +666,11 @@ def test_derivatives_darcy_flux_potential_trace(base_discr: str):
     #
     # The potential reconstruction method
     potential_trace = model.potential_trace(
-        model.mdg.subdomains(), model.pressure, model.permeability, "darcy_flux"
+        model.mdg.subdomains(),
+        model.pressure,
+        model.permeability,
+        model.combine_boundary_operators_darcy_flux,
+        "darcy_flux",
     ).value_and_jacobian(model.equation_system)
 
     # Fetch the permeability tensor from the data dictionary.
@@ -708,7 +719,9 @@ def test_derivatives_darcy_flux_potential_trace(base_discr: str):
     # ordering.
     assert np.allclose(
         true_jac_dp,
-        potential_trace.jac[fracture_faces_cart_ordering][:, model.global_p_2d_ind].toarray(),
+        potential_trace.jac[fracture_faces_cart_ordering][
+            :, model.global_p_2d_ind
+        ].toarray(),
     )
 
     # The computed Jacobian. Here we also need to reorder the columns from mortar to
