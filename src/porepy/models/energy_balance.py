@@ -350,15 +350,14 @@ class EnergyBalanceEquations(pp.BalanceEquation):
             result *= self.mobility_rho(boundary_grids)
             return result
 
-        boundary_operator_enthalpy = (
-            self._combine_boundary_operators(  # type: ignore[call-arg]
-                subdomains=subdomains,
-                dirichlet_operator=enthalpy_dirichlet,
-                neumann_operator=self.enthalpy_flux,
-                robin_operator=self.enthalpy_flux,
-                bc_type=self.bc_type_enthalpy_flux,
-                name="bc_values_enthalpy",
-            )
+        boundary_operator_enthalpy = self._combine_boundary_operators(  # type: ignore[call-arg]
+            subdomains=subdomains,
+            dirichlet_operator=enthalpy_dirichlet,
+            neumann_operator=self.enthalpy_flux,
+            # Robin operator is not relevant for advective fluxes
+            robin_operator=None,
+            bc_type=self.bc_type_enthalpy_flux,
+            name="bc_values_enthalpy",
         )
 
         discr = self.enthalpy_discretization(subdomains)
