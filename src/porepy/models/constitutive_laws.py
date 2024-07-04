@@ -1482,6 +1482,7 @@ class AdTpfaFlux:
         domains: pp.SubdomainsOrBoundaries,
         potential: Callable[[list[pp.Grid]], pp.ad.Operator],
         diffusivity_tensor: Callable[[list[pp.Grid]], pp.ad.Operator],
+        boundary_operator: Callable[[list[pp.Grid]], pp.ad.Operator],
         flux_name: str,
     ) -> pp.ad.Operator:
         """Discretization of a diffusive constitutive law.
@@ -1664,11 +1665,7 @@ class AdTpfaFlux:
         flux_p = flux_p + pp.ad.Scalar(0) * base_discr.flux() @ potential(domains)
 
         # Get boundary condition values
-        boundary_operator = self.combine_boundary_operators_tpfa_flux(
-            subdomains=domains,
-            potential=potential,
-            flux_name=flux_name,
-        )
+        boundary_operator = boundary_operator(domains)
 
         # Compose the full discretization of the Darcy flux, which consists of three
         # terms: The flux due to pressure differences, the flux due to boundary
@@ -1691,6 +1688,7 @@ class AdTpfaFlux:
         subdomains: list[pp.Grid],
         potential: Callable[[list[pp.Grid]], pp.ad.Operator],
         diffusivity_tensor: Callable[[list[pp.Grid]], pp.ad.Operator],
+        boundary_operator: Callable[[list[pp.Grid]], pp.ad.Operator],
         flux_name: str,
     ) -> pp.ad.Operator:
         """Pressure on the subdomain boundaries.
@@ -1708,9 +1706,7 @@ class AdTpfaFlux:
 
         projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1)
 
-        boundary_operator = self.combine_boundary_operators_tpfa_flux(
-            subdomains=subdomains, potential=potential, flux_name=flux_name
-        )
+        boundary_operator = boundary_operator(subdomains)
         base_discr = getattr(self, flux_name + "_discretization")(subdomains)
         # Obtain the transmissibilities in operator form. Ignore other outputs.
         t_f_full, *_ = self.__transmissibility_matrix(subdomains, diffusivity_tensor)
@@ -1781,34 +1777,6 @@ class AdTpfaFlux:
             @ getattr(self, "vector_source_" + flux_name)(subdomains)
         )
         return pressure_trace
-
-    def combine_boundary_operators_tpfa_flux(
-        self,
-        subdomains: list[pp.Grid],
-        potential: Callable[[list[pp.Grid]], pp.ad.Operator],
-        flux_name: str,
-    ) -> pp.ad.Operator:
-        """Combine flux boundary operators for tpfa (used for Fourier and Darcy flux).
-
-        Parameters:
-            subdomains: List of the subdomains whose boundary operators are to be
-                combined.
-            potential: The Dirichlet operator.
-            flux_name: The name of the flux.
-
-        Returns:
-            The combined flux boundary operator.
-
-        """
-        op = self._combine_boundary_operators(  # type: ignore[call-arg]
-            subdomains=subdomains,
-            dirichlet_operator=potential,
-            neumann_operator=getattr(self, flux_name),
-            robin_operator=getattr(self, flux_name),
-            bc_type=getattr(self, "bc_type_" + flux_name),
-            name="bc_values_" + flux_name,
-        )
-        return op
 
     def __transmissibility_matrix(
         self,
@@ -2137,7 +2105,11 @@ class DarcysLawAd(AdTpfaFlux):
 
         """
         flux = self.diffusive_flux(
-            domains, self.pressure, self.permeability, "darcy_flux"
+            domains,
+            self.pressure,
+            self.permeability,
+            self.combine_boundary_operators_darcy_flux,
+            "darcy_flux",
         )
         return flux
 
@@ -2153,7 +2125,11 @@ class DarcysLawAd(AdTpfaFlux):
 
         """
         pressure_trace = self.potential_trace(
-            domains, self.pressure, self.permeability, "darcy_flux"
+            domains,
+            self.pressure,
+            self.permeability,
+            self.combine_boundary_operators_darcy_flux,
+            "darcy_flux",
         )
         pressure_trace.set_name("Differentiable pressure trace")
         return pressure_trace
@@ -2906,7 +2882,11 @@ class FouriersLawAd(AdTpfaFlux):
 
         """
         flux = self.diffusive_flux(
-            domains, self.temperature, self.thermal_conductivity, "fourier_flux"
+            domains,
+            self.temperature,
+            self.thermal_conductivity,
+            self.combine_boundary_operators_fourier_flux,
+            "fourier_flux",
         )
         return flux
 
@@ -2922,7 +2902,11 @@ class FouriersLawAd(AdTpfaFlux):
 
         """
         temperature_trace = self.potential_trace(
-            domains, self.temperature, self.thermal_conductivity, "fourier_flux"
+            domains,
+            self.temperature,
+            self.thermal_conductivity,
+            self.combine_boundary_operators_fourier_flux,
+            "fourier_flux",
         )
         temperature_trace.set_name("Differentiable temperature trace")
         return temperature_trace
