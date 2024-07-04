@@ -1,5 +1,5 @@
 from functools import cached_property
-from typing import Callable, Sequence
+from typing import Callable, Sequence, Optional, Union
 
 import numpy as np
 
@@ -133,7 +133,9 @@ class BoundaryConditionMixin:
         subdomains: Sequence[pp.Grid],
         dirichlet_operator: Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
         neumann_operator: Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
-        robin_operator: Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
+        robin_operator: Optional[
+            Union[None, Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator]]
+        ],
         bc_type: Callable[[pp.Grid], pp.BoundaryCondition],
         name: str,
         dim: int = 1,
@@ -148,6 +150,7 @@ class BoundaryConditionMixin:
             neumann_operator: Function that returns the Neumann boundary condition
                 operator.
             robin_operator: Function that returns the Robin boundary condition operator.
+                Expected to be None for e.g. advective fluxes.
             dim: Dimension of the equation. Defaults to 1.
             name: Name of the resulting operator. Must be unique for an operator.
 
@@ -157,25 +160,31 @@ class BoundaryConditionMixin:
         """
         boundary_grids = self.subdomains_to_boundary_grids(subdomains)
 
-        # Creating the Dirichlet, Neumann and Robin AD expressions.
-        dirichlet = dirichlet_operator(boundary_grids)
-        neumann = neumann_operator(boundary_grids)
-        robin = robin_operator(boundary_grids)
+        # Create dictionaries to hold the Dirichlet and Neumann operators and filters
+        operators = {
+            "dirichlet": dirichlet_operator(boundary_grids),
+            "neumann": neumann_operator(boundary_grids),
+        }
+        filters = {
+            "dirichlet": pp.ad.TimeDependentDenseArray(
+                name=(name + "_filter_dir"), domains=boundary_grids
+            ),
+            "neumann": pp.ad.TimeDependentDenseArray(
+                name=(name + "_filter_neu"), domains=boundary_grids
+            ),
+        }
+
+        # If the Robin operator is not None, it is also included in the operator and
+        # filter dictionaries
+        if robin_operator is not None:
+            operators["robin"] = robin_operator(boundary_grids)
+            filters["robin"] = pp.ad.TimeDependentDenseArray(
+                name=(name + "_filter_rob"), domains=boundary_grids
+            )
 
         # Adding bc_type function to local storage to evaluate it before every time step
         # in case if the type changes in the runtime.
         self.__bc_type_storage[name] = bc_type
-        # Creating the filters to ensure that Dirichlet,  Neumann and Robin arrays do
-        # not intersect where we do not want it.
-        dir_filter = pp.ad.TimeDependentDenseArray(
-            name=(name + "_filter_dir"), domains=boundary_grids
-        )
-        neu_filter = pp.ad.TimeDependentDenseArray(
-            name=(name + "_filter_neu"), domains=boundary_grids
-        )
-        rob_filter = pp.ad.TimeDependentDenseArray(
-            name=(name + "_filter_rob"), domains=boundary_grids
-        )
 
         # Setting the values of the filters for the first time.
         self._update_bc_type_filter(name=name, bc_type_callable=bc_type)
@@ -184,15 +193,18 @@ class BoundaryConditionMixin:
             self.mdg, subdomains=subdomains, dim=dim
         ).boundary_to_subdomain
 
-        # Ensure that the Dirichlet operator only assigns (non-zero)
-        # values to faces that are marked as having Dirichlet conditions.
-        dirichlet *= dir_filter
-        # Same with Neumann conditions.
-        neumann *= neu_filter
-        # Same with Robin conditions
-        robin *= rob_filter
-        # Projecting from the boundary grid to the subdomain.
-        result = boundary_to_subdomain @ (dirichlet + neumann + robin)
+        # Apply filters to the operators. This ensures that the Dirichlet operator only
+        # assigns (non-zero) values to faces that are marked as having Dirichlet
+        # conditions, that the Neumann operator assigns (non-zero) values only to
+        # Neumann faces, and that the Robin operator assigns (non-zero) values only to
+        # Robin faces.
+        for key in operators:
+            operators[key] *= filters[key]
+
+        # Combine the operators and project from the boundary grid to the subdomain.
+        combined_operator = sum(operators.values())
+        result = boundary_to_subdomain @ combined_operator
+
         result.set_name(name)
         return result
 
