@@ -2098,6 +2098,12 @@ class DarcysLawAd(AdTpfaFlux):
     :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`.
 
     """
+    combine_boundary_operators_darcy_flux: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Method that combines boundary operators to a single operator. Normally defined
+    in a mixin instance of
+    :class:`~porepy.constitutive_laws.DarcysLaw`.
+
+    """
 
     def darcy_flux(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
         """Discretization of Darcy's law.
@@ -2873,6 +2879,12 @@ class FouriersLawAd(AdTpfaFlux):
     temperature: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     """Temperature variable. Normally defined in a mixin instance of
     :class:`~porepy.models.energy_balance.VariablesEnergyBalance`.
+
+    """
+    combine_boundary_operators_fourier_flux: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Method that combines boundary operators to a single operator. Normally defined
+    in a mixin instance of
+    :class:`~porepy.constitutive_laws.FouriersLaw`.
 
     """
 

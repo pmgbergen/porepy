@@ -1,5 +1,5 @@
 from functools import cached_property
-from typing import Callable, Sequence, Optional, Union
+from typing import Callable, Optional, Sequence, Union
 
 import numpy as np
 
@@ -202,7 +202,8 @@ class BoundaryConditionMixin:
             operators[key] *= filters[key]
 
         # Combine the operators and project from the boundary grid to the subdomain.
-        combined_operator = sum(operators.values())
+        values = [val for val in operators.values()]  # Get list of values from dict
+        combined_operator = pp.ad.sum_operator_list(values)
         result = boundary_to_subdomain @ combined_operator
 
         result.set_name(name)
