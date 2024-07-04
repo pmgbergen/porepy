@@ -90,9 +90,9 @@ def test_boundary_sides(geometry_class, num_fracs):
 
         # Check that only valid boundaries are picked
         domain_or_internal_bf = np.where(np.sum(np.abs(sd.cell_faces), axis=1) == 1)
-        assert np.all(np.in1d(all_bf, domain_or_internal_bf))
+        assert np.all(np.isin(all_bf, domain_or_internal_bf))
         frac_faces = sd.tags["fracture_faces"].nonzero()[0]
-        assert np.all(np.logical_not(np.in1d(all_bf, frac_faces)))
+        assert np.all(np.logical_not(np.isin(all_bf, frac_faces)))
         assert np.all(all_bool == (east + west + north + south + top + bottom))
 
         # Check that the coordinates of the
@@ -325,7 +325,7 @@ def test_internal_boundary_normal_to_outwards(
         cf = sd.cell_faces
         # Summing is a trick to get the sign of the cell-face relation for the boundary
         # faces (we don't care about internal faces).
-        cf_sum = np.sum(cf, axis=1)
+        cf_sum = np.asarray(np.sum(cf, axis=1))
         # Only compare for fracture faces
         fracture_faces = np.where(sd.tags["fracture_faces"])[0]
         # The matrix constrained to this subdomain
@@ -338,7 +338,7 @@ def test_internal_boundary_normal_to_outwards(
             dim_ind = np.arange(i, loc_size, dim)
             dim_vals = loc_vals[dim_ind]
             assert np.allclose(
-                dim_vals[fracture_faces], cf_sum[fracture_faces].A.ravel()
+                dim_vals[fracture_faces], cf_sum[fracture_faces].ravel()
             )
         # Update offset, needed to test for multiple subdomains.
         offset += sd.num_faces * dim

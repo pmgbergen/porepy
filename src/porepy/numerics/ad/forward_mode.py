@@ -100,6 +100,56 @@ class AdArray:
         s += " elements"
         return s
 
+    def __getitem__(self, key: slice | np._ArrayLikeInt) -> AdArray:
+        """Slice the Ad Array row-wise (value and Jacobian).
+
+        Parameters:
+            key: A row-index (integer) or slice object to be applied to :attr:`val` and
+                :attr:`jac`
+
+        Returns:
+            A new Ad array with values and Jacobian sliced row-wise.
+
+        """
+        # NOTE mypy complains even though numpy arrays can handle slices [x:y:z]
+        # Probably a missing type annotation on numpy's side
+        val = self.val[key]  # type:ignore[index]
+        # in case of single index, broadcast to 1D array
+        if val.ndim == 0:
+            val = np.array([val])
+        return AdArray(val, self.jac[key])
+
+    def __setitem__(
+        self,
+        key: slice | np._ArrayLikeInt,
+        new_value: pp.number | np.ndarray | AdArray,
+    ) -> None:
+        """Insert new values in :attr:`val` and :attr:`jac` row-wise.
+
+        Note:
+            Broadcasting is outsourced to numpy and scipy. If ``new_value`` is not
+                compatible in terms of size and ``key``, respective errors are raised.
+
+        Parameters:
+            key: A row-index (integer) or slice object to set the rows in value and
+                Jacobian
+            new_value: New values for :attr:`val` and rows of :attr:`jac`.
+                If ``new_value`` is an Ad array, its ``jac`` is inserted into the
+                defined rows.
+
+        Raises:
+            NotImplementedError: If ``new_value`` is not a number, numpy array or
+                Ad array.
+
+        """
+        if isinstance(new_value, np.ndarray | pp.number):
+            self.val[key] = new_value
+        elif isinstance(new_value, AdArray):
+            self.val[key] = new_value.val
+            self.jac[key] = new_value.jac
+        else:
+            raise NotImplementedError("Setting")
+
     def __add__(self, other: AdType) -> AdArray:
         """Add the AdArray to another object.
 
@@ -555,3 +605,64 @@ class AdArray:
         A = sps.diags(a)
 
         return self.jac * A
+
+    def __lt__(self, other: AdType) -> bool | np.ndarray:
+        """Overload of operation ``self < other``.
+
+        The Ad-array delegates the logical operation solely to the values :attr:`val`,
+        leaving the actual implementation to numpy.
+        I.e., any binary, logical operation is equivalent to what numpy does with the
+        values.
+
+        Parameters:
+            other: Right-hand side operand. If it is an Ad-array, its :attr:`val` is
+                used to invoke the overload of numpy.
+
+        Returns:
+            A boolean (array) as the result of the lesser-operation.
+
+        """
+        if isinstance(other, AdArray):
+            return self.val < other.val
+        else:
+            return self.val < other
+
+    def __le__(self, other: AdType) -> bool | np.ndarray:
+        """Overload for ``self <= other``. See :meth:`__lt__` for more information."""
+        if isinstance(other, AdArray):
+            return self.val <= other.val
+        else:
+            return self.val <= other
+
+    def __gt__(self, other: AdType) -> bool | np.ndarray:
+        """Overload for ``self > other``. See :meth:`__lt__` for more information."""
+        if isinstance(other, AdArray):
+            return self.val > other.val
+        else:
+            return self.val > other
+
+    def __ge__(self, other: AdType) -> bool | np.ndarray:
+        """Overload for ``self >= other``. See :meth:`__lt__` for more information."""
+        if isinstance(other, AdArray):
+            return self.val >= other.val
+        else:
+            return self.val >= other
+
+    def __eq__(self, other: AdType) -> bool | np.ndarray:  # type:ignore[override]
+        """Overload for ``self == other``. See :meth:`__lt__` for more information."""
+        # mypy complaints that parent class object returns only bool here.
+        # But we leave the equal operation to the numpy values.
+        if isinstance(other, AdArray):
+            return self.val == other.val
+        else:
+            return self.val == other
+
+    def __ne__(self, other: AdType) -> bool | np.ndarray:  # type:ignore[override]
+        """Overload for ``self != other``. See :meth:`__lt__` for more information."""
+        # NOTE without the override of __ne__, Python uses __eq__ and returns its
+        # negation. In the scalar case (val.shape = (1,)) this can return a boolean,
+        # not a boolean array with shape (1,)
+        if isinstance(other, AdArray):
+            return self.val != other.val
+        else:
+            return self.val != other

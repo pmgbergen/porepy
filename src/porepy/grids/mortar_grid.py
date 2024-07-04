@@ -141,6 +141,11 @@ class MortarGrid:
         )
         """Total number of cells in all side grids."""
 
+        self.num_nodes: int = np.sum(  # type: ignore
+            [g.num_nodes for g in self.side_grids.values()], dtype=int
+        )
+        """Total number of nodes in all side grids."""
+
         self.cell_volumes: np.ndarray = np.hstack(
             [g.cell_volumes for g in self.side_grids.values()]
         )
@@ -150,6 +155,9 @@ class MortarGrid:
             [g.cell_centers for g in self.side_grids.values()]
         )
         """Cell centers of each cell in the side grids."""
+
+        self.nodes: np.ndarray = np.hstack([g.nodes for g in self.side_grids.values()])
+        """Nodes in the side grids."""
 
         # Set projections
         if not (primary_secondary is None):
@@ -180,6 +188,7 @@ class MortarGrid:
             + f" and id {self.id}.\n"
             + f"Dimension {self.dim} and codimension {self.codim}\n"
             + f"Number of cells {self.num_cells}\n"
+            + f"Number of nodes {self.num_nodes}\n"
             + f"Number of sides {len(self.side_grids)}\n"
             + "Number of cells in lower-dimensional neighbor "
             + f"{self.mortar_to_secondary_int().shape[0]}\n"
@@ -207,6 +216,7 @@ class MortarGrid:
             + f" and id {self.id}.\n"
             + f"Dimension {self.dim} and codimension {self.codim}\n"
             + f"Number of cells {self.num_cells}"
+            + f"Number of nodes {self.num_nodes}"
         )
         return s
 
@@ -226,12 +236,16 @@ class MortarGrid:
         self.num_cells = np.sum(  # type: ignore
             [g.num_cells for g in self.side_grids.values()], dtype=int
         )
+        self.num_nodes = np.sum(  # type: ignore
+            [g.num_nodes for g in self.side_grids.values()], dtype=int
+        )
         self.cell_volumes = np.hstack(
             [g.cell_volumes for g in self.side_grids.values()]
         )
         self.cell_centers = np.hstack(
             [g.cell_centers for g in self.side_grids.values()]
         )
+        self.nodes = np.hstack([g.nodes for g in self.side_grids.values()])
 
     ### Methods to update the mortar grid, or the neighboring grids.
 
@@ -866,7 +880,7 @@ class MortarGrid:
             and (face_duplicate_ind is not None)
             and self.codim < 2
         ):
-            is_second_side = np.in1d(primary_f, face_duplicate_ind)
+            is_second_side = np.isin(primary_f, face_duplicate_ind)
             secondary_f = np.r_[
                 secondary_f[~is_second_side], secondary_f[is_second_side]
             ]

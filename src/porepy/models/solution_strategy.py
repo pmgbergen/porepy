@@ -68,6 +68,8 @@ class SolutionStrategy(abc.ABC):
     :class:`~porepy.viz.exporter.Exporter`.
 
     """
+    nonlinear_solver_statistics: pp.SolverStatistics
+    """Solver statistics for the nonlinear solver."""
     update_all_boundary_conditions: Callable[[], None]
     """Set the values of the boundary conditions for the new time step.
     Defined in :class:`~porepy.models.abstract_equations.BoundaryConditionsMixin`.
@@ -135,7 +137,7 @@ class SolutionStrategy(abc.ABC):
         self.solid: pp.SolidConstants
         """Solid constants. See also :meth:`set_materials`."""
 
-        self.time_manager = params.get(
+        self.time_manager: pp.TimeManager = params.get(
             "time_manager",
             pp.TimeManager(schedule=[0, 1], dt_init=1, constant_dt=True),
         )
@@ -183,9 +185,7 @@ class SolutionStrategy(abc.ABC):
         is adjusted during simulation. See :meth:`before_nonlinear_loop`.
 
         """
-
-        self.nonlinear_solver_statistics = pp.SolverStatistics()
-        """Statistics object for non-linear solver loop."""
+        self.set_solver_statistics()
 
     def prepare_simulation(self) -> None:
         """Run at the start of simulation. Used for initialization etc."""
@@ -228,6 +228,31 @@ class SolutionStrategy(abc.ABC):
 
         """
 
+    def set_solver_statistics(self) -> None:
+        """Set the solver statistics object.
+
+        This method is called at initialization. It is intended to be used to
+        set the solver statistics object(s). Currently, the solver statistics
+        object is related to nonlinearity only. Statistics on other parts of the
+        solution process, such as linear solvers, may be added in the future.
+
+        Raises:
+            ValueError: If the solver statistics object is not a subclass of
+                pp.SolverStatistics.
+
+        """
+        # Retrieve the value with a default of pp.SolverStatistics
+        statistics = self.params.get("nonlinear_solver_statistics", pp.SolverStatistics)
+        # Explicitly check if the retrieved value is a class and a subclass of
+        # pp.SolverStatistics for type checking.
+        if isinstance(statistics, type) and issubclass(statistics, pp.SolverStatistics):
+            self.nonlinear_solver_statistics = statistics()
+
+        else:
+            raise ValueError(
+                f"Expected a subclass of pp.SolverStatistics, got {statistics}."
+            )
+
     def initial_condition(self) -> None:
         """Set the initial condition for the problem.
 
@@ -257,8 +282,12 @@ class SolutionStrategy(abc.ABC):
     def time_step_indices(self) -> np.ndarray:
         """Indices for storing time step solutions.
 
+        Note:
+            (Previous) Time step indices should start with 1.
+
         Returns:
-            An array of the indices of which time step solutions will be stored.
+            An array of the indices of which time step solutions will be stored, counting
+            from 0. Defaults to storing the most recently computed solution only.
 
         """
         return np.array([0])
@@ -424,20 +453,31 @@ class SolutionStrategy(abc.ABC):
             nonlinear_increment: The new solution, as computed by the non-linear solver.
 
         """
-        self.equation_system.shift_iterate_values()
+        self.equation_system.shift_iterate_values(max_index=len(self.iterate_indices))
         self.equation_system.set_variable_values(
             values=nonlinear_increment, additive=True, iterate_index=0
         )
         self.nonlinear_solver_statistics.num_iteration += 1
 
-    def after_nonlinear_convergence(self) -> None:
+    def after_nonlinear_convergence(self, iteration_counter: int) -> None:
         """Method to be called after every non-linear iteration.
 
         Possible usage is to distribute information on the solution, visualization, etc.
 
+        Parameters:
+            iteration_counter: Number of nonlinear solver iterations before convergence.
+                Used for time step adaptation.
+
         """
         solution = self.equation_system.get_variable_values(iterate_index=0)
-        self.equation_system.shift_time_step_values()
+
+        # Update the time step magnitude if the dynamic scheme is used.
+        if not self.time_manager.is_constant:
+            self.time_manager.compute_time_step(iterations=iteration_counter)
+
+        self.equation_system.shift_time_step_values(
+            max_index=len(self.time_step_indices)
+        )
         self.equation_system.set_variable_values(
             values=solution, time_step_index=0, additive=False
         )
@@ -447,10 +487,21 @@ class SolutionStrategy(abc.ABC):
     def after_nonlinear_failure(self) -> None:
         """Method to be called if the non-linear solver fails to converge."""
         self.save_data_time_step()
-        if self._is_nonlinear_problem():
+        if not self._is_nonlinear_problem():
+            raise ValueError("Failed to solve linear system for the linear problem.")
+
+        if self.time_manager.is_constant:
+            # We cannot decrease the constant time step.
             raise ValueError("Nonlinear iterations did not converge.")
         else:
-            raise ValueError("Tried solving singular matrix for the linear problem.")
+            # Update the time step magnitude if the dynamic scheme is used.
+            # Note: It will also raise a ValueError if the minimal time step is reached.
+            self.time_manager.compute_time_step(recompute_solution=True)
+
+            # Reset the iterate values. This ensures that the initial guess for an
+            # unknown time step equals the known time step.
+            prev_solution = self.equation_system.get_variable_values(time_step_index=0)
+            self.equation_system.set_variable_values(prev_solution, iterate_index=0)
 
     def after_simulation(self) -> None:
         """Run at the end of simulation. Can be used for cleanup etc."""

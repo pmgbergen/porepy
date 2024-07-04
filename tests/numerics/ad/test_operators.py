@@ -241,8 +241,9 @@ def test_ad_operator_unary_minus_parsing():
     mat2 = sps.csr_matrix(np.random.rand(3))
     sp_array1 = pp.ad.SparseArray(mat1)
     sp_array2 = pp.ad.SparseArray(mat2)
+    eqsys = pp.ad.EquationSystem(pp.MixedDimensionalGrid())
     op = sp_array1 + sp_array2
-    assert np.allclose(op._parse_operator(-op, None).data, -(mat1 + mat2).data)
+    assert np.allclose(op._parse_operator(-op, eqsys, None).data, -(mat1 + mat2).data)
 
 
 def test_time_dependent_array():
@@ -354,6 +355,11 @@ def test_time_dependent_array():
             "foofoobar", domains=[*mdg.subdomains(), *mdg.interfaces()]
         )
 
+    # Time dependent arrays at two time steps back are possible, but the evaluation
+    # should raise a key error because no values are stored
+    with pytest.raises(KeyError):
+        _ = sd_prev_timestep.previous_timestep().parse(mdg)
+
 
 def test_ad_variable_creation():
     """Test creation of Ad variables by way of the EquationSystem.
@@ -411,34 +417,6 @@ def test_ad_variable_creation():
     # The copy model will return variables with the same id.
     assert mvar_1_copy.id == mvar_1.id
     assert mvar_1_deepcopy.id == mvar_1.id
-
-    # Get versions of the variables at previous iteration and time step.
-    # This should return variables with different ids
-
-    # First variables
-    var_1_prev_iter = var_1.previous_iteration()
-    var_1_prev_time = var_1.previous_timestep()
-    assert var_1_prev_iter.id != var_1.id
-    assert var_1_prev_time.id != var_1.id
-
-    # Then mixed-dimensional variables.
-    mvar_1_prev_iter = mvar_1.previous_iteration()
-    mvar_1_prev_time = mvar_1.previous_timestep()
-    assert mvar_1_prev_iter.id != mvar_1.id
-    assert mvar_1_prev_time.id != mvar_1.id
-
-    # We prohibit creating a variable both on previous time step and iter.
-    with pytest.raises(ValueError):
-        _ = mvar_1_prev_iter.previous_timestep()
-    with pytest.raises(ValueError):
-        _ = mvar_1_prev_time.previous_iteration()
-
-    # We prohibit creating a variable on more than one iter or time step behind.
-    # NOTE: This should be removed when this feature is implemented.
-    with pytest.raises(NotImplementedError):
-        _ = mvar_1_prev_iter.previous_iteration()
-    with pytest.raises(NotImplementedError):
-        _ = mvar_1_prev_time.previous_timestep()
 
 
 def test_ad_variable_evaluation():
@@ -649,6 +627,106 @@ def test_ad_variable_evaluation():
 
     v1_prev = v1.previous_timestep()
     assert np.allclose(true_state[ind1], v1_prev.value(eq_system, true_iterate))
+
+
+@pytest.mark.parametrize('prev_time', [True, False])
+def test_ad_variable_prev_time_and_iter(prev_time):
+    # Test only 1 variable, the rest should be covered by other tests
+    mdg, _ = pp.mdg_library.square_with_orthogonal_fractures(
+        "cartesian",
+        {"cell_size": 0.5},
+        fracture_indices=[1],
+    )
+    eqsys = pp.ad.EquationSystem(mdg)
+
+    # Integer to test the depth of prev _*, could be a test parameter, but no need
+    depth = 4
+    var_name = 'foo'
+    vec = np.ones(mdg.num_subdomain_cells())
+
+    eqsys.create_variables(
+        var_name, dof_info={"cells": 1}, subdomains=mdg.subdomains()
+    )
+    var = eqsys.md_variable(var_name)
+
+    # Starting point is time step index is None, iterate index is 0
+    # (current time and iter)
+    assert var.time_step_index is None
+    assert var.iterate_index == 0
+
+    # For AD to work, we need at least values at iterate_index = 0
+    eqsys.set_variable_values(vec * 0., [var], iterate_index = 0)
+
+    # Test configuration dependent on whether prev iter or prev time is tested.
+    # Code is analogous
+    if prev_time:
+        index_key = 'time_step_index'
+        other_index_key = 'iterate_index'
+        get_prev_key = 'previous_timestep'
+
+        # prohibit prev time step variable to also be prev iter
+        with pytest.raises(ValueError):
+            var_pt = var.previous_timestep()
+            _ = var_pt.previous_iteration()
+    else:
+        index_key = 'iterate_index'
+        other_index_key = 'time_step_index'
+        get_prev_key = 'previous_iteration'
+
+        # prohibit prev iter variable to also be prev time
+        with pytest.raises(ValueError):
+            var_pi = var.previous_iteration()
+            _ = var_pi.previous_timestep()
+
+    # Set values except for the last step. The current value is set above
+    for i in range(depth - 1):
+        eqsys.set_variable_values(vec * i, [var], **{index_key: i})
+
+    # Evaluating the last step, should raise a key error because no values set
+    with pytest.raises(KeyError):
+        var_prev = getattr(var, get_prev_key)(steps = depth)
+        _ = var_prev.value(eqsys)
+
+    # Evaluate prev var and check that the values are what they're supposed to be.
+    for i in range(depth - 1):
+        var_i = getattr(var, get_prev_key)(steps = i + 1)
+        val_i = var_i.value(eqsys)
+        assert np.allclose(val_i, i)
+
+        # prev var has no Jacobian
+        ad_i = var_i.value_and_jacobian(eqsys)
+        assert np.all(ad_i.jac.toarray() == 0.)
+
+    # Test creating with explicit stepping and recursive stepping
+    vars_exp = [getattr(var, get_prev_key)(steps=i) for i in range(1, depth)]
+
+    vars_rec = []
+    for i in range(1, depth):
+        var_i = copy.copy(var)
+        for _ in range(i):
+            var_i = getattr(var_i, get_prev_key)()
+        vars_rec.append(var_i)
+
+    assert len(vars_exp) == len(vars_rec)
+    vals_exp = [v.value(eqsys) for v in vars_exp]
+    vals_rec = [v.value(eqsys) for v in vars_rec]
+
+    for v_e, v_r in zip(vals_exp, vals_rec):
+        assert np.allclose(v_e, v_r)
+
+    # Testing IDs. NOTE as of now, variables at prev iter have the same ID until
+    # full support is given
+    all_ids = set([var.id] + [v.id for v in vars_exp] + [v.id for v in vars_rec])
+    assert len(all_ids) == 1
+
+    # Testing index values.
+    # For prev time, time step index increases starting from 0, while iterate is None
+    # For prev iter, iterate index increases starting from 0, while time is always None
+    for i in range(depth - 1):
+        assert getattr(vars_exp[i], index_key) == i
+        assert getattr(vars_exp[i], other_index_key) is None
+        assert getattr(vars_rec[i], index_key) == i
+        assert getattr(vars_rec[i], other_index_key) is None
 
 
 @pytest.mark.parametrize(
@@ -1563,9 +1641,9 @@ def _expected_value(
                 2
                 * np.vstack(
                     (
-                        var_1.val[0] * var_1.jac[0].A,
-                        var_1.val[1] * var_1.jac[1].A,
-                        var_1.val[2] * var_1.jac[2].A,
+                        var_1.val[0] * var_1.jac[0].toarray(),
+                        var_1.val[1] * var_1.jac[1].toarray(),
+                        var_1.val[2] * var_1.jac[2].toarray(),
                     )
                 ),
             )
@@ -1602,9 +1680,9 @@ def _expected_value(
             jac = sps.csr_matrix(
                 np.vstack(
                     (
-                        -2 / var_2.val[0] ** 2 * var_2.jac[0].A,
-                        -2 / var_2.val[1] ** 2 * var_2.jac[1].A,
-                        -2 / var_2.val[2] ** 2 * var_2.jac[2].A,
+                        -2 / var_2.val[0] ** 2 * var_2.jac[0].toarray(),
+                        -2 / var_2.val[1] ** 2 * var_2.jac[1].toarray(),
+                        -2 / var_2.val[2] ** 2 * var_2.jac[2].toarray(),
                     )
                 ),
             )
@@ -1616,9 +1694,9 @@ def _expected_value(
             jac = sps.csr_matrix(
                 np.vstack(
                     (
-                        np.log(2.0) * (2 ** var_2.val[0]) * var_2.jac[0].A,
-                        np.log(2.0) * (2 ** var_2.val[1]) * var_2.jac[1].A,
-                        np.log(2.0) * (2 ** var_2.val[2]) * var_2.jac[2].A,
+                        np.log(2.0) * (2 ** var_2.val[0]) * var_2.jac[0].toarray(),
+                        np.log(2.0) * (2 ** var_2.val[1]) * var_2.jac[1].toarray(),
+                        np.log(2.0) * (2 ** var_2.val[2]) * var_2.jac[2].toarray(),
                     )
                 ),
             )
@@ -1650,9 +1728,9 @@ def _expected_value(
             jac = sps.csr_matrix(
                 np.vstack(
                     (
-                        var_1.jac[0].A / var_2[0],
-                        var_1.jac[1].A / var_2[1],
-                        var_1.jac[2].A / var_2[2],
+                        var_1.jac[0].toarray() / var_2[0],
+                        var_1.jac[1].toarray() / var_2[1],
+                        var_1.jac[2].toarray() / var_2[2],
                     )
                 )
             )
@@ -1665,9 +1743,9 @@ def _expected_value(
             jac = sps.csr_matrix(
                 np.vstack(
                     (
-                        var_2[0] * (var_1.val[0] ** (var_2[0] - 1.0)) * var_1.jac[0].A,
-                        var_2[1] * (var_1.val[1] ** (var_2[1] - 1.0)) * var_1.jac[1].A,
-                        var_2[2] * (var_1.val[2] ** (var_2[2] - 1.0)) * var_1.jac[2].A,
+                        var_2[0] * (var_1.val[0] ** (var_2[0] - 1.0)) * var_1.jac[0].toarray(),
+                        var_2[1] * (var_1.val[1] ** (var_2[1] - 1.0)) * var_1.jac[1].toarray(),
+                        var_2[2] * (var_1.val[2] ** (var_2[2] - 1.0)) * var_1.jac[2].toarray(),
                     )
                 )
             )
@@ -1698,9 +1776,9 @@ def _expected_value(
             jac = sps.csr_matrix(
                 np.vstack(
                     (
-                        -var_1[0] * var_2.jac[0].A / var_2.val[0] ** 2,
-                        -var_1[1] * var_2.jac[1].A / var_2.val[1] ** 2,
-                        -var_1[2] * var_2.jac[2].A / var_2.val[2] ** 2,
+                        -var_1[0] * var_2.jac[0].toarray() / var_2.val[0] ** 2,
+                        -var_1[1] * var_2.jac[1].toarray() / var_2.val[1] ** 2,
+                        -var_1[2] * var_2.jac[2].toarray() / var_2.val[2] ** 2,
                     )
                 )
             )
@@ -1711,9 +1789,9 @@ def _expected_value(
             jac = sps.csr_matrix(
                 np.vstack(
                     (
-                        var_1[0] ** var_2.val[0] * np.log(var_1[0]) * var_2.jac[0].A,
-                        var_1[1] ** var_2.val[1] * np.log(var_1[1]) * var_2.jac[1].A,
-                        var_1[2] ** var_2.val[2] * np.log(var_1[2]) * var_2.jac[2].A,
+                        var_1[0] ** var_2.val[0] * np.log(var_1[0]) * var_2.jac[0].toarray(),
+                        var_1[1] ** var_2.val[1] * np.log(var_1[1]) * var_2.jac[1].toarray(),
+                        var_1[2] ** var_2.val[2] * np.log(var_1[2]) * var_2.jac[2].toarray(),
                     )
                 )
             )
@@ -1750,9 +1828,9 @@ def _expected_value(
             jac = sps.csr_matrix(
                 np.vstack(
                     (
-                        var_1.jac[0].A * var_2.val[0] + var_1.val[0] * var_2.jac[0].A,
-                        var_1.jac[1].A * var_2.val[1] + var_1.val[1] * var_2.jac[1].A,
-                        var_1.jac[2].A * var_2.val[2] + var_1.val[2] * var_2.jac[2].A,
+                        var_1.jac[0].toarray() * var_2.val[0] + var_1.val[0] * var_2.jac[0].toarray(),
+                        var_1.jac[1].toarray() * var_2.val[1] + var_1.val[1] * var_2.jac[1].toarray(),
+                        var_1.jac[2].toarray() * var_2.val[2] + var_1.val[2] * var_2.jac[2].toarray(),
                     )
                 )
             )
@@ -1764,12 +1842,12 @@ def _expected_value(
             jac = sps.csr_matrix(
                 np.vstack(  # NBNB
                     (
-                        var_1.jac[0].A / var_2.val[0]
-                        - var_1.val[0] * var_2.jac[0].A / var_2.val[0] ** 2,
-                        var_1.jac[1].A / var_2.val[1]
-                        - var_1.val[1] * var_2.jac[1].A / var_2.val[1] ** 2,
-                        var_1.jac[2].A / var_2.val[2]
-                        - var_1.val[2] * var_2.jac[2].A / var_2.val[2] ** 2,
+                        var_1.jac[0].toarray() / var_2.val[0]
+                        - var_1.val[0] * var_2.jac[0].toarray() / var_2.val[0] ** 2,
+                        var_1.jac[1].toarray() / var_2.val[1]
+                        - var_1.val[1] * var_2.jac[1].toarray() / var_2.val[1] ** 2,
+                        var_1.jac[2].toarray() / var_2.val[2]
+                        - var_1.val[2] * var_2.jac[2].toarray() / var_2.val[2] ** 2,
                     )
                 )
             )
@@ -1785,22 +1863,22 @@ def _expected_value(
                     (
                         var_2.val[0]
                         * var_1.val[0] ** (var_2.val[0] - 1.0)
-                        * var_1.jac[0].A
+                        * var_1.jac[0].toarray()
                         + np.log(var_1.val[0])
                         * (var_1.val[0] ** var_2.val[0])
-                        * var_2.jac[0].A,
+                        * var_2.jac[0].toarray(),
                         var_2.val[1]
                         * var_1.val[1] ** (var_2.val[1] - 1.0)
-                        * var_1.jac[1].A
+                        * var_1.jac[1].toarray()
                         + np.log(var_1.val[1])
                         * (var_1.val[1] ** var_2.val[1])
-                        * var_2.jac[1].A,
+                        * var_2.jac[1].toarray(),
                         var_2.val[2]
                         * var_1.val[2] ** (var_2.val[2] - 1.0)
-                        * var_1.jac[2].A
+                        * var_1.jac[2].toarray()
                         + np.log(var_1.val[2])
                         * (var_1.val[2] ** var_2.val[2])
-                        * var_2.jac[2].A,
+                        * var_2.jac[2].toarray(),
                     )
                 )
             )

@@ -168,11 +168,18 @@ class EquationSystem:
 
         """
 
-        self._variables: list[Variable] = list()
-        """Contains references to Variables.
+        self._variables: dict[int, Variable] = dict()
+        """Dictionary mapping variable IDs to the atomic variables created and managed
+        by this instance.
+
+        Variables contained here are ordered chronologically in terms of
+        instantiation. It does not reflect the order of DOFs, which is to some degree
+        optimized.
 
         A Variable is uniquely identified by its name and domain, stored as attributes
         of the Variable object.
+
+        Implementation-wise it is uniquely identified by its ID.
 
         """
 
@@ -181,9 +188,11 @@ class EquationSystem:
 
         """
 
-        self._variable_numbers: dict[Variable, int] = dict()
-        """Dictionary containing the index of the variable in the system vector of the
-        last assembled system.
+        self._variable_numbers: dict[int, int] = dict()
+        """A Map between a variable's ID and its index in the system vector.
+
+        This is an optimized structure, meaning the order of entries is created in
+        :meth:`_cluster_dofs_gridwise`.
 
         """
 
@@ -195,8 +204,8 @@ class EquationSystem:
 
         """
 
-        self._variable_dof_type: dict[Variable, dict[GridEntity, int]] = dict()
-        """Dictionary containing the type of DOFs per variable.
+        self._variable_dof_type: dict[int, dict[GridEntity, int]] = dict()
+        """Dictionary mapping from variable IDs to the type of DOFs per variable.
 
         The type is given as a dictionary with keys 'cells', 'faces' or 'nodes',
         and integer values denoting the number of DOFs per grid entity.
@@ -239,7 +248,7 @@ class EquationSystem:
         unknown_equations = set(equations).difference(known_equations)
         if len(unknown_equations) > 0:
             raise ValueError(f"Unknown variable(s) {unknown_equations}.")
-        unknown_variables = set(variables).difference(self._variables)
+        unknown_variables = set(variables).difference(self.variables)
         if len(unknown_variables) > 0:
             raise ValueError(f"Unknown variable(s) {unknown_variables}.")
 
@@ -251,19 +260,20 @@ class EquationSystem:
         # attributes. This should be acceptable since this is a factory method.
 
         # Loop over known variables to preserve DOF order.
-        for variable in self._variables:
+        for variable in self.variables:
             if variable in variables:
                 # Update variables in subsystem.
-                new_equation_system._variables.append(variable)
+                new_equation_system._variables[variable.id] = variable
 
                 # Update variable numbers in subsystem.
-                new_equation_system._variable_dof_type[variable] = (
-                    self._variable_dof_type[variable]
+                new_equation_system._variable_dof_type[variable.id] = (
+                    self._variable_dof_type[variable.id]
                 )
 
                 # Create dofs in subsystem.
                 new_equation_system._append_dofs(variable)
 
+        new_equation_system._cluster_dofs_gridwise()
         # Loop over known equations to preserve row order.
         for name in known_equations:
             if name in equations:
@@ -293,13 +303,13 @@ class EquationSystem:
         system.
 
         """
-        return self._variables
+        return [var for var in self._variables.values()]
 
     @property
     def variable_domains(self) -> list[pp.GridLike]:
         """List containing all domains where at least one variable is defined."""
         domains = set()
-        for var in self._variables:
+        for var in self.variables:
             domains.add(var.domain)
         return list(domains)
 
@@ -324,7 +334,7 @@ class EquationSystem:
 
         """
         if grids is None:
-            variables = [var for var in self._variables if var.name == name]
+            variables = [var for var in self.variables if var.name == name]
             # We don't allow combinations of variables with different domain types
             # in a md variable.
             heterogeneous_domain = False
@@ -345,7 +355,7 @@ class EquationSystem:
         else:
             variables = [
                 var
-                for var in self._variables
+                for var in self.variables
                 if var.name == name and var.domain in grids
             ]
         return MixedDimensionalVariable(variables)
@@ -453,12 +463,14 @@ class EquationSystem:
 
             # Store it in the system
             variables.append(new_variable)
-            self._variables.append(new_variable)
+            self._variables[new_variable.id] = new_variable
 
             # Append the new DOFs to the global system.
-            self._variable_dof_type[new_variable] = dof_info
+            self._variable_dof_type[new_variable.id] = dof_info
             self._append_dofs(new_variable)
 
+        # New optimized order
+        self._cluster_dofs_gridwise()
         # Create an md variable that wraps all the individual variables created on
         # individual grids.
         merged_variable = MixedDimensionalVariable(variables)
@@ -521,11 +533,11 @@ class EquationSystem:
             and tag_name is None
             and tag_value is None
         ):
-            return self._variables
+            return self.variables
 
         # If no variables or grids are given, use full sets.
         if variables is None:
-            variables = self._variables
+            variables = self.variables
         if grids is None:
             # Note: This gives all grids known to variables, not all grids in the
             # md grid. The result of the filtering will be the same, though.
@@ -557,71 +569,44 @@ class EquationSystem:
         index specified by the user. The global order is preserved and independent of
         the order of the argument.
 
+        See also:
+            :meth:`~porepy.numerics.ad._ad_utils.get_solution_values`.
+
         Parameters:
-            variables (optional): VariableType input for which the values are
-                requested. If None (default), the global vector of unknowns is returned.
-            time_step_index: Specified by user if they want to gather variable values
-                from a specific time-step. Value 0 provides the most recent time-step. A
-                value of 1 will give the values of one time-step back in time.
-            iterate_index: Specified by user if they want to gather a specific set of
-                iterate values. Similar to ``time_step_index``, value 0 is the
-                default value and gives the most recent iterate.
+            variables: ``default=None``
+
+                VariableType input for which the values are requested.
+                If None (default), the global vector of unknowns is returned.
+            time_step_index: Time step index for which the values should be fetched.
+            iterate_index: Iterate index for which the values should be fetched.
+
+        Raises:
+            ValueError: If unknown VariableType arguments are passed.
 
         Returns:
             The respective (sub) vector in numerical format, size anywhere between 0 and
                 :meth:`num_dofs`.
 
-        Raises:
-            ValueError: If neither of ``time_step_index`` or ``iterate_index`` have been
-            assigned a non-None value.
-            ValueError: If both ``time_step_index`` and ``iterate_index`` have been
-            assigned a value.
-            KeyError: If no values are stored for the VariableType input.
-            ValueError: If unknown VariableType arguments are passed.
-
         """
-        if time_step_index is None and iterate_index is None:
-            raise ValueError(
-                "Either time_step_index or iterate_index needs to be different from"
-                " None"
-            )
-
-        if time_step_index is not None and iterate_index is not None:
-            raise ValueError(
-                "Only one of time_step_index or iterate_index should be assigned a"
-                " value."
-            )
-
         variables = self._parse_variable_type(variables)
+        var_ids = [var.id for var in variables]
         # Storage for atomic blocks of the sub vector (identified by name-grid pairs).
         values = []
 
         # Loop over all blocks and process those requested.
         # This ensures uniqueness and correct order.
-        for variable in self._variable_numbers:
-            if variable in variables:
-                name = variable.name
-                grid = variable.domain
-                if isinstance(grid, pp.Grid):
-                    data = self.mdg.subdomain_data(grid)
-                elif isinstance(grid, pp.MortarGrid):
-                    data = self.mdg.interface_data(grid)
-                # Extract a copy of requested values.
-                try:
-                    if iterate_index is not None:
-                        values.append(
-                            data[pp.ITERATE_SOLUTIONS][name][iterate_index].copy()
-                        )
+        for id_ in self._variable_numbers:
+            if id_ in var_ids:
+                variable = self._variables[id_]
 
-                    elif time_step_index is not None:
-                        values.append(
-                            data[pp.TIME_STEP_SOLUTIONS][name][time_step_index].copy()
-                        )
-
-                except KeyError:
-                    raise KeyError(
-                        f"No values stored for variable {name} on grid {grid}."
-                    )
+                val = pp.get_solution_values(
+                    variable.name,
+                    self._get_data(variable.domain),
+                    time_step_index=time_step_index,
+                    iterate_index=iterate_index,
+                )
+                # NOTE get_solution_values already returns a copy
+                values.append(val)
 
         # If there are matching blocks, concatenate and return.
         if values:
@@ -648,77 +633,57 @@ class EquationSystem:
             Mismatches of is-size and should-be-size according to the subspace specified
             by ``variables`` will raise respective errors by numpy.
 
+        See also:
+            :meth:`~porepy.numerics.ad._ad_utils.set_solution_values`.
+
         Parameters:
             values: Vector of size corresponding to number of DOFs of the specified
                 variables.
-            variables (optional): VariableType input for which the values are
-                requested. If None (default), the global vector of unknowns will be
-                set.
-            time_step_index: Several solutions might be stored in the data dictionary.
-                This parameter determines which one of these is to be overwritten/added
-                to (depends on ``additive``). If ``None``, the values will not be
-                stored to ``pp.TIME_STEP_SOLUTIONS``.
-            iterate_index: Several iterates might be stored in the data dictionary. This
-                parameter determines which one of these is to be overwritten/added to
-                (depends on ``additive``). If ``None``, the values will not be stored
-                to ``pp.ITERATE_SOLUTIONS``.
-            additive (optional): Flag to write values additively. To be used in
-                iterative procedures.
+            variables: ``default=None``
+
+                VariableType input for which the values are prescribed.
+                If None (default), the global vector of unknowns will be set.
+            time_step_index: Time step index for which the values are intended.
+            iterate_index: Iterate index for which the values are intended.
+            additive: ``default=False``
+
+                Flag to write values additively. To be used in iterative procedures.
 
         Raises:
-            ValueError: If neither of ``time_step_index`` or ``iterate_index`` have been
-            assigned a value.
             ValueError: If unknown VariableType arguments are passed.
 
         """
-        if time_step_index is None and iterate_index is None:
-            raise ValueError(
-                "At least one of time_step_index and iterate_index needs to be"
-                "different from None."
-            )
 
         # Start of dissection.
         dof_start = 0
         dof_end = 0
         variables = self._parse_variable_type(variables)
-        for variable, variable_number in self._variable_numbers.items():
-            if variable in variables:
-                name = variable.name
-                grid = variable.domain
+        var_ids = [var.id for var in variables]
 
-                data = self._get_data(grid=grid)
-
+        for id_, variable_number in self._variable_numbers.items():
+            if id_ in var_ids:
+                # 1. Slice the vector to local size
+                # This will raise errors if indexation is out of range.
                 num_dofs = int(self._variable_num_dofs[variable_number])
+                # Extract local vector.
+                # This will raise errors if indexation is out of range.
                 dof_end = dof_start + num_dofs
                 # Extract local vector.
                 # This will raise errors if indexation is out of range.
                 local_vec = values[dof_start:dof_end]
 
-                # The data dictionary will have ``pp.TIME_STEP_SOLUTIONS`` and
-                # ``pp.ITERATE_SOLUTIONS`` entries already created during
-                # create_variables. If an error is returned here, a variable has been
-                # created in a non-standard way. Store new values as requested.
-                if additive:
-                    if iterate_index is not None:
-                        data[pp.ITERATE_SOLUTIONS][name][iterate_index] += local_vec
+                # 2.  Use the AD utilities to set the values
+                variable = self._variables[id_]
+                pp.set_solution_values(
+                    variable.name,
+                    local_vec,
+                    self._get_data(grid=variable.domain),
+                    time_step_index=time_step_index,
+                    iterate_index=iterate_index,
+                    additive=additive,
+                )
 
-                    if time_step_index is not None:
-                        data[pp.TIME_STEP_SOLUTIONS][name][time_step_index] += local_vec
-
-                else:
-                    if iterate_index is not None:
-                        # The copy is critcial here.
-                        data[pp.ITERATE_SOLUTIONS][name][
-                            iterate_index
-                        ] = local_vec.copy()
-
-                    if time_step_index is not None:
-                        # The copy is critcial here.
-                        data[pp.TIME_STEP_SOLUTIONS][name][
-                            time_step_index
-                        ] = local_vec.copy()
-
-                # Move dissection forward.
+                # 3. Move dissection forward.
                 dof_start = dof_end
 
         # Last sanity check if the vector was properly sized, or if it was too large.
@@ -729,75 +694,41 @@ class EquationSystem:
     def shift_time_step_values(
         self,
         variables: Optional[VariableList] = None,
+        max_index: Optional[int] = None,
     ) -> None:
         """Method for shifting stored time step values in data sub-dictionary.
 
-        For details of the value shifting see the method :meth:`_shift_variable_values`.
+        For details of the value shifting see the method
+        :func:`~porepy.numerics.ad._ad_utils.shift_solution_values`.
 
         Parameters:
-            variables (optional): VariableType input for which the values are
-                requested. If None (default), the global vector of unknowns will
-                be shifted.
+            variables: ``default=None``
+
+                VariableType input for which the values should be shifted in time.
+                If None, all variables created by this system will be shifted.
+            max_index: ``default=None``
+
+                A positive integer, capping the range of the shift operation to
+                ``i -> max_index``.
+                If called repeatedly with ``None``, the depth in time keeps increasing.
 
         """
-        self._shift_variable_values(
-            location=pp.TIME_STEP_SOLUTIONS, variables=variables
-        )
+        for var in self._parse_variable_type(variables):
+            pp.shift_solution_values(
+                var.name, self._get_data(var.domain), pp.TIME_STEP_SOLUTIONS, max_index
+            )
 
     def shift_iterate_values(
         self,
         variables: Optional[VariableList] = None,
+        max_index: Optional[int] = None,
     ) -> None:
-        """Method for shifting stored iterate values in data sub-dictionary.
-
-        For details of the value shifting see the method :meth:`_shift_variable_values`.
-
-        Parameters:
-            variables (optional): VariableType input for which the values are
-                requested. If None (default), the global vector of unknowns will
-                be shifted.
-
-        """
-        self._shift_variable_values(location=pp.ITERATE_SOLUTIONS, variables=variables)
-
-    def _shift_variable_values(
-        self,
-        location: str,
-        variables: Optional[VariableList] = None,
-    ) -> None:
-        """Method for shifting values in data dictionary.
-
-        Time step and iterate values are stored with storage indices as keys in
-        the data dictionary for the subdomain or interface in question. For each
-        time-step/iteration, these values are shifted such that the most recent
-        variable value later can be placed at index 0. The previous
-        time-step/iterate values have their index incremented by one. Values
-        of key 0 is moved to key 1, values of key 1 is moved to key 2, and so
-        on. The value at the highest key is discarded.
-
-        Parameters:
-            location: Should be ``pp.TIME_STEP_SOLUTIONS`` or ``pp.ITERATE_SOLUTIONS``
-                depending on which one of solutions/iterates that are to be shifted.
-            variables (optional): VariableType input for which the values are
-                requested. If None (default), the global vector of unknowns will
-                be shifted.
-
-        Raises:
-            ValueError: If unknown VariableType arguments are passed.
-
-        """
-        # Looping through the variables and shifting the values
-        variables = self._parse_variable_type(variables)
-        for variable, _ in self._variable_numbers.items():
-            if variable in variables:
-                name = variable.name
-                grid = variable.domain
-                data = self._get_data(grid=grid)
-
-                # Shift old values as requested.
-                num_stored = len(data[location][name])
-                for i in range(num_stored - 1, 0, -1):
-                    data[location][name][i] = data[location][name][i - 1].copy()
+        """Analogous to :meth:`shift_time_step_values`, but for iterates of the current
+        (unknown) time step."""
+        for var in self._parse_variable_type(variables):
+            pp.shift_solution_values(
+                var.name, self._get_data(var.domain), pp.ITERATE_SOLUTIONS, max_index
+            )
 
     def _get_data(
         self,
@@ -821,7 +752,9 @@ class EquationSystem:
     ### DOF management -----------------------------------------------------------------
 
     def _append_dofs(self, variable: pp.ad.Variable) -> None:
-        """Appends DOFs for a newly created variable.
+        """Appends DOFs for a newly created variable at the end of the current order.
+
+        Optimization of variable order is done afterwards.
 
         Must only be called by :meth:`create_variables`.
 
@@ -834,12 +767,12 @@ class EquationSystem:
 
         # Sanity check that no previous data is overwritten. This should not happen,
         # if class not used in hacky way.
-        assert variable not in self._variable_numbers
+        assert variable.id not in self._variable_numbers
 
         # Count number of dofs for this variable on this grid and store it.
         # The number of dofs for each dof type defaults to zero.
 
-        local_dofs = self._variable_dof_type[variable]
+        local_dofs = self._variable_dof_type[variable.id]
         # Both subdomains and interfaces have cell variables.
         num_dofs = variable.domain.num_cells * local_dofs.get("cells", 0)
 
@@ -851,13 +784,10 @@ class EquationSystem:
             ) + variable.domain.num_nodes * local_dofs.get("nodes", 0)
 
         # Update the global dofs and block numbers
-        self._variable_numbers.update({variable: last_variable_number})
+        self._variable_numbers.update({variable.id: last_variable_number})
         self._variable_num_dofs = np.concatenate(
             [self._variable_num_dofs, np.array([num_dofs], dtype=int)]
         )
-
-        # first optimization of Jacobian structure
-        self._cluster_dofs_gridwise()
 
     def _cluster_dofs_gridwise(self) -> None:
         """Re-arranges the DOFs grid-wise s.t. we obtain grid-blocks in the column sense
@@ -866,41 +796,37 @@ class EquationSystem:
         The aim is to impose a more block-diagonal-like structure on the Jacobian where
         blocks in the column sense represent single grids in the following order:
 
-        Note:
-            Off-diagonal blocks will still be present if subdomain-interface variables
-            are defined.
-
         1. For each grid in ``mdg.subdomains``
             1. For each variable defined on that grid
         2. For each grid in ``mdg.interfaces``
             1. For each variable defined on that mortar grid
 
-        The order of variables per grid is given by the order of variable creation
-        (stored as order of keys in ``self.variables``).
-
+        The order of variables per grid is given by the order of variable creation.
         This method is called after each creation of variables and respective DOFs.
-        TODO: Revisit. I think I have broken it by looping over _variables instead of
-        subdomains and interfaces.
 
         """
         # Data stracture for the new order of dofs.
         new_variable_counter: int = 0
-        new_variable_numbers: dict[Variable, int] = dict()
+        new_variable_numbers: dict[int, int] = dict()
         new_block_dofs: list[int] = list()
 
-        for variable in self._variables:
-            # If this variable-grid combination is present, add it to the new
-            # order of dofs.
-            if variable in self._variable_numbers:
-                # Extract created number of dofs
-                local_dofs: int = self._variable_num_dofs[
-                    self._variable_numbers[variable]
-                ]
+        # 1. Per subdomain, order variables
+        for grid in self.mdg.subdomains():
+            for id_, variable in self._variables.items():
+                if variable.domain == grid:
+                    local_dofs = self._variable_num_dofs[self._variable_numbers[id_]]
+                    new_block_dofs.append(local_dofs)
+                    new_variable_numbers.update({id_: new_variable_counter})
+                    new_variable_counter += 1
 
-                # Store new block number and dofs in new order.
-                new_block_dofs.append(local_dofs)
-                new_variable_numbers.update({variable: new_variable_counter})
-                new_variable_counter += 1
+        # 2. Per interface, order variables
+        for intf in self.mdg.interfaces():
+            for id_, variable in self._variables.items():
+                if variable.domain == intf:
+                    local_dofs = self._variable_num_dofs[self._variable_numbers[id_]]
+                    new_block_dofs.append(local_dofs)
+                    new_variable_numbers.update({id_: new_variable_counter})
+                    new_variable_counter += 1
 
         # Replace old block order
         self._variable_num_dofs = np.array(new_block_dofs, dtype=int)
@@ -933,17 +859,17 @@ class EquationSystem:
 
         """
         if variables is None:
-            return self.get_variables()
+            return self.variables
         parsed_variables = []
         assert isinstance(variables, list)
         for variable in variables:
             if isinstance(variable, MixedDimensionalVariable):
-                parsed_variables += variable.sub_vars
+                parsed_variables += [var for var in variable.sub_vars]
             elif isinstance(variable, Variable):
                 parsed_variables.append(variable)
             elif isinstance(variable, str):
                 # Use _variables to avoid recursion (get_variables() calls this method)
-                vars = [var for var in self._variables if var.name == variable]
+                vars = [var for var in self._variables.values() if var.name == variable]
                 parsed_variables += vars
             else:
                 raise ValueError(
@@ -1029,37 +955,46 @@ class EquationSystem:
             return sps.csr_matrix((0, num_dofs))
 
     def dofs_of(self, variables: VariableList) -> np.ndarray:
-        """Get the indices in the global vector of unknowns belonging to the variable(s).
+        """Get the indices in the global vector of unknowns belonging to the variables.
 
         Parameters:
             variables: VariableType input for which the indices are requested.
 
         Returns:
-            an order-preserving array of indices of DOFs belonging to the VariableType input.
+            An array of indices/ DOFs corresponding to ``variables``.
+            Note that the order of indices corresponds to the order in ``variables``.
 
         Raises:
-            ValueError: if unknown VariableType arguments are passed.
+            ValueError: If an unknown  variable is passed as argument.
 
         """
         variables = self._parse_variable_type(variables)
         global_variable_dofs = np.hstack((0, np.cumsum(self._variable_num_dofs)))
 
-        # Storage of indices per requested variable.
-        indices = list()
-        for variable in variables:
-            var_number = self._variable_numbers[variable]
-            var_indices = np.arange(
-                global_variable_dofs[var_number],
-                global_variable_dofs[var_number + 1],
-                dtype=int,
-            )
-            indices.append(var_indices)
+        indices: list[np.ndarray] = []
+
+        for var in variables:
+            if var.id in self._variable_numbers:
+                variable_number = self._variable_numbers[var.id]
+                var_indices = np.arange(
+                    global_variable_dofs[variable_number],
+                    global_variable_dofs[variable_number + 1],
+                    dtype=int,
+                )
+                indices.append(var_indices)
+            else:
+                raise ValueError(
+                    f"Variable {var.name} with ID {var.id} not registered among DOFS"
+                    + f" of equation system {self}."
+                )
 
         # Concatenate indices, if any
         if len(indices) > 0:
-            return np.concatenate(indices, dtype=int)
+            all_indices = np.concatenate(indices, dtype=int)
         else:
-            return np.array([], dtype=int)
+            all_indices = np.array([], dtype=int)
+
+        return all_indices
 
     def identify_dof(self, dof: int) -> Variable:
         """Identifies the variable to which a specific DOF index belongs.
@@ -1085,10 +1020,16 @@ class EquationSystem:
         # Find the variable number belonging to this index
         variable_number = np.argmax(global_variable_dofs > dof) - 1
         # Get the variable key from _variable_numbers
-        variable = [
-            var for var, num in self._variable_numbers.items() if num == variable_number
-        ][0]
-        return variable
+        # find the ID belonging to the dof
+        id_ = [
+            id_ for id_, num in self._variable_numbers.items() if num == variable_number
+        ]
+        # sanity check that only 1 ID was found
+        assert len(id_) == 1, "Failed to find unique ID corresponding to `dof`."
+        # find variable with the ID
+        variable = [var for _id, var in self._variables.items() if _id == id_[0]]
+        assert len(variable) == 1, "Failed to find Variable corresponding to `dof`."
+        return variable[0]
 
     ### Equation management -------------------------------------------------------------------
 
@@ -1261,11 +1202,11 @@ class EquationSystem:
         be used with care.
 
         """
-        for var, ind in self._variable_numbers.items():
+        for id_, var in self._variables.items():
             # Grid quantity (grid or interface), and variable
             grid = var.domain
 
-            dof = self._variable_dof_type[var]
+            dof = self._variable_dof_type[id_]
             num_dofs: int = grid.num_cells * dof.get("cells", 0)  # type: ignore
 
             if isinstance(grid, pp.Grid):
@@ -1275,7 +1216,7 @@ class EquationSystem:
                 ) + grid.num_nodes * dof.get("nodes", 0)
 
             # Update local counting
-            self._variable_num_dofs[ind] = num_dofs
+            self._variable_num_dofs[self._variable_numbers[id_]] = num_dofs
 
     ### System assembly and discretization ----------------------------------------------------
 
@@ -1602,7 +1543,7 @@ class EquationSystem:
 
         """
         if variables is None:
-            variables = self._variables
+            variables = self.variables
 
         # equ_blocks is a dictionary with equation names as keys and the corresponding
         # row indices of the equations. If the user has requested that equations are
