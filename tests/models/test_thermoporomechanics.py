@@ -265,6 +265,101 @@ def test_positive_p_frac_positive_opening():
     assert np.allclose(t_frac, 8.3e-6, atol=1e-7)
 
 
+def test_robin_boundary_flux():
+    """Tests model setup with Robin boundary conditions.
+
+    Neumann and Robin boundary values are set by the same method
+    (bc_values_"flux_name"). This test ensures that the correct values are assigned to
+    the correct domain boundary sides (Robin values to Robin boundaries, Neumann values
+    to Neumann boundaries). The test also covers checking if the Dirichlet values are
+    assigned to the correct boundary sides. Thus, this test also checks that there is no
+    overlap between the three boundary condition types.
+
+    Model setup:
+    * West boundary: Robin
+    * East boundary: Neumann
+    * North and south boundaries: Dirichlet
+
+    Flux types that are tested: Mechanical stress, Fourier flux and Darcy flux.
+
+    """
+
+    class TailoredPoromechanicsRobin(
+        pp.test_utils.models.RobinDirichletNeumannConditions,
+        pp.models.thermoporomechanics.Thermoporomechanics,
+    ):
+        def set_domain(self) -> None:
+            self._domain = pp.domains.unit_cube_domain(dimension=2)
+
+    params = {
+        "meshing_arguments": {"cell_size": 0.5},
+        "grid_type": "cartesian",
+        "pressure_north": 1e-3,
+        "pressure_south": -1e-3,
+        "darcy_flux_west": 1e-2,
+        "darcy_flux_east": -1e-2,
+        "fourier_flux_west": 2e-2,
+        "fourier_flux_east": -2e-2,
+        "mechanical_stress_west": 3e-2,
+        "mechanical_stress_east": -3e-2,
+    }
+
+    model = TailoredPoromechanicsRobin(params)
+    pp.run_time_dependent_model(model, params)
+
+    subdomain = model.mdg.subdomains(dim=model.nd, return_data=True)[0][0]
+
+    bc_operators = {
+        "darcy_flux": model.combine_boundary_operators_darcy_flux,
+        "fourier_flux": model.combine_boundary_operators_fourier_flux,
+        "mechanical_stress": model.combine_boundary_operators_mechanical_stress,
+    }
+
+    # Create dictionary of evaluated boundary operators in bc_operators
+    values = {
+        key: operator([subdomain]).value(model.equation_system)
+        for key, operator in bc_operators.items()
+    }
+
+    # Reshape mechanical stress values
+    values["mechanical_stress"] = values["mechanical_stress"].reshape(
+        (model.nd, subdomain.num_faces), order="F"
+    )
+
+    # Get boundary sides and assert boundary condition values
+    bounds = model.domain_boundary_sides(subdomain)
+
+    assert np.allclose(values["darcy_flux"][bounds.west], params["darcy_flux_west"])
+    assert np.allclose(values["darcy_flux"][bounds.east], params["darcy_flux_east"])
+
+    assert np.allclose(values["fourier_flux"][bounds.west], params["fourier_flux_west"])
+    assert np.allclose(values["fourier_flux"][bounds.east], params["fourier_flux_east"])
+
+    assert np.allclose(
+        values["mechanical_stress"][0][bounds.west], params["mechanical_stress_west"]
+    )
+    assert np.allclose(
+        values["mechanical_stress"][0][bounds.east], params["mechanical_stress_east"]
+    )
+
+    # Final check to see that the Dirichlet values are also assigned as expected. The
+    # different bc types should not overlap. If all these tests pass, that suggest there
+    # is no such overlap.
+
+    # First constructing the pressure operator and evaluating it, then finding the
+    # indices of the north and south boundaries in the pressure_values array, before
+    # finally asserting that the values are correct.
+    bg = model.mdg.subdomain_to_boundary_grid(subdomain)
+    pressure_operator = model.pressure([bg])
+    pressure_values = pressure_operator.value(model.equation_system)
+
+    ind_north = np.nonzero(np.isin(bounds.all_bf, np.where(bounds.north)[0]))[0]
+    ind_south = np.nonzero(np.isin(bounds.all_bf, np.where(bounds.south)[0]))[0]
+
+    assert np.allclose(pressure_values[ind_north], params["pressure_north"])
+    assert np.allclose(pressure_values[ind_south], params["pressure_south"])
+
+
 @pytest.mark.parametrize(
     "units",
     [

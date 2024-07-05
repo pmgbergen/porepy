@@ -1,6 +1,7 @@
 """This file is testing the functionality of `pp.BoundaryConditionMixin`.
 
 """
+
 from typing import Callable, Sequence
 
 import numpy as np
@@ -8,6 +9,9 @@ import pytest
 
 import porepy as pp
 from porepy.applications.test_utils.models import MassBalance as MassBalance_
+from porepy.applications.md_grids.model_geometries import (
+    SquareDomainOrthogonalFractures,
+)
 
 
 class CustomBoundaryCondition(pp.BoundaryConditionMixin):
@@ -47,12 +51,14 @@ class CustomBoundaryCondition(pp.BoundaryConditionMixin):
     def create_dummy_ad_boundary_condition(
         self, subdomains: Sequence[pp.Grid]
     ) -> pp.ad.Operator:
+        op = lambda bgs: self.create_boundary_operator(
+            name=self.custom_bc_neumann_key, domains=bgs
+        )
         return self._combine_boundary_operators(
             subdomains=subdomains,
             dirichlet_operator=self.fluid_density,
-            neumann_operator=lambda bgs: self.create_boundary_operator(
-                name=self.custom_bc_neumann_key, domains=bgs
-            ),
+            neumann_operator=op,
+            robin_operator=op,
             bc_type=self.bc_type_dummy,
             name="boundary_condition_dummy",
             dim=1,
@@ -102,3 +108,199 @@ def test_boundary_condition_mixin(t_end: int):
         # Projecting the expected value to the subdomain.
         expected_val = bg.projection().T @ expected_val
         assert np.allclose(bc_val_prev_ts[bc_type.is_neu], expected_val[bc_type.is_neu])
+
+
+"""Here follows mixins related to testing of Robin limit cases, and eventually the test itself. """
+
+
+class BCValues:
+    """Set boundary values for momentum balance and mass and energy balance."""
+
+    def bc_values_displacement(self, bg: pp.BoundaryGrid) -> np.ndarray:
+        """Assigns displacement values in the x-direction of the west boundary."""
+        values = np.ones((self.nd, bg.num_cells))
+        bounds = self.domain_boundary_sides(bg)
+        values[0][bounds.west] += np.ones(len(values[0][bounds.west]))
+        return values.ravel("F")
+
+    def bc_values_pressure(self, bg: pp.BoundaryGrid) -> np.ndarray:
+        """Assigns pressure values on the west boundary."""
+        values = np.ones(bg.num_cells)
+        bounds = self.domain_boundary_sides(bg)
+        values[bounds.west] += np.ones(len(values[bounds.west]))
+        return values
+
+    def bc_values_temperature(self, bg: pp.BoundaryGrid) -> np.ndarray:
+        """Assigns temperature values on the west boundary."""
+        values = np.ones(bg.num_cells)
+        bounds = self.domain_boundary_sides(bg)
+        values[bounds.west] += np.ones(len(values[bounds.west]))
+        return values
+
+
+class BCDirNeu:
+    """Set Dirichlet and Neumann for momentum balance and mass and energy balance.
+
+    Sets Dirichlet on the west boundary, and Neumann on all other boundaries.
+
+    """
+
+    def bc_type_mechanics(self, sd: pp.Grid) -> pp.BoundaryConditionVectorial:
+        bounds = self.domain_boundary_sides(sd)
+        bc = pp.BoundaryConditionVectorial(sd, bounds.all_bf, "neu")
+        bc.is_neu[:, bounds.west] = False
+        bc.is_dir[:, bounds.west] = True
+        return bc
+
+    def _bc_type_scalar(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        """Helper function for setting boundary conditions on scalar fields.
+
+        The function sets Dirichlet on the west boundary, and Neumann on all other
+        boundaries.
+
+        """
+
+        bounds = self.domain_boundary_sides(sd)
+        bc = pp.BoundaryCondition(sd, bounds.all_bf, "neu")
+        bc.is_neu[bounds.west] = False
+        bc.is_dir[bounds.west] = True
+        return bc
+
+    def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        return self._bc_type_scalar(sd=sd)
+
+    def bc_type_fourier_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        return self._bc_type_scalar(sd=sd)
+
+
+class BCRobDir:
+    """Set Dirichlet and Robin for momentum balance and mass and energy balance.
+
+    Sets Dirichlet on the west boundary, and Robin on all other boundaries. The value of
+    the Robin weight is determined from the parameter "alpha" in the params dictionary.
+
+    """
+
+    def bc_type_mechanics(self, sd: pp.Grid) -> pp.BoundaryConditionVectorial:
+        bounds = self.domain_boundary_sides(sd)
+        bc = pp.BoundaryConditionVectorial(sd, bounds.all_bf, "rob")
+        bc.is_rob[:, bounds.west] = False
+        bc.is_dir[:, bounds.west] = True
+
+        alpha = self.params["alpha"]
+
+        r_w = np.tile(np.eye(sd.dim), (1, sd.num_faces))
+        bc.robin_weight = np.reshape(r_w, (sd.dim, sd.dim, sd.num_faces), "F") * alpha
+        return bc
+
+    def _bc_type_scalar(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        """Helper function for setting boundary conditions on scalar fields.
+
+        The function sets Dirichlet on the west boundary, and Robin with alpha = 0 on
+        all other boundaries.
+
+        """
+        bounds = self.domain_boundary_sides(sd)
+        bc = pp.BoundaryCondition(sd, bounds.all_bf, "rob")
+        bc.is_rob[bounds.west] = False
+        bc.is_dir[bounds.west] = True
+
+        alpha = self.params["alpha"]
+        bc.robin_weight = np.ones(sd.num_faces) * alpha
+        return bc
+
+
+class BCDirDir:
+    """Set Dirichlet on all boundaries for mass and energy balance."""
+
+    def _bc_type_scalar(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        bounds = self.domain_boundary_sides(sd)
+        bc = pp.BoundaryCondition(sd, bounds.all_bf, "dir")
+        return bc
+
+    def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        return self._bc_type_scalar(sd=sd)
+
+    def bc_type_fourier_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        return self._bc_type_scalar(sd=sd)
+
+
+class MassAndEnergyBalanceNeu(
+    SquareDomainOrthogonalFractures,
+    BCValues,
+    BCDirNeu,
+    pp.models.mass_and_energy_balance.MassAndEnergyBalance,
+): ...
+
+
+class MassAndEnergyBalanceRobNeu(BCRobDir, MassAndEnergyBalanceNeu): ...
+
+
+class MomentumBalanceNeu(
+    SquareDomainOrthogonalFractures,
+    BCValues,
+    BCDirNeu,
+    pp.models.momentum_balance.MomentumBalance,
+): ...
+
+
+class MomentumBalanceRobNeu(BCRobDir, MomentumBalanceNeu): ...
+
+
+@pytest.fixture()
+def run_model():
+    params = {
+        "times_to_export": [],
+        "fracture_indices": [],
+        "meshing_arguments": {"cell_size": 0.5},
+    }
+
+    def _run_model(balance_class, alpha):
+        params["alpha"] = alpha
+        instance = balance_class(params)
+        pp.run_time_dependent_model(instance, params)
+        sd = instance.mdg.subdomains(dim=2)[0]
+
+        if isinstance(instance, (MomentumBalanceRobNeu, MomentumBalanceNeu)):
+            displacement = instance.displacement([sd]).value(instance.equation_system)
+            return {"displacement": displacement}
+        elif isinstance(
+            instance, (MassAndEnergyBalanceRobNeu, MassAndEnergyBalanceNeu)
+        ):
+            pressure = instance.pressure([sd]).value(instance.equation_system)
+            temperature = instance.temperature([sd]).value(instance.equation_system)
+            return {"temperature": temperature, "pressure": pressure}
+
+    return _run_model
+
+
+# Parameterize the test function with the necessary balance types and conditions
+@pytest.mark.parametrize(
+    "rob_class, reference_class, alpha",
+    [
+        (MomentumBalanceRobNeu, MomentumBalanceNeu, 0),
+        (MassAndEnergyBalanceRobNeu, MassAndEnergyBalanceNeu, 0),
+    ],
+)
+def test_robin_limit_case(run_model, rob_class, reference_class, alpha):
+    """Test that Robin limit cases are equivalent to Neumann for alpha = 0.
+
+    The Robin conditions are implemented on the form: sigma * n + alpha * u = G. That
+    means that setting Robin conditions with alpha = 0 should correspond to setting
+    Neumann conditions.
+
+    We test this for momentum balance and mass and energy balance.
+
+    Common for all model setups is that al of them have a unitary Dirichlet condition on
+    the west boundary.
+
+    The model class setups with documentation are further up in this document.
+
+    """
+    rob_results = run_model(rob_class, alpha)
+    reference_results = run_model(reference_class, alpha)
+
+    assert all(
+        np.allclose(rob_results[key], reference_results[key])
+        for key in rob_results.keys()
+    )

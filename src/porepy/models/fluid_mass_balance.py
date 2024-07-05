@@ -265,11 +265,12 @@ class MassBalanceEquations(pp.BalanceEquation):
         discr = self.mobility_discretization(domains)
         mob_rho = self.mobility_rho(domains)
 
-        # )
         boundary_operator = self._combine_boundary_operators(  # type: ignore[call-arg]
             subdomains=domains,
             dirichlet_operator=self.mobility_rho,
             neumann_operator=self.fluid_flux,
+            # Robin operator is not relevant for advective fluxes
+            robin_operator=None,
             bc_type=self.bc_type_fluid_flux,
             name="bc_values_fluid_flux",
         )

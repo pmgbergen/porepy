@@ -5,6 +5,7 @@ The tests fall into two categories:
     2) Tests of the differentiable TPFA discretization.
 
 """
+
 import pytest
 
 import scipy.sparse as sps
@@ -532,7 +533,11 @@ def test_transmissibility_calculation(vector_source: bool, base_discr: str):
     ####
     # Test the potential trace calculation
     potential_trace = model.potential_trace(
-        model.mdg.subdomains(), model.pressure, model.permeability, "darcy_flux"
+        model.mdg.subdomains(),
+        model.pressure,
+        model.permeability,
+        model.combine_boundary_operators_darcy_flux,
+        "darcy_flux",
     ).value_and_jacobian(model.equation_system)
 
     # Base discretization matrix for the potential trace reconstruction, and for the
@@ -579,7 +584,9 @@ def test_transmissibility_calculation(vector_source: bool, base_discr: str):
     # derivative of the transmissibility.
     cell_contribution[ci] += dp_diff * model._neumann_flux
 
-    assert np.allclose(potential_trace.jac[model._neumann_face].toarray(), cell_contribution)
+    assert np.allclose(
+        potential_trace.jac[model._neumann_face].toarray(), cell_contribution
+    )
 
     # On a Dirichlet face, the potential trace should be equal to the Dirichlet value.
     assert np.isclose(
@@ -679,7 +686,11 @@ def test_diff_tpfa_on_grid_with_all_dimensions(base_discr: str, grid_type: str):
     assert darcy_jac.shape == (num_faces, num_dofs)
 
     potential_trace = model.potential_trace(
-        model.mdg.subdomains(), model.pressure, model.permeability, "darcy_flux"
+        model.mdg.subdomains(),
+        model.pressure,
+        model.permeability,
+        model.combine_boundary_operators_darcy_flux,
+        "darcy_flux",
     )
     potential_value = potential_trace.value(model.equation_system)
     assert potential_value.size == num_faces
@@ -861,14 +872,22 @@ def test_flux_potential_trace_on_tips_and_internal_boundaries(base_discr: str):
 
         # Check that the pressure trace is equal to the pressure in the adjacent cell.
         pressure_trace = model.potential_trace(
-            [sd], model.pressure, model.permeability, "darcy_flux"
+            [sd],
+            model.pressure,
+            model.permeability,
+            model.combine_boundary_operators_darcy_flux,
+            "darcy_flux",
         ).value(model.equation_system)
         p = model.pressure([sd]).value(model.equation_system)
         assert np.allclose(pressure_trace[tip_faces], p[tip_cells])
         # Check that the temperature trace is equal to the temperature in the adjacent
         # cell.
         temperature_trace = model.potential_trace(
-            [sd], model.temperature, model.thermal_conductivity, "fourier_flux"
+            [sd],
+            model.temperature,
+            model.thermal_conductivity,
+            model.combine_boundary_operators_fourier_flux,
+            "fourier_flux",
         ).value(model.equation_system)
         T = model.temperature([sd]).value(model.equation_system)
         assert np.allclose(temperature_trace[tip_faces], T[tip_cells])
