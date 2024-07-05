@@ -8,6 +8,7 @@ from porepy.params.tensor import FourthOrderTensor
 import porepy as pp
 import warnings
 
+
 class Tpsa:
 
     def __init__(self, keyword: str) -> None:
@@ -123,17 +124,21 @@ class Tpsa:
         # The Cosserat parameter, if present. If this is None, the Cosserat parameter is
         # considered to be zero. In practice, we will set all Cosserat discretization
         # matrices to zero with no explicit computations
-        cosserat_values: np.ndarray | None = parameter_dictionary.get("cosserat_parameter", None)
+        cosserat_values: np.ndarray | None = parameter_dictionary.get(
+            "cosserat_parameter", None
+        )
 
         # Boundary condition object
-        bnd: pp.BoundaryConditionVectorial = parameter_dictionary["bc"]
+        bnd_disp: pp.BoundaryConditionVectorial = parameter_dictionary["bc"]
 
         # Boundary conditions for the rotation variable. This should only be used if
         # the Cosserat parameter is non-zero. Since the rotation variable is scalar if
         # nd == 2 and vector if nd == 3, the type of boundary condition depends on the
-        # dimension. 
-        bnd_rot: pp.BoundaryCondition | pp.BoundaryConditionVectorial = parameter_dictionary.get("bc_rot", None)
-        
+        # dimension.
+        bnd_rot: pp.BoundaryCondition | pp.BoundaryConditionVectorial = (
+            parameter_dictionary.get("bc_rot", None)
+        )
+
         # Check that the type of boundary condition is consistent with the dimension.
         # This is a bit awkward, since it requires an if-else on the client side, but
         # the alternative is to always use a vectorial boundary condition and make a
@@ -141,10 +146,14 @@ class Tpsa:
         # Note that, if the Cosserat parameter is zero, all of this is irrelevant.
         if nd == 2:
             if isinstance(bnd_rot, pp.BoundaryVectorialCondition):
-                raise ValueError("Boundary conditions for rotations should be scalar if nd == 2")
+                raise ValueError(
+                    "Boundary conditions for rotations should be scalar if nd == 2"
+                )
         elif nd == 3:
             if isinstance(bnd_rot, pp.BoundaryCondition):
-                raise ValueError("Boundary conditions for rotations should be vectorial if nd == 3")
+                raise ValueError(
+                    "Boundary conditions for rotations should be vectorial if nd == 3"
+                )
 
         # Sanity check: If the Cosserat parameter is None, the boundary conditions for
         # the rotation variable are not relevant.
@@ -156,7 +165,7 @@ class Tpsa:
                 "Boundary conditions for rotations are only relevant if the Cosserat "
                 "parameter is non-zero."
             )
-            
+
         # The discretization matrices give generalized fluxes across faces in terms of
         # variables in the centers of adjacent cells. The discretization is based on a
         # two-point scheme, thus we need a mapping between cells and faces. The below
@@ -185,8 +194,8 @@ class Tpsa:
 
         # Data structures for boundary conditions. Only homogeneous Dirichlet conditions
         # treated so far.
-        dir_displacement = bnd.is_dir.ravel("f")
-        dir_scalar = bnd.is_dir[0]
+        dir_displacement = bnd_disp.is_dir.ravel("f")
+        dir_scalar = bnd_disp.is_dir[0]
 
         # Normal vectors in the face-wise ordering
         n_fi = sd.face_normals[:, fi]
@@ -212,12 +221,16 @@ class Tpsa:
 
         # Helper function to compute the harmonic mean of a field over faces.
         def facewise_harmonic_mean(field: np.ndarray) -> np.ndarray:
+            # Note that the implementation of np.bincount means the returned array is
+            # ordered linearly in the face index, not in the face-wise ordering.
             return 1 / np.bincount(fi, weights=1 / field, minlength=nf)
 
         # Harmonic average of the shear modulus divided by the distance between the face
         # center and the cell center.
         shear_modulus_by_face_cell_distance = mu / dist_fc_cc
-        t_shear = facewise_harmonic_mean(shear_modulus_by_face_cell_distance)
+        t_shear = sd.face_areas * facewise_harmonic_mean(
+            shear_modulus_by_face_cell_distance
+        )
 
         # Arithmetic average of the shear modulus.
         arithmetic_average_shear_modulus = np.bincount(
@@ -239,19 +252,18 @@ class Tpsa:
 
         # For Dirichlet conditions, set the averaging map to zero (as is the correct
         # discretization). TODO: Treat Neumann, and possibly Robin, conditions.
-        is_dir = bnd.is_dir.ravel("f")
-        is_neu = bnd.is_neu.ravel("f")
-        is_rob = bnd.is_rob.ravel("f")
+        is_dir = bnd_disp.is_dir.ravel("f")
+        is_neu = bnd_disp.is_neu.ravel("f")
+        is_rob = bnd_disp.is_rob.ravel("f")
 
-        # On Dirichlet faces, the 
+        # On Dirichlet faces, the
         dir_indices = np.where(is_dir)[0]
         neu_indices = np.where(is_neu)[0]
 
-
-        #dir_indices = np.where(dir_scalar)[0]
-        #r, _, _ = sps.find(cell_to_face_average)
-        #hit = np.in1d(r, dir_indices)
-        #cell_to_face_average.data[hit] = 0
+        # dir_indices = np.where(dir_scalar)[0]
+        # r, _, _ = sps.find(cell_to_face_average)
+        # hit = np.in1d(r, dir_indices)
+        # cell_to_face_average.data[hit] = 0
 
         # For vector quantities we need a nd version of the averaging operator
         cell_to_face_average_nd = sps.kron(cell_to_face_average, sps.eye(nd)).tocsr()
@@ -301,38 +313,68 @@ class Tpsa:
 
         # Finally we are ready to construct the discretization matrices.
 
-        # The linear stress due to cell center displacements is computed from the
-        # harmonic average of the shear modulus, scaled by the face areas. The
-        # transmissibility is the same for each dimension, implying that the material is
-        # in a sense isotropic.
-        stress = -(
-            sps.coo_matrix(
+        def vector_laplace_matrices(
+            trm: np.ndarray, bnd: pp.BoundaryConditionVectorial
+        ) -> tuple[sps.spmatrix, sps.spmatrix]:
+            # The linear stress due to cell center displacements is computed from the
+            # harmonic average of the shear modulus, scaled by the face areas. The
+            # transmissibility is the same for each dimension, implying that the material is
+            # in a sense isotropic.
+
+            # Get the types of boundary conditions
+            dir_faces = bnd.is_dir
+            neu_faces = bnd.is_neu
+            # TODO: Robin
+
+            # Expand the discretization to vectorial form
+            trm_nd = np.tile(trm, (nd, 1))
+
+            # Data structure for the discretization of the boundary conditions
+            trm_bnd = np.zeros((nd, nf))
+            # On Dirichlet faces, the coefficient of the boundary condition is the
+            # same as weight of the nearby cell, but with the opposite sign.
+            trm_bnd[dir_faces] = -trm_nd[dir_faces]
+            # On Neumann faces, the coefficient of the discretization itself is
+            # zero, as the 'flux' through the boundary face is given by the boundary
+            # condition.
+            trm_nd[neu_faces] = 0
+            # The boundary condition should simply be imposed.
+            trm_bnd[neu_faces] = 1
+
+            # Discretization of the rotation diffusion operator. Regarding indexing,
+            # the ravel gives a vector-sized array in linear ordering, which is
+            # shuffled to the (vector version of the) face-wise ordering.
+            # TODO: Do we need to shuffle sgn_nd?
+            discr = -sps.coo_matrix(
                 (
-                    2 * face_areas_fi_nd * t_shear[fi_nd] * sgn_nd,
+                    trm_nd.ravel("F")[fi_expanded] * sgn_nd,
                     (fi_expanded, ci_expanded),
                 ),
                 shape=(nf * nd, nc * nd),
             ).tocsr()
-        )
 
-        bound_stress = (
-            -dir_filter_nd
-            @ sps.coo_matrix(
+            # Boundary condition.
+            bound_discr = sps.coo_matrix(
                 (
-                    2 * face_areas_fi_nd * t_shear[fi_nd] * sgn_nd,
+                    trm_bnd.ravel("F")[fi_expanded] * sgn_nd,
                     (fi_expanded, fi_expanded),
                 ),
                 shape=(nf * nd, nf * nd),
             ).tocsr()
-        )
+            return discr, bound_discr
+
+        # Discretize the stress-displacement relation
+        stress, bound_stress = vector_laplace_matrices(t_shear, bnd_disp)
 
         # Face normals (note: in the usual ordering, not the face-wise ordering used in
         # the variable n_fi)
         n = sd.face_normals
 
-        # The stress generated by the total pressure is computed using the complement
-        # of the average map (this is just how the algebra works out), scaled with the
+        # The stress generated by the total pressure is computed using the complement of
+        # the average map (this is just how the algebra works out), scaled with the
         # normal vector. The latter also gives the correct scaling with the face area.
+        # The effect of boundary conditions are already included in
+        # cell_to_face_average_complement.
         stress_total_pressure = (
             sps.csc_matrix(
                 (
@@ -355,7 +397,11 @@ class Tpsa:
         )
         # The impact on the solid mass flux from the displacement is then the matrix of
         # normal vectors multiplied with the average displacement over the faces.
+        # This matrix will be empty on Dirichlet faces due to the filtering in
+        # cell_to_face_average_nd.
         mass_displacement = normal_vector_nd @ cell_to_face_average_nd
+        # Boundary condition. This will be zero on Neumann faces due to the Dirichlet
+        # filter.
         bound_mass_displacement = dir_filter @ normal_vector_nd
 
         # While there is no spatial operator that that relates the total pressure to the
@@ -371,7 +417,7 @@ class Tpsa:
         # applied? For now, we pick the condition in the direction which is closest to
         # the normal vector of the face. While this should work nicely for domains where
         # the grid is aligned with the coordinate axis, it is more of a question mark
-        # how this will work for rotated domains. 
+        # how this will work for rotated domains.
         # TODO: IMPLEMENT THIS
         mass_total_pressure = -dir_nopass_filter @ (
             sps.dia_matrix(
@@ -385,7 +431,9 @@ class Tpsa:
         # TODO: For zero Cosserat parameters, this involves a division by zero. This
         # gives no actual problem, but filtering would have been more elegant.
         if cosserat_values is not None:
-            t_cosserat = sd.face_areas * facewise_harmonic_mean(cosserat_parameter / dist_fc_cc)
+            t_cosserat = sd.face_areas * facewise_harmonic_mean(
+                cosserat_parameter / dist_fc_cc
+            )
 
         # The relations involving rotations are more cumbersome, as a rotation in 2d has
         # a single degree of freedom, while a 3d rotation has 3 degrees of freedom. This
@@ -424,47 +472,10 @@ class Tpsa:
             stress_rotation = -Rn_hat @ cell_to_face_average_complement_nd
 
             if cosserat_values is not None:
-                # The diffusion operator for the rotation expands the (scalar) Cosserat
-                # transmissibility to a vector by face-wise ordering (this implies that the
-                # diffusion is isotropic).
-
-                # Construct the discretization of the boundary conditions for the
-                # rotation variable. Since this is vector version of tpfa, the
-                # implementation is much the same, but everything is a bit more
-                # involved.
-
-                # Get the types of boundary conditions
-                rot_dir = bnd_rot.is_dir
-                rot_neu = bnd_rot.is_neu.ravel("f")
-                # TODO: Robin
-
-                t_cosserat = np.tile(t_cosserat, (nd, 1))
-                # Data structure for the discretization of the boundary conditions
-                t_cosserat_bnd = np.zeros((nd, nf))
-                # On Dirichlet faces, the coefficient is the 
-                t_cosserat_bnd[rot_dir] = -t_cosserat[rot_dir]
-                t_cosserat_bnd[rot_neu] = 1
-                t_cosserat[rot_neu] = 0
-
-                TODO: t_cosserat IS ORDERED ACCORDING TO FI, NOT LINEARLY, AS IS ROT_DIR
-                HOW DOES THIS WORK IN TPFA?
-
-                # Discretization of the rotation diffusion operator. 
-                rotation_diffusion = -(
-                    sps.coo_matrix(
-                        (
-                            t_cosserat.ravel('F') * sgn_nd,
-                            (fi_expanded, ci_expanded),
-                        ),
-                        shape=(nf * nd, nc * nd),
-                    ).tocsr()
+                rotation_diffusion, bound_rotation_diffusion = vector_laplace_matrices(
+                    t_cosserat, bnd_rot
                 )
-                # Boundary condition.
-                bound_rotation_diffusion = sps.coo_matrix(
-                        (t_cosserat_bnd.ravel('F') * sgn_nd, (fi_expanded, fi_expanded)),
-                        shape=(nf * nd, nf * nd),
-                    ).tocsr()
-                
+
             else:
                 # If the Cosserat parameter is zero, the diffusion operator is zero.
                 rotation_diffusion = sps.csr_matrix((nf * nd, nc * nd))
@@ -499,19 +510,29 @@ class Tpsa:
             )
             # # Discretization of the stress generated by cell center rotations.
             stress_rotation = -Rn_hat @ cell_to_face_average_complement
-            # Diffusion operator on the rotations.
+
+            # Diffusion operator on the rotation if relevant.
             if cosserat_values is not None:
+                # In 2d, the rotation is a scalar variable and we can treat this by
+                # essentially, tpfa.
+
+                bndr_ind = sd.get_all_boundary_faces()
+                t_cosserat_bnd = np.zeros(nf)
+                t_cosserat_bnd[bnd_rot.is_dir] = -t[bnd_rot.is_dir]
+                t_b[bnd_rot.is_neu] = 1
+                t_b = t_b[bnd_rot.is_neu]
+                t[bnd_rot.is_neu] = 0
+
+                # TODO: Why minus sign here, but not in tpfa?
                 rotation_diffusion = -sps.coo_matrix(
-                    (sd.face_areas[fi] * t_cosserat[fi] * sgn, (fi, ci)),
+                    (t_cosserat[fi] * sgn, (fi, ci)),
                     shape=(nf, nc),
                 ).tocsr()
 
-                bound_rotation_diffusion = (
-                    -dir_filter
-                    @ sps.coo_matrix(
-                        (sd.face_areas[fi] * t_cosserat[fi] * sgn, (fi, fi)), shape=(nf, nf)
-                    ).tocsr()
-                )
+                bound_rotation_diffusion = -sps.coo_matrix(
+                    (t_cosserat[fi] * sgn, (fi, fi)), shape=(nf, nf)
+                ).tocsr()
+
             else:
                 rotation_diffusion = sps.csr_matrix((nf, nc))
                 bound_rotation_diffusion = sps.csr_matrix((nf, nf))
@@ -521,6 +542,8 @@ class Tpsa:
         # is common for both 2d and 3d.
         rotation_displacement = -Rn_bar @ cell_to_face_average_nd
 
+        # The boundary condition for the rotation equation's dependency on the
+        # cell center displacements.
         if nd == 2:
             bound_rotation_displacement = -dir_filter @ Rn_bar
         else:  # 3D
