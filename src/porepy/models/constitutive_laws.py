@@ -1081,6 +1081,7 @@ class DarcysLaw:
             Sequence[pp.Grid],
             Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
             Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
+            Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
             Callable[[pp.Grid], pp.BoundaryCondition],
             str,
             int,
@@ -1160,12 +1161,8 @@ class DarcysLaw:
         # We know p is variable, since called on subdomains, not boundaries.
         p = cast(pp.ad.MixedDimensionalVariable, self.pressure(subdomains))
 
-        boundary_operator = self._combine_boundary_operators(  # type: ignore[call-arg]
-            subdomains=subdomains,
-            dirichlet_operator=self.pressure,
-            neumann_operator=self.darcy_flux,
-            bc_type=self.bc_type_darcy_flux,
-            name="bc_values_darcy",
+        boundary_operator = self.combine_boundary_operators_darcy_flux(
+            subdomains=subdomains
         )
 
         pressure_trace = (
@@ -1220,12 +1217,8 @@ class DarcysLaw:
         interfaces: list[pp.MortarGrid] = self.subdomains_to_interfaces(domains, [1])
         intf_projection = pp.ad.MortarProjections(self.mdg, domains, interfaces, dim=1)
 
-        boundary_operator = self._combine_boundary_operators(  # type: ignore[call-arg]
-            subdomains=domains,
-            dirichlet_operator=self.pressure,
-            neumann_operator=self.darcy_flux,
-            bc_type=self.bc_type_darcy_flux,
-            name="bc_values_" + self.bc_data_darcy_flux_key,
+        boundary_operator = self.combine_boundary_operators_darcy_flux(
+            subdomains=domains
         )
 
         discr: Union[pp.ad.TpfaAd, pp.ad.MpfaAd] = self.darcy_flux_discretization(
@@ -1243,6 +1236,35 @@ class DarcysLaw:
         )
         flux.set_name("Darcy_flux")
         return flux
+
+    def combine_boundary_operators_darcy_flux(
+        self, subdomains: list[pp.Grid]
+    ) -> pp.ad.Operator:
+        """Combine Darcy flux boundary operators.
+
+        Note that the default Robin operator is the same as that of Neumann. Override
+        this method to define and assign another boundary operator of your choice. The
+        new operator should then be passed as an argument to the
+        _combine_boundary_operators method, just like self.darcy_flux is passed to
+        robin_operator in the default setup.
+
+        Parameters:
+            subdomains: List of the subdomains whose boundary operators are to be
+                combined.
+
+        Returns:
+            The combined Darcy flux boundary operator.
+
+        """
+        op = self._combine_boundary_operators(  # type: ignore[call-arg]
+            subdomains=subdomains,
+            dirichlet_operator=self.pressure,
+            neumann_operator=self.darcy_flux,
+            robin_operator=self.darcy_flux,
+            bc_type=self.bc_type_darcy_flux,
+            name="bc_values_" + self.bc_data_darcy_flux_key,
+        )
+        return op
 
     def interface_darcy_flux_equation(
         self, interfaces: list[pp.MortarGrid]
@@ -1429,14 +1451,15 @@ class AdTpfaFlux:
             Sequence[pp.Grid],
             Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
             Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
+            Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
             Callable[[pp.Grid], pp.BoundaryCondition],
             str,
             int,
         ],
         pp.ad.Operator,
     ]
-    """Combine Dirichlet and Neumann boundary conditions. Normally defined in a mixin
-    instance of :class:`~porepy.models.boundary_condition.BoundaryConditionMixin`.
+    """Combine Dirichlet, Neumann and Robin boundary conditions. Normally defined in a
+    mixin instance of :class:`~porepy.models.boundary_condition.BoundaryConditionMixin`.
 
     """
     basis: Callable[[Sequence[pp.GridLike], int], list[pp.ad.SparseArray]]
@@ -1459,15 +1482,19 @@ class AdTpfaFlux:
         domains: pp.SubdomainsOrBoundaries,
         potential: Callable[[list[pp.Grid]], pp.ad.Operator],
         diffusivity_tensor: Callable[[list[pp.Grid]], pp.ad.Operator],
+        boundary_operator: Callable[[list[pp.Grid]], pp.ad.Operator],
         flux_name: str,
     ) -> pp.ad.Operator:
         """Discretization of a diffusive constitutive law.
 
         Parameters:
             domains: List of domains where the flux is defined.
-            diffusivity_tensor: Function returning the diffusivity tensor as an Ad
+            potential: Method returning the potential as an Ad operator.
+            diffusivity_tensor: Method returning the diffusivity tensor as an Ad
                 operator. For Darcy's and Fourier's law, this is the permeability and
                 thermal conductivity, respectively.
+            boundary_operator: Method returning the boundary operator as an Ad
+                operator.
 
         Raises:
             ValueError if the domains are a mixture of grids and boundary grids.
@@ -1641,13 +1668,7 @@ class AdTpfaFlux:
         flux_p = flux_p + pp.ad.Scalar(0) * base_discr.flux() @ potential(domains)
 
         # Get boundary condition values
-        boundary_operator = self._combine_boundary_operators(  # type: ignore[call-arg]
-            subdomains=domains,
-            dirichlet_operator=potential,
-            neumann_operator=getattr(self, flux_name),
-            bc_type=getattr(self, "bc_type_" + flux_name),
-            name="bc_values_" + flux_name,
-        )
+        boundary_value_operator = boundary_operator(domains)
 
         # Compose the full discretization of the Darcy flux, which consists of three
         # terms: The flux due to pressure differences, the flux due to boundary
@@ -1656,7 +1677,7 @@ class AdTpfaFlux:
             flux_p
             + t_bnd
             * (
-                boundary_operator
+                boundary_value_operator
                 + intf_projection.mortar_to_primary_int
                 @ getattr(self, "interface_" + flux_name)(interfaces)
             )
@@ -1670,12 +1691,19 @@ class AdTpfaFlux:
         subdomains: list[pp.Grid],
         potential: Callable[[list[pp.Grid]], pp.ad.Operator],
         diffusivity_tensor: Callable[[list[pp.Grid]], pp.ad.Operator],
+        boundary_operator: Callable[[list[pp.Grid]], pp.ad.Operator],
         flux_name: str,
     ) -> pp.ad.Operator:
         """Pressure on the subdomain boundaries.
 
         Parameters:
             subdomains: List of subdomains where the pressure is defined.
+            potential: Method returning the potential as an Ad operator.
+            diffusivity_tensor: Method returning the diffusivity tensor as an Ad
+                operator. For Darcy's and Fourier's law, this is the permeability and
+                thermal conductivity, respectively.
+            boundary_operator: Method returning the boundary operator as an Ad
+                operator.
 
         Returns:
             Pressure on the subdomain boundaries. Parsing the operator will return a
@@ -1687,13 +1715,7 @@ class AdTpfaFlux:
 
         projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1)
 
-        boundary_operator = self._combine_boundary_operators(  # type: ignore[call-arg]
-            subdomains=subdomains,
-            dirichlet_operator=potential,
-            neumann_operator=getattr(self, flux_name),
-            bc_type=getattr(self, "bc_type_" + flux_name),
-            name="bc_values_" + flux_name,
-        )
+        boundary_value_operator = boundary_operator(subdomains)
         base_discr = getattr(self, flux_name + "_discretization")(subdomains)
         # Obtain the transmissibilities in operator form. Ignore other outputs.
         t_f_full, *_ = self.__transmissibility_matrix(subdomains, diffusivity_tensor)
@@ -1730,7 +1752,7 @@ class AdTpfaFlux:
             )(
                 bound_pressure_face_discr,
                 projected_internal_flux,
-                boundary_operator,
+                boundary_value_operator,
             )
 
         else:
@@ -1738,7 +1760,7 @@ class AdTpfaFlux:
             # compose the discretization, treating internal and external boundaries
             # equally.
             boundary_value_contribution = bound_pressure_face_discr * (
-                projected_internal_flux + boundary_operator
+                projected_internal_flux + boundary_value_operator
             )
 
         # As the base discretization is only invoked inside a function, and then only by
@@ -2076,6 +2098,12 @@ class DarcysLawAd(AdTpfaFlux):
     :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`.
 
     """
+    combine_boundary_operators_darcy_flux: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Method that combines boundary operators to a single operator. Normally defined
+    in a mixin instance of
+    :class:`~porepy.constitutive_laws.DarcysLaw`.
+
+    """
 
     def darcy_flux(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
         """Discretization of Darcy's law.
@@ -2092,7 +2120,11 @@ class DarcysLawAd(AdTpfaFlux):
 
         """
         flux = self.diffusive_flux(
-            domains, self.pressure, self.permeability, "darcy_flux"
+            domains,
+            self.pressure,
+            self.permeability,
+            self.combine_boundary_operators_darcy_flux,
+            "darcy_flux",
         )
         return flux
 
@@ -2108,7 +2140,11 @@ class DarcysLawAd(AdTpfaFlux):
 
         """
         pressure_trace = self.potential_trace(
-            domains, self.pressure, self.permeability, "darcy_flux"
+            domains,
+            self.pressure,
+            self.permeability,
+            self.combine_boundary_operators_darcy_flux,
+            "darcy_flux",
         )
         pressure_trace.set_name("Differentiable pressure trace")
         return pressure_trace
@@ -2572,6 +2608,7 @@ class FouriersLaw:
             Sequence[pp.Grid],
             Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
             Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
+            Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
             Callable[[pp.Grid], pp.BoundaryCondition],
             str,
             int,
@@ -2642,14 +2679,8 @@ class FouriersLaw:
             subdomains
         )
 
-        boundary_operator_fourier = (
-            self._combine_boundary_operators(  # type: ignore[call-arg]
-                subdomains=subdomains,
-                dirichlet_operator=self.temperature,
-                neumann_operator=self.fourier_flux,
-                bc_type=self.bc_type_fourier_flux,
-                name="bc_values_fourier",
-            )
+        boundary_operator_fourier = self.combine_boundary_operators_fourier_flux(
+            subdomains=subdomains
         )
         # We know t is a variable, since method is called on subdomains, not boundaries.
         t = cast(pp.ad.MixedDimensionalVariable, self.temperature(subdomains))
@@ -2694,12 +2725,8 @@ class FouriersLaw:
             subdomains
         )
 
-        boundary_operator_fourier = self._combine_boundary_operators(  # type: ignore[call-arg]
-            subdomains=subdomains,
-            dirichlet_operator=self.temperature,
-            neumann_operator=self.fourier_flux,
-            bc_type=self.bc_type_fourier_flux,
-            name="bc_values_fourier",
+        boundary_operator_fourier = self.combine_boundary_operators_fourier_flux(
+            subdomains=subdomains
         )
 
         flux: pp.ad.Operator = (
@@ -2714,6 +2741,35 @@ class FouriersLaw:
         )
         flux.set_name("Fourier_flux")
         return flux
+
+    def combine_boundary_operators_fourier_flux(
+        self, subdomains: list[pp.Grid]
+    ) -> pp.ad.Operator:
+        """Combine Fourier flux boundary operators.
+
+        Note that the default Robin operator is the same as that of Neumann. Override
+        this method to define and assign another boundary operator of your choice. The
+        new operator should then be passed as an argument to the
+        _combine_boundary_operators method, just like self.fourier_flux is passed to
+        robin_operator in the default setup.
+
+        Parameters:
+            subdomains: List of the subdomains whose boundary operators are to be
+                combined.
+
+        Returns:
+            The combined Fourier flux boundary operator.
+
+        """
+        op = self._combine_boundary_operators(  # type: ignore[call-arg]
+            subdomains=subdomains,
+            dirichlet_operator=self.temperature,
+            neumann_operator=self.fourier_flux,
+            robin_operator=self.fourier_flux,
+            bc_type=self.bc_type_fourier_flux,
+            name="bc_values_" + self.bc_data_fourier_flux_key,
+        )
+        return op
 
     def interface_fourier_flux_equation(
         self, interfaces: list[pp.MortarGrid]
@@ -2825,6 +2881,12 @@ class FouriersLawAd(AdTpfaFlux):
     :class:`~porepy.models.energy_balance.VariablesEnergyBalance`.
 
     """
+    combine_boundary_operators_fourier_flux: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Method that combines boundary operators to a single operator. Normally defined
+    in a mixin instance of
+    :class:`~porepy.constitutive_laws.FouriersLaw`.
+
+    """
 
     def fourier_flux(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
         """Discretization of Fourier's law.
@@ -2841,7 +2903,11 @@ class FouriersLawAd(AdTpfaFlux):
 
         """
         flux = self.diffusive_flux(
-            domains, self.temperature, self.thermal_conductivity, "fourier_flux"
+            domains,
+            self.temperature,
+            self.thermal_conductivity,
+            self.combine_boundary_operators_fourier_flux,
+            "fourier_flux",
         )
         return flux
 
@@ -2857,7 +2923,11 @@ class FouriersLawAd(AdTpfaFlux):
 
         """
         temperature_trace = self.potential_trace(
-            domains, self.temperature, self.thermal_conductivity, "fourier_flux"
+            domains,
+            self.temperature,
+            self.thermal_conductivity,
+            self.combine_boundary_operators_fourier_flux,
+            "fourier_flux",
         )
         temperature_trace.set_name("Differentiable temperature trace")
         return temperature_trace
@@ -3348,6 +3418,7 @@ class LinearElasticMechanicalStress:
             Sequence[pp.Grid],
             Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
             Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
+            Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
             Callable[[pp.Grid], pp.BoundaryCondition],
             str,
             int,
@@ -3403,15 +3474,7 @@ class LinearElasticMechanicalStress:
         interfaces = self.subdomains_to_interfaces(domains, [1])
 
         # Boundary conditions on external boundaries
-        boundary_operator = self._combine_boundary_operators(  # type: ignore[call-arg]
-            subdomains=domains,
-            dirichlet_operator=self.displacement,
-            neumann_operator=self.mechanical_stress,
-            bc_type=self.bc_type_mechanics,
-            dim=self.nd,
-            name="bc_values_mechanics",
-        )
-
+        boundary_operator = self.combine_boundary_operators_mechanical_stress(domains)
         proj = pp.ad.MortarProjections(self.mdg, domains, interfaces, dim=self.nd)
         # The stress in the subdomanis is the sum of the stress in the subdomain,
         # the stress on the external boundaries, and the stress on the interfaces.
@@ -3427,6 +3490,36 @@ class LinearElasticMechanicalStress:
         )
         stress.set_name("mechanical_stress")
         return stress
+
+    def combine_boundary_operators_mechanical_stress(
+        self, subdomains: list[pp.Grid]
+    ) -> pp.ad.Operator:
+        """Combine mechanical stress boundary operators.
+
+        Note that the default Robin operator is the same as that of Neumann. Override
+        this method to define and assign another boundary operator of your choice. The
+        new operator should then be passed as an argument to the
+        _combine_boundary_operators method, just like self.mechanical_stress is passed
+        to robin_operator in the default setup.
+
+        Parameters:
+            subdomains: List of the subdomains whose boundary operators are to be
+                combined.
+
+        Returns:
+            The combined mechanical stress boundary operator.
+
+        """
+        op = self._combine_boundary_operators(  # type: ignore[call-arg]
+            subdomains=subdomains,
+            dirichlet_operator=self.displacement,
+            neumann_operator=self.mechanical_stress,
+            robin_operator=self.mechanical_stress,
+            bc_type=self.bc_type_mechanics,
+            dim=self.nd,
+            name="bc_values_mechanics",
+        )
+        return op
 
     def fracture_stress(self, interfaces: list[pp.MortarGrid]) -> pp.ad.Operator:
         """Fracture stress on interfaces.
@@ -4377,16 +4470,8 @@ class PoroMechanicsPorosity:
     """
     bc_type_mechanics: Callable[[pp.Grid], pp.ad.Operator]
 
-    _combine_boundary_operators: Callable[
-        [
-            Sequence[pp.Grid],
-            Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
-            Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
-            Callable[[pp.Grid], pp.BoundaryCondition],
-            str,
-            int,
-        ],
-        pp.ad.Operator,
+    combine_boundary_operators_mechanical_stress: Callable[
+        [Sequence[pp.Grid]], pp.ad.Operator
     ]
 
     mechanical_stress: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
@@ -4542,13 +4627,8 @@ class PoroMechanicsPorosity:
             self.mdg, subdomains, interfaces, dim=self.nd
         )
 
-        boundary_operator = self._combine_boundary_operators(  # type: ignore[call-arg]
-            subdomains=subdomains,
-            dirichlet_operator=self.displacement,
-            neumann_operator=self.mechanical_stress,
-            bc_type=self.bc_type_mechanics,
-            dim=self.nd,
-            name="bc_values_mechanics",
+        boundary_operator = self.combine_boundary_operators_mechanical_stress(
+            subdomains
         )
 
         # Compose operator.
