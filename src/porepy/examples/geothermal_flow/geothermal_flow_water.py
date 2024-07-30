@@ -12,8 +12,8 @@ from vtk_sampler import VTKSampler
 import porepy as pp
 
 day = 86400
-tf = 27375.0 * day # final time [75 years]
-dt = 2737.5 * day # time step size [7.5 years]
+tf = 273750.0 * day # final time [750 years]
+dt = 27375.0 * day # time step size [750 years]
 s = 0.0001
 time_manager = pp.TimeManager(
     schedule=[0.0, s * tf],
