@@ -25,8 +25,8 @@ from vtk_sampler import VTKSampler
 import porepy as pp
 
 day = 86400
-tf = 0.0005 * day # final time
-dt = 0.00025 * day # time step size
+tf = 0.00005 * day # final time
+dt = 0.000025 * day # time step size
 time_manager = pp.TimeManager(
     schedule=[0.0, tf],
     dt_init=dt,
@@ -83,10 +83,12 @@ file_name_ptz = (
     file_name_prefix + "XTP_l" + str(parametric_space_ref_level) + "_modified.vtk"
 )
 brine_sampler_phz = VTKSampler(file_name_phz)
-brine_sampler_ptz = VTKSampler(file_name_ptz)
 brine_sampler_phz.conversion_factors = (1.0, 1.0e-3, 1.0e-5)  # (z,h,p)
-brine_sampler_ptz.conversion_factors = (1.0, 1.0, 1.0e-5)  # (z,t,p)
 model.vtk_sampler = brine_sampler_phz
+
+brine_sampler_ptz = VTKSampler(file_name_ptz)
+brine_sampler_ptz.conversion_factors = (1.0, 1.0, 1.0e-5)  # (z,t,p)
+brine_sampler_ptz.translation_factors = (0.0, +273.15, 0.0)  # (z,t,p)
 model.vtk_sampler_ptz = brine_sampler_ptz
 
 
