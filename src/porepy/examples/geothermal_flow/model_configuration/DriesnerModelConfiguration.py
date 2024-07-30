@@ -129,11 +129,11 @@ class DriesnerBrineFlowModel(
 
     @property
     def vtk_sampler(self):
-        return self._vtk_sampler_phz
+        return self._vtk_sampler
 
     @vtk_sampler.setter
     def vtk_sampler(self, vtk_sampler):
-        self._vtk_sampler_phz = vtk_sampler
+        self._vtk_sampler = vtk_sampler
 
     @property
     def vtk_sampler_ptz(self):
