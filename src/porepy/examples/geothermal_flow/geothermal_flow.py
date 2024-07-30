@@ -25,7 +25,7 @@ from vtk_sampler import VTKSampler
 import porepy as pp
 
 day = 86400
-tf = 0.05 * day # final time
+tf = 0.0005 * day # final time
 dt = 0.00025 * day # time step size
 time_manager = pp.TimeManager(
     schedule=[0.0, tf],
@@ -76,12 +76,18 @@ model = GeothermalFlowModel(params)
 
 parametric_space_ref_level = 2
 file_name_prefix = "model_configuration/constitutive_description/driesner_vtk_files/"
-file_name = (
+file_name_phz = (
     file_name_prefix + "XHP_l" + str(parametric_space_ref_level) + "_modified.vtk"
 )
-brine_sampler = VTKSampler(file_name)
-brine_sampler.conversion_factors = (1.0, 1.0e-3, 1.0e-5)  # (z,h,p)
-model.vtk_sampler = brine_sampler
+file_name_ptz = (
+    file_name_prefix + "XTP_l" + str(parametric_space_ref_level) + "_modified.vtk"
+)
+brine_sampler_phz = VTKSampler(file_name_phz)
+brine_sampler_ptz = VTKSampler(file_name_ptz)
+brine_sampler_phz.conversion_factors = (1.0, 1.0e-3, 1.0e-5)  # (z,h,p)
+brine_sampler_ptz.conversion_factors = (1.0, 1.0, 1.0e-5)  # (z,t,p)
+model.vtk_sampler = brine_sampler_phz
+model.vtk_sampler_ptz = brine_sampler_ptz
 
 
 tb = time.time()
