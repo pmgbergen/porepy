@@ -12,11 +12,12 @@ from vtk_sampler import VTKSampler
 import porepy as pp
 
 day = 86400
-tf = 0.005 * day # final time
-dt = 0.000025 * day # time step size
+tf = 27375.0 * day # final time [75 years]
+dt = 2737.5 * day # time step size [7.5 years]
+s = 0.0001
 time_manager = pp.TimeManager(
-    schedule=[0.0, tf],
-    dt_init=dt,
+    schedule=[0.0, s * tf],
+    dt_init=s * dt,
     constant_dt=True,
     iter_max=50,
     print_info=True,
@@ -62,14 +63,22 @@ class GeothermalWaterFlowModel(FlowModel):
 model = GeothermalWaterFlowModel(params)
 
 parametric_space_ref_level = 2
-file_name_prefix = "/Users/michealoguntola/porepy/src/porepy/examples/geothermal_flow/model_configuration/constitutive_description/driesner_vtk_files/"
-file_name = (
+file_name_prefix = "model_configuration/constitutive_description/driesner_vtk_files/"
+file_name_phz = (
     file_name_prefix + "XHP_l" + str(parametric_space_ref_level) + "_modified.vtk"
 )
+file_name_ptz = (
+    file_name_prefix + "XTP_l" + str(parametric_space_ref_level) + "_modified.vtk"
+)
 
-brine_sampler = VTKSampler(file_name)
-brine_sampler.conversion_factors = (1.0, 1.0e-3, 1.0e-5)  # (z,h,p) (#,J/kg,Bar)
-model.vtk_sampler = brine_sampler
+brine_sampler_phz = VTKSampler(file_name_phz)
+brine_sampler_phz.conversion_factors = (1.0, 1.0e-3, 1.0e-5)  # (z,h,p)
+model.vtk_sampler = brine_sampler_phz
+
+brine_sampler_ptz = VTKSampler(file_name_ptz)
+brine_sampler_ptz.conversion_factors = (1.0, 1.0, 1.0e-5)  # (z,t,p)
+brine_sampler_ptz.translation_factors = (0.0, -273.15, 0.0)  # (z,t,p)
+model.vtk_sampler_ptz = brine_sampler_ptz
 
 
 tb = time.time()
