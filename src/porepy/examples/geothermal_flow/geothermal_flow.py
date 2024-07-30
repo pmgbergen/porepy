@@ -82,6 +82,7 @@ file_name_phz = (
 file_name_ptz = (
     file_name_prefix + "XTP_l" + str(parametric_space_ref_level) + "_modified.vtk"
 )
+
 brine_sampler_phz = VTKSampler(file_name_phz)
 brine_sampler_phz.conversion_factors = (1.0, 1.0e-3, 1.0e-5)  # (z,h,p)
 model.vtk_sampler = brine_sampler_phz
