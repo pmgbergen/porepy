@@ -268,7 +268,7 @@ class SecondaryEquations(SecondaryEquationsMixin):
         self.vtk_sampler.sample_at(par_points)
 
         # Overall temperature
-        T = self.vtk_sampler.sampled_could.point_data["Temperature"] + 273.15 # [K]
+        T = self.vtk_sampler.sampled_could.point_data["Temperature"] # [K]
         dTdz = self.vtk_sampler.sampled_could.point_data["grad_Temperature"][:, 0]
         dTdH = self.vtk_sampler.sampled_could.point_data["grad_Temperature"][:, 1]
         dTdp = self.vtk_sampler.sampled_could.point_data["grad_Temperature"][:, 2]
