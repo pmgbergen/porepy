@@ -37,32 +37,36 @@ class BoundaryConditions(BoundaryConditionsCF):
         p[inlet_idx] = p_inlet
         p[outlet_idx] = p_outlet
         return p
-    
-    def bc_values_enthalpy(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
-        inlet_idx, _ = self.get_inlet_outlet_sides(boundary_grid)
-        h_inlet = 1.5e6
-        h_outlet = 6.45e5
-        h = h_outlet * np.ones(boundary_grid.num_cells)
-        h[inlet_idx] = h_inlet
-        return h
-    
+
     def bc_values_temperature(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
         inlet_idx, outlet_idx = self.get_inlet_outlet_sides(boundary_grid)
-        t_inlet = 623.0   #[K]
-        t_outlet = 423.0  #[K]
+        t_inlet = 623.15  #[K]
+        t_outlet = 423.15  #[K]
         T = t_outlet * np.ones(boundary_grid.num_cells)
         T[inlet_idx] = t_inlet
         T[outlet_idx] = t_outlet
         return T
-    
+
+    def bc_values_enthalpy(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+        inlet_idx, _ = self.get_inlet_outlet_sides(boundary_grid)
+        # evaluation from PTZ specs
+        p = self.bc_values_pressure(boundary_grid)
+        t = self.bc_values_temperature(boundary_grid)
+        z_NaCl = 1.0e-4 * np.ones_like(p)
+        assert len(p) == len(t) == len(z_NaCl)
+        par_points = np.array((z_NaCl, t, p)).T
+        self.vtk_sampler_ptz.sample_at(par_points)
+        h = self.vtk_sampler_ptz.sampled_could.point_data['H']
+        return h
+
     def bc_values_overall_fraction(
         self, 
         component: ppc.Component, 
         boundary_grid: pp.BoundaryGrid
     ) -> np.ndarray:
         inlet_idx, _ = self.get_inlet_outlet_sides(boundary_grid)
-        z_init = 1.0e-100
-        z_inlet = 1.0e-100
+        z_init = 1.0e-4
+        z_inlet = 1.0e-4
         if component.name == "H2O":
             z_H2O = (1 - z_init) * np.ones(boundary_grid.num_cells)
             z_H2O[inlet_idx] = 1 - z_inlet
@@ -86,17 +90,24 @@ class InitialConditions(InitialConditionsCF):
         return p_init
     
     def initial_enthalpy(self, sd: pp.Grid) -> np.ndarray:
-        h_init = 6.45e5
-        return np.ones(sd.num_cells) * h_init
+        # evaluation from PTZ specs
+        p = self.initial_pressure(sd)
+        t = self.initial_temperature(sd)
+        z_NaCl = 1.0e-4 * np.ones_like(p)
+        assert len(p) == len(t) == len(z_NaCl)
+        par_points = np.array((z_NaCl, t, p)).T
+        self.vtk_sampler_ptz.sample_at(par_points)
+        h_init = self.vtk_sampler_ptz.sampled_could.point_data['H']
+        return h_init
     
     def initial_temperature(self, sd: pp.Grid) -> np.ndarray:
-        t_init = 423 #[K]
+        t_init = 423.15 #[K]
         return np.ones(sd.num_cells) * t_init
     
     def initial_overall_fraction(
         self, component: ppc.Component, sd: pp.Grid
     ) -> np.ndarray:
-        z = 0.0
+        z = 1.0e-4
         if component.name == "H2O":
             return (1 - z) * np.ones(sd.num_cells)
         else:
@@ -145,3 +156,11 @@ class DriesnerWaterFlowModel(
     @vtk_sampler.setter
     def vtk_sampler(self, vtk_sampler):
         self._vtk_sampler = vtk_sampler
+
+    @property
+    def vtk_sampler_ptz(self):
+        return self._vtk_sampler_ptz
+
+    @vtk_sampler_ptz.setter
+    def vtk_sampler_ptz(self, vtk_sampler):
+        self._vtk_sampler_ptz = vtk_sampler

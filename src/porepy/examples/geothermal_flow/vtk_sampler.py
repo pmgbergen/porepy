@@ -67,7 +67,7 @@ class VTKSampler:
     def sample_at(self, points):
         # tb = time.time()
         points = self._apply_conversion_factor(points)
-        # points = self._apply_translation_factor(points)
+        points = self._apply_translation_factor(points)
 
         point_cloud = pyvista.PolyData(points)
         self.sampled_could = point_cloud.sample(self._search_space)
