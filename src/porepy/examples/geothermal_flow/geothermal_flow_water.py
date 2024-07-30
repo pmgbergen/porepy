@@ -12,12 +12,11 @@ from vtk_sampler import VTKSampler
 import porepy as pp
 
 day = 86400
-tf = 273750.0 * day # final time [750 years]
-dt = 27375.0 * day # time step size [750 years]
-s = 0.0001
+tf = 91250.0 * day # final time [750 years]
+dt = 912.50 * day # time step size [75 years]
 time_manager = pp.TimeManager(
-    schedule=[0.0, s * tf],
-    dt_init=s * dt,
+    schedule=[0.0, tf],
+    dt_init=dt,
     constant_dt=True,
     iter_max=50,
     print_info=True,
@@ -25,11 +24,11 @@ time_manager = pp.TimeManager(
 
 solid_constants = pp.SolidConstants(
     {
-        "permeability": 5.0e-14,
+        "permeability": 1.0e-15,
         "porosity": 0.1,
-        "thermal_conductivity": 1.8,
-        "density": 2650.0,
-        "specific_heat_capacity": 1000.0,
+        "thermal_conductivity": 0.01,
+        "density": 2700.0,
+        "specific_heat_capacity": 880.0,
     }
 )
 material_constants = {"solid": solid_constants}
@@ -57,6 +56,7 @@ class GeothermalWaterFlowModel(FlowModel):
 
     def after_simulation(self):
         self.exporter.write_pvd()
+
 
 
 # Instance of the computational model
