@@ -65,7 +65,6 @@ def z_range_predicate(x, y, z, bounds):
 
 
 def e_predicate(x, y, z, bounds):
-    xmin, xmax, ymin, ymax, zmin, zmax = bounds
     x_pre = __above_x_predicate(x, y, z, bounds)
     y_range_pre = y_range_predicate(x, y, z, bounds)
     z_range_pre = z_range_predicate(x, y, z, bounds)
@@ -74,7 +73,6 @@ def e_predicate(x, y, z, bounds):
 
 
 def w_predicate(x, y, z, bounds):
-    xmin, xmax, ymin, ymax, zmin, zmax = bounds
     x_pre = __below_x_predicate(x, y, z, bounds)
     y_range_pre = y_range_predicate(x, y, z, bounds)
     z_range_pre = z_range_predicate(x, y, z, bounds)
@@ -83,7 +81,6 @@ def w_predicate(x, y, z, bounds):
 
 
 def s_predicate(x, y, z, bounds):
-    xmin, xmax, ymin, ymax, zmin, zmax = bounds
     y_pre = __below_y_predicate(x, y, z, bounds)
     x_range_pre = x_range_predicate(x, y, z, bounds)
     z_range_pre = z_range_predicate(x, y, z, bounds)
@@ -92,7 +89,6 @@ def s_predicate(x, y, z, bounds):
 
 
 def n_predicate(x, y, z, bounds):
-    xmin, xmax, ymin, ymax, zmin, zmax = bounds
     y_pre = __above_y_predicate(x, y, z, bounds)
     x_range_pre = x_range_predicate(x, y, z, bounds)
     z_range_pre = z_range_predicate(x, y, z, bounds)
@@ -101,7 +97,6 @@ def n_predicate(x, y, z, bounds):
 
 
 def b_predicate(x, y, z, bounds):
-    xmin, xmax, ymin, ymax, zmin, zmax = bounds
     z_pre = __below_z_predicate(x, y, z, bounds)
     x_range_pre = x_range_predicate(x, y, z, bounds)
     y_range_pre = y_range_predicate(x, y, z, bounds)
@@ -110,7 +105,6 @@ def b_predicate(x, y, z, bounds):
 
 
 def t_predicate(x, y, z, bounds):
-    xmin, xmax, ymin, ymax, zmin, zmax = bounds
     z_pre = __above_z_predicate(x, y, z, bounds)
     x_range_pre = x_range_predicate(x, y, z, bounds)
     y_range_pre = y_range_predicate(x, y, z, bounds)
@@ -120,7 +114,6 @@ def t_predicate(x, y, z, bounds):
 
 # x range members
 def sb_predicate(x, y, z, bounds):
-    xmin, xmax, ymin, ymax, zmin, zmax = bounds
     y_pre = __below_y_predicate(x, y, z, bounds)
     z_pre = __below_z_predicate(x, y, z, bounds)
     x_range_pre = x_range_predicate(x, y, z, bounds)
@@ -129,7 +122,6 @@ def sb_predicate(x, y, z, bounds):
 
 
 def nb_predicate(x, y, z, bounds):
-    xmin, xmax, ymin, ymax, zmin, zmax = bounds
     y_pre = __above_y_predicate(x, y, z, bounds)
     z_pre = __below_z_predicate(x, y, z, bounds)
     x_range_pre = x_range_predicate(x, y, z, bounds)
@@ -138,7 +130,6 @@ def nb_predicate(x, y, z, bounds):
 
 
 def st_predicate(x, y, z, bounds):
-    xmin, xmax, ymin, ymax, zmin, zmax = bounds
     y_pre = __below_y_predicate(x, y, z, bounds)
     z_pre = __above_z_predicate(x, y, z, bounds)
     x_range_pre = x_range_predicate(x, y, z, bounds)
@@ -147,7 +138,6 @@ def st_predicate(x, y, z, bounds):
 
 
 def nt_predicate(x, y, z, bounds):
-    xmin, xmax, ymin, ymax, zmin, zmax = bounds
     y_pre = __above_y_predicate(x, y, z, bounds)
     z_pre = __above_z_predicate(x, y, z, bounds)
     x_range_pre = x_range_predicate(x, y, z, bounds)
@@ -157,8 +147,7 @@ def nt_predicate(x, y, z, bounds):
 
 # y range members
 def wb_predicate(x, y, z, bounds):
-    xmin, xmax, ymin, ymax, zmin, zmax = bounds
-    x_pre = __below_y_predicate(x, y, z, bounds)
+    x_pre = __below_x_predicate(x, y, z, bounds)
     z_pre = __below_z_predicate(x, y, z, bounds)
     y_range_pre = y_range_predicate(x, y, z, bounds)
     x_and_z_pre = np.logical_and(x_pre, z_pre)
@@ -166,8 +155,7 @@ def wb_predicate(x, y, z, bounds):
 
 
 def eb_predicate(x, y, z, bounds):
-    xmin, xmax, ymin, ymax, zmin, zmax = bounds
-    x_pre = __above_y_predicate(x, y, z, bounds)
+    x_pre = __above_x_predicate(x, y, z, bounds)
     z_pre = __below_z_predicate(x, y, z, bounds)
     y_range_pre = y_range_predicate(x, y, z, bounds)
     x_and_z_pre = np.logical_and(x_pre, z_pre)
@@ -175,8 +163,7 @@ def eb_predicate(x, y, z, bounds):
 
 
 def wt_predicate(x, y, z, bounds):
-    xmin, xmax, ymin, ymax, zmin, zmax = bounds
-    x_pre = __below_y_predicate(x, y, z, bounds)
+    x_pre = __below_x_predicate(x, y, z, bounds)
     z_pre = __above_z_predicate(x, y, z, bounds)
     y_range_pre = y_range_predicate(x, y, z, bounds)
     x_and_z_pre = np.logical_and(x_pre, z_pre)
@@ -184,8 +171,7 @@ def wt_predicate(x, y, z, bounds):
 
 
 def et_predicate(x, y, z, bounds):
-    xmin, xmax, ymin, ymax, zmin, zmax = bounds
-    x_pre = __above_y_predicate(x, y, z, bounds)
+    x_pre = __above_x_predicate(x, y, z, bounds)
     z_pre = __above_z_predicate(x, y, z, bounds)
     y_range_pre = y_range_predicate(x, y, z, bounds)
     x_and_z_pre = np.logical_and(x_pre, z_pre)
@@ -194,7 +180,6 @@ def et_predicate(x, y, z, bounds):
 
 # z range members
 def ws_predicate(x, y, z, bounds):
-    xmin, xmax, ymin, ymax, zmin, zmax = bounds
     x_pre = __below_x_predicate(x, y, z, bounds)
     y_pre = __below_y_predicate(x, y, z, bounds)
     z_range_pre = z_range_predicate(x, y, z, bounds)
@@ -203,7 +188,6 @@ def ws_predicate(x, y, z, bounds):
 
 
 def es_predicate(x, y, z, bounds):
-    xmin, xmax, ymin, ymax, zmin, zmax = bounds
     x_pre = __above_x_predicate(x, y, z, bounds)
     y_pre = __below_y_predicate(x, y, z, bounds)
     z_range_pre = z_range_predicate(x, y, z, bounds)
@@ -212,7 +196,6 @@ def es_predicate(x, y, z, bounds):
 
 
 def wn_predicate(x, y, z, bounds):
-    xmin, xmax, ymin, ymax, zmin, zmax = bounds
     x_pre = __below_x_predicate(x, y, z, bounds)
     y_pre = __above_y_predicate(x, y, z, bounds)
     z_range_pre = z_range_predicate(x, y, z, bounds)
@@ -221,7 +204,6 @@ def wn_predicate(x, y, z, bounds):
 
 
 def en_predicate(x, y, z, bounds):
-    xmin, xmax, ymin, ymax, zmin, zmax = bounds
     x_pre = __above_x_predicate(x, y, z, bounds)
     y_pre = __above_y_predicate(x, y, z, bounds)
     z_range_pre = z_range_predicate(x, y, z, bounds)
@@ -230,7 +212,6 @@ def en_predicate(x, y, z, bounds):
 
 
 def wsb_predicate(x, y, z, bounds):
-    xmin, xmax, ymin, ymax, zmin, zmax = bounds
     x_pre = __below_x_predicate(x, y, z, bounds)
     y_pre = __below_y_predicate(x, y, z, bounds)
     z_pre = __below_z_predicate(x, y, z, bounds)
@@ -239,7 +220,6 @@ def wsb_predicate(x, y, z, bounds):
 
 
 def esb_predicate(x, y, z, bounds):
-    xmin, xmax, ymin, ymax, zmin, zmax = bounds
     x_pre = __above_x_predicate(x, y, z, bounds)
     y_pre = __below_y_predicate(x, y, z, bounds)
     z_pre = __below_z_predicate(x, y, z, bounds)
@@ -248,7 +228,6 @@ def esb_predicate(x, y, z, bounds):
 
 
 def wnb_predicate(x, y, z, bounds):
-    xmin, xmax, ymin, ymax, zmin, zmax = bounds
     x_pre = __below_x_predicate(x, y, z, bounds)
     y_pre = __above_y_predicate(x, y, z, bounds)
     z_pre = __below_z_predicate(x, y, z, bounds)
@@ -257,7 +236,6 @@ def wnb_predicate(x, y, z, bounds):
 
 
 def enb_predicate(x, y, z, bounds):
-    xmin, xmax, ymin, ymax, zmin, zmax = bounds
     x_pre = __above_x_predicate(x, y, z, bounds)
     y_pre = __above_y_predicate(x, y, z, bounds)
     z_pre = __below_z_predicate(x, y, z, bounds)
@@ -266,7 +244,6 @@ def enb_predicate(x, y, z, bounds):
 
 
 def wst_predicate(x, y, z, bounds):
-    xmin, xmax, ymin, ymax, zmin, zmax = bounds
     x_pre = __below_x_predicate(x, y, z, bounds)
     y_pre = __below_y_predicate(x, y, z, bounds)
     z_pre = __above_z_predicate(x, y, z, bounds)
@@ -275,7 +252,6 @@ def wst_predicate(x, y, z, bounds):
 
 
 def est_predicate(x, y, z, bounds):
-    xmin, xmax, ymin, ymax, zmin, zmax = bounds
     x_pre = __above_x_predicate(x, y, z, bounds)
     y_pre = __below_y_predicate(x, y, z, bounds)
     z_pre = __above_z_predicate(x, y, z, bounds)
@@ -284,7 +260,6 @@ def est_predicate(x, y, z, bounds):
 
 
 def wnt_predicate(x, y, z, bounds):
-    xmin, xmax, ymin, ymax, zmin, zmax = bounds
     x_pre = __below_x_predicate(x, y, z, bounds)
     y_pre = __above_y_predicate(x, y, z, bounds)
     z_pre = __above_z_predicate(x, y, z, bounds)
@@ -293,7 +268,6 @@ def wnt_predicate(x, y, z, bounds):
 
 
 def ent_predicate(x, y, z, bounds):
-    xmin, xmax, ymin, ymax, zmin, zmax = bounds
     x_pre = __above_x_predicate(x, y, z, bounds)
     y_pre = __above_y_predicate(x, y, z, bounds)
     z_pre = __above_z_predicate(x, y, z, bounds)

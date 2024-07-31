@@ -52,7 +52,7 @@ class BoundaryConditions(BoundaryConditionsCF):
         # evaluation from PTZ specs
         p = self.bc_values_pressure(boundary_grid)
         t = self.bc_values_temperature(boundary_grid)
-        z_NaCl = 1.0e-4 * np.ones_like(p)
+        z_NaCl = np.zeros_like(p)
         assert len(p) == len(t) == len(z_NaCl)
         par_points = np.array((z_NaCl, t, p)).T
         self.vtk_sampler_ptz.sample_at(par_points)
@@ -65,8 +65,8 @@ class BoundaryConditions(BoundaryConditionsCF):
         boundary_grid: pp.BoundaryGrid
     ) -> np.ndarray:
         inlet_idx, _ = self.get_inlet_outlet_sides(boundary_grid)
-        z_init = 1.0e-4
-        z_inlet = 1.0e-4
+        z_init = 0.0
+        z_inlet = 0.0
         if component.name == "H2O":
             z_H2O = (1 - z_init) * np.ones(boundary_grid.num_cells)
             z_H2O[inlet_idx] = 1 - z_inlet
@@ -93,7 +93,7 @@ class InitialConditions(InitialConditionsCF):
         # evaluation from PTZ specs
         p = self.initial_pressure(sd)
         t = self.initial_temperature(sd)
-        z_NaCl = 1.0e-4 * np.ones_like(p)
+        z_NaCl = np.zeros_like(p)
         assert len(p) == len(t) == len(z_NaCl)
         par_points = np.array((z_NaCl, t, p)).T
         self.vtk_sampler_ptz.sample_at(par_points)
@@ -107,7 +107,7 @@ class InitialConditions(InitialConditionsCF):
     def initial_overall_fraction(
         self, component: ppc.Component, sd: pp.Grid
     ) -> np.ndarray:
-        z = 1.0e-4
+        z = 0.0
         if component.name == "H2O":
             return (1 - z) * np.ones(sd.num_cells)
         else:

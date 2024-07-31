@@ -80,7 +80,6 @@ brine_sampler_ptz.conversion_factors = (1.0, 1.0, 1.0e-5)  # (z,t,p)
 brine_sampler_ptz.translation_factors = (0.0, -273.15, 0.0)  # (z,t,p)
 model.vtk_sampler_ptz = brine_sampler_ptz
 
-
 tb = time.time()
 model.prepare_simulation()
 te = time.time()
