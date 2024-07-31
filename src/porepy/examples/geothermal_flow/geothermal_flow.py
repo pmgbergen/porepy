@@ -7,8 +7,9 @@ composition (z_NaCl) as primary variables.
 Equilibrium calculations are included in the correlations. As a result, they contain
 expressions for saturation, partial fractions, and temperature based on primary variables.
 
-The correlations are interpolated with VTK using a standalone object (VTKSampler). This
-object provides functions and their gradients in the product space (z_NaCl, H, P) in R^3.
+The correlations are interpolated with VTK using a standalone object (VTKSampler). Two
+instances of that object provide functions and their gradients within the product spaces
+(z_NaCl, xi, P) in R^3, where xi in {H,T}.
 
 """
 
