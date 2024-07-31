@@ -65,7 +65,6 @@ class VTKSampler:
         self._sampled_could = sampled_could.copy()
 
     def sample_at(self, points):
-        # tb = time.time()
         points = self._apply_conversion_factor(points)
         points = self._apply_translation_factor(points)
 
@@ -81,9 +80,6 @@ class VTKSampler:
             self.__taylor_expansion(points, external_idx)
 
         self._apply_conversion_factor_on_gradients()
-        # te = time.time()
-        # print("VTKSampler:: Sampled n_points: ", len(points))
-        # print("VTKSampler:: Time for sampling: ", te - tb)
 
     def _apply_conversion_factor(self, points):
         for i, scale in enumerate(self.conversion_factors):
@@ -124,6 +120,8 @@ class VTKSampler:
         zmax -= eps
 
         # detect regions
+
+        # facets predicates
         w_q = cp.w_predicate(*xv.T, bounds)
         e_q = cp.e_predicate(*xv.T, bounds)
         s_q = cp.s_predicate(*xv.T, bounds)
@@ -131,19 +129,19 @@ class VTKSampler:
         b_q = cp.b_predicate(*xv.T, bounds)
         t_q = cp.t_predicate(*xv.T, bounds)
 
-        # x range
+        # x range: edges parallel to x axis
         sb_q = cp.sb_predicate(*xv.T, bounds)
         nb_q = cp.nb_predicate(*xv.T, bounds)
         st_q = cp.st_predicate(*xv.T, bounds)
         nt_q = cp.nt_predicate(*xv.T, bounds)
 
-        # y range
+        # y range: edges parallel to y axis
         wb_q = cp.wb_predicate(*xv.T, bounds)
         eb_q = cp.eb_predicate(*xv.T, bounds)
         wt_q = cp.wt_predicate(*xv.T, bounds)
         et_q = cp.et_predicate(*xv.T, bounds)
 
-        # z range
+        # z range: edges parallel to z axis
         ws_q = cp.ws_predicate(*xv.T, bounds)
         es_q = cp.es_predicate(*xv.T, bounds)
         wn_q = cp.wn_predicate(*xv.T, bounds)
