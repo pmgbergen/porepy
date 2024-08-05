@@ -48,8 +48,8 @@ class VTKSampler:
         return self._search_space
 
     @property
-    def bc_surface(self):
-        return self._bc_surface
+    def boundary_surface(self):
+        return self._boundary_surface
 
     @property
     def sampled_could(self):
@@ -57,6 +57,17 @@ class VTKSampler:
             return self._sampled_could
         else:
             return None
+
+    @property
+    def constant_extended_fields(self):
+        if hasattr(self, "_constant_extended_fields"):
+            return self._constant_extended_fields
+        else:
+            return []
+
+    @constant_extended_fields.setter
+    def constant_extended_fields(self, constant_extended_fields):
+        self._constant_extended_fields = constant_extended_fields
 
     @sampled_could.setter
     def sampled_could(self, sampled_could):
@@ -71,7 +82,7 @@ class VTKSampler:
         point_cloud = pyvista.PolyData(points)
         self.sampled_could = point_cloud.sample(self._search_space)
         check_enclosed_points = point_cloud.select_enclosed_points(
-            self.bc_surface, check_surface=False
+            self.boundary_surface, check_surface=False
         )
         external_idx = np.logical_not(
             check_enclosed_points.point_data["SelectedPoints"]
@@ -101,7 +112,7 @@ class VTKSampler:
     def __build_search_space(self):
         tb = time.time()
         self._search_space = pyvista.read(self.file_name)
-        self._bc_surface = self._search_space.extract_surface()
+        self._boundary_surface = self._search_space.extract_surface()
         te = time.time()
         print("VTKSampler:: Time for loading interpolation space: ", te - tb)
 
@@ -244,7 +255,10 @@ class VTKSampler:
             if grad_field_name.startswith("grad_"):
                 field_name = grad_field_name.lstrip("grad_")
                 fv = sampled_could[field_name]
-                grad_fv = sampled_could[grad_field_name]
+                if field_name in self.constant_extended_fields:
+                    grad_fv = np.zeros_like(sampled_could[grad_field_name])
+                else:
+                    grad_fv = sampled_could[grad_field_name]
 
                 # taylor expansion all at once
                 f_extrapolated = fv + np.sum(grad_fv * (x - xv), axis=1)
