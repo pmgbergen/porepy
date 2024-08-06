@@ -38,7 +38,7 @@ from porepy.applications.discretizations.flux_discretization import FluxDiscreti
 solid_values = pp.solid_values.granite
 solid_values.update(
     {
-        "fracture_normal_stiffness": 1529,
+        "fracture_normal_stiffness": 1.9e8,
         "maximum_fracture_closure": 1e-4,
         "fracture_gap": 1e-4,
         "residual_aperture": 0.01,
@@ -182,9 +182,10 @@ def test_parse_constitutive_laws(
 
 
 # Shorthand for values with many digits. Used to compute expected values in the tests.
-lbda = pp.solid_values.granite["lame_lambda"]
-mu = pp.solid_values.granite["shear_modulus"]
+lbda = solid_values["lame_lambda"]
+mu = solid_values["shear_modulus"]
 bulk = lbda + 2 / 3 * mu
+youngs = mu * (3 * lbda + 2 * mu) / (lbda + mu)
 reference_arrays = reference_dense_arrays["test_evaluated_values"]
 
 
@@ -268,8 +269,9 @@ reference_arrays = reference_dense_arrays["test_evaluated_values"]
             models.MomentumBalance,
             "elastic_normal_fracture_deformation",
             # (-normal_traction) * maximum_closure /
-            #    (normal_stiffness * maximum_closure + (-normal_traction))
-            (1 * 1e-4) / (1529 * 1e-4 + 1),
+            #    (normal_stiffness / characteristic_traction * maximum_closure + (-normal_traction))
+            # characteristic_traction = Young's modulus in this case
+            (1 * 1e-4) / (1.9e8 / youngs * 1e-4 + 1),
             1,
         ),
         (
