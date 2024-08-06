@@ -1,6 +1,4 @@
-"""Tests for model variables.
-
-"""
+"""Tests for the momentum balance model class. """
 
 from __future__ import annotations
 
@@ -28,7 +26,7 @@ class LinearModel(
     "solid_vals,north_displacement",
     [
         ({}, 0),
-        ({}, -0.1),
+        ({"characteristic_displacement": 42}, -0.1),
         ({"porosity": 0.5}, 0.2),
     ],
 )
@@ -87,7 +85,7 @@ def test_2d_single_fracture(solid_vals, north_displacement):
                 np.sign(vals[setup.nd - 1 :: setup.nd][top])
                 == np.sign(north_displacement)
             )
-            # Fracture cuts the domain in half, so the bottom half should be undispalced
+            # Fracture cuts the domain in half, so the bottom half should be undisplaced.
             bottom = sd.cell_centers[1] < 0.5
             assert np.allclose(vals[setup.nd - 1 :: setup.nd][bottom], 0)
             # No displacement in x direction
@@ -105,7 +103,7 @@ def test_2d_single_fracture(solid_vals, north_displacement):
     else:
         # Displacement jump should be zero
         assert np.all(np.isclose(jump, 0))
-        # Normal traction should be non-positive. Zero if north_displacement is zero.,
+        # Normal traction should be non-positive. Zero if north_displacement is zero.
         if north_displacement < 0:
             assert np.all(traction[setup.nd - 1 :: setup.nd] <= 0)
         else:
@@ -146,7 +144,7 @@ def test_unit_conversion(units, uy_north):
         setup_1.interface_displacement_variable,
         setup_1.contact_traction_variable,
     ]
-    variable_units = ["m", "m", "Pa"]
+    variable_units = ["m", "m", "-"]
     compare_scaled_primary_variables(setup_0, setup_1, variables, variable_units)
     secondary_variables = ["stress", "displacement_jump"]
     secondary_units = ["Pa * m", "m"]
