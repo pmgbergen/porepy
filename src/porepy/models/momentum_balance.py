@@ -815,7 +815,7 @@ class SolutionStrategyMomentumBalance(pp.SolutionStrategy):
 
     def contact_mechanics_numerical_constant(
         self, subdomains: list[pp.Grid]
-    ) -> pp.ad.Scalar:
+    ) -> pp.ad.Operator:
         """Numerical constant for the contact problem [m^-1].
 
         A physical interpretation of this constant is a characteristic length of
@@ -826,7 +826,7 @@ class SolutionStrategyMomentumBalance(pp.SolutionStrategy):
             subdomains: List of subdomains. Only the first is used.
 
         Returns:
-            c_num: Numerical constant, as scalar.
+            c_num: Numerical constant.
 
         """
 

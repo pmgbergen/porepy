@@ -270,7 +270,8 @@ reference_arrays = reference_dense_arrays["test_evaluated_values"]
             "elastic_normal_fracture_deformation",
             # (-normal_traction) * maximum_closure /
             #    (normal_stiffness / characteristic_traction * maximum_closure + (-normal_traction))
-            # characteristic_traction = Young's modulus in this case
+            # Here, characteristic_traction = Young's modulus (see implementation of
+            # elastic_normal_fracture_deformation in constitutive_laws.py)
             (1 * 1e-4) / (1.9e8 / youngs * 1e-4 + 1),
             1,
         ),
