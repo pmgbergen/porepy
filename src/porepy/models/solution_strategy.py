@@ -896,7 +896,7 @@ class ContactIndicators:
         # The normal component of the contact traction and the displacement jump
         t: pp.ad.Operator = self.contact_traction(
             subdomains
-        ) / self.characteristic_traction(subdomains)
+        ) / self.characteristic_contact_traction(subdomains)
         e_n = self.e_i(subdomains, dim=self.nd, i=self.nd - 1)
 
         u = self.displacement_jump(subdomains) - e_n @ self.fracture_gap(subdomains)
@@ -917,6 +917,6 @@ class ContactIndicators:
 
         """
         val = val.clip(1e-8, 1e8)
-        p = self.params.get("characteristic_traction_p_mean", 5.0)
+        p = self.params.get("traction_estimate_p_mean", 5.0)
         p_mean = np.mean(val**p, axis=0) ** (1 / p)
         return float(p_mean)
