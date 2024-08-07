@@ -276,7 +276,8 @@ class MomentumBalanceEquations(pp.BalanceEquation):
         """Equation for the normal component of the fracture deformation.
 
         This constraint equation enforces non-penetration of opposing fracture
-        interfaces.
+        interfaces. The equation is dimensionless, as we use nondimensionalized
+        contact traction.
 
         Parameters:
             subdomains: List of subdomains where the normal deformation equation is
@@ -324,9 +325,9 @@ class MomentumBalanceEquations(pp.BalanceEquation):
         self,
         subdomains: list[pp.Grid],
     ) -> pp.ad.Operator:
-        """
-        Contact mechanics equation for the tangential constraints.
+        """Contact mechanics equation for the tangential constraints.
 
+        The equation is dimensionless, as we use nondimensionalized contact traction.
         The function reads
         .. math::
             C_t = max(b_p, ||T_t+c_t u_t||) T_t - max(0, b_p) (T_t+c_t u_t)
