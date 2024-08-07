@@ -3973,8 +3973,9 @@ class ElasticModuli:
 
         The value is computed from the solid constants and the characteristic
         displacement. Inversion of this relationship, i.e.,
-        u_char=u_char(t_char), is possible if the characteristic traction is
-        easier to estimate than the characteristic displacement.
+        u_char=u_char(t_char), can be done in a mixin overriding the
+        characteristic sizes. This may be beneficial if the characteristic
+        traction is easier to estimate than the characteristic displacement.
 
         Parameters:
             subdomains: List of subdomains where the characteristic traction is defined.
