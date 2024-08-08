@@ -241,7 +241,10 @@ class Tpsa:
 
         # Construct an averaging operator from cell centers to faces. The averaging
         # weights are the cell-wise shear modulus, divided by the distance between the
-        # face center and the cell center (projected to the face normal direction).
+        # face center and the cell center (projected to the face normal direction). The
+        # scalar cell-to-face averaging is not used directly, but will form the basis
+        # for its nd equivalent (which is needed in several places), and the (scalar)
+        # complement which is used in a few places.
         cell_to_face_average = (
             sps.dia_matrix(
                 (1 / np.bincount(fi, shear_modulus_by_face_cell_distance), 0),
@@ -252,8 +255,6 @@ class Tpsa:
             ).tocsr()
         )
 
-        c2f_rows, *_ = sps.find(cell_to_face_average)
-        c2f_rows_is_bound = np.in1d(c2f_rows, sd.get_all_boundary_faces())
 
         # For Dirichlet conditions, set the averaging map to zero (as is the correct
         # discretization). TODO: Treat Neumann, and possibly Robin, conditions.
@@ -288,7 +289,9 @@ class Tpsa:
         cell_to_face_average_nd.data[neu_rows] = 1
         # TODO: Robin conditions will introduce a non-zero value in the average map.
 
-        # Complement average map, defined as 1 - the average map, are also needed.
+        # Complement average map, defined as 1 - the average map. Note that this will
+        # have a zero value for all boundary faces (since the average map has a
+        # one-sided weight of 1 here). This is corrected below.
         cell_to_face_average_complement = sps.csr_matrix(
             (
                 1 - cell_to_face_average.data,
@@ -297,7 +300,20 @@ class Tpsa:
             ),
             shape=cell_to_face_average.shape,
         )
+        # Find all rows in the complement average map that correspond to boundary faces,
+        # and set the data to 1. Note the contrast with the nd version, where the data
+        # of the averaging map is set to zero on Dirichlet faces (thus the complement
+        # map has 0 on Neumann faces), and thus a kind of filtering on the boundary
+        # condition is imposed by the averaging map. Since the boundary condition is
+        # given for the (vector) displacement variable, it is not possible to do a
+        # similar filtering applied to a scalar variable (total pressure and, in 2d,
+        # rotation). Instead, we let the complement averaging map be non-zero on all
+        # boundary faces, and do the filtering explicitly (again, the original scalar
+        # averaging map is not used in the discretization).
+        c2f_rows, *_ = sps.find(cell_to_face_average)
+        c2f_rows_is_bound = np.in1d(c2f_rows, sd.get_all_boundary_faces())
         cell_to_face_average_complement.data[c2f_rows_is_bound] = 1
+
         # .. as is the nd version. The data is taken from cell_to_face_average_nd, thus
         # the correct treatment of boundary conditions is already included.
         cell_to_face_average_complement_nd = sps.csr_matrix(
@@ -319,6 +335,15 @@ class Tpsa:
         dir_nopass_filter_nd = sps.dia_matrix(
             (np.logical_or(is_neu, is_rob).astype(int), 0), shape=(nf * nd, nf * nd)
         )
+
+        neu_nopass_filter_nd = sps.dia_matrix(
+            (np.logical_or(is_dir, is_rob).astype(int), 0), shape=(nf * nd, nf * nd)
+        )
+
+        neu_pass_filter_nd = sps.dia_matrix(
+            (is_neu.astype(int), 0), shape=(nf * nd, nf * nd)
+        )
+
 
         # Finally we are ready to construct the discretization matrices.
 
@@ -347,8 +372,9 @@ class Tpsa:
             # zero, as the 'flux' through the boundary face is given by the boundary
             # condition.
             trm_nd[neu_faces] = 0
-            # The boundary condition should simply be imposed.
-            trm_bnd[neu_faces] = 1
+            # The boundary condition should simply be imposed. Put a -1 to counteract
+            # the minus sign in the construction of the discretization matrix.
+            trm_bnd[neu_faces] = -1
 
             # Discretization of the vector Laplacian. Regarding indexing,
             # the ravel gives a vector-sized array in linear ordering, which is
@@ -384,7 +410,7 @@ class Tpsa:
         # normal vector. The latter also gives the correct scaling with the face area.
         # The effect of boundary conditions are already included in
         # cell_to_face_average_complement.
-        stress_total_pressure = (
+        stress_total_pressure = (neu_nopass_filter_nd @ 
             sps.csc_matrix(
                 (
                     n[:nd].ravel("F"),
@@ -409,12 +435,8 @@ class Tpsa:
         # This matrix will be empty on Dirichlet faces due to the filtering in
         # cell_to_face_average_nd.
         mass_displacement = normal_vector_nd @ cell_to_face_average_nd
-        # Boundary condition. There should be no contribution from Dofs which are
-        # assigned a Dirichlet condition, so filter out these variables (this is likely
-        # not fully consistent for domains with boundaries not aligned with the
-        # coordinate axes, and with rolling boundary conditions, but EK does not know
-        # what to do there).
-        bound_mass_displacement = normal_vector_nd @ dir_nopass_filter_nd
+
+
 
         # While there is no spatial operator that that relates the total pressure to the
         # conservation of solid mass in the continuous equation, the TPSA discretization
@@ -481,7 +503,7 @@ class Tpsa:
             Rn_bar = Rn_hat
 
             # Discretization of the stress generated by cell center rotations.
-            stress_rotation = -Rn_hat @ cell_to_face_average_complement_nd
+            stress_rotation = -neu_nopass_filter_nd @ Rn_hat @ cell_to_face_average_complement_nd
 
             if cosserat_values is not None:
                 rotation_diffusion, bound_rotation_diffusion = vector_laplace_matrices(
@@ -521,7 +543,7 @@ class Tpsa:
                 shape=(nd * nf, nf),
             )
             # # Discretization of the stress generated by cell center rotations.
-            stress_rotation = -Rn_hat @ cell_to_face_average_complement
+            stress_rotation = -neu_nopass_filter_nd @ Rn_hat @ cell_to_face_average_complement
 
             # Diffusion operator on the rotation if relevant.
             if cosserat_values is not None:
@@ -531,7 +553,10 @@ class Tpsa:
                 bndr_ind = sd.get_all_boundary_faces()
                 t_cosserat_bnd = np.zeros(nf)
                 t_cosserat_bnd[bnd_rot.is_dir] = -t_cosserat[bnd_rot.is_dir]
-                t_cosserat_bnd[bnd_rot.is_neu] = 1
+                # The boundary condition should simply be imposed. Put a -1 to
+                # counteract the minus sign in the construction of the discretization
+                # matrix.
+                t_cosserat_bnd[bnd_rot.is_neu] = -1
                 # t_cosserat_bnd = t_cosserat_bnd[bnd_rot.is_neu]
                 t_cosserat[bnd_rot.is_neu] = 0
 
@@ -556,10 +581,17 @@ class Tpsa:
 
         # The boundary condition for the rotation equation's dependency on the
         # cell center displacements.
-        if nd == 2:
-            bound_rotation_displacement = -dir_nopass_filter @ Rn_bar
-        else:  # 3D
-            bound_rotation_displacement = -dir_nopass_filter_nd @ Rn_bar
+        
+        mu_face = sps.dia_matrix((np.repeat(np.bincount(fi, weights=dist_fc_cc / (2 * mu)), nd), 0), shape=(nf * nd, nf * nd))
+        # TODO: Implement Dirichlet conditions
+        bound_rotation_displacement = Rn_bar @ (neu_pass_filter_nd @ mu_face)
+        
+        # Boundary condition. There should be no contribution from Dofs which are
+        # assigned a Dirichlet condition, so filter out these variables (this is likely
+        # not fully consistent for domains with boundaries not aligned with the
+        # coordinate axes, and with rolling boundary conditions, but EK does not know
+        # what to do there).
+        bound_mass_displacement = normal_vector_nd @ (neu_pass_filter_nd @ mu_face)
 
         ## Store the computed fields
 
