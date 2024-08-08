@@ -1,7 +1,7 @@
 import pytest
 import porepy as pp
 import numpy as np
-
+import scipy.sparse as sps
 
 NUM_CELLS = 2
 KEYWORD = "mechanics"
@@ -203,9 +203,18 @@ def test_dirichlet_bcs(g, data):
     bound_rotation_diffusion[1, 6] = cos_1 / d_1_6 * n_6_nrm
 
     bound_rotation_displacement = np.zeros((2, 14))
+    # From the definition of \bar{R}, we get [-n[1], n[0]]. There is an additional
+    # minus sign in the analytical expression, which is included in the known values.
+    bound_rotation_displacement[0, 0] = cr_0 * n_0[1]
+    bound_rotation_displacement[0, 1] = -cr_0 * n_0[0]
+    bound_rotation_displacement[1, 12] = cr_6 * n_6[1]
+    bound_rotation_displacement[1, 13] = -cr_6 * n_6[0]
 
     bound_mass_displacement = np.zeros((2, 14))
-    assert False
+    bound_mass_displacement[0, 0] = cr_0 * n_0[0]
+    bound_mass_displacement[0, 1] = cr_0 * n_0[1]
+    bound_mass_displacement[1, 12] = cr_6 * n_6[0]
+    bound_mass_displacement[1, 13] = cr_6 * n_6[1]
 
     known_values = {
         # Positive sign on the first two rows, since the normal vector is pointing
@@ -238,7 +247,7 @@ def test_dirichlet_bcs(g, data):
             ]
         ),
         "rotation_displacement": np.zeros((2, 4)),
-        "bound_rotation_displacement": np.zeros((2, 14)),
+        "bound_rotation_displacement": bound_rotation_displacement,
         # Minus sign on the second face, since the normal vector is pointing out of the
         # cell.
         "rotation_diffusion": np.array(
@@ -246,7 +255,7 @@ def test_dirichlet_bcs(g, data):
         ),
         "bound_rotation_diffusion": bound_rotation_diffusion,
         "solid_mass_displacement": np.zeros((2, 4)),
-        "bound_mass_displacement": np.zeros((2, 14)),
+        "bound_mass_displacement": bound_mass_displacement,
         "solid_mass_total_pressure": np.zeros((2, 2)),
     }
 
@@ -379,4 +388,110 @@ def test_translation(g):
     # Set boundary conditions that corresponds to a translation of the grid, check that
     # the interior cells follow the translation, and that the resulting system is
     # stress-free.
-    pass
+    g.compute_geometry()
+
+    e = np.ones(g.num_cells)
+    C = pp.FourthOrderTensor(e, e)
+    cosserat = np.array([1, 3])
+
+    if g.dim == 2:
+        disp = np.array([1, -2])
+        n_rot_face = g.num_faces
+        n_rot_cell = g.num_cells
+        div_rot = pp.fvutils.scalar_divergence(g)
+    else:
+        disp = np.array([1, -2, 3])
+        n_rot_face = g.num_faces * g.dim
+        n_rot_cell = g.num_cells * g.dim
+        div_rot = pp.fvutils.vector_divergence(g)
+
+    bc_values = np.zeros((g.dim, g.num_faces))
+    for d in range(g.dim):
+        bc_values[d, g.get_all_boundary_faces()] = disp[d]
+
+    d = {
+        pp.PARAMETERS: {KEYWORD: {"fourth_order_tensor": C, "bc_values": bc_values}},
+        pp.DISCRETIZATION_MATRICES: {KEYWORD: {}},
+    }
+
+    # Set the type of boundary condition (Dirichlet)
+    set_bc(g, d, "dir")
+
+    matrices = discretize_get_matrices(g, d)
+
+    flux = sps.block_array(
+        [
+            [
+                matrices["stress"],
+                matrices["stress_rotation"],
+                matrices["stress_total_pressure"],
+            ],
+            [
+                matrices["rotation_displacement"],
+                matrices["rotation_diffusion"],
+                sps.csr_array((n_rot_face, g.num_cells)),
+            ],
+            [
+                matrices["solid_mass_displacement"],
+                sps.csr_array((g.num_faces, n_rot_cell)),
+                matrices["solid_mass_total_pressure"],
+            ],
+        ],
+    )
+
+    rhs_matrix = sps.block_array(
+        [
+            [matrices["bound_stress"], sps.csr_array((g.num_faces * g.dim, n_rot_face))],
+            [matrices["bound_rotation_displacement"], sps.csr_matrix((n_rot_face, n_rot_face))],
+            [matrices["bound_mass_displacement"], sps.csr_matrix((g.num_faces, g.num_faces))],
+        ]
+    )
+
+    div = sps.block_diag(
+        [
+            pp.fvutils.vector_divergence(g),
+            div_rot,
+            pp.fvutils.scalar_divergence(g),
+        ], format="csr"
+    )
+
+    bound_vec = np.hstack((bc_values.ravel("F"), np.zeros(n_rot_face)))
+
+    b = -div @ rhs_matrix @ bound_vec
+
+    disp_cells = np.zeros(g.num_cells * g.dim)
+    disp_cells[:: g.dim] = disp[0]
+    disp_cells[1 :: g.dim] = disp[1]
+    if g.dim == 3:
+        disp_cells[2 :: g.dim] = disp[2]
+
+    # Check: Uniform translation should result in a stress-free state on all faces. This
+    # is not the case for rotation and solid mass, which are only zero when integrated
+    # over individual cells. This is checked below, after having solved the system.
+    v = matrices['stress'] @ disp_cells + matrices["bound_stress"] @ bc_values.ravel("F")
+    assert np.allclose(v, 0)
+
+    accum = sps.block_diag(
+        [
+            sps.csr_matrix((g.num_cells * g.dim, g.num_cells * g.dim)),
+            sps.eye(n_rot_cell),
+            sps.eye(g.num_cells),
+        ], format="csr"
+    )
+
+    A = div @ flux - accum
+
+    x = sps.linalg.spsolve(A, b)
+
+    assert np.allclose(x[:g.dim * g.num_cells: g.dim], disp[0])
+    assert np.allclose(x[1 :g.dim * g.num_cells: g.dim], disp[1])
+    if g.dim == 3:
+        assert np.allclose(x[2 :g.dim * g.num_cells: g.dim], disp[2])
+
+    # Both the rotation and the total pressure should be zero
+    assert np.allclose(x[g.dim * g.num_cells:], 0)
+
+
+test_dirichlet_bcs(g(), data())
+test_translation(pp.CartGrid([3, 3]))
+test_neumann_bcs(g(), data())
