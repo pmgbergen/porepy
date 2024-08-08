@@ -584,14 +584,14 @@ class Tpsa:
         
         mu_face = sps.dia_matrix((np.repeat(np.bincount(fi, weights=dist_fc_cc / (2 * mu)), nd), 0), shape=(nf * nd, nf * nd))
         # TODO: Implement Dirichlet conditions
-        bound_rotation_displacement = Rn_bar @ (neu_pass_filter_nd @ mu_face)
+        bound_rotation_displacement = Rn_bar @ (neu_pass_filter_nd @ mu_face - dir_filter_nd)
         
         # Boundary condition. There should be no contribution from Dofs which are
         # assigned a Dirichlet condition, so filter out these variables (this is likely
         # not fully consistent for domains with boundaries not aligned with the
         # coordinate axes, and with rolling boundary conditions, but EK does not know
         # what to do there).
-        bound_mass_displacement = normal_vector_nd @ (neu_pass_filter_nd @ mu_face)
+        bound_mass_displacement = normal_vector_nd @ (neu_pass_filter_nd @ mu_face + dir_filter_nd)
 
         ## Store the computed fields
 
