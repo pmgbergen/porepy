@@ -98,7 +98,7 @@ class MomentumBalanceEquations(pp.BalanceEquation):
     """
     friction_bound: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Friction bound of a fracture. Normally provided by a mixin instance of
-    :class:`~porepy.models.constitutive_laws.FrictionBound`.
+    :class:`~porepy.models.constitutive_laws.CoulombFrictionBound`.
 
     """
     contact_mechanics_numerical_constant: Callable[[list[pp.Grid]], pp.ad.Scalar]
@@ -276,7 +276,8 @@ class MomentumBalanceEquations(pp.BalanceEquation):
         """Equation for the normal component of the fracture deformation.
 
         This constraint equation enforces non-penetration of opposing fracture
-        interfaces.
+        interfaces. The equation is dimensionless, as we use nondimensionalized
+        contact traction.
 
         Parameters:
             subdomains: List of subdomains where the normal deformation equation is
@@ -324,9 +325,9 @@ class MomentumBalanceEquations(pp.BalanceEquation):
         self,
         subdomains: list[pp.Grid],
     ) -> pp.ad.Operator:
-        """
-        Contact mechanics equation for the tangential constraints.
+        """Contact mechanics equation for the tangential constraints.
 
+        The equation is dimensionless, as we use nondimensionalized contact traction.
         The function reads
         .. math::
             C_t = max(b_p, ||T_t+c_t u_t||) T_t - max(0, b_p) (T_t+c_t u_t)
@@ -471,7 +472,7 @@ class ConstitutiveLawsMomentumBalance(
     constitutive_laws.LinearElasticMechanicalStress,
     constitutive_laws.ConstantSolidDensity,
     constitutive_laws.FractureGap,
-    constitutive_laws.FrictionBound,
+    constitutive_laws.CoulombFrictionBound,
     constitutive_laws.DimensionReduction,
 ):
     """Class for constitutive equations for momentum balance equations."""
@@ -638,14 +639,14 @@ class VariablesMomentumBalance:
         )
 
     def contact_traction(self, subdomains: list[pp.Grid]) -> pp.ad.Variable:
-        """Fracture contact traction.
+        """Fracture contact traction [-].
 
         Parameters:
             subdomains: List of subdomains where the contact traction is defined. Should
                 be of co-dimension one, i.e. fractures.
 
         Returns:
-            Variable for fracture contact traction.
+            Variable for nondimensionalized fracture contact traction.
 
         """
         # Check that the subdomains are fractures
@@ -739,7 +740,12 @@ class SolutionStrategyMomentumBalance(pp.SolutionStrategy):
     """
     friction_bound: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Friction bound of a fracture. Normally provided by a mixin instance of
-    :class:`~porepy.models.constitutive_laws.FrictionBound`.
+    :class:`~porepy.models.constitutive_laws.CoulombFrictionBound`.
+
+    """
+    characteristic_displacement: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Characteristic displacement of the problem. Normally defined in a mixin
+    instance of :class:`~porepy.models.constitutive_laws.ElasticModuli`.
 
     """
 
@@ -810,30 +816,20 @@ class SolutionStrategyMomentumBalance(pp.SolutionStrategy):
 
     def contact_mechanics_numerical_constant(
         self, subdomains: list[pp.Grid]
-    ) -> pp.ad.Scalar:
-        """Numerical constant for the contact problem [Pa * m^-1].
+    ) -> pp.ad.Operator:
+        """Numerical constant for the contact problem [m^-1].
 
-        A physical interpretation of this constant is as an elastic modulus for the
-        fracture, as it appears as a scaling of displacement jumps when comparing to
-        contact tractions.
+        A physical interpretation of this constant is a characteristic length of
+        the fracture, as it appears as a scaling of displacement jumps when
+        comparing to nondimensionalized contact tractions.
 
         Parameters:
             subdomains: List of subdomains. Only the first is used.
 
         Returns:
-            c_num: Numerical constant, as scalar.
+            c_num: Numerical constant.
 
         """
-        # The constant works as a scaling factor in the comparison between tractions and
-        # displacement jumps across fractures. In analogy with Hooke's law, the scaling
-        # constant is therefore proportional to the shear modulus and the inverse of a
-        # characteristic length of the fracture, where the latter has the interpretation
-        # of a gradient length.
-
-        shear_modulus = self.solid.shear_modulus()
-        characteristic_distance = (
-            self.solid.residual_aperture() + self.solid.fracture_gap()
-        )
 
         # Physical interpretation (IS):
         # As a crude way of making the fracture softer than the matrix, we scale by
@@ -842,11 +838,11 @@ class SolutionStrategyMomentumBalance(pp.SolutionStrategy):
         # The scaling factor should not be too large, otherwise the contact problem
         # may be discretized wrongly. I therefore introduce a safety factor here; its
         # value is somewhat arbitrary.
-        softening_factor = self.solid.contact_mechanics_scaling()
+        softening_factor = pp.ad.Scalar(self.solid.contact_mechanics_scaling())
 
-        val = softening_factor * shear_modulus / characteristic_distance
-
-        return pp.ad.Scalar(val, name="Contact_mechanics_numerical_constant")
+        constant = softening_factor / self.characteristic_displacement(subdomains)
+        constant.set_name("Contact_mechanics_numerical_constant")
+        return constant
 
     def contact_mechanics_open_state_characteristic(
         self, subdomains: list[pp.Grid]
