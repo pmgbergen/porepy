@@ -1,23 +1,30 @@
-"""Module for line search algorithms for nonlinear solvers.
+"""Module for line search algorithms for nonlinear solvers. Experimental!
 
 The algorithm is described in the manuscript at https://arxiv.org/abs/2407.01184.
 
 Main active classes, combined in the NonlinearSolver class:
 - LineSearchNewtonSolver - extends NewtonSolver with line search and implements a basic
     line search based on the residual norm.
-- SplineInterpolationLineSearch - implements a line search based on spline interpolation.
-- ConstraintLineSearch - implements a line search based on constraint functions for contact
-    mechanics.
+- SplineInterpolationLineSearch - implements a line search using spline interpolation.
+- ConstraintLineSearch - implements a line search based on constraint functions for
+    contact mechanics.
 
 The functionality is invoked by specifying the solver in the model parameters, e.g.:
 
     ```python
-    model.params["nonlinear_solver"] = NonlinearSolver
+    class ConstraintLineSearchNonlinearSolver(
+        ConstraintLineSearch,
+        SplineInterpolationLineSearch,
+        LineSearchNewtonSolver,
+    ):
+        pass
+    model.params["nonlinear_solver"] = ConstraintLineSearchNonlinearSolver
     ```
 
-The solver can be further customized by specifying parameters in the model parameters. It also
-requires implementation of the constraint functions in the model as methods called
-"opening_indicator" and "sliding_indicator", see model_setup.ContactIndicators.
+The solver can be further customized by specifying parameters in the model parameters.
+Using the tailored line search also requires implementation of the constraint functions
+in the model as methods called "opening_indicator" and "sliding_indicator", see
+model_setup.ContactIndicators.
 
 """
 
@@ -35,17 +42,17 @@ logger = logging.getLogger(__name__)
 class LineSearchNewtonSolver(pp.NewtonSolver):
     """Class for relaxing a nonlinear iteration update using a line search.
 
-    This class extends the iteration method to include a line search and implements
-    a line search based on the residual norm.
+    This class extends the iteration method to include a line search and implements a
+    line search based on the residual norm.
 
     """
 
     def iteration(self, model) -> np.ndarray:
         """A single nonlinear iteration.
 
-        Add line search to the iteration method. First, call the super method to
-        compute a nonlinear iteration update. Then, perform a line search along
-        that update direction.
+        Add line search to the iteration method. First, call the super method to compute
+        a nonlinear iteration update. Then, perform a line search along that update
+        direction.
 
         Parameters:
             model: The simulation model.
@@ -71,13 +78,15 @@ class LineSearchNewtonSolver(pp.NewtonSolver):
 
         Returns:
             The step length vector, one for each degree of freedom. The relaxed update
-            is obtained by multiplying the nonlinear update step by the relaxation vector.
+            is obtained by multiplying the nonlinear update step by the relaxation
+            vector.
 
         """
         return self.residual_line_search(model, dx)
 
     def residual_line_search(self, model, dx: np.ndarray) -> np.ndarray:
-        """Compute the relaxation factors for the current iteration based on the residual.
+        """Compute the relaxation factors for the current iteration based on the
+        residual.
 
         Parameters:
             model: The model.
@@ -91,15 +100,14 @@ class LineSearchNewtonSolver(pp.NewtonSolver):
             return np.ones_like(dx)
 
         def objective_function(weight):
-            """Objective function for the trial update relaxed by
-            the current weight.
+            """Objective function for the trial update relaxed by the current weight.
 
             Parameters:
                 weight: The relaxation factor.
 
             Returns:
-                The objective function value. Specified as the norm of the residual
-                in this implementation, may be overridden.
+                The objective function value. Specified as the norm of the residual in
+                    this implementation, may be overridden.
 
             """
             return self.residual_objective_function(model, dx, weight)
@@ -108,9 +116,9 @@ class LineSearchNewtonSolver(pp.NewtonSolver):
         f_0 = objective_function(0)
         f_1 = objective_function(1)
         if f_1 < model.params["nl_convergence_tol_res"] or (f_1 < f_0 / 1e4):
-            # The objective function is zero at the full nonlinear step. This
-            # means that the nonlinear step is a minimum of the objective
-            # function. We can use the update without any relaxation.
+            # The objective function is zero at the full nonlinear step. This means that
+            # the nonlinear step is a minimum of the objective function. We can use the
+            # update without any relaxation.
             return np.ones_like(dx)
 
         def f_terminate(vals):
@@ -143,15 +151,16 @@ class LineSearchNewtonSolver(pp.NewtonSolver):
 
         Parameters:
             a, b: The interval.
-            condition_function: The condition function. It takes a sequence of line search
-                evaluations as argument and returns True if the condition is satisfied,
-                indicating that the recursion should be terminated.
-            function: The function to be tested. Returns a scalar or vector, must be compatible
-                with the condition function's parameter.
+            condition_function: The condition function. It takes a sequence of line
+                search evaluations as argument and returns True if the condition is
+                satisfied, indicating that the recursion should be terminated.
+            function: The function to be tested. Returns a scalar or vector, must be
+                compatible with the condition function's parameter.
             f_a: The value of the function at a. If not given, it is computed.
+            f_b: The value of the function at b. If not given, it is computed.
             num_steps: The number of sampling points in the interval [a, b].
-            step_size_tolerance: The tolerance for the step size. If the step size is smaller
-                than this, the recursion is terminated.
+            step_size_tolerance: The tolerance for the step size. If the step size is
+                smaller than this, the recursion is terminated.
 
         Returns:
             The smallest tested value not satisfying the condition.
@@ -174,7 +183,7 @@ class LineSearchNewtonSolver(pp.NewtonSolver):
                 f_a = f_c
                 a = c
             else:
-                # There is a local minimum in the narrowed-down interval [a, c]
+                # There is a local minimum in the narrowed-down interval [a, c].
                 if step_size > step_size_tolerance:
                     # Find it to better precision
                     return self.recursive_weight_from_sampling(
@@ -187,12 +196,12 @@ class LineSearchNewtonSolver(pp.NewtonSolver):
                         step_size_tolerance=step_size_tolerance,
                     )
                 else:
-                    # We're happy with the precision, return the minimum
+                    # We're happy with the precision, return the minimum.
                     return c
 
-        # We went through the whole interval without finding a local minimum.
-        # Thus, we assume that the minimum lies in [c, b]. If we have reached
-        # the tolerance, we return b. Otherwise, we search in [c, b].
+        # We went through the whole interval without finding a local minimum. Thus, we
+        # assume that the minimum lies in [c, b]. If we have reached the tolerance, we
+        # return b. Otherwise, we search in [c, b].
         if step_size < step_size_tolerance:
             return b
         else:
@@ -232,9 +241,9 @@ class LineSearchNewtonSolver(pp.NewtonSolver):
 class SplineInterpolationLineSearch:
     """Class for computing relaxation factors based on spline interpolation.
 
-    This class could be seen as a tool for the technical step of performing a
-    line search. It also specifies that this choice should be used for the
-    constraint weights.
+    This class could be seen as a tool for the technical step of performing a line
+    search. It also specifies that this choice should be used for the constraint
+    weights.
 
     """
 
@@ -248,7 +257,7 @@ class SplineInterpolationLineSearch:
         max_weight: float = 1.0,
         interval_target_size=1e-3,
     ) -> float:
-        """Specify that the constraint weights are computed based on spline interpolation.
+        """Specify that the constraint weights are computed using spline interpolation.
 
         Parameters:
             model: The model.
@@ -258,8 +267,8 @@ class SplineInterpolationLineSearch:
             crossing_inds: The indices where the constraint function has changed sign.
             f_0: The value of the constraint function at the initial point.
             max_weight: The maximum value for the constraint weights.
-            interval_target_size: The target size of the interval for the root finding. The
-                recursion is terminated when the interval is smaller than this.
+            interval_target_size: The target size of the interval for the root finding.
+                The recursion is terminated when the interval is smaller than this.
 
         Returns:
             The step length weight.
@@ -267,10 +276,9 @@ class SplineInterpolationLineSearch:
         """
         if not np.any(crossing_inds):
             return 1.0
-        # If the indicator has changed, we need to compute the relaxation
-        # factors. We do this by recursively narrowing down the interval until
-        # the interval is smaller than the tolerance using a spline
-        # interpolation.
+        # If the indicator has changed, we need to compute the relaxation factors. We do
+        # this by recursively narrowing down the interval until the interval is smaller
+        # than the tolerance using a spline interpolation.
         a, b = 0.0, max_weight
         x_0 = model.equation_system.get_variable_values(iterate_index=0)
         f_0 = f_0[crossing_inds]
@@ -311,8 +319,8 @@ class SplineInterpolationLineSearch:
     ) -> tuple[float, float, float]:
         """Recursive function for finding a weight satisfying a condition.
 
-        Returns both the optimum/root (see method) and the minimal interval in
-        which it is assumed to lie.
+        Returns both the optimum/root (see method) and the minimal interval in which it
+        is assumed to lie.
 
         Parameters:
             a, b: The interval.
@@ -321,16 +329,17 @@ class SplineInterpolationLineSearch:
             f_a: The value of the function at a. If not given, it is computed.
             f_b: The value of the function at b. If not given, it is computed.
             num_pts: The number of sampling points in the interval [a, b].
-            step_size_tolerance: The tolerance for the step size. If the step size is smaller
-                than this, the recursion is terminated.
-            method: The method for finding the minimum of the spline. Either "minimize_scalar"
-                or "roots".
+            step_size_tolerance: The tolerance for the step size. If the step size is
+                smaller than this, the recursion is terminated.
+            method: The method for finding the minimum of the spline. Either
+                "minimize_scalar" or "roots".
 
         Returns:
             Tuple containing:
                 The minimum of the function in the interval [a, b].
                 The lower bound of the interval in which the minimum is assumed to lie.
                 The upper bound of the interval in which the minimum is assumed to lie.
+
         """
         counter = 0
         while b - a > interval_target_size or counter < 1:
@@ -344,7 +353,7 @@ class SplineInterpolationLineSearch:
                 method=method,
             )
             x = np.linspace(a, b, num_pts)
-            # Find the indices on either side of alpha
+            # Find the indices on either side of alpha.
             ind = np.searchsorted(x, alpha)
             if ind == 0:
                 b = x[1]
@@ -379,8 +388,8 @@ class SplineInterpolationLineSearch:
             f_a: The value of the function at a. If not given, it is computed.
             f_b: The value of the function at b. If not given, it is computed.
             num_pts: The number of sampling points in the interval [a, b].
-            method: The method for finding the minimum of the spline. Either "minimize_scalar"
-                or "roots".
+            method: The method for finding the minimum of the spline. Either
+                "minimize_scalar" or "roots".
 
         Returns:
             Tuple containing:
@@ -389,7 +398,6 @@ class SplineInterpolationLineSearch:
                 The y values of the spline interpolation.
 
         """
-
         x = np.linspace(a, b, num_pts)
         y_list = []
 
@@ -401,10 +409,10 @@ class SplineInterpolationLineSearch:
             else:
                 f_pt = f(pt)
             if np.any(np.isnan(f_pt)):
-                # If we get overflow, truncate the x vector
+                # If we get overflow, truncate the x vector.
                 x = x[: np.where(x == pt)[0][0]]
                 break
-            # Collect function values, scalar or vector
+            # Collect function values, scalar or vector.
             y_list.append(f_pt)
         if isinstance(y_list[0], np.ndarray):
             y = np.vstack(y_list)
@@ -412,6 +420,16 @@ class SplineInterpolationLineSearch:
             y = np.array(y_list)
 
         def compute_and_postprocess_single(poly, a: float, b: float) -> float:
+            """Compute the minimum of one spline and postprocess the result.
+
+            Parameters:
+                poly: The spline.
+                a, b: The interval.
+
+            Returns:
+                The minimum of the spline in the interval [a, b].
+
+            """
             if method == "minimize_scalar":
                 minimum = scipy.optimize.minimize_scalar(
                     lambda s: poly(s), bounds=[a, b], method="bounded"
@@ -422,15 +440,14 @@ class SplineInterpolationLineSearch:
             if min_x.size == 0:
                 return b
             else:
-                # Find smallest root inside [a, b]
+                # Find smallest root inside [a, b].
                 min_x = min_x[(min_x >= a) & (min_x <= b)]
                 if min_x.size == 0:
                     return b
                 else:
                     return np.min(min_x)
 
-        # Find minima of the spline
-
+        # Find minima of the splines.
         if isinstance(y_list[0], np.ndarray):
             all_minima = []
             for i in range(y.shape[1]):
@@ -446,12 +463,11 @@ class SplineInterpolationLineSearch:
 
 
 class ConstraintLineSearch:
-    """Class for computing relaxation weights based on constraint functions
-    for contact mechanics.
+    """Class for line search based on constraint functions for contact mechanics.
 
-    The contract with the Model class is that the constraint functions are
-    defined in the model as Operator returning methods called "opening_indicator"
-    and "sliding_indicator".
+    The contract with the Model class is that the constraint functions are defined in
+    the model as Operator returning methods called "opening_indicator" and
+    "sliding_indicator".
 
     """
 
@@ -464,12 +480,8 @@ class ConstraintLineSearch:
     """
 
     residual_line_search: Callable[[Any, np.ndarray], np.ndarray]
-    """Method for computing the relaxation factors for the current iteration
-    based on the residual."""
-
-    @property
-    def use_fracture_minimum(self):
-        return True
+    """Method for computing the relaxation factors for the current iteration based on
+    the residual."""
 
     @property
     def min_line_search_weight(self):
@@ -501,9 +513,9 @@ class ConstraintLineSearch:
     ) -> np.ndarray:
         """Perform line search along the Newton step for the constraints.
 
-        This method defines the constraint weights for the contact mechanics and
-        how they are combined to a global weight. For more advanced combinations,
-        this method can be overridden or the stored weights can be accessed elsewhere.
+        This method defines the constraint weights for the contact mechanics and how
+        they are combined to a global weight. For more advanced combinations, this
+        method can be overridden or the stored weights can be accessed elsewhere.
 
         Parameters:
             model: The model.
@@ -521,8 +533,8 @@ class ConstraintLineSearch:
         global_weight = max_weight
         for sd in subdomains:
             sd_list = [sd]
-            # Compute the relaxation factors for the normal and tangential
-            # component of the contact mechanics.
+            # Compute the relaxation factors for the normal and tangential component of
+            # the contact mechanics.
             normal_weights = self.constraint_weights(
                 model,
                 dx,
@@ -535,12 +547,12 @@ class ConstraintLineSearch:
                 model.sliding_indicator(sd_list),
                 max_weight=np.minimum(max_weight, normal_weights).min(),
             )
-            # For each cell, take minimum of tangential and normal weights
+            # For each cell, take minimum of tangential and normal weights.
             combined_weights = np.vstack((tangential_weights, normal_weights))
             min_weights = np.min(combined_weights, axis=0)
             # Store the weights for the subdomain. This facilitates more advanced
-            # combinations of the constraint weights, e.g. using local weights for
-            # each cell.
+            # combinations of the constraint weights, e.g. using local weights for each
+            # cell.
             sd_weights[sd] = min_weights
             model.mdg.subdomain_data(sd).update({"constraint_weights": min_weights})
             # Combine the weights for all subdomains to a global minimum weight.
@@ -575,15 +587,15 @@ class ConstraintLineSearch:
             The step length vector, one for each degree of freedom of the constraint.
 
         """
-        # If the sign of the function defining the regions has not changed, we
-        # use unitary relaxation factors
+        # If the sign of the function defining the regions has not changed, we use
+        # unitary relaxation factors.
         x_0 = model.equation_system.get_variable_values(iterate_index=0)
         violation_tol = model.params.get("constraint_violation_tolerance", 3e-1)
         relative_cell_tol = model.params.get(
             "relative_constraint_transition_tolerance", 2e-1
         )
-        # Compute the constraint function at the maximum weights. Specify that return value
-        # is an array to avoid type errors.
+        # Compute the constraint function at the maximum weights. Specify that return
+        # value is an array to avoid type errors.
         f_1 = cast(
             np.ndarray,
             constraint_function.value(
@@ -595,7 +607,7 @@ class ConstraintLineSearch:
         f_0 = constraint_function.value(model.equation_system, x_0)
         active_inds = np.ones(f_1.shape, dtype=bool)
         for i in range(10):
-            # Only consider dofs where the constraint violation has changed sign
+            # Only consider dofs where the constraint violation has changed sign.
             violation = violation_tol * np.sign(f_1)
             f = constraint_function - pp.wrap_as_dense_ad_array(violation)
             # Absolute tolerance should be safe, as constraints are assumed to be
@@ -604,8 +616,8 @@ class ConstraintLineSearch:
             inds = np.logical_and(np.abs(f_1) > violation_tol, f_0 * f_1 < -roundoff)
             if i > 0:  # Ensure at least one iteration.
                 if sum(active_inds) < max(1, relative_cell_tol * active_inds.size):
-                    # Only a few indices are active, and the set of active indices
-                    # does not contain any new indices. We can stop the iteration.
+                    # Only a few indices are active, and the set of active indices does
+                    # not contain any new indices. We can stop the iteration.
                     break
 
                 else:
@@ -616,8 +628,8 @@ class ConstraintLineSearch:
 
             f_0_v = f_0 - violation
             # Compute the relaxation factors for the indices where the constraint
-            # violation has changed sign. The weight corresponds to the point at
-            # which the constraint function crosses zero.
+            # violation has changed sign. The weight corresponds to the point at which
+            # the constraint function crosses zero.
             crossing_weight = self.compute_constraint_violation_weights(
                 model,
                 solution_update,
@@ -632,9 +644,7 @@ class ConstraintLineSearch:
             )
             weights[inds] = weight
 
-            if not self.use_fracture_minimum:
-                break  # Experimental.
-            # Check how many indices are active for current weight
+            # Check how many indices are active for current weight.
             f_1 = cast(
                 np.ndarray,
                 constraint_function.value(
@@ -653,11 +663,3 @@ class ConstraintLineSearch:
             violation_tol = violation_tol / 2
 
         return weights
-
-
-# class NonlinearSolver(
-#     ConstraintLineSearch,
-#     SplineInterpolationLineSearch,
-#     LineSearchNewtonSolver,
-# ):
-#     pass
