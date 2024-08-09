@@ -4009,7 +4009,7 @@ class ElasticModuli:
         return u_char
 
 
-class FrictionBound:
+class CoulombFrictionBound:
     """Friction bound for fracture deformation.
 
     This class is intended for use with fracture deformation models.
