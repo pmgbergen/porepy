@@ -853,8 +853,9 @@ class ContactIndicators:
 
         f_max = pp.ad.Function(pp.ad.maximum, "max_function")
         f_norm = pp.ad.Function(partial(pp.ad.l2_norm, self.nd - 1), "norm_function")
-        # Heaviside function. The 0 as the second argument to partial() implies f_heaviside(0)=0,
-        # a choice that is not expected to affect the result in this context.
+        # Heaviside function. The 0 as the second argument to partial() implies
+        # f_heaviside(0)=0, a choice that is not expected to affect the result in this
+        # context.
         f_heaviside = pp.ad.Function(partial(pp.ad.heaviside, 0), "heaviside_function")
 
         c_num_as_scalar = self.contact_mechanics_numerical_constant(subdomains)
