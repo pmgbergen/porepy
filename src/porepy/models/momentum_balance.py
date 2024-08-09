@@ -790,7 +790,7 @@ class SolutionStrategyMomentumBalance(pp.SolutionStrategy):
             sd.num_cells for sd in self.mdg.subdomains(dim=self.nd - 1)
         )
         traction_vals = np.zeros((self.nd, num_frac_cells))
-        traction_vals[-1] = self.solid.convert_units(-1, "Pa")
+        traction_vals[-1] = -1  # Unitary nondimensional traction.
         self.equation_system.set_variable_values(
             traction_vals.ravel("F"),
             [self.contact_traction_variable],
