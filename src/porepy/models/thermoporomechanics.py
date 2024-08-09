@@ -13,8 +13,8 @@ References:
 
     - Coussy, 2004, https://doi.org/10.1002/0470092718.
     - Garipov and Hui, 2019, https://doi.org/10.1016/j.ijrmms.2019.104075.
-    - Stefansson et al, 2021, https://doi.org/10.1016/j.cma.2021.114122
-    - TODO: add more, e.g. Inga's in prep, ppV2
+    - Stefansson et al., 2021, https://doi.org/10.1016/j.cma.2021.114122.
+    - Stefansson et al., 2024, https://doi.org/10.1016/j.rinam.2023.100428.
 
 """
 
