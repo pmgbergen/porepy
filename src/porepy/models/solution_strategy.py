@@ -730,6 +730,8 @@ class SolutionStrategy(abc.ABC):
 class ContactIndicators:
     """Class for computing contact indicators used for tailored line search.
 
+    This functionality is experimental and may be subject to change.
+
     The class is a mixin for the solution strategy classes for models with contact
     mechanics. The class provides methods for computing the opening and sliding
     indicators, which are used for tailored line search as defined in the class
@@ -738,8 +740,6 @@ class ContactIndicators:
     By specifying the parameter `adaptive_indicator_scaling` in the model
     parameters, the indicators can be scaled adaptively by the characteristic
     fracture traction estimate based on the most recent iteration value.
-
-    TODO: Consider moving the class to a more appropriate (new) module.
 
     """
 
@@ -786,8 +786,8 @@ class ContactIndicators:
         function of the normal fracture deformation equation. Arbitrary sign
         convention: Negative for open fractures, positive for closed ones.
 
-        The parameter `relative_violation` scales the indicator by the
-        characteristic fracture traction estimate.
+        The parameter `adaptive_indicator_scaling` scales the indicator by the
+        contact traction estimate.
 
         Parameters:
             subdomains: List of fracture subdomains.
@@ -805,11 +805,11 @@ class ContactIndicators:
         max_arg_2 = c_num * (u_n - self.fracture_gap(subdomains))
         ind = max_arg_1 - max_arg_2
         if self.params.get("adaptive_indicator_scaling", False):
-            # Scale adaptively based on the characteristic fracture traction estimate.
-            # Base on all fracture subdomains.
+            # Scale adaptively based on the contact traction estimate.
+            # Base variable values from all fracture subdomains.
             all_subdomains = self.mdg.subdomains(dim=self.nd - 1)
-            scale_op = self.characteristic_fracture_traction_estimate(all_subdomains)
-            scale = self.compute_scalar_traction(scale_op.value(self.equation_system))
+            scale_op = self.contact_traction_estimate(all_subdomains)
+            scale = self.compute_traction_norm(scale_op.value(self.equation_system))
             ind = ind / pp.ad.Scalar(scale)
         return ind
 
@@ -823,8 +823,8 @@ class ContactIndicators:
         of the tangential fracture deformation equation. Arbitrary sign convention:
         Negative for sticking, positive for sliding:  ||T_t+c_t u_t||-b_p
 
-        The parameter `relative_violation` scales the indicator by the characteristic
-        fracture traction estimate.
+        The parameter `adaptive_indicator_scaling` scales the indicator by the contact
+        traction estimate.
 
         Parameters:
             subdomains: List of fracture subdomains.
@@ -853,7 +853,8 @@ class ContactIndicators:
 
         f_max = pp.ad.Function(pp.ad.maximum, "max_function")
         f_norm = pp.ad.Function(partial(pp.ad.l2_norm, self.nd - 1), "norm_function")
-        # Heaviside function with zerovalue at argument.value=0
+        # Heaviside function. The 0 as the second argument to partial() implies f_heaviside(0)=0,
+        # a choice that is not expected to affect the result in this context.
         f_heaviside = pp.ad.Function(partial(pp.ad.heaviside, 0), "heaviside_function")
 
         c_num_as_scalar = self.contact_mechanics_numerical_constant(subdomains)
@@ -875,13 +876,13 @@ class ContactIndicators:
         if self.params.get("adaptive_indicator_scaling", False):
             # Base on all fracture subdomains
             all_subdomains = self.mdg.subdomains(dim=self.nd - 1)
-            scale_op = self.characteristic_fracture_traction_estimate(all_subdomains)
-            scale = self.compute_scalar_traction(scale_op.value(self.equation_system))
+            scale_op = self.contact_traction_estimate(all_subdomains)
+            scale = self.compute_traction_norm(scale_op.value(self.equation_system))
             ind = ind / pp.ad.Scalar(scale)
         return ind * h_oi
 
-    def characteristic_fracture_traction_estimate(self, subdomains):
-        """Estimate the characteristic fracture traction.
+    def contact_traction_estimate(self, subdomains):
+        """Estimate the characteristic size of contact traction.
 
         The characteristic fracture traction is estimated as the maximum of the
         contact traction over the fracture subdomains.
@@ -890,13 +891,11 @@ class ContactIndicators:
             subdomains: List of subdomains where the contact traction is defined.
 
         Returns:
-            Characteristic fracture traction.
+            Characteristic fracture traction estimate.
 
         """
         # The normal component of the contact traction and the displacement jump
-        t: pp.ad.Operator = self.contact_traction(
-            subdomains
-        ) / self.characteristic_contact_traction(subdomains)
+        t: pp.ad.Operator = self.contact_traction(subdomains)
         e_n = self.e_i(subdomains, dim=self.nd, i=self.nd - 1)
 
         u = self.displacement_jump(subdomains) - e_n @ self.fracture_gap(subdomains)
@@ -904,8 +903,8 @@ class ContactIndicators:
         f_norm = pp.ad.Function(partial(pp.ad.l2_norm, self.nd), "norm_function")
         return f_norm(t) + f_norm(c_num * u)
 
-    def compute_scalar_traction(self, val: np.ndarray) -> float:
-        """Compute the scalar traction from the vector-valued traction.
+    def compute_traction_norm(self, val: np.ndarray) -> float:
+        """Compute a norm of the traction estimate from the vector-valued traction.
 
         The scalar traction is computed as the p norm of the traction vector.
 
