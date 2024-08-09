@@ -57,7 +57,7 @@ class ConstitutiveLawsThermoporomechanics(
     pp.constitutive_laws.LinearElasticMechanicalStress,
     pp.constitutive_laws.ConstantSolidDensity,
     pp.constitutive_laws.FractureGap,
-    pp.constitutive_laws.FrictionBound,
+    pp.constitutive_laws.CoulombFrictionBound,
 ):
     """Class for the coupling of energy, mass and momentum balance to obtain
     thermoporomechanics equations.
