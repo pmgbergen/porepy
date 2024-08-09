@@ -177,6 +177,22 @@ class Domain:
                         return False
                 return True
 
+    def side_lengths(self) -> np.ndarray:
+        """Compute the lengths of the bounding box sides.
+
+        Returns:
+            Lengths of the sides of the bounding box.
+
+        """
+
+        x_length = self.bounding_box["xmax"] - self.bounding_box["xmin"]
+        y_length = self.bounding_box["ymax"] - self.bounding_box["ymin"]
+        if self.dim == 2:
+            return np.array([x_length, y_length])
+        else:
+            z_length = self.bounding_box["zmax"] - self.bounding_box["zmin"]
+            return np.array([x_length, y_length, z_length])
+
     def bounding_box_from_polytope(self) -> dict[str, pp.number]:
         """Obtain the bounding box of a polytope.
 

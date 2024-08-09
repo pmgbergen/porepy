@@ -3384,6 +3384,11 @@ class LinearElasticMechanicalStress:
     :class:`~porepy.models.momentum_balance.VariablesMomentumBalance`.
 
     """
+    characteristic_contact_traction: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Characteristic contact traction. Normally defined in a mixin instance of
+    :class:`~porepy.models.constitutive_laws.ElasticModuli`.
+
+    """
     subdomains_to_interfaces: Callable[[list[pp.Grid], list[int]], list[pp.MortarGrid]]
     """Map from subdomains to the adjacent interfaces. Normally defined in a mixin
     instance of :class:`~porepy.models.geometry.ModelGeometry`.
@@ -3522,7 +3527,7 @@ class LinearElasticMechanicalStress:
         return op
 
     def fracture_stress(self, interfaces: list[pp.MortarGrid]) -> pp.ad.Operator:
-        """Fracture stress on interfaces.
+        """Fracture stress on interfaces [Pa].
 
         Parameters:
             interfaces: List of interfaces where the stress is defined.
@@ -3554,12 +3559,16 @@ class LinearElasticMechanicalStress:
         # subdomains (the domain of definition for the mortar projections), projecting
         # to the interface, and switching the sign of the traction depending on the
         # sign of the mortar sides.
-        traction = (
+        nondim_traction = (
             mortar_projection.sign_of_mortar_sides
             @ mortar_projection.secondary_to_mortar_int
             @ subdomain_projection.cell_prolongation(fracture_subdomains)
             @ self.local_coordinates(fracture_subdomains).transpose()
             @ self.contact_traction(fracture_subdomains)
+        )
+        # Rescale to physical units from the scaled contact traction.
+        traction = nondim_traction * self.characteristic_contact_traction(
+            fracture_subdomains
         )
         traction.set_name("mechanical_fracture_stress")
         return traction
@@ -3633,6 +3642,11 @@ class PressureStress(LinearElasticMechanicalStress):
     basis: Callable[[Sequence[pp.GridLike], int], list[pp.ad.SparseArray]]
     """Basis for the local coordinate system. Normally set by a mixin instance of
     :class:`porepy.models.geometry.ModelGeometry`.
+
+    """
+    characteristic_contact_traction: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Characteristic contact traction. Normally defined in a mixin instance of
+    :class:`~porepy.models.constitutive_laws.ElasticModuli`.
 
     """
     darcy_keyword: str
@@ -3877,6 +3891,11 @@ class ElasticModuli:
     FourthOrderTensor.
     """
 
+    domain: pp.Domain
+    """Domain object that carries information about the domain. Normally set by call to
+    :meth:`~porepy.models.geometry.ModelGeometry.set_domain` under simulation preparation.
+
+    """
     solid: pp.SolidConstants
     """Solid constant object that takes care of scaling of solid-related quantities.
     Normally, this is set by a mixin of instance
@@ -3947,8 +3966,50 @@ class ElasticModuli:
         mu = self.solid.shear_modulus() * np.ones(subdomain.num_cells)
         return pp.FourthOrderTensor(mu, lmbda)
 
+    def characteristic_contact_traction(
+        self, subdomains: list[pp.Grid]
+    ) -> pp.ad.Operator:
+        """Characteristic traction [Pa].
 
-class FrictionBound:
+        The value is computed from the solid constants and the characteristic
+        displacement. Inversion of this relationship, i.e.,
+        u_char=u_char(t_char), can be done in a mixin overriding the
+        characteristic sizes. This may be beneficial if the characteristic
+        traction is easier to estimate than the characteristic displacement.
+
+        Parameters:
+            subdomains: List of subdomains where the characteristic traction is defined.
+
+        Returns:
+            Scalar operator representing the characteristic traction.
+
+        """
+        size = Scalar(np.max(self.domain.side_lengths()))
+        strain = self.characteristic_displacement(subdomains) / size
+        t_char = strain * self.youngs_modulus(subdomains)
+        t_char.set_name("characteristic_contact_traction")
+        return t_char
+
+    def characteristic_displacement(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Characteristic displacement [m].
+
+        The value is fetched from the solid constants. See also the method
+        :meth:`characteristic_contact_traction` and its documentation.
+
+        Parameters:
+            subdomains: List of subdomains where the characteristic displacement is
+                defined.
+
+        Returns:
+            Scalar operator representing the characteristic displacement.
+
+        """
+        u_char = Scalar(self.solid.characteristic_displacement())
+        u_char.set_name("characteristic_displacement")
+        return u_char
+
+
+class CoulombFrictionBound:
     """Friction bound for fracture deformation.
 
     This class is intended for use with fracture deformation models.
@@ -3972,13 +4033,22 @@ class FrictionBound:
     """
 
     def friction_bound(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Friction bound [m].
+        """Friction bound [-].
+
+        Dimensionless, since fracture deformation equations consider non-dimensional
+        tractions. In this class, the bound is given by
+
+        .. math::
+            - F t_n
+
+        where :math:`F` is the friction coefficient and :math:`t_n` is the normal
+        component of the contact traction. TODO: Rename class to CoulombFrictionBound?
 
         Parameters:
             subdomains: List of fracture subdomains.
 
         Returns:
-            Cell-wise friction bound operator [Pa].
+            Cell-wise friction bound operator [-].
 
         """
         t_n: pp.ad.Operator = self.normal_component(subdomains) @ self.contact_traction(
@@ -3991,13 +4061,13 @@ class FrictionBound:
         return bound
 
     def friction_coefficient(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Friction coefficient.
+        """Friction coefficient [-].
 
         Parameters:
             subdomains: List of fracture subdomains.
 
         Returns:
-            Cell-wise friction coefficient operator.
+            Friction coefficient operator.
 
         """
         return Scalar(
@@ -4102,6 +4172,11 @@ class BartonBandis:
     :class:`~porepy.models.momentum_balance.VariablesMomentumBalance`.
 
     """
+    characteristic_contact_traction: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Characteristic contact traction. Normally defined in a mixin instance of
+    :class:`~porepy.models.constitutive_laws.ElasticModuli`.
+
+    """
     equation_system: pp.ad.EquationSystem
     """EquationSystem object for the current model. Normally defined in a mixin class
     defining the solution strategy.
@@ -4117,7 +4192,7 @@ class BartonBandis:
     def elastic_normal_fracture_deformation(
         self, subdomains: list[pp.Grid]
     ) -> pp.ad.Operator:
-        """Barton-Bandis model for elastic normal deformation of a fracture.
+        """Barton-Bandis model for elastic normal deformation of a fracture [m].
 
         The model computes a *decrease* in the normal opening as a function of the
         contact traction and material constants. See comments in the class documentation
@@ -4164,7 +4239,7 @@ class BartonBandis:
 
         nd_vec_to_normal = self.normal_component(subdomains)
 
-        # The effective contact traction. Units: Pa = N/m^(nd-1)
+        # The scaled effective contact traction [-].
         # The papers by Barton and Bandis assumes positive traction in contact, thus we
         # need to switch the sign.
         contact_traction = Scalar(-1) * self.contact_traction(subdomains)
@@ -4174,13 +4249,17 @@ class BartonBandis:
 
         # Normal stiffness (as per Barton-Bandis terminology). Units: Pa / m
         normal_stiffness = self.fracture_normal_stiffness(subdomains)
+        # Rescale, since contact traction is dimensionless. TODO: Decide if this should
+        # be done here or in the fracture_normal_stiffness method.
+        scaled_stiffness = normal_stiffness / self.characteristic_contact_traction(
+            subdomains
+        )
 
         # The openening is found from the 1983 paper.
-        # Units: Pa * m / Pa = m.
         opening_decrease = (
             normal_traction
             * maximum_closure
-            / (normal_stiffness * maximum_closure + normal_traction)
+            / (scaled_stiffness * maximum_closure + normal_traction)
         )
 
         opening_decrease.set_name("Barton-Bandis_closure")
