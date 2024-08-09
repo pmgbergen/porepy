@@ -98,7 +98,7 @@ class MomentumBalanceEquations(pp.BalanceEquation):
     """
     friction_bound: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Friction bound of a fracture. Normally provided by a mixin instance of
-    :class:`~porepy.models.constitutive_laws.FrictionBound`.
+    :class:`~porepy.models.constitutive_laws.CoulombFrictionBound`.
 
     """
     contact_mechanics_numerical_constant: Callable[[list[pp.Grid]], pp.ad.Scalar]
@@ -472,7 +472,7 @@ class ConstitutiveLawsMomentumBalance(
     constitutive_laws.LinearElasticMechanicalStress,
     constitutive_laws.ConstantSolidDensity,
     constitutive_laws.FractureGap,
-    constitutive_laws.FrictionBound,
+    constitutive_laws.CoulombFrictionBound,
     constitutive_laws.DimensionReduction,
 ):
     """Class for constitutive equations for momentum balance equations."""
@@ -740,7 +740,7 @@ class SolutionStrategyMomentumBalance(pp.SolutionStrategy):
     """
     friction_bound: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Friction bound of a fracture. Normally provided by a mixin instance of
-    :class:`~porepy.models.constitutive_laws.FrictionBound`.
+    :class:`~porepy.models.constitutive_laws.CoulombFrictionBound`.
 
     """
     characteristic_displacement: Callable[[list[pp.Grid]], pp.ad.Operator]

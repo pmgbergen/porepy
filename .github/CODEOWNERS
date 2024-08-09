@@ -1,5 +1,5 @@
-# Set Ivar Stefansson, Omar Duran, and Eirik Keilegavlen as global owners
-* @keileg @IvarStefansson @OmarDuran
+# Set Ivar Stefansson, Omar Duran, Jakub Both, and Eirik Keilegavlen as global owners
+* @keileg @IvarStefansson @OmarDuran @jwboth
 
 # Make vlipovac code owner of the docs folder
 /docs/* @vlipovac
