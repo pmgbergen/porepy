@@ -59,6 +59,8 @@ class AbstractFunction(Operator):
         name: Name of this instance as an AD operator.
 
     """
+    def _key(self) -> str:
+        raise NotImplementedError("Will be covered later.")
 
     def __init__(
         self,

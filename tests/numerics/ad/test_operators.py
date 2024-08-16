@@ -18,6 +18,7 @@ Checks performed include the following:
     test_ad_discretization_class: test for AD discretizations;
     test_arithmetic_operations_on_ad_objects: Basic Ad operators combined with standard
         arithmetic operations are tested.
+    test_hashing: Expectations for the hash function to work correctly with AD objects.
 
 """
 
@@ -29,6 +30,10 @@ import pytest
 import scipy.sparse as sps
 
 import porepy as pp
+from porepy.applications.md_grids.model_geometries import (
+    SquareDomainOrthogonalFractures,
+)
+from porepy.models.fluid_mass_balance import SinglePhaseFlow
 from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_data
 
 AdType = Union[float, np.ndarray, sps.spmatrix, pp.ad.AdArray]
@@ -2027,3 +2032,72 @@ def test_arithmetic_operations_on_ad_objects(
         else:
             with pytest.raises(NotImplementedError):
                 expression.value_and_jacobian(eq_system)
+
+
+@pytest.mark.parametrize(
+    "generate_ad_list",
+    [
+        # All variables.
+        lambda model: model.equation_system.get_variables(
+            [model.pressure_variable, model.interface_darcy_flux_variable],
+            model.mdg.subdomains(),
+        ),
+        # All the possible combinations of MDVariables.
+        lambda model: [
+            model.equation_system.md_variable(
+                model.pressure_variable, model.mdg.subdomains()
+            ),
+            model.equation_system.md_variable(
+                model.pressure_variable, [model.mdg.subdomains()[0]]
+            ),
+            model.equation_system.md_variable(
+                model.pressure_variable, [model.mdg.subdomains()[1]]
+            ),
+            model.equation_system.md_variable(
+                model.interface_darcy_flux_variable, model.mdg.interfaces()
+            ),
+        ],
+        # Some randomly selected operators: Leaves and trees.
+        lambda model: [
+            model.ad_time_step,
+            model.permeability(model.mdg.subdomains()),
+            model.vector_source_darcy_flux(model.mdg.subdomains()),
+            model.interface_darcy_flux_equation(
+                model.mdg.interfaces(),
+            ),
+        ],
+    ],
+)
+def test_hashing(generate_ad_list):
+    """Tests the basic functionality regarding hashing.
+
+    The identical AD objects defined on the same subdomains must return the same hash.
+    It is assumed that the passed objects are all different, so their hashes must be
+    different.
+
+    """
+
+    class Model(SquareDomainOrthogonalFractures, SinglePhaseFlow):
+        """Mock-up model."""
+
+    # With the default parameters, the model contains one fracture.
+    model = Model({})
+    model.prepare_simulation()
+
+    ad_list = generate_ad_list(model)
+
+    # Check that the hash remains the same.
+    expected_hashes = []
+    for ad in ad_list:
+        expected_hashes.append(hash(ad))
+    ad_list = generate_ad_list(model)  # Generate new (identical) AD objects.
+    for ad, expected_hash in zip(ad_list, expected_hashes):
+        assert hash(ad) == expected_hash
+
+    # Check that the hashes are different for all the passed objects.
+    for ad1 in ad_list:
+        for ad2 in ad_list:
+            if ad1 is not ad2:
+                assert hash(ad1) != hash(ad2)
+            else:
+                assert hash(ad1) == hash(ad2)
