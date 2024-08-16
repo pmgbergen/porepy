@@ -178,6 +178,9 @@ class Tpsa:
         # **face-wise ordering**.
         fi, ci, sgn = sparse_array_to_row_col_data(sd.cell_faces)
 
+        unique_sgn = sgn[np.unique(fi, return_index=True)[1]]
+        unique_sgn_nd = np.tile(unique_sgn, (nd, 1))
+
         # Map the stiffness tensor to the face-wise ordering
         mu = stiffness.mu[ci]
         lmbda = stiffness.lmbda[ci]
@@ -365,20 +368,38 @@ class Tpsa:
 
             # Data structure for the discretization of the boundary conditions
             trm_bnd = np.zeros((nd, nf))
-            # On Dirichlet faces, the coefficient of the boundary condition is the
-            # same as weight of the nearby cell, but with the opposite sign.
-            trm_bnd[dir_faces] = -trm_nd[dir_faces]
+            # On Dirichlet faces, the coefficient of the boundary condition is the same
+            # as weight of the nearby cell, but with the opposite sign (EITHER HERE OR
+            # IN THE MATRIX DEFINITION). Since the coefficient is multiplied with the
+            # sign on the internal dof, we need to multiply with the sign here as well.
+            trm_bnd[dir_faces] = trm_nd[dir_faces]
+            # EK Note to self regarding implementation: The call 'trm_nd[dir_faces]' and
+            # similar, when made in an interpreter gives a 1d array, obtained raveling
+            # the 2d array using C-ordering. However, the line below really uses
+            # dir_faces to produce views of the 2d array, with trm_bnd being updated in
+            # place. In other words, everything is fine (EK has verified this by
+            # inspection).
+            trm_bnd[dir_faces] = unique_sgn_nd[dir_faces] * trm_nd[dir_faces]
+
+            trm_bnd[dir_faces] = trm_nd[dir_faces]
             # On Neumann faces, the coefficient of the discretization itself is
             # zero, as the 'flux' through the boundary face is given by the boundary
             # condition.
             trm_nd[neu_faces] = 0
             # The boundary condition should simply be imposed. Put a -1 to counteract
             # the minus sign in the construction of the discretization matrix.
-            trm_bnd[neu_faces] = -1
+            # IMPLEMENTATION NOTE: Contrary to the tpfa implementation, the coefficients
+            # of Neumann boundary conditions in tpsa are not multiplied with the sign of
+            # the normal vector. This reflects that Neumann boundary values for
+            # mechanics are set in terms of global coordinate directions, while for the
+            # flow/scalar problem, the conditions are set with respect to the face-wise
+            # normal vector.
+            trm_bnd[neu_faces] = 1
 
             # Discretization of the vector Laplacian. Regarding indexing,
             # the ravel gives a vector-sized array in linear ordering, which is
-            # shuffled to the (vector version of the) face-wise ordering.
+            # shuffled to the (vector version of the) face-wise ordering. The sign is
+            # set so that the stress is positive in tension.
             # TODO: Do we need to shuffle sgn_nd?
             discr = -sps.coo_matrix(
                 (
@@ -389,7 +410,7 @@ class Tpsa:
             ).tocsr()
 
             # Boundary condition.
-            bound_discr = -sps.coo_matrix(
+            bound_discr = sps.coo_matrix(
                 (
                     trm_bnd.ravel("F")[fi_expanded] * sgn_nd,
                     (fi_expanded, fi_expanded),
@@ -591,8 +612,9 @@ class Tpsa:
         # not fully consistent for domains with boundaries not aligned with the
         # coordinate axes, and with rolling boundary conditions, but EK does not know
         # what to do there).
+        unique_sgn_matrix = sps.dia_matrix((unique_sgn.ravel('F'), 0), shape=(nf*nd, nf*nd))
+        bound_mass_displacement = normal_vector_nd @ unique_sgn_matrix @ (neu_pass_filter_nd @ mu_face + dir_filter_nd)
         bound_mass_displacement = normal_vector_nd @ (neu_pass_filter_nd @ mu_face + dir_filter_nd)
-
         ## Store the computed fields
 
         # Discretization matrices
