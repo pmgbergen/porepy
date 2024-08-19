@@ -265,6 +265,8 @@ class Tpsa:
         is_neu = bnd_disp.is_neu.ravel("f")
         is_rob = bnd_disp.is_rob.ravel("f")
 
+        is_internal = np.logical_not(np.logical_or.reduce((is_dir, is_neu, is_rob)))
+
         # On Dirichlet faces, the
         dir_indices = np.where(is_dir)[0]
         neu_indices = np.where(is_neu)[0]
@@ -340,7 +342,7 @@ class Tpsa:
         )
 
         neu_nopass_filter_nd = sps.dia_matrix(
-            (np.logical_or(is_dir, is_rob).astype(int), 0), shape=(nf * nd, nf * nd)
+            (np.logical_or.reduce((is_dir, is_rob, is_internal)).astype(int), 0), shape=(nf * nd, nf * nd)
         )
 
         neu_pass_filter_nd = sps.dia_matrix(
@@ -573,21 +575,21 @@ class Tpsa:
 
                 bndr_ind = sd.get_all_boundary_faces()
                 t_cosserat_bnd = np.zeros(nf)
-                t_cosserat_bnd[bnd_rot.is_dir] = -t_cosserat[bnd_rot.is_dir]
+                t_cosserat_bnd[bnd_rot.is_dir] = t_cosserat[bnd_rot.is_dir]
                 # The boundary condition should simply be imposed. Put a -1 to
                 # counteract the minus sign in the construction of the discretization
                 # matrix.
-                t_cosserat_bnd[bnd_rot.is_neu] = -1
+                t_cosserat_bnd[bnd_rot.is_neu] = 1
                 # t_cosserat_bnd = t_cosserat_bnd[bnd_rot.is_neu]
                 t_cosserat[bnd_rot.is_neu] = 0
 
-                # TODO: Why minus sign here, but not in tpfa?
+                # TODO: Why minus sign here, but not in tpfa? Darcy vs Hook.
                 rotation_diffusion = -sps.coo_matrix(
                     (t_cosserat[fi] * sgn, (fi, ci)),
                     shape=(nf, nc),
                 ).tocsr()
 
-                bound_rotation_diffusion = -sps.coo_matrix(
+                bound_rotation_diffusion = sps.coo_matrix(
                     (t_cosserat_bnd[fi] * sgn, (fi, fi)), shape=(nf, nf)
                 ).tocsr()
 
