@@ -1469,9 +1469,19 @@ class SparseArray(Operator):
     def _compute_spmatrix_hash(mat: sps.spmatrix) -> str:
         """Utility function that handles all the sparse formats to compute the hash."""
         # proper handling of all the formats like csr, coo, etc..
-        if isinstance(mat, (sps.csr_matrix, sps.csc_matrix, sps.bsr_matrix)):
+        if isinstance(
+            mat,
+            (
+                sps.csr_matrix,
+                sps.csr_array,
+                sps.csc_matrix,
+                sps.csc_array,
+                sps.bsr_matrix,
+                sps.bsr_array,
+            ),
+        ):
             properties = [mat.data, mat.indices, mat.indptr]
-        elif isinstance(mat, sps.coo_matrix):
+        elif isinstance(mat, (sps.coo_matrix, sps.coo_array)):
             properties = [mat.data, mat.row, mat.col]
         else:
             raise NotImplementedError("Hashing not provided for the format", type(mat))

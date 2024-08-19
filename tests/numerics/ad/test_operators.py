@@ -2078,7 +2078,7 @@ def test_hashing(generate_ad_list):
     """
 
     class Model(SquareDomainOrthogonalFractures, SinglePhaseFlow):
-    """Mock-up model."""
+        """Mock-up model."""
 
     # With the default parameters, the model contains one fracture.
     model = Model({})
