@@ -60,6 +60,9 @@ class AbstractFunction(Operator):
 
     """
 
+    def _key(self) -> str:
+        raise NotImplementedError("Will be covered later.")
+
     def __init__(
         self,
         name: Optional[str] = None,

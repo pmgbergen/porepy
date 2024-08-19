@@ -524,6 +524,12 @@ class MergedOperator(operators.Operator):
 
     """
 
+    def _key(self) -> str:
+        return (
+            f"(merged_op, discretization_matrix_key={self._discretization_matrix_key},"
+            f" physics_key={self._physics_key}, domains={[d.id for d in self.domains]})"
+        )
+
     def __init__(
         self,
         discr: pp.discretization_type,
