@@ -396,12 +396,15 @@ class SplineInterpolationLineSearch:
             x = np.linspace(a, b, num_pts)
             # Find the indices on either side of alpha.
             ind = np.searchsorted(x, alpha)
+            # Note on indexing: if alpha > x[-1], ind will equal num_pts due to the
+            # behaviour of searchsorted. This should not happen, but we could have
+            # alpha=x[-1] (in exact arithmetic) which may conceivably yield alpha=x[-1]
+            # + eps due to roundoff. In this case, we should set ind=num_pts-1.
+            if ind == num_pts:
+                ind = num_pts - 1
             if ind == 0:
                 b = x[1]
                 f_b = y[1]
-            elif ind == num_pts:
-                a = x[ind - 1]
-                f_a = y[ind - 1]
             else:
                 a = x[ind - 1]
                 b = x[ind]
