@@ -232,12 +232,13 @@ class LineSearchNewtonSolver(pp.NewtonSolver):
                         step_size_tolerance=step_size_tolerance,
                     )
                 else:
-                    # We're happy with the precision, return the minimum.
+                    # We're happy with the precision, return the minimum value at which the
+                    # condition is known to be violated.
                     return x_h
 
         # We went through the whole interval without finding a local minimum. Thus, we
-        # assume that the minimum lies in [x_l, b]. If we have reached the tolerance, we
-        # return b. Otherwise, we search in [c, b].
+        # assume that the minimum lies in the subinterval [x_l, b] (recall x_l has been updated). If we have reached the tolerance, we
+        # return b. Otherwise, we search in [x_l, b].
         if step_size < step_size_tolerance:
             return b
         else:
@@ -446,7 +447,7 @@ class SplineInterpolationLineSearch:
             else:
                 f_pt = f(pt)
             if np.any(np.isnan(f_pt)):
-                # If we get overflow, truncate the x vector.
+                # If we get overflow, truncate the x vector. For future reference, overflows have # occured during experimentation, but it is unclear why this happened.
                 x = x[: np.where(x == pt)[0][0]]
                 break
             # Collect function values, scalar or vector.
@@ -481,7 +482,8 @@ class SplineInterpolationLineSearch:
                     # If no root is inside the interval, return b.
                     return b
                 else:
-                    # In case of multiple minima, return the smallest one.
+                    # In case of multiple minima, return the smallest one, which will correspond
+                    # to the most conservative step length.
                     return np.min(min_x)
 
         # Find minima of the splines.
