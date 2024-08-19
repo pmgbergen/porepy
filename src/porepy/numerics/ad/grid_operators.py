@@ -628,6 +628,10 @@ class Trace:
 class Divergence(Operator):
     """Wrapper class for Ad representations of divergence operators."""
 
+    def _key(self) -> str:
+        subdomain_ids = [sd.id for sd in self.subdomains]
+        return f"(divergence, dim={self.dim}, subdomains={subdomain_ids})"
+
     def __init__(
         self,
         subdomains: list[pp.Grid],
