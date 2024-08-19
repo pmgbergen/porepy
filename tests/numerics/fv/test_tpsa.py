@@ -6,37 +6,11 @@ import scipy.sparse as sps
 NUM_CELLS = 2
 KEYWORD = "mechanics"
 
-
-# @pytest.fixture(scope="module")
-def g():
-    g = pp.CartGrid([NUM_CELLS, 1])
-    g.nodes = np.array(
-        [[0, 0, 0], [2, 0, 0], [3, 0, 0], [0, 1, 0], [1, 2, 0], [3, 1, 0]]
-    ).T
-    g.compute_geometry()
-    g.face_centers[0, 3] = 1.5
-    g.cell_centers = np.array([[1, 0.5, 0], [2.5, 0.5, 0]]).T
-    return g
-
-
-# @pytest.fixture(scope="module")
-def data():
-    lmbda = np.array([1, 1])
-    mu = np.array([1, 2])
-    C = pp.FourthOrderTensor(mu, lmbda)
-    cosserat = np.array([1, 3])
-
-    d = {
-        pp.PARAMETERS: {
-            KEYWORD: {"fourth_order_tensor": C, "cosserat_parameter": cosserat}
-        },
-        pp.DISCRETIZATION_MATRICES: {KEYWORD: {}},
-    }
-
-    return d
-
-
-
+def _rot_dim(g):
+    if g.dim == 2:
+        return 1
+    else:
+        return g.dim
 
 
 def discretize_get_matrices(grid, d):
@@ -60,297 +34,367 @@ def compare_matrices(
         assert np.allclose(computed[target_faces], known)
 
 
-def test_discretization_interior_cells(g, data):
-    # Construct a tpsa discretization on a grid consisting of two cells, compare the
-    # computed coefficients with hand-coded values.
+def _set_uniform_bc(grid, d, bc_type, include_rot=True):
+    face_ind = grid.get_all_boundary_faces()
+    nf = face_ind.size
+    match bc_type:
+        case "dir":
+            bc_disp = pp.BoundaryConditionVectorial(
+                grid, faces=face_ind, cond=nf * ["dir"]
+            )
+            bc_rot = pp.BoundaryCondition(grid, faces=face_ind, cond=nf * ["dir"])
+        case "neu":
+            bc_disp = pp.BoundaryConditionVectorial(
+                grid, faces=face_ind, cond=nf * ["neu"]
+            )
+            bc_rot = pp.BoundaryCondition(grid, faces=face_ind, cond=nf * ["neu"])
+        case "robin":
+            bc_disp = pp.BoundaryConditionVectorial(
+                grid, faces=face_ind, cond=nf * ["rob"]
+            )
+            bc_rot = pp.BoundaryCondition(grid, faces=face_ind, cond=nf * ["rob"])
+        case _:
+            raise ValueError(f"Unknown boundary condition type {bc_type}")
 
-    # This test considers only the discretization on interior cells, but we still need
-    # to give some boundary values to the discretization. Assign Dirichlet conditions,
-    # more or less arbitrarily.
-    _set_uniform_bc(g, data, "dir")
-    matrices = discretize_get_matrices(g, data)
+    d[pp.PARAMETERS][KEYWORD]["bc"] = bc_disp
+    if include_rot:
+        d[pp.PARAMETERS][KEYWORD]["bc_rot"] = bc_rot
 
-    n = np.array([2, 1])
-    n_nrm = np.sqrt(5)
+class TestTpsaTailoredGrid:
 
-    # The only interior face
-    target_faces_scalar = np.array([1])
-    target_faces_vector = np.array([2, 3])
+    @pytest.fixture(scope="class")
+    def g(self):
+        g = pp.CartGrid([NUM_CELLS, 1])
+        g.nodes = np.array(
+            [[0, 0, 0], [2, 0, 0], [3, 0, 0], [0, 1, 0], [1, 2, 0], [3, 1, 0]]
+        ).T
+        g.compute_geometry()
+        g.face_centers[0, 3] = 1.5
+        g.cell_centers = np.array([[1, 0.5, 0], [2.5, 0.5, 0]]).T
+        return g
 
-    # The distance from cell center to face center, projected onto the normal, is
-    #   3 / (2 * sqrt(5)) for both cells.
-    d_0_1 = 3 / (2 * n_nrm)
-    d_1_1 = 3 / (2 * n_nrm)
-    d = d_0_1 + d_1_1
+    @pytest.fixture(scope="class")
+    def data(self):
+        lmbda = np.array([1, 1])
+        mu = np.array([1, 2])
+        C = pp.FourthOrderTensor(mu, lmbda)
+        cosserat = np.array([1, 3])
 
-    # Shear moduli
-    mu_0 = 1
-    mu_1 = 2
-    # Weighted sum of the shear moduli
-    mu_w = mu_0 / d_0_1 + mu_1 / d_1_1
+        d = {
+            pp.PARAMETERS: {
+                KEYWORD: {"fourth_order_tensor": C, "cosserat_parameter": cosserat}
+            },
+            pp.DISCRETIZATION_MATRICES: {KEYWORD: {}},
+        }
 
-    # The stress coefficient is twice the harmonic average of the two shear moduli.
-    # Multiply by the length of the face (sqrt(5)).
-    stress = 2 * (mu_0 * mu_1 / (d_0_1 * d_1_1) / mu_w) * n_nrm
+        return d        
 
-    # The Cosserat parameter is the harmonic average of the two Cosserat parameters.
-    # Multiply by the length of the face (sqrt(5)).
-    cos_0 = 1
-    cos_1 = 3
-    cosserat = cos_0 * cos_1 / (d_0_1 * d_1_1) / (cos_0 / d_0_1 + cos_1 / d_1_1) * n_nrm
+    def test_discretization_interior_cells(self, g, data):
+        # Construct a tpsa discretization on a grid consisting of two cells, compare the
+        # computed coefficients with hand-coded values.
 
-    r_0 = mu_0 / d_0_1 / mu_w
-    r_1 = mu_1 / d_1_1 / mu_w
+        # This test considers only the discretization on interior cells, but we still need
+        # to give some boundary values to the discretization. Assign Dirichlet conditions,
+        # more or less arbitrarily.
+        _set_uniform_bc(g, data, "dir")
+        matrices = discretize_get_matrices(g, data)
 
-    cr_0 = 1 - r_0
-    cr_1 = 1 - r_1
+        n = np.array([2, 1])
+        n_nrm = np.sqrt(5)
 
-    known_values = {
-        "stress": np.array([[-stress, 0, stress, 0], [0, -stress, 0, stress]]),
-        "bound_stress": np.zeros((2, 4)),
-        "stress_rotation": -np.array(
-            [[cr_0 * n[1], cr_1 * n[1]], [-cr_0 * n[0], -cr_1 * n[0]]]
-        ),
-        "stress_total_pressure": np.array(
-            [[cr_0 * n[0], cr_1 * n[0]], [cr_0 * n[1], cr_1 * n[1]]],
-        ),
-        "rotation_displacement": -np.array(
-            [-r_0 * n[1], r_0 * n[0], -r_1 * n[1], r_1 * n[0]]
-        ),
-        "bound_rotation_displacement": np.zeros((1, 4)),
-        "rotation_diffusion": np.array([-cosserat, cosserat]),
-        "bound_rotation_diffusion": np.zeros((1, 2)),
-        "solid_mass_displacement": np.array(
-            [r_0 * n[0], r_0 * n[1], r_1 * n[0], r_1 * n[1]]
-        ),
-        "bound_mass_displacement": np.zeros((1, 4)),
-        "solid_mass_total_pressure": np.array([-1 / (2 * mu_w), 1 / (2 * mu_w)])
-        * n_nrm,
-    }
+        # The only interior face
+        target_faces_scalar = np.array([1])
+        target_faces_vector = np.array([2, 3])
 
-    compare_matrices(
-        g, matrices, known_values, target_faces_scalar, target_faces_vector
-    )
+        # The distance from cell center to face center, projected onto the normal, is
+        #   3 / (2 * sqrt(5)) for both cells.
+        d_0_1 = 3 / (2 * n_nrm)
+        d_1_1 = 3 / (2 * n_nrm)
+        d = d_0_1 + d_1_1
 
+        # Shear moduli
+        mu_0 = 1
+        mu_1 = 2
+        # Weighted sum of the shear moduli
+        mu_w = mu_0 / d_0_1 + mu_1 / d_1_1
 
-def test_dirichlet_bcs(g, data):
-    # Set Dirichlet boundary conditions on all faces, check that the implementation of
-    # the boundary conditions are correct.
-    _set_uniform_bc(g, data, "dir")
-    matrices = discretize_get_matrices(g, data)
+        # The stress coefficient is twice the harmonic average of the two shear moduli.
+        # Multiply by the length of the face (sqrt(5)).
+        stress = 2 * (mu_0 * mu_1 / (d_0_1 * d_1_1) / mu_w) * n_nrm
 
-    # We test the discretization on face 6, as this has two non-trivial components of
-    # the normal vector, and in the vector from cell to face center.
-    target_faces_scalar = np.array([0, 6])
-    target_faces_vector = np.array([0, 1, 12, 13])
+        # The Cosserat parameter is the harmonic average of the two Cosserat parameters.
+        # Multiply by the length of the face (sqrt(5)).
+        cos_0 = 1
+        cos_1 = 3
+        cosserat = cos_0 * cos_1 / (d_0_1 * d_1_1) / (cos_0 / d_0_1 + cos_1 / d_1_1) * n_nrm
 
-    n_0 = np.array([1, 0])
-    n_0_nrm = 1
-    n_6 = np.array([1, 2])
-    n_6_nrm = np.sqrt(5)
+        r_0 = mu_0 / d_0_1 / mu_w
+        r_1 = mu_1 / d_1_1 / mu_w
 
-    # The distance from cell center to face center, projected onto the normal.
-    d_0_0 = 1
-    d_1_6 = 3 / (2 * n_6_nrm)
+        cr_0 = 1 - r_0
+        cr_1 = 1 - r_1
 
-    mu_0 = 1
-    mu_1 = 2
-    cos_0 = 1
-    cos_1 = 3
+        known_values = {
+            "stress": np.array([[-stress, 0, stress, 0], [0, -stress, 0, stress]]),
+            "bound_stress": np.zeros((2, 14)),
+            "stress_rotation": -np.array(
+                [[cr_0 * n[1], cr_1 * n[1]], [-cr_0 * n[0], -cr_1 * n[0]]]
+            ),
+            "stress_total_pressure": np.array(
+                [[cr_0 * n[0], cr_1 * n[0]], [cr_0 * n[1], cr_1 * n[1]]],
+            ),
+            "rotation_displacement": -np.array(
+                [-r_0 * n[1], r_0 * n[0], -r_1 * n[1], r_1 * n[0]]
+            ),
+            "bound_rotation_displacement": np.zeros((1, 14)),
+            "rotation_diffusion": np.array([-cosserat, cosserat]),
+            "bound_rotation_diffusion": np.zeros((1, 7)),
+            "solid_mass_displacement": np.array(
+                [r_0 * n[0], r_0 * n[1], r_1 * n[0], r_1 * n[1]]
+            ),
+            "bound_mass_displacement": np.zeros((1, 14)),
+            "solid_mass_total_pressure": np.array([-1 / (2 * mu_w), 1 / (2 * mu_w)])
+            * n_nrm,
+        }
 
-    stress_0 = 2 * mu_0 / d_0_0 * n_0_nrm
-    stress_6 = 2 * mu_1 / d_1_6 * n_6_nrm
-
-    r_0 = 0
-    r_6 = 0
-
-    cr_0 = 1 - r_0
-    cr_6 = 1 - r_6
-
-    # EK note to self: The coefficients in bound_stress should be negative those of the
-    # stress matrix so that translation results in a stress-free configuration.
-    bound_stress = np.zeros((4, 14))
-    bound_stress[0, 0] = -stress_0
-    bound_stress[1, 1] = -stress_0
-    bound_stress[2, 12] = stress_6
-    bound_stress[3, 13] = stress_6
-
-    bound_rotation_diffusion = np.zeros((2, 7))
-    bound_rotation_diffusion[0, 0] = -cos_0 / d_0_0 * n_0_nrm
-    bound_rotation_diffusion[1, 6] = cos_1 / d_1_6 * n_6_nrm
-
-    bound_rotation_displacement = np.zeros((2, 14))
-    # From the definition of \bar{R}, we get [-n[1], n[0]]. There is an additional
-    # minus sign in the analytical expression, which is included in the known values.
-    bound_rotation_displacement[0, 0] = cr_0 * n_0[1]
-    bound_rotation_displacement[0, 1] = -cr_0 * n_0[0]
-    bound_rotation_displacement[1, 12] = cr_6 * n_6[1]
-    bound_rotation_displacement[1, 13] = -cr_6 * n_6[0]
-
-    bound_mass_displacement = np.zeros((2, 14))
-    bound_mass_displacement[0, 0] = cr_0 * n_0[0]
-    bound_mass_displacement[0, 1] = cr_0 * n_0[1]
-    bound_mass_displacement[1, 12] = cr_6 * n_6[0]
-    bound_mass_displacement[1, 13] = cr_6 * n_6[1]
-
-    known_values = {
-        # Positive sign on the first two rows, since the normal vector is pointing
-        # into that cell. Oposite sign on the two last rows, as the normal vector is
-        # pointing out of the cell.
-        "stress": np.array(
-            [
-                [stress_0, 0, 0, 0],
-                [0, stress_0, 0, 0],
-                [0, 0, -stress_6, 0],
-                [0, 0, 0, -stress_6],
-            ]
-        ),
-        "bound_stress": bound_stress,
-        # Minus sign for the full expression (see paper).
-        "stress_rotation": -np.array(
-            [
-                [cr_0 * n_0[1], 0],
-                [-cr_0 * n_0[0], 0],
-                [0, cr_6 * n_6[1]],
-                [0, -cr_6 * n_6[0]],
-            ]
-        ),
-        "stress_total_pressure": np.array(
-            [
-                [cr_0 * n_0[0], 0],
-                [cr_0 * n_0[1], 0],
-                [0, cr_6 * n_6[0]],
-                [0, cr_6 * n_6[1]],
-            ]
-        ),
-        "rotation_displacement": np.zeros((2, 4)),
-        "bound_rotation_displacement": bound_rotation_displacement,
-        # Minus sign on the second face, since the normal vector is pointing out of the
-        # cell.
-        "rotation_diffusion": np.array(
-            [[cos_0 / d_0_0 * n_0_nrm, 0], [0, -cos_1 / d_1_6 * n_6_nrm]]
-        ),
-        "bound_rotation_diffusion": bound_rotation_diffusion,
-        "solid_mass_displacement": np.zeros((2, 4)),
-        "bound_mass_displacement": bound_mass_displacement,
-        "solid_mass_total_pressure": np.zeros((2, 2)),
-    }
-
-    compare_matrices(
-        g, matrices, known_values, target_faces_scalar, target_faces_vector
-    )
+        compare_matrices(
+            g, matrices, known_values, target_faces_scalar, target_faces_vector
+        )
 
 
-def test_neumann_bcs(g, data):
-    # Set Neumann boundary conditions on all faces, check that the implementation of
-    # the boundary conditions are correct.
-    _set_uniform_bc(g, data, "neu")
-    matrices = discretize_get_matrices(g, data)
+    def test_dirichlet_bcs(self, g, data):
 
-    # We test the discretization on face 6, as this has two non-trivial components of
-    # the normal vector, and in the vector from cell to face center.
-    target_faces_scalar = np.array([0, 6])
-    target_faces_vector = np.array([0, 1, 12, 13])
+        # Set Dirichlet boundary conditions on all faces, check that the implementation of
+        # the boundary conditions are correct.
+        _set_uniform_bc(g, data, "dir")
+        matrices = discretize_get_matrices(g, data)
 
-    n_0 = np.array([1, 0])
-    n_0_nrm = 1
-    n_6 = np.array([1, 2])
-    n_6_nrm = np.sqrt(5)
+        # We test the discretization on face 6, as this has two non-trivial components of
+        # the normal vector, and in the vector from cell to face center.
+        target_faces_scalar = np.array([0, 6])
+        target_faces_vector = np.array([0, 1, 12, 13])
 
-    # The distance from cell center to face center, projected onto the normal.
-    d_0_0 = 1
-    d_1_6 = 3 / (2 * n_6_nrm)
+        n_0 = np.array([1, 0])
+        n_0_nrm = 1
+        n_6 = np.array([1, 2])
+        n_6_nrm = np.sqrt(5)
 
-    mu_0 = 1
-    mu_1 = 2
-    cos_0 = 1
-    cos_1 = 3
+        # The distance from cell center to face center, projected onto the normal.
+        d_0_0 = 1
+        d_1_6 = 3 / (2 * n_6_nrm)
 
-    stress_0 = 2 * mu_0 / d_0_0 * n_0_nrm
-    stress_6 = 2 * mu_1 / d_1_6 * n_6_nrm
+        mu_0 = 1
+        mu_1 = 2
+        cos_0 = 1
+        cos_1 = 3
 
-    r_0 = 1
-    r_6 = 1
+        stress_0 = 2 * mu_0 / d_0_0 * n_0_nrm
+        stress_6 = 2 * mu_1 / d_1_6 * n_6_nrm
 
-    # Boundary stress: The coefficients in bound_stress should be negative those of the
-    # stress matrix so that translation results in a stress-free configuration.
-    bound_stress = np.zeros((4, 14))
-    bound_stress[0, 0] = -1
-    bound_stress[1, 1] = -1
-    bound_stress[2, 12] = 1
-    bound_stress[3, 13] = 1
+        r_0 = 0
+        r_6 = 0
 
-    bound_rotation_diffusion = np.zeros((2, 7))
-    bound_rotation_diffusion[0, 0] = -1
-    bound_rotation_diffusion[1, 6] = 1
+        cr_0 = 1 - r_0
+        cr_6 = 1 - r_6
 
-    bound_rotation_displacement = np.zeros((2, 14))
-    bound_rotation_displacement[0, 0] = -d_0_0 * n_0[1] / (2 * mu_0)
-    bound_rotation_displacement[0, 1] = d_0_0 * n_0[0] / (2 * mu_0)
-    bound_rotation_displacement[1, 12] = -d_1_6 * n_6[1] / (2 * mu_1)
-    bound_rotation_displacement[1, 13] = d_1_6 * n_6[0] / (2 * mu_1)
+        # EK note to self: The coefficients in bound_stress should be negative those of the
+        # stress matrix so that translation results in a stress-free configuration.
+        bound_stress = np.zeros((4, 14))
+        bound_stress[0, 0] = -stress_0
+        bound_stress[1, 1] = -stress_0
+        bound_stress[2, 12] = stress_6
+        bound_stress[3, 13] = stress_6
 
-    bound_mass_displacement = np.zeros((2, 14))
-    bound_mass_displacement[0, 0] = d_0_0 * n_0[0] / (2 * mu_0)
-    bound_mass_displacement[0, 1] = d_0_0 * n_0[1] / (2 * mu_0)
-    bound_mass_displacement[1, 12] = d_1_6 * n_6[0] / (2 * mu_1)
-    bound_mass_displacement[1, 13] = d_1_6 * n_6[1] / (2 * mu_1)
+        bound_rotation_diffusion = np.zeros((2, 7))
+        bound_rotation_diffusion[0, 0] = -cos_0 / d_0_0 * n_0_nrm
+        bound_rotation_diffusion[1, 6] = cos_1 / d_1_6 * n_6_nrm
 
-    known_values = {
-        # The stress is prescribed, thus no contribution from the interior cells for
-        # any of the stress-related matrices.
-        "stress": np.zeros((4, 4)),
-        "stress_rotation": np.zeros((4, 2)),
-        "stress_total_pressure": np.zeros((4, 2)),
-        # The boundary stress is defined above.
-        "bound_stress": bound_stress,
-        # The outer minus sign is part of the analytical expression. The inner minus
-        # signs, and the coefficients, follow from the definition of R_k^n and the
-        # coefficients of the discretization (see paper).
-        "rotation_displacement": -np.array(
-            [[-r_0 * n_0[1], r_0 * n_0[0], 0, 0], [0, 0, -r_6 * n_6[1], r_6 * n_6[0]]]
-        ),
-        "bound_rotation_displacement": bound_rotation_displacement,
-        "rotation_diffusion": np.zeros((2, 2)),
-        "bound_rotation_diffusion": bound_rotation_diffusion,
-        "solid_mass_displacement": np.array(
-            [[r_0 * n_0[0], r_0 * n_0[1], 0, 0], [0, 0, r_6 * n_6[0], r_6 * n_6[1]]]
-        ),
-        "bound_mass_displacement": bound_mass_displacement,
-        "solid_mass_total_pressure": np.array(
-            [[d_0_0 / (2 * mu_0) * n_0_nrm, 0], [0, -d_1_6 / (2 * mu_1) * n_6_nrm]]
-        ),
-    }
+        bound_rotation_displacement = np.zeros((2, 14))
+        # From the definition of \bar{R}, we get [-n[1], n[0]]. There is an additional
+        # minus sign in the analytical expression, which is included in the known values.
+        bound_rotation_displacement[0, 0] = cr_0 * n_0[1]
+        bound_rotation_displacement[0, 1] = -cr_0 * n_0[0]
+        bound_rotation_displacement[1, 12] = cr_6 * n_6[1]
+        bound_rotation_displacement[1, 13] = -cr_6 * n_6[0]
 
-    compare_matrices(
-        g, matrices, known_values, target_faces_scalar, target_faces_vector
-    )
+        bound_mass_displacement = np.zeros((2, 14))
+        bound_mass_displacement[0, 0] = cr_0 * n_0[0]
+        bound_mass_displacement[0, 1] = cr_0 * n_0[1]
+        bound_mass_displacement[1, 12] = cr_6 * n_6[0]
+        bound_mass_displacement[1, 13] = cr_6 * n_6[1]
+
+        known_values = {
+            # Positive sign on the first two rows, since the normal vector is pointing
+            # into that cell. Oposite sign on the two last rows, as the normal vector is
+            # pointing out of the cell.
+            "stress": np.array(
+                [
+                    [stress_0, 0, 0, 0],
+                    [0, stress_0, 0, 0],
+                    [0, 0, -stress_6, 0],
+                    [0, 0, 0, -stress_6],
+                ]
+            ),
+            "bound_stress": bound_stress,
+            # Minus sign for the full expression (see paper).
+            "stress_rotation": -np.array(
+                [
+                    [cr_0 * n_0[1], 0],
+                    [-cr_0 * n_0[0], 0],
+                    [0, cr_6 * n_6[1]],
+                    [0, -cr_6 * n_6[0]],
+                ]
+            ),
+            "stress_total_pressure": np.array(
+                [
+                    [cr_0 * n_0[0], 0],
+                    [cr_0 * n_0[1], 0],
+                    [0, cr_6 * n_6[0]],
+                    [0, cr_6 * n_6[1]],
+                ]
+            ),
+            "rotation_displacement": np.zeros((2, 4)),
+            "bound_rotation_displacement": bound_rotation_displacement,
+            # Minus sign on the second face, since the normal vector is pointing out of the
+            # cell.
+            "rotation_diffusion": np.array(
+                [[cos_0 / d_0_0 * n_0_nrm, 0], [0, -cos_1 / d_1_6 * n_6_nrm]]
+            ),
+            "bound_rotation_diffusion": bound_rotation_diffusion,
+            "solid_mass_displacement": np.zeros((2, 4)),
+            "bound_mass_displacement": bound_mass_displacement,
+            "solid_mass_total_pressure": np.zeros((2, 2)),
+        }
+
+        compare_matrices(
+            g, matrices, known_values, target_faces_scalar, target_faces_vector
+        )
+
+
+    def test_neumann_bcs(self, g, data):
+
+        # Set Neumann boundary conditions on all faces, check that the implementation of
+        # the boundary conditions are correct.
+        _set_uniform_bc(g, data, "neu")
+        matrices = discretize_get_matrices(g, data)
+
+        # We test the discretization on face 6, as this has two non-trivial components of
+        # the normal vector, and in the vector from cell to face center.
+        target_faces_scalar = np.array([0, 6])
+        target_faces_vector = np.array([0, 1, 12, 13])
+
+        n_0 = np.array([1, 0])
+        n_0_nrm = 1
+        n_6 = np.array([1, 2])
+        n_6_nrm = np.sqrt(5)
+
+        # The distance from cell center to face center, projected onto the normal.
+        d_0_0 = 1
+        d_1_6 = 3 / (2 * n_6_nrm)
+
+        mu_0 = 1
+        mu_1 = 2
+        cos_0 = 1
+        cos_1 = 3
+
+        stress_0 = 2 * mu_0 / d_0_0 * n_0_nrm
+        stress_6 = 2 * mu_1 / d_1_6 * n_6_nrm
+
+        r_0 = 1
+        r_6 = 1
+
+        # Boundary stress: The coefficients in bound_stress should be negative those of the
+        # stress matrix so that translation results in a stress-free configuration.
+        bound_stress = np.zeros((4, 14))
+        bound_stress[0, 0] = -1
+        bound_stress[1, 1] = -1
+        bound_stress[2, 12] = 1
+        bound_stress[3, 13] = 1
+
+        bound_rotation_diffusion = np.zeros((2, 7))
+        bound_rotation_diffusion[0, 0] = -1
+        bound_rotation_diffusion[1, 6] = 1
+
+        bound_rotation_displacement = np.zeros((2, 14))
+        bound_rotation_displacement[0, 0] = -d_0_0 * n_0[1] / (2 * mu_0)
+        bound_rotation_displacement[0, 1] = d_0_0 * n_0[0] / (2 * mu_0)
+        bound_rotation_displacement[1, 12] = -d_1_6 * n_6[1] / (2 * mu_1)
+        bound_rotation_displacement[1, 13] = d_1_6 * n_6[0] / (2 * mu_1)
+
+        bound_mass_displacement = np.zeros((2, 14))
+        bound_mass_displacement[0, 0] = d_0_0 * n_0[0] / (2 * mu_0)
+        bound_mass_displacement[0, 1] = d_0_0 * n_0[1] / (2 * mu_0)
+        bound_mass_displacement[1, 12] = d_1_6 * n_6[0] / (2 * mu_1)
+        bound_mass_displacement[1, 13] = d_1_6 * n_6[1] / (2 * mu_1)
+
+        known_values = {
+            # The stress is prescribed, thus no contribution from the interior cells for
+            # any of the stress-related matrices.
+            "stress": np.zeros((4, 4)),
+            "stress_rotation": np.zeros((4, 2)),
+            "stress_total_pressure": np.zeros((4, 2)),
+            # The boundary stress is defined above.
+            "bound_stress": bound_stress,
+            # The outer minus sign is part of the analytical expression. The inner minus
+            # signs, and the coefficients, follow from the definition of R_k^n and the
+            # coefficients of the discretization (see paper).
+            "rotation_displacement": -np.array(
+                [[-r_0 * n_0[1], r_0 * n_0[0], 0, 0], [0, 0, -r_6 * n_6[1], r_6 * n_6[0]]]
+            ),
+            "bound_rotation_displacement": bound_rotation_displacement,
+            "rotation_diffusion": np.zeros((2, 2)),
+            "bound_rotation_diffusion": bound_rotation_diffusion,
+            "solid_mass_displacement": np.array(
+                [[r_0 * n_0[0], r_0 * n_0[1], 0, 0], [0, 0, r_6 * n_6[0], r_6 * n_6[1]]]
+            ),
+            "bound_mass_displacement": bound_mass_displacement,
+            "solid_mass_total_pressure": np.array(
+                [[d_0_0 / (2 * mu_0) * n_0_nrm, 0], [0, -d_1_6 / (2 * mu_1) * n_6_nrm]]
+            ),
+        }
+
+        compare_matrices(
+            g, matrices, known_values, target_faces_scalar, target_faces_vector
+        )
 
 
 
 
 
-def test_robin_bcs(g):
-    # Set Robin boundary conditions on all faces, check that the discretization stencil
-    # for internal faces, as well as the implementation of the boundary conditions are
-    # correct.
-    pass
+    def test_robin_bcs(self, g):
+        # Set Robin boundary conditions on all faces, check that the discretization stencil
+        # for internal faces, as well as the implementation of the boundary conditions are
+        # correct.
+        pass
 
 
-def test_mixed_bcs(g):
-    # Set mixed boundary conditions (e.g. type A in one direction, B in a different
-    # direction) on all faces, check that the discretization stencil for internal faces,
-    # as well as the implementation of the boundary conditions are correct. Note that it
-    # is not necessary to consider interaction between different types of boundary
-    # conditions on different faces, since a two-point stencil does not allow for such
-    # interactions.
-    pass
+    def test_mixed_bcs(self, g):
+        # Set mixed boundary conditions (e.g. type A in one direction, B in a different
+        # direction) on all faces, check that the discretization stencil for internal faces,
+        # as well as the implementation of the boundary conditions are correct. Note that it
+        # is not necessary to consider interaction between different types of boundary
+        # conditions on different faces, since a two-point stencil does not allow for such
+        # interactions.
+        pass
 
 
-def test_no_cosserat(g):
+def test_no_cosserat():
     # Set up a problem without Cosserat effects, check that the rotation diffusion
     # matrix is zero.
-    pass
+    g = pp.CartGrid([2, 2])
+    g.compute_geometry()
+
+    d = _set_uniform_parameters(g)
+    bf = g.get_all_boundary_faces()
+    d[pp.PARAMETERS][KEYWORD]["bc"] = pp.BoundaryConditionVectorial(
+        g, faces=bf, cond=bf.size * ["dir"]
+    )
+
+    # Discretize, assemble matrices
+    matrices = discretize_get_matrices(g, d)
+
+    assert np.allclose(matrices["rotation_diffusion"].toarray(), 0)
+    assert np.allclose(matrices["bound_rotation_diffusion"].toarray(), 0)
 
 
 def test_cosserat_3d():
@@ -359,6 +403,65 @@ def test_cosserat_3d():
     # is considered for the Cosserat term only, since all other terms have negligible
     # differences between 2d and 3d.
     g = pp.CartGrid([2, 1, 1])
+    g.compute_geometry()
+    d = _set_uniform_parameters(g)
+
+    d[pp.PARAMETERS][KEYWORD]["cosserat_parameter"] = np.ones(g.num_cells)
+    bf = g.get_all_boundary_faces()
+    d[pp.PARAMETERS][KEYWORD]["bc"] = pp.BoundaryConditionVectorial(
+        g, faces=bf, cond=bf.size * ["dir"]
+    )
+
+    bc_rot = pp.BoundaryConditionVectorial(g, faces=bf, cond=bf.size * ["dir"]    )
+    bc_rot.is_dir[:, 0] = False
+    bc_rot.is_neu[:, 0] = True
+    d[pp.PARAMETERS][KEYWORD]["bc_rot"] = bc_rot
+
+    # Discretize, assemble matrices
+    matrices = discretize_get_matrices(g, d)
+
+    rot_mat = matrices["rotation_diffusion"]
+    # Check size
+    assert rot_mat.shape == (g.num_faces * 3, g.num_cells * 3)
+
+    known_values = np.zeros((12, 6))
+    
+    # Face 0 has a Neumann condition, thus the coefficients are zero
+    # Check coefficients on the inner face
+    known_values[3, 0] = -1
+    known_values[4, 1] = -1
+    known_values[5, 2] = -1
+    known_values[3, 3] = 1
+    known_values[4, 4] = 1
+    known_values[5, 5] = 1
+    # Check coefficients on face 2, which has a Dirichlet condition
+    known_values[6, 3] = -2
+    known_values[7, 4] = -2
+    known_values[8, 5] = -2
+    # Face 3 has a Dirichlet condition, but with inwards pointing normal vector, thus the
+    # coefficients should have negative sign.
+    known_values[9, 0] = 2
+    known_values[10, 1] = 2
+    known_values[11, 2] = 2
+
+    assert np.allclose(rot_mat[:12].toarray(), known_values)
+
+    bc_rot = matrices["bound_rotation_diffusion"]
+    known_values = np.zeros((12, 33))
+    # Neumann condition on face 0
+    known_values[0, 0] = -1
+    known_values[1, 1] = -1
+    known_values[2, 2] = -1
+    # Dirichlet condition, outwards pointing normal vector on face 2
+    known_values[6, 6] = 2
+    known_values[7, 7] = 2
+    known_values[8, 8] = 2
+    # Dirichlet condition, inwards pointing normal vector on face 3
+    known_values[9, 9] = -2
+    known_values[10, 10] = -2
+    known_values[11, 11] = -2
+
+    assert np.allclose(bc_rot[:12].toarray(), known_values)
 
 
 def _set_uniform_bc_values(g, bc_type):
@@ -383,7 +486,11 @@ def _set_uniform_bc_values(g, bc_type):
     return bc_values, val
 
 def _set_uniform_parameters(g):
-    e = np.ones(g.num_cells)
+    # EK note to self: For the 3d test of compression with a unit value for the elastic
+    # moduli, there was an unexpected sign in the direction of the displacement, but
+    # this changed when moving to a stiffer material. This does not sound unreasonable,
+    # but is hereby noted for future reference.
+    e = 100 * np.ones(g.num_cells)
     C = pp.FourthOrderTensor(e, e)
 
     d = {
@@ -426,7 +533,7 @@ def _assemble_matrices(matrices, g):
         [
             [matrices["bound_stress"], sps.csr_array((g.num_faces * g.dim, n_rot_face))],
             [matrices["bound_rotation_displacement"], sps.csr_matrix((n_rot_face, n_rot_face))],
-            [matrices["bound_mass_displacement"], sps.csr_matrix((g.num_faces, g.num_faces))],
+            [matrices["bound_mass_displacement"], sps.csr_matrix((g.num_faces, n_rot_face))],
         ]
     )
 
@@ -448,30 +555,7 @@ def _assemble_matrices(matrices, g):
 
     return flux, rhs_matrix, div, accum
 
-def _set_uniform_bc(grid, d, bc_type):
-    face_ind = grid.get_all_boundary_faces()
-    nf = face_ind.size
-    match bc_type:
-        case "dir":
-            bc_disp = pp.BoundaryConditionVectorial(
-                grid, faces=face_ind, cond=nf * ["dir"]
-            )
-            bc_rot = pp.BoundaryCondition(grid, faces=face_ind, cond=nf * ["dir"])
-        case "neu":
-            bc_disp = pp.BoundaryConditionVectorial(
-                grid, faces=face_ind, cond=nf * ["neu"]
-            )
-            bc_rot = pp.BoundaryCondition(grid, faces=face_ind, cond=nf * ["neu"])
-        case "robin":
-            bc_disp = pp.BoundaryConditionVectorial(
-                grid, faces=face_ind, cond=nf * ["rob"]
-            )
-            bc_rot = pp.BoundaryCondition(grid, faces=face_ind, cond=nf * ["rob"])
-        case _:
-            raise ValueError(f"Unknown boundary condition type {bc_type}")
 
-    d[pp.PARAMETERS][KEYWORD]["bc"] = bc_disp
-    d[pp.PARAMETERS][KEYWORD]["bc_rot"] = bc_rot
 
 def _set_bc_by_direction(g, d, type_south, type_east, type_north, type_west, type_bottom=None, type_top=None):
     face_ind = g.get_all_boundary_faces()
@@ -510,7 +594,12 @@ def _set_bc_by_direction(g, d, type_south, type_east, type_north, type_west, typ
     bc_disp = pp.BoundaryConditionVectorial(
         g, faces=face_ind, cond=bc_str
     )
-    bc_rot = pp.BoundaryCondition(g, faces=face_ind, cond=bc_str)
+    if g.dim == 2:
+        bc_rot = pp.BoundaryCondition(g, faces=face_ind, cond=bc_str)
+    else:
+        bc_rot = pp.BoundaryConditionVectorial(
+            g, faces=face_ind, cond=bc_str
+        )
 
     d[pp.PARAMETERS][KEYWORD]["bc"] = bc_disp
     d[pp.PARAMETERS][KEYWORD]["bc_rot"] = bc_rot
@@ -526,7 +615,10 @@ def _set_bc_by_direction(g, d, type_south, type_east, type_north, type_west, typ
     return bc_val
 
 
-def test_compression(g, driving_bc_type, extension=False):
+@pytest.mark.parametrize("g", [pp.CartGrid([2, 2]), pp.CartGrid([2, 2, 2])])
+@pytest.mark.parametrize("driving_bc_type", ["dir", "neu"])
+@pytest.mark.parametrize("extension", [False, True])
+def test_compression(g: pp.Grid, driving_bc_type: str, extension: bool):
     # Assign a compressive force on the south and east faces, with fixed west and north
     # boundaries. Check that this results in displacement in the negative x-direction
     # and positive y-direction. The total pressure should be negative, while EK cannot
@@ -537,7 +629,11 @@ def test_compression(g, driving_bc_type, extension=False):
     g.compute_geometry()
 
     d = _set_uniform_parameters(g)
-    bc_values = _set_bc_by_direction(g, d, driving_bc_type, driving_bc_type, 'dir', 'dir')
+    if g.dim == 2:
+        dir_list = [driving_bc_type, driving_bc_type, "dir", "dir"]
+    else:
+        dir_list = [driving_bc_type, driving_bc_type, "dir", "dir", driving_bc_type, "dir"]
+    bc_values = _set_bc_by_direction(g, d, *dir_list)
 
     #bc_values[0] *= 0
 
@@ -643,7 +739,7 @@ def _test_uniform_force_bc(g):
     # Both the rotation and the total pressure should be zero
     assert np.allclose(x[g.dim * g.num_cells:], 0)
 
-
+@pytest.mark.parametrize("g", [pp.CartGrid([2, 2]), pp.CartGrid([2, 2, 2])])
 def test_translation(g):
     # Set boundary conditions that corresponds to a translation of the grid, check that
     # the interior cells follow the translation, and that the resulting system is
@@ -652,8 +748,8 @@ def test_translation(g):
 
     d = _set_uniform_parameters(g)
 
-    # Set type and values of boundary conditions
-    _set_uniform_bc(g, d, "dir")
+    # Set type and values of boundary conditions. No rotation.
+    _set_uniform_bc(g, d, "dir", include_rot=False)
     bc_values, disp = _set_uniform_bc_values(g, 'dir')
 
     # Discretize, assemble matrices
@@ -692,10 +788,10 @@ def test_translation(g):
     # Both the rotation and the total pressure should be zero
     assert np.allclose(x[g.dim * g.num_cells:], 0)
 
-
-test_compression(pp.CartGrid([2, 2]), 'dir')
-test_compression(pp.CartGrid([2, 2]), 'neu')
+#test_cosserat_3d()
+#test_compression(pp.CartGrid([2, 2]), 'dir')
+#test_compression(pp.CartGrid([2, 2]), 'neu')
 #test_uniform_force_bc(pp.CartGrid([2, 2]))
-test_dirichlet_bcs(g(), data())
-test_translation(pp.CartGrid([3, 3]))
-test_neumann_bcs(g(), data())
+#test_dirichlet_bcs(g(), data())
+#test_translation(pp.CartGrid([3, 3]))
+#test_neumann_bcs(g(), data())
