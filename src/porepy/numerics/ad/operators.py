@@ -1467,8 +1467,22 @@ class SparseArray(Operator):
 
     @staticmethod
     def _compute_spmatrix_hash(mat: sps.spmatrix) -> str:
-        """Utility function that handles all the sparse formats to compute the hash."""
-        # proper handling of all the formats like csr, coo, etc..
+        """Utility function that handles all the sparse formats to compute the hash.
+
+        The hash will match for two sparse arrays with the identical: sparse formats,
+        data arrays, rows and columns arrays. The identical matrices in the different
+        formats will have different hashes. Such behavior is expected, since if two
+        different formats are used, they are likely used for a good (efficiency) reason.
+
+        The rows and columns are considered to avoid the collision between, e.g., the
+        following rows in the csr format: `[1, 0, 1, 0]` vs `[0, 1, 0, 1]`.
+
+        The sparse format is included explicitly to resolve the following collision:
+        `hash(mat.tocsr()) == hash(mat.T.tocsc())` - we do not want them to be equal,
+        but the data, indices and indptr will be identical for them.
+
+        """
+        # Proper handling of all the formats like csr, coo, etc..
         if isinstance(
             mat,
             (
@@ -1483,11 +1497,18 @@ class SparseArray(Operator):
             properties = [mat.data, mat.indices, mat.indptr]
         elif isinstance(mat, (sps.coo_matrix, sps.coo_array)):
             properties = [mat.data, mat.row, mat.col]
+        elif isinstance(mat, (sps.dia_matrix, sps.dia_array)):
+            properties = [mat.data, mat.offsets]
         else:
             raise NotImplementedError("Hashing not provided for the format", type(mat))
-        return "".join(
+
+        # Concatenating the hashes of the data, rows and columns arrays.
+        data_hash = "".join(
             [sha256(array, usedforsecurity=False).hexdigest() for array in properties]
         )
+        # Adding the information about the matrix format. `mat.format` is not used
+        # because it does not distinguish between, e.g., csr_matrix and csr_array.
+        return f"{type(mat).__name__}_{data_hash}"
 
 
 class DenseArray(Operator):
