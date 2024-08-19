@@ -2057,7 +2057,7 @@ def test_arithmetic_operations_on_ad_objects(
                 model.interface_darcy_flux_variable, model.mdg.interfaces()
             ),
         ],
-        # Some randomly selected operators: Leaves and trees.
+        # Some randomly selected operators: Leaves and trees in the Ad operator graph sense.
         lambda model: [
             model.ad_time_step,
             model.permeability(model.mdg.subdomains()),
@@ -2078,7 +2078,7 @@ def test_hashing(generate_ad_list):
     """
 
     class Model(SquareDomainOrthogonalFractures, SinglePhaseFlow):
-        """Mock-up model."""
+    """Mock-up model."""
 
     # With the default parameters, the model contains one fracture.
     model = Model({})
