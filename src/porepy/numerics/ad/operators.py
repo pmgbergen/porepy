@@ -1470,9 +1470,9 @@ class SparseArray(Operator):
         """Utility function that handles all the sparse formats to compute the hash.
 
         The hash will match for two sparse arrays with the identical: sparse formats,
-        data arrays, rows and columns arrays. The identical matrices in the different
-        formats will have different hashes. Such behavior is expected, since if two
-        different formats are used, they are likely used for a good (efficiency) reason.
+        shapes, data arrays, rows and columns arrays. The identical matrices in the
+        different formats will have different hashes. Such behavior is expected, since
+        two different formats are likely used for a good reason.
 
         The rows and columns are considered to avoid the collision between, e.g., the
         following rows in the csr format: `[1, 0, 1, 0]` vs `[0, 1, 0, 1]`.
@@ -1506,9 +1506,9 @@ class SparseArray(Operator):
         data_hash = "".join(
             [sha256(array, usedforsecurity=False).hexdigest() for array in properties]
         )
-        # Adding the information about the matrix format. `mat.format` is not used
-        # because it does not distinguish between, e.g., csr_matrix and csr_array.
-        return f"{type(mat).__name__}_{data_hash}"
+        # Adding the information about the matrix format and shape. `mat.format` is not
+        # used because it does not distinguish between, e.g., csr_matrix and csr_array.
+        return f"{type(mat).__name__}_{mat.shape}_{data_hash}"
 
 
 class DenseArray(Operator):
