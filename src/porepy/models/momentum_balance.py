@@ -572,7 +572,7 @@ class VariablesMomentumBalance:
             dof_info={"cells": self.nd},
             name=self.contact_traction_variable,
             subdomains=self.mdg.subdomains(dim=self.nd - 1),
-            tags={"si_units": "Pa"},
+            tags={"si_units": "-"},
         )
 
     def displacement(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
