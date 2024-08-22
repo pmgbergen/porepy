@@ -11,8 +11,7 @@ import abc
 import logging
 import time
 import warnings
-from pathlib import Path
-from typing import Any, Callable, Optional
+from typing import Any, Optional
 
 import numpy as np
 import scipy.sparse as sps
@@ -26,44 +25,6 @@ logger = logging.getLogger(__name__)
 class SolutionStrategy(abc.ABC, PorePyModel):
     """This is a class that specifies methods that a model must implement to
     be compatible with the linearization and time stepping methods.
-
-    """
-
-    initialize_data_saving: Callable[[], None]
-    """Initialize data saving. Normally provided by a mixin instance of
-    :class:`~porepy.viz.data_saving_model_mixin.DataSavingMixin`.
-
-    """
-    save_data_time_step: Callable[[], None]
-    """Save data at a time step. Normally provided by a mixin instance of
-    :class:`~porepy.viz.data_saving_model_mixin.DataSavingMixin`.
-
-    """
-    create_variables: Callable[[], None]
-    """Create variables. Normally provided by a mixin instance of a Variable class
-    relevant to the model.
-
-    """
-    set_equations: Callable[[], None]
-    """Set the governing equations of the model. Normally provided by the solution
-    strategy of a specific model (i.e. a subclass of this class).
-
-    """
-    load_data_from_vtu: Callable[[Path, int, Optional[Path]], None]
-    """Load data from vtu to initialize the states, only applicable in restart mode.
-    :class:`~porepy.viz.exporter.Exporter`.
-
-    """
-    load_data_from_pvd: Callable[[Path, bool, Optional[Path]], None]
-    """Load data from pvd to initialize the states, only applicable in restart mode.
-    :class:`~porepy.viz.exporter.Exporter`.
-
-    """
-    nonlinear_solver_statistics: pp.SolverStatistics
-    """Solver statistics for the nonlinear solver."""
-    update_all_boundary_conditions: Callable[[], None]
-    """Set the values of the boundary conditions for the new time step.
-    Defined in :class:`~porepy.models.abstract_equations.BoundaryConditionsMixin`.
 
     """
 
