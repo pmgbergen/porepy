@@ -249,16 +249,17 @@ class MomentumBalanceRobNeu(BCRobDir, MomentumBalanceNeu): ...
 
 @pytest.fixture()
 def run_model():
-    params = {
+    model_params = {
         "times_to_export": [],
         "fracture_indices": [],
         "meshing_arguments": {"cell_size": 0.5},
     }
 
     def _run_model(balance_class, alpha):
-        params["alpha"] = alpha
-        instance = balance_class(params)
-        pp.run_time_dependent_model(instance, params)
+        model_params["alpha"] = alpha
+        solver_params = {}
+        instance = balance_class(model_params)
+        pp.run_time_dependent_model(instance, params=solver_params)
         sd = instance.mdg.subdomains(dim=2)[0]
 
         if isinstance(instance, (MomentumBalanceRobNeu, MomentumBalanceNeu)):
