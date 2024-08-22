@@ -167,6 +167,9 @@ class Tpsa:
                 "Boundary conditions for rotations are only relevant if the Cosserat "
                 "parameter is non-zero."
             )
+        if bnd_rot is not None and sum(bnd_rot.is_rob) > 0:
+            # The implementation should not be difficult, but has not been prioritized.
+            raise NotImplementedError("Robin conditions for rotations have not been implemented")
 
         # The discretization matrices give generalized fluxes across faces in terms of
         # variables in the centers of adjacent cells. The discretization is based on a
@@ -264,7 +267,28 @@ class Tpsa:
         # discretization). TODO: Treat Neumann, and possibly Robin, conditions.
         is_dir = bnd_disp.is_dir.ravel("f")
         is_neu = bnd_disp.is_neu.ravel("f")
-        is_rob = bnd_disp.is_rob.ravel("f")
+
+        # It is not clear to EK whether it is meaningful to consider a mixture of Robin
+        # and other boundary conditions; it has not been accounted for.
+        is_rob_nd = bnd_disp.is_rob
+        has_rob = np.any(is_rob_nd, axis=0)
+        if np.any(np.logical_not(is_rob_nd[:, has_rob])) > 0:
+            raise NotImplementedError("Have not implemnented a mixture of Robin and other boundary conditions")
+        is_rob = is_rob_nd.ravel('F')
+
+        if np.linalg.norm(np.array([bnd_disp.basis[:, :, i] - np.eye(nd) for i in range(nf)])) > 0:
+            raise NotImplementedError("Have not implemented Robin conditions with a non-trivial basis")
+        
+        # The Robin weight will be an nd x nd x nf array, with nd={2, 3}. For the
+        # implementation to be valid in both cases, we use slices ([2:]) instead of
+        # indexing ([2]), as the former will work also if the array has less than three
+        # rows.
+        if np.logical_or.reduce((np.any(bnd_disp.robin_weight[0, 1:, :]>0),
+            np.any(bnd_disp.robin_weight[1, 0, :]>0),
+            np.any(bnd_disp.robin_weight[1, 2:, :]>0),
+            np.any(bnd_disp.robin_weight[2:, :2, :]>0)
+                )):
+            raise NotImplementedError("Non-diagonal Robin weights have not been implemnted")
 
         is_internal = np.logical_not(np.logical_or.reduce((is_dir, is_neu, is_rob)))
 
@@ -382,7 +406,7 @@ class Tpsa:
             # dir_faces to produce views of the 2d array, with trm_bnd being updated in
             # place. In other words, everything is fine (EK has verified this by
             # inspection).
-            trm_bnd[dir_faces] = unique_sgn_nd[dir_faces] * trm_nd[dir_faces]
+            #trm_bnd[dir_faces] = unique_sgn_nd[dir_faces] * trm_nd[dir_faces]
 
             trm_bnd[dir_faces] = trm_nd[dir_faces]
             # On Neumann faces, the coefficient of the discretization itself is
