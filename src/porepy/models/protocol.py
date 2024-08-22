@@ -1,4 +1,7 @@
-from typing import Literal, Optional, Protocol, Sequence
+from typing import Callable, Literal, Optional, Protocol, Sequence, Union
+
+import numpy as np
+import scipy.sparse as sps
 
 import porepy as pp
 
@@ -19,12 +22,6 @@ class ModelGeometryProtocol(Protocol):
     @property
     def nd(self) -> int:
         """Ambient dimension of the problem. Set by the method :meth:`set_geometry`"""
-
-    @property
-    def units(self) -> pp.Units:
-        """Unit system."""
-
-    params: dict
 
     @property
     def domain(self) -> pp.Domain:
@@ -378,5 +375,226 @@ class ModelGeometryProtocol(Protocol):
         """
 
 
-class PorePyModel(ModelGeometryProtocol, Protocol):
+class SolutionStrategyProtocol(Protocol):
+    """This is a class that specifies methods that a model must implement to
+    be compatible with the linearization and time stepping methods.
+
+    """
+
+    convergence_status: bool
+    """Whether the non-linear iteration has converged."""
+
+    equation_system: pp.ad.EquationSystem
+    """Equation system manager. Will be set by :meth:`set_equation_system_manager`.
+
+    """
+    linear_system: tuple[sps.spmatrix, np.ndarray]
+    """The linear system to be solved in each iteration of the non-linear solver.
+    The tuple contains the sparse matrix and the right hand side residual vector.
+
+    """
+    params: dict
+    """Dictionary of parameters."""
+    exporter: pp.Exporter
+    """Exporter for visualization."""
+    units: pp.Units
+    """Units of the model. See also :meth:`set_units`."""
+    fluid: pp.FluidConstants
+    """Fluid constants. See also :meth:`set_materials`."""
+    solid: pp.SolidConstants
+    """Solid constants. See also :meth:`set_materials`."""
+    time_manager: pp.TimeManager
+    """Time manager for the simulation."""
+    restart_options: dict
+    """Restart options for restart from pvd as expected restart routines within
+    :class:`~porepy.viz.data_saving_model_mixin.DataSavingMixin` The template is
+    provided in `SolutionStrategy.__init__`.
+
+    """
+    ad_time_step: pp.ad.Scalar
+    """Time step as an automatic differentiation scalar."""
+
+    @property
+    def time_step_indices(self) -> np.ndarray:
+        """Indices for storing time step solutions.
+
+        Note:
+            (Previous) Time step indices should start with 1.
+
+        Returns:
+            An array of the indices of which time step solutions will be stored,
+            counting from 0. Defaults to storing the most recently computed solution
+            only.
+
+        """
+
+    @property
+    def iterate_indices(self) -> np.ndarray:
+        """Indices for storing iterate solutions.
+
+        Returns:
+            An array of the indices of which iterate solutions will be stored.
+
+        """
+
+
+class VariableProtocol(Protocol):
+    def perturbation_from_reference(self, variable_name: str, grids: list[pp.Grid]):
+        """Perturbation of a variable from its reference value.
+
+        The parameter :code:`variable_name` should be the name of a variable so that
+        :code:`self.variable_name()` and `self.reference_variable_name()` are valid
+        calls. These methods will be provided by mixin classes; normally this will be a
+        subclass of :class:`VariableMixin`.
+
+        The returned operator will be of the form
+        :code:`self.variable_name(grids) - self.reference_variable_name(grids)`.
+
+        Parameters:
+            variable_name: Name of the variable.
+            grids: List of subdomain or interface grids on which the variable is defined.
+
+        Returns:
+            Operator for the perturbation.
+
+        """
+
+
+class BoundaryConditionProtocol(Protocol):
+    """Mixin class for boundary conditions.
+
+    This class is intended to be used together with the other model classes providing
+    generic functionality for boundary conditions.
+
+    """
+
+    def create_boundary_operator(
+        self, name: str, domains: Sequence[pp.BoundaryGrid]
+    ) -> pp.ad.TimeDependentDenseArray:
+        """
+        Parameters:
+            name: Name of the variable or operator to be represented on the boundary.
+            domains: A sequence of boundary grids on which the operator is defined.
+
+        Raises:
+            ValueError: If the passed sequence of domains does not consist entirely
+                of instances of boundary grid.
+
+        Returns:
+            An operator of given name representing time-dependent value on given
+            sequence of boundary grids.
+
+        """
+
+    def _combine_boundary_operators(
+        self,
+        subdomains: Sequence[pp.Grid],
+        dirichlet_operator: Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
+        neumann_operator: Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
+        robin_operator: Optional[
+            Union[None, Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator]]
+        ],
+        bc_type: Callable[[pp.Grid], pp.BoundaryCondition],
+        name: str,
+        dim: int = 1,
+    ) -> pp.ad.Operator:
+        """Creates an operator representing Dirichlet, Neumann and Robin boundary
+        conditions and projects it to the subdomains from boundary grids.
+
+        Parameters:
+            subdomains: List of subdomains.
+            dirichlet_operator: Function that returns the Dirichlet boundary condition
+                operator.
+            neumann_operator: Function that returns the Neumann boundary condition
+                operator.
+            robin_operator: Function that returns the Robin boundary condition operator.
+                Expected to be None for e.g. advective fluxes.
+            dim: Dimension of the equation. Defaults to 1.
+            name: Name of the resulting operator. Must be unique for an operator.
+
+        Returns:
+            Boundary condition representation operator.
+
+        """
+
+
+class EquationProtocol(Protocol):
+    """Generic class for vector balance equations.
+
+    In the only known use case, the balance equation is the momentum balance equation,
+
+        d_t(momentum) + div(stress) - source = 0,
+
+    with momentum frequently being zero. All terms need to be specified in order to
+    define an equation.
+
+    """
+
+    def balance_equation(
+        self,
+        subdomains: list[pp.Grid],
+        accumulation: pp.ad.Operator,
+        surface_term: pp.ad.Operator,
+        source: pp.ad.Operator,
+        dim: int,
+    ) -> pp.ad.Operator:
+        """Balance equation that combines an accumulation and a surface term.
+
+        The balance equation is given by
+        .. math::
+            d_t(accumulation) + div(surface_term) - source = 0.
+
+        Parameters:
+            subdomains: List of subdomains where the balance equation is defined.
+            accumulation: Operator for the cell-wise accumulation term, integrated over
+                the cells of the subdomains.
+            surface_term: Operator for the surface term (e.g. flux, stress), integrated
+                over the faces of the subdomains.
+            source: Operator for the source term, integrated over the cells of the
+                subdomains.
+            dim: Spatial dimension of the balance equation.
+
+        Returns:
+            Operator for the balance equation.
+
+        """
+
+    def volume_integral(
+        self,
+        integrand: pp.ad.Operator,
+        grids: Union[list[pp.Grid], list[pp.MortarGrid]],
+        dim: int,
+    ) -> pp.ad.Operator:
+        """Numerical volume integral over subdomain or interface cells.
+
+        Includes cell volumes and specific volume.
+
+        Parameters:
+            integrand: Operator for the integrand. Assumed to be a cell-wise scalar or
+                vector quantity, cf. :code:`dim` argument.
+            grids: List of subdomains or interfaces to be integrated over.
+            dim: Spatial dimension of the integrand. dim = 1 for scalar problems, dim >
+                1 for vector problems.
+
+        Returns:
+            Operator for the volume integral.
+
+        Raises:
+            ValueError: If the grids are not all subdomains or all interfaces.
+
+        """
+
+
+class PorePyModel(
+    BoundaryConditionProtocol,
+    EquationProtocol,
+    VariableProtocol,
+    ModelGeometryProtocol,
+    SolutionStrategyProtocol,
+    Protocol,
+):
     """This is a protocol meant for subclassing (TODO)"""
+
+
+# TODO: ALL DOCSTRINGS HERE
+# TODO: Try to remove all reduntant type: ignore

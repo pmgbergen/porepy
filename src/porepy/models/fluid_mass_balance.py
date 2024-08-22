@@ -111,29 +111,12 @@ class MassBalanceEquations(pp.BalanceEquation):
     :class:`~porepy.models.constitutive_laws.AdvectiveFlux`.
 
     """
-    create_boundary_operator: Callable[
-        [str, Sequence[pp.BoundaryGrid]], pp.ad.TimeDependentDenseArray
-    ]
-    """See :class:`~porepy.models.boundary_condition.BoundaryConditionMixin`.
-    """
     bc_data_fluid_flux_key: str
     """See :class:`BoundaryConditionsSinglePhaseFlow`.
     """
     bc_type_fluid_flux: Callable[[pp.Grid], pp.BoundaryCondition]
     """See :class:`BoundaryConditionsSinglePhaseFlow`.
     """
-
-    _combine_boundary_operators: Callable[
-        [
-            Sequence[pp.Grid],
-            Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
-            Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
-            Callable[[pp.Grid], pp.BoundaryCondition],
-            str,
-            int,
-        ],
-        pp.ad.Operator,
-    ]
 
     def set_equations(self):
         """Set the equations for the mass balance problem.
@@ -237,8 +220,9 @@ class MassBalanceEquations(pp.BalanceEquation):
             # Note: in case of the empty subdomain list, the time dependent array is
             # still returned. Otherwise, this method produces an infinite recursion
             # loop. It does not affect real computations anyhow.
-            return self.create_boundary_operator(  # type: ignore[call-arg]
-                name=self.bc_data_fluid_flux_key, domains=domains
+            return self.create_boundary_operator(
+                name=self.bc_data_fluid_flux_key,
+                domains=cast(Sequence[pp.BoundaryGrid], domains),
             )
 
         # Verify that the domains are subdomains.
@@ -565,13 +549,6 @@ class VariablesSinglePhaseFlow(pp.VariableMixin):
     :class:`~porepy.models.fluid_mass_balance.SolutionStrategySinglePhaseFlow`.
 
     """
-    create_boundary_operator: Callable[
-        [str, Sequence[pp.BoundaryGrid]], pp.ad.TimeDependentDenseArray
-    ]
-    """Boundary conditions wrapped as an operator. Defined in
-    :class:`~porepy.models.boundary_condition.BoundaryConditionMixin`.
-
-    """
 
     def create_variables(self) -> None:
         """Assign primary variables to subdomains and interfaces of the
@@ -615,7 +592,8 @@ class VariablesSinglePhaseFlow(pp.VariableMixin):
         """
         if len(domains) > 0 and isinstance(domains[0], pp.BoundaryGrid):
             return self.create_boundary_operator(
-                name=self.pressure_variable, domains=domains  # type: ignore[call-arg]
+                name=self.pressure_variable,
+                domains=cast(Sequence[pp.BoundaryGrid], domains),
             )
         # Check that all domains are subdomains.
         if not all(isinstance(g, pp.Grid) for g in domains):

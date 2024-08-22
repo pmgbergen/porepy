@@ -15,17 +15,6 @@ class BoundaryConditionMixin(PorePyModel):
 
     """
 
-    time_manager: pp.TimeManager
-    """Time manager. Normally set by an instance of a subclass of
-    :class:`porepy.models.solution_strategy.SolutionStrategy`.
-
-    """
-    units: "pp.Units"
-    """Units object, containing the scaling of base magnitudes."""
-    time_step_indices: np.ndarray
-    """See :meth:`~porepy.models.solution_strategy.SolutionStragey.time_step_indices`.
-    """
-
     def update_all_boundary_conditions(self) -> None:
         """This method is called before a new time step to set the values of the
         boundary conditions.
