@@ -41,11 +41,6 @@ class MassBalanceEquations(pp.BalanceEquation):
     :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`.
 
     """
-    equation_system: pp.ad.EquationSystem
-    """EquationSystem object for the current model. Normally defined in a mixin class
-    defining the solution strategy.
-
-    """
     fluid_density: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     """Fluid density. Defined in a mixin class with a suitable constitutive relation.
     """
@@ -378,13 +373,6 @@ class ConstitutiveLawsSinglePhaseFlow(
 class BoundaryConditionsSinglePhaseFlow(pp.BoundaryConditionMixin):
     """Boundary conditions for single-phase flow."""
 
-    fluid: pp.FluidConstants
-    """Fluid constant object that takes care of scaling of fluid-related quantities.
-    Normally, this is set by a mixin of instance
-    :class:`~porepy.models.solution_strategy.SolutionStrategy`.
-
-    """
-
     bc_data_fluid_flux_key: str = "fluid_flux"
     bc_data_darcy_flux_key: str = "darcy_flux"
     """Name of the boundary data for the Neuman boundary condition."""
@@ -520,17 +508,6 @@ class VariablesSinglePhaseFlow(pp.VariableMixin):
 
     """
 
-    equation_system: pp.ad.EquationSystem
-    """EquationSystem object for the current model. Normally defined in a mixin class
-    defining the solution strategy.
-
-    """
-    fluid: pp.FluidConstants
-    """Fluid constant object that takes care of scaling of fluid-related quantities.
-    Normally, this is set by a mixin of instance
-    :class:`~porepy.models.solution_strategy.SolutionStrategy`.
-
-    """
     pressure_variable: str
     """Name of the primary variable representing the pressure. Normally defined in a
     mixin of instance
@@ -848,6 +825,7 @@ class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
 # which should be types as Callable[[int, int], None], cannot be parsed by mypy.
 # For this reason, we ignore the error here, and rely on the tests to catch any
 # inconsistencies.
+# TODO: Remove type ignore after done with protocols
 class SinglePhaseFlow(  # type: ignore[misc]
     MassBalanceEquations,
     VariablesSinglePhaseFlow,

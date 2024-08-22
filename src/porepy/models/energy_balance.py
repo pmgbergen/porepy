@@ -13,7 +13,7 @@ models, notably :class:`~porepy.models.mass_and_energy_balance.MassAndEnergyBala
 
 from __future__ import annotations
 
-from typing import Callable, Optional, Sequence, Union, cast
+from typing import Any, Callable, Optional, Sequence, Union, cast
 
 import numpy as np
 
@@ -31,11 +31,6 @@ class EnergyBalanceEquations(pp.BalanceEquation):
 
     """
 
-    equation_system: pp.ad.EquationSystem
-    """EquationSystem object for the current model. Normally defined in a mixin class
-    defining the solution strategy.
-
-    """
     interface_fourier_flux: Callable[
         [list[pp.MortarGrid]], pp.ad.MixedDimensionalVariable
     ]
@@ -83,8 +78,8 @@ class EnergyBalanceEquations(pp.BalanceEquation):
 
     """
     enthalpy_keyword: str
-    """Keyword used to identify the enthalpy flux discretization. Normally set by a mixin
-    instance of
+    """Keyword used to identify the enthalpy flux discretization. Normally set by a
+    mixin instance of
     :class:`~porepy.models.fluid_mass_balance.SolutionStrategyEnergyBalance`.
 
     """
@@ -142,11 +137,14 @@ class EnergyBalanceEquations(pp.BalanceEquation):
 
     """
 
+    interface_fourier_flux_equation: Any
+    # TODO
+
     bc_type_enthalpy_flux: Callable[[pp.Grid], pp.BoundaryCondition]
 
     bc_data_enthalpy_flux_key: str
 
-    def set_equations(self):
+    def set_equations(self) -> None:
         """Set the equations for the energy balance problem.
 
         A energy balance equation is set for each subdomain, and advective and diffusive
@@ -459,24 +457,6 @@ class VariablesEnergyBalance(pp.VariableMixin):
 
     """
 
-    # Expected attributes for this mixin
-    equation_system: pp.ad.EquationSystem
-    """EquationSystem object for the current model. Normally defined in a mixin class
-    defining the solution strategy.
-
-    """
-    fluid: pp.FluidConstants
-    """Fluid constant object that takes care of scaling of fluid-related quantities.
-    Normally, this is set by a mixin of instance
-    :class:`~porepy.models.solution_strategy.SolutionStrategy`.
-
-    """
-    solid: pp.SolidConstants
-    """Solid constant object that takes care of scaling of solid-related quantities.
-    Normally, this is set by a mixin of instance
-    :class:`~porepy.models.solution_strategy.SolutionStrategy`.
-
-    """
     temperature_variable: str
     """See :attr:`SolutionStrategyEnergyBalance.temperature_variable`."""
     interface_fourier_flux_variable: str
@@ -649,12 +629,6 @@ class BoundaryConditionsEnergyBalance(pp.BoundaryConditionMixin):
 
     """
 
-    fluid: pp.FluidConstants
-    """Fluid constant object that takes care of scaling of fluid-related quantities.
-    Normally, this is set by a mixin of instance
-    :class:`~porepy.models.solution_strategy.SolutionStrategy`.
-
-    """
     bc_data_fourier_flux_key: str = "fourier_flux"
     """Keyword for the storage of Neumann-type boundary conditions for the Fourier
     flux."""

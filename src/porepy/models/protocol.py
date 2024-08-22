@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import Callable, Literal, Optional, Protocol, Sequence, Union
 
 import numpy as np
@@ -140,7 +141,7 @@ class ModelGeometryProtocol(Protocol):
                 with code which is explicitly 2d (e.g. fv discretizations).
 
         Returns:
-            class:`porepy.numerics.ad.DenseArray`: ``(shape=(dim * num_cells_in_grids,))``
+            class:`porepy.numerics.ad.DenseArray`: `(shape=(dim * num_cells_in_grids,))`
 
                 The property wrapped as a single ad vector. The values are arranged
                 according to the order of the grids in the list, optionally flattened if
@@ -307,8 +308,10 @@ class ModelGeometryProtocol(Protocol):
                 - all_bf (np.ndarray of int): indices of the boundary faces.
                 - east (np.ndarray of bool): flags of the faces lying on the East side.
                 - west (np.ndarray of bool): flags of the faces lying on the West side.
-                - north (np.ndarray of bool): flags of the faces lying on the North side.
-                - south (np.ndarray of bool): flags of the faces lying on the South side.
+                - north (np.ndarray of bool): flags of the faces lying on the North
+                    side.
+                - south (np.ndarray of bool): flags of the faces lying on the South
+                    side.
                 - top (np.ndarray of bool): flags of the faces lying on the Top side.
                 - bottom (np.ndarray of bool): flags of the faces lying on Bottom side.
 
@@ -452,10 +455,17 @@ class VariableProtocol(Protocol):
 
         Parameters:
             variable_name: Name of the variable.
-            grids: List of subdomain or interface grids on which the variable is defined.
+            grids: List of subdomain or interface grids on which the variable is
+                defined.
 
         Returns:
             Operator for the perturbation.
+
+        """
+
+    def create_variables(self) -> None:
+        """Assign primary variables to subdomains and interfaces of the
+        mixed-dimensional grid.
 
         """
 
@@ -517,6 +527,20 @@ class BoundaryConditionProtocol(Protocol):
 
         """
 
+    def update_all_boundary_conditions(self) -> None:
+        """This method is called before a new time step to set the values of the
+        boundary conditions.
+
+        This implementation updates only the filters for Dirichlet and Neumann
+        values. The specific boundary condition values should be updated in
+        overrides by models.
+
+        Note:
+            One can use the convenience method `update_boundary_condition` for each
+            boundary condition value.
+
+        """
+
 
 class EquationProtocol(Protocol):
     """Generic class for vector balance equations.
@@ -529,35 +553,6 @@ class EquationProtocol(Protocol):
     define an equation.
 
     """
-
-    def balance_equation(
-        self,
-        subdomains: list[pp.Grid],
-        accumulation: pp.ad.Operator,
-        surface_term: pp.ad.Operator,
-        source: pp.ad.Operator,
-        dim: int,
-    ) -> pp.ad.Operator:
-        """Balance equation that combines an accumulation and a surface term.
-
-        The balance equation is given by
-        .. math::
-            d_t(accumulation) + div(surface_term) - source = 0.
-
-        Parameters:
-            subdomains: List of subdomains where the balance equation is defined.
-            accumulation: Operator for the cell-wise accumulation term, integrated over
-                the cells of the subdomains.
-            surface_term: Operator for the surface term (e.g. flux, stress), integrated
-                over the faces of the subdomains.
-            source: Operator for the source term, integrated over the cells of the
-                subdomains.
-            dim: Spatial dimension of the balance equation.
-
-        Returns:
-            Operator for the balance equation.
-
-        """
 
     def volume_integral(
         self,
@@ -584,16 +579,99 @@ class EquationProtocol(Protocol):
 
         """
 
+    def set_equations(self) -> None:
+        """Set equations for the subdomains and interfaces."""
+
+
+class DataSavingProtocol(Protocol):
+    """Class for saving data from a simulation model.
+
+    Contract with other classes:
+        The model should/may call save_data_time_step() at the end of each time step.
+
+    """
+
+    def save_data_time_step(self) -> None:
+        """Export the model state at a given time step, and log time.
+        The options for exporting times are:
+            * None: All time steps are exported
+            * list: Export if time is in the list. If the list is empty, then no times
+              are exported.
+
+        In addition, save the solver statistics to file if the option is set.
+
+        """
+
+    def initialize_data_saving(self) -> None:
+        """Initialize data saving.
+
+        This method is called by :meth:`prepare_simulation` to initialize the exporter,
+        and any other data saving functionality (e.g., empty data containers to be
+        appended in :meth:`save_data_time_step`).
+
+        In addition, set path for storing solver statistics data to file for each time
+        step.
+
+        """
+
+    def load_data_from_vtu(
+        self,
+        vtu_files: Union[Path, list[Path]],
+        time_index: int,
+        times_file: Optional[Path] = None,
+        keys: Optional[Union[str, list[str]]] = None,
+        **kwargs,
+    ) -> None:
+        """Initialize data in the model by reading from a pvd file.
+
+        Parameters:
+            vtu_files: path(s) to vtu file(s)
+            keys: keywords addressing cell data to be transferred. If 'None', the
+                mixed-dimensional grid is checked for keywords corresponding to primary
+                variables identified through pp.TIME_STEP_SOLUTIONS.
+            keyword arguments: see documentation of
+                :meth:`porepy.viz.exporter.Exporter.import_state_from_vtu`
+
+        Raises:
+            ValueError: if incompatible file type provided.
+
+        """
+
+    def load_data_from_pvd(
+        self,
+        pvd_file: Path,
+        is_mdg_pvd: bool = False,
+        times_file: Optional[Path] = None,
+        keys: Optional[Union[str, list[str]]] = None,
+    ) -> None:
+        """Initialize data in the model by reading from a pvd file.
+
+        Parameters:
+            pvd_file: path to pvd file with exported vtu files.
+            is_mdg_pvd: flag controlling whether pvd file is a mdg file, i.e., generated
+                with Exporter._export_mdg_pvd() or Exporter.write_pvd().
+            times_file: path to json file storing history of time and time step size.
+            keys: keywords addressing cell data to be transferred. If 'None', the
+                mixed-dimensional grid is checked for keywords corresponding to primary
+                variables identified through pp.TIME_STEP_SOLUTIONS.
+
+        Raises:
+            ValueError: if incompatible file type provided.
+
+        """
+
 
 class PorePyModel(
     BoundaryConditionProtocol,
     EquationProtocol,
     VariableProtocol,
     ModelGeometryProtocol,
+    DataSavingProtocol,
     SolutionStrategyProtocol,
     Protocol,
 ):
-    """This is a protocol meant for subclassing (TODO)"""
+    """This is a protocol meant for subclassing. It's parents are not meant for
+    subclassing (TODO)"""
 
 
 # TODO: ALL DOCSTRINGS HERE

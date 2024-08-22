@@ -28,7 +28,6 @@ class BalanceEquation(PorePyModel):
     specific_volume: Callable[
         [Union[list[pp.Grid], list[pp.MortarGrid]]], pp.ad.Operator
     ]
-
     """Function that returns the specific volume of a subdomain or interface.
 
     Normally provided by a mixin of instance
@@ -75,25 +74,6 @@ class BalanceEquation(PorePyModel):
         grids: Union[list[pp.Grid], list[pp.MortarGrid]],
         dim: int,
     ) -> pp.ad.Operator:
-        """Numerical volume integral over subdomain or interface cells.
-
-        Includes cell volumes and specific volume.
-
-        Parameters:
-            integrand: Operator for the integrand. Assumed to be a cell-wise scalar or
-                vector quantity, cf. :code:`dim` argument.
-            grids: List of subdomains or interfaces to be integrated over.
-            dim: Spatial dimension of the integrand. dim = 1 for scalar problems, dim >
-                1 for vector problems.
-
-        Returns:
-            Operator for the volume integral.
-
-        Raises:
-            ValueError: If the grids are not all subdomains or all interfaces.
-
-        """
-
         assert all(isinstance(g, pp.MortarGrid) for g in grids) or all(
             isinstance(g, pp.Grid) for g in grids
         ), "Grids must be either all subdomains or all interfaces."
@@ -132,24 +112,6 @@ class VariableMixin(PorePyModel):
     """
 
     def perturbation_from_reference(self, variable_name: str, grids: list[pp.Grid]):
-        """Perturbation of a variable from its reference value.
-
-        The parameter :code:`variable_name` should be the name of a variable so that
-        :code:`self.variable_name()` and `self.reference_variable_name()` are valid
-        calls. These methods will be provided by mixin classes; normally this will be a
-        subclass of :class:`VariableMixin`.
-
-        The returned operator will be of the form
-        :code:`self.variable_name(grids) - self.reference_variable_name(grids)`.
-
-        Parameters:
-            variable_name: Name of the variable.
-            grids: List of subdomain or interface grids on which the variable is defined.
-
-        Returns:
-            Operator for the perturbation.
-
-        """
         var = getattr(self, variable_name)
         var_ref = getattr(self, "reference_" + variable_name)
         d_var = var(grids) - var_ref(grids)

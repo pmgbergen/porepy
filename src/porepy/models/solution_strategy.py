@@ -12,7 +12,6 @@ import logging
 import time
 import warnings
 from functools import partial
-from pathlib import Path
 from typing import Any, Callable, Optional
 
 import numpy as np
@@ -27,44 +26,6 @@ logger = logging.getLogger(__name__)
 class SolutionStrategy(abc.ABC, PorePyModel):
     """This is a class that specifies methods that a model must implement to
     be compatible with the linearization and time stepping methods.
-
-    """
-
-    initialize_data_saving: Callable[[], None]
-    """Initialize data saving. Normally provided by a mixin instance of
-    :class:`~porepy.viz.data_saving_model_mixin.DataSavingMixin`.
-
-    """
-    save_data_time_step: Callable[[], None]
-    """Save data at a time step. Normally provided by a mixin instance of
-    :class:`~porepy.viz.data_saving_model_mixin.DataSavingMixin`.
-
-    """
-    create_variables: Callable[[], None]
-    """Create variables. Normally provided by a mixin instance of a Variable class
-    relevant to the model.
-
-    """
-    set_equations: Callable[[], None]
-    """Set the governing equations of the model. Normally provided by the solution
-    strategy of a specific model (i.e. a subclass of this class).
-
-    """
-    load_data_from_vtu: Callable[[Path, int, Optional[Path]], None]
-    """Load data from vtu to initialize the states, only applicable in restart mode.
-    :class:`~porepy.viz.exporter.Exporter`.
-
-    """
-    load_data_from_pvd: Callable[[Path, bool, Optional[Path]], None]
-    """Load data from pvd to initialize the states, only applicable in restart mode.
-    :class:`~porepy.viz.exporter.Exporter`.
-
-    """
-    nonlinear_solver_statistics: pp.SolverStatistics
-    """Solver statistics for the nonlinear solver."""
-    update_all_boundary_conditions: Callable[[], None]
-    """Set the values of the boundary conditions for the new time step.
-    Defined in :class:`~porepy.models.abstract_equations.BoundaryConditionsMixin`.
 
     """
 
@@ -670,7 +631,7 @@ class SolutionStrategy(abc.ABC, PorePyModel):
         self.update_all_boundary_conditions()
 
 
-class ContactIndicators:
+class ContactIndicators(PorePyModel):
     """Class for computing contact indicators used for tailored line search.
 
     This functionality is experimental and may be subject to change.
@@ -686,9 +647,6 @@ class ContactIndicators:
 
     """
 
-    basis: Callable[[list[pp.Grid], int], list[pp.ad.SparseArray]]
-    """Basis vector operator."""
-
     contact_traction: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Contact traction operator."""
 
@@ -698,29 +656,11 @@ class ContactIndicators:
     displacement_jump: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Displacement jump operator."""
 
-    equation_system: pp.ad.EquationSystem
-    """Equation system manager."""
-
     fracture_gap: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Fracture gap operator."""
 
     friction_bound: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Friction bound operator."""
-
-    normal_component: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Normal component operator for vectors defined on fracture subdomains."""
-
-    tangential_component: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Tangential component operator for vectors defined on fracture subdomains."""
-
-    mdg: pp.MixedDimensionalGrid
-    """Mixed-dimensional grid."""
-
-    nd: int
-    """Ambient dimension of the problem."""
-
-    params: dict[str, Any]
-    """Dictionary of parameters."""
 
     def opening_indicator(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Function describing the state of the opening constraint.
